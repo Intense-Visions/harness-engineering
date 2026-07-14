@@ -135,26 +135,98 @@ export async function buildShapeHistory(
 }
 
 /**
+ * Select the actionable features to triage, honoring the FIX B targeting flags. `only` is a
+ * case-insensitive substring match on the feature name/title; `limit` caps the count (applied
+ * AFTER the `only` filter). Shared by BOTH the plain report and the brainstorm so the two
+ * targeting surfaces stay identical.
+ */
+export function selectActionableFeatures(
+  roadmap: Roadmap,
+  opts: { only?: string; limit?: number } = {}
+): RoadmapFeature[] {
+  let features = roadmap.milestones.flatMap((m) => m.features).filter(isActionable);
+  if (opts.only !== undefined && opts.only.trim().length > 0) {
+    const needle = opts.only.trim().toLowerCase();
+    features = features.filter((f) => f.name.toLowerCase().includes(needle));
+  }
+  if (opts.limit !== undefined && opts.limit >= 0) {
+    features = features.slice(0, opts.limit);
+  }
+  return features;
+}
+
+/**
+ * Is a CHEAP-PASS verdict (probed WITHOUT a provider) still a plausible auto-dispatch candidate
+ * worth spending an LLM call on? Only when the graph-grounded scope RESOLVED and stayed bounded
+ * AND the static complexity read landed in the eligible band (trivial|simple). Obviously-complex
+ * or unresolved/over-large-scope items are already held by the cheap gate — no model call.
+ *
+ * The cheap pass holds a still-plausible item at `read-incomplete` (scope + band clear, but the
+ * open-decisions lever is unread without a provider); that is exactly the set we refine.
+ */
+export function isPlausibleForModel(verdict: TriageVerdict): boolean {
+  const scope = verdict.levers.scope.value;
+  const scopeResolvedBounded = scope !== 'unknown' && scope.resolved.length > 0;
+  const level = verdict.verdict.level;
+  const inBand = level === 'trivial' || level === 'simple';
+  return scopeResolvedBounded && inBand;
+}
+
+/**
  * Pure report core: triage every actionable feature in `roadmap` and rank the verdicts.
  * The probe deps are injected so this is unit-testable offline (no live model, graph optional).
+ *
+ * FIX A — the plain report now wires the SEL provider, but EFFICIENTLY: it runs the CHEAP levers
+ * first (graph scope + static complexity, no LLM) for EVERY item, and only re-probes WITH the
+ * provider (the semantic-read refinement + open-decisions LLM levers) for items that are still
+ * plausible candidates (scope resolved+bounded AND static band trivial|simple). Obviously-
+ * complex / over-large / unresolved items stay held via the cheap path with NO model call.
+ *
+ * `offline: true` forces the pure static path (no provider), for a quick scan — byte-identical
+ * to the pre-FIX-A behavior (everything holds without a live model). When no provider is passed
+ * the behavior is the same offline path (graceful fallback — never an error).
  */
 export async function runTriageReport(
   roadmap: Roadmap,
   deps: {
     graphStore?: GraphStore | null;
+    /** The SEL provider (local-first). Absent OR `offline` ⇒ pure static path (graceful). */
+    provider?: AnalysisProvider | null;
+    /** Force the pure static path (no LLM levers) even when a provider is present. */
+    offline?: boolean;
     /** The real precedent lever (SC5). Absent ⇒ cold-start `unknown` for every shape. */
     precedent?: PrecedentLookup;
     config?: { boundedScopeMax?: number; dispatchConfidence?: 'low' | 'medium' | 'high' };
+    /** FIX B targeting: case-insensitive name substring + count cap. */
+    only?: string;
+    limit?: number;
+    /** Progress indication for items that reach the model (some now do). */
+    onProgress?: (message: string) => void;
   } = {}
 ): Promise<TriageReportRow[]> {
-  const features = roadmap.milestones.flatMap((m) => m.features).filter(isActionable);
+  const features = selectActionableFeatures(roadmap, {
+    ...(deps.only !== undefined ? { only: deps.only } : {}),
+    ...(deps.limit !== undefined ? { limit: deps.limit } : {}),
+  });
+  // The CHEAP probe deps (no provider): graph scope + static complexity, guaranteed no LLM call.
+  const cheapDeps = {
+    ...(deps.graphStore ? { graphStore: deps.graphStore } : {}),
+    ...(deps.precedent ? { precedent: deps.precedent } : {}),
+    ...(deps.config ? { config: deps.config } : {}),
+  };
+  const useModel = deps.offline !== true && deps.provider != null;
   const rows: TriageReportRow[] = [];
   for (const feature of features) {
-    const verdict = await triageIssue(featureToIssue(feature), {
-      ...(deps.graphStore ? { graphStore: deps.graphStore } : {}),
-      ...(deps.precedent ? { precedent: deps.precedent } : {}),
-      ...(deps.config ? { config: deps.config } : {}),
-    });
+    // Pass 1 (cheap): scope + static complexity, NO model call.
+    let verdict = await triageIssue(featureToIssue(feature), cheapDeps);
+    // Pass 2 (LLM): only for still-plausible candidates, and only when a provider is wired.
+    if (useModel && isPlausibleForModel(verdict)) {
+      deps.onProgress?.(`Refining "${feature.name}" on the local model…`);
+      verdict = await triageIssue(featureToIssue(feature), {
+        ...cheapDeps,
+        ...(deps.provider ? { provider: deps.provider } : {}),
+      });
+    }
     rows.push({
       externalId: verdict.externalId,
       name: feature.name,
@@ -220,6 +292,34 @@ export function renderJson(rows: TriageReportRow[]): string {
 // ---------------------------------------------------------------------------
 
 /**
+ * FIX B: the SKIPPED-brainstorm row for a non-plausible candidate under `gatePlausible`. A
+ * legible halt keyed on the cheap probe's holdReason — the item is surfaced (not dropped) but
+ * the generator is never invoked (it would only halt at the first fork anyway).
+ */
+function skippedBrainstormRow(
+  feature: RoadmapFeature,
+  verdict: TriageVerdict,
+  level: BrainstormReportRow['level']
+): BrainstormReportRow {
+  return {
+    externalId: verdict.externalId,
+    name: feature.name,
+    status: feature.status,
+    level,
+    result: {
+      outcome: {
+        kind: 'halted',
+        reason: 'error',
+        fork: { id: 'scope-gate', question: '', options: [] },
+        detail:
+          `Skipped brainstorm — not a plausible candidate ` +
+          `(${verdict.holdReason ?? 'held'}). Held to human by the cheap scope/band gate.`,
+      },
+    },
+  };
+}
+
+/**
  * Pure brainstorm-report core: for each actionable feature, run the Phase-1 probe (for the
  * complexity level) and then the autonomous brainstorm. Deps are injected so this is
  * unit-testable offline (no live model). Produces DOCUMENTS only — no dispatch, no execution.
@@ -241,9 +341,23 @@ export async function runBrainstormReport(
     generatorOptions?: BrainstormWiringDeps['generatorOptions'];
     /** Test seam: inject a fork generator directly (bypasses the live provider). */
     generator?: BrainstormWiringDeps['generator'];
+    /** FIX B targeting: case-insensitive name substring + count cap. */
+    only?: string;
+    limit?: number;
+    /**
+     * FIX B: when true, run the ACTUAL brainstorm ONLY on plausible candidates (scope-resolved,
+     * eligible band); a non-plausible item is surfaced as a SKIPPED halt (never run through the
+     * generator, which would only halt anyway). Off ⇒ legacy behavior (brainstorm every item).
+     */
+    gatePlausible?: boolean;
+    /** Progress indication for items that reach the brainstorm. */
+    onProgress?: (message: string) => void;
   } = {}
 ): Promise<BrainstormReportRow[]> {
-  const features = roadmap.milestones.flatMap((m) => m.features).filter(isActionable);
+  const features = selectActionableFeatures(roadmap, {
+    ...(deps.only !== undefined ? { only: deps.only } : {}),
+    ...(deps.limit !== undefined ? { limit: deps.limit } : {}),
+  });
   const rows: BrainstormReportRow[] = [];
   for (const feature of features) {
     const issue = featureToIssue(feature);
@@ -255,6 +369,15 @@ export async function runBrainstormReport(
       ...(deps.config ? { config: deps.config } : {}),
     });
     const level = verdict.verdict.level;
+
+    // FIX B: gate the actual brainstorm to plausible candidates. A non-plausible item (unresolved
+    // scope / over-large / out of band) would only halt at the first fork — so skip the generator
+    // entirely and surface a legible SKIPPED halt keyed on the cheap probe's holdReason.
+    if (deps.gatePlausible === true && !isPlausibleForModel(verdict)) {
+      rows.push(skippedBrainstormRow(feature, verdict, level));
+      continue;
+    }
+    deps.onProgress?.(`Brainstorming "${feature.name}" [${level}]…`);
 
     const wiringDeps: BrainstormWiringDeps = {
       ...(deps.generator ? { generator: deps.generator } : {}),
@@ -563,85 +686,134 @@ export function createRoadmapTriageCommand(): Command {
       'Run the autonomous brainstorm per candidate: draft a spec (docs only) or halt to a ' +
         'human at the first fork it can not confidently recommend. No dispatch, no execution.'
     )
-    .action(async (opts: { brainstorm?: boolean }, cmd: Command) => {
-      const cwd = process.cwd();
-
-      // Read the global `-c, --config` and `--json` options (both declared on the root
-      // program). Redeclaring them on the subcommand routes the value to the root and leaves
-      // the subcommand's copy undefined (commander global-option semantics), so we read the
-      // resolved globals instead.
-      const globalOpts = cmd.optsWithGlobals() as { config?: string; json?: boolean };
-
-      // 1. Gate on roadmap.autoTriage.enabled (default OFF ⇒ inert, SC8/SC-S1).
-      const configResult = resolveConfig(globalOpts.config);
-      const enabled = configResult.ok && configResult.value.roadmap?.autoTriage?.enabled === true;
-      if (!enabled) {
-        logger.info(
-          'Roadmap auto-triage is disabled (roadmap.autoTriage.enabled is not true). ' +
-            'Enable it in harness.config.json to run the read-only triage report. No changes made.'
-        );
-        return;
+    .option(
+      '--only <substring>',
+      'Process ONLY roadmap items whose title contains this substring (case-insensitive). ' +
+        'Lets you triage/brainstorm a single item, e.g. --only "prefer-execfile".'
+    )
+    .option(
+      '--limit <n>',
+      'Process at most N items (applied after --only). Useful for a quick partial scan.',
+      (v: string) => Number.parseInt(v, 10)
+    )
+    .option(
+      '--offline',
+      'Force the pure static path — never consult the local model. A fast scan that holds ' +
+        'every item to a human (byte-identical to running without a resolvable model).'
+    )
+    .action(
+      async (
+        opts: { brainstorm?: boolean; only?: string; limit?: number; offline?: boolean },
+        cmd: Command
+      ) => {
+        await runTriageCommandAction(opts, cmd);
       }
-
-      // 2. Read + parse the roadmap aggregate (read-only).
-      const roadmapPath = path.join(cwd, 'docs', 'roadmap.md');
-      if (!fs.existsSync(roadmapPath)) {
-        logger.error(
-          `No roadmap aggregate at ${roadmapPath}. If your roadmap is sharded, run ` +
-            '`harness roadmap regen` first, then re-run triage.'
-        );
-        process.exitCode = 1;
-        return;
-      }
-      const parsed = parseRoadmap(fs.readFileSync(roadmapPath, 'utf-8'));
-      if (!parsed.ok) {
-        logger.error(`Failed to parse roadmap: ${parsed.error.message}`);
-        process.exitCode = 1;
-        return;
-      }
-
-      // 3. Load the knowledge graph (optional; absent ⇒ scope degrades ⇒ all held to human).
-      const graphStore = await loadGraphStore(cwd);
-
-      // 3b. Build the REAL precedent lever from the accreting outcome store (SC5). This is a
-      //     READ (the report path stays read-only); a cold-start/empty store degrades to
-      //     `undefined` ⇒ every shape reads `unknown` ⇒ byte-identical to today. It can only
-      //     ADD a hold once graded mispredicts cross the conservative precedent block bar.
-      const precedent = await buildPrecedentLookup(cwd);
-
-      // 4a. --brainstorm mode: draft specs (docs only) or halt to human. No dispatch.
-      if (opts.brainstorm) {
-        // Resolve the SEL provider from config — the FREE LOCAL backend by default, cloud only
-        // via an explicit intelligence.provider opt-in. Absent ⇒ the brainstorm halts every
-        // item to a human (fail-safe) — never a silent pass without a model.
-        const provider = resolveBrainstormProvider(globalOpts.config);
-        const rows = await runBrainstormReport(parsed.value, {
-          ...(graphStore ? { graphStore } : {}),
-          ...(provider ? { provider } : {}),
-          ...(precedent ? { precedent } : {}),
-          // Specs are written under docs/changes/<slug>/proposal.md (docs only, no dispatch).
-          docsRoot: path.join(cwd, 'docs'),
-        });
-        if (globalOpts.json) {
-          process.stdout.write(renderBrainstormJson(rows) + '\n');
-        } else {
-          logger.info(renderBrainstormHuman(rows));
-        }
-        return;
-      }
-
-      // 4b. Triage + rank (offline: no provider wired here — read-only report).
-      const rows = await runTriageReport(parsed.value, {
-        ...(graphStore ? { graphStore } : {}),
-        ...(precedent ? { precedent } : {}),
-      });
-
-      // 5. Render. JSON goes straight to stdout (no logger prefix) so it stays parseable.
-      if (globalOpts.json) {
-        process.stdout.write(renderJson(rows) + '\n');
-      } else {
-        logger.info(renderHuman(rows));
-      }
-    })
+    )
     .addCommand(createTriageApproveCommand());
+}
+
+/**
+ * The triage command action, extracted so the FIX A/B provider resolution + targeting wiring
+ * does not further inflate the builder's inline complexity (FOLLOW-UP 4). Gate → parse →
+ * default report (provider-wired, cheap-first) vs --brainstorm (plausible-gated). Read-only.
+ */
+async function runTriageCommandAction(
+  opts: { brainstorm?: boolean; only?: string; limit?: number; offline?: boolean },
+  cmd: Command
+): Promise<void> {
+  const cwd = process.cwd();
+  // Global `-c, --config` / `--json` live on the root program (commander global-option
+  // semantics), so read them via optsWithGlobals rather than the subcommand's own copy.
+  const globalOpts = cmd.optsWithGlobals() as { config?: string; json?: boolean };
+
+  // 1. Gate on roadmap.autoTriage.enabled (default OFF ⇒ inert, SC8/SC-S1) + parse the roadmap.
+  const parsed = gateAndParseRoadmap(cwd, globalOpts.config);
+  if (!parsed) return;
+
+  // 2. Load the graph + precedent lever (both reads — the report path stays read-only).
+  const graphStore = await loadGraphStore(cwd);
+  const precedent = await buildPrecedentLookup(cwd);
+
+  // FIX A: resolve the SEL provider (FREE LOCAL backend by default). Absent OR --offline ⇒ the
+  // pure static path (graceful fallback — never an error). Progress goes to the logger only in
+  // non-JSON mode so JSON output stays parseable. FIX B: shared --only/--limit targeting.
+  const provider = opts.offline === true ? null : resolveBrainstormProvider(globalOpts.config);
+  const onProgress =
+    globalOpts.json === true ? undefined : (message: string) => logger.info(message);
+  const shared = {
+    ...(graphStore ? { graphStore } : {}),
+    ...(provider ? { provider } : {}),
+    ...(precedent ? { precedent } : {}),
+    ...(opts.only !== undefined ? { only: opts.only } : {}),
+    ...(typeof opts.limit === 'number' && !Number.isNaN(opts.limit) ? { limit: opts.limit } : {}),
+    ...(onProgress ? { onProgress } : {}),
+  };
+
+  // 3. Dispatch to the chosen mode. --brainstorm drafts specs (docs only) gated to plausible
+  //    candidates; the default report scores + ranks (provider-wired, cheap-first).
+  if (opts.brainstorm) {
+    const rows = await runBrainstormReport(parsed, {
+      ...shared,
+      gatePlausible: true,
+      docsRoot: path.join(cwd, 'docs'),
+    });
+    emitReport(
+      globalOpts.json === true,
+      () => renderBrainstormJson(rows),
+      () => renderBrainstormHuman(rows)
+    );
+    return;
+  }
+
+  const rows = await runTriageReport(parsed, {
+    ...shared,
+    ...(opts.offline === true ? { offline: true } : {}),
+  });
+  emitReport(
+    globalOpts.json === true,
+    () => renderJson(rows),
+    () => renderHuman(rows)
+  );
+}
+
+/**
+ * Gate on `roadmap.autoTriage.enabled` (default off ⇒ inert) and parse the roadmap aggregate.
+ * Returns the parsed `Roadmap` when enabled + present + valid, else `null` after emitting the
+ * appropriate legible message and setting `process.exitCode` on the error paths. Read-only.
+ */
+function gateAndParseRoadmap(cwd: string, configPath?: string): Roadmap | null {
+  const configResult = resolveConfig(configPath);
+  const enabled = configResult.ok && configResult.value.roadmap?.autoTriage?.enabled === true;
+  if (!enabled) {
+    logger.info(
+      'Roadmap auto-triage is disabled (roadmap.autoTriage.enabled is not true). ' +
+        'Enable it in harness.config.json to run the read-only triage report. No changes made.'
+    );
+    return null;
+  }
+  const roadmapPath = path.join(cwd, 'docs', 'roadmap.md');
+  if (!fs.existsSync(roadmapPath)) {
+    logger.error(
+      `No roadmap aggregate at ${roadmapPath}. If your roadmap is sharded, run ` +
+        '`harness roadmap regen` first, then re-run triage.'
+    );
+    process.exitCode = 1;
+    return null;
+  }
+  const parsed = parseRoadmap(fs.readFileSync(roadmapPath, 'utf-8'));
+  if (!parsed.ok) {
+    logger.error(`Failed to parse roadmap: ${parsed.error.message}`);
+    process.exitCode = 1;
+    return null;
+  }
+  return parsed.value;
+}
+
+/** Emit a report as JSON (straight to stdout, parseable) or the human render (via the logger). */
+function emitReport(json: boolean, toJson: () => string, toHuman: () => string): void {
+  if (json) {
+    process.stdout.write(toJson() + '\n');
+  } else {
+    logger.info(toHuman());
+  }
 }

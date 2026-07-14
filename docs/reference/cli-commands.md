@@ -1150,6 +1150,9 @@ Read-only triage report: score every actionable roadmap item with the four-lever
 **Options:**
 
 - `--brainstorm` — Run the autonomous brainstorm per candidate: draft a spec (docs only) or halt to a human at the first fork it can not confidently recommend. No dispatch, no execution.
+- `--only` — Process ONLY roadmap items whose title contains this substring (case-insensitive). Lets you triage/brainstorm a single item, e.g. --only "prefer-execfile".
+- `--limit` — Process at most N items (applied after --only). Useful for a quick partial scan.
+- `--offline` — Force the pure static path — never consult the local model. A fast scan that holds every item to a human (byte-identical to running without a resolvable model).
 
 ### `harness roadmap unshard`
 
