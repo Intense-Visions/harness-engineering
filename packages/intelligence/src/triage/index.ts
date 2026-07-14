@@ -52,6 +52,15 @@ export type {
 } from './brainstorm/types.js';
 export { runAutoBrainstorm } from './brainstorm/runner.js';
 
+// Phase 4: the pure post-diff retrospective comparator (prediction vs. actual).
+export {
+  compareToPrediction,
+  LEVEL_RANK,
+  BLAST_TOLERANCE_FACTOR,
+  BLAST_TOLERANCE_ABS,
+} from './retrospective.js';
+export type { RetrospectiveComparison } from './retrospective.js';
+
 // Phase 3: the pure go/no-go gate (autonomy ratchet stage 1).
 export { resolveGoNoGo, AUTO_EXECUTE_CATEGORIES } from './gate.js';
 export type {

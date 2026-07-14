@@ -220,3 +220,12 @@ export type {
   HeldCandidate,
   GoNoGoHoldReason,
 } from './triage/index.js';
+
+// Roadmap Auto-Triage — Phase 4: the pure post-diff retrospective + ratchet.
+export {
+  compareToPrediction,
+  LEVEL_RANK,
+  BLAST_TOLERANCE_FACTOR,
+  BLAST_TOLERANCE_ABS,
+} from './triage/index.js';
+export type { RetrospectiveComparison } from './triage/index.js';
