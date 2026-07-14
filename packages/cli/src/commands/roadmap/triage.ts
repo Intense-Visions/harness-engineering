@@ -175,13 +175,17 @@ export function createRoadmapTriageCommand(): Command {
         'scoping probe and rank dispatchability. Gated behind roadmap.autoTriage.enabled ' +
         '(default off); never writes. Offline by default (holds to human without a live model).'
     )
-    .option('--json', 'Emit the report as JSON instead of a human table')
-    .option('-c, --config <path>', 'Path to harness.config.json')
-    .action(async (opts: { json?: boolean; config?: string }) => {
+    .action(async (_opts: Record<string, never>, cmd: Command) => {
       const cwd = process.cwd();
 
+      // Read the global `-c, --config` and `--json` options (both declared on the root
+      // program). Redeclaring them on the subcommand routes the value to the root and leaves
+      // the subcommand's copy undefined (commander global-option semantics), so we read the
+      // resolved globals instead.
+      const globalOpts = cmd.optsWithGlobals() as { config?: string; json?: boolean };
+
       // 1. Gate on roadmap.autoTriage.enabled (default OFF ⇒ inert, SC8/SC-S1).
-      const configResult = resolveConfig(opts.config);
+      const configResult = resolveConfig(globalOpts.config);
       const enabled = configResult.ok && configResult.value.roadmap?.autoTriage?.enabled === true;
       if (!enabled) {
         logger.info(
@@ -216,8 +220,8 @@ export function createRoadmapTriageCommand(): Command {
         ...(graphStore ? { graphStore } : {}),
       });
 
-      // 5. Render.
-      if (opts.json) {
+      // 5. Render. JSON goes straight to stdout (no logger prefix) so it stays parseable.
+      if (globalOpts.json) {
         process.stdout.write(renderJson(rows) + '\n');
       } else {
         logger.info(renderHuman(rows));
