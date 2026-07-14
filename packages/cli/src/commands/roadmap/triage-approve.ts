@@ -22,7 +22,7 @@ import {
 import {
   resolveGoNoGoStaged,
   resolveStage,
-  shapeKey,
+  dispatchableShapeKey,
   V1_MAX_STAGE,
   type StagedGoNoGoCandidate,
   type RatchetStage,
@@ -129,11 +129,12 @@ export interface ApprovalPlan {
 
 /**
  * The precedent bucket for a ready candidate — the SAME shapeKey the marker records the
- * prediction under (`shapeKey(labels, 'dispatchable', level)`), so the stage the ratchet
- * resolves here matches the stage the retrospective later grades against.
+ * prediction under, via the shared `dispatchableShapeKey` helper so this gate's bucket and the
+ * marker's recorded bucket can never drift (FOLLOW-UP 2). `r.level` is the probe's verdict.level
+ * (threaded through the ReadyCandidate), the identical level source the marker/probe use.
  */
 function shapeKeyForCandidate(r: ReadyCandidate): string {
-  return shapeKey(r.labels, 'dispatchable', r.level);
+  return dispatchableShapeKey(r.labels, r.level);
 }
 
 /**

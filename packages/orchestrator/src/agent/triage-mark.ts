@@ -27,7 +27,7 @@
 
 import type { RoadmapStore, FeatureMutation } from '@harness-engineering/core';
 import { slugifyFeatureName, eventSourcing } from '@harness-engineering/core';
-import { shapeKey, type GoNoGoCandidate } from '@harness-engineering/intelligence';
+import { dispatchableShapeKey, type GoNoGoCandidate } from '@harness-engineering/intelligence';
 import type { ComplexityVerdict, RoadmapFeature, FeatureStatus } from '@harness-engineering/types';
 
 /** The active status the marker sets/keeps so `candidate-selection` will pick the item up. */
@@ -176,8 +176,10 @@ export async function markApprovedForDispatch(
 
     // Write 2: record the pre-dispatch prediction to the Phase-0 TriageRecord store, keyed by
     // externalId, so Phase 4's retrospective can grade actual-vs-predicted. An approved item is
-    // (by definition) dispatchable, so its shapeKey uses the `dispatchable` escalation bucket.
-    const key = shapeKey(it.labels, 'dispatchable', it.verdict.level);
+    // (by definition) dispatchable — bucket via the shared `dispatchableShapeKey` helper so the
+    // recorded prediction shape and the probe's precedent-lookup shape can never drift
+    // (FOLLOW-UP 2). Level is the probe's verdict.level, the SAME source the probe/approve use.
+    const key = dispatchableShapeKey(it.labels, it.verdict.level);
     const prediction: eventSourcing.TriagePredictedInput = {
       externalId,
       shapeKey: key,

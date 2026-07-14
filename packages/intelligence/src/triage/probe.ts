@@ -31,7 +31,7 @@ import type { AnalysisProvider } from '../analysis-provider/interface.js';
 import { classify, type ClassifyInput } from '../complexity/classifier.js';
 import type { ComplexitySignals } from '../complexity/types.js';
 import { CONFIDENCE_RANK } from '../complexity/static-pass.js';
-import { shapeKey } from './record.js';
+import { dispatchableShapeKey } from './record.js';
 import type { PrecedentLookup, PrecedentRate } from './record.js';
 import type {
   GraphScope,
@@ -263,9 +263,10 @@ function runPrecedentLever(
   }
   try {
     const level = verdict === 'unknown' ? 'moderate' : verdict.level;
-    // The shape key must agree with the precedent store's bucketing (Phase 0 shapeKey).
-    // Use the dispatchable category as the routing bucket for the lookup shape.
-    const key = shapeKey(input.labels, 'dispatchable', level);
+    // The shape key must agree with the precedent store's bucketing — use the shared
+    // `dispatchableShapeKey` helper so the probe's lookup shape and the marker's recorded
+    // shape can never drift (FOLLOW-UP 2). Level is the probe's own verdict.level.
+    const key = dispatchableShapeKey(input.labels, level);
     const rate = precedent.rateForShape(key);
     const note =
       rate.kind === 'unknown'

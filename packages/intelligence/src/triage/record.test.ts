@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { shapeKey } from './record.js';
+import { shapeKey, dispatchableShapeKey } from './record.js';
 import type {
   TriageRecord,
   TriagePrediction,
@@ -54,6 +54,41 @@ describe('shapeKey', () => {
     expect(first).toBe(second);
     // input array is untouched
     expect(labels).toEqual(['b', 'a']);
+  });
+});
+
+// FOLLOW-UP 2 (drift safety): the `dispatchable` bucket is the ONE convention prediction
+// (probe precedent lookup) and outcome (marker record) must agree on. Centralized in
+// dispatchableShapeKey and called at all 3 sites (probe.ts, triage-approve.ts, triage-mark.ts),
+// so for the SAME (labels, level) every site buckets IDENTICALLY — prediction and outcome can
+// never land in different shapes and silently break precedent aggregation.
+describe('dispatchableShapeKey', () => {
+  it('equals shapeKey(labels, "dispatchable", level) — the single dispatchable-bucket spelling', () => {
+    const cases: ReadonlyArray<{
+      labels: string[];
+      level: 'trivial' | 'simple' | 'moderate' | 'complex';
+    }> = [
+      { labels: [], level: 'trivial' },
+      { labels: ['api'], level: 'simple' },
+      { labels: ['auth', 'api'], level: 'moderate' },
+      { labels: [' auth ', 'api', 'api'], level: 'complex' },
+    ];
+    const mismatches = cases.filter(
+      (c) => dispatchableShapeKey(c.labels, c.level) !== shapeKey(c.labels, 'dispatchable', c.level)
+    );
+    expect(mismatches).toEqual([]);
+  });
+
+  it('buckets the marker (prediction) and probe (lookup) IDENTICALLY for the same item', () => {
+    // The marker keys on the item's verdict.level; the probe's precedent lever keys on the SAME
+    // verdict.level. Modeling both call sites with one shared level source proves they collide.
+    const labels = ['api', 'auth'];
+    const probeVerdictLevel = 'simple' as const; // the probe's verdict.level
+    const markerKey = dispatchableShapeKey(labels, probeVerdictLevel); // orchestrator marker
+    const probeKey = dispatchableShapeKey(labels, probeVerdictLevel); // probe precedent lookup
+    expect(markerKey).toBe(probeKey);
+    // And label order at either site cannot split the bucket (deterministic sort).
+    expect(dispatchableShapeKey(['auth', 'api'], probeVerdictLevel)).toBe(markerKey);
   });
 });
 

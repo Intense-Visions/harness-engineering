@@ -141,3 +141,17 @@ export function shapeKey(
   ).sort();
   return `${sortedLabels.join(',')}|${category}|${level}`;
 }
+
+/**
+ * The `dispatchable`-bucket shapeKey — the ONE convention prediction and outcome must agree on.
+ *
+ * A dispatched/approved item is (by definition) dispatchable, so its precedent/ratchet bucket is
+ * `shapeKey(labels, 'dispatchable', level)`. That spelling was previously re-typed at three sites
+ * (the probe's precedent lookup, the CLI approve gate, the orchestrator marker); if any drifted —
+ * or keyed off a different `level` source — the PREDICTION and the OUTCOME would bucket into
+ * DIFFERENT shapes and silently break precedent aggregation. Centralizing it here makes that
+ * divergence impossible: all three call this with the SAME level (the probe's `verdict.level`).
+ */
+export function dispatchableShapeKey(labels: readonly string[], level: ComplexityLevel): string {
+  return shapeKey(labels, 'dispatchable', level);
+}

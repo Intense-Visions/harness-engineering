@@ -7,7 +7,7 @@
  * behavior lives here.
  */
 
-export { shapeKey } from './record.js';
+export { shapeKey, dispatchableShapeKey } from './record.js';
 export { aggregatePrecedent, precedentLookupFromRecords } from './precedent.js';
 export { extractEntities } from './entities.js';
 export type {

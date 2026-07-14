@@ -169,6 +169,7 @@ export type {
 // Roadmap Auto-Triage — shared contracts (Phase 0 foundations; inert until enabled)
 export {
   shapeKey,
+  dispatchableShapeKey,
   aggregatePrecedent,
   precedentLookupFromRecords,
   extractEntities,
