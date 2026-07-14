@@ -241,4 +241,45 @@ describe('deriveRoutingRetrospectiveVerdict', () => {
     const noExt = { ...ISSUE, externalId: null } as unknown as Issue;
     expect(await retro(orch)(noExt, tmpDir)).toBeUndefined();
   });
+
+  // -------------------------------------------------------------------------
+  // FIX 3 (SC7): the fail-safe path #4 — a whole-file store-read failure. The store
+  // read (loadTriageRecords) returning !ok is turned into a throw inside the method and
+  // caught. Pin BOTH branches of the hardened catch:
+  //   • no `issue.spec` (can't tell triaged from ordinary run) ⇒ neutral (undefined) — a
+  //     bare IO hiccup must NOT block every ordinary run.
+  //   • `issue.spec` present (an INDEPENDENT triaged signal the marker writes, not from the
+  //     failed read) ⇒ BLOCK (quality-fail) — a triaged unit whose prediction we cannot read
+  //     never silently passes (closes the total-IO-failure window).
+  // -------------------------------------------------------------------------
+  /**
+   * Induce a REAL whole-file store-read failure: replace the event-log file with a DIRECTORY at
+   * its on-disk path, so `readFileSync` throws EISDIR and `loadTriageRecords` returns `!ok`
+   * (which the method turns into a throw and catches). More faithful than a mock — the property
+   * on the re-exported `eventSourcing` namespace is non-configurable and cannot be spied.
+   */
+  function breakTriageStore(): void {
+    const logPath = path.join(tmpDir, '.harness', 'state.events.jsonl');
+    fs.mkdirSync(path.dirname(logPath), { recursive: true });
+    fs.rmSync(logPath, { force: true });
+    fs.mkdirSync(logPath); // a directory where a file is expected ⇒ readFileSync throws EISDIR
+  }
+
+  it('store read FAILS (whole-file IO error) + NO spec ⇒ undefined (neutral: never block every ordinary run)', async () => {
+    const orch = newOrch(makeConfig({ amr: true, autoTriage: true }));
+    stubDiff(orch, async () => smallHunk);
+    breakTriageStore();
+    const noSpec = { ...ISSUE, spec: null } as unknown as Issue;
+    expect(await retro(orch)(noSpec, tmpDir)).toBeUndefined();
+  });
+
+  it('store read FAILS + spec present ⇒ quality-fail (hardening: triaged unit never silently passes)', async () => {
+    const orch = newOrch(makeConfig({ amr: true, autoTriage: true }));
+    stubDiff(orch, async () => smallHunk);
+    breakTriageStore();
+    // `spec` is the independent "this unit was triaged" signal (the marker attaches it at
+    // dispatch); it does not depend on the failed store read.
+    const withSpec = { ...ISSUE, spec: 'docs/changes/feature-x/proposal.md' } as unknown as Issue;
+    expect(await retro(orch)(withSpec, tmpDir)).toBe('quality-fail');
+  });
 });

@@ -2383,11 +2383,21 @@ export class Orchestrator extends EventEmitter {
         issueId: issue.id,
         error: err instanceof Error ? err.message : String(err),
       });
-      // A load failure cannot confirm a match — but a NON-triaged unit would legitimately
-      // have no record, so we must not block every run on an IO hiccup. Treat an
-      // unreadable store as "not gradable here" (neutral), NOT a block: the block-on-
-      // absence rule (SC7) applies to a triaged unit whose prediction we DID read as
-      // missing/garbled, handled below, not to an unreadable store.
+      // HARDENING (SC7 — closes the total-IO-failure window): if `issue.spec` is present, the
+      // unit carries an INDEPENDENT "this was triaged" signal — the marker attaches the spec at
+      // dispatch, and that signal does NOT depend on the (now-failed) store read. A triaged unit
+      // whose store we cannot read is a prediction we cannot confirm ⇒ BLOCK+escalate, never a
+      // silent pass (a mispredict must not merge just because the store hiccuped). Without a
+      // spec we can't distinguish an ordinary non-triaged run from a triaged one, so we must NOT
+      // block every run on an IO hiccup ⇒ neutral (the conservative default for un-triaged work).
+      if (issue.spec !== null && issue.spec !== undefined && issue.spec !== '') {
+        this.logger.info(
+          'amr:quality-fail — spec-bearing (triaged) unit but the triage store is unreadable ' +
+            '(fail-safe block: a triaged unit whose prediction we cannot read never silently passes)',
+          { issueId: issue.id, externalId }
+        );
+        return 'quality-fail';
+      }
       return undefined;
     }
 
