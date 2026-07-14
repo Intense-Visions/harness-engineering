@@ -39,22 +39,82 @@ function isOutsideWorkspace(filePath, workspaceRoot) {
   return !realResolved.startsWith(workspaceRoot);
 }
 
-async function main() {
-  let raw = '';
+/** Read stdin (fd 0) and parse it as JSON. Returns null when it should exit-0. */
+function readStdinJson() {
+  let raw;
   try {
     raw = readFileSync(0, 'utf-8');
   } catch {
-    process.exit(0);
+    return null;
   }
-
-  if (!raw.trim()) {
-    process.exit(0);
-  }
-
-  let input;
+  if (!raw.trim()) return null;
   try {
-    input = JSON.parse(raw);
+    return JSON.parse(raw);
   } catch {
+    return null;
+  }
+}
+
+/**
+ * Determine whether the session is currently tainted. Deletes and reports an
+ * expired taint file as a side effect (behavior preserved from inline logic).
+ */
+function isSessionTainted(workspaceRoot, sessionId) {
+  try {
+    const taintPath = resolve(
+      workspaceRoot,
+      '.harness',
+      `session-taint-${sessionId || 'default'}.json`
+    );
+    const taintRaw = readFileSync(taintPath, 'utf-8');
+    const taintState = JSON.parse(taintRaw);
+
+    const expiresAt = new Date(taintState.expiresAt);
+    if (new Date() >= expiresAt) {
+      try { unlinkSync(taintPath); } catch { /* ignore */ }
+      process.stderr.write(
+        'Sentinel: session taint expired. Destructive operations re-enabled.\n'
+      );
+      return false;
+    }
+    return true;
+  } catch {
+    // No taint file or malformed — not tainted
+    return false;
+  }
+}
+
+/**
+ * Enforce taint restrictions for the given tool. Exits 2 (block) when a
+ * destructive Bash command or an out-of-workspace Write/Edit is attempted.
+ */
+function enforceTaint(toolName, toolInput, workspaceRoot) {
+  if (toolName === 'Bash') {
+    const command = toolInput?.command ?? '';
+    if (isDestructiveBash(command)) {
+      process.stderr.write(
+        `BLOCKED by Sentinel: "${toolName}" blocked during tainted session. ` +
+        `Destructive operations are restricted. Run "harness taint clear" to lift.\n`
+      );
+      process.exit(2);
+    }
+  }
+
+  if (toolName === 'Write' || toolName === 'Edit') {
+    const filePath = toolInput?.file_path ?? '';
+    if (isOutsideWorkspace(filePath, workspaceRoot)) {
+      process.stderr.write(
+        `BLOCKED by Sentinel: "${toolName}" to "${filePath}" blocked during tainted session. ` +
+        `File is outside workspace. Run "harness taint clear" to lift.\n`
+      );
+      process.exit(2);
+    }
+  }
+}
+
+async function main() {
+  const input = readStdinJson();
+  if (input === null) {
     process.exit(0);
   }
 
@@ -66,51 +126,8 @@ async function main() {
 
     // Check taint state — block destructive ops if the session is already tainted.
     // Taint is written only by sentinel-post (from untrusted tool OUTPUT).
-    let tainted = false;
-    try {
-      const taintPath = resolve(
-        workspaceRoot,
-        '.harness',
-        `session-taint-${sessionId || 'default'}.json`
-      );
-      const taintRaw = readFileSync(taintPath, 'utf-8');
-      const taintState = JSON.parse(taintRaw);
-
-      const expiresAt = new Date(taintState.expiresAt);
-      if (new Date() >= expiresAt) {
-        try { unlinkSync(taintPath); } catch { /* ignore */ }
-        process.stderr.write(
-          'Sentinel: session taint expired. Destructive operations re-enabled.\n'
-        );
-      } else {
-        tainted = true;
-      }
-    } catch {
-      // No taint file or malformed — not tainted
-    }
-
-    if (tainted) {
-      if (toolName === 'Bash') {
-        const command = toolInput?.command ?? '';
-        if (isDestructiveBash(command)) {
-          process.stderr.write(
-            `BLOCKED by Sentinel: "${toolName}" blocked during tainted session. ` +
-            `Destructive operations are restricted. Run "harness taint clear" to lift.\n`
-          );
-          process.exit(2);
-        }
-      }
-
-      if (toolName === 'Write' || toolName === 'Edit') {
-        const filePath = toolInput?.file_path ?? '';
-        if (isOutsideWorkspace(filePath, workspaceRoot)) {
-          process.stderr.write(
-            `BLOCKED by Sentinel: "${toolName}" to "${filePath}" blocked during tainted session. ` +
-            `File is outside workspace. Run "harness taint clear" to lift.\n`
-          );
-          process.exit(2);
-        }
-      }
+    if (isSessionTainted(workspaceRoot, sessionId)) {
+      enforceTaint(toolName, toolInput, workspaceRoot);
     }
 
     process.exit(0);
