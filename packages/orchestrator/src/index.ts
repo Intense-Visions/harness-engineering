@@ -63,6 +63,18 @@ export type {
   WiredBrainstormResult,
   SelForkGeneratorOptions,
 } from './agent/brainstorm-wiring';
+// Roadmap Auto-Triage Phase 3: the dispatch MARKER (makes an approved item eligible for the
+// EXISTING pickup loop + records the pre-dispatch prediction). No new dispatch path.
+export { markApprovedForDispatch } from './agent/triage-mark';
+export type {
+  TriageMarkItem,
+  TriageMarkConfig,
+  TriageMarkDeps,
+  TriageMarkResult,
+  MarkSkip,
+  MarkSkipReason,
+  RecordPrediction,
+} from './agent/triage-mark';
 // AMR Phase 4 (D10/SC16): vertical escalation mechanism.
 export { EscalationState } from './agent/escalation-state';
 export {
