@@ -229,3 +229,5 @@ export {
   BLAST_TOLERANCE_ABS,
 } from './triage/index.js';
 export type { RetrospectiveComparison } from './triage/index.js';
+export { resolveStage, DEFAULT_RATCHET_CONFIG, V1_MAX_STAGE } from './triage/index.js';
+export type { V1Stage, RatchetOutcome, RatchetConfig } from './triage/index.js';

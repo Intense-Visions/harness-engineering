@@ -60,6 +60,8 @@ export {
   BLAST_TOLERANCE_ABS,
 } from './retrospective.js';
 export type { RetrospectiveComparison } from './retrospective.js';
+export { resolveStage, DEFAULT_RATCHET_CONFIG, V1_MAX_STAGE } from './ratchet.js';
+export type { V1Stage, RatchetOutcome, RatchetConfig } from './ratchet.js';
 
 // Phase 3: the pure go/no-go gate (autonomy ratchet stage 1).
 export { resolveGoNoGo, AUTO_EXECUTE_CATEGORIES } from './gate.js';
