@@ -8,6 +8,7 @@
  */
 
 export { shapeKey } from './record.js';
+export { aggregatePrecedent, precedentLookupFromRecords } from './precedent.js';
 export type {
   TriageRecord,
   TriagePrediction,
