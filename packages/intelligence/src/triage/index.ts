@@ -51,3 +51,12 @@ export type {
   BrainstormOutcome,
 } from './brainstorm/types.js';
 export { runAutoBrainstorm } from './brainstorm/runner.js';
+
+// Phase 3: the pure go/no-go gate (autonomy ratchet stage 1).
+export { resolveGoNoGo, AUTO_EXECUTE_CATEGORIES } from './gate.js';
+export type {
+  GoNoGoCandidate,
+  GoNoGoDecision,
+  HeldCandidate,
+  HoldReason as GoNoGoHoldReason,
+} from './gate.js';
