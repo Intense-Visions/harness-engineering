@@ -291,8 +291,10 @@ function gate(
   if (scope === 'unknown' || scope.resolved.length === 0) {
     return { dispatchable: false, holdReason: 'unresolved-scope' };
   }
+  // The scope RESOLVED but is too large to auto-dispatch: a DISTINCT hold from `unresolved-scope`
+  // (FIX C). Lumping the two read as "no entity resolved" and hid the real reason from operators.
   if (scope.blastRadius > config.boundedScopeMax) {
-    return { dispatchable: false, holdReason: 'unresolved-scope' };
+    return { dispatchable: false, holdReason: 'scope-too-large' };
   }
 
   // 2. Semantic read must be in the eligible band AND clear the confidence bar.

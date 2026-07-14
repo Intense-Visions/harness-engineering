@@ -38,6 +38,15 @@ describe('shapeKey', () => {
     expect(shapeKey(['   '], 'unresolved-scope', 'trivial')).toBe('|unresolved-scope|trivial');
   });
 
+  it('buckets the `scope-too-large` category distinctly from `unresolved-scope` (FIX C)', () => {
+    // An over-large-but-RESOLVED scope must aggregate into its OWN precedent bucket — never
+    // lumped with the truly-no-entity-resolved case.
+    expect(shapeKey(['api'], 'scope-too-large', 'simple')).toBe('api|scope-too-large|simple');
+    expect(shapeKey(['api'], 'scope-too-large', 'simple')).not.toBe(
+      shapeKey(['api'], 'unresolved-scope', 'simple')
+    );
+  });
+
   it('distinguishes buckets by category and level', () => {
     expect(shapeKey(['x'], 'dispatchable', 'trivial')).not.toBe(
       shapeKey(['x'], 'open-decision', 'trivial')
