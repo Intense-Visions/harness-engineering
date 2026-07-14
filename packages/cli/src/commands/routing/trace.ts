@@ -15,6 +15,13 @@ interface TraceResponse {
   /** AMR Phase 3 (SC10): present when --complexity/--risk were supplied. */
   tierRequired?: string;
   estCostUsd?: number;
+  /**
+   * AMR: the backend the router would ACTUALLY dispatch to at `tierRequired`
+   * (cheapest qualifying) + its type. Distinct from `decision.backendName`, which
+   * is the identity/default-chain pick. Present on --complexity/--risk dry-runs.
+   */
+  costedBackendName?: string;
+  costedBackendType?: string;
 }
 
 // Client-side enum guards mirror the server's zod schema
@@ -45,19 +52,31 @@ function buildUseCase(opts: { skill?: string; mode?: string }): RoutingUseCase |
 }
 
 function renderHuman(r: TraceResponse): void {
-  console.log(`Backend: ${r.decision.backendName} (type: ${r.def.type})`);
+  // Under AMR (a --complexity/--risk dry-run), the EFFECTIVE backend is the
+  // tier-selected one (`costedBackendName`) — what real dispatch routes to — not
+  // the identity/default-chain pick in `decision`. Show that so Backend↔tier↔cost
+  // read consistently; the identity pick is surfaced below when they differ.
+  const amr = r.tierRequired !== undefined && r.costedBackendName !== undefined;
+  const backend = amr ? r.costedBackendName! : r.decision.backendName;
+  const type = amr && r.costedBackendType !== undefined ? r.costedBackendType : r.def.type;
+  console.log(`Backend: ${backend} (type: ${type})`);
   console.log(`Duration: ${r.decision.durationMs.toFixed(2)} ms`);
   console.log('Resolution path:');
   if (r.decision.resolutionPath.length === 0) {
     console.log('  (empty)');
-    return;
-  }
-  for (const step of r.decision.resolutionPath) {
-    console.log(`  ${step.source}:${step.candidate} -> ${step.outcome}`);
+  } else {
+    for (const step of r.decision.resolutionPath) {
+      console.log(`  ${step.source}:${step.candidate} -> ${step.outcome}`);
+    }
   }
   // AMR Phase 3 (SC10): only present on --complexity/--risk dry-runs.
   if (r.tierRequired !== undefined) {
     console.log(`Tier required: ${r.tierRequired}`);
+  }
+  if (amr && r.costedBackendName !== r.decision.backendName) {
+    console.log(
+      `  (AMR overrides the identity pick '${r.decision.backendName}' → cheapest backend at/above the tier)`
+    );
   }
   if (r.estCostUsd !== undefined) {
     console.log(`Est cost: $${r.estCostUsd.toFixed(4)}`);

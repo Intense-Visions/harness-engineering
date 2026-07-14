@@ -221,7 +221,12 @@ function deriveTraceCost(
   def: BackendDef,
   routing: RoutingConfig,
   backends: Record<string, BackendDef>
-): { tierRequired: CapabilityTier; estCostUsd: number; costedBackendName: string } {
+): {
+  tierRequired: CapabilityTier;
+  estCostUsd: number;
+  costedBackendName: string;
+  costedBackendType: BackendDef['type'];
+} {
   const verdict: ComplexityVerdict = {
     level: (body.complexity ?? 'moderate') as ComplexityLevel,
     confidence: 'high',
@@ -247,7 +252,12 @@ function deriveTraceCost(
     backends
   );
   const estCostUsd = estimateCost(costedDef, { useCase: body.useCase as RoutingUseCase });
-  return { tierRequired, estCostUsd, costedBackendName: costedName };
+  return {
+    tierRequired,
+    estCostUsd,
+    costedBackendName: costedName,
+    costedBackendType: costedDef.type,
+  };
 }
 
 /**
@@ -354,7 +364,7 @@ async function handleTrace(
     // required tier + estimated cost WITHOUT dispatching. The tier is TS-derived
     // (never LLM-trusted); no bus emission, so the dry-run invariant holds.
     if (r.data.complexity !== undefined || r.data.risk !== undefined) {
-      const { tierRequired, estCostUsd, costedBackendName } = deriveTraceCost(
+      const { tierRequired, estCostUsd, costedBackendName, costedBackendType } = deriveTraceCost(
         r.data,
         decision,
         def,
@@ -366,9 +376,12 @@ async function handleTrace(
         def: { type: def.type },
         tierRequired,
         estCostUsd,
-        // Name the backend the cost belongs to so operators see tier↔cost↔backend
-        // are consistent (was implicit + divergent before this fix).
+        // The backend AMR would ACTUALLY dispatch to at this tier (cheapest
+        // qualifying) + its type — distinct from the identity-chain `decision`
+        // above. The CLI shows this as the effective backend so tier↔cost↔backend
+        // read consistently (was implicit + divergent before).
         costedBackendName,
+        costedBackendType,
       });
       return true;
     }

@@ -234,8 +234,58 @@ describe('handleV1RoutingRoute — POST /api/v1/routing/trace', () => {
     expect(body.tierRequired).toBe('strong');
     expect(typeof body.estCostUsd).toBe('number');
     expect(body.estCostUsd).toBeGreaterThan(0);
+    // The AMR-effective backend + its type accompany the tier (single backend here).
+    expect(body.costedBackendName).toBe('strong');
+    expect(body.costedBackendType).toBe('anthropic');
     // dry-run invariant preserved.
     expect(bus.recent().length).toBe(ringBefore);
+  });
+
+  it('costedBackendName is the TIER-selected backend, not the identity default (the trace-display bug)', async () => {
+    const backends: Record<string, BackendDef> = {
+      primary: {
+        type: 'anthropic',
+        model: 'claude-opus',
+        capabilities: {
+          tier: 'strong',
+          costPer1kTokens: 15,
+          privacyClass: 'shared-cloud',
+          contextWindow: 200000,
+        },
+      },
+      local: {
+        type: 'local',
+        endpoint: 'http://localhost:11434/v1',
+        model: 'qwen2.5-coder:7b',
+        capabilities: {
+          tier: 'fast',
+          costPer1kTokens: 0,
+          privacyClass: 'on-device',
+          contextWindow: 32768,
+        },
+      },
+    };
+    const routing: RoutingConfig = { default: 'primary' };
+    const req = makeJsonReq('POST', '/api/v1/routing/trace', {
+      useCase: { kind: 'tier', tier: 'quick-fix' },
+      complexity: 'trivial',
+    });
+    const { res, chunks, statusCode } = makeRes();
+    handleV1RoutingRoute(req, res, {
+      router: new BackendRouter({ backends, routing }),
+      bus: new RoutingDecisionBus(),
+      routing,
+      backends,
+    });
+    await new Promise((r) => setTimeout(r, 20));
+    expect(statusCode()).toBe(200);
+    const body = JSON.parse(chunks.join(''));
+    // The identity chain default is `primary`; AMR routes trivial → fast → `local`.
+    expect(body.decision.backendName).toBe('primary'); // identity default (unchanged)
+    expect(body.tierRequired).toBe('fast');
+    expect(body.costedBackendName).toBe('local'); // the backend AMR actually dispatches to
+    expect(body.costedBackendType).toBe('local');
+    expect(body.estCostUsd).toBe(0); // local's cost, not primary's
   });
 
   it('SC10 consistency: multi-backend dry-run costs the TIER-SELECTED backend, not the identity default', async () => {

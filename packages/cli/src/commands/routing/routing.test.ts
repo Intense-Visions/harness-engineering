@@ -195,6 +195,37 @@ describe('harness routing — subcommand acceptance contracts (Spec B Phase 6)',
     expect(allLog).toMatch(/Est cost: \$0\.0240/);
   });
 
+  it('trace: shows the AMR-selected backend (costedBackendName), not the identity default', async () => {
+    // Reproduces the reported bug: trivial → tier fast → AMR routes to `local`,
+    // but the identity chain default is `primary`. The Backend line must show the
+    // EFFECTIVE backend (what real dispatch uses), not `primary`.
+    const body = {
+      decision: {
+        backendName: 'primary',
+        backendType: 'claude',
+        useCase: { kind: 'skill', skillName: 'implement' },
+        resolutionPath: [{ source: 'default', candidate: 'primary', outcome: 'chosen' }],
+        timestamp: '2026-07-13T00:00:00Z',
+        durationMs: 0.01,
+      },
+      def: { type: 'claude' },
+      tierRequired: 'fast',
+      estCostUsd: 0,
+      costedBackendName: 'local',
+      costedBackendType: 'pi',
+    };
+    mockFetch(() => new Response(JSON.stringify(body), { status: 200 }));
+    await createTraceCommand().parseAsync(['--skill', 'implement', '--complexity', 'trivial'], {
+      from: 'user',
+    });
+    const allLog = logSpy.mock.calls.map((c: unknown[]) => String(c[0])).join('\n');
+    expect(allLog).toMatch(/Backend: local \(type: pi\)/); // the AMR-effective backend
+    expect(allLog).not.toMatch(/Backend: primary/); // NOT the identity default
+    expect(allLog).toMatch(/AMR overrides the identity pick 'primary'/);
+    expect(allLog).toMatch(/Tier required: fast/);
+    expect(allLog).toMatch(/Est cost: \$0\.0000/);
+  });
+
   it('trace WITHOUT --complexity/--risk: omits those flags AND the tier/cost lines', async () => {
     const body = {
       decision: {
