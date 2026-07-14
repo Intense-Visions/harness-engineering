@@ -1052,6 +1052,50 @@ export interface StagedWorkflowDecl {
 }
 
 /**
+ * Roadmap Auto-Triage config (Phase 0, Contract 2). The WHOLE surface, defined once
+ * and **default-off**: with `enabled: false` (the default) the roadmap behaves
+ * byte-identically to today (SC-S1). All `thresholds` are documented, tunable SEEDS
+ * (mirroring AMR's STATIC_WEIGHTS); each later phase reads its own fields. Wired in
+ * BOTH this TS type AND the orchestrator Zod schema — a type-only add is silently
+ * rejected at validate (the AMR config-surface lesson).
+ */
+export interface RoadmapAutoTriageConfig {
+  /** Master switch. Default false — nothing triages until explicitly enabled (D5). */
+  enabled: boolean;
+  /** Cron schedule; absent ⇒ on-demand only (the seam registers dormant without it). */
+  schedule?: string;
+  /** Autonomy-ratchet stage in effect (D14). Default 1 = human before execution. */
+  ratchetStage: 1 | 2 | 3 | 4;
+  /** Corroboration/gate seeds (tunable). */
+  thresholds: {
+    /** Pre-diff confidence ceiling (S3-001) — the dispatch gate bar. */
+    dispatchConfidence: 'low' | 'medium' | 'high';
+    /** Blast-radius ceiling for a "bounded" scope (seed). */
+    boundedScopeMax: number;
+    /** Per-fork auto-accept bar for the autonomous brainstorm (P2). */
+    brainstormConfidence: number;
+    /** Level-delta that counts as a mispredict at the retrospective (P4). */
+    exceededByBands: number;
+    /** Success-rate required to advance a ratchet stage (P4). */
+    ratchetAdvanceRate: number;
+    /** Minimum recorded matches before a stage may advance (P4). */
+    ratchetMinSample: number;
+  };
+  /** Brainstorm depth by complexity level (P2) — bounds cost per eligible band. */
+  depthBudget: { trivial: number; simple: number };
+}
+
+/**
+ * Roadmap-level config namespace. Currently carries only the auto-triage surface;
+ * a distinct top-level section keeps it out of `agent`/`maintenance` so each phase
+ * reads `roadmap.autoTriage.*` from one place.
+ */
+export interface RoadmapConfig {
+  /** Auto-triage settings (Phase 0 Contract 2). Absent ⇒ feature off. */
+  autoTriage?: RoadmapAutoTriageConfig;
+}
+
+/**
  * Root workflow configuration object.
  */
 export interface WorkflowConfig {
@@ -1095,6 +1139,11 @@ export interface WorkflowConfig {
    * dispatch, else single dispatch).
    */
   workflows?: StagedWorkflowDecl[];
+  /**
+   * Roadmap Auto-Triage settings (Phase 0 Contract 2). Absent or
+   * `autoTriage.enabled: false` ⇒ byte-identical roadmap behavior (SC-S1).
+   */
+  roadmap?: RoadmapConfig;
 }
 
 /**

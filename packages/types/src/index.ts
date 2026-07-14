@@ -126,6 +126,8 @@ export type {
   AgentConfig,
   ServerConfig,
   WorkflowConfig,
+  RoadmapConfig,
+  RoadmapAutoTriageConfig,
   StagedWorkflowDecl,
   WorkflowDefinition,
   ScopeTier,
