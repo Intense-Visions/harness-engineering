@@ -204,6 +204,13 @@ function evalProvider(orch: Orchestrator): (caller: 'amr' | 'local') => unknown 
   ).resolveOutcomeEvalProvider.bind(orch);
 }
 
+/** Reach the private `resolvePrimaryOutcomeEvalProvider` WITHOUT stubbing it. */
+function primaryProvider(orch: Orchestrator): () => unknown {
+  return (
+    orch as unknown as { resolvePrimaryOutcomeEvalProvider: () => unknown }
+  ).resolvePrimaryOutcomeEvalProvider.bind(orch);
+}
+
 /** Reach the private `dispatchIssue`. */
 function dispatch(orch: Orchestrator, issue: Issue, backend: 'local' | 'primary'): Promise<void> {
   return (
@@ -491,6 +498,34 @@ describe('workflowGates provider routing (SC6, Phase 3)', () => {
     evalProvider(orch)('amr');
     expect(selSpy).toHaveBeenCalled();
     expect(primSpy).not.toHaveBeenCalled();
+  });
+});
+
+describe('resolvePrimaryOutcomeEvalProvider construction path (SC6, Phase 3)', () => {
+  // The SC6 routing tests above stub OVER resolvePrimaryOutcomeEvalProvider to
+  // assert the routing DECISION. These two cases let the REAL method body run —
+  // the buildAnalysisProvider translator wiring, the routing.default read, and
+  // the guarded-miss guards — so the provider-CONSTRUCTION path is exercised,
+  // not mocked away.
+
+  it('primary=claude backend → constructs a non-undefined AnalysisProvider (hit path)', () => {
+    // A `claude`-type primary routes through buildClaudeCliProvider, which
+    // constructs unconditionally (subscription auth, no API key / resolver
+    // dependency) — so the real method must return a defined provider.
+    const orch = newOrchWithGates({ primary: CLAUDE_BACKEND }, 'primary', 'primary');
+    const provider = primaryProvider(orch)();
+    expect(provider).toBeDefined();
+    expect(provider).not.toBeNull();
+  });
+
+  it('primary=pi backend with no available resolver → returns undefined (guarded-miss path)', () => {
+    // A `pi`-type primary routes through buildLocalLikeProvider, which reads the
+    // resolver snapshot. Without a live endpoint / probe, the resolver reports
+    // `available: false`, so buildAnalysisProvider yields null and the method
+    // degrades to undefined (→ caller falls back to local SEL).
+    const orch = newOrchWithGates({ local: LOCAL_BACKEND }, 'local', 'primary');
+    const provider = primaryProvider(orch)();
+    expect(provider).toBeUndefined();
   });
 });
 
