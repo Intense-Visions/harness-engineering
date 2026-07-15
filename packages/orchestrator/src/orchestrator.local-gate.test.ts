@@ -70,7 +70,11 @@ const CLAUDE_BACKEND: BackendDef = {
   },
 } as unknown as BackendDef;
 
-function makeConfig(backends: Record<string, BackendDef>, defaultName: string): WorkflowConfig {
+function makeConfig(
+  backends: Record<string, BackendDef>,
+  defaultName: string,
+  maxRetries = 5
+): WorkflowConfig {
   return {
     tracker: { kind: 'mock', activeStates: ['planned'], terminalStates: ['done'] },
     polling: { intervalMs: 1000 },
@@ -87,7 +91,7 @@ function makeConfig(backends: Record<string, BackendDef>, defaultName: string): 
       routing: { default: defaultName },
       maxConcurrentAgents: 1,
       maxTurns: 3,
-      maxRetries: 5,
+      maxRetries,
       maxRetryBackoffMs: 1000,
       maxConcurrentAgentsByState: {},
       turnTimeoutMs: 5000,
@@ -104,14 +108,22 @@ type VerifyResult = { ok: boolean; output: string };
 function newOrch(
   backends: Record<string, BackendDef>,
   defaultName: string,
-  verify?: (workspacePath: string) => Promise<VerifyResult>
+  verify?: (workspacePath: string) => Promise<VerifyResult>,
+  maxRetries = 5
 ): Orchestrator {
-  return new Orchestrator(makeConfig(backends, defaultName), 'PROMPT', {
+  return new Orchestrator(makeConfig(backends, defaultName, maxRetries), 'PROMPT', {
     tracker: makeMockTracker(),
     backend: new MockBackend(),
     execFileFn: noopExecFile,
     ...(verify !== undefined ? { verifyRunner: verify } : {}),
   });
+}
+
+/** Spy the private `handleEffect`; return the spy capturing effect types. */
+function spyHandleEffect(orch: Orchestrator): ReturnType<typeof vi.fn> {
+  const spy = vi.fn(async () => undefined);
+  (orch as unknown as { handleEffect: unknown }).handleEffect = spy;
+  return spy;
 }
 
 /** Reach the private `runLocalWorkflowGate`. */
@@ -382,5 +394,33 @@ describe('runLocalWorkflowGate — outcome-eval (Task 7 / SC4)', () => {
     });
     const result = await gate(orch)(withSpec(), tmpDir, 'local');
     expect(result.ok).toBe(true);
+  });
+});
+
+describe('local gate exhaustion → needs-human (Task 8 / SC3 tail)', () => {
+  it('persistently-red gate re-dispatches until the retry budget, then escalates exactly once', async () => {
+    // maxRetries = 2 ⇒ attempt 1 (nextAttempt 2 ≤ 2) retries; attempt 2
+    // (nextAttempt 3 > 2) exhausts the budget → escalate (needs-human), no retry.
+    const orch = newOrch(
+      { local: LOCAL_BACKEND },
+      'local',
+      async () => ({ ok: false, output: 'verify perma-red' }),
+      2
+    );
+    const effects = spyHandleEffect(orch);
+
+    // Attempt 1 → pre-exhaustion: a scheduleRetry effect, no escalate.
+    await finalize(orch)(ISSUE, tmpDir, 1, 'local');
+    const kinds1 = effects.mock.calls.map((c) => (c[0] as { type: string }).type);
+    expect(kinds1).toContain('scheduleRetry');
+    expect(kinds1).not.toContain('escalate');
+
+    effects.mockClear();
+
+    // Attempt 2 → exhaustion: exactly one escalate (needs-human), no further retry.
+    await finalize(orch)(ISSUE, tmpDir, 2, 'local');
+    const kinds2 = effects.mock.calls.map((c) => (c[0] as { type: string }).type);
+    expect(kinds2.filter((t) => t === 'escalate')).toHaveLength(1);
+    expect(kinds2).not.toContain('scheduleRetry');
   });
 });
