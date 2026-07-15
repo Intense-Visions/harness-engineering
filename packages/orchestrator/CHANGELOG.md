@@ -1,5 +1,115 @@
 # @harness-engineering/orchestrator
 
+## 0.16.0
+
+### Minor Changes
+
+- 2880b3a: feat(lmlm): probe + store per-model agentic tool-calling capability; require it for build routing
+
+  The pool ranked local models purely on benchmark scores, so a model that can't drive an agentic
+  build (it emits tool calls as TEXT the coding-agent SDK can't parse — e.g. qwen2.5-coder:7b) could
+  rank top and silently no-op a build. Bake the capability into the pool so selection is aware of it:
+  - **`probeToolCalling`** (`local-models`) — cheap-first: gate on Ollama `/api/show` `capabilities`
+    (free; no `tools` ⇒ `false` with no inference), then one `/v1` tool-schema call to confirm the
+    model actually emits native `tool_calls` (catches the "claims tools but emits text" false
+    positive). Any failure ⇒ `undefined` (unknown ⇒ fail-open). The single-call FORMAT probe is
+    deterministic, unlike the flaky multi-turn agentic loop.
+  - **`PoolEntry.toolCalling?`** — additive, round-trips via the existing clone/loader; written once
+    per model by the scheduler re-score (an injected probe seam) and never re-probed once decided.
+  - **`poolStateToCandidates(state, profile, { requireToolCalling })`** — excludes entries known not
+    to tool-call (`false`), keeping `true` + unprobed (`undefined`, fail-open).
+  - **`LocalModelResolver`** requires tool-calling for AGENTIC (tier) use-cases only — a build never
+    routes to a text-only model; triage/classification (which needs no tool-calling) is untouched.
+  - The orchestrator binds the probe to the local backend endpoint when starting the refresh
+    scheduler.
+
+  Verified live: the probe returns `false` for qwen2.5-coder:7b and `true` for qwen3:8b / qwen3:32b.
+  This makes the config-ordering fallback a belt-and-suspenders rather than the primary guard.
+
+- ef62251: Local backend runs the full harness workflow (gated). A `local`/`pi` dispatch now renders a backend-specific dispatch template (`harness.orchestrator.local.md`). Rather than paraphrasing the workflow inline, that template is a thin indirection shim that delivers the REAL skills over bash: the pi agent runs `harness skill run <name> --autonomous` (which prints the verbatim `SKILL.md`, no MCP required) and follows a `/harness:X` → `harness skill run harness-X` redirect. The new `--autonomous` flag on `harness skill run` prepends an autonomous-decider preamble so a headless agent runs each skill (including brainstorming) at full rigor but decides every fork itself and records it in the spec — with a PR-flag safety valve for low-confidence and strategy-contradiction forks, and no mid-run human pause; absent the flag, skill-run output is byte-identical to before. The orchestrator ENFORCES the verify + outcome-eval gates itself (`runLocalWorkflowGate` in `finalizeNormalCompletion`): a red verify or a high-confidence `NOT_SATISFIED` verdict routes through the existing `emitWorkerExit('error')` retry branch (re-prompt on retry, `needs-human` on budget exhaustion) so poor local output halts rather than ships. Template selection (`resolvePromptTemplate`) falls back to the default Claude template when the local file is absent, and the Claude/AMR completion path is unchanged (the gate is a no-op for non-local backends). A config flag `agent.routing.workflowGates: local | primary` routes the local outcome-eval gate to a stronger provider (default local SEL; the AMR caller is unaffected). See ADRs 0070/0071/0072.
+- 723072d: fix(triage): select the local model from the LMLM pool (reasoning-ranked), not the static config list
+
+  `harness roadmap triage` resolved its local model from `agent.backends.local.model[0]` — a
+  fixed, hand-maintained list — so triage could stay pinned to a weak model even after the Local
+  Model Lifecycle Manager pool had installed and ranked a stronger one. The live orchestrator does
+  not have this problem: its `LocalModelResolver` derives candidates from the pool via
+  `poolStateToCandidates(snapshot, profile)`. This brings the same pool-first pick to the one-shot
+  CLI triage path so the CLI and live agents agree on the model.
+  - The report/brainstorm now prefer the pool's top-ranked model for the **`reasoning`** profile
+    (the triage gate's safety rests on reasoning-grade complexity judgment). In a real dogfood run,
+    this flipped an item the weak model mis-read as `trivial`/dispatchable to a correct
+    `moderate` → held-to-human — without any config change.
+  - The static `agent.backends.*.model` list remains the documented **fallback** for pool-less
+    adopters and non-Ollama backends; a missing/empty/broken pool degrades to it silently (never an
+    error). An explicit `--model` still wins; explicit cloud (`intelligence.provider`) backends
+    ignore the local pool pick.
+  - Orchestrator now re-exports the pool-state primitives (`PoolStateStore`,
+    `poolStateToCandidates`, `DEFAULT_POOL_STATE_PATH`, `PoolState`, `RankProfile`) so the CLI reads
+    the persisted pool without a new CLI→local-models package edge.
+
+### Patch Changes
+
+- 723072d: fix(orchestrator): register the local provider credential so PiBackend can actually run a local build
+
+  `PiBackend` handed the pi-coding-agent SDK an inline model under a synthetic `harness-local`
+  provider but never registered a credential for it. The SDK resolves auth by PROVIDER (auth.json /
+  env / runtime override) — the model's `headers`/`apiKey` fields do NOT satisfy that gate — so a
+  local build failed immediately with "No API key found for harness-local" unless an operator had
+  manually run `/login`. This silently blocked the entire local-model build path out of the box.
+
+  `startSession` now creates an in-memory `AuthStorage`, registers the endpoint's key for
+  `harness-local` via `setRuntimeApiKey` (the configured `apiKey`, or `ollama` — Ollama ignores the
+  value; a real key is threaded through for vLLM/LM-Studio deployments that enforce one), and passes
+  it to `createAgentSession`.
+
+  Found by a live end-to-end test: with this fix a local model (qwen3:32b via Ollama) drives a real
+  agentic build — `write` + `bash` tool calls producing a correct, self-verified module.
+
+- 723072d: fix(triage): don't label a deferred open-decisions lever as "no provider (offline)"
+
+  The cheap-first report holds obviously-out-of-band items (scope-too-large, not-in-band) before
+  spending an LLM call, so their open-decisions lever runs without a provider and printed
+  `open-decisions: no provider (offline)` — misleading, since a provider WAS available and the
+  lever was simply deferred, not missing/mis-configured.
+
+  New `ProbeDeps.modelDeferred` hint (threaded through `triageIssue`): when a model is available
+  but its levers were deferred for a cheap pass, the reason reads `not evaluated (item held before
+the model pass)`. A genuinely offline run (`--offline` / no provider wired) still reads
+  `no provider (offline)`. Wording only — the lever value stays `unknown` and the gate never
+  dispatches on an unread lever either way.
+
+- 723072d: fix(triage): stop truncating reasoning-model output — the LLM levers now produce real verdicts
+
+  The complexity tie-break, the open-decisions lever, and the brainstorm fork generator each
+  capped the model at a tiny `max_tokens` (256 / 512 / 512). A reasoning model (Qwen3 et al.)
+  emits a `<think>` trace BEFORE the JSON, so those caps truncated mid-reasoning →
+  `finish_reason: length` → empty content. The failure was then swallowed:
+  - `llmTiebreak` catches the error and returns a hardcoded `{ level: 'moderate', confidence: 'low' }`,
+  - the open-decisions lever degrades to `unknown`,
+  - the brainstorm fork halts as `error`.
+
+  So on a reasoning model the triage levers never ran on the real output — the "verdict" was a
+  fail-safe fallback that only _looked_ like a judgment. Non-reasoning models (which emit no think
+  trace) fit the tiny caps and masked the bug.
+
+  Raised each cap to 4096. `max_tokens` is a ceiling, not a target — a non-reasoning model still
+  stops at ~14 tokens — so this is free on the fast path and only spends tokens when a model
+  actually reasons. Verified end-to-end: on Qwen3 the semantic-read lever now returns a real
+  `simple/high` (was the `moderate/low` fallback) and the open-decisions lever surfaces real
+  decisions (was `assessment failed`).
+
+- Updated dependencies [2880b3a]
+- Updated dependencies [ef62251]
+- Updated dependencies [723072d]
+- Updated dependencies [723072d]
+- Updated dependencies [723072d]
+- Updated dependencies [723072d]
+  - @harness-engineering/local-models@0.6.0
+  - @harness-engineering/types@0.23.0
+  - @harness-engineering/intelligence@0.9.0
+  - @harness-engineering/core@0.37.1
+  - @harness-engineering/graph@0.11.9
+
 ## 0.15.1
 
 ### Patch Changes
