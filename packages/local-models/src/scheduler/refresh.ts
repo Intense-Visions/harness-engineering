@@ -62,6 +62,13 @@ export interface RefreshTickDeps {
   proposalThreshold: number;
   /** VRAM budget forwarded to the justification renderer. Defaults to `hardware.vramGb`. */
   vramGb?: number;
+  /**
+   * Optional agentic tool-calling probe (a `probeToolCalling` binding over the local endpoint,
+   * wired by the composition root). Called ONCE per model whose capability is still unknown
+   * (`toolCalling === undefined`) during score writeback, so a build never routes to a text-only
+   * model. Absent ⇒ no probing (capability stays unknown ⇒ fail-open in candidate selection).
+   */
+  probeToolCalling?: (ollamaName: string) => Promise<boolean | undefined>;
 }
 
 /** Structured metrics for one tick — the body of the O1 log line. */
@@ -221,10 +228,19 @@ async function writeBackScores(
   for (const entry of deps.poolManager.snapshot().entries) {
     const model = byName.get(entry.ollamaName);
     if (model !== undefined) {
+      // Probe agentic tool-calling ONCE per model (only while still unknown) — a stable model
+      // property, so we never re-probe a decided entry. A probe error leaves it unknown to retry.
+      let toolCalling: boolean | undefined;
+      if (entry.toolCalling === undefined && deps.probeToolCalling !== undefined) {
+        toolCalling = await tryStage(`probeToolCalling ${entry.ollamaName}`, errors, () =>
+          deps.probeToolCalling!(entry.ollamaName)
+        );
+      }
       updates.push({
         ollamaName: entry.ollamaName,
         currentScore: model.score,
         scoresByProfile: { ...model.scoresByProfile },
+        ...(toolCalling !== undefined ? { toolCalling } : {}),
       });
     }
   }

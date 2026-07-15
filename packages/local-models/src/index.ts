@@ -27,6 +27,7 @@ export const LOCAL_MODELS_PACKAGE = '@harness-engineering/local-models' as const
 export const LOCAL_MODELS_VERSION = '0.1.0' as const;
 
 export * from './candidates/index.js';
+export * from './capability/index.js';
 export * from './hardware/index.js';
 export * from './huggingface/index.js';
 export * from './installer/index.js';

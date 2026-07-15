@@ -1,5 +1,9 @@
 import type { LocalModelStatus, RoutingUseCase } from '@harness-engineering/types';
-import type { PoolStateProvider, RankProfile } from '@harness-engineering/local-models';
+import type {
+  PoolStateProvider,
+  RankProfile,
+  PoolCandidateOptions,
+} from '@harness-engineering/local-models';
 import { poolStateToCandidates } from '@harness-engineering/local-models';
 
 /**
@@ -346,7 +350,10 @@ export class LocalModelResolver {
     if (profile === 'general') return this.resolved;
     // Re-select from the last-probed detected set ordered by the profile score.
     // No re-probe: `this.detected` reflects the most recent poll/refresh.
-    return this.selectMatch(this.candidates(profile), this.detected);
+    // A non-`general` profile here is ALWAYS a `tier` use-case (execution) — i.e. an AGENTIC
+    // dispatch that needs a model which emits native tool_calls. Exclude models known not to
+    // (fail-open on unprobed ones) so a build never routes to a text-only model.
+    return this.selectMatch(this.candidates(profile, { requireToolCalling: true }), this.detected);
   }
 
   getStatus(): LocalModelStatus {
@@ -366,9 +373,9 @@ export class LocalModelResolver {
    * from pool entries (currentScore desc → ollamaName); otherwise the static
    * `configured` list is returned unchanged (byte-identical to pre-Phase-4).
    */
-  private candidates(profile?: RankProfile): string[] {
+  private candidates(profile?: RankProfile, opts?: PoolCandidateOptions): string[] {
     return this.poolState
-      ? poolStateToCandidates(this.poolState.snapshot(), profile)
+      ? poolStateToCandidates(this.poolState.snapshot(), profile, opts)
       : [...this.configured];
   }
 
