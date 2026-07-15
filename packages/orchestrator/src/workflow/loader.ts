@@ -54,10 +54,14 @@ export class WorkflowLoader {
         localPromptTemplate = undefined;
       }
 
+      // `exactOptionalPropertyTypes` is on repo-wide: spread the optional key
+      // ONLY when defined so an absent local file leaves the property absent
+      // (never `localPromptTemplate: undefined`). Both cases resolve to the
+      // default template downstream (SC5).
       return Ok({
         config: configResult.value.config,
         promptTemplate,
-        localPromptTemplate,
+        ...(localPromptTemplate !== undefined ? { localPromptTemplate } : {}),
         warnings: configResult.value.warnings,
       });
     } catch (error) {

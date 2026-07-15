@@ -246,6 +246,13 @@ export class Orchestrator extends EventEmitter {
   private overrideBackend: AgentBackend | null;
   private renderer: PromptRenderer;
   private promptTemplate: string;
+  /**
+   * Backend-aware local dispatch template (Phase 1). Set from
+   * `overrides.localPromptTemplate` (production: threaded by the CLI from
+   * WorkflowLoader). Undefined -> resolvePromptTemplate falls back to the
+   * default template (SC5).
+   */
+  private localPromptTemplate: string | undefined;
   private server?: OrchestratorServer;
   private interval?: ReturnType<typeof setTimeout> | undefined;
   private heartbeatInterval?: ReturnType<typeof setInterval> | undefined;
@@ -439,6 +446,8 @@ export class Orchestrator extends EventEmitter {
       };
       /** Live-candidate-discovery seam: tests inject a fake so startup makes no HF calls. */
       discoverCandidates?: (opts: DiscoverCandidatesOptions) => Promise<DiscoverCandidatesResult>;
+      /** Phase 1: backend-aware local dispatch template. Undefined -> fallback. */
+      localPromptTemplate?: string;
     }
   ) {
     super();
@@ -459,6 +468,7 @@ export class Orchestrator extends EventEmitter {
     this.setMaxListeners(50);
     this.config = config;
     this.promptTemplate = promptTemplate;
+    this.localPromptTemplate = overrides?.localPromptTemplate;
     this.state = createEmptyState(config);
     this.logger = new StructuredLogger();
 
@@ -1814,6 +1824,23 @@ export class Orchestrator extends EventEmitter {
         error: String(err),
       });
     }
+  }
+
+  /**
+   * Phase 1 (local-backend-full-workflow): pick the dispatch template for
+   * the resolved backend. `pi`/`local` backends get the bash-shaped local
+   * template when one was loaded; every other backend — and any local
+   * backend with no local template loaded (SC5) — gets the default. Pure
+   * over (backendName, config.agent.backends, localPromptTemplate,
+   * promptTemplate); unit-tested by orchestrator.template-resolution.test.ts.
+   */
+  private resolvePromptTemplate(backendName: string): string {
+    const def = this.config.agent.backends?.[backendName];
+    const isLocal = def?.type === 'local' || def?.type === 'pi';
+    if (isLocal && this.localPromptTemplate !== undefined) {
+      return this.localPromptTemplate;
+    }
+    return this.promptTemplate;
   }
 
   /**
