@@ -23,9 +23,15 @@ describe('harness.orchestrator.local.md lint (Phase 1 SC2)', () => {
         expect(body).not.toContain('/harness:');
       });
 
-      it('invokes gates as bash `harness <gate>` calls', () => {
-        expect(body).toContain('harness verify');
-        expect(body).toContain('harness outcome-eval');
+      it('invokes gates using command names that actually exist (Phase 2 correction)', () => {
+        // Phase 2 (local-backend-full-workflow) corrected the gate command names:
+        // `harness verify` verifies branch-naming ONLY and `harness outcome-eval`
+        // is not a CLI command. The real mechanical gate is `harness validate` +
+        // the project's typecheck/lint/test. See src/local-template-lint.test.ts
+        // for the full byte-identity + var-survival guards.
+        expect(body).toContain('harness validate');
+        expect(body).not.toContain('harness verify');
+        expect(body).not.toContain('harness outcome-eval');
       });
     });
   }
