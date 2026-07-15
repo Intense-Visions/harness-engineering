@@ -680,6 +680,17 @@ describe('PoolManager — bookkeeping seams', () => {
     await manager.updateScores([{ ollamaName: 'ghost', currentScore: 99 }]);
     expect(fs.ops.filter((o) => o.op === 'rename')).toEqual([]);
   });
+
+  it('updateScores stamps toolCalling when supplied and leaves it untouched when omitted', async () => {
+    const seeded = seededState({}, [entry({ ollamaName: 'a', currentScore: 10 })]);
+    const { manager } = await makeManager(seeded);
+    await manager.updateScores([{ ollamaName: 'a', currentScore: 88, toolCalling: true }]);
+    const find = () => manager.snapshot().entries.find((e) => e.ollamaName === 'a');
+    expect(find()?.toolCalling).toBe(true);
+    // A later score-only update must NOT wipe the probed capability.
+    await manager.updateScores([{ ollamaName: 'a', currentScore: 90 }]);
+    expect(find()?.toolCalling).toBe(true);
+  });
 });
 
 describe('PoolManager — configurePool + snapshot + isAllowed (Phase 7 seams)', () => {

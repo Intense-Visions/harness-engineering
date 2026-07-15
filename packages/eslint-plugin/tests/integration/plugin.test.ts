@@ -3,8 +3,9 @@ import { describe, it, expect } from 'vitest';
 import plugin from '../../src/index';
 
 describe('plugin exports', () => {
-  it('exports all 12 rules', () => {
-    expect(Object.keys(plugin.rules)).toHaveLength(12);
+  it('exports all 13 rules', () => {
+    expect(Object.keys(plugin.rules)).toHaveLength(13);
+    expect(plugin.rules['no-undefined-optional-assignment']).toBeDefined();
     expect(plugin.rules['no-layer-violation']).toBeDefined();
     expect(plugin.rules['no-circular-deps']).toBeDefined();
     expect(plugin.rules['no-forbidden-imports']).toBeDefined();

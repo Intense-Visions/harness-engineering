@@ -936,6 +936,46 @@ describe('LocalModelResolver — task-aware resolveModel (T16)', () => {
     expect(resolver.resolveModel({ kind: 'tier', tier: 'diagnostic' })).toBe('generalist:32b');
   });
 
+  it('a build (tier) use-case EXCLUDES a model known not to tool-call, even if it scores higher', async () => {
+    const poolState: PoolStateProvider = {
+      snapshot: () => ({
+        ...EmptyPoolState(),
+        entries: [
+          {
+            ollamaName: 'coder:7b',
+            hfRepoId: 'Org/coder',
+            sizeOnDiskGb: 1,
+            installedAt: '2026-07-07T00:00:00.000Z',
+            lastUsedAt: null,
+            currentScore: 95,
+            scoresByProfile: { coding: 95 },
+            toolCalling: false, // emits tool calls as text → can't drive a build
+          },
+          {
+            ollamaName: 'qwen3:32b',
+            hfRepoId: 'Org/qwen3',
+            sizeOnDiskGb: 1,
+            installedAt: '2026-07-07T00:00:00.000Z',
+            lastUsedAt: null,
+            currentScore: 60,
+            scoresByProfile: { coding: 60 },
+            toolCalling: true,
+          },
+        ],
+      }),
+    };
+    const resolver = new LocalModelResolver({
+      endpoint: 'http://localhost:11434/v1',
+      configured: [],
+      poolState,
+      fetchModels: async () => ['coder:7b', 'qwen3:32b'], // both loaded
+    });
+    await resolver.probe();
+
+    // coder:7b wins on coding score but can't tool-call → a BUILD (tier) routes to qwen3:32b.
+    expect(resolver.resolveModel({ kind: 'tier', tier: 'quick-fix' })).toBe('qwen3:32b');
+  });
+
   it('only considers loaded models for the profile selection', async () => {
     const poolState = profiledProvider([
       { name: 'coder:7b', currentScore: 60, scoresByProfile: { coding: 95 } },

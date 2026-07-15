@@ -66,6 +66,7 @@ import {
   loadFrozenCandidates,
   selectCandidates,
   curationFromCandidates,
+  probeToolCalling,
 } from '@harness-engineering/local-models';
 import type {
   PoolStateProvider,
@@ -3454,6 +3455,19 @@ export class Orchestrator extends EventEmitter {
     // makes the change take effect on the next tick and the next route call.
     this.seedRecommender(candidates, 'frozen');
     const recommend = (hardware: HardwareProfile) => this.modelRecommender!(hardware);
+    // Bind the agentic tool-calling probe to the local backend's endpoint so the score
+    // writeback can stamp each pooled model's capability once — keeping a build from routing
+    // to a text-only model (see `PoolEntry.toolCalling`). Absent local endpoint ⇒ no probe
+    // (capability stays unknown ⇒ fail-open in candidate selection).
+    let localEndpoint: string | undefined;
+    let localApiKey: string | undefined;
+    for (const def of Object.values(this.config.agent.backends ?? {})) {
+      if ((def.type === 'local' || def.type === 'pi') && typeof def.endpoint === 'string') {
+        localEndpoint = def.endpoint;
+        localApiKey = def.apiKey;
+        break;
+      }
+    }
     this.refreshScheduler = new RefreshScheduler({
       runTick: () =>
         runRefreshTick({
@@ -3474,6 +3488,16 @@ export class Orchestrator extends EventEmitter {
               });
             }),
           proposalThreshold: refreshCfg?.proposalThreshold ?? 5,
+          ...(localEndpoint !== undefined
+            ? {
+                probeToolCalling: (ollamaName: string) =>
+                  probeToolCalling({
+                    model: ollamaName,
+                    baseUrl: localEndpoint,
+                    ...(localApiKey !== undefined ? { apiKey: localApiKey } : {}),
+                  }),
+              }
+            : {}),
         }).then((result) => {
           // S1 drain liveness (P7-SUG-DRAIN-LIVENESS): run completion is the
           // primary drain trigger, but if the final run's evict fails

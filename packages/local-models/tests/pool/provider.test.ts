@@ -67,6 +67,87 @@ describe('poolStateToCandidates', () => {
   });
 });
 
+describe('poolStateToCandidates — requireToolCalling filter (agentic build gate)', () => {
+  const withTool = (name: string, score: number, toolCalling?: boolean): PoolEntry => ({
+    ...entry(name, score),
+    ...(toolCalling !== undefined ? { toolCalling } : {}),
+  });
+
+  it('excludes entries KNOWN not to tool-call (toolCalling === false)', () => {
+    const state: PoolState = {
+      ...EmptyPoolState(),
+      entries: [withTool('coder:7b', 90, false), withTool('qwen3:32b', 50, true)],
+    };
+    // coder:7b outranks 32b by score but can't tool-call → dropped for a build.
+    expect(poolStateToCandidates(state, undefined, { requireToolCalling: true })).toEqual([
+      'qwen3:32b',
+    ]);
+  });
+
+  it('KEEPS entries with unknown capability (toolCalling === undefined) — fail-open', () => {
+    const state: PoolState = {
+      ...EmptyPoolState(),
+      entries: [withTool('unprobed:8b', 80), withTool('qwen3:32b', 50, true)],
+    };
+    expect(poolStateToCandidates(state, undefined, { requireToolCalling: true })).toEqual([
+      'unprobed:8b',
+      'qwen3:32b',
+    ]);
+  });
+
+  it('does NOT filter when requireToolCalling is absent/false (byte-identical to before)', () => {
+    const state: PoolState = {
+      ...EmptyPoolState(),
+      entries: [withTool('coder:7b', 90, false), withTool('qwen3:32b', 50, true)],
+    };
+    expect(poolStateToCandidates(state)).toEqual(['coder:7b', 'qwen3:32b']);
+    expect(poolStateToCandidates(state, undefined, { requireToolCalling: false })).toEqual([
+      'coder:7b',
+      'qwen3:32b',
+    ]);
+  });
+
+  it('preserves score ordering among the survivors', () => {
+    const state: PoolState = {
+      ...EmptyPoolState(),
+      entries: [
+        withTool('a:8b', 30, true),
+        withTool('dud:7b', 99, false),
+        withTool('b:32b', 60, true),
+      ],
+    };
+    expect(poolStateToCandidates(state, undefined, { requireToolCalling: true })).toEqual([
+      'b:32b',
+      'a:8b',
+    ]);
+  });
+
+  it('round-trips toolCalling through PoolStateStore persist/load (additive field)', async () => {
+    const fs = new Map<string, string>();
+    const backend = {
+      readFile: async (p: string) => {
+        const v = fs.get(p);
+        if (v === undefined) throw Object.assign(new Error('nf'), { code: 'ENOENT' });
+        return v;
+      },
+      writeFile: async (p: string, c: string) => void fs.set(p, c),
+      rename: async (from: string, to: string) => {
+        fs.set(to, fs.get(from)!);
+        fs.delete(from);
+      },
+      mkdir: async () => undefined,
+    };
+    const store = new PoolStateStore({ path: '/pool.json', fs: backend });
+    await store.load();
+    store.update((s) => ({ ...s, entries: [withTool('qwen3:32b', 50, true)] }));
+    await store.persist();
+
+    const reloaded = new PoolStateStore({ path: '/pool.json', fs: backend });
+    await reloaded.load();
+    expect(reloaded.snapshot().entries[0]?.toolCalling).toBe(true);
+  });
+});
+
 describe('PoolStateProvider structural conformance', () => {
   it('PoolStateStore satisfies PoolStateProvider', () => {
     const provider: PoolStateProvider = new PoolStateStore();

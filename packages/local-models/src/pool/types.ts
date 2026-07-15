@@ -49,6 +49,17 @@ export interface PoolEntry {
    * task-tagged dispatch. Absent ⇒ selection falls back to `currentScore`.
    */
   scoresByProfile?: Partial<Record<RankProfile, number>>;
+  /**
+   * Whether this model can drive an AGENTIC build — i.e. it emits native OpenAI
+   * `tool_calls` (not the call rendered as text, which the coding-agent SDK can't
+   * parse). Determined by `probeToolCalling` (a cheap `/api/show` capability gate
+   * + one tool-schema inference call) and written back by the scheduler re-score.
+   * Optional + additive (round-trips via `cloneEntry`'s spread; the loader tolerates
+   * its absence). Consumed by `poolStateToCandidates(state, profile, {requireToolCalling})`
+   * to keep an agentic BUILD from routing to a text-only model. Absent ⇒ unknown ⇒
+   * NOT filtered (fail-open; only `false` excludes). Triage/classification never sets it.
+   */
+  toolCalling?: boolean;
 }
 
 /**

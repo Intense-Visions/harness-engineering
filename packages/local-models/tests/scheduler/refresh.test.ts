@@ -150,6 +150,31 @@ describe('runRefreshTick (reconcile → rescore → diff → emit)', () => {
     expect(result.errors).toEqual([]);
   });
 
+  it('probes and stamps toolCalling once for an unknown-capability entry', async () => {
+    const pool = await seededPool(baseState(), [{ ollamaName: 'old:8b', sizeOnDiskGb: 20 }]);
+    const ranked = [
+      rankedModel({ ollamaName: 'old:8b', hfRepoId: 'Qwen/Qwen3-8B-GGUF', sizeB: 8, score: 62 }),
+    ];
+    const probed: string[] = [];
+    const deps: RefreshTickDeps = {
+      detectHardware: async () => HARDWARE,
+      recommend: async () => recommendResult(ranked),
+      poolManager: pool,
+      dedupSource: async () => ({ pending: [], rejected: [] }),
+      emitProposal: async () => undefined,
+      proposalThreshold: 5,
+      probeToolCalling: async (name) => {
+        probed.push(name);
+        return true;
+      },
+    };
+
+    await runRefreshTick(deps);
+
+    expect(probed).toEqual(['old:8b']); // probed once for the unknown-capability entry
+    expect(pool.snapshot().entries.find((e) => e.ollamaName === 'old:8b')?.toolCalling).toBe(true);
+  });
+
   it('T14: writes per-profile scores back onto the pooled entry', async () => {
     const pool = await seededPool(baseState(), [{ ollamaName: 'old:8b', sizeOnDiskGb: 20 }]);
     const ranked = [
