@@ -301,7 +301,7 @@ describe('runScopingProbe — gate corroboration', () => {
     expect(v.holdReason).toBe('not-in-band');
   });
 
-  it('a blast radius over boundedScopeMax is NOT bounded ⇒ unresolved-scope even with resolved entities', async () => {
+  it('a blast radius over boundedScopeMax is NOT bounded ⇒ scope-too-large (entities DID resolve, distinct from unresolved-scope)', async () => {
     const deps: ProbeDeps = {
       provider: stubProvider({ level: 'trivial', confidence: 'medium', openDecisions: [] }),
       graph: stubGraph({ BackendRouter: { nodeId: 'class:BackendRouter', blastRadius: 500 } }),
@@ -309,7 +309,12 @@ describe('runScopingProbe — gate corroboration', () => {
     };
     const v = await runScopingProbe(inputFor(), deps);
     expect(v.dispatchable).toBe(false);
-    expect(v.holdReason).toBe('unresolved-scope');
+    // FIX C: an over-large but RESOLVED scope is `scope-too-large`, NOT `unresolved-scope`
+    // (which reads as "no entity resolved"). The scope lever DID resolve an entity.
+    expect(v.holdReason).toBe('scope-too-large');
+    const scope = v.levers.scope.value;
+    if (scope === 'unknown') throw new Error('expected a resolved (over-large) scope, not unknown');
+    expect(scope.resolved.length).toBeGreaterThan(0);
   });
 
   it('a low-confidence semantic read (below the dispatchConfidence bar) holds as not-in-band', async () => {

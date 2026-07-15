@@ -24,6 +24,11 @@ import type { ComplexityVerdict, ComplexityLevel } from '@harness-engineering/ty
 export type EscalationCategory =
   | 'not-in-band'
   | 'unresolved-scope'
+  // The item's entities RESOLVED in the graph, but the aggregate blast radius exceeded the
+  // `boundedScopeMax` ceiling — a distinct hold from `unresolved-scope` (which means NO entity
+  // resolved at all). Bucketed separately so precedent base-rates never lump "too big to
+  // auto-dispatch" together with "couldn't tell what this touches".
+  | 'scope-too-large'
   | 'open-decision'
   | 'halted-fork'
   | 'precedent-contradicts'

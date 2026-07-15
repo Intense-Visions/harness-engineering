@@ -89,6 +89,11 @@ export interface OpenDecision {
 export type HoldReason =
   | 'not-in-band'
   | 'unresolved-scope'
+  // The item's entities RESOLVED but the aggregate blast radius exceeded `boundedScopeMax`. A
+  // DISTINCT reason from `unresolved-scope` (which means "no entity resolved"): here the scope
+  // WAS resolved, it is simply too large to auto-dispatch. Legibility fix so an operator can
+  // tell "too big" apart from "couldn't resolve".
+  | 'scope-too-large'
   | 'open-decision'
   // The open-decisions lever could not be READ (no provider wired / assessment errored) — the
   // item is held because we can't CONFIRM there are no open decisions, NOT because one was
