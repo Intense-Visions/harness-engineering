@@ -1971,12 +1971,6 @@ export class Orchestrator extends EventEmitter {
         return;
       }
 
-      // 4. Render prompt
-      const prompt = await this.renderer.render(this.promptTemplate, {
-        issue,
-        attempt: attempt || 1,
-      });
-
       // 5. Resolve the routed backend NAME up front so the LiveSession
       //    + recorder are labelled with it (Spec 2 P2-I2). Reading
       //    `this.config.agent.backend` directly returns `undefined` for
@@ -2053,6 +2047,14 @@ export class Orchestrator extends EventEmitter {
           routingDefault !== undefined ? toArray(routingDefault)[0] : undefined;
         routedBackendName = routingDefaultScalar ?? this.config.agent.backend ?? 'unknown';
       }
+
+      // 4. Render prompt (moved after backend-name resolution — Phase 1).
+      // The template is now backend-aware: a local/pi dispatch renders the
+      // bash-shaped local template, everything else renders the default.
+      const prompt = await this.renderer.render(this.resolvePromptTemplate(routedBackendName), {
+        issue,
+        attempt: attempt || 1,
+      });
 
       // 6. Start agent session (in background)
       const session: LiveSession = {

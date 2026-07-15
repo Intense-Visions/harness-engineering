@@ -96,11 +96,16 @@ function makeOrchestrator(opts: {
   localPromptTemplate: string | undefined;
   backends: Record<string, BackendDef>;
 }): Orchestrator {
+  // `exactOptionalPropertyTypes` is on repo-wide: spread the optional
+  // override only when defined so the SC5 case (no local template loaded)
+  // leaves the property absent rather than `localPromptTemplate: undefined`.
   return new Orchestrator(makeConfig(opts.backends), opts.promptTemplate, {
     tracker: makeMockTracker(),
     backend: new MockBackend(),
     execFileFn: noopExecFile,
-    localPromptTemplate: opts.localPromptTemplate,
+    ...(opts.localPromptTemplate !== undefined
+      ? { localPromptTemplate: opts.localPromptTemplate }
+      : {}),
   });
 }
 
