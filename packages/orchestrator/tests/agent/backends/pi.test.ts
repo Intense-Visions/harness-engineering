@@ -6,6 +6,7 @@ import type { AgentEvent } from '@harness-engineering/types';
 const mockPrompt = vi.fn();
 const mockAbort = vi.fn();
 const mockSubscribe = vi.fn();
+const mockSetRuntimeApiKey = vi.fn();
 
 vi.mock('@earendil-works/pi-coding-agent', () => ({
   createAgentSession: vi.fn().mockImplementation(async () => ({
@@ -18,6 +19,9 @@ vi.mock('@earendil-works/pi-coding-agent', () => ({
   })),
   SessionManager: {
     inMemory: vi.fn().mockReturnValue({}),
+  },
+  AuthStorage: {
+    inMemory: vi.fn().mockReturnValue({ setRuntimeApiKey: mockSetRuntimeApiKey }),
   },
   codingTools: ['read', 'bash', 'edit', 'write'],
 }));
@@ -113,6 +117,20 @@ describe('PiBackend', () => {
             baseUrl: 'http://localhost:1234/v1',
           }),
         })
+      );
+    });
+
+    it('registers the local provider credential before creating the session (SDK auth gate)', async () => {
+      // Regression: the SDK resolves auth by PROVIDER, not from the model headers/apiKey — without
+      // registering a key for `harness-local` it rejects the model ("No API key found for
+      // harness-local"), silently breaking every local build.
+      await backend.startSession({ workspacePath: '/tmp/workspace', permissionMode: 'full' });
+
+      const piSdk = await import('@earendil-works/pi-coding-agent');
+      expect(piSdk.AuthStorage.inMemory).toHaveBeenCalled();
+      expect(mockSetRuntimeApiKey).toHaveBeenCalledWith('harness-local', expect.any(String));
+      expect(piSdk.createAgentSession).toHaveBeenCalledWith(
+        expect.objectContaining({ authStorage: expect.anything() })
       );
     });
 

@@ -168,6 +168,15 @@ function mapPiEvent(rawEvent: any, sessionId: string): AgentEvent | null {
 }
 
 /**
+ * The synthetic provider id this backend registers its local endpoint under. The pi SDK gates
+ * every request on a provider-registered credential (auth.json / env / runtime override) — the
+ * model's own `headers`/`apiKey` fields do NOT satisfy that gate — so `startSession` MUST register
+ * a key for this id via `AuthStorage.setRuntimeApiKey`, or the SDK rejects the model with
+ * "No API key found for harness-local". Kept in sync between `buildLocalModel` and `startSession`.
+ */
+const LOCAL_PROVIDER = 'harness-local';
+
+/**
  * Build a pi Model object from simple endpoint + model config.
  * Uses the openai-completions API which works with LM Studio, Ollama, and vLLM.
  */
@@ -177,7 +186,7 @@ function buildLocalModel(config: PiBackendConfig) {
     id: config.model,
     name: config.model,
     api: 'openai-completions' as const,
-    provider: 'harness-local',
+    provider: LOCAL_PROVIDER,
     baseUrl: config.endpoint ?? 'http://localhost:1234/v1',
     reasoning: false,
     input: ['text' as const],
@@ -240,9 +249,18 @@ export class PiBackend implements AgentBackend {
         apiKey: this.config.apiKey,
       });
 
+      // Register the local endpoint's credential for `LOCAL_PROVIDER`. The SDK resolves auth by
+      // PROVIDER (auth.json / env / runtime override), NOT from the model's `headers`/`apiKey`
+      // fields, so without this an inline local model is rejected ("No API key found for
+      // harness-local"). Ollama ignores the value; a real key is threaded through for
+      // vLLM/LM-Studio deployments that enforce one.
+      const authStorage = piSdk.AuthStorage.inMemory();
+      authStorage.setRuntimeApiKey(LOCAL_PROVIDER, this.config.apiKey ?? 'ollama');
+
       const { session: piSession } = await piSdk.createAgentSession({
         cwd: params.workspacePath,
         ...(model !== undefined && { model }),
+        authStorage,
         sessionManager: piSdk.SessionManager.inMemory(),
       });
 
