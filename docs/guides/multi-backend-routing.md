@@ -155,6 +155,17 @@ agent:
 
 The orchestrator probes `lm-studio` and `pi` independently. Each surfaces its own dashboard banner if unhealthy. `GET /api/v1/local-models/status` returns one entry per local backend with `backendName` and `endpoint`.
 
+## Enforced gates on the local backend
+
+A `local`/`pi` backend runs the **full workflow gated**: the orchestrator — not the agent's self-discipline — enforces the mechanical gate and the outcome evaluation on the agent's branch when the run completes. On a `local`/`pi` dispatch, after the agent exits the orchestrator:
+
+1. Runs **verify** (typecheck + lint + test) over the workspace, and
+2. When the issue has a spec, runs the same **outcome evaluation** the primary (Claude) backend uses — the `OutcomeEvaluator` over the introduced diff vs the spec's success criteria.
+
+A red verify, or a high-confidence `NOT_SATISFIED` outcome verdict, **blocks the run from completing**: the orchestrator re-dispatches the same unit (threading the failure text into the re-prompt) via the existing retry budget, and escalates `needs-human` when that budget is exhausted. A genuinely green run completes normally — the local gate composes with, and does not replace, the AMR retrospective/quality feeders.
+
+This enforcement is scoped to the local path only; the primary/Claude completion path is unchanged. The gate provider currently defaults to the local SEL provider (the same one the classifier uses); a `workflowGates` routing flag to select the gate provider explicitly is planned (Phase 3). See [ADR 0070](../knowledge/decisions/0070-harness-enforced-local-gates.md).
+
 ## Migrating from the legacy schema
 
 The orchestrator continues to accept `agent.backend` / `agent.localBackend` for at least one minor release. At startup, an in-memory migration shim translates legacy fields into `agent.backends` / `agent.routing`:
