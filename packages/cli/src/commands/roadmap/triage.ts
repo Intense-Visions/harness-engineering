@@ -209,13 +209,17 @@ export async function runTriageReport(
     ...(deps.only !== undefined ? { only: deps.only } : {}),
     ...(deps.limit !== undefined ? { limit: deps.limit } : {}),
   });
+  const useModel = deps.offline !== true && deps.provider != null;
   // The CHEAP probe deps (no provider): graph scope + static complexity, guaranteed no LLM call.
+  // When a model IS available (just deferred for cheap-first), tell the probe so a held item's
+  // open-decisions lever reads "not evaluated (held before the model pass)" rather than the
+  // misleading "no provider (offline)". Under `--offline`/no provider, leave it as offline.
   const cheapDeps = {
     ...(deps.graphStore ? { graphStore: deps.graphStore } : {}),
     ...(deps.precedent ? { precedent: deps.precedent } : {}),
     ...(deps.config ? { config: deps.config } : {}),
+    ...(useModel ? { modelDeferred: true } : {}),
   };
-  const useModel = deps.offline !== true && deps.provider != null;
   const rows: TriageReportRow[] = [];
   for (const feature of features) {
     // Pass 1 (cheap): scope + static complexity, NO model call.
