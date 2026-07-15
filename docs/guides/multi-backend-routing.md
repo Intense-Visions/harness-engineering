@@ -164,7 +164,30 @@ A `local`/`pi` backend runs the **full workflow gated**: the orchestrator — no
 
 A red verify, or a high-confidence `NOT_SATISFIED` outcome verdict, **blocks the run from completing**: the orchestrator re-dispatches the same unit (threading the failure text into the re-prompt) via the existing retry budget, and escalates `needs-human` when that budget is exhausted. A genuinely green run completes normally — the local gate composes with, and does not replace, the AMR retrospective/quality feeders.
 
-This enforcement is scoped to the local path only; the primary/Claude completion path is unchanged. The gate provider currently defaults to the local SEL provider (the same one the classifier uses); a `workflowGates` routing flag to select the gate provider explicitly is planned (Phase 3). See [ADR 0070](../knowledge/decisions/0070-harness-enforced-local-gates.md).
+This enforcement is scoped to the local path only; the primary/Claude completion path is unchanged. The gate provider defaults to the local SEL provider (the same one the classifier uses); the `agent.routing.workflowGates` flag below routes the outcome-eval gate to a stronger provider. See [ADR 0070](../knowledge/decisions/0070-harness-enforced-local-gates.md).
+
+### `agent.routing.workflowGates` (local gate provider)
+
+Controls which backend evaluates the LOCAL (`pi`) dispatch's `outcome-eval`
+sub-gate. This affects ONLY the local backend's harness-enforced gate — the
+Claude/primary dispatch path is unchanged.
+
+- **absent** or `local` (default): the local SEL provider judges outcome-eval.
+  Byte-identical to pre-flag behavior.
+- `primary`: the outcome-eval gate resolves its provider from the primary
+  (`routing.default`) backend, so a stronger model judges "does the diff satisfy
+  the spec?" while the local model still does the implementation. If the primary
+  provider is unreachable, the gate degrades to a neutral verdict (fail-open) —
+  the fail-closed `verify` gate (typecheck+lint+test) remains the hard floor, so
+  a broken build still halts regardless of this flag.
+
+Note: `primary` resolves to whatever `routing.default` names (the primary
+backend), not a literal backend named `"primary"`. Scope is `outcome-eval` only;
+the advisory `review` gate is not yet routed by this flag.
+
+```json
+{ "agent": { "routing": { "default": "primary", "workflowGates": "primary" } } }
+```
 
 ## Migrating from the legacy schema
 
