@@ -184,6 +184,80 @@ export function normalizeHarnessCommand(command: string[]): string[] {
 }
 
 /**
+ * Truncate captured gate output to a bounded size for the re-dispatch prompt
+ * preamble (a full typecheck/test log can be enormous). Keeps the head + tail
+ * so both the first error and the summary survive.
+ */
+export function truncateGateOutput(output: string, max = 4000): string {
+  const trimmed = output.trim();
+  if (trimmed.length <= max) return trimmed;
+  const head = trimmed.slice(0, Math.floor(max * 0.7));
+  const tail = trimmed.slice(-Math.floor(max * 0.3));
+  return `${head}\n… [truncated ${trimmed.length - max} chars] …\n${tail}`;
+}
+
+/**
+ * local-backend-full-workflow Phase 2 (Option C): the production default verify
+ * runner for the local enforced gate. It runs the project's own mechanical gate
+ * (typecheck + lint + test) over `workspacePath` via `pnpm -w run <script>` for
+ * whichever of `typecheck`/`lint`/`test` the workspace's package.json declares,
+ * short-circuiting on the first red gate. Adopter-portable: it only runs the
+ * scripts that exist, and a missing package.json / no scripts → a passing gate
+ * (nothing to check). Fully self-contained; tests inject a fake via the
+ * `verifyRunner` seam so this concrete detector is never exercised in unit tests.
+ */
+export async function defaultLocalVerifyRunner(
+  workspacePath: string
+): Promise<{ ok: boolean; output: string }> {
+  // Access via the module namespace objects (not destructured) — destructuring
+  // `execFile`/`join`/`readFileSync` off a module trips the unbound-method lint.
+  const cp = await import('node:child_process');
+  const fsMod = await import('node:fs');
+  const pathMod = await import('node:path');
+
+  // Manual Promise wrapper around execFile (avoids promisify's overloaded typing).
+  const run = (script: string): Promise<{ ok: boolean; output: string }> =>
+    new Promise((resolve) => {
+      cp.execFile(
+        'pnpm',
+        ['-w', 'run', script],
+        { cwd: workspacePath, maxBuffer: 32 * 1024 * 1024 },
+        (error, stdout, stderr) => {
+          if (error) {
+            resolve({
+              ok: false,
+              output: `${script} failed:\n${stdout ?? ''}\n${stderr ?? error.message}`,
+            });
+          } else {
+            resolve({ ok: true, output: '' });
+          }
+        }
+      );
+    });
+
+  const pkgPath = pathMod.join(workspacePath, 'package.json');
+  if (!fsMod.existsSync(pkgPath)) return { ok: true, output: '' };
+  const scripts = ((): Record<string, string> => {
+    try {
+      const pkg = JSON.parse(fsMod.readFileSync(pkgPath, 'utf8')) as {
+        scripts?: Record<string, string>;
+      };
+      return pkg.scripts ?? {};
+    } catch {
+      return {};
+    }
+  })();
+
+  // Run in a stable, portable order; skip any the project does not declare.
+  for (const script of ['typecheck', 'lint', 'test'] as const) {
+    if (scripts[script] === undefined) continue;
+    const result = await run(script);
+    if (!result.ok) return result;
+  }
+  return { ok: true, output: '' };
+}
+
+/**
  * The central orchestrator that manages the lifecycle of coding agents.
  *
  * It polls an issue tracker for candidate tasks, manages ephemeral workspaces,
@@ -253,6 +327,23 @@ export class Orchestrator extends EventEmitter {
    * default template (SC5).
    */
   private localPromptTemplate: string | undefined;
+  /**
+   * local-backend-full-workflow Phase 2 (Option C): the verify runner the
+   * local-only enforced gate (`runLocalWorkflowGate`) invokes to run the
+   * project's mechanical gate (typecheck + lint + test) over the workspace.
+   * Injected in tests to force fail→pass sequences; in production it defaults
+   * to `defaultLocalVerifyRunner` (a thin project-script probe). Kept as a
+   * field seam — mirrors how `execFileFn` is injected — so the completion path
+   * is decoupled from the concrete detector.
+   */
+  private verifyRunner: (workspacePath: string) => Promise<{ ok: boolean; output: string }>;
+  /**
+   * Phase 2: the most recent gate-failure reason per issue, threaded into the
+   * next dispatch's rendered prompt as a failure preamble (the re-prompt). Set
+   * when a local gate blocks; consumed + cleared at the next `dispatchIssue`
+   * render for that issue.
+   */
+  private priorGateFailureByIssue = new Map<string, string>();
   private server?: OrchestratorServer;
   private interval?: ReturnType<typeof setTimeout> | undefined;
   private heartbeatInterval?: ReturnType<typeof setInterval> | undefined;
@@ -448,6 +539,12 @@ export class Orchestrator extends EventEmitter {
       discoverCandidates?: (opts: DiscoverCandidatesOptions) => Promise<DiscoverCandidatesResult>;
       /** Phase 1: backend-aware local dispatch template. Undefined -> fallback. */
       localPromptTemplate?: string;
+      /**
+       * Phase 2 (Option C) test seam: the verify runner the local enforced
+       * gate invokes. Injected so tests can force fail→pass sequences without
+       * spawning real typecheck/lint/test. Defaults to `defaultLocalVerifyRunner`.
+       */
+      verifyRunner?: (workspacePath: string) => Promise<{ ok: boolean; output: string }>;
     }
   ) {
     super();
@@ -469,6 +566,7 @@ export class Orchestrator extends EventEmitter {
     this.config = config;
     this.promptTemplate = promptTemplate;
     this.localPromptTemplate = overrides?.localPromptTemplate;
+    this.verifyRunner = overrides?.verifyRunner ?? defaultLocalVerifyRunner;
     this.state = createEmptyState(config);
     this.logger = new StructuredLogger();
 
@@ -2289,6 +2387,59 @@ export class Orchestrator extends EventEmitter {
     })().catch((err) => {
       this.logger.error('Fatal error in background task', { error: String(err) });
     });
+  }
+
+  /**
+   * local-backend-full-workflow Phase 2 (Option C): the LOCAL-ONLY enforced
+   * gate. For a `pi`/`local` dispatch it runs the mechanical gate (verify =
+   * typecheck+lint+test via the injected `verifyRunner`) and, on green, the
+   * outcome-eval (Task 7) against the workspace branch; a red result returns a
+   * blocking `{ ok: false, reason }`. The completion path routes that reason
+   * through `emitWorkerExit('error', …)` so the shipped state-machine retry
+   * branch re-dispatches (the re-prompt) rather than marking the run complete.
+   *
+   * NON-local backends (Claude/AMR) get an unconditional `{ ok: true }` — this
+   * gate never touches their completion path (D2 scopes enforcement to the
+   * local path only; the AMR verdict feeders keep their existing behavior).
+   *
+   * Fully guarded: any thrown error → a CONSERVATIVE block `{ ok: false,
+   * reason: 'gate error: …' }`, mirroring the shipped fail-safe pattern — a
+   * gate that cannot run is treated as red (re-dispatch), never as a silent
+   * pass that could ship a bad build.
+   */
+  private async runLocalWorkflowGate(
+    issue: Issue,
+    workspacePath: string,
+    backendName: string
+  ): Promise<{ ok: true } | { ok: false; reason: string }> {
+    const def = this.config.agent.backends?.[backendName];
+    const isLocal = def?.type === 'local' || def?.type === 'pi';
+    if (!isLocal) return { ok: true };
+
+    try {
+      // 1. Mechanical gate: typecheck + lint + test.
+      const verify = await this.verifyRunner(workspacePath);
+      if (!verify.ok) {
+        return {
+          ok: false,
+          reason: `verify failed:\n${truncateGateOutput(verify.output)}`,
+        };
+      }
+
+      // 2. Outcome-eval (SC4) — added in Task 7. Green verify falls through
+      //    to a passing gate until then.
+      return { ok: true };
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      this.logger.warn(
+        `local workflow gate errored for ${issue.identifier}; blocking conservatively`,
+        {
+          issueId: issue.id,
+          error: msg,
+        }
+      );
+      return { ok: false, reason: `gate error: ${msg}` };
+    }
   }
 
   /**
