@@ -567,4 +567,23 @@ describe('local gate exhaustion → needs-human (Task 8 / SC3 tail)', () => {
     expect(kinds2.filter((t) => t === 'escalate')).toHaveLength(1);
     expect(kinds2).not.toContain('scheduleRetry');
   });
+
+  it('B2: on exhaustion→escalate, the priorGateFailure entry is cleared (no stale preamble leak)', async () => {
+    const orch = newOrch(
+      { local: LOCAL_BACKEND },
+      'local',
+      async () => ({ ok: false, output: 'verify perma-red' }),
+      2
+    );
+    // Reach the private map. NB: handleEffect is intentionally NOT stubbed here so
+    // the real `case 'escalate'` clear runs.
+    const priorMap = (orch as unknown as { priorGateFailureByIssue: Map<string, string> })
+      .priorGateFailureByIssue;
+
+    await finalize(orch)(ISSUE, tmpDir, 1, 'local'); // records preamble, schedules retry
+    expect(priorMap.has(ISSUE.id)).toBe(true);
+
+    await finalize(orch)(ISSUE, tmpDir, 2, 'local'); // exhausts budget → escalate + clear
+    expect(priorMap.has(ISSUE.id)).toBe(false);
+  });
 });

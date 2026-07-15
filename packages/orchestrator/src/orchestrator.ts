@@ -1599,6 +1599,10 @@ export class Orchestrator extends EventEmitter {
         break;
       case 'escalate':
         await this.handleEscalation(effect as EscalateEffect);
+        // local-backend-full-workflow Phase 3 (B2): the unit is handed to a human;
+        // drop any recorded local-gate failure preamble so a future re-dispatch of
+        // the SAME issue can't inherit a stale "previous attempt failed" block.
+        this.priorGateFailureByIssue.delete((effect as EscalateEffect).issueId);
         // Phase 4 (DLane-5): escalation hands the issue off to a human — the
         // orchestrator abandons autonomous progress, so the lane moves to the
         // terminal `canceled`. On the failure→max-retries path this follows the
