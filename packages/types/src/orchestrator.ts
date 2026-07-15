@@ -1160,6 +1160,13 @@ export interface WorkflowDefinition {
   /** Template used to generate agent prompts */
   promptTemplate: string;
   /**
+   * Backend-aware local dispatch template (Phase 1, local-backend-full-workflow).
+   * Loaded from the sibling `harness.orchestrator.local.md` when present.
+   * Undefined when the file is absent — resolution falls back to
+   * `promptTemplate`, preserving pre-Phase-1 behavior (SC5).
+   */
+  localPromptTemplate?: string;
+  /**
    * Non-blocking warnings produced during config validation. Loaded by
    * `WorkflowLoader.loadWorkflow`. Spec B Phase 2 / S3: contains
    * warnings about `routing.skills` / `routing.modes` entries that are

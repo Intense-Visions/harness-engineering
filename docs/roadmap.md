@@ -55,22 +55,22 @@ last_manual_edit: 2026-06-27T12:51:51.967Z
 - **Priority:** —
 - **External-ID:** github:Intense-Visions/harness-engineering#703
 
+### Local backend runs the full harness workflow
+
+- **Status:** in-progress
+- **Spec:** docs/changes/local-backend-full-workflow/proposal.md
+- **Summary:** Let a `local`/`pi` dispatch run the full workflow (brainstorm → plan → execute → verify → outcome-eval → review → ship) via a backend-specific dispatch template (`harness.orchestrator.local.md`) that gives the tool-limited pi-agent the workflow as bash `harness <gate>` calls instead of unavailable `/harness:*` slash commands, with the orchestrator ENFORCING the verify + outcome-eval gates (re-prompt on fail, halt-to-human on exhaustion — never ship bad output), composing with the shipped post-diff retrospective. A config flag can later route the judgment gates to a stronger provider. Bar = enable the wiring with enforced gates (quality protected by halting, not by trusting a small model to self-drive).
+- **Blockers:** —
+- **Plan:** docs/changes/local-backend-full-workflow/plans/2026-07-15-local-backend-full-workflow-phase1-plan.md
+- **Assignee:** Chad Warner
+- **Priority:** P2
+- **External-ID:** —
+
 ### LMLM: pool consumption improvements (make installed models live, task-aware, self-correcting)
 
 - **Status:** planned
 - **Spec:** docs/changes/lmlm-pool-consumption/proposal.md
 - **Summary:** The LMLM install side is solid (async install + progress, resumable pulls, restart recovery, lineage scoring — PRs #775, #777), but the consumption side is pull-based and static, so an installed model barely gets used. Five phased improvements: (1) **Freshness loop** — the resolver subscribes to the `local-models:pool` event (today it only polls, `local-model-resolver.ts:260`) and the analysis provider resolves its model lazily instead of freezing at pipeline build (`analysis-provider-factory.ts:147`); (2) **Score-seed** — a new pool entry starts `currentScore: 0`, so the model you explicitly installed sits at the bottom of the score-sorted candidate list until re-rank; seed it from the ranked/interpolated score; (3) **Runtime feedback** — stamp `lastUsedAt` on real inference (LRU eviction currently runs on stale data) + a failure circuit-breaker; (4) **Task-aware selection** — per-profile pool scores (`general`/`coding`/`reasoning`) + a `RoutingUseCase → profile` map so each task gets the best-fit pooled model instead of one top-scored model per backend (advances the Agent Autonomy metric; carries a standalone ADR); (5) **Warming** — warm the selected model into VRAM (`keep_alive`) to avoid first-request cold-start. Additive schema only (`PoolEntry.scoresByProfile`, absolute score on `ModelProposalContent`). Does NOT depend on live-HF candidate discovery — scores the models already in the pool.
-- **Blockers:** —
-- **Plan:** —
-- **Assignee:** —
-- **Priority:** P2
-- **External-ID:** —
-
-### Local backend runs the full harness workflow
-
-- **Status:** planned
-- **Spec:** docs/changes/local-backend-full-workflow/proposal.md
-- **Summary:** Let a `local`/`pi` dispatch run the full workflow (brainstorm → plan → execute → verify → outcome-eval → review → ship) via a backend-specific dispatch template (`harness.orchestrator.local.md`) that gives the tool-limited pi-agent the workflow as bash `harness <gate>` calls instead of unavailable `/harness:*` slash commands, with the orchestrator ENFORCING the verify + outcome-eval gates (re-prompt on fail, halt-to-human on exhaustion — never ship bad output), composing with the shipped post-diff retrospective. A config flag can later route the judgment gates to a stronger provider. Bar = enable the wiring with enforced gates (quality protected by halting, not by trusting a small model to self-drive).
 - **Blockers:** —
 - **Plan:** —
 - **Assignee:** —
