@@ -80,6 +80,12 @@ describe('skill run command', () => {
       const opt = cmd.options.find((o) => o.long === '--party');
       expect(opt).toBeDefined();
     });
+
+    it('has --autonomous option (SC7)', () => {
+      const cmd = createRunCommand();
+      const opt = cmd.options.find((o) => o.long === '--autonomous');
+      expect(opt).toBeDefined();
+    });
   });
 
   describe('action', () => {
@@ -422,6 +428,39 @@ type: flexible
       expect(mockStdoutWrite).toHaveBeenCalled();
       const output = mockStdoutWrite.mock.calls.map((c) => c[0]).join('');
       expect(output).toMatch(/HARNESS_BACKEND_OVERRIDE=local-fast/);
+      expect(mockExit).toHaveBeenCalledWith(0);
+    });
+
+    it('prepends the autonomous-decider preamble with --autonomous (SC7)', async () => {
+      const skillDir = path.join(tempDir, 'autonomous-skill');
+      fs.mkdirSync(skillDir, { recursive: true });
+      fs.writeFileSync(path.join(skillDir, 'SKILL.md'), '# Autonomous Skill\nBody here.');
+
+      const program = makeProgram();
+      await program.parseAsync(['node', 'test', 'run', 'autonomous-skill', '--autonomous']);
+
+      expect(mockStdoutWrite).toHaveBeenCalled();
+      const output = mockStdoutWrite.mock.calls.map((c) => c[0]).join('');
+      expect(output).toContain('## Autonomous Decision-Making: Active');
+      expect(output).toContain('## Autonomous decisions requiring review');
+      expect(output).toContain('# Autonomous Skill');
+      expect(mockExit).toHaveBeenCalledWith(0);
+    });
+
+    it('is byte-identical without --autonomous (SC7 no-op default)', async () => {
+      const skillDir = path.join(tempDir, 'byte-skill');
+      fs.mkdirSync(skillDir, { recursive: true });
+      fs.writeFileSync(path.join(skillDir, 'SKILL.md'), '# Byte Skill\nBody here.');
+
+      // Run WITHOUT the flag.
+      const program = makeProgram();
+      await program.parseAsync(['node', 'test', 'run', 'byte-skill']);
+      const output = mockStdoutWrite.mock.calls.map((c) => c[0]).join('');
+
+      // A skill with no phases/principles/party produces no preamble at all,
+      // so the output is exactly the raw SKILL.md — no autonomous section.
+      expect(output).toBe('# Byte Skill\nBody here.');
+      expect(output).not.toContain('Autonomous Decision-Making');
       expect(mockExit).toHaveBeenCalledWith(0);
     });
 

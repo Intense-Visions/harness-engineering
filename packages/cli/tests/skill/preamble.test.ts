@@ -54,4 +54,35 @@ describe('buildPreamble', () => {
     const preamble = buildPreamble({});
     expect(preamble).toBe('');
   });
+
+  describe('autonomous mode (SC7)', () => {
+    it('injects the autonomous-decider section when autonomous is true', () => {
+      const preamble = buildPreamble({ autonomous: true });
+      expect(preamble).toContain('## Autonomous Decision-Making: Active');
+      expect(preamble).toContain('there is no human in this session to answer questions');
+    });
+
+    it('includes the PR-flag safety valve heading (D9)', () => {
+      const preamble = buildPreamble({ autonomous: true });
+      expect(preamble).toContain('## Autonomous decisions requiring review');
+      expect(preamble).toContain('strategy contradiction');
+    });
+
+    it('leads the output with the autonomous section, before Active Phases', () => {
+      const preamble = buildPreamble({
+        autonomous: true,
+        complexity: 'thorough',
+        phases: [{ name: 'red', description: 'Write test', required: true }],
+      });
+      const autonomousIdx = preamble.indexOf('## Autonomous Decision-Making: Active');
+      const phasesIdx = preamble.indexOf('## Active Phases');
+      expect(autonomousIdx).toBeGreaterThanOrEqual(0);
+      expect(phasesIdx).toBeGreaterThan(autonomousIdx);
+    });
+
+    it('does not inject the autonomous section when the flag is absent', () => {
+      const preamble = buildPreamble({ party: true });
+      expect(preamble).not.toContain('## Autonomous Decision-Making');
+    });
+  });
 });
