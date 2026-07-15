@@ -1,5 +1,83 @@
 # @harness-engineering/intelligence
 
+## 0.9.0
+
+### Minor Changes
+
+- 723072d: perf(triage): suppress reasoning traces on the report levers via Ollama-native think:false (~10× faster)
+
+  Reasoning models (Qwen3 et al.) emit a `<think>` trace that Ollama's OpenAI-compatible `/v1`
+  endpoint neither suppresses nor bounds — it ignores `/no_think`, `think:false`, and
+  `chat_template_kwargs`. For the triage report's structured-extraction levers (complexity
+  tie-break, open-decisions) that trace is pure latency with no quality gain — verified: the same
+  `moderate/high` verdict and the same surfaced decisions with thinking on or off.
+  - New per-request `AnalysisRequest.disableThinking` flag (advisory, best-effort).
+  - When set, `OpenAICompatibleAnalysisProvider` takes Ollama's NATIVE `/api/chat` with
+    `think:false` (schema enforced via native `format`, output bounded by `num_predict`). Any
+    failure — a non-Ollama endpoint (vLLM / LM Studio have no `/api/chat`), network, or parse —
+    falls back to the OpenAI-compatible path, which is always correct. The optimization can never
+    break a working call.
+  - The tie-break and open-decisions levers opt in; the brainstorm fork generator does NOT (its
+    open-ended reasoning genuinely benefits from thinking).
+
+  Measured on qwen3:32b: a single-item report dropped from ~2m03s to ~11.6s.
+
+### Patch Changes
+
+- 723072d: fix(triage): don't label a deferred open-decisions lever as "no provider (offline)"
+
+  The cheap-first report holds obviously-out-of-band items (scope-too-large, not-in-band) before
+  spending an LLM call, so their open-decisions lever runs without a provider and printed
+  `open-decisions: no provider (offline)` — misleading, since a provider WAS available and the
+  lever was simply deferred, not missing/mis-configured.
+
+  New `ProbeDeps.modelDeferred` hint (threaded through `triageIssue`): when a model is available
+  but its levers were deferred for a cheap pass, the reason reads `not evaluated (item held before
+the model pass)`. A genuinely offline run (`--offline` / no provider wired) still reads
+  `no provider (offline)`. Wording only — the lever value stays `unknown` and the gate never
+  dispatches on an unread lever either way.
+
+- 723072d: fix(triage): health-check the pool model pick + reject truncated native output
+
+  Two silent-degradation fixes surfaced by an adversarial review of the local-model path:
+  - **Pool pick now health-checks against the endpoint's `/v1/models`** (`triage-pool.ts`). Before,
+    the CLI returned the top-ranked `pool.json` entry without verifying the endpoint serves it — so
+    a model `ollama rm`'d out-of-band, or a pool copied onto a host whose `pi` endpoint is
+    vLLM/LM-Studio (different model ids), got baked in as the model, every LLM lever 404'd, and the
+    report silently fell back to the static path while _claiming_ a model ran. It now picks the
+    highest-ranked candidate the endpoint actually serves and otherwise falls back to the config
+    list — true parity with the live `LocalModelResolver` (rank, then intersect with the probe).
+    Also guards a corrupt empty-string `ollamaName`.
+  - **Native `think:false` path rejects truncated output** (`openai-compatible.ts`). It now throws
+    on Ollama's `done_reason: 'length'` (mirroring the compat path's `finish_reason === 'length'`
+    guard) so a `format`-constrained partial-but-parseable body isn't returned as complete — it
+    falls back to the compat path instead. Added tests for the native fallback branches
+    (truncation, schema-invalid body, missing content).
+
+- 723072d: fix(triage): stop truncating reasoning-model output — the LLM levers now produce real verdicts
+
+  The complexity tie-break, the open-decisions lever, and the brainstorm fork generator each
+  capped the model at a tiny `max_tokens` (256 / 512 / 512). A reasoning model (Qwen3 et al.)
+  emits a `<think>` trace BEFORE the JSON, so those caps truncated mid-reasoning →
+  `finish_reason: length` → empty content. The failure was then swallowed:
+  - `llmTiebreak` catches the error and returns a hardcoded `{ level: 'moderate', confidence: 'low' }`,
+  - the open-decisions lever degrades to `unknown`,
+  - the brainstorm fork halts as `error`.
+
+  So on a reasoning model the triage levers never ran on the real output — the "verdict" was a
+  fail-safe fallback that only _looked_ like a judgment. Non-reasoning models (which emit no think
+  trace) fit the tiny caps and masked the bug.
+
+  Raised each cap to 4096. `max_tokens` is a ceiling, not a target — a non-reasoning model still
+  stops at ~14 tokens — so this is free on the fast path and only spends tokens when a model
+  actually reasons. Verified end-to-end: on Qwen3 the semantic-read lever now returns a real
+  `simple/high` (was the `moderate/low` fallback) and the open-decisions lever surfaces real
+  decisions (was `assessment failed`).
+
+- Updated dependencies [ef62251]
+  - @harness-engineering/types@0.23.0
+  - @harness-engineering/graph@0.11.9
+
 ## 0.8.0
 
 ### Minor Changes

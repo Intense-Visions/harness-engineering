@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.37.1
+
+### Patch Changes
+
+- Updated dependencies [ef62251]
+  - @harness-engineering/types@0.23.0
+  - @harness-engineering/graph@0.11.9
+
 ## 0.37.0
 
 ### Minor Changes

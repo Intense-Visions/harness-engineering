@@ -1,5 +1,78 @@
 # @harness-engineering/cli
 
+## 9.0.0
+
+### Minor Changes
+
+- ef62251: Local backend runs the full harness workflow (gated). A `local`/`pi` dispatch now renders a backend-specific dispatch template (`harness.orchestrator.local.md`). Rather than paraphrasing the workflow inline, that template is a thin indirection shim that delivers the REAL skills over bash: the pi agent runs `harness skill run <name> --autonomous` (which prints the verbatim `SKILL.md`, no MCP required) and follows a `/harness:X` → `harness skill run harness-X` redirect. The new `--autonomous` flag on `harness skill run` prepends an autonomous-decider preamble so a headless agent runs each skill (including brainstorming) at full rigor but decides every fork itself and records it in the spec — with a PR-flag safety valve for low-confidence and strategy-contradiction forks, and no mid-run human pause; absent the flag, skill-run output is byte-identical to before. The orchestrator ENFORCES the verify + outcome-eval gates itself (`runLocalWorkflowGate` in `finalizeNormalCompletion`): a red verify or a high-confidence `NOT_SATISFIED` verdict routes through the existing `emitWorkerExit('error')` retry branch (re-prompt on retry, `needs-human` on budget exhaustion) so poor local output halts rather than ships. Template selection (`resolvePromptTemplate`) falls back to the default Claude template when the local file is absent, and the Claude/AMR completion path is unchanged (the gate is a no-op for non-local backends). A config flag `agent.routing.workflowGates: local | primary` routes the local outcome-eval gate to a stronger provider (default local SEL; the AMR caller is unaffected). See ADRs 0070/0071/0072.
+- 723072d: fix(triage): select the local model from the LMLM pool (reasoning-ranked), not the static config list
+
+  `harness roadmap triage` resolved its local model from `agent.backends.local.model[0]` — a
+  fixed, hand-maintained list — so triage could stay pinned to a weak model even after the Local
+  Model Lifecycle Manager pool had installed and ranked a stronger one. The live orchestrator does
+  not have this problem: its `LocalModelResolver` derives candidates from the pool via
+  `poolStateToCandidates(snapshot, profile)`. This brings the same pool-first pick to the one-shot
+  CLI triage path so the CLI and live agents agree on the model.
+  - The report/brainstorm now prefer the pool's top-ranked model for the **`reasoning`** profile
+    (the triage gate's safety rests on reasoning-grade complexity judgment). In a real dogfood run,
+    this flipped an item the weak model mis-read as `trivial`/dispatchable to a correct
+    `moderate` → held-to-human — without any config change.
+  - The static `agent.backends.*.model` list remains the documented **fallback** for pool-less
+    adopters and non-Ollama backends; a missing/empty/broken pool degrades to it silently (never an
+    error). An explicit `--model` still wins; explicit cloud (`intelligence.provider`) backends
+    ignore the local pool pick.
+  - Orchestrator now re-exports the pool-state primitives (`PoolStateStore`,
+    `poolStateToCandidates`, `DEFAULT_POOL_STATE_PATH`, `PoolState`, `RankProfile`) so the CLI reads
+    the persisted pool without a new CLI→local-models package edge.
+
+### Patch Changes
+
+- 723072d: fix(triage): don't label a deferred open-decisions lever as "no provider (offline)"
+
+  The cheap-first report holds obviously-out-of-band items (scope-too-large, not-in-band) before
+  spending an LLM call, so their open-decisions lever runs without a provider and printed
+  `open-decisions: no provider (offline)` — misleading, since a provider WAS available and the
+  lever was simply deferred, not missing/mis-configured.
+
+  New `ProbeDeps.modelDeferred` hint (threaded through `triageIssue`): when a model is available
+  but its levers were deferred for a cheap pass, the reason reads `not evaluated (item held before
+the model pass)`. A genuinely offline run (`--offline` / no provider wired) still reads
+  `no provider (offline)`. Wording only — the lever value stays `unknown` and the gate never
+  dispatches on an unread lever either way.
+
+- 723072d: fix(triage): health-check the pool model pick + reject truncated native output
+
+  Two silent-degradation fixes surfaced by an adversarial review of the local-model path:
+  - **Pool pick now health-checks against the endpoint's `/v1/models`** (`triage-pool.ts`). Before,
+    the CLI returned the top-ranked `pool.json` entry without verifying the endpoint serves it — so
+    a model `ollama rm`'d out-of-band, or a pool copied onto a host whose `pi` endpoint is
+    vLLM/LM-Studio (different model ids), got baked in as the model, every LLM lever 404'd, and the
+    report silently fell back to the static path while _claiming_ a model ran. It now picks the
+    highest-ranked candidate the endpoint actually serves and otherwise falls back to the config
+    list — true parity with the live `LocalModelResolver` (rank, then intersect with the probe).
+    Also guards a corrupt empty-string `ollamaName`.
+  - **Native `think:false` path rejects truncated output** (`openai-compatible.ts`). It now throws
+    on Ollama's `done_reason: 'length'` (mirroring the compat path's `finish_reason === 'length'`
+    guard) so a `format`-constrained partial-but-parseable body isn't returned as complete — it
+    falls back to the compat path instead. Added tests for the native fallback branches
+    (truncation, schema-invalid body, missing content).
+
+- Updated dependencies [2880b3a]
+- Updated dependencies [ef62251]
+- Updated dependencies [723072d]
+- Updated dependencies [723072d]
+- Updated dependencies [723072d]
+- Updated dependencies [723072d]
+- Updated dependencies [723072d]
+- Updated dependencies [723072d]
+  - @harness-engineering/orchestrator@0.16.0
+  - @harness-engineering/types@0.23.0
+  - @harness-engineering/intelligence@0.9.0
+  - @harness-engineering/dashboard@0.14.5
+  - @harness-engineering/core@0.37.1
+  - @harness-engineering/graph@0.11.9
+  - @harness-engineering/signals@0.2.7
+
 ## 8.0.0
 
 ### Minor Changes
