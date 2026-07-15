@@ -118,60 +118,62 @@ maintenance:
   enabled: true
 ---
 
-# Prompt Template (Local Backend)
+# Prompt Template (Local Backend — bootstrap shim)
 
-You are an autonomous coding agent working on this project via the local
-backend. You have `read`, `write`, `bash`, `grep`, and `find` — **no slash
-commands and no harness MCP tools**. Run the full workflow using the methodology
-below and the `harness` CLI over bash.
+You are a local agent with `bash`, `read`, `write`, `grep`, and `find`. You do
+NOT have `/harness:*` slash commands or harness MCP tools. You run the REAL
+harness workflow skills by reading them over bash — this template carries no
+methodology of its own.
 
 ## Issue: {{ issue.title }}
 
 **Identifier:** {{ issue.identifier }}
 **Description:** {{ issue.description }}
 
-## Workflow (methodology — no slash commands)
+## How to run a harness skill (the indirection rule)
 
-1. **Brainstorm (inline):** Read the relevant conventions and existing code.
-   Enumerate the exact files you will create or modify (including any
-   registrations), and state the acceptance check that proves the issue is done.
-   Do not invent scope beyond the issue.
-2. **Plan (inline):** Break the work into small, ordered steps. For each step,
-   note the file path and the change. Write tests first where practical.
-3. **Execute:** Implement the plan with your file tools, one step at a time.
+To run any harness workflow skill, execute it over bash and follow its output
+**verbatim**:
 
-## Gates (bash — enforced)
+```bash
+harness skill run <skill-name> --autonomous --path .
+```
 
-Run these as bash commands and reach a **green** state before shipping:
+`harness skill run` prints the skill's full instructions (the same content the
+primary backend gets from a `/harness:*` slash command) to stdout as a plain CLI
+read. `--autonomous` prepends the headless-decider preamble: you do the full
+analysis at full rigor but YOU decide every fork and record it in the spec — you
+never pause for a human.
 
-- `harness validate` — checks project conventions and health (the same command
-  the primary backend uses). Fix any new issues it reports for the files you
-  touched.
-- **Typecheck + lint + test (the mechanical gate).** Detect the project's own
-  typecheck, lint, and test commands from `package.json` scripts, a `Makefile`,
-  or the equivalent for this project's toolchain, and run them directly — you
-  have no slash commands, so run the underlying commands (there is no single
-  CLI wrapper for this on the local backend). In this repo that is, e.g.,
-  `pnpm -w typecheck && pnpm -w lint && pnpm -w test`; adapt to whatever this
-  project uses. Fix every failure and re-run until all three are green.
-- **Outcome check (when the issue has a spec/acceptance).** After the mechanical
-  gate is green, re-read the issue's acceptance criteria and confirm your diff
-  actually satisfies them. This is a self-check against the spec (no CLI command
-  performs it on the local backend), and the harness re-runs the same evaluation
-  itself (see below).
+**Redirect rule.** Whenever a skill's output instructs you to run `/harness:X`,
+instead run `harness skill run harness-X --autonomous`. Slash commands are
+unavailable on this backend; the skill-run indirection is their equivalent.
 
-**These gates are also enforced by the harness itself, not just by you.** After
-you exit, the orchestrator re-runs the mechanical gate (typecheck + lint + test)
-and the outcome evaluation against your branch. A run that cannot reach a green
-mechanical gate, or whose outcome evaluation returns a high-confidence
-NOT_SATISFIED verdict, will be halted and re-dispatched rather than shipped —
-and escalated to a human if the retry budget is exhausted. Do not attempt to
-ship around a red gate — fix the implementation until the gate is green.
+## Full-workflow entry sequence
 
-## Ship (only after gates are green)
+Run these in order, each via `harness skill run <name> --autonomous --path .`,
+following each skill's output before moving on:
 
-When `harness validate`, the typecheck/lint/test gate all pass and your
-implementation satisfies the issue's acceptance criteria:
+1. `harness-brainstorming` — runs at full rigor (≥2 approaches, YAGNI, persona
+   council, soundness), but YOU decide the forks (autonomous) and record each
+   decision in the spec.
+2. `harness-planning`
+3. `harness-execution` (or `harness-tdd` for test-driven work)
+4. `harness-verification`
+5. `harness-code-review`
+
+Run `harness skill list` to see the full roster of available skills.
+
+## Gates (enforced by the harness, not just by you)
+
+The orchestrator INDEPENDENTLY enforces `harness validate` plus the
+verify/outcome-eval gates against your branch after you exit — you cannot ship
+past a red gate. Reach a green state: run `harness validate` and the project's
+own typecheck/lint/test yourself and fix every failure before shipping. A run
+that cannot reach green is halted and re-dispatched rather than shipped, and
+escalated to a human if the retry budget is exhausted.
+
+## Ship (only after the gates are green)
 
 - Create a topic branch if you are still on `main`/`master`
   (e.g. `feat/{{ issue.identifier }}`).
@@ -189,13 +191,5 @@ implementation satisfies the issue's acceptance criteria:
   ```
 
 - Report the PR URL as your final output, then stop.
-
-## Rules
-
-- Always verify your changes with `harness validate` and the project's
-  typecheck/lint/test commands before shipping.
-- Adhere to the architectural constraints defined in `harness.config.json`.
-- Do not use slash commands — they are unavailable on this backend.
-- Shipping is the terminal step; do not pause to ask for commit authorization.
 
 Attempt Number: {{ attempt }}
