@@ -397,6 +397,53 @@ describe('runLocalWorkflowGate — outcome-eval (Task 7 / SC4)', () => {
   });
 });
 
+describe('local gate composition + non-pi no-op (Task 9 / regression guard)', () => {
+  /** Spy the two AMR sibling verdict feeders; return both spies. */
+  function spySiblings(orch: Orchestrator): {
+    quality: ReturnType<typeof vi.fn>;
+    retro: ReturnType<typeof vi.fn>;
+  } {
+    const quality = vi.fn(async () => undefined);
+    const retro = vi.fn(async () => undefined);
+    (
+      orch as unknown as { deriveSingleAgentQualityVerdict: unknown }
+    ).deriveSingleAgentQualityVerdict = quality;
+    (
+      orch as unknown as { deriveRoutingRetrospectiveVerdict: unknown }
+    ).deriveRoutingRetrospectiveVerdict = retro;
+    return { quality, retro };
+  }
+
+  it('non-pi (claude) completion: gate is a no-op and the AMR sibling verdicts still run + normal exit', async () => {
+    // A verify that WOULD fail if the gate ran — proving the non-pi guard skips it.
+    const orch = newOrch({ primary: CLAUDE_BACKEND }, 'primary', async () => ({
+      ok: false,
+      output: 'would fail if gate ran',
+    }));
+    const { quality, retro } = spySiblings(orch);
+    const emit = spyEmitWorkerExit(orch);
+
+    await finalize(orch)(ISSUE, tmpDir, 1, 'primary');
+
+    // Claude path byte-identical: both sibling verdicts ran, normal exit fired.
+    expect(quality).toHaveBeenCalledTimes(1);
+    expect(retro).toHaveBeenCalledTimes(1);
+    expect(emit.mock.calls[0]![1]).toBe('normal');
+  });
+
+  it('local completion, verify PASS + no spec: gate green → AMR siblings still run (composition) + normal exit', async () => {
+    const orch = newOrch({ local: LOCAL_BACKEND }, 'local', async () => ({ ok: true, output: '' }));
+    const { quality, retro } = spySiblings(orch);
+    const emit = spyEmitWorkerExit(orch);
+
+    await finalize(orch)(ISSUE, tmpDir, 1, 'local');
+
+    expect(quality).toHaveBeenCalledTimes(1);
+    expect(retro).toHaveBeenCalledTimes(1);
+    expect(emit.mock.calls[0]![1]).toBe('normal');
+  });
+});
+
 describe('local gate exhaustion → needs-human (Task 8 / SC3 tail)', () => {
   it('persistently-red gate re-dispatches until the retry budget, then escalates exactly once', async () => {
     // maxRetries = 2 ⇒ attempt 1 (nextAttempt 2 ≤ 2) retries; attempt 2
