@@ -65,6 +65,14 @@ export interface ProbeConfig {
 export interface ProbeDeps {
   /** The SEL analysis provider for the semantic-read + open-decisions levers. Absent ⇒ offline. */
   provider?: AnalysisProvider;
+  /**
+   * Signals that a model IS available but its levers were intentionally DEFERRED for this run
+   * (e.g. a cheap-first report pass that holds obviously-out-of-band items before spending an LLM
+   * call). Only affects wording: a provider-less lever then reports "not evaluated (held before
+   * the model pass)" instead of "no provider (offline)", so a deferred lever is not mistaken for a
+   * missing/mis-configured provider. No effect on the gate — an unread lever never dispatches.
+   */
+  modelDeferred?: boolean;
   /** The graph-resolution seam for the scope lever. Absent ⇒ scope degrades to unknown. */
   graph?: GraphScope;
   /** The precedent lever. Absent ⇒ `unknown` (cold-start), which never blocks. */
@@ -114,7 +122,7 @@ export async function runScopingProbe(
   const semanticRead = await runSemanticReadLever(input, scope.value, deps);
 
   // --- Lever 3: open decisions (structured self-assessment). ----------------
-  const openDecisions = await runOpenDecisionsLever(input, deps.provider);
+  const openDecisions = await runOpenDecisionsLever(input, deps.provider, deps.modelDeferred);
 
   // --- Lever 4: precedent (injected base-rate; unknown at cold-start). -------
   const precedent = runPrecedentLever(input, semanticRead.value, deps.precedent);
@@ -225,17 +233,38 @@ async function runSemanticReadLever(
 
 async function runOpenDecisionsLever(
   input: ProbeInput,
-  provider: AnalysisProvider | undefined
+  provider: AnalysisProvider | undefined,
+  modelDeferred?: boolean
 ): Promise<LeverResult<readonly OpenDecision[]>> {
   if (provider === undefined) {
-    return { value: 'unknown', reason: 'open-decisions: no provider (offline)' };
+    // A model WAS available but this lever was deferred (cheap-first held the item earlier) vs.
+    // genuinely offline (no provider wired / `--offline`). Same `unknown` value — the gate never
+    // dispatches on an unread lever either way — but accurate wording so a deferred lever is not
+    // misread as a missing provider.
+    return {
+      value: 'unknown',
+      reason:
+        modelDeferred === true
+          ? 'open-decisions: not evaluated (item held before the model pass)'
+          : 'open-decisions: no provider (offline)',
+    };
   }
   try {
     const { result } = await provider.analyze<{ openDecisions: OpenDecision[] }>({
       prompt: input.taskText.prompt,
       systemPrompt: OPEN_DECISIONS_SYSTEM_PROMPT,
       responseSchema: OpenDecisionsSchema,
-      maxTokens: 512,
+      // Suppress the reasoning trace where the backend can (Ollama native) — enumerating the
+      // human-judgment decisions is structured extraction, not open-ended reasoning. Verified to
+      // surface the same decisions as with thinking on. No-op on backends that cannot honor it.
+      disableThinking: true,
+      // Headroom for reasoning models (Qwen3 et al.): they emit a `<think>` trace
+      // before the JSON, and this open-ended decisions schema elicits more of it than
+      // the tiny classify schema. A tight cap truncates mid-reasoning →
+      // `finish_reason: length` → the catch degrades this lever to `unknown`, silently
+      // blinding the open-decisions signal. `maxTokens` is a ceiling (a non-thinking
+      // model still stops early), so this is free on the fast path.
+      maxTokens: 4096,
     });
     const decisions = result.openDecisions ?? [];
     const note =

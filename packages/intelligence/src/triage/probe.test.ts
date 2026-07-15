@@ -271,6 +271,27 @@ describe('runScopingProbe — SC5 lever-degrade / never-throws', () => {
     // above, where the semantic read succeeds but the open-decisions lever alone is unread.
     expect(v.holdReason).toBe('not-in-band');
   });
+
+  it('worded "offline" with no provider AND no modelDeferred flag', async () => {
+    const v = await runScopingProbe(inputFor(), {
+      graph: stubGraph({ BackendRouter: { nodeId: 'class:BackendRouter', blastRadius: 2 } }),
+    });
+    expect(v.levers.openDecisions.reason).toContain('no provider (offline)');
+  });
+
+  it('worded "not evaluated (held before the model pass)" when the model was DEFERRED (cheap-first)', async () => {
+    // A model was available but its levers were deferred for a cheap first pass — the open-
+    // decisions reason must NOT claim the provider is missing/offline.
+    const v = await runScopingProbe(inputFor(), {
+      graph: stubGraph({ BackendRouter: { nodeId: 'class:BackendRouter', blastRadius: 2 } }),
+      modelDeferred: true,
+    });
+    expect(v.levers.openDecisions.value).toBe('unknown'); // still unread — gate unaffected
+    expect(v.levers.openDecisions.reason).toContain(
+      'not evaluated (item held before the model pass)'
+    );
+    expect(v.levers.openDecisions.reason).not.toContain('offline');
+  });
 });
 
 // ---------------------------------------------------------------------------

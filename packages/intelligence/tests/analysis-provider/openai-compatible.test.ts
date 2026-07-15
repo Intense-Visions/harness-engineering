@@ -362,4 +362,158 @@ describe('OpenAICompatibleAnalysisProvider', () => {
       ).rejects.toThrow('ECONNREFUSED');
     });
   });
+
+  describe('disableThinking → Ollama native /api/chat', () => {
+    const nativeBody = (content: string) =>
+      ({
+        ok: true,
+        json: async () => ({ message: { content }, prompt_eval_count: 40, eval_count: 12 }),
+      }) as unknown as Response;
+
+    it('routes to native /api/chat with think:false + format, NOT the OpenAI SDK', async () => {
+      const payload = { summary: 'native', score: 0.5 };
+      const fetchMock = vi.fn().mockResolvedValueOnce(nativeBody(JSON.stringify(payload)));
+      vi.stubGlobal('fetch', fetchMock);
+
+      const response = await provider.analyze({
+        prompt: 'Classify',
+        responseSchema: testSchema,
+        disableThinking: true,
+      });
+
+      expect(response.result).toEqual(payload);
+      expect(mockCreate).not.toHaveBeenCalled(); // native path taken, OpenAI SDK untouched
+      const [url, init] = fetchMock.mock.calls[0];
+      expect(url).toBe('http://localhost:11434/api/chat'); // /v1 stripped → native route
+      const body = JSON.parse((init as { body: string }).body);
+      expect(body.think).toBe(false);
+      expect(body.stream).toBe(false);
+      expect(body.format).toBeTypeOf('object'); // schema enforced natively
+      expect(response.tokenUsage.outputTokens).toBe(12);
+
+      vi.unstubAllGlobals();
+    });
+
+    it('falls back to the OpenAI-compatible path when native returns non-2xx (non-Ollama backend)', async () => {
+      const fetchMock = vi.fn().mockResolvedValueOnce({ ok: false, status: 404 } as Response);
+      vi.stubGlobal('fetch', fetchMock);
+      const payload = { summary: 'fallback', score: 0.9 };
+      mockCreate.mockResolvedValueOnce(makeCompletionResponse(JSON.stringify(payload)));
+
+      const response = await provider.analyze({
+        prompt: 'Classify',
+        responseSchema: testSchema,
+        disableThinking: true,
+      });
+
+      expect(response.result).toEqual(payload); // graceful fallback — never breaks the call
+      expect(fetchMock).toHaveBeenCalledTimes(1);
+      expect(mockCreate).toHaveBeenCalledTimes(1);
+
+      vi.unstubAllGlobals();
+    });
+
+    it('falls back when the native fetch throws (network / not-Ollama)', async () => {
+      const fetchMock = vi.fn().mockRejectedValueOnce(new Error('ECONNREFUSED'));
+      vi.stubGlobal('fetch', fetchMock);
+      const payload = { summary: 'fallback2', score: 0.1 };
+      mockCreate.mockResolvedValueOnce(makeCompletionResponse(JSON.stringify(payload)));
+
+      const response = await provider.analyze({
+        prompt: 'Classify',
+        responseSchema: testSchema,
+        disableThinking: true,
+      });
+
+      expect(response.result).toEqual(payload);
+      expect(mockCreate).toHaveBeenCalledTimes(1);
+
+      vi.unstubAllGlobals();
+    });
+
+    it('falls back to the OpenAI-compatible path when native returns truncated (done_reason=length)', async () => {
+      // A `format`-constrained decode can leave parseable-but-partial JSON; the done_reason guard
+      // must reject it and fall back rather than return a silently-truncated result.
+      const fetchMock = vi.fn().mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          message: { content: '{"summary":"partial"' },
+          done_reason: 'length',
+        }),
+      } as unknown as Response);
+      vi.stubGlobal('fetch', fetchMock);
+      const payload = { summary: 'complete', score: 0.7 };
+      mockCreate.mockResolvedValueOnce(makeCompletionResponse(JSON.stringify(payload)));
+
+      const response = await provider.analyze({
+        prompt: 'Classify',
+        responseSchema: testSchema,
+        disableThinking: true,
+      });
+
+      expect(response.result).toEqual(payload); // fell back, did NOT accept the truncated native body
+      expect(mockCreate).toHaveBeenCalledTimes(1);
+
+      vi.unstubAllGlobals();
+    });
+
+    it('falls back when the native body is 2xx but schema-invalid (ZodError not silently accepted)', async () => {
+      // Ollama responded, but the JSON is structurally wrong for the schema — the exact signal
+      // that "identical verdict with thinking off" broke. It must fall back, not throw or accept.
+      const fetchMock = vi.fn().mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ message: { content: '{"summary":"ok"}' } }), // missing `score`
+      } as unknown as Response);
+      vi.stubGlobal('fetch', fetchMock);
+      const payload = { summary: 'via-compat', score: 0.4 };
+      mockCreate.mockResolvedValueOnce(makeCompletionResponse(JSON.stringify(payload)));
+
+      const response = await provider.analyze({
+        prompt: 'Classify',
+        responseSchema: testSchema,
+        disableThinking: true,
+      });
+
+      expect(response.result).toEqual(payload);
+      expect(mockCreate).toHaveBeenCalledTimes(1);
+
+      vi.unstubAllGlobals();
+    });
+
+    it('falls back when the native 2xx body is missing message content', async () => {
+      const fetchMock = vi.fn().mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ message: {} }), // ok:true but no content (e.g. an error body)
+      } as unknown as Response);
+      vi.stubGlobal('fetch', fetchMock);
+      const payload = { summary: 'recovered', score: 0.2 };
+      mockCreate.mockResolvedValueOnce(makeCompletionResponse(JSON.stringify(payload)));
+
+      const response = await provider.analyze({
+        prompt: 'Classify',
+        responseSchema: testSchema,
+        disableThinking: true,
+      });
+
+      expect(response.result).toEqual(payload);
+      expect(mockCreate).toHaveBeenCalledTimes(1);
+
+      vi.unstubAllGlobals();
+    });
+
+    it('does NOT touch fetch when disableThinking is absent (default OpenAI-compat path)', async () => {
+      const fetchMock = vi.fn();
+      vi.stubGlobal('fetch', fetchMock);
+      mockCreate.mockResolvedValueOnce(
+        makeCompletionResponse(JSON.stringify({ summary: 'ok', score: 1 }))
+      );
+
+      await provider.analyze({ prompt: 'Classify', responseSchema: testSchema });
+
+      expect(fetchMock).not.toHaveBeenCalled();
+      expect(mockCreate).toHaveBeenCalledTimes(1);
+
+      vi.unstubAllGlobals();
+    });
+  });
 });

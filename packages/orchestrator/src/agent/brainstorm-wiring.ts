@@ -100,7 +100,13 @@ export interface SelForkGeneratorOptions {
   samples?: number;
   /** Optional model override threaded to the provider. */
   model?: string;
-  /** Max tokens per sample (default 512). */
+  /**
+   * Max tokens per sample (default 4096). Sized for reasoning models (Qwen3 et al.): they emit
+   * a `<think>` trace before the JSON fork step, so a tight cap truncates mid-reasoning →
+   * `finish_reason: length` → a thrown provider error → the runner halts the fork as `error`.
+   * `maxTokens` is a ceiling (a non-thinking model still stops early), so the headroom is free
+   * on the fast path and only spent when reasoning occurs.
+   */
   maxTokens?: number;
 }
 
@@ -120,7 +126,7 @@ export function makeSelForkGenerator(
   opts: SelForkGeneratorOptions = {}
 ): ForkGenerator {
   const samples = Math.max(2, opts.samples ?? 3);
-  const maxTokens = opts.maxTokens ?? 512;
+  const maxTokens = opts.maxTokens ?? 4096;
 
   return {
     async next(

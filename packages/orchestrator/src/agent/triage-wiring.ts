@@ -116,6 +116,12 @@ export interface TriageWiringDeps {
   config?: Partial<ProbeConfig>;
   /** Optional model overrides threaded to the classifier tie-break. */
   models?: { fast?: string; standard?: string };
+  /**
+   * Signals that a model is available but its levers were DEFERRED for this run (cheap-first).
+   * Threaded to the probe so a deferred (not missing) provider is worded accurately. See
+   * `ProbeDeps.modelDeferred`.
+   */
+  modelDeferred?: boolean;
 }
 
 /**
@@ -136,6 +142,7 @@ export async function triageIssue(
     ...(deps.precedent ? { precedent: deps.precedent } : {}),
     ...(deps.config ? { config: deps.config } : {}),
     ...(deps.models ? { models: deps.models } : {}),
+    ...(deps.modelDeferred ? { modelDeferred: true } : {}),
   });
 }
 

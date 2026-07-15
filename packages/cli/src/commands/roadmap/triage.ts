@@ -38,6 +38,7 @@ import { loadGraphStore } from '../../mcp/utils/graph-loader';
 import { resolveConfig } from '../../config/loader';
 import { logger } from '../../output/logger';
 import { resolveTriageProvider, type TriageProviderConfig } from './triage-provider.js';
+import { resolvePreferredLocalModel } from './triage-pool.js';
 import { deriveReadyCandidates, buildApprovalPlan } from './triage-approve.js';
 // The shared feature/issue leaf (extracted to break the triage ↔ triage-approve import
 // cycle). Re-exported so existing `import { ... } from './triage.js'` callers keep working.
@@ -208,13 +209,17 @@ export async function runTriageReport(
     ...(deps.only !== undefined ? { only: deps.only } : {}),
     ...(deps.limit !== undefined ? { limit: deps.limit } : {}),
   });
+  const useModel = deps.offline !== true && deps.provider != null;
   // The CHEAP probe deps (no provider): graph scope + static complexity, guaranteed no LLM call.
+  // When a model IS available (just deferred for cheap-first), tell the probe so a held item's
+  // open-decisions lever reads "not evaluated (held before the model pass)" rather than the
+  // misleading "no provider (offline)". Under `--offline`/no provider, leave it as offline.
   const cheapDeps = {
     ...(deps.graphStore ? { graphStore: deps.graphStore } : {}),
     ...(deps.precedent ? { precedent: deps.precedent } : {}),
     ...(deps.config ? { config: deps.config } : {}),
+    ...(useModel ? { modelDeferred: true } : {}),
   };
-  const useModel = deps.offline !== true && deps.provider != null;
   const rows: TriageReportRow[] = [];
   for (const feature of features) {
     // Pass 1 (cheap): scope + static complexity, NO model call.
@@ -494,11 +499,51 @@ export function renderBrainstormJson(rows: BrainstormReportRow[]): string {
  *
  * The provider resolution proper lives in `resolveTriageProvider`; this thin wrapper reads the
  * resolved config once and hands it in (so a failed config read degrades to `null`, not a throw).
+ *
+ * Pool-first: for the local backend it prefers the LMLM pool's top-ranked model for the
+ * `reasoning` profile (the gate's safety rests on reasoning-grade complexity judgment) — but only
+ * a model the backend's endpoint is actually SERVING (the health check in
+ * `resolvePreferredLocalModel`), matching how the live orchestrator resolves its local model. The
+ * static `agent.backends.local.model` list remains the fallback when the pool is empty/absent, the
+ * endpoint doesn't serve any ranked candidate (a non-Ollama `pi` endpoint, or a model `rm`'d
+ * out-of-band), or the probe fails. A missing pool/probe never blocks resolution.
  */
-function resolveBrainstormProvider(configPath?: string, model?: string): AnalysisProvider | null {
+async function resolveBrainstormProvider(
+  configPath?: string,
+  model?: string
+): Promise<AnalysisProvider | null> {
   const configResult = resolveConfig(configPath);
   if (!configResult.ok) return null;
-  return resolveTriageProvider(configResult.value as TriageProviderConfig, model);
+  const config = configResult.value as TriageProviderConfig;
+  // Health-check the pool pick against the SAME local backend `resolveTriageProvider` will use
+  // (first `local`/`pi`), so the CLI never hands the provider a model the endpoint isn't serving.
+  const localBackend = pickLocalBackendConn(config);
+  const preferredLocalModel = await resolvePreferredLocalModel('reasoning', {
+    ...(localBackend?.endpoint !== undefined ? { endpoint: localBackend.endpoint } : {}),
+    ...(localBackend?.apiKey !== undefined ? { apiKey: localBackend.apiKey } : {}),
+  });
+  return resolveTriageProvider(config, model, preferredLocalModel);
+}
+
+/**
+ * The connection details (endpoint + apiKey) of the first `local`/`pi` backend in config — the
+ * one `resolveTriageProvider` resolves — so the pool health-check probes the same endpoint. Undefined
+ * when there is no local backend (⇒ no health check ⇒ config fallback).
+ */
+function pickLocalBackendConn(
+  config: TriageProviderConfig
+): { endpoint?: string; apiKey?: string } | undefined {
+  const backends = config.agent?.backends;
+  if (!backends) return undefined;
+  for (const def of Object.values(backends)) {
+    if (def.type === 'local' || def.type === 'pi') {
+      return {
+        ...(def.endpoint !== undefined ? { endpoint: def.endpoint } : {}),
+        ...(def.apiKey !== undefined ? { apiKey: def.apiKey } : {}),
+      };
+    }
+  }
+  return undefined;
 }
 
 // ---------------------------------------------------------------------------
@@ -549,7 +594,7 @@ export async function runApproveCommand(
   // 3. Brainstorm to surface READY candidates (spec drafted + re-score dispatchable). The
   //    provider is the FREE LOCAL backend (or explicit opt-in); absent ⇒ every item halts.
   const graphStore = await loadGraphStore(cwd);
-  const provider = resolveBrainstormProvider(opts.config);
+  const provider = await resolveBrainstormProvider(opts.config);
   // The real precedent lever (SC5) so the approve-flow RE-SCORE — the verdict the marker
   // records as the pre-dispatch prediction — reads real base-rates. Cold-start/empty store ⇒
   // `undefined` ⇒ `unknown` ⇒ no behavior change vs today.
@@ -737,7 +782,8 @@ async function runTriageCommandAction(
   // FIX A: resolve the SEL provider (FREE LOCAL backend by default). Absent OR --offline ⇒ the
   // pure static path (graceful fallback — never an error). Progress goes to the logger only in
   // non-JSON mode so JSON output stays parseable. FIX B: shared --only/--limit targeting.
-  const provider = opts.offline === true ? null : resolveBrainstormProvider(globalOpts.config);
+  const provider =
+    opts.offline === true ? null : await resolveBrainstormProvider(globalOpts.config);
   const onProgress =
     globalOpts.json === true ? undefined : (message: string) => logger.info(message);
   const shared = {
