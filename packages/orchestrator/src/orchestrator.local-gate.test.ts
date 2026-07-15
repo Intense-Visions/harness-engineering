@@ -298,6 +298,33 @@ describe('runLocalWorkflowGate — verify gate (Task 5 / SC3)', () => {
   });
 });
 
+describe('runLocalWorkflowGate — fail-closed on gate EXCEPTION (B1, safety-critical)', () => {
+  it('verifyRunner THROWS → { ok: false, reason contains "gate error" }', async () => {
+    const orch = newOrch({ local: LOCAL_BACKEND }, 'local', async () => {
+      throw new Error('boom');
+    });
+    const result = await gate(orch)(ISSUE, tmpDir, 'local');
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.reason).toContain('gate error');
+      expect(result.reason).toContain('boom');
+    }
+  });
+
+  it('completion path on a THROWING gate → emitWorkerExit(error, …), NEVER normal', async () => {
+    const orch = newOrch({ local: LOCAL_BACKEND }, 'local', async () => {
+      throw new Error('boom');
+    });
+    const emit = spyEmitWorkerExit(orch);
+    await finalize(orch)(ISSUE, tmpDir, 1, 'local');
+    expect(emit).toHaveBeenCalledTimes(1);
+    expect(emit.mock.calls[0]![1]).toBe('error');
+    expect(emit.mock.calls[0]![3]).toContain('gate error');
+    // The unreachable-success guard: a thrown gate must NEVER produce a normal exit.
+    expect(emit.mock.calls.some((c) => c[1] === 'normal')).toBe(false);
+  });
+});
+
 describe('completion path wiring — block + re-dispatch (Task 6 / SC3)', () => {
   it('D: pi dispatch + verify FAIL → emitWorkerExit(error, reason), NEVER normal', async () => {
     const orch = newOrch({ local: LOCAL_BACKEND }, 'local', async () => ({
