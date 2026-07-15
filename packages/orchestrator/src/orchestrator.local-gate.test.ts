@@ -177,6 +177,30 @@ function stubBackgroundLaunch(orch: Orchestrator): ReturnType<typeof vi.fn> {
   return spy;
 }
 
+/** Inject a fake analysis provider whose one-shot `analyze` returns a canned verdict. */
+function stubProvider(orch: Orchestrator, llmVerdict: Record<string, unknown> | null): void {
+  const analyze = vi.fn(async () => ({ result: llmVerdict }));
+  (orch as unknown as { resolveComplexityProvider: () => unknown }).resolveComplexityProvider =
+    () => (llmVerdict === null ? undefined : { analyze });
+}
+
+/** Stub the workspace introduced-diff-text source. */
+function stubDiffText(orch: Orchestrator, text: string): void {
+  (
+    orch as unknown as { workspace: { getIntroducedDiffText: unknown } }
+  ).workspace.getIntroducedDiffText = vi.fn(async () => text);
+}
+
+/** Write a spec with a judgeable Success Criteria section; return its rel path. */
+function writeSpec(): string {
+  const rel = 'spec.md';
+  fs.writeFileSync(
+    path.join(tmpDir, rel),
+    '# Feature\n\n## Success Criteria\n\n- The widget must debounce input by 300ms.\n'
+  );
+  return rel;
+}
+
 const ISSUE = {
   id: 'i1',
   identifier: 'ISS-1',
@@ -294,5 +318,69 @@ describe('completion path wiring — block + re-dispatch (Task 6 / SC3)', () => 
     const prompt = launch.mock.calls[0]![2] as string;
     expect(prompt).toContain('Previous attempt failed the enforced gate');
     expect(prompt).toContain('TypeError foo is not a function');
+  });
+});
+
+describe('runLocalWorkflowGate — outcome-eval (Task 7 / SC4)', () => {
+  const withSpec = (): Issue => ({ ...ISSUE, spec: writeSpec() }) as unknown as Issue;
+
+  it('G: pi + verify PASS + high-confidence NOT_SATISFIED → { ok: false }, and completion blocks', async () => {
+    const orch = newOrch({ local: LOCAL_BACKEND }, 'local', async () => ({ ok: true, output: '' }));
+    stubDiffText(orch, 'diff --git a/x b/x\n+broke it');
+    stubProvider(orch, {
+      verdict: 'NOT_SATISFIED',
+      confidence: 'high',
+      rationale: 'debounce not implemented',
+      unmetCriteria: ['debounce 300ms'],
+    });
+
+    const result = await gate(orch)(withSpec(), tmpDir, 'local');
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.reason.toLowerCase()).toContain('not_satisfied');
+    }
+
+    // The completion path blocks (emitWorkerExit error, never normal).
+    const orch2 = newOrch({ local: LOCAL_BACKEND }, 'local', async () => ({
+      ok: true,
+      output: '',
+    }));
+    stubDiffText(orch2, 'diff --git a/x b/x\n+broke it');
+    stubProvider(orch2, {
+      verdict: 'NOT_SATISFIED',
+      confidence: 'high',
+      rationale: 'r',
+      unmetCriteria: [],
+    });
+    const emit = spyEmitWorkerExit(orch2);
+    await finalize(orch2)(withSpec(), tmpDir, 1, 'local');
+    expect(emit.mock.calls[0]![1]).toBe('error');
+    expect(emit.mock.calls.some((c) => c[1] === 'normal')).toBe(false);
+  });
+
+  it('H: pi + verify PASS + SATISFIED → { ok: true } → normal completion', async () => {
+    const orch = newOrch({ local: LOCAL_BACKEND }, 'local', async () => ({ ok: true, output: '' }));
+    stubDiffText(orch, 'diff --git a/x b/x\n+ok');
+    stubProvider(orch, {
+      verdict: 'SATISFIED',
+      confidence: 'high',
+      rationale: 'looks right',
+      unmetCriteria: [],
+    });
+    const result = await gate(orch)(withSpec(), tmpDir, 'local');
+    expect(result.ok).toBe(true);
+  });
+
+  it('H2: pi + verify PASS + LOW-confidence NOT_SATISFIED → { ok: true } (only high-confidence blocks)', async () => {
+    const orch = newOrch({ local: LOCAL_BACKEND }, 'local', async () => ({ ok: true, output: '' }));
+    stubDiffText(orch, 'diff --git a/x b/x\n+maybe');
+    stubProvider(orch, {
+      verdict: 'NOT_SATISFIED',
+      confidence: 'low',
+      rationale: 'unclear',
+      unmetCriteria: [],
+    });
+    const result = await gate(orch)(withSpec(), tmpDir, 'local');
+    expect(result.ok).toBe(true);
   });
 });

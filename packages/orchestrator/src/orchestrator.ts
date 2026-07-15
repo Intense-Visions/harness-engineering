@@ -2494,8 +2494,23 @@ export class Orchestrator extends EventEmitter {
         };
       }
 
-      // 2. Outcome-eval (SC4) — added in Task 7. Green verify falls through
-      //    to a passing gate until then.
+      // 2. Outcome-eval (SC4): when a spec is present, run the SAME
+      //    OutcomeEvaluator engine the Claude/AMR path uses — un-gated from the
+      //    AMR-active + `acceptanceEval.enabled` requirements (D2: local always
+      //    evaluates when a spec exists). Read the eval model from the AMR
+      //    policy when configured, else default. A high-confidence NOT_SATISFIED
+      //    → `'quality-fail'` → block (same authority as the Claude path).
+      if (issue.spec !== null) {
+        const model = this.config.agent.routing?.policy?.acceptanceEval?.model;
+        const evalClass = await this.evaluateOutcomeCore(issue, workspacePath, model, 'local');
+        if (evalClass === 'quality-fail') {
+          return {
+            ok: false,
+            reason:
+              'outcome-eval returned a high-confidence NOT_SATISFIED verdict: the implementation does not satisfy the spec.',
+          };
+        }
+      }
       return { ok: true };
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
@@ -2574,14 +2589,35 @@ export class Orchestrator extends EventEmitter {
     workspacePath: string
   ): Promise<'quality-fail' | undefined> {
     const acceptanceEval = this.config.agent.routing?.policy?.acceptanceEval;
+    // AMR/Claude path gating stays here: opt-in via `acceptanceEval.enabled`.
     if (acceptanceEval?.enabled !== true || issue.spec === null) return undefined;
+    return this.evaluateOutcomeCore(issue, workspacePath, acceptanceEval.model, 'amr');
+  }
+
+  /**
+   * local-backend-full-workflow Phase 2 (Option C, SC4): the SHARED outcome-eval
+   * core, lifted out of `deriveAcceptanceEvalVerdict` so BOTH callers reuse the
+   * same `OutcomeEvaluator` engine over the introduced diff vs the spec's
+   * judgment section. It does NOT gate on `adaptiveRouter !== null` or
+   * `acceptanceEval.enabled` — those guards live in the AMR caller above; the
+   * LOCAL gate (D2) always evaluates when a spec is present. Maps a
+   * high-confidence NOT_SATISFIED to `'quality-fail'`; conservative + fully
+   * guarded: no spec / no provider / empty diff / any error → `undefined`.
+   */
+  private async evaluateOutcomeCore(
+    issue: Issue,
+    workspacePath: string,
+    model: string | undefined,
+    caller: 'amr' | 'local'
+  ): Promise<'quality-fail' | undefined> {
+    if (issue.spec === null) return undefined;
     const provider = this.resolveComplexityProvider();
     if (provider === undefined) return undefined;
     try {
       const diff = await this.workspace.getIntroducedDiffText(issue.identifier);
       if (diff.trim() === '') return undefined;
       const evaluator = new OutcomeEvaluator(provider, this.graphStore ?? new GraphStore(), {
-        ...(acceptanceEval.model !== undefined ? { model: acceptanceEval.model } : {}),
+        ...(model !== undefined ? { model } : {}),
       });
       const verdict = await evaluator.evaluate({
         specPath: path.join(workspacePath, issue.spec),
@@ -2593,14 +2629,17 @@ export class Orchestrator extends EventEmitter {
       });
       const cls = outcomeVerdictToQualityFail(verdict);
       if (cls === 'quality-fail') {
-        this.logger.info('amr:quality-fail — acceptance-eval NOT_SATISFIED (high confidence)', {
-          issueId: issue.id,
-          rationale: verdict.rationale,
-        });
+        this.logger.info(
+          `${caller}:quality-fail — acceptance-eval NOT_SATISFIED (high confidence)`,
+          {
+            issueId: issue.id,
+            rationale: verdict.rationale,
+          }
+        );
       }
       return cls;
     } catch (err) {
-      this.logger.debug('amr acceptance-eval skipped (best-effort)', {
+      this.logger.debug(`${caller} acceptance-eval skipped (best-effort)`, {
         issueId: issue.id,
         error: err instanceof Error ? err.message : String(err),
       });
