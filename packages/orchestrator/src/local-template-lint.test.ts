@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { PromptRenderer } from './prompt/renderer';
 
 /**
  * Lint guard for the two copies of the local-backend prompt template.
@@ -110,6 +111,40 @@ describe('local template lint — enforced-gate note survives', () => {
   ] as const) {
     it(`${label}: names the enforced gate (harness validate / verify)`, () => {
       expect(content).toMatch(/harness validate|verify/);
+    });
+  }
+});
+
+describe('local template lint — render contract (shim cannot throw at dispatch)', () => {
+  // The shim body is rendered by the orchestrator's LiquidJS renderer in
+  // strictVariables mode at every local dispatch (resolvePromptTemplate ->
+  // renderer.render). A stray `{%`/`{{` or a variable the dispatch context does
+  // not supply would pass every string-match guard above yet throw at render
+  // time, killing EVERY local dispatch. This renders the REAL body through the
+  // REAL renderer to lock in render-safety — the property the whole feature
+  // depends on. Context mirrors the orchestrator's dispatch render call.
+  const dispatchContext = {
+    issue: {
+      title: 'Fix the widget',
+      identifier: 'ROADMAP-42',
+      description: 'The widget does not render on Safari.',
+    },
+    attempt: 1,
+  };
+
+  for (const [label, content] of [
+    ['repo-root', rootContent],
+    ['scaffold', scaffoldContent],
+  ] as const) {
+    it(`${label}: real body renders under strictVariables without throwing`, async () => {
+      const renderer = new PromptRenderer();
+      const rendered = await renderer.render(bodyOf(content), dispatchContext);
+      // Every `{{ }}` token resolved (no unrendered mustache leaks) and no
+      // leftover Liquid tags.
+      expect(rendered).not.toMatch(/\{\{/);
+      expect(rendered).not.toMatch(/\{%/);
+      // Interpolation actually happened — the injected issue context is present.
+      expect(rendered).toContain('ROADMAP-42');
     });
   }
 });

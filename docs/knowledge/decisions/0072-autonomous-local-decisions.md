@@ -55,9 +55,12 @@ one PR-flag safety valve and no mid-run human pause (D9).**
   emphatic about — **strategy contradictions** and **any low-confidence fork** —
   are still decided by the agent and still proceed, but are additionally recorded
   under an **"## Autonomous decisions requiring review"** heading in the spec
-  (question, the agent's call, confidence, why). The orchestrator surfaces those
-  flags in the PR body, so the human's PR review sees exactly what was decided and
-  where confidence was low.
+  (question, the agent's call, confidence, why). The `--autonomous` preamble also
+  instructs the agent to surface those flags in the PR body it authors (the local
+  shim has the agent run `gh pr create` itself), so the human's PR review sees
+  exactly what was decided and where confidence was low. The surfacing is an agent
+  instruction, not orchestrator behavior — the orchestrator does not parse the spec
+  or edit the PR.
 - **Halt-not-ship still governs _code_; the flags govern _decisions_.** The
   enforced gates (ADR 0070 — verify + outcome-eval) remain the mechanism that
   stops bad _code_ from shipping. The autonomous flags are orthogonal: they make
@@ -89,7 +92,8 @@ by construction.
 - The local workflow runs end-to-end headless while preserving full brainstorm /
   plan / verify rigor — the agent decides, the spec records every decision.
 - Low-confidence and strategy-contradiction forks become **auditable at the PR**
-  via the "Autonomous decisions requiring review" flags, so a human sees the
+  via the "Autonomous decisions requiring review" flags the agent is instructed to
+  record in the spec and carry into the PR body it authors, so a human sees the
   weakest calls without a mid-run interruption.
 - Because the preamble is a `buildPreamble` section (not a one-shot header), it
   re-anchors on every `harness skill run` invocation across the workflow — a
