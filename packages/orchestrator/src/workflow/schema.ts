@@ -220,6 +220,10 @@ export const RoutingConfigSchema = z
     // from identity/default dispatch to complexity-aware tier routing (default-off
     // when absent). Previously accepted by the runtime PUT endpoint only. ---
     policy: RoutingPolicySchema.optional(),
+    // local-backend-full-workflow Phase 3 (D5/SC6): routes the LOCAL outcome-eval
+    // gate to the primary backend when 'primary'. .strict() below means this MUST
+    // be declared here or a config with workflowGates is silently rejected.
+    workflowGates: z.enum(['local', 'primary']).optional(),
   })
   .strict();
 

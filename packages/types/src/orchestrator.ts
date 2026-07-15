@@ -711,6 +711,14 @@ export interface RoutingConfig {
    * field keeps its meaning; a config without `policy` validates unchanged.
    */
   policy?: RoutingPolicy;
+  /**
+   * local-backend-full-workflow Phase 3 (D5): routes the LOCAL gate's
+   * judgment sub-gate (outcome-eval) to a stronger provider. `'primary'`
+   * resolves the eval provider from the routing.default (primary) backend;
+   * absent or `'local'` ⇒ local SEL (byte-identical default). Affects ONLY
+   * the local (`pi`) dispatch gate — the Claude/AMR path is unchanged.
+   */
+  workflowGates?: 'local' | 'primary';
 }
 
 // --- Spec B: Granular Task→Backend Routing (Phase 0 — types-only) ---
