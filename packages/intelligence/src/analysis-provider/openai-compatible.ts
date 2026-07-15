@@ -223,9 +223,18 @@ export class OpenAICompatibleAnalysisProvider implements AnalysisProvider {
       }
       const data = (await res.json()) as {
         message?: { content?: string };
+        done_reason?: string;
         prompt_eval_count?: number;
         eval_count?: number;
       };
+      // Truncation guard, mirroring the OpenAI-compat `finish_reason === 'length'` check: Ollama
+      // sets `done_reason: 'length'` when `num_predict` is hit. A `format`-constrained decode can
+      // still leave a *parseable* partial object, so without this a truncated result would be
+      // returned as complete. Throw so `analyze` falls back to the compat path (full budget +
+      // thinking) instead of silently accepting a cut-off answer.
+      if (data.done_reason === 'length') {
+        throw new Error('Ollama native /api/chat response truncated (done_reason=length)');
+      }
       const content = data.message?.content;
       if (!content) {
         throw new Error('Ollama native /api/chat response missing message content');

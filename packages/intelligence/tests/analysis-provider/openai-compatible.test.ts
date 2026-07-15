@@ -431,6 +431,76 @@ describe('OpenAICompatibleAnalysisProvider', () => {
       vi.unstubAllGlobals();
     });
 
+    it('falls back to the OpenAI-compatible path when native returns truncated (done_reason=length)', async () => {
+      // A `format`-constrained decode can leave parseable-but-partial JSON; the done_reason guard
+      // must reject it and fall back rather than return a silently-truncated result.
+      const fetchMock = vi.fn().mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          message: { content: '{"summary":"partial"' },
+          done_reason: 'length',
+        }),
+      } as unknown as Response);
+      vi.stubGlobal('fetch', fetchMock);
+      const payload = { summary: 'complete', score: 0.7 };
+      mockCreate.mockResolvedValueOnce(makeCompletionResponse(JSON.stringify(payload)));
+
+      const response = await provider.analyze({
+        prompt: 'Classify',
+        responseSchema: testSchema,
+        disableThinking: true,
+      });
+
+      expect(response.result).toEqual(payload); // fell back, did NOT accept the truncated native body
+      expect(mockCreate).toHaveBeenCalledTimes(1);
+
+      vi.unstubAllGlobals();
+    });
+
+    it('falls back when the native body is 2xx but schema-invalid (ZodError not silently accepted)', async () => {
+      // Ollama responded, but the JSON is structurally wrong for the schema — the exact signal
+      // that "identical verdict with thinking off" broke. It must fall back, not throw or accept.
+      const fetchMock = vi.fn().mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ message: { content: '{"summary":"ok"}' } }), // missing `score`
+      } as unknown as Response);
+      vi.stubGlobal('fetch', fetchMock);
+      const payload = { summary: 'via-compat', score: 0.4 };
+      mockCreate.mockResolvedValueOnce(makeCompletionResponse(JSON.stringify(payload)));
+
+      const response = await provider.analyze({
+        prompt: 'Classify',
+        responseSchema: testSchema,
+        disableThinking: true,
+      });
+
+      expect(response.result).toEqual(payload);
+      expect(mockCreate).toHaveBeenCalledTimes(1);
+
+      vi.unstubAllGlobals();
+    });
+
+    it('falls back when the native 2xx body is missing message content', async () => {
+      const fetchMock = vi.fn().mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ message: {} }), // ok:true but no content (e.g. an error body)
+      } as unknown as Response);
+      vi.stubGlobal('fetch', fetchMock);
+      const payload = { summary: 'recovered', score: 0.2 };
+      mockCreate.mockResolvedValueOnce(makeCompletionResponse(JSON.stringify(payload)));
+
+      const response = await provider.analyze({
+        prompt: 'Classify',
+        responseSchema: testSchema,
+        disableThinking: true,
+      });
+
+      expect(response.result).toEqual(payload);
+      expect(mockCreate).toHaveBeenCalledTimes(1);
+
+      vi.unstubAllGlobals();
+    });
+
     it('does NOT touch fetch when disableThinking is absent (default OpenAI-compat path)', async () => {
       const fetchMock = vi.fn();
       vi.stubGlobal('fetch', fetchMock);

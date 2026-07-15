@@ -501,11 +501,12 @@ export function renderBrainstormJson(rows: BrainstormReportRow[]): string {
  * resolved config once and hands it in (so a failed config read degrades to `null`, not a throw).
  *
  * Pool-first: for the local backend it prefers the LMLM pool's top-ranked model for the
- * `reasoning` profile (the gate's safety rests on reasoning-grade complexity judgment), matching
- * how the live orchestrator resolves its local model. The static `agent.backends.local.model`
- * list remains the fallback when the pool is empty/absent (pool-less adopters, non-Ollama
- * backends). A missing pool never blocks resolution — `resolvePreferredLocalModel` degrades to
- * `undefined`.
+ * `reasoning` profile (the gate's safety rests on reasoning-grade complexity judgment) — but only
+ * a model the backend's endpoint is actually SERVING (the health check in
+ * `resolvePreferredLocalModel`), matching how the live orchestrator resolves its local model. The
+ * static `agent.backends.local.model` list remains the fallback when the pool is empty/absent, the
+ * endpoint doesn't serve any ranked candidate (a non-Ollama `pi` endpoint, or a model `rm`'d
+ * out-of-band), or the probe fails. A missing pool/probe never blocks resolution.
  */
 async function resolveBrainstormProvider(
   configPath?: string,
@@ -513,12 +514,36 @@ async function resolveBrainstormProvider(
 ): Promise<AnalysisProvider | null> {
   const configResult = resolveConfig(configPath);
   if (!configResult.ok) return null;
-  const preferredLocalModel = await resolvePreferredLocalModel('reasoning');
-  return resolveTriageProvider(
-    configResult.value as TriageProviderConfig,
-    model,
-    preferredLocalModel
-  );
+  const config = configResult.value as TriageProviderConfig;
+  // Health-check the pool pick against the SAME local backend `resolveTriageProvider` will use
+  // (first `local`/`pi`), so the CLI never hands the provider a model the endpoint isn't serving.
+  const localBackend = pickLocalBackendConn(config);
+  const preferredLocalModel = await resolvePreferredLocalModel('reasoning', {
+    ...(localBackend?.endpoint !== undefined ? { endpoint: localBackend.endpoint } : {}),
+    ...(localBackend?.apiKey !== undefined ? { apiKey: localBackend.apiKey } : {}),
+  });
+  return resolveTriageProvider(config, model, preferredLocalModel);
+}
+
+/**
+ * The connection details (endpoint + apiKey) of the first `local`/`pi` backend in config — the
+ * one `resolveTriageProvider` resolves — so the pool health-check probes the same endpoint. Undefined
+ * when there is no local backend (⇒ no health check ⇒ config fallback).
+ */
+function pickLocalBackendConn(
+  config: TriageProviderConfig
+): { endpoint?: string; apiKey?: string } | undefined {
+  const backends = config.agent?.backends;
+  if (!backends) return undefined;
+  for (const def of Object.values(backends)) {
+    if (def.type === 'local' || def.type === 'pi') {
+      return {
+        ...(def.endpoint !== undefined ? { endpoint: def.endpoint } : {}),
+        ...(def.apiKey !== undefined ? { apiKey: def.apiKey } : {}),
+      };
+    }
+  }
+  return undefined;
 }
 
 // ---------------------------------------------------------------------------
