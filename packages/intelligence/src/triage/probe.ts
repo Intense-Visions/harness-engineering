@@ -235,7 +235,13 @@ async function runOpenDecisionsLever(
       prompt: input.taskText.prompt,
       systemPrompt: OPEN_DECISIONS_SYSTEM_PROMPT,
       responseSchema: OpenDecisionsSchema,
-      maxTokens: 512,
+      // Headroom for reasoning models (Qwen3 et al.): they emit a `<think>` trace
+      // before the JSON, and this open-ended decisions schema elicits more of it than
+      // the tiny classify schema. A tight cap truncates mid-reasoning →
+      // `finish_reason: length` → the catch degrades this lever to `unknown`, silently
+      // blinding the open-decisions signal. `maxTokens` is a ceiling (a non-thinking
+      // model still stops early), so this is free on the fast path.
+      maxTokens: 4096,
     });
     const decisions = result.openDecisions ?? [];
     const note =
