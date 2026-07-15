@@ -1,5 +1,11 @@
 # @harness-engineering/dashboard
 
+## 0.14.4
+
+### Patch Changes
+
+- @harness-engineering/orchestrator@0.15.1
+
 ## 0.14.3
 
 ### Patch Changes

@@ -1,5 +1,12 @@
 # @harness-engineering/orchestrator
 
+## 0.15.1
+
+### Patch Changes
+
+- Updated dependencies [f5cbdec]
+  - @harness-engineering/intelligence@0.8.0
+
 ## 0.15.0
 
 ### Minor Changes
