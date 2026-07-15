@@ -173,6 +173,37 @@ function spyEmitWorkerExit(orch: Orchestrator): ReturnType<typeof vi.fn> {
   return spy;
 }
 
+/** makeConfig variant that sets agent.routing.workflowGates. */
+function newOrchWithGates(
+  backends: Record<string, BackendDef>,
+  defaultName: string,
+  gates: 'local' | 'primary' | undefined
+): Orchestrator {
+  const cfg = makeConfig(backends, defaultName);
+  (cfg.agent.routing as unknown as Record<string, unknown>).workflowGates = gates;
+  return new Orchestrator(cfg, 'PROMPT', {
+    tracker: makeMockTracker(),
+    backend: new MockBackend(),
+    execFileFn: noopExecFile,
+  });
+}
+
+/** Spy the private primary-backend provider-build branch; returns the spy. */
+function spyResolveDefaultProvider(orch: Orchestrator): ReturnType<typeof vi.fn> {
+  const spy = vi.fn(() => undefined);
+  (
+    orch as unknown as { resolvePrimaryOutcomeEvalProvider: unknown }
+  ).resolvePrimaryOutcomeEvalProvider = spy;
+  return spy;
+}
+
+/** Reach the private `resolveOutcomeEvalProvider`. */
+function evalProvider(orch: Orchestrator): (caller: 'amr' | 'local') => unknown {
+  return (
+    orch as unknown as { resolveOutcomeEvalProvider: (c: 'amr' | 'local') => unknown }
+  ).resolveOutcomeEvalProvider.bind(orch);
+}
+
 /** Reach the private `dispatchIssue`. */
 function dispatch(orch: Orchestrator, issue: Issue, backend: 'local' | 'primary'): Promise<void> {
   return (
@@ -394,6 +425,45 @@ describe('runLocalWorkflowGate — outcome-eval (Task 7 / SC4)', () => {
     });
     const result = await gate(orch)(withSpec(), tmpDir, 'local');
     expect(result.ok).toBe(true);
+  });
+});
+
+describe('workflowGates provider routing (SC6, Phase 3)', () => {
+  it("local caller + workflowGates:'primary' → resolves the PRIMARY-backend provider path", () => {
+    const orch = newOrchWithGates(
+      { local: LOCAL_BACKEND, primary: CLAUDE_BACKEND },
+      'primary',
+      'primary'
+    );
+    const spy = spyResolveDefaultProvider(orch); // spies the primary-branch build
+    evalProvider(orch)('local');
+    expect(spy).toHaveBeenCalled();
+  });
+
+  it('local caller + workflowGates absent → resolves via local SEL (resolveComplexityProvider)', () => {
+    const orch = newOrchWithGates({ local: LOCAL_BACKEND }, 'local', undefined);
+    const selSpy = vi.spyOn(
+      orch as unknown as { resolveComplexityProvider: () => unknown },
+      'resolveComplexityProvider'
+    );
+    evalProvider(orch)('local');
+    expect(selSpy).toHaveBeenCalled();
+  });
+
+  it('AMR caller ALWAYS resolves via local SEL regardless of workflowGates (byte-identical AMR path)', () => {
+    const orch = newOrchWithGates(
+      { local: LOCAL_BACKEND, primary: CLAUDE_BACKEND },
+      'primary',
+      'primary'
+    );
+    const selSpy = vi.spyOn(
+      orch as unknown as { resolveComplexityProvider: () => unknown },
+      'resolveComplexityProvider'
+    );
+    const primSpy = spyResolveDefaultProvider(orch);
+    evalProvider(orch)('amr');
+    expect(selSpy).toHaveBeenCalled();
+    expect(primSpy).not.toHaveBeenCalled();
   });
 });
 

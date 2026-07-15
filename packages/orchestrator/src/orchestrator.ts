@@ -101,6 +101,7 @@ import { buildRoutingUseCase } from './agent/use-case-builder';
 import { makeLiveClassify } from './agent/live-classify';
 import { buildTaskText } from './agent/complexity-request';
 import { buildAnalysisProviderForLayer } from './agent/intelligence-factory';
+import { buildAnalysisProvider } from './agent/analysis-provider-factory';
 import { OrchestratorServer } from './server/http';
 import { WebhookStore } from './gateway/webhooks/store';
 import { WebhookDelivery } from './gateway/webhooks/delivery';
@@ -2604,6 +2605,69 @@ export class Orchestrator extends EventEmitter {
    * high-confidence NOT_SATISFIED to `'quality-fail'`; conservative + fully
    * guarded: no spec / no provider / empty diff / any error → `undefined`.
    */
+  /**
+   * local-backend-full-workflow Phase 3 (D5/SC6): resolve the AnalysisProvider
+   * for the outcome-eval gate. Caller-gated: ONLY the LOCAL gate caller consults
+   * `agent.routing.workflowGates`. The AMR caller ALWAYS uses local SEL
+   * (`resolveComplexityProvider`) so the AMR acceptance-eval path is byte-identical
+   * (SC-neutral). When `workflowGates === 'primary'` on the local caller, resolve
+   * from the primary (routing.default) backend; any miss degrades to local SEL
+   * (fail-open — an unreachable stronger provider must NOT wedge the local gate;
+   * see the fail-open note at the runLocalWorkflowGate call site).
+   */
+  private resolveOutcomeEvalProvider(caller: 'amr' | 'local'): AnalysisProvider | undefined {
+    if (caller === 'local' && this.config.agent.routing?.workflowGates === 'primary') {
+      return this.resolvePrimaryOutcomeEvalProvider() ?? this.resolveComplexityProvider();
+    }
+    return this.resolveComplexityProvider();
+  }
+
+  /**
+   * Build an AnalysisProvider from the PRIMARY (routing.default) backend for the
+   * Phase-3 `workflowGates:'primary'` seam. Reuses the shipped
+   * `buildAnalysisProvider` translator but forces the router to the default
+   * backend. Returns undefined (→ caller degrades to local SEL) when intelligence
+   * is disabled, the factory is absent, or the default backend cannot produce a
+   * provider — fully guarded, never throws.
+   */
+  private resolvePrimaryOutcomeEvalProvider(): AnalysisProvider | undefined {
+    try {
+      if (!this.config.intelligence?.enabled || !this.backendFactory) return undefined;
+      const backends = this.config.agent.backends;
+      // The "primary" backend is routing.default (a RoutingValue: scalar name or
+      // a fallback chain). The shipped BackendRouter has NO { kind: 'default' }
+      // query — it falls back to routing.default internally — so read it directly
+      // and take the first entry when it's a chain (the primary backend name).
+      const def0 = this.config.agent.routing?.default;
+      const defaultName = Array.isArray(def0) ? def0[0] : def0;
+      if (defaultName === undefined) return undefined;
+      const def = backends?.[defaultName];
+      if (!def) return undefined;
+      return (
+        buildAnalysisProvider({
+          def,
+          backendName: defaultName,
+          layer: 'sel',
+          getResolverStatusSnapshot: () => {
+            const resolver = this.localResolvers.get(defaultName);
+            if (!resolver) return null;
+            const s = resolver.getStatus();
+            return {
+              available: s.available,
+              resolved: s.resolved,
+              configured: s.configured,
+              detected: s.detected,
+            };
+          },
+          intelligence: this.config.intelligence,
+          logger: this.logger,
+        }) ?? undefined
+      );
+    } catch {
+      return undefined;
+    }
+  }
+
   private async evaluateOutcomeCore(
     issue: Issue,
     workspacePath: string,
@@ -2611,7 +2675,7 @@ export class Orchestrator extends EventEmitter {
     caller: 'amr' | 'local'
   ): Promise<'quality-fail' | undefined> {
     if (issue.spec === null) return undefined;
-    const provider = this.resolveComplexityProvider();
+    const provider = this.resolveOutcomeEvalProvider(caller);
     if (provider === undefined) return undefined;
     try {
       const diff = await this.workspace.getIntroducedDiffText(issue.identifier);
