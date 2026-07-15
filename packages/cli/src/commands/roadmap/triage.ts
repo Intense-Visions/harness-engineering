@@ -38,6 +38,7 @@ import { loadGraphStore } from '../../mcp/utils/graph-loader';
 import { resolveConfig } from '../../config/loader';
 import { logger } from '../../output/logger';
 import { resolveTriageProvider, type TriageProviderConfig } from './triage-provider.js';
+import { resolvePreferredLocalModel } from './triage-pool.js';
 import { deriveReadyCandidates, buildApprovalPlan } from './triage-approve.js';
 // The shared feature/issue leaf (extracted to break the triage ↔ triage-approve import
 // cycle). Re-exported so existing `import { ... } from './triage.js'` callers keep working.
@@ -494,11 +495,26 @@ export function renderBrainstormJson(rows: BrainstormReportRow[]): string {
  *
  * The provider resolution proper lives in `resolveTriageProvider`; this thin wrapper reads the
  * resolved config once and hands it in (so a failed config read degrades to `null`, not a throw).
+ *
+ * Pool-first: for the local backend it prefers the LMLM pool's top-ranked model for the
+ * `reasoning` profile (the gate's safety rests on reasoning-grade complexity judgment), matching
+ * how the live orchestrator resolves its local model. The static `agent.backends.local.model`
+ * list remains the fallback when the pool is empty/absent (pool-less adopters, non-Ollama
+ * backends). A missing pool never blocks resolution — `resolvePreferredLocalModel` degrades to
+ * `undefined`.
  */
-function resolveBrainstormProvider(configPath?: string, model?: string): AnalysisProvider | null {
+async function resolveBrainstormProvider(
+  configPath?: string,
+  model?: string
+): Promise<AnalysisProvider | null> {
   const configResult = resolveConfig(configPath);
   if (!configResult.ok) return null;
-  return resolveTriageProvider(configResult.value as TriageProviderConfig, model);
+  const preferredLocalModel = await resolvePreferredLocalModel('reasoning');
+  return resolveTriageProvider(
+    configResult.value as TriageProviderConfig,
+    model,
+    preferredLocalModel
+  );
 }
 
 // ---------------------------------------------------------------------------
@@ -549,7 +565,7 @@ export async function runApproveCommand(
   // 3. Brainstorm to surface READY candidates (spec drafted + re-score dispatchable). The
   //    provider is the FREE LOCAL backend (or explicit opt-in); absent ⇒ every item halts.
   const graphStore = await loadGraphStore(cwd);
-  const provider = resolveBrainstormProvider(opts.config);
+  const provider = await resolveBrainstormProvider(opts.config);
   // The real precedent lever (SC5) so the approve-flow RE-SCORE — the verdict the marker
   // records as the pre-dispatch prediction — reads real base-rates. Cold-start/empty store ⇒
   // `undefined` ⇒ `unknown` ⇒ no behavior change vs today.
@@ -737,7 +753,8 @@ async function runTriageCommandAction(
   // FIX A: resolve the SEL provider (FREE LOCAL backend by default). Absent OR --offline ⇒ the
   // pure static path (graceful fallback — never an error). Progress goes to the logger only in
   // non-JSON mode so JSON output stays parseable. FIX B: shared --only/--limit targeting.
-  const provider = opts.offline === true ? null : resolveBrainstormProvider(globalOpts.config);
+  const provider =
+    opts.offline === true ? null : await resolveBrainstormProvider(globalOpts.config);
   const onProgress =
     globalOpts.json === true ? undefined : (message: string) => logger.info(message);
   const shared = {

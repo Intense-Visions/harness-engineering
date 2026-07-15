@@ -117,3 +117,53 @@ describe('resolveTriageProvider — fail-safe (no resolvable provider ⇒ null)'
     expect(resolveTriageProvider(config)).toBeNull();
   });
 });
+
+describe('resolveTriageProvider — pool-first local model (localModelPreference)', () => {
+  const savedKey = process.env.ANTHROPIC_API_KEY;
+  beforeEach(() => delete process.env.ANTHROPIC_API_KEY);
+  afterEach(() => {
+    if (savedKey === undefined) delete process.env.ANTHROPIC_API_KEY;
+    else process.env.ANTHROPIC_API_KEY = savedKey;
+  });
+
+  /** Read the private model an OpenAI-compatible provider resolved to (test-only introspection). */
+  const modelOf = (p: unknown): string => (p as { defaultModel: string }).defaultModel;
+
+  const localConfig: TriageProviderConfig = {
+    agent: {
+      backends: {
+        local: {
+          type: 'local',
+          endpoint: 'http://localhost:11434/v1',
+          model: ['qwen2.5-coder:7b', 'gemma3n:e4b'],
+        },
+      },
+    },
+  };
+
+  it('prefers the pool pick over the static config list for the local backend', () => {
+    const provider = resolveTriageProvider(localConfig, undefined, 'qwen3:32b');
+    expect(provider).toBeInstanceOf(OpenAICompatibleAnalysisProvider);
+    expect(modelOf(provider)).toBe('qwen3:32b'); // pool pick, NOT config[0] qwen2.5-coder:7b
+  });
+
+  it('falls back to the static config list when there is no pool pick', () => {
+    const provider = resolveTriageProvider(localConfig, undefined, undefined);
+    expect(modelOf(provider)).toBe('qwen2.5-coder:7b'); // config[0] fallback preserved
+  });
+
+  it('an explicit --model override still wins over the pool pick', () => {
+    const provider = resolveTriageProvider(localConfig, 'pinned-model', 'qwen3:32b');
+    expect(modelOf(provider)).toBe('pinned-model');
+  });
+
+  it('ignores the pool pick for an explicit cloud (anthropic) backend — an Ollama tag is meaningless there', () => {
+    const config: TriageProviderConfig = {
+      intelligence: { provider: { kind: 'anthropic', apiKey: 'sk-ant' } },
+    };
+    // Must remain Anthropic; the local pool pick must not leak into the cloud branch.
+    expect(resolveTriageProvider(config, undefined, 'qwen3:32b')).toBeInstanceOf(
+      AnthropicAnalysisProvider
+    );
+  });
+});

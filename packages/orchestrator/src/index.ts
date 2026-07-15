@@ -270,3 +270,16 @@ export type {
 // wire the real implementation into the Orchestrator (which defaults to a no-op
 // so tests make no HuggingFace calls on startup).
 export { discoverCandidates } from '@harness-engineering/local-models';
+
+// LMLM pool state — re-exported so a one-shot CLI path (e.g. roadmap triage) can
+// read the persisted pool snapshot and derive its preferred local model the same
+// way the live LocalModelResolver does, WITHOUT taking a direct CLI→local-models
+// package edge (CLI already depends on orchestrator). The pool is the PREFERRED
+// source when populated; the static `agent.backends.*.model` list remains the
+// documented fallback for pool-less adopters and non-Ollama backends.
+export {
+  PoolStateStore,
+  poolStateToCandidates,
+  DEFAULT_POOL_STATE_PATH,
+} from '@harness-engineering/local-models';
+export type { PoolState, PoolStateProvider, RankProfile } from '@harness-engineering/local-models';

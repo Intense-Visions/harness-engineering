@@ -65,11 +65,18 @@ function firstModel(model: string | string[] | undefined): string | undefined {
  * the injected config + environment; no filesystem or network IO.
  *
  * @param config  The resolved HarnessConfig (structural subset).
- * @param modelOverride  Optional model name to pin (e.g. from a `--model` flag).
+ * @param modelOverride  Optional model name to pin (e.g. from a `--model` flag). Applies to
+ *   ANY resolved backend and wins over everything.
+ * @param localModelPreference  Optional model name preferred for the LOCAL/`pi` backend only —
+ *   the pool-derived pick (top-ranked installed model). Consulted ONLY in the local branch,
+ *   below an explicit `modelOverride` and above the static `agent.backends.local.model` list, so
+ *   the pool leads and the config list remains the fallback. The explicit cloud branches
+ *   (`intelligence.provider`, `anthropic`) ignore it — an Ollama tag is meaningless there.
  */
 export function resolveTriageProvider(
   config: TriageProviderConfig | undefined,
-  modelOverride?: string
+  modelOverride?: string,
+  localModelPreference?: string
 ): AnalysisProvider | null {
   // 1. Explicit intelligence.provider opt-in (the only route to a cloud/paid model).
   const explicit = config?.intelligence?.provider;
@@ -99,7 +106,9 @@ export function resolveTriageProvider(
 
   const local = pickBackend(backends, ['local', 'pi']);
   if (local && local.endpoint) {
-    const model = modelOverride ?? firstModel(local.model);
+    // Pool-first: an explicit `--model` still wins, then the pool's top-ranked pick, then the
+    // static config list (the fallback for pool-less adopters / non-Ollama endpoints).
+    const model = modelOverride ?? localModelPreference ?? firstModel(local.model);
     return new OpenAICompatibleAnalysisProvider({
       apiKey: local.apiKey ?? 'ollama',
       baseUrl: local.endpoint,
