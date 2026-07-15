@@ -56,3 +56,26 @@ describe('local template lint — corrected gate command names (SC5)', () => {
     });
   }
 });
+
+describe('local template lint — render variables survive (SC7)', () => {
+  // The dispatch renderer supplies `issue` + `attempt` (orchestrator render
+  // call). If any of these mustache tokens are accidentally stripped or
+  // reformatted, the rendered prompt loses the issue context / attempt number.
+  const REQUIRED_VARS = [
+    '{{ issue.title }}',
+    '{{ issue.identifier }}',
+    '{{ issue.description }}',
+    '{{ attempt }}',
+  ];
+
+  for (const [label, content] of [
+    ['repo-root', rootContent],
+    ['scaffold', scaffoldContent],
+  ] as const) {
+    for (const token of REQUIRED_VARS) {
+      it(`${label}: preserves the ${token} render variable`, () => {
+        expect(content).toContain(token);
+      });
+    }
+  }
+});
