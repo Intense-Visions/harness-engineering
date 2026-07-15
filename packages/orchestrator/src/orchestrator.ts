@@ -217,6 +217,10 @@ export async function defaultLocalVerifyRunner(
   const pathMod = await import('node:path');
 
   // Manual Promise wrapper around execFile (avoids promisify's overloaded typing).
+  // `-w` intentionally runs the script at the WORKSPACE ROOT (the aggregate
+  // typecheck/lint/test), not per-package — the gate verifies the whole build is
+  // green, so a local change that breaks a sibling package is caught. `cwd` is the
+  // issue worktree only so pnpm resolves the enclosing workspace.
   const run = (script: string): Promise<{ ok: boolean; output: string }> =>
     new Promise((resolve) => {
       cp.execFile(
@@ -2436,6 +2440,12 @@ export class Orchestrator extends EventEmitter {
           await this.runLocalWorkflowGate(issue, workspacePath, gateBackendName)
         : ({ ok: true } as const);
     if (!gate.ok) {
+      // INVARIANT: safe to stash this failure for the NEXT render only because
+      // routing is issue-deterministic (taskText = buildTaskText(issue), stable
+      // across attempts) — the re-dispatch resolves to the SAME local backend, so
+      // the preamble is read back into a local template, never a Claude prompt. If
+      // routing ever becomes attempt-sensitive or hot-reloadable mid-issue, gate
+      // the read (orchestrator.ts:2185) on the re-render's resolved backend type.
       this.priorGateFailureByIssue.set(issue.id, gate.reason);
       this.logger.info(`local workflow gate blocked ${issue.identifier}; re-dispatching (SC3)`, {
         issueId: issue.id,
