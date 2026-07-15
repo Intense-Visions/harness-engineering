@@ -45,16 +45,20 @@ const DEFAULT_TIMEOUT_MS = 90_000;
  */
 export class OpenAICompatibleAnalysisProvider implements AnalysisProvider {
   private readonly client: OpenAI;
+  private readonly baseUrl: string;
+  private readonly timeoutMs: number;
   private readonly defaultModel: string;
   private readonly getModel?: () => string | null | undefined;
   private readonly promptSuffix: string | null;
   private readonly jsonMode: boolean;
 
   constructor(options: OpenAICompatibleProviderOptions) {
+    this.baseUrl = options.baseUrl;
+    this.timeoutMs = options.timeoutMs ?? DEFAULT_TIMEOUT_MS;
     this.client = new OpenAI({
       apiKey: options.apiKey,
       baseURL: options.baseUrl,
-      timeout: options.timeoutMs ?? DEFAULT_TIMEOUT_MS,
+      timeout: this.timeoutMs,
     });
     this.defaultModel = options.defaultModel ?? DEFAULT_MODEL;
     if (options.getModel !== undefined) {
@@ -72,21 +76,29 @@ export class OpenAICompatibleAnalysisProvider implements AnalysisProvider {
       request.model ?? (resolved != null && resolved !== '' ? resolved : this.defaultModel);
     const maxTokens = request.maxTokens ?? DEFAULT_MAX_TOKENS;
     const jsonSchema = zodToJsonSchema(request.responseSchema);
+    const { systemContent, userContent } = this.buildMessages(request, jsonSchema);
 
-    const systemParts: string[] = [];
-    if (request.systemPrompt) systemParts.push(request.systemPrompt);
-    if (this.jsonMode) {
-      // Schema is enforced server-side via response_format — keep prompt lean
-      systemParts.push(
-        'Respond ONLY with the JSON object, no other text. Be concise — use short sentences in string fields and limit arrays to the most important items.'
-      );
-    } else {
-      // No server-side enforcement — include full schema in prompt
-      systemParts.push(
-        'You MUST respond with valid JSON matching this schema:\n' +
-          JSON.stringify(jsonSchema, null, 2) +
-          '\n\nRespond ONLY with the JSON object, no other text.'
-      );
+    // Reasoning models (Qwen3 et al.) emit a `<think>` trace that Ollama's OpenAI-compatible
+    // `/v1` endpoint neither suppresses nor bounds — it ignores `/no_think`, `think:false`, and
+    // `chat_template_kwargs`. For a narrow structured-extraction call where that trace adds
+    // latency but not quality, the caller passes `disableThinking`, and we take Ollama's NATIVE
+    // `/api/chat` with `think:false` (~100× fewer tokens). Any failure — a non-Ollama endpoint
+    // (vLLM / LM Studio have no `/api/chat`), network, or parse — falls through to the
+    // OpenAI-compatible path below, which is always correct (just slower). The optimization can
+    // never break a working call.
+    if (request.disableThinking === true) {
+      try {
+        return await this.analyzeViaOllamaNative<T>(
+          request,
+          model,
+          maxTokens,
+          jsonSchema,
+          systemContent,
+          userContent
+        );
+      } catch {
+        // fall through to the OpenAI-compatible path (thinking stays on, still correct)
+      }
     }
 
     const startMs = performance.now();
@@ -103,11 +115,8 @@ export class OpenAICompatibleAnalysisProvider implements AnalysisProvider {
       max_tokens: maxTokens,
       ...(responseFormat && { response_format: responseFormat }),
       messages: [
-        { role: 'system', content: systemParts.join('\n\n') },
-        {
-          role: 'user',
-          content: this.promptSuffix ? `${request.prompt}\n\n${this.promptSuffix}` : request.prompt,
-        },
+        { role: 'system', content: systemContent },
+        { role: 'user', content: userContent },
       ],
     });
 
@@ -141,5 +150,98 @@ export class OpenAICompatibleAnalysisProvider implements AnalysisProvider {
     };
 
     return { result, tokenUsage, model, latencyMs };
+  }
+
+  /** Build the system + user message content shared by both the OpenAI-compat and native paths. */
+  private buildMessages(
+    request: AnalysisRequest,
+    jsonSchema: object
+  ): { systemContent: string; userContent: string } {
+    const systemParts: string[] = [];
+    if (request.systemPrompt) systemParts.push(request.systemPrompt);
+    if (this.jsonMode) {
+      // Schema is enforced server-side (response_format / native `format`) — keep prompt lean.
+      systemParts.push(
+        'Respond ONLY with the JSON object, no other text. Be concise — use short sentences in string fields and limit arrays to the most important items.'
+      );
+    } else {
+      // No server-side enforcement — include full schema in prompt.
+      systemParts.push(
+        'You MUST respond with valid JSON matching this schema:\n' +
+          JSON.stringify(jsonSchema, null, 2) +
+          '\n\nRespond ONLY with the JSON object, no other text.'
+      );
+    }
+    const userContent = this.promptSuffix
+      ? `${request.prompt}\n\n${this.promptSuffix}`
+      : request.prompt;
+    return { systemContent: systemParts.join('\n\n'), userContent };
+  }
+
+  /** Ollama's native chat route, derived from the configured `/v1` base URL. */
+  private ollamaNativeChatUrl(): string {
+    return this.baseUrl.replace(/\/v1\/?$/, '') + '/api/chat';
+  }
+
+  /**
+   * Take Ollama's NATIVE `/api/chat` with `think:false` — the only way to actually suppress a
+   * Qwen3-style reasoning trace (the OpenAI-compatible `/v1` shim ignores every thinking knob).
+   * Schema is enforced via native `format`; `num_predict` bounds output. Throws on any non-2xx,
+   * missing content, or schema-parse failure so `analyze` can fall back to the OpenAI-compatible
+   * path (e.g. when the endpoint is not actually Ollama).
+   */
+  private async analyzeViaOllamaNative<T>(
+    request: AnalysisRequest,
+    model: string,
+    maxTokens: number,
+    jsonSchema: object,
+    systemContent: string,
+    userContent: string
+  ): Promise<AnalysisResponse<T>> {
+    const startMs = performance.now();
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), this.timeoutMs);
+    try {
+      const res = await fetch(this.ollamaNativeChatUrl(), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          model,
+          think: false,
+          stream: false,
+          format: jsonSchema,
+          options: { num_predict: maxTokens },
+          messages: [
+            { role: 'system', content: systemContent },
+            { role: 'user', content: userContent },
+          ],
+        }),
+        signal: controller.signal,
+      });
+      if (!res.ok) {
+        throw new Error(`Ollama native /api/chat returned ${res.status}`);
+      }
+      const data = (await res.json()) as {
+        message?: { content?: string };
+        prompt_eval_count?: number;
+        eval_count?: number;
+      };
+      const content = data.message?.content;
+      if (!content) {
+        throw new Error('Ollama native /api/chat response missing message content');
+      }
+      const parsed = JSON.parse(content) as unknown;
+      const result = request.responseSchema.parse(parsed) as T;
+      const inputTokens = data.prompt_eval_count ?? 0;
+      const outputTokens = data.eval_count ?? 0;
+      return {
+        result,
+        tokenUsage: { inputTokens, outputTokens, totalTokens: inputTokens + outputTokens },
+        model,
+        latencyMs: Math.round(performance.now() - startMs),
+      };
+    } finally {
+      clearTimeout(timer);
+    }
   }
 }

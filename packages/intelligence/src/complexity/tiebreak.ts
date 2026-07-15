@@ -24,6 +24,11 @@ export async function llmTiebreak(
       responseSchema: TiebreakSchema,
       // Only include `model` when supplied (exactOptionalPropertyTypes).
       ...(fastModel !== undefined ? { model: fastModel } : {}),
+      // A trivial/simple/moderate/complex classification does not benefit from a reasoning
+      // trace (verified: identical verdict with thinking on vs off) — suppress it where the
+      // backend can (Ollama native), so a reasoning model answers in ~10 tokens instead of
+      // ~1000. No-op on backends that cannot honor it.
+      disableThinking: true,
       // Headroom for reasoning models: a thinking model (e.g. Qwen3) emits a
       // `<think>` trace BEFORE the JSON, so a tight cap truncates mid-reasoning →
       // `finish_reason: length` → empty content → the catch below silently returns

@@ -235,6 +235,10 @@ async function runOpenDecisionsLever(
       prompt: input.taskText.prompt,
       systemPrompt: OPEN_DECISIONS_SYSTEM_PROMPT,
       responseSchema: OpenDecisionsSchema,
+      // Suppress the reasoning trace where the backend can (Ollama native) — enumerating the
+      // human-judgment decisions is structured extraction, not open-ended reasoning. Verified to
+      // surface the same decisions as with thinking on. No-op on backends that cannot honor it.
+      disableThinking: true,
       // Headroom for reasoning models (Qwen3 et al.): they emit a `<think>` trace
       // before the JSON, and this open-ended decisions schema elicits more of it than
       // the tiny classify schema. A tight cap truncates mid-reasoning →
