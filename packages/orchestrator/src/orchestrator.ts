@@ -2158,10 +2158,29 @@ export class Orchestrator extends EventEmitter {
       // 4. Render prompt (moved after backend-name resolution — Phase 1).
       // The template is now backend-aware: a local/pi dispatch renders the
       // bash-shaped local template, everything else renders the default.
-      const prompt = await this.renderer.render(this.resolvePromptTemplate(routedBackendName), {
-        issue,
-        attempt: attempt || 1,
-      });
+      const renderedPrompt = await this.renderer.render(
+        this.resolvePromptTemplate(routedBackendName),
+        {
+          issue,
+          attempt: attempt || 1,
+        }
+      );
+
+      // Phase 2 (Option C, SC3): on a re-dispatch after a local gate failure,
+      // thread the prior failure reason into the prompt as a preamble (the
+      // re-prompt). The renderer is LiquidJS with `strictVariables: true`, which
+      // would throw on an unknown `{{ priorGateFailure }}` template var — so we
+      // append the preamble to the ALREADY-rendered string (template-agnostic,
+      // no strict-variable risk). Consume-and-clear so it only affects the very
+      // next attempt for this issue.
+      const priorGateFailure = this.priorGateFailureByIssue.get(issue.id);
+      const prompt =
+        priorGateFailure !== undefined
+          ? `${renderedPrompt}\n\n## Previous attempt failed the enforced gate\n\nYour prior attempt was blocked by the harness gate and re-dispatched. Fix the following before shipping:\n\n${priorGateFailure}\n`
+          : renderedPrompt;
+      if (priorGateFailure !== undefined) {
+        this.priorGateFailureByIssue.delete(issue.id);
+      }
 
       // 6. Start agent session (in background)
       const session: LiveSession = {
@@ -2239,7 +2258,14 @@ export class Orchestrator extends EventEmitter {
       const activeRunner = new AgentRunner(agentBackend, {
         maxTurns: this.config.agent.maxTurns,
       });
-      this.runAgentInBackgroundTask(issue, workspacePath, prompt, attempt, activeRunner);
+      this.runAgentInBackgroundTask(
+        issue,
+        workspacePath,
+        prompt,
+        attempt,
+        activeRunner,
+        routedBackendName
+      );
     } catch (error) {
       // AMR finding #3 + live-wiring review blocker: a fail-closed PrivacyNoMatch
       // (RoutingError code 'privacy-no-match') from AdaptiveRouter.route() is NOT a
@@ -2301,11 +2327,18 @@ export class Orchestrator extends EventEmitter {
     workspacePath: string,
     prompt: string,
     attempt: number | null,
-    runner: AgentRunner
+    runner: AgentRunner,
+    // Phase 2 (Option C): the resolved backend name, so the completion path can
+    // run the LOCAL-ONLY enforced gate (`runLocalWorkflowGate`) before treating
+    // a normal exit as terminal. Defaults to the running entry's session name
+    // when omitted (backward-compatible for the few callers that don't pass it).
+    routedBackendName?: string
   ): void {
     // Spec 2 SC30 / Task 12: `runner` is now required. The previous
     // `runner ?? this.runner` fallback is gone with the field removal.
     const activeRunner = runner;
+    const gateBackendName =
+      routedBackendName ?? this.state.running.get(issue.id)?.session?.backendName;
     this.logger.info(`Starting background task for ${issue.identifier}`);
 
     // Create abort controller for this issue so stopIssue() can cancel it.
@@ -2351,25 +2384,7 @@ export class Orchestrator extends EventEmitter {
             await this.emitWorkerExit(issue.id, 'error', attempt, 'Stopped by reconciliation');
           }
         } else {
-          // Phase 4: run BOTH verdict sources UNCONDITIONALLY, then combine. The
-          // retrospective is a SIBLING verdict source to the 4c quality feeder,
-          // guarded identically (AMR off / feature off ⇒ no-op). Either verdict
-          // returning 'quality-fail' escalates the coherence unit; a mispredict is as
-          // much a quality failure as a security defect.
-          //
-          // We must NOT short-circuit `quality ?? retro`: the retrospective's side
-          // effect (`recordTriageOutcome`, feeding the precedent store the ratchet
-          // reads) is what accrues a shape's mispredict evidence. A change that is BOTH
-          // a security defect AND a triage mispredict would otherwise record NO graded
-          // outcome — that bad shape would never accrue the evidence that keeps its
-          // ratchet at stage 1. The retrospective is fully guarded and idempotent, so
-          // running it on a security-failing unit is safe. Escalation is unchanged:
-          // either source ⇒ 'quality-fail' ⇒ escalate (the `??` still surfaces it). The
-          // retrospective annotates the PR on a match (best-effort, inside the method).
-          const qualityClass = await this.deriveSingleAgentQualityVerdict(issue, workspacePath);
-          const retroClass = await this.deriveRoutingRetrospectiveVerdict(issue, workspacePath);
-          const outcomeClass = qualityClass ?? retroClass;
-          await this.emitWorkerExit(issue.id, 'normal', attempt, undefined, outcomeClass);
+          await this.finalizeNormalCompletion(issue, workspacePath, attempt, gateBackendName);
         }
       } catch (error) {
         this.logger.error(`Agent runner failed for ${issue.identifier}`, { error: String(error) });
@@ -2387,6 +2402,59 @@ export class Orchestrator extends EventEmitter {
     })().catch((err) => {
       this.logger.error('Fatal error in background task', { error: String(err) });
     });
+  }
+
+  /**
+   * local-backend-full-workflow Phase 2 (Option C): the normal-exit completion
+   * seam, extracted so the enforced-gate loop is directly testable. Runs the
+   * LOCAL-ONLY enforced gate BEFORE the exit is treated as terminal; a red gate
+   * routes through the SHIPPED `emitWorkerExit('error', …)` retry branch — the
+   * re-dispatch IS the re-prompt (the next render threads the failure preamble),
+   * and `checkRetryBudget` exhaustion queues `needs-human`. On a green gate (or a
+   * non-local backend, where the gate is a no-op `{ ok: true }`), the existing
+   * Claude/AMR verdict feeders run and the run completes normally — composition,
+   * not replacement.
+   */
+  private async finalizeNormalCompletion(
+    issue: Issue,
+    workspacePath: string,
+    attempt: number | null,
+    gateBackendName: string | undefined
+  ): Promise<void> {
+    const gate =
+      gateBackendName !== undefined
+        ? await this.runLocalWorkflowGate(issue, workspacePath, gateBackendName)
+        : ({ ok: true } as const);
+    if (!gate.ok) {
+      this.priorGateFailureByIssue.set(issue.id, gate.reason);
+      this.logger.info(`local workflow gate blocked ${issue.identifier}; re-dispatching (SC3)`, {
+        issueId: issue.id,
+      });
+      await this.emitWorkerExit(issue.id, 'error', attempt, gate.reason);
+      return;
+    }
+
+    // Phase 4: run BOTH verdict sources UNCONDITIONALLY, then combine. The
+    // retrospective is a SIBLING verdict source to the 4c quality feeder,
+    // guarded identically (AMR off / feature off ⇒ no-op). Either verdict
+    // returning 'quality-fail' escalates the coherence unit; a mispredict is as
+    // much a quality failure as a security defect. On the local path this
+    // COMPOSES with the gate above (the gate already blocked a red build; these
+    // feeders remain a second layer for the accepted green run).
+    //
+    // We must NOT short-circuit `quality ?? retro`: the retrospective's side
+    // effect (`recordTriageOutcome`, feeding the precedent store the ratchet
+    // reads) is what accrues a shape's mispredict evidence. A change that is BOTH
+    // a security defect AND a triage mispredict would otherwise record NO graded
+    // outcome — that bad shape would never accrue the evidence that keeps its
+    // ratchet at stage 1. The retrospective is fully guarded and idempotent, so
+    // running it on a security-failing unit is safe. Escalation is unchanged:
+    // either source ⇒ 'quality-fail' ⇒ escalate (the `??` still surfaces it). The
+    // retrospective annotates the PR on a match (best-effort, inside the method).
+    const qualityClass = await this.deriveSingleAgentQualityVerdict(issue, workspacePath);
+    const retroClass = await this.deriveRoutingRetrospectiveVerdict(issue, workspacePath);
+    const outcomeClass = qualityClass ?? retroClass;
+    await this.emitWorkerExit(issue.id, 'normal', attempt, undefined, outcomeClass);
   }
 
   /**

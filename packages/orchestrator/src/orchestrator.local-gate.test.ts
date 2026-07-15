@@ -133,6 +133,50 @@ function gate(
   ).runLocalWorkflowGate.bind(orch);
 }
 
+/** Reach the private completion seam `finalizeNormalCompletion`. */
+function finalize(
+  orch: Orchestrator
+): (
+  issue: Issue,
+  ws: string,
+  attempt: number | null,
+  backendName: string | undefined
+) => Promise<void> {
+  return (
+    orch as unknown as {
+      finalizeNormalCompletion: (
+        i: Issue,
+        w: string,
+        a: number | null,
+        b: string | undefined
+      ) => Promise<void>;
+    }
+  ).finalizeNormalCompletion.bind(orch);
+}
+
+/** Spy the private `emitWorkerExit`; return the spy. */
+function spyEmitWorkerExit(orch: Orchestrator): ReturnType<typeof vi.fn> {
+  const spy = vi.fn(async () => undefined);
+  (orch as unknown as { emitWorkerExit: unknown }).emitWorkerExit = spy;
+  return spy;
+}
+
+/** Reach the private `dispatchIssue`. */
+function dispatch(orch: Orchestrator, issue: Issue, backend: 'local' | 'primary'): Promise<void> {
+  return (
+    orch as unknown as {
+      dispatchIssue: (i: Issue, a: number, b?: 'local' | 'primary') => Promise<void>;
+    }
+  ).dispatchIssue(issue, 2, backend);
+}
+
+/** Stub the background launch so dispatch completes synchronously post-render. */
+function stubBackgroundLaunch(orch: Orchestrator): ReturnType<typeof vi.fn> {
+  const spy = vi.fn();
+  (orch as unknown as { runAgentInBackgroundTask: unknown }).runAgentInBackgroundTask = spy;
+  return spy;
+}
+
 const ISSUE = {
   id: 'i1',
   identifier: 'ISS-1',
@@ -184,5 +228,71 @@ describe('runLocalWorkflowGate — verify gate (Task 5 / SC3)', () => {
     const result = await gate(orch)(ISSUE, tmpDir, 'primary');
     expect(result.ok).toBe(true);
     expect(verify).not.toHaveBeenCalled();
+  });
+});
+
+describe('completion path wiring — block + re-dispatch (Task 6 / SC3)', () => {
+  it('D: pi dispatch + verify FAIL → emitWorkerExit(error, reason), NEVER normal', async () => {
+    const orch = newOrch({ local: LOCAL_BACKEND }, 'local', async () => ({
+      ok: false,
+      output: 'tsc error TS1005',
+    }));
+    const emit = spyEmitWorkerExit(orch);
+
+    await finalize(orch)(ISSUE, tmpDir, 1, 'local');
+
+    // Exactly one exit, with reason 'error' carrying the gate failure text.
+    expect(emit).toHaveBeenCalledTimes(1);
+    const call = emit.mock.calls[0]!;
+    expect(call[1]).toBe('error');
+    expect(call[3]).toContain('TS1005');
+    // Never a normal (terminal-success) exit on the failing attempt.
+    expect(emit.mock.calls.some((c) => c[1] === 'normal')).toBe(false);
+  });
+
+  it('E: failing→passing gate re-dispatches on attempt 1, completes on attempt 2', async () => {
+    let call = 0;
+    const orch = newOrch({ local: LOCAL_BACKEND }, 'local', async () => {
+      call += 1;
+      return call === 1
+        ? { ok: false, output: 'lint failed on attempt 1' }
+        : { ok: true, output: '' };
+    });
+    const emit = spyEmitWorkerExit(orch);
+
+    await finalize(orch)(ISSUE, tmpDir, 1, 'local');
+    expect(emit.mock.calls[0]![1]).toBe('error');
+    expect(emit.mock.calls[0]![2]).toBe(1); // attempt 1
+
+    await finalize(orch)(ISSUE, tmpDir, 2, 'local');
+    expect(emit.mock.calls[1]![1]).toBe('normal');
+    expect(emit.mock.calls[1]![2]).toBe(2); // attempt 2
+  });
+
+  it('F: after a red gate, the re-dispatch prompt threads the failure preamble', async () => {
+    const orch = newOrch({ local: LOCAL_BACKEND, primary: CLAUDE_BACKEND }, 'local', async () => ({
+      ok: false,
+      output: 'verify failure: TypeError foo is not a function',
+    }));
+    spyEmitWorkerExit(orch);
+    // 1) Fail a gate — this records the prior-failure preamble for the issue.
+    await finalize(orch)(ISSUE, tmpDir, 1, 'local');
+
+    // 2) Re-dispatch: spy the renderer + stub the launch, then dispatch again.
+    const renderSpy = vi.spyOn(
+      (orch as unknown as { renderer: { render: (t: string, c: unknown) => Promise<string> } })
+        .renderer,
+      'render'
+    );
+    const launch = stubBackgroundLaunch(orch);
+    await dispatch(orch, ISSUE, 'local');
+
+    // The renderer only interpolated issue+attempt (no preamble var); the preamble
+    // is appended post-render, so the PROMPT handed to launch carries it.
+    expect(renderSpy).toHaveBeenCalled();
+    expect(launch).toHaveBeenCalledTimes(1);
+    const prompt = launch.mock.calls[0]![2] as string;
+    expect(prompt).toContain('Previous attempt failed the enforced gate');
+    expect(prompt).toContain('TypeError foo is not a function');
   });
 });
