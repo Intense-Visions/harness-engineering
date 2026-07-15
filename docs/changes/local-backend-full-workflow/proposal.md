@@ -136,3 +136,56 @@ stronger backend when set. Absent ⇒ local (byte-identical default).
   re-prompt on fail; escalate on exhaustion; compose with the retrospective. (SC3, SC4)
 - **Phase 3 — Gate-provider routing seam.** `workflowGates` config flag. (SC6)
 - **Phase 4 — Docs + ADRs + validate.** Guides, ADRs for D2/D3, `harness validate`.
+
+## Design revision (Phase 5) — real skills, not a paraphrase; autonomous brainstorming
+
+Phases 1–4 shipped, but review surfaced that D3's local template **paraphrased the workflow
+methodology inline** — a second, drifting source of truth ("pseudo skills"). This revision replaces
+the paraphrase with the _real_ skills, delivered through a channel the pi agent already has.
+
+- **D6 — The local agent runs the REAL skills via `harness skill run <name>`, not a paraphrase.**
+  `harness skill run <name>` prints the verbatim `SKILL.md` (phase preamble + body) to stdout — the
+  same content the Claude client injects via a `/harness:*` slash command — as a pure CLI read (no MCP
+  server). Every core workflow skill (`harness-brainstorming/planning/execution/verification/code-review/…`)
+  contains **zero `mcp__harness__` references** and drives the harness **CLI**, so bash + `skill run` is
+  sufficient; **MCP wiring into pi is unnecessary (YAGNI).** The only pi-incompatibility — skills
+  referencing each other as `/harness:X` — resolves the same way: `harness skill run harness-X`.
+  _(Supersedes the "inline the methodology" half of D3. D3's other half — a backend-specific template
+  selected by backend type — stands; the template is now a thin **indirection shim**, not a methodology
+  restatement, which erases D3's "two templates to keep in sync" cost: methodology lives once, in the
+  skills.)_
+- **D7 — The local template is a ~40–60 line bootstrap shim.** It carries no methodology: it tells the
+  agent it has no slash commands, gives the redirect rule (`/harness:X` → `harness skill run harness-X`),
+  names the ordered entry sequence for a dispatch, and points at `harness skill list`. The gates remain
+  ENFORCED by the orchestrator (Phase 2) regardless of how the agent obtains its instructions.
+- **D8 — Autonomous brainstorming: the agent is the decider, at full rigor.** Brainstorming already
+  computes a confidence-rated recommendation at every fork and then stops for the human. A new
+  `harness skill run <name> --autonomous` flag prepends an **autonomous-decider preamble** (a
+  `buildPreamble` section, so it re-anchors on _every_ stage's output — robust against a small model
+  forgetting a once-read template) that flips only that one instruction: do the full analysis exactly as
+  written (the ≥2-approaches gate, YAGNI, the persona council, soundness review all run), then **adopt
+  your own recommendation, record the question + answer + rationale in the spec's "Decisions made," and
+  continue** — self-approve the Phase-4 sign-off once soundness converges, proceed through the handoff.
+  _(Roadmap triage upstream decides local-eligibility and pre-resolves trivial forks — a separate layer;
+  brainstorming here still runs full rigor. The exercise is the value.)_
+- **D9 — One safety valve, no mid-run human pause.** The two spots where the skill is most emphatic
+  about human judgment — **strategy contradictions** ("never auto-resolve") and **any low-confidence
+  fork** — are still decided by the agent and proceed, but are recorded as explicit **flags in the spec
+  and surfaced in the PR body**, so the human's PR review (the existing merge gate) sees exactly what was
+  decided and where confidence was low. Halt-not-ship still governs _code_ (the enforced gates); the
+  flags govern _decisions_.
+
+### Phase 5 success criteria
+
+- SC7: `harness skill run <name> --autonomous` prepends the autonomous-decider preamble to the skill
+  output; absent, output is byte-identical to today. Verified by a CLI unit test.
+- SC8: The local template invokes `harness skill run … --autonomous` and contains **no inlined
+  workflow methodology** (it is a shim, under a line budget, and teaches the `/harness:X` →
+  `skill run harness-X` redirect). Verified by the updated SC2 template-lint test.
+
+### Phase 5 implementation order
+
+- **Phase 5 — skill-run indirection + autonomous brainstorming.** Add the `--autonomous`
+  preamble+flag (SC7); rewrite `harness.orchestrator.local.md` (+ template copy) to the shim (SC8);
+  update the SC2 lint test; ADR 0071 rationale → indirection shim; new ADR for D8/D9 (autonomous local
+  decisions + PR-flag safety valve). Phases 2 (enforced gates) and 3 (provider seam) are untouched.
