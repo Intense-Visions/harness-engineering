@@ -39,9 +39,25 @@ export class WorkflowLoader {
         return Err(configResult.error);
       }
 
+      // Phase 1 (local-backend-full-workflow): load the backend-aware local
+      // dispatch template from the sibling file when present. Absent -> undefined,
+      // so resolution falls back to the default template (SC5). We read it
+      // best-effort: a missing file is expected (fallback), not an error.
+      const localTemplatePath = path.join(path.dirname(filePath), 'harness.orchestrator.local.md');
+      let localPromptTemplate: string | undefined;
+      try {
+        const localContent = await fs.readFile(localTemplatePath, 'utf-8');
+        const localParts = localContent.split('---');
+        localPromptTemplate =
+          localParts.length >= 3 ? localParts.slice(2).join('---').trim() : localContent.trim();
+      } catch {
+        localPromptTemplate = undefined;
+      }
+
       return Ok({
         config: configResult.value.config,
         promptTemplate,
+        localPromptTemplate,
         warnings: configResult.value.warnings,
       });
     } catch (error) {
