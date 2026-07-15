@@ -133,6 +133,11 @@ Your goal is to implement the following issue using the standard Harness Enginee
 Follow these steps exactly, using the corresponding slash commands to ensure
 high-quality, architecturally sound delivery:
 
+<!-- This slash-command workflow targets Claude-shaped backends. A backend-specific
+     variant, `harness.orchestrator.local.md`, is auto-selected for `local`/`pi`
+     backends (which lack `/harness:*` slash commands) and expresses the same
+     workflow via bash `harness <gate>` CLI calls. See ADR 0071. -->
+
 1. **Brainstorming:** Use `/harness:brainstorming` to explore the problem space
    and draft a technical proposal in `docs/changes/`. The spec MUST include an
    Integration Points section defining how the feature connects to the system.
