@@ -2428,7 +2428,12 @@ export class Orchestrator extends EventEmitter {
   ): Promise<void> {
     const gate =
       gateBackendName !== undefined
-        ? await this.runLocalWorkflowGate(issue, workspacePath, gateBackendName)
+        ? // B3: the VERIFY sub-gate is fail-CLOSED (a gate that can't run blocks +
+          // re-dispatches). The outcome-eval sub-gate is fail-OPEN by design — an
+          // unreachable eval provider (incl. a workflowGates:'primary' backend that's
+          // down) degrades to a neutral verdict rather than wedging EVERY local
+          // dispatch; the verify gate remains the hard safety floor.
+          await this.runLocalWorkflowGate(issue, workspacePath, gateBackendName)
         : ({ ok: true } as const);
     if (!gate.ok) {
       this.priorGateFailureByIssue.set(issue.id, gate.reason);
