@@ -711,6 +711,14 @@ export interface RoutingConfig {
    * field keeps its meaning; a config without `policy` validates unchanged.
    */
   policy?: RoutingPolicy;
+  /**
+   * local-backend-full-workflow Phase 3 (D5): routes the LOCAL gate's
+   * judgment sub-gate (outcome-eval) to a stronger provider. `'primary'`
+   * resolves the eval provider from the routing.default (primary) backend;
+   * absent or `'local'` ⇒ local SEL (byte-identical default). Affects ONLY
+   * the local (`pi`) dispatch gate — the Claude/AMR path is unchanged.
+   */
+  workflowGates?: 'local' | 'primary';
 }
 
 // --- Spec B: Granular Task→Backend Routing (Phase 0 — types-only) ---
@@ -1159,6 +1167,13 @@ export interface WorkflowDefinition {
   config: WorkflowConfig;
   /** Template used to generate agent prompts */
   promptTemplate: string;
+  /**
+   * Backend-aware local dispatch template (Phase 1, local-backend-full-workflow).
+   * Loaded from the sibling `harness.orchestrator.local.md` when present.
+   * Undefined when the file is absent — resolution falls back to
+   * `promptTemplate`, preserving pre-Phase-1 behavior (SC5).
+   */
+  localPromptTemplate?: string;
   /**
    * Non-blocking warnings produced during config validation. Loaded by
    * `WorkflowLoader.loadWorkflow`. Spec B Phase 2 / S3: contains

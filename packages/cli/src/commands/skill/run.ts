@@ -102,7 +102,14 @@ async function appendProjectState(
 
 async function runSkill(
   name: string,
-  opts: { path?: string; complexity?: string; phase?: string; party?: boolean; backend?: string }
+  opts: {
+    path?: string;
+    complexity?: string;
+    phase?: string;
+    party?: boolean;
+    autonomous?: boolean;
+    backend?: string;
+  }
 ): Promise<void> {
   const skillDir = resolveSkillDir(name);
 
@@ -141,6 +148,7 @@ async function runSkill(
     ...(priorState !== undefined && { priorState }),
     ...(stateWarning !== undefined && { stateWarning }),
     ...(opts.party !== undefined && { party: opts.party }),
+    ...(opts.autonomous !== undefined && { autonomous: opts.autonomous }),
   });
 
   const skillMdPath = path.join(skillDir, 'SKILL.md');
@@ -176,6 +184,10 @@ export function createRunCommand(): Command {
     .option('--complexity <level>', 'Rigor level: fast, standard, thorough', 'standard')
     .option('--phase <name>', 'Start at a specific phase (for re-entry)')
     .option('--party', 'Enable multi-perspective evaluation')
+    .option(
+      '--autonomous',
+      'Headless mode: inject the autonomous-decider preamble so the agent decides every fork at full rigor (recording each decision in the spec) instead of pausing for a human'
+    )
     .option(
       '--backend <name>',
       'Spec B: one-shot routing override forwarded to the orchestrator as HARNESS_BACKEND_OVERRIDE'

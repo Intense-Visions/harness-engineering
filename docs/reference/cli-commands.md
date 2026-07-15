@@ -1298,6 +1298,7 @@ Run a skill (outputs SKILL.md content with context preamble)
 - `--complexity` — Rigor level: fast, standard, thorough (default: "standard")
 - `--phase` — Start at a specific phase (for re-entry)
 - `--party` — Enable multi-perspective evaluation
+- `--autonomous` — Headless mode: inject the autonomous-decider preamble so the agent decides every fork at full rigor (recording each decision in the spec) instead of pausing for a human
 - `--backend` — Spec B: one-shot routing override forwarded to the orchestrator as HARNESS_BACKEND_OVERRIDE
 
 ### `harness skill search <query>`

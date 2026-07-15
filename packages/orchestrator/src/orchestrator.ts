@@ -102,6 +102,7 @@ import { buildRoutingUseCase } from './agent/use-case-builder';
 import { makeLiveClassify } from './agent/live-classify';
 import { buildTaskText } from './agent/complexity-request';
 import { buildAnalysisProviderForLayer } from './agent/intelligence-factory';
+import { buildAnalysisProvider } from './agent/analysis-provider-factory';
 import { OrchestratorServer } from './server/http';
 import { WebhookStore } from './gateway/webhooks/store';
 import { WebhookDelivery } from './gateway/webhooks/delivery';
@@ -185,6 +186,84 @@ export function normalizeHarnessCommand(command: string[]): string[] {
 }
 
 /**
+ * Truncate captured gate output to a bounded size for the re-dispatch prompt
+ * preamble (a full typecheck/test log can be enormous). Keeps the head + tail
+ * so both the first error and the summary survive.
+ */
+export function truncateGateOutput(output: string, max = 4000): string {
+  const trimmed = output.trim();
+  if (trimmed.length <= max) return trimmed;
+  const head = trimmed.slice(0, Math.floor(max * 0.7));
+  const tail = trimmed.slice(-Math.floor(max * 0.3));
+  return `${head}\n… [truncated ${trimmed.length - max} chars] …\n${tail}`;
+}
+
+/**
+ * local-backend-full-workflow Phase 2 (Option C): the production default verify
+ * runner for the local enforced gate. It runs the project's own mechanical gate
+ * (typecheck + lint + test) over `workspacePath` via `pnpm -w run <script>` for
+ * whichever of `typecheck`/`lint`/`test` the workspace's package.json declares,
+ * short-circuiting on the first red gate. Adopter-portable: it only runs the
+ * scripts that exist, and a missing package.json / no scripts → a passing gate
+ * (nothing to check). Fully self-contained; tests inject a fake via the
+ * `verifyRunner` seam so this concrete detector is never exercised in unit tests.
+ */
+export async function defaultLocalVerifyRunner(
+  workspacePath: string
+): Promise<{ ok: boolean; output: string }> {
+  // Access via the module namespace objects (not destructured) — destructuring
+  // `execFile`/`join`/`readFileSync` off a module trips the unbound-method lint.
+  const cp = await import('node:child_process');
+  const fsMod = await import('node:fs');
+  const pathMod = await import('node:path');
+
+  // Manual Promise wrapper around execFile (avoids promisify's overloaded typing).
+  // `-w` intentionally runs the script at the WORKSPACE ROOT (the aggregate
+  // typecheck/lint/test), not per-package — the gate verifies the whole build is
+  // green, so a local change that breaks a sibling package is caught. `cwd` is the
+  // issue worktree only so pnpm resolves the enclosing workspace.
+  const run = (script: string): Promise<{ ok: boolean; output: string }> =>
+    new Promise((resolve) => {
+      cp.execFile(
+        'pnpm',
+        ['-w', 'run', script],
+        { cwd: workspacePath, maxBuffer: 32 * 1024 * 1024 },
+        (error, stdout, stderr) => {
+          if (error) {
+            resolve({
+              ok: false,
+              output: `${script} failed:\n${stdout ?? ''}\n${stderr ?? error.message}`,
+            });
+          } else {
+            resolve({ ok: true, output: '' });
+          }
+        }
+      );
+    });
+
+  const pkgPath = pathMod.join(workspacePath, 'package.json');
+  if (!fsMod.existsSync(pkgPath)) return { ok: true, output: '' };
+  const scripts = ((): Record<string, string> => {
+    try {
+      const pkg = JSON.parse(fsMod.readFileSync(pkgPath, 'utf8')) as {
+        scripts?: Record<string, string>;
+      };
+      return pkg.scripts ?? {};
+    } catch {
+      return {};
+    }
+  })();
+
+  // Run in a stable, portable order; skip any the project does not declare.
+  for (const script of ['typecheck', 'lint', 'test'] as const) {
+    if (scripts[script] === undefined) continue;
+    const result = await run(script);
+    if (!result.ok) return result;
+  }
+  return { ok: true, output: '' };
+}
+
+/**
  * The central orchestrator that manages the lifecycle of coding agents.
  *
  * It polls an issue tracker for candidate tasks, manages ephemeral workspaces,
@@ -247,6 +326,30 @@ export class Orchestrator extends EventEmitter {
   private overrideBackend: AgentBackend | null;
   private renderer: PromptRenderer;
   private promptTemplate: string;
+  /**
+   * Backend-aware local dispatch template (Phase 1). Set from
+   * `overrides.localPromptTemplate` (production: threaded by the CLI from
+   * WorkflowLoader). Undefined -> resolvePromptTemplate falls back to the
+   * default template (SC5).
+   */
+  private localPromptTemplate: string | undefined;
+  /**
+   * local-backend-full-workflow Phase 2 (Option C): the verify runner the
+   * local-only enforced gate (`runLocalWorkflowGate`) invokes to run the
+   * project's mechanical gate (typecheck + lint + test) over the workspace.
+   * Injected in tests to force fail→pass sequences; in production it defaults
+   * to `defaultLocalVerifyRunner` (a thin project-script probe). Kept as a
+   * field seam — mirrors how `execFileFn` is injected — so the completion path
+   * is decoupled from the concrete detector.
+   */
+  private verifyRunner: (workspacePath: string) => Promise<{ ok: boolean; output: string }>;
+  /**
+   * Phase 2: the most recent gate-failure reason per issue, threaded into the
+   * next dispatch's rendered prompt as a failure preamble (the re-prompt). Set
+   * when a local gate blocks; consumed + cleared at the next `dispatchIssue`
+   * render for that issue.
+   */
+  private priorGateFailureByIssue = new Map<string, string>();
   private server?: OrchestratorServer;
   private interval?: ReturnType<typeof setTimeout> | undefined;
   private heartbeatInterval?: ReturnType<typeof setInterval> | undefined;
@@ -440,6 +543,14 @@ export class Orchestrator extends EventEmitter {
       };
       /** Live-candidate-discovery seam: tests inject a fake so startup makes no HF calls. */
       discoverCandidates?: (opts: DiscoverCandidatesOptions) => Promise<DiscoverCandidatesResult>;
+      /** Phase 1: backend-aware local dispatch template. Undefined -> fallback. */
+      localPromptTemplate?: string;
+      /**
+       * Phase 2 (Option C) test seam: the verify runner the local enforced
+       * gate invokes. Injected so tests can force fail→pass sequences without
+       * spawning real typecheck/lint/test. Defaults to `defaultLocalVerifyRunner`.
+       */
+      verifyRunner?: (workspacePath: string) => Promise<{ ok: boolean; output: string }>;
     }
   ) {
     super();
@@ -460,6 +571,8 @@ export class Orchestrator extends EventEmitter {
     this.setMaxListeners(50);
     this.config = config;
     this.promptTemplate = promptTemplate;
+    this.localPromptTemplate = overrides?.localPromptTemplate;
+    this.verifyRunner = overrides?.verifyRunner ?? defaultLocalVerifyRunner;
     this.state = createEmptyState(config);
     this.logger = new StructuredLogger();
 
@@ -1491,6 +1604,10 @@ export class Orchestrator extends EventEmitter {
         break;
       case 'escalate':
         await this.handleEscalation(effect as EscalateEffect);
+        // local-backend-full-workflow Phase 3 (B2): the unit is handed to a human;
+        // drop any recorded local-gate failure preamble so a future re-dispatch of
+        // the SAME issue can't inherit a stale "previous attempt failed" block.
+        this.priorGateFailureByIssue.delete((effect as EscalateEffect).issueId);
         // Phase 4 (DLane-5): escalation hands the issue off to a human — the
         // orchestrator abandons autonomous progress, so the lane moves to the
         // terminal `canceled`. On the failure→max-retries path this follows the
@@ -1818,6 +1935,32 @@ export class Orchestrator extends EventEmitter {
   }
 
   /**
+   * Phase 1 (local-backend-full-workflow): pick the dispatch template for
+   * the resolved backend. `pi`/`local` backends get the bash-shaped local
+   * template when one was loaded; every other backend — and any local
+   * backend with no local template loaded (SC5) — gets the default. Pure
+   * over (backendName, config.agent.backends, localPromptTemplate,
+   * promptTemplate); unit-tested by orchestrator.template-resolution.test.ts.
+   *
+   * NOTE: the local template file (`harness.orchestrator.local.md`) carries a
+   * full YAML frontmatter block, but that frontmatter is **intentionally
+   * ignored** at dispatch — only the markdown body is loaded (WorkflowLoader
+   * strips the frontmatter) and rendered here as the prompt. The frontmatter
+   * exists solely so the file is a valid, self-documenting scaffold that
+   * `harness init` can drop in; the orchestrator's configuration is always
+   * read from the loaded `WorkflowConfig`, never from this template file's
+   * frontmatter.
+   */
+  private resolvePromptTemplate(backendName: string): string {
+    const def = this.config.agent.backends?.[backendName];
+    const isLocal = def?.type === 'local' || def?.type === 'pi';
+    if (isLocal && this.localPromptTemplate !== undefined) {
+      return this.localPromptTemplate;
+    }
+    return this.promptTemplate;
+  }
+
+  /**
    * Dispatches a new agent to work on an issue.
    *
    * @param issue - The issue to resolve
@@ -1945,12 +2088,6 @@ export class Orchestrator extends EventEmitter {
         return;
       }
 
-      // 4. Render prompt
-      const prompt = await this.renderer.render(this.promptTemplate, {
-        issue,
-        attempt: attempt || 1,
-      });
-
       // 5. Resolve the routed backend NAME up front so the LiveSession
       //    + recorder are labelled with it (Spec 2 P2-I2). Reading
       //    `this.config.agent.backend` directly returns `undefined` for
@@ -2026,6 +2163,33 @@ export class Orchestrator extends EventEmitter {
         const routingDefaultScalar =
           routingDefault !== undefined ? toArray(routingDefault)[0] : undefined;
         routedBackendName = routingDefaultScalar ?? this.config.agent.backend ?? 'unknown';
+      }
+
+      // 4. Render prompt (moved after backend-name resolution — Phase 1).
+      // The template is now backend-aware: a local/pi dispatch renders the
+      // bash-shaped local template, everything else renders the default.
+      const renderedPrompt = await this.renderer.render(
+        this.resolvePromptTemplate(routedBackendName),
+        {
+          issue,
+          attempt: attempt || 1,
+        }
+      );
+
+      // Phase 2 (Option C, SC3): on a re-dispatch after a local gate failure,
+      // thread the prior failure reason into the prompt as a preamble (the
+      // re-prompt). The renderer is LiquidJS with `strictVariables: true`, which
+      // would throw on an unknown `{{ priorGateFailure }}` template var — so we
+      // append the preamble to the ALREADY-rendered string (template-agnostic,
+      // no strict-variable risk). Consume-and-clear so it only affects the very
+      // next attempt for this issue.
+      const priorGateFailure = this.priorGateFailureByIssue.get(issue.id);
+      const prompt =
+        priorGateFailure !== undefined
+          ? `${renderedPrompt}\n\n## Previous attempt failed the enforced gate\n\nYour prior attempt was blocked by the harness gate and re-dispatched. Fix the following before shipping:\n\n${priorGateFailure}\n`
+          : renderedPrompt;
+      if (priorGateFailure !== undefined) {
+        this.priorGateFailureByIssue.delete(issue.id);
       }
 
       // 6. Start agent session (in background)
@@ -2104,7 +2268,14 @@ export class Orchestrator extends EventEmitter {
       const activeRunner = new AgentRunner(agentBackend, {
         maxTurns: this.config.agent.maxTurns,
       });
-      this.runAgentInBackgroundTask(issue, workspacePath, prompt, attempt, activeRunner);
+      this.runAgentInBackgroundTask(
+        issue,
+        workspacePath,
+        prompt,
+        attempt,
+        activeRunner,
+        routedBackendName
+      );
     } catch (error) {
       // AMR finding #3 + live-wiring review blocker: a fail-closed PrivacyNoMatch
       // (RoutingError code 'privacy-no-match') from AdaptiveRouter.route() is NOT a
@@ -2166,11 +2337,18 @@ export class Orchestrator extends EventEmitter {
     workspacePath: string,
     prompt: string,
     attempt: number | null,
-    runner: AgentRunner
+    runner: AgentRunner,
+    // Phase 2 (Option C): the resolved backend name, so the completion path can
+    // run the LOCAL-ONLY enforced gate (`runLocalWorkflowGate`) before treating
+    // a normal exit as terminal. Defaults to the running entry's session name
+    // when omitted (backward-compatible for the few callers that don't pass it).
+    routedBackendName?: string
   ): void {
     // Spec 2 SC30 / Task 12: `runner` is now required. The previous
     // `runner ?? this.runner` fallback is gone with the field removal.
     const activeRunner = runner;
+    const gateBackendName =
+      routedBackendName ?? this.state.running.get(issue.id)?.session?.backendName;
     this.logger.info(`Starting background task for ${issue.identifier}`);
 
     // Create abort controller for this issue so stopIssue() can cancel it.
@@ -2216,25 +2394,7 @@ export class Orchestrator extends EventEmitter {
             await this.emitWorkerExit(issue.id, 'error', attempt, 'Stopped by reconciliation');
           }
         } else {
-          // Phase 4: run BOTH verdict sources UNCONDITIONALLY, then combine. The
-          // retrospective is a SIBLING verdict source to the 4c quality feeder,
-          // guarded identically (AMR off / feature off ⇒ no-op). Either verdict
-          // returning 'quality-fail' escalates the coherence unit; a mispredict is as
-          // much a quality failure as a security defect.
-          //
-          // We must NOT short-circuit `quality ?? retro`: the retrospective's side
-          // effect (`recordTriageOutcome`, feeding the precedent store the ratchet
-          // reads) is what accrues a shape's mispredict evidence. A change that is BOTH
-          // a security defect AND a triage mispredict would otherwise record NO graded
-          // outcome — that bad shape would never accrue the evidence that keeps its
-          // ratchet at stage 1. The retrospective is fully guarded and idempotent, so
-          // running it on a security-failing unit is safe. Escalation is unchanged:
-          // either source ⇒ 'quality-fail' ⇒ escalate (the `??` still surfaces it). The
-          // retrospective annotates the PR on a match (best-effort, inside the method).
-          const qualityClass = await this.deriveSingleAgentQualityVerdict(issue, workspacePath);
-          const retroClass = await this.deriveRoutingRetrospectiveVerdict(issue, workspacePath);
-          const outcomeClass = qualityClass ?? retroClass;
-          await this.emitWorkerExit(issue.id, 'normal', attempt, undefined, outcomeClass);
+          await this.finalizeNormalCompletion(issue, workspacePath, attempt, gateBackendName);
         }
       } catch (error) {
         this.logger.error(`Agent runner failed for ${issue.identifier}`, { error: String(error) });
@@ -2252,6 +2412,138 @@ export class Orchestrator extends EventEmitter {
     })().catch((err) => {
       this.logger.error('Fatal error in background task', { error: String(err) });
     });
+  }
+
+  /**
+   * local-backend-full-workflow Phase 2 (Option C): the normal-exit completion
+   * seam, extracted so the enforced-gate loop is directly testable. Runs the
+   * LOCAL-ONLY enforced gate BEFORE the exit is treated as terminal; a red gate
+   * routes through the SHIPPED `emitWorkerExit('error', …)` retry branch — the
+   * re-dispatch IS the re-prompt (the next render threads the failure preamble),
+   * and `checkRetryBudget` exhaustion queues `needs-human`. On a green gate (or a
+   * non-local backend, where the gate is a no-op `{ ok: true }`), the existing
+   * Claude/AMR verdict feeders run and the run completes normally — composition,
+   * not replacement.
+   */
+  private async finalizeNormalCompletion(
+    issue: Issue,
+    workspacePath: string,
+    attempt: number | null,
+    gateBackendName: string | undefined
+  ): Promise<void> {
+    const gate =
+      gateBackendName !== undefined
+        ? // B3: the VERIFY sub-gate is fail-CLOSED (a gate that can't run blocks +
+          // re-dispatches). The outcome-eval sub-gate is fail-OPEN by design — an
+          // unreachable eval provider (incl. a workflowGates:'primary' backend that's
+          // down) degrades to a neutral verdict rather than wedging EVERY local
+          // dispatch; the verify gate remains the hard safety floor.
+          await this.runLocalWorkflowGate(issue, workspacePath, gateBackendName)
+        : ({ ok: true } as const);
+    if (!gate.ok) {
+      // INVARIANT: safe to stash this failure for the NEXT render only because
+      // routing is issue-deterministic (taskText = buildTaskText(issue), stable
+      // across attempts) — the re-dispatch resolves to the SAME local backend, so
+      // the preamble is read back into a local template, never a Claude prompt. If
+      // routing ever becomes attempt-sensitive or hot-reloadable mid-issue, gate
+      // the read (orchestrator.ts:2185) on the re-render's resolved backend type.
+      this.priorGateFailureByIssue.set(issue.id, gate.reason);
+      this.logger.info(`local workflow gate blocked ${issue.identifier}; re-dispatching (SC3)`, {
+        issueId: issue.id,
+      });
+      await this.emitWorkerExit(issue.id, 'error', attempt, gate.reason);
+      return;
+    }
+
+    // Phase 4: run BOTH verdict sources UNCONDITIONALLY, then combine. The
+    // retrospective is a SIBLING verdict source to the 4c quality feeder,
+    // guarded identically (AMR off / feature off ⇒ no-op). Either verdict
+    // returning 'quality-fail' escalates the coherence unit; a mispredict is as
+    // much a quality failure as a security defect. On the local path this
+    // COMPOSES with the gate above (the gate already blocked a red build; these
+    // feeders remain a second layer for the accepted green run).
+    //
+    // We must NOT short-circuit `quality ?? retro`: the retrospective's side
+    // effect (`recordTriageOutcome`, feeding the precedent store the ratchet
+    // reads) is what accrues a shape's mispredict evidence. A change that is BOTH
+    // a security defect AND a triage mispredict would otherwise record NO graded
+    // outcome — that bad shape would never accrue the evidence that keeps its
+    // ratchet at stage 1. The retrospective is fully guarded and idempotent, so
+    // running it on a security-failing unit is safe. Escalation is unchanged:
+    // either source ⇒ 'quality-fail' ⇒ escalate (the `??` still surfaces it). The
+    // retrospective annotates the PR on a match (best-effort, inside the method).
+    const qualityClass = await this.deriveSingleAgentQualityVerdict(issue, workspacePath);
+    const retroClass = await this.deriveRoutingRetrospectiveVerdict(issue, workspacePath);
+    const outcomeClass = qualityClass ?? retroClass;
+    await this.emitWorkerExit(issue.id, 'normal', attempt, undefined, outcomeClass);
+  }
+
+  /**
+   * local-backend-full-workflow Phase 2 (Option C): the LOCAL-ONLY enforced
+   * gate. For a `pi`/`local` dispatch it runs the mechanical gate (verify =
+   * typecheck+lint+test via the injected `verifyRunner`) and, on green, the
+   * outcome-eval (Task 7) against the workspace branch; a red result returns a
+   * blocking `{ ok: false, reason }`. The completion path routes that reason
+   * through `emitWorkerExit('error', …)` so the shipped state-machine retry
+   * branch re-dispatches (the re-prompt) rather than marking the run complete.
+   *
+   * NON-local backends (Claude/AMR) get an unconditional `{ ok: true }` — this
+   * gate never touches their completion path (D2 scopes enforcement to the
+   * local path only; the AMR verdict feeders keep their existing behavior).
+   *
+   * Fully guarded: any thrown error → a CONSERVATIVE block `{ ok: false,
+   * reason: 'gate error: …' }`, mirroring the shipped fail-safe pattern — a
+   * gate that cannot run is treated as red (re-dispatch), never as a silent
+   * pass that could ship a bad build.
+   */
+  private async runLocalWorkflowGate(
+    issue: Issue,
+    workspacePath: string,
+    backendName: string
+  ): Promise<{ ok: true } | { ok: false; reason: string }> {
+    const def = this.config.agent.backends?.[backendName];
+    const isLocal = def?.type === 'local' || def?.type === 'pi';
+    if (!isLocal) return { ok: true };
+
+    try {
+      // 1. Mechanical gate: typecheck + lint + test.
+      const verify = await this.verifyRunner(workspacePath);
+      if (!verify.ok) {
+        return {
+          ok: false,
+          reason: `verify failed:\n${truncateGateOutput(verify.output)}`,
+        };
+      }
+
+      // 2. Outcome-eval (SC4): when a spec is present, run the SAME
+      //    OutcomeEvaluator engine the Claude/AMR path uses — un-gated from the
+      //    AMR-active + `acceptanceEval.enabled` requirements (D2: local always
+      //    evaluates when a spec exists). Read the eval model from the AMR
+      //    policy when configured, else default. A high-confidence NOT_SATISFIED
+      //    → `'quality-fail'` → block (same authority as the Claude path).
+      if (issue.spec !== null) {
+        const model = this.config.agent.routing?.policy?.acceptanceEval?.model;
+        const evalClass = await this.evaluateOutcomeCore(issue, workspacePath, model, 'local');
+        if (evalClass === 'quality-fail') {
+          return {
+            ok: false,
+            reason:
+              'outcome-eval returned a high-confidence NOT_SATISFIED verdict: the implementation does not satisfy the spec.',
+          };
+        }
+      }
+      return { ok: true };
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      this.logger.warn(
+        `local workflow gate errored for ${issue.identifier}; blocking conservatively`,
+        {
+          issueId: issue.id,
+          error: msg,
+        }
+      );
+      return { ok: false, reason: `gate error: ${msg}` };
+    }
   }
 
   /**
@@ -2318,14 +2610,98 @@ export class Orchestrator extends EventEmitter {
     workspacePath: string
   ): Promise<'quality-fail' | undefined> {
     const acceptanceEval = this.config.agent.routing?.policy?.acceptanceEval;
+    // AMR/Claude path gating stays here: opt-in via `acceptanceEval.enabled`.
     if (acceptanceEval?.enabled !== true || issue.spec === null) return undefined;
-    const provider = this.resolveComplexityProvider();
+    return this.evaluateOutcomeCore(issue, workspacePath, acceptanceEval.model, 'amr');
+  }
+
+  /**
+   * local-backend-full-workflow Phase 2 (Option C, SC4): the SHARED outcome-eval
+   * core, lifted out of `deriveAcceptanceEvalVerdict` so BOTH callers reuse the
+   * same `OutcomeEvaluator` engine over the introduced diff vs the spec's
+   * judgment section. It does NOT gate on `adaptiveRouter !== null` or
+   * `acceptanceEval.enabled` — those guards live in the AMR caller above; the
+   * LOCAL gate (D2) always evaluates when a spec is present. Maps a
+   * high-confidence NOT_SATISFIED to `'quality-fail'`; conservative + fully
+   * guarded: no spec / no provider / empty diff / any error → `undefined`.
+   */
+  /**
+   * local-backend-full-workflow Phase 3 (D5/SC6): resolve the AnalysisProvider
+   * for the outcome-eval gate. Caller-gated: ONLY the LOCAL gate caller consults
+   * `agent.routing.workflowGates`. The AMR caller ALWAYS uses local SEL
+   * (`resolveComplexityProvider`) so the AMR acceptance-eval path is byte-identical
+   * (SC-neutral). When `workflowGates === 'primary'` on the local caller, resolve
+   * from the primary (routing.default) backend; any miss degrades to local SEL
+   * (fail-open — an unreachable stronger provider must NOT wedge the local gate;
+   * see the fail-open note at the runLocalWorkflowGate call site).
+   */
+  private resolveOutcomeEvalProvider(caller: 'amr' | 'local'): AnalysisProvider | undefined {
+    if (caller === 'local' && this.config.agent.routing?.workflowGates === 'primary') {
+      return this.resolvePrimaryOutcomeEvalProvider() ?? this.resolveComplexityProvider();
+    }
+    return this.resolveComplexityProvider();
+  }
+
+  /**
+   * Build an AnalysisProvider from the PRIMARY (routing.default) backend for the
+   * Phase-3 `workflowGates:'primary'` seam. Reuses the shipped
+   * `buildAnalysisProvider` translator but forces the router to the default
+   * backend. Returns undefined (→ caller degrades to local SEL) when intelligence
+   * is disabled, the factory is absent, or the default backend cannot produce a
+   * provider — fully guarded, never throws.
+   */
+  private resolvePrimaryOutcomeEvalProvider(): AnalysisProvider | undefined {
+    try {
+      if (!this.config.intelligence?.enabled || !this.backendFactory) return undefined;
+      const backends = this.config.agent.backends;
+      // The "primary" backend is routing.default (a RoutingValue: scalar name or
+      // a fallback chain). The shipped BackendRouter has NO { kind: 'default' }
+      // query — it falls back to routing.default internally — so read it directly
+      // and take the first entry when it's a chain (the primary backend name).
+      const def0 = this.config.agent.routing?.default;
+      const defaultName = Array.isArray(def0) ? def0[0] : def0;
+      if (defaultName === undefined) return undefined;
+      const def = backends?.[defaultName];
+      if (!def) return undefined;
+      return (
+        buildAnalysisProvider({
+          def,
+          backendName: defaultName,
+          layer: 'sel',
+          getResolverStatusSnapshot: () => {
+            const resolver = this.localResolvers.get(defaultName);
+            if (!resolver) return null;
+            const s = resolver.getStatus();
+            return {
+              available: s.available,
+              resolved: s.resolved,
+              configured: s.configured,
+              detected: s.detected,
+            };
+          },
+          intelligence: this.config.intelligence,
+          logger: this.logger,
+        }) ?? undefined
+      );
+    } catch {
+      return undefined;
+    }
+  }
+
+  private async evaluateOutcomeCore(
+    issue: Issue,
+    workspacePath: string,
+    model: string | undefined,
+    caller: 'amr' | 'local'
+  ): Promise<'quality-fail' | undefined> {
+    if (issue.spec === null) return undefined;
+    const provider = this.resolveOutcomeEvalProvider(caller);
     if (provider === undefined) return undefined;
     try {
       const diff = await this.workspace.getIntroducedDiffText(issue.identifier);
       if (diff.trim() === '') return undefined;
       const evaluator = new OutcomeEvaluator(provider, this.graphStore ?? new GraphStore(), {
-        ...(acceptanceEval.model !== undefined ? { model: acceptanceEval.model } : {}),
+        ...(model !== undefined ? { model } : {}),
       });
       const verdict = await evaluator.evaluate({
         specPath: path.join(workspacePath, issue.spec),
@@ -2337,14 +2713,17 @@ export class Orchestrator extends EventEmitter {
       });
       const cls = outcomeVerdictToQualityFail(verdict);
       if (cls === 'quality-fail') {
-        this.logger.info('amr:quality-fail — acceptance-eval NOT_SATISFIED (high confidence)', {
-          issueId: issue.id,
-          rationale: verdict.rationale,
-        });
+        this.logger.info(
+          `${caller}:quality-fail — acceptance-eval NOT_SATISFIED (high confidence)`,
+          {
+            issueId: issue.id,
+            rationale: verdict.rationale,
+          }
+        );
       }
       return cls;
     } catch (err) {
-      this.logger.debug('amr acceptance-eval skipped (best-effort)', {
+      this.logger.debug(`${caller} acceptance-eval skipped (best-effort)`, {
         issueId: issue.id,
         error: err instanceof Error ? err.message : String(err),
       });

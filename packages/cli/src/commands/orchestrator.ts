@@ -28,13 +28,21 @@ export function createOrchestratorCommand(): Command {
         process.exit(ExitCode.ERROR);
       }
 
-      const { config, promptTemplate, warnings } = result.value;
+      const { config, promptTemplate, localPromptTemplate, warnings } = result.value;
       // Spec B Phase 2 / S3: surface non-blocking routing warnings at startup.
       for (const w of warnings) logger.warn(w);
 
       // Wire live HuggingFace candidate discovery at the composition root (the
       // Orchestrator defaults to a no-op so tests never touch the network).
-      const daemon = new Orchestrator(config, promptTemplate, { discoverCandidates });
+      // Phase 1 (local-backend-full-workflow): thread the backend-aware local
+      // dispatch template through when the loader found one. `exactOptional-
+      // PropertyTypes` is on repo-wide, so spread the key only when defined —
+      // an absent local file leaves it out and dispatch falls back to the
+      // default template (SC5).
+      const daemon = new Orchestrator(config, promptTemplate, {
+        discoverCandidates,
+        ...(localPromptTemplate !== undefined ? { localPromptTemplate } : {}),
+      });
 
       const shutdown = () => {
         daemon.stop();

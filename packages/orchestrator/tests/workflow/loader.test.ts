@@ -69,6 +69,61 @@ Hello {{ issue.title }}
       expect(result.error.message).toMatch(/Invalid harness.orchestrator.md format/);
     }
   });
+
+  // Phase 1 (local-backend-full-workflow): the loader reads the sibling
+  // harness.orchestrator.local.md into WorkflowDefinition.localPromptTemplate.
+  const mainOrchestratorFrontmatter = `---
+tracker:
+  kind: roadmap
+  filePath: docs/roadmap.md
+  activeStates: [planned]
+  terminalStates: [done]
+polling:
+  intervalMs: 30000
+workspace:
+  root: .harness/workspaces
+hooks:
+  timeoutMs: 60000
+agent:
+  backend: claude
+  maxConcurrentAgents: 1
+  maxTurns: 10
+  maxRetryBackoffMs: 5000
+  maxConcurrentAgentsByState: {}
+  turnTimeoutMs: 300000
+  readTimeoutMs: 30000
+  stallTimeoutMs: 60000
+server:
+  port: 8080
+---
+# Prompt Template
+Hello {{ issue.title }}
+`;
+
+  it('loads the sibling local template when present (Phase 1 SC-load)', async () => {
+    const mainPath = path.join(tempDir, 'harness.orchestrator.md');
+    const localPath = path.join(tempDir, 'harness.orchestrator.local.md');
+    await fs.writeFile(mainPath, mainOrchestratorFrontmatter);
+    await fs.writeFile(localPath, '---\nx: 1\n---\nrun harness verify');
+
+    const result = await loader.loadWorkflow(mainPath);
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.value.localPromptTemplate).toContain('harness verify');
+      expect(result.value.localPromptTemplate).not.toContain('/harness:');
+    }
+  });
+
+  it('leaves localPromptTemplate undefined when the sibling file is absent (SC5)', async () => {
+    const mainPath = path.join(tempDir, 'harness.orchestrator.md');
+    await fs.writeFile(mainPath, mainOrchestratorFrontmatter);
+
+    const result = await loader.loadWorkflow(mainPath);
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.value.localPromptTemplate).toBeUndefined();
+    }
+  });
 });
 
 describe('WorkflowLoader — Spec B Phase 2 warnings surfacing', () => {

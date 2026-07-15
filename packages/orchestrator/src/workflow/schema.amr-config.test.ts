@@ -149,3 +149,24 @@ describe('validateWorkflowConfig — full-config round-trip (the front door that
     expect(r.ok).toBe(true);
   });
 });
+
+describe('RoutingConfigSchema — workflowGates (SC6, Phase 3)', () => {
+  it("accepts workflowGates: 'local'", () => {
+    expect(
+      RoutingConfigSchema.safeParse({ default: 'primary', workflowGates: 'local' }).success
+    ).toBe(true);
+  });
+  it("accepts workflowGates: 'primary'", () => {
+    expect(
+      RoutingConfigSchema.safeParse({ default: 'primary', workflowGates: 'primary' }).success
+    ).toBe(true);
+  });
+  it('rejects an unknown workflowGates value (strict enum)', () => {
+    expect(
+      RoutingConfigSchema.safeParse({ default: 'primary', workflowGates: 'remote' }).success
+    ).toBe(false);
+  });
+  it('still accepts a routing config with NO workflowGates (default-off, byte-identical)', () => {
+    expect(RoutingConfigSchema.safeParse({ default: 'primary' }).success).toBe(true);
+  });
+});
