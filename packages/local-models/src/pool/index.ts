@@ -31,6 +31,7 @@ export type {
 } from './types.js';
 
 export { poolStateToCandidates } from './provider.js';
+export type { PoolCandidateOptions } from './provider.js';
 export type { PoolStateProvider } from './provider.js';
 
 export { PoolManager } from './manager.js';

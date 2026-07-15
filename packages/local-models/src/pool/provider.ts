@@ -29,15 +29,34 @@ function scoreForProfile(entry: PoolEntry, profile?: RankProfile): number {
   return entry.currentScore;
 }
 
+/** Options for {@link poolStateToCandidates}. */
+export interface PoolCandidateOptions {
+  /**
+   * When true, drop entries KNOWN not to drive an agentic build (`toolCalling === false`),
+   * keeping those that can (`true`) or are unprobed (`undefined`, fail-open). Set only for
+   * agentic BUILD routing — never for triage/classification, which needs no tool-calling.
+   */
+  requireToolCalling?: boolean;
+}
+
 /**
  * Derive the resolver candidate list from pool state: entries ordered by score
  * descending, mapped to `ollamaName`. When `profile` is given, entries order by
  * their per-profile score (falling back to `currentScore`) so a task-tagged
  * dispatch prefers the profile's best-fit model; `ollamaName` breaks ties for a
- * stable order. Pure; does not mutate the input.
+ * stable order. With `opts.requireToolCalling`, entries known NOT to tool-call are
+ * excluded first (fail-open on unknowns). Pure; does not mutate the input.
  */
-export function poolStateToCandidates(state: PoolState, profile?: RankProfile): string[] {
-  return [...state.entries]
+export function poolStateToCandidates(
+  state: PoolState,
+  profile?: RankProfile,
+  opts?: PoolCandidateOptions
+): string[] {
+  const entries =
+    opts?.requireToolCalling === true
+      ? state.entries.filter((e) => e.toolCalling !== false) // keep true + undefined (fail-open)
+      : state.entries;
+  return [...entries]
     .sort((a, b) => {
       const diff = scoreForProfile(b, profile) - scoreForProfile(a, profile);
       if (diff !== 0) return diff;

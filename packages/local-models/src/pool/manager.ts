@@ -157,6 +157,11 @@ export interface ScoreUpdate {
    * `scoresByProfile` untouched.
    */
   scoresByProfile?: Partial<Record<RankProfile, number>>;
+  /**
+   * Agentic tool-calling capability (see `PoolEntry.toolCalling`), written once the scheduler has
+   * probed it. Optional so callers that don't probe leave the entry's existing value untouched.
+   */
+  toolCalling?: boolean;
 }
 
 export interface AllowCheckRequest {
@@ -593,6 +598,7 @@ export class PoolManager {
           ...(update.scoresByProfile !== undefined
             ? { scoresByProfile: update.scoresByProfile }
             : {}),
+          ...(update.toolCalling !== undefined ? { toolCalling: update.toolCalling } : {}),
         };
       }),
     }));
