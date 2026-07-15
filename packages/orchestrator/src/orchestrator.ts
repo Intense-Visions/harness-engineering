@@ -1833,6 +1833,15 @@ export class Orchestrator extends EventEmitter {
    * backend with no local template loaded (SC5) — gets the default. Pure
    * over (backendName, config.agent.backends, localPromptTemplate,
    * promptTemplate); unit-tested by orchestrator.template-resolution.test.ts.
+   *
+   * NOTE: the local template file (`harness.orchestrator.local.md`) carries a
+   * full YAML frontmatter block, but that frontmatter is **intentionally
+   * ignored** at dispatch — only the markdown body is loaded (WorkflowLoader
+   * strips the frontmatter) and rendered here as the prompt. The frontmatter
+   * exists solely so the file is a valid, self-documenting scaffold that
+   * `harness init` can drop in; the orchestrator's configuration is always
+   * read from the loaded `WorkflowConfig`, never from this template file's
+   * frontmatter.
    */
   private resolvePromptTemplate(backendName: string): string {
     const def = this.config.agent.backends?.[backendName];
