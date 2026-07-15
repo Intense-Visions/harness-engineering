@@ -11,6 +11,7 @@ import noUnixShellCommand from './no-unix-shell-command';
 import noHardcodedPathSeparator from './no-hardcoded-path-separator';
 import noProcessEnvInSpawn from './no-process-env-in-spawn';
 import requirePathNormalization from './require-path-normalization';
+import noUndefinedOptionalAssignment from './no-undefined-optional-assignment';
 
 export const rules = {
   'enforce-doc-exports': enforceDocExports,
@@ -21,6 +22,7 @@ export const rules = {
   'no-nested-loops-in-critical': noNestedLoopsInCritical,
   'no-process-env-in-spawn': noProcessEnvInSpawn,
   'no-sync-io-in-async': noSyncIoInAsync,
+  'no-undefined-optional-assignment': noUndefinedOptionalAssignment,
   'no-unbounded-array-chains': noUnboundedArrayChains,
   'no-unix-shell-command': noUnixShellCommand,
   'require-boundary-schema': requireBoundarySchema,
