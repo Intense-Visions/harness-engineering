@@ -144,20 +144,34 @@ below and the `harness` CLI over bash.
 
 Run these as bash commands and reach a **green** state before shipping:
 
-- `harness verify` — typecheck + lint + test. Fix every failure and re-run
-  until it passes.
-- `harness outcome-eval` — when the issue has a spec/acceptance, run this to
-  confirm the implementation satisfies it.
+- `harness validate` — checks project conventions and health (the same command
+  the primary backend uses). Fix any new issues it reports for the files you
+  touched.
+- **Typecheck + lint + test (the mechanical gate).** Detect the project's own
+  typecheck, lint, and test commands from `package.json` scripts, a `Makefile`,
+  or the equivalent for this project's toolchain, and run them directly — you
+  have no slash commands, so run the underlying commands (there is no single
+  CLI wrapper for this on the local backend). In this repo that is, e.g.,
+  `pnpm -w typecheck && pnpm -w lint && pnpm -w test`; adapt to whatever this
+  project uses. Fix every failure and re-run until all three are green.
+- **Outcome check (when the issue has a spec/acceptance).** After the mechanical
+  gate is green, re-read the issue's acceptance criteria and confirm your diff
+  actually satisfies them. This is a self-check against the spec (no CLI command
+  performs it on the local backend), and the harness re-runs the same evaluation
+  itself (see below).
 
-**These gates are also enforced by the harness itself, not just by you.** A run
-that cannot reach a passing `harness verify` (and a non-blocking
-`harness outcome-eval` verdict) will be halted rather than shipped. Do not
-attempt to ship around a red gate — fix the implementation until the gate is
-green.
+**These gates are also enforced by the harness itself, not just by you.** After
+you exit, the orchestrator re-runs the mechanical gate (typecheck + lint + test)
+and the outcome evaluation against your branch. A run that cannot reach a green
+mechanical gate, or whose outcome evaluation returns a high-confidence
+NOT_SATISFIED verdict, will be halted and re-dispatched rather than shipped —
+and escalated to a human if the retry budget is exhausted. Do not attempt to
+ship around a red gate — fix the implementation until the gate is green.
 
 ## Ship (only after gates are green)
 
-When `harness verify` passes and `harness outcome-eval` is non-blocking:
+When `harness validate`, the typecheck/lint/test gate all pass and your
+implementation satisfies the issue's acceptance criteria:
 
 - Create a topic branch if you are still on `main`/`master`
   (e.g. `feat/{{ issue.identifier }}`).
@@ -178,7 +192,8 @@ When `harness verify` passes and `harness outcome-eval` is non-blocking:
 
 ## Rules
 
-- Always verify your changes with `harness verify` before shipping.
+- Always verify your changes with `harness validate` and the project's
+  typecheck/lint/test commands before shipping.
 - Adhere to the architectural constraints defined in `harness.config.json`.
 - Do not use slash commands — they are unavailable on this backend.
 - Shipping is the terminal step; do not pause to ask for commit authorization.
