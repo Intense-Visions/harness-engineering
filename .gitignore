@@ -96,3 +96,6 @@ agents/agents/
 # Plugin generator staging dirs (per-target, cleaned up after each run)
 tmp-plugin-*-commands/
 tmp-plugin-*-agents/
+
+# Local e2e scratch (model pull logs, pids)
+.harness/e2e/

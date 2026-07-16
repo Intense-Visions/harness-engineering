@@ -36,6 +36,7 @@ const McpServerSpecSchema = z
     args: z.array(z.string()).optional(),
     env: z.record(z.string(), z.string()).optional(),
     cwd: z.string().min(1).optional(),
+    tools: z.array(z.string()).optional(),
   })
   .strict();
 

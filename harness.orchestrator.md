@@ -54,6 +54,9 @@ agent:
       #     args: ['-y', '@upstash/context7-mcp']
       #   - name: harness          # code_search / ask_graph / review_changes /
       #     command: harness-mcp    # outcome_eval, run against the agent's workspace
+      #     tools: [code_search, ask_graph, review_changes, outcome_eval, gather_context]
+      #                             # narrow harness's ~95 tools to the read-oriented set
+      #                             # so a local model isn't flooded (omit tools = all).
   # Routing — controls WHICH backend handles each use case.
   routing:
     default: primary
