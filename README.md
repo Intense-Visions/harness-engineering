@@ -35,6 +35,8 @@ Instead of relying on prompts and conventions, harness encodes your architectura
 
 ## Quick Start
 
+> **Using a coding agent?** Point it at the autonomous setup prompt and let it install + initialize harness for you: `https://raw.githubusercontent.com/Intense-Visions/harness-engineering/main/docs/agent-setup/prompt.md` — "follow the instructions at this URL".
+
 Pick the install path that matches how you use harness:
 
 - **Claude Code users** → install the `harness-claude` marketplace plugin (recommended). Skills, slash commands, persona subagents, lifecycle hooks, and MCP are wired up automatically — no `harness setup` step.
