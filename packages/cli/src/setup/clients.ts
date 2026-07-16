@@ -44,17 +44,6 @@ export const SETUP_CLIENTS: SetupClient[] = [
     },
   },
   {
-    name: 'Cursor',
-    detectDir: '.cursor',
-    client: 'cursor',
-    configTarget: '.cursor/mcp.json',
-    install: {
-      kind: 'plugin',
-      marketplace: 'Intense-Visions/harness-engineering',
-      plugin: 'harness-cursor',
-    },
-  },
-  {
     name: 'Gemini CLI',
     detectDir: '.gemini',
     client: 'gemini',
@@ -74,6 +63,17 @@ export const SETUP_CLIENTS: SetupClient[] = [
       kind: 'plugin',
       marketplace: 'Intense-Visions/harness-engineering',
       plugin: 'harness-codex',
+    },
+  },
+  {
+    name: 'Cursor',
+    detectDir: '.cursor',
+    client: 'cursor',
+    configTarget: '.cursor/mcp.json',
+    install: {
+      kind: 'plugin',
+      marketplace: 'Intense-Visions/harness-engineering',
+      plugin: 'harness-cursor',
     },
   },
   {
