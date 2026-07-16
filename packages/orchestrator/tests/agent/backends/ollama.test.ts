@@ -233,6 +233,38 @@ describe('OllamaBackend', () => {
       expect(lastUser?.content).toBe('do it');
     });
 
+    it('emits heartbeat status events while a slow model call is pending', async () => {
+      // fetch resolves after ~50ms; with heartbeatMs=10 the withHeartbeat wrapper
+      // should emit several heartbeats before the model call settles.
+      const fetchMock = vi
+        .fn()
+        .mockImplementationOnce(
+          () =>
+            new Promise((resolve) =>
+              setTimeout(() => resolve(okFetch(chatResponse({ content: 'TASK_COMPLETE' }))), 50)
+            )
+        );
+      vi.stubGlobal('fetch', fetchMock);
+      const backend = new OllamaBackend({ ...baseConfig, heartbeatMs: 10 });
+      const start = await backend.startSession({
+        workspacePath: workspace,
+        permissionMode: 'full',
+      });
+      expect(start.ok).toBe(true);
+      if (!start.ok) return;
+      const { events, result } = await drain(
+        backend.runTurn(start.value, {
+          sessionId: start.value.sessionId,
+          prompt: 'go',
+          isContinuation: false,
+        })
+      );
+      const heartbeats = events.filter((e) => e.type === 'status' && e.subtype === 'heartbeat');
+      expect(heartbeats.length).toBeGreaterThanOrEqual(1);
+      // The turn still completes normally (heartbeats don't disturb the result).
+      expect(result.success).toBe(true);
+    });
+
     it('surfaces failure on a non-200 HTTP response', async () => {
       const fetchMock = vi.fn().mockResolvedValue({
         ok: false,

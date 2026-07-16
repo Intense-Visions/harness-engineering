@@ -42,6 +42,12 @@ export interface OllamaBackendConfig {
    */
   maxTurnsPerRun?: number | undefined;
   /**
+   * Interval (ms) between heartbeat `status` events emitted while awaiting a
+   * slow model call or tool execution, so the orchestrator's stall detector does
+   * not abort a legitimately-busy dispatch. Default 30_000; `<= 0` disables.
+   */
+  heartbeatMs?: number | undefined;
+  /**
    * When true, append ` /no_think` to each user turn so reasoning models
    * (Qwen3 family) skip `<think>` traces — Ollama's `/v1` endpoint ignores the
    * `reasoning:false` knob, so the `/no_think` token in the last user message is
@@ -97,6 +103,14 @@ const MAX_TOOL_OUTPUT = 4000;
 const DEFAULT_ENDPOINT = 'http://127.0.0.1:11434/v1';
 const DEFAULT_TIMEOUT_MS = 600_000;
 const DEFAULT_MAX_TURNS = 50;
+/**
+ * How often to emit a heartbeat `status` event while awaiting a slow model call
+ * or tool execution. The orchestrator's stall detector resets on ANY agent
+ * event, so heartbeats keep a legitimately-busy dispatch alive (e.g. the agent
+ * running `pnpm test`) while a truly-hung backend — which emits none — is still
+ * caught. Must be shorter than the operator's `stallTimeoutMs`.
+ */
+const DEFAULT_HEARTBEAT_MS = 30_000;
 
 /**
  * The distinctive completion marker the model must emit — on its own line, with
@@ -207,12 +221,57 @@ export class OllamaBackend implements AgentBackend {
   readonly endpoint: string;
   readonly timeoutMs: number;
   readonly maxTurnsPerRun: number;
+  readonly heartbeatMs: number;
 
   constructor(config: OllamaBackendConfig = {}) {
     this.config = config;
     this.endpoint = config.endpoint ?? DEFAULT_ENDPOINT;
     this.timeoutMs = config.timeoutMs ?? DEFAULT_TIMEOUT_MS;
     this.maxTurnsPerRun = config.maxTurnsPerRun ?? DEFAULT_MAX_TURNS;
+    this.heartbeatMs = config.heartbeatMs ?? DEFAULT_HEARTBEAT_MS;
+  }
+
+  /**
+   * Yield a `status`/`heartbeat` event every `heartbeatMs` while `work` is
+   * pending, then return its resolved value (or rethrow). Keeps the stall
+   * detector from aborting a dispatch that is legitimately busy inside a slow
+   * model call or tool execution (both are `await`s that otherwise emit nothing).
+   * `heartbeatMs <= 0` disables heartbeats (awaits `work` directly).
+   */
+  private async *withHeartbeat<T>(
+    work: Promise<T>,
+    sessionId: string,
+    label: string
+  ): AsyncGenerator<AgentEvent, T, void> {
+    if (this.heartbeatMs <= 0) return await work;
+    let done = false;
+    const settled = work.then(
+      () => {
+        done = true;
+      },
+      () => {
+        done = true;
+      }
+    );
+    while (!done) {
+      let timer: ReturnType<typeof setTimeout> | undefined;
+      const tick = new Promise<'tick'>((resolve) => {
+        timer = setTimeout(() => resolve('tick'), this.heartbeatMs);
+      });
+      const winner = await Promise.race([settled.then(() => 'done' as const), tick]);
+      if (timer !== undefined) clearTimeout(timer);
+      if (winner === 'tick' && !done) {
+        yield {
+          type: 'status',
+          subtype: 'heartbeat',
+          timestamp: new Date().toISOString(),
+          sessionId,
+          content: `working: ${label}`,
+        };
+      }
+    }
+    // `work` has settled; return its value or rethrow its rejection.
+    return await work;
   }
 
   async startSession(params: SessionStartParams): Promise<Result<AgentSession, AgentError>> {
@@ -269,7 +328,11 @@ export class OllamaBackend implements AgentBackend {
 
       let response: OllamaChatResponse;
       try {
-        response = await this.callModel(ollamaSession);
+        response = yield* this.withHeartbeat(
+          this.callModel(ollamaSession),
+          session.sessionId,
+          'model'
+        );
       } catch (err) {
         if (ollamaSession.aborted) return fail('Ollama turn aborted by stopSession');
         const message = err instanceof Error ? err.message : String(err);
@@ -340,7 +403,11 @@ export class OllamaBackend implements AgentBackend {
           content: `Calling ${name}(${argsJson})`,
         };
 
-        const result = await this.executeTool(ollamaSession, name, argsJson);
+        const result = yield* this.withHeartbeat(
+          this.executeTool(ollamaSession, name, argsJson),
+          session.sessionId,
+          name
+        );
 
         yield {
           type: 'tool_execution_end',
