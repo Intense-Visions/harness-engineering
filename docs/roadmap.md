@@ -110,22 +110,22 @@ last_manual_edit: 2026-06-27T12:51:51.967Z
 - **Priority:** P2
 - **External-ID:** —
 
-### Dashboard chat can target any configured backend (incl. local/ollama)
+### Language-aware workspace bootstrap + verify for local dispatch
 
 - **Status:** planned
 - **Spec:** —
-- **Summary:** Let a user manually drive any configured backend — including the local `ollama` model — from the dashboard chat, so they can eyeball local-model quality interactively before trusting it with autonomous dispatch. Today the chat is hardwired to Claude: `packages/orchestrator/src/server/routes/chat-proxy.ts` spawns `claude --print` as a subprocess (`command = 'claude'`), bypassing the orchestrator's `BackendRouter` entirely — so the OllamaBackend and local models are unreachable from chat even though they now work for dispatch (#841/#843). Rewire the `/api/chat` handler to dispatch through the backend router (or an explicit backend/model param) and add a backend picker to the chat UI (default to the existing `claude` path for back-compat). The pieces already exist: the **OllamaBackend** implements a streaming chat loop (`startSession`→`runTurn` yielding `AgentEvent`s: usage / tool_execution / heartbeat), and the dashboard has the chat surface (`client/types/chat-session.ts`, `utils/chat-stream.ts`, `utils/agent-events.ts`, `stores/threadStore.ts`) + SSE streaming. Mostly a wiring job: map the backend's `AgentEvent` stream to the chat SSE event contract the client already consumes, expose the configured `agent.backends` to the picker, and preserve tool-execution/streaming semantics. Consider read-only vs full-tool permission modes for an interactive chat session (a manual chat probably wants tools optional). Ties directly to the Agent-Autonomy adoption story — humans validate the local model in chat, then graduate it to unattended dispatch.
+- **Summary:** Local-dispatch workspace setup and the enforced verify gate are JS/pnpm-baked; make both ecosystem-aware so non-JS adopters get a working local dispatch out of the box. Two coupled pieces: (a) **workspace dependency install** — the agent's workspace is a fresh git worktree with no installed deps, so the gate's verify fails environmentally and blocks EVERY dispatch (this looked like a model failure for days; see `local-dispatch-trustworthy-e2e`). It's set via the `hooks.afterCreate` config shell command (already language-agnostic — an adopter can put any install command there), and `feat/default-local-ollama` scaffolds the JS default `pnpm install`. (b) **the verify command** — `defaultLocalVerifyRunner` (`packages/orchestrator/src/orchestrator.ts`) hardcodes `pnpm -w run typecheck/lint/test`; for a Python project it should run `pytest`/`mypy`/`ruff`, for Rust `cargo test`, etc. Build a single ecosystem detector (by lockfile/manifest: `pnpm-lock.yaml`→pnpm, `package-lock.json`→npm, `yarn.lock`→yarn, `requirements.txt`/`pyproject.toml`→pip/poetry, `Cargo.toml`→cargo, `go.mod`→go, `Gemfile`→bundler, `pom.xml`/`build.gradle`→maven/gradle) that feeds BOTH: `harness init` scaffolds a matching `afterCreate` install command AND a matching verify command; a local dispatch **warns loudly when neither is set** (rather than silently passing verify on missing deps); both remain overridable in config. Consider caching installed deps across dispatches (per-dispatch `pnpm install` is ~5s via the pnpm store, but pip/cargo/gradle can be minutes). Keep the harness's language-agnostic, degrade-gracefully posture — never hardcode a package manager in orchestrator code.
 - **Blockers:** —
 - **Plan:** —
 - **Assignee:** —
 - **Priority:** P2
 - **External-ID:** —
 
-### Language-aware workspace bootstrap + verify for local dispatch
+### Dashboard chat can target any configured backend (incl. local/ollama)
 
 - **Status:** planned
 - **Spec:** —
-- **Summary:** Local-dispatch workspace setup and the enforced verify gate are JS/pnpm-baked; make both ecosystem-aware so non-JS adopters get a working local dispatch out of the box. Two coupled pieces: (a) **workspace dependency install** — the agent's workspace is a fresh git worktree with no installed deps, so the gate's verify fails environmentally and blocks EVERY dispatch (this looked like a model failure for days; see `local-dispatch-trustworthy-e2e`). It's set via the `hooks.afterCreate` config shell command (already language-agnostic — an adopter can put any install command there), and `feat/default-local-ollama` scaffolds the JS default `pnpm install`. (b) **the verify command** — `defaultLocalVerifyRunner` (`packages/orchestrator/src/orchestrator.ts`) hardcodes `pnpm -w run typecheck/lint/test`; for a Python project it should run `pytest`/`mypy`/`ruff`, for Rust `cargo test`, etc. Build a single ecosystem detector (by lockfile/manifest: `pnpm-lock.yaml`→pnpm, `package-lock.json`→npm, `yarn.lock`→yarn, `requirements.txt`/`pyproject.toml`→pip/poetry, `Cargo.toml`→cargo, `go.mod`→go, `Gemfile`→bundler, `pom.xml`/`build.gradle`→maven/gradle) that feeds BOTH: `harness init` scaffolds a matching `afterCreate` install command AND a matching verify command; a local dispatch **warns loudly when neither is set** (rather than silently passing verify on missing deps); both remain overridable in config. Consider caching installed deps across dispatches (per-dispatch `pnpm install` is ~5s via the pnpm store, but pip/cargo/gradle can be minutes). Keep the harness's language-agnostic, degrade-gracefully posture — never hardcode a package manager in orchestrator code.
+- **Summary:** Let a user manually drive any configured backend — including the local `ollama` model — from the dashboard chat, so they can eyeball local-model quality interactively before trusting it with autonomous dispatch. Today the chat is hardwired to Claude: `packages/orchestrator/src/server/routes/chat-proxy.ts` spawns `claude --print` as a subprocess (`command = 'claude'`), bypassing the orchestrator's `BackendRouter` entirely — so the OllamaBackend and local models are unreachable from chat even though they now work for dispatch (#841/#843). Rewire the `/api/chat` handler to dispatch through the backend router (or an explicit backend/model param) and add a backend picker to the chat UI (default to the existing `claude` path for back-compat). The pieces already exist: the **OllamaBackend** implements a streaming chat loop (`startSession`→`runTurn` yielding `AgentEvent`s: usage / tool_execution / heartbeat), and the dashboard has the chat surface (`client/types/chat-session.ts`, `utils/chat-stream.ts`, `utils/agent-events.ts`, `stores/threadStore.ts`) + SSE streaming. Mostly a wiring job: map the backend's `AgentEvent` stream to the chat SSE event contract the client already consumes, expose the configured `agent.backends` to the picker, and preserve tool-execution/streaming semantics. Consider read-only vs full-tool permission modes for an interactive chat session (a manual chat probably wants tools optional). Ties directly to the Agent-Autonomy adoption story — humans validate the local model in chat, then graduate it to unattended dispatch.
 - **Blockers:** —
 - **Plan:** —
 - **Assignee:** —
@@ -141,6 +141,39 @@ last_manual_edit: 2026-06-27T12:51:51.967Z
 - **Plan:** —
 - **Assignee:** —
 - **Priority:** P2
+- **External-ID:** —
+
+### Automate best-model discovery/recommendation for local dispatch
+
+- **Status:** planned
+- **Spec:** —
+- **Summary:** The pool recommender should automate the manual process a human just used to pick a local coding model, and that process taught concrete lessons the frozen ranker misses. When picking a model for agentic dispatch by hand (2026-07-16) the winning process was: (1) query **current** authoritative sources for the best agentic coders — the landscape moves monthly (llama3.3:70b → qwen3-coder:30b / devstral-24b / laguna-xs), so a frozen snapshot goes stale; recency must be a ranking input. (2) Filter by hardware fit (already done). (3) **Rank speed by MoE ACTIVE params, not total size** — this was the key miss: a dense 70B is too slow for a tool-loop (a single call took 4 min) while a 30B **MoE with ~3B active** is fast and usable; the ranker's bandwidth×total-size estimate treats these the same, so it must model compute/latency from active params (MoE-aware). (4) **Require tool-calling** (hard filter — reuse #833's probe). (5) **Weight agentic benchmarks** — SWE-bench Verified (devstral 46.8%, laguna-xs 70.9%) over generic perplexity/chat benchmarks. (6) **Prefer coding/agent-specialized** models (qwen3-coder, Mistral's agent-first devstral) over general chat models for dispatch. Build a discovery step that pulls current candidates (Ollama library + HF + published SWE-bench numbers) with recency weighting, computes the [[local-model-agentic-suitability]] `agenticScore` (tool-calling × MoE-aware latency × agentic benchmark × learned build quality), surfaces the top recommendation for dispatch, and can **auto-pull** it. This makes the pool's suggestions match — or beat — what an expert would pick by hand, instead of recommending a fits-VRAM-but-too-slow dense model. Cross-refs #833 (tool-calling probe), the agentic-suitability item, and the LMLM live-HF candidate-discovery work.
+- **Blockers:** —
+- **Plan:** —
+- **Assignee:** —
+- **Priority:** P2
+- **External-ID:** —
+
+### Refresh the suggested MCP-server catalog to current best-in-class
+
+- **Status:** planned
+- **Spec:** —
+- **Summary:** The MCP-server suggestions in `packages/cli/src/integrations/registry.ts` (context7, sequential-thinking, playwright, perplexity, augment-code) have drifted from the 2026 best-in-class and miss servers that directly serve a dev harness. Re-analysis (2026-07-16, live web): **keep** context7 (still the #1 docs server, ~54k stars) and playwright. **Add** (biggest gaps): (a) the **official GitHub MCP** — repos/branches/PRs/issues/CI — the harness lives on GitHub (roadmap↔issues, PR flows) yet doesn't suggest it; (b) **Exa**, now the most-used agent *search* server by a wide margin (semantic queries, structured results) — a better fit than the current `perplexity`; (c) **harness's OWN MCP** as a first-class *suggested* entry (code_search, ask_graph, spec_craft, outcome_eval, review_changes) — the harness's code-intelligence + workflow tools are more useful to an agent than a generic code-context server. **Reconsider:** `perplexity` → Exa, `augment-code` (redundant with the harness MCP + graph), `sequential-thinking` (marginal now that strong models reason natively). Optionally add Postgres/Filesystem/Fetch for adopters that need them. Make the catalog **freshness-aware** (like [[local-model-discovery-recommendation]] does for models) so it doesn't restale — the MCP ecosystem moves monthly. Weigh each by popularity + security posture (some servers are broad-access; note the risk). This catalog feeds both adopter MCP scaffolding AND [[ollama-backend-mcp-tools]] (which wires suggested servers into the local agent).
+- **Blockers:** —
+- **Plan:** —
+- **Assignee:** —
+- **Priority:** P2
+- **External-ID:** —
+
+### Wire suggested MCP servers (incl. harness itself) into the OllamaBackend agent
+
+- **Status:** planned
+- **Spec:** —
+- **Summary:** Give the local `OllamaBackend` agent the same power cloud drivers get from MCP: expose the harness-suggested MCP servers as agent tools alongside `bash`/`read_file`/`write_file`. Today the local agent has only those three built-ins, so it writes code from stale memory — e.g. it used the deprecated `@typescript-eslint/utils` RuleTester import when **context7** returns the current `@typescript-eslint/rule-tester` API (verified live). The fix generalizes: an **MCP client in `OllamaBackend`** that, at `startSession`, connects to the configured/suggested MCP servers (from the refreshed catalog — [[mcp-catalog-refresh]]), enumerates each server's tools, and adds them (namespaced, e.g. `context7__query-docs`, `harness__code_search`) to the tool schema it sends to the model; on a tool call for an MCP tool it forwards to the server and returns the result. **Include harness's own MCP** so the local agent can `code_search` / `ask_graph` / `outcome_eval` / `review_changes` on itself — the highest-leverage set for harness-native work. Reuse the harness's existing MCP client plumbing + the `@modelcontextprotocol/sdk` rather than a bespoke per-server tool. Config: a per-backend allowlist of which suggested servers the agent gets (default a safe set: context7 docs + harness read-only tools; opt-in for write/network-heavy servers). Respect the interactive vs full-tool permission mode. This is the single biggest capability lever for local-model success — combined with a stronger model ([[local-model-discovery-recommendation]]) it directly targets the observed failure (writes plausible code but with wrong/old APIs and no doc lookup). MVP: context7 `lookup_docs` (HTTP, no key — proven) + the harness MCP; then generalize to the full catalog.
+- **Blockers:** —
+- **Plan:** —
+- **Assignee:** —
+- **Priority:** P1
 - **External-ID:** —
 
 ## v5.0 — Enforcement Hardening
