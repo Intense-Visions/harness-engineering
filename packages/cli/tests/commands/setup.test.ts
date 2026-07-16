@@ -225,7 +225,7 @@ describe('configureTier0Integrations', () => {
     expect(result.status).toBe('pass');
     expect(result.message).toContain('Configured 3 MCP integrations');
     expect(result.message).toContain('Context7');
-    expect(result.message).toContain('Sequential Thinking');
+    expect(result.message).toContain('Harness');
     expect(result.message).toContain('Playwright');
     expect(mockWriteMcpEntry).toHaveBeenCalledTimes(3);
     expect(mockWriteMcpEntry).toHaveBeenCalledWith(
@@ -247,7 +247,7 @@ describe('configureTier0Integrations', () => {
 
     expect(result.status).toBe('pass');
     expect(result.message).toContain('Configured 1 MCP integrations');
-    expect(result.message).toContain('Sequential Thinking');
+    expect(result.message).toContain('Harness');
     expect(result.message).not.toContain('Context7');
     expect(result.message).not.toContain('Playwright');
     expect(mockWriteMcpEntry).toHaveBeenCalledTimes(1);
@@ -257,7 +257,7 @@ describe('configureTier0Integrations', () => {
     mockReadMcpConfig.mockReturnValue({
       mcpServers: {
         context7: { command: 'npx', args: [] },
-        'sequential-thinking': { command: 'npx', args: [] },
+        harness: { command: 'harness-mcp', args: [] },
         playwright: { command: 'npx', args: [] },
       },
     });
@@ -337,8 +337,8 @@ describe('configureTier0Integrations', () => {
   it('does not add Tier 1 integrations', () => {
     const result = configureTier0Integrations('/tmp/test');
 
-    expect(result.message).not.toContain('Perplexity');
-    expect(result.message).not.toContain('Augment');
+    expect(result.message).not.toContain('GitHub');
+    expect(result.message).not.toContain('Exa');
   });
 
   it('returns fail status when an error occurs', () => {
