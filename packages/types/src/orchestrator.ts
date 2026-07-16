@@ -501,6 +501,7 @@ export type BackendDef =
   | GeminiBackendDef
   | LocalBackendDef
   | PiBackendDef
+  | OllamaBackendDef
   | SshBackendDef
   | ServerlessBackendDef;
 
@@ -584,6 +585,33 @@ export interface PiBackendDef {
   timeoutMs?: number;
   /** Probe interval in ms for resolver. Default: 30_000. Minimum: 1_000. */
   probeIntervalMs?: number;
+  /** Native isolation tier this backend provides. Defaults to `'none'`. */
+  isolation?: IsolationTier;
+  /** AMR Phase 1 (D1): optional capability block for tier selection. */
+  capabilities?: BackendCapabilities;
+}
+
+/**
+ * Native Ollama agentic backend pointing at an Ollama OpenAI-compatible server.
+ *
+ * Unlike the `pi` backend (which embeds the pi-coding-agent SDK), this backend
+ * owns its agentic tool loop: it drives `/v1/chat/completions` directly, parses
+ * native `tool_calls`, executes `bash`/`write_file`/`read_file` inside the
+ * workspace, and appends tool results until the model stops calling tools. The
+ * pi/codex SDKs fail against Ollama-served tool-calling models (empty
+ * completions / rejected tool calls) where this harness-owned driver succeeds.
+ */
+export interface OllamaBackendDef {
+  type: 'ollama';
+  /** Ollama OpenAI-compatible base URL (e.g., `http://127.0.0.1:11434/v1`). */
+  endpoint: string;
+  /** Model name(s). Array form supports prefer-fallback resolution. */
+  model: string | string[];
+  apiKey?: string;
+  /** Per-request timeout in ms for each chat-completion call. Default: 600_000. */
+  timeoutMs?: number;
+  /** Maximum inner agentic-loop iterations per `runTurn`. Default: 50. */
+  maxTurnsPerRun?: number;
   /** Native isolation tier this backend provides. Defaults to `'none'`. */
   isolation?: IsolationTier;
   /** AMR Phase 1 (D1): optional capability block for tier selection. */
