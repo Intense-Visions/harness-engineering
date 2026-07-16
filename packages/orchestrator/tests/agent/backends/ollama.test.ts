@@ -192,6 +192,33 @@ describe('OllamaBackend', () => {
       }
     );
 
+    it('sends only the 3 built-in tools when mcpServers is unset (SC1)', async () => {
+      let sentTools: unknown;
+      const fetchMock = vi.fn(async (_url: string, init: RequestInit) => {
+        sentTools = JSON.parse(init.body as string).tools;
+        return okFetch(chatResponse({ content: 'TASK_COMPLETE' }));
+      });
+      vi.stubGlobal('fetch', fetchMock);
+      const backend = new OllamaBackend(baseConfig);
+      const start = await backend.startSession({
+        workspacePath: workspace,
+        permissionMode: 'full',
+      });
+      expect(start.ok).toBe(true);
+      if (!start.ok) return;
+      await drain(
+        backend.runTurn(start.value, {
+          sessionId: start.value.sessionId,
+          prompt: 'go',
+          isContinuation: false,
+        })
+      );
+      const names = (sentTools as Array<{ function: { name: string } }>).map(
+        (t) => t.function.name
+      );
+      expect(names).toEqual(['bash', 'write_file', 'read_file']);
+    });
+
     it('appends /no_think to the user turn when disableReasoning is set', async () => {
       const fetchMock = vi.fn().mockResolvedValueOnce(okFetch(chatResponse({ content: 'DONE' })));
       vi.stubGlobal('fetch', fetchMock);

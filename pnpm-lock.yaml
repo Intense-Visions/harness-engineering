@@ -79,7 +79,7 @@ importers:
         version: 1.6.4(@algolia/client-search@5.52.1)(search-insights@2.17.3)(typescript@5.9.3)
       vitest:
         specifier: ^4.1.5
-        version: 4.1.5(@types/node@22.19.15)(@vitest/coverage-v8@4.1.5)(@vitest/ui@4.1.5)(vite@6.4.3)
+        version: 4.1.5(@types/node@22.19.15)(@vitest/coverage-v8@4.1.5)(jsdom@29.0.1)(vite@6.4.3)
       yaml:
         specifier: ^2.8.3
         version: 2.8.3
@@ -206,7 +206,7 @@ importers:
         version: 8.5.1(tsx@4.21.0)(typescript@5.9.3)(yaml@2.8.3)
       vitest:
         specifier: ^4.1.5
-        version: 4.1.5(@types/node@22.19.15)(@vitest/coverage-v8@4.1.5)(jsdom@29.0.1)(vite@6.4.3)
+        version: 4.1.5(@types/node@22.19.15)(@vitest/coverage-v8@4.1.5)(@vitest/ui@4.1.5)(vite@6.4.3)
 
   packages/core:
     dependencies:
@@ -410,7 +410,7 @@ importers:
         version: 5.9.3
       vitest:
         specifier: ^4.1.5
-        version: 4.1.5(@types/node@22.19.15)(@vitest/coverage-v8@4.1.5)(jsdom@29.0.1)(vite@6.4.3)
+        version: 4.1.5(@types/node@22.19.15)(@vitest/coverage-v8@4.1.5)(@vitest/ui@4.1.5)(vite@6.4.3)
 
   packages/graph:
     dependencies:
@@ -445,7 +445,7 @@ importers:
         version: 5.9.3
       vitest:
         specifier: ^4.1.5
-        version: 4.1.5(@types/node@22.19.15)(@vitest/coverage-v8@4.1.5)(jsdom@29.0.1)(vite@6.4.3)
+        version: 4.1.5(@types/node@22.19.15)(@vitest/coverage-v8@4.1.5)(@vitest/ui@4.1.5)(vite@6.4.3)
 
   packages/intelligence:
     dependencies:
@@ -480,7 +480,7 @@ importers:
         version: 8.5.1(tsx@4.21.0)(typescript@5.9.3)(yaml@2.8.3)
       vitest:
         specifier: ^4.1.5
-        version: 4.1.5(@types/node@22.19.15)(@vitest/coverage-v8@4.1.5)(jsdom@29.0.1)(vite@6.4.3)
+        version: 4.1.5(@types/node@22.19.15)(@vitest/coverage-v8@4.1.5)(@vitest/ui@4.1.5)(vite@6.4.3)
 
   packages/linter-gen:
     dependencies:
@@ -508,7 +508,7 @@ importers:
         version: 5.9.3
       vitest:
         specifier: ^4.1.5
-        version: 4.1.5(@types/node@22.19.15)(@vitest/coverage-v8@4.1.5)(jsdom@29.0.1)(vite@6.4.3)
+        version: 4.1.5(@types/node@22.19.15)(@vitest/coverage-v8@4.1.5)(@vitest/ui@4.1.5)(vite@6.4.3)
 
   packages/local-models:
     dependencies:
@@ -530,7 +530,7 @@ importers:
         version: 8.5.1(tsx@4.21.0)(typescript@5.9.3)(yaml@2.8.3)
       vitest:
         specifier: ^4.1.5
-        version: 4.1.5(@types/node@22.19.15)(@vitest/coverage-v8@4.1.5)(jsdom@29.0.1)(vite@6.4.3)
+        version: 4.1.5(@types/node@22.19.15)(@vitest/coverage-v8@4.1.5)(@vitest/ui@4.1.5)(vite@6.4.3)
 
   packages/orchestrator:
     dependencies:
@@ -539,10 +539,10 @@ importers:
         version: 0.95.1(zod@3.25.76)
       '@earendil-works/pi-coding-agent':
         specifier: ^0.79.0
-        version: 0.79.10(ws@8.21.0)(zod@3.25.76)
+        version: 0.79.10(@modelcontextprotocol/sdk@1.29.0)(ws@8.21.0)(zod@3.25.76)
       '@google/genai':
         specifier: ^2.0.4
-        version: 2.7.0
+        version: 2.7.0(@modelcontextprotocol/sdk@1.29.0)
       '@harness-engineering/core':
         specifier: workspace:*
         version: link:../core
@@ -558,6 +558,9 @@ importers:
       '@harness-engineering/types':
         specifier: workspace:*
         version: link:../types
+      '@modelcontextprotocol/sdk':
+        specifier: ^1.29.0
+        version: 1.29.0(zod@3.25.76)
       bcryptjs:
         specifier: ^2.4.3
         version: 2.4.3
@@ -615,7 +618,7 @@ importers:
         version: 8.5.1(tsx@4.21.0)(typescript@5.9.3)(yaml@2.8.3)
       vitest:
         specifier: ^4.1.5
-        version: 4.1.5(@types/node@22.19.15)(@vitest/coverage-v8@4.1.5)(jsdom@29.0.1)(vite@6.4.3)
+        version: 4.1.5(@types/node@22.19.15)(@vitest/coverage-v8@4.1.5)(@vitest/ui@4.1.5)(vite@6.4.3)
 
   packages/signals:
     dependencies:
@@ -640,7 +643,7 @@ importers:
         version: 5.9.3
       vitest:
         specifier: ^4.1.5
-        version: 4.1.5(@types/node@22.19.15)(@vitest/coverage-v8@4.1.5)(jsdom@29.0.1)(vite@6.4.3)
+        version: 4.1.5(@types/node@22.19.15)(@vitest/coverage-v8@4.1.5)(@vitest/ui@4.1.5)(vite@6.4.3)
 
   packages/types:
     dependencies:
@@ -1739,11 +1742,11 @@ packages:
       - '@algolia/client-search'
     dev: true
 
-  /@earendil-works/pi-agent-core@0.79.10(ws@8.21.0)(zod@3.25.76):
+  /@earendil-works/pi-agent-core@0.79.10(@modelcontextprotocol/sdk@1.29.0)(ws@8.21.0)(zod@3.25.76):
     resolution: {integrity: sha512-XKxgdjhcPuyjrthCOFSgfzT3xZ1uBrJ1IMVDxci1to6hIN6BIg9J5iY8q0pGXK1DLgATLP23da+1UyZLwA360Q==}
     engines: {node: '>=22.19.0'}
     dependencies:
-      '@earendil-works/pi-ai': 0.79.10(ws@8.21.0)(zod@3.25.76)
+      '@earendil-works/pi-ai': 0.79.10(@modelcontextprotocol/sdk@1.29.0)(ws@8.21.0)(zod@3.25.76)
       ignore: 7.0.5
       typebox: 1.1.38
       yaml: 2.9.0
@@ -1756,14 +1759,14 @@ packages:
       - zod
     dev: false
 
-  /@earendil-works/pi-ai@0.79.10(ws@8.21.0)(zod@3.25.76):
+  /@earendil-works/pi-ai@0.79.10(@modelcontextprotocol/sdk@1.29.0)(ws@8.21.0)(zod@3.25.76):
     resolution: {integrity: sha512-9jR23tOl0BIUdQMn70Gr72xYBpM7Xgl9Lyv7gAnU1USfkNRuYG/f/edLl+n/Dp/RafDW3JI4DF7y/GhgkORuew==}
     engines: {node: '>=22.19.0'}
     hasBin: true
     dependencies:
       '@anthropic-ai/sdk': 0.91.1(zod@3.25.76)
       '@aws-sdk/client-bedrock-runtime': 3.1048.0
-      '@google/genai': 1.52.0
+      '@google/genai': 1.52.0(@modelcontextprotocol/sdk@1.29.0)
       '@mistralai/mistralai': 2.2.6(@opentelemetry/api@1.9.0)
       '@opentelemetry/api': 1.9.0
       '@smithy/node-http-handler': 4.7.3
@@ -1781,13 +1784,13 @@ packages:
       - zod
     dev: false
 
-  /@earendil-works/pi-coding-agent@0.79.10(ws@8.21.0)(zod@3.25.76):
+  /@earendil-works/pi-coding-agent@0.79.10(@modelcontextprotocol/sdk@1.29.0)(ws@8.21.0)(zod@3.25.76):
     resolution: {integrity: sha512-YxaRhmgyDTvLDdGVbe7YzTHV80oL5mX5odg6EhGHz3w5Wu1Ix8DCw7bhtiOBLGQNFRcknia0zPmVWIj30XP1EA==}
     engines: {node: '>=22.19.0'}
     hasBin: true
     dependencies:
-      '@earendil-works/pi-agent-core': 0.79.10(ws@8.21.0)(zod@3.25.76)
-      '@earendil-works/pi-ai': 0.79.10(ws@8.21.0)(zod@3.25.76)
+      '@earendil-works/pi-agent-core': 0.79.10(@modelcontextprotocol/sdk@1.29.0)(ws@8.21.0)(zod@3.25.76)
+      '@earendil-works/pi-ai': 0.79.10(@modelcontextprotocol/sdk@1.29.0)(ws@8.21.0)(zod@3.25.76)
       '@earendil-works/pi-tui': 0.79.10
       '@silvia-odwyer/photon-node': 0.3.4
       chalk: 5.6.2
@@ -2566,7 +2569,7 @@ packages:
         optional: true
     dev: true
 
-  /@google/genai@1.52.0:
+  /@google/genai@1.52.0(@modelcontextprotocol/sdk@1.29.0):
     resolution: {integrity: sha512-gwSvbpiN/17O9TbsqSsE/OzZcpv5Fo4RQjdngGgogtuB9RsyJ8ZHhX5KjHj1bp5N9snN2eK8LDGXSaWW2hof8Q==}
     engines: {node: '>=20.0.0'}
     requiresBuild: true
@@ -2576,6 +2579,7 @@ packages:
       '@modelcontextprotocol/sdk':
         optional: true
     dependencies:
+      '@modelcontextprotocol/sdk': 1.29.0(zod@3.25.76)
       google-auth-library: 10.6.2
       p-retry: 4.6.2
       protobufjs: 7.6.5
@@ -2586,7 +2590,7 @@ packages:
       - utf-8-validate
     dev: false
 
-  /@google/genai@2.7.0:
+  /@google/genai@2.7.0(@modelcontextprotocol/sdk@1.29.0):
     resolution: {integrity: sha512-tv0DRtcndt2oEhBYy+5mA0TaXH98+L1Gt0AP9unBfH7DP20KhB7+O3QqAN1Lz+laMARGTHS7BFQSNpLbl4gm1g==}
     engines: {node: '>=20.0.0'}
     requiresBuild: true
@@ -2596,6 +2600,7 @@ packages:
       '@modelcontextprotocol/sdk':
         optional: true
     dependencies:
+      '@modelcontextprotocol/sdk': 1.29.0(zod@3.25.76)
       google-auth-library: 10.6.2
       p-retry: 4.6.2
       protobufjs: 7.6.5

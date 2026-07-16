@@ -601,6 +601,26 @@ export interface PiBackendDef {
  * pi/codex SDKs fail against Ollama-served tool-calling models (empty
  * completions / rejected tool calls) where this harness-owned driver succeeds.
  */
+/**
+ * A single MCP server the OllamaBackend agent may connect to. The agent spawns
+ * `command` (with `args`/`env`) over stdio, lists its tools, and exposes them to
+ * the model namespaced as `<name>__<tool>`. `cwd` defaults to the session
+ * workspace so code-intelligence servers (e.g. `harness-mcp`) operate on the
+ * agent's worktree, not the daemon's repo.
+ */
+export interface McpServerSpec {
+  /** Server label; becomes the `<name>__` tool namespace prefix (sanitized). */
+  name: string;
+  /** Executable to spawn over stdio (e.g. `npx`, `harness-mcp`). */
+  command: string;
+  /** Arguments passed to `command`. */
+  args?: string[];
+  /** Extra environment for the spawned process. */
+  env?: Record<string, string>;
+  /** Working directory; defaults to the session `workspacePath`. */
+  cwd?: string;
+}
+
 export interface OllamaBackendDef {
   type: 'ollama';
   /** Ollama OpenAI-compatible base URL (e.g., `http://127.0.0.1:11434/v1`). */
@@ -619,6 +639,11 @@ export interface OllamaBackendDef {
    * call. Default: false.
    */
   disableReasoning?: boolean;
+  /**
+   * MCP servers whose tools are merged into the model's tool set (opt-in
+   * allowlist). Absent/empty ⇒ built-ins only (byte-identical to today).
+   */
+  mcpServers?: McpServerSpec[];
   /** Native isolation tier this backend provides. Defaults to `'none'`. */
   isolation?: IsolationTier;
   /** AMR Phase 1 (D1): optional capability block for tier selection. */

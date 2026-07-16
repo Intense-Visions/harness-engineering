@@ -6,6 +6,7 @@ import type {
   RoutingPolicy,
   RoadmapConfig,
   RoadmapAutoTriageConfig,
+  McpServerSpec,
 } from '@harness-engineering/types';
 
 /**
@@ -23,6 +24,20 @@ const ModelSchema = z.union([z.string().min(1), z.array(z.string().min(1)).nonem
     message: 'model must be a non-empty string or array of strings',
   }),
 });
+
+/**
+ * MCP server allowlist entry for the ollama backend. `.strict()` so a typo'd
+ * field fails at config-load (mirrors BackendCapabilities). Absent ⇒ built-ins only.
+ */
+const McpServerSpecSchema = z
+  .object({
+    name: z.string().min(1),
+    command: z.string().min(1),
+    args: z.array(z.string()).optional(),
+    env: z.record(z.string(), z.string()).optional(),
+    cwd: z.string().min(1).optional(),
+  })
+  .strict();
 
 // --- AMR (Adaptive Model Routing) shared enums ---
 const CAPABILITY_TIER = z.enum(['fast', 'standard', 'strong']);
@@ -89,8 +104,10 @@ export const RoutingPolicySchema = z.object({
 // pinned by the config round-trip test in schema.amr-config.test.ts.
 const _capsGuard = (c: BackendCapabilities): z.infer<typeof BackendCapabilitiesSchema> => c;
 const _policyGuard = (p: RoutingPolicy): z.infer<typeof RoutingPolicySchema> => p;
+const _mcpGuard = (s: McpServerSpec): z.infer<typeof McpServerSpecSchema> => s;
 void _capsGuard;
 void _policyGuard;
+void _mcpGuard;
 
 /**
  * Zod schema for `BackendDef` (Spec 2 — multi-backend routing).
@@ -168,6 +185,7 @@ export const BackendDefSchema = z.discriminatedUnion('type', [
       timeoutMs: z.number().int().positive().optional(),
       maxTurnsPerRun: z.number().int().positive().optional(),
       disableReasoning: z.boolean().optional(),
+      mcpServers: z.array(McpServerSpecSchema).optional(),
       capabilities: BackendCapabilitiesSchema.optional(),
     })
     .strict(),

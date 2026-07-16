@@ -2,6 +2,8 @@
 
 **Date:** 2026-07-16 | **Spec:** `docs/changes/ollama-mcp-tools/proposal.md` | **Tasks:** 12 | **Time:** ~48 min | **Integration Tier:** medium
 
+> **Execution status (2026-07-16):** All 12 tasks complete (changes staged, not committed). Scoped typecheck (orchestrator + types) clean; ollama suite 27/27 (21 in `ollama.test.ts` incl. SC1, 6 in `ollama-mcp.test.ts` covering SC2–SC6); schema round-trip 24/24; `check-deps` clean; SDK `^1.29.0` installed. One deviation: `McpServerSpec` also added to the `@harness-engineering/types` barrel (`packages/types/src/index.ts`) so `schema.ts`/`ollama.ts` can import it — the plan assumed the def barrel already re-exported ollama types, but it did not.
+
 ## Goal
 
 The local `OllamaBackend` agent connects to configured MCP servers at `startSession`, merges their tools (namespaced) into the model's tool set, forwards model tool-calls to those servers via the SDK `Client`, and closes the clients at `stopSession` — with graceful degradation and heartbeat wrapping — while behaving byte-identically to today when `mcpServers` is unset.

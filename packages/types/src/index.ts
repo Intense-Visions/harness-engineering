@@ -145,6 +145,7 @@ export type {
   GeminiBackendDef,
   LocalBackendDef,
   PiBackendDef,
+  McpServerSpec,
   RoutingConfig,
   RoutingUseCase,
   NamedLocalModelStatus,

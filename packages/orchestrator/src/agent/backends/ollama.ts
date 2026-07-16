@@ -14,6 +14,10 @@ import {
   Err,
   AgentError,
 } from '@harness-engineering/types';
+import type { McpServerSpec } from '@harness-engineering/types';
+import { Client } from '@modelcontextprotocol/sdk/client/index.js';
+import { StdioClientTransport } from '@modelcontextprotocol/sdk/client/stdio.js';
+import type { Transport } from '@modelcontextprotocol/sdk/shared/transport.js';
 
 /**
  * Configuration for {@link OllamaBackend}. Mirrors the shape of
@@ -75,6 +79,40 @@ export interface OllamaBackendConfig {
    * model is deprioritized. Best-effort.
    */
   onModelFailed?: ((model: string) => void) | undefined;
+  /**
+   * MCP servers whose tools are merged into the model's tool set. Absent/empty
+   * ⇒ built-ins only (byte-identical to today).
+   */
+  mcpServers?: McpServerSpec[] | undefined;
+  /**
+   * Test seam: factory that connects one MCP server and returns a live SDK
+   * Client (mirrors the `verifyRunner`/`diffRunner` seams). Defaults to the real
+   * stdio path. Unit tests inject an in-memory-transport variant so no external
+   * process spawns. Receives the resolved `cwd` (spec.cwd ?? workspacePath).
+   */
+  connectMcp?:
+    | ((
+        spec: McpServerSpec,
+        cwd: string
+      ) => Promise<{ client: Client; tools: McpToolDescriptor[] }>)
+    | undefined;
+}
+
+/** OpenAI function-tool schema shape — covers both built-ins and MCP-derived tools. */
+export interface OpenAITool {
+  type: 'function';
+  function: {
+    name: string;
+    description?: string;
+    parameters: Record<string, unknown>;
+  };
+}
+
+/** A tool as reported by an MCP server's `listTools`. */
+export interface McpToolDescriptor {
+  name: string;
+  description?: string;
+  inputSchema: Record<string, unknown>;
 }
 
 /** An OpenAI-shaped chat message carried on the session's conversation state. */
@@ -101,6 +139,12 @@ export interface OllamaSession extends AgentSession {
   activeController: AbortController | null;
   /** Model name resolved at session start (head-of-array or the string). */
   resolvedModel: string;
+  /** Namespaced MCP tools (`<server>__<tool>`) merged into the model tool set. */
+  mcpTools: OpenAITool[];
+  /** Namespaced tool name → the client + original tool name to forward to. */
+  mcpToolMap: Map<string, { client: Client; toolName: string }>;
+  /** Live MCP clients to close at `stopSession`. */
+  mcpClients: Client[];
 }
 
 /** Max characters returned from a tool result before truncation. */
@@ -119,6 +163,8 @@ const DEFAULT_MAX_TURNS = 50;
 const DEFAULT_HEARTBEAT_MS = 30_000;
 /** Max wall-clock for a single `bash` tool call before the process TREE is SIGKILLed. */
 const DEFAULT_BASH_TIMEOUT_MS = 300_000;
+/** Bounded wall-clock (ms) for a single MCP server connect+listTools. */
+const DEFAULT_MCP_CONNECT_TIMEOUT_MS = 15_000;
 
 /**
  * The distinctive completion marker the model must emit — on its own line, with
@@ -213,6 +259,75 @@ function resolveInsideWorkspace(workspacePath: string, requested: string): strin
   return resolved;
 }
 
+/** Sanitize a segment to `[A-Za-z0-9_-]` for use in a namespaced tool name. */
+function sanitizeSegment(s: string): string {
+  return s.replace(/[^A-Za-z0-9_-]/g, '_');
+}
+
+/**
+ * Default MCP connector: spawn the server over stdio, connect, and list its
+ * tools. Injectable via `OllamaBackendConfig.connectMcp` for tests.
+ */
+async function defaultConnectMcp(
+  spec: McpServerSpec,
+  cwd: string
+): Promise<{ client: Client; tools: McpToolDescriptor[] }> {
+  const client = new Client(
+    { name: `ollama-mcp-${spec.name}`, version: '1.0.0' },
+    { capabilities: {} }
+  );
+  const transport: Transport = new StdioClientTransport({
+    command: spec.command,
+    ...(spec.args !== undefined ? { args: spec.args } : {}),
+    ...(spec.env !== undefined ? { env: spec.env } : {}),
+    cwd,
+  });
+  await client.connect(transport);
+  const listed = await client.listTools();
+  const tools: McpToolDescriptor[] = listed.tools.map((t) => ({
+    name: t.name,
+    ...(t.description !== undefined ? { description: t.description } : {}),
+    inputSchema: (t.inputSchema ?? {}) as Record<string, unknown>,
+  }));
+  return { client, tools };
+}
+
+/**
+ * Join the `type:'text'` blocks of an MCP callTool result into one string. The
+ * SDK reports a tool-level failure as `{ isError: true, content: [...] }` (it
+ * does NOT throw for those), so surface it with the same `ERROR:` prefix the
+ * built-ins use — otherwise a failed MCP call looks identical to a clean result
+ * and the model never learns to self-correct.
+ */
+function extractMcpText(res: unknown): string {
+  const r = res as { isError?: boolean; content?: Array<{ type?: string; text?: string }> };
+  const content = r?.content ?? [];
+  const text = content
+    .filter((b) => b?.type === 'text' && typeof b.text === 'string')
+    .map((b) => b.text as string)
+    .join('\n');
+  const body = text.length > 0 ? text : '(no output)';
+  return r?.isError === true ? `ERROR: ${body}` : body;
+}
+
+/** Reject with a labeled timeout error if `p` does not settle within `ms`. */
+function withTimeout<T>(p: Promise<T>, ms: number, label: string): Promise<T> {
+  if (ms <= 0) return p;
+  return new Promise<T>((resolve, reject) => {
+    const timer = setTimeout(() => reject(new Error(`${label} timed out after ${ms}ms`)), ms);
+    p.then(
+      (v) => {
+        clearTimeout(timer);
+        resolve(v);
+      },
+      (e) => {
+        clearTimeout(timer);
+        reject(e instanceof Error ? e : new Error(String(e)));
+      }
+    );
+  });
+}
+
 /**
  * Native Ollama agentic backend. Owns its `/v1/chat/completions` tool loop:
  * `startSession` seeds conversation state, `runTurn` drives the inner loop
@@ -303,7 +418,56 @@ export class OllamaBackend implements AgentBackend {
       aborted: false,
       activeController: null,
       resolvedModel,
+      mcpTools: [],
+      mcpToolMap: new Map(),
+      mcpClients: [],
     };
+
+    const specs = this.config.mcpServers ?? [];
+    const connect = this.config.connectMcp ?? defaultConnectMcp;
+    await Promise.all(
+      specs.map(async (spec) => {
+        const cwd = spec.cwd ?? params.workspacePath;
+        // Keep the underlying connect promise so a server that resolves AFTER
+        // the timeout can still be closed — otherwise its live client (a spawned
+        // subprocess) is orphaned and never torn down at stopSession.
+        const connecting = connect(spec, cwd);
+        try {
+          const { client, tools } = await withTimeout(
+            connecting,
+            DEFAULT_MCP_CONNECT_TIMEOUT_MS,
+            `MCP connect '${spec.name}'`
+          );
+          session.mcpClients.push(client);
+          const nsPrefix = sanitizeSegment(spec.name);
+          for (const tool of tools) {
+            const namespaced = `${nsPrefix}__${sanitizeSegment(tool.name)}`;
+            if (session.mcpToolMap.has(namespaced)) continue;
+            session.mcpTools.push({
+              type: 'function',
+              function: {
+                name: namespaced,
+                ...(tool.description !== undefined ? { description: tool.description } : {}),
+                parameters: tool.inputSchema,
+              },
+            });
+            session.mcpToolMap.set(namespaced, { client, toolName: tool.name });
+          }
+        } catch (err) {
+          const msg = err instanceof Error ? err.message : String(err);
+          console.warn(`[ollama-mcp] skipping server '${spec.name}': ${msg}`);
+          // The connect may still be in flight (timeout, not a real rejection).
+          // If it later succeeds, close the orphaned client so no subprocess leaks.
+          void connecting.then(
+            (late) => {
+              void late.client.close().catch(() => {});
+            },
+            () => {}
+          );
+        }
+      })
+    );
+
     return Ok(session);
   }
 
@@ -413,11 +577,40 @@ export class OllamaBackend implements AgentBackend {
           content: `Calling ${name}(${argsJson})`,
         };
 
-        const result = yield* this.withHeartbeat(
-          this.executeTool(ollamaSession, name, argsJson),
-          session.sessionId,
-          name
-        );
+        const isBuiltin = name === 'bash' || name === 'write_file' || name === 'read_file';
+        const mcpEntry = isBuiltin ? undefined : ollamaSession.mcpToolMap.get(name);
+
+        let result: string;
+        if (mcpEntry) {
+          let args: Record<string, unknown> | null;
+          try {
+            args = JSON.parse(argsJson) as Record<string, unknown>;
+          } catch {
+            // Mirror the built-in path: a malformed arguments blob is a real
+            // failure the model must see — do not silently forward empty args.
+            args = null;
+          }
+          if (args === null) {
+            result = `ERROR: could not parse arguments for ${name}: ${argsJson}`;
+          } else {
+            try {
+              const callRes = yield* this.withHeartbeat(
+                mcpEntry.client.callTool({ name: mcpEntry.toolName, arguments: args }),
+                session.sessionId,
+                name
+              );
+              result = truncate(extractMcpText(callRes));
+            } catch (err) {
+              result = `ERROR: ${err instanceof Error ? err.message : String(err)}`;
+            }
+          }
+        } else {
+          result = yield* this.withHeartbeat(
+            this.executeTool(ollamaSession, name, argsJson),
+            session.sessionId,
+            name
+          );
+        }
 
         yield {
           type: 'tool_execution_end',
@@ -460,7 +653,7 @@ export class OllamaBackend implements AgentBackend {
         body: JSON.stringify({
           model: session.resolvedModel,
           messages: session.messages,
-          tools: TOOL_SCHEMAS,
+          tools: [...(TOOL_SCHEMAS as unknown as OpenAITool[]), ...session.mcpTools],
           stream: false,
         }),
         signal: controller.signal,
@@ -622,6 +815,15 @@ export class OllamaBackend implements AgentBackend {
     } catch {
       // Controller may already be settled.
     }
+    await Promise.all(
+      (ollamaSession.mcpClients ?? []).map(async (client) => {
+        try {
+          await client.close();
+        } catch {
+          // best-effort — a failing close must not break session teardown.
+        }
+      })
+    );
     return Ok(undefined);
   }
 

@@ -58,6 +58,7 @@
     "@harness-engineering/intelligence": "workspace:*",
     "@harness-engineering/local-models": "workspace:*",
     "@harness-engineering/types": "workspace:*",
+    "@modelcontextprotocol/sdk": "^1.29.0",
     "bcryptjs": "^2.4.3",
     "better-sqlite3": "^12.10.0",
     "ink": "^4.4.1",
