@@ -7,6 +7,7 @@ import { OpenAIBackend } from './backends/openai.js';
 import { GeminiBackend } from './backends/gemini.js';
 import { LocalBackend } from './backends/local.js';
 import { PiBackend } from './backends/pi.js';
+import { OllamaBackend } from './backends/ollama.js';
 import { SshBackend } from './backends/ssh.js';
 import { OciServerlessBackend } from './backends/serverless.js';
 
@@ -90,6 +91,16 @@ function createPiBackend(def: BackendDefOf<'pi'>): AgentBackend {
   });
 }
 
+function createOllamaBackend(def: BackendDefOf<'ollama'>): AgentBackend {
+  return new OllamaBackend({
+    endpoint: def.endpoint,
+    model: def.model,
+    ...(def.apiKey !== undefined ? { apiKey: def.apiKey } : {}),
+    ...(def.timeoutMs !== undefined ? { timeoutMs: def.timeoutMs } : {}),
+    ...(def.maxTurnsPerRun !== undefined ? { maxTurnsPerRun: def.maxTurnsPerRun } : {}),
+  });
+}
+
 function createSshBackend(def: BackendDefOf<'ssh'>): AgentBackend {
   return new SshBackend({
     host: def.host,
@@ -144,6 +155,8 @@ export function createBackend(def: BackendDef, options: CreateBackendOptions = {
       return createLocalBackend(def);
     case 'pi':
       return createPiBackend(def);
+    case 'ollama':
+      return createOllamaBackend(def);
     case 'ssh':
       return createSshBackend(def);
     case 'serverless':

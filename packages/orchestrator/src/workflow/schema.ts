@@ -159,6 +159,17 @@ export const BackendDefSchema = z.discriminatedUnion('type', [
       capabilities: BackendCapabilitiesSchema.optional(),
     })
     .strict(),
+  z
+    .object({
+      type: z.literal('ollama'),
+      endpoint: z.string().url(),
+      model: ModelSchema,
+      apiKey: z.string().optional(),
+      timeoutMs: z.number().int().positive().optional(),
+      maxTurnsPerRun: z.number().int().positive().optional(),
+      capabilities: BackendCapabilitiesSchema.optional(),
+    })
+    .strict(),
 ]);
 
 /**
