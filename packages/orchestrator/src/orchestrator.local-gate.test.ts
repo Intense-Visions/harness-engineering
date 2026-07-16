@@ -59,6 +59,18 @@ const LOCAL_BACKEND: BackendDef = {
   },
 } as unknown as BackendDef;
 
+const OLLAMA_BACKEND: BackendDef = {
+  type: 'ollama',
+  endpoint: 'http://127.0.0.1:11434/v1',
+  model: 'qwen3:32b',
+  capabilities: {
+    tier: 'fast',
+    costPer1kTokens: 0,
+    privacyClass: 'on-device',
+    contextWindow: 32768,
+  },
+} as unknown as BackendDef;
+
 const CLAUDE_BACKEND: BackendDef = {
   type: 'claude',
   command: 'claude',
@@ -104,17 +116,25 @@ function makeConfig(
 }
 
 type VerifyResult = { ok: boolean; output: string };
+type DiffResult = { hasChanges: boolean };
 
 function newOrch(
   backends: Record<string, BackendDef>,
   defaultName: string,
   verify?: (workspacePath: string) => Promise<VerifyResult>,
-  maxRetries = 5
+  maxRetries = 5,
+  diff?: (workspacePath: string) => Promise<DiffResult>
 ): Orchestrator {
+  // Default the diff seam to "the agent DID produce changes" so tests targeting
+  // the verify / outcome-eval stages exercise the post-empty-diff path (the
+  // realistic precondition for those gates). Tests targeting the empty-diff halt
+  // inject { hasChanges: false } explicitly.
+  const diffRunner = diff ?? (async () => ({ hasChanges: true }));
   return new Orchestrator(makeConfig(backends, defaultName, maxRetries), 'PROMPT', {
     tracker: makeMockTracker(),
     backend: new MockBackend(),
     execFileFn: noopExecFile,
+    diffRunner,
     ...(verify !== undefined ? { verifyRunner: verify } : {}),
   });
 }
@@ -302,6 +322,58 @@ describe('runLocalWorkflowGate — verify gate (Task 5 / SC3)', () => {
     const result = await gate(orch)(ISSUE, tmpDir, 'primary');
     expect(result.ok).toBe(true);
     expect(verify).not.toHaveBeenCalled();
+  });
+
+  it('C2: ollama backend → gate is NOT a no-op; verify RUNS and a red result blocks (Blocker 2: ollama is local)', async () => {
+    // A `type: ollama` dispatch must run the enforced gate. Before the fix the
+    // inline `local || pi` predicate excluded ollama, so the gate short-circuited
+    // to `{ ok: true }` and NOTHING was enforced — an empty/broken build shipped.
+    const verify = vi.fn(async () => ({ ok: false, output: 'tsc error TS9999 for ollama' }));
+    const orch = newOrch({ local: OLLAMA_BACKEND }, 'local', verify);
+    const result = await gate(orch)(ISSUE, tmpDir, 'local');
+    expect(verify).toHaveBeenCalledTimes(1);
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.reason).toContain('TS9999');
+    }
+  });
+});
+
+describe('runLocalWorkflowGate — empty-diff halt (Blocker 2b)', () => {
+  it('empty diff (hasChanges:false) → { ok: false, "no changes produced" }; verify NOT called', async () => {
+    // The agent completed but produced no workspace changes. An empty diff would
+    // trivially pass `verify` and be marked done — the empty-diff check must
+    // short-circuit BEFORE verify so nothing-implemented never ships.
+    const verify = vi.fn(async () => ({ ok: true, output: '' }));
+    const diff = vi.fn(async () => ({ hasChanges: false }));
+    const orch = newOrch({ local: LOCAL_BACKEND }, 'local', verify, 5, diff);
+    const result = await gate(orch)(ISSUE, tmpDir, 'local');
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.reason).toContain('no changes produced');
+    }
+    // Short-circuits before verify — an empty diff never reaches the mechanical gate.
+    expect(verify).not.toHaveBeenCalled();
+    expect(diff).toHaveBeenCalledTimes(1);
+  });
+
+  it('non-empty diff (hasChanges:true) + passing verify → gate proceeds as today ({ ok: true })', async () => {
+    const verify = vi.fn(async () => ({ ok: true, output: '' }));
+    const diff = vi.fn(async () => ({ hasChanges: true }));
+    const orch = newOrch({ local: LOCAL_BACKEND }, 'local', verify, 5, diff);
+    const result = await gate(orch)(ISSUE, tmpDir, 'local');
+    expect(result.ok).toBe(true);
+    // The diff check ran first, then verify (both consulted on a real change).
+    expect(diff).toHaveBeenCalledTimes(1);
+    expect(verify).toHaveBeenCalledTimes(1);
+  });
+
+  it('non-local (claude) backend → empty-diff check is a no-op (diffRunner never called)', async () => {
+    const diff = vi.fn(async () => ({ hasChanges: false }));
+    const orch = newOrch({ primary: CLAUDE_BACKEND }, 'primary', undefined, 5, diff);
+    const result = await gate(orch)(ISSUE, tmpDir, 'primary');
+    expect(result.ok).toBe(true);
+    expect(diff).not.toHaveBeenCalled();
   });
 });
 

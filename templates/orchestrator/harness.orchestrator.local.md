@@ -28,7 +28,7 @@ agent:
     # `model` accepts a string OR a prefer-and-fallback array — first
     # match wins after a `/v1/models` probe.
     local:
-      type: pi
+      type: ollama
       # Ollama's OpenAI-compatible API lives under /v1 (the resolver probes
       # `${endpoint}/models`). Names must match `ollama list` exactly.
       endpoint: http://127.0.0.1:11434/v1
@@ -36,6 +36,8 @@ agent:
       # first (local routes are quick-fix/diagnostic), general model as fallback.
       # Quote the names — the ':tag' colon otherwise breaks YAML flow parsing.
       model: ['qwen2.5-coder:7b', 'gemma3n:e4b']
+      # Qwen3 reasons by default; Ollama /v1 ignores reasoning:false, so disable it
+      disableReasoning: true
       capabilities:
         { tier: fast, costPer1kTokens: 0, privacyClass: on-device, contextWindow: 32768 }
   # Routing — controls WHICH backend handles each use case.

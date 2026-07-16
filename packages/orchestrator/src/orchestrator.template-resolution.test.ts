@@ -51,6 +51,18 @@ const LOCAL_BACKEND: BackendDef = {
   },
 } as unknown as BackendDef;
 
+const OLLAMA_BACKEND: BackendDef = {
+  type: 'ollama',
+  endpoint: 'http://127.0.0.1:11434/v1',
+  model: 'qwen3:32b',
+  capabilities: {
+    tier: 'fast',
+    costPer1kTokens: 0,
+    privacyClass: 'on-device',
+    contextWindow: 32768,
+  },
+} as unknown as BackendDef;
+
 const CLAUDE_BACKEND: BackendDef = {
   type: 'claude',
   command: 'claude',
@@ -133,6 +145,18 @@ describe('Orchestrator.resolvePromptTemplate (Phase 1 SC1/SC5)', () => {
       promptTemplate: 'DEFAULT_TEMPLATE',
       localPromptTemplate: 'LOCAL_TEMPLATE',
       backends: { local: LOCAL_BACKEND, primary: CLAUDE_BACKEND },
+    });
+    expect(resolve(orch, 'local')).toBe('LOCAL_TEMPLATE');
+  });
+
+  it('returns the local template for an ollama backend when loaded (Blocker 2: ollama is local)', () => {
+    // A `type: ollama` dispatch must render the LOCAL bash-shaped shim template,
+    // not the Claude template — the inline `local || pi` predicate excluded
+    // ollama, silently handing it the wrong prompt.
+    const orch = makeOrchestrator({
+      promptTemplate: 'DEFAULT_TEMPLATE',
+      localPromptTemplate: 'LOCAL_TEMPLATE',
+      backends: { local: OLLAMA_BACKEND, primary: CLAUDE_BACKEND },
     });
     expect(resolve(orch, 'local')).toBe('LOCAL_TEMPLATE');
   });

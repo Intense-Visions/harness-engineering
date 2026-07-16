@@ -612,6 +612,13 @@ export interface OllamaBackendDef {
   timeoutMs?: number;
   /** Maximum inner agentic-loop iterations per `runTurn`. Default: 50. */
   maxTurnsPerRun?: number;
+  /**
+   * Append ` /no_think` to each user turn so reasoning models (Qwen3 family)
+   * skip `<think>` traces. Ollama's `/v1` ignores `reasoning:false`, so this is
+   * the reliable off-switch; without it a reasoning model never emits a tool
+   * call. Default: false.
+   */
+  disableReasoning?: boolean;
   /** Native isolation tier this backend provides. Defaults to `'none'`. */
   isolation?: IsolationTier;
   /** AMR Phase 1 (D1): optional capability block for tier selection. */

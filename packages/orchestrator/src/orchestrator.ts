@@ -84,6 +84,7 @@ import { redriveInstallingProposals } from './proposals/model-handlers';
 import type { ModelProposalRecord } from '@harness-engineering/types';
 import { migrateAgentConfig } from './agent/config-migration';
 import { OrchestratorBackendFactory } from './agent/orchestrator-backend-factory';
+import { isLocalEndpointBackend } from './agent/backend-factory';
 import { makeBackendResolver } from './agent/backend-resolver';
 import { createAgentDispatcher } from './maintenance/agent-dispatcher';
 import { execFileSync } from 'node:child_process';
@@ -208,6 +209,22 @@ export function truncateGateOutput(output: string, max = 4000): string {
  * (nothing to check). Fully self-contained; tests inject a fake via the
  * `verifyRunner` seam so this concrete detector is never exercised in unit tests.
  */
+export function changedWorkspacePackages(porcelain: string): string[] {
+  const dirs = new Set<string>();
+  for (const raw of porcelain.split('\n')) {
+    const line = raw.replace(/\s+$/, '');
+    if (line.length === 0) continue;
+    // `git status --porcelain` lines are `XY <path>`; a rename is `R  old -> new`.
+    let p = line.length > 3 ? line.slice(3) : line;
+    const arrow = p.indexOf(' -> ');
+    if (arrow !== -1) p = p.slice(arrow + 4);
+    p = p.replace(/^"/, '').replace(/"$/, ''); // unquote paths with special chars
+    const m = /^(packages\/[^/]+)\//.exec(p);
+    if (m?.[1] !== undefined) dirs.add(m[1]);
+  }
+  return [...dirs];
+}
+
 export async function defaultLocalVerifyRunner(
   workspacePath: string
 ): Promise<{ ok: boolean; output: string }> {
@@ -218,21 +235,17 @@ export async function defaultLocalVerifyRunner(
   const pathMod = await import('node:path');
 
   // Manual Promise wrapper around execFile (avoids promisify's overloaded typing).
-  // `-w` intentionally runs the script at the WORKSPACE ROOT (the aggregate
-  // typecheck/lint/test), not per-package — the gate verifies the whole build is
-  // green, so a local change that breaks a sibling package is caught. `cwd` is the
-  // issue worktree only so pnpm resolves the enclosing workspace.
-  const run = (script: string): Promise<{ ok: boolean; output: string }> =>
+  const run = (args: string[]): Promise<{ ok: boolean; output: string }> =>
     new Promise((resolve) => {
       cp.execFile(
         'pnpm',
-        ['-w', 'run', script],
+        args,
         { cwd: workspacePath, maxBuffer: 32 * 1024 * 1024 },
         (error, stdout, stderr) => {
           if (error) {
             resolve({
               ok: false,
-              output: `${script} failed:\n${stdout ?? ''}\n${stderr ?? error.message}`,
+              output: `${args.join(' ')} failed:\n${stdout ?? ''}\n${stderr ?? error.message}`,
             });
           } else {
             resolve({ ok: true, output: '' });
@@ -241,26 +254,97 @@ export async function defaultLocalVerifyRunner(
       );
     });
 
-  const pkgPath = pathMod.join(workspacePath, 'package.json');
-  if (!fsMod.existsSync(pkgPath)) return { ok: true, output: '' };
-  const scripts = ((): Record<string, string> => {
+  const readPkg = (dir: string): { name?: string; scripts: Record<string, string> } => {
     try {
-      const pkg = JSON.parse(fsMod.readFileSync(pkgPath, 'utf8')) as {
-        scripts?: Record<string, string>;
-      };
-      return pkg.scripts ?? {};
+      const pkg = JSON.parse(
+        fsMod.readFileSync(pathMod.join(workspacePath, dir, 'package.json'), 'utf8')
+      ) as { name?: string; scripts?: Record<string, string> };
+      return { ...(pkg.name !== undefined ? { name: pkg.name } : {}), scripts: pkg.scripts ?? {} };
     } catch {
-      return {};
+      return { scripts: {} };
     }
-  })();
+  };
 
-  // Run in a stable, portable order; skip any the project does not declare.
-  for (const script of ['typecheck', 'lint', 'test'] as const) {
-    if (scripts[script] === undefined) continue;
-    const result = await run(script);
-    if (!result.ok) return result;
+  const SCRIPTS = ['typecheck', 'lint', 'test'] as const;
+
+  // SCOPE the gate to the packages the agent actually changed, not the whole
+  // monorepo. Running `pnpm -w run test` (turbo over every package) for a one-file
+  // local change is heavy, slow, and fragile — it fails on unrelated flaky tests
+  // and requires every package's native deps to be built. Full-tree verification
+  // belongs at PR/CI; the local gate verifies what changed. Fall back to the
+  // workspace-root scripts only when the change is outside any package (root/docs).
+  const porcelain = await new Promise<string>((resolve) => {
+    cp.execFile(
+      'git',
+      ['-C', workspacePath, 'status', '--porcelain'],
+      { maxBuffer: 32 * 1024 * 1024 },
+      (err, stdout) => resolve(err ? '' : (stdout ?? ''))
+    );
+  });
+  const changedPkgs = changedWorkspacePackages(porcelain);
+
+  if (changedPkgs.length === 0) {
+    // Root/docs-only change (or git unavailable): verify the root scripts so a
+    // root change is still checked. `-w` runs the workspace-root aggregate.
+    if (!fsMod.existsSync(pathMod.join(workspacePath, 'package.json'))) {
+      return { ok: true, output: '' };
+    }
+    const { scripts } = readPkg('.');
+    for (const script of SCRIPTS) {
+      if (scripts[script] === undefined) continue;
+      const result = await run(['-w', 'run', script]);
+      if (!result.ok) return result;
+    }
+    return { ok: true, output: '' };
+  }
+
+  // Verify each changed package's own declared typecheck/lint/test, scoped.
+  for (const dir of changedPkgs) {
+    const { name, scripts } = readPkg(dir);
+    if (name === undefined) continue;
+    for (const script of SCRIPTS) {
+      if (scripts[script] === undefined) continue;
+      const result = await run(['--filter', name, 'run', script]);
+      if (!result.ok) return result;
+    }
   }
   return { ok: true, output: '' };
+}
+
+/**
+ * local-backend-full-workflow (Blocker 2b): the production default diff runner
+ * for the local enforced gate's empty-diff halt. Reports whether the agent
+ * produced ANY change in the workspace by running `git status --porcelain` over
+ * `workspacePath` and treating non-empty (trimmed) output as changes.
+ *
+ * Files neutralized via `git update-index --skip-worktree` (the workspace-scan
+ * neutralization) correctly do NOT appear in `status --porcelain`, so they never
+ * mask a truly-empty diff. Fully self-contained; tests inject a fake via the
+ * `diffRunner` seam so this concrete detector is never exercised in unit tests.
+ * On any git error it fail-OPEN (`hasChanges: true`) so a detection failure never
+ * blocks a genuine change — the verify + outcome-eval stages remain the gate.
+ */
+export async function defaultLocalDiffRunner(
+  workspacePath: string
+): Promise<{ hasChanges: boolean }> {
+  // Access via the module namespace object (not destructured) — destructuring
+  // `execFile` off the module trips the unbound-method lint.
+  const cp = await import('node:child_process');
+  return new Promise((resolve) => {
+    cp.execFile(
+      'git',
+      ['-C', workspacePath, 'status', '--porcelain'],
+      { maxBuffer: 32 * 1024 * 1024 },
+      (error, stdout) => {
+        if (error) {
+          // Fail-open: a git error must not spuriously block a real change.
+          resolve({ hasChanges: true });
+          return;
+        }
+        resolve({ hasChanges: stdout.trim().length > 0 });
+      }
+    );
+  });
 }
 
 /**
@@ -343,6 +427,15 @@ export class Orchestrator extends EventEmitter {
    * is decoupled from the concrete detector.
    */
   private verifyRunner: (workspacePath: string) => Promise<{ ok: boolean; output: string }>;
+  /**
+   * local-backend-full-workflow (Blocker 2b): the diff runner the local-only
+   * enforced gate invokes BEFORE verify to detect an empty diff (the agent
+   * completed without implementing anything). Injected in tests to force
+   * has/has-no-changes; in production it defaults to `defaultLocalDiffRunner`
+   * (a `git status --porcelain` probe). Mirrors the `verifyRunner` seam so the
+   * completion path is decoupled from the concrete detector.
+   */
+  private diffRunner: (workspacePath: string) => Promise<{ hasChanges: boolean }>;
   /**
    * Phase 2: the most recent gate-failure reason per issue, threaded into the
    * next dispatch's rendered prompt as a failure preamble (the re-prompt). Set
@@ -551,6 +644,13 @@ export class Orchestrator extends EventEmitter {
        * spawning real typecheck/lint/test. Defaults to `defaultLocalVerifyRunner`.
        */
       verifyRunner?: (workspacePath: string) => Promise<{ ok: boolean; output: string }>;
+      /**
+       * Blocker 2b test seam: the diff runner the local enforced gate invokes
+       * to detect an empty diff before verify. Injected so tests can force
+       * has/has-no-changes without a real git tree. Defaults to
+       * `defaultLocalDiffRunner`.
+       */
+      diffRunner?: (workspacePath: string) => Promise<{ hasChanges: boolean }>;
     }
   ) {
     super();
@@ -573,6 +673,7 @@ export class Orchestrator extends EventEmitter {
     this.promptTemplate = promptTemplate;
     this.localPromptTemplate = overrides?.localPromptTemplate;
     this.verifyRunner = overrides?.verifyRunner ?? defaultLocalVerifyRunner;
+    this.diffRunner = overrides?.diffRunner ?? defaultLocalDiffRunner;
     this.state = createEmptyState(config);
     this.logger = new StructuredLogger();
 
@@ -703,14 +804,18 @@ export class Orchestrator extends EventEmitter {
     }
     const backendsMap = this.config.agent.backends ?? {};
     for (const [name, def] of Object.entries(backendsMap)) {
-      if (def.type === 'local' || def.type === 'pi') {
+      if (isLocalEndpointBackend(def)) {
         const resolverOpts: import('./agent/local-model-resolver').LocalModelResolverOptions = {
           endpoint: def.endpoint,
           configured: typeof def.model === 'string' ? [def.model] : def.model,
           logger: this.logger,
         };
         if (def.apiKey !== undefined) resolverOpts.apiKey = def.apiKey;
-        if (def.probeIntervalMs !== undefined) resolverOpts.probeIntervalMs = def.probeIntervalMs;
+        // `probeIntervalMs` exists on `local`/`pi` but not `ollama`; read it via
+        // an in-guard so the ollama variant (no such field) stays type-safe.
+        if ('probeIntervalMs' in def && def.probeIntervalMs !== undefined) {
+          resolverOpts.probeIntervalMs = def.probeIntervalMs;
+        }
         if (this.poolStateProvider !== null) resolverOpts.poolState = this.poolStateProvider;
         // T20: warm a newly-selected model into VRAM so the next dispatch isn't a
         // cold start. `local` (Ollama) uses the native keep_alive; `pi` (LM Studio
@@ -1953,7 +2058,7 @@ export class Orchestrator extends EventEmitter {
    */
   private resolvePromptTemplate(backendName: string): string {
     const def = this.config.agent.backends?.[backendName];
-    const isLocal = def?.type === 'local' || def?.type === 'pi';
+    const isLocal = def !== undefined && isLocalEndpointBackend(def);
     if (isLocal && this.localPromptTemplate !== undefined) {
       return this.localPromptTemplate;
     }
@@ -2502,10 +2607,22 @@ export class Orchestrator extends EventEmitter {
     backendName: string
   ): Promise<{ ok: true } | { ok: false; reason: string }> {
     const def = this.config.agent.backends?.[backendName];
-    const isLocal = def?.type === 'local' || def?.type === 'pi';
+    const isLocal = def !== undefined && isLocalEndpointBackend(def);
     if (!isLocal) return { ok: true };
 
     try {
+      // 0. Empty-diff halt (Blocker 2b): if the agent produced NO workspace
+      //    changes it implemented nothing — an empty diff would trivially pass
+      //    `verify` (typecheck/lint/test of an unchanged tree) and be marked
+      //    done. Short-circuit BEFORE verify so nothing-implemented never ships.
+      const diff = await this.diffRunner(workspacePath);
+      if (!diff.hasChanges) {
+        return {
+          ok: false,
+          reason: 'no changes produced — the agent completed without implementing anything',
+        };
+      }
+
       // 1. Mechanical gate: typecheck + lint + test.
       const verify = await this.verifyRunner(workspacePath);
       if (!verify.ok) {
@@ -3462,7 +3579,7 @@ export class Orchestrator extends EventEmitter {
     let localEndpoint: string | undefined;
     let localApiKey: string | undefined;
     for (const def of Object.values(this.config.agent.backends ?? {})) {
-      if ((def.type === 'local' || def.type === 'pi') && typeof def.endpoint === 'string') {
+      if (isLocalEndpointBackend(def) && typeof def.endpoint === 'string') {
         localEndpoint = def.endpoint;
         localApiKey = def.apiKey;
         break;

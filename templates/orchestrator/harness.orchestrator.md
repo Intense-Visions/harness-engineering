@@ -9,7 +9,11 @@ polling:
 workspace:
   root: .harness/workspaces
 hooks:
-  afterCreate: null
+  # Install workspace deps so the enforced verify gate can actually run — a fresh
+  # git-worktree workspace has no node_modules, so verify would fail environmentally
+  # and block EVERY local dispatch. Fast via the pnpm store. Adopters on other
+  # ecosystems set their own command (npm ci / pip install -r … / cargo fetch / …).
+  afterCreate: 'pnpm install --prefer-offline'
   beforeRun: null
   afterRun: null
   beforeRemove: null
@@ -23,9 +27,11 @@ agent:
     # `model` accepts a string OR a prefer-and-fallback array — first
     # match wins after a `/v1/models` probe.
     local:
-      type: pi
+      type: ollama
       endpoint: http://localhost:1234/v1
       model: gemma-4-e4b
+      # Qwen3 reasons by default; Ollama /v1 ignores reasoning:false, so disable it
+      disableReasoning: true
       # model: [gemma-4-e4b, qwen3:8b, deepseek-coder-v2]
   # Routing — controls WHICH backend handles each use case.
   routing:

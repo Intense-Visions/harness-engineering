@@ -42,6 +42,27 @@ export interface OllamaBackendConfig {
    */
   maxTurnsPerRun?: number | undefined;
   /**
+   * Interval (ms) between heartbeat `status` events emitted while awaiting a
+   * slow model call or tool execution, so the orchestrator's stall detector does
+   * not abort a legitimately-busy dispatch. Default 30_000; `<= 0` disables.
+   */
+  heartbeatMs?: number | undefined;
+  /**
+   * Max wall-clock (ms) for a single `bash` tool call before its process tree is
+   * SIGKILLed. Default 300_000. Prevents a hung/interactive command (which runs
+   * with stdin=/dev/null) from stalling the dispatch indefinitely.
+   */
+  bashTimeoutMs?: number | undefined;
+  /**
+   * When true, append ` /no_think` to each user turn so reasoning models
+   * (Qwen3 family) skip `<think>` traces — Ollama's `/v1` endpoint ignores the
+   * `reasoning:false` knob, so the `/no_think` token in the last user message is
+   * the only reliable off-switch. Without it a reasoning model burns its output
+   * budget thinking and never emits a tool call. Default: false (harmless text
+   * for non-reasoning models, but only append when you know the model reasons).
+   */
+  disableReasoning?: boolean | undefined;
+  /**
    * Called with the resolved model name after a turn completes successfully.
    * Bound by the orchestrator to `pool.markUsed` (LRU) + the resolver's
    * circuit-breaker success path. Best-effort — a throwing hook never breaks a
@@ -88,6 +109,25 @@ const MAX_TOOL_OUTPUT = 4000;
 const DEFAULT_ENDPOINT = 'http://127.0.0.1:11434/v1';
 const DEFAULT_TIMEOUT_MS = 600_000;
 const DEFAULT_MAX_TURNS = 50;
+/**
+ * How often to emit a heartbeat `status` event while awaiting a slow model call
+ * or tool execution. The orchestrator's stall detector resets on ANY agent
+ * event, so heartbeats keep a legitimately-busy dispatch alive (e.g. the agent
+ * running `pnpm test`) while a truly-hung backend — which emits none — is still
+ * caught. Must be shorter than the operator's `stallTimeoutMs`.
+ */
+const DEFAULT_HEARTBEAT_MS = 30_000;
+/** Max wall-clock for a single `bash` tool call before the process TREE is SIGKILLed. */
+const DEFAULT_BASH_TIMEOUT_MS = 300_000;
+
+/**
+ * The distinctive completion marker the model must emit — on its own line, with
+ * no tool call — to signal the task is fully done. Matched as a whole token
+ * (word boundaries) so an incidental mention in prose (e.g. `TASK_COMPLETED`)
+ * does not falsely end the run. Returning a no-tool-call message WITHOUT this
+ * marker is treated as a premature stop (failed turn → the runner re-prompts).
+ */
+const TASK_COMPLETE_MARKER = /\bTASK_COMPLETE\b/;
 
 /** Default coding-agent system prompt when the caller supplies none. */
 const DEFAULT_SYSTEM_PROMPT = [
@@ -95,7 +135,11 @@ const DEFAULT_SYSTEM_PROMPT = [
   'Use the provided tools to explore and edit the codebase. Work in small steps:',
   'read before you write, implement, then run the test/verify command.',
   'Do not claim work you have not performed via a tool.',
-  'When the task is fully complete, respond with a final message and no tool call.',
+  'Keep using tools until the task is FULLY implemented AND verified.',
+  'Do NOT stop to explain your work or to ask questions.',
+  'Only when everything is done and the verification command passes,',
+  'reply with exactly TASK_COMPLETE on its own line and make no tool call.',
+  'If you stop for any other reason you will be told to continue.',
 ].join(' ');
 
 /** OpenAI function-tool schemas for the three tools this backend exposes. */
@@ -185,12 +229,59 @@ export class OllamaBackend implements AgentBackend {
   readonly endpoint: string;
   readonly timeoutMs: number;
   readonly maxTurnsPerRun: number;
+  readonly heartbeatMs: number;
+  readonly bashTimeoutMs: number;
 
   constructor(config: OllamaBackendConfig = {}) {
     this.config = config;
     this.endpoint = config.endpoint ?? DEFAULT_ENDPOINT;
     this.timeoutMs = config.timeoutMs ?? DEFAULT_TIMEOUT_MS;
     this.maxTurnsPerRun = config.maxTurnsPerRun ?? DEFAULT_MAX_TURNS;
+    this.heartbeatMs = config.heartbeatMs ?? DEFAULT_HEARTBEAT_MS;
+    this.bashTimeoutMs = config.bashTimeoutMs ?? DEFAULT_BASH_TIMEOUT_MS;
+  }
+
+  /**
+   * Yield a `status`/`heartbeat` event every `heartbeatMs` while `work` is
+   * pending, then return its resolved value (or rethrow). Keeps the stall
+   * detector from aborting a dispatch that is legitimately busy inside a slow
+   * model call or tool execution (both are `await`s that otherwise emit nothing).
+   * `heartbeatMs <= 0` disables heartbeats (awaits `work` directly).
+   */
+  private async *withHeartbeat<T>(
+    work: Promise<T>,
+    sessionId: string,
+    label: string
+  ): AsyncGenerator<AgentEvent, T, void> {
+    if (this.heartbeatMs <= 0) return await work;
+    let done = false;
+    const settled = work.then(
+      () => {
+        done = true;
+      },
+      () => {
+        done = true;
+      }
+    );
+    while (!done) {
+      let timer: ReturnType<typeof setTimeout> | undefined;
+      const tick = new Promise<'tick'>((resolve) => {
+        timer = setTimeout(() => resolve('tick'), this.heartbeatMs);
+      });
+      const winner = await Promise.race([settled.then(() => 'done' as const), tick]);
+      if (timer !== undefined) clearTimeout(timer);
+      if (winner === 'tick' && !done) {
+        yield {
+          type: 'status',
+          subtype: 'heartbeat',
+          timestamp: new Date().toISOString(),
+          sessionId,
+          content: `working: ${label}`,
+        };
+      }
+    }
+    // `work` has settled; return its value or rethrow its rejection.
+    return await work;
   }
 
   async startSession(params: SessionStartParams): Promise<Result<AgentSession, AgentError>> {
@@ -222,7 +313,10 @@ export class OllamaBackend implements AgentBackend {
   ): AsyncGenerator<AgentEvent, TurnResult, void> {
     const ollamaSession = session as OllamaSession;
     ollamaSession.aborted = false;
-    ollamaSession.messages.push({ role: 'user', content: params.prompt });
+    // `/no_think` disables Qwen3 reasoning; it must ride the LAST user message
+    // (the inner loop appends only `tool` messages after this, so it stays last).
+    const userContent = this.config.disableReasoning ? `${params.prompt} /no_think` : params.prompt;
+    ollamaSession.messages.push({ role: 'user', content: userContent });
 
     let inputTokens = 0;
     let outputTokens = 0;
@@ -244,7 +338,11 @@ export class OllamaBackend implements AgentBackend {
 
       let response: OllamaChatResponse;
       try {
-        response = await this.callModel(ollamaSession);
+        response = yield* this.withHeartbeat(
+          this.callModel(ollamaSession),
+          session.sessionId,
+          'model'
+        );
       } catch (err) {
         if (ollamaSession.aborted) return fail('Ollama turn aborted by stopSession');
         const message = err instanceof Error ? err.message : String(err);
@@ -285,14 +383,23 @@ export class OllamaBackend implements AgentBackend {
         ...(toolCalls.length > 0 ? { tool_calls: toolCalls } : {}),
       });
 
-      // No tool calls → the model gave its final answer. Clean stop.
+      // No tool calls → the model stopped calling tools. This is a clean, done
+      // turn ONLY when the final message signals completion via TASK_COMPLETE;
+      // otherwise the model stopped prematurely (explained, asked a question, or
+      // gave up) and we must NOT end the workflow. Returning success:false makes
+      // the orchestrator runner re-prompt ("Continue your work.") so the model
+      // keeps going instead of a premature stop being marked done.
       if (toolCalls.length === 0) {
-        this.notify(this.config.onModelUsed, ollamaSession.resolvedModel);
-        return {
-          success: true,
-          sessionId: session.sessionId,
-          usage: { inputTokens, outputTokens, totalTokens: inputTokens + outputTokens },
-        };
+        const finalText = message.content ?? '';
+        if (TASK_COMPLETE_MARKER.test(finalText)) {
+          this.notify(this.config.onModelUsed, ollamaSession.resolvedModel);
+          return {
+            success: true,
+            sessionId: session.sessionId,
+            usage: { inputTokens, outputTokens, totalTokens: inputTokens + outputTokens },
+          };
+        }
+        return fail('agent stopped without signaling completion (no TASK_COMPLETE)');
       }
 
       for (const toolCall of toolCalls) {
@@ -306,7 +413,11 @@ export class OllamaBackend implements AgentBackend {
           content: `Calling ${name}(${argsJson})`,
         };
 
-        const result = await this.executeTool(ollamaSession, name, argsJson);
+        const result = yield* this.withHeartbeat(
+          this.executeTool(ollamaSession, name, argsJson),
+          session.sessionId,
+          name
+        );
 
         yield {
           type: 'tool_execution_end',
@@ -412,20 +523,52 @@ export class OllamaBackend implements AgentBackend {
    * command the model already authored — satisfying `no-unix-shell-command`.
    */
   private runBash(workspacePath: string, command: string): Promise<string> {
+    const CAP = 10 * 1024 * 1024;
     return new Promise((resolve) => {
-      childProcess.execFile(
-        '/bin/sh',
-        ['-c', command],
-        { cwd: workspacePath, timeout: 300_000, maxBuffer: 10 * 1024 * 1024 },
-        (error, stdout, stderr) => {
-          const combined = `${stdout}${stderr}`;
-          if (error && combined.length === 0) {
-            resolve(truncate(`ERROR: ${error.message}`));
-            return;
+      // stdin: 'ignore' (=/dev/null) so an interactive command (e.g.
+      // `pnpm changeset`) reads EOF and exits fast instead of blocking forever —
+      // the agent must never be able to hang the dispatch on a stdin prompt.
+      // detached: own process group so the timeout can SIGKILL the WHOLE tree
+      // (execFile's SIGTERM only hit /bin/sh, letting node grandchildren survive).
+      // `detached` (own process group) is a POSIX concept used so the timeout
+      // can SIGKILL the whole tree via `process.kill(-pid)`. Windows has no
+      // process groups here, so keep it attached and fall back to `child.kill`.
+      const isPosix = process.platform !== 'win32';
+      const child = childProcess.spawn('/bin/sh', ['-c', command], {
+        cwd: workspacePath,
+        stdio: ['ignore', 'pipe', 'pipe'],
+        detached: isPosix,
+      });
+      let out = '';
+      let killed = false;
+      const onData = (buf: Buffer): void => {
+        if (out.length < CAP) out += buf.toString('utf8');
+      };
+      child.stdout?.on('data', onData);
+      child.stderr?.on('data', onData);
+      const timer = setTimeout(() => {
+        killed = true;
+        try {
+          if (child.pid !== undefined && isPosix) {
+            process.kill(-child.pid, 'SIGKILL'); // kill the whole process group
+          } else {
+            child.kill('SIGKILL');
           }
-          resolve(truncate(combined.length > 0 ? combined : '(no output)'));
+        } catch {
+          /* process (group) already gone */
         }
-      );
+      }, this.bashTimeoutMs);
+      child.on('close', () => {
+        clearTimeout(timer);
+        const body = out.length > 0 ? out : '(no output)';
+        resolve(
+          truncate(killed ? `ERROR: command killed after ${this.bashTimeoutMs}ms\n${body}` : body)
+        );
+      });
+      child.on('error', (err: Error) => {
+        clearTimeout(timer);
+        resolve(truncate(`ERROR: ${err.message}`));
+      });
     });
   }
 
