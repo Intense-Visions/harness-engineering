@@ -49,25 +49,35 @@ function renderPrompt(clients) {
       `<${RAW_URL}>.\n\n`
   );
 
-  lines.push('## 1. Install for your agent\n\n');
+  lines.push('## 1. Install harness (recommended — universal, one command)\n\n');
+  lines.push('```bash\n');
+  lines.push('npm install -g @harness-engineering/cli && harness setup\n');
+  lines.push('```\n\n');
+  lines.push(
+    '`harness setup` auto-detects every AI client on this machine (' +
+      clients.map((c) => c.name).join(', ') +
+      ') and lays down skills, slash commands, agent personas, MCP, and hooks. ' +
+      'Prefer this path: it is a single shell command you can run yourself, and it ' +
+      'covers every client — including ones with no marketplace plugin.\n\n'
+  );
+
+  lines.push('### Optional: marketplace plugin (Claude Code / Cursor)\n\n');
+  lines.push(
+    'For auto-update via `/plugin update` (and, on Cursor, curated project rules), ' +
+      'the user can also install the marketplace plugin for their client. These are ' +
+      'interactive client slash-commands, not shell commands, so ask the user to run ' +
+      'the pair matching their client:\n\n'
+  );
   for (const c of pluginClients) {
-    lines.push(`### ${c.name}\n\n`);
+    lines.push(`**${c.name}**\n\n`);
     lines.push('```\n');
     lines.push(`/plugin marketplace add ${c.install.marketplace}\n`);
     lines.push(`/plugin install ${c.install.plugin}\n`);
     lines.push('```\n\n');
   }
-
-  lines.push('### OpenCode / any other CLI\n\n');
-  lines.push('```bash\n');
-  lines.push('npm install -g @harness-engineering/cli && harness setup\n');
-  lines.push('```\n\n');
   lines.push(
-    'If the plugin marketplace is unavailable, fall back to the npm path above. ' +
-      'If you cannot identify your client, use the npm + `harness setup` path — it ' +
-      'auto-detects every supported client (' +
-      clients.map((c) => c.name).join(', ') +
-      ').\n\n'
+    'If you cannot identify the client, or it has no plugin above, the npm + ' +
+      '`harness setup` path already covers it — nothing more is needed.\n\n'
   );
 
   lines.push('## 2. Initialize harness in the project\n\n');
