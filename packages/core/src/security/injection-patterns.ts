@@ -97,6 +97,7 @@ const permissionEscalationPatterns: InjectionPattern[] = [
     severity: 'high',
     category: 'permission-escalation',
     description: 'Auto-approve directive that bypasses human review',
+    // harness-ignore SEC-AGT-006: definitional — this IS the detection pattern for the bypass flags
     pattern: /(?:auto[- ]?approve|--no-verify|--dangerously-skip-permissions)/i,
   },
 ];

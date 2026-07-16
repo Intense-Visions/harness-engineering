@@ -28,9 +28,10 @@ const BLOCKING_INJECTION_PREFIXES = ['INJ-UNI-', 'INJ-REROL-'];
 
 /**
  * Security rules that should be downgraded to 'medium' in the config scanner.
- * SEC-AGT-006 matches `--no-verify` and `--dangerously-skip-permissions` which
- * appear in AGENTS.md documentation about hooks that *block* these flags —
- * flagging documentation of a security measure as a security violation.
+ * SEC-AGT-006 matches the permission-bypass flags (no-verify and
+ * dangerously-skip-permissions) which appear in AGENTS.md documentation about
+ * hooks that *block* these flags — flagging documentation of a security measure
+ * as a security violation.
  */
 const DOWNGRADED_SECURITY_RULES = new Set(['SEC-AGT-006']);
 

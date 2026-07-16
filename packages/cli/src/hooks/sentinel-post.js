@@ -32,6 +32,7 @@ const INLINE_RULES = [
   // HIGH: INJ-PERM-002 — Disable safety/security
   { severity: 'high', ruleId: 'INJ-PERM-002', pattern: /(?:disable|turn\s+off|remove|bypass)\s+(?:all\s+)?(?:safety|security|restrictions?|guardrails?|protections?|checks?)/i },
   // HIGH: INJ-PERM-003 — Auto-approve directive
+  // harness-ignore SEC-AGT-006: definitional — this IS the detection pattern for the bypass flags
   { severity: 'high', ruleId: 'INJ-PERM-003', pattern: /(?:auto[- ]?approve|--no-verify|--dangerously-skip-permissions)/i },
   // HIGH: INJ-ENC-001 — Suspicious base64
   { severity: 'high', ruleId: 'INJ-ENC-001', pattern: /(?<!Bearer\s)(?<![:])(?<![A-Za-z0-9/])(?!eyJ)(?:[A-Za-z0-9+/]{4}){7,}(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?(?![A-Za-z0-9/])/ },
