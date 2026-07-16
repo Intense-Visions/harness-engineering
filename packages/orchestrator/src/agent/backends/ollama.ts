@@ -48,6 +48,12 @@ export interface OllamaBackendConfig {
    */
   heartbeatMs?: number | undefined;
   /**
+   * Max wall-clock (ms) for a single `bash` tool call before its process tree is
+   * SIGKILLed. Default 300_000. Prevents a hung/interactive command (which runs
+   * with stdin=/dev/null) from stalling the dispatch indefinitely.
+   */
+  bashTimeoutMs?: number | undefined;
+  /**
    * When true, append ` /no_think` to each user turn so reasoning models
    * (Qwen3 family) skip `<think>` traces — Ollama's `/v1` endpoint ignores the
    * `reasoning:false` knob, so the `/no_think` token in the last user message is
@@ -111,6 +117,8 @@ const DEFAULT_MAX_TURNS = 50;
  * caught. Must be shorter than the operator's `stallTimeoutMs`.
  */
 const DEFAULT_HEARTBEAT_MS = 30_000;
+/** Max wall-clock for a single `bash` tool call before the process TREE is SIGKILLed. */
+const DEFAULT_BASH_TIMEOUT_MS = 300_000;
 
 /**
  * The distinctive completion marker the model must emit — on its own line, with
@@ -222,6 +230,7 @@ export class OllamaBackend implements AgentBackend {
   readonly timeoutMs: number;
   readonly maxTurnsPerRun: number;
   readonly heartbeatMs: number;
+  readonly bashTimeoutMs: number;
 
   constructor(config: OllamaBackendConfig = {}) {
     this.config = config;
@@ -229,6 +238,7 @@ export class OllamaBackend implements AgentBackend {
     this.timeoutMs = config.timeoutMs ?? DEFAULT_TIMEOUT_MS;
     this.maxTurnsPerRun = config.maxTurnsPerRun ?? DEFAULT_MAX_TURNS;
     this.heartbeatMs = config.heartbeatMs ?? DEFAULT_HEARTBEAT_MS;
+    this.bashTimeoutMs = config.bashTimeoutMs ?? DEFAULT_BASH_TIMEOUT_MS;
   }
 
   /**
@@ -513,20 +523,44 @@ export class OllamaBackend implements AgentBackend {
    * command the model already authored — satisfying `no-unix-shell-command`.
    */
   private runBash(workspacePath: string, command: string): Promise<string> {
+    const CAP = 10 * 1024 * 1024;
     return new Promise((resolve) => {
-      childProcess.execFile(
-        '/bin/sh',
-        ['-c', command],
-        { cwd: workspacePath, timeout: 300_000, maxBuffer: 10 * 1024 * 1024 },
-        (error, stdout, stderr) => {
-          const combined = `${stdout}${stderr}`;
-          if (error && combined.length === 0) {
-            resolve(truncate(`ERROR: ${error.message}`));
-            return;
-          }
-          resolve(truncate(combined.length > 0 ? combined : '(no output)'));
+      // stdin: 'ignore' (=/dev/null) so an interactive command (e.g.
+      // `pnpm changeset`) reads EOF and exits fast instead of blocking forever —
+      // the agent must never be able to hang the dispatch on a stdin prompt.
+      // detached: own process group so the timeout can SIGKILL the WHOLE tree
+      // (execFile's SIGTERM only hit /bin/sh, letting node grandchildren survive).
+      const child = childProcess.spawn('/bin/sh', ['-c', command], {
+        cwd: workspacePath,
+        stdio: ['ignore', 'pipe', 'pipe'],
+        detached: true,
+      });
+      let out = '';
+      let killed = false;
+      const onData = (buf: Buffer): void => {
+        if (out.length < CAP) out += buf.toString('utf8');
+      };
+      child.stdout?.on('data', onData);
+      child.stderr?.on('data', onData);
+      const timer = setTimeout(() => {
+        killed = true;
+        try {
+          if (child.pid !== undefined) process.kill(-child.pid, 'SIGKILL');
+        } catch {
+          /* process group already gone */
         }
-      );
+      }, this.bashTimeoutMs);
+      child.on('close', () => {
+        clearTimeout(timer);
+        const body = out.length > 0 ? out : '(no output)';
+        resolve(
+          truncate(killed ? `ERROR: command killed after ${this.bashTimeoutMs}ms\n${body}` : body)
+        );
+      });
+      child.on('error', (err: Error) => {
+        clearTimeout(timer);
+        resolve(truncate(`ERROR: ${err.message}`));
+      });
     });
   }
 

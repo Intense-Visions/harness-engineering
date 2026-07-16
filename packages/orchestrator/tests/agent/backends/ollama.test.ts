@@ -265,6 +265,67 @@ describe('OllamaBackend', () => {
       expect(result.success).toBe(true);
     });
 
+    it('does not hang on a command that reads stdin (stdin is /dev/null)', async () => {
+      const fetchMock = vi
+        .fn()
+        .mockResolvedValueOnce(
+          okFetch(
+            chatResponse({
+              toolCalls: [{ id: 'c1', name: 'bash', args: { command: 'read x; echo "got:$x"' } }],
+            })
+          )
+        )
+        .mockResolvedValueOnce(okFetch(chatResponse({ content: 'TASK_COMPLETE' })));
+      vi.stubGlobal('fetch', fetchMock);
+      const backend = new OllamaBackend(baseConfig);
+      const start = await backend.startSession({
+        workspacePath: workspace,
+        permissionMode: 'full',
+      });
+      expect(start.ok).toBe(true);
+      if (!start.ok) return;
+      // `read` hits EOF immediately, so this returns fast; if stdin were an open
+      // pipe this test would exceed its timeout and fail.
+      const { result } = await drain(
+        backend.runTurn(start.value, {
+          sessionId: start.value.sessionId,
+          prompt: 'go',
+          isContinuation: false,
+        })
+      );
+      expect(result.success).toBe(true);
+    }, 10_000);
+
+    it('kills a bash command that exceeds bashTimeoutMs', async () => {
+      const fetchMock = vi
+        .fn()
+        .mockResolvedValueOnce(
+          okFetch(
+            chatResponse({ toolCalls: [{ id: 'c1', name: 'bash', args: { command: 'sleep 30' } }] })
+          )
+        )
+        .mockResolvedValueOnce(okFetch(chatResponse({ content: 'TASK_COMPLETE' })));
+      vi.stubGlobal('fetch', fetchMock);
+      const backend = new OllamaBackend({ ...baseConfig, bashTimeoutMs: 200 });
+      const start = await backend.startSession({
+        workspacePath: workspace,
+        permissionMode: 'full',
+      });
+      expect(start.ok).toBe(true);
+      if (!start.ok) return;
+      const { events, result } = await drain(
+        backend.runTurn(start.value, {
+          sessionId: start.value.sessionId,
+          prompt: 'go',
+          isContinuation: false,
+        })
+      );
+      // `sleep 30` was SIGKILLed after ~200ms rather than running to completion.
+      const toolEnd = events.find((e) => e.type === 'tool_execution_end');
+      expect(String(toolEnd?.content)).toContain('killed');
+      expect(result.success).toBe(true);
+    }, 10_000);
+
     it('surfaces failure on a non-200 HTTP response', async () => {
       const fetchMock = vi.fn().mockResolvedValue({
         ok: false,
