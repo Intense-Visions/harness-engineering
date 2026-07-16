@@ -98,13 +98,26 @@ const DEFAULT_ENDPOINT = 'http://127.0.0.1:11434/v1';
 const DEFAULT_TIMEOUT_MS = 600_000;
 const DEFAULT_MAX_TURNS = 50;
 
+/**
+ * The distinctive completion marker the model must emit — on its own line, with
+ * no tool call — to signal the task is fully done. Matched as a whole token
+ * (word boundaries) so an incidental mention in prose (e.g. `TASK_COMPLETED`)
+ * does not falsely end the run. Returning a no-tool-call message WITHOUT this
+ * marker is treated as a premature stop (failed turn → the runner re-prompts).
+ */
+const TASK_COMPLETE_MARKER = /\bTASK_COMPLETE\b/;
+
 /** Default coding-agent system prompt when the caller supplies none. */
 const DEFAULT_SYSTEM_PROMPT = [
   'You are an autonomous coding agent working inside a git repository.',
   'Use the provided tools to explore and edit the codebase. Work in small steps:',
   'read before you write, implement, then run the test/verify command.',
   'Do not claim work you have not performed via a tool.',
-  'When the task is fully complete, respond with a final message and no tool call.',
+  'Keep using tools until the task is FULLY implemented AND verified.',
+  'Do NOT stop to explain your work or to ask questions.',
+  'Only when everything is done and the verification command passes,',
+  'reply with exactly TASK_COMPLETE on its own line and make no tool call.',
+  'If you stop for any other reason you will be told to continue.',
 ].join(' ');
 
 /** OpenAI function-tool schemas for the three tools this backend exposes. */
@@ -297,14 +310,23 @@ export class OllamaBackend implements AgentBackend {
         ...(toolCalls.length > 0 ? { tool_calls: toolCalls } : {}),
       });
 
-      // No tool calls → the model gave its final answer. Clean stop.
+      // No tool calls → the model stopped calling tools. This is a clean, done
+      // turn ONLY when the final message signals completion via TASK_COMPLETE;
+      // otherwise the model stopped prematurely (explained, asked a question, or
+      // gave up) and we must NOT end the workflow. Returning success:false makes
+      // the orchestrator runner re-prompt ("Continue your work.") so the model
+      // keeps going instead of a premature stop being marked done.
       if (toolCalls.length === 0) {
-        this.notify(this.config.onModelUsed, ollamaSession.resolvedModel);
-        return {
-          success: true,
-          sessionId: session.sessionId,
-          usage: { inputTokens, outputTokens, totalTokens: inputTokens + outputTokens },
-        };
+        const finalText = message.content ?? '';
+        if (TASK_COMPLETE_MARKER.test(finalText)) {
+          this.notify(this.config.onModelUsed, ollamaSession.resolvedModel);
+          return {
+            success: true,
+            sessionId: session.sessionId,
+            usage: { inputTokens, outputTokens, totalTokens: inputTokens + outputTokens },
+          };
+        }
+        return fail('agent stopped without signaling completion (no TASK_COMPLETE)');
       }
 
       for (const toolCall of toolCalls) {

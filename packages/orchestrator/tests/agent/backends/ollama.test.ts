@@ -135,7 +135,10 @@ describe('OllamaBackend', () => {
         )
         .mockResolvedValueOnce(
           okFetch(
-            chatResponse({ content: 'DONE', usage: { prompt_tokens: 40, completion_tokens: 3 } })
+            chatResponse({
+              content: 'All done.\nTASK_COMPLETE',
+              usage: { prompt_tokens: 40, completion_tokens: 3 },
+            })
           )
         );
       vi.stubGlobal('fetch', fetchMock);
@@ -265,8 +268,12 @@ describe('OllamaBackend', () => {
       const onModelUsed = vi.fn();
       const onModelFailed = vi.fn();
 
-      // Success path.
-      vi.stubGlobal('fetch', vi.fn().mockResolvedValue(okFetch(chatResponse({ content: 'done' }))));
+      // Success path: the final message must signal completion (TASK_COMPLETE),
+      // otherwise the new premature-stop semantics treat it as a failed turn.
+      vi.stubGlobal(
+        'fetch',
+        vi.fn().mockResolvedValue(okFetch(chatResponse({ content: 'TASK_COMPLETE' })))
+      );
       const okBackend = new OllamaBackend({ ...baseConfig, onModelUsed, onModelFailed });
       const okStart = await okBackend.startSession({
         workspacePath: workspace,
@@ -282,6 +289,82 @@ describe('OllamaBackend', () => {
       );
       expect(onModelUsed).toHaveBeenCalledWith('qwen3-agent:32b');
       expect(onModelFailed).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('runTurn — premature-stop completion semantics (Blocker 1)', () => {
+    it('a plain final message WITHOUT TASK_COMPLETE → success:false (re-prompt), error mentions TASK_COMPLETE', async () => {
+      // The model stopped calling tools but never signaled completion — this must
+      // NOT end the workflow. The runner loops on success === false, re-prompting.
+      const fetchMock = vi
+        .fn()
+        .mockResolvedValueOnce(okFetch(chatResponse({ content: 'I think I am done here.' })));
+      vi.stubGlobal('fetch', fetchMock);
+
+      const backend = new OllamaBackend(baseConfig);
+      const start = await backend.startSession({
+        workspacePath: workspace,
+        permissionMode: 'full',
+      });
+      if (!start.ok) return;
+      const { result } = await drain(
+        backend.runTurn(start.value, {
+          sessionId: start.value.sessionId,
+          prompt: 'do the work',
+          isContinuation: false,
+        })
+      );
+      expect(result.success).toBe(false);
+      expect(result.error).toMatch(/TASK_COMPLETE/);
+    });
+
+    it('a final message WITH TASK_COMPLETE → success:true', async () => {
+      const fetchMock = vi
+        .fn()
+        .mockResolvedValueOnce(
+          okFetch(chatResponse({ content: 'Implemented and verified.\nTASK_COMPLETE' }))
+        );
+      vi.stubGlobal('fetch', fetchMock);
+
+      const backend = new OllamaBackend(baseConfig);
+      const start = await backend.startSession({
+        workspacePath: workspace,
+        permissionMode: 'full',
+      });
+      if (!start.ok) return;
+      const { result } = await drain(
+        backend.runTurn(start.value, {
+          sessionId: start.value.sessionId,
+          prompt: 'do the work',
+          isContinuation: false,
+        })
+      );
+      expect(result.success).toBe(true);
+    });
+
+    it('TASK_COMPLETE must be a whole token — a substring like TASK_COMPLETED does NOT count', async () => {
+      const fetchMock = vi
+        .fn()
+        .mockResolvedValueOnce(
+          okFetch(chatResponse({ content: 'The TASK_COMPLETEDATABASE is ready.' }))
+        );
+      vi.stubGlobal('fetch', fetchMock);
+
+      const backend = new OllamaBackend(baseConfig);
+      const start = await backend.startSession({
+        workspacePath: workspace,
+        permissionMode: 'full',
+      });
+      if (!start.ok) return;
+      const { result } = await drain(
+        backend.runTurn(start.value, {
+          sessionId: start.value.sessionId,
+          prompt: 'do the work',
+          isContinuation: false,
+        })
+      );
+      expect(result.success).toBe(false);
+      expect(result.error).toMatch(/TASK_COMPLETE/);
     });
   });
 
