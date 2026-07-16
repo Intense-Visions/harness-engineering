@@ -530,10 +530,14 @@ export class OllamaBackend implements AgentBackend {
       // the agent must never be able to hang the dispatch on a stdin prompt.
       // detached: own process group so the timeout can SIGKILL the WHOLE tree
       // (execFile's SIGTERM only hit /bin/sh, letting node grandchildren survive).
+      // `detached` (own process group) is a POSIX concept used so the timeout
+      // can SIGKILL the whole tree via `process.kill(-pid)`. Windows has no
+      // process groups here, so keep it attached and fall back to `child.kill`.
+      const isPosix = process.platform !== 'win32';
       const child = childProcess.spawn('/bin/sh', ['-c', command], {
         cwd: workspacePath,
         stdio: ['ignore', 'pipe', 'pipe'],
-        detached: true,
+        detached: isPosix,
       });
       let out = '';
       let killed = false;
@@ -545,9 +549,13 @@ export class OllamaBackend implements AgentBackend {
       const timer = setTimeout(() => {
         killed = true;
         try {
-          if (child.pid !== undefined) process.kill(-child.pid, 'SIGKILL');
+          if (child.pid !== undefined && isPosix) {
+            process.kill(-child.pid, 'SIGKILL'); // kill the whole process group
+          } else {
+            child.kill('SIGKILL');
+          }
         } catch {
-          /* process group already gone */
+          /* process (group) already gone */
         }
       }, this.bashTimeoutMs);
       child.on('close', () => {

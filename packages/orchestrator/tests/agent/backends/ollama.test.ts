@@ -119,75 +119,78 @@ describe('OllamaBackend', () => {
   });
 
   describe('runTurn — agentic loop', () => {
-    it('executes a bash tool call then stops on a plain final message', async () => {
-      // Call 1 → model asks to run bash; Call 2 → model gives a final answer.
-      const fetchMock = vi
-        .fn()
-        .mockResolvedValueOnce(
-          okFetch(
-            chatResponse({
-              toolCalls: [
-                { id: 'call-1', name: 'bash', args: { command: 'echo hi > marker.txt' } },
-              ],
-              usage: { prompt_tokens: 30, completion_tokens: 5 },
-            })
+    it.skipIf(process.platform === 'win32')(
+      'executes a bash tool call then stops on a plain final message',
+      async () => {
+        // Call 1 → model asks to run bash; Call 2 → model gives a final answer.
+        const fetchMock = vi
+          .fn()
+          .mockResolvedValueOnce(
+            okFetch(
+              chatResponse({
+                toolCalls: [
+                  { id: 'call-1', name: 'bash', args: { command: 'echo hi > marker.txt' } },
+                ],
+                usage: { prompt_tokens: 30, completion_tokens: 5 },
+              })
+            )
           )
-        )
-        .mockResolvedValueOnce(
-          okFetch(
-            chatResponse({
-              content: 'All done.\nTASK_COMPLETE',
-              usage: { prompt_tokens: 40, completion_tokens: 3 },
-            })
-          )
+          .mockResolvedValueOnce(
+            okFetch(
+              chatResponse({
+                content: 'All done.\nTASK_COMPLETE',
+                usage: { prompt_tokens: 40, completion_tokens: 3 },
+              })
+            )
+          );
+        vi.stubGlobal('fetch', fetchMock);
+
+        const backend = new OllamaBackend(baseConfig);
+        const start = await backend.startSession({
+          workspacePath: workspace,
+          permissionMode: 'full',
+        });
+        expect(start.ok).toBe(true);
+        if (!start.ok) return;
+
+        const { events, result } = await drain(
+          backend.runTurn(start.value, {
+            sessionId: start.value.sessionId,
+            prompt: 'make a marker',
+            isContinuation: false,
+          })
         );
-      vi.stubGlobal('fetch', fetchMock);
 
-      const backend = new OllamaBackend(baseConfig);
-      const start = await backend.startSession({
-        workspacePath: workspace,
-        permissionMode: 'full',
-      });
-      expect(start.ok).toBe(true);
-      if (!start.ok) return;
+        // The bash tool actually ran in the workspace.
+        expect(existsSync(join(workspace, 'marker.txt'))).toBe(true);
+        expect(readFileSync(join(workspace, 'marker.txt'), 'utf8').trim()).toBe('hi');
 
-      const { events, result } = await drain(
-        backend.runTurn(start.value, {
-          sessionId: start.value.sessionId,
-          prompt: 'make a marker',
-          isContinuation: false,
-        })
-      );
+        // Two model calls were made (tool loop iterated once, then final).
+        expect(fetchMock).toHaveBeenCalledTimes(2);
 
-      // The bash tool actually ran in the workspace.
-      expect(existsSync(join(workspace, 'marker.txt'))).toBe(true);
-      expect(readFileSync(join(workspace, 'marker.txt'), 'utf8').trim()).toBe('hi');
+        // The tool result was appended to the conversation as a `tool` message.
+        const session = start.value as import('../../../src/agent/backends/ollama').OllamaSession;
+        const toolMsg = session.messages.find((m) => m.role === 'tool');
+        expect(toolMsg).toBeDefined();
+        expect(toolMsg!.tool_call_id).toBe('call-1');
 
-      // Two model calls were made (tool loop iterated once, then final).
-      expect(fetchMock).toHaveBeenCalledTimes(2);
+        // Tool lifecycle events were emitted.
+        const startEvt = events.find((e) => e.type === 'tool_execution_start');
+        const endEvt = events.find((e) => e.type === 'tool_execution_end');
+        expect(startEvt?.subtype).toBe('bash');
+        expect(endEvt?.subtype).toBe('bash');
 
-      // The tool result was appended to the conversation as a `tool` message.
-      const session = start.value as import('../../../src/agent/backends/ollama').OllamaSession;
-      const toolMsg = session.messages.find((m) => m.role === 'tool');
-      expect(toolMsg).toBeDefined();
-      expect(toolMsg!.tool_call_id).toBe('call-1');
+        // Success with accumulated usage across both responses.
+        expect(result.success).toBe(true);
+        expect(result.usage.inputTokens).toBe(70);
+        expect(result.usage.outputTokens).toBe(8);
+        expect(result.usage.totalTokens).toBe(78);
 
-      // Tool lifecycle events were emitted.
-      const startEvt = events.find((e) => e.type === 'tool_execution_start');
-      const endEvt = events.find((e) => e.type === 'tool_execution_end');
-      expect(startEvt?.subtype).toBe('bash');
-      expect(endEvt?.subtype).toBe('bash');
-
-      // Success with accumulated usage across both responses.
-      expect(result.success).toBe(true);
-      expect(result.usage.inputTokens).toBe(70);
-      expect(result.usage.outputTokens).toBe(8);
-      expect(result.usage.totalTokens).toBe(78);
-
-      // Usage surfaced on yielded events for the state machine.
-      const usageEvents = events.filter((e) => e.usage);
-      expect(usageEvents.length).toBeGreaterThanOrEqual(1);
-    });
+        // Usage surfaced on yielded events for the state machine.
+        const usageEvents = events.filter((e) => e.usage);
+        expect(usageEvents.length).toBeGreaterThanOrEqual(1);
+      }
+    );
 
     it('appends /no_think to the user turn when disableReasoning is set', async () => {
       const fetchMock = vi.fn().mockResolvedValueOnce(okFetch(chatResponse({ content: 'DONE' })));
@@ -265,66 +268,76 @@ describe('OllamaBackend', () => {
       expect(result.success).toBe(true);
     });
 
-    it('does not hang on a command that reads stdin (stdin is /dev/null)', async () => {
-      const fetchMock = vi
-        .fn()
-        .mockResolvedValueOnce(
-          okFetch(
-            chatResponse({
-              toolCalls: [{ id: 'c1', name: 'bash', args: { command: 'read x; echo "got:$x"' } }],
-            })
+    it.skipIf(process.platform === 'win32')(
+      'does not hang on a command that reads stdin (stdin is /dev/null)',
+      async () => {
+        const fetchMock = vi
+          .fn()
+          .mockResolvedValueOnce(
+            okFetch(
+              chatResponse({
+                toolCalls: [{ id: 'c1', name: 'bash', args: { command: 'read x; echo "got:$x"' } }],
+              })
+            )
           )
-        )
-        .mockResolvedValueOnce(okFetch(chatResponse({ content: 'TASK_COMPLETE' })));
-      vi.stubGlobal('fetch', fetchMock);
-      const backend = new OllamaBackend(baseConfig);
-      const start = await backend.startSession({
-        workspacePath: workspace,
-        permissionMode: 'full',
-      });
-      expect(start.ok).toBe(true);
-      if (!start.ok) return;
-      // `read` hits EOF immediately, so this returns fast; if stdin were an open
-      // pipe this test would exceed its timeout and fail.
-      const { result } = await drain(
-        backend.runTurn(start.value, {
-          sessionId: start.value.sessionId,
-          prompt: 'go',
-          isContinuation: false,
-        })
-      );
-      expect(result.success).toBe(true);
-    }, 10_000);
+          .mockResolvedValueOnce(okFetch(chatResponse({ content: 'TASK_COMPLETE' })));
+        vi.stubGlobal('fetch', fetchMock);
+        const backend = new OllamaBackend(baseConfig);
+        const start = await backend.startSession({
+          workspacePath: workspace,
+          permissionMode: 'full',
+        });
+        expect(start.ok).toBe(true);
+        if (!start.ok) return;
+        // `read` hits EOF immediately, so this returns fast; if stdin were an open
+        // pipe this test would exceed its timeout and fail.
+        const { result } = await drain(
+          backend.runTurn(start.value, {
+            sessionId: start.value.sessionId,
+            prompt: 'go',
+            isContinuation: false,
+          })
+        );
+        expect(result.success).toBe(true);
+      },
+      10_000
+    );
 
-    it('kills a bash command that exceeds bashTimeoutMs', async () => {
-      const fetchMock = vi
-        .fn()
-        .mockResolvedValueOnce(
-          okFetch(
-            chatResponse({ toolCalls: [{ id: 'c1', name: 'bash', args: { command: 'sleep 30' } }] })
+    it.skipIf(process.platform === 'win32')(
+      'kills a bash command that exceeds bashTimeoutMs',
+      async () => {
+        const fetchMock = vi
+          .fn()
+          .mockResolvedValueOnce(
+            okFetch(
+              chatResponse({
+                toolCalls: [{ id: 'c1', name: 'bash', args: { command: 'sleep 30' } }],
+              })
+            )
           )
-        )
-        .mockResolvedValueOnce(okFetch(chatResponse({ content: 'TASK_COMPLETE' })));
-      vi.stubGlobal('fetch', fetchMock);
-      const backend = new OllamaBackend({ ...baseConfig, bashTimeoutMs: 200 });
-      const start = await backend.startSession({
-        workspacePath: workspace,
-        permissionMode: 'full',
-      });
-      expect(start.ok).toBe(true);
-      if (!start.ok) return;
-      const { events, result } = await drain(
-        backend.runTurn(start.value, {
-          sessionId: start.value.sessionId,
-          prompt: 'go',
-          isContinuation: false,
-        })
-      );
-      // `sleep 30` was SIGKILLed after ~200ms rather than running to completion.
-      const toolEnd = events.find((e) => e.type === 'tool_execution_end');
-      expect(String(toolEnd?.content)).toContain('killed');
-      expect(result.success).toBe(true);
-    }, 10_000);
+          .mockResolvedValueOnce(okFetch(chatResponse({ content: 'TASK_COMPLETE' })));
+        vi.stubGlobal('fetch', fetchMock);
+        const backend = new OllamaBackend({ ...baseConfig, bashTimeoutMs: 200 });
+        const start = await backend.startSession({
+          workspacePath: workspace,
+          permissionMode: 'full',
+        });
+        expect(start.ok).toBe(true);
+        if (!start.ok) return;
+        const { events, result } = await drain(
+          backend.runTurn(start.value, {
+            sessionId: start.value.sessionId,
+            prompt: 'go',
+            isContinuation: false,
+          })
+        );
+        // `sleep 30` was SIGKILLed after ~200ms rather than running to completion.
+        const toolEnd = events.find((e) => e.type === 'tool_execution_end');
+        expect(String(toolEnd?.content)).toContain('killed');
+        expect(result.success).toBe(true);
+      },
+      10_000
+    );
 
     it('surfaces failure on a non-200 HTTP response', async () => {
       const fetchMock = vi.fn().mockResolvedValue({
