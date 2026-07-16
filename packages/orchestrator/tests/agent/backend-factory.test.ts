@@ -8,6 +8,7 @@ import { OpenAIBackend } from '../../src/agent/backends/openai.js';
 import { GeminiBackend } from '../../src/agent/backends/gemini.js';
 import { LocalBackend } from '../../src/agent/backends/local.js';
 import { PiBackend } from '../../src/agent/backends/pi.js';
+import { OllamaBackend } from '../../src/agent/backends/ollama.js';
 
 describe('createBackend', () => {
   it('builds MockBackend for type=mock', () => {
@@ -97,6 +98,49 @@ describe('createBackend', () => {
     };
     const backend = createBackend(def) as PiBackend;
     expect((backend as unknown as { timeoutMs: number }).timeoutMs).toBe(90_000);
+  });
+
+  it('builds OllamaBackend for type=ollama with string model', () => {
+    const def: BackendDef = {
+      type: 'ollama',
+      endpoint: 'http://127.0.0.1:11434/v1',
+      model: 'qwen3-agent:32b',
+    };
+    expect(createBackend(def)).toBeInstanceOf(OllamaBackend);
+  });
+
+  it('builds OllamaBackend for type=ollama with array model', () => {
+    const def: BackendDef = {
+      type: 'ollama',
+      endpoint: 'http://127.0.0.1:11434/v1',
+      model: ['m-a', 'm-b'],
+    };
+    expect(createBackend(def)).toBeInstanceOf(OllamaBackend);
+  });
+
+  it('propagates timeoutMs and maxTurnsPerRun to OllamaBackend when set', () => {
+    const def: BackendDef = {
+      type: 'ollama',
+      endpoint: 'http://127.0.0.1:11434/v1',
+      model: 'qwen3-agent:32b',
+      timeoutMs: 45_000,
+      maxTurnsPerRun: 12,
+    };
+    const backend = createBackend(def) as OllamaBackend;
+    expect(backend).toBeInstanceOf(OllamaBackend);
+    expect(backend.timeoutMs).toBe(45_000);
+    expect(backend.maxTurnsPerRun).toBe(12);
+  });
+
+  it('uses default timeoutMs and maxTurnsPerRun on OllamaBackend when not set', () => {
+    const def: BackendDef = {
+      type: 'ollama',
+      endpoint: 'http://127.0.0.1:11434/v1',
+      model: 'qwen3-agent:32b',
+    };
+    const backend = createBackend(def) as OllamaBackend;
+    expect(backend.timeoutMs).toBe(600_000);
+    expect(backend.maxTurnsPerRun).toBe(50);
   });
 
   it('throws on unknown discriminant', () => {

@@ -93,6 +93,7 @@ export function buildAnalysisProvider(args: BuildAnalysisProviderArgs): Analysis
   switch (def.type) {
     case 'local':
     case 'pi':
+    case 'ollama':
       return buildLocalLikeProvider(def, args, layerModel);
     case 'anthropic':
       return buildAnthropicProvider(def, args, layerModel);
@@ -112,7 +113,7 @@ export function buildAnalysisProvider(args: BuildAnalysisProviderArgs): Analysis
 }
 
 function buildLocalLikeProvider(
-  def: Extract<BackendDef, { type: 'local' | 'pi' }>,
+  def: Extract<BackendDef, { type: 'local' | 'pi' | 'ollama' }>,
   args: BuildAnalysisProviderArgs,
   layerModel: string | undefined
 ): AnalysisProvider | null {

@@ -77,6 +77,31 @@ describe('BackendDefSchema', () => {
     expect(messages).toContain('non-empty string or array of strings');
   });
 
+  it('OT1: accepts a valid ollama backend and honors optional fields', () => {
+    const result = BackendDefSchema.safeParse({
+      type: 'ollama',
+      endpoint: 'http://127.0.0.1:11434/v1',
+      model: ['qwen3-agent:32b', 'qwen3:8b'],
+      apiKey: 'ollama',
+      timeoutMs: 600000,
+      maxTurnsPerRun: 50,
+    });
+    expect(result.success).toBe(true);
+  });
+
+  it('rejects an ollama backend with an unknown field (strict)', () => {
+    const result = BackendDefSchema.safeParse({
+      type: 'ollama',
+      endpoint: 'http://127.0.0.1:11434/v1',
+      model: 'qwen3-agent:32b',
+      bogusField: true,
+    });
+    expect(result.success).toBe(false);
+    if (result.success) return;
+    const codes = result.error.issues.map((i) => i.code);
+    expect(codes).toContain('unrecognized_keys');
+  });
+
   it('OT16: same actionable message applies to pi variant', () => {
     const result = BackendDefSchema.safeParse({
       type: 'pi',
