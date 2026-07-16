@@ -265,6 +265,42 @@ export async function defaultLocalVerifyRunner(
 }
 
 /**
+ * local-backend-full-workflow (Blocker 2b): the production default diff runner
+ * for the local enforced gate's empty-diff halt. Reports whether the agent
+ * produced ANY change in the workspace by running `git status --porcelain` over
+ * `workspacePath` and treating non-empty (trimmed) output as changes.
+ *
+ * Files neutralized via `git update-index --skip-worktree` (the workspace-scan
+ * neutralization) correctly do NOT appear in `status --porcelain`, so they never
+ * mask a truly-empty diff. Fully self-contained; tests inject a fake via the
+ * `diffRunner` seam so this concrete detector is never exercised in unit tests.
+ * On any git error it fail-OPEN (`hasChanges: true`) so a detection failure never
+ * blocks a genuine change — the verify + outcome-eval stages remain the gate.
+ */
+export async function defaultLocalDiffRunner(
+  workspacePath: string
+): Promise<{ hasChanges: boolean }> {
+  // Access via the module namespace object (not destructured) — destructuring
+  // `execFile` off the module trips the unbound-method lint.
+  const cp = await import('node:child_process');
+  return new Promise((resolve) => {
+    cp.execFile(
+      'git',
+      ['-C', workspacePath, 'status', '--porcelain'],
+      { maxBuffer: 32 * 1024 * 1024 },
+      (error, stdout) => {
+        if (error) {
+          // Fail-open: a git error must not spuriously block a real change.
+          resolve({ hasChanges: true });
+          return;
+        }
+        resolve({ hasChanges: stdout.trim().length > 0 });
+      }
+    );
+  });
+}
+
+/**
  * The central orchestrator that manages the lifecycle of coding agents.
  *
  * It polls an issue tracker for candidate tasks, manages ephemeral workspaces,
@@ -344,6 +380,15 @@ export class Orchestrator extends EventEmitter {
    * is decoupled from the concrete detector.
    */
   private verifyRunner: (workspacePath: string) => Promise<{ ok: boolean; output: string }>;
+  /**
+   * local-backend-full-workflow (Blocker 2b): the diff runner the local-only
+   * enforced gate invokes BEFORE verify to detect an empty diff (the agent
+   * completed without implementing anything). Injected in tests to force
+   * has/has-no-changes; in production it defaults to `defaultLocalDiffRunner`
+   * (a `git status --porcelain` probe). Mirrors the `verifyRunner` seam so the
+   * completion path is decoupled from the concrete detector.
+   */
+  private diffRunner: (workspacePath: string) => Promise<{ hasChanges: boolean }>;
   /**
    * Phase 2: the most recent gate-failure reason per issue, threaded into the
    * next dispatch's rendered prompt as a failure preamble (the re-prompt). Set
@@ -552,6 +597,13 @@ export class Orchestrator extends EventEmitter {
        * spawning real typecheck/lint/test. Defaults to `defaultLocalVerifyRunner`.
        */
       verifyRunner?: (workspacePath: string) => Promise<{ ok: boolean; output: string }>;
+      /**
+       * Blocker 2b test seam: the diff runner the local enforced gate invokes
+       * to detect an empty diff before verify. Injected so tests can force
+       * has/has-no-changes without a real git tree. Defaults to
+       * `defaultLocalDiffRunner`.
+       */
+      diffRunner?: (workspacePath: string) => Promise<{ hasChanges: boolean }>;
     }
   ) {
     super();
@@ -574,6 +626,7 @@ export class Orchestrator extends EventEmitter {
     this.promptTemplate = promptTemplate;
     this.localPromptTemplate = overrides?.localPromptTemplate;
     this.verifyRunner = overrides?.verifyRunner ?? defaultLocalVerifyRunner;
+    this.diffRunner = overrides?.diffRunner ?? defaultLocalDiffRunner;
     this.state = createEmptyState(config);
     this.logger = new StructuredLogger();
 
@@ -2511,6 +2564,18 @@ export class Orchestrator extends EventEmitter {
     if (!isLocal) return { ok: true };
 
     try {
+      // 0. Empty-diff halt (Blocker 2b): if the agent produced NO workspace
+      //    changes it implemented nothing — an empty diff would trivially pass
+      //    `verify` (typecheck/lint/test of an unchanged tree) and be marked
+      //    done. Short-circuit BEFORE verify so nothing-implemented never ships.
+      const diff = await this.diffRunner(workspacePath);
+      if (!diff.hasChanges) {
+        return {
+          ok: false,
+          reason: 'no changes produced — the agent completed without implementing anything',
+        };
+      }
+
       // 1. Mechanical gate: typecheck + lint + test.
       const verify = await this.verifyRunner(workspacePath);
       if (!verify.ok) {
