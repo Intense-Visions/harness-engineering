@@ -91,6 +91,30 @@ describe('runBugDetectionAgent()', () => {
     ).toBe(true);
   });
 
+  it('does not scan non-code files for division-by-zero (scoped pkg name in a changeset)', () => {
+    // A Markdown changeset lists scoped package names like `@scope/pkg`; the `/`
+    // must not be read as a division operator (regression: required-review FP).
+    const bundle = makeBundle({
+      changedFiles: [
+        {
+          path: '.changeset/some-change.md',
+          content: [
+            '---',
+            "'@harness-engineering/orchestrator': minor",
+            "'@harness-engineering/types': minor",
+            '---',
+            '',
+            'A change.',
+          ].join('\n'),
+          reason: 'changed',
+          lines: 6,
+        },
+      ],
+    });
+    const findings = runBugDetectionAgent(bundle);
+    expect(findings.some((f) => f.title.toLowerCase().includes('division'))).toBe(false);
+  });
+
   it('detects missing test files when no test context is present', () => {
     const bundle = makeBundle({
       changedFiles: [
