@@ -5,6 +5,7 @@
 // (the actual prompt-injection vector). This hook performs NO injection detection
 // on tool INPUTS — an agent's own tool inputs are its intent, not untrusted content,
 // and scanning them here falsely tainted legitimate work (e.g. an agent running
+// harness-ignore SEC-AGT-006: this hook's design doc references the bypass flag it guards against
 // `git commit --no-verify`, or inputs containing base64/git-SHA tokens), then blocked
 // the agent's own `git push`. Detection lives in sentinel-post; pre only enforces.
 // Exit codes: 0 = allow, 2 = block

@@ -1,5 +1,6 @@
 #!/usr/bin/env node
 // block-no-verify.js — PreToolUse:Bash hook
+// harness-ignore SEC-AGT-006: definitional — this hook exists to BLOCK the bypass flag it names
 // Blocks git commands that use --no-verify to skip hooks.
 // Exit codes: 0 = allow, 2 = block
 
@@ -35,6 +36,7 @@ function main() {
 
     if (containsHookBypass(command)) {
       process.stderr.write(
+        // harness-ignore SEC-AGT-006: definitional — user-facing message names the flag this hook blocks
         'BLOCKED: --no-verify flag detected. Hooks must not be bypassed.\n'
       );
       process.exit(2);
@@ -60,6 +62,7 @@ function stripStringsAndComments(cmd) {
 
 function containsHookBypass(command) {
   const stripped = stripStringsAndComments(command);
+  // harness-ignore SEC-AGT-006: definitional — this IS the detection regex for the bypass flag
   if (/(?:^|\s)--no-verify(?=\s|$)/.test(stripped)) return true;
   if (/\bgit\s+(?:[\w-]+\s+)*?commit\b[^\n]*?(?:^|\s)-n(?=\s|$)/.test(stripped)) return true;
   return false;

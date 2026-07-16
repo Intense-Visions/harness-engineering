@@ -2587,7 +2587,7 @@ export class Orchestrator extends EventEmitter {
    * local-backend-full-workflow Phase 2 (Option C): the LOCAL-ONLY enforced
    * gate. For a `pi`/`local` dispatch it runs the mechanical gate (verify =
    * typecheck+lint+test via the injected `verifyRunner`) and, on green, the
-   * outcome-eval (Task 7) against the workspace branch; a red result returns a
+   * outcome evaluation (Task 7) against the workspace branch; a red result returns a
    * blocking `{ ok: false, reason }`. The completion path routes that reason
    * through `emitWorkerExit('error', …)` so the shipped state-machine retry
    * branch re-dispatches (the re-prompt) rather than marking the run complete.
@@ -2632,7 +2632,7 @@ export class Orchestrator extends EventEmitter {
         };
       }
 
-      // 2. Outcome-eval (SC4): when a spec is present, run the SAME
+      // 2. Outcome evaluation (SC4): when a spec is present, run the SAME
       //    OutcomeEvaluator engine the Claude/AMR path uses — un-gated from the
       //    AMR-active + `acceptanceEval.enabled` requirements (D2: local always
       //    evaluates when a spec exists). Read the eval model from the AMR

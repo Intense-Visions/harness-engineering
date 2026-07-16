@@ -15,6 +15,7 @@ import type { HookProfile } from '../hooks/profiles';
 import { ensureTelemetryConfigured } from './telemetry-wizard';
 import { detectLegacyArtifacts } from './migrate';
 import type { StepResult } from './setup-types';
+import { SETUP_CLIENTS } from '../setup/clients';
 
 export type { StepResult };
 
@@ -51,23 +52,15 @@ function detectClient(dirName: string): boolean {
 async function runMcpSetup(cwd: string): Promise<StepResult[]> {
   const results: StepResult[] = [];
 
-  const clients: Array<{ name: string; dir: string; client: string; configTarget: string }> = [
-    { name: 'Claude Code', dir: '.claude', client: 'claude', configTarget: '.mcp.json' },
-    {
-      name: 'Gemini CLI',
-      dir: '.gemini',
-      client: 'gemini',
-      configTarget: '.gemini/settings.json',
-    },
-    { name: 'Codex CLI', dir: '.codex', client: 'codex', configTarget: '.codex/config.toml' },
-    { name: 'Cursor', dir: '.cursor', client: 'cursor', configTarget: '.cursor/mcp.json' },
-    {
-      name: 'OpenCode',
-      dir: path.join('.config', 'opencode'),
-      client: 'opencode',
-      configTarget: 'opencode.json',
-    },
-  ];
+  const clients: Array<{ name: string; dir: string; client: string; configTarget: string }> =
+    SETUP_CLIENTS.map((c) => ({
+      name: c.name,
+      // detectDir is authored POSIX-style (e.g. ".config/opencode"); rebuild it
+      // with path.join so detection is identical cross-platform to the old inline array.
+      dir: path.join(...c.detectDir.split('/')),
+      client: c.client,
+      configTarget: c.configTarget,
+    }));
 
   for (const { name, dir, client, configTarget } of clients) {
     if (!detectClient(dir)) {

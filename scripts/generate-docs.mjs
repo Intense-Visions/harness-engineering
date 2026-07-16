@@ -488,6 +488,27 @@ async function main() {
     console.log(`    ⚠ MCP tools reference skipped: ${err.message}`);
   }
 
+  // Agent-setup prompt (generated from SETUP_CLIENTS; own --check contract).
+  // Runs the standalone generator so `pnpm run generate-docs [--check]`
+  // transitively covers docs/agent-setup/prompt.md — this is what makes the
+  // existing pre-push (.husky/pre-push) and CI (.github/workflows/ci.yml)
+  // drift-gate the prompt with zero new hook/CI edits. See ADR 0073.
+  console.log('  Agent-setup prompt...');
+  try {
+    const promptArgs = isCheck
+      ? ['scripts/generate-agent-setup-prompt.mjs', '--check']
+      : ['scripts/generate-agent-setup-prompt.mjs'];
+    execSync(`node ${promptArgs.join(' ')}`, { cwd: ROOT, stdio: 'inherit' });
+    console.log('    ✓ docs/agent-setup/prompt.md');
+  } catch (err) {
+    if (isCheck) {
+      // In --check mode the child already printed the staleness message and
+      // exited non-zero; propagate the failure to fail the pre-push/CI gate.
+      process.exit(1);
+    }
+    console.log(`    ⚠ Agent-setup prompt skipped: ${err.message}`);
+  }
+
   console.log('\nDone.');
 
   // Normalize generated files through prettier so the check is stable across environments.
