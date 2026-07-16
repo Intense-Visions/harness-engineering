@@ -110,17 +110,6 @@ last_manual_edit: 2026-06-27T12:51:51.967Z
 - **Priority:** P2
 - **External-ID:** —
 
-### Dashboard chat can target any configured backend (incl. local/ollama)
-
-- **Status:** planned
-- **Spec:** —
-- **Summary:** Let a user manually drive any configured backend — including the local `ollama` model — from the dashboard chat, so they can eyeball local-model quality interactively before trusting it with autonomous dispatch. Today the chat is hardwired to Claude: `packages/orchestrator/src/server/routes/chat-proxy.ts` spawns `claude --print` as a subprocess (`command = 'claude'`), bypassing the orchestrator's `BackendRouter` entirely — so the OllamaBackend and local models are unreachable from chat even though they now work for dispatch (#841/#843). Rewire the `/api/chat` handler to dispatch through the backend router (or an explicit backend/model param) and add a backend picker to the chat UI (default to the existing `claude` path for back-compat). The pieces already exist: the **OllamaBackend** implements a streaming chat loop (`startSession`→`runTurn` yielding `AgentEvent`s: usage / tool_execution / heartbeat), and the dashboard has the chat surface (`client/types/chat-session.ts`, `utils/chat-stream.ts`, `utils/agent-events.ts`, `stores/threadStore.ts`) + SSE streaming. Mostly a wiring job: map the backend's `AgentEvent` stream to the chat SSE event contract the client already consumes, expose the configured `agent.backends` to the picker, and preserve tool-execution/streaming semantics. Consider read-only vs full-tool permission modes for an interactive chat session (a manual chat probably wants tools optional). Ties directly to the Agent-Autonomy adoption story — humans validate the local model in chat, then graduate it to unattended dispatch.
-- **Blockers:** —
-- **Plan:** —
-- **Assignee:** —
-- **Priority:** P2
-- **External-ID:** —
-
 ### Language-aware workspace bootstrap + verify for local dispatch
 
 - **Status:** planned
@@ -132,11 +121,33 @@ last_manual_edit: 2026-06-27T12:51:51.967Z
 - **Priority:** P2
 - **External-ID:** —
 
+### Dashboard chat can target any configured backend (incl. local/ollama)
+
+- **Status:** planned
+- **Spec:** —
+- **Summary:** Let a user manually drive any configured backend — including the local `ollama` model — from the dashboard chat, so they can eyeball local-model quality interactively before trusting it with autonomous dispatch. Today the chat is hardwired to Claude: `packages/orchestrator/src/server/routes/chat-proxy.ts` spawns `claude --print` as a subprocess (`command = 'claude'`), bypassing the orchestrator's `BackendRouter` entirely — so the OllamaBackend and local models are unreachable from chat even though they now work for dispatch (#841/#843). Rewire the `/api/chat` handler to dispatch through the backend router (or an explicit backend/model param) and add a backend picker to the chat UI (default to the existing `claude` path for back-compat). The pieces already exist: the **OllamaBackend** implements a streaming chat loop (`startSession`→`runTurn` yielding `AgentEvent`s: usage / tool_execution / heartbeat), and the dashboard has the chat surface (`client/types/chat-session.ts`, `utils/chat-stream.ts`, `utils/agent-events.ts`, `stores/threadStore.ts`) + SSE streaming. Mostly a wiring job: map the backend's `AgentEvent` stream to the chat SSE event contract the client already consumes, expose the configured `agent.backends` to the picker, and preserve tool-execution/streaming semantics. Consider read-only vs full-tool permission modes for an interactive chat session (a manual chat probably wants tools optional). Ties directly to the Agent-Autonomy adoption story — humans validate the local model in chat, then graduate it to unattended dispatch.
+- **Blockers:** —
+- **Plan:** —
+- **Assignee:** —
+- **Priority:** P2
+- **External-ID:** —
+
 ### Agentic-suitability in the local-model pool recommender
 
 - **Status:** planned
 - **Spec:** —
 - **Summary:** The pool ranker (`packages/local-models/src/ranker/algorithm.ts`) scores candidates by VRAM fitness + a **bandwidth-estimated** tokens/sec (speed-confidence bands) + benchmark confidence — but it does NOT compose those into "is this model usable for **autonomous agentic dispatch**," and that gap picks unusable models. Live evidence (2026-07-16): **llama3.3:70b** fits memory and its tokens/sec *estimate* looked fine, but real agentic latency — time-to-first-token on a 66GB model with a large multi-turn context — was a **4-minute single call**, unusable for a tool-loop; **qwen2.5-coder:7b** fits and is fast but **won't emit tool_calls** (should be excluded from agentic routing, not merely down-ranked); **qwen3:32b** tool-calls and completes but stumbles on some tasks. Add an **agentic-suitability** dimension the recommender/AMR use to select for dispatch = (a) tool-calling capability as a HARD filter (reuse the deterministic probe from #833 in `packages/local-models/src/capability/tool-calling.ts` — no tool-calls ⇒ ineligible for agentic use), × (b) a **measured** agentic latency/throughput signal (time-to-first-token + turn latency under a real agentic prompt, not the bandwidth estimate — a model over a latency budget is ineligible/steeply penalized for interactive dispatch even if it fits), × (c) learned build quality (the `local-dispatch-...`/`lmlm-build-quality-model-selection` follow-on). Keep the existing size/speed/benchmark ranking for non-agentic uses; expose a separate `agenticScore` so a fits-VRAM-but-too-slow / can't-tool-call / builds-badly model is never routed autonomous work. Ties to Agent-Autonomy: the pool should recommend a model a human can actually let run unattended.
+- **Blockers:** —
+- **Plan:** —
+- **Assignee:** —
+- **Priority:** P2
+- **External-ID:** —
+
+### Automate best-model discovery/recommendation for local dispatch
+
+- **Status:** planned
+- **Spec:** —
+- **Summary:** The pool recommender should automate the manual process a human just used to pick a local coding model, and that process taught concrete lessons the frozen ranker misses. When picking a model for agentic dispatch by hand (2026-07-16) the winning process was: (1) query **current** authoritative sources for the best agentic coders — the landscape moves monthly (llama3.3:70b → qwen3-coder:30b / devstral-24b / laguna-xs), so a frozen snapshot goes stale; recency must be a ranking input. (2) Filter by hardware fit (already done). (3) **Rank speed by MoE ACTIVE params, not total size** — this was the key miss: a dense 70B is too slow for a tool-loop (a single call took 4 min) while a 30B **MoE with ~3B active** is fast and usable; the ranker's bandwidth×total-size estimate treats these the same, so it must model compute/latency from active params (MoE-aware). (4) **Require tool-calling** (hard filter — reuse #833's probe). (5) **Weight agentic benchmarks** — SWE-bench Verified (devstral 46.8%, laguna-xs 70.9%) over generic perplexity/chat benchmarks. (6) **Prefer coding/agent-specialized** models (qwen3-coder, Mistral's agent-first devstral) over general chat models for dispatch. Build a discovery step that pulls current candidates (Ollama library + HF + published SWE-bench numbers) with recency weighting, computes the [[local-model-agentic-suitability]] `agenticScore` (tool-calling × MoE-aware latency × agentic benchmark × learned build quality), surfaces the top recommendation for dispatch, and can **auto-pull** it. This makes the pool's suggestions match — or beat — what an expert would pick by hand, instead of recommending a fits-VRAM-but-too-slow dense model. Cross-refs #833 (tool-calling probe), the agentic-suitability item, and the LMLM live-HF candidate-discovery work.
 - **Blockers:** —
 - **Plan:** —
 - **Assignee:** —
