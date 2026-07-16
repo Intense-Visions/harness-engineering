@@ -318,7 +318,7 @@ function extractMcpText(res: unknown): string {
   const r = (res ?? {}) as { isError?: boolean; content?: Array<{ type?: string; text?: string }> };
   const texts: string[] = [];
   for (const block of r.content ?? []) {
-    if (block.type === 'text' && typeof block.text === 'string') texts.push(block.text);
+    if (block?.type === 'text' && typeof block.text === 'string') texts.push(block.text);
   }
   const body = texts.length > 0 ? texts.join('\n') : '(no output)';
   return r.isError === true ? `ERROR: ${body}` : body;
