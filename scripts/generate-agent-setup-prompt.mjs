@@ -88,7 +88,9 @@ function renderPrompt({ clients, requiredNodeVersion }) {
       'covers every client — including ones with no marketplace plugin.\n\n'
   );
 
-  lines.push('### Optional: marketplace plugin (Claude Code / Cursor)\n\n');
+  lines.push(
+    `### Optional: marketplace plugin (${pluginClients.map((c) => c.name).join(' / ')})\n\n`
+  );
   lines.push(
     'For auto-update via `/plugin update` (and, on Cursor, curated project rules), ' +
       'the user can also install the marketplace plugin for their client. These are ' +

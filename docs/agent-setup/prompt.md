@@ -21,7 +21,7 @@ npm install -g @harness-engineering/cli && harness setup
 
 `harness setup` auto-detects every AI client on this machine (Claude Code, Cursor, Gemini CLI, Codex CLI, OpenCode) and lays down skills, slash commands, agent personas, MCP, and hooks. Prefer this path: it is a single shell command you can run yourself, and it covers every client — including ones with no marketplace plugin.
 
-### Optional: marketplace plugin (Claude Code / Cursor)
+### Optional: marketplace plugin (Claude Code / Cursor / Gemini CLI / Codex CLI)
 
 For auto-update via `/plugin update` (and, on Cursor, curated project rules), the user can also install the marketplace plugin for their client. These are interactive client slash-commands, not shell commands, so ask the user to run the pair matching their client:
 
