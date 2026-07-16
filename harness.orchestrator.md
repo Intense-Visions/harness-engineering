@@ -9,7 +9,11 @@ polling:
 workspace:
   root: .harness/workspaces
 hooks:
-  afterCreate: null
+  # Install workspace deps so the enforced verify gate can actually run — a fresh
+  # git-worktree workspace has no node_modules, so verify would fail environmentally
+  # and block EVERY local dispatch. Fast via the pnpm store. Adopters on other
+  # ecosystems set their own command (npm ci / pip install -r … / cargo fetch / …).
+  afterCreate: 'pnpm install --prefer-offline'
   beforeRun: null
   afterRun: null
   beforeRemove: null
