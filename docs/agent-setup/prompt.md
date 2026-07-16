@@ -4,6 +4,15 @@
 
 Official instructions to install and initialize harness in this project. Complete every step yourself by running the commands directly. Do not ask the user to run them. These instructions are published at <https://raw.githubusercontent.com/Intense-Visions/harness-engineering/main/docs/agent-setup/prompt.md>.
 
+## Prerequisites (check these first)
+
+Verify these yourself before installing:
+
+- **Node.js >=22.0.0** — run `node --version`. This is a hard requirement: `harness setup` / `harness doctor` fail below it. If it is older (or Node is missing), install or switch first, e.g. via nvm: `nvm install 22 && nvm use 22`.
+- **npm** — bundled with Node; needed for `npm install -g @harness-engineering/cli`.
+- **A git repository at the project root** — harness is git-centric (roadmap merge-driver, worktrees). If this directory isn't a git repo yet, run `git init` first.
+- **Run every command from the project root.**
+
 ## 1. Install harness (recommended — universal, one command)
 
 ```bash

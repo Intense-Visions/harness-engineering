@@ -24,8 +24,12 @@ const RAW_URL =
 const HEADER =
   '<!-- AUTO-GENERATED — do not edit. Run `pnpm run generate-docs` to regenerate. -->\n\n';
 
-/** Load SETUP_CLIENTS by running the tsx emitter (mjs cannot import .ts). */
-function loadClients() {
+/**
+ * Load the prompt inputs by running the tsx emitter (mjs cannot import .ts).
+ * Returns `{ clients, requiredNodeVersion }` sourced from clients.ts and
+ * node-version.ts, so the generated prompt cannot drift from the CLI.
+ */
+function loadInputs() {
   const tsx = join(ROOT, 'node_modules', '.bin', 'tsx');
   if (!existsSync(tsx)) {
     console.error(`Missing tsx at ${tsx}. Run \`pnpm install\` first.`);
@@ -36,8 +40,12 @@ function loadClients() {
   return JSON.parse(json);
 }
 
-function renderPrompt(clients) {
+function renderPrompt({ clients, requiredNodeVersion }) {
   const pluginClients = clients.filter((c) => c.install.kind === 'plugin');
+
+  // Derive the nvm hint's major from the required version so it can't drift
+  // (e.g. ">=22.0.0" -> "22"). Fall back to the raw string if unparseable.
+  const nodeMajor = (requiredNodeVersion.match(/(\d+)/) || [, requiredNodeVersion])[1];
 
   const lines = [];
   lines.push(HEADER);
@@ -48,6 +56,25 @@ function renderPrompt(clients) {
       'the user to run them. These instructions are published at ' +
       `<${RAW_URL}>.\n\n`
   );
+
+  lines.push('## Prerequisites (check these first)\n\n');
+  lines.push('Verify these yourself before installing:\n\n');
+  lines.push(
+    `- **Node.js ${requiredNodeVersion}** — run \`node --version\`. This is a hard ` +
+      'requirement: `harness setup` / `harness doctor` fail below it. If it is older ' +
+      '(or Node is missing), install or switch first, e.g. via nvm: ' +
+      `\`nvm install ${nodeMajor} && nvm use ${nodeMajor}\`.\n`
+  );
+  lines.push(
+    '- **npm** — bundled with Node; needed for ' +
+      '`npm install -g @harness-engineering/cli`.\n'
+  );
+  lines.push(
+    '- **A git repository at the project root** — harness is git-centric (roadmap ' +
+      "merge-driver, worktrees). If this directory isn't a git repo yet, run " +
+      '`git init` first.\n'
+  );
+  lines.push('- **Run every command from the project root.**\n\n');
 
   lines.push('## 1. Install harness (recommended — universal, one command)\n\n');
   lines.push('```bash\n');
@@ -107,8 +134,8 @@ function renderPrompt(clients) {
 
 function main() {
   const isCheck = process.argv.includes('--check');
-  const clients = loadClients();
-  const content = renderPrompt(clients);
+  const inputs = loadInputs();
+  const content = renderPrompt(inputs);
 
   if (!existsSync(OUT_DIR)) mkdirSync(OUT_DIR, { recursive: true });
   writeFileSync(OUT_FILE, content);
