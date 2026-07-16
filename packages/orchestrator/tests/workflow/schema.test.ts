@@ -102,6 +102,23 @@ describe('BackendDefSchema', () => {
     expect(codes).toContain('unrecognized_keys');
   });
 
+  it("accepts an ollama backend with mcpServers and rejects a typo'd field", () => {
+    const ok = BackendDefSchema.safeParse({
+      type: 'ollama',
+      endpoint: 'http://127.0.0.1:11434/v1',
+      model: 'm',
+      mcpServers: [{ name: 'context7', command: 'npx', args: ['-y', '@upstash/context7-mcp'] }],
+    });
+    expect(ok.success).toBe(true);
+    const bad = BackendDefSchema.safeParse({
+      type: 'ollama',
+      endpoint: 'http://127.0.0.1:11434/v1',
+      model: 'm',
+      mcpServers: [{ name: 'x', command: 'y', bogus: true }],
+    });
+    expect(bad.success).toBe(false);
+  });
+
   it('OT16: same actionable message applies to pi variant', () => {
     const result = BackendDefSchema.safeParse({
       type: 'pi',

@@ -24,17 +24,18 @@ With this config, heavy guided-change work runs on Claude CLI (subscription, no 
 
 ## `agent.backends`
 
-`agent.backends` is a map of operator-chosen names to backend definitions. Each entry is a discriminated union keyed by `type`. Valid types: `mock`, `claude`, `anthropic`, `openai`, `gemini`, `local`, `pi`.
+`agent.backends` is a map of operator-chosen names to backend definitions. Each entry is a discriminated union keyed by `type`. Valid types: `mock`, `claude`, `anthropic`, `openai`, `gemini`, `local`, `ollama`, `pi`.
 
-| type        | required fields     | optional fields                          |
-| ----------- | ------------------- | ---------------------------------------- |
-| `mock`      | —                   | —                                        |
-| `claude`    | —                   | `command` (default: `claude`)            |
-| `anthropic` | `model`             | `apiKey`                                 |
-| `openai`    | `model`             | `apiKey`                                 |
-| `gemini`    | `model`             | `apiKey`                                 |
-| `local`     | `endpoint`, `model` | `apiKey`, `timeoutMs`, `probeIntervalMs` |
-| `pi`        | `endpoint`, `model` | `apiKey`, `timeoutMs`, `probeIntervalMs` |
+| type        | required fields     | optional fields                                                                           |
+| ----------- | ------------------- | ----------------------------------------------------------------------------------------- |
+| `mock`      | —                   | —                                                                                         |
+| `claude`    | —                   | `command` (default: `claude`)                                                             |
+| `anthropic` | `model`             | `apiKey`                                                                                  |
+| `openai`    | `model`             | `apiKey`                                                                                  |
+| `gemini`    | `model`             | `apiKey`                                                                                  |
+| `local`     | `endpoint`, `model` | `apiKey`, `timeoutMs`, `probeIntervalMs`                                                  |
+| `ollama`    | `endpoint`, `model` | `apiKey`, `timeoutMs`, `maxTurnsPerRun`, `disableReasoning`, `mcpServers`, `capabilities` |
+| `pi`        | `endpoint`, `model` | `apiKey`, `timeoutMs`, `probeIntervalMs`                                                  |
 
 `model` accepts a single string or a non-empty array. With an array, the orchestrator probes `${endpoint}/v1/models` and picks the first array entry that's loaded on the server. See [Local Model Resolution](../knowledge/orchestrator/local-model-resolution.md).
 
@@ -187,6 +188,29 @@ the advisory `review` gate is not yet routed by this flag.
 
 ```json
 { "agent": { "routing": { "default": "primary", "workflowGates": "primary" } } }
+```
+
+### MCP tools for the local agent
+
+The `ollama` backend agent ships with three built-in tools — `bash`, `read_file`, `write_file`. Set `mcpServers` on the backend def to also give it tools from any MCP server, so a local model gets the same tool leverage a cloud driver gets from native MCP. Each entry is `{ name, command, args?, env?, cwd? }`; the orchestrator hosts one MCP client per server, connects at session start, and merges the servers' tools into the model's tool set alongside the built-ins.
+
+Tools appear to the model **namespaced** as `<server>__<tool>` (so two servers can expose a same-named tool without colliding); if a namespaced name would shadow a built-in, the built-in wins. A server that fails to connect is **skipped with a warning** — the session still runs on the built-ins plus every server that did start, so one flaky server never breaks a dispatch. `mcpServers` defaults to unset (built-ins only), so leaving it off is byte-identical to prior behavior.
+
+`harness-mcp` — and any server without an explicit `cwd` — is spawned with `cwd =` the agent's workspace (the git worktree it is editing), so harness's own code-intelligence tools (`code_search`, `ask_graph`, `review_changes`, `outcome_eval`) operate on the code the agent is building rather than the daemon's repo. Set a per-server `cwd` to override.
+
+```yaml
+agent:
+  backends:
+    local:
+      type: ollama
+      endpoint: http://127.0.0.1:11434/v1
+      model: ['qwen2.5-coder:7b', 'gemma3n:e4b']
+      mcpServers:
+        - name: context7 # live library docs — stop coding from stale memory
+          command: npx
+          args: ['-y', '@upstash/context7-mcp']
+        - name: harness # code_search / ask_graph / review_changes / outcome_eval,
+          command: harness-mcp # run against the agent's workspace
 ```
 
 ## Migrating from the legacy schema

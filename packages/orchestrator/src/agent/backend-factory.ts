@@ -128,6 +128,7 @@ function createOllamaBackend(def: BackendDefOf<'ollama'>): AgentBackend {
     ...(def.timeoutMs !== undefined ? { timeoutMs: def.timeoutMs } : {}),
     ...(def.maxTurnsPerRun !== undefined ? { maxTurnsPerRun: def.maxTurnsPerRun } : {}),
     ...(def.disableReasoning !== undefined ? { disableReasoning: def.disableReasoning } : {}),
+    ...(def.mcpServers !== undefined ? { mcpServers: def.mcpServers } : {}),
   });
 }
 

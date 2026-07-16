@@ -33,6 +33,16 @@ agent:
       # Qwen3 reasons by default; Ollama /v1 ignores reasoning:false, so disable it
       disableReasoning: true
       # model: [gemma-4-e4b, qwen3:8b, deepseek-coder-v2]
+      # Optional: give the local agent tools from MCP servers, merged with its
+      # built-in bash/read_file/write_file. Tools are namespaced `<server>__<tool>`;
+      # a server that fails to start is skipped (never breaks the dispatch). Default
+      # (unset) = built-ins only. See docs/guides/multi-backend-routing.md#mcp-tools.
+      # mcpServers:
+      #   - name: context7        # live library docs — stop coding from stale memory
+      #     command: npx
+      #     args: ['-y', '@upstash/context7-mcp']
+      #   - name: harness          # code_search / ask_graph / review_changes /
+      #     command: harness-mcp    # outcome_eval, run against the agent's workspace
   # Routing — controls WHICH backend handles each use case.
   routing:
     default: primary

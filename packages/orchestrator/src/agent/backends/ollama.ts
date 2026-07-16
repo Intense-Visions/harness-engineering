@@ -14,6 +14,10 @@ import {
   Err,
   AgentError,
 } from '@harness-engineering/types';
+import type { McpServerSpec } from '@harness-engineering/types';
+import { Client } from '@modelcontextprotocol/sdk/client/index.js';
+import { StdioClientTransport } from '@modelcontextprotocol/sdk/client/stdio.js';
+import type { Transport } from '@modelcontextprotocol/sdk/shared/transport.js';
 
 /**
  * Configuration for {@link OllamaBackend}. Mirrors the shape of
@@ -75,6 +79,40 @@ export interface OllamaBackendConfig {
    * model is deprioritized. Best-effort.
    */
   onModelFailed?: ((model: string) => void) | undefined;
+  /**
+   * MCP servers whose tools are merged into the model's tool set. Absent/empty
+   * ⇒ built-ins only (byte-identical to today).
+   */
+  mcpServers?: McpServerSpec[] | undefined;
+  /**
+   * Test seam: factory that connects one MCP server and returns a live SDK
+   * Client (mirrors the `verifyRunner`/`diffRunner` seams). Defaults to the real
+   * stdio path. Unit tests inject an in-memory-transport variant so no external
+   * process spawns. Receives the resolved `cwd` (spec.cwd ?? workspacePath).
+   */
+  connectMcp?:
+    | ((
+        spec: McpServerSpec,
+        cwd: string
+      ) => Promise<{ client: Client; tools: McpToolDescriptor[] }>)
+    | undefined;
+}
+
+/** OpenAI function-tool schema shape — covers both built-ins and MCP-derived tools. */
+export interface OpenAITool {
+  type: 'function';
+  function: {
+    name: string;
+    description?: string;
+    parameters: Record<string, unknown>;
+  };
+}
+
+/** A tool as reported by an MCP server's `listTools`. */
+export interface McpToolDescriptor {
+  name: string;
+  description?: string;
+  inputSchema: Record<string, unknown>;
 }
 
 /** An OpenAI-shaped chat message carried on the session's conversation state. */
@@ -92,6 +130,12 @@ interface ToolCall {
   function: { name: string; arguments: string };
 }
 
+/**
+ * Outcome of one model round-trip in {@link OllamaBackend.runTurn}: either the
+ * turn is finished (return its `result`) or the loop should request another.
+ */
+type TurnStep = { done: true; result: TurnResult } | { done: false };
+
 export interface OllamaSession extends AgentSession {
   /** Conversation state, seeded with the system prompt at `startSession`. */
   messages: ChatMessage[];
@@ -101,6 +145,12 @@ export interface OllamaSession extends AgentSession {
   activeController: AbortController | null;
   /** Model name resolved at session start (head-of-array or the string). */
   resolvedModel: string;
+  /** Namespaced MCP tools (`<server>__<tool>`) merged into the model tool set. */
+  mcpTools: OpenAITool[];
+  /** Namespaced tool name → the client + original tool name to forward to. */
+  mcpToolMap: Map<string, { client: Client; toolName: string }>;
+  /** Live MCP clients to close at `stopSession`. */
+  mcpClients: Client[];
 }
 
 /** Max characters returned from a tool result before truncation. */
@@ -119,6 +169,8 @@ const DEFAULT_MAX_TURNS = 50;
 const DEFAULT_HEARTBEAT_MS = 30_000;
 /** Max wall-clock for a single `bash` tool call before the process TREE is SIGKILLed. */
 const DEFAULT_BASH_TIMEOUT_MS = 300_000;
+/** Bounded wall-clock (ms) for a single MCP server connect+listTools. */
+const DEFAULT_MCP_CONNECT_TIMEOUT_MS = 15_000;
 
 /**
  * The distinctive completion marker the model must emit — on its own line, with
@@ -200,6 +252,15 @@ function truncate(text: string): string {
   return `${text.slice(0, MAX_TOOL_OUTPUT)}\n…(truncated)`;
 }
 
+/** Expand a running `{ input, output }` token tally into `TurnResult.usage`. */
+function usageTotals(u: { input: number; output: number }): {
+  inputTokens: number;
+  outputTokens: number;
+  totalTokens: number;
+} {
+  return { inputTokens: u.input, outputTokens: u.output, totalTokens: u.input + u.output };
+}
+
 /**
  * Resolve a tool-supplied relative path against the workspace root and reject
  * traversal that escapes it. Returns the absolute path, or `null` when the
@@ -211,6 +272,74 @@ function resolveInsideWorkspace(workspacePath: string, requested: string): strin
   const rel = path.relative(root, resolved).replaceAll('\\', '/');
   if (rel.startsWith('..') || path.isAbsolute(rel)) return null;
   return resolved;
+}
+
+/** Sanitize a segment to `[A-Za-z0-9_-]` for use in a namespaced tool name. */
+function sanitizeSegment(s: string): string {
+  return s.replace(/[^A-Za-z0-9_-]/g, '_');
+}
+
+/**
+ * Default MCP connector: spawn the server over stdio, connect, and list its
+ * tools. Injectable via `OllamaBackendConfig.connectMcp` for tests.
+ */
+async function defaultConnectMcp(
+  spec: McpServerSpec,
+  cwd: string
+): Promise<{ client: Client; tools: McpToolDescriptor[] }> {
+  const client = new Client(
+    { name: `ollama-mcp-${spec.name}`, version: '1.0.0' },
+    { capabilities: {} }
+  );
+  const transport: Transport = new StdioClientTransport({
+    command: spec.command,
+    ...(spec.args !== undefined ? { args: spec.args } : {}),
+    ...(spec.env !== undefined ? { env: spec.env } : {}),
+    cwd,
+  });
+  await client.connect(transport);
+  const listed = await client.listTools();
+  const tools: McpToolDescriptor[] = listed.tools.map((t) => ({
+    name: t.name,
+    ...(t.description !== undefined ? { description: t.description } : {}),
+    inputSchema: (t.inputSchema ?? {}) as Record<string, unknown>,
+  }));
+  return { client, tools };
+}
+
+/**
+ * Join the `type:'text'` blocks of an MCP callTool result into one string. The
+ * SDK reports a tool-level failure as `{ isError: true, content: [...] }` (it
+ * does NOT throw for those), so surface it with the same `ERROR:` prefix the
+ * built-ins use — otherwise a failed MCP call looks identical to a clean result
+ * and the model never learns to self-correct.
+ */
+function extractMcpText(res: unknown): string {
+  const r = (res ?? {}) as { isError?: boolean; content?: Array<{ type?: string; text?: string }> };
+  const texts: string[] = [];
+  for (const block of r.content ?? []) {
+    if (block?.type === 'text' && typeof block.text === 'string') texts.push(block.text);
+  }
+  const body = texts.length > 0 ? texts.join('\n') : '(no output)';
+  return r.isError === true ? `ERROR: ${body}` : body;
+}
+
+/** Reject with a labeled timeout error if `p` does not settle within `ms`. */
+function withTimeout<T>(p: Promise<T>, ms: number, label: string): Promise<T> {
+  if (ms <= 0) return p;
+  return new Promise<T>((resolve, reject) => {
+    const timer = setTimeout(() => reject(new Error(`${label} timed out after ${ms}ms`)), ms);
+    p.then(
+      (v) => {
+        clearTimeout(timer);
+        resolve(v);
+      },
+      (e) => {
+        clearTimeout(timer);
+        reject(e instanceof Error ? e : new Error(String(e)));
+      }
+    );
+  });
 }
 
 /**
@@ -303,8 +432,70 @@ export class OllamaBackend implements AgentBackend {
       aborted: false,
       activeController: null,
       resolvedModel,
+      mcpTools: [],
+      mcpToolMap: new Map(),
+      mcpClients: [],
     };
+
+    const specs = this.config.mcpServers ?? [];
+    const connect = this.config.connectMcp ?? defaultConnectMcp;
+    await Promise.all(
+      specs.map((spec) => this.connectMcpServer(spec, session, connect, params.workspacePath))
+    );
+
     return Ok(session);
+  }
+
+  /**
+   * Connect one MCP server and merge its tools into `session` (namespaced,
+   * built-in-safe). A connect/list failure — or a hang past the timeout — is
+   * warned and skipped so one bad server never breaks the session; a client
+   * that resolves after the timeout is closed so no subprocess leaks.
+   */
+  private async connectMcpServer(
+    spec: McpServerSpec,
+    session: OllamaSession,
+    connect: NonNullable<OllamaBackendConfig['connectMcp']>,
+    workspacePath: string
+  ): Promise<void> {
+    const cwd = spec.cwd ?? workspacePath;
+    // Keep the underlying connect promise so a server that resolves AFTER the
+    // timeout can still be closed — otherwise its live client (a spawned
+    // subprocess) is orphaned and never torn down at stopSession.
+    const connecting = connect(spec, cwd);
+    try {
+      const { client, tools } = await withTimeout(
+        connecting,
+        DEFAULT_MCP_CONNECT_TIMEOUT_MS,
+        `MCP connect '${spec.name}'`
+      );
+      session.mcpClients.push(client);
+      const nsPrefix = sanitizeSegment(spec.name);
+      for (const tool of tools) {
+        const namespaced = `${nsPrefix}__${sanitizeSegment(tool.name)}`;
+        if (session.mcpToolMap.has(namespaced)) continue;
+        session.mcpTools.push({
+          type: 'function',
+          function: {
+            name: namespaced,
+            ...(tool.description !== undefined ? { description: tool.description } : {}),
+            parameters: tool.inputSchema,
+          },
+        });
+        session.mcpToolMap.set(namespaced, { client, toolName: tool.name });
+      }
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      console.warn(`[ollama-mcp] skipping server '${spec.name}': ${msg}`);
+      // The connect may still be in flight (timeout, not a real rejection).
+      // If it later succeeds, close the orphaned client so no subprocess leaks.
+      void connecting.then(
+        (late) => {
+          void late.client.close().catch(() => {});
+        },
+        () => {}
+      );
+    }
   }
 
   async *runTurn(
@@ -318,124 +509,177 @@ export class OllamaBackend implements AgentBackend {
     const userContent = this.config.disableReasoning ? `${params.prompt} /no_think` : params.prompt;
     ollamaSession.messages.push({ role: 'user', content: userContent });
 
-    let inputTokens = 0;
-    let outputTokens = 0;
-
+    const usage = { input: 0, output: 0 };
     const fail = (error: string): TurnResult => {
       this.notify(this.config.onModelFailed, ollamaSession.resolvedModel);
-      return {
-        success: false,
-        sessionId: session.sessionId,
-        usage: { inputTokens, outputTokens, totalTokens: inputTokens + outputTokens },
-        error,
-      };
+      return { success: false, sessionId: session.sessionId, usage: usageTotals(usage), error };
     };
 
     for (let iter = 0; iter < this.maxTurnsPerRun; iter++) {
       if (ollamaSession.aborted) {
         return fail('Ollama turn aborted by stopSession');
       }
-
-      let response: OllamaChatResponse;
-      try {
-        response = yield* this.withHeartbeat(
-          this.callModel(ollamaSession),
-          session.sessionId,
-          'model'
-        );
-      } catch (err) {
-        if (ollamaSession.aborted) return fail('Ollama turn aborted by stopSession');
-        const message = err instanceof Error ? err.message : String(err);
-        yield this.errorEvent(session.sessionId, message);
-        return fail(message);
-      }
-
-      const message = response.choices[0]?.message;
-      if (!message) {
-        return fail('Ollama response contained no message');
-      }
-
-      // Accumulate usage and surface it on a yielded event so the orchestrator
-      // state machine (which reads `event.usage`, not TurnResult.usage) advances
-      // session totals + rate-limit windows.
-      if (response.usage) {
-        inputTokens += response.usage.prompt_tokens ?? 0;
-        outputTokens += response.usage.completion_tokens ?? 0;
-        yield {
-          type: 'usage',
-          timestamp: new Date().toISOString(),
-          sessionId: session.sessionId,
-          usage: {
-            inputTokens,
-            outputTokens,
-            totalTokens: inputTokens + outputTokens,
-          },
-        };
-      }
-
-      const toolCalls = message.tool_calls ?? [];
-
-      // Append the assistant turn (with its tool_calls, if any) to the
-      // conversation before executing tools, mirroring the OpenAI protocol.
-      ollamaSession.messages.push({
-        role: 'assistant',
-        content: message.content ?? '',
-        ...(toolCalls.length > 0 ? { tool_calls: toolCalls } : {}),
-      });
-
-      // No tool calls → the model stopped calling tools. This is a clean, done
-      // turn ONLY when the final message signals completion via TASK_COMPLETE;
-      // otherwise the model stopped prematurely (explained, asked a question, or
-      // gave up) and we must NOT end the workflow. Returning success:false makes
-      // the orchestrator runner re-prompt ("Continue your work.") so the model
-      // keeps going instead of a premature stop being marked done.
-      if (toolCalls.length === 0) {
-        const finalText = message.content ?? '';
-        if (TASK_COMPLETE_MARKER.test(finalText)) {
-          this.notify(this.config.onModelUsed, ollamaSession.resolvedModel);
-          return {
-            success: true,
-            sessionId: session.sessionId,
-            usage: { inputTokens, outputTokens, totalTokens: inputTokens + outputTokens },
-          };
-        }
-        return fail('agent stopped without signaling completion (no TASK_COMPLETE)');
-      }
-
-      for (const toolCall of toolCalls) {
-        const name = toolCall.function.name;
-        const argsJson = toolCall.function.arguments;
-        yield {
-          type: 'tool_execution_start',
-          subtype: name,
-          timestamp: new Date().toISOString(),
-          sessionId: session.sessionId,
-          content: `Calling ${name}(${argsJson})`,
-        };
-
-        const result = yield* this.withHeartbeat(
-          this.executeTool(ollamaSession, name, argsJson),
-          session.sessionId,
-          name
-        );
-
-        yield {
-          type: 'tool_execution_end',
-          subtype: name,
-          timestamp: new Date().toISOString(),
-          sessionId: session.sessionId,
-          content: truncate(result),
-        };
-
-        ollamaSession.messages.push({
-          role: 'tool',
-          tool_call_id: toolCall.id,
-          content: truncate(result),
-        });
-      }
+      const step = yield* this.runModelStep(ollamaSession, usage, fail);
+      if (step.done) return step.result;
     }
 
     return fail(`Ollama turn exceeded maxTurnsPerRun (${this.maxTurnsPerRun})`);
+  }
+
+  /**
+   * Drive one model round-trip: call the model, account usage (yielding a
+   * `usage` event the orchestrator reads), append the assistant turn, then
+   * either finish (TASK_COMPLETE, a premature stop, or an error) or execute the
+   * requested tools and ask the caller to loop again. A tool-less turn is only
+   * "done" when it signals completion; otherwise `fail` re-prompts the model.
+   */
+  private async *runModelStep(
+    session: OllamaSession,
+    usage: { input: number; output: number },
+    fail: (error: string) => TurnResult
+  ): AsyncGenerator<AgentEvent, TurnStep, void> {
+    let response: OllamaChatResponse;
+    try {
+      response = yield* this.withHeartbeat(this.callModel(session), session.sessionId, 'model');
+    } catch (err) {
+      if (session.aborted)
+        return { done: true, result: fail('Ollama turn aborted by stopSession') };
+      const message = err instanceof Error ? err.message : String(err);
+      yield this.errorEvent(session.sessionId, message);
+      return { done: true, result: fail(message) };
+    }
+
+    const message = response.choices[0]?.message;
+    if (!message) {
+      return { done: true, result: fail('Ollama response contained no message') };
+    }
+
+    // Accumulate usage and surface it on a yielded event so the orchestrator
+    // state machine (which reads `event.usage`, not TurnResult.usage) advances
+    // session totals + rate-limit windows.
+    if (response.usage) {
+      usage.input += response.usage.prompt_tokens ?? 0;
+      usage.output += response.usage.completion_tokens ?? 0;
+      yield {
+        type: 'usage',
+        timestamp: new Date().toISOString(),
+        sessionId: session.sessionId,
+        usage: usageTotals(usage),
+      };
+    }
+
+    const toolCalls = message.tool_calls ?? [];
+
+    // Append the assistant turn (with its tool_calls, if any) to the
+    // conversation before executing tools, mirroring the OpenAI protocol.
+    session.messages.push({
+      role: 'assistant',
+      content: message.content ?? '',
+      ...(toolCalls.length > 0 ? { tool_calls: toolCalls } : {}),
+    });
+
+    // No tool calls → the model stopped calling tools. This is a clean, done
+    // turn ONLY when the final message signals completion via TASK_COMPLETE;
+    // otherwise the model stopped prematurely (explained, asked a question, or
+    // gave up) and we must NOT end the workflow. Returning success:false makes
+    // the orchestrator runner re-prompt ("Continue your work.") so the model
+    // keeps going instead of a premature stop being marked done.
+    if (toolCalls.length === 0) {
+      const finalText = message.content ?? '';
+      if (TASK_COMPLETE_MARKER.test(finalText)) {
+        this.notify(this.config.onModelUsed, session.resolvedModel);
+        return {
+          done: true,
+          result: { success: true, sessionId: session.sessionId, usage: usageTotals(usage) },
+        };
+      }
+      return {
+        done: true,
+        result: fail('agent stopped without signaling completion (no TASK_COMPLETE)'),
+      };
+    }
+
+    yield* this.runToolCalls(session, toolCalls);
+    return { done: false };
+  }
+
+  /**
+   * Execute each native `tool_call` in order: emit start/end events, resolve the
+   * result via {@link dispatchToolCall}, and append the `tool` message to the
+   * conversation so the next model turn sees it.
+   */
+  private async *runToolCalls(
+    session: OllamaSession,
+    toolCalls: ToolCall[]
+  ): AsyncGenerator<AgentEvent, void, void> {
+    for (const toolCall of toolCalls) {
+      const name = toolCall.function.name;
+      const argsJson = toolCall.function.arguments;
+      yield {
+        type: 'tool_execution_start',
+        subtype: name,
+        timestamp: new Date().toISOString(),
+        sessionId: session.sessionId,
+        content: `Calling ${name}(${argsJson})`,
+      };
+
+      const result = yield* this.dispatchToolCall(session, name, argsJson);
+
+      yield {
+        type: 'tool_execution_end',
+        subtype: name,
+        timestamp: new Date().toISOString(),
+        sessionId: session.sessionId,
+        content: truncate(result),
+      };
+
+      session.messages.push({
+        role: 'tool',
+        tool_call_id: toolCall.id,
+        content: truncate(result),
+      });
+    }
+  }
+
+  /**
+   * Resolve one tool call to its result string, yielding heartbeat events while
+   * it runs. A built-in name wins; otherwise an aggregated MCP tool is invoked
+   * through its client. A malformed arguments blob or a thrown call becomes an
+   * `ERROR:` result the model can see and correct — never a silent empty call.
+   */
+  private async *dispatchToolCall(
+    session: OllamaSession,
+    name: string,
+    argsJson: string
+  ): AsyncGenerator<AgentEvent, string, void> {
+    const isBuiltin = name === 'bash' || name === 'write_file' || name === 'read_file';
+    const mcpEntry = isBuiltin ? undefined : session.mcpToolMap.get(name);
+    if (!mcpEntry) {
+      return yield* this.withHeartbeat(
+        this.executeTool(session, name, argsJson),
+        session.sessionId,
+        name
+      );
+    }
+
+    let args: Record<string, unknown>;
+    try {
+      args = JSON.parse(argsJson) as Record<string, unknown>;
+    } catch {
+      // Mirror the built-in path: a malformed arguments blob is a real failure
+      // the model must see — do not silently forward empty args.
+      return `ERROR: could not parse arguments for ${name}: ${argsJson}`;
+    }
+    try {
+      const callRes = yield* this.withHeartbeat(
+        mcpEntry.client.callTool({ name: mcpEntry.toolName, arguments: args }),
+        session.sessionId,
+        name
+      );
+      return truncate(extractMcpText(callRes));
+    } catch (err) {
+      return `ERROR: ${err instanceof Error ? err.message : String(err)}`;
+    }
   }
 
   /** POST the current conversation + tool schemas and return the parsed response. */
@@ -460,7 +704,7 @@ export class OllamaBackend implements AgentBackend {
         body: JSON.stringify({
           model: session.resolvedModel,
           messages: session.messages,
-          tools: TOOL_SCHEMAS,
+          tools: [...(TOOL_SCHEMAS as unknown as OpenAITool[]), ...session.mcpTools],
           stream: false,
         }),
         signal: controller.signal,
@@ -622,6 +866,15 @@ export class OllamaBackend implements AgentBackend {
     } catch {
       // Controller may already be settled.
     }
+    await Promise.all(
+      (ollamaSession.mcpClients ?? []).map(async (client) => {
+        try {
+          await client.close();
+        } catch {
+          // best-effort — a failing close must not break session teardown.
+        }
+      })
+    );
     return Ok(undefined);
   }
 
