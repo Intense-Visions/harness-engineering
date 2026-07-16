@@ -39,6 +39,35 @@ function makeGetModel(model: string | string[] | undefined): () => string | null
 /** Narrow a BackendDef to a specific discriminated variant by `type`. */
 type BackendDefOf<T extends BackendDef['type']> = Extract<BackendDef, { type: T }>;
 
+/**
+ * The BackendDef variants that dispatch against a LOCAL model endpoint —
+ * `local` (Ollama via LocalBackend), `pi` (LM Studio / OpenAI-compatible), and
+ * `ollama` (the native OllamaBackend). All three share `endpoint`/`model`/
+ * `apiKey`, so narrowing to this union lets callers read those fields.
+ */
+export type LocalEndpointBackendDef = BackendDefOf<'local' | 'pi' | 'ollama'>;
+
+/**
+ * Is this backend one that dispatches against a LOCAL model endpoint — i.e.
+ * `local` (Ollama via LocalBackend), `pi` (LM Studio / OpenAI-compatible), or
+ * `ollama` (the native OllamaBackend)? This is the single source of truth for
+ * the "is-local" family check used across the orchestrator: it drives the local
+ * shim prompt template, the enforced local workflow gate, local-model detection
+ * for the intelligence pipeline, and resolver-model wiring.
+ *
+ * Acts as a type guard, narrowing a `BackendDef` to {@link LocalEndpointBackendDef}
+ * so callers can read `endpoint`/`model`/`apiKey` off the def.
+ *
+ * IMPORTANT: this is the "is-local-endpoint" family predicate, NOT a
+ * type-specific check. Sites that branch on ONE concrete type (e.g. `local`'s
+ * native keep_alive warm path, `pi`'s completion-warm path) must keep their
+ * `=== 'local'` / `=== 'pi'` guards — only the "either local OR pi" family
+ * checks migrate to this helper so they also recognize `ollama`.
+ */
+export function isLocalEndpointBackend(def: BackendDef): def is LocalEndpointBackendDef {
+  return def.type === 'local' || def.type === 'pi' || def.type === 'ollama';
+}
+
 function createClaudeBackend(
   def: BackendDefOf<'claude'>,
   options: CreateBackendOptions

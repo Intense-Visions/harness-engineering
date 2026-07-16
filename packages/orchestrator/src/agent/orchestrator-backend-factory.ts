@@ -9,12 +9,13 @@ import type {
 import type { CacheMetricsRecorder } from '@harness-engineering/core';
 import { BackendRouter } from './backend-router.js';
 import type { RoutingDecisionBus } from '../routing/decision-bus.js';
-import { createBackend } from './backend-factory.js';
+import { createBackend, isLocalEndpointBackend } from './backend-factory.js';
 import { ContainerBackend } from './backends/container.js';
 import { DockerRuntime } from './runtime/docker.js';
 import { createSecretBackend } from './secrets/index.js';
 import { LocalBackend } from './backends/local.js';
 import { PiBackend } from './backends/pi.js';
+import { OllamaBackend } from './backends/ollama.js';
 
 /**
  * Options for `OrchestratorBackendFactory`.
@@ -146,7 +147,7 @@ export class OrchestratorBackendFactory {
     let backend: AgentBackend;
     const createOpts = this.opts.cacheMetrics ? { cacheMetrics: this.opts.cacheMetrics } : {};
 
-    if ((def.type === 'local' || def.type === 'pi') && this.opts.getResolverModelFor) {
+    if (isLocalEndpointBackend(def) && this.opts.getResolverModelFor) {
       // T17: thread the routed use-case so the resolver can order pooled
       // candidates by the use-case's task profile (coding/reasoning/general).
       const getModel = this.opts.getResolverModelFor(name, useCase);
@@ -196,6 +197,27 @@ export class OrchestratorBackendFactory {
         getModel,
         ...(def.apiKey !== undefined ? { apiKey: def.apiKey } : {}),
         ...(def.timeoutMs !== undefined ? { timeoutMs: def.timeoutMs } : {}),
+        ...(usageHooks?.onModelUsed !== undefined ? { onModelUsed: usageHooks.onModelUsed } : {}),
+        ...(usageHooks?.onModelFailed !== undefined
+          ? { onModelFailed: usageHooks.onModelFailed }
+          : {}),
+      });
+    }
+    if (def.type === 'ollama') {
+      // OllamaBackend owns its own tool loop and takes a concrete `model` rather
+      // than a `getModel` callback (it resolves the head-of-array at
+      // startSession). Resolve the resolver's current pick now and thread it as
+      // the model, falling back to the def's own configured model when the
+      // resolver has nothing (so an unprobed pool still dispatches). The
+      // usage/failure hooks feed the same LRU + circuit-breaker feedback loop.
+      const resolved = getModel();
+      return new OllamaBackend({
+        endpoint: def.endpoint,
+        model: resolved ?? def.model,
+        ...(def.apiKey !== undefined ? { apiKey: def.apiKey } : {}),
+        ...(def.timeoutMs !== undefined ? { timeoutMs: def.timeoutMs } : {}),
+        ...(def.maxTurnsPerRun !== undefined ? { maxTurnsPerRun: def.maxTurnsPerRun } : {}),
+        ...(def.disableReasoning !== undefined ? { disableReasoning: def.disableReasoning } : {}),
         ...(usageHooks?.onModelUsed !== undefined ? { onModelUsed: usageHooks.onModelUsed } : {}),
         ...(usageHooks?.onModelFailed !== undefined
           ? { onModelFailed: usageHooks.onModelFailed }

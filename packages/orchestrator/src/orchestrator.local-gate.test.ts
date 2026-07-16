@@ -59,6 +59,18 @@ const LOCAL_BACKEND: BackendDef = {
   },
 } as unknown as BackendDef;
 
+const OLLAMA_BACKEND: BackendDef = {
+  type: 'ollama',
+  endpoint: 'http://127.0.0.1:11434/v1',
+  model: 'qwen3:32b',
+  capabilities: {
+    tier: 'fast',
+    costPer1kTokens: 0,
+    privacyClass: 'on-device',
+    contextWindow: 32768,
+  },
+} as unknown as BackendDef;
+
 const CLAUDE_BACKEND: BackendDef = {
   type: 'claude',
   command: 'claude',
@@ -302,6 +314,20 @@ describe('runLocalWorkflowGate — verify gate (Task 5 / SC3)', () => {
     const result = await gate(orch)(ISSUE, tmpDir, 'primary');
     expect(result.ok).toBe(true);
     expect(verify).not.toHaveBeenCalled();
+  });
+
+  it('C2: ollama backend → gate is NOT a no-op; verify RUNS and a red result blocks (Blocker 2: ollama is local)', async () => {
+    // A `type: ollama` dispatch must run the enforced gate. Before the fix the
+    // inline `local || pi` predicate excluded ollama, so the gate short-circuited
+    // to `{ ok: true }` and NOTHING was enforced — an empty/broken build shipped.
+    const verify = vi.fn(async () => ({ ok: false, output: 'tsc error TS9999 for ollama' }));
+    const orch = newOrch({ local: OLLAMA_BACKEND }, 'local', verify);
+    const result = await gate(orch)(ISSUE, tmpDir, 'local');
+    expect(verify).toHaveBeenCalledTimes(1);
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.reason).toContain('TS9999');
+    }
   });
 });
 

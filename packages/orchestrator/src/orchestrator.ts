@@ -84,6 +84,7 @@ import { redriveInstallingProposals } from './proposals/model-handlers';
 import type { ModelProposalRecord } from '@harness-engineering/types';
 import { migrateAgentConfig } from './agent/config-migration';
 import { OrchestratorBackendFactory } from './agent/orchestrator-backend-factory';
+import { isLocalEndpointBackend } from './agent/backend-factory';
 import { makeBackendResolver } from './agent/backend-resolver';
 import { createAgentDispatcher } from './maintenance/agent-dispatcher';
 import { execFileSync } from 'node:child_process';
@@ -703,14 +704,18 @@ export class Orchestrator extends EventEmitter {
     }
     const backendsMap = this.config.agent.backends ?? {};
     for (const [name, def] of Object.entries(backendsMap)) {
-      if (def.type === 'local' || def.type === 'pi') {
+      if (isLocalEndpointBackend(def)) {
         const resolverOpts: import('./agent/local-model-resolver').LocalModelResolverOptions = {
           endpoint: def.endpoint,
           configured: typeof def.model === 'string' ? [def.model] : def.model,
           logger: this.logger,
         };
         if (def.apiKey !== undefined) resolverOpts.apiKey = def.apiKey;
-        if (def.probeIntervalMs !== undefined) resolverOpts.probeIntervalMs = def.probeIntervalMs;
+        // `probeIntervalMs` exists on `local`/`pi` but not `ollama`; read it via
+        // an in-guard so the ollama variant (no such field) stays type-safe.
+        if ('probeIntervalMs' in def && def.probeIntervalMs !== undefined) {
+          resolverOpts.probeIntervalMs = def.probeIntervalMs;
+        }
         if (this.poolStateProvider !== null) resolverOpts.poolState = this.poolStateProvider;
         // T20: warm a newly-selected model into VRAM so the next dispatch isn't a
         // cold start. `local` (Ollama) uses the native keep_alive; `pi` (LM Studio
@@ -1953,7 +1958,7 @@ export class Orchestrator extends EventEmitter {
    */
   private resolvePromptTemplate(backendName: string): string {
     const def = this.config.agent.backends?.[backendName];
-    const isLocal = def?.type === 'local' || def?.type === 'pi';
+    const isLocal = def !== undefined && isLocalEndpointBackend(def);
     if (isLocal && this.localPromptTemplate !== undefined) {
       return this.localPromptTemplate;
     }
@@ -2502,7 +2507,7 @@ export class Orchestrator extends EventEmitter {
     backendName: string
   ): Promise<{ ok: true } | { ok: false; reason: string }> {
     const def = this.config.agent.backends?.[backendName];
-    const isLocal = def?.type === 'local' || def?.type === 'pi';
+    const isLocal = def !== undefined && isLocalEndpointBackend(def);
     if (!isLocal) return { ok: true };
 
     try {
@@ -3462,7 +3467,7 @@ export class Orchestrator extends EventEmitter {
     let localEndpoint: string | undefined;
     let localApiKey: string | undefined;
     for (const def of Object.values(this.config.agent.backends ?? {})) {
-      if ((def.type === 'local' || def.type === 'pi') && typeof def.endpoint === 'string') {
+      if (isLocalEndpointBackend(def) && typeof def.endpoint === 'string') {
         localEndpoint = def.endpoint;
         localApiKey = def.apiKey;
         break;
