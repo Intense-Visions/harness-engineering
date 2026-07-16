@@ -209,6 +209,22 @@ export function truncateGateOutput(output: string, max = 4000): string {
  * (nothing to check). Fully self-contained; tests inject a fake via the
  * `verifyRunner` seam so this concrete detector is never exercised in unit tests.
  */
+export function changedWorkspacePackages(porcelain: string): string[] {
+  const dirs = new Set<string>();
+  for (const raw of porcelain.split('\n')) {
+    const line = raw.replace(/\s+$/, '');
+    if (line.length === 0) continue;
+    // `git status --porcelain` lines are `XY <path>`; a rename is `R  old -> new`.
+    let p = line.length > 3 ? line.slice(3) : line;
+    const arrow = p.indexOf(' -> ');
+    if (arrow !== -1) p = p.slice(arrow + 4);
+    p = p.replace(/^"/, '').replace(/"$/, ''); // unquote paths with special chars
+    const m = /^(packages\/[^/]+)\//.exec(p);
+    if (m?.[1] !== undefined) dirs.add(m[1]);
+  }
+  return [...dirs];
+}
+
 export async function defaultLocalVerifyRunner(
   workspacePath: string
 ): Promise<{ ok: boolean; output: string }> {
@@ -219,21 +235,17 @@ export async function defaultLocalVerifyRunner(
   const pathMod = await import('node:path');
 
   // Manual Promise wrapper around execFile (avoids promisify's overloaded typing).
-  // `-w` intentionally runs the script at the WORKSPACE ROOT (the aggregate
-  // typecheck/lint/test), not per-package — the gate verifies the whole build is
-  // green, so a local change that breaks a sibling package is caught. `cwd` is the
-  // issue worktree only so pnpm resolves the enclosing workspace.
-  const run = (script: string): Promise<{ ok: boolean; output: string }> =>
+  const run = (args: string[]): Promise<{ ok: boolean; output: string }> =>
     new Promise((resolve) => {
       cp.execFile(
         'pnpm',
-        ['-w', 'run', script],
+        args,
         { cwd: workspacePath, maxBuffer: 32 * 1024 * 1024 },
         (error, stdout, stderr) => {
           if (error) {
             resolve({
               ok: false,
-              output: `${script} failed:\n${stdout ?? ''}\n${stderr ?? error.message}`,
+              output: `${args.join(' ')} failed:\n${stdout ?? ''}\n${stderr ?? error.message}`,
             });
           } else {
             resolve({ ok: true, output: '' });
@@ -242,24 +254,59 @@ export async function defaultLocalVerifyRunner(
       );
     });
 
-  const pkgPath = pathMod.join(workspacePath, 'package.json');
-  if (!fsMod.existsSync(pkgPath)) return { ok: true, output: '' };
-  const scripts = ((): Record<string, string> => {
+  const readPkg = (dir: string): { name?: string; scripts: Record<string, string> } => {
     try {
-      const pkg = JSON.parse(fsMod.readFileSync(pkgPath, 'utf8')) as {
-        scripts?: Record<string, string>;
-      };
-      return pkg.scripts ?? {};
+      const pkg = JSON.parse(
+        fsMod.readFileSync(pathMod.join(workspacePath, dir, 'package.json'), 'utf8')
+      ) as { name?: string; scripts?: Record<string, string> };
+      return { ...(pkg.name !== undefined ? { name: pkg.name } : {}), scripts: pkg.scripts ?? {} };
     } catch {
-      return {};
+      return { scripts: {} };
     }
-  })();
+  };
 
-  // Run in a stable, portable order; skip any the project does not declare.
-  for (const script of ['typecheck', 'lint', 'test'] as const) {
-    if (scripts[script] === undefined) continue;
-    const result = await run(script);
-    if (!result.ok) return result;
+  const SCRIPTS = ['typecheck', 'lint', 'test'] as const;
+
+  // SCOPE the gate to the packages the agent actually changed, not the whole
+  // monorepo. Running `pnpm -w run test` (turbo over every package) for a one-file
+  // local change is heavy, slow, and fragile — it fails on unrelated flaky tests
+  // and requires every package's native deps to be built. Full-tree verification
+  // belongs at PR/CI; the local gate verifies what changed. Fall back to the
+  // workspace-root scripts only when the change is outside any package (root/docs).
+  const porcelain = await new Promise<string>((resolve) => {
+    cp.execFile(
+      'git',
+      ['-C', workspacePath, 'status', '--porcelain'],
+      { maxBuffer: 32 * 1024 * 1024 },
+      (err, stdout) => resolve(err ? '' : (stdout ?? ''))
+    );
+  });
+  const changedPkgs = changedWorkspacePackages(porcelain);
+
+  if (changedPkgs.length === 0) {
+    // Root/docs-only change (or git unavailable): verify the root scripts so a
+    // root change is still checked. `-w` runs the workspace-root aggregate.
+    if (!fsMod.existsSync(pathMod.join(workspacePath, 'package.json'))) {
+      return { ok: true, output: '' };
+    }
+    const { scripts } = readPkg('.');
+    for (const script of SCRIPTS) {
+      if (scripts[script] === undefined) continue;
+      const result = await run(['-w', 'run', script]);
+      if (!result.ok) return result;
+    }
+    return { ok: true, output: '' };
+  }
+
+  // Verify each changed package's own declared typecheck/lint/test, scoped.
+  for (const dir of changedPkgs) {
+    const { name, scripts } = readPkg(dir);
+    if (name === undefined) continue;
+    for (const script of SCRIPTS) {
+      if (scripts[script] === undefined) continue;
+      const result = await run(['--filter', name, 'run', script]);
+      if (!result.ok) return result;
+    }
   }
   return { ok: true, output: '' };
 }

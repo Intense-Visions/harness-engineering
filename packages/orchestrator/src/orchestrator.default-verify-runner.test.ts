@@ -2,7 +2,7 @@ import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import * as os from 'node:os';
-import { defaultLocalVerifyRunner } from './orchestrator.js';
+import { defaultLocalVerifyRunner, changedWorkspacePackages } from './orchestrator.js';
 
 let tmp: string;
 beforeEach(() => {
@@ -47,5 +47,31 @@ describe('defaultLocalVerifyRunner (B4)', () => {
     // red, never a silent pass.
     expect(r.ok).toBe(false);
     expect(r.output).toContain('typecheck failed');
+  });
+});
+
+describe('changedWorkspacePackages (verify scope)', () => {
+  it('extracts distinct packages/<name> dirs from git porcelain', () => {
+    const porcelain = [
+      ' M packages/eslint-plugin/src/rules/foo.ts',
+      '?? packages/eslint-plugin/tests/foo.test.ts',
+      ' M packages/core/src/x.ts',
+      ' M README.md',
+      '',
+    ].join('\n');
+    expect(changedWorkspacePackages(porcelain).sort()).toEqual([
+      'packages/core',
+      'packages/eslint-plugin',
+    ]);
+  });
+
+  it('takes the new path of a rename entry', () => {
+    const porcelain = 'R  packages/old/a.ts -> packages/eslint-plugin/b.ts\n';
+    expect(changedWorkspacePackages(porcelain)).toEqual(['packages/eslint-plugin']);
+  });
+
+  it('returns [] for root/docs-only or empty changes', () => {
+    expect(changedWorkspacePackages(' M README.md\n M docs/x.md\n')).toEqual([]);
+    expect(changedWorkspacePackages('')).toEqual([]);
   });
 });
