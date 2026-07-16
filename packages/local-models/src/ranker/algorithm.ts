@@ -46,6 +46,7 @@ import {
 } from './interpolate.js';
 import { estimateSpeed, type SpeedEstimate } from './speed.js';
 import { estimateVram, type VramEstimate } from './vram.js';
+import { DEFAULT_LATENCY_BUDGET_MS, scoreAgentic, type AgenticScore } from './agentic.js';
 import type {
   LiveObservation,
   RankInput,
@@ -233,6 +234,25 @@ function scoreCandidate(
     speedConfidence: speedEstimate.confidence,
   });
 
+  // Agentic-suitability dimension (D1–D4). Pure: the tool-calling + latency
+  // SIGNALS arrive on the candidate; the fallback + quality terms come from the
+  // estimates already computed above. SEPARATE from `score` — does not affect
+  // ordering (SC1).
+  const agentic = scoreAgentic({
+    latencyBudgetMs: input.options?.latencyBudgetMs ?? DEFAULT_LATENCY_BUDGET_MS,
+    benchmarkScore: mergedScore,
+    speedTokPerSec: speedEstimate.tokPerSec,
+    fitsHardware,
+    ...(candidate.toolCalling !== undefined ? { toolCalling: candidate.toolCalling } : {}),
+    ...(candidate.measuredAgenticLatencyMs !== undefined
+      ? { measuredAgenticLatencyMs: candidate.measuredAgenticLatencyMs }
+      : {}),
+    ...(candidate.buildQuality !== undefined ? { buildQuality: candidate.buildQuality } : {}),
+    ...(input.options?.agenticWeight !== undefined
+      ? { agenticWeight: input.options.agenticWeight }
+      : {}),
+  });
+
   return assembleRankedModel({
     candidate,
     vramEstimate,
@@ -242,6 +262,7 @@ function scoreCandidate(
     fitsHardware,
     score,
     scoresByProfile,
+    agentic,
     benchmarkSnapshot: snapshotDate,
   });
 }
@@ -303,6 +324,7 @@ function assembleRankedModel(args: {
   fitsHardware: boolean;
   score: number;
   scoresByProfile: Record<RankProfile, number>;
+  agentic: AgenticScore;
   benchmarkSnapshot: string;
 }): RankedModel {
   const { candidate, vramEstimate, speedEstimate, benchmarkScore } = args;
@@ -315,6 +337,9 @@ function assembleRankedModel(args: {
     speedConfidence: speedEstimate.confidence,
     score: args.score,
     scoresByProfile: args.scoresByProfile,
+    agenticScore: args.agentic.agenticScore,
+    agenticEligible: args.agentic.agenticEligible,
+    agenticReasons: args.agentic.agenticReasons,
     evidence: args.evidence,
     benchmarkSnapshot: args.benchmarkSnapshot,
     fitsHardware: args.fitsHardware,
