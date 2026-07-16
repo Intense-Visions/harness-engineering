@@ -167,6 +167,7 @@ export const BackendDefSchema = z.discriminatedUnion('type', [
       apiKey: z.string().optional(),
       timeoutMs: z.number().int().positive().optional(),
       maxTurnsPerRun: z.number().int().positive().optional(),
+      disableReasoning: z.boolean().optional(),
       capabilities: BackendCapabilitiesSchema.optional(),
     })
     .strict(),

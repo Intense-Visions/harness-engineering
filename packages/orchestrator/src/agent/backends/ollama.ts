@@ -42,6 +42,15 @@ export interface OllamaBackendConfig {
    */
   maxTurnsPerRun?: number | undefined;
   /**
+   * When true, append ` /no_think` to each user turn so reasoning models
+   * (Qwen3 family) skip `<think>` traces — Ollama's `/v1` endpoint ignores the
+   * `reasoning:false` knob, so the `/no_think` token in the last user message is
+   * the only reliable off-switch. Without it a reasoning model burns its output
+   * budget thinking and never emits a tool call. Default: false (harmless text
+   * for non-reasoning models, but only append when you know the model reasons).
+   */
+  disableReasoning?: boolean | undefined;
+  /**
    * Called with the resolved model name after a turn completes successfully.
    * Bound by the orchestrator to `pool.markUsed` (LRU) + the resolver's
    * circuit-breaker success path. Best-effort — a throwing hook never breaks a
@@ -222,7 +231,10 @@ export class OllamaBackend implements AgentBackend {
   ): AsyncGenerator<AgentEvent, TurnResult, void> {
     const ollamaSession = session as OllamaSession;
     ollamaSession.aborted = false;
-    ollamaSession.messages.push({ role: 'user', content: params.prompt });
+    // `/no_think` disables Qwen3 reasoning; it must ride the LAST user message
+    // (the inner loop appends only `tool` messages after this, so it stays last).
+    const userContent = this.config.disableReasoning ? `${params.prompt} /no_think` : params.prompt;
+    ollamaSession.messages.push({ role: 'user', content: userContent });
 
     let inputTokens = 0;
     let outputTokens = 0;

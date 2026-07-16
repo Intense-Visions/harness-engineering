@@ -186,6 +186,50 @@ describe('OllamaBackend', () => {
       expect(usageEvents.length).toBeGreaterThanOrEqual(1);
     });
 
+    it('appends /no_think to the user turn when disableReasoning is set', async () => {
+      const fetchMock = vi.fn().mockResolvedValueOnce(okFetch(chatResponse({ content: 'DONE' })));
+      vi.stubGlobal('fetch', fetchMock);
+      const backend = new OllamaBackend({ ...baseConfig, disableReasoning: true });
+      const start = await backend.startSession({
+        workspacePath: workspace,
+        permissionMode: 'full',
+      });
+      expect(start.ok).toBe(true);
+      if (!start.ok) return;
+      await drain(
+        backend.runTurn(start.value, {
+          sessionId: start.value.sessionId,
+          prompt: 'do it',
+          isContinuation: false,
+        })
+      );
+      const session = start.value as import('../../../src/agent/backends/ollama').OllamaSession;
+      const lastUser = [...session.messages].reverse().find((m) => m.role === 'user');
+      expect(lastUser?.content).toBe('do it /no_think');
+    });
+
+    it('does NOT append /no_think when disableReasoning is unset', async () => {
+      const fetchMock = vi.fn().mockResolvedValueOnce(okFetch(chatResponse({ content: 'DONE' })));
+      vi.stubGlobal('fetch', fetchMock);
+      const backend = new OllamaBackend(baseConfig);
+      const start = await backend.startSession({
+        workspacePath: workspace,
+        permissionMode: 'full',
+      });
+      expect(start.ok).toBe(true);
+      if (!start.ok) return;
+      await drain(
+        backend.runTurn(start.value, {
+          sessionId: start.value.sessionId,
+          prompt: 'do it',
+          isContinuation: false,
+        })
+      );
+      const session = start.value as import('../../../src/agent/backends/ollama').OllamaSession;
+      const lastUser = [...session.messages].reverse().find((m) => m.role === 'user');
+      expect(lastUser?.content).toBe('do it');
+    });
+
     it('surfaces failure on a non-200 HTTP response', async () => {
       const fetchMock = vi.fn().mockResolvedValue({
         ok: false,
