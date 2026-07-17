@@ -102,7 +102,7 @@ last_manual_edit: 2026-06-27T12:51:51.967Z
 ### Ship a harness-owned OllamaBackend; off-the-shelf drivers mis-handle Ollama tool-calling
 
 - **Status:** in-progress
-- **Spec:** —
+- **Spec:** docs/changes/local-model-context-autosizing/proposal.md
 - **Summary:** Local agentic dispatch fails not because local models are incapable but because the *driver* mis-handles Ollama's tool-calling wire format. Evidence (live e2e, 2026-07-15/16, on the same "add ESLint rule no-hardcoded-test-count" task): **PiBackend** (`@earendil-works/pi-coding-agent`, `pi.ts`) returns empty `0/0/0` completions on 0.79 AND 0.80 — the model produces nothing usable. **Codex CLI `--oss`** drives the model but its tool router rejects the model's native `tool_calls` (`error=unsupported call`), so it confabulates success and writes nothing (Codex is built for gpt-oss + the OpenAI Responses API). Yet a **direct `/v1/chat/completions` + tools loop drives the same qwen3 model flawlessly** — a ~150-line prototype produced a correct, registered ESLint rule + integration-test count update + unit test, iterating through a real read→write→test debug loop. **Fix: ship a thin harness-owned `OllamaBackend`** (`packages/orchestrator/src/agent/backends/ollama.ts`, `type: 'ollama'` in the BackendDef union + Zod schema + factory) that runs the proven loop: chat/completions → parse native `tool_calls` → execute bash/write_file/read_file against the workspace → feed results back → repeat. It plugs into the existing `AgentBackend` interface alongside `ClaudeBackend`, is model-agnostic, and removes the third-party Ollama-compat dependency. **Sub-items folded in:** (a) disable reasoning traces for agentic dispatch — pi sends `reasoning:false` but Ollama `/v1` ignores it, so qwen3 burns its output budget on `<think>` and never emits a tool call (worked around with a forced-`/no_think` Modelfile variant); (b) auto-size `num_ctx`/output budget from detected hardware + model max — `packages/local-models/src/hardware/` already reads unified-memory/VRAM but only for model *selection*, never context sizing, so Ollama falls back to its small default regardless of machine capacity. Compute `num_ctx = min(model_max, fits_in_memory)`.
 - **Blockers:** —
 - **Plan:** —
@@ -134,7 +134,7 @@ last_manual_edit: 2026-06-27T12:51:51.967Z
 
 ### Agentic-suitability in the local-model pool recommender
 
-- **Status:** planned
+- **Status:** in-progress
 - **Spec:** —
 - **Summary:** The pool ranker (`packages/local-models/src/ranker/algorithm.ts`) scores candidates by VRAM fitness + a **bandwidth-estimated** tokens/sec (speed-confidence bands) + benchmark confidence — but it does NOT compose those into "is this model usable for **autonomous agentic dispatch**," and that gap picks unusable models. Live evidence (2026-07-16): **llama3.3:70b** fits memory and its tokens/sec *estimate* looked fine, but real agentic latency — time-to-first-token on a 66GB model with a large multi-turn context — was a **4-minute single call**, unusable for a tool-loop; **qwen2.5-coder:7b** fits and is fast but **won't emit tool_calls** (should be excluded from agentic routing, not merely down-ranked); **qwen3:32b** tool-calls and completes but stumbles on some tasks. Add an **agentic-suitability** dimension the recommender/AMR use to select for dispatch = (a) tool-calling capability as a HARD filter (reuse the deterministic probe from #833 in `packages/local-models/src/capability/tool-calling.ts` — no tool-calls ⇒ ineligible for agentic use), × (b) a **measured** agentic latency/throughput signal (time-to-first-token + turn latency under a real agentic prompt, not the bandwidth estimate — a model over a latency budget is ineligible/steeply penalized for interactive dispatch even if it fits), × (c) learned build quality (the `local-dispatch-...`/`lmlm-build-quality-model-selection` follow-on). Keep the existing size/speed/benchmark ranking for non-agentic uses; expose a separate `agenticScore` so a fits-VRAM-but-too-slow / can't-tool-call / builds-badly model is never routed autonomous work. Ties to Agent-Autonomy: the pool should recommend a model a human can actually let run unattended.
 - **Blockers:** —
@@ -185,6 +185,17 @@ last_manual_edit: 2026-06-27T12:51:51.967Z
 - **Plan:** —
 - **Assignee:** Chad Warner
 - **Priority:** P1
+- **External-ID:** —
+
+### Reconcile a project's configured MCP servers against the refreshed catalog (consent-gated)
+
+- **Status:** in-progress
+- **Spec:** docs/changes/integrations-reconcile/proposal.md
+- **Summary:** [[mcp-catalog-refresh]] refreshes the *suggested* catalog, but an existing project keeps whatever MCP servers it configured earlier (the deprecated perplexity/augment-code/sequential-thinking; none of the new github/exa/harness). Add `harness integrations sync`: diff configured servers vs the current `INTEGRATION_REGISTRY`, show newly-suggested + deprecated, and apply changes **only with the operator's consent** (report-only default; `--apply` prompts per group in a TTY; `--yes` for scripts; non-interactive without `--yes` never mutates). Pure `reconcileIntegrations` core; applies via the existing add/remove/dismiss helpers; Tier-1 adds surface the env requirement, never invent a secret. doctor's freshness advisory points at it.
+- **Blockers:** —
+- **Plan:** —
+- **Assignee:** Chad Warner
+- **Priority:** P2
 - **External-ID:** —
 
 ## v5.0 — Enforcement Hardening
