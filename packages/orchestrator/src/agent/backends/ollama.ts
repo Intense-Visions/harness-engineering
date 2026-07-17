@@ -41,8 +41,10 @@ export interface OllamaBackendConfig {
    */
   timeoutMs?: number | undefined;
   /**
-   * Maximum inner agentic-loop iterations per `runTurn` before the loop bails
-   * with a failed turn. Default: 50.
+   * Runaway backstop: max inner agentic-loop iterations per `runTurn`. This is
+   * NOT the normal stop condition — a progress-based stall detector ends thrashing
+   * runs first (see STALL_REPEAT_LIMIT). Set high so a slow-but-progressing local
+   * model can finish. Default: 150.
    */
   maxTurnsPerRun?: number | undefined;
   /**
@@ -165,7 +167,7 @@ interface NativeChatResponse {
  * Outcome of one model round-trip in {@link OllamaBackend.runTurn}: either the
  * turn is finished (return its `result`) or the loop should request another.
  */
-type TurnStep = { done: true; result: TurnResult } | { done: false };
+type TurnStep = { done: true; result: TurnResult } | { done: false; signature: string };
 
 export interface OllamaSession extends AgentSession {
   /** Conversation state, seeded with the system prompt at `startSession`. */
@@ -204,7 +206,25 @@ const TRUNCATE_HEAD_FRACTION = 0.3;
 
 const DEFAULT_ENDPOINT = 'http://127.0.0.1:11434/v1';
 const DEFAULT_TIMEOUT_MS = 600_000;
-const DEFAULT_MAX_TURNS = 50;
+/**
+ * Runaway BACKSTOP, not a normal-termination mechanism. A less-capable local
+ * model takes more read→edit→test→fix cycles to finish the same task than a
+ * frontier model, so a low cap cuts off runs that are still making progress
+ * (observed: a real multi-file task hit an old cap of ~60 with tests already
+ * passing and only a few type errors left). Claude Code / Codex don't terminate
+ * on a small fixed step count — they run until done or genuinely stuck. We match
+ * that: a high ceiling for the pathological infinite-loop case, with the
+ * progress-based stall detector (below) handling ordinary "stuck" termination.
+ */
+const DEFAULT_MAX_TURNS = 150;
+/**
+ * Consecutive turns emitting the IDENTICAL tool call(s) — same name + same args —
+ * after which the run is declared stalled. Real work varies its calls between
+ * turns (edit → test → edit …); repeating the exact same action N times is thrash
+ * (e.g. re-running the same failing command, or re-writing the same content). This
+ * catches genuine loops early without cutting off slow-but-progressing runs.
+ */
+const STALL_REPEAT_LIMIT = 4;
 /** Fallback context window (tokens) when autosizing has no cap and no model max. */
 const DEFAULT_AUTO_CTX = 16384;
 /** Keep the sized model warm between turns so it is not reloaded each call. */
@@ -742,12 +762,28 @@ export class OllamaBackend implements AgentBackend {
       return { success: false, sessionId: session.sessionId, usage: usageTotals(usage), error };
     };
 
+    // Progress-based termination: end early only when the model repeats the
+    // IDENTICAL tool call for STALL_REPEAT_LIMIT consecutive turns (genuine
+    // thrash). maxTurnsPerRun is just the runaway backstop for the rest.
+    let lastSignature: string | null = null;
+    let repeats = 0;
     for (let iter = 0; iter < this.maxTurnsPerRun; iter++) {
       if (ollamaSession.aborted) {
         return fail('Ollama turn aborted by stopSession');
       }
       const step = yield* this.runModelStep(ollamaSession, usage, fail);
       if (step.done) return step.result;
+      if (step.signature === lastSignature) {
+        repeats += 1;
+        if (repeats >= STALL_REPEAT_LIMIT) {
+          return fail(
+            `Ollama turn stalled: repeated the identical tool call ${repeats + 1} times without progress`
+          );
+        }
+      } else {
+        repeats = 0;
+        lastSignature = step.signature;
+      }
     }
 
     return fail(`Ollama turn exceeded maxTurnsPerRun (${this.maxTurnsPerRun})`);
@@ -827,7 +863,10 @@ export class OllamaBackend implements AgentBackend {
     }
 
     yield* this.runToolCalls(session, toolCalls);
-    return { done: false };
+    // Signature of this turn's actions, for the stall detector: same name + same
+    // args across consecutive turns ⇒ the model is repeating itself (thrash).
+    const signature = JSON.stringify(toolCalls.map((t) => [t.function.name, t.function.arguments]));
+    return { done: false, signature };
   }
 
   /**

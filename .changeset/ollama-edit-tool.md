@@ -14,3 +14,8 @@ Improve the OllamaBackend agent's editing loop with two wrapper fixes:
   head and (a larger) tail, and the budget is raised from 4000 to 8000 chars. Previously a
   head-only chop discarded the trailing failure diffs and summary that `vitest`/`tsc` print last —
   so the model was asked to fix failures it could not read.
+- **Progress-based turn termination.** The per-`runTurn` iteration cap was a flat count (50) that
+  terminated runs still making progress — a less-capable local model needs more read→edit→test
+  cycles than a frontier model, so a low cap is backwards. The cap is now a high runaway backstop
+  (150) and ordinary termination is progress-based: a run ends early only when the model repeats
+  the identical tool call for several consecutive turns (genuine thrash).

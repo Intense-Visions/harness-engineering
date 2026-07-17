@@ -158,7 +158,7 @@ describe('createBackend', () => {
     };
     const backend = createBackend(def) as OllamaBackend;
     expect(backend.timeoutMs).toBe(600_000);
-    expect(backend.maxTurnsPerRun).toBe(50);
+    expect(backend.maxTurnsPerRun).toBe(150); // runaway backstop (raised from 50; stall detector is the normal stop)
   });
 
   it('throws on unknown discriminant', () => {

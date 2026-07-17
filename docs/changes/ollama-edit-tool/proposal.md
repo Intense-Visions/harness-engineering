@@ -77,3 +77,24 @@ truncated)…` marker between them.
 - **SC9** Short output is returned unchanged (no marker).
 - **SC10** A long report with its failure summary at the tail keeps that tail (a head-only chop
   would have dropped it); the head is also preserved; the omitted-char count is reported.
+
+## Companion fix 2: progress-based turn termination
+
+The per-`runTurn` loop bailed on a flat iteration count (`DEFAULT_MAX_TURNS = 50`). A less-capable
+local model needs more read→edit→test→fix cycles than a frontier model to reach the same place, so
+a low flat cap terminates runs that are still progressing — observed live: a real multi-file
+roadmap item hit a cap of 60 with the full test suite already passing and only a few strict-type
+errors left. Claude Code / Codex don't stop on a small fixed step count; they run until done or
+genuinely stuck. Fix:
+
+- Raise `DEFAULT_MAX_TURNS` 50 → 150 and treat it as a runaway _backstop_, not the normal stop.
+- Add a **stall detector**: end the run early only when the model emits the identical tool call
+  (same name + same args) for `STALL_REPEAT_LIMIT` (4) consecutive turns — genuine thrash — while
+  varied, progressing runs continue up to the backstop.
+
+### Acceptance criteria (companion 2)
+
+- **SC11** A run repeating the identical tool call terminates with a "stalled" error well before
+  the backstop (bounded model calls).
+- **SC12** A run whose tool calls vary between turns is not tripped by the detector and runs to
+  completion.

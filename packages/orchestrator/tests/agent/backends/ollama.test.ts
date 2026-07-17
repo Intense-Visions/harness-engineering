@@ -344,6 +344,60 @@ describe('OllamaBackend', () => {
       expect(readFileSync(diskPath, 'utf8')).toBe('x same y');
     });
 
+    // --- progress-based termination ---------------------------------------
+    it('ends a stalled run (identical tool call repeated) well before the runaway cap', async () => {
+      // The model emits the IDENTICAL tool call every turn — genuine thrash.
+      const fetchMock = vi.fn(async () =>
+        okFetch(chatResponse({ toolCalls: [{ name: 'read_file', args: { path: 'same.txt' } }] }))
+      );
+      vi.stubGlobal('fetch', fetchMock);
+      const backend = new OllamaBackend(baseConfig);
+      const start = await backend.startSession({
+        workspacePath: workspace,
+        permissionMode: 'full',
+      });
+      if (!start.ok) return;
+      const { result } = await drain(
+        backend.runTurn(start.value, {
+          sessionId: start.value.sessionId,
+          prompt: 'go',
+          isContinuation: false,
+        })
+      );
+      expect(result.success).toBe(false);
+      expect(result.error).toContain('stalled');
+      // Stopped after ~STALL_REPEAT_LIMIT identical turns, NOT the 150-turn backstop.
+      expect(fetchMock.mock.calls.length).toBeLessThan(10);
+    });
+
+    it('does NOT stall when tool calls vary between turns (progress continues to completion)', async () => {
+      // Two distinct tool calls then a completion — varied signatures must not trip the detector.
+      const fetchMock = vi
+        .fn()
+        .mockResolvedValueOnce(
+          okFetch(chatResponse({ toolCalls: [{ name: 'read_file', args: { path: 'a.txt' } }] }))
+        )
+        .mockResolvedValueOnce(
+          okFetch(chatResponse({ toolCalls: [{ name: 'read_file', args: { path: 'b.txt' } }] }))
+        )
+        .mockResolvedValueOnce(okFetch(chatResponse({ content: 'TASK_COMPLETE' })));
+      vi.stubGlobal('fetch', fetchMock);
+      const backend = new OllamaBackend(baseConfig);
+      const start = await backend.startSession({
+        workspacePath: workspace,
+        permissionMode: 'full',
+      });
+      if (!start.ok) return;
+      const { result } = await drain(
+        backend.runTurn(start.value, {
+          sessionId: start.value.sessionId,
+          prompt: 'go',
+          isContinuation: false,
+        })
+      );
+      expect(result.success).toBe(true);
+    });
+
     it('POSTs native /api/chat with stripped base and native tool schema (SC1)', async () => {
       let calledUrl = '';
       let body: any;
