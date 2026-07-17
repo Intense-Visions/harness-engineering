@@ -2,6 +2,7 @@ import { describe, it, expect, vi } from 'vitest';
 import type {
   AgentEvent,
   Issue,
+  RoutingDecision,
   WorkflowExecutionPlan,
   WorkflowStep,
 } from '@harness-engineering/types';
@@ -399,5 +400,75 @@ describe('executeWorkflow — stage N output threads to stage N+1 (D4)', () => {
       ['', 'out-1']
     );
     expect(seen[1]).toEqual({ code: '' });
+  });
+});
+
+/**
+ * SC1 (mode routing) + SC6 (source 'mode' telemetry). A staged stage carrying
+ * `cognitiveMode: thinking` routes via `route()` to the reasoner backend and its
+ * `decision.resolutionPath` carries a `source: 'mode'` step; an execution stage
+ * (no cognitiveMode) routes to the default coder. This PINS the already-wired
+ * per-stage routing (reconciliation: the wiring exists) as a regression guard.
+ */
+describe('per-mode stage routing (SC1/SC6)', () => {
+  function decisionFor(mode: string | undefined): RoutingDecision {
+    if (mode === 'thinking') {
+      return {
+        timestamp: 't',
+        useCase: { kind: 'skill', skillName: 'x', cognitiveMode: 'thinking' },
+        resolutionPath: [{ source: 'mode', candidate: 'reasoner', outcome: 'chosen' }],
+        backendName: 'reasoner',
+        backendType: 'ollama',
+        durationMs: 0,
+        tierRequired: 'strong',
+      };
+    }
+    return {
+      timestamp: 't',
+      useCase: { kind: 'skill', skillName: 'x' },
+      resolutionPath: [{ source: 'default', candidate: 'coder', outcome: 'chosen' }],
+      backendName: 'coder',
+      backendType: 'ollama',
+      durationMs: 0,
+    };
+  }
+
+  function routedCtx(): WorkflowEngineContext {
+    return {
+      ...fakeCtx({ resultContent: 'ok' }),
+      adaptiveRouter: {
+        route: async (req) => ({
+          decision: decisionFor(
+            'cognitiveMode' in req.useCase ? req.useCase.cognitiveMode : undefined
+          ),
+        }),
+        recordOutcome: () => {},
+      },
+    } as WorkflowEngineContext;
+  }
+
+  it('routes a cognitiveMode:thinking design stage to the reasoner via a source:mode step (SC1/SC6)', async () => {
+    const ctx = routedCtx();
+    const run = await runStageWithRetry(
+      ctx,
+      'unit',
+      0,
+      step({ skill: 'harness-brainstorming', cognitiveMode: 'thinking', produces: 'spec' }),
+      []
+    );
+    expect(run.decision?.backendName).toBe('reasoner');
+    expect(run.decision?.resolutionPath.some((s) => s.source === 'mode')).toBe(true);
+  });
+
+  it('routes an execution stage (no cognitiveMode) to the default coder', async () => {
+    const ctx = routedCtx();
+    const run = await runStageWithRetry(
+      ctx,
+      'unit',
+      1,
+      step({ skill: 'harness-execution', produces: 'impl' }),
+      []
+    );
+    expect(run.decision?.backendName).toBe('coder');
   });
 });
