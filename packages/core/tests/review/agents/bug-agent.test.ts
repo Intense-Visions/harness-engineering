@@ -91,6 +91,29 @@ describe('runBugDetectionAgent()', () => {
     ).toBe(true);
   });
 
+  it('does not flag scoped-package import paths in code as division', () => {
+    // `@harness-engineering/types` etc. contain a `/` but are not division —
+    // real division in a prettier-formatted codebase is spaced (`a / b`).
+    const bundle = makeBundle({
+      changedFiles: [
+        {
+          path: 'src/factory.ts',
+          content: [
+            "import { BackendDef } from '@harness-engineering/types';",
+            "import { rankModels } from '@harness-engineering/local-models';",
+            'export function make(): number {',
+            '  return 42;',
+            '}',
+          ].join('\n'),
+          reason: 'changed',
+          lines: 5,
+        },
+      ],
+    });
+    const findings = runBugDetectionAgent(bundle);
+    expect(findings.some((f) => f.title.toLowerCase().includes('division'))).toBe(false);
+  });
+
   it('does not scan non-code files for division-by-zero (scoped pkg name in a changeset)', () => {
     // A Markdown changeset lists scoped package names like `@scope/pkg`; the `/`
     // must not be read as a division operator (regression: required-review FP).
