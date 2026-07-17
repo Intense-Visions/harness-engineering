@@ -292,11 +292,25 @@ function resolveModelName(model: string | string[] | undefined): string | null {
  */
 function normalizeNativeToolCalls(native: NativeToolCall[] | undefined): ToolCall[] | undefined {
   if (!native || native.length === 0) return undefined;
-  return native.map((tc, i) => ({
-    id: `call_${i}`,
-    type: 'function',
-    function: { name: tc.function.name, arguments: JSON.stringify(tc.function.arguments ?? {}) },
-  }));
+  return native.map((tc, i) => {
+    const args = JSON.stringify(tc.function.arguments ?? {});
+    return {
+      id: `call_${i}`,
+      type: 'function',
+      function: { name: tc.function.name, arguments: args },
+    };
+  });
+}
+
+/** Map native token counts onto the internal `usage` shape (missing ⇒ 0). */
+function nativeUsage(native: NativeChatResponse): {
+  prompt_tokens: number;
+  completion_tokens: number;
+} {
+  return {
+    prompt_tokens: native.prompt_eval_count ?? 0,
+    completion_tokens: native.eval_count ?? 0,
+  };
 }
 
 /**
@@ -313,13 +327,7 @@ export function fromNativeResponse(native: NativeChatResponse): OllamaChatRespon
     content: nm?.content ?? '',
     ...(toolCalls ? { tool_calls: toolCalls } : {}),
   };
-  return {
-    choices: [{ message }],
-    usage: {
-      prompt_tokens: native.prompt_eval_count ?? 0,
-      completion_tokens: native.eval_count ?? 0,
-    },
-  };
+  return { choices: [{ message }], usage: nativeUsage(native) };
 }
 
 /**
@@ -347,19 +355,24 @@ export function toNativeMessages(messages: ChatMessage[]): NativeMessage[] {
     if (m.tool_calls && m.tool_calls.length > 0) {
       pendingCallNames = m.tool_calls.map((tc) => tc.function.name);
       nextResultIndex = 0;
-      return {
-        role: m.role,
-        content: m.content,
-        tool_calls: m.tool_calls.map((tc) => ({
-          function: { name: tc.function.name, arguments: safeParseArgs(tc.function.arguments) },
-        })),
-      };
+      return { role: m.role, content: m.content, tool_calls: toNativeToolCalls(m.tool_calls) };
     }
     // A non-tool, non-tool-calling message ends the current call run.
     pendingCallNames = [];
     nextResultIndex = 0;
     return { role: m.role, content: m.content };
   });
+}
+
+/**
+ * Convert internal (args-as-string) assistant tool calls to native tool calls
+ * (args-as-object). Extracted from {@link toNativeMessages} so the per-message
+ * transform stays flat.
+ */
+function toNativeToolCalls(toolCalls: ToolCall[]): NativeToolCall[] {
+  return toolCalls.map((tc) => ({
+    function: { name: tc.function.name, arguments: safeParseArgs(tc.function.arguments) },
+  }));
 }
 
 /** Parse a JSON tool-argument string to an object; `{}` on malformed input. */
