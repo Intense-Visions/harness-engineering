@@ -2,7 +2,16 @@
 # Fail-closed: any check failure (including arch regressions) blocks the commit.
 # To accept an intentional arch baseline change, run `harness check-arch
 # --update-baseline` explicitly and stage the baselines.json change as a visible edit.
-if ! node packages/cli/dist/bin/harness.js ci check --skip entropy,docs,perf,security,deps,phase-gate 2>&1 | tee /tmp/harness-pre-commit.log; then
+#
+# NOTE: do NOT pipe the check into `tee` inside this `if !` test. A pipeline's exit
+# status is that of its LAST command, so `! ( producer | tee )` sees tee's status
+# (~always 0) and the fail-closed branch below is NEVER taken (#726). Husky invokes
+# this hook via `sh -e`, where `sh` may be dash — so `set -o pipefail` (dash: "Illegal
+# option") and `${PIPESTATUS[0]}` (a bashism, unset in dash) are both non-portable.
+# Instead we drop the pipe entirely: redirect output to the log, test the producer's
+# real exit code, then `cat` the log so output is still shown (on success and failure).
+if ! node packages/cli/dist/bin/harness.js ci check --skip entropy,docs,perf,security,deps,phase-gate >/tmp/harness-pre-commit.log 2>&1; then
+  cat /tmp/harness-pre-commit.log
   echo ""
   echo "✗ Commit blocked: harness ci check failed (see output above)."
   echo ""
@@ -13,6 +22,7 @@ if ! node packages/cli/dist/bin/harness.js ci check --skip entropy,docs,perf,sec
   echo ""
   exit 1
 fi
+cat /tmp/harness-pre-commit.log
 npx lint-staged
 
 # Auto-regenerate plugin artifacts if any generator input is staged.
