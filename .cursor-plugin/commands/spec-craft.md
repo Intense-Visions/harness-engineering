@@ -22,8 +22,8 @@ Phases:
   </objective>
 
 <execution_context>
-@agents/skills/cursor/spec-craft/SKILL.md
-@agents/skills/cursor/spec-craft/skill.yaml
+@agents/skills/claude-code/spec-craft/SKILL.md
+@agents/skills/claude-code/spec-craft/skill.yaml
 </execution_context>
 
 <process>

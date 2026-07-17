@@ -21,8 +21,8 @@ Phases:
   </objective>
 
 <execution_context>
-@agents/skills/cursor/audit-brand-compliance/SKILL.md
-@agents/skills/cursor/audit-brand-compliance/skill.yaml
+@agents/skills/claude-code/audit-brand-compliance/SKILL.md
+@agents/skills/claude-code/audit-brand-compliance/skill.yaml
 </execution_context>
 
 <process>

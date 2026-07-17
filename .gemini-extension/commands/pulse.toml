@@ -19,7 +19,7 @@ Phases:
 </objective>
 
 <execution_context>
---- SKILL.md (agents/skills/gemini-cli/harness-pulse/SKILL.md) ---
+--- SKILL.md (agents/skills/claude-code/harness-pulse/SKILL.md) ---
 # Harness Pulse
 
 > Single-page time-windowed product pulse. **Phase 3 ships the first-run interview only**: it converts vague intent into a concrete `pulse:` block in `harness.config.json`, refuses read-write DB credentials, and seeds from `STRATEGY.md` when present. The actual `harness pulse run` (Phases 2-4 of the runtime) is deferred to spec Phase 4.
@@ -156,7 +156,7 @@ Stub: when `pulse.enabled === true`, this phase will dispatch analytics/tracing/
 - **`write_pulse_config` returns `{ written: false, error }` (or `writePulseConfig` throws directly):** Report the validator error verbatim. Do not retry without user fix.
 
 
---- skill.yaml (agents/skills/gemini-cli/harness-pulse/skill.yaml) ---
+--- skill.yaml (agents/skills/claude-code/harness-pulse/skill.yaml) ---
 name: harness-pulse
 version: "0.1.0"
 description: First-run pulse interview. Converts intent into a validated pulse config with SMART pushback, read-write-DB rejection, STRATEGY.md seeding. Phase 3 ships the interview; the run path is deferred to Phase 4.

@@ -21,8 +21,8 @@ Phases:
   </objective>
 
 <execution_context>
-@agents/skills/cursor/detect-design-drift/SKILL.md
-@agents/skills/cursor/detect-design-drift/skill.yaml
+@agents/skills/claude-code/detect-design-drift/SKILL.md
+@agents/skills/claude-code/detect-design-drift/skill.yaml
 </execution_context>
 
 <process>

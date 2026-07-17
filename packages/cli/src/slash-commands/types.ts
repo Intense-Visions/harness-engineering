@@ -51,6 +51,15 @@ export interface GenerateOptions {
   includeGlobal: boolean;
   output?: string;
   skillsDir: string;
+  /**
+   * When true, `skillsDir` is the EXCLUSIVE skill source: no project,
+   * community, or global (machine-wide) resolution is performed. Used by the
+   * repo's own plugin-artifact generator (scripts/generate-plugin.mjs) so that
+   * globally-installed third-party skills never leak into tracked plugin dirs
+   * (issue #704). Adopter-facing flows (`harness setup`, `harness generate`)
+   * leave this unset to keep their global-inclusive resolution.
+   */
+  skillsDirOnly?: boolean;
   dryRun: boolean;
   yes: boolean;
   cursorMode?: CursorRenderMode;

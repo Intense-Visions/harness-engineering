@@ -18,7 +18,7 @@ Phases:
 </objective>
 
 <execution_context>
---- SKILL.md (agents/skills/gemini-cli/product-advisor/SKILL.md) ---
+--- SKILL.md (agents/skills/claude-code/product-advisor/SKILL.md) ---
 # Product Advisor
 
 > Turn a client diagram + conversation into a Business Requirements Document and a resolved gap-list, then seed the harness pipeline. The pre-inception front door: gather requirements with AI, feed them in, and let the existing flow continue as it does today.
@@ -223,7 +223,7 @@ Expected: Agent fans out into one row per capability with BRD backrefs (gate: "N
 -->
 
 
---- skill.yaml (agents/skills/gemini-cli/product-advisor/skill.yaml) ---
+--- skill.yaml (agents/skills/claude-code/product-advisor/skill.yaml) ---
 name: product-advisor
 version: "0.1.0"
 description: Upstream client-inception skill. Ingests a diagram + client conversation notes, drafts a Business Requirements Document (BRD), detects gaps against a fixed completeness rubric, resolves them through a one-question-at-a-time interview with the solution architect, then fans the BRD out into candidate roadmap items and offers a STRATEGY.md seed. Reads but never writes STRATEGY.md; never authors specs (harness-brainstorming owns that). The pre-inception front door to the harness pipeline.

@@ -33,7 +33,13 @@ export const PLUGIN_CONFIGS = {
     pluginDir: '.cursor-plugin',
     slashCommandsPlatform: 'cursor',
     agentPlatform: 'cursor',
-    skillsDir: 'agents/skills/cursor',
+    // Canonical skill source is agents/skills/claude-code. The per-platform
+    // dirs (agents/skills/cursor, …) are symlink mirrors, so scanning them
+    // directly under repo-scoped generation drops every symlinked skill
+    // (a symlinked dir isn't reported by isDirectory()). Scanning claude-code
+    // and mapping via slashCommandsPlatform ('cursor' is a derived platform in
+    // normalize.ts) yields the full, correct set without leaking global skills.
+    skillsDir: 'agents/skills/claude-code',
     // Cursor doesn't document a CURSOR_PLUGIN_ROOT env var; its hook docs
     // show relative paths like `./scripts/format-code.sh`. Plugin scripts
     // resolve relative to the plugin install directory.
@@ -53,7 +59,11 @@ export const PLUGIN_CONFIGS = {
     // Gemini extensions don't have a native agents/subagents field. Persona
     // behavior is exposed via commands + GEMINI.md context only.
     agentPlatform: undefined,
-    skillsDir: 'agents/skills/gemini-cli',
+    // Canonical skill source is agents/skills/claude-code (see cursor note).
+    // Skills that support gemini-cli list it in their skill.yaml platforms, so
+    // scanning the claude-code tree with slashCommandsPlatform 'gemini-cli'
+    // selects exactly the gemini-eligible skills.
+    skillsDir: 'agents/skills/claude-code',
     // Gemini extensions don't have a native hooks field either. We skip
     // hook generation entirely; users invoke `harness validate` manually
     // or via CI.

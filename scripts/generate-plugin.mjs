@@ -61,18 +61,15 @@ function runCli(args) {
 }
 
 function prettierWrite(targetPath) {
-  execFileSync(
-    'node',
-    [prettier, '--write', '--ignore-path', '.prettierignore', targetPath],
-    { stdio: 'inherit', cwd: repoRoot }
-  );
+  execFileSync('node', [prettier, '--write', '--ignore-path', '.prettierignore', targetPath], {
+    stdio: 'inherit',
+    cwd: repoRoot,
+  });
 }
 
 function diffDirs(expectedDir, actualDir, extension = '.md') {
   const filter = (f) => f.endsWith(extension);
-  const expected = existsSync(expectedDir)
-    ? readdirSync(expectedDir).filter(filter).sort()
-    : [];
+  const expected = existsSync(expectedDir) ? readdirSync(expectedDir).filter(filter).sort() : [];
   const actual = existsSync(actualDir) ? readdirSync(actualDir).filter(filter).sort() : [];
   let drift = false;
   if (expected.join('|') !== actual.join('|')) {
@@ -109,6 +106,11 @@ function generateCommands() {
     config.slashCommandsPlatform,
     '--skills-dir',
     config.skillsDir,
+    // Scope generation to the repo's own skills tree only. Without this, the
+    // generator additively pulls in machine-wide global/community skills
+    // (~/.harness/skills/community/…), leaking foreign third-party command
+    // files into the repo's tracked plugin dirs (#704).
+    '--skills-dir-only',
     '--output',
     stagingDir,
     '--yes',
@@ -133,9 +135,7 @@ function generateCommands() {
     const drift = diffDirs(generated, finalDir, ext);
     rmSync(stagingDir, { recursive: true, force: true });
     if (drift) {
-      console.error(
-        `\nRun \`pnpm generate:plugin --target ${target}\` to update commands.`
-      );
+      console.error(`\nRun \`pnpm generate:plugin --target ${target}\` to update commands.`);
       process.exit(1);
     }
     console.log(`OK ${finalDir}`);
@@ -237,7 +237,9 @@ function generateHooks() {
 
 // --- main ---
 
-console.log(`[${config.label}] Generating plugin artifacts (mode: ${isCheck ? 'check' : 'write'})…`);
+console.log(
+  `[${config.label}] Generating plugin artifacts (mode: ${isCheck ? 'check' : 'write'})…`
+);
 if (config.generateCommands) {
   generateCommands();
 }
@@ -248,8 +250,6 @@ if (config.generateHooks) {
   generateHooks();
 }
 if (!config.generateCommands && !config.generateAgents && !config.generateHooks) {
-  console.log(
-    `[${config.label}] No auto-generated artifacts — manifest is hand-maintained.`
-  );
+  console.log(`[${config.label}] No auto-generated artifacts — manifest is hand-maintained.`);
 }
 console.log(`[${config.label}] Done.`);

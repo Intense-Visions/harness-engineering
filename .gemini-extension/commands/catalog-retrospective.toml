@@ -16,7 +16,7 @@ Phases:
 </objective>
 
 <execution_context>
---- SKILL.md (agents/skills/gemini-cli/harness-catalog-retrospective/SKILL.md) ---
+--- SKILL.md (agents/skills/claude-code/harness-catalog-retrospective/SKILL.md) ---
 # Harness Catalog Retrospective
 
 > Monthly retrospective over skill-adoption telemetry. Reads `.harness/metrics/adoption.jsonl`, ranks the most-invoked, most-failing, and abandoned-mid-workflow skills, flags ever-invoked skills that have gone quiet, and reports how much of the catalog emits any telemetry at all. Produces a dated Markdown report and surfaces the highlights that warrant follow-up. Compounding-via-learning at the catalog grain.
@@ -143,7 +143,7 @@ No skills were pruned or edited — the pruning decision is left to the human.
 - **When a failing skill looks like a real defect:** Flag it specifically (skill, failure count/rate, why it looks defect-shaped) and route it to debugging or an issue, rather than burying it in the table.
 
 
---- skill.yaml (agents/skills/gemini-cli/harness-catalog-retrospective/skill.yaml) ---
+--- skill.yaml (agents/skills/claude-code/harness-catalog-retrospective/skill.yaml) ---
 name: harness-catalog-retrospective
 version: '1.0.0'
 description: Monthly retrospective over skill-adoption telemetry — ranks most-invoked, failing, and abandoned-mid-workflow skills, flags stale ones, and reports catalog telemetry coverage

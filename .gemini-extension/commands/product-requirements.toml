@@ -18,7 +18,7 @@ Phases:
 </objective>
 
 <execution_context>
---- SKILL.md (agents/skills/gemini-cli/product-requirements/SKILL.md) ---
+--- SKILL.md (agents/skills/claude-code/product-requirements/SKILL.md) ---
 # Product Requirements
 
 > Turn one picked work item into a durable PRD — user stories, testable acceptance criteria, and prioritization — through a guided interview. The product-management middle between `product-advisor` (BRD) and `harness-brainstorming` (spec). Authors requirements; never authors the spec.
@@ -171,7 +171,7 @@ Tagged 2 gaps: G1 (blocker) "max PDF page count?"; G2 (nice) "landscape or portr
 **FINALIZE:** PRD finalized; Open Questions lists G2. No roadmap mutation, no assignee. Emitted handoff → `harness-brainstorming` will seed the spec's Success Criteria from these EARS criteria. `harness validate` — passes.
 
 
---- skill.yaml (agents/skills/gemini-cli/product-requirements/skill.yaml) ---
+--- skill.yaml (agents/skills/claude-code/product-requirements/skill.yaml) ---
 name: product-requirements
 version: "0.1.0"
 description: Guided-interview skill that turns one picked work item into a durable Product Requirements Document (PRD) — user stories, testable EARS acceptance criteria, and MoSCoW prioritization — written to a per-item file under docs/product-requirements/. The product-management middle between product-advisor (BRD) and harness-brainstorming (spec). Reads a BRD/roadmap/description as available and degrades gracefully to description-only; authors requirements but never the spec, never mutates the roadmap, and never assigns.

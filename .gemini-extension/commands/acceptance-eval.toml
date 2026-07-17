@@ -17,7 +17,7 @@ Phases:
 </objective>
 
 <execution_context>
---- SKILL.md (agents/skills/gemini-cli/acceptance-eval/SKILL.md) ---
+--- SKILL.md (agents/skills/claude-code/acceptance-eval/SKILL.md) ---
 # Acceptance Eval
 
 > Pre-execution LLM-judgment: does this spec carry measurable, testable, complete acceptance criteria before work begins? Resolves the spec's acceptance section, critiques observability / testability / completeness (advisory `criteriaFindings`), flags user-visible behaviors with no covering test (advisory `coverageFindings`), and emits a confidence-rated `AcceptanceVerdict` (`MEASURABLE | NOT_MEASURABLE | INCONCLUSIVE`) with a rationale. Merge authority is derived in TypeScript, never trusted from the LLM: a high-confidence `NOT_MEASURABLE` blocks merge; every other verdict is advisory. The upstream twin of the `outcome-eval` ship gate — it keeps the downstream gate fed with judgable specs.
@@ -112,7 +112,7 @@ rationale:       "The success section contains only subjective statements; nothi
 - **Verdict seems wrong (false positive/negative):** capture the spec section and verdict and route to the maintainers; do not loosen the conservative-confidence prompt ad hoc.
 
 
---- skill.yaml (agents/skills/gemini-cli/acceptance-eval/skill.yaml) ---
+--- skill.yaml (agents/skills/claude-code/acceptance-eval/skill.yaml) ---
 name: acceptance-eval
 version: '0.1.0'
 description: >-

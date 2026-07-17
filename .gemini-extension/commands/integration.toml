@@ -17,7 +17,7 @@ Phases:
 </objective>
 
 <execution_context>
---- SKILL.md (agents/skills/gemini-cli/harness-integration/SKILL.md) ---
+--- SKILL.md (agents/skills/claude-code/harness-integration/SKILL.md) ---
 # Harness Integration
 
 > Verify system wiring, materialize knowledge artifacts, and update project metadata. Integration is a gate, not a discovery phase -- it confirms that planned integration tasks completed.
@@ -582,7 +582,7 @@ Every pass/fail assertion in the integration report MUST include concrete eviden
 - **Integration fails repeatedly after fix attempts:** After 2 fix cycles, escalate: "Integration has failed <N> times. The integration tasks may need redesign. Review the plan's integration section."
 
 
---- skill.yaml (agents/skills/gemini-cli/harness-integration/skill.yaml) ---
+--- skill.yaml (agents/skills/claude-code/harness-integration/skill.yaml) ---
 name: harness-integration
 version: "1.0.0"
 description: Verify system wiring, materialize knowledge artifacts, and update project metadata after execution

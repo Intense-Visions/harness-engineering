@@ -18,7 +18,7 @@ Phases:
 </objective>
 
 <execution_context>
---- SKILL.md (agents/skills/gemini-cli/harness-compound/SKILL.md) ---
+--- SKILL.md (agents/skills/claude-code/harness-compound/SKILL.md) ---
 # Harness Compound
 
 > 5-phase post-mortem capture. When a problem is solved, distill it into a structured doc at `docs/solutions/<track>/<category>/<slug>.md` so the next person (or agent) finds the playbook before re-deriving it.
@@ -177,7 +177,7 @@ Input: "Hit the same stalled-lease bug today on a different code path."
 - **Problem does not fit any category:** Escalate. Adding a category requires a PR (Decision 8 of the feedback-loops spec).
 
 
---- skill.yaml (agents/skills/gemini-cli/harness-compound/skill.yaml) ---
+--- skill.yaml (agents/skills/claude-code/harness-compound/skill.yaml) ---
 name: harness-compound
 version: "1.0.0"
 description: 5-phase post-mortem capture. Writes a structured solution doc at docs/solutions/{track}/{category}/{slug}.md with frontmatter, overlap-detection, and per-category lock for concurrency safety.

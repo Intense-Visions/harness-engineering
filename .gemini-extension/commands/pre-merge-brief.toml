@@ -17,7 +17,7 @@ Phases:
 </objective>
 
 <execution_context>
---- SKILL.md (agents/skills/gemini-cli/pre-merge-brief/SKILL.md) ---
+--- SKILL.md (agents/skills/claude-code/pre-merge-brief/SKILL.md) ---
 # Pre-Merge Brief
 
 > The harness pointed at the human who clicks merge. A thin wrapper over `harness pre-merge-brief` that composes a senior-facing accountability brief — the diff summary, the multi-persona review verdict (from `review-ci --json`), the curated **Signal status** snapshot, the outcome-eval result, and a derived **"👀 Worth your eyes"** section — and posts it as a single sticky PR comment (upsert by marker). All composition and degradation logic lives in the command; this skill orchestrates invocation, reports which sections degraded, and hands off. Advisory and non-blocking: the brief never flips the review gate.
@@ -106,7 +106,7 @@ harness pre-merge-brief --comment
 No `--from`, so the review-verdict section renders "unavailable"; signals are gathered live and the diff summary uses the default `origin/<base>...HEAD` range. The senior sees the current signal status and diff before clicking merge.
 
 
---- skill.yaml (agents/skills/gemini-cli/pre-merge-brief/skill.yaml) ---
+--- skill.yaml (agents/skills/claude-code/pre-merge-brief/skill.yaml) ---
 name: harness-pre-merge-brief
 version: "0.1.0"
 description: >-

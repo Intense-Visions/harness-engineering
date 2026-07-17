@@ -427,3 +427,54 @@ describe('handleOrphanDeletion', () => {
     await handleOrphanDeletion([result], { yes: true, dryRun: false });
   });
 });
+
+describe('generateSlashCommands - skillsDirOnly repo-scoping (#704)', () => {
+  let tmpDir: string;
+  let repoSkillsDir: string;
+
+  beforeEach(() => {
+    tmpDir = makeTmpDir();
+    // A minimal "repo" skills tree with exactly one skill.
+    repoSkillsDir = path.join(tmpDir, 'repo-skills');
+    const skill = path.join(repoSkillsDir, 'my-repo-skill');
+    fs.mkdirSync(skill, { recursive: true });
+    fs.writeFileSync(
+      path.join(skill, 'skill.yaml'),
+      'name: my-repo-skill\nversion: "1.0.0"\ndescription: a repo skill\ntriggers:\n  - manual\nplatforms:\n  - claude-code\ntools:\n  - Read\ntype: rigid\ntier: 1\n'
+    );
+    fs.writeFileSync(path.join(skill, 'SKILL.md'), '# My Repo Skill\n');
+  });
+
+  afterEach(() => {
+    fs.rmSync(tmpDir, { recursive: true, force: true });
+  });
+
+  it('emits ONLY commands from the scoped skills dir, ignoring every ambient (project/community/global) source', () => {
+    // skillsDirOnly bypasses all ambient resolution, so this is deterministic
+    // regardless of what skills the developer has installed globally — which is
+    // exactly the property that prevents foreign global skills from leaking into
+    // the repo's plugin artifacts.
+    const outDir = path.join(tmpDir, 'out');
+    const results = generateSlashCommands({
+      platforms: ['claude-code'],
+      global: false,
+      includeGlobal: false,
+      skillsDir: repoSkillsDir,
+      skillsDirOnly: true,
+      output: outDir,
+      dryRun: false,
+      yes: false,
+    });
+
+    const harnessDir = path.join(outDir, 'harness');
+    const emitted = fs.existsSync(harnessDir)
+      ? fs.readdirSync(harnessDir).filter((f) => f.endsWith('.md'))
+      : [];
+
+    // Exactly the one scoped skill — no ambient skills (e.g. the harness core
+    // skills present in this very repo) were pulled in.
+    expect(emitted).toEqual(['my-repo-skill.md']);
+    const claudeResult = results.find((r) => r.platform === 'claude-code');
+    expect(claudeResult?.added).toEqual(['my-repo-skill.md']);
+  });
+});
