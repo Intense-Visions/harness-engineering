@@ -307,14 +307,19 @@ const TOOL_SCHEMAS = [
       description:
         'Make a targeted edit to an EXISTING file by replacing an exact substring. ' +
         'Prefer this over write_file for changing existing files — it avoids rewriting ' +
-        'the whole file (which loses prior fixes). `old_string` must appear EXACTLY once; ' +
-        'if it is not unique, include more surrounding context to disambiguate.',
+        'the whole file (which loses prior fixes). By default `old_string` must appear EXACTLY ' +
+        'once; if it is not unique, add surrounding context, or set `replace_all: true` to change ' +
+        'every occurrence (e.g. renaming a symbol).',
       parameters: {
         type: 'object',
         properties: {
           path: { type: 'string' },
-          old_string: { type: 'string', description: 'Exact text to replace (must be unique).' },
+          old_string: { type: 'string', description: 'Exact text to replace.' },
           new_string: { type: 'string', description: 'Replacement text.' },
+          replace_all: {
+            type: 'boolean',
+            description: 'Replace every occurrence instead of requiring a unique match (optional).',
+          },
         },
         required: ['path', 'old_string', 'new_string'],
       },
@@ -324,10 +329,18 @@ const TOOL_SCHEMAS = [
     type: 'function',
     function: {
       name: 'read_file',
-      description: "Read a file's contents, relative to the workspace root.",
+      description:
+        'Read a file relative to the workspace root. Output is line-numbered ' +
+        '(`<n>\\t<content>`) for reference ONLY — the line-number prefix is NOT part of the file, ' +
+        'so never include it in an `edit` old_string. For large files, page with `offset` (1-based ' +
+        'start line) and `limit` (number of lines).',
       parameters: {
         type: 'object',
-        properties: { path: { type: 'string' } },
+        properties: {
+          path: { type: 'string' },
+          offset: { type: 'number', description: '1-based line to start from (optional).' },
+          limit: { type: 'number', description: 'Max number of lines to return (optional).' },
+        },
         required: ['path'],
       },
     },
@@ -1064,10 +1077,16 @@ export class OllamaBackend implements AgentBackend {
             session.workspacePath,
             asString(args.path),
             asString(args.old_string),
-            asString(args.new_string)
+            asString(args.new_string),
+            args.replace_all === true
           );
         case 'read_file':
-          return await this.runReadFile(session.workspacePath, asString(args.path));
+          return await this.runReadFile(
+            session.workspacePath,
+            asString(args.path),
+            typeof args.offset === 'number' ? args.offset : undefined,
+            typeof args.limit === 'number' ? args.limit : undefined
+          );
         default:
           return `ERROR: unknown tool ${name}`;
       }
@@ -1118,12 +1137,18 @@ export class OllamaBackend implements AgentBackend {
           /* process (group) already gone */
         }
       }, this.bashTimeoutMs);
-      child.on('close', () => {
+      child.on('close', (code: number | null) => {
         clearTimeout(timer);
         const body = out.length > 0 ? out : '(no output)';
-        resolve(
-          truncate(killed ? `ERROR: command killed after ${this.bashTimeoutMs}ms\n${body}` : body)
-        );
+        if (killed) {
+          resolve(truncate(`ERROR: command killed after ${this.bashTimeoutMs}ms\n${body}`));
+          return;
+        }
+        // Surface the exit code so the model can tell success from failure
+        // without parsing output (parity with Claude Code / Codex). A zero exit
+        // is the expected case, so only annotate a non-zero exit to avoid noise.
+        const suffix = code !== null && code !== 0 ? `\n[command exited with code ${code}]` : '';
+        resolve(truncate(body) + suffix);
       });
       child.on('error', (err: Error) => {
         clearTimeout(timer);
@@ -1160,7 +1185,8 @@ export class OllamaBackend implements AgentBackend {
     workspacePath: string,
     requested: string,
     oldStr: string,
-    newStr: string
+    newStr: string,
+    replaceAll = false
   ): Promise<string> {
     const target = resolveInsideWorkspace(workspacePath, requested);
     if (target === null) {
@@ -1182,22 +1208,52 @@ export class OllamaBackend implements AgentBackend {
     if (first === -1) {
       return `ERROR: old_string not found in ${requested}`;
     }
+    if (replaceAll) {
+      // Literal replace-every via split/join (never String.replaceAll's `$&`/`$1` interpretation).
+      const count = content.split(oldStr).length - 1;
+      const updated = content.split(oldStr).join(newStr);
+      await fs.writeFile(target, updated, 'utf8');
+      return `edited ${requested} (replaced ${count} occurrence${count === 1 ? '' : 's'}, ${content.length} → ${updated.length} bytes)`;
+    }
     if (content.indexOf(oldStr, first + oldStr.length) !== -1) {
       const count = content.split(oldStr).length - 1;
-      return `ERROR: old_string is not unique in ${requested} (appears ${count} times); add surrounding context to make it unique`;
+      return `ERROR: old_string is not unique in ${requested} (appears ${count} times); add surrounding context to make it unique, or pass replace_all:true`;
     }
     const updated = content.slice(0, first) + newStr + content.slice(first + oldStr.length);
     await fs.writeFile(target, updated, 'utf8');
     return `edited ${requested} (replaced 1 occurrence, ${content.length} → ${updated.length} bytes)`;
   }
 
-  private async runReadFile(workspacePath: string, requested: string): Promise<string> {
+  private async runReadFile(
+    workspacePath: string,
+    requested: string,
+    offset?: number,
+    limit?: number
+  ): Promise<string> {
     const target = resolveInsideWorkspace(workspacePath, requested);
     if (target === null) {
       return `ERROR: refusing to read outside workspace: ${requested}`;
     }
-    const content = await fs.readFile(target, 'utf8');
-    return truncate(content);
+    let content: string;
+    try {
+      content = await fs.readFile(target, 'utf8');
+    } catch {
+      return `ERROR: file not found: ${requested}`;
+    }
+    const lines = content.split('\n');
+    const start = offset !== undefined && offset > 0 ? offset - 1 : 0;
+    const end = limit !== undefined && limit > 0 ? start + limit : lines.length;
+    const slice = lines.slice(start, end);
+    // Line-numbered (`<n>\t<line>`, 1-based) for reference — display-only, mirrors
+    // Claude Code's Read so the model can cite lines; the prefix must not leak into edits.
+    const numbered = slice
+      .map((line, i) => `${String(start + i + 1).padStart(6, ' ')}\t${line}`)
+      .join('\n');
+    const paged =
+      start > 0 || end < lines.length
+        ? `\n[showing lines ${start + 1}-${Math.min(end, lines.length)} of ${lines.length}]`
+        : '';
+    return truncate(numbered) + paged;
   }
 
   private errorEvent(sessionId: string, message: string): AgentEvent {

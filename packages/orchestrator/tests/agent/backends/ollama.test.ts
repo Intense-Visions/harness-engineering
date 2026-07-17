@@ -1066,3 +1066,99 @@ describe('truncate — failure-prioritized head+tail tool output', () => {
     expect(out).toContain('(12000 chars truncated)');
   });
 });
+
+describe('OllamaBackend — tool affordances (exit code, read paging, replace_all)', () => {
+  let workspace: string;
+  beforeEach(() => {
+    workspace = mkdtempSync(join(tmpdir(), 'ollama-aff-'));
+  });
+  afterEach(() => {
+    vi.unstubAllGlobals();
+    rmSync(workspace, { recursive: true, force: true });
+  });
+
+  /** Drive a single tool call (then TASK_COMPLETE) and return the tool result the model sees. */
+  const driveOne = async (
+    toolCall: { name: string; args: unknown },
+    seed?: { path: string; content: string }
+  ): Promise<string> => {
+    if (seed) writeFileSync(join(workspace, seed.path), seed.content);
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(okFetch(chatResponse({ toolCalls: [toolCall] })))
+      .mockResolvedValueOnce(okFetch(chatResponse({ content: 'TASK_COMPLETE' })));
+    vi.stubGlobal('fetch', fetchMock);
+    const backend = new OllamaBackend(baseConfig);
+    const start = await backend.startSession({ workspacePath: workspace, permissionMode: 'full' });
+    if (!start.ok) throw new Error('startSession failed');
+    await drain(
+      backend.runTurn(start.value, {
+        sessionId: start.value.sessionId,
+        prompt: 'go',
+        isContinuation: false,
+      })
+    );
+    const session = start.value as import('../../../src/agent/backends/ollama').OllamaSession;
+    return session.messages.find((m) => m.role === 'tool')?.content ?? '';
+  };
+
+  it.skipIf(process.platform === 'win32')('bash annotates a non-zero exit code', async () => {
+    const out = await driveOne({ name: 'bash', args: { command: 'echo boom; exit 3' } });
+    expect(out).toContain('boom');
+    expect(out).toContain('[command exited with code 3]');
+  });
+
+  it.skipIf(process.platform === 'win32')('bash does NOT annotate a successful exit', async () => {
+    const out = await driveOne({ name: 'bash', args: { command: 'echo ok' } });
+    expect(out).toContain('ok');
+    expect(out).not.toContain('exited with code');
+  });
+
+  it('read_file returns line-numbered content', async () => {
+    const out = await driveOne(
+      { name: 'read_file', args: { path: 'f.txt' } },
+      { path: 'f.txt', content: 'alpha\nbeta\ngamma' }
+    );
+    expect(out).toMatch(/1\talpha/);
+    expect(out).toMatch(/2\tbeta/);
+    expect(out).toMatch(/3\tgamma/);
+  });
+
+  it('read_file pages with offset+limit and reports the shown range', async () => {
+    const content = Array.from({ length: 10 }, (_, i) => `line${i + 1}`).join('\n');
+    const out = await driveOne(
+      { name: 'read_file', args: { path: 'f.txt', offset: 3, limit: 2 } },
+      { path: 'f.txt', content }
+    );
+    expect(out).toMatch(/3\tline3/);
+    expect(out).toMatch(/4\tline4/);
+    expect(out).not.toContain('line5');
+    expect(out).toContain('showing lines 3-4 of 10');
+  });
+
+  it('read_file errors cleanly on a missing file', async () => {
+    const out = await driveOne({ name: 'read_file', args: { path: 'nope.txt' } });
+    expect(out).toContain('file not found');
+  });
+
+  it('edit replace_all replaces every occurrence (bypasses the uniqueness guard)', async () => {
+    const out = await driveOne(
+      {
+        name: 'edit',
+        args: { path: 'f.txt', old_string: 'x', new_string: 'y', replace_all: true },
+      },
+      { path: 'f.txt', content: 'x x x' }
+    );
+    expect(out).toMatch(/replaced 3 occurrences/);
+    expect(readFileSync(join(workspace, 'f.txt'), 'utf8')).toBe('y y y');
+  });
+
+  it('edit without replace_all still rejects a non-unique old_string', async () => {
+    const out = await driveOne(
+      { name: 'edit', args: { path: 'f.txt', old_string: 'x', new_string: 'y' } },
+      { path: 'f.txt', content: 'x x x' }
+    );
+    expect(out).toContain('not unique');
+    expect(out).toContain('replace_all');
+  });
+});
