@@ -16,8 +16,9 @@ Every serious coding harness solves this with a **surgical edit** primitive: Cla
 `PiBackend` already advertises a `codingTools: ['read', 'bash', 'edit', 'write']` set. The
 `OllamaBackend` should have the same affordance.
 
-(A companion fix — failure-prioritized tool-output truncation, currently a blind 4000-char
-head-chop that discards trailing test-failure diffs — is tracked separately and folded next.)
+A companion fix — failure-prioritized tool-output truncation, previously a blind 4000-char
+head-chop that discarded trailing test-failure diffs — is **included in this change** (see
+"Companion fix" below).
 
 ## Scope (this change)
 
@@ -59,3 +60,20 @@ Claude Code `Edit` semantics. `write_file` stays for creating new files.
   spans replace literally and correctly.
 - **SC8** Verification: re-run the same difficulty-ladder dispatch (stateful ESLint rule) and
   confirm reduced rewrite-thrash / convergence vs. the write_file-only baseline.
+
+## Companion fix: failure-prioritized tool-output truncation
+
+`truncate()` previously kept `slice(0, 4000)` — the HEAD — and discarded the tail. `vitest`/`tsc`
+print the actionable failure diffs and the summary LAST, so the model running its test command
+saw the passing preamble and lost the failures it needed to fix. Fix:
+
+- Raise `MAX_TOOL_OUTPUT` 4000 → 8000 (holds a typical test report).
+- Truncate keeping **both ends**: a head slice (`TRUNCATE_HEAD_FRACTION` = 30% — command echo +
+  first errors) and a larger tail slice (70% — failures + summary), with a `…(N chars
+truncated)…` marker between them.
+
+### Acceptance criteria (companion)
+
+- **SC9** Short output is returned unchanged (no marker).
+- **SC10** A long report with its failure summary at the tail keeps that tail (a head-only chop
+  would have dropped it); the head is also preserved; the omitted-char count is reported.

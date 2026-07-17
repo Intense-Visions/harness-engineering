@@ -8,6 +8,7 @@ import {
   type OllamaBackendConfig,
   fromNativeResponse,
   toNativeMessages,
+  truncate,
 } from '../../../src/agent/backends/ollama';
 
 /** Build a canned NATIVE /api/chat response with optional tool calls. */
@@ -974,5 +975,40 @@ describe('OllamaBackend', () => {
       const result = await backend.healthCheck();
       expect(result.ok).toBe(false);
     });
+  });
+});
+
+describe('truncate — failure-prioritized head+tail tool output', () => {
+  it('returns short output unchanged (no marker)', () => {
+    const short = 'PASS: 3 tests';
+    expect(truncate(short)).toBe(short);
+    expect(truncate(short)).not.toContain('truncated');
+  });
+
+  it('preserves the TAIL of a long report — the failure summary a runner prints last', () => {
+    // Simulate a big vitest report: lots of passing noise, then the failures at the end.
+    const noise = 'ok '.repeat(6000); // ~18k chars, well over the 8k budget
+    const tailMarker = '\nFAIL src/foo.test.ts > bar\nExpected 1, received 2\nTests 1 failed';
+    const out = truncate(noise + tailMarker);
+    // The actionable tail survives (a head-only chop would have dropped it).
+    expect(out).toContain('FAIL src/foo.test.ts');
+    expect(out).toContain('Tests 1 failed');
+    // And it is genuinely truncated (kept both ends with a marker).
+    expect(out).toContain('chars truncated');
+    expect(out.length).toBeLessThan((noise + tailMarker).length);
+  });
+
+  it('preserves the HEAD too (command echo / first errors)', () => {
+    const head = 'RUNNING: pnpm test\nfirst-line-error\n';
+    const out = truncate(head + 'x'.repeat(20000));
+    expect(out).toContain('RUNNING: pnpm test');
+    expect(out).toContain('first-line-error');
+  });
+
+  it('reports the exact number of characters omitted', () => {
+    const text = 'y'.repeat(20000);
+    const out = truncate(text);
+    // 8000 kept (head+tail), 12000 omitted.
+    expect(out).toContain('(12000 chars truncated)');
   });
 });

@@ -186,8 +186,21 @@ export interface OllamaSession extends AgentSession {
   numCtx: number;
 }
 
-/** Max characters returned from a tool result before truncation. */
-const MAX_TOOL_OUTPUT = 4000;
+/**
+ * Max characters returned from a tool result before truncation. Sized to hold a
+ * typical `vitest`/`tsc` report so the model can actually read its test failures.
+ * (The prior 4000 was small enough that a full test report overflowed it.)
+ */
+const MAX_TOOL_OUTPUT = 8000;
+
+/**
+ * Fraction of the budget kept from the HEAD when truncating; the remainder is
+ * kept from the TAIL. Test runners (vitest) and compilers print the actionable
+ * failure diffs and the summary at the END, so a head-only chop would discard
+ * exactly what the model needs. Keep a smaller head (the command + first errors)
+ * and a larger tail (the failures + summary).
+ */
+const TRUNCATE_HEAD_FRACTION = 0.3;
 
 const DEFAULT_ENDPOINT = 'http://127.0.0.1:11434/v1';
 const DEFAULT_TIMEOUT_MS = 600_000;
@@ -413,10 +426,18 @@ function asString(value: unknown): string {
   return typeof value === 'string' ? value : '';
 }
 
-/** Truncate a tool result to keep the conversation from ballooning. */
-function truncate(text: string): string {
+/**
+ * Truncate a tool result to keep the conversation from ballooning, preserving
+ * BOTH ends: a head slice (the command echo + first errors) and a larger tail
+ * slice (the failure diffs + summary that runners/compilers print last). A
+ * head-only chop would drop the most actionable part of a long test report.
+ */
+export function truncate(text: string): string {
   if (text.length <= MAX_TOOL_OUTPUT) return text;
-  return `${text.slice(0, MAX_TOOL_OUTPUT)}\n…(truncated)`;
+  const head = Math.floor(MAX_TOOL_OUTPUT * TRUNCATE_HEAD_FRACTION);
+  const tail = MAX_TOOL_OUTPUT - head;
+  const omitted = text.length - head - tail;
+  return `${text.slice(0, head)}\n…(${omitted} chars truncated)…\n${text.slice(text.length - tail)}`;
 }
 
 /** Expand a running `{ input, output }` token tally into `TurnResult.usage`. */
