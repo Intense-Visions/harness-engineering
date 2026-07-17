@@ -12,6 +12,7 @@ import noHardcodedPathSeparator from './no-hardcoded-path-separator';
 import noProcessEnvInSpawn from './no-process-env-in-spawn';
 import requirePathNormalization from './require-path-normalization';
 import noUndefinedOptionalAssignment from './no-undefined-optional-assignment';
+import noFocusedTests from './no-focused-tests';
 
 export const rules = {
   'enforce-doc-exports': enforceDocExports,
@@ -27,4 +28,5 @@ export const rules = {
   'no-unix-shell-command': noUnixShellCommand,
   'require-boundary-schema': requireBoundarySchema,
   'require-path-normalization': requirePathNormalization,
+  'no-focused-tests': noFocusedTests,
 };
