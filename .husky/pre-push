@@ -1,5 +1,10 @@
 export PATH="$PATH:/opt/homebrew/bin"
 
+# Fail-fast, self-contained: husky invokes this via `sh -e`, but make the
+# guarantee explicit so a future husky bootstrap change can't silently drop it
+# (husky v10 deprecates the current wrapper). POSIX-only — no bashisms below.
+set -e
+
 # Mirror CI's changeset-check job so missing changesets fail locally
 # (cheap diff-only script — runs in ~1s before the heavier steps).
 pnpm run check:changesets
@@ -19,12 +24,23 @@ if [ "$AFFECTED_OK" = "1" ]; then
   # Format check over only changed files (union of branch diff vs origin/main
   # and working-tree changes), filtered to prettier-relevant extensions. Catches
   # merge-missed files without scanning the whole repo.
+  #   - --diff-filter=ACMR excludes Deletions: a deleted .ts/.md path must never
+  #     reach `prettier --check` (it errors "No files matching the pattern" and,
+  #     under `sh -e`, aborts the whole hook — blocking any rename/delete push).
+  #   - `git diff HEAD` already covers staged + unstaged, so no separate --cached.
+  #   - The `[ -f ]` pass drops any surviving non-existent path (rename source,
+  #     staged-delete-then-reused) as belt-and-suspenders.
+  # xargs is newline-split (space-fragile) but the repo has zero spaced paths;
+  # POSIX `read`/BSD `xargs` lack NUL support, so newline is the portable choice.
   CHANGED=$(
-    { git diff --name-only "$BASE"...HEAD; git diff --name-only HEAD; git diff --name-only --cached; git ls-files --others --exclude-standard; } \
+    { git diff --name-only --diff-filter=ACMR "$BASE"...HEAD; \
+      git diff --name-only --diff-filter=ACMR HEAD; \
+      git ls-files --others --exclude-standard; } \
       | grep -E '\.(ts|tsx|md|json)$' | sort -u
   )
-  if [ -n "$CHANGED" ]; then
-    echo "$CHANGED" | xargs pnpm exec prettier --check
+  EXISTING=$(printf '%s\n' "$CHANGED" | while IFS= read -r f; do [ -n "$f" ] && [ -f "$f" ] && printf '%s\n' "$f"; done)
+  if [ -n "$EXISTING" ]; then
+    printf '%s\n' "$EXISTING" | xargs pnpm exec prettier --check
   else
     echo "pre-push: no changed {ts,tsx,md,json} files to format-check."
   fi
