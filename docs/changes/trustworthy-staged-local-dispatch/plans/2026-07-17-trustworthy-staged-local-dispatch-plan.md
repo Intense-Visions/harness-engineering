@@ -229,7 +229,7 @@ _Task count (14) ≥ threshold (8) → skeleton produced (standard rigor)._
 
 1. Determine the next ADR number: `ls docs/knowledge/decisions/` — after `0074-*` use `0075` (or the next free integer).
 2. Read `docs/knowledge/decisions/0074-finish-staged-engine-for-per-phase-routing.md` for the house ADR format.
-3. Write `docs/knowledge/decisions/0075-staged-empty-diff-halt.md`: Context (staged path lacked #843's completes-or-halts guarantee — hollow completions marked done); Decision (D1/D2/D3 — a staged unit must produce a non-empty workspace git diff or halt→retry→`needs-human`, reusing the `diffRunner`/`hasChanges` seam); Consequences (extends the #843 trustworthiness invariant to the staged path; non-local + single-dispatch byte-identical; empty-diff halts, does not improve model quality — the model's design weakness is out of scope).
+3. Write `docs/knowledge/decisions/0076-staged-empty-diff-halt.md`: Context (staged path lacked #843's completes-or-halts guarantee — hollow completions marked done); Decision (D1/D2/D3 — a staged unit must produce a non-empty workspace git diff or halt→retry→`needs-human`, reusing the `diffRunner`/`hasChanges` seam); Consequences (extends the #843 trustworthiness invariant to the staged path; non-local + single-dispatch byte-identical; empty-diff halts, does not improve model quality — the model's design weakness is out of scope).
 4. Run: `node packages/cli/dist/bin/harness.js validate`
 5. Commit: `docs(adr): 0075 staged empty-diff halt extends the #843 trustworthiness invariant (D1)`
 

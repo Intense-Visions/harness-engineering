@@ -1,5 +1,5 @@
 ---
-number: 0075
+number: 0076
 title: Staged empty-diff halt extends the #843 trustworthiness invariant
 date: 2026-07-17
 status: accepted
