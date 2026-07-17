@@ -179,6 +179,27 @@ describe('per-phase routing: no-mode stage → routing.default (SC3/SC4)', () =>
     const { decision } = await adaptive.route(req);
     expect(decision.backendName).toBe('reasoner');
   });
+
+  it('a bare skill stage with an EXPLICIT routingHint keeps AMR tier selection (split-routing SC2)', async () => {
+    // A no-cognitiveMode skill stage that carries a deterministic
+    // routingHint.complexity DELIBERATELY drives tier selection to a specific
+    // backend — this is NOT a mis-route, so the invocationOverride must stay and
+    // resolve to the tier-picked `reasoner`, NOT routing.default.
+    const router = new BackendRouter({ backends, routing });
+    const registry = buildCapabilityRegistry(backends);
+    const classify = vi.fn(() => verdict('trivial')); // must NOT run — hint seeds complexity
+    const adaptive = new AdaptiveRouter({ router, registry, policy: minimalPolicy, classify });
+
+    const hinted = {
+      skill: 'harness-execution',
+      produces: 'artifact.md',
+      routingHint: { complexity: verdict('moderate') }, // → standard tier → reasoner
+    };
+    const req = buildStageRequest(hinted, 'unit-1', []);
+    const { decision } = await adaptive.route(req);
+    expect(decision.backendName).toBe('reasoner');
+    expect(classify).not.toHaveBeenCalled();
+  });
 });
 
 describe('AdaptiveRouter — tier selection via selectCheapestQualifying (Task 5)', () => {
