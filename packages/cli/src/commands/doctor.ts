@@ -590,8 +590,8 @@ export function checkCatalogFreshness(now: number = Date.now()): CheckResult[] {
       {
         name: 'catalog-freshness',
         status: 'info',
-        message: `Suggested MCP catalog last reviewed ${CATALOG_LAST_REVIEWED} (>= ${CATALOG_STALE_DAYS}d) — may be stale; refresh via the mcp-catalog-refresh roadmap item`,
-        fix: 'Refresh the catalog: see the mcp-catalog-refresh roadmap item',
+        message: `Suggested MCP catalog last reviewed ${CATALOG_LAST_REVIEWED} (>= ${CATALOG_STALE_DAYS}d) — may be stale; refresh via the mcp-catalog-refresh roadmap item. Run 'harness integrations sync' to reconcile this project against the current catalog.`,
+        fix: "Refresh the catalog: see the mcp-catalog-refresh roadmap item; then run 'harness integrations sync'",
       },
     ];
   }

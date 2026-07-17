@@ -437,6 +437,8 @@ describe('runDoctor', () => {
       expect(check!.name).toBe('catalog-freshness');
       expect(check!.status).toBe('info'); // never 'fail' — non-blocking
       expect(check!.message).toContain('mcp-catalog-refresh');
+      // integrations-reconcile: advisory points at the reconcile action
+      expect(check!.message).toContain('harness integrations sync');
     });
 
     it('checkCatalogFreshness passes when fresh', () => {

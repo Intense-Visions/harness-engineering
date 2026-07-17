@@ -806,7 +806,7 @@ Remove harness-managed hooks from the current project
 
 ## Integrations Commands
 
-Manage MCP peer integrations (add, list, remove, dismiss)
+Manage MCP peer integrations (add, list, remove, dismiss, sync)
 
 ### `harness integrations add <name>`
 
@@ -835,6 +835,15 @@ Remove an MCP integration
 **Arguments:**
 
 - `name` (required) — Integration name (e.g. exa, github)
+
+### `harness integrations sync`
+
+Reconcile configured MCP servers against the catalog (report-only by default)
+
+**Options:**
+
+- `--apply` — Apply changes (prompts per group in an interactive terminal)
+- `--yes` — Apply changes without prompting (for scripts/CI)
 
 ## Learnings Commands
 
