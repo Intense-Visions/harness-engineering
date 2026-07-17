@@ -8,6 +8,7 @@ import type {
 import { Ok, Err } from '@harness-engineering/types';
 import { parseRoadmap } from '../parse';
 import { serializeRoadmap } from '../serialize';
+import { findUnpreservedLines } from '../preservation';
 import type { RoadmapStore, FeatureMutation, AddFeatureInput } from './roadmap-store';
 
 /** Minimal injectable file IO so the store is unit-testable without node:fs. */
@@ -162,6 +163,34 @@ export class MonolithStore implements RoadmapStore {
   }
 
   private async write(roadmap: Roadmap): Promise<Result<void>> {
+    // Data-loss guard (#839): a whole-file rewrite serializes only the fields the
+    // model captures, silently dropping hand-authored content the parser does not
+    // model — multi-line field bodies, unmodeled `- **Key:**` bullets (e.g. Issue
+    // links), `>` blockquote intros, HTML comments. Refuse rather than destroy.
+    // The shard backend (docs/roadmap.d/) does surgical per-row writes and is the
+    // supported way to edit a roadmap carrying such content.
+    let current: string | null;
+    try {
+      current = await this.io.readFile(this.roadmapPath);
+    } catch {
+      current = null; // first write / no prior file: nothing on disk to preserve
+    }
+    if (current !== null) {
+      const lost = findUnpreservedLines(current);
+      if (lost.length > 0) {
+        const first = lost[0]!;
+        return Err(
+          new Error(
+            `Refusing to rewrite ${this.roadmapPath}: it contains ${lost.length} line(s) the ` +
+              `single-file writer cannot preserve and would silently drop ` +
+              `(e.g. line ${first.line}: "${first.text}"). ` +
+              `Shard the roadmap into docs/roadmap.d/ for surgical per-row writes, ` +
+              `or remove the unmodeled content, then retry. See issue #839.`
+          )
+        );
+      }
+    }
+
     try {
       await this.io.writeFile(this.roadmapPath, serializeRoadmap(roadmap));
     } catch (err) {

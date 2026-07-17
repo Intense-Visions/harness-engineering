@@ -877,4 +877,46 @@ describe('manage_roadmap promote action', () => {
     expect(response.isError).toBe(true);
     expect(response.content[0].text).toMatch(/spec is required/);
   });
+
+  // #839: a hand-maintained monolith carrying content the model does not capture
+  // (multi-line Summary, `- **Issue:**` link, `>` blockquote intro) must NOT be
+  // destructively re-serialized. The write is refused and the file left intact.
+  it('refuses to promote when the monolith carries unpreservable content, leaving the file byte-for-byte intact', async () => {
+    const RICH = `---
+project: test-project
+version: 1
+last_synced: 2026-01-01T00:00:00Z
+last_manual_edit: 2026-01-01T00:00:00Z
+---
+
+# Project Roadmap
+
+## Backlog
+
+> Hand-authored intro that the single-file writer would drop.
+
+### Feature: Mobile App
+- **Status:** backlog
+- **Spec:** —
+- **Plans:** —
+- **Blocked by:** —
+- **Summary:** Native mobile application.
+  A second summary line the parser truncates away.
+- **Issue:** [#839](https://github.com/x/y/issues/839)
+`;
+    fs.writeFileSync(path.join(tmpDir, 'docs', 'roadmap.md'), RICH, 'utf-8');
+
+    const response = await handleManageRoadmap({
+      path: tmpDir,
+      action: 'promote',
+      feature: 'Mobile App',
+      spec: SPEC,
+    });
+
+    expect(response.isError).toBe(true);
+    const envelope = JSON.parse(response.content[0].text);
+    expect(envelope).toMatchObject({ ok: false, reason: 'write-failed' });
+    // The file was never rewritten — no content lost.
+    expect(readRoadmap()).toBe(RICH);
+  });
 });
