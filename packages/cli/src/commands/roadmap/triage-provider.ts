@@ -104,7 +104,7 @@ export function resolveTriageProvider(
   const backends = config?.agent?.backends;
   if (!backends) return null;
 
-  const local = pickBackend(backends, ['local', 'pi']);
+  const local = pickBackend(backends, ['local', 'pi', 'ollama']);
   if (local && local.endpoint) {
     // Pool-first: an explicit `--model` still wins, then the pool's top-ranked pick, then the
     // static config list (the fallback for pool-less adopters / non-Ollama endpoints).

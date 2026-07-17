@@ -536,7 +536,7 @@ function pickLocalBackendConn(
   const backends = config.agent?.backends;
   if (!backends) return undefined;
   for (const def of Object.values(backends)) {
-    if (def.type === 'local' || def.type === 'pi') {
+    if (def.type === 'local' || def.type === 'pi' || def.type === 'ollama') {
       return {
         ...(def.endpoint !== undefined ? { endpoint: def.endpoint } : {}),
         ...(def.apiKey !== undefined ? { apiKey: def.apiKey } : {}),
