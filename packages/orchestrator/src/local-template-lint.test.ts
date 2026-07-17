@@ -3,6 +3,7 @@ import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { PromptRenderer } from './prompt/renderer';
+import { WorkflowLoader } from './workflow/loader';
 
 /**
  * Lint guard for the two copies of the local-backend prompt template.
@@ -170,4 +171,41 @@ describe('local template lint — render variables survive (SC7)', () => {
       });
     }
   }
+});
+
+/**
+ * Regression guard for the per-phase-routing decl-in-MAIN gap.
+ *
+ * The WorkflowLoader reads the workflow CONFIG from the main `harness.orchestrator.md`
+ * and takes only the PROMPT template from the `.local` sibling. So a staged
+ * `workflows:` decl (plus its `reasoner` backend and `routing.modes.thinking`
+ * mapping) MUST live in the main file to take effect — placing it only in
+ * `.local` (as the original per-phase-routing change did) means the loader never
+ * sees it and the feature silently never fires. This asserts the authoritative
+ * main file carries the decl so the local per-phase pipeline is actually reachable.
+ */
+describe('per-phase routing decl is reachable from the MAIN workflow file', () => {
+  const MAIN = path.join(REPO_ROOT, 'harness.orchestrator.md');
+
+  it('harness.orchestrator.md loads the local-full-workflow staged decl + reasoner backend + routing.modes.thinking', async () => {
+    const res = await new WorkflowLoader().loadWorkflow(MAIN);
+    expect(res.ok).toBe(true);
+    if (!res.ok) return;
+    const cfg = res.value.config as {
+      workflows?: { name: string; stages: unknown[] }[];
+      agent?: {
+        routing?: { modes?: Record<string, string> };
+        backends?: Record<string, unknown>;
+      };
+    };
+    const decl = cfg.workflows?.find((w) => w.name === 'local-full-workflow');
+    expect(
+      decl,
+      'staged decl must live in the MAIN workflow file — the loader reads config from it, not .local'
+    ).toBeDefined();
+    expect(decl!.stages.length).toBeGreaterThanOrEqual(2);
+    // the design stages (cognitiveMode: thinking) route to the reasoner
+    expect(cfg.agent?.routing?.modes?.thinking).toBe('reasoner');
+    expect(cfg.agent?.backends?.reasoner).toBeDefined();
+  });
 });
