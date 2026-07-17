@@ -65,7 +65,10 @@ function detectDivisionByZero(bundle: ContextBundle): ReviewFinding[] {
         line.includes('//')
       )
         continue;
-      if (!line.match(/[^=!<>*/]\s+\/\s+[a-zA-Z_(]/)) continue;
+      // Divisor must be a lowercase variable or a parenthesised expression — a
+      // SCREAMING_CASE constant (e.g. `/ DAY_MS`) or a numeric literal cannot be
+      // zero at runtime, so flagging them is noise.
+      if (!line.match(/[^=!<>*/]\s+\/\s+[a-z_(]/)) continue;
       if (hasPrecedingZeroCheck(lines, i)) continue;
       findings.push({
         id: makeFindingId('bug', cf.path, i + 1, 'division by zero'),

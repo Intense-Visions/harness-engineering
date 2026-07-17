@@ -100,6 +100,38 @@ describe('runSecurityAgent()', () => {
     expect(findings.some((f) => f.title.toLowerCase().includes('sql'))).toBe(true);
   });
 
+  it('does not flag prose SQL keywords (whole-word) in a log template as SQL injection', () => {
+    // `updated`/`created` etc. contain UPDATE/CREATE as substrings but are not SQL.
+    const bundle = makeBundle({
+      changedFiles: [
+        {
+          path: 'src/update.ts',
+          content:
+            'logger.warn(`Found ${installs.length} installs. Only the active one was updated.`);',
+          reason: 'changed',
+          lines: 1,
+        },
+      ],
+    });
+    const findings = runSecurityAgent(bundle);
+    expect(findings.some((f) => f.title.toLowerCase().includes('sql'))).toBe(false);
+  });
+
+  it('does not scan non-code files (a Markdown doc) for SQL injection', () => {
+    const bundle = makeBundle({
+      changedFiles: [
+        {
+          path: 'docs/guides/features-overview.md',
+          content: '| `harness skill search` | Search and get updated results from the registry |',
+          reason: 'changed',
+          lines: 1,
+        },
+      ],
+    });
+    const findings = runSecurityAgent(bundle);
+    expect(findings.some((f) => f.title.toLowerCase().includes('sql'))).toBe(false);
+  });
+
   it('detects shell command injection risk', () => {
     const bundle = makeBundle({
       changedFiles: [

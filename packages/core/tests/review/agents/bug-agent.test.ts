@@ -91,6 +91,24 @@ describe('runBugDetectionAgent()', () => {
     ).toBe(true);
   });
 
+  it('does not flag division by a SCREAMING_CASE constant or number (cannot be runtime-zero)', () => {
+    const bundle = makeBundle({
+      changedFiles: [
+        {
+          path: 'src/age.ts',
+          content: [
+            'const ageDays = Math.floor((now - mtimeMs) / DAY_MS);',
+            'const half = total / 2;',
+          ].join('\n'),
+          reason: 'changed',
+          lines: 2,
+        },
+      ],
+    });
+    const findings = runBugDetectionAgent(bundle);
+    expect(findings.some((f) => f.title.toLowerCase().includes('division'))).toBe(false);
+  });
+
   it('does not flag scoped-package import paths in code as division', () => {
     // `@harness-engineering/types` etc. contain a `/` but are not division —
     // real division in a prettier-formatted codebase is spaced (`a / b`).
