@@ -377,6 +377,16 @@ pnpm docs:preview
 pnpm clean
 ```
 
+> **Pre-push is affected-scoped.** `.husky/pre-push` scopes format-check,
+> typecheck, and coverage tests to the packages affected by your branch
+> (`turbo --affected`, base `origin/main`), and runs the coverage ratchet in
+> `--allow-missing` mode. Whole-repo format-check, all-package typecheck, the
+> full 3-OS test matrix, and the full (flagless) coverage ratchet are
+> **authoritative in CI**. So CI can legitimately catch something your scoped
+> pre-push did not — this is expected. If `origin/main` is unresolvable
+> (fresh clone / detached HEAD) pre-push falls back to the full unscoped gate.
+> See ADR `docs/knowledge/decisions/0075-affected-scoped-pre-push.md`.
+
 ### Git Workflow and Commit Conventions
 
 We use **Conventional Commits** for clear, machine-readable commit messages:
