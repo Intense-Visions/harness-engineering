@@ -17,7 +17,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 
-import { mergeCoverageBaselines } from '../../scripts/coverage-ratchet.mjs';
+import { mergeCoverageBaselines, evaluateCoverage } from '../../scripts/coverage-ratchet.mjs';
 import { mergeBenchmarkBaselines } from '../../scripts/benchmark-check.mjs';
 
 test('coverage: sub-tolerance jitter keeps the committed file byte-identical', () => {
@@ -60,6 +60,35 @@ test('coverage: a brand-new package is added; a package missing this run is pres
   // Missing-this-run package keeps its committed value rather than churning out.
   const mergedMissing = mergeCoverageBaselines(committed, {});
   assert.deepEqual(mergedMissing['packages/core'], committed['packages/core']);
+});
+
+test('evaluateCoverage: without allowMissing, a baselined package with no coverage fails (regression guard)', () => {
+  const baselines = { 'packages/core': { lines: 90, branches: 80, functions: 90, statements: 90 } };
+  const coverageByPkg = { 'packages/core': null }; // no fresh coverage-summary.json
+  const { failures, skipped } = evaluateCoverage(baselines, coverageByPkg, { allowMissing: false });
+  assert.equal(failures, 1);
+  assert.equal(skipped.length, 0);
+});
+
+test('evaluateCoverage: with allowMissing, a missing package is skipped, present ones still checked', () => {
+  const baselines = {
+    'packages/core': { lines: 90, branches: 80, functions: 90, statements: 90 },
+    'packages/cli': { lines: 85, branches: 75, functions: 85, statements: 85 },
+  };
+  const coverageByPkg = {
+    'packages/core': null, // skipped under allowMissing
+    'packages/cli': { lines: 86, branches: 76, functions: 86, statements: 86 }, // meets baseline
+  };
+  const { failures, skipped } = evaluateCoverage(baselines, coverageByPkg, { allowMissing: true });
+  assert.equal(failures, 0);
+  assert.deepEqual(skipped, ['packages/core']);
+});
+
+test('evaluateCoverage: with allowMissing, a present package below baseline still fails', () => {
+  const baselines = { 'packages/cli': { lines: 85, branches: 75, functions: 85, statements: 85 } };
+  const coverageByPkg = { 'packages/cli': { lines: 80, branches: 75, functions: 85, statements: 85 } };
+  const { failures } = evaluateCoverage(baselines, coverageByPkg, { allowMissing: true });
+  assert.equal(failures, 1); // -5% lines beyond 0.5% tolerance
 });
 
 test('benchmark: sub-threshold timing jitter keeps the committed file byte-identical', () => {

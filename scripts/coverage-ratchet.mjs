@@ -4,8 +4,9 @@
  * Coverage ratchet -- ensures coverage never drops below recorded baselines.
  *
  * Usage:
- *   node scripts/coverage-ratchet.mjs          # check mode (CI)
- *   node scripts/coverage-ratchet.mjs --update  # update baselines
+ *   node scripts/coverage-ratchet.mjs                  # check mode (CI, full/authoritative)
+ *   node scripts/coverage-ratchet.mjs --allow-missing  # check mode, skip packages with no fresh coverage (pre-push)
+ *   node scripts/coverage-ratchet.mjs --update          # update baselines
  */
 
 import { readFileSync, writeFileSync } from 'node:fs';
@@ -69,19 +70,37 @@ function loadBaselines() {
   }
 }
 
-function check() {
-  const baselines = loadBaselines();
+/**
+ * Pure coverage evaluation. Compares a map of already-read coverage results
+ * against baselines and reports failures. When `allowMissing` is set, a
+ * baselined package with no coverage data (null) is SKIPPED instead of failed
+ * — this is the pre-push partial mode, where `turbo --affected` deliberately
+ * skips unchanged packages. CI never sets `allowMissing`, so its ratchet stays
+ * whole-repo authoritative.
+ *
+ * @param {Record<string, object>} baselines
+ * @param {Record<string, object|null>} coverageByPkg  pkgKey -> coverage result or null
+ * @param {{ allowMissing?: boolean }} opts
+ * @returns {{ failures: number, skipped: string[] }}
+ */
+export function evaluateCoverage(baselines, coverageByPkg, { allowMissing = false } = {}) {
   let failures = 0;
+  const skipped = [];
 
-  for (const pkgKey of Object.keys(PACKAGES)) {
+  for (const pkgKey of Object.keys(coverageByPkg)) {
     const baseline = baselines[pkgKey];
     if (!baseline) {
       console.warn(`  Warning: no baseline for ${pkgKey} -- skipping`);
       continue;
     }
 
-    const actual = readCoverage(pkgKey);
+    const actual = coverageByPkg[pkgKey];
     if (!actual) {
+      if (allowMissing) {
+        console.log(`  Skipping ${pkgKey}: no fresh coverage this run (--allow-missing).`);
+        skipped.push(pkgKey);
+        continue;
+      }
       console.error(
         `  FAIL: ${pkgKey} has baseline but no coverage data (missing or unreadable coverage-summary.json)`
       );
@@ -101,13 +120,26 @@ function check() {
     }
   }
 
+  return { failures, skipped };
+}
+
+function check({ allowMissing = false } = {}) {
+  const baselines = loadBaselines();
+  const coverageByPkg = {};
+  for (const pkgKey of Object.keys(PACKAGES)) {
+    coverageByPkg[pkgKey] = readCoverage(pkgKey);
+  }
+
+  const { failures, skipped } = evaluateCoverage(baselines, coverageByPkg, { allowMissing });
+
   if (failures > 0) {
     console.error(`\n${failures} coverage regression(s) detected.`);
     console.error('If coverage intentionally decreased, run: node scripts/coverage-ratchet.mjs --update');
     process.exit(1);
   }
 
-  console.log('Coverage ratchet: all packages meet or exceed baselines.');
+  const note = skipped.length ? ` (${skipped.length} package(s) skipped: no fresh coverage)` : '';
+  console.log(`Coverage ratchet: all packages meet or exceed baselines.${note}`);
 }
 
 /**
@@ -198,7 +230,8 @@ if (invokedDirectly) {
     console.log('Updating coverage baselines...\n');
     update();
   } else {
-    console.log('Checking coverage against baselines...\n');
-    check();
+    const allowMissing = args.includes('--allow-missing');
+    console.log(`Checking coverage against baselines${allowMissing ? ' (partial mode)' : ''}...\n`);
+    check({ allowMissing });
   }
 }

@@ -1,17 +1,64 @@
 export PATH="$PATH:/opt/homebrew/bin"
 
+# Fail-fast, self-contained: husky invokes this via `sh -e`, but make the
+# guarantee explicit so a future husky bootstrap change can't silently drop it
+# (husky v10 deprecates the current wrapper). POSIX-only — no bashisms below.
+set -e
+
 # Mirror CI's changeset-check job so missing changesets fail locally
 # (cheap diff-only script — runs in ~1s before the heavier steps).
 pnpm run check:changesets
 
-# Format check catches files missed by lint-staged (e.g., from merges).
-pnpm run format:check
-pnpm run typecheck
-# Cap turbo concurrency to 2 packages-at-a-time. Without this, filesystem/sqlite/HTTP-heavy
-# tests (search index, hooks, gateway/deliveries, lazy-local-adapter probe) flake under
-# the compound load of ~21 packages running test:coverage in parallel, each with its own
-# vitest worker pool. CI uses `pnpm test:ci` directly without the cap because GitHub
-# Actions runners have far fewer competing processes.
-pnpm exec turbo run test:coverage --concurrency=2
-node scripts/coverage-ratchet.mjs
+# Resolve an affected-base against origin/main. If it is unresolvable
+# (fresh clone, detached HEAD, no remote), fall back to the FULL unscoped
+# gate — erring toward MORE coverage, never a silently narrower one.
+BASE="origin/main"
+if git rev-parse --verify --quiet "$BASE" >/dev/null; then
+  AFFECTED_OK=1
+else
+  AFFECTED_OK=0
+  echo "pre-push: origin/main unresolvable — running full unscoped gate."
+fi
+
+if [ "$AFFECTED_OK" = "1" ]; then
+  # Format check over only changed files (union of branch diff vs origin/main
+  # and working-tree changes), filtered to prettier-relevant extensions. Catches
+  # merge-missed files without scanning the whole repo.
+  #   - --diff-filter=ACMR excludes Deletions: a deleted .ts/.md path must never
+  #     reach `prettier --check` (it errors "No files matching the pattern" and,
+  #     under `sh -e`, aborts the whole hook — blocking any rename/delete push).
+  #   - `git diff HEAD` already covers staged + unstaged, so no separate --cached.
+  #   - The `[ -f ]` pass drops any surviving non-existent path (rename source,
+  #     staged-delete-then-reused) as belt-and-suspenders.
+  # xargs is newline-split (space-fragile) but the repo has zero spaced paths;
+  # POSIX `read`/BSD `xargs` lack NUL support, so newline is the portable choice.
+  CHANGED=$(
+    { git diff --name-only --diff-filter=ACMR "$BASE"...HEAD; \
+      git diff --name-only --diff-filter=ACMR HEAD; \
+      git ls-files --others --exclude-standard; } \
+      | grep -E '\.(ts|tsx|md|json)$' | sort -u
+  )
+  EXISTING=$(printf '%s\n' "$CHANGED" | while IFS= read -r f; do [ -n "$f" ] && [ -f "$f" ] && printf '%s\n' "$f"; done)
+  if [ -n "$EXISTING" ]; then
+    printf '%s\n' "$EXISTING" | xargs pnpm exec prettier --check
+  else
+    echo "pre-push: no changed {ts,tsx,md,json} files to format-check."
+  fi
+
+  # Affected-scoped typecheck and coverage (base = origin/main, dependents included).
+  pnpm exec turbo run typecheck --affected
+  # Cap turbo concurrency to 2 packages-at-a-time. Without this, filesystem/sqlite/HTTP-heavy
+  # tests flake under compound parallel load (Phase 2 raises this cap after test isolation).
+  pnpm exec turbo run test:coverage --affected --concurrency=2
+  # Partial mode: --affected skips unchanged packages, so tolerate their missing coverage.
+  # CI's ratchet runs flagless (full/authoritative) and is unaffected.
+  node scripts/coverage-ratchet.mjs --allow-missing
+else
+  # Full fallback: whole-tree prettier + all-package typecheck/test.
+  pnpm run format:check
+  pnpm run typecheck
+  pnpm exec turbo run test:coverage --concurrency=2
+  node scripts/coverage-ratchet.mjs
+fi
+
 pnpm run generate-docs --check
