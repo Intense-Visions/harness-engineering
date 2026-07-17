@@ -646,6 +646,14 @@ export interface OllamaBackendDef {
    * call. Default: false.
    */
   disableReasoning?: boolean;
+  /** Explicit context-window override (tokens). Set ⇒ autosizing is skipped. */
+  numCtx?: number;
+  /** Hardware-derived context cap (tokens) injected by the orchestrator wiring; the backend never imports local-models. */
+  maxContextTokens?: number;
+  /** Output-token budget (`num_predict`). Unset ⇒ model default. */
+  numPredict?: number;
+  /** Keep the sized model warm between turns (`keep_alive`). Default `'10m'`. */
+  keepAlive?: string;
   /**
    * MCP servers whose tools are merged into the model's tool set (opt-in
    * allowlist). Absent/empty ⇒ built-ins only (byte-identical to today).

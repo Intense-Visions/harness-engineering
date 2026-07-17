@@ -3,23 +3,35 @@ import { mkdtempSync, rmSync, existsSync, readFileSync, writeFileSync } from 'no
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import type { AgentEvent, TurnResult } from '@harness-engineering/types';
-import { OllamaBackend, type OllamaBackendConfig } from '../../../src/agent/backends/ollama';
+import {
+  OllamaBackend,
+  type OllamaBackendConfig,
+  fromNativeResponse,
+  toNativeMessages,
+} from '../../../src/agent/backends/ollama';
 
-/** Build a canned OpenAI-compatible chat response with optional tool calls. */
+/** Build a canned NATIVE /api/chat response with optional tool calls. */
 function chatResponse(opts: {
   content?: string;
-  toolCalls?: Array<{ id: string; name: string; args: unknown }>;
+  toolCalls?: Array<{ name: string; args: unknown }>;
   usage?: { prompt_tokens?: number; completion_tokens?: number };
 }) {
-  const message: Record<string, unknown> = { content: opts.content ?? '' };
+  const message: Record<string, unknown> = { role: 'assistant', content: opts.content ?? '' };
   if (opts.toolCalls) {
     message.tool_calls = opts.toolCalls.map((tc) => ({
-      id: tc.id,
-      type: 'function',
-      function: { name: tc.name, arguments: JSON.stringify(tc.args) },
+      function: { name: tc.name, arguments: tc.args },
     }));
   }
-  return { choices: [{ message }], ...(opts.usage ? { usage: opts.usage } : {}) };
+  return {
+    message,
+    done: true,
+    ...(opts.usage?.prompt_tokens !== undefined
+      ? { prompt_eval_count: opts.usage.prompt_tokens }
+      : {}),
+    ...(opts.usage?.completion_tokens !== undefined
+      ? { eval_count: opts.usage.completion_tokens }
+      : {}),
+  };
 }
 
 /** A `fetch` mock that returns the given JSON body with status 200. */
@@ -49,6 +61,10 @@ async function drain(
 const baseConfig: OllamaBackendConfig = {
   endpoint: 'http://127.0.0.1:11434/v1',
   model: 'qwen3-agent:32b',
+  // Pin num_ctx so startSession skips the /api/show autosizing probe — the
+  // runTurn fetch mocks below are dedicated to the /api/chat call only. The
+  // resolveNumCtx describe constructs its own backends to exercise autosizing.
+  numCtx: 8192,
 };
 
 describe('OllamaBackend', () => {
@@ -128,9 +144,7 @@ describe('OllamaBackend', () => {
           .mockResolvedValueOnce(
             okFetch(
               chatResponse({
-                toolCalls: [
-                  { id: 'call-1', name: 'bash', args: { command: 'echo hi > marker.txt' } },
-                ],
+                toolCalls: [{ name: 'bash', args: { command: 'echo hi > marker.txt' } }],
                 usage: { prompt_tokens: 30, completion_tokens: 5 },
               })
             )
@@ -172,7 +186,7 @@ describe('OllamaBackend', () => {
         const session = start.value as import('../../../src/agent/backends/ollama').OllamaSession;
         const toolMsg = session.messages.find((m) => m.role === 'tool');
         expect(toolMsg).toBeDefined();
-        expect(toolMsg!.tool_call_id).toBe('call-1');
+        expect(toolMsg!.tool_call_id).toBe('call_0');
 
         // Tool lifecycle events were emitted.
         const startEvt = events.find((e) => e.type === 'tool_execution_start');
@@ -219,15 +233,52 @@ describe('OllamaBackend', () => {
       expect(names).toEqual(['bash', 'write_file', 'read_file']);
     });
 
-    it('appends /no_think to the user turn when disableReasoning is set', async () => {
-      const fetchMock = vi.fn().mockResolvedValueOnce(okFetch(chatResponse({ content: 'DONE' })));
+    it('POSTs native /api/chat with stripped base and native tool schema (SC1)', async () => {
+      let calledUrl = '';
+      let body: any;
+      const fetchMock = vi.fn(async (url: string, init: RequestInit) => {
+        calledUrl = url;
+        body = JSON.parse(init.body as string);
+        return okFetch(chatResponse({ content: 'TASK_COMPLETE' }));
+      });
       vi.stubGlobal('fetch', fetchMock);
+      const backend = new OllamaBackend(baseConfig); // endpoint ends in /v1
+      const start = await backend.startSession({
+        workspacePath: workspace,
+        permissionMode: 'full',
+      });
+      if (!start.ok) return;
+      await drain(
+        backend.runTurn(start.value, {
+          sessionId: start.value.sessionId,
+          prompt: 'go',
+          isContinuation: false,
+        })
+      );
+      expect(calledUrl).toBe('http://127.0.0.1:11434/api/chat');
+      expect(calledUrl).not.toContain('/chat/completions');
+      expect(body.stream).toBe(false);
+      // tool schema unchanged (function shape)
+      expect(body.tools[0].function.name).toBe('bash');
+      // autosizing + warm-keep ride the body (SC1)
+      expect(body.options.num_ctx).toBe(8192); // baseConfig pins numCtx
+      expect(body.keep_alive).toBe('10m');
+    });
+
+    it('sends think:false in the /api/chat body when disableReasoning is set (SC5)', async () => {
+      let body: any;
+      vi.stubGlobal(
+        'fetch',
+        vi.fn(async (_u, init: RequestInit) => {
+          body = JSON.parse(init.body as string);
+          return okFetch(chatResponse({ content: 'TASK_COMPLETE' }));
+        })
+      );
       const backend = new OllamaBackend({ ...baseConfig, disableReasoning: true });
       const start = await backend.startSession({
         workspacePath: workspace,
         permissionMode: 'full',
       });
-      expect(start.ok).toBe(true);
       if (!start.ok) return;
       await drain(
         backend.runTurn(start.value, {
@@ -236,20 +287,26 @@ describe('OllamaBackend', () => {
           isContinuation: false,
         })
       );
+      expect(body.think).toBe(false);
       const session = start.value as import('../../../src/agent/backends/ollama').OllamaSession;
       const lastUser = [...session.messages].reverse().find((m) => m.role === 'user');
-      expect(lastUser?.content).toBe('do it /no_think');
+      expect(lastUser?.content).toBe('do it'); // no /no_think append
     });
 
-    it('does NOT append /no_think when disableReasoning is unset', async () => {
-      const fetchMock = vi.fn().mockResolvedValueOnce(okFetch(chatResponse({ content: 'DONE' })));
-      vi.stubGlobal('fetch', fetchMock);
+    it('omits think when disableReasoning is unset (SC5)', async () => {
+      let body: any;
+      vi.stubGlobal(
+        'fetch',
+        vi.fn(async (_u, init: RequestInit) => {
+          body = JSON.parse(init.body as string);
+          return okFetch(chatResponse({ content: 'TASK_COMPLETE' }));
+        })
+      );
       const backend = new OllamaBackend(baseConfig);
       const start = await backend.startSession({
         workspacePath: workspace,
         permissionMode: 'full',
       });
-      expect(start.ok).toBe(true);
       if (!start.ok) return;
       await drain(
         backend.runTurn(start.value, {
@@ -258,9 +315,7 @@ describe('OllamaBackend', () => {
           isContinuation: false,
         })
       );
-      const session = start.value as import('../../../src/agent/backends/ollama').OllamaSession;
-      const lastUser = [...session.messages].reverse().find((m) => m.role === 'user');
-      expect(lastUser?.content).toBe('do it');
+      expect(body.think).toBeUndefined();
     });
 
     it('emits heartbeat status events while a slow model call is pending', async () => {
@@ -303,7 +358,7 @@ describe('OllamaBackend', () => {
           .mockResolvedValueOnce(
             okFetch(
               chatResponse({
-                toolCalls: [{ id: 'c1', name: 'bash', args: { command: 'read x; echo "got:$x"' } }],
+                toolCalls: [{ name: 'bash', args: { command: 'read x; echo "got:$x"' } }],
               })
             )
           )
@@ -338,7 +393,7 @@ describe('OllamaBackend', () => {
           .mockResolvedValueOnce(
             okFetch(
               chatResponse({
-                toolCalls: [{ id: 'c1', name: 'bash', args: { command: 'sleep 30' } }],
+                toolCalls: [{ name: 'bash', args: { command: 'sleep 30' } }],
               })
             )
           )
@@ -518,7 +573,7 @@ describe('OllamaBackend', () => {
         await backend.stopSession(session);
         return okFetch(
           chatResponse({
-            toolCalls: [{ id: 'c1', name: 'bash', args: { command: 'echo hello' } }],
+            toolCalls: [{ name: 'bash', args: { command: 'echo hello' } }],
           })
         );
       });
@@ -549,7 +604,6 @@ describe('OllamaBackend', () => {
             chatResponse({
               toolCalls: [
                 {
-                  id: 'w1',
                   name: 'write_file',
                   args: { path: '../escaped.txt', content: 'PWNED' },
                 },
@@ -592,7 +646,7 @@ describe('OllamaBackend', () => {
           .mockResolvedValueOnce(
             okFetch(
               chatResponse({
-                toolCalls: [{ id: 'r1', name: 'read_file', args: { path: '../secret.txt' } }],
+                toolCalls: [{ name: 'read_file', args: { path: '../secret.txt' } }],
               })
             )
           )
@@ -620,6 +674,176 @@ describe('OllamaBackend', () => {
       } finally {
         rmSync(secret, { force: true });
       }
+    });
+  });
+
+  describe('resolveNumCtx (SC3)', () => {
+    // Autosizing config: drop baseConfig's pinned numCtx so /api/show is probed.
+    const autoConfig: OllamaBackendConfig = {
+      endpoint: baseConfig.endpoint,
+      model: baseConfig.model,
+    };
+    const showResp = (ctx: number) => okFetch({ model_info: { 'qwen3.context_length': ctx } });
+    it('honors numCtx override without querying /api/show', async () => {
+      const fetchMock = vi.fn();
+      vi.stubGlobal('fetch', fetchMock);
+      const backend = new OllamaBackend({ ...autoConfig, numCtx: 4096 });
+      const start = await backend.startSession({
+        workspacePath: workspace,
+        permissionMode: 'full',
+      });
+      if (!start.ok) return;
+      expect((start.value as any).numCtx).toBe(4096);
+      expect(fetchMock).not.toHaveBeenCalled();
+    });
+    it('picks min(modelMax, maxContextTokens)', async () => {
+      vi.stubGlobal('fetch', vi.fn().mockResolvedValue(showResp(262144)));
+      const backend = new OllamaBackend({ ...autoConfig, maxContextTokens: 32768 });
+      const start = await backend.startSession({
+        workspacePath: workspace,
+        permissionMode: 'full',
+      });
+      if (!start.ok) return;
+      expect((start.value as any).numCtx).toBe(32768);
+    });
+    it('uses modelMax when smaller than cap', async () => {
+      vi.stubGlobal('fetch', vi.fn().mockResolvedValue(showResp(8192)));
+      const backend = new OllamaBackend({ ...autoConfig, maxContextTokens: 32768 });
+      const start = await backend.startSession({
+        workspacePath: workspace,
+        permissionMode: 'full',
+      });
+      if (!start.ok) return;
+      expect((start.value as any).numCtx).toBe(8192);
+    });
+    it('falls back to DEFAULT_AUTO_CTX (16384) on /api/show failure', async () => {
+      vi.stubGlobal('fetch', vi.fn().mockRejectedValue(new Error('boom')));
+      const backend = new OllamaBackend(autoConfig);
+      const start = await backend.startSession({
+        workspacePath: workspace,
+        permissionMode: 'full',
+      });
+      if (!start.ok) return;
+      expect((start.value as any).numCtx).toBe(16384);
+    });
+  });
+
+  describe('native transport normalization', () => {
+    it('normalizes a native tool-call turn into internal OllamaChatResponse shape', () => {
+      const native = {
+        message: {
+          role: 'assistant',
+          content: '',
+          tool_calls: [
+            { function: { name: 'bash', arguments: { command: 'echo hi' } } },
+            { function: { name: 'read_file', arguments: { path: 'a.txt' } } },
+          ],
+        },
+        prompt_eval_count: 30,
+        eval_count: 5,
+        done: true,
+      };
+      const r = fromNativeResponse(native);
+      const msg = r.choices[0]!.message!;
+      expect(msg.tool_calls).toHaveLength(2);
+      expect(msg.tool_calls![0]).toEqual({
+        id: 'call_0',
+        type: 'function',
+        function: { name: 'bash', arguments: JSON.stringify({ command: 'echo hi' }) },
+      });
+      expect(msg.tool_calls![1]!.id).toBe('call_1');
+      expect(r.usage).toEqual({ prompt_tokens: 30, completion_tokens: 5 });
+    });
+
+    it('normalizes a plain text turn (no tool_calls) and omits usage keys when absent', () => {
+      const r = fromNativeResponse({
+        message: { role: 'assistant', content: 'TASK_COMPLETE' },
+        done: true,
+      });
+      expect(r.choices[0]!.message!.content).toBe('TASK_COMPLETE');
+      expect(r.choices[0]!.message!.tool_calls).toBeUndefined();
+      expect(r.usage).toEqual({ prompt_tokens: 0, completion_tokens: 0 });
+    });
+
+    it('builds native messages: assistant tool_calls args string→object, tool msg → {role,content,tool_name}', () => {
+      const internal = [
+        { role: 'system' as const, content: 'sys' },
+        { role: 'user' as const, content: 'go' },
+        {
+          role: 'assistant' as const,
+          content: '',
+          tool_calls: [
+            {
+              id: 'call_0',
+              type: 'function',
+              function: { name: 'bash', arguments: '{"command":"ls"}' },
+            },
+          ],
+        },
+        { role: 'tool' as const, tool_call_id: 'call_0', content: 'file listing' },
+      ];
+      const native = toNativeMessages(internal);
+      const asst = native[2] as {
+        tool_calls: Array<{ function: { name: string; arguments: unknown } }>;
+      };
+      expect(asst.tool_calls[0]!.function.arguments).toEqual({ command: 'ls' });
+      expect(native[3]).toEqual({ role: 'tool', content: 'file listing', tool_name: 'bash' });
+    });
+
+    it('correlates tool_name across MULTIPLE turns despite synthetic ids colliding (call_0 resets per turn)', () => {
+      // Native /api/chat matches tool RESULTS to calls by name+order, and the
+      // synthetic `call_<n>` ids reset to call_0 each response — so a global
+      // id→name lookup would mislabel turn 1's result with turn 2's tool name.
+      // Positional correlation must label each result with its own call's name.
+      const internal = [
+        { role: 'system' as const, content: 'sys' },
+        { role: 'user' as const, content: 'go' },
+        {
+          role: 'assistant' as const,
+          content: '',
+          tool_calls: [
+            { id: 'call_0', type: 'function', function: { name: 'bash', arguments: '{}' } },
+          ],
+        },
+        { role: 'tool' as const, tool_call_id: 'call_0', content: 'BASH RESULT' },
+        {
+          role: 'assistant' as const,
+          content: '',
+          tool_calls: [
+            { id: 'call_0', type: 'function', function: { name: 'read_file', arguments: '{}' } },
+          ],
+        },
+        { role: 'tool' as const, tool_call_id: 'call_0', content: 'READ RESULT' },
+      ];
+      const native = toNativeMessages(internal);
+      expect(native[3]).toEqual({ role: 'tool', content: 'BASH RESULT', tool_name: 'bash' });
+      expect(native[5]).toEqual({ role: 'tool', content: 'READ RESULT', tool_name: 'read_file' });
+    });
+
+    it('correlates two same-named tool calls in one turn to their results by order', () => {
+      const internal = [
+        {
+          role: 'assistant' as const,
+          content: '',
+          tool_calls: [
+            {
+              id: 'call_0',
+              type: 'function',
+              function: { name: 'bash', arguments: '{"command":"a"}' },
+            },
+            {
+              id: 'call_1',
+              type: 'function',
+              function: { name: 'bash', arguments: '{"command":"b"}' },
+            },
+          ],
+        },
+        { role: 'tool' as const, tool_call_id: 'call_0', content: 'RESULT A' },
+        { role: 'tool' as const, tool_call_id: 'call_1', content: 'RESULT B' },
+      ];
+      const native = toNativeMessages(internal);
+      expect(native[1]).toEqual({ role: 'tool', content: 'RESULT A', tool_name: 'bash' });
+      expect(native[2]).toEqual({ role: 'tool', content: 'RESULT B', tool_name: 'bash' });
     });
   });
 

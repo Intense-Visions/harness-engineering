@@ -21,6 +21,27 @@ import { OciServerlessBackend } from './backends/serverless.js';
 export interface CreateBackendOptions {
   /** Optional prompt-cache recorder shared across Anthropic-capable backends. */
   cacheMetrics?: CacheMetricsRecorder;
+  /**
+   * Available machine memory (GiB) the orchestrator prefills from
+   * `detectHardware()` (VRAM / unified memory). When present and an ollama def
+   * omits `maxContextTokens`, the factory derives the context cap from it via
+   * {@link contextCapFromMemoryGb}. Keeping detection at the orchestrator
+   * boundary lets `createBackend` stay pure/sync and the backend never import
+   * `local-models`.
+   */
+  hardwareMemoryGb?: number;
+}
+
+/**
+ * Conservative memory→context-cap heuristic (tokens). A generous machine gets a
+ * cap high enough that `modelMax` always wins; a constrained one gets a low cap
+ * so `num_ctx` is sized down instead of loading the model's full declared window.
+ */
+export function contextCapFromMemoryGb(memGb: number): number {
+  if (memGb >= 64) return 262144;
+  if (memGb >= 32) return 65536;
+  if (memGb >= 16) return 32768;
+  return 16384;
 }
 
 /**
@@ -120,7 +141,10 @@ function createPiBackend(def: BackendDefOf<'pi'>): AgentBackend {
   });
 }
 
-function createOllamaBackend(def: BackendDefOf<'ollama'>): AgentBackend {
+function createOllamaBackend(
+  def: BackendDefOf<'ollama'>,
+  options: CreateBackendOptions
+): AgentBackend {
   return new OllamaBackend({
     endpoint: def.endpoint,
     model: def.model,
@@ -128,6 +152,14 @@ function createOllamaBackend(def: BackendDefOf<'ollama'>): AgentBackend {
     ...(def.timeoutMs !== undefined ? { timeoutMs: def.timeoutMs } : {}),
     ...(def.maxTurnsPerRun !== undefined ? { maxTurnsPerRun: def.maxTurnsPerRun } : {}),
     ...(def.disableReasoning !== undefined ? { disableReasoning: def.disableReasoning } : {}),
+    ...(def.numCtx !== undefined ? { numCtx: def.numCtx } : {}),
+    ...(def.maxContextTokens !== undefined
+      ? { maxContextTokens: def.maxContextTokens }
+      : options.hardwareMemoryGb !== undefined
+        ? { maxContextTokens: contextCapFromMemoryGb(options.hardwareMemoryGb) }
+        : {}),
+    ...(def.numPredict !== undefined ? { numPredict: def.numPredict } : {}),
+    ...(def.keepAlive !== undefined ? { keepAlive: def.keepAlive } : {}),
     ...(def.mcpServers !== undefined ? { mcpServers: def.mcpServers } : {}),
   });
 }
@@ -187,7 +219,7 @@ export function createBackend(def: BackendDef, options: CreateBackendOptions = {
     case 'pi':
       return createPiBackend(def);
     case 'ollama':
-      return createOllamaBackend(def);
+      return createOllamaBackend(def, options);
     case 'ssh':
       return createSshBackend(def);
     case 'serverless':
