@@ -812,4 +812,37 @@ describe('settleWorkflowSuccess — staged empty-diff halt (D1/SC1)', () => {
     expect(persistSpy).toHaveBeenCalledWith('i1', 'success');
     expect(diff).not.toHaveBeenCalled();
   });
+
+  it('fails OPEN: a throwing diffRunner does NOT halt a real unit — success still persists', async () => {
+    // A diff-computation error must never turn a legitimate run into a false
+    // needs-human halt. The gate defaults hasChanges=true and swallows the throw.
+    const diff = vi.fn(async () => {
+      throw new Error('git exploded');
+    });
+    const orch = newOrch({ local: LOCAL_BACKEND }, 'local', undefined, 5, diff);
+    seedRunning(orch, 'i1', tmpDir);
+
+    const persistSpy = vi.spyOn(
+      orch as unknown as { persistLaneSafe: (u: string, l: string) => Promise<void> },
+      'persistLaneSafe'
+    );
+    const terminalSpy = vi.spyOn(
+      orch as unknown as {
+        settleWorkflowTerminal: (
+          u: string,
+          r: unknown[],
+          s?: unknown,
+          e?: unknown
+        ) => Promise<void>;
+      },
+      'settleWorkflowTerminal'
+    );
+
+    await settleSuccess(orch)('i1', [stageRun('local')]);
+
+    // Fail-open: the throw is swallowed, the unit completes as success, never halted.
+    expect(diff).toHaveBeenCalledTimes(1);
+    expect(persistSpy).toHaveBeenCalledWith('i1', 'success');
+    expect(terminalSpy).not.toHaveBeenCalled();
+  });
 });

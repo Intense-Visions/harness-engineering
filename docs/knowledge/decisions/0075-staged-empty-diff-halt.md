@@ -85,6 +85,13 @@ data-fencing is kept byte-identical (prompt-injection guard).
 - The routing fix (D4) and prompt drive (D5) reduce how often the empty-diff halt
   fires in practice — the execution stage now runs on the intended backend with a
   prompt that drives production — but the halt remains the backstop.
+- **Asymmetry with single-dispatch (intentional):** the single-dispatch empty-diff
+  gate re-dispatches via the retry budget before escalating; the staged empty-diff
+  gate is **terminal on first occurrence** (straight to `settleWorkflowTerminal` →
+  needs-human, no re-dispatch). This is deliberate — a staged unit has already
+  exhausted each stage's per-stage retries (`runStageWithRetry`) before reaching
+  `settleWorkflowSuccess`, so a further whole-unit retry would just repeat the same
+  hollow run. Escalating directly is the correct terminal action.
 
 ## Alternatives rejected
 

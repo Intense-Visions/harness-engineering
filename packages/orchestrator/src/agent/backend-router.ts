@@ -197,6 +197,11 @@ export class BackendRouter {
    * returns `false`, so AMR/#876 per-mode routing stays intact.
    *
    * Read-only over the router's own routing config (no mutation, no resolution).
+   *
+   * Keys on the PRESENCE of a `routing.skills`/`routing.modes` binding, whereas
+   * `resolve()` additionally requires the referenced backend to EXIST. This is
+   * equivalent under the standing invariant that `validateReferences` has run
+   * (bindings resolve to real backends) — the only way stage requests reach here.
    */
   wouldFallToDefault(useCase: RoutingUseCase): boolean {
     if (useCase.kind !== 'skill') return false;
