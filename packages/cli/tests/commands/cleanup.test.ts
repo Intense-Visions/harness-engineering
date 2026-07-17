@@ -5,7 +5,15 @@ const defaultAnalyzeResult = {
   ok: true as const,
   value: {
     drift: {
-      drifts: [{ docFile: 'docs/api.md', issue: 'outdated', details: 'missing new endpoints' }],
+      drifts: [
+        {
+          docFile: 'docs/api.md',
+          line: 12,
+          type: 'api-signature',
+          issue: 'outdated',
+          details: 'missing new endpoints',
+        },
+      ],
     },
     deadCode: {
       deadFiles: [{ path: 'src/old.ts' }],
@@ -79,6 +87,24 @@ describe('cleanup command', () => {
         expect(result.value.patternViolations[0].pattern).toBe('no-any');
 
         expect(result.value.totalIssues).toBe(4);
+      }
+    });
+
+    // Regression (#838): cleanup must expose the drift `type` (category) and
+    // `line` for each finding, mirroring what `harness ci check` emits for the
+    // same underlying drift. Without `type`, a category-based oracle (e.g.
+    // filter for "api-signature") silently reads zero for cleanup while
+    // matching ci check — the exact false discrepancy that produced #838.
+    it('surfaces drift type and line so output is consistent with ci check (#838)', async () => {
+      const result = await runCleanup({ cwd: '/tmp/test', type: 'drift' });
+      expect(result.ok).toBe(true);
+      if (result.ok) {
+        expect(result.value.driftIssues).toHaveLength(1);
+        const [drift] = result.value.driftIssues;
+        expect(drift.type).toBe('api-signature');
+        expect(drift.line).toBe(12);
+        // `issue` retains its existing "<ENUM>: <details>" shape (additive change).
+        expect(drift.issue).toContain('outdated');
       }
     });
 
