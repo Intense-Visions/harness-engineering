@@ -44,6 +44,24 @@ describe('resolveTriageProvider — free-local default', () => {
     expect(resolveTriageProvider(config)).toBeInstanceOf(OpenAICompatibleAnalysisProvider);
   });
 
+  it('resolves an `ollama` local backend (the default local backend since #843) — regression', () => {
+    // Before the fix the resolver only matched type 'local'/'pi', so the shipped
+    // default `type: ollama` backend yielded null and the brainstorm halted every
+    // item with "no fork generator or provider wired".
+    const config: TriageProviderConfig = {
+      agent: {
+        backends: {
+          local: {
+            type: 'ollama',
+            endpoint: 'http://127.0.0.1:11434/v1',
+            model: ['qwen3-coder:30b'],
+          },
+        },
+      },
+    };
+    expect(resolveTriageProvider(config)).toBeInstanceOf(OpenAICompatibleAnalysisProvider);
+  });
+
   it('does NOT silently fall back to Anthropic even when ANTHROPIC_API_KEY is present (the bug)', () => {
     process.env.ANTHROPIC_API_KEY = 'sk-ant-should-not-be-used';
     const config: TriageProviderConfig = {
