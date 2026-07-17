@@ -21,7 +21,10 @@ interface CleanupOptions {
 }
 
 interface CleanupResult {
-  driftIssues: Array<{ file: string; issue: string }>;
+  // `type` (drift category, e.g. "api-signature") and `line` mirror the fields
+  // `harness ci check` emits for the same underlying drift finding, so a single
+  // consumer/oracle can filter drift by category across both commands (#838).
+  driftIssues: Array<{ file: string; line: number; type: string; issue: string }>;
   deadCode: Array<{ file: string; symbol?: string }>;
   patternViolations: Array<{ file: string; pattern: string; message: string }>;
   totalIssues: number;
@@ -84,6 +87,8 @@ export async function runCleanup(
   if (report.drift) {
     result.driftIssues = report.drift.drifts.map((d) => ({
       file: d.docFile,
+      line: d.line,
+      type: d.type,
       issue: `${d.issue}: ${d.details}`,
     }));
   }
