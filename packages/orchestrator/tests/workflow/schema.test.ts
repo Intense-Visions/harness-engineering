@@ -89,6 +89,26 @@ describe('BackendDefSchema', () => {
     expect(result.success).toBe(true);
   });
 
+  it('accepts an ollama backend with numCtx/maxContextTokens/numPredict/keepAlive and rejects a negative numCtx', () => {
+    const ok = BackendDefSchema.safeParse({
+      type: 'ollama',
+      endpoint: 'http://127.0.0.1:11434/v1',
+      model: 'qwen3-agent:32b',
+      numCtx: 8192,
+      maxContextTokens: 32768,
+      numPredict: 512,
+      keepAlive: '10m',
+    });
+    expect(ok.success).toBe(true);
+    const bad = BackendDefSchema.safeParse({
+      type: 'ollama',
+      endpoint: 'http://127.0.0.1:11434/v1',
+      model: 'qwen3-agent:32b',
+      numCtx: -1,
+    });
+    expect(bad.success).toBe(false);
+  });
+
   it('rejects an ollama backend with an unknown field (strict)', () => {
     const result = BackendDefSchema.safeParse({
       type: 'ollama',

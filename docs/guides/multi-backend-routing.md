@@ -26,16 +26,16 @@ With this config, heavy guided-change work runs on Claude CLI (subscription, no 
 
 `agent.backends` is a map of operator-chosen names to backend definitions. Each entry is a discriminated union keyed by `type`. Valid types: `mock`, `claude`, `anthropic`, `openai`, `gemini`, `local`, `ollama`, `pi`.
 
-| type        | required fields     | optional fields                                                                           |
-| ----------- | ------------------- | ----------------------------------------------------------------------------------------- |
-| `mock`      | —                   | —                                                                                         |
-| `claude`    | —                   | `command` (default: `claude`)                                                             |
-| `anthropic` | `model`             | `apiKey`                                                                                  |
-| `openai`    | `model`             | `apiKey`                                                                                  |
-| `gemini`    | `model`             | `apiKey`                                                                                  |
-| `local`     | `endpoint`, `model` | `apiKey`, `timeoutMs`, `probeIntervalMs`                                                  |
-| `ollama`    | `endpoint`, `model` | `apiKey`, `timeoutMs`, `maxTurnsPerRun`, `disableReasoning`, `mcpServers`, `capabilities` |
-| `pi`        | `endpoint`, `model` | `apiKey`, `timeoutMs`, `probeIntervalMs`                                                  |
+| type        | required fields     | optional fields                                                                                                                                                                                     |
+| ----------- | ------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `mock`      | —                   | —                                                                                                                                                                                                   |
+| `claude`    | —                   | `command` (default: `claude`)                                                                                                                                                                       |
+| `anthropic` | `model`             | `apiKey`                                                                                                                                                                                            |
+| `openai`    | `model`             | `apiKey`                                                                                                                                                                                            |
+| `gemini`    | `model`             | `apiKey`                                                                                                                                                                                            |
+| `local`     | `endpoint`, `model` | `apiKey`, `timeoutMs`, `probeIntervalMs`                                                                                                                                                            |
+| `ollama`    | `endpoint`, `model` | `apiKey`, `timeoutMs`, `maxTurnsPerRun`, `disableReasoning`, `numCtx`, `numPredict`, `keepAlive`, `mcpServers`, `capabilities` (`maxContextTokens` is orchestrator-injected from detected hardware) |
+| `pi`        | `endpoint`, `model` | `apiKey`, `timeoutMs`, `probeIntervalMs`                                                                                                                                                            |
 
 `model` accepts a single string or a non-empty array. With an array, the orchestrator probes `${endpoint}/v1/models` and picks the first array entry that's loaded on the server. See [Local Model Resolution](../knowledge/orchestrator/local-model-resolution.md).
 
@@ -189,6 +189,15 @@ the advisory `review` gate is not yet routed by this flag.
 ```json
 { "agent": { "routing": { "default": "primary", "workflowGates": "primary" } } }
 ```
+
+### Native transport and context autosizing
+
+The `ollama` backend drives the model over Ollama's **native `/api/chat`** endpoint (the configured `endpoint`'s trailing `/v1` is stripped; the health-check probe stays on `/v1/models`). Native transport is what lets the backend honor `num_ctx`, `keep_alive`, and reasoning-off — the OpenAI-compat `/v1` endpoint silently ignores all three.
+
+- **`num_ctx` autosizing.** At session start the backend resolves the context window once: an explicit `numCtx` override wins; otherwise it queries `/api/show` for the model's declared max and picks `min(modelMax, hardwareCap)`. The hardware cap comes from `maxContextTokens`, which the orchestrator injects from detected machine memory (a conservative tiered heuristic); when neither the model max nor a cap is available it falls back to `DEFAULT_AUTO_CTX = 16384`. Set `numCtx` to pin the window explicitly and skip the probe.
+- **`keep_alive`.** The sized model is kept warm between turns (default `10m`, override via `keepAlive`) so it is not reloaded on each call.
+- **`num_predict`.** Set `numPredict` to bound the model's output tokens per turn; unset uses the model default.
+- **Reasoning off.** `disableReasoning: true` now sends native `think:false` on the `/api/chat` body — the old `/no_think` prompt-append hack (needed only on `/v1`) is retired.
 
 ### MCP tools for the local agent
 

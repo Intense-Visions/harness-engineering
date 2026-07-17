@@ -186,6 +186,10 @@ export const BackendDefSchema = z.discriminatedUnion('type', [
       timeoutMs: z.number().int().positive().optional(),
       maxTurnsPerRun: z.number().int().positive().optional(),
       disableReasoning: z.boolean().optional(),
+      numCtx: z.number().int().positive().optional(),
+      maxContextTokens: z.number().int().positive().optional(),
+      numPredict: z.number().int().positive().optional(),
+      keepAlive: z.string().optional(),
       mcpServers: z.array(McpServerSpecSchema).optional(),
       capabilities: BackendCapabilitiesSchema.optional(),
     })

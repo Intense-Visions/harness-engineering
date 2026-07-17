@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import type { BackendDef } from '@harness-engineering/types';
-import { createBackend } from '../../src/agent/backend-factory.js';
+import { createBackend, contextCapFromMemoryGb } from '../../src/agent/backend-factory.js';
 import { MockBackend } from '../../src/agent/backends/mock.js';
 import { ClaudeBackend } from '../../src/agent/backends/claude.js';
 import { AnthropicBackend } from '../../src/agent/backends/anthropic.js';
@@ -130,6 +130,24 @@ describe('createBackend', () => {
     expect(backend).toBeInstanceOf(OllamaBackend);
     expect(backend.timeoutMs).toBe(45_000);
     expect(backend.maxTurnsPerRun).toBe(12);
+  });
+
+  it('maps a generous machine to a high context cap and a small one to a low cap', () => {
+    expect(contextCapFromMemoryGb(128)).toBeGreaterThanOrEqual(131072); // modelMax wins
+    expect(contextCapFromMemoryGb(8)).toBeLessThanOrEqual(16384); // small → conservative
+    expect(contextCapFromMemoryGb(32)).toBeGreaterThan(16384);
+  });
+
+  it('propagates numCtx/numPredict/keepAlive to OllamaBackend when set', () => {
+    const def: BackendDef = {
+      type: 'ollama',
+      endpoint: 'http://x/v1',
+      model: 'm',
+      numCtx: 4096,
+      numPredict: 512,
+      keepAlive: '5m',
+    };
+    expect(createBackend(def)).toBeInstanceOf(OllamaBackend);
   });
 
   it('uses default timeoutMs and maxTurnsPerRun on OllamaBackend when not set', () => {

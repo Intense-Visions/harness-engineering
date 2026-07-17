@@ -20,21 +20,28 @@ const ECHO_SCHEMA = {
   required: ['text'],
 };
 
-/** Build a canned OpenAI-compatible chat response with optional tool calls. */
+/** Build a canned NATIVE /api/chat response with optional tool calls. */
 function chatResponse(opts: {
   content?: string;
-  toolCalls?: Array<{ id: string; name: string; args: unknown }>;
+  toolCalls?: Array<{ name: string; args: unknown }>;
   usage?: { prompt_tokens?: number; completion_tokens?: number };
 }) {
-  const message: Record<string, unknown> = { content: opts.content ?? '' };
+  const message: Record<string, unknown> = { role: 'assistant', content: opts.content ?? '' };
   if (opts.toolCalls) {
     message.tool_calls = opts.toolCalls.map((tc) => ({
-      id: tc.id,
-      type: 'function',
-      function: { name: tc.name, arguments: JSON.stringify(tc.args) },
+      function: { name: tc.name, arguments: tc.args },
     }));
   }
-  return { choices: [{ message }], ...(opts.usage ? { usage: opts.usage } : {}) };
+  return {
+    message,
+    done: true,
+    ...(opts.usage?.prompt_tokens !== undefined
+      ? { prompt_eval_count: opts.usage.prompt_tokens }
+      : {}),
+    ...(opts.usage?.completion_tokens !== undefined
+      ? { eval_count: opts.usage.completion_tokens }
+      : {}),
+  };
 }
 
 /** A `fetch` mock body that returns the given JSON with status 200. */
@@ -144,6 +151,9 @@ function inMemoryConnect(opts: { callDelayMs?: number } = {}) {
 const baseConfig: OllamaBackendConfig = {
   endpoint: 'http://127.0.0.1:11434/v1',
   model: 'qwen3-agent:32b',
+  // Pin num_ctx so startSession skips the /api/show autosizing probe; the fetch
+  // mocks in these MCP tests are dedicated to the /api/chat call only.
+  numCtx: 8192,
 };
 
 describe('OllamaBackend — MCP tools', () => {
@@ -181,9 +191,7 @@ describe('OllamaBackend — MCP tools', () => {
     const fetchMock = vi
       .fn()
       .mockResolvedValueOnce(
-        okFetch(
-          chatResponse({ toolCalls: [{ id: 'c1', name: 'demo__echo', args: { text: 'hi' } }] })
-        )
+        okFetch(chatResponse({ toolCalls: [{ name: 'demo__echo', args: { text: 'hi' } }] }))
       )
       .mockResolvedValueOnce(okFetch(chatResponse({ content: 'TASK_COMPLETE' })));
     vi.stubGlobal('fetch', fetchMock);
@@ -209,7 +217,7 @@ describe('OllamaBackend — MCP tools', () => {
     const toolMsg = session.messages.find((m) => m.role === 'tool');
     expect(toolMsg).toBeDefined();
     expect(toolMsg!.content).toBe('echoed:hi');
-    expect(toolMsg!.tool_call_id).toBe('c1');
+    expect(toolMsg!.tool_call_id).toBe('call_0');
   });
 
   // SC4 — a server that fails to connect is skipped with a warning; startSession still ok.
@@ -238,9 +246,7 @@ describe('OllamaBackend — MCP tools', () => {
       const fetchMock = vi
         .fn()
         .mockResolvedValueOnce(
-          okFetch(
-            chatResponse({ toolCalls: [{ id: 'b1', name: 'bash', args: { command: 'echo ok' } }] })
-          )
+          okFetch(chatResponse({ toolCalls: [{ name: 'bash', args: { command: 'echo ok' } }] }))
         )
         .mockResolvedValueOnce(okFetch(chatResponse({ content: 'TASK_COMPLETE' })));
       vi.stubGlobal('fetch', fetchMock);
@@ -252,7 +258,9 @@ describe('OllamaBackend — MCP tools', () => {
         })
       );
       expect(result.success).toBe(true);
-      const bashMsg = session.messages.find((m) => m.role === 'tool' && m.tool_call_id === 'b1');
+      const bashMsg = session.messages.find(
+        (m) => m.role === 'tool' && m.tool_call_id === 'call_0'
+      );
       expect(bashMsg?.content.trim()).toBe('ok');
     }
   );
@@ -263,9 +271,7 @@ describe('OllamaBackend — MCP tools', () => {
     const fetchMock = vi
       .fn()
       .mockResolvedValueOnce(
-        okFetch(
-          chatResponse({ toolCalls: [{ id: 'c1', name: 'demo__echo', args: { text: 'hi' } }] })
-        )
+        okFetch(chatResponse({ toolCalls: [{ name: 'demo__echo', args: { text: 'hi' } }] }))
       )
       .mockResolvedValueOnce(okFetch(chatResponse({ content: 'TASK_COMPLETE' })));
     vi.stubGlobal('fetch', fetchMock);
@@ -295,9 +301,7 @@ describe('OllamaBackend — MCP tools', () => {
     const fetchMock = vi
       .fn()
       .mockResolvedValueOnce(
-        okFetch(
-          chatResponse({ toolCalls: [{ id: 'c1', name: 'demo__echo', args: { text: 'hi' } }] })
-        )
+        okFetch(chatResponse({ toolCalls: [{ name: 'demo__echo', args: { text: 'hi' } }] }))
       )
       .mockResolvedValueOnce(okFetch(chatResponse({ content: 'TASK_COMPLETE' })));
     vi.stubGlobal('fetch', fetchMock);

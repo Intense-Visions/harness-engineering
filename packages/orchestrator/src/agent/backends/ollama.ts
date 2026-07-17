@@ -23,7 +23,7 @@ import type { Transport } from '@modelcontextprotocol/sdk/shared/transport.js';
  * Configuration for {@link OllamaBackend}. Mirrors the shape of
  * {@link import('./pi.js').PiBackendConfig} so a caller can point either backend
  * at the same local endpoint. Unlike pi (which embeds the pi-coding-agent SDK),
- * this backend owns its `/v1/chat/completions` tool loop.
+ * this backend owns its native `/api/chat` tool loop.
  */
 export interface OllamaBackendConfig {
   /** Ollama OpenAI-compatible base URL. Default: `http://127.0.0.1:11434/v1`. */
@@ -58,14 +58,26 @@ export interface OllamaBackendConfig {
    */
   bashTimeoutMs?: number | undefined;
   /**
-   * When true, append ` /no_think` to each user turn so reasoning models
-   * (Qwen3 family) skip `<think>` traces — Ollama's `/v1` endpoint ignores the
-   * `reasoning:false` knob, so the `/no_think` token in the last user message is
-   * the only reliable off-switch. Without it a reasoning model burns its output
-   * budget thinking and never emits a tool call. Default: false (harmless text
-   * for non-reasoning models, but only append when you know the model reasons).
+   * When true, send native `think:false` on the `/api/chat` body so reasoning
+   * models (Qwen3 family) skip `<think>` traces. The native endpoint honors this
+   * knob directly (the old `/no_think` prompt hack, needed only on the `/v1`
+   * OpenAI-compat endpoint, is retired). Without it a reasoning model burns its
+   * output budget thinking and never emits a tool call. Default: false (only set
+   * when you know the model reasons).
    */
   disableReasoning?: boolean | undefined;
+  /** Explicit context-window override (tokens). Set ⇒ autosizing is skipped. */
+  numCtx?: number | undefined;
+  /**
+   * Hardware-derived context cap (tokens) injected by the orchestrator wiring;
+   * the backend never imports local-models. Used as the ceiling in
+   * `min(modelMax, cap)` when `numCtx` is unset. Default `DEFAULT_AUTO_CTX`.
+   */
+  maxContextTokens?: number | undefined;
+  /** Output-token budget (`num_predict`). Unset ⇒ model default. */
+  numPredict?: number | undefined;
+  /** Keep the sized model warm between turns (`keep_alive`). Default `'10m'`. */
+  keepAlive?: string | undefined;
   /**
    * Called with the resolved model name after a turn completes successfully.
    * Bound by the orchestrator to `pool.markUsed` (LRU) + the resolver's
@@ -130,6 +142,25 @@ interface ToolCall {
   function: { name: string; arguments: string };
 }
 
+/** A native `/api/chat` message. Tool-call args are OBJECTS; tool results carry `tool_name` (no id). */
+interface NativeToolCall {
+  function: { name: string; arguments: Record<string, unknown> };
+}
+interface NativeMessage {
+  role: 'system' | 'user' | 'assistant' | 'tool';
+  content: string;
+  tool_calls?: NativeToolCall[];
+  tool_name?: string;
+}
+/** Native `/api/chat` non-stream response shape. */
+interface NativeChatResponse {
+  message?: { role?: string; content?: string | null; tool_calls?: NativeToolCall[] };
+  prompt_eval_count?: number;
+  eval_count?: number;
+  done?: boolean;
+  done_reason?: string;
+}
+
 /**
  * Outcome of one model round-trip in {@link OllamaBackend.runTurn}: either the
  * turn is finished (return its `result`) or the loop should request another.
@@ -151,6 +182,8 @@ export interface OllamaSession extends AgentSession {
   mcpToolMap: Map<string, { client: Client; toolName: string }>;
   /** Live MCP clients to close at `stopSession`. */
   mcpClients: Client[];
+  /** Resolved `num_ctx` for this session (override | min(modelMax, cap) | default). */
+  numCtx: number;
 }
 
 /** Max characters returned from a tool result before truncation. */
@@ -159,6 +192,10 @@ const MAX_TOOL_OUTPUT = 4000;
 const DEFAULT_ENDPOINT = 'http://127.0.0.1:11434/v1';
 const DEFAULT_TIMEOUT_MS = 600_000;
 const DEFAULT_MAX_TURNS = 50;
+/** Fallback context window (tokens) when autosizing has no cap and no model max. */
+const DEFAULT_AUTO_CTX = 16384;
+/** Keep the sized model warm between turns so it is not reloaded each call. */
+const DEFAULT_KEEP_ALIVE = '10m';
 /**
  * How often to emit a heartbeat `status` event while awaiting a slow model call
  * or tool execution. The orchestrator's stall detector resets on ANY agent
@@ -246,6 +283,93 @@ function resolveModelName(model: string | string[] | undefined): string | null {
   if (typeof model === 'string') return model.length > 0 ? model : null;
   if (Array.isArray(model) && model.length > 0) return model[0] ?? null;
   return null;
+}
+
+/**
+ * Normalize native tool-calls (args OBJECT, no id) into the internal
+ * OpenAI-shaped `ToolCall[]`: JSON.stringify each argument object and synthesize
+ * a stable `call_<n>` id. Returns `undefined` when there are no tool calls.
+ */
+function normalizeNativeToolCalls(native: NativeToolCall[] | undefined): ToolCall[] | undefined {
+  if (!native || native.length === 0) return undefined;
+  return native.map((tc, i) => ({
+    id: `call_${i}`,
+    type: 'function',
+    function: { name: tc.function.name, arguments: JSON.stringify(tc.function.arguments ?? {}) },
+  }));
+}
+
+/**
+ * Normalize a native `/api/chat` response into the internal
+ * {@link OllamaChatResponse} shape so the reviewed tool loop is unchanged:
+ * wrap `message` into `choices[0]`, JSON.stringify each tool-call's object
+ * arguments, synthesize a stable `id` (`call_<n>` — native provides none), and
+ * map `prompt_eval_count`/`eval_count` → `usage.prompt_tokens`/`completion_tokens`.
+ */
+export function fromNativeResponse(native: NativeChatResponse): OllamaChatResponse {
+  const nm = native.message;
+  const toolCalls = normalizeNativeToolCalls(nm?.tool_calls);
+  const message: { content?: string | null; tool_calls?: ToolCall[] } = {
+    content: nm?.content ?? '',
+    ...(toolCalls ? { tool_calls: toolCalls } : {}),
+  };
+  return {
+    choices: [{ message }],
+    usage: {
+      prompt_tokens: native.prompt_eval_count ?? 0,
+      completion_tokens: native.eval_count ?? 0,
+    },
+  };
+}
+
+/**
+ * Convert internal conversation messages (OpenAI-shaped, args-as-string) to
+ * native `/api/chat` messages: assistant `tool_calls` arguments string→object;
+ * `tool` messages → `{ role:'tool', content, tool_name }`.
+ *
+ * Native `/api/chat` correlates tool RESULTS to their calls by NAME + ORDER, so
+ * each `tool` message must carry the name of the call it answers. Synthetic
+ * `call_<n>` ids are only unique WITHIN one response (they reset to `call_0`
+ * every turn), so a global id→name lookup collides across turns and mislabels
+ * every prior turn's results. Correlate POSITIONALLY instead: track the most
+ * recent assistant `tool_calls` and consume them in order — the runner always
+ * appends tool results immediately after their assistant turn, in call order.
+ */
+export function toNativeMessages(messages: ChatMessage[]): NativeMessage[] {
+  let pendingCallNames: string[] = [];
+  let nextResultIndex = 0;
+  return messages.map((m) => {
+    if (m.role === 'tool') {
+      const toolName = pendingCallNames[nextResultIndex];
+      nextResultIndex += 1;
+      return { role: 'tool', content: m.content, ...(toolName ? { tool_name: toolName } : {}) };
+    }
+    if (m.tool_calls && m.tool_calls.length > 0) {
+      pendingCallNames = m.tool_calls.map((tc) => tc.function.name);
+      nextResultIndex = 0;
+      return {
+        role: m.role,
+        content: m.content,
+        tool_calls: m.tool_calls.map((tc) => ({
+          function: { name: tc.function.name, arguments: safeParseArgs(tc.function.arguments) },
+        })),
+      };
+    }
+    // A non-tool, non-tool-calling message ends the current call run.
+    pendingCallNames = [];
+    nextResultIndex = 0;
+    return { role: m.role, content: m.content };
+  });
+}
+
+/** Parse a JSON tool-argument string to an object; `{}` on malformed input. */
+function safeParseArgs(argsJson: string): Record<string, unknown> {
+  try {
+    const v = JSON.parse(argsJson) as unknown;
+    return v && typeof v === 'object' ? (v as Record<string, unknown>) : {};
+  } catch {
+    return {};
+  }
 }
 
 /** Coerce a JSON-parsed tool argument to a string, defaulting to `''`. */
@@ -386,7 +510,7 @@ function withTimeout<T>(p: Promise<T>, ms: number, label: string): Promise<T> {
 }
 
 /**
- * Native Ollama agentic backend. Owns its `/v1/chat/completions` tool loop:
+ * Native Ollama agentic backend. Owns its native `/api/chat` tool loop:
  * `startSession` seeds conversation state, `runTurn` drives the inner loop
  * (call model → execute native `tool_calls` → append results → repeat until the
  * model returns no tool call), and `stopSession` aborts an in-flight turn.
@@ -478,6 +602,7 @@ export class OllamaBackend implements AgentBackend {
       mcpTools: [],
       mcpToolMap: new Map(),
       mcpClients: [],
+      numCtx: DEFAULT_AUTO_CTX,
     };
 
     const specs = this.config.mcpServers ?? [];
@@ -486,6 +611,8 @@ export class OllamaBackend implements AgentBackend {
       specs.map((spec) => this.connectMcpServer(spec, session, connect, params.workspacePath))
     );
     warnIfLargeToolSet(session.mcpTools.length);
+
+    session.numCtx = await this.resolveNumCtx(resolvedModel);
 
     return Ok(session);
   }
@@ -548,10 +675,9 @@ export class OllamaBackend implements AgentBackend {
   ): AsyncGenerator<AgentEvent, TurnResult, void> {
     const ollamaSession = session as OllamaSession;
     ollamaSession.aborted = false;
-    // `/no_think` disables Qwen3 reasoning; it must ride the LAST user message
-    // (the inner loop appends only `tool` messages after this, so it stays last).
-    const userContent = this.config.disableReasoning ? `${params.prompt} /no_think` : params.prompt;
-    ollamaSession.messages.push({ role: 'user', content: userContent });
+    // Reasoning is disabled via native `think:false` on the /api/chat body (see
+    // callModel), not a prompt hack — the user turn carries the prompt verbatim.
+    ollamaSession.messages.push({ role: 'user', content: params.prompt });
 
     const usage = { input: 0, output: 0 };
     const fail = (error: string): TurnResult => {
@@ -726,6 +852,40 @@ export class OllamaBackend implements AgentBackend {
     }
   }
 
+  /** Native base = endpoint with a trailing `/v1` stripped (probe stays on `/v1`). */
+  private nativeBase(): string {
+    return this.endpoint.replace(/\/v1\/?$/, '');
+  }
+
+  /** D3: resolve the session's num_ctx once at startSession (override | min(modelMax, cap) | default). */
+  private async resolveNumCtx(model: string): Promise<number> {
+    if (this.config.numCtx !== undefined) return this.config.numCtx;
+    const cap = this.config.maxContextTokens ?? DEFAULT_AUTO_CTX;
+    const modelMax = await this.fetchModelMax(model);
+    return Math.min(modelMax ?? DEFAULT_AUTO_CTX, cap);
+  }
+
+  /** POST /api/show and read the first `model_info` key ending `.context_length`; null on any failure. */
+  private async fetchModelMax(model: string): Promise<number | null> {
+    try {
+      const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+      if (this.config.apiKey !== undefined) headers.Authorization = `Bearer ${this.config.apiKey}`;
+      const res = await fetch(`${this.nativeBase()}/api/show`, {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({ model }),
+      });
+      if (!res.ok) return null;
+      const json = (await res.json()) as { model_info?: Record<string, unknown> };
+      const info = json.model_info ?? {};
+      const key = Object.keys(info).find((k) => k.endsWith('.context_length'));
+      const val = key ? info[key] : undefined;
+      return typeof val === 'number' ? val : null;
+    } catch {
+      return null;
+    }
+  }
+
   /** POST the current conversation + tool schemas and return the parsed response. */
   private async callModel(session: OllamaSession): Promise<OllamaChatResponse> {
     const controller = new AbortController();
@@ -742,14 +902,22 @@ export class OllamaBackend implements AgentBackend {
     }
 
     try {
-      const res = await fetch(`${this.endpoint}/chat/completions`, {
+      const res = await fetch(`${this.nativeBase()}/api/chat`, {
         method: 'POST',
         headers,
         body: JSON.stringify({
           model: session.resolvedModel,
-          messages: session.messages,
+          messages: toNativeMessages(session.messages),
           tools: [...(TOOL_SCHEMAS as unknown as OpenAITool[]), ...session.mcpTools],
           stream: false,
+          keep_alive: this.config.keepAlive ?? DEFAULT_KEEP_ALIVE,
+          ...(this.config.disableReasoning ? { think: false } : {}),
+          options: {
+            num_ctx: session.numCtx,
+            ...(this.config.numPredict !== undefined
+              ? { num_predict: this.config.numPredict }
+              : {}),
+          },
         }),
         signal: controller.signal,
       });
@@ -759,7 +927,7 @@ export class OllamaBackend implements AgentBackend {
         throw new Error(`Ollama HTTP ${res.status} ${res.statusText}: ${truncate(body)}`);
       }
 
-      return (await res.json()) as OllamaChatResponse;
+      return fromNativeResponse((await res.json()) as NativeChatResponse);
     } catch (err) {
       if (controller.signal.aborted && !session.aborted) {
         throw new Error(`Ollama request timed out after ${this.timeoutMs}ms`, { cause: err });
