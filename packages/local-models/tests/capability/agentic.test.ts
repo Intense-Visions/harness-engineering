@@ -45,7 +45,12 @@ describe('probeAgenticSignals (SC6, D5)', () => {
     // Deterministic clock: +25ms per read (started, then after the timed call).
     let t = 0;
     const now = () => (t += 25);
-    const signals = await probeAgenticSignals({ model: 'qwen3:32b', baseUrl: BASE, fetchImpl: f, now });
+    const signals = await probeAgenticSignals({
+      model: 'qwen3:32b',
+      baseUrl: BASE,
+      fetchImpl: f,
+      now,
+    });
     expect(signals.toolCalling).toBe(true);
     expect(typeof signals.measuredAgenticLatencyMs).toBe('number');
     expect(signals.measuredAgenticLatencyMs!).toBeGreaterThan(0);
@@ -53,7 +58,11 @@ describe('probeAgenticSignals (SC6, D5)', () => {
 
   it('reports toolCalling:false for a tools-capable model that emits the call as TEXT', async () => {
     const f = fakeFetch({ capabilities: ['tools'], toolCalls: null });
-    const signals = await probeAgenticSignals({ model: 'qwen2.5-coder:7b', baseUrl: BASE, fetchImpl: f });
+    const signals = await probeAgenticSignals({
+      model: 'qwen2.5-coder:7b',
+      baseUrl: BASE,
+      fetchImpl: f,
+    });
     expect(signals.toolCalling).toBe(false);
     expect(typeof signals.measuredAgenticLatencyMs).toBe('number');
   });

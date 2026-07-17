@@ -141,7 +141,12 @@ describe('scoreAgentic — latency gate + monotonicity (SC3, D3)', () => {
 describe('rankModels — SC1: absent agentic inputs leave primary score + order unchanged', () => {
   const snapshot = buildSnapshot([
     { hfRepoId: QWEN_32B.hfRepoId, family: 'qwen3', sizeB: 32, observations: [directObs(80)] },
-    { hfRepoId: CODER_7B.hfRepoId, family: 'qwen2.5-coder', sizeB: 7, observations: [directObs(70)] },
+    {
+      hfRepoId: CODER_7B.hfRepoId,
+      family: 'qwen2.5-coder',
+      sizeB: 7,
+      observations: [directObs(70)],
+    },
   ]);
 
   it('produces identical score/order with and without the (absent) agentic fields, and always populates the triple', () => {
@@ -167,7 +172,12 @@ describe('rankModels — SC5: sorting by agenticScore prefers the tool-caller ov
     // Coder-7b: higher raw benchmark (90) but CANNOT tool-call.
     // Qwen-32b: lower raw benchmark (70) but CAN tool-call, fast.
     const snapshot = buildSnapshot([
-      { hfRepoId: CODER_7B.hfRepoId, family: 'qwen2.5-coder', sizeB: 7, observations: [directObs(90)] },
+      {
+        hfRepoId: CODER_7B.hfRepoId,
+        family: 'qwen2.5-coder',
+        sizeB: 7,
+        observations: [directObs(90)],
+      },
       { hfRepoId: QWEN_32B.hfRepoId, family: 'qwen3', sizeB: 32, observations: [directObs(70)] },
     ]);
     const candidates: RankerCandidate[] = [

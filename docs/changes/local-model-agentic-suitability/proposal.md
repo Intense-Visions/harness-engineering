@@ -11,8 +11,8 @@ keywords: local-models, ranker, agentic, tool-calling, latency, dispatch, agenti
 The pool ranker (`packages/local-models/src/ranker/algorithm.ts`) scores candidates by VRAM fitness +
 bandwidth-**estimated** speed + benchmark confidence, but never composes those into "is this model usable
 for **autonomous agentic dispatch**" — and that gap picks unusable models. Live evidence (2026-07-16):
-`llama3.3:70b` fits memory and its tokens/sec *estimate* looked fine, but real agentic latency was a
-**4-minute single call**; `qwen2.5-coder:7b` is fast but **won't emit `tool_calls`** (must be *excluded*
+`llama3.3:70b` fits memory and its tokens/sec _estimate_ looked fine, but real agentic latency was a
+**4-minute single call**; `qwen2.5-coder:7b` is fast but **won't emit `tool_calls`** (must be _excluded_
 from agentic routing, not merely down-ranked); `qwen3-coder:30b` (MoE ~3B active) tool-calls and drives the
 loop well.
 
@@ -31,19 +31,19 @@ wiring it into routing is a separate step).
   documented pure ("candidates in, ranked models out, no I/O"). Add two optional fields to
   `RankerCandidate`: `toolCalling?: boolean` (from the deterministic #833 probe) and
   `measuredAgenticLatencyMs?: number` (time-to-first-token / turn latency under a real agentic prompt).
-  The ranker consumes them; it does NOT perform I/O. _(Rationale: preserves the pure-orchestrator contract
-  + testability.)_
+  The ranker consumes them; it does NOT perform I/O. \_(Rationale: preserves the pure-orchestrator contract
+  - testability.)\_
 - **D2 — Tool-calling is a HARD gate.** `toolCalling === false` ⇒ `agenticEligible = false` and
   `agenticScore = 0` — excluded from agentic routing, not merely down-ranked. `undefined` (unprobed) ⇒
   eligible but flagged `toolCallingUnknown` (fail-open, matching the probe's own fail-open posture).
   _(Rationale: a model that can't tool-call cannot drive the loop at all.)_
 - **D3 — Measured latency gates/penalizes, over a budget.** A `latencyBudgetMs` (RankOptions, default e.g.
-  120_000) — a candidate whose `measuredAgenticLatencyMs` exceeds it is `agenticEligible = false`
+  120*000) — a candidate whose `measuredAgenticLatencyMs` exceeds it is `agenticEligible = false`
   (unusable for an interactive loop); under budget, `agenticScore` scales inversely with latency. Unmeasured
-  latency ⇒ fall back to the existing speed estimate (steeply discounted, flagged). _(Rationale: measured
-  beats estimated; a 4-min call is disqualifying even if it "fits".)_
+  latency ⇒ fall back to the existing speed estimate (steeply discounted, flagged). *(Rationale: measured
+  beats estimated; a 4-min call is disqualifying even if it "fits".)\_
 - **D4 — `agenticScore` composes gate × latency × existing quality.** `agenticScore = eligible ?
-  f(latency) × benchmarkScore × (optional buildQuality) : 0`, exposed as a SEPARATE field on `RankedModel`
+f(latency) × benchmarkScore × (optional buildQuality) : 0`, exposed as a SEPARATE field on `RankedModel`
   alongside the existing `score`, plus `agenticEligible: boolean` and an `agenticReasons: string[]`
   (why ineligible / discounted). The default ranking order is unchanged; callers selecting for dispatch sort
   by `agenticScore`. _(Rationale: additive, non-breaking; a fits-but-unusable model is never top for
