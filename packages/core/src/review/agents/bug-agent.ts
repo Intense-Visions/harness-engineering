@@ -52,8 +52,20 @@ function detectDivisionByZero(bundle: ContextBundle): ReviewFinding[] {
     const lines = cf.content.split('\n');
     for (let i = 0; i < lines.length; i++) {
       const line = lines[i]!;
-      // Look for division operations that don't have a preceding zero check
-      if (!line.match(/[^=!<>]\s*\/\s*[a-zA-Z_]\w*/) || line.includes('//')) continue;
+      const trimmed = line.trimStart();
+      // A scoped package path (`@scope/pkg`) in an import/export, a comment line,
+      // or a URL (`//`) contains a `/` that is NOT division. Real division in a
+      // prettier-formatted codebase is always spaced (`a / b`), so require
+      // whitespace around the `/` and a variable/paren divisor. This drops the
+      // `word/word` path false positives that flagged every scoped import.
+      if (
+        trimmed.startsWith('import ') ||
+        trimmed.startsWith('export ') ||
+        trimmed.startsWith('*') ||
+        line.includes('//')
+      )
+        continue;
+      if (!line.match(/[^=!<>*/]\s+\/\s+[a-zA-Z_(]/)) continue;
       if (hasPrecedingZeroCheck(lines, i)) continue;
       findings.push({
         id: makeFindingId('bug', cf.path, i + 1, 'division by zero'),
