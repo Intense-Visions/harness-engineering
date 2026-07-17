@@ -65,3 +65,34 @@ describe('stage-prompt templates thread the produces variable (SC5)', () => {
     );
   });
 });
+
+describe('LOCAL_STAGE_PROMPT_TEMPLATE drives completion, not "run then stop" (D5/SC5)', () => {
+  it('drives the model to PRODUCE the declared output', () => {
+    expect(LOCAL_STAGE_PROMPT_TEMPLATE).toContain('PRODUCE');
+    expect(LOCAL_STAGE_PROMPT_TEMPLATE).toContain('{{ produces }}');
+  });
+
+  it('no longer instructs "then stop" as the terminal action after merely reading', () => {
+    // The old wording ("Complete THIS stage's task, then stop." / "follow its
+    // output VERBATIM") let a local model stop after reading the skill's
+    // instructions without doing the work. The drive wording must not tell the
+    // model to stop before producing its output.
+    expect(LOCAL_STAGE_PROMPT_TEMPLATE).not.toContain('then stop.');
+  });
+
+  it('keeps the prior-stage <<<BEGIN>>>/<<<END>>> data-fencing BYTE-IDENTICAL', () => {
+    // These exact substrings must survive verbatim so prior-artifact injection is
+    // still treated as DATA, not as instructions (prompt-injection guard).
+    expect(LOCAL_STAGE_PROMPT_TEMPLATE).toContain(
+      '<<<BEGIN {{ entry.name }}>>>\n{{ entry.output }}'
+    );
+    expect(LOCAL_STAGE_PROMPT_TEMPLATE).toContain('{{ entry.output }}\n<<<END {{ entry.name }}>>>');
+  });
+
+  it('keeps the harness skill run --autonomous bash block and the /harness:X redirect intact', () => {
+    expect(LOCAL_STAGE_PROMPT_TEMPLATE).toContain(
+      'harness skill run {{ skill }} --autonomous --path .'
+    );
+    expect(LOCAL_STAGE_PROMPT_TEMPLATE).toContain('harness skill run harness-X --autonomous');
+  });
+});
