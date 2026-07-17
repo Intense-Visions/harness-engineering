@@ -205,4 +205,68 @@ describe('MonolithStore', () => {
     // One sibling survives — the other slug-colliding row is gone, not both.
     expect(written.value.milestones[0]!.features).toHaveLength(1);
   });
+
+  // #839 (destructive re-serialization): a write MUST NOT silently drop
+  // hand-authored content the model does not capture. When the on-disk file
+  // carries such content, write actions refuse and leave the file untouched.
+  describe('#839: refuses to rewrite a monolith carrying unpreservable content', () => {
+    // A canonical roadmap PLUS an `- **Issue:**` bullet, a multi-line Summary,
+    // and a `>` blockquote intro — exactly the content the reporter lost.
+    const RICH_ROADMAP_MD = `---
+project: harness-engineering
+version: 1
+last_synced: 2026-07-17T00:00:00.000Z
+last_manual_edit: 2026-07-17T00:00:00.000Z
+---
+
+# Roadmap
+
+## MVP Release
+
+> This blockquote intro is not modeled and would be dropped.
+
+### A feature
+
+- **Status:** planned
+- **Spec:** —
+- **Summary:** First line of the summary.
+  Second line that the single-line parser truncates away.
+- **Issue:** [#839](https://github.com/x/y/issues/839)
+- **Blockers:** —
+- **Plan:** —
+`;
+
+    it('patchFeature() returns Err and does not write', async () => {
+      const { io, files, writes } = makeIO({ [ROADMAP_PATH]: RICH_ROADMAP_MD });
+      const store = new MonolithStore({ roadmapPath: ROADMAP_PATH, io });
+      const r = await store.patchFeature('a-feature', (f) => ({ ...f, status: 'done' }));
+      expect(r.ok).toBe(false);
+      if (!r.ok) expect(r.error.message).toMatch(/#839/);
+      // No write happened; the file is byte-for-byte intact.
+      expect(writes).toHaveLength(0);
+      expect(files.get(ROADMAP_PATH)).toBe(RICH_ROADMAP_MD);
+    });
+
+    it('addFeature() returns Err and does not write', async () => {
+      const { io, files, writes } = makeIO({ [ROADMAP_PATH]: RICH_ROADMAP_MD });
+      const store = new MonolithStore({ roadmapPath: ROADMAP_PATH, io });
+      const r = await store.addFeature({
+        slug: 'b-feature',
+        milestone: 'MVP Release',
+        order: 20,
+        feature: feat('B feature', 'planned'),
+      });
+      expect(r.ok).toBe(false);
+      expect(writes).toHaveLength(0);
+      expect(files.get(ROADMAP_PATH)).toBe(RICH_ROADMAP_MD);
+    });
+
+    it('still writes normally when the on-disk file is canonical (guard is not over-eager)', async () => {
+      const { io, writes } = makeIO();
+      const store = new MonolithStore({ roadmapPath: ROADMAP_PATH, io });
+      const r = await store.patchFeature('a-feature', (f) => ({ ...f, status: 'done' }));
+      expect(r.ok).toBe(true);
+      expect(writes).toEqual([ROADMAP_PATH]);
+    });
+  });
 });
