@@ -184,7 +184,8 @@ describe('staged integration — graceful degradation (SC3)', () => {
       },
     });
     await runStageWithRetry(ctx, 'unit', 0, step({ skill: 'harness-planning' }), []);
-    expect(prompts[0]).toContain('harness skill run');
-    expect(prompts[0]).toContain('--autonomous');
+    // Pin the FULL indirection contract end-to-end: the stage's skill name threads
+    // into the `harness skill run <skill> --autonomous` command, not just the fragments.
+    expect(prompts[0]).toContain('harness skill run harness-planning --autonomous');
   });
 });

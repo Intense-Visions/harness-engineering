@@ -437,7 +437,11 @@ describe('per-mode stage routing (SC1/SC6)', () => {
     return {
       ...fakeCtx({ resultContent: 'ok' }),
       adaptiveRouter: {
-        route: async (req) => ({ decision: decisionFor(req.useCase.cognitiveMode) }),
+        route: async (req) => ({
+          decision: decisionFor(
+            'cognitiveMode' in req.useCase ? req.useCase.cognitiveMode : undefined
+          ),
+        }),
         recordOutcome: () => {},
       },
     } as WorkflowEngineContext;
