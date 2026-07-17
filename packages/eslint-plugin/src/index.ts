@@ -28,6 +28,7 @@ const plugin = {
         '@harness-engineering/no-hardcoded-path-separator': 'warn',
         '@harness-engineering/no-process-env-in-spawn': 'error',
         '@harness-engineering/require-path-normalization': 'warn',
+        '@harness-engineering/no-focused-tests': 'error',
       },
     },
     strict: {
@@ -49,6 +50,7 @@ const plugin = {
         '@harness-engineering/no-hardcoded-path-separator': 'error',
         '@harness-engineering/no-process-env-in-spawn': 'error',
         '@harness-engineering/require-path-normalization': 'error',
+        '@harness-engineering/no-focused-tests': 'error',
       },
     },
   },
