@@ -11,4 +11,9 @@ report-only by default; `--apply` prompts per group in a TTY; `--yes` applies
 non-interactively; a non-TTY run without `--yes` never mutates (safe in
 automation). Additions/removals reuse the existing add/remove/dismiss config
 plumbing; Tier-1 servers surface their required env var and never invent a
-secret. `harness doctor`'s freshness advisory points at it.
+secret.
+
+To make it discoverable, `harness update` now prints a report-only drift
+nudge after updating (and `harness doctor`'s freshness advisory points at it),
+so a refreshed catalog isn't invisible to a project that configured its
+servers earlier.
