@@ -198,6 +198,8 @@ Tools appear to the model **namespaced** as `<server>__<tool>` (so two servers c
 
 `harness-mcp` — and any server without an explicit `cwd` — is spawned with `cwd =` the agent's workspace (the git worktree it is editing), so harness's own code-intelligence tools (`code_search`, `ask_graph`, `review_changes`, `outcome_eval`) operate on the code the agent is building rather than the daemon's repo. Set a per-server `cwd` to override.
 
+Each server entry also takes an optional `tools` — a per-server allowlist of tool names (the server's own names, before namespacing). When set, only those tools are aggregated from that server; omit it (the default) to expose **all** of the server's tools. This exists because a broad server floods a local model with choice: `harness-mcp` alone exposes ~95 tools, and past a threshold the model over-explores instead of cleanly finishing (choice paralysis, not a context limit). If an allowlisted name isn't one the server exposes (a typo or version drift), it is warned and skipped — never fatal, so one stale name can't break a dispatch. When the aggregated set (built-ins + all MCP tools) grows large, the backend logs a one-line advisory pointing back here; there is no hard cap. The shipped `harness` example narrows to the read-oriented set (`code_search`, `ask_graph`, `review_changes`, `outcome_eval`, `gather_context`) for exactly this reason; `context7` is left un-narrowed because it exposes only a few tools.
+
 ```yaml
 agent:
   backends:
@@ -211,6 +213,7 @@ agent:
           args: ['-y', '@upstash/context7-mcp']
         - name: harness # code_search / ask_graph / review_changes / outcome_eval,
           command: harness-mcp # run against the agent's workspace
+          tools: [code_search, ask_graph, review_changes, outcome_eval, gather_context] # narrow ~95 → read set
 ```
 
 ## Migrating from the legacy schema

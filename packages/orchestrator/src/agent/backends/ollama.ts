@@ -171,6 +171,13 @@ const DEFAULT_HEARTBEAT_MS = 30_000;
 const DEFAULT_BASH_TIMEOUT_MS = 300_000;
 /** Bounded wall-clock (ms) for a single MCP server connect+listTools. */
 const DEFAULT_MCP_CONNECT_TIMEOUT_MS = 15_000;
+/**
+ * Aggregated tool count (built-ins + all MCP tools) above which the backend logs
+ * a one-line advisory pointing at the per-server `tools` allowlist. A large tool
+ * set induces choice paralysis in a local model (it over-explores and never
+ * cleanly signals completion); this surfaces the risk without a hard cap.
+ */
+const LARGE_TOOL_SET_WARN = 40;
 
 /**
  * The distinctive completion marker the model must emit — on its own line, with
@@ -277,6 +284,42 @@ function resolveInsideWorkspace(workspacePath: string, requested: string): strin
 /** Sanitize a segment to `[A-Za-z0-9_-]` for use in a namespaced tool name. */
 function sanitizeSegment(s: string): string {
   return s.replace(/[^A-Za-z0-9_-]/g, '_');
+}
+
+/**
+ * Apply a server's `tools` allowlist (D1): keep only tools whose pre-namespacing
+ * name is listed. Absent ⇒ every tool (byte-identical to prior behavior). Also
+ * warns once (D3) for any requested name the server never exposed (typo/version
+ * drift) — never fatal; the server still connects with the tools it does have.
+ */
+function filterServerTools(spec: McpServerSpec, tools: McpToolDescriptor[]): McpToolDescriptor[] {
+  if (spec.tools === undefined) return tools;
+  const allow = spec.tools;
+  const kept = tools.filter((t) => allow.includes(t.name));
+  const exposed = new Set(tools.map((t) => t.name));
+  const missing = [...new Set(allow.filter((name) => !exposed.has(name)))];
+  if (missing.length > 0) {
+    console.warn(
+      `[ollama-mcp] server '${spec.name}': requested tools not found: ${missing.join(', ')}`
+    );
+  }
+  return kept;
+}
+
+/**
+ * Warn once (D4) when the aggregated tool set (built-ins + `mcpToolCount` MCP
+ * tools) exceeds {@link LARGE_TOOL_SET_WARN}. Uses the live built-in count
+ * ({@link TOOL_SCHEMAS} length) rather than a magic number. Advisory only — no
+ * hard cap; the operator narrows via each server's `tools` allowlist.
+ */
+function warnIfLargeToolSet(mcpToolCount: number): void {
+  const total = TOOL_SCHEMAS.length + mcpToolCount;
+  if (total > LARGE_TOOL_SET_WARN) {
+    console.warn(
+      `[ollama-mcp] aggregated tool set is large (${total} tools > ${LARGE_TOOL_SET_WARN}); ` +
+        "a local model may over-explore — narrow it via each server's `tools` allowlist."
+    );
+  }
 }
 
 /**
@@ -442,6 +485,7 @@ export class OllamaBackend implements AgentBackend {
     await Promise.all(
       specs.map((spec) => this.connectMcpServer(spec, session, connect, params.workspacePath))
     );
+    warnIfLargeToolSet(session.mcpTools.length);
 
     return Ok(session);
   }
@@ -471,7 +515,7 @@ export class OllamaBackend implements AgentBackend {
       );
       session.mcpClients.push(client);
       const nsPrefix = sanitizeSegment(spec.name);
-      for (const tool of tools) {
+      for (const tool of filterServerTools(spec, tools)) {
         const namespaced = `${nsPrefix}__${sanitizeSegment(tool.name)}`;
         if (session.mcpToolMap.has(namespaced)) continue;
         session.mcpTools.push({

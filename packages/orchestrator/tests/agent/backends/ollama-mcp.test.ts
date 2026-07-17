@@ -85,6 +85,46 @@ async function makeLinkedServer(opts: { callDelayMs?: number } = {}): Promise<Cl
   return client;
 }
 
+/**
+ * Stand up a linked in-memory MCP server exposing an arbitrary set of tools (each
+ * carrying `ECHO_SCHEMA`), plus a connected Client. Used by the allowlist +
+ * large-tool-set tests to control exactly which tools a server reports.
+ */
+async function makeMultiToolServer(toolNames: string[]): Promise<Client> {
+  const server = new Server({ name: 'multi', version: '1.0.0' }, { capabilities: { tools: {} } });
+  server.setRequestHandler(ListToolsRequestSchema, async () => ({
+    tools: toolNames.map((name) => ({
+      name,
+      description: `${name} tool`,
+      inputSchema: ECHO_SCHEMA,
+    })),
+  }));
+  server.setRequestHandler(CallToolRequestSchema, async (req) => ({
+    content: [{ type: 'text', text: `called:${String(req.params.name)}` }],
+  }));
+  const [clientT, serverT] = InMemoryTransport.createLinkedPair();
+  await server.connect(serverT);
+  const client = new Client({ name: 'test', version: '1.0.0' }, { capabilities: {} });
+  await client.connect(clientT);
+  return client;
+}
+
+/** connectMcp seam returning a server that exposes exactly `toolNames`. */
+function multiToolConnect(toolNames: string[]): NonNullable<OllamaBackendConfig['connectMcp']> {
+  return async (): Promise<{ client: Client; tools: McpToolDescriptor[] }> => {
+    const client = await makeMultiToolServer(toolNames);
+    const listed = await client.listTools();
+    return {
+      client,
+      tools: listed.tools.map((t) => ({
+        name: t.name,
+        ...(t.description !== undefined ? { description: t.description } : {}),
+        inputSchema: t.inputSchema as Record<string, unknown>,
+      })),
+    };
+  };
+}
+
 /** connectMcp seam returning the linked in-memory client + its listTools result. */
 function inMemoryConnect(opts: { callDelayMs?: number } = {}) {
   return async (): Promise<{ client: Client; tools: McpToolDescriptor[] }> => {
@@ -313,5 +353,75 @@ describe('OllamaBackend — MCP tools', () => {
     if (!start.ok) return;
     expect(seen).toContain(workspace);
     expect(seen).toContain('/custom');
+  });
+
+  // SC1 — `tools` unset ⇒ every tool a server exposes is aggregated (byte-identical).
+  it("aggregates all of a server's tools when `tools` is unset (SC1)", async () => {
+    const backend = new OllamaBackend({
+      ...baseConfig,
+      mcpServers: [{ name: 'multi', command: 'x' }],
+      connectMcp: multiToolConnect(['echo', 'other']),
+    });
+    const start = await backend.startSession({ workspacePath: workspace, permissionMode: 'full' });
+    expect(start.ok).toBe(true);
+    if (!start.ok) return;
+    const session = start.value as OllamaSession;
+    const names = session.mcpTools.map((t) => t.function.name);
+    expect(names).toEqual(['multi__echo', 'multi__other']);
+  });
+
+  // SC2 — `tools: ['echo']` narrows a server exposing echo+other to only echo.
+  it('aggregates only allowlisted tools when `tools` is set (SC2)', async () => {
+    const backend = new OllamaBackend({
+      ...baseConfig,
+      mcpServers: [{ name: 'multi', command: 'x', tools: ['echo'] }],
+      connectMcp: multiToolConnect(['echo', 'other']),
+    });
+    const start = await backend.startSession({ workspacePath: workspace, permissionMode: 'full' });
+    expect(start.ok).toBe(true);
+    if (!start.ok) return;
+    const session = start.value as OllamaSession;
+    const names = session.mcpTools.map((t) => t.function.name);
+    expect(names).toEqual(['multi__echo']);
+    expect(names).not.toContain('multi__other');
+  });
+
+  // SC3 — an allowlisted name the server doesn't expose is warned + skipped;
+  // the tools it does have are still aggregated and startSession succeeds.
+  it('warns and skips an unknown allowlisted tool name, session still ok (SC3)', async () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    const backend = new OllamaBackend({
+      ...baseConfig,
+      mcpServers: [{ name: 'multi', command: 'x', tools: ['echo', 'missing'] }],
+      connectMcp: multiToolConnect(['echo', 'other']),
+    });
+    const start = await backend.startSession({ workspacePath: workspace, permissionMode: 'full' });
+    expect(start.ok).toBe(true);
+    if (!start.ok) return;
+    const session = start.value as OllamaSession;
+    expect(session.mcpTools.map((t) => t.function.name)).toEqual(['multi__echo']);
+    expect(warn).toHaveBeenCalledWith(
+      expect.stringContaining("server 'multi': requested tools not found: missing")
+    );
+  });
+
+  // SC5 — a server exposing more than LARGE_TOOL_SET_WARN tools fires exactly one
+  // large-tool-set advisory (built-ins + MCP tools exceed the threshold).
+  it('fires exactly one large-tool-set warning past the threshold (SC5)', async () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    const manyTools = Array.from({ length: 45 }, (_, i) => `tool${i}`);
+    const backend = new OllamaBackend({
+      ...baseConfig,
+      mcpServers: [{ name: 'multi', command: 'x' }],
+      connectMcp: multiToolConnect(manyTools),
+    });
+    const start = await backend.startSession({ workspacePath: workspace, permissionMode: 'full' });
+    expect(start.ok).toBe(true);
+    if (!start.ok) return;
+    const largeWarnings = warn.mock.calls.filter((c) =>
+      String(c[0]).includes('aggregated tool set is large')
+    );
+    expect(largeWarnings).toHaveLength(1);
+    expect(String(largeWarnings[0]![0])).toContain('48 tools'); // 3 built-ins + 45 MCP
   });
 });

@@ -619,6 +619,13 @@ export interface McpServerSpec {
   env?: Record<string, string>;
   /** Working directory; defaults to the session `workspacePath`. */
   cwd?: string;
+  /**
+   * Per-server tool allowlist (pre-namespacing tool names). When present, only
+   * these tools are aggregated from the server; absent ⇒ all tools (byte-identical
+   * to prior behavior). Narrows a broad server (e.g. `harness-mcp`'s ~95 tools) to
+   * a high-value set so a local model is not overwhelmed by choice.
+   */
+  tools?: string[];
 }
 
 export interface OllamaBackendDef {

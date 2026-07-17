@@ -167,12 +167,23 @@ last_manual_edit: 2026-06-27T12:51:51.967Z
 
 ### Wire suggested MCP servers (incl. harness itself) into the OllamaBackend agent
 
-- **Status:** planned
-- **Spec:** —
+- **Status:** done
+- **Spec:** docs/changes/ollama-mcp-tools/proposal.md
 - **Summary:** Give the local `OllamaBackend` agent the same power cloud drivers get from MCP: expose the harness-suggested MCP servers as agent tools alongside `bash`/`read_file`/`write_file`. Today the local agent has only those three built-ins, so it writes code from stale memory — e.g. it used the deprecated `@typescript-eslint/utils` RuleTester import when **context7** returns the current `@typescript-eslint/rule-tester` API (verified live). The fix generalizes: an **MCP client in `OllamaBackend`** that, at `startSession`, connects to the configured/suggested MCP servers (from the refreshed catalog — [[mcp-catalog-refresh]]), enumerates each server's tools, and adds them (namespaced, e.g. `context7__query-docs`, `harness__code_search`) to the tool schema it sends to the model; on a tool call for an MCP tool it forwards to the server and returns the result. **Include harness's own MCP** so the local agent can `code_search` / `ask_graph` / `outcome_eval` / `review_changes` on itself — the highest-leverage set for harness-native work. Reuse the harness's existing MCP client plumbing + the `@modelcontextprotocol/sdk` rather than a bespoke per-server tool. Config: a per-backend allowlist of which suggested servers the agent gets (default a safe set: context7 docs + harness read-only tools; opt-in for write/network-heavy servers). Respect the interactive vs full-tool permission mode. This is the single biggest capability lever for local-model success — combined with a stronger model ([[local-model-discovery-recommendation]]) it directly targets the observed failure (writes plausible code but with wrong/old APIs and no doc lookup). MVP: context7 `lookup_docs` (HTTP, no key — proven) + the harness MCP; then generalize to the full catalog.
 - **Blockers:** —
 - **Plan:** —
 - **Assignee:** —
+- **Priority:** P1
+- **External-ID:** 849
+
+### Curate which MCP-server tools the local agent sees (per-server tool allowlist)
+
+- **Status:** in-progress
+- **Spec:** docs/changes/local-mcp-tool-curation/proposal.md
+- **Summary:** [[ollama-backend-mcp-tools]] wires whole MCP servers into the local agent, but a broad server floods the model: in the live e2e (2026-07-16) the harness MCP alone exposed **95 tools**, and `qwen3-coder:30b` — given ~98 tools total — wrote the correct file via context7 but then **over-explored** (a cat/find/read/ls verification loop) without cleanly emitting `TASK_COMPLETE`, so a real dispatch would end via `maxTurns` rather than clean success. Choice-paralysis, not context size (the model had 262144 ctx). Fix: a **per-server `tools?: string[]` allowlist** on `McpServerSpec` — when set, only those tool names from that server are aggregated (namespaced), default unset = all tools (byte-identical). Curate the scaffolded harness example to the read-oriented set ([[ollama-backend-mcp-tools]] D3: `code_search`, `ask_graph`, `review_changes`, `outcome_eval`, `gather_context`) instead of all 95. Warn (not hard-cap) when the aggregated tool count crosses a large threshold, pointing at the allowlist. Portable — the allowlist works for any server, not just harness. Directly improves the robustness of the just-shipped local MCP path.
+- **Blockers:** —
+- **Plan:** —
+- **Assignee:** Chad Warner
 - **Priority:** P1
 - **External-ID:** —
 
