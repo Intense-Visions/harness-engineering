@@ -152,6 +152,43 @@ describe('discoverCandidates wide-net (SC1)', () => {
     expect(ids).toContain('Qwen/Qwen3.6-27B-GGUF'); // trending-only new model reaches the pool
     expect(ids).toContain('Qwen/Qwen3-32B-GGUF'); // established still present
   });
+
+  it('SC2: dedupes overlap by id and caps the inspected set at perOrgLimit', async () => {
+    const shared = { id: 'Qwen/Qwen3-32B-GGUF', tags: ['gguf'] } as HuggingFaceModel;
+    const { client, calls } = sortAwareClient(
+      {
+        Qwen: {
+          downloads: [shared, { id: 'Qwen/Qwen3.6-27B-GGUF', tags: ['gguf'] } as HuggingFaceModel],
+          trending: [shared], // overlaps downloads → must dedupe, not double
+        },
+      },
+      {
+        'Qwen/Qwen3-32B-GGUF': detail('Qwen/Qwen3-32B-GGUF', ['Q4_K_M']),
+        'Qwen/Qwen3.6-27B-GGUF': detail('Qwen/Qwen3.6-27B-GGUF', ['Q4_K_M']),
+      }
+    );
+    await discoverCandidates({ orgs: ['Qwen'], curation: WIDE_CURATION, client, perOrgLimit: 5 });
+    // shared id fetched exactly once (deduped across the two sorts)
+    const sharedFetches = calls.get.filter((id) => id === 'Qwen/Qwen3-32B-GGUF');
+    expect(sharedFetches).toHaveLength(1);
+    // both sorts were queried
+    expect(calls.list.map((c) => c.sort).sort()).toEqual(['downloads', 'trending']);
+  });
+
+  it('SC2: never inspects more than perOrgLimit distinct repos', async () => {
+    const many = (n: number) =>
+      Array.from(
+        { length: n },
+        (_, i) => ({ id: `Qwen/M${i}-GGUF`, tags: ['gguf'] }) as HuggingFaceModel
+      );
+    const { client, calls } = sortAwareClient(
+      { Qwen: { downloads: many(4), trending: many(4).map((m) => ({ ...m, id: m.id + 'T' })) } },
+      {}
+    );
+    // getModel throws for all (uncurated) — we only assert the cap on inspection count
+    await discoverCandidates({ orgs: ['Qwen'], curation: WIDE_CURATION, client, perOrgLimit: 3 });
+    expect(calls.get.length).toBeLessThanOrEqual(3);
+  });
 });
 
 describe('curationFromCandidates', () => {
