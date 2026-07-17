@@ -297,8 +297,20 @@ export class AdaptiveRouter {
       escalationFloor
     );
     const target = this.selectTarget(requiredTier, req); // Tasks 5–7 fill this
+    // #876 execution-stage mis-route fix (D4/SC3): a useCase with NO per-skill /
+    // per-mode / per-tier binding is SUPPOSED to resolve to `routing.default` (the
+    // per-phase execution backend). Handing `selectTarget`'s tier-cheapest
+    // qualifying backend to `invocationOverride` would short-circuit
+    // `resolve()` step 1 and land it on the reasoner instead. So when the useCase
+    // would fall to default, we DROP the override and let `resolveDecisionAndDef`
+    // resolve through the normal chain to `routing.default`. AMR tier selection is
+    // preserved for every OTHER useCase (tier / intelligence / per-skill / design
+    // stages with a bound cognitiveMode) — those do NOT fall to default, so the
+    // override still applies. A privacy/allowlist exclusion still fails closed in
+    // `selectTarget` (it throws before we reach here), so this gate never masks it.
+    const applyOverride = target !== undefined && !this.deps.router.wouldFallToDefault(req.useCase);
     const { decision, def } = this.deps.router.resolveDecisionAndDef(req.useCase, {
-      ...(target !== undefined ? { invocationOverride: target } : {}),
+      ...(applyOverride ? { invocationOverride: target } : {}),
     });
     const estCostUsd = estimateCost(def, req);
     // D8: accrue this decision's estimated cost into the monotonic accumulator so

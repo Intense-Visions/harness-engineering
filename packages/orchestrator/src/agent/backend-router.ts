@@ -178,6 +178,38 @@ export class BackendRouter {
   }
 
   /**
+   * True iff `useCase` is a BARE SKILL stage — `kind:'skill'` with NO
+   * `cognitiveMode` and NO `routing.skills[skillName]` binding — so `resolve()`
+   * (absent an `invocationOverride`) would fall through to step 5 `routing.default`.
+   *
+   * The AMR path uses this to decide whether `selectCheapestQualifying`'s
+   * tier-pick may legitimately override the per-phase split. A bare skill
+   * execution stage MUST land on `routing.default` (the per-phase execution
+   * backend), so AMR must NOT hand it an `invocationOverride` (that would
+   * short-circuit resolve step 1 and mis-route it to the tier-cheapest backend —
+   * the #876 execution-stage mis-route).
+   *
+   * Deliberately SCOPED to skill use cases: a `kind:'tier'` / `'intelligence'`
+   * useCase with no explicit routing binding ALSO falls to default in `resolve()`,
+   * but for those AMR tier selection is the INTENDED override (Task 5's
+   * cheapest-qualifying selection), so they return `false` here. A design stage
+   * (`cognitiveMode` bound in `routing.modes`) or a per-skill-overridden stage also
+   * returns `false`, so AMR/#876 per-mode routing stays intact.
+   *
+   * Read-only over the router's own routing config (no mutation, no resolution).
+   */
+  wouldFallToDefault(useCase: RoutingUseCase): boolean {
+    if (useCase.kind !== 'skill') return false;
+    // A per-skill (step 2) binding wins over default.
+    if (this.routing.skills?.[useCase.skillName] !== undefined) return false;
+    // A bound cognitiveMode (step 3, #876 design-stage routing) wins over default.
+    const mode = useCase.cognitiveMode;
+    if (mode !== undefined && this.routing.modes?.[mode] !== undefined) return false;
+    // Bare skill, no per-skill/per-mode binding ⇒ resolve() falls to routing.default.
+    return true;
+  }
+
+  /**
    * Returns the {@link BackendDef} reference for the resolved name.
    * Identity-equal to the entry in `backends` (no copy) so callers
    * relying on reference equality (SC21) continue to work.
