@@ -9,6 +9,7 @@ import type {
 import { BackendRouter } from './backend-router.js';
 import { buildCapabilityRegistry, PrivacyNoMatch } from './capability-registry.js';
 import { AdaptiveRouter } from './adaptive-router.js';
+import { buildStageRequest } from '../workflow/execute-workflow.js';
 import { EscalationState } from './escalation-state.js';
 import { RoutingDecisionBus } from '../routing/decision-bus.js';
 import type { RoutingDecision } from '@harness-engineering/types';
@@ -118,6 +119,86 @@ describe('AdaptiveRouter — skeleton + classify seam (Task 4)', () => {
 
     expect(classify).toHaveBeenCalledTimes(0);
     expect(decision.complexity).toEqual(verdict('complex'));
+  });
+});
+
+describe('per-phase routing: no-mode stage → routing.default (SC3/SC4)', () => {
+  // Reproduce the pilot mis-route: a no-cognitiveMode execution stage
+  // (kind:'skill', no routing.skills entry) has NO per-skill/per-mode override,
+  // so it should fall to routing.default. But AdaptiveRouter.route hands
+  // selectTarget's tier-cheapest qualifying backend to invocationOverride, which
+  // short-circuits BackendRouter.resolve step 1 and lands it on the reasoner.
+  //
+  // Fixture: default classify → verdict('moderate') → deriveRequiredTier
+  // 'standard'. `reasoner` (tier standard) is the only tier-qualifying backend, so
+  // selectCheapestQualifying picks it, while routing.default = 'coder' (tier fast,
+  // which does NOT qualify 'standard').
+  const backends = {
+    coder: localDef(cap({ tier: 'fast', costPer1kTokens: 0 })),
+    reasoner: localDef(cap({ tier: 'standard', costPer1kTokens: 10 })),
+  };
+  const routing = { default: 'coder', modes: { thinking: 'reasoner' } } as const;
+
+  const step = (over: { skill: string; cognitiveMode?: string }) => ({
+    skill: over.skill,
+    produces: 'artifact.md',
+    ...(over.cognitiveMode !== undefined ? { cognitiveMode: over.cognitiveMode } : {}),
+  });
+
+  it('SC3: a no-cognitiveMode execution stage resolves to routing.default, not the reasoner', async () => {
+    const router = new BackendRouter({ backends, routing });
+    const registry = buildCapabilityRegistry(backends);
+    const adaptive = new AdaptiveRouter({
+      router,
+      registry,
+      policy: minimalPolicy,
+      classify: () => verdict('moderate'),
+    });
+
+    const req = buildStageRequest(step({ skill: 'harness-execution' }), 'unit-1', []);
+    const { decision } = await adaptive.route(req);
+    // MUST fall to routing.default — NOT the tier-picked reasoner.
+    expect(decision.backendName).toBe('coder');
+  });
+
+  it('SC4: a cognitiveMode:thinking design stage still pins routing.modes.thinking (#876)', async () => {
+    const router = new BackendRouter({ backends, routing });
+    const registry = buildCapabilityRegistry(backends);
+    const adaptive = new AdaptiveRouter({
+      router,
+      registry,
+      policy: minimalPolicy,
+      classify: () => verdict('moderate'),
+    });
+
+    const req = buildStageRequest(
+      step({ skill: 'harness-brainstorming', cognitiveMode: 'thinking' }),
+      'unit-1',
+      []
+    );
+    const { decision } = await adaptive.route(req);
+    expect(decision.backendName).toBe('reasoner');
+  });
+
+  it('a bare skill stage with an EXPLICIT routingHint keeps AMR tier selection (split-routing SC2)', async () => {
+    // A no-cognitiveMode skill stage that carries a deterministic
+    // routingHint.complexity DELIBERATELY drives tier selection to a specific
+    // backend — this is NOT a mis-route, so the invocationOverride must stay and
+    // resolve to the tier-picked `reasoner`, NOT routing.default.
+    const router = new BackendRouter({ backends, routing });
+    const registry = buildCapabilityRegistry(backends);
+    const classify = vi.fn(() => verdict('trivial')); // must NOT run — hint seeds complexity
+    const adaptive = new AdaptiveRouter({ router, registry, policy: minimalPolicy, classify });
+
+    const hinted = {
+      skill: 'harness-execution',
+      produces: 'artifact.md',
+      routingHint: { complexity: verdict('moderate') }, // → standard tier → reasoner
+    };
+    const req = buildStageRequest(hinted, 'unit-1', []);
+    const { decision } = await adaptive.route(req);
+    expect(decision.backendName).toBe('reasoner');
+    expect(classify).not.toHaveBeenCalled();
   });
 });
 

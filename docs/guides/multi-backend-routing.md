@@ -221,6 +221,30 @@ A red verify, or a high-confidence `NOT_SATISFIED` outcome verdict, **blocks the
 
 This enforcement is scoped to the local path only; the primary/Claude completion path is unchanged. The gate provider defaults to the local SEL provider (the same one the classifier uses); the `agent.routing.workflowGates` flag below routes the outcome-eval gate to a stronger provider. See [ADR 0070](../knowledge/decisions/0070-harness-enforced-local-gates.md).
 
+#### Empty-diff halt (single-dispatch and staged)
+
+A local run that **produces no workspace changes** implemented nothing — an empty
+diff would trivially pass `verify` (typecheck/lint/test of an unchanged tree) and be
+marked done. Both local completion paths therefore halt on an empty diff before
+persisting success:
+
+- **Single-dispatch** (a plain `local`/`pi`/`ollama` issue): the enforced gate
+  short-circuits _before_ `verify` with `no changes produced` and re-dispatches via
+  the retry budget.
+- **Staged workflows** (`workflows:`): when the last stage routed to a
+  local-endpoint backend, the unit's workspace is diffed at completion; an empty
+  diff routes the unit to the existing terminal → `needs-human` escalation instead
+  of `success → done`. A non-local staged unit and any unit that produced real
+  changes complete exactly as before (the check is a no-op off the local path).
+
+This extends the #843 single-dispatch trustworthiness guarantee — a local unit
+either produces a non-empty diff or halts visibly — to the staged path. It is a
+_completion_ guard, not a quality one: it stops hollow "ran but wrote nothing"
+completions; judging whether real changes satisfy the spec stays the outcome-eval
+gate's job. Recall the design/execution routing split above: execution stages (no
+`cognitiveMode`) resolve to `routing.default`, not the design reasoner, so the
+backend that gets diffed here is the per-phase execution backend.
+
 ### `agent.routing.workflowGates` (local gate provider)
 
 Controls which backend evaluates the LOCAL (`pi`) dispatch's `outcome-eval`

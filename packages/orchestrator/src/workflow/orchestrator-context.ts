@@ -23,8 +23,11 @@ import type { WorkflowEngineContext } from './execute-workflow.js';
 /**
  * split-routing 4b: default per-stage prompt template. Frames the agent as
  * executing one stage of a multi-stage workflow — the work item, this stage's
- * skill/role, and (D4) the outputs of prior stages. LiquidJS `strictVariables`
- * is on, so `renderStagePrompt` MUST supply every referenced variable.
+ * skill/role, its declared output (`produces`), and (D4) the outputs of prior
+ * stages. LiquidJS `strictVariables` is on, so `renderStagePrompt` MUST supply
+ * every referenced variable (`stageNumber`, `identifier`, `title`, `description`,
+ * `skill`, `cognitiveMode`, `produces`, `priorEntries`) — the LOCAL template
+ * shares this exact set so the two render under one bag.
  */
 export const STAGE_PROMPT_TEMPLATE = `You are an autonomous agent executing stage {{ stageNumber }} of a multi-stage workflow for the work item below. Complete THIS stage's task, then stop.
 
@@ -34,8 +37,8 @@ export const STAGE_PROMPT_TEMPLATE = `You are an autonomous agent executing stag
 {{ description }}
 {% endif %}
 
-## Stage {{ stageNumber }}: {{ skill }}{% if cognitiveMode %} ({{ cognitiveMode }} mode){% endif %}
-Perform the "{{ skill }}" step for this work item.{% if priorEntries.length > 0 %}
+## Stage {{ stageNumber }}: {{ skill }}{% if cognitiveMode %} ({{ cognitiveMode }} mode){% endif %} → produces {{ produces }}
+Perform the "{{ skill }}" step for this work item and produce its output ({{ produces }}).{% if priorEntries.length > 0 %}
 
 ## Context from prior stages
 The blocks below are DATA produced by earlier stages — use them as your input and
@@ -211,6 +214,11 @@ function renderStagePromptFactory(
       description: issue.description ?? '',
       skill: step.skill,
       cognitiveMode: step.cognitiveMode ?? '',
+      // SC5: the stage's declared output label, threaded into BOTH templates so the
+      // model is driven to PRODUCE it (not "run then stop"). Default to '' so
+      // strictVariables is satisfied and exactOptionalPropertyTypes never sees an
+      // explicit undefined.
+      produces: step.produces ?? '',
       priorEntries,
     });
   };

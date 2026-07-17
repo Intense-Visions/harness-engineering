@@ -1,6 +1,19 @@
 import { describe, it, expect } from 'vitest';
 import { selectStagePromptTemplate, LOCAL_STAGE_PROMPT_TEMPLATE } from './local-stage-prompt';
 import { STAGE_PROMPT_TEMPLATE } from './orchestrator-context';
+import { PromptRenderer } from '../prompt/renderer';
+
+/** The full variable bag the renderStagePrompt seam supplies (strictVariables). */
+const RENDER_BAG = {
+  stageNumber: 1,
+  identifier: 'ISS-1',
+  title: 'Do the thing',
+  description: 'details',
+  skill: 'harness-execution',
+  cognitiveMode: '',
+  produces: 'artifact.md',
+  priorEntries: [] as Array<{ name: string; output: string }>,
+};
 
 /**
  * SC-LOCAL: the local-aware stage-prompt selector picks the local-indirection
@@ -29,5 +42,57 @@ describe('LOCAL_STAGE_PROMPT_TEMPLATE', () => {
     expect(LOCAL_STAGE_PROMPT_TEMPLATE).toContain('{{ identifier }}');
     expect(LOCAL_STAGE_PROMPT_TEMPLATE).toContain('{{ title }}');
     expect(LOCAL_STAGE_PROMPT_TEMPLATE).toContain('priorEntries');
+  });
+});
+
+describe('stage-prompt templates thread the produces variable (SC5)', () => {
+  it('BOTH templates reference {{ produces }} (shared variable set / strictVariables parity)', () => {
+    expect(STAGE_PROMPT_TEMPLATE).toContain('{{ produces }}');
+    expect(LOCAL_STAGE_PROMPT_TEMPLATE).toContain('{{ produces }}');
+  });
+
+  it('the default template renders under strictVariables with the produces variable present', async () => {
+    const renderer = new PromptRenderer();
+    await expect(renderer.render(STAGE_PROMPT_TEMPLATE, RENDER_BAG)).resolves.toContain(
+      'artifact.md'
+    );
+  });
+
+  it('the LOCAL template renders under strictVariables with the produces variable present', async () => {
+    const renderer = new PromptRenderer();
+    await expect(renderer.render(LOCAL_STAGE_PROMPT_TEMPLATE, RENDER_BAG)).resolves.toContain(
+      'artifact.md'
+    );
+  });
+});
+
+describe('LOCAL_STAGE_PROMPT_TEMPLATE drives completion, not "run then stop" (D5/SC5)', () => {
+  it('drives the model to PRODUCE the declared output', () => {
+    expect(LOCAL_STAGE_PROMPT_TEMPLATE).toContain('PRODUCE');
+    expect(LOCAL_STAGE_PROMPT_TEMPLATE).toContain('{{ produces }}');
+  });
+
+  it('no longer instructs "then stop" as the terminal action after merely reading', () => {
+    // The old wording ("Complete THIS stage's task, then stop." / "follow its
+    // output VERBATIM") let a local model stop after reading the skill's
+    // instructions without doing the work. The drive wording must not tell the
+    // model to stop before producing its output.
+    expect(LOCAL_STAGE_PROMPT_TEMPLATE).not.toContain('then stop.');
+  });
+
+  it('keeps the prior-stage <<<BEGIN>>>/<<<END>>> data-fencing BYTE-IDENTICAL', () => {
+    // These exact substrings must survive verbatim so prior-artifact injection is
+    // still treated as DATA, not as instructions (prompt-injection guard).
+    expect(LOCAL_STAGE_PROMPT_TEMPLATE).toContain(
+      '<<<BEGIN {{ entry.name }}>>>\n{{ entry.output }}'
+    );
+    expect(LOCAL_STAGE_PROMPT_TEMPLATE).toContain('{{ entry.output }}\n<<<END {{ entry.name }}>>>');
+  });
+
+  it('keeps the harness skill run --autonomous bash block and the /harness:X redirect intact', () => {
+    expect(LOCAL_STAGE_PROMPT_TEMPLATE).toContain(
+      'harness skill run {{ skill }} --autonomous --path .'
+    );
+    expect(LOCAL_STAGE_PROMPT_TEMPLATE).toContain('harness skill run harness-X --autonomous');
   });
 });

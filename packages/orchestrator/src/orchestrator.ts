@@ -3260,6 +3260,46 @@ export class Orchestrator extends EventEmitter {
    */
   private async settleWorkflowSuccess(unit: string, runs: StageRun[]): Promise<void> {
     const entry = this.state.running.get(unit);
+    // D1–D3 (trustworthy-staged-local-dispatch): extend #843's single-dispatch
+    // empty-diff halt (runLocalWorkflowGate:2620-2630) to the STAGED path. A staged
+    // LOCAL unit whose stages produced ZERO workspace changes implemented nothing —
+    // marking it `success → done` ships a hollow completion. Before persisting
+    // success, diff the unit's workspace; an empty diff routes to the EXISTING
+    // terminal → needs-human escalation (settleWorkflowTerminal), never persistLane.
+    //
+    // Runs BEFORE any state mutation below so settleWorkflowTerminal still sees the
+    // live `running` entry (it reads identifier/issue.title from it). Scoped to the
+    // SAME locality predicate the single-dispatch gate uses: only a LOCAL last-stage
+    // backend is gated, so non-local staged units are byte-identical (SC6). Fails
+    // OPEN — a missing workspace/entry or a diffRunner throw proceeds to success
+    // (preserving SC2 and the already-deleted-entry race) rather than halting a unit
+    // we cannot diff.
+    const lastBackendName = runs[runs.length - 1]?.decision?.backendName;
+    const lastDef =
+      lastBackendName !== undefined ? this.config.agent.backends?.[lastBackendName] : undefined;
+    const isLocal = lastDef !== undefined && isLocalEndpointBackend(lastDef);
+    const workspacePath = entry?.workspacePath;
+    if (isLocal && workspacePath !== undefined) {
+      let hasChanges = true; // fail-OPEN default (SC2)
+      try {
+        hasChanges = (await this.diffRunner(workspacePath)).hasChanges;
+      } catch (err) {
+        this.logger.warn(`Staged empty-diff gate: diff failed, proceeding to success`, {
+          issueId: unit,
+          error: err instanceof Error ? err.message : String(err),
+        });
+      }
+      if (!hasChanges) {
+        // Empty diff → the existing terminal/needs-human escalation (D3). Mirrors
+        // #843's single-dispatch reason (orchestrator.ts:2628). No state mutated yet.
+        return await this.settleWorkflowTerminal(
+          unit,
+          runs,
+          undefined,
+          new Error('no changes produced — the agent completed without implementing anything')
+        );
+      }
+    }
     // Reducer normal-exit sequence (state-machine.ts:457,467-469):
     this.state.running.delete(unit);
     this.state.completed.set(unit, Date.now());

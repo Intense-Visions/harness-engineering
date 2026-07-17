@@ -297,8 +297,30 @@ export class AdaptiveRouter {
       escalationFloor
     );
     const target = this.selectTarget(requiredTier, req); // Tasks 5–7 fill this
+    // #876 execution-stage mis-route fix (D4/SC3): a BARE execution stage — a skill
+    // useCase with NO per-skill / per-mode binding (would fall to `routing.default`)
+    // AND NO explicit tier signal — is SUPPOSED to resolve to `routing.default` (the
+    // per-phase execution backend). Handing `selectTarget`'s tier-cheapest
+    // qualifying backend to `invocationOverride` short-circuits `resolve()` step 1
+    // and lands it on the reasoner instead (the pilot mis-route). So for such a
+    // stage we DROP the override and let `resolveDecisionAndDef` resolve through the
+    // normal chain to `routing.default`.
+    //
+    // The "explicit tier signal" guard is `req.complexity`: a stage with a
+    // deterministic `routingHint.complexity` (buildStageRequest seeds `req.complexity`
+    // from it) DELIBERATELY drives AMR tier selection to a specific backend
+    // (split-routing SC2) — that is NOT a mis-route, so the override stays. Only a
+    // stage whose tier was DERIVED by live classification (`req.complexity` absent)
+    // and which has no per-skill/per-mode binding falls to default. AMR tier
+    // selection is preserved for tier/intelligence useCases, per-skill overrides,
+    // design stages (bound cognitiveMode), and any explicitly hinted stage. A
+    // privacy/allowlist exclusion still fails closed in `selectTarget` (it throws
+    // before we reach here), so this gate never masks it.
+    const bareExecutionStage =
+      req.complexity === undefined && this.deps.router.wouldFallToDefault(req.useCase);
+    const applyOverride = target !== undefined && !bareExecutionStage;
     const { decision, def } = this.deps.router.resolveDecisionAndDef(req.useCase, {
-      ...(target !== undefined ? { invocationOverride: target } : {}),
+      ...(applyOverride ? { invocationOverride: target } : {}),
     });
     const estCostUsd = estimateCost(def, req);
     // D8: accrue this decision's estimated cost into the monotonic accumulator so

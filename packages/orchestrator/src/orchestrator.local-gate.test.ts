@@ -165,6 +165,37 @@ function gate(
   ).runLocalWorkflowGate.bind(orch);
 }
 
+/** Reach the private staged-completion settle `settleWorkflowSuccess`. */
+function settleSuccess(orch: Orchestrator): (unit: string, runs: unknown[]) => Promise<void> {
+  return (unit, runs) =>
+    (
+      orch as unknown as {
+        settleWorkflowSuccess: (u: string, r: unknown[]) => Promise<void>;
+      }
+    ).settleWorkflowSuccess(unit, runs);
+}
+
+/** Seed a `state.running` entry so the settle path sees a workspacePath. */
+function seedRunning(orch: Orchestrator, unit: string, workspacePath: string): void {
+  (orch as unknown as { state: { running: Map<string, unknown> } }).state.running.set(unit, {
+    issueId: unit,
+    identifier: 'ISS-1',
+    issue: { ...ISSUE, id: unit },
+    workspacePath,
+    session: null,
+  });
+}
+
+/** A minimal StageRun whose routed backend name drives locality. */
+function stageRun(backendName: string): unknown {
+  return {
+    index: 0,
+    step: { skill: 'harness-execution', produces: 'artifact.md' },
+    outcome: 'pass',
+    decision: { backendName },
+  };
+}
+
 /** Reach the private completion seam `finalizeNormalCompletion`. */
 function finalize(
   orch: Orchestrator
@@ -692,5 +723,126 @@ describe('local gate exhaustion → needs-human (Task 8 / SC3 tail)', () => {
 
     await finalize(orch)(ISSUE, tmpDir, 2, 'local'); // exhausts budget → escalate + clear
     expect(priorMap.has(ISSUE.id)).toBe(false);
+  });
+});
+
+describe('settleWorkflowSuccess — staged empty-diff halt (D1/SC1)', () => {
+  it('SC1: local staged unit with empty diff does NOT persist success — halts to the terminal/needs-human path', async () => {
+    // The staged path (settleWorkflowSuccess) marks a unit done with NO diff
+    // check today, so a hollow completion (zero workspace changes) ships as
+    // success. Mirror #843's single-dispatch empty-diff halt: an empty diff must
+    // route to the existing terminal/needs-human escalation, never persistLane('success').
+    const diff = vi.fn(async () => ({ hasChanges: false }));
+    const orch = newOrch({ local: LOCAL_BACKEND }, 'local', undefined, 5, diff);
+    seedRunning(orch, 'i1', tmpDir);
+
+    const persistSpy = vi.spyOn(
+      orch as unknown as { persistLaneSafe: (u: string, l: string) => Promise<void> },
+      'persistLaneSafe'
+    );
+    const terminalSpy = vi.spyOn(
+      orch as unknown as {
+        settleWorkflowTerminal: (
+          u: string,
+          r: unknown[],
+          s?: unknown,
+          e?: unknown
+        ) => Promise<void>;
+      },
+      'settleWorkflowTerminal'
+    );
+
+    await settleSuccess(orch)('i1', [stageRun('local')]);
+
+    // Empty diff halted the unit — success was NEVER persisted.
+    expect(persistSpy).not.toHaveBeenCalledWith('i1', 'success');
+    // It routed to the existing terminal/needs-human escalation with the halt reason.
+    expect(terminalSpy).toHaveBeenCalledTimes(1);
+    const err = terminalSpy.mock.calls[0]![3];
+    const reason = err instanceof Error ? err.message : String(err);
+    expect(reason).toContain('no changes produced');
+    expect(diff).toHaveBeenCalledTimes(1);
+  });
+
+  it('SC2: local staged unit with a non-empty diff completes exactly as today (persistLane success)', async () => {
+    const diff = vi.fn(async () => ({ hasChanges: true }));
+    const orch = newOrch({ local: LOCAL_BACKEND }, 'local', undefined, 5, diff);
+    seedRunning(orch, 'i1', tmpDir);
+
+    const persistSpy = vi.spyOn(
+      orch as unknown as { persistLaneSafe: (u: string, l: string) => Promise<void> },
+      'persistLaneSafe'
+    );
+    const terminalSpy = vi.spyOn(
+      orch as unknown as {
+        settleWorkflowTerminal: (
+          u: string,
+          r: unknown[],
+          s?: unknown,
+          e?: unknown
+        ) => Promise<void>;
+      },
+      'settleWorkflowTerminal'
+    );
+
+    await settleSuccess(orch)('i1', [stageRun('local')]);
+
+    // A real change → success persisted exactly once, terminal path never taken.
+    expect(persistSpy).toHaveBeenCalledWith('i1', 'success');
+    expect(persistSpy.mock.calls.filter((c) => c[1] === 'success')).toHaveLength(1);
+    expect(terminalSpy).not.toHaveBeenCalled();
+    expect(diff).toHaveBeenCalledTimes(1);
+  });
+
+  it('SC6: a NON-local staged unit skips the staged gate — success persists, diffRunner never called', async () => {
+    const diff = vi.fn(async () => ({ hasChanges: false }));
+    const orch = newOrch({ primary: CLAUDE_BACKEND }, 'primary', undefined, 5, diff);
+    seedRunning(orch, 'i1', tmpDir);
+
+    const persistSpy = vi.spyOn(
+      orch as unknown as { persistLaneSafe: (u: string, l: string) => Promise<void> },
+      'persistLaneSafe'
+    );
+
+    // Last stage routed to the non-local `primary` backend.
+    await settleSuccess(orch)('i1', [stageRun('primary')]);
+
+    // Non-local → the staged empty-diff gate is a no-op (SC6): success persists and
+    // the diffRunner is never consulted, even though hasChanges would be false.
+    expect(persistSpy).toHaveBeenCalledWith('i1', 'success');
+    expect(diff).not.toHaveBeenCalled();
+  });
+
+  it('fails OPEN: a throwing diffRunner does NOT halt a real unit — success still persists', async () => {
+    // A diff-computation error must never turn a legitimate run into a false
+    // needs-human halt. The gate defaults hasChanges=true and swallows the throw.
+    const diff = vi.fn(async () => {
+      throw new Error('git exploded');
+    });
+    const orch = newOrch({ local: LOCAL_BACKEND }, 'local', undefined, 5, diff);
+    seedRunning(orch, 'i1', tmpDir);
+
+    const persistSpy = vi.spyOn(
+      orch as unknown as { persistLaneSafe: (u: string, l: string) => Promise<void> },
+      'persistLaneSafe'
+    );
+    const terminalSpy = vi.spyOn(
+      orch as unknown as {
+        settleWorkflowTerminal: (
+          u: string,
+          r: unknown[],
+          s?: unknown,
+          e?: unknown
+        ) => Promise<void>;
+      },
+      'settleWorkflowTerminal'
+    );
+
+    await settleSuccess(orch)('i1', [stageRun('local')]);
+
+    // Fail-open: the throw is swallowed, the unit completes as success, never halted.
+    expect(diff).toHaveBeenCalledTimes(1);
+    expect(persistSpy).toHaveBeenCalledWith('i1', 'success');
+    expect(terminalSpy).not.toHaveBeenCalled();
   });
 });
