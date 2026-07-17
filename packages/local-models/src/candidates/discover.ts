@@ -92,18 +92,49 @@ interface DiscoverContext {
   collected: Map<string, FrozenCandidate>;
 }
 
+type HfModel = Awaited<ReturnType<Pick<HuggingFaceClient, 'listModels'>['listModels']>>[number];
+
+/** One `listModels` call for a given sort. Returns `null` on failure (caller decides fail-soft policy). */
+async function listSort(
+  org: string,
+  sort: 'downloads' | 'trending',
+  ctx: DiscoverContext
+): Promise<HfModel[] | null> {
+  try {
+    return await ctx.client.listModels({ author: org, search: 'gguf', sort, limit: ctx.limit });
+  } catch (err) {
+    // Base (downloads) failure keeps the original org-skip wording; trending failure is a fallback warning.
+    const message =
+      sort === 'trending'
+        ? `HF trending list failed for ${org} (falling back to downloads): ${messageOf(err)}`
+        : `HF list failed for ${org}: ${messageOf(err)}`;
+    ctx.warn(message, err);
+    return null;
+  }
+}
+
+/** Wide net: merge both sorts, dedupe by model id, cap at `limit` (D1 — no blow-up). */
+function mergeCapped(trending: HfModel[], downloads: HfModel[], limit: number): HfModel[] {
+  const merged = new Map<string, HfModel>();
+  for (const model of [...trending, ...downloads]) {
+    if (merged.has(model.id)) continue;
+    if (merged.size >= limit) continue;
+    merged.set(model.id, model);
+  }
+  return [...merged.values()];
+}
+
 /** List one org's popular GGUF repos and fold each into `collected`. Fail-soft. */
 async function discoverOrg(org: string, ctx: DiscoverContext): Promise<void> {
-  const { client, limit, opts, warn } = ctx;
-  let models;
-  try {
-    models = await client.listModels({ author: org, search: 'gguf', sort: 'downloads', limit });
-  } catch (err) {
-    warn(`HF list failed for ${org}: ${messageOf(err)}`, err);
-    return;
-  }
-  for (const model of models) {
-    if (opts.signal?.aborted) break;
+  // Established quality (cumulative downloads). If this base call fails, the org is skipped.
+  const downloads = await listSort(org, 'downloads', ctx);
+  if (downloads === null) return;
+
+  // New/hot models (trending). Graceful (D2): a trending failure falls back to downloads only.
+  const trending = (await listSort(org, 'trending', ctx)) ?? [];
+
+  for (const model of mergeCapped(trending, downloads, ctx.limit)) {
+    if (ctx.opts.signal?.aborted) break;
     if (!model.tags?.includes('gguf')) continue;
     await discoverModel(model.id, ctx);
   }
