@@ -67,3 +67,27 @@
 4. **Handoff wiring** — confirm the execution stage reads the shared-workspace artifacts; extend `HandoffSchema` only if a spec/plan path is required.
 5. **Stage-specific prompts** (design vs execution) only if the default stage template is insufficient.
 6. **Docs + ADR + tests**, including the graceful-degradation regression tests (SC3).
+
+## Reconciliation (verified against the current tree during planning)
+
+This spec was drafted against the `execute-workflow.ts:71` stub comment ("Phase 2 replaces
+with `route()`"). Planning verified the **actual** code and found that comment **stale** —
+several items were already shipped:
+
+- **Steps 1–2 (un-stub `resolveStageBackend`; validate routed backend names) — ALREADY SHIPPED.**
+  Per-stage routing already runs through `ctx.adaptiveRouter.route(buildStageRequest(...))`
+  (`execute-workflow.ts:347-386`); `resolveStageBackend` is now only the identity fallback when
+  no router is present. Routed-backend-name validation already exists (`config.ts`
+  `crossFieldRoutingIssues`, `backend-router.ts` `validateReferences`, over `routing.modes`).
+- **Step 3 (routing config/types) — TYPE ALREADY SHIPPED as `routing.modes` (plural).** `route()`
+  already consults it and `StagedWorkflowDecl` + its Zod schema exist. What was missing was a
+  **concrete decl + `routing.modes.thinking` entry** in the config artifacts, not new types.
+
+**What was actually built** (the genuine remaining gaps): the **local-aware stage prompt** (the
+Phase-0 finding — the staged prompt lacked the local `harness skill run --autonomous` indirection;
+required a `renderStagePrompt` seam change + an `isLocalBackend` resolver), **staged-decl
+`cognitiveMode` routing-coverage validation** (SC4′), the **concrete local staged decl +
+`routing.modes.thinking`** in both config copies, and **docs + ADR 0074 + SC1–SC6 tests** including
+the SC3 graceful-degradation regression pins. `HandoffSchema` needed no change (the `priorOutputs`
+text channel already bridges prior-stage artifacts). The design phase routes to a **local reasoner**
+(fully-local, correct thinking) per the approved Task-9 decision.
