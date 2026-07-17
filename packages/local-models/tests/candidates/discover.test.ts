@@ -38,8 +38,40 @@ function fakeClient(
   };
 }
 
+/** Sort-aware fake: `listing[author][sort]` lets a test return different ids per sort. */
+function sortAwareClient(
+  listing: Record<string, Partial<Record<string, HuggingFaceModel[]>>>,
+  details: Record<string, HuggingFaceModelDetail>,
+  opts: { throwOnSort?: string } = {}
+) {
+  const calls = { list: [] as Array<{ author: string; sort: string }>, get: [] as string[] };
+  return {
+    calls,
+    client: {
+      async listModels(o: { author?: string; sort?: string }) {
+        const author = o.author ?? '';
+        const sort = o.sort ?? 'downloads';
+        calls.list.push({ author, sort });
+        if (opts.throwOnSort && sort === opts.throwOnSort) throw new Error(`HF ${sort} 503`);
+        return listing[author]?.[sort] ?? [];
+      },
+      async getModel(id: string) {
+        calls.get.push(id);
+        const d = details[id];
+        if (!d) throw new Error(`no detail for ${id}`);
+        return d;
+      },
+    },
+  };
+}
+
 const CURATION = new Map<string, CurationTags>([
   ['Qwen/Qwen3-32B-GGUF', { ollamaName: 'qwen3:32b', family: 'qwen3' }],
+]);
+
+const WIDE_CURATION = new Map<string, CurationTags>([
+  ['Qwen/Qwen3-32B-GGUF', { ollamaName: 'qwen3:32b', family: 'qwen3' }],
+  ['Qwen/Qwen3.6-27B-GGUF', { ollamaName: 'qwen3.6:27b', family: 'qwen3' }],
 ]);
 
 describe('discoverCandidates', () => {
@@ -98,6 +130,27 @@ describe('discoverCandidates', () => {
     const res = await discoverCandidates({ orgs: ['Qwen'], curation: CURATION, client });
     expect(res.candidates).toHaveLength(0);
     expect(calls.get).toHaveLength(0); // never fetched the non-gguf model
+  });
+});
+
+describe('discoverCandidates wide-net (SC1)', () => {
+  it('SC1: includes a NEW model returned only under `trending` (absent from `downloads`)', async () => {
+    const { client } = sortAwareClient(
+      {
+        Qwen: {
+          downloads: [{ id: 'Qwen/Qwen3-32B-GGUF', tags: ['gguf'] } as HuggingFaceModel],
+          trending: [{ id: 'Qwen/Qwen3.6-27B-GGUF', tags: ['gguf'] } as HuggingFaceModel],
+        },
+      },
+      {
+        'Qwen/Qwen3-32B-GGUF': detail('Qwen/Qwen3-32B-GGUF', ['Q4_K_M']),
+        'Qwen/Qwen3.6-27B-GGUF': detail('Qwen/Qwen3.6-27B-GGUF', ['Q4_K_M']),
+      }
+    );
+    const res = await discoverCandidates({ orgs: ['Qwen'], curation: WIDE_CURATION, client });
+    const ids = res.candidates.map((c) => c.hfRepoId);
+    expect(ids).toContain('Qwen/Qwen3.6-27B-GGUF'); // trending-only new model reaches the pool
+    expect(ids).toContain('Qwen/Qwen3-32B-GGUF'); // established still present
   });
 });
 
