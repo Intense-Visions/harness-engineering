@@ -3,8 +3,8 @@ import { describe, it, expect } from 'vitest';
 import plugin from '../../src/index';
 
 describe('plugin exports', () => {
-  it('exports all 15 rules', () => {
-    expect(Object.keys(plugin.rules)).toHaveLength(15);
+  it('exports all 16 rules', () => {
+    expect(Object.keys(plugin.rules)).toHaveLength(16);
     expect(plugin.rules['no-undefined-optional-assignment']).toBeDefined();
     expect(plugin.rules['no-layer-violation']).toBeDefined();
     expect(plugin.rules['no-circular-deps']).toBeDefined();
@@ -19,6 +19,7 @@ describe('plugin exports', () => {
     expect(plugin.rules['no-hardcoded-path-separator']).toBeDefined();
     expect(plugin.rules['require-path-normalization']).toBeDefined();
     expect(plugin.rules['no-focused-tests']).toBeDefined();
+    expect(plugin.rules['no-skipped-tests']).toBeDefined();
     expect(plugin.rules['no-hardcoded-test-count']).toBeDefined();
   });
 
