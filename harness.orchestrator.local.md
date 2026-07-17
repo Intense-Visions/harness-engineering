@@ -213,14 +213,8 @@ following each skill's output before moving on:
 
 Run `harness skill list` to see the full roster of available skills.
 
-> **Staged dispatch (per-phase routing).** When a unit matches the
-> `local-full-workflow` decl in the config frontmatter above, the orchestrator
-> runs these stages as ONE staged workflow rather than you chaining them by hand:
-> the DESIGN stages (`harness-brainstorming`, `harness-planning`, tagged
-> `cognitiveMode: thinking`) route to the local **reasoner** (qwen3:32b, reasoning
-> on), and the EXECUTION stages (`harness-execution`, `harness-verification`) route
-> to `routing.default` (the coder). Each stage's output threads to the next
-> automatically — you do not re-run or re-chain the skills manually.
+> **Staged dispatch (per-phase routing).** When a unit matches `local-full-workflow`
+> (frontmatter), design stages (`cognitiveMode: thinking`) route to the local reasoner and execution stages to `routing.default`, chained automatically for you.
 
 ## Gates (enforced by the harness, not just by you)
 
