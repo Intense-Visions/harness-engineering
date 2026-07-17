@@ -17,7 +17,7 @@ Phases:
 </objective>
 
 <execution_context>
---- SKILL.md (agents/skills/claude-code/harness-soundness-review/SKILL.md) ---
+--- SKILL.md (agents/skills/gemini-cli/harness-soundness-review/SKILL.md) ---
 # Harness Soundness Review
 
 > Deep soundness analysis of specs and plans. Auto-fixes inferrable issues, surfaces design decisions to you. Runs automatically before sign-off.
@@ -1169,7 +1169,7 @@ These are hard stops. Violating any gate means the process has broken down.
 - **When user resolutions repeatedly introduce new errors:** After 2 consecutive resolution attempts that each introduce a new error-severity finding, suggest pausing the soundness review to revisit the spec design holistically rather than fixing issues one at a time.
 
 
---- skill.yaml (agents/skills/claude-code/harness-soundness-review/skill.yaml) ---
+--- skill.yaml (agents/skills/gemini-cli/harness-soundness-review/skill.yaml) ---
 name: harness-soundness-review
 version: "1.0.0"
 description: Deep soundness analysis of specs and plans with auto-fix and convergence loop

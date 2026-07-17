@@ -11,7 +11,7 @@ Multi-phase code review pipeline with mechanical checks, graph-scoped context, a
 </objective>
 
 <execution_context>
---- SKILL.md (agents/skills/claude-code/harness-code-review/SKILL.md) ---
+--- SKILL.md (agents/skills/gemini-cli/harness-code-review/SKILL.md) ---
 # Harness Code Review
 
 > Multi-phase code review pipeline — mechanical checks, graph-scoped context, parallel review agents, cross-agent deduplication, and structured output with technical rigor over social performance.
@@ -850,7 +850,7 @@ These reasoning patterns sound plausible but lead to bad outcomes. Reject them.
 - **When pipeline produces a false positive after validation:** Add pattern to `.harness/review-learnings.md` Noise / False Positives section.
 
 
---- skill.yaml (agents/skills/claude-code/harness-code-review/skill.yaml) ---
+--- skill.yaml (agents/skills/gemini-cli/harness-code-review/skill.yaml) ---
 name: harness-code-review
 version: "2.0.0"
 description: Multi-phase code review pipeline with mechanical checks, graph-scoped context, and parallel review agents

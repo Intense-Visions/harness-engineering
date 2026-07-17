@@ -15,8 +15,8 @@ Detect documentation that has drifted from code
 </objective>
 
 <execution_context>
-@agents/skills/claude-code/detect-doc-drift/SKILL.md
-@agents/skills/claude-code/detect-doc-drift/skill.yaml
+@agents/skills/cursor/detect-doc-drift/SKILL.md
+@agents/skills/cursor/detect-doc-drift/skill.yaml
 </execution_context>
 
 <process>

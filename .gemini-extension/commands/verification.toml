@@ -16,7 +16,7 @@ Phases:
 </objective>
 
 <execution_context>
---- SKILL.md (agents/skills/claude-code/harness-verification/SKILL.md) ---
+--- SKILL.md (agents/skills/gemini-cli/harness-verification/SKILL.md) ---
 # Harness Verification
 
 > 3-level evidence-based verification. No completion claims without fresh evidence. "Should work" is not evidence.
@@ -414,7 +414,7 @@ All commands must be run fresh. Do not rely on results from previous sessions or
 After verification, append a tagged learning: `YYYY-MM-DD [skill:harness-verification] [outcome:pass/fail]: Verified [feature]. [Brief note.]`
 
 
---- skill.yaml (agents/skills/claude-code/harness-verification/skill.yaml) ---
+--- skill.yaml (agents/skills/gemini-cli/harness-verification/skill.yaml) ---
 name: harness-verification
 version: "1.0.0"
 description: Comprehensive harness verification of project health and compliance

@@ -11,7 +11,7 @@ Onboard a new developer to a harness-managed project
 </objective>
 
 <execution_context>
---- SKILL.md (agents/skills/claude-code/harness-onboarding/SKILL.md) ---
+--- SKILL.md (agents/skills/gemini-cli/harness-onboarding/SKILL.md) ---
 # Harness Onboarding
 
 > Navigate an existing harness-managed project and generate a structured orientation for new team members. Map the codebase, understand constraints, identify the adoption level, and produce a summary that gets someone productive fast.
@@ -316,7 +316,7 @@ A mental model for where a team sits on the harness adoption curve. Not prescrip
 Most teams start at Level 1 and move up as they see the value. There is no pressure to reach Level 4 — each level delivers real benefits on its own.
 
 
---- skill.yaml (agents/skills/claude-code/harness-onboarding/skill.yaml) ---
+--- skill.yaml (agents/skills/gemini-cli/harness-onboarding/skill.yaml) ---
 name: harness-onboarding
 version: "1.0.0"
 description: Onboard a new developer to a harness-managed project

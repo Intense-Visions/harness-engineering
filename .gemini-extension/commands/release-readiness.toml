@@ -18,7 +18,7 @@ Phases:
 </objective>
 
 <execution_context>
---- SKILL.md (agents/skills/claude-code/harness-release-readiness/SKILL.md) ---
+--- SKILL.md (agents/skills/gemini-cli/harness-release-readiness/SKILL.md) ---
 # Harness Release Readiness
 
 > Audit, fix, and track your project's path to a publishable release. No release without a passing report.
@@ -737,7 +737,7 @@ These are hard stops. Violating any gate means the process has broken down.
 - **When fixes conflict with each other:** Present both findings and let the human choose. Example: dead code cleanup wants to remove a function, but doc drift fix references that function in updated docs. Human must decide which takes priority.
 
 
---- skill.yaml (agents/skills/claude-code/harness-release-readiness/skill.yaml) ---
+--- skill.yaml (agents/skills/gemini-cli/harness-release-readiness/skill.yaml) ---
 name: harness-release-readiness
 version: "1.0.0"
 description: Audit npm release readiness, run maintenance checks, offer auto-fixes, track progress across sessions

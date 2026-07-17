@@ -16,7 +16,7 @@ Phases:
 </objective>
 
 <execution_context>
---- SKILL.md (agents/skills/claude-code/harness-dependency-health/SKILL.md) ---
+--- SKILL.md (agents/skills/gemini-cli/harness-dependency-health/SKILL.md) ---
 # Harness Dependency Health
 
 > Analyze structural health of the codebase and surface problems before they become incidents.
@@ -212,7 +212,7 @@ Output:
 - **When graph is stale**: Warn and suggest re-scanning before trusting results.
 
 
---- skill.yaml (agents/skills/claude-code/harness-dependency-health/skill.yaml) ---
+--- skill.yaml (agents/skills/gemini-cli/harness-dependency-health/skill.yaml) ---
 name: harness-dependency-health
 version: "1.0.0"
 description: Analyze structural health of the codebase using graph metrics

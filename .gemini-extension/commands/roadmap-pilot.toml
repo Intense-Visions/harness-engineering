@@ -17,7 +17,7 @@ Phases:
 </objective>
 
 <execution_context>
---- SKILL.md (agents/skills/claude-code/harness-roadmap-pilot/SKILL.md) ---
+--- SKILL.md (agents/skills/gemini-cli/harness-roadmap-pilot/SKILL.md) ---
 # Harness Roadmap Pilot
 
 > AI-assisted selection of the next highest-impact unblocked roadmap item. Scores candidates, recommends one, and transitions to the appropriate next skill. Selection does NOT assign — the `assignee` field names who is _executing_, and is written at execution start (harness-execution), not at selection.
@@ -298,7 +298,7 @@ Transitioning to harness:autopilot (spec exists)...
 - **When the human asks you to assign the item to them at selection:** Explain that the `assignee` field means _who is executing_ and is claimed at execution start by harness-execution; assigning at selection makes the orchestrator silently skip the item (enforced by RMH005). Proceed with the transition instead.
 
 
---- skill.yaml (agents/skills/claude-code/harness-roadmap-pilot/skill.yaml) ---
+--- skill.yaml (agents/skills/gemini-cli/harness-roadmap-pilot/skill.yaml) ---
 name: harness-roadmap-pilot
 version: "1.0.0"
 description: AI-assisted selection of the next highest-impact roadmap item with scoring, assignment, and skill transition

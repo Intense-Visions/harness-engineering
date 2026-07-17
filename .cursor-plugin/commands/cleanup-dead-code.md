@@ -15,8 +15,8 @@ Detect and auto-fix dead code including dead exports, commented-out code, and or
 </objective>
 
 <execution_context>
-@agents/skills/claude-code/cleanup-dead-code/SKILL.md
-@agents/skills/claude-code/cleanup-dead-code/skill.yaml
+@agents/skills/cursor/cleanup-dead-code/SKILL.md
+@agents/skills/cursor/cleanup-dead-code/skill.yaml
 </execution_context>
 
 <process>

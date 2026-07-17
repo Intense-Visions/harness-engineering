@@ -18,7 +18,7 @@ Phases:
 </objective>
 
 <execution_context>
---- SKILL.md (agents/skills/claude-code/harness-codebase-cleanup/SKILL.md) ---
+--- SKILL.md (agents/skills/gemini-cli/harness-codebase-cleanup/SKILL.md) ---
 # Harness Codebase Cleanup
 
 > Orchestrate dead code removal and architecture violation fixes with a shared convergence loop. Catches cross-concern cascades that individual skills miss.
@@ -258,7 +258,7 @@ After removing the `legacy-auth` module:
 - **When dead code and architecture fixes conflict:** The convergence loop handles this naturally. If removing dead code creates an architecture issue (rare), the next detection cycle catches it.
 
 
---- skill.yaml (agents/skills/claude-code/harness-codebase-cleanup/skill.yaml) ---
+--- skill.yaml (agents/skills/gemini-cli/harness-codebase-cleanup/skill.yaml) ---
 name: harness-codebase-cleanup
 version: "1.0.0"
 description: Orchestrate dead code removal and architecture violation fixes with shared convergence loop

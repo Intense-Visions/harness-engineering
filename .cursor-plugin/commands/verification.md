@@ -21,8 +21,8 @@ Phases:
   </objective>
 
 <execution_context>
-@agents/skills/claude-code/harness-verification/SKILL.md
-@agents/skills/claude-code/harness-verification/skill.yaml
+@agents/skills/cursor/harness-verification/SKILL.md
+@agents/skills/cursor/harness-verification/skill.yaml
 </execution_context>
 
 <process>

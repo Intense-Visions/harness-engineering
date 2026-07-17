@@ -15,8 +15,8 @@ Validate architectural layer boundaries, detect violations, and auto-fix import 
 </objective>
 
 <execution_context>
-@agents/skills/claude-code/enforce-architecture/SKILL.md
-@agents/skills/claude-code/enforce-architecture/skill.yaml
+@agents/skills/cursor/enforce-architecture/SKILL.md
+@agents/skills/cursor/enforce-architecture/skill.yaml
 </execution_context>
 
 <process>

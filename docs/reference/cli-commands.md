@@ -256,6 +256,7 @@ Generate native commands for Claude Code, Gemini CLI, Codex CLI, and Cursor from
 - `--include-global` — Include built-in global skills alongside project skills
 - `--output` — Custom output directory
 - `--skills-dir` — Skills directory to scan
+- `--skills-dir-only` — Use --skills-dir as the exclusive source; skip project/community/global (machine-wide) skill resolution. For generating repo-owned artifacts without leaking globally-installed skills (#704).
 - `--dry-run` — Show what would change without writing
 - `--yes` — Skip deletion confirmation prompts
 - `--cursor-mode` — For cursor platform: "rules" (.mdc with description/globs/alwaysApply, default) or "commands" (.md with name/description for plugin commands/ dir) (default: "rules")

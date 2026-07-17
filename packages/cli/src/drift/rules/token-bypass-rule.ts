@@ -42,9 +42,14 @@ export function runTokenBypassRule(input: TokenBypassRuleInput): DriftFinding[] 
   const findings: DriftFinding[] = [];
   const { source, file, tokens, strictness } = input;
 
-  findings.push(...detectHexBypass(source, file, tokens, strictness));
+  // #750: matches inside comments (and prose inside string literals) are not
+  // style declarations. Classify every offset once so detectors can skip
+  // comment-context matches and reject non-color hex refs in string prose.
+  const ctx = classifyContext(source);
+
+  findings.push(...detectHexBypass(source, ctx, file, tokens, strictness));
   findings.push(...detectFontFamilyBypass(source, file, tokens, strictness));
-  findings.push(...detectPxSpacingBypass(source, file, tokens, strictness));
+  findings.push(...detectPxSpacingBypass(source, ctx, file, tokens, strictness));
   findings.push(...detectDeprecatedTokenUsage(source, file, tokens, strictness));
 
   return findings;
@@ -52,6 +57,7 @@ export function runTokenBypassRule(input: TokenBypassRuleInput): DriftFinding[] 
 
 function detectHexBypass(
   source: string,
+  ctx: Uint8Array,
   file: string,
   tokens: TokenSet,
   strictness: DriftStrictness
@@ -61,6 +67,7 @@ function detectHexBypass(
   let match: RegExpExecArray | null;
   HEX_PATTERN.lastIndex = 0;
   while ((match = HEX_PATTERN.exec(source)) !== null) {
+    if (!isHexColorContext(source, ctx, match.index)) continue;
     const hex = match[0]!;
     const lc = hex.toLowerCase();
     const line = lineOf(source, match.index);
@@ -138,6 +145,7 @@ function detectFontFamilyBypass(
 
 function detectPxSpacingBypass(
   source: string,
+  ctx: Uint8Array,
   file: string,
   tokens: TokenSet,
   strictness: DriftStrictness
@@ -149,6 +157,8 @@ function detectPxSpacingBypass(
   let match: RegExpExecArray | null;
   PX_VALUE_PATTERN.lastIndex = 0;
   while ((match = PX_VALUE_PATTERN.exec(source)) !== null) {
+    // #750: spacing prose in comments is not a declaration.
+    if (ctx[match.index] === CTX_COMMENT) continue;
     const value = parseFloat(match[1]!);
     const line = lineOf(source, match.index);
     const key = `${line}:${value}`;
@@ -216,6 +226,133 @@ function detectDeprecatedTokenUsage(
     }
   }
   return findings;
+}
+
+// ─── lexical context (#750) ─────────────────────────────
+//
+// Classify every source offset as CODE, STRING, or COMMENT with a single
+// left-to-right scan. This lets the token-bypass detectors ignore hex/px
+// matches that live inside comments (never style declarations) and reject
+// hex references embedded in string-literal prose (issue refs like "(#332)")
+// while preserving genuine color literals like "#e63535" / bare CSS values.
+
+const CTX_CODE = 0;
+const CTX_STRING = 1;
+const CTX_COMMENT = 2;
+
+/** Mutable cursor threaded through the {@link classifyContext} scan. */
+interface Scanner {
+  readonly source: string;
+  readonly ctx: Uint8Array;
+  i: number;
+  state: number;
+  /** Active string quote char, or `'*'`/`'/'` for block/line comment. */
+  delim: string;
+}
+
+/**
+ * Returns a byte-per-char classification of `source`. Handles `//` line
+ * comments, `/* *\/` block comments (multi-line), and single/double/backtick
+ * string literals with backslash escapes. A comment opener inside a string is
+ * inert, and a quote inside a comment does not open a string.
+ *
+ * Note: this is a lightweight lexer, not a full JS/CSS parser. Template-literal
+ * `${...}` interpolations are treated as string content, which is acceptable
+ * here — the detectors only key off comment vs non-comment and the character
+ * immediately preceding a hex match.
+ */
+function classifyContext(source: string): Uint8Array {
+  const scan: Scanner = {
+    source,
+    ctx: new Uint8Array(source.length),
+    i: 0,
+    state: CTX_CODE,
+    delim: '',
+  };
+  while (scan.i < source.length) {
+    if (scan.state === CTX_COMMENT) stepComment(scan);
+    else if (scan.state === CTX_STRING) stepString(scan);
+    else stepCode(scan);
+    scan.i++;
+  }
+  return scan.ctx;
+}
+
+/** Advance one char while inside a comment; may close it. */
+function stepComment(s: Scanner): void {
+  const ch = s.source[s.i]!;
+  s.ctx[s.i] = CTX_COMMENT;
+  if (s.delim === '*' && ch === '*' && s.source[s.i + 1] === '/') {
+    s.ctx[s.i + 1] = CTX_COMMENT;
+    s.i++;
+    s.state = CTX_CODE;
+    s.delim = '';
+  } else if (s.delim === '/' && ch === '\n') {
+    // line comment ends at newline (the newline itself is code)
+    s.ctx[s.i] = CTX_CODE;
+    s.state = CTX_CODE;
+    s.delim = '';
+  }
+}
+
+/** Advance one char while inside a string literal; may close it. */
+function stepString(s: Scanner): void {
+  const ch = s.source[s.i]!;
+  s.ctx[s.i] = CTX_STRING;
+  if (ch === '\\') {
+    // escape: consume the next char as part of the string
+    if (s.i + 1 < s.source.length) s.ctx[++s.i] = CTX_STRING;
+  } else if (ch === s.delim) {
+    s.state = CTX_CODE;
+    s.delim = '';
+  }
+}
+
+/** Advance one char in code context; may open a comment or string. */
+function stepCode(s: Scanner): void {
+  const ch = s.source[s.i]!;
+  const opener = commentOpener(ch, s.source[s.i + 1]);
+  if (opener) {
+    s.state = CTX_COMMENT;
+    s.delim = opener;
+    s.ctx[s.i] = CTX_COMMENT;
+  } else if (ch === '"' || ch === "'" || ch === '`') {
+    s.state = CTX_STRING;
+    s.delim = ch;
+    s.ctx[s.i] = CTX_STRING;
+  } else {
+    s.ctx[s.i] = CTX_CODE;
+  }
+}
+
+/** Returns the comment delimiter (`'/'` line, `'*'` block) or `''`. */
+function commentOpener(ch: string, next: string | undefined): string {
+  if (ch !== '/') return '';
+  if (next === '/') return '/';
+  if (next === '*') return '*';
+  return '';
+}
+
+/**
+ * Decide whether a hex match at `offset` is a genuine color literal worth
+ * flagging (#750).
+ *
+ * - COMMENT context → always rejected (comments are never style declarations;
+ *   covers issue refs `(#529)` in JSDoc and hex prose `e.g. \`#e63535\``).
+ * - CODE context → always flagged (real unquoted literal).
+ * - STRING context → flagged UNLESS it matches the GitHub issue/PR-reference
+ *   idiom `(#NNN)`, i.e. the `#` is immediately preceded by `(`. Genuine color
+ *   literals — `"#e63535"`, `'#666'`, CSS shorthand `"1px solid #0066cc"`,
+ *   bare template values `color: #333` — are never written that way, so they
+ *   are preserved. We deliberately do NOT skip bare numeric hexes (that stopgap
+ *   would suppress real `#666`/`#333` literals — see #750).
+ */
+function isHexColorContext(source: string, ctx: Uint8Array, offset: number): boolean {
+  const kind = ctx[offset];
+  if (kind === CTX_COMMENT) return false;
+  if (kind !== CTX_STRING) return true; // CODE context: always a real literal
+  // In a string: reject only the parenthesized issue-reference shape `(#NNN)`.
+  return source[offset - 1] !== '(';
 }
 
 // ─── helpers ───────────────────────────────────────────

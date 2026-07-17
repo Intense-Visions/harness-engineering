@@ -18,7 +18,7 @@ Phases:
 </objective>
 
 <execution_context>
---- SKILL.md (agents/skills/claude-code/harness-autopilot/SKILL.md) ---
+--- SKILL.md (agents/skills/gemini-cli/harness-autopilot/SKILL.md) ---
 # Harness Autopilot
 
 > Lightweight orchestrator — dispatches isolated phase-agents, tracks state, chains artifacts between phases. Delegates all planning/execution/verification/review to dedicated persona agents.
@@ -361,7 +361,7 @@ Fix manually and continue / revise plan / stop?
 ```
 
 
---- skill.yaml (agents/skills/claude-code/harness-autopilot/skill.yaml) ---
+--- skill.yaml (agents/skills/gemini-cli/harness-autopilot/skill.yaml) ---
 name: harness-autopilot
 version: "1.0.0"
 description: Autonomous phase execution loop — chains planning, execution, verification, and review, pausing only at human decision points

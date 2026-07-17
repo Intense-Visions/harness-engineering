@@ -17,7 +17,7 @@ Phases:
 </objective>
 
 <execution_context>
---- SKILL.md (agents/skills/claude-code/harness-brainstorming/SKILL.md) ---
+--- SKILL.md (agents/skills/gemini-cli/harness-brainstorming/SKILL.md) ---
 # Harness Brainstorming
 
 > Design exploration to spec to plan. No implementation before design approval. Think first, build second.
@@ -480,7 +480,7 @@ These are hard stops. Violating any gate means the process has broken down.
 - **More than 10 questions without converging:** The problem is too large or ambiguous. Stop and propose decomposition or a scoping exercise.
 
 
---- skill.yaml (agents/skills/claude-code/harness-brainstorming/skill.yaml) ---
+--- skill.yaml (agents/skills/gemini-cli/harness-brainstorming/skill.yaml) ---
 name: harness-brainstorming
 version: "1.0.0"
 description: Structured ideation and exploration with harness methodology

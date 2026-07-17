@@ -16,7 +16,7 @@ Phases:
 </objective>
 
 <execution_context>
---- SKILL.md (agents/skills/claude-code/harness-verify/SKILL.md) ---
+--- SKILL.md (agents/skills/gemini-cli/harness-verify/SKILL.md) ---
 # Harness Verify
 
 > Binary pass/fail quick gate. Runs test, lint, typecheck — returns structured result. No judgment calls, no deep analysis. Pass or fail.
@@ -188,7 +188,7 @@ Verification: FAIL
 - **Environment errors:** If a command fails due to missing tooling (e.g., `tsc` not installed), mark it as FAIL. Do not attempt to install the tooling.
 
 
---- skill.yaml (agents/skills/claude-code/harness-verify/skill.yaml) ---
+--- skill.yaml (agents/skills/gemini-cli/harness-verify/skill.yaml) ---
 name: harness-verify
 version: "1.0.0"
 description: Binary pass/fail quick gate — runs test, lint, typecheck commands and returns structured result
