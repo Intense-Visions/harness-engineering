@@ -73,9 +73,13 @@ TDD order — write the test first, watch it fail, then implement.
 
    ```js
    test('evaluateCoverage: without allowMissing, a baselined package with no coverage fails (regression guard)', () => {
-     const baselines = { 'packages/core': { lines: 90, branches: 80, functions: 90, statements: 90 } };
+     const baselines = {
+       'packages/core': { lines: 90, branches: 80, functions: 90, statements: 90 },
+     };
      const coverageByPkg = { 'packages/core': null }; // no fresh coverage-summary.json
-     const { failures, skipped } = evaluateCoverage(baselines, coverageByPkg, { allowMissing: false });
+     const { failures, skipped } = evaluateCoverage(baselines, coverageByPkg, {
+       allowMissing: false,
+     });
      assert.equal(failures, 1);
      assert.equal(skipped.length, 0);
    });
@@ -89,14 +93,20 @@ TDD order — write the test first, watch it fail, then implement.
        'packages/core': null, // skipped under allowMissing
        'packages/cli': { lines: 86, branches: 76, functions: 86, statements: 86 }, // meets baseline
      };
-     const { failures, skipped } = evaluateCoverage(baselines, coverageByPkg, { allowMissing: true });
+     const { failures, skipped } = evaluateCoverage(baselines, coverageByPkg, {
+       allowMissing: true,
+     });
      assert.equal(failures, 0);
      assert.deepEqual(skipped, ['packages/core']);
    });
 
    test('evaluateCoverage: with allowMissing, a present package below baseline still fails', () => {
-     const baselines = { 'packages/cli': { lines: 85, branches: 75, functions: 85, statements: 85 } };
-     const coverageByPkg = { 'packages/cli': { lines: 80, branches: 75, functions: 85, statements: 85 } };
+     const baselines = {
+       'packages/cli': { lines: 85, branches: 75, functions: 85, statements: 85 },
+     };
+     const coverageByPkg = {
+       'packages/cli': { lines: 80, branches: 75, functions: 85, statements: 85 },
+     };
      const { failures } = evaluateCoverage(baselines, coverageByPkg, { allowMissing: true });
      assert.equal(failures, 1); // -5% lines beyond 0.5% tolerance
    });
@@ -179,11 +189,15 @@ TDD order — write the test first, watch it fail, then implement.
 
      if (failures > 0) {
        console.error(`\n${failures} coverage regression(s) detected.`);
-       console.error('If coverage intentionally decreased, run: node scripts/coverage-ratchet.mjs --update');
+       console.error(
+         'If coverage intentionally decreased, run: node scripts/coverage-ratchet.mjs --update'
+       );
        process.exit(1);
      }
 
-     const note = skipped.length ? ` (${skipped.length} package(s) skipped: no fresh coverage)` : '';
+     const note = skipped.length
+       ? ` (${skipped.length} package(s) skipped: no fresh coverage)`
+       : '';
      console.log(`Coverage ratchet: all packages meet or exceed baselines.${note}`);
    }
    ```
@@ -307,13 +321,13 @@ Add the cache step immediately BEFORE `pnpm build` in each job.
 1. In **`build-and-test`**, between `- run: pnpm install --frozen-lockfile` (line ~49) and `- run: pnpm build` (line ~51), insert:
 
    ```yaml
-      - name: Restore Turbo cache
-        uses: actions/cache@v4
-        with:
-          path: .turbo
-          key: turbo-${{ runner.os }}-${{ hashFiles('pnpm-lock.yaml') }}-${{ github.sha }}
-          restore-keys: |
-            turbo-${{ runner.os }}-${{ hashFiles('pnpm-lock.yaml') }}-
+   - name: Restore Turbo cache
+     uses: actions/cache@v4
+     with:
+       path: .turbo
+       key: turbo-${{ runner.os }}-${{ hashFiles('pnpm-lock.yaml') }}-${{ github.sha }}
+       restore-keys: |
+         turbo-${{ runner.os }}-${{ hashFiles('pnpm-lock.yaml') }}-
    ```
 
 2. In **`refresh-baselines`**, between `- run: pnpm install --frozen-lockfile` (line ~134) and `- run: pnpm build` (line ~135), insert the identical block (same key/restore-keys — `runner.os` is `Linux` for both since `refresh-baselines` is `ubuntu-latest`, and the shared prefix lets it hit `build-and-test`'s Linux cache).
@@ -366,14 +380,14 @@ CI-only.
 and the flagless (full) coverage ratchet on every PR. No gate moved to CI-only.
 
 **Fail-safe:** when `origin/main` is unresolvable (fresh clone, detached HEAD),
-`pre-push` falls back to the full unscoped gate. The fallback errs toward *more*
+`pre-push` falls back to the full unscoped gate. The fallback errs toward _more_
 coverage, never a silently narrower one.
 
 ## Consequences
 
 - Common-case pushes drop from minutes to seconds; the trust boundary shifts:
   a scoped `pre-push` pass no longer implies a whole-repo pass — CI is the net.
-- A stale `origin/main` only ever runs a *superset* of the true affected set
+- A stale `origin/main` only ever runs a _superset_ of the true affected set
   (slower, never less safe).
 - `core` edits still fan out to dependents (`cli`, `dashboard`, `orchestrator`);
   Phase 2 makes that fan-out fast via test isolation + a raised concurrency cap.
