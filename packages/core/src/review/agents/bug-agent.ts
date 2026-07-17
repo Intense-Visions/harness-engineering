@@ -17,6 +17,19 @@ export const BUG_DETECTION_DESCRIPTOR: ReviewAgentDescriptor = {
 };
 
 /**
+ * Extensions the source-scanning heuristics (division-by-zero, empty-catch)
+ * apply to. These detectors read raw lines and match code patterns, so running
+ * them on non-code files produces false positives — e.g. a `/` in a scoped
+ * package name inside a Markdown changeset (`@scope/pkg`) reads as a division.
+ */
+const CODE_FILE_EXTENSIONS = ['.ts', '.tsx', '.js', '.jsx', '.mjs', '.cjs', '.mts', '.cts'];
+
+/** True when `path` is a code file the line-pattern heuristics should scan. */
+function isCodeFile(path: string): boolean {
+  return CODE_FILE_EXTENSIONS.some((ext) => path.endsWith(ext));
+}
+
+/**
  * Returns true when the lines preceding index i contain a zero-guard.
  */
 function hasPrecedingZeroCheck(lines: string[], i: number): boolean {
@@ -35,6 +48,7 @@ function hasPrecedingZeroCheck(lines: string[], i: number): boolean {
 function detectDivisionByZero(bundle: ContextBundle): ReviewFinding[] {
   const findings: ReviewFinding[] = [];
   for (const cf of bundle.changedFiles) {
+    if (!isCodeFile(cf.path)) continue;
     const lines = cf.content.split('\n');
     for (let i = 0; i < lines.length; i++) {
       const line = lines[i]!;
@@ -78,6 +92,7 @@ function isEmptyCatch(lines: string[], i: number): boolean {
 function detectEmptyCatch(bundle: ContextBundle): ReviewFinding[] {
   const findings: ReviewFinding[] = [];
   for (const cf of bundle.changedFiles) {
+    if (!isCodeFile(cf.path)) continue;
     const lines = cf.content.split('\n');
     for (let i = 0; i < lines.length; i++) {
       // Match: catch (e) {} or catch(e){} or catch (e) { }
