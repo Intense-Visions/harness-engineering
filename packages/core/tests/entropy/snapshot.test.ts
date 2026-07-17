@@ -237,6 +237,102 @@ describe('parseDocumentationFile', () => {
       expect(refs).toContain('findUserById');
     });
   });
+
+  // Regression: github issue #816. On docs-heavy repos the extractor accepted
+  // any identifier-shaped backtick token as a code-symbol reference, so bare
+  // prose words, lowercase-headed code-example fragments, and other-language
+  // file names all surfaced downstream as "symbol not found" drift — ~100%
+  // false positives. Extraction now requires a code signal (a structural
+  // marker in the base identifier segment). snake_case / SCREAMING_SNAKE are
+  // deliberately KEPT here because they are real symbols in Python/Rust/Go;
+  // convention-aware suppression of them lives in the detector, which knows
+  // the codebase's export conventions (see drift detector #816 regressions).
+  describe('inline reference filtering (issue #816)', () => {
+    let tmpFile: string;
+    beforeEach(async () => {
+      const os = await import('node:os');
+      const fs = await import('node:fs/promises');
+      tmpFile = join(os.tmpdir(), `inline-ref-816-${Date.now()}.md`);
+      await fs.writeFile(
+        tmpFile,
+        [
+          '# Reference',
+          '',
+          'Prose words: `done`, `local`, `grep`, `reasoning`, `pipefail`.',
+          '',
+          'Code-example fragments: `db.query`, `hooks.afterCreate`, `agent.backends`.',
+          '',
+          'Other-language files: `preflight.py`, `conflict_classifier.py`, `main.go`.',
+          '',
+          'Cross-language symbols: `assess_project`, `E2E_UI`, `my_function`.',
+          '',
+          'Genuine symbols: `createUser`, `LocalModelStatus`, `User.email`, `parseConfig()`.',
+          '',
+        ].join('\n')
+      );
+    });
+    afterEach(async () => {
+      const fs = await import('node:fs/promises');
+      try {
+        await fs.unlink(tmpFile);
+      } catch {
+        // best-effort
+      }
+    });
+
+    it('rejects bare lowercase prose words', async () => {
+      const result = await parseDocumentationFile(tmpFile);
+      expect(result.ok).toBe(true);
+      if (!result.ok) return;
+      const refs = result.value.inlineRefs.map((r) => r.reference);
+      for (const word of ['done', 'local', 'grep', 'reasoning', 'pipefail']) {
+        expect(refs).not.toContain(word);
+      }
+    });
+
+    it('rejects dotted fragments whose head is a bare lowercase word', async () => {
+      const result = await parseDocumentationFile(tmpFile);
+      expect(result.ok).toBe(true);
+      if (!result.ok) return;
+      const refs = result.value.inlineRefs.map((r) => r.reference);
+      for (const frag of ['db.query', 'hooks.afterCreate', 'agent.backends']) {
+        expect(refs).not.toContain(frag);
+      }
+    });
+
+    it('rejects other-language file names', async () => {
+      const result = await parseDocumentationFile(tmpFile);
+      expect(result.ok).toBe(true);
+      if (!result.ok) return;
+      const refs = result.value.inlineRefs.map((r) => r.reference);
+      for (const file of ['preflight.py', 'conflict_classifier.py', 'main.go']) {
+        expect(refs).not.toContain(file);
+      }
+    });
+
+    it('keeps snake_case / SCREAMING_SNAKE tokens (real symbols in other languages)', async () => {
+      const result = await parseDocumentationFile(tmpFile);
+      expect(result.ok).toBe(true);
+      if (!result.ok) return;
+      const refs = result.value.inlineRefs.map((r) => r.reference);
+      // Extraction is language-agnostic; the detector decides whether these
+      // are noise based on the codebase's export conventions.
+      expect(refs).toContain('assess_project');
+      expect(refs).toContain('E2E_UI');
+      expect(refs).toContain('my_function');
+    });
+
+    it('still accepts camelCase / PascalCase / member / call references', async () => {
+      const result = await parseDocumentationFile(tmpFile);
+      expect(result.ok).toBe(true);
+      if (!result.ok) return;
+      const refs = result.value.inlineRefs.map((r) => r.reference);
+      expect(refs).toContain('createUser');
+      expect(refs).toContain('LocalModelStatus');
+      expect(refs).toContain('User.email');
+      expect(refs).toContain('parseConfig'); // call parens stripped
+    });
+  });
 });
 
 describe('buildSnapshot', () => {

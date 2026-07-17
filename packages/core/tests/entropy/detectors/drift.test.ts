@@ -330,3 +330,106 @@ describe('drift detector — issue #492 regressions', () => {
     });
   });
 });
+
+// Regression: github issue #816. On docs-heavy repos `harness cleanup --type
+// drift` produced ~100% false positives (36,697 findings), because every
+// backtick token was resolved against top-level exports. These tests lock in
+// the detector-layer fixes: docs/changes/** forward-looking suppression and
+// head-segment resolution of dotted member references.
+describe('drift detector — issue #816 regressions', () => {
+  const parser = new TypeScriptParser();
+  let projectDir: string;
+
+  beforeEach(async () => {
+    projectDir = await mkdtemp(join(tmpdir(), 'drift-816-'));
+    await mkdir(join(projectDir, 'src'), { recursive: true });
+    // `User` is a real top-level export; `email` is only a member of it.
+    await writeFile(
+      join(projectDir, 'src', 'index.ts'),
+      'export class User { email = ""; }\nexport function createUser() { return new User(); }\n'
+    );
+  });
+
+  afterEach(async () => {
+    await rm(projectDir, { recursive: true, force: true });
+  });
+
+  async function driftFor(docPaths: string[]) {
+    const snapshotResult = await buildSnapshot({
+      rootDir: projectDir,
+      parser,
+      analyze: { drift: true },
+      include: ['src/**/*.ts'],
+      docPaths: ['docs/**/*.md'],
+    });
+    expect(snapshotResult.ok).toBe(true);
+    if (!snapshotResult.ok) return [];
+    const result = await detectDocDrift(snapshotResult.value, {
+      checkApiSignatures: true,
+      checkExamples: false,
+      checkStructure: false,
+      docPaths,
+      ignorePatterns: [],
+    });
+    expect(result.ok).toBe(true);
+    if (!result.ok) return [];
+    return result.value.drifts.filter((d) => d.type === 'api-signature');
+  }
+
+  it('suppresses api-signature drift for symbols inside docs/changes/**', async () => {
+    await mkdir(join(projectDir, 'docs', 'changes', 'my-feature'), { recursive: true });
+    await writeFile(
+      join(projectDir, 'docs', 'changes', 'my-feature', 'proposal.md'),
+      '# Proposal\n\nWe will add `ProposedThing` and `FutureService`. Neither exists yet.\n'
+    );
+    const apiDrifts = await driftFor([]);
+    expect(apiDrifts).toHaveLength(0);
+  });
+
+  it('does not flag member access on a symbol that resolves by its head (User.email)', async () => {
+    await mkdir(join(projectDir, 'docs', 'reference'), { recursive: true });
+    await writeFile(
+      join(projectDir, 'docs', 'reference', 'api.md'),
+      '# API\n\nRead `User.email` from the `createUser` result.\n'
+    );
+    const apiDrifts = await driftFor([]);
+    expect(apiDrifts.some((d) => d.reference === 'User.email')).toBe(false);
+    expect(apiDrifts.some((d) => d.reference === 'createUser')).toBe(false);
+  });
+
+  it('still flags a dotted reference whose head does not resolve', async () => {
+    await mkdir(join(projectDir, 'docs', 'reference'), { recursive: true });
+    await writeFile(
+      join(projectDir, 'docs', 'reference', 'api.md'),
+      '# API\n\nCall `Ghost.method` on the missing type.\n'
+    );
+    const apiDrifts = await driftFor([]);
+    expect(apiDrifts.some((d) => d.reference === 'Ghost.method')).toBe(true);
+  });
+
+  it('suppresses snake_case tokens when the codebase has no snake_case exports', async () => {
+    // The beforeEach fixture exports only camelCase/PascalCase symbols, so a
+    // snake_case doc token (MCP tool / config key) cannot be one of them.
+    await mkdir(join(projectDir, 'docs', 'reference'), { recursive: true });
+    await writeFile(
+      join(projectDir, 'docs', 'reference', 'mcp.md'),
+      '# MCP\n\nCall the `assess_project` and `check_docs` tools.\n'
+    );
+    const apiDrifts = await driftFor([]);
+    expect(apiDrifts.some((d) => d.reference === 'assess_project')).toBe(false);
+    expect(apiDrifts.some((d) => d.reference === 'check_docs')).toBe(false);
+  });
+
+  it('still flags snake_case drift when the codebase DOES export snake_case', async () => {
+    // A project that uses snake_case for real symbols keeps snake_case checks.
+    await writeFile(join(projectDir, 'src', 'snake.ts'), 'export const real_export = 1;\n');
+    await mkdir(join(projectDir, 'docs', 'reference'), { recursive: true });
+    await writeFile(
+      join(projectDir, 'docs', 'reference', 'api.md'),
+      '# API\n\nUse `real_export`; the old `gone_helper` was removed.\n'
+    );
+    const apiDrifts = await driftFor([]);
+    expect(apiDrifts.some((d) => d.reference === 'gone_helper')).toBe(true);
+    expect(apiDrifts.some((d) => d.reference === 'real_export')).toBe(false);
+  });
+});

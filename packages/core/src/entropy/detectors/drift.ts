@@ -102,14 +102,17 @@ export function findPossibleMatches(
 }
 
 // Default doc-path prefixes that describe intended future code (ADRs,
-// decisions, proposals). API-signature drift inside these docs is suppressed
-// — symbols there describe the design, not the codebase. Override via
-// DriftConfig.forwardLookingPaths.
+// decisions, proposals, and change specs/plans). API-signature drift inside
+// these docs is suppressed — symbols there describe the design, not the
+// current codebase. `docs/changes/` holds proposals and phase plans that by
+// definition describe proposed/illustrative code (github issue #816).
+// Override via DriftConfig.forwardLookingPaths.
 const DEFAULT_FORWARD_LOOKING_PATHS = [
   'docs/architecture/',
   'docs/decisions/',
   'docs/proposals/',
   'docs/adr/',
+  'docs/changes/',
 ];
 
 const DEFAULT_DRIFT_CONFIG: DriftConfig = {
@@ -129,6 +132,73 @@ function isForwardLookingDoc(docPath: string, forwardLookingPaths: string[]): bo
   return forwardLookingPaths.some((prefix) => normalized.includes(prefix));
 }
 
+// snake_case (`assess_project`) and SCREAMING_SNAKE (`GEMINI_API_KEY`) tokens
+// are MCP tool names, config keys, and env vars in a camelCase TS codebase —
+// but genuine symbols in Python/Rust/Go. Rather than hardcode TS conventions,
+// suppress these token classes only when the codebase itself exports nothing
+// of that convention: a snake_case doc token cannot reference a symbol in a
+// project that has no snake_case exports (github issue #816).
+const SNAKE_CASE_RE = /^[a-z][a-z0-9]*(_[a-z0-9]+)+$/;
+const SCREAMING_SNAKE_RE = /^[A-Z][A-Z0-9]*(_[A-Z0-9]+)+$/;
+
+/** Naming conventions the codebase actually uses for exported symbols. */
+type ExportConventions = { hasSnakeExports: boolean; hasScreamingExports: boolean };
+
+/**
+ * Resolve a reference to the top-level symbol name to look up. Dotted
+ * references (`User.email`) resolve to their head segment, since the export
+ * map only tracks top-level symbols (github issue #816).
+ */
+function resolveReferenceName(reference: string): string {
+  return reference.includes('.') ? (reference.split('.')[0] ?? reference) : reference;
+}
+
+/**
+ * Whether a reference is noise that should not be checked for drift: caller
+ * ignore patterns, forward-looking docs (ADRs/proposals/change specs), or a
+ * snake_case / SCREAMING_SNAKE token in a codebase that exports nothing of
+ * that convention (MCP tool names, config keys, env vars). See issues #492
+ * and #816.
+ */
+function isSuppressedReference(
+  ref: CodebaseSnapshot['codeReferences'][number],
+  resolvedName: string,
+  config: DriftConfig,
+  conventions: ExportConventions
+): boolean {
+  if (config.ignorePatterns.some((p) => ref.reference.match(new RegExp(p)))) return true;
+  if (isForwardLookingDoc(ref.docFile, config.forwardLookingPaths)) return true;
+  if (SNAKE_CASE_RE.test(resolvedName) && !conventions.hasSnakeExports) return true;
+  if (SCREAMING_SNAKE_RE.test(resolvedName) && !conventions.hasScreamingExports) return true;
+  return false;
+}
+
+/** Build the drift finding for a reference that did not resolve to an export. */
+function buildApiDrift(
+  ref: CodebaseSnapshot['codeReferences'][number],
+  exportNames: string[]
+): DocumentationDrift {
+  const possibleMatches = findPossibleMatches(ref.reference, exportNames);
+  const renamed = possibleMatches.length > 0;
+  const drift: DocumentationDrift = {
+    type: 'api-signature',
+    docFile: ref.docFile,
+    line: ref.line,
+    reference: ref.reference,
+    context: ref.context,
+    issue: renamed ? 'RENAMED' : 'NOT_FOUND',
+    details: renamed
+      ? `Symbol "${ref.reference}" not found. Similar: ${possibleMatches.join(', ')}`
+      : `Symbol "${ref.reference}" not found in codebase`,
+    suggestion: renamed
+      ? `Did you mean "${possibleMatches[0]}"?`
+      : 'Remove reference or add the missing export',
+    confidence: renamed ? 'high' : 'medium',
+  };
+  if (renamed) drift.possibleMatches = possibleMatches;
+  return drift;
+}
+
 /**
  * Check API signature drift - docs reference symbols that don't exist
  */
@@ -138,46 +208,16 @@ function checkApiSignatureDrift(
 ): DocumentationDrift[] {
   const drifts: DocumentationDrift[] = [];
   const exportNames = Array.from(snapshot.exportMap.byName.keys());
+  const conventions: ExportConventions = {
+    hasSnakeExports: exportNames.some((n) => SNAKE_CASE_RE.test(n)),
+    hasScreamingExports: exportNames.some((n) => SCREAMING_SNAKE_RE.test(n)),
+  };
 
   for (const ref of snapshot.codeReferences) {
-    if (config.ignorePatterns.some((p) => ref.reference.match(new RegExp(p)))) {
-      continue;
-    }
-
-    // Forward-looking docs (ADRs, decisions, proposals) describe intended
-    // future code; their referenced symbols are not codebase drift. See
-    // github issue #492.
-    if (isForwardLookingDoc(ref.docFile, config.forwardLookingPaths)) {
-      continue;
-    }
-
-    // Check if reference exists in exports
-    if (!snapshot.exportMap.byName.has(ref.reference)) {
-      const possibleMatches = findPossibleMatches(ref.reference, exportNames);
-      const confidence = possibleMatches.length > 0 ? 'high' : 'medium';
-
-      const drift: DocumentationDrift = {
-        type: 'api-signature',
-        docFile: ref.docFile,
-        line: ref.line,
-        reference: ref.reference,
-        context: ref.context,
-        issue: possibleMatches.length > 0 ? 'RENAMED' : 'NOT_FOUND',
-        details:
-          possibleMatches.length > 0
-            ? `Symbol "${ref.reference}" not found. Similar: ${possibleMatches.join(', ')}`
-            : `Symbol "${ref.reference}" not found in codebase`,
-        suggestion:
-          possibleMatches.length > 0
-            ? `Did you mean "${possibleMatches[0]}"?`
-            : 'Remove reference or add the missing export',
-        confidence,
-      };
-      if (possibleMatches.length > 0) {
-        drift.possibleMatches = possibleMatches;
-      }
-      drifts.push(drift);
-    }
+    const resolvedName = resolveReferenceName(ref.reference);
+    if (isSuppressedReference(ref, resolvedName, config, conventions)) continue;
+    if (snapshot.exportMap.byName.has(resolvedName)) continue;
+    drifts.push(buildApiDrift(ref, exportNames));
   }
 
   return drifts;
