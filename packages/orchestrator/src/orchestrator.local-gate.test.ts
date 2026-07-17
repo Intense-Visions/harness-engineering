@@ -763,4 +763,53 @@ describe('settleWorkflowSuccess — staged empty-diff halt (D1/SC1)', () => {
     expect(reason).toContain('no changes produced');
     expect(diff).toHaveBeenCalledTimes(1);
   });
+
+  it('SC2: local staged unit with a non-empty diff completes exactly as today (persistLane success)', async () => {
+    const diff = vi.fn(async () => ({ hasChanges: true }));
+    const orch = newOrch({ local: LOCAL_BACKEND }, 'local', undefined, 5, diff);
+    seedRunning(orch, 'i1', tmpDir);
+
+    const persistSpy = vi.spyOn(
+      orch as unknown as { persistLaneSafe: (u: string, l: string) => Promise<void> },
+      'persistLaneSafe'
+    );
+    const terminalSpy = vi.spyOn(
+      orch as unknown as {
+        settleWorkflowTerminal: (
+          u: string,
+          r: unknown[],
+          s?: unknown,
+          e?: unknown
+        ) => Promise<void>;
+      },
+      'settleWorkflowTerminal'
+    );
+
+    await settleSuccess(orch)('i1', [stageRun('local')]);
+
+    // A real change → success persisted exactly once, terminal path never taken.
+    expect(persistSpy).toHaveBeenCalledWith('i1', 'success');
+    expect(persistSpy.mock.calls.filter((c) => c[1] === 'success')).toHaveLength(1);
+    expect(terminalSpy).not.toHaveBeenCalled();
+    expect(diff).toHaveBeenCalledTimes(1);
+  });
+
+  it('SC6: a NON-local staged unit skips the staged gate — success persists, diffRunner never called', async () => {
+    const diff = vi.fn(async () => ({ hasChanges: false }));
+    const orch = newOrch({ primary: CLAUDE_BACKEND }, 'primary', undefined, 5, diff);
+    seedRunning(orch, 'i1', tmpDir);
+
+    const persistSpy = vi.spyOn(
+      orch as unknown as { persistLaneSafe: (u: string, l: string) => Promise<void> },
+      'persistLaneSafe'
+    );
+
+    // Last stage routed to the non-local `primary` backend.
+    await settleSuccess(orch)('i1', [stageRun('primary')]);
+
+    // Non-local → the staged empty-diff gate is a no-op (SC6): success persists and
+    // the diffRunner is never consulted, even though hasChanges would be false.
+    expect(persistSpy).toHaveBeenCalledWith('i1', 'success');
+    expect(diff).not.toHaveBeenCalled();
+  });
 });
