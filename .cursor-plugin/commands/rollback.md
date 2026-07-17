@@ -22,8 +22,8 @@ Phases:
   </objective>
 
 <execution_context>
-@agents/skills/claude-code/harness-rollback/SKILL.md
-@agents/skills/claude-code/harness-rollback/skill.yaml
+@agents/skills/cursor/harness-rollback/SKILL.md
+@agents/skills/cursor/harness-rollback/skill.yaml
 </execution_context>
 
 <process>

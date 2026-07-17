@@ -11,7 +11,7 @@ Validate architectural layer boundaries, detect violations, and auto-fix import 
 </objective>
 
 <execution_context>
---- SKILL.md (agents/skills/claude-code/enforce-architecture/SKILL.md) ---
+--- SKILL.md (agents/skills/gemini-cli/enforce-architecture/SKILL.md) ---
 # Enforce Architecture
 
 > Validate architectural layer boundaries and detect dependency violations. No code may violate layer constraints — this is a hard gate, not a suggestion.
@@ -312,7 +312,7 @@ These reasoning patterns sound plausible but lead to bad outcomes. Reject them.
 - **When the team wants to change the layer model:** This is a significant architectural decision. All existing code must be migrated to the new model. Plan this as a dedicated refactoring effort, not a side task.
 
 
---- skill.yaml (agents/skills/claude-code/enforce-architecture/skill.yaml) ---
+--- skill.yaml (agents/skills/gemini-cli/enforce-architecture/skill.yaml) ---
 name: enforce-architecture
 version: "1.1.0"
 description: Validate architectural layer boundaries, detect violations, and auto-fix import ordering and forbidden import replacement

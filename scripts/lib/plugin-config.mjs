@@ -33,13 +33,12 @@ export const PLUGIN_CONFIGS = {
     pluginDir: '.cursor-plugin',
     slashCommandsPlatform: 'cursor',
     agentPlatform: 'cursor',
-    // Canonical skill source is agents/skills/claude-code. The per-platform
-    // dirs (agents/skills/cursor, …) are symlink mirrors, so scanning them
-    // directly under repo-scoped generation drops every symlinked skill
-    // (a symlinked dir isn't reported by isDirectory()). Scanning claude-code
-    // and mapping via slashCommandsPlatform ('cursor' is a derived platform in
-    // normalize.ts) yields the full, correct set without leaking global skills.
-    skillsDir: 'agents/skills/claude-code',
+    // Scan this platform's OWN skill tree so the generated command files embed
+    // cursor-relative @agents/skills/cursor/… reference paths. The per-platform
+    // dirs are symlink mirrors into claude-code; normalizeSkills follows those
+    // directory symlinks, so the full skill set resolves without pulling in the
+    // machine-wide global skills excluded by --skills-dir-only (#704).
+    skillsDir: 'agents/skills/cursor',
     // Cursor doesn't document a CURSOR_PLUGIN_ROOT env var; its hook docs
     // show relative paths like `./scripts/format-code.sh`. Plugin scripts
     // resolve relative to the plugin install directory.
@@ -59,11 +58,10 @@ export const PLUGIN_CONFIGS = {
     // Gemini extensions don't have a native agents/subagents field. Persona
     // behavior is exposed via commands + GEMINI.md context only.
     agentPlatform: undefined,
-    // Canonical skill source is agents/skills/claude-code (see cursor note).
-    // Skills that support gemini-cli list it in their skill.yaml platforms, so
-    // scanning the claude-code tree with slashCommandsPlatform 'gemini-cli'
-    // selects exactly the gemini-eligible skills.
-    skillsDir: 'agents/skills/claude-code',
+    // Scan gemini-cli's own (symlink-mirror) tree so generated command TOMLs
+    // embed gemini-cli-relative reference paths. See cursor note re: symlinks
+    // and --skills-dir-only.
+    skillsDir: 'agents/skills/gemini-cli',
     // Gemini extensions don't have a native hooks field either. We skip
     // hook generation entirely; users invoke `harness validate` manually
     // or via CI.

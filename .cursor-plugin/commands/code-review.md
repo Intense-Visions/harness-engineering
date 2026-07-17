@@ -15,8 +15,8 @@ Multi-phase code review pipeline with mechanical checks, graph-scoped context, a
 </objective>
 
 <execution_context>
-@agents/skills/claude-code/harness-code-review/SKILL.md
-@agents/skills/claude-code/harness-code-review/skill.yaml
+@agents/skills/cursor/harness-code-review/SKILL.md
+@agents/skills/cursor/harness-code-review/skill.yaml
 </execution_context>
 
 <process>

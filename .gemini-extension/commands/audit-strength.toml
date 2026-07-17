@@ -16,7 +16,7 @@ Phases:
 </objective>
 
 <execution_context>
---- SKILL.md (agents/skills/claude-code/harness-audit-harness-strength/SKILL.md) ---
+--- SKILL.md (agents/skills/gemini-cli/harness-audit-harness-strength/SKILL.md) ---
 # Harness Audit: Harness Strength
 
 > Mechanically audit whether a project's harness is load-bearing. Orchestrates the deterministic check-harness-strength engine; interprets results. Not a deep/AI review.
@@ -207,7 +207,7 @@ Input: The `--json` output contains an error-severity STRENGTH-001 finding, `--r
 Expected: Agent halts, reports FAIL with a non-zero exit, lists the finding with its file:line evidence and remediation, and does not proceed past the gate.
 
 
---- skill.yaml (agents/skills/claude-code/harness-audit-harness-strength/skill.yaml) ---
+--- skill.yaml (agents/skills/gemini-cli/harness-audit-harness-strength/skill.yaml) ---
 name: harness-audit-harness-strength
 version: '0.1.0'
 description: Mechanically audit a project's own harness setup against the seven STRENGTH failure patterns; reports per-pattern findings, a 0-100 strength score, and a tier label (solid/at-risk/theatre). Orchestrates harness check-harness-strength; never reimplements detection.

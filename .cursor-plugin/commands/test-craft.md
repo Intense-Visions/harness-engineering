@@ -23,8 +23,8 @@ Phases:
   </objective>
 
 <execution_context>
-@agents/skills/claude-code/test-craft/SKILL.md
-@agents/skills/claude-code/test-craft/skill.yaml
+@agents/skills/cursor/test-craft/SKILL.md
+@agents/skills/cursor/test-craft/skill.yaml
 </execution_context>
 
 <process>

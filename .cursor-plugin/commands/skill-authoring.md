@@ -15,8 +15,8 @@ Create and maintain harness skills following the rich skill format
 </objective>
 
 <execution_context>
-@agents/skills/claude-code/harness-skill-authoring/SKILL.md
-@agents/skills/claude-code/harness-skill-authoring/skill.yaml
+@agents/skills/cursor/harness-skill-authoring/SKILL.md
+@agents/skills/cursor/harness-skill-authoring/skill.yaml
 </execution_context>
 
 <process>

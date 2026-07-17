@@ -17,7 +17,7 @@ Phases:
 </objective>
 
 <execution_context>
---- SKILL.md (agents/skills/claude-code/harness-roadmap/SKILL.md) ---
+--- SKILL.md (agents/skills/gemini-cli/harness-roadmap/SKILL.md) ---
 # Harness Roadmap
 
 > Create and manage a unified project roadmap from existing specs and plans. Interactive, human-confirmed, always valid.
@@ -700,7 +700,7 @@ These are hard stops. Violating any gate means the process has broken down.
 - **When MCP tool is unavailable:** Fall back to direct file manipulation via Read/Write tools using the roadmap markdown format. The core `parseRoadmap`/`serializeRoadmap` functions handle the format. Report the fallback to the human: "MCP tool unavailable, using direct file operations. External sync skipped — run `manage_roadmap sync` when MCP is restored to push changes to GitHub."
 
 
---- skill.yaml (agents/skills/claude-code/harness-roadmap/skill.yaml) ---
+--- skill.yaml (agents/skills/gemini-cli/harness-roadmap/skill.yaml) ---
 name: harness-roadmap
 version: "1.0.0"
 description: Create and manage a unified project roadmap from existing specs and plans

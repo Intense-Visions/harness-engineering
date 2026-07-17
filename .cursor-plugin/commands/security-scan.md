@@ -19,8 +19,8 @@ Phases:
   </objective>
 
 <execution_context>
-@agents/skills/claude-code/harness-security-scan/SKILL.md
-@agents/skills/claude-code/harness-security-scan/skill.yaml
+@agents/skills/cursor/harness-security-scan/SKILL.md
+@agents/skills/cursor/harness-security-scan/skill.yaml
 </execution_context>
 
 <process>

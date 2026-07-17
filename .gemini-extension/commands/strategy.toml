@@ -18,7 +18,7 @@ Phases:
 </objective>
 
 <execution_context>
---- SKILL.md (agents/skills/claude-code/harness-strategy/SKILL.md) ---
+--- SKILL.md (agents/skills/gemini-cli/harness-strategy/SKILL.md) ---
 # Harness Strategy
 
 > Repo-root strategic anchor. **Phase 2 of the strategic-anchor spec ships the skill**: a first-run interview that writes a valid `STRATEGY.md`, plus an update flow that re-interviews one section at a time with pushback against fluff, goals-as-strategy, and feature-lists-as-strategy. Downstream wiring (init, brainstorming, roadmap-pilot, ideate, knowledge graph) ships in spec Phases 3-7.
@@ -173,7 +173,7 @@ The handoff exists to set the user's expectation about _why_ they just answered 
 - **Atomic rename fails (e.g., permission denied):** Surface the filesystem error verbatim. The temp file is cleaned up by the writer; no partial STRATEGY.md is left behind.
 
 
---- skill.yaml (agents/skills/claude-code/harness-strategy/skill.yaml) ---
+--- skill.yaml (agents/skills/gemini-cli/harness-strategy/skill.yaml) ---
 name: harness-strategy
 version: "0.1.0"
 description: First-run interview and update flow for STRATEGY.md — the durable upstream product anchor read by harness-brainstorming, harness-ideate, and harness-roadmap-pilot. Enforces three pushback rules (fluff, goal-as-strategy, feature-list-as-strategy) with a 2-round-per-section cap. Phase 2 ships the skill; downstream wiring (init, brainstorming, roadmap-pilot, ideate, knowledge graph) ships in spec Phases 3-7.

@@ -15,8 +15,8 @@ Scaffold or migrate a test-suite project (API, E2E/UI, or shared library) with t
 </objective>
 
 <execution_context>
-@agents/skills/claude-code/initialize-test-suite-project/SKILL.md
-@agents/skills/claude-code/initialize-test-suite-project/skill.yaml
+@agents/skills/cursor/initialize-test-suite-project/SKILL.md
+@agents/skills/cursor/initialize-test-suite-project/skill.yaml
 </execution_context>
 
 <process>

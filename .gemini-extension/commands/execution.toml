@@ -18,7 +18,7 @@ Phases:
 </objective>
 
 <execution_context>
---- SKILL.md (agents/skills/claude-code/harness-execution/SKILL.md) ---
+--- SKILL.md (agents/skills/gemini-cli/harness-execution/SKILL.md) ---
 # Harness Execution
 
 > Execute a plan task by task with atomic commits, checkpoint protocol, and persistent knowledge capture. Stop on blockers. Do not guess.
@@ -535,7 +535,7 @@ When `.harness/gate.json` has `"trace": true` or `--verbose` is passed, append t
 For human debugging only. Not required for normal execution.
 
 
---- skill.yaml (agents/skills/claude-code/harness-execution/skill.yaml) ---
+--- skill.yaml (agents/skills/gemini-cli/harness-execution/skill.yaml) ---
 name: harness-execution
 version: "1.0.0"
 description: Execute a planned set of tasks with harness validation and state tracking

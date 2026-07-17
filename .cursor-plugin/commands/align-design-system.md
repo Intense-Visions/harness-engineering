@@ -22,8 +22,8 @@ Phases:
   </objective>
 
 <execution_context>
-@agents/skills/claude-code/align-design-system/SKILL.md
-@agents/skills/claude-code/align-design-system/skill.yaml
+@agents/skills/cursor/align-design-system/SKILL.md
+@agents/skills/cursor/align-design-system/skill.yaml
 </execution_context>
 
 <process>

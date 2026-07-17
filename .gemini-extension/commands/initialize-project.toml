@@ -11,7 +11,7 @@ Scaffold a new harness-compliant project, including design system and roadmap co
 </objective>
 
 <execution_context>
---- SKILL.md (agents/skills/claude-code/initialize-harness-project/SKILL.md) ---
+--- SKILL.md (agents/skills/gemini-cli/initialize-harness-project/SKILL.md) ---
 # Initialize Harness Project
 
 > Scaffold a new harness-compliant project, migrate an existing project to the next adoption level, or bootstrap an existing project that just got the harness marketplace plugin installed (no `harness setup`). Ground the project in a strategic anchor (`STRATEGY.md`) first, then assess current state, scaffold or migrate, configure, validate, instrument (baselines / telemetry / Tier-0 integrations), and finalize.
@@ -620,7 +620,7 @@ git commit -m "feat: bootstrap harness on existing project (plugin install)"
 - Custom skills for all common team workflows
 
 
---- skill.yaml (agents/skills/claude-code/initialize-harness-project/skill.yaml) ---
+--- skill.yaml (agents/skills/gemini-cli/initialize-harness-project/skill.yaml) ---
 name: initialize-harness-project
 version: "1.0.0"
 description: Scaffold a new harness-compliant project, including design system and roadmap configuration

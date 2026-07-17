@@ -21,8 +21,8 @@ Phases:
   </objective>
 
 <execution_context>
-@agents/skills/claude-code/audit-component-anatomy/SKILL.md
-@agents/skills/claude-code/audit-component-anatomy/skill.yaml
+@agents/skills/cursor/audit-component-anatomy/SKILL.md
+@agents/skills/cursor/audit-component-anatomy/skill.yaml
 </execution_context>
 
 <process>

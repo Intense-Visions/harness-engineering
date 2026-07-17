@@ -17,7 +17,7 @@ Phases:
 </objective>
 
 <execution_context>
---- SKILL.md (agents/skills/claude-code/harness-knowledge-pipeline/SKILL.md) ---
+--- SKILL.md (agents/skills/gemini-cli/harness-knowledge-pipeline/SKILL.md) ---
 # Harness Knowledge Pipeline
 
 > 4-phase knowledge extraction, reconciliation, drift detection, and remediation with convergence loop. Keeps the business knowledge graph current and identifies coverage gaps.
@@ -311,7 +311,7 @@ $ harness knowledge-pipeline --ci --drift-check
 - **When convergence stalls at iteration 1:** All remaining findings require human intervention. Present them and stop.
 
 
---- skill.yaml (agents/skills/claude-code/harness-knowledge-pipeline/skill.yaml) ---
+--- skill.yaml (agents/skills/gemini-cli/harness-knowledge-pipeline/skill.yaml) ---
 name: harness-knowledge-pipeline
 version: "1.0.0"
 description: 4-phase knowledge extraction, reconciliation, drift detection, and remediation with convergence loop

@@ -17,7 +17,7 @@ Phases:
 </objective>
 
 <execution_context>
---- SKILL.md (agents/skills/claude-code/harness-rollback/SKILL.md) ---
+--- SKILL.md (agents/skills/gemini-cli/harness-rollback/SKILL.md) ---
 # Harness Rollback
 
 > Post-ship circuit breaker. Proposes a full-context **revert PR** when a shipped PR fails post-merge evaluation or crosses a signal threshold. v1 is **propose-only** — it NEVER auto-merges. A human merges the revert.
@@ -144,7 +144,7 @@ CLASSIFY: PR #752 merged after #740 and touches the same files (dependent merge)
 - **`rollback.evalTrigger.enabled` is true but #31 has not landed:** the eval arm has no post-merge invoker yet, so it still won't fire; note the dependency rather than wiring a bespoke trigger.
 
 
---- skill.yaml (agents/skills/claude-code/harness-rollback/skill.yaml) ---
+--- skill.yaml (agents/skills/gemini-cli/harness-rollback/skill.yaml) ---
 name: harness-rollback
 version: '1.0.0'
 description: Post-ship circuit breaker — proposes a full-context revert PR when a shipped PR fails post-merge evaluation or crosses a signal threshold. Propose-only in v1 (never auto-merges).

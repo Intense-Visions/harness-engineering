@@ -17,7 +17,7 @@ Phases:
 </objective>
 
 <execution_context>
---- SKILL.md (agents/skills/claude-code/harness-tdd/SKILL.md) ---
+--- SKILL.md (agents/skills/gemini-cli/harness-tdd/SKILL.md) ---
 # Harness TDD
 
 > Red-green-refactor cycle integrated with harness validation. No production code exists without a failing test first.
@@ -230,7 +230,7 @@ These are hard stops. Violating any gate means the process has broken down.
 - **When you are unsure what to test next:** Review the spec or plan. If no spec exists, use the harness-brainstorming skill to clarify requirements before writing more tests.
 
 
---- skill.yaml (agents/skills/claude-code/harness-tdd/skill.yaml) ---
+--- skill.yaml (agents/skills/gemini-cli/harness-tdd/skill.yaml) ---
 name: harness-tdd
 version: "1.0.0"
 description: Test-driven development integrated with harness validation

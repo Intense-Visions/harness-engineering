@@ -16,7 +16,7 @@ Phases:
 </objective>
 
 <execution_context>
---- SKILL.md (agents/skills/claude-code/harness-test-advisor/SKILL.md) ---
+--- SKILL.md (agents/skills/gemini-cli/harness-test-advisor/SKILL.md) ---
 # Harness Test Advisor
 
 > Graph-based test selection. Answers: "I changed these files — what tests should I run?"
@@ -267,7 +267,7 @@ Output:
 - **When Tier 1 has >20 tests**: The changed file may be a hub. Suggest running Tier 1 in parallel or splitting the file.
 
 
---- skill.yaml (agents/skills/claude-code/harness-test-advisor/skill.yaml) ---
+--- skill.yaml (agents/skills/gemini-cli/harness-test-advisor/skill.yaml) ---
 name: harness-test-advisor
 version: "1.0.0"
 description: Graph-based test selection and project-wide coverage audit — answers "what tests should I run?" or "what's untested?"

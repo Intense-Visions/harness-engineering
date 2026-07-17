@@ -21,8 +21,8 @@ Phases:
   </objective>
 
 <execution_context>
-@agents/skills/claude-code/harness-catalog-retrospective/SKILL.md
-@agents/skills/claude-code/harness-catalog-retrospective/skill.yaml
+@agents/skills/cursor/harness-catalog-retrospective/SKILL.md
+@agents/skills/cursor/harness-catalog-retrospective/skill.yaml
 </execution_context>
 
 <process>

@@ -16,7 +16,7 @@ Phases:
 </objective>
 
 <execution_context>
---- SKILL.md (agents/skills/claude-code/harness-impact-analysis/SKILL.md) ---
+--- SKILL.md (agents/skills/gemini-cli/harness-impact-analysis/SKILL.md) ---
 # Harness Impact Analysis
 
 > Graph-based impact analysis. Answers: "if I change X, what breaks?"
@@ -215,7 +215,7 @@ Output:
 - **When impact is critical**: If risk tier is Critical, recommend a thorough code review and full test suite run before merging.
 
 
---- skill.yaml (agents/skills/claude-code/harness-impact-analysis/skill.yaml) ---
+--- skill.yaml (agents/skills/gemini-cli/harness-impact-analysis/skill.yaml) ---
 name: harness-impact-analysis
 version: "1.0.0"
 description: Graph-based impact analysis — answers "if I change X, what breaks?"

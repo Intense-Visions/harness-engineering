@@ -19,7 +19,7 @@ Phases:
 </objective>
 
 <execution_context>
---- SKILL.md (agents/skills/claude-code/harness-ideate/SKILL.md) ---
+--- SKILL.md (agents/skills/gemini-cli/harness-ideate/SKILL.md) ---
 # Harness Ideate
 
 > Pre-brainstorm ideation. Generates candidate ideas, critiques each against its strongest objection, and ranks them by `(impact × confidence) ÷ effort`. Writes a single ranked artifact to `docs/ideation/<slug>-YYYY-MM-DD.md`. **Produces ranked ideation, not specs** — brainstorming consumes the output.
@@ -301,7 +301,7 @@ Phase 5:
 - **Output directory cannot be created.** Surface the filesystem error verbatim. Do not silently write to a fallback path.
 
 
---- skill.yaml (agents/skills/claude-code/harness-ideate/skill.yaml) ---
+--- skill.yaml (agents/skills/gemini-cli/harness-ideate/skill.yaml) ---
 name: harness-ideate
 version: "0.1.0"
 description: Pre-brainstorm ideation phase. Generates N candidate ideas grounded in STRATEGY.md (when present), critiques each against its strongest objection, ranks by (impact × confidence) ÷ effort with a bounded strategy-alignment tiebreaker, and writes a single ranked Markdown artifact to docs/ideation/[slug]-YYYY-MM-DD.md. Produces ranked ideation — never specs, plans, or code. harness-brainstorming consumes the output.

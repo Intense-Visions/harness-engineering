@@ -22,8 +22,8 @@ Phases:
   </objective>
 
 <execution_context>
-@agents/skills/claude-code/outcome-eval/SKILL.md
-@agents/skills/claude-code/outcome-eval/skill.yaml
+@agents/skills/cursor/outcome-eval/SKILL.md
+@agents/skills/cursor/outcome-eval/skill.yaml
 </execution_context>
 
 <process>

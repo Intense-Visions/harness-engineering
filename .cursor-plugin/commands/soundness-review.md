@@ -22,8 +22,8 @@ Phases:
   </objective>
 
 <execution_context>
-@agents/skills/claude-code/harness-soundness-review/SKILL.md
-@agents/skills/claude-code/harness-soundness-review/skill.yaml
+@agents/skills/cursor/harness-soundness-review/SKILL.md
+@agents/skills/cursor/harness-soundness-review/skill.yaml
 </execution_context>
 
 <process>

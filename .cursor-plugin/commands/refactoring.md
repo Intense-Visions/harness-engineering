@@ -15,8 +15,8 @@ Safe refactoring with validation before and after changes
 </objective>
 
 <execution_context>
-@agents/skills/claude-code/harness-refactoring/SKILL.md
-@agents/skills/claude-code/harness-refactoring/skill.yaml
+@agents/skills/cursor/harness-refactoring/SKILL.md
+@agents/skills/cursor/harness-refactoring/skill.yaml
 </execution_context>
 
 <process>

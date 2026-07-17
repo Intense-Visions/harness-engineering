@@ -15,8 +15,8 @@ Add a component to an existing harness project
 </objective>
 
 <execution_context>
-@agents/skills/claude-code/add-harness-component/SKILL.md
-@agents/skills/claude-code/add-harness-component/skill.yaml
+@agents/skills/cursor/add-harness-component/SKILL.md
+@agents/skills/cursor/add-harness-component/skill.yaml
 </execution_context>
 
 <process>

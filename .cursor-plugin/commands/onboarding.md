@@ -15,8 +15,8 @@ Onboard a new developer to a harness-managed project
 </objective>
 
 <execution_context>
-@agents/skills/claude-code/harness-onboarding/SKILL.md
-@agents/skills/claude-code/harness-onboarding/skill.yaml
+@agents/skills/cursor/harness-onboarding/SKILL.md
+@agents/skills/cursor/harness-onboarding/skill.yaml
 </execution_context>
 
 <process>

@@ -14,7 +14,7 @@ Phases:
 </objective>
 
 <execution_context>
---- SKILL.md (agents/skills/claude-code/harness-security-scan/SKILL.md) ---
+--- SKILL.md (agents/skills/gemini-cli/harness-security-scan/SKILL.md) ---
 # Harness Security Scan
 
 > Lightweight mechanical security scan. Fast triage, not deep review.
@@ -175,7 +175,7 @@ Errors: 1 | Warnings: 2 | Info: 0
 ```
 
 
---- skill.yaml (agents/skills/claude-code/harness-security-scan/skill.yaml) ---
+--- skill.yaml (agents/skills/gemini-cli/harness-security-scan/skill.yaml) ---
 name: harness-security-scan
 version: "1.0.0"
 description: Lightweight mechanical security scan for health checks

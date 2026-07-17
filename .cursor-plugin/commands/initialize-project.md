@@ -15,8 +15,8 @@ Scaffold a new harness-compliant project, including design system and roadmap co
 </objective>
 
 <execution_context>
-@agents/skills/claude-code/initialize-harness-project/SKILL.md
-@agents/skills/claude-code/initialize-harness-project/skill.yaml
+@agents/skills/cursor/initialize-harness-project/SKILL.md
+@agents/skills/cursor/initialize-harness-project/skill.yaml
 </execution_context>
 
 <process>

@@ -19,7 +19,7 @@ Phases:
 </objective>
 
 <execution_context>
---- SKILL.md (agents/skills/claude-code/harness-docs-pipeline/SKILL.md) ---
+--- SKILL.md (agents/skills/gemini-cli/harness-docs-pipeline/SKILL.md) ---
 # Harness Docs Pipeline
 
 > Orchestrator composing 4 documentation skills into a sequential pipeline with convergence-based remediation, producing a qualitative documentation health report.
@@ -493,7 +493,7 @@ Input: --bootstrap flag set, no graph, no AGENTS.md
 - **When `harness check-docs` is unavailable:** Fall back to file existence checks and link validation via grep. Log a notice about reduced verification accuracy.
 
 
---- skill.yaml (agents/skills/claude-code/harness-docs-pipeline/skill.yaml) ---
+--- skill.yaml (agents/skills/gemini-cli/harness-docs-pipeline/skill.yaml) ---
 name: harness-docs-pipeline
 version: "1.0.0"
 description: Orchestrator composing 4 documentation skills into a sequential pipeline with convergence-based remediation and qualitative health reporting
