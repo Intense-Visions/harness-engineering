@@ -23,8 +23,8 @@ Phases:
   </objective>
 
 <execution_context>
-@agents/skills/claude-code/harness-debugging/SKILL.md
-@agents/skills/claude-code/harness-debugging/skill.yaml
+@agents/skills/cursor/harness-debugging/SKILL.md
+@agents/skills/cursor/harness-debugging/skill.yaml
 </execution_context>
 
 <process>

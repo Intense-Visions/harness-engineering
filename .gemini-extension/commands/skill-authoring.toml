@@ -11,7 +11,7 @@ Create and maintain harness skills following the rich skill format
 </objective>
 
 <execution_context>
---- SKILL.md (agents/skills/claude-code/harness-skill-authoring/SKILL.md) ---
+--- SKILL.md (agents/skills/gemini-cli/harness-skill-authoring/SKILL.md) ---
 # Harness Skill Authoring
 
 > Create and extend harness skills following the rich skill format. Define purpose, choose type, write skill.yaml and SKILL.md with all required sections, validate, and test.
@@ -522,7 +522,7 @@ Tools: Bash, Read, Glob.
 - **When you cannot write a test scenario that triggers a Gate:** The Gate condition is too abstract. Revise it to include specific, observable conditions that an agent would encounter.
 
 
---- skill.yaml (agents/skills/claude-code/harness-skill-authoring/skill.yaml) ---
+--- skill.yaml (agents/skills/gemini-cli/harness-skill-authoring/skill.yaml) ---
 name: harness-skill-authoring
 version: "1.0.0"
 description: Create and maintain harness skills following the rich skill format

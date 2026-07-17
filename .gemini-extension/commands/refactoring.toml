@@ -11,7 +11,7 @@ Safe refactoring with validation before and after changes
 </objective>
 
 <execution_context>
---- SKILL.md (agents/skills/claude-code/harness-refactoring/SKILL.md) ---
+--- SKILL.md (agents/skills/gemini-cli/harness-refactoring/SKILL.md) ---
 # Harness Refactoring
 
 > Safe refactoring with constraint verification at every step. Change structure without changing behavior, with harness checks as your safety net.
@@ -222,7 +222,7 @@ Skipping this step means subsequent graph queries (impact analysis, dependency h
 - **When the refactoring scope keeps growing:** Stop. Commit what you have (if it is clean). Re-plan with a smaller scope. Large refactorings should be broken into multiple sessions, each leaving the code in a better state.
 
 
---- skill.yaml (agents/skills/claude-code/harness-refactoring/skill.yaml) ---
+--- skill.yaml (agents/skills/gemini-cli/harness-refactoring/skill.yaml) ---
 name: harness-refactoring
 version: "1.0.0"
 description: Safe refactoring with validation before and after changes

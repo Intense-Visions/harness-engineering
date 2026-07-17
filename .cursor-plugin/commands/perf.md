@@ -22,8 +22,8 @@ Phases:
   </objective>
 
 <execution_context>
-@agents/skills/claude-code/harness-perf/SKILL.md
-@agents/skills/claude-code/harness-perf/skill.yaml
+@agents/skills/cursor/harness-perf/SKILL.md
+@agents/skills/cursor/harness-perf/skill.yaml
 </execution_context>
 
 <process>

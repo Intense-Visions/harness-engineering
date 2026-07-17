@@ -16,7 +16,7 @@ Phases:
 </objective>
 
 <execution_context>
---- SKILL.md (agents/skills/claude-code/harness-integrity/SKILL.md) ---
+--- SKILL.md (agents/skills/gemini-cli/harness-integrity/SKILL.md) ---
 # Harness Integrity
 
 > Unified integrity gate — single invocation chains mechanical verification with AI-powered code review and produces a consolidated pass/fail report.
@@ -198,7 +198,7 @@ Blocking: [SEC-INJ-002] SQL injection — user input passed directly to query wi
 - **Missing dependencies:** If `harness-verify` or `harness-code-review` skills are unavailable, report the missing dependency and mark the corresponding phase as `ERROR`.
 
 
---- skill.yaml (agents/skills/claude-code/harness-integrity/skill.yaml) ---
+--- skill.yaml (agents/skills/gemini-cli/harness-integrity/skill.yaml) ---
 name: harness-integrity
 version: "1.0.0"
 description: Unified integrity gate — chains verify (quick gate) with AI review into a single report

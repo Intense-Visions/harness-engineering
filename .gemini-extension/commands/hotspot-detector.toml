@@ -17,7 +17,7 @@ Phases:
 </objective>
 
 <execution_context>
---- SKILL.md (agents/skills/claude-code/harness-hotspot-detector/SKILL.md) ---
+--- SKILL.md (agents/skills/gemini-cli/harness-hotspot-detector/SKILL.md) ---
 # Harness Hotspot Detector
 
 > Identify modules that represent structural risk via co-change and churn analysis.
@@ -191,7 +191,7 @@ Output:
 - **When a single file has >30 commits**: Flag as critical hotspot requiring architectural attention.
 
 
---- skill.yaml (agents/skills/claude-code/harness-hotspot-detector/skill.yaml) ---
+--- skill.yaml (agents/skills/gemini-cli/harness-hotspot-detector/skill.yaml) ---
 name: harness-hotspot-detector
 version: "1.0.0"
 description: Identify structural risk hotspots via co-change and churn analysis

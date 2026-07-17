@@ -22,8 +22,8 @@ Phases:
   </objective>
 
 <execution_context>
-@agents/skills/claude-code/harness-hotspot-detector/SKILL.md
-@agents/skills/claude-code/harness-hotspot-detector/skill.yaml
+@agents/skills/cursor/harness-hotspot-detector/SKILL.md
+@agents/skills/cursor/harness-hotspot-detector/skill.yaml
 </execution_context>
 
 <process>

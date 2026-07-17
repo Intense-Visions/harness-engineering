@@ -122,3 +122,85 @@ describe('resolveSkillSources - global flag includes built-in skills', () => {
     expect(hasGlobalSource).toBe(true);
   });
 });
+
+describe('resolveSkillSources - skillsDirOnly scopes to the repo skills tree (#704)', () => {
+  let repoSkillsDir: string;
+  let globalCommunityDir: string;
+
+  beforeEach(() => {
+    tmpBase = fs.mkdtempSync(path.join(os.tmpdir(), 'skill-sources-repo-'));
+
+    // The repo's OWN skills tree (what generate-plugin.mjs passes via --skills-dir).
+    repoSkillsDir = path.join(tmpBase, 'repo', 'agents', 'skills', 'claude-code');
+    const repoSkill = path.join(repoSkillsDir, 'harness-debugging');
+    fs.mkdirSync(repoSkill, { recursive: true });
+    fs.writeFileSync(path.join(repoSkill, 'skill.yaml'), 'name: harness-debugging\n');
+    fs.writeFileSync(path.join(repoSkill, 'SKILL.md'), '# Debugging\n');
+
+    // A machine-wide global community install with a FOREIGN third-party skill.
+    // This is the source of the #704 leak: it must NOT appear in repo artifacts.
+    globalCommunityDir = path.join(
+      tmpBase,
+      'home',
+      '.harness',
+      'skills',
+      'community',
+      'claude-code'
+    );
+    const foreignSkill = path.join(globalCommunityDir, 'third-party-foreign');
+    fs.mkdirSync(foreignSkill, { recursive: true });
+    fs.writeFileSync(path.join(foreignSkill, 'skill.yaml'), 'name: third-party-foreign\n');
+    fs.writeFileSync(path.join(foreignSkill, 'SKILL.md'), '# Foreign\n');
+
+    // Point every ambient resolver at real, existing dirs so the additive path
+    // WOULD pull them in if scoping is broken.
+    (globalThis as Record<string, unknown>).__testProjectSkillsDir = repoSkillsDir;
+    (globalThis as Record<string, unknown>).__testGlobalSkillsDir = repoSkillsDir;
+    (globalThis as Record<string, unknown>).__testCommunitySkillsDir = globalCommunityDir;
+    (globalThis as Record<string, unknown>).__testGlobalCommunitySkillsDir = globalCommunityDir;
+  });
+
+  afterEach(() => {
+    fs.rmSync(tmpBase, { recursive: true, force: true });
+  });
+
+  it('returns ONLY the --skills-dir tree when skillsDirOnly is set, excluding global community skills', () => {
+    const sources = resolveSkillSources({
+      platforms: ['claude-code'],
+      global: false,
+      includeGlobal: false,
+      skillsDir: repoSkillsDir,
+      skillsDirOnly: true,
+      dryRun: false,
+      yes: false,
+    });
+
+    // Exactly one source: the repo skills dir passed via --skills-dir.
+    expect(sources).toHaveLength(1);
+    expect(path.resolve(sources[0].dir)).toBe(path.resolve(repoSkillsDir));
+
+    // No source resolves into the machine-wide global community tree.
+    const leaksGlobalCommunity = sources.some(
+      (s) => path.resolve(s.dir) === path.resolve(globalCommunityDir)
+    );
+    expect(leaksGlobalCommunity).toBe(false);
+    // No global fallback source is added either.
+    expect(sources.some((s) => s.source === 'global')).toBe(false);
+  });
+
+  it('WITHOUT skillsDirOnly, the same call additively leaks the global community tree (documents the bug)', () => {
+    const sources = resolveSkillSources({
+      platforms: ['claude-code'],
+      global: false,
+      includeGlobal: false,
+      skillsDir: repoSkillsDir,
+      dryRun: false,
+      yes: false,
+    });
+
+    const leaksGlobalCommunity = sources.some(
+      (s) => path.resolve(s.dir) === path.resolve(globalCommunityDir)
+    );
+    expect(leaksGlobalCommunity).toBe(true);
+  });
+});

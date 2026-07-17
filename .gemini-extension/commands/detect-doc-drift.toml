@@ -11,7 +11,7 @@ Detect documentation that has drifted from code
 </objective>
 
 <execution_context>
---- SKILL.md (agents/skills/claude-code/detect-doc-drift/SKILL.md) ---
+--- SKILL.md (agents/skills/gemini-cli/detect-doc-drift/SKILL.md) ---
 # Detect Doc Drift
 
 > Detect documentation that has drifted from code. Find stale docs before they mislead developers and AI agents.
@@ -204,7 +204,7 @@ GAP: Undocumented module
 - **When drift reveals a deeper problem (code changed but nobody knew):** This suggests a process gap. Recommend adding `harness check-docs` to the CI pipeline or pre-merge hooks to catch drift at the source.
 
 
---- skill.yaml (agents/skills/claude-code/detect-doc-drift/skill.yaml) ---
+--- skill.yaml (agents/skills/gemini-cli/detect-doc-drift/skill.yaml) ---
 name: detect-doc-drift
 version: "1.0.0"
 description: Detect documentation that has drifted from code

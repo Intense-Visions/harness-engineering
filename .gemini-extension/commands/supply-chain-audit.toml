@@ -16,7 +16,7 @@ Phases:
 </objective>
 
 <execution_context>
---- SKILL.md (agents/skills/claude-code/harness-supply-chain-audit/SKILL.md) ---
+--- SKILL.md (agents/skills/gemini-cli/harness-supply-chain-audit/SKILL.md) ---
 # Harness Supply Chain Audit
 
 > 6-factor dependency risk evaluation adapted from Trail of Bits security skill patterns. Surfaces dependency risk flags for human review — not automated verdicts.
@@ -310,7 +310,7 @@ Consider alternatives to abandoned-util.
 ```
 
 
---- skill.yaml (agents/skills/claude-code/harness-supply-chain-audit/skill.yaml) ---
+--- skill.yaml (agents/skills/gemini-cli/harness-supply-chain-audit/skill.yaml) ---
 name: harness-supply-chain-audit
 version: "1.0.0"
 description: 6-factor dependency risk evaluation for supply chain security

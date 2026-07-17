@@ -17,7 +17,7 @@ Phases:
 </objective>
 
 <execution_context>
---- SKILL.md (agents/skills/claude-code/harness-planning/SKILL.md) ---
+--- SKILL.md (agents/skills/gemini-cli/harness-planning/SKILL.md) ---
 # Harness Planning
 
 > Implementation planning with atomic tasks, goal-backward must-haves, and complete executable instructions. Every task fits in one context window.
@@ -539,7 +539,7 @@ Files: src/types/notification.ts
 - **Estimated time exceeds available time:** Identify a milestone boundary for pausing. Propose delivering in phases, each producing a usable increment.
 
 
---- skill.yaml (agents/skills/claude-code/harness-planning/skill.yaml) ---
+--- skill.yaml (agents/skills/gemini-cli/harness-planning/skill.yaml) ---
 name: harness-planning
 version: "1.0.0"
 description: Structured project planning with harness constraints and validation

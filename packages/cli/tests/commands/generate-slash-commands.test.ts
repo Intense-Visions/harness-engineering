@@ -427,3 +427,153 @@ describe('handleOrphanDeletion', () => {
     await handleOrphanDeletion([result], { yes: true, dryRun: false });
   });
 });
+
+describe('generateSlashCommands - skillsDirOnly repo-scoping (#704)', () => {
+  let tmpDir: string;
+  let repoSkillsDir: string;
+
+  beforeEach(() => {
+    tmpDir = makeTmpDir();
+    // A minimal "repo" skills tree with exactly one skill.
+    repoSkillsDir = path.join(tmpDir, 'repo-skills');
+    const skill = path.join(repoSkillsDir, 'my-repo-skill');
+    fs.mkdirSync(skill, { recursive: true });
+    fs.writeFileSync(
+      path.join(skill, 'skill.yaml'),
+      'name: my-repo-skill\nversion: "1.0.0"\ndescription: a repo skill\ntriggers:\n  - manual\nplatforms:\n  - claude-code\ntools:\n  - Read\ntype: rigid\ntier: 1\n'
+    );
+    fs.writeFileSync(path.join(skill, 'SKILL.md'), '# My Repo Skill\n');
+  });
+
+  afterEach(() => {
+    fs.rmSync(tmpDir, { recursive: true, force: true });
+  });
+
+  it('emits ONLY commands from the scoped skills dir, ignoring every ambient (project/community/global) source', () => {
+    // skillsDirOnly bypasses all ambient resolution, so this is deterministic
+    // regardless of what skills the developer has installed globally — which is
+    // exactly the property that prevents foreign global skills from leaking into
+    // the repo's plugin artifacts.
+    const outDir = path.join(tmpDir, 'out');
+    const results = generateSlashCommands({
+      platforms: ['claude-code'],
+      global: false,
+      includeGlobal: false,
+      skillsDir: repoSkillsDir,
+      skillsDirOnly: true,
+      output: outDir,
+      dryRun: false,
+      yes: false,
+    });
+
+    const harnessDir = path.join(outDir, 'harness');
+    const emitted = fs.existsSync(harnessDir)
+      ? fs.readdirSync(harnessDir).filter((f) => f.endsWith('.md'))
+      : [];
+
+    // Exactly the one scoped skill — no ambient skills (e.g. the harness core
+    // skills present in this very repo) were pulled in.
+    expect(emitted).toEqual(['my-repo-skill.md']);
+    const claudeResult = results.find((r) => r.platform === 'claude-code');
+    expect(claudeResult?.added).toEqual(['my-repo-skill.md']);
+  });
+});
+
+describe('generateSlashCommands - emitted skill path uses the scanned platform dir (#704)', () => {
+  let tmpDir: string;
+
+  // Build a per-platform skills tree at <root>/agents/skills/<platform> with one
+  // skill, generate scoped-only from it, and return the emitted reference path.
+  function generateAndReadRefPath(platform: 'cursor' | 'gemini-cli'): string {
+    const skillsDir = path.join(tmpDir, 'agents', 'skills', platform);
+    const skill = path.join(skillsDir, 'ref-path-skill');
+    fs.mkdirSync(skill, { recursive: true });
+    fs.writeFileSync(
+      path.join(skill, 'skill.yaml'),
+      `name: ref-path-skill\nversion: "1.0.0"\ndescription: ref path skill\ntriggers:\n  - manual\nplatforms:\n  - ${platform}\n  - claude-code\ntools:\n  - Read\ntype: rigid\ntier: 1\n`
+    );
+    fs.writeFileSync(path.join(skill, 'SKILL.md'), '# Ref Path Skill\n');
+
+    const outDir = path.join(tmpDir, `out-${platform}`);
+    generateSlashCommands({
+      platforms: [platform],
+      global: false,
+      includeGlobal: false,
+      skillsDir,
+      skillsDirOnly: true,
+      output: outDir,
+      dryRun: false,
+      yes: false,
+      ...(platform === 'cursor' ? { cursorMode: 'commands' as const } : {}),
+    });
+
+    const ext = platform === 'gemini-cli' ? '.toml' : '.md';
+    const file = path.join(outDir, 'harness', `ref-path-skill${ext}`);
+    return fs.readFileSync(file, 'utf-8');
+  }
+
+  beforeEach(() => {
+    tmpDir = makeTmpDir();
+  });
+
+  afterEach(() => {
+    fs.rmSync(tmpDir, { recursive: true, force: true });
+  });
+
+  it('cursor commands reference agents/skills/cursor/…, not claude-code', () => {
+    const content = generateAndReadRefPath('cursor');
+    expect(content).toContain('agents/skills/cursor/ref-path-skill/SKILL.md');
+    expect(content).not.toContain('agents/skills/claude-code/ref-path-skill');
+  });
+
+  it('gemini-cli commands reference agents/skills/gemini-cli/…, not claude-code', () => {
+    const content = generateAndReadRefPath('gemini-cli');
+    expect(content).toContain('agents/skills/gemini-cli/ref-path-skill/SKILL.md');
+    expect(content).not.toContain('agents/skills/claude-code/ref-path-skill');
+  });
+});
+
+describe('normalizeSkills - follows symlinked skill dirs (#704)', () => {
+  let tmpDir: string;
+
+  beforeEach(() => {
+    tmpDir = makeTmpDir();
+  });
+
+  afterEach(() => {
+    fs.rmSync(tmpDir, { recursive: true, force: true });
+  });
+
+  it('generates a command for a skill dir that is a symlink into another platform tree', () => {
+    // Canonical skill under claude-code.
+    const canonical = path.join(tmpDir, 'agents', 'skills', 'claude-code', 'linked-skill');
+    fs.mkdirSync(canonical, { recursive: true });
+    fs.writeFileSync(
+      path.join(canonical, 'skill.yaml'),
+      'name: linked-skill\nversion: "1.0.0"\ndescription: linked\ntriggers:\n  - manual\nplatforms:\n  - claude-code\n  - cursor\ntools:\n  - Read\ntype: rigid\ntier: 1\n'
+    );
+    fs.writeFileSync(path.join(canonical, 'SKILL.md'), '# Linked Skill\n');
+
+    // cursor mirror is a symlink into claude-code (mirrors the repo layout).
+    const cursorDir = path.join(tmpDir, 'agents', 'skills', 'cursor');
+    fs.mkdirSync(cursorDir, { recursive: true });
+    fs.symlinkSync(canonical, path.join(cursorDir, 'linked-skill'), 'dir');
+
+    const outDir = path.join(tmpDir, 'out');
+    const results = generateSlashCommands({
+      platforms: ['cursor'],
+      global: false,
+      includeGlobal: false,
+      skillsDir: cursorDir,
+      skillsDirOnly: true,
+      output: outDir,
+      cursorMode: 'commands',
+      dryRun: false,
+      yes: false,
+    });
+
+    // Without symlink-following the scan drops the (symlinked) skill entirely.
+    const cursorResult = results.find((r) => r.platform === 'cursor');
+    expect(cursorResult?.added).toEqual(['linked-skill.md']);
+  });
+});

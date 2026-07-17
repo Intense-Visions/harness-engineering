@@ -11,7 +11,7 @@ Scaffold or migrate a test-suite project (API, E2E/UI, or shared library) with t
 </objective>
 
 <execution_context>
---- SKILL.md (agents/skills/claude-code/initialize-test-suite-project/SKILL.md) ---
+--- SKILL.md (agents/skills/gemini-cli/initialize-test-suite-project/SKILL.md) ---
 # Initialize Test Suite Project
 
 > Scaffold or migrate a test-suite project — API, E2E/UI, or shared test library. Owns test-suite-specific archetype selection, shared-library vs in-repo scaffolding decision, layer variants, tag taxonomy, reporter stack, and custom report. Cross-cutting concerns (adoption level, personas, AGENTS.md base template, i18n, knowledge graph, roadmap nudge, final commit) delegate to `initialize-harness-project`.
@@ -429,7 +429,7 @@ git commit -m "feat: initialize harness project at intermediate level for Playwr
 ```
 
 
---- skill.yaml (agents/skills/claude-code/initialize-test-suite-project/skill.yaml) ---
+--- skill.yaml (agents/skills/gemini-cli/initialize-test-suite-project/skill.yaml) ---
 name: initialize-test-suite-project
 version: "1.0.0"
 description: Scaffold or migrate a test-suite project (API, E2E/UI, or shared library) with test-suite-specific layer models, tags, reporter stack, and custom report

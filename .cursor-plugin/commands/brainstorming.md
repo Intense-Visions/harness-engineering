@@ -22,8 +22,8 @@ Phases:
   </objective>
 
 <execution_context>
-@agents/skills/claude-code/harness-brainstorming/SKILL.md
-@agents/skills/claude-code/harness-brainstorming/skill.yaml
+@agents/skills/cursor/harness-brainstorming/SKILL.md
+@agents/skills/cursor/harness-brainstorming/skill.yaml
 </execution_context>
 
 <process>

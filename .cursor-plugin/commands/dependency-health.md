@@ -21,8 +21,8 @@ Phases:
   </objective>
 
 <execution_context>
-@agents/skills/claude-code/harness-dependency-health/SKILL.md
-@agents/skills/claude-code/harness-dependency-health/skill.yaml
+@agents/skills/cursor/harness-dependency-health/SKILL.md
+@agents/skills/cursor/harness-dependency-health/skill.yaml
 </execution_context>
 
 <process>

@@ -75,6 +75,16 @@ export function resolveSkillSources(opts: GenerateOptions): SkillSource[] {
     addSource(opts.skillsDir, 'community');
   }
 
+  // Repo-scoped mode: `skillsDir` is the EXCLUSIVE source. Skip all project,
+  // community, and global (machine-wide) resolution so that globally-installed
+  // third-party skills never leak into the repo's own plugin artifacts (#704).
+  // Only the repo's scripts/generate-plugin.mjs sets this; adopter-facing flows
+  // (`harness setup`, `harness generate`) leave it unset and keep the
+  // global-inclusive resolution below.
+  if (opts.skillsDirOnly) {
+    return sources;
+  }
+
   const projectDir = resolveProjectSkillsDir();
   if (projectDir) {
     addSource(projectDir, 'project');
@@ -345,6 +355,11 @@ export function createGenerateSlashCommandsCommand(): Command {
     .option('--include-global', 'Include built-in global skills alongside project skills', false)
     .option('--output <dir>', 'Custom output directory')
     .option('--skills-dir <path>', 'Skills directory to scan')
+    .option(
+      '--skills-dir-only',
+      'Use --skills-dir as the exclusive source; skip project/community/global (machine-wide) skill resolution. For generating repo-owned artifacts without leaking globally-installed skills (#704).',
+      false
+    )
     .option('--dry-run', 'Show what would change without writing', false)
     .option('--yes', 'Skip deletion confirmation prompts', false)
     .option(
@@ -371,6 +386,7 @@ export function createGenerateSlashCommandsCommand(): Command {
           includeGlobal: opts.includeGlobal,
           output: opts.output,
           skillsDir: opts.skillsDir ?? '',
+          skillsDirOnly: opts.skillsDirOnly,
           dryRun: opts.dryRun,
           yes: opts.yes,
           cursorMode: opts.cursorMode,

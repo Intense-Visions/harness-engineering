@@ -11,7 +11,7 @@ Detect and auto-fix dead code including dead exports, commented-out code, and or
 </objective>
 
 <execution_context>
---- SKILL.md (agents/skills/claude-code/cleanup-dead-code/SKILL.md) ---
+--- SKILL.md (agents/skills/gemini-cli/cleanup-dead-code/SKILL.md) ---
 # Cleanup Dead Code
 
 > Entropy analysis and safe cleanup. Find unused exports, dead files, and pattern violations — then remove them without breaking anything.
@@ -272,7 +272,7 @@ ORPHANED DEPENDENCY: moment (package.json)
 - **When dead code is tangled with live code in the same file:** Extract the live code first (using harness-refactoring), then delete the remaining dead code. Do not try to surgically remove dead code from a complex file in one step.
 
 
---- skill.yaml (agents/skills/claude-code/cleanup-dead-code/skill.yaml) ---
+--- skill.yaml (agents/skills/gemini-cli/cleanup-dead-code/skill.yaml) ---
 name: cleanup-dead-code
 version: "1.1.0"
 description: Detect and auto-fix dead code including dead exports, commented-out code, and orphaned dependencies

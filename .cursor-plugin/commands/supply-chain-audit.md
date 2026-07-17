@@ -21,8 +21,8 @@ Phases:
   </objective>
 
 <execution_context>
-@agents/skills/claude-code/harness-supply-chain-audit/SKILL.md
-@agents/skills/claude-code/harness-supply-chain-audit/skill.yaml
+@agents/skills/cursor/harness-supply-chain-audit/SKILL.md
+@agents/skills/cursor/harness-supply-chain-audit/skill.yaml
 </execution_context>
 
 <process>

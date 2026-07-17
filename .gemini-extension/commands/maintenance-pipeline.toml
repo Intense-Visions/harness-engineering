@@ -16,7 +16,7 @@ Phases:
 </objective>
 
 <execution_context>
---- SKILL.md (agents/skills/claude-code/harness-maintenance-pipeline/SKILL.md) ---
+--- SKILL.md (agents/skills/gemini-cli/harness-maintenance-pipeline/SKILL.md) ---
 # Harness Maintenance Pipeline
 
 > One on-demand entry point for project maintenance. Runs the checks that are actually overdue, triages what needs attention, and asks you — in plain text — which to fix. A thin wrapper over `harness maintenance run`; it owns no state of its own.
@@ -192,7 +192,7 @@ Run `harness maintenance run --json`. On the nothing-overdue happy path stdout i
 | "There's no severity field, so I'll assign my own."    | Triage by the status + findings count the report actually provides. Do not fabricate a severity taxonomy.                                                                  |
 
 
---- skill.yaml (agents/skills/claude-code/harness-maintenance-pipeline/skill.yaml) ---
+--- skill.yaml (agents/skills/gemini-cli/harness-maintenance-pipeline/skill.yaml) ---
 name: harness-maintenance-pipeline
 version: '1.0.0'
 description: On-demand, report-first maintenance sweep — runs overdue checks via `harness maintenance run`, triages findings, and asks the human in plain text before dispatching any fix

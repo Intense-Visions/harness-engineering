@@ -18,7 +18,7 @@ Phases:
 </objective>
 
 <execution_context>
---- SKILL.md (agents/skills/claude-code/harness-debugging/SKILL.md) ---
+--- SKILL.md (agents/skills/gemini-cli/harness-debugging/SKILL.md) ---
 # Harness Debugging
 
 > 4-phase systematic debugging with entropy analysis and persistent sessions. Phase 1 before ANY fix. "It's probably X" is not a diagnosis.
@@ -440,7 +440,7 @@ Revert test: Commenting out the validation check causes the test to fail with 50
 - **Debug session exceeds 60 minutes without progress:** Something is wrong with the approach. Stop. Summarize what you know in the session file. Take a break (context reset). Return with fresh eyes and re-read the session file from the beginning.
 
 
---- skill.yaml (agents/skills/claude-code/harness-debugging/skill.yaml) ---
+--- skill.yaml (agents/skills/gemini-cli/harness-debugging/skill.yaml) ---
 name: harness-debugging
 version: "1.0.0"
 description: Systematic debugging with harness validation and state tracking

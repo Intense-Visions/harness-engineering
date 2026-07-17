@@ -11,7 +11,7 @@ Add a component to an existing harness project
 </objective>
 
 <execution_context>
---- SKILL.md (agents/skills/claude-code/add-harness-component/SKILL.md) ---
+--- SKILL.md (agents/skills/gemini-cli/add-harness-component/SKILL.md) ---
 # Add Harness Component
 
 > Add layers, documentation, components, or skills to an existing harness project with proper integration. Validate against existing constraints, wire into architecture, and verify the result.
@@ -215,7 +215,7 @@ VERIFY:
 ```
 
 
---- skill.yaml (agents/skills/claude-code/add-harness-component/skill.yaml) ---
+--- skill.yaml (agents/skills/gemini-cli/add-harness-component/skill.yaml) ---
 name: add-harness-component
 version: "1.0.0"
 description: Add a component to an existing harness project

@@ -18,7 +18,7 @@ Phases:
 </objective>
 
 <execution_context>
---- SKILL.md (agents/skills/claude-code/harness-architecture-advisor/SKILL.md) ---
+--- SKILL.md (agents/skills/gemini-cli/harness-architecture-advisor/SKILL.md) ---
 # Harness Architecture Advisor
 
 > Cognitive mode: **advisory-guide**. Ask questions, surface trade-offs, present options. Do NOT execute. The human decides; you inform the decision.
@@ -492,7 +492,7 @@ Recommendation: Option A. The plugin registry provides the clear boundary you ne
 ADR written after human selects Option A. Action items: define widget interface contract, extract existing widgets one at a time (one PR per widget), create registry with type-safe registration, add documentation for "how to add a new widget."
 
 
---- skill.yaml (agents/skills/claude-code/harness-architecture-advisor/skill.yaml) ---
+--- skill.yaml (agents/skills/gemini-cli/harness-architecture-advisor/skill.yaml) ---
 name: harness-architecture-advisor
 version: "1.0.0"
 description: Interactive architecture advisor that surfaces trade-offs and helps humans choose

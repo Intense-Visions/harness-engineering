@@ -196,7 +196,21 @@ export function normalizeSkills(
 
     const entries = fs
       .readdirSync(skillsDir, { withFileTypes: true })
-      .filter((d) => d.isDirectory());
+      // Follow directory symlinks. The repo's per-platform skill mirrors
+      // (agents/skills/{cursor,gemini-cli,codex}/<skill>) are symlinks into
+      // agents/skills/claude-code, and a symlinked dir reports
+      // isSymbolicLink() (not isDirectory()). Excluding symlinks silently
+      // dropped every mirrored skill when scanning a scoped platform dir
+      // directly (#704). Resolve the link target to confirm it is a dir.
+      .filter((d) => {
+        if (d.isDirectory()) return true;
+        if (!d.isSymbolicLink()) return false;
+        try {
+          return fs.statSync(path.join(skillsDir, d.name)).isDirectory();
+        } catch {
+          return false;
+        }
+      });
 
     for (const entry of entries) {
       const yamlPath = path.join(skillsDir, entry.name, 'skill.yaml');
