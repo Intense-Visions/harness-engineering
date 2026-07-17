@@ -426,6 +426,6 @@ describe('OllamaBackend — MCP tools', () => {
       String(c[0]).includes('aggregated tool set is large')
     );
     expect(largeWarnings).toHaveLength(1);
-    expect(String(largeWarnings[0]![0])).toContain('48 tools'); // 3 built-ins + 45 MCP
+    expect(String(largeWarnings[0]![0])).toContain('49 tools'); // 4 built-ins + 45 MCP
   });
 });

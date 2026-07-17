@@ -41,8 +41,10 @@ export interface OllamaBackendConfig {
    */
   timeoutMs?: number | undefined;
   /**
-   * Maximum inner agentic-loop iterations per `runTurn` before the loop bails
-   * with a failed turn. Default: 50.
+   * Runaway backstop: max inner agentic-loop iterations per `runTurn`. This is
+   * NOT the normal stop condition — a progress-based stall detector ends thrashing
+   * runs first (see STALL_REPEAT_LIMIT). Set high so a slow-but-progressing local
+   * model can finish. Default: 150.
    */
   maxTurnsPerRun?: number | undefined;
   /**
@@ -165,7 +167,7 @@ interface NativeChatResponse {
  * Outcome of one model round-trip in {@link OllamaBackend.runTurn}: either the
  * turn is finished (return its `result`) or the loop should request another.
  */
-type TurnStep = { done: true; result: TurnResult } | { done: false };
+type TurnStep = { done: true; result: TurnResult } | { done: false; signature: string };
 
 export interface OllamaSession extends AgentSession {
   /** Conversation state, seeded with the system prompt at `startSession`. */
@@ -186,12 +188,43 @@ export interface OllamaSession extends AgentSession {
   numCtx: number;
 }
 
-/** Max characters returned from a tool result before truncation. */
-const MAX_TOOL_OUTPUT = 4000;
+/**
+ * Max characters returned from a tool result before truncation. Sized to hold a
+ * typical `vitest`/`tsc` report so the model can actually read its test failures.
+ * (The prior 4000 was small enough that a full test report overflowed it.)
+ */
+const MAX_TOOL_OUTPUT = 8000;
+
+/**
+ * Fraction of the budget kept from the HEAD when truncating; the remainder is
+ * kept from the TAIL. Test runners (vitest) and compilers print the actionable
+ * failure diffs and the summary at the END, so a head-only chop would discard
+ * exactly what the model needs. Keep a smaller head (the command + first errors)
+ * and a larger tail (the failures + summary).
+ */
+const TRUNCATE_HEAD_FRACTION = 0.3;
 
 const DEFAULT_ENDPOINT = 'http://127.0.0.1:11434/v1';
 const DEFAULT_TIMEOUT_MS = 600_000;
-const DEFAULT_MAX_TURNS = 50;
+/**
+ * Runaway BACKSTOP, not a normal-termination mechanism. A less-capable local
+ * model takes more read→edit→test→fix cycles to finish the same task than a
+ * frontier model, so a low cap cuts off runs that are still making progress
+ * (observed: a real multi-file task hit an old cap of ~60 with tests already
+ * passing and only a few type errors left). Claude Code / Codex don't terminate
+ * on a small fixed step count — they run until done or genuinely stuck. We match
+ * that: a high ceiling for the pathological infinite-loop case, with the
+ * progress-based stall detector (below) handling ordinary "stuck" termination.
+ */
+const DEFAULT_MAX_TURNS = 150;
+/**
+ * Consecutive turns emitting the IDENTICAL tool call(s) — same name + same args —
+ * after which the run is declared stalled. Real work varies its calls between
+ * turns (edit → test → edit …); repeating the exact same action N times is thrash
+ * (e.g. re-running the same failing command, or re-writing the same content). This
+ * catches genuine loops early without cutting off slow-but-progressing runs.
+ */
+const STALL_REPEAT_LIMIT = 4;
 /** Fallback context window (tokens) when autosizing has no cap and no model max. */
 const DEFAULT_AUTO_CTX = 16384;
 /** Keep the sized model warm between turns so it is not reloaded each call. */
@@ -230,6 +263,9 @@ const DEFAULT_SYSTEM_PROMPT = [
   'You are an autonomous coding agent working inside a git repository.',
   'Use the provided tools to explore and edit the codebase. Work in small steps:',
   'read before you write, implement, then run the test/verify command.',
+  'To change an existing file, prefer the `edit` tool (a targeted find-and-replace) over',
+  'rewriting the whole file with write_file — full rewrites lose earlier fixes. Use write_file',
+  'only to create a new file.',
   'Do not claim work you have not performed via a tool.',
   'Keep using tools until the task is FULLY implemented AND verified.',
   'Do NOT stop to explain your work or to ask questions.',
@@ -261,6 +297,26 @@ const TOOL_SCHEMAS = [
         type: 'object',
         properties: { path: { type: 'string' }, content: { type: 'string' } },
         required: ['path', 'content'],
+      },
+    },
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'edit',
+      description:
+        'Make a targeted edit to an EXISTING file by replacing an exact substring. ' +
+        'Prefer this over write_file for changing existing files — it avoids rewriting ' +
+        'the whole file (which loses prior fixes). `old_string` must appear EXACTLY once; ' +
+        'if it is not unique, include more surrounding context to disambiguate.',
+      parameters: {
+        type: 'object',
+        properties: {
+          path: { type: 'string' },
+          old_string: { type: 'string', description: 'Exact text to replace (must be unique).' },
+          new_string: { type: 'string', description: 'Replacement text.' },
+        },
+        required: ['path', 'old_string', 'new_string'],
       },
     },
   },
@@ -390,10 +446,18 @@ function asString(value: unknown): string {
   return typeof value === 'string' ? value : '';
 }
 
-/** Truncate a tool result to keep the conversation from ballooning. */
-function truncate(text: string): string {
+/**
+ * Truncate a tool result to keep the conversation from ballooning, preserving
+ * BOTH ends: a head slice (the command echo + first errors) and a larger tail
+ * slice (the failure diffs + summary that runners/compilers print last). A
+ * head-only chop would drop the most actionable part of a long test report.
+ */
+export function truncate(text: string): string {
   if (text.length <= MAX_TOOL_OUTPUT) return text;
-  return `${text.slice(0, MAX_TOOL_OUTPUT)}\n…(truncated)`;
+  const head = Math.floor(MAX_TOOL_OUTPUT * TRUNCATE_HEAD_FRACTION);
+  const tail = MAX_TOOL_OUTPUT - head;
+  const omitted = text.length - head - tail;
+  return `${text.slice(0, head)}\n…(${omitted} chars truncated)…\n${text.slice(text.length - tail)}`;
 }
 
 /** Expand a running `{ input, output }` token tally into `TurnResult.usage`. */
@@ -698,12 +762,28 @@ export class OllamaBackend implements AgentBackend {
       return { success: false, sessionId: session.sessionId, usage: usageTotals(usage), error };
     };
 
+    // Progress-based termination: end early only when the model repeats the
+    // IDENTICAL tool call for STALL_REPEAT_LIMIT consecutive turns (genuine
+    // thrash). maxTurnsPerRun is just the runaway backstop for the rest.
+    let lastSignature: string | null = null;
+    let repeats = 0;
     for (let iter = 0; iter < this.maxTurnsPerRun; iter++) {
       if (ollamaSession.aborted) {
         return fail('Ollama turn aborted by stopSession');
       }
       const step = yield* this.runModelStep(ollamaSession, usage, fail);
       if (step.done) return step.result;
+      if (step.signature === lastSignature) {
+        repeats += 1;
+        if (repeats >= STALL_REPEAT_LIMIT) {
+          return fail(
+            `Ollama turn stalled: repeated the identical tool call ${repeats + 1} times without progress`
+          );
+        }
+      } else {
+        repeats = 0;
+        lastSignature = step.signature;
+      }
     }
 
     return fail(`Ollama turn exceeded maxTurnsPerRun (${this.maxTurnsPerRun})`);
@@ -783,7 +863,10 @@ export class OllamaBackend implements AgentBackend {
     }
 
     yield* this.runToolCalls(session, toolCalls);
-    return { done: false };
+    // Signature of this turn's actions, for the stall detector: same name + same
+    // args across consecutive turns ⇒ the model is repeating itself (thrash).
+    const signature = JSON.stringify(toolCalls.map((t) => [t.function.name, t.function.arguments]));
+    return { done: false, signature };
   }
 
   /**
@@ -835,7 +918,8 @@ export class OllamaBackend implements AgentBackend {
     name: string,
     argsJson: string
   ): AsyncGenerator<AgentEvent, string, void> {
-    const isBuiltin = name === 'bash' || name === 'write_file' || name === 'read_file';
+    const isBuiltin =
+      name === 'bash' || name === 'write_file' || name === 'edit' || name === 'read_file';
     const mcpEntry = isBuiltin ? undefined : session.mcpToolMap.get(name);
     if (!mcpEntry) {
       return yield* this.withHeartbeat(
@@ -975,6 +1059,13 @@ export class OllamaBackend implements AgentBackend {
             asString(args.path),
             asString(args.content)
           );
+        case 'edit':
+          return await this.runEditFile(
+            session.workspacePath,
+            asString(args.path),
+            asString(args.old_string),
+            asString(args.new_string)
+          );
         case 'read_file':
           return await this.runReadFile(session.workspacePath, asString(args.path));
         default:
@@ -1053,6 +1144,51 @@ export class OllamaBackend implements AgentBackend {
     await fs.mkdir(path.dirname(target), { recursive: true });
     await fs.writeFile(target, content, 'utf8');
     return `wrote ${requested} (${content.length} bytes)`;
+  }
+
+  /**
+   * Targeted edit: replace the single exact occurrence of `oldStr` with `newStr`
+   * in an existing file. Mirrors Claude Code `Edit` semantics so the local agent
+   * can make surgical changes instead of rewriting the whole file (the write_file
+   * thrash the wrapper otherwise forces). Every failure mode returns an actionable
+   * ERROR string (never throws for the model) so the model can self-correct.
+   *
+   * Matching is literal via index/slice — never `String.replace`, which replaces
+   * only the first match and interprets `$&`/`$1` sequences in the replacement.
+   */
+  private async runEditFile(
+    workspacePath: string,
+    requested: string,
+    oldStr: string,
+    newStr: string
+  ): Promise<string> {
+    const target = resolveInsideWorkspace(workspacePath, requested);
+    if (target === null) {
+      return `ERROR: refusing to edit outside workspace: ${requested}`;
+    }
+    if (oldStr.length === 0) {
+      return `ERROR: old_string is empty; provide the exact existing text to replace`;
+    }
+    if (oldStr === newStr) {
+      return `ERROR: old_string and new_string are identical (no-op)`;
+    }
+    let content: string;
+    try {
+      content = await fs.readFile(target, 'utf8');
+    } catch {
+      return `ERROR: file not found: ${requested} — use write_file to create a new file`;
+    }
+    const first = content.indexOf(oldStr);
+    if (first === -1) {
+      return `ERROR: old_string not found in ${requested}`;
+    }
+    if (content.indexOf(oldStr, first + oldStr.length) !== -1) {
+      const count = content.split(oldStr).length - 1;
+      return `ERROR: old_string is not unique in ${requested} (appears ${count} times); add surrounding context to make it unique`;
+    }
+    const updated = content.slice(0, first) + newStr + content.slice(first + oldStr.length);
+    await fs.writeFile(target, updated, 'utf8');
+    return `edited ${requested} (replaced 1 occurrence, ${content.length} → ${updated.length} bytes)`;
   }
 
   private async runReadFile(workspacePath: string, requested: string): Promise<string> {
