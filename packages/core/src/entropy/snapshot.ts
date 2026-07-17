@@ -84,16 +84,36 @@ function extractCodeBlocks(content: string): CodeBlock[] {
 //
 // - BCP-47 locale codes (`vi`, `pt-BR`, `zh-Hant-CN`) commonly appear in
 //   roadmap docs as i18n targets.
-// - File-name suffixes (`AGENTS.md`, `harness.config.json`) appear in
-//   backticks as filesystem references. The identifier regex treats
-//   `.md` / `.json` as `.method` segments and incorrectly accepts them.
+// - File-name suffixes (`AGENTS.md`, `harness.config.json`, `preflight.py`)
+//   appear in backticks as filesystem references. The identifier regex treats
+//   `.md` / `.json` as `.method` segments and incorrectly accepts them. The
+//   extension list covers common non-TS source files too, since docs often
+//   cite files from other languages/projects (github issue #816).
 const BCP47_LOCALE_RE = /^[a-z]{2,3}(?:-[A-Z][a-z]{3})?(?:-[A-Z]{2,4})?$/;
 const FILE_REFERENCE_RE =
-  /\.(md|json|toml|yaml|yml|txt|csv|html|xml|jsonl|env|ini|lock|gitignore|sh|sql)$/i;
+  /\.(md|json|toml|yaml|yml|txt|csv|html|xml|jsonl|env|ini|lock|gitignore|sh|sql|py|rs|go|rb|java|kt|kts|swift|php|cs|scala|clj|ex|exs|c|cc|cpp|h|hpp|mjs|cjs)$/i;
+
+// A backtick token only reads as a code-symbol reference when it carries a
+// "code signal": call syntax (`foo()`), or a base identifier segment with a
+// structural marker — an uppercase letter, digit, or underscore. A bare
+// all-lowercase word with no marker (`done`, `local`, `grep`, `pipefail`) is
+// prose, and a dotted token whose head is such a word (`db.query`,
+// `hooks.afterCreate`) is a code-example fragment, not a project API
+// reference. This stays language-agnostic on purpose: snake_case
+// (`my_function`) and SCREAMING_SNAKE (`E2E_UI`) tokens keep a marker and are
+// real symbols in Python/Rust/Go, so convention-based suppression of them is
+// deferred to the detector, which knows the codebase's actual export
+// conventions (github issue #816).
+function hasCodeSignal(reference: string): boolean {
+  if (reference.includes('(')) return true; // call syntax, e.g. foo()
+  const head = reference.split('.')[0] ?? reference;
+  return /[A-Z0-9_]/.test(head);
+}
 
 function isLikelySymbolReference(reference: string): boolean {
   if (BCP47_LOCALE_RE.test(reference)) return false;
   if (FILE_REFERENCE_RE.test(reference)) return false;
+  if (!hasCodeSignal(reference)) return false;
   return /^[a-zA-Z_][a-zA-Z0-9_]*(\.[a-zA-Z_][a-zA-Z0-9_]*)*(\(.*\))?$/.test(reference);
 }
 
