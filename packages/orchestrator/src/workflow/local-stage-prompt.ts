@@ -4,7 +4,8 @@ import { STAGE_PROMPT_TEMPLATE } from './orchestrator-context.js';
  * split-routing / per-phase routing — the LOCAL-aware per-stage prompt template.
  *
  * Mirrors {@link STAGE_PROMPT_TEMPLATE}'s exact variable set (`stageNumber`,
- * `identifier`, `title`, `description`, `skill`, `cognitiveMode`, `priorEntries`)
+ * `identifier`, `title`, `description`, `skill`, `cognitiveMode`, `produces`,
+ * `priorEntries`)
  * — LiquidJS `strictVariables` is on, so it MUST reference no variable the shared
  * `renderStagePrompt` renderer does not supply — but replaces the Claude-shaped
  * "Perform the '{{ skill }}' step" line with the LOCAL indirection: a local
@@ -25,7 +26,7 @@ export const LOCAL_STAGE_PROMPT_TEMPLATE = `You are an autonomous LOCAL agent (b
 {{ description }}
 {% endif %}
 
-## Stage {{ stageNumber }}: {{ skill }}{% if cognitiveMode %} ({{ cognitiveMode }} mode){% endif %}
+## Stage {{ stageNumber }}: {{ skill }}{% if cognitiveMode %} ({{ cognitiveMode }} mode){% endif %} → produces {{ produces }}
 Run the "{{ skill }}" harness skill over bash and follow its output VERBATIM:
 
 \`\`\`bash
