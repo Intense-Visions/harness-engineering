@@ -23,7 +23,7 @@ import type { WorkflowEngineContext } from './execute-workflow.js';
  * skill/role, and (D4) the outputs of prior stages. LiquidJS `strictVariables`
  * is on, so `renderStagePrompt` MUST supply every referenced variable.
  */
-const STAGE_PROMPT_TEMPLATE = `You are an autonomous agent executing stage {{ stageNumber }} of a multi-stage workflow for the work item below. Complete THIS stage's task, then stop.
+export const STAGE_PROMPT_TEMPLATE = `You are an autonomous agent executing stage {{ stageNumber }} of a multi-stage workflow for the work item below. Complete THIS stage's task, then stop.
 
 ## Work item ({{ identifier }})
 {{ title }}
