@@ -29,6 +29,7 @@ const plugin = {
         '@harness-engineering/no-process-env-in-spawn': 'error',
         '@harness-engineering/require-path-normalization': 'warn',
         '@harness-engineering/no-focused-tests': 'error',
+        '@harness-engineering/no-hardcoded-test-count': 'error',
       },
     },
     strict: {
