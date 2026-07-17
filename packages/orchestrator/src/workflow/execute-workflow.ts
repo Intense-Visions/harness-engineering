@@ -81,12 +81,28 @@ export interface WorkflowEngineContext {
    * CONTRACT: must be non-blocking (CPU-bound). It runs BEFORE the per-stage
    * deadline timer is armed, so an I/O-bound renderer that hangs would stall the
    * stage with no wall-clock bound. The shipped renderer is synchronous LiquidJS.
+   *
+   * `isLocalBackend` (per-phase routing) is the routed backend's locality: when
+   * `true` the renderer selects the LOCAL-indirection stage template
+   * (`harness skill run <skill> --autonomous`); when `false` OR OMITTED it renders
+   * the byte-identical default `STAGE_PROMPT_TEMPLATE` (SC3 — a fake/legacy
+   * context that passes no locality behaves exactly as before).
    */
   renderStagePrompt?(
     step: WorkflowExecutionPlan['stages'][number],
     index: number,
-    priorOutputs: Record<string, string>
+    priorOutputs: Record<string, string>,
+    isLocalBackend?: boolean
   ): string | Promise<string>;
+  /**
+   * Per-phase routing: resolve whether a routed `AgentBackend` is a local-endpoint
+   * backend (`local`/`pi`/`ollama` via `isLocalEndpointBackend`). The routed path
+   * only has a name-only `AgentBackend`, so it cannot call `isLocalEndpointBackend`
+   * (that needs the `BackendDef`); this resolver maps the name → its def in the
+   * real context. ABSENT (fake/legacy contexts) ⇒ treated as non-local ⇒ default
+   * template (SC3, byte-identical).
+   */
+  isLocalBackend?(backend: AgentBackend): boolean;
   /**
    * split-routing Phase 2: per-stage adaptive router. Present ⇒ each stage is
    * routed via `route(buildStageRequest(...))`; ABSENT ⇒ identity fallback via
@@ -215,8 +231,12 @@ export async function runStageSession(
   // split-routing 4b: render the REAL per-stage prompt (issue + stage role + prior
   // outputs) when the context provides a renderer; fall back to the bare skill
   // name only when it does not (fake contexts) — byte-identical to the old stub.
+  // Per-phase routing: resolve the routed backend's locality (default non-local
+  // when no resolver is present — SC3) and thread it so a local-endpoint stage
+  // renders the `harness skill run --autonomous` indirection template.
+  const local = ctx.isLocalBackend?.(backend) ?? false;
   const prompt = ctx.renderStagePrompt
-    ? await ctx.renderStagePrompt(step, index, priorOutputs)
+    ? await ctx.renderStagePrompt(step, index, priorOutputs, local)
     : step.skill;
   const gen = runner.runSession(undefined, ctx.workspacePath, prompt);
 

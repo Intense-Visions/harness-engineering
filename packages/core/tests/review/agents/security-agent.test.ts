@@ -132,6 +132,76 @@ describe('runSecurityAgent()', () => {
     expect(findings.some((f) => f.title.toLowerCase().includes('sql'))).toBe(false);
   });
 
+  // Regression for #657: a bare SQL keyword followed by `+ <word>` in prose
+  // (arithmetic-style, e.g. a markdown heading rendered into a code comment or a
+  // plain string) must NOT flag CWE-89. The keyword has to live inside a quoted
+  // string literal that is actually concatenated for the heuristic to fire.
+  it('does not flag a prose heading with a SQL keyword and a `+` (issue #657 acceptance)', () => {
+    const bundle = makeBundle({
+      changedFiles: [
+        {
+          path: 'src/phases.ts',
+          content: '// ### Sub-Phase 3: UPDATE (medium + large tiers)',
+          reason: 'changed',
+          lines: 1,
+        },
+      ],
+    });
+    const findings = runSecurityAgent(bundle);
+    const sqlCritical = findings.filter(
+      (f) => f.title.toLowerCase().includes('sql') && f.severity === 'critical'
+    );
+    expect(sqlCritical).toHaveLength(0);
+  });
+
+  it('does not flag a plain string holding a prose SQL keyword with a `+` (issue #657)', () => {
+    const bundle = makeBundle({
+      changedFiles: [
+        {
+          path: 'src/labels.ts',
+          content: 'const label = "UPDATE (medium + large tiers)";',
+          reason: 'changed',
+          lines: 1,
+        },
+      ],
+    });
+    const findings = runSecurityAgent(bundle);
+    expect(findings.some((f) => f.title.toLowerCase().includes('sql'))).toBe(false);
+  });
+
+  it('still flags genuine SQL built by concatenating a query string with input (issue #657)', () => {
+    const bundle = makeBundle({
+      changedFiles: [
+        {
+          path: 'src/db.ts',
+          content: 'const rows = db.query("SELECT * FROM users WHERE id = " + userId);',
+          reason: 'changed',
+          lines: 1,
+        },
+      ],
+    });
+    const findings = runSecurityAgent(bundle);
+    const sql = findings.filter((f) => f.title.toLowerCase().includes('sql'));
+    expect(sql.length).toBeGreaterThanOrEqual(1);
+    expect(sql[0]!.cweId).toBe('CWE-89');
+    expect(sql[0]!.severity).toBe('critical');
+  });
+
+  it('still flags a template literal query with interpolation (issue #657)', () => {
+    const bundle = makeBundle({
+      changedFiles: [
+        {
+          path: 'src/db2.ts',
+          content: 'const rows = db.query(`SELECT * FROM users WHERE id = ${userId}`);',
+          reason: 'changed',
+          lines: 1,
+        },
+      ],
+    });
+    const findings = runSecurityAgent(bundle);
+    expect(findings.some((f) => f.title.toLowerCase().includes('sql'))).toBe(true);
+  });
+
   it('detects shell command injection risk', () => {
     const bundle = makeBundle({
       changedFiles: [

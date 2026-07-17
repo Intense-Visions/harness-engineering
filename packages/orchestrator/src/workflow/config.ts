@@ -8,6 +8,7 @@ import {
   RoutingConfig,
   STANDARD_COGNITIVE_MODES,
   type RoutingValue,
+  type StagedWorkflowDecl,
 } from '@harness-engineering/types';
 import {
   BackendDefSchema,
@@ -72,6 +73,45 @@ export function crossFieldRoutingIssues(
     for (const [mode, value] of Object.entries(routing.modes)) {
       checkRef(['modes', mode], value);
     }
+  }
+  return issues;
+}
+
+/**
+ * Per-phase routing (SC4′): cross-check that every staged-workflow stage which
+ * declares a `cognitiveMode` has a routing path that resolves it — i.e. a
+ * `routing.modes.<mode>` entry OR a per-skill `routing.skills.<skill>` mapping
+ * (the router's per-skill step covers a skill-mapped stage regardless of mode).
+ * A stage that declares a `cognitiveMode` with NEITHER mapping would silently
+ * fall back to `routing.default`, defeating the design/execution split — so it
+ * is flagged with an error naming the decl, stage, skill, and unmapped mode.
+ *
+ * Stages with no `cognitiveMode` (execution stages) are intentionally NOT flagged
+ * — falling to `routing.default` is their correct behavior. This helper touches
+ * only `routing.modes`/`routing.skills`; it never reads `routing.workflowGates`.
+ *
+ * Exported for unit testing; production callers use `validateWorkflowConfig`.
+ */
+export function stagedWorkflowRoutingIssues(
+  workflows: readonly StagedWorkflowDecl[],
+  routing: RoutingConfig
+): Array<{ path: string[]; message: string }> {
+  const issues: Array<{ path: string[]; message: string }> = [];
+  for (const decl of workflows) {
+    decl.stages.forEach((stage, idx) => {
+      const mode = stage.cognitiveMode;
+      if (mode === undefined) return; // execution stage → routing.default is correct
+      const modeMapped = routing.modes?.[mode] !== undefined;
+      const skillMapped = routing.skills?.[stage.skill] !== undefined;
+      if (modeMapped || skillMapped) return;
+      issues.push({
+        path: ['workflows', decl.name, 'stages', String(idx)],
+        message:
+          `staged workflow '${decl.name}' stage ${idx} (skill '${stage.skill}') declares ` +
+          `cognitiveMode '${mode}' with no routing.modes.${mode} or routing.skills.${stage.skill} ` +
+          `mapping; it will silently fall back to routing.default.`,
+      });
+    });
   }
   return issues;
 }
@@ -189,6 +229,9 @@ export function validateWorkflowConfig(
   // cross-field validator. The legacy path remains hand-rolled until
   // autopilot Phase 4+ retires the legacy schema entirely.
   const warnings: string[] = [];
+  // Hoisted so the staged-workflow coverage cross-check below (SC4′) can reuse the
+  // already-parsed routing data without re-parsing.
+  let routingData: RoutingConfig | undefined;
   if (hasModernBackends) {
     const backendsParsed = BackendsMapSchema.safeParse(agent.backends);
     if (!backendsParsed.success) {
@@ -203,7 +246,7 @@ export function validateWorkflowConfig(
       // whereas our `BackendDef` (with `exactOptionalPropertyTypes`) does not.
       // Cast through `unknown` — the runtime shape is identical, only the
       // type-level optionality model differs.
-      const routingData = routingParsed.data as unknown as RoutingConfig;
+      routingData = routingParsed.data as unknown as RoutingConfig;
       const cross = crossFieldRoutingIssues(
         backendsParsed.data as unknown as Record<string, BackendDef>,
         routingData
@@ -227,6 +270,19 @@ export function validateWorkflowConfig(
   if (c.workflows !== undefined) {
     const parsed = z.array(StagedWorkflowDeclSchema).safeParse(c.workflows);
     if (!parsed.success) return Err(new Error(`workflows: ${parsed.error.message}`));
+
+    // Per-phase routing (SC4′): a staged-decl stage that declares a cognitiveMode
+    // must have a routing.modes/skills mapping — otherwise it silently falls back
+    // to routing.default, defeating the design/execution split. Only checked on
+    // the modern path (routingData present); scoped to routing.modes/skills — the
+    // workflowGates read path is untouched.
+    if (routingData !== undefined) {
+      const parsedWorkflows = parsed.data as unknown as StagedWorkflowDecl[];
+      const stagedIssues = stagedWorkflowRoutingIssues(parsedWorkflows, routingData);
+      if (stagedIssues.length > 0) {
+        return Err(new Error(`Staged routing: ${stagedIssues.map((i) => i.message).join('; ')}`));
+      }
+    }
   }
 
   // Roadmap Auto-Triage (Phase 0 Contract 2): validate the `roadmap` section when

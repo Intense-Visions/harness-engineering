@@ -25,13 +25,36 @@ const SECRET_PATTERNS = [
 ];
 
 /**
- * Pattern for SQL string concatenation. SQL keywords are matched as whole words
- * (`\b…\b`) so ordinary prose — `was updated`, `files created`, `items deleted`
- * — in a log line or template literal does not read as a `UPDATE`/`CREATE`/
- * `DELETE` query.
+ * Pattern for SQL string concatenation.
+ *
+ * The SQL keyword must sit **inside a quoted string literal or template literal**
+ * that is actually being concatenated or interpolated — not merely appear as a
+ * bare token somewhere on the line. A bare-keyword pattern (the previous
+ * `KEYWORD … + word`) matched arithmetic-style prose such as the markdown heading
+ * `UPDATE (medium + large tiers)`, producing a `critical` CWE-89 false positive
+ * that hard-blocked unrelated PRs (issue #657). Requiring a string boundary
+ * adjacent to the concatenation keeps the genuine
+ * `"SELECT … WHERE id = " + userId` injection shape firing while ignoring prose.
+ *
+ * Alternatives:
+ *  1. A quoted string literal containing a SQL keyword, immediately followed by
+ *     `+` concatenation (`"SELECT … " + userId`, `'DELETE FROM t WHERE id = ' + id`).
+ *  2. A template literal that both contains a SQL keyword and an `${…}`
+ *     interpolation, in either order.
  */
-const SQL_CONCAT_PATTERN =
-  /\b(?:SELECT|INSERT|UPDATE|DELETE|DROP|CREATE|ALTER)\b\s+.*?\+\s*\w+|`[^`]*\$\{[^}]*\}[^`]*\b(?:SELECT|INSERT|UPDATE|DELETE|WHERE)\b/i;
+const SQL_KEYWORDS = 'SELECT|INSERT|UPDATE|DELETE|DROP|CREATE|ALTER';
+const SQL_TEMPLATE_KEYWORDS = 'SELECT|INSERT|UPDATE|DELETE|WHERE';
+const SQL_CONCAT_PATTERN = new RegExp(
+  // 1. quoted string literal containing a SQL keyword, then a `+` concatenation
+  `["'][^"']*\\b(?:${SQL_KEYWORDS})\\b[^"']*["']\\s*\\+` +
+    '|' +
+    // 2a. template literal: `${…}` interpolation followed by a SQL keyword
+    `\`[^\`]*\\$\\{[^}]*\\}[^\`]*\\b(?:${SQL_TEMPLATE_KEYWORDS})\\b` +
+    '|' +
+    // 2b. template literal: a SQL keyword followed by an `${…}` interpolation
+    `\`[^\`]*\\b(?:${SQL_TEMPLATE_KEYWORDS})\\b[^\`]*\\$\\{`,
+  'i'
+);
 
 /** Pattern for dangerous shell execution with interpolation. */
 const SHELL_EXEC_PATTERN = /(?:exec|execSync|spawn|spawnSync)\s*\(\s*`[^`]*\$\{/;

@@ -136,6 +136,60 @@ Only `harness-debugging` is affected — every other dispatch keeps its prior ro
 
 See [Routing Trace](./routing-trace.md) for debugging routing decisions.
 
+### Per-phase routing (staged workflows)
+
+A **staged workflow** (`workflows:` in the config frontmatter) dispatches a matched
+work item as ONE multi-stage run on a single worktree instead of a chain of
+separate skill invocations. Each stage is routed independently through the same
+`route()` path described above, which lets you route a workflow's **design phase**
+and its **execution phase** to different backends by tagging the design stages with
+a `cognitiveMode`:
+
+```yaml
+agent:
+  backends:
+    reasoner:
+      {
+        type: ollama,
+        endpoint: http://127.0.0.1:11434/v1,
+        model: ['qwen3:32b'],
+        disableReasoning: false,
+      }
+    coder: { type: ollama, endpoint: http://127.0.0.1:11434/v1, model: ['qwen3-coder:30b'] }
+  routing:
+    default: coder # execution stages (no cognitiveMode) route here
+    modes:
+      thinking: reasoner # design stages route here
+workflows:
+  - name: local-full-workflow
+    match: { identifierPrefix: 'LOCAL-' }
+    stages:
+      - { skill: harness-brainstorming, cognitiveMode: thinking, produces: spec }
+      - { skill: harness-planning, cognitiveMode: thinking, expects: spec, produces: plan }
+      - { skill: harness-execution, expects: plan, produces: impl }
+      - { skill: harness-verification, expects: impl, produces: verify }
+```
+
+- **Design stages** carry `cognitiveMode: thinking` and resolve to
+  `routing.modes.thinking` (the reasoner).
+- **Execution stages** carry no `cognitiveMode` and fall through to
+  `routing.default` (the coder).
+- Each stage's captured output threads into the next stage's prompt over the text
+  channel via `produces`/`expects` — you do not re-chain the skills by hand.
+- When a routed stage's backend is a **local-endpoint** backend
+  (`local`/`pi`/`ollama`), the stage prompt is rendered automatically with the
+  `harness skill run <skill> --autonomous` indirection (a local agent has no
+  `/harness:*` slash commands); a non-local routed stage keeps the default prompt.
+
+**Validation.** A staged-decl stage that declares a `cognitiveMode` with **no**
+`routing.modes.<mode>` entry and **no** `routing.skills.<skill>` mapping is rejected
+by `harness validate` — it would otherwise silently fall back to `routing.default`,
+defeating the design/execution split. Execution stages (no `cognitiveMode`) are not
+flagged; falling to `routing.default` is their intended behavior.
+
+A complete local example ships in
+[`harness.orchestrator.local.md`](../../harness.orchestrator.local.md).
+
 ## Multi-local example
 
 ```yaml

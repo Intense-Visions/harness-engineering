@@ -53,11 +53,29 @@ agent:
       #     tools: [code_search, ask_graph, review_changes, outcome_eval, gather_context]
       #                             # narrow harness's ~95 tools to the read-oriented set
       #                             # so a local model isn't flooded (omit tools = all).
+    # Local REASONING backend for the DESIGN phases of a staged workflow
+    # (cognitiveMode: thinking). A larger reasoning model (qwen3:32b) with
+    # reasoning LEFT ON — the design stages benefit from the <think> trace, so
+    # unlike the `local` coder we do NOT set disableReasoning. routing.modes.thinking
+    # points here (see routing.modes below).
+    reasoner:
+      type: ollama
+      endpoint: http://127.0.0.1:11434/v1
+      model: ['qwen3:32b']
+      # Reasoning stays ON for design (thinking) stages — this is the reasoner.
+      disableReasoning: false
+      capabilities:
+        { tier: strong, costPer1kTokens: 0, privacyClass: on-device, contextWindow: 32768 }
   # Routing — controls WHICH backend handles each use case.
   routing:
     default: primary
     quick-fix: local
     diagnostic: local
+    # Per-phase routing: a staged workflow's DESIGN stages (cognitiveMode: thinking)
+    # route here — to the local reasoner — while its execution stages carry no
+    # cognitiveMode and fall to routing.default. See the `workflows:` decl below.
+    modes:
+      thinking: reasoner
     # Route the intelligence pipeline (sel/pesl) to the local backend.
     intelligence:
       sel: local
@@ -97,6 +115,22 @@ agent:
   turnTimeoutMs: 300000
   readTimeoutMs: 30000
   stallTimeoutMs: 60000
+# Staged workflows (per-phase routing). A matched unit is dispatched as ONE
+# multi-stage run on a single worktree instead of chained skill invocations:
+# the DESIGN stages carry `cognitiveMode: thinking` and route to
+# routing.modes.thinking (the local `reasoner`); the EXECUTION stages carry no
+# cognitiveMode and fall to routing.default. Each stage's prior output threads
+# to the next over the text channel (expects/produces). A local-endpoint routed
+# stage renders the `harness skill run <skill> --autonomous` indirection prompt
+# automatically. `workflowFor` only returns a plan for a decl with >= 2 stages.
+workflows:
+  - name: local-full-workflow
+    match: { identifierPrefix: 'LOCAL-' }
+    stages:
+      - { skill: harness-brainstorming, cognitiveMode: thinking, produces: spec }
+      - { skill: harness-planning, cognitiveMode: thinking, expects: spec, produces: plan }
+      - { skill: harness-execution, expects: plan, produces: impl }
+      - { skill: harness-verification, expects: impl, produces: verify }
 intelligence:
   enabled: true
   requestTimeoutMs: 180000
@@ -178,6 +212,9 @@ following each skill's output before moving on:
 5. `harness-code-review`
 
 Run `harness skill list` to see the full roster of available skills.
+
+> **Staged dispatch (per-phase routing).** When a unit matches `local-full-workflow`
+> (frontmatter), design stages (`cognitiveMode: thinking`) route to the local reasoner and execution stages to `routing.default`, chained automatically for you.
 
 ## Gates (enforced by the harness, not just by you)
 
