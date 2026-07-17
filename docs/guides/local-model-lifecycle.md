@@ -59,6 +59,19 @@ within. Inside that boundary the orchestrator may pull, swap, and evict autonomo
 nothing crosses that line without an explicit proposal approval. This per-pool (not
 per-model) authorization is the core of [ADR 0062](../knowledge/decisions/0062-pool-bounded-autonomy-and-ollama-first-install.md).
 
+### Discovery is a wide net; the ranker judges
+
+For each approved org, candidate discovery casts a **wide net**: it merges
+HuggingFace `trending` (new/hot) with `downloads` (established), dedupes by model id,
+and caps the union at the per-org limit. This is deliberate — sorting by cumulative
+downloads alone lags the landscape by months, so a brand-new leader gets crowded out
+of the pool before the benchmark ranker can score it (the cause of stale
+recommendations). Discovery's job is **coverage, not quality**: the `allowedOrgs` /
+`allowedFamilies` allowlist is the operator's trust gate, and the benchmark ranker is
+the sole quality authority — it decides which of the discovered candidates to
+recommend. A HuggingFace `trending` outage degrades gracefully to `downloads` only, so
+a refresh never breaks. See [ADR 0077](../knowledge/decisions/0077-discovery-is-a-wide-net-ranker-judges.md).
+
 ## What a proposal looks like
 
 When LMLM wants to change the pool it emits a **model proposal** into the shared review
