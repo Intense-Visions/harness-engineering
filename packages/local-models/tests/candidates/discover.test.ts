@@ -189,6 +189,29 @@ describe('discoverCandidates wide-net (SC1)', () => {
     await discoverCandidates({ orgs: ['Qwen'], curation: WIDE_CURATION, client, perOrgLimit: 3 });
     expect(calls.get.length).toBeLessThanOrEqual(3);
   });
+
+  it('SC3: a throwing `trending` call falls back to `downloads`; discovery still returns candidates', async () => {
+    const { client } = sortAwareClient(
+      {
+        Qwen: {
+          downloads: [{ id: 'Qwen/Qwen3-32B-GGUF', tags: ['gguf'] } as HuggingFaceModel],
+          trending: [],
+        },
+      },
+      { 'Qwen/Qwen3-32B-GGUF': detail('Qwen/Qwen3-32B-GGUF', ['Q4_K_M']) },
+      { throwOnSort: 'trending' }
+    );
+    const res = await discoverCandidates({ orgs: ['Qwen'], curation: WIDE_CURATION, client });
+    expect(res.candidates.map((c) => c.hfRepoId)).toContain('Qwen/Qwen3-32B-GGUF'); // downloads survived
+    expect(res.warnings.some((w) => /trending.*fall/i.test(w))).toBe(true); // fallback warned
+  });
+
+  it('SC3: a throwing `downloads` (base) call skips the org fail-soft (unchanged behavior)', async () => {
+    const { client } = sortAwareClient({}, {}, { throwOnSort: 'downloads' });
+    const res = await discoverCandidates({ orgs: ['broken'], curation: WIDE_CURATION, client });
+    expect(res.candidates).toHaveLength(0);
+    expect(res.warnings.some((w) => /HF list failed for broken/.test(w))).toBe(true);
+  });
 });
 
 describe('curationFromCandidates', () => {
