@@ -55,6 +55,138 @@ describe('runTokenBypassRule', () => {
     });
   });
 
+  // Regression: #750 — hex-shaped strings inside comments / non-color
+  // string-literal prose must not be flagged (context-aware matching), while
+  // genuine in-code color literals MUST still flag.
+  describe('DRIFT-T001 — comment / string-literal context (#750)', () => {
+    it('does NOT flag an issue reference inside a JSDoc block comment (class 1)', () => {
+      const findings = runTokenBypassRule({
+        source: [
+          '/**',
+          ' * Drift gate disabled (#529) until path exclusions land.',
+          ' */',
+          'export const nothing = 1;',
+        ].join('\n'),
+        file: 'repro.ts',
+        tokens: emptyTokens(),
+        strictness: 'standard',
+      });
+      expect(findings.filter((f) => f.code === 'DRIFT-T001')).toHaveLength(0);
+    });
+
+    it('does NOT flag an issue reference inside a // line comment (class 1)', () => {
+      const findings = runTokenBypassRule({
+        source: `export const x = 1; // consumer queries (#504)`,
+        file: 'a.ts',
+        tokens: emptyTokens(),
+        strictness: 'standard',
+      });
+      expect(findings.filter((f) => f.code === 'DRIFT-T001')).toHaveLength(0);
+    });
+
+    it('does NOT flag a hex value described in JSDoc prose (class 2)', () => {
+      const findings = runTokenBypassRule({
+        source:
+          '/** Hex color string for the variant icon stroke (e.g. `#e63535`). */\nexport type T = string;',
+        file: 'types.ts',
+        tokens: emptyTokens(),
+        strictness: 'standard',
+      });
+      expect(findings.filter((f) => f.code === 'DRIFT-T001')).toHaveLength(0);
+    });
+
+    it('does NOT flag an issue reference inside a string literal / test title (class 1b)', () => {
+      const findings = runTokenBypassRule({
+        source: `describe('AuthErrorScreen (#332 Tier-3) renders', () => {});`,
+        file: 'a.test.ts',
+        tokens: emptyTokens(),
+        strictness: 'standard',
+      });
+      expect(findings.filter((f) => f.code === 'DRIFT-T001')).toHaveLength(0);
+    });
+
+    it('STILL flags a genuine hex color literal in real code (true positive preserved)', () => {
+      const findings = runTokenBypassRule({
+        source: `const styles = { color: '#e63535' };`,
+        file: 'Card.tsx',
+        tokens: emptyTokens(),
+        strictness: 'standard',
+      });
+      const t001 = findings.filter((f) => f.code === 'DRIFT-T001');
+      expect(t001).toHaveLength(1);
+      expect(t001[0].message).toContain('#e63535');
+    });
+
+    it('STILL flags an all-numeric hex color literal in real code (#666 true positive preserved)', () => {
+      const findings = runTokenBypassRule({
+        source: `const styles = { background: '#666' };`,
+        file: 'Card.tsx',
+        tokens: emptyTokens(),
+        strictness: 'standard',
+      });
+      const t001 = findings.filter((f) => f.code === 'DRIFT-T001');
+      expect(t001).toHaveLength(1);
+      expect(t001[0].message).toContain('#666');
+    });
+
+    it('STILL flags a bare CSS-value hex inside a template string (color: #333)', () => {
+      const findings = runTokenBypassRule({
+        source: 'const css = `body { color: #333; padding: 20px; }`;',
+        file: 'templates.ts',
+        tokens: emptyTokens(),
+        strictness: 'standard',
+      });
+      const t001 = findings.filter((f) => f.code === 'DRIFT-T001');
+      expect(t001).toHaveLength(1);
+      expect(t001[0].message).toContain('#333');
+    });
+
+    it('does NOT flag a hex mentioned in a // comment even when real code precedes it on other lines', () => {
+      const findings = runTokenBypassRule({
+        source: [
+          `const styles = { color: '#e63535' };`,
+          `// legacy value was #e63535 before tokenization`,
+        ].join('\n'),
+        file: 'Card.tsx',
+        tokens: emptyTokens(),
+        strictness: 'standard',
+      });
+      // Only the real code literal on line 1 should flag, not the comment on line 2.
+      const t001 = findings.filter((f) => f.code === 'DRIFT-T001');
+      expect(t001).toHaveLength(1);
+      expect(t001[0].line).toBe(1);
+    });
+  });
+
+  // Regression: #750 — spacing prose inside comments must not be flagged.
+  describe('DRIFT-T003 — comment context (#750)', () => {
+    it('does NOT flag a px value described in a block-comment prose line', () => {
+      const tokens = emptyTokens();
+      tokens.spacingPx.add(4).add(8).add(16);
+      const findings = runTokenBypassRule({
+        source: ['/**', ' *   - bottom: 5px progress bar inset', ' */', 'export const y = 1;'].join(
+          '\n'
+        ),
+        file: 'a.ts',
+        tokens,
+        strictness: 'standard',
+      });
+      expect(findings.filter((f) => f.code === 'DRIFT-T003')).toHaveLength(0);
+    });
+
+    it('STILL flags a real off-scale px spacing literal in code', () => {
+      const tokens = emptyTokens();
+      tokens.spacingPx.add(4).add(8).add(16);
+      const findings = runTokenBypassRule({
+        source: `const s = { padding: '13px' };`,
+        file: 'a.ts',
+        tokens,
+        strictness: 'standard',
+      });
+      expect(findings.filter((f) => f.code === 'DRIFT-T003')).toHaveLength(1);
+    });
+  });
+
   describe('DRIFT-T002 — font-family outside palette', () => {
     it('flags a font-family not in the typography palette', () => {
       const tokens = emptyTokens();
