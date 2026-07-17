@@ -18,5 +18,6 @@ export * from './speed.js';
 export * from './evidence.js';
 export * from './recency.js';
 export * from './algorithm.js';
+export * from './agentic.js';
 export * from './profiles.js';
 export * from './types.js';

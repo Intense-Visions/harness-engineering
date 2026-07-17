@@ -43,6 +43,28 @@ export interface RankerCandidate {
   activeB?: number;
   /** Quant id — any string `normalizeQuantId` recognises. */
   quant: string;
+  /**
+   * Agentic tool-calling capability from the deterministic #833 probe
+   * (`probeToolCalling`). `true` = confirmed native `tool_calls`; `false` =
+   * confirmed can't (excluded from agentic routing — hard gate); `undefined`
+   * = unprobed (fail-open: eligible but flagged). Consumed purely by the
+   * agentic scorer; absent ⇒ the primary ranking is byte-identical (D1/SC1).
+   */
+  toolCalling?: boolean;
+  /**
+   * Measured turn latency (ms) under a real agentic prompt from
+   * `probeAgenticSignals`. Beats the bandwidth speed *estimate* when present.
+   * Over `latencyBudgetMs` ⇒ agentically ineligible; under budget ⇒ scales
+   * `agenticScore` inversely. Absent ⇒ fall back to the speed estimate,
+   * steeply discounted + flagged (D3).
+   */
+  measuredAgenticLatencyMs?: number;
+  /**
+   * Optional learned build-quality multiplier on `[0, 1]` (from
+   * [[lmlm-build-quality-model-selection]], consumed here only if present).
+   * Folded into `agenticScore` when supplied; absent ⇒ no effect.
+   */
+  buildQuality?: number;
 }
 
 /**
@@ -77,6 +99,18 @@ export interface RankOptions {
    * `false` so callers conform to F3 / Q3 without an extra filter step.
    */
   includeUnfit?: boolean;
+  /**
+   * Agentic-latency budget (ms). A candidate whose `measuredAgenticLatencyMs`
+   * exceeds this is `agenticEligible = false` — unusable for an interactive
+   * loop, not merely down-ranked (D3). Defaults to `DEFAULT_LATENCY_BUDGET_MS`.
+   */
+  latencyBudgetMs?: number;
+  /**
+   * Optional weight applied to the composed `agenticScore`. Absent ⇒ no
+   * scaling (weight 1). Reserved for callers that want to blend agentic
+   * suitability against other axes when selecting for dispatch.
+   */
+  agenticWeight?: number;
 }
 
 /** Input envelope for `rankModels`. */
@@ -150,6 +184,27 @@ export interface RankedModel {
    * coding-best-fit pooled model. Always populated by `rankModels`.
    */
   scoresByProfile: Record<RankProfile, number>;
+  /**
+   * Agentic-suitability score on the same `[0, 100]`-ish scale as `score`,
+   * composed as `eligible ? f(latency) × benchmarkScore × (buildQuality?) : 0`
+   * (D4). SEPARATE from `score`: callers selecting for autonomous dispatch sort
+   * by this, but the default ranking order (by `score`) is unchanged. `0` when
+   * agentically ineligible. Always populated by `rankModels`.
+   */
+  agenticScore: number;
+  /**
+   * Whether this model may be routed autonomous agentic work. `false` when it
+   * can't tool-call (hard gate, D2) or its measured latency exceeds the budget
+   * (D3). `undefined` tool-calling fails OPEN (eligible + flagged). Always
+   * populated by `rankModels`.
+   */
+  agenticEligible: boolean;
+  /**
+   * Stable, human-readable reasons explaining ineligibility / discounting /
+   * flags (e.g. `'no tool-calling'`, `'toolCallingUnknown'`, a latency reason,
+   * `'latency estimated (unmeasured)'`). Empty when clean. Always populated.
+   */
+  agenticReasons: string[];
 }
 
 /** Stable warning codes the ranker surfaces alongside the ranking. */

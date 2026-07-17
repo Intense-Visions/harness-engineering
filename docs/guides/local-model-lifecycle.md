@@ -137,6 +137,44 @@ for the rationale.
 Runtime feedback (usage stamping + circuit breaker) and warming apply to **both** the
 `local` and `pi` backends.
 
+## Agentic suitability: `agenticScore` vs `score`
+
+"Fits VRAM and looks fast on paper" is **not** "usable for autonomous agentic
+dispatch". Live evidence: `llama3.3:70b` fit memory and its throughput _estimate_
+looked fine, but a real agentic turn took **~4 minutes**; `qwen2.5-coder:7b` is fast
+but **won't emit `tool_calls`**, so it can't drive the agent loop at all. So the
+ranker exposes a second, **separate** dimension alongside the primary `score`:
+
+- **`score`** — the size/speed/benchmark composite. Governs the **default ranking
+  order**; unchanged by the agentic dimension. Use it for non-agentic selection.
+- **`agenticScore`** — suitability for autonomous dispatch, composed as
+  `eligible ? f(latency) × benchmarkScore × (buildQuality?) : 0`, where `f(latency)`
+  decreases monotonically as measured turn latency rises. Callers selecting for
+  dispatch (the recommender / AMR) **sort by `agenticScore`**, not `score`.
+- **`agenticEligible`** / **`agenticReasons`** — the boolean gate plus
+  human-readable reasons (`'no tool-calling'`, `'toolCallingUnknown'`, a latency
+  reason, `'latency estimated (unmeasured)'`).
+
+Two gates set eligibility:
+
+1. **Tool-calling is a HARD gate.** `toolCalling: false` ⇒ `agenticEligible = false`
+   and `agenticScore = 0` — the model is **excluded** from agentic routing, not
+   merely down-ranked, because it cannot drive the loop. `undefined` (unprobed) is
+   **fail-open**: eligible but flagged `toolCallingUnknown`.
+2. **Measured latency gates over a budget.** `measuredAgenticLatencyMs` above
+   `latencyBudgetMs` (`RankOptions`, default 120 s) ⇒ ineligible. Under budget,
+   `agenticScore` scales inversely with latency. When latency is unmeasured, the
+   ranker falls back to the bandwidth **speed estimate**, steeply discounted and
+   flagged — so a probed model always out-scores an equivalent unprobed one.
+
+The ranker stays **pure**: those two signals arrive as candidate inputs
+(`RankerCandidate.toolCalling`, `.measuredAgenticLatencyMs`). The one-call helper
+`probeAgenticSignals` (in `capability/agentic.ts`) is the only I/O — it runs the
+deterministic tool-calling probe plus a single timed agentic call to fill them, and
+**never throws** (a probe outage returns undefined signals, which the ranker treats
+fail-open). With both inputs absent, the primary `score` and ordering are
+byte-identical to before this dimension existed.
+
 ## Known limitations (read before relying on autonomy)
 
 These are current, deliberate boundaries in v1. None of them block the manual
