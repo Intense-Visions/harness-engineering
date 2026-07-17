@@ -49,16 +49,16 @@ describe('integrations config', () => {
   describe('writeMcpEntry', () => {
     it('adds MCP entry to .mcp.json', () => {
       const mcpPath = path.join(tempDir, '.mcp.json');
-      writeMcpEntry(mcpPath, 'perplexity', {
+      writeMcpEntry(mcpPath, 'exa', {
         command: 'npx',
-        args: ['-y', 'perplexity-mcp'],
-        env: { PERPLEXITY_API_KEY: '${PERPLEXITY_API_KEY}' },
+        args: ['-y', 'exa-mcp-server'],
+        env: { EXA_API_KEY: '${EXA_API_KEY}' },
       });
       const config = JSON.parse(fs.readFileSync(mcpPath, 'utf-8'));
-      expect(config.mcpServers.perplexity.command).toBe('npx');
-      expect(config.mcpServers.perplexity.args).toEqual(['-y', 'perplexity-mcp']);
-      expect(config.mcpServers.perplexity.env).toEqual({
-        PERPLEXITY_API_KEY: '${PERPLEXITY_API_KEY}',
+      expect(config.mcpServers.exa.command).toBe('npx');
+      expect(config.mcpServers.exa.args).toEqual(['-y', 'exa-mcp-server']);
+      expect(config.mcpServers.exa.env).toEqual({
+        EXA_API_KEY: '${EXA_API_KEY}',
       });
     });
 
@@ -68,10 +68,10 @@ describe('integrations config', () => {
         mcpPath,
         JSON.stringify({ mcpServers: { harness: { command: 'harness-mcp' } } })
       );
-      writeMcpEntry(mcpPath, 'perplexity', { command: 'npx', args: ['-y', 'perplexity-mcp'] });
+      writeMcpEntry(mcpPath, 'exa', { command: 'npx', args: ['-y', 'exa-mcp-server'] });
       const config = JSON.parse(fs.readFileSync(mcpPath, 'utf-8'));
       expect(config.mcpServers.harness).toBeDefined();
-      expect(config.mcpServers.perplexity).toBeDefined();
+      expect(config.mcpServers.exa).toBeDefined();
     });
   });
 
@@ -102,15 +102,15 @@ describe('integrations config', () => {
 
     it('translates env to environment field', () => {
       const configPath = path.join(tempDir, 'opencode.json');
-      writeOpencodeMcpEntry(configPath, 'perplexity', {
+      writeOpencodeMcpEntry(configPath, 'exa', {
         command: 'npx',
-        args: ['-y', 'perplexity-mcp'],
-        env: { PERPLEXITY_API_KEY: '${PERPLEXITY_API_KEY}' },
+        args: ['-y', 'exa-mcp-server'],
+        env: { EXA_API_KEY: '${EXA_API_KEY}' },
       });
 
       const config = JSON.parse(fs.readFileSync(configPath, 'utf-8'));
-      expect(config.mcp.perplexity.environment).toEqual({
-        PERPLEXITY_API_KEY: '${PERPLEXITY_API_KEY}',
+      expect(config.mcp.exa.environment).toEqual({
+        EXA_API_KEY: '${EXA_API_KEY}',
       });
     });
 
@@ -163,12 +163,12 @@ describe('integrations config', () => {
       fs.writeFileSync(
         mcpPath,
         JSON.stringify({
-          mcpServers: { harness: { command: 'harness-mcp' }, perplexity: { command: 'npx' } },
+          mcpServers: { harness: { command: 'harness-mcp' }, exa: { command: 'npx' } },
         })
       );
-      removeMcpEntry(mcpPath, 'perplexity');
+      removeMcpEntry(mcpPath, 'exa');
       const config = JSON.parse(fs.readFileSync(mcpPath, 'utf-8'));
-      expect(config.mcpServers.perplexity).toBeUndefined();
+      expect(config.mcpServers.exa).toBeUndefined();
       expect(config.mcpServers.harness).toBeDefined();
     });
 
@@ -185,7 +185,7 @@ describe('integrations config', () => {
 
     it('does nothing if file does not exist', () => {
       const mcpPath = path.join(tempDir, '.mcp.json');
-      expect(() => removeMcpEntry(mcpPath, 'perplexity')).not.toThrow();
+      expect(() => removeMcpEntry(mcpPath, 'exa')).not.toThrow();
     });
   });
 
@@ -203,12 +203,12 @@ describe('integrations config', () => {
         configPath,
         JSON.stringify({
           version: 1,
-          integrations: { enabled: ['perplexity'], dismissed: ['augment-code'] },
+          integrations: { enabled: ['exa'], dismissed: ['github'] },
         })
       );
       const config = readIntegrationsConfig(configPath);
-      expect(config.enabled).toEqual(['perplexity']);
-      expect(config.dismissed).toEqual(['augment-code']);
+      expect(config.enabled).toEqual(['exa']);
+      expect(config.dismissed).toEqual(['github']);
     });
 
     it('returns defaults when file does not exist', () => {
@@ -221,15 +221,15 @@ describe('integrations config', () => {
     it('writes integrations section to config', () => {
       const configPath = path.join(tempDir, 'harness.config.json');
       fs.writeFileSync(configPath, JSON.stringify({ version: 1, name: 'test' }));
-      writeIntegrationsConfig(configPath, { enabled: ['perplexity'], dismissed: [] });
+      writeIntegrationsConfig(configPath, { enabled: ['exa'], dismissed: [] });
       const raw = JSON.parse(fs.readFileSync(configPath, 'utf-8'));
-      expect(raw.integrations.enabled).toEqual(['perplexity']);
+      expect(raw.integrations.enabled).toEqual(['exa']);
       expect(raw.name).toBe('test'); // preserves other fields
     });
 
     it('creates file if it does not exist', () => {
       const configPath = path.join(tempDir, 'harness.config.json');
-      writeIntegrationsConfig(configPath, { enabled: ['perplexity'], dismissed: [] });
+      writeIntegrationsConfig(configPath, { enabled: ['exa'], dismissed: [] });
       expect(fs.existsSync(configPath)).toBe(true);
     });
   });

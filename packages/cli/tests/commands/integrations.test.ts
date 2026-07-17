@@ -58,13 +58,13 @@ describe('integrations commands', () => {
       const consoleSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
       const tier1 = [
         {
-          name: 'perplexity',
-          description: 'Perplexity AI',
+          name: 'exa',
+          description: 'Exa search',
           tier: 1 as const,
-          envVar: 'PERPLEXITY_API_KEY',
+          envVar: 'EXA_API_KEY',
         },
       ];
-      printTier1Integrations(tier1, {}, ['perplexity']);
+      printTier1Integrations(tier1, {}, ['exa']);
       const calls = consoleSpy.mock.calls.map((c) => c[0]).join('\n');
       expect(calls).toContain('dismissed');
       consoleSpy.mockRestore();
@@ -73,18 +73,18 @@ describe('integrations commands', () => {
     it('printTier1Integrations shows env var status when not dismissed', async () => {
       const { printTier1Integrations } = await import('../../src/commands/integrations/list');
       const consoleSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
-      delete process.env.PERPLEXITY_API_KEY;
+      delete process.env.EXA_API_KEY;
       const tier1 = [
         {
-          name: 'perplexity',
-          description: 'Perplexity AI',
+          name: 'exa',
+          description: 'Exa search',
           tier: 1 as const,
-          envVar: 'PERPLEXITY_API_KEY',
+          envVar: 'EXA_API_KEY',
         },
       ];
       printTier1Integrations(tier1, {}, []);
       const calls = consoleSpy.mock.calls.map((c) => c[0]).join('\n');
-      expect(calls).toContain('PERPLEXITY_API_KEY');
+      expect(calls).toContain('EXA_API_KEY');
       consoleSpy.mockRestore();
     });
 
@@ -141,40 +141,40 @@ describe('integrations commands', () => {
 
     it('adds Tier 1 integration to .mcp.json and harness.config.json', async () => {
       const { addIntegration } = await import('../../src/commands/integrations/add');
-      const result = addIntegration(tempDir, 'perplexity');
+      const result = addIntegration(tempDir, 'exa');
       expect(result.ok).toBe(true);
 
       const mcpConfig = JSON.parse(fs.readFileSync(path.join(tempDir, '.mcp.json'), 'utf-8'));
-      expect(mcpConfig.mcpServers.perplexity).toBeDefined();
-      expect(mcpConfig.mcpServers.perplexity.command).toBe('npx');
+      expect(mcpConfig.mcpServers.exa).toBeDefined();
+      expect(mcpConfig.mcpServers.exa.command).toBe('npx');
 
       const harnessConfig = JSON.parse(
         fs.readFileSync(path.join(tempDir, 'harness.config.json'), 'utf-8')
       );
-      expect(harnessConfig.integrations.enabled).toContain('perplexity');
+      expect(harnessConfig.integrations.enabled).toContain('exa');
     });
 
     it('removes from dismissed when adding', async () => {
       // Pre-dismiss
       fs.writeFileSync(
         path.join(tempDir, 'harness.config.json'),
-        JSON.stringify({ version: 1, integrations: { enabled: [], dismissed: ['perplexity'] } })
+        JSON.stringify({ version: 1, integrations: { enabled: [], dismissed: ['exa'] } })
       );
       const { addIntegration } = await import('../../src/commands/integrations/add');
-      const result = addIntegration(tempDir, 'perplexity');
+      const result = addIntegration(tempDir, 'exa');
       expect(result.ok).toBe(true);
 
       const harnessConfig = JSON.parse(
         fs.readFileSync(path.join(tempDir, 'harness.config.json'), 'utf-8')
       );
-      expect(harnessConfig.integrations.dismissed).not.toContain('perplexity');
-      expect(harnessConfig.integrations.enabled).toContain('perplexity');
+      expect(harnessConfig.integrations.dismissed).not.toContain('exa');
+      expect(harnessConfig.integrations.enabled).toContain('exa');
     });
 
     it('returns envVar hint when env var not set', async () => {
-      delete process.env.PERPLEXITY_API_KEY;
+      delete process.env.EXA_API_KEY;
       const { addIntegration } = await import('../../src/commands/integrations/add');
-      const result = addIntegration(tempDir, 'perplexity');
+      const result = addIntegration(tempDir, 'exa');
       expect(result.ok).toBe(true);
       if (result.ok) {
         expect(result.value.envVarMissing).toBe(true);
@@ -187,38 +187,38 @@ describe('integrations commands', () => {
         JSON.stringify({ mcpServers: { harness: { command: 'harness-mcp' } } })
       );
       const { addIntegration } = await import('../../src/commands/integrations/add');
-      addIntegration(tempDir, 'perplexity');
+      addIntegration(tempDir, 'exa');
       const mcpConfig = JSON.parse(fs.readFileSync(path.join(tempDir, '.mcp.json'), 'utf-8'));
       expect(mcpConfig.mcpServers.harness).toBeDefined();
-      expect(mcpConfig.mcpServers.perplexity).toBeDefined();
+      expect(mcpConfig.mcpServers.exa).toBeDefined();
     });
   });
 
   describe('remove', () => {
     it('removes MCP entry and disables integration', async () => {
-      // Set up: add perplexity first
+      // Set up: add exa first
       fs.writeFileSync(
         path.join(tempDir, '.mcp.json'),
         JSON.stringify({
-          mcpServers: { perplexity: { command: 'npx', args: ['-y', 'perplexity-mcp'] } },
+          mcpServers: { exa: { command: 'npx', args: ['-y', 'exa-mcp-server'] } },
         })
       );
       fs.writeFileSync(
         path.join(tempDir, 'harness.config.json'),
-        JSON.stringify({ version: 1, integrations: { enabled: ['perplexity'], dismissed: [] } })
+        JSON.stringify({ version: 1, integrations: { enabled: ['exa'], dismissed: [] } })
       );
 
       const { removeIntegration } = await import('../../src/commands/integrations/remove');
-      const result = removeIntegration(tempDir, 'perplexity');
+      const result = removeIntegration(tempDir, 'exa');
       expect(result.ok).toBe(true);
 
       const mcpConfig = JSON.parse(fs.readFileSync(path.join(tempDir, '.mcp.json'), 'utf-8'));
-      expect(mcpConfig.mcpServers.perplexity).toBeUndefined();
+      expect(mcpConfig.mcpServers.exa).toBeUndefined();
 
       const harnessConfig = JSON.parse(
         fs.readFileSync(path.join(tempDir, 'harness.config.json'), 'utf-8')
       );
-      expect(harnessConfig.integrations.enabled).not.toContain('perplexity');
+      expect(harnessConfig.integrations.enabled).not.toContain('exa');
     });
 
     it('rejects unknown integration name', async () => {
@@ -233,17 +233,17 @@ describe('integrations commands', () => {
         JSON.stringify({
           mcpServers: {
             harness: { command: 'harness-mcp' },
-            perplexity: { command: 'npx' },
+            exa: { command: 'npx' },
           },
         })
       );
       fs.writeFileSync(
         path.join(tempDir, 'harness.config.json'),
-        JSON.stringify({ version: 1, integrations: { enabled: ['perplexity'], dismissed: [] } })
+        JSON.stringify({ version: 1, integrations: { enabled: ['exa'], dismissed: [] } })
       );
 
       const { removeIntegration } = await import('../../src/commands/integrations/remove');
-      removeIntegration(tempDir, 'perplexity');
+      removeIntegration(tempDir, 'exa');
       const mcpConfig = JSON.parse(fs.readFileSync(path.join(tempDir, '.mcp.json'), 'utf-8'));
       expect(mcpConfig.mcpServers.harness).toBeDefined();
     });
@@ -254,19 +254,19 @@ describe('integrations commands', () => {
       // Create .gemini directory to trigger Gemini detection
       fs.mkdirSync(path.join(tempDir, '.gemini'));
       const { addIntegration } = await import('../../src/commands/integrations/add');
-      const result = addIntegration(tempDir, 'perplexity');
+      const result = addIntegration(tempDir, 'exa');
       expect(result.ok).toBe(true);
 
       const geminiConfig = JSON.parse(
         fs.readFileSync(path.join(tempDir, '.gemini', 'settings.json'), 'utf-8')
       );
-      expect(geminiConfig.mcpServers.perplexity).toBeDefined();
-      expect(geminiConfig.mcpServers.perplexity.command).toBe('npx');
+      expect(geminiConfig.mcpServers.exa).toBeDefined();
+      expect(geminiConfig.mcpServers.exa.command).toBe('npx');
     });
 
     it('does not write to .gemini/settings.json when .gemini dir does not exist', async () => {
       const { addIntegration } = await import('../../src/commands/integrations/add');
-      addIntegration(tempDir, 'perplexity');
+      addIntegration(tempDir, 'exa');
 
       expect(fs.existsSync(path.join(tempDir, '.gemini', 'settings.json'))).toBe(false);
     });
@@ -274,49 +274,49 @@ describe('integrations commands', () => {
 
   describe('remove (Gemini parity)', () => {
     it('removes from .gemini/settings.json when .gemini dir exists', async () => {
-      // Set up: .gemini dir with perplexity entry
+      // Set up: .gemini dir with exa entry
       fs.mkdirSync(path.join(tempDir, '.gemini'));
       fs.writeFileSync(
         path.join(tempDir, '.gemini', 'settings.json'),
         JSON.stringify({
-          mcpServers: { perplexity: { command: 'npx', args: ['-y', 'perplexity-mcp'] } },
+          mcpServers: { exa: { command: 'npx', args: ['-y', 'exa-mcp-server'] } },
         })
       );
       fs.writeFileSync(
         path.join(tempDir, '.mcp.json'),
         JSON.stringify({
-          mcpServers: { perplexity: { command: 'npx', args: ['-y', 'perplexity-mcp'] } },
+          mcpServers: { exa: { command: 'npx', args: ['-y', 'exa-mcp-server'] } },
         })
       );
       fs.writeFileSync(
         path.join(tempDir, 'harness.config.json'),
-        JSON.stringify({ version: 1, integrations: { enabled: ['perplexity'], dismissed: [] } })
+        JSON.stringify({ version: 1, integrations: { enabled: ['exa'], dismissed: [] } })
       );
 
       const { removeIntegration } = await import('../../src/commands/integrations/remove');
-      const result = removeIntegration(tempDir, 'perplexity');
+      const result = removeIntegration(tempDir, 'exa');
       expect(result.ok).toBe(true);
 
       const geminiConfig = JSON.parse(
         fs.readFileSync(path.join(tempDir, '.gemini', 'settings.json'), 'utf-8')
       );
-      expect(geminiConfig.mcpServers.perplexity).toBeUndefined();
+      expect(geminiConfig.mcpServers.exa).toBeUndefined();
     });
 
     it('does not error when .gemini dir does not exist', async () => {
       fs.writeFileSync(
         path.join(tempDir, '.mcp.json'),
         JSON.stringify({
-          mcpServers: { perplexity: { command: 'npx', args: ['-y', 'perplexity-mcp'] } },
+          mcpServers: { exa: { command: 'npx', args: ['-y', 'exa-mcp-server'] } },
         })
       );
       fs.writeFileSync(
         path.join(tempDir, 'harness.config.json'),
-        JSON.stringify({ version: 1, integrations: { enabled: ['perplexity'], dismissed: [] } })
+        JSON.stringify({ version: 1, integrations: { enabled: ['exa'], dismissed: [] } })
       );
 
       const { removeIntegration } = await import('../../src/commands/integrations/remove');
-      const result = removeIntegration(tempDir, 'perplexity');
+      const result = removeIntegration(tempDir, 'exa');
       expect(result.ok).toBe(true);
     });
   });
@@ -324,13 +324,13 @@ describe('integrations commands', () => {
   describe('dismiss', () => {
     it('adds integration to dismissed array', async () => {
       const { dismissIntegration } = await import('../../src/commands/integrations/dismiss');
-      const result = dismissIntegration(tempDir, 'augment-code');
+      const result = dismissIntegration(tempDir, 'github');
       expect(result.ok).toBe(true);
 
       const harnessConfig = JSON.parse(
         fs.readFileSync(path.join(tempDir, 'harness.config.json'), 'utf-8')
       );
-      expect(harnessConfig.integrations.dismissed).toContain('augment-code');
+      expect(harnessConfig.integrations.dismissed).toContain('github');
     });
 
     it('rejects unknown integration name', async () => {
@@ -342,15 +342,15 @@ describe('integrations commands', () => {
     it('does not duplicate if already dismissed', async () => {
       fs.writeFileSync(
         path.join(tempDir, 'harness.config.json'),
-        JSON.stringify({ version: 1, integrations: { enabled: [], dismissed: ['augment-code'] } })
+        JSON.stringify({ version: 1, integrations: { enabled: [], dismissed: ['github'] } })
       );
       const { dismissIntegration } = await import('../../src/commands/integrations/dismiss');
-      dismissIntegration(tempDir, 'augment-code');
+      dismissIntegration(tempDir, 'github');
       const harnessConfig = JSON.parse(
         fs.readFileSync(path.join(tempDir, 'harness.config.json'), 'utf-8')
       );
       expect(
-        harnessConfig.integrations.dismissed.filter((d: string) => d === 'augment-code')
+        harnessConfig.integrations.dismissed.filter((d: string) => d === 'github')
       ).toHaveLength(1);
     });
   });

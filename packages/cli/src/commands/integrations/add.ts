@@ -98,7 +98,7 @@ function printAddSuccess(value: AddResult): void {
 export function createAddIntegrationCommand(): Command {
   return new Command('add')
     .description('Enable an MCP integration')
-    .argument('<name>', 'Integration name (e.g. perplexity, augment-code)')
+    .argument('<name>', 'Integration name (e.g. exa, github)')
     .action(async (name: string, _opts, cmd) => {
       const globalOpts = cmd.optsWithGlobals();
       const result = addIntegration(process.cwd(), name);

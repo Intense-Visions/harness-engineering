@@ -42,7 +42,7 @@ export function dismissIntegration(cwd: string, name: string): Result<string, CL
 export function createDismissIntegrationCommand(): Command {
   return new Command('dismiss')
     .description('Suppress doctor recommendations for an integration')
-    .argument('<name>', 'Integration name (e.g. perplexity, augment-code)')
+    .argument('<name>', 'Integration name (e.g. exa, github)')
     .action(async (name: string, _opts, cmd) => {
       const globalOpts = cmd.optsWithGlobals();
       const cwd = process.cwd();

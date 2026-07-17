@@ -5,7 +5,7 @@ import * as path from 'path';
 import chalk from 'chalk';
 import { checkNodeVersion as checkNode } from '../utils/node-version';
 import { ExitCode } from '../utils/errors';
-import { INTEGRATION_REGISTRY } from '../integrations/registry';
+import { INTEGRATION_REGISTRY, CATALOG_LAST_REVIEWED } from '../integrations/registry';
 import { readMcpConfig, readIntegrationsConfig } from '../integrations/config';
 
 export interface CheckResult {
@@ -557,6 +557,53 @@ export function checkSessionCorruption(cwd: string): CheckResult[] {
   ];
 }
 
+// --- Suggested MCP catalog freshness (mcp-catalog-refresh) ------------
+//
+// The suggested MCP catalog (INTEGRATION_REGISTRY) drifts as the ecosystem
+// moves. Surface a NON-BLOCKING advisory once CATALOG_LAST_REVIEWED is older
+// than CATALOG_STALE_DAYS, pointing at the mcp-catalog-refresh roadmap item.
+// This never affects doctor's exit code: the check only emits `info`/`pass`.
+
+const CATALOG_STALE_DAYS = 120;
+
+/**
+ * Pure, testable staleness predicate for the suggested MCP catalog.
+ * `reviewed` is an ISO date (YYYY-MM-DD); `now` is an epoch-ms timestamp.
+ * Returns true once the catalog is older than CATALOG_STALE_DAYS. An
+ * unparseable date is treated as stale (fail-open toward review).
+ */
+export function isCatalogStale(reviewed: string, now: number = Date.now()): boolean {
+  const reviewedMs = Date.parse(reviewed);
+  if (Number.isNaN(reviewedMs)) return true;
+  const ageDays = Math.floor((now - reviewedMs) / DAY_MS);
+  return ageDays >= CATALOG_STALE_DAYS;
+}
+
+/**
+ * Non-blocking advisory: note when the suggested MCP catalog is stale.
+ * Always `info` (stale) or `pass` (fresh) — never `fail`, so doctor's exit
+ * code is untouched.
+ */
+export function checkCatalogFreshness(now: number = Date.now()): CheckResult[] {
+  if (isCatalogStale(CATALOG_LAST_REVIEWED, now)) {
+    return [
+      {
+        name: 'catalog-freshness',
+        status: 'info',
+        message: `Suggested MCP catalog last reviewed ${CATALOG_LAST_REVIEWED} (>= ${CATALOG_STALE_DAYS}d) — may be stale; refresh via the mcp-catalog-refresh roadmap item`,
+        fix: 'Refresh the catalog: see the mcp-catalog-refresh roadmap item',
+      },
+    ];
+  }
+  return [
+    {
+      name: 'catalog-freshness',
+      status: 'pass',
+      message: `Suggested MCP catalog fresh (reviewed ${CATALOG_LAST_REVIEWED})`,
+    },
+  ];
+}
+
 export function runDoctor(cwd: string): DoctorResult {
   const checks: CheckResult[] = [];
 
@@ -571,6 +618,9 @@ export function runDoctor(cwd: string): DoctorResult {
   checks.push(...checkHookValidity(cwd));
   checks.push(...checkBaselineFreshness(cwd));
   checks.push(...checkSessionCorruption(cwd));
+  // Non-blocking catalog freshness advisory (mcp-catalog-refresh): emits
+  // only `info`/`pass`, so it never changes doctor's exit code.
+  checks.push(...checkCatalogFreshness());
 
   const allPassed = checks.every((c) => c.status !== 'fail');
 

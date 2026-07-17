@@ -1594,6 +1594,17 @@ harness setup-mcp --client claude
 
 Show all MCP peer integrations and their current status (enabled, available, dismissed).
 
+The suggested catalog is curated for currency. As of the latest review it contains:
+
+- **Tier 0 (zero-config):** `context7` (live library docs), `playwright` (browser/E2E automation),
+  `harness` (harness's own code-intelligence + workflow MCP: `code_search`, `ask_graph`,
+  `review_changes`, `outcome_eval`).
+- **Tier 1 (API key required):** `github` (official GitHub MCP, `GITHUB_PERSONAL_ACCESS_TOKEN`),
+  `exa` (structured agent web search, `EXA_API_KEY`).
+
+Each entry carries a `lastReviewed` date and the catalog exposes `CATALOG_LAST_REVIEWED`; `harness doctor`
+emits a non-blocking advisory once the catalog is stale so the suggested set signals its own age.
+
 ```
 harness integrations list
 ```
@@ -1618,14 +1629,14 @@ harness integrations add <name>
 **Arguments:**
 
 ```
-<name>                  Integration name (e.g., perplexity, augment-code)
+<name>                  Integration name (e.g., exa, github)
 ```
 
 **Examples:**
 
 ```bash
-# Enable Perplexity integration
-harness integrations add perplexity
+# Enable the Exa search integration
+harness integrations add exa
 ```
 
 ---
@@ -1641,14 +1652,14 @@ harness integrations remove <name>
 **Arguments:**
 
 ```
-<name>                  Integration name (e.g., perplexity, augment-code)
+<name>                  Integration name (e.g., exa, github)
 ```
 
 **Examples:**
 
 ```bash
 # Remove an integration
-harness integrations remove perplexity
+harness integrations remove exa
 ```
 
 ---
@@ -1664,14 +1675,14 @@ harness integrations dismiss <name>
 **Arguments:**
 
 ```
-<name>                  Integration name (e.g., perplexity, augment-code)
+<name>                  Integration name (e.g., exa, github)
 ```
 
 **Examples:**
 
 ```bash
 # Dismiss integration recommendation
-harness integrations dismiss augment-code
+harness integrations dismiss github
 ```
 
 ---

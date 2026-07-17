@@ -15,27 +15,24 @@ vi.mock('fs', async (importOriginal) => {
 });
 
 import * as fs from 'fs';
-import { runDoctor } from '../../src/commands/doctor';
+import { runDoctor, isCatalogStale, checkCatalogFreshness } from '../../src/commands/doctor';
+import { CATALOG_LAST_REVIEWED } from '../../src/integrations/registry';
 
 const mockExistsSync = vi.mocked(fs.existsSync);
 const mockReaddirSync = vi.mocked(fs.readdirSync);
 const mockReadFileSync = vi.mocked(fs.readFileSync);
 
-// MCP config with harness + all Tier 0 integrations configured
+// MCP config with all Tier 0 integrations configured (context7, playwright, harness)
 const mcpJsonFull = JSON.stringify({
   mcpServers: {
     harness: { command: 'harness-mcp' },
     context7: { command: 'npx', args: ['-y', '@upstash/context7-mcp'] },
-    'sequential-thinking': {
-      command: 'npx',
-      args: ['-y', '@modelcontextprotocol/server-sequential-thinking'],
-    },
     playwright: { command: 'npx', args: ['-y', '@playwright/mcp'] },
   },
 });
 // Harness config with Tier 1 integrations dismissed (so no info suggestions)
 const harnessConfigDismissed = JSON.stringify({
-  integrations: { enabled: [], dismissed: ['perplexity', 'augment-code'] },
+  integrations: { enabled: [], dismissed: ['github', 'exa'] },
 });
 const claudeDir = path.join(os.homedir(), '.claude', 'commands', 'harness');
 const geminiDir = path.join(os.homedir(), '.gemini', 'commands', 'harness');
@@ -184,8 +181,9 @@ describe('runDoctor', () => {
     // integrations = 8 legacy checks. Hermes Phase 3 / A7 adds 8 more:
     // 3 live-pings credentials, 1 hook-validity (info: dir absent),
     // 3 baseline-freshness (info: each absent), 1 session-corruption
-    // (info: dir absent). Total = 16. (Tier 1 dismissed in mock.)
-    expect(result.checks).toHaveLength(16);
+    // (info: dir absent) = 16. mcp-catalog-refresh adds 1 catalog-freshness
+    // advisory. Total = 17. (Tier 1 dismissed in mock.)
+    expect(result.checks).toHaveLength(17);
   });
 
   it('is read-only — does not call writeFileSync or mkdirSync', () => {
@@ -218,10 +216,6 @@ describe('runDoctor', () => {
       const mcpNoContext7 = JSON.stringify({
         mcpServers: {
           harness: { command: 'harness-mcp' },
-          'sequential-thinking': {
-            command: 'npx',
-            args: ['-y', '@modelcontextprotocol/server-sequential-thinking'],
-          },
           playwright: { command: 'npx', args: ['-y', '@playwright/mcp'] },
         },
       });
@@ -262,7 +256,7 @@ describe('runDoctor', () => {
       );
 
       const tier0Pass = tier0Checks.filter((c) => c.status === 'pass');
-      expect(tier0Pass).toHaveLength(3); // context7, sequential-thinking, playwright
+      expect(tier0Pass).toHaveLength(3); // context7, playwright, harness
     });
 
     it('shows info suggestions for non-enabled, non-dismissed Tier 1 integrations', () => {
@@ -290,12 +284,12 @@ describe('runDoctor', () => {
       );
 
       const result = runDoctor(cwd);
-      const perplexityCheck = result.checks.find((c) => c.name === 'integration-perplexity');
+      const exaCheck = result.checks.find((c) => c.name === 'integration-exa');
 
-      expect(perplexityCheck).toBeDefined();
-      expect(perplexityCheck!.status).toBe('info');
-      expect(perplexityCheck!.message).toContain('Perplexity');
-      expect(perplexityCheck!.message).toContain('harness integrations add perplexity');
+      expect(exaCheck).toBeDefined();
+      expect(exaCheck!.status).toBe('info');
+      expect(exaCheck!.message).toContain('Exa');
+      expect(exaCheck!.message).toContain('harness integrations add exa');
     });
 
     it('info status does not cause allPassed to be false', () => {
@@ -334,10 +328,6 @@ describe('runDoctor', () => {
       const geminiNoContext7 = JSON.stringify({
         mcpServers: {
           harness: { command: 'harness-mcp' },
-          'sequential-thinking': {
-            command: 'npx',
-            args: ['-y', '@modelcontextprotocol/server-sequential-thinking'],
-          },
           playwright: { command: 'npx', args: ['-y', '@playwright/mcp'] },
         },
       });
@@ -374,16 +364,16 @@ describe('runDoctor', () => {
       mockAllHealthy('/tmp/project');
 
       const result = runDoctor('/tmp/project');
-      const perplexityCheck = result.checks.find((c) => c.name === 'integration-perplexity');
+      const exaCheck = result.checks.find((c) => c.name === 'integration-exa');
 
-      // perplexity is dismissed in mockAllHealthy, so no check should exist
-      expect(perplexityCheck).toBeUndefined();
+      // exa is dismissed in mockAllHealthy, so no check should exist
+      expect(exaCheck).toBeUndefined();
     });
 
     it('warns when enabled Tier 1 integration has missing env var', () => {
       const cwd = '/tmp/project';
       const harnessConfigEnabled = JSON.stringify({
-        integrations: { enabled: ['perplexity'], dismissed: [] },
+        integrations: { enabled: ['exa'], dismissed: [] },
       });
       const existsMap: Record<string, boolean> = {
         [path.join(cwd, '.mcp.json')]: true,
@@ -402,22 +392,68 @@ describe('runDoctor', () => {
       mockReadFileSync.mockImplementation(
         (p: fs.PathOrFileDescriptor) => readMap[String(p)] ?? '{}'
       );
-      // Ensure PERPLEXITY_API_KEY is not set
-      const origEnv = process.env.PERPLEXITY_API_KEY;
-      delete process.env.PERPLEXITY_API_KEY;
+      // Ensure EXA_API_KEY is not set
+      const origEnv = process.env.EXA_API_KEY;
+      delete process.env.EXA_API_KEY;
 
       const result = runDoctor(cwd);
-      const envCheck = result.checks.find((c) => c.name === 'integration-perplexity-env');
+      const envCheck = result.checks.find((c) => c.name === 'integration-exa-env');
 
       expect(envCheck).toBeDefined();
       expect(envCheck!.status).toBe('warn');
-      expect(envCheck!.message).toContain('PERPLEXITY_API_KEY');
-      expect(envCheck!.message).toContain('Perplexity');
+      expect(envCheck!.message).toContain('EXA_API_KEY');
+      expect(envCheck!.message).toContain('Exa');
       // warn should not cause allPassed to be false
       expect(result.allPassed).toBe(true);
 
       // Restore
-      if (origEnv !== undefined) process.env.PERPLEXITY_API_KEY = origEnv;
+      if (origEnv !== undefined) process.env.EXA_API_KEY = origEnv;
+    });
+  });
+
+  describe('catalog freshness advisory (SC4)', () => {
+    const DAY_MS = 24 * 60 * 60 * 1000;
+    const STALE_DAYS = 120;
+    const reviewedMs = Date.parse('2026-01-01');
+
+    it('isCatalogStale is false when the catalog is fresh', () => {
+      const now = reviewedMs + (STALE_DAYS - 1) * DAY_MS;
+      expect(isCatalogStale('2026-01-01', now)).toBe(false);
+    });
+
+    it('isCatalogStale is true once the catalog is past the threshold', () => {
+      const now = reviewedMs + STALE_DAYS * DAY_MS;
+      expect(isCatalogStale('2026-01-01', now)).toBe(true);
+    });
+
+    it('isCatalogStale treats an unparseable date as stale', () => {
+      expect(isCatalogStale('not-a-date', reviewedMs)).toBe(true);
+    });
+
+    it('checkCatalogFreshness emits a non-blocking info advisory when stale', () => {
+      const now = Date.parse(CATALOG_LAST_REVIEWED) + (STALE_DAYS + 1) * DAY_MS;
+      const [check] = checkCatalogFreshness(now);
+      expect(check).toBeDefined();
+      expect(check!.name).toBe('catalog-freshness');
+      expect(check!.status).toBe('info'); // never 'fail' — non-blocking
+      expect(check!.message).toContain('mcp-catalog-refresh');
+    });
+
+    it('checkCatalogFreshness passes when fresh', () => {
+      const now = Date.parse(CATALOG_LAST_REVIEWED) + 1 * DAY_MS;
+      const [check] = checkCatalogFreshness(now);
+      expect(check!.status).toBe('pass');
+    });
+
+    it('the advisory never changes doctor exit code (only info/pass)', () => {
+      for (const now of [
+        Date.parse(CATALOG_LAST_REVIEWED) + 1 * DAY_MS,
+        Date.parse(CATALOG_LAST_REVIEWED) + (STALE_DAYS + 10) * DAY_MS,
+      ]) {
+        for (const check of checkCatalogFreshness(now)) {
+          expect(check.status).not.toBe('fail');
+        }
+      }
     });
   });
 });

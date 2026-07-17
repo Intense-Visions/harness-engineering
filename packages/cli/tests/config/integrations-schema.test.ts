@@ -4,8 +4,8 @@ import { IntegrationsConfigSchema, HarnessConfigSchema } from '../../src/config/
 describe('IntegrationsConfigSchema', () => {
   it('accepts valid integrations config', () => {
     const result = IntegrationsConfigSchema.safeParse({
-      enabled: ['perplexity'],
-      dismissed: ['augment-code'],
+      enabled: ['exa'],
+      dismissed: ['github'],
     });
     expect(result.success).toBe(true);
   });
@@ -47,8 +47,8 @@ describe('HarnessConfigSchema with integrations', () => {
     const result = HarnessConfigSchema.safeParse({
       version: 1,
       integrations: {
-        enabled: ['perplexity'],
-        dismissed: ['augment-code'],
+        enabled: ['exa'],
+        dismissed: ['github'],
       },
     });
     expect(result.success).toBe(true);

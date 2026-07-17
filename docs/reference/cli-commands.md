@@ -814,7 +814,7 @@ Enable an MCP integration
 
 **Arguments:**
 
-- `name` (required) — Integration name (e.g. perplexity, augment-code)
+- `name` (required) — Integration name (e.g. exa, github)
 
 ### `harness integrations dismiss <name>`
 
@@ -822,7 +822,7 @@ Suppress doctor recommendations for an integration
 
 **Arguments:**
 
-- `name` (required) — Integration name (e.g. perplexity, augment-code)
+- `name` (required) — Integration name (e.g. exa, github)
 
 ### `harness integrations list`
 
@@ -834,7 +834,7 @@ Remove an MCP integration
 
 **Arguments:**
 
-- `name` (required) — Integration name (e.g. perplexity, augment-code)
+- `name` (required) — Integration name (e.g. exa, github)
 
 ## Learnings Commands
 

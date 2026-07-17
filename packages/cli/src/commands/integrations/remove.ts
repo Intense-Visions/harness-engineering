@@ -52,7 +52,7 @@ export function removeIntegration(cwd: string, name: string): Result<string, CLI
 export function createRemoveIntegrationCommand(): Command {
   return new Command('remove')
     .description('Remove an MCP integration')
-    .argument('<name>', 'Integration name (e.g. perplexity, augment-code)')
+    .argument('<name>', 'Integration name (e.g. exa, github)')
     .action(async (name: string, _opts, cmd) => {
       const globalOpts = cmd.optsWithGlobals();
       const cwd = process.cwd();

@@ -28,7 +28,7 @@ export interface IntegrationDef {
     args: string[];
     /**
      * Environment variables to pass to the MCP server process.
-     * Values use shell-style interpolation templates (e.g. '${PERPLEXITY_API_KEY}').
+     * Values use shell-style interpolation templates (e.g. '${EXA_API_KEY}').
      * The launcher MUST resolve these against process.env before spawning.
      */
     env?: Record<string, string>;
@@ -37,6 +37,12 @@ export interface IntegrationDef {
   installHint?: string;
   /** Platforms this integration supports */
   platforms: IntegrationPlatform[];
+  /**
+   * ISO date (YYYY-MM-DD) this entry was last reviewed for currency.
+   * Optional and additive — powers the catalog freshness advisory
+   * (see CATALOG_LAST_REVIEWED in the registry).
+   */
+  lastReviewed?: string;
 }
 
 /**
