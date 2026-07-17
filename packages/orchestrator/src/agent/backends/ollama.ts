@@ -230,6 +230,9 @@ const DEFAULT_SYSTEM_PROMPT = [
   'You are an autonomous coding agent working inside a git repository.',
   'Use the provided tools to explore and edit the codebase. Work in small steps:',
   'read before you write, implement, then run the test/verify command.',
+  'To change an existing file, prefer the `edit` tool (a targeted find-and-replace) over',
+  'rewriting the whole file with write_file — full rewrites lose earlier fixes. Use write_file',
+  'only to create a new file.',
   'Do not claim work you have not performed via a tool.',
   'Keep using tools until the task is FULLY implemented AND verified.',
   'Do NOT stop to explain your work or to ask questions.',
@@ -261,6 +264,26 @@ const TOOL_SCHEMAS = [
         type: 'object',
         properties: { path: { type: 'string' }, content: { type: 'string' } },
         required: ['path', 'content'],
+      },
+    },
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'edit',
+      description:
+        'Make a targeted edit to an EXISTING file by replacing an exact substring. ' +
+        'Prefer this over write_file for changing existing files — it avoids rewriting ' +
+        'the whole file (which loses prior fixes). `old_string` must appear EXACTLY once; ' +
+        'if it is not unique, include more surrounding context to disambiguate.',
+      parameters: {
+        type: 'object',
+        properties: {
+          path: { type: 'string' },
+          old_string: { type: 'string', description: 'Exact text to replace (must be unique).' },
+          new_string: { type: 'string', description: 'Replacement text.' },
+        },
+        required: ['path', 'old_string', 'new_string'],
       },
     },
   },
@@ -835,7 +858,8 @@ export class OllamaBackend implements AgentBackend {
     name: string,
     argsJson: string
   ): AsyncGenerator<AgentEvent, string, void> {
-    const isBuiltin = name === 'bash' || name === 'write_file' || name === 'read_file';
+    const isBuiltin =
+      name === 'bash' || name === 'write_file' || name === 'edit' || name === 'read_file';
     const mcpEntry = isBuiltin ? undefined : session.mcpToolMap.get(name);
     if (!mcpEntry) {
       return yield* this.withHeartbeat(
@@ -975,6 +999,13 @@ export class OllamaBackend implements AgentBackend {
             asString(args.path),
             asString(args.content)
           );
+        case 'edit':
+          return await this.runEditFile(
+            session.workspacePath,
+            asString(args.path),
+            asString(args.old_string),
+            asString(args.new_string)
+          );
         case 'read_file':
           return await this.runReadFile(session.workspacePath, asString(args.path));
         default:
@@ -1053,6 +1084,51 @@ export class OllamaBackend implements AgentBackend {
     await fs.mkdir(path.dirname(target), { recursive: true });
     await fs.writeFile(target, content, 'utf8');
     return `wrote ${requested} (${content.length} bytes)`;
+  }
+
+  /**
+   * Targeted edit: replace the single exact occurrence of `oldStr` with `newStr`
+   * in an existing file. Mirrors Claude Code `Edit` semantics so the local agent
+   * can make surgical changes instead of rewriting the whole file (the write_file
+   * thrash the wrapper otherwise forces). Every failure mode returns an actionable
+   * ERROR string (never throws for the model) so the model can self-correct.
+   *
+   * Matching is literal via index/slice — never `String.replace`, which replaces
+   * only the first match and interprets `$&`/`$1` sequences in the replacement.
+   */
+  private async runEditFile(
+    workspacePath: string,
+    requested: string,
+    oldStr: string,
+    newStr: string
+  ): Promise<string> {
+    const target = resolveInsideWorkspace(workspacePath, requested);
+    if (target === null) {
+      return `ERROR: refusing to edit outside workspace: ${requested}`;
+    }
+    if (oldStr.length === 0) {
+      return `ERROR: old_string is empty; provide the exact existing text to replace`;
+    }
+    if (oldStr === newStr) {
+      return `ERROR: old_string and new_string are identical (no-op)`;
+    }
+    let content: string;
+    try {
+      content = await fs.readFile(target, 'utf8');
+    } catch {
+      return `ERROR: file not found: ${requested} — use write_file to create a new file`;
+    }
+    const first = content.indexOf(oldStr);
+    if (first === -1) {
+      return `ERROR: old_string not found in ${requested}`;
+    }
+    if (content.indexOf(oldStr, first + oldStr.length) !== -1) {
+      const count = content.split(oldStr).length - 1;
+      return `ERROR: old_string is not unique in ${requested} (appears ${count} times); add surrounding context to make it unique`;
+    }
+    const updated = content.slice(0, first) + newStr + content.slice(first + oldStr.length);
+    await fs.writeFile(target, updated, 'utf8');
+    return `edited ${requested} (replaced 1 occurrence, ${content.length} → ${updated.length} bytes)`;
   }
 
   private async runReadFile(workspacePath: string, requested: string): Promise<string> {

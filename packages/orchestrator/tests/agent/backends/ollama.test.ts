@@ -206,7 +206,7 @@ describe('OllamaBackend', () => {
       }
     );
 
-    it('sends only the 3 built-in tools when mcpServers is unset (SC1)', async () => {
+    it('sends only the 4 built-in tools when mcpServers is unset (SC1)', async () => {
       let sentTools: unknown;
       const fetchMock = vi.fn(async (_url: string, init: RequestInit) => {
         sentTools = JSON.parse(init.body as string).tools;
@@ -230,7 +230,117 @@ describe('OllamaBackend', () => {
       const names = (sentTools as Array<{ function: { name: string } }>).map(
         (t) => t.function.name
       );
-      expect(names).toEqual(['bash', 'write_file', 'read_file']);
+      expect(names).toEqual(['bash', 'write_file', 'edit', 'read_file']);
+    });
+
+    // --- edit tool (surgical edits): SC2–SC7 -------------------------------
+    // Drive a single `edit` tool call (then TASK_COMPLETE) and return the tool
+    // result string the model would see plus the on-disk outcome.
+    const runEdit = async (
+      args: { path: string; old_string: string; new_string: string },
+      seed?: { path: string; content: string }
+    ): Promise<{ toolResult: string; diskPath: string }> => {
+      if (seed) writeFileSync(join(workspace, seed.path), seed.content);
+      const fetchMock = vi
+        .fn()
+        .mockResolvedValueOnce(okFetch(chatResponse({ toolCalls: [{ name: 'edit', args }] })))
+        .mockResolvedValueOnce(okFetch(chatResponse({ content: 'TASK_COMPLETE' })));
+      vi.stubGlobal('fetch', fetchMock);
+      const backend = new OllamaBackend(baseConfig);
+      const start = await backend.startSession({
+        workspacePath: workspace,
+        permissionMode: 'full',
+      });
+      if (!start.ok) throw new Error('startSession failed');
+      await drain(
+        backend.runTurn(start.value, {
+          sessionId: start.value.sessionId,
+          prompt: 'edit it',
+          isContinuation: false,
+        })
+      );
+      const session = start.value as import('../../../src/agent/backends/ollama').OllamaSession;
+      const toolMsg = session.messages.find((m) => m.role === 'tool');
+      return { toolResult: toolMsg?.content ?? '', diskPath: join(workspace, args.path) };
+    };
+
+    it('replaces the unique occurrence and persists it (SC2)', async () => {
+      const { toolResult, diskPath } = await runEdit(
+        { path: 'a.ts', old_string: 'XYZ', new_string: '123' },
+        { path: 'a.ts', content: 'abcXYZdef' }
+      );
+      expect(toolResult).toMatch(/^edited a\.ts/);
+      expect(readFileSync(diskPath, 'utf8')).toBe('abc123def');
+    });
+
+    it('returns an actionable error and leaves the file unchanged when old_string is not found (SC3)', async () => {
+      const { toolResult, diskPath } = await runEdit(
+        { path: 'a.ts', old_string: 'NOPE', new_string: 'x' },
+        { path: 'a.ts', content: 'hello world' }
+      );
+      expect(toolResult).toContain('ERROR');
+      expect(toolResult).toContain('not found');
+      expect(readFileSync(diskPath, 'utf8')).toBe('hello world');
+    });
+
+    it('refuses an ambiguous (non-unique) old_string and leaves the file unchanged (SC4)', async () => {
+      const { toolResult, diskPath } = await runEdit(
+        { path: 'a.ts', old_string: 'foo', new_string: 'bar' },
+        { path: 'a.ts', content: 'foo = foo' }
+      );
+      expect(toolResult).toContain('not unique');
+      expect(toolResult).toContain('appears 2 times');
+      expect(readFileSync(diskPath, 'utf8')).toBe('foo = foo'); // untouched
+    });
+
+    it('errors and creates nothing when the target file does not exist (SC5)', async () => {
+      const { toolResult, diskPath } = await runEdit({
+        path: 'ghost.ts',
+        old_string: 'a',
+        new_string: 'b',
+      });
+      expect(toolResult).toContain('file not found');
+      expect(toolResult).toContain('write_file');
+      expect(existsSync(diskPath)).toBe(false);
+    });
+
+    it('refuses to edit outside the workspace (SC6)', async () => {
+      const { toolResult } = await runEdit({
+        path: '../escape.ts',
+        old_string: 'a',
+        new_string: 'b',
+      });
+      expect(toolResult).toContain('refusing to edit outside workspace');
+    });
+
+    it('replaces regex-special and multi-line text literally (SC7)', async () => {
+      const seed = 'head\n$& .* \\d+ (x)\ntail';
+      const { toolResult, diskPath } = await runEdit(
+        { path: 'a.ts', old_string: '$& .* \\d+ (x)', new_string: 'REPLACED' },
+        { path: 'a.ts', content: seed }
+      );
+      expect(toolResult).toMatch(/^edited/);
+      expect(readFileSync(diskPath, 'utf8')).toBe('head\nREPLACED\ntail');
+    });
+
+    it('inserts new_string literally — does not interpret $& / $1 replacement patterns (SC7)', async () => {
+      // Guards the exact hazard the docstring cites for avoiding String.replace:
+      // a String.replace(old, new) regression would expand $&/$1 in the replacement.
+      const { toolResult, diskPath } = await runEdit(
+        { path: 'a.ts', old_string: 'value', new_string: '$&_$1_kept' },
+        { path: 'a.ts', content: 'Xvalue Y' }
+      );
+      expect(toolResult).toMatch(/^edited/);
+      expect(readFileSync(diskPath, 'utf8')).toBe('X$&_$1_kept Y');
+    });
+
+    it('rejects a no-op edit where old_string equals new_string', async () => {
+      const { toolResult, diskPath } = await runEdit(
+        { path: 'a.ts', old_string: 'same', new_string: 'same' },
+        { path: 'a.ts', content: 'x same y' }
+      );
+      expect(toolResult).toContain('identical');
+      expect(readFileSync(diskPath, 'utf8')).toBe('x same y');
     });
 
     it('POSTs native /api/chat with stripped base and native tool schema (SC1)', async () => {
