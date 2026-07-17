@@ -13,6 +13,7 @@ import noProcessEnvInSpawn from './no-process-env-in-spawn';
 import requirePathNormalization from './require-path-normalization';
 import noUndefinedOptionalAssignment from './no-undefined-optional-assignment';
 import noFocusedTests from './no-focused-tests';
+import noHardcodedTestCount from './no-hardcoded-test-count';
 
 export const rules = {
   'enforce-doc-exports': enforceDocExports,
@@ -29,4 +30,5 @@ export const rules = {
   'require-boundary-schema': requireBoundarySchema,
   'require-path-normalization': requirePathNormalization,
   'no-focused-tests': noFocusedTests,
+  'no-hardcoded-test-count': noHardcodedTestCount,
 };
