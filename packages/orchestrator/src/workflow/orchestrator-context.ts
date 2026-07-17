@@ -1,6 +1,7 @@
 import type {
   AgentBackend,
   AgentEvent,
+  BackendDef,
   CapabilityTier,
   Issue,
   RoutingDecision,
@@ -11,7 +12,9 @@ import type {
   WorkflowExecutionPlan,
 } from '@harness-engineering/types';
 import { AgentRunner } from '../agent/runner.js';
+import { isLocalEndpointBackend } from '../agent/backend-factory.js';
 import type { OrchestratorBackendFactory } from '../agent/orchestrator-backend-factory.js';
+import { selectStagePromptTemplate } from './local-stage-prompt.js';
 import type { StreamRecorder } from '../core/stream-recorder.js';
 import type { StructuredLogger } from '../logging/logger.js';
 import { PromptRenderer } from '../prompt/renderer.js';
@@ -92,6 +95,14 @@ export interface BuildWorkflowContextDeps {
   adaptiveRouter: WorkflowRouterDep | null;
   /** `this.config.agent.routing?.default` — the identity-fallback backend name. */
   routingDefault: string | undefined;
+  /**
+   * Per-phase routing: the config's backend-name → `BackendDef` map
+   * (`this.config.agent.backends`). Used ONLY to resolve a routed backend's
+   * locality (`isLocalEndpointBackend`) so a local-endpoint stage renders the
+   * `harness skill run --autonomous` indirection template. ABSENT (fake/legacy
+   * contexts) ⇒ every stage is treated as non-local ⇒ default template (SC3).
+   */
+  backends?: Record<string, BackendDef>;
   /** D12 override; absent ⇒ engine default DEFAULT_STAGE_DEADLINE_MS. */
   stageDeadlineMs?: number;
   /** Terminal-success seam (Task 6/7): bound to `settleWorkflowSuccess`. */
@@ -185,12 +196,15 @@ function renderStagePromptFactory(
   promptRenderer: PromptRenderer,
   issue: Issue
 ): NonNullable<WorkflowEngineContext['renderStagePrompt']> {
-  return (step, index, priorOutputs) => {
+  return (step, index, priorOutputs, isLocalBackend) => {
     const priorEntries = Object.entries(priorOutputs).map(([name, output]) => ({
       name,
       output,
     }));
-    return promptRenderer.render(STAGE_PROMPT_TEMPLATE, {
+    // Per-phase routing: pick the LOCAL-indirection template for a local-endpoint
+    // routed backend, else the byte-identical default (SC-LOCAL/SC3). The variable
+    // bag is identical for both templates (strictVariables — no new required var).
+    return promptRenderer.render(selectStagePromptTemplate(isLocalBackend ?? false), {
       stageNumber: index + 1,
       identifier: issue.identifier,
       title: issue.title,
@@ -199,6 +213,20 @@ function renderStagePromptFactory(
       cognitiveMode: step.cognitiveMode ?? '',
       priorEntries,
     });
+  };
+}
+
+/**
+ * Build the engine's `isLocalBackend` resolver: map a routed `AgentBackend` name
+ * → its `BackendDef` via the config's backends map, then apply
+ * `isLocalEndpointBackend`. Absent map (fake/legacy) ⇒ always non-local (SC3).
+ */
+function isLocalBackendFactory(
+  backends: Record<string, BackendDef> | undefined
+): NonNullable<WorkflowEngineContext['isLocalBackend']> {
+  return (backend) => {
+    const def = backends?.[backend.name];
+    return def !== undefined && isLocalEndpointBackend(def);
   };
 }
 
@@ -252,6 +280,11 @@ export function buildWorkflowContext(deps: BuildWorkflowContextDeps): WorkflowEn
     // split-routing 4b: render the real per-stage prompt (issue + stage role +
     // prior-stage outputs) via the pure PromptRenderer — no orchestrator import.
     renderStagePrompt: renderStagePromptFactory(promptRenderer, issue),
+
+    // per-phase routing: resolve a routed backend's locality so the renderer
+    // selects the local-indirection template for local-endpoint stages. Absent
+    // backends map ⇒ always non-local ⇒ default template (SC3).
+    isLocalBackend: isLocalBackendFactory(deps.backends),
 
     // SC5 terminal seams — thin forwarders to the orchestrator's settle methods
     // (Task 7). The reducer-reproduction lives THERE (running/completed/claimed

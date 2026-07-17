@@ -2174,6 +2174,12 @@ export class Orchestrator extends EventEmitter {
             const d = this.config.agent.routing?.default;
             return d !== undefined ? toArray(d)[0] : undefined;
           })(),
+          // per-phase routing: the backends map lets the context resolve a routed
+          // stage's locality so local-endpoint stages render the local-indirection
+          // prompt. Absent (legacy single-backend config) ⇒ non-local (SC3).
+          ...(this.config.agent.backends !== undefined
+            ? { backends: this.config.agent.backends }
+            : {}),
           ...(workflowMatch.stageDeadlineMs !== undefined
             ? { stageDeadlineMs: workflowMatch.stageDeadlineMs }
             : {}),
