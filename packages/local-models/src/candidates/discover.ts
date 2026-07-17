@@ -113,7 +113,11 @@ async function listSort(
   }
 }
 
-/** Wide net: merge both sorts, dedupe by model id, cap at `limit` (D1 — no blow-up). */
+/**
+ * Wide net: merge both sorts, dedupe by model id, cap at `limit` (D1 — no blow-up).
+ * `trending` is iterated first — recency wins cap ties. Do NOT reorder the args to
+ * "base first"; that would silently invert the recency bias (ADR 0077).
+ */
 function mergeCapped(trending: HfModel[], downloads: HfModel[], limit: number): HfModel[] {
   const merged = new Map<string, HfModel>();
   for (const model of [...trending, ...downloads]) {
