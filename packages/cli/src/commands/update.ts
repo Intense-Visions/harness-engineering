@@ -12,6 +12,9 @@ import { initHooks } from './hooks/init';
 import type { HookProfile } from '../hooks/profiles';
 import { ensureTelemetryConfigured } from './telemetry-wizard';
 import { CLI_VERSION } from '../version';
+import { readConfiguredServers } from './integrations/sync';
+import { reconcileIntegrations } from '../integrations/reconcile';
+import { INTEGRATION_REGISTRY } from '../integrations/registry';
 
 type PackageManager = 'npm' | 'pnpm' | 'yarn';
 
@@ -478,6 +481,38 @@ function buildInstallPackages(
   return { installPkgs, installCmd, pm };
 }
 
+/**
+ * After an update, surface MCP-server drift against the (possibly refreshed)
+ * suggested catalog. A catalog refresh is otherwise invisible to a project that
+ * configured its servers earlier — nobody would think to reconcile. This is a
+ * report-only pointer; the actual change runs through the consent-gated
+ * `harness integrations sync`. Best-effort — never breaks `update`.
+ */
+export function offerIntegrationsSync(cwd: string = process.cwd()): void {
+  try {
+    const configured = readConfiguredServers(cwd);
+    if (configured.length === 0) return; // nothing configured — `harness setup` is the entry point
+    const { toAdd, deprecated } = reconcileIntegrations(configured, INTEGRATION_REGISTRY);
+    if (toAdd.length === 0 && deprecated.length === 0) return; // in sync
+    console.log('');
+    logger.info('Your MCP servers differ from the suggested catalog:');
+    if (deprecated.length > 0) {
+      const names = deprecated.map((d) => d.name).join(', ');
+      console.log(`  ${chalk.yellow(`${deprecated.length} deprecated`)}: ${names}`);
+    }
+    if (toAdd.length > 0) {
+      const names = toAdd.map((a) => a.name).join(', ');
+      console.log(`  ${chalk.green(`${toAdd.length} newly suggested`)}: ${names}`);
+    }
+    console.log(
+      `  Reconcile: ${chalk.cyan('harness integrations sync')} ${chalk.dim('(report-only; --apply to change)')}`
+    );
+    console.log('');
+  } catch {
+    // best-effort nudge — never break `update`
+  }
+}
+
 async function runUpdateAction(
   opts: { version?: string; force?: boolean; regenerate?: boolean },
   globalOpts: Record<string, unknown>
@@ -516,6 +551,7 @@ async function runUpdateAction(
       // the "no chance of multiple versions" guarantee this offer covers.
       await offerCleanupOfOtherInstalls(getActiveInstallDir());
       await offerRegeneration();
+      offerIntegrationsSync();
       process.exit(ExitCode.SUCCESS);
     }
 
@@ -562,6 +598,9 @@ async function runUpdateAction(
 
   // 9. Post-update: offer to regenerate slash commands + agent definitions
   await offerRegeneration();
+
+  // 10. Surface MCP-catalog drift so a refreshed catalog isn't invisible.
+  offerIntegrationsSync();
 
   process.exit(ExitCode.SUCCESS);
 }

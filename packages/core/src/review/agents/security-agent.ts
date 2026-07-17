@@ -24,12 +24,29 @@ const SECRET_PATTERNS = [
   /["'](?:sk|pk|api|key|secret|token|password)[-_][a-zA-Z0-9]{10,}["']/i,
 ];
 
-/** Pattern for SQL string concatenation. */
+/**
+ * Pattern for SQL string concatenation. SQL keywords are matched as whole words
+ * (`\b…\b`) so ordinary prose — `was updated`, `files created`, `items deleted`
+ * — in a log line or template literal does not read as a `UPDATE`/`CREATE`/
+ * `DELETE` query.
+ */
 const SQL_CONCAT_PATTERN =
-  /(?:SELECT|INSERT|UPDATE|DELETE|DROP|CREATE|ALTER)\s+.*?\+\s*\w+|`[^`]*\$\{[^}]*\}[^`]*(?:SELECT|INSERT|UPDATE|DELETE|WHERE)/i;
+  /\b(?:SELECT|INSERT|UPDATE|DELETE|DROP|CREATE|ALTER)\b\s+.*?\+\s*\w+|`[^`]*\$\{[^}]*\}[^`]*\b(?:SELECT|INSERT|UPDATE|DELETE|WHERE)\b/i;
 
 /** Pattern for dangerous shell execution with interpolation. */
 const SHELL_EXEC_PATTERN = /(?:exec|execSync|spawn|spawnSync)\s*\(\s*`[^`]*\$\{/;
+
+/**
+ * Extensions the source-pattern detectors (SQL/command/eval injection) apply to.
+ * These match code constructs, so scanning docs/config produces false positives
+ * — e.g. a Markdown table with the word "updated" reading as a SQL query.
+ */
+const CODE_FILE_EXTENSIONS = ['.ts', '.tsx', '.js', '.jsx', '.mjs', '.cjs', '.mts', '.cts'];
+
+/** True when `path` is a code file the source-pattern heuristics should scan. */
+function isCodeFile(path: string): boolean {
+  return CODE_FILE_EXTENSIONS.some((ext) => path.endsWith(ext));
+}
 
 function makeEvalFinding(file: string, lineNum: number, line: string): ReviewFinding {
   return {
@@ -135,6 +152,7 @@ function makeCommandFinding(file: string, lineNum: number, line: string): Review
 function detectEvalUsage(bundle: ContextBundle): ReviewFinding[] {
   const findings: ReviewFinding[] = [];
   for (const cf of bundle.changedFiles) {
+    if (!isCodeFile(cf.path)) continue;
     const lines = cf.content.split('\n');
     for (let i = 0; i < lines.length; i++) {
       const line = lines[i]!;
@@ -163,6 +181,7 @@ function detectHardcodedSecrets(bundle: ContextBundle): ReviewFinding[] {
 function detectSqlInjection(bundle: ContextBundle): ReviewFinding[] {
   const findings: ReviewFinding[] = [];
   for (const cf of bundle.changedFiles) {
+    if (!isCodeFile(cf.path)) continue;
     const lines = cf.content.split('\n');
     for (let i = 0; i < lines.length; i++) {
       const line = lines[i]!;
@@ -176,6 +195,7 @@ function detectSqlInjection(bundle: ContextBundle): ReviewFinding[] {
 function detectCommandInjection(bundle: ContextBundle): ReviewFinding[] {
   const findings: ReviewFinding[] = [];
   for (const cf of bundle.changedFiles) {
+    if (!isCodeFile(cf.path)) continue;
     const lines = cf.content.split('\n');
     for (let i = 0; i < lines.length; i++) {
       const line = lines[i]!;

@@ -23,14 +23,23 @@ interface AddResult {
 
 type McpEntry = { command: string; args?: string[]; env?: Record<string, string> };
 
-function buildMcpEntry(def: (typeof INTEGRATION_REGISTRY)[number]): McpEntry {
+/**
+ * Build the `.mcp.json` entry for a registry definition. Exported so the
+ * reconcile/sync flow can add Tier-0 servers using the exact same plumbing
+ * instead of duplicating config IO.
+ */
+export function buildMcpEntry(def: (typeof INTEGRATION_REGISTRY)[number]): McpEntry {
   const entry: McpEntry = { command: def.mcpConfig.command };
   if (def.mcpConfig.args.length > 0) entry.args = def.mcpConfig.args;
   if (def.mcpConfig.env) entry.env = def.mcpConfig.env;
   return entry;
 }
 
-function writeMcpEntries(cwd: string, defName: string, mcpEntry: McpEntry): void {
+/**
+ * Write an MCP entry to `.mcp.json` (and `.gemini/settings.json` when present).
+ * Exported for reuse by the reconcile/sync flow (Tier-0 direct add).
+ */
+export function writeMcpEntries(cwd: string, defName: string, mcpEntry: McpEntry): void {
   writeMcpEntry(path.join(cwd, '.mcp.json'), defName, mcpEntry);
   const geminiDir = path.join(cwd, '.gemini');
   if (fs.existsSync(geminiDir)) {
@@ -38,7 +47,11 @@ function writeMcpEntries(cwd: string, defName: string, mcpEntry: McpEntry): void
   }
 }
 
-function updateIntegrationsConfig(cwd: string, defName: string): void {
+/**
+ * Mark a server enabled (and un-dismiss it) in `harness.config.json`.
+ * Exported for reuse by the reconcile/sync flow (Tier-0 direct add).
+ */
+export function updateIntegrationsConfig(cwd: string, defName: string): void {
   const configPath = path.join(cwd, 'harness.config.json');
   const integConfig = readIntegrationsConfig(configPath);
   if (!integConfig.enabled.includes(defName)) integConfig.enabled.push(defName);

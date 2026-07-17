@@ -188,18 +188,35 @@ Run coding agents at scale.
 
 ## Ecosystem & Extensibility
 
-| Feature                        | Description                                                   |
-| ------------------------------ | ------------------------------------------------------------- |
-| `harness skill create <name>`  | Scaffold a new skill with YAML + SKILL.md                     |
-| `harness skill search <query>` | Search community skills on npm `@harness-skills/*`            |
-| `harness install <skill>`      | Install a community skill                                     |
-| `harness skill publish`        | Publish a skill to the npm registry                           |
-| `harness share`                | Export architectural constraints as a shareable bundle        |
-| `harness install-constraints`  | Import constraints from a shared bundle                       |
-| `harness linter generate`      | Generate ESLint rules from YAML config                        |
-| `harness generate`             | Generate slash commands + agent definitions for all platforms |
-| `harness integrations list`    | Show available MCP integrations (Context7, Playwright, etc.)  |
-| `harness hooks init`           | Install Claude Code hook profiles (minimal/standard/strict)   |
+| Feature                        | Description                                                                                     |
+| ------------------------------ | ----------------------------------------------------------------------------------------------- |
+| `harness skill create <name>`  | Scaffold a new skill with YAML + SKILL.md                                                       |
+| `harness skill search <query>` | Search community skills on npm `@harness-skills/*`                                              |
+| `harness install <skill>`      | Install a community skill                                                                       |
+| `harness skill publish`        | Publish a skill to the npm registry                                                             |
+| `harness share`                | Export architectural constraints as a shareable bundle                                          |
+| `harness install-constraints`  | Import constraints from a shared bundle                                                         |
+| `harness linter generate`      | Generate ESLint rules from YAML config                                                          |
+| `harness generate`             | Generate slash commands + agent definitions for all platforms                                   |
+| `harness integrations list`    | Show available MCP integrations (Context7, Playwright, etc.)                                    |
+| `harness integrations sync`    | Reconcile configured MCP servers against the catalog (report-only; `--apply`/`--yes` to change) |
+| `harness hooks init`           | Install Claude Code hook profiles (minimal/standard/strict)                                     |
+
+### Reconciling MCP integrations
+
+The suggested MCP catalog evolves over time; `harness doctor` emits a non-blocking freshness advisory when it drifts.
+`harness integrations sync` brings an existing project's configured MCP servers in line with the current catalog — but
+only with explicit consent:
+
+- **No flags (default):** report-only. Prints what's newly suggested and what's deprecated and **mutates nothing**.
+- **`--apply`** (interactive terminal): prompts per change group ("add these? / remove these?") and applies only the
+  groups you agree to. Declining a removal offers a `dismiss` instead (keeps the server, silences future suggestions).
+- **`--yes`:** applies the whole plan without prompting (for scripts/CI).
+- **Non-interactive without `--yes`:** stays report-only even with `--apply` — it prints what it _would_ do and never
+  mutates, so `sync` is safe in automation.
+
+Tier-0 additions apply directly; Tier-1 additions surface the required env var (via the integration's install hint) —
+`sync` never invents a secret.
 
 ## Agent Personas
 
