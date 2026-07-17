@@ -1,8 +1,11 @@
-# 0075. Affected-scoped pre-push; CI is the authoritative full net
-
-- Status: accepted
-- Date: 2026-07-17
-- Related: docs/changes/faster-gates/proposal.md
+---
+number: 0075
+title: Affected-scoped pre-push; CI is the authoritative full net
+date: 2026-07-17
+status: accepted
+tier: integration
+source: docs/changes/faster-gates/proposal.md
+---
 
 ## Context
 
