@@ -58,6 +58,33 @@ describe('scoreBuildQuality — converged ⇒ HIGH, scaled down by retries (SC1)
   });
 });
 
+describe('scoreBuildQuality — converged-without-artifact is SUSPECT (not HIGH)', () => {
+  it('converged but filesTouched=0 does NOT score HIGH (a trivially-passing gate is suspect)', () => {
+    // A "converged" verdict with no file touch (e.g. an acceptanceCommand that
+    // passes without the model doing anything) must NOT reach the HIGH band —
+    // convergence without an artifact is treated as suspect.
+    const q = scoreBuildQuality(result({ converged: true, toolCalls: 3, filesTouched: 0 }))!;
+    expect(q).toBeLessThan(BUILD_QUALITY.convergedFloor);
+  });
+
+  it('converged + no file + multiple tool calls ⇒ MID (acted, but no artifact)', () => {
+    const q = scoreBuildQuality(result({ converged: true, toolCalls: 4, filesTouched: 0 }))!;
+    expect(q).toBeGreaterThanOrEqual(BUILD_QUALITY.midFloor);
+    expect(q).toBeLessThanOrEqual(BUILD_QUALITY.midCeil);
+  });
+
+  it('converged + no file + no action ⇒ LOW (converged-without-action)', () => {
+    const q = scoreBuildQuality(result({ converged: true, toolCalls: 0, filesTouched: 0 }))!;
+    expect(q).toBeGreaterThanOrEqual(BUILD_QUALITY.lowFloor);
+    expect(q).toBeLessThanOrEqual(BUILD_QUALITY.lowCeil);
+  });
+
+  it('converged WITH a file touch ⇒ still HIGH (the genuine converged case)', () => {
+    const q = scoreBuildQuality(result({ converged: true, toolCalls: 4, filesTouched: 1 }))!;
+    expect(q).toBeGreaterThanOrEqual(BUILD_QUALITY.convergedFloor);
+  });
+});
+
 describe('scoreBuildQuality — acted-not-converged ⇒ MID (SC1)', () => {
   it('produced files (filesTouched>0) but did not converge ⇒ MID band', () => {
     const q = scoreBuildQuality(result({ converged: false, toolCalls: 1, filesTouched: 3 }))!;

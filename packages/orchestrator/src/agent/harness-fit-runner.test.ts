@@ -165,6 +165,69 @@ describe('HarnessFitProbeRunner — fail-open guard (D6, SC3)', () => {
   });
 });
 
+describe('HarnessFitProbeRunner — wall-clock timeout (no hangs)', () => {
+  it('a backend that never resolves is aborted at the timeout ⇒ fail-open error result', async () => {
+    // A backend whose runTurn hangs forever (never yields, never returns). Without a
+    // wall-clock bound the probe would block the refresh tick indefinitely; the
+    // injected short timeout must abort it into an `error` result (fail-open, D6).
+    const hangingBackend: AgentBackend = {
+      name: 'hang',
+      async startSession(params: SessionStartParams): Promise<Result<AgentSession, AgentError>> {
+        return Ok({
+          sessionId: 'hang-1',
+          workspacePath: params.workspacePath,
+          backendName: 'hang',
+          startedAt: new Date().toISOString(),
+        });
+      },
+      // eslint-disable-next-line require-yield -- intentional hang for the timeout test (never yields)
+      async *runTurn(): AsyncGenerator<AgentEvent, TurnResult, void> {
+        await new Promise<never>(() => {}); // never resolves
+        throw new Error('unreachable');
+      },
+      async stopSession(): Promise<Result<void, AgentError>> {
+        return Ok(undefined);
+      },
+      async healthCheck(): Promise<Result<void, AgentError>> {
+        return Ok(undefined);
+      },
+    };
+    const cleanup = vi.fn(async () => {});
+    const runner = new HarnessFitProbeRunner({
+      createBackend: () => hangingBackend,
+      makeWorkspace: async () => ({ path: '/tmp/probe-hang', cleanup }),
+      seedFiles: async () => {},
+      runAcceptance: async () => ({ exitCode: 0 }),
+      timeoutMs: 25, // short injected bound
+    });
+
+    const result = await runner.runProbe('hang:1', TASK);
+    expect(result.error).toBeTruthy();
+    expect(result.error).toMatch(/tim(e|ed) ?out/i);
+    expect(scoreBuildQuality(result)).toBeUndefined();
+    // The throwaway workspace is still cleaned up even on a timeout abort.
+    expect(cleanup).toHaveBeenCalledOnce();
+  });
+
+  it('a hanging acceptance command is aborted at the timeout ⇒ fail-open error result', async () => {
+    const backend = stubBackend([toolStart('write_file', JSON.stringify({ path: 'add.js' }))]);
+    const cleanup = vi.fn(async () => {});
+    const runner = new HarnessFitProbeRunner({
+      createBackend: () => backend,
+      makeWorkspace: async () => ({ path: '/tmp/probe-acc-hang', cleanup }),
+      seedFiles: async () => {},
+      // Acceptance that never resolves — must be aborted by the wall-clock timeout.
+      runAcceptance: () => new Promise<never>(() => {}),
+      timeoutMs: 25,
+    });
+
+    const result = await runner.runProbe('m', TASK);
+    expect(result.error).toBeTruthy();
+    expect(scoreBuildQuality(result)).toBeUndefined();
+    expect(cleanup).toHaveBeenCalledOnce();
+  });
+});
+
 describe('HarnessFitProbeRunner — default workspace seam (integration-lite)', () => {
   it('the default makeWorkspace creates then removes a real temp dir', async () => {
     // Exercise the REAL default workspace + seedFiles, but stub the backend/gate

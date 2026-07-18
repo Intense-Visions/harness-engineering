@@ -46,7 +46,10 @@ and act-vs-narrate metrics from the recording stream, and maps them to a coarse
 three-band `buildQuality ∈ [0, 1]` (`packages/local-models/src/capability/harness-fit.ts`,
 `scoreBuildQuality`):
 
-- **converged** → HIGH (~0.9–1.0), scaled down by retries-to-converge;
+- **converged _with an artifact_** (`filesTouched > 0`) → HIGH (~0.9–1.0), scaled down
+  by retries-to-converge. A converged-but-no-artifact result (e.g. a trivially-passing
+  acceptance where the model narrated instead of building) is **suspect** and does NOT
+  reach HIGH — it drops to the acted/narrated bands below;
 - **acted-not-converged** (artifacts or ≥2 tool calls, gate still red) → MID (~0.4–0.6);
 - **narrated** (no artifact, ≤1 tool call — the `llama3.3:70b` mode) → LOW (~0.0–0.15).
 
@@ -102,6 +105,25 @@ benchmark+heuristic rank; the pool is never blocked (matches the existing probe'
 posture). The runner is fully guarded, the per-candidate probe loop is wrapped, and
 the entire probe pass is wrapped in the scheduler so an unexpected throw still
 leaves the tick running on the pre-probe ranking.
+
+**D6 — Bounded by a wall-clock timeout (no hangs).** The scheduler awaits each probe
+inline, so a hung model or a hanging `acceptanceCommand` would stall the whole refresh
+tick. `maxTurns` bounds the turn COUNT but not wall time (the default backend inherits
+600_000 ms/turn ⇒ ~2 h worst case). The runner therefore races the entire probe
+(dispatch + acceptance) against an overall per-probe wall-clock timeout (default 5 min,
+a constructor param); on timeout the acceptance spawn's process group is SIGKILLed and
+the probe returns a fail-open `error: 'probe timed out'` result (→ `buildQuality`
+undefined → no ranking effect).
+
+**Composition-root wiring.** `Orchestrator.startRefreshScheduler` constructs the
+injected seams and passes them to `runRefreshTick` as the `harnessFit` deps bundle ONLY
+when `localModels.harnessFit.enabled`: the `HarnessFitProbeRunner`, a persistent
+`HarnessFitCacheFileStore` under `~/.harness/local-models/` (buildQuality cache AND the
+`getLastProbeAt`/`setLastProbeAt` cadence timestamp, mirroring `PoolStateStore`), and a
+`createBuildQualityReRanker` binding that re-runs the SAME `createNativeRecommender`
+ranker over the held candidate set with probed `buildQuality` threaded in (no
+ranker-math duplication). Config→deps translation happens here (`cadenceMs → intervalMs`,
+`taskIds → tasks`). Disabled/absent ⇒ no deps are passed and the tick is byte-identical.
 
 ## Consequences
 

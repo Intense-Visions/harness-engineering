@@ -16,10 +16,15 @@
 //
 // The verdict is coarse (converged / acted-not-converged / narrated) plus act metrics,
 // mapped to three bands (D6, Technical Design):
-//   - converged   → HIGH (~0.9–1.0), scaled DOWN by retries-to-converge.
+//   - converged   → HIGH (~0.9–1.0), scaled DOWN by retries-to-converge — but ONLY when
+//                    the model actually produced an artifact (filesTouched>0). A
+//                    converged-but-no-artifact result (e.g. a trivially-passing
+//                    acceptanceCommand where the model did nothing) is SUSPECT and does
+//                    NOT reach HIGH — it falls through to the acted/narrated bands below.
 //   - acted       → MID  (~0.4–0.6): produced artifacts (filesTouched>0) OR multiple tool
-//                    calls (toolCalls>=2), but the gate stayed red.
-//   - narrated    → LOW  (~0.0–0.15): no artifact AND ≤1 tool call (the llama3.3:70b mode).
+//                    calls (toolCalls>=2), but the gate stayed red (or converged-without-file).
+//   - narrated    → LOW  (~0.0–0.15): no artifact AND ≤1 tool call (the llama3.3:70b mode),
+//                    including a converged-without-any-action result.
 //   - error       → undefined (fail-open, D6): the ranker treats undefined as "no effect".
 //
 // @see docs/changes/harness-fit-probe/proposal.md (D1, D3, D6, SC1)
@@ -87,10 +92,11 @@ const ACTED_TOOL_CALL_THRESHOLD = 2;
  * probe errored (fail-open — the ranker treats `undefined` as "no effect", D6).
  *
  * Coarse three-band verdict (Technical Design):
- *   - `error` present            → `undefined`.
- *   - `converged`                → HIGH, scaled DOWN by `retries` but never below the floor.
- *   - acted (files OR ≥2 calls)  → MID.
- *   - narrated (no file, ≤1 call) → LOW.
+ *   - `error` present                     → `undefined`.
+ *   - converged AND filesTouched>0        → HIGH, scaled DOWN by `retries` but never below the floor.
+ *   - converged-without-artifact          → SUSPECT: fall through to the acted/narrated bands.
+ *   - acted (files OR ≥2 calls)           → MID.
+ *   - narrated (no file, ≤1 call)         → LOW.
  *
  * Pure and deterministic; never throws.
  */
@@ -98,10 +104,13 @@ export function scoreBuildQuality(result: HarnessFitResult): number | undefined 
   // D6 — a failed probe is fail-open: no signal, no ranking effect.
   if (result.error !== undefined) return undefined;
 
-  // Converged ⇒ HIGH band. Scale the ceiling down by retries-to-converge through a
-  // saturating curve so more retries → strictly lower, but the score asymptotes toward
-  // the floor and never leaves the HIGH band (converged is always "good enough").
-  if (result.converged) {
+  // Converged ⇒ HIGH band, BUT ONLY if the model actually produced an artifact. A
+  // converged-but-no-file result is suspect (e.g. a trivially-passing acceptanceCommand
+  // where the model narrated instead of building) and must NOT score HIGH — it falls
+  // through to the acted/narrated bands below. Scale the ceiling down by retries-to-
+  // converge through a saturating curve so more retries → strictly lower, but the score
+  // asymptotes toward the floor and never leaves the HIGH band (converged is "good enough").
+  if (result.converged && result.filesTouched > 0) {
     const retries = Math.max(0, result.retries);
     const span = BUILD_QUALITY.convergedCeil - BUILD_QUALITY.convergedFloor;
     // 1 − e^(−k·retries) ∈ [0, 1) grows with retries and saturates at 1, so the applied
@@ -110,7 +119,8 @@ export function scoreBuildQuality(result: HarnessFitResult): number | undefined 
     return BUILD_QUALITY.convergedCeil - span * decay;
   }
 
-  // Not converged. Did it ACT (artifacts or repeated tool use) or merely NARRATE?
+  // Not HIGH (didn't converge, or converged without touching a file). Did it ACT
+  // (artifacts or repeated tool use) or merely NARRATE?
   const acted = result.filesTouched > 0 || result.toolCalls >= ACTED_TOOL_CALL_THRESHOLD;
   return acted ? BUILD_QUALITY.midValue : BUILD_QUALITY.lowValue;
 }

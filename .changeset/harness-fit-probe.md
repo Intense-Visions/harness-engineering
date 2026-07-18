@@ -44,5 +44,20 @@ untouched.
   type and the Zod schema so it survives config parse) — `enabled`, `topN`, `cadenceMs`,
   `cacheTtlMs`, optional `taskIds`. Adopter-portable probe tasks self-describe their
   acceptance command, so a probe runs in any adopter project.
+- **Wired at the composition root (the probe actually fires).** `startRefreshScheduler`
+  constructs the `HarnessFitProbeRunner`, a persistent `HarnessFitCacheFileStore` under
+  `~/.harness/local-models/` (buildQuality cache + cadence timestamp), and a
+  `reRankWithBuildQuality` binding that re-runs the SAME ranker over the held candidate
+  set with probed `buildQuality` threaded in — passing them as the tick's `harnessFit`
+  deps ONLY when `localModels.harnessFit.enabled` (config→deps translation:
+  `cadenceMs → intervalMs`, `taskIds → tasks`). Disabled/absent ⇒ no deps are passed and
+  the tick is byte-identical to before.
+- **Bounded (no hangs).** The runner enforces an overall per-probe wall-clock timeout
+  (default 5 min) around both the dispatch and the acceptance-command spawn — `maxTurns`
+  bounds turn count but not wall time, so a hung model or hanging acceptance is aborted
+  into a fail-open `error` result instead of blocking the refresh tick.
+- **Converged-without-artifact is suspect.** A converged verdict only scores HIGH when the
+  model actually touched a file; a trivially-passing acceptance with no artifact drops to
+  MID/LOW rather than earning the top band.
 
-See ADR 0079 (harness-fit probe: benchmarks pre-filter, the harness judges agentic fitness).
+See ADR 0081 (harness-fit probe: benchmarks pre-filter, the harness judges agentic fitness).
