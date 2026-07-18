@@ -473,6 +473,19 @@ export class Orchestrator extends EventEmitter {
    */
   #shippedThisRun = new Set<string>();
   /**
+   * staged-verify-gate-convergence (needs-human terminal double-select guard).
+   * Sibling of {@link #shippedThisRun}, but for the OTHER staged-local terminal:
+   * a unit that EXHAUSTED its bounded retries and escalated to needs-human. That
+   * terminal marks the LANE (`abandon`/`canceled`), NOT the row — the roadmap row
+   * stays `in-progress`, so absent this exclusion the tick re-selects it, the retry
+   * counter resets, and the unit loops forever (5 gate-fails → terminal → canceled →
+   * tick re-dispatches fresh → counter resets → repeat). Consulted in
+   * {@link filterCandidatesWithOpenPRs} (drops escalated units from the candidate
+   * set) and in {@link dispatchIssue} (belt-and-suspenders skip for a due-retry
+   * re-dispatch that bypasses the candidate filter). Reset only by process lifetime.
+   */
+  #escalatedThisRun = new Set<string>();
+  /**
    * Spec 2 SC30 / Task 11: per-dispatch backend factory replaces the
    * Phase 1 `runner` / `localRunner` two-runner split. Each
    * `dispatchIssue()` call asks the factory for a `RoutingUseCase`-routed
@@ -1982,8 +1995,15 @@ export class Orchestrator extends EventEmitter {
    */
   private async filterCandidatesWithOpenPRs(candidates: Issue[]): Promise<Issue[]> {
     const withoutOpenPRs = await this.prDetector.filterCandidatesWithOpenPRs(candidates);
-    if (this.#shippedThisRun.size === 0) return withoutOpenPRs;
-    return withoutOpenPRs.filter((c) => !this.#shippedThisRun.has(c.id));
+    // Two process-lifetime durable guards, both for staged-local terminals whose row
+    // stays `in-progress`: #shippedThisRun (ship-success double-ship) and
+    // #escalatedThisRun (bounded-retry needs-human, else the tick re-selects the row
+    // and the retry counter resets → infinite loop). When BOTH are empty this is a
+    // byte-identical no-op (early return, same array the detector produced).
+    if (this.#shippedThisRun.size === 0 && this.#escalatedThisRun.size === 0) return withoutOpenPRs;
+    return withoutOpenPRs.filter(
+      (c) => !this.#shippedThisRun.has(c.id) && !this.#escalatedThisRun.has(c.id)
+    );
   }
 
   /**
@@ -2239,6 +2259,17 @@ export class Orchestrator extends EventEmitter {
     // the PR-merge auto-dones the row).
     if (this.#shippedThisRun.has(issue.id)) {
       this.logger.info(`Skipping dispatch of already-shipped unit ${issue.identifier}`, {
+        issueId: issue.id,
+      });
+      return;
+    }
+    // Same belt-and-suspenders guard for the OTHER staged-local terminal: a unit that
+    // exhausted its bounded retries and escalated to needs-human. Its row stays
+    // `in-progress`, so a due-retry re-dispatch (retry_fired → claim effect) that
+    // bypasses filterCandidatesWithOpenPRs could re-dispatch it and reset the retry
+    // counter (an infinite loop). Skip silently — the guard is process-lifetime.
+    if (this.#escalatedThisRun.has(issue.id)) {
+      this.logger.info(`Skipping dispatch of escalated (needs-human) unit ${issue.identifier}`, {
         issueId: issue.id,
       });
       return;
@@ -3658,6 +3689,12 @@ export class Orchestrator extends EventEmitter {
       // (which cleans + escalates). Reset the counter so a future re-pickup is fresh.
       this.localStageGateAttempts.delete(unit);
       this.priorGateFailureByIssue.delete(unit);
+      // Durable process-lifetime guard: the terminal marks the LANE (canceled), not
+      // the ROW — the row stays `in-progress`, so the tick would re-select this unit
+      // and reset the retry counter (an infinite loop). Record it here (only on the
+      // bound-exhausted branch — a unit still RETRYING below the bound must NOT be in
+      // this set) so filterCandidatesWithOpenPRs + dispatchIssue permanently skip it.
+      this.#escalatedThisRun.add(unit);
       await this.settleWorkflowTerminal(
         unit,
         runs,

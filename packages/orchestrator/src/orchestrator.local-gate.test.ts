@@ -1605,3 +1605,156 @@ describe('IMPORTANT #2 — no double-ship past the completed grace window', () =
     expect(filtered.find((c) => c.id === 'i1')).toBeUndefined();
   });
 });
+
+/**
+ * staged-verify-gate-convergence (LIVE fix 2026-07-18) — the bounded-retry
+ * needs-human terminal did NOT stop the loop. Observed: a staged local unit
+ * gate-failed `bound` times, the terminal fired (`settleWorkflowTerminal` →
+ * lane `canceled`), BUT the roadmap ROW stayed `in-progress`, so the TICK
+ * re-selected it, dispatch proceeded best-effort, and `localStageGateAttempts`
+ * RESET → an infinite loop {bound gate-fails → terminal → canceled → tick
+ * re-dispatches fresh → counter resets → repeat}. Same class as the double-ship
+ * window `#shippedThisRun` already fixes: a terminal marks the LANE, not the ROW.
+ * The fix mirrors that guard for the escalation terminal via `#escalatedThisRun`,
+ * consulted in BOTH `filterCandidatesWithOpenPRs` and the `dispatchIssue`
+ * belt-and-suspenders skip.
+ */
+describe('bounded-retry needs-human terminal — no re-dispatch loop (#escalatedThisRun)', () => {
+  function stateOf(orch: Orchestrator): OrchestratorState {
+    return (orch as unknown as { state: OrchestratorState }).state;
+  }
+  function activeIssue(id: string, identifier: string): Issue {
+    return {
+      id,
+      identifier,
+      title: 't',
+      description: 'd',
+      state: 'in-progress',
+      labels: [],
+      spec: null,
+      plans: [],
+      blockedBy: [],
+    } as unknown as Issue;
+  }
+  function filterCandidates(orch: Orchestrator, candidates: Issue[]): Promise<Issue[]> {
+    return (
+      orch as unknown as { filterCandidatesWithOpenPRs: (c: Issue[]) => Promise<Issue[]> }
+    ).filterCandidatesWithOpenPRs(candidates);
+  }
+  /** Reach the private staged-gate failure handler (drives the bounded-retry terminal). */
+  function stagedGateFailure(
+    orch: Orchestrator
+  ): (
+    unit: string,
+    runs: unknown[],
+    identifier: string | undefined,
+    attempt: number | null | undefined,
+    gateReason: string
+  ) => Promise<void> {
+    return (
+      orch as unknown as {
+        handleStagedGateFailure: (
+          u: string,
+          r: unknown[],
+          i: string | undefined,
+          a: number | null | undefined,
+          g: string
+        ) => Promise<void>;
+      }
+    ).handleStagedGateFailure.bind(orch);
+  }
+  /**
+   * Drive a unit through `handleStagedGateFailure` `bound` times so the final call
+   * trips the `attempts >= bound` terminal branch. Spies `settleWorkflowTerminal`
+   * + `emitWorkerExit` so the terminal is side-effect-free; returns nothing.
+   */
+  async function driveToTerminal(orch: Orchestrator, unit: string, bound: number): Promise<void> {
+    // Force the staged retry bound so `bound` failures trip the terminal branch.
+    (
+      orch as unknown as { config: { agent: { routing: { maxLocalStageRetries?: number } } } }
+    ).config.agent.routing.maxLocalStageRetries = bound;
+    spyEmitWorkerExit(orch);
+    vi.spyOn(
+      orch as unknown as {
+        settleWorkflowTerminal: (
+          u: string,
+          r: unknown[],
+          s?: unknown,
+          e?: unknown
+        ) => Promise<void>;
+      },
+      'settleWorkflowTerminal'
+    ).mockResolvedValue(undefined);
+    for (let attempt = 0; attempt < bound; attempt++) {
+      await stagedGateFailure(orch)(
+        unit,
+        [stageRun('local')],
+        'ISS-1',
+        attempt,
+        'perma-red verify'
+      );
+    }
+  }
+
+  it('(a) after the bounded-retry terminal, the escalated unit is filtered out even though its row is still in-progress', async () => {
+    const orch = newOrch({ local: LOCAL_BACKEND }, 'local', undefined, 3, undefined);
+    await driveToTerminal(orch, 'i1', 3);
+
+    // The row is still an active candidate (in-progress), yet the candidate filter
+    // drops it (black-box proof the terminal recorded it in the durable escalation
+    // guard) — so the tick can never re-select + re-dispatch it (no loop).
+    const issue = activeIssue('i1', 'ISS-1');
+    const filtered = await filterCandidates(orch, [issue]);
+    expect(filtered.find((c) => c.id === 'i1')).toBeUndefined();
+  });
+
+  it('(b) control: an un-escalated active unit still passes filterCandidatesWithOpenPRs', async () => {
+    const orch = newOrch({ local: LOCAL_BACKEND }, 'local', undefined, 3, undefined);
+    await driveToTerminal(orch, 'i1', 3);
+
+    // Only the escalated unit is dropped; a different active unit is untouched.
+    const escalated = activeIssue('i1', 'ISS-1');
+    const other = activeIssue('i2', 'ISS-2');
+    const filtered = await filterCandidates(orch, [escalated, other]);
+    expect(filtered.map((c) => c.id)).toEqual(['i2']);
+  });
+
+  it('(c) a unit still RETRYING (below the bound) is NOT in #escalatedThisRun', async () => {
+    const orch = newOrch({ local: LOCAL_BACKEND }, 'local', undefined, 5, undefined);
+    spyEmitWorkerExit(orch);
+    // Two failures, bound = 5 → still retrying, terminal not reached.
+    await stagedGateFailure(orch)('i1', [stageRun('local')], 'ISS-1', 0, 'red');
+    await stagedGateFailure(orch)('i1', [stageRun('local')], 'ISS-1', 1, 'red');
+
+    // A still-retrying unit is NOT in the escalation guard → NOT filtered out.
+    const issue = activeIssue('i1', 'ISS-1');
+    const filtered = await filterCandidates(orch, [issue]);
+    expect(filtered.find((c) => c.id === 'i1')).toBeDefined();
+  });
+
+  it('(d) the dispatchIssue belt-and-suspenders guard skips an escalated unit (no re-dispatch)', async () => {
+    const orch = newOrch({ local: LOCAL_BACKEND }, 'local', undefined, 3, undefined);
+    await driveToTerminal(orch, 'i1', 3);
+
+    // A due-retry re-dispatch can bypass the candidate filter (retry_fired → claim);
+    // the dispatchIssue guard must still skip an escalated unit. Observable: dispatch
+    // returns BEFORE the `persistLaneSafe(id, 'dispatch')` that every real dispatch runs.
+    const persistSpy = vi.spyOn(
+      orch as unknown as { persistLaneSafe: (u: string, l: string) => Promise<void> },
+      'persistLaneSafe'
+    );
+    const launch = stubBackgroundLaunch(orch);
+
+    const escalated = activeIssue('i1', 'ISS-1');
+    await dispatch(orch, escalated, 'local');
+    expect(persistSpy).not.toHaveBeenCalledWith('i1', 'dispatch');
+    expect(launch).not.toHaveBeenCalled();
+    // Nothing was staged into the running set for the escalated unit.
+    expect(stateOf(orch).running.has('i1')).toBe(false);
+
+    // Control: a DIFFERENT un-escalated unit dispatches normally (guard is scoped).
+    const other = activeIssue('i2', 'ISS-2');
+    await dispatch(orch, other, 'local');
+    expect(persistSpy).toHaveBeenCalledWith('i2', 'dispatch');
+  });
+});
