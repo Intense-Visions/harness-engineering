@@ -38,8 +38,40 @@ function fakeClient(
   };
 }
 
+/** Sort-aware fake: `listing[author][sort]` lets a test return different ids per sort. */
+function sortAwareClient(
+  listing: Record<string, Partial<Record<string, HuggingFaceModel[]>>>,
+  details: Record<string, HuggingFaceModelDetail>,
+  opts: { throwOnSort?: string } = {}
+) {
+  const calls = { list: [] as Array<{ author: string; sort: string }>, get: [] as string[] };
+  return {
+    calls,
+    client: {
+      async listModels(o: { author?: string; sort?: string }) {
+        const author = o.author ?? '';
+        const sort = o.sort ?? 'downloads';
+        calls.list.push({ author, sort });
+        if (opts.throwOnSort && sort === opts.throwOnSort) throw new Error(`HF ${sort} 503`);
+        return listing[author]?.[sort] ?? [];
+      },
+      async getModel(id: string) {
+        calls.get.push(id);
+        const d = details[id];
+        if (!d) throw new Error(`no detail for ${id}`);
+        return d;
+      },
+    },
+  };
+}
+
 const CURATION = new Map<string, CurationTags>([
   ['Qwen/Qwen3-32B-GGUF', { ollamaName: 'qwen3:32b', family: 'qwen3' }],
+]);
+
+const WIDE_CURATION = new Map<string, CurationTags>([
+  ['Qwen/Qwen3-32B-GGUF', { ollamaName: 'qwen3:32b', family: 'qwen3' }],
+  ['Qwen/Qwen3.6-27B-GGUF', { ollamaName: 'qwen3.6:27b', family: 'qwen3' }],
 ]);
 
 describe('discoverCandidates', () => {
@@ -98,6 +130,87 @@ describe('discoverCandidates', () => {
     const res = await discoverCandidates({ orgs: ['Qwen'], curation: CURATION, client });
     expect(res.candidates).toHaveLength(0);
     expect(calls.get).toHaveLength(0); // never fetched the non-gguf model
+  });
+});
+
+describe('discoverCandidates wide-net (SC1)', () => {
+  it('SC1: includes a NEW model returned only under `trending` (absent from `downloads`)', async () => {
+    const { client } = sortAwareClient(
+      {
+        Qwen: {
+          downloads: [{ id: 'Qwen/Qwen3-32B-GGUF', tags: ['gguf'] } as HuggingFaceModel],
+          trending: [{ id: 'Qwen/Qwen3.6-27B-GGUF', tags: ['gguf'] } as HuggingFaceModel],
+        },
+      },
+      {
+        'Qwen/Qwen3-32B-GGUF': detail('Qwen/Qwen3-32B-GGUF', ['Q4_K_M']),
+        'Qwen/Qwen3.6-27B-GGUF': detail('Qwen/Qwen3.6-27B-GGUF', ['Q4_K_M']),
+      }
+    );
+    const res = await discoverCandidates({ orgs: ['Qwen'], curation: WIDE_CURATION, client });
+    const ids = res.candidates.map((c) => c.hfRepoId);
+    expect(ids).toContain('Qwen/Qwen3.6-27B-GGUF'); // trending-only new model reaches the pool
+    expect(ids).toContain('Qwen/Qwen3-32B-GGUF'); // established still present
+  });
+
+  it('SC2: dedupes overlap by id and caps the inspected set at perOrgLimit', async () => {
+    const shared = { id: 'Qwen/Qwen3-32B-GGUF', tags: ['gguf'] } as HuggingFaceModel;
+    const { client, calls } = sortAwareClient(
+      {
+        Qwen: {
+          downloads: [shared, { id: 'Qwen/Qwen3.6-27B-GGUF', tags: ['gguf'] } as HuggingFaceModel],
+          trending: [shared], // overlaps downloads → must dedupe, not double
+        },
+      },
+      {
+        'Qwen/Qwen3-32B-GGUF': detail('Qwen/Qwen3-32B-GGUF', ['Q4_K_M']),
+        'Qwen/Qwen3.6-27B-GGUF': detail('Qwen/Qwen3.6-27B-GGUF', ['Q4_K_M']),
+      }
+    );
+    await discoverCandidates({ orgs: ['Qwen'], curation: WIDE_CURATION, client, perOrgLimit: 5 });
+    // shared id fetched exactly once (deduped across the two sorts)
+    const sharedFetches = calls.get.filter((id) => id === 'Qwen/Qwen3-32B-GGUF');
+    expect(sharedFetches).toHaveLength(1);
+    // both sorts were queried
+    expect(calls.list.map((c) => c.sort).sort()).toEqual(['downloads', 'trending']);
+  });
+
+  it('SC2: never inspects more than perOrgLimit distinct repos', async () => {
+    const many = (n: number) =>
+      Array.from(
+        { length: n },
+        (_, i) => ({ id: `Qwen/M${i}-GGUF`, tags: ['gguf'] }) as HuggingFaceModel
+      );
+    const { client, calls } = sortAwareClient(
+      { Qwen: { downloads: many(4), trending: many(4).map((m) => ({ ...m, id: m.id + 'T' })) } },
+      {}
+    );
+    // getModel throws for all (uncurated) — we only assert the cap on inspection count
+    await discoverCandidates({ orgs: ['Qwen'], curation: WIDE_CURATION, client, perOrgLimit: 3 });
+    expect(calls.get.length).toBeLessThanOrEqual(3);
+  });
+
+  it('SC3: a throwing `trending` call falls back to `downloads`; discovery still returns candidates', async () => {
+    const { client } = sortAwareClient(
+      {
+        Qwen: {
+          downloads: [{ id: 'Qwen/Qwen3-32B-GGUF', tags: ['gguf'] } as HuggingFaceModel],
+          trending: [],
+        },
+      },
+      { 'Qwen/Qwen3-32B-GGUF': detail('Qwen/Qwen3-32B-GGUF', ['Q4_K_M']) },
+      { throwOnSort: 'trending' }
+    );
+    const res = await discoverCandidates({ orgs: ['Qwen'], curation: WIDE_CURATION, client });
+    expect(res.candidates.map((c) => c.hfRepoId)).toContain('Qwen/Qwen3-32B-GGUF'); // downloads survived
+    expect(res.warnings.some((w) => /trending.*fall/i.test(w))).toBe(true); // fallback warned
+  });
+
+  it('SC3: a throwing `downloads` (base) call skips the org fail-soft (unchanged behavior)', async () => {
+    const { client } = sortAwareClient({}, {}, { throwOnSort: 'downloads' });
+    const res = await discoverCandidates({ orgs: ['broken'], curation: WIDE_CURATION, client });
+    expect(res.candidates).toHaveLength(0);
+    expect(res.warnings.some((w) => /HF list failed for broken/.test(w))).toBe(true);
   });
 });
 

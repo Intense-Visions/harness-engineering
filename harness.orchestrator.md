@@ -144,7 +144,7 @@ localModels:
   enabled: true
   pool:
     diskBudgetGb: 100
-    allowedOrgs: [Qwen, deepseek-ai, meta-llama, google]
+    allowedOrgs: [Qwen, deepseek-ai, meta-llama, google, openai, zai-org, THUDM, moonshotai]
     allowedFamilies: []
   refresh:
     intervalMs: 86400000

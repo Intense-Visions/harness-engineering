@@ -59,4 +59,30 @@ describe('selectCandidates', () => {
     });
     expect('family' in first!).toBe(false);
   });
+
+  it('SC4: a candidate from an added leader org (openai) passes the org filter', () => {
+    const withLeader: FrozenCandidate[] = [
+      ...CANDIDATES,
+      {
+        hfRepoId: 'openai/gpt-oss-20B-GGUF',
+        ollamaName: 'gpt-oss:20b',
+        sizeB: 20,
+        quant: 'Q4_K_M',
+      },
+    ];
+    const result = selectCandidates(withLeader, {
+      allowedOrgs: [
+        'Qwen',
+        'deepseek-ai',
+        'meta-llama',
+        'google',
+        'openai',
+        'zai-org',
+        'THUDM',
+        'moonshotai',
+      ],
+      allowedFamilies: [],
+    });
+    expect(result.map((c) => c.hfRepoId)).toContain('openai/gpt-oss-20B-GGUF');
+  });
 });
