@@ -259,6 +259,11 @@ export const RoutingConfigSchema = z
     // gate to the primary backend when 'primary'. .strict() below means this MUST
     // be declared here or a config with workflowGates is silently rejected.
     workflowGates: z.enum(['local', 'primary']).optional(),
+    // staged-verify-gate-convergence D3: bound on consecutive staged-settle gate
+    // failures for a LOCAL unit before escalating to needs-human (default 5 via the
+    // module constant when absent). .strict() above means this MUST be declared here
+    // or a config that sets it is silently rejected (the AMR config-surface lesson).
+    maxLocalStageRetries: z.number().int().positive().optional(),
   })
   .strict();
 
@@ -365,6 +370,10 @@ export const StagedWorkflowDeclSchema = z
     // D13: 0-stage is a validation error; 1-stage is valid (single-dispatch fallback).
     stages: z.array(WorkflowStepSchema).min(1, 'a workflow must declare at least 1 stage (D13)'),
     stageDeadlineMs: z.number().int().positive().optional(),
+    // staged-verify-gate-convergence D2: optional acceptance command run in the
+    // workspace at settle (exit 0 ⇒ pass). Must be added HERE (a type-only add is
+    // silently rejected by the .strict() schema — the AMR config-surface lesson).
+    acceptance: z.string().min(1).optional(),
   })
   .strict()
   // 4b: a stage's `expects` must name a `produces` from an EARLIER stage — the

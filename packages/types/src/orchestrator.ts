@@ -794,6 +794,15 @@ export interface RoutingConfig {
    * the local (`pi`) dispatch gate — the Claude/AMR path is unchanged.
    */
   workflowGates?: 'local' | 'primary';
+  /**
+   * staged-verify-gate-convergence D3: bound on consecutive staged-settle gate
+   * failures for a LOCAL unit before it escalates to the needs-human terminal
+   * (instead of retrying again). Absent ⇒ `DEFAULT_MAX_LOCAL_STAGE_GATE_RETRIES`
+   * (5). Wired in BOTH this TS type AND the orchestrator Zod config schema
+   * (`schema.ts`, positive-int optional), so a config that sets it validates; the
+   * settle path still reads it defensively via optional chaining.
+   */
+  maxLocalStageRetries?: number;
 }
 
 // --- Spec B: Granular Task→Backend Routing (Phase 0 — types-only) ---
@@ -1132,6 +1141,14 @@ export interface StagedWorkflowDecl {
   stages: import('./workflow').WorkflowStep[];
   /** D12 override; absent ⇒ engine default DEFAULT_STAGE_DEADLINE_MS. */
   stageDeadlineMs?: number;
+  /**
+   * staged-verify-gate-convergence D2: an optional shell command run in the unit's
+   * workspace at settle to gate a LOCAL last-stage unit (exit code 0 ⇒ pass). When
+   * set, the settle acceptance gate runs THIS command as its mechanical step in
+   * place of the default `verifyRunner` (project typecheck+lint+test); when absent,
+   * `verifyRunner` is unchanged. Portable — no project-specific command is baked in.
+   */
+  acceptance?: string;
 }
 
 /**

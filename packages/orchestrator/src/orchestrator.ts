@@ -237,15 +237,20 @@ export async function defaultLocalVerifyRunner(
   // Manual Promise wrapper around execFile (avoids promisify's overloaded typing).
   const run = (args: string[]): Promise<{ ok: boolean; output: string }> =>
     new Promise((resolve) => {
+      // S2: bound each verify step (typecheck/lint/test) with the same wall-clock
+      // limit as the acceptance command — a wedged or watch-mode script must not hang
+      // the settle/tick forever. A timeout (Node sets `killed:true`) is a gate FAIL.
       cp.execFile(
         'pnpm',
         args,
-        { cwd: workspacePath, maxBuffer: 32 * 1024 * 1024 },
+        { cwd: workspacePath, maxBuffer: 32 * 1024 * 1024, timeout: LOCAL_GATE_TIMEOUT_MS },
         (error, stdout, stderr) => {
           if (error) {
+            const timedOut = (error as { killed?: boolean }).killed === true;
+            const suffix = timedOut ? ` (TIMED OUT after ${LOCAL_GATE_TIMEOUT_MS}ms)` : '';
             resolve({
               ok: false,
-              output: `${args.join(' ')} failed:\n${stdout ?? ''}\n${stderr ?? error.message}`,
+              output: `${args.join(' ')} failed${suffix}:\n${stdout ?? ''}\n${stderr ?? error.message}`,
             });
           } else {
             resolve({ ok: true, output: '' });
@@ -348,6 +353,73 @@ export async function defaultLocalDiffRunner(
 }
 
 /**
+ * staged-verify-gate-convergence (S2): the wall-clock bound applied to the local
+ * settle gate's mechanical step (the acceptance command AND the verify runner). An
+ * un-bounded gate command would hang `settleWorkflowSuccess` — and thus the entire
+ * tick — indefinitely. 10 minutes is generous for a scoped typecheck+lint+test or a
+ * declared acceptance command while still guaranteeing forward progress; a timeout
+ * is treated as a gate FAIL (block → retry/escalate), never a silent pass.
+ */
+export const LOCAL_GATE_TIMEOUT_MS = 10 * 60 * 1000;
+
+/**
+ * staged-verify-gate-convergence D2: the production default acceptance runner. Runs
+ * an operator-declared shell `command` in `workspacePath` and reports pass/fail from
+ * its exit code (0 ⇒ ok). The command is config-driven (`StagedWorkflowDecl.acceptance`)
+ * so NOTHING project-specific is baked in here. Mirrors the `verifyRunner` seam so
+ * the settle gate is decoupled from the concrete spawner; tests inject a fake via the
+ * `acceptanceRunner` seam so this concrete spawner is never exercised in unit tests.
+ * A non-zero exit (or spawn error) is a FAIL — the acceptance command IS the gate, so
+ * an un-runnable command must block (never silently pass), mirroring the verify floor.
+ */
+export async function defaultLocalAcceptanceRunner(
+  workspacePath: string,
+  command: string,
+  // S2: overridable ONLY for tests (a small bound proves the timeout→FAIL path fast).
+  // Production callers pass 2 args ⇒ the 10-minute default.
+  timeoutMs: number = LOCAL_GATE_TIMEOUT_MS
+): Promise<{ ok: boolean; output: string }> {
+  // Access via the module namespace object (not destructured) — destructuring
+  // `exec` off the module trips the unbound-method lint.
+  const cp = await import('node:child_process');
+  return new Promise((resolve) => {
+    // S2: BOUND the acceptance command. Without a timeout an operator's hanging
+    // command (e.g. a watch-mode `test` that never exits, or a wedged process)
+    // would hang `settleWorkflowSuccess` FOREVER, stalling the whole tick. The
+    // acceptance command IS the gate, so a timeout is a FAIL (Node kills the child
+    // on `timeout` and surfaces an `error` with `killed:true`) — the gate blocks
+    // and the unit retries/escalates rather than deadlocking.
+    cp.exec(
+      command,
+      { cwd: workspacePath, maxBuffer: 32 * 1024 * 1024, timeout: timeoutMs },
+      (error, stdout, stderr) => {
+        if (error) {
+          const timedOut = (error as { killed?: boolean }).killed === true;
+          const prefix = timedOut
+            ? `acceptance command TIMED OUT after ${timeoutMs}ms (${command})`
+            : `acceptance command failed (${command})`;
+          resolve({
+            ok: false,
+            output: `${prefix}:\n${stdout ?? ''}\n${stderr ?? error.message}`,
+          });
+        } else {
+          resolve({ ok: true, output: '' });
+        }
+      }
+    );
+  });
+}
+
+/**
+ * staged-verify-gate-convergence D3: default bound on consecutive staged-settle
+ * gate failures before a local unit escalates to the needs-human terminal. A module
+ * constant for now (config wiring deferred — see the proposal's `maxLocalStageRetries`
+ * follow-up); the settle path reads `config.agent.routing?.maxLocalStageRetries` when
+ * present, else this default.
+ */
+export const DEFAULT_MAX_LOCAL_STAGE_GATE_RETRIES = 5;
+
+/**
  * The central orchestrator that manages the lifecycle of coding agents.
  *
  * It polls an issue tracker for candidate tasks, manages ephemeral workspaces,
@@ -376,6 +448,43 @@ export class Orchestrator extends EventEmitter {
    * dispatch of any leftover worktree wipes it — anti-stale guarantee intact.
    */
   #dispatchedThisRun = new Set<string>();
+  /**
+   * staged-verify-gate-convergence (IMPORTANT #2) — coherence-unit IDs this
+   * process has DETERMINISTICALLY SHIPPED (a green-gate staged local settle that
+   * opened/converged a PR via {@link WorkspaceManager.shipWorkspace}). A DURABLE,
+   * process-lifetime double-ship guard: after a ship the unit's `state.completed`
+   * lock is only TRANSIENT — `reconcileCompletedAndClaimed` releases it after
+   * `pollIntervalMs * COMPLETED_GRACE_MULTIPLIER` for a row that is still an active
+   * candidate (a shipped staged row stays `in-progress` until its PR MERGES; only
+   * the lane went `in_review`). Without this set the shipped unit is re-selected
+   * past the grace window and RE-SHIPPED (a duplicate PR).
+   *
+   * Single-dispatch parity: the single-dispatch normal-exit path
+   * (`handleCompletionSideEffects` → `tracker.markIssueComplete`) instead flips the
+   * roadmap ROW to a terminal state, so the row stops being an active candidate and
+   * the grace release never fires — that is single-dispatch's durable guard. The
+   * staged ship path deliberately does NOT terminalize the row early (D4: the
+   * PR-MERGE auto-dones it; an early `done` would break the auto-done reconciler +
+   * RMH005), so it carries its OWN in-memory durable guard here. Consulted in
+   * {@link filterCandidatesWithOpenPRs} (removes shipped units from the tick's
+   * candidate set) and in {@link dispatchIssue} (belt-and-suspenders skip). Reset
+   * only by process lifetime — after a restart the merged/auto-done row (or the
+   * open-PR filter) keeps it from re-dispatching.
+   */
+  #shippedThisRun = new Set<string>();
+  /**
+   * staged-verify-gate-convergence (needs-human terminal double-select guard).
+   * Sibling of {@link #shippedThisRun}, but for the OTHER staged-local terminal:
+   * a unit that EXHAUSTED its bounded retries and escalated to needs-human. That
+   * terminal marks the LANE (`abandon`/`canceled`), NOT the row — the roadmap row
+   * stays `in-progress`, so absent this exclusion the tick re-selects it, the retry
+   * counter resets, and the unit loops forever (5 gate-fails → terminal → canceled →
+   * tick re-dispatches fresh → counter resets → repeat). Consulted in
+   * {@link filterCandidatesWithOpenPRs} (drops escalated units from the candidate
+   * set) and in {@link dispatchIssue} (belt-and-suspenders skip for a due-retry
+   * re-dispatch that bypasses the candidate filter). Reset only by process lifetime.
+   */
+  #escalatedThisRun = new Set<string>();
   /**
    * Spec 2 SC30 / Task 11: per-dispatch backend factory replaces the
    * Phase 1 `runner` / `localRunner` two-runner split. Each
@@ -446,12 +555,31 @@ export class Orchestrator extends EventEmitter {
    */
   private diffRunner: (workspacePath: string) => Promise<{ hasChanges: boolean }>;
   /**
+   * staged-verify-gate-convergence D2: the acceptance runner the settle gate
+   * invokes when a matched workflow decl declares an `acceptance` command. Runs
+   * that operator-declared command in the workspace and gates on its exit code, in
+   * place of `verifyRunner`. Injected in tests; defaults to
+   * `defaultLocalAcceptanceRunner`. Mirrors the `verifyRunner`/`diffRunner` seams.
+   */
+  private acceptanceRunner: (
+    workspacePath: string,
+    command: string
+  ) => Promise<{ ok: boolean; output: string }>;
+  /**
    * Phase 2: the most recent gate-failure reason per issue, threaded into the
    * next dispatch's rendered prompt as a failure preamble (the re-prompt). Set
    * when a local gate blocks; consumed + cleared at the next `dispatchIssue`
    * render for that issue.
    */
   private priorGateFailureByIssue = new Map<string, string>();
+  /**
+   * staged-verify-gate-convergence D3: per-unit count of consecutive staged-settle
+   * gate failures. Incremented each time `settleWorkflowSuccess`'s local gate blocks
+   * and re-dispatches; at `maxLocalStageGateRetries` the unit escalates to the
+   * needs-human terminal (D3) instead of retrying again. Cleared when the unit
+   * settles terminally or ships (a green gate), so a later re-pickup starts fresh.
+   */
+  private localStageGateAttempts = new Map<string, number>();
   private server?: OrchestratorServer;
   private interval?: ReturnType<typeof setTimeout> | undefined;
   private heartbeatInterval?: ReturnType<typeof setInterval> | undefined;
@@ -660,6 +788,16 @@ export class Orchestrator extends EventEmitter {
        * `defaultLocalDiffRunner`.
        */
       diffRunner?: (workspacePath: string) => Promise<{ hasChanges: boolean }>;
+      /**
+       * staged-verify-gate-convergence D2 test seam: the acceptance runner the
+       * settle gate invokes for a decl with an `acceptance` command. Injected so
+       * tests can force pass/fail without spawning a real command. Defaults to
+       * `defaultLocalAcceptanceRunner`.
+       */
+      acceptanceRunner?: (
+        workspacePath: string,
+        command: string
+      ) => Promise<{ ok: boolean; output: string }>;
     }
   ) {
     super();
@@ -683,6 +821,7 @@ export class Orchestrator extends EventEmitter {
     this.localPromptTemplate = overrides?.localPromptTemplate;
     this.verifyRunner = overrides?.verifyRunner ?? defaultLocalVerifyRunner;
     this.diffRunner = overrides?.diffRunner ?? defaultLocalDiffRunner;
+    this.acceptanceRunner = overrides?.acceptanceRunner ?? defaultLocalAcceptanceRunner;
     this.state = createEmptyState(config);
     this.logger = new StructuredLogger();
 
@@ -1842,11 +1981,29 @@ export class Orchestrator extends EventEmitter {
   }
 
   /**
-   * Delegates to PRDetector.filterCandidatesWithOpenPRs.
+   * Delegates to PRDetector.filterCandidatesWithOpenPRs, THEN drops any unit this
+   * process has already deterministically shipped (IMPORTANT #2 durable guard).
+   *
+   * The open-PR filter alone is insufficient here: a just-shipped staged unit's PR
+   * may not yet be visible to `gh` (propagation lag) and its roadmap row is still
+   * `in-progress`, so absent the `#shippedThisRun` exclusion the tick would re-select
+   * it once the transient `state.completed` grace window expires and RE-SHIP it. This
+   * exclusion is the process-lifetime double-ship guard — analogous to how the
+   * single-dispatch path's `markIssueComplete` durably removes the row from the
+   * active-candidate set.
    * @see PRDetector#filterCandidatesWithOpenPRs
    */
   private async filterCandidatesWithOpenPRs(candidates: Issue[]): Promise<Issue[]> {
-    return this.prDetector.filterCandidatesWithOpenPRs(candidates);
+    const withoutOpenPRs = await this.prDetector.filterCandidatesWithOpenPRs(candidates);
+    // Two process-lifetime durable guards, both for staged-local terminals whose row
+    // stays `in-progress`: #shippedThisRun (ship-success double-ship) and
+    // #escalatedThisRun (bounded-retry needs-human, else the tick re-selects the row
+    // and the retry counter resets → infinite loop). When BOTH are empty this is a
+    // byte-identical no-op (early return, same array the detector produced).
+    if (this.#shippedThisRun.size === 0 && this.#escalatedThisRun.size === 0) return withoutOpenPRs;
+    return withoutOpenPRs.filter(
+      (c) => !this.#shippedThisRun.has(c.id) && !this.#escalatedThisRun.has(c.id)
+    );
   }
 
   /**
@@ -2093,6 +2250,30 @@ export class Orchestrator extends EventEmitter {
     attempt: number | null,
     backend?: 'local' | 'primary'
   ): Promise<void> {
+    // IMPORTANT #2 — belt-and-suspenders double-ship guard. The candidate filter
+    // (filterCandidatesWithOpenPRs) already removes a shipped unit from the tick's
+    // selection, but a re-dispatch can also arrive via a due retry (retry_fired →
+    // claim effect) that does not re-run that filter. A unit this process already
+    // shipped must NEVER be dispatched again — its PR is open/converging and a
+    // second run would double-ship. Skip silently (the guard is process-lifetime;
+    // the PR-merge auto-dones the row).
+    if (this.#shippedThisRun.has(issue.id)) {
+      this.logger.info(`Skipping dispatch of already-shipped unit ${issue.identifier}`, {
+        issueId: issue.id,
+      });
+      return;
+    }
+    // Same belt-and-suspenders guard for the OTHER staged-local terminal: a unit that
+    // exhausted its bounded retries and escalated to needs-human. Its row stays
+    // `in-progress`, so a due-retry re-dispatch (retry_fired → claim effect) that
+    // bypasses filterCandidatesWithOpenPRs could re-dispatch it and reset the retry
+    // counter (an infinite loop). Skip silently — the guard is process-lifetime.
+    if (this.#escalatedThisRun.has(issue.id)) {
+      this.logger.info(`Skipping dispatch of escalated (needs-human) unit ${issue.identifier}`, {
+        issueId: issue.id,
+      });
+      return;
+    }
     this.logger.info(`Dispatching issue: ${issue.identifier} (attempt ${attempt})`, {
       issueId: issue.id,
     });
@@ -2214,12 +2395,22 @@ export class Orchestrator extends EventEmitter {
           ...(workflowMatch.stageDeadlineMs !== undefined
             ? { stageDeadlineMs: workflowMatch.stageDeadlineMs }
             : {}),
-          settleSuccess: (u, r) => this.settleWorkflowSuccess(u, r),
+          // staged-verify-gate-convergence (blocking fix): thread THIS dispatch's
+          // `workspacePath` + `issue` into the settle callbacks. On a staged RETRY
+          // re-dispatch the tick does NOT recreate the running entry (retry_fired →
+          // claim effect → this branch, with the entry-creating claimAndDispatch
+          // bypassed), so `settleWorkflowSuccess` cannot recover the workspace from
+          // the entry. The closure supplies both on EVERY attempt, so the acceptance
+          // gate re-fires across real retries instead of hollow-succeeding (SC2/SC6).
+          settleSuccess: (u, r) => this.settleWorkflowSuccess(u, r, workspacePath, issue),
           settleTerminal: (u, r, s, e) => this.settleWorkflowTerminal(u, r, s, e),
         });
         // Record the plan on the running entry (D11 in-memory cursor; the stall
-        // bypass reads `entry.workflow`). No persisted stage cursor — a re-dispatch
-        // restarts from stage 0 on a fresh worktree.
+        // bypass reads `entry.workflow`) WHEN it exists. On a within-run retry the
+        // entry is absent (the claim effect re-dispatches without re-seeding it) —
+        // #890 REUSES the preserved worktree, so the accumulated work persists across
+        // attempts; the settle gate keys on the closure-threaded workspacePath above,
+        // not on this entry.
         const entry = this.state.running.get(issue.id);
         if (entry) {
           this.state.running.set(issue.id, { ...entry, workflow: workflowPlan, workspacePath });
@@ -2641,7 +2832,15 @@ export class Orchestrator extends EventEmitter {
   private async runLocalWorkflowGate(
     issue: Issue,
     workspacePath: string,
-    backendName: string
+    backendName: string,
+    /**
+     * staged-verify-gate-convergence D2: an operator-declared acceptance command
+     * (from the matched `StagedWorkflowDecl.acceptance`). When present it is the
+     * mechanical step (run in the workspace, gated on exit code) IN PLACE OF
+     * `verifyRunner`; when absent, `verifyRunner` is unchanged. The empty-diff halt
+     * (step 0) and outcome-eval (step 2) run identically either way.
+     */
+    acceptance?: string
   ): Promise<{ ok: true } | { ok: false; reason: string }> {
     const def = this.config.agent.backends?.[backendName];
     const isLocal = def !== undefined && isLocalEndpointBackend(def);
@@ -2660,13 +2859,25 @@ export class Orchestrator extends EventEmitter {
         };
       }
 
-      // 1. Mechanical gate: typecheck + lint + test.
-      const verify = await this.verifyRunner(workspacePath);
-      if (!verify.ok) {
-        return {
-          ok: false,
-          reason: `verify failed:\n${truncateGateOutput(verify.output)}`,
-        };
+      // 1. Mechanical gate. D2: when the matched decl declares an `acceptance`
+      //    command, run THAT (in-workspace, gated on exit code) as the mechanical
+      //    step; otherwise the default project gate (verify = typecheck+lint+test).
+      if (acceptance !== undefined) {
+        const result = await this.acceptanceRunner(workspacePath, acceptance);
+        if (!result.ok) {
+          return {
+            ok: false,
+            reason: `acceptance command failed:\n${truncateGateOutput(result.output)}`,
+          };
+        }
+      } else {
+        const verify = await this.verifyRunner(workspacePath);
+        if (!verify.ok) {
+          return {
+            ok: false,
+            reason: `verify failed:\n${truncateGateOutput(verify.output)}`,
+          };
+        }
       }
 
       // 2. Outcome evaluation (SC4): when a spec is present, run the SAME
@@ -3288,48 +3499,114 @@ export class Orchestrator extends EventEmitter {
    * `runs` are the per-stage records (best-effort telemetry; the per-stage cost is
    * already attributable via the recorders). Never throws — a success settle must
    * complete the single terminal transition (D6).
+   *
+   * staged-verify-gate-convergence D1/D3/D4 — for a LOCAL last-stage unit this
+   * "success" is NOT taken at face value: BEFORE the reducer sequence above, the
+   * unit routes through the SAME `runLocalWorkflowGate` the single-dispatch path
+   * uses (empty-diff → verify/acceptance → outcome-eval). Gate FAIL → preserve +
+   * re-dispatch (handleStagedGateFailure, lane blocked), bounded to
+   * `maxLocalStageRetries` → then `settleWorkflowTerminal` (needs-human). Gate PASS
+   * → `shipWorkspace` (commit + branch + PR) THEN the reducer sequence above (so
+   * `cleanWorkspaceWithGuard` finds the pushed branch + PR and preserves it; the
+   * PR-merge auto-dones the row). Non-local/primary units skip all of this and take
+   * the reducer sequence unchanged — see ADR 0079/0080.
    */
-  private async settleWorkflowSuccess(unit: string, runs: StageRun[]): Promise<void> {
+  private async settleWorkflowSuccess(
+    unit: string,
+    runs: StageRun[],
+    // staged-verify-gate-convergence (blocking fix): the dispatch's live
+    // `workspacePath` + `issue`, threaded through the settle-callback closure in
+    // `dispatchIssue`. PREFERRED over the running-entry lookup so the acceptance
+    // gate fires on EVERY attempt — including a staged RETRY re-dispatch, where the
+    // tick does NOT recreate the running entry (the entry-creating claimAndDispatch
+    // is bypassed on retry_fired → claim → dispatchIssue). Optional for back-compat
+    // with any caller that does not thread them (⇒ fall back to the entry).
+    closureWorkspacePath?: string,
+    closureIssue?: Issue
+  ): Promise<void> {
     const entry = this.state.running.get(unit);
-    // D1–D3 (trustworthy-staged-local-dispatch): extend #843's single-dispatch
-    // empty-diff halt (runLocalWorkflowGate:2620-2630) to the STAGED path. A staged
-    // LOCAL unit whose stages produced ZERO workspace changes implemented nothing —
-    // marking it `success → done` ships a hollow completion. Before persisting
-    // success, diff the unit's workspace; an empty diff routes to the EXISTING
-    // terminal → needs-human escalation (settleWorkflowTerminal), never persistLane.
+    // staged-verify-gate-convergence D1/D3 — the REAL acceptance gate at staged
+    // settle. A staged LOCAL last-stage unit routes through the SAME
+    // `runLocalWorkflowGate` the single-dispatch path (#843) uses (empty-diff → the
+    // mechanical step → outcome-eval), replacing the empty-diff-ONLY sub-check: after
+    // every stage merely RUNS, incomplete work (a rule written but its test/count-bump
+    // missing) trivially passes an empty-diff check and ships as hollow success. The
+    // #886 empty-diff halt is subsumed as step 0 of the gate.
     //
-    // Runs BEFORE any state mutation below so settleWorkflowTerminal still sees the
-    // live `running` entry (it reads identifier/issue.title from it). Scoped to the
-    // SAME locality predicate the single-dispatch gate uses: only a LOCAL last-stage
-    // backend is gated, so non-local staged units are byte-identical (SC6). Fails
-    // OPEN — a missing workspace/entry or a diffRunner throw proceeds to success
-    // (preserving SC2 and the already-deleted-entry race) rather than halting a unit
-    // we cannot diff.
+    // Scoped to the SAME locality predicate the single-dispatch gate uses: only a
+    // LOCAL last-stage backend is gated, so non-local/primary staged units are
+    // byte-identical (SC5). The workspace + issue come from the dispatch closure
+    // (known on every attempt, incl. retries) and fall back to the running entry.
+    // Fails OPEN only when the workspace is genuinely UNKNOWN (no closure value AND
+    // no entry — the already-deleted-entry race); a gate that RUNS and returns
+    // { ok:false } does NOT proceed to success.
     const lastBackendName = runs[runs.length - 1]?.decision?.backendName;
     const lastDef =
       lastBackendName !== undefined ? this.config.agent.backends?.[lastBackendName] : undefined;
     const isLocal = lastDef !== undefined && isLocalEndpointBackend(lastDef);
-    const workspacePath = entry?.workspacePath;
-    if (isLocal && workspacePath !== undefined) {
-      let hasChanges = true; // fail-OPEN default (SC2)
-      try {
-        hasChanges = (await this.diffRunner(workspacePath)).hasChanges;
-      } catch (err) {
-        this.logger.warn(`Staged empty-diff gate: diff failed, proceeding to success`, {
-          issueId: unit,
-          error: err instanceof Error ? err.message : String(err),
-        });
-      }
-      if (!hasChanges) {
-        // Empty diff → the existing terminal/needs-human escalation (D3). Mirrors
-        // #843's single-dispatch reason (orchestrator.ts:2628). No state mutated yet.
-        return await this.settleWorkflowTerminal(
+    const workspacePath = closureWorkspacePath ?? entry?.workspacePath;
+    const issue = closureIssue ?? entry?.issue;
+    if (isLocal && workspacePath !== undefined && issue !== undefined) {
+      // D2: the acceptance command override, recovered from the matched workflow decl
+      // (undefined ⇒ the gate uses verifyRunner unchanged).
+      const acceptance = this.acceptanceCommandForIssue(issue);
+      const gate = await this.runLocalWorkflowGate(
+        issue,
+        workspacePath,
+        lastBackendName!,
+        acceptance
+      );
+      if (!gate.ok) {
+        // D3 — gate FAIL: preserve + converge (extracted for reviewability). The
+        // `attempt` seed comes from the entry when present, else the fed-back reason
+        // is enough for the retry — the state machine bumps its own attempt.
+        await this.handleStagedGateFailure(
           unit,
           runs,
-          undefined,
-          new Error('no changes produced — the agent completed without implementing anything')
+          entry?.identifier,
+          entry?.attempt,
+          gate.reason
         );
+        return;
       }
+      // D4 — gate PASS: SHIP deterministically. The weak local model usually skips
+      // push+PR (LESSONS.md #874), so the orchestrator commits the accumulated work,
+      // pushes an `orchestrator/<identifier>` branch, and opens a PR BEFORE the
+      // existing success finalize — so `cleanWorkspaceWithGuard` (below) finds the
+      // pushed branch + PR and takes its preserve/record path (the PR-merge auto-dones
+      // the row → the loop stops). A ship FAILURE is a BLOCK, not a hollow success:
+      // route it through the SAME preserve+retry seam as a gate failure (a green build
+      // that cannot ship must retry/escalate, never silently drop).
+      const shipIdentifier = entry?.identifier ?? issue.identifier ?? unit;
+      // S1: thread the ALREADY-KNOWN, gate-verified `workspacePath` (the exact
+      // worktree the acceptance gate just passed) into the ship, so it commits that
+      // worktree rather than re-deriving the path from the identifier — the two can
+      // only ever diverge on identifier-sanitization drift, but pinning the gated
+      // path removes that failure mode entirely.
+      const ship = await this.workspace.shipWorkspace(shipIdentifier, {
+        ...this.buildShipPr(issue),
+        workspacePath,
+      });
+      if (!ship.ok) {
+        await this.handleStagedGateFailure(
+          unit,
+          runs,
+          entry?.identifier,
+          entry?.attempt,
+          `ship failed: ${ship.error.message}`
+        );
+        return;
+      }
+      // Shipped — the unit converged. Clear the retry counter and fall through to the
+      // existing success path (cleanWorkspaceWithGuard now finds the pushed branch+PR).
+      this.localStageGateAttempts.delete(unit);
+      // IMPORTANT #2 — record the durable double-ship guard. `state.completed`
+      // (set by the reducer sequence below) is only TRANSIENT: it is released past
+      // the grace window for a still-active row, which would re-select + RE-SHIP
+      // this unit. This process-lifetime set permanently excludes it from the tick's
+      // candidate set (filterCandidatesWithOpenPRs) — matching, not weaker than, the
+      // single-dispatch durable guard (markIssueComplete flips the row terminal).
+      this.#shippedThisRun.add(unit);
     }
     // Reducer normal-exit sequence (state-machine.ts:457,467-469):
     this.state.running.delete(unit);
@@ -3348,6 +3625,97 @@ export class Orchestrator extends EventEmitter {
     // free; drain it here rather than waiting for the next refresh-tick. Fire-and-forget.
     void this.drainDeferredEvictions();
     this.emit('state_change', this.getSnapshot());
+  }
+
+  /**
+   * staged-verify-gate-convergence D2 — recover the acceptance command for a unit
+   * from the workflow decl that matched it. Delegates to `workflowFor` — the SINGLE
+   * match authority `dispatchIssue` used (identical prefix+labels+`>= 2`-stage
+   * semantics, including the `< 2`-stage fallback) — and reads the matched decl's
+   * `acceptance` off the returned `WorkflowMatch`. Returns `undefined` when no
+   * `>= 2`-stage decl matches or the matched decl declares no `acceptance` (⇒ the
+   * settle gate uses `verifyRunner` unchanged). Pure; no side effects.
+   */
+  private acceptanceCommandForIssue(issue: Issue): string | undefined {
+    return workflowFor(issue, this.config)?.acceptance;
+  }
+
+  /**
+   * staged-verify-gate-convergence D4 — derive the PR title + body for a
+   * deterministic ship of a converged local staged unit. Title is the issue
+   * title (falling back to its identifier); body is a short summary noting the
+   * autonomous local dispatch and that the acceptance gate passed. A `Closes #N`
+   * trailer is appended ONLY when the issue's `externalId` carries a numeric
+   * GitHub issue number (e.g. `github:owner/repo#42`) — never fabricated: without
+   * a real number the trailer is omitted so the PR does not close an unrelated
+   * issue. Pure; no side effects.
+   */
+  private buildShipPr(issue: Issue): { title: string; body: string } {
+    const title = issue.title?.trim() || issue.identifier;
+    // Parse a trailing `#<digits>` off the external tracker id, if present.
+    const match = issue.externalId?.match(/#(\d+)\s*$/);
+    const closes = match ? `\n\nCloses #${match[1]}` : '';
+    const body =
+      `Autonomous local dispatch: ${issue.identifier}.\n\n` +
+      `This change was produced by the orchestrator's local staged workflow and ` +
+      `passed the acceptance gate (typecheck + lint + test / the declared acceptance ` +
+      `command).${closes}`;
+    return { title, body };
+  }
+
+  /**
+   * staged-verify-gate-convergence D3 — the gate-FAIL branch of the staged settle,
+   * extracted so `settleWorkflowSuccess` stays reviewable. PRESERVE the workspace
+   * (do NOT cleanWorkspaceWithGuard, do NOT persistLane('success')): stash the
+   * failure reason so the next dispatch's prompt gets the failure preamble (the SAME
+   * map the single-dispatch path uses), then drive the retry through the SAME
+   * `emitWorkerExit('error')` seam. #890's ensureWorkspace reuse accumulates work
+   * across the preserved-workspace attempts. Bounded to `maxLocalStageRetries`
+   * consecutive failures → the existing needs-human terminal (which cleans +
+   * escalates). Behavior is identical to the pre-extraction inline branch.
+   */
+  private async handleStagedGateFailure(
+    unit: string,
+    runs: StageRun[],
+    identifier: string | undefined,
+    attempt: number | null | undefined,
+    gateReason: string
+  ): Promise<void> {
+    const attempts = (this.localStageGateAttempts.get(unit) ?? 0) + 1;
+    const bound =
+      this.config.agent.routing?.maxLocalStageRetries ?? DEFAULT_MAX_LOCAL_STAGE_GATE_RETRIES;
+    if (attempts >= bound) {
+      // D3 tail — bounded retries exhausted → the existing needs-human terminal
+      // (which cleans + escalates). Reset the counter so a future re-pickup is fresh.
+      this.localStageGateAttempts.delete(unit);
+      this.priorGateFailureByIssue.delete(unit);
+      // Durable process-lifetime guard: the terminal marks the LANE (canceled), not
+      // the ROW — the row stays `in-progress`, so the tick would re-select this unit
+      // and reset the retry counter (an infinite loop). Record it here (only on the
+      // bound-exhausted branch — a unit still RETRYING below the bound must NOT be in
+      // this set) so filterCandidatesWithOpenPRs + dispatchIssue permanently skip it.
+      this.#escalatedThisRun.add(unit);
+      await this.settleWorkflowTerminal(
+        unit,
+        runs,
+        undefined,
+        new Error(`verification failed after ${attempts} attempts: ${gateReason}`)
+      );
+      return;
+    }
+    this.localStageGateAttempts.set(unit, attempts);
+    this.priorGateFailureByIssue.set(unit, gateReason);
+    this.logger.info(`staged local gate blocked ${identifier ?? unit}; re-dispatching (SC1)`, {
+      issueId: unit,
+      attempt: attempts,
+    });
+    // Route the failure through the SHIPPED single-dispatch retry seam. For a staged
+    // unit the running entry's `session` is null (per-stage sessions live in
+    // stageRuns), so emitWorkerExit's finishRecording is a no-op and the per-stage
+    // recorders are not double-fed; the error branch emits the scheduleRetry/escalate
+    // effect. `attempt` is undefined on a retry (no running entry) — emitWorkerExit
+    // accepts `number | null` and the state machine drives its own attempt bump.
+    await this.emitWorkerExit(unit, 'error', attempt ?? null, gateReason);
   }
 
   /**
@@ -3371,6 +3739,11 @@ export class Orchestrator extends EventEmitter {
     err?: unknown
   ): Promise<void> {
     try {
+      // staged-verify-gate-convergence D3: this unit is settling terminally — clear
+      // its staged-gate retry counter + prior-failure preamble so a future re-pickup
+      // starts fresh (no stale carry-over from a prior convergence attempt).
+      this.localStageGateAttempts.delete(unit);
+      this.priorGateFailureByIssue.delete(unit);
       const entry = this.state.running.get(unit);
       const identifier = entry?.identifier ?? unit;
       this.state.running.delete(unit);

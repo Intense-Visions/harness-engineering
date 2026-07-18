@@ -9,9 +9,15 @@
 //   claim    -> claimed
 //   dispatch -> in_progress
 //   success  -> in_review   (the orchestrator NEVER drives `done` -- that stays a
-//                            human/skill action carrying PR/test evidence)
-//   failure  -> blocked
-//   abandon  -> canceled
+//                            human/skill action carrying PR/test evidence. For an
+//                            AUTONOMOUS-LOCAL staged unit the orchestrator drives
+//                            `in_review` by SHIPPING a real PR, and the PR merging
+//                            auto-dones the row -- see ADR 0080. It still does not
+//                            write `done` itself.)
+//   failure  -> blocked     (a local staged gate FAIL routes here so the retry can
+//                            re-claim: blocked -> claimed is an allowed transition,
+//                            which is what breaks the old in_review-stuck loop.)
+//   abandon  -> canceled    (bounded-retry exhaustion -> needs-human terminal.)
 import { eventSourcing } from '@harness-engineering/core';
 import { type Result, Err } from '@harness-engineering/types';
 
