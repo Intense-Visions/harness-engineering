@@ -218,6 +218,17 @@ export class OrchestratorBackendFactory {
         ...(def.timeoutMs !== undefined ? { timeoutMs: def.timeoutMs } : {}),
         ...(def.maxTurnsPerRun !== undefined ? { maxTurnsPerRun: def.maxTurnsPerRun } : {}),
         ...(def.disableReasoning !== undefined ? { disableReasoning: def.disableReasoning } : {}),
+        // Mirror `createBackend`'s ollama branch — the resolver path previously
+        // DROPPED these def fields, so a local ollama backend configured with a
+        // prefer-and-fallback `model: [...]` array (which routes here) silently
+        // lost its MCP tools + context/prediction tuning. `mcpServers` matters most:
+        // without it a local model gets no docs tools (context7 etc.), its top
+        // failure mode. Keep in sync with backend-factory.ts createBackend.
+        ...(def.numCtx !== undefined ? { numCtx: def.numCtx } : {}),
+        ...(def.maxContextTokens !== undefined ? { maxContextTokens: def.maxContextTokens } : {}),
+        ...(def.numPredict !== undefined ? { numPredict: def.numPredict } : {}),
+        ...(def.keepAlive !== undefined ? { keepAlive: def.keepAlive } : {}),
+        ...(def.mcpServers !== undefined ? { mcpServers: def.mcpServers } : {}),
         ...(usageHooks?.onModelUsed !== undefined ? { onModelUsed: usageHooks.onModelUsed } : {}),
         ...(usageHooks?.onModelFailed !== undefined
           ? { onModelFailed: usageHooks.onModelFailed }
