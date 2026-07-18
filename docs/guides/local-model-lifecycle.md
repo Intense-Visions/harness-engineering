@@ -301,3 +301,14 @@ workflow; they scope what "autonomy" means today.
 - [ADR 0060: LMLM operator surfaces and dispatch-safe eviction](../knowledge/decisions/0060-lmlm-operator-surfaces-and-dispatch-safe-eviction.md)
 - [Local Model Lifecycle](../knowledge/orchestrator/local-model-lifecycle.md) — the domain knowledge doc.
 - [Multi-Backend Routing](./multi-backend-routing.md) — opting a backend into LMLM.
+
+### Harness-fit probe — implementation modules
+
+The probe is composed of these modules (pure policy/scoring in `local-models`, the
+injected I/O runner in `orchestrator`):
+
+- [`harness-fit.ts`](../../packages/local-models/src/capability/harness-fit.ts) — pure `scoreBuildQuality`, the `HarnessFitRunner` interface, and the portable default task suite.
+- [`probe-policy.ts`](../../packages/local-models/src/capability/probe-policy.ts) — cost-gating policy (top-N, cadence, cache freshness, prefilter).
+- [`harness-fit-rerank.ts`](../../packages/local-models/src/capability/harness-fit-rerank.ts) — threads probed `buildQuality` into a ranker re-rank.
+- [`harness-fit-cache-store.ts`](../../packages/local-models/src/capability/harness-fit-cache-store.ts) — persistent `buildQuality` cache + cadence timestamp.
+- [`harness-fit-runner.ts`](../../packages/orchestrator/src/agent/harness-fit-runner.ts) — the injected single-dispatch probe runner (orchestrator).
