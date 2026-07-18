@@ -134,10 +134,39 @@ export class WorkspaceManager {
   /**
    * Ensures the workspace exists as a git worktree so the agent has
    * access to the full project source.
+   *
+   * Reuse-on-retry contract: when `opts.preserve` is true AND a valid
+   * worktree already exists at the target path, the existing worktree is
+   * returned untouched (`reused: true`) — skipping remove, `worktree add`,
+   * and seeding — so a within-run retry preserves the agent's uncommitted
+   * partial progress. Otherwise (the default, and every fresh dispatch /
+   * orchestrator restart) the worktree is removed and recreated from the
+   * latest base ref (`reused: false`), preserving the anti-stale guarantee.
+   *
+   * @param identifier - The issue/unit identifier for the workspace.
+   * @param opts.preserve - When true, reuse an existing valid worktree
+   *   instead of wiping it. Defaults false → current wipe-and-recreate flow.
    */
-  public async ensureWorkspace(identifier: string): Promise<Result<string, Error>> {
+  public async ensureWorkspace(
+    identifier: string,
+    opts?: { preserve?: boolean }
+  ): Promise<Result<{ path: string; reused: boolean }, Error>> {
     try {
       const workspacePath = path.resolve(this.resolvePath(identifier));
+
+      // Reuse-on-retry: if the caller opted to preserve AND a valid worktree
+      // already exists (same `.git` marker check used below), return it
+      // untouched — skipping remove, recreate, and seeding — so a within-run
+      // retry keeps the agent's uncommitted progress. Without a leftover
+      // worktree we fall through to the fresh-create path (anti-stale).
+      if (opts?.preserve === true) {
+        try {
+          await fs.access(path.join(workspacePath, '.git'));
+          return Ok({ path: workspacePath, reused: true });
+        } catch {
+          // No valid worktree to preserve — proceed to fresh create below.
+        }
+      }
 
       // Remove any existing worktree so the agent always starts from the
       // latest base ref. Previously this path reused stale worktrees which
@@ -184,7 +213,7 @@ export class WorkspaceManager {
       // a dispatched agent with a roadmap entry but no proposal to work from.
       await this.seedWorkspace(workspacePath, repoRoot);
 
-      return Ok(workspacePath);
+      return Ok({ path: workspacePath, reused: false });
     } catch (error) {
       return Err(error instanceof Error ? error : new Error(String(error)));
     }

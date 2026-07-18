@@ -229,7 +229,7 @@ function makeDispatchOrch(workflows?: WorkflowConfig['workflows']): Orchestrator
   const workspacePath = path.join(tmpDir, '.harness', 'workspaces', 'ws');
   vi.spyOn(WorkspaceManager.prototype, 'ensureWorkspace').mockImplementation(async () => {
     fs.mkdirSync(workspacePath, { recursive: true });
-    return Ok(workspacePath);
+    return Ok({ path: workspacePath, reused: false });
   });
   const mockTracker = {
     fetchCandidateIssues: vi.fn().mockResolvedValue(Ok([])),
@@ -291,6 +291,78 @@ describe('dispatchIssue workflow branch (SC4 identity / D13 / workflow entry)', 
 
     expect(bgSpy).toHaveBeenCalledTimes(1);
     expect(wfSpy).not.toHaveBeenCalled();
+  });
+
+  it('SC4: within-run re-dispatch of same identifier preserves worktree; afterCreate runs only on fresh create', async () => {
+    orch = makeDispatchOrch(undefined);
+    // Override the workspace spy so `reused` mirrors the caller-passed `preserve`,
+    // as the real WorkspaceManager would when a worktree already exists.
+    const workspacePath = path.join(tmpDir, '.harness', 'workspaces', 'ws');
+    const ensureSpy = vi
+      .spyOn(WorkspaceManager.prototype, 'ensureWorkspace')
+      .mockImplementation(async (_id: string, opts?: { preserve?: boolean }) => {
+        fs.mkdirSync(workspacePath, { recursive: true });
+        return Ok({ path: workspacePath, reused: opts?.preserve === true });
+      });
+    // Keep the single-agent path from actually launching a background agent.
+    vi.spyOn(
+      orch as unknown as { runAgentInBackgroundTask: (...a: unknown[]) => void },
+      'runAgentInBackgroundTask'
+    ).mockImplementation(() => {});
+    const afterCreateSpy = vi.spyOn(
+      (orch as unknown as { hooks: { afterCreate: (p: string) => Promise<unknown> } }).hooks,
+      'afterCreate'
+    );
+
+    const issue = makeIssue({ identifier: 'REV-1' });
+
+    // Fresh first dispatch.
+    await dispatch(orch, issue);
+    // Same-identifier re-dispatch within the SAME orchestrator instance.
+    await dispatch(orch, issue);
+
+    // First call: preserve false (fresh). Second: preserve true (retry).
+    expect(ensureSpy).toHaveBeenCalledTimes(2);
+    expect(ensureSpy.mock.calls[0]![1]).toEqual({ preserve: false });
+    expect(ensureSpy.mock.calls[1]![1]).toEqual({ preserve: true });
+
+    // afterCreate runs only on the fresh create (reused: false), not the reuse.
+    expect(afterCreateSpy).toHaveBeenCalledTimes(1);
+  });
+
+  it('SC3/restart: a second orchestrator instance treats the same identifier as fresh (per-instance set, not shared)', async () => {
+    // Create both instances first, then install the persisting ensure spy so it
+    // captures dispatches from both (makeDispatchOrch installs its own spy each
+    // call, so the last-applied spy below is the active one for both dispatches).
+    const orch1 = makeDispatchOrch(undefined);
+    const orch2 = makeDispatchOrch(undefined);
+    for (const o of [orch1, orch2]) {
+      vi.spyOn(
+        o as unknown as { runAgentInBackgroundTask: (...a: unknown[]) => void },
+        'runAgentInBackgroundTask'
+      ).mockImplementation(() => {});
+    }
+    const workspacePath = path.join(tmpDir, '.harness', 'workspaces', 'ws');
+    const ensureSpy = vi
+      .spyOn(WorkspaceManager.prototype, 'ensureWorkspace')
+      .mockImplementation(async (_id: string, opts?: { preserve?: boolean }) => {
+        fs.mkdirSync(workspacePath, { recursive: true });
+        return Ok({ path: workspacePath, reused: opts?.preserve === true });
+      });
+
+    const issue = makeIssue({ identifier: 'REV-1' });
+
+    // orch1 provisions the unit (fresh), then orch2 — simulating an orchestrator
+    // restart — dispatches the SAME identifier. orch2's #dispatchedThisRun set is
+    // empty, so it must treat the unit as fresh and wipe (anti-stale), NOT reuse
+    // orch1's worktree. This locks the per-instance contract against a future
+    // refactor to a static/shared set.
+    await dispatch(orch1, issue);
+    await dispatch(orch2, issue);
+
+    expect(ensureSpy).toHaveBeenCalledTimes(2);
+    expect(ensureSpy.mock.calls[0]![1]).toEqual({ preserve: false });
+    expect(ensureSpy.mock.calls[1]![1]).toEqual({ preserve: false });
   });
 
   it('SC4/D13: a 1-stage decl → single-agent path (workflowFor returns undefined)', async () => {
@@ -432,7 +504,7 @@ describe('SC2 end-to-end — two stages route to two tiers through the real cont
     const workspacePath = path.join(tmpDir, '.harness', 'workspaces', 'ws');
     vi.spyOn(WorkspaceManager.prototype, 'ensureWorkspace').mockImplementation(async () => {
       fs.mkdirSync(workspacePath, { recursive: true });
-      return Ok(workspacePath);
+      return Ok({ path: workspacePath, reused: false });
     });
     vi.spyOn(WorkspaceManager.prototype, 'findPushedBranch').mockResolvedValue(null);
     vi.spyOn(WorkspaceManager.prototype, 'removeWorkspace').mockResolvedValue(Ok(undefined));
@@ -532,7 +604,7 @@ describe('D11 restart-from-0 + SC5/SC6/SC7 through the real workflow context', (
       .spyOn(WorkspaceManager.prototype, 'ensureWorkspace')
       .mockImplementation(async () => {
         fs.mkdirSync(workspacePath, { recursive: true });
-        return Ok(workspacePath);
+        return Ok({ path: workspacePath, reused: false });
       });
     orch = makeDispatchOrch([
       { name: 'w', match: { identifierPrefix: 'REV-' }, stages: twoStages },
@@ -616,7 +688,7 @@ describe('D11 restart-from-0 + SC5/SC6/SC7 through the real workflow context', (
     const workspacePath = path.join(tmpDir, '.harness', 'workspaces', 'ws');
     vi.spyOn(WorkspaceManager.prototype, 'ensureWorkspace').mockImplementation(async () => {
       fs.mkdirSync(workspacePath, { recursive: true });
-      return Ok(workspacePath);
+      return Ok({ path: workspacePath, reused: false });
     });
     // Force the runner to always report TurnResult.success=false so the pass-required
     // gate fails on both the attempt-0 and attempt-1 (bumped-floor) runs.
@@ -672,7 +744,7 @@ describe('D11 restart-from-0 + SC5/SC6/SC7 through the real workflow context', (
     const workspacePath = path.join(tmpDir, '.harness', 'workspaces', 'ws');
     vi.spyOn(WorkspaceManager.prototype, 'ensureWorkspace').mockImplementation(async () => {
       fs.mkdirSync(workspacePath, { recursive: true });
-      return Ok(workspacePath);
+      return Ok({ path: workspacePath, reused: false });
     });
     // A runner that never returns within the 50ms deadline (hangs on the first turn).
     const factory = (

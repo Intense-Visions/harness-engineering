@@ -81,7 +81,7 @@ describe('Orchestrator Integration', () => {
     const workspacePath = path.join(tmpDir, '.harness', 'workspaces', 'h-1');
     vi.spyOn(WorkspaceManager.prototype, 'ensureWorkspace').mockImplementation(async () => {
       fs.mkdirSync(workspacePath, { recursive: true });
-      return Ok(workspacePath);
+      return Ok({ path: workspacePath, reused: false });
     });
     vi.spyOn(WorkspaceManager.prototype, 'removeWorkspace').mockResolvedValue(Ok(undefined));
     vi.spyOn(WorkspaceManager.prototype, 'sweepStaleBranches').mockResolvedValue([]);
