@@ -231,11 +231,10 @@ persisting success:
 - **Single-dispatch** (a plain `local`/`pi`/`ollama` issue): the enforced gate
   short-circuits _before_ `verify` with `no changes produced` and re-dispatches via
   the retry budget.
-- **Staged workflows** (`workflows:`): when the last stage routed to a
-  local-endpoint backend, the unit's workspace is diffed at completion; an empty
-  diff routes the unit to the existing terminal → `needs-human` escalation instead
-  of `success → done`. A non-local staged unit and any unit that produced real
-  changes complete exactly as before (the check is a no-op off the local path).
+- **Staged workflows** (`workflows:`): the empty-diff halt is now **step 0 of the
+  staged acceptance gate** (below) — when the last stage routed to a local-endpoint
+  backend, an empty diff is a gate failure like any other and drives a preserve +
+  retry, not a first-failure terminal.
 
 This extends the #843 single-dispatch trustworthiness guarantee — a local unit
 either produces a non-empty diff or halts visibly — to the staged path. It is a
@@ -244,6 +243,67 @@ completions; judging whether real changes satisfy the spec stays the outcome-eva
 gate's job. Recall the design/execution routing split above: execution stages (no
 `cognitiveMode`) resolve to `routing.default`, not the design reasoner, so the
 backend that gets diffed here is the per-phase execution backend.
+
+#### Staged acceptance gate + convergent retry + deterministic ship (local last stage)
+
+A staged workflow marks a unit "completed all stages" after each stage merely
+_runs_ — the model's `TASK_COMPLETE`, not "tests passed". For a **local** last-stage
+unit that is not enough to ship on: real-but-incomplete work (a rule written, its
+test + integration count-bump missing) would clear an empty-diff check and ship as
+hollow success. So the staged settle for a local last-stage unit routes through the
+**same enforced gate the single-dispatch path uses** — empty-diff → the mechanical
+step → outcome-eval — and then converges or ships deterministically:
+
+- **Gate FAIL → converge (never wipe).** The workspace is **preserved** (no
+  `cleanWorkspaceWithGuard`, no `success → in_review`), the failure reason is
+  threaded into the next prompt, and the unit re-dispatches through the same retry
+  seam single-dispatch uses. The failure persists lane `blocked`; the lane machine
+  allows `blocked → claimed`, so the retry actually re-claims and re-dispatches, and
+  the preserved worktree lets work **accumulate across attempts** (#890). Bounded to
+  `maxLocalStageRetries` (below).
+- **Bounded retries exhausted → `needs-human`.** After N consecutive failures the
+  unit escalates to the `needs-human` terminal (lane `canceled`) and the tick stops
+  re-selecting it — no infinite loop.
+- **Gate PASS → deterministic ship.** The orchestrator commits the accumulated work,
+  pushes an `orchestrator/<identifier>` branch, and opens a PR (weak local models
+  usually skip push+PR, so the orchestrator does it), then takes the existing success
+  finalize: `cleanWorkspaceWithGuard` finds the pushed branch + PR and preserves it,
+  and the PR merging auto-dones the roadmap row. The just-shipped unit is recorded in
+  the orchestrator's `completed` set — the **same guard the single-dispatch normal
+  exit uses** — so it is not re-dispatched (double-shipped) while its `in_review` row
+  is still `in-progress` and the PR is in flight.
+
+**`acceptance` (per-decl mechanical step).** By default the gate's mechanical step is
+`verify` (the project's typecheck+lint+test). A staged decl may instead declare an
+`acceptance` command — a shell command run in the unit's workspace, gated on its exit
+code (0 ⇒ pass) — so the gate keys on a project-authoritative check. Nothing
+project-specific is baked into the orchestrator; omit it to use the default repo gate.
+
+```yaml
+workflows:
+  - name: local-full-workflow
+    match: { identifierPrefix: 'LOCAL-' }
+    acceptance: pnpm --filter @acme/eslint-plugin test # exit 0 ⇒ gate passes
+    stages:
+      - { skill: harness-execution, produces: impl }
+```
+
+**`agent.routing.maxLocalStageRetries` (retry bound).** The number of consecutive
+staged-settle gate failures a **local** unit may accumulate before it escalates to
+`needs-human` instead of retrying again. Optional; defaults to `5`.
+
+```json
+{ "agent": { "routing": { "default": "coder", "maxLocalStageRetries": 5 } } }
+```
+
+**Local vs non-local lane lifecycle.** This whole gate/retry/ship contract is scoped
+to a **local** last-stage backend. A non-local/primary staged unit (and the
+single-dispatch path) is **byte-identical** to before: `success → in_review` for a
+human to review and merge; the orchestrator never ships or drives a terminal for it.
+The autonomous-local model — gate FAIL → `blocked` → re-claim, exhaustion →
+`needs-human`/`canceled`, gate PASS → ship → `in_review` → (PR merge) → `done` — is
+described in [ADR 0079](../knowledge/decisions/0079-staged-settle-reuses-single-dispatch-gate.md)
+and [ADR 0080](../knowledge/decisions/0080-orchestrator-drives-local-staged-terminal.md).
 
 ### `agent.routing.workflowGates` (local gate provider)
 

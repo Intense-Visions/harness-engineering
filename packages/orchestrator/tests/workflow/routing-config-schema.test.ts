@@ -11,6 +11,22 @@ describe('RoutingConfigSchema — Spec B Phase 0 widening', () => {
     expect(parsed.success).toBe(true);
   });
 
+  it('accepts routing.maxLocalStageRetries (staged-verify-gate-convergence D3)', () => {
+    const parsed = RoutingConfigSchema.safeParse({
+      default: 'claude-opus',
+      maxLocalStageRetries: 3,
+    });
+    expect(parsed.success).toBe(true);
+  });
+
+  it('rejects a non-positive routing.maxLocalStageRetries', () => {
+    const parsed = RoutingConfigSchema.safeParse({
+      default: 'claude-opus',
+      maxLocalStageRetries: 0,
+    });
+    expect(parsed.success).toBe(false);
+  });
+
   it('accepts array form for routing.default', () => {
     const parsed = RoutingConfigSchema.safeParse({
       default: ['claude-opus', 'claude-sonnet'],

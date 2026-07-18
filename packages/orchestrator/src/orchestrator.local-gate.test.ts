@@ -8,10 +8,34 @@ import type {
   IssueTrackerClient,
   Issue,
   BackendDef,
+  StageRun,
 } from '@harness-engineering/types';
 import { Ok } from '@harness-engineering/types';
+
+// staged-verify-gate-convergence Phase 1 (BLOCKING fix): stub `executeWorkflow`
+// so the real `dispatchIssue` staged branch runs (building the settle-callback
+// closure with the dispatch's live `workspacePath` + `issue`) WITHOUT actually
+// driving stages. The mock captures each dispatch's `emitWorkflowSuccess` callback
+// so a test can invoke the settle exactly as the engine would — proving the gate
+// re-fires across REAL re-dispatches (no manual running-entry re-seed).
+const capturedSettleSuccess: Array<(unit: string, runs: StageRun[]) => Promise<void>> = [];
+vi.mock('./workflow/execute-workflow.js', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('./workflow/execute-workflow.js')>();
+  return {
+    ...actual,
+    executeWorkflow: vi.fn(
+      async (ctx: { emitWorkflowSuccess: (u: string, r: StageRun[]) => Promise<void> }) => {
+        capturedSettleSuccess.push((u, r) => ctx.emitWorkflowSuccess(u, r));
+      }
+    ),
+  };
+});
+
 import { Orchestrator } from './orchestrator.js';
 import { MockBackend } from './agent/backends/mock.js';
+import { isEligible, selectCandidates, applyEvent } from './core/index.js';
+import type { OrchestratorState } from './types/internal.js';
+import type { OrchestratorEvent, SideEffect } from './types/events.js';
 
 /**
  * local-backend-full-workflow Phase 2 (Option C): the local-only enforced gate
@@ -117,13 +141,15 @@ function makeConfig(
 
 type VerifyResult = { ok: boolean; output: string };
 type DiffResult = { hasChanges: boolean };
+type AcceptanceResult = { ok: boolean; output: string };
 
 function newOrch(
   backends: Record<string, BackendDef>,
   defaultName: string,
   verify?: (workspacePath: string) => Promise<VerifyResult>,
   maxRetries = 5,
-  diff?: (workspacePath: string) => Promise<DiffResult>
+  diff?: (workspacePath: string) => Promise<DiffResult>,
+  acceptance?: (workspacePath: string, command: string) => Promise<AcceptanceResult>
 ): Orchestrator {
   // Default the diff seam to "the agent DID produce changes" so tests targeting
   // the verify / outcome-eval stages exercise the post-empty-diff path (the
@@ -136,6 +162,7 @@ function newOrch(
     execFileFn: noopExecFile,
     diffRunner,
     ...(verify !== undefined ? { verifyRunner: verify } : {}),
+    ...(acceptance !== undefined ? { acceptanceRunner: acceptance } : {}),
   });
 }
 
@@ -146,20 +173,22 @@ function spyHandleEffect(orch: Orchestrator): ReturnType<typeof vi.fn> {
   return spy;
 }
 
-/** Reach the private `runLocalWorkflowGate`. */
+/** Reach the private `runLocalWorkflowGate` (D2: optional acceptance override). */
 function gate(
   orch: Orchestrator
 ): (
   issue: Issue,
   ws: string,
-  backendName: string
+  backendName: string,
+  acceptance?: string
 ) => Promise<{ ok: true } | { ok: false; reason: string }> {
   return (
     orch as unknown as {
       runLocalWorkflowGate: (
         i: Issue,
         w: string,
-        b: string
+        b: string,
+        a?: string
       ) => Promise<{ ok: true } | { ok: false; reason: string }>;
     }
   ).runLocalWorkflowGate.bind(orch);
@@ -173,17 +202,6 @@ function settleSuccess(orch: Orchestrator): (unit: string, runs: unknown[]) => P
         settleWorkflowSuccess: (u: string, r: unknown[]) => Promise<void>;
       }
     ).settleWorkflowSuccess(unit, runs);
-}
-
-/** Seed a `state.running` entry so the settle path sees a workspacePath. */
-function seedRunning(orch: Orchestrator, unit: string, workspacePath: string): void {
-  (orch as unknown as { state: { running: Map<string, unknown> } }).state.running.set(unit, {
-    issueId: unit,
-    identifier: 'ISS-1',
-    issue: { ...ISSUE, id: unit },
-    workspacePath,
-    session: null,
-  });
 }
 
 /** A minimal StageRun whose routed backend name drives locality. */
@@ -405,6 +423,57 @@ describe('runLocalWorkflowGate — empty-diff halt (Blocker 2b)', () => {
     const result = await gate(orch)(ISSUE, tmpDir, 'primary');
     expect(result.ok).toBe(true);
     expect(diff).not.toHaveBeenCalled();
+  });
+});
+
+describe('runLocalWorkflowGate — acceptance command override (D2 / Phase 1 Task 3)', () => {
+  it('acceptance present + command PASSES → gate ok; verifyRunner NOT called (acceptance replaces the mechanical step)', async () => {
+    const verify = vi.fn(async () => ({ ok: false, output: 'verify would fail if run' }));
+    const acceptance = vi.fn(async (_ws: string, _cmd: string) => ({ ok: true, output: '' }));
+    const orch = newOrch({ local: LOCAL_BACKEND }, 'local', verify, 5, undefined, acceptance);
+
+    const result = await gate(orch)(ISSUE, tmpDir, 'local', 'pnpm --filter @acme/pkg test');
+
+    expect(result.ok).toBe(true);
+    expect(acceptance).toHaveBeenCalledTimes(1);
+    expect(acceptance.mock.calls[0]![1]).toBe('pnpm --filter @acme/pkg test');
+    // Acceptance REPLACES verify as the mechanical step (D2).
+    expect(verify).not.toHaveBeenCalled();
+  });
+
+  it('acceptance present + command FAILS (non-zero exit) → { ok: false, reason includes output }', async () => {
+    const acceptance = vi.fn(async () => ({ ok: false, output: '3 tests failed' }));
+    const orch = newOrch({ local: LOCAL_BACKEND }, 'local', undefined, 5, undefined, acceptance);
+
+    const result = await gate(orch)(ISSUE, tmpDir, 'local', 'pnpm test');
+
+    expect(result.ok).toBe(false);
+    if (!result.ok) expect(result.reason).toContain('3 tests failed');
+    expect(acceptance).toHaveBeenCalledTimes(1);
+  });
+
+  it('acceptance ABSENT → verifyRunner is the mechanical step (unchanged)', async () => {
+    const verify = vi.fn(async () => ({ ok: true, output: '' }));
+    const acceptance = vi.fn(async () => ({ ok: true, output: '' }));
+    const orch = newOrch({ local: LOCAL_BACKEND }, 'local', verify, 5, undefined, acceptance);
+
+    const result = await gate(orch)(ISSUE, tmpDir, 'local'); // no acceptance arg
+
+    expect(result.ok).toBe(true);
+    expect(verify).toHaveBeenCalledTimes(1);
+    expect(acceptance).not.toHaveBeenCalled();
+  });
+
+  it('empty-diff halt still precedes acceptance (step 0) — acceptance NOT run on an empty diff', async () => {
+    const acceptance = vi.fn(async () => ({ ok: true, output: '' }));
+    const diff = vi.fn(async () => ({ hasChanges: false }));
+    const orch = newOrch({ local: LOCAL_BACKEND }, 'local', undefined, 5, diff, acceptance);
+
+    const result = await gate(orch)(ISSUE, tmpDir, 'local', 'pnpm test');
+
+    expect(result.ok).toBe(false);
+    if (!result.ok) expect(result.reason).toContain('no changes produced');
+    expect(acceptance).not.toHaveBeenCalled();
   });
 });
 
@@ -726,20 +795,134 @@ describe('local gate exhaustion → needs-human (Task 8 / SC3 tail)', () => {
   });
 });
 
-describe('settleWorkflowSuccess — staged empty-diff halt (D1/SC1)', () => {
-  it('SC1: local staged unit with empty diff does NOT persist success — halts to the terminal/needs-human path', async () => {
-    // The staged path (settleWorkflowSuccess) marks a unit done with NO diff
-    // check today, so a hollow completion (zero workspace changes) ships as
-    // success. Mirror #843's single-dispatch empty-diff halt: an empty diff must
-    // route to the existing terminal/needs-human escalation, never persistLane('success').
-    const diff = vi.fn(async () => ({ hasChanges: false }));
-    const orch = newOrch({ local: LOCAL_BACKEND }, 'local', undefined, 5, diff);
-    seedRunning(orch, 'i1', tmpDir);
+/**
+ * staged-verify-gate-convergence Phase 1 (D1/D3/SC1/SC4/SC5). The staged settle
+ * (`settleWorkflowSuccess`) now routes a LOCAL last-stage unit through the SAME
+ * `runLocalWorkflowGate` the single-dispatch path uses (empty-diff → verify →
+ * outcome-eval). On a failing gate it preserves the workspace and re-dispatches
+ * (via `emitWorkerExit('error')`) with the reason stashed for the re-prompt,
+ * bounded to N attempts before escalating to the needs-human terminal. A passing
+ * gate takes the EXISTING success path (cleanWorkspaceWithGuard + persistLane).
+ */
+
+/** Seed a running entry carrying an explicit `attempt` (settle reads entry.attempt). */
+function seedRunningAttempt(
+  orch: Orchestrator,
+  unit: string,
+  workspacePath: string,
+  attempt: number
+): void {
+  (orch as unknown as { state: { running: Map<string, unknown> } }).state.running.set(unit, {
+    issueId: unit,
+    identifier: 'ISS-1',
+    issue: { ...ISSUE, id: unit },
+    workspacePath,
+    attempt,
+    session: null,
+  });
+}
+
+/** Spy `cleanWorkspaceWithGuard` (the workspace wipe). */
+function spyCleanWorkspace(orch: Orchestrator): ReturnType<typeof vi.fn> {
+  const spy = vi.fn(async () => undefined);
+  (orch as unknown as { cleanWorkspaceWithGuard: unknown }).cleanWorkspaceWithGuard = spy;
+  return spy;
+}
+
+/**
+ * Spy `workspace.shipWorkspace` (D4 deterministic ship). Defaults to a
+ * successful ship returning a pushed branch + PR URL; pass `result` to force a
+ * ship failure (Err) for the block-and-retry path.
+ */
+function spyShipWorkspace(
+  orch: Orchestrator,
+  result?: { ok: false; error: Error } | { ok: true; value: { branch: string; prUrl?: string } }
+): ReturnType<typeof vi.fn> {
+  const value = result ?? {
+    ok: true as const,
+    value: { branch: 'orchestrator/iss-1', prUrl: 'https://github.com/o/r/pull/42' },
+  };
+  const spy = vi.fn(async () => value);
+  (orch as unknown as { workspace: { shipWorkspace: unknown } }).workspace.shipWorkspace = spy;
+  return spy;
+}
+
+describe('settleWorkflowSuccess — staged local acceptance gate + convergent retry (Phase 1)', () => {
+  it('SC1: local staged unit + gate FAIL (verify red) → NO cleanWorkspaceWithGuard, NO persistLane(success), priorGateFailure set, retry re-dispatched', async () => {
+    // A non-empty diff (real work) that fails verify: the gate returns { ok:false }.
+    // The settle must PRESERVE the workspace (no clean) so #890's reuse accumulates
+    // work across attempts, stash the reason for the re-prompt, and re-dispatch via
+    // the single-dispatch retry seam (emitWorkerExit('error')) — NOT hollow success.
+    const diff = vi.fn(async () => ({ hasChanges: true }));
+    const verify = vi.fn(async () => ({ ok: false, output: 'test failed: missing count bump' }));
+    const orch = newOrch({ local: LOCAL_BACKEND }, 'local', verify, 5, diff);
+    seedRunningAttempt(orch, 'i1', tmpDir, 1);
 
     const persistSpy = vi.spyOn(
       orch as unknown as { persistLaneSafe: (u: string, l: string) => Promise<void> },
       'persistLaneSafe'
     );
+    const clean = spyCleanWorkspace(orch);
+    const emit = spyEmitWorkerExit(orch);
+    const priorMap = (orch as unknown as { priorGateFailureByIssue: Map<string, string> })
+      .priorGateFailureByIssue;
+
+    await settleSuccess(orch)('i1', [stageRun('local')]);
+
+    // Gate ran (diff + verify), returned { ok:false }.
+    expect(diff).toHaveBeenCalledTimes(1);
+    expect(verify).toHaveBeenCalledTimes(1);
+    // Workspace PRESERVED — no wipe, no success lane.
+    expect(clean).not.toHaveBeenCalled();
+    expect(persistSpy).not.toHaveBeenCalledWith('i1', 'success');
+    // Reason stashed for the re-prompt.
+    expect(priorMap.get('i1')).toContain('missing count bump');
+    // Re-dispatched through the single-dispatch retry seam (error exit), never normal.
+    expect(emit).toHaveBeenCalledTimes(1);
+    const call = emit.mock.calls[0]!;
+    expect(call[0]).toBe('i1');
+    expect(call[1]).toBe('error');
+    expect(call[2]).toBe(1); // entry.attempt threaded so the state machine bumps it
+    expect(String(call[3])).toContain('missing count bump');
+  });
+
+  it('SC1 (empty diff): the #886 empty-diff halt still fires (subsumed as gate step 0) → retry, not success', async () => {
+    // Empty diff is step 0 of runLocalWorkflowGate. Under the new contract it is a
+    // gate FAIL like any other → preserve + retry (NOT the old first-failure terminal).
+    const diff = vi.fn(async () => ({ hasChanges: false }));
+    const orch = newOrch({ local: LOCAL_BACKEND }, 'local', undefined, 5, diff);
+    seedRunningAttempt(orch, 'i1', tmpDir, 0);
+
+    const persistSpy = vi.spyOn(
+      orch as unknown as { persistLaneSafe: (u: string, l: string) => Promise<void> },
+      'persistLaneSafe'
+    );
+    const clean = spyCleanWorkspace(orch);
+    const emit = spyEmitWorkerExit(orch);
+
+    await settleSuccess(orch)('i1', [stageRun('local')]);
+
+    expect(diff).toHaveBeenCalledTimes(1);
+    expect(clean).not.toHaveBeenCalled();
+    expect(persistSpy).not.toHaveBeenCalledWith('i1', 'success');
+    expect(emit).toHaveBeenCalledTimes(1);
+    expect(emit.mock.calls[0]![1]).toBe('error');
+    expect(String(emit.mock.calls[0]![3])).toContain('no changes produced');
+  });
+
+  it('gate PASS: local staged unit + gate OK → SHIP then EXISTING success path (cleanWorkspaceWithGuard + persistLane success), no retry', async () => {
+    const diff = vi.fn(async () => ({ hasChanges: true }));
+    const verify = vi.fn(async () => ({ ok: true, output: '' }));
+    const orch = newOrch({ local: LOCAL_BACKEND }, 'local', verify, 5, diff);
+    seedRunningAttempt(orch, 'i1', tmpDir, 0);
+
+    const persistSpy = vi.spyOn(
+      orch as unknown as { persistLaneSafe: (u: string, l: string) => Promise<void> },
+      'persistLaneSafe'
+    );
+    const ship = spyShipWorkspace(orch);
+    const clean = spyCleanWorkspace(orch);
+    const emit = spyEmitWorkerExit(orch);
     const terminalSpy = vi.spyOn(
       orch as unknown as {
         settleWorkflowTerminal: (
@@ -754,73 +937,478 @@ describe('settleWorkflowSuccess — staged empty-diff halt (D1/SC1)', () => {
 
     await settleSuccess(orch)('i1', [stageRun('local')]);
 
-    // Empty diff halted the unit — success was NEVER persisted.
+    // Gate green → D4 ship BEFORE the existing success path (regression): ship +
+    // clean + persist success exactly once.
+    expect(diff).toHaveBeenCalledTimes(1);
+    expect(verify).toHaveBeenCalledTimes(1);
+    expect(ship).toHaveBeenCalledTimes(1);
+    expect(clean).toHaveBeenCalledTimes(1);
+    expect(persistSpy).toHaveBeenCalledWith('i1', 'success');
+    expect(persistSpy.mock.calls.filter((c) => c[1] === 'success')).toHaveLength(1);
+    expect(emit).not.toHaveBeenCalled();
+    expect(terminalSpy).not.toHaveBeenCalled();
+  });
+
+  it('SC3: gate PASS → shipWorkspace(identifier, {title, body}) invoked, THEN cleanWorkspaceWithGuard + persistLane(success)', async () => {
+    // The ship runs deterministically on a green gate: it commits+pushes a branch
+    // and opens a PR, so cleanWorkspaceWithGuard finds the pushed branch + PR and
+    // takes its preserve/record path (the PR-merge auto-dones the row).
+    const diff = vi.fn(async () => ({ hasChanges: true }));
+    const verify = vi.fn(async () => ({ ok: true, output: '' }));
+    const orch = newOrch({ local: LOCAL_BACKEND }, 'local', verify, 5, diff);
+    seedRunningAttempt(orch, 'i1', tmpDir, 0);
+
+    const persistSpy = vi.spyOn(
+      orch as unknown as { persistLaneSafe: (u: string, l: string) => Promise<void> },
+      'persistLaneSafe'
+    );
+    const ship = spyShipWorkspace(orch);
+    const clean = spyCleanWorkspace(orch);
+    const emit = spyEmitWorkerExit(orch);
+
+    await settleSuccess(orch)('i1', [stageRun('local')]);
+
+    // Ship invoked with the unit identifier + a { title, body } derived from the issue.
+    expect(ship).toHaveBeenCalledTimes(1);
+    const shipCall = ship.mock.calls[0]!;
+    expect(shipCall[0]).toBe('ISS-1'); // entry.identifier
+    const shipOpts = shipCall[1] as { title: string; body: string };
+    expect(typeof shipOpts.title).toBe('string');
+    expect(shipOpts.title.length).toBeGreaterThan(0);
+    expect(typeof shipOpts.body).toBe('string');
+    expect(shipOpts.body.length).toBeGreaterThan(0);
+    // Then the existing success path: clean (finds pushed branch + PR) + persist success.
+    expect(clean).toHaveBeenCalledTimes(1);
+    expect(persistSpy).toHaveBeenCalledWith('i1', 'success');
+    expect(emit).not.toHaveBeenCalled();
+  });
+
+  it('SC3 (ship FAILURE): ship returns Err → NOT marked success; routes to the retry path (handleStagedGateFailure) with a ship-failed reason', async () => {
+    // A green build that cannot ship must retry/escalate, never hollow-succeed. A
+    // ship Err routes through the SAME preserve+retry seam as a gate failure.
+    const diff = vi.fn(async () => ({ hasChanges: true }));
+    const verify = vi.fn(async () => ({ ok: true, output: '' }));
+    const orch = newOrch({ local: LOCAL_BACKEND }, 'local', verify, 5, diff);
+    seedRunningAttempt(orch, 'i1', tmpDir, 1);
+
+    const persistSpy = vi.spyOn(
+      orch as unknown as { persistLaneSafe: (u: string, l: string) => Promise<void> },
+      'persistLaneSafe'
+    );
+    const ship = spyShipWorkspace(orch, {
+      ok: false,
+      error: new Error('push rejected: no remote'),
+    });
+    const clean = spyCleanWorkspace(orch);
+    const emit = spyEmitWorkerExit(orch);
+    const priorMap = (orch as unknown as { priorGateFailureByIssue: Map<string, string> })
+      .priorGateFailureByIssue;
+
+    await settleSuccess(orch)('i1', [stageRun('local')]);
+
+    // Ship attempted, failed → NOT success: no clean, no persistLane(success).
+    expect(ship).toHaveBeenCalledTimes(1);
+    expect(clean).not.toHaveBeenCalled();
     expect(persistSpy).not.toHaveBeenCalledWith('i1', 'success');
-    // It routed to the existing terminal/needs-human escalation with the halt reason.
+    // Routed to the retry path (emitWorkerExit error) with a ship-failed reason.
+    expect(emit).toHaveBeenCalledTimes(1);
+    const call = emit.mock.calls[0]!;
+    expect(call[1]).toBe('error');
+    expect(String(call[3])).toContain('ship failed');
+    expect(String(call[3])).toContain('push rejected');
+    // Reason stashed for the re-prompt.
+    expect(priorMap.get('i1')).toContain('ship failed');
+  });
+
+  it('SC5 (ship regression): a NON-local staged unit gate-pass does NOT ship — success path byte-identical', async () => {
+    const diff = vi.fn(async () => ({ hasChanges: false }));
+    const orch = newOrch({ primary: CLAUDE_BACKEND }, 'primary', undefined, 5, diff);
+    seedRunningAttempt(orch, 'i1', tmpDir, 0);
+
+    const persistSpy = vi.spyOn(
+      orch as unknown as { persistLaneSafe: (u: string, l: string) => Promise<void> },
+      'persistLaneSafe'
+    );
+    const ship = spyShipWorkspace(orch);
+    const clean = spyCleanWorkspace(orch);
+    const emit = spyEmitWorkerExit(orch);
+
+    await settleSuccess(orch)('i1', [stageRun('primary')]);
+
+    // Non-local: NO ship (the ship is strictly local-staged); success path unchanged.
+    expect(ship).not.toHaveBeenCalled();
+    expect(diff).not.toHaveBeenCalled();
+    expect(persistSpy).toHaveBeenCalledWith('i1', 'success');
+    expect(clean).toHaveBeenCalledTimes(1);
+    expect(emit).not.toHaveBeenCalled();
+  });
+
+  it('SC4 (partial): after the retry bound (N) consecutive gate failures → settleWorkflowTerminal(needs-human), no further retry', async () => {
+    // maxLocalStageRetries default = 5. Drive 5 consecutive failing settles: the
+    // first 4 re-dispatch (emitWorkerExit error), the 5th trips the bound → terminal.
+    const diff = vi.fn(async () => ({ hasChanges: true }));
+    const verify = vi.fn(async () => ({ ok: false, output: 'perma-red verify' }));
+    const orch = newOrch({ local: LOCAL_BACKEND }, 'local', verify, 5, diff);
+
+    const emit = spyEmitWorkerExit(orch);
+    const terminalSpy = vi.spyOn(
+      orch as unknown as {
+        settleWorkflowTerminal: (
+          u: string,
+          r: unknown[],
+          s?: unknown,
+          e?: unknown
+        ) => Promise<void>;
+      },
+      'settleWorkflowTerminal'
+    );
+
+    // 5 consecutive failing settles (bound = 5).
+    for (let attempt = 0; attempt < 5; attempt++) {
+      seedRunningAttempt(orch, 'i1', tmpDir, attempt);
+      await settleSuccess(orch)('i1', [stageRun('local')]);
+    }
+
+    // The first 4 re-dispatched; the 5th escalated to the needs-human terminal.
+    expect(emit).toHaveBeenCalledTimes(4);
+    expect(emit.mock.calls.every((c) => c[1] === 'error')).toBe(true);
     expect(terminalSpy).toHaveBeenCalledTimes(1);
     const err = terminalSpy.mock.calls[0]![3];
     const reason = err instanceof Error ? err.message : String(err);
-    expect(reason).toContain('no changes produced');
-    expect(diff).toHaveBeenCalledTimes(1);
+    expect(reason).toContain('verification failed after');
+    expect(reason).toContain('perma-red verify');
   });
 
-  it('SC2: local staged unit with a non-empty diff completes exactly as today (persistLane success)', async () => {
+  it('SC4: the retry counter resets after a terminal escalation (no stale carry-over)', async () => {
     const diff = vi.fn(async () => ({ hasChanges: true }));
-    const orch = newOrch({ local: LOCAL_BACKEND }, 'local', undefined, 5, diff);
-    seedRunning(orch, 'i1', tmpDir);
+    const verify = vi.fn(async () => ({ ok: false, output: 'red' }));
+    const orch = newOrch({ local: LOCAL_BACKEND }, 'local', verify, 5, diff);
+    spyEmitWorkerExit(orch);
+    const attempts = (orch as unknown as { localStageGateAttempts?: Map<string, number> })
+      .localStageGateAttempts;
 
-    const persistSpy = vi.spyOn(
-      orch as unknown as { persistLaneSafe: (u: string, l: string) => Promise<void> },
-      'persistLaneSafe'
-    );
-    const terminalSpy = vi.spyOn(
-      orch as unknown as {
-        settleWorkflowTerminal: (
-          u: string,
-          r: unknown[],
-          s?: unknown,
-          e?: unknown
-        ) => Promise<void>;
-      },
-      'settleWorkflowTerminal'
-    );
-
-    await settleSuccess(orch)('i1', [stageRun('local')]);
-
-    // A real change → success persisted exactly once, terminal path never taken.
-    expect(persistSpy).toHaveBeenCalledWith('i1', 'success');
-    expect(persistSpy.mock.calls.filter((c) => c[1] === 'success')).toHaveLength(1);
-    expect(terminalSpy).not.toHaveBeenCalled();
-    expect(diff).toHaveBeenCalledTimes(1);
+    for (let attempt = 0; attempt < 5; attempt++) {
+      seedRunningAttempt(orch, 'i1', tmpDir, attempt);
+      await settleSuccess(orch)('i1', [stageRun('local')]);
+    }
+    // After terminal escalation the counter must be cleared for a fresh future run.
+    expect(attempts?.get('i1') ?? 0).toBe(0);
   });
 
-  it('SC6: a NON-local staged unit skips the staged gate — success persists, diffRunner never called', async () => {
+  it('SC5: a NON-local staged unit is byte-identical — gate not invoked, success persists, diffRunner never called', async () => {
     const diff = vi.fn(async () => ({ hasChanges: false }));
-    const orch = newOrch({ primary: CLAUDE_BACKEND }, 'primary', undefined, 5, diff);
-    seedRunning(orch, 'i1', tmpDir);
+    const verify = vi.fn(async () => ({ ok: false, output: 'should never run' }));
+    const orch = newOrch({ primary: CLAUDE_BACKEND }, 'primary', verify, 5, diff);
+    seedRunningAttempt(orch, 'i1', tmpDir, 0);
 
     const persistSpy = vi.spyOn(
       orch as unknown as { persistLaneSafe: (u: string, l: string) => Promise<void> },
       'persistLaneSafe'
     );
+    const clean = spyCleanWorkspace(orch);
+    const emit = spyEmitWorkerExit(orch);
 
-    // Last stage routed to the non-local `primary` backend.
+    // Last stage routed to the non-local `primary` backend → gate is a no-op.
     await settleSuccess(orch)('i1', [stageRun('primary')]);
 
-    // Non-local → the staged empty-diff gate is a no-op (SC6): success persists and
-    // the diffRunner is never consulted, even though hasChanges would be false.
     expect(persistSpy).toHaveBeenCalledWith('i1', 'success');
+    expect(clean).toHaveBeenCalledTimes(1);
     expect(diff).not.toHaveBeenCalled();
+    expect(verify).not.toHaveBeenCalled();
+    expect(emit).not.toHaveBeenCalled();
   });
 
-  it('fails OPEN: a throwing diffRunner does NOT halt a real unit — success still persists', async () => {
-    // A diff-computation error must never turn a legitimate run into a false
-    // needs-human halt. The gate defaults hasChanges=true and swallows the throw.
-    const diff = vi.fn(async () => {
-      throw new Error('git exploded');
-    });
+  it('SC5: fail-OPEN when neither the closure NOR the running entry supplies a workspace — no gate, proceed to success', async () => {
+    // Direct settle call: no closure-supplied workspacePath/issue AND no seeded
+    // running entry ⇒ the workspace is genuinely unknown ⇒ the gate is skipped and
+    // the unit proceeds to the existing success path (the already-deleted-entry
+    // race guard). The gate can only fire when a workspace is KNOWN — from the
+    // dispatch closure (every attempt, incl. retries) or the running entry.
+    const diff = vi.fn(async () => ({ hasChanges: false }));
     const orch = newOrch({ local: LOCAL_BACKEND }, 'local', undefined, 5, diff);
-    seedRunning(orch, 'i1', tmpDir);
+    // deliberately DO NOT seedRunning and pass NO closure args
+
+    const persistSpy = vi.spyOn(
+      orch as unknown as { persistLaneSafe: (u: string, l: string) => Promise<void> },
+      'persistLaneSafe'
+    );
+    const emit = spyEmitWorkerExit(orch);
+
+    await settleSuccess(orch)('i1', [stageRun('local')]);
+
+    expect(diff).not.toHaveBeenCalled();
+    expect(persistSpy).toHaveBeenCalledWith('i1', 'success');
+    expect(emit).not.toHaveBeenCalled();
+  });
+});
+
+/**
+ * staged-verify-gate-convergence Phase 1 (BLOCKING fix / SC2/SC6). The settle gate
+ * must re-fire on EVERY attempt, including staged RETRY re-dispatches where the
+ * `dispatchIssue` tick does NOT recreate the running entry (retry_fired → claim
+ * effect → dispatchIssue's staged branch only updates the entry `if (entry)`, which
+ * is false on retry). Before the fix, `settleWorkflowSuccess` recovered
+ * workspacePath+issue SOLELY from the running entry, so on attempt 2+ the gate was
+ * SKIPPED and the unit hollow-succeeded. This drives TWO REAL re-dispatches through
+ * `dispatchIssue` (executeWorkflow stubbed to capture the wired settle callback) and
+ * asserts the gate fires on BOTH — with NO manual running-entry re-seed between them.
+ */
+describe('settleWorkflowSuccess — gate re-fires across REAL retries (blocking fix, no re-seed)', () => {
+  /** A config whose single 2-stage workflow decl matches ISS-* and routes local. */
+  function makeStagedConfig(): WorkflowConfig {
+    const cfg = makeConfig({ local: LOCAL_BACKEND }, 'local', 5);
+    (cfg as unknown as { workflows: unknown }).workflows = [
+      {
+        name: 'local-staged',
+        match: { identifierPrefix: 'ISS-' },
+        stages: [
+          { skill: 'harness-planning', produces: 'plan.md' },
+          { skill: 'harness-execution', produces: 'code' },
+        ],
+      },
+    ];
+    return cfg;
+  }
+
+  function newStagedOrch(
+    verify: (workspacePath: string) => Promise<VerifyResult>,
+    diff: (workspacePath: string) => Promise<DiffResult>
+  ): Orchestrator {
+    return new Orchestrator(makeStagedConfig(), 'PROMPT', {
+      tracker: makeMockTracker(),
+      backend: new MockBackend(),
+      execFileFn: noopExecFile,
+      diffRunner: diff,
+      verifyRunner: verify,
+    });
+  }
+
+  beforeEach(() => {
+    capturedSettleSuccess.length = 0;
+  });
+
+  it('two-retry: gate FIRES on attempt 1 (fail→re-dispatch) AND on attempt 2 (now-passing→success), without re-seeding the running entry', async () => {
+    let verifyCall = 0;
+    const verify = vi.fn(async () => {
+      verifyCall += 1;
+      // attempt 1: red (drives a re-dispatch). attempt 2: green (success path).
+      return verifyCall === 1
+        ? { ok: false, output: 'test failed: missing count bump' }
+        : { ok: true, output: '' };
+    });
+    const diff = vi.fn(async () => ({ hasChanges: true }));
+    const orch = newStagedOrch(verify, diff);
+
+    // Do not actually launch worktree agents; the settle callback is what we exercise.
+    stubBackgroundLaunch(orch);
+    const emit = spyEmitWorkerExit(orch);
+    const clean = spyCleanWorkspace(orch);
+    spyShipWorkspace(orch); // attempt 2's green gate ships deterministically (D4)
+    const persistSpy = vi.spyOn(
+      orch as unknown as { persistLaneSafe: (u: string, l: string) => Promise<void> },
+      'persistLaneSafe'
+    );
+
+    // --- ATTEMPT 1: real dispatch → staged branch builds the settle closure. ---
+    await dispatch(orch, ISSUE, 'local');
+    expect(capturedSettleSuccess).toHaveLength(1);
+
+    // The engine settles the unit "success" — the gate must RUN (diff+verify) and,
+    // finding it red, PRESERVE + re-dispatch (never hollow-succeed).
+    await capturedSettleSuccess[0]!('i1', [stageRun('local') as StageRun]);
+    expect(verify).toHaveBeenCalledTimes(1);
+    expect(clean).not.toHaveBeenCalled();
+    expect(emit).toHaveBeenCalledTimes(1);
+    expect(emit.mock.calls[0]![1]).toBe('error');
+
+    // --- ATTEMPT 2: a REAL re-dispatch. Crucially, the running entry is NOT
+    // re-seeded here — this is exactly the retry path where the entry is absent.
+    // The dispatch rebuilds the settle closure with the live workspacePath+issue.
+    await dispatch(orch, ISSUE, 'local');
+    expect(capturedSettleSuccess).toHaveLength(2);
+
+    // The gate MUST fire again on attempt 2 (diff+verify invoked, not skipped).
+    // Before the blocking fix the settle recovered the workspace only from the
+    // (now-absent) running entry → the gate was skipped → hollow success.
+    await capturedSettleSuccess[1]!('i1', [stageRun('local') as StageRun]);
+    expect(verify).toHaveBeenCalledTimes(2); // gate RE-FIRED on the retry
+    // Attempt 2 gate is green → the existing success path: clean + persist success.
+    expect(clean).toHaveBeenCalledTimes(1);
+    expect(persistSpy).toHaveBeenCalledWith('i1', 'success');
+    // Exactly one error re-dispatch total (attempt 1); attempt 2 did not re-dispatch.
+    expect(emit).toHaveBeenCalledTimes(1);
+  });
+});
+
+/**
+ * staged-verify-gate-convergence Phase 3 Task 1 (D5) — no-re-dispatch-after-ship
+ * (double-ship guard).
+ *
+ * RISK: after a successful staged ship the unit's lane is `in_review` and its
+ * roadmap row is still `in-progress` (an active candidate — `done` needs the PR to
+ * merge). The tick selects by roadmap status, so nothing about the *roadmap row*
+ * stops a just-shipped unit being re-selected and RE-DISPATCHED before its PR
+ * merges — which would DOUBLE-SHIP (a second PR / duplicate work).
+ *
+ * WITHIN THE GRACE WINDOW the shipped unit inherits the SAME transient guard the
+ * single-dispatch normal-exit path uses — `state.completed`. On a green gate,
+ * `settleWorkflowSuccess` runs the reducer normal-exit sequence inline:
+ * `running.delete → completed.set(unit, now) → claimed.delete`. `isEligible`
+ * (candidate-selection.ts) excludes any unit in `state.completed`. These tests
+ * cover that within-grace exclusion.
+ *
+ * NOTE (IMPORTANT #2): `state.completed` is only TRANSIENT — it is RELEASED past
+ * `pollIntervalMs * COMPLETED_GRACE_MULTIPLIER` for a still-active row, so it is
+ * NOT a durable double-ship guard on its own. The durable, process-lifetime guard
+ * (`#shippedThisRun`) is exercised by the "IMPORTANT #2 — no double-ship past the
+ * completed grace window" block below.
+ */
+describe('settleWorkflowSuccess — no re-dispatch after a staged ship (D5 double-ship guard)', () => {
+  /** Read the orchestrator's live internal state (the tick's selection input). */
+  function stateOf(orch: Orchestrator): OrchestratorState {
+    return (orch as unknown as { state: OrchestratorState }).state;
+  }
+
+  /** A roadmap-active issue (state 'planned') — an eligible candidate absent guards. */
+  function activeIssue(id: string, identifier: string): Issue {
+    return {
+      id,
+      identifier,
+      title: 't',
+      description: 'd',
+      state: 'planned', // active per makeConfig's activeStates
+      labels: [],
+      spec: null,
+      plans: [],
+      blockedBy: [],
+    } as unknown as Issue;
+  }
+
+  it('a shipped staged unit is recorded in state.completed (the same guard single-dispatch normal-exit uses)', async () => {
+    const diff = vi.fn(async () => ({ hasChanges: true }));
+    const verify = vi.fn(async () => ({ ok: true, output: '' }));
+    const orch = newOrch({ local: LOCAL_BACKEND }, 'local', verify, 5, diff);
+    seedRunningAttempt(orch, 'i1', tmpDir, 0);
+    spyShipWorkspace(orch); // green gate → deterministic ship (D4)
+    spyCleanWorkspace(orch);
+
+    // Precondition: not yet completed.
+    expect(stateOf(orch).completed.has('i1')).toBe(false);
+
+    await settleSuccess(orch)('i1', [stageRun('local')]);
+
+    // The green-gate ship path ran the reducer normal-exit sequence inline: the unit
+    // is now recorded completed AND removed from running/claimed — identical to the
+    // single-dispatch `handleWorkerExit('normal')` bookkeeping.
+    expect(stateOf(orch).completed.has('i1')).toBe(true);
+    expect(stateOf(orch).running.has('i1')).toBe(false);
+    expect(stateOf(orch).claimed.has('i1')).toBe(false);
+  });
+
+  it('the shipped unit is NOT re-selected by selectCandidates even though its roadmap row is still active (in-progress)', async () => {
+    const orch = newOrch(
+      { local: LOCAL_BACKEND },
+      'local',
+      async () => ({ ok: true, output: '' }),
+      5,
+      async () => ({ hasChanges: true })
+    );
+    seedRunningAttempt(orch, 'i1', tmpDir, 0);
+    spyShipWorkspace(orch);
+    spyCleanWorkspace(orch);
+
+    await settleSuccess(orch)('i1', [stageRun('local')]);
+
+    // Simulate the very next tick's candidate list: the row is STILL an active
+    // candidate (the PR has not merged, so the roadmap says planned/in-progress).
+    const issue = activeIssue('i1', 'ISS-1');
+    const state = stateOf(orch);
+
+    // Absent the completed guard this row is eligible (active state, not running/
+    // claimed). WITH the guard (state.completed populated by the ship settle) it is
+    // excluded — so no second dispatch → no second shipWorkspace / executeWorkflow.
+    expect(isEligible(issue, state, ['planned'], ['done'])).toBe(false);
+    expect(selectCandidates([issue], state, ['planned'], ['done'])).toEqual([]);
+  });
+
+  it('control: WITHOUT a prior ship the same active row IS eligible — proving the completed record is what excludes it', async () => {
+    const orch = newOrch(
+      { local: LOCAL_BACKEND },
+      'local',
+      async () => ({ ok: true, output: '' }),
+      5,
+      async () => ({ hasChanges: true })
+    );
+    const issue = activeIssue('i1', 'ISS-1');
+    const state = stateOf(orch);
+
+    // Fresh orchestrator, nothing shipped/completed yet → the row is dispatch-eligible.
+    expect(isEligible(issue, state, ['planned'], ['done'])).toBe(true);
+    expect(selectCandidates([issue], state, ['planned'], ['done'])).toEqual([issue]);
+  });
+});
+
+/**
+ * staged-verify-gate-convergence Phase 3 Task 2 (D5) — lane-flow confirmation.
+ *
+ * Two guarantees the autonomous-local lane lifecycle rests on
+ * (lane-machine.ts:23-32):
+ *  (a) a gate-FAIL retry re-claims the unit — `failure → blocked` then
+ *      `blocked → claimed` is an allowed transition, so the retry actually
+ *      re-dispatches (the old `in_review → claimed` stuck loop is gone because the
+ *      failure now routes to `blocked`, not `in_review`).
+ *  (b) retry-exhaustion → `settleWorkflowTerminal` leaves the unit in a state the
+ *      tick will NOT re-select (running/claimed cleared; lane driven to the
+ *      `canceled` terminal via persistLane('abandon')), so re-dispatch STOPS.
+ */
+describe('lane flow — retry re-claims via blocked→claimed; terminal stops re-dispatch (D5)', () => {
+  function stateOf(orch: Orchestrator): OrchestratorState {
+    return (orch as unknown as { state: OrchestratorState }).state;
+  }
+
+  it('(a) a gate-FAIL settle persists lane FAILURE (→ blocked), never SUCCESS — blocked→claimed re-dispatch is allowed', async () => {
+    const diff = vi.fn(async () => ({ hasChanges: true }));
+    const verify = vi.fn(async () => ({ ok: false, output: 'test failed' }));
+    const orch = newOrch({ local: LOCAL_BACKEND }, 'local', verify, 5, diff);
+    seedRunningAttempt(orch, 'i1', tmpDir, 1);
+
+    // Route persistLane through the safe wrapper spy so we can assert the SIGNAL
+    // (the actual core write is best-effort; the signal is the contract).
+    const persistSpy = vi.spyOn(
+      orch as unknown as { persistLaneSafe: (u: string, l: string) => Promise<void> },
+      'persistLaneSafe'
+    );
+    const emit = spyEmitWorkerExit(orch);
+
+    await settleSuccess(orch)('i1', [stageRun('local')]);
+
+    // The gate failed → the retry seam fired (error exit) and NO success lane was
+    // written. The failure→blocked lane (+ the blocked→claimed re-claim the state
+    // machine performs on retry_fired) is what makes the retry re-dispatch, instead
+    // of the old success→in_review→(no in_review→claimed) stuck loop.
+    expect(emit).toHaveBeenCalledTimes(1);
+    expect(emit.mock.calls[0]![1]).toBe('error');
+    // The error exit carries the failure reason as the re-prompt preamble.
+    expect(String(emit.mock.calls[0]![3])).toContain('test failed');
+    expect(persistSpy).not.toHaveBeenCalledWith('i1', 'success');
+    // The gate-fail settle routes through the SHIPPED single-dispatch retry seam
+    // (emitWorkerExit('error')) — the real seam's error branch persists lane
+    // FAILURE (→ blocked) and schedules the retry, whose retry_fired → claim effect
+    // performs the blocked→claimed re-claim the lane machine allows. (emitWorkerExit
+    // is stubbed here to isolate the settle's routing; the two-retry test above
+    // exercises the full re-dispatch through the real dispatch path.)
+  });
+
+  it('(b) retry-exhaustion → settleWorkflowTerminal clears running/claimed and does NOT re-add to completed, so the tick releases — lane driven to the canceled terminal', async () => {
+    // maxRetries=1 so a single failure trips the bound → terminal on the first settle.
+    const diff = vi.fn(async () => ({ hasChanges: true }));
+    const verify = vi.fn(async () => ({ ok: false, output: 'persistently red' }));
+    const orch = newOrch({ local: LOCAL_BACKEND }, 'local', verify, 5, diff);
+    // Force the staged-retry bound to 1 (config path the settle reads).
+    (
+      orch as unknown as { config: { agent: { routing: { maxLocalStageRetries?: number } } } }
+    ).config.agent.routing.maxLocalStageRetries = 1;
+    seedRunningAttempt(orch, 'i1', tmpDir, 0);
 
     const persistSpy = vi.spyOn(
       orch as unknown as { persistLaneSafe: (u: string, l: string) => Promise<void> },
@@ -837,12 +1425,183 @@ describe('settleWorkflowSuccess — staged empty-diff halt (D1/SC1)', () => {
       },
       'settleWorkflowTerminal'
     );
+    // Do NOT spy emitWorkerExit here — we want the real bound check + terminal.
 
     await settleSuccess(orch)('i1', [stageRun('local')]);
 
-    // Fail-open: the throw is swallowed, the unit completes as success, never halted.
-    expect(diff).toHaveBeenCalledTimes(1);
-    expect(persistSpy).toHaveBeenCalledWith('i1', 'success');
-    expect(terminalSpy).not.toHaveBeenCalled();
+    // The bound (1) tripped on the first failure → the terminal ran, escalating
+    // needs-human and driving lane 'abandon' (→ canceled, a terminal lane with no
+    // outgoing transitions).
+    expect(terminalSpy).toHaveBeenCalledTimes(1);
+    expect(persistSpy).toHaveBeenCalledWith('i1', 'abandon');
+    expect(persistSpy).not.toHaveBeenCalledWith('i1', 'success');
+
+    // The terminal cleared running + claimed and did NOT record the unit completed
+    // (a needs-human terminal is not a completion) — the tick therefore stops
+    // dispatching it via the escalated/non-active row, not a completed lock.
+    const state = stateOf(orch);
+    expect(state.running.has('i1')).toBe(false);
+    expect(state.claimed.has('i1')).toBe(false);
+    expect(state.completed.has('i1')).toBe(false);
+
+    // Once the escalation marks the row non-active (needs-human / canceled), the tick
+    // no longer re-selects it: an issue whose roadmap state is terminal is ineligible.
+    const canceledRow = {
+      id: 'i1',
+      identifier: 'ISS-1',
+      title: 't',
+      description: 'd',
+      state: 'canceled',
+      labels: [],
+      spec: null,
+      plans: [],
+      blockedBy: [],
+    } as unknown as Issue;
+    expect(isEligible(canceledRow, state, ['planned'], ['canceled', 'done'])).toBe(false);
+  });
+});
+
+/**
+ * staged-verify-gate-convergence (IMPORTANT #2) — double-ship PAST THE GRACE
+ * PERIOD.
+ *
+ * The `state.completed` lock the ship-success path sets is TRANSIENT:
+ * `reconcileCompletedAndClaimed` (state-machine.ts) RELEASES it after
+ * `pollIntervalMs * COMPLETED_GRACE_MULTIPLIER` for a row that is STILL an active
+ * candidate (the shipped staged unit's roadmap row stays `in-progress` until its
+ * PR merges — only the lane went `in_review`). So a real tick, run enough ms after
+ * the ship, releases the completed lock and RE-DISPATCHES the shipped unit ⇒ a
+ * SECOND shipWorkspace / duplicate PR. `state.completed` alone is therefore NOT a
+ * durable guard.
+ *
+ * Single-dispatch does NOT have this gap: its normal-exit `handleCompletionSideEffects`
+ * calls `tracker.markIssueComplete`, which durably flips the roadmap row to a
+ * terminal state so it stops being an active candidate — the grace release never
+ * fires. The staged ship path intentionally can't do that (D4: the PR-MERGE
+ * auto-dones the row; setting it `done` early would break the auto-done reconciler
+ * + RMH005). So the staged path needs its OWN durable, process-lifetime guard: a
+ * `#shippedThisRun` set (mirroring `#dispatchedThisRun`) consulted in the
+ * candidate/dispatch path to PERMANENTLY skip an already-shipped unit.
+ */
+describe('IMPORTANT #2 — no double-ship past the completed grace window', () => {
+  function stateOf(orch: Orchestrator): OrchestratorState {
+    return (orch as unknown as { state: OrchestratorState }).state;
+  }
+  function activeIssue(id: string, identifier: string): Issue {
+    return {
+      id,
+      identifier,
+      title: 't',
+      description: 'd',
+      state: 'planned',
+      labels: [],
+      spec: null,
+      plans: [],
+      blockedBy: [],
+    } as unknown as Issue;
+  }
+  /** Reach the orchestrator's candidate filter (the tick's real selection input). */
+  function filterCandidates(orch: Orchestrator, candidates: Issue[]): Promise<Issue[]> {
+    return (
+      orch as unknown as { filterCandidatesWithOpenPRs: (c: Issue[]) => Promise<Issue[]> }
+    ).filterCandidatesWithOpenPRs(candidates);
+  }
+
+  it('raw state-machine gap: past the grace window the completed lock releases → the shipped row is re-dispatched', async () => {
+    // Prove the underlying gap on the pure state machine (no fix involved): a unit
+    // in `state.completed`, whose row is still an active candidate, is RELEASED and
+    // re-dispatched once nowMs exceeds pollIntervalMs * COMPLETED_GRACE_MULTIPLIER.
+    const orch = newOrch(
+      { local: LOCAL_BACKEND },
+      'local',
+      async () => ({ ok: true, output: '' }),
+      5,
+      async () => ({ hasChanges: true })
+    );
+    seedRunningAttempt(orch, 'i1', tmpDir, 0);
+    spyShipWorkspace(orch);
+    spyCleanWorkspace(orch);
+    await settleSuccess(orch)('i1', [stageRun('local')]);
+
+    const state = stateOf(orch);
+    const completedAt = state.completed.get('i1')!;
+    expect(completedAt).toBeGreaterThan(0);
+
+    // Advance well past the grace window (pollIntervalMs=1000 → grace=2000ms).
+    const nowMs = completedAt + 1000 * 2 + 1;
+    const issue = activeIssue('i1', 'ISS-1');
+    const cfg = (orch as unknown as { config: WorkflowConfig }).config;
+    const tick: OrchestratorEvent = {
+      type: 'tick',
+      candidates: [issue],
+      runningStates: new Map(),
+      nowMs,
+      selfAssignee: 'orch-test',
+    } as unknown as OrchestratorEvent;
+
+    const { nextState, effects } = applyEvent(state, tick, cfg);
+    // The completed lock was released (grace expired for a still-active candidate)...
+    expect(nextState.completed.has('i1')).toBe(false);
+    // ...so the shipped row is RE-SELECTED and re-processed (a claim→dispatch OR, for
+    // a spec-less row, a needs-human escalate — either way it is picked up again,
+    // which the durable guard must prevent). This IS the double-ship gap.
+    const reprocessed = (effects as SideEffect[]).some(
+      (e) =>
+        (e.type === 'claim' && (e as { issue?: Issue }).issue?.id === 'i1') ||
+        (e.type === 'escalate' && (e as { issueId?: string }).issueId === 'i1')
+    );
+    expect(reprocessed).toBe(true);
+  });
+
+  it('fix: a shipped unit is filtered out of the candidate set for the process lifetime (no re-dispatch even past grace)', async () => {
+    const orch = newOrch(
+      { local: LOCAL_BACKEND },
+      'local',
+      async () => ({ ok: true, output: '' }),
+      5,
+      async () => ({ hasChanges: true })
+    );
+    seedRunningAttempt(orch, 'i1', tmpDir, 0);
+    spyShipWorkspace(orch);
+    spyCleanWorkspace(orch);
+    await settleSuccess(orch)('i1', [stageRun('local')]);
+
+    // Even though the roadmap row is still an active candidate, the orchestrator's
+    // candidate filter now removes the shipped unit permanently — so the tick never
+    // sees it → the grace release can't re-dispatch it → no second ship.
+    const issue = activeIssue('i1', 'ISS-1');
+    const filtered = await filterCandidates(orch, [issue]);
+    expect(filtered.find((c) => c.id === 'i1')).toBeUndefined();
+
+    // A DIFFERENT, un-shipped unit is untouched by the guard.
+    const other = activeIssue('i2', 'ISS-2');
+    const filtered2 = await filterCandidates(orch, [issue, other]);
+    expect(filtered2.map((c) => c.id)).toEqual(['i2']);
+  });
+
+  it('the guard is DURABLE: the shipped unit is still filtered out AFTER an intervening tick releases its completed lock', async () => {
+    // The scenario the finding targets: `state.completed` is released past the grace
+    // window (proven by the raw-gap test above). This asserts the process-lifetime
+    // guard OUTLIVES that release — even after the completed lock is gone, the
+    // shipped unit remains filtered from the candidate set (so no re-ship).
+    const orch = newOrch(
+      { local: LOCAL_BACKEND },
+      'local',
+      async () => ({ ok: true, output: '' }),
+      5,
+      async () => ({ hasChanges: true })
+    );
+    seedRunningAttempt(orch, 'i1', tmpDir, 0);
+    spyShipWorkspace(orch);
+    spyCleanWorkspace(orch);
+    await settleSuccess(orch)('i1', [stageRun('local')]);
+
+    // Simulate the grace release directly: drop the transient completed lock.
+    stateOf(orch).completed.delete('i1');
+
+    // The durable guard still excludes the shipped unit from the candidate set.
+    const issue = activeIssue('i1', 'ISS-1');
+    const filtered = await filterCandidates(orch, [issue]);
+    expect(filtered.find((c) => c.id === 'i1')).toBeUndefined();
   });
 });

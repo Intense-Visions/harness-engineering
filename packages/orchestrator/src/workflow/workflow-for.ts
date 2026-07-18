@@ -13,6 +13,13 @@ export interface WorkflowMatch {
   plan: WorkflowExecutionPlan;
   /** The matched decl's per-stage deadline override (D12), if declared. */
   stageDeadlineMs?: number;
+  /**
+   * staged-verify-gate-convergence D2 — the matched decl's optional acceptance
+   * command, surfaced HERE so the settle gate reads it from the SAME match
+   * authority `dispatchIssue` used (identical prefix+labels+`>= 2` semantics, no
+   * drift from a second matcher). Absent ⇒ the settle gate uses `verifyRunner`.
+   */
+  acceptance?: string;
 }
 
 /**
@@ -52,6 +59,7 @@ export function workflowFor(issue: Issue, config: WorkflowConfig): WorkflowMatch
     return {
       plan: { coherenceUnit: issue.id, stages: d.stages },
       ...(d.stageDeadlineMs !== undefined ? { stageDeadlineMs: d.stageDeadlineMs } : {}),
+      ...(d.acceptance !== undefined ? { acceptance: d.acceptance } : {}),
     };
   }
   return undefined;

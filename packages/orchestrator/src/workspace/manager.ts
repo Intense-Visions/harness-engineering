@@ -49,6 +49,18 @@ export class WorkspaceManager {
   }
 
   /**
+   * Runs a `gh` CLI command and returns stdout. Extracted for testability
+   * (mirrors {@link git}) so {@link shipWorkspace} can create a PR without
+   * spawning the real `gh`. Array argv (execFile, no shell) so PR title/body
+   * content can never break out into shell metacharacters.
+   */
+  protected async gh(args: string[], cwd: string): Promise<string> {
+    const exec = promisify(execFile);
+    const { stdout } = await exec('gh', args, { cwd });
+    return stdout;
+  }
+
+  /**
    * Sanitizes an issue identifier to be safe for use as a directory name.
    */
   public sanitizeIdentifier(identifier: string): string {
@@ -440,6 +452,165 @@ export class WorkspaceManager {
       return result.trim().length > 0;
     } catch {
       return false;
+    }
+  }
+
+  /**
+   * staged-verify-gate-convergence D4 — deterministically SHIP a worktree's
+   * accumulated work. A local staged unit's worktree is a DETACHED-HEAD git
+   * worktree whose acceptance gate just passed, but the weak local model often
+   * skips push+PR (LESSONS.md #874). This commits the uncommitted work, creates
+   * a SLASH-prefixed branch `orchestrator/<identifier>` (so {@link
+   * findPushedBranch} recognizes it), pushes it, and opens a PR via `gh pr
+   * create` — so the existing `cleanWorkspaceWithGuard` "branch pushed + PR
+   * exists" path fires and the PR-merge auto-dones the roadmap row (the loop
+   * stops).
+   *
+   * Fully GUARDED / fail-safe: every step is awaited inside one try/catch and any
+   * failure returns `Err` (never throws out), so the caller can treat a ship
+   * failure as a BLOCK (retry) rather than a silent success.
+   *
+   * IDEMPOTENT / RESUMABLE (IMPORTANT #1). A prior partial ship (push landed but
+   * `gh pr create` failed — gh down/unauth/5xx) leaves a pushed remote branch AND
+   * a local `orchestrator/<id>` branch in the PR-preserved worktree. Calling ship
+   * again MUST converge to exactly one PR and never error on the pre-existing
+   * branch. So each mutating step is preceded by an existence probe:
+   *   - branch pushed + an OPEN PR already covers it ⇒ ALREADY DONE (return that
+   *     PR; no duplicate).
+   *   - branch exists locally ⇒ `git switch` (no `-c`) instead of `switch -c`.
+   *   - branch pushed but NO PR ⇒ skip the push, resume at `gh pr create`.
+   *
+   * Sequence (in the worktree):
+   *   0. `branchExistsOnRemote` + `openPrForBranch` — if pushed AND an open PR
+   *      exists, return it (idempotent short-circuit; no git/gh mutation).
+   *   1. `git add -A`; `git commit -m <msg>` — ONLY when `status --porcelain`
+   *      reports changes (a no-op commit would exit non-zero and must not error
+   *      the flow — the accumulated work may already be committed).
+   *   2. `git switch [-c] orchestrator/<identifier>` — `-c` only when the branch
+   *      does not already exist locally.
+   *   3. `git push -u origin orchestrator/<identifier>` — skipped when already pushed.
+   *   4. `gh pr create --head <branch> --base <default> --title <t> --body <b>`.
+   *
+   * @returns the created (or pre-existing) branch name and the PR URL on success.
+   */
+  public async shipWorkspace(
+    identifier: string,
+    opts: { title: string; body: string; workspacePath?: string }
+  ): Promise<Result<{ branch: string; prUrl?: string }, Error>> {
+    try {
+      // S1: prefer the caller's ALREADY-KNOWN, gate-verified worktree path so the
+      // ship commits EXACTLY the worktree whose acceptance gate passed — eliminating
+      // a divergent `resolvePath(identifier)` re-derivation (they can differ if the
+      // identifier's sanitized form ever drifts from the live dispatch path). Falls
+      // back to the derived path for any caller that does not thread it.
+      const workspacePath = path.resolve(opts.workspacePath ?? this.resolvePath(identifier));
+      const branch = `orchestrator/${this.sanitizeIdentifier(identifier)}`;
+
+      // IMPORTANT #1 — RESUMABILITY. A prior partial ship (push OK, `gh pr create`
+      // failed) leaves a pushed remote branch AND a local `orchestrator/<id>`
+      // branch in the PR-preserved worktree. This retry MUST converge to the same
+      // single PR, never error on the pre-existing branch, never duplicate a PR.
+      // Probe the remote branch + open-PR state UP FRONT: if the branch is pushed
+      // AND an open PR already covers it, the ship is ALREADY DONE — return that
+      // PR without touching git/gh again (no duplicate).
+      const remoteExists = await this.branchExistsOnRemote(branch);
+      if (remoteExists) {
+        const existingPr = await this.openPrForBranch(branch, workspacePath);
+        if (existingPr !== null) {
+          return Ok(existingPr.length > 0 ? { branch, prUrl: existingPr } : { branch });
+        }
+      }
+
+      // 1. Commit the accumulated uncommitted work — but only if the tree is
+      //    dirty. A `git commit` on a clean tree exits non-zero; probing
+      //    porcelain status first keeps a no-op commit from failing the flow.
+      const status = (await this.git(['status', '--porcelain'], workspacePath)).trim();
+      if (status.length > 0) {
+        await this.git(['add', '-A'], workspacePath);
+        await this.git(
+          ['commit', '-m', opts.title || `orchestrator: ${identifier}`],
+          workspacePath
+        );
+      }
+
+      // 2. Move onto the SLASH-prefixed branch. On a RESUMED ship the branch may
+      //    already exist locally (the prior attempt created it before failing at
+      //    PR-create) — a blind `switch -c` would error. Probe first: switch WITHOUT
+      //    `-c` to an existing branch, else create it. (If we are already on it, a
+      //    plain `switch` is a harmless no-op.)
+      const localExists = await this.localBranchPresent(branch, workspacePath);
+      await this.git(localExists ? ['switch', branch] : ['switch', '-c', branch], workspacePath);
+
+      // 3. Push it, setting upstream so the branch exists on the remote — UNLESS it
+      //    is already pushed (a resumed ship whose push already landed), in which
+      //    case skip straight to PR creation.
+      if (!remoteExists) {
+        await this.git(['push', '-u', 'origin', branch], workspacePath);
+      }
+
+      // 4. Open the PR against the resolved default branch. Reuses the
+      //    pr-manager gh-create arg pattern (array argv, no shell). resolveBaseRef
+      //    may return an `origin/<name>` tracking ref — gh wants a plain branch
+      //    name for --base, so strip an `origin/` prefix (default to `main`).
+      const repoRoot = await this.getRepoRoot();
+      const rawBase = await this.resolveBaseRef(repoRoot);
+      const base = rawBase.startsWith('origin/') ? rawBase.slice('origin/'.length) : rawBase;
+      const prUrl = (
+        await this.gh(
+          [
+            'pr',
+            'create',
+            '--head',
+            branch,
+            '--base',
+            base || 'main',
+            '--title',
+            opts.title,
+            '--body',
+            opts.body,
+          ],
+          workspacePath
+        )
+      ).trim();
+
+      return Ok(prUrl.length > 0 ? { branch, prUrl } : { branch });
+    } catch (error) {
+      return Err(error instanceof Error ? error : new Error(String(error)));
+    }
+  }
+
+  /**
+   * IMPORTANT #1 helper — true iff a LOCAL branch `refs/heads/<branch>` exists.
+   * Used by {@link shipWorkspace} to pick `switch` vs `switch -c` so a resumed
+   * ship never errors on the branch its prior attempt already created. Reuses the
+   * {@link refExists} `rev-parse --verify --quiet` probe (exit-1 ⇒ absent). Never
+   * throws — an unexpected failure reports "absent" so the caller falls back to
+   * the create path (which surfaces any real error at `switch -c` time, guarded).
+   */
+  private async localBranchPresent(branch: string, cwd: string): Promise<boolean> {
+    return this.refExists(`refs/heads/${branch}`, cwd);
+  }
+
+  /**
+   * IMPORTANT #1 helper — the URL of an OPEN pull request whose head is `branch`,
+   * or `null` if none. Used by {@link shipWorkspace} to treat a pushed-branch +
+   * open-PR world as ALREADY SHIPPED (no duplicate PR). Queries `gh pr list --head
+   * <branch> --state open --json url`. A non-empty JSON array ⇒ a PR exists; its
+   * `url` (when parseable) is returned so the caller can surface it. Any failure
+   * (gh down/unauth) returns `null` (⇒ "no known PR"): the caller then RESUMES at
+   * `gh pr create`, which is itself guarded — so a transient gh error never strands.
+   */
+  private async openPrForBranch(branch: string, cwd: string): Promise<string | null> {
+    try {
+      const out = (
+        await this.gh(['pr', 'list', '--head', branch, '--state', 'open', '--json', 'url'], cwd)
+      ).trim();
+      if (!out) return null;
+      const parsed = JSON.parse(out) as Array<{ url?: string }>;
+      if (!Array.isArray(parsed) || parsed.length === 0) return null;
+      return parsed[0]?.url ?? '';
+    } catch {
+      return null;
     }
   }
 

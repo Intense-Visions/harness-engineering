@@ -2,7 +2,12 @@ import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import * as os from 'node:os';
-import { defaultLocalVerifyRunner, changedWorkspacePackages } from './orchestrator.js';
+import {
+  defaultLocalVerifyRunner,
+  defaultLocalAcceptanceRunner,
+  changedWorkspacePackages,
+  LOCAL_GATE_TIMEOUT_MS,
+} from './orchestrator.js';
 
 let tmp: string;
 beforeEach(() => {
@@ -47,6 +52,38 @@ describe('defaultLocalVerifyRunner (B4)', () => {
     // red, never a silent pass.
     expect(r.ok).toBe(false);
     expect(r.output).toContain('typecheck failed');
+  });
+});
+
+/**
+ * staged-verify-gate-convergence (S2) — the local settle gate's mechanical step is
+ * BOUNDED. An operator's hanging acceptance command (or a wedged verify script) must
+ * not hang `settleWorkflowSuccess`/the tick forever. A timeout is a gate FAIL, never
+ * a silent pass. The default bound is 10 minutes (`LOCAL_GATE_TIMEOUT_MS`); tests
+ * inject a tiny bound to prove the timeout→FAIL path fast.
+ */
+describe('defaultLocalAcceptanceRunner — bounded (S2)', () => {
+  it('a passing command → { ok:true }', async () => {
+    const r = await defaultLocalAcceptanceRunner(tmp, 'node -e "process.exit(0)"');
+    expect(r.ok).toBe(true);
+  });
+
+  it('a non-zero command → { ok:false } (the command IS the gate)', async () => {
+    const r = await defaultLocalAcceptanceRunner(tmp, 'node -e "process.exit(3)"');
+    expect(r.ok).toBe(false);
+    expect(r.output).toContain('acceptance command failed');
+  });
+
+  it('a HANGING command exceeding the bound is KILLED and FAILS (never hangs forever)', async () => {
+    // A command that sleeps far longer than the injected 150ms bound. The runner
+    // kills it and returns a TIMED OUT failure rather than deadlocking the settle.
+    const r = await defaultLocalAcceptanceRunner(tmp, 'node -e "setTimeout(()=>{}, 60000)"', 150);
+    expect(r.ok).toBe(false);
+    expect(r.output).toContain('TIMED OUT');
+  });
+
+  it('the production default bound is a sane wall-clock (10 minutes)', () => {
+    expect(LOCAL_GATE_TIMEOUT_MS).toBe(10 * 60 * 1000);
   });
 });
 
