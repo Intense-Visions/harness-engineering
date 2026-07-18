@@ -32,6 +32,20 @@ import type { ScoreUpdate } from '../pool/manager.js';
 import type { RecommendResult } from '../recommender/native.js';
 import { diffPoolAgainstRanking, type DedupPair } from '../proposals/engine.js';
 import type { ModelProposalContent } from '@harness-engineering/types';
+import {
+  scoreBuildQuality,
+  DEFAULT_HARNESS_FIT_TASKS,
+  type HarnessFitRunner,
+  type HarnessFitProbeTask,
+} from '../capability/harness-fit.js';
+import {
+  selectProbeTargets,
+  isProbeDue,
+  probeCacheKey,
+  type HarnessFitCacheStore,
+  type HarnessFitCacheEntry,
+  type ProbeCandidate,
+} from '../capability/probe-policy.js';
 
 /** Structural slice of `PoolManager` the tick pipeline drives. `PoolManager` satisfies it. */
 export interface RefreshTickPool {
@@ -69,6 +83,49 @@ export interface RefreshTickDeps {
    * model. Absent ⇒ no probing (capability stays unknown ⇒ fail-open in candidate selection).
    */
   probeToolCalling?: (ollamaName: string) => Promise<boolean | undefined>;
+  /**
+   * Optional harness-fit probe seam (D5). When present AND `config.enabled` AND
+   * the cadence is due, the tick probes the benchmark top-N (prefiltered), caches
+   * each `buildQuality` by model+version, and re-ranks with those signals threaded
+   * in so a narrate-only model sorts below an act-and-converge one. Absent ⇒ the
+   * tick behaves byte-identically to before (no probe). FAIL-OPEN throughout: any
+   * probe error leaves `buildQuality` undefined ⇒ no ranking effect, and the whole
+   * pass is wrapped so it can never break the refresh.
+   */
+  harnessFit?: HarnessFitProbeDeps;
+}
+
+/** Configuration + injected seams for the harness-fit probe pass (D5). */
+export interface HarnessFitProbeDeps {
+  /** Opt-in switch. `false` (or absent deps) ⇒ no probe ever runs. */
+  enabled: boolean;
+  /** Probe only the benchmark top-N of the ranked shortlist. Never the full set. */
+  topN: number;
+  /** Minimum ms between probe passes — the probe runs on a cadence, not every tick. */
+  intervalMs: number;
+  /** Cache freshness window in ms; a `buildQuality` older than this is re-probed. */
+  cacheTtlMs: number;
+  /** The injected single-dispatch runner (implemented in orchestrator/CLI, D3). */
+  runner: HarnessFitRunner;
+  /** The injected buildQuality cache store (disk/in-memory, D5). */
+  cache: HarnessFitCacheStore;
+  /** Persisted cadence state accessor — when the probe pass last ran. */
+  getLastProbeAt: () => Promise<number | undefined>;
+  /** Persist the cadence timestamp after a pass runs. */
+  setLastProbeAt: (at: number) => Promise<void>;
+  /**
+   * Re-rank with the freshly-probed `buildQuality` threaded in, keyed by the same
+   * {@link probeCacheKey}. Returns a re-ranked shortlist the tick then diffs +
+   * scores against. Absent-key ⇒ no buildQuality for that candidate (fail-open).
+   */
+  reRankWithBuildQuality: (
+    hardware: HardwareProfile,
+    buildQualityByKey: ReadonlyMap<string, number>
+  ) => Promise<RecommendResult>;
+  /** Probe task suite. Best-of-1 uses the FIRST task. Defaults to the shipped suite. */
+  tasks?: readonly HarnessFitProbeTask[];
+  /** Epoch-ms clock. Defaults to `Date.now`. */
+  now?: () => number;
 }
 
 /** Structured metrics for one tick — the body of the O1 log line. */
@@ -121,7 +178,16 @@ export async function runRefreshTick(deps: RefreshTickDeps): Promise<TickResult>
   }
 
   const rec = await tryStage('recommend', errors, () => deps.recommend(hardware));
-  const { ranked, snapshotLoaded, hfReachable, warnings } = recOutcome(rec);
+  const recFields = recOutcome(rec);
+  const { snapshotLoaded, hfReachable, warnings } = recFields;
+
+  // Harness-fit probe pass (D5): fail-open, cadence-gated, top-N-only. Replaces
+  // `ranked` with a buildQuality-threaded re-rank when a probe fired; otherwise a
+  // no-op returning the original shortlist. Wrapped so it can NEVER break the tick.
+  const ranked =
+    (await tryStage('harness-fit probe', errors, () =>
+      runHarnessFitProbe(deps, hardware, recFields.ranked)
+    )) ?? recFields.ranked;
 
   const reconcile = await tryStage('reconcile', errors, () => deps.poolManager.reconcile());
   const reconciledRemoved = (reconcile?.removed ?? []).map((e) => e.ollamaName);
@@ -173,6 +239,76 @@ function recOutcome(rec: RecommendResult | undefined): {
     hfReachable: rec?.hfReachable ?? false,
     warnings: [...(rec?.warnings ?? [])],
   };
+}
+
+/**
+ * The harness-fit probe pass (D5). Cadence-gated, top-N-only, cache-aware, and
+ * FAIL-OPEN end to end: it probes the benchmark leaders through the injected
+ * runner, maps each result to a `buildQuality`, caches it by model+version, and
+ * re-ranks with those signals threaded in so a narrate-only model sorts below an
+ * act-and-converge one at equal benchmark score.
+ *
+ * Returns the re-ranked shortlist when a probe pass ran, or the ORIGINAL
+ * `ranked` untouched when the probe is disabled/absent/not-due or nothing was
+ * probe-eligible. Any single-probe failure yields `buildQuality: undefined` (no
+ * effect); the caller additionally wraps THIS whole function so an unexpected
+ * throw still leaves the tick running on the pre-probe ranking.
+ */
+async function runHarnessFitProbe(
+  deps: RefreshTickDeps,
+  hardware: HardwareProfile,
+  ranked: RecommendResult['ranked']
+): Promise<RecommendResult['ranked']> {
+  const hf = deps.harnessFit;
+  if (hf === undefined || !hf.enabled) return ranked;
+
+  const now = (hf.now ?? Date.now)();
+  const lastProbeAt = await hf.getLastProbeAt();
+  if (!isProbeDue({ lastProbeAt }, { enabled: hf.enabled, intervalMs: hf.intervalMs, now })) {
+    return ranked;
+  }
+
+  // Select the probe targets from the benchmark leaders (cost gate + prefilter +
+  // cache). `RankedModel` structurally satisfies `ProbeCandidate`.
+  const targets = selectProbeTargets(ranked as readonly ProbeCandidate[], {
+    topN: hf.topN,
+    cache: hf.cache,
+    now,
+    cacheTtlMs: hf.cacheTtlMs,
+  });
+
+  // Mark the pass as run REGARDLESS of how many targets there were — the cadence
+  // is "we looked this interval", so an all-cached tick still resets the clock.
+  await hf.setLastProbeAt(now);
+  if (targets.length === 0) return ranked;
+
+  // Best-of-1 (D6): one contained task per candidate — the FIRST of the suite.
+  const task = (hf.tasks ?? DEFAULT_HARNESS_FIT_TASKS)[0];
+  if (task === undefined) return ranked;
+
+  const buildQualityByKey = new Map<string, number>();
+  for (const target of targets) {
+    const model = target.ollamaName ?? target.hfRepoId;
+    // The runner is fully guarded (D6), but wrap anyway so one throw can't abort
+    // the remaining probes; a failure ⇒ buildQuality undefined ⇒ no ranking effect.
+    let result;
+    try {
+      result = await hf.runner.runProbe(model, task);
+    } catch {
+      result = undefined;
+    }
+    const buildQuality = result === undefined ? undefined : scoreBuildQuality(result);
+    const key = probeCacheKey(target);
+    const entry: HarnessFitCacheEntry = { buildQuality, probedAt: now };
+    hf.cache.set(key, entry);
+    if (buildQuality !== undefined) buildQualityByKey.set(key, buildQuality);
+  }
+
+  // Thread the probed buildQuality into a fresh rank. If NOTHING scored (every
+  // probe fail-opened), skip the re-rank entirely — the pre-probe ranking stands.
+  if (buildQualityByKey.size === 0) return ranked;
+  const reRanked = await hf.reRankWithBuildQuality(hardware, buildQualityByKey);
+  return reRanked.ranked;
 }
 
 /**
