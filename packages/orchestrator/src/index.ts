@@ -41,6 +41,17 @@ export type { BackendRouterOptions } from './agent/backend-router';
 // `routing trace` dry-run and external consumers can derive tier + cost.
 export { AdaptiveRouter } from './agent/adaptive-router';
 export type { AdaptiveRouterDeps } from './agent/adaptive-router';
+// Harness-Fit Probe Phase 2 (D3): the injected I/O runner that implements
+// local-models' `HarnessFitRunner` interface — a single OllamaBackend dispatch in
+// a throwaway workspace, judged by the task's acceptance command, with
+// act-vs-narrate metrics from the recording stream. The composition root provides
+// this impl to local-models' probe policy (scheduler gating is Phase 3).
+export { HarnessFitProbeRunner } from './agent/harness-fit-runner';
+export type {
+  HarnessFitProbeRunnerDeps,
+  AcceptanceOutcome,
+  ProbeWorkspace,
+} from './agent/harness-fit-runner';
 // Roadmap Auto-Triage Phase 1: the orchestrator-side probe wiring (Issue→ProbeInput,
 // GraphScope seam, triageIssue). The pure probe/rank live in @harness-engineering/intelligence.
 export { buildProbeInput, makeGraphScope, triageIssue } from './agent/triage-wiring';

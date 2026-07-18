@@ -188,6 +188,76 @@ deterministic tool-calling probe plus a single timed agentic call to fill them, 
 fail-open). With both inputs absent, the primary `score` and ordering are
 byte-identical to before this dimension existed.
 
+### Harness-fit probe: the empirical `buildQuality` tier (opt-in)
+
+Benchmarks and the thin tool-calling/latency probe are **necessary but
+insufficient** for autonomous coding. A live 3-way head-to-head
+(`llama3.3:70b` vs `gpt-oss:20b` vs `qwen3.6:27b`) proved it: `llama3.3:70b`
+**passes** the tool-calling gate and is fast, yet it **narrated instead of
+acting** — one tool call, no artifact, the gate never went green — while the two
+smaller models **acted and converged** (explored the workspace, wrote real code).
+No benchmark score and no thin-probe signal predicted this; only running the real
+harness on a contained task surfaced the act-vs-narrate split.
+
+The **harness-fit probe** supplies that missing evidence. It is the empirical
+third tier of the agentic dimension: it runs a benchmark-shortlisted candidate
+through a small contained coding task **on the real harness**, judges convergence
+(the task's own acceptance command) plus act-vs-narrate metrics from the recording
+stream, and maps them to a coarse `buildQuality ∈ [0, 1]`:
+
+- **converged** → HIGH (~0.9–1.0), scaled down by retries-to-converge;
+- **acted-not-converged** (artifacts or ≥2 tool calls, gate still red) → MID (~0.4–0.6);
+- **narrated** (no artifact, ≤1 tool call — the `llama3.3:70b` mode) → LOW (~0.0–0.15).
+
+That number feeds the **existing** `buildQuality` slot in the `agenticScore`
+composition above — **no ranker-math change**. So at equal benchmark score, an
+act-and-converge model out-ranks a narrate-only one for autonomous dispatch, while
+the default (non-agentic) `score` ordering is untouched.
+
+**Source of truth (D3).** `local-models` owns the **pure** parts — the
+`buildQuality` mapping (`scoreBuildQuality`), the cost-gating policy
+(`capability/probe-policy.ts`), and the `HarnessFitRunner` interface. The concrete
+runner — a single dispatch through an Ollama backend + a throwaway workspace + the
+acceptance gate — is implemented in the orchestrator and injected at the
+composition root, so `local-models` never depends on the orchestrator.
+
+**Cost gating (D4/D5).** A probe is expensive (pull + run), so it is **opt-in and
+bounded**:
+
+- **opt-in** — `localModels.harnessFit.enabled` is `false` by default; disabled,
+  the ranking is byte-identical to the benchmark+heuristic rank.
+- **top-N only** — only the benchmark **top-N** of the ranked shortlist are probed
+  (default 3). The full discovered set is **never** probed.
+- **cadence** — the probe runs on a cadence (a due-check on the last-probe
+  timestamp + `cadenceMs`), not on every discovery refresh.
+- **cache** — each `buildQuality` is cached keyed by **model+version** (stable
+  until a new release); a fresh cache entry within `cacheTtlMs` is not re-probed.
+- **prefilter** — candidates that don't VRAM-fit or that confirmed `toolCalling:
+false` are skipped (already agentically ineligible — a probe is wasted).
+- **fail-open** — any probe error/timeout/pull-failure leaves `buildQuality`
+  undefined → no ranking effect; the pool is never blocked.
+
+**Adopter-portable task suite.** The shipped probe tasks (`DEFAULT_HARNESS_FIT_TASKS`)
+are self-describing — each carries its own prompt and **acceptance command** and
+seeds only Node built-ins, so a probe runs against a throwaway workspace in **any**
+adopter project, not just this monorepo. Operators may override the suite via
+`localModels.harnessFit.taskIds`.
+
+Enable it under the `localModels` block:
+
+```yaml
+localModels:
+  enabled: true
+  harnessFit:
+    enabled: false # opt-in; default off — no probe runs, ranking unchanged
+    topN: 3 # probe only the benchmark top-N; never the full set
+    cadenceMs: 604800000 # 7d — the probe runs on a cadence, not every refresh
+    cacheTtlMs: 2592000000 # 30d — buildQuality cached by model+version
+    # taskIds: ['pure-fn', 'bugfix']  # optional probe-suite override
+```
+
+See [ADR 0081](../knowledge/decisions/0081-harness-fit-probe-benchmarks-prefilter-harness-judges.md).
+
 ## Known limitations (read before relying on autonomy)
 
 These are current, deliberate boundaries in v1. None of them block the manual
@@ -225,7 +295,20 @@ workflow; they scope what "autonomy" means today.
 - [ADR 0062: Pool-bounded autonomy with Ollama-first installation](../knowledge/decisions/0062-pool-bounded-autonomy-and-ollama-first-install.md)
 - [ADR 0064: Task-aware, self-correcting consumption of pooled local models](../knowledge/decisions/0064-lmlm-task-aware-pool-consumption.md)
 - [ADR 0058: Generalize SkillProposalSchema into a discriminated ProposalSchema](../knowledge/decisions/0058-generalize-skill-proposal-into-discriminated-proposal.md)
+- [ADR 0077: Discovery is a wide net; the benchmark ranker judges](../knowledge/decisions/0077-discovery-is-a-wide-net-ranker-judges.md)
+- [ADR 0081: Harness-fit probe — benchmarks pre-filter, the harness judges agentic fitness](../knowledge/decisions/0081-harness-fit-probe-benchmarks-prefilter-harness-judges.md)
 - [ADR 0059: Background refresh scheduler and silent drift reconciliation](../knowledge/decisions/0059-background-scheduler-and-silent-drift-reconciliation.md)
 - [ADR 0060: LMLM operator surfaces and dispatch-safe eviction](../knowledge/decisions/0060-lmlm-operator-surfaces-and-dispatch-safe-eviction.md)
 - [Local Model Lifecycle](../knowledge/orchestrator/local-model-lifecycle.md) — the domain knowledge doc.
 - [Multi-Backend Routing](./multi-backend-routing.md) — opting a backend into LMLM.
+
+### Harness-fit probe — implementation modules
+
+The probe is composed of these modules (pure policy/scoring in `local-models`, the
+injected I/O runner in `orchestrator`):
+
+- [`harness-fit.ts`](../../packages/local-models/src/capability/harness-fit.ts) — pure `scoreBuildQuality`, the `HarnessFitRunner` interface, and the portable default task suite.
+- [`probe-policy.ts`](../../packages/local-models/src/capability/probe-policy.ts) — cost-gating policy (top-N, cadence, cache freshness, prefilter).
+- [`harness-fit-rerank.ts`](../../packages/local-models/src/capability/harness-fit-rerank.ts) — threads probed `buildQuality` into a ranker re-rank.
+- [`harness-fit-cache-store.ts`](../../packages/local-models/src/capability/harness-fit-cache-store.ts) — persistent `buildQuality` cache + cadence timestamp.
+- [`harness-fit-runner.ts`](../../packages/orchestrator/src/agent/harness-fit-runner.ts) — the injected single-dispatch probe runner (orchestrator).

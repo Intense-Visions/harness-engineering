@@ -67,6 +67,9 @@ import {
   selectCandidates,
   curationFromCandidates,
   probeToolCalling,
+  createBuildQualityReRanker,
+  HarnessFitCacheFileStore,
+  DEFAULT_HARNESS_FIT_TASKS,
 } from '@harness-engineering/local-models';
 import type {
   PoolStateProvider,
@@ -78,7 +81,11 @@ import type {
   FrozenCandidate,
   DiscoverCandidatesOptions,
   DiscoverCandidatesResult,
+  HarnessFitProbeDeps,
+  RankerCandidate,
+  HarnessFitProbeTask,
 } from '@harness-engineering/local-models';
+import { HarnessFitProbeRunner } from './agent/harness-fit-runner';
 import { createModelProposal, listProposals, updateProposal } from '@harness-engineering/core';
 import { redriveInstallingProposals } from './proposals/model-handlers';
 import type { ModelProposalRecord } from '@harness-engineering/types';
@@ -147,6 +154,23 @@ import type {
 } from './maintenance/task-runner';
 import { resolveOrchestratorId } from './core/orchestrator-identity';
 import { StreamRecorder } from './core/stream-recorder';
+
+/**
+ * Resolve a `harnessFit.taskIds` override into the concrete probe task suite (D5
+ * config→deps translation). Ids are matched against the shipped
+ * {@link DEFAULT_HARNESS_FIT_TASKS}; unknown ids are dropped (advisory). An absent or
+ * empty selection returns `undefined` so the scheduler falls back to the default suite.
+ */
+function resolveHarnessFitTasks(
+  taskIds: readonly string[] | undefined
+): readonly HarnessFitProbeTask[] | undefined {
+  if (taskIds === undefined || taskIds.length === 0) return undefined;
+  const byId = new Map(DEFAULT_HARNESS_FIT_TASKS.map((t) => [t.id, t]));
+  const resolved = taskIds
+    .map((id) => byId.get(id))
+    .filter((t): t is HarnessFitProbeTask => t !== undefined);
+  return resolved.length > 0 ? resolved : undefined;
+}
 
 /**
  * Derives the worktree seed paths from a workflow config when
@@ -636,6 +660,12 @@ export class Orchestrator extends EventEmitter {
    * see the Phase 2 candidate-parser gap noted on `startRefreshScheduler`.
    */
   private modelRecommender: ReturnType<typeof createNativeRecommender> | null = null;
+  /**
+   * The candidate set the current `modelRecommender` was seeded over. Held so the
+   * harness-fit probe's `reRankWithBuildQuality` can re-run the SAME ranking path over
+   * these candidates augmented with probed `buildQuality` (harness-fit-probe D5).
+   */
+  private recommenderCandidates: readonly RankerCandidate[] = [];
   /** Live HF candidate discovery (injectable for tests so startup makes no network calls). */
   private readonly discoverCandidatesFn: (
     opts: DiscoverCandidatesOptions
@@ -4035,6 +4065,9 @@ export class Orchestrator extends EventEmitter {
         break;
       }
     }
+    // Harness-fit probe deps (D5): built ONCE and passed to every tick. `undefined`
+    // when the probe is disabled/absent so the tick path is byte-identical to before.
+    const harnessFitDeps = this.buildHarnessFitDeps(localEndpoint, localApiKey);
     this.refreshScheduler = new RefreshScheduler({
       runTick: () =>
         runRefreshTick({
@@ -4065,6 +4098,9 @@ export class Orchestrator extends EventEmitter {
                   }),
               }
             : {}),
+          // Harness-fit probe (D5): only wired when `localModels.harnessFit.enabled`.
+          // Absent ⇒ `runRefreshTick` takes the byte-identical no-probe path.
+          ...(harnessFitDeps !== undefined ? { harnessFit: harnessFitDeps } : {}),
         }).then((result) => {
           // S1 drain liveness (P7-SUG-DRAIN-LIVENESS): run completion is the
           // primary drain trigger, but if the final run's evict fails
@@ -4084,9 +4120,73 @@ export class Orchestrator extends EventEmitter {
     this.refreshScheduler.start();
   }
 
+  /**
+   * Build the harness-fit probe deps bundle (harness-fit-probe D5, Task 3) — the
+   * composition-root wiring that makes the probe actually FIRE when enabled. Returns
+   * `undefined` (⇒ no probe; byte-identical prior tick behaviour) UNLESS
+   * `config.localModels.harnessFit.enabled` is true.
+   *
+   * When enabled it constructs the three injected seams the pure policy needs:
+   *   - `runner`  — a {@link HarnessFitProbeRunner} (orchestrator-owned; local-models
+   *     keeps only the interface), pointed at the discovered local endpoint.
+   *   - `cache` + `getLastProbeAt`/`setLastProbeAt` — a persistent
+   *     {@link HarnessFitCacheFileStore} under `~/.harness/local-models/` (buildQuality
+   *     cache AND cadence timestamp), mirroring the pool state store.
+   *   - `reRankWithBuildQuality` — a {@link createBuildQualityReRanker} binding that
+   *     re-runs the SAME ranker over the held candidate set with probed buildQuality
+   *     threaded in (no ranker-math duplication).
+   *
+   * It also does the config→deps field translation the reviewer flagged:
+   * `cadenceMs → intervalMs`, `taskIds → tasks`, plus `cacheTtlMs`/`topN` pass-through.
+   */
+  private buildHarnessFitDeps(
+    localEndpoint: string | undefined,
+    localApiKey: string | undefined
+  ): HarnessFitProbeDeps | undefined {
+    const cfg = this.config.localModels?.harnessFit;
+    if (cfg === undefined || cfg.enabled !== true) return undefined;
+
+    const runner = new HarnessFitProbeRunner({
+      ...(localEndpoint !== undefined ? { endpoint: localEndpoint } : {}),
+    });
+    void localApiKey; // reserved: the ollama probe endpoint is unauthenticated today
+
+    const cache = new HarnessFitCacheFileStore({
+      onWarn: (message, cause) =>
+        this.logger.warn(message, cause !== undefined ? { cause } : undefined),
+    });
+
+    // Re-rank binding: re-run the recommender over the HELD candidate set (augmented
+    // with buildQuality inside the re-ranker), reusing the whole existing rank algorithm.
+    const reRankWithBuildQuality = createBuildQualityReRanker(
+      this.recommenderCandidates,
+      (augmented) => createNativeRecommender({ candidates: augmented })
+    );
+
+    // config→deps field translation (reviewer-flagged): cadenceMs→intervalMs,
+    // taskIds→tasks (resolved against the shipped default suite), topN/cacheTtlMs pass-through.
+    const tasks = resolveHarnessFitTasks(cfg.taskIds);
+
+    return {
+      enabled: true,
+      topN: cfg.topN,
+      intervalMs: cfg.cadenceMs,
+      cacheTtlMs: cfg.cacheTtlMs,
+      runner,
+      cache,
+      getLastProbeAt: () => cache.getLastProbeAt(),
+      setLastProbeAt: (at) => cache.setLastProbeAt(at),
+      reRankWithBuildQuality,
+      ...(tasks !== undefined ? { tasks } : {}),
+    };
+  }
+
   /** (Re)build the recommender over `candidates` and record the seeding source. */
   private seedRecommender(candidates: readonly FrozenCandidate[], source: 'frozen' | 'live'): void {
     this.modelRecommender = createNativeRecommender({ candidates });
+    // Hold the candidate set so the harness-fit re-rank can re-run the SAME ranking
+    // path over it with probed buildQuality threaded in (harness-fit-probe D5).
+    this.recommenderCandidates = candidates;
     this.candidateSourceState = { source, count: candidates.length };
   }
 

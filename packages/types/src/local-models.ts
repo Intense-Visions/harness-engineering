@@ -68,6 +68,47 @@ export interface LocalModelsInstallerConfig {
 }
 
 /**
+ * Harness-fit probe configuration (D5, harness-fit-probe proposal). The probe
+ * runs a benchmark-shortlisted candidate through a small contained coding task on
+ * the REAL harness, judges whether it converges + acts-vs-narrates, and emits a
+ * `buildQuality ∈ [0, 1]` that sharpens the agentic ranking. It is EXPENSIVE
+ * (pull + single-dispatch), so it is cost-gated: opt-in, benchmark-top-N only,
+ * cadence-limited, and cached by model+version. FAIL-OPEN — a probe error leaves
+ * `buildQuality` undefined ⇒ no ranking effect.
+ *
+ * @see docs/changes/harness-fit-probe/proposal.md (D5, D6, SC4)
+ */
+export interface LocalModelsHarnessFitConfig {
+  /**
+   * Opt-in switch. Default `false` (harness-fit-probe D5): when false, no probe
+   * ever runs and the ranking is byte-identical to the benchmark+heuristic rank.
+   */
+  enabled: boolean;
+  /**
+   * Probe only the benchmark top-N of the ranked shortlist — NEVER the full
+   * discovered set. Default 3 (spec N≈3–5).
+   */
+  topN: number;
+  /**
+   * Minimum ms between probe passes. The probe runs on a cadence, not every
+   * discovery refresh. Default 604_800_000 (7d).
+   */
+  cadenceMs: number;
+  /**
+   * Cache freshness window in ms — a `buildQuality` older than this is re-probed.
+   * Keyed by model+version, so a release is stable within the window. Default
+   * 2_592_000_000 (30d).
+   */
+  cacheTtlMs: number;
+  /**
+   * Optional probe-task-suite override (ids of the shipped `DEFAULT_HARNESS_FIT_TASKS`,
+   * or operator-supplied tasks resolved at the composition root). Empty ⇒ the
+   * shipped default suite.
+   */
+  taskIds?: string[];
+}
+
+/**
  * Top-level config block for LMLM. Lives under `localModels` on the root
  * harness config. Opt-in (`enabled: false` by default) preserves today's
  * behavior — disabling LMLM is byte-identical to the prior orchestrator.
@@ -78,6 +119,12 @@ export interface LocalModelsConfig {
   pool: LocalModelsPoolConfig;
   refresh: LocalModelsRefreshConfig;
   installer: LocalModelsInstallerConfig;
+  /**
+   * Harness-fit probe (D5, harness-fit-probe proposal). Optional + disabled by
+   * default; when absent or `enabled: false`, the empirical `buildQuality` signal
+   * is never fed and the ranking is byte-identical to the benchmark rank.
+   */
+  harnessFit?: LocalModelsHarnessFitConfig;
   hardware?: {
     /** Manual override that skips autodetection (D7 fallback path). */
     override?: LocalModelsHardwareOverride;

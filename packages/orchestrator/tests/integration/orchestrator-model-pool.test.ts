@@ -521,6 +521,127 @@ describe('Orchestrator LMLM Phase 7 — pool bounds seed from config (D1/D2)', (
   });
 });
 
+/** Structural access to the private `buildHarnessFitDeps`, bound to `orch`. */
+function buildHarnessFitDepsOf(
+  orch: Orchestrator
+): (endpoint: string | undefined, apiKey: string | undefined) => unknown {
+  return (
+    orch as unknown as {
+      buildHarnessFitDeps(e: string | undefined, k: string | undefined): unknown;
+    }
+  ).buildHarnessFitDeps.bind(orch);
+}
+
+/** A localModels config with the harness-fit probe explicitly enabled + tuned. */
+function localModelsWithHarnessFit(
+  overrides: Partial<{
+    enabled: boolean;
+    topN: number;
+    cadenceMs: number;
+    cacheTtlMs: number;
+    taskIds: string[];
+  }> = {}
+): LocalModelsConfig {
+  return {
+    ...localModelsWithHardware(),
+    harnessFit: {
+      enabled: true,
+      topN: 3,
+      cadenceMs: 604_800_000,
+      cacheTtlMs: 2_592_000_000,
+      ...overrides,
+    },
+  };
+}
+
+describe('Orchestrator harness-fit probe — composition-root wiring (D5, Task 3)', () => {
+  it('builds + passes a harnessFit deps bundle to the tick when enabled', async () => {
+    const orch = new Orchestrator(makeConfig(localModelsWithHarnessFit()), 'Prompt', {
+      tracker: makeMockTracker(),
+      backend: new MockBackend(),
+      execFileFn: noopExecFile,
+      schedulerTimer: noopTimer,
+    });
+    await initPipeline(orch);
+
+    const deps = buildHarnessFitDepsOf(orch)('http://127.0.0.1:11434/v1', undefined) as
+      | {
+          enabled: boolean;
+          topN: number;
+          intervalMs: number;
+          cacheTtlMs: number;
+          runner: unknown;
+          cache: unknown;
+          getLastProbeAt: () => Promise<number | undefined>;
+          setLastProbeAt: (at: number) => Promise<void>;
+          reRankWithBuildQuality: unknown;
+        }
+      | undefined;
+
+    expect(deps).toBeDefined();
+    expect(deps!.enabled).toBe(true);
+    // config→deps field translation: cadenceMs → intervalMs, topN + cacheTtlMs pass-through.
+    expect(deps!.intervalMs).toBe(604_800_000);
+    expect(deps!.topN).toBe(3);
+    expect(deps!.cacheTtlMs).toBe(2_592_000_000);
+    // All three injected seams present.
+    expect(deps!.runner).toBeTruthy();
+    expect(deps!.cache).toBeTruthy();
+    expect(typeof deps!.reRankWithBuildQuality).toBe('function');
+    // Cadence persistence round-trips through the injected store.
+    expect(await deps!.getLastProbeAt()).toBeUndefined();
+
+    await orch.stop();
+  });
+
+  it('passes NO harnessFit deps when the probe is disabled (byte-identical prior behaviour)', async () => {
+    const orch = new Orchestrator(
+      makeConfig(localModelsWithHarnessFit({ enabled: false })),
+      'Prompt',
+      {
+        tracker: makeMockTracker(),
+        backend: new MockBackend(),
+        execFileFn: noopExecFile,
+        schedulerTimer: noopTimer,
+      }
+    );
+    await initPipeline(orch);
+    expect(buildHarnessFitDepsOf(orch)('http://127.0.0.1:11434/v1', undefined)).toBeUndefined();
+    await orch.stop();
+  });
+
+  it('passes NO harnessFit deps when harnessFit is absent from config', async () => {
+    const orch = new Orchestrator(makeConfig(localModelsWithHardware()), 'Prompt', {
+      tracker: makeMockTracker(),
+      backend: new MockBackend(),
+      execFileFn: noopExecFile,
+      schedulerTimer: noopTimer,
+    });
+    await initPipeline(orch);
+    expect(buildHarnessFitDepsOf(orch)(undefined, undefined)).toBeUndefined();
+    await orch.stop();
+  });
+
+  it('translates taskIds → the resolved default task suite', async () => {
+    const orch = new Orchestrator(
+      makeConfig(localModelsWithHarnessFit({ taskIds: ['bugfix'] })),
+      'Prompt',
+      {
+        tracker: makeMockTracker(),
+        backend: new MockBackend(),
+        execFileFn: noopExecFile,
+        schedulerTimer: noopTimer,
+      }
+    );
+    await initPipeline(orch);
+    const deps = buildHarnessFitDepsOf(orch)('http://127.0.0.1:11434/v1', undefined) as {
+      tasks?: Array<{ id: string }>;
+    };
+    expect(deps.tasks?.map((t) => t.id)).toEqual(['bugfix']);
+    await orch.stop();
+  });
+});
+
 describe('Orchestrator LMLM Phase 7 — drain liveness on refresh tick (P7-SUG-DRAIN-LIVENESS)', () => {
   it('evicts a model left pendingEviction (failed drain) on the next scheduler tick', async () => {
     const orch = new Orchestrator(makeConfig(localModelsWithHardware()), 'Prompt', {

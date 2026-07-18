@@ -726,12 +726,36 @@ export const LocalModelsInstallerConfigSchema = z.object({
   ollamaEndpoint: z.string().url().default('http://localhost:11434'),
 });
 
+/**
+ * Harness-fit probe (D5, harness-fit-probe proposal). Opt-in + cost-gated: probe
+ * only the benchmark top-N, on a cadence, cached by model+version. Every field
+ * must live here AND on {@link LocalModelsHarnessFitConfig} — a field that exists
+ * only on the TS type is silently STRIPPED by this schema at parse time (the
+ * strict-Zod trap), so the runtime never sees it.
+ *
+ * @see docs/changes/harness-fit-probe/proposal.md (D5)
+ */
+export const LocalModelsHarnessFitConfigSchema = z.object({
+  /** Opt-in switch. Default false (D5) — no probe runs; ranking is unchanged. */
+  enabled: z.boolean().default(false),
+  /** Probe only the benchmark top-N of the shortlist, never the full set. Default 3. */
+  topN: z.number().int().positive().default(3),
+  /** Minimum ms between probe passes (cadence, not every refresh). Default 7d. */
+  cadenceMs: z.number().int().positive().default(604_800_000),
+  /** Cache freshness window in ms; older `buildQuality` is re-probed. Default 30d. */
+  cacheTtlMs: z.number().int().positive().default(2_592_000_000),
+  /** Optional probe-task-suite override by id; empty ⇒ the shipped default suite. */
+  taskIds: z.array(z.string()).optional(),
+});
+
 export const LocalModelsConfigSchema = z.object({
   /** Opt-in switch. Default false preserves today's behavior. */
   enabled: z.boolean().default(false),
   pool: LocalModelsPoolConfigSchema.default({}),
   refresh: LocalModelsRefreshConfigSchema.default({}),
   installer: LocalModelsInstallerConfigSchema.default({}),
+  /** Harness-fit probe (D5). Optional + disabled by default; absent ⇒ no probe. */
+  harnessFit: LocalModelsHarnessFitConfigSchema.optional(),
   hardware: z
     .object({
       /** Manual override that skips autodetection (D7 fallback path). */
