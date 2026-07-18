@@ -368,6 +368,15 @@ export class Orchestrator extends EventEmitter {
   private workspace: WorkspaceManager;
   private hooks: WorkspaceHooks;
   /**
+   * Identifiers this process has already provisioned a worktree for since
+   * startup (D1). A re-dispatch of an identifier in this set is a within-run
+   * retry → `ensureWorkspace` preserves the existing worktree (keeping the
+   * agent's uncommitted partial progress). The set is per-process and reset
+   * only by process lifetime, so after a restart it is empty and the first
+   * dispatch of any leftover worktree wipes it — anti-stale guarantee intact.
+   */
+  #dispatchedThisRun = new Set<string>();
+  /**
    * Spec 2 SC30 / Task 11: per-dispatch backend factory replaces the
    * Phase 1 `runner` / `localRunner` two-runner split. Each
    * `dispatchIssue()` call asks the factory for a `RoutingUseCase`-routed
@@ -2068,6 +2077,14 @@ export class Orchestrator extends EventEmitter {
   /**
    * Dispatches a new agent to work on an issue.
    *
+   * Within-run retries reuse the worktree: the first dispatch of an
+   * identifier in a given process provisions a fresh worktree, and any later
+   * dispatch of the SAME identifier within that run preserves it (via
+   * {@link WorkspaceManager.ensureWorkspace}'s `preserve` option) so the
+   * agent's uncommitted partial progress survives the retry. A restart
+   * (empty {@link #dispatchedThisRun}) wipes and recreates on first dispatch.
+   * `afterCreate` runs only on the fresh-create dispatch (D3), never on reuse.
+   *
    * @param issue - The issue to resolve
    * @param attempt - The retry attempt number
    */
@@ -2085,17 +2102,25 @@ export class Orchestrator extends EventEmitter {
     await this.persistLaneSafe(issue.id, 'dispatch');
 
     try {
-      // 1. Ensure workspace
-      const workspaceResult = await this.workspace.ensureWorkspace(issue.identifier);
+      // 1. Ensure workspace. A prior dispatch of this identifier in this run
+      // ⇒ preserve the existing worktree (within-run retry keeps partial
+      // progress); a fresh/first dispatch (or post-restart empty set) wipes
+      // and recreates from the base ref (anti-stale). (D1)
+      const preserve = this.#dispatchedThisRun.has(issue.identifier);
+      const workspaceResult = await this.workspace.ensureWorkspace(issue.identifier, { preserve });
       if (!workspaceResult.ok) throw workspaceResult.error;
-      const workspacePath = workspaceResult.value;
+      const { path: workspacePath, reused } = workspaceResult.value;
 
-      // 1b. Run afterCreate hook (workspace just created/recreated)
-      const afterCreateResult = await this.hooks.afterCreate(workspacePath);
-      if (!afterCreateResult.ok) {
-        this.logger.warn(
-          `afterCreate hook failed for ${issue.identifier}: ${afterCreateResult.error.message}`
-        );
+      // 1b. Run afterCreate hook — only when the workspace was actually
+      // (re)created, never on a preserved reuse (re-seeding would clobber the
+      // agent's in-progress artifacts). (D3)
+      if (!reused) {
+        const afterCreateResult = await this.hooks.afterCreate(workspacePath);
+        if (!afterCreateResult.ok) {
+          this.logger.warn(
+            `afterCreate hook failed for ${issue.identifier}: ${afterCreateResult.error.message}`
+          );
+        }
       }
 
       // 2. Run hooks (might generate/modify config files)
@@ -2123,6 +2148,12 @@ export class Orchestrator extends EventEmitter {
         );
         return;
       }
+
+      // Mark this unit as provisioned in this run ONLY after it clears the
+      // high-severity config-scan gate — a dispatch that aborts above stays a
+      // "fresh" dispatch, so its next attempt wipes and recreates from base
+      // rather than reusing an un-vetted worktree. (D1, review follow-up)
+      this.#dispatchedThisRun.add(issue.identifier);
 
       if (scanResult.exitCode === 1) {
         // Medium-severity findings — taint session, continue

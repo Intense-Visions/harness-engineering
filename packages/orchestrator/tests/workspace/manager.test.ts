@@ -53,7 +53,8 @@ describe('WorkspaceManager', () => {
     const result = await manager.ensureWorkspace('test-issue');
     expect(result.ok).toBe(true);
     if (result.ok) {
-      expect(result.value).toBe(path.resolve('/tmp/workspaces', 'test-issue'));
+      expect(result.value.path).toBe(path.resolve('/tmp/workspaces', 'test-issue'));
+      expect(result.value.reused).toBe(false);
     }
 
     // Should have called git worktree add
@@ -211,6 +212,95 @@ describe('WorkspaceManager', () => {
       // this test is purely that no exception escaped from the (absent)
       // emitter path.
       expect(worktreeAddRef(manager)).toBe('HEAD');
+    });
+  });
+
+  describe('reuse-on-retry (preserve option)', () => {
+    it('SC1: preserve + existing valid worktree → reuses untouched (no remove/add/seed)', async () => {
+      // A valid worktree exists: the .git access check resolves.
+      vi.mocked(fs.access).mockResolvedValue(undefined);
+      vi.mocked(fs.cp).mockResolvedValue(undefined);
+      manager.setGitImpl((args) => {
+        if (args[0] === 'rev-parse' && args[1] === '--show-toplevel') return '/repo\n';
+        if (args[0] === 'symbolic-ref') return 'origin/main\n';
+        return '';
+      });
+
+      const result = await manager.ensureWorkspace('test-issue', { preserve: true });
+      expect(result.ok).toBe(true);
+      if (result.ok) {
+        expect(result.value.path).toBe(path.resolve('/tmp/workspaces', 'test-issue'));
+        expect(result.value.reused).toBe(true);
+      }
+
+      // The existing worktree must NOT be removed or recreated.
+      const removeCall = manager.gitCalls.find(
+        (c) => c.args[0] === 'worktree' && c.args[1] === 'remove'
+      );
+      const addCall = manager.gitCalls.find((c) => c.args[0] === 'worktree' && c.args[1] === 'add');
+      expect(removeCall).toBeUndefined();
+      expect(addCall).toBeUndefined();
+      // seedWorkspace must not copy anything on the reuse path.
+      expect(fs.cp).not.toHaveBeenCalled();
+    });
+
+    it('SC2: no opts → current remove→add→seed flow runs, reused: false', async () => {
+      // Existing worktree (.git resolves once), then gone after removal so the
+      // recreate path proceeds — mirrors the stale-recreate regression test.
+      let gitCheckCount = 0;
+      vi.mocked(fs.access).mockImplementation(async (p) => {
+        const pathStr = String(p).replaceAll('\\', '/');
+        if (pathStr.endsWith('.git')) {
+          gitCheckCount++;
+          if (gitCheckCount === 1) return undefined; // exists initially
+          throw new Error('ENOENT'); // gone after removal
+        }
+        if (pathStr.startsWith('/repo/')) return undefined; // seed sources exist
+        throw new Error('ENOENT');
+      });
+      vi.mocked(fs.cp).mockResolvedValue(undefined);
+      manager.setGitImpl((args) => {
+        if (args[0] === 'rev-parse' && args[1] === '--show-toplevel') return '/repo\n';
+        if (args[0] === 'symbolic-ref') return 'origin/main\n';
+        return '';
+      });
+
+      const result = await manager.ensureWorkspace('test-issue');
+      expect(result.ok).toBe(true);
+      if (result.ok) {
+        expect(result.value.reused).toBe(false);
+      }
+
+      // Full remove→add→seed flow must have run.
+      expect(
+        manager.gitCalls.find((c) => c.args[0] === 'worktree' && c.args[1] === 'remove')
+      ).toBeDefined();
+      expect(
+        manager.gitCalls.find((c) => c.args[0] === 'worktree' && c.args[1] === 'add')
+      ).toBeDefined();
+      expect(fs.cp).toHaveBeenCalled();
+    });
+
+    it('SC3: preserve but NO existing worktree (.git throws) → falls through to fresh create, reused: false', async () => {
+      // No .git marker anywhere, no stale dir → fresh create path (anti-stale).
+      vi.mocked(fs.access).mockRejectedValue(new Error('ENOENT'));
+      vi.mocked(fs.cp).mockResolvedValue(undefined);
+      manager.setGitImpl((args) => {
+        if (args[0] === 'rev-parse' && args[1] === '--show-toplevel') return '/repo\n';
+        if (args[0] === 'symbolic-ref') return 'origin/main\n';
+        return '';
+      });
+
+      const result = await manager.ensureWorkspace('test-issue', { preserve: true });
+      expect(result.ok).toBe(true);
+      if (result.ok) {
+        expect(result.value.reused).toBe(false);
+      }
+
+      // A fresh worktree was created from the base ref.
+      const addCall = manager.gitCalls.find((c) => c.args[0] === 'worktree' && c.args[1] === 'add');
+      expect(addCall).toBeDefined();
+      expect(addCall!.args).toContain('--detach');
     });
   });
 
