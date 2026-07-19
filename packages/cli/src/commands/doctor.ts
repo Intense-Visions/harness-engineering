@@ -384,7 +384,7 @@ const BASELINE_FILES: BaselineDefinition[] = [
   {
     relativePath: '.harness/arch/baselines.json',
     displayName: 'architecture baselines',
-    fix: 'Run: harness check-arch --update',
+    fix: 'Run: harness check-arch --update-baseline',
   },
   {
     relativePath: 'benchmark-baselines.json',
