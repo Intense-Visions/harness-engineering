@@ -46,6 +46,12 @@ export const testCraftDefinition = {
         type: 'boolean',
         description: 'Resolve source file under test for richer prompt context (default: true)',
       },
+      emitTo: {
+        type: 'string',
+        description:
+          'Write a machine-readable per-test verdict report (JSON) to this path so downstream ' +
+          'tooling can consume the findings; relative paths resolve against the project root',
+      },
     },
     required: ['path'],
   },
