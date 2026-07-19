@@ -137,6 +137,32 @@ describe('buildWorkflowContext — real seams (SC1/carry-forward)', () => {
     expect(backend.name).toBe('mock');
   });
 
+  // stageDecisionFor is the identity-path fix: without it, a fully-local (no-AMR)
+  // staged unit's `run.decision` stays unset, so settleWorkflowSuccess cannot derive
+  // `isLocal` and SKIPS the gate+ship → the unit completes but never ships and loops.
+  it('stageDecisionFor(step, backend) synthesizes a decision carrying the resolved backend name + type', () => {
+    const ctx = buildWorkflowContext(
+      baseDeps({
+        backends: { local: { type: 'ollama', endpoint: 'http://x', model: ['m'] } } as never,
+      })
+    );
+    const decision = ctx.stageDecisionFor?.(step, { name: 'local' } as AgentBackend);
+    // backendName is load-bearing — settleWorkflowSuccess reads exactly this to
+    // look up the def and check isLocalEndpointBackend.
+    expect(decision?.backendName).toBe('local');
+    expect(decision?.backendType).toBe('ollama');
+  });
+
+  it('stageDecisionFor returns undefined for a backend absent from the backends map (legacy byte-identical)', () => {
+    const ctx = buildWorkflowContext(baseDeps({ backends: {} as never }));
+    expect(ctx.stageDecisionFor?.(step, { name: 'nope' } as AgentBackend)).toBeUndefined();
+  });
+
+  it('stageDecisionFor returns undefined when no backends map is provided (fake/legacy context)', () => {
+    const ctx = buildWorkflowContext(baseDeps());
+    expect(ctx.stageDecisionFor?.(step, { name: 'local' } as AgentBackend)).toBeUndefined();
+  });
+
   it('resolveStageBackend(step) falls back to the routingDefault name when factory is null', () => {
     const ctx = buildWorkflowContext(
       baseDeps({ backendFactory: null as never, routingDefault: 'my-default' })

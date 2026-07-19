@@ -2,7 +2,7 @@
 
 # Skills Catalog
 
-764 skills across 3 tiers. Tier 1 and 2 skills are registered as slash commands. Tier 3 skills are discoverable via the `search_skills` MCP tool. See the [Features Overview](../guides/features-overview.md) for narrative documentation.
+765 skills across 3 tiers. Tier 1 and 2 skills are registered as slash commands. Tier 3 skills are discoverable via the `search_skills` MCP tool. See the [Features Overview](../guides/features-overview.md) for narrative documentation.
 
 ## Tier 1 — Workflow (15 skills)
 
@@ -151,7 +151,7 @@ Upstream client-inception skill. Ingests a diagram + client conversation notes, 
 - **Cognitive mode:** configuration-interviewer
 - **Depends on:** harness-strategy, harness-brainstorming
 
-## Tier 2 — Maintenance (46 skills)
+## Tier 2 — Maintenance (47 skills)
 
 ### acceptance-eval
 
@@ -247,6 +247,16 @@ Interactive architecture advisor that surfaces trade-offs and helps humans choos
 - **Platforms:** claude-code, gemini-cli, cursor, codex
 - **Type:** flexible
 - **Cognitive mode:** advisory-guide
+
+### harness-audit
+
+Cross-dimensional codebase audit orchestrator — classify repo shape, fan out parallel read-only audit agents, dedup and severity-rank findings against existing issues, publish grouped tracking issues
+
+- **Triggers:** manual
+- **Platforms:** claude-code, gemini-cli, cursor, codex
+- **Type:** rigid
+- **Cognitive mode:** systematic-orchestrator
+- **Depends on:** harness-code-review, harness-security-scan, detect-doc-drift, harness-dependency-health, harness-hotspot-detector, harness-test-advisor
 
 ### harness-audit-harness-strength
 

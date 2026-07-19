@@ -3,6 +3,7 @@ import type { BackendDef, RoutingConfig } from '@harness-engineering/types';
 import { OrchestratorBackendFactory } from '../../src/agent/orchestrator-backend-factory.js';
 import { ClaudeBackend } from '../../src/agent/backends/claude.js';
 import { PiBackend } from '../../src/agent/backends/pi.js';
+import { OllamaBackend } from '../../src/agent/backends/ollama.js';
 import { RoutingDecisionBus } from '../../src/routing/decision-bus.js';
 
 const cloud: BackendDef = { type: 'claude', command: 'claude' };
@@ -230,6 +231,73 @@ describe('OrchestratorBackendFactory', () => {
       factory.forUseCase({ kind: 'tier', tier: 'quick-fix' });
       expect(resolveSpy).toHaveBeenCalledTimes(1);
       expect(bus.recent()).toHaveLength(1);
+    });
+  });
+
+  // Regression: buildLocalLikeWithResolver's ollama branch previously DROPPED
+  // def.mcpServers (+ numCtx/maxContextTokens/numPredict/keepAlive). A local
+  // ollama backend with a prefer-and-fallback `model: [...]` ARRAY routes through
+  // the resolver path (getResolverModelFor ⇒ buildLocalLikeWithResolver), NOT
+  // createBackend — so the dropped mcpServers meant the local model reached its
+  // dispatch with NO MCP docs tools (context7 etc.), its top failure mode. These
+  // assertions FAIL against the pre-fix branch and pass now (the branch mirrors
+  // createBackend's ollama branch).
+  describe('ollama resolver path threads MCP + tuning def fields', () => {
+    // An ollama def with a `model` ARRAY forces the resolver/array path. The MCP +
+    // tuning fields must survive the rebuild in buildLocalLikeWithResolver.
+    const ollamaMcp: BackendDef = {
+      type: 'ollama',
+      endpoint: 'http://x:11434/v1',
+      model: ['primary:32b', 'fallback:8b'],
+      mcpServers: [{ name: 'context7', command: 'npx', args: ['-y', '@upstash/context7-mcp'] }],
+      numCtx: 16384,
+      maxContextTokens: 32768,
+      numPredict: 4096,
+      keepAlive: '15m',
+    };
+    const ollamaBackends: Record<string, BackendDef> = { cloud, ollamaLocal: ollamaMcp };
+    const ollamaRouting: RoutingConfig = { default: 'cloud', 'quick-fix': 'ollamaLocal' };
+
+    it('threads def.mcpServers into the constructed OllamaBackend (resolver/array path)', () => {
+      const factory = new OrchestratorBackendFactory({
+        backends: ollamaBackends,
+        routing: ollamaRouting,
+        sandboxPolicy: 'none',
+        // Returning a getModel routes this local def through
+        // buildLocalLikeWithResolver rather than createBackend.
+        getResolverModelFor: () => () => 'primary:32b',
+      });
+      const backend = factory.forUseCase({ kind: 'tier', tier: 'quick-fix' });
+      expect(backend).toBeInstanceOf(OllamaBackend);
+      // OllamaBackend stores its constructor config on the private `config` field
+      // (same private-config inspection the T11 pi test above uses).
+      const cfg = (backend as unknown as { config: { mcpServers?: unknown } }).config;
+      expect(cfg.mcpServers).toEqual(ollamaMcp.mcpServers);
+    });
+
+    it('threads numCtx/maxContextTokens/numPredict/keepAlive into the OllamaBackend', () => {
+      const factory = new OrchestratorBackendFactory({
+        backends: ollamaBackends,
+        routing: ollamaRouting,
+        sandboxPolicy: 'none',
+        getResolverModelFor: () => () => 'primary:32b',
+      });
+      const backend = factory.forUseCase({ kind: 'tier', tier: 'quick-fix' });
+      expect(backend).toBeInstanceOf(OllamaBackend);
+      const cfg = (
+        backend as unknown as {
+          config: {
+            numCtx?: number;
+            maxContextTokens?: number;
+            numPredict?: number;
+            keepAlive?: string;
+          };
+        }
+      ).config;
+      expect(cfg.numCtx).toBe(16384);
+      expect(cfg.maxContextTokens).toBe(32768);
+      expect(cfg.numPredict).toBe(4096);
+      expect(cfg.keepAlive).toBe('15m');
     });
   });
 });

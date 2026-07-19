@@ -249,6 +249,45 @@ export function changedWorkspacePackages(porcelain: string): string[] {
   return [...dirs];
 }
 
+/** Per-changed-package verify scripts, in order. Shared with {@link verifyChangedPackages}. */
+const LOCAL_VERIFY_SCRIPTS = ['typecheck', 'lint', 'test'] as const;
+
+/**
+ * Verify each changed package's own build→typecheck→lint→test, scoped to the
+ * package and short-circuiting on the first failure. Extracted from
+ * {@link defaultLocalVerifyRunner} so the build-first ordering + short-circuit are
+ * unit-testable via an injected `run` (production passes an execFile-backed pnpm
+ * runner; tests pass a fake that records the command sequence).
+ *
+ * BUILD runs BEFORE lint/test: a package whose lint/test consume its OWN compiled
+ * output — e.g. an eslint-plugin whose flat config dogfoods its built `dist`, or an
+ * integration test importing the package entry — otherwise fails to resolve a
+ * just-added source module ("Cannot find module './src/rules/…'") on a freshly
+ * `pnpm install`ed-but-unbuilt worktree. That would block CORRECT code on a stale
+ * dist rather than a real quality defect. `${name}...` builds the package and its
+ * workspace deps. CI builds before lint/test; the local gate must match.
+ */
+export async function verifyChangedPackages(
+  changedPkgs: readonly string[],
+  readPkg: (dir: string) => { name?: string; scripts: Record<string, string> },
+  run: (args: string[]) => Promise<{ ok: boolean; output: string }>
+): Promise<{ ok: boolean; output: string }> {
+  for (const dir of changedPkgs) {
+    const { name, scripts } = readPkg(dir);
+    if (name === undefined) continue;
+    if (scripts['build'] !== undefined) {
+      const built = await run(['--filter', `${name}...`, 'run', 'build']);
+      if (!built.ok) return built;
+    }
+    for (const script of LOCAL_VERIFY_SCRIPTS) {
+      if (scripts[script] === undefined) continue;
+      const result = await run(['--filter', name, 'run', script]);
+      if (!result.ok) return result;
+    }
+  }
+  return { ok: true, output: '' };
+}
+
 export async function defaultLocalVerifyRunner(
   workspacePath: string
 ): Promise<{ ok: boolean; output: string }> {
@@ -294,7 +333,7 @@ export async function defaultLocalVerifyRunner(
     }
   };
 
-  const SCRIPTS = ['typecheck', 'lint', 'test'] as const;
+  const SCRIPTS = LOCAL_VERIFY_SCRIPTS;
 
   // SCOPE the gate to the packages the agent actually changed, not the whole
   // monorepo. Running `pnpm -w run test` (turbo over every package) for a one-file
@@ -327,17 +366,10 @@ export async function defaultLocalVerifyRunner(
     return { ok: true, output: '' };
   }
 
-  // Verify each changed package's own declared typecheck/lint/test, scoped.
-  for (const dir of changedPkgs) {
-    const { name, scripts } = readPkg(dir);
-    if (name === undefined) continue;
-    for (const script of SCRIPTS) {
-      if (scripts[script] === undefined) continue;
-      const result = await run(['--filter', name, 'run', script]);
-      if (!result.ok) return result;
-    }
-  }
-  return { ok: true, output: '' };
+  // Verify each changed package's own build→typecheck→lint→test, scoped and
+  // short-circuiting. Delegated to the injectable helper so the build-first
+  // ordering is unit-tested (verifyChangedPackages) without shelling out to pnpm.
+  return verifyChangedPackages(changedPkgs, readPkg, run);
 }
 
 /**

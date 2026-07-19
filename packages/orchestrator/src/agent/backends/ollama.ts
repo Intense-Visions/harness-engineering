@@ -240,7 +240,12 @@ const DEFAULT_HEARTBEAT_MS = 30_000;
 /** Max wall-clock for a single `bash` tool call before the process TREE is SIGKILLed. */
 const DEFAULT_BASH_TIMEOUT_MS = 300_000;
 /** Bounded wall-clock (ms) for a single MCP server connect+listTools. */
-const DEFAULT_MCP_CONNECT_TIMEOUT_MS = 15_000;
+// npx-launched MCP servers (the common kind, e.g. `npx -y @upstash/context7-mcp`)
+// cold-start in ~20s on first run (package download), which exceeded the prior 15s
+// budget and got silently skipped — leaving a local model with no docs tools, its
+// top failure mode. 30s covers a cold npx start with margin; a genuinely-dead
+// server still skips within one dispatch.
+const DEFAULT_MCP_CONNECT_TIMEOUT_MS = 30_000;
 /**
  * Aggregated tool count (built-ins + all MCP tools) above which the backend logs
  * a one-line advisory pointing at the per-server `tools` allowlist. A large tool
@@ -701,6 +706,23 @@ export class OllamaBackend implements AgentBackend {
       specs.map((spec) => this.connectMcpServer(spec, session, connect, params.workspacePath))
     );
     warnIfLargeToolSet(session.mcpTools.length);
+
+    // Nudge the model to actually USE its MCP tools. Local models otherwise leave
+    // docs/context tools (e.g. context7) unused and stall on unfamiliar library
+    // APIs, framework conventions, or error messages they cannot resolve from
+    // memory — their top failure mode. Naming the concrete aggregated tools and
+    // telling the model WHEN to reach for them is what turns availability into use.
+    if (session.mcpTools.length > 0) {
+      const toolNames = session.mcpTools.map((t) => t.function.name).join(', ');
+      session.messages[0] = {
+        role: 'system',
+        content:
+          `${systemPrompt} You also have documentation/context tools available: ${toolNames}. ` +
+          `When you hit an unfamiliar library API, a framework or testing-library convention, ` +
+          `or an error message you cannot confidently resolve from memory, CALL these tools to ` +
+          `look up the correct usage BEFORE guessing or repeating a failed edit.`,
+      };
+    }
 
     session.numCtx = await this.resolveNumCtx(resolvedModel);
 
