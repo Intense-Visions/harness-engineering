@@ -432,3 +432,24 @@ describe('renderStagePrompt — prior gate-failure re-prompt (staged convergence
     expect(prompt).toContain('lint failed: no-unused-vars');
   });
 });
+
+describe('renderStagePrompt — document stages produce committed artifacts (true autopilot)', () => {
+  const priorOutputs: Record<string, string> = {};
+
+  it('a spec-producing stage renders "write a DOCUMENT, not code" (location deferred to the skill)', async () => {
+    const ctx = buildWorkflowContext(baseDeps());
+    const specStep: WorkflowStep = { skill: 'harness-brainstorming', produces: 'spec' };
+    const prompt = await ctx.renderStagePrompt!(specStep, 0, priorOutputs, true);
+    expect(prompt).toContain('produces a DOCUMENT');
+    expect(prompt).toContain('docs/changes');
+    expect(prompt).not.toContain('self-verify');
+  });
+
+  it('an impl-producing (code) stage renders self-verify, no document path', async () => {
+    const ctx = buildWorkflowContext(baseDeps());
+    const implStep: WorkflowStep = { skill: 'harness-execution', produces: 'impl' };
+    const prompt = await ctx.renderStagePrompt!(implStep, 2, priorOutputs, true);
+    expect(prompt).toContain('self-verify');
+    expect(prompt).not.toContain('produces a DOCUMENT');
+  });
+});

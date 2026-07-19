@@ -12,6 +12,7 @@ const RENDER_BAG = {
   skill: 'harness-execution',
   cognitiveMode: '',
   produces: 'artifact.md',
+  documentStage: '',
   priorEntries: [] as Array<{ name: string; output: string }>,
 };
 
@@ -102,5 +103,35 @@ describe('LOCAL_STAGE_PROMPT_TEMPLATE drives completion, not "run then stop" (D5
       'harness skill run {{ skill }} --autonomous --path .'
     );
     expect(LOCAL_STAGE_PROMPT_TEMPLATE).toContain('harness skill run harness-X --autonomous');
+  });
+});
+
+describe('LOCAL template — document vs code stage (true-autopilot artifacts)', () => {
+  const renderer = new PromptRenderer();
+
+  it('a DOCUMENT stage (documentStage set) instructs writing markdown via the skill, not code', async () => {
+    const out = await renderer.render(LOCAL_STAGE_PROMPT_TEMPLATE, {
+      ...RENDER_BAG,
+      skill: 'harness-brainstorming',
+      produces: 'spec',
+      documentStage: 'spec',
+    });
+    expect(out).toContain('produces a DOCUMENT');
+    // defers the location to the skill's real harness convention (not a hardcoded path)
+    expect(out).toContain('docs/changes');
+    expect(out).toContain('do NOT write code');
+    // the code-stage self-verify block must NOT appear for a document stage
+    expect(out).not.toContain('self-verify');
+  });
+
+  it('a CODE stage (documentStage empty) keeps the self-verify block and no document instruction', async () => {
+    const out = await renderer.render(LOCAL_STAGE_PROMPT_TEMPLATE, {
+      ...RENDER_BAG,
+      skill: 'harness-execution',
+      produces: 'impl',
+      documentStage: '',
+    });
+    expect(out).toContain('self-verify');
+    expect(out).not.toContain('produces a DOCUMENT');
   });
 });

@@ -245,6 +245,30 @@ function stageDecisionFactory(
   };
 }
 
+/** Stage output labels that are DOCUMENTS (markdown artifacts), not code. */
+const DOCUMENT_ARTIFACTS = new Set([
+  'spec',
+  'plan',
+  'review',
+  'verify',
+  'notes',
+  'analysis',
+  'design',
+]);
+
+/**
+ * The document-artifact label (spec/plan/review/…) for a document-producing stage,
+ * or '' for a code/execution stage. Used only as a role flag in the prompt: a
+ * document stage is told to produce the {{ produces }} markdown artifact (the skill
+ * writes it to the harness's real location, e.g. `docs/changes/<slug>/proposal.md`,
+ * and registers it via `manage_roadmap`) and NOT to write implementation code —
+ * keeping the lifecycle honest so a brainstorm→autopilot run yields a real spec,
+ * plan, and review, not just code. Path/registration are the skill's job, not ours.
+ */
+function documentStageLabel(produces: string): string {
+  return DOCUMENT_ARTIFACTS.has(produces) ? produces : '';
+}
+
 /**
  * The re-prompt preamble appended to a staged stage's prompt when the prior
  * attempt was gate-blocked. Kept template-agnostic (appended post-render) to
@@ -265,6 +289,12 @@ function renderStagePromptFactory(
       name,
       output,
     }));
+    const produces = step.produces ?? '';
+    // A stage whose output is a DOCUMENT (spec/plan/review/…) must produce that
+    // markdown artifact via the skill and NOT implementation code — otherwise a
+    // local model collapses the lifecycle into "every stage codes" and no spec/plan/
+    // review lands in the PR. Execution stages (produces:'impl'/code) write code.
+    const documentStage = documentStageLabel(produces);
     // Per-phase routing: pick the LOCAL-indirection template for a local-endpoint
     // routed backend, else the byte-identical default (SC-LOCAL/SC3). The variable
     // bag is identical for both templates (strictVariables — no new required var).
@@ -281,7 +311,10 @@ function renderStagePromptFactory(
         // model is driven to PRODUCE it (not "run then stop"). Default to '' so
         // strictVariables is satisfied and exactOptionalPropertyTypes never sees an
         // explicit undefined.
-        produces: step.produces ?? '',
+        produces,
+        // Non-empty (the artifact label) ⇒ a DOCUMENT stage: produce the {{ produces }}
+        // markdown via the skill, don't write code. Empty ⇒ a code/execution stage.
+        documentStage,
         priorEntries,
       }
     );
