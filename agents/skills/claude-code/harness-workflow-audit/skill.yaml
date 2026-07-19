@@ -1,0 +1,61 @@
+name: harness-workflow-audit
+version: '1.0.0'
+description: CI/GitHub-Actions workflow-file quality and hygiene auditor
+stability: static
+cognitive_mode: adversarial-reviewer
+triggers:
+  - manual
+  - on_milestone
+platforms:
+  - claude-code
+  - gemini-cli
+  - cursor
+  - codex
+tools:
+  - Bash
+  - Read
+  - Glob
+  - Grep
+cli:
+  command: harness skill run harness-workflow-audit
+  args:
+    - name: path
+      description: Project root path (defaults to current directory)
+      required: false
+    - name: workflow
+      description: Audit a single workflow file instead of all of .github/workflows/
+      required: false
+    - name: severity
+      description: Minimum severity to report (error, warning, info)
+      required: false
+mcp:
+  tool: run_skill
+  input:
+    skill: harness-workflow-audit
+    path: string
+type: rigid
+tier: 2
+phases:
+  - name: inventory
+    description: Enumerate workflow files, triggers, jobs, and repo-documented gates
+    required: true
+  - name: mechanical
+    description: Run mechanical checks (path filters, pinning, permissions, guards)
+    required: true
+  - name: judgment
+    description: Run judgment checks (injection, gate completeness, ratchet calibration)
+    required: true
+  - name: report
+    description: Rank findings by severity with file:line and a suggested patch each
+    required: true
+related_skills:
+  - security-ci-security-testing
+  - security-injection-families
+  - security-secrets-lifecycle
+state:
+  persistent: false
+  files: []
+depends_on: []
+addresses:
+  - signal: security-findings
+    weight: 0.4

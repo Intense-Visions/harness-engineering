@@ -5,6 +5,16 @@ export PATH="$PATH:/opt/homebrew/bin"
 # (husky v10 deprecates the current wrapper). POSIX-only — no bashisms below.
 set -e
 
+# Git exports GIT_DIR (and friends) to hooks — absolute in linked-worktree
+# layouts. Child processes inherit it, so test suites that spawn `git` inside
+# temp fixture dirs silently operate on THIS repo instead of the fixture
+# (timeouts, wrong results, "Unable to read current working directory").
+# Primary-clone pushes get a relative GIT_DIR=.git and dodge this by accident;
+# worktree-based pushes hit it every time. Unset so every child re-discovers
+# its own repo from its own cwd. Safe here: pre-push never touches the index,
+# and repo-scoped commands below run from the repo root anyway.
+unset GIT_DIR GIT_INDEX_FILE GIT_WORK_TREE GIT_COMMON_DIR
+
 # Mirror CI's changeset-check job so missing changesets fail locally
 # (cheap diff-only script — runs in ~1s before the heavier steps).
 pnpm run check:changesets
