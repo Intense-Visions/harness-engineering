@@ -1,4 +1,5 @@
 import { Command } from 'commander';
+import * as crypto from 'node:crypto';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -82,39 +83,101 @@ export function mergeSettings(
 }
 
 /**
- * Core init logic, extracted for testing.
+ * Hash hook-file content for local-modification detection.
+ * Hashes of installed files are recorded in profile.json at install time; a
+ * file whose current hash no longer matches its recorded hash was hand-edited
+ * by the adopter and must not be silently clobbered on regeneration (#902).
  */
-export function initHooks(options: { profile: HookProfile; projectDir: string }): {
+function hashHookContent(content: Buffer | string): string {
+  return crypto.createHash('sha256').update(content).digest('hex');
+}
+
+/**
+ * Read the recorded install-time hashes from profile.json, if present.
+ * Installs made before hash recording existed return an empty record.
+ */
+function readRecordedHashes(profilePath: string): Record<string, string> {
+  try {
+    const data = JSON.parse(fs.readFileSync(profilePath, 'utf-8'));
+    if (data && typeof data.fileHashes === 'object' && data.fileHashes !== null) {
+      return data.fileHashes as Record<string, string>;
+    }
+  } catch {
+    // Missing or malformed profile.json — no recorded hashes.
+  }
+  return {};
+}
+
+/**
+ * Core init logic, extracted for testing.
+ *
+ * Local-modification guard (#902): a hook file whose content differs from the
+ * hash recorded at install time was hand-edited by the adopter. Such files are
+ * warned about and preserved (not overwritten, not wiped) unless `force` is
+ * set. Files matching their recorded hash — or predating hash recording — are
+ * refreshed as before.
+ */
+export function initHooks(options: { profile: HookProfile; projectDir: string; force?: boolean }): {
   copiedScripts: string[];
   settingsPath: string;
   profilePath: string;
+  skippedModified: string[];
 } {
-  const { profile, projectDir } = options;
+  const { profile, projectDir, force = false } = options;
 
   // 1. Copy active hook scripts to .harness/hooks/
   const hooksDestDir = path.join(projectDir, '.harness', 'hooks');
   fs.mkdirSync(hooksDestDir, { recursive: true });
 
-  // Clean stale scripts before copying (handles profile downgrade)
+  const profilePath = path.join(hooksDestDir, 'profile.json');
+  const recordedHashes = readRecordedHashes(profilePath);
+  const skippedModified: string[] = [];
+
+  const isLocallyModified = (fileName: string, filePath: string): boolean => {
+    const recorded = recordedHashes[fileName];
+    if (!recorded) return false; // pre-hash install — cannot verify, keep legacy refresh behavior
+    return hashHookContent(fs.readFileSync(filePath)) !== recorded;
+  };
+
+  // Clean stale scripts before copying (handles profile downgrade), preserving
+  // any file the adopter hand-edited since install.
   if (fs.existsSync(hooksDestDir)) {
     for (const entry of fs.readdirSync(hooksDestDir)) {
-      if (entry.endsWith('.js')) {
-        fs.unlinkSync(path.join(hooksDestDir, entry));
+      if (!entry.endsWith('.js')) continue;
+      const entryPath = path.join(hooksDestDir, entry);
+      if (!force && isLocallyModified(entry, entryPath)) {
+        skippedModified.push(entry);
+        continue;
       }
+      fs.unlinkSync(entryPath);
     }
   }
 
   const sourceDir = resolveHookSourceDir();
   const copiedScripts: string[] = [];
+  const newHashes: Record<string, string> = {};
 
   const activeNames = PROFILES[profile];
   const activeScripts = HOOK_SCRIPTS.filter((h) => activeNames.includes(h.name));
 
+  const installFile = (srcFile: string, destName: string): boolean => {
+    if (!fs.existsSync(srcFile)) return false;
+    const destFile = path.join(hooksDestDir, destName);
+    if (skippedModified.includes(destName)) {
+      // Hand-edited file preserved by the wipe above — keep its recorded hash
+      // so it stays flagged (and preserved) on future runs.
+      newHashes[destName] = recordedHashes[destName]!;
+      return false;
+    }
+    const content = fs.readFileSync(srcFile);
+    fs.writeFileSync(destFile, content);
+    newHashes[destName] = hashHookContent(content);
+    return true;
+  };
+
   for (const script of activeScripts) {
     const srcFile = path.join(sourceDir, `${script.name}.js`);
-    const destFile = path.join(hooksDestDir, `${script.name}.js`);
-    if (fs.existsSync(srcFile)) {
-      fs.copyFileSync(srcFile, destFile);
+    if (installFile(srcFile, `${script.name}.js`)) {
       copiedScripts.push(script.name);
     }
   }
@@ -124,16 +187,19 @@ export function initHooks(options: { profile: HookProfile; projectDir: string })
   // sibling `import` resolves at the adopter, and so a downgrade that drops the
   // dependent hook also drops its now-orphaned support file.
   for (const supportFile of supportFilesFor(activeNames)) {
-    const srcFile = path.join(sourceDir, supportFile);
-    const destFile = path.join(hooksDestDir, supportFile);
-    if (fs.existsSync(srcFile)) {
-      fs.copyFileSync(srcFile, destFile);
+    installFile(path.join(sourceDir, supportFile), supportFile);
+  }
+
+  // Carry forward recorded hashes for preserved hand-edited files that are no
+  // longer in the active set, so they stay flagged (and preserved) next run.
+  for (const preserved of skippedModified) {
+    if (!(preserved in newHashes) && recordedHashes[preserved]) {
+      newHashes[preserved] = recordedHashes[preserved];
     }
   }
 
-  // 2. Write profile.json
-  const profilePath = path.join(hooksDestDir, 'profile.json');
-  fs.writeFileSync(profilePath, JSON.stringify({ profile }, null, 2) + '\n');
+  // 2. Write profile.json (profile + install-time content hashes)
+  fs.writeFileSync(profilePath, JSON.stringify({ profile, fileHashes: newHashes }, null, 2) + '\n');
 
   // 3. Read or create .claude/settings.json and merge hooks
   const claudeDir = path.join(projectDir, '.claude');
@@ -157,13 +223,32 @@ export function initHooks(options: { profile: HookProfile; projectDir: string })
   const merged = mergeSettings(existing, hooksConfig);
   fs.writeFileSync(settingsPath, JSON.stringify(merged, null, 2) + '\n');
 
-  return { copiedScripts, settingsPath, profilePath };
+  return { copiedScripts, settingsPath, profilePath, skippedModified };
+}
+
+/** Print the human-readable summary of an initHooks run. */
+function printInitResult(
+  result: ReturnType<typeof initHooks>,
+  profile: HookProfile,
+  projectDir: string
+): void {
+  logger.success(`Installed ${result.copiedScripts.length} hook scripts to .harness/hooks/`);
+  if (result.skippedModified.length > 0) {
+    logger.warn(
+      `Preserved ${result.skippedModified.length} locally modified hook file(s): ` +
+        `${result.skippedModified.join(', ')}. Re-run with --force to overwrite.`
+    );
+  }
+  logger.info(`Profile: ${profile}`);
+  logger.info(`Settings: ${path.relative(projectDir, result.settingsPath).replaceAll('\\', '/')}`);
+  logger.dim("Run 'harness hooks list' to see installed hooks");
 }
 
 export function createInitCommand(): Command {
   return new Command('init')
     .description('Install Claude Code hook configurations into the current project')
     .option('--profile <profile>', 'Hook profile: minimal, standard, or strict', 'standard')
+    .option('--force', 'Overwrite hook files even if they have local modifications')
     .action(async (opts, cmd) => {
       const globalOpts = cmd.optsWithGlobals();
       const profile = opts.profile as HookProfile;
@@ -176,26 +261,20 @@ export function createInitCommand(): Command {
       const projectDir = process.cwd();
 
       try {
-        const result = initHooks({ profile, projectDir });
+        const result = initHooks({ profile, projectDir, force: opts.force === true });
 
         if (globalOpts.json) {
           console.log(
             JSON.stringify({
               profile,
               copiedScripts: result.copiedScripts,
+              skippedModified: result.skippedModified,
               settingsPath: result.settingsPath,
               profilePath: result.profilePath,
             })
           );
         } else {
-          logger.success(
-            `Installed ${result.copiedScripts.length} hook scripts to .harness/hooks/`
-          );
-          logger.info(`Profile: ${profile}`);
-          logger.info(
-            `Settings: ${path.relative(projectDir, result.settingsPath).replaceAll('\\', '/')}`
-          );
-          logger.dim("Run 'harness hooks list' to see installed hooks");
+          printInitResult(result, profile, projectDir);
         }
       } catch (err: unknown) {
         const message = err instanceof Error ? err.message : String(err);

@@ -169,6 +169,15 @@ function ensureHooks(cwd: string): StepResult {
 
   try {
     const result = initHooks({ profile, projectDir: cwd });
+    if (result.skippedModified.length > 0) {
+      return {
+        status: 'warn',
+        message:
+          `Installed ${result.copiedScripts.length} hooks (${profile} profile); preserved ` +
+          `locally modified: ${result.skippedModified.join(', ')} ` +
+          `(run 'harness hooks init --force' to overwrite)`,
+      };
+    }
     return {
       status: 'pass',
       message: `Installed ${result.copiedScripts.length} hooks (${profile} profile)`,

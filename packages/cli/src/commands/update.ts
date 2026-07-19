@@ -394,6 +394,12 @@ function refreshHooks(): void {
   try {
     const result = initHooks({ profile, projectDir: cwd });
     logger.success(`Refreshed ${result.copiedScripts.length} hooks (${profile} profile)`);
+    if (result.skippedModified.length > 0) {
+      logger.warn(
+        `Preserved locally modified hook file(s): ${result.skippedModified.join(', ')}. ` +
+          `Run 'harness hooks init --force' to overwrite.`
+      );
+    }
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
     logger.warn(`Hook refresh failed: ${msg}`);
