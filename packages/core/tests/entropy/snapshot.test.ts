@@ -408,7 +408,8 @@ describe('buildSnapshot', () => {
       });
       expect(result.ok).toBe(true);
       if (result.ok) {
-        const paths = result.value.files.map((f) => f.path);
+        // Normalize separators so substring checks are portable on Windows.
+        const paths = result.value.files.map((f) => f.path.replace(/\\/g, '/'));
         expect(paths.some((p) => p.includes('src/index.ts'))).toBe(true);
         expect(paths.some((p) => p.includes('.venv'))).toBe(false);
         expect(paths.some((p) => p.includes('node_modules'))).toBe(false);
@@ -428,7 +429,8 @@ describe('buildSnapshot', () => {
       });
       expect(result.ok).toBe(true);
       if (result.ok) {
-        const paths = result.value.files.map((f) => f.path);
+        // Normalize separators so substring checks are portable on Windows.
+        const paths = result.value.files.map((f) => f.path.replace(/\\/g, '/'));
         expect(paths.some((p) => p.includes('src/index.ts'))).toBe(true);
         expect(paths.some((p) => p.includes('vendored'))).toBe(false);
       }
