@@ -32,9 +32,26 @@ This skill owns only the _test-suite-specific_ pieces. The generic harness flow 
 
 2. **Direct invocation.** The user knows up front it's a test suite and invokes this skill directly. Run the parent's Phase 1 (assess state), Phase 2 (`harness init`), and Phase 3 steps 1–2 and 5 (personas, AGENTS.md base, i18n) inline or by invoking the parent explicitly, then apply this skill's Phase 1–4, then hand back to the parent's Phase 4 steps 4–5.
 
-Either way, what this skill owns: archetype selection, shared-library vs scaffold decision, layer-model variants A/B, ESLint flat-config fix, test-framework delegation, env and secrets, auth abstraction, schema validation, fixtures isolation, mocking support, tag-driven organization, reporters, the custom report, CI integration, and "prove the guards fire" verification.
+Either way, what this skill owns: the canary probe (Phase 0) and canary-vs-built-in delegation, archetype selection, shared-library vs scaffold decision, layer-model variants A/B, ESLint flat-config fix, test-framework delegation, env and secrets, auth abstraction, schema validation, fixtures isolation, mocking support, tag-driven organization, reporters, the custom report, CI integration, and "prove the guards fire" verification.
 
 ## Process
+
+### Phase 0: PROBE — Detect canary CLI availability
+
+The deterministic canary test CLI (`canary-test-cli`) now owns two things this skill historically hand-rolled: framework selection (classifier → recommender) and the test-reporter contract that CI-readiness tooling reads. Probe for it once, up front, so the rest of the flow can delegate when canary is present and degrade to the built-in flow when it is absent (this skill ships to adopter projects that may not have canary).
+
+Call the `canary_probe` MCP tool once. It returns `{ status: "available" | "degraded", version?, reason? }` and never errors.
+
+- **`available`** — the deterministic canary CLI is usable. Delegate for the rest of the run:
+  - **Framework selection** → `canary_recommend_framework` + `canary init` (Phase 3 step 4). Do not make a manual human framework choice.
+  - **Reporter** → the canary test-reporter `version:1` contract via `canary init` (Phase 3 step 11), so the new suite is born legible to canary's `ci-ready` check. Do not scaffold the bespoke `scripts/generate-reports.ts`.
+- **`degraded`** — the CLI is not usable (reason: `not-installed`, `binary-missing`, `exec-failed`, or `bad-output`). Print one line:
+
+  > canary CLI unavailable (`<reason>`) — install `canary-test-cli` for deterministic framework recommendations and the shared reporter contract. Proceeding with the built-in flow.
+
+  Then use the built-in flow for the rest of the run: framework delegation to `test-playwright-setup` / `test-vitest-config` (Phase 3 step 4) and the bespoke `scripts/generate-reports.ts` scaffold (Phase 3 step 11).
+
+Record the probe result in AGENTS.md so later agents know whether the suite is canary-backed.
 
 ### Phase 1: CLASSIFY — Pick the Archetype
 
@@ -105,13 +122,18 @@ Apply these steps before running validation. Record decisions in AGENTS.md as yo
 
 3. **Wire up the ESLint flat config so the forbidden-imports rule actually runs.** `harness init` scaffolds `eslint.config.mjs` that spreads `harnessPlugin.configs.recommended` but does not declare a `files:` glob or a TypeScript parser. Under ESLint 9 flat config this means every `.ts` file is ignored and the rule never fires. Replace the scaffolded config with an explicit block: `files: ['src/**/*.ts', 'tests/**/*.ts']`, `languageOptions: { parser: tsParser, parserOptions: { ecmaVersion: 'latest', sourceType: 'module' } }`, `plugins: { '@harness-engineering': harnessPlugin }`, and the three `'error'` rules (`no-layer-violation`, `no-forbidden-imports`, `no-circular-deps`). Add `@typescript-eslint/parser` to devDependencies. Verify by running `npx eslint 'src/**/*.ts'` and seeing it actually report errors on a deliberately bad file.
 
-4. **Pick the test framework(s) and delegate detailed setup to the right skill.** Do not configure the framework here — just record the choice in AGENTS.md and point the human at the follow-up skill:
+4. **Pick the test framework(s).** Which path you take depends on what Phase 0 reported.
+
+   **When Phase 0 reported `available` (canary present):** do not pick the framework by a manual human choice — canary owns this via its classifier → recommender. Call the `canary_recommend_framework` MCP tool with a `prompt` describing the suite (archetype + what it exercises, e.g. "end-to-end browser login flow" or "HTTP API contract tests for the rewards service"); it returns `{ framework, test_type, file_extension, reasoning[], alternatives[] }` deterministically (no API key, no LLM round-trip). Record the recommended `framework` and its `reasoning` in AGENTS.md, then scaffold it with `canary init` so the suite is born with canary's project shape and reporter wiring. Drop into the follow-up skills below only for framework-specific pattern depth that canary does not scaffold (e.g. `test-playwright-patterns`, `test-msw-pattern`).
+
+   **When Phase 0 reported `degraded` (canary absent):** fall back to today's flow — do not configure the framework here, just record the choice in AGENTS.md and point the human at the follow-up skill:
    - Playwright (API or E2E) → `test-playwright-setup` then `test-playwright-patterns`
    - Vitest → `test-vitest-config`
    - Contract tests → `api-contract-testing` and `test-contract-testing`
    - Mocking (MSW, route interception) → `test-msw-pattern`, `test-mock-patterns`
    - Fixtures / factories → `test-factory-patterns`, `harness-test-data`
-   - For shared libraries that are _consumed_ by tests but contain none themselves, skip framework setup entirely — record this in AGENTS.md under "Gotchas" so agents do not try to add Vitest later.
+
+   Either way, for shared libraries that are _consumed_ by tests but contain none themselves, skip framework setup entirely — record this in AGENTS.md under "Gotchas" so agents do not try to add Vitest later.
 
 5. **Environment and secret handling.** Require a committed `.env.example` listing every variable the suite reads (API base URLs, OAuth client IDs, registry tokens, feature flags). Actual `.env*` files must be gitignored. For multi-environment suites, encode environments as `.env.dev`, `.env.stage`, `.env.prod` and document in AGENTS.md how the runner selects one (env var, CLI flag, or config). Never commit real credentials even as examples — use placeholders like `REPLACE_ME`.
 
@@ -151,7 +173,11 @@ Apply these steps before running validation. Record decisions in AGENTS.md as yo
 
     The `json` reporter is the input to the custom report in step 11. The `github` reporter produces annotations on PRs; `list` is for local stdout; `html` is for deep-dive failure triage.
 
-11. **Custom report (enriched HTML + Slack + history).** Playwright's stock HTML report is fine for a single run but does not track trends, categorize failures, or know which tests are quarantined. Scaffold a `scripts/generate-reports.ts` that reads the JSON reporter output (`test-results/json-results/results.json`) and emits an enriched report. Modeled on reference implementations running in production test suites, it should produce:
+11. **Custom report (enriched HTML + Slack + history).** Playwright's stock HTML report is fine for a single run but does not track trends, categorize failures, or know which tests are quarantined.
+
+    **When Phase 0 reported `available` (canary present):** do not scaffold a bespoke reporter — canary owns this. `canary init` wires the canary test-reporter `version:1` contract, which already emits exactly the enriched output below (failure categorization, per-area health, delta-vs-history JSONL, and the quarantine ledger) in the shape canary's `ci-ready` check reads. Keeping the reporter on canary's contract means the new suite is born legible to canary's CI-readiness tooling instead of drifting from a hand-rolled schema. Record in AGENTS.md that reporting is canary-owned (`test-reporter version:1`) and that CI-readiness is checked with canary's `ci-ready`; do not add `scripts/generate-reports.ts`.
+
+    **When Phase 0 reported `degraded` (canary absent):** scaffold a `scripts/generate-reports.ts` that reads the JSON reporter output (`test-results/json-results/results.json`) and emits an enriched report. Modeled on reference implementations running in production test suites, it should produce:
     - **Failure categorization:** bucket each failure into one of `schema | auth | server | client | timeout | network | other` based on the error message. Surfaces whether a red run is an API regression (schema) vs. infrastructure (timeout/network) vs. test-data problem (auth).
     - **Per-area health:** group by domain folder (first path segment under `tests/`), report pass rate and failing titles per area. Tells you which surface of the product is drifting.
     - **Delta vs history:** append each run to a JSONL ledger keyed by commit. Report new failures since last run and failures since last green — not just "X failed" but "X started failing at commit Y."
@@ -201,6 +227,7 @@ After verification passes, return to `initialize-harness-project`'s Phase 4 for:
 ## Harness Integration
 
 - **`initialize-harness-project`** — parent skill. Owns adoption-level selection, `harness init` invocation, persona configuration, AGENTS.md base template, i18n decision, knowledge-graph build, roadmap nudge, final commit.
+- **`canary_probe` / `canary_recommend_framework`** (MCP) — Phase 0 probes the optional deterministic canary test CLI (`canary-test-cli`). When `available`, framework selection delegates to `canary_recommend_framework` (Phase 3 step 4) and scaffolding + reporter to `canary init` (test-reporter `version:1`, read by canary's `ci-ready` check, Phase 3 step 11). Degrades to the built-in flow (follow-up test skills + bespoke `scripts/generate-reports.ts`) when canary is absent.
 - **`harness validate`** — verifies `harness.config.json` schema, AGENTS.md, layers, persona config.
 - **`harness check-deps`** — verifies layer-graph dependency constraints at the file level.
 - **`@harness-engineering/eslint-plugin`** — enforces `forbiddenImports` (same-layer rules) and surfaces layer-graph violations at lint time.
@@ -220,23 +247,26 @@ After verification passes, return to `initialize-harness-project`'s Phase 4 for:
 - Test framework choice and tag taxonomy (including `@smoke` + quarantine tags) are recorded in AGENTS.md
 - Specs are organized `tests/<domain>/<feature>.spec.ts` — no `tests/smoke/` or `tests/regression/` folders
 - `playwright.config.ts` declares html + list + github + json reporters and `grepInvert` for quarantine tags
-- `scripts/generate-reports.ts` exists and is wired to `npm run generate-custom-reports`
+- Phase 0 probed canary once (`canary_probe`) and recorded the result (canary-backed or built-in) in AGENTS.md
+- Framework choice: when canary is `available` it comes from `canary_recommend_framework` + `canary init`; when `degraded` it is delegated to the follow-up test skill — either way recorded in AGENTS.md
+- Reporting: when canary is `available` it uses the canary test-reporter `version:1` contract via `canary init` (no bespoke `scripts/generate-reports.ts`); when `degraded`, `scripts/generate-reports.ts` exists and is wired to `npm run generate-custom-reports`
 - All three Phase 4 gates pass on the clean tree
 - "Prove the guards fire" step completed — deliberate violations were caught and reverted
 - Control returned to `initialize-harness-project` for knowledge-graph build and final commit
 
 ## Rationalizations to Reject
 
-| Rationalization                                                               | Why It Is Wrong                                                                                                                                                                                                                                          |
-| ----------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| "This is a test suite, so strict layer constraints are overkill"              | Test suites benefit _more_ from layer constraints than product code — peer-domain imports and spec coupling are the top sources of flaky, hard-to-maintain suites.                                                                                       |
-| "We can commit a real `.env` for convenience, CI will ignore it"              | Phase 3 step 5 forbids committing real credentials. A leaked `.env` in a test repo leaks the same secrets as a product repo. Use `.env.example` with placeholders.                                                                                       |
-| "Tests don't need tags — we'll run everything every time"                     | Without a `@smoke` tag the PR pipeline grows to 30+ minutes and drives developers to skip CI. Record a tag taxonomy in Phase 3 step 10 even if enforcement comes later.                                                                                  |
-| "We'll split specs into `tests/smoke/` and `tests/regression/` for filtering" | Folder-based filtering forces a file move every time a spec's tier changes. Modern runners (Playwright, Vitest, Cypress) expect `--grep @tag`. Keep `tests/<domain>/<feature>.spec.ts` flat and tag per-test.                                            |
-| "We'll add schema validation later once the client stabilizes"                | Runtime DTO validation is the primary contract-drift detector for API test suites. Adding it after tests exist means updating every spec. Decide in Phase 3 step 7.                                                                                      |
-| "We'll copy the API client code into this test suite for convenience"         | If a shared API client library already exists, consume it — do not fork. Forked clients drift immediately; the shared library is the contract source of truth. Only scaffold in-repo clients if no shared library exists. See Phase 2.                   |
-| "Playwright's built-in HTML report is enough"                                 | The built-in report shows a single run. It does not categorize failures (schema vs auth vs timeout), does not track regressions by commit, and does not surface tests quarantined for weeks. Scaffold `scripts/generate-reports.ts` per Phase 3 step 11. |
-| "All three gates passed, so we're done"                                       | Clean-tree passing can co-exist with silently-misconfigured rules (layer ordering wrong, eslint glob missing, forbidden-imports fields dropped). Phase 4 requires deliberately inserting a violation and confirming the tool catches it.                 |
+| Rationalization                                                                                         | Why It Is Wrong                                                                                                                                                                                                                                                                                                                                                                                                      |
+| ------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| "This is a test suite, so strict layer constraints are overkill"                                        | Test suites benefit _more_ from layer constraints than product code — peer-domain imports and spec coupling are the top sources of flaky, hard-to-maintain suites.                                                                                                                                                                                                                                                   |
+| "We can commit a real `.env` for convenience, CI will ignore it"                                        | Phase 3 step 5 forbids committing real credentials. A leaked `.env` in a test repo leaks the same secrets as a product repo. Use `.env.example` with placeholders.                                                                                                                                                                                                                                                   |
+| "Tests don't need tags — we'll run everything every time"                                               | Without a `@smoke` tag the PR pipeline grows to 30+ minutes and drives developers to skip CI. Record a tag taxonomy in Phase 3 step 10 even if enforcement comes later.                                                                                                                                                                                                                                              |
+| "We'll split specs into `tests/smoke/` and `tests/regression/` for filtering"                           | Folder-based filtering forces a file move every time a spec's tier changes. Modern runners (Playwright, Vitest, Cypress) expect `--grep @tag`. Keep `tests/<domain>/<feature>.spec.ts` flat and tag per-test.                                                                                                                                                                                                        |
+| "We'll add schema validation later once the client stabilizes"                                          | Runtime DTO validation is the primary contract-drift detector for API test suites. Adding it after tests exist means updating every spec. Decide in Phase 3 step 7.                                                                                                                                                                                                                                                  |
+| "We'll copy the API client code into this test suite for convenience"                                   | If a shared API client library already exists, consume it — do not fork. Forked clients drift immediately; the shared library is the contract source of truth. Only scaffold in-repo clients if no shared library exists. See Phase 2.                                                                                                                                                                               |
+| "Playwright's built-in HTML report is enough"                                                           | The built-in report shows a single run. It does not categorize failures (schema vs auth vs timeout), does not track regressions by commit, and does not surface tests quarantined for weeks. When canary is absent, scaffold `scripts/generate-reports.ts` per Phase 3 step 11; when canary is present, use its `version:1` reporter contract.                                                                       |
+| "canary is installed but I'll pick the framework and hand-roll the reporter myself — I know this suite" | When Phase 0 reports canary `available`, framework selection and the reporter contract are canary's to own (`canary_recommend_framework` + `canary init`, reporter `version:1`). Hand-rolling them re-introduces the drift this skill's Phase 0 exists to prevent and leaves the suite illegible to canary's `ci-ready` check. Delegate when canary is present; the bespoke flow is the _fallback_, not the default. |
+| "All three gates passed, so we're done"                                                                 | Clean-tree passing can co-exist with silently-misconfigured rules (layer ordering wrong, eslint glob missing, forbidden-imports fields dropped). Phase 4 requires deliberately inserting a violation and confirming the tool catches it.                                                                                                                                                                             |
 
 ## Examples
 
@@ -248,6 +278,14 @@ After verification passes, return to `initialize-harness-project`'s Phase 4 for:
 Human: "New repo. It's a shared TypeScript HTTP client for our API test suites — consumed by Playwright API tests and also used to mock responses in FE tests. No tests live in this repo."
 package.json has no Playwright/Vitest as direct deps (shared library, not a test runner).
 Archetype: Shared test library.
+```
+
+**PROBE (Phase 0):**
+
+```
+canary_probe → { status: "degraded", reason: "not-installed" }
+No canary on PATH — proceed with the built-in flow. (A shared library ships no tests,
+so framework + reporter are N/A regardless.) Result recorded in AGENTS.md.
 ```
 
 **DECIDE (Phase 2):**
@@ -323,6 +361,15 @@ git commit -m "feat: initialize harness project at intermediate level for shared
 Human: "New repo. Playwright API tests for one of our backend services. A shared API client library already exists at @<org>/<team>-testing-api-library and a shared test-user library at @<org>/<team>-testing-user-library."
 package.json will have @playwright/test as a direct dep → test suite signal.
 Archetype: API test suite.
+```
+
+**PROBE (Phase 0):**
+
+```
+canary_probe → { status: "degraded", reason: "not-installed" }
+No canary here — built-in flow: framework delegates to test-playwright-setup,
+reporter is the bespoke scripts/generate-reports.ts (shown below). Recorded in AGENTS.md.
+(For the canary-present variant of this suite, see the next example.)
 ```
 
 **DECIDE (Phase 2):**
@@ -426,6 +473,47 @@ npx eslint tests/challenges/create.spec.ts  # Should report violation
 
 # Hand back to initialize-harness-project:
 git commit -m "feat: initialize harness project at intermediate level for Playwright API suite"
+```
+
+### Example: E2E Suite With canary Present (framework + reporter delegated)
+
+Same Playwright suite as above, but `canary-test-cli` is installed — the Phase 0 probe changes the framework-pick and reporter steps.
+
+**PROBE (Phase 0):**
+
+```
+canary_probe → { status: "available", version: "1.4.0" }
+Canary present → delegate framework selection and the reporter contract to canary.
+Recorded in AGENTS.md: "suite is canary-backed".
+```
+
+**CONFIGURE (Phase 3, canary-present deltas):**
+
+```text
+Framework (step 4): do NOT pick manually.
+  canary_recommend_framework({ prompt: "end-to-end browser login and checkout flow" })
+    → { framework: "playwright", test_type: "e2e", file_extension: ".spec.ts",
+        reasoning: ["browser-driven UI flow", ...], alternatives: ["cypress"] }
+  Record framework + reasoning in AGENTS.md, then `canary init` to scaffold the
+  project shape and reporter wiring. Use test-playwright-patterns only for pattern
+  depth canary does not scaffold.
+
+Reporter (step 11): do NOT scaffold scripts/generate-reports.ts.
+  `canary init` wires the canary test-reporter `version:1` contract — failure
+  categorization, per-area health, delta-vs-history JSONL, and the quarantine ledger
+  in the shape canary's `ci-ready` check reads. AGENTS.md records reporting as
+  canary-owned; CI-readiness is checked with `canary ci-ready`.
+
+Everything else (layer model Variant B, tags, env, auth) is unchanged from the
+canary-absent example above.
+```
+
+**VALIDATE (Phase 4):**
+
+```bash
+harness validate     # Pass
+harness check-deps   # Pass
+canary ci-ready      # Reads the version:1 reporter ledger — suite is legible to CI tooling
 ```
 
 
