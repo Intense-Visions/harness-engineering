@@ -13,7 +13,7 @@
   },
   "packages/cli": {
     "lines": 78.45,
-    "branches": 65.15,
+    "branches": 65.85,
     "functions": 81.45,
     "statements": 77.08
   },
