@@ -108,6 +108,16 @@ export interface BuildWorkflowContextDeps {
   backends?: Record<string, BackendDef>;
   /** D12 override; absent ⇒ engine default DEFAULT_STAGE_DEADLINE_MS. */
   stageDeadlineMs?: number;
+  /**
+   * On a staged RE-dispatch after a gate block, the prior attempt's gate/verify
+   * reason (the `tsc`/lint/test failure). The single-agent path threads this into
+   * its dispatch prompt (orchestrator.ts:2597), but the staged path renders fresh
+   * per-stage prompts and would otherwise DROP it — leaving the executor blind to
+   * why the last attempt was blocked, so it reproduces the same failure every
+   * retry. Threaded into every stage prompt as a "fix this first" preamble so the
+   * staged retry loop actually converges. Absent on the first attempt.
+   */
+  priorGateFailure?: string;
   /** Terminal-success seam (Task 6/7): bound to `settleWorkflowSuccess`. */
   settleSuccess: (unit: string, runs: StageRun[]) => Promise<void>;
   /** Terminal-failure/safety-net seam (Task 6/7): bound to `settleWorkflowTerminal`. */
@@ -235,12 +245,22 @@ function stageDecisionFactory(
   };
 }
 
+/**
+ * The re-prompt preamble appended to a staged stage's prompt when the prior
+ * attempt was gate-blocked. Kept template-agnostic (appended post-render) to
+ * mirror the single-agent path (orchestrator.ts:2597) and dodge strictVariables.
+ */
+function gateFailurePreamble(reason: string): string {
+  return `\n\n## Previous attempt failed the enforced gate\n\nYour prior attempt at this task was blocked by the harness gate and re-dispatched. The gate runs typecheck + lint + tests on the changed packages — passing tests alone is NOT enough. Fix the following before finishing this stage:\n\n${reason}\n`;
+}
+
 /** Build the engine's `renderStagePrompt` seam over a pure renderer + issue. */
 function renderStagePromptFactory(
   promptRenderer: PromptRenderer,
-  issue: Issue
+  issue: Issue,
+  priorGateFailure?: string
 ): NonNullable<WorkflowEngineContext['renderStagePrompt']> {
-  return (step, index, priorOutputs, isLocalBackend) => {
+  return async (step, index, priorOutputs, isLocalBackend) => {
     const priorEntries = Object.entries(priorOutputs).map(([name, output]) => ({
       name,
       output,
@@ -248,20 +268,26 @@ function renderStagePromptFactory(
     // Per-phase routing: pick the LOCAL-indirection template for a local-endpoint
     // routed backend, else the byte-identical default (SC-LOCAL/SC3). The variable
     // bag is identical for both templates (strictVariables — no new required var).
-    return promptRenderer.render(selectStagePromptTemplate(isLocalBackend ?? false), {
-      stageNumber: index + 1,
-      identifier: issue.identifier,
-      title: issue.title,
-      description: issue.description ?? '',
-      skill: step.skill,
-      cognitiveMode: step.cognitiveMode ?? '',
-      // SC5: the stage's declared output label, threaded into BOTH templates so the
-      // model is driven to PRODUCE it (not "run then stop"). Default to '' so
-      // strictVariables is satisfied and exactOptionalPropertyTypes never sees an
-      // explicit undefined.
-      produces: step.produces ?? '',
-      priorEntries,
-    });
+    const rendered = await promptRenderer.render(
+      selectStagePromptTemplate(isLocalBackend ?? false),
+      {
+        stageNumber: index + 1,
+        identifier: issue.identifier,
+        title: issue.title,
+        description: issue.description ?? '',
+        skill: step.skill,
+        cognitiveMode: step.cognitiveMode ?? '',
+        // SC5: the stage's declared output label, threaded into BOTH templates so the
+        // model is driven to PRODUCE it (not "run then stop"). Default to '' so
+        // strictVariables is satisfied and exactOptionalPropertyTypes never sees an
+        // explicit undefined.
+        produces: step.produces ?? '',
+        priorEntries,
+      }
+    );
+    // On a retry, append the prior gate failure so the executor targets the exact
+    // error (the staged path otherwise drops it — the root cause of non-convergence).
+    return priorGateFailure ? rendered + gateFailurePreamble(priorGateFailure) : rendered;
   };
 }
 
@@ -332,7 +358,9 @@ export function buildWorkflowContext(deps: BuildWorkflowContextDeps): WorkflowEn
 
     // split-routing 4b: render the real per-stage prompt (issue + stage role +
     // prior-stage outputs) via the pure PromptRenderer — no orchestrator import.
-    renderStagePrompt: renderStagePromptFactory(promptRenderer, issue),
+    // The prior gate failure (on a retry) is appended so the executor sees the
+    // exact error to fix instead of re-deriving the same blocked attempt.
+    renderStagePrompt: renderStagePromptFactory(promptRenderer, issue, deps.priorGateFailure),
 
     // per-phase routing: resolve a routed backend's locality so the renderer
     // selects the local-indirection template for local-endpoint stages. Absent

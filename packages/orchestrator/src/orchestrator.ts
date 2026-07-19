@@ -2457,6 +2457,14 @@ export class Orchestrator extends EventEmitter {
           ...(workflowMatch.stageDeadlineMs !== undefined
             ? { stageDeadlineMs: workflowMatch.stageDeadlineMs }
             : {}),
+          // On a staged retry after a gate block, thread the prior gate/verify
+          // reason into the per-stage prompts. The single-agent path does this at
+          // orchestrator.ts:2597, but the staged path renders fresh stage prompts
+          // and would otherwise DROP it — leaving the executor blind to why the
+          // last attempt was blocked (root cause of staged-local non-convergence).
+          ...(this.priorGateFailureByIssue.get(issue.id) !== undefined
+            ? { priorGateFailure: this.priorGateFailureByIssue.get(issue.id)! }
+            : {}),
           // staged-verify-gate-convergence (blocking fix): thread THIS dispatch's
           // `workspacePath` + `issue` into the settle callbacks. On a staged RETRY
           // re-dispatch the tick does NOT recreate the running entry (retry_fired →

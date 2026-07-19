@@ -400,3 +400,35 @@ describe('terminal seams — single exit (SC5)', () => {
     expect(fake.state.claimed.has('issue-1')).toBe(false);
   });
 });
+
+describe('renderStagePrompt — prior gate-failure re-prompt (staged convergence)', () => {
+  const priorOutputs: Record<string, string> = {};
+
+  it('appends the gate-failure preamble (with the reason) on a retry', async () => {
+    const reason =
+      "verify failed:\nsrc/rules/no-empty-describe.ts(37,24): error TS2339: Property 'body' does not exist";
+    const ctx = buildWorkflowContext(baseDeps({ priorGateFailure: reason }));
+    const prompt = await ctx.renderStagePrompt!(step, 0, priorOutputs, true);
+    // The real stage instructions must still be present (guards against the render
+    // Promise being concatenated as "[object Promise]" — i.e. an un-awaited render).
+    expect(prompt).not.toContain('[object Promise]');
+    expect(prompt).toContain('REV-42');
+    expect(prompt).toContain('Previous attempt failed the enforced gate');
+    expect(prompt).toContain('typecheck + lint + tests');
+    expect(prompt).toContain('error TS2339');
+  });
+
+  it('omits the preamble entirely on the first attempt (no prior failure)', async () => {
+    const ctx = buildWorkflowContext(baseDeps());
+    const prompt = await ctx.renderStagePrompt!(step, 0, priorOutputs, true);
+    expect(prompt).not.toContain('Previous attempt failed the enforced gate');
+  });
+
+  it('threads the preamble into EVERY stage, not just the first (executor is a later stage)', async () => {
+    const ctx = buildWorkflowContext(baseDeps({ priorGateFailure: 'lint failed: no-unused-vars' }));
+    const execStage: WorkflowStep = { skill: 'harness-execution', produces: 'diff' };
+    const prompt = await ctx.renderStagePrompt!(execStage, 2, priorOutputs, true);
+    expect(prompt).toContain('Previous attempt failed the enforced gate');
+    expect(prompt).toContain('lint failed: no-unused-vars');
+  });
+});
