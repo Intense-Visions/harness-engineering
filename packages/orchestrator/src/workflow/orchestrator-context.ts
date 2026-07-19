@@ -194,6 +194,36 @@ function resolveStageBackendFactory(
   };
 }
 
+/**
+ * Synthesize the identity-path RoutingDecision for a stage from the resolved
+ * backend's name + its def type. The adaptive path attaches the router's real
+ * decision to `run.decision`; the identity path had none, which left the last
+ * stage's decision unset → `settleWorkflowSuccess`'s `isLocal` gate could not
+ * derive locality → the gate+ship block was skipped → a fully-local (no-AMR,
+ * i.e. DEFAULT) staged unit completed but never shipped and looped. Only
+ * `backendName` is load-bearing (the settle gate does its own def lookup +
+ * `isLocalEndpointBackend`); the remaining fields are filled for telemetry
+ * completeness. We synthesize from the ALREADY-resolved backend rather than
+ * re-calling the router, so this adds NO second decision-bus emission. Absent
+ * backends map ⇒ undefined (decision stays unset — legacy byte-identical).
+ */
+function stageDecisionFactory(
+  backends: Record<string, BackendDef> | undefined
+): NonNullable<WorkflowEngineContext['stageDecisionFor']> {
+  return (step, backend) => {
+    const def = backends?.[backend.name];
+    if (def === undefined) return undefined;
+    return {
+      timestamp: new Date().toISOString(),
+      useCase: buildStageUseCase(step),
+      resolutionPath: [],
+      backendName: backend.name,
+      backendType: def.type,
+      durationMs: 0,
+    };
+  };
+}
+
 /** Build the engine's `renderStagePrompt` seam over a pure renderer + issue. */
 function renderStagePromptFactory(
   promptRenderer: PromptRenderer,
@@ -284,6 +314,10 @@ export function buildWorkflowContext(deps: BuildWorkflowContextDeps): WorkflowEn
     makeRunner: makeRunnerFactory(backendFactory, maxTurns),
 
     resolveStageBackend: resolveStageBackendFactory(backendFactory, deps.routingDefault),
+
+    // Identity-path routing decision so the local staged settle gate's isLocal
+    // check works without the adaptive router (see stageDecisionFactory).
+    stageDecisionFor: stageDecisionFactory(deps.backends),
 
     // split-routing 4b: render the real per-stage prompt (issue + stage role +
     // prior-stage outputs) via the pure PromptRenderer — no orchestrator import.

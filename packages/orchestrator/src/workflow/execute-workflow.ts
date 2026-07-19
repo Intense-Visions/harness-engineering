@@ -71,6 +71,22 @@ export interface WorkflowEngineContext {
   /** Phase 1 stub: resolve the single backend for a stage (Phase 2 replaces with route()). */
   resolveStageBackend(step: WorkflowExecutionPlan['stages'][number]): AgentBackend;
   /**
+   * Per-phase routing (identity path): synthesize THIS stage's RoutingDecision when
+   * it was resolved via the identity fallback (no adaptiveRouter). The adaptive path
+   * attaches `run.decision` from the router; the identity path had none, leaving
+   * `run.decision` unset. That silently broke every downstream consumer of the last
+   * stage's decision — critically `settleWorkflowSuccess`'s `isLocal` gate, which
+   * derives locality from `runs[last].decision?.backendName`: with no decision the
+   * gate+ship block is skipped, so a fully-local (no-`routing.policy`, i.e. AMR-off,
+   * i.e. the DEFAULT) staged unit completes but never ships and loops via
+   * `in_review` re-dispatch. This fills the same slot from the resolved backend's
+   * name + type. ABSENT (fake/legacy contexts) ⇒ decision stays unset (byte-identical).
+   */
+  stageDecisionFor?(
+    step: WorkflowExecutionPlan['stages'][number],
+    backend: AgentBackend
+  ): RoutingDecision | undefined;
+  /**
    * split-routing 4b: render the REAL per-stage prompt (issue + stage role +
    * prior-stage outputs), replacing the Phase-1 bare skill-name stub. Bound by
    * `buildWorkflowContext` via a `PromptRenderer` (never imports orchestrator).
@@ -405,7 +421,14 @@ export async function runStageWithRetry(
           ctx.adaptiveRouter.recordOutcome(unit, tier, ok);
         }
       } else {
-        // Phase-1 identity fallback (byte-unchanged): no decision/tier, single attempt.
+        // Phase-1 identity fallback: no adaptive tier/retry (single attempt). Still
+        // record THIS stage's routing decision (backend name + type) so downstream
+        // locality detection works WITHOUT the adaptive router — notably the local
+        // staged settle gate's `isLocal` check (settleWorkflowSuccess), which reads
+        // `runs[last].decision?.backendName`. Without this a fully-local (no-AMR) unit
+        // completes but its gate+ship is skipped (isLocal underivable) → it never
+        // ships and loops via in_review re-dispatch. `stageDecisionFor` is absent on
+        // fake/legacy contexts ⇒ decision stays unset (byte-identical legacy).
         const backend = ctx.resolveStageBackend(step);
         run = await runStageSession(
           ctx,
@@ -416,6 +439,8 @@ export async function runStageWithRetry(
           backend,
           priorOutputs(priorRuns, step)
         );
+        const identityDecision = ctx.stageDecisionFor?.(step, backend);
+        if (identityDecision !== undefined) run.decision = identityDecision;
       }
     } catch (err) {
       // D10 (SC6-b): a runner THROW mid-stage (transport/runner error) is TERMINAL
