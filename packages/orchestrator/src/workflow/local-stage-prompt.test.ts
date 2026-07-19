@@ -43,6 +43,14 @@ describe('LOCAL_STAGE_PROMPT_TEMPLATE', () => {
     expect(LOCAL_STAGE_PROMPT_TEMPLATE).toContain('{{ title }}');
     expect(LOCAL_STAGE_PROMPT_TEMPLATE).toContain('priorEntries');
   });
+
+  it('instructs the model to self-verify (typecheck + lint + full test suite) before finishing', () => {
+    expect(LOCAL_STAGE_PROMPT_TEMPLATE).toContain('self-verify');
+    expect(LOCAL_STAGE_PROMPT_TEMPLATE).toContain('typecheck');
+    // must call out the two gate-failure modes the retry loop kept hitting
+    expect(LOCAL_STAGE_PROMPT_TEMPLATE).toMatch(/esbuild.*strips types|ALWAYS run typecheck/);
+    expect(LOCAL_STAGE_PROMPT_TEMPLATE).toMatch(/count|inventory/);
+  });
 });
 
 describe('stage-prompt templates thread the produces variable (SC5)', () => {
