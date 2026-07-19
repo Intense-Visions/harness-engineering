@@ -2868,7 +2868,7 @@ export class Orchestrator extends EventEmitter {
      * (from the matched `StagedWorkflowDecl.acceptance`). When present it is the
      * mechanical step (run in the workspace, gated on exit code) IN PLACE OF
      * `verifyRunner`; when absent, `verifyRunner` is unchanged. The empty-diff halt
-     * (step 0) and outcome-eval (step 2) run identically either way.
+     * (step 0) and outcome-eval at step 2 run identically either way.
      */
     acceptance?: string
   ): Promise<{ ok: true } | { ok: false; reason: string }> {
