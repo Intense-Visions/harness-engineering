@@ -154,6 +154,7 @@ import type {
 } from './maintenance/task-runner';
 import { resolveOrchestratorId } from './core/orchestrator-identity';
 import { StreamRecorder } from './core/stream-recorder';
+import { FlightRecorder, gatherProvenance, type Verdict } from './core/flight-recorder';
 
 /**
  * Resolve a `harnessFit.taskIds` override into the concrete probe task suite (D5
@@ -776,6 +777,9 @@ export class Orchestrator extends EventEmitter {
   private notificationFanoutOff?: () => void;
   private orchestratorIdPromise: Promise<string>;
   private recorder: StreamRecorder;
+  /** Black-box for this run (one process lifetime). Null until constructed; all calls best-effort. */
+  private flightRecorder: FlightRecorder | null = null;
+  private readonly flightRunId = `run-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 6)}`;
   private intelligenceRunner: IntelligencePipelineRunner;
   private completionHandler: CompletionHandler;
 
@@ -1167,6 +1171,15 @@ export class Orchestrator extends EventEmitter {
 
     this.recorder = new StreamRecorder(
       path.resolve(config.workspace.root, '..', 'streams'),
+      this.logger
+    );
+
+    // Flight recorder ("black-box"): a durable, always-on forensic record of THIS
+    // run, written beside the streams. Construction is I/O-free; provenance +
+    // verdicts are captured in start()/at terminal points. Never breaks a dispatch.
+    this.flightRecorder = new FlightRecorder(
+      path.resolve(config.workspace.root, '..', 'black-box'),
+      this.flightRunId,
       this.logger
     );
 
@@ -2843,6 +2856,13 @@ export class Orchestrator extends EventEmitter {
       // routing ever becomes attempt-sensitive or hot-reloadable mid-issue, gate
       // the read (orchestrator.ts:2185) on the re-render's resolved backend type.
       this.priorGateFailureByIssue.set(issue.id, gate.reason);
+      this.recordFlightVerdict({
+        issueId: issue.id,
+        identifier: issue.identifier,
+        verdict: 'gate-blocked',
+        attempt,
+        gateReason: gate.reason,
+      });
       this.logger.info(`local workflow gate blocked ${issue.identifier}; re-dispatching (SC3)`, {
         issueId: issue.id,
       });
@@ -3669,6 +3689,12 @@ export class Orchestrator extends EventEmitter {
       // candidate set (filterCandidatesWithOpenPRs) — matching, not weaker than, the
       // single-dispatch durable guard (markIssueComplete flips the row terminal).
       this.#shippedThisRun.add(unit);
+      this.recordFlightVerdict({
+        issueId: unit,
+        identifier: shipIdentifier,
+        verdict: 'shipped',
+        ...(entry?.attempt !== undefined ? { attempt: entry.attempt } : {}),
+      });
     }
     // Reducer normal-exit sequence (state-machine.ts:457,467-469):
     this.state.running.delete(unit);
@@ -3736,6 +3762,26 @@ export class Orchestrator extends EventEmitter {
    * consecutive failures → the existing needs-human terminal (which cleans +
    * escalates). Behavior is identical to the pre-extraction inline branch.
    */
+  /**
+   * Record a unit's disposition to the flight recorder ("black-box"). Best-effort:
+   * a recorder failure must never break a dispatch, so it swallows everything.
+   */
+  private recordFlightVerdict(v: {
+    issueId: string;
+    identifier?: string;
+    verdict: Verdict;
+    attempt?: number | null;
+    gateReason?: string;
+    pr?: number;
+  }): void {
+    if (this.flightRecorder === null) return;
+    try {
+      this.flightRecorder.recordVerdict({ ...v, identifier: v.identifier ?? v.issueId });
+    } catch {
+      /* best-effort */
+    }
+  }
+
   private async handleStagedGateFailure(
     unit: string,
     runs: StageRun[],
@@ -3757,6 +3803,13 @@ export class Orchestrator extends EventEmitter {
       // bound-exhausted branch — a unit still RETRYING below the bound must NOT be in
       // this set) so filterCandidatesWithOpenPRs + dispatchIssue permanently skip it.
       this.#escalatedThisRun.add(unit);
+      this.recordFlightVerdict({
+        issueId: unit,
+        ...(identifier ? { identifier } : {}),
+        verdict: 'needs-human',
+        attempt: attempts,
+        gateReason,
+      });
       await this.settleWorkflowTerminal(
         unit,
         runs,
@@ -3767,6 +3820,13 @@ export class Orchestrator extends EventEmitter {
     }
     this.localStageGateAttempts.set(unit, attempts);
     this.priorGateFailureByIssue.set(unit, gateReason);
+    this.recordFlightVerdict({
+      issueId: unit,
+      ...(identifier ? { identifier } : {}),
+      verdict: 'gate-blocked',
+      attempt: attempts,
+      gateReason,
+    });
     this.logger.info(`staged local gate blocked ${identifier ?? unit}; re-dispatching (SC1)`, {
       issueId: unit,
       attempt: attempts,
@@ -4414,6 +4474,16 @@ export class Orchestrator extends EventEmitter {
     // Resolve orchestrator identity and initialize ClaimManager before first tick
     await this.ensureClaimManager();
 
+    // Flight recorder: pin provenance (git HEAD, node, backends, routing) for this
+    // run so any later verdict is falsifiable against WHICH code/config produced it.
+    // Best-effort — a recorder failure must never prevent the orchestrator starting.
+    try {
+      const flightId = await this.orchestratorIdPromise;
+      this.flightRecorder?.startRun(flightId, gatherProvenance(this.config));
+    } catch (err) {
+      this.logger.warn('Flight recorder failed to start', { error: String(err) });
+    }
+
     // Startup reconciliation: release orphaned claims from previous crash
     const runningIssueIds = new Set(this.state.running.keys());
     const reconcileResult = await this.claimManager!.reconcileOnStartup(runningIssueIds);
@@ -4466,6 +4536,8 @@ export class Orchestrator extends EventEmitter {
    * Stops the orchestrator, clearing the polling interval and stopping the server.
    */
   public async stop(): Promise<void> {
+    // Seal the black-box first so an abrupt teardown still leaves a stamped record.
+    this.flightRecorder?.finishRun();
     if (this.interval) {
       clearTimeout(this.interval);
       this.interval = undefined;
