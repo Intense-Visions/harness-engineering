@@ -2,7 +2,7 @@
 
 # Skills Catalog
 
-764 skills across 3 tiers. Tier 1 and 2 skills are registered as slash commands. Tier 3 skills are discoverable via the `search_skills` MCP tool. See the [Features Overview](../guides/features-overview.md) for narrative documentation.
+765 skills across 3 tiers. Tier 1 and 2 skills are registered as slash commands. Tier 3 skills are discoverable via the `search_skills` MCP tool. See the [Features Overview](../guides/features-overview.md) for narrative documentation.
 
 ## Tier 1 — Workflow (15 skills)
 
@@ -151,7 +151,7 @@ Upstream client-inception skill. Ingests a diagram + client conversation notes, 
 - **Cognitive mode:** configuration-interviewer
 - **Depends on:** harness-strategy, harness-brainstorming
 
-## Tier 2 — Maintenance (46 skills)
+## Tier 2 — Maintenance (47 skills)
 
 ### acceptance-eval
 
@@ -519,6 +519,15 @@ Binary pass/fail quick gate — runs test, lint, typecheck commands and returns 
 - **Platforms:** claude-code, gemini-cli, cursor, codex
 - **Type:** rigid
 - **Cognitive mode:** meticulous-verifier
+
+### harness-workflow-audit
+
+CI/GitHub-Actions workflow-file quality and hygiene auditor
+
+- **Triggers:** manual, on_milestone
+- **Platforms:** claude-code, gemini-cli, cursor, codex
+- **Type:** rigid
+- **Cognitive mode:** adversarial-reviewer
 
 ### knowledge-craft
 
