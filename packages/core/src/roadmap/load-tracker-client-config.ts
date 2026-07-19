@@ -3,6 +3,7 @@ import * as path from 'node:path';
 import type { Result } from '@harness-engineering/types';
 import { Ok, Err } from '@harness-engineering/types';
 import type { TrackerClientConfig } from './tracker/factory';
+import { deriveRepoFromGitRemote } from './derive-repo';
 
 /**
  * Build a `TrackerClientConfig` from `<projectRoot>/harness.config.json`.
@@ -41,18 +42,24 @@ export function loadTrackerClientConfigFromProject(
         new Error(`file-less tracker only supports kind: "github" today; got "${tracker.kind}"`)
       );
     }
-    // REV-P5-S4: refuse to silently coerce a missing repo to ''. An empty repo
-    // string downstream becomes a `o/r` of `''`, producing 404s on the first
-    // API call and burying the operator's actual misconfiguration. Fail fast
-    // with a precise error pointing at the missing config key.
-    if (!tracker.repo) {
+    // When repo is unset, derive it from `git remote get-url origin` so
+    // downstream repos that omit the key (or copy a config template) get a
+    // working default instead of a no-op. Explicit config always wins (#902).
+    //
+    // REV-P5-S4: still refuse to silently coerce a missing repo to ''. An
+    // empty repo string downstream becomes a `o/r` of `''`, producing 404s on
+    // the first API call and burying the operator's actual misconfiguration.
+    // Fail fast with a precise error pointing at the missing config key.
+    const repo = tracker.repo || deriveRepoFromGitRemote(projectRoot);
+    if (!repo) {
       return Err(
         new Error(
-          'roadmap.tracker.repo is required for file-less mode (set it in harness.config.json)'
+          'roadmap.tracker.repo is required for file-less mode (set it in ' +
+            'harness.config.json, or add a git "origin" remote to derive it from)'
         )
       );
     }
-    return Ok({ kind: 'github-issues', repo: tracker.repo });
+    return Ok({ kind: 'github-issues', repo });
   } catch (e) {
     return Err(e instanceof Error ? e : new Error(String(e)));
   }

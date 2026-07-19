@@ -796,6 +796,7 @@ Install Claude Code hook configurations into the current project
 **Options:**
 
 - `--profile` — Hook profile: minimal, standard, or strict (default: "standard")
+- `--force` — Overwrite hook files even if they have local modifications
 
 ### `harness hooks list`
 

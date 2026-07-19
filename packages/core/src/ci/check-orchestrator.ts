@@ -330,7 +330,9 @@ async function runArchCheck(
   const baseline = baselineManager.load();
 
   if (baseline) {
-    const diffResult = diff(results, baseline);
+    const diffResult = diff(results, baseline, {
+      regressionTolerance: archConfig.regressionTolerance,
+    });
     if (!diffResult.passed) {
       for (const v of diffResult.newViolations) {
         issues.push({

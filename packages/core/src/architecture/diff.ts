@@ -38,7 +38,9 @@ function aggregateByCategory(results: MetricResult[]): Map<ArchMetricCategory, A
  *
  * Pure function implementing the ratchet logic:
  * - New violations (in current but not baseline) cause failure
- * - Aggregate value exceeding baseline causes failure (regression)
+ * - Aggregate value exceeding baseline (beyond `regressionTolerance`) causes
+ *   failure (regression); the tolerance defaults to 0 for a strict `>` here
+ *   and is supplied by config at the call site
  * - Pre-existing violations (in both) are allowed
  * - Resolved violations (in baseline but not current) are celebrated
  *
@@ -106,7 +108,8 @@ function diffCategory(
   category: ArchMetricCategory,
   agg: AggregatedCategory,
   baselineCategory: CategoryBaseline | undefined,
-  acc: CategoryDiffAccumulator
+  acc: CategoryDiffAccumulator,
+  regressionTolerance: number
 ): void {
   const baselineViolationIds = new Set(baselineCategory?.violationIds ?? []);
   const baselineValue = baselineCategory?.value ?? 0;
@@ -118,7 +121,12 @@ function diffCategory(
   const currentViolationIds = new Set(agg.violations.map((v) => v.id));
   acc.resolvedViolations.push(...findResolvedViolations(baselineCategory, currentViolationIds));
 
-  if (baselineCategory && agg.value > baselineValue) {
+  // Absorb sub-tolerance drift (e.g. the growth inherited when a branch merges
+  // `main`) so the ratchet does not force a baseline rewrite for noise. The
+  // allowance floors at the exact baseline value, so a 0-tolerance run keeps
+  // the original strict `>` semantics.
+  const allowed = baselineValue + Math.floor(baselineValue * regressionTolerance);
+  if (baselineCategory && agg.value > allowed) {
     acc.regressions.push({
       category,
       baselineValue,
@@ -128,7 +136,12 @@ function diffCategory(
   }
 }
 
-export function diff(current: MetricResult[], baseline: ArchBaseline): ArchDiffResult {
+export function diff(
+  current: MetricResult[],
+  baseline: ArchBaseline,
+  options?: { regressionTolerance?: number }
+): ArchDiffResult {
+  const regressionTolerance = options?.regressionTolerance ?? 0;
   const aggregated = aggregateByCategory(current);
   const acc: CategoryDiffAccumulator = {
     newViolations: [],
@@ -140,7 +153,7 @@ export function diff(current: MetricResult[], baseline: ArchBaseline): ArchDiffR
 
   for (const [category, agg] of aggregated) {
     visitedCategories.add(category);
-    diffCategory(category, agg, baseline.metrics[category], acc);
+    diffCategory(category, agg, baseline.metrics[category], acc, regressionTolerance);
   }
 
   acc.resolvedViolations.push(...collectOrphanedBaselineViolations(baseline, visitedCategories));

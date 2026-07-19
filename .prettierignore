@@ -42,6 +42,7 @@ packages/core/tests/fixtures/code-nav/syntax-error.ts
 # (blank line between delimiters) so scripts/check-changesets.mjs detects it as
 # empty. Prettier would collapse it to `---\n---`, which the gate rejects.
 .changeset/maint-arch-refactor-no-release.md
+.changeset/downstream-papercuts-orchestrator-comment-no-release.md
 .changeset/repo-shape-orchestrator-comment-no-release.md
 .changeset/workflow-audit-orchestrator-comment-no-release.md
 .changeset/stagedecision-jsdoc-comment-no-release.md
