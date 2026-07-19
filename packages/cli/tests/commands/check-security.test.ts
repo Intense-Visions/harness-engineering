@@ -4,6 +4,8 @@ import * as path from 'path';
 
 const CLEAN_FIXTURES = path.join(__dirname, '../fixtures/valid-project');
 const INSECURE_FIXTURES = path.join(__dirname, '../fixtures/security-findings');
+// Fixture that contains ONLY an info-severity finding (SEC-NET-003 http:// URL).
+const INFO_ONLY_FIXTURES = path.join(__dirname, '../fixtures/security-info-only');
 
 describe('runCheckSecurity', () => {
   it('returns valid:true when no findings exist', async () => {
@@ -45,6 +47,38 @@ describe('runCheckSecurity', () => {
 
     // Error-only count should be <= all findings count
     expect(errorResult.value.findings.length).toBeLessThanOrEqual(allCount);
+  });
+
+  // Regression for #915: `--severity` must bound the VERDICT, not just the report.
+  describe('severity bounds the pass/fail verdict (#915)', () => {
+    it('does NOT fail --severity error on a new info-only finding', async () => {
+      const result = await runCheckSecurity(INFO_ONLY_FIXTURES, { severity: 'error' });
+      expect(result.ok).toBe(true);
+      if (!result.ok) return;
+      // The info finding is below the requested threshold, so the gate passes.
+      expect(result.value.stats.infoCount).toBe(0);
+      expect(result.value.findings).toEqual([]);
+      expect(result.value.valid).toBe(true);
+    });
+
+    it('DOES fail --severity error on a new error finding', async () => {
+      const result = await runCheckSecurity(INSECURE_FIXTURES, { severity: 'error' });
+      expect(result.ok).toBe(true);
+      if (!result.ok) return;
+      expect(result.value.stats.errorCount).toBeGreaterThan(0);
+      expect(result.value.valid).toBe(false);
+    });
+
+    it('fails when the requested severity is at-or-below the finding severity', async () => {
+      // Guard: `--severity info` must actually gate on the info finding.
+      // Before the fix the verdict was hardcoded to error, so this passed
+      // incorrectly (valid:true) even though an info finding was present.
+      const result = await runCheckSecurity(INFO_ONLY_FIXTURES, { severity: 'info' });
+      expect(result.ok).toBe(true);
+      if (!result.ok) return;
+      expect(result.value.stats.infoCount).toBeGreaterThan(0);
+      expect(result.value.valid).toBe(false);
+    });
   });
 
   it('returns stats with correct shape', async () => {

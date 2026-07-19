@@ -124,7 +124,7 @@ Run lightweight security scan: secrets, injection, XSS, weak crypto
 
 **Options:**
 
-- `--severity` — Minimum severity threshold (default: "warning")
+- `--severity` — Minimum severity that fails the command; findings below it are excluded from the report and never fail the gate (error, warning, info) (default: "warning")
 - `--changed-only` — Only scan git-changed files
 
 ### `harness cleanup`
