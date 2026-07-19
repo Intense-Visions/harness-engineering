@@ -3,6 +3,7 @@ import * as path from 'path';
 import type { Result } from '@harness-engineering/core';
 import { Ok, Err } from '@harness-engineering/core';
 import { HarnessConfigSchema, type HarnessConfig } from './schema';
+import { collectStrippedKeys, formatStrippedKeyWarnings } from './stripped-keys';
 import { CLIError, ExitCode } from '../utils/errors';
 
 const CONFIG_FILENAMES = ['harness.config.json'];
@@ -68,7 +69,31 @@ export function loadConfig(configPath: string): Result<HarnessConfig, CLIError> 
     return Err(new CLIError(`Invalid config:\n${issues}`, ExitCode.ERROR));
   }
 
+  // Non-fatal: warn about keys the schema silently dropped (unknown or
+  // mis-nested). zod strips these with no signal, so a plausible-but-wrong
+  // config becomes a silent no-op (issue #862). Sections that intentionally
+  // use `.passthrough()` (security, performance, ...) are respected and never
+  // reported. Loading still succeeds.
+  warnStrippedKeys(rawConfig);
+
   return Ok(parsed.data);
+}
+
+/**
+ * Emit a non-fatal warning to stderr for each config key the schema dropped.
+ * Written to stderr so JSON stdout stays clean; never throws and never affects
+ * load success.
+ */
+function warnStrippedKeys(rawConfig: unknown): void {
+  if (process.env.HARNESS_SUPPRESS_CONFIG_WARNINGS === '1') return;
+  try {
+    const dropped = collectStrippedKeys(HarnessConfigSchema, rawConfig);
+    for (const line of formatStrippedKeyWarnings(dropped)) {
+      process.stderr.write(`${line}\n`);
+    }
+  } catch {
+    // Detection is best-effort diagnostics; a walk failure must never break load.
+  }
 }
 
 /**
