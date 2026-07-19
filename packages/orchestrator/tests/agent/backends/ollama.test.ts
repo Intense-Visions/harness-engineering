@@ -458,6 +458,60 @@ describe('OllamaBackend', () => {
       expect(lastUser?.content).toBe('do it'); // no /no_think append
     });
 
+    it('threads sampling params (temperature/top_p/top_k) into /api/chat options when set', async () => {
+      let body: any;
+      vi.stubGlobal(
+        'fetch',
+        vi.fn(async (_u, init: RequestInit) => {
+          body = JSON.parse(init.body as string);
+          return okFetch(chatResponse({ content: 'TASK_COMPLETE' }));
+        })
+      );
+      const backend = new OllamaBackend({ ...baseConfig, temperature: 0.6, topP: 0.95, topK: 20 });
+      const start = await backend.startSession({
+        workspacePath: workspace,
+        permissionMode: 'full',
+      });
+      if (!start.ok) return;
+      await drain(
+        backend.runTurn(start.value, {
+          sessionId: start.value.sessionId,
+          prompt: 'go',
+          isContinuation: false,
+        })
+      );
+      expect(body.options.temperature).toBe(0.6);
+      expect(body.options.top_p).toBe(0.95);
+      expect(body.options.top_k).toBe(20);
+    });
+
+    it('omits sampling params from /api/chat options when unset (model defaults)', async () => {
+      let body: any;
+      vi.stubGlobal(
+        'fetch',
+        vi.fn(async (_u, init: RequestInit) => {
+          body = JSON.parse(init.body as string);
+          return okFetch(chatResponse({ content: 'TASK_COMPLETE' }));
+        })
+      );
+      const backend = new OllamaBackend(baseConfig);
+      const start = await backend.startSession({
+        workspacePath: workspace,
+        permissionMode: 'full',
+      });
+      if (!start.ok) return;
+      await drain(
+        backend.runTurn(start.value, {
+          sessionId: start.value.sessionId,
+          prompt: 'go',
+          isContinuation: false,
+        })
+      );
+      expect(body.options.temperature).toBeUndefined();
+      expect(body.options.top_p).toBeUndefined();
+      expect(body.options.top_k).toBeUndefined();
+    });
+
     it('omits think when disableReasoning is unset (SC5)', async () => {
       let body: any;
       vi.stubGlobal(

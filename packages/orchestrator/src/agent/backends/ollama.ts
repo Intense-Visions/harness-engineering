@@ -78,6 +78,14 @@ export interface OllamaBackendConfig {
   maxContextTokens?: number | undefined;
   /** Output-token budget (`num_predict`). Unset ⇒ model default. */
   numPredict?: number | undefined;
+  /**
+   * Sampling controls (native `/api/chat` `options`). Unset ⇒ Ollama model
+   * default (~temp 0.8). Precise agentic coding benefits from lower/tighter
+   * sampling — Qwen thinking-mode coding guidance is 0.6 / 0.95 / 20.
+   */
+  temperature?: number | undefined;
+  topP?: number | undefined;
+  topK?: number | undefined;
   /** Keep the sized model warm between turns (`keep_alive`). Default `'10m'`. */
   keepAlive?: string | undefined;
   /**
@@ -1049,6 +1057,13 @@ export class OllamaBackend implements AgentBackend {
             ...(this.config.numPredict !== undefined
               ? { num_predict: this.config.numPredict }
               : {}),
+            // Sampling controls — unset ⇒ Ollama model default. Lower/tighter values
+            // improve precise agentic coding (Qwen thinking-mode guidance: 0.6/0.95/20).
+            ...(this.config.temperature !== undefined
+              ? { temperature: this.config.temperature }
+              : {}),
+            ...(this.config.topP !== undefined ? { top_p: this.config.topP } : {}),
+            ...(this.config.topK !== undefined ? { top_k: this.config.topK } : {}),
           },
         }),
         signal: controller.signal,

@@ -190,6 +190,12 @@ export const BackendDefSchema = z.discriminatedUnion('type', [
       maxContextTokens: z.number().int().positive().optional(),
       numPredict: z.number().int().positive().optional(),
       keepAlive: z.string().optional(),
+      // Sampling controls (native /api/chat `options`). Unset ⇒ Ollama model
+      // default (~temp 0.8). Precise agentic coding benefits from lower/tighter
+      // sampling — Qwen guidance for thinking-mode coding is temp 0.6 / top_p 0.95 / top_k 20.
+      temperature: z.number().min(0).max(2).optional(),
+      topP: z.number().min(0).max(1).optional(),
+      topK: z.number().int().positive().optional(),
       mcpServers: z.array(McpServerSpecSchema).optional(),
       capabilities: BackendCapabilitiesSchema.optional(),
     })

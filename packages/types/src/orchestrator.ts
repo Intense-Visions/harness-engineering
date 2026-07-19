@@ -652,6 +652,16 @@ export interface OllamaBackendDef {
   maxContextTokens?: number;
   /** Output-token budget (`num_predict`). Unset ⇒ model default. */
   numPredict?: number;
+  /**
+   * Sampling temperature (native `/api/chat` `options.temperature`). Unset ⇒
+   * Ollama model default (~0.8). Precise agentic coding benefits from a lower
+   * value — Qwen guidance for thinking-mode coding is 0.6.
+   */
+  temperature?: number;
+  /** Nucleus sampling `top_p`. Unset ⇒ model default. Qwen coding guidance: 0.95. */
+  topP?: number;
+  /** `top_k` sampling. Unset ⇒ model default. Qwen coding guidance: 20. */
+  topK?: number;
   /** Keep the sized model warm between turns (`keep_alive`). Default `'10m'`. */
   keepAlive?: string;
   /**

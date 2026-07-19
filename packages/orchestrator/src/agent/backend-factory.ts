@@ -159,6 +159,9 @@ function createOllamaBackend(
         ? { maxContextTokens: contextCapFromMemoryGb(options.hardwareMemoryGb) }
         : {}),
     ...(def.numPredict !== undefined ? { numPredict: def.numPredict } : {}),
+    ...(def.temperature !== undefined ? { temperature: def.temperature } : {}),
+    ...(def.topP !== undefined ? { topP: def.topP } : {}),
+    ...(def.topK !== undefined ? { topK: def.topK } : {}),
     ...(def.keepAlive !== undefined ? { keepAlive: def.keepAlive } : {}),
     ...(def.mcpServers !== undefined ? { mcpServers: def.mcpServers } : {}),
   });
