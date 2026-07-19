@@ -12,7 +12,24 @@
   "keywords": ["harness", "agent-first", "skills", "subagents", "hooks", "mcp", "claude-code"],
   "skills": ["./agents/skills/claude-code"],
   "commands": "./.claude-plugin/commands/",
-  "agents": "./.claude-plugin/agents/",
+  "agents": [
+    "./.claude-plugin/agents/harness-adversarial-reviewer.md",
+    "./.claude-plugin/agents/harness-architecture-enforcer.md",
+    "./.claude-plugin/agents/harness-code-reviewer.md",
+    "./.claude-plugin/agents/harness-codebase-health-analyst.md",
+    "./.claude-plugin/agents/harness-documentation-maintainer.md",
+    "./.claude-plugin/agents/harness-entropy-cleaner.md",
+    "./.claude-plugin/agents/harness-frontend-races-reviewer.md",
+    "./.claude-plugin/agents/harness-graph-maintainer.md",
+    "./.claude-plugin/agents/harness-harness-pm.md",
+    "./.claude-plugin/agents/harness-parallel-coordinator.md",
+    "./.claude-plugin/agents/harness-performance-guardian.md",
+    "./.claude-plugin/agents/harness-planner.md",
+    "./.claude-plugin/agents/harness-security-reviewer.md",
+    "./.claude-plugin/agents/harness-task-executor.md",
+    "./.claude-plugin/agents/harness-typescript-strict-reviewer.md",
+    "./.claude-plugin/agents/harness-verifier.md"
+  ],
   "hooks": "./.claude-plugin/hooks.json",
   "mcpServers": {
     "harness": {
