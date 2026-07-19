@@ -7,6 +7,7 @@ import {
   resolvePersonasDir,
   resolveSkillsDir,
   resolveAllSkillsDirs,
+  resolveAllSkillsDirsWithSource,
   resolveCommunitySkillsDir,
   resolveSkillDir,
 } from '../../src/utils/paths';
@@ -88,6 +89,35 @@ describe('resolveAllSkillsDirs', () => {
   it('accepts gemini-cli platform', () => {
     const result = resolveAllSkillsDirs('gemini-cli');
     result.forEach((dir) => expect(dir).toMatch(/gemini-cli$/));
+  });
+});
+
+describe('resolveAllSkillsDirsWithSource (#902)', () => {
+  it('labels every returned directory with its provenance', () => {
+    const result = resolveAllSkillsDirsWithSource();
+    expect(result.length).toBeGreaterThanOrEqual(1);
+    result.forEach((entry) => {
+      expect(typeof entry.dir).toBe('string');
+      expect(['project', 'community', 'bundled']).toContain(entry.source);
+    });
+  });
+
+  it('never labels the bundled catalog as project when no project dir exists', () => {
+    const emptyRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'harness-no-proj-skills-'));
+    const result = resolveAllSkillsDirsWithSource('claude-code', emptyRoot);
+    result.forEach((entry) => expect(entry.source).not.toBe('project'));
+  });
+
+  it('includes the project skills dir of an explicit projectRoot, labeled project', () => {
+    const projectRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'harness-proj-skills-'));
+    const skillsDir = path.join(projectRoot, 'agents', 'skills', 'claude-code');
+    fs.mkdirSync(skillsDir, { recursive: true });
+
+    const result = resolveAllSkillsDirsWithSource('claude-code', projectRoot);
+    const project = result.find((entry) => entry.source === 'project');
+    expect(project?.dir).toBe(skillsDir);
+    // Project dir comes first (highest priority)
+    expect(result[0]?.source).toBe('project');
   });
 });
 

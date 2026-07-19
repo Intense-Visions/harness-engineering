@@ -86,7 +86,10 @@ describe('initHooks', () => {
     const profilePath = path.join(tmpDir, '.harness', 'hooks', 'profile.json');
     expect(fs.existsSync(profilePath)).toBe(true);
     const profile = JSON.parse(fs.readFileSync(profilePath, 'utf-8'));
-    expect(profile).toEqual({ profile: 'standard' });
+    expect(profile.profile).toBe('standard');
+    // Install-time content hashes recorded for local-modification detection (#902)
+    expect(profile.fileHashes).toBeDefined();
+    expect(Object.keys(profile.fileHashes).length).toBeGreaterThan(0);
     expect(result.profilePath).toBe(profilePath);
   });
 
@@ -139,6 +142,93 @@ describe('initHooks', () => {
     initHooks({ profile: 'minimal', projectDir: tmpDir });
     const minimalFiles = fs.readdirSync(hooksDir).filter((f) => f.endsWith('.js'));
     expect(minimalFiles).toEqual(['block-no-verify.js']);
+  });
+});
+
+describe('initHooks local-modification guard (#902)', () => {
+  let tmpDir: string;
+  let hooksDir: string;
+
+  beforeEach(() => {
+    tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'harness-hooks-guard-'));
+    hooksDir = path.join(tmpDir, '.harness', 'hooks');
+  });
+
+  afterEach(() => {
+    fs.rmSync(tmpDir, { recursive: true, force: true });
+  });
+
+  it('preserves a hand-edited hook and reports it in skippedModified', () => {
+    initHooks({ profile: 'minimal', projectDir: tmpDir });
+    const hookPath = path.join(hooksDir, 'block-no-verify.js');
+    const edited = '// hand-edited by adopter\n' + fs.readFileSync(hookPath, 'utf-8');
+    fs.writeFileSync(hookPath, edited);
+
+    const result = initHooks({ profile: 'minimal', projectDir: tmpDir });
+
+    expect(result.skippedModified).toEqual(['block-no-verify.js']);
+    expect(fs.readFileSync(hookPath, 'utf-8')).toBe(edited);
+  });
+
+  it('overwrites a hand-edited hook when force is set', () => {
+    initHooks({ profile: 'minimal', projectDir: tmpDir });
+    const hookPath = path.join(hooksDir, 'block-no-verify.js');
+    const original = fs.readFileSync(hookPath, 'utf-8');
+    fs.writeFileSync(hookPath, '// hand-edited\n' + original);
+
+    const result = initHooks({ profile: 'minimal', projectDir: tmpDir, force: true });
+
+    expect(result.skippedModified).toEqual([]);
+    expect(fs.readFileSync(hookPath, 'utf-8')).toBe(original);
+  });
+
+  it('refreshes unmodified hooks without warnings', () => {
+    initHooks({ profile: 'minimal', projectDir: tmpDir });
+    const result = initHooks({ profile: 'minimal', projectDir: tmpDir });
+    expect(result.skippedModified).toEqual([]);
+    expect(result.copiedScripts).toContain('block-no-verify');
+  });
+
+  it('keeps flagging a preserved hand-edited hook on subsequent runs', () => {
+    initHooks({ profile: 'minimal', projectDir: tmpDir });
+    const hookPath = path.join(hooksDir, 'block-no-verify.js');
+    const edited = '// hand-edited\n' + fs.readFileSync(hookPath, 'utf-8');
+    fs.writeFileSync(hookPath, edited);
+
+    initHooks({ profile: 'minimal', projectDir: tmpDir });
+    const again = initHooks({ profile: 'minimal', projectDir: tmpDir });
+
+    expect(again.skippedModified).toEqual(['block-no-verify.js']);
+    expect(fs.readFileSync(hookPath, 'utf-8')).toBe(edited);
+  });
+
+  it('preserves a hand-edited hook across a profile downgrade', () => {
+    initHooks({ profile: 'strict', projectDir: tmpDir });
+    const hookPath = path.join(hooksDir, 'strict-quality-gate.js');
+    const edited = '// disabled locally\n' + fs.readFileSync(hookPath, 'utf-8');
+    fs.writeFileSync(hookPath, edited);
+
+    const result = initHooks({ profile: 'minimal', projectDir: tmpDir });
+
+    // Hand-edited file survives the stale-.js wipe and is reported.
+    expect(result.skippedModified).toContain('strict-quality-gate.js');
+    expect(fs.readFileSync(hookPath, 'utf-8')).toBe(edited);
+  });
+
+  it('keeps legacy refresh behavior for installs without recorded hashes', () => {
+    initHooks({ profile: 'minimal', projectDir: tmpDir });
+    // Simulate a pre-hash install: strip fileHashes from profile.json.
+    const profilePath = path.join(hooksDir, 'profile.json');
+    fs.writeFileSync(profilePath, JSON.stringify({ profile: 'minimal' }, null, 2) + '\n');
+    const hookPath = path.join(hooksDir, 'block-no-verify.js');
+    const original = fs.readFileSync(hookPath, 'utf-8');
+    fs.writeFileSync(hookPath, '// hand-edited\n' + original);
+
+    const result = initHooks({ profile: 'minimal', projectDir: tmpDir });
+
+    // Cannot verify without a recorded hash — refreshed as before.
+    expect(result.skippedModified).toEqual([]);
+    expect(fs.readFileSync(hookPath, 'utf-8')).toBe(original);
   });
 });
 

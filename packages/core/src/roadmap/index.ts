@@ -73,6 +73,11 @@ export { parseExternalId, buildExternalId } from './external-id';
 export { loadTrackerSyncConfig } from './tracker-config';
 
 /**
+ * Default `roadmap.tracker.repo` derivation from the git origin remote.
+ */
+export { deriveRepoFromGitRemote, parseOwnerRepoFromRemoteUrl } from './derive-repo';
+
+/**
  * Auto-done reconciler (Phase 5, D6): flip roadmap rows whose linked issue is
  * closed to `done`, store-routed via the assignee-lifecycle authority.
  */

@@ -3,10 +3,10 @@ import * as fs from 'node:fs';
 import * as path from 'node:path';
 import * as os from 'node:os';
 import { computeSkillsDirHash, buildIndex } from '../../src/skill/index-builder';
-import { resolveAllSkillsDirs } from '../../src/utils/paths';
+import { resolveAllSkillsDirsWithSource } from '../../src/utils/paths';
 
 vi.mock('../../src/utils/paths', () => ({
-  resolveAllSkillsDirs: vi.fn(() => []),
+  resolveAllSkillsDirsWithSource: vi.fn(() => []),
 }));
 
 describe('computeSkillsDirHash', () => {
@@ -198,7 +198,7 @@ describe('buildIndex — tier gating', () => {
   }
 
   function buildWithTmpDir(tierOverrides?: Record<string, number>) {
-    vi.mocked(resolveAllSkillsDirs).mockReturnValue([tmpDir]);
+    vi.mocked(resolveAllSkillsDirsWithSource).mockReturnValue([{ dir: tmpDir, source: 'bundled' }]);
     return buildIndex('claude-code', '/tmp/fake-project', tierOverrides);
   }
 
