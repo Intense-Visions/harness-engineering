@@ -55,15 +55,15 @@ Phase 6: REMEDIATE (opt) <-- Phase 5: PUBLISH <-- Phase 4: DEDUP+RANK
 
 2. **Select dimensions by shape.** Graph/entropy/architecture analyzers produce pure noise on a non-app repo — an audit must not run them blindly. Candidate dimensions:
 
-   | Dimension                    | Composes                                                                                                      | Skip when                                      |
-   | ---------------------------- | ------------------------------------------------------------------------------------------------------------- | ---------------------------------------------- |
-   | Structure / arch conformance | `harness-dependency-health`, `enforce-architecture`, `harness-hotspot-detector`                               | Repo has no source graph (docs/skills overlay) |
-   | Code quality / bugs          | `harness-code-review` (repo-scoped), `cleanup-dead-code`                                                      | No executable source                           |
-   | Docs drift                   | `detect-doc-drift`, `validate-context-engineering`                                                            | Never — every repo has docs to drift           |
-   | CI / workflow hygiene        | Direct inspection of `.github/workflows/` (or a workflow-audit skill if one is present)                       | No CI configured (that IS a finding)           |
-   | Security posture             | `harness-security-scan`, `harness-security-craft`, `harness-supply-chain-audit`                               | Never                                          |
-   | Test depth                   | `harness-test-advisor`, `harness-test-craft` (JS/TS) or the repo's test-intelligence skills (other languages) | No test surface exists (that IS a finding)     |
-   | UX / onboarding friction     | Fresh-eyes walkthrough of README, setup docs, first-run experience                                            | Internal single-maintainer tooling             |
+   | Dimension                    | Composes                                                                                              | Skip when                                      |
+   | ---------------------------- | ----------------------------------------------------------------------------------------------------- | ---------------------------------------------- |
+   | Structure / arch conformance | `harness-dependency-health`, `enforce-architecture`, `harness-hotspot-detector`                       | Repo has no source graph (docs/skills overlay) |
+   | Code quality / bugs          | `harness-code-review` (repo-scoped), `cleanup-dead-code`                                              | No executable source                           |
+   | Docs drift                   | `detect-doc-drift`, `validate-context-engineering`                                                    | Never — every repo has docs to drift           |
+   | CI / workflow hygiene        | Direct inspection of `.github/workflows/` (or a workflow-audit skill if one is present)               | No CI configured (that IS a finding)           |
+   | Security posture             | `harness-security-scan`, `security-craft`, `harness-supply-chain-audit`                               | Never                                          |
+   | Test depth                   | `harness-test-advisor`, `test-craft` (JS/TS) or the repo's test-intelligence skills (other languages) | No test surface exists (that IS a finding)     |
+   | UX / onboarding friction     | Fresh-eyes walkthrough of README, setup docs, first-run experience                                    | Internal single-maintainer tooling             |
 
 3. **Scale agent count to repo size.** Small repo (under roughly 5K LOC, or overlay-shaped): merge related dimensions into 3 agents. Medium: 4–5. Large app or monorepo: full roster up to `--max-agents`. Record the roster and the skip rationale for every excluded dimension.
 
@@ -106,7 +106,7 @@ Phase 6: REMEDIATE (opt) <-- Phase 5: PUBLISH <-- Phase 4: DEDUP+RANK
 
 2. **Cross-check the issue tracker.** Run `gh issue list --state open` (and `--state closed --search` for recently closed) and match findings against existing issues by symptom, file, and keyword — search issue _text_, not just titles. A finding already tracked is annotated with the issue reference and **excluded from filing**; a finding matching a recently _closed_ issue is flagged as a possible regression instead.
 
-3. **Severity-rank the survivors:** confirmed-corroborated HIGH first, then confirmed HIGH, then MEDIUM by blast radius (use `harness impact` / hotspot data where available), then LOW. LOW findings that share a theme with higher findings ride along in that theme; orphan LOWs go into a single hygiene bucket.
+3. **Severity-rank the survivors:** confirmed-corroborated HIGH first, then confirmed HIGH, then MEDIUM by blast radius (use `harness impact-preview` / hotspot data where available), then LOW. LOW findings that share a theme with higher findings ride along in that theme; orphan LOWs go into a single hygiene bucket.
 
 ### Phase 5: PUBLISH — Grouped Thematic Tracking Issues
 
@@ -132,11 +132,11 @@ Phase 6: REMEDIATE (opt) <-- Phase 5: PUBLISH <-- Phase 4: DEDUP+RANK
 
 - **`harness skill run harness-audit`** — Run the full audit pipeline.
 - **`harness skill run harness-code-review`** — Composed by the code-quality dimension.
-- **`harness check-security` / `harness skill run harness-security-craft`** — Composed by the security dimension.
+- **`harness check-security` / `harness skill run security-craft`** — Composed by the security dimension.
 - **`harness skill run detect-doc-drift`** — Composed by the docs dimension.
 - **`harness check-deps` / `harness skill run harness-dependency-health`** — Composed by the structure dimension (app-shaped repos only).
 - **`harness skill run harness-test-advisor`** — Composed by the test-depth dimension.
-- **`harness impact`** — Blast-radius input for severity ranking in Phase 4.
+- **`harness impact-preview`** — Blast-radius input for severity ranking in Phase 4.
 
 ## Success Criteria
 
@@ -194,7 +194,7 @@ Phase 2: FAN-OUT (parallel)
   security      -> 3 findings (composed harness-security-scan + supply-chain-audit)
   docs          -> 6 findings (composed detect-doc-drift)
   ci-hygiene    -> 4 findings (inspected .github/workflows + gh run list)
-  test-depth    -> 5 findings (composed harness-test-advisor + harness impact)
+  test-depth    -> 5 findings (composed harness-test-advisor + harness impact-preview)
 
 Phase 3: VERIFY
   4 HIGH findings -> 3 confirmed, 1 discarded (the "hardcoded token" is a
