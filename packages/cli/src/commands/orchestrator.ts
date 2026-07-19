@@ -8,9 +8,12 @@ import {
 } from '@harness-engineering/orchestrator';
 import { logger } from '../output/logger';
 import { ExitCode } from '../utils/errors';
+import { createBlackBoxCommand } from './orchestrator-black-box';
 
 export function createOrchestratorCommand(): Command {
   const orchestrator = new Command('orchestrator');
+
+  orchestrator.addCommand(createBlackBoxCommand());
 
   orchestrator
     .command('run')

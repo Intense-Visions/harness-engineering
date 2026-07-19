@@ -1011,6 +1011,10 @@ Send a synthetic notification.test event through the named sink
 
 ## Orchestrator Commands
 
+### `harness orchestrator black-box`
+
+Inspect durable per-run orchestrator flight records (provenance, verdicts, tool-use)
+
 ### `harness orchestrator run`
 
 Run the orchestrator daemon
