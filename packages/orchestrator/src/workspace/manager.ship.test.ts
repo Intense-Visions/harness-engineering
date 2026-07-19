@@ -114,14 +114,14 @@ describe('WorkspaceManager.shipWorkspace (D4)', () => {
     const add = wm.gitCalls.find((c) => c[0] === 'add');
     expect(add).toEqual(['add', '-A']);
     const commit = wm.gitCalls.find((c) => c[0] === 'commit');
-    // `--no-verify`: the detached, dist-less worktree can't run the host pre-commit
-    // hook (MODULE_NOT_FOUND on packages/cli/dist) — the orchestrator ran its own gate.
-    expect(commit?.slice(0, 3)).toEqual(['commit', '--no-verify', '-m']);
+    // Commit runs THROUGH the real pre-commit gate (no --no-verify) — the worktree
+    // builds the CLI so `harness ci check` runs; a block feeds back for remediation.
+    expect(commit?.slice(0, 2)).toEqual(['commit', '-m']);
     // SLASH-prefixed branch so findPushedBranch recognizes it.
     const branchCall = wm.gitCalls.find((c) => c[0] === 'switch' || c[0] === 'checkout');
     expect(branchCall).toContain('orchestrator/iss-1');
     const push = wm.gitCalls.find((c) => c[0] === 'push');
-    expect(push).toEqual(['push', '--no-verify', '-u', 'origin', 'orchestrator/iss-1']);
+    expect(push).toEqual(['push', '-u', 'origin', 'orchestrator/iss-1']);
 
     // gh pr create with the head branch, a base, the title + body (array args, no shell).
     const pr = wm.ghCalls.find((c) => c[0] === 'pr' && c[1] === 'create');

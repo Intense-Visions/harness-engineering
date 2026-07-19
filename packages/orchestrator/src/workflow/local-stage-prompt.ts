@@ -57,7 +57,21 @@ pnpm --filter <changed-package-name> test
 
 Common misses that fail the gate even when your own test passes: type errors that tests don't catch (tests run through esbuild, which strips types — so ALWAYS run typecheck), and inventory/count assertions elsewhere in the suite that your change invalidates (e.g. a test asserting the number of registered rules/exports — update it). Iterate here until all three are green; do not rely on a later retry.
 
-Finally, leave a CLEAN diff: everything you commit becomes a real pull request. Delete any scratch/debug/throwaway files you created while working (e.g. \`debug-*.js\`, temporary reproductions) — they must not ship. Do NOT delete or modify files unrelated to this task; only touch what the work item requires.
+Leave a CLEAN diff: everything you commit becomes a real pull request. Delete any scratch/debug/throwaway files you created while working (e.g. \`debug-*.js\`, temporary reproductions) — they must not ship. Do NOT delete or modify files unrelated to this task; only touch what the work item requires.
+
+Finally, make the change MERGEABLE — the ship pushes THROUGH the real pre-commit + pre-push gates (it does NOT bypass them), so satisfy what they require:
+- **Changeset:** if you changed a publishable package (a \`packages/*\` whose package.json has a \`version\`), add a Changesets entry at \`.changeset/<short-slug>.md\`:
+
+  \`\`\`
+  ---
+  '<full-package-name>': patch
+  ---
+  <one-line summary of the change>
+  \`\`\`
+
+  (use \`minor\` for a new feature). Without it the release gate blocks the push.
+- **Format:** run the repo formatter over your changes (\`pnpm format\`, or \`npx prettier --write <your files>\`) so the format check passes.
+- **Architecture:** if \`harness ci check\` (the pre-commit gate) reports a NEW arch regression from your change, fix it — don't leave it for a reviewer.
 {% endif %}{% if priorEntries.length > 0 %}
 
 ## Context from prior stages

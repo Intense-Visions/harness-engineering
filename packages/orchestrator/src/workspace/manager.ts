@@ -44,8 +44,25 @@ export class WorkspaceManager {
   /** Runs a git command and returns stdout. Extracted for testability. */
   protected async git(args: string[], cwd: string): Promise<string> {
     const exec = promisify(execFile);
-    const { stdout } = await exec('git', args, { cwd });
-    return stdout;
+    try {
+      // Large buffer so a hook's output (pre-push gauntlet can be verbose) isn't
+      // truncated into a maxBuffer error that hides the real reason.
+      const { stdout } = await exec('git', args, { cwd, maxBuffer: 32 * 1024 * 1024 });
+      return stdout;
+    } catch (err) {
+      // Surface the hook/git output so a failed ship commit/push carries WHAT the
+      // gate flagged (missing changeset, formatting, arch regression) into the
+      // staged-gate retry feedback — the remediation loop needs it. Probe callers
+      // (ls-remote / rev-parse) still catch-and-ignore; a richer message is harmless.
+      const e = err as { stdout?: string; stderr?: string; message?: string };
+      const detail = [e.stdout, e.stderr].filter(Boolean).join('\n').trim();
+      throw new Error(
+        detail ? `${e.message ?? 'git failed'}\n${detail}` : (e.message ?? String(err)),
+        {
+          cause: err,
+        }
+      );
+    }
   }
 
   /** Backoff between PR-create retries. Overridable so tests don't actually wait. */
@@ -532,19 +549,15 @@ export class WorkspaceManager {
       const status = (await this.git(['status', '--porcelain'], workspacePath)).trim();
       if (status.length > 0) {
         await this.git(['add', '-A'], workspacePath);
-        // `--no-verify` skips the host repo's pre-commit hooks. This is DELIBERATE
-        // and load-bearing: the ship runs in a DETACHED WORKTREE that has no built
-        // `dist/` (dist is gitignored, so `git worktree add` never populates it), so
-        // a `harness ci check` / lint-staged pre-commit hook dies with MODULE_NOT_FOUND
-        // on `packages/cli/dist/bin/harness.js` and the commit — hence the whole ship —
-        // fails even when the work is green. The orchestrator has ALREADY run its own
-        // acceptance gate (build+typecheck+lint+test on the changed packages) before
-        // reaching here; the authoritative re-check is the PR's CI. Re-running the
-        // human dev hooks in a dist-less worktree is redundant AND environment-fragile,
-        // so the autonomous committer opts out. (block-no-verify only guards Claude's
-        // interactive Bash tool, not this in-process commit.)
+        // Commit THROUGH the real pre-commit gate (no --no-verify): the autonomous
+        // ship must not bypass the gates a human push hits — it fixes what they flag,
+        // like a real session. The worktree's `afterCreate` builds the CLI so
+        // `harness ci check` actually runs here instead of dying on a missing dist. If
+        // a hook blocks (arch regression, missing changeset, formatting), the commit
+        // throws → shipWorkspace returns Err → the staged gate re-dispatches with the
+        // hook output as feedback so the NEXT attempt addresses it.
         await this.git(
-          ['commit', '--no-verify', '-m', opts.title || `orchestrator: ${identifier}`],
+          ['commit', '-m', opts.title || `orchestrator: ${identifier}`],
           workspacePath
         );
       }
@@ -561,10 +574,11 @@ export class WorkspaceManager {
       //    is already pushed (a resumed ship whose push already landed), in which
       //    case skip straight to PR creation.
       if (!remoteExists) {
-        // `--no-verify` for the same reason as the commit above: the pre-push gauntlet
-        // (reference-docs / format:check / coverage) also needs built tooling a
-        // detached, dist-less worktree lacks, and CI re-runs it authoritatively.
-        await this.git(['push', '--no-verify', '-u', 'origin', branch], workspacePath);
+        // Push THROUGH the real pre-push gauntlet (changeset / format:check /
+        // reference-docs) — same principle as the commit: don't bypass, satisfy. A
+        // block throws → Err → re-dispatch with feedback so the run adds the changeset,
+        // formats, etc. and converges to a mergeable PR.
+        await this.git(['push', '-u', 'origin', branch], workspacePath);
       }
 
       // 4. Open the PR against the resolved default branch. Reuses the
