@@ -1,6 +1,7 @@
 import { paginate } from '@harness-engineering/core';
 import { sanitizePath } from '../utils/sanitize-path.js';
 import { sortFindingsBySeverity } from '../utils/severity.js';
+import { loadGuardianCoverage } from '../../utils/guardian-context.js';
 
 // ============ run_code_review ============
 
@@ -111,6 +112,10 @@ export async function handleRunCodeReview(input: {
       ),
     };
 
+    // Advisory guardian diff-coverage input (#914): read + render from the
+    // project's .harness/analyses/ archive; undefined when absent (degrade-safe).
+    const guardianCoverage = await loadGuardianCoverage(projectRoot);
+
     const result = await runReviewPipeline({
       projectRoot,
       diff: diffInfo,
@@ -123,6 +128,7 @@ export async function handleRunCodeReview(input: {
         ...(input.depth != null ? { depth: input.depth } : {}),
       },
       ...(input.repo != null ? { repo: input.repo } : {}),
+      ...(guardianCoverage != null ? { guardianCoverage } : {}),
     });
 
     const sortedFindings = sortFindingsBySeverity(

@@ -7,6 +7,7 @@ import { resolveConfig } from '../../config/loader';
 import { OutputMode, type OutputModeType } from '../../output/formatter';
 import { logger } from '../../output/logger';
 import { CLIError, ExitCode } from '../../utils/errors';
+import { loadGuardianCoverage } from '../../utils/guardian-context';
 
 interface ReviewOptions {
   configPath?: string;
@@ -81,6 +82,10 @@ export async function runAgentReview(options: ReviewOptions): Promise<
     fileDiffs: new Map(codeChanges.files.map((f) => [f.path, ''])),
   };
 
+  // Advisory guardian diff-coverage input (#914): read + render from the
+  // project's .harness/analyses/ archive; undefined when absent (degrade-safe).
+  const guardianCoverage = await loadGuardianCoverage(config.rootDir);
+
   // Run the unified pipeline
   const pipelineResult = await runReviewPipeline({
     projectRoot: config.rootDir,
@@ -95,6 +100,7 @@ export async function runAgentReview(options: ReviewOptions): Promise<
       ...(options.isolated ? { isolated: true } : {}),
     },
     config: config as unknown as Record<string, unknown>,
+    ...(guardianCoverage != null ? { guardianCoverage } : {}),
   });
 
   return Ok({

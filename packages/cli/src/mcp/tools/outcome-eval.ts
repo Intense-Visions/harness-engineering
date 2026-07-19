@@ -19,6 +19,9 @@
  * Source: docs/changes/outcome-eval/proposal.md (Surface area -> MCP tool).
  */
 
+import * as path from 'node:path';
+import { readGuardianAnalyses } from '@harness-engineering/intelligence';
+import type { GuardianAnalysis } from '@harness-engineering/intelligence';
 import { sanitizePath } from '../utils/sanitize-path.js';
 import { loadGraphStore } from '../utils/graph-loader.js';
 
@@ -130,7 +133,12 @@ function validateInput(input: OutcomeEvalToolInput): string | null {
  * produces INCONCLUSIVE/advisory and authority stays TS-derived.
  */
 async function buildEvaluator(input: OutcomeEvalToolInput): Promise<{
-  evaluate: (i: { specPath: string; diff: string; testOutput: string }) => Promise<unknown>;
+  evaluate: (i: {
+    specPath: string;
+    diff: string;
+    testOutput: string;
+    guardian?: GuardianAnalysis[];
+  }) => Promise<unknown>;
 }> {
   const projectRoot = sanitizePath(input.path ?? process.cwd());
   const { OutcomeEvaluator } = await import('@harness-engineering/intelligence');
@@ -145,16 +153,33 @@ async function buildEvaluator(input: OutcomeEvalToolInput): Promise<{
   );
 }
 
+/**
+ * Best-effort read of advisory guardian diff-coverage records from the
+ * project's `.harness/analyses/` archive (#914). Degrade-safe: any failure (and
+ * the common absent-archive case) yields `[]`, so the verdict stays
+ * byte-identical to no guardian wiring.
+ */
+async function loadGuardian(input: OutcomeEvalToolInput): Promise<GuardianAnalysis[]> {
+  try {
+    const projectRoot = sanitizePath(input.path ?? process.cwd());
+    return await readGuardianAnalyses(path.join(projectRoot, '.harness', 'analyses'));
+  } catch {
+    return [];
+  }
+}
+
 export async function handleOutcomeEval(input: OutcomeEvalToolInput): Promise<ToolResponse> {
   const validationError = validateInput(input);
   if (validationError !== null) return errorResponse(validationError);
 
   try {
     const evaluator = await buildEvaluator(input);
+    const guardian = await loadGuardian(input);
     const verdict = await evaluator.evaluate({
       specPath: input.specPath,
       diff: input.diff,
       testOutput: input.testOutput,
+      ...(guardian.length > 0 ? { guardian } : {}),
     });
 
     // Return the verdict EXACTLY as the evaluator produced it — authority is

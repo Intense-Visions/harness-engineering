@@ -7,7 +7,13 @@ import { GraphStore } from '@harness-engineering/graph';
 import type { NodeType } from '@harness-engineering/graph';
 import { gatherSignals } from '@harness-engineering/signals';
 import type { SignalResult, SignalsResult } from '@harness-engineering/signals';
-import type { OutcomeVerdict } from '@harness-engineering/intelligence';
+import type { OutcomeVerdict, GuardianAnalysis } from '@harness-engineering/intelligence';
+import {
+  readGuardianAnalyses,
+  summarizeGuardian,
+  guardianFlags,
+  guardianFileLines,
+} from '@harness-engineering/intelligence';
 import { buildDiffInfo, resolveDiffRange, type RunGit } from './review-ci';
 
 /** Hidden HTML marker used to find + upsert the sticky comment. */
@@ -23,6 +29,12 @@ export interface BriefInputs {
   signals?: SignalResult[] | undefined;
   /** Outcome-eval verdict for the head commit; undefined = "not yet evaluated". */
   outcome?: OutcomeVerdict | undefined;
+  /**
+   * Advisory guardian diff-coverage records from `.harness/analyses/` (#914).
+   * Empty/undefined degrades the section to "unavailable"; a flagged record
+   * (fail / error-severity) additionally contributes to "Worth your eyes".
+   */
+  guardian?: GuardianAnalysis[] | undefined;
 }
 
 /** Standard degradation line for an input that could not be gathered. */
@@ -123,10 +135,30 @@ function renderOutcomeEval(outcome?: OutcomeVerdict): string[] {
 }
 
 /**
+ * Render the **Guardian diff-coverage** section from advisory records in
+ * `.harness/analyses/` (#914). Degrades to an "unavailable" line when no
+ * guardian record is present — a missing/empty archive never errors and never
+ * changes the rest of the brief.
+ */
+function renderGuardian(guardian?: GuardianAnalysis[]): string[] {
+  const out: string[] = ['## Guardian diff-coverage', ''];
+  if (!guardian || guardian.length === 0) {
+    out.push(UNAVAILABLE);
+    return out;
+  }
+  out.push(summarizeGuardian(guardian) ?? UNAVAILABLE);
+  const fileLines = guardianFileLines(guardian);
+  if (fileLines.length > 0) {
+    out.push('', ...fileLines.map((l) => `- \`${l}\``));
+  }
+  return out;
+}
+
+/**
  * Derive the **"👀 Worth your eyes"** section: EXACTLY the union of (a) review
- * blocking findings, (b) signals with status `warn` or `alert`, and (c) unmet
- * outcome criteria — no more, no fewer. Renders "nothing flagged" when the
- * union is empty.
+ * blocking findings, (b) signals with status `warn` or `alert`, (c) unmet
+ * outcome criteria, and (d) flagged guardian diff-coverage records — no more,
+ * no fewer. Renders "nothing flagged" when the union is empty.
  */
 /**
  * Collect the "Worth your eyes" bullets: the union of (a) review blocking
@@ -152,8 +184,20 @@ function unmetBullets(inputs: BriefInputs): string[] {
   return unmet.map((c) => `- 🎯 ${c}`);
 }
 
+/** One bullet per FLAGGED guardian record (fail / error-severity). */
+function guardianBullets(inputs: BriefInputs): string[] {
+  return (inputs.guardian ?? [])
+    .filter(guardianFlags)
+    .map((g) => `- 🛡️ ${summarizeGuardian([g]) ?? 'Guardian diff-coverage flagged.'}`);
+}
+
 function collectWorthYourEyesBullets(inputs: BriefInputs): string[] {
-  return [...blockingBullets(inputs), ...signalBullets(inputs), ...unmetBullets(inputs)];
+  return [
+    ...blockingBullets(inputs),
+    ...signalBullets(inputs),
+    ...unmetBullets(inputs),
+    ...guardianBullets(inputs),
+  ];
 }
 
 function deriveWorthYourEyes(inputs: BriefInputs): string[] {
@@ -185,6 +229,8 @@ export function buildBriefBody(inputs: BriefInputs): string {
     ...renderSignalStatus(inputs.signals),
     '',
     ...renderOutcomeEval(inputs.outcome),
+    '',
+    ...renderGuardian(inputs.guardian),
     '',
     ...deriveWorthYourEyes(inputs),
   ];
@@ -317,6 +363,27 @@ export async function gatherSignalsSafe(
   }
 }
 
+/** Injected guardian-read seam. Defaults to the real `readGuardianAnalyses`. */
+export type ReadGuardian = (analysesDir: string) => Promise<GuardianAnalysis[]>;
+
+/**
+ * Read advisory guardian diff-coverage records from `<cwd>/.harness/analyses`,
+ * degrading to `[]` (never throwing) when the archive is absent or the read
+ * rejects — the Guardian section then renders "unavailable" and nothing else in
+ * the brief changes. `readGuardianAnalyses` is already tolerant; this wrapper
+ * only guards against an unexpected reject from an injected seam.
+ */
+export async function gatherGuardianSafe(
+  cwd: string,
+  read: ReadGuardian = readGuardianAnalyses
+): Promise<GuardianAnalysis[]> {
+  try {
+    return await read(join(cwd, '.harness', 'analyses'));
+  } catch {
+    return [];
+  }
+}
+
 /** The minimal graph-store surface the outcome lookup needs. */
 export interface OutcomeStore {
   findNodes(query: { type: NodeType }): Array<{ metadata: Record<string, unknown> }>;
@@ -403,6 +470,8 @@ export interface PreMergeBriefOptions {
   resolveRaw?: (range: string, cwd: string, runGit: RunGit) => string;
   readFile?: ReadFile;
   gather?: GatherSignals;
+  /** Injected guardian-read seam (default: real tolerant reader). */
+  readGuardian?: ReadGuardian;
   store?: OutcomeStore | undefined;
   postBrief?: PostBrief;
   log?: (message: string) => void;
@@ -439,8 +508,9 @@ export async function runPreMergeBrief(opts: PreMergeBriefOptions): Promise<{ bo
   const review = readReview(opts.from, opts.readFile);
   const signals = await gatherSignalsSafe(cwd, opts.gather);
   const outcome = findOutcomeVerdict(opts.store, opts.headSha);
+  const guardian = await gatherGuardianSafe(cwd, opts.readGuardian);
 
-  const body = buildBriefBody({ diff, review, signals, outcome });
+  const body = buildBriefBody({ diff, review, signals, outcome, guardian });
 
   const log = opts.log ?? ((m: string) => process.stdout.write(m + '\n'));
   if (opts.comment) {

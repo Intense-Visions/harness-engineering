@@ -138,7 +138,7 @@ export {
 } from './constants';
 
 // Pipeline orchestrator
-export { runReviewPipeline } from './pipeline-orchestrator';
+export { runReviewPipeline, attachGuardianCoverage } from './pipeline-orchestrator';
 export type { RunPipelineOptions } from './pipeline-orchestrator';
 
 // Parallel-group scheduling (reusable beyond review)

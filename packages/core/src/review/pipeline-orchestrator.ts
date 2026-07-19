@@ -12,6 +12,7 @@ import type {
   CommitHistoryEntry,
   EvidenceCoverageReport,
   ContextBundle,
+  ContextFile,
   Rubric,
   ReviewDomain,
 } from './types';
@@ -56,12 +57,47 @@ export interface RunPipelineOptions {
   /** Session slug for loading evidence entries (optional) */
   sessionSlug?: string;
   /**
+   * Advisory guardian diff-coverage summary (#914), pre-rendered by the caller
+   * from `.harness/analyses/` guardian records (via the intelligence package's
+   * `readGuardianAnalyses` + summary projections — mirrors how `domainAccuracy`
+   * is derived caller-side so core never depends on intelligence). When present,
+   * it is surfaced as an advisory context file on every review bundle so agents
+   * can weigh uncovered changed lines. Absent/empty leaves bundles
+   * byte-identical to today. Never blocks the pipeline.
+   */
+  guardianCoverage?: string;
+  /**
    * Per-domain accuracy overrides for trust scoring (optional).
    * When provided, replaces the static DOMAIN_BASELINES for the historical
    * accuracy factor. Callers can derive these from PersonaEffectiveness
    * scores in the intelligence package.
    */
   domainAccuracy?: Partial<Record<ReviewDomain, number>>;
+}
+
+/**
+ * Attach an advisory guardian diff-coverage context file to every bundle (#914).
+ *
+ * Mirrors the `checkDepsOutput` precedent: a synthetic, project-relative-less
+ * context file (`reason: 'convention'`) carrying the pre-rendered guardian
+ * summary. Advisory + degrade-safe by construction — the caller only invokes
+ * this when `guardianCoverage` is a non-empty string, so an absent/empty archive
+ * leaves the bundles untouched. Pure; returns new bundle objects.
+ */
+export function attachGuardianCoverage(
+  bundles: ContextBundle[],
+  guardianCoverage: string
+): ContextBundle[] {
+  const guardianFile: ContextFile = {
+    path: 'harness-guardian-diff-coverage',
+    content: guardianCoverage,
+    lines: guardianCoverage.split('\n').length,
+    reason: 'convention',
+  };
+  return bundles.map((b) => ({
+    ...b,
+    contextFiles: [...b.contextFiles, guardianFile],
+  }));
 }
 
 /**
@@ -91,6 +127,7 @@ export async function runReviewPipeline(
     commitHistory,
     sessionSlug,
     domainAccuracy,
+    guardianCoverage,
   } = options;
 
   // --- Phase 1: GATE ---
@@ -210,6 +247,12 @@ export async function runReviewPipeline(
   // Attach rubric to every bundle so agents can reference it.
   if (rubric) {
     contextBundles = contextBundles.map((b) => ({ ...b, rubric }));
+  }
+
+  // Attach advisory guardian diff-coverage (#914) to every bundle. Guarded on a
+  // non-empty string so an absent/empty archive leaves bundles byte-identical.
+  if (guardianCoverage) {
+    contextBundles = attachGuardianCoverage(contextBundles, guardianCoverage);
   }
 
   // --- Phase 3.5: CALIBRATE DEPTH ---
