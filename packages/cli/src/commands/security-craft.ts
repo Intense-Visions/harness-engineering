@@ -16,6 +16,8 @@ import {
   type SecurityCraftInput,
   type SecurityCraftOutput,
 } from '../security-craft/index.js';
+import { resolveCraftLlmConfig, type CraftLlmResolution } from '../shared/craft/llm/provider.js';
+import { formatCraftDiagnostic, type CraftScanTally } from '../shared/craft/diagnostics.js';
 
 interface SecurityCraftCliOptions {
   files?: string[];
@@ -66,7 +68,7 @@ export function createSecurityCraftCommand(): Command {
       if (outputMode === OutputMode.JSON) {
         console.log(JSON.stringify(result, null, 2));
       } else {
-        printResult(result, outputMode, formatter);
+        printResult(result, outputMode, formatter, resolveCraftLlmConfig({ projectRoot: cwd }));
       }
 
       const hasFoundational = result.findings.some((f) => f.tier === 'foundational');
@@ -74,10 +76,30 @@ export function createSecurityCraftCommand(): Command {
     });
 }
 
+function securityScanTally(summary: SecurityCraftOutput['summary']): CraftScanTally {
+  const { filesScanned, filesSkippedNoSignal } = summary.counts;
+  if (filesScanned === 0 && filesSkippedNoSignal === 0) {
+    return {
+      unit: 'files',
+      analyzed: 0,
+      skipped: 0,
+      skipReason: 'no source files for supported languages (.ts, .tsx, .js, .jsx)',
+    };
+  }
+  const tally: CraftScanTally = {
+    unit: 'files',
+    analyzed: filesScanned,
+    skipped: filesSkippedNoSignal,
+  };
+  if (filesSkippedNoSignal > 0) tally.skipReason = 'no security signal';
+  return tally;
+}
+
 function printResult(
   result: SecurityCraftOutput,
   mode: OutputModeType,
-  _formatter: OutputFormatter
+  _formatter: OutputFormatter,
+  resolution: CraftLlmResolution
 ): void {
   const verbose = mode === OutputMode.VERBOSE;
   const { findings, summary } = result;
@@ -110,4 +132,5 @@ function printResult(
       `${summary.catalog.rubricsApplied.length} rubrics, ${summary.llmCalls.count} LLM calls, ` +
       `$${summary.llmCalls.costUsd.toFixed(4)}, ${summary.durationMs}ms)`
   );
+  console.log(formatCraftDiagnostic({ resolution, scan: securityScanTally(summary) }));
 }

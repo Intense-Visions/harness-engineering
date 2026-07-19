@@ -184,15 +184,25 @@ export function resolveCraftLlmConfig(opts: { projectRoot?: string } = {}): Craf
     if (envRaw === 'in-session' || envRaw === 'mock') {
       return { mode: envRaw };
     }
+    // HARNESS_CRAFT_LLM naming a backend is an explicit user override. If the
+    // name doesn't resolve, fail loudly instead of silently degrading to
+    // in-session — a silent fall-through makes an empty result indistinguishable
+    // from "no analysis ran" (issue #896, failure mode 3).
     const def = fileConfig?.backends?.[envRaw];
-    if (def !== undefined && typeof def === 'object' && def !== null) {
-      const backendDef = def as Record<string, unknown>;
-      const type = backendDef.type;
-      if (typeof type === 'string' && isBackendType(type)) {
-        return { mode: type, backendName: envRaw, backendDef };
-      }
+    if (def === undefined || typeof def !== 'object' || def === null) {
+      throw new Error(
+        `HARNESS_CRAFT_LLM="${envRaw}" names backend "${envRaw}" which was not found in agent.backends. ` +
+          'Add it to agent.backends in harness.config.json, or set HARNESS_CRAFT_LLM to "in-session" or "mock".'
+      );
     }
-    // Fall through to config-file resolution if the env value doesn't match a known backend.
+    const backendDef = def as Record<string, unknown>;
+    const type = backendDef.type;
+    if (typeof type !== 'string' || !isBackendType(type)) {
+      throw new Error(
+        `HARNESS_CRAFT_LLM="${envRaw}": agent.backends["${envRaw}"] has unsupported type "${String(type)}" for craft skills.`
+      );
+    }
+    return { mode: type, backendName: envRaw, backendDef };
   }
 
   // Config-file resolution.

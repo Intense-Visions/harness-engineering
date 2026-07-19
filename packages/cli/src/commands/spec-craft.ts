@@ -17,6 +17,8 @@ import {
   type SpecCraftOutput,
   type SpecKind,
 } from '../spec-craft/index.js';
+import { resolveCraftLlmConfig, type CraftLlmResolution } from '../shared/craft/llm/provider.js';
+import { formatCraftDiagnostic, type CraftScanTally } from '../shared/craft/diagnostics.js';
 
 interface SpecCraftCliOptions {
   files?: string[];
@@ -68,7 +70,7 @@ export function createSpecCraftCommand(): Command {
       if (outputMode === OutputMode.JSON) {
         console.log(JSON.stringify(result, null, 2));
       } else {
-        printResult(result, outputMode, formatter);
+        printResult(result, outputMode, formatter, resolveCraftLlmConfig({ projectRoot: cwd }));
       }
 
       const hasFoundational = result.findings.some((f) => f.tier === 'foundational');
@@ -76,10 +78,23 @@ export function createSpecCraftCommand(): Command {
     });
 }
 
+function specScanTally(summary: SpecCraftOutput['summary']): CraftScanTally {
+  const tally: CraftScanTally = {
+    unit: 'docs',
+    analyzed: summary.docsScanned,
+    skipped: 0,
+  };
+  if (summary.docsScanned === 0) {
+    tally.skipReason = 'no proposals or ADRs found in scope';
+  }
+  return tally;
+}
+
 function printResult(
   result: SpecCraftOutput,
   mode: OutputModeType,
-  _formatter: OutputFormatter
+  _formatter: OutputFormatter,
+  resolution: CraftLlmResolution
 ): void {
   const verbose = mode === OutputMode.VERBOSE;
   const { findings, summary } = result;
@@ -111,4 +126,5 @@ function printResult(
       `(${summary.sectionsScanned} sections, ${summary.catalog.rubricsApplied.length} rubrics, ` +
       `${summary.llmCalls.count} LLM calls, $${summary.llmCalls.costUsd.toFixed(4)}, ${summary.durationMs}ms)`
   );
+  console.log(formatCraftDiagnostic({ resolution, scan: specScanTally(summary) }));
 }

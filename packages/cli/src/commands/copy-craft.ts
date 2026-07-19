@@ -17,6 +17,8 @@ import {
   type CopyCraftOutput,
   type CopySurface,
 } from '../copy-craft/index.js';
+import { resolveCraftLlmConfig, type CraftLlmResolution } from '../shared/craft/llm/provider.js';
+import { formatCraftDiagnostic, type CraftScanTally } from '../shared/craft/diagnostics.js';
 
 interface CopyCraftCliOptions {
   files?: string[];
@@ -75,7 +77,7 @@ export function createCopyCraftCommand(): Command {
       if (outputMode === OutputMode.JSON) {
         console.log(JSON.stringify(result, null, 2));
       } else {
-        printResult(result, outputMode, formatter);
+        printResult(result, outputMode, formatter, resolveCraftLlmConfig({ projectRoot: cwd }));
       }
 
       const hasFoundational = result.findings.some((f) => f.tier === 'foundational');
@@ -83,10 +85,29 @@ export function createCopyCraftCommand(): Command {
     });
 }
 
+function copyScanTally(summary: CopyCraftOutput['summary']): CraftScanTally {
+  const analyzed = Object.values(summary.counts).reduce((sum, n) => sum + n, 0);
+  const tally: CraftScanTally = {
+    unit: 'copy items',
+    analyzed,
+    // Surface-level skips are reported in their own "Skipped surfaces" block;
+    // the item tally counts extracted items, so skipped items stays 0 here.
+    skipped: 0,
+  };
+  if (analyzed === 0) {
+    tally.skipReason =
+      summary.skippedSurfaces.length > 0
+        ? 'no items extracted; some surfaces skipped (see below)'
+        : 'no items on supported source (.ts, .tsx, .js, .jsx) or git surfaces';
+  }
+  return tally;
+}
+
 function printResult(
   result: CopyCraftOutput,
   mode: OutputModeType,
-  _formatter: OutputFormatter
+  _formatter: OutputFormatter,
+  resolution: CraftLlmResolution
 ): void {
   const verbose = mode === OutputMode.VERBOSE;
   const { findings, summary } = result;
@@ -122,6 +143,7 @@ function printResult(
       `(${summary.catalog.rubricsApplied.length} rubrics, ${summary.llmCalls.count} LLM calls, ` +
       `$${summary.llmCalls.costUsd.toFixed(4)}, ${summary.durationMs}ms)`
   );
+  console.log(formatCraftDiagnostic({ resolution, scan: copyScanTally(summary) }));
   if (summary.skippedSurfaces.length > 0) {
     console.log(`Skipped surfaces:`);
     for (const s of summary.skippedSurfaces) {

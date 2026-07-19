@@ -28,6 +28,23 @@ describe('runNamingCraft (integration)', () => {
     expect(out.summary.catalog.rubricsApplied).toHaveLength(6);
   });
 
+  it('reports filesScanned=0 on an all-unsupported-language project (issue #896, mode 2)', async () => {
+    // A Python-only project: naming-craft analyzes only TS/JS, so nothing is
+    // analyzable. The empty result must be distinguishable from a clean pass —
+    // filesScanned=0 is what the CLI diagnostic renders as "0 analyzable files".
+    writeFile('app/main.py', 'def process_data(orders):\n    return orders\n');
+    writeFile('app/util.py', 'x = 1\n');
+    const out = await runNamingCraft({ path: tmpDir, __testProvider: new MockLlmProvider() });
+    expect(out.findings).toEqual([]);
+    expect(out.summary.filesScanned).toBe(0);
+  });
+
+  it('reports a non-zero filesScanned when TS source is present', async () => {
+    writeFile('src/orders.ts', 'export const userName = 1;\n');
+    const out = await runNamingCraft({ path: tmpDir, __testProvider: new MockLlmProvider() });
+    expect(out.summary.filesScanned).toBeGreaterThan(0);
+  });
+
   it('walks a real file and aggregates findings via mock provider', async () => {
     writeFile('src/orders.ts', `export function processData(orders) { return orders; }\n`);
     const provider = new MockLlmProvider([

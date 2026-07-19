@@ -81,6 +81,8 @@ interface NamingRunMeta {
   startedAt: number;
   convention: ProjectConvention;
   rubricsApplied: string[];
+  /** Count of source files walked at collect time (see NamingCraftSummary). */
+  filesScanned: number;
   /** Pairs every queued prompt to the data needed to build a finding. */
   prompts: Array<{
     promptId: string;
@@ -130,7 +132,7 @@ export async function runNamingCraft(input: NamingCraftInput): Promise<NamingCra
     );
   }
 
-  const { perFile, convention } = gatherProjectContext(input);
+  const { files, perFile, convention } = gatherProjectContext(input);
   const rubrics = SEED_RUBRICS;
   const findings: NamingFinding[] = [];
 
@@ -165,6 +167,7 @@ export async function runNamingCraft(input: NamingCraftInput): Promise<NamingCra
       },
       catalog: { rubricsApplied: rubrics.map((r) => r.id) },
       convention,
+      filesScanned: files.length,
       runId: randomUUID(),
     },
   };
@@ -180,7 +183,7 @@ export async function collectNamingCraftPrompts(
 ): Promise<CollectPromptsOutput> {
   const maxIdentifiersPerFile = input.maxIdentifiersPerFile ?? DEFAULT_MAX_IDENTIFIERS_PER_FILE;
   const budget = input.promptBudget ?? DEFAULT_PROMPT_BUDGET;
-  const { projectRoot, perFile, convention } = gatherProjectContext(input);
+  const { projectRoot, files, perFile, convention } = gatherProjectContext(input);
   const rubrics = SEED_RUBRICS;
   const runId = randomUUID();
 
@@ -219,6 +222,7 @@ export async function collectNamingCraftPrompts(
     startedAt: Date.now(),
     convention,
     rubricsApplied: rubrics.map((r) => r.id),
+    filesScanned: files.length,
     prompts: promptRecords,
   };
   pruneOldRuns(projectRoot);
@@ -295,6 +299,7 @@ export async function finalizeNamingCraft(
       },
       catalog: { rubricsApplied: state.meta.rubricsApplied },
       convention: state.meta.convention,
+      filesScanned: state.meta.filesScanned ?? 0,
       runId: input.runId,
     },
   };
