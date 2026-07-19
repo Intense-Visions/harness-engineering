@@ -1,0 +1,286 @@
+# Harness Workflow Audit
+
+> Audit `.github/workflows/*.yml` for quality and hygiene: stale path filters, missing gates, permission scoping, script injection, action pinning, self-trigger loops, and ratchet calibration. Every check taxonomy entry is grounded in defect patterns observed in downstream repos, where each defect silently broke a gate and was only caught by manual review.
+
+## When to Use
+
+- Auditing a repo's CI workflow files for correctness, completeness, and hygiene
+- After a directory rename or restructure (path filters go stale silently)
+- As the CI-hygiene dimension of a full codebase audit (composes into `harness:audit`)
+- Before declaring a repo's quality gates trustworthy (e.g., during onboarding or adoption)
+- When `on_milestone` fires as part of a release-readiness sweep
+- NOT for auditing application code security (use `harness-security-scan` / `harness-security-review`)
+- NOT for authoring new workflows (this skill audits; it proposes patches but does not design pipelines)
+- NOT for dependency risk in actions' own supply chains beyond pinning (use `harness-supply-chain-audit` for package dependencies)
+
+## Iron Law
+
+**A gate that never fires is worse than no gate — it manufactures false confidence.** Every check in this skill exists because a workflow that looked correct silently stopped enforcing anything. Never mark a workflow "healthy" based on its YAML looking reasonable; verify each filter, permission, and guard against the actual state of the repository.
+
+---
+
+## Process
+
+### Phase 1: INVENTORY — Enumerate Workflows and Documented Gates
+
+1. **Resolve project root.** Use the `path` argument or default to the current directory. If `workflow` was passed, restrict the audit to that single file (all phases still run).
+
+2. **List workflow files.** Glob `.github/workflows/*.{yml,yaml}`. If none exist, report "No workflow files found" and stop.
+
+3. **Parse each workflow.** For every file record: triggers (`on:` block with any `paths:` / `paths-ignore:` / `branches:` filters), jobs and their steps, `permissions:` blocks (workflow- and job-level), `concurrency:` groups, all `uses:` action references with their ref, and every `run:` script.
+
+4. **Build the documented-gate list.** Collect what the repo _claims_ to enforce:
+   - `package.json` / `pyproject.toml` / `Makefile` scripts: `build`, `typecheck`, `lint`, `test`, coverage commands
+   - Lint/typecheck configs present (`eslint.config.*`, `tsconfig.json`, `.ruff.toml`, etc.)
+   - Claims in `README.md` / `CONTRIBUTING.md` / `AGENTS.md` ("CI runs X", "all PRs must pass Y")
+
+5. **Snapshot the file tree** (`git ls-files`) for path-filter resolution in Phase 2.
+
+6. Proceed to MECHANICAL.
+
+---
+
+### Phase 2: MECHANICAL — Deterministic Checks
+
+Run every check against every workflow. Record each finding as `{file, line, check, severity, evidence, suggested_patch}`.
+
+#### Check M1: Path-filter correctness
+
+1. For each glob in `paths:` / `paths-ignore:`, match it against the `git ls-files` snapshot.
+2. **Error:** a `paths:` glob that matches zero tracked files — the trigger is dead and the gate never fires (the signature failure after a directory rename).
+3. **Warning:** a workflow that gates a tool/directory but whose `paths:` filter misses files the job actually operates on (e.g., a lint gate filtered to `src/**` while the linter also covers `scripts/**`). Compare filter coverage against the paths the job's commands touch.
+4. **Warning:** enforcement configs referenced by workflows (architecture rules, lint scopes) whose own internal path patterns match zero files — the job runs but governs nothing.
+5. Suggested patch: the corrected glob (verify the replacement matches ≥1 tracked file before proposing it).
+
+#### Check M2: Permission scoping
+
+1. **Warning:** no top-level `permissions:` block — the workflow inherits the repo default, which is often write-all.
+2. **Error:** `permissions: write-all`, or `contents: write` / `pull-requests: write` on jobs whose steps only read (no push, no comment, no release step).
+3. **Info:** a job that pushes/comments but relies on workflow-level write when a job-level grant would scope it tighter.
+4. Suggested patch: the minimal `permissions:` block derived from what the steps actually do.
+
+#### Check M3: Action pinning
+
+1. **Error:** third-party (non-`actions/`, non-`github/`) action pinned to a floating branch (`@main`, `@master`) — the action's author can change the code you execute at any time.
+2. **Warning:** third-party action pinned to a mutable tag when the repo's own convention is SHA pinning; note SHA pinning (`@<40-char-sha> # vX.Y.Z`) as the strongest form.
+3. **Info:** first-party `actions/*` on a floating branch.
+4. Suggested patch: the pinned form with the current SHA (resolve via `git ls-remote <action-repo> <ref>` when network access allows; otherwise state the command for the user to run).
+
+#### Check M4: Self-trigger and concurrency safety
+
+1. Identify workflows that `git push`, commit, or otherwise write back to a branch.
+2. **Error:** push-back with no re-trigger guard — require at least one of: `[skip ci]` in the commit message, an actor guard (`if: github.actor != '<bot>'`), or a `paths-ignore:` covering the generated file.
+3. **Error:** push-back to a PR head branch with no existence check — the branch can be deleted mid-run (PR merged with branch auto-delete). Require a `git ls-remote --exit-code --heads origin <branch>` guard before the push, exiting cleanly when the branch is gone.
+4. **Warning:** workflows that commit generated files (ledgers, baselines, reports) with per-run content (timestamps, run IDs) back to PR branches — concurrent PRs will conflict on the generated file rather than on real work. Suggest moving the artifact to a post-merge job on the default branch, or making the content deterministic.
+5. **Warning:** no `concurrency:` group on workflows where overlapping runs race (deploy, push-back, cache-refresh jobs).
+
+#### Check M5: Secret handling (mechanical slice)
+
+1. **Error:** a `run:` step that `echo`s / prints a value derived from `${{ secrets.* }}`.
+2. **Warning:** secrets passed via command-line arguments (visible in process lists / logs) instead of `env:`.
+
+#### Check M6: Dead and stale references
+
+1. **Warning:** `run:` steps invoking scripts/paths that do not exist in the tree; `workflow_call` / `uses:` references to local workflows or composite actions that are missing.
+2. **Info:** references to removed identities, project boards, or branches that no longer exist.
+
+Proceed to JUDGMENT. Do not skip Phase 3 because Phase 2 found nothing — the judgment checks catch the failures mechanical checks cannot.
+
+---
+
+### Phase 3: JUDGMENT — Context-Dependent Checks
+
+These require reading the workflow's intent against the repo's reality.
+
+#### Check J1: Script injection (untrusted interpolation)
+
+1. Flag `${{ github.event.* }}`, `${{ github.head_ref }}`, and other attacker-controlled values (PR titles, bodies, branch names, commit messages, issue comments) interpolated directly into `run:` scripts. Severity **error** — a crafted PR title becomes shell code.
+2. Suggested patch: route the value through `env:` (`env: TITLE: ${{ github.event.pull_request.title }}` then `"$TITLE"` in the script), which makes it data instead of code.
+3. Flag `pull_request_target` combined with a checkout of the PR head (`ref: github.event.pull_request.head.sha`) as **error** — untrusted code with secrets access.
+4. Judge, don't grep: `${{ github.event.inputs.* }}` on `workflow_dispatch` is operator-supplied and usually fine; the same pattern on `issue_comment` is not.
+
+#### Check J2: Gate completeness
+
+1. Diff the Phase 1 documented-gate list against what the workflow set actually runs.
+2. **Error:** a gate documented or configured but wired to no CI step — e.g., a typecheck script in `package.json` for a TypeScript repo with no CI job running it, tests documented in CONTRIBUTING but never executed, coverage thresholds configured but unenforced.
+3. **Warning:** the four-gate set (build / typecheck / lint / test) incomplete for the repo's language, with no documented reason.
+4. **Warning:** a ratchet/baseline gate with no refresh job on the default branch — the baseline goes stale after merges, which is how gates end up disabled "temporarily" forever. If a sibling gate has a refresh job and this one does not, flag the asymmetry.
+5. Suggested patch: the missing job/step, matching the repo's existing workflow style.
+
+#### Check J3: Ratchet and severity calibration
+
+1. For each "no new findings" ratchet gate, determine which severities it blocks on.
+2. **Warning:** a ratchet that blocks PRs on info-severity findings while the error-severity gate passes — false-blocking teaches people to bypass the gate.
+3. **Warning:** ratchet ledgers/baselines auto-committed back to PR branches (see M4.4) — calibration and conflict machinery interact; cross-reference the M4 finding rather than double-counting.
+4. Suggested patch: the severity threshold change, or moving ledger writes post-merge.
+
+#### Check J4: Fork-PR degradation
+
+1. **Warning:** workflows that push, comment, or label on `pull_request` events without handling fork PRs, where `GITHUB_TOKEN` is read-only — the job fails or silently no-ops for outside contributors.
+2. Suggested patch: an `if: github.event.pull_request.head.repo.full_name == github.repository` guard with a degraded read-only path, or a `workflow_run` split.
+
+Proceed to REPORT.
+
+---
+
+### Phase 4: REPORT — Ranked Findings
+
+1. **Rank findings** by severity (error → warning → info), then by blast radius (a dead path filter on the security gate outranks one on a docs job).
+
+2. **Emit one entry per finding:**
+
+   ```
+   [ERROR] path-filter-dead  .github/workflows/security.yml:7
+     paths: 'lib/scanner/**' matches 0 tracked files (directory renamed to packages/scanner in <commit>)
+     Effect: security gate has not run on any PR since the rename.
+     Patch:
+       -      - 'lib/scanner/**'
+       +      - 'packages/scanner/**'
+   ```
+
+   Every entry must carry: severity, check id, `file:line`, evidence (what was observed and why it matters), and a concrete suggested patch (diff or exact YAML). No finding ships without a patch or an explicit "requires human decision: <options>".
+
+3. **Summary block:**
+
+   ```
+   WORKFLOW AUDIT: <repo>
+   Workflows audited: N   Findings: E error, W warning, I info
+   Gates that never fire: <list or none>
+   Documented-but-unwired gates: <list or none>
+   ```
+
+4. **Filter by the `severity` argument** if provided (default: report everything).
+
+5. **Composition note:** when invoked as a dimension of `harness:audit`, return the findings list and summary block to the orchestrating skill instead of terminating — workflow hygiene is one axis of the full-repo audit.
+
+---
+
+## Gates
+
+- **No "healthy" verdict without resolving every path filter.** M1 must run against the real `git ls-files` output for every glob. A filter you did not resolve is a filter you did not audit.
+- **No skipping Phase 3 on a clean Phase 2.** The costliest defects (documented-but-unwired gates, injection) are judgment checks. Mechanical-clean is not audit-clean.
+- **No finding without file:line and a suggested patch.** A finding the user cannot act on in one step is not done.
+- **Do not modify workflow files.** This skill audits and proposes patches; applying them is the user's decision. Auto-applying CI changes from an audit is how gates get broken twice.
+
+## Harness Integration
+
+- **`harness skill run harness-workflow-audit`** — Run the audit (args: `path`, `workflow`, `severity`).
+- **Composes into `harness:audit`** — the full-codebase audit orchestrator consumes this skill's findings as its CI-hygiene dimension.
+- **Complements `harness-security-scan`** — that skill scans application code mechanically; this one audits the workflow files that decide whether that scan (and every other gate) actually runs.
+- **`harness verify`** — after the user applies suggested patches, the quick gate confirms the repo's own checks still pass.
+
+## Evidence Requirements
+
+Cite the observation behind every finding:
+
+- Path filters: the glob, and the `git ls-files` match count
+- Permissions: the step(s) proving write is / is not needed
+- Pinning: the action ref and its owner (first- vs third-party)
+- Self-trigger: the push/commit step and the absent guard, quoted
+- Injection: the interpolated expression and the `run:` line it lands in
+- Gate completeness: the config/doc claiming the gate, and the workflow set lacking it
+
+Never assert "this gate does not run" without showing the zero-match glob or the missing step.
+
+## Success Criteria
+
+- Every `paths:` / `paths-ignore:` glob in every workflow was resolved against the tracked file tree, and every zero-match glob is reported as an error
+- Every gate documented in repo config/docs is either found wired in CI or reported as missing
+- Every push-back workflow was checked for re-trigger guards, branch-existence guards, and concurrency groups
+- Every finding has severity, check id, `file:line`, evidence, and a concrete suggested patch
+- Findings are ranked, and the summary block states how many gates never fire
+- No workflow file was modified
+
+## Escalation
+
+- **If a dead gate has been dead for a long time:** Do not just fix the filter. Report that the gate has not run since <date/commit>, and recommend running the gated check once against the current tree before re-enabling — re-arming a long-dead gate usually surfaces a backlog of real findings.
+- **If YAML fails to parse:** Report the file and parse error as its own error-severity finding and continue with the remaining workflows. A malformed workflow is itself a hygiene defect.
+- **If a permission's necessity cannot be determined** (e.g., a composite action's internals are opaque): flag as "requires human decision" with both the tight and current grants — do not guess in either direction.
+- **If the repo intentionally runs no CI** (archived, mirror, docs-only): report the inventory and stop; do not manufacture findings against a deliberate choice.
+- **If a finding implicates a security-sensitive workflow** (`pull_request_target`, deploy credentials): surface it at the top of the report regardless of rank order.
+
+## Rationalizations to Reject
+
+| Rationalization                                                                       | Reality                                                                                                                                                                         |
+| ------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| "The workflow is green on every PR, so it must be working"                            | A workflow whose path filter matches nothing is green because it never runs. Green means "did not fail", not "enforced something". Resolve the filters.                         |
+| "The path globs look right — they match the directory names I can see"                | Filters go stale exactly when directories are renamed, which is when they still _look_ right. Only a match against `git ls-files` counts as verification.                       |
+| "It's a private repo, so injection and pinning findings don't matter"                 | Private repos have contractors, compromised accounts, and dependency-of-dependency actions. Report the finding with severity intact; let the human accept the risk explicitly.  |
+| "This interpolation is fine because the value comes from our own team"                | Branch names and PR titles are attacker-controlled the moment an outside contributor (or a compromised account) opens a PR. Route it through `env:` — the fix costs two lines.  |
+| "The push-back workflow has run for months without a loop, so it doesn't need guards" | It hasn't looped _yet_ because timing has been kind. The branch-deleted race and the re-trigger loop are both timing-dependent; absence of incident is not presence of a guard. |
+| "I'll report the finding without a patch — the maintainer will know what to do"       | A finding without a concrete patch gets triaged to "later" and dies there. The patch is the deliverable; the finding is its justification.                                      |
+
+## Examples
+
+### Example: Auditing a TypeScript monorepo
+
+```
+$ harness skill run harness-workflow-audit --path .
+
+WORKFLOW AUDIT: example-monorepo
+Workflows audited: 5   Findings: 3 error, 3 warning, 1 info
+Gates that never fire: security-scan.yml (dead path filter)
+Documented-but-unwired gates: typecheck
+
+[ERROR] path-filter-dead  .github/workflows/security-scan.yml:9
+  paths: 'src/services/**' matches 0 tracked files (tree uses packages/*/src since the workspace migration)
+  Effect: the security gate has not executed on any PR touching service code.
+  Patch:
+    -      - 'src/services/**'
+    +      - 'packages/*/src/**'
+
+[ERROR] gate-missing  .github/workflows/ci.yml
+  package.json declares "typecheck": "tsc -b" and the repo is TypeScript, but no workflow step runs it.
+  Effect: type errors land on main; the gate is assumed but absent.
+  Patch: add to the ci job, after install:
+    +      - name: Typecheck
+    +        run: pnpm typecheck
+
+[ERROR] injection  .github/workflows/label.yml:24
+  ${{ github.event.pull_request.title }} interpolated into run:. A crafted title executes as shell.
+  Patch: pass via env:
+    +        env:
+    +          PR_TITLE: ${{ github.event.pull_request.title }}
+    -        run: echo "Title: ${{ github.event.pull_request.title }}"
+    +        run: echo "Title: $PR_TITLE"
+
+[WARNING] pushback-race  .github/workflows/ledger.yml:41
+  Job pushes to the PR head branch with no existence check; branch auto-delete on merge races this run.
+  Patch: guard the push:
+    +      - run: git ls-remote --exit-code --heads origin "$HEAD" || { echo "branch gone, skipping"; exit 0; }
+
+[WARNING] ratchet-calibration  .github/workflows/ledger.yml:18
+  "New findings" ratchet blocks on info severity while the error gate passes — false-blocks PRs on fixture noise.
+  Patch: gate on --severity error, report info findings as a non-blocking comment.
+
+[WARNING] permissions-broad  .github/workflows/ci.yml:5
+  permissions: contents: write at workflow level; no step pushes. Read suffices.
+  Patch:
+    -permissions:
+    -  contents: write
+    +permissions:
+    +  contents: read
+
+[INFO] pinning  .github/workflows/ci.yml:31
+  third-party/setup-tool@main is a floating branch. Pin to a SHA:
+    -        uses: third-party/setup-tool@main
+    +        uses: third-party/setup-tool@4f2c3a1b… # v2.3.1
+
+Next steps: fix the two dead/missing gates first — every other gate's meaning depends on them.
+```
+
+<!--
+## Skill Test Scenarios
+
+### Scenario 1: Gate — "No 'healthy' verdict without resolving every path filter"
+Input: All workflows look well-formed; agent is tempted to report "healthy" after reading the YAML without running git ls-files against each glob.
+Expected: Agent halts at the gate, resolves every glob against the tracked tree, and only then reports — catching the one glob that matches zero files.
+
+### Scenario 2: Rationalization — "The workflow is green on every PR, so it must be working"
+Input: User says CI has been green for months, suggests skipping the audit of a particular workflow.
+Expected: Agent rejects the rationalization, cites that a never-firing gate is always green, and resolves the workflow's filters anyway.
+
+### Scenario 3: Gate — "No skipping Phase 3 on a clean Phase 2"
+Input: Phase 2 mechanical checks return zero findings; agent is tempted to report a clean audit.
+Expected: Agent proceeds to Phase 3 and diffs documented gates against wired gates, catching a typecheck script with no CI step.
+-->
