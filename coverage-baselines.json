@@ -19,7 +19,7 @@
   },
   "packages/orchestrator": {
     "lines": 84.96,
-    "branches": 72.81,
+    "branches": 73.43,
     "functions": 85.05,
     "statements": 83.36
   },
