@@ -28,12 +28,18 @@ const BLOCKING_INJECTION_PREFIXES = ['INJ-UNI-', 'INJ-REROL-'];
 
 /**
  * Security rules that should be downgraded to 'medium' in the config scanner.
- * SEC-AGT-006 matches the permission-bypass flags (no-verify and
- * dangerously-skip-permissions) which appear in AGENTS.md documentation about
- * hooks that *block* these flags — flagging documentation of a security measure
- * as a security violation.
+ * These fire on DOCUMENTATION prose in the scanned config files (CLAUDE.md /
+ * AGENTS.md), not on executable code:
+ *  - SEC-AGT-006 matches the permission-bypass flags (no-verify and
+ *    dangerously-skip-permissions) which appear in AGENTS.md documentation about
+ *    hooks that *block* these flags — flagging documentation of a security
+ *    measure as a security violation.
+ *  - SEC-INJ-001 matches `eval(` / the Function constructor. Agent-guidance docs
+ *    routinely NAME these as examples of what NOT to do; a markdown file cannot
+ *    execute them. Treated as taint, not a dispatch-blocking finding (otherwise a
+ *    single doc mention of `eval()` in AGENTS.md fail-closes every dispatch).
  */
-const DOWNGRADED_SECURITY_RULES = new Set(['SEC-AGT-006']);
+const DOWNGRADED_SECURITY_RULES = new Set(['SEC-AGT-006', 'SEC-INJ-001']);
 
 /**
  * Downgrade findings that are noisy on documentation files from 'high' to

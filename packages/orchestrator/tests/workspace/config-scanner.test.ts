@@ -93,6 +93,20 @@ describe('scanWorkspaceConfig', () => {
     expect(agentsResult!.overallSeverity).toBe('medium');
   });
 
+  it('downgrades a SEC-INJ-001 eval() mention in AGENTS.md docs (not a dispatch block)', async () => {
+    // Agent-guidance docs routinely NAME eval()/Function as examples of what NOT to
+    // do; a markdown file cannot execute them. Must NOT fail-close the dispatch.
+    fs.writeFileSync(
+      path.join(tmpDir, 'AGENTS.md'),
+      '# Agents\nNever use `eval()` or the `Function` constructor — they allow arbitrary code execution.\n'
+    );
+    const result = await scanWorkspaceConfig(tmpDir);
+    expect(result.exitCode).not.toBe(2);
+    const agentsResult = result.results.find((r) => r.file === 'AGENTS.md');
+    expect(agentsResult).toBeDefined();
+    expect(agentsResult!.overallSeverity).not.toBe('high');
+  });
+
   it('still blocks on true injection patterns (hidden unicode)', async () => {
     // INJ-UNI-001 (zero-width chars) should still block dispatch
     fs.writeFileSync(
