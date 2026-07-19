@@ -287,6 +287,44 @@ const DEFAULT_SYSTEM_PROMPT = [
   'If you stop for any other reason you will be told to continue.',
 ].join(' ');
 
+/**
+ * The project's agent-instruction files, in priority order. Claude Code auto-reads
+ * these into a cloud session's context; a local Ollama agent gets NOTHING, so it
+ * never learns the repo's conventions (where specs go — `docs/changes/<slug>/
+ * proposal.md` — how things are laid out, how to run them) and invents paths. We
+ * read them from the worktree and prepend them to the system prompt so the local
+ * agent is "in line" with a cloud session.
+ */
+const PROJECT_INSTRUCTION_FILES = ['AGENTS.md', 'CLAUDE.md'];
+/**
+ * Char budget for the injected instructions. Conventions/structure live near the
+ * TOP of AGENTS.md, so a head-truncation keeps the load-bearing part while leaving
+ * room in a 32K-context local model for the tools, stage prompt, and the work.
+ */
+const PROJECT_INSTRUCTION_BUDGET = 24 * 1024;
+
+/** Read + budget the worktree's AGENTS.md/CLAUDE.md; '' when absent. Never throws. */
+async function readProjectInstructions(workspacePath: string): Promise<string> {
+  const parts: string[] = [];
+  let remaining = PROJECT_INSTRUCTION_BUDGET;
+  for (const file of PROJECT_INSTRUCTION_FILES) {
+    if (remaining <= 0) break;
+    try {
+      let content = await fs.readFile(path.join(workspacePath, file), 'utf8');
+      if (content.length > remaining) {
+        content = `${content.slice(0, remaining)}\n…(truncated — read the full ${file} for the rest)`;
+      }
+      remaining -= content.length;
+      parts.push(
+        `<<<BEGIN ${file} — repo agent instructions & conventions; FOLLOW them>>>\n${content}\n<<<END ${file}>>>`
+      );
+    } catch {
+      /* file absent — skip */
+    }
+  }
+  return parts.join('\n\n');
+}
+
 /** OpenAI function-tool schemas for the three tools this backend exposes. */
 const TOOL_SCHEMAS = [
   {
@@ -692,7 +730,13 @@ export class OllamaBackend implements AgentBackend {
       });
     }
 
-    const systemPrompt = params.systemPrompt ?? DEFAULT_SYSTEM_PROMPT;
+    // Prepend the worktree's AGENTS.md/CLAUDE.md — the repo conventions a cloud
+    // (Claude Code) session gets for free but a local model otherwise never sees.
+    const baseSystemPrompt = params.systemPrompt ?? DEFAULT_SYSTEM_PROMPT;
+    const projectInstructions = await readProjectInstructions(params.workspacePath);
+    const systemPrompt = projectInstructions
+      ? `${baseSystemPrompt}\n\n## Project conventions — read and FOLLOW these (where files go, how things are laid out, how to run them)\n${projectInstructions}`
+      : baseSystemPrompt;
     const session: OllamaSession = {
       sessionId: randomUUID(),
       workspacePath: params.workspacePath,

@@ -133,6 +133,38 @@ describe('OllamaBackend', () => {
       if (result.ok) return;
       expect(result.error.category).toBe('agent_not_found');
     });
+
+    it('prepends the worktree AGENTS.md/CLAUDE.md into the system prompt (repo conventions, like Claude Code)', async () => {
+      writeFileSync(
+        join(workspace, 'AGENTS.md'),
+        '# Repo conventions\nWrite specs to docs/changes/<slug>/proposal.md.\n'
+      );
+      writeFileSync(join(workspace, 'CLAUDE.md'), '# Claude\nRun tests with `pnpm test`.\n');
+      const backend = new OllamaBackend(baseConfig);
+      const result = await backend.startSession({
+        workspacePath: workspace,
+        permissionMode: 'full',
+      });
+      expect(result.ok).toBe(true);
+      if (!result.ok) return;
+      const session = result.value as import('../../../src/agent/backends/ollama').OllamaSession;
+      const sys = session.messages[0]!.content;
+      expect(sys).toContain('AGENTS.md');
+      expect(sys).toContain('docs/changes/<slug>/proposal.md');
+      expect(sys).toContain('CLAUDE.md');
+    });
+
+    it('uses only the base system prompt when no AGENTS.md/CLAUDE.md exists (byte-identical to before)', async () => {
+      const backend = new OllamaBackend(baseConfig);
+      const result = await backend.startSession({
+        workspacePath: workspace,
+        permissionMode: 'full',
+      });
+      expect(result.ok).toBe(true);
+      if (!result.ok) return;
+      const session = result.value as import('../../../src/agent/backends/ollama').OllamaSession;
+      expect(session.messages[0]!.content).not.toContain('Project conventions');
+    });
   });
 
   describe('runTurn — agentic loop', () => {
