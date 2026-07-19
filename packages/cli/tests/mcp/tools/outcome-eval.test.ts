@@ -101,6 +101,50 @@ describe('handleOutcomeEval degrade-safe behaviour', () => {
     expect(Array.isArray(verdict.unmetCriteria)).toBe(true);
   });
 
+  it('surfaces guardian diff-coverage records from .harness/analyses/ in the rationale', async () => {
+    const specPath = path.join(tmpDir, 'spec.md');
+    await fs.writeFile(specPath, '# Spec\n\n## Success Criteria\n\n- Does a thing.\n');
+    // Drop a valid guardian record into the project's analyses archive.
+    const analysesDir = path.join(tmpDir, '.harness', 'analyses');
+    await fs.mkdir(analysesDir, { recursive: true });
+    await fs.writeFile(
+      path.join(analysesDir, 'guardian-1.json'),
+      JSON.stringify({
+        schema: 'harness.guardian.diff-coverage',
+        version: 1,
+        generatedAt: '2026-07-19T00:00:00.000Z',
+        verdict: 'fail',
+        severity: 'error',
+        coverageDelta: -3.1,
+        files: [{ file: 'src/x.ts', uncoveredLines: [1, 2] }],
+      })
+    );
+
+    const result = await handleOutcomeEval({
+      specPath,
+      diff: 'diff --git a/x b/x\n+added',
+      testOutput: 'PASS',
+      path: tmpDir,
+    });
+
+    expect(result.isError).toBeUndefined();
+    expect(parseResult(result).rationale).toContain('Guardian diff-coverage: FAIL');
+  });
+
+  it('leaves the rationale free of guardian text when the archive is absent', async () => {
+    const specPath = path.join(tmpDir, 'spec.md');
+    await fs.writeFile(specPath, '# Spec\n\n## Success Criteria\n\n- Does a thing.\n');
+
+    const result = await handleOutcomeEval({
+      specPath,
+      diff: 'd',
+      testOutput: 'PASS',
+      path: tmpDir,
+    });
+
+    expect(parseResult(result).rationale).not.toContain('Guardian diff-coverage');
+  });
+
   it('returns the full OutcomeVerdict shape', async () => {
     const specPath = path.join(tmpDir, 'spec.md');
     await fs.writeFile(specPath, '# Spec\n\n## Success Criteria\n\n- Does a thing.\n');
