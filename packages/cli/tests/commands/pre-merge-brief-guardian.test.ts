@@ -1,3 +1,6 @@
+import { mkdtempSync, mkdirSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import { describe, it, expect } from 'vitest';
 import {
   GUARDIAN_ANALYSIS_SCHEMA,
@@ -8,6 +11,8 @@ import {
   BRIEF_MARKER,
   buildBriefBody,
   gatherGuardianSafe,
+  loadOutcomeStore,
+  readReview,
   runPreMergeBrief,
 } from '../../src/commands/pre-merge-brief';
 
@@ -106,5 +111,53 @@ describe('runPreMergeBrief guardian wiring', () => {
     });
     expect(res.body).toContain('## Guardian diff-coverage');
     expect(res.body).toContain('_unavailable / not configured._');
+  });
+
+  it('reads a real .harness/analyses archive via the DEFAULT reader seam', async () => {
+    // Drives the real default guardian read path (gatherGuardianSafe ->
+    // readGuardianAnalyses) and defaultResolveRaw (no resolveRaw override)
+    // against an on-disk archive, end-to-end, with only git stubbed.
+    const cwd = mkdtempSync(join(tmpdir(), 'pmb-guardian-'));
+    const analysesDir = join(cwd, '.harness', 'analyses');
+    mkdirSync(analysesDir, { recursive: true });
+    writeFileSync(join(analysesDir, 'g.json'), JSON.stringify(makeGuardian()), 'utf-8');
+
+    const res = await runPreMergeBrief({
+      cwd,
+      // Injected git returns a non-empty diff so the diff section renders and
+      // defaultResolveRaw (the un-overridden seam) is exercised.
+      runGit: (args: string[]) => (args[0] === 'diff' ? 'diff --git a/x b/x\n+line' : 'main'),
+      readFile: () => 'unused',
+      gather: async () => ({ signals: [], generatedAt: '2026-07-02T00:00:00Z' }),
+      store: undefined,
+      headSha: undefined,
+      from: undefined,
+      comment: false,
+      log: () => {},
+    });
+
+    expect(res.body).toContain('Guardian diff-coverage: FAIL');
+    expect(res.body).toContain('`src/a.ts: lines 10, 11`');
+  });
+});
+
+describe('loadOutcomeStore degradation', () => {
+  it('returns undefined when the project has no .harness/graph directory', async () => {
+    const cwd = mkdtempSync(join(tmpdir(), 'pmb-nograph-'));
+    await expect(loadOutcomeStore(cwd)).resolves.toBeUndefined();
+  });
+});
+
+describe('readReview default file-read seam', () => {
+  it('reads + parses a review-ci --json artifact from disk (default readFile)', () => {
+    const dir = mkdtempSync(join(tmpdir(), 'pmb-review-'));
+    const p = join(dir, 'review.json');
+    writeFileSync(p, JSON.stringify({ verdict: { assessment: 'pass', runner: 'ci' } }), 'utf-8');
+    // No readFile injected → exercises the real defaultReadFile seam.
+    expect(readReview(p)?.assessment).toBe('pass');
+  });
+
+  it('degrades to undefined when the artifact path does not exist', () => {
+    expect(readReview(join(tmpdir(), 'nope-does-not-exist.json'))).toBeUndefined();
   });
 });
