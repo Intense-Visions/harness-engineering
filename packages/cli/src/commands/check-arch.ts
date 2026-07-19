@@ -14,11 +14,12 @@ import type {
   MetricResult,
   Violation,
 } from '@harness-engineering/core';
-import { resolveConfig } from '../config/loader';
+import { findConfigFile, loadConfig } from '../config/loader';
 import { OutputFormatter, OutputMode, type OutputModeType } from '../output/formatter';
 import { logger } from '../output/logger';
 import { CLIError, ExitCode } from '../utils/errors';
 import { execSync } from 'node:child_process';
+import * as path from 'node:path';
 
 interface CheckArchOptions {
   cwd?: string;
@@ -78,14 +79,27 @@ function findThresholdViolations(results: MetricResult[]): Violation[] {
 export async function runCheckArch(
   options: CheckArchOptions
 ): Promise<Result<CheckArchResult, CLIError>> {
-  const cwd = options.cwd ?? process.cwd();
+  // Resolve the config file's location first so the working directory can
+  // default to the project that owns the config rather than the process's cwd.
+  // The baseline is read/written relative to `cwd` (via ArchBaselineManager),
+  // so without this a caller that points `-c` at a config in another directory
+  // — including every action-handler test that passes a mkdtemp fixture config
+  // — would run the collectors against, and write the baseline into,
+  // process.cwd() instead of the config's own project. That leaked writes into
+  // this repo's tracked packages/cli/.harness/arch/baselines.json (issue #911).
+  const configPathResult = options.configPath ? Ok(options.configPath) : findConfigFile();
+  if (!configPathResult.ok) {
+    return configPathResult;
+  }
+  const configPath = configPathResult.value;
 
-  // Load config
-  const configResult = resolveConfig(options.configPath);
+  const configResult = loadConfig(configPath);
   if (!configResult.ok) {
     return configResult;
   }
   const config = configResult.value;
+
+  const cwd = options.cwd ?? path.dirname(configPath);
 
   // Resolve architecture config (defaults if not present)
   const archConfig: ArchConfig = config.architecture ?? ArchConfigSchema.parse({});
