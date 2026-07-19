@@ -1,6 +1,7 @@
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import type { TrackerSyncConfig } from '@harness-engineering/types';
+import { deriveRepoFromGitRemote } from './derive-repo';
 
 function isValidTrackerShape(tracker: unknown): tracker is TrackerSyncConfig {
   if (!tracker || typeof tracker !== 'object') return false;
@@ -30,6 +31,14 @@ export function loadTrackerSyncConfig(projectRoot: string): TrackerSyncConfig | 
 
     const tracker = config.roadmap?.tracker;
     if (!isValidTrackerShape(tracker)) return null;
+
+    // Default `repo` from the git origin remote when unset, so downstream
+    // repos that copy a config template (or omit the key) sync against their
+    // own repo instead of no-oping. Explicit config always wins (#902).
+    if (!tracker.repo) {
+      const derived = deriveRepoFromGitRemote(projectRoot);
+      if (derived) return { ...tracker, repo: derived };
+    }
 
     return tracker;
   } catch {
