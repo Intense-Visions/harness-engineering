@@ -10,6 +10,14 @@
 # option") and `${PIPESTATUS[0]}` (a bashism, unset in dash) are both non-portable.
 # Instead we drop the pipe entirely: redirect output to the log, test the producer's
 # real exit code, then `cat` the log so output is still shown (on success and failure).
+
+# Ensure this gate (and lint-staged / roadmap regen below) run under the repo's
+# pinned Node toolchain. `harness ci check` loads better-sqlite3, which is built
+# against the pin (.nvmrc / engines) and ABI-mismatches under a different node
+# major (#910). Sourced so its PATH/`nvm use` change persists for the rest of
+# this hook; activates the pin via mise/nvm or fails fast with a clear message.
+. ./scripts/ensure-node-pin.sh
+
 if ! node packages/cli/dist/bin/harness.js ci check --skip entropy,docs,perf,security,deps,phase-gate >/tmp/harness-pre-commit.log 2>&1; then
   cat /tmp/harness-pre-commit.log
   echo ""

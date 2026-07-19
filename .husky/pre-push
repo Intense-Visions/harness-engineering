@@ -5,6 +5,15 @@ export PATH="$PATH:/opt/homebrew/bin"
 # (husky v10 deprecates the current wrapper). POSIX-only — no bashisms below.
 set -e
 
+# Ensure the gates below run under the repo's pinned Node toolchain. The ambient
+# `node` on a contributor's PATH may differ from the pin (.nvmrc / engines);
+# native modules like better-sqlite3 are built against the pin and otherwise
+# ABI-mismatch (NODE_MODULE_VERSION) deep inside the test gate (#910).
+# ensure-node-pin.sh activates the pin via mise/nvm when available, or fails
+# fast with an actionable message. Sourced so its PATH/`nvm use` change persists
+# for the rest of this hook. POSIX-only (dash-safe), like the rest of this file.
+. ./scripts/ensure-node-pin.sh
+
 # Git exports GIT_DIR (and friends) to hooks — absolute in linked-worktree
 # layouts. Child processes inherit it, so test suites that spawn `git` inside
 # temp fixture dirs silently operate on THIS repo instead of the fixture
@@ -48,7 +57,12 @@ if [ "$AFFECTED_OK" = "1" ]; then
       git ls-files --others --exclude-standard; } \
       | grep -E '\.(ts|tsx|md|json)$' | sort -u
   )
-  EXISTING=$(printf '%s\n' "$CHANGED" | while IFS= read -r f; do [ -n "$f" ] && [ -f "$f" ] && printf '%s\n' "$f"; done)
+  # Trailing `:` keeps each loop iteration's exit status 0. Without it, an
+  # empty $CHANGED (a diff that touches no {ts,tsx,md,json} file — e.g. a pure
+  # .husky/scripts change) makes the final `[ -n "$f" ]` short-circuit to
+  # non-zero; the `while` then exits non-zero, the command substitution inherits
+  # it, and `set -e` aborts the whole hook — silently blocking any such push.
+  EXISTING=$(printf '%s\n' "$CHANGED" | while IFS= read -r f; do [ -n "$f" ] && [ -f "$f" ] && printf '%s\n' "$f"; :; done)
   if [ -n "$EXISTING" ]; then
     printf '%s\n' "$EXISTING" | xargs pnpm exec prettier --check
   else
