@@ -17,6 +17,7 @@ import { extractPythonTests, isPythonTestFile } from './extract/python-tests.js'
 import { resolveSourceFile } from './extract/source-pair.js';
 import { SEED_RUBRICS, type TestRubric } from './catalog/rubrics/index.js';
 import { critiqueOne } from './phases/critique.js';
+import { emitTestCraftReport } from './emit.js';
 import type {
   TestCraftOutput,
   TestFinding,
@@ -31,6 +32,12 @@ export interface TestCraftInput {
   maxFiles?: number;
   maxTestsPerFile?: number;
   sourcePair?: boolean;
+  /**
+   * When set, write a machine-readable per-test verdict report (issue #914)
+   * to this path so downstream tooling can consume the 8-axis findings instead
+   * of losing them to chat. Relative paths resolve against the project root.
+   */
+  emitTo?: string;
   /** Test-only LLM provider override. */
   __testProvider?: LlmProvider;
 }
@@ -88,30 +95,56 @@ export async function runTestCraft(input: TestCraftInput): Promise<TestCraftOutp
     findings.push(...(await critiqueTest(test, rubrics, provider, pair)));
   }
 
+  const output: TestCraftOutput = {
+    findings,
+    summary: buildSummary({ provider, rubrics, files, extraction, startedAt }),
+  };
+
+  await maybeEmitReport(output, input.emitTo, projectRoot);
+  return output;
+}
+
+/** Assemble the run summary. Extracted to keep runTestCraft under the complexity floor. */
+function buildSummary(args: {
+  provider: LlmProvider;
+  rubrics: ReadonlyArray<TestRubric>;
+  files: readonly string[];
+  extraction: ExtractionResult;
+  startedAt: number;
+}): TestCraftOutput['summary'] {
+  const { provider, rubrics, files, extraction, startedAt } = args;
   const totalCost = sumCosts(provider);
   return {
-    findings,
-    summary: {
-      phaseRun: ['critique'],
-      mode: 'fast',
-      durationMs: Date.now() - startedAt,
-      llmCalls: {
-        provider: provider.providerId,
-        model: provider.model,
-        count: totalCost.count,
-        costUsd: totalCost.costUsd,
-      },
-      catalog: { rubricsApplied: rubrics.map((r) => r.id) },
-      counts: {
-        filesScanned: files.length,
-        testsExtracted: extraction.allTests.length,
-        testsSkippedOrTodo: extraction.testsSkippedOrTodo,
-        sourcePaired: extraction.sourcePairedCount,
-      },
-      frameworksDetected: extraction.frameworksDetected,
-      runId: randomUUID(),
+    phaseRun: ['critique'],
+    mode: 'fast',
+    durationMs: Date.now() - startedAt,
+    llmCalls: {
+      provider: provider.providerId,
+      model: provider.model,
+      count: totalCost.count,
+      costUsd: totalCost.costUsd,
     },
+    catalog: { rubricsApplied: rubrics.map((r) => r.id) },
+    counts: {
+      filesScanned: files.length,
+      testsExtracted: extraction.allTests.length,
+      testsSkippedOrTodo: extraction.testsSkippedOrTodo,
+      sourcePaired: extraction.sourcePairedCount,
+    },
+    frameworksDetected: extraction.frameworksDetected,
+    runId: randomUUID(),
   };
+}
+
+/** Write the machine-readable verdict report when an emit path is configured (issue #914). */
+async function maybeEmitReport(
+  output: TestCraftOutput,
+  emitTo: string | undefined,
+  projectRoot: string
+): Promise<void> {
+  if (emitTo === undefined || emitTo.length === 0) return;
+  const target = path.isAbsolute(emitTo) ? emitTo : path.join(projectRoot, emitTo);
+  await emitTestCraftReport(output, target);
 }
 
 interface ExtractionResult {
@@ -309,3 +342,11 @@ export type {
   TestFramework,
   ExtractedTest,
 } from './findings/schema.js';
+export {
+  buildTestCraftReport,
+  emitTestCraftReport,
+  toTestVerdicts,
+  TEST_CRAFT_REPORT_SCHEMA,
+  TEST_CRAFT_REPORT_VERSION,
+} from './emit.js';
+export type { TestCraftReport, TestVerdict } from './emit.js';

@@ -725,6 +725,7 @@ LLM-judgment critique of test quality across vitest/jest/mocha/playwright/pytest
 - `maxFiles` (number, optional) — Cap test file count (default: 100)
 - `maxTestsPerFile` (number, optional) — Cap per-file test critique (default: 20)
 - `sourcePair` (boolean, optional) — Resolve source file under test for richer prompt context (default: true)
+- `emitTo` (string, optional) — Write a machine-readable per-test verdict report (JSON) to this path so downstream tooling can consume the findings; relative paths resolve against the project root
 
 ### `trigger_maintenance_job`
 

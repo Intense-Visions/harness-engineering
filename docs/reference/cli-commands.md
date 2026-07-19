@@ -532,6 +532,7 @@ LLM-judgment critique of test quality across vitest/jest/mocha/playwright/pytest
 - `--max-files` — Cap test file count (default: 100)
 - `--max-tests-per-file` — Cap per-file test critique (default: 20)
 - `--no-source-pair` — Skip source-pairing resolution
+- `--emit` — Write a machine-readable per-test verdict report (JSON) to this path for downstream tooling
 
 ### `harness traceability`
 

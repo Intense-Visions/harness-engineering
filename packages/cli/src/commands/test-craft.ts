@@ -24,6 +24,7 @@ interface TestCraftCliOptions {
   maxFiles?: string;
   maxTestsPerFile?: string;
   noSourcePair?: boolean;
+  emit?: string;
 }
 
 export function createTestCraftCommand(): Command {
@@ -37,19 +38,17 @@ export function createTestCraftCommand(): Command {
     .option('--max-files <n>', 'Cap test file count (default: 100)')
     .option('--max-tests-per-file <n>', 'Cap per-file test critique (default: 20)')
     .option('--no-source-pair', 'Skip source-pairing resolution')
+    .option(
+      '--emit <path>',
+      'Write a machine-readable per-test verdict report (JSON) to this path for downstream tooling'
+    )
     .action(async (opts: TestCraftCliOptions, cmd) => {
       const globalOpts = cmd.optsWithGlobals();
       const outputMode = resolveOutputMode(globalOpts);
       const formatter = new OutputFormatter(outputMode);
       const cwd = (globalOpts.cwd as string | undefined) ?? process.cwd();
 
-      const input: TestCraftInput = { path: cwd };
-      if (opts.files !== undefined) input.files = opts.files;
-      if (opts.frameworks !== undefined) input.frameworks = opts.frameworks as TestFramework[];
-      if (opts.maxFiles !== undefined) input.maxFiles = parseInt(opts.maxFiles, 10);
-      if (opts.maxTestsPerFile !== undefined)
-        input.maxTestsPerFile = parseInt(opts.maxTestsPerFile, 10);
-      if (opts.noSourcePair === true) input.sourcePair = false;
+      const input = buildInput(opts, cwd);
 
       let result: TestCraftOutput;
       try {
@@ -74,6 +73,19 @@ export function createTestCraftCommand(): Command {
       const hasFoundational = result.findings.some((f) => f.tier === 'foundational');
       process.exit(hasFoundational ? ExitCode.VALIDATION_FAILED : ExitCode.SUCCESS);
     });
+}
+
+/** Map parsed CLI options onto a TestCraftInput. Extracted to keep the action handler small. */
+function buildInput(opts: TestCraftCliOptions, cwd: string): TestCraftInput {
+  const input: TestCraftInput = { path: cwd };
+  if (opts.files !== undefined) input.files = opts.files;
+  if (opts.frameworks !== undefined) input.frameworks = opts.frameworks as TestFramework[];
+  if (opts.maxFiles !== undefined) input.maxFiles = parseInt(opts.maxFiles, 10);
+  if (opts.maxTestsPerFile !== undefined)
+    input.maxTestsPerFile = parseInt(opts.maxTestsPerFile, 10);
+  if (opts.noSourcePair === true) input.sourcePair = false;
+  if (opts.emit !== undefined) input.emitTo = opts.emit;
+  return input;
 }
 
 function printResult(
