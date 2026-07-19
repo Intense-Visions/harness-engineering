@@ -27,6 +27,7 @@ docs/roadmap.d/**
 .harness/metrics/
 .harness/security/
 .harness/streams/
+.harness/black-box/
 .harness/sessions/
 .harness/proposals/
 **/.harness/graph/
