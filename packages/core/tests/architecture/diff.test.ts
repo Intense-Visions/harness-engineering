@@ -111,6 +111,60 @@ describe('diff()', () => {
     expect(result.preExisting).toEqual(['cx-1']);
   });
 
+  describe('regressionTolerance', () => {
+    it('absorbs sub-tolerance drift so merge-inherited growth is not a regression', () => {
+      // Simulates a branch that merged `main`: total complexity ticked 283→284.
+      const baseline = makeBaseline({ complexity: { value: 283, violationIds: [] } });
+      const current: MetricResult[] = [
+        { category: 'complexity', scope: 'project', value: 284, violations: [] },
+      ];
+
+      const result = diff(current, baseline, { regressionTolerance: 0.01 });
+
+      expect(result.passed).toBe(true);
+      expect(result.regressions).toEqual([]);
+    });
+
+    it('still fails on a genuine regression beyond the tolerance', () => {
+      const baseline = makeBaseline({ complexity: { value: 283, violationIds: [] } });
+      const current: MetricResult[] = [
+        // 1% of 283 is 2 (floored); 290 is well past the 285 allowance.
+        { category: 'complexity', scope: 'project', value: 290, violations: [] },
+      ];
+
+      const result = diff(current, baseline, { regressionTolerance: 0.01 });
+
+      expect(result.passed).toBe(false);
+      expect(result.regressions).toHaveLength(1);
+      expect(result.regressions[0]!.delta).toBe(7);
+    });
+
+    it('rounds the allowance down so shallow-integer metrics stay strict', () => {
+      // 1% of a max-depth of 5 floors to 0 → any increase is still a regression.
+      const baseline = makeBaseline({ 'dependency-depth': { value: 5, violationIds: [] } });
+      const current: MetricResult[] = [
+        { category: 'dependency-depth', scope: 'project', value: 6, violations: [] },
+      ];
+
+      const result = diff(current, baseline, { regressionTolerance: 0.01 });
+
+      expect(result.passed).toBe(false);
+      expect(result.regressions).toHaveLength(1);
+    });
+
+    it('defaults to strict `>` when no tolerance is supplied', () => {
+      const baseline = makeBaseline({ complexity: { value: 283, violationIds: [] } });
+      const current: MetricResult[] = [
+        { category: 'complexity', scope: 'project', value: 284, violations: [] },
+      ];
+
+      const result = diff(current, baseline);
+
+      expect(result.passed).toBe(false);
+      expect(result.regressions).toHaveLength(1);
+    });
+  });
+
   it('handles multiple categories independently', () => {
     const baseline = makeBaseline({
       'circular-deps': { value: 1, violationIds: ['cd-1'] },

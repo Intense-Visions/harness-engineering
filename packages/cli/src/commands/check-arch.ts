@@ -172,8 +172,12 @@ export async function runCheckArch(
     });
   }
 
-  // Baseline mode: run diff
-  const diffResult: ArchDiffResult = diff(results, baseline);
+  // Baseline mode: run diff. Honor the configured regression tolerance so a
+  // branch does not report false regressions (and force a baseline rewrite)
+  // for the sub-tolerance drift it inherits when it merges `main`.
+  const diffResult: ArchDiffResult = diff(results, baseline, {
+    regressionTolerance: archConfig.regressionTolerance,
+  });
 
   // Fail if EITHER threshold exceeded OR baseline regressed
   const passed = diffResult.passed && thresholdViolations.length === 0;
