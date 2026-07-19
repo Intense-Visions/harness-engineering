@@ -208,16 +208,26 @@ function resolveStageBackendFactory(
  * backends map ⇒ undefined (decision stays unset — legacy byte-identical).
  */
 function stageDecisionFactory(
+  backendFactory: OrchestratorBackendFactory | null,
   backends: Record<string, BackendDef> | undefined
 ): NonNullable<WorkflowEngineContext['stageDecisionFor']> {
-  return (step, backend) => {
-    const def = backends?.[backend.name];
+  return (step) => {
+    if (backendFactory === null) return undefined;
+    // Resolve the ROUTING KEY (e.g. 'local'/'reasoner') via the router — NOT a
+    // materialized backend's `.name`, which is the backend's hardcoded TYPE label
+    // (`OllamaBackend.name === 'ollama'`, `LocalBackend.name === 'local'`) and does
+    // NOT key `agent.backends`. resolveName is the authoritative router key; the
+    // settle gate looks the def up under exactly this key. (Costs one extra
+    // decision-bus emission per identity stage — acceptable telemetry noise.)
+    const useCase = buildStageUseCase(step);
+    const backendName = backendFactory.resolveName(useCase);
+    const def = backends?.[backendName];
     if (def === undefined) return undefined;
     return {
       timestamp: new Date().toISOString(),
-      useCase: buildStageUseCase(step),
+      useCase,
       resolutionPath: [],
-      backendName: backend.name,
+      backendName,
       backendType: def.type,
       durationMs: 0,
     };
@@ -317,7 +327,7 @@ export function buildWorkflowContext(deps: BuildWorkflowContextDeps): WorkflowEn
 
     // Identity-path routing decision so the local staged settle gate's isLocal
     // check works without the adaptive router (see stageDecisionFactory).
-    stageDecisionFor: stageDecisionFactory(deps.backends),
+    stageDecisionFor: stageDecisionFactory(backendFactory, deps.backends),
 
     // split-routing 4b: render the real per-stage prompt (issue + stage role +
     // prior-stage outputs) via the pure PromptRenderer — no orchestrator import.

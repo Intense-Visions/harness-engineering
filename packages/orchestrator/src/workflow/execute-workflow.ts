@@ -82,10 +82,7 @@ export interface WorkflowEngineContext {
    * `in_review` re-dispatch. This fills the same slot from the resolved backend's
    * name + type. ABSENT (fake/legacy contexts) ⇒ decision stays unset (byte-identical).
    */
-  stageDecisionFor?(
-    step: WorkflowExecutionPlan['stages'][number],
-    backend: AgentBackend
-  ): RoutingDecision | undefined;
+  stageDecisionFor?(step: WorkflowExecutionPlan['stages'][number]): RoutingDecision | undefined;
   /**
    * split-routing 4b: render the REAL per-stage prompt (issue + stage role +
    * prior-stage outputs), replacing the Phase-1 bare skill-name stub. Bound by
@@ -439,7 +436,7 @@ export async function runStageWithRetry(
           backend,
           priorOutputs(priorRuns, step)
         );
-        const identityDecision = ctx.stageDecisionFor?.(step, backend);
+        const identityDecision = ctx.stageDecisionFor?.(step);
         if (identityDecision !== undefined) run.decision = identityDecision;
       }
     } catch (err) {
