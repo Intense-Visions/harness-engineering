@@ -47,12 +47,19 @@ function makeRecorderSpy() {
   };
 }
 
-/** A backend factory stub whose forUseCase returns a fresh MockBackend named per override. */
-function makeFactoryStub() {
+/**
+ * A backend factory stub. `forUseCase` returns a MockBackend named per override
+ * (default 'mock'). `resolveName` returns the ROUTING KEY (default 'mock',
+ * overridable) — the authoritative source stageDecisionFor must use. In production
+ * a materialized backend's `.name` is its TYPE label (OllamaBackend.name ===
+ * 'ollama'), NOT the routing key; reading `backend.name` is what made the first fix
+ * inert. Tests pass `routingKey` distinct from the backend name to prove the fix
+ * reads resolveName, not the backend.
+ */
+function makeFactoryStub(routingKey = 'mock') {
   return {
     forUseCase: vi.fn((_useCase: unknown, opts?: { invocationOverride?: string }) => {
       const name = opts?.invocationOverride ?? 'mock';
-      // A MockBackend is fine; we only assert on the resolved name.
       const backend = new MockBackend();
       return new Proxy(backend, {
         get(target, prop) {
@@ -60,6 +67,9 @@ function makeFactoryStub() {
           return Reflect.get(target, prop);
         },
       }) as unknown as AgentBackend;
+    }),
+    resolveName: vi.fn((_useCase: unknown, opts?: { invocationOverride?: string }) => {
+      return opts?.invocationOverride ?? routingKey;
     }),
   };
 }
@@ -140,27 +150,33 @@ describe('buildWorkflowContext — real seams (SC1/carry-forward)', () => {
   // stageDecisionFor is the identity-path fix: without it, a fully-local (no-AMR)
   // staged unit's `run.decision` stays unset, so settleWorkflowSuccess cannot derive
   // `isLocal` and SKIPS the gate+ship → the unit completes but never ships and loops.
-  it('stageDecisionFor(step, backend) synthesizes a decision carrying the resolved backend name + type', () => {
+  it('stageDecisionFor(step) uses the ROUTING KEY from resolveName, not a backend .name type-label', () => {
+    // routingKey 'local' resolves to a def; the materialized backend .name would be
+    // 'mock' (≠ 'local'). Reading backend.name (the inert first-fix bug) would look
+    // up backends['mock'] → undefined. Reading resolveName → backends['local'] → hit.
     const ctx = buildWorkflowContext(
       baseDeps({
+        backendFactory: makeFactoryStub('local') as never,
         backends: { local: { type: 'ollama', endpoint: 'http://x', model: ['m'] } } as never,
       })
     );
-    const decision = ctx.stageDecisionFor?.(step, { name: 'local' } as AgentBackend);
-    // backendName is load-bearing — settleWorkflowSuccess reads exactly this to
-    // look up the def and check isLocalEndpointBackend.
+    const decision = ctx.stageDecisionFor?.(step);
+    // backendName is load-bearing — settleWorkflowSuccess reads exactly this to look
+    // up the def and check isLocalEndpointBackend. Must be the routing key.
     expect(decision?.backendName).toBe('local');
     expect(decision?.backendType).toBe('ollama');
   });
 
-  it('stageDecisionFor returns undefined for a backend absent from the backends map (legacy byte-identical)', () => {
-    const ctx = buildWorkflowContext(baseDeps({ backends: {} as never }));
-    expect(ctx.stageDecisionFor?.(step, { name: 'nope' } as AgentBackend)).toBeUndefined();
+  it('stageDecisionFor returns undefined when the resolved routing key is absent from the backends map', () => {
+    const ctx = buildWorkflowContext(
+      baseDeps({ backendFactory: makeFactoryStub('not-in-map') as never, backends: {} as never })
+    );
+    expect(ctx.stageDecisionFor?.(step)).toBeUndefined();
   });
 
   it('stageDecisionFor returns undefined when no backends map is provided (fake/legacy context)', () => {
     const ctx = buildWorkflowContext(baseDeps());
-    expect(ctx.stageDecisionFor?.(step, { name: 'local' } as AgentBackend)).toBeUndefined();
+    expect(ctx.stageDecisionFor?.(step)).toBeUndefined();
   });
 
   it('resolveStageBackend(step) falls back to the routingDefault name when factory is null', () => {
