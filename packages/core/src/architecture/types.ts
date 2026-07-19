@@ -97,6 +97,18 @@ export const ArchConfigSchema = z.object({
   baselinePath: z.string().default('.harness/arch/baselines.json'),
   thresholds: ThresholdConfigSchema.default({}),
   modules: z.record(z.string(), ThresholdConfigSchema).default({}),
+  /**
+   * Fraction (0–1) by which an aggregate metric may exceed its baseline
+   * before it counts as a regression. Absorbs the small, monotonic drift a
+   * branch inherits when it merges `main` (e.g. total complexity 283→284,
+   * module size +119 bytes) so the ratchet does not force a baseline rewrite
+   * — and therefore a `baselines.json` merge conflict — on every sync. Real
+   * regressions (which move the aggregate by far more than the tolerance)
+   * still fail. Self-scaling: 1% of a ~300 complexity total is ~3, but 1% of
+   * a max-depth of 5 rounds to 0, so shallow-integer metrics stay strict.
+   * Mirrors the coverage ratchet's V8 variance tolerance.
+   */
+  regressionTolerance: z.number().min(0).max(1).default(0.01),
 });
 
 export type ArchConfig = z.infer<typeof ArchConfigSchema>;
