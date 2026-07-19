@@ -1,6 +1,7 @@
 import * as path from 'path';
 import { execSync } from 'child_process';
 import { sanitizePath } from '../utils/sanitize-path.js';
+import { loadAnalysisExclude } from '../../config/analysis-schema.js';
 
 // ============ run_security_scan ============
 
@@ -64,9 +65,13 @@ export async function handleRunSecurityScan(input: {
     if (input.files && input.files.length > 0) {
       filesToScan = input.files.map((f: string) => path.resolve(projectRoot, f));
     } else {
-      // Use core's glob utility to find source files
+      // Use core's glob utility to find source files. Project-wide
+      // analysis.exclude globs apply on top of security-specific excludes.
       const { globFiles } = await import('../utils/glob-helper.js');
-      filesToScan = await globFiles(projectRoot, securityConfig.exclude as string[] | undefined);
+      filesToScan = await globFiles(projectRoot, [
+        ...((securityConfig.exclude as string[] | undefined) ?? []),
+        ...loadAnalysisExclude(projectRoot),
+      ]);
     }
 
     const result = await scanner.scanFiles(filesToScan);

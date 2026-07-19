@@ -3,9 +3,12 @@ import { ArchConfigSchema } from '@harness-engineering/core';
 import { skipDirGlobs } from '@harness-engineering/graph';
 import { BackendDefSchema, RoutingConfigSchema } from '@harness-engineering/orchestrator';
 import { IngestConfigSchema } from './ingest-schema.js';
+import { AnalysisConfigSchema } from './analysis-schema.js';
 
 export { IngestConfigSchema } from './ingest-schema.js';
 export type { IngestConfig } from './ingest-schema.js';
+export { AnalysisConfigSchema, loadAnalysisExclude } from './analysis-schema.js';
+export type { AnalysisConfig } from './analysis-schema.js';
 
 /**
  * Schema for architectural layer definitions.
@@ -785,6 +788,8 @@ export const HarnessConfigSchema = z.object({
   agent: AgentConfigSchema.optional(),
   /** Source-file ingestion controls (skip-dirs, exclude patterns, gitignore handling) */
   ingest: IngestConfigSchema.optional(),
+  /** Cross-cutting analysis controls (project-wide exclude globs applied to every scanner) */
+  analysis: AnalysisConfigSchema.optional(),
   /** Drift and stale code management settings */
   entropy: EntropyConfigSchema.optional(),
   /** Security scanning configuration */

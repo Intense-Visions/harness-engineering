@@ -2,6 +2,7 @@ import * as fs from 'node:fs';
 import * as path from 'node:path';
 import type { CodeIngestorOptions } from '@harness-engineering/graph';
 import { IngestConfigSchema } from '../../config/ingest-schema.js';
+import { AnalysisConfigSchema } from '../../config/analysis-schema.js';
 
 /**
  * Best-effort load of `ingest.*` settings from `<projectPath>/harness.config.json`.
@@ -23,25 +24,45 @@ export function loadIngestOptions(projectPath: string): CodeIngestorOptions {
     return {};
   }
 
-  // Pull just the `ingest` block; ignore the rest of the config to avoid
-  // pulling the full HarnessConfigSchema (and its `@harness-engineering/core`
-  // dependency) into the ingest hot path.
-  const ingestRaw = (raw as { ingest?: unknown } | null | undefined)?.ingest;
-  if (ingestRaw === undefined) return {};
-  const parsed = IngestConfigSchema.safeParse(ingestRaw);
-  if (!parsed.success) return {};
+  // Pull just the `ingest` + `analysis` blocks; ignore the rest of the config
+  // to avoid pulling the full HarnessConfigSchema (and its
+  // `@harness-engineering/core` dependency) into the ingest hot path.
+  const record = raw as Record<string, unknown>;
+  return buildOptions(
+    parseBlock(record.ingest, IngestConfigSchema),
+    parseBlock(record.analysis, AnalysisConfigSchema)
+  );
+}
 
-  // Build incrementally so we never emit `key: undefined` entries — the
-  // workspace's `exactOptionalPropertyTypes` rejects them. A mutable shape
-  // is used internally; the return type re-applies the readonly markers.
+/** Best-effort schema parse of one config block; undefined on absence/failure. */
+function parseBlock<T>(
+  block: unknown,
+  schema: { safeParse: (v: unknown) => { success: boolean; data?: T } }
+): T | undefined {
+  if (block === undefined) return undefined;
+  const result = schema.safeParse(block);
+  return result.success ? result.data : undefined;
+}
+
+/**
+ * Assemble CodeIngestor options from the parsed blocks. Project-wide
+ * `analysis.exclude` globs apply on top of ingest-specific ones.
+ *
+ * Built incrementally so we never emit `key: undefined` entries — the
+ * workspace's `exactOptionalPropertyTypes` rejects them. A mutable shape
+ * is used internally; the return type re-applies the readonly markers.
+ */
+function buildOptions(
+  ingest: import('../../config/ingest-schema.js').IngestConfig | undefined,
+  analysis: import('../../config/analysis-schema.js').AnalysisConfig | undefined
+): CodeIngestorOptions {
+  const excludePatterns = [...(ingest?.excludePatterns ?? []), ...(analysis?.exclude ?? [])];
   const out: {
     -readonly [K in keyof CodeIngestorOptions]: CodeIngestorOptions[K];
   } = {};
-  if (parsed.data.skipDirs !== undefined) out.skipDirs = parsed.data.skipDirs;
-  if (parsed.data.additionalSkipDirs !== undefined)
-    out.additionalSkipDirs = parsed.data.additionalSkipDirs;
-  if (parsed.data.excludePatterns !== undefined) out.excludePatterns = parsed.data.excludePatterns;
-  if (parsed.data.respectGitignore !== undefined)
-    out.respectGitignore = parsed.data.respectGitignore;
+  if (ingest?.skipDirs !== undefined) out.skipDirs = ingest.skipDirs;
+  if (ingest?.additionalSkipDirs !== undefined) out.additionalSkipDirs = ingest.additionalSkipDirs;
+  if (excludePatterns.length > 0) out.excludePatterns = excludePatterns;
+  if (ingest?.respectGitignore !== undefined) out.respectGitignore = ingest.respectGitignore;
   return out;
 }

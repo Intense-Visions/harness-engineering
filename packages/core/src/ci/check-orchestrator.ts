@@ -30,6 +30,18 @@ export interface RunCIChecksInput {
   failOn?: CIFailOnSeverity;
 }
 
+/**
+ * Read the project-wide `analysis.exclude` glob list from the raw config.
+ * These excludes apply on top of each check's own excludes so a repo can
+ * declare vendored or generated paths once (see `analysis` in the CLI's
+ * HarnessConfigSchema).
+ */
+function analysisExclude(config: Record<string, unknown>): string[] {
+  const analysis = config.analysis as Record<string, unknown> | undefined;
+  const exclude = analysis?.exclude;
+  return Array.isArray(exclude) ? exclude.filter((p): p is string => typeof p === 'string') : [];
+}
+
 const ALL_CHECKS: CICheckName[] = [
   'validate',
   'deps',
@@ -117,10 +129,13 @@ async function runDocsCheck(
   const result = await checkDocCoverage('project', {
     docsDir,
     sourceDir: projectRoot,
-    excludePatterns: (entropyConfig.excludePatterns as string[]) || [
-      ...skipDirGlobs(),
-      '**/*.test.ts',
-      '**/fixtures/**',
+    excludePatterns: [
+      ...((entropyConfig.excludePatterns as string[]) || [
+        ...skipDirGlobs(),
+        '**/*.test.ts',
+        '**/fixtures/**',
+      ]),
+      ...analysisExclude(config),
     ],
   });
   if (!result.ok) {
@@ -151,10 +166,21 @@ async function runEntropyCheck(
   // checkApiSignatures / ignorePatterns / forwardLookingPaths / docPaths are
   // honored instead of falling back to DEFAULT_DRIFT_CONFIG — issue #723.
   const driftConfig = entropyConfig.drift as Partial<DriftConfig> | undefined;
+  // Honor entropy.excludePatterns (previously dropped on this path) plus the
+  // project-wide analysis.exclude globs; fall back to the snapshot defaults.
+  const exclude = [
+    ...((entropyConfig.excludePatterns as string[]) || [
+      ...skipDirGlobs(),
+      '**/*.test.ts',
+      '**/*.spec.ts',
+    ]),
+    ...analysisExclude(config),
+  ];
   const analyzer = new EntropyAnalyzer({
     rootDir: projectRoot,
     ...(entryPoints ? { entryPoints } : {}),
     ...(driftConfig?.docPaths ? { docPaths: driftConfig.docPaths } : {}),
+    exclude,
     analyze: { drift: driftConfig ?? true, deadCode: true, patterns: false },
   });
   const result = await analyzer.analyze();
@@ -201,7 +227,10 @@ async function runSecurityCheck(
   const { glob: globFn } = await import('glob');
   const sourceFiles = await globFn('**/*.{ts,tsx,js,jsx,go,py}', {
     cwd: projectRoot,
-    ignore: securityConfig.exclude ?? [...skipDirGlobs(), '**/*.test.ts', '**/fixtures/**'],
+    ignore: [
+      ...(securityConfig.exclude ?? [...skipDirGlobs(), '**/*.test.ts', '**/fixtures/**']),
+      ...analysisExclude(config),
+    ],
     absolute: true,
   });
 

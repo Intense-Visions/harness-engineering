@@ -1,5 +1,6 @@
 import * as path from 'path';
 import { sanitizePath } from '../../utils/sanitize-path.js';
+import { loadIngestOptions } from '../../../commands/graph/ingest-options.js';
 
 export const ingestSourceDefinition = {
   name: 'ingest_source',
@@ -41,7 +42,9 @@ export async function handleIngestSource(input: {
     const results: import('@harness-engineering/graph').IngestResult[] = [];
 
     if (input.source === 'code' || input.source === 'all') {
-      const codeIngestor = new CodeIngestor(store);
+      // Honor `ingest.*` + `analysis.exclude` config from harness.config.json
+      // (same as `harness graph scan` / `harness graph ingest`).
+      const codeIngestor = new CodeIngestor(store, loadIngestOptions(projectPath));
       const codeResult = await codeIngestor.ingest(projectPath);
       results.push(codeResult);
 
