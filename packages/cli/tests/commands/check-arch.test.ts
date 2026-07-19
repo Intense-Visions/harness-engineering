@@ -405,6 +405,55 @@ describe('check-arch command', () => {
       fsSync.rmSync(tmpDir, { recursive: true, force: true });
     });
 
+    // Regression for issue #911: the action handler must write the baseline
+    // into the project that owns the `-c` config, never into process.cwd().
+    // Previously `runCheckArch` defaulted cwd to process.cwd(), so invoking
+    // `check-arch -c <fixture>/harness.config.json --update-baseline` (as these
+    // action-handler tests do) rewrote this repo's tracked
+    // packages/cli/.harness/arch/baselines.json — a test-isolation leak that
+    // dirtied the working tree on every run.
+    it('writes the baseline into the config project, not process.cwd() (issue #911)', async () => {
+      const fsSync = await import('node:fs');
+      const osModule = await import('node:os');
+      const tmpDir = fsSync.mkdtempSync(path.join(osModule.tmpdir(), 'check-arch-911-'));
+
+      fsSync.writeFileSync(
+        path.join(tmpDir, 'harness.config.json'),
+        JSON.stringify({ version: 1, architecture: { enabled: true } })
+      );
+
+      // Snapshot process.cwd()'s real baseline (if any) so we can prove the run
+      // leaves it untouched — this is the file that leaked before the fix.
+      const cwdBaselinePath = path.join(process.cwd(), '.harness', 'arch', 'baselines.json');
+      const cwdBaselineBefore = fsSync.existsSync(cwdBaselinePath)
+        ? fsSync.readFileSync(cwdBaselinePath, 'utf-8')
+        : null;
+
+      const program = makeProgram();
+      await safeParseAsync(program, [
+        'node',
+        'test',
+        '-c',
+        path.join(tmpDir, 'harness.config.json'),
+        'check-arch',
+        '--update-baseline',
+      ]);
+
+      expect(mockExit).toHaveBeenCalledWith(0);
+
+      // The baseline must land inside the fixture project (the config's dir)...
+      const fixtureBaselinePath = path.join(tmpDir, '.harness', 'arch', 'baselines.json');
+      expect(fsSync.existsSync(fixtureBaselinePath)).toBe(true);
+
+      // ...and process.cwd()'s tracked baseline must be exactly as it was.
+      const cwdBaselineAfter = fsSync.existsSync(cwdBaselinePath)
+        ? fsSync.readFileSync(cwdBaselinePath, 'utf-8')
+        : null;
+      expect(cwdBaselineAfter).toBe(cwdBaselineBefore);
+
+      fsSync.rmSync(tmpDir, { recursive: true, force: true });
+    });
+
     it('exits with SUCCESS for disabled architecture', async () => {
       const fsSync = await import('node:fs');
       const osModule = await import('node:os');
