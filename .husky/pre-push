@@ -12,7 +12,11 @@ set -e
 # ensure-node-pin.sh activates the pin via mise/nvm when available, or fails
 # fast with an actionable message. Sourced so its PATH/`nvm use` change persists
 # for the rest of this hook. POSIX-only (dash-safe), like the rest of this file.
-. ./scripts/ensure-node-pin.sh
+# Guarded with an explicit `if` (not `[ -f ] && .`, which would return non-zero
+# and abort the whole hook under `set -e`/`sh -e` when the helper is absent).
+if [ -f .husky/ensure-node-pin.sh ]; then
+  . .husky/ensure-node-pin.sh
+fi
 
 # Git exports GIT_DIR (and friends) to hooks — absolute in linked-worktree
 # layouts. Child processes inherit it, so test suites that spawn `git` inside

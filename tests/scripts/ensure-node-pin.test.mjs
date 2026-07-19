@@ -4,7 +4,7 @@
  * better-sqlite3 (built against the pin) failed with an opaque ABI mismatch
  * deep inside the test gate on machines whose default node differs from the pin.
  *
- * scripts/ensure-node-pin.sh (sourced by .husky/pre-commit and .husky/pre-push)
+ * .husky/ensure-node-pin.sh (sourced by .husky/pre-commit and .husky/pre-push)
  * now resolves the pin, and either continues (pin already active), activates the
  * pin via an available version manager, or fails fast with an actionable message.
  *
@@ -22,7 +22,7 @@ import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
-const ENSURE = join(HERE, '..', '..', 'scripts', 'ensure-node-pin.sh');
+const ENSURE = join(HERE, '..', '..', '.husky', 'ensure-node-pin.sh');
 
 /** Write an executable POSIX script. */
 function writeExec(path, body) {
