@@ -1,7 +1,7 @@
 /**
  * test-craft orchestrator — fourth member of the craft-pipeline initiative
  * (#3 of 10). LLM-judgment skill that critiques test quality across
- * vitest / jest / mocha / playwright.
+ * vitest / jest / mocha / playwright / pytest.
  *
  * Source: docs/changes/craft-pipeline/test-craft/proposal.md
  */
@@ -13,6 +13,7 @@ import { sanitizePath } from '../mcp/utils/sanitize-path.js';
 import { getProvider, type LlmProvider } from '../shared/craft/llm/provider.js';
 import { detectFramework } from './extract/framework.js';
 import { extractTests } from './extract/tests.js';
+import { extractPythonTests, isPythonTestFile } from './extract/python-tests.js';
 import { resolveSourceFile } from './extract/source-pair.js';
 import { SEED_RUBRICS, type TestRubric } from './catalog/rubrics/index.js';
 import { critiqueOne } from './phases/critique.js';
@@ -46,6 +47,21 @@ const TEST_FILE_EXTS = [
   '.spec.js',
   '.spec.jsx',
 ];
+
+/** True when the file name matches a supported test-file naming convention. */
+function isTestFileName(name: string): boolean {
+  return TEST_FILE_EXTS.some((ext) => name.endsWith(ext)) || isPythonTestFile(name);
+}
+
+/** Dispatch extraction by language: Python → light-parse, TS/JS → AST. */
+function extractTestsForFile(
+  file: string,
+  source: string,
+  framework: TestFramework
+): ExtractedTest[] {
+  if (file.endsWith('.py')) return extractPythonTests({ file, source });
+  return extractTests({ file, source, framework });
+}
 
 export async function runTestCraft(input: TestCraftInput): Promise<TestCraftOutput> {
   const startedAt = Date.now();
@@ -140,6 +156,7 @@ function extractTestsFromFiles(
     jest: 0,
     mocha: 0,
     playwright: 0,
+    pytest: 0,
     unknown: 0,
   };
   let testsSkippedOrTodo = 0;
@@ -149,12 +166,12 @@ function extractTestsFromFiles(
   for (const file of files) {
     const source = readFileOrNull(file);
     if (source === null) continue;
-    const framework = detectFramework(source);
+    const framework = detectFramework(source, file);
     if (opts.frameworksFilter !== null && !opts.frameworksFilter.has(framework)) continue;
     frameworksDetected[framework]++;
 
     // Cap per-file at maxTestsPerFile
-    const capped = extractTests({ file, source, framework }).slice(0, opts.maxTestsPerFile);
+    const capped = extractTestsForFile(file, source, framework).slice(0, opts.maxTestsPerFile);
     testsSkippedOrTodo += collectNonTodoTests(capped, allTests);
 
     if (opts.sourcePairEnabled && !sourcePairCache.has(file)) {
@@ -212,11 +229,11 @@ export async function critiqueTestsInFile(
   } = {}
 ): Promise<TestFinding[]> {
   const source = opts.source ?? fs.readFileSync(file, 'utf-8');
-  const framework = detectFramework(source);
+  const framework = detectFramework(source, file);
   if (opts.frameworks !== undefined && !opts.frameworks.includes(framework)) return [];
   const rubrics = opts.rubrics ?? SEED_RUBRICS;
   const provider = opts.provider ?? getProvider();
-  const tests = extractTests({ file, source, framework })
+  const tests = extractTestsForFile(file, source, framework)
     .filter((t) => !t.todo)
     .slice(0, opts.maxTests ?? DEFAULT_MAX_TESTS_PER_FILE);
 
@@ -255,13 +272,16 @@ function walk(dir: string, out: string[], depth: number): void {
       entry.name === 'node_modules' ||
       entry.name === 'dist' ||
       entry.name === 'build' ||
-      entry.name === 'coverage'
+      entry.name === 'coverage' ||
+      entry.name === '__pycache__' ||
+      entry.name === 'venv' ||
+      entry.name === 'vendor'
     ) {
       continue;
     }
     const full = path.join(dir, entry.name);
     if (entry.isDirectory()) walk(full, out, depth + 1);
-    else if (entry.isFile() && TEST_FILE_EXTS.some((ext) => entry.name.endsWith(ext))) {
+    else if (entry.isFile() && isTestFileName(entry.name)) {
       out.push(full);
     }
   }

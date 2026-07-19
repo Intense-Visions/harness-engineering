@@ -10,7 +10,7 @@ import type { Tier, Impact, Confidence } from '../../shared/craft/findings/axes.
 
 export type { Tier, Impact, Confidence };
 
-export type TestFramework = 'vitest' | 'jest' | 'mocha' | 'playwright' | 'unknown';
+export type TestFramework = 'vitest' | 'jest' | 'mocha' | 'playwright' | 'pytest' | 'unknown';
 
 export interface TestFinding {
   /** Stable code in TEST-R\d{3} namespace. */

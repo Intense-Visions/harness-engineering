@@ -2,6 +2,7 @@ import { access, constants, readFile } from 'fs';
 import { promisify } from 'util';
 import { relative } from 'node:path';
 import { glob } from 'glob';
+import { skipDirGlobs } from '@harness-engineering/graph';
 import type { Result } from './result';
 import { Ok, Err } from './result';
 
@@ -39,20 +40,19 @@ export async function readFileContent(path: string): Promise<Result<string, Erro
 }
 
 /**
- * Default ignore patterns applied to every `findFiles` call. These are
- * directories that never contain user source the analyzer cares about:
- * `node_modules` is dependencies, `dist`/`build` are build output, `coverage`
- * is test artifacts. Without these defaults, scanners like `harness check-arch`
- * crawl into nested `node_modules` (e.g. a standalone example's bundled
+ * Default ignore patterns applied to every `findFiles` call — sourced from
+ * the shared `DEFAULT_SKIP_DIRS` walker skip-list (via `skipDirGlobs`) so
+ * every scanner excludes the same set: dependencies (`node_modules`,
+ * `vendor`), build output (`dist`, `build`), Python virtualenvs (`.venv`,
+ * `venv`, `__pycache__`), caches, and AI-agent sandboxes. Without these
+ * defaults, scanners like `harness check-arch` crawl into nested
+ * `node_modules` (e.g. a standalone example's bundled
  * `typescript/lib/lib.dom.d.ts`) and produce hundreds of false-positive
- * complexity findings.
+ * complexity findings; on downstream overlay repos the same happened with
+ * `.venv` (issue #898). Previously this was a hand-rolled 4-entry list that
+ * had drifted from the shared set.
  */
-export const DEFAULT_FIND_FILES_IGNORE: readonly string[] = [
-  '**/node_modules/**',
-  '**/dist/**',
-  '**/build/**',
-  '**/coverage/**',
-];
+export const DEFAULT_FIND_FILES_IGNORE: readonly string[] = skipDirGlobs();
 
 /**
  * Finds files matching a glob pattern.
