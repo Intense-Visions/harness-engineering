@@ -915,6 +915,15 @@ export const HarnessConfigSchema = z.object({
    * `docs/changes/local-model-lifecycle-manager/proposal.md`.
    */
   localModels: LocalModelsConfigSchema.optional(),
+  /**
+   * Pulse metrics configuration block, written to harness.config.json by
+   * `harness pulse` and validated by the dedicated `PulseConfigSchema` in
+   * `@harness-engineering/core`. The CLI does not consume it directly; it is
+   * declared here as a tolerant passthrough so the shared loader recognizes it
+   * as a legitimate top-level key rather than silently dropping it (which would
+   * also trip the stripped-key warning added for issue #862).
+   */
+  pulse: z.object({}).passthrough().optional(),
 });
 
 /**
