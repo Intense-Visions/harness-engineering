@@ -1,0 +1,81 @@
+name: harness-audit
+version: '1.0.0'
+description: Cross-dimensional codebase audit orchestrator — classify repo shape, fan out parallel read-only audit agents, dedup and severity-rank findings against existing issues, publish grouped tracking issues
+stability: static
+cognitive_mode: systematic-orchestrator
+triggers:
+  - manual
+platforms:
+  - claude-code
+  - gemini-cli
+  - cursor
+  - codex
+tools:
+  - Bash
+  - Read
+  - Glob
+  - Grep
+cli:
+  command: harness skill run harness-audit
+  args:
+    - name: path
+      description: Project root path
+      required: false
+    - name: --dimensions
+      description: 'Comma-separated dimension subset to run (e.g. security,docs,tests). Default: all dimensions applicable to the repo shape'
+      required: false
+    - name: --report-only
+      description: Produce a single ranked report instead of filing grouped tracking issues
+      required: false
+    - name: --fix
+      description: Offer the optional remediation fan-out after issues are filed (still gated on human confirmation per theme)
+      required: false
+    - name: --max-agents
+      description: 'Cap on concurrent audit agents (default: scale to repo size, 3-7)'
+      required: false
+    - name: --ci
+      description: Non-interactive mode — report-only output, no issue filing, no remediation
+      required: false
+mcp:
+  tool: run_skill
+  input:
+    skill: harness-audit
+    path: string
+type: rigid
+tier: 2
+phases:
+  - name: classify
+    description: Determine repo shape and select applicable audit dimensions
+    required: true
+  - name: fanout
+    description: Dispatch parallel read-only audit agents, one per dimension, composing existing skills
+    required: true
+  - name: verify
+    description: Adversarial confirmation of HIGH findings by a second agent
+    required: true
+  - name: dedup
+    description: Merge cross-dimension duplicates, severity-rank, cross-check against existing issues
+    required: true
+  - name: publish
+    description: File grouped thematic tracking issues with checkbox action lists (or emit ranked report)
+    required: true
+  - name: remediate
+    description: Optional fix fan-out — worktree-isolated fix agents, one per theme, gated on human confirmation
+    required: false
+state:
+  persistent: false
+  files: []
+depends_on:
+  - harness-code-review
+  - harness-security-scan
+  - detect-doc-drift
+  - harness-dependency-health
+  - harness-hotspot-detector
+  - harness-test-advisor
+addresses:
+  - signal: drift
+    weight: 0.5
+  - signal: high-complexity
+    weight: 0.3
+  - signal: dead-code
+    weight: 0.3
