@@ -139,21 +139,50 @@ export function resolveGlobalCommunityBaseDir(): string {
  * The existing resolveSkillsDir() is unchanged for backward compatibility.
  */
 export function resolveAllSkillsDirs(platform: string = 'claude-code'): string[] {
-  const dirs: string[] = [];
+  return resolveAllSkillsDirsWithSource(platform).map((d) => d.dir);
+}
+
+/** A skills directory paired with the provenance of the skills inside it. */
+export interface SkillsDirWithSource {
+  dir: string;
+  source: 'project' | 'community' | 'bundled';
+}
+
+/**
+ * Resolve all skill directories with their provenance, in priority order
+ * (project > community > bundled). Only directories that exist are included.
+ *
+ * Provenance travels with each directory rather than being inferred from array
+ * position: positional mapping mislabels entries whenever a higher-priority
+ * directory is absent (e.g. a downstream repo with no project skills had its
+ * bundled catalog labeled `source:"project"` — issue #902).
+ *
+ * When `projectRoot` is given, the project-local directory is resolved against
+ * it (`<projectRoot>/agents/skills/<platform>`) so downstream repos are indexed
+ * even when the process cwd is elsewhere; otherwise it is found by walking up
+ * from cwd as before.
+ */
+export function resolveAllSkillsDirsWithSource(
+  platform: string = 'claude-code',
+  projectRoot?: string
+): SkillsDirWithSource[] {
+  const dirs: SkillsDirWithSource[] = [];
 
   // 1. Project-local (highest priority)
-  const projectDir = resolveProjectSkillsDir();
-  if (projectDir) {
-    const platformDir = path.join(path.dirname(projectDir), platform);
-    if (fs.existsSync(platformDir)) {
-      dirs.push(platformDir);
-    }
+  const projectDir = projectRoot
+    ? path.join(projectRoot, 'agents', 'skills', platform)
+    : (() => {
+        const found = resolveProjectSkillsDir();
+        return found ? path.join(path.dirname(found), platform) : null;
+      })();
+  if (projectDir && fs.existsSync(projectDir)) {
+    dirs.push({ dir: projectDir, source: 'project' });
   }
 
   // 2. Community-installed
   const communityDir = resolveCommunitySkillsDir(platform);
   if (fs.existsSync(communityDir)) {
-    dirs.push(communityDir);
+    dirs.push({ dir: communityDir, source: 'community' });
   }
 
   // 3. Bundled/global (fallback)
@@ -161,8 +190,8 @@ export function resolveAllSkillsDirs(platform: string = 'claude-code'): string[]
   const globalPlatformDir = path.join(path.dirname(globalDir), platform);
   if (fs.existsSync(globalPlatformDir)) {
     // Avoid duplicating project dir if they resolve to the same path
-    if (!dirs.some((d) => path.resolve(d) === path.resolve(globalPlatformDir))) {
-      dirs.push(globalPlatformDir);
+    if (!dirs.some((d) => path.resolve(d.dir) === path.resolve(globalPlatformDir))) {
+      dirs.push({ dir: globalPlatformDir, source: 'bundled' });
     }
   }
 

@@ -4,7 +4,7 @@ import crypto from 'node:crypto';
 import { parse } from 'yaml';
 import { SkillMetadataSchema } from './schema.js';
 import type { SkillAddress } from './schema.js';
-import { resolveAllSkillsDirs } from '../utils/paths.js';
+import { resolveAllSkillsDirsWithSource } from '../utils/paths.js';
 
 export interface SkillIndexEntry {
   tier: number;
@@ -118,23 +118,28 @@ function scanDirectory(
 /**
  * Build a fresh skills index by scanning all skill directories.
  * Indexes all non-internal skills so the router and search can discover them.
+ *
+ * Provenance travels with each directory (issue #902): the old positional
+ * source mapping labeled the bundled catalog `source:"project"` in any repo
+ * without project skills, and the projectRoot argument was ignored, so a
+ * downstream repo's own skills never made it into the index when the process
+ * cwd was not inside the repo.
  */
 export function buildIndex(
   platform: string,
-  _projectRoot: string,
+  projectRoot: string,
   tierOverrides?: Record<string, number>
 ): SkillsIndex {
-  const skillsDirs = resolveAllSkillsDirs(platform);
-  const sourceMap: Array<'project' | 'community' | 'bundled'> = ['project', 'community', 'bundled'];
+  const skillsDirs = resolveAllSkillsDirsWithSource(platform, projectRoot);
   const index: SkillsIndex = {
     version: 1,
-    hash: computeSkillsDirHash(skillsDirs),
+    hash: computeSkillsDirHash(skillsDirs.map((d) => d.dir)),
     generatedAt: new Date().toISOString(),
     skills: {},
   };
 
-  for (let i = 0; i < skillsDirs.length; i++) {
-    scanDirectory(skillsDirs[i]!, sourceMap[i] ?? 'bundled', index, tierOverrides);
+  for (const { dir, source } of skillsDirs) {
+    scanDirectory(dir, source, index, tierOverrides);
   }
 
   return index;
@@ -150,7 +155,7 @@ export function loadOrRebuildIndex(
   tierOverrides?: Record<string, number>
 ): SkillsIndex {
   const indexPath = path.join(projectRoot, '.harness', 'skills-index.json');
-  const skillsDirs = resolveAllSkillsDirs(platform);
+  const skillsDirs = resolveAllSkillsDirsWithSource(platform, projectRoot).map((d) => d.dir);
   const currentHash = computeSkillsDirHash(skillsDirs);
 
   if (fs.existsSync(indexPath)) {

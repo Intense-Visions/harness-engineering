@@ -3,14 +3,19 @@ import * as fs from 'node:fs';
 import * as path from 'node:path';
 import * as os from 'node:os';
 import { loadOrRebuildIndex, buildIndex } from '../../src/skill/index-builder';
-import { resolveAllSkillsDirs } from '../../src/utils/paths';
+import { resolveAllSkillsDirsWithSource } from '../../src/utils/paths';
+import type { SkillsDirWithSource } from '../../src/utils/paths';
 import { stringify } from 'yaml';
 
 vi.mock('../../src/utils/paths', () => ({
-  resolveAllSkillsDirs: vi.fn(() => []),
+  resolveAllSkillsDirsWithSource: vi.fn(() => []),
 }));
 
-const mockedResolveAllSkillsDirs = vi.mocked(resolveAllSkillsDirs);
+const mockedResolveDirs = vi.mocked(resolveAllSkillsDirsWithSource);
+
+function mockDirs(dirs: SkillsDirWithSource[]): void {
+  mockedResolveDirs.mockReturnValue(dirs);
+}
 
 describe('loadOrRebuildIndex', () => {
   let tmpDir: string;
@@ -45,7 +50,7 @@ describe('loadOrRebuildIndex', () => {
     const skillsDir = path.join(tmpDir, 'skills');
     fs.mkdirSync(skillsDir, { recursive: true });
     writeSkillYaml(skillsDir, 'test-skill');
-    mockedResolveAllSkillsDirs.mockReturnValue([skillsDir]);
+    mockDirs([{ dir: skillsDir, source: 'project' }]);
 
     const index = loadOrRebuildIndex('claude-code', tmpDir);
     expect(index.skills['test-skill']).toBeDefined();
@@ -60,7 +65,7 @@ describe('loadOrRebuildIndex', () => {
     const skillsDir = path.join(tmpDir, 'skills');
     fs.mkdirSync(skillsDir, { recursive: true });
     writeSkillYaml(skillsDir, 'cached-skill');
-    mockedResolveAllSkillsDirs.mockReturnValue([skillsDir]);
+    mockDirs([{ dir: skillsDir, source: 'project' }]);
 
     // Build initial index
     const first = loadOrRebuildIndex('claude-code', tmpDir);
@@ -76,7 +81,7 @@ describe('loadOrRebuildIndex', () => {
     const skillsDir = path.join(tmpDir, 'skills');
     fs.mkdirSync(skillsDir, { recursive: true });
     writeSkillYaml(skillsDir, 'original-skill');
-    mockedResolveAllSkillsDirs.mockReturnValue([skillsDir]);
+    mockDirs([{ dir: skillsDir, source: 'project' }]);
 
     // Build initial index
     const first = loadOrRebuildIndex('claude-code', tmpDir);
@@ -95,7 +100,7 @@ describe('loadOrRebuildIndex', () => {
     const skillsDir = path.join(tmpDir, 'skills');
     fs.mkdirSync(skillsDir, { recursive: true });
     writeSkillYaml(skillsDir, 'test-skill');
-    mockedResolveAllSkillsDirs.mockReturnValue([skillsDir]);
+    mockDirs([{ dir: skillsDir, source: 'project' }]);
 
     // Write corrupt cache
     const indexPath = path.join(tmpDir, '.harness', 'skills-index.json');
@@ -147,7 +152,11 @@ describe('buildIndex — source tagging', () => {
     writeSkillYaml(communityDir, 'comm-skill');
     writeSkillYaml(bundledDir, 'bund-skill');
 
-    mockedResolveAllSkillsDirs.mockReturnValue([projectDir, communityDir, bundledDir]);
+    mockDirs([
+      { dir: projectDir, source: 'project' },
+      { dir: communityDir, source: 'community' },
+      { dir: bundledDir, source: 'bundled' },
+    ]);
 
     const index = buildIndex('claude-code', tmpDir);
     expect(index.skills['proj-skill'].source).toBe('project');
@@ -164,10 +173,10 @@ describe('buildIndex — source tagging', () => {
     writeSkillYaml(projectDir, 'shared-skill');
     writeSkillYaml(bundledDir, 'shared-skill');
 
-    mockedResolveAllSkillsDirs.mockReturnValue([
-      projectDir,
-      path.join(tmpDir, 'empty'),
-      bundledDir,
+    mockDirs([
+      { dir: projectDir, source: 'project' },
+      { dir: path.join(tmpDir, 'empty'), source: 'community' },
+      { dir: bundledDir, source: 'bundled' },
     ]);
 
     const index = buildIndex('claude-code', tmpDir);
@@ -175,8 +184,30 @@ describe('buildIndex — source tagging', () => {
   });
 
   it('handles empty skills dirs gracefully', () => {
-    mockedResolveAllSkillsDirs.mockReturnValue(['/nonexistent/a', '/nonexistent/b']);
+    mockDirs([
+      { dir: '/nonexistent/a', source: 'project' },
+      { dir: '/nonexistent/b', source: 'bundled' },
+    ]);
     const index = buildIndex('claude-code', tmpDir);
     expect(Object.keys(index.skills)).toHaveLength(0);
+  });
+
+  it('labels built-ins as bundled when no project skills dir exists (#902)', () => {
+    // Regression: positional source mapping labeled the bundled catalog
+    // `source:"project"` in any repo without its own skills directory.
+    const bundledDir = path.join(tmpDir, 'bundled');
+    fs.mkdirSync(bundledDir, { recursive: true });
+    writeSkillYaml(bundledDir, 'builtin-skill');
+
+    mockDirs([{ dir: bundledDir, source: 'bundled' }]);
+
+    const index = buildIndex('claude-code', tmpDir);
+    expect(index.skills['builtin-skill'].source).toBe('bundled');
+  });
+
+  it('passes projectRoot through to the skills-dir resolver (#902)', () => {
+    mockDirs([]);
+    buildIndex('claude-code', '/some/downstream/repo');
+    expect(mockedResolveDirs).toHaveBeenCalledWith('claude-code', '/some/downstream/repo');
   });
 });
