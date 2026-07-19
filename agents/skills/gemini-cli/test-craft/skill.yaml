@@ -1,6 +1,6 @@
 name: test-craft
-version: "0.1.0"
-description: LLM-judgment critique of test quality across vitest / jest / mocha / playwright. Fourth craft-pipeline ceiling skill. Per-test critique with best-effort source pairing for contract-vs-implementation rubrics. Tests are often the worst-written code in a codebase precisely because the rule-based floor is so easy to clear.
+version: '0.1.0'
+description: LLM-judgment critique of test quality across vitest / jest / mocha / playwright / pytest. Fourth craft-pipeline ceiling skill. Per-test critique with best-effort source pairing for contract-vs-implementation rubrics. Tests are often the worst-written code in a codebase precisely because the rule-based floor is so easy to clear.
 stability: draft
 cognitive_mode: constructive-architect
 triggers:
@@ -24,7 +24,7 @@ cli:
       description: Optional test file/glob scope
       required: false
     - name: frameworks
-      description: Restrict to vitest/jest/mocha/playwright
+      description: Restrict to vitest/jest/mocha/playwright/pytest
       required: false
     - name: no-source-pair
       description: Skip source-pairing resolution

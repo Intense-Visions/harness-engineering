@@ -1,8 +1,10 @@
 import { Ok } from '@harness-engineering/core';
 import type { DriftConfig } from '@harness-engineering/core';
+import { skipDirGlobs } from '@harness-engineering/graph';
 import { resultToMcpResponse } from '../utils/result-adapter.js';
 import { sanitizePath } from '../utils/sanitize-path.js';
 import { findConfigFile, loadConfig } from '../../config/loader.js';
+import { loadAnalysisExclude } from '../../config/analysis-schema.js';
 
 /**
  * Load the `entropy` section of the project's harness config, if present.
@@ -169,10 +171,18 @@ export async function handleDetectEntropy(input: {
     const driftConfig = entropy?.drift as Partial<DriftConfig> | undefined;
     const driftEnabled = typeFilter === 'all' || typeFilter === 'drift';
 
+    // Project-wide analysis.exclude globs apply on top of the entropy-specific
+    // excludes (or the built-in defaults when no entropy block is configured).
+    const analysisExclude = loadAnalysisExclude(projectPath);
+    const exclude = [
+      ...(entropy?.excludePatterns ?? [...skipDirGlobs(), '**/*.test.ts', '**/*.spec.ts']),
+      ...analysisExclude,
+    ];
+
     const analyzer = new EntropyAnalyzer({
       rootDir: projectPath,
       ...(entropy?.entryPoints && { entryPoints: entropy.entryPoints }),
-      ...(entropy?.excludePatterns && { exclude: entropy.excludePatterns }),
+      exclude,
       ...(driftConfig?.docPaths && { docPaths: driftConfig.docPaths }),
       analyze: {
         drift: driftEnabled ? (driftConfig ?? true) : false,

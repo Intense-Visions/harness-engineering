@@ -5,7 +5,10 @@ import {
   buildSnapshot,
 } from '../../src/entropy/snapshot';
 import { TypeScriptParser } from '../../src/shared/parsers';
+import { skipDirGlobs } from '@harness-engineering/graph';
 import { join } from 'path';
+import * as fs from 'node:fs';
+import * as os from 'node:os';
 
 describe('resolveEntryPoints', () => {
   const fixturesDir = join(__dirname, '../fixtures/entropy/valid-project');
@@ -370,5 +373,67 @@ describe('buildSnapshot', () => {
       expect(result.value.exportMap.byName.has('createUser')).toBe(true);
       expect(result.value.exportMap.byName.has('validateEmail')).toBe(true);
     }
+  });
+
+  describe('exclude handling (fixture tree)', () => {
+    let tmpDir: string;
+
+    beforeEach(() => {
+      tmpDir = fs.mkdtempSync(join(os.tmpdir(), 'entropy-exclude-'));
+      const write = (rel: string, content: string): void => {
+        const full = join(tmpDir, rel);
+        fs.mkdirSync(join(full, '..'), { recursive: true });
+        fs.writeFileSync(full, content);
+      };
+      write('src/index.ts', `export const used = 1;\n`);
+      // Directories that the shared default skip-list must exclude
+      write('.venv/site-packages/mod.ts', `export const venvNoise = 1;\n`);
+      write('node_modules/dep/index.ts', `export const depNoise = 1;\n`);
+      write('__pycache__/cached.ts', `export const cacheNoise = 1;\n`);
+      // A project-specific vendored dir NOT in the default skip-list —
+      // excluded only via user-configured globs (analysis.exclude).
+      write('vendored/lib.ts', `export const vendoredNoise = 1;\n`);
+    });
+
+    afterEach(() => {
+      fs.rmSync(tmpDir, { recursive: true, force: true });
+    });
+
+    it('default excludes skip node_modules, .venv, and __pycache__', async () => {
+      const result = await buildSnapshot({
+        rootDir: tmpDir,
+        parser,
+        entryPoints: ['src/index.ts'],
+        analyze: { deadCode: true },
+      });
+      expect(result.ok).toBe(true);
+      if (result.ok) {
+        // Normalize separators so substring checks are portable on Windows.
+        const paths = result.value.files.map((f) => f.path.replace(/\\/g, '/'));
+        expect(paths.some((p) => p.includes('src/index.ts'))).toBe(true);
+        expect(paths.some((p) => p.includes('.venv'))).toBe(false);
+        expect(paths.some((p) => p.includes('node_modules'))).toBe(false);
+        expect(paths.some((p) => p.includes('__pycache__'))).toBe(false);
+        // Not in the default skip-list — proves user-configured excludes are needed
+        expect(paths.some((p) => p.includes('vendored'))).toBe(true);
+      }
+    });
+
+    it('user-configured exclude globs skip vendored paths', async () => {
+      const result = await buildSnapshot({
+        rootDir: tmpDir,
+        parser,
+        entryPoints: ['src/index.ts'],
+        analyze: { deadCode: true },
+        exclude: [...skipDirGlobs(), 'vendored/**'],
+      });
+      expect(result.ok).toBe(true);
+      if (result.ok) {
+        // Normalize separators so substring checks are portable on Windows.
+        const paths = result.value.files.map((f) => f.path.replace(/\\/g, '/'));
+        expect(paths.some((p) => p.includes('src/index.ts'))).toBe(true);
+        expect(paths.some((p) => p.includes('vendored'))).toBe(false);
+      }
+    });
   });
 });

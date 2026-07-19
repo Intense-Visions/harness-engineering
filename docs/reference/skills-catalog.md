@@ -600,7 +600,7 @@ LLM-judgment critique of spec quality (proposals + ADRs) against a curated rubri
 
 ### test-craft
 
-LLM-judgment critique of test quality across vitest / jest / mocha / playwright. Fourth craft-pipeline ceiling skill. Per-test critique with best-effort source pairing for contract-vs-implementation rubrics. Tests are often the worst-written code in a codebase precisely because the rule-based floor is so easy to clear.
+LLM-judgment critique of test quality across vitest / jest / mocha / playwright / pytest. Fourth craft-pipeline ceiling skill. Per-test critique with best-effort source pairing for contract-vs-implementation rubrics. Tests are often the worst-written code in a codebase precisely because the rule-based floor is so easy to clear.
 
 - **Triggers:** manual, on_pr, on_new_feature
 - **Platforms:** claude-code

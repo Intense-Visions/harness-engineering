@@ -1,6 +1,6 @@
 # Test Craft
 
-> LLM-judgment critique of test quality across vitest / jest / mocha / playwright. Fourth member of the craft-pipeline initiative. Per-`it`/`test` block critique with best-effort source pairing for contract-vs-implementation rubrics. Tests are often the worst-written code in a codebase precisely because the rule-based floor (coverage threshold) is so easy to clear. Emits 3-axis findings (tier × impact × confidence per ADR 0019).
+> LLM-judgment critique of test quality across vitest / jest / mocha / playwright / pytest. Fourth member of the craft-pipeline initiative. Per-`it`/`test` block critique with best-effort source pairing for contract-vs-implementation rubrics. Tests are often the worst-written code in a codebase precisely because the rule-based floor (coverage threshold) is so easy to clear. Emits 3-axis findings (tier × impact × confidence per ADR 0019).
 
 ## When to Use
 
@@ -13,7 +13,7 @@
 - NOT for `.test-d.ts` type tests in v1 (v1.x — different rubric vocabulary)
 - NOT for fixture / helper / mock files in v1 (v1.x)
 - NOT for snapshot tests in v1 (different correctness criteria; v1.x)
-- NOT for non-TS/JS languages in v1 (v1.x)
+- NOT for languages beyond TS/JS + Python (pytest) in v1 (v1.x)
 
 ## Process
 
@@ -22,16 +22,17 @@
 1. **Read project configuration.** Check `harness.config.json` for:
    - `craft.test.enabled` — gate (default `true`)
    - `craft.test.maxFiles` (default 100), `craft.test.maxTestsPerFile` (default 20)
-   - `craft.test.frameworks` — restrict to subset (default: all four)
+   - `craft.test.frameworks` — restrict to subset (default: all five)
    - `craft.test.sourcePair` — toggle source-pairing (default true)
 
-2. **Glob test files** under project root: `**/*.{test,spec}.{ts,tsx,js,jsx}`. Skip `node_modules`, `dist`, `build`, `coverage`, dotdirs.
+2. **Glob test files** under project root: `**/*.{test,spec}.{ts,tsx,js,jsx}` plus pytest naming (`test_*.py` / `*_test.py`). Skip `node_modules`, `dist`, `build`, `coverage`, `__pycache__`, `venv`, `vendor`, dotdirs.
 
 3. **Detect framework per file** via import signatures (order matters; most-specific first):
    - `@playwright/test` → playwright
    - `@jest/globals` → jest
    - `vitest` → vitest
    - `import 'mocha'` → mocha
+   - `.py` files → pytest (extraction is light-parse, not TS AST)
    - Fallback: vitest (most common; jest-with-globals projects still extract correctly because the AST shape matches)
 
 ### Phase 2: EXTRACT — Per-test AST walk
@@ -189,7 +190,7 @@ TEST-R004 [polish/large/medium] vitest:142
 - **No `.test-d.ts` type tests** (v1.x).
 - **No fixture / helper / mock file critique** (v1.x).
 - **No snapshot rubrics** (v1.x).
-- **No non-TS/JS language support** (v1.x).
+- **No languages beyond TS/JS + Python (pytest)** (v1.x).
 - **No B' bootstrap.** Same posture as naming/spec/copy-craft.
 - **No graph persistence.** Phase 1 MVP.
 

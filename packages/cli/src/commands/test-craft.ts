@@ -29,11 +29,11 @@ interface TestCraftCliOptions {
 export function createTestCraftCommand(): Command {
   return new Command('test-craft')
     .description(
-      'LLM-judgment critique of test quality across vitest/jest/mocha/playwright. ' +
+      'LLM-judgment critique of test quality across vitest/jest/mocha/playwright/pytest. ' +
         'Fourth craft-pipeline ceiling skill. Per-test critique with best-effort source pairing.'
     )
     .option('-f, --files <files...>', 'Optional test file/glob scope')
-    .option('--frameworks <names...>', 'Restrict to: vitest / jest / mocha / playwright')
+    .option('--frameworks <names...>', 'Restrict to: vitest / jest / mocha / playwright / pytest')
     .option('--max-files <n>', 'Cap test file count (default: 100)')
     .option('--max-tests-per-file <n>', 'Cap per-file test critique (default: 20)')
     .option('--no-source-pair', 'Skip source-pairing resolution')

@@ -715,13 +715,13 @@ Generate or regenerate the LLM `llm-summary.md` for an archived session.
 
 ### `test_craft`
 
-LLM-judgment critique of test quality across vitest/jest/mocha/playwright. Fourth craft-pipeline ceiling skill; 8 seed rubrics. Per-test critique with optional source pairing for contract-vs-implementation rubrics.
+LLM-judgment critique of test quality across vitest/jest/mocha/playwright/pytest. Fourth craft-pipeline ceiling skill; 8 seed rubrics. Per-test critique with optional source pairing for contract-vs-implementation rubrics.
 
 **Parameters:**
 
 - `path` (string, required) — Project root path
 - `files` (array, optional) — Optional test file/glob scope
-- `frameworks` (array, optional) — Restrict to specific frameworks (default: all four)
+- `frameworks` (array, optional) — Restrict to specific frameworks (default: all five)
 - `maxFiles` (number, optional) — Cap test file count (default: 100)
 - `maxTestsPerFile` (number, optional) — Cap per-file test critique (default: 20)
 - `sourcePair` (boolean, optional) — Resolve source file under test for richer prompt context (default: true)

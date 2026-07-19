@@ -43,4 +43,5 @@ packages/core/tests/fixtures/code-nav/syntax-error.ts
 # empty. Prettier would collapse it to `---\n---`, which the gate rejects.
 .changeset/maint-arch-refactor-no-release.md
 .changeset/downstream-papercuts-orchestrator-comment-no-release.md
+.changeset/repo-shape-orchestrator-comment-no-release.md
 .changeset/workflow-audit-orchestrator-comment-no-release.md
