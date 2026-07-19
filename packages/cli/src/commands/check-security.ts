@@ -109,10 +109,16 @@ export async function runCheckSecurity(
   const thresholdRank = SEVERITY_RANK[threshold];
   const filtered = result.findings.filter((f) => SEVERITY_RANK[f.severity] >= thresholdRank);
 
-  const hasErrors = filtered.some((f) => f.severity === 'error');
-
+  // `--severity` bounds BOTH the reported findings and the pass/fail verdict:
+  // the command fails only when a finding at or above the requested threshold
+  // exists. Findings below the threshold (e.g. info findings under
+  // `--severity error`) are excluded from `filtered`, so they never fail the
+  // gate. Previously the verdict was hardcoded to `error`, which meant the flag
+  // filtered the report but not the verdict — leaving lower-severity requests
+  // (`--severity warning`/`info`) unable to fail and giving downstream gates the
+  // impression that findings below the requested severity were blocking.
   return Ok({
-    valid: !hasErrors,
+    valid: filtered.length === 0,
     findings: filtered,
     stats: {
       filesScanned: result.scannedFiles,
@@ -172,7 +178,11 @@ async function runCheckSecurityAction(
 export function createCheckSecurityCommand(): Command {
   const command = new Command('check-security')
     .description('Run lightweight security scan: secrets, injection, XSS, weak crypto')
-    .option('--severity <level>', 'Minimum severity threshold', 'warning')
+    .option(
+      '--severity <level>',
+      'Minimum severity that fails the command; findings below it are excluded from the report and never fail the gate (error, warning, info)',
+      'warning'
+    )
     .hook('preAction', (thisCommand) => {
       const severity = thisCommand.opts().severity;
       if (!['error', 'warning', 'info'].includes(severity)) {
