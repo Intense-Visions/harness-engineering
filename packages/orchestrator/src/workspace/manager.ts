@@ -48,6 +48,11 @@ export class WorkspaceManager {
     return stdout;
   }
 
+  /** Backoff between PR-create retries. Overridable so tests don't actually wait. */
+  protected async sleep(ms: number): Promise<void> {
+    await new Promise((resolve) => setTimeout(resolve, ms));
+  }
+
   /**
    * Runs a `gh` CLI command and returns stdout. Extracted for testability
    * (mirrors {@link git}) so {@link shipWorkspace} can create a PR without
@@ -569,23 +574,36 @@ export class WorkspaceManager {
       const repoRoot = await this.getRepoRoot();
       const rawBase = await this.resolveBaseRef(repoRoot);
       const base = rawBase.startsWith('origin/') ? rawBase.slice('origin/'.length) : rawBase;
-      const prUrl = (
-        await this.gh(
-          [
-            'pr',
-            'create',
-            '--head',
-            branch,
-            '--base',
-            base || 'main',
-            '--title',
-            opts.title,
-            '--body',
-            opts.body,
-          ],
-          workspacePath
-        )
-      ).trim();
+      const prArgs = [
+        'pr',
+        'create',
+        '--head',
+        branch,
+        '--base',
+        base || 'main',
+        '--title',
+        opts.title,
+        '--body',
+        opts.body,
+      ];
+      // Retry `gh pr create` to absorb the push→PR propagation race: a branch that
+      // just landed on the remote can be briefly invisible to the API ("No commits
+      // between …" / "not found"), which otherwise drops the ship into the resumable
+      // "pushed but no PR" limbo. Also covers transient gh/API blips. Bounded; the
+      // backoff is an overridable seam so tests don't wait.
+      let prUrl = '';
+      let lastErr: Error | null = null;
+      for (let attempt = 0; attempt < 3; attempt++) {
+        if (attempt > 0) await this.sleep(2000 * attempt);
+        try {
+          prUrl = (await this.gh(prArgs, workspacePath)).trim();
+          lastErr = null;
+          break;
+        } catch (err) {
+          lastErr = err instanceof Error ? err : new Error(String(err));
+        }
+      }
+      if (lastErr !== null) throw lastErr;
 
       return Ok(prUrl.length > 0 ? { branch, prUrl } : { branch });
     } catch (error) {

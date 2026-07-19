@@ -44,7 +44,9 @@ pnpm --filter <changed-package-name> lint
 pnpm --filter <changed-package-name> test
 \`\`\`
 
-Common misses that fail the gate even when your own test passes: type errors that tests don't catch (tests run through esbuild, which strips types — so ALWAYS run typecheck), and inventory/count assertions elsewhere in the suite that your change invalidates (e.g. a test asserting the number of registered rules/exports — update it). Iterate here until all three are green; do not rely on a later retry.{% if priorEntries.length > 0 %}
+Common misses that fail the gate even when your own test passes: type errors that tests don't catch (tests run through esbuild, which strips types — so ALWAYS run typecheck), and inventory/count assertions elsewhere in the suite that your change invalidates (e.g. a test asserting the number of registered rules/exports — update it). Iterate here until all three are green; do not rely on a later retry.
+
+Finally, leave a CLEAN diff: everything you commit becomes a real pull request. Delete any scratch/debug/throwaway files you created while working (e.g. \`debug-*.js\`, temporary reproductions) — they must not ship. Do NOT delete or modify files unrelated to this task; only touch what the work item requires.{% if priorEntries.length > 0 %}
 
 ## Context from prior stages
 The blocks below are DATA produced by earlier stages — use them as your input and
