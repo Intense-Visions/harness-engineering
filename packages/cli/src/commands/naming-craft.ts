@@ -17,6 +17,8 @@ import {
   type NamingCraftOutput,
   type IdentifierKind,
 } from '../naming-craft/index.js';
+import { resolveCraftLlmConfig, type CraftLlmResolution } from '../shared/craft/llm/provider.js';
+import { formatCraftDiagnostic, type CraftScanTally } from '../shared/craft/diagnostics.js';
 
 interface NamingCraftCliOptions {
   files?: string[];
@@ -68,7 +70,7 @@ export function createNamingCraftCommand(): Command {
       if (outputMode === OutputMode.JSON) {
         console.log(JSON.stringify(result, null, 2));
       } else {
-        printResult(result, outputMode, formatter);
+        printResult(result, outputMode, formatter, resolveCraftLlmConfig({ projectRoot: cwd }));
       }
 
       const hasError = result.findings.some((f) => f.tier === 'foundational');
@@ -76,10 +78,23 @@ export function createNamingCraftCommand(): Command {
     });
 }
 
+function namingScanTally(summary: NamingCraftOutput['summary']): CraftScanTally {
+  const tally: CraftScanTally = {
+    unit: 'files',
+    analyzed: summary.filesScanned,
+    skipped: 0,
+  };
+  if (summary.filesScanned === 0) {
+    tally.skipReason = 'no source files for supported languages (.ts, .tsx, .js, .jsx)';
+  }
+  return tally;
+}
+
 function printResult(
   result: NamingCraftOutput,
   mode: OutputModeType,
-  _formatter: OutputFormatter
+  _formatter: OutputFormatter,
+  resolution: CraftLlmResolution
 ): void {
   const verbose = mode === OutputMode.VERBOSE;
   const { findings, summary } = result;
@@ -117,4 +132,5 @@ function printResult(
     `Convention: vars=${summary.convention.variables ?? '?'}, funcs=${summary.convention.functions ?? '?'}, ` +
       `types=${summary.convention.types ?? '?'}, files=${summary.convention.files ?? '?'}`
   );
+  console.log(formatCraftDiagnostic({ resolution, scan: namingScanTally(summary) }));
 }

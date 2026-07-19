@@ -42,6 +42,12 @@ export interface NamingCraftSummary {
   llmCalls: { provider: string; model: string; count: number; costUsd: number };
   catalog: { rubricsApplied: string[] };
   convention: ProjectConvention;
+  /**
+   * Count of source files walked/read. Zero means nothing analyzable was
+   * found — e.g. a non-TS/JS (Python, Go, …) project — which the diagnostic
+   * surfaces so an empty result isn't mistaken for a clean bill of health.
+   */
+  filesScanned: number;
   runId: string;
 }
 

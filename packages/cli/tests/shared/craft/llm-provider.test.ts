@@ -117,6 +117,33 @@ describe('resolveCraftLlmConfig (config-file driven)', () => {
     expect(r.backendName).toBe('ollama');
   });
 
+  it('throws when HARNESS_CRAFT_LLM names a backend absent from agent.backends (issue #896)', () => {
+    // No agent.backends at all — the env override names a backend that
+    // cannot resolve. It must fail loudly, not silently degrade to in-session.
+    writeConfig({ craft: { llm: { mode: 'in-session' } } });
+    process.env.HARNESS_CRAFT_LLM = 'ghost-backend';
+    expect(() => resolveCraftLlmConfig({ projectRoot: tmp })).toThrow(
+      /HARNESS_CRAFT_LLM="ghost-backend".*not found in agent\.backends/
+    );
+  });
+
+  it('does NOT silently fall back to in-session for a missing named backend (issue #896)', () => {
+    writeConfig({
+      agent: {
+        executor: 'subprocess',
+        timeout: 300000,
+        backends: {
+          ollama: { type: 'local', endpoint: 'http://localhost:11434/v1', model: 'qwen3' },
+        },
+      },
+    });
+    // Names a backend that exists in neither the env nor agent.backends.
+    process.env.HARNESS_CRAFT_LLM = 'typo-backend';
+    expect(() => resolveCraftLlmConfig({ projectRoot: tmp })).toThrow(
+      /not found in agent\.backends/
+    );
+  });
+
   it('env HARNESS_CRAFT_LLM=mock wins over config-file backend', () => {
     writeConfig({
       agent: {
