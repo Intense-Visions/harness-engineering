@@ -428,4 +428,57 @@ describe('OllamaBackend — MCP tools', () => {
     expect(largeWarnings).toHaveLength(1);
     expect(String(largeWarnings[0]![0])).toContain('49 tools'); // 4 built-ins + 45 MCP
   });
+
+  // Regression: after MCP aggregation, when tools were aggregated the system
+  // message (messages[0]) is augmented to NAME the aggregated tools and tell the
+  // model WHEN to reach for them. Local models otherwise leave docs/context tools
+  // (context7 etc.) unused and stall on unfamiliar APIs — their top failure mode.
+  // Naming the concrete tools is what turns availability into use. These assert
+  // the nudge is present when tools exist and ABSENT when none are aggregated.
+  describe('MCP tool-use nudge on the system message', () => {
+    it('augments the system message to name the aggregated tools when MCP tools exist', async () => {
+      const backend = new OllamaBackend({
+        ...baseConfig,
+        mcpServers: [{ name: 'context7', command: 'x' }],
+        connectMcp: inMemoryConnect(),
+      });
+      const start = await backend.startSession({
+        workspacePath: workspace,
+        permissionMode: 'full',
+      });
+      expect(start.ok).toBe(true);
+      if (!start.ok) return;
+      const session = start.value as OllamaSession;
+      // A tool was aggregated (namespaced), so the nudge must fire.
+      expect(session.mcpTools).toHaveLength(1);
+      const system = session.messages[0]!;
+      expect(system.role).toBe('system');
+      // Names the concrete aggregated (namespaced) tool.
+      expect(system.content).toContain('context7__echo');
+      // Carries the nudge phrasing telling the model these are docs/context tools
+      // and to CALL them before guessing.
+      expect(system.content).toContain('documentation/context tools available');
+      expect(system.content).toMatch(/CALL these tools/);
+    });
+
+    it('leaves the plain default system prompt when no MCP tools are aggregated (control)', async () => {
+      // No mcpServers ⇒ nothing aggregated ⇒ the nudge must NOT be injected.
+      const backend = new OllamaBackend({ ...baseConfig });
+      const start = await backend.startSession({
+        workspacePath: workspace,
+        permissionMode: 'full',
+      });
+      expect(start.ok).toBe(true);
+      if (!start.ok) return;
+      const session = start.value as OllamaSession;
+      expect(session.mcpTools).toHaveLength(0);
+      const system = session.messages[0]!;
+      expect(system.role).toBe('system');
+      // The nudge markers are absent — plain DEFAULT_SYSTEM_PROMPT.
+      expect(system.content).not.toContain('documentation/context tools available');
+      expect(system.content).not.toContain('__echo');
+      // Sanity: it is still the default agent prompt.
+      expect(system.content).toContain('autonomous coding agent');
+    });
+  });
 });
