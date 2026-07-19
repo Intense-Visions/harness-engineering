@@ -199,7 +199,7 @@ import {
 import { specCraftDefinition, handleSpecCraft } from './tools/spec-craft.js';
 // craft-pipeline #5: copy-craft LLM-judgment skill (errors, logs, CLI output, commits, PRs, comments).
 import { copyCraftDefinition, handleCopyCraft } from './tools/copy-craft.js';
-// craft-pipeline #3: test-craft LLM-judgment skill (vitest/jest/mocha/playwright, per-test critique).
+// craft-pipeline #3: test-craft LLM-judgment skill (vitest/jest/mocha/playwright/pytest, per-test critique).
 import { testCraftDefinition, handleTestCraft } from './tools/test-craft.js';
 // craft-pipeline #9: knowledge-craft LLM-judgment skill (docs/knowledge/ entries, per-file critique).
 import { knowledgeCraftDefinition, handleKnowledgeCraft } from './tools/knowledge-craft.js';

@@ -17,7 +17,7 @@ interface ToolResponse {
 export const testCraftDefinition = {
   name: 'test_craft',
   description:
-    'LLM-judgment critique of test quality across vitest/jest/mocha/playwright. Fourth ' +
+    'LLM-judgment critique of test quality across vitest/jest/mocha/playwright/pytest. Fourth ' +
     'craft-pipeline ceiling skill; 8 seed rubrics. Per-test critique with optional source ' +
     'pairing for contract-vs-implementation rubrics.',
   inputSchema: {
@@ -33,9 +33,9 @@ export const testCraftDefinition = {
         type: 'array',
         items: {
           type: 'string',
-          enum: ['vitest', 'jest', 'mocha', 'playwright'],
+          enum: ['vitest', 'jest', 'mocha', 'playwright', 'pytest'],
         },
-        description: 'Restrict to specific frameworks (default: all four)',
+        description: 'Restrict to specific frameworks (default: all five)',
       },
       maxFiles: { type: 'number', description: 'Cap test file count (default: 100)' },
       maxTestsPerFile: {

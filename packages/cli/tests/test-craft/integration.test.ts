@@ -102,6 +102,50 @@ describe('runTestCraft (integration)', () => {
     expect(f.cite.rubricId).toMatch(/^TEST-R/);
   });
 
+  it('discovers and extracts pytest suites', async () => {
+    writeFile(
+      'tests/test_math.py',
+      'import pytest\n\ndef test_add():\n    assert 1 + 1 == 2\n\nclass TestOps:\n    def test_sub(self):\n        assert 2 - 1 == 1\n'
+    );
+    const out = await runTestCraft({ path: tmpDir });
+    expect(out.summary.counts.filesScanned).toBe(1);
+    expect(out.summary.counts.testsExtracted).toBe(2);
+    expect(out.summary.frameworksDetected.pytest).toBe(1);
+  });
+
+  it('mixed TS + Python suites are both discovered', async () => {
+    writeFile('src/foo.test.ts', `import { it } from 'vitest';\nit('a', () => {});`);
+    writeFile('tests/test_bar.py', 'def test_b():\n    assert True\n');
+    const out = await runTestCraft({ path: tmpDir });
+    expect(out.summary.frameworksDetected.vitest).toBe(1);
+    expect(out.summary.frameworksDetected.pytest).toBe(1);
+    expect(out.summary.counts.testsExtracted).toBe(2);
+  });
+
+  it('honors frameworks filter (pytest only)', async () => {
+    writeFile('src/foo.test.ts', `import { it } from 'vitest';\nit('a', () => {});`);
+    writeFile('tests/test_bar.py', 'def test_b():\n    assert True\n');
+    const out = await runTestCraft({ path: tmpDir, frameworks: ['pytest'] });
+    expect(out.summary.frameworksDetected.pytest).toBe(1);
+    expect(out.summary.frameworksDetected.vitest).toBe(0);
+    expect(out.summary.counts.testsExtracted).toBe(1);
+  });
+
+  it('skips __pycache__ and venv directories', async () => {
+    writeFile('__pycache__/test_cached.py', 'def test_x():\n    pass\n');
+    writeFile('venv/lib/test_vendored.py', 'def test_y():\n    pass\n');
+    writeFile('tests/test_real.py', 'def test_z():\n    assert True\n');
+    const out = await runTestCraft({ path: tmpDir });
+    expect(out.summary.counts.filesScanned).toBe(1);
+  });
+
+  it('pytest source-pairing resolves tests/test_foo.py to src/foo.py', async () => {
+    writeFile('src/foo.py', 'def add(a, b):\n    return a + b\n');
+    writeFile('tests/test_foo.py', 'def test_add():\n    assert add(1, 2) == 3\n');
+    const out = await runTestCraft({ path: tmpDir });
+    expect(out.summary.counts.sourcePaired).toBe(1);
+  });
+
   it('cross-cutting critiqueTestsInFile works on single file', async () => {
     writeFile('src/foo.test.ts', `it('returns null', () => {});`);
     const provider = new MockLlmProvider([

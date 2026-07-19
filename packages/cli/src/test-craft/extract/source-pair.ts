@@ -25,8 +25,15 @@ export interface SourcePairResult {
 
 export function resolveSourceFile(testFile: string): SourcePairResult | null {
   const dir = path.dirname(testFile);
-  const ext = /\.tsx$/.test(testFile) ? '.tsx' : '.ts';
-  const base = path.basename(testFile).replace(/\.(?:test|spec)\.(?:tsx?|jsx?)$/, '');
+  const isPython = testFile.endsWith('.py');
+  const ext = isPython ? '.py' : /\.tsx$/.test(testFile) ? '.tsx' : '.ts';
+  const base = isPython
+    ? // Python conventions: test_foo.py / foo_test.py → foo.py
+      path
+        .basename(testFile, '.py')
+        .replace(/^test_/, '')
+        .replace(/_test$/, '')
+    : path.basename(testFile).replace(/\.(?:test|spec)\.(?:tsx?|jsx?)$/, '');
 
   const candidates = [
     // Sibling (most common in co-located setups)
@@ -35,6 +42,8 @@ export function resolveSourceFile(testFile: string): SourcePairResult | null {
     path.join(dir, '..', 'src', base + ext),
     // tests/ one level deeper than src/
     path.join(dir, '..', '..', 'src', base + ext),
+    // tests/ peer to the module itself (common flat Python layout)
+    path.join(dir, '..', base + ext),
   ];
 
   for (const candidate of candidates) {
