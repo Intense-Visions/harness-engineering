@@ -195,17 +195,18 @@ function resolveStageBackendFactory(
 }
 
 /**
- * Synthesize the identity-path RoutingDecision for a stage from the resolved
- * backend's name + its def type. The adaptive path attaches the router's real
- * decision to `run.decision`; the identity path had none, which left the last
- * stage's decision unset → `settleWorkflowSuccess`'s `isLocal` gate could not
- * derive locality → the gate+ship block was skipped → a fully-local (no-AMR,
- * i.e. DEFAULT) staged unit completed but never shipped and looped. Only
- * `backendName` is load-bearing (the settle gate does its own def lookup +
- * `isLocalEndpointBackend`); the remaining fields are filled for telemetry
- * completeness. We synthesize from the ALREADY-resolved backend rather than
- * re-calling the router, so this adds NO second decision-bus emission. Absent
- * backends map ⇒ undefined (decision stays unset — legacy byte-identical).
+ * Build the `stageDecisionFor` seam: synthesize the identity-path RoutingDecision
+ * for a stage. The adaptive path attaches the router's real decision to
+ * `run.decision`; the identity path had none, which left the last stage's decision
+ * unset → `settleWorkflowSuccess`'s `isLocal` gate could not derive locality → the
+ * gate+ship block was skipped → a fully-local (no-AMR, i.e. DEFAULT) staged unit
+ * completed but never shipped and looped. We resolve the stage's ROUTING KEY via
+ * the router (see the inline note on why `resolveName`, not a materialized
+ * backend's type-label `.name`), look its def up in `agent.backends`, and fill the
+ * decision from name + type. Only `backendName` is load-bearing (the settle gate
+ * does its own def lookup + `isLocalEndpointBackend`); the rest is telemetry
+ * completeness. An unmapped name (or no factory) ⇒ undefined, so the decision stays
+ * unset and behavior is legacy byte-identical.
  */
 function stageDecisionFactory(
   backendFactory: OrchestratorBackendFactory | null,
