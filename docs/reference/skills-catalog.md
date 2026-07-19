@@ -248,6 +248,16 @@ Interactive architecture advisor that surfaces trade-offs and helps humans choos
 - **Type:** flexible
 - **Cognitive mode:** advisory-guide
 
+### harness-audit
+
+Cross-dimensional codebase audit orchestrator — classify repo shape, fan out parallel read-only audit agents, dedup and severity-rank findings against existing issues, publish grouped tracking issues
+
+- **Triggers:** manual
+- **Platforms:** claude-code, gemini-cli, cursor, codex
+- **Type:** rigid
+- **Cognitive mode:** systematic-orchestrator
+- **Depends on:** harness-code-review, harness-security-scan, detect-doc-drift, harness-dependency-health, harness-hotspot-detector, harness-test-advisor
+
 ### harness-audit-harness-strength
 
 Mechanically audit a project's own harness setup against the seven STRENGTH failure patterns; reports per-pattern findings, a 0-100 strength score, and a tier label (solid/at-risk/theatre). Orchestrates harness check-harness-strength; never reimplements detection.
