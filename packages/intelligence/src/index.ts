@@ -83,6 +83,23 @@ export type {
   OutcomeEvaluatorOptions,
 } from './outcome-eval/index.js';
 
+// Guardian — tolerant, advisory diff-coverage records read from .harness/analyses/ (#914)
+export {
+  GUARDIAN_ANALYSIS_SCHEMA,
+  GUARDIAN_ANALYSIS_VERSION,
+  guardianAnalysisSchema,
+  readGuardianAnalyses,
+  summarizeGuardian,
+  guardianFlags,
+  guardianFileLines,
+} from './guardian/index.js';
+export type {
+  GuardianAnalysis,
+  GuardianFileCoverage,
+  GuardianVerdict,
+  GuardianSeverity,
+} from './guardian/index.js';
+
 // Acceptance-Eval — pre-execution acceptance-criteria measurability judgment (upstream twin)
 export {
   deriveAcceptanceAuthority,

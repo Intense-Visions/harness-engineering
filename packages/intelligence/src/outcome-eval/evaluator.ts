@@ -9,6 +9,26 @@ import { OUTCOME_EVAL_SYSTEM_PROMPT, buildUserPrompt, verdictSchema } from './pr
 import type { LlmVerdict } from './prompts.js';
 import { ExecutionOutcomeConnector } from '../outcome/connector.js';
 import type { ExecutionOutcome } from '../outcome/types.js';
+import { summarizeGuardian } from '../guardian/summary.js';
+import type { GuardianAnalysis } from '../guardian/types.js';
+
+/**
+ * Fold advisory guardian diff-coverage records into a verdict's rationale as a
+ * single deterministic line (#914). Pure and total: an absent/empty guardian
+ * input returns the verdict UNCHANGED (referentially identical), preserving the
+ * "no guardian wiring" contract byte-for-byte. Never touches `authority` — ship
+ * authority stays TS-derived from (verdict, confidence).
+ */
+export function withGuardianSignal(
+  verdict: OutcomeVerdict,
+  guardian: GuardianAnalysis[] | undefined
+): OutcomeVerdict {
+  if (!guardian || guardian.length === 0) return verdict;
+  const summary = summarizeGuardian(guardian);
+  if (!summary) return verdict;
+  const rationale = verdict.rationale ? `${verdict.rationale}\n\n${summary}` : summary;
+  return { ...verdict, rationale };
+}
 
 export interface OutcomeEvaluatorOptions {
   /** Override model for the outcome-eval LLM call. */
@@ -116,10 +136,16 @@ export class OutcomeEvaluator {
     );
   }
 
-  /** Persist (Phase 4 seam) then return the verdict. */
+  /**
+   * Fold in the advisory guardian signal, persist (Phase 4 seam), then return
+   * the verdict. Applying guardian here (not per-branch) means every path —
+   * judged, no-section, and degraded — surfaces the guardian signal uniformly,
+   * and the persisted `execution_outcome` node carries the annotated rationale.
+   */
   private async finish(verdict: OutcomeVerdict, input: OutcomeEvalInput): Promise<OutcomeVerdict> {
-    await this.persistOutcome(verdict, input);
-    return verdict;
+    const withGuardian = withGuardianSignal(verdict, input.guardian);
+    await this.persistOutcome(withGuardian, input);
+    return withGuardian;
   }
 
   private async resolveJudgmentSection(

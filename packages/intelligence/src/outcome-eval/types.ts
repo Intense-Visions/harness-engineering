@@ -6,6 +6,8 @@
  * response — see `verdictSchema` in `./prompts.js`, which omits it.
  */
 
+import type { GuardianAnalysis } from '../guardian/types.js';
+
 export type Verdict = 'SATISFIED' | 'NOT_SATISFIED' | 'INCONCLUSIVE';
 
 export type Confidence = 'low' | 'medium' | 'high';
@@ -24,6 +26,14 @@ export interface OutcomeEvalInput {
   testOutput: string;
   /** Pre-resolved judgment section; otherwise the section-resolver runs. */
   specSection?: string;
+  /**
+   * Advisory guardian diff-coverage records read from `.harness/analyses/`
+   * (#914). Absent/empty leaves the verdict byte-identical to no guardian
+   * wiring; when present, a deterministic one-line signal is appended to the
+   * verdict rationale. Never affects ship authority (still TS-derived from
+   * verdict + confidence).
+   */
+  guardian?: GuardianAnalysis[];
 }
 
 export interface OutcomeVerdict {
