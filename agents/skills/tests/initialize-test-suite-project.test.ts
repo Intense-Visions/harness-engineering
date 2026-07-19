@@ -110,6 +110,49 @@ describe('initialize-test-suite-project SKILL.md structure', () => {
   });
 });
 
+describe('initialize-test-suite-project canary Phase 0 probe + delegation', () => {
+  it.each(PLATFORMS)('%s SKILL.md declares a Phase 0 canary probe', (platform) => {
+    const body = readSkillMd(platform);
+    expect(body, `missing "### Phase 0: PROBE" heading in ${platform}`).toContain(
+      '### Phase 0: PROBE'
+    );
+    expect(body).toContain('canary_probe');
+  });
+
+  it.each(PLATFORMS)(
+    '%s SKILL.md delegates framework selection to canary_recommend_framework + canary init',
+    (platform) => {
+      const body = readSkillMd(platform);
+      expect(body).toContain('canary_recommend_framework');
+      expect(body).toContain('canary init');
+    }
+  );
+
+  it.each(PLATFORMS)(
+    '%s SKILL.md delegates reporting to the canary test-reporter version:1 contract',
+    (platform) => {
+      const body = readSkillMd(platform);
+      expect(body).toMatch(
+        /test-reporter `version:1`|reporter `version:1`|`version:1` (contract|reporter)/i
+      );
+      expect(body).toMatch(/ci-ready/i);
+    }
+  );
+
+  it.each(PLATFORMS)(
+    '%s SKILL.md degrades gracefully to the built-in flow when canary is absent',
+    (platform) => {
+      const body = readSkillMd(platform);
+      // The degraded branch must still name the built-in fallbacks so adopter
+      // projects without canary keep today's behavior.
+      expect(body).toMatch(/degraded/);
+      expect(body).toMatch(/built-in flow/);
+      expect(body).toMatch(/scripts\/generate-reports\.ts/);
+      expect(body).toMatch(/test-playwright-setup|test-vitest-config/);
+    }
+  );
+});
+
 describe('initialize-test-suite-project composition with initialize-harness-project', () => {
   it.each(PLATFORMS)('%s parent skill dispatches to initialize-test-suite-project', (platform) => {
     const parentPath = resolve(SKILLS_DIR, platform, PARENT_SKILL, 'SKILL.md');
