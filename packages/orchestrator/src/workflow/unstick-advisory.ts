@@ -41,6 +41,18 @@ export const UNSTICK_SYSTEM_PROMPT =
 export const DEFAULT_REASONER_ASSIST_AFTER = 3;
 
 /**
+ * Timeout floor for the reasoner advisory call. A thinking reasoner (e.g. qwen3.6 with
+ * reasoning ON) produces its structured diagnosis MUCH slower than a quick SEL classify —
+ * and over Ollama's `/v1` endpoint the thinking cannot be disabled, so the model reasons
+ * for minutes before answering. The general `intelligence.requestTimeoutMs` (90s default)
+ * kills it mid-think (observed live, af8: `reasoner unstick advisory skipped … "Request
+ * timed out"`). Floor the advisory's timeout generously so it actually delivers; it only
+ * fires on a genuine stall, so the occasional multi-minute wait is worth avoiding a
+ * needs-human escalation.
+ */
+export const REASONER_UNSTICK_TIMEOUT_MS = 300_000;
+
+/**
  * Gate: should this re-dispatch carry a reasoner advisory? True once the executor has
  * stalled (`attempts >= assistAfter`) but still has retry budget (`attempts < bound`),
  * and a reasoner backend is actually configured. Pure.
