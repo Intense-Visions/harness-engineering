@@ -103,6 +103,7 @@ import { RoutingDecisionBus } from './routing/decision-bus.js';
 // `./agent/use-case-builder` (the new caller). The dispatch site no
 // longer references them directly.
 import { discoverSkillCatalog, type SkillCatalogEntry } from './workflow/skill-catalog';
+import { distillGateFailure } from './workflow/gate-feedback';
 import { workflowFor } from './workflow/workflow-for';
 import { buildWorkflowContext } from './workflow/orchestrator-context';
 import { executeWorkflow } from './workflow/execute-workflow';
@@ -211,18 +212,10 @@ export function normalizeHarnessCommand(command: string[]): string[] {
   return ['harness', ...command];
 }
 
-/**
- * Truncate captured gate output to a bounded size for the re-dispatch prompt
- * preamble (a full typecheck/test log can be enormous). Keeps the head + tail
- * so both the first error and the summary survive.
- */
-export function truncateGateOutput(output: string, max = 4000): string {
-  const trimmed = output.trim();
-  if (trimmed.length <= max) return trimmed;
-  const head = trimmed.slice(0, Math.floor(max * 0.7));
-  const tail = trimmed.slice(-Math.floor(max * 0.3));
-  return `${head}\n… [truncated ${trimmed.length - max} chars] …\n${tail}`;
-}
+// Gate-failure feedback distillation lives in ./workflow/gate-feedback (kept out
+// of this monolith for testability + the module-size arch gate). `truncateGateOutput`
+// is re-exported to preserve the public symbol surface.
+export { truncateGateOutput } from './workflow/gate-feedback';
 
 /**
  * local-backend-full-workflow Phase 2 (Option C): the production default verify
@@ -2957,7 +2950,7 @@ export class Orchestrator extends EventEmitter {
         if (!result.ok) {
           return {
             ok: false,
-            reason: `acceptance command failed:\n${truncateGateOutput(result.output)}`,
+            reason: `acceptance command failed:\n${distillGateFailure(result.output)}`,
           };
         }
       } else {
@@ -2965,7 +2958,7 @@ export class Orchestrator extends EventEmitter {
         if (!verify.ok) {
           return {
             ok: false,
-            reason: `verify failed:\n${truncateGateOutput(verify.output)}`,
+            reason: `verify failed:\n${distillGateFailure(verify.output)}`,
           };
         }
       }
