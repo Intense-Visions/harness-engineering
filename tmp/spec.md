@@ -1,73 +1,81 @@
-# Spec: Implement `no-disabled-tests` ESLint Rule
+# Specification: Implement `no-disabled-tests` ESLint Rule
 
-## Overview
+## Work Item
 
-Create a new ESLint rule `no-disabled-tests` that flags disabled/skipped tests left in source code, similar to the existing `no-skipped-tests` rule but with a more comprehensive approach.
+e2e-af4-no-disabled-tests
+
+## Summary
+
+Implement a new ESLint rule `no-disabled-tests` for @harness-engineering/eslint-plugin that flags disabled/skipped tests left in source code. The rule should detect:
+
+- `it.skip(...)`
+- `test.skip(...)`
+- `describe.skip(...)`
+- Bare aliases: `xit(...)`, `xtest(...)`, `xdescribe(...)`
 
 ## Requirements
 
 1. **Rule Name**: `no-disabled-tests`
-2. **Purpose**: Flag disabled/skipped tests that must not be committed to the codebase
-3. **Target patterns to detect**:
-   - `it.skip(...)`
-   - `test.skip(...)`
-   - `describe.skip(...)`
-   - Bare `xit(...)`, `xtest(...)`, `xdescribe(...)` aliases
+2. **Purpose**: Disallow disabled/skipped tests that must not be committed
+3. **Detection**: Flag all usage of test disabling patterns listed above
+4. **Exclusions**: Do NOT flag:
+   - Regular `it`/`test`/`describe` calls
+   - `.only` or `.each` members
+   - Unrelated identifiers named `skip`
 
 ## Implementation Details
 
-### Rule Logic
+### Rule Structure
 
-The rule should:
+The rule should follow the existing pattern in the eslint-plugin:
 
-- Identify calls to `.skip()` methods on test framework functions (`it`, `test`, `describe`)
-- Identify bare function calls for the x-aliases (`xit`, `xtest`, `xdescribe`)
-- Report these as ESLint errors with a descriptive message
-- Follow the same pattern as existing rules like `no-skipped-tests` and `no-focused-tests`
+- Located at `packages/eslint-plugin/src/rules/no-disabled-tests.ts`
+- Registered in `packages/eslint-plugin/src/rules/index.ts`
+- Added to recommended config in `packages/eslint-plugin/src/index.ts`
 
-### Rule Registration
+### Detection Logic
 
-1. Add rule to `src/rules/index.ts`
-2. Register in the recommended configuration in `src/index.ts`
-3. Add test coverage in `tests/rules/`
+1. **Member Expressions** (for `.skip()` calls):
+   - Check for `describe.skip()`, `it.skip()`, `test.skip()`
+   - Validate callee.type === 'MemberExpression'
+   - Validate object.name is 'describe', 'it', or 'test'
+   - Validate property.name is 'skip'
 
-### Testing
+2. **Identifier Calls** (for bare aliases):
+   - Check for `xdescribe()`, `xit()`, `xtest()`
+   - Validate callee.type === 'Identifier'
+   - Validate callee.name is 'xdescribe', 'xit', or 'xtest'
 
-1. Create comprehensive unit tests that cover all target patterns
-2. Ensure existing functionality is not broken
-3. Include both valid (should not trigger) and invalid (should trigger) test cases
+### Test Coverage
 
-## Rule Structure
+- Valid cases:
+  - Regular test calls: `describe('suite', () => {});`, `it('test', () => {});`, `test('test', () => {});`
+  - Regular function calls: `console.log('hello');`, `someFunction();`
+  - Nested calls with .skip (should be valid): `describe('suite', () => { it('test', () => {}); });`
+  - Identifiers named skip that are not related to tests: `const skip = 'something';`, `function skip() {}`, `const obj = { skip: 'value' };`
 
-Following the pattern of existing rules:
-
-- Use `ESLintUtils.RuleCreator` for consistent documentation URLs
-- Define appropriate message IDs and error messages
-- Implement AST traversal to detect call expressions
-- Use proper TypeScript types from `@typescript-eslint/utils`
+- Invalid cases:
+  - `describe.skip('suite', () => {});`
+  - `it.skip('test', () => {});`
+  - `test.skip('test', () => {});`
+  - `xdescribe('suite', () => {});`
+  - `xit('test', () => {});`
+  - `xtest('test', () => {});`
 
 ## Files to Modify
 
-1. `src/rules/no-disabled-tests.ts` - New rule implementation
-2. `src/rules/index.ts` - Register the new rule
-3. `src/index.ts` - Add to recommended configuration
-4. `tests/rules/no-disabled-tests.test.ts` - Unit tests
-5. Update plugin integration test count
+1. `packages/eslint-plugin/src/rules/no-disabled-tests.ts` - Rule implementation
+2. `packages/eslint-plugin/src/rules/index.ts` - Rule registration
+3. `packages/eslint-plugin/src/index.ts` - Config registration
+4. `packages/eslint-plugin/tests/rules/no-disabled-tests.test.ts` - Test cases (already exists)
 
-## Expected Behavior
+## Testing
 
-The rule should flag the following patterns:
+- Run `pnpm --filter @harness-engineering/eslint-plugin test`
+- Ensure all tests pass
+- Verify rule properly flags disabled tests and doesn't flag valid cases
 
-- `describe.skip('suite', () => {});`
-- `it.skip('test', () => {});`
-- `test.skip('test', () => {});`
-- `xdescribe('suite', () => {});`
-- `xit('test', () => {});`
-- `xtest('test', () => {});`
+## Documentation
 
-And should NOT flag:
-
-- Regular test framework calls: `describe('suite', () => {});`
-- Regular function calls: `console.log('hello');`
-- `.only` calls (covered by existing rules)
-- Unrelated identifiers named `skip`
+- Rule should be documented in the plugin's documentation
+- Follow existing documentation patterns for similar rules
