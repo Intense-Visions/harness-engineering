@@ -1,5 +1,9 @@
 import { describe, it, expect } from 'vitest';
-import { selectStagePromptTemplate, LOCAL_STAGE_PROMPT_TEMPLATE } from './local-stage-prompt';
+import {
+  selectStagePromptTemplate,
+  LOCAL_STAGE_PROMPT_TEMPLATE,
+  stagePersonaSystemPrompt,
+} from './local-stage-prompt';
 import { STAGE_PROMPT_TEMPLATE } from './orchestrator-context';
 import { PromptRenderer } from '../prompt/renderer';
 
@@ -12,6 +16,8 @@ const RENDER_BAG = {
   skill: 'harness-execution',
   cognitiveMode: '',
   produces: 'artifact.md',
+  documentPath: '',
+  reviewStage: '',
   priorEntries: [] as Array<{ name: string; output: string }>,
 };
 
@@ -42,6 +48,14 @@ describe('LOCAL_STAGE_PROMPT_TEMPLATE', () => {
     expect(LOCAL_STAGE_PROMPT_TEMPLATE).toContain('{{ identifier }}');
     expect(LOCAL_STAGE_PROMPT_TEMPLATE).toContain('{{ title }}');
     expect(LOCAL_STAGE_PROMPT_TEMPLATE).toContain('priorEntries');
+  });
+
+  it('instructs the model to self-verify (typecheck + lint + full test suite) before finishing', () => {
+    expect(LOCAL_STAGE_PROMPT_TEMPLATE).toContain('self-verify');
+    expect(LOCAL_STAGE_PROMPT_TEMPLATE).toContain('typecheck');
+    // must call out the two gate-failure modes the retry loop kept hitting
+    expect(LOCAL_STAGE_PROMPT_TEMPLATE).toMatch(/esbuild.*strips types|ALWAYS run typecheck/);
+    expect(LOCAL_STAGE_PROMPT_TEMPLATE).toMatch(/count|inventory/);
   });
 });
 
@@ -94,5 +108,81 @@ describe('LOCAL_STAGE_PROMPT_TEMPLATE drives completion, not "run then stop" (D5
       'harness skill run {{ skill }} --autonomous --path .'
     );
     expect(LOCAL_STAGE_PROMPT_TEMPLATE).toContain('harness skill run harness-X --autonomous');
+  });
+});
+
+describe('stagePersonaSystemPrompt — per-stage persona (local subagent-delegation analog)', () => {
+  it('gives design stages a no-code author/planner persona', () => {
+    expect(stagePersonaSystemPrompt('harness-brainstorming')).toMatch(/specification author/i);
+    expect(stagePersonaSystemPrompt('harness-brainstorming')).toMatch(/do NOT write/i);
+    expect(stagePersonaSystemPrompt('harness-planning')).toMatch(/planner/i);
+    expect(stagePersonaSystemPrompt('harness-planning')).toMatch(/do NOT write/i);
+  });
+
+  it('gives the verify stage an INDEPENDENT auditor persona that does not fix code', () => {
+    const p = stagePersonaSystemPrompt('harness-verification');
+    expect(p).toMatch(/independent verifier/i);
+    expect(p).toMatch(/do NOT fix, write, or commit/i);
+  });
+
+  it('gives the review stage an adversarial reviewer persona that commits nothing', () => {
+    const p = stagePersonaSystemPrompt('harness-code-review');
+    expect(p).toMatch(/adversarial code reviewer/i);
+    expect(p).toMatch(/do NOT modify code or commit/i);
+  });
+
+  it('gives the execution stage a senior-engineer persona that self-verifies', () => {
+    const p = stagePersonaSystemPrompt('harness-execution');
+    expect(p).toMatch(/senior software engineer/i);
+    expect(p).toMatch(/self-verify/i);
+  });
+
+  it('returns undefined for an unknown skill (SC3 → backend default system prompt)', () => {
+    expect(stagePersonaSystemPrompt('some-unknown-skill')).toBeUndefined();
+  });
+});
+
+describe('LOCAL template — document vs code stage (true-autopilot artifacts)', () => {
+  const renderer = new PromptRenderer();
+
+  it('a DOCUMENT stage (documentPath set) instructs writing markdown to the EXACT path, not code', async () => {
+    const out = await renderer.render(LOCAL_STAGE_PROMPT_TEMPLATE, {
+      ...RENDER_BAG,
+      skill: 'harness-brainstorming',
+      produces: 'spec',
+      documentPath: 'docs/changes/my-item/proposal.md',
+    });
+    expect(out).toContain('produces a DOCUMENT');
+    expect(out).toContain('docs/changes/my-item/proposal.md');
+    expect(out).toContain('do NOT put it in `tmp/`');
+    expect(out).toContain('do NOT write code');
+    expect(out).not.toContain('self-verify');
+  });
+
+  it('a REVIEW stage (reviewStage set) runs tools and commits NOTHING (no review.md)', async () => {
+    const out = await renderer.render(LOCAL_STAGE_PROMPT_TEMPLATE, {
+      ...RENDER_BAG,
+      skill: 'harness-code-review',
+      produces: 'review',
+      reviewStage: 'review',
+    });
+    expect(out).toContain('REVIEW/CHECK');
+    expect(out).toContain('run_code_review');
+    expect(out).toContain('no `review.md`');
+    expect(out).not.toContain('produces a DOCUMENT');
+    expect(out).not.toContain('self-verify');
+  });
+
+  it('a CODE stage (both flags empty) keeps the self-verify block and no document/review instruction', async () => {
+    const out = await renderer.render(LOCAL_STAGE_PROMPT_TEMPLATE, {
+      ...RENDER_BAG,
+      skill: 'harness-execution',
+      produces: 'impl',
+      documentPath: '',
+      reviewStage: '',
+    });
+    expect(out).toContain('self-verify');
+    expect(out).not.toContain('produces a DOCUMENT');
+    expect(out).not.toContain('REVIEW/CHECK');
   });
 });

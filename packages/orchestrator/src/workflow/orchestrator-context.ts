@@ -184,9 +184,10 @@ function makeRunnerFactory(
       runSession: (
         _issue: unknown,
         ws: string,
-        prompt: string
+        prompt: string,
+        systemPrompt?: string
       ): AsyncGenerator<AgentEvent, TurnResult, void> =>
-        runner.runSession(undefined as never, ws, prompt),
+        runner.runSession(undefined as never, ws, prompt, systemPrompt),
     };
   };
 }
@@ -245,6 +246,25 @@ function stageDecisionFactory(
   };
 }
 
+/** Review/analysis stages: run the review/check TOOLS, don't commit a report file. */
+const REVIEW_ARTIFACTS = new Set(['review', 'verify']);
+
+/**
+ * The COMMITTED markdown path for a document-producing stage (spec/plan), or '' for
+ * anything else. Local models don't reliably follow AGENTS.md / the skill's own path
+ * instruction (observed: they wrote the spec to `tmp/` even with AGENTS.md injected),
+ * so we hand them the EXACT harness-convention path — a spec to
+ * `docs/changes/<slug>/proposal.md`, a plan to the sibling `plans/`. This is the REAL
+ * convention (not an invented `docs/autopilot/`), made explicit because the model
+ * needs it. `<slug>` is the sanitized item identifier.
+ */
+function documentStagePath(produces: string, identifier: string): string {
+  const slug = identifier.replace(/[^A-Za-z0-9._-]+/g, '-').replace(/^-+|-+$/g, '') || 'item';
+  if (produces === 'spec') return `docs/changes/${slug}/proposal.md`;
+  if (produces === 'plan') return `docs/changes/${slug}/plans/${slug}-plan.md`;
+  return '';
+}
+
 /**
  * The re-prompt preamble appended to a staged stage's prompt when the prior
  * attempt was gate-blocked. Kept template-agnostic (appended post-render) to
@@ -265,6 +285,15 @@ function renderStagePromptFactory(
       name,
       output,
     }));
+    const produces = step.produces ?? '';
+    // A stage whose output is a DOCUMENT (spec/plan/review/…) must produce that
+    // markdown artifact via the skill and NOT implementation code — otherwise a
+    // local model collapses the lifecycle into "every stage codes" and no spec/plan/
+    // review lands in the PR. Execution stages (produces:'impl'/code) write code.
+    // Three stage kinds: DOCUMENT (spec/plan → docs/changes/), REVIEW (review/verify →
+    // run tools, commit nothing), CODE (impl → write code + self-verify).
+    const documentPath = documentStagePath(produces, issue.identifier);
+    const reviewStage = REVIEW_ARTIFACTS.has(produces) ? produces : '';
     // Per-phase routing: pick the LOCAL-indirection template for a local-endpoint
     // routed backend, else the byte-identical default (SC-LOCAL/SC3). The variable
     // bag is identical for both templates (strictVariables — no new required var).
@@ -281,7 +310,11 @@ function renderStagePromptFactory(
         // model is driven to PRODUCE it (not "run then stop"). Default to '' so
         // strictVariables is satisfied and exactOptionalPropertyTypes never sees an
         // explicit undefined.
-        produces: step.produces ?? '',
+        produces,
+        // Non-empty ⇒ DOCUMENT stage: write {{ produces }} markdown to this exact path.
+        documentPath,
+        // Non-empty ⇒ REVIEW stage: run review/check tools, commit no report file.
+        reviewStage,
         priorEntries,
       }
     );

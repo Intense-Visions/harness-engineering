@@ -78,6 +78,14 @@ export interface OllamaBackendConfig {
   maxContextTokens?: number | undefined;
   /** Output-token budget (`num_predict`). Unset ⇒ model default. */
   numPredict?: number | undefined;
+  /**
+   * Sampling controls (native `/api/chat` `options`). Unset ⇒ Ollama model
+   * default (~temp 0.8). Precise agentic coding benefits from lower/tighter
+   * sampling — Qwen thinking-mode coding guidance is 0.6 / 0.95 / 20.
+   */
+  temperature?: number | undefined;
+  topP?: number | undefined;
+  topK?: number | undefined;
   /** Keep the sized model warm between turns (`keep_alive`). Default `'10m'`. */
   keepAlive?: string | undefined;
   /**
@@ -278,6 +286,44 @@ const DEFAULT_SYSTEM_PROMPT = [
   'reply with exactly TASK_COMPLETE on its own line and make no tool call.',
   'If you stop for any other reason you will be told to continue.',
 ].join(' ');
+
+/**
+ * The project's agent-instruction files, in priority order. Claude Code auto-reads
+ * these into a cloud session's context; a local Ollama agent gets NOTHING, so it
+ * never learns the repo's conventions (where specs go — `docs/changes/<slug>/
+ * proposal.md` — how things are laid out, how to run them) and invents paths. We
+ * read them from the worktree and prepend them to the system prompt so the local
+ * agent is "in line" with a cloud session.
+ */
+const PROJECT_INSTRUCTION_FILES = ['AGENTS.md', 'CLAUDE.md'];
+/**
+ * Char budget for the injected instructions. Conventions/structure live near the
+ * TOP of AGENTS.md, so a head-truncation keeps the load-bearing part while leaving
+ * room in a 32K-context local model for the tools, stage prompt, and the work.
+ */
+const PROJECT_INSTRUCTION_BUDGET = 24 * 1024;
+
+/** Read + budget the worktree's AGENTS.md/CLAUDE.md; '' when absent. Never throws. */
+async function readProjectInstructions(workspacePath: string): Promise<string> {
+  const parts: string[] = [];
+  let remaining = PROJECT_INSTRUCTION_BUDGET;
+  for (const file of PROJECT_INSTRUCTION_FILES) {
+    if (remaining <= 0) break;
+    try {
+      let content = await fs.readFile(path.join(workspacePath, file), 'utf8');
+      if (content.length > remaining) {
+        content = `${content.slice(0, remaining)}\n…(truncated — read the full ${file} for the rest)`;
+      }
+      remaining -= content.length;
+      parts.push(
+        `<<<BEGIN ${file} — repo agent instructions & conventions; FOLLOW them>>>\n${content}\n<<<END ${file}>>>`
+      );
+    } catch {
+      /* file absent — skip */
+    }
+  }
+  return parts.join('\n\n');
+}
 
 /** OpenAI function-tool schemas for the three tools this backend exposes. */
 const TOOL_SCHEMAS = [
@@ -684,7 +730,13 @@ export class OllamaBackend implements AgentBackend {
       });
     }
 
-    const systemPrompt = params.systemPrompt ?? DEFAULT_SYSTEM_PROMPT;
+    // Prepend the worktree's AGENTS.md/CLAUDE.md — the repo conventions a cloud
+    // (Claude Code) session gets for free but a local model otherwise never sees.
+    const baseSystemPrompt = params.systemPrompt ?? DEFAULT_SYSTEM_PROMPT;
+    const projectInstructions = await readProjectInstructions(params.workspacePath);
+    const systemPrompt = projectInstructions
+      ? `${baseSystemPrompt}\n\n## Project conventions — read and FOLLOW these (where files go, how things are laid out, how to run them)\n${projectInstructions}`
+      : baseSystemPrompt;
     const session: OllamaSession = {
       sessionId: randomUUID(),
       workspacePath: params.workspacePath,
@@ -1049,6 +1101,13 @@ export class OllamaBackend implements AgentBackend {
             ...(this.config.numPredict !== undefined
               ? { num_predict: this.config.numPredict }
               : {}),
+            // Sampling controls — unset ⇒ Ollama model default. Lower/tighter values
+            // improve precise agentic coding (Qwen thinking-mode guidance: 0.6/0.95/20).
+            ...(this.config.temperature !== undefined
+              ? { temperature: this.config.temperature }
+              : {}),
+            ...(this.config.topP !== undefined ? { top_p: this.config.topP } : {}),
+            ...(this.config.topK !== undefined ? { top_k: this.config.topK } : {}),
           },
         }),
         signal: controller.signal,

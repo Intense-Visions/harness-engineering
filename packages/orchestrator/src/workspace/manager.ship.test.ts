@@ -34,6 +34,11 @@ class ShipStubWM extends WorkspaceManager {
   public localBranchExists = false;
   public remoteBranchExists = false;
   public openPrExists = false;
+  /** Number of times `gh pr create` should throw before succeeding (push→PR race). */
+  public ghCreateFailuresBeforeSuccess = 0;
+
+  /** No-op backoff so the retry loop doesn't actually wait in tests. */
+  protected async sleep(): Promise<void> {}
 
   protected async git(args: string[], _cwd: string): Promise<string> {
     this.gitCalls.push(args);
@@ -61,19 +66,43 @@ class ShipStubWM extends WorkspaceManager {
     return 'ok\n';
   }
 
-  protected async gh(args: string[], _cwd: string): Promise<string> {
+  public readonly ghCwds: string[] = [];
+  protected async gh(args: string[], cwd: string): Promise<string> {
     this.ghCalls.push(args);
+    this.ghCwds.push(cwd);
     if (this.failGh(args)) throw new Error(`gh ${args.join(' ')} failed`);
     // PR-existence probe: `gh pr list --head <b> --state open`. Empty ⇒ no PR
     // (default). Non-empty JSON ⇒ an open PR already covers the branch.
     if (args[0] === 'pr' && args[1] === 'list') {
       return this.openPrExists ? '[{"url":"https://github.com/o/r/pull/42"}]\n' : '[]\n';
     }
+    if (args[0] === 'pr' && args[1] === 'create' && this.ghCreateFailuresBeforeSuccess > 0) {
+      this.ghCreateFailuresBeforeSuccess--;
+      throw new Error('gh pr create failed: No commits between main and orchestrator/iss-1');
+    }
     return 'https://github.com/o/r/pull/42\n';
   }
 }
 
 describe('WorkspaceManager.shipWorkspace (D4)', () => {
+  it('retries gh pr create through a transient push→PR race and still returns the prUrl', async () => {
+    const wm = new ShipStubWM(config());
+    wm.ghCreateFailuresBeforeSuccess = 2; // fail twice, succeed on the third attempt
+    const result = await wm.shipWorkspace('ISS-1', { title: 't', body: 'b' });
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.value.prUrl).toBe('https://github.com/o/r/pull/42');
+    const creates = wm.ghCalls.filter((c) => c[0] === 'pr' && c[1] === 'create');
+    expect(creates).toHaveLength(3);
+  });
+
+  it('surfaces a ship error when gh pr create keeps failing past the retry budget', async () => {
+    const wm = new ShipStubWM(config());
+    wm.ghCreateFailuresBeforeSuccess = 5; // exceeds the 3-attempt budget
+    const result = await wm.shipWorkspace('ISS-1', { title: 't', body: 'b' });
+    expect(result.ok).toBe(false);
+  });
+
   it('commits + branches + pushes + creates a PR, returning the branch + prUrl', async () => {
     const wm = new ShipStubWM(config());
     const result = await wm.shipWorkspace('ISS-1', { title: 'my title', body: 'my body' });
@@ -87,6 +116,8 @@ describe('WorkspaceManager.shipWorkspace (D4)', () => {
     const add = wm.gitCalls.find((c) => c[0] === 'add');
     expect(add).toEqual(['add', '-A']);
     const commit = wm.gitCalls.find((c) => c[0] === 'commit');
+    // Commit runs THROUGH the real pre-commit gate (no --no-verify) — the worktree
+    // builds the CLI so `harness ci check` runs; a block feeds back for remediation.
     expect(commit?.slice(0, 2)).toEqual(['commit', '-m']);
     // SLASH-prefixed branch so findPushedBranch recognizes it.
     const branchCall = wm.gitCalls.find((c) => c[0] === 'switch' || c[0] === 'checkout');
@@ -105,6 +136,10 @@ describe('WorkspaceManager.shipWorkspace (D4)', () => {
     expect(pr).toContain('my body');
     expect(pr).toContain('--base');
     expect(pr).toContain('main');
+    // gh pr create must run from the REPO ROOT, not the detached worktree (a
+    // detached HEAD makes gh fail even with an explicit --head + a pushed branch).
+    const prIdx = wm.ghCalls.findIndex((c) => c[0] === 'pr' && c[1] === 'create');
+    expect(wm.ghCwds[prIdx]).toBe('/repo');
   });
 
   it('no-op commit (clean tree) does NOT error the flow — still branches + pushes + PRs', async () => {

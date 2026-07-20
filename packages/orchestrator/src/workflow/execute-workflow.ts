@@ -11,6 +11,7 @@ import type {
 import { TIER_RANK, RANK_TIER } from '@harness-engineering/intelligence';
 import type { StreamRecorder } from '../core/stream-recorder';
 import type { StructuredLogger } from '../logging/logger';
+import { stagePersonaSystemPrompt } from './local-stage-prompt.js';
 
 /**
  * D8(a): bump one capability tier, clamped at `strong`. Pure; reuses the guarded
@@ -57,7 +58,10 @@ export interface WorkflowEngineContext {
     runSession: (
       issue: unknown,
       ws: string,
-      prompt: string
+      prompt: string,
+      // Optional per-stage persona → backend system prompt (local per-phase
+      // routing). Omitted by non-staged callers/fakes (SC3 default identity).
+      systemPrompt?: string
     ) => AsyncGenerator<
       AgentEvent,
       {
@@ -251,7 +255,11 @@ export async function runStageSession(
   const prompt = ctx.renderStagePrompt
     ? await ctx.renderStagePrompt(step, index, priorOutputs, local)
     : step.skill;
-  const gen = runner.runSession(undefined, ctx.workspacePath, prompt);
+  // Per-phase persona (local path only): give the stage its role as the backend
+  // system prompt so design/verify/review run under a focused identity, not the
+  // generic default. Cloud stays byte-identical (undefined → default).
+  const persona = local ? stagePersonaSystemPrompt(step.skill) : undefined;
+  const gen = runner.runSession(undefined, ctx.workspacePath, prompt, persona);
 
   // D12 (SC7): arm a per-stage wall-clock deadline that fires `abort` if the stage
   // runs too long. A pending `abort` is resolved through `abortWaiter` so the drain

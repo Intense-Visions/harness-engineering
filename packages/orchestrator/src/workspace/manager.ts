@@ -44,8 +44,30 @@ export class WorkspaceManager {
   /** Runs a git command and returns stdout. Extracted for testability. */
   protected async git(args: string[], cwd: string): Promise<string> {
     const exec = promisify(execFile);
-    const { stdout } = await exec('git', args, { cwd });
-    return stdout;
+    try {
+      // Large buffer so a hook's output (pre-push gauntlet can be verbose) isn't
+      // truncated into a maxBuffer error that hides the real reason.
+      const { stdout } = await exec('git', args, { cwd, maxBuffer: 32 * 1024 * 1024 });
+      return stdout;
+    } catch (err) {
+      // Surface the hook/git output so a failed ship commit/push carries WHAT the
+      // gate flagged (missing changeset, formatting, arch regression) into the
+      // staged-gate retry feedback — the remediation loop needs it. Probe callers
+      // (ls-remote / rev-parse) still catch-and-ignore; a richer message is harmless.
+      const e = err as { stdout?: string; stderr?: string; message?: string };
+      const detail = [e.stdout, e.stderr].filter(Boolean).join('\n').trim();
+      throw new Error(
+        detail ? `${e.message ?? 'git failed'}\n${detail}` : (e.message ?? String(err)),
+        {
+          cause: err,
+        }
+      );
+    }
+  }
+
+  /** Backoff between PR-create retries. Overridable so tests don't actually wait. */
+  protected async sleep(ms: number): Promise<void> {
+    await new Promise((resolve) => setTimeout(resolve, ms));
   }
 
   /**
@@ -527,6 +549,13 @@ export class WorkspaceManager {
       const status = (await this.git(['status', '--porcelain'], workspacePath)).trim();
       if (status.length > 0) {
         await this.git(['add', '-A'], workspacePath);
+        // Commit THROUGH the real pre-commit gate (no --no-verify): the autonomous
+        // ship must not bypass the gates a human push hits — it fixes what they flag,
+        // like a real session. The worktree's `afterCreate` builds the CLI so
+        // `harness ci check` actually runs here instead of dying on a missing dist. If
+        // a hook blocks (arch regression, missing changeset, formatting), the commit
+        // throws → shipWorkspace returns Err → the staged gate re-dispatches with the
+        // hook output as feedback so the NEXT attempt addresses it.
         await this.git(
           ['commit', '-m', opts.title || `orchestrator: ${identifier}`],
           workspacePath
@@ -545,6 +574,10 @@ export class WorkspaceManager {
       //    is already pushed (a resumed ship whose push already landed), in which
       //    case skip straight to PR creation.
       if (!remoteExists) {
+        // Push THROUGH the real pre-push gauntlet (changeset / format:check /
+        // reference-docs) — same principle as the commit: don't bypass, satisfy. A
+        // block throws → Err → re-dispatch with feedback so the run adds the changeset,
+        // formats, etc. and converges to a mergeable PR.
         await this.git(['push', '-u', 'origin', branch], workspacePath);
       }
 
@@ -555,23 +588,38 @@ export class WorkspaceManager {
       const repoRoot = await this.getRepoRoot();
       const rawBase = await this.resolveBaseRef(repoRoot);
       const base = rawBase.startsWith('origin/') ? rawBase.slice('origin/'.length) : rawBase;
-      const prUrl = (
-        await this.gh(
-          [
-            'pr',
-            'create',
-            '--head',
-            branch,
-            '--base',
-            base || 'main',
-            '--title',
-            opts.title,
-            '--body',
-            opts.body,
-          ],
-          workspacePath
-        )
-      ).trim();
+      const prArgs = [
+        'pr',
+        'create',
+        '--head',
+        branch,
+        '--base',
+        base || 'main',
+        '--title',
+        opts.title,
+        '--body',
+        opts.body,
+      ];
+      // Run `gh pr create` from the REPO ROOT, not the detached worktree: gh infers
+      // repo/head context from the working dir, and a detached-HEAD worktree makes it
+      // fail (the branch is pushed + explicit via --head, but gh still trips) — the
+      // observed "ship failed: gh pr create" while the branch was already on origin.
+      // Retry too, to absorb the push→PR propagation race (a just-pushed branch can be
+      // briefly invisible: "No commits between …") and transient gh/API blips. Bounded;
+      // the backoff is an overridable seam so tests don't wait.
+      let prUrl = '';
+      let lastErr: Error | null = null;
+      for (let attempt = 0; attempt < 3; attempt++) {
+        if (attempt > 0) await this.sleep(2000 * attempt);
+        try {
+          prUrl = (await this.gh(prArgs, repoRoot)).trim();
+          lastErr = null;
+          break;
+        } catch (err) {
+          lastErr = err instanceof Error ? err : new Error(String(err));
+        }
+      }
+      if (lastErr !== null) throw lastErr;
 
       return Ok(prUrl.length > 0 ? { branch, prUrl } : { branch });
     } catch (error) {

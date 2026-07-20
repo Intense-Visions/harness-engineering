@@ -116,9 +116,14 @@ function extractPath(content: unknown): string | undefined {
   if (typeof content !== 'string') return undefined;
   // The ollama backend records `Calling write_file({"path":"add.js",...})` — see the
   // MUTATING_TOOLS note above: this format is the OllamaBackend's, the only backend the
-  // probe ever builds.
+  // probe ever builds. Bound the slice to the LAST `}` so the trailing `)` of
+  // `Calling <tool>(<json>)` is excluded — otherwise `JSON.parse` throws on the stray
+  // `)` and `filesTouched` is structurally always 0, which caps HIGH (converged &&
+  // filesTouched > 0) out of reach for every model and silently under-rates the ranker.
   const jsonStart = content.indexOf('{');
-  const raw = jsonStart >= 0 ? content.slice(jsonStart) : content;
+  const jsonEnd = content.lastIndexOf('}');
+  const raw =
+    jsonStart >= 0 && jsonEnd > jsonStart ? content.slice(jsonStart, jsonEnd + 1) : content;
   try {
     const parsed = JSON.parse(raw) as { path?: unknown };
     return typeof parsed.path === 'string' ? parsed.path : undefined;

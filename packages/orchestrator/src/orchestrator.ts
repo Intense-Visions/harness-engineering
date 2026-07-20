@@ -103,6 +103,16 @@ import { RoutingDecisionBus } from './routing/decision-bus.js';
 // `./agent/use-case-builder` (the new caller). The dispatch site no
 // longer references them directly.
 import { discoverSkillCatalog, type SkillCatalogEntry } from './workflow/skill-catalog';
+import { distillGateFailure } from './workflow/gate-feedback';
+import {
+  shouldRequestUnstickAdvice,
+  buildUnstickPrompt,
+  formatUnstickAdvisory,
+  UNSTICK_SCHEMA,
+  UNSTICK_SYSTEM_PROMPT,
+  DEFAULT_REASONER_ASSIST_AFTER,
+  type UnstickAdvice,
+} from './workflow/unstick-advisory';
 import { workflowFor } from './workflow/workflow-for';
 import { buildWorkflowContext } from './workflow/orchestrator-context';
 import { executeWorkflow } from './workflow/execute-workflow';
@@ -211,18 +221,10 @@ export function normalizeHarnessCommand(command: string[]): string[] {
   return ['harness', ...command];
 }
 
-/**
- * Truncate captured gate output to a bounded size for the re-dispatch prompt
- * preamble (a full typecheck/test log can be enormous). Keeps the head + tail
- * so both the first error and the summary survive.
- */
-export function truncateGateOutput(output: string, max = 4000): string {
-  const trimmed = output.trim();
-  if (trimmed.length <= max) return trimmed;
-  const head = trimmed.slice(0, Math.floor(max * 0.7));
-  const tail = trimmed.slice(-Math.floor(max * 0.3));
-  return `${head}\n… [truncated ${trimmed.length - max} chars] …\n${tail}`;
-}
+// Gate-failure feedback distillation lives in ./workflow/gate-feedback (kept out
+// of this monolith for testability + the module-size arch gate). `truncateGateOutput`
+// is re-exported to preserve the public symbol surface.
+export { truncateGateOutput } from './workflow/gate-feedback';
 
 /**
  * local-backend-full-workflow Phase 2 (Option C): the production default verify
@@ -2957,7 +2959,7 @@ export class Orchestrator extends EventEmitter {
         if (!result.ok) {
           return {
             ok: false,
-            reason: `acceptance command failed:\n${truncateGateOutput(result.output)}`,
+            reason: `acceptance command failed:\n${distillGateFailure(result.output)}`,
           };
         }
       } else {
@@ -2965,7 +2967,7 @@ export class Orchestrator extends EventEmitter {
         if (!verify.ok) {
           return {
             ok: false,
-            reason: `verify failed:\n${truncateGateOutput(verify.output)}`,
+            reason: `verify failed:\n${distillGateFailure(verify.output)}`,
           };
         }
       }
@@ -3139,6 +3141,101 @@ export class Orchestrator extends EventEmitter {
         }) ?? undefined
       );
     } catch {
+      return undefined;
+    }
+  }
+
+  /**
+   * Resolve an {@link AnalysisProvider} bound to the REASONER (thinking) backend —
+   * `routing.modes.thinking`, the model used for design/plan/review. Mirrors
+   * {@link resolvePrimaryOutcomeEvalProvider} but targets the thinking backend and does
+   * NOT require the intelligence pipeline to be enabled (a local ollama provider only
+   * needs its model loaded). Returns the provider + its name, or undefined (→ no
+   * advisory) when unconfigured/unavailable. Guarded; never throws.
+   */
+  private resolveReasonerProvider(): { provider: AnalysisProvider; name: string } | undefined {
+    try {
+      if (!this.backendFactory) return undefined;
+      const thinking = this.config.agent.routing?.modes?.thinking;
+      const name = Array.isArray(thinking) ? thinking[0] : thinking;
+      if (name === undefined || name === '') return undefined;
+      const def = this.config.agent.backends?.[name];
+      if (!def) return undefined;
+      const provider =
+        buildAnalysisProvider({
+          def,
+          backendName: name,
+          layer: 'sel',
+          getResolverStatusSnapshot: () => {
+            const resolver = this.localResolvers.get(name);
+            if (!resolver) return null;
+            const s = resolver.getStatus();
+            return {
+              available: s.available,
+              resolved: s.resolved,
+              configured: s.configured,
+              detected: s.detected,
+            };
+          },
+          intelligence: this.config.intelligence,
+          logger: this.logger,
+        }) ?? undefined;
+      if (provider === undefined) return undefined;
+      return { provider, name };
+    } catch {
+      return undefined;
+    }
+  }
+
+  /**
+   * Reasoner unstick advisory: when the local executor has STALLED (repeated gate
+   * failures with retry budget left), ask the thinking model to diagnose the failure
+   * and prescribe a concrete fix, returning a preamble to prepend to the coder's next
+   * retry feedback. Best-effort — any miss (no reasoner, provider down, bad response)
+   * returns undefined so the normal retry proceeds unchanged. Never throws.
+   */
+  private async maybeReasonerUnstickAdvisory(
+    issue: Issue,
+    gateReason: string,
+    attempts: number,
+    bound: number
+  ): Promise<string | undefined> {
+    const thinking = this.config.agent.routing?.modes?.thinking;
+    const reasonerBackendName = Array.isArray(thinking) ? thinking[0] : thinking;
+    const assistAfter = Math.min(DEFAULT_REASONER_ASSIST_AFTER, Math.max(1, bound - 1));
+    if (!shouldRequestUnstickAdvice({ attempts, bound, assistAfter, reasonerBackendName })) {
+      return undefined;
+    }
+    const resolved = this.resolveReasonerProvider();
+    if (resolved === undefined) return undefined;
+    try {
+      let diffText = '';
+      try {
+        diffText = await this.workspace.getIntroducedDiffText(issue.identifier);
+      } catch {
+        diffText = '';
+      }
+      const taskText = `${issue.title}\n${issue.description ?? ''}`;
+      const prompt = buildUnstickPrompt({ taskText, gateReason, diffText });
+      const resp = await resolved.provider.analyze<UnstickAdvice>({
+        prompt,
+        systemPrompt: UNSTICK_SYSTEM_PROMPT,
+        responseSchema: UNSTICK_SCHEMA,
+        disableThinking: false, // the WHOLE point is to let the reasoner think
+      });
+      this.logger.info(
+        `reasoner unstick advisory issued for ${issue.identifier} (attempt ${attempts})`,
+        {
+          issueId: issue.id,
+          reasoner: resolved.name,
+        }
+      );
+      return formatUnstickAdvisory(resp.result);
+    } catch (err) {
+      this.logger.debug(`reasoner unstick advisory skipped (best-effort)`, {
+        issueId: issue.id,
+        error: err instanceof Error ? err.message : String(err),
+      });
       return undefined;
     }
   }
@@ -3655,7 +3752,8 @@ export class Orchestrator extends EventEmitter {
           runs,
           entry?.identifier,
           entry?.attempt,
-          gate.reason
+          gate.reason,
+          issue
         );
         return;
       }
@@ -3683,7 +3781,8 @@ export class Orchestrator extends EventEmitter {
           runs,
           entry?.identifier,
           entry?.attempt,
-          `ship failed: ${ship.error.message}`
+          `ship failed: ${ship.error.message}`,
+          issue
         );
         return;
       }
@@ -3795,7 +3894,10 @@ export class Orchestrator extends EventEmitter {
     runs: StageRun[],
     identifier: string | undefined,
     attempt: number | null | undefined,
-    gateReason: string
+    gateReason: string,
+    // Optional: the failing unit's issue — enables the reasoner unstick advisory on
+    // a stalled retry. Omitted by callers without it in scope (advisory simply skipped).
+    issue?: Issue
   ): Promise<void> {
     const attempts = (this.localStageGateAttempts.get(unit) ?? 0) + 1;
     const bound =
@@ -3827,7 +3929,15 @@ export class Orchestrator extends EventEmitter {
       return;
     }
     this.localStageGateAttempts.set(unit, attempts);
-    this.priorGateFailureByIssue.set(unit, gateReason);
+    // Reasoner unstick advisory (your-idea): on a STALLED retry, ask the thinking model
+    // to diagnose + prescribe a fix, and prepend it to the coder's next-attempt feedback.
+    // Best-effort — undefined leaves the raw distilled failure exactly as before.
+    const advisory =
+      issue !== undefined
+        ? await this.maybeReasonerUnstickAdvisory(issue, gateReason, attempts, bound)
+        : undefined;
+    const feedback = advisory !== undefined ? `${advisory}\n\n${gateReason}` : gateReason;
+    this.priorGateFailureByIssue.set(unit, feedback);
     this.recordFlightVerdict({
       issueId: unit,
       ...(identifier ? { identifier } : {}),

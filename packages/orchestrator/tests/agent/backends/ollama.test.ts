@@ -133,6 +133,38 @@ describe('OllamaBackend', () => {
       if (result.ok) return;
       expect(result.error.category).toBe('agent_not_found');
     });
+
+    it('prepends the worktree AGENTS.md/CLAUDE.md into the system prompt (repo conventions, like Claude Code)', async () => {
+      writeFileSync(
+        join(workspace, 'AGENTS.md'),
+        '# Repo conventions\nWrite specs to docs/changes/<slug>/proposal.md.\n'
+      );
+      writeFileSync(join(workspace, 'CLAUDE.md'), '# Claude\nRun tests with `pnpm test`.\n');
+      const backend = new OllamaBackend(baseConfig);
+      const result = await backend.startSession({
+        workspacePath: workspace,
+        permissionMode: 'full',
+      });
+      expect(result.ok).toBe(true);
+      if (!result.ok) return;
+      const session = result.value as import('../../../src/agent/backends/ollama').OllamaSession;
+      const sys = session.messages[0]!.content;
+      expect(sys).toContain('AGENTS.md');
+      expect(sys).toContain('docs/changes/<slug>/proposal.md');
+      expect(sys).toContain('CLAUDE.md');
+    });
+
+    it('uses only the base system prompt when no AGENTS.md/CLAUDE.md exists (byte-identical to before)', async () => {
+      const backend = new OllamaBackend(baseConfig);
+      const result = await backend.startSession({
+        workspacePath: workspace,
+        permissionMode: 'full',
+      });
+      expect(result.ok).toBe(true);
+      if (!result.ok) return;
+      const session = result.value as import('../../../src/agent/backends/ollama').OllamaSession;
+      expect(session.messages[0]!.content).not.toContain('Project conventions');
+    });
   });
 
   describe('runTurn — agentic loop', () => {
@@ -456,6 +488,60 @@ describe('OllamaBackend', () => {
       const session = start.value as import('../../../src/agent/backends/ollama').OllamaSession;
       const lastUser = [...session.messages].reverse().find((m) => m.role === 'user');
       expect(lastUser?.content).toBe('do it'); // no /no_think append
+    });
+
+    it('threads sampling params (temperature/top_p/top_k) into /api/chat options when set', async () => {
+      let body: any;
+      vi.stubGlobal(
+        'fetch',
+        vi.fn(async (_u, init: RequestInit) => {
+          body = JSON.parse(init.body as string);
+          return okFetch(chatResponse({ content: 'TASK_COMPLETE' }));
+        })
+      );
+      const backend = new OllamaBackend({ ...baseConfig, temperature: 0.6, topP: 0.95, topK: 20 });
+      const start = await backend.startSession({
+        workspacePath: workspace,
+        permissionMode: 'full',
+      });
+      if (!start.ok) return;
+      await drain(
+        backend.runTurn(start.value, {
+          sessionId: start.value.sessionId,
+          prompt: 'go',
+          isContinuation: false,
+        })
+      );
+      expect(body.options.temperature).toBe(0.6);
+      expect(body.options.top_p).toBe(0.95);
+      expect(body.options.top_k).toBe(20);
+    });
+
+    it('omits sampling params from /api/chat options when unset (model defaults)', async () => {
+      let body: any;
+      vi.stubGlobal(
+        'fetch',
+        vi.fn(async (_u, init: RequestInit) => {
+          body = JSON.parse(init.body as string);
+          return okFetch(chatResponse({ content: 'TASK_COMPLETE' }));
+        })
+      );
+      const backend = new OllamaBackend(baseConfig);
+      const start = await backend.startSession({
+        workspacePath: workspace,
+        permissionMode: 'full',
+      });
+      if (!start.ok) return;
+      await drain(
+        backend.runTurn(start.value, {
+          sessionId: start.value.sessionId,
+          prompt: 'go',
+          isContinuation: false,
+        })
+      );
+      expect(body.options.temperature).toBeUndefined();
+      expect(body.options.top_p).toBeUndefined();
+      expect(body.options.top_k).toBeUndefined();
     });
 
     it('omits think when disableReasoning is unset (SC5)', async () => {

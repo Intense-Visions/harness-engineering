@@ -58,6 +58,7 @@ temp/
 **/.harness/analyses/
 **/.harness/proposals/
 **/.harness/workspaces/
+**/.harness/black-box/
 **/.harness/metrics/
 # security/: track timeline.json (trend ledger), ignore everything else
 **/.harness/security/*
