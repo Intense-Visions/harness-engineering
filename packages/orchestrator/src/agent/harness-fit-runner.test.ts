@@ -115,6 +115,29 @@ describe('HarnessFitProbeRunner — acted + converged ⇒ HIGH buildQuality', ()
     expect(makeWorkspace).toHaveBeenCalledOnce();
     expect(cleanup).toHaveBeenCalledOnce();
   });
+
+  // Regression: the REAL OllamaBackend records the event content as
+  // `Calling write_file({...})` (name-wrapped, trailing `)`), NOT bare JSON. The prior
+  // extractPath sliced first-`{`→end and JSON.parse'd it → the stray `)` threw → files
+  // Touched was structurally always 0 → HIGH (converged && filesTouched>0) was
+  // UNREACHABLE for every model, capping the ranker's buildQuality at MID. The other
+  // tests missed it by passing bare JSON as content; this one uses the production format.
+  it('derives filesTouched from the real name-wrapped `Calling write_file({...})` content', async () => {
+    const backend = stubBackend([
+      toolStart(
+        'write_file',
+        'Calling write_file({"path":"add.js","content":"export const add=..."})'
+      ),
+      toolStart('bash', 'Calling bash({"cmd":"node --test"})'),
+    ]);
+    const { runner } = makeRunner({ backend, converged: true });
+
+    const result = await runner.runProbe('qwen3-coder:30b', TASK);
+
+    expect(result.filesTouched).toBe(1);
+    // With filesTouched > 0 + converged, HIGH is now reachable (was capped at MID).
+    expect(scoreBuildQuality(result)!).toBeGreaterThanOrEqual(0.9);
+  });
 });
 
 describe('HarnessFitProbeRunner — narrated ⇒ LOW buildQuality', () => {
