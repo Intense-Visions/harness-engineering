@@ -35,14 +35,16 @@ harness skill run {{ skill }} --autonomous --path .
 \`\`\`
 
 \`harness skill run\` prints the skill's full instructions to stdout; \`--autonomous\` means YOU decide every fork at full rigor and never pause for a human. Whenever the skill's output tells you to run \`/harness:X\`, run \`harness skill run harness-X --autonomous\` instead.
-{% if documentStage != '' %}
+{% if documentPath != '' %}
 ## This stage produces a DOCUMENT — write it, do NOT write code
-Your output is **{{ produces }}**: a concise, concrete markdown document. Write it to the location the skill specifies (the harness convention — a spec goes to \`docs/changes/<slug>/proposal.md\`, a plan to the sibling \`plans/\` directory) and register it on the roadmap exactly as the skill instructs (e.g. \`harness__manage_roadmap\` for the item's Spec/Plan fields). Do NOT create or edit source, test, or implementation code in this stage — a later execution stage implements against your document. Make it genuinely useful to the next stage and a human reviewer:
+Your output is **{{ produces }}**: a concise, concrete markdown document. Write it EXACTLY to \`{{ documentPath }}\` (create the directory if needed) — do NOT put it in \`tmp/\`, the package folder, or anywhere else — and register it on the roadmap via \`harness__manage_roadmap\` (the item's Spec/Plan field). Do NOT create or edit source, test, or implementation code in this stage — a later execution stage implements against your document. Make it genuinely useful:
 - **spec** → the problem, the chosen approach (and why, vs. alternatives), and testable acceptance criteria.
 - **plan** → the ordered, concrete steps and the exact files to create/modify.
-- **review** → run \`harness__run_code_review\`/\`harness__review_changes\` on the ACTUAL diff and record correctness + quality findings (bugs, missed cases, and any stray/scratch files that should not ship).
 
-Writing this document (and registering it) IS completing the stage; reading the skill's instructions is not.
+Writing this document to \`{{ documentPath }}\` (and registering it) IS completing the stage.
+{% elsif reviewStage != '' %}
+## This stage is a REVIEW/CHECK — run the tools, commit NOTHING
+Review the accumulated diff with \`harness__run_code_review\` and \`harness__review_changes\` (and \`harness__run_ci_checks\` for a verify stage) and report the findings as your stage output — correctness, missed cases, and any stray/scratch files that should not ship. Do NOT write or commit any review/report file (no \`review.md\`), and do NOT modify code here: your findings are FEEDBACK carried to the next stage, not a committed artifact.
 {% else %}
 The skill will instruct you to WRITE the implementation ({{ produces }}): do the work to completion and PRODUCE it before stopping — reading the instructions is NOT completing the stage.
 

@@ -441,7 +441,7 @@ describe('renderStagePrompt — document stages produce committed artifacts (tru
     const specStep: WorkflowStep = { skill: 'harness-brainstorming', produces: 'spec' };
     const prompt = await ctx.renderStagePrompt!(specStep, 0, priorOutputs, true);
     expect(prompt).toContain('produces a DOCUMENT');
-    expect(prompt).toContain('docs/changes');
+    expect(prompt).toContain('docs/changes/REV-42/proposal.md');
     expect(prompt).not.toContain('self-verify');
   });
 

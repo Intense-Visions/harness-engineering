@@ -12,7 +12,8 @@ const RENDER_BAG = {
   skill: 'harness-execution',
   cognitiveMode: '',
   produces: 'artifact.md',
-  documentStage: '',
+  documentPath: '',
+  reviewStage: '',
   priorEntries: [] as Array<{ name: string; output: string }>,
 };
 
@@ -109,29 +110,44 @@ describe('LOCAL_STAGE_PROMPT_TEMPLATE drives completion, not "run then stop" (D5
 describe('LOCAL template — document vs code stage (true-autopilot artifacts)', () => {
   const renderer = new PromptRenderer();
 
-  it('a DOCUMENT stage (documentStage set) instructs writing markdown via the skill, not code', async () => {
+  it('a DOCUMENT stage (documentPath set) instructs writing markdown to the EXACT path, not code', async () => {
     const out = await renderer.render(LOCAL_STAGE_PROMPT_TEMPLATE, {
       ...RENDER_BAG,
       skill: 'harness-brainstorming',
       produces: 'spec',
-      documentStage: 'spec',
+      documentPath: 'docs/changes/my-item/proposal.md',
     });
     expect(out).toContain('produces a DOCUMENT');
-    // defers the location to the skill's real harness convention (not a hardcoded path)
-    expect(out).toContain('docs/changes');
+    expect(out).toContain('docs/changes/my-item/proposal.md');
+    expect(out).toContain('do NOT put it in `tmp/`');
     expect(out).toContain('do NOT write code');
-    // the code-stage self-verify block must NOT appear for a document stage
     expect(out).not.toContain('self-verify');
   });
 
-  it('a CODE stage (documentStage empty) keeps the self-verify block and no document instruction', async () => {
+  it('a REVIEW stage (reviewStage set) runs tools and commits NOTHING (no review.md)', async () => {
+    const out = await renderer.render(LOCAL_STAGE_PROMPT_TEMPLATE, {
+      ...RENDER_BAG,
+      skill: 'harness-code-review',
+      produces: 'review',
+      reviewStage: 'review',
+    });
+    expect(out).toContain('REVIEW/CHECK');
+    expect(out).toContain('run_code_review');
+    expect(out).toContain('no `review.md`');
+    expect(out).not.toContain('produces a DOCUMENT');
+    expect(out).not.toContain('self-verify');
+  });
+
+  it('a CODE stage (both flags empty) keeps the self-verify block and no document/review instruction', async () => {
     const out = await renderer.render(LOCAL_STAGE_PROMPT_TEMPLATE, {
       ...RENDER_BAG,
       skill: 'harness-execution',
       produces: 'impl',
-      documentStage: '',
+      documentPath: '',
+      reviewStage: '',
     });
     expect(out).toContain('self-verify');
     expect(out).not.toContain('produces a DOCUMENT');
+    expect(out).not.toContain('REVIEW/CHECK');
   });
 });
