@@ -20,6 +20,7 @@ describe('plugin exports', () => {
     expect(plugin.rules['require-path-normalization']).toBeDefined();
     expect(plugin.rules['no-focused-tests']).toBeDefined();
     expect(plugin.rules['no-skipped-tests']).toBeDefined();
+    expect(plugin.rules['no-disabled-tests']).toBeDefined();
     expect(plugin.rules['no-hardcoded-test-count']).toBeDefined();
     expect(plugin.rules['no-empty-describe']).toBeDefined();
   });

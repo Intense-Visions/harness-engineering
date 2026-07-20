@@ -14,6 +14,7 @@ import requirePathNormalization from './require-path-normalization';
 import noUndefinedOptionalAssignment from './no-undefined-optional-assignment';
 import noFocusedTests from './no-focused-tests';
 import noSkippedTests from './no-skipped-tests';
+import noDisabledTests from './no-disabled-tests';
 import noHardcodedTestCount from './no-hardcoded-test-count';
 import noEmptyDescribe from './no-empty-describe';
 
@@ -33,6 +34,7 @@ export const rules = {
   'require-path-normalization': requirePathNormalization,
   'no-focused-tests': noFocusedTests,
   'no-skipped-tests': noSkippedTests,
+  'no-disabled-tests': noDisabledTests,
   'no-hardcoded-test-count': noHardcodedTestCount,
   'no-empty-describe': noEmptyDescribe,
 };
