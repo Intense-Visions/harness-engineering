@@ -66,8 +66,10 @@ class ShipStubWM extends WorkspaceManager {
     return 'ok\n';
   }
 
-  protected async gh(args: string[], _cwd: string): Promise<string> {
+  public readonly ghCwds: string[] = [];
+  protected async gh(args: string[], cwd: string): Promise<string> {
     this.ghCalls.push(args);
+    this.ghCwds.push(cwd);
     if (this.failGh(args)) throw new Error(`gh ${args.join(' ')} failed`);
     // PR-existence probe: `gh pr list --head <b> --state open`. Empty ⇒ no PR
     // (default). Non-empty JSON ⇒ an open PR already covers the branch.
@@ -134,6 +136,10 @@ describe('WorkspaceManager.shipWorkspace (D4)', () => {
     expect(pr).toContain('my body');
     expect(pr).toContain('--base');
     expect(pr).toContain('main');
+    // gh pr create must run from the REPO ROOT, not the detached worktree (a
+    // detached HEAD makes gh fail even with an explicit --head + a pushed branch).
+    const prIdx = wm.ghCalls.findIndex((c) => c[0] === 'pr' && c[1] === 'create');
+    expect(wm.ghCwds[prIdx]).toBe('/repo');
   });
 
   it('no-op commit (clean tree) does NOT error the flow — still branches + pushes + PRs', async () => {

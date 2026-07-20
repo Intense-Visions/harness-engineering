@@ -600,17 +600,19 @@ export class WorkspaceManager {
         '--body',
         opts.body,
       ];
-      // Retry `gh pr create` to absorb the push→PR propagation race: a branch that
-      // just landed on the remote can be briefly invisible to the API ("No commits
-      // between …" / "not found"), which otherwise drops the ship into the resumable
-      // "pushed but no PR" limbo. Also covers transient gh/API blips. Bounded; the
-      // backoff is an overridable seam so tests don't wait.
+      // Run `gh pr create` from the REPO ROOT, not the detached worktree: gh infers
+      // repo/head context from the working dir, and a detached-HEAD worktree makes it
+      // fail (the branch is pushed + explicit via --head, but gh still trips) — the
+      // observed "ship failed: gh pr create" while the branch was already on origin.
+      // Retry too, to absorb the push→PR propagation race (a just-pushed branch can be
+      // briefly invisible: "No commits between …") and transient gh/API blips. Bounded;
+      // the backoff is an overridable seam so tests don't wait.
       let prUrl = '';
       let lastErr: Error | null = null;
       for (let attempt = 0; attempt < 3; attempt++) {
         if (attempt > 0) await this.sleep(2000 * attempt);
         try {
-          prUrl = (await this.gh(prArgs, workspacePath)).trim();
+          prUrl = (await this.gh(prArgs, repoRoot)).trim();
           lastErr = null;
           break;
         } catch (err) {
