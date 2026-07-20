@@ -15,6 +15,7 @@ import noUndefinedOptionalAssignment from './no-undefined-optional-assignment';
 import noFocusedTests from './no-focused-tests';
 import noSkippedTests from './no-skipped-tests';
 import noHardcodedTestCount from './no-hardcoded-test-count';
+import noEmptyDescribe from './no-empty-describe';
 
 export const rules = {
   'enforce-doc-exports': enforceDocExports,
@@ -33,4 +34,5 @@ export const rules = {
   'no-focused-tests': noFocusedTests,
   'no-skipped-tests': noSkippedTests,
   'no-hardcoded-test-count': noHardcodedTestCount,
+  'no-empty-describe': noEmptyDescribe,
 };
