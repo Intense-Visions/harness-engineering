@@ -14,8 +14,7 @@ export default createRule<[], MessageIds>({
       description: 'Disallow describe blocks with no statements in their body.',
     },
     messages: {
-      emptyDescribe:
-        "Empty describe block — remove or add tests to the describe block.",
+      emptyDescribe: 'Empty describe block — remove or add tests to the describe block.',
     },
     schema: [],
   },
@@ -24,15 +23,14 @@ export default createRule<[], MessageIds>({
     return {
       CallExpression(node) {
         // Check for describe() calls
-        if (
-          node.callee.type === 'Identifier' &&
-          node.callee.name === 'describe'
-        ) {
+        if (node.callee.type === 'Identifier' && node.callee.name === 'describe') {
           // The first argument can be a string literal or identifier, but we're only interested in the callback function
           const callback = node.arguments[1];
-          
-          if (callback && 
-              (callback.type === 'ArrowFunctionExpression' || callback.type === 'FunctionExpression')) {
+
+          if (
+            callback &&
+            (callback.type === 'ArrowFunctionExpression' || callback.type === 'FunctionExpression')
+          ) {
             // Check the body of the function
             if (callback.body.type === 'BlockStatement') {
               // Check if the block statement has any statements
