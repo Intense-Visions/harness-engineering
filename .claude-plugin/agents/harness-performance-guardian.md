@@ -326,19 +326,27 @@ If you find yourself writing production code first, STOP. Delete it. Write the t
 
 1. **Identify the smallest behavior to test.** One assertion per test. One behavior per cycle. If you are testing two things, split into two cycles.
 
-2. **Write the test file or add to the appropriate test file.** Follow the project's existing test conventions (file naming, framework, location).
+2. **Probe for canary (deterministic scaffolding).** Call the `canary_probe` MCP tool once. It returns `{ status: "available" | "degraded", version?, reason? }` and never errors. Canary absence never blocks TDD.
+   - **`available`** — offer `/canary-write-test` (the `canary:canary-write-test` plugin skill) as the deterministic way to scaffold the RED test. When the project has NO test framework configured, first call the `canary_recommend_framework` MCP tool with a prompt describing the behavior-under-test to choose the framework and file extension before writing the test.
+   - **`degraded`** — the CLI is not usable (reason: `not-installed`, `binary-missing`, `exec-failed`, or `bad-output`). Print one line:
 
-3. **Write ONE minimal test** that asserts the expected behavior. The test should:
+     > canary CLI unavailable (`<reason>`) — install `canary-test-cli` for deterministic test scaffolding. Proceeding with a hand-written test.
+
+     Then skip further canary calls for this cycle and write the test freehand per the steps below.
+
+3. **Write the test file or add to the appropriate test file.** Follow the project's existing test conventions (file naming, framework, location).
+
+4. **Write ONE minimal test** that asserts the expected behavior. The test should:
    - Have a clear, descriptive name that states what behavior is expected
    - Set up only the minimal fixtures needed
    - Make a single assertion about the expected outcome
    - NOT test implementation details — test observable behavior
 
-4. **Run the test suite.** Use the project's test runner (e.g., `npx vitest run path/to/test`, `npm test`, `pytest`).
+5. **Run the test suite.** Use the project's test runner (e.g., `npx vitest run path/to/test`, `npm test`, `pytest`).
 
-5. **MANDATORY: Watch the test FAIL.** Read the failure message. Confirm it fails for the RIGHT reason — the behavior is not yet implemented, not because the test is broken. If the test passes, either the behavior already exists (skip this cycle) or the test is wrong (fix the test).
+6. **MANDATORY: Watch the test FAIL.** Read the failure message. Confirm it fails for the RIGHT reason — the behavior is not yet implemented, not because the test is broken. If the test passes, either the behavior already exists (skip this cycle) or the test is wrong (fix the test).
 
-6. **Record the failure.** Note the test name and failure reason. This is your contract for the GREEN phase.
+7. **Record the failure.** Note the test name and failure reason. This is your contract for the GREEN phase.
 
 ### Phase 2: GREEN — Write the Simplest Code to Pass
 
