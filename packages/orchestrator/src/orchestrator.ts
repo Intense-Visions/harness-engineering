@@ -11,6 +11,7 @@ import type {
   RoutingStatus,
   StageRun,
   WorkflowExecutionPlan,
+  IntelligenceConfig,
 } from '@harness-engineering/types';
 import { RoutingError } from '@harness-engineering/types';
 import type { Issue, IssueTrackerClient } from '@harness-engineering/core';
@@ -111,6 +112,7 @@ import {
   UNSTICK_SCHEMA,
   UNSTICK_SYSTEM_PROMPT,
   DEFAULT_REASONER_ASSIST_AFTER,
+  REASONER_UNSTICK_TIMEOUT_MS,
   type UnstickAdvice,
 } from './workflow/unstick-advisory';
 import { workflowFor } from './workflow/workflow-for';
@@ -3161,6 +3163,16 @@ export class Orchestrator extends EventEmitter {
       if (name === undefined || name === '') return undefined;
       const def = this.config.agent.backends?.[name];
       if (!def) return undefined;
+      // Floor the timeout for the reasoner advisory: a thinking reasoner over /v1 needs
+      // minutes to answer, far longer than the general SEL classify budget (which killed
+      // it mid-think in af8). Never shorten a larger operator-configured value.
+      const intel: IntelligenceConfig = {
+        ...(this.config.intelligence ?? { enabled: false }),
+        requestTimeoutMs: Math.max(
+          this.config.intelligence?.requestTimeoutMs ?? 0,
+          REASONER_UNSTICK_TIMEOUT_MS
+        ),
+      };
       const provider =
         buildAnalysisProvider({
           def,
@@ -3177,7 +3189,7 @@ export class Orchestrator extends EventEmitter {
               detected: s.detected,
             };
           },
-          intelligence: this.config.intelligence,
+          intelligence: intel,
           logger: this.logger,
         }) ?? undefined;
       if (provider === undefined) return undefined;

@@ -5,6 +5,7 @@ import {
   formatUnstickAdvisory,
   UNSTICK_SCHEMA,
   DEFAULT_REASONER_ASSIST_AFTER,
+  REASONER_UNSTICK_TIMEOUT_MS,
 } from './unstick-advisory';
 
 describe('shouldRequestUnstickAdvice', () => {
@@ -71,6 +72,14 @@ describe('formatUnstickAdvisory', () => {
     expect(out).toContain('noUncheckedIndexedAccess');
     expect(out).toContain('Fix to apply:');
     expect(out).toContain('line 48');
+  });
+});
+
+describe('REASONER_UNSTICK_TIMEOUT_MS', () => {
+  it('is generous enough for a thinking reasoner (well above the 90s SEL default)', () => {
+    // A thinking reasoner over /v1 reasons for minutes before answering; the general
+    // 90s classify timeout kills it mid-think (af8). Guard the floor stays generous.
+    expect(REASONER_UNSTICK_TIMEOUT_MS).toBeGreaterThanOrEqual(180_000);
   });
 });
 
