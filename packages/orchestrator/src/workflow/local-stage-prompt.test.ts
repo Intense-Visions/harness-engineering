@@ -1,5 +1,9 @@
 import { describe, it, expect } from 'vitest';
-import { selectStagePromptTemplate, LOCAL_STAGE_PROMPT_TEMPLATE } from './local-stage-prompt';
+import {
+  selectStagePromptTemplate,
+  LOCAL_STAGE_PROMPT_TEMPLATE,
+  stagePersonaSystemPrompt,
+} from './local-stage-prompt';
 import { STAGE_PROMPT_TEMPLATE } from './orchestrator-context';
 import { PromptRenderer } from '../prompt/renderer';
 
@@ -104,6 +108,37 @@ describe('LOCAL_STAGE_PROMPT_TEMPLATE drives completion, not "run then stop" (D5
       'harness skill run {{ skill }} --autonomous --path .'
     );
     expect(LOCAL_STAGE_PROMPT_TEMPLATE).toContain('harness skill run harness-X --autonomous');
+  });
+});
+
+describe('stagePersonaSystemPrompt — per-stage persona (local subagent-delegation analog)', () => {
+  it('gives design stages a no-code author/planner persona', () => {
+    expect(stagePersonaSystemPrompt('harness-brainstorming')).toMatch(/specification author/i);
+    expect(stagePersonaSystemPrompt('harness-brainstorming')).toMatch(/do NOT write/i);
+    expect(stagePersonaSystemPrompt('harness-planning')).toMatch(/planner/i);
+    expect(stagePersonaSystemPrompt('harness-planning')).toMatch(/do NOT write/i);
+  });
+
+  it('gives the verify stage an INDEPENDENT auditor persona that does not fix code', () => {
+    const p = stagePersonaSystemPrompt('harness-verification');
+    expect(p).toMatch(/independent verifier/i);
+    expect(p).toMatch(/do NOT fix, write, or commit/i);
+  });
+
+  it('gives the review stage an adversarial reviewer persona that commits nothing', () => {
+    const p = stagePersonaSystemPrompt('harness-code-review');
+    expect(p).toMatch(/adversarial code reviewer/i);
+    expect(p).toMatch(/do NOT modify code or commit/i);
+  });
+
+  it('gives the execution stage a senior-engineer persona that self-verifies', () => {
+    const p = stagePersonaSystemPrompt('harness-execution');
+    expect(p).toMatch(/senior software engineer/i);
+    expect(p).toMatch(/self-verify/i);
+  });
+
+  it('returns undefined for an unknown skill (SC3 → backend default system prompt)', () => {
+    expect(stagePersonaSystemPrompt('some-unknown-skill')).toBeUndefined();
   });
 });
 

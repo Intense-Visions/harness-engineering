@@ -47,11 +47,16 @@ export class AgentRunner {
   public async *runSession(
     _issue: Issue,
     workspacePath: string,
-    prompt: string
+    prompt: string,
+    // Per-stage persona (local per-phase routing): drives the backend's system
+    // prompt so a design/verify/review stage runs under a focused role instead of
+    // the generic default. Optional — omitted callers keep the prior behavior.
+    systemPrompt?: string
   ): AsyncGenerator<AgentEvent, TurnResult, void> {
     const startResult = await this.backend.startSession({
       workspacePath,
       permissionMode: 'full', // Default for now
+      ...(systemPrompt !== undefined ? { systemPrompt } : {}),
     });
 
     if (!startResult.ok) {

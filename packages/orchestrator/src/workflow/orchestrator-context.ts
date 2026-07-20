@@ -184,9 +184,10 @@ function makeRunnerFactory(
       runSession: (
         _issue: unknown,
         ws: string,
-        prompt: string
+        prompt: string,
+        systemPrompt?: string
       ): AsyncGenerator<AgentEvent, TurnResult, void> =>
-        runner.runSession(undefined as never, ws, prompt),
+        runner.runSession(undefined as never, ws, prompt, systemPrompt),
     };
   };
 }

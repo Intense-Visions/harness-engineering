@@ -97,3 +97,33 @@ override this prompt.
 export function selectStagePromptTemplate(isLocalBackend: boolean): string {
   return isLocalBackend ? LOCAL_STAGE_PROMPT_TEMPLATE : STAGE_PROMPT_TEMPLATE;
 }
+
+/**
+ * Per-stage persona system prompt — the local analog of the cloud autopilot's
+ * subagent delegation (each phase runs under a dedicated persona with a focused
+ * role). The cloud path spawns ISOLATED persona subagents (harness-planner,
+ * -verifier, -code-reviewer …) that physically cannot bleed roles; a local staged
+ * run drives one model and cannot spawn subagents, so the strongest available
+ * lever is to hand each stage its persona as the backend SYSTEM prompt. That is
+ * behaviorally stronger than the prior `({{ cognitiveMode }} mode)` label buried
+ * in the user turn, and it reinforces the document/review/code stage-kind split
+ * (a design stage must not write code; a review stage must not commit a report).
+ *
+ * The backend composes this ahead of the injected AGENTS.md/CLAUDE.md conventions
+ * (OllamaBackend.startSession: `systemPrompt ?? DEFAULT_SYSTEM_PROMPT`), so an
+ * unknown skill returns `undefined` and falls back to the generic default (SC3).
+ */
+export function stagePersonaSystemPrompt(skill: string): string | undefined {
+  const s = skill.toLowerCase();
+  if (s.includes('brainstorm') || s.includes('spec'))
+    return 'You are a specification author on an autonomous software team. You produce a concise, concrete specification DOCUMENT — the problem, the chosen approach (and why, versus alternatives), and testable acceptance criteria. You do NOT write, edit, or run implementation code; a later execution stage implements against your document.';
+  if (s.includes('planning') || s.includes('plan'))
+    return 'You are an implementation planner on an autonomous software team. You turn a specification into an ordered, concrete plan — the exact files to create or modify and the steps in order. You do NOT write implementation code; a later execution stage carries out your plan.';
+  if (s.includes('verification') || s.includes('verify'))
+    return 'You are an INDEPENDENT verifier on an autonomous software team. You audit the accumulated diff against the spec and plan for real completeness — that each claimed piece exists, is not a stub, and is wired in and tested. Your independence is load-bearing: you do NOT fix, write, or commit code — you report evidence-based findings for the next stage.';
+  if (s.includes('review'))
+    return 'You are an adversarial code reviewer on an autonomous software team. You find real defects — bugs, missed edge cases, composition failures, and stray or scratch files that must not ship — by constructing concrete failure scenarios. You do NOT modify code or commit any file (no review report); your findings are feedback carried to the next stage.';
+  if (s.includes('execution') || s.includes('exec') || s.includes('implement'))
+    return 'You are a senior software engineer on an autonomous software team. You implement the plan to completion with a clean, minimal, mergeable diff, touching only what the work item requires. Before you finish you self-verify — typecheck, lint, and the full test suite of every package you changed — and fix every failure yourself rather than leaving it for a gate.';
+  return undefined;
+}
