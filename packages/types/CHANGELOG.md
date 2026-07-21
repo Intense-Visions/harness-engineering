@@ -1,5 +1,195 @@
 # @harness-engineering/types
 
+## 0.24.0
+
+### Minor Changes
+
+- 1de3ce4: feat(orchestrator): add a `codex` backend that drives a local model via Codex CLI
+
+  A controlled experiment (2026-07) showed the bottleneck for local-model convergence
+  was our bespoke scaffold, not the model: same model (qwen3-coder:30b), same task,
+  Codex's apply_patch scaffold shipped a clean multi-file change where the OllamaBackend
+  tool loop went needs-human 5×. Confirmed across two models (qwen3-coder 266 tests green,
+  qwen3.6 270 green).
+
+  This adds a `codex` backend type — `{ type: 'codex', model, localProvider?, command?,
+timeoutMs? }` — that drives a local model through `codex exec --oss --local-provider
+<provider> -m <model>`. Unlike the endpoint backends it owns no turn loop: `codex exec`
+  runs the whole agentic session in one invocation and the backend reports success on
+  exit 0, surfacing codex's `--json` events as status events for the recorder/black-box.
+  Foundational piece; wiring the enforced local gate + per-phase routing to treat a codex
+  execution stage as local-execution is a follow-up.
+
+- 84bd986: feat(orchestrator): expose MCP servers (context7 + curated harness tools) to the codex backend
+
+  The `codex` execution backend drove the local model with only Codex's built-in
+  tools — no context7 (live library docs) and no harness MCP tools — unlike the
+  ollama path, which curates a lifecycle tool set. A local coder therefore had no
+  way to look up how existing code narrows a type or handles an API, and stalled on
+  fixes that hinge on that context.
+
+  `CodexBackendDef` (and `CodexBackendOptions`) now accept `mcpServers?: McpServerSpec[]`.
+  Each spec is injected per-invocation via `codex exec -c mcp_servers.<name>.command/
+args/env/enabled_tools/startup_timeout_sec` — so the codex path reaches tool-parity
+  with the ollama path WITHOUT mutating the user's global `~/.codex/config.toml`. A
+  spec's `tools` allowlist maps to codex's per-server `enabled_tools`, keeping a broad
+  server (e.g. harness-mcp's ~95 tools) narrowed to a high-value set the local model
+  can navigate.
+
+- 77815a8: Make `ollama` the default local backend and add `disableReasoning`. The scaffolded configs (`harness.orchestrator.md`, `harness.config.json`, templates) now route the `local` backend to `type: ollama` (the native OllamaBackend that actually drives tool-calling models) instead of `type: pi`. A new `disableReasoning?: boolean` option on the ollama backend appends ` /no_think` to each user turn so Qwen3-family reasoning models skip `<think>` traces — Ollama's `/v1` ignores the `reasoning:false` knob, so without this a reasoning model burns its output budget thinking and never emits a tool call. With it, a stock `qwen3:32b` config is productive out of the box (no custom Modelfile needed).
+
+  Also fixes three release blockers found in a live local-dispatch e2e that made autonomous local dispatch unsafe:
+  - **`ollama` is now recognized as a local backend everywhere.** A shared `isLocalEndpointBackend` guard (true for `local` | `pi` | `ollama`) replaces the inline `type === 'local' || type === 'pi'` checks that silently excluded the new native backend. A `type: ollama` dispatch now (a) renders the LOCAL bash-shaped shim prompt template instead of the Claude template, (b) runs the enforced local workflow gate instead of a no-op, and (c) is discovered by local-model detection so outcome-eval can find a local model. Resolver-model wiring covers `ollama` too.
+  - **TASK_COMPLETE completion semantics.** `OllamaBackend.runTurn` no longer treats a no-tool-call final message as success unconditionally. It returns `success: true` only when the final message signals completion via a distinctive `TASK_COMPLETE` marker (matched as a whole token); otherwise it returns `success: false` so the runner re-prompts the model to continue. This prevents a model that stopped after doing nothing from ending the workflow. `DEFAULT_SYSTEM_PROMPT` now instructs the model accordingly.
+  - **Empty-diff gate halt.** The local workflow gate now halts BEFORE verify when the agent produced no workspace changes, returning `no changes produced — the agent completed without implementing anything`. This stops an empty diff from trivially passing verify and being marked done.
+
+- c4c1dd3: feat(local-models): harness-fit probe — empirical agentic evidence for model recommendation
+
+  The local-model recommender ranks candidates by benchmark evidence plus a thin
+  agentic probe that only checks _"can the model emit a `tool_call`?"_ and _"is one
+  turn fast enough?"_. A live 3-way head-to-head proved this necessary-but-insufficient
+  for autonomous coding: `llama3.3:70b` **passes** the tool-calling gate and is fast,
+  yet it **narrated instead of acting** (one tool call, no artifact, gate never green),
+  while the smaller `gpt-oss:20b`/`qwen3.6:27b` **acted and converged**. No benchmark or
+  thin-probe signal predicted that — only running the real harness did.
+
+  The **harness-fit probe** supplies the missing empirical evidence. It runs a
+  benchmark-shortlisted candidate through a small contained coding task **on the real
+  harness**, judges convergence (the task's own acceptance command) plus act-vs-narrate
+  metrics from the recording stream, and maps them to a coarse `buildQuality ∈ [0, 1]`
+  (converged → HIGH, acted-not-converged → MID, narrated → LOW). That number feeds the
+  **already-wired** `buildQuality` slot in the `agenticScore` composition — **no
+  ranker-math change** — so at equal benchmark score an act-and-converge model out-ranks
+  a narrate-only one for autonomous dispatch, while the default `score` ordering is
+  untouched.
+  - **Pure policy + injected runner (dependency inversion).** `local-models` owns the
+    pure parts — the `buildQuality` mapping (`scoreBuildQuality`), the cost-gating policy
+    (`selectProbeTargets` / `isProbeDue` / `isCacheFresh` / `probeCacheKey`), the portable
+    task-suite schema + `DEFAULT_HARNESS_FIT_TASKS`, and the `HarnessFitRunner` interface.
+    The concrete single-dispatch runner (Ollama backend + throwaway workspace + acceptance
+    gate, reading the stream for act-vs-narrate metrics) is implemented in the orchestrator
+    and injected at the composition root, so `local-models` never depends on the orchestrator.
+  - **Single-dispatch convergence micro-probe.** The act-vs-narrate signal is decisive in
+    one dispatch; best-of-1, cheapest real signal.
+  - **Cost-gated (opt-in, top-N, cadence, cache, prefilter).** Disabled by default
+    (`localModels.harnessFit.enabled`). When enabled, only the benchmark top-N are probed
+    (never the full set), on a cadence (not every refresh), with `buildQuality` cached by
+    model+version and VRAM-unfit / `toolCalling:false` candidates prefiltered out.
+  - **Fail-open everywhere.** Any probe error/timeout/pull-failure leaves `buildQuality`
+    undefined ⇒ no ranking effect; the refresh is never broken and the pool is never blocked.
+  - **Config surface.** New optional `localModels.harnessFit` block (added to both the TS
+    type and the Zod schema so it survives config parse) — `enabled`, `topN`, `cadenceMs`,
+    `cacheTtlMs`, optional `taskIds`. Adopter-portable probe tasks self-describe their
+    acceptance command, so a probe runs in any adopter project.
+  - **Wired at the composition root (the probe actually fires).** `startRefreshScheduler`
+    constructs the `HarnessFitProbeRunner`, a persistent `HarnessFitCacheFileStore` under
+    `~/.harness/local-models/` (buildQuality cache + cadence timestamp), and a
+    `reRankWithBuildQuality` binding that re-runs the SAME ranker over the held candidate
+    set with probed `buildQuality` threaded in — passing them as the tick's `harnessFit`
+    deps ONLY when `localModels.harnessFit.enabled` (config→deps translation:
+    `cadenceMs → intervalMs`, `taskIds → tasks`). Disabled/absent ⇒ no deps are passed and
+    the tick is byte-identical to before.
+  - **Bounded (no hangs).** The runner enforces an overall per-probe wall-clock timeout
+    (default 5 min) around both the dispatch and the acceptance-command spawn — `maxTurns`
+    bounds turn count but not wall time, so a hung model or hanging acceptance is aborted
+    into a fail-open `error` result instead of blocking the refresh tick.
+  - **Converged-without-artifact is suspect.** A converged verdict only scores HIGH when the
+    model actually touched a file; a trivially-passing acceptance with no artifact drops to
+    MID/LOW rather than earning the top band.
+
+  See ADR 0081 (harness-fit probe: benchmarks pre-filter, the harness judges agentic fitness).
+
+- fac4261: Local backend runs the full harness workflow (gated). A `local`/`pi` dispatch now renders a backend-specific dispatch template (`harness.orchestrator.local.md`). Rather than paraphrasing the workflow inline, that template is a thin indirection shim that delivers the REAL skills over bash: the pi agent runs `harness skill run <name> --autonomous` (which prints the verbatim `SKILL.md`, no MCP required) and follows a `/harness:X` → `harness skill run harness-X` redirect. The new `--autonomous` flag on `harness skill run` prepends an autonomous-decider preamble so a headless agent runs each skill (including brainstorming) at full rigor but decides every fork itself and records it in the spec — with a PR-flag safety valve for low-confidence and strategy-contradiction forks, and no mid-run human pause; absent the flag, skill-run output is byte-identical to before. The orchestrator ENFORCES the verify + outcome-eval gates itself (`runLocalWorkflowGate` in `finalizeNormalCompletion`): a red verify or a high-confidence `NOT_SATISFIED` verdict routes through the existing `emitWorkerExit('error')` retry branch (re-prompt on retry, `needs-human` on budget exhaustion) so poor local output halts rather than ships. Template selection (`resolvePromptTemplate`) falls back to the default Claude template when the local file is absent, and the Claude/AMR completion path is unchanged (the gate is a no-op for non-local backends). A config flag `agent.routing.workflowGates: local | primary` routes the local outcome-eval gate to a stronger provider (default local SEL; the AMR caller is unaffected). See ADRs 0070/0071/0072.
+- 3e5f0ca: Add a per-server MCP tool allowlist for the local `ollama` agent. A broad
+  MCP server floods a local model with tools — in a live e2e the harness MCP
+  alone exposed 95 tools and `qwen3-coder:30b` over-explored without cleanly
+  signalling completion. `mcpServers[].tools?: string[]` narrows a server to
+  named tools (filtered on the server's own pre-namespacing tool name);
+  unset ⇒ all tools (byte-identical to before). Requested-but-unexposed names
+  warn once and are skipped (graceful). When the aggregated tool set
+  (built-ins + MCP) exceeds a threshold, the backend logs a one-line advisory
+  pointing at `tools` — no hard cap. The scaffolded local configs narrow the
+  harness example to a read-oriented set (`code_search`, `ask_graph`,
+  `review_changes`, `outcome_eval`, `gather_context`).
+- a0ef808: feat(orchestrator): add native Ollama agentic backend
+
+  Add a production `OllamaBackend` (`type: 'ollama'`) that owns its
+  `/v1/chat/completions` tool loop instead of embedding the pi-coding-agent SDK.
+  `startSession` seeds conversation state with a system prompt; `runTurn` drives
+  the inner agentic loop (call model → execute native `tool_calls`
+  [`bash`/`write_file`/`read_file`, sandboxed to the workspace with
+  path-traversal rejection] → append tool results → repeat until the model stops
+  calling tools), yielding `tool_execution_start`/`tool_execution_end`/`usage`
+  events and accumulating token usage. Wired through the config schema, the
+  backend factory, and the analysis-provider factory. This drives Ollama-served
+  tool-calling models (e.g. qwen3) that the pi/codex SDKs fail against.
+
+- 545e818: Give the local `ollama` backend agent access to MCP-server tools. The
+  `OllamaBackend` previously drove the model with only three built-in tools
+  (`bash`, `read_file`, `write_file`), so a local model coded from stale
+  training memory — in a live e2e it wrote a deprecated
+  `@typescript-eslint/utils` `RuleTester` import when the current API lives at
+  `@typescript-eslint/rule-tester`. A new opt-in `mcpServers?: McpServerSpec[]`
+  field on the ollama backend def (`{ name, command, args?, env?, cwd? }`) lets
+  the agent use tools from any configured MCP server alongside its built-ins.
+  - The backend hosts one in-process `@modelcontextprotocol/sdk` `Client` per
+    configured server over `StdioClientTransport`, connected concurrently (with
+    a bounded timeout) at session start and closed at session end.
+  - Each server's tools are merged into the model's tool set **namespaced** as
+    `<server>__<tool>`; the MCP `inputSchema` passes through as the OpenAI
+    function `parameters` unchanged, and a built-in name wins on collision.
+  - Tool calls forward to `client.callTool`, heartbeat-wrapped so a slow MCP
+    call never trips the stall detector; an `isError` result is surfaced with an
+    `ERROR:` prefix so the model can self-correct.
+  - **Graceful degradation:** a server that fails to connect or list is skipped
+    with a warning — the session still runs on the built-ins plus every server
+    that did start, so one flaky server never breaks a dispatch.
+  - `harness-mcp` (and any server without an explicit `cwd`) is spawned with
+    `cwd =` the agent's workspace, so harness's own code-intelligence tools
+    operate on the code the agent is editing.
+
+  With `mcpServers` unset the backend is byte-identical to before (built-ins
+  only). The scaffolded local configs ship a commented `context7` + `harness`
+  example; see `docs/guides/multi-backend-routing.md#mcp-tools` and ADR 0073.
+
+- 3b2b8ba: OllamaBackend now drives the model over native `/api/chat` (honors `num_ctx`/`think`/`keep_alive`), autosizes `num_ctx` from the model's declared max and available hardware, sends native `think:false` for reasoning-off (retiring the `/no_think` hack), and adds optional `numCtx`/`maxContextTokens`/`numPredict`/`keepAlive` config.
+- f460e42: feat(orchestrator): configurable sampling params (temperature/top_p/top_k) for the Ollama backend
+
+  The Ollama backend previously sent only `num_ctx` in the native `/api/chat` `options`,
+  so every local model ran at Ollama's default sampling (~temp 0.8) — too hot for precise
+  agentic coding. `OllamaBackendDef` now accepts optional `temperature`, `topP`, and `topK`,
+  threaded into the request `options` (unset ⇒ model default, byte-identical to before).
+
+  Motivation: current Qwen guidance for thinking-mode / precise coding is temp 0.6 /
+  top_p 0.95 / top_k 20; running a coder at default temperature measurably increases
+  error rate. This lets an operator tune each local backend for its role.
+
+- 84bd986: feat(orchestrator): resume-from-failed-stage checkpoint for staged workflows
+
+  Previously, when the enforced local gate blocked a staged unit, the re-dispatch re-ran
+  the ENTIRE lifecycle from stage 0 — regenerating the spec + plan (non-deterministically)
+  on every execution failure. That both wastes the slow reasoner and, worse, moves the
+  target: the execution stage never iterates against a stable spec/plan + accumulated
+  feedback, because the whole design resets underneath it each retry. This mirrors the
+  cloud autopilot's own retry model, which re-runs the failed task against a plan approved
+  once — not the whole lifecycle.
+
+  Adds a `checkpoint?: boolean` stage flag: once a `checkpoint: true` stage passes, its
+  output is checkpointed per unit and REUSED on later gate-block re-dispatches instead of
+  regenerated. Mark the design stages (brainstorm/plan) `checkpoint: true` so an execution
+  gate failure retries only execution onward against a FIXED spec/plan. The checkpoint is
+  cleared on every terminal (ship or needs-human), so a fresh pickup regenerates. Default
+  false — omit for byte-identical prior behavior.
+
+- f8c9dd9: Staged local units now converge instead of looping. A staged workflow whose last stage routes to a local-endpoint backend (`local`/`pi`/`ollama`) previously marked itself "done" after every stage merely ran, then wiped its worktree at settle — destroying real-but-incomplete work before any retry, and, because the row never shipped a PR to reach `done`, re-dispatching forever.
+
+  The staged settle now reuses the single-dispatch enforced gate:
+  - **Real acceptance gate.** `settleWorkflowSuccess` routes a local last-stage unit through the same `runLocalWorkflowGate` (empty-diff → verify/acceptance → outcome-eval) the single-dispatch path uses — one convergence contract, not a diff-only heuristic. The #886 empty-diff halt is subsumed as step 0. A new optional `StagedWorkflowDecl.acceptance` shell command overrides the default `verify` mechanical step (exit 0 ⇒ pass; nothing project-specific is baked in).
+  - **Convergent retry.** On gate FAIL the workspace is preserved (no wipe, no `success → in_review`), the failure reason is threaded into the next prompt, and the unit re-dispatches through the same retry seam (lane `blocked`, so `blocked → claimed` re-claims). Work accumulates across preserved retries. Bounded by the new optional `agent.routing.maxLocalStageRetries` (default 5); on exhaustion the unit escalates to the `needs-human` terminal and the tick stops re-selecting it.
+  - **Deterministic ship.** On gate PASS the orchestrator commits the accumulated work, pushes an `orchestrator/<identifier>` branch, and opens a PR (`shipWorkspace`), then takes the existing success finalize so `cleanWorkspaceWithGuard` preserves the branch + PR and the PR merge auto-dones the row. The shipped unit is recorded in `completed` — the same guard the single-dispatch normal exit uses — so it is not re-dispatched (double-shipped) while its `in_review` row is still in-progress.
+
+  Non-local/primary staged units and the single-dispatch path are byte-identical (`success → in_review` human-review semantics unchanged; the gate is a no-op off the local path). The #886 empty-diff halt still fires. Adds `StagedWorkflowDecl.acceptance` and `RoutingConfig.maxLocalStageRetries` to `@harness-engineering/types` (both wired into the orchestrator Zod config schema). See ADR 0079/0080.
+
 ## 0.23.0
 
 ### Minor Changes

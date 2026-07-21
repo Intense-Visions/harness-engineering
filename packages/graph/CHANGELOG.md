@@ -1,5 +1,36 @@
 # @harness-engineering/graph
 
+## 0.11.10
+
+### Patch Changes
+
+- 0c9a304: fix(graph): test-description extractor emits path-based `file:` IDs so `governs` edges resolve (#940)
+
+  The business-signal / test-description extractor ingest minted hash-based `file:<hash>`
+  IDs for its edge targets and node `location.fileId`, while the code scanner materializes
+  file nodes with path-based IDs (`file:<relativePath>`). The two schemes never matched, so
+  every `governs`/`documents` edge from an `extracted:*` node dangled by construction (e.g.
+  529 dangling edges in one repo). `ExtractionRunner` now emits the canonical
+  `file:${record.filePath}` ID for both the node location and the edge target; because the
+  runner already passes each extractor a repo-relative, POSIX-normalized path identical to
+  `CodeIngestor`'s, these IDs are byte-identical and the edges bind to the real file nodes.
+
+- af503e4: Ingest `.mjs`/`.cjs`/`.mts`/`.cts` source files. `CodeIngestor.SUPPORTED_EXTENSIONS` previously omitted ESM/CJS module extensions, so those files produced no graph `file` nodes and `@req` annotations inside them created no `verified_by` edges — silently under-reporting requirement test-verification for repos with `.mjs`/`.cjs` test suites. Fixes #949.
+- e3bd99e: Fix `@req` scan ordering (follow-up to #949): `harness graph scan` ingested code (which extracts `@req` annotations) BEFORE `RequirementIngestor` created the requirement nodes, so on a single `scan` every annotation logged "references non-existent requirement" and no `verified_by` edge formed — it only worked via the two-step `scan` then `ingest --all` workaround. `CodeIngestor.ingest` now accepts a `{ skipRequirementAnnotations }` option and exposes `linkRequirementAnnotations()`; `runScan` defers annotation linking until after requirement nodes exist. Convention-based requirement linking (which needs file nodes) is unaffected.
+- Updated dependencies [1de3ce4]
+- Updated dependencies [84bd986]
+- Updated dependencies [77815a8]
+- Updated dependencies [c4c1dd3]
+- Updated dependencies [fac4261]
+- Updated dependencies [3e5f0ca]
+- Updated dependencies [a0ef808]
+- Updated dependencies [545e818]
+- Updated dependencies [3b2b8ba]
+- Updated dependencies [f460e42]
+- Updated dependencies [84bd986]
+- Updated dependencies [f8c9dd9]
+  - @harness-engineering/types@0.24.0
+
 ## 0.11.9
 
 ### Patch Changes

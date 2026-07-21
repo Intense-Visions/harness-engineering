@@ -1,5 +1,655 @@
 # @harness-engineering/orchestrator
 
+## 0.17.0
+
+### Minor Changes
+
+- f460e42: feat(orchestrator): staged design/plan/review stages produce committed documents (true autopilot)
+
+  A local staged run was collapsing the lifecycle into "every stage writes code" — the
+  brainstorming and planning stages jumped straight to implementation, so no spec/plan/
+  review documents ever landed in the PR, and there was no separation of concerns.
+
+  The local stage prompt now branches on the stage's declared output: a DOCUMENT stage
+  (`produces: spec | plan | review | verify | …`) is instructed to write ONLY a concise
+  markdown artifact to `docs/autopilot/<identifier>/<produces>.md` and NOT to write
+  implementation code; a CODE stage (`produces: impl`) keeps the self-verify behavior and
+  writes code. The document path is computed in `renderStagePrompt` and threaded into the
+  template. Result: a brainstorm→autopilot run produces a real spec, plan, and review that
+  land in the pull request as the durable record of each stage — implementation happens
+  only in the execution stage, against those documents.
+
+- 1de3ce4: feat(orchestrator): add a `codex` backend that drives a local model via Codex CLI
+
+  A controlled experiment (2026-07) showed the bottleneck for local-model convergence
+  was our bespoke scaffold, not the model: same model (qwen3-coder:30b), same task,
+  Codex's apply_patch scaffold shipped a clean multi-file change where the OllamaBackend
+  tool loop went needs-human 5×. Confirmed across two models (qwen3-coder 266 tests green,
+  qwen3.6 270 green).
+
+  This adds a `codex` backend type — `{ type: 'codex', model, localProvider?, command?,
+timeoutMs? }` — that drives a local model through `codex exec --oss --local-provider
+<provider> -m <model>`. Unlike the endpoint backends it owns no turn loop: `codex exec`
+  runs the whole agentic session in one invocation and the backend reports success on
+  exit 0, surfacing codex's `--json` events as status events for the recorder/black-box.
+  Foundational piece; wiring the enforced local gate + per-phase routing to treat a codex
+  execution stage as local-execution is a follow-up.
+
+- 84bd986: feat(orchestrator): route a codex execution stage through the enforced local gate + ship
+
+  Wires the `codex` backend (#946) into the local execution lifecycle. Adds
+  `isLocalExecutionBackend` — a superset of `isLocalEndpointBackend` that also includes
+  `codex` (which drives a local model but has no `endpoint`) — and uses it at the two
+  gate/ship decision sites (`runLocalWorkflowGate`, `settleWorkflowSuccess`). A codex
+  execution stage now goes through the same enforced gate (verify: typecheck+lint+test,
+  then outcome-eval) and ship path as a local-endpoint stage.
+
+  This gate is load-bearing, not cosmetic: a live trial showed codex can report a hollow
+  success — it shipped a syntax error in a file it edited while claiming the gate passed.
+  The orchestrator's independent enforced gate is exactly what catches that and blocks/
+  retries. Codex stays OUT of the endpoint-only sites (resolver wiring, local-indirection
+  prompt template) since it has no endpoint and takes a direct task prompt.
+
+- 84bd986: feat(orchestrator): expose MCP servers (context7 + curated harness tools) to the codex backend
+
+  The `codex` execution backend drove the local model with only Codex's built-in
+  tools — no context7 (live library docs) and no harness MCP tools — unlike the
+  ollama path, which curates a lifecycle tool set. A local coder therefore had no
+  way to look up how existing code narrows a type or handles an API, and stalled on
+  fixes that hinge on that context.
+
+  `CodexBackendDef` (and `CodexBackendOptions`) now accept `mcpServers?: McpServerSpec[]`.
+  Each spec is injected per-invocation via `codex exec -c mcp_servers.<name>.command/
+args/env/enabled_tools/startup_timeout_sec` — so the codex path reaches tool-parity
+  with the ollama path WITHOUT mutating the user's global `~/.codex/config.toml`. A
+  spec's `tools` allowlist maps to codex's per-server `enabled_tools`, keeping a broad
+  server (e.g. harness-mcp's ~95 tools) narrowed to a high-value set the local model
+  can navigate.
+
+- 77815a8: Make `ollama` the default local backend and add `disableReasoning`. The scaffolded configs (`harness.orchestrator.md`, `harness.config.json`, templates) now route the `local` backend to `type: ollama` (the native OllamaBackend that actually drives tool-calling models) instead of `type: pi`. A new `disableReasoning?: boolean` option on the ollama backend appends ` /no_think` to each user turn so Qwen3-family reasoning models skip `<think>` traces — Ollama's `/v1` ignores the `reasoning:false` knob, so without this a reasoning model burns its output budget thinking and never emits a tool call. With it, a stock `qwen3:32b` config is productive out of the box (no custom Modelfile needed).
+
+  Also fixes three release blockers found in a live local-dispatch e2e that made autonomous local dispatch unsafe:
+  - **`ollama` is now recognized as a local backend everywhere.** A shared `isLocalEndpointBackend` guard (true for `local` | `pi` | `ollama`) replaces the inline `type === 'local' || type === 'pi'` checks that silently excluded the new native backend. A `type: ollama` dispatch now (a) renders the LOCAL bash-shaped shim prompt template instead of the Claude template, (b) runs the enforced local workflow gate instead of a no-op, and (c) is discovered by local-model detection so outcome-eval can find a local model. Resolver-model wiring covers `ollama` too.
+  - **TASK_COMPLETE completion semantics.** `OllamaBackend.runTurn` no longer treats a no-tool-call final message as success unconditionally. It returns `success: true` only when the final message signals completion via a distinctive `TASK_COMPLETE` marker (matched as a whole token); otherwise it returns `success: false` so the runner re-prompts the model to continue. This prevents a model that stopped after doing nothing from ending the workflow. `DEFAULT_SYSTEM_PROMPT` now instructs the model accordingly.
+  - **Empty-diff gate halt.** The local workflow gate now halts BEFORE verify when the agent produced no workspace changes, returning `no changes produced — the agent completed without implementing anything`. This stops an empty diff from trivially passing verify and being marked done.
+
+- f460e42: feat(orchestrator): autonomous ship goes THROUGH the real gates (no --no-verify)
+
+  Reverses the earlier `--no-verify` shortcut. The autonomous ship now commits and
+  pushes through the real pre-commit + pre-push gates — exactly what a human push
+  hits — and fixes what they flag instead of bypassing them. The ship worktree builds
+  the CLI (`afterCreate`) so `harness ci check` actually runs, and `git()` now surfaces
+  the hook's output on failure so a block (missing changeset, formatting, arch
+  regression) flows into the staged-gate retry feedback. The local execution stage is
+  told to make the change mergeable — add a Changesets entry for a publishable package,
+  format, and fix new arch regressions — so the run converges on a genuinely mergeable
+  PR rather than one that skipped the release gate.
+
+- f460e42: feat(orchestrator): distill gate-failure feedback so retries see the actual assertion diffs
+
+  The enforced local gate threads its failure output into the next retry's prompt so
+  the model can fix what broke. That output was truncated head+tail at 4000 chars —
+  which, for a modern test runner with many files, keeps the passing-file tree (head)
+  and the summary tally (tail) but drops the failing tests' `Expected`/`Received`
+  assertion diffs, which sit in the MIDDLE. Observed live (a local run reached
+  264/267 passing and could not close 3 specific failures across 7 gated retries
+  because it only ever saw the failures' NAMES, never why they failed).
+
+  `distillGateFailure` extracts the failure-relevant regions instead — tsc
+  `error TS…` lines, per-test failure markers plus their following assertion diffs,
+  and lint error rows — always preserving the trailing summary, and dropping the
+  passing noise. Framework-general (tsc / eslint / vitest / jest) and degrades
+  gracefully: output with no recognizable failure markers falls back to the prior
+  head+tail behavior, and small output is returned verbatim. Extracted to a dedicated
+  `workflow/gate-feedback` module (`truncateGateOutput` re-exported for surface
+  stability).
+
+- c4c1dd3: feat(local-models): harness-fit probe — empirical agentic evidence for model recommendation
+
+  The local-model recommender ranks candidates by benchmark evidence plus a thin
+  agentic probe that only checks _"can the model emit a `tool_call`?"_ and _"is one
+  turn fast enough?"_. A live 3-way head-to-head proved this necessary-but-insufficient
+  for autonomous coding: `llama3.3:70b` **passes** the tool-calling gate and is fast,
+  yet it **narrated instead of acting** (one tool call, no artifact, gate never green),
+  while the smaller `gpt-oss:20b`/`qwen3.6:27b` **acted and converged**. No benchmark or
+  thin-probe signal predicted that — only running the real harness did.
+
+  The **harness-fit probe** supplies the missing empirical evidence. It runs a
+  benchmark-shortlisted candidate through a small contained coding task **on the real
+  harness**, judges convergence (the task's own acceptance command) plus act-vs-narrate
+  metrics from the recording stream, and maps them to a coarse `buildQuality ∈ [0, 1]`
+  (converged → HIGH, acted-not-converged → MID, narrated → LOW). That number feeds the
+  **already-wired** `buildQuality` slot in the `agenticScore` composition — **no
+  ranker-math change** — so at equal benchmark score an act-and-converge model out-ranks
+  a narrate-only one for autonomous dispatch, while the default `score` ordering is
+  untouched.
+  - **Pure policy + injected runner (dependency inversion).** `local-models` owns the
+    pure parts — the `buildQuality` mapping (`scoreBuildQuality`), the cost-gating policy
+    (`selectProbeTargets` / `isProbeDue` / `isCacheFresh` / `probeCacheKey`), the portable
+    task-suite schema + `DEFAULT_HARNESS_FIT_TASKS`, and the `HarnessFitRunner` interface.
+    The concrete single-dispatch runner (Ollama backend + throwaway workspace + acceptance
+    gate, reading the stream for act-vs-narrate metrics) is implemented in the orchestrator
+    and injected at the composition root, so `local-models` never depends on the orchestrator.
+  - **Single-dispatch convergence micro-probe.** The act-vs-narrate signal is decisive in
+    one dispatch; best-of-1, cheapest real signal.
+  - **Cost-gated (opt-in, top-N, cadence, cache, prefilter).** Disabled by default
+    (`localModels.harnessFit.enabled`). When enabled, only the benchmark top-N are probed
+    (never the full set), on a cadence (not every refresh), with `buildQuality` cached by
+    model+version and VRAM-unfit / `toolCalling:false` candidates prefiltered out.
+  - **Fail-open everywhere.** Any probe error/timeout/pull-failure leaves `buildQuality`
+    undefined ⇒ no ranking effect; the refresh is never broken and the pool is never blocked.
+  - **Config surface.** New optional `localModels.harnessFit` block (added to both the TS
+    type and the Zod schema so it survives config parse) — `enabled`, `topN`, `cadenceMs`,
+    `cacheTtlMs`, optional `taskIds`. Adopter-portable probe tasks self-describe their
+    acceptance command, so a probe runs in any adopter project.
+  - **Wired at the composition root (the probe actually fires).** `startRefreshScheduler`
+    constructs the `HarnessFitProbeRunner`, a persistent `HarnessFitCacheFileStore` under
+    `~/.harness/local-models/` (buildQuality cache + cadence timestamp), and a
+    `reRankWithBuildQuality` binding that re-runs the SAME ranker over the held candidate
+    set with probed `buildQuality` threaded in — passing them as the tick's `harnessFit`
+    deps ONLY when `localModels.harnessFit.enabled` (config→deps translation:
+    `cadenceMs → intervalMs`, `taskIds → tasks`). Disabled/absent ⇒ no deps are passed and
+    the tick is byte-identical to before.
+  - **Bounded (no hangs).** The runner enforces an overall per-probe wall-clock timeout
+    (default 5 min) around both the dispatch and the acceptance-command spawn — `maxTurns`
+    bounds turn count but not wall time, so a hung model or hanging acceptance is aborted
+    into a fail-open `error` result instead of blocking the refresh tick.
+  - **Converged-without-artifact is suspect.** A converged verdict only scores HIGH when the
+    model actually touched a file; a trivially-passing acceptance with no artifact drops to
+    MID/LOW rather than earning the top band.
+
+  See ADR 0081 (harness-fit probe: benchmarks pre-filter, the harness judges agentic fitness).
+
+- fac4261: feat(lmlm): probe + store per-model agentic tool-calling capability; require it for build routing
+
+  The pool ranked local models purely on benchmark scores, so a model that can't drive an agentic
+  build (it emits tool calls as TEXT the coding-agent SDK can't parse — e.g. qwen2.5-coder:7b) could
+  rank top and silently no-op a build. Bake the capability into the pool so selection is aware of it:
+  - **`probeToolCalling`** (`local-models`) — cheap-first: gate on Ollama `/api/show` `capabilities`
+    (free; no `tools` ⇒ `false` with no inference), then one `/v1` tool-schema call to confirm the
+    model actually emits native `tool_calls` (catches the "claims tools but emits text" false
+    positive). Any failure ⇒ `undefined` (unknown ⇒ fail-open). The single-call FORMAT probe is
+    deterministic, unlike the flaky multi-turn agentic loop.
+  - **`PoolEntry.toolCalling?`** — additive, round-trips via the existing clone/loader; written once
+    per model by the scheduler re-score (an injected probe seam) and never re-probed once decided.
+  - **`poolStateToCandidates(state, profile, { requireToolCalling })`** — excludes entries known not
+    to tool-call (`false`), keeping `true` + unprobed (`undefined`, fail-open).
+  - **`LocalModelResolver`** requires tool-calling for AGENTIC (tier) use-cases only — a build never
+    routes to a text-only model; triage/classification (which needs no tool-calling) is untouched.
+  - The orchestrator binds the probe to the local backend endpoint when starting the refresh
+    scheduler.
+
+  Verified live: the probe returns `false` for qwen2.5-coder:7b and `true` for qwen3:8b / qwen3:32b.
+  This makes the config-ordering fallback a belt-and-suspenders rather than the primary guard.
+
+- fac4261: Local backend runs the full harness workflow (gated). A `local`/`pi` dispatch now renders a backend-specific dispatch template (`harness.orchestrator.local.md`). Rather than paraphrasing the workflow inline, that template is a thin indirection shim that delivers the REAL skills over bash: the pi agent runs `harness skill run <name> --autonomous` (which prints the verbatim `SKILL.md`, no MCP required) and follows a `/harness:X` → `harness skill run harness-X` redirect. The new `--autonomous` flag on `harness skill run` prepends an autonomous-decider preamble so a headless agent runs each skill (including brainstorming) at full rigor but decides every fork itself and records it in the spec — with a PR-flag safety valve for low-confidence and strategy-contradiction forks, and no mid-run human pause; absent the flag, skill-run output is byte-identical to before. The orchestrator ENFORCES the verify + outcome-eval gates itself (`runLocalWorkflowGate` in `finalizeNormalCompletion`): a red verify or a high-confidence `NOT_SATISFIED` verdict routes through the existing `emitWorkerExit('error')` retry branch (re-prompt on retry, `needs-human` on budget exhaustion) so poor local output halts rather than ships. Template selection (`resolvePromptTemplate`) falls back to the default Claude template when the local file is absent, and the Claude/AMR completion path is unchanged (the gate is a no-op for non-local backends). A config flag `agent.routing.workflowGates: local | primary` routes the local outcome-eval gate to a stronger provider (default local SEL; the AMR caller is unaffected). See ADRs 0070/0071/0072.
+- 3e5f0ca: Add a per-server MCP tool allowlist for the local `ollama` agent. A broad
+  MCP server floods a local model with tools — in a live e2e the harness MCP
+  alone exposed 95 tools and `qwen3-coder:30b` over-explored without cleanly
+  signalling completion. `mcpServers[].tools?: string[]` narrows a server to
+  named tools (filtered on the server's own pre-namespacing tool name);
+  unset ⇒ all tools (byte-identical to before). Requested-but-unexposed names
+  warn once and are skipped (graceful). When the aggregated tool set
+  (built-ins + MCP) exceeds a threshold, the backend logs a one-line advisory
+  pointing at `tools` — no hard cap. The scaffolded local configs narrow the
+  harness example to a read-oriented set (`code_search`, `ask_graph`,
+  `review_changes`, `outcome_eval`, `gather_context`).
+- f460e42: feat(orchestrator): per-stage persona system prompts for the local staged workflow
+
+  The cloud autopilot delegates each lifecycle phase to a dedicated persona subagent
+  (harness-planner, -verifier, -code-reviewer …) whose role physically cannot bleed.
+  The local staged path drives a single model and cannot spawn subagents, so every
+  stage ran under the same generic identity with its role reduced to a
+  `(reasoning mode)` label in the user turn.
+
+  This threads a per-stage persona into the backend SYSTEM prompt (the wiring already
+  existed — `startSession` honors `systemPrompt`; the runner just never passed one):
+  spec/plan stages get a no-code author/planner role, execution a self-verifying
+  senior-engineer role, verification an INDEPENDENT auditor that does not fix code,
+  and review an adversarial reviewer that commits nothing. Applied on the local path
+  only; the cloud path renders byte-identical (undefined → default). This is the
+  local analog of subagent delegation and reinforces the document/review/code
+  stage-kind split.
+
+- a0ef808: feat(orchestrator): add native Ollama agentic backend
+
+  Add a production `OllamaBackend` (`type: 'ollama'`) that owns its
+  `/v1/chat/completions` tool loop instead of embedding the pi-coding-agent SDK.
+  `startSession` seeds conversation state with a system prompt; `runTurn` drives
+  the inner agentic loop (call model → execute native `tool_calls`
+  [`bash`/`write_file`/`read_file`, sandboxed to the workspace with
+  path-traversal rejection] → append tool results → repeat until the model stops
+  calling tools), yielding `tool_execution_start`/`tool_execution_end`/`usage`
+  events and accumulating token usage. Wired through the config schema, the
+  backend factory, and the analysis-provider factory. This drives Ollama-served
+  tool-calling models (e.g. qwen3) that the pi/codex SDKs fail against.
+
+- a06a08e: Improve the OllamaBackend agent's editing loop with two wrapper fixes:
+  - **`edit` tool** for surgical, targeted file edits (exact `old_string` → `new_string`
+    replacement with a uniqueness guard), mirroring Claude Code's `Edit` semantics. The local
+    coding agent previously had only `write_file` (full-file overwrite), which forced whole-file
+    rewrites for every change and caused it to thrash and reintroduce errors on multi-step tasks.
+    `write_file` remains for creating new files; the default system prompt now steers the model to
+    prefer `edit` for changing existing files.
+  - **Failure-prioritized tool-output truncation.** Tool output is now truncated keeping both the
+    head and (a larger) tail, and the budget is raised from 4000 to 8000 chars. Previously a
+    head-only chop discarded the trailing failure diffs and summary that `vitest`/`tsc` print last —
+    so the model was asked to fix failures it could not read.
+  - **Progress-based turn termination.** The per-`runTurn` iteration cap was a flat count (50) that
+    terminated runs still making progress — a less-capable local model needs more read→edit→test
+    cycles than a frontier model, so a low cap is backwards. The cap is now a high runaway backstop
+    (150) and ordinary termination is progress-based: a run ends early only when the model repeats
+    the identical tool call for several consecutive turns (genuine thrash).
+
+- 545e818: Give the local `ollama` backend agent access to MCP-server tools. The
+  `OllamaBackend` previously drove the model with only three built-in tools
+  (`bash`, `read_file`, `write_file`), so a local model coded from stale
+  training memory — in a live e2e it wrote a deprecated
+  `@typescript-eslint/utils` `RuleTester` import when the current API lives at
+  `@typescript-eslint/rule-tester`. A new opt-in `mcpServers?: McpServerSpec[]`
+  field on the ollama backend def (`{ name, command, args?, env?, cwd? }`) lets
+  the agent use tools from any configured MCP server alongside its built-ins.
+  - The backend hosts one in-process `@modelcontextprotocol/sdk` `Client` per
+    configured server over `StdioClientTransport`, connected concurrently (with
+    a bounded timeout) at session start and closed at session end.
+  - Each server's tools are merged into the model's tool set **namespaced** as
+    `<server>__<tool>`; the MCP `inputSchema` passes through as the OpenAI
+    function `parameters` unchanged, and a built-in name wins on collision.
+  - Tool calls forward to `client.callTool`, heartbeat-wrapped so a slow MCP
+    call never trips the stall detector; an `isError` result is surfaced with an
+    `ERROR:` prefix so the model can self-correct.
+  - **Graceful degradation:** a server that fails to connect or list is skipped
+    with a warning — the session still runs on the built-ins plus every server
+    that did start, so one flaky server never breaks a dispatch.
+  - `harness-mcp` (and any server without an explicit `cwd`) is spawned with
+    `cwd =` the agent's workspace, so harness's own code-intelligence tools
+    operate on the code the agent is editing.
+
+  With `mcpServers` unset the backend is byte-identical to before (built-ins
+  only). The scaffolded local configs ship a commented `context7` + `harness`
+  example; see `docs/guides/multi-backend-routing.md#mcp-tools` and ADR 0073.
+
+- 3b2b8ba: OllamaBackend now drives the model over native `/api/chat` (honors `num_ctx`/`think`/`keep_alive`), autosizes `num_ctx` from the model's declared max and available hardware, sends native `think:false` for reasoning-off (retiring the `/no_think` hack), and adds optional `numCtx`/`maxContextTokens`/`numPredict`/`keepAlive` config.
+- f460e42: feat(orchestrator): local (Ollama) agent reads the worktree AGENTS.md/CLAUDE.md — repo conventions like a cloud session
+
+  A cloud (Claude Code) dispatch auto-reads `AGENTS.md`/`CLAUDE.md` into its context, so
+  it knows the repo's conventions — including that specs go to `docs/changes/<slug>/
+proposal.md`. The local Ollama agent got only a generic "you are a coding agent"
+  system prompt with ZERO repo context, so it never learned the conventions and invented
+  paths (e.g. writing the spec to `packages/.../specs/`). The Ollama backend now reads
+  `AGENTS.md` + `CLAUDE.md` from the worktree at session start and prepends them to the
+  system prompt (head-truncated to a budget for the local context window, since the
+  conventions live near the top). This aligns the local agent with the cloud path and
+  fixes convention-following at the root rather than hardcoding individual paths.
+
+- f460e42: feat(orchestrator): configurable sampling params (temperature/top_p/top_k) for the Ollama backend
+
+  The Ollama backend previously sent only `num_ctx` in the native `/api/chat` `options`,
+  so every local model ran at Ollama's default sampling (~temp 0.8) — too hot for precise
+  agentic coding. `OllamaBackendDef` now accepts optional `temperature`, `topP`, and `topK`,
+  threaded into the request `options` (unset ⇒ model default, byte-identical to before).
+
+  Motivation: current Qwen guidance for thinking-mode / precise coding is temp 0.6 /
+  top_p 0.95 / top_k 20; running a coder at default temperature measurably increases
+  error rate. This lets an operator tune each local backend for its role.
+
+- 402d56f: Add three proven agent-tool affordances to the OllamaBackend, matching Claude Code / Codex:
+  - **Bash exit code.** A non-zero command exit is now annotated (`[command exited with code N]`) so
+    the local model can tell success from failure without parsing output.
+  - **Read paging + line numbers.** `read_file` output is line-numbered (`<n>\t<content>`, reference
+    only) and accepts optional `offset` (1-based start line) and `limit` params, so large files can be
+    read in chunks instead of returning a truncated whole-file blob. It also reports a clean
+    "file not found" instead of throwing.
+  - **Edit `replace_all`.** The `edit` tool takes an optional `replace_all: true` to change every
+    occurrence (e.g. renaming a symbol) instead of requiring a unique match; the default remains the
+    unique-match guard.
+
+- 143fb32: feat(orchestrator): flight-recorder black-box — durable per-run forensic records
+
+  The orchestrator now writes a first-class, always-on "black-box" for every run
+  (one process lifetime) to `<workspace.root>/../black-box/<runId>/run.json`,
+  alongside the existing per-issue streams. Each record pins **provenance** (git
+  HEAD/subject/branch, node version, resolved backends + routing) so a run's
+  outcome is falsifiable against exactly which code and config produced it, plus
+  each unit's terminal **verdict** (`shipped` / `needs-human` / `gate-blocked`)
+  with the gate/verify reason and a gate-block count — data that previously lived
+  only in stdout and in-memory retry state.
+
+  Read it back with the new `harness orchestrator black-box` command:
+  - `harness orchestrator black-box list` — recorded runs, newest first
+  - `harness orchestrator black-box show <runId>` — provenance, per-unit verdicts,
+    convergence (gate-blocks + reason), and tool-use aggregated from the run's
+    recording streams
+
+  Capture is best-effort and never throws — a recorder failure cannot break a
+  dispatch. Provenance git probes degrade to `null` outside a git repo, so the
+  feature is portable to any adopter running the orchestrator.
+
+- 0c8af29: Finish per-phase backend routing for staged local workflows. A staged workflow's
+  design stages (`cognitiveMode: thinking`) now route to `routing.modes.thinking`'s
+  backend and execution stages to `routing.default`, via the existing
+  `BackendRouter.route()` per-stage path. A routed local-endpoint backend
+  (`local`/`pi`/`ollama`) now renders a local-aware stage prompt that uses the
+  `harness skill run <skill> --autonomous` indirection instead of the Claude-shaped
+  "perform the skill" template. `validateWorkflowConfig` now rejects a staged-decl
+  stage whose `cognitiveMode` has no `routing.modes`/`routing.skills` mapping.
+  Unstaged workflows and single-backend configs are byte-identical to before.
+- f460e42: feat(orchestrator): reasoner unstick advisory — escalate a stalled local executor to the thinking model
+
+  When the local execution model (a non-thinking coder) fails the enforced gate
+  repeatedly, re-prompting the same session with the same failure does not help —
+  observed live (af7): the coder could not fix a precisely-surfaced TS2532 across 7
+  self-correction retries. The cloud autopilot escalates a stuck task (stronger tier /
+  independent agent); the local analog, using the models we already run, is a
+  reasoner→coder handoff.
+
+  After a few failed self-corrections (and while retry budget remains), the orchestrator
+  now asks the REASONER (the `routing.modes.thinking` backend — the model used for
+  design/plan/review, run with reasoning ON) to diagnose the failure and prescribe a
+  concrete fix, given the task, the introduced diff, and the exact gate failure. That
+  diagnosis+fix is prepended to the coder's next-attempt feedback as senior guidance.
+  Best-effort and fully guarded: no reasoner configured, provider unavailable, or a bad
+  response degrades to the prior behavior (the raw distilled failure), never throwing.
+
+- 2e78d78: Recency-aware local-model discovery. Discovery is now a wide net: per approved org it merges HuggingFace `trending` (new/hot) with `downloads` (established), dedupes by model id, and caps at the per-org limit, then hands the union to the benchmark ranker — instead of pre-filtering by cumulative downloads, which crowded out brand-new leaders before they could be scored. A failing `trending` call falls back to `downloads` (discovery never breaks). The `allowedOrgs` allowlist gains `openai`, `zai-org`, `THUDM`, `moonshotai` so the current-leader orgs can be considered. The benchmark ranker is unchanged — this only widens what reaches it.
+- 84bd986: feat(orchestrator): resume-from-failed-stage checkpoint for staged workflows
+
+  Previously, when the enforced local gate blocked a staged unit, the re-dispatch re-ran
+  the ENTIRE lifecycle from stage 0 — regenerating the spec + plan (non-deterministically)
+  on every execution failure. That both wastes the slow reasoner and, worse, moves the
+  target: the execution stage never iterates against a stable spec/plan + accumulated
+  feedback, because the whole design resets underneath it each retry. This mirrors the
+  cloud autopilot's own retry model, which re-runs the failed task against a plan approved
+  once — not the whole lifecycle.
+
+  Adds a `checkpoint?: boolean` stage flag: once a `checkpoint: true` stage passes, its
+  output is checkpointed per unit and REUSED on later gate-block re-dispatches instead of
+  regenerated. Mark the design stages (brainstorm/plan) `checkpoint: true` so an execution
+  gate failure retries only execution onward against a FIXED spec/plan. The checkpoint is
+  cleared on every terminal (ship or needs-human), so a fresh pickup regenerates. Default
+  false — omit for byte-identical prior behavior.
+
+- 1c95956: Preserve the workspace across within-run retries so a verification-failure retry no longer discards the agent's partial progress. `ensureWorkspace` previously removed the git worktree on every dispatch (correct for an orchestrator restart, but it wiped uncommitted work when the tick loop re-dispatched a failed unit, so units could never converge). It now takes a `preserve` option and returns `{ path, reused }`: a dispatch of a unit already provisioned in this process reuses the existing worktree (skipping remove/add/seed and the `afterCreate` hook), while a fresh dispatch — and every dispatch after a restart, since the in-process `dispatchedThisRun` set is empty then — still wipes and recreates from the base ref (anti-stale guarantee intact). `beforeRun` and the workspace config-injection scan still run on every dispatch. Single-dispatch and unstaged workflow paths are byte-identical.
+- f8c9dd9: Staged local units now converge instead of looping. A staged workflow whose last stage routes to a local-endpoint backend (`local`/`pi`/`ollama`) previously marked itself "done" after every stage merely ran, then wiped its worktree at settle — destroying real-but-incomplete work before any retry, and, because the row never shipped a PR to reach `done`, re-dispatching forever.
+
+  The staged settle now reuses the single-dispatch enforced gate:
+  - **Real acceptance gate.** `settleWorkflowSuccess` routes a local last-stage unit through the same `runLocalWorkflowGate` (empty-diff → verify/acceptance → outcome-eval) the single-dispatch path uses — one convergence contract, not a diff-only heuristic. The #886 empty-diff halt is subsumed as step 0. A new optional `StagedWorkflowDecl.acceptance` shell command overrides the default `verify` mechanical step (exit 0 ⇒ pass; nothing project-specific is baked in).
+  - **Convergent retry.** On gate FAIL the workspace is preserved (no wipe, no `success → in_review`), the failure reason is threaded into the next prompt, and the unit re-dispatches through the same retry seam (lane `blocked`, so `blocked → claimed` re-claims). Work accumulates across preserved retries. Bounded by the new optional `agent.routing.maxLocalStageRetries` (default 5); on exhaustion the unit escalates to the `needs-human` terminal and the tick stops re-selecting it.
+  - **Deterministic ship.** On gate PASS the orchestrator commits the accumulated work, pushes an `orchestrator/<identifier>` branch, and opens a PR (`shipWorkspace`), then takes the existing success finalize so `cleanWorkspaceWithGuard` preserves the branch + PR and the PR merge auto-dones the row. The shipped unit is recorded in `completed` — the same guard the single-dispatch normal exit uses — so it is not re-dispatched (double-shipped) while its `in_review` row is still in-progress.
+
+  Non-local/primary staged units and the single-dispatch path are byte-identical (`success → in_review` human-review semantics unchanged; the gate is a no-op off the local path). The #886 empty-diff halt still fires. Adds `StagedWorkflowDecl.acceptance` and `RoutingConfig.maxLocalStageRetries` to `@harness-engineering/types` (both wired into the orchestrator Zod config schema). See ADR 0079/0080.
+
+- fac4261: fix(triage): select the local model from the LMLM pool (reasoning-ranked), not the static config list
+
+  `harness roadmap triage` resolved its local model from `agent.backends.local.model[0]` — a
+  fixed, hand-maintained list — so triage could stay pinned to a weak model even after the Local
+  Model Lifecycle Manager pool had installed and ranked a stronger one. The live orchestrator does
+  not have this problem: its `LocalModelResolver` derives candidates from the pool via
+  `poolStateToCandidates(snapshot, profile)`. This brings the same pool-first pick to the one-shot
+  CLI triage path so the CLI and live agents agree on the model.
+  - The report/brainstorm now prefer the pool's top-ranked model for the **`reasoning`** profile
+    (the triage gate's safety rests on reasoning-grade complexity judgment). In a real dogfood run,
+    this flipped an item the weak model mis-read as `trivial`/dispatchable to a correct
+    `moderate` → held-to-human — without any config change.
+  - The static `agent.backends.*.model` list remains the documented **fallback** for pool-less
+    adopters and non-Ollama backends; a missing/empty/broken pool degrades to it silently (never an
+    error). An explicit `--model` still wins; explicit cloud (`intelligence.provider`) backends
+    ignore the local pool pick.
+  - Orchestrator now re-exports the pool-state primitives (`PoolStateStore`,
+    `poolStateToCandidates`, `DEFAULT_POOL_STATE_PATH`, `PoolState`, `RankProfile`) so the CLI reads
+    the persisted pool without a new CLI→local-models package edge.
+
+- 8786245: Bring #843's trustworthiness guarantees to the staged local-dispatch path: a staged unit that produces an empty workspace diff now halts to needs-human instead of being marked done; no-cognitiveMode execution stages route to `routing.default` (not the design reasoner) while explicitly-hinted and design stages keep their routing; the LOCAL stage prompt drives the model to produce its declared output. Unstaged workflows and the single-dispatch path are byte-identical.
+
+### Patch Changes
+
+- 84bd986: fix(orchestrator): codex backend uses `--sandbox workspace-write`, not the dangerous full bypass
+
+  The initial `codex` backend (#946) ran `codex exec --dangerously-bypass-approvals-and-sandbox`.
+  A live trial surfaced a failure mode: on an exploratory task codex spawned an interactive
+  command and the session aborted with `write_stdin failed: stdin is closed for this session`.
+  Switching to `--sandbox workspace-write` fixes it (0 such errors in a re-run) while STILL
+  letting codex apply edits and run the gate — verified by 21 in-session `pnpm typecheck lint
+test` invocations under the sandbox. exec mode already runs approval-free (`approval:
+never`), reads are unrestricted (the pnpm store resolves), and writes are confined to the
+  worktree — appropriate since the orchestrator dispatches codex into an isolated worktree.
+  Also less dangerous than the full bypass.
+
+- f460e42: fix(orchestrator): config scanner no longer fail-closes dispatch on a doc mention of eval()
+
+  The pre-dispatch workspace config scanner scans `CLAUDE.md` / `AGENTS.md` and kept
+  `SEC-INJ-001` (eval / Function constructor) at blocking severity. Agent-guidance docs
+  routinely NAME `eval()` as an example of what NOT to do, and a markdown file cannot
+  execute it — so a single documentation mention fail-closed EVERY dispatch
+  ("Config scan blocked dispatch: SEC-INJ-001"). `SEC-INJ-001` now joins `SEC-AGT-006`
+  in the config-scanner's documentation-downgrade set (taint, not block), mirroring the
+  existing treatment of security-measure documentation. Genuine injection categories
+  (hidden-unicode `INJ-UNI-*`, re-role `INJ-REROL-*`) still block.
+
+- f460e42: fix(orchestrator): document stages write to the exact docs/changes path; review stages commit nothing
+
+  Two fidelity fixes for the local staged autopilot, from observing a real ship: the model
+  put the spec/plan in `tmp/` (despite AGENTS.md + the skill both saying `docs/changes/`)
+  and committed a `review.md` to the repo root. Local models don't reliably follow the
+  convention even when it's in context, so:
+  - **Document stages** (spec/plan) are now handed the EXACT harness path
+    (`docs/changes/<slug>/proposal.md`, `docs/changes/<slug>/plans/<slug>-plan.md`) and told
+    not to use `tmp/` or the package folder.
+  - **Review/verify stages** are a distinct kind: run the review/check tools
+    (`run_code_review`/`review_changes`/`run_ci_checks`) and report findings as feedback —
+    do NOT write or commit a report file.
+
+- f460e42: fix(orchestrator): harness-fit probe filesTouched was always 0 (HIGH band unreachable)
+
+  `extractPath` in the harness-fit probe runner sliced the tool-call event content from
+  the first `{` to end-of-string and `JSON.parse`d it. But the OllamaBackend (the only
+  backend the probe builds) records the content as `Calling write_file({...})` — with a
+  trailing `)` — so the parse always threw and `filesTouched` was structurally always 0.
+  Since `scoreBuildQuality` gates HIGH on `converged && filesTouched > 0`, NO local model
+  could ever score HIGH: every acting/converging model collapsed to MID (0.5), silently
+  under-rating the model-suitability ranker's buildQuality signal. Bound the slice to the
+  last `}` so the trailing `)` is excluded. Adds a regression test using the real
+  name-wrapped content format (the existing tests missed it by passing bare JSON).
+
+- 840f92c: Fix local ollama backends silently losing their MCP tools. `buildLocalLikeWithResolver` (the factory path used when a local backend declares a prefer-and-fallback `model: [...]` array) dropped `mcpServers` (and `numCtx`/`maxContextTokens`/`numPredict`/`keepAlive`) that `createBackend` passes — so a local model configured with e.g. a `context7` docs server got zero MCP tools. Now mirrored. Also bump the MCP connect timeout 15s→30s so an `npx -y <pkg>` MCP server (which cold-starts in ~20s on first run) is no longer silently skipped, and augment a local agent's system prompt to name its aggregated MCP tools and tell it to use them for unfamiliar APIs/conventions/errors. Together these make live documentation tools actually reach a local model — its top failure mode is knowledge/recency gaps only live docs can fill.
+- f460e42: fix(orchestrator): retry gh pr create + tell local executor to leave a clean diff
+
+  Two fixes toward shippable local PRs:
+  - **PR-create retry.** A branch that has just been pushed can be briefly invisible
+    to `gh pr create` ("No commits between …" / not-found), which dropped a converged
+    ship into the resumable "pushed but no PR" limbo. `shipWorkspace` now retries the
+    PR create (bounded, overridable backoff), absorbing that push→PR propagation race
+    and transient API blips.
+  - **Clean-diff instruction.** The local staged-execution prompt now tells the agent
+    to delete scratch/debug files it created and to never touch files unrelated to the
+    work item — so a converged unit produces a reviewable PR, not one carrying
+    `debug-*.js` clutter.
+
+- f460e42: feat(orchestrator): local execution stages self-verify (typecheck + lint + full tests) before finishing
+
+  The local staged-execution prompt now includes an explicit "definition of done": if
+  the stage changed code, run typecheck + lint + the FULL package test suite for each
+  changed package and fix every failure before stopping — rather than leaning on the
+  (slow, sometimes-insufficient) gate→retry loop. It names the two failure modes that
+  repeatedly blocked local runs: type errors tests miss (vitest runs through esbuild,
+  which strips types, so tests pass while `tsc` fails) and inventory/count assertions
+  elsewhere in the suite that a new rule/export invalidates. This makes staged local
+  convergence markedly more reliable — the model catches its own errors in-session
+  instead of discovering them one gate-block at a time.
+
+- 3be9a98: Fix the identity-path `stageDecisionFor` seam (added in the prior patch) so it
+  actually populates the local staged gate's locality signal. It resolved the
+  backend from the materialized backend's `.name`, but a materialized backend hard-
+  codes `.name` to its TYPE label (`OllamaBackend.name === 'ollama'`,
+  `LocalBackend.name === 'local'`), which does not key `agent.backends`. So the def
+  lookup missed and `run.decision` stayed unset — leaving the prior fix inert: a
+  fully-local (no-`routing.policy`) staged unit still completed without shipping and
+  looped. `stageDecisionFor` now resolves the authoritative routing key via
+  `backendFactory.resolveName(useCase)` (the same key the settle gate looks the def
+  up under). The regression test now uses a factory whose `resolveName` returns a
+  routing key distinct from the backend's `.name`, so a revert to reading `.name`
+  would fail the test.
+- 23ed8fc: Fix two defects that prevented a fully-local staged unit from ever shipping through
+  the enforced convergence gate:
+  1. **Local staged gate skipped without AMR.** `settleWorkflowSuccess` derives
+     `isLocal` (whether to run the acceptance gate + ship) from
+     `runs[last].decision?.backendName`, but the workflow engine only populated
+     `run.decision` on the adaptive-router path. On the identity-fallback path — used
+     whenever `routing.policy` is absent, i.e. the default (AMR-off) config —
+     `run.decision` was left unset, so `isLocal` was underivable and the entire
+     gate+ship block was skipped. The unit completed all stages, went to `in_review`,
+     never shipped, and looped via reconciliation re-dispatch. The engine now
+     synthesizes the identity-path decision (backend name + type) via a new
+     `stageDecisionFor` context seam, with no extra decision-bus emission.
+  2. **Local verify gate did not build changed packages first.** A package whose
+     lint/test consume its own compiled output (e.g. an eslint-plugin whose flat
+     config dogfoods its built `dist`) false-failed with `Cannot find module` on a
+     freshly `pnpm install`ed-but-unbuilt worktree — blocking correct code on a stale
+     dist. The per-package `build→typecheck→lint→test` loop is extracted into an
+     injectable `verifyChangedPackages` helper with unit coverage for build-first
+     ordering and short-circuit-on-failure.
+
+- c80086a: refactor(ollama): flatten the native `/api/chat` adapter to clear the complexity budget
+
+  #855 landed the native transport in `OllamaBackend` and pushed two functions past
+  the repo complexity budget: `fromNativeResponse` (cyclomatic 12 > warn 10) and
+  `toNativeMessages` (nesting depth 5 > warn 4). Extract two small same-file helpers —
+  `nativeUsage` (native token counts → internal `usage`) and `toNativeToolCalls`
+  (assistant tool-calls string-args → object-args) — and give `normalizeNativeToolCalls`
+  a block body. Both functions now sit under budget and the aggregate complexity/nesting
+  counts return to their pre-#855 baseline. Behavior-neutral: all 31 ollama backend tests
+  pass unchanged.
+
+- fac4261: fix(orchestrator): register the local provider credential so PiBackend can actually run a local build
+
+  `PiBackend` handed the pi-coding-agent SDK an inline model under a synthetic `harness-local`
+  provider but never registered a credential for it. The SDK resolves auth by PROVIDER (auth.json /
+  env / runtime override) — the model's `headers`/`apiKey` fields do NOT satisfy that gate — so a
+  local build failed immediately with "No API key found for harness-local" unless an operator had
+  manually run `/login`. This silently blocked the entire local-model build path out of the box.
+
+  `startSession` now creates an in-memory `AuthStorage`, registers the endpoint's key for
+  `harness-local` via `setRuntimeApiKey` (the configured `apiKey`, or `ollama` — Ollama ignores the
+  value; a real key is threaded through for vLLM/LM-Studio deployments that enforce one), and passes
+  it to `createAgentSession`.
+
+  Found by a live end-to-end test: with this fix a local model (qwen3:32b via Ollama) drives a real
+  agentic build — `write` + `bash` tool calls producing a correct, self-verified module.
+
+- c1c0b30: fix(orchestrator): give the reasoner unstick advisory a generous timeout
+
+  The reasoner unstick advisory (#937) fired correctly on a stalled retry but its call
+  was killed by the general `intelligence.requestTimeoutMs` (90s default) — observed live
+  (af8): `reasoner unstick advisory skipped … "Request timed out"`. A thinking reasoner
+  (e.g. qwen3.6 with reasoning ON) produces its structured diagnosis in minutes, and over
+  Ollama's `/v1` endpoint the thinking cannot be disabled, so the model reasons well past
+  90s before answering. Floor the advisory's timeout at 300s (never shortening a larger
+  operator-configured value) so it actually delivers its guidance instead of silently
+  degrading to the raw retry. It only fires on a genuine stall, so the occasional
+  multi-minute wait is worth avoiding a needs-human escalation.
+
+- 3d4c9da: fix(orchestrator): durably suppress the self-referential SEC-INJ-001 FP in config-scanner
+
+  The `harness` CI check (`ci check --skip arch`) has been red on main because the
+  security scanner flags `config-scanner.ts`'s OWN documentation — a JSDoc comment that
+  names `eval(` while explaining the SEC-INJ-001 rule the scanner downgrades. It's a
+  self-referential false positive that prior commits kept dodging by rewording the
+  comment (whack-a-mole: each reword changes the finding hash → "new" finding → fails
+  again). Replace the reword with the sanctioned, durable `// harness-ignore SEC-INJ-001`
+  inline suppression (same pattern `injection-patterns.ts` uses for its own detector),
+  so the finding stays acknowledged permanently. This greens the `harness` CI job.
+
+- bd850a8: chore(security): suppress self-referential SEC-\* scanner false positives
+
+  Reword comment-only false positives and add inline `harness-ignore`
+  suppressions for the security scanner's own definitional patterns
+  (`injection-patterns.ts`) and the anti-bypass hooks that necessarily name the
+  flags they block. Comment/suppression-only — no runtime behavior change.
+
+- c62e59c: fix(orchestrator): thread the prior gate failure into staged retry prompts (staged-local convergence)
+
+  On a staged workflow retry after a gate block, the executor was never told _why_
+  the previous attempt failed. The single-agent dispatch path appends the gate/verify
+  reason to its prompt, but the staged path renders fresh per-stage prompts via
+  `renderStagePrompt` and dropped it — so on every retry the model got the identical
+  task with no feedback and reproduced the same failure (e.g. passing tests while a
+  `tsc` narrowing error kept the gate red). `buildWorkflowContext` now threads
+  `priorGateFailure` into every stage prompt as a "fix this first" preamble that also
+  reminds the model the gate runs typecheck + lint + tests, not tests alone. This is
+  what lets the staged local retry loop actually converge.
+
+- fac4261: fix(triage): don't label a deferred open-decisions lever as "no provider (offline)"
+
+  The cheap-first report holds obviously-out-of-band items (scope-too-large, not-in-band) before
+  spending an LLM call, so their open-decisions lever runs without a provider and printed
+  `open-decisions: no provider (offline)` — misleading, since a provider WAS available and the
+  lever was simply deferred, not missing/mis-configured.
+
+  New `ProbeDeps.modelDeferred` hint (threaded through `triageIssue`): when a model is available
+  but its levers were deferred for a cheap pass, the reason reads `not evaluated (item held before
+the model pass)`. A genuinely offline run (`--offline` / no provider wired) still reads
+  `no provider (offline)`. Wording only — the lever value stays `unknown` and the gate never
+  dispatches on an unread lever either way.
+
+- fac4261: fix(triage): stop truncating reasoning-model output — the LLM levers now produce real verdicts
+
+  The complexity tie-break, the open-decisions lever, and the brainstorm fork generator each
+  capped the model at a tiny `max_tokens` (256 / 512 / 512). A reasoning model (Qwen3 et al.)
+  emits a `<think>` trace BEFORE the JSON, so those caps truncated mid-reasoning →
+  `finish_reason: length` → empty content. The failure was then swallowed:
+  - `llmTiebreak` catches the error and returns a hardcoded `{ level: 'moderate', confidence: 'low' }`,
+  - the open-decisions lever degrades to `unknown`,
+  - the brainstorm fork halts as `error`.
+
+  So on a reasoning model the triage levers never ran on the real output — the "verdict" was a
+  fail-safe fallback that only _looked_ like a judgment. Non-reasoning models (which emit no think
+  trace) fit the tiny caps and masked the bug.
+
+  Raised each cap to 4096. `max_tokens` is a ceiling, not a target — a non-reasoning model still
+  stops at ~14 tokens — so this is free on the fast path and only spends tokens when a model
+  actually reasons. Verified end-to-end: on Qwen3 the semantic-read lever now returns a real
+  `simple/high` (was the `moderate/low` fallback) and the open-decisions lever surfaces real
+  decisions (was `assessment failed`).
+
+- Updated dependencies [c14320e]
+- Updated dependencies [1de3ce4]
+- Updated dependencies [84bd986]
+- Updated dependencies [4bd325b]
+- Updated dependencies [77815a8]
+- Updated dependencies [d965516]
+- Updated dependencies [afd1099]
+- Updated dependencies [7d05321]
+- Updated dependencies [bad5b81]
+- Updated dependencies [0c9a304]
+- Updated dependencies [c4c1dd3]
+- Updated dependencies [af503e4]
+- Updated dependencies [fac4261]
+- Updated dependencies [fac4261]
+- Updated dependencies [3e5f0ca]
+- Updated dependencies [1db2507]
+- Updated dependencies [a0ef808]
+- Updated dependencies [545e818]
+- Updated dependencies [3b2b8ba]
+- Updated dependencies [f460e42]
+- Updated dependencies [2e78d78]
+- Updated dependencies [809d327]
+- Updated dependencies [e3bd99e]
+- Updated dependencies [84bd986]
+- Updated dependencies [5038b56]
+- Updated dependencies [e203b5e]
+- Updated dependencies [dc3c932]
+- Updated dependencies [bd850a8]
+- Updated dependencies [f8c9dd9]
+- Updated dependencies [fac4261]
+- Updated dependencies [fac4261]
+- Updated dependencies [fac4261]
+- Updated dependencies [fac4261]
+  - @harness-engineering/core@0.38.0
+  - @harness-engineering/types@0.24.0
+  - @harness-engineering/intelligence@0.10.0
+  - @harness-engineering/graph@0.11.10
+  - @harness-engineering/local-models@0.7.0
+
 ## 0.16.0
 
 ### Minor Changes
