@@ -3252,7 +3252,16 @@ export class Orchestrator extends EventEmitter {
         prompt,
         systemPrompt: UNSTICK_SYSTEM_PROMPT,
         responseSchema: UNSTICK_SCHEMA,
-        disableThinking: false, // the WHOLE point is to let the reasoner think
+        // disableThinking → the provider's fast native `/api/chat think:false` path.
+        // We originally left thinking ON ("let the reasoner think"), but over Ollama's
+        // `/v1` a thinking Qwen3.6 producing structured output takes ~60s WARM and far
+        // longer cold/contended (codex holding the coder model) — so it blew the timeout
+        // and was skipped EVERY time (observed cx4: 2/2 skipped), delivering nothing.
+        // Benchmarked: native think:false answers the same diagnosis in ~6.5s (9× faster)
+        // and stays correct on the observed failure modes. A fast diagnosis that ARRIVES
+        // beats a perfect one that times out; qwen3.6 (a stronger model than the coder) is
+        // a capable diagnostician even without the <think> trace.
+        disableThinking: true,
       });
       this.logger.info(
         `reasoner unstick advisory issued for ${issue.identifier} (attempt ${attempts})`,

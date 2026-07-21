@@ -9,10 +9,19 @@ import { z } from 'zod';
  * `TS2532` across 7 self-correction retries. The cloud autopilot's answer to a stuck
  * task is escalation (stronger tier / an independent agent). The local analog, using
  * the models we already run: after a few failed self-corrections, ask the REASONER
- * (the thinking model used for design/plan/review, e.g. qwen3.6 with reasoning ON) to
- * diagnose the stuck state and prescribe a concrete fix, then hand THAT to the coder
- * as the next retry's guidance. A reasoner→coder handoff — the validated split — rather
- * than a bigger model or an isolated subagent (which a local staged run cannot spawn).
+ * (the stronger model used for design/plan/review, e.g. qwen3.6) to diagnose the stuck
+ * state and prescribe a concrete fix, then hand THAT to the coder as the next retry's
+ * guidance. A reasoner→coder handoff — the validated split — rather than a bigger model
+ * or an isolated subagent (which a local staged run cannot spawn).
+ *
+ * The advisory runs the reasoner with thinking OFF (native `/api/chat think:false`). We
+ * originally left thinking ON, but over Ollama's `/v1` a thinking Qwen3.6 producing
+ * structured output takes ~60s warm and far longer cold/contended — so it blew the
+ * timeout and was SKIPPED every time (cx4: 2/2), delivering nothing. Benchmarked, native
+ * think:false answers the same diagnosis ~9× faster (~6.5s) and stays correct on the
+ * observed failure modes: a fast diagnosis that ARRIVES beats a perfect one that times
+ * out, and qwen3.6 is a capable diagnostician even without the `<think>` trace. The
+ * reasoner's value here is being the stronger MODEL, not the trace.
  *
  * This module is the pure core (gating + prompt + formatting); the orchestrator wires
  * the actual reasoner call via an `AnalysisProvider` and threads the result into the
