@@ -208,7 +208,10 @@ export class CodeIngestor {
     this.respectGitignore = options.respectGitignore ?? true;
   }
 
-  async ingest(rootDir: string): Promise<IngestResult> {
+  async ingest(
+    rootDir: string,
+    opts: { skipRequirementAnnotations?: boolean } = {}
+  ): Promise<IngestResult> {
     const start = Date.now();
     const errors: string[] = [];
     let nodesAdded = 0;
@@ -248,14 +251,20 @@ export class CodeIngestor {
       }
     }
 
-    // Third pass: extract @req annotations and create verified_by edges (reuses cached content)
-    for (const filePath of files) {
-      try {
-        const content = contentCache.get(filePath);
-        if (content === undefined) continue;
-        edgesAdded += this.extractReqAnnotationsForFile(filePath, content, rootDir);
-      } catch {
-        // Skip errors in third pass
+    // Third pass: extract @req annotations and create verified_by edges (reuses cached content).
+    // Callers that ingest code BEFORE requirement nodes exist (the scan/ingest pipeline) pass
+    // `skipRequirementAnnotations` and instead call linkRequirementAnnotations() after
+    // RequirementIngestor.ingestSpecs() — otherwise every annotation references a not-yet-created
+    // requirement and no verified_by edge forms (#949).
+    if (!opts.skipRequirementAnnotations) {
+      for (const filePath of files) {
+        try {
+          const content = contentCache.get(filePath);
+          if (content === undefined) continue;
+          edgesAdded += this.extractReqAnnotationsForFile(filePath, content, rootDir);
+        } catch {
+          // Skip errors in third pass
+        }
       }
     }
 
@@ -267,6 +276,32 @@ export class CodeIngestor {
       errors,
       durationMs: Date.now() - start,
     };
+  }
+
+  /**
+   * Link `@req` annotations to requirement nodes, creating `verified_by` edges.
+   *
+   * A pass separate from {@link ingest} because it depends on requirement nodes
+   * already existing in the store. In the scan/ingest pipeline code is ingested
+   * before specs, so annotations must be linked AFTER RequirementIngestor.ingestSpecs()
+   * has run — otherwise every annotation references a not-yet-created requirement and no
+   * edge forms (#949). Re-reads file contents, since ingest()'s content cache is per-call
+   * and not retained.
+   *
+   * @returns the number of `verified_by` edges added.
+   */
+  async linkRequirementAnnotations(rootDir: string): Promise<number> {
+    const files = await this.findSourceFiles(rootDir);
+    let edgesAdded = 0;
+    for (const filePath of files) {
+      try {
+        const content = await fs.readFile(filePath, 'utf-8');
+        edgesAdded += this.extractReqAnnotationsForFile(filePath, content, rootDir);
+      } catch {
+        // Skip unreadable files
+      }
+    }
+    return edgesAdded;
   }
 
   private async processFile(
