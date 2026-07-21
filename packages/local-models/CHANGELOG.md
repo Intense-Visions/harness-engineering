@@ -1,5 +1,116 @@
 # @harness-engineering/local-models
 
+## 0.7.0
+
+### Minor Changes
+
+- c4c1dd3: feat(local-models): harness-fit probe — empirical agentic evidence for model recommendation
+
+  The local-model recommender ranks candidates by benchmark evidence plus a thin
+  agentic probe that only checks _"can the model emit a `tool_call`?"_ and _"is one
+  turn fast enough?"_. A live 3-way head-to-head proved this necessary-but-insufficient
+  for autonomous coding: `llama3.3:70b` **passes** the tool-calling gate and is fast,
+  yet it **narrated instead of acting** (one tool call, no artifact, gate never green),
+  while the smaller `gpt-oss:20b`/`qwen3.6:27b` **acted and converged**. No benchmark or
+  thin-probe signal predicted that — only running the real harness did.
+
+  The **harness-fit probe** supplies the missing empirical evidence. It runs a
+  benchmark-shortlisted candidate through a small contained coding task **on the real
+  harness**, judges convergence (the task's own acceptance command) plus act-vs-narrate
+  metrics from the recording stream, and maps them to a coarse `buildQuality ∈ [0, 1]`
+  (converged → HIGH, acted-not-converged → MID, narrated → LOW). That number feeds the
+  **already-wired** `buildQuality` slot in the `agenticScore` composition — **no
+  ranker-math change** — so at equal benchmark score an act-and-converge model out-ranks
+  a narrate-only one for autonomous dispatch, while the default `score` ordering is
+  untouched.
+  - **Pure policy + injected runner (dependency inversion).** `local-models` owns the
+    pure parts — the `buildQuality` mapping (`scoreBuildQuality`), the cost-gating policy
+    (`selectProbeTargets` / `isProbeDue` / `isCacheFresh` / `probeCacheKey`), the portable
+    task-suite schema + `DEFAULT_HARNESS_FIT_TASKS`, and the `HarnessFitRunner` interface.
+    The concrete single-dispatch runner (Ollama backend + throwaway workspace + acceptance
+    gate, reading the stream for act-vs-narrate metrics) is implemented in the orchestrator
+    and injected at the composition root, so `local-models` never depends on the orchestrator.
+  - **Single-dispatch convergence micro-probe.** The act-vs-narrate signal is decisive in
+    one dispatch; best-of-1, cheapest real signal.
+  - **Cost-gated (opt-in, top-N, cadence, cache, prefilter).** Disabled by default
+    (`localModels.harnessFit.enabled`). When enabled, only the benchmark top-N are probed
+    (never the full set), on a cadence (not every refresh), with `buildQuality` cached by
+    model+version and VRAM-unfit / `toolCalling:false` candidates prefiltered out.
+  - **Fail-open everywhere.** Any probe error/timeout/pull-failure leaves `buildQuality`
+    undefined ⇒ no ranking effect; the refresh is never broken and the pool is never blocked.
+  - **Config surface.** New optional `localModels.harnessFit` block (added to both the TS
+    type and the Zod schema so it survives config parse) — `enabled`, `topN`, `cadenceMs`,
+    `cacheTtlMs`, optional `taskIds`. Adopter-portable probe tasks self-describe their
+    acceptance command, so a probe runs in any adopter project.
+  - **Wired at the composition root (the probe actually fires).** `startRefreshScheduler`
+    constructs the `HarnessFitProbeRunner`, a persistent `HarnessFitCacheFileStore` under
+    `~/.harness/local-models/` (buildQuality cache + cadence timestamp), and a
+    `reRankWithBuildQuality` binding that re-runs the SAME ranker over the held candidate
+    set with probed `buildQuality` threaded in — passing them as the tick's `harnessFit`
+    deps ONLY when `localModels.harnessFit.enabled` (config→deps translation:
+    `cadenceMs → intervalMs`, `taskIds → tasks`). Disabled/absent ⇒ no deps are passed and
+    the tick is byte-identical to before.
+  - **Bounded (no hangs).** The runner enforces an overall per-probe wall-clock timeout
+    (default 5 min) around both the dispatch and the acceptance-command spawn — `maxTurns`
+    bounds turn count but not wall time, so a hung model or hanging acceptance is aborted
+    into a fail-open `error` result instead of blocking the refresh tick.
+  - **Converged-without-artifact is suspect.** A converged verdict only scores HIGH when the
+    model actually touched a file; a trivially-passing acceptance with no artifact drops to
+    MID/LOW rather than earning the top band.
+
+  See ADR 0081 (harness-fit probe: benchmarks pre-filter, the harness judges agentic fitness).
+
+- fac4261: feat(lmlm): probe + store per-model agentic tool-calling capability; require it for build routing
+
+  The pool ranked local models purely on benchmark scores, so a model that can't drive an agentic
+  build (it emits tool calls as TEXT the coding-agent SDK can't parse — e.g. qwen2.5-coder:7b) could
+  rank top and silently no-op a build. Bake the capability into the pool so selection is aware of it:
+  - **`probeToolCalling`** (`local-models`) — cheap-first: gate on Ollama `/api/show` `capabilities`
+    (free; no `tools` ⇒ `false` with no inference), then one `/v1` tool-schema call to confirm the
+    model actually emits native `tool_calls` (catches the "claims tools but emits text" false
+    positive). Any failure ⇒ `undefined` (unknown ⇒ fail-open). The single-call FORMAT probe is
+    deterministic, unlike the flaky multi-turn agentic loop.
+  - **`PoolEntry.toolCalling?`** — additive, round-trips via the existing clone/loader; written once
+    per model by the scheduler re-score (an injected probe seam) and never re-probed once decided.
+  - **`poolStateToCandidates(state, profile, { requireToolCalling })`** — excludes entries known not
+    to tool-call (`false`), keeping `true` + unprobed (`undefined`, fail-open).
+  - **`LocalModelResolver`** requires tool-calling for AGENTIC (tier) use-cases only — a build never
+    routes to a text-only model; triage/classification (which needs no tool-calling) is untouched.
+  - The orchestrator binds the probe to the local backend endpoint when starting the refresh
+    scheduler.
+
+  Verified live: the probe returns `false` for qwen2.5-coder:7b and `true` for qwen3:8b / qwen3:32b.
+  This makes the config-ordering fallback a belt-and-suspenders rather than the primary guard.
+
+- 1db2507: Add an agentic-suitability dimension to the pool ranker so a
+  fits-VRAM-but-unusable model is never routed autonomous work. Each
+  `RankedModel` gains `agenticScore`, `agenticEligible`, and `agenticReasons`
+  alongside the existing `score` (default ordering unchanged). The score
+  composes a HARD tool-calling gate (a model that can't emit `tool_calls` is
+  ineligible, not merely down-ranked), a measured agentic-latency gate/curve
+  (a model over the latency budget is ineligible; under budget it scales
+  inversely with latency), and existing benchmark quality. The ranker stays
+  pure — signals arrive as candidate inputs; a new `probeAgenticSignals`
+  helper (the only I/O, fail-open) fills them from the #833 tool-calling probe
+  plus a timed agentic call.
+- 2e78d78: Recency-aware local-model discovery. Discovery is now a wide net: per approved org it merges HuggingFace `trending` (new/hot) with `downloads` (established), dedupes by model id, and caps at the per-org limit, then hands the union to the benchmark ranker — instead of pre-filtering by cumulative downloads, which crowded out brand-new leaders before they could be scored. A failing `trending` call falls back to `downloads` (discovery never breaks). The `allowedOrgs` allowlist gains `openai`, `zai-org`, `THUDM`, `moonshotai` so the current-leader orgs can be considered. The benchmark ranker is unchanged — this only widens what reaches it.
+
+### Patch Changes
+
+- Updated dependencies [1de3ce4]
+- Updated dependencies [84bd986]
+- Updated dependencies [77815a8]
+- Updated dependencies [c4c1dd3]
+- Updated dependencies [fac4261]
+- Updated dependencies [3e5f0ca]
+- Updated dependencies [a0ef808]
+- Updated dependencies [545e818]
+- Updated dependencies [3b2b8ba]
+- Updated dependencies [f460e42]
+- Updated dependencies [84bd986]
+- Updated dependencies [f8c9dd9]
+  - @harness-engineering/types@0.24.0
+
 ## 0.6.0
 
 ### Minor Changes

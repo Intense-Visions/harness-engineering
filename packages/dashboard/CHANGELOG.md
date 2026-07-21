@@ -1,5 +1,74 @@
 # @harness-engineering/dashboard
 
+## 0.14.6
+
+### Patch Changes
+
+- af503e4: Add an explicit `Hono` type annotation to the exported `app` so its inferred type is nameable via the direct `hono` dependency rather than a hoisted `.pnpm` path (fixes TS2742 in the whole-tree typecheck). Behavior-preserving.
+- Updated dependencies [c14320e]
+- Updated dependencies [f460e42]
+- Updated dependencies [84bd986]
+- Updated dependencies [1de3ce4]
+- Updated dependencies [84bd986]
+- Updated dependencies [84bd986]
+- Updated dependencies [f460e42]
+- Updated dependencies [4bd325b]
+- Updated dependencies [77815a8]
+- Updated dependencies [d965516]
+- Updated dependencies [afd1099]
+- Updated dependencies [7d05321]
+- Updated dependencies [f460e42]
+- Updated dependencies [f460e42]
+- Updated dependencies [bad5b81]
+- Updated dependencies [f460e42]
+- Updated dependencies [0c9a304]
+- Updated dependencies [f460e42]
+- Updated dependencies [c4c1dd3]
+- Updated dependencies [af503e4]
+- Updated dependencies [fac4261]
+- Updated dependencies [fac4261]
+- Updated dependencies [3e5f0ca]
+- Updated dependencies [840f92c]
+- Updated dependencies [f460e42]
+- Updated dependencies [f460e42]
+- Updated dependencies [f460e42]
+- Updated dependencies [3be9a98]
+- Updated dependencies [23ed8fc]
+- Updated dependencies [a0ef808]
+- Updated dependencies [a06a08e]
+- Updated dependencies [545e818]
+- Updated dependencies [c80086a]
+- Updated dependencies [3b2b8ba]
+- Updated dependencies [f460e42]
+- Updated dependencies [f460e42]
+- Updated dependencies [402d56f]
+- Updated dependencies [143fb32]
+- Updated dependencies [0c8af29]
+- Updated dependencies [fac4261]
+- Updated dependencies [f460e42]
+- Updated dependencies [c1c0b30]
+- Updated dependencies [2e78d78]
+- Updated dependencies [809d327]
+- Updated dependencies [e3bd99e]
+- Updated dependencies [84bd986]
+- Updated dependencies [1c95956]
+- Updated dependencies [5038b56]
+- Updated dependencies [e203b5e]
+- Updated dependencies [dc3c932]
+- Updated dependencies [3d4c9da]
+- Updated dependencies [bd850a8]
+- Updated dependencies [c62e59c]
+- Updated dependencies [f8c9dd9]
+- Updated dependencies [fac4261]
+- Updated dependencies [fac4261]
+- Updated dependencies [fac4261]
+- Updated dependencies [8786245]
+  - @harness-engineering/core@0.38.0
+  - @harness-engineering/orchestrator@0.17.0
+  - @harness-engineering/types@0.24.0
+  - @harness-engineering/graph@0.11.10
+  - @harness-engineering/signals@0.2.8
+
 ## 0.14.5
 
 ### Patch Changes
