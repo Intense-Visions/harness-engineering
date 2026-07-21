@@ -105,8 +105,12 @@ function countBraces(line: string): number {
 const SUPPORTED_EXTENSIONS = new Set([
   '.ts',
   '.tsx',
+  '.mts',
+  '.cts',
   '.js',
   '.jsx',
+  '.mjs',
+  '.cjs',
   '.py',
   '.go',
   '.rs',
@@ -875,7 +879,20 @@ export class CodeIngestor {
     const resolved = path.normalize(path.join(fromDir, importPath)).replace(/\\/g, '/');
 
     // Try with extensions
-    const extensions = ['.ts', '.tsx', '.js', '.jsx', '.py', '.go', '.rs', '.java'];
+    const extensions = [
+      '.ts',
+      '.tsx',
+      '.mts',
+      '.cts',
+      '.js',
+      '.jsx',
+      '.mjs',
+      '.cjs',
+      '.py',
+      '.go',
+      '.rs',
+      '.java',
+    ];
     for (const ext of extensions) {
       const candidate = resolved.replace(/\.js$/, '') + ext;
       const fullPath = path.join(rootDir, candidate);

@@ -165,4 +165,42 @@ describe('CodeIngestor @req annotation parsing', () => {
       expect(edge.metadata!.method).toBe('annotation');
     }
   });
+
+  it('should ingest .mjs/.cjs files and honor their @req annotations (regression #949)', async () => {
+    const srcDir = path.join(tmpDir, 'src');
+    await fs.mkdir(srcDir, { recursive: true });
+    // ESM test file — the shape used by e.g. node:test suites
+    await fs.writeFile(
+      path.join(srcDir, 'auth.test.mjs'),
+      [
+        '// @req auth-feature#2',
+        "import { test } from 'node:test';",
+        'test("hashes passwords", () => {});',
+      ].join('\n')
+    );
+    // CommonJS file
+    await fs.writeFile(
+      path.join(srcDir, 'legacy.cjs'),
+      ['// @req auth-feature#3', 'module.exports = { validate() { return true; } };'].join('\n')
+    );
+
+    const reqIngestor = new RequirementIngestor(store);
+    await reqIngestor.ingestSpecs(path.join(tmpDir, 'docs', 'changes'));
+
+    const codeIngestor = new CodeIngestor(store);
+    await codeIngestor.ingest(tmpDir);
+
+    // .mjs and .cjs files must become first-class file nodes
+    const exts = store.findNodes({ type: 'file' }).map((n) => path.extname(n.name));
+    expect(exts).toContain('.mjs');
+    expect(exts).toContain('.cjs');
+
+    // and their @req annotations must produce verified_by edges
+    const annotationTags = store
+      .getEdges({ type: 'verified_by' })
+      .filter((e) => e.metadata?.method === 'annotation')
+      .map((e) => e.metadata!.tag);
+    expect(annotationTags).toContain('@req auth-feature#2');
+    expect(annotationTags).toContain('@req auth-feature#3');
+  });
 });
