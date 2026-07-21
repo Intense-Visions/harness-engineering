@@ -143,6 +143,15 @@ export interface WorkflowEngineContext {
     failingStep?: WorkflowExecutionPlan['stages'][number],
     err?: unknown
   ): Promise<void>;
+  /**
+   * Resume-from-failed-stage checkpoint (survives gate-block re-dispatches, on the
+   * orchestrator not this per-dispatch ctx). `loadStageCheckpoint` returns the map of
+   * previously-completed `checkpoint: true` stages (stageIndex → its StageRun) for the
+   * unit; `saveStageCheckpoint` persists one. Absent seams (fake/legacy ctx) ⇒ no reuse
+   * (byte-identical prior behavior). Cleared by the orchestrator on a terminal.
+   */
+  loadStageCheckpoint?(unit: string): ReadonlyMap<number, StageRun> | undefined;
+  saveStageCheckpoint?(unit: string, stageIndex: number, run: StageRun): void;
 }
 
 /**
@@ -496,9 +505,28 @@ export async function executeWorkflow(
   plan: WorkflowExecutionPlan
 ): Promise<void> {
   const runs: StageRun[] = [];
+  // Resume-from-failed-stage: reuse the checkpointed outputs of `checkpoint: true`
+  // stages (the stable design: spec/plan) that passed on a prior dispatch, so a
+  // gate-block re-dispatch re-runs only execution onward against a FIXED design —
+  // rather than regenerating the whole lifecycle each retry.
+  const checkpoint = ctx.loadStageCheckpoint?.(plan.coherenceUnit);
   try {
     for (const [index, step] of plan.stages.entries()) {
-      const run = await runStageWithRetry(ctx, plan.coherenceUnit, index, step, runs);
+      const cached = step.checkpoint === true ? checkpoint?.get(index) : undefined;
+      let run: StageRun;
+      if (cached !== undefined) {
+        run = cached;
+        ctx.logger.info(
+          `resumed stage ${index} (${step.skill}) from checkpoint — reusing prior ${step.produces}`,
+          { issueId: ctx.issueId }
+        );
+      } else {
+        run = await runStageWithRetry(ctx, plan.coherenceUnit, index, step, runs);
+        // Checkpoint a passing checkpoint-stage so a later re-dispatch reuses it.
+        if (step.checkpoint === true && run.outcome === 'pass') {
+          ctx.saveStageCheckpoint?.(plan.coherenceUnit, index, run);
+        }
+      }
       runs.push(run);
       // D8(c)/D10 (SC6): a non-pass stage outcome (a `pass-required` quality
       // failure that survived the single engine retry, or a mid-stage runner

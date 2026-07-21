@@ -208,6 +208,7 @@ export const BackendDefSchema = z.discriminatedUnion('type', [
       localProvider: z.enum(['ollama', 'lmstudio']).optional(),
       command: z.string().optional(),
       timeoutMs: z.number().int().positive().optional(),
+      mcpServers: z.array(McpServerSpecSchema).optional(),
       capabilities: BackendCapabilitiesSchema.optional(),
     })
     .strict(),
@@ -361,6 +362,8 @@ export const WorkflowStepSchema = z
     produces: z.string().min(1),
     expects: z.string().min(1).optional(),
     gate: z.enum(['pass-required', 'advisory']).optional(),
+    // Reuse this stage's output across gate-block re-dispatches (resume-from-failed-stage).
+    checkpoint: z.boolean().optional(),
     cognitiveMode: z.string().min(1).optional(),
     routingHint: z.object({ complexity: z.any().optional(), risk: z.any().optional() }).optional(),
   })

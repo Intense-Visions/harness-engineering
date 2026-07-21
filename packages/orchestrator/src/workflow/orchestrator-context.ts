@@ -12,7 +12,7 @@ import type {
   WorkflowExecutionPlan,
 } from '@harness-engineering/types';
 import { AgentRunner } from '../agent/runner.js';
-import { isLocalEndpointBackend } from '../agent/backend-factory.js';
+import { isLocalExecutionBackend } from '../agent/backend-factory.js';
 import type { OrchestratorBackendFactory } from '../agent/orchestrator-backend-factory.js';
 import { selectStagePromptTemplate } from './local-stage-prompt.js';
 import type { StreamRecorder } from '../core/stream-recorder.js';
@@ -127,6 +127,9 @@ export interface BuildWorkflowContextDeps {
     failingStep?: WorkflowExecutionPlan['stages'][number],
     err?: unknown
   ) => Promise<void>;
+  /** Resume-from-failed-stage checkpoint seams (bound to the orchestrator's map). */
+  loadStageCheckpoint?: (unit: string) => ReadonlyMap<number, StageRun> | undefined;
+  saveStageCheckpoint?: (unit: string, stageIndex: number, run: StageRun) => void;
 }
 
 /**
@@ -334,7 +337,11 @@ function isLocalBackendFactory(
 ): NonNullable<WorkflowEngineContext['isLocalBackend']> {
   return (backend) => {
     const def = backends?.[backend.name];
-    return def !== undefined && isLocalEndpointBackend(def);
+    // isLocalExecutionBackend (incl. codex): a codex stage also needs the local
+    // skill-run template (`harness skill run harness-<skill> --autonomous`) so it
+    // executes the harness lifecycle skill single-agent, rather than the Claude-shaped
+    // default template. The harness lifecycle rides on the orchestrator's stages.
+    return def !== undefined && isLocalExecutionBackend(def);
   };
 }
 
@@ -418,6 +425,16 @@ export function buildWorkflowContext(deps: BuildWorkflowContextDeps): WorkflowEn
     ): Promise<void> {
       return deps.settleTerminal(unit, runs, failingStep, err);
     },
+
+    // Resume-from-failed-stage checkpoint seams — thin forwarders to the orchestrator's
+    // per-unit stageCheckpoints map (survives re-dispatch). Absent deps ⇒ omitted ⇒ no
+    // reuse (SC3 byte-identical prior behavior).
+    ...(deps.loadStageCheckpoint !== undefined
+      ? { loadStageCheckpoint: deps.loadStageCheckpoint }
+      : {}),
+    ...(deps.saveStageCheckpoint !== undefined
+      ? { saveStageCheckpoint: deps.saveStageCheckpoint }
+      : {}),
 
     ...(adaptiveRouter !== null
       ? {

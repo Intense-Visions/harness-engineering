@@ -92,7 +92,7 @@ import { redriveInstallingProposals } from './proposals/model-handlers';
 import type { ModelProposalRecord } from '@harness-engineering/types';
 import { migrateAgentConfig } from './agent/config-migration';
 import { OrchestratorBackendFactory } from './agent/orchestrator-backend-factory';
-import { isLocalEndpointBackend } from './agent/backend-factory';
+import { isLocalEndpointBackend, isLocalExecutionBackend } from './agent/backend-factory';
 import { makeBackendResolver } from './agent/backend-resolver';
 import { createAgentDispatcher } from './maintenance/agent-dispatcher';
 import { execFileSync } from 'node:child_process';
@@ -641,6 +641,14 @@ export class Orchestrator extends EventEmitter {
    * settles terminally or ships (a green gate), so a later re-pickup starts fresh.
    */
   private localStageGateAttempts = new Map<string, number>();
+  /**
+   * Resume-from-failed-stage checkpoint: per unit, the completed `checkpoint: true`
+   * stage runs (stageIndex → StageRun) that survive gate-block re-dispatches so the
+   * stable design (spec/plan) is reused instead of regenerated each retry. Cleared on
+   * every terminal (ship or needs-human) alongside {@link localStageGateAttempts}, so a
+   * fresh re-pickup regenerates the design.
+   */
+  private stageCheckpoints = new Map<string, Map<number, StageRun>>();
   private server?: OrchestratorServer;
   private interval?: ReturnType<typeof setTimeout> | undefined;
   private heartbeatInterval?: ReturnType<typeof setInterval> | undefined;
@@ -2482,6 +2490,14 @@ export class Orchestrator extends EventEmitter {
           ...(this.priorGateFailureByIssue.get(issue.id) !== undefined
             ? { priorGateFailure: this.priorGateFailureByIssue.get(issue.id)! }
             : {}),
+          // Resume-from-failed-stage: reuse `checkpoint: true` stages (design) across
+          // gate-block re-dispatches so execution retries against a FIXED spec/plan.
+          loadStageCheckpoint: (u: string) => this.stageCheckpoints.get(u),
+          saveStageCheckpoint: (u: string, i: number, run: StageRun) => {
+            const m = this.stageCheckpoints.get(u) ?? new Map<number, StageRun>();
+            m.set(i, run);
+            this.stageCheckpoints.set(u, m);
+          },
           // staged-verify-gate-convergence (blocking fix): thread THIS dispatch's
           // `workspacePath` + `issue` into the settle callbacks. On a staged RETRY
           // re-dispatch the tick does NOT recreate the running entry (retry_fired →
@@ -2937,7 +2953,10 @@ export class Orchestrator extends EventEmitter {
     acceptance?: string
   ): Promise<{ ok: true } | { ok: false; reason: string }> {
     const def = this.config.agent.backends?.[backendName];
-    const isLocal = def !== undefined && isLocalEndpointBackend(def);
+    // isLocalExecutionBackend (not …Endpoint): a `codex` stage also lands its change
+    // in the worktree and MUST go through this enforced gate — codex can report a
+    // hollow success, so the gate is the safety net that catches it.
+    const isLocal = def !== undefined && isLocalExecutionBackend(def);
     if (!isLocal) return { ok: true };
 
     try {
@@ -3742,7 +3761,9 @@ export class Orchestrator extends EventEmitter {
     const lastBackendName = runs[runs.length - 1]?.decision?.backendName;
     const lastDef =
       lastBackendName !== undefined ? this.config.agent.backends?.[lastBackendName] : undefined;
-    const isLocal = lastDef !== undefined && isLocalEndpointBackend(lastDef);
+    // isLocalExecutionBackend: a `codex` execution stage settles through the same
+    // enforced gate + ship path as a local-endpoint stage (its change is in the worktree).
+    const isLocal = lastDef !== undefined && isLocalExecutionBackend(lastDef);
     const workspacePath = closureWorkspacePath ?? entry?.workspacePath;
     const issue = closureIssue ?? entry?.issue;
     if (isLocal && workspacePath !== undefined && issue !== undefined) {
@@ -3801,6 +3822,7 @@ export class Orchestrator extends EventEmitter {
       // Shipped — the unit converged. Clear the retry counter and fall through to the
       // existing success path (cleanWorkspaceWithGuard now finds the pushed branch+PR).
       this.localStageGateAttempts.delete(unit);
+      this.stageCheckpoints.delete(unit); // resume-checkpoint cleared at every terminal
       // IMPORTANT #2 — record the durable double-ship guard. `state.completed`
       // (set by the reducer sequence below) is only TRANSIENT: it is released past
       // the grace window for a still-active row, which would re-select + RE-SHIP
@@ -3918,6 +3940,7 @@ export class Orchestrator extends EventEmitter {
       // D3 tail — bounded retries exhausted → the existing needs-human terminal
       // (which cleans + escalates). Reset the counter so a future re-pickup is fresh.
       this.localStageGateAttempts.delete(unit);
+      this.stageCheckpoints.delete(unit); // resume-checkpoint cleared at every terminal
       this.priorGateFailureByIssue.delete(unit);
       // Durable process-lifetime guard: the terminal marks the LANE (canceled), not
       // the ROW — the row stays `in-progress`, so the tick would re-select this unit
@@ -3995,6 +4018,7 @@ export class Orchestrator extends EventEmitter {
       // its staged-gate retry counter + prior-failure preamble so a future re-pickup
       // starts fresh (no stale carry-over from a prior convergence attempt).
       this.localStageGateAttempts.delete(unit);
+      this.stageCheckpoints.delete(unit); // resume-checkpoint cleared at every terminal
       this.priorGateFailureByIssue.delete(unit);
       const entry = this.state.running.get(unit);
       const identifier = entry?.identifier ?? unit;

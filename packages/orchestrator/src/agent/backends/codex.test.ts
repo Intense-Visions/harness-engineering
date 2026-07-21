@@ -2,8 +2,8 @@ import { describe, it, expect } from 'vitest';
 import * as fs from 'node:fs';
 import * as os from 'node:os';
 import * as path from 'node:path';
-import { CodexBackend } from './codex';
-import { createBackend } from '../backend-factory';
+import { CodexBackend, buildMcpConfigArgs } from './codex';
+import { createBackend, isLocalExecutionBackend, isLocalEndpointBackend } from '../backend-factory';
 import { BackendDefSchema } from '../../workflow/schema';
 import type { AgentSession, TurnParams, AgentEvent, TurnResult } from '@harness-engineering/types';
 
@@ -14,6 +14,18 @@ function fakeCodex(body: string): string {
   fs.writeFileSync(p, `#!/bin/sh\n${body}\n`, { mode: 0o755 });
   return p;
 }
+
+/**
+ * The {@link fakeCodex} stand-in is a POSIX `#!/bin/sh` script. `CodexBackend`
+ * launches it with a shell-less `child_process.spawn`, which on Windows can
+ * execute only a real `.exe` — a shebang script is not honored, and a `.cmd`
+ * throws `EINVAL` without `shell: true` (Node's CVE-2024-27980 fix, present in
+ * the pinned Node 22). So the tests that spawn this fixture run on POSIX only.
+ * (Matches the repo's existing bash-hook e2e `skipIf(win32)` convention; a real
+ * `codex.exe` on Windows is exercised by the healthCheck/no-model paths, which
+ * do not depend on a script stand-in.)
+ */
+const itPosix = it.skipIf(process.platform === 'win32');
 
 async function drive(
   b: CodexBackend,
@@ -79,7 +91,7 @@ describe('CodexBackend', () => {
     expect(b.name).toBe('codex');
   });
 
-  it('runTurn streams JSONL events and reports success on exit 0', async () => {
+  itPosix('runTurn streams JSONL events and reports success on exit 0', async () => {
     const cmd = fakeCodex(`echo '{"type":"session.created"}'
 echo '{"msg":{"type":"item.completed"}}'
 echo 'plain text line'
@@ -95,7 +107,25 @@ exit 0`);
     expect(subtypes).toContain('codex:codex_output'); // non-JSON line
   });
 
-  it('runTurn reports success:false + error on a non-zero exit', async () => {
+  itPosix(
+    'drives codex with --sandbox workspace-write, not the dangerous full bypass',
+    async () => {
+      const argfile = path.join(fs.mkdtempSync(path.join(os.tmpdir(), 'codex-args-')), 'args');
+      // record the exact argv codex was spawned with
+      const cmd = fakeCodex(`printf '%s\\n' "$@" > "${argfile}"\nexit 0`);
+      const b = new CodexBackend({ model: 'm', command: cmd });
+      await drive(b, SESSION);
+      const argv = fs.readFileSync(argfile, 'utf8');
+      expect(argv).toContain('--sandbox');
+      expect(argv).toContain('workspace-write');
+      expect(argv).not.toContain('dangerously-bypass');
+      // multi_agent disabled — unsupported for local models and derails the run
+      expect(argv).toContain('--disable');
+      expect(argv).toContain('multi_agent');
+    }
+  );
+
+  itPosix('runTurn reports success:false + error on a non-zero exit', async () => {
     const cmd = fakeCodex(`echo '{"type":"error"}'
 exit 3`);
     const b = new CodexBackend({ model: 'm', command: cmd });
@@ -104,7 +134,7 @@ exit 3`);
     expect(result.error).toMatch(/exited with code 3/);
   });
 
-  it('runTurn kills + fails when the session exceeds the wall-clock cap', async () => {
+  itPosix('runTurn kills + fails when the session exceeds the wall-clock cap', async () => {
     const cmd = fakeCodex(`sleep 10`);
     const b = new CodexBackend({ model: 'm', command: cmd, timeoutMs: 150 });
     const { result } = await drive(b, SESSION);
@@ -128,6 +158,28 @@ describe('createBackend — codex type', () => {
   it('constructs from an array (prefer-fallback) model', () => {
     const backend = createBackend({ type: 'codex', model: ['qwen3-coder:30b', 'qwen3.6:27b'] });
     expect(backend.name).toBe('codex');
+  });
+});
+
+describe('isLocalExecutionBackend — codex routes through the enforced local gate', () => {
+  it('includes codex (drives a local model; its change lands in the worktree)', () => {
+    expect(isLocalExecutionBackend({ type: 'codex', model: 'qwen3-coder:30b' })).toBe(true);
+  });
+
+  it('includes the local-endpoint backends (superset of isLocalEndpointBackend)', () => {
+    expect(isLocalExecutionBackend({ type: 'ollama', endpoint: 'http://x/v1', model: 'm' })).toBe(
+      true
+    );
+    expect(isLocalExecutionBackend({ type: 'pi', endpoint: 'http://x', model: 'm' })).toBe(true);
+  });
+
+  it('excludes cloud/claude backends (no enforced local gate)', () => {
+    expect(isLocalExecutionBackend({ type: 'claude' })).toBe(false);
+    expect(isLocalExecutionBackend({ type: 'anthropic', model: 'x' })).toBe(false);
+  });
+
+  it('codex is NOT a local-ENDPOINT backend (it has no endpoint) — kept out of endpoint sites', () => {
+    expect(isLocalEndpointBackend({ type: 'codex', model: 'm' })).toBe(false);
   });
 });
 
@@ -158,5 +210,57 @@ describe('BackendDefSchema — codex', () => {
 
   it('requires a model', () => {
     expect(BackendDefSchema.safeParse({ type: 'codex' }).success).toBe(false);
+  });
+
+  it('accepts mcpServers with a curated tools allowlist', () => {
+    const r = BackendDefSchema.safeParse({
+      type: 'codex',
+      model: 'qwen3-coder:30b',
+      mcpServers: [
+        { name: 'context7', command: 'npx', args: ['-y', '@upstash/context7-mcp'] },
+        { name: 'harness', command: 'node', args: ['/x/harness-mcp.js'], tools: ['code_search'] },
+      ],
+    });
+    expect(r.success).toBe(true);
+  });
+});
+
+describe('buildMcpConfigArgs — codex -c mcp_servers injection', () => {
+  it('returns no args for an empty server list', () => {
+    expect(buildMcpConfigArgs([])).toEqual([]);
+  });
+
+  it('encodes command + args as TOML (JSON) values under mcp_servers.<name>', () => {
+    const args = buildMcpConfigArgs([
+      { name: 'context7', command: 'npx', args: ['-y', '@upstash/context7-mcp'] },
+    ]);
+    // each -c is two argv entries
+    expect(args[0]).toBe('-c');
+    expect(args).toContain('mcp_servers.context7.command="npx"');
+    expect(args).toContain('mcp_servers.context7.args=["-y","@upstash/context7-mcp"]');
+    expect(args).toContain('mcp_servers.context7.startup_timeout_sec=60');
+  });
+
+  it('maps the spec tools allowlist to codex enabled_tools', () => {
+    const args = buildMcpConfigArgs([
+      {
+        name: 'harness',
+        command: 'node',
+        args: ['/x/harness-mcp.js'],
+        tools: ['code_search', 'ask_graph'],
+      },
+    ]);
+    expect(args).toContain('mcp_servers.harness.enabled_tools=["code_search","ask_graph"]');
+  });
+
+  it('omits enabled_tools when no allowlist is given (all tools exposed)', () => {
+    const args = buildMcpConfigArgs([{ name: 'ctx', command: 'npx' }]);
+    expect(args.some((a) => a.includes('enabled_tools'))).toBe(false);
+  });
+
+  it('emits per-key env overrides and sanitizes dots in the server name', () => {
+    const args = buildMcpConfigArgs([{ name: 'a.b', command: 'x', env: { TOKEN: 'secret' } }]);
+    expect(args).toContain('mcp_servers.a_b.command="x"');
+    expect(args).toContain('mcp_servers.a_b.env.TOKEN="secret"');
   });
 });

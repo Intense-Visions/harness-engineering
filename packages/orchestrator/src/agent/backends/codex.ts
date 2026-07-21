@@ -12,6 +12,7 @@ import {
   Ok,
   Err,
   AgentError,
+  McpServerSpec,
 } from '@harness-engineering/types';
 
 /**
@@ -43,9 +44,53 @@ export interface CodexBackendOptions {
   localProvider?: 'ollama' | 'lmstudio';
   /** Hard wall-clock cap per session in ms. Default 30min (codex sessions run long). */
   timeoutMs?: number;
+  /**
+   * MCP servers to expose to the codex-driven model, injected per-invocation via
+   * `-c mcp_servers.<name>.…` overrides (NOT written to the user's global
+   * `~/.codex/config.toml`, so their real codex setup is untouched). Mirrors the
+   * `mcpServers` config the {@link OllamaBackend} path uses: each spec's `tools`
+   * allowlist maps to codex's per-server `enabled_tools`, so a broad server (e.g.
+   * harness-mcp's ~95 tools) is narrowed to a high-value set the local model can
+   * navigate. Absent/empty ⇒ codex runs with only its built-in tools.
+   */
+  mcpServers?: McpServerSpec[];
 }
 
 const DEFAULT_TIMEOUT_MS = 30 * 60_000;
+
+/** Generous startup budget (s) — npx-launched servers (context7) cold-start slowly. */
+const MCP_STARTUP_TIMEOUT_SEC = 60;
+
+/**
+ * Translate {@link McpServerSpec}s into `codex exec -c mcp_servers.…` override argv.
+ * Each `-c` is two argv entries (`'-c'`, `'<dotted.key>=<toml-value>'`); values are
+ * JSON-encoded, which is valid TOML for strings and string-arrays. `spec.tools` →
+ * `enabled_tools` (codex's per-server allowlist). Server names are dot-sanitized so
+ * the dotted-path parser keys them correctly.
+ */
+export function buildMcpConfigArgs(servers: readonly McpServerSpec[]): string[] {
+  const args: string[] = [];
+  const push = (key: string, value: string): void => {
+    args.push('-c', `${key}=${value}`);
+  };
+  for (const spec of servers) {
+    const name = spec.name.replace(/\./g, '_');
+    const base = `mcp_servers.${name}`;
+    push(`${base}.command`, JSON.stringify(spec.command));
+    if (spec.args !== undefined) push(`${base}.args`, JSON.stringify(spec.args));
+    if (spec.cwd !== undefined) push(`${base}.cwd`, JSON.stringify(spec.cwd));
+    if (spec.env !== undefined) {
+      for (const [k, v] of Object.entries(spec.env)) {
+        push(`${base}.env.${k}`, JSON.stringify(v));
+      }
+    }
+    if (spec.tools !== undefined && spec.tools.length > 0) {
+      push(`${base}.enabled_tools`, JSON.stringify(spec.tools));
+    }
+    push(`${base}.startup_timeout_sec`, String(MCP_STARTUP_TIMEOUT_SEC));
+  }
+  return args;
+}
 
 export class CodexBackend implements AgentBackend {
   readonly name = 'codex';
@@ -54,6 +99,7 @@ export class CodexBackend implements AgentBackend {
   private getModel?: () => string | null;
   private localProvider: 'ollama' | 'lmstudio';
   private timeoutMs: number;
+  private mcpServers: McpServerSpec[];
 
   constructor(options: CodexBackendOptions = {}) {
     this.command = options.command ?? 'codex';
@@ -61,6 +107,7 @@ export class CodexBackend implements AgentBackend {
     if (options.getModel !== undefined) this.getModel = options.getModel;
     this.localProvider = options.localProvider ?? 'ollama';
     this.timeoutMs = options.timeoutMs ?? DEFAULT_TIMEOUT_MS;
+    this.mcpServers = options.mcpServers ?? [];
   }
 
   private resolveModel(): string | undefined {
@@ -99,9 +146,25 @@ export class CodexBackend implements AgentBackend {
       model,
       '-C',
       session.workspacePath,
-      // Externally sandboxed already (isolated worktree); let codex apply edits + run
-      // the gate without per-command approval prompts.
-      '--dangerously-bypass-approvals-and-sandbox',
+      // `workspace-write` (not the full `--dangerously-bypass-approvals-and-sandbox`):
+      // exec mode already runs approval-free (`approval: never`), and workspace-write
+      // lets codex edit the worktree + run the gate (verified: 21 gate runs in a live
+      // trial) WITHOUT the bypass mode's failure where an interactive command hits
+      // `write_stdin failed: stdin is closed for this session`. Reads are unrestricted
+      // (the pnpm store resolves); writes are confined to the worktree — appropriate
+      // since the orchestrator already dispatches codex into an isolated worktree.
+      '--sandbox',
+      'workspace-write',
+      // Disable codex's multi-agent/subagent dispatch: it is native (GPT-5) only and
+      // fails with `unsupported call: multi_agent_v1` when driving a LOCAL model, which
+      // derails the run. The harness lifecycle rides on the ORCHESTRATOR's stage
+      // sequencing instead, with codex executing each skill as a single agent.
+      '--disable',
+      'multi_agent',
+      // Inject MCP servers (context7 for live docs, curated harness-mcp read tools)
+      // per-invocation so the codex-driven local model gets the same tool surface the
+      // ollama path curates — WITHOUT mutating the user's global ~/.codex/config.toml.
+      ...buildMcpConfigArgs(this.mcpServers),
       '--json',
       params.prompt,
     ];

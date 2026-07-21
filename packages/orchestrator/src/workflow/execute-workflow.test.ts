@@ -50,6 +50,8 @@ function makeFakeCtx(opts: {
   onSuccess?: (unit: string, runs: StageRun[]) => void;
   onTerminal?: (unit: string, runs: StageRun[], err?: unknown) => void;
   adaptiveRouter?: WorkflowEngineContext['adaptiveRouter'];
+  /** Resume-checkpoint: pre-seed to test reuse; reads/writes are observable. */
+  checkpoint?: Map<number, StageRun>;
 }): {
   ctx: WorkflowEngineContext;
   runOrder: number[];
@@ -123,6 +125,13 @@ function makeFakeCtx(opts: {
       terminalFailingSteps.push(failingStep as WorkflowStep | undefined);
       opts.onTerminal?.(unit, runs, err);
     },
+    ...(opts.checkpoint !== undefined
+      ? {
+          loadStageCheckpoint: (_u: string) => opts.checkpoint,
+          saveStageCheckpoint: (_u: string, i: number, run: StageRun) =>
+            opts.checkpoint!.set(i, run),
+        }
+      : {}),
   };
 
   return {
@@ -324,6 +333,46 @@ describe('executeWorkflow — sequential loop (SC1/split-routing P1)', () => {
     expect(runs.map((r) => r.tokens?.total)).toEqual([15, 27, 39]);
     // distinct per-stage token totals — cost is attributable per stage
     expect(new Set(runs.map((r) => r.tokens?.total)).size).toBe(3);
+  });
+});
+
+describe('executeWorkflow — resume-from-failed-stage checkpoint', () => {
+  const cstep = (produces: string, checkpoint = false): WorkflowStep => ({
+    skill: `skill-${produces}`,
+    produces,
+    ...(checkpoint ? { checkpoint: true } : {}),
+  });
+  const designThenCode: WorkflowExecutionPlan = {
+    coherenceUnit: 'issue-1',
+    stages: [cstep('spec', true), cstep('plan', true), cstep('impl')],
+  };
+
+  it('saves passing checkpoint:true stages (design) but not the code stage', async () => {
+    const checkpoint = new Map<number, StageRun>();
+    const { ctx, runOrder } = makeFakeCtx({ sessionIds: ['s0', 's1', 's2'], checkpoint });
+    await executeWorkflow(ctx, designThenCode);
+    expect(runOrder).toHaveLength(3); // all ran on the first dispatch
+    expect([...checkpoint.keys()].sort()).toEqual([0, 1]); // only the two design stages checkpointed
+  });
+
+  it('REUSES checkpointed design on re-dispatch — only the code stage re-runs, design output threaded', async () => {
+    const checkpoint = new Map<number, StageRun>([
+      [0, { index: 0, step: cstep('spec', true), outcome: 'pass', output: 'the spec' }],
+      [1, { index: 1, step: cstep('plan', true), outcome: 'pass', output: 'the plan' }],
+    ]);
+    const { ctx, runOrder, successCalls } = makeFakeCtx({ sessionIds: ['s2'], checkpoint });
+    await executeWorkflow(ctx, designThenCode);
+    expect(runOrder).toHaveLength(1); // ONLY the impl stage ran; design reused
+    const runs = successCalls[0]!;
+    expect(runs.map((r) => r.step.produces)).toEqual(['spec', 'plan', 'impl']);
+    expect(runs[0]!.output).toBe('the spec'); // reused design output present for downstream
+    expect(runs[1]!.output).toBe('the plan');
+  });
+
+  it('without checkpoint seams (legacy ctx) → all stages run (SC3 byte-identical)', async () => {
+    const { ctx, runOrder } = makeFakeCtx({ sessionIds: ['s0', 's1', 's2'] }); // no checkpoint
+    await executeWorkflow(ctx, designThenCode);
+    expect(runOrder).toHaveLength(3);
   });
 });
 

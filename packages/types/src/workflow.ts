@@ -17,6 +17,18 @@ export interface WorkflowStep {
   expects?: string;
   /** Whether failure of this step stops the workflow */
   gate?: 'pass-required' | 'advisory';
+  /**
+   * Reuse this stage's output across gate-block RE-DISPATCHES (resume-from-failed-stage).
+   * When true, once this stage passes its output is checkpointed per unit; on a later
+   * re-dispatch of the same unit (the enforced gate blocked a downstream stage), this
+   * stage is SKIPPED and its checkpointed output reused instead of regenerating it.
+   * Mark the stable DESIGN stages (brainstorm/plan) so an execution-gate failure retries
+   * only execution onward against a FIXED spec/plan — not the whole lifecycle (which
+   * regenerates the design each retry, moving the target and hampering convergence).
+   * The checkpoint is cleared on a terminal (ship or needs-human), so a fresh pickup
+   * regenerates. Default false — omit for byte-identical prior behavior.
+   */
+  checkpoint?: boolean;
   /** Drives the per-stage RoutingUseCase (Phase 2 consumer). */
   cognitiveMode?: string;
   /**

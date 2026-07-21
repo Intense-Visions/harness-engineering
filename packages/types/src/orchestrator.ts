@@ -523,6 +523,14 @@ export interface CodexBackendDef {
   command?: string;
   /** Hard wall-clock cap per session in ms. Default 1_800_000 (30min). */
   timeoutMs?: number;
+  /**
+   * MCP servers exposed to the codex-driven local model, injected per-invocation via
+   * `-c mcp_servers.<name>.…` (never written to the user's global `~/.codex/config.toml`).
+   * Each spec's `tools` allowlist maps to codex's per-server `enabled_tools`. Mirrors the
+   * ollama path's `mcpServers` so the codex path gets tool-parity (context7 live docs +
+   * curated harness read tools). Absent ⇒ codex built-in tools only.
+   */
+  mcpServers?: McpServerSpec[];
   /** Native isolation tier this backend provides. Defaults to `'none'`. */
   isolation?: IsolationTier;
   /** AMR Phase 1 (D1): optional capability block for tier selection. */

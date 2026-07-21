@@ -90,6 +90,24 @@ export function isLocalEndpointBackend(def: BackendDef): def is LocalEndpointBac
   return def.type === 'local' || def.type === 'pi' || def.type === 'ollama';
 }
 
+/**
+ * Broader "runs a LOCAL model, work lands in the workspace, must go through the
+ * enforced local gate + ship" predicate. Superset of {@link isLocalEndpointBackend}
+ * that also includes `codex` (which drives a local model but has no `endpoint`, so
+ * it is NOT a `LocalEndpointBackendDef`).
+ *
+ * Use ONLY at the gate/ship decision sites (`runLocalWorkflowGate`,
+ * `settleWorkflowSuccess`): a codex execution stage produces its change in the
+ * worktree exactly like a local-endpoint stage, so the same enforced gate (verify +
+ * outcome-eval) and ship path apply — and are load-bearing, since codex can report
+ * a hollow success (observed: it shipped a syntax error claiming green). Do NOT use
+ * it where the code reads `def.endpoint` or selects the local-indirection prompt
+ * template — codex has no endpoint and takes a direct task prompt.
+ */
+export function isLocalExecutionBackend(def: BackendDef): boolean {
+  return isLocalEndpointBackend(def) || def.type === 'codex';
+}
+
 function createClaudeBackend(
   def: BackendDefOf<'claude'>,
   options: CreateBackendOptions
@@ -176,6 +194,7 @@ function createCodexBackend(def: BackendDefOf<'codex'>): AgentBackend {
     ...(def.localProvider !== undefined ? { localProvider: def.localProvider } : {}),
     ...(def.command !== undefined ? { command: def.command } : {}),
     ...(def.timeoutMs !== undefined ? { timeoutMs: def.timeoutMs } : {}),
+    ...(def.mcpServers !== undefined ? { mcpServers: def.mcpServers } : {}),
   });
 }
 
