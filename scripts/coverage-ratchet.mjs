@@ -6,10 +6,11 @@
  * Usage:
  *   node scripts/coverage-ratchet.mjs                  # check mode (CI, full/authoritative)
  *   node scripts/coverage-ratchet.mjs --allow-missing  # check mode, skip packages with no fresh coverage (pre-push)
+ *   node scripts/coverage-ratchet.mjs --clean          # delete stale coverage-summary.json before an --affected run (pre-push)
  *   node scripts/coverage-ratchet.mjs --update          # update baselines
  */
 
-import { readFileSync, writeFileSync } from 'node:fs';
+import { readFileSync, writeFileSync, rmSync, existsSync } from 'node:fs';
 import { resolve, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -58,6 +59,43 @@ function readCoverage(pkgKey) {
     console.warn(`  Warning: could not read coverage for ${pkgKey} -- skipping`);
     return null;
   }
+}
+
+/**
+ * Delete any coverage-summary.json files left on disk for the given packages.
+ *
+ * This is the load-bearing half of the pre-push freshness fix (#939). The
+ * partial `--allow-missing` mode is only correct if "not measured this run"
+ * truly means "no coverage file present": `turbo run test:coverage --affected`
+ * regenerates coverage ONLY for affected packages, but an UNAFFECTED package
+ * keeps a STALE coverage-summary.json from a previous run. `evaluateCoverage`
+ * cannot tell fresh from stale — it grades whatever is on disk — so that stale
+ * file gets graded against baseline and reports a phantom regression, blocking
+ * pushes on fresh clones / headless agent sandboxes.
+ *
+ * Running this BEFORE the `--affected` coverage run removes every summary, so
+ * afterwards only packages the run actually re-measured have a file (graded)
+ * and unaffected packages have none (null -> skipped under `--allow-missing`).
+ * That restores the invariant "measured this run <=> file present" and makes
+ * `--allow-missing` correct by construction, without per-package special-casing.
+ *
+ * Idempotent: absent files are left alone (`existsSync` guard + `force`), so a
+ * fresh clone with no coverage dirs at all is a no-op.
+ *
+ * @param {Record<string, string>} packages  pkgKey -> coverage-summary.json path (relative to rootDir)
+ * @param {string} rootDir  repo root the paths resolve against
+ * @returns {string[]} pkgKeys whose stale summary was removed
+ */
+export function pruneCoverageSummaries(packages = PACKAGES, rootDir = ROOT) {
+  const removed = [];
+  for (const pkgKey of Object.keys(packages)) {
+    const absPath = join(rootDir, packages[pkgKey]);
+    if (existsSync(absPath)) {
+      rmSync(absPath, { force: true });
+      removed.push(pkgKey);
+    }
+  }
+  return removed;
 }
 
 function loadBaselines() {
@@ -134,7 +172,9 @@ function check({ allowMissing = false } = {}) {
 
   if (failures > 0) {
     console.error(`\n${failures} coverage regression(s) detected.`);
-    console.error('If coverage intentionally decreased, run: node scripts/coverage-ratchet.mjs --update');
+    console.error(
+      'If coverage intentionally decreased, run: node scripts/coverage-ratchet.mjs --update'
+    );
     process.exit(1);
   }
 
@@ -158,12 +198,13 @@ function check({ allowMissing = false } = {}) {
  * - new package       -> adopt
  * - package missing this run -> keep the committed value (transient gap, no churn)
  */
-export function mergeCoverageBaselines(existing = {}, fresh = {}, tolerance = V8_VARIANCE_TOLERANCE) {
+export function mergeCoverageBaselines(
+  existing = {},
+  fresh = {},
+  tolerance = V8_VARIANCE_TOLERANCE
+) {
   const merged = {};
-  const keys = [
-    ...Object.keys(existing),
-    ...Object.keys(fresh).filter((k) => !(k in existing)),
-  ];
+  const keys = [...Object.keys(existing), ...Object.keys(fresh).filter((k) => !(k in existing))];
 
   for (const pkgKey of keys) {
     const prev = existing[pkgKey];
@@ -181,9 +222,7 @@ export function mergeCoverageBaselines(existing = {}, fresh = {}, tolerance = V8
       const a = next[metric];
       const b = prev[metric];
       out[metric] =
-        typeof a === 'number' && typeof b === 'number' && Math.abs(a - b) <= tolerance
-          ? b
-          : a;
+        typeof a === 'number' && typeof b === 'number' && Math.abs(a - b) <= tolerance ? b : a;
     }
     merged[pkgKey] = out;
   }
@@ -213,7 +252,9 @@ function update() {
   const merged = mergeCoverageBaselines(existing, fresh);
   for (const pkgKey of Object.keys(merged)) {
     const m = merged[pkgKey];
-    console.log(`  ${pkgKey}: lines=${m.lines}% branches=${m.branches}% functions=${m.functions}% statements=${m.statements}%`);
+    console.log(
+      `  ${pkgKey}: lines=${m.lines}% branches=${m.branches}% functions=${m.functions}% statements=${m.statements}%`
+    );
   }
 
   writeFileSync(BASELINES_PATH, JSON.stringify(merged, null, 2) + '\n');
@@ -226,7 +267,15 @@ const invokedDirectly =
 
 if (invokedDirectly) {
   const args = process.argv.slice(2);
-  if (args.includes('--update')) {
+  if (args.includes('--clean')) {
+    console.log('Pruning stale coverage summaries before the affected run...\n');
+    const removed = pruneCoverageSummaries();
+    if (removed.length) {
+      for (const pkgKey of removed) console.log(`  Removed stale coverage for ${pkgKey}`);
+    } else {
+      console.log('  No stale coverage summaries found.');
+    }
+  } else if (args.includes('--update')) {
     console.log('Updating coverage baselines...\n');
     update();
   } else {

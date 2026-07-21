@@ -75,6 +75,12 @@ if [ "$AFFECTED_OK" = "1" ]; then
 
   # Affected-scoped typecheck and coverage (base = origin/main, dependents included).
   pnpm exec turbo run typecheck --affected
+  # Prune STALE coverage-summary.json before the affected run. `--affected`
+  # regenerates coverage only for changed packages; an unaffected package keeps a
+  # stale summary from a previous run that the ratchet would grade as a phantom
+  # regression (#939). Removing them first makes "measured this run <=> file
+  # present" hold, so the --allow-missing skip below is correct by construction.
+  node scripts/coverage-ratchet.mjs --clean
   # Cap turbo concurrency to 2 packages-at-a-time. Without this, filesystem/sqlite/HTTP-heavy
   # tests flake under compound parallel load (Phase 2 raises this cap after test isolation).
   pnpm exec turbo run test:coverage --affected --concurrency=2
