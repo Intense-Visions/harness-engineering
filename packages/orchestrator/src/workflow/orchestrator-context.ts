@@ -127,6 +127,9 @@ export interface BuildWorkflowContextDeps {
     failingStep?: WorkflowExecutionPlan['stages'][number],
     err?: unknown
   ) => Promise<void>;
+  /** Resume-from-failed-stage checkpoint seams (bound to the orchestrator's map). */
+  loadStageCheckpoint?: (unit: string) => ReadonlyMap<number, StageRun> | undefined;
+  saveStageCheckpoint?: (unit: string, stageIndex: number, run: StageRun) => void;
 }
 
 /**
@@ -422,6 +425,16 @@ export function buildWorkflowContext(deps: BuildWorkflowContextDeps): WorkflowEn
     ): Promise<void> {
       return deps.settleTerminal(unit, runs, failingStep, err);
     },
+
+    // Resume-from-failed-stage checkpoint seams — thin forwarders to the orchestrator's
+    // per-unit stageCheckpoints map (survives re-dispatch). Absent deps ⇒ omitted ⇒ no
+    // reuse (SC3 byte-identical prior behavior).
+    ...(deps.loadStageCheckpoint !== undefined
+      ? { loadStageCheckpoint: deps.loadStageCheckpoint }
+      : {}),
+    ...(deps.saveStageCheckpoint !== undefined
+      ? { saveStageCheckpoint: deps.saveStageCheckpoint }
+      : {}),
 
     ...(adaptiveRouter !== null
       ? {
