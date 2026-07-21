@@ -47,3 +47,4 @@ packages/core/tests/fixtures/code-nav/syntax-error.ts
 .changeset/repo-shape-orchestrator-comment-no-release.md
 .changeset/workflow-audit-orchestrator-comment-no-release.md
 .changeset/stagedecision-jsdoc-comment-no-release.md
+.changeset/codex-test-windows-skip-no-release.md

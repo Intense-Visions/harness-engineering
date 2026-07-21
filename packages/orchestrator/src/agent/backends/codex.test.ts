@@ -15,6 +15,18 @@ function fakeCodex(body: string): string {
   return p;
 }
 
+/**
+ * The {@link fakeCodex} stand-in is a POSIX `#!/bin/sh` script. `CodexBackend`
+ * launches it with a shell-less `child_process.spawn`, which on Windows can
+ * execute only a real `.exe` — a shebang script is not honored, and a `.cmd`
+ * throws `EINVAL` without `shell: true` (Node's CVE-2024-27980 fix, present in
+ * the pinned Node 22). So the tests that spawn this fixture run on POSIX only.
+ * (Matches the repo's existing bash-hook e2e `skipIf(win32)` convention; a real
+ * `codex.exe` on Windows is exercised by the healthCheck/no-model paths, which
+ * do not depend on a script stand-in.)
+ */
+const itPosix = it.skipIf(process.platform === 'win32');
+
 async function drive(
   b: CodexBackend,
   session: AgentSession
@@ -79,7 +91,7 @@ describe('CodexBackend', () => {
     expect(b.name).toBe('codex');
   });
 
-  it('runTurn streams JSONL events and reports success on exit 0', async () => {
+  itPosix('runTurn streams JSONL events and reports success on exit 0', async () => {
     const cmd = fakeCodex(`echo '{"type":"session.created"}'
 echo '{"msg":{"type":"item.completed"}}'
 echo 'plain text line'
@@ -95,7 +107,7 @@ exit 0`);
     expect(subtypes).toContain('codex:codex_output'); // non-JSON line
   });
 
-  it('runTurn reports success:false + error on a non-zero exit', async () => {
+  itPosix('runTurn reports success:false + error on a non-zero exit', async () => {
     const cmd = fakeCodex(`echo '{"type":"error"}'
 exit 3`);
     const b = new CodexBackend({ model: 'm', command: cmd });
@@ -104,7 +116,7 @@ exit 3`);
     expect(result.error).toMatch(/exited with code 3/);
   });
 
-  it('runTurn kills + fails when the session exceeds the wall-clock cap', async () => {
+  itPosix('runTurn kills + fails when the session exceeds the wall-clock cap', async () => {
     const cmd = fakeCodex(`sleep 10`);
     const b = new CodexBackend({ model: 'm', command: cmd, timeoutMs: 150 });
     const { result } = await drive(b, SESSION);
