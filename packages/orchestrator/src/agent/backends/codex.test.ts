@@ -3,7 +3,7 @@ import * as fs from 'node:fs';
 import * as os from 'node:os';
 import * as path from 'node:path';
 import { CodexBackend } from './codex';
-import { createBackend } from '../backend-factory';
+import { createBackend, isLocalExecutionBackend, isLocalEndpointBackend } from '../backend-factory';
 import { BackendDefSchema } from '../../workflow/schema';
 import type { AgentSession, TurnParams, AgentEvent, TurnResult } from '@harness-engineering/types';
 
@@ -140,6 +140,28 @@ describe('createBackend — codex type', () => {
   it('constructs from an array (prefer-fallback) model', () => {
     const backend = createBackend({ type: 'codex', model: ['qwen3-coder:30b', 'qwen3.6:27b'] });
     expect(backend.name).toBe('codex');
+  });
+});
+
+describe('isLocalExecutionBackend — codex routes through the enforced local gate', () => {
+  it('includes codex (drives a local model; its change lands in the worktree)', () => {
+    expect(isLocalExecutionBackend({ type: 'codex', model: 'qwen3-coder:30b' })).toBe(true);
+  });
+
+  it('includes the local-endpoint backends (superset of isLocalEndpointBackend)', () => {
+    expect(isLocalExecutionBackend({ type: 'ollama', endpoint: 'http://x/v1', model: 'm' })).toBe(
+      true
+    );
+    expect(isLocalExecutionBackend({ type: 'pi', endpoint: 'http://x', model: 'm' })).toBe(true);
+  });
+
+  it('excludes cloud/claude backends (no enforced local gate)', () => {
+    expect(isLocalExecutionBackend({ type: 'claude' })).toBe(false);
+    expect(isLocalExecutionBackend({ type: 'anthropic', model: 'x' })).toBe(false);
+  });
+
+  it('codex is NOT a local-ENDPOINT backend (it has no endpoint) — kept out of endpoint sites', () => {
+    expect(isLocalEndpointBackend({ type: 'codex', model: 'm' })).toBe(false);
   });
 });
 

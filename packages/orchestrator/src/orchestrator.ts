@@ -92,7 +92,7 @@ import { redriveInstallingProposals } from './proposals/model-handlers';
 import type { ModelProposalRecord } from '@harness-engineering/types';
 import { migrateAgentConfig } from './agent/config-migration';
 import { OrchestratorBackendFactory } from './agent/orchestrator-backend-factory';
-import { isLocalEndpointBackend } from './agent/backend-factory';
+import { isLocalEndpointBackend, isLocalExecutionBackend } from './agent/backend-factory';
 import { makeBackendResolver } from './agent/backend-resolver';
 import { createAgentDispatcher } from './maintenance/agent-dispatcher';
 import { execFileSync } from 'node:child_process';
@@ -2937,7 +2937,10 @@ export class Orchestrator extends EventEmitter {
     acceptance?: string
   ): Promise<{ ok: true } | { ok: false; reason: string }> {
     const def = this.config.agent.backends?.[backendName];
-    const isLocal = def !== undefined && isLocalEndpointBackend(def);
+    // isLocalExecutionBackend (not …Endpoint): a `codex` stage also lands its change
+    // in the worktree and MUST go through this enforced gate — codex can report a
+    // hollow success, so the gate is the safety net that catches it.
+    const isLocal = def !== undefined && isLocalExecutionBackend(def);
     if (!isLocal) return { ok: true };
 
     try {
@@ -3742,7 +3745,9 @@ export class Orchestrator extends EventEmitter {
     const lastBackendName = runs[runs.length - 1]?.decision?.backendName;
     const lastDef =
       lastBackendName !== undefined ? this.config.agent.backends?.[lastBackendName] : undefined;
-    const isLocal = lastDef !== undefined && isLocalEndpointBackend(lastDef);
+    // isLocalExecutionBackend: a `codex` execution stage settles through the same
+    // enforced gate + ship path as a local-endpoint stage (its change is in the worktree).
+    const isLocal = lastDef !== undefined && isLocalExecutionBackend(lastDef);
     const workspacePath = closureWorkspacePath ?? entry?.workspacePath;
     const issue = closureIssue ?? entry?.issue;
     if (isLocal && workspacePath !== undefined && issue !== undefined) {
