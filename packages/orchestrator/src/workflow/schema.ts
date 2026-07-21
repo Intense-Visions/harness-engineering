@@ -200,6 +200,17 @@ export const BackendDefSchema = z.discriminatedUnion('type', [
       capabilities: BackendCapabilitiesSchema.optional(),
     })
     .strict(),
+  z
+    .object({
+      type: z.literal('codex'),
+      // The local model Codex drives via `--oss --local-provider`.
+      model: ModelSchema,
+      localProvider: z.enum(['ollama', 'lmstudio']).optional(),
+      command: z.string().optional(),
+      timeoutMs: z.number().int().positive().optional(),
+      capabilities: BackendCapabilitiesSchema.optional(),
+    })
+    .strict(),
 ]);
 
 /**

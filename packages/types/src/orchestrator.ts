@@ -502,8 +502,32 @@ export type BackendDef =
   | LocalBackendDef
   | PiBackendDef
   | OllamaBackendDef
+  | CodexBackendDef
   | SshBackendDef
   | ServerlessBackendDef;
+
+/**
+ * Codex CLI backend driving a LOCAL model (Ollama / LM Studio) via
+ * `codex exec --oss --local-provider <provider> -m <model>`. Unlike the endpoint
+ * backends it owns no turn loop — `codex exec` runs the whole agentic session in
+ * one invocation. Adopted after a controlled experiment showed Codex's apply_patch
+ * scaffold converges a local model where the bespoke OllamaBackend loop stalled.
+ */
+export interface CodexBackendDef {
+  type: 'codex';
+  /** The local model Codex drives, e.g. `'qwen3-coder:30b'`. Array ⇒ prefer-fallback. */
+  model: string | string[];
+  /** Local model provider Codex uses. Default `'ollama'`. */
+  localProvider?: 'ollama' | 'lmstudio';
+  /** Override for the `codex` CLI binary. Default `'codex'`. */
+  command?: string;
+  /** Hard wall-clock cap per session in ms. Default 1_800_000 (30min). */
+  timeoutMs?: number;
+  /** Native isolation tier this backend provides. Defaults to `'none'`. */
+  isolation?: IsolationTier;
+  /** AMR Phase 1 (D1): optional capability block for tier selection. */
+  capabilities?: BackendCapabilities;
+}
 
 /** Mock backend (used in tests and dry runs). */
 export interface MockBackendDef {
