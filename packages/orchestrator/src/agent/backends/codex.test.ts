@@ -105,6 +105,9 @@ exit 0`);
     expect(argv).toContain('--sandbox');
     expect(argv).toContain('workspace-write');
     expect(argv).not.toContain('dangerously-bypass');
+    // multi_agent disabled — unsupported for local models and derails the run
+    expect(argv).toContain('--disable');
+    expect(argv).toContain('multi_agent');
   });
 
   it('runTurn reports success:false + error on a non-zero exit', async () => {

@@ -12,7 +12,7 @@ import type {
   WorkflowExecutionPlan,
 } from '@harness-engineering/types';
 import { AgentRunner } from '../agent/runner.js';
-import { isLocalEndpointBackend } from '../agent/backend-factory.js';
+import { isLocalExecutionBackend } from '../agent/backend-factory.js';
 import type { OrchestratorBackendFactory } from '../agent/orchestrator-backend-factory.js';
 import { selectStagePromptTemplate } from './local-stage-prompt.js';
 import type { StreamRecorder } from '../core/stream-recorder.js';
@@ -334,7 +334,11 @@ function isLocalBackendFactory(
 ): NonNullable<WorkflowEngineContext['isLocalBackend']> {
   return (backend) => {
     const def = backends?.[backend.name];
-    return def !== undefined && isLocalEndpointBackend(def);
+    // isLocalExecutionBackend (incl. codex): a codex stage also needs the local
+    // skill-run template (`harness skill run harness-<skill> --autonomous`) so it
+    // executes the harness lifecycle skill single-agent, rather than the Claude-shaped
+    // default template. The harness lifecycle rides on the orchestrator's stages.
+    return def !== undefined && isLocalExecutionBackend(def);
   };
 }
 

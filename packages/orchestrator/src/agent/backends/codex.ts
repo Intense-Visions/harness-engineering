@@ -108,6 +108,12 @@ export class CodexBackend implements AgentBackend {
       // since the orchestrator already dispatches codex into an isolated worktree.
       '--sandbox',
       'workspace-write',
+      // Disable codex's multi-agent/subagent dispatch: it is native (GPT-5) only and
+      // fails with `unsupported call: multi_agent_v1` when driving a LOCAL model, which
+      // derails the run. The harness lifecycle rides on the ORCHESTRATOR's stage
+      // sequencing instead, with codex executing each skill as a single agent.
+      '--disable',
+      'multi_agent',
       '--json',
       params.prompt,
     ];
