@@ -363,6 +363,41 @@ agent:
           tools: [code_search, ask_graph, review_changes, outcome_eval, gather_context] # narrow ~95 → read set
 ```
 
+## The `codex` backend (drive a local model through Codex CLI)
+
+`type: codex` drives a local model through the [Codex CLI](https://github.com/openai/codex)'s agentic loop (`codex exec --oss --local-provider <ollama|lmstudio>`) instead of the harness's own turn loop — useful when Codex's orchestration (self-verify + retry) converges where a bare tool loop stalls. It reports success on Codex's exit code; the orchestrator's [enforced gates](#enforced-gates-on-the-local-backend) still govern re-dispatch.
+
+**Prerequisites:** the `codex` CLI on `PATH`, the local model already pulled in the provider, and the orchestrator running on Node 22 (Node 24 trips a `better-sqlite3` ABI mismatch).
+
+```yaml
+agent:
+  backends:
+    codex-exec:
+      type: codex
+      model: ['qwen3-coder:30b'] # array ⇒ prefer-fallback, same as other backends
+      localProvider: ollama
+      reasoningEffort: low # a hands-on coder wants minimal deliberation; omit for the default
+      mcpServers: # injected per-invocation via `codex exec -c mcp_servers.*` —
+        - name: context7 #   NEVER writes your global ~/.codex/config.toml
+          command: npx
+          args: ['-y', '@upstash/context7-mcp']
+        - name: harness
+          command: harness-mcp
+          # `tools` maps to Codex's per-server `enabled_tools`. Include `edit_file`
+          # (see below) so the model has a reliable surgical-edit path.
+          tools: [code_search, ask_graph, gather_context, edit_file, review_changes, run_ci_checks]
+  routing:
+    default: codex-exec
+```
+
+### Surgical editing: `edit_file`
+
+A local model driven through Codex has no working `apply_patch` (its freeform variant is grammar-constrained / effectively GPT-5-only; the function variant is not offered to third-party OSS models in current Codex), so it falls back to shell redirection (`cat >`, `echo >>`) that can clobber or delete whole files. `edit_file` is a harness-mcp tool that gives any agent a precise, verifiable edit: replace an exact `old_string` with `new_string`, refusing missing or ambiguous matches instead of guessing.
+
+**To enable it:** add `edit_file` to your `harness` server's `tools` allowlist (as above). It ships in `harness-mcp` for every adopter; it is opt-in via the allowlist so a read-only tool set stays read-only. The staged-workflow prompt already tells local agents to prefer an exact-edit tool **if one is present** and otherwise to edit surgically and never rewrite whole files — so enabling `edit_file` needs no other change, and omitting it degrades gracefully rather than breaking.
+
+> **Sampling note:** Codex owns the request it sends the model and auto-pulls the model from the provider registry, so you cannot inject sampling params (temperature/top_p/top_k) the way the `ollama`/`local` endpoint backends do (a locally-derived Modelfile model fails Codex's pull). The base model's own parameters apply. Use `reasoningEffort` for the one knob Codex does expose.
+
 ## Migrating from the legacy schema
 
 The orchestrator continues to accept `agent.backend` / `agent.localBackend` for at least one minor release. At startup, an in-memory migration shim translates legacy fields into `agent.backends` / `agent.routing`:

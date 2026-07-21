@@ -45,6 +45,13 @@ export interface CodexBackendOptions {
   /** Hard wall-clock cap per session in ms. Default 30min (codex sessions run long). */
   timeoutMs?: number;
   /**
+   * Reasoning effort for the driven model, passed as `-c model_reasoning_effort`.
+   * A hands-on coder (e.g. qwen3-coder) wants `'low'` — minimal deliberation, spend
+   * the budget on edits + gate iteration, not a long think. Design/reasoning phases
+   * route to a separate thinking backend, not this one. Omit to use codex's default.
+   */
+  reasoningEffort?: 'low' | 'medium' | 'high';
+  /**
    * MCP servers to expose to the codex-driven model, injected per-invocation via
    * `-c mcp_servers.<name>.…` overrides (NOT written to the user's global
    * `~/.codex/config.toml`, so their real codex setup is untouched). Mirrors the
@@ -100,6 +107,7 @@ export class CodexBackend implements AgentBackend {
   private localProvider: 'ollama' | 'lmstudio';
   private timeoutMs: number;
   private mcpServers: McpServerSpec[];
+  private reasoningEffort?: 'low' | 'medium' | 'high';
 
   constructor(options: CodexBackendOptions = {}) {
     this.command = options.command ?? 'codex';
@@ -108,6 +116,7 @@ export class CodexBackend implements AgentBackend {
     this.localProvider = options.localProvider ?? 'ollama';
     this.timeoutMs = options.timeoutMs ?? DEFAULT_TIMEOUT_MS;
     this.mcpServers = options.mcpServers ?? [];
+    if (options.reasoningEffort !== undefined) this.reasoningEffort = options.reasoningEffort;
   }
 
   private resolveModel(): string | undefined {
@@ -161,6 +170,11 @@ export class CodexBackend implements AgentBackend {
       // sequencing instead, with codex executing each skill as a single agent.
       '--disable',
       'multi_agent',
+      // Reasoning effort for the driven model (coder ⇒ 'low'): spend the budget on
+      // edits + gate iteration, not a long deliberation. Omitted ⇒ codex default.
+      ...(this.reasoningEffort !== undefined
+        ? ['-c', `model_reasoning_effort="${this.reasoningEffort}"`]
+        : []),
       // Inject MCP servers (context7 for live docs, curated harness-mcp read tools)
       // per-invocation so the codex-driven local model gets the same tool surface the
       // ollama path curates — WITHOUT mutating the user's global ~/.codex/config.toml.

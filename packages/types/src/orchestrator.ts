@@ -524,6 +524,11 @@ export interface CodexBackendDef {
   /** Hard wall-clock cap per session in ms. Default 1_800_000 (30min). */
   timeoutMs?: number;
   /**
+   * Reasoning effort for the driven model (`-c model_reasoning_effort`). A hands-on
+   * coder wants `'low'`; omit to use codex's default. Design phases route elsewhere.
+   */
+  reasoningEffort?: 'low' | 'medium' | 'high';
+  /**
    * MCP servers exposed to the codex-driven local model, injected per-invocation via
    * `-c mcp_servers.<name>.…` (never written to the user's global `~/.codex/config.toml`).
    * Each spec's `tools` allowlist maps to codex's per-server `enabled_tools`. Mirrors the
