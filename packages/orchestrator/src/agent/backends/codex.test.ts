@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest';
 import * as fs from 'node:fs';
 import * as os from 'node:os';
 import * as path from 'node:path';
-import { CodexBackend } from './codex';
+import { CodexBackend, buildMcpConfigArgs } from './codex';
 import { createBackend, isLocalExecutionBackend, isLocalEndpointBackend } from '../backend-factory';
 import { BackendDefSchema } from '../../workflow/schema';
 import type { AgentSession, TurnParams, AgentEvent, TurnResult } from '@harness-engineering/types';
@@ -195,5 +195,57 @@ describe('BackendDefSchema — codex', () => {
 
   it('requires a model', () => {
     expect(BackendDefSchema.safeParse({ type: 'codex' }).success).toBe(false);
+  });
+
+  it('accepts mcpServers with a curated tools allowlist', () => {
+    const r = BackendDefSchema.safeParse({
+      type: 'codex',
+      model: 'qwen3-coder:30b',
+      mcpServers: [
+        { name: 'context7', command: 'npx', args: ['-y', '@upstash/context7-mcp'] },
+        { name: 'harness', command: 'node', args: ['/x/harness-mcp.js'], tools: ['code_search'] },
+      ],
+    });
+    expect(r.success).toBe(true);
+  });
+});
+
+describe('buildMcpConfigArgs — codex -c mcp_servers injection', () => {
+  it('returns no args for an empty server list', () => {
+    expect(buildMcpConfigArgs([])).toEqual([]);
+  });
+
+  it('encodes command + args as TOML (JSON) values under mcp_servers.<name>', () => {
+    const args = buildMcpConfigArgs([
+      { name: 'context7', command: 'npx', args: ['-y', '@upstash/context7-mcp'] },
+    ]);
+    // each -c is two argv entries
+    expect(args[0]).toBe('-c');
+    expect(args).toContain('mcp_servers.context7.command="npx"');
+    expect(args).toContain('mcp_servers.context7.args=["-y","@upstash/context7-mcp"]');
+    expect(args).toContain('mcp_servers.context7.startup_timeout_sec=60');
+  });
+
+  it('maps the spec tools allowlist to codex enabled_tools', () => {
+    const args = buildMcpConfigArgs([
+      {
+        name: 'harness',
+        command: 'node',
+        args: ['/x/harness-mcp.js'],
+        tools: ['code_search', 'ask_graph'],
+      },
+    ]);
+    expect(args).toContain('mcp_servers.harness.enabled_tools=["code_search","ask_graph"]');
+  });
+
+  it('omits enabled_tools when no allowlist is given (all tools exposed)', () => {
+    const args = buildMcpConfigArgs([{ name: 'ctx', command: 'npx' }]);
+    expect(args.some((a) => a.includes('enabled_tools'))).toBe(false);
+  });
+
+  it('emits per-key env overrides and sanitizes dots in the server name', () => {
+    const args = buildMcpConfigArgs([{ name: 'a.b', command: 'x', env: { TOKEN: 'secret' } }]);
+    expect(args).toContain('mcp_servers.a_b.command="x"');
+    expect(args).toContain('mcp_servers.a_b.env.TOKEN="secret"');
   });
 });

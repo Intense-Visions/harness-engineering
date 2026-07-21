@@ -208,6 +208,7 @@ export const BackendDefSchema = z.discriminatedUnion('type', [
       localProvider: z.enum(['ollama', 'lmstudio']).optional(),
       command: z.string().optional(),
       timeoutMs: z.number().int().positive().optional(),
+      mcpServers: z.array(McpServerSpecSchema).optional(),
       capabilities: BackendCapabilitiesSchema.optional(),
     })
     .strict(),

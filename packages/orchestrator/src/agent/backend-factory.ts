@@ -194,6 +194,7 @@ function createCodexBackend(def: BackendDefOf<'codex'>): AgentBackend {
     ...(def.localProvider !== undefined ? { localProvider: def.localProvider } : {}),
     ...(def.command !== undefined ? { command: def.command } : {}),
     ...(def.timeoutMs !== undefined ? { timeoutMs: def.timeoutMs } : {}),
+    ...(def.mcpServers !== undefined ? { mcpServers: def.mcpServers } : {}),
   });
 }
 
