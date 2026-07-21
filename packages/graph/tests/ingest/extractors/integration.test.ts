@@ -4,6 +4,7 @@ import * as fs from 'node:fs/promises';
 import * as os from 'os';
 import { GraphStore } from '../../../src/store/GraphStore.js';
 import { createExtractionRunner } from '../../../src/ingest/extractors/index.js';
+import { CodeIngestor } from '../../../src/ingest/CodeIngestor.js';
 import type { ExtractionRecord } from '../../../src/ingest/extractors/types.js';
 
 const FIXTURE_DIR = path.resolve(__dirname, '../../../__fixtures__/extractor-project');
@@ -91,6 +92,52 @@ describe('Code Signal Extractors — End-to-End', () => {
     const result = await runner.run(FIXTURE_DIR, store, tmpDir);
 
     expect(result.edgesAdded).toBeGreaterThan(0);
+  });
+
+  // Regression for #940: extractor `governs`/`documents` edges must target the
+  // SAME path-based file-node ID the code scanner materializes
+  // (`file:${relativePath}`), not a hash-based `file:<hash>` that never resolves.
+  it('binds extractor governs/documents edges to materialized code-scanner file nodes (#940)', async () => {
+    // Materialize the canonical path-based file nodes first (as `graph scan` does).
+    const codeIngestor = new CodeIngestor(store);
+    await codeIngestor.ingest(FIXTURE_DIR);
+
+    // Then run the business-signal extractors (as `graph ingest --all` does).
+    const runner = createExtractionRunner();
+    await runner.run(FIXTURE_DIR, store, tmpDir);
+
+    // Every edge that originates from an `extracted:` node must resolve to a real
+    // file node — no dangling targets.
+    const extractedNodes = [
+      ...store.findNodes({ type: 'business_rule' }),
+      ...store.findNodes({ type: 'business_term' }),
+      ...store.findNodes({ type: 'business_process' }),
+    ].filter((n) => n.metadata.source === 'code-extractor');
+    expect(extractedNodes.length).toBeGreaterThan(0);
+
+    let checkedEdges = 0;
+    let governsChecked = 0;
+    for (const node of extractedNodes) {
+      const outEdges = store.getEdges({ from: node.id });
+      const fileEdges = outEdges.filter((e) => e.type === 'governs' || e.type === 'documents');
+      for (const edge of fileEdges) {
+        checkedEdges++;
+        if (edge.type === 'governs') governsChecked++;
+
+        // The edge target must be the canonical path-based file-node ID.
+        expect(edge.to).toBe(`file:${node.path}`);
+        expect(edge.to).not.toMatch(/^file:[0-9a-f]{8,}$/);
+
+        // And it must resolve to a real, materialized file node (no dangle).
+        const target = store.getNode(edge.to);
+        expect(target, `dangling edge target ${edge.to} from ${node.id}`).not.toBeNull();
+        expect(target!.type).toBe('file');
+      }
+    }
+
+    // Sanity: we actually exercised governs edges (from test-descriptions).
+    expect(checkedEdges).toBeGreaterThan(0);
+    expect(governsChecked).toBeGreaterThan(0);
   });
 
   it('covers all 6 languages across extractors', async () => {
