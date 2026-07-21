@@ -103,6 +103,7 @@ export function buildAnalysisProvider(args: BuildAnalysisProviderArgs): Analysis
       return buildClaudeCliProvider(def, args, layerModel);
     case 'mock':
     case 'gemini':
+    case 'codex':
     case 'ssh':
     case 'serverless':
       logger.warn(

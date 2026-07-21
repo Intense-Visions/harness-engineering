@@ -8,6 +8,7 @@ import { GeminiBackend } from './backends/gemini.js';
 import { LocalBackend } from './backends/local.js';
 import { PiBackend } from './backends/pi.js';
 import { OllamaBackend } from './backends/ollama.js';
+import { CodexBackend } from './backends/codex.js';
 import { SshBackend } from './backends/ssh.js';
 import { OciServerlessBackend } from './backends/serverless.js';
 
@@ -167,6 +168,17 @@ function createOllamaBackend(
   });
 }
 
+function createCodexBackend(def: BackendDefOf<'codex'>): AgentBackend {
+  const isArray = Array.isArray(def.model);
+  return new CodexBackend({
+    ...(typeof def.model === 'string' ? { model: def.model } : {}),
+    ...(isArray ? { getModel: makeGetModel(def.model) } : {}),
+    ...(def.localProvider !== undefined ? { localProvider: def.localProvider } : {}),
+    ...(def.command !== undefined ? { command: def.command } : {}),
+    ...(def.timeoutMs !== undefined ? { timeoutMs: def.timeoutMs } : {}),
+  });
+}
+
 function createSshBackend(def: BackendDefOf<'ssh'>): AgentBackend {
   return new SshBackend({
     host: def.host,
@@ -223,6 +235,8 @@ export function createBackend(def: BackendDef, options: CreateBackendOptions = {
       return createPiBackend(def);
     case 'ollama':
       return createOllamaBackend(def, options);
+    case 'codex':
+      return createCodexBackend(def);
     case 'ssh':
       return createSshBackend(def);
     case 'serverless':
