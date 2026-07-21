@@ -20,7 +20,20 @@ const FIXTURE_DIR = path.resolve(__dirname, '../../../__fixtures__/extractor-pro
 function createStubExtractor(name: string): SignalExtractor {
   return {
     name,
-    supportedExtensions: ['.ts', '.tsx', '.js', '.jsx', '.py', '.go', '.rs', '.java'],
+    supportedExtensions: [
+      '.ts',
+      '.tsx',
+      '.mts',
+      '.cts',
+      '.js',
+      '.jsx',
+      '.mjs',
+      '.cjs',
+      '.py',
+      '.go',
+      '.rs',
+      '.java',
+    ],
     extract(content: string, filePath: string, language: Language): ExtractionRecord[] {
       return [
         {

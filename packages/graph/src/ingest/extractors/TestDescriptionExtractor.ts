@@ -30,7 +30,20 @@ const JAVA_METHOD_RE =
  */
 export class TestDescriptionExtractor implements SignalExtractor {
   readonly name = 'test-descriptions';
-  readonly supportedExtensions = ['.ts', '.tsx', '.js', '.jsx', '.py', '.go', '.rs', '.java'];
+  readonly supportedExtensions = [
+    '.ts',
+    '.tsx',
+    '.mts',
+    '.cts',
+    '.js',
+    '.jsx',
+    '.mjs',
+    '.cjs',
+    '.py',
+    '.go',
+    '.rs',
+    '.java',
+  ];
 
   extract(content: string, filePath: string, language: Language): ExtractionRecord[] {
     const records: ExtractionRecord[] = [];

@@ -8,7 +8,20 @@ import type { ExtractionRecord, Language, SignalExtractor } from './types.js';
  */
 export class ApiPathExtractor implements SignalExtractor {
   readonly name = 'api-paths';
-  readonly supportedExtensions = ['.ts', '.tsx', '.js', '.jsx', '.py', '.go', '.rs', '.java'];
+  readonly supportedExtensions = [
+    '.ts',
+    '.tsx',
+    '.mts',
+    '.cts',
+    '.js',
+    '.jsx',
+    '.mjs',
+    '.cjs',
+    '.py',
+    '.go',
+    '.rs',
+    '.java',
+  ];
 
   extract(content: string, filePath: string, language: Language): ExtractionRecord[] {
     switch (language) {

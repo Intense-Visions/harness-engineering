@@ -74,6 +74,8 @@ export function buildApp(ctx: ServerContext): Hono {
   return app;
 }
 
-const app = buildApp(buildContext({ sseManager: new SSEManager() }));
+// Explicit annotation so the exported type is nameable via the direct `hono`
+// dependency rather than a hoisted `.pnpm` path (avoids TS2742). Behavior-preserving.
+const app: Hono = buildApp(buildContext({ sseManager: new SSEManager() }));
 
 export { app };
