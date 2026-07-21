@@ -2,7 +2,6 @@ import * as fs from 'node:fs/promises';
 import * as path from 'node:path';
 import type { GraphStore } from '../../store/GraphStore.js';
 import type { IngestResult, GraphNode, GraphEdge, EdgeType } from '../../types.js';
-import { hash } from '../ingestUtils.js';
 import { DEFAULT_SKIP_DIRS } from '../skip-dirs.js';
 import type { ExtractionRecord, Language, SignalExtractor } from './types.js';
 
@@ -159,7 +158,10 @@ export class ExtractionRunner {
       name: record.name,
       path: record.filePath,
       location: {
-        fileId: `file:${hash(record.filePath)}`,
+        // Use the canonical path-based file-node ID (matching CodeIngestor's
+        // `file:${relativePath}` convention) so this record binds to the real,
+        // materialized file node instead of a dangling `file:<hash>` target (#940).
+        fileId: `file:${record.filePath}`,
         startLine: record.line,
         endLine: record.line,
       },
@@ -176,8 +178,10 @@ export class ExtractionRunner {
 
     store.addNode(node);
 
-    // Create edge to source file node
-    const fileNodeId = `file:${hash(record.filePath)}`;
+    // Create edge to source file node. Target the canonical path-based file-node
+    // ID (`file:${relativePath}`, same as CodeIngestor) so this `governs`/`documents`
+    // edge resolves to a materialized file node rather than dangling (#940).
+    const fileNodeId = `file:${record.filePath}`;
     const edgeType = EXTRACTOR_EDGE_TYPE[record.extractor] ?? 'documents';
     const edge: GraphEdge = {
       from: record.id,
