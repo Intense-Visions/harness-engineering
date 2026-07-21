@@ -99,9 +99,15 @@ export class CodexBackend implements AgentBackend {
       model,
       '-C',
       session.workspacePath,
-      // Externally sandboxed already (isolated worktree); let codex apply edits + run
-      // the gate without per-command approval prompts.
-      '--dangerously-bypass-approvals-and-sandbox',
+      // `workspace-write` (not the full `--dangerously-bypass-approvals-and-sandbox`):
+      // exec mode already runs approval-free (`approval: never`), and workspace-write
+      // lets codex edit the worktree + run the gate (verified: 21 gate runs in a live
+      // trial) WITHOUT the bypass mode's failure where an interactive command hits
+      // `write_stdin failed: stdin is closed for this session`. Reads are unrestricted
+      // (the pnpm store resolves); writes are confined to the worktree — appropriate
+      // since the orchestrator already dispatches codex into an isolated worktree.
+      '--sandbox',
+      'workspace-write',
       '--json',
       params.prompt,
     ];

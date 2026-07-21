@@ -95,6 +95,18 @@ exit 0`);
     expect(subtypes).toContain('codex:codex_output'); // non-JSON line
   });
 
+  it('drives codex with --sandbox workspace-write, not the dangerous full bypass', async () => {
+    const argfile = path.join(fs.mkdtempSync(path.join(os.tmpdir(), 'codex-args-')), 'args');
+    // record the exact argv codex was spawned with
+    const cmd = fakeCodex(`printf '%s\\n' "$@" > "${argfile}"\nexit 0`);
+    const b = new CodexBackend({ model: 'm', command: cmd });
+    await drive(b, SESSION);
+    const argv = fs.readFileSync(argfile, 'utf8');
+    expect(argv).toContain('--sandbox');
+    expect(argv).toContain('workspace-write');
+    expect(argv).not.toContain('dangerously-bypass');
+  });
+
   it('runTurn reports success:false + error on a non-zero exit', async () => {
     const cmd = fakeCodex(`echo '{"type":"error"}'
 exit 3`);
