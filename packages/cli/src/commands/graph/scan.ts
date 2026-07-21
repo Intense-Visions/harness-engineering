@@ -16,9 +16,12 @@ export async function runScan(
   const store = new GraphStore();
   const start = Date.now();
 
-  // Code ingestion (honors `ingest.*` config from harness.config.json)
+  // Code ingestion (honors `ingest.*` config from harness.config.json).
+  // Defer @req-annotation linking: requirement nodes do not exist yet, so annotations
+  // must be linked AFTER RequirementIngestor runs, otherwise no verified_by edges form (#949).
   const ingestOptions = loadIngestOptions(projectPath);
-  await new CodeIngestor(store, ingestOptions).ingest(projectPath);
+  const codeIngestor = new CodeIngestor(store, ingestOptions);
+  await codeIngestor.ingest(projectPath, { skipRequirementAnnotations: true });
   new TopologicalLinker(store).link();
 
   // Knowledge ingestion
@@ -28,6 +31,10 @@ export async function runScan(
   // Requirement ingestion (spec traceability)
   const specsDir = path.join(projectPath, 'docs', 'changes');
   await new RequirementIngestor(store).ingestSpecs(specsDir);
+
+  // Link @req annotations now that requirement nodes exist (#949). Runs after
+  // RequirementIngestor so annotations resolve to real requirement nodes.
+  await codeIngestor.linkRequirementAnnotations(projectPath);
 
   // Git ingestion (may fail if not a git repo)
   try {
