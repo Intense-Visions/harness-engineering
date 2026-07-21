@@ -1,8 +1,11 @@
 // src/index.ts
+import type { TSESLint } from '@typescript-eslint/utils';
 import { rules } from './rules';
 
-// Define the plugin object
-const plugin = {
+// Explicit annotations so the inferred types are nameable via the direct
+// @typescript-eslint/utils dependency rather than the hoisted .pnpm path
+// (avoids TS2742 in downstream DTS builds).
+const plugin: TSESLint.FlatConfig.Plugin = {
   meta: {
     name: '@harness-engineering/eslint-plugin',
     version: '0.3.0',
@@ -66,4 +69,4 @@ export default plugin;
 
 // Named exports for flexibility
 export { rules };
-export const configs = plugin.configs;
+export const configs: TSESLint.FlatConfig.Plugin['configs'] = plugin.configs;

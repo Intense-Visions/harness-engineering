@@ -17,8 +17,12 @@ import noSkippedTests from './no-skipped-tests';
 import noDisabledTests from './no-disabled-tests';
 import noHardcodedTestCount from './no-hardcoded-test-count';
 import noEmptyDescribe from './no-empty-describe';
+import type { TSESLint } from '@typescript-eslint/utils';
 
-export const rules = {
+// Explicit annotation so the exported type is nameable via the direct
+// @typescript-eslint/utils dependency rather than the hoisted .pnpm path
+// (avoids TS2742 in downstream DTS builds).
+export const rules: Record<string, TSESLint.RuleModule<string, unknown[]>> = {
   'enforce-doc-exports': enforceDocExports,
   'no-circular-deps': noCircularDeps,
   'no-forbidden-imports': noForbiddenImports,
