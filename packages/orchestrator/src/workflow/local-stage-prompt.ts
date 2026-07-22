@@ -62,6 +62,8 @@ pnpm --filter <changed-package-name> test
 
 Common misses that fail the gate even when your own test passes: type errors that tests don't catch (tests run through esbuild, which strips types — so ALWAYS run typecheck), and inventory/count assertions elsewhere in the suite that your change invalidates (e.g. a test asserting the number of registered rules/exports — update it). Iterate here until all three are green; do not rely on a later retry.
 
+The gate ALSO checks documentation: any NEW public source file you add must be referenced under \`docs/\` (a real merge fails the repo's doc-drift check otherwise). If you add a new rule/API/module, document it in the matching \`docs/\` reference (e.g. a new ESLint rule goes in \`docs/reference/eslint-rules.md\` and the package README) and update any feature/rule COUNT in that doc — as part of THIS change, not a follow-up.
+
 Leave a CLEAN diff: everything you commit becomes a real pull request. Delete any scratch/debug/throwaway files you created while working (e.g. \`debug-*.js\`, temporary reproductions) — they must not ship. Do NOT delete or modify files unrelated to this task; only touch what the work item requires.
 
 Finally, make the change MERGEABLE — the ship pushes THROUGH the real pre-commit + pre-push gates (it does NOT bypass them), so satisfy what they require:
