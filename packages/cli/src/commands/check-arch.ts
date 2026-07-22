@@ -20,6 +20,7 @@ import { logger } from '../output/logger';
 import { CLIError, ExitCode } from '../utils/errors';
 import { execSync } from 'node:child_process';
 import * as path from 'node:path';
+import * as fs from 'node:fs';
 
 interface CheckArchOptions {
   cwd?: string;
@@ -27,6 +28,10 @@ interface CheckArchOptions {
   updateBaseline?: boolean;
   json?: boolean;
   module?: string;
+  /** Permit a `--update-baseline` that WORSENS a metric (else such an update is rejected). */
+  allowRegress?: boolean;
+  /** Human reason for an accepted regression; required with `--allow-regress`, logged to audit. */
+  reason?: string;
 }
 
 export interface CheckArchResult {
@@ -58,6 +63,37 @@ function getCommitHash(cwd: string): string {
 function filterByModule(results: MetricResult[], modulePath: string): MetricResult[] {
   const normalized = modulePath.replace(/\/+$/, '');
   return results.filter((r) => r.scope === normalized || r.scope.startsWith(normalized + '/'));
+}
+
+/**
+ * Append an accepted arch-baseline regression to `.harness/audit.log` (#530) so the
+ * decision to worsen a metric is durable and reviewable. Best-effort — a logging failure
+ * must not block an otherwise-authorized update (the reason was still supplied on the CLI).
+ */
+function appendArchRegressionAudit(
+  cwd: string,
+  reason: string,
+  regressions: ArchDiffResult['regressions']
+): void {
+  try {
+    const dir = path.join(cwd, '.harness');
+    fs.mkdirSync(dir, { recursive: true });
+    const entry = {
+      timestamp: new Date().toISOString(),
+      event: 'arch-baseline-regression-accepted',
+      commit: getCommitHash(cwd),
+      reason,
+      regressions: regressions.map((r) => ({
+        category: r.category,
+        from: r.baselineValue,
+        to: r.currentValue,
+        delta: r.delta,
+      })),
+    };
+    fs.appendFileSync(path.join(dir, 'audit.log'), JSON.stringify(entry) + '\n');
+  } catch {
+    // Best-effort audit — never block the update on a logging failure.
+  }
 }
 
 /**
@@ -146,6 +182,34 @@ export async function runCheckArch(
 
   // --update-baseline mode
   if (options.updateBaseline) {
+    // #530: a baseline update that WORSENS a metric must be an explicit, recorded
+    // decision — not a silent rewrite. Diff the new results against the CURRENT
+    // baseline; if that update would regress any category, reject it unless the
+    // caller passed `--allow-regress --reason "…"`, and log the acceptance to the
+    // audit trail. No existing baseline ⇒ nothing to worsen (first capture).
+    const existingBaseline = manager.load();
+    if (existingBaseline) {
+      const regressions = diff(results, existingBaseline, {
+        regressionTolerance: archConfig.regressionTolerance,
+      }).regressions;
+      if (regressions.length > 0) {
+        const summary = regressions
+          .map((r) => `  - ${r.category}: ${r.baselineValue} → ${r.currentValue} (+${r.delta})`)
+          .join('\n');
+        if (!options.allowRegress || !options.reason || options.reason.trim() === '') {
+          return Err(
+            new CLIError(
+              `Refusing to update the baseline: it WORSENS ${regressions.length} metric(s):\n${summary}\n\n` +
+                `A regression must be an explicit decision. Re-run with:\n` +
+                `  harness check-arch --update-baseline --allow-regress --reason "<why this regression is accepted>"\n` +
+                `The reason is recorded in .harness/audit.log.`,
+              ExitCode.ERROR
+            )
+          );
+        }
+        appendArchRegressionAudit(cwd, options.reason, regressions);
+      }
+    }
     const commitHash = getCommitHash(cwd);
     // Merge into the existing baseline so categories absent from `results`
     // (e.g. silent collector failures) are not silently dropped (issue #268).
@@ -255,6 +319,11 @@ export function createCheckArchCommand(): Command {
     .description('Check architecture assertions against baseline and thresholds')
     .option('--update-baseline', 'Capture current state as new baseline')
     .option('--module <path>', 'Check a single module')
+    .option(
+      '--allow-regress',
+      'Permit a --update-baseline that worsens a metric (requires --reason)'
+    )
+    .option('--reason <text>', 'Why an accepted regression is acceptable (logged to audit)')
     .action(async (opts, cmd) => {
       const globalOpts = cmd.optsWithGlobals();
       const mode = resolveOutputMode(globalOpts);
@@ -265,6 +334,8 @@ export function createCheckArchCommand(): Command {
         updateBaseline: opts.updateBaseline,
         json: globalOpts.json,
         module: opts.module,
+        allowRegress: opts.allowRegress,
+        reason: opts.reason,
       });
 
       if (!result.ok) {

@@ -268,6 +268,93 @@ describe('check-arch command', () => {
       fs.rmSync(tmpDir, { recursive: true, force: true });
     });
 
+    // #530: a --update-baseline that WORSENS a metric must be an explicit, recorded
+    // decision (--allow-regress --reason), not a silent rewrite.
+    async function seedRegressingWorkspace(): Promise<{ tmpDir: string; configPath: string }> {
+      const fs = await import('node:fs');
+      const os = await import('node:os');
+      const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'check-arch-530-'));
+      const configPath = path.join(tmpDir, 'harness.config.json');
+      fs.writeFileSync(configPath, JSON.stringify({ version: 1, architecture: { enabled: true } }));
+      const codePath = path.join(tmpDir, 'code.ts');
+      // Small file → capture a low module-size baseline.
+      fs.writeFileSync(codePath, `export const x = 1;\n`);
+      await runCheckArch({ cwd: tmpDir, configPath, updateBaseline: true });
+      // Grow the file substantially → the next scan worsens module-size well beyond
+      // any regression tolerance.
+      const bloat = Array.from({ length: 60 }, (_, i) => `export const v${i} = ${i};`).join('\n');
+      fs.writeFileSync(codePath, `${bloat}\n`);
+      return { tmpDir, configPath };
+    }
+
+    it('registers --allow-regress and --reason options', () => {
+      const opts = createCheckArchCommand().options.map((o) => o.long);
+      expect(opts).toContain('--allow-regress');
+      expect(opts).toContain('--reason');
+    });
+
+    it('rejects a regressing --update-baseline without --allow-regress (#530)', async () => {
+      const fs = await import('node:fs');
+      const { tmpDir, configPath } = await seedRegressingWorkspace();
+      const result = await runCheckArch({ cwd: tmpDir, configPath, updateBaseline: true });
+      expect(result.ok).toBe(false);
+      if (!result.ok) {
+        expect(result.error.message).toMatch(/WORSENS/);
+        expect(result.error.message).toMatch(/--allow-regress --reason/);
+      }
+      // No audit entry written on a rejected update.
+      expect(fs.existsSync(path.join(tmpDir, '.harness', 'audit.log'))).toBe(false);
+      fs.rmSync(tmpDir, { recursive: true, force: true });
+    });
+
+    it('rejects --allow-regress without a --reason (#530)', async () => {
+      const fs = await import('node:fs');
+      const { tmpDir, configPath } = await seedRegressingWorkspace();
+      const result = await runCheckArch({
+        cwd: tmpDir,
+        configPath,
+        updateBaseline: true,
+        allowRegress: true,
+      });
+      expect(result.ok).toBe(false);
+      fs.rmSync(tmpDir, { recursive: true, force: true });
+    });
+
+    it('accepts a regressing update with --allow-regress --reason and logs it to audit.log (#530)', async () => {
+      const fs = await import('node:fs');
+      const { tmpDir, configPath } = await seedRegressingWorkspace();
+      const result = await runCheckArch({
+        cwd: tmpDir,
+        configPath,
+        updateBaseline: true,
+        allowRegress: true,
+        reason: 'accepted for the migration in #999',
+      });
+      expect(result.ok).toBe(true);
+      if (result.ok) expect(result.value.baselineUpdated).toBe(true);
+      const auditPath = path.join(tmpDir, '.harness', 'audit.log');
+      expect(fs.existsSync(auditPath)).toBe(true);
+      const entry = JSON.parse(fs.readFileSync(auditPath, 'utf-8').trim().split('\n')[0]);
+      expect(entry.event).toBe('arch-baseline-regression-accepted');
+      expect(entry.reason).toBe('accepted for the migration in #999');
+      expect(entry.regressions.length).toBeGreaterThan(0);
+      fs.rmSync(tmpDir, { recursive: true, force: true });
+    });
+
+    it('a non-regressing --update-baseline still works without --allow-regress (#530)', async () => {
+      const fs = await import('node:fs');
+      const os = await import('node:os');
+      const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'check-arch-530-ok-'));
+      const configPath = path.join(tmpDir, 'harness.config.json');
+      fs.writeFileSync(configPath, JSON.stringify({ version: 1, architecture: { enabled: true } }));
+      await runCheckArch({ cwd: tmpDir, configPath, updateBaseline: true });
+      // Re-capture with no change — no regression, so no flag needed.
+      const result = await runCheckArch({ cwd: tmpDir, configPath, updateBaseline: true });
+      expect(result.ok).toBe(true);
+      expect(fs.existsSync(path.join(tmpDir, '.harness', 'audit.log'))).toBe(false);
+      fs.rmSync(tmpDir, { recursive: true, force: true });
+    });
+
     it('reports correct exit code mapping: 0=pass, 1=regression, 2=config-error', async () => {
       // Exit code 2 for config error
       const configError = await runCheckArch({
