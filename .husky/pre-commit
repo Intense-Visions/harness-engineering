@@ -29,15 +29,27 @@ fi
 # guardrail stays visibly named — roadmap #529) AND passed to `ci check` via
 # "$SKIP". Editing this list updates the warnings and the actual skip together;
 # they cannot drift.
-# NOTE (#529 follow-up): the STRENGTH-003 skip-list auditor matches only a LITERAL
-# `--skip a,b,c` and does not resolve this `--skip "$SKIP"` variable, so its
-# static/review-time signal no longer scans this line. The per-commit warnings below
-# cover the committer; teaching STRENGTH-003 to resolve a `SKIP=` assignment would
-# restore review-time coverage of the list GROWING — tracked as a follow-up.
+# NOTE (#529 follow-up, resolved in #965): the STRENGTH-003 skip-list auditor now
+# resolves this `--skip "$SKIP"` variable form — it finds the matching `SKIP="a,b,c"`
+# assignment in this file and audits that list — so review-time coverage of the skip
+# list GROWING is restored alongside the drift-free single-source `$SKIP` form. The
+# per-commit warnings below still cover the committer at commit time.
 SKIP="entropy,docs,perf,security,deps,phase-gate"
-for cat in $(echo "$SKIP" | tr ',' ' '); do
-  echo "⚠ pre-commit: '$cat' check SKIPPED (deferred to CI/pre-push) — see roadmap #529" >&2
+# Comma-split without invoking `tr` and without globbing the categories. `IFS=,`
+# makes the unquoted `$SKIP` expansion split on commas only (not the whitespace a
+# `$(echo … | tr ',' ' ')` split would need); `set -f` disables pathname expansion
+# so a category value that happened to contain a glob metacharacter (`*`, `?`)
+# cannot expand against the cwd — word-splitting and globbing are SEPARATE steps, so
+# IFS alone would still let each split word glob. Save/restore both IFS and the glob
+# flag so the rest of the hook keeps default splitting + globbing. POSIX, dash-safe.
+old_ifs=$IFS
+IFS=,
+set -f
+for cat in $SKIP; do
+  echo "⚠ pre-commit: '$cat' check SKIPPED (deferred to CI) — see roadmap #529" >&2
 done
+set +f
+IFS=$old_ifs
 
 if ! node packages/cli/dist/bin/harness.js ci check --skip "$SKIP" >/tmp/harness-pre-commit.log 2>&1; then
   cat /tmp/harness-pre-commit.log
