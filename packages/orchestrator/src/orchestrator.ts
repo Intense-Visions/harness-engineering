@@ -106,6 +106,11 @@ import { RoutingDecisionBus } from './routing/decision-bus.js';
 import { discoverSkillCatalog, type SkillCatalogEntry } from './workflow/skill-catalog';
 import { distillGateFailure } from './workflow/gate-feedback';
 import {
+  needsDoc,
+  findUndocumentedAdditions,
+  formatUndocumentedReason,
+} from './workflow/doc-coverage-gate';
+import {
   shouldRequestUnstickAdvice,
   buildUnstickPrompt,
   formatUnstickAdvisory,
@@ -414,6 +419,76 @@ export async function defaultLocalDiffRunner(
 }
 
 /**
+ * Default doc-coverage runner: fail the gate when a newly-ADDED public source file in
+ * the workspace is not referenced anywhere under `docs/` (see {@link findUndocumentedAdditions}).
+ * Gathers added files via `git` and the docs corpus via a shallow read of `docs/**\/*.md`,
+ * then defers the decision to the pure gate. Fail-OPEN on any IO error — a scan failure
+ * must never block a genuine change (verify + outcome-eval remain the real gate).
+ */
+export async function defaultLocalDocCoverageRunner(
+  workspacePath: string
+): Promise<{ ok: boolean; output: string }> {
+  const cp = await import('node:child_process');
+  const fsMod = await import('node:fs');
+  const pathMod = await import('node:path');
+  try {
+    const added: string[] = await new Promise((resolve) => {
+      cp.execFile(
+        'git',
+        ['-C', workspacePath, 'diff', '--name-only', '--diff-filter=A', 'HEAD'],
+        { maxBuffer: 32 * 1024 * 1024 },
+        (error, stdout) => {
+          // Include untracked files too — a fresh worktree may not have committed them.
+          cp.execFile(
+            'git',
+            ['-C', workspacePath, 'ls-files', '--others', '--exclude-standard'],
+            { maxBuffer: 32 * 1024 * 1024 },
+            (error2, stdout2) => {
+              const committed = error ? [] : stdout.split('\n').filter(Boolean);
+              const untracked = error2 ? [] : stdout2.split('\n').filter(Boolean);
+              resolve([...committed, ...untracked]);
+            }
+          );
+        }
+      );
+    });
+    const needsAny = added.filter((f) => needsDoc(f));
+    if (needsAny.length === 0) return { ok: true, output: '' };
+
+    // Read the docs corpus once (basename mentions across all docs markdown).
+    const docsRoot = pathMod.join(workspacePath, 'docs');
+    let docsText = '';
+    const walk = (dir: string): void => {
+      let entries: import('node:fs').Dirent[];
+      try {
+        entries = fsMod.readdirSync(dir, { withFileTypes: true });
+      } catch {
+        return;
+      }
+      for (const e of entries) {
+        const full = pathMod.join(dir, e.name);
+        if (e.isDirectory()) walk(full);
+        else if (e.name.endsWith('.md')) {
+          try {
+            docsText += fsMod.readFileSync(full, 'utf8') + '\n';
+          } catch {
+            /* skip unreadable file */
+          }
+        }
+      }
+    };
+    walk(docsRoot);
+
+    const undocumented = findUndocumentedAdditions(needsAny, docsText);
+    if (undocumented.length === 0) return { ok: true, output: '' };
+    return { ok: false, output: formatUndocumentedReason(undocumented) };
+  } catch {
+    // Fail-open: a scan error must not spuriously block a real change.
+    return { ok: true, output: '' };
+  }
+}
+
+/**
  * staged-verify-gate-convergence (S2): the wall-clock bound applied to the local
  * settle gate's mechanical step (the acceptance command AND the verify runner). An
  * un-bounded gate command would hang `settleWorkflowSuccess` — and thus the entire
@@ -615,6 +690,13 @@ export class Orchestrator extends EventEmitter {
    * completion path is decoupled from the concrete detector.
    */
   private diffRunner: (workspacePath: string) => Promise<{ hasChanges: boolean }>;
+  /**
+   * doc-coverage gate: after verify passes, block a change that ADDS a new public
+   * source file without referencing it under `docs/` — so the local gate matches a
+   * real ship (the repo's doc-drift check) instead of stopping at typecheck+lint+test.
+   * Injected in tests; defaults to {@link defaultLocalDocCoverageRunner}. Fail-OPEN.
+   */
+  private docCoverageRunner: (workspacePath: string) => Promise<{ ok: boolean; output: string }>;
   /**
    * staged-verify-gate-convergence D2: the acceptance runner the settle gate
    * invokes when a matched workflow decl declares an `acceptance` command. Runs
@@ -866,6 +948,8 @@ export class Orchestrator extends EventEmitter {
        * `defaultLocalDiffRunner`.
        */
       diffRunner?: (workspacePath: string) => Promise<{ hasChanges: boolean }>;
+      /** Test seam for the doc-coverage gate; defaults to `defaultLocalDocCoverageRunner`. */
+      docCoverageRunner?: (workspacePath: string) => Promise<{ ok: boolean; output: string }>;
       /**
        * staged-verify-gate-convergence D2 test seam: the acceptance runner the
        * settle gate invokes for a decl with an `acceptance` command. Injected so
@@ -899,6 +983,7 @@ export class Orchestrator extends EventEmitter {
     this.localPromptTemplate = overrides?.localPromptTemplate;
     this.verifyRunner = overrides?.verifyRunner ?? defaultLocalVerifyRunner;
     this.diffRunner = overrides?.diffRunner ?? defaultLocalDiffRunner;
+    this.docCoverageRunner = overrides?.docCoverageRunner ?? defaultLocalDocCoverageRunner;
     this.acceptanceRunner = overrides?.acceptanceRunner ?? defaultLocalAcceptanceRunner;
     this.state = createEmptyState(config);
     this.logger = new StructuredLogger();
@@ -2993,6 +3078,16 @@ export class Orchestrator extends EventEmitter {
         }
       }
 
+      // 1b. Doc-coverage gate: verify (typecheck+lint+test) is narrower than a real
+      //     ship — a new public module (e.g. a new ESLint rule) passes it yet fails the
+      //     repo's doc-drift check in real CI. Block a change that ADDS a source file not
+      //     referenced under docs/, so the reasoner→coder loop produces ship-ready docs.
+      //     Fail-open inside the runner: a scan error never spuriously blocks.
+      const docCoverage = await this.docCoverageRunner(workspacePath);
+      if (!docCoverage.ok) {
+        return { ok: false, reason: docCoverage.output };
+      }
+
       // 2. Outcome evaluation (SC4): when a spec is present, run the SAME
       //    OutcomeEvaluator engine the Claude/AMR path uses — un-gated from the
       //    AMR-active + `acceptanceEval.enabled` requirements (D2: local always
@@ -3252,7 +3347,16 @@ export class Orchestrator extends EventEmitter {
         prompt,
         systemPrompt: UNSTICK_SYSTEM_PROMPT,
         responseSchema: UNSTICK_SCHEMA,
-        disableThinking: false, // the WHOLE point is to let the reasoner think
+        // disableThinking → the provider's fast native `/api/chat think:false` path.
+        // We originally left thinking ON ("let the reasoner think"), but over Ollama's
+        // `/v1` a thinking Qwen3.6 producing structured output takes ~60s WARM and far
+        // longer cold/contended (codex holding the coder model) — so it blew the timeout
+        // and was skipped EVERY time (observed cx4: 2/2 skipped), delivering nothing.
+        // Benchmarked: native think:false answers the same diagnosis in ~6.5s (9× faster)
+        // and stays correct on the observed failure modes. A fast diagnosis that ARRIVES
+        // beats a perfect one that times out; qwen3.6 (a stronger model than the coder) is
+        // a capable diagnostician even without the <think> trace.
+        disableThinking: true,
       });
       this.logger.info(
         `reasoner unstick advisory issued for ${issue.identifier} (attempt ${attempts})`,

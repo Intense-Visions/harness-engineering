@@ -125,6 +125,18 @@ exit 0`);
     }
   );
 
+  itPosix(
+    'passes -c model_reasoning_effort when reasoningEffort is set (omits it otherwise)',
+    async () => {
+      const argfile = path.join(fs.mkdtempSync(path.join(os.tmpdir(), 'codex-re-')), 'args');
+      const cmd = fakeCodex(`printf '%s\\n' "$@" > "${argfile}"\nexit 0`);
+      await drive(new CodexBackend({ model: 'm', command: cmd, reasoningEffort: 'low' }), SESSION);
+      expect(fs.readFileSync(argfile, 'utf8')).toContain('model_reasoning_effort="low"');
+      await drive(new CodexBackend({ model: 'm', command: cmd }), SESSION);
+      expect(fs.readFileSync(argfile, 'utf8')).not.toContain('model_reasoning_effort');
+    }
+  );
+
   itPosix('runTurn reports success:false + error on a non-zero exit', async () => {
     const cmd = fakeCodex(`echo '{"type":"error"}'
 exit 3`);
@@ -190,15 +202,22 @@ describe('BackendDefSchema — codex', () => {
     );
   });
 
-  it('accepts localProvider + command + timeoutMs', () => {
+  it('accepts localProvider + command + timeoutMs + reasoningEffort', () => {
     const r = BackendDefSchema.safeParse({
       type: 'codex',
       model: ['qwen3-coder:30b'],
       localProvider: 'ollama',
       command: 'codex',
       timeoutMs: 1_800_000,
+      reasoningEffort: 'low',
     });
     expect(r.success).toBe(true);
+  });
+
+  it('rejects an unknown reasoningEffort', () => {
+    expect(
+      BackendDefSchema.safeParse({ type: 'codex', model: 'm', reasoningEffort: 'extreme' }).success
+    ).toBe(false);
   });
 
   it('rejects an unknown localProvider and unknown keys (strict)', () => {

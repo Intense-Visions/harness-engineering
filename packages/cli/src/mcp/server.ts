@@ -143,6 +143,7 @@ import {
 import { searchSkillsDefinition, handleSearchSkills } from './tools/search-skills.js';
 import { dispatchSkillsDefinition, handleDispatchSkills } from './tools/dispatch-skills.js';
 import { getDecayTrendsDefinition, handleGetDecayTrends } from './tools/decay-trends.js';
+import { editFileDefinition, handleEditFile } from './tools/edit-file.js';
 import {
   codeOutlineDefinition,
   handleCodeOutline,
@@ -299,6 +300,7 @@ const TOOL_DEFINITIONS: ToolDefinition[] = [
   codeOutlineDefinition,
   codeSearchDefinition,
   codeUnfoldDefinition,
+  editFileDefinition,
   getDecayTrendsDefinition,
   checkTraceabilityDefinition,
   predictFailuresDefinition,
@@ -394,6 +396,7 @@ const TOOL_HANDLERS: Record<string, ToolHandler> = {
   code_outline: handleCodeOutline as ToolHandler,
   code_search: handleCodeSearch as ToolHandler,
   code_unfold: handleCodeUnfold as ToolHandler,
+  edit_file: handleEditFile as ToolHandler,
   get_decay_trends: handleGetDecayTrends as ToolHandler,
   check_traceability: handleCheckTraceability as ToolHandler,
   predict_failures: handlePredictFailures as ToolHandler,

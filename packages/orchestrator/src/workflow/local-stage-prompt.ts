@@ -19,7 +19,7 @@ import { STAGE_PROMPT_TEMPLATE } from './orchestrator-context.js';
  * from the default template so prior-artifact injection is treated as DATA, not
  * as instructions that could override the prompt.
  */
-export const LOCAL_STAGE_PROMPT_TEMPLATE = `You are an autonomous agent executing stage {{ stageNumber }} of a multi-stage workflow for the work item below, working exactly as a real harness session would. In addition to bash/read/write/grep/find you have the FULL harness MCP toolset (tools are namespaced \`harness__*\` — e.g. \`harness__manage_roadmap\`, \`harness__code_search\`, \`harness__ask_graph\`, \`harness__gather_context\`, \`harness__review_changes\`, \`harness__run_code_review\`, \`harness__run_ci_checks\`, \`harness__outcome_eval\`, \`harness__spec_craft\`). USE them when the skill calls for them (register the spec/plan on the roadmap with \`harness__manage_roadmap\`, pull context with \`harness__code_search\`/\`harness__ask_graph\`, review the diff with \`harness__run_code_review\`), instead of approximating with bash. Do this stage's work to completion and PRODUCE its output ({{ produces }}) — do not stop after merely reading the skill's instructions, and do not skip ahead to a later stage's job.
+export const LOCAL_STAGE_PROMPT_TEMPLATE = `You are an autonomous agent executing stage {{ stageNumber }} of a multi-stage workflow for the work item below, working exactly as a real harness session would. In addition to bash/read/write/grep/find you have the FULL harness MCP toolset (tools are namespaced \`harness__*\` — e.g. \`harness__manage_roadmap\`, \`harness__code_search\`, \`harness__ask_graph\`, \`harness__gather_context\`, \`harness__review_changes\`, \`harness__run_code_review\`, \`harness__run_ci_checks\`, \`harness__outcome_eval\`, \`harness__spec_craft\`, and \`harness__edit_file\` for surgical file edits). USE them when the skill calls for them (register the spec/plan on the roadmap with \`harness__manage_roadmap\`, pull context with \`harness__code_search\`/\`harness__ask_graph\`, review the diff with \`harness__run_code_review\`, change existing files with \`harness__edit_file\`), instead of approximating with bash. Do this stage's work to completion and PRODUCE its output ({{ produces }}) — do not stop after merely reading the skill's instructions, and do not skip ahead to a later stage's job.
 
 ## Work item ({{ identifier }})
 {{ title }}
@@ -48,6 +48,9 @@ Review the accumulated diff with \`harness__run_code_review\` and \`harness__rev
 {% else %}
 The skill will instruct you to WRITE the implementation ({{ produces }}): do the work to completion and PRODUCE it before stopping — reading the instructions is NOT completing the stage.
 
+## Editing existing files: edit surgically, never clobber
+To CHANGE an existing file, make a SURGICAL edit — replace only the exact lines that must change and keep every unrelated line byte-for-byte. Do NOT rewrite a whole file, and do NOT edit with shell redirection (\`cat > file\`, \`echo >> file\`, \`sed -i\`) or \`apply_patch\`: those overwrite or delete whole files and have corrupted real work (e.g. deleting a barrel \`index.ts\`). If your toolset includes an exact-edit tool — \`harness__edit_file\` (exact \`old_string\` → \`new_string\`; copy \`old_string\` verbatim with indentation and add surrounding context so it is unique) or an equivalent — PREFER it for every change to an existing file. Use a whole-file write ONLY to create a brand-new file.
+
 ## Before you finish this stage: self-verify
 An automated gate will run **typecheck + lint + the FULL test suite** on every package you touched — not just the file you added — and it BLOCKS the entire task on ANY failure. Passing only your own new test is NOT enough. So before you stop, run those exact checks yourself for each changed package and FIX every error and failing test until they are all green:
 
@@ -58,6 +61,8 @@ pnpm --filter <changed-package-name> test
 \`\`\`
 
 Common misses that fail the gate even when your own test passes: type errors that tests don't catch (tests run through esbuild, which strips types — so ALWAYS run typecheck), and inventory/count assertions elsewhere in the suite that your change invalidates (e.g. a test asserting the number of registered rules/exports — update it). Iterate here until all three are green; do not rely on a later retry.
+
+The gate ALSO checks documentation: any NEW public source file you add must be referenced under \`docs/\` (a real merge fails the repo's doc-drift check otherwise). If you add a new rule/API/module, document it in the matching \`docs/\` reference (e.g. a new ESLint rule goes in \`docs/reference/eslint-rules.md\` and the package README) and update any feature/rule COUNT in that doc — as part of THIS change, not a follow-up.
 
 Leave a CLEAN diff: everything you commit becomes a real pull request. Delete any scratch/debug/throwaway files you created while working (e.g. \`debug-*.js\`, temporary reproductions) — they must not ship. Do NOT delete or modify files unrelated to this task; only touch what the work item requires.
 
