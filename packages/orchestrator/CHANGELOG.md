@@ -1,5 +1,86 @@
 # @harness-engineering/orchestrator
 
+## 0.18.0
+
+### Minor Changes
+
+- bb4de5e: feat: surgical-edit path for local/codex agents + apply the ollama-campaign lessons
+
+  A local model driven through Codex has no working `apply_patch` (freeform variant is
+  grammar-constrained / GPT-5-only; the function variant is not offered to third-party
+  OSS models), so it falls back to shell redirection that clobbers files — observed live
+  deleting a barrel `index.ts`. This adds the missing pieces:
+  - **`edit_file` MCP tool** (`@harness-engineering/cli`) — exact `old_string` → `new_string`
+    surgical replace with a unique-match guard and clear, recoverable errors; refuses
+    ambiguous/missing matches instead of guessing. Ships in `harness-mcp`; opt-in via a
+    server's `tools` allowlist.
+  - **Staged-workflow prompt** now steers local agents to PREFER an exact-edit tool
+    (`harness__edit_file` or equivalent) **if present**, and otherwise to edit surgically
+    and never rewrite whole files or use `cat >`/`echo >>`/`apply_patch` — degrades
+    gracefully for adopters who don't enable the tool.
+  - **`reasoningEffort`** on the `codex` backend (`-c model_reasoning_effort`) — a hands-on
+    coder wants `'low'`.
+  - **Docs:** a codex-backend + `edit_file` section in the multi-backend-routing guide,
+    including the sampling constraint (Codex owns the request and auto-pulls the model, so
+    sampling params cannot be injected the way endpoint backends do).
+
+  Also locks in the within-run worktree-preservation contract (a gate-block re-dispatch
+  reuses the ONE worktree so the agent's uncommitted progress survives) with a regression
+  test — the earlier ollama-path bug wiped the worktree every re-dispatch.
+
+- bb4de5e: feat(orchestrator): enforce doc coverage in the local/codex gate
+
+  The enforced local gate ran only `typecheck + lint + test`, so the autopilot's
+  definition of "done" was narrower than a real ship: a new public module (e.g. a new
+  ESLint rule) passed the gate yet failed the repo's own doc-drift check in real CI,
+  because the harness counts a source file documented only when a `docs/` markdown
+  references its basename. The gate could green work that a real merge blocks.
+
+  Add a diff-relative doc-coverage step after verify: it fails when a change ADDS a
+  public source file (under a package `src/`, excluding tests / barrels / type-only
+  decls / config) whose basename is not referenced anywhere under `docs/`. Conservative
+  by design — only newly-added files, lenient "mention" match, and fail-OPEN on any scan
+  error — so it forces ship-ready docs without spurious blocks. The staged-workflow
+  prompt now also tells the model to document new public modules as part of the change.
+
+### Patch Changes
+
+- bb4de5e: fix(orchestrator): reasoner unstick advisory now actually delivers (native think:false, ~9× faster)
+
+  The reasoner unstick advisory (escalate a stuck local coder to the thinking model for a
+  diagnosis + fix) was calling the reasoner with `disableThinking: false` — forcing Ollama's
+  `/v1` + structured-output + `<think>` path, which takes ~60s warm and far longer cold or
+  under model contention (codex holding the coder model). It blew the timeout and was skipped
+  every time (observed cx4: 2/2 skipped), so the coder retried blind — the escalation was a
+  no-op in practice.
+
+  Switch the advisory to `disableThinking: true`, which the analysis provider already routes
+  through Ollama's native `/api/chat think:false` path. Benchmarked on qwen3.6:27b: the same
+  diagnosis in ~6.5s vs ~59s — a fast diagnosis that ARRIVES beats a perfect one that times
+  out, and the reasoner is a capable diagnostician (a stronger model than the coder) even
+  without the `<think>` trace. `/no_think` over `/v1` was also measured and is ignored (68–164s),
+  confirming native is the only reliable fast route.
+
+- e35a11b: fix(orchestrator): unload the coder before the reasoner unstick call (free the GPU)
+
+  On a single-GPU box the coder (codex's execution model) and the reasoner can't both be
+  resident. The unstick's reasoner call must swap the coder out, and in a run that swap is
+  starved past its budget — Ollama serves one request at a time and the just-finished coder
+  is still resident — so the advisory timed out and was skipped every time (observed cx4–cx7),
+  never reaching the coder. The provider path itself is correct (verified in isolation); the
+  failure is purely GPU contention at the moment the advisory fires.
+
+  Before the reasoner call, explicitly unload the execution model from Ollama
+  (`/api/generate` with `keep_alive: 0`) so the reasoner loads into free VRAM with nothing to
+  evict; codex reloads the coder on the next dispatch. Best-effort and never throws.
+
+- Updated dependencies [bb4de5e]
+  - @harness-engineering/types@0.25.0
+  - @harness-engineering/core@0.38.1
+  - @harness-engineering/graph@0.11.11
+  - @harness-engineering/intelligence@0.10.1
+  - @harness-engineering/local-models@0.7.1
+
 ## 0.17.0
 
 ### Minor Changes
