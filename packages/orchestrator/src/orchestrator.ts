@@ -110,6 +110,7 @@ import {
   findUndocumentedAdditions,
   formatUndocumentedReason,
 } from './workflow/doc-coverage-gate';
+import { resolvePeerUnloadFromConfig } from './workflow/peer-unload';
 import {
   shouldRequestUnstickAdvice,
   buildUnstickPrompt,
@@ -3314,6 +3315,25 @@ export class Orchestrator extends EventEmitter {
   }
 
   /**
+   * Unload the coder (execution model) from Ollama so the reasoner unstick call has a
+   * free GPU (see {@link resolvePeerUnloadTarget}). Best-effort and never throws — a
+   * miss just leaves the coder resident and the reasoner call takes its chances.
+   */
+  private async unloadPeerModelBestEffort(): Promise<void> {
+    try {
+      const target = resolvePeerUnloadFromConfig(this.config.agent);
+      if (target === undefined) return;
+      await fetch(target.url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ model: target.model, keep_alive: 0 }),
+      });
+    } catch {
+      // Best-effort: an unload failure must never block the advisory.
+    }
+  }
+
+  /**
    * Reasoner unstick advisory: when the local executor has STALLED (repeated gate
    * failures with retry budget left), ask the thinking model to diagnose the failure
    * and prescribe a concrete fix, returning a preamble to prepend to the coder's next
@@ -3334,6 +3354,11 @@ export class Orchestrator extends EventEmitter {
     }
     const resolved = this.resolveReasonerProvider();
     if (resolved === undefined) return undefined;
+    // Free the GPU before the reasoner call: on a single-GPU box the just-finished
+    // coder is still resident, and swapping it out under load starves the reasoner
+    // request past its budget (cx4–cx7: advisory timed out + skipped every time).
+    // Explicitly unload the coder so the reasoner loads into free VRAM. Best-effort.
+    await this.unloadPeerModelBestEffort();
     try {
       let diffText = '';
       try {
