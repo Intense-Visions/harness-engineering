@@ -17,6 +17,7 @@ import noSkippedTests from './no-skipped-tests';
 import noDisabledTests from './no-disabled-tests';
 import noHardcodedTestCount from './no-hardcoded-test-count';
 import noEmptyDescribe from './no-empty-describe';
+import noSpreadInVariadic from './no-spread-in-variadic';
 import type { TSESLint } from '@typescript-eslint/utils';
 
 // Explicit annotation so the exported type is nameable via the direct
@@ -41,4 +42,5 @@ export const rules: Record<string, TSESLint.RuleModule<string, unknown[]>> = {
   'no-disabled-tests': noDisabledTests,
   'no-hardcoded-test-count': noHardcodedTestCount,
   'no-empty-describe': noEmptyDescribe,
+  'no-spread-in-variadic': noSpreadInVariadic,
 };
