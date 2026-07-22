@@ -83,11 +83,12 @@ Create `harness.config.json` in your project root:
 
 ### Performance Rules
 
-| Rule                          | Description                                      | Default |
-| ----------------------------- | ------------------------------------------------ | ------- |
-| `no-nested-loops-in-critical` | Disallow nested loops in critical path functions | warn    |
-| `no-sync-io-in-async`         | Disallow synchronous I/O in async functions      | warn    |
-| `no-unbounded-array-chains`   | Disallow unbounded array method chains           | warn    |
+| Rule                          | Description                                                                  | Default |
+| ----------------------------- | ---------------------------------------------------------------------------- | ------- |
+| `no-nested-loops-in-critical` | Disallow nested loops in critical path functions                             | warn    |
+| `no-sync-io-in-async`         | Disallow synchronous I/O in async functions                                  | warn    |
+| `no-unbounded-array-chains`   | Disallow unbounded array method chains                                       | warn    |
+| `no-spread-in-variadic`       | Disallow `Math.min`/`Math.max` array spread (stack overflow on large inputs) | error   |
 
 ### Cross-Platform Rules
 

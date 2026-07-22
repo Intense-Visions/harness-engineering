@@ -1,6 +1,6 @@
 # ESLint Rules Reference
 
-Complete reference for all rules provided by `@harness-engineering/eslint-plugin`. The plugin ships 12 rules across 5 categories, enforcing architecture, boundary, documentation, performance, and cross-platform constraints at lint time.
+Complete reference for all rules provided by `@harness-engineering/eslint-plugin`. The plugin ships 19 rules across 6 categories, enforcing architecture, boundary, documentation, performance, and cross-platform constraints at lint time.
 
 ## Quick Start
 
@@ -411,6 +411,36 @@ result.sort((a, b) => a - b);
 
 ---
 
+### `no-spread-in-variadic`
+
+Disallows spreading an array into `Math.min` / `Math.max`. Spreading pushes every element onto the call stack as a separate argument, so a large array (~65k+ elements on V8) throws `RangeError: Maximum call stack size exceeded` — an input-dependent runtime crash the type checker cannot catch.
+
+| Property             | Value       |
+| -------------------- | ----------- |
+| **Category**         | Performance |
+| **Default severity** | `error`     |
+| **Requires config**  | No          |
+| **Fixable**          | No          |
+| **Options**          | None        |
+
+**What it detects:** A `CallExpression` whose callee is the non-computed member `Math.min` or `Math.max` and whose arguments include a spread element (`...`).
+
+**Violation:**
+
+```ts
+const peak = Math.max(...values); // ERROR: throws on large arrays
+```
+
+**Safe alternative:**
+
+```ts
+const peak = values.reduce((a, b) => Math.max(a, b), -Infinity); // bounded, no stack blowup
+```
+
+Not flagged: plain arguments (`Math.min(a, b)`), other Math methods (`Math.floor(...xs)`), array/object spread (`[...arr]`, `{ ...obj }`), or spread into a non-`Math` callee (`f(...args)`).
+
+---
+
 ## Cross-Platform Rules
 
 ### `no-unix-shell-command`
@@ -575,7 +605,7 @@ spawn('node', ['script.js'], {
 | `require-path-normalization`  | Cross-Platform | `warn`  | No              |
 | `no-process-env-in-spawn`     | Security       | `error` | No              |
 
-**Note:** The `recommended` config enables all 12 rules. Performance rules (`no-nested-loops-in-critical`, `no-sync-io-in-async`, `no-unbounded-array-chains`) are set to `warn` severity. To customize severity:
+**Note:** The `recommended` config enables the architecture, boundary, documentation, cross-platform, and most test/performance rules. Performance rules (`no-nested-loops-in-critical`, `no-sync-io-in-async`, `no-unbounded-array-chains`) are set to `warn` severity. To customize severity:
 
 ```js
 '@harness-engineering/no-nested-loops-in-critical': 'warn',
