@@ -1,0 +1,1 @@
+const fs = require('fs'); const files = fs.readdirSync('./src/rules/').filter(f => f.endsWith('.ts') && !f.includes('index')); console.log(files.length, 'rules found'); const ruleCount = files.filter(f => !f.includes('no-unix-shell-command.ts')).length; console.log(ruleCount, 'rules (excluding no-unix-shell-command)'); 
