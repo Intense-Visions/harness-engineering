@@ -20,6 +20,7 @@ echo "warn: pre-commit skipping perf check (see #529)" >&2
 echo "warn: pre-commit skipping security check (see #529)" >&2
 echo "warn: pre-commit skipping deps check (see #529)" >&2
 echo "warn: pre-commit skipping phase-gate check (see #529)" >&2
+fi
 
 if ! node packages/cli/dist/bin/harness.js ci check --skip entropy,docs,perf,security,deps,phase-gate >/tmp/harness-pre-commit.log 2>&1; then
   cat /tmp/harness-pre-commit.log

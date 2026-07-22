@@ -13,13 +13,19 @@ fi
 # against the pin (.nvmrc / engines) and ABI-mismatches under a different node
 # major (#910). Sourced so its PATH/`nvm use` change persists for the rest of
 # this hook; activates the pin via mise/nvm or fails fast with a clear message.
-echo "warn: pre-commit skipping entropy check (see #529)" >&2
 # Guarded with an explicit `if` (not `[ -f ] && .`, which would return non-zero
+# and abort the whole hook under `sh -e` when the helper is absent): the hook is
+# copied verbatim into fixture repos by the pre-commit e2e tests, where
+# `.husky/ensure-node-pin.sh` does not exist and must be skipped, not fatal.
+if [ -f .husky/ensure-node-pin.sh ]; then
+  . .husky/ensure-node-pin.sh
+echo "warn: pre-commit skipping entropy check (see #529)" >&2
 echo "warn: pre-commit skipping docs check (see #529)" >&2
 echo "warn: pre-commit skipping perf check (see #529)" >&2
 echo "warn: pre-commit skipping security check (see #529)" >&2
 echo "warn: pre-commit skipping deps check (see #529)" >&2
 echo "warn: pre-commit skipping phase-gate check (see #529)" >&2
+fi
 
 if ! node packages/cli/dist/bin/harness.js ci check --skip entropy,docs,perf,security,deps,phase-gate >/tmp/harness-pre-commit.log 2>&1; then
   cat /tmp/harness-pre-commit.log
