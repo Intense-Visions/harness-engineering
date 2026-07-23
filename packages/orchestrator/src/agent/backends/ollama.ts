@@ -936,6 +936,18 @@ export class OllamaBackend implements AgentBackend {
     // keeps going instead of a premature stop being marked done.
     if (toolCalls.length === 0) {
       const finalText = message.content ?? '';
+      // Surface the model's final assistant text as a `result` event so the workflow
+      // stage runner captures it (`run.output`). Without this, a DOCUMENT stage's
+      // generated spec/plan content is produced but never captured — so it can be
+      // neither persisted to its documentPath nor threaded to the next stage.
+      if (finalText.trim() !== '') {
+        yield {
+          type: 'result',
+          timestamp: new Date().toISOString(),
+          sessionId: session.sessionId,
+          content: finalText,
+        };
+      }
       if (TASK_COMPLETE_MARKER.test(finalText)) {
         this.notify(this.config.onModelUsed, session.resolvedModel);
         return {
