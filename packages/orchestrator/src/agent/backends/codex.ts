@@ -28,26 +28,26 @@ import {
  * backend re-emits as a `result` event so the workflow stage runner captures it
  * (`run.output`) and can persist a design stage's proposal/plan artifact.
  */
+function nonEmptyString(v: unknown): string | undefined {
+  return typeof v === 'string' && v.trim() !== '' ? v : undefined;
+}
+
+/** Pull agent_message text out of a single node (`{type:'agent_message', message|text}`). */
+function agentMessageNodeText(node: unknown): string | undefined {
+  if (typeof node !== 'object' || node === null) return undefined;
+  const n = node as Record<string, unknown>;
+  if (n.type !== 'agent_message') return undefined;
+  return nonEmptyString(n.message) ?? nonEmptyString(n.text);
+}
+
 export function extractCodexAgentMessage(parsed: unknown): string | undefined {
   if (typeof parsed !== 'object' || parsed === null) return undefined;
   const rec = parsed as Record<string, unknown>;
-  const str = (v: unknown): string | undefined =>
-    typeof v === 'string' && v.trim() !== '' ? v : undefined;
-  const fromNode = (node: unknown): string | undefined => {
-    if (typeof node !== 'object' || node === null) return undefined;
-    const n = node as Record<string, unknown>;
-    if (n.type !== 'agent_message') return undefined;
-    return str(n.message) ?? str(n.text);
-  };
-  // nested `msg` form
-  const fromMsg = fromNode(rec.msg);
-  if (fromMsg !== undefined) return fromMsg;
-  // item form (`item.completed` / `item.updated` carrying an agent_message item)
-  const fromItem = fromNode(rec.item);
-  if (fromItem !== undefined) return fromItem;
-  // flat form
-  if (rec.type === 'agent_message') return str(rec.message) ?? str(rec.text);
-  return undefined;
+  // The agent_message node lives at `msg` (nested form), `item` (item.* form), or
+  // is the record itself (flat form) — the same shape check handles all three.
+  return (
+    agentMessageNodeText(rec.msg) ?? agentMessageNodeText(rec.item) ?? agentMessageNodeText(rec)
+  );
 }
 
 /**
