@@ -196,13 +196,25 @@ function makeRunnerFactory(
 }
 
 /** Build the engine's `resolveStageBackend` seam (identity fallback). */
-function resolveStageBackendFactory(
+export function resolveStageBackendFactory(
   backendFactory: OrchestratorBackendFactory | null,
   routingDefault: string | undefined
 ): NonNullable<WorkflowEngineContext['resolveStageBackend']> {
   return (step) => {
     const useCase = buildStageUseCase(step);
-    if (backendFactory !== null) return backendFactory.forUseCase(useCase);
+    if (backendFactory !== null) {
+      // Return a NAME-ONLY backend keyed by the stage's ROUTING NAME (backendName),
+      // NOT a materialized backend. `makeRunner` re-materializes whatever it is handed
+      // by `.name` — and a materialized backend's `.name` is a TYPE label ('ollama',
+      // 'codex', 'claude'), never a routing key. Feeding that type label back through
+      // `forUseCase(invocationOverride)` matches no backend def, so it silently fell
+      // through to `routing.default` — every design stage (cognitiveMode: thinking →
+      // `reasoner`) actually ran on the coder (`codex-exec`), defeating per-phase
+      // routing. `resolveName` gives the real routing key so makeRunner re-materializes
+      // the intended backend. Mirrors the adaptive path + `stageDecisionFor` (which
+      // already uses `resolveName`, not the type-label `.name`, for the same reason).
+      return { name: backendFactory.resolveName(useCase) } as AgentBackend;
+    }
     // Legacy fallback (no factory): a name-only backend from routing.default.
     return { name: routingDefault ?? 'unknown' } as AgentBackend;
   };
@@ -269,6 +281,47 @@ function documentStagePath(produces: string, identifier: string): string {
 }
 
 /**
+ * Build the `persistStageDocument` seam: after a passing DOCUMENT stage (spec/plan), write
+ * the captured stage output to its `documentPath` in the workspace IF the model did not
+ * already write a non-empty file there. Guarantees the design phase's artifact lands even
+ * when a local reasoner reasons without writing. Best-effort — never throws.
+ */
+export function persistStageDocumentFactory(
+  workspacePath: string,
+  issue: Issue,
+  logger: BuildWorkflowContextDeps['logger']
+): NonNullable<WorkflowEngineContext['persistStageDocument']> {
+  return async (step, run) => {
+    try {
+      const produces = step.produces ?? '';
+      const relPath = documentStagePath(produces, issue.identifier);
+      if (relPath === '') return; // not a document stage
+      const output = run.output;
+      if (output === undefined || output.trim() === '') return; // nothing to persist
+      const fs = await import('node:fs');
+      const pathMod = await import('node:path');
+      const full = pathMod.join(workspacePath, relPath);
+      // Do not clobber a doc the model actually wrote — only fill a missing/empty file.
+      let existing = '';
+      try {
+        existing = fs.readFileSync(full, 'utf8');
+      } catch {
+        /* absent — will write */
+      }
+      if (existing.trim() !== '') return;
+      fs.mkdirSync(pathMod.dirname(full), { recursive: true });
+      fs.writeFileSync(full, output.endsWith('\n') ? output : `${output}\n`);
+      logger.info(`persisted ${produces} stage output → ${relPath}`, { issueId: issue.id });
+    } catch (err) {
+      logger.debug(`persistStageDocument skipped (best-effort)`, {
+        issueId: issue.id,
+        error: err instanceof Error ? err.message : String(err),
+      });
+    }
+  };
+}
+
+/**
  * The re-prompt preamble appended to a staged stage's prompt when the prior
  * attempt was gate-blocked. Kept template-agnostic (appended post-render) to
  * mirror the single-agent path (orchestrator.ts:2597) and dodge strictVariables.
@@ -332,7 +385,7 @@ function renderStagePromptFactory(
  * → its `BackendDef` via the config's backends map, then apply
  * `isLocalEndpointBackend`. Absent map (fake/legacy) ⇒ always non-local (SC3).
  */
-function isLocalBackendFactory(
+export function isLocalBackendFactory(
   backends: Record<string, BackendDef> | undefined
 ): NonNullable<WorkflowEngineContext['isLocalBackend']> {
   return (backend) => {
@@ -401,6 +454,7 @@ export function buildWorkflowContext(deps: BuildWorkflowContextDeps): WorkflowEn
     // The prior gate failure (on a retry) is appended so the executor sees the
     // exact error to fix instead of re-deriving the same blocked attempt.
     renderStagePrompt: renderStagePromptFactory(promptRenderer, issue, deps.priorGateFailure),
+    persistStageDocument: persistStageDocumentFactory(workspacePath, issue, logger),
 
     // per-phase routing: resolve a routed backend's locality so the renderer
     // selects the local-indirection template for local-endpoint stages. Absent

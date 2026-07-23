@@ -16,6 +16,41 @@ import {
 } from '@harness-engineering/types';
 
 /**
+ * Extract the assistant's final text from a parsed codex `--json` line, across
+ * protocol versions. Codex surfaces the model's final message as an
+ * `agent_message` event whose text lives in one of three shapes:
+ *   - nested `msg`:  `{"msg":{"type":"agent_message","message":"…"}}`
+ *   - item form:     `{"type":"item.completed","item":{"type":"agent_message","text":"…"}}`
+ *   - flat form:     `{"type":"agent_message","message":"…"}` (or `"text"`)
+ * Returns the text when the line IS an agent_message, else `undefined`. Kept
+ * pure + defensive (never throws on odd shapes) so the JSONL loop can call it per
+ * line; the LAST non-empty result is the turn's final assistant output, which the
+ * backend re-emits as a `result` event so the workflow stage runner captures it
+ * (`run.output`) and can persist a design stage's proposal/plan artifact.
+ */
+function nonEmptyString(v: unknown): string | undefined {
+  return typeof v === 'string' && v.trim() !== '' ? v : undefined;
+}
+
+/** Pull agent_message text out of a single node (`{type:'agent_message', message|text}`). */
+function agentMessageNodeText(node: unknown): string | undefined {
+  if (typeof node !== 'object' || node === null) return undefined;
+  const n = node as Record<string, unknown>;
+  if (n.type !== 'agent_message') return undefined;
+  return nonEmptyString(n.message) ?? nonEmptyString(n.text);
+}
+
+export function extractCodexAgentMessage(parsed: unknown): string | undefined {
+  if (typeof parsed !== 'object' || parsed === null) return undefined;
+  const rec = parsed as Record<string, unknown>;
+  // The agent_message node lives at `msg` (nested form), `item` (item.* form), or
+  // is the record itself (flat form) — the same shape check handles all three.
+  return (
+    agentMessageNodeText(rec.msg) ?? agentMessageNodeText(rec.item) ?? agentMessageNodeText(rec)
+  );
+}
+
+/**
  * Codex CLI backend driving a LOCAL model (Ollama / LM Studio).
  *
  * Rationale (2026-07 campaign): our bespoke {@link OllamaBackend} tool loop stalled
@@ -225,6 +260,11 @@ export class CodexBackend implements AgentBackend {
 
     // Surface codex's JSONL events as status events so the orchestrator's recorder /
     // black-box see live progress. Unknown/text lines pass through as raw output.
+    // Separately, keep the LAST `agent_message` text (the model's final assistant
+    // output) so we can emit it below as a `result` event — the status events are
+    // truncated to 2000 chars and never captured as `run.output`, which is why a
+    // design stage's generated proposal/plan was produced but never persisted.
+    let lastAgentMessage = '';
     for await (const line of rl) {
       const trimmed = line.trim();
       if (!trimmed) continue;
@@ -241,6 +281,8 @@ export class CodexBackend implements AgentBackend {
             : undefined;
         subtype = mt ?? t ?? 'codex_event';
         content = trimmed.length > 2000 ? `${trimmed.slice(0, 2000)}…` : trimmed;
+        const agentText = extractCodexAgentMessage(ev);
+        if (agentText !== undefined) lastAgentMessage = agentText;
       } catch {
         // non-JSON line — pass through as raw output
       }
@@ -250,6 +292,20 @@ export class CodexBackend implements AgentBackend {
         timestamp: new Date().toISOString(),
         sessionId: session.sessionId,
         content,
+      };
+    }
+
+    // Emit the model's final assistant text as a `result` event so the workflow
+    // stage runner captures it (`run.output`) — without this, a DOCUMENT stage
+    // (spec/plan) produces content that is never persisted to its documentPath
+    // nor threaded to the next stage. Best-effort: only when the model actually
+    // produced a final message; a tool-only or empty run yields nothing here.
+    if (lastAgentMessage.trim() !== '') {
+      yield {
+        type: 'result',
+        timestamp: new Date().toISOString(),
+        sessionId: session.sessionId,
+        content: lastAgentMessage,
       };
     }
 

@@ -152,6 +152,16 @@ export interface WorkflowEngineContext {
    */
   loadStageCheckpoint?(unit: string): ReadonlyMap<number, StageRun> | undefined;
   saveStageCheckpoint?(unit: string, stageIndex: number, run: StageRun): void;
+  /**
+   * Persist a passing DOCUMENT stage's output (spec/plan → `docs/changes/<slug>/…`) to
+   * disk in the workspace. The stage prompt tells the model to write the artifact, but a
+   * local reasoner often reasons WITHOUT writing the file — so the design phase runs yet
+   * no proposal/plan lands, hollowing the lifecycle. This seam writes the captured stage
+   * output to its `documentPath` when the model didn't, guaranteeing the artifact exists.
+   * Best-effort; a no-op for non-document stages, empty output, or an already-written doc.
+   * Absent (fake/legacy ctx) ⇒ no persistence (byte-identical prior behavior).
+   */
+  persistStageDocument?(step: WorkflowStep, run: StageRun): Promise<void>;
 }
 
 /**
@@ -525,6 +535,11 @@ export async function executeWorkflow(
         // Checkpoint a passing checkpoint-stage so a later re-dispatch reuses it.
         if (step.checkpoint === true && run.outcome === 'pass') {
           ctx.saveStageCheckpoint?.(plan.coherenceUnit, index, run);
+        }
+        // Persist a passing DOCUMENT stage's output (spec/plan) to its documentPath so
+        // the artifact lands even when the local model reasons without writing the file.
+        if (run.outcome === 'pass') {
+          await ctx.persistStageDocument?.(step, run);
         }
       }
       runs.push(run);
