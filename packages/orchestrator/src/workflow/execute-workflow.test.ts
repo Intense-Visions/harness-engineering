@@ -8,6 +8,7 @@ import {
   nextTier,
 } from './execute-workflow';
 import type { WorkflowEngineContext } from './execute-workflow';
+import { persistStageDocumentFactory } from './orchestrator-context';
 import type {
   WorkflowExecutionPlan,
   RoutingDecision,
@@ -52,6 +53,11 @@ function makeFakeCtx(opts: {
   adaptiveRouter?: WorkflowEngineContext['adaptiveRouter'];
   /** Resume-checkpoint: pre-seed to test reuse; reads/writes are observable. */
   checkpoint?: Map<number, StageRun>;
+  /** When set for a stage index, the runner yields a `result` event carrying this
+   * text — exercising the stage runner's final-text capture into `run.output`. */
+  outputPerStage?: (string | undefined)[];
+  /** Wire a real (or spy) persistStageDocument seam onto the ctx. */
+  persistStageDocument?: WorkflowEngineContext['persistStageDocument'];
 }): {
   ctx: WorkflowEngineContext;
   runOrder: number[];
@@ -107,6 +113,10 @@ function makeFakeCtx(opts: {
         };
         const ev: AgentEvent = { type: 'usage', usage } as unknown as AgentEvent;
         yield ev;
+        const out = opts.outputPerStage?.[index];
+        if (out !== undefined) {
+          yield { type: 'result', content: out } as unknown as AgentEvent;
+        }
         return {
           sessionId: opts.sessionIds[index] ?? `sess-${index}`,
           success: opts.successPerStage?.[index] ?? true,
@@ -132,6 +142,7 @@ function makeFakeCtx(opts: {
             opts.checkpoint!.set(i, run),
         }
       : {}),
+    ...(opts.persistStageDocument ? { persistStageDocument: opts.persistStageDocument } : {}),
   };
 
   return {
@@ -1390,6 +1401,74 @@ describe('executeWorkflow — never writes the issue-level session (C1/SC1-c)', 
     expect(runs.map((r) => r.sessionId)).toEqual(['sess-0', 'sess-1']);
     for (const r of runs) {
       expect(r.sessionId).not.toBe('ISSUE-LEVEL-DO-NOT-TOUCH');
+    }
+  });
+});
+
+describe('executeWorkflow — design-artifact capture → persist (full chain)', () => {
+  const dstep = (produces: string): WorkflowStep => ({ skill: `skill-${produces}`, produces });
+
+  it('captures a stage `result` event into run.output', async () => {
+    const { ctx, successCalls } = makeFakeCtx({
+      sessionIds: ['s0', 's1', 's2'],
+      outputPerStage: ['# Proposal\n\nThe design.', '# Plan\n\n1. do it', 'code output'],
+    });
+    await executeWorkflow(ctx, {
+      coherenceUnit: 'issue-1',
+      stages: [dstep('spec'), dstep('plan'), dstep('impl')],
+    });
+    const runs = successCalls[0]!;
+    // split-routing 4b: the final `result` text is harvested into run.output
+    expect(runs.map((r) => r.output)).toEqual([
+      '# Proposal\n\nThe design.',
+      '# Plan\n\n1. do it',
+      'code output',
+    ]);
+  });
+
+  it('persists captured design output to docs/changes/<slug>/ on disk (end to end)', async () => {
+    const fs = await import('node:fs');
+    const os = await import('node:os');
+    const path = await import('node:path');
+    const ws = fs.mkdtempSync(path.join(os.tmpdir(), 'exec-persist-'));
+    try {
+      const issue = { id: 'issue-1', identifier: 'e2e-222-demo' } as unknown as Parameters<
+        typeof persistStageDocumentFactory
+      >[1];
+      const logger = { info() {}, warn() {}, error() {}, debug() {} } as unknown as Parameters<
+        typeof persistStageDocumentFactory
+      >[2];
+      const { ctx, successCalls } = makeFakeCtx({
+        sessionIds: ['s0', 's1', 's2'],
+        outputPerStage: ['# Proposal\n\nExecFile rule design.', '# Plan\n\n1. write rule', 'code'],
+        persistStageDocument: persistStageDocumentFactory(ws, issue, logger),
+      });
+      await executeWorkflow(ctx, {
+        coherenceUnit: 'issue-1',
+        stages: [dstep('spec'), dstep('plan'), dstep('impl')],
+      });
+      // the spec stage's captured output landed as proposal.md
+      const proposal = path.join(ws, 'docs', 'changes', 'e2e-222-demo', 'proposal.md');
+      expect(fs.existsSync(proposal)).toBe(true);
+      expect(fs.readFileSync(proposal, 'utf8')).toContain('ExecFile rule design.');
+      // the plan stage's captured output landed under plans/
+      const plan = path.join(
+        ws,
+        'docs',
+        'changes',
+        'e2e-222-demo',
+        'plans',
+        'e2e-222-demo-plan.md'
+      );
+      expect(fs.existsSync(plan)).toBe(true);
+      // the impl stage is NOT a document stage → no stray file
+      expect(fs.existsSync(path.join(ws, 'docs', 'changes', 'e2e-222-demo', 'impl.md'))).toBe(
+        false
+      );
+      // sanity: the run objects still carry the captured output for downstream threading
+      expect(successCalls[0]![0]!.output).toContain('ExecFile rule design.');
+    } finally {
+      fs.rmSync(ws, { recursive: true, force: true });
     }
   });
 });

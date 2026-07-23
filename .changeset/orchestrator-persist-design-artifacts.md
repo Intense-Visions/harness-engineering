@@ -15,3 +15,11 @@ Add a `persistStageDocument` seam: after a passing document stage, write the cap
 output to its `documentPath` when the model did not already write a non-empty file there.
 Guarantees the design phase's artifact exists (best-effort, never clobbers a model-authored
 doc, no-op for non-document stages / empty output / legacy contexts).
+
+The capture itself was also broken for local backends: the stage runner harvests a stage's
+final text only from a `type:'result'` event, but the codex backend surfaced its JSONL only
+as truncated `status` events and the ollama backend never emitted a result on a clean text
+turn — so `run.output` stayed empty and there was nothing to persist. Both backends now emit
+their final assistant text as an untruncated `result` event (codex extracts the final
+`agent_message` across protocol shapes; ollama emits on a clean tool-less turn). Since design
+stages execute via `codex-exec`, the codex path is the load-bearing fix for the local pipeline.
