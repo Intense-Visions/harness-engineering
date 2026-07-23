@@ -16,6 +16,14 @@ output to its `documentPath` when the model did not already write a non-empty fi
 Guarantees the design phase's artifact exists (best-effort, never clobbers a model-authored
 doc, no-op for non-document stages / empty output / legacy contexts).
 
+The stages were also **misrouted**: `resolveStageBackend` returned a materialized backend whose
+`.name` is a TYPE label (`ollama`/`codex`), not a routing key. `makeRunner` re-materializes by
+that name and `isLocalBackend` looks it up in the config's backends map — both missed, so every
+design stage silently fell through to `routing.default` (ran on the coder, not the reasoner) AND
+got the Claude-shaped prompt template instead of the local `harness skill run --autonomous`
+template (the real reason codex produced empty worktrees locally). Fixed by returning the routing
+name via `resolveName`.
+
 The capture itself was also broken for local backends: the stage runner harvests a stage's
 final text only from a `type:'result'` event, but the codex backend surfaced its JSONL only
 as truncated `status` events and the ollama backend never emitted a result on a clean text
