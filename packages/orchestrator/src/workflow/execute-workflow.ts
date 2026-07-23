@@ -43,6 +43,16 @@ export const DEFAULT_STAGE_DEADLINE_MS = 120_000;
 export const LOCAL_STAGE_DEADLINE_MS = 600_000;
 
 /**
+ * Per-stage deadline for a LOCAL DOCUMENT stage (produces `spec`/`plan`). These run
+ * on the reasoning backend, which faithfully follows the skill's multi-phase process
+ * (explore → analyze → write) and over-explores: gathering context across many turns
+ * before producing the artifact. 600s can guillotine it mid-exploration — capturing a
+ * narration fragment instead of a finished spec/plan. Give document stages more room
+ * so the reasoner reaches the write. Execution/verify/review keep LOCAL_STAGE_DEADLINE_MS.
+ */
+export const LOCAL_DOCUMENT_STAGE_DEADLINE_MS = 1_200_000;
+
+/**
  * Narrow surface the stage-execution engine needs. The Orchestrator will
  * implement this in Phase 4 when dispatchIssue wires the branch; the engine
  * must NOT import orchestrator.ts (layer cycle). Phase 1 tests inject a fake.
@@ -296,9 +306,14 @@ export async function runStageSession(
   // loop's `await` never blocks unboundedly even when the generator never yields
   // and never returns (an unbounded hang). Always cleared in `finally`.
   // An explicit workflow-decl deadline always wins; otherwise a local-backend stage
-  // gets the generous local budget and a cloud stage keeps the 120s default.
-  const deadlineMs =
-    ctx.stageDeadlineMs ?? (local ? LOCAL_STAGE_DEADLINE_MS : DEFAULT_STAGE_DEADLINE_MS);
+  // gets the generous local budget — larger still for a DOCUMENT stage (spec/plan),
+  // whose reasoning backend over-explores before writing — and a cloud stage keeps
+  // the 120s default.
+  const isDocumentStage = step.produces === 'spec' || step.produces === 'plan';
+  const localDeadlineMs = isDocumentStage
+    ? LOCAL_DOCUMENT_STAGE_DEADLINE_MS
+    : LOCAL_STAGE_DEADLINE_MS;
+  const deadlineMs = ctx.stageDeadlineMs ?? (local ? localDeadlineMs : DEFAULT_STAGE_DEADLINE_MS);
   let onAbort: (() => void) | undefined;
   const abortWaiter = new Promise<'aborted'>((resolve) => {
     onAbort = () => resolve('aborted');
