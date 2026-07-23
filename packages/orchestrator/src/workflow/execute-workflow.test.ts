@@ -1272,6 +1272,125 @@ describe('per-stage deadline (SC7 / D12)', () => {
       vi.useRealTimers();
     }
   });
+
+  it('a LOCAL DOCUMENT stage (spec/plan) gets the larger document deadline (survives past the 600s local default)', async () => {
+    // The reasoning backend over-explores a design/plan stage; 600s can guillotine it
+    // mid-exploration. A document stage must get LOCAL_DOCUMENT_STAGE_DEADLINE_MS.
+    vi.useFakeTimers();
+    try {
+      const successCalls: StageRun[][] = [];
+      const ctx: WorkflowEngineContext = {
+        recorder: {
+          startRecording: vi.fn(),
+          recordEvent: vi.fn(),
+          finishRecording: vi.fn(),
+        } as unknown as WorkflowEngineContext['recorder'],
+        logger: {
+          info: vi.fn(),
+          warn: vi.fn(),
+          error: vi.fn(),
+          debug: vi.fn(),
+        } as unknown as WorkflowEngineContext['logger'],
+        issueId: 'issue-1',
+        identifier: 'issue-1',
+        externalId: null,
+        workspacePath: '/tmp/ws',
+        isLocalBackend: () => true,
+        makeRunner: () => ({
+          async *runSession(_i: unknown, _ws: string, _p: string) {
+            yield {
+              type: 'usage',
+              usage: { inputTokens: 1, outputTokens: 1, totalTokens: 2 },
+            } as unknown as AgentEvent;
+            // Finish PAST the 600s local default but under the 1200s document default.
+            await new Promise((r) => setTimeout(r, 800_000));
+            return {
+              sessionId: 'ok-doc',
+              success: true,
+              usage: { inputTokens: 1, outputTokens: 1, totalTokens: 2 },
+            };
+          },
+        }),
+        resolveStageBackend: () => fakeBackend(),
+        emitWorkflowSuccess: async (_u, runs) => {
+          successCalls.push(runs);
+        },
+        finalizeWorkflowTerminal: async () => {},
+      };
+      const s: WorkflowStep = { skill: 'brainstorm', produces: 'spec', gate: 'pass-required' };
+      const p = executeWorkflow(ctx, { coherenceUnit: 'issue-1', stages: [s] });
+      await vi.advanceTimersByTimeAsync(900_000);
+      await p;
+
+      // Not aborted at 600s — the document deadline gave it room to finish at 800s.
+      expect(successCalls).toHaveLength(1);
+      expect(successCalls[0]![0]!.outcome).toBe('pass');
+      expect(successCalls[0]![0]!.sessionId).toBe('ok-doc');
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('a LOCAL NON-document stage (produces impl) keeps the 600s local default (aborts an 800s stage)', async () => {
+    vi.useFakeTimers();
+    try {
+      let runSessions = 0;
+      const successCalls: StageRun[][] = [];
+      const terminalCalls: StageRun[][] = [];
+      const ctx: WorkflowEngineContext = {
+        recorder: {
+          startRecording: vi.fn(),
+          recordEvent: vi.fn(),
+          finishRecording: vi.fn(),
+        } as unknown as WorkflowEngineContext['recorder'],
+        logger: {
+          info: vi.fn(),
+          warn: vi.fn(),
+          error: vi.fn(),
+          debug: vi.fn(),
+        } as unknown as WorkflowEngineContext['logger'],
+        issueId: 'issue-1',
+        identifier: 'issue-1',
+        externalId: null,
+        workspacePath: '/tmp/ws',
+        isLocalBackend: () => true,
+        makeRunner: () => ({
+          async *runSession(_i: unknown, _ws: string, _p: string) {
+            runSessions++;
+            yield {
+              type: 'usage',
+              usage: { inputTokens: 0, outputTokens: 0, totalTokens: 0 },
+            } as unknown as AgentEvent;
+            await new Promise((r) => setTimeout(r, 800_000));
+            return {
+              sessionId: 'never',
+              success: true,
+              usage: { inputTokens: 0, outputTokens: 0, totalTokens: 0 },
+            };
+          },
+        }),
+        resolveStageBackend: () => fakeBackend(),
+        emitWorkflowSuccess: async (_u, runs) => {
+          successCalls.push(runs);
+        },
+        finalizeWorkflowTerminal: async (_u, runs) => {
+          terminalCalls.push(runs);
+        },
+      };
+      const s: WorkflowStep = { skill: 'execute', produces: 'impl', gate: 'pass-required' };
+      const p = executeWorkflow(ctx, { coherenceUnit: 'issue-1', stages: [s] });
+      // Past two 600s attempts (retry once) so the 800s stage is aborted, not run.
+      await vi.advanceTimersByTimeAsync(2_000_000);
+      await p;
+
+      expect(runSessions).toBe(2); // aborted at 600s each attempt, never reached 800s
+      expect(successCalls).toHaveLength(0);
+      expect(terminalCalls).toHaveLength(1);
+      expect(terminalCalls[0]![0]!.outcome).toBe('fail');
+    } finally {
+      vi.useRealTimers();
+    }
+  });
 });
 
 describe('runStageSession — abort cleanup (carry-forward a)', () => {
