@@ -1151,6 +1151,127 @@ describe('per-stage deadline (SC7 / D12)', () => {
       vi.useRealTimers();
     }
   });
+
+  it('a LOCAL stage with no explicit deadline gets the generous local default (survives past the 120s cloud default)', async () => {
+    // The bug this guards: a local reasoning model is slow, so the 120s cloud
+    // default aborted a design stage before it wrote its artifact. A local stage
+    // must get LOCAL_STAGE_DEADLINE_MS (600s) when no explicit deadline is set.
+    vi.useFakeTimers();
+    try {
+      const successCalls: StageRun[][] = [];
+      const ctx: WorkflowEngineContext = {
+        recorder: {
+          startRecording: vi.fn(),
+          recordEvent: vi.fn(),
+          finishRecording: vi.fn(),
+        } as unknown as WorkflowEngineContext['recorder'],
+        logger: {
+          info: vi.fn(),
+          warn: vi.fn(),
+          error: vi.fn(),
+          debug: vi.fn(),
+        } as unknown as WorkflowEngineContext['logger'],
+        issueId: 'issue-1',
+        identifier: 'issue-1',
+        externalId: null,
+        workspacePath: '/tmp/ws',
+        // NO stageDeadlineMs → engine default applies; isLocalBackend → the LOCAL default.
+        isLocalBackend: () => true,
+        makeRunner: () => ({
+          async *runSession(_i: unknown, _ws: string, _p: string) {
+            yield {
+              type: 'usage',
+              usage: { inputTokens: 1, outputTokens: 1, totalTokens: 2 },
+            } as unknown as AgentEvent;
+            // Finish PAST the 120s cloud default but WELL under the 600s local one.
+            await new Promise((r) => setTimeout(r, 200_000));
+            return {
+              sessionId: 'ok-local',
+              success: true,
+              usage: { inputTokens: 1, outputTokens: 1, totalTokens: 2 },
+            };
+          },
+        }),
+        resolveStageBackend: () => fakeBackend(),
+        emitWorkflowSuccess: async (_u, runs) => {
+          successCalls.push(runs);
+        },
+        finalizeWorkflowTerminal: async () => {},
+      };
+      const s: WorkflowStep = { skill: 'slow-local', produces: 's', gate: 'pass-required' };
+      const p = executeWorkflow(ctx, { coherenceUnit: 'issue-1', stages: [s] });
+      await vi.advanceTimersByTimeAsync(250_000);
+      await p;
+
+      // Not aborted at 120s — the local default gave it room to finish at 200s.
+      expect(successCalls).toHaveLength(1);
+      expect(successCalls[0]![0]!.outcome).toBe('pass');
+      expect(successCalls[0]![0]!.sessionId).toBe('ok-local');
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('a CLOUD stage with no explicit deadline keeps the 120s default (aborts a 200s stage)', async () => {
+    vi.useFakeTimers();
+    try {
+      let runSessions = 0;
+      const successCalls: StageRun[][] = [];
+      const terminalCalls: StageRun[][] = [];
+      const ctx: WorkflowEngineContext = {
+        recorder: {
+          startRecording: vi.fn(),
+          recordEvent: vi.fn(),
+          finishRecording: vi.fn(),
+        } as unknown as WorkflowEngineContext['recorder'],
+        logger: {
+          info: vi.fn(),
+          warn: vi.fn(),
+          error: vi.fn(),
+          debug: vi.fn(),
+        } as unknown as WorkflowEngineContext['logger'],
+        issueId: 'issue-1',
+        identifier: 'issue-1',
+        externalId: null,
+        workspacePath: '/tmp/ws',
+        // NO stageDeadlineMs and NO isLocalBackend → non-local → the 120s cloud default.
+        makeRunner: () => ({
+          async *runSession(_i: unknown, _ws: string, _p: string) {
+            runSessions++;
+            yield {
+              type: 'usage',
+              usage: { inputTokens: 0, outputTokens: 0, totalTokens: 0 },
+            } as unknown as AgentEvent;
+            await new Promise((r) => setTimeout(r, 200_000));
+            return {
+              sessionId: 'never',
+              success: true,
+              usage: { inputTokens: 0, outputTokens: 0, totalTokens: 0 },
+            };
+          },
+        }),
+        resolveStageBackend: () => fakeBackend(),
+        emitWorkflowSuccess: async (_u, runs) => {
+          successCalls.push(runs);
+        },
+        finalizeWorkflowTerminal: async (_u, runs) => {
+          terminalCalls.push(runs);
+        },
+      };
+      const s: WorkflowStep = { skill: 'slow-cloud', produces: 's', gate: 'pass-required' };
+      const p = executeWorkflow(ctx, { coherenceUnit: 'issue-1', stages: [s] });
+      // Past two 120s attempts (retry once) so the 200s stage is aborted, not run.
+      await vi.advanceTimersByTimeAsync(600_000);
+      await p;
+
+      expect(runSessions).toBe(2); // aborted at 120s each attempt, never reached 200s
+      expect(successCalls).toHaveLength(0);
+      expect(terminalCalls).toHaveLength(1);
+      expect(terminalCalls[0]![0]!.outcome).toBe('fail');
+    } finally {
+      vi.useRealTimers();
+    }
+  });
 });
 
 describe('runStageSession — abort cleanup (carry-forward a)', () => {

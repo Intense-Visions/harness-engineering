@@ -14,10 +14,12 @@ import {
 /** Build a canned NATIVE /api/chat response with optional tool calls. */
 function chatResponse(opts: {
   content?: string;
+  thinking?: string;
   toolCalls?: Array<{ name: string; args: unknown }>;
   usage?: { prompt_tokens?: number; completion_tokens?: number };
 }) {
   const message: Record<string, unknown> = { role: 'assistant', content: opts.content ?? '' };
+  if (opts.thinking !== undefined) message.thinking = opts.thinking;
   if (opts.toolCalls) {
     message.tool_calls = opts.toolCalls.map((tc) => ({
       function: { name: tc.name, arguments: tc.args },
@@ -781,6 +783,67 @@ describe('OllamaBackend', () => {
       expect(result.success).toBe(true);
     });
 
+    it('a tool-less turn with EMPTY content but non-empty `thinking` still emits a result event carrying the reasoning (design-stage capture)', async () => {
+      // The observed failure: a reasoning model runs a document stage, gathers
+      // context, then ends a turn with all its output in `thinking` and empty
+      // `content`. Without the fallback the result event is skipped → run.output
+      // empty → nothing to persist to proposal.md. The fallback captures it.
+      const fetchMock = vi
+        .fn()
+        .mockResolvedValueOnce(
+          okFetch(chatResponse({ content: '', thinking: 'Proposal: add a prefer-execfile rule…' }))
+        );
+      vi.stubGlobal('fetch', fetchMock);
+
+      const backend = new OllamaBackend(baseConfig);
+      const start = await backend.startSession({
+        workspacePath: workspace,
+        permissionMode: 'full',
+      });
+      if (!start.ok) return;
+      const { events, result } = await drain(
+        backend.runTurn(start.value, {
+          sessionId: start.value.sessionId,
+          prompt: 'produce the spec',
+          isContinuation: false,
+        })
+      );
+      const resultEvents = events.filter((e) => e.type === 'result');
+      expect(resultEvents).toHaveLength(1);
+      expect((resultEvents[0] as { content: string }).content).toBe(
+        'Proposal: add a prefer-execfile rule…'
+      );
+      // Completion is keyed on VISIBLE content, so a thinking-only turn still
+      // re-prompts (no TASK_COMPLETE) rather than falsely completing.
+      expect(result.success).toBe(false);
+    });
+
+    it('content wins over `thinking` when both are present (no regression to the normal path)', async () => {
+      const fetchMock = vi
+        .fn()
+        .mockResolvedValueOnce(
+          okFetch(chatResponse({ content: 'The visible answer.', thinking: 'hidden reasoning' }))
+        );
+      vi.stubGlobal('fetch', fetchMock);
+
+      const backend = new OllamaBackend(baseConfig);
+      const start = await backend.startSession({
+        workspacePath: workspace,
+        permissionMode: 'full',
+      });
+      if (!start.ok) return;
+      const { events } = await drain(
+        backend.runTurn(start.value, {
+          sessionId: start.value.sessionId,
+          prompt: 'do the work',
+          isContinuation: false,
+        })
+      );
+      const resultEvents = events.filter((e) => e.type === 'result');
+      expect(resultEvents).toHaveLength(1);
+      expect((resultEvents[0] as { content: string }).content).toBe('The visible answer.');
+    });
+
     it('TASK_COMPLETE must be a whole token — a substring like TASK_COMPLETED does NOT count', async () => {
       const fetchMock = vi
         .fn()
@@ -1014,6 +1077,22 @@ describe('OllamaBackend', () => {
       expect(r.choices[0]!.message!.content).toBe('TASK_COMPLETE');
       expect(r.choices[0]!.message!.tool_calls).toBeUndefined();
       expect(r.usage).toEqual({ prompt_tokens: 0, completion_tokens: 0 });
+    });
+
+    it("preserves a reasoning model's `thinking` field (a think:true turn can put all its work there, content empty)", () => {
+      const r = fromNativeResponse({
+        message: { role: 'assistant', content: '', thinking: 'the whole proposal reasoning' },
+        done: true,
+      });
+      // Without preserving `thinking`, an empty-content reasoning turn would be
+      // dropped entirely — the design stage's only output lost.
+      expect(r.choices[0]!.message!.content).toBe('');
+      expect(r.choices[0]!.message!.thinking).toBe('the whole proposal reasoning');
+    });
+
+    it('omits `thinking` when the native response has none (non-reasoning turn)', () => {
+      const r = fromNativeResponse({ message: { role: 'assistant', content: 'hi' }, done: true });
+      expect(r.choices[0]!.message!.thinking).toBeUndefined();
     });
 
     it('builds native messages: assistant tool_calls args string→object, tool msg → {role,content,tool_name}', () => {
