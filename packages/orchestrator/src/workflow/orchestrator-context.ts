@@ -196,13 +196,25 @@ function makeRunnerFactory(
 }
 
 /** Build the engine's `resolveStageBackend` seam (identity fallback). */
-function resolveStageBackendFactory(
+export function resolveStageBackendFactory(
   backendFactory: OrchestratorBackendFactory | null,
   routingDefault: string | undefined
 ): NonNullable<WorkflowEngineContext['resolveStageBackend']> {
   return (step) => {
     const useCase = buildStageUseCase(step);
-    if (backendFactory !== null) return backendFactory.forUseCase(useCase);
+    if (backendFactory !== null) {
+      // Return a NAME-ONLY backend keyed by the stage's ROUTING NAME (backendName),
+      // NOT a materialized backend. `makeRunner` re-materializes whatever it is handed
+      // by `.name` — and a materialized backend's `.name` is a TYPE label ('ollama',
+      // 'codex', 'claude'), never a routing key. Feeding that type label back through
+      // `forUseCase(invocationOverride)` matches no backend def, so it silently fell
+      // through to `routing.default` — every design stage (cognitiveMode: thinking →
+      // `reasoner`) actually ran on the coder (`codex-exec`), defeating per-phase
+      // routing. `resolveName` gives the real routing key so makeRunner re-materializes
+      // the intended backend. Mirrors the adaptive path + `stageDecisionFor` (which
+      // already uses `resolveName`, not the type-label `.name`, for the same reason).
+      return { name: backendFactory.resolveName(useCase) } as AgentBackend;
+    }
     // Legacy fallback (no factory): a name-only backend from routing.default.
     return { name: routingDefault ?? 'unknown' } as AgentBackend;
   };
@@ -373,7 +385,7 @@ function renderStagePromptFactory(
  * → its `BackendDef` via the config's backends map, then apply
  * `isLocalEndpointBackend`. Absent map (fake/legacy) ⇒ always non-local (SC3).
  */
-function isLocalBackendFactory(
+export function isLocalBackendFactory(
   backends: Record<string, BackendDef> | undefined
 ): NonNullable<WorkflowEngineContext['isLocalBackend']> {
   return (backend) => {
