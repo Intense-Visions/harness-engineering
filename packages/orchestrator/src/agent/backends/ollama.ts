@@ -203,6 +203,14 @@ export interface OllamaSession extends AgentSession {
   mcpClients: Client[];
   /** Resolved `num_ctx` for this session (override | min(modelMax, cap) | default). */
   numCtx: number;
+  /**
+   * Length of the longest assistant `content` captured as a `result` event so far
+   * this turn-loop. The workflow harvest is last-wins, so emitting a content result
+   * only when it beats this makes `run.output` settle on the LARGEST artifact the
+   * model produced — even when that artifact appeared on a tool-call turn and was
+   * never written to a file. `0` ⇒ no content captured yet (⇒ salvage `thinking`).
+   */
+  longestResultLen: number;
 }
 
 /**
@@ -760,6 +768,7 @@ export class OllamaBackend implements AgentBackend {
       mcpToolMap: new Map(),
       mcpClients: [],
       numCtx: DEFAULT_AUTO_CTX,
+      longestResultLen: 0,
     };
 
     const specs = this.config.mcpServers ?? [];
@@ -929,14 +938,32 @@ export class OllamaBackend implements AgentBackend {
     }
 
     const toolCalls = message.tool_calls ?? [];
+    const content = message.content ?? '';
 
     // Append the assistant turn (with its tool_calls, if any) to the
     // conversation before executing tools, mirroring the OpenAI protocol.
     session.messages.push({
       role: 'assistant',
-      content: message.content ?? '',
+      content,
       ...(toolCalls.length > 0 ? { tool_calls: toolCalls } : {}),
     });
+
+    // Surface the model's substantive CONTENT as a `result` event so the workflow
+    // stage runner captures it (`run.output`) — on tool-call turns too, whenever it
+    // is the LONGEST content this turn-loop. A DOCUMENT stage can emit its spec/plan
+    // as assistant content on a turn that ALSO calls a tool (e.g. a final read) and
+    // then never write_file it; capturing only clean tool-less turns lost that
+    // artifact. The harvest is last-wins, so the monotonic-longest guard makes
+    // `run.output` settle on the largest artifact, not a later, chattier line.
+    if (content.trim() !== '' && content.length > session.longestResultLen) {
+      session.longestResultLen = content.length;
+      yield {
+        type: 'result',
+        timestamp: new Date().toISOString(),
+        sessionId: session.sessionId,
+        content,
+      };
+    }
 
     // No tool calls → the model stopped calling tools. This is a clean, done
     // turn ONLY when the final message signals completion via TASK_COMPLETE;
@@ -945,23 +972,19 @@ export class OllamaBackend implements AgentBackend {
     // the orchestrator runner re-prompt ("Continue your work.") so the model
     // keeps going instead of a premature stop being marked done.
     if (toolCalls.length === 0) {
-      const content = message.content ?? '';
-      // Surface the model's final assistant text as a `result` event so the workflow
-      // stage runner captures it (`run.output`). Without this, a DOCUMENT stage's
-      // generated spec/plan content is produced but never captured — so it can be
-      // neither persisted to its documentPath nor threaded to the next stage.
-      // A reasoning model (`think:true`) can end a tool-less turn with all its work
-      // in `thinking` and an EMPTY `content` (observed: a design stage where the
-      // reasoner gathered context then emitted 0 content tokens). Fall back to the
-      // reasoning trace so its output is captured instead of dropped.
-      const finalText = content.trim() !== '' ? content : (message.thinking ?? '');
-      if (finalText.trim() !== '') {
-        yield {
-          type: 'result',
-          timestamp: new Date().toISOString(),
-          sessionId: session.sessionId,
-          content: finalText,
-        };
+      // A reasoning model (`think:true`) can end a turn with all its work in
+      // `thinking` and an EMPTY `content`. If NO content was captured this whole
+      // turn-loop, salvage the reasoning trace so the output isn't dropped.
+      if (session.longestResultLen === 0) {
+        const thinking = message.thinking ?? '';
+        if (thinking.trim() !== '') {
+          yield {
+            type: 'result',
+            timestamp: new Date().toISOString(),
+            sessionId: session.sessionId,
+            content: thinking,
+          };
+        }
       }
       // Completion is signaled via VISIBLE content, never a hidden reasoning trace,
       // so key the TASK_COMPLETE check on `content` (not the thinking fallback).

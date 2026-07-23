@@ -844,6 +844,46 @@ describe('OllamaBackend', () => {
       expect((resultEvents[0] as { content: string }).content).toBe('The visible answer.');
     });
 
+    it('captures a DOCUMENT emitted as content on a TOOL-CALL turn, and a shorter later turn does not clobber it (longest-wins)', async () => {
+      // The observed gap: a planning stage produced its plan as assistant content on a
+      // turn that ALSO called a tool, then never write_file'd it — only clean tool-less
+      // turns were captured, so the plan was lost. Now tool-call-turn content is captured,
+      // and the monotonic-longest guard keeps run.output on the largest artifact.
+      const longPlan = `PLAN\n${'step '.repeat(120)}`; // ~600 chars
+      const fetchMock = vi
+        .fn()
+        .mockResolvedValueOnce(
+          okFetch(
+            chatResponse({
+              content: longPlan,
+              toolCalls: [{ name: 'bash', args: { command: 'echo hi' } }],
+            })
+          )
+        )
+        .mockResolvedValueOnce(okFetch(chatResponse({ content: 'Done.\nTASK_COMPLETE' })));
+      vi.stubGlobal('fetch', fetchMock);
+
+      const backend = new OllamaBackend(baseConfig);
+      const start = await backend.startSession({
+        workspacePath: workspace,
+        permissionMode: 'full',
+      });
+      if (!start.ok) return;
+      const { events, result } = await drain(
+        backend.runTurn(start.value, {
+          sessionId: start.value.sessionId,
+          prompt: 'produce the plan',
+          isContinuation: false,
+        })
+      );
+      const resultEvents = events.filter((e) => e.type === 'result');
+      // Only the long plan is captured; the short final wrap-up is not longer, so it
+      // does not emit a result — last-wins harvest therefore keeps the plan.
+      expect(resultEvents).toHaveLength(1);
+      expect((resultEvents[0] as { content: string }).content).toBe(longPlan);
+      expect(result.success).toBe(true); // TASK_COMPLETE on the second turn
+    });
+
     it('TASK_COMPLETE must be a whole token — a substring like TASK_COMPLETED does NOT count', async () => {
       const fetchMock = vi
         .fn()
