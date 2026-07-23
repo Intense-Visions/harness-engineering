@@ -154,6 +154,45 @@ exit 3`);
     expect(result.error).toMatch(/wall-clock cap/);
   });
 
+  itPosix(
+    'stopSession kills the live child so a stage-deadline abort actually terminates codex',
+    async () => {
+      // Fixture: emit one line, then sleep far longer than the test timeout. The
+      // backend's own timeoutMs is huge (mimicking the 30-min default), so if
+      // stopSession does NOT kill the child, draining blocks on the sleep and the
+      // test times out — reproducing the bug where a stage deadline could not stop codex.
+      const cmd = fakeCodex(`echo '{"type":"session.created"}'
+sleep 30`);
+      const b = new CodexBackend({ model: 'm', command: cmd, timeoutMs: 30 * 60_000 });
+      const gen = b.runTurn(SESSION, {
+        sessionId: SESSION.sessionId,
+        prompt: 'do x',
+      } as TurnParams);
+      // Pull the first event so the child is spawned + registered in activeChildren.
+      await gen.next();
+      // The runner invokes stopSession when a stage's wall-clock deadline aborts.
+      const stopped = await b.stopSession(SESSION);
+      expect(stopped.ok).toBe(true);
+      // Draining now completes promptly (child SIGKILLed) instead of hanging on sleep 30.
+      let result: TurnResult | undefined;
+      for (;;) {
+        const n = await gen.next();
+        if (n.done) {
+          result = n.value;
+          break;
+        }
+      }
+      expect(result!.success).toBe(false); // killed by signal → non-zero exit
+    },
+    10_000
+  );
+
+  it('stopSession is a safe no-op for a session with no live child', async () => {
+    const b = new CodexBackend({ model: 'm' });
+    const r = await b.stopSession(SESSION);
+    expect(r.ok).toBe(true);
+  });
+
   it('healthCheck returns Err for a non-existent codex binary', async () => {
     const b = new CodexBackend({ model: 'm', command: '/definitely/not/codex-xyz' });
     const r = await b.healthCheck();

@@ -1,4 +1,4 @@
-import { spawn } from 'node:child_process';
+import { spawn, type ChildProcess } from 'node:child_process';
 import * as readline from 'node:readline';
 import { randomUUID } from 'node:crypto';
 import {
@@ -143,6 +143,17 @@ export class CodexBackend implements AgentBackend {
   private timeoutMs: number;
   private mcpServers: McpServerSpec[];
   private reasoningEffort?: 'low' | 'medium' | 'high';
+  /**
+   * Live codex subprocess per active session, so {@link stopSession} can kill it
+   * when the workflow aborts a stage (its wall-clock deadline). Without this, the
+   * runner's abort only invokes the (previously no-op) `stopSession` while the
+   * detached codex process kept running to its own 30-min cap — a stage's deadline
+   * could not actually terminate the work.
+   */
+  private readonly activeChildren = new Map<
+    string,
+    { child: ChildProcess; killTimer: NodeJS.Timeout }
+  >();
 
   constructor(options: CodexBackendOptions = {}) {
     this.command = options.command ?? 'codex';
@@ -230,6 +241,9 @@ export class CodexBackend implements AgentBackend {
       timedOut = true;
       child.kill('SIGKILL');
     }, this.timeoutMs);
+    // Register the live child so stopSession (invoked by the runner on a stage
+    // abort) can terminate it — see activeChildren.
+    this.activeChildren.set(session.sessionId, { child, killTimer });
 
     let spawnError = '';
     child.on('error', (err) => {
@@ -311,6 +325,9 @@ export class CodexBackend implements AgentBackend {
 
     await exited;
     clearTimeout(killTimer);
+    // Normal completion — drop the session's live-child registration (the abort
+    // path clears it in stopSession instead).
+    this.activeChildren.delete(session.sessionId);
 
     if (spawnError !== '') {
       return {
@@ -336,7 +353,19 @@ export class CodexBackend implements AgentBackend {
     };
   }
 
-  async stopSession(_session: AgentSession): Promise<Result<void, AgentError>> {
+  async stopSession(session: AgentSession): Promise<Result<void, AgentError>> {
+    // The runner calls this when a stage is aborted (its wall-clock deadline).
+    // Kill the live codex subprocess so the deadline actually terminates the work
+    // instead of letting codex run to its own 30-min cap. SIGKILL: codex ignores
+    // gentler signals mid-run, and its stdio-piped MCP children exit on stdin EOF.
+    const active = this.activeChildren.get(session.sessionId);
+    if (active !== undefined) {
+      clearTimeout(active.killTimer);
+      if (active.child.exitCode === null && active.child.signalCode === null) {
+        active.child.kill('SIGKILL');
+      }
+      this.activeChildren.delete(session.sessionId);
+    }
     return Ok(undefined);
   }
 
