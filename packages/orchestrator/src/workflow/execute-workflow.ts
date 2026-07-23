@@ -32,6 +32,17 @@ export function nextTier(t: CapabilityTier): CapabilityTier {
 export const DEFAULT_STAGE_DEADLINE_MS = 120_000;
 
 /**
+ * Per-stage deadline for a stage routed to a LOCAL (on-device) backend. The 120s
+ * cloud default is far too short here: a local reasoning model (e.g. qwen3 with
+ * think:true) spends ~30-40s per turn processing large contexts, so 120s aborts a
+ * design/plan stage after only ~3 turns — while it is still gathering context,
+ * BEFORE it writes its spec/plan — leaving an empty artifact. Give a local stage
+ * real room (~15 turns). An explicit `stageDeadlineMs` on the workflow decl still
+ * overrides this; cloud stages are unaffected (byte-identical to the old default).
+ */
+export const LOCAL_STAGE_DEADLINE_MS = 600_000;
+
+/**
  * Narrow surface the stage-execution engine needs. The Orchestrator will
  * implement this in Phase 4 when dispatchIssue wires the branch; the engine
  * must NOT import orchestrator.ts (layer cycle). Phase 1 tests inject a fake.
@@ -284,7 +295,10 @@ export async function runStageSession(
   // runs too long. A pending `abort` is resolved through `abortWaiter` so the drain
   // loop's `await` never blocks unboundedly even when the generator never yields
   // and never returns (an unbounded hang). Always cleared in `finally`.
-  const deadlineMs = ctx.stageDeadlineMs ?? DEFAULT_STAGE_DEADLINE_MS;
+  // An explicit workflow-decl deadline always wins; otherwise a local-backend stage
+  // gets the generous local budget and a cloud stage keeps the 120s default.
+  const deadlineMs =
+    ctx.stageDeadlineMs ?? (local ? LOCAL_STAGE_DEADLINE_MS : DEFAULT_STAGE_DEADLINE_MS);
   let onAbort: (() => void) | undefined;
   const abortWaiter = new Promise<'aborted'>((resolve) => {
     onAbort = () => resolve('aborted');

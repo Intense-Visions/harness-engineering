@@ -164,7 +164,16 @@ interface NativeMessage {
 }
 /** Native `/api/chat` non-stream response shape. */
 interface NativeChatResponse {
-  message?: { role?: string; content?: string | null; tool_calls?: NativeToolCall[] };
+  // `thinking` carries a reasoning model's (`think:true`) chain-of-thought as a
+  // field SEPARATE from `content`. A reasoning model can end a turn with all its
+  // work in `thinking` and an EMPTY `content` — so we preserve it (see
+  // fromNativeResponse) rather than dropping the only field the model populated.
+  message?: {
+    role?: string;
+    content?: string | null;
+    thinking?: string | null;
+    tool_calls?: NativeToolCall[];
+  };
   prompt_eval_count?: number;
   eval_count?: number;
   done?: boolean;
@@ -443,8 +452,9 @@ function nativeUsage(native: NativeChatResponse): {
 export function fromNativeResponse(native: NativeChatResponse): OllamaChatResponse {
   const nm = native.message;
   const toolCalls = normalizeNativeToolCalls(nm?.tool_calls);
-  const message: { content?: string | null; tool_calls?: ToolCall[] } = {
+  const message: { content?: string | null; thinking?: string | null; tool_calls?: ToolCall[] } = {
     content: nm?.content ?? '',
+    ...(nm?.thinking ? { thinking: nm.thinking } : {}),
     ...(toolCalls ? { tool_calls: toolCalls } : {}),
   };
   return { choices: [{ message }], usage: nativeUsage(native) };
@@ -935,11 +945,16 @@ export class OllamaBackend implements AgentBackend {
     // the orchestrator runner re-prompt ("Continue your work.") so the model
     // keeps going instead of a premature stop being marked done.
     if (toolCalls.length === 0) {
-      const finalText = message.content ?? '';
+      const content = message.content ?? '';
       // Surface the model's final assistant text as a `result` event so the workflow
       // stage runner captures it (`run.output`). Without this, a DOCUMENT stage's
       // generated spec/plan content is produced but never captured — so it can be
       // neither persisted to its documentPath nor threaded to the next stage.
+      // A reasoning model (`think:true`) can end a tool-less turn with all its work
+      // in `thinking` and an EMPTY `content` (observed: a design stage where the
+      // reasoner gathered context then emitted 0 content tokens). Fall back to the
+      // reasoning trace so its output is captured instead of dropped.
+      const finalText = content.trim() !== '' ? content : (message.thinking ?? '');
       if (finalText.trim() !== '') {
         yield {
           type: 'result',
@@ -948,7 +963,9 @@ export class OllamaBackend implements AgentBackend {
           content: finalText,
         };
       }
-      if (TASK_COMPLETE_MARKER.test(finalText)) {
+      // Completion is signaled via VISIBLE content, never a hidden reasoning trace,
+      // so key the TASK_COMPLETE check on `content` (not the thinking fallback).
+      if (TASK_COMPLETE_MARKER.test(content)) {
         this.notify(this.config.onModelUsed, session.resolvedModel);
         return {
           done: true,
@@ -1414,7 +1431,7 @@ export class OllamaBackend implements AgentBackend {
 /** Minimal shape of Ollama's OpenAI-compatible chat-completions response. */
 interface OllamaChatResponse {
   choices: Array<{
-    message?: { content?: string | null; tool_calls?: ToolCall[] };
+    message?: { content?: string | null; thinking?: string | null; tool_calls?: ToolCall[] };
   }>;
   usage?: { prompt_tokens?: number; completion_tokens?: number; total_tokens?: number };
 }
