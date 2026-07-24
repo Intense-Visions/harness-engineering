@@ -18,6 +18,7 @@ const RENDER_BAG = {
   produces: 'artifact.md',
   documentPath: '',
   reviewStage: '',
+  specPath: 'docs/changes/iss-1/proposal.md',
   priorEntries: [] as Array<{ name: string; output: string }>,
 };
 
@@ -77,6 +78,31 @@ describe('stage-prompt templates thread the produces variable (SC5)', () => {
     await expect(renderer.render(LOCAL_STAGE_PROMPT_TEMPLATE, RENDER_BAG)).resolves.toContain(
       'artifact.md'
     );
+  });
+
+  it('a VERIFY stage is told to run outcome_eval with the spec path (impl-vs-spec judgment)', async () => {
+    const renderer = new PromptRenderer();
+    const rendered = await renderer.render(LOCAL_STAGE_PROMPT_TEMPLATE, {
+      ...RENDER_BAG,
+      produces: 'verify',
+      reviewStage: 'verify',
+      specPath: 'docs/changes/iss-1/proposal.md',
+    });
+    // NOT_SATISFIED + the spec path are unique to the verify block (the bare
+    // `harness__outcome_eval` token also appears in the intro tool list, so it is
+    // not a reliable marker of the instruction).
+    expect(rendered).toContain('docs/changes/iss-1/proposal.md');
+    expect(rendered).toContain('NOT_SATISFIED');
+  });
+
+  it('a REVIEW stage does NOT get the verify-only outcome_eval instruction', async () => {
+    const renderer = new PromptRenderer();
+    const rendered = await renderer.render(LOCAL_STAGE_PROMPT_TEMPLATE, {
+      ...RENDER_BAG,
+      produces: 'review',
+      reviewStage: 'review',
+    });
+    expect(rendered).not.toContain('NOT_SATISFIED');
   });
 });
 
