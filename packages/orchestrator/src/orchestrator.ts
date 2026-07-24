@@ -125,6 +125,7 @@ import { workflowFor } from './workflow/workflow-for';
 import { buildWorkflowContext } from './workflow/orchestrator-context';
 import { executeWorkflow } from './workflow/execute-workflow';
 import { buildRoutingUseCase } from './agent/use-case-builder';
+import { applyAnalysisEnv } from './agent/analysis-env';
 import { makeLiveClassify } from './agent/live-classify';
 import { buildTaskText } from './agent/complexity-request';
 import { buildAnalysisProviderForLayer } from './agent/intelligence-factory';
@@ -4742,6 +4743,20 @@ export class Orchestrator extends EventEmitter {
    * Runs startup reconciliation to release orphaned claims before the first tick.
    */
   public async start(): Promise<void> {
+    // Point the eval MCP tools (acceptance_eval / outcome_eval) at the local
+    // reasoner so their LLM judgment runs fully-locally instead of degrading to
+    // an advisory stub without an ANTHROPIC_API_KEY. Applied before any dispatch
+    // so codex (spawned with env: process.env) passes it to the harness MCP
+    // server it injects. An explicit operator value always wins; a non-local
+    // config (no thinking-mode endpoint) is a no-op.
+    const analysisEnv = applyAnalysisEnv(this.config);
+    if (analysisEnv !== null) {
+      this.logger.info(
+        `Eval analysis provider → ${analysisEnv.HARNESS_ANALYSIS_BASE_URL} ` +
+          `(model: ${analysisEnv.HARNESS_ANALYSIS_MODEL ?? '(endpoint default)'})`
+      );
+    }
+
     if (this.server) {
       void this.server.start();
     }
