@@ -632,6 +632,37 @@ describe('runLocalWorkflowGate — outcome-eval (Task 7 / SC4)', () => {
     const result = await gate(orch)(withSpec(), tmpDir, 'local');
     expect(result.ok).toBe(true);
   });
+
+  it('spec-fallback: issue.spec=null but a conventional docs/changes/<slug>/proposal.md exists → outcome-eval STILL runs and blocks', async () => {
+    // The local design stage writes the proposal at the convention but the model
+    // usually does not set the roadmap Spec field. The gate must find it anyway.
+    const orch = newOrch({ local: LOCAL_BACKEND }, 'local', async () => ({ ok: true, output: '' }));
+    stubDiffText(orch, 'diff --git a/x b/x\n+broke it');
+    stubProvider(orch, {
+      verdict: 'NOT_SATISFIED',
+      confidence: 'high',
+      rationale: 'r',
+      unmetCriteria: [],
+    });
+    const proposal = path.join(tmpDir, 'docs', 'changes', 'ISS-1', 'proposal.md');
+    fs.mkdirSync(path.dirname(proposal), { recursive: true });
+    fs.writeFileSync(proposal, '# Feature\n\n## Success Criteria\n\n- must debounce 300ms\n');
+    const result = await gate(orch)({ ...ISSUE, spec: null } as unknown as Issue, tmpDir, 'local');
+    expect(result.ok).toBe(false);
+  });
+
+  it('spec-fallback: issue.spec=null and no conventional proposal → outcome-eval skipped (gate green, unchanged)', async () => {
+    const orch = newOrch({ local: LOCAL_BACKEND }, 'local', async () => ({ ok: true, output: '' }));
+    stubDiffText(orch, 'diff --git a/x b/x\n+ok');
+    stubProvider(orch, {
+      verdict: 'NOT_SATISFIED',
+      confidence: 'high',
+      rationale: 'r',
+      unmetCriteria: [],
+    });
+    const result = await gate(orch)({ ...ISSUE, spec: null } as unknown as Issue, tmpDir, 'local');
+    expect(result.ok).toBe(true);
+  });
 });
 
 describe('workflowGates provider routing (SC6, Phase 3)', () => {
@@ -670,6 +701,44 @@ describe('workflowGates provider routing (SC6, Phase 3)', () => {
     evalProvider(orch)('amr');
     expect(selSpy).toHaveBeenCalled();
     expect(primSpy).not.toHaveBeenCalled();
+  });
+
+  it('local caller + no intelligence provider + HARNESS_ANALYSIS_BASE_URL set → reasoner env provider (gate works with intelligence off)', () => {
+    const orch = newOrchWithGates({ local: LOCAL_BACKEND }, 'local', undefined);
+    // Simulate intelligence.enabled=false (no SEL provider built).
+    (orch as unknown as { resolveComplexityProvider: () => unknown }).resolveComplexityProvider =
+      () => undefined;
+    const saved = {
+      base: process.env.HARNESS_ANALYSIS_BASE_URL,
+      model: process.env.HARNESS_ANALYSIS_MODEL,
+    };
+    try {
+      process.env.HARNESS_ANALYSIS_BASE_URL = 'http://127.0.0.1:11434/v1';
+      process.env.HARNESS_ANALYSIS_MODEL = 'qwen3.6:27b';
+      const provider = evalProvider(orch)('local');
+      expect(provider).not.toBeUndefined();
+      expect((provider as { constructor: { name: string } }).constructor.name).toBe(
+        'OpenAICompatibleAnalysisProvider'
+      );
+    } finally {
+      if (saved.base === undefined) delete process.env.HARNESS_ANALYSIS_BASE_URL;
+      else process.env.HARNESS_ANALYSIS_BASE_URL = saved.base;
+      if (saved.model === undefined) delete process.env.HARNESS_ANALYSIS_MODEL;
+      else process.env.HARNESS_ANALYSIS_MODEL = saved.model;
+    }
+  });
+
+  it('local caller + no intelligence provider + no analysis env → undefined (degrades, unchanged)', () => {
+    const orch = newOrchWithGates({ local: LOCAL_BACKEND }, 'local', undefined);
+    (orch as unknown as { resolveComplexityProvider: () => unknown }).resolveComplexityProvider =
+      () => undefined;
+    const saved = process.env.HARNESS_ANALYSIS_BASE_URL;
+    try {
+      delete process.env.HARNESS_ANALYSIS_BASE_URL;
+      expect(evalProvider(orch)('local')).toBeUndefined();
+    } finally {
+      if (saved !== undefined) process.env.HARNESS_ANALYSIS_BASE_URL = saved;
+    }
   });
 });
 

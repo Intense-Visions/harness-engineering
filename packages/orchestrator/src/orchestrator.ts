@@ -17,7 +17,11 @@ import { RoutingError } from '@harness-engineering/types';
 import type { Issue, IssueTrackerClient } from '@harness-engineering/core';
 import { writeTaint, SecurityScanner } from '@harness-engineering/core';
 import { hasIntroducedSecurityDefect, outcomeVerdictToQualityFail } from './agent/quality-verdict';
-import { IntelligencePipeline, OutcomeEvaluator } from '@harness-engineering/intelligence';
+import {
+  IntelligencePipeline,
+  OutcomeEvaluator,
+  OpenAICompatibleAnalysisProvider,
+} from '@harness-engineering/intelligence';
 import type {
   EnrichedSpec,
   AnalysisProvider,
@@ -122,7 +126,7 @@ import {
   type UnstickAdvice,
 } from './workflow/unstick-advisory';
 import { workflowFor } from './workflow/workflow-for';
-import { buildWorkflowContext } from './workflow/orchestrator-context';
+import { buildWorkflowContext, documentStagePath } from './workflow/orchestrator-context';
 import { executeWorkflow } from './workflow/execute-workflow';
 import { buildRoutingUseCase } from './agent/use-case-builder';
 import { applyAnalysisEnv } from './agent/analysis-env';
@@ -3090,22 +3094,22 @@ export class Orchestrator extends EventEmitter {
         return { ok: false, reason: docCoverage.output };
       }
 
-      // 2. Outcome evaluation (SC4): when a spec is present, run the SAME
-      //    OutcomeEvaluator engine the Claude/AMR path uses — un-gated from the
-      //    AMR-active + `acceptanceEval.enabled` requirements (D2: local always
-      //    evaluates when a spec exists). Read the eval model from the AMR
-      //    policy when configured, else default. A high-confidence NOT_SATISFIED
+      // 2. Outcome evaluation (SC4): run the SAME OutcomeEvaluator engine the
+      //    Claude/AMR path uses — un-gated from the AMR-active + `acceptanceEval.
+      //    enabled` requirements (D2: local always evaluates when a spec exists).
+      //    `evaluateOutcomeCore` resolves the spec from the roadmap Spec field OR
+      //    the conventional docs/changes/<slug>/proposal.md the design stage wrote
+      //    (the local model rarely registers the Spec field), and no-ops when
+      //    neither a spec nor a provider resolves. A high-confidence NOT_SATISFIED
       //    → `'quality-fail'` → block (same authority as the Claude path).
-      if (issue.spec !== null) {
-        const model = this.config.agent.routing?.policy?.acceptanceEval?.model;
-        const evalClass = await this.evaluateOutcomeCore(issue, workspacePath, model, 'local');
-        if (evalClass === 'quality-fail') {
-          return {
-            ok: false,
-            reason:
-              'outcome-eval returned a high-confidence NOT_SATISFIED verdict: the implementation does not satisfy the spec.',
-          };
-        }
+      const model = this.config.agent.routing?.policy?.acceptanceEval?.model;
+      const evalClass = await this.evaluateOutcomeCore(issue, workspacePath, model, 'local');
+      if (evalClass === 'quality-fail') {
+        return {
+          ok: false,
+          reason:
+            'outcome-eval returned a high-confidence NOT_SATISFIED verdict: the implementation does not satisfy the spec.',
+        };
       }
       return { ok: true };
     } catch (err) {
@@ -3214,7 +3218,31 @@ export class Orchestrator extends EventEmitter {
     if (caller === 'local' && this.config.agent.routing?.workflowGates === 'primary') {
       return this.resolvePrimaryOutcomeEvalProvider() ?? this.resolveComplexityProvider();
     }
-    return this.resolveComplexityProvider();
+    const intelligenceProvider = this.resolveComplexityProvider();
+    if (intelligenceProvider !== undefined) return intelligenceProvider;
+    // The outcome-eval gate is a distinct concern from the intelligence PIPELINE
+    // (CML/PESL). A fully-local run wants the gate's spec-vs-diff judgment even with
+    // `intelligence.enabled: false`, so fall back to the reasoner provider derived at
+    // startup (HARNESS_ANALYSIS_*, see analysis-env). Local caller only — the AMR
+    // path keeps its configured provider.
+    return caller === 'local' ? this.resolveLocalAnalysisEnvProvider() : undefined;
+  }
+
+  /**
+   * The reasoner `AnalysisProvider` from the startup-derived analysis env
+   * ({@link applyAnalysisEnv}). Lets the local outcome-eval gate judge on-device
+   * without the full intelligence pipeline. Undefined when no analysis endpoint is
+   * configured (⇒ the gate degrades to advisory, exactly as before).
+   */
+  private resolveLocalAnalysisEnvProvider(): AnalysisProvider | undefined {
+    const baseUrl = process.env.HARNESS_ANALYSIS_BASE_URL?.trim();
+    if (baseUrl === undefined || baseUrl === '') return undefined;
+    const model = process.env.HARNESS_ANALYSIS_MODEL?.trim();
+    return new OpenAICompatibleAnalysisProvider({
+      apiKey: process.env.HARNESS_ANALYSIS_API_KEY?.trim() || 'ollama',
+      baseUrl,
+      ...(model ? { defaultModel: model } : {}),
+    });
   }
 
   /**
@@ -3407,7 +3435,16 @@ export class Orchestrator extends EventEmitter {
     model: string | undefined,
     caller: 'amr' | 'local'
   ): Promise<'quality-fail' | undefined> {
-    if (issue.spec === null) return undefined;
+    // Prefer the roadmap-registered Spec; fall back to the conventional
+    // docs/changes/<slug>/proposal.md the local design stage writes — the local
+    // model often does not register the Spec field, so keying only on `issue.spec`
+    // silently skips the gate on every local run. Skip only when neither resolves to
+    // a real file on disk (no spec to judge against).
+    const specRel = issue.spec ?? documentStagePath('spec', issue.identifier);
+    if (specRel === '') return undefined;
+    const specPath = path.join(workspacePath, specRel);
+    const { existsSync } = await import('node:fs');
+    if (!existsSync(specPath)) return undefined;
     const provider = this.resolveOutcomeEvalProvider(caller);
     if (provider === undefined) return undefined;
     try {
@@ -3417,7 +3454,7 @@ export class Orchestrator extends EventEmitter {
         ...(model !== undefined ? { model } : {}),
       });
       const verdict = await evaluator.evaluate({
-        specPath: path.join(workspacePath, issue.spec),
+        specPath,
         diff,
         // No captured test output at the single-agent-exit seam — intentionally
         // omitted (the evaluator judges diff-vs-spec and treats absent test output
