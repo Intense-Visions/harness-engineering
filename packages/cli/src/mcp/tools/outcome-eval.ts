@@ -24,6 +24,7 @@ import { readGuardianAnalyses } from '@harness-engineering/intelligence';
 import type { GuardianAnalysis } from '@harness-engineering/intelligence';
 import { sanitizePath } from '../utils/sanitize-path.js';
 import { loadGraphStore } from '../utils/graph-loader.js';
+import { resolveAnalysisProvider } from '../utils/analysis-provider.js';
 
 interface ToolResponse {
   content: Array<{ type: 'text'; text: string }>;
@@ -87,29 +88,9 @@ export const outcomeEvalDefinition = {
   },
 };
 
-/**
- * Resolve a real AnalysisProvider for the evaluator. Mirrors
- * summarize-session.ts: construct AnthropicAnalysisProvider directly when an
- * ANTHROPIC_API_KEY is present. Returns null when none is configured — the
- * caller degrades to an advisory verdict rather than throwing.
- */
-async function resolveAnalysisProvider(model?: string): Promise<unknown> {
-  try {
-    const intelligence = (await import('@harness-engineering/intelligence')) as Record<
-      string,
-      unknown
-    >;
-    const apiKey = process.env.ANTHROPIC_API_KEY;
-    if (!apiKey) return null;
-    const Provider = intelligence.AnthropicAnalysisProvider as
-      | (new (opts: { apiKey: string; defaultModel?: string }) => unknown)
-      | undefined;
-    if (typeof Provider !== 'function') return null;
-    return new Provider(model !== undefined ? { apiKey, defaultModel: model } : { apiKey });
-  } catch {
-    return null;
-  }
-}
+// AnalysisProvider resolution (Anthropic key → cloud; HARNESS_ANALYSIS_BASE_URL
+// → local /v1 judge; else null → degrade) lives in the shared helper so
+// outcome_eval and acceptance_eval stay in lockstep. See utils/analysis-provider.
 
 /** Build an empty in-memory GraphStore (degrade-safe persistence fallback). */
 async function emptyGraphStore(): Promise<unknown> {
