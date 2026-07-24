@@ -45,6 +45,9 @@ Writing this document to \`{{ documentPath }}\` (and registering it) IS completi
 {% elsif reviewStage != '' %}
 ## This stage is a REVIEW/CHECK — run the tools, commit NOTHING
 Review the accumulated diff with \`harness__run_code_review\` and \`harness__review_changes\` (and \`harness__run_ci_checks\` for a verify stage) and report the findings as your stage output — correctness, missed cases, and any stray/scratch files that should not ship. Do NOT write or commit any review/report file (no \`review.md\`), and do NOT modify code here: your findings are FEEDBACK carried to the next stage, not a committed artifact.
+{% if reviewStage == 'verify' %}
+Then run \`harness__outcome_eval\` to judge whether the implementation actually SATISFIES the spec's acceptance criteria — a stronger check than "tests pass", and the one that catches a diff whose behavior contradicts the spec (e.g. a test case whose expectation is wrong per the spec). Pass all three required inputs from this session: \`specPath: "{{ specPath }}"\`, the accumulated \`git diff\`, and the test-runner output (omitting any degrades the verdict to advisory). A high-confidence \`NOT_SATISFIED\` is a real blocker: fold its \`unmetCriteria\` into your findings verbatim so the execution stage fixes exactly those.
+{% endif %}
 {% else %}
 The skill will instruct you to WRITE the implementation ({{ produces }}): do the work to completion and PRODUCE it before stopping — reading the instructions is NOT completing the stage.
 
