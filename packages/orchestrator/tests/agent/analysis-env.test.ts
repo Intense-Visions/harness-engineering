@@ -28,6 +28,27 @@ describe('deriveAnalysisEnv', () => {
     });
   });
 
+  it('PREFERS the SEL/analysis backend (routing.intelligence.sel) over the thinking backend', () => {
+    // The eval judge should be a fast non-reasoning model, not the slow reasoner.
+    const env = deriveAnalysisEnv(
+      config({
+        routing: { modes: { thinking: 'reasoner' }, intelligence: { sel: 'judge' } },
+        backends: {
+          reasoner,
+          judge: { type: 'ollama', endpoint: 'http://127.0.0.1:11434/v1', model: ['gpt-oss:20b'] },
+        },
+      })
+    );
+    expect(env?.HARNESS_ANALYSIS_MODEL).toBe('gpt-oss:20b');
+  });
+
+  it('falls back to the thinking backend when routing.intelligence.sel is absent', () => {
+    const env = deriveAnalysisEnv(
+      config({ routing: { modes: { thinking: 'reasoner' } }, backends: { reasoner } })
+    );
+    expect(env?.HARNESS_ANALYSIS_MODEL).toBe('qwen3.6:27b');
+  });
+
   it('accepts a scalar model and a prefer-list thinking value (uses the first name)', () => {
     const env = deriveAnalysisEnv(
       config({
