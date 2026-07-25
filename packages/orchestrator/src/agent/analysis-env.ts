@@ -36,7 +36,14 @@ export interface AnalysisEnv {
  * point the eval provider at, so the tools degrade exactly as before.
  */
 export function deriveAnalysisEnv(config: WorkflowConfig): AnalysisEnv | null {
-  const name = firstBackendName(config.agent?.routing?.modes?.thinking);
+  const routing = config.agent?.routing;
+  // Prefer the SEL / analysis-layer backend (`routing.intelligence.sel`) — the
+  // designated judge, which SHOULD be a FAST NON-REASONING model: a reasoning model
+  // like qwen3 is unusable on the OpenAI `/v1` endpoint (reasoning can't be disabled,
+  // so it either stalls for minutes or returns empty content). Fall back to the
+  // thinking-mode backend so an unconfigured run still has a judge (slow but present).
+  const name =
+    firstBackendName(routing?.intelligence?.sel) ?? firstBackendName(routing?.modes?.thinking);
   if (name === undefined) return null;
 
   const def = config.agent?.backends?.[name] as { endpoint?: unknown; model?: unknown } | undefined;
