@@ -18,7 +18,6 @@ const RENDER_BAG = {
   produces: 'artifact.md',
   documentPath: '',
   reviewStage: '',
-  specPath: 'docs/changes/iss-1/proposal.md',
   priorEntries: [] as Array<{ name: string; output: string }>,
 };
 
@@ -80,29 +79,18 @@ describe('stage-prompt templates thread the produces variable (SC5)', () => {
     );
   });
 
-  it('a VERIFY stage is told to run outcome_eval with the spec path (impl-vs-spec judgment)', async () => {
+  it('a VERIFY stage does not tell the model to invoke outcome_eval (the orchestrator gate runs it)', async () => {
+    // outcome_eval moved from a model instruction (unworkable — codex cannot call
+    // MCP tools, it shell-execs the name) to a deterministic orchestrator gate step.
+    // The verify prompt must NOT tell the model to run it.
     const renderer = new PromptRenderer();
     const rendered = await renderer.render(LOCAL_STAGE_PROMPT_TEMPLATE, {
       ...RENDER_BAG,
       produces: 'verify',
       reviewStage: 'verify',
-      specPath: 'docs/changes/iss-1/proposal.md',
-    });
-    // NOT_SATISFIED + the spec path are unique to the verify block (the bare
-    // `harness__outcome_eval` token also appears in the intro tool list, so it is
-    // not a reliable marker of the instruction).
-    expect(rendered).toContain('docs/changes/iss-1/proposal.md');
-    expect(rendered).toContain('NOT_SATISFIED');
-  });
-
-  it('a REVIEW stage does NOT get the verify-only outcome_eval instruction', async () => {
-    const renderer = new PromptRenderer();
-    const rendered = await renderer.render(LOCAL_STAGE_PROMPT_TEMPLATE, {
-      ...RENDER_BAG,
-      produces: 'review',
-      reviewStage: 'review',
     });
     expect(rendered).not.toContain('NOT_SATISFIED');
+    expect(rendered).toContain('orchestrator independently runs');
   });
 });
 

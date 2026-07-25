@@ -273,7 +273,7 @@ const REVIEW_ARTIFACTS = new Set(['review', 'verify']);
  * convention (not an invented `docs/autopilot/`), made explicit because the model
  * needs it. `<slug>` is the sanitized item identifier.
  */
-function documentStagePath(produces: string, identifier: string): string {
+export function documentStagePath(produces: string, identifier: string): string {
   const slug = identifier.replace(/[^A-Za-z0-9._-]+/g, '-').replace(/^-+|-+$/g, '') || 'item';
   if (produces === 'spec') return `docs/changes/${slug}/proposal.md`;
   if (produces === 'plan') return `docs/changes/${slug}/plans/${slug}-plan.md`;
@@ -350,10 +350,6 @@ function renderStagePromptFactory(
     // run tools, commit nothing), CODE (impl → write code + self-verify).
     const documentPath = documentStagePath(produces, issue.identifier);
     const reviewStage = REVIEW_ARTIFACTS.has(produces) ? produces : '';
-    // The design stage's spec path, so a VERIFY stage can point `outcome_eval` at
-    // it (judge impl-vs-spec via the reasoner). Always computed; only the LOCAL
-    // verify branch references it.
-    const specPath = documentStagePath('spec', issue.identifier);
     // Per-phase routing: pick the LOCAL-indirection template for a local-endpoint
     // routed backend, else the byte-identical default (SC-LOCAL/SC3). The variable
     // bag is identical for both templates (strictVariables — no new required var).
@@ -375,8 +371,6 @@ function renderStagePromptFactory(
         documentPath,
         // Non-empty ⇒ REVIEW stage: run review/check tools, commit no report file.
         reviewStage,
-        // The design spec's path — a verify stage points `outcome_eval` at it.
-        specPath,
         priorEntries,
       }
     );
