@@ -134,6 +134,13 @@ exit 0`);
       expect(fs.readFileSync(argfile, 'utf8')).toContain('model_reasoning_effort="low"');
       await drive(new CodexBackend({ model: 'm', command: cmd }), SESSION);
       expect(fs.readFileSync(argfile, 'utf8')).not.toContain('model_reasoning_effort');
+      // `'none'` is a real, distinct value (NOT omission): it makes codex send
+      // `model_reasoning_effort="none"`, which tells codex to OMIT the reasoning
+      // field from the request. Required for local ollama coder models that reject a
+      // reasoning request outright (`qwen3-coder:30b` → "does not support thinking");
+      // codex's own default (effort omitted) still sends one, so omission is NOT a fix.
+      await drive(new CodexBackend({ model: 'm', command: cmd, reasoningEffort: 'none' }), SESSION);
+      expect(fs.readFileSync(argfile, 'utf8')).toContain('model_reasoning_effort="none"');
     }
   );
 

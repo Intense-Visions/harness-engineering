@@ -526,8 +526,11 @@ export interface CodexBackendDef {
   /**
    * Reasoning effort for the driven model (`-c model_reasoning_effort`). A hands-on
    * coder wants `'low'`; omit to use codex's default. Design phases route elsewhere.
+   * `'none'` makes codex omit the reasoning field entirely — required for local
+   * (ollama `--oss`) coder models that reject a reasoning request outright (e.g.
+   * `qwen3-coder:30b` → "does not support thinking"); codex's own default sends one.
    */
-  reasoningEffort?: 'low' | 'medium' | 'high';
+  reasoningEffort?: 'none' | 'low' | 'medium' | 'high';
   /**
    * MCP servers exposed to the codex-driven local model, injected per-invocation via
    * `-c mcp_servers.<name>.…` (never written to the user's global `~/.codex/config.toml`).

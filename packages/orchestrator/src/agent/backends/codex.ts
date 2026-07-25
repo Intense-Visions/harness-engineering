@@ -84,8 +84,15 @@ export interface CodexBackendOptions {
    * A hands-on coder (e.g. qwen3-coder) wants `'low'` — minimal deliberation, spend
    * the budget on edits + gate iteration, not a long think. Design/reasoning phases
    * route to a separate thinking backend, not this one. Omit to use codex's default.
+   *
+   * `'none'` makes codex OMIT the reasoning field from the request. Required for
+   * local ollama (`--oss`) coder models that do not support reasoning at all: newer
+   * ollama rejects the request outright (`"qwen3-coder:30b" does not support
+   * thinking`, invalid_request_error) rather than ignoring it, which fails EVERY
+   * turn (0 tokens, 0 turns). Note codex's DEFAULT (effort omitted) still sends a
+   * reasoning request, so `'none'` — not omission — is the fix for such models.
    */
-  reasoningEffort?: 'low' | 'medium' | 'high';
+  reasoningEffort?: 'none' | 'low' | 'medium' | 'high';
   /**
    * MCP servers to expose to the codex-driven model, injected per-invocation via
    * `-c mcp_servers.<name>.…` overrides (NOT written to the user's global
@@ -142,7 +149,7 @@ export class CodexBackend implements AgentBackend {
   private localProvider: 'ollama' | 'lmstudio';
   private timeoutMs: number;
   private mcpServers: McpServerSpec[];
-  private reasoningEffort?: 'low' | 'medium' | 'high';
+  private reasoningEffort?: 'none' | 'low' | 'medium' | 'high';
   /**
    * Live codex subprocess per active session, so {@link stopSession} can kill it
    * when the workflow aborts a stage (its wall-clock deadline). Without this, the
