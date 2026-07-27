@@ -116,6 +116,7 @@ export class WorkspaceManager {
     const repoRoot = await this.getRepoRoot();
     const baseRef = await this.resolveBaseRef(repoRoot);
     const mergeBase = (await this.git(['merge-base', 'HEAD', baseRef], workspacePath)).trim();
+    await this.markUntrackedIntentToAdd(workspacePath);
     const raw = await this.git(['diff', '--unified=0', mergeBase, '--', '.'], workspacePath);
     const seedPaths = this.config.seedPaths ?? WorkspaceManager.DEFAULT_SEED_PATHS;
     return parseIntroducedHunks(raw, seedPaths);
@@ -146,7 +147,29 @@ export class WorkspaceManager {
       .map((p) => (path.isAbsolute(p) ? path.relative(repoRoot, p).replaceAll('\\', '/') : p))
       .filter((rel) => rel && rel !== '..' && !rel.startsWith('../') && !path.isAbsolute(rel))
       .map((rel) => `:(exclude)${rel}`);
+    await this.markUntrackedIntentToAdd(workspacePath);
     return this.git(['diff', mergeBase, '--', '.', ...excludes], workspacePath);
+  }
+
+  /**
+   * Mark untracked (non-ignored) files in the worktree as intent-to-add so a
+   * subsequent `git diff` INCLUDES their full content. Without this, `git diff`
+   * silently omits untracked files entirely — so a brand-NEW file the agent
+   * created (e.g. a new rule module, not a modification of an existing one) is
+   * invisible to the introduced-diff, and any spec-vs-diff judge concludes the
+   * work is missing even though it is present and passing. `--intent-to-add`
+   * respects `.gitignore` (build output / node_modules stay out) and leaves file
+   * contents untouched; the residual index entries are harmless (the ship stages
+   * with `git add -A` regardless). Best-effort: a failure falls back to the
+   * tracked-only diff rather than blocking the eval/scan.
+   */
+  private async markUntrackedIntentToAdd(workspacePath: string): Promise<void> {
+    try {
+      await this.git(['add', '--intent-to-add', '--', '.'], workspacePath);
+    } catch {
+      // Non-fatal: without intent-to-add the diff is tracked-only (the prior
+      // behavior), never an error that aborts the gate.
+    }
   }
 
   /**
