@@ -16,11 +16,13 @@
     "README.md"
   ],
   "scripts": {
-    "build": "tsup src/index.ts --format esm --dts --tsconfig tsconfig.build.json",
-    "test": "vitest run",
+    "generate:rules": "node scripts/generate-rules-barrel.mjs",
+    "generate:rules:check": "node scripts/generate-rules-barrel.mjs --check",
+    "build": "node scripts/generate-rules-barrel.mjs && tsup src/index.ts --format esm --dts --tsconfig tsconfig.build.json",
+    "test": "node scripts/generate-rules-barrel.mjs && vitest run",
     "test:watch": "vitest",
     "lint": "eslint src",
-    "typecheck": "tsc --noEmit",
+    "typecheck": "node scripts/generate-rules-barrel.mjs && tsc --noEmit",
     "clean": "node ../../scripts/clean.mjs dist",
     "test:coverage": "vitest run --coverage"
   },

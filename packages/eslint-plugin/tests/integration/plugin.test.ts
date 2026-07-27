@@ -1,28 +1,27 @@
 // tests/integration/plugin.test.ts
+import { readdirSync } from 'node:fs';
+import { fileURLToPath } from 'node:url';
+import { dirname, join } from 'node:path';
 import { describe, it, expect } from 'vitest';
 import plugin from '../../src/index';
 
+const rulesDir = join(dirname(fileURLToPath(import.meta.url)), '..', '..', 'src', 'rules');
+
+/** Every rule file in src/rules/ (a file's basename IS its rule name). */
+const ruleFileNames = readdirSync(rulesDir)
+  .filter((f) => f.endsWith('.ts') && f !== 'index.ts' && !f.endsWith('.test.ts'))
+  .map((f) => f.slice(0, -3))
+  .sort();
+
 describe('plugin exports', () => {
-  it('exports all 19 rules', () => {
-    expect(Object.keys(plugin.rules)).toHaveLength(19);
-    expect(plugin.rules['no-undefined-optional-assignment']).toBeDefined();
-    expect(plugin.rules['no-layer-violation']).toBeDefined();
-    expect(plugin.rules['no-circular-deps']).toBeDefined();
-    expect(plugin.rules['no-forbidden-imports']).toBeDefined();
-    expect(plugin.rules['require-boundary-schema']).toBeDefined();
-    expect(plugin.rules['enforce-doc-exports']).toBeDefined();
-    expect(plugin.rules['no-sync-io-in-async']).toBeDefined();
-    expect(plugin.rules['no-nested-loops-in-critical']).toBeDefined();
-    expect(plugin.rules['no-process-env-in-spawn']).toBeDefined();
-    expect(plugin.rules['no-unbounded-array-chains']).toBeDefined();
-    expect(plugin.rules['no-unix-shell-command']).toBeDefined();
-    expect(plugin.rules['no-hardcoded-path-separator']).toBeDefined();
-    expect(plugin.rules['require-path-normalization']).toBeDefined();
-    expect(plugin.rules['no-focused-tests']).toBeDefined();
-    expect(plugin.rules['no-skipped-tests']).toBeDefined();
-    expect(plugin.rules['no-disabled-tests']).toBeDefined();
-    expect(plugin.rules['no-hardcoded-test-count']).toBeDefined();
-    expect(plugin.rules['no-empty-describe']).toBeDefined();
+  // Invariant, not a hardcoded roster: the auto-generated barrel must register
+  // EXACTLY the rule files on disk — every file, nothing phantom. A new rule
+  // file therefore needs no edit here (or to the barrel); dropping the file in
+  // src/rules/ is the whole registration. Guards both a missing registration and
+  // a stale/dangling one.
+  it('registers exactly the rule files in src/rules/', () => {
+    expect(Object.keys(plugin.rules).sort()).toEqual(ruleFileNames);
+    expect(ruleFileNames.length).toBeGreaterThan(0);
   });
 
   it('exports recommended config', () => {
