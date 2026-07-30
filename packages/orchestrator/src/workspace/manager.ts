@@ -143,7 +143,7 @@ export class WorkspaceManager {
     // un-relativized absolute path would be a silent no-op exclude, leaking the
     // seeded overlay into the eval diff). Array argv (no shell) makes each pathspec
     // a single literal arg — special chars can't break or inject.
-    const excludes = seedPaths
+    const excludes = [...seedPaths, ...WorkspaceManager.EVAL_DIFF_EXCLUDES]
       .map((p) => (path.isAbsolute(p) ? path.relative(repoRoot, p).replaceAll('\\', '/') : p))
       .filter((rel) => rel && rel !== '..' && !rel.startsWith('../') && !path.isAbsolute(rel))
       .map((rel) => `:(exclude)${rel}`);
@@ -294,6 +294,22 @@ export class WorkspaceManager {
    * is unset — the artifacts produced by the brainstorm → orchestrator handoff.
    */
   private static readonly DEFAULT_SEED_PATHS = ['.harness/proposals', 'docs/roadmap.md'];
+
+  /**
+   * Process artifacts excluded from the spec-vs-diff EVAL diff (on top of the
+   * seed overlay) — they are NOT the agent's implementation:
+   *   - `docs/changes` — the design stage's proposal/plan (the proposal IS the
+   *     spec, re-included redundantly; the plan is planning).
+   *   - `docs/roadmap.d` — roadmap shards written by the run.
+   *   - `.pnpm-store` — the local package store (binary noise).
+   * Why it matters: left in, these DWARF the actual code change (e.g. a ~280-line
+   * proposal/plan vs a ~90-line rule+test) and let the judge conflate "described
+   * in the proposal" with "implemented", so it reports the new file "missing"
+   * among the noise. Validated end-to-end: excluding these flips the local
+   * outcome-eval from a false NOT_SATISFIED to SATISFIED on a correct diff. The
+   * 4c hunk scan keeps the fuller diff; only the eval text is narrowed.
+   */
+  private static readonly EVAL_DIFF_EXCLUDES = ['docs/changes', 'docs/roadmap.d', '.pnpm-store'];
 
   /**
    * Copies the configured seed paths from the root working tree into a

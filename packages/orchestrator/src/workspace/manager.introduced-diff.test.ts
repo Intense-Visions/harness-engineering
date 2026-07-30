@@ -111,6 +111,11 @@ describe('WorkspaceManager.getIntroducedDiffText (4c v2 — raw diff for the eva
       '.',
       ':(exclude).harness/proposals',
       ':(exclude)docs/roadmap.md',
+      // Process artifacts (design proposal/plan, roadmap shards, pnpm store) are
+      // excluded so they don't bury/confuse the spec-vs-diff judge.
+      ':(exclude)docs/changes',
+      ':(exclude)docs/roadmap.d',
+      ':(exclude).pnpm-store',
     ]);
     // Raw text is returned verbatim (unparsed) — context + removed lines preserved.
     expect(text).toBe(RAW_DIFF_TEXT);
@@ -123,7 +128,16 @@ describe('WorkspaceManager.getIntroducedDiffText (4c v2 — raw diff for the eva
     const wm = new RawStubWM(config({ seedPaths: ['/repo/docs/roadmap.md'] }));
     await wm.getIntroducedDiffText('ISS-1');
     const diffCall = wm.calls.find((c) => c[0] === 'diff');
-    expect(diffCall).toEqual(['diff', 'basesha123', '--', '.', ':(exclude)docs/roadmap.md']);
+    expect(diffCall).toEqual([
+      'diff',
+      'basesha123',
+      '--',
+      '.',
+      ':(exclude)docs/roadmap.md',
+      ':(exclude)docs/changes',
+      ':(exclude)docs/roadmap.d',
+      ':(exclude).pnpm-store',
+    ]);
   });
 
   it('marks untracked files intent-to-add BEFORE the diff, so a NEW file the agent created is in the judged diff', async () => {
