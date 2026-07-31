@@ -241,12 +241,17 @@ export class CodexBackend implements AgentBackend {
       env: process.env,
       // stdin from /dev/null: codex exec otherwise blocks reading additional input.
       stdio: ['ignore', 'pipe', 'pipe'],
+      // Own process GROUP (POSIX) so a kill can take down codex AND any grandchild
+      // it spawned. Without this, killing only the direct child leaves a grandchild
+      // holding the stdout pipe open, and draining hangs past the stage deadline —
+      // see killTree.
+      detached: process.platform !== 'win32',
     });
 
     let timedOut = false;
     const killTimer = setTimeout(() => {
       timedOut = true;
-      child.kill('SIGKILL');
+      this.killTree(child);
     }, this.timeoutMs);
     // Register the live child so stopSession (invoked by the runner on a stage
     // abort) can terminate it — see activeChildren.
@@ -368,12 +373,38 @@ export class CodexBackend implements AgentBackend {
     const active = this.activeChildren.get(session.sessionId);
     if (active !== undefined) {
       clearTimeout(active.killTimer);
-      if (active.child.exitCode === null && active.child.signalCode === null) {
-        active.child.kill('SIGKILL');
-      }
+      this.killTree(active.child);
       this.activeChildren.delete(session.sessionId);
     }
     return Ok(undefined);
+  }
+
+  /**
+   * SIGKILL the child AND its process group, so a grandchild codex spawned (or, in
+   * tests, a shell's `sleep`) can't survive and keep the stdout pipe open — which
+   * would hang the drain past a stage deadline (observed as a 10s test timeout on
+   * Linux CI, where an un-grouped kill leaves the grandchild running; macOS reaped
+   * it, hiding the gap). The child is spawned `detached`, so it leads its own group
+   * and `process.kill(-pid)` targets the whole tree. Best-effort: an already-exited
+   * child (ESRCH) is a no-op; Windows (no real process groups / SIGKILL) falls back
+   * to a direct child kill.
+   */
+  private killTree(child: ChildProcess): void {
+    if (child.exitCode !== null || child.signalCode !== null) return;
+    const pid = child.pid;
+    if (pid !== undefined && process.platform !== 'win32') {
+      try {
+        process.kill(-pid, 'SIGKILL');
+        return;
+      } catch {
+        // Group gone or never grouped — fall through to a direct child kill.
+      }
+    }
+    try {
+      child.kill('SIGKILL');
+    } catch {
+      // Already exited — nothing to terminate.
+    }
   }
 
   async healthCheck(): Promise<Result<void, AgentError>> {

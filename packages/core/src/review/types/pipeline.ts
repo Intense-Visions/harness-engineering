@@ -138,6 +138,8 @@ export interface PipelineContext {
   exitCode: number;
   /** Evidence coverage report (when session evidence is available) */
   evidenceCoverage?: EvidenceCoverageReport;
+  /** Phase 5.75 finding-integrity denominators + audit trail (#984) */
+  integrityReport?: import('../finding-integrity').FindingIntegrityReport;
 }
 
 /**
@@ -168,4 +170,9 @@ export interface ReviewPipelineResult {
   mechanicalResult?: MechanicalCheckResult;
   /** Evidence coverage report (when session evidence is available) */
   evidenceCoverage?: EvidenceCoverageReport;
+  /**
+   * Phase 5.75 finding-integrity report (#984). Carries the denominator
+   * (`examined`) so a layer that checked nothing reads as `abstained`, not pass.
+   */
+  integrityReport?: import('../finding-integrity').FindingIntegrityReport;
 }

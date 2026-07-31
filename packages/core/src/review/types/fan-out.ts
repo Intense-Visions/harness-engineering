@@ -96,6 +96,46 @@ export interface ReviewFinding {
    * The existing 4 agents do not populate this; new agents always do.
    */
   subagent?: ReviewSubagent;
+  /**
+   * Emission-invariant annotations recorded by the finding-integrity layer
+   * (Phase 5.75, issue #984). Absent on findings that satisfied every invariant,
+   * so a clean review is byte-identical to before the layer existed. Present
+   * entries are the audit trail for a severity downgrade or a confidence
+   * reconciliation — they exist so a reviewer can see *why* a finding was
+   * altered without reading the pipeline source.
+   */
+  integrityViolations?: FindingIntegrityViolation[];
+}
+
+/**
+ * The emission invariants enforced on every finding before it is published.
+ *
+ * - `evidence-class-consistency` — a finding claiming a vulnerability class
+ *   (a `cweId`, an `owaspCategory`, or `domain: 'security'` at `critical`) must
+ *   carry evidence that could plausibly substantiate that class. A CWE-89
+ *   finding whose evidence is "File has 442 lines (threshold: 300)" fails.
+ * - `confidence-reconciliation` — a finding's `confidence` label may not exceed
+ *   what its `validatedBy` method and `trustScore` can support.
+ */
+export type FindingInvariant = 'evidence-class-consistency' | 'confidence-reconciliation';
+
+/** What the integrity layer did to a finding that failed an invariant. */
+export type FindingIntegrityAction = 'dropped' | 'downgraded' | 'confidence-reconciled';
+
+/** A single recorded invariant failure. */
+export interface FindingIntegrityViolation {
+  /** `id` of the offending finding (kept so report entries stand alone). */
+  findingId: string;
+  /** Which invariant the finding failed. */
+  invariant: FindingInvariant;
+  /** What the layer did about it. */
+  action: FindingIntegrityAction;
+  /** Human-readable explanation, safe to print in a review comment. */
+  reason: string;
+  /** Severity before a `downgraded` action. */
+  originalSeverity?: FindingSeverity;
+  /** Confidence before a `confidence-reconciled` (or `downgraded`) action. */
+  originalConfidence?: 'high' | 'medium' | 'low' | ReviewConfidence;
 }
 
 /**

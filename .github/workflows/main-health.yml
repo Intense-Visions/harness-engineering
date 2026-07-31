@@ -1,0 +1,71 @@
+name: Main Health Alarm
+
+# Watches `main`'s CI and says so when it goes red.
+#
+# Issue #987: `build-and-test` was red on `main` for eight days and nothing
+# noticed, because nothing watched `main` itself — the failure was only found by
+# someone stumbling into it from a PR. This is the watcher.
+#
+# Two triggers on purpose:
+#   - `workflow_run`: reacts within minutes of each `main` CI run finishing, so
+#     a green -> red transition (and the red -> green all-clear) is timely.
+#   - `schedule`: a daily heartbeat. It is the arm that catches the silent
+#     failures — a renamed workflow file, a revoked permission, or a `main`
+#     that stopped receiving pushes entirely. The `workflow_run` arm can never
+#     detect "no runs at all", because it only fires when a run happens.
+#
+# Where the alarm lands: the script opens/updates a labelled tracking issue
+# (`main-health-alarm`) and writes a step summary on EVERY run. A failing job
+# alone would be no better than the red `main` it is reporting on — the whole
+# point of #987 is that a red check nobody reads is silence.
+#
+# No step-level `continue-on-error` anywhere: this job is *meant* to go red when
+# `main` is red, and red when it could not tell (exit 3). An abstaining health
+# check must never look like a pass.
+
+on:
+  schedule:
+    - cron: '0 7 * * *' # Daily at 07:00 UTC
+  workflow_run:
+    workflows: [CI]
+    types: [completed]
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      threshold:
+        description: 'Consecutive decisive failures required to alarm'
+        required: false
+        default: '2'
+
+permissions:
+  actions: read # read the CI workflow's run history
+  contents: read
+  issues: write # upsert the tracking issue
+
+# Never cancel an in-flight alarm delivery: a cancelled run could drop the
+# green -> red notification (or the all-clear) on the floor. Serialize instead.
+concurrency:
+  group: main-health
+  cancel-in-progress: false
+
+jobs:
+  main-health:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 22
+
+      # No `pnpm install`: the check is a dependency-free node script, so the
+      # watcher cannot be taken down by an install failure in the thing it
+      # watches.
+      - name: Check main CI health
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+          MAIN_HEALTH_WORKFLOW: ci.yml
+          MAIN_HEALTH_BRANCH: main
+          MAIN_HEALTH_THRESHOLD: ${{ inputs.threshold || '2' }}
+        run: node scripts/main-health-check.mjs

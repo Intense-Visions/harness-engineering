@@ -387,6 +387,37 @@ pnpm clean
 > (fresh clone / detached HEAD) pre-push falls back to the full unscoped gate.
 > See ADR `docs/knowledge/decisions/0075-affected-scoped-pre-push.md`.
 
+### Main-branch health alarm
+
+`.github/workflows/main-health.yml` watches `main`'s own CI so a red `main` cannot
+go unnoticed again (issue #987: `build-and-test` was red for eight days and the
+only thing that found it was a contributor triaging their own PR). It runs on a
+daily schedule **and** after every `main` run of `CI` completes, and calls
+`scripts/main-health-check.mjs`.
+
+- **Health rule (deliberately quiet):** `main` is unhealthy when the most recent
+  **2** _decisive_ runs both failed (`MAIN_HEALTH_THRESHOLD`). Decisive excludes
+  `cancelled`/`skipped` — CI runs with `cancel-in-progress: true`, so rapid
+  merges leave cancelled runs that say nothing about health. The louder
+  "most-recent-run-failed" rule would alarm on every flake, and a flaky alarm is
+  a muted alarm.
+- **Where the alarm lands:** a labelled tracking issue (`main-health-alarm`),
+  upserted — opened on green → red, **edited in place** while still red (never a
+  second issue, never a nightly comment), and commented + closed as an all-clear
+  on red → green. A step summary is written on every run regardless of verdict.
+- **Denominator discipline:** if fewer decisive runs than the threshold can be
+  resolved (renamed workflow file, API error, missing permission, quiet branch),
+  the check exits `3` INDETERMINATE and reports "abstained — not a pass". It
+  never reports healthy on an empty denominator, and it neither opens nor closes
+  an alarm in that state.
+- **Exit codes:** `0` healthy · `1` internal error · `2` unhealthy (alarm
+  raised) · `3` indeterminate · `4` alarm undelivered (verdict known, the issue
+  write failed). Full rationale is in the script header.
+- Logic is covered by `tests/scripts/main-health-check.test.mjs` with a fake
+  `gh`, so the tests never touch the network. Run
+  `node scripts/main-health-check.mjs --dry-run` locally to see the verdict
+  without writing anything.
+
 ### Git Workflow and Commit Conventions
 
 We use **Conventional Commits** for clear, machine-readable commit messages:
