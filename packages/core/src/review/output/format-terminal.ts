@@ -2,6 +2,7 @@ import type { ReviewFinding, ReviewStrength, EvidenceCoverageReport } from '../t
 import { determineAssessment } from './assessment';
 import { SEVERITY_ORDER, SEVERITY_LABELS } from '../constants';
 import type { DepthCalibration } from '../depth-calibrator';
+import type { FindingIntegrityReport } from '../finding-integrity';
 
 /** Format the confidence field consistently regardless of legacy/new shape. */
 function formatConfidence(c: ReviewFinding['confidence']): string {
@@ -28,6 +29,43 @@ export function formatFindingBlock(finding: ReviewFinding): string {
 
   if (finding.suggestion) {
     lines.push(`    Suggestion: ${finding.suggestion}`);
+  }
+
+  // Emission-invariant audit trail (#984). Only rendered when an invariant
+  // altered this finding, so clean findings print exactly as before.
+  for (const v of finding.integrityViolations ?? []) {
+    lines.push(`    Integrity (${v.invariant}, ${v.action}): ${v.reason}`);
+  }
+
+  return lines.join('\n');
+}
+
+/**
+ * Render the Phase 5.75 finding-integrity section (#984).
+ *
+ * Always prints the denominator. An `abstained` layer is labelled as such rather
+ * than rendered as a clean pass — a gate that examined zero findings verified
+ * nothing, and the output must not imply otherwise.
+ */
+export function formatIntegritySection(report: FindingIntegrityReport): string {
+  const lines = ['## Finding Integrity\n'];
+
+  if (report.abstained) {
+    lines.push('  ABSTAINED — 0 findings examined; no invariant was verified.');
+    return lines.join('\n');
+  }
+
+  lines.push(`  Findings examined: ${report.examined}`);
+  lines.push(
+    `  Vulnerability-class claims checked: ${report.vulnerabilityClaimsExamined}/${report.examined}`
+  );
+  lines.push(`  Confidence claims checked: ${report.confidenceClaimsExamined}/${report.examined}`);
+  lines.push(
+    `  Altered: ${report.altered} (${report.dropped} dropped, ${report.downgraded} downgraded, ${report.confidenceReconciled} confidence-reconciled)`
+  );
+
+  for (const v of report.violations) {
+    lines.push(`  ! ${v.findingId} [${v.invariant} → ${v.action}]: ${v.reason}`);
   }
 
   return lines.join('\n');
@@ -63,6 +101,7 @@ export function formatTerminalOutput(options: {
   strengths: ReviewStrength[];
   evidenceCoverage?: EvidenceCoverageReport;
   depthCalibration?: DepthCalibration;
+  integrityReport?: FindingIntegrityReport;
 }): string {
   const { findings, strengths } = options;
   const sections: string[] = [];
@@ -137,6 +176,12 @@ export function formatTerminalOutput(options: {
     );
     sections.push(`  Uncited findings: ${ec.uncitedCount} (flagged as [UNVERIFIED])`);
     sections.push(`  Coverage: ${ec.coveragePercentage}%`);
+  }
+
+  // --- Finding Integrity (Phase 5.75, #984) ---
+  if (options.integrityReport) {
+    sections.push('');
+    sections.push(formatIntegritySection(options.integrityReport));
   }
 
   return sections.join('\n');

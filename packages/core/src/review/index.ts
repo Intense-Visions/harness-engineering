@@ -40,6 +40,10 @@ export type {
   ReviewPipelineResult,
   // Evidence gate types
   EvidenceCoverageReport,
+  // Phase 5.75: Finding-integrity invariant types (#984)
+  FindingInvariant,
+  FindingIntegrityAction,
+  FindingIntegrityViolation,
 } from './types';
 
 // Mechanical checks
@@ -114,6 +118,7 @@ export {
   getExitCode,
   formatTerminalOutput,
   formatFindingBlock,
+  formatIntegritySection,
   formatGitHubComment,
   formatGitHubSummary,
   isSmallSuggestion,
@@ -121,6 +126,28 @@ export {
 
 // Evidence gate
 export { checkEvidenceCoverage, tagUncitedFindings } from './evidence-gate';
+
+// Phase 5.75: Finding-integrity invariants (#984)
+export {
+  enforceFindingIntegrity,
+  mergeIntegrityReports,
+  emptyIntegrityReport,
+  formatIntegritySummary,
+  checkEvidenceClassConsistency,
+  claimsVulnerabilityClass,
+  confidenceBand,
+  confidenceCeiling,
+  CONFIDENCE_CEILING_BY_VALIDATION,
+  VULNERABILITY_CLASS_SPECS,
+} from './finding-integrity';
+export type {
+  EnforceFindingIntegrityOptions,
+  EnforceFindingIntegrityResult,
+  EvidenceMismatchAction,
+  FindingIntegrityReport,
+  VulnerabilityClassSpec,
+  ConfidenceBand,
+} from './finding-integrity';
 
 // Phase 5.5: Trust scoring
 export { computeTrustScores, getTrustLevel } from './trust-score';
