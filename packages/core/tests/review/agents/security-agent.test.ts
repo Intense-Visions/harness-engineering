@@ -415,4 +415,76 @@ describe('runSecurityAgent()', () => {
     const findings = runSecurityAgent(bundle);
     expect(findings.length).toBe(0);
   });
+
+  // ---- precision guards: test fixtures and comment bodies (issue #984) ----
+  // The secrets detector deliberately keeps a WIDER file scope than the three
+  // source-pattern detectors (a key in a .yml IS a leak), so it is guarded by
+  // isTestFile + isCommentLine rather than isCodeFile. These lock that asymmetry.
+
+  it('does not flag a fake key in a test fixture', () => {
+    const bundle = makeBundle({
+      changedFiles: [
+        {
+          path: 'packages/core/tests/review/agents/security-agent.test.ts',
+          content: 'const API_KEY = "sk-live-0123456789abcdef0123456789abcdef";',
+          reason: 'changed',
+          lines: 1,
+        },
+      ],
+    });
+    expect(runSecurityAgent(bundle).length).toBe(0);
+  });
+
+  it('does not flag an example key documented in a JSDoc body', () => {
+    const bundle = makeBundle({
+      changedFiles: [
+        {
+          path: 'src/config.ts',
+          content: [
+            '/**',
+            ' * Set it like this:',
+            ' * const API_KEY = "sk-live-0123456789abcdef0123456789abcdef";',
+            ' */',
+            'export const KEY = process.env.API_KEY;',
+          ].join('\n'),
+          reason: 'changed',
+          lines: 5,
+        },
+      ],
+    });
+    expect(runSecurityAgent(bundle).length).toBe(0);
+  });
+
+  it('STILL flags a real hardcoded key in source (guards must not over-suppress)', () => {
+    const bundle = makeBundle({
+      changedFiles: [
+        {
+          path: 'src/config.ts',
+          content: 'const API_KEY = "sk-live-0123456789abcdef0123456789abcdef";',
+          reason: 'changed',
+          lines: 1,
+        },
+      ],
+    });
+    const findings = runSecurityAgent(bundle);
+    expect(findings.length).toBe(1);
+    expect(findings[0]!.severity).toBe('critical');
+  });
+
+  // Non-code coverage is real but assignment-shaped: SECRET_PATTERNS key off
+  // `<name> = "<value>"`, so a shell/env/dotenv form is caught while a YAML
+  // `apiKey: "..."` is NOT (documented as a known gap in the PR, not fixed here).
+  it('STILL flags a hardcoded key in a non-code file — secrets keep the wider scope', () => {
+    const bundle = makeBundle({
+      changedFiles: [
+        {
+          path: 'deploy/.env.example',
+          content: 'API_KEY="sk-live-0123456789abcdef0123456789abcdef"',
+          reason: 'changed',
+          lines: 1,
+        },
+      ],
+    });
+    expect(runSecurityAgent(bundle).length).toBe(1);
+  });
 });

@@ -91,9 +91,52 @@ const SHELL_EXEC_PATTERN = /(?:exec|execSync|spawn|spawnSync)\s*\(\s*`[^`]*\$\{/
  */
 const CODE_FILE_EXTENSIONS = ['.ts', '.tsx', '.js', '.jsx', '.mjs', '.cjs', '.mts', '.cts'];
 
+/**
+ * Test files, which the source-pattern detectors deliberately skip.
+ *
+ * Same reasoning as the docs/config exclusion above, one step further: a test
+ * that proves a detector FIRES must contain the vulnerable shape as **data**.
+ * This file's own suite necessarily holds `"SELECT * FROM users WHERE id = " +
+ * userId` and `const API_KEY = "sk-1234…"` as fixtures — scanning them reports
+ * `critical` findings for strings that are the test's whole point, and any PR
+ * touching a security test self-flags.
+ *
+ * The trade-off is explicit and bounded: test code is not part of the shipped
+ * attack surface (it is not published, not deployed, and takes no untrusted
+ * input), so a concatenated query or a fake key inside a `*.test.ts` fixture is
+ * not a vulnerability. Real sinks live in `src/`, which is still scanned. This
+ * narrows PRECISION-losing noise, not coverage of production code.
+ */
+const TEST_FILE_MARKERS = ['.test.', '.spec.', '/__tests__/', '/__fixtures__/'];
+
+/** True when `path` is test code, whose fixtures hold vulnerable shapes as data. */
+function isTestFile(path: string): boolean {
+  const normalized = path.replace(/\\/g, '/');
+  return TEST_FILE_MARKERS.some((marker) => normalized.includes(marker));
+}
+
 /** True when `path` is a code file the source-pattern heuristics should scan. */
 function isCodeFile(path: string): boolean {
-  return CODE_FILE_EXTENSIONS.some((ext) => path.endsWith(ext));
+  if (!CODE_FILE_EXTENSIONS.some((ext) => path.endsWith(ext))) return false;
+  return !isTestFile(path);
+}
+
+/**
+ * True when `line` is a comment rather than executable code.
+ *
+ * A SQL string inside a `//` line comment or a `*` JSDoc body is documentation —
+ * it cannot reach a database. The rule's own JSDoc, which documents the genuine
+ * injection shape it detects (`"SELECT … WHERE id = " + userId`), was itself
+ * reported as a `critical` CWE-89 finding. Skipping comment lines costs no
+ * coverage of executable code.
+ *
+ * Line-oriented like the detectors it serves: it recognizes `//`, `/*`, `*` and
+ * `*\/` openers, so a SQL literal on a continuation line of a block comment that
+ * does not start with `*` is still scanned. That is the conservative direction —
+ * it can only over-scan, never under-scan.
+ */
+function isCommentLine(line: string): boolean {
+  return /^\s*(?:\/\/|\/\*|\*\/|\*)/.test(line);
 }
 
 function makeEvalFinding(file: string, lineNum: number, line: string): ReviewFinding {
@@ -204,6 +247,7 @@ function detectEvalUsage(bundle: ContextBundle): ReviewFinding[] {
     const lines = cf.content.split('\n');
     for (let i = 0; i < lines.length; i++) {
       const line = lines[i]!;
+      if (isCommentLine(line)) continue;
       if (!EVAL_PATTERN.test(line)) continue;
       findings.push(makeEvalFinding(cf.path, i + 1, line));
     }
@@ -211,12 +255,35 @@ function detectEvalUsage(bundle: ContextBundle): ReviewFinding[] {
   return findings;
 }
 
+/**
+ * Secret detection deliberately keeps a WIDER file scope than the three
+ * source-pattern detectors: it does not gate on `isCodeFile`. A hardcoded key in
+ * a `.env.example`, a shell script or any other non-`.ts` file is a genuine leak,
+ * so restricting this detector to `.ts`/`.js` would lose real coverage rather
+ * than noise. The asymmetry is the point — `eval(`, backtick-`exec(` and SQL
+ * concatenation are code constructs; a leaked credential is not.
+ *
+ * Scope caveat, measured rather than assumed: `SECRET_PATTERNS` key off an
+ * assignment shape (`<name> = "<value>"`), so a dotenv/shell line IS matched
+ * while a YAML mapping (`apiKey: "..."`) is NOT. The wider file scope is
+ * therefore real but narrower than "all config files" — do not read this comment
+ * as a claim that YAML secrets are covered. Tests pin both directions.
+ *
+ * What it does share with them is the two precision guards: test fixtures hold
+ * fake keys as data, and a documented example key in a JSDoc body is not a
+ * secret. Both are skipped.
+ */
 function detectHardcodedSecrets(bundle: ContextBundle): ReviewFinding[] {
   const findings: ReviewFinding[] = [];
   for (const cf of bundle.changedFiles) {
+    if (isTestFile(cf.path)) continue;
     const lines = cf.content.split('\n');
     for (let i = 0; i < lines.length; i++) {
       const line = lines[i]!;
+      // `isCommentLine` catches whole-line and JSDoc-body comments; the
+      // `codePart` slice additionally strips a trailing `//` comment from an
+      // otherwise-executable line.
+      if (isCommentLine(line)) continue;
       const codePart = line.includes('//') ? line.slice(0, line.indexOf('//')) : line;
       const matched = SECRET_PATTERNS.some((p) => p.test(codePart));
       if (!matched) continue;
@@ -233,6 +300,7 @@ function detectSqlInjection(bundle: ContextBundle): ReviewFinding[] {
     const lines = cf.content.split('\n');
     for (let i = 0; i < lines.length; i++) {
       const line = lines[i]!;
+      if (isCommentLine(line)) continue;
       if (!SQL_CONCAT_PATTERN.test(line)) continue;
       findings.push(makeSqlFinding(cf.path, i + 1, line));
     }
@@ -247,6 +315,7 @@ function detectCommandInjection(bundle: ContextBundle): ReviewFinding[] {
     const lines = cf.content.split('\n');
     for (let i = 0; i < lines.length; i++) {
       const line = lines[i]!;
+      if (isCommentLine(line)) continue;
       if (!SHELL_EXEC_PATTERN.test(line)) continue;
       findings.push(makeCommandFinding(cf.path, i + 1, line));
     }
