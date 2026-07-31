@@ -180,6 +180,49 @@ describe('invariant 1: evidence must be consistent with the claimed vulnerabilit
     expect(report.altered).toBe(0);
   });
 
+  // The XSS and prototype-pollution requirements are assembled from string
+  // fragments (so a justified `harness-ignore` can sit above the token harness's
+  // own scanner flags). These lock the assembled patterns' behaviour.
+  it('accepts and rejects CWE-79 evidence correctly (assembled pattern)', () => {
+    expect(
+      checkEvidenceClassConsistency(
+        finding({
+          cweId: 'CWE-79',
+          evidence: ['Line 4: el.innerHTML = userBio;'],
+        })
+      )
+    ).toBeUndefined();
+    expect(
+      checkEvidenceClassConsistency(
+        finding({
+          cweId: 'CWE-79',
+          evidence: ['Line 4: <Panel dangerouslySetInnerHTML={{ __html: bio }} />'],
+        })
+      )
+    ).toBeUndefined();
+    expect(
+      checkEvidenceClassConsistency(finding({ cweId: 'CWE-79', evidence: ['Line 4: total += 1;'] }))
+    ).toContain('CWE-79');
+  });
+
+  it('accepts and rejects CWE-1321 evidence correctly (assembled pattern)', () => {
+    expect(
+      checkEvidenceClassConsistency(
+        finding({ cweId: 'CWE-1321', evidence: ['Line 8: target[key] = source[key] // __proto__'] })
+      )
+    ).toBeUndefined();
+    expect(
+      checkEvidenceClassConsistency(
+        finding({ cweId: 'CWE-1321', evidence: ['Line 8: deepMerge(a, b)'] })
+      )
+    ).toBeUndefined();
+    expect(
+      checkEvidenceClassConsistency(
+        finding({ cweId: 'CWE-1321', evidence: ['Line 8: return total;'] })
+      )
+    ).toContain('CWE-1321');
+  });
+
   it('falls back to the OWASP category spec when the CWE is unregistered', () => {
     expect(
       checkEvidenceClassConsistency(
