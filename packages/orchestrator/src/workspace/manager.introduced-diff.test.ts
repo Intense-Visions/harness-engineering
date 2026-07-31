@@ -79,6 +79,17 @@ describe('WorkspaceManager.getIntroducedDiff', () => {
     // src/app.ts now excluded; roadmap.md is no longer a seed ⇒ it comes through.
     expect(hunks.map((h) => h.file)).toEqual(['docs/roadmap.md']);
   });
+
+  it('marks untracked files intent-to-add BEFORE the diff (so NEW files are captured)', async () => {
+    const wm = new StubWM(config());
+    await wm.getIntroducedDiff('ISS-1');
+    const addIdx = wm.calls.findIndex((c) => c[0] === 'add' && c.includes('--intent-to-add'));
+    const diffIdx = wm.calls.findIndex((c) => c[0] === 'diff');
+    // git diff omits untracked files; `add --intent-to-add` (run first) makes a
+    // brand-new file show up as an addition instead of being silently invisible.
+    expect(addIdx).toBeGreaterThanOrEqual(0);
+    expect(addIdx).toBeLessThan(diffIdx);
+  });
 });
 
 describe('WorkspaceManager.getIntroducedDiffText (4c v2 — raw diff for the eval)', () => {
@@ -100,6 +111,11 @@ describe('WorkspaceManager.getIntroducedDiffText (4c v2 — raw diff for the eva
       '.',
       ':(exclude).harness/proposals',
       ':(exclude)docs/roadmap.md',
+      // Process artifacts (design proposal/plan, roadmap shards, pnpm store) are
+      // excluded so they don't bury/confuse the spec-vs-diff judge.
+      ':(exclude)docs/changes',
+      ':(exclude)docs/roadmap.d',
+      ':(exclude).pnpm-store',
     ]);
     // Raw text is returned verbatim (unparsed) — context + removed lines preserved.
     expect(text).toBe(RAW_DIFF_TEXT);
@@ -112,6 +128,26 @@ describe('WorkspaceManager.getIntroducedDiffText (4c v2 — raw diff for the eva
     const wm = new RawStubWM(config({ seedPaths: ['/repo/docs/roadmap.md'] }));
     await wm.getIntroducedDiffText('ISS-1');
     const diffCall = wm.calls.find((c) => c[0] === 'diff');
-    expect(diffCall).toEqual(['diff', 'basesha123', '--', '.', ':(exclude)docs/roadmap.md']);
+    expect(diffCall).toEqual([
+      'diff',
+      'basesha123',
+      '--',
+      '.',
+      ':(exclude)docs/roadmap.md',
+      ':(exclude)docs/changes',
+      ':(exclude)docs/roadmap.d',
+      ':(exclude).pnpm-store',
+    ]);
+  });
+
+  it('marks untracked files intent-to-add BEFORE the diff, so a NEW file the agent created is in the judged diff', async () => {
+    const wm = new RawStubWM(config());
+    await wm.getIntroducedDiffText('ISS-1');
+    const addIdx = wm.calls.findIndex((c) => c[0] === 'add' && c.includes('--intent-to-add'));
+    const diffIdx = wm.calls.findIndex((c) => c[0] === 'diff');
+    // Without this, a brand-new rule module (untracked) is invisible to the
+    // spec-vs-diff judge, which then wrongly reports the work as missing.
+    expect(addIdx).toBeGreaterThanOrEqual(0);
+    expect(addIdx).toBeLessThan(diffIdx);
   });
 });
