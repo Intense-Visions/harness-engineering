@@ -134,6 +134,13 @@ function mergeFindings(a: ReviewFinding, b: ReviewFinding): ReviewFinding {
   setIfDefined(merged, 'subagent', primaryFinding.subagent ?? a.subagent ?? b.subagent);
   mergeSecurityFields(merged, primaryFinding, a, b);
 
+  // Carry BOTH sides' emission-invariant records (#984). This object is rebuilt
+  // field by field, so anything not explicitly copied is silently lost — exactly
+  // the failure mode #984 describes. A merged entry that absorbed a finding whose
+  // evidence contradicted its class must keep saying so.
+  const mergedViolations = [...(a.integrityViolations ?? []), ...(b.integrityViolations ?? [])];
+  if (mergedViolations.length > 0) merged.integrityViolations = mergedViolations;
+
   return merged;
 }
 

@@ -656,14 +656,16 @@ End-to-end code review pipeline: eligibility check, mechanical checks, fan-out t
 
 ### Review Phases
 
-| Function                                  | Description                                        |
-| ----------------------------------------- | -------------------------------------------------- |
-| `checkEligibility(metadata)`              | Phase 1: Determines if a PR is eligible for review |
-| `runMechanicalChecks(bundle, options?)`   | Phase 2: Runs mechanical/static checks             |
-| `fanOutReview(bundle, options?)`          | Phase 3-4: Fans out to specialized review agents   |
-| `validateFindings(findings, options?)`    | Phase 5: Validates review findings                 |
-| `deduplicateFindings(findings, options?)` | Phase 6: Deduplicates overlapping findings         |
-| `determineAssessment(findings)`           | Phase 7: Determines overall assessment             |
+| Function                                   | Description                                        |
+| ------------------------------------------ | -------------------------------------------------- |
+| `checkEligibility(metadata)`               | Phase 1: Determines if a PR is eligible for review |
+| `runMechanicalChecks(bundle, options?)`    | Phase 2: Runs mechanical/static checks             |
+| `fanOutReview(bundle, options?)`           | Phase 3-4: Fans out to specialized review agents   |
+| `validateFindings(findings, options?)`     | Phase 5: Validates review findings                 |
+| `computeTrustScores(findings, options?)`   | Phase 5.5: Scores findings for trust               |
+| `enforceFindingIntegrity(findings, opts?)` | Phase 5.75: Enforces the emission invariants       |
+| `deduplicateFindings(findings, options?)`  | Phase 6: Deduplicates overlapping findings         |
+| `determineAssessment(findings)`            | Phase 7: Determines overall assessment             |
 
 ### Review Agents
 
@@ -705,6 +707,40 @@ End-to-end code review pipeline: eligibility check, mechanical checks, fan-out t
 **Types:** `TrustScoreOptions`
 
 **Constants:** `VALIDATION_SCORES`, `DOMAIN_BASELINES`, `FACTOR_WEIGHTS`, `EVIDENCE_SATURATION`, `CORROBORATED_AGREEMENT`, `STANDALONE_AGREEMENT`, `AGREEMENT_LINE_GAP`
+
+### Finding Integrity
+
+Emission invariants applied to the aggregated finding set before dedup and output
+(issue #984). A finding claiming a vulnerability class must carry evidence
+consistent with that class, and its `confidence` may not exceed what its
+`validatedBy` method and `trustScore` support.
+
+| Function                                      | Description                                                  |
+| --------------------------------------------- | ------------------------------------------------------------ |
+| `enforceFindingIntegrity(findings, options?)` | Applies both invariants; returns cleared findings + a report |
+| `checkEvidenceClassConsistency(finding)`      | Returns a mismatch reason, or `undefined` when consistent    |
+| `claimsVulnerabilityClass(finding)`           | Whether a finding asserts a vulnerability class              |
+| `confidenceCeiling(finding)`                  | Highest confidence band the finding's provenance supports    |
+| `confidenceBand(confidence)`                  | Maps either confidence shape to `low` / `medium` / `high`    |
+| `mergeIntegrityReports(...reports)`           | Combines denominators across enforcement passes              |
+| `emptyIntegrityReport()`                      | An abstained (zero-examined) report                          |
+| `formatIntegritySummary(report)`              | One-line denominator summary                                 |
+
+Default behaviour is conservative: an evidence/class mismatch is **downgraded** to
+a non-blocking `suggestion` with the reason recorded in
+`finding.integrityViolations`, never dropped. Set
+`onEvidenceMismatch: 'drop'` to remove mismatches instead, and
+`capHeuristicSeverity: true` to additionally forbid `critical` on heuristic-only
+findings.
+
+Every run reports its denominator via `ReviewPipelineResult.integrityReport`
+(`examined`, `vulnerabilityClaimsExamined`, `confidenceClaimsExamined`,
+`altered`). `abstained: true` means the layer examined nothing and verified
+nothing — it must not be read as a pass.
+
+**Types:** `EnforceFindingIntegrityOptions`, `EnforceFindingIntegrityResult`, `FindingIntegrityReport`, `FindingIntegrityViolation`, `FindingInvariant`, `FindingIntegrityAction`, `VulnerabilityClassSpec`, `ConfidenceBand`, `EvidenceMismatchAction`
+
+**Constants:** `VULNERABILITY_CLASS_SPECS`, `CONFIDENCE_CEILING_BY_VALIDATION`
 
 ### Pipeline Orchestrator
 

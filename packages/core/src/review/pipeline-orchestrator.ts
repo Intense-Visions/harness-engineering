@@ -16,6 +16,11 @@ import type {
   Rubric,
   ReviewDomain,
 } from './types';
+import {
+  enforceFindingIntegrity,
+  type EnforceFindingIntegrityOptions,
+  type FindingIntegrityReport,
+} from './finding-integrity';
 import { checkEligibility } from './eligibility-gate';
 import { runMechanicalChecks } from './mechanical-checks';
 import { buildExclusionSet, ExclusionSet } from './exclusion-set';
@@ -73,6 +78,12 @@ export interface RunPipelineOptions {
    * scores in the intelligence package.
    */
   domainAccuracy?: Partial<Record<ReviewDomain, number>>;
+  /**
+   * Options for the Phase 5.75 finding-integrity layer (#984). Omitted uses the
+   * conservative defaults: evidence/class mismatches are downgraded to a
+   * non-blocking severity (never dropped) and heuristic severity is not capped.
+   */
+  findingIntegrity?: EnforceFindingIntegrityOptions;
 }
 
 /**
@@ -128,6 +139,7 @@ export async function runReviewPipeline(
     sessionSlug,
     domainAccuracy,
     guardianCoverage,
+    findingIntegrity,
   } = options;
 
   // --- Phase 1: GATE ---
@@ -329,14 +341,25 @@ export async function runReviewPipeline(
     domainAccuracy ? { domainAccuracy } : undefined
   );
 
-  // --- Evidence Check (between Phase 5.5 and Phase 6) ---
+  // --- Phase 5.75: FINDING INTEGRITY (#984) ---
+  // The single emission seam for the two structural invariants: evidence must be
+  // consistent with any claimed vulnerability class, and `confidence` must
+  // reconcile with `validatedBy`/`trustScore`. Runs AFTER trust scoring (it reads
+  // trustScore) and BEFORE dedup, so a fabricated critical cannot win a
+  // severity/confidence tiebreak against the legitimate finding it duplicates.
+  const { findings: integrityFindings, report: integrityReport } = enforceFindingIntegrity(
+    scoredFindings,
+    findingIntegrity
+  );
+
+  // --- Evidence Check (between Phase 5.75 and Phase 6) ---
   let evidenceCoverage: EvidenceCoverageReport | undefined;
   if (sessionSlug) {
     try {
       const evidenceResult = await readSessionSection(projectRoot, sessionSlug, 'evidence');
       if (evidenceResult.ok) {
-        evidenceCoverage = checkEvidenceCoverage(scoredFindings, evidenceResult.value);
-        tagUncitedFindings(scoredFindings, evidenceResult.value);
+        evidenceCoverage = checkEvidenceCoverage(integrityFindings, evidenceResult.value);
+        tagUncitedFindings(integrityFindings, evidenceResult.value);
       }
     } catch {
       // Evidence checking is optional — continue without it
@@ -344,7 +367,7 @@ export async function runReviewPipeline(
   }
 
   // --- Phase 6: DEDUP+MERGE ---
-  const dedupedFindings = deduplicateFindings({ findings: scoredFindings });
+  const dedupedFindings = deduplicateFindings({ findings: integrityFindings });
 
   // --- Phase 7: OUTPUT ---
   const strengths: ReviewStrength[] = [];
@@ -356,6 +379,7 @@ export async function runReviewPipeline(
     strengths,
     ...(evidenceCoverage != null ? { evidenceCoverage } : {}),
     depthCalibration,
+    integrityReport,
   });
 
   let githubComments: GitHubInlineComment[] = [];
@@ -373,7 +397,11 @@ export async function runReviewPipeline(
     githubComments,
     exitCode,
     depthCalibration,
+    integrityReport,
     ...(mechanicalResult != null ? { mechanicalResult } : {}),
     ...(evidenceCoverage != null ? { evidenceCoverage } : {}),
   };
 }
+
+/** Re-exported so callers can type a pipeline result's integrity report. */
+export type { FindingIntegrityReport };

@@ -11,6 +11,13 @@ import type {
 import { RUNNER_PRESETS } from './runner-presets';
 import { CI_ASSESSMENTS, buildCiReviewVerdict } from './verdict-schema';
 import { runReviewPipeline } from '../pipeline-orchestrator';
+import {
+  enforceFindingIntegrity,
+  formatIntegritySummary,
+  mergeIntegrityReports,
+  type EnforceFindingIntegrityOptions,
+  type FindingIntegrityReport,
+} from '../finding-integrity';
 
 /** block-on threshold: an assessment level, or 'none' to never block on assessment. */
 export type CiBlockOn = (typeof CI_ASSESSMENTS)[number] | 'none';
@@ -58,6 +65,11 @@ export interface RunCiReviewOptions {
   execMaxStdoutBytes?: number;
   /** Injected endpoint call (the `local` runner). No real provider is imported in core. */
   localInvoke?: LocalEndpointInvoke;
+  /**
+   * Finding-integrity options (#984), applied to BOTH tiers: forwarded to the
+   * floor pipeline and applied to the LLM tier's own findings before the merge.
+   */
+  findingIntegrity?: EnforceFindingIntegrityOptions;
 }
 
 export interface CiReviewResult {
@@ -67,6 +79,12 @@ export interface CiReviewResult {
   /** Populated when the LLM tier did not run; undefined when it ran. */
   llmSkipReason?: string;
   ranLlmTier: boolean;
+  /**
+   * Combined finding-integrity denominators across the floor pass and the LLM
+   * pass (#984). `abstained: true` means the invariants examined nothing — never
+   * read that as a clean gate.
+   */
+  integrityReport?: FindingIntegrityReport;
 }
 
 /**
@@ -167,6 +185,7 @@ function floorOnlyResult(args: {
   skipReason: string;
   blockOn: CiBlockOn;
   requiredRunnerFailed: boolean;
+  integrityReport?: FindingIntegrityReport;
 }): CiReviewResult {
   const verdict = buildCiReviewVerdict({
     runner: 'floor-only',
@@ -176,12 +195,14 @@ function floorOnlyResult(args: {
     skipped: args.skipped,
     skipReason: args.skipReason,
   });
+  const integrityReport = mergeIntegrityReports(args.integrityReport);
   return {
     verdict,
     exitCode: applyThreshold(verdict, args.blockOn, args.requiredRunnerFailed),
-    terminalOutput: summarize(verdict),
+    terminalOutput: summarize(verdict, integrityReport),
     llmSkipReason: args.skipReason,
     ranLlmTier: false,
+    integrityReport,
   };
 }
 
@@ -303,6 +324,7 @@ export async function runCiReview(options: RunCiReviewOptions): Promise<CiReview
     diff,
     commitMessage,
     flags: { ci: true, comment: false, deep: false, noMechanical: false },
+    ...(options.findingIntegrity != null ? { findingIntegrity: options.findingIntegrity } : {}),
   });
   // SUG-5: a `skipped` floor (PR-eligibility gate declined to run, when a future
   // caller wires prMetadata) returns exitCode 0 with no findings. Treating that as a
@@ -339,6 +361,7 @@ export async function runCiReview(options: RunCiReviewOptions): Promise<CiReview
       skipReason: 'LLM tier skipped — floor mechanical-stop (short-circuit)',
       blockOn,
       requiredRunnerFailed: false,
+      ...(floor.integrityReport != null ? { integrityReport: floor.integrityReport } : {}),
     });
   }
 
@@ -354,8 +377,18 @@ export async function runCiReview(options: RunCiReviewOptions): Promise<CiReview
     skipReason: llmSkipReason,
   } = tier;
 
+  // --- INTEGRITY (#984) --- the LLM tier bypasses the floor pipeline entirely, so
+  // its findings get their own enforcement pass here. The floor's findings were
+  // already enforced inside runReviewPipeline (Phase 5.75) — re-running them would
+  // double-count the denominator, so only the reports are combined.
+  const { findings: enforcedLlmFindings, report: llmIntegrityReport } = enforceFindingIntegrity(
+    llmFindings as ReviewFinding[],
+    options.findingIntegrity
+  );
+  const integrityReport = mergeIntegrityReports(floor.integrityReport, llmIntegrityReport);
+
   // --- MERGE --- floor + LLM findings into one verdict (Phase 1 invariants enforced).
-  const mergedFindings = [...floorFindings, ...llmFindings];
+  const mergedFindings = [...floorFindings, ...enforcedLlmFindings];
   const mergedAssessment = maxAssessment(floorAssessment, deriveAssessment(mergedFindings));
   const verdict = buildCiReviewVerdict({
     runner: ranLlmTier ? (runner as RunnerId) : 'floor-only',
@@ -368,9 +401,10 @@ export async function runCiReview(options: RunCiReviewOptions): Promise<CiReview
   return {
     verdict,
     exitCode: applyThreshold(verdict, blockOn, requiredRunnerFailed),
-    terminalOutput: summarize(verdict),
+    terminalOutput: summarize(verdict, integrityReport),
     ...(llmSkipReason ? { llmSkipReason } : {}),
     ranLlmTier,
+    integrityReport,
   };
 }
 
@@ -392,7 +426,7 @@ function applyThreshold(
   return rank(v.assessment) >= rank(blockOn) ? 1 : 0;
 }
 
-function summarize(v: CiReviewVerdict): string {
+function summarize(v: CiReviewVerdict, integrityReport?: FindingIntegrityReport): string {
   const lines = [
     `runner: ${v.runner}`,
     `ranLlmTier: ${v.ranLlmTier}`,
@@ -400,6 +434,7 @@ function summarize(v: CiReviewVerdict): string {
     `findings: ${v.findings.length} (blocking: ${v.blockingFindings.length})`,
     `exitCode: ${v.exitCode}`,
   ];
+  if (integrityReport) lines.push(formatIntegritySummary(integrityReport));
   if (v.skipReason) lines.push(`note: ${v.skipReason}`);
   return lines.join('\n');
 }
