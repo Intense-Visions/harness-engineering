@@ -37,6 +37,63 @@ export interface ExternalTicketState {
 }
 
 /**
+ * A create that was computed but not performed, with the reason it was withheld.
+ * `create-disabled` = `allowCreate: false`; `dry-run` = no writes were issued at all.
+ */
+export interface SkippedCreate {
+  /** Roadmap feature name that has no externalId */
+  feature: string;
+  /** Milestone the feature belongs to */
+  milestone: string;
+  /** Why creation was withheld */
+  reason: 'create-disabled' | 'dry-run';
+}
+
+/**
+ * An issue open/closed state transition that was computed but deliberately not
+ * pushed because `syncIssueState: false` was in force. This is the count that
+ * answers "how many live issues would an unattended sync have closed or
+ * reopened?" — it must never be silently dropped.
+ */
+export interface SkippedStateChange {
+  /** External identifier of the ticket whose state was left alone */
+  externalId: string;
+  /** Current external state (e.g. "open") */
+  from: string;
+  /** External state the roadmap status maps to (e.g. "closed") */
+  to: string;
+}
+
+/**
+ * Denominator record for a sync run: what was actually looked at.
+ *
+ * A sync that compared zero rows or fetched zero tickets has ABSTAINED, not
+ * succeeded — callers are expected to fail loudly on a zero denominator rather
+ * than report a pass. `ticketsFetched: null` means the fetch itself failed
+ * (distinct from a successful fetch that returned nothing).
+ */
+export interface SyncDenominator {
+  /** Roadmap rows loaded and compared */
+  roadmapRows: number;
+  /** Tickets fetched from the tracker, or null when the fetch failed */
+  ticketsFetched: number | null;
+}
+
+/**
+ * Changes a dry run computed but did not perform. Populated only when
+ * `dryRun: true`; empty otherwise (a real run reports through
+ * {@link SyncResult.created} / {@link SyncResult.updated} instead).
+ */
+export interface PlannedSyncChanges {
+  /** Tickets that would have been created */
+  creates: Array<{ feature: string; milestone: string }>;
+  /** External IDs of tickets that would have been patched */
+  updates: string[];
+  /** Roadmap feature names whose local row would have been rewritten */
+  localWrites: string[];
+}
+
+/**
  * Result of a sync operation. Collects successes and errors per-feature.
  */
 export interface SyncResult {
@@ -48,6 +105,16 @@ export interface SyncResult {
   assignmentChanges: Array<{ feature: string; from: string | null; to: string | null }>;
   /** Per-feature errors (sync never throws) */
   errors: Array<{ featureOrId: string; error: Error }>;
+  /** True when the run issued zero write requests (dry run) */
+  dryRun: boolean;
+  /** Changes a dry run computed but did not perform */
+  planned: PlannedSyncChanges;
+  /** Creates withheld (by `allowCreate: false` or by dry run) */
+  skippedCreates: SkippedCreate[];
+  /** Issue state transitions withheld by `syncIssueState: false` */
+  skippedStateChanges: SkippedStateChange[];
+  /** What the run actually examined — the denominator behind every count above */
+  examined: SyncDenominator;
 }
 
 /**

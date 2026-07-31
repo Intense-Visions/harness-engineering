@@ -4,6 +4,7 @@ import { createRoadmapShardCommand } from './shard';
 import { createRoadmapUnshardCommand } from './unshard';
 import { createRoadmapRegenCommand } from './regen';
 import { createRoadmapReconcileCommand } from './reconcile';
+import { createRoadmapSyncCommand } from './sync';
 import { createRoadmapReferencedIssuesCommand } from './referenced-issues';
 import { createRoadmapTriageCommand } from './triage';
 
@@ -14,6 +15,7 @@ export function createRoadmapCommand(): Command {
   roadmap.addCommand(createRoadmapUnshardCommand());
   roadmap.addCommand(createRoadmapRegenCommand());
   roadmap.addCommand(createRoadmapReconcileCommand());
+  roadmap.addCommand(createRoadmapSyncCommand());
   roadmap.addCommand(createRoadmapReferencedIssuesCommand());
   roadmap.addCommand(createRoadmapTriageCommand());
   return roadmap;

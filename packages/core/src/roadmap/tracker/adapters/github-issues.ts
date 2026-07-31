@@ -24,6 +24,15 @@ export interface GitHubIssuesTrackerOptions {
   etagStore?: ETagStore;
   /** Label that selects harness-managed issues (default: `harness-managed`). */
   selectorLabel?: string;
+  /**
+   * Whether a status patch may change the issue's open/closed state.
+   *
+   * CI-safety guard (default `true` — pre-existing behaviour). Set `false` for
+   * unattended runs: `buildIssuePatchBody` then omits the `state` field
+   * entirely, so status labels still converge but no issue is ever closed or
+   * reopened by an automated sync.
+   */
+  syncIssueState?: boolean;
 }
 
 interface RawIssue {
@@ -87,6 +96,7 @@ export class GitHubIssuesTrackerAdapter implements RoadmapTrackerClient {
   private readonly repo: string;
   private readonly cache: ETagStore;
   private readonly selectorLabel: string;
+  private readonly syncIssueState: boolean;
 
   constructor(opts: GitHubIssuesTrackerOptions) {
     this.http = new GitHubHttp(opts);
@@ -96,6 +106,7 @@ export class GitHubIssuesTrackerAdapter implements RoadmapTrackerClient {
     this.repo = repo;
     this.cache = opts.etagStore ?? new ETagStore(500);
     this.selectorLabel = opts.selectorLabel ?? 'harness-managed';
+    this.syncIssueState = opts.syncIssueState ?? true;
   }
 
   // --- Reads ---
@@ -328,8 +339,13 @@ export class GitHubIssuesTrackerAdapter implements RoadmapTrackerClient {
       out.assignees = patch.assignee ? [patch.assignee.replace(/^@/, '')] : [];
     }
     if (patch.status !== undefined) {
-      if (patch.status === 'done') out.state = 'closed';
-      else out.state = 'open';
+      // CI-safety guard: with syncIssueState=false the `state` key is omitted
+      // from the body entirely — the label sync below still runs, so an
+      // unattended converge-labels job can never close or reopen an issue.
+      if (this.syncIssueState) {
+        if (patch.status === 'done') out.state = 'closed';
+        else out.state = 'open';
+      }
       // Sync the status label alongside state (P2-IMP-5). Fetch current labels,
       // drop any prior status label, append the new one when applicable.
       //

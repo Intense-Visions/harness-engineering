@@ -311,6 +311,80 @@ The 6 trigger points are: `task-start`, `task-complete`, `phase-start`, `phase-c
 
 An in-process mutex serializes `fullSync` calls. With 6 trigger points, rapid state transitions could otherwise produce write conflicts. The mutex ensures only one write to `roadmap.md` occurs at a time.
 
+## Running Sync from the CLI (`harness roadmap sync`)
+
+The full bidirectional sync is also a CLI command, so CI can close the loop without a human running the `manage_roadmap` MCP tool:
+
+```bash
+# Report every intended change, write nothing (the default).
+harness roadmap sync
+
+# Converge labels safely — the recommended unattended mode.
+harness roadmap sync --apply --no-create --no-state-change
+```
+
+### Why this exists
+
+`harness roadmap reconcile` can only ever flip rows **to `done`**. Every other transition — and the whole tracker-label push — used to depend on someone remembering to invoke an MCP tool. When they didn't, the drift was invisible: in one downstream repo `last_synced` fell 22 days behind `last_manual_edit` and 22 issues carried no tracker labels at all, which meant a tracker scoped by a selector label could not see them.
+
+### Flags
+
+| Flag                | Effect                                                                                                                                         |
+| ------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------- |
+| _(none)_            | **Dry run.** Computes and reports every intended change; issues zero write requests — no ticket create, no ticket patch, no roadmap writeback. |
+| `--apply`           | Actually write. Required for any change to land.                                                                                               |
+| `--no-create`       | Never create a ticket for a row lacking an `External-ID`; report each skipped row instead.                                                     |
+| `--no-state-change` | **CI-safe mode.** Never patch an issue's open/closed state — labels converge, but no issue can be closed or reopened.                          |
+| `--force`           | Allow status regressions (`done` → `in-progress`). Overrides the human-always-wins rule.                                                       |
+| `--json`            | Emit the machine-readable report instead of prose.                                                                                             |
+| `--cwd <dir>`       | Project root (defaults to the current working directory).                                                                                      |
+
+### Exit codes
+
+| Code | Meaning                                                                                                                                                   |
+| ---- | --------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `0`  | Converged. A non-zero denominator was examined and no errors occurred.                                                                                    |
+| `2`  | Error or misconfiguration: no roadmap source, no `roadmap.tracker` block, no `GITHUB_TOKEN`, ticket fetch failed, or per-feature push/pull errors.        |
+| `3`  | **Zero denominator.** Zero roadmap rows parsed, or zero tickets fetched with a tracker configured. A sync that matched nothing has abstained, not passed. |
+
+Exit code `3` exists because the failure this command guards against is silent. A run that fetched zero tickets — wrong repo, unreadable token, selector labels matching nothing — would otherwise print "nothing to do" and exit `0` forever. Every run reports its denominator first: rows compared, tickets fetched.
+
+### The two guards, and why they are not optional
+
+An unattended nightly sync is only safe if both destructive powers can be switched off.
+
+1. **Closing/reopening issues.** The tracker `statusMap` maps `done → closed`, and the adapter patches issue `state` alongside the status label. One mis-set roadmap row is enough to close a live issue. `--no-state-change` omits the `state` field from every patch body entirely.
+2. **Creating issues.** The push phase creates tickets for rows with no `External-ID`. A cron that invents issues is unacceptable. `--no-create` reports each such row instead — it never silently drops one.
+
+Both default to **on** (today's behaviour) so nothing existing changes; CI is expected to turn them off explicitly.
+
+### Intended CI pattern
+
+Run a nightly job that converges labels and planning fields only:
+
+```yaml
+- name: Converge roadmap labels
+  run: harness roadmap sync --apply --no-create --no-state-change
+  env:
+    GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+```
+
+Issue **closure** stays with the PR-merge auto-done path (`harness roadmap reconcile --from-refs`), which is driven by a PR's closing-issue references and is therefore authoritative. The nightly job's job is to stop label drift, not to decide what is done.
+
+### Strengths
+
+- Safe by default: the dangerous mode requires two explicit flags (`--apply`, and not passing the guards).
+- Reports the denominator on every run, so a silently-degraded job is visible in the first log line.
+- `--json` output is stable and CI-parseable, including the guard state, so a log records exactly what was permitted.
+
+### Pitfalls and watch-outs
+
+- **`--force` is not for CI.** It overrides the human-always-wins rule and will happily walk a hand-set `done` back to `in-progress`. Use it interactively, after looking at the dry run.
+- **Dry run does not prove a later apply is identical.** The tracker can change between the two runs; treat the dry-run report as a preview, not a contract.
+- **`--no-state-change` does not stop the local pull.** Inbound status still updates roadmap rows (that direction is not destructive to the tracker). Only the outbound state patch is suppressed.
+- **`--no-create` leaves rows unlinked.** Skipped rows stay without an `External-ID` run after run; the skip list is the signal to create them deliberately.
+- **Exit `3` is not a failure of your change.** It usually means credentials or selector labels, not a broken roadmap. Read the denominator line before debugging anything else.
+
 ## Roadmap Feature Fields
 
 After enabling sync, your roadmap features gain three new optional fields:
