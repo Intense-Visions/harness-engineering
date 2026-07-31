@@ -187,6 +187,77 @@ describe('runSecurityAgent()', () => {
     expect(sql[0]!.severity).toBe('critical');
   });
 
+  // A SQL keyword used as an ordinary English word inside a concatenated string
+  // literal is not SQL. The match is case-insensitive, so "create"/"update"/
+  // "select"/"delete" in prose whole-word-matched the keyword list; the #657
+  // string-boundary fix did not cover it. A real query pairs the keyword with a
+  // structural companion (FROM/INTO/WHERE/SET/VALUES/TABLE/JOIN) — prose does not.
+  it('does not flag a commander help string that uses "create" as prose', () => {
+    const bundle = makeBundle({
+      changedFiles: [
+        {
+          path: 'src/commands/roadmap/sync.ts',
+          // Verbatim: this exact line was reported as a critical CWE-89
+          // SQL-injection finding and hard-blocked a PR.
+          content:
+            "'never create a ticket for a row lacking an externalId (report the skip instead) — ' +",
+          reason: 'changed',
+          lines: 1,
+        },
+      ],
+    });
+    const findings = runSecurityAgent(bundle);
+    expect(findings.some((f) => f.title.toLowerCase().includes('sql'))).toBe(false);
+  });
+
+  it.each([
+    ["'the operator must select a milestone before continuing, ' +", 'select'],
+    ["'this will delete every row that is no longer referenced, ' +", 'delete'],
+    ["'we update the label only when the status actually moved, ' +", 'update'],
+    ["'drop the stale entry and continue, ' +", 'drop'],
+  ])('does not flag prose using %s as an English word', (content) => {
+    const bundle = makeBundle({
+      changedFiles: [{ path: 'src/prose.ts', content, reason: 'changed', lines: 1 }],
+    });
+    const findings = runSecurityAgent(bundle);
+    expect(findings.some((f) => f.title.toLowerCase().includes('sql'))).toBe(false);
+  });
+
+  it('does not flag a template literal whose prose uses a SQL keyword as a word', () => {
+    const bundle = makeBundle({
+      changedFiles: [
+        {
+          path: 'src/log.ts',
+          content: 'logger.info(`Would create ${planned.length} ticket(s) for this run.`);',
+          reason: 'changed',
+          lines: 1,
+        },
+      ],
+    });
+    const findings = runSecurityAgent(bundle);
+    expect(findings.some((f) => f.title.toLowerCase().includes('sql'))).toBe(false);
+  });
+
+  // NOTE: inputs deliberately avoid embedding the opposite quote character.
+  // The `[^"']` character class cannot span a nested quote, so
+  // `"INSERT INTO t VALUES ('" + name + "')"` is missed — a PRE-EXISTING
+  // limitation of this heuristic (verified against the pattern before the
+  // companion-token change), not a regression from it.
+  it.each([
+    ['const q = "INSERT INTO audit (actor) VALUES (" + actorId + ")";', 'INSERT INTO'],
+    ['const q = "UPDATE users SET active = " + flag;', 'UPDATE SET'],
+    ['const q = "DELETE FROM sessions WHERE id = " + id;', 'DELETE FROM'],
+    ['const q = `SELECT * FROM t JOIN u ON u.id = t.id WHERE t.k = ${k}`;', 'SELECT JOIN'],
+  ])('still flags genuine SQL: %s', (content) => {
+    const bundle = makeBundle({
+      changedFiles: [{ path: 'src/db3.ts', content, reason: 'changed', lines: 1 }],
+    });
+    const findings = runSecurityAgent(bundle);
+    const sql = findings.filter((f) => f.title.toLowerCase().includes('sql'));
+    expect(sql.length).toBeGreaterThanOrEqual(1);
+    expect(sql[0]!.cweId).toBe('CWE-89');
+  });
+
   it('still flags a template literal query with interpolation (issue #657)', () => {
     const bundle = makeBundle({
       changedFiles: [

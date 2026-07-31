@@ -29,30 +29,55 @@ const SECRET_PATTERNS = [
  *
  * The SQL keyword must sit **inside a quoted string literal or template literal**
  * that is actually being concatenated or interpolated — not merely appear as a
- * bare token somewhere on the line. A bare-keyword pattern (the previous
+ * bare token somewhere on the line. A bare-keyword pattern (the original
  * `KEYWORD … + word`) matched arithmetic-style prose such as the markdown heading
  * `UPDATE (medium + large tiers)`, producing a `critical` CWE-89 false positive
- * that hard-blocked unrelated PRs (issue #657). Requiring a string boundary
- * adjacent to the concatenation keeps the genuine
- * `"SELECT … WHERE id = " + userId` injection shape firing while ignoring prose.
+ * that hard-blocked unrelated PRs (issue #657).
+ *
+ * The string-boundary fix for #657 was not enough on its own, because the match
+ * is **case-insensitive**: an ordinary English sentence inside a concatenated
+ * string literal still fired whenever it used a SQL keyword as a normal word.
+ * A `commander` help string —
+ * `'never create a ticket for a row lacking an externalId … ' +` — was reported
+ * as a critical CWE-89 SQL injection purely because "create" whole-word-matches
+ * `CREATE` and the literal is followed by `+`. (Whole-word matching already
+ * spared inflected forms like "created"/"updated"; the bare stem was the hole.)
+ *
+ * So a keyword alone is not evidence of SQL. Real queries pair a statement
+ * keyword with a **structural companion** token (`SELECT … FROM`,
+ * `INSERT INTO`, `UPDATE … SET`, `DELETE FROM`, `CREATE/ALTER/DROP TABLE`,
+ * `… JOIN`, `… VALUES`), whereas prose essentially never does. Requiring both
+ * inside the same literal keeps every genuine injection shape firing and drops
+ * the prose class of false positives.
  *
  * Alternatives:
- *  1. A quoted string literal containing a SQL keyword, immediately followed by
- *     `+` concatenation (`"SELECT … " + userId`, `'DELETE FROM t WHERE id = ' + id`).
- *  2. A template literal that both contains a SQL keyword and an `${…}`
- *     interpolation, in either order.
+ *  1. A quoted string literal containing a SQL keyword AND a companion token,
+ *     immediately followed by `+` concatenation
+ *     (`"SELECT … WHERE id = " + userId`, `'DELETE FROM t WHERE id = ' + id`).
+ *  2. A template literal containing an `${…}` interpolation, a SQL keyword, and
+ *     a companion token, in any order.
+ *
+ * Known limitation (pre-dates the companion-token change): the `[^"']` class
+ * cannot span a nested quote, so a query that embeds the opposite quote
+ * character — `"INSERT INTO t VALUES ('" + name + "')"` — is not matched. This
+ * heuristic is a floor, not a proof of absence; the LLM review tier is what
+ * catches the shapes it misses.
  */
 const SQL_KEYWORDS = 'SELECT|INSERT|UPDATE|DELETE|DROP|CREATE|ALTER';
 const SQL_TEMPLATE_KEYWORDS = 'SELECT|INSERT|UPDATE|DELETE|WHERE';
+/**
+ * Structural tokens that co-occur with a statement keyword in real SQL but not
+ * in prose. Requiring one alongside the keyword is what separates a query from
+ * an English sentence that happens to say "create" or "update".
+ */
+const SQL_COMPANIONS = 'FROM|INTO|WHERE|VALUES|SET|TABLE|JOIN';
 const SQL_CONCAT_PATTERN = new RegExp(
-  // 1. quoted string literal containing a SQL keyword, then a `+` concatenation
-  `["'][^"']*\\b(?:${SQL_KEYWORDS})\\b[^"']*["']\\s*\\+` +
+  // 1. quoted string literal holding a SQL keyword AND a companion, then a `+`
+  `["'](?=[^"']*\\b(?:${SQL_KEYWORDS})\\b)(?=[^"']*\\b(?:${SQL_COMPANIONS})\\b)[^"']*["']\\s*\\+` +
     '|' +
-    // 2a. template literal: `${…}` interpolation followed by a SQL keyword
-    `\`[^\`]*\\$\\{[^}]*\\}[^\`]*\\b(?:${SQL_TEMPLATE_KEYWORDS})\\b` +
-    '|' +
-    // 2b. template literal: a SQL keyword followed by an `${…}` interpolation
-    `\`[^\`]*\\b(?:${SQL_TEMPLATE_KEYWORDS})\\b[^\`]*\\$\\{`,
+    // 2. template literal holding an interpolation, a SQL keyword, AND a companion
+    `\`(?=[^\`]*\\$\\{)(?=[^\`]*\\b(?:${SQL_TEMPLATE_KEYWORDS})\\b)` +
+    `(?=[^\`]*\\b(?:${SQL_COMPANIONS})\\b)[^\`]*\``,
   'i'
 );
 
