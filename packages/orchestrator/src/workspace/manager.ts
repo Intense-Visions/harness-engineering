@@ -147,8 +147,12 @@ export class WorkspaceManager {
       .map((p) => (path.isAbsolute(p) ? path.relative(repoRoot, p).replaceAll('\\', '/') : p))
       .filter((rel) => rel && rel !== '..' && !rel.startsWith('../') && !path.isAbsolute(rel))
       .map((rel) => `:(exclude)${rel}`);
+    // Also drop agent scratch/backup cruft (*.bak, temp_*, …) so a weak coder's
+    // leftover files don't bloat the judged diff and mislead the spec-vs-diff eval
+    // — matched anywhere in the tree via glob pathspecs. See SCRATCH_GLOBS.
+    const scratchExcludes = WorkspaceManager.SCRATCH_GLOBS.map((g) => `:(exclude,glob)${g}`);
     await this.markUntrackedIntentToAdd(workspacePath);
-    return this.git(['diff', mergeBase, '--', '.', ...excludes], workspacePath);
+    return this.git(['diff', mergeBase, '--', '.', ...excludes, ...scratchExcludes], workspacePath);
   }
 
   /**
@@ -310,6 +314,23 @@ export class WorkspaceManager {
    * 4c hunk scan keeps the fuller diff; only the eval text is narrowed.
    */
   private static readonly EVAL_DIFF_EXCLUDES = ['docs/changes', 'docs/roadmap.d', '.pnpm-store'];
+
+  /**
+   * Agent scratch/backup cruft an autonomous coder can leave behind (backup
+   * copies, temp/scratch files, editor litter). Glob pathspecs, matched anywhere
+   * in the tree. Excluded from the eval diff so they don't mislead the judge, and
+   * kept OUT of the shipped commit so a PR never carries them. Deliberately narrow
+   * — only unambiguous scratch conventions, never a real source extension.
+   */
+  private static readonly SCRATCH_GLOBS = [
+    '**/*.bak',
+    '**/*.orig',
+    '**/*.tmp',
+    '**/*.rej',
+    '**/*~',
+    '**/temp_*',
+    '**/tmp_*',
+  ];
 
   /**
    * Copies the configured seed paths from the root working tree into a
@@ -587,7 +608,11 @@ export class WorkspaceManager {
       //    porcelain status first keeps a no-op commit from failing the flow.
       const status = (await this.git(['status', '--porcelain'], workspacePath)).trim();
       if (status.length > 0) {
-        await this.git(['add', '-A'], workspacePath);
+        // Stage everything EXCEPT agent scratch/backup cruft, so a coder's leftover
+        // `*.bak`/`temp_*` files never land in the PR (glob pathspec excludes; they
+        // stay untracked on disk, harmless). Mirrors the eval-diff's SCRATCH_GLOBS.
+        const scratchExcludes = WorkspaceManager.SCRATCH_GLOBS.map((g) => `:(exclude,glob)${g}`);
+        await this.git(['add', '-A', '--', '.', ...scratchExcludes], workspacePath);
         // Commit THROUGH the real pre-commit gate (no --no-verify): the autonomous
         // ship must not bypass the gates a human push hits — it fixes what they flag,
         // like a real session. The worktree's `afterCreate` builds the CLI so

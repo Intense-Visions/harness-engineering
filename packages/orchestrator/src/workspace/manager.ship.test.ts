@@ -114,7 +114,11 @@ describe('WorkspaceManager.shipWorkspace (D4)', () => {
 
     // Sequence: add -A → commit → switch -c (slash-prefixed) → push -u → gh pr create.
     const add = wm.gitCalls.find((c) => c[0] === 'add');
-    expect(add).toEqual(['add', '-A']);
+    // Stages everything under the worktree EXCEPT agent scratch/backup cruft, so a
+    // coder's leftover `*.bak`/`temp_*` files never land in the PR.
+    expect(add?.slice(0, 4)).toEqual(['add', '-A', '--', '.']);
+    expect(add).toContain(':(exclude,glob)**/*.bak');
+    expect(add).toContain(':(exclude,glob)**/temp_*');
     const commit = wm.gitCalls.find((c) => c[0] === 'commit');
     // Commit runs THROUGH the real pre-commit gate (no --no-verify) — the worktree
     // builds the CLI so `harness ci check` runs; a block feeds back for remediation.
