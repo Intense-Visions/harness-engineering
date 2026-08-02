@@ -112,13 +112,19 @@ describe('WorkspaceManager.shipWorkspace (D4)', () => {
     expect(result.value.branch).toBe('orchestrator/iss-1');
     expect(result.value.prUrl).toBe('https://github.com/o/r/pull/42');
 
-    // Sequence: add -A → commit → switch -c (slash-prefixed) → push -u → gh pr create.
+    // Sequence: rm/clean scratch cruft → add -A → commit → switch -c → push -u → gh pr create.
+    // Agent scratch/backup cruft is physically removed (index + disk) BEFORE staging,
+    // so it never lands in the PR and can't break lint-staged's pre-commit stash.
+    const rmCruft = wm.gitCalls.find((c) => c[0] === 'rm' && c.includes('--cached'));
+    const cleanCruft = wm.gitCalls.find((c) => c[0] === 'clean');
+    expect(rmCruft).toContain(':(glob)**/*.bak');
+    expect(cleanCruft).toContain(':(glob)**/temp_*');
     const add = wm.gitCalls.find((c) => c[0] === 'add');
-    // Stages everything under the worktree EXCEPT agent scratch/backup cruft, so a
-    // coder's leftover `*.bak`/`temp_*` files never land in the PR.
-    expect(add?.slice(0, 4)).toEqual(['add', '-A', '--', '.']);
-    expect(add).toContain(':(exclude,glob)**/*.bak');
-    expect(add).toContain(':(exclude,glob)**/temp_*');
+    expect(add).toEqual(['add', '-A']);
+    // Cleanup precedes staging.
+    expect(wm.gitCalls.findIndex((c) => c[0] === 'clean')).toBeLessThan(
+      wm.gitCalls.findIndex((c) => c[0] === 'add')
+    );
     const commit = wm.gitCalls.find((c) => c[0] === 'commit');
     // Commit runs THROUGH the real pre-commit gate (no --no-verify) — the worktree
     // builds the CLI so `harness ci check` runs; a block feeds back for remediation.

@@ -169,10 +169,41 @@ export class WorkspaceManager {
    */
   private async markUntrackedIntentToAdd(workspacePath: string): Promise<void> {
     try {
-      await this.git(['add', '--intent-to-add', '--', '.'], workspacePath);
+      // Exclude scratch/backup cruft: intent-to-adding it would both surface it in
+      // the eval diff AND leave an index entry that later makes lint-staged's
+      // pre-commit stash fail ("not uptodate, cannot merge") at ship time.
+      const scratch = WorkspaceManager.SCRATCH_GLOBS.map((g) => `:(exclude,glob)${g}`);
+      await this.git(['add', '--intent-to-add', '--', '.', ...scratch], workspacePath);
     } catch {
       // Non-fatal: without intent-to-add the diff is tracked-only (the prior
       // behavior), never an error that aborts the gate.
+    }
+  }
+
+  /**
+   * Physically remove agent scratch/backup cruft ({@link SCRATCH_GLOBS}) from the
+   * worktree before a ship commit. Clears the index entry (in case it was marked
+   * intent-to-add) THEN deletes the on-disk file, so: (a) the cruft never lands in
+   * the PR, and (b) lint-staged's pre-commit stash can't fail on an intent-to-add
+   * cruft file ("Entry … not uptodate. Cannot merge."). Glob pathspecs, tolerant
+   * of no match; best-effort — a failure never blocks the ship.
+   */
+  private async removeScratchFiles(workspacePath: string): Promise<void> {
+    const scratch = WorkspaceManager.SCRATCH_GLOBS.map((g) => `:(glob)${g}`);
+    try {
+      // Un-index any staged/intent-to-add cruft so `git clean` can then remove it.
+      await this.git(
+        ['rm', '-rf', '--cached', '--ignore-unmatch', '--', ...scratch],
+        workspacePath
+      );
+    } catch {
+      // no match / nothing staged — fine.
+    }
+    try {
+      // Delete the (now-untracked) cruft from disk.
+      await this.git(['clean', '-fq', '--', ...scratch], workspacePath);
+    } catch {
+      // nothing to clean — fine.
     }
   }
 
@@ -603,16 +634,19 @@ export class WorkspaceManager {
         }
       }
 
+      // 0. Physically remove agent scratch/backup cruft (*.bak/temp_*/…) BEFORE
+      //    staging: it must not land in the PR, and a lingering intent-to-add mark
+      //    on it (from the eval diff's `git add -N`) otherwise makes lint-staged's
+      //    pre-commit stash fail ("not uptodate, cannot merge"). Removal (not just
+      //    add-exclusion) is what actually unblocks the commit.
+      await this.removeScratchFiles(workspacePath);
+
       // 1. Commit the accumulated uncommitted work — but only if the tree is
       //    dirty. A `git commit` on a clean tree exits non-zero; probing
       //    porcelain status first keeps a no-op commit from failing the flow.
       const status = (await this.git(['status', '--porcelain'], workspacePath)).trim();
       if (status.length > 0) {
-        // Stage everything EXCEPT agent scratch/backup cruft, so a coder's leftover
-        // `*.bak`/`temp_*` files never land in the PR (glob pathspec excludes; they
-        // stay untracked on disk, harmless). Mirrors the eval-diff's SCRATCH_GLOBS.
-        const scratchExcludes = WorkspaceManager.SCRATCH_GLOBS.map((g) => `:(exclude,glob)${g}`);
-        await this.git(['add', '-A', '--', '.', ...scratchExcludes], workspacePath);
+        await this.git(['add', '-A'], workspacePath);
         // Commit THROUGH the real pre-commit gate (no --no-verify): the autonomous
         // ship must not bypass the gates a human push hits — it fixes what they flag,
         // like a real session. The worktree's `afterCreate` builds the CLI so
