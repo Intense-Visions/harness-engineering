@@ -2,7 +2,7 @@
 
 # Skills Catalog
 
-766 skills across 3 tiers. Tier 1 and 2 skills are registered as slash commands. Tier 3 skills are discoverable via the `search_skills` MCP tool. See the [Features Overview](../guides/features-overview.md) for narrative documentation.
+767 skills across 3 tiers. Tier 1 and 2 skills are registered as slash commands. Tier 3 skills are discoverable via the `search_skills` MCP tool. See the [Features Overview](../guides/features-overview.md) for narrative documentation.
 
 ## Tier 1 — Workflow (15 skills)
 
@@ -608,7 +608,7 @@ LLM-judgment critique of test quality across vitest / jest / mocha / playwright 
 - **Cognitive mode:** constructive-architect
 - **Depends on:** harness-tdd, harness-design-craft
 
-## Tier 3 — Domain (703 skills)
+## Tier 3 — Domain (704 skills)
 
 ### a11y-aria-patterns
 
@@ -3128,6 +3128,15 @@ Property-based and generative testing with fast-check, hypothesis, and automatic
 - **Platforms:** claude-code, gemini-cli, cursor, codex
 - **Type:** rigid
 - **Cognitive mode:** constructive-architect
+
+### harness-repo-hygiene
+
+Fleet-wide branch and worktree pruning — sync, classify against PR state, audit for unpushed work, then prune
+
+- **Triggers:** manual
+- **Platforms:** claude-code, gemini-cli, cursor, codex
+- **Type:** rigid
+- **Cognitive mode:** meticulous-verifier
 
 ### harness-resilience
 

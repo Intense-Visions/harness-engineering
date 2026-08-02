@@ -522,17 +522,6 @@ Recommend an optimal skill sequence based on what changed in the codebase. Combi
 - `limit` (number, optional) — Maximum number of skills to return (default: 5)
 - `trigger` (string, optional) — Filter to skills declaring this trigger (e.g. on_pr, on_commit, on_milestone, on_task_complete, on_refactor, on_review). Only skills whose triggers array includes this value are returned.
 
-### `edit_file`
-
-Make a surgical, exact-string edit to a single existing file: replace old_string with new_string. Prefer this over shell redirection (cat >, echo >>) or apply_patch, which corrupt files. old_string must appear EXACTLY ONCE (include enough surrounding context to be unique) unless replace_all is true. Fails without writing if old_string is missing or ambiguous, so you can retry with more context. Does not create files.
-
-**Parameters:**
-
-- `path` (string, required) — Absolute path (or path relative to the working directory) of the file to edit.
-- `old_string` (string, required) — The exact text to replace, copied verbatim from the file including whitespace and indentation. Must be unique in the file unless replace_all is true.
-- `new_string` (string, required) — The replacement text. Must differ from old_string.
-- `replace_all` (boolean, optional) — Replace every occurrence of old_string instead of requiring a unique match. Default false.
-
 ### `gather_context`
 
 Assemble all working context an agent needs in a single call: state, learnings, handoff, graph context, project validation, and session sections. Runs constituents in parallel.
