@@ -145,6 +145,7 @@ describe('design-craft Phase 2 catalog seed — exemplars', () => {
       'EmptyState',
       'LoadingState',
       'MarketingPage',
+      'MarketingPage',
     ]);
   });
 
@@ -172,6 +173,7 @@ describe('design-craft Phase 2 catalog seed — exemplars', () => {
       'exemplar-notion-empty-database',
       'exemplar-vercel-build-progress',
       'exemplar-son-daven-marketing-page',
+      'exemplar-la-revoltosa-marketing-page',
     ]);
   });
 
