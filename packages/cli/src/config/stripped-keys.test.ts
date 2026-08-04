@@ -58,6 +58,31 @@ describe('collectStrippedKeys — schema-aware dropped-key detection', () => {
     expect(misnested[0]).not.toHaveProperty('suggestion');
   });
 
+  // #982: harness.config.json is a shared file; co-tenant tools read their own
+  // top-level namespace out of it. Warning on those keys is harmful — deleting
+  // the key to silence the warning silently resets the co-tenant's config.
+  it('does NOT report a reserved co-tenant namespace at the root (canary)', () => {
+    const raw = { version: 1, canary: { guardian: { block: ['diff-coverage'] } } };
+    expect(collectStrippedKeys(HarnessConfigSchema, raw)).toEqual([]);
+  });
+
+  it('does NOT report a root-level x-* extension namespace', () => {
+    const raw = { version: 1, 'x-myteam': { anything: true } };
+    expect(collectStrippedKeys(HarnessConfigSchema, raw)).toEqual([]);
+  });
+
+  it('still reports a genuinely unknown root key (allow-list stays narrow)', () => {
+    const raw = { version: 1, frobnicate: { enabled: true } };
+    expect(collectStrippedKeys(HarnessConfigSchema, raw)).toEqual([{ path: 'frobnicate' }]);
+  });
+
+  it('still reports a "canary" key that is mis-nested, not a root co-tenant namespace', () => {
+    // Only the ROOT is co-tenant space; `canary` under a known section is a real
+    // strip (and exactly the kind of mis-nesting the warning exists to catch).
+    const raw = { version: 1, entropy: { canary: {} } };
+    expect(collectStrippedKeys(HarnessConfigSchema, raw)).toEqual([{ path: 'entropy.canary' }]);
+  });
+
   it('formats a warning line that names the stripped path', () => {
     const lines = formatStrippedKeyWarnings([{ path: 'entropy.analyze' }]);
     expect(lines).toEqual(["⚠ harness.config.json: ignored unknown key 'entropy.analyze'"]);
@@ -105,6 +130,17 @@ describe('loadConfig — non-fatal stripped-key warning wiring (#862)', () => {
   it('emits no warning for a config whose extras live under a passthrough section', () => {
     const stderr = vi.spyOn(process.stderr, 'write').mockReturnValue(true);
     const p = writeConfig({ version: 1, security: { enabled: true, customFoo: { bar: 1 } } });
+
+    const result = loadConfig(p);
+
+    expect(result.ok).toBe(true);
+    const output = stderr.mock.calls.map((c) => String(c[0])).join('');
+    expect(output).not.toContain('ignored unknown key');
+  });
+
+  it('emits no warning for a co-tenant namespace block (canary) (#982)', () => {
+    const stderr = vi.spyOn(process.stderr, 'write').mockReturnValue(true);
+    const p = writeConfig({ version: 1, canary: { guardian: { block: ['diff-coverage'] } } });
 
     const result = loadConfig(p);
 
