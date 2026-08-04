@@ -151,6 +151,7 @@ describe('design-craft Phase 2 catalog seed — exemplars', () => {
       'MarketingPage',
       'MarketingPage',
       'MarketingPage',
+      'MarketingPage',
     ]);
   });
 
@@ -184,6 +185,7 @@ describe('design-craft Phase 2 catalog seed — exemplars', () => {
       'exemplar-hagis-barbershop-marketing-page',
       'exemplar-fort-point-beer-marketing-page',
       'exemplar-kvell-marketing-page',
+      'exemplar-baillat-studio-marketing-page',
     ]);
   });
 
