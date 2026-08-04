@@ -6,9 +6,9 @@ order: 4
 
 ### Migrate to @google/genai SDK
 
-- **Status:** planned
+- **Status:** done
 - **Spec:** —
-- **Summary:** Migrate from deprecated @google/generative-ai@0.24.1 to @google/genai@2.x in packages/orchestrator and packages/intelligence; upstream has stopped publishing the old package
+- **Summary:** DELIVERED (commit eb801b788, "chore(orchestrator): migrate to @google/genai 2.x SDK"; CHANGELOG a6f7cd3). packages/orchestrator gemini backend imports @google/genai (package.json: @google/genai@^2.0.4); the deprecated @google/generative-ai is fully removed. GeminiBackend public API unchanged. Row was stale — completed via a commit whose PR number differs from External-ID #298, so auto-done never fired.
 - **Blockers:** —
 - **Plan:** —
 - **Assignee:** —
