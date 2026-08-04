@@ -669,6 +669,26 @@ Run an agent task
 - `--persona` — Run a persona by name
 - `--trigger` — Trigger context (auto, on_pr, on_commit, manual) (default: "auto")
 
+## Black-box Commands
+
+Inspect durable per-run orchestrator flight records (provenance, verdicts, tool-use)
+
+### `harness black-box list`
+
+List recorded runs, newest first
+
+**Options:**
+
+- `--dir` — Black-box directory (default: ".harness/black-box")
+
+### `harness black-box show <runId>`
+
+Show provenance, verdicts, convergence, and tool-use for a run
+
+**Options:**
+
+- `--dir` — Black-box directory (default: ".harness/black-box")
+
 ## Ci Commands
 
 CI/CD integration commands
