@@ -2,8 +2,8 @@
 project: harness-engineering
 version: 1
 created: 2026-03-21
-updated: 2026-06-26
-last_synced: 2026-06-23T18:05:08.357Z
+updated: 2026-08-04
+last_synced: 2026-08-04T19:50:51.000Z
 last_manual_edit: 2026-06-27T12:51:51.967Z
 ---
 
@@ -20,7 +20,7 @@ last_manual_edit: 2026-06-27T12:51:51.967Z
 - **Plan:** docs/changes/local-model-lifecycle-manager/plans/
 - **Assignee:** —
 - **Priority:** P2
-- **External-ID:** —
+- **External-ID:** github:Intense-Visions/harness-engineering#996
 
 ### LMLM: live-HF candidate discovery (make the autonomous loop live)
 
@@ -31,7 +31,7 @@ last_manual_edit: 2026-06-27T12:51:51.967Z
 - **Plan:** —
 - **Assignee:** —
 - **Priority:** P2
-- **External-ID:** —
+- **External-ID:** github:Intense-Visions/harness-engineering#997
 
 ### LMLM: feed post-build quality into per-model build routing
 
@@ -42,7 +42,7 @@ last_manual_edit: 2026-06-27T12:51:51.967Z
 - **Plan:** —
 - **Assignee:** —
 - **Priority:** P3
-- **External-ID:** —
+- **External-ID:** github:Intense-Visions/harness-engineering#998
 
 ### LMLM: dashboard direct install/evict (optional)
 
@@ -53,7 +53,7 @@ last_manual_edit: 2026-06-27T12:51:51.967Z
 - **Plan:** —
 - **Assignee:** —
 - **Priority:** P3
-- **External-ID:** —
+- **External-ID:** github:Intense-Visions/harness-engineering#999
 
 ### product-advisor
 
@@ -73,9 +73,9 @@ last_manual_edit: 2026-06-27T12:51:51.967Z
 - **Summary:** Let a `local`/`pi` dispatch run the full workflow (brainstorm → plan → execute → verify → outcome-eval → review → ship) via a backend-specific dispatch template (`harness.orchestrator.local.md`) that gives the tool-limited pi-agent the workflow as bash `harness <gate>` calls instead of unavailable `/harness:*` slash commands, with the orchestrator ENFORCING the verify + outcome-eval gates (re-prompt on fail, halt-to-human on exhaustion — never ship bad output), composing with the shipped post-diff retrospective. A config flag can later route the judgment gates to a stronger provider. Bar = enable the wiring with enforced gates (quality protected by halting, not by trusting a small model to self-drive).
 - **Blockers:** —
 - **Plan:** docs/changes/local-backend-full-workflow/plans/2026-07-15-local-backend-full-workflow-phase1-plan.md
-- **Assignee:** Chad Warner
+- **Assignee:** —
 - **Priority:** P2
-- **External-ID:** —
+- **External-ID:** github:Intense-Visions/harness-engineering#1031
 
 ### LMLM: pool consumption improvements (make installed models live, task-aware, self-correcting)
 
@@ -86,7 +86,7 @@ last_manual_edit: 2026-06-27T12:51:51.967Z
 - **Plan:** —
 - **Assignee:** —
 - **Priority:** P2
-- **External-ID:** —
+- **External-ID:** github:Intense-Visions/harness-engineering#1000
 
 ### Adaptive Model Routing (AMR)
 
@@ -95,9 +95,9 @@ last_manual_edit: 2026-06-27T12:51:51.967Z
 - **Summary:** Difficulty- and cost-aware, provider-neutral routing layered on the shipped `BackendRouter` (Spec B `granular-task-routing` / Spec 2 `multi-backend-routing`). A per-invocation complexity triage picks the cheapest capable backend (local _or_ cloud) per capability tier; split-routes workflow stages; escalates tiers on repeated quality failures (D10); gates Meridian autonomy for straightforward roadmap items. Opt-in and default-off — adopters who ignore it get byte-identical behavior (D11). 11 decisions, 19 success criteria, 6 phases (~21d): Phases 1–4 substrate-only and independently shippable; Phases 5–6 add tenant policy via the Shuttle `RuntimeAdapter` + autonomy graduation. Consumes the LMLM pool. Extends the Multi-client portability strategy track; direct lever on the Agent Autonomy metric.
 - **Blockers:** —
 - **Plan:** —
-- **Assignee:** Chad Warner
+- **Assignee:** —
 - **Priority:** P1
-- **External-ID:** —
+- **External-ID:** github:Intense-Visions/harness-engineering#1032
 
 ### Ship a harness-owned OllamaBackend; off-the-shelf drivers mis-handle Ollama tool-calling
 
@@ -106,9 +106,9 @@ last_manual_edit: 2026-06-27T12:51:51.967Z
 - **Summary:** Local agentic dispatch fails not because local models are incapable but because the *driver* mis-handles Ollama's tool-calling wire format. Evidence (live e2e, 2026-07-15/16, on the same "add ESLint rule no-hardcoded-test-count" task): **PiBackend** (`@earendil-works/pi-coding-agent`, `pi.ts`) returns empty `0/0/0` completions on 0.79 AND 0.80 — the model produces nothing usable. **Codex CLI `--oss`** drives the model but its tool router rejects the model's native `tool_calls` (`error=unsupported call`), so it confabulates success and writes nothing (Codex is built for gpt-oss + the OpenAI Responses API). Yet a **direct `/v1/chat/completions` + tools loop drives the same qwen3 model flawlessly** — a ~150-line prototype produced a correct, registered ESLint rule + integration-test count update + unit test, iterating through a real read→write→test debug loop. **Fix: ship a thin harness-owned `OllamaBackend`** (`packages/orchestrator/src/agent/backends/ollama.ts`, `type: 'ollama'` in the BackendDef union + Zod schema + factory) that runs the proven loop: chat/completions → parse native `tool_calls` → execute bash/write_file/read_file against the workspace → feed results back → repeat. It plugs into the existing `AgentBackend` interface alongside `ClaudeBackend`, is model-agnostic, and removes the third-party Ollama-compat dependency. **Sub-items folded in:** (a) disable reasoning traces for agentic dispatch — pi sends `reasoning:false` but Ollama `/v1` ignores it, so qwen3 burns its output budget on `<think>` and never emits a tool call (worked around with a forced-`/no_think` Modelfile variant); (b) auto-size `num_ctx`/output budget from detected hardware + model max — `packages/local-models/src/hardware/` already reads unified-memory/VRAM but only for model *selection*, never context sizing, so Ollama falls back to its small default regardless of machine capacity. Compute `num_ctx = min(model_max, fits_in_memory)`.
 - **Blockers:** —
 - **Plan:** —
-- **Assignee:** Chad Warner
+- **Assignee:** —
 - **Priority:** P2
-- **External-ID:** —
+- **External-ID:** github:Intense-Visions/harness-engineering#1033
 
 ### Language-aware workspace bootstrap + verify for local dispatch
 
@@ -119,7 +119,7 @@ last_manual_edit: 2026-06-27T12:51:51.967Z
 - **Plan:** —
 - **Assignee:** —
 - **Priority:** P2
-- **External-ID:** —
+- **External-ID:** github:Intense-Visions/harness-engineering#1002
 
 ### Dashboard chat can target any configured backend (incl. local/ollama)
 
@@ -130,7 +130,7 @@ last_manual_edit: 2026-06-27T12:51:51.967Z
 - **Plan:** —
 - **Assignee:** —
 - **Priority:** P2
-- **External-ID:** —
+- **External-ID:** github:Intense-Visions/harness-engineering#1003
 
 ### Agentic-suitability in the local-model pool recommender
 
@@ -141,7 +141,7 @@ last_manual_edit: 2026-06-27T12:51:51.967Z
 - **Plan:** —
 - **Assignee:** —
 - **Priority:** P2
-- **External-ID:** —
+- **External-ID:** github:Intense-Visions/harness-engineering#1004
 
 ### Automate best-model discovery/recommendation for local dispatch
 
@@ -152,7 +152,7 @@ last_manual_edit: 2026-06-27T12:51:51.967Z
 - **Plan:** —
 - **Assignee:** —
 - **Priority:** P2
-- **External-ID:** —
+- **External-ID:** github:Intense-Visions/harness-engineering#1005
 
 ### Refresh the suggested MCP-server catalog to current best-in-class
 
@@ -163,7 +163,7 @@ last_manual_edit: 2026-06-27T12:51:51.967Z
 - **Plan:** —
 - **Assignee:** —
 - **Priority:** P2
-- **External-ID:** —
+- **External-ID:** github:Intense-Visions/harness-engineering#1006
 
 ### Wire suggested MCP servers (incl. harness itself) into the OllamaBackend agent
 
@@ -174,7 +174,7 @@ last_manual_edit: 2026-06-27T12:51:51.967Z
 - **Plan:** —
 - **Assignee:** —
 - **Priority:** P1
-- **External-ID:** 849
+- **External-ID:** github:Intense-Visions/harness-engineering#849
 
 ### Curate which MCP-server tools the local agent sees (per-server tool allowlist)
 
@@ -183,9 +183,9 @@ last_manual_edit: 2026-06-27T12:51:51.967Z
 - **Summary:** [[ollama-backend-mcp-tools]] wires whole MCP servers into the local agent, but a broad server floods the model: in the live e2e (2026-07-16) the harness MCP alone exposed **95 tools**, and `qwen3-coder:30b` — given ~98 tools total — wrote the correct file via context7 but then **over-explored** (a cat/find/read/ls verification loop) without cleanly emitting `TASK_COMPLETE`, so a real dispatch would end via `maxTurns` rather than clean success. Choice-paralysis, not context size (the model had 262144 ctx). Fix: a **per-server `tools?: string[]` allowlist** on `McpServerSpec` — when set, only those tool names from that server are aggregated (namespaced), default unset = all tools (byte-identical). Curate the scaffolded harness example to the read-oriented set ([[ollama-backend-mcp-tools]] D3: `code_search`, `ask_graph`, `review_changes`, `outcome_eval`, `gather_context`) instead of all 95. Warn (not hard-cap) when the aggregated tool count crosses a large threshold, pointing at the allowlist. Portable — the allowlist works for any server, not just harness. Directly improves the robustness of the just-shipped local MCP path.
 - **Blockers:** —
 - **Plan:** —
-- **Assignee:** Chad Warner
+- **Assignee:** —
 - **Priority:** P1
-- **External-ID:** —
+- **External-ID:** github:Intense-Visions/harness-engineering#1034
 
 ### Reconcile a project's configured MCP servers against the refreshed catalog (consent-gated)
 
@@ -194,9 +194,9 @@ last_manual_edit: 2026-06-27T12:51:51.967Z
 - **Summary:** [[mcp-catalog-refresh]] refreshes the *suggested* catalog, but an existing project keeps whatever MCP servers it configured earlier (the deprecated perplexity/augment-code/sequential-thinking; none of the new github/exa/harness). Add `harness integrations sync`: diff configured servers vs the current `INTEGRATION_REGISTRY`, show newly-suggested + deprecated, and apply changes **only with the operator's consent** (report-only default; `--apply` prompts per group in a TTY; `--yes` for scripts; non-interactive without `--yes` never mutates). Pure `reconcileIntegrations` core; applies via the existing add/remove/dismiss helpers; Tier-1 adds surface the env requirement, never invent a secret. doctor's freshness advisory points at it.
 - **Blockers:** —
 - **Plan:** —
-- **Assignee:** Chad Warner
+- **Assignee:** —
 - **Priority:** P2
-- **External-ID:** —
+- **External-ID:** github:Intense-Visions/harness-engineering#1035
 
 ### Cloud autopilot: independent diagnostic agent on stuck retry
 
@@ -207,7 +207,29 @@ last_manual_edit: 2026-06-27T12:51:51.967Z
 - **Plan:** —
 - **Assignee:** —
 - **Priority:** P2
-- **External-ID:** —
+- **External-ID:** github:Intense-Visions/harness-engineering#1007
+
+### bug(roadmap): sync writeback resolves shards by title-slug not frontmatter slug, silently aborting the whole batch
+
+- **Status:** planned
+- **Spec:** —
+- **Summary:** `applyRoadmapDiff` (packages/core/src/roadmap/store/apply-diff.ts) keys every shard by `slugifyFeatureName(feature.name)`, but the sharded store's real identity is the frontmatter `slug` — which `load()` enforces to equal the filename base, and which is frequently a hand-shortened or length-truncated form of the title. For the 22 shards (of 104) where `slugify(title) !== frontmatter.slug` (e.g. filename `lmlm-wire-engine-to-operator-surfaces` vs `slugify("LMLM Phases 4–9: wire the engine to operator surfaces")`), `patchFeature`/`addFeature`/`removeFeature` open `{slugify(title)}.md`, hit ENOENT, and `applyRoadmapDiff` **returns Err on the first failure — aborting the entire writeback batch**. Impact observed live during a full `roadmap sync --apply` (2026-08-04): all 11 external-ID backfills were dropped, `last_synced` was never stamped, and — most dangerously — a create path would have persisted the new issue on GitHub while failing to write its `externalId` back locally, so the next run recreates it (duplicate issues). **Fix:** resolve shards by the loaded feature's frontmatter slug (carry it on `RoadmapFeature` or index `before`/`after` by it), OR make the writeback collect per-shard errors instead of aborting on the first. Add a regression test with a shard whose title-slug ≠ frontmatter-slug. Workaround used on 2026-08-04: hand-backfill External-IDs so `changedFeatureNames` is empty and the buggy path is never entered.
+- **Blockers:** —
+- **Plan:** —
+- **Assignee:** —
+- **Priority:** P1
+- **External-ID:** github:Intense-Visions/harness-engineering#1036
+
+### bug(roadmap): harness roadmap sync never stamps last_synced on success
+
+- **Status:** planned
+- **Spec:** —
+- **Summary:** `fullSync` (packages/core/src/roadmap/sync-engine.ts) pushes, pulls, and writes back changed rows, but never sets `roadmap.frontmatter.lastSynced`. Because `applyRoadmapDiff` only writes frontmatter when it differs, a successful `harness roadmap sync --apply` leaves `_meta.md`'s `last_synced` untouched — so the field stays stale even though a sync just completed. This is the exact "`last_synced` 22 days behind `last_manual_edit`" symptom the sync command's own docstring cites as its reason for existing, and it undermines the human-always-wins staleness heuristic and any observability keyed on last_synced. Confirmed live 2026-08-04: `--apply` reported 104 patches / 0 errors yet `last_synced` remained at the pre-run value (manually corrected afterward). **Fix:** stamp `frontmatter.lastSynced = now` in `fullSync` before writeback (guard against `Date.now()` in test seams as elsewhere), and cover it with a test asserting last_synced advances on a no-op-diff successful sync.
+- **Blockers:** —
+- **Plan:** —
+- **Assignee:** —
+- **Priority:** P2
+- **External-ID:** github:Intense-Visions/harness-engineering#1037
 
 ## v5.0 — Enforcement Hardening
 
