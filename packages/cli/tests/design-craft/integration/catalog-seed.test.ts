@@ -18,11 +18,14 @@
 //      the first foundational-tier polish pattern in the seed; P005
 //      opens the typography sub-category; P006 opens the layout
 //      sub-category; P007 opens the interaction sub-category.
-//   2. SEED_EXEMPLARS exposes the five seed exemplars across five
+//   2. SEED_EXEMPLARS exposes the seventeen seed exemplars across seven
 //      component types (EmptyState, LoadingState, CommandPalette,
-//      ErrorState, Modal) so BENCHMARK fans out across every canonical
-//      v1 component type from the seed (per the CRAFT-B001..B005 anchor
-//      reservations in finding-codes.md).
+//      ErrorState, Modal, Button, MarketingPage) so BENCHMARK fans out
+//      across every canonical v1 component type from the seed plus the
+//      nine-exemplar MarketingPage tier (per the CRAFT-B001..B017 anchor
+//      identifiers in finding-codes.md). Dedicated MarketingPage describe
+//      blocks cover the three page-scoped rubrics (CRAFT-C011..C013) and
+//      the tier's end-to-end BENCHMARK resolution.
 //   3. Every entry carries the ADR 0020 provenance fields (id, version,
 //      status, authoredAt, contributors[], source.ref).
 //   4. End-to-end: a fixture that matches the skeleton pattern's
@@ -133,7 +136,7 @@ describe('design-craft Phase 2 catalog seed — patterns', () => {
 });
 
 describe('design-craft Phase 2 catalog seed — exemplars', () => {
-  it('SEED_EXEMPLARS spans the eight seed exemplars in stable componentType order', () => {
+  it('SEED_EXEMPLARS spans the seventeen seed exemplars in stable componentType order', () => {
     const types = SEED_EXEMPLARS.map((e) => e.componentType);
     expect(types).toEqual([
       'EmptyState',
@@ -168,7 +171,7 @@ describe('design-craft Phase 2 catalog seed — exemplars', () => {
     }
   });
 
-  it('SEED_EXEMPLARS aligns with the CRAFT-B001..B008 anchor identifiers in finding-codes.md', () => {
+  it('SEED_EXEMPLARS aligns with the CRAFT-B001..B017 anchor identifiers in finding-codes.md', () => {
     const ids = SEED_EXEMPLARS.map((e) => e.id);
     expect(ids).toEqual([
       'exemplar-linear-empty-list',
@@ -208,9 +211,9 @@ describe('design-craft Phase 2 catalog seed — exemplars', () => {
     expect(counts.LoadingState).toBe(2);
   });
 
-  it('the MarketingPage tier carries at least eight page exemplars', () => {
+  it('the MarketingPage tier carries at least nine page exemplars', () => {
     const pages = SEED_EXEMPLARS.filter((e) => e.componentType === 'MarketingPage');
-    expect(pages.length).toBeGreaterThanOrEqual(8);
+    expect(pages.length).toBeGreaterThanOrEqual(9);
   });
 
   it('every exemplar carries the ADR 0020 provenance fields and a complete radarReference', () => {
@@ -766,7 +769,7 @@ describe('design-craft MarketingPage tier wired end-to-end', () => {
     // The full seed was passed in — type-filtering must resolve the
     // MarketingPage tier and nothing else.
     const byId = new Map(SEED_EXEMPLARS.map((e) => [e.id, e]));
-    expect(score?.exemplars.length).toBeGreaterThanOrEqual(8);
+    expect(score?.exemplars.length).toBeGreaterThanOrEqual(9);
     for (const id of score?.exemplars ?? []) {
       expect(id).toMatch(/^exemplar-/);
       expect(byId.get(id)?.componentType).toBe('MarketingPage');

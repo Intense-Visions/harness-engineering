@@ -3,7 +3,7 @@
 // Barrel for the seed of critique rubrics. Re-exports the canonical
 // `RubricDefinition` type plus every authored seed entry.
 //
-// Order matters: CRAFT-C001..C010 align to the array order so finding
+// Order matters: CRAFT-C001..C013 align to the array order so finding
 // listings and the markdown formatter render rubrics in a stable sequence.
 
 export type {

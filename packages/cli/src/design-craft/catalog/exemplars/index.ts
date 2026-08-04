@@ -52,15 +52,16 @@ export { commercialConstructionMarketingPageExemplar } from './commercial-constr
  * plan: EmptyState, LoadingState, ErrorState, Modal, Button (plus the
  * informal CommandPalette anchor).
  *
- * This increment opens the HORIZONTAL GROWTH phase of the seed by adding
- * a second EmptyState anchor (Notion empty database — INSTRUCTIONAL
- * register, CRAFT-B007) and a second LoadingState anchor (Vercel build
- * progress — NARRATIVE register, CRAFT-B008). Together with the existing
- * Linear (RESOLVED EmptyState) and Stripe (PREVIEW LoadingState) anchors,
- * BENCHMARK can now score targets against the right tonal model rather
- * than collapsing every EmptyState / LoadingState toward a single
- * register. The full 50-exemplar seed (10 per type for 5 canonical types)
- * grows horizontally from here per the spec.
+ * The B007 / B008 increment opened the HORIZONTAL GROWTH phase of the
+ * seed by adding a second EmptyState anchor (Notion empty database —
+ * INSTRUCTIONAL register, CRAFT-B007) and a second LoadingState anchor
+ * (Vercel build progress — NARRATIVE register, CRAFT-B008). Together with
+ * the existing Linear (RESOLVED EmptyState) and Stripe (PREVIEW
+ * LoadingState) anchors, BENCHMARK gained the ability to score targets
+ * against the right tonal model rather than collapsing every EmptyState /
+ * LoadingState toward a single register. The full 50-exemplar seed (10
+ * per type for 5 canonical types) grows horizontally from there per the
+ * spec.
  *
  * This increment opens the MarketingPage tier (B009..B017, ADR 0082):
  * whole-page award-documented exemplars so page-scoped BENCHMARK targets

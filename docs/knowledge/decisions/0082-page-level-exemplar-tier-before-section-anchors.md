@@ -50,6 +50,10 @@ re-litigate them:
 - Risk of page exemplars bleeding into component-scoped runs is nil: the
   equality matcher cites the MarketingPage tier only for MarketingPage
   targets (locked by the end-to-end catalog-seed test).
+- Because CRITIQUE applies no `appliesTo` filter, the three page-only
+  rubrics (CRAFT-C011..C013) also fire on component-scoped runs — +3 LLM
+  calls and +3 findings per target, locked in by critique-mvp.test.ts's
+  13-finding assertion — until scope-aware filtering lands.
 - ADR 0020 lineage holds: every new entry carries provenance (verified award
   page or published case study), contributors, and versioning; growth
   continues through the contribution lane, and B-codes stay aligned with
