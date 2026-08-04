@@ -21,6 +21,7 @@ import noSyncIoInAsync from './no-sync-io-in-async';
 import noUnboundedArrayChains from './no-unbounded-array-chains';
 import noUndefinedOptionalAssignment from './no-undefined-optional-assignment';
 import noUnixShellCommand from './no-unix-shell-command';
+import preferExecfileOverExec from './prefer-execfile-over-exec';
 import requireBoundarySchema from './require-boundary-schema';
 import requirePathNormalization from './require-path-normalization';
 import type { TSESLint } from '@typescript-eslint/utils';
@@ -47,6 +48,7 @@ export const rules: Record<string, TSESLint.RuleModule<string, unknown[]>> = {
   'no-unbounded-array-chains': noUnboundedArrayChains,
   'no-undefined-optional-assignment': noUndefinedOptionalAssignment,
   'no-unix-shell-command': noUnixShellCommand,
+  'prefer-execfile-over-exec': preferExecfileOverExec,
   'require-boundary-schema': requireBoundarySchema,
   'require-path-normalization': requirePathNormalization,
 };
