@@ -1,5 +1,5 @@
 import { existsSync, readFileSync, readdirSync, statSync } from 'node:fs';
-import { join, basename, resolve, relative } from 'node:path';
+import { join, basename, resolve, relative, isAbsolute } from 'node:path';
 import { HarnessConfigSubsetSchema } from './types';
 import type { HarnessConfigSubset, HookFile, Mode, ProjectContext } from './types';
 
@@ -76,17 +76,77 @@ function readHookDir(root: string, dir: string): HookFile[] {
 }
 
 /**
- * Phase 1 file-based hook resolution: union of scripts under .husky/ and
- * .claude/hooks/, plus any scripts referenced by .claude/settings.json hook
- * registrations. Deduplicated by absolute path. Profile mapping is Phase 2.
+ * Read git's `core.hooksPath` from the repo-local `.git/config` (#1012).
+ *
+ * Kept file-based (no child_process) so the auditor stays pure and unit-testable
+ * on plain tmp dirs. This covers the common repo-local convention
+ * (`git config core.hooksPath .githooks`); global/worktree-indirected config is
+ * out of scope. Returns the raw value (relative to root or absolute), or null.
+ */
+function readGitCoreHooksPath(root: string): string | null {
+  const config = readTextOrNull(join(root, '.git', 'config'));
+  if (config === null) return null;
+  let section = '';
+  for (const raw of config.split('\n')) {
+    const line = raw.trim();
+    if (line.startsWith('[')) {
+      const m = line.match(/^\[\s*([\w.-]+)/);
+      section = m ? m[1]!.toLowerCase() : '';
+      continue;
+    }
+    if (section !== 'core') continue;
+    const kv = line.match(/^hooksPath\s*=\s*(.+?)\s*$/i);
+    if (kv) return kv[1]!.replace(/^["']|["']$/g, '');
+  }
+  return null;
+}
+
+/**
+ * The custom hooks directory when `core.hooksPath` is set, else null (#1012).
+ * A repo wiring hooks via `.githooks/` + `core.hooksPath` would otherwise be
+ * read only at `.husky/`, silently disabling STRENGTH-002/003 while still
+ * scoring `solid`.
+ */
+function customHooksDir(root: string): string | null {
+  const hp = readGitCoreHooksPath(root);
+  if (!hp) return null;
+  return isAbsolute(hp) ? hp : join(root, hp);
+}
+
+/**
+ * Resolve `ctx.preCommit` from the first existing pre-commit hook across the
+ * custom `core.hooksPath` dir, `.husky/`, then git's default `.git/hooks/`
+ * (#1012). Previously only `.husky/pre-commit` was read, so a `.githooks/`
+ * repo's pre-commit was invisible to the pre-commit-behavior rules.
+ */
+function readPreCommit(root: string): string | null {
+  const candidates: string[] = [];
+  const custom = customHooksDir(root);
+  if (custom) candidates.push(join(custom, 'pre-commit'));
+  candidates.push(join(root, '.husky', 'pre-commit'));
+  candidates.push(join(root, '.git', 'hooks', 'pre-commit'));
+  for (const c of candidates) {
+    const text = readTextOrNull(c);
+    if (text !== null) return text;
+  }
+  return null;
+}
+
+/**
+ * Phase 1 file-based hook resolution: union of scripts under .husky/,
+ * .claude/hooks/, .harness/hooks/, and — when `core.hooksPath` is set — the
+ * custom hooks directory (#1012), plus any scripts referenced by
+ * .claude/settings.json hook registrations. Deduplicated by absolute path.
  */
 function resolveHookFiles(root: string): HookFile[] {
   // Dedup keyed on ABSOLUTE path; the stored HookFile.path is ROOT-RELATIVE.
   const collected = new Map<string, HookFile>();
+  const custom = customHooksDir(root);
   for (const h of [
     ...readHookDir(root, join(root, '.husky')),
     ...readHookDir(root, join(root, '.claude', 'hooks')),
     ...readHookDir(root, join(root, '.harness', 'hooks')),
+    ...(custom ? readHookDir(root, custom) : []),
   ]) {
     collected.set(resolve(root, h.path), h);
   }
@@ -208,7 +268,7 @@ export function buildProjectContext(root: string, mode: Mode): ProjectContext {
     root,
     mode,
     config: readConfig(root),
-    preCommit: readTextOrNull(join(root, '.husky', 'pre-commit')),
+    preCommit: readPreCommit(root),
     hookFiles: resolveHookFiles(root),
     workflows: readWorkflows(root),
     healthSnapshot: readJsonOrNull(join(root, '.harness', 'health-snapshot.json')),

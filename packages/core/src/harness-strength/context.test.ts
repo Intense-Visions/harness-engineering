@@ -156,3 +156,51 @@ describe('buildProjectContext (present inputs)', () => {
     expect(ctx.templates?.every((t) => !isAbsolute(t.path))).toBe(true);
   });
 });
+
+// Regression for #1012: hook discovery read only `.husky/pre-commit`, ignoring
+// git's core.hooksPath. A repo wiring hooks via `.githooks/` +
+// `git config core.hooksPath .githooks` had STRENGTH-002/003 silently disabled
+// (ctx.preCommit === null) while still scoring solid.
+describe('buildProjectContext (core.hooksPath / .githooks)', () => {
+  function writeGitHooksRepo(hooksDirName: string): void {
+    // Minimal `.git/config` that sets core.hooksPath, as `git config` would.
+    mkdirSync(join(root, '.git'), { recursive: true });
+    writeFileSync(
+      join(root, '.git', 'config'),
+      `[core]\n\trepositoryformatversion = 0\n\thooksPath = ${hooksDirName}\n`
+    );
+    mkdirSync(join(root, hooksDirName), { recursive: true });
+    writeFileSync(
+      join(root, hooksDirName, 'pre-commit'),
+      '#!/bin/sh\nif ! npx harness ci check; then\n  exit 1\nfi\n'
+    );
+  }
+
+  it('reads pre-commit from the core.hooksPath directory (not .husky)', () => {
+    writeGitHooksRepo('.githooks');
+    const ctx = buildProjectContext(root, 'adopter');
+
+    // .husky/ does not exist here — the old code returned null and disabled the
+    // pre-commit-behavior rules.
+    expect(ctx.preCommit).not.toBeNull();
+    expect(ctx.preCommit).toContain('harness ci check');
+  });
+
+  it('includes the core.hooksPath scripts in hookFiles', () => {
+    writeGitHooksRepo('.githooks');
+    const ctx = buildProjectContext(root, 'adopter');
+
+    const preCommit = ctx.hookFiles.find((h) => h.name === 'pre-commit');
+    expect(preCommit).toBeDefined();
+    expect(preCommit?.path).toBe('.githooks/pre-commit');
+    expect(ctx.hookFiles.every((h) => !isAbsolute(h.path))).toBe(true);
+  });
+
+  it('honors a quoted core.hooksPath value', () => {
+    writeGitHooksRepo('.githooks');
+    // Rewrite the config with a quoted value (git accepts either form).
+    writeFileSync(join(root, '.git', 'config'), '[core]\n\thooksPath = ".githooks"\n');
+    const ctx = buildProjectContext(root, 'adopter');
+    expect(ctx.preCommit).toContain('harness ci check');
+  });
+});

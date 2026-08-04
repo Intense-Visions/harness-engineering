@@ -2,7 +2,15 @@ import { Ok, Err, type Result } from '../shared/result';
 import { buildProjectContext, resolveMode, type ModeOptions } from './context';
 import { ALL_RULES } from './rules/index';
 import { rollupScore } from './scoring';
-import type { AuditResult, ProjectContext, Severity, StrengthFinding, StrengthRule } from './types';
+import type {
+  AuditResult,
+  ProjectContext,
+  Severity,
+  SkippedRule,
+  StrengthFinding,
+  StrengthRule,
+  Tier,
+} from './types';
 
 export type AuditOptions = ModeOptions;
 
@@ -15,16 +23,34 @@ export type AuditOptions = ModeOptions;
  *
  * "Not evaluable" rules (required input absent) are excluded from BOTH
  * `summary.rulesRun` and `summary.rulesPassing` so absent input never masks a
- * weakness as a pass (success criterion #7).
+ * weakness as a pass (success criterion #7). They are instead surfaced in
+ * `summary.skipped` and, when they leave coverage partial, cap the tier at
+ * `incomplete` so a partial audit never reads as a full `solid` pass (#1013).
  */
 export class HarnessStrengthAuditor {
   audit(root: string, opts: AuditOptions = {}): Result<AuditResult, Error> {
     try {
       const mode = resolveMode(opts, root);
       const ctx = buildProjectContext(root, mode);
-      const evaluable = ALL_RULES.filter(
-        (r) => r.appliesIn(mode) && (r.evaluable ? r.evaluable(ctx) : true)
-      );
+
+      // Partition the patterns that APPLY to this mode into evaluable (required
+      // input present) and skipped (input absent → abstained). The applicable
+      // count is the coverage denominator; skipped is reported, never silently
+      // dropped (#1013).
+      const applicable = ALL_RULES.filter((r) => r.appliesIn(mode));
+      const evaluable: StrengthRule[] = [];
+      const skipped: SkippedRule[] = [];
+      for (const r of applicable) {
+        if (!r.evaluable || r.evaluable(ctx)) {
+          evaluable.push(r);
+        } else {
+          skipped.push({
+            id: r.id,
+            gearPiece: r.gearPiece,
+            reason: 'not evaluable: a required input for this pattern is absent',
+          });
+        }
+      }
 
       const findings: StrengthFinding[] = [];
       let rulesPassing = 0;
@@ -38,13 +64,21 @@ export class HarnessStrengthAuditor {
         for (const f of raw) findings.push({ ...f, severity });
       }
 
-      const { score, tier } = rollupScore(findings);
+      const { score, tier: scoredTier } = rollupScore(findings);
+      // Withhold `solid` when coverage is partial: a clean score across only
+      // some of the applicable patterns is `incomplete`, not `solid` (#1013).
+      // Weaker tiers (`at-risk`/`theatre`) already signal detected problems and
+      // are left as-is.
+      const tier: Tier = scoredTier === 'solid' && skipped.length > 0 ? 'incomplete' : scoredTier;
+
       const summary = {
         errors: findings.filter((f) => f.severity === 'error').length,
         warnings: findings.filter((f) => f.severity === 'warning').length,
         info: findings.filter((f) => f.severity === 'info').length,
         rulesRun: evaluable.length,
         rulesPassing,
+        rulesApplicable: applicable.length,
+        skipped,
       };
 
       return Ok({ mode, score, tier, findings, summary });
