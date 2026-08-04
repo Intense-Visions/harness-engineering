@@ -97,6 +97,13 @@ describe('Code Signal Extractors — End-to-End', () => {
   // Regression for #940: extractor `governs`/`documents` edges must target the
   // SAME path-based file-node ID the code scanner materializes
   // (`file:${relativePath}`), not a hash-based `file:<hash>` that never resolves.
+  //
+  // Per-test timeout (#992): this is the only case here that runs the full
+  // `CodeIngestor.ingest` filesystem materialization on top of the extractor
+  // pass. That IO is markedly slower on the windows-latest runner and blew the
+  // default 30s budget there (ubuntu/macOS finish well inside it). The larger
+  // budget is scoped to this one IO-heavy test — not a global `testTimeout`
+  // bump — so a genuine hang elsewhere still surfaces at the default deadline.
   it('binds extractor governs/documents edges to materialized code-scanner file nodes (#940)', async () => {
     // Materialize the canonical path-based file nodes first (as `graph scan` does).
     const codeIngestor = new CodeIngestor(store);
@@ -138,7 +145,7 @@ describe('Code Signal Extractors — End-to-End', () => {
     // Sanity: we actually exercised governs edges (from test-descriptions).
     expect(checkedEdges).toBeGreaterThan(0);
     expect(governsChecked).toBeGreaterThan(0);
-  });
+  }, 120_000);
 
   it('covers all 6 languages across extractors', async () => {
     const runner = createExtractionRunner();
