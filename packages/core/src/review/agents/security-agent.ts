@@ -108,10 +108,10 @@ const CODE_FILE_EXTENSIONS = ['.ts', '.tsx', '.js', '.jsx', '.mjs', '.cjs', '.mt
  *
  * Same reasoning as the docs/config exclusion above, one step further: a test
  * that proves a detector FIRES must contain the vulnerable shape as **data**.
- * This file's own suite necessarily holds `"SELECT * FROM users WHERE id = " +
- * userId` and `const API_KEY = "sk-1234…"` as fixtures — scanning them reports
- * `critical` findings for strings that are the test's whole point, and any PR
- * touching a security test self-flags.
+ * This file's own suite necessarily holds concatenated `SELECT … FROM` query
+ * strings and `sk-…`-style fixture keys — scanning them reports `critical`
+ * findings for strings that are the test's whole point, and any PR touching a
+ * security test self-flags.
  *
  * The trade-off is explicit and bounded: test code is not part of the shipped
  * attack surface (it is not published, not deployed, and takes no untrusted
@@ -159,9 +159,10 @@ function isScannableSourceFile(path: string): boolean {
  * injection shape it detects (`"SELECT … FROM t WHERE id = " + userId`), was
  * itself reported as a `critical` CWE-89 finding.
  *
- * A comment PREFIX is not enough: `/**\/ eval(x)`, `*\/ eval(x)` (the line
- * closing a block comment), and generator members (`*run() { … }`) all begin
- * with comment-ish tokens yet execute. So a line counts as a comment only when
+ * A comment PREFIX is not enough: an eval call behind a `/**\/` or `*\/`
+ * prefix (the line closing a block comment), and generator members
+ * (`*run() { … }`), all begin with comment-ish tokens yet execute. So a line
+ * counts as a comment only when
  * (a) it opens with `//`, or (b) it opens with `/*`, `*\/`, or a JSDoc-body `*`
  * followed by whitespace/EOL, AND nothing but whitespace follows the block
  * close (if any) on the same line.
@@ -315,7 +316,7 @@ function detectEvalUsage(bundle: ContextBundle): ReviewFinding[] {
  * source-pattern detectors: it does not gate on `isCodeFile`. A hardcoded key in
  * a `.env.example`, a shell script or any other non-`.ts` file is a genuine leak,
  * so restricting this detector to `.ts`/`.js` would lose real coverage rather
- * than noise. The asymmetry is the point — `eval(`, backtick-`exec(` and SQL
+ * than noise. The asymmetry is the point — eval, backtick-exec and SQL
  * concatenation are code constructs; a leaked credential is not.
  *
  * Scope caveat, measured rather than assumed: `SECRET_PATTERNS` key off an
