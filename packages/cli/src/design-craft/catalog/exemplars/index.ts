@@ -13,6 +13,7 @@ import { linearIssueModalExemplar } from './linear-issue-modal.js';
 import { stripePayButtonExemplar } from './stripe-pay-button.js';
 import { notionEmptyDatabaseExemplar } from './notion-empty-database.js';
 import { vercelBuildProgressExemplar } from './vercel-build-progress.js';
+import { sonDavenMarketingPageExemplar } from './son-daven-marketing-page.js';
 
 export { linearEmptyListExemplar } from './linear-empty-list.js';
 export { stripeLoadingStateExemplar } from './stripe-loading-state.js';
@@ -22,6 +23,7 @@ export { linearIssueModalExemplar } from './linear-issue-modal.js';
 export { stripePayButtonExemplar } from './stripe-pay-button.js';
 export { notionEmptyDatabaseExemplar } from './notion-empty-database.js';
 export { vercelBuildProgressExemplar } from './vercel-build-progress.js';
+export { sonDavenMarketingPageExemplar } from './son-daven-marketing-page.js';
 
 /**
  * Seed exemplars. The earlier Phase 2 increment anchored the shape with
@@ -44,8 +46,12 @@ export { vercelBuildProgressExemplar } from './vercel-build-progress.js';
  * register. The full 50-exemplar seed (10 per type for 5 canonical types)
  * grows horizontally from here per the spec.
  *
+ * This increment opens the MarketingPage tier (B009..B017, ADR 0082):
+ * whole-page award-documented exemplars so page-scoped BENCHMARK targets
+ * converge on concept / composition / surface, not component polish alone.
+ *
  * Order matters: anchors land in landing order so anchor codes
- * (CRAFT-B001..B008) align with the array index.
+ * (CRAFT-B001..) align with the array index.
  */
 export const SEED_EXEMPLARS: readonly ExemplarDefinition[] = [
   linearEmptyListExemplar,
@@ -56,4 +62,5 @@ export const SEED_EXEMPLARS: readonly ExemplarDefinition[] = [
   stripePayButtonExemplar,
   notionEmptyDatabaseExemplar,
   vercelBuildProgressExemplar,
+  sonDavenMarketingPageExemplar,
 ];

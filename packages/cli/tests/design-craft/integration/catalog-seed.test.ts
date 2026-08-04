@@ -144,6 +144,7 @@ describe('design-craft Phase 2 catalog seed — exemplars', () => {
       'Button',
       'EmptyState',
       'LoadingState',
+      'MarketingPage',
     ]);
   });
 
@@ -170,6 +171,7 @@ describe('design-craft Phase 2 catalog seed — exemplars', () => {
       'exemplar-stripe-pay-button',
       'exemplar-notion-empty-database',
       'exemplar-vercel-build-progress',
+      'exemplar-son-daven-marketing-page',
     ]);
   });
 
