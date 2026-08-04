@@ -73,6 +73,10 @@ export type {
   ExternalTicket,
   ExternalTicketState,
   SyncResult,
+  SkippedCreate,
+  SkippedStateChange,
+  SyncDenominator,
+  PlannedSyncChanges,
   TrackerSyncConfig,
   TrackerComment,
 } from './tracker-sync';

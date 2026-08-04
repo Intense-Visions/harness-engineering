@@ -1161,6 +1161,19 @@ Migrate docs/roadmap.md to per-row shards under docs/roadmap.d
 - `--force` — Proceed even if docs/roadmap.d already exists
 - `--format` — Output format: "human" (default) or "json" (single JSON object for CI consumers) (default: "human")
 
+### `harness roadmap sync`
+
+Full bidirectional roadmap<->tracker sync (push planning fields, pull execution fields, write back). DRY RUN BY DEFAULT — pass --apply to write anything. Exit codes: 0 converged, 2 error/misconfiguration, 3 ZERO DENOMINATOR (examined nothing — an abstention, never a pass).
+
+**Options:**
+
+- `--cwd` — Project root (defaults to the current working directory)
+- `--apply` — actually write; without this the command only reports intended changes
+- `--no-create` — never create a ticket for a row lacking an externalId (report the skip instead) — an unattended job must not invent issues
+- `--no-state-change` — CI-SAFE MODE: never patch an issue open/closed state, so labels converge but no issue can be closed or reopened; leave closure to the PR-merge auto-done path
+- `--force` — allow status regressions (done -> in-progress). OVERRIDES the human-always-wins rule; do not use unattended
+- `--json` — emit the machine-readable result instead of prose
+
 ### `harness roadmap triage`
 
 Read-only triage report: score every actionable roadmap item with the four-lever scoping probe and rank dispatchability. Gated behind roadmap.autoTriage.enabled (default off); never writes. Offline by default (holds to human without a live model). With --brainstorm, additionally run the autonomous brainstorm per candidate, emitting a drafted spec (docs only) or a halt handoff (fork + reason) — still no dispatch.

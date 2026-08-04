@@ -11,15 +11,38 @@ import type {
  * Abstract interface for syncing roadmap features with an external tracker.
  * Each adapter (GitHub, Jira, Linear) implements this interface.
  */
+/**
+ * Per-write policy handed to an adapter by the sync engine.
+ *
+ * Adapters must honour these as a hard floor, independent of whatever the
+ * caller decided: the engine also refuses to call a write at all in dry run,
+ * so a guard has to fail in two places to become destructive.
+ */
+export interface TicketWriteOptions {
+  /**
+   * Whether the adapter may patch the ticket's open/closed state.
+   * When `false` the adapter MUST omit the state field from the patch body
+   * entirely — labels still sync, but no issue is ever closed or reopened.
+   * Default (`undefined`) preserves the pre-existing behaviour: state is patched.
+   */
+  syncIssueState?: boolean;
+}
+
 export interface TrackerSyncAdapter {
   /** Push a new roadmap item to the external service */
   createTicket(feature: RoadmapFeature, milestone: string): Promise<Result<ExternalTicket>>;
 
-  /** Update planning fields on an existing ticket */
+  /**
+   * Update planning fields on an existing ticket.
+   * `options` is additive — an adapter that ignores it keeps its previous
+   * behaviour, so the engine's own dry-run/allowCreate guards remain the
+   * authoritative safety layer.
+   */
   updateTicket(
     externalId: string,
     changes: Partial<RoadmapFeature>,
-    milestone?: string
+    milestone?: string,
+    options?: TicketWriteOptions
   ): Promise<Result<ExternalTicket>>;
 
   /** Pull current assignment + status from external service */
@@ -45,6 +68,26 @@ export interface TrackerSyncAdapter {
 export interface ExternalSyncOptions {
   /** Allow status regressions (e.g., done -> in-progress). Default: false */
   forceSync?: boolean;
+  /**
+   * Compute and report every intended change while performing ZERO write
+   * requests — no ticket create, no ticket patch, no roadmap writeback.
+   * Default: false (writes are performed).
+   */
+  dryRun?: boolean;
+  /**
+   * Whether rows lacking an externalId may have a ticket created for them.
+   * When `false`, each such row is reported in `skippedCreates` rather than
+   * silently dropped — an unattended job must not invent issues.
+   * Default: true (pre-existing behaviour).
+   */
+  allowCreate?: boolean;
+  /**
+   * Whether a status push may change the ticket's open/closed state.
+   * When `false`, labels still sync but no issue is ever closed or reopened;
+   * every suppressed transition is reported in `skippedStateChanges`.
+   * Default: true (pre-existing behaviour).
+   */
+  syncIssueState?: boolean;
 }
 
 /**

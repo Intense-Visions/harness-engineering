@@ -7,7 +7,7 @@ import type {
   TrackerComment,
 } from '@harness-engineering/types';
 import { Ok, Err } from '@harness-engineering/types';
-import type { TrackerSyncAdapter } from '../tracker-sync';
+import type { TrackerSyncAdapter, TicketWriteOptions } from '../tracker-sync';
 import { pushAssigneeToExternal } from '../assignee-lifecycle';
 // External-ID parse/build live in one canonical module (../external-id) so the
 // `github:owner/repo#NNN` format never drifts between the sync and reconcile edges.
@@ -264,14 +264,24 @@ export class GitHubIssuesSyncAdapter implements TrackerSyncAdapter {
     }
   }
 
+  /**
+   * Patch planning fields on an existing issue.
+   *
+   * CI-safety guard: when `options.syncIssueState === false`, the `state` field
+   * is omitted from the PATCH body entirely, so labels converge but no issue is
+   * ever closed or reopened. Omitting `options` keeps the default behaviour
+   * (state is patched from `config.statusMap`).
+   */
   async updateTicket(
     externalId: string,
     changes: Partial<RoadmapFeature>,
-    milestone?: string
+    milestone?: string,
+    options?: TicketWriteOptions
   ): Promise<Result<ExternalTicket>> {
     try {
       const parsed = parseExternalId(externalId);
       if (!parsed) return Err(new Error(`Invalid externalId format: "${externalId}"`));
+      const syncIssueState = options?.syncIssueState ?? true;
 
       const patch: Record<string, unknown> = {};
       if (changes.name !== undefined) patch.title = changes.name;
@@ -282,9 +292,12 @@ export class GitHubIssuesSyncAdapter implements TrackerSyncAdapter {
         patch.body = body;
       }
       if (changes.status !== undefined) {
-        const externalStatus = this.config.statusMap[changes.status];
-        patch.state = externalStatus;
-        // Update labels for status disambiguation, preserving the type label
+        if (syncIssueState) {
+          patch.state = this.config.statusMap[changes.status];
+        }
+        // Update labels for status disambiguation, preserving the type label.
+        // Runs regardless of the state guard: label convergence is the whole
+        // point of the CI-safe mode.
         patch.labels = labelsForStatus(changes.status, this.config);
       }
       if (changes.assignee !== undefined) {

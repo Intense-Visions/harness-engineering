@@ -8,6 +8,15 @@ export const ExitCode = {
   VALIDATION_FAILED: 1,
   /** Command failed because of an unexpected error or misconfiguration */
   ERROR: 2,
+  /**
+   * The command ran but examined NOTHING — a zero denominator.
+   *
+   * Distinct from SUCCESS (it did not verify anything) and from ERROR (nothing
+   * malfunctioned). A gate that matched, compared, or fetched zero items has
+   * abstained, not passed, and must never read as green. Used by
+   * `harness roadmap sync`.
+   */
+  ZERO_DENOMINATOR: 3,
 } as const;
 
 /**

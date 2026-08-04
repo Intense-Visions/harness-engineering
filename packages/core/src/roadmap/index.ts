@@ -40,7 +40,7 @@ export type {
 /**
  * Tracker sync adapter interface and shared utilities for external issue trackers.
  */
-export type { TrackerSyncAdapter, ExternalSyncOptions } from './tracker-sync';
+export type { TrackerSyncAdapter, ExternalSyncOptions, TicketWriteOptions } from './tracker-sync';
 export { resolveReverseStatus } from './tracker-sync';
 
 /**

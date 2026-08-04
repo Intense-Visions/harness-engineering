@@ -1,3 +1,4 @@
+import { isDeepStrictEqual } from 'node:util';
 import type {
   Roadmap,
   RoadmapFeature,
@@ -8,7 +9,7 @@ import type {
 } from '@harness-engineering/types';
 import { resolveRoadmapStore } from './store/factory';
 import { applyRoadmapDiff } from './store/apply-diff';
-import type { TrackerSyncAdapter, ExternalSyncOptions } from './tracker-sync';
+import type { TrackerSyncAdapter, ExternalSyncOptions, TicketWriteOptions } from './tracker-sync';
 import { resolveReverseStatus } from './tracker-sync';
 import { isRegression } from './status-rank';
 import { isMachineAssignee, setStatus } from './assignee-lifecycle';
@@ -17,7 +18,24 @@ import { isMachineAssignee, setStatus } from './assignee-lifecycle';
 // Changes to the interface contract require updating both this file and all adapters.
 
 function emptySyncResult(): SyncResult {
-  return { created: [], updated: [], assignmentChanges: [], errors: [] };
+  return {
+    created: [],
+    updated: [],
+    assignmentChanges: [],
+    errors: [],
+    dryRun: false,
+    planned: { creates: [], updates: [], localWrites: [] },
+    skippedCreates: [],
+    skippedStateChanges: [],
+    examined: { roadmapRows: 0, ticketsFetched: null },
+  };
+}
+
+/** Count every feature row across every milestone — the push-side denominator. */
+function countRoadmapRows(roadmap: Roadmap): number {
+  let rows = 0;
+  for (const milestone of roadmap.milestones) rows += milestone.features.length;
+  return rows;
 }
 
 /**
@@ -46,17 +64,39 @@ function buildDedupIndex(
   return index;
 }
 
+/** Guard settings resolved once per push, with today's behaviour as the default. */
+interface PushGuards {
+  dryRun: boolean;
+  allowCreate: boolean;
+  syncIssueState: boolean;
+}
+
+function resolveGuards(options?: ExternalSyncOptions): PushGuards {
+  // Normalize once rather than optional-chaining each field: same result, and it
+  // keeps this function under the repo's cyclomatic-complexity threshold.
+  const opts = options ?? {};
+  return {
+    dryRun: opts.dryRun ?? false,
+    allowCreate: opts.allowCreate ?? true,
+    syncIssueState: opts.syncIssueState ?? true,
+  };
+}
+
 /**
  * Resolve the externalId for a feature: dedup-link, create, or return existing.
  * Returns true if the feature now has an externalId (and should be updated), false
- * if creation failed or a new ticket was created (already recorded in result).
+ * if creation was withheld, failed, or a new ticket was created (already recorded).
+ *
+ * Both guards report rather than silently drop: a withheld create lands in
+ * `skippedCreates` (with the reason) or `planned.creates`, never nowhere.
  */
 async function resolveExternalId(
   feature: RoadmapFeature,
   milestone: string,
   adapter: TrackerSyncAdapter,
   dedupIndex: Map<string, ExternalTicketState>,
-  result: SyncResult
+  result: SyncResult,
+  guards: PushGuards
 ): Promise<boolean> {
   if (feature.externalId) return true;
 
@@ -64,6 +104,18 @@ async function resolveExternalId(
   if (existing) {
     feature.externalId = existing.externalId;
     return true;
+  }
+
+  // Creation guard: a cron that invents issues is unacceptable, so refusing to
+  // create is a first-class outcome that must be visible in the report.
+  if (!guards.allowCreate) {
+    result.skippedCreates.push({ feature: feature.name, milestone, reason: 'create-disabled' });
+    return false;
+  }
+  if (guards.dryRun) {
+    result.planned.creates.push({ feature: feature.name, milestone });
+    result.skippedCreates.push({ feature: feature.name, milestone, reason: 'dry-run' });
+    return false;
   }
 
   const createResult = await adapter.createTicket(feature, milestone);
@@ -77,20 +129,57 @@ async function resolveExternalId(
 }
 
 /**
+ * Record the open/closed transition a status push WOULD have made, when the
+ * state guard is suppressing it. Requires the ticket's current external state,
+ * which is only known from the prefetched set — an unknown current state is not
+ * reported as a change (we cannot claim a transition we cannot see).
+ */
+function recordSuppressedStateChange(
+  feature: RoadmapFeature,
+  config: TrackerSyncConfig,
+  ticketByExternalId: Map<string, ExternalTicketState>,
+  result: SyncResult
+): void {
+  const current = ticketByExternalId.get(feature.externalId!);
+  if (!current) return;
+  const desired = config.statusMap[feature.status];
+  if (!desired || desired === current.status) return;
+  result.skippedStateChanges.push({
+    externalId: feature.externalId!,
+    from: current.status,
+    to: desired,
+  });
+}
+
+/**
  * Push planning fields from roadmap to external service.
  * - Features without externalId get a new ticket (externalId stored on feature object)
  * - Features with externalId get updated with current planning fields
  * Mutates `roadmap` in-place (stores new externalIds).
  * Never throws -- errors collected per-feature.
+ *
+ * `options` is additive: omitting it reproduces the pre-guard behaviour exactly
+ * (create allowed, issue state patched, writes performed).
  */
 export async function syncToExternal(
   roadmap: Roadmap,
   adapter: TrackerSyncAdapter,
   config: TrackerSyncConfig,
-  prefetchedTickets?: ExternalTicketState[]
+  prefetchedTickets?: ExternalTicketState[],
+  options?: ExternalSyncOptions
 ): Promise<SyncResult> {
   const result = emptySyncResult();
+  const guards = resolveGuards(options);
+  result.dryRun = guards.dryRun;
+  result.examined = {
+    roadmapRows: countRoadmapRows(roadmap),
+    ticketsFetched: prefetchedTickets ? prefetchedTickets.length : null,
+  };
   const dedupIndex = buildDedupIndex(prefetchedTickets, config);
+  const ticketByExternalId = new Map(
+    (prefetchedTickets ?? []).map((t) => [t.externalId, t] as const)
+  );
+  const writeOptions: TicketWriteOptions = { syncIssueState: guards.syncIssueState };
 
   for (const milestone of roadmap.milestones) {
     for (const feature of milestone.features) {
@@ -99,11 +188,26 @@ export async function syncToExternal(
         milestone.name,
         adapter,
         dedupIndex,
-        result
+        result,
+        guards
       );
       if (!shouldUpdate) continue;
 
-      const updateResult = await adapter.updateTicket(feature.externalId!, feature, milestone.name);
+      if (!guards.syncIssueState) {
+        recordSuppressedStateChange(feature, config, ticketByExternalId, result);
+      }
+
+      if (guards.dryRun) {
+        result.planned.updates.push(feature.externalId!);
+        continue;
+      }
+
+      const updateResult = await adapter.updateTicket(
+        feature.externalId!,
+        feature,
+        milestone.name,
+        writeOptions
+      );
       if (updateResult.ok) {
         result.updated.push(feature.externalId!);
       } else {
@@ -184,6 +288,8 @@ export async function syncFromExternal(
 ): Promise<SyncResult> {
   const result = emptySyncResult();
   const forceSync = options?.forceSync ?? false;
+  result.dryRun = options?.dryRun ?? false;
+  result.examined.roadmapRows = countRoadmapRows(roadmap);
 
   // Build lookup from externalId to feature
   const featureByExternalId = new Map<string, RoadmapFeature>();
@@ -204,11 +310,13 @@ export async function syncFromExternal(
   } else {
     const fetchResult = await adapter.fetchAllTickets();
     if (!fetchResult.ok) {
+      // ticketsFetched stays null: the pull denominator is unknown, not zero.
       result.errors.push({ featureOrId: '*', error: fetchResult.error });
       return result;
     }
     tickets = fetchResult.value;
   }
+  result.examined.ticketsFetched = tickets.length;
 
   for (const ticketState of tickets) {
     const feature = featureByExternalId.get(ticketState.externalId);
@@ -217,6 +325,28 @@ export async function syncFromExternal(
   }
 
   return result;
+}
+
+/**
+ * Names of the rows whose body differs between two roadmap snapshots — the set
+ * `applyRoadmapDiff` would rewrite. Reported by a dry run in place of writing.
+ *
+ * Identity is the feature name, matching `applyRoadmapDiff`'s slug identity
+ * closely enough for a report (a rename shows up as one added + one removed row).
+ */
+function changedFeatureNames(before: Roadmap, after: Roadmap): string[] {
+  const beforeByName = new Map<string, RoadmapFeature>();
+  for (const milestone of before.milestones) {
+    for (const feature of milestone.features) beforeByName.set(feature.name, feature);
+  }
+  const changed: string[] = [];
+  for (const milestone of after.milestones) {
+    for (const feature of milestone.features) {
+      const prev = beforeByName.get(feature.name);
+      if (!prev || !isDeepStrictEqual(prev, feature)) changed.push(feature.name);
+    }
+  }
+  return changed;
 }
 
 /**
@@ -254,35 +384,58 @@ export async function fullSync(
     const store = resolveRoadmapStore({ projectRoot });
     const loaded = await store.load();
     if (!loaded.ok) {
+      // Echo the requested mode even on the load-failure path: a caller that
+      // asked for a dry run must never see this reported as an applied run.
       return {
         ...emptySyncResult(),
+        dryRun: options?.dryRun ?? false,
         errors: [{ featureOrId: '*', error: loaded.error }],
       };
     }
 
     const roadmap = loaded.value;
     const before = structuredClone(roadmap);
+    const dryRun = options?.dryRun ?? false;
 
     // Fetch tickets for push (dedup) phase
     const fetchResult = await adapter.fetchAllTickets();
     const tickets = fetchResult.ok ? fetchResult.value : undefined;
 
     // Push first (planning fields out) — mutates roadmap (stores externalIds)
-    const pushResult = await syncToExternal(roadmap, adapter, config, tickets);
+    const pushResult = await syncToExternal(roadmap, adapter, config, tickets, options);
 
     // Pull with fresh data (push may have changed issue states)
     const pullResult = await syncFromExternal(roadmap, adapter, config, options);
 
-    // Per-shard writeback: exactly the changed rows are rewritten.
-    const persisted = await applyRoadmapDiff(store, before, roadmap);
+    // Per-shard writeback: exactly the changed rows are rewritten. A dry run
+    // performs no writeback at all — it reports which rows it would have
+    // rewritten instead, so "zero writes" means zero local writes too.
+    const localWrites = changedFeatureNames(before, roadmap);
+    const persisted = dryRun ? null : await applyRoadmapDiff(store, before, roadmap);
 
     // Merge results (surface a writeback failure under the '*' envelope)
-    const writebackErrors = persisted.ok ? [] : [{ featureOrId: '*', error: persisted.error }];
+    const writebackErrors =
+      persisted && !persisted.ok ? [{ featureOrId: '*', error: persisted.error }] : [];
     return {
       created: pushResult.created,
       updated: pushResult.updated,
       assignmentChanges: pullResult.assignmentChanges,
       errors: [...pushResult.errors, ...pullResult.errors, ...writebackErrors],
+      dryRun,
+      planned: {
+        creates: pushResult.planned.creates,
+        updates: pushResult.planned.updates,
+        localWrites: dryRun ? localWrites : [],
+      },
+      skippedCreates: pushResult.skippedCreates,
+      skippedStateChanges: pushResult.skippedStateChanges,
+      examined: {
+        roadmapRows: countRoadmapRows(roadmap),
+        // The push-phase fetch is the authoritative denominator: null means the
+        // fetch failed, 0 means the tracker genuinely returned nothing. Both are
+        // abstentions from the caller's point of view, and distinguishable.
+        ticketsFetched: tickets ? tickets.length : null,
+      },
     };
   } finally {
     releaseMutex!();
