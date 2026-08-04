@@ -258,6 +258,8 @@ export type {
   FiringDecision,
   WaveSeverity,
 } from './parallelization/plan';
+export { forecastOwnershipConflicts, pathsOverlap } from './parallelization/ownership';
+export type { OwnershipConflict, OwnershipOverlap } from './parallelization/ownership';
 
 /**
  * Proposals module.
