@@ -14,6 +14,7 @@ import noHardcodedTestCount from './no-hardcoded-test-count';
 import noLayerViolation from './no-layer-violation';
 import noNestedLoopsInCritical from './no-nested-loops-in-critical';
 import noProcessEnvInSpawn from './no-process-env-in-spawn';
+import noProcessExit from './no-process-exit';
 import noSkippedTests from './no-skipped-tests';
 import noSpreadInVariadic from './no-spread-in-variadic';
 import noSyncIoInAsync from './no-sync-io-in-async';
@@ -39,6 +40,7 @@ export const rules: Record<string, TSESLint.RuleModule<string, unknown[]>> = {
   'no-layer-violation': noLayerViolation,
   'no-nested-loops-in-critical': noNestedLoopsInCritical,
   'no-process-env-in-spawn': noProcessEnvInSpawn,
+  'no-process-exit': noProcessExit,
   'no-skipped-tests': noSkippedTests,
   'no-spread-in-variadic': noSpreadInVariadic,
   'no-sync-io-in-async': noSyncIoInAsync,

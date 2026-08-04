@@ -616,3 +616,17 @@ spawn('node', ['script.js'], {
 ---
 
 _Last Updated: 2026-04-18_
+| `no-process-exit` | Security | `error` | No |
+| `no-process-env-in-spawn` | Security | `error` | No |
+
+**Note:** The `recommended` config enables the architecture, boundary, documentation, cross-platform, and most test/performance rules. Performance rules (`no-nested-loops-in-critical`, `no-sync-io-in-async`, `no-unbounded-array-chains`) are set to `warn` severity. To customize severity:
+
+```js
+'@harness-engineering/no-nested-loops-in-critical': 'warn',
+'@harness-engineering/no-sync-io-in-async': 'warn',
+'@harness-engineering/no-unbounded-array-chains': 'warn',
+```
+
+---
+
+_Last Updated: 2026-04-18_
