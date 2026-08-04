@@ -1102,9 +1102,9 @@ last_manual_edit: 2026-06-27T12:51:51.967Z
 
 ### Migrate to @google/genai SDK
 
-- **Status:** planned
+- **Status:** done
 - **Spec:** —
-- **Summary:** Migrate from deprecated @google/generative-ai@0.24.1 to @google/genai@2.x in packages/orchestrator and packages/intelligence; upstream has stopped publishing the old package
+- **Summary:** DELIVERED (commit eb801b788, "chore(orchestrator): migrate to @google/genai 2.x SDK"; CHANGELOG a6f7cd3). packages/orchestrator gemini backend imports @google/genai (package.json: @google/genai@^2.0.4); the deprecated @google/generative-ai is fully removed. GeminiBackend public API unchanged. Row was stale — completed via a commit whose PR number differs from External-ID #298, so auto-done never fired.
 - **Blockers:** —
 - **Plan:** —
 - **Assignee:** —
@@ -1113,9 +1113,9 @@ last_manual_edit: 2026-06-27T12:51:51.967Z
 
 ### Upgrade @hono/node-server to v2
 
-- **Status:** planned
+- **Status:** done
 - **Spec:** —
-- **Summary:** Major version bump from @hono/node-server@1.19.x to v2.x in packages/dashboard; audit breaking changes and relax pnpm.overrides "@hono/node-server" pin
+- **Summary:** DELIVERED (commit 0ca37f4cf, "chore(deps): upgrade @hono/node-server to v2.0.4"). packages/dashboard runs on @hono/node-server v2 and the pnpm.overrides pin is relaxed to ">=2.0.10" (package.json). Row was stale — completed via a deps commit whose PR number differs from External-ID #299, so auto-done never fired.
 - **Blockers:** —
 - **Plan:** —
 - **Assignee:** —
