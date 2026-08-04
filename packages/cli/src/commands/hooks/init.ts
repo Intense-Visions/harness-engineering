@@ -37,6 +37,42 @@ export function resolveHookSourceDir(): string {
 }
 
 /**
+ * Build the settings.json `command` for a hook script.
+ *
+ * The generated command must resolve `.harness/hooks/<name>.js` against the
+ * MAIN checkout, not the current working directory, and must never spam or
+ * silently drop protection when that file is unreachable (#990). The previous
+ * `node "$(git rev-parse --show-toplevel)/.harness/hooks/<name>.js"` form had
+ * two production failure modes:
+ *
+ *   1. In a linked git worktree, `--show-toplevel` returns the *worktree* root,
+ *      where the machine-local, gitignored `.harness/` does not exist —
+ *      `MODULE_NOT_FOUND` on every tool call. Because the failure is
+ *      non-blocking, the verify-bypass blocker and quality gate silently stop
+ *      protecting worktree sessions (gates report as hook errors instead of
+ *      running). With agent-per-worktree workflows, most agent work goes ungated.
+ *   2. In a non-repo cwd, `git rev-parse` fails and spams
+ *      `fatal: not a git repository` on every tool call.
+ *
+ * The fix:
+ *   - `--git-common-dir` resolves to the MAIN checkout's `.git` even from a
+ *     linked worktree, so `dirname` of it is the main repo root → gates run
+ *     (and protect) in worktrees against the main repo's `.harness`.
+ *   - `|| exit 0` and `[ -f "$f" ] || exit 0` make the hook a silent no-op
+ *     outside a repo, or on a machine without `.harness`, instead of spamming.
+ *   - `exec node` replaces the shell so the hook's blocking exit code (2) still
+ *     propagates to Claude Code.
+ */
+export function buildHookCommand(name: string): string {
+  return (
+    `g="$(git rev-parse --path-format=absolute --git-common-dir 2>/dev/null)" || exit 0; ` +
+    `f="$(dirname "$g")/.harness/hooks/${name}.js"; ` +
+    `[ -f "$f" ] || exit 0; ` +
+    `exec node "$f"`
+  );
+}
+
+/**
  * Build the hooks object for .claude/settings.json based on profile.
  */
 export function buildSettingsHooks(
@@ -59,7 +95,7 @@ export function buildSettingsHooks(
       hooks: [
         {
           type: 'command',
-          command: `node "$(git rev-parse --show-toplevel)/.harness/hooks/${script.name}.js"`,
+          command: buildHookCommand(script.name),
         },
       ],
     });

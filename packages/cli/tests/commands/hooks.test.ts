@@ -4,7 +4,12 @@ import * as path from 'node:path';
 import * as os from 'node:os';
 import { spawnSync } from 'node:child_process';
 import { createHooksCommand } from '../../src/commands/hooks/index';
-import { initHooks, buildSettingsHooks, mergeSettings } from '../../src/commands/hooks/init';
+import {
+  initHooks,
+  buildSettingsHooks,
+  buildHookCommand,
+  mergeSettings,
+} from '../../src/commands/hooks/init';
 import { listHooks } from '../../src/commands/hooks/list';
 import { removeHooks } from '../../src/commands/hooks/remove';
 import { addHooks } from '../../src/commands/hooks/add';
@@ -51,6 +56,93 @@ describe('buildSettingsHooks', () => {
     expect(hooks.Stop[0].hooks[0].command).toContain('adoption-tracker.js');
     expect(hooks.Stop[1].hooks[0].command).toContain('telemetry-reporter.js');
     expect(hooks.Stop[2].hooks[0].command).toContain('cost-tracker.js');
+  });
+});
+
+// Regression for #990: the generated command used
+// `node "$(git rev-parse --show-toplevel)/.harness/hooks/<name>.js"`, which
+// (1) pointed at the *worktree* root in a linked worktree — where machine-local
+// `.harness/` does not exist — so gates silently stopped protecting worktree
+// sessions, and (2) spammed `fatal: not a git repository` in a non-repo cwd.
+// The command must resolve against the MAIN checkout and be a silent no-op when
+// `.harness` is unreachable, while still propagating the hook's exit code.
+describe('buildHookCommand (#990)', () => {
+  const hasGit = spawnSync('git', ['--version']).status === 0;
+  // POSIX shell semantics; the command uses `sh`-style `$(...)`, `||`, `[ -f ]`.
+  const onPosix = process.platform === 'win32' || !hasGit ? describe.skip : describe;
+
+  it('does not embed the worktree-fragile --show-toplevel form', () => {
+    const cmd = buildHookCommand('block-no-verify');
+    expect(cmd).not.toContain('--show-toplevel');
+    expect(cmd).toContain('--git-common-dir');
+    expect(cmd).toContain('.harness/hooks/block-no-verify.js');
+    // Guards + exec so it no-ops silently off-repo and still propagates exit 2.
+    expect(cmd).toContain('|| exit 0');
+    expect(cmd).toContain('exec node');
+  });
+
+  onPosix('shell behavior', () => {
+    let tmpRoot: string;
+    let mainRepo: string;
+
+    function git(cwd: string, ...args: string[]) {
+      const r = spawnSync('git', args, { cwd, encoding: 'utf-8' });
+      if (r.status !== 0) throw new Error(`git ${args.join(' ')} failed: ${r.stderr}`);
+      return r.stdout;
+    }
+
+    beforeEach(() => {
+      tmpRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'hookcmd-'));
+      mainRepo = path.join(tmpRoot, 'main');
+      fs.mkdirSync(mainRepo, { recursive: true });
+      git(mainRepo, 'init', '-q');
+      git(mainRepo, 'config', 'user.email', 'test@example.com');
+      git(mainRepo, 'config', 'user.name', 'Test');
+      git(mainRepo, 'commit', '-q', '--allow-empty', '-m', 'init');
+      // A probe hook that blocks (exit 2), installed only in the MAIN checkout's
+      // machine-local .harness/ — exactly the layout that breaks --show-toplevel.
+      const hooksDir = path.join(mainRepo, '.harness', 'hooks');
+      fs.mkdirSync(hooksDir, { recursive: true });
+      fs.writeFileSync(path.join(hooksDir, 'probe.js'), 'process.exit(2);\n');
+    });
+
+    afterEach(() => {
+      fs.rmSync(tmpRoot, { recursive: true, force: true });
+    });
+
+    const run = (cwd: string) =>
+      spawnSync('sh', ['-c', buildHookCommand('probe')], { cwd, encoding: 'utf-8' });
+
+    it('runs the main-checkout hook and propagates its blocking exit code', () => {
+      const r = run(mainRepo);
+      expect(r.status).toBe(2);
+    });
+
+    it('still resolves the MAIN checkout hook from a linked worktree', () => {
+      const wt = path.join(tmpRoot, 'wt');
+      git(mainRepo, 'worktree', 'add', '-q', wt, 'HEAD');
+      // The worktree has no .harness/ of its own — the old --show-toplevel form
+      // would MODULE_NOT_FOUND here and the gate would silently stop running.
+      expect(fs.existsSync(path.join(wt, '.harness'))).toBe(false);
+      const r = run(wt);
+      expect(r.status).toBe(2);
+    });
+
+    it('is a silent no-op (exit 0, no stderr spam) outside any repo', () => {
+      const nonRepo = path.join(tmpRoot, 'not-a-repo');
+      fs.mkdirSync(nonRepo, { recursive: true });
+      const r = run(nonRepo);
+      expect(r.status).toBe(0);
+      expect(r.stderr).not.toMatch(/not a git repository/);
+    });
+
+    it('is a silent no-op when the repo has no .harness hook file', () => {
+      const bare = path.join(tmpRoot, 'bare-repo');
+      fs.mkdirSync(bare, { recursive: true });
+      git(bare, 'init', '-q');
+      const r = run(bare);
+      expect(r.status).toBe(0);
+    });
   });
 });
 
@@ -426,9 +518,7 @@ describe('addHooks', () => {
     const preCommands = settings.hooks.PreToolUse.flatMap((e: any) =>
       e.hooks.map((h: any) => h.command)
     );
-    expect(preCommands).toContain(
-      'node "$(git rev-parse --show-toplevel)/.harness/hooks/sentinel-pre.js"'
-    );
+    expect(preCommands).toContain(buildHookCommand('sentinel-pre'));
   });
 
   it('adds a single hook by name', () => {
