@@ -360,6 +360,9 @@ export async function runValidate(
         | 'strict'
         | 'standard'
         | 'permissive';
+      // design.exclude (and the project-wide analysis.exclude) are loaded
+      // inside runDetectDrift, so every drift entry point honors them uniformly
+      // — no per-caller threading needed here.
       const driftOutput = await runDetectDrift({
         path: cwd,
         mode: 'fast',

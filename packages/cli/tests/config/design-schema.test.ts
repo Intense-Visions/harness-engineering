@@ -28,6 +28,23 @@ describe('DesignConfigSchema', () => {
     expect(result.platforms).toEqual([]);
   });
 
+  it('defaults exclude to empty array', () => {
+    const result = DesignConfigSchema.parse({});
+    expect(result.exclude).toEqual([]);
+  });
+
+  it('accepts a design.exclude glob list', () => {
+    const result = DesignConfigSchema.safeParse({
+      exclude: ['**/tokens-reference.ts', 'packages/backend/**'],
+    });
+    expect(result.success).toBe(true);
+  });
+
+  it('rejects empty-string exclude patterns (mirrors security.exclude min(1))', () => {
+    const result = DesignConfigSchema.safeParse({ exclude: [''] });
+    expect(result.success).toBe(false);
+  });
+
   it('accepts strictness: strict', () => {
     const result = DesignConfigSchema.safeParse({ strictness: 'strict' });
     expect(result.success).toBe(true);

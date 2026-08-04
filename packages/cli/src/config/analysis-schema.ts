@@ -51,3 +51,40 @@ export function loadAnalysisExclude(projectPath: string): string[] {
   if (!parsed.success) return [];
   return parsed.data.exclude;
 }
+
+/**
+ * Schema fragment for the `design.exclude` glob list (drift-linter scoping).
+ * Kept here — alongside `analysis.exclude` — so the drift runner can load it
+ * without importing the full `HarnessConfigSchema` and its transitive deps.
+ * Mirrors the `DesignConfigSchema.exclude` field shape.
+ */
+const DesignExcludeSchema = z.object({
+  exclude: z.array(z.string().min(1)).default([]),
+});
+
+/**
+ * Best-effort load of `design.exclude` from `<projectPath>/harness.config.json`.
+ *
+ * Returns `[]` on any miss (no file, malformed JSON, or a `design` block that
+ * fails validation) so the drift linter keeps working on un-configured
+ * projects. Read inside the drift runner so every caller (validate,
+ * check-design, align, design-pipeline, MCP) honors `design.exclude` uniformly
+ * — the same pattern `loadAnalysisExclude` uses for the project-wide list.
+ */
+export function loadDesignExclude(projectPath: string): string[] {
+  const configPath = path.join(projectPath, 'harness.config.json');
+  if (!fs.existsSync(configPath)) return [];
+
+  let raw: unknown;
+  try {
+    raw = JSON.parse(fs.readFileSync(configPath, 'utf-8'));
+  } catch {
+    return [];
+  }
+
+  const designRaw = (raw as { design?: unknown } | null | undefined)?.design;
+  if (designRaw === undefined || designRaw === null || typeof designRaw !== 'object') return [];
+  const parsed = DesignExcludeSchema.safeParse(designRaw);
+  if (!parsed.success) return [];
+  return parsed.data.exclude;
+}

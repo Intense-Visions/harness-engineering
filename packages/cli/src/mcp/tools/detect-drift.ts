@@ -39,6 +39,13 @@ export const detectDriftDefinition = {
         items: { type: 'string' },
         description: 'Optional explicit file list to scope the scan.',
       },
+      exclude: {
+        type: 'array',
+        items: { type: 'string' },
+        description:
+          'Optional minimatch globs to exclude from the walk (design.exclude); ' +
+          'unioned with the project-wide analysis.exclude. Ignored when `files` is set.',
+      },
       designStrictness: {
         type: 'string',
         enum: ['strict', 'standard', 'permissive'],
