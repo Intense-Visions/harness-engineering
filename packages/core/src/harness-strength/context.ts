@@ -102,28 +102,37 @@ function readGitCoreHooksPath(root: string): string | null {
 }
 
 /**
- * The custom hooks directory when `core.hooksPath` is set, else null (#1012).
- * A repo wiring hooks via `.githooks/` + `core.hooksPath` would otherwise be
- * read only at `.husky/`, silently disabling STRENGTH-002/003 while still
- * scoring `solid`.
+ * The custom hooks directory when `core.hooksPath` is set to a NON-husky
+ * location, else null (#1012). A repo wiring hooks via `.githooks/` +
+ * `core.hooksPath` would otherwise be read only at `.husky/`, silently
+ * disabling STRENGTH-002/003 while still scoring `solid`.
+ *
+ * Husky (v9+) points `core.hooksPath` at its internal `.husky/_` dir, whose
+ * scripts are generated wrappers that exec the REAL hooks in `.husky/`. Anything
+ * inside `.husky/` is therefore treated as husky (handled by the `.husky`
+ * branch), never a custom dir — otherwise the STRENGTH rules would analyze the
+ * wrapper instead of the gate and stop firing on ordinary husky repos.
  */
 function customHooksDir(root: string): string | null {
   const hp = readGitCoreHooksPath(root);
   if (!hp) return null;
-  return isAbsolute(hp) ? hp : join(root, hp);
+  const dir = isAbsolute(hp) ? hp : join(root, hp);
+  const top = relative(root, dir).replaceAll('\\', '/').split('/')[0];
+  if (top === '.husky') return null;
+  return dir;
 }
 
 /**
- * Resolve `ctx.preCommit` from the first existing pre-commit hook across the
- * custom `core.hooksPath` dir, `.husky/`, then git's default `.git/hooks/`
- * (#1012). Previously only `.husky/pre-commit` was read, so a `.githooks/`
- * repo's pre-commit was invisible to the pre-commit-behavior rules.
+ * Resolve `ctx.preCommit` from the first existing pre-commit hook: `.husky/`
+ * (the dominant convention and the pre-#1012 behavior — preferred so husky is
+ * never regressed), then a non-husky `core.hooksPath` dir (#1012), then git's
+ * default `.git/hooks/`. Previously only `.husky/pre-commit` was read, so a
+ * `.githooks/` repo's pre-commit was invisible to the pre-commit-behavior rules.
  */
 function readPreCommit(root: string): string | null {
-  const candidates: string[] = [];
+  const candidates: string[] = [join(root, '.husky', 'pre-commit')];
   const custom = customHooksDir(root);
   if (custom) candidates.push(join(custom, 'pre-commit'));
-  candidates.push(join(root, '.husky', 'pre-commit'));
   candidates.push(join(root, '.git', 'hooks', 'pre-commit'));
   for (const c of candidates) {
     const text = readTextOrNull(c);

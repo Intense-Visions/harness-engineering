@@ -203,4 +203,27 @@ describe('buildProjectContext (core.hooksPath / .githooks)', () => {
     const ctx = buildProjectContext(root, 'adopter');
     expect(ctx.preCommit).toContain('harness ci check');
   });
+
+  it('does NOT let the .husky/_ wrapper shadow the real .husky/pre-commit', () => {
+    // Husky v9 sets core.hooksPath=.husky/_ and generates wrappers there that
+    // exec the real hooks in .husky/. Reading the wrapper instead of the real
+    // hook made STRENGTH-002/003 stop firing on every husky repo (regression
+    // caught by the live-repo dogfood). The real .husky/pre-commit must win.
+    mkdirSync(join(root, '.git'), { recursive: true });
+    writeFileSync(join(root, '.git', 'config'), '[core]\n\thooksPath = .husky/_\n');
+    mkdirSync(join(root, '.husky', '_'), { recursive: true });
+    // The husky-generated wrapper — NOT the gate we want to analyze.
+    writeFileSync(join(root, '.husky', '_', 'pre-commit'), '#!/bin/sh\n. "$(dirname "$0")/h"\n');
+    // The real user gate.
+    writeFileSync(
+      join(root, '.husky', 'pre-commit'),
+      '#!/bin/sh\nif ! npx harness ci check --skip docs; then\n  exit 1\nfi\n'
+    );
+
+    const ctx = buildProjectContext(root, 'adopter');
+    expect(ctx.preCommit).toContain('harness ci check');
+    expect(ctx.preCommit).not.toContain('dirname');
+    // The internal wrapper dir must not be surfaced as a hook file.
+    expect(ctx.hookFiles.every((h) => !h.path.includes('.husky/_'))).toBe(true);
+  });
 });
