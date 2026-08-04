@@ -8,7 +8,7 @@ fix(cli): generated hook commands resolve the main checkout, not the worktree cw
 commands of the form `node "$(git rev-parse --show-toplevel)/.harness/hooks/<name>.js"`.
 That form has two production failure modes (seen in real repos, 2026-07-31):
 
-1. **Linked worktree.** `--show-toplevel` returns the *worktree* root, where the
+1. **Linked worktree.** `--show-toplevel` returns the _worktree_ root, where the
    machine-local, gitignored `.harness/` does not exist → `MODULE_NOT_FOUND` on
    every tool call. Because the failure is non-blocking, the verify-bypass
    blocker and quality gate **silently stop protecting worktree sessions** —
