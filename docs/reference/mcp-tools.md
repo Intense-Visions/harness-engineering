@@ -223,6 +223,7 @@ Detect design-system drift in source: hardcoded values where tokens exist (token
 - `path` (string, required) — Project root path
 - `mode` (string, optional) — Both modes equivalent in v1 (no slow patterns yet).
 - `files` (array, optional) — Optional explicit file list to scope the scan.
+- `exclude` (array, optional) — Optional minimatch globs to exclude from the walk (design.exclude); unioned with the project-wide analysis.exclude. Ignored when `files` is set.
 - `designStrictness` (string, optional) — Overrides design.strictness from harness.config.json.
 - `rules` (object, optional) — Per-rule enable flags.
 

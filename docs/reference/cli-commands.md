@@ -1346,9 +1346,13 @@ Search for community skills on the @harness-skills registry
 - `--trigger` — Filter by trigger type (e.g., manual, automatic)
 - `--registry` — Use a custom npm registry URL
 
-### `harness skill validate`
+### `harness skill validate [skill-name]`
 
-Validate all skill.yaml files and SKILL.md structure
+Validate skill.yaml files and SKILL.md structure
+
+**Arguments:**
+
+- `skill-name` (optional) — Validate only this skill (fails if it is not found)
 
 ## Snapshot Commands
 
