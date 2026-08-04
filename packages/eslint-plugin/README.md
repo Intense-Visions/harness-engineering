@@ -92,11 +92,12 @@ Create `harness.config.json` in your project root:
 
 ### Cross-Platform Rules
 
-| Rule                          | Description                                   | Default |
-| ----------------------------- | --------------------------------------------- | ------- |
-| `no-unix-shell-command`       | Disallow Unix-specific shell commands         | warn    |
-| `no-hardcoded-path-separator` | Disallow hardcoded path separators            | warn    |
-| `require-path-normalization`  | Require path normalization for cross-platform | warn    |
+| Rule                          | Description                                                          | Default |
+| ----------------------------- | -------------------------------------------------------------------- | ------- |
+| `no-unix-shell-command`       | Disallow Unix-specific shell commands                                | warn    |
+| `prefer-execfile-over-exec`   | Prefer `execFile*` (arg array) over string-command `exec`/`execSync` | warn    |
+| `no-hardcoded-path-separator` | Disallow hardcoded path separators                                   | warn    |
+| `require-path-normalization`  | Require path normalization for cross-platform                        | warn    |
 
 ## Configs
 

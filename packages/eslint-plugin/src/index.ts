@@ -36,6 +36,7 @@ const plugin: TSESLint.FlatConfig.Plugin = {
         '@harness-engineering/no-disabled-tests': 'error',
         '@harness-engineering/no-hardcoded-test-count': 'error',
         '@harness-engineering/no-spread-in-variadic': 'error',
+        '@harness-engineering/prefer-execfile-over-exec': 'warn',
       },
     },
     strict: {
@@ -61,6 +62,7 @@ const plugin: TSESLint.FlatConfig.Plugin = {
         '@harness-engineering/no-skipped-tests': 'error',
         '@harness-engineering/no-disabled-tests': 'error',
         '@harness-engineering/no-spread-in-variadic': 'error',
+        '@harness-engineering/prefer-execfile-over-exec': 'error',
       },
     },
   },
