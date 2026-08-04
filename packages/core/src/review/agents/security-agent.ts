@@ -29,30 +29,67 @@ const SECRET_PATTERNS = [
  *
  * The SQL keyword must sit **inside a quoted string literal or template literal**
  * that is actually being concatenated or interpolated — not merely appear as a
- * bare token somewhere on the line. A bare-keyword pattern (the previous
+ * bare token somewhere on the line. A bare-keyword pattern (the original
  * `KEYWORD … + word`) matched arithmetic-style prose such as the markdown heading
  * `UPDATE (medium + large tiers)`, producing a `critical` CWE-89 false positive
- * that hard-blocked unrelated PRs (issue #657). Requiring a string boundary
- * adjacent to the concatenation keeps the genuine
- * `"SELECT … WHERE id = " + userId` injection shape firing while ignoring prose.
+ * that hard-blocked unrelated PRs (issue #657).
+ *
+ * The string-boundary fix for #657 was not enough on its own, because the match
+ * is **case-insensitive**: an ordinary English sentence inside a concatenated
+ * string literal still fired whenever it used a SQL keyword as a normal word.
+ * A `commander` help string —
+ * `'never create a ticket for a row lacking an externalId … ' +` — was reported
+ * as a critical CWE-89 SQL injection purely because "create" whole-word-matches
+ * `CREATE` and the literal is followed by `+`. (Whole-word matching already
+ * spared inflected forms like "created"/"updated"; the bare stem was the hole.)
+ *
+ * So a keyword alone is not evidence of SQL. Real queries carry an **ordered
+ * statement shape** (`SELECT … FROM`, `INSERT INTO`, `UPDATE … SET`,
+ * `DELETE FROM`, `CREATE/ALTER/DROP TABLE`, `UNION SELECT`), whereas prose
+ * essentially never does. The shape vocabulary deliberately mirrors
+ * `SQL_QUERY_SHAPE` in `finding-integrity.ts` so that every finding this
+ * detector emits carries evidence the integrity invariant accepts — an
+ * unordered keyword-pair match here would produce findings (e.g. bare
+ * `SELECT … WHERE` with no `FROM`) that Phase 5.75 immediately downgrades.
  *
  * Alternatives:
- *  1. A quoted string literal containing a SQL keyword, immediately followed by
- *     `+` concatenation (`"SELECT … " + userId`, `'DELETE FROM t WHERE id = ' + id`).
- *  2. A template literal that both contains a SQL keyword and an `${…}`
- *     interpolation, in either order.
+ *  1. A quoted string literal containing an ordered statement shape,
+ *     immediately followed by `+` concatenation
+ *     (`"SELECT … FROM t WHERE id = " + userId`, `'DELETE FROM t WHERE id = ' + id`).
+ *  2. A template literal containing an `${…}` interpolation and an ordered
+ *     statement shape. No closing backtick is required, so the opening line of
+ *     a multi-line template query still fires.
+ *
+ * Known limitations (documented, pinned by must-miss tests, and caught by the
+ * LLM review tier above this floor — a heuristic floor is not a proof of absence):
+ *  - Nested quotes: the `[^"']` class cannot span the opposite quote character,
+ *    so `"INSERT INTO t VALUES ('" + name + "')"` is not matched (pre-existing).
+ *  - Split literals: a query whose shape spans multiple concatenated literals
+ *    (`"SELECT " + cols + " FROM users"`) or multiple lines does not fire.
+ *    Loosening the shape to line level would resurrect the prose class this
+ *    change exists to kill (concatenated CLI help strings).
+ *  - Query fragments: a lone clause in a template (`` `WHERE id = ${id}` ``)
+ *    no longer fires; the integrity invariant downgraded those anyway unless a
+ *    query API appeared on the same line.
  */
-const SQL_KEYWORDS = 'SELECT|INSERT|UPDATE|DELETE|DROP|CREATE|ALTER';
-const SQL_TEMPLATE_KEYWORDS = 'SELECT|INSERT|UPDATE|DELETE|WHERE';
+const sqlStatementShapes = (gap: string): string =>
+  [
+    `\\bSELECT\\b${gap}\\bFROM\\b`,
+    `\\bINSERT\\s+INTO\\b`,
+    `\\bUPDATE\\b${gap}\\bSET\\b`,
+    `\\bDELETE\\s+FROM\\b`,
+    `\\bDROP\\s+(?:TABLE|DATABASE|SCHEMA|INDEX|VIEW)\\b`,
+    `\\bALTER\\s+TABLE\\b`,
+    `\\bCREATE\\s+(?:TABLE|DATABASE|SCHEMA|INDEX|VIEW|TEMP)\\b`,
+    `\\bUNION\\s+(?:ALL\\s+)?SELECT\\b`,
+  ].join('|');
 const SQL_CONCAT_PATTERN = new RegExp(
-  // 1. quoted string literal containing a SQL keyword, then a `+` concatenation
-  `["'][^"']*\\b(?:${SQL_KEYWORDS})\\b[^"']*["']\\s*\\+` +
+  // 1. quoted string literal holding an ordered statement shape, then a `+`
+  `["'][^"']*(?:${sqlStatementShapes('[^"\']*?')})[^"']*["']\\s*\\+` +
     '|' +
-    // 2a. template literal: `${…}` interpolation followed by a SQL keyword
-    `\`[^\`]*\\$\\{[^}]*\\}[^\`]*\\b(?:${SQL_TEMPLATE_KEYWORDS})\\b` +
-    '|' +
-    // 2b. template literal: a SQL keyword followed by an `${…}` interpolation
-    `\`[^\`]*\\b(?:${SQL_TEMPLATE_KEYWORDS})\\b[^\`]*\\$\\{`,
+    // 2. template literal holding an interpolation and an ordered statement
+    //    shape (closing backtick optional: multi-line queries open here)
+    `\`(?=[^\`]*\\$\\{)[^\`]*(?:${sqlStatementShapes('[^`]*?')})`,
   'i'
 );
 
@@ -66,9 +103,96 @@ const SHELL_EXEC_PATTERN = /(?:exec|execSync|spawn|spawnSync)\s*\(\s*`[^`]*\$\{/
  */
 const CODE_FILE_EXTENSIONS = ['.ts', '.tsx', '.js', '.jsx', '.mjs', '.cjs', '.mts', '.cts'];
 
-/** True when `path` is a code file the source-pattern heuristics should scan. */
-function isCodeFile(path: string): boolean {
+/**
+ * Test files, which the source-pattern detectors deliberately skip.
+ *
+ * Same reasoning as the docs/config exclusion above, one step further: a test
+ * that proves a detector FIRES must contain the vulnerable shape as **data**.
+ * This file's own suite necessarily holds concatenated `SELECT … FROM` query
+ * strings and `sk-…`-style fixture keys — scanning them reports `critical`
+ * findings for strings that are the test's whole point, and any PR touching a
+ * security test self-flags.
+ *
+ * The trade-off is explicit and bounded: test code is not part of the shipped
+ * attack surface (it is not published, not deployed, and takes no untrusted
+ * input), so a concatenated query or a fake key inside a `*.test.ts` fixture is
+ * not a vulnerability. Real sinks live in `src/`, which is still scanned. This
+ * narrows PRECISION-losing noise, not coverage of production code.
+ */
+const TEST_FILE_MARKERS = ['.test.', '.spec.', '/__tests__/', '/__fixtures__/'];
+
+/**
+ * True when `path` is test code, whose fixtures hold vulnerable shapes as data.
+ *
+ * The markers are substrings, so this is only meaningful for paths that already
+ * passed `hasCodeExtension` — a bare substring check would also swallow
+ * `.env.test.local` or `config.test.json`, which are live config files whose
+ * secrets are exactly what the secrets detector exists to catch.
+ */
+function isTestFile(path: string): boolean {
+  const normalized = path.replace(/\\/g, '/');
+  return TEST_FILE_MARKERS.some((marker) => normalized.includes(marker));
+}
+
+/** True when `path` has a JS/TS source extension. */
+function hasCodeExtension(path: string): boolean {
   return CODE_FILE_EXTENSIONS.some((ext) => path.endsWith(ext));
+}
+
+/**
+ * True when `path` is non-test source code the source-pattern heuristics scan.
+ *
+ * Named for what it means, not what it checks: the sibling `bug-agent.ts` has
+ * an `isCodeFile` helper with extension-only semantics, and reusing that name
+ * here (with a test-file exclusion baked in) invited silent divergence when
+ * detector patterns get copied between the agent files.
+ */
+function isScannableSourceFile(path: string): boolean {
+  return hasCodeExtension(path) && !isTestFile(path);
+}
+
+/**
+ * True when `line` is comment-only — nothing executable can be on it.
+ *
+ * A SQL string inside a `//` line comment or a `*` JSDoc body is documentation —
+ * it cannot reach a database. The rule's own JSDoc, which documents the genuine
+ * injection shape it detects (`"SELECT … FROM t WHERE id = " + userId`), was
+ * itself reported as a `critical` CWE-89 finding.
+ *
+ * A comment PREFIX is not enough: an eval call behind a `/**\/` or `*\/`
+ * prefix (the line closing a block comment), and generator members
+ * (`*run() { … }`), all begin with comment-ish tokens yet execute. So a line
+ * counts as a comment only when
+ * (a) it opens with `//`, or (b) it opens with `/*`, `*\/`, or a JSDoc-body `*`
+ * followed by whitespace/EOL, AND nothing but whitespace follows the block
+ * close (if any) on the same line.
+ *
+ * Residual over-skip, deliberately accepted: a rare expression-continuation
+ * line shaped like `* factor;` reads as a JSDoc body and is skipped. That can
+ * in principle under-scan, so the guard is a strong floor, not a guarantee —
+ * the LLM tier scans whole files, comments included.
+ */
+function isCommentLine(line: string): boolean {
+  const t = line.trimStart();
+  if (t.startsWith('//')) return true;
+  const opensComment = t.startsWith('/*') || t.startsWith('*/') || /^\*(?:\s|$)/.test(t);
+  if (!opensComment) return false;
+  const close = t.indexOf('*/', t.startsWith('/*') ? 2 : 0);
+  if (close === -1) return true; // the whole line stays inside the comment
+  return t.slice(close + 2).trim() === ''; // code after the close ⇒ executable
+}
+
+/**
+ * Strip a trailing `//` line comment so its text is not scanned as code.
+ *
+ * The naive `indexOf('//')` truncated at the `//` inside `https://`-style URLs,
+ * silently hiding anything after a URL on the same line from the secrets
+ * detector (`const url = "https://…"; const password = "…"` never fired).
+ * A `//` preceded by `:` is a protocol separator, not a comment opener.
+ */
+function stripTrailingLineComment(line: string): string {
+  const m = /(?<!:)\/\//.exec(line);
+  return m ? line.slice(0, m.index) : line;
 }
 
 function makeEvalFinding(file: string, lineNum: number, line: string): ReviewFinding {
@@ -175,24 +299,54 @@ function makeCommandFinding(file: string, lineNum: number, line: string): Review
 function detectEvalUsage(bundle: ContextBundle): ReviewFinding[] {
   const findings: ReviewFinding[] = [];
   for (const cf of bundle.changedFiles) {
-    if (!isCodeFile(cf.path)) continue;
+    if (!isScannableSourceFile(cf.path)) continue;
     const lines = cf.content.split('\n');
     for (let i = 0; i < lines.length; i++) {
       const line = lines[i]!;
-      if (!EVAL_PATTERN.test(line)) continue;
+      if (isCommentLine(line)) continue;
+      if (!EVAL_PATTERN.test(stripTrailingLineComment(line))) continue;
       findings.push(makeEvalFinding(cf.path, i + 1, line));
     }
   }
   return findings;
 }
 
+/**
+ * Secret detection deliberately keeps a WIDER file scope than the three
+ * source-pattern detectors: it does not gate on `isCodeFile`. A hardcoded key in
+ * a `.env.example`, a shell script or any other non-`.ts` file is a genuine leak,
+ * so restricting this detector to `.ts`/`.js` would lose real coverage rather
+ * than noise. The asymmetry is the point — eval, backtick-exec and SQL
+ * concatenation are code constructs; a leaked credential is not.
+ *
+ * Scope caveat, measured rather than assumed: `SECRET_PATTERNS` key off an
+ * assignment shape (`<name> = "<value>"`), so a dotenv/shell line IS matched
+ * while a YAML mapping (`apiKey: "..."`) is NOT. The wider file scope is
+ * therefore real but narrower than "all config files" — do not read this comment
+ * as a claim that YAML secrets are covered. Tests pin both directions.
+ *
+ * What it does share with them is the two precision guards — test fixtures hold
+ * fake keys as data, and a documented example key in a JSDoc body is not a
+ * secret — but ONLY for files with a code extension. `.test.`/`.spec.` are
+ * code-naming conventions and `//`/`*` are JS comment syntax; applied to the
+ * detector's wider file scope they would skip `.env.test.local` (live staging
+ * creds by convention) and a key pasted into a Markdown `*` bullet.
+ *
+ * Residual, deliberately accepted: a REAL credential pasted into a `*.test.ts`
+ * is skipped along with the fixtures. The git-history exposure is identical to
+ * one in `src/`, but there is no mechanical way to tell it from the fake keys
+ * that security tests must contain — that judgment belongs to the LLM tier.
+ */
 function detectHardcodedSecrets(bundle: ContextBundle): ReviewFinding[] {
   const findings: ReviewFinding[] = [];
   for (const cf of bundle.changedFiles) {
+    const codeFile = hasCodeExtension(cf.path);
+    if (codeFile && isTestFile(cf.path)) continue;
     const lines = cf.content.split('\n');
     for (let i = 0; i < lines.length; i++) {
       const line = lines[i]!;
-      const codePart = line.includes('//') ? line.slice(0, line.indexOf('//')) : line;
+      if (codeFile && isCommentLine(line)) continue;
+      const codePart = codeFile ? stripTrailingLineComment(line) : line;
       const matched = SECRET_PATTERNS.some((p) => p.test(codePart));
       if (!matched) continue;
       findings.push(makeSecretFinding(cf.path, i + 1));
@@ -204,11 +358,12 @@ function detectHardcodedSecrets(bundle: ContextBundle): ReviewFinding[] {
 function detectSqlInjection(bundle: ContextBundle): ReviewFinding[] {
   const findings: ReviewFinding[] = [];
   for (const cf of bundle.changedFiles) {
-    if (!isCodeFile(cf.path)) continue;
+    if (!isScannableSourceFile(cf.path)) continue;
     const lines = cf.content.split('\n');
     for (let i = 0; i < lines.length; i++) {
       const line = lines[i]!;
-      if (!SQL_CONCAT_PATTERN.test(line)) continue;
+      if (isCommentLine(line)) continue;
+      if (!SQL_CONCAT_PATTERN.test(stripTrailingLineComment(line))) continue;
       findings.push(makeSqlFinding(cf.path, i + 1, line));
     }
   }
@@ -218,11 +373,12 @@ function detectSqlInjection(bundle: ContextBundle): ReviewFinding[] {
 function detectCommandInjection(bundle: ContextBundle): ReviewFinding[] {
   const findings: ReviewFinding[] = [];
   for (const cf of bundle.changedFiles) {
-    if (!isCodeFile(cf.path)) continue;
+    if (!isScannableSourceFile(cf.path)) continue;
     const lines = cf.content.split('\n');
     for (let i = 0; i < lines.length; i++) {
       const line = lines[i]!;
-      if (!SHELL_EXEC_PATTERN.test(line)) continue;
+      if (isCommentLine(line)) continue;
+      if (!SHELL_EXEC_PATTERN.test(stripTrailingLineComment(line))) continue;
       findings.push(makeCommandFinding(cf.path, i + 1, line));
     }
   }
