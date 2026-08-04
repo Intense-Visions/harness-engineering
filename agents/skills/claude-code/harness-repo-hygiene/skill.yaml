@@ -1,0 +1,50 @@
+name: harness-repo-hygiene
+version: "1.0.0"
+description: Fleet-wide branch and worktree pruning — sync, classify against PR state, audit for unpushed work, then prune
+stability: static
+cognitive_mode: meticulous-verifier
+triggers:
+  - manual
+platforms:
+  - claude-code
+  - gemini-cli
+  - cursor
+  - codex
+tools:
+  - Bash
+  - Read
+  - Glob
+cli:
+  command: harness skill run harness-repo-hygiene
+  args:
+    - name: path
+      description: Project root path
+      required: false
+mcp:
+  tool: run_skill
+  input:
+    skill: harness-repo-hygiene
+    path: string
+type: rigid
+tier: 3
+state:
+  persistent: false
+  files: []
+keywords:
+  - branch-cleanup
+  - worktree
+  - prune
+  - stale-branches
+  - git-hygiene
+  - gone-branches
+  - repo-maintenance
+  - branch-deletion
+stack_signals:
+  - git
+  - github
+depends_on: []
+related_skills:
+  - harness-git-workflow
+metadata:
+  author: Bri Stevenski
+  upstream: "https://github.com/Intense-Visions/harness-engineering"
