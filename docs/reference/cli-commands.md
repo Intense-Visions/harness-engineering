@@ -352,16 +352,6 @@ Run knowledge extraction, drift detection, and gap analysis
 - `--coverage` — Display per-domain coverage report
 - `--check-contradictions` — Display cross-source contradiction report
 
-### `harness mcp`
-
-Start the MCP (Model Context Protocol) server on stdio
-
-**Options:**
-
-- `--tools` — Only register the specified tools (used by Cursor integration)
-- `--tier` — Load a preset tool tier instead of all tools
-- `--budget-tokens` — Auto-select tier to fit this baseline token budget
-
 ### `harness naming-craft`
 
 LLM-judgment critique of identifier names (variables, functions, types, files). First craft-pipeline ceiling skill; uses curated rubric catalog from Martin/Beck/Karlton.
@@ -926,6 +916,19 @@ Show last N persisted runs for a task (from .harness/maintenance/[id]/outputs/)
 - `--json` — Emit machine-readable JSON
 - `--path` — Project root path (default: ".")
 
+## Mcp Commands
+
+Start the MCP (Model Context Protocol) server on stdio
+
+### `harness mcp list-capabilities`
+
+Audit each MCP tool: read/write/exec scope, network access, and trust tag
+
+**Options:**
+
+- `--by-permission` — Group tools by read/write/exec/network scope
+- `--json` — Emit machine-readable JSON
+
 ## Mcp-guard Commands
 
 Pre-launch OSV malware guard for MCP/npx packages
@@ -1346,9 +1349,13 @@ Search for community skills on the @harness-skills registry
 - `--trigger` — Filter by trigger type (e.g., manual, automatic)
 - `--registry` — Use a custom npm registry URL
 
-### `harness skill validate`
+### `harness skill validate [skill-name]`
 
-Validate all skill.yaml files and SKILL.md structure
+Validate skill.yaml files and SKILL.md structure
+
+**Arguments:**
+
+- `skill-name` (optional) — Validate only this skill (fails if it is not found)
 
 ## Snapshot Commands
 
