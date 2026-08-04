@@ -1,56 +1,64 @@
 /**
- * Per-tool capability derivation for the `harness mcp list-capabilities`
+ * Per-tool capability resolution for the `harness mcp list-capabilities`
  * adopter-audit command.
  *
- * IMPORTANT — this is a HEURISTIC, not an authoritative declaration.
+ * PRIMARY SOURCE — the authoritative, evidence-based per-tool `capability`
+ * DECLARATION carried on each `ToolDefinition` (authored in
+ * `./tool-capability-declarations.ts`, merged onto the registry in
+ * `server.ts`). Declared tools report their real read/write/exec scopes and
+ * network flag, derived from each tool's ACTUAL behavior — not its name.
  *
- * The MCP registry does not (yet) carry a per-tool capability declaration;
- * the only per-tool metadata that exists today is `name`, `description`, and
- * the `trustedOutput` trust flag (see `./tool-types.ts`). Roadmap #558 adds a
- * real per-tool capability field — until then this module derives a
- * conservative read/write/exec scope purely from the tool NAME's verb prefix.
+ * FALLBACK — for any tool WITHOUT a declaration (e.g. a tool added later that
+ * has not yet been annotated), scope is inferred from the tool NAME's verb
+ * prefix and network from a small grounded allow-list. This heuristic is
+ * deliberately kept and clearly labeled (`source: 'heuristic'`): it is
+ * deterministic, ships with the compiled artifact, and keeps the command
+ * useful for adopters even before a new tool is declared. Because every
+ * currently-registered tool IS declared (enforced by the coverage test), the
+ * fallback should be rare-to-never in practice.
  *
- * Deriving from the name (rather than scanning each handler's source for
- * `fs`-write / `child_process` / `fetch` imports) is a deliberate choice: the
- * command must work for ADOPTERS running the published CLI, where only the
- * compiled registry is available at runtime — the TypeScript source is not.
- * The naming-convention signal is deterministic, testable, and travels with
- * the shipped artifact.
- *
- * Known limitations (documented in docs/changes/mcp-list-capabilities/proposal.md):
- *  - Scope can UNDER-report: a few `read`-named tools shell out internally
- *    (e.g. `assess_project`, `design_craft`) but are classified `read`.
- *  - The scope is the single highest-privilege axis inferred from the verb,
- *    not an exhaustive permission set.
- * The authoritative fix is the per-tool capability declaration of #558.
+ * The heuristic can UNDER-report — a name like `run_ci_checks` reads as `exec`
+ * but actually runs in-process; a `run_skill` reads as `exec` but only returns
+ * SKILL.md. Those corrections are exactly what the declaration layer fixes; the
+ * fallback exists only so an un-declared tool still gets a conservative answer.
  */
-import type { ToolDefinition } from './tool-types.js';
+import type { ToolDefinition, ToolScope } from './tool-types.js';
 
-/** Highest-privilege axis inferred for a tool. */
-export type ToolScope = 'read' | 'write' | 'exec';
+export type { ToolScope };
 
 /** Trust tag surfaced from the existing `trustedOutput` flag. */
 export type ToolTrust = 'trusted' | 'untrusted';
 
+/** Provenance of a capability record — declared data vs. name heuristic. */
+export type CapabilitySource = 'declared' | 'heuristic';
+
 export interface ToolCapability {
   name: string;
-  /** Heuristic scope derived from the tool-name verb prefix. */
-  scope: ToolScope;
-  /** True when the tool makes outbound network calls (grounded allow-list). */
+  /**
+   * Privilege axes the tool exercises. From the tool's DECLARATION when present
+   * (multiple allowed — a tool can read AND write); otherwise a single-element
+   * array from the name heuristic. Sorted read < write < exec, deduped.
+   */
+  scopes: ToolScope[];
+  /** True when the tool makes outbound network calls. */
   network: boolean;
   /** Trust tag from `trustedOutput` — `trusted` skips MCP output scanning. */
   trust: ToolTrust;
+  /** Whether scopes/network came from the declaration or the name heuristic. */
+  source: CapabilitySource;
 }
 
 /**
  * Verb prefixes that indicate the tool spawns subprocesses, dispatches
  * agents, or triggers remote jobs. Checked before write prefixes.
+ * FALLBACK ONLY — used when a tool carries no capability declaration.
  */
 const EXEC_PREFIXES: readonly string[] = ['run_', 'dispatch_', 'trigger_'];
 
 /**
  * Verb prefixes that indicate the tool mutates files, local state, the graph,
  * the roadmap, or on-disk locks.
+ * FALLBACK ONLY — used when a tool carries no capability declaration.
  */
 const WRITE_PREFIXES: readonly string[] = [
   'write_',
@@ -71,23 +79,31 @@ const WRITE_PREFIXES: readonly string[] = [
 ];
 
 /**
- * Tools that make outbound network calls. Grounded, not guessed: an import
- * scan of `packages/cli/src/mcp/tools/` shows only the Gateway API bridge
- * (`gateway-tools.ts`) and the webhook subscription (`webhook-tools.ts`) reach
- * the network. Kept as an explicit constant because — unlike scope — network
- * access cannot be inferred from the tool name (`list_gateway_tokens` reads
- * like a local list but is a remote call). New network-touching tools must be
- * added here; #558's capability declaration removes the need.
+ * Network-touching tools for the FALLBACK path only. The authoritative network
+ * flag now lives in each tool's declaration (`network: true`); this list is a
+ * conservative default for a tool that has not yet been declared. Kept because
+ * network access cannot be inferred from a tool name.
  */
 export const NETWORK_TOOL_NAMES: readonly string[] = [
   'trigger_maintenance_job',
   'list_gateway_tokens',
   'subscribe_webhook',
+  'manage_roadmap',
+  'run_code_review',
 ];
+
+/** Canonical ordering for scopes (least → most privileged) for stable output. */
+const SCOPE_RANK: Record<ToolScope, number> = { read: 0, write: 1, exec: 2 };
+
+/** Deduplicate + sort scopes into canonical read < write < exec order. */
+function normalizeScopes(scopes: readonly ToolScope[]): ToolScope[] {
+  return [...new Set(scopes)].sort((a, b) => SCOPE_RANK[a] - SCOPE_RANK[b]);
+}
 
 /**
  * Derive the heuristic scope for a tool name. Default is the least-privilege
  * `read`; escalates only on a matching verb prefix. Exec wins over write.
+ * FALLBACK ONLY.
  */
 export function deriveScope(name: string): ToolScope {
   if (EXEC_PREFIXES.some((prefix) => name.startsWith(prefix))) return 'exec';
@@ -95,18 +111,33 @@ export function deriveScope(name: string): ToolScope {
   return 'read';
 }
 
-/** Derive the full capability record for a single tool definition. */
+/**
+ * Resolve the full capability record for a single tool definition. Prefers the
+ * authored `capability` DECLARATION; falls back to the name heuristic only when
+ * a tool carries no declaration.
+ */
 export function deriveToolCapability(def: ToolDefinition): ToolCapability {
+  const trust: ToolTrust = def.trustedOutput === true ? 'trusted' : 'untrusted';
+  if (def.capability) {
+    return {
+      name: def.name,
+      scopes: normalizeScopes(def.capability.scopes),
+      network: def.capability.network === true,
+      trust,
+      source: 'declared',
+    };
+  }
   return {
     name: def.name,
-    scope: deriveScope(def.name),
+    scopes: [deriveScope(def.name)],
     network: NETWORK_TOOL_NAMES.includes(def.name),
-    trust: def.trustedOutput === true ? 'trusted' : 'untrusted',
+    trust,
+    source: 'heuristic',
   };
 }
 
 /**
- * Derive capabilities for every tool, sorted by name for deterministic output.
+ * Resolve capabilities for every tool, sorted by name for deterministic output.
  */
 export function deriveToolCapabilities(definitions: readonly ToolDefinition[]): ToolCapability[] {
   return definitions.map(deriveToolCapability).sort((a, b) => a.name.localeCompare(b.name));
