@@ -4,7 +4,7 @@ import * as path from 'node:path';
 import { HOOK_SCRIPTS } from '../../hooks/profiles';
 import { supportFilesFor } from '../../hooks/support-files';
 import { logger } from '../../output/logger';
-import { resolveHookSourceDir } from './init';
+import { buildHookCommand, resolveHookSourceDir } from './init';
 
 const ALIASES: Record<string, string[]> = {
   sentinel: ['sentinel-pre', 'sentinel-post'],
@@ -25,7 +25,7 @@ function readJson(p: string): JsonObject {
 
 function registerHook(s: JsonObject, ev: string, matcher: string, name: string): void {
   if (!s.hooks[ev]) s.hooks[ev] = [];
-  const cmd = `node "$(git rev-parse --show-toplevel)/.harness/hooks/${name}.js"`;
+  const cmd = buildHookCommand(name);
   if (!s.hooks[ev].some((e: JsonObject) => e.hooks?.some((h: JsonObject) => h.command === cmd))) {
     s.hooks[ev].push({ matcher, hooks: [{ type: 'command', command: cmd }] });
   }
