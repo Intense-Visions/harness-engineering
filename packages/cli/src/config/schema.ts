@@ -308,10 +308,15 @@ export const DesignConfigSchema = z
     /** Brief description of the intended aesthetic direction */
     aestheticIntent: z.string().optional(),
     /**
-     * Glob patterns (minimatch) excluded from the design-token drift linter,
-     * stacked on top of the project-wide `analysis.exclude`. Scopes DRIFT-*
-     * findings out of token-palette sources, tests, and non-UI code where hex
-     * literals aren't design tokens. Mirrors the `security.exclude` shape.
+     * Glob patterns excluded from the design-token drift linter, stacked on top
+     * of the project-wide `analysis.exclude`. Scopes DRIFT-* findings out of
+     * token-palette sources, tests, and non-UI code where hex literals aren't
+     * design tokens. Mirrors the `security.exclude` shape.
+     *
+     * Matched with `minimatch({ matchBase: true })` against each file's
+     * project-relative POSIX path: a bare basename (`*.tokens.ts`) matches at
+     * any depth, while a slash-bearing pattern anchors at the project root
+     * (`packages/backend/**`, not `backend/**`).
      */
     exclude: z.array(z.string().min(1)).default([]),
     /**

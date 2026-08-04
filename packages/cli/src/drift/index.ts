@@ -17,7 +17,7 @@ import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { minimatch } from 'minimatch';
 import { sanitizePath } from '../mcp/utils/sanitize-path.js';
-import { loadAnalysisExclude } from '../config/analysis-schema.js';
+import { loadAnalysisExclude, loadDesignExclude } from '../config/analysis-schema.js';
 import type { DriftFinding, DriftSeverity, DriftStrictness } from './findings/finding.js';
 import { loadTokenSet } from './resolvers/tokens.js';
 import { loadComponentRegistry } from './resolvers/component-registry.js';
@@ -36,9 +36,11 @@ export interface DetectDriftInput {
     primitiveAdoption?: boolean;
   };
   /**
-   * Design-specific glob patterns (minimatch) to exclude from the walk,
-   * sourced from `design.exclude`. Unioned with the project-wide
-   * `analysis.exclude`. Ignored when an explicit `files` list is provided.
+   * Optional override for the design-specific exclude globs (minimatch). When
+   * omitted, the runner loads `design.exclude` from harness.config.json; when
+   * provided (e.g. from the detect_drift MCP tool), it replaces that config
+   * read. Either way it is unioned with the project-wide `analysis.exclude`
+   * and ignored when an explicit `files` list is provided.
    */
   exclude?: string[];
 }
@@ -79,9 +81,13 @@ function resolveDriftConfig(input: DetectDriftInput): ResolvedDriftConfig {
   const projectRoot = sanitizePath(input.path);
   const tokenBypassEnabled = input.rules?.tokenBypass !== false;
   const primitiveAdoptionEnabled = input.rules?.primitiveAdoption !== false;
-  // design.exclude (caller-supplied) stacked on top of the project-wide
-  // analysis.exclude — mirrors security.ts's exclude union.
-  const excludePatterns = [...(input.exclude ?? []), ...loadAnalysisExclude(projectRoot)];
+  // design.exclude stacked on top of the project-wide analysis.exclude —
+  // mirrors security.ts's exclude union. Both are loaded from config INSIDE the
+  // runner so every caller (validate, check-design, align, design-pipeline, MCP)
+  // honors them uniformly. An explicit `input.exclude` overrides the config read
+  // (used by the detect_drift MCP tool); pass [] to force "no design excludes".
+  const designExclude = input.exclude ?? loadDesignExclude(projectRoot);
+  const excludePatterns = [...designExclude, ...loadAnalysisExclude(projectRoot)];
   return {
     projectRoot,
     mode: input.mode ?? 'fast',

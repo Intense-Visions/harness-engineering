@@ -70,18 +70,26 @@ combines `security.exclude` + `analysis.exclude`.
 exclude: z.array(z.string().min(1)).default([]),
 ```
 
+**`packages/cli/src/config/analysis-schema.ts`** — add `loadDesignExclude()`
+next to `loadAnalysisExclude()`: an import-light, best-effort read of
+`design.exclude` from `harness.config.json`.
+
 **`packages/cli/src/drift/index.ts`**:
 
-- Add `exclude?: string[]` to `DetectDriftInput` (design-specific patterns).
+- Add `exclude?: string[]` to `DetectDriftInput` — an **override** for the
+  config read (used by the MCP tool), not the sole source.
 - Add `excludePatterns: string[]` to `ResolvedDriftConfig`; in
-  `resolveDriftConfig`, union `input.exclude ?? []` with
-  `loadAnalysisExclude(projectRoot)` (imported from `../config/analysis-schema.js`).
+  `resolveDriftConfig`, compute `input.exclude ?? loadDesignExclude(projectRoot)`
+  and union it with `loadAnalysisExclude(projectRoot)`. Loading `design.exclude`
+  **inside the runner** (like `analysis.exclude`) means every caller — validate,
+  check-design, align, design-pipeline, MCP — honors it uniformly with no
+  per-caller threading.
 - In `collectFiles`, after the walk, drop any file whose project-relative POSIX
   path matches any exclude pattern via `minimatch(rel, pat, { matchBase: true })`.
   Explicit `files` arg bypasses the filter (Decision 4).
 
-**`packages/cli/src/commands/validate.ts`** — in the drift block (~L363), read
-`config.design?.exclude` and pass it as `exclude` to `runDetectDrift`.
+**`packages/cli/src/commands/validate.ts`** — no threading needed; the drift
+block inherits `design.exclude` via the runner's config read.
 
 **`packages/cli/src/mcp/tools/detect-drift.ts`** — add an `exclude` array
 property to the tool `inputSchema` so MCP callers can scope a scan.
