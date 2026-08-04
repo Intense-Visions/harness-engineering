@@ -15,6 +15,7 @@ import { notionEmptyDatabaseExemplar } from './notion-empty-database.js';
 import { vercelBuildProgressExemplar } from './vercel-build-progress.js';
 import { sonDavenMarketingPageExemplar } from './son-daven-marketing-page.js';
 import { laRevoltosaMarketingPageExemplar } from './la-revoltosa-marketing-page.js';
+import { cravBurgersMarketingPageExemplar } from './crav-burgers-marketing-page.js';
 
 export { linearEmptyListExemplar } from './linear-empty-list.js';
 export { stripeLoadingStateExemplar } from './stripe-loading-state.js';
@@ -26,6 +27,7 @@ export { notionEmptyDatabaseExemplar } from './notion-empty-database.js';
 export { vercelBuildProgressExemplar } from './vercel-build-progress.js';
 export { sonDavenMarketingPageExemplar } from './son-daven-marketing-page.js';
 export { laRevoltosaMarketingPageExemplar } from './la-revoltosa-marketing-page.js';
+export { cravBurgersMarketingPageExemplar } from './crav-burgers-marketing-page.js';
 
 /**
  * Seed exemplars. The earlier Phase 2 increment anchored the shape with
@@ -66,4 +68,5 @@ export const SEED_EXEMPLARS: readonly ExemplarDefinition[] = [
   vercelBuildProgressExemplar,
   sonDavenMarketingPageExemplar,
   laRevoltosaMarketingPageExemplar,
+  cravBurgersMarketingPageExemplar,
 ];

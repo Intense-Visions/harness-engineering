@@ -146,6 +146,7 @@ describe('design-craft Phase 2 catalog seed — exemplars', () => {
       'LoadingState',
       'MarketingPage',
       'MarketingPage',
+      'MarketingPage',
     ]);
   });
 
@@ -174,6 +175,7 @@ describe('design-craft Phase 2 catalog seed — exemplars', () => {
       'exemplar-vercel-build-progress',
       'exemplar-son-daven-marketing-page',
       'exemplar-la-revoltosa-marketing-page',
+      'exemplar-crav-burgers-marketing-page',
     ]);
   });
 
