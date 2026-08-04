@@ -8,7 +8,11 @@ export type Mode = z.infer<typeof ModeSchema>;
 export const SeveritySchema = z.enum(['error', 'warning', 'info']);
 export type Severity = z.infer<typeof SeveritySchema>;
 
-export const TierSchema = z.enum(['solid', 'at-risk', 'theatre']);
+// `incomplete` (#1013): the audit could not evaluate every applicable pattern,
+// so a clean score must not read as a full `solid` pass. Ordered strongest →
+// weakest for display; `incomplete` sits below `solid` because partial coverage
+// is a caveat on an otherwise-clean run, not a detected weakness like `at-risk`.
+export const TierSchema = z.enum(['solid', 'incomplete', 'at-risk', 'theatre']);
 export type Tier = z.infer<typeof TierSchema>;
 
 // --- Finding ---
@@ -75,12 +79,27 @@ export type ProjectContext = z.infer<typeof ProjectContextSchema>;
 
 // --- AuditResult ---
 
+// A pattern that applied to this mode but could not be evaluated because a
+// required input was absent (#1013). Named + reasoned so the abstention is
+// actionable rather than invisible.
+export const SkippedRuleSchema = z.object({
+  id: z.string(),
+  gearPiece: z.string(),
+  reason: z.string(),
+});
+export type SkippedRule = z.infer<typeof SkippedRuleSchema>;
+
 export const AuditSummarySchema = z.object({
   errors: z.number().int().nonnegative(),
   warnings: z.number().int().nonnegative(),
   info: z.number().int().nonnegative(),
   rulesRun: z.number().int().nonnegative(),
   rulesPassing: z.number().int().nonnegative(),
+  // Total patterns that APPLIED to this mode — the coverage denominator.
+  // `rulesRun` of these were evaluable; `skipped.length` abstained.
+  rulesApplicable: z.number().int().nonnegative(),
+  // Applicable-but-not-evaluable patterns (#1013). Empty on full coverage.
+  skipped: z.array(SkippedRuleSchema),
 });
 
 export const AuditResultSchema = z.object({

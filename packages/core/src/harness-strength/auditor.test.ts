@@ -21,7 +21,7 @@ function writeHusky(text: string): void {
 }
 
 describe('HarnessStrengthAuditor.audit', () => {
-  it('returns Ok with a clean result for a bare directory', () => {
+  it('reports a bare directory as incomplete, not solid (#1013)', () => {
     const result = new HarnessStrengthAuditor().audit(root, {});
     expect(isOk(result)).toBe(true);
     if (!isOk(result)) return;
@@ -29,10 +29,19 @@ describe('HarnessStrengthAuditor.audit', () => {
     expect(v.mode).toBe('adopter');
     expect(v.findings).toEqual([]);
     expect(v.score).toBe(100);
-    expect(v.tier).toBe('solid');
-    // Bare dir: every rule's required input is absent => none evaluable.
+    // Bare dir: every rule's required input is absent => none evaluable. A clean
+    // score across ZERO evaluated patterns must not read as a full `solid` pass.
+    expect(v.tier).toBe('incomplete');
     expect(v.summary.rulesRun).toBe(0);
     expect(v.summary.rulesPassing).toBe(0);
+    // Coverage is fully surfaced: every applicable pattern is named as skipped.
+    expect(v.summary.rulesApplicable).toBeGreaterThan(0);
+    expect(v.summary.skipped).toHaveLength(v.summary.rulesApplicable);
+    for (const s of v.summary.skipped) {
+      expect(s.id).toMatch(/^STRENGTH-/);
+      expect(s.gearPiece.length).toBeGreaterThan(0);
+      expect(s.reason).toContain('not evaluable');
+    }
   });
 
   it('detects STRENGTH-001 at default severity (error)', () => {
@@ -227,7 +236,7 @@ describe('HarnessStrengthAuditor clean harness (passing gate path)', () => {
     return dir;
   }
 
-  it('scores 100/solid with zero findings when layers have populated thresholds', () => {
+  it('reports config-only coverage as incomplete, not solid (#1013)', () => {
     const dir = buildClean();
     try {
       const result = new HarnessStrengthAuditor().audit(dir, {});
@@ -236,11 +245,15 @@ describe('HarnessStrengthAuditor clean harness (passing gate path)', () => {
       const v = result.value;
       expect(v.findings).toEqual([]);
       expect(v.score).toBe(100);
-      expect(v.tier).toBe('solid');
       expect(v.summary.errors).toBe(0);
       expect(v.summary.warnings).toBe(0);
-      // STRENGTH-004 evaluable (config present) and passes; others not evaluable.
+      // Config present => STRENGTH-004/005 evaluable and pass; the hook-,
+      // workflow-, and snapshot-based patterns abstain. A clean score across
+      // only some patterns is `incomplete`, not `solid` (#1013).
       expect(v.summary.rulesPassing).toBeGreaterThanOrEqual(1);
+      expect(v.summary.skipped.length).toBeGreaterThan(0);
+      expect(v.summary.rulesRun).toBeLessThan(v.summary.rulesApplicable);
+      expect(v.tier).toBe('incomplete');
     } finally {
       rmSync(dir, { recursive: true, force: true });
     }
@@ -251,6 +264,51 @@ describe('HarnessStrengthAuditor clean harness (passing gate path)', () => {
     try {
       const auditor = new HarnessStrengthAuditor();
       expect(auditor.audit(dir, {})).toEqual(auditor.audit(dir, {}));
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+});
+
+describe('HarnessStrengthAuditor full coverage (#1013)', () => {
+  // Every applicable adopter pattern has its required input present and benign,
+  // so all evaluate AND pass — the only path on which `solid` is earned.
+  const PRECOMMIT = '#!/bin/sh\nif ! npx harness ci check; then\n  exit 1\nfi\nnpx lint-staged\n';
+  const CONFIG = JSON.stringify({
+    version: 1,
+    layers: [{ name: 'a' }],
+    architecture: { thresholds: { maxFanIn: 12 } },
+  });
+  const BENIGN_WF =
+    'name: CI\non: push\njobs:\n  test:\n    runs-on: ubuntu-latest\n    steps:\n      - run: echo hi\n';
+  // Honest snapshot: `lint` has no contradicting signal, so STRENGTH-007 passes.
+  const SNAPSHOT = JSON.stringify({ checks: { lint: { passed: true } }, signals: [] });
+
+  function buildFull(): string {
+    const dir = mkdtempSync(join(tmpdir(), 'hs-full-'));
+    mkdirSync(join(dir, '.husky'), { recursive: true });
+    writeFileSync(join(dir, '.husky', 'pre-commit'), PRECOMMIT);
+    writeFileSync(join(dir, 'harness.config.json'), CONFIG);
+    mkdirSync(join(dir, '.github', 'workflows'), { recursive: true });
+    writeFileSync(join(dir, '.github', 'workflows', 'ci.yml'), BENIGN_WF);
+    mkdirSync(join(dir, '.harness'), { recursive: true });
+    writeFileSync(join(dir, '.harness', 'health-snapshot.json'), SNAPSHOT);
+    return dir;
+  }
+
+  it('earns solid only when every applicable pattern is evaluated and clean', () => {
+    const dir = buildFull();
+    try {
+      const result = new HarnessStrengthAuditor().audit(dir, {});
+      expect(isOk(result)).toBe(true);
+      if (!isOk(result)) return;
+      const v = result.value;
+      expect(v.findings).toEqual([]);
+      expect(v.score).toBe(100);
+      // Full coverage: nothing abstained, so the `incomplete` cap does not apply.
+      expect(v.summary.skipped).toEqual([]);
+      expect(v.summary.rulesRun).toBe(v.summary.rulesApplicable);
+      expect(v.tier).toBe('solid');
     } finally {
       rmSync(dir, { recursive: true, force: true });
     }

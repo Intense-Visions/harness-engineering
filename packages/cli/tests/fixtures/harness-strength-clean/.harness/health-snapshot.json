@@ -1,0 +1,4 @@
+{
+  "checks": { "lint": { "passed": true } },
+  "signals": []
+}

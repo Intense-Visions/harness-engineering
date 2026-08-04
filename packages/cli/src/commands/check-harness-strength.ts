@@ -108,6 +108,24 @@ async function runCheckHarnessStrengthAction(
   );
   if (summaryLine) console.log(summaryLine);
 
+  // Coverage (#1013): print the denominator so a partial audit never reads as a
+  // full pass. `rulesRun` of `rulesApplicable` patterns were evaluated; the rest
+  // abstained (required input absent) and are named so the gap is actionable.
+  const { rulesRun, rulesApplicable, skipped } = audit.summary;
+  if (rulesApplicable > 0) {
+    const coverageLine = formatter.formatSummary(
+      'coverage',
+      `${rulesRun}/${rulesApplicable} patterns evaluated`,
+      skipped.length === 0
+    );
+    if (coverageLine) console.log(coverageLine);
+    if (skipped.length > 0 && outMode !== OutputMode.QUIET) {
+      for (const s of skipped) {
+        console.log(`    - not evaluated: ${s.id} (${s.gearPiece}) — ${s.reason}`);
+      }
+    }
+  }
+
   process.exit(opts.reportOnly || valid ? ExitCode.SUCCESS : ExitCode.VALIDATION_FAILED);
 }
 

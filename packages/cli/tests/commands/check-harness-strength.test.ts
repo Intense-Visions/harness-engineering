@@ -12,9 +12,24 @@ describe('runCheckHarnessStrength', () => {
     expect(r.ok).toBe(true);
     if (!r.ok) return;
     expect(typeof r.value.audit.score).toBe('number');
-    expect(['solid', 'at-risk', 'theatre']).toContain(r.value.audit.tier);
+    // `incomplete` (#1013): a clean score across only some applicable patterns.
+    expect(['solid', 'incomplete', 'at-risk', 'theatre']).toContain(r.value.audit.tier);
     expect(r.value.audit.summary).toHaveProperty('errors');
     expect(r.value.audit.summary).toHaveProperty('rulesRun');
+    expect(r.value.audit.summary).toHaveProperty('rulesApplicable');
+    expect(r.value.audit.summary).toHaveProperty('skipped');
+  });
+
+  it('reports coverage: rulesRun + skipped account for every applicable pattern (#1013)', () => {
+    const r = runCheckHarnessStrength(WEAK, {});
+    expect(r.ok).toBe(true);
+    if (!r.ok) return;
+    const s = r.value.audit.summary;
+    expect(s.rulesRun + s.skipped.length).toBe(s.rulesApplicable);
+    // The weak fixture is config-only, so hook/workflow/snapshot patterns abstain
+    // and are surfaced (not silently dropped), capping the tier below solid.
+    expect(s.skipped.length).toBeGreaterThan(0);
+    expect(r.value.audit.tier).toBe('incomplete');
   });
 
   it('is invalid (gate trips) when an error-severity finding survives the threshold', () => {
