@@ -1,6 +1,8 @@
 import { describe, it, expect } from 'vitest';
 import { spawnSync } from 'node:child_process';
-import { resolve } from 'node:path';
+import { closeSync, mkdtempSync, openSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join, resolve } from 'node:path';
 
 const HOOK_PATH = resolve(__dirname, '../../src/hooks/protect-config.js');
 
@@ -141,5 +143,31 @@ describe('protect-config', () => {
     });
     const { exitCode } = runHook(input);
     expect(exitCode).toBe(2);
+  });
+
+  // Regression for #993: the hook used to treat ANY stdin read failure as "no
+  // input" and exit 0, so a transient EAGAIN on the pipe silently waved a
+  // protected-config edit through while the check stayed green. A blind guard
+  // must block. POSIX-only: the fd/pipe shape does not reproduce on Windows.
+  const onPosix = process.platform === 'win32' ? describe.skip : describe;
+
+  onPosix('stdin read failure (fail closed)', () => {
+    it('blocks when the stdin read itself fails', () => {
+      // A directory opens fine but errors (EISDIR) on read — a read that
+      // genuinely failed, unlike /dev/null which reads 0 bytes successfully.
+      // Node substitutes /dev/null for a closed fd 0, so closing it won't do.
+      const dirFd = openSync(mkdtempSync(join(tmpdir(), 'protect-config-stdin-')), 'r');
+      try {
+        const result = spawnSync('node', [HOOK_PATH], {
+          stdio: [dirFd, 'pipe', 'pipe'],
+          encoding: 'utf-8',
+          timeout: 60000,
+        });
+        expect(result.status).toBe(2);
+        expect(result.stderr).toContain('could not read hook input');
+      } finally {
+        closeSync(dirFd);
+      }
+    });
   });
 });
