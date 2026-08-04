@@ -1,6 +1,8 @@
 import { describe, it, expect } from 'vitest';
 import { spawnSync } from 'node:child_process';
-import { resolve } from 'node:path';
+import { closeSync, mkdtempSync, openSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join, resolve } from 'node:path';
 
 const HOOK_PATH = resolve(__dirname, '../../src/hooks/block-no-verify.js');
 
@@ -89,6 +91,51 @@ describe('block-no-verify', () => {
   it('fails open on empty stdin', () => {
     const { exitCode } = runHook('');
     expect(exitCode).toBe(0);
+  });
+
+  // Regression: the hook used to treat ANY stdin read failure as "no input" and
+  // exit 0, so a transient EAGAIN on the pipe silently disabled the guard while
+  // CI stayed green (macOS runner, run 30671939046). A blind guard must block.
+  // POSIX-only: both cases need a real pipe/fd shape that Windows shells and
+  // fd redirection don't reproduce. The bug manifested on the macOS runner.
+  const onPosix = process.platform === 'win32' ? describe.skip : describe;
+
+  onPosix('stdin read failure (fail closed)', () => {
+    it('blocks when the stdin read itself fails', () => {
+      // A directory opens fine but errors (EISDIR) on read — a read that
+      // genuinely failed, unlike /dev/null which reads 0 bytes successfully.
+      // Node substitutes /dev/null for a closed fd 0, so closing it won't do.
+      const dirFd = openSync(mkdtempSync(join(tmpdir(), 'hook-stdin-')), 'r');
+      try {
+        const result = spawnSync('node', [HOOK_PATH], {
+          stdio: [dirFd, 'pipe', 'pipe'],
+          encoding: 'utf-8',
+          timeout: 60000,
+        });
+        expect(result.status).toBe(2);
+        expect(result.stderr).toContain('could not read hook input');
+      } finally {
+        closeSync(dirFd);
+      }
+    });
+
+    it('still reads the full payload when the writer is slow', () => {
+      // Feed stdin from a pipe that delivers late — the shape that produced the
+      // spurious EAGAIN. The guard must wait for the payload, not fail open.
+      const command = JSON.stringify({
+        tool_name: 'Bash',
+        tool_input: { command: 'git push --no-verify' },
+      });
+      const result = spawnSync(
+        'bash',
+        [
+          '-c',
+          `sleep 0.4; printf '%s' ${JSON.stringify(command)} | node ${JSON.stringify(HOOK_PATH)}`,
+        ],
+        { encoding: 'utf-8', timeout: 60000 }
+      );
+      expect(result.status).toBe(2);
+    });
   });
 
   describe('argv-token boundary (issue #285)', () => {

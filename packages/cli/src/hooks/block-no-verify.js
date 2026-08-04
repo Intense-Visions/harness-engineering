@@ -4,18 +4,27 @@
 // Blocks git commands that use --no-verify to skip hooks.
 // Exit codes: 0 = allow, 2 = block
 
-import { readFileSync } from 'node:fs';
 import process from 'node:process';
 
+import { readHookStdin } from './read-hook-stdin.js';
+
 function main() {
-  let raw = '';
-  try {
-    raw = readFileSync(0, 'utf-8');
-  } catch {
-    // No stdin or read error — fail open
-    process.exit(0);
+  const stdin = readHookStdin();
+  if (!stdin.ok) {
+    // Fail CLOSED. A guard that cannot read the command it is guarding must not
+    // vouch for it — exiting 0 here is what let --no-verify through whenever the
+    // stdin pipe hiccuped, while CI still went green.
+    process.stderr.write(
+      `BLOCKED: could not read hook input (${stdin.error.code ?? stdin.error.message}); ` +
+        'refusing to allow the command unverified.\n'
+    );
+    process.exit(2);
   }
 
+  const raw = stdin.data;
+
+  // A successful read of nothing is a real "no payload" invocation, not a
+  // blind hook — that stays fail-open.
   if (!raw.trim()) {
     process.exit(0);
   }
