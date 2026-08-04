@@ -148,6 +148,7 @@ describe('design-craft Phase 2 catalog seed — exemplars', () => {
       'MarketingPage',
       'MarketingPage',
       'MarketingPage',
+      'MarketingPage',
     ]);
   });
 
@@ -178,6 +179,7 @@ describe('design-craft Phase 2 catalog seed — exemplars', () => {
       'exemplar-la-revoltosa-marketing-page',
       'exemplar-crav-burgers-marketing-page',
       'exemplar-sakazuki-marketing-page',
+      'exemplar-hagis-barbershop-marketing-page',
     ]);
   });
 

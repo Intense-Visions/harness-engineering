@@ -17,6 +17,7 @@ import { sonDavenMarketingPageExemplar } from './son-daven-marketing-page.js';
 import { laRevoltosaMarketingPageExemplar } from './la-revoltosa-marketing-page.js';
 import { cravBurgersMarketingPageExemplar } from './crav-burgers-marketing-page.js';
 import { sakazukiMarketingPageExemplar } from './sakazuki-marketing-page.js';
+import { hagisBarbershopMarketingPageExemplar } from './hagis-barbershop-marketing-page.js';
 
 export { linearEmptyListExemplar } from './linear-empty-list.js';
 export { stripeLoadingStateExemplar } from './stripe-loading-state.js';
@@ -30,6 +31,7 @@ export { sonDavenMarketingPageExemplar } from './son-daven-marketing-page.js';
 export { laRevoltosaMarketingPageExemplar } from './la-revoltosa-marketing-page.js';
 export { cravBurgersMarketingPageExemplar } from './crav-burgers-marketing-page.js';
 export { sakazukiMarketingPageExemplar } from './sakazuki-marketing-page.js';
+export { hagisBarbershopMarketingPageExemplar } from './hagis-barbershop-marketing-page.js';
 
 /**
  * Seed exemplars. The earlier Phase 2 increment anchored the shape with
@@ -72,4 +74,5 @@ export const SEED_EXEMPLARS: readonly ExemplarDefinition[] = [
   laRevoltosaMarketingPageExemplar,
   cravBurgersMarketingPageExemplar,
   sakazukiMarketingPageExemplar,
+  hagisBarbershopMarketingPageExemplar,
 ];
