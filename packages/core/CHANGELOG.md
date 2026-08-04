@@ -1,5 +1,169 @@
 # Changelog
 
+## 0.39.0
+
+### Minor Changes
+
+- 931cca0: feat(review): enforce finding-integrity invariants at the emission seam (#984)
+
+  `harness review-ci`'s floor tier emitted a `critical` / `domain: security` /
+  `CWE-89` finding whose entire evidence was a file-length measurement, blocking a
+  PR on a fabricated SQL injection. Two structural invariants now run at the single
+  aggregation point (pipeline Phase 5.75, plus a matching pass over LLM-tier
+  findings in the CI orchestrator) rather than inside each agent:
+  1. **Evidence/class consistency** — a finding claiming a vulnerability class (a
+     `cweId`, an `owaspCategory`, or `domain: 'security'` at `critical`) must carry
+     evidence consistent with that class. Each class declares what its evidence
+     must minimally reference (CWE-89 needs a query shape, not a line count).
+     Failures are **downgraded to `suggestion`** with the mismatch recorded on the
+     finding — never silently dropped, so a real vulnerability described in unusual
+     language survives. Configurable to `drop` via
+     `findingIntegrity.onEvidenceMismatch`.
+  2. **Confidence reconciliation** — `confidence` may not exceed the ceiling implied
+     by `validatedBy` (heuristic caps at `medium`) and `trustScore`. Severity is
+     untouched by default, so detection is not weakened; the stricter
+     "no heuristic criticals" rule is opt-in via
+     `findingIntegrity.capHeuristicSeverity`.
+
+  Both surfaces report a **denominator**: `integrityReport.examined` plus the
+  per-invariant counts, and `abstained: true` when the layer examined nothing — an
+  empty run can no longer read as verification.
+
+  `deduplicateFindings` now carries `integrityViolations` through a merge; it
+  previously rebuilt findings field-by-field and would have dropped the audit
+  trail.
+
+- 0921ca1: feat(roadmap): `harness roadmap sync` CLI with CI-safety guards and zero-denominator exit
+
+  The full bidirectional roadmap↔tracker sync was reachable only through the
+  `manage_roadmap action:"sync"` MCP tool. CI could therefore only ever flip rows
+  **to `done`** (via `roadmap reconcile`) — every other transition and the whole
+  tracker-label push depended on a human remembering to run an MCP tool. In one
+  downstream repo that left `last_synced` 22 days behind `last_manual_edit` and 22
+  issues with no tracker labels at all, invisible to a tracker scoped by a
+  selector label.
+
+  `harness roadmap sync` closes the loop, and is **dry-run by default** — `--apply`
+  is required to write anything. Two guards make an unattended run safe by
+  switching off the two destructive powers:
+  - `--no-state-change` (`syncIssueState: false`) omits the issue `state` field
+    from every patch body, so labels converge but no issue is ever closed or
+    reopened. The `statusMap` maps `done → closed`, so one mis-set roadmap row was
+    otherwise enough to close a live issue.
+  - `--no-create` (`allowCreate: false`) never creates a ticket for a row lacking
+    an `External-ID`, and reports each skipped row rather than dropping it. A cron
+    that invents issues is unacceptable.
+
+  Both defaults preserve today's behaviour exactly; CI turns them off explicitly.
+  `--force` maps to the existing `forceSync` and is documented as unsafe
+  unattended (it overrides the human-always-wins rule).
+
+  `ExternalSyncOptions` gains `dryRun`, `allowCreate`, and `syncIssueState`,
+  threaded through `syncToExternal` / `syncFromExternal` to the adapter write path
+  (`TicketWriteOptions` on `TrackerSyncAdapter.updateTicket`; a `syncIssueState`
+  constructor option on `GitHubIssuesTrackerAdapter`). `SyncResult` gains
+  `dryRun`, `planned`, `skippedCreates`, `skippedStateChanges`, and `examined`.
+  The label-preservation logic in `buildIssuePatchBody` — skip the labels field
+  entirely when the refresh GET fails, so a transient blip cannot wipe the
+  `harness-managed` selector — is unchanged on both guard settings.
+
+  Denominator discipline: every run reports what it examined (rows compared,
+  tickets fetched), and the new `ExitCode.ZERO_DENOMINATOR` (3) fires when it
+  examined nothing. A sync that matched nothing has abstained, not succeeded, and
+  must never read as a pass.
+
+  Intended consumer pattern: a nightly
+  `harness roadmap sync --apply --no-create --no-state-change` converges labels
+  safely, while issue closure stays with the PR-merge auto-done path.
+
+### Patch Changes
+
+- 52e42cb: fix(core): check-harness-strength honors core.hooksPath and never reads partial coverage as solid
+
+  Two companion defects in the STRENGTH auditor:
+
+  **Hook discovery ignored `core.hooksPath` (#1012).** `buildProjectContext` read a
+  single hardcoded `.husky/pre-commit` and `resolveHookFiles` searched only
+  `.husky` / `.claude/hooks` / `.harness/hooks`. A repo wiring hooks via
+  `.githooks/` + `git config core.hooksPath .githooks` (a common non-husky
+  convention) therefore had `ctx.preCommit === null`, silently disabling
+  **STRENGTH-002 (regression-baseline)** and **STRENGTH-003 (skip-discipline)** —
+  the two patterns most specifically about pre-commit behavior — while still
+  scoring `solid`. Discovery now resolves `core.hooksPath` from the repo-local
+  `.git/config` (file-based, so the auditor stays child_process-free and
+  unit-testable), includes that directory in `resolveHookFiles`, and sets
+  `ctx.preCommit` from `<resolvedHooksDir>/pre-commit` (falling back to `.husky`
+  then `.git/hooks`).
+
+  **Non-evaluable patterns scored as a clean solid (#1013).** When a rule could
+  not be evaluated (required input absent) it contributed nothing to the score and
+  nothing to the output, so "we could not audit this" read identically to "we
+  audited this and it was clean" — a repo where every pattern abstained scored
+  100/100 `solid`. The auditor now:
+  - reports `summary.rulesApplicable` (the coverage denominator) and
+    `summary.skipped: [{ id, gearPiece, reason }]` (the named abstentions);
+  - withholds `solid` when coverage is partial, using a new `incomplete` tier so a
+    clean score across only some applicable patterns no longer reads as a full
+    pass (weaker tiers already signal detected problems and are unchanged);
+  - the CLI prints `coverage: N/M patterns evaluated` and lists each skipped
+    pattern, so the gap is visible and actionable rather than invisible.
+
+- bc96342: fix(review): stop the security floor tier emitting fabricated criticals (#984)
+
+  The no-LLM security floor was reporting blocking `critical` findings for strings
+  that cannot reach any sink. Three false-positive classes, all observed on real PRs:
+  - **Prose using a SQL keyword as an English word.** A `commander` help string —
+    `'never create a ticket for a row lacking an externalId … ' +` — was reported
+    as critical CWE-89 because "create" whole-word-matches `CREATE` and the
+    literal is followed by `+`. Same class as issue #657, whose string-boundary
+    fix was necessary but not sufficient.
+  - **Test fixtures.** A test proving a detector fires must contain the vulnerable
+    shape as data, so any PR touching a security test self-flagged.
+  - **Comment bodies.** A JSDoc documenting the shape a rule detects necessarily
+    contains it; the rule's own JSDoc was reported as a critical CWE-89.
+
+  The fixes:
+  - **SQL: ordered statement shapes.** A statement keyword alone is not evidence
+    of SQL. The pattern now requires an ordered shape (`SELECT … FROM`,
+    `INSERT INTO`, `UPDATE … SET`, `DELETE FROM`, `CREATE/ALTER/DROP TABLE`,
+    `UNION SELECT`) inside a concatenated string literal or an interpolated
+    template literal. The vocabulary deliberately mirrors `SQL_QUERY_SHAPE` in
+    `finding-integrity.ts`, so nothing the floor emits is downgraded by the
+    Phase 5.75 integrity invariant (#989) — one definition of "looks like SQL",
+    not two. The template alternative does not require a closing backtick, so the
+    opening line of a multi-line template query still fires.
+  - **Comment-only lines are skipped; comment PREFIXES are not.** `/**/ eval(x)`,
+    `*/ eval(x)`, and generator members (`*run() { … }`) execute and are scanned;
+    a trailing `//` comment is stripped without truncating at a URL's `://`.
+  - **Guards are code-scoped.** Test-file markers (`.test.`, `.spec.`, …) and JS
+    comment syntax apply only to files with code extensions, so `.env.test.local`
+    and a key in a Markdown bullet are still scanned. The secrets detector keeps
+    its deliberately wider file scope.
+
+  Known, test-pinned limitations (a heuristic floor, not a proof of absence): a
+  SQL shape split across concatenated literals or lines does not fire (loosening
+  to line level would resurrect the prose class), nested quotes are not spanned
+  (pre-existing), and a bare clause fragment (`` `WHERE id = ${id}` ``) no longer
+  fires. The LLM review tier above the floor covers those shapes.
+
+  50 tests pin both directions — every guard has a must-fire case proving it
+  cannot over-suppress, plus a cross-layer test asserting detector output
+  survives `enforceFindingIntegrity` undowngraded.
+
+- 0f2ab19: fix(harness-strength): STRENGTH-003 resolves a variable skip list (`--skip "$SKIP"`)
+
+  The skip-list auditor matched only a literal `--skip a,b,c`, so a hook using the drift-free
+  `SKIP="a,b,c"` + `--skip "$SKIP"` single-source form went unaudited — silencing the review-time
+  signal that flags a growing/hollow local gate. The matcher now captures quoted/bare/variable
+  tokens and, for a `$VAR`/`${VAR}` reference, resolves the matching `VAR="a,b,c"` assignment in
+  the same file (unresolvable → skipped gracefully). Literal-match path unchanged.
+
+- Updated dependencies [0f64b7d]
+- Updated dependencies [21325cf]
+- Updated dependencies [0921ca1]
+  - @harness-engineering/types@0.26.0
+  - @harness-engineering/graph@0.11.12
+
 ## 0.38.1
 
 ### Patch Changes

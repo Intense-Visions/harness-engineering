@@ -1,5 +1,260 @@
 # @harness-engineering/orchestrator
 
+## 0.19.0
+
+### Minor Changes
+
+- 2641a7a: feat(orchestrator): the local enforced gate's outcome-eval now actually fires
+
+  The staged local gate (`runLocalWorkflowGate`) already had a blocking
+  spec-vs-diff `outcome-eval` step — the harness's own verifier judgment — but it
+  silently no-op'd on every fully-local run for two reasons, so a diff that passes
+  the tests yet contradicts the spec shipped anyway:
+  1. **No provider.** The eval provider came only from `resolveComplexityProvider`,
+     which builds nothing unless `intelligence.enabled` is true. A fully-local run
+     leaves the intelligence pipeline off, so the provider was `undefined` → skip.
+     Now, for the local caller, it falls back to the reasoner via the startup-derived
+     analysis env (`HARNESS_ANALYSIS_*`, from the thinking-mode backend) — the same
+     `OpenAICompatibleAnalysisProvider` the intelligence factory would build — so the
+     gate judges on-device without the full pipeline.
+  2. **No spec.** The step keyed on `issue.spec`, but the local model rarely
+     registers the roadmap Spec field. It now falls back to the conventional
+     `docs/changes/<slug>/proposal.md` the design stage writes, and no-ops only when
+     neither a spec file nor a provider resolves.
+
+  This is the right layer for the judgment: an **orchestrator-run gate**, not a
+  model-invoked MCP tool — codex cannot call MCP tools (it shell-execs the names),
+  so the verify-stage prompt instruction to run `outcome_eval` was inert and is
+  removed. A high-confidence `NOT_SATISFIED` blocks and re-dispatches, exactly like
+  the Claude/AMR path.
+
+- 0472669: feat(orchestrator): local verify stage delegates impl-vs-spec judgment to outcome_eval
+
+  A staged local workflow's verify stage was told to run `run_code_review` /
+  `run_ci_checks` — "do the tests pass?" — but nothing checked whether the
+  implementation actually SATISFIES the spec. That let a diff whose behavior
+  contradicts the spec through (observed: a rule whose own test marked a
+  spec-invalid case as valid; tests were internally consistent but wrong).
+
+  The LOCAL verify-stage prompt now instructs `harness__outcome_eval` with the
+  spec path, the accumulated `git diff`, and the test output — an LLM judge (the
+  reasoner, via the local analysis provider) that reads the spec's acceptance
+  criteria and emits SATISFIED / NOT_SATISFIED, where a high-confidence
+  NOT_SATISFIED is blocking and its `unmetCriteria` are folded into the findings.
+  A new `specPath` render variable exposes the design spec's path; only the LOCAL
+  verify branch references it (the default template and other stages are
+  unchanged).
+
+- ab8b378: feat(orchestrator): point the eval MCP tools at the local reasoner
+
+  The eval MCP tools (`acceptance_eval` / `outcome_eval`) can now run their LLM
+  judgment against a local `/v1` endpoint, but nothing told them which one — so a
+  fully-local run still degraded to an advisory stub.
+
+  At startup the orchestrator now derives the analysis endpoint/model from the
+  THINKING-mode backend (the reasoner) and applies it to `process.env`
+  (`HARNESS_ANALYSIS_BASE_URL` / `HARNESS_ANALYSIS_MODEL`). Codex spawns with
+  `env: process.env`, so the harness MCP server it injects into local execution/
+  verify stages picks it up — the verify stage's `outcome_eval` then judges the
+  coder's impl-vs-spec via the reasoner, on-device. An explicit operator value
+  always wins; a non-local config (no thinking-mode endpoint) is a no-op.
+
+- c5c5247: fix(orchestrator): persist design-stage artifacts (spec/plan) to disk
+
+  The staged workflow computed a `documentPath` (`docs/changes/<slug>/proposal.md`, `…/plans/…`)
+  and instructed each DOCUMENT stage to write its `produces:` artifact there — but nothing
+  persisted it. The stage output was captured in-memory (for chaining + the resume checkpoint)
+  and never written, so a local reasoner that reasons WITHOUT writing the file left the design
+  phase hollow: the brainstorming/planning stages ran, yet no proposal or plan ever landed in
+  the worktree (observed across every local-autopilot e2e run).
+
+  Add a `persistStageDocument` seam: after a passing document stage, write the captured stage
+  output to its `documentPath` when the model did not already write a non-empty file there.
+  Guarantees the design phase's artifact exists (best-effort, never clobbers a model-authored
+  doc, no-op for non-document stages / empty output / legacy contexts).
+
+  The stages were also **misrouted**: `resolveStageBackend` returned a materialized backend whose
+  `.name` is a TYPE label (`ollama`/`codex`), not a routing key. `makeRunner` re-materializes by
+  that name and `isLocalBackend` looks it up in the config's backends map — both missed, so every
+  design stage silently fell through to `routing.default` (ran on the coder, not the reasoner) AND
+  got the Claude-shaped prompt template instead of the local `harness skill run --autonomous`
+  template (the real reason codex produced empty worktrees locally). Fixed by returning the routing
+  name via `resolveName`.
+
+  The capture itself was also broken for local backends: the stage runner harvests a stage's
+  final text only from a `type:'result'` event, but the codex backend surfaced its JSONL only
+  as truncated `status` events and the ollama backend never emitted a result on a clean text
+  turn — so `run.output` stayed empty and there was nothing to persist. Both backends now emit
+  their final assistant text as an untruncated `result` event (codex extracts the final
+  `agent_message` across protocol shapes; ollama emits on a clean tool-less turn). Since design
+  stages execute via `codex-exec`, the codex path is the load-bearing fix for the local pipeline.
+
+### Patch Changes
+
+- cc0978a: fix(orchestrator): capture a local stage's document when it's emitted as content on a tool-call turn
+
+  A local planning stage produced its plan as assistant `content` on a turn that also called a
+  tool (a final read), then never wrote it to a file — so the plan was neither persisted to its
+  `documentPath` nor threaded to the next stage. The ollama backend only surfaced a `result`
+  event on a clean tool-less turn, so content produced alongside a tool call was lost.
+
+  The backend now captures assistant `content` as a `result` on any turn (tool-call turns
+  included), keeping the LONGEST content of the turn-loop (the workflow harvest is last-wins, so
+  a monotonic-longest guard makes `run.output` settle on the largest artifact rather than a
+  later, chattier line). The `thinking`-trace fallback now applies only when NO content was
+  produced the entire turn-loop. `TASK_COMPLETE` still keys on visible content.
+
+- 85de3dc: fix(orchestrator): kill codex's whole process group on stopSession/timeout
+
+  The codex child was spawned without its own process group, so `stopSession`'s
+  `SIGKILL` reached only the direct child. A grandchild it spawned (or, in the unit
+  test, a shell's `sleep`) survived and kept the stdout pipe open, so draining hung
+  past the stage deadline — surfacing as a flaky 10s test timeout in
+  `codex.test.ts > stopSession …` on Linux CI (macOS reaped the grandchild, hiding
+  the gap). The child is now spawned `detached` (its own group) and both the
+  wall-clock timeout and `stopSession` kill the whole group via `process.kill(-pid)`
+  (POSIX; Windows falls back to a direct child kill). A stage-deadline abort now
+  reliably terminates codex and everything it started.
+
+- 0f64b7d: fix(orchestrator): support `reasoningEffort: 'none'` so the codex backend can drive local coder models
+
+  The codex backend passed `-c model_reasoning_effort` only for `'low' | 'medium' | 'high'`,
+  and omitting it fell through to codex's own default — which still sends a reasoning
+  request. Newer ollama builds REJECT a reasoning request for a model that does not
+  support one, rather than ignoring it: `"qwen3-coder:30b" does not support thinking`
+  (`invalid_request_error`). That failed EVERY codex turn against such a model (0 tokens,
+  0 turns), silently breaking the entire codex-drives-local-coder path.
+
+  `reasoningEffort: 'none'` is now a first-class value (type, Zod schema, and the codex
+  argv builder). It emits `model_reasoning_effort="none"`, which tells codex to omit the
+  reasoning field entirely. Verified against ollama `qwen3-coder:30b`: `low` and omission
+  both fail the turn; `none` completes it cleanly.
+
+- 14beb17: fix(orchestrator): a stage-deadline abort now actually terminates the codex subprocess
+
+  When a staged workflow aborts a stage at its wall-clock deadline, the runner calls
+  `backend.stopSession`. The codex backend's `stopSession` was a no-op and its spawned
+  `codex exec` child was referenced only inside `runTurn`, so an aborted codex stage kept
+  running to codex's own 30-minute cap — a stage deadline could not stop the work (observed:
+  a local verification stage ran ~20 min past its deadline). The codex backend now tracks the
+  live child per session and `stopSession` SIGKILLs it, mirroring how the ollama backend
+  cancels its in-flight request on abort.
+
+- 369f083: fix(orchestrator): let the outcome-eval judge be a dedicated fast backend
+
+  The local outcome-eval gate (the reasoner-as-judge) derived its analysis endpoint/
+  model from the THINKING-mode backend — the reasoner. But a reasoning model (qwen3)
+  is unusable as the judge on the OpenAI `/v1` endpoint: reasoning cannot be disabled
+  there, so a small token budget returns empty content and a large one stalls for
+  minutes. (Fast non-reasoning models judge the same spec-vs-diff correctly in ~8s.)
+
+  `deriveAnalysisEnv` now prefers `routing.intelligence.sel` — the already-designated
+  analysis/SEL-layer backend — over `routing.modes.thinking`, falling back to the
+  thinking backend only when no analysis backend is configured. So an operator points
+  `routing.intelligence.sel` at a fast non-reasoning backend to judge quickly, while
+  the reasoner keeps doing design (where thinking-on and slow is fine).
+
+- 6e596de: fix(orchestrator): make the spec-vs-diff eval see the implementation, not noise
+
+  Two related defects in `WorkspaceManager.getIntroducedDiffText` (the diff the
+  local gate's `outcome_eval` judge reads) caused false NOT_SATISFIED verdicts on
+  correct, passing work:
+  1. **Untracked files were invisible.** It diffed with plain `git diff <mergeBase>`,
+     which silently omits untracked files — so a brand-NEW file the agent created
+     (a new module, not a modification) never reached the judge, which then
+     concluded the work was missing. Both `getIntroducedDiff{,Text}` now
+     `git add --intent-to-add` first (respects `.gitignore`, leaves contents
+     untouched, harmless residual index entries).
+  2. **Process artifacts buried the code.** The eval diff also pulled in the design
+     stage's proposal/plan (`docs/changes`), roadmap shards (`docs/roadmap.d`), and
+     the local `.pnpm-store` — ~280 lines of planning + binary noise dwarfing a
+     ~90-line change, so the judge conflated "described in the proposal" with
+     "implemented" and reported the new file missing. `getIntroducedDiffText` now
+     excludes those process artifacts (the 4c hunk scan keeps the fuller diff).
+
+  Validated end-to-end: with both fixes the local outcome-eval flips from a false
+  NOT_SATISFIED to SATISFIED on a correct diff.
+
+- 733c73b: fix(orchestrator): guardrails against local-coder collateral mess
+
+  A weak local coder reliably writes the core change but botches collateral edits,
+  which then block a clean ship. Two complementary guardrails:
+  - **Stage prompt (coder guidance):** fixes a self-contradictory instruction — it
+    told the coder never to use `apply_patch`, which is codex's ONLY edit tool, so
+    the guidance was unfollowable and the coder fell back to destructive full-file
+    rewrites (e.g. regenerating a shared reference doc, dropping every other entry).
+    Reframed to be tool-agnostic: edit surgically with minimal hunks, APPEND to
+    existing docs/lists (never regenerate), never create backup copies, and actually
+    RUN any test you author (a test with inverted valid/invalid cases fails the gate).
+  - **Pipeline (coder-independent backstop):** agent scratch/backup cruft
+    (`*.bak`, `*.orig`, `*.tmp`, `*.rej`, `*~`, `temp_*`, `tmp_*`) is now excluded
+    from the spec-vs-diff eval (so it can't mislead the judge) and kept OUT of the
+    shipped commit (so a PR never carries it), via glob pathspecs — regardless of
+    whether the coder cleans up after itself.
+
+- 783a91d: fix(orchestrator): give local DOCUMENT stages a larger deadline than other local stages
+
+  A local DOCUMENT stage (produces `spec`/`plan`) runs on the reasoning backend, which
+  faithfully follows the skill's multi-phase process and over-explores — gathering context
+  across many turns before writing its artifact. The flat 600s local deadline
+  (`LOCAL_STAGE_DEADLINE_MS`) could guillotine it mid-exploration, so the captured output was
+  a narration fragment rather than a finished spec/plan. Document stages now default to
+  `LOCAL_DOCUMENT_STAGE_DEADLINE_MS` (1200s) while execution/verify/review keep 600s; an
+  explicit `stageDeadlineMs` on the workflow decl still overrides, and cloud stages are
+  unchanged.
+
+- 6b6840b: fix(orchestrator): give local reasoning stages an adequate deadline + capture thinking-only turns
+
+  A fully-local staged workflow left its design phase empty: the `brainstorming`/`planning`
+  stages ran on a local reasoning backend but produced no `proposal.md`/plan. Two causes:
+  1. **Deadline too short for a local reasoning model.** The per-stage wall-clock deadline
+     defaulted to 120s (`DEFAULT_STAGE_DEADLINE_MS`), which is tuned for cloud models. A local
+     reasoning model (e.g. qwen3 with `think:true`) spends ~30-40s per turn processing large
+     contexts, so 120s aborted a design/plan stage after only ~3 turns — while it was still
+     gathering context, BEFORE it wrote its spec/plan — yielding an empty artifact and cascading
+     to an empty execution stage. A stage routed to a LOCAL (on-device) backend now defaults to
+     `LOCAL_STAGE_DEADLINE_MS` (600s, ~15 turns of headroom); cloud stages are unchanged
+     (byte-identical to the old 120s default), and an explicit `stageDeadlineMs` on the workflow
+     decl still overrides both.
+  2. **A reasoning model's thinking-only turn was dropped.** The native `/api/chat` `thinking`
+     field (a reasoning model's chain-of-thought, separate from `content`) was discarded during
+     response normalization. When such a model ends a tool-less turn with empty `content` but a
+     populated `thinking`, its output is now captured as the stage's `result` (falling back to
+     `thinking` only when `content` is empty) instead of being lost — so the persist/thread-forward
+     path has something to work with. Completion (`TASK_COMPLETE`) still keys on visible `content`.
+
+- a758a0b: fix(orchestrator): remove scratch cruft (not just add-exclude) before ship
+
+  Restores the ship-time scratch-file removal that was orphaned when the tidiness
+  guardrails landed without their follow-up commit. Excluding cruft from `git add`
+  is insufficient — the eval diff's `git add --intent-to-add` had already marked it,
+  and lint-staged's pre-commit stash then fails ("Entry not uptodate. Cannot
+  merge"), blocking the ship. `markUntrackedIntentToAdd` no longer marks scratch
+  files, and the ship physically removes them (index + disk) before committing.
+
+- 4276030: Refresh stale `pnpm.overrides` security pins to clear 3 un-triaged HIGH CVEs surfaced by a supply-chain audit.
+
+  Several override floors had drifted below current patched versions, so `pnpm audit` still reported vulnerable resolved versions despite the pins being present. Bumped, all within the current major (no breaking upgrades):
+  - `fast-uri` `>=3.1.2` → `>=3.1.4 <4` — clears host-confusion via backslash authority delimiter + failed IDN canonicalization (2 × HIGH; resolved 3.1.2 → 3.1.4)
+  - `brace-expansion@2` (previously unmanaged) → `>=2.1.2 <3` — clears DoS via exponential-time expansion (HIGH; resolved 2.0.3 → 2.1.2)
+  - `@hono/node-server` `>=2.0.4` → `>=2.0.10` — clears serve-static path traversal + unauthenticated WebSocket-handshake memory-leak DoS (2 × moderate; resolved 2.0.4 → 2.0.11)
+  - `body-parser` (previously unmanaged) → `>=2.3.0` — clears limit-bypass DoS (low; resolved 2.2.2 → 2.3.0)
+
+  Audit summary: 11 advisories (4 high, 5 moderate, 2 low) → 5 advisories (1 high, 3 moderate, 1 low). Every remaining advisory maps to an existing documented `auditExceptions` entry (all esbuild/vite, dev-only and mostly Windows-only, no in-major patch available). The last remaining HIGH (vite `server.fs.deny`, residual vite-5 via vitepress) is left as an accepted exception; the real fix is upgrading vitepress off vite 5, tracked separately.
+
+- Updated dependencies [0f64b7d]
+- Updated dependencies [931cca0]
+- Updated dependencies [21325cf]
+- Updated dependencies [52e42cb]
+- Updated dependencies [0921ca1]
+- Updated dependencies [bc96342]
+- Updated dependencies [0f2ab19]
+  - @harness-engineering/types@0.26.0
+  - @harness-engineering/core@0.39.0
+  - @harness-engineering/graph@0.11.12
+  - @harness-engineering/intelligence@0.10.2
+  - @harness-engineering/local-models@0.7.2
+
 ## 0.18.0
 
 ### Minor Changes

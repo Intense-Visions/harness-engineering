@@ -1,5 +1,46 @@
 # @harness-engineering/dashboard
 
+## 0.14.8
+
+### Patch Changes
+
+- 4276030: Refresh stale `pnpm.overrides` security pins to clear 3 un-triaged HIGH CVEs surfaced by a supply-chain audit.
+
+  Several override floors had drifted below current patched versions, so `pnpm audit` still reported vulnerable resolved versions despite the pins being present. Bumped, all within the current major (no breaking upgrades):
+  - `fast-uri` `>=3.1.2` → `>=3.1.4 <4` — clears host-confusion via backslash authority delimiter + failed IDN canonicalization (2 × HIGH; resolved 3.1.2 → 3.1.4)
+  - `brace-expansion@2` (previously unmanaged) → `>=2.1.2 <3` — clears DoS via exponential-time expansion (HIGH; resolved 2.0.3 → 2.1.2)
+  - `@hono/node-server` `>=2.0.4` → `>=2.0.10` — clears serve-static path traversal + unauthenticated WebSocket-handshake memory-leak DoS (2 × moderate; resolved 2.0.4 → 2.0.11)
+  - `body-parser` (previously unmanaged) → `>=2.3.0` — clears limit-bypass DoS (low; resolved 2.2.2 → 2.3.0)
+
+  Audit summary: 11 advisories (4 high, 5 moderate, 2 low) → 5 advisories (1 high, 3 moderate, 1 low). Every remaining advisory maps to an existing documented `auditExceptions` entry (all esbuild/vite, dev-only and mostly Windows-only, no in-major patch available). The last remaining HIGH (vite `server.fs.deny`, residual vite-5 via vitepress) is left as an accepted exception; the real fix is upgrading vitepress off vite 5, tracked separately.
+
+- Updated dependencies [cc0978a]
+- Updated dependencies [85de3dc]
+- Updated dependencies [0f64b7d]
+- Updated dependencies [14beb17]
+- Updated dependencies [369f083]
+- Updated dependencies [931cca0]
+- Updated dependencies [21325cf]
+- Updated dependencies [52e42cb]
+- Updated dependencies [6e596de]
+- Updated dependencies [733c73b]
+- Updated dependencies [783a91d]
+- Updated dependencies [2641a7a]
+- Updated dependencies [6b6840b]
+- Updated dependencies [0472669]
+- Updated dependencies [ab8b378]
+- Updated dependencies [c5c5247]
+- Updated dependencies [a758a0b]
+- Updated dependencies [0921ca1]
+- Updated dependencies [bc96342]
+- Updated dependencies [0f2ab19]
+- Updated dependencies [4276030]
+  - @harness-engineering/orchestrator@0.19.0
+  - @harness-engineering/types@0.26.0
+  - @harness-engineering/core@0.39.0
+  - @harness-engineering/graph@0.11.12
+  - @harness-engineering/signals@0.2.10
+
 ## 0.14.7
 
 ### Patch Changes

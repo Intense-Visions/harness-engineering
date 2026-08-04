@@ -1,5 +1,12 @@
 # @harness-engineering/signals
 
+## 0.2.10
+
+### Patch Changes
+
+- Updated dependencies [21325cf]
+  - @harness-engineering/graph@0.11.12
+
 ## 0.2.9
 
 ### Patch Changes
