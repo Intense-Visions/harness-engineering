@@ -1,7 +1,20 @@
 ---
+# ─────────────────────────────────────────────────────────────────────────────
+# LOCAL-EXECUTION orchestrator config — the validated, fully-local setup for
+# autonomous CONTAINED maintenance/engineering tasks (on-device, NO cloud calls).
+# The enforced gates make it SAFE: it blocks/retries/escalates and NEVER ships
+# broken or spec-violating work. Full operator guide, task-fit envelope, operating
+# rules, hardware notes, and the hybrid variant: docs/guides/local-execution.md.
+#
+# SCOPE IT: the orchestrator picks every planned/in-progress row by Status, so
+# `tracker.filePath` points at a CURATED local-eligible QUEUE (only contained
+# tasks — see the triage checklist in the guide), NOT your whole roadmap. Complex
+# logic / cross-module refactors are above the local coder's ceiling — keep them
+# out, or use the hybrid variant to escalate them to `primary`.
+# ─────────────────────────────────────────────────────────────────────────────
 tracker:
   kind: roadmap
-  filePath: docs/roadmap.md
+  filePath: .harness/local-queue.roadmap.md
   activeStates: [planned, in-progress]
   terminalStates: [done]
 polling:
@@ -9,239 +22,197 @@ polling:
 workspace:
   root: .harness/workspaces
 hooks:
-  afterCreate: null
+  # Install deps AND build the CLI so the worktree's pre-commit gate
+  # (`harness ci check`) actually RUNS — the ship commits/pushes THROUGH the real
+  # gates (no --no-verify). Adopters on other ecosystems substitute their install.
+  afterCreate: 'pnpm install --prefer-offline && pnpm --filter @harness-engineering/cli... run build'
   beforeRun: null
   afterRun: null
   beforeRemove: null
   timeoutMs: 60000
 agent:
-  # Named backend definitions (Spec 2). See docs/guides/multi-backend-routing.md.
-  # `capabilities` (tier/cost/privacy/context) let AMR compare backends and select a
-  # capability tier per dispatch — a backend without one is invisible to tier selection.
   backends:
+    # Cloud backend — present ONLY for the hybrid variant to escalate to; kept OUT
+    # of `routing` below so this config is fully-local by default.
     primary:
       type: claude
       command: claude
       capabilities:
         { tier: strong, costPer1kTokens: 15, privacyClass: shared-cloud, contextWindow: 200000 }
-    # Local backend for autonomous execution of simple tasks.
-    # `model` accepts a string OR a prefer-and-fallback array — first
-    # match wins after a `/v1/models` probe.
+
+    # Direct-ollama coder for quick-fix/diagnostic (single-shot) routes. Curated
+    # MCP tool allowlist — NOT the full ~99-tool flood, which makes a local model
+    # over-explore. Precise agentic-coding sampling (not ollama's hot default).
     local:
       type: ollama
-      # Ollama's OpenAI-compatible API lives under /v1 (the resolver probes
-      # `${endpoint}/models`). Names must match `ollama list` exactly.
       endpoint: http://127.0.0.1:11434/v1
-      # Prefer-and-fallback: first name present in /v1/models wins. Coder model
-      # first (local routes are quick-fix/diagnostic), general model as fallback.
-      # Quote the names — the ':tag' colon otherwise breaks YAML flow parsing.
-      model: ['qwen2.5-coder:7b', 'gemma3n:e4b']
-      # Qwen3 reasons by default; Ollama /v1 ignores reasoning:false, so disable it
+      model: ['qwen3-coder:30b']
       disableReasoning: true
+      temperature: 0.6
+      topP: 0.95
+      topK: 20
+      numCtx: 65536
       capabilities:
-        { tier: fast, costPer1kTokens: 0, privacyClass: on-device, contextWindow: 32768 }
-      # Optional: give the local agent tools from MCP servers, merged with its
-      # built-in bash/read_file/write_file. Tools are namespaced `<server>__<tool>`;
-      # a server that fails to start is skipped (never breaks the dispatch). Default
-      # (unset) = built-ins only. See docs/guides/multi-backend-routing.md#mcp-tools.
-      # mcpServers:
-      #   - name: context7        # live library docs — stop coding from stale memory
-      #     command: npx
-      #     args: ['-y', '@upstash/context7-mcp']
-      #   - name: harness          # code_search / ask_graph / review_changes /
-      #     command: harness-mcp    # outcome_eval, run against the agent's workspace
-      #     tools: [code_search, ask_graph, review_changes, outcome_eval, gather_context]
-      #                             # narrow harness's ~95 tools to the read-oriented set
-      #                             # so a local model isn't flooded (omit tools = all).
-    # Local REASONING backend for the DESIGN phases of a staged workflow
-    # (cognitiveMode: thinking). A larger reasoning model (qwen3:32b) with
-    # reasoning LEFT ON — the design stages benefit from the <think> trace, so
-    # unlike the `local` coder we do NOT set disableReasoning. routing.modes.thinking
-    # points here (see routing.modes below).
+        { tier: fast, costPer1kTokens: 0, privacyClass: on-device, contextWindow: 65536 }
+      mcpServers:
+        - name: context7
+          command: npx
+          args: ['-y', '@upstash/context7-mcp']
+        - name: harness
+          command: harness-mcp # dogfooding this repo? use: node packages/cli/dist/bin/harness-mcp.js
+          tools:
+            [
+              manage_roadmap,
+              code_search,
+              code_outline,
+              ask_graph,
+              gather_context,
+              find_context_for,
+              review_changes,
+              run_code_review,
+              run_ci_checks,
+              outcome_eval,
+              acceptance_eval,
+              spec_craft,
+              test_craft,
+            ]
+
+    # CODER (execution + verification) — Codex driving the local coder. Codex's
+    # edit + self-verify + retry loop converges where a bare tool-loop stalls.
+    # `reasoningEffort: none` is REQUIRED: qwen3-coder does not support thinking and
+    # current ollama rejects a reasoning request outright ("does not support
+    # thinking"), zeroing the coder; codex's DEFAULT still sends one, so `none` (not
+    # omission) is the fix. routing.default points here.
+    codex-exec:
+      type: codex
+      model: ['qwen3-coder:30b']
+      localProvider: ollama
+      reasoningEffort: none
+      mcpServers:
+        - name: context7
+          command: npx
+          args: ['-y', '@upstash/context7-mcp']
+        - name: harness
+          command: harness-mcp # dogfooding this repo? use: node packages/cli/dist/bin/harness-mcp.js
+          tools: [code_search, code_outline, ask_graph, gather_context, review_changes]
+
+    # REASONER (design + planning + review — cognitiveMode: thinking). Thinking
+    # model with reasoning LEFT ON; writes the spec/plan the coder builds against.
     reasoner:
       type: ollama
       endpoint: http://127.0.0.1:11434/v1
-      model: ['qwen3:32b']
-      # Reasoning stays ON for design (thinking) stages — this is the reasoner.
+      model: ['qwen3.6:27b']
       disableReasoning: false
       capabilities:
-        { tier: strong, costPer1kTokens: 0, privacyClass: on-device, contextWindow: 32768 }
-  # Routing — controls WHICH backend handles each use case.
+        { tier: fast, costPer1kTokens: 0, privacyClass: on-device, contextWindow: 65536 }
+
+    # JUDGE (the settle-gate outcome-eval / spec-vs-diff verdict). A FAST
+    # NON-reasoning model — a reasoning model is unusable on /v1 (empty content or
+    # multi-minute stalls). gpt-oss:20b returns a correct verdict in ~8s and is more
+    # INDEPENDENT than the coder judging its own work.
+    judge:
+      type: ollama
+      endpoint: http://127.0.0.1:11434/v1
+      model: ['gpt-oss:20b', 'qwen3-coder:30b']
+      disableReasoning: true
+      capabilities:
+        { tier: fast, costPer1kTokens: 0, privacyClass: on-device, contextWindow: 32768 }
+
   routing:
-    default: primary
+    # Fully-local: execution/verification → codex-exec. `primary` (claude) is kept
+    # OUT of routing. HYBRID variant: set `default: primary` (or route only complex
+    # tiers to it) to escalate hard work — see the guide.
+    default: codex-exec
     quick-fix: local
     diagnostic: local
-    # Per-phase routing: a staged workflow's DESIGN stages (cognitiveMode: thinking)
-    # route here — to the local reasoner — while its execution stages carry no
-    # cognitiveMode and fall to routing.default. See the `workflows:` decl below.
+    # Per-phase: design/plan/review stages carry `cognitiveMode: thinking` → reasoner;
+    # execution/verify carry none → routing.default.
     modes:
       thinking: reasoner
-    # Route the intelligence pipeline (sel/pesl) to the local backend.
+    # Analysis/judge layer (outcome-eval at the enforced gate) → the fast judge.
     intelligence:
-      sel: local
-      pesl: local
-    # AMR (Adaptive Model Routing) — opt-in; its PRESENCE flips dispatch from the
-    # identity/default chain to complexity-aware tier selection. trivial/simple →
-    # local (fast, free); moderate/complex → claude (no `standard` backend, so a
-    # `standard` requirement resolves to the cheapest backend at-or-above it =
-    # primary). The always-on baseline-relative security-defect feeder climbs a
-    # unit's tier after `escalationThreshold` consecutive quality failures
-    # (strong-capped, then hard-fails to a human). Budget cap + LLM acceptance-eval
-    # are available opt-ins (docs/guides/adaptive-model-routing.md) — left off here.
-    policy:
-      complexityTierMatrix: { trivial: fast, simple: fast, moderate: standard, complex: strong }
-      escalationThreshold: 2
-  # Escalation — controls WHETHER a tier dispatches at all (orthogonal to routing).
+      sel: judge
+  # Bound the loop, then escalate — never grind forever. Exhaustion → needs-human
+  # (or, in the hybrid variant, hand off to primary).
   escalation:
+    maxLocalStageRetries: 4
     alwaysHuman: [full-exploration]
-    autoExecute: [quick-fix, diagnostic]
-    primaryExecute: [guided-change]
-    signalGated: []
-    diagnosticRetryBudget: 1
   maxConcurrentAgents: 1
-  maxTurns: 10
-  maxRetryBackoffMs: 5000
-  maxConcurrentAgentsByState: {}
-  globalCooldownMs: 60000
-  maxRequestsPerMinute: 50
-  maxRequestsPerSecond: 1
-  # Default limits based on Anthropic Tier 3. Adjust according to your account tier.
-  # Tier 1: 40k ITPM / 10k OTPM
-  # Tier 2: 200k ITPM / 40k OTPM
-  # Tier 3: 400k ITPM / 80k OTPM
-  # Tier 4: 1m ITPM / 200k OTPM
-  maxInputTokensPerMinute: 400000
-  maxOutputTokensPerMinute: 80000
-  turnTimeoutMs: 300000
-  readTimeoutMs: 30000
-  stallTimeoutMs: 60000
-# Staged workflows (per-phase routing). A matched unit is dispatched as ONE
-# multi-stage run on a single worktree instead of chained skill invocations:
-# the DESIGN stages carry `cognitiveMode: thinking` and route to
-# routing.modes.thinking (the local `reasoner`); the EXECUTION stages carry no
-# cognitiveMode and fall to routing.default. Each stage's prior output threads
-# to the next over the text channel (expects/produces). A local-endpoint routed
-# stage renders the `harness skill run <skill> --autonomous` indirection prompt
-# automatically. `workflowFor` only returns a plan for a decl with >= 2 stages.
+
+# Staged local workflow — the real lifecycle as discrete, persona-routed stages.
+# design/plan/review carry cognitiveMode: thinking (→ reasoner); execution/verify
+# fall to routing.default (→ codex-exec). After review the orchestrator ENFORCES
+# the gates: mechanical (typecheck+lint+test) + spec-vs-diff outcome-eval; a
+# high-confidence NOT_SATISFIED blocks + re-dispatches with the failure threaded
+# back. match identifierPrefix 'local-' — name local-eligible queue rows 'local-<slug>' (see the guide).
 workflows:
   - name: local-full-workflow
-    match: { identifierPrefix: 'LOCAL-' }
+    match: { identifierPrefix: 'local-' }
     stages:
-      - { skill: harness-brainstorming, cognitiveMode: thinking, produces: spec }
-      - { skill: harness-planning, cognitiveMode: thinking, expects: spec, produces: plan }
+      - { skill: harness-brainstorming, cognitiveMode: thinking, produces: spec, checkpoint: true }
+      - {
+          skill: harness-planning,
+          cognitiveMode: thinking,
+          expects: spec,
+          produces: plan,
+          checkpoint: true,
+        }
       - { skill: harness-execution, expects: plan, produces: impl }
       - { skill: harness-verification, expects: impl, produces: verify }
+      - { skill: harness-code-review, cognitiveMode: thinking, expects: impl, produces: review }
+
+# Intelligence pipeline off by default (the enforced outcome-eval gate builds its
+# provider from the judge backend directly — see the guide). Enable for AMR.
 intelligence:
-  enabled: true
-  requestTimeoutMs: 180000
+  enabled: false
 server:
-  port: 8080
-localModels:
-  enabled: true
-  pool:
-    diskBudgetGb: 100
-    allowedOrgs: [Qwen, deepseek-ai, meta-llama, google, openai, zai-org, THUDM, moonshotai]
-    allowedFamilies: []
-  refresh:
-    intervalMs: 86400000
-    proposalThreshold: 5
-    jitterMs: 600000
-  installer:
-    backend: ollama
-    ollamaEndpoint: http://127.0.0.1:11434
-# Built-in maintenance tasks run on cron when `maintenance.enabled: true`.
-# Notable housekeeping tasks: `main-sync` (every 15 min) fast-forwards the
-# orchestrator's local default branch from origin so files read from `cwd`
-# (e.g., docs/roadmap.md, harness.orchestrator.md) stay current. Sync is
-# fast-forward-only — never destructive — and skips with a structured
-# warning event if the working tree is dirty, the branch is wrong, or the
-# local default has diverged. Disable all maintenance via `maintenance.enabled: false`.
-#
-# Per-task Run Now (since 2026-05-09): the dashboard Maintenance page renders
-# a Run Now button on every row of the schedule table. The previous single-
-# button affordance (which always triggered `project-health`) has been
-# removed. Each button is disabled while a `maintenance:started` event is in
-# flight for that task ID and re-enables on the matching `maintenance:completed`
-# or `maintenance:error` event.
-maintenance:
-  enabled: true
+  enabled: false
 ---
 
-# Prompt Template (Local Backend — bootstrap shim)
+# Prompt Template (local single-agent fallback)
 
-You are a local agent with `bash`, `read`, `write`, `grep`, and `find`. You do
-NOT have `/harness:*` slash commands or harness MCP tools. You run the REAL
-harness workflow skills by reading them over bash — this template carries no
-methodology of its own.
+This body is used ONLY for a unit that does NOT match a staged `workflows:` decl
+(the staged path renders its own per-stage prompts). You are an autonomous agent
+working exactly as a real harness session would. In addition to bash/read/write
+you have the harness MCP toolset (namespaced `harness__*` on the ollama path; on
+the codex path, use codex's own edit/patch + the injected read tools) — USE the
+real tools when a skill calls for them instead of approximating with bash.
 
 ## Issue: {{ issue.title }}
 
 **Identifier:** {{ issue.identifier }}
 **Description:** {{ issue.description }}
 
-## How to run a harness skill (the indirection rule)
-
-To run any harness workflow skill, execute it over bash and follow its output
-**verbatim**:
+## Run a harness skill (the indirection rule)
 
 ```bash
 harness skill run <skill-name> --autonomous --path .
 ```
 
-`harness skill run` prints the skill's full instructions (the same content the
-primary backend gets from a `/harness:*` slash command) to stdout as a plain CLI
-read. `--autonomous` prepends the headless-decider preamble: you do the full
-analysis at full rigor but YOU decide every fork and record it in the spec — you
-never pause for a human.
+`harness skill run` prints the skill's full instructions to stdout; `--autonomous`
+means YOU decide every fork at full rigor and never pause for a human. Whenever a
+skill's output says to run `/harness:X`, run `harness skill run harness-X
+--autonomous` instead.
 
-**Redirect rule.** Whenever a skill's output instructs you to run `/harness:X`,
-instead run `harness skill run harness-X --autonomous`. Slash commands are
-unavailable on this backend; the skill-run indirection is their equivalent.
+## Editing existing files: surgical edits only, never rewrite a whole file
 
-## Full-workflow entry sequence
-
-Run these in order, each via `harness skill run <name> --autonomous --path .`,
-following each skill's output before moving on:
-
-1. `harness-brainstorming` — runs at full rigor (≥2 approaches, YAGNI, persona
-   council, soundness), but YOU decide the forks (autonomous) and record each
-   decision in the spec.
-2. `harness-planning`
-3. `harness-execution` (or `harness-tdd` for test-driven work)
-4. `harness-verification`
-5. `harness-code-review`
-
-Run `harness skill list` to see the full roster of available skills.
-
-> **Staged dispatch (per-phase routing).** When a unit matches `local-full-workflow`
-> (frontmatter), design stages (`cognitiveMode: thinking`) route to the local reasoner and execution stages to `routing.default`, chained automatically for you.
+Change only the exact lines that must change; APPEND to existing docs/lists (never
+regenerate a shared file from scratch — that drops other entries); never leave
+backup/scratch files (`*.bak`, `temp_*`). Actually RUN any test you author and
+confirm it passes against your implementation.
 
 ## Gates (enforced by the harness, not just by you)
 
-The orchestrator INDEPENDENTLY enforces `harness validate` plus the
-verify/outcome-eval gates against your branch after you exit — you cannot ship
-past a red gate. Reach a green state: run `harness validate` and the project's
-own typecheck/lint/test yourself and fix every failure before shipping. A run
-that cannot reach green is halted and re-dispatched rather than shipped, and
-escalated to a human if the retry budget is exhausted.
+The orchestrator INDEPENDENTLY enforces `harness validate` plus typecheck + lint +
+the full test suite, and a spec-vs-diff outcome-eval, against your branch — you
+cannot ship past a red gate. Reach a green state yourself (run `harness validate`
+and the project's typecheck/lint/test and fix every failure); a run that can't is
+halted and re-dispatched, and escalated to a human when the retry budget is
+exhausted.
 
 ## Ship (only after the gates are green)
 
-- Create a topic branch if you are still on `main`/`master`
-  (e.g. `feat/{{ issue.identifier }}`).
-- Stage your changes and create a descriptive commit (Conventional Commits style).
-- Push the branch with `git push -u origin HEAD`.
-- Open a pull request with `gh pr create`. Use a HEREDOC for the body:
-
-  ```bash
-  gh pr create --title "<title>" --body "$(cat <<'EOF'
-  ## Summary
-
-  <body content with real newlines>
-  EOF
-  )"
-  ```
-
-- Report the PR URL as your final output, then stop.
+Create a topic branch, commit (Conventional Commits), `git push -u origin HEAD`,
+open a PR with `gh pr create`, report the PR URL, then stop.
 
 Attempt Number: {{ attempt }}
