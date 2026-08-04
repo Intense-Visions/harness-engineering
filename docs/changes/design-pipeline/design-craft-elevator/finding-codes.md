@@ -47,7 +47,8 @@
 - [CRAFT-B\* — Benchmark identifiers](#craft-b--benchmark-identifiers)
   - [Benchmark-identifier semantics](#benchmark-identifier-semantics)
   - [CRAFT-B001–B008 — seed benchmark identifiers (canonical anchors + horizontal-growth pair)](#craft-b001b008--seed-benchmark-identifiers-canonical-anchors--horizontal-growth-pair)
-  - [CRAFT-B009–B050 — RESERVED (seed exemplar set growth)](#craft-b009b050--reserved-seed-exemplar-set-growth)
+  - [CRAFT-B009–B017 — MarketingPage tier (award-documented whole-page anchors)](#craft-b009b017--marketingpage-tier-award-documented-whole-page-anchors)
+  - [CRAFT-B018–B050 — RESERVED (seed exemplar set growth)](#craft-b018b050--reserved-seed-exemplar-set-growth)
   - [CRAFT-B051–B100 — RESERVED (post-seed growth)](#craft-b051b100--reserved-post-seed-growth)
 - [Exemplar references (used by BENCHMARK runs)](#exemplar-references-used-by-benchmark-runs)
 - [Reserved-code authoring convention](#reserved-code-authoring-convention)
@@ -97,15 +98,16 @@ The range allocation below is the **authoritative reservation** that Phase 1–4
 
 **CRAFT-B (benchmark identifiers):**
 
-| Range       | Phase landed     | Status (v1)                                                                                                                                                                                                                                                     |
-| ----------- | ---------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `B001`      | Phase 2 (PR 431) | Shipped (linear-empty-list — wired into `SEED_EXEMPLARS`).                                                                                                                                                                                                      |
-| `B002–B003` | Phase 2          | Shipped (stripe-loading-state, raycast-command-palette — wired into `SEED_EXEMPLARS` from Phase 0 spike artifacts).                                                                                                                                             |
-| `B004–B005` | Phase 2          | Shipped (vercel-error-state, linear-issue-modal — extends the early v1 anchor set to cover ErrorState and Modal componentTypes).                                                                                                                                |
-| `B006`      | Phase 2          | Shipped (stripe-pay-button — claims the Button componentType anchor and completes the five canonical componentTypes the spec calls out for the 50-exemplar plan: EmptyState / LoadingState / ErrorState / Modal / Button + the informal CommandPalette anchor). |
-| `B007–B008` | Phase 2 (this)   | Shipped (notion-empty-database, vercel-build-progress — opens the horizontal-growth phase with a second EmptyState anchor in the INSTRUCTIONAL register and a second LoadingState anchor in the NARRATIVE register).                                            |
-| `B009–B050` | Phase 1–2        | Reserved for seed exemplar set growth (success criterion #9 lists 50 exemplars across 5 types — continuing horizontal growth from the eight anchors above).                                                                                                     |
-| `B051–B100` | Post-v1          | Reserved for catalog growth (target: 400 exemplars in 12–24 months).                                                                                                                                                                                            |
+| Range       | Phase landed                  | Status (v1)                                                                                                                                                                                                                                                     |
+| ----------- | ----------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `B001`      | Phase 2 (PR 431)              | Shipped (linear-empty-list — wired into `SEED_EXEMPLARS`).                                                                                                                                                                                                      |
+| `B002–B003` | Phase 2                       | Shipped (stripe-loading-state, raycast-command-palette — wired into `SEED_EXEMPLARS` from Phase 0 spike artifacts).                                                                                                                                             |
+| `B004–B005` | Phase 2                       | Shipped (vercel-error-state, linear-issue-modal — extends the early v1 anchor set to cover ErrorState and Modal componentTypes).                                                                                                                                |
+| `B006`      | Phase 2                       | Shipped (stripe-pay-button — claims the Button componentType anchor and completes the five canonical componentTypes the spec calls out for the 50-exemplar plan: EmptyState / LoadingState / ErrorState / Modal / Button + the informal CommandPalette anchor). |
+| `B007–B008` | Phase 2 (this)                | Shipped (notion-empty-database, vercel-build-progress — opens the horizontal-growth phase with a second EmptyState anchor in the INSTRUCTIONAL register and a second LoadingState anchor in the NARRATIVE register).                                            |
+| `B009–B017` | Marketing-page tier (this PR) | Shipped (nine award-documented MarketingPage anchors — Son Daven, La Revoltosa, Crav Burgers, sakazuki, Hagis Barbershop, Fort Point Beer Co., Kvell, Baillat Studio, Commercial Construction — opens the page-scoped tier per ADR 0082).                       |
+| `B018–B050` | Phase 1–2                     | Reserved for seed exemplar set growth (success criterion #9 lists 50 exemplars across 5 types — continuing horizontal growth from the anchors above).                                                                                                           |
+| `B051–B100` | Post-v1                       | Reserved for catalog growth (target: 400 exemplars in 12–24 months).                                                                                                                                                                                            |
 
 Beyond 100 in any family, the type system continues to accept the format, but no allocation rules apply — those codes belong to future versions and require an explicit allocation update.
 
@@ -1249,13 +1251,31 @@ Per Phase 0 review observation O4, `componentType` (e.g., `CommandPalette`) is a
 
 `CRAFT-B007` (`exemplar-notion-empty-database`) and `CRAFT-B008` (`exemplar-vercel-build-progress`) open the horizontal-growth phase. Both anchor a second exemplar within an already-anchored componentType, but each carries a tonal register distinct from its peer anchor: Notion's EmptyState is the INSTRUCTIONAL register (agency-led "here is the gesture that unlocks the surface") opposite Linear's RESOLVED register ("you're done, nothing to do"); Vercel's LoadingState is the NARRATIVE register (progress-led, multi-phase, log-streamed) opposite Stripe's PREVIEW register (content-matched skeleton). Carrying both registers per componentType lets BENCHMARK score targets against the right tonal model rather than collapsing every empty/loading state toward a single anchor. Subsequent exemplar-widen increments continue growing horizontally per componentType from here.
 
-### CRAFT-B009–B050 — RESERVED (seed exemplar set growth)
+### CRAFT-B009–B017 — MarketingPage tier (award-documented whole-page anchors)
 
-Codes B009–B050 are reserved for the seed exemplar set's horizontal growth (success criterion #9 — 50 exemplars across 5 component types). Each seed exemplar that becomes a BENCHMARK reference target claims the next free `CRAFT-B*` code in landing order during subsequent Phase 2 Stream B increments.
+The marketing-page increment (ADR 0082) opens the first PAGE-scoped exemplar tier: nine whole-page anchors under the `MarketingPage` componentType, each authored from a verified award page or published studio case study. B-codes align with `SEED_EXEMPLARS` array index order (B001..B008 = indexes 0..7, so B009..B017 = indexes 8..16) — new exemplars append LAST to preserve the alignment.
 
-The next slot (`CRAFT-B009`) is unallocated. Growth from here continues per-componentType — every canonical type now carries at least one anchor and two carry a second register-distinct anchor; new slots fill in as additional exemplars promote to BENCHMARK-target status.
+| Code         | Exemplar id                                       | componentType | Provenance (verified at authoring)                                                                              |
+| ------------ | ------------------------------------------------- | ------------- | --------------------------------------------------------------------------------------------------------------- |
+| `CRAFT-B009` | `exemplar-son-daven-marketing-page`               | MarketingPage | `awwwards#son-daven` — <https://www.awwwards.com/sites/son-daven> (SOTD Jun 5, 2026)                            |
+| `CRAFT-B010` | `exemplar-la-revoltosa-marketing-page`            | MarketingPage | `awwwards#la-revoltosa` — <https://www.awwwards.com/sites/la-revoltosa> (SOTD May 21, 2026)                     |
+| `CRAFT-B011` | `exemplar-crav-burgers-marketing-page`            | MarketingPage | `awwwards#crav-burgers` — <https://www.awwwards.com/sites/crav-burgers> (SOTD Jun 13, 2026)                     |
+| `CRAFT-B012` | `exemplar-sakazuki-marketing-page`                | MarketingPage | `awwwards#sakazuki` — <https://www.awwwards.com/sites/sakazuki> (SOTD Jun 14, 2026 + Typography honor)          |
+| `CRAFT-B013` | `exemplar-hagis-barbershop-marketing-page`        | MarketingPage | `awwwards#hagisbarbershop` — <https://www.awwwards.com/sites/hagisbarbershop> (SOTD Aug 18, 2021)               |
+| `CRAFT-B014` | `exemplar-fort-point-beer-marketing-page`         | MarketingPage | `manual-creative#fort-point` — <https://manualcreative.com/work/fort-point> (published case study)              |
+| `CRAFT-B015` | `exemplar-kvell-marketing-page`                   | MarketingPage | `awwwards#kvell` — <https://www.awwwards.com/sites/kvell> (SOTD Apr 19, 2017; built by Locomotive)              |
+| `CRAFT-B016` | `exemplar-baillat-studio-marketing-page`          | MarketingPage | `locomotive#baillat-studio` — <https://locomotive.ca/en/work/baillat-studio> (published case study)             |
+| `CRAFT-B017` | `exemplar-commercial-construction-marketing-page` | MarketingPage | `awwwards#commercial-construction` — <https://www.awwwards.com/sites/commercial-construction> (HM Jun 19, 2020) |
 
-> **All codes in B009–B050 are RESERVED — to be defined as benchmark-target exemplars are landed during seed growth.** See [Reserved-code authoring convention](#reserved-code-authoring-convention).
+Unlike B001–B008 (product-UI component anchors), these anchor whole pages: a BENCHMARK target with `componentType: 'MarketingPage'` resolves this tier via the existing equality matcher and is scored on page-level concept / composition / surface craft against the page-scoped rubric trio (CRAFT-C011–C013). Provenance note: the Kvell case study is no longer on Locomotive's live site, so the canonical Awwwards award page (credited to Locomotive) is cited instead; Commercial Construction's live site is offline, so its award page carries both `url` and `source`.
+
+### CRAFT-B018–B050 — RESERVED (seed exemplar set growth)
+
+Codes B018–B050 are reserved for the seed exemplar set's horizontal growth (success criterion #9 — 50 exemplars across 5 component types). Each seed exemplar that becomes a BENCHMARK reference target claims the next free `CRAFT-B*` code in landing order during subsequent Phase 2 Stream B increments.
+
+The next slot (`CRAFT-B018`) is unallocated. Growth from here continues per-componentType; new slots fill in as additional exemplars promote to BENCHMARK-target status.
+
+> **All codes in B018–B050 are RESERVED — to be defined as benchmark-target exemplars are landed during seed growth.** See [Reserved-code authoring convention](#reserved-code-authoring-convention).
 
 ### CRAFT-B051–B100 — RESERVED (post-seed growth)
 
