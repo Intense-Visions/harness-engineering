@@ -1,5 +1,297 @@
 # @harness-engineering/cli
 
+## 10.2.0
+
+### Minor Changes
+
+- 1e16944: feat(check-arch): require `--allow-regress --reason` to update a baseline that worsens a metric (#530)
+
+  `harness check-arch --update-baseline` previously accepted regressions silently — a worsened
+  complexity/coupling/module-size value could be baked into the baseline with no record. Now,
+  when an update would WORSEN any metric versus the current baseline (beyond the configured
+  regression tolerance), it is rejected unless the caller passes `--allow-regress --reason "…"`.
+  The accepted regression (categories, before→after, delta, commit, reason) is appended to
+  `.harness/audit.log`, forcing the decision into the open. A first-capture (no baseline) or a
+  non-worsening update is unaffected.
+
+- 79b0764: feat(design-craft): MarketingPage exemplar tier + page-level rubrics
+
+  The design-craft catalog gains a page-scoped `MarketingPage` component type: nine
+  award-documented whole-page exemplars (CRAFT-B009..B017 — Awwwards SOTD/HM winners
+  and published studio case studies, each with verified provenance) and three
+  page-level rubrics — `concept-coherence` (CRAFT-C011), `composition-art-direction`
+  (CRAFT-C012), and `surface-texture-material` (CRAFT-C013), all `appliesTo: ['page']`.
+
+  BENCHMARK on a page target with `componentType: 'MarketingPage'` now resolves to the
+  marketing-page corpus instead of the product-UI component set, so marketing/brochure
+  pages converge toward art-direction craft (concept, composition, texture) rather than
+  component polish alone. No matcher changes were needed (open-string ComponentType,
+  equality filtering) — recorded in ADR 0082 along with the decision to ship the page
+  tier before section-level anchors.
+
+- 1778d71: feat(mcp): let the eval judgment tools run fully-locally
+
+  `acceptance_eval` and `outcome_eval` construct an LLM `AnalysisProvider` to judge
+  a spec's acceptance criteria / an outcome — but both hardcoded
+  `AnthropicAnalysisProvider` and returned `null` without `ANTHROPIC_API_KEY`, so in
+  a fully-local run (no cloud key) the judgment silently degraded to an advisory
+  stub and the tools were effectively inert. That left a local pipeline's weak
+  coder with no strong judge for the reconciliation it can't do on its own.
+
+  Both resolvers (previously byte-identical) are unified into a shared
+  `resolveAnalysisProvider` that adds a local fallback: when no `ANTHROPIC_API_KEY`
+  is set but `HARNESS_ANALYSIS_BASE_URL` is, it constructs an
+  `OpenAICompatibleAnalysisProvider` against that `/v1` endpoint
+  (`HARNESS_ANALYSIS_MODEL` names the judge; `HARNESS_ANALYSIS_API_KEY` defaults to
+  `ollama`) — so the reasoner can serve verdicts on-device. Anthropic still wins
+  when a key is present (backward compatible); absent both signals, behaviour is
+  byte-identical to before (null → advisory).
+
+  This is the foundation for wiring the harness's own verifier/reviewer judgment
+  into the local orchestrator's stages; a follow-up threads the reasoner endpoint
+  into the injected MCP server and updates the local stage prompt to call these
+  tools.
+
+- 0921ca1: feat(roadmap): `harness roadmap sync` CLI with CI-safety guards and zero-denominator exit
+
+  The full bidirectional roadmap↔tracker sync was reachable only through the
+  `manage_roadmap action:"sync"` MCP tool. CI could therefore only ever flip rows
+  **to `done`** (via `roadmap reconcile`) — every other transition and the whole
+  tracker-label push depended on a human remembering to run an MCP tool. In one
+  downstream repo that left `last_synced` 22 days behind `last_manual_edit` and 22
+  issues with no tracker labels at all, invisible to a tracker scoped by a
+  selector label.
+
+  `harness roadmap sync` closes the loop, and is **dry-run by default** — `--apply`
+  is required to write anything. Two guards make an unattended run safe by
+  switching off the two destructive powers:
+  - `--no-state-change` (`syncIssueState: false`) omits the issue `state` field
+    from every patch body, so labels converge but no issue is ever closed or
+    reopened. The `statusMap` maps `done → closed`, so one mis-set roadmap row was
+    otherwise enough to close a live issue.
+  - `--no-create` (`allowCreate: false`) never creates a ticket for a row lacking
+    an `External-ID`, and reports each skipped row rather than dropping it. A cron
+    that invents issues is unacceptable.
+
+  Both defaults preserve today's behaviour exactly; CI turns them off explicitly.
+  `--force` maps to the existing `forceSync` and is documented as unsafe
+  unattended (it overrides the human-always-wins rule).
+
+  `ExternalSyncOptions` gains `dryRun`, `allowCreate`, and `syncIssueState`,
+  threaded through `syncToExternal` / `syncFromExternal` to the adapter write path
+  (`TicketWriteOptions` on `TrackerSyncAdapter.updateTicket`; a `syncIssueState`
+  constructor option on `GitHubIssuesTrackerAdapter`). `SyncResult` gains
+  `dryRun`, `planned`, `skippedCreates`, `skippedStateChanges`, and `examined`.
+  The label-preservation logic in `buildIssuePatchBody` — skip the labels field
+  entirely when the refresh GET fails, so a transient blip cannot wipe the
+  `harness-managed` selector — is unchanged on both guard settings.
+
+  Denominator discipline: every run reports what it examined (rows compared,
+  tickets fetched), and the new `ExitCode.ZERO_DENOMINATOR` (3) fires when it
+  examined nothing. A sync that matched nothing has abstained, not succeeded, and
+  must never read as a pass.
+
+  Intended consumer pattern: a nightly
+  `harness roadmap sync --apply --no-create --no-state-change` converges labels
+  safely, while issue closure stays with the PR-merge auto-done path.
+
+### Patch Changes
+
+- 0d8078d: fix(config): reserve co-tenant namespaces so harness.config.json stops warning on shared keys
+
+  `harness.config.json` is in practice a **shared file**: sibling tools read their
+  own top-level namespace out of it (e.g. Canary reads `canary` directly). Since
+  the stripped-key warning landed (#862), harness warned on that live, load-bearing
+  block — `⚠ harness.config.json: ignored unknown key 'canary'`. The warning is
+  correct from harness's point of view and **actively harmful in effect**: the
+  obvious way to silence it is to delete the key, which silently resets the
+  co-tenant's gate configuration (#982).
+
+  The dropped-key detector now recognizes reserved co-tenant namespaces at the
+  **root** and never reports them: an explicit allow-list (`canary`) plus the
+  `x-*` extension convention for tools harness has not been told about. The
+  reservation is root-only and narrow — a genuinely-unknown root key
+  (`frobnicate`) is still reported, and a `canary` key **mis-nested** under a known
+  section (`entropy.canary`) is still caught, since only the root is co-tenant
+  space.
+
+  Addresses ask (1) of #982. Asks (2) pin the publisher's own smoke test and (3)
+  the release-cadence / `stable` dist-tag / config-migration policy are distribution
+  decisions left to the maintainers.
+
+- 6fd4a2f: fix(cli): doctor resolves slash-command references instead of counting files
+
+  `harness doctor` reported `✓ Slash commands installed (N commands)` by counting
+  files in the output directory and never checking whether the `@`-references
+  inside them resolve. On a machine where the CLI had been upgraded (2.8.0 →
+  10.1.0) and the old install directory removed, every one of 51 commands pointed
+  at a `SKILL.md` that no longer existed — and doctor was green for ~10 days
+  (#1009). A slash command with a dangling `@` still runs, returning its wrapper
+  with the skill body silently absent, so doctor was the only surface that could
+  catch it.
+
+  The check now resolves rather than counts: for each generated command it
+  extracts the absolute `@`-referenced skill assets, verifies they exist, and
+  reports `N commands, M resolvable`. When `M < N` it fails, names the first dead
+  reference, and points at the fix — `harness generate-slash-commands` — which
+  regenerates against the current install. A command with no `@`-refs (e.g. Gemini
+  inlines the SKILL body) is self-contained and counts as resolvable.
+
+  This also closes the "silent for 10 days" surface behind #1010: an upgrade that
+  leaves generated commands pointing at the previous version's path is now
+  detectable and actionable rather than invisible (`harness update` already offers
+  regeneration post-upgrade).
+
+- 52e42cb: fix(core): check-harness-strength honors core.hooksPath and never reads partial coverage as solid
+
+  Two companion defects in the STRENGTH auditor:
+
+  **Hook discovery ignored `core.hooksPath` (#1012).** `buildProjectContext` read a
+  single hardcoded `.husky/pre-commit` and `resolveHookFiles` searched only
+  `.husky` / `.claude/hooks` / `.harness/hooks`. A repo wiring hooks via
+  `.githooks/` + `git config core.hooksPath .githooks` (a common non-husky
+  convention) therefore had `ctx.preCommit === null`, silently disabling
+  **STRENGTH-002 (regression-baseline)** and **STRENGTH-003 (skip-discipline)** —
+  the two patterns most specifically about pre-commit behavior — while still
+  scoring `solid`. Discovery now resolves `core.hooksPath` from the repo-local
+  `.git/config` (file-based, so the auditor stays child_process-free and
+  unit-testable), includes that directory in `resolveHookFiles`, and sets
+  `ctx.preCommit` from `<resolvedHooksDir>/pre-commit` (falling back to `.husky`
+  then `.git/hooks`).
+
+  **Non-evaluable patterns scored as a clean solid (#1013).** When a rule could
+  not be evaluated (required input absent) it contributed nothing to the score and
+  nothing to the output, so "we could not audit this" read identically to "we
+  audited this and it was clean" — a repo where every pattern abstained scored
+  100/100 `solid`. The auditor now:
+  - reports `summary.rulesApplicable` (the coverage denominator) and
+    `summary.skipped: [{ id, gearPiece, reason }]` (the named abstentions);
+  - withholds `solid` when coverage is partial, using a new `incomplete` tier so a
+    clean score across only some applicable patterns no longer reads as a full
+    pass (weaker tiers already signal detected problems and are unchanged);
+  - the CLI prints `coverage: N/M patterns evaluated` and lists each skipped
+    pattern, so the gap is visible and actionable rather than invisible.
+
+- aaec80f: fix(cli): generated hook commands resolve the main checkout, not the worktree cwd
+
+  `harness hooks init` and `harness hooks add` generated settings.json hook
+  commands of the form `node "$(git rev-parse --show-toplevel)/.harness/hooks/<name>.js"`.
+  That form has two production failure modes (seen in real repos, 2026-07-31):
+  1. **Linked worktree.** `--show-toplevel` returns the _worktree_ root, where the
+     machine-local, gitignored `.harness/` does not exist → `MODULE_NOT_FOUND` on
+     every tool call. Because the failure is non-blocking, the verify-bypass
+     blocker and quality gate **silently stop protecting worktree sessions** —
+     gates report as hook errors instead of running. With agent-per-worktree
+     workflows, most agent work goes ungated.
+  2. **Non-repo cwd.** `git rev-parse` fails and spams
+     `fatal: not a git repository` on every tool call.
+
+  Both generators now share a `buildHookCommand(name)` helper that emits:
+
+  ```sh
+  g="$(git rev-parse --path-format=absolute --git-common-dir 2>/dev/null)" || exit 0; f="$(dirname "$g")/.harness/hooks/<name>.js"; [ -f "$f" ] || exit 0; exec node "$f"
+  ```
+
+  `--git-common-dir` resolves to the **main** checkout even from a linked
+  worktree, so gates run (and protect) against the main repo's `.harness`; the
+  `|| exit 0` guards make the hook a silent no-op outside a repo or on a machine
+  without `.harness`; and `exec node` preserves the hook's blocking exit code (2).
+
+  Already-onboarded repos keep the old pattern until they re-run `harness hooks
+init` — a `harness doctor` migration check is worth a follow-up.
+
+- 6533bbd: fix(cli): protect-config and sentinel-pre must fail CLOSED when they cannot read stdin
+
+  Both are blocking `PreToolUse` guards that read their payload with
+  `readFileSync(0)` and treated _any_ throw as "no input", exiting 0 (allow) —
+  the same fail-open seam already fixed in `block-no-verify`. On a pipe fd 0 is
+  non-blocking, so a read issued before the writer has filled the pipe throws
+  `EAGAIN`: the guard went blind and waved the command through while still
+  reporting success — a bypass hiding behind a green check (#993). For
+  `protect-config` that means a protected linter/formatter config could be edited
+  unverified; for `sentinel-pre` it means taint enforcement silently switched off
+  mid-session.
+
+  Both now read stdin through the shared `readHookStdin()` helper, which retries
+  while the pipe reports `EAGAIN` (bounded, 5s) and reports read success
+  separately from read content. A read that _failed_ means the guard is blind and
+  it exits 2 (blocked); a read that _succeeded and returned nothing_ stays
+  fail-open, as do malformed JSON and (for `protect-config`) a missing
+  `file_path`. Regression tests drive a real read failure by opening a directory
+  as fd 0 (`EISDIR`) — closing fd 0 does not work because Node substitutes
+  `/dev/null`, which reads as empty rather than failing.
+
+- 55827b2: fix(cli): block-no-verify hook must fail CLOSED when it cannot read stdin
+
+  `block-no-verify` read its payload with `readFileSync(0)` and treated _any_
+  throw as "no input", exiting 0 (allow). On a pipe that fd is non-blocking, so a
+  read issued before the writer has filled the pipe throws `EAGAIN` — and the
+  guard silently stopped enforcing while still reporting success. That is how
+  `git commit --no-verify` could pass a hook that CI showed as green; it surfaced
+  as an intermittent `expected +0 to be 2` on the macOS runner (run 30671939046).
+  Issue #619 addressed the symptom by changing how the _test_ fed stdin, leaving
+  the fail-open seam in the hook itself.
+
+  Stdin reading moves to a shared `readHookStdin()` helper that retries while the
+  pipe reports `EAGAIN` (bounded, 5s) and reports read success separately from
+  read content. The hook now distinguishes the two cases that were conflated: a
+  read that _failed_ means the guard is blind and it exits 2 (blocked), while a
+  read that _succeeded and returned nothing_ is a legitimate empty invocation and
+  stays fail-open, as do malformed JSON and a missing `tool_input`.
+
+  Note: `protect-config.js` and `sentinel-pre.js` are also blocking guards with
+  the same fail-open read seam and are tracked separately.
+
+- f311473: fix(cli): skill validate scans the working tree, honours its argument, reports the denominator
+
+  `harness skill validate` resolved its skills directory with `resolveSkillsDir()`,
+  which walks up from the CLI's own install location and therefore scanned the
+  **installed bundle** (`<cli>/dist/agents/skills/...`), not the working tree. When
+  authoring a skill in a checkout of this repo the validator could not see it, so
+  it reported neither pass nor fail — its silence read as approval, and
+  `harness-skill-authoring`'s "no skill ships without validation passing" gate
+  could be satisfied while the validator had never looked at the file (#1011).
+
+  Three fixes:
+  - **Scan the working tree when inside a harness checkout.** Resolution now prefers
+    `resolveProjectSkillsDir()` (the `agents/skills/` above cwd), falling back to
+    the bundle otherwise, so a newly authored skill is actually validated.
+  - **Honour the skill-name argument.** `harness skill validate <name>` validates
+    just that skill and fails if it is not found, instead of ignoring the argument
+    and validating the whole catalog.
+  - **Report the denominator.** Output now says `Validated N skill(s) in <dir>`
+    (and the `--json` payload carries `skillsDir` + `scanned`), so "no errors" is
+    distinguishable from "nothing checked".
+
+- Updated dependencies [cc0978a]
+- Updated dependencies [85de3dc]
+- Updated dependencies [0f64b7d]
+- Updated dependencies [14beb17]
+- Updated dependencies [369f083]
+- Updated dependencies [931cca0]
+- Updated dependencies [21325cf]
+- Updated dependencies [52e42cb]
+- Updated dependencies [6e596de]
+- Updated dependencies [733c73b]
+- Updated dependencies [783a91d]
+- Updated dependencies [2641a7a]
+- Updated dependencies [6b6840b]
+- Updated dependencies [0472669]
+- Updated dependencies [ab8b378]
+- Updated dependencies [c5c5247]
+- Updated dependencies [a758a0b]
+- Updated dependencies [0921ca1]
+- Updated dependencies [bc96342]
+- Updated dependencies [0f2ab19]
+- Updated dependencies [4276030]
+  - @harness-engineering/orchestrator@0.19.0
+  - @harness-engineering/types@0.26.0
+  - @harness-engineering/core@0.39.0
+  - @harness-engineering/graph@0.11.12
+  - @harness-engineering/dashboard@0.14.8
+  - @harness-engineering/intelligence@0.10.2
+  - @harness-engineering/signals@0.2.10
+
 ## 10.1.0
 
 ### Minor Changes
