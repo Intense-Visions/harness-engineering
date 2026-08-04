@@ -34,6 +34,23 @@ function isPlainObject(value: unknown): value is Record<string, unknown> {
 }
 
 /**
+ * Top-level namespaces that `harness.config.json` reserves for co-tenant tools
+ * (#982). The file is in practice a SHARED file: sibling tools read their own
+ * namespace directly out of it (e.g. Canary reads `canary`). Warning on these
+ * load-bearing keys is actively harmful — the obvious way to silence the warning
+ * is to delete the key, which silently resets the co-tenant's config. harness
+ * does not own these keys and must not police them.
+ *
+ * Reserved: an explicit allow-list of known co-tenants, plus the `x-*` extension
+ * convention for anything harness has not been told about.
+ */
+const RESERVED_COTENANT_NAMESPACES = new Set(['canary']);
+
+function isReservedCotenantKey(key: string): boolean {
+  return RESERVED_COTENANT_NAMESPACES.has(key) || key.startsWith('x-');
+}
+
+/**
  * Case-insensitive Levenshtein distance, capped for short identifiers.
  */
 function editDistance(a: string, b: string): number {
@@ -156,6 +173,10 @@ function walkObject(def: ZodDef, value: unknown, prefix: string, out: StrippedKe
     if (child) {
       walk(child, value[key], childPath, out);
     } else if (!passthrough) {
+      // A reserved co-tenant namespace at the ROOT is another tool's config, not
+      // a dropped harness key — never report it (#982). Only the root is
+      // co-tenant space; a `canary` nested elsewhere is still a real strip.
+      if (prefix === '' && isReservedCotenantKey(key)) continue;
       // `strict` would already have failed the top-level parse, so any key we
       // reach here under a non-passthrough object was strip-dropped. Passthrough
       // extras are intentionally kept and are never reported.
