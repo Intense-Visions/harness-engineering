@@ -70,6 +70,8 @@ Check architecture assertions against baseline and thresholds
 
 - `--update-baseline` — Capture current state as new baseline
 - `--module` — Check a single module
+- `--allow-regress` — Permit a --update-baseline that worsens a metric (requires --reason)
+- `--reason` — Why an accepted regression is acceptable (logged to audit)
 
 ### `harness check-deps`
 
