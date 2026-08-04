@@ -364,6 +364,7 @@ export async function runValidate(
         path: cwd,
         mode: 'fast',
         designStrictness: strictness,
+        ...(config.design?.exclude !== undefined && { exclude: config.design.exclude }),
       });
       result.checks.driftDetection = true;
       for (const finding of driftOutput.findings) {

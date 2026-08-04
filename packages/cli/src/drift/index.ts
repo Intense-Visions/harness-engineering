@@ -15,7 +15,9 @@
 
 import * as fs from 'node:fs';
 import * as path from 'node:path';
+import { minimatch } from 'minimatch';
 import { sanitizePath } from '../mcp/utils/sanitize-path.js';
+import { loadAnalysisExclude } from '../config/analysis-schema.js';
 import type { DriftFinding, DriftSeverity, DriftStrictness } from './findings/finding.js';
 import { loadTokenSet } from './resolvers/tokens.js';
 import { loadComponentRegistry } from './resolvers/component-registry.js';
@@ -33,6 +35,12 @@ export interface DetectDriftInput {
     tokenBypass?: boolean;
     primitiveAdoption?: boolean;
   };
+  /**
+   * Design-specific glob patterns (minimatch) to exclude from the walk,
+   * sourced from `design.exclude`. Unioned with the project-wide
+   * `analysis.exclude`. Ignored when an explicit `files` list is provided.
+   */
+  exclude?: string[];
 }
 
 import type { Verifier } from '../shared/verifier.js';
@@ -60,6 +68,8 @@ interface ResolvedDriftConfig {
   primitiveAdoptionEnabled: boolean;
   tokens: ReturnType<typeof loadTokenSet>;
   registry: ReturnType<typeof loadComponentRegistry>;
+  /** design.exclude ∪ analysis.exclude — minimatch globs applied to the walk. */
+  excludePatterns: string[];
 }
 
 /**
@@ -69,6 +79,9 @@ function resolveDriftConfig(input: DetectDriftInput): ResolvedDriftConfig {
   const projectRoot = sanitizePath(input.path);
   const tokenBypassEnabled = input.rules?.tokenBypass !== false;
   const primitiveAdoptionEnabled = input.rules?.primitiveAdoption !== false;
+  // design.exclude (caller-supplied) stacked on top of the project-wide
+  // analysis.exclude — mirrors security.ts's exclude union.
+  const excludePatterns = [...(input.exclude ?? []), ...loadAnalysisExclude(projectRoot)];
   return {
     projectRoot,
     mode: input.mode ?? 'fast',
@@ -77,6 +90,7 @@ function resolveDriftConfig(input: DetectDriftInput): ResolvedDriftConfig {
     primitiveAdoptionEnabled,
     tokens: tokenBypassEnabled ? loadTokenSet(projectRoot) : null,
     registry: primitiveAdoptionEnabled ? loadComponentRegistry(projectRoot) : null,
+    excludePatterns,
   };
 }
 
@@ -157,7 +171,7 @@ export async function runDetectDrift(input: DetectDriftInput): Promise<DetectDri
   const config = resolveDriftConfig(input);
   const rulesApplied = computeRulesApplied(config);
 
-  const filesToScan = await collectFiles(config.projectRoot, input.files);
+  const filesToScan = await collectFiles(config.projectRoot, input.files, config.excludePatterns);
   const findings = scanFiles(filesToScan, config);
   const { bySeverity, byCode } = summarizeFindings(findings);
 
@@ -185,14 +199,32 @@ export async function runDetectDrift(input: DetectDriftInput): Promise<DetectDri
  */
 async function collectFiles(
   projectRoot: string,
-  explicitFiles: readonly string[] | undefined
+  explicitFiles: readonly string[] | undefined,
+  excludePatterns: readonly string[]
 ): Promise<string[]> {
+  // An explicit file list is already a deliberate scoping — bypass excludes,
+  // mirroring security.ts's handling of an explicit `files` arg.
   if (explicitFiles !== undefined && explicitFiles.length > 0) {
     return explicitFiles.map((f) => (path.isAbsolute(f) ? f : path.join(projectRoot, f)));
   }
   const out: string[] = [];
   walk(projectRoot, out, 0);
-  return out;
+  if (excludePatterns.length === 0) return out;
+  return out.filter((abs) => !isExcluded(projectRoot, abs, excludePatterns));
+}
+
+/**
+ * True when the file's project-relative, POSIX-normalized path matches any
+ * exclude glob. `matchBase` lets a bare `*.test.ts` match at any depth,
+ * consistent with skill/dispatcher.ts and the analysis.exclude semantics.
+ */
+function isExcluded(
+  projectRoot: string,
+  absFile: string,
+  excludePatterns: readonly string[]
+): boolean {
+  const rel = path.relative(projectRoot, absFile).replaceAll('\\', '/');
+  return excludePatterns.some((pattern) => minimatch(rel, pattern, { matchBase: true }));
 }
 
 function walk(dir: string, out: string[], depth: number): void {

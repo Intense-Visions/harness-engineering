@@ -98,4 +98,55 @@ describe('runDetectDrift (integration)', () => {
     expect(out.findings.filter((f) => f.code.startsWith('DRIFT-T'))).toHaveLength(0);
     expect(out.catalog.rulesApplied).not.toContain('token-bypass');
   });
+
+  it('design.exclude (input.exclude) drops matching files from the walk', async () => {
+    writeFile('design-system/tokens.json', JSON.stringify({ color: {} }));
+    writeFile('src/tokens-reference.ts', `const a = "#aabbcc";`);
+    writeFile('src/Card.ts', `const b = "#112233";`);
+
+    const out = await runDetectDrift({
+      path: tmpDir,
+      exclude: ['**/tokens-reference.ts'],
+    });
+    const files = new Set(out.findings.map((f) => f.file));
+    expect([...files].some((f) => f.endsWith('tokens-reference.ts'))).toBe(false);
+    // Non-excluded file still reports.
+    expect([...files].some((f) => f.endsWith('Card.ts'))).toBe(true);
+  });
+
+  it('honors project-wide analysis.exclude from harness.config.json', async () => {
+    writeFile('design-system/tokens.json', JSON.stringify({ color: {} }));
+    writeFile('harness.config.json', JSON.stringify({ analysis: { exclude: ['backend/**'] } }));
+    writeFile('backend/service.ts', `const a = "#aabbcc";`);
+    writeFile('ui/Card.ts', `const b = "#112233";`);
+
+    const out = await runDetectDrift({ path: tmpDir });
+    const files = new Set(out.findings.map((f) => f.file));
+    expect([...files].some((f) => f.includes('backend'))).toBe(false);
+    expect([...files].some((f) => f.endsWith('Card.ts'))).toBe(true);
+  });
+
+  it('an explicit files arg bypasses exclude filtering (mirrors security)', async () => {
+    writeFile('design-system/tokens.json', JSON.stringify({ color: {} }));
+    writeFile('src/tokens-reference.ts', `const a = "#aabbcc";`);
+
+    const out = await runDetectDrift({
+      path: tmpDir,
+      files: ['src/tokens-reference.ts'],
+      exclude: ['**/tokens-reference.ts'],
+    });
+    // Explicit scoping wins: the file is still scanned despite matching exclude.
+    expect(out.findings.some((f) => f.file.endsWith('tokens-reference.ts'))).toBe(true);
+  });
+
+  it('no excludes configured → walk + findings unchanged (no regression)', async () => {
+    writeFile('design-system/tokens.json', JSON.stringify({ color: {} }));
+    writeFile('src/A.tsx', `const a = "#aabbcc";`);
+    writeFile('src/B.tsx', `const b = "#112233";`);
+
+    const out = await runDetectDrift({ path: tmpDir });
+    const files = new Set(out.findings.map((f) => f.file));
+    expect([...files].some((f) => f.endsWith('A.tsx'))).toBe(true);
+    expect([...files].some((f) => f.endsWith('B.tsx'))).toBe(true);
+  });
 });

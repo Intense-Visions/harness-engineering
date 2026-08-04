@@ -308,6 +308,13 @@ export const DesignConfigSchema = z
     /** Brief description of the intended aesthetic direction */
     aestheticIntent: z.string().optional(),
     /**
+     * Glob patterns (minimatch) excluded from the design-token drift linter,
+     * stacked on top of the project-wide `analysis.exclude`. Scopes DRIFT-*
+     * findings out of token-palette sources, tests, and non-UI code where hex
+     * literals aren't design tokens. Mirrors the `security.exclude` shape.
+     */
+    exclude: z.array(z.string().min(1)).default([]),
+    /**
      * Design-pipeline audit configuration (rule-based floor layer).
      * Omit to use built-in defaults.
      */
