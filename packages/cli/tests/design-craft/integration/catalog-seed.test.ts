@@ -206,6 +206,11 @@ describe('design-craft Phase 2 catalog seed — exemplars', () => {
     expect(counts.LoadingState).toBe(2);
   });
 
+  it('the MarketingPage tier carries at least eight page exemplars', () => {
+    const pages = SEED_EXEMPLARS.filter((e) => e.componentType === 'MarketingPage');
+    expect(pages.length).toBeGreaterThanOrEqual(8);
+  });
+
   it('every exemplar carries the ADR 0020 provenance fields and a complete radarReference', () => {
     for (const e of SEED_EXEMPLARS) {
       expect(e.id).toMatch(/^exemplar-[a-z0-9-]+$/);
@@ -665,5 +670,111 @@ describe('design-craft Vercel build-progress exemplar wired end-to-end', () => {
     // Min confidence of medium/medium/medium/high/medium = medium
     expect(score?.overall.confidence).toBe('medium');
     expect(score?.gaps[0]).toContain('stepper');
+  });
+});
+
+const MARKETING_PAGE_SOURCE = `
+// Fixture: a static marketing page in the template-tell shape —
+// hero + three identical service cards + link-list footer.
+export function DemoPage() {
+  return (
+    <main>
+      <section className="hero">
+        <h1>Reliable Service, Done Right</h1>
+        <p>We deliver quality you can trust.</p>
+        <a href="#contact">Get a quote</a>
+      </section>
+      <section className="services">
+        <div className="card">Service One</div>
+        <div className="card">Service Two</div>
+        <div className="card">Service Three</div>
+      </section>
+      <footer>
+        <a href="/about">About</a>
+        <a href="/contact">Contact</a>
+        <a href="/privacy">Privacy</a>
+      </footer>
+    </main>
+  );
+}
+`;
+
+const MARKETING_PAGE_RADAR_RESPONSE = [
+  '```json',
+  JSON.stringify(
+    {
+      philosophicalCoherence: {
+        score: 62,
+        confidence: 'medium',
+        notes:
+          'No nameable concept — the page is a sequence of sections any competitor could ship unchanged.',
+      },
+      hierarchy: {
+        score: 78,
+        confidence: 'high',
+        notes: 'Hero heading -> supporting line -> CTA reads in order; footer is a bare link list.',
+      },
+      craftExecution: {
+        score: 70,
+        confidence: 'medium',
+        notes:
+          'Default background world, no texture stance, three identical cards in identical containers.',
+      },
+      function: {
+        score: 84,
+        confidence: 'high',
+        notes: 'Names the offer and provides a quote path; fit-for-purpose as a lead page.',
+      },
+      innovation: {
+        score: 45,
+        confidence: 'medium',
+        notes: 'Template shape throughout; no signature move anywhere on the page.',
+      },
+      gaps: [
+        'No concept the sections can cite — swapping the logo to a competitor changes nothing.',
+        'Repeated same-shaped card composition down the page; no licensed grid breaks.',
+      ],
+    },
+    null,
+    2
+  ),
+  '```',
+].join('\n');
+
+describe('design-craft MarketingPage tier wired end-to-end', () => {
+  it('a page-scoped target against the FULL seed cites only MarketingPage exemplars', async () => {
+    const provider = new MockLlmProvider([
+      { promptIncludes: 'DemoPage', response: MARKETING_PAGE_RADAR_RESPONSE },
+    ]);
+
+    const [score] = await runBenchmark({
+      targets: [
+        {
+          file: 'fixtures/DemoPage.tsx',
+          component: 'DemoPage',
+          source: MARKETING_PAGE_SOURCE,
+          componentType: 'MarketingPage',
+        },
+      ],
+      exemplars: [...SEED_EXEMPLARS],
+      provider,
+    });
+
+    expect(score).toBeTruthy();
+    // The full seed was passed in — type-filtering must resolve the
+    // MarketingPage tier and nothing else.
+    const byId = new Map(SEED_EXEMPLARS.map((e) => [e.id, e]));
+    expect(score?.exemplars.length).toBeGreaterThanOrEqual(8);
+    for (const id of score?.exemplars ?? []) {
+      expect(id).toMatch(/^exemplar-/);
+      expect(byId.get(id)?.componentType).toBe('MarketingPage');
+    }
+    expect(score?.exemplars).not.toContain('exemplar-stripe-pay-button');
+    // Mean of 62/78/70/84/45 = 67.8 → rounds to 68
+    expect(score?.overall.score).toBe(68);
+    // Min confidence of medium/high/medium/high/medium = medium
+    expect(score?.overall.confidence).toBe('medium');
+    expect(score?.gaps[0]).toContain('concept');
+    expect(score?.gaps[1]).toContain('card');
   });
 });
