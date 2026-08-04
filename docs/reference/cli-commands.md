@@ -129,6 +129,10 @@ Run lightweight security scan: secrets, injection, XSS, weak crypto
 - `--severity` — Minimum severity that fails the command; findings below it are excluded from the report and never fail the gate (error, warning, info) (default: "warning")
 - `--changed-only` — Only scan git-changed files
 
+### `harness check-vocabulary`
+
+Fail when deprecated or renamed canonical terms reappear in skills/docs prose
+
 ### `harness cleanup`
 
 Detect entropy issues (doc drift, dead code, patterns)

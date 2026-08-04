@@ -1022,7 +1022,7 @@ last_manual_edit: 2026-06-27T12:51:51.967Z
 ### Semantic-Vocabulary CI Gate
 
 - **Status:** planned
-- **Spec:** —
+- **Spec:** docs/changes/semantic-vocabulary-ci-gate/proposal.md
 - **Summary:** Add a harness analog of Spec Kitty's test_no_legacy_terminology architectural test: a CI gate that fails when deprecated or renamed canonical terms reappear in skills/docs, protecting the glossary and naming-craft investment from vocabulary drift over time. Adapted from Spec Kitty's semantic-terminology architectural test. Adoption #8 from docs/research/spec-kitty-comparison-analysis.md [SPECKITTY-8]
 - **Blockers:** —
 - **Plan:** —

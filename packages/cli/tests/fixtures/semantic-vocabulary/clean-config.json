@@ -1,0 +1,17 @@
+{
+  "version": 1,
+  "vocabulary": {
+    "enabled": true,
+    "rules": [
+      { "deprecated": "sub-agent", "canonical": "subagent", "reason": "closed compound" },
+      { "deprecated": "green field", "canonical": "greenfield", "reason": "closed compound" },
+      {
+        "deprecated": "master branch",
+        "canonical": "main branch",
+        "reason": "default branch is main"
+      }
+    ],
+    "paths": ["clean-sample.md"],
+    "exclude": []
+  }
+}
