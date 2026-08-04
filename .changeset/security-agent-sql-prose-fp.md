@@ -2,33 +2,46 @@
 '@harness-engineering/core': patch
 ---
 
-fix(review): stop the SQL-injection heuristic firing on prose that uses a SQL keyword as a word
+fix(review): stop the security floor tier emitting fabricated criticals (#984)
 
-The security review agent's CWE-89 heuristic reported a **critical** SQL-injection
-finding for a `commander` help string:
+The no-LLM security floor was reporting blocking `critical` findings for strings
+that cannot reach any sink. Three false-positive classes, all observed on real PRs:
 
-```
-'never create a ticket for a row lacking an externalId (report the skip instead) — ' +
-```
+- **Prose using a SQL keyword as an English word.** A `commander` help string —
+  `'never create a ticket for a row lacking an externalId … ' +` — was reported
+  as critical CWE-89 because "create" whole-word-matches `CREATE` and the
+  literal is followed by `+`. Same class as issue #657, whose string-boundary
+  fix was necessary but not sufficient.
+- **Test fixtures.** A test proving a detector fires must contain the vulnerable
+  shape as data, so any PR touching a security test self-flagged.
+- **Comment bodies.** A JSDoc documenting the shape a rule detects necessarily
+  contains it; the rule's own JSDoc was reported as a critical CWE-89.
 
-There is no SQL there. The pattern matches case-insensitively, so the ordinary
-English word "create" whole-word-matched the `CREATE` keyword, and the literal is
-followed by `+`. Whole-word matching already spared inflected forms
-("created"/"updated"); the bare stem was the hole. This is the same class of
-false positive as issue #657 — whose string-boundary fix was necessary but not
-sufficient — and it produced a `critical` finding with `trustScore: 49` on a PR
-containing no database code at all.
+The fixes:
 
-A statement keyword alone is not evidence of SQL. Real queries pair one with a
-**structural companion** token (`SELECT … FROM`, `INSERT INTO`, `UPDATE … SET`,
-`DELETE FROM`, `CREATE`/`ALTER`/`DROP TABLE`, `… JOIN`, `… VALUES`); prose
-essentially never does. Both the concatenation and template-literal alternatives
-now require a keyword **and** a companion inside the same literal.
+- **SQL: ordered statement shapes.** A statement keyword alone is not evidence
+  of SQL. The pattern now requires an ordered shape (`SELECT … FROM`,
+  `INSERT INTO`, `UPDATE … SET`, `DELETE FROM`, `CREATE/ALTER/DROP TABLE`,
+  `UNION SELECT`) inside a concatenated string literal or an interpolated
+  template literal. The vocabulary deliberately mirrors `SQL_QUERY_SHAPE` in
+  `finding-integrity.ts`, so nothing the floor emits is downgraded by the
+  Phase 5.75 integrity invariant (#989) — one definition of "looks like SQL",
+  not two. The template alternative does not require a closing backtick, so the
+  opening line of a multi-line template query still fires.
+- **Comment-only lines are skipped; comment PREFIXES are not.** `/**/ eval(x)`,
+  `*/ eval(x)`, and generator members (`*run() { … }`) execute and are scanned;
+  a trailing `//` comment is stripped without truncating at a URL's `://`.
+- **Guards are code-scoped.** Test-file markers (`.test.`, `.spec.`, …) and JS
+  comment syntax apply only to files with code extensions, so `.env.test.local`
+  and a key in a Markdown bullet are still scanned. The secrets detector keeps
+  its deliberately wider file scope.
 
-Every genuine injection shape still fires (verified by parametrized tests for
-`INSERT INTO`, `UPDATE … SET`, `DELETE FROM`, and an interpolated
-`SELECT … JOIN … WHERE`), and the prose class is gone — including a regression
-test pinned to the verbatim line that blocked the PR. The pre-existing
-nested-quote blind spot (`"INSERT INTO t VALUES ('" + name + "')"`, which the
-`[^"']` class cannot span) is now documented as a known limitation rather than
-left implicit; it was not introduced by this change.
+Known, test-pinned limitations (a heuristic floor, not a proof of absence): a
+SQL shape split across concatenated literals or lines does not fire (loosening
+to line level would resurrect the prose class), nested quotes are not spanned
+(pre-existing), and a bare clause fragment (`` `WHERE id = ${id}` ``) no longer
+fires. The LLM review tier above the floor covers those shapes.
+
+50 tests pin both directions — every guard has a must-fire case proving it
+cannot over-suppress, plus a cross-layer test asserting detector output
+survives `enforceFindingIntegrity` undowngraded.

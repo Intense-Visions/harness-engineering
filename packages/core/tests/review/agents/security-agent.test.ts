@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { runSecurityAgent, SECURITY_DESCRIPTOR } from '../../../src/review/agents/security-agent';
+import { enforceFindingIntegrity } from '../../../src/review/finding-integrity';
 import type { ContextBundle } from '../../../src/review/types';
 
 function makeBundle(overrides: Partial<ContextBundle> = {}): ContextBundle {
@@ -486,5 +487,183 @@ describe('runSecurityAgent()', () => {
       ],
     });
     expect(runSecurityAgent(bundle).length).toBe(1);
+  });
+
+  // ---- guards are code-scoped: test-markers and comment syntax are JS/TS
+  // conventions, so they must not suppress findings in non-code files ----
+
+  it('STILL flags a key in .env.test.local — test-file markers only apply to code files', () => {
+    const bundle = makeBundle({
+      changedFiles: [
+        {
+          path: '.env.test.local',
+          content: 'API_KEY="sk-live-0123456789abcdef0123456789abcdef"',
+          reason: 'changed',
+          lines: 1,
+        },
+      ],
+    });
+    expect(runSecurityAgent(bundle).length).toBe(1);
+  });
+
+  it('STILL flags a key in a Markdown `*` bullet — JS comment syntax only applies to code files', () => {
+    const bundle = makeBundle({
+      changedFiles: [
+        {
+          path: 'docs/runbook.md',
+          content: '* API_KEY = "sk-live-0123456789abcdef0123456789abcdef"',
+          reason: 'changed',
+          lines: 1,
+        },
+      ],
+    });
+    expect(runSecurityAgent(bundle).length).toBe(1);
+  });
+
+  it('STILL flags a secret after a URL on the same line — protocol `//` is not a comment', () => {
+    const bundle = makeBundle({
+      changedFiles: [
+        {
+          path: 'src/client.ts',
+          content: 'const url = "https://api.example.com"; const password = "hunter2hunter2";',
+          reason: 'changed',
+          lines: 1,
+        },
+      ],
+    });
+    const findings = runSecurityAgent(bundle);
+    expect(findings.length).toBe(1);
+    expect(findings[0]!.cweId).toBe('CWE-798');
+  });
+
+  // ---- comment skip is comment-ONLY lines: a comment prefix must not hide
+  // executable code (issue #984 follow-up — the old prefix check let a
+  // uniform `/**/ ` prefix silence all four detectors) ----
+
+  it.each([
+    ['/**/ eval(userInput);', 'block-comment prefix'],
+    ['*/ eval(userInput);', 'code after a block-comment close'],
+    ['/* istanbul ignore next */ eval(userInput);', 'inline pragma before code'],
+    ['  *run() { return eval(this.expr); }', 'generator member (not JSDoc)'],
+  ])('STILL flags eval on an executable line: %s (%s)', (content) => {
+    const bundle = makeBundle({
+      changedFiles: [{ path: 'src/sneaky.ts', content, reason: 'changed', lines: 1 }],
+    });
+    const findings = runSecurityAgent(bundle);
+    expect(findings.length).toBe(1);
+    expect(findings[0]!.cweId).toBe('CWE-94');
+  });
+
+  it('does not flag eval mentioned in a trailing // comment on an executable line', () => {
+    const bundle = makeBundle({
+      changedFiles: [
+        {
+          path: 'src/safe.ts',
+          content: 'safeCall(input); // never use eval(input) here',
+          reason: 'changed',
+          lines: 1,
+        },
+      ],
+    });
+    expect(runSecurityAgent(bundle).length).toBe(0);
+  });
+
+  // ---- the SQL/eval/exec detectors skip test files (pins the
+  // isScannableSourceFile semantics that isTestFile alone does not cover) ----
+
+  it('does not flag SQL or eval fixtures inside a test file', () => {
+    const bundle = makeBundle({
+      changedFiles: [
+        {
+          path: 'src/db/__tests__/query.test.ts',
+          content: [
+            'const q = "SELECT * FROM users WHERE id = " + userId;',
+            'const r = eval(userInput);',
+          ].join('\n'),
+          reason: 'changed',
+          lines: 2,
+        },
+      ],
+    });
+    expect(runSecurityAgent(bundle).length).toBe(0);
+  });
+
+  // ---- ordered statement shapes (aligned with finding-integrity's
+  // SQL_QUERY_SHAPE so nothing this detector emits gets downgraded) ----
+
+  it('does not flag a template literal whose prose uses "where" as a word', () => {
+    const bundle = makeBundle({
+      changedFiles: [
+        {
+          path: 'src/log2.ts',
+          content: 'logger.info(`this is where ${x} lives`);',
+          reason: 'changed',
+          lines: 1,
+        },
+      ],
+    });
+    expect(runSecurityAgent(bundle).length).toBe(0);
+  });
+
+  it('flags the opening line of a multi-line template query (no closing backtick needed)', () => {
+    const bundle = makeBundle({
+      changedFiles: [
+        {
+          path: 'src/db4.ts',
+          content: [
+            'const q = `SELECT * FROM users WHERE id = ${userId} AND',
+            '  status = ${status}`;',
+          ].join('\n'),
+          reason: 'changed',
+          lines: 2,
+        },
+      ],
+    });
+    const sql = runSecurityAgent(bundle).filter((f) => f.cweId === 'CWE-89');
+    expect(sql.length).toBeGreaterThanOrEqual(1);
+  });
+
+  // Known limitations, pinned so a future change to them is a conscious one
+  // (see the SQL_CONCAT_PATTERN JSDoc): a shape split across literals or lines
+  // does not fire — loosening to line level would resurrect the prose FP class
+  // (concatenated CLI help strings) that #984 exists to kill.
+  it.each([
+    ['const q = "SELECT " + cols + " FROM users";', 'shape split across literals'],
+    ['const q = "SELECT id, name " +', 'multi-line concat, keyword line'],
+    ['  "FROM users WHERE id = " + userId;', 'multi-line concat, companion line'],
+    ['const q = `WHERE id = ${id}`;', 'bare clause fragment (integrity would downgrade)'],
+  ])('documented miss (does not fire): %s (%s)', (content) => {
+    const bundle = makeBundle({
+      changedFiles: [{ path: 'src/db5.ts', content, reason: 'changed', lines: 1 }],
+    });
+    expect(runSecurityAgent(bundle).length).toBe(0);
+  });
+
+  // ---- cross-layer invariant: the detector's SQL vocabulary is a subset of
+  // finding-integrity's SQL_QUERY_SHAPE, so nothing the floor emits is
+  // immediately downgraded by Phase 5.75 (two definitions of "looks like SQL"
+  // must not drift apart again) ----
+
+  it('every SQL finding the detector emits survives enforceFindingIntegrity undowngraded', () => {
+    const genuineShapes = [
+      'const q = "SELECT * FROM users WHERE id = " + userId;',
+      'const q = "INSERT INTO audit (actor) VALUES (" + actorId + ")";',
+      'const q = "UPDATE users SET active = " + flag;',
+      'const q = "DELETE FROM sessions WHERE id = " + id;',
+      'const q = `SELECT * FROM t JOIN u ON u.id = t.id WHERE t.k = ${k}`;',
+    ];
+    for (const content of genuineShapes) {
+      const bundle = makeBundle({
+        changedFiles: [{ path: 'src/db6.ts', content, reason: 'changed', lines: 1 }],
+      });
+      const emitted = runSecurityAgent(bundle).filter((f) => f.cweId === 'CWE-89');
+      expect(emitted.length).toBeGreaterThanOrEqual(1);
+      // Confidence reconciliation (heuristic ⇒ capped at medium) is expected;
+      // what must never happen is an evidence/class downgrade or drop.
+      const { findings, report } = enforceFindingIntegrity(emitted);
+      expect(report.downgraded).toBe(0);
+      expect(report.dropped).toBe(0);
+      expect(findings[0]!.severity).toBe('critical');
+    }
   });
 });
