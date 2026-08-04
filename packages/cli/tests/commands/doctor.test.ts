@@ -144,6 +144,44 @@ describe('runDoctor', () => {
     expect(slashChecks.every((c) => c.fix !== undefined)).toBe(true);
   });
 
+  // Regression for #1009/#1010: doctor counted command files but never resolved
+  // their `@`-references, so it reported `✓ installed` while every command
+  // pointed at a SKILL.md removed by a CLI upgrade. The check must resolve, not
+  // count.
+  it('fails when a command references a SKILL.md that no longer resolves (#1009/#1010)', () => {
+    mockAllHealthy('/tmp/project');
+    // One generated Claude command references a SKILL.md under a now-removed
+    // versioned install path — the exact shape a CLI upgrade leaves behind.
+    const danglingRef = '/old/cli/2.8.0/dist/agents/skills/claude-code/init/SKILL.md';
+    mockReadFileSync.mockImplementation((p: fs.PathOrFileDescriptor) => {
+      const s = String(p);
+      if (s.endsWith('init.md')) return `# Init\n\n@${danglingRef}\n`;
+      return '{}';
+    });
+    const existsMap = buildExistsMap('/tmp/project');
+    mockExistsSync.mockImplementation((p: fs.PathLike) =>
+      String(p) === danglingRef ? false : (existsMap[String(p)] ?? false)
+    );
+
+    const result = runDoctor('/tmp/project');
+    const claudeSlash = result.checks.find((c) => c.name === 'slash-commands-claude-code');
+
+    expect(claudeSlash!.status).toBe('fail');
+    expect(claudeSlash!.message).toContain('2 commands, 1 resolvable');
+    expect(claudeSlash!.message).toContain(danglingRef);
+    expect(claudeSlash!.fix).toContain('generate-slash-commands');
+  });
+
+  it('reports the resolvable denominator on a healthy install (#1009)', () => {
+    mockAllHealthy('/tmp/project');
+
+    const result = runDoctor('/tmp/project');
+    const claudeSlash = result.checks.find((c) => c.name === 'slash-commands-claude-code');
+
+    expect(claudeSlash!.status).toBe('pass');
+    expect(claudeSlash!.message).toContain('2 commands, 2 resolvable');
+  });
+
   it('passes MCP check when harness entry exists in .mcp.json', () => {
     mockAllHealthy('/tmp/project');
 
