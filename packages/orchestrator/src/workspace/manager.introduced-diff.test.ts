@@ -104,19 +104,23 @@ describe('WorkspaceManager.getIntroducedDiffText (4c v2 — raw diff for the eva
     // Full-context diff (NOT --unified=0) with git `:(exclude)` pathspecs for the
     // seeded handoff overlay, so the judge never reads pre-seeded content.
     const diffCall = wm.calls.find((c) => c[0] === 'diff');
-    expect(diffCall).toEqual([
-      'diff',
-      'basesha123',
-      '--',
-      '.',
+    // Full-context diff vs the merge-base sha, scoped to the worktree.
+    expect(diffCall?.slice(0, 4)).toEqual(['diff', 'basesha123', '--', '.']);
+    // Seed overlay + process artifacts (design proposal/plan, roadmap shards, pnpm
+    // store) excluded so the judge never reads pre-seeded or planning content.
+    for (const ex of [
       ':(exclude).harness/proposals',
       ':(exclude)docs/roadmap.md',
-      // Process artifacts (design proposal/plan, roadmap shards, pnpm store) are
-      // excluded so they don't bury/confuse the spec-vs-diff judge.
       ':(exclude)docs/changes',
       ':(exclude)docs/roadmap.d',
       ':(exclude).pnpm-store',
-    ]);
+    ]) {
+      expect(diffCall).toContain(ex);
+    }
+    // Agent scratch/backup cruft excluded via glob pathspecs so it can't mislead
+    // the judge.
+    expect(diffCall).toContain(':(exclude,glob)**/*.bak');
+    expect(diffCall).toContain(':(exclude,glob)**/temp_*');
     // Raw text is returned verbatim (unparsed) — context + removed lines preserved.
     expect(text).toBe(RAW_DIFF_TEXT);
     expect(text).toContain(' unchanged context'); // context line survives (no --unified=0)
@@ -128,16 +132,10 @@ describe('WorkspaceManager.getIntroducedDiffText (4c v2 — raw diff for the eva
     const wm = new RawStubWM(config({ seedPaths: ['/repo/docs/roadmap.md'] }));
     await wm.getIntroducedDiffText('ISS-1');
     const diffCall = wm.calls.find((c) => c[0] === 'diff');
-    expect(diffCall).toEqual([
-      'diff',
-      'basesha123',
-      '--',
-      '.',
-      ':(exclude)docs/roadmap.md',
-      ':(exclude)docs/changes',
-      ':(exclude)docs/roadmap.d',
-      ':(exclude).pnpm-store',
-    ]);
+    // The absolute in-repo seed becomes a repo-relative pathspec so `:(exclude)`
+    // actually matches.
+    expect(diffCall).toContain(':(exclude)docs/roadmap.md');
+    expect(diffCall).not.toContain(':(exclude)/repo/docs/roadmap.md');
   });
 
   it('marks untracked files intent-to-add BEFORE the diff, so a NEW file the agent created is in the judged diff', async () => {
