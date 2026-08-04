@@ -10,9 +10,10 @@
 //     potentially unprotected config edit.
 // Exit codes: 0 = allow, 2 = block
 
-import { readFileSync } from 'node:fs';
 import { basename } from 'node:path';
 import process from 'node:process';
+
+import { readHookStdin } from './read-hook-stdin.js';
 
 // Protected config file patterns
 const PROTECTED_PATTERNS = [
@@ -35,13 +36,21 @@ function isProtected(filePath) {
 }
 
 function main() {
-  let raw;
-  try {
-    raw = readFileSync(0, 'utf-8');
-  } catch {
-    process.stderr.write('[protect-config] Could not read stdin — allowing (fail-open)\n');
-    process.exit(0);
+  const stdin = readHookStdin();
+  if (!stdin.ok) {
+    // Fail CLOSED. On a pipe, fd 0 is non-blocking and a read issued before the
+    // writer has filled it throws EAGAIN; treating that as "no input" and
+    // exiting 0 let a config edit through unverified while the check still
+    // reported success (#993, same seam as block-no-verify). A guard that
+    // cannot read the edit it is guarding must not vouch for it.
+    process.stderr.write(
+      `BLOCKED: protect-config could not read hook input (${stdin.error.code ?? stdin.error.message}); ` +
+        'refusing to allow a potentially unprotected config edit unverified.\n'
+    );
+    process.exit(2);
   }
+
+  const raw = stdin.data;
 
   if (!raw.trim()) {
     process.stderr.write('[protect-config] Empty stdin — allowing (fail-open)\n');
