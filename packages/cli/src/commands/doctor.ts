@@ -37,12 +37,64 @@ function checkNodeVersion(): CheckResult {
   };
 }
 
-function countCommandFiles(dir: string, ext: string): number {
+/** Extract absolute `@`-referenced paths from a generated command file. */
+function extractCommandRefs(content: string): string[] {
+  return (
+    content
+      .split('\n')
+      .map((line) => line.trim())
+      .filter((line) => line.startsWith('@'))
+      .map((line) => line.slice(1).trim())
+      // Only path-like references. Generated skill assets are embedded as absolute
+      // paths (e.g. `@/…/dist/agents/skills/…/SKILL.md`); an `@mention` in prose is
+      // not a path and must not be resolved.
+      .filter((ref) => path.isAbsolute(ref))
+  );
+}
+
+interface CommandDirResolution {
+  total: number;
+  resolvable: number;
+  // `| undefined` (not just `?`) so it may be returned explicitly under
+  // exactOptionalPropertyTypes.
+  firstDangling?: string | undefined;
+}
+
+/**
+ * Resolve a slash-command directory (#1009): count command files AND how many
+ * have every `@`-referenced skill asset present on disk. A command with no
+ * `@`-refs is self-contained (e.g. Gemini inlines the SKILL body) and counts as
+ * resolvable. Counting files alone reported `✓ installed` while every reference
+ * dangled — a slash command with a dead `@` still runs, returning its wrapper
+ * with the skill body silently absent, so `doctor` was the only surface that
+ * could catch it and it reported green.
+ */
+function resolveCommandDir(dir: string, ext: string): CommandDirResolution {
+  let files: string[];
   try {
-    return fs.readdirSync(dir).filter((f) => f.endsWith(ext)).length;
+    files = fs.readdirSync(dir).filter((f) => f.endsWith(ext));
   } catch {
-    return 0;
+    return { total: 0, resolvable: 0 };
   }
+
+  let resolvable = 0;
+  let firstDangling: string | undefined;
+  for (const file of files) {
+    let content: string;
+    try {
+      content = fs.readFileSync(path.join(dir, file), 'utf-8');
+    } catch {
+      firstDangling ??= path.join(dir, file);
+      continue;
+    }
+    const missing = extractCommandRefs(content).find((ref) => !fs.existsSync(ref));
+    if (missing) {
+      firstDangling ??= missing;
+    } else {
+      resolvable++;
+    }
+  }
+  return { total: files.length, resolvable, firstDangling };
 }
 
 function checkSlashCommands(): CheckResult[] {
@@ -62,19 +114,33 @@ function checkSlashCommands(): CheckResult[] {
   ];
 
   return platforms.map(({ name, dir, ext, client }) => {
-    const count = countCommandFiles(dir, ext);
-    if (count > 0) {
+    const { total, resolvable, firstDangling } = resolveCommandDir(dir, ext);
+    if (total === 0) {
       return {
         name: `slash-commands-${client}`,
-        status: 'pass' as const,
-        message: `Slash commands installed -> ${dir} (${count} commands)`,
+        status: 'fail' as const,
+        message: `No slash commands found for ${name}`,
+        fix: 'Run: harness setup',
+      };
+    }
+    if (resolvable < total) {
+      // The failure #1010 describes: a CLI upgrade leaves generated commands
+      // pointing at the previous version's install path. Report the denominator
+      // and the first dead reference so it is self-evident, and name the fix.
+      return {
+        name: `slash-commands-${client}`,
+        status: 'fail' as const,
+        message:
+          `Slash commands installed -> ${dir} (${total} commands, ${resolvable} resolvable) — ` +
+          `${total - resolvable} reference a SKILL.md that does not exist (e.g. ${firstDangling}). ` +
+          `A CLI upgrade leaves generated commands pointing at the old version's path.`,
+        fix: 'Run: harness generate-slash-commands (regenerates against the current install)',
       };
     }
     return {
       name: `slash-commands-${client}`,
-      status: 'fail' as const,
-      message: `No slash commands found for ${name}`,
-      fix: 'Run: harness setup',
+      status: 'pass' as const,
+      message: `Slash commands installed -> ${dir} (${total} commands, ${resolvable} resolvable)`,
     };
   });
 }
