@@ -83,8 +83,9 @@ describe('design-craft runPipeline measurement wiring', () => {
       .readFileSync(events, 'utf8')
       .split('\n')
       .filter((l) => l.trim().length > 0);
-    // 10 rubrics × 1 target = 10 findings = 10 events (Phase 2C closes SC #7)
-    expect(lines).toHaveLength(10);
+    // 13 rubrics × 1 target = 13 findings = 13 events (10-rubric v1 seed closed
+    // by Phase 2C per SC #7; +3 page-scoped marketing-tier rubrics per ADR 0082)
+    expect(lines).toHaveLength(13);
     const parsed = lines.map((l) => JSON.parse(l) as { finding: { code: string } });
     const codes = parsed.map((e) => e.finding.code).sort();
     expect(codes).toEqual([
@@ -98,6 +99,9 @@ describe('design-craft runPipeline measurement wiring', () => {
       'CRAFT-C008',
       'CRAFT-C009',
       'CRAFT-C010',
+      'CRAFT-C011',
+      'CRAFT-C012',
+      'CRAFT-C013',
     ]);
   });
 

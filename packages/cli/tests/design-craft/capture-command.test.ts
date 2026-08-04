@@ -84,7 +84,7 @@ describe('design-craft deep mode auto-capture', () => {
       summary: { mode: string };
     };
     expect(payload.summary.mode).toBe('deep');
-    expect(payload.findings).toHaveLength(10); // 10 rubrics × 1 captured component
+    expect(payload.findings).toHaveLength(13); // 13 rubrics (10 component seed + 3 page-scoped, ADR 0082) × 1 captured component
     fs.rmSync(dir, { recursive: true, force: true });
   });
 
