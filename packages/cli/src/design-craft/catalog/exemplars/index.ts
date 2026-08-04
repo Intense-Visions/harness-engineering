@@ -21,6 +21,7 @@ import { hagisBarbershopMarketingPageExemplar } from './hagis-barbershop-marketi
 import { fortPointBeerMarketingPageExemplar } from './fort-point-beer-marketing-page.js';
 import { kvellMarketingPageExemplar } from './kvell-marketing-page.js';
 import { baillatStudioMarketingPageExemplar } from './baillat-studio-marketing-page.js';
+import { commercialConstructionMarketingPageExemplar } from './commercial-construction-marketing-page.js';
 
 export { linearEmptyListExemplar } from './linear-empty-list.js';
 export { stripeLoadingStateExemplar } from './stripe-loading-state.js';
@@ -38,6 +39,7 @@ export { hagisBarbershopMarketingPageExemplar } from './hagis-barbershop-marketi
 export { fortPointBeerMarketingPageExemplar } from './fort-point-beer-marketing-page.js';
 export { kvellMarketingPageExemplar } from './kvell-marketing-page.js';
 export { baillatStudioMarketingPageExemplar } from './baillat-studio-marketing-page.js';
+export { commercialConstructionMarketingPageExemplar } from './commercial-construction-marketing-page.js';
 
 /**
  * Seed exemplars. The earlier Phase 2 increment anchored the shape with
@@ -84,4 +86,5 @@ export const SEED_EXEMPLARS: readonly ExemplarDefinition[] = [
   fortPointBeerMarketingPageExemplar,
   kvellMarketingPageExemplar,
   baillatStudioMarketingPageExemplar,
+  commercialConstructionMarketingPageExemplar,
 ];

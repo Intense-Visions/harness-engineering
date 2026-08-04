@@ -152,6 +152,7 @@ describe('design-craft Phase 2 catalog seed — exemplars', () => {
       'MarketingPage',
       'MarketingPage',
       'MarketingPage',
+      'MarketingPage',
     ]);
   });
 
@@ -186,6 +187,7 @@ describe('design-craft Phase 2 catalog seed — exemplars', () => {
       'exemplar-fort-point-beer-marketing-page',
       'exemplar-kvell-marketing-page',
       'exemplar-baillat-studio-marketing-page',
+      'exemplar-commercial-construction-marketing-page',
     ]);
   });
 
