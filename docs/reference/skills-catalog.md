@@ -2,7 +2,7 @@
 
 # Skills Catalog
 
-767 skills across 3 tiers. Tier 1 and 2 skills are registered as slash commands. Tier 3 skills are discoverable via the `search_skills` MCP tool. See the [Features Overview](../guides/features-overview.md) for narrative documentation.
+768 skills across 3 tiers. Tier 1 and 2 skills are registered as slash commands. Tier 3 skills are discoverable via the `search_skills` MCP tool. See the [Features Overview](../guides/features-overview.md) for narrative documentation.
 
 ## Tier 1 — Workflow (15 skills)
 
@@ -151,7 +151,7 @@ Upstream client-inception skill. Ingests a diagram + client conversation notes, 
 - **Cognitive mode:** configuration-interviewer
 - **Depends on:** harness-strategy, harness-brainstorming
 
-## Tier 2 — Maintenance (48 skills)
+## Tier 2 — Maintenance (49 skills)
 
 ### acceptance-eval
 
@@ -191,6 +191,15 @@ Audit component definitions for missing required anatomy parts (slots, states, s
 - **Type:** rigid
 - **Cognitive mode:** constructive-architect
 - **Depends on:** design-component-anatomy, harness-accessibility
+
+### burn-hud
+
+Install, calibrate, verify and diagnose a local Claude Code usage-pace HUD that cannot fail green
+
+- **Triggers:** manual
+- **Platforms:** claude-code, gemini-cli, codex, cursor
+- **Type:** rigid
+- **Cognitive mode:** constructive-architect
 
 ### cleanup-dead-code
 

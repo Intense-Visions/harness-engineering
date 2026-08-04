@@ -1,0 +1,36 @@
+name: burn-hud
+version: "1.0.0"
+description: Install, calibrate, verify and diagnose a local Claude Code usage-pace HUD that cannot fail green
+stability: static
+cognitive_mode: constructive-architect
+triggers:
+  - manual
+platforms:
+  - claude-code
+  - gemini-cli
+  - codex
+  - cursor
+tools:
+  - Bash
+  - Read
+  - Write
+  - Edit
+  - Glob
+  - Grep
+cli:
+  command: harness skill run burn-hud
+  args:
+    - name: path
+      description: Project root path
+      required: false
+mcp:
+  tool: run_skill
+  input:
+    skill: burn-hud
+    path: string
+type: rigid
+tier: 2
+state:
+  persistent: false
+  files: []
+depends_on: []
