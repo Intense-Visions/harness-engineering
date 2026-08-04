@@ -1080,9 +1080,9 @@ last_manual_edit: 2026-06-27T12:51:51.967Z
 
 ### ESLint Rule: no-undefined-optional-assignment
 
-- **Status:** planned
+- **Status:** done
 - **Spec:** —
-- **Summary:** New ESLint rule to flag `{ optionalField: valueOrUndefined }` assignments that fail with `exactOptionalPropertyTypes`. 5 recurring gotchas in learnings. Suggest conditional spread `...(val !== undefined && { field: val })` instead.
+- **Summary:** DELIVERED (PR #834, merged). New ESLint rule flags `{ optionalField: valueOrUndefined }` assignments that fail with `exactOptionalPropertyTypes`; suggests conditional spread `...(val !== undefined && { field: val })`. Rule implemented at packages/eslint-plugin/src/rules/no-undefined-optional-assignment.ts, registered in the plugin, 13 passing tests. Row was stale — auto-done did not fire because External-ID #223 is the issue number while the merge PR was #834.
 - **Blockers:** —
 - **Plan:** —
 - **Assignee:** —
@@ -1091,9 +1091,9 @@ last_manual_edit: 2026-06-27T12:51:51.967Z
 
 ### ESLint Rule: no-hardcoded-test-count
 
-- **Status:** planned
+- **Status:** done
 - **Spec:** —
-- **Summary:** New ESLint rule to flag magic-number `toHaveLength(N)` assertions in test files where N matches a registry/array size. Fragile to additions — 2 recurring gotchas in learnings where tool count assertions broke on every new tool. Suggest dynamic `TOOL_DEFINITIONS.length` references.
+- **Summary:** DELIVERED (PR #871, merged). New ESLint rule flags magic-number `toHaveLength(N)` assertions in test files where N matches a registry/array size; suggests dynamic `.length` references. Rule implemented at packages/eslint-plugin/src/rules/no-hardcoded-test-count.ts, registered as an 'error' in the recommended config, tests passing. Row was stale — auto-done did not fire because External-ID #224 is the issue number while the merge PR was #871.
 - **Blockers:** —
 - **Plan:** —
 - **Assignee:** —
