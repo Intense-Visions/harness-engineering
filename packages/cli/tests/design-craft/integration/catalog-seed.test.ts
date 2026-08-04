@@ -42,6 +42,7 @@ import {
   notionEmptyDatabaseExemplar,
   vercelBuildProgressExemplar,
 } from '../../../src/design-craft/catalog/exemplars/index.js';
+import { SEED_RUBRICS } from '../../../src/design-craft/catalog/rubrics/index.js';
 import { runBenchmark } from '../../../src/design-craft/phases/benchmark.js';
 import { MockLlmProvider } from '../../../src/design-craft/llm/provider.js';
 import { handleDesignCraft } from '../../../src/mcp/tools/design-craft.js';
@@ -209,6 +210,48 @@ describe('design-craft Phase 2 catalog seed — exemplars', () => {
         expect(dim).toBeLessThanOrEqual(100);
       }
       expect(e.citationCount).toBe(0);
+    }
+  });
+});
+
+describe('design-craft MarketingPage tier — page rubrics', () => {
+  const byId = new Map(SEED_RUBRICS.map((r) => [r.id, r]));
+
+  it('registers the three page-scoped rubrics with their reserved codes', () => {
+    expect(byId.get('rubric-concept-coherence')?.findingTemplate).toMatchObject({
+      code: 'CRAFT-C011',
+      tier: 'foundational',
+      impact: 'large',
+      phase: 'critique',
+    });
+    expect(byId.get('rubric-composition-art-direction')?.findingTemplate).toMatchObject({
+      code: 'CRAFT-C012',
+      tier: 'foundational',
+      impact: 'large',
+      phase: 'critique',
+    });
+    expect(byId.get('rubric-surface-texture-material')?.findingTemplate).toMatchObject({
+      code: 'CRAFT-C013',
+      tier: 'polish',
+      impact: 'medium',
+      phase: 'critique',
+    });
+  });
+
+  it('page rubrics are page-scoped and carry ADR 0020 provenance', () => {
+    for (const id of [
+      'rubric-concept-coherence',
+      'rubric-composition-art-direction',
+      'rubric-surface-texture-material',
+    ]) {
+      const r = byId.get(id);
+      expect(r).toBeTruthy();
+      expect(r?.appliesTo).toEqual(['page']);
+      expect(r?.version).toBeGreaterThan(0);
+      expect(['stable', 'draft', 'deprecated']).toContain(r?.status ?? '');
+      expect(r?.authoredAt).toMatch(/^\d{4}-\d{2}-\d{2}$/);
+      expect((r?.contributors ?? []).length).toBeGreaterThan(0);
+      expect(r?.source.ref).toBeTruthy();
     }
   });
 });
