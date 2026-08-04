@@ -26,6 +26,7 @@ import { copyVoiceRubric } from './copy-voice.js';
 import { interactionCraftRubric } from './interaction-craft.js';
 import { brandCoherenceRubric } from './brand-coherence.js';
 import { conceptCoherenceRubric } from './concept-coherence.js';
+import { compositionArtDirectionRubric } from './composition-art-direction.js';
 
 export { hierarchyClarityRubric } from './hierarchy-clarity.js';
 export { typographyCraftRubric } from './typography-craft.js';
@@ -38,6 +39,7 @@ export { copyVoiceRubric } from './copy-voice.js';
 export { interactionCraftRubric } from './interaction-craft.js';
 export { brandCoherenceRubric } from './brand-coherence.js';
 export { conceptCoherenceRubric } from './concept-coherence.js';
+export { compositionArtDirectionRubric } from './composition-art-direction.js';
 
 /**
  * Seed critique rubrics. Phase 1 shipped one (hierarchy-clarity);
@@ -76,4 +78,5 @@ export const SEED_RUBRICS: readonly RubricDefinition[] = [
   interactionCraftRubric,
   brandCoherenceRubric,
   conceptCoherenceRubric,
+  compositionArtDirectionRubric,
 ];
