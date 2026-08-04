@@ -150,6 +150,7 @@ describe('design-craft Phase 2 catalog seed — exemplars', () => {
       'MarketingPage',
       'MarketingPage',
       'MarketingPage',
+      'MarketingPage',
     ]);
   });
 
@@ -182,6 +183,7 @@ describe('design-craft Phase 2 catalog seed — exemplars', () => {
       'exemplar-sakazuki-marketing-page',
       'exemplar-hagis-barbershop-marketing-page',
       'exemplar-fort-point-beer-marketing-page',
+      'exemplar-kvell-marketing-page',
     ]);
   });
 
