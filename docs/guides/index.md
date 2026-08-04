@@ -181,6 +181,16 @@ approve/reject, and known limitations.
 
 **Best for:** Operators running an opt-in, self-managing local model pool
 
+### [Local-Model Execution](./local-execution.md)
+
+Run autonomous **contained** engineering/maintenance tasks on local models,
+on-device and safely: the validated coder/reasoner/judge setup, the
+`local-eligible` task-fit triage checklist, operating rules (scoped queue,
+enforced gates, bounded retries, fresh-server bursts), hardware notes, and the
+hybrid escalation variant.
+
+**Best for:** Operators evaluating or running local-model execution of scoped tasks
+
 ## How to Use These Guides
 
 1. **Start with Getting Started** if you're new to Harness Engineering
