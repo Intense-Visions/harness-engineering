@@ -5,7 +5,7 @@ import { parse } from 'yaml';
 import { SkillMetadataSchema } from '../../skill/schema';
 import { logger } from '../../output/logger';
 import { ExitCode } from '../../utils/errors';
-import { resolveSkillsDir } from '../../utils/paths';
+import { resolveProjectSkillsDir, resolveSkillsDir } from '../../utils/paths';
 
 const BEHAVIORAL_REQUIRED_SECTIONS = [
   '## When to Use',
@@ -82,41 +82,105 @@ export function validateSkillEntry(name: string, skillsDir: string, errors: stri
   }
 }
 
+export interface SkillValidationResult {
+  /** The directory that was scanned, or null when none exists. */
+  skillsDir: string | null;
+  /** How many skills were actually examined (the denominator). */
+  scanned: number;
+  /** Of the scanned skills, how many had a parseable skill.yaml. */
+  validated: number;
+  errors: string[];
+  /** Set when a requested skill name was not present in `skillsDir`. */
+  notFound?: string;
+}
+
+/**
+ * Resolve the skills directory to validate and run the checks (#1011).
+ *
+ * Prefers the working-tree `agents/skills/` when invoked inside a harness
+ * checkout, falling back to the installed CLI bundle otherwise. Previously this
+ * always scanned the bundle (`<cli>/dist/agents/skills/...`), so a skill authored
+ * in a checkout was never examined — the validator's silence read as approval,
+ * and `harness-skill-authoring`'s "no skill ships without validation passing"
+ * gate could be satisfied without the file ever being looked at.
+ */
+export function runSkillValidation(
+  // `| undefined` (not just `?`) so callers may pass through an unset optional
+  // under exactOptionalPropertyTypes.
+  opts: { cwd?: string | undefined; skillName?: string | undefined } = {}
+): SkillValidationResult {
+  const skillsDir = resolveProjectSkillsDir(opts.cwd) ?? resolveSkillsDir();
+
+  if (!fs.existsSync(skillsDir)) {
+    return { skillsDir: null, scanned: 0, validated: 0, errors: [] };
+  }
+
+  const allEntries = fs
+    .readdirSync(skillsDir, { withFileTypes: true })
+    .filter((d) => d.isDirectory())
+    .map((d) => d.name);
+
+  // Honour the skill-name argument: validate just that skill and fail if it is
+  // not present, rather than silently validating everything else (#1011).
+  if (opts.skillName && !allEntries.includes(opts.skillName)) {
+    return { skillsDir, scanned: 0, validated: 0, errors: [], notFound: opts.skillName };
+  }
+  const entries = opts.skillName ? [opts.skillName] : allEntries;
+
+  const errors: string[] = [];
+  let validated = 0;
+  for (const name of entries) {
+    if (validateSkillEntry(name, skillsDir, errors)) validated++;
+  }
+
+  return { skillsDir, scanned: entries.length, validated, errors };
+}
+
 export function createValidateCommand(): Command {
   return new Command('validate')
-    .description('Validate all skill.yaml files and SKILL.md structure')
-    .action(async (_opts, cmd) => {
+    .description('Validate skill.yaml files and SKILL.md structure')
+    .argument('[skill-name]', 'Validate only this skill (fails if it is not found)')
+    .action(async (skillName: string | undefined, _opts, cmd) => {
       const globalOpts = cmd.optsWithGlobals();
-      const skillsDir = resolveSkillsDir();
+      const result = runSkillValidation({ skillName });
 
-      if (!fs.existsSync(skillsDir)) {
-        logger.info('No skills directory found.');
+      if (result.skillsDir === null) {
+        if (globalOpts.json) {
+          logger.raw({ skillsDir: null, scanned: 0, validated: 0, errors: [] });
+        } else {
+          logger.info('No skills directory found.');
+        }
         process.exit(ExitCode.SUCCESS);
         return;
       }
 
-      const entries = fs
-        .readdirSync(skillsDir, { withFileTypes: true })
-        .filter((d) => d.isDirectory())
-        .map((d) => d.name);
-
-      const errors: string[] = [];
-      let validated = 0;
-
-      for (const name of entries) {
-        if (validateSkillEntry(name, skillsDir, errors)) validated++;
+      if (result.notFound) {
+        if (globalOpts.json) {
+          logger.raw({ ...result });
+        } else {
+          logger.error(`Skill not found: ${result.notFound} (searched ${result.skillsDir})`);
+        }
+        process.exit(ExitCode.ERROR);
+        return;
       }
 
       if (globalOpts.json) {
-        logger.raw({ validated, errors });
-      } else if (errors.length > 0) {
-        logger.error(`Validation failed with ${errors.length} error(s):`);
-        for (const err of errors) console.error(`  - ${err}`);
+        logger.raw({
+          skillsDir: result.skillsDir,
+          scanned: result.scanned,
+          validated: result.validated,
+          errors: result.errors,
+        });
+      } else if (result.errors.length > 0) {
+        logger.error(
+          `Validation failed with ${result.errors.length} error(s) across ${result.scanned} skill(s) in ${result.skillsDir}:`
+        );
+        for (const err of result.errors) console.error(`  - ${err}`);
         process.exit(ExitCode.ERROR);
-      } else {
-        if (!globalOpts.quiet) {
-          logger.success(`All ${validated} skill(s) validated successfully.`);
-        }
+      } else if (!globalOpts.quiet) {
+        // Report the denominator so "no errors" is distinguishable from
+        // "nothing checked" (#1011).
+        logger.success(`Validated ${result.scanned} skill(s) in ${result.skillsDir}.`);
       }
       process.exit(ExitCode.SUCCESS);
     });

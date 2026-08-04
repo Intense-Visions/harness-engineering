@@ -102,3 +102,90 @@ describe('skill validate — knowledge skill sections', () => {
     fs.rmSync(tmpDir, { recursive: true });
   });
 });
+
+// Regression for #1011: `harness skill validate` scanned the installed CLI
+// bundle, not the working tree — so a skill authored in a checkout was never
+// examined and the validator's silence read as approval. It also ignored the
+// skill-name argument and never reported the denominator.
+describe('runSkillValidation — working-tree resolution (#1011)', () => {
+  /** Build a `<root>/agents/skills/claude-code/` tree the way a checkout looks. */
+  function makeProject(): string {
+    const root = fs.mkdtempSync(path.join(os.tmpdir(), 'skill-validate-wt-'));
+    fs.mkdirSync(path.join(root, 'agents', 'skills', 'claude-code'), { recursive: true });
+    return root;
+  }
+
+  function writeKnowledgeSkill(root: string, name: string, opts: { withInstructions: boolean }) {
+    const dir = path.join(root, 'agents', 'skills', 'claude-code', name);
+    fs.mkdirSync(dir, { recursive: true });
+    fs.writeFileSync(
+      path.join(dir, 'skill.yaml'),
+      [
+        `name: ${name}`,
+        "version: '1.0.0'",
+        'description: A working-tree skill under authoring',
+        'type: knowledge',
+        'tier: 3',
+        'cognitive_mode: advisory-guide',
+        'triggers: [manual]',
+        'platforms: [claude-code]',
+        'tools: []',
+        'state: { persistent: false, files: [] }',
+        'depends_on: []',
+      ].join('\n')
+    );
+    fs.writeFileSync(
+      path.join(dir, 'SKILL.md'),
+      opts.withInstructions
+        ? `# ${name}\n\n## Instructions\n\nDo the thing.`
+        : `# ${name}\n\n## Details\n\nNo instructions section.`
+    );
+  }
+
+  it('scans the working-tree skills when run inside a checkout', async () => {
+    const root = makeProject();
+    writeKnowledgeSkill(root, 'authored-skill', { withInstructions: true });
+
+    const { runSkillValidation } = await import('../../../src/commands/skill/validate.js');
+    const result = runSkillValidation({ cwd: root });
+
+    // The dir scanned must be the working tree, not the installed bundle.
+    expect(result.skillsDir).toBe(path.join(root, 'agents', 'skills', 'claude-code'));
+    expect(result.scanned).toBe(1);
+    expect(result.errors).toEqual([]);
+
+    fs.rmSync(root, { recursive: true });
+  });
+
+  it('actually validates a newly authored skill (its break is reported, not ignored)', async () => {
+    const root = makeProject();
+    writeKnowledgeSkill(root, 'broken-authored-skill', { withInstructions: false });
+
+    const { runSkillValidation } = await import('../../../src/commands/skill/validate.js');
+    const result = runSkillValidation({ cwd: root });
+
+    expect(result.scanned).toBe(1);
+    expect(result.errors.some((e) => e.includes('broken-authored-skill'))).toBe(true);
+    expect(result.errors.some((e) => e.includes('## Instructions'))).toBe(true);
+
+    fs.rmSync(root, { recursive: true });
+  });
+
+  it('honours the skill-name argument and fails when it is not found', async () => {
+    const root = makeProject();
+    writeKnowledgeSkill(root, 'present-skill', { withInstructions: true });
+
+    const { runSkillValidation } = await import('../../../src/commands/skill/validate.js');
+
+    const found = runSkillValidation({ cwd: root, skillName: 'present-skill' });
+    expect(found.scanned).toBe(1);
+    expect(found.notFound).toBeUndefined();
+    expect(found.errors).toEqual([]);
+
+    const missing = runSkillValidation({ cwd: root, skillName: 'no-such-skill' });
+    expect(missing.notFound).toBe('no-such-skill');
+    expect(missing.scanned).toBe(0);
+
+    fs.rmSync(root, { recursive: true });
+  });
+});
