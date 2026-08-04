@@ -13,6 +13,15 @@ import { linearIssueModalExemplar } from './linear-issue-modal.js';
 import { stripePayButtonExemplar } from './stripe-pay-button.js';
 import { notionEmptyDatabaseExemplar } from './notion-empty-database.js';
 import { vercelBuildProgressExemplar } from './vercel-build-progress.js';
+import { sonDavenMarketingPageExemplar } from './son-daven-marketing-page.js';
+import { laRevoltosaMarketingPageExemplar } from './la-revoltosa-marketing-page.js';
+import { cravBurgersMarketingPageExemplar } from './crav-burgers-marketing-page.js';
+import { sakazukiMarketingPageExemplar } from './sakazuki-marketing-page.js';
+import { hagisBarbershopMarketingPageExemplar } from './hagis-barbershop-marketing-page.js';
+import { fortPointBeerMarketingPageExemplar } from './fort-point-beer-marketing-page.js';
+import { kvellMarketingPageExemplar } from './kvell-marketing-page.js';
+import { baillatStudioMarketingPageExemplar } from './baillat-studio-marketing-page.js';
+import { commercialConstructionMarketingPageExemplar } from './commercial-construction-marketing-page.js';
 
 export { linearEmptyListExemplar } from './linear-empty-list.js';
 export { stripeLoadingStateExemplar } from './stripe-loading-state.js';
@@ -22,6 +31,15 @@ export { linearIssueModalExemplar } from './linear-issue-modal.js';
 export { stripePayButtonExemplar } from './stripe-pay-button.js';
 export { notionEmptyDatabaseExemplar } from './notion-empty-database.js';
 export { vercelBuildProgressExemplar } from './vercel-build-progress.js';
+export { sonDavenMarketingPageExemplar } from './son-daven-marketing-page.js';
+export { laRevoltosaMarketingPageExemplar } from './la-revoltosa-marketing-page.js';
+export { cravBurgersMarketingPageExemplar } from './crav-burgers-marketing-page.js';
+export { sakazukiMarketingPageExemplar } from './sakazuki-marketing-page.js';
+export { hagisBarbershopMarketingPageExemplar } from './hagis-barbershop-marketing-page.js';
+export { fortPointBeerMarketingPageExemplar } from './fort-point-beer-marketing-page.js';
+export { kvellMarketingPageExemplar } from './kvell-marketing-page.js';
+export { baillatStudioMarketingPageExemplar } from './baillat-studio-marketing-page.js';
+export { commercialConstructionMarketingPageExemplar } from './commercial-construction-marketing-page.js';
 
 /**
  * Seed exemplars. The earlier Phase 2 increment anchored the shape with
@@ -34,18 +52,23 @@ export { vercelBuildProgressExemplar } from './vercel-build-progress.js';
  * plan: EmptyState, LoadingState, ErrorState, Modal, Button (plus the
  * informal CommandPalette anchor).
  *
- * This increment opens the HORIZONTAL GROWTH phase of the seed by adding
- * a second EmptyState anchor (Notion empty database — INSTRUCTIONAL
- * register, CRAFT-B007) and a second LoadingState anchor (Vercel build
- * progress — NARRATIVE register, CRAFT-B008). Together with the existing
- * Linear (RESOLVED EmptyState) and Stripe (PREVIEW LoadingState) anchors,
- * BENCHMARK can now score targets against the right tonal model rather
- * than collapsing every EmptyState / LoadingState toward a single
- * register. The full 50-exemplar seed (10 per type for 5 canonical types)
- * grows horizontally from here per the spec.
+ * The B007 / B008 increment opened the HORIZONTAL GROWTH phase of the
+ * seed by adding a second EmptyState anchor (Notion empty database —
+ * INSTRUCTIONAL register, CRAFT-B007) and a second LoadingState anchor
+ * (Vercel build progress — NARRATIVE register, CRAFT-B008). Together with
+ * the existing Linear (RESOLVED EmptyState) and Stripe (PREVIEW
+ * LoadingState) anchors, BENCHMARK gained the ability to score targets
+ * against the right tonal model rather than collapsing every EmptyState /
+ * LoadingState toward a single register. The full 50-exemplar seed (10
+ * per type for 5 canonical types) grows horizontally from there per the
+ * spec.
+ *
+ * This increment opens the MarketingPage tier (B009..B017, ADR 0082):
+ * whole-page award-documented exemplars so page-scoped BENCHMARK targets
+ * converge on concept / composition / surface, not component polish alone.
  *
  * Order matters: anchors land in landing order so anchor codes
- * (CRAFT-B001..B008) align with the array index.
+ * (CRAFT-B001..) align with the array index.
  */
 export const SEED_EXEMPLARS: readonly ExemplarDefinition[] = [
   linearEmptyListExemplar,
@@ -56,4 +79,13 @@ export const SEED_EXEMPLARS: readonly ExemplarDefinition[] = [
   stripePayButtonExemplar,
   notionEmptyDatabaseExemplar,
   vercelBuildProgressExemplar,
+  sonDavenMarketingPageExemplar,
+  laRevoltosaMarketingPageExemplar,
+  cravBurgersMarketingPageExemplar,
+  sakazukiMarketingPageExemplar,
+  hagisBarbershopMarketingPageExemplar,
+  fortPointBeerMarketingPageExemplar,
+  kvellMarketingPageExemplar,
+  baillatStudioMarketingPageExemplar,
+  commercialConstructionMarketingPageExemplar,
 ];

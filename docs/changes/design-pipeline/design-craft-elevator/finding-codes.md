@@ -30,7 +30,10 @@
   - [CRAFT-C008 — Copy Voice](#craft-c008--copy-voice)
   - [CRAFT-C009 — Interaction Craft](#craft-c009--interaction-craft)
   - [CRAFT-C010 — Brand Coherence](#craft-c010--brand-coherence)
-  - [CRAFT-C011–C100 — RESERVED (post-seed growth)](#craft-c011c100--reserved-post-seed-growth)
+  - [CRAFT-C011 — Concept Coherence](#craft-c011--concept-coherence)
+  - [CRAFT-C012 — Composition & Art Direction](#craft-c012--composition--art-direction)
+  - [CRAFT-C013 — Surface, Texture & Material](#craft-c013--surface-texture--material)
+  - [CRAFT-C014–C100 — RESERVED (post-seed growth)](#craft-c014c100--reserved-post-seed-growth)
 - [CRAFT-P\* — Polish findings](#craft-p--polish-findings)
   - [CRAFT-P001 — Spring Physics Micro-interaction](#craft-p001--spring-physics-micro-interaction)
   - [CRAFT-P002 — Skeleton (Content-Matched)](#craft-p002--skeleton-content-matched)
@@ -44,7 +47,8 @@
 - [CRAFT-B\* — Benchmark identifiers](#craft-b--benchmark-identifiers)
   - [Benchmark-identifier semantics](#benchmark-identifier-semantics)
   - [CRAFT-B001–B008 — seed benchmark identifiers (canonical anchors + horizontal-growth pair)](#craft-b001b008--seed-benchmark-identifiers-canonical-anchors--horizontal-growth-pair)
-  - [CRAFT-B009–B050 — RESERVED (seed exemplar set growth)](#craft-b009b050--reserved-seed-exemplar-set-growth)
+  - [CRAFT-B009–B017 — MarketingPage tier (award-documented whole-page anchors)](#craft-b009b017--marketingpage-tier-award-documented-whole-page-anchors)
+  - [CRAFT-B018–B050 — RESERVED (seed exemplar set growth)](#craft-b018b050--reserved-seed-exemplar-set-growth)
   - [CRAFT-B051–B100 — RESERVED (post-seed growth)](#craft-b051b100--reserved-post-seed-growth)
 - [Exemplar references (used by BENCHMARK runs)](#exemplar-references-used-by-benchmark-runs)
 - [Reserved-code authoring convention](#reserved-code-authoring-convention)
@@ -70,14 +74,15 @@ The range allocation below is the **authoritative reservation** that Phase 1–4
 
 **CRAFT-C (critique rubrics):**
 
-| Range       | Phase landed     | Status (v1)                                                                                                                          |
-| ----------- | ---------------- | ------------------------------------------------------------------------------------------------------------------------------------ |
-| `C001–C003` | Phase 2 (PR 431) | Shipped (hierarchy, typography, motion — wired into `SEED_RUBRICS`).                                                                 |
-| `C004–C005` | Phase 1B         | Shipped (color-confidence, density-rhythm — completes the half-seed of 5 rubrics required by the Phase 1B exit criterion).           |
-| `C006–C007` | Phase 2B         | Shipped (restraint, polish-details — first pair of the Phase 2B widen-to-10 set; bridges foundational and polish tiers in the loop). |
-| `C008–C010` | Phase 2C (this)  | Shipped (copy-voice, interaction-craft, brand-coherence — closes the v1 seed at success criterion #7's target of 10 rubrics).        |
-| `C011–C020` | Post-v1          | Reserved for the H growth trajectory (target: 20 rubrics in 12–24 months).                                                           |
-| `C021–C100` | Long-term        | Reserved for community contribution + signal-loop proposals.                                                                         |
+| Range       | Phase landed                  | Status (v1)                                                                                                                          |
+| ----------- | ----------------------------- | ------------------------------------------------------------------------------------------------------------------------------------ |
+| `C001–C003` | Phase 2 (PR 431)              | Shipped (hierarchy, typography, motion — wired into `SEED_RUBRICS`).                                                                 |
+| `C004–C005` | Phase 1B                      | Shipped (color-confidence, density-rhythm — completes the half-seed of 5 rubrics required by the Phase 1B exit criterion).           |
+| `C006–C007` | Phase 2B                      | Shipped (restraint, polish-details — first pair of the Phase 2B widen-to-10 set; bridges foundational and polish tiers in the loop). |
+| `C008–C010` | Phase 2C                      | Shipped (copy-voice, interaction-craft, brand-coherence — closes the v1 seed at success criterion #7's target of 10 rubrics).        |
+| `C011–C013` | Marketing-page tier (this PR) | Shipped (concept-coherence, composition-art-direction, surface-texture-material — page-scoped, `appliesTo: ['page']`, per ADR 0082). |
+| `C014–C020` | Post-v1                       | Reserved for the H growth trajectory (target: 20 rubrics in 12–24 months).                                                           |
+| `C021–C100` | Long-term                     | Reserved for community contribution + signal-loop proposals.                                                                         |
 
 **CRAFT-P (polish patterns):**
 
@@ -86,22 +91,23 @@ The range allocation below is the **authoritative reservation** that Phase 1–4
 | `P001`      | Phase 2 (PR 431) | Shipped (spring-physics — wired into `SEED_PATTERNS`).                                                                                                                                                                  |
 | `P002–P003` | Phase 2          | Shipped (skeleton-content-matched, stagger-timing — wired into `SEED_PATTERNS` from Phase 0 spike artifacts).                                                                                                           |
 | `P004–P005` | Phase 2          | Shipped (page-transition-crossfade closes the motion sub-category to 3; fluid-type-scale opens the typography sub-category — adds the first foundational-tier polish pattern to the seed).                              |
-| `P006–P007` | Phase 2 (this)   | Shipped (progressive-corner-rounding opens the layout sub-category; focus-ring-craft opens the interaction sub-category — adds the second foundational-tier polish pattern to the seed alongside `CRAFT-P004`).         |
+| `P006–P007` | Phase 2          | Shipped (progressive-corner-rounding opens the layout sub-category; focus-ring-craft opens the interaction sub-category — adds the second foundational-tier polish pattern to the seed alongside `CRAFT-P004`).         |
 | `P008–P015` | Phase 2          | Reserved for seed catalog completion (success criterion #8 lists 15 patterns — 3 motion + 3 skeleton + 3 typography + 3 interaction + 3 layout; 2 skeleton + 2 typography + 2 more interaction + 2 more layout remain). |
 | `P016–P075` | Post-v1          | Reserved for the H growth trajectory (target: 75 patterns in 12–24 months).                                                                                                                                             |
 | `P076–P100` | Long-term        | Reserved for community contribution + signal-loop proposals.                                                                                                                                                            |
 
 **CRAFT-B (benchmark identifiers):**
 
-| Range       | Phase landed     | Status (v1)                                                                                                                                                                                                                                                     |
-| ----------- | ---------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `B001`      | Phase 2 (PR 431) | Shipped (linear-empty-list — wired into `SEED_EXEMPLARS`).                                                                                                                                                                                                      |
-| `B002–B003` | Phase 2          | Shipped (stripe-loading-state, raycast-command-palette — wired into `SEED_EXEMPLARS` from Phase 0 spike artifacts).                                                                                                                                             |
-| `B004–B005` | Phase 2          | Shipped (vercel-error-state, linear-issue-modal — extends the early v1 anchor set to cover ErrorState and Modal componentTypes).                                                                                                                                |
-| `B006`      | Phase 2          | Shipped (stripe-pay-button — claims the Button componentType anchor and completes the five canonical componentTypes the spec calls out for the 50-exemplar plan: EmptyState / LoadingState / ErrorState / Modal / Button + the informal CommandPalette anchor). |
-| `B007–B008` | Phase 2 (this)   | Shipped (notion-empty-database, vercel-build-progress — opens the horizontal-growth phase with a second EmptyState anchor in the INSTRUCTIONAL register and a second LoadingState anchor in the NARRATIVE register).                                            |
-| `B009–B050` | Phase 1–2        | Reserved for seed exemplar set growth (success criterion #9 lists 50 exemplars across 5 types — continuing horizontal growth from the eight anchors above).                                                                                                     |
-| `B051–B100` | Post-v1          | Reserved for catalog growth (target: 400 exemplars in 12–24 months).                                                                                                                                                                                            |
+| Range       | Phase landed                  | Status (v1)                                                                                                                                                                                                                                                     |
+| ----------- | ----------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `B001`      | Phase 2 (PR 431)              | Shipped (linear-empty-list — wired into `SEED_EXEMPLARS`).                                                                                                                                                                                                      |
+| `B002–B003` | Phase 2                       | Shipped (stripe-loading-state, raycast-command-palette — wired into `SEED_EXEMPLARS` from Phase 0 spike artifacts).                                                                                                                                             |
+| `B004–B005` | Phase 2                       | Shipped (vercel-error-state, linear-issue-modal — extends the early v1 anchor set to cover ErrorState and Modal componentTypes).                                                                                                                                |
+| `B006`      | Phase 2                       | Shipped (stripe-pay-button — claims the Button componentType anchor and completes the five canonical componentTypes the spec calls out for the 50-exemplar plan: EmptyState / LoadingState / ErrorState / Modal / Button + the informal CommandPalette anchor). |
+| `B007–B008` | Phase 2                       | Shipped (notion-empty-database, vercel-build-progress — opens the horizontal-growth phase with a second EmptyState anchor in the INSTRUCTIONAL register and a second LoadingState anchor in the NARRATIVE register).                                            |
+| `B009–B017` | Marketing-page tier (this PR) | Shipped (nine award-documented MarketingPage anchors — Son Daven, La Revoltosa, Crav Burgers, sakazuki, Hagis Barbershop, Fort Point Beer Co., Kvell, Baillat Studio, Commercial Construction — opens the page-scoped tier per ADR 0082).                       |
+| `B018–B050` | Phase 1–2                     | Reserved for seed exemplar set growth (success criterion #9 lists 50 exemplars across 5 types — continuing horizontal growth from the anchors above).                                                                                                           |
+| `B051–B100` | Post-v1                       | Reserved for catalog growth (target: 400 exemplars in 12–24 months).                                                                                                                                                                                            |
 
 Beyond 100 in any family, the type system continues to accept the format, but no allocation rules apply — those codes belong to future versions and require an explicit allocation update.
 
@@ -191,18 +197,21 @@ Every `CRAFT-C*` and `CRAFT-P*` finding includes a `derived.priority: number` fi
 
 Each catalog entry's `source.ref` field cites a published authority. The seed prefixes:
 
-| Prefix                      | Authority                                                                                                        |
-| --------------------------- | ---------------------------------------------------------------------------------------------------------------- |
-| `huashu-design#`            | huashu-design (REFERENCES.md #4) — the seed source for the 5-dim radar model.                                    |
-| `vercel-geist#`             | Vercel's Geist design system — public, comprehensive, frequently cited.                                          |
-| `emil-design-eng#`          | emilkowalski/skill (REFERENCES.md) — the working reference on motion design craft.                               |
-| `linear-app`                | Linear product surface — exemplar source for restrained empty/loading states + issue-detail Modal anchor.        |
-| `stripe-checkout`           | Stripe checkout surface — exemplar source for production-quality skeletons.                                      |
-| `raycast-app`               | Raycast product surface — exemplar source for keyboard-driven density.                                           |
-| `vercel-geist#error-state`  | Vercel deploy/build error surface — exemplar source for the ErrorState anchor (calm-and-forensic over alarming). |
-| `vercel-app#`               | Vercel application surfaces (e.g. deployment-builds progress) — exemplar source for narrative LoadingState.      |
-| `notion-app#`               | Notion application surfaces (e.g. empty-database / blank-page) — exemplar source for instructional EmptyState.   |
-| `design-component-anatomy/` | Internal harness knowledge skill (shared with sub-project #2's audit).                                           |
+| Prefix                      | Authority                                                                                                                                                                                                   |
+| --------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `huashu-design#`            | huashu-design (REFERENCES.md #4) — the seed source for the 5-dim radar model.                                                                                                                               |
+| `vercel-geist#`             | Vercel's Geist design system — public, comprehensive, frequently cited.                                                                                                                                     |
+| `emil-design-eng#`          | emilkowalski/skill (REFERENCES.md) — the working reference on motion design craft.                                                                                                                          |
+| `linear-app`                | Linear product surface — exemplar source for restrained empty/loading states + issue-detail Modal anchor.                                                                                                   |
+| `stripe-checkout`           | Stripe checkout surface — exemplar source for production-quality skeletons.                                                                                                                                 |
+| `raycast-app`               | Raycast product surface — exemplar source for keyboard-driven density.                                                                                                                                      |
+| `vercel-geist#error-state`  | Vercel deploy/build error surface — exemplar source for the ErrorState anchor (calm-and-forensic over alarming).                                                                                            |
+| `vercel-app#`               | Vercel application surfaces (e.g. deployment-builds progress) — exemplar source for narrative LoadingState.                                                                                                 |
+| `notion-app#`               | Notion application surfaces (e.g. empty-database / blank-page) — exemplar source for instructional EmptyState.                                                                                              |
+| `design-component-anatomy/` | Internal harness knowledge skill (shared with sub-project #2's audit).                                                                                                                                      |
+| `awwwards#`                 | Awwwards award pages (SOTD / SOTM / Honorable Mention) + the published evaluation criteria — provenance for the MarketingPage tier (each ref cites the site's award page, verified live at authoring time). |
+| `manual-creative#`          | Manual (San Francisco studio) published case studies — e.g. Fort Point Beer Co.                                                                                                                             |
+| `locomotive#`               | Locomotive (Montreal studio) published case studies — e.g. Baillat Studio.                                                                                                                                  |
 
 New prefixes added during catalog growth must be recorded in this table AND in the contribution-format schema validator.
 
@@ -621,13 +630,125 @@ Linear settings page — same typographic scale as the issue view, same restrain
 - `tier: foundational` × `impact: large` joins `CRAFT-C001` (hierarchy), `CRAFT-C004` (color-confidence), and `CRAFT-C006` (restraint) in the foundational-large band. Four foundational-large rubrics asking different questions (hierarchy, color, restraint, brand) gives the CRITIQUE loop saturated coverage of the structural craft floor — a surface that passes all four has the identity question settled.
 - Pairs naturally with `audit-brand-compliance` (sub-project #3 — declared brand-token / forbidden-phrase enforcement). When that skill is configured and emits `BRAND-T001` or `BRAND-V001` findings, those findings are deferred from this rubric via the i18n-style overlap resolution. This rubric still emits findings on the upstream craft question (does the surface feel like the same product?) that the declared rule list cannot ask.
 
-### CRAFT-C011–C100 — RESERVED (post-seed growth)
+### CRAFT-C011 — Concept Coherence
 
-Codes C011–C020 are reserved for the H growth trajectory (target: 20 rubrics in 12–24 months) — earned via the contribution format (`contribution/schema.ts`), the signal feedback loop (CRITIQUE-recurrence → pattern proposal), and peer-review promotion of `status: draft` rubrics to `status: stable`.
+**Catalog entry id:** `rubric-concept-coherence`
+
+**Tier / impact:** `tier: foundational`, `impact: large`. **Confidence cap:** none — the prompt notes that concept reads well from markup + copy + declared tokens, so confidence can stay high in fast/code-only mode, dropping only when the concept would only be visible in rendered imagery.
+
+**Applies to:** `[page]` — the first page-only rubric in the catalog. Concept is a whole-page property; a component cannot carry (or betray) a page thesis on its own.
+
+**Source citation:** `awwwards#evaluation-criteria` — <https://www.awwwards.com/about-evaluation/>
+
+**Prompt** (verbatim from `catalog/rubrics/concept-coherence.ts`):
+
+> Evaluate the concept coherence of {target}.
+>
+> - Is there ONE nameable idea the whole page argues — could you state it in a sentence — or is the page a sequence of sections with no thesis?
+> - Can each section cite the concept? Walk the sections: does each one advance the idea, or would it fit unchanged on any competitor's site?
+> - Do palette, typography, motif, and voice argue the SAME thing, or do they pull in different directions (playful type over corporate copy, brutalist grid under decorative gradients)?
+> - Is the concept derived from the subject (place, trade, product, history) or is it a generic aesthetic applied from outside?
+> - Could a stranger use the concept to REJECT a nonconforming section design? A concept that can only approve is decoration, not direction.
+>   Use the 3-axis output model (tier x impact x confidence). Concept reads well from markup + copy + declared tokens, so confidence can stay high in fast/code-only mode; drop it when the concept would only be visible in rendered imagery.
+
+**Message** (LLM-generated; example shape):
+
+> `Concept coherence in {target} {finding-specific narrative — e.g., "has no nameable thesis: the hero promises reliability, the palette says trust-blue, the voice says playful, and any of the five sections would fit unchanged on a competitor's site"}. {recommendation — e.g., "Name one idea derived from the subject and re-derive palette, type, and section structure from it — a direction that cannot reject a section is not a direction"}.`
+
+**Positive example (finding emitted):**
+
+A template page — hero + three feature cards + testimonial ribbon + CTA band — where swapping the logo and copy to a different company changes nothing; palette says "trust blue," voice says "playful," grid says "SaaS."
+
+**Negative example (no finding):**
+
+A construction-company page whose "ledger of ground moved" concept shows up as tabular credentials typography, an earth-tone two-color world, and section headings that count work done — every section cites the idea.
+
+**Schema notes:**
+
+- First page-only rubric (`appliesTo: ['page']`). CRITIQUE applies every seed rubric to every target today; the `appliesTo` field is the declared scope consumers should honor as scope-aware filtering lands.
+- Opens the marketing-page tier (C011–C013, ADR 0082) alongside the MarketingPage exemplar corpus (CRAFT-B009–B017) so page-scoped BENCHMARK and CRITIQUE converge on direction, not component polish.
+
+### CRAFT-C012 — Composition & Art Direction
+
+**Catalog entry id:** `rubric-composition-art-direction`
+
+**Tier / impact:** `tier: foundational`, `impact: large`. **Confidence cap:** the prompt instructs dropping confidence in fast/code-only mode when the judgment depends on how the layout actually resolves — grid CSS and spacing tokens are visible from code, rendered composition is not.
+
+**Applies to:** `[page]` — per-section compositional variety and cross-section rhythm are page properties invisible at component scope.
+
+**Source citation:** `awwwards#evaluation-criteria` — <https://www.awwwards.com/about-evaluation/>
+
+**Prompt** (verbatim from `catalog/rubrics/composition-art-direction.ts`):
+
+> Evaluate the composition and art direction of {target}.
+>
+> - Does each section have its own compositional idea, or does the page repeat the same-shaped card/grid pattern down its full length?
+> - Is there an underlying grid AND licensed ways of breaking it — overlap, asymmetry bias, full-bleed moments, deliberate whitespace scale — or is every element boxed and center-aligned?
+> - Is whitespace confident (generous where the content earns it, used as a compositional element) or uniform padding applied everywhere?
+> - Do inner surfaces hold the same compositional standard as the hero, or does craft decay after the first viewport?
+> - Do scale contrasts (display type vs body, large imagery vs small annotations) create rhythm across sections?
+>   Use the 3-axis output model (tier x impact x confidence). Grid CSS, section markup, and spacing tokens are visible from code; rendered composition is not — drop confidence in fast/code-only mode when the judgment depends on how the layout actually resolves.
+
+**Message** (LLM-generated; example shape):
+
+> `Composition in {target} {finding-specific narrative — e.g., "repeats the same three-up card shape in identical containers for five consecutive sections; the only compositional variable is the alternating band color"}. {recommendation — e.g., "Give each section its own compositional idea on the shared grid — one full-bleed type moment, one offset two-column ledger, one licensed overlap — and let whitespace scale mark the act boundaries"}.`
+
+**Positive example (finding emitted):**
+
+Five sections of identical three-up cards in identical containers with identical 64px padding; the only compositional variable is the background color of alternate bands.
+
+**Negative example (no finding):**
+
+A page that alternates full-bleed type moments, an offset two-column ledger, and an overlapping image/heading break — same grid underneath, three licensed breaks, whitespace doubling at act boundaries.
+
+**Schema notes:**
+
+- Second rubric of the page-scoped marketing tier (ADR 0082). Directly targets the "same-shaped-card repetition" template tell the MarketingPage exemplar corpus was authored to reject.
+
+### CRAFT-C013 — Surface, Texture & Material
+
+**Catalog entry id:** `rubric-surface-texture-material`
+
+**Tier / impact:** `tier: polish`, `impact: medium`. **Confidence cap:** the prompt instructs dropping confidence in fast/code-only mode and reserving high confidence for deep mode — declared texture tokens, blend modes, and background values are visible from code; rendered material quality is not.
+
+**Applies to:** `[page]` — background-as-decision and per-section surface structure are whole-page judgments.
+
+**Source citation:** `awwwards#evaluation-criteria` — <https://www.awwwards.com/about-evaluation/>
+
+**Prompt** (verbatim from `catalog/rubrics/surface-texture-material.ts`):
+
+> Evaluate the surface, texture, and material treatment of {target}.
+>
+> - Is the background a DECISION — a committed non-white/non-default world the palette argues for — or the unexamined default?
+> - Is there a texture/material treatment (grain, noise, paper, metal, print artifacts) or a DELIBERATE flatness the concept calls for? Absent-by-default and absent-by-decision read differently.
+> - Do backgrounds differ per section in a way that structures the page (acts, chapters, mood shifts) or only as alternating stripe filler?
+> - Are material effects built with owned CSS (blend modes, masks, data-URI grain, gradients within budget) rather than heavy raster assets that break the performance covenant?
+> - Do edge surfaces carry the material too — ::selection, hover states, footer — or does the material stop at the hero?
+>   Use the 3-axis output model (tier x impact x confidence). Declared texture tokens, blend modes, and background values are visible from code; the rendered material quality is not — drop confidence in fast/code-only mode and reserve high confidence for deep mode.
+
+**Message** (LLM-generated; example shape):
+
+> `Surface treatment in {target} {finding-specific narrative — e.g., "keeps the unexamined pure-white default throughout, with alternating #f9fafb bands as the only surface variation and the browser-default selection color"}. {recommendation — e.g., "Commit to a background world the palette argues for, take a texture stance (owned-CSS grain or deliberate flatness the concept names), and carry the material through ::selection, hover states, and the footer"}.`
+
+**Positive example (finding emitted):**
+
+Pure-white background throughout, no texture stance, alternating `#f9fafb` bands as the only surface variation, default blue selection color.
+
+**Negative example (no finding):**
+
+A near-monochrome page on a warm off-black world with a data-URI grain at 4% opacity, one metallic accent reserved for credentials, and a `::selection` color in the accent — the material system reaches the footer.
+
+**Schema notes:**
+
+- Third rubric of the page-scoped marketing tier (ADR 0082). The owned-CSS constraint in the prompt (blend modes, masks, data-URI grain) keeps the rubric compatible with the performance covenant — texture must never be bought with heavy raster assets.
+
+### CRAFT-C014–C100 — RESERVED (post-seed growth)
+
+Codes C014–C020 are reserved for the H growth trajectory (target: 20 rubrics in 12–24 months) — earned via the contribution format (`contribution/schema.ts`), the signal feedback loop (CRITIQUE-recurrence → pattern proposal), and peer-review promotion of `status: draft` rubrics to `status: stable`.
 
 Codes C021–C100 are long-term reservation. No catalog growth plan commits to filling them; they exist so post-v2 contributors do not need a namespace-extension proposal to land novel rubrics.
 
-> **All codes in C011–C100 are RESERVED — to be defined during post-v1 catalog growth.** See [Reserved-code authoring convention](#reserved-code-authoring-convention).
+> **All codes in C014–C100 are RESERVED — to be defined during post-v1 catalog growth.** See [Reserved-code authoring convention](#reserved-code-authoring-convention).
 
 ---
 
@@ -1130,13 +1251,31 @@ Per Phase 0 review observation O4, `componentType` (e.g., `CommandPalette`) is a
 
 `CRAFT-B007` (`exemplar-notion-empty-database`) and `CRAFT-B008` (`exemplar-vercel-build-progress`) open the horizontal-growth phase. Both anchor a second exemplar within an already-anchored componentType, but each carries a tonal register distinct from its peer anchor: Notion's EmptyState is the INSTRUCTIONAL register (agency-led "here is the gesture that unlocks the surface") opposite Linear's RESOLVED register ("you're done, nothing to do"); Vercel's LoadingState is the NARRATIVE register (progress-led, multi-phase, log-streamed) opposite Stripe's PREVIEW register (content-matched skeleton). Carrying both registers per componentType lets BENCHMARK score targets against the right tonal model rather than collapsing every empty/loading state toward a single anchor. Subsequent exemplar-widen increments continue growing horizontally per componentType from here.
 
-### CRAFT-B009–B050 — RESERVED (seed exemplar set growth)
+### CRAFT-B009–B017 — MarketingPage tier (award-documented whole-page anchors)
 
-Codes B009–B050 are reserved for the seed exemplar set's horizontal growth (success criterion #9 — 50 exemplars across 5 component types). Each seed exemplar that becomes a BENCHMARK reference target claims the next free `CRAFT-B*` code in landing order during subsequent Phase 2 Stream B increments.
+The marketing-page increment (ADR 0082) opens the first PAGE-scoped exemplar tier: nine whole-page anchors under the `MarketingPage` componentType, each authored from a verified award page or published studio case study. B-codes align with `SEED_EXEMPLARS` array index order (B001..B008 = indexes 0..7, so B009..B017 = indexes 8..16) — new exemplars append LAST to preserve the alignment.
 
-The next slot (`CRAFT-B009`) is unallocated. Growth from here continues per-componentType — every canonical type now carries at least one anchor and two carry a second register-distinct anchor; new slots fill in as additional exemplars promote to BENCHMARK-target status.
+| Code         | Exemplar id                                       | componentType | Provenance (verified at authoring)                                                                              |
+| ------------ | ------------------------------------------------- | ------------- | --------------------------------------------------------------------------------------------------------------- |
+| `CRAFT-B009` | `exemplar-son-daven-marketing-page`               | MarketingPage | `awwwards#son-daven` — <https://www.awwwards.com/sites/son-daven> (SOTD Jun 5, 2026)                            |
+| `CRAFT-B010` | `exemplar-la-revoltosa-marketing-page`            | MarketingPage | `awwwards#la-revoltosa` — <https://www.awwwards.com/sites/la-revoltosa> (SOTD May 21, 2026)                     |
+| `CRAFT-B011` | `exemplar-crav-burgers-marketing-page`            | MarketingPage | `awwwards#crav-burgers` — <https://www.awwwards.com/sites/crav-burgers> (SOTD Jun 13, 2026)                     |
+| `CRAFT-B012` | `exemplar-sakazuki-marketing-page`                | MarketingPage | `awwwards#sakazuki` — <https://www.awwwards.com/sites/sakazuki> (SOTD Jun 14, 2026 + Typography honor)          |
+| `CRAFT-B013` | `exemplar-hagis-barbershop-marketing-page`        | MarketingPage | `awwwards#hagisbarbershop` — <https://www.awwwards.com/sites/hagisbarbershop> (SOTD Aug 18, 2021)               |
+| `CRAFT-B014` | `exemplar-fort-point-beer-marketing-page`         | MarketingPage | `manual-creative#fort-point` — <https://manualcreative.com/work/fort-point> (published case study)              |
+| `CRAFT-B015` | `exemplar-kvell-marketing-page`                   | MarketingPage | `awwwards#kvell` — <https://www.awwwards.com/sites/kvell> (SOTD Apr 19, 2017; built by Locomotive)              |
+| `CRAFT-B016` | `exemplar-baillat-studio-marketing-page`          | MarketingPage | `locomotive#baillat-studio` — <https://locomotive.ca/en/work/baillat-studio> (published case study)             |
+| `CRAFT-B017` | `exemplar-commercial-construction-marketing-page` | MarketingPage | `awwwards#commercial-construction` — <https://www.awwwards.com/sites/commercial-construction> (HM Jun 19, 2020) |
 
-> **All codes in B009–B050 are RESERVED — to be defined as benchmark-target exemplars are landed during seed growth.** See [Reserved-code authoring convention](#reserved-code-authoring-convention).
+Unlike B001–B008 (product-UI component anchors), these anchor whole pages: a BENCHMARK target with `componentType: 'MarketingPage'` resolves this tier via the existing equality matcher and is scored on page-level concept / composition / surface craft against the page-scoped rubric trio (CRAFT-C011–C013). Provenance note: the Kvell case study is no longer on Locomotive's live site, so the canonical Awwwards award page (credited to Locomotive) is cited instead; Commercial Construction's live site is offline, so its award page carries both `url` and `source`.
+
+### CRAFT-B018–B050 — RESERVED (seed exemplar set growth)
+
+Codes B018–B050 are reserved for the seed exemplar set's horizontal growth (success criterion #9 — 50 exemplars across 5 component types). Each seed exemplar that becomes a BENCHMARK reference target claims the next free `CRAFT-B*` code in landing order during subsequent Phase 2 Stream B increments.
+
+The next slot (`CRAFT-B018`) is unallocated. Growth from here continues per-componentType; new slots fill in as additional exemplars promote to BENCHMARK-target status.
+
+> **All codes in B018–B050 are RESERVED — to be defined as benchmark-target exemplars are landed during seed growth.** See [Reserved-code authoring convention](#reserved-code-authoring-convention).
 
 ### CRAFT-B051–B100 — RESERVED (post-seed growth)
 
@@ -1221,9 +1360,9 @@ For convenient lookup, the Phase 0 exemplars cited by `CRAFT-B*` anchor identifi
 When filling in a code marked `RESERVED`, follow this checklist:
 
 1. **Claim the next free code in the appropriate family band.**
-   - `CRAFT-C*` — next free in C004–C010 for seed completion; C011+ for post-seed growth.
+   - `CRAFT-C*` — the component seed (C001–C010) and the page-scoped marketing-page tier (C011–C013) are allocated; C014+ is next free for post-seed growth.
    - `CRAFT-P*` — next free in P004–P015 for seed completion; P016+ for post-seed growth.
-   - `CRAFT-B*` — every canonical componentType anchor (B001–B006) is allocated; B007+ is next free as additional seed exemplars become benchmark targets within an already-anchored componentType.
+   - `CRAFT-B*` — every canonical componentType anchor (B001–B006), the horizontal-growth pair (B007–B008), and the MarketingPage tier (B009–B017) are allocated; B018+ is next free as additional seed exemplars become benchmark targets within an already-anchored componentType.
 2. **Author the catalog entry** in `packages/cli/src/skills/harness-design-craft/src/catalog/rubrics/{slug}.yaml`, `catalog/patterns/{slug}.yaml`, or `catalog/exemplars/{slug}.yaml`.
 3. **Pick `tier`, `impact`, `appliesTo` / `applicableTo`** per the schema. For C entries, `tier` defaults to `foundational` only for craft moves that elevate baseline quality across most projects (hierarchy, typography, restraint). Motion / skeleton / advanced rubrics default to `tier: polish`. For P entries, the `findingTemplate.tier` reflects whether the pattern is structural (`foundational`) or elevating (`polish` / `aspirational`).
 4. **Cite the source** with one of the published prefixes (see [Source citation prefixes](#source-citation-prefixes)). Adding a new prefix requires updating this table AND the contribution schema validator.

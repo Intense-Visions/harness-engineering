@@ -3,7 +3,7 @@
 // Barrel for the seed of critique rubrics. Re-exports the canonical
 // `RubricDefinition` type plus every authored seed entry.
 //
-// Order matters: CRAFT-C001..C010 align to the array order so finding
+// Order matters: CRAFT-C001..C013 align to the array order so finding
 // listings and the markdown formatter render rubrics in a stable sequence.
 
 export type {
@@ -25,6 +25,9 @@ import { polishDetailsRubric } from './polish-details.js';
 import { copyVoiceRubric } from './copy-voice.js';
 import { interactionCraftRubric } from './interaction-craft.js';
 import { brandCoherenceRubric } from './brand-coherence.js';
+import { conceptCoherenceRubric } from './concept-coherence.js';
+import { compositionArtDirectionRubric } from './composition-art-direction.js';
+import { surfaceTextureMaterialRubric } from './surface-texture-material.js';
 
 export { hierarchyClarityRubric } from './hierarchy-clarity.js';
 export { typographyCraftRubric } from './typography-craft.js';
@@ -36,6 +39,9 @@ export { polishDetailsRubric } from './polish-details.js';
 export { copyVoiceRubric } from './copy-voice.js';
 export { interactionCraftRubric } from './interaction-craft.js';
 export { brandCoherenceRubric } from './brand-coherence.js';
+export { conceptCoherenceRubric } from './concept-coherence.js';
+export { compositionArtDirectionRubric } from './composition-art-direction.js';
+export { surfaceTextureMaterialRubric } from './surface-texture-material.js';
 
 /**
  * Seed critique rubrics. Phase 1 shipped one (hierarchy-clarity);
@@ -56,6 +62,11 @@ export { brandCoherenceRubric } from './brand-coherence.js';
  *   - polish × medium: C007 polish-details, C008 copy-voice
  * The CRITIQUE loop now exercises every cell that matters operationally;
  * aspirational-tier rubrics enter via the contribution loop, not v1.
+ *
+ * The v1 seed of 10 is CLOSED. C011–C013 open the page-scoped marketing
+ * tier (ADR 0082): concept-coherence + composition-art-direction +
+ * surface-texture-material, all `appliesTo: ['page']`, judging whole
+ * marketing pages on direction rather than component polish.
  */
 export const SEED_RUBRICS: readonly RubricDefinition[] = [
   hierarchyClarityRubric,
@@ -68,4 +79,7 @@ export const SEED_RUBRICS: readonly RubricDefinition[] = [
   copyVoiceRubric,
   interactionCraftRubric,
   brandCoherenceRubric,
+  conceptCoherenceRubric,
+  compositionArtDirectionRubric,
+  surfaceTextureMaterialRubric,
 ];

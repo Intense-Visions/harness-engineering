@@ -159,11 +159,12 @@ describe('design-craft MCP handler (MVP)', () => {
       };
     };
 
-    // Phase 2C widen-to-10: MCP path now runs all 10 seed rubrics
+    // Phase 2C widen-to-10 + marketing tier (ADR 0082): MCP path runs all 13 rubrics
     // (hierarchy-clarity, typography-craft, motion-quality, color-confidence,
     // density-rhythm, restraint, polish-details, copy-voice, interaction-craft,
-    // brand-coherence) → 10 findings × 1 target. Closes SC #7.
-    expect(payload.findings).toHaveLength(10);
+    // brand-coherence, + concept-coherence / composition-art-direction /
+    // surface-texture-material) → 13 findings × 1 target.
+    expect(payload.findings).toHaveLength(13);
     const codes = payload.findings.map((f) => f.code).sort();
     expect(codes).toEqual([
       'CRAFT-C001',
@@ -176,6 +177,9 @@ describe('design-craft MCP handler (MVP)', () => {
       'CRAFT-C008',
       'CRAFT-C009',
       'CRAFT-C010',
+      'CRAFT-C011',
+      'CRAFT-C012',
+      'CRAFT-C013',
     ]);
     for (const finding of payload.findings) {
       expect(finding.confidence).toBe('low');
@@ -185,7 +189,7 @@ describe('design-craft MCP handler (MVP)', () => {
     expect(payload.summary.phaseRun).toEqual(['critique']);
     expect(payload.summary.mode).toBe('fast');
     expect(payload.summary.llmCalls.provider).toBe('mock');
-    expect(payload.summary.llmCalls.count).toBe(10);
+    expect(payload.summary.llmCalls.count).toBe(13);
     expect(payload.summary.catalog.rubricsApplied).toEqual([
       'rubric-hierarchy-clarity',
       'rubric-typography-craft',
@@ -197,6 +201,9 @@ describe('design-craft MCP handler (MVP)', () => {
       'rubric-copy-voice',
       'rubric-interaction-craft',
       'rubric-brand-coherence',
+      'rubric-concept-coherence',
+      'rubric-composition-art-direction',
+      'rubric-surface-texture-material',
     ]);
     expect(payload.summary.runId).toMatch(/^[0-9a-f-]{36}$/);
 
@@ -239,9 +246,9 @@ describe('design-craft MCP handler (MVP)', () => {
       summary: { mode: string; phaseRun: string[]; catalog: { rubricsApplied: string[] } };
     };
     expect(payload.summary.mode).toBe('deep');
-    // 10 seed rubrics × 1 capture, judged through the vision channel.
-    expect(payload.findings).toHaveLength(10);
-    expect(payload.summary.catalog.rubricsApplied).toHaveLength(10);
+    // 13 rubrics × 1 capture, judged through the vision channel.
+    expect(payload.findings).toHaveLength(13);
+    expect(payload.summary.catalog.rubricsApplied).toHaveLength(13);
 
     fs.rmSync(tmpDir, { recursive: true, force: true });
   });

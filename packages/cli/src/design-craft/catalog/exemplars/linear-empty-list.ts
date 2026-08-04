@@ -39,6 +39,10 @@ export interface RadarReference {
  * five are listed below for discoverability.
  *
  * Canonical types: EmptyState | LoadingState | ErrorState | Modal | Button
+ *
+ * Page-scoped types (marketing tier, ADR 0082): MarketingPage — a whole
+ * marketing/demo page scored against page-level exemplars and the
+ * page-scoped rubrics (CRAFT-C011..C013) rather than component polish.
  */
 export type ComponentType = string;
 

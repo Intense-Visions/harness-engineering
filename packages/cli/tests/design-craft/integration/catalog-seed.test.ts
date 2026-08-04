@@ -18,11 +18,14 @@
 //      the first foundational-tier polish pattern in the seed; P005
 //      opens the typography sub-category; P006 opens the layout
 //      sub-category; P007 opens the interaction sub-category.
-//   2. SEED_EXEMPLARS exposes the five seed exemplars across five
+//   2. SEED_EXEMPLARS exposes the seventeen seed exemplars across seven
 //      component types (EmptyState, LoadingState, CommandPalette,
-//      ErrorState, Modal) so BENCHMARK fans out across every canonical
-//      v1 component type from the seed (per the CRAFT-B001..B005 anchor
-//      reservations in finding-codes.md).
+//      ErrorState, Modal, Button, MarketingPage) so BENCHMARK fans out
+//      across every canonical v1 component type from the seed plus the
+//      nine-exemplar MarketingPage tier (per the CRAFT-B001..B017 anchor
+//      identifiers in finding-codes.md). Dedicated MarketingPage describe
+//      blocks cover the three page-scoped rubrics (CRAFT-C011..C013) and
+//      the tier's end-to-end BENCHMARK resolution.
 //   3. Every entry carries the ADR 0020 provenance fields (id, version,
 //      status, authoredAt, contributors[], source.ref).
 //   4. End-to-end: a fixture that matches the skeleton pattern's
@@ -42,6 +45,7 @@ import {
   notionEmptyDatabaseExemplar,
   vercelBuildProgressExemplar,
 } from '../../../src/design-craft/catalog/exemplars/index.js';
+import { SEED_RUBRICS } from '../../../src/design-craft/catalog/rubrics/index.js';
 import { runBenchmark } from '../../../src/design-craft/phases/benchmark.js';
 import { MockLlmProvider } from '../../../src/design-craft/llm/provider.js';
 import { handleDesignCraft } from '../../../src/mcp/tools/design-craft.js';
@@ -132,7 +136,7 @@ describe('design-craft Phase 2 catalog seed — patterns', () => {
 });
 
 describe('design-craft Phase 2 catalog seed — exemplars', () => {
-  it('SEED_EXEMPLARS spans the eight seed exemplars in stable componentType order', () => {
+  it('SEED_EXEMPLARS spans the seventeen seed exemplars in stable componentType order', () => {
     const types = SEED_EXEMPLARS.map((e) => e.componentType);
     expect(types).toEqual([
       'EmptyState',
@@ -143,6 +147,15 @@ describe('design-craft Phase 2 catalog seed — exemplars', () => {
       'Button',
       'EmptyState',
       'LoadingState',
+      'MarketingPage',
+      'MarketingPage',
+      'MarketingPage',
+      'MarketingPage',
+      'MarketingPage',
+      'MarketingPage',
+      'MarketingPage',
+      'MarketingPage',
+      'MarketingPage',
     ]);
   });
 
@@ -158,7 +171,7 @@ describe('design-craft Phase 2 catalog seed — exemplars', () => {
     }
   });
 
-  it('SEED_EXEMPLARS aligns with the CRAFT-B001..B008 anchor identifiers in finding-codes.md', () => {
+  it('SEED_EXEMPLARS aligns with the CRAFT-B001..B017 anchor identifiers in finding-codes.md', () => {
     const ids = SEED_EXEMPLARS.map((e) => e.id);
     expect(ids).toEqual([
       'exemplar-linear-empty-list',
@@ -169,6 +182,15 @@ describe('design-craft Phase 2 catalog seed — exemplars', () => {
       'exemplar-stripe-pay-button',
       'exemplar-notion-empty-database',
       'exemplar-vercel-build-progress',
+      'exemplar-son-daven-marketing-page',
+      'exemplar-la-revoltosa-marketing-page',
+      'exemplar-crav-burgers-marketing-page',
+      'exemplar-sakazuki-marketing-page',
+      'exemplar-hagis-barbershop-marketing-page',
+      'exemplar-fort-point-beer-marketing-page',
+      'exemplar-kvell-marketing-page',
+      'exemplar-baillat-studio-marketing-page',
+      'exemplar-commercial-construction-marketing-page',
     ]);
   });
 
@@ -187,6 +209,11 @@ describe('design-craft Phase 2 catalog seed — exemplars', () => {
     }, {});
     expect(counts.EmptyState).toBe(2);
     expect(counts.LoadingState).toBe(2);
+  });
+
+  it('the MarketingPage tier carries at least nine page exemplars', () => {
+    const pages = SEED_EXEMPLARS.filter((e) => e.componentType === 'MarketingPage');
+    expect(pages.length).toBeGreaterThanOrEqual(9);
   });
 
   it('every exemplar carries the ADR 0020 provenance fields and a complete radarReference', () => {
@@ -209,6 +236,48 @@ describe('design-craft Phase 2 catalog seed — exemplars', () => {
         expect(dim).toBeLessThanOrEqual(100);
       }
       expect(e.citationCount).toBe(0);
+    }
+  });
+});
+
+describe('design-craft MarketingPage tier — page rubrics', () => {
+  const byId = new Map(SEED_RUBRICS.map((r) => [r.id, r]));
+
+  it('registers the three page-scoped rubrics with their reserved codes', () => {
+    expect(byId.get('rubric-concept-coherence')?.findingTemplate).toMatchObject({
+      code: 'CRAFT-C011',
+      tier: 'foundational',
+      impact: 'large',
+      phase: 'critique',
+    });
+    expect(byId.get('rubric-composition-art-direction')?.findingTemplate).toMatchObject({
+      code: 'CRAFT-C012',
+      tier: 'foundational',
+      impact: 'large',
+      phase: 'critique',
+    });
+    expect(byId.get('rubric-surface-texture-material')?.findingTemplate).toMatchObject({
+      code: 'CRAFT-C013',
+      tier: 'polish',
+      impact: 'medium',
+      phase: 'critique',
+    });
+  });
+
+  it('page rubrics are page-scoped and carry ADR 0020 provenance', () => {
+    for (const id of [
+      'rubric-concept-coherence',
+      'rubric-composition-art-direction',
+      'rubric-surface-texture-material',
+    ]) {
+      const r = byId.get(id);
+      expect(r).toBeTruthy();
+      expect(r?.appliesTo).toEqual(['page']);
+      expect(r?.version).toBeGreaterThan(0);
+      expect(['stable', 'draft', 'deprecated']).toContain(r?.status ?? '');
+      expect(r?.authoredAt).toMatch(/^\d{4}-\d{2}-\d{2}$/);
+      expect((r?.contributors ?? []).length).toBeGreaterThan(0);
+      expect(r?.source.ref).toBeTruthy();
     }
   });
 });
@@ -606,5 +675,111 @@ describe('design-craft Vercel build-progress exemplar wired end-to-end', () => {
     // Min confidence of medium/medium/medium/high/medium = medium
     expect(score?.overall.confidence).toBe('medium');
     expect(score?.gaps[0]).toContain('stepper');
+  });
+});
+
+const MARKETING_PAGE_SOURCE = `
+// Fixture: a static marketing page in the template-tell shape —
+// hero + three identical service cards + link-list footer.
+export function DemoPage() {
+  return (
+    <main>
+      <section className="hero">
+        <h1>Reliable Service, Done Right</h1>
+        <p>We deliver quality you can trust.</p>
+        <a href="#contact">Get a quote</a>
+      </section>
+      <section className="services">
+        <div className="card">Service One</div>
+        <div className="card">Service Two</div>
+        <div className="card">Service Three</div>
+      </section>
+      <footer>
+        <a href="/about">About</a>
+        <a href="/contact">Contact</a>
+        <a href="/privacy">Privacy</a>
+      </footer>
+    </main>
+  );
+}
+`;
+
+const MARKETING_PAGE_RADAR_RESPONSE = [
+  '```json',
+  JSON.stringify(
+    {
+      philosophicalCoherence: {
+        score: 62,
+        confidence: 'medium',
+        notes:
+          'No nameable concept — the page is a sequence of sections any competitor could ship unchanged.',
+      },
+      hierarchy: {
+        score: 78,
+        confidence: 'high',
+        notes: 'Hero heading -> supporting line -> CTA reads in order; footer is a bare link list.',
+      },
+      craftExecution: {
+        score: 70,
+        confidence: 'medium',
+        notes:
+          'Default background world, no texture stance, three identical cards in identical containers.',
+      },
+      function: {
+        score: 84,
+        confidence: 'high',
+        notes: 'Names the offer and provides a quote path; fit-for-purpose as a lead page.',
+      },
+      innovation: {
+        score: 45,
+        confidence: 'medium',
+        notes: 'Template shape throughout; no signature move anywhere on the page.',
+      },
+      gaps: [
+        'No concept the sections can cite — swapping the logo to a competitor changes nothing.',
+        'Repeated same-shaped card composition down the page; no licensed grid breaks.',
+      ],
+    },
+    null,
+    2
+  ),
+  '```',
+].join('\n');
+
+describe('design-craft MarketingPage tier wired end-to-end', () => {
+  it('a page-scoped target against the FULL seed cites only MarketingPage exemplars', async () => {
+    const provider = new MockLlmProvider([
+      { promptIncludes: 'DemoPage', response: MARKETING_PAGE_RADAR_RESPONSE },
+    ]);
+
+    const [score] = await runBenchmark({
+      targets: [
+        {
+          file: 'fixtures/DemoPage.tsx',
+          component: 'DemoPage',
+          source: MARKETING_PAGE_SOURCE,
+          componentType: 'MarketingPage',
+        },
+      ],
+      exemplars: [...SEED_EXEMPLARS],
+      provider,
+    });
+
+    expect(score).toBeTruthy();
+    // The full seed was passed in — type-filtering must resolve the
+    // MarketingPage tier and nothing else.
+    const byId = new Map(SEED_EXEMPLARS.map((e) => [e.id, e]));
+    expect(score?.exemplars.length).toBeGreaterThanOrEqual(9);
+    for (const id of score?.exemplars ?? []) {
+      expect(id).toMatch(/^exemplar-/);
+      expect(byId.get(id)?.componentType).toBe('MarketingPage');
+    }
+    expect(score?.exemplars).not.toContain('exemplar-stripe-pay-button');
+    // Mean of 62/78/70/84/45 = 67.8 → rounds to 68
+    expect(score?.overall.score).toBe(68);
+    // Min confidence of medium/high/medium/high/medium = medium
+    expect(score?.overall.confidence).toBe('medium');
+    expect(score?.gaps[0]).toContain('concept');
+    expect(score?.gaps[1]).toContain('card');
   });
 });
