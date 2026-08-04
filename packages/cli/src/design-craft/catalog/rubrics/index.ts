@@ -25,6 +25,7 @@ import { polishDetailsRubric } from './polish-details.js';
 import { copyVoiceRubric } from './copy-voice.js';
 import { interactionCraftRubric } from './interaction-craft.js';
 import { brandCoherenceRubric } from './brand-coherence.js';
+import { conceptCoherenceRubric } from './concept-coherence.js';
 
 export { hierarchyClarityRubric } from './hierarchy-clarity.js';
 export { typographyCraftRubric } from './typography-craft.js';
@@ -36,6 +37,7 @@ export { polishDetailsRubric } from './polish-details.js';
 export { copyVoiceRubric } from './copy-voice.js';
 export { interactionCraftRubric } from './interaction-craft.js';
 export { brandCoherenceRubric } from './brand-coherence.js';
+export { conceptCoherenceRubric } from './concept-coherence.js';
 
 /**
  * Seed critique rubrics. Phase 1 shipped one (hierarchy-clarity);
@@ -56,6 +58,11 @@ export { brandCoherenceRubric } from './brand-coherence.js';
  *   - polish × medium: C007 polish-details, C008 copy-voice
  * The CRITIQUE loop now exercises every cell that matters operationally;
  * aspirational-tier rubrics enter via the contribution loop, not v1.
+ *
+ * The v1 seed of 10 is CLOSED. C011–C013 open the page-scoped marketing
+ * tier (ADR 0082): concept-coherence + composition-art-direction +
+ * surface-texture-material, all `appliesTo: ['page']`, judging whole
+ * marketing pages on direction rather than component polish.
  */
 export const SEED_RUBRICS: readonly RubricDefinition[] = [
   hierarchyClarityRubric,
@@ -68,4 +75,5 @@ export const SEED_RUBRICS: readonly RubricDefinition[] = [
   copyVoiceRubric,
   interactionCraftRubric,
   brandCoherenceRubric,
+  conceptCoherenceRubric,
 ];
