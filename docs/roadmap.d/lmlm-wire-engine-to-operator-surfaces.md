@@ -13,4 +13,4 @@ order: 1
 - **Plan:** docs/changes/local-model-lifecycle-manager/plans/
 - **Assignee:** —
 - **Priority:** P2
-- **External-ID:** —
+- **External-ID:** github:Intense-Visions/harness-engineering#996
