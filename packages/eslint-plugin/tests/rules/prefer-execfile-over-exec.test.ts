@@ -40,10 +40,15 @@ ruleTester.run('prefer-execfile-over-exec', rule, {
       code: `exec('rm -rf dist', callback);`,
       errors: [{ messageId: 'preferExecFile' }],
     },
-    // bare execSync with shell operators
+    // bare execSync with shell operators — message interpolates the fn name
     {
       code: `execSync('tsc && cp a b');`,
-      errors: [{ messageId: 'preferExecFile' }],
+      errors: [{ messageId: 'preferExecFile', data: { fn: 'execSync' } }],
+    },
+    // bare exec message interpolates 'exec'
+    {
+      code: `exec('ls');`,
+      errors: [{ messageId: 'preferExecFile', data: { fn: 'exec' } }],
     },
     // bare exec with a template literal (injection surface)
     {
@@ -60,9 +65,15 @@ ruleTester.run('prefer-execfile-over-exec', rule, {
       code: `cp.execSync('node build.js');`,
       errors: [{ messageId: 'preferExecFile' }],
     },
-    // execSync as a member on any object is unambiguous — still flagged
+    // execSync as a member on a child_process alias — flagged
     {
       code: `childProcess.execSync('ls -la');`,
+      errors: [{ messageId: 'preferExecFile' }],
+    },
+    // execSync as a member on a NON-alias object is still flagged (execSync is
+    // unambiguous — RegExp has no execSync, so no object-name gate applies)
+    {
+      code: `shellHelper.execSync('ls -la');`,
       errors: [{ messageId: 'preferExecFile' }],
     },
   ],
