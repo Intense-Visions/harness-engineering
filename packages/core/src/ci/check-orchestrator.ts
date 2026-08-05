@@ -19,6 +19,7 @@ import { EntropyAnalyzer } from '../entropy/analyzer';
 import type { DriftConfig } from '../entropy/types';
 import { SecurityScanner } from '../security/scanner';
 import { parseSecurityConfig } from '../security/config';
+import { SECURITY_SCAN_GLOB } from '../security/scan-targets';
 import { TypeScriptParser } from '../shared/parsers';
 import { ArchConfigSchema, runAll as runArchCollectors } from '../architecture';
 import { GraphStore, queryTraceability, resolveGraphDir } from '@harness-engineering/graph';
@@ -223,9 +224,10 @@ async function runSecurityCheck(
   const scanner = new SecurityScanner(securityConfig);
   scanner.configureForProject(projectRoot);
 
-  // Scan source files using glob
+  // Scan source files using glob. The pattern is shared (security/scan-targets.ts)
+  // — this copy had drifted furthest, missing java/rb as well as .mjs/.cjs.
   const { glob: globFn } = await import('glob');
-  const sourceFiles = await globFn('**/*.{ts,tsx,js,jsx,go,py}', {
+  const sourceFiles = await globFn(SECURITY_SCAN_GLOB, {
     cwd: projectRoot,
     ignore: [
       ...(securityConfig.exclude ?? [...skipDirGlobs(), '**/*.test.ts', '**/fixtures/**']),

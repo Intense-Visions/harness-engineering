@@ -30,11 +30,31 @@ function resolveConfiguredEntryPoints(configPath?: string): string[] | undefined
   return undefined;
 }
 
+type PerfSeverity = 'error' | 'warning' | 'info';
+
+const SEVERITY_RANK: Record<PerfSeverity, number> = {
+  error: 3,
+  warning: 2,
+  info: 1,
+};
+
+function severityRank(severity: string): number {
+  return SEVERITY_RANK[severity as PerfSeverity] ?? 0;
+}
+
 interface CheckPerfOptions {
   structural?: boolean;
   size?: boolean;
   coupling?: boolean;
   configPath?: string;
+  /**
+   * Minimum severity that fails the command. When set, violations below the
+   * threshold are excluded from BOTH the report and the pass/fail verdict —
+   * the same contract as `check-security --severity`. When omitted, behavior
+   * is unchanged from before the flag existed: every violation is reported and
+   * only error-severity violations fail the gate.
+   */
+  severity?: PerfSeverity;
 }
 
 interface CheckPerfResult {
@@ -141,17 +161,31 @@ export async function runCheckPerf(
     }
   }
 
-  const hasErrors = violations.some((v) => v.severity === 'error');
-  const errorCount = violations.filter((v) => v.severity === 'error').length;
-  const warningCount = violations.filter((v) => v.severity === 'warning').length;
-  const infoCount = violations.filter((v) => v.severity === 'info').length;
+  // `--severity` (when provided) bounds BOTH the reported violations and the
+  // pass/fail verdict, mirroring `check-security`: the command fails only when a
+  // violation at or above the requested threshold exists, and violations below it
+  // are excluded from the report and never fail the gate. When the flag is
+  // OMITTED, behavior is unchanged from before the flag existed — every violation
+  // is reported and the verdict fails only on error-severity violations.
+  // Defaulting the threshold to 'error' would preserve the verdict but would
+  // silently drop warning/info violations from the default report; keeping the
+  // omitted path unfiltered preserves the existing report too.
+  const threshold = options.severity;
+  const reported = threshold
+    ? violations.filter((v) => severityRank(v.severity) >= SEVERITY_RANK[threshold])
+    : violations;
+  const valid = threshold ? reported.length === 0 : !reported.some((v) => v.severity === 'error');
+
+  const errorCount = reported.filter((v) => v.severity === 'error').length;
+  const warningCount = reported.filter((v) => v.severity === 'warning').length;
+  const infoCount = reported.filter((v) => v.severity === 'info').length;
 
   return Ok({
-    valid: !hasErrors,
-    violations,
+    valid,
+    violations: reported,
     stats: {
       filesAnalyzed: report.complexity?.stats.filesAnalyzed ?? 0,
-      violationCount: violations.length,
+      violationCount: reported.length,
       errorCount,
       warningCount,
       infoCount,
@@ -160,7 +194,7 @@ export async function runCheckPerf(
 }
 
 async function runCheckPerfAction(
-  opts: { structural?: boolean; coupling?: boolean; size?: boolean },
+  opts: { structural?: boolean; coupling?: boolean; size?: boolean; severity?: PerfSeverity },
   globalOpts: { json?: boolean; quiet?: boolean; verbose?: boolean }
 ): Promise<void> {
   const mode: OutputModeType = globalOpts.json
@@ -177,6 +211,7 @@ async function runCheckPerfAction(
     ...(opts.structural !== undefined && { structural: opts.structural }),
     ...(opts.coupling !== undefined && { coupling: opts.coupling }),
     ...(opts.size !== undefined && { size: opts.size }),
+    ...(opts.severity !== undefined && { severity: opts.severity }),
   });
 
   if (!result.ok) {
@@ -211,6 +246,17 @@ export function createCheckPerfCommand(): Command {
     .option('--structural', 'Run structural complexity checks only')
     .option('--coupling', 'Run coupling metric checks only')
     .option('--size', 'Run size budget checks only')
+    .option(
+      '--severity <level>',
+      'Minimum severity that fails the command; when set, violations below it are excluded from the report and never fail the gate (error, warning, info)'
+    )
+    .hook('preAction', (thisCommand) => {
+      const severity = thisCommand.opts().severity;
+      if (severity !== undefined && !['error', 'warning', 'info'].includes(severity)) {
+        logger.error(`Invalid severity: "${severity}". Must be one of: error, warning, info`);
+        process.exit(ExitCode.ERROR);
+      }
+    })
     .action(async (opts, cmd) => {
       await runCheckPerfAction(opts, cmd.optsWithGlobals());
     });

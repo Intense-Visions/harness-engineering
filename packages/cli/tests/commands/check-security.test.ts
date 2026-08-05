@@ -1,4 +1,5 @@
 import { describe, it, expect } from 'vitest';
+import { SECURITY_SCAN_EXTENSIONS, SECURITY_SCAN_GLOB } from '@harness-engineering/core';
 import { runCheckSecurity } from '../../src/commands/check-security';
 import * as path from 'path';
 
@@ -6,6 +7,22 @@ const CLEAN_FIXTURES = path.join(__dirname, '../fixtures/valid-project');
 const INSECURE_FIXTURES = path.join(__dirname, '../fixtures/security-findings');
 // Fixture that contains ONLY an info-severity finding (SEC-NET-003 http:// URL).
 const INFO_ONLY_FIXTURES = path.join(__dirname, '../fixtures/security-info-only');
+// ESM/CJS-only project (#1084) and a project with no scannable source at all.
+const ESM_FIXTURES = path.join(__dirname, '../fixtures/security-esm');
+const NO_SOURCE_FIXTURES = path.join(__dirname, '../fixtures/security-no-source');
+
+/** Extensions the scan surface must always include — see #1084. */
+const REQUIRED_SCAN_EXTENSIONS = [
+  'ts',
+  'tsx',
+  'mts',
+  'cts',
+  'js',
+  'jsx',
+  'mjs',
+  'cjs',
+  'py',
+] as const;
 
 describe('runCheckSecurity', () => {
   it('returns valid:true when no findings exist', async () => {
@@ -78,6 +95,82 @@ describe('runCheckSecurity', () => {
       if (!result.ok) return;
       expect(result.value.stats.infoCount).toBeGreaterThan(0);
       expect(result.value.valid).toBe(false);
+    });
+  });
+
+  // Regression for #1084: the scan glob omitted .mjs/.cjs, so an ESM-only project's
+  // entire source surface went unread and the gate passed because it matched
+  // nothing — green-because-empty, indistinguishable from green-because-clean.
+  describe('scan surface covers ESM/CJS-explicit extensions (#1084)', () => {
+    it('finds a secret in a .mjs module', async () => {
+      const result = await runCheckSecurity(ESM_FIXTURES, { severity: 'error' });
+      expect(result.ok).toBe(true);
+      if (!result.ok) return;
+      expect(result.value.findings.some((f) => f.file.endsWith('.mjs'))).toBe(true);
+      expect(result.value.valid).toBe(false);
+    });
+
+    it('finds a secret in a .cjs module', async () => {
+      const result = await runCheckSecurity(ESM_FIXTURES, { severity: 'error' });
+      expect(result.ok).toBe(true);
+      if (!result.ok) return;
+      expect(result.value.findings.some((f) => f.file.endsWith('.cjs'))).toBe(true);
+    });
+
+    it('scans more than zero files in an ESM-only project', async () => {
+      const result = await runCheckSecurity(ESM_FIXTURES, { severity: 'error' });
+      expect(result.ok).toBe(true);
+      if (!result.ok) return;
+      expect(result.value.stats.filesScanned).toBeGreaterThan(0);
+      expect(result.value.scannedNothing).toBe(false);
+    });
+
+    it('pins the extension list so a future edit cannot silently drop one', () => {
+      // The extension list IS the security boundary; assert it explicitly rather
+      // than trusting that whoever edits it re-runs the behavioural tests above.
+      for (const ext of REQUIRED_SCAN_EXTENSIONS) {
+        expect(SECURITY_SCAN_EXTENSIONS).toContain(ext);
+      }
+      expect(SECURITY_SCAN_GLOB).toContain('mjs');
+    });
+  });
+
+  // A scan that read nothing abstained; it did not pass.
+  describe('zero-file scan is an abstention, not a pass (#1084)', () => {
+    it('flags scannedNothing when no file matched', async () => {
+      const result = await runCheckSecurity(NO_SOURCE_FIXTURES, { severity: 'error' });
+      expect(result.ok).toBe(true);
+      if (!result.ok) return;
+      expect(result.value.stats.filesScanned).toBe(0);
+      expect(result.value.scannedNothing).toBe(true);
+    });
+
+    it('stays non-blocking by default, so an upgrade cannot redden legitimate repos', async () => {
+      const result = await runCheckSecurity(NO_SOURCE_FIXTURES, { severity: 'error' });
+      expect(result.ok).toBe(true);
+      if (!result.ok) return;
+      expect(result.value.valid).toBe(true);
+    });
+
+    it('fails under --fail-on-empty', async () => {
+      const result = await runCheckSecurity(NO_SOURCE_FIXTURES, {
+        severity: 'error',
+        failOnEmpty: true,
+      });
+      expect(result.ok).toBe(true);
+      if (!result.ok) return;
+      expect(result.value.valid).toBe(false);
+    });
+
+    it('--fail-on-empty does not fail a scan that did read files and found nothing', async () => {
+      const result = await runCheckSecurity(CLEAN_FIXTURES, {
+        severity: 'error',
+        failOnEmpty: true,
+      });
+      expect(result.ok).toBe(true);
+      if (!result.ok) return;
+      expect(result.value.stats.filesScanned).toBeGreaterThan(0);
+      expect(result.value.valid).toBe(true);
     });
   });
 

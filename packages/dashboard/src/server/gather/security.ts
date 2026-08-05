@@ -1,9 +1,16 @@
-import { SecurityScanner } from '@harness-engineering/core';
+import {
+  SECURITY_SCAN_DEFAULT_IGNORE,
+  SECURITY_SCAN_GLOB,
+  SecurityScanner,
+} from '@harness-engineering/core';
 import { glob } from 'glob';
 import type { SecurityResult } from '../../shared/types';
 
-const SCAN_PATTERN = '**/*.{ts,tsx,js,jsx,go,py,java,rb}';
-const SCAN_IGNORE = ['**/node_modules/**', '**/dist/**', '**/*.test.ts', '**/fixtures/**'];
+// Shared with `harness check-security` and the CI orchestrator — see
+// packages/core/src/security/scan-targets.ts. Local copies of this glob had already
+// drifted apart and all three omitted .mjs/.cjs.
+const SCAN_PATTERN = SECURITY_SCAN_GLOB;
+const SCAN_IGNORE = [...SECURITY_SCAN_DEFAULT_IGNORE];
 
 /**
  * Run a security scan on the project and return a summary.
