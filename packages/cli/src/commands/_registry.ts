@@ -29,6 +29,7 @@ import { createCreateSkillCommand } from './create-skill';
 import { createCrossCheckCommand } from './cross-check';
 import { createDashboardCommand } from './dashboard';
 import { createDesignPipelineCommand } from './design-pipeline';
+import { createDocsCraftCommand } from './docs-craft';
 import { createDoctorCommand } from './doctor';
 import { createFixDriftCommand } from './fix-drift';
 import { createGatewayCommand } from './gateway';
@@ -50,6 +51,7 @@ import { createLinterCommand } from './linter';
 import { createMaintenanceCommand } from './maintenance';
 import { createMcpCommand } from './mcp';
 import { createMcpGuardCommand } from './mcp-guard';
+import { createMcpListCapabilitiesCommand } from './mcp';
 import { createMigrateCommand } from './migrate';
 import { createModelsCommand } from './models';
 import { createNamingCraftCommand } from './naming-craft';
@@ -123,6 +125,7 @@ export const commandCreators: Array<() => Command> = [
   createCrossCheckCommand,
   createDashboardCommand,
   createDesignPipelineCommand,
+  createDocsCraftCommand,
   createDoctorCommand,
   createFixDriftCommand,
   createGatewayCommand,
@@ -144,6 +147,7 @@ export const commandCreators: Array<() => Command> = [
   createMaintenanceCommand,
   createMcpCommand,
   createMcpGuardCommand,
+  createMcpListCapabilitiesCommand,
   createMigrateCommand,
   createModelsCommand,
   createNamingCraftCommand,
