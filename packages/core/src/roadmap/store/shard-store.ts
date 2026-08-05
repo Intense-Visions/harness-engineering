@@ -27,6 +27,15 @@ export interface ShardIO extends FileIO {
 
 const META_FILE = '_meta.md';
 
+/**
+ * Name of the sharded-archive subdirectory under `docs/roadmap.d/`. `done` shards
+ * are MOVED here by the groom archive motion; the active read/regenerate path
+ * excludes it (archive is history, not active). Exported so the archive motion
+ * ({@link module:store/archive}) and the read glob below name it in exactly one
+ * place — a mismatch would either resurrect archived rows or lose them.
+ */
+export const ARCHIVE_SUBDIR = 'archive';
+
 function joinPath(dir: string, name: string): string {
   // Normalize Windows backslashes so shard IO paths are '/'-delimited on every OS
   // (the injected-IO contract expects '/'; Node fs accepts '/' on Windows).
@@ -52,7 +61,14 @@ export async function readShardDir(
     return Err(new Error(`Failed to list shard dir ${shardDir}: ${(err as Error).message}`));
   }
 
-  const shardFiles = entries.filter((n) => n.endsWith('.md') && n !== META_FILE).sort();
+  // Active shards only: `.md` files, excluding `_meta.md` (parsing it as a row
+  // would corrupt assembly) and the `archive/` subdirectory (a `listDir` entry,
+  // not a `.md` file, so it is already skipped by the extension test — the
+  // explicit guard documents the load-bearing intent: archived shards must never
+  // re-appear in the active roadmap).
+  const shardFiles = entries
+    .filter((n) => n.endsWith('.md') && n !== META_FILE && n !== ARCHIVE_SUBDIR)
+    .sort();
 
   const shards: Shard[] = [];
   const seenSlugs = new Set<string>();
