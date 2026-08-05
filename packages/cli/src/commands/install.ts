@@ -19,10 +19,12 @@ import {
   writeLockfile,
   updateLockfileEntry,
   type LockfileEntry,
+  type SkillSource,
 } from '../registry/lockfile';
 import { getBundledSkillNames } from '../registry/bundled-skills';
 import { resolveGlobalSkillsDir, resolveGlobalCommunityBaseDir } from '../utils/paths';
 import { logger } from '../output/logger';
+import { prompt } from '../output/prompt';
 import { DEFAULT_SKIP_DIRS } from '@harness-engineering/graph';
 
 export interface InstallOptions {
@@ -31,6 +33,12 @@ export interface InstallOptions {
   from?: string;
   registry?: string;
   global?: boolean;
+  /**
+   * Post-install generate-slash-commands behavior. `undefined` = prompt when
+   * interactive (TTY); `true` = run without prompting (`--generate`);
+   * `false` = suppress entirely (`--no-generate`).
+   */
+  generate?: boolean;
   /** Internal: tracks which package triggered this install (for transitive deps) */
   _dependencyOf?: string | null;
 }
@@ -71,7 +79,10 @@ function validateSkillYaml(parsed: unknown): SkillYaml {
  * --global installs to ~/.harness/skills/community/ (available to all projects).
  * Otherwise installs to the project-level agents/skills/community/.
  */
-function resolveCommunityBase(global: boolean): { communityBase: string; lockfilePath: string } {
+export function resolveCommunityBase(global: boolean): {
+  communityBase: string;
+  lockfilePath: string;
+} {
   if (global) {
     const communityBase = resolveGlobalCommunityBaseDir();
     return { communityBase, lockfilePath: path.join(communityBase, 'skills-lock.json') };
@@ -104,9 +115,13 @@ function parseGitHubRef(from: string): { owner: string; repo: string; ref: strin
 
 /**
  * Clone a GitHub repo to a temp directory (shallow clone).
- * Returns the path to the cloned directory.
+ * Returns the path to the cloned directory and the resolved commit SHA.
  */
-function cloneGitHubRepo(owner: string, repo: string, ref: string): string {
+function cloneGitHubRepo(
+  owner: string,
+  repo: string,
+  ref: string
+): { dir: string; commit: string } {
   const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'harness-gh-install-'));
   const url = `https://github.com/${owner}/${repo}.git`;
 
@@ -117,13 +132,20 @@ function cloneGitHubRepo(owner: string, repo: string, ref: string): string {
     }
     cloneArgs.push(url, tmpDir);
     execFileSync('git', cloneArgs, { timeout: 60_000, stdio: 'pipe' });
+    const commit = execFileSync('git', ['rev-parse', 'HEAD'], {
+      cwd: tmpDir,
+      timeout: 60_000,
+      stdio: 'pipe',
+    })
+      .toString()
+      .trim();
+    return { dir: tmpDir, commit };
   } catch (err) {
     cleanupTempDir(tmpDir);
     throw new Error(`Failed to clone ${url}: ${err instanceof Error ? err.message : String(err)}`, {
       cause: err,
     });
   }
-  return tmpDir;
 }
 
 /**
@@ -175,10 +197,11 @@ function resolveLocalPkgDir(fromPath: string): { pkgDir: string; extractDir: str
 }
 
 /** Install a single validated skill directory into the community base. */
-function installSkillDir(
+export function installSkillDir(
   pkgDir: string,
   resolvedPath: string,
-  options: InstallOptions
+  options: InstallOptions,
+  source?: SkillSource
 ): InstallResult {
   const skillYamlPath = path.join(pkgDir, 'skill.yaml');
   if (!fs.existsSync(skillYamlPath)) {
@@ -209,16 +232,21 @@ function installSkillDir(
     platforms: skillYaml.platforms,
     installedAt: new Date().toISOString(),
     dependencyOf: options._dependencyOf ?? null,
+    source: source ?? { kind: 'local', path: resolvedPath },
   };
   writeLockfile(lockfilePath, updateLockfileEntry(lockfile, packageName, entry));
 
   return { installed: true, name: packageName, version: skillYaml.version };
 }
 
-async function runLocalInstall(fromPath: string, options: InstallOptions): Promise<InstallResult> {
+async function runLocalInstall(
+  fromPath: string,
+  options: InstallOptions,
+  source?: SkillSource
+): Promise<InstallResult> {
   const { pkgDir, extractDir } = resolveLocalPkgDir(fromPath);
   try {
-    return installSkillDir(pkgDir, path.resolve(fromPath), options);
+    return installSkillDir(pkgDir, path.resolve(fromPath), options, source);
   } finally {
     if (extractDir) cleanupTempDir(extractDir);
   }
@@ -230,7 +258,8 @@ async function runLocalInstall(fromPath: string, options: InstallOptions): Promi
  */
 export async function runBulkInstall(
   rootDir: string,
-  options: InstallOptions
+  options: InstallOptions,
+  source?: SkillSource
 ): Promise<InstallResult[]> {
   const skillDirs = discoverSkillDirs(rootDir);
   if (skillDirs.length === 0) {
@@ -241,7 +270,7 @@ export async function runBulkInstall(
 
   const results: InstallResult[] = [];
   for (const skillDir of skillDirs) {
-    const result = await runLocalInstall(skillDir, options);
+    const result = await runLocalInstall(skillDir, options, source);
     results.push(result);
   }
   return results;
@@ -255,9 +284,16 @@ async function runGitHubInstall(from: string, options: InstallOptions): Promise<
   const ghRef = parseGitHubRef(from);
   if (!ghRef) throw new Error(`Invalid GitHub reference: ${from}`);
 
-  const tmpDir = cloneGitHubRepo(ghRef.owner, ghRef.repo, ghRef.ref);
+  const { dir: tmpDir, commit } = cloneGitHubRepo(ghRef.owner, ghRef.repo, ghRef.ref);
+  const source: SkillSource = {
+    kind: 'github',
+    owner: ghRef.owner,
+    repo: ghRef.repo,
+    ref: ghRef.ref,
+    commit,
+  };
   try {
-    return await runBulkInstall(tmpDir, options);
+    return await runBulkInstall(tmpDir, options, source);
   } finally {
     cleanupTempDir(tmpDir);
   }
@@ -376,6 +412,11 @@ export async function runInstall(
     platforms: skillYaml.platforms,
     installedAt: new Date().toISOString(),
     dependencyOf: options._dependencyOf ?? null,
+    source: {
+      kind: 'npm',
+      package: packageName,
+      ...(options.registry ? { registry: options.registry } : {}),
+    },
   };
 
   let updatedLockfile = updateLockfileEntry(lockfile, packageName, entry);
@@ -406,6 +447,52 @@ export async function runInstall(
   return result;
 }
 
+/**
+ * After a successful install/upgrade, offers to run `generate-slash-commands`.
+ * TTY-gated so non-interactive / CI installs never hang:
+ *   - `--no-generate` (opts.generate === false): suppressed entirely.
+ *   - `--generate` (opts.generate === true): runs without prompting.
+ *   - interactive TTY: prompts "Generate slash commands now? (Y/n)" (default Y).
+ *   - non-TTY: prints today's manual hint unchanged.
+ */
+export async function offerGenerateSlashCommands(opts: InstallOptions): Promise<void> {
+  if (opts.generate === false) return; // --no-generate: suppress entirely
+
+  const scopeFlags = opts.global ? ['--global', '--include-global'] : [];
+  // Derive the hint from scopeFlags so the printed command can't drift from the executed one.
+  const hint = `Run \`harness generate-slash-commands${
+    scopeFlags.length ? ' ' + scopeFlags.join(' ') : ''
+  }\` to register slash commands.`;
+
+  const run = (): void => {
+    try {
+      execFileSync('harness', ['generate-slash-commands', ...scopeFlags], { stdio: 'inherit' });
+    } catch {
+      logger.warn('Failed to generate slash commands.');
+      logger.info(hint);
+    }
+  };
+
+  if (opts.generate === true) {
+    run(); // --generate: run without prompting
+    return;
+  }
+
+  // Gate on BOTH streams: the prompt reads stdin, so a piped/EOF stdin (even with a TTY stdout,
+  // e.g. `echo | harness install foo`) must fall back to the hint rather than block on readline.
+  if (!process.stdout.isTTY || !process.stdin.isTTY) {
+    logger.info(hint); // non-interactive: print today's hint unchanged
+    return;
+  }
+
+  const answer = await prompt('Generate slash commands now? (Y/n) ');
+  if (answer === 'n' || answer === 'no') {
+    logger.info(hint);
+    return;
+  }
+  run();
+}
+
 export function createInstallCommand(): Command {
   const cmd = new Command('install');
   cmd
@@ -419,6 +506,8 @@ export function createInstallCommand(): Command {
     )
     .option('--global', 'Install globally (~/.harness/skills/community/) for all projects', false)
     .option('--registry <url>', 'Use a custom npm registry URL')
+    .option('--generate', 'Generate slash commands after install without prompting')
+    .option('--no-generate', 'Skip generating slash commands after install')
     .action(async (skill: string, opts: InstallOptions) => {
       try {
         const result = await runInstall(skill, opts);
@@ -434,12 +523,9 @@ export function createInstallCommand(): Command {
           logger.success(`Installed ${result.name}@${result.version}`);
         }
 
-        // Prompt to generate slash commands after successful install/upgrade
+        // Offer to generate slash commands after successful install/upgrade
         if (result.installed || result.upgraded) {
-          const globalFlag = opts.global ? ' --global --include-global' : '';
-          logger.info(
-            `Run \`harness generate-slash-commands${globalFlag}\` to register slash commands.`
-          );
+          await offerGenerateSlashCommands(opts);
         }
       } catch (err) {
         logger.error(err instanceof Error ? err.message : String(err));

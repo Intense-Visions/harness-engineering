@@ -6,6 +6,7 @@ import { createInfoCommand } from './info';
 import { createSearchCommand } from './search';
 import { createCreateCommand } from './create';
 import { createPublishCommand } from './publish';
+import { createUpdateCommand } from './update';
 
 /**
  * Creates and configures the 'skill' command group for managing Harness skills.
@@ -21,5 +22,6 @@ export function createSkillCommand(): Command {
   command.addCommand(createSearchCommand());
   command.addCommand(createCreateCommand());
   command.addCommand(createPublishCommand());
+  command.addCommand(createUpdateCommand());
   return command;
 }
