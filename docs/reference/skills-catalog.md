@@ -4,7 +4,7 @@
 
 769 skills across 3 tiers. Tier 1 and 2 skills are registered as slash commands. Tier 3 skills are discoverable via the `search_skills` MCP tool. See the [Features Overview](../guides/features-overview.md) for narrative documentation.
 
-## Tier 1 — Workflow (15 skills)
+## Tier 1 — Workflow (16 skills)
 
 ### add-harness-component
 
@@ -64,6 +64,15 @@ Verify system wiring, materialize knowledge artifacts, and update project metada
 - **Type:** rigid
 - **Cognitive mode:** meticulous-verifier
 - **Depends on:** harness-verification
+
+### harness-offboarding
+
+Offboard a departing developer from a harness-managed project
+
+- **Triggers:** manual
+- **Platforms:** claude-code, gemini-cli, cursor, codex
+- **Type:** flexible
+- **Cognitive mode:** advisory-guide
 
 ### harness-onboarding
 
