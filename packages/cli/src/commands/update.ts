@@ -15,6 +15,8 @@ import { CLI_VERSION } from '../version';
 import { readConfiguredServers } from './integrations/sync';
 import { reconcileIntegrations } from '../integrations/reconcile';
 import { INTEGRATION_REGISTRY } from '../integrations/registry';
+import { resolveCommunityBase } from './install';
+import { probeProviders, updateProviders } from './skill/provider-update';
 
 type PackageManager = 'npm' | 'pnpm' | 'yarn';
 
@@ -506,6 +508,48 @@ export function offerIntegrationsSync(cwd: string = process.cwd()): void {
   }
 }
 
+/**
+ * Surface outdated external skill providers during `harness update` (D7),
+ * mirroring offerIntegrationsSync. Uses the shared probe/update core. On a TTY
+ * with checks enabled, offers to run the update; otherwise prints a report-only
+ * hint. Best-effort — never breaks `update` (all failures swallowed).
+ */
+export async function offerSkillProviderUpdates(): Promise<void> {
+  try {
+    const lockfiles = [
+      { path: resolveCommunityBase(false).lockfilePath, global: false },
+      { path: resolveCommunityBase(true).lockfilePath, global: true },
+    ];
+    const { providers } = probeProviders(lockfiles);
+    const outdated = providers.filter((p) => p.outdated);
+    if (outdated.length === 0) return;
+
+    console.log('');
+    logger.info(`${outdated.length} skill provider(s) have upstream updates:`);
+    for (const p of outdated) {
+      console.log(`  ${p.name}: ${chalk.dim(p.current)} → ${chalk.green(String(p.latest))}`);
+    }
+
+    const optedOut = process.env['HARNESS_NO_UPDATE_CHECK'] === '1';
+    if (optedOut || !process.stdout.isTTY || !process.stdin.isTTY) {
+      console.log(`  Update: ${chalk.cyan('harness skill update')}`);
+      console.log('');
+      return;
+    }
+
+    const answer = await prompt('Update skill providers now? (y/N) ');
+    if (answer !== 'y' && answer !== 'yes') {
+      console.log(`  Update later: ${chalk.cyan('harness skill update')}`);
+      console.log('');
+      return;
+    }
+    await updateProviders(outdated, { yes: true });
+    console.log('');
+  } catch {
+    // best-effort nudge — never break `update`
+  }
+}
+
 async function runUpdateAction(
   opts: { version?: string; force?: boolean; regenerate?: boolean },
   globalOpts: Record<string, unknown>
@@ -545,6 +589,7 @@ async function runUpdateAction(
       await offerCleanupOfOtherInstalls(getActiveInstallDir());
       await offerRegeneration();
       offerIntegrationsSync();
+      await offerSkillProviderUpdates();
       process.exit(ExitCode.SUCCESS);
     }
 
@@ -594,6 +639,9 @@ async function runUpdateAction(
 
   // 10. Surface MCP-catalog drift so a refreshed catalog isn't invisible.
   offerIntegrationsSync();
+
+  // 11. Surface outdated external skill providers (D7) — shared probe/update core.
+  await offerSkillProviderUpdates();
 
   process.exit(ExitCode.SUCCESS);
 }
