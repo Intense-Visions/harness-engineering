@@ -83,6 +83,8 @@ describe('MCP Server Integration', () => {
     expect(names).toContain('security_craft');
     // craft-pipeline — docs-craft
     expect(names).toContain('docs_craft');
+    // craft-pipeline — cli-ergonomics-craft
+    expect(names).toContain('cli_ergonomics_craft');
     // naming-craft adds a second tool (naming_craft_finalize) for the in-session two-step flow.
     expect(names).toContain('naming_craft_finalize');
     // strategic-anchor: STRATEGY.md / pulse / compound writers wrapped as MCP tools.
@@ -99,7 +101,7 @@ describe('MCP Server Integration', () => {
     expect(names).toContain('canary_recommend_framework');
     // standardize-parallel-execution Phase 1 — parallelization planner tool
     expect(names).toContain('plan_parallelization');
-    expect(tools).toHaveLength(95);
+    expect(tools).toHaveLength(96);
   });
 
   it('all tool definitions have inputSchema', () => {
