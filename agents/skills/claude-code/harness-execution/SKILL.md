@@ -135,7 +135,7 @@ RMH005 (`harness validate`).
 
 Before the per-task loop, decide the safe parallel structure so independent tasks dispatch concurrently by default (no human typing "in parallel").
 
-1. Collect this run's tasks with their `files` and `dependsOn` (from the plan's task headers) and call the `plan_parallelization` MCP tool (`{ path, tasks, depth: 1 }`). It returns `ParallelizationPlan` (`waves[]`, `serialized[]`, `cyclic[]`, `narration`).
+1. Collect this run's tasks with their `files`, `dependsOn`, and optional `owns` (from the plan's task headers — `owns` comes from the `**Owns:**` line) and call the `plan_parallelization` MCP tool (`{ path, tasks, depth: 1 }`). It returns `ParallelizationPlan` (`waves[]`, `serialized[]`, `cyclic[]`, `narration`, `ownershipForecast`). Forwarding `owns` lets the deterministic owns-overlap forecast (#601) add implicit DAG edges and surface overlapping-ownership pairs in `ownershipForecast`; omit it for tasks that declare none.
 2. If `cyclic` is non-empty, STOP and escalate (dependency cycle = plan defect). Do not execute.
 3. Emit `narration` (announce-and-proceed — do not pause).
 4. Run `serialized` tasks first (serially, in order — cross-bucket prerequisites), then process `waves` **in array order** (topologically sorted; do not reorder, do not key off `firing` alone).

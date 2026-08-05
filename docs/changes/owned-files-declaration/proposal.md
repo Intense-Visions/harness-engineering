@@ -88,6 +88,25 @@ Adapted from Spec Kitty's per-work-package owned-files frontmatter
 - **`@harness-engineering/core` public API** — exports `forecastOwnershipConflicts`,
   `pathsOverlap`, and the two types.
 
+## Skill-Layer Wiring (producers + consumers)
+
+Core defines and forecasts `owns`, but the primitive is only end-to-end once the skill
+layer both produces and forwards it:
+
+- **Planning produces `owns`.** `harness-planning` documents an optional `**Owns:**`
+  task-header field (next to `**Files:**` / `**Depends on:**`). It lists glob paths a
+  task claims (e.g. `src/api/**`) and feeds the deterministic `owns`-overlap forecast.
+  Optional: a task with no distinct ownership omits it.
+- **Autopilot / execution forward `owns`.** `harness-autopilot` (EXECUTE) and
+  `harness-execution` collect each task's `owns` from its header and include it in the
+  `plan_parallelization` payload (`{ id, files, dependsOn, owns }`), so the forecast
+  contributes implicit DAG edges and surfaces `ownershipForecast` at dispatch time.
+
+This closes the producer→consumer gap: plan authoring emits `**Owns:**` →
+autopilot/execution forward `owns` → `plan_parallelization` runs the glob-aware
+overlap forecast. Skill markdown only; core logic is unchanged. Platform variants
+(codex/cursor/gemini-cli) inherit via symlink to the `claude-code` sources.
+
 ## Success Criteria
 
 - Two tasks with overlapping `owns` globs are flagged (both in `ownershipForecast` and as

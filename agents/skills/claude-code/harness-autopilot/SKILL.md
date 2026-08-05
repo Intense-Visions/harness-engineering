@@ -110,17 +110,17 @@ On return: read `planPath` from `{sessionDir}/handoff.json`. Complexity override
 
 **Pre-dispatch: plan parallelization (standard automatic parallelism).** Before dispatching tasks, decide the safe parallel structure. This is orchestration, not reimplementation — autopilot chooses HOW to dispatch; the persona agents still do the work.
 
-1. Collect the phase's tasks with their `files` and `dependsOn` (from the plan's task headers). Call the `plan_parallelization` MCP tool:
+1. Collect the phase's tasks with their `files`, `dependsOn`, and `owns` (from the plan's task headers — `owns` comes from the optional `**Owns:**` line). Call the `plan_parallelization` MCP tool:
 
    ```json
    {
      "path": "<project-root>",
-     "tasks": [{ "id": "task-1", "files": ["..."], "dependsOn": [] }],
+     "tasks": [{ "id": "task-1", "files": ["..."], "dependsOn": [], "owns": ["src/api/**"] }],
      "depth": 1
    }
    ```
 
-   It returns a `ParallelizationPlan`: `waves[]` (each `{ tasks, severity, firing, analysisLevel }`), `serialized[]`, `cyclic[]`, `narration`.
+   It returns a `ParallelizationPlan`: `waves[]` (each `{ tasks, severity, firing, analysisLevel }`), `serialized[]`, `cyclic[]`, `narration`, and `ownershipForecast`. Forwarding each task's `owns` lets the cheap deterministic owns-overlap check (#601) contribute implicit edges to the wave DAG and surface any overlapping ownership pairs in `ownershipForecast`. Omit `owns` for tasks that declare none — it stays a no-op.
 
 2. **If `cyclic` is non-empty:** STOP. Surface the cycle and route back to PLAN/APPROVE_PLAN (a dependency cycle is a plan defect). Do not dispatch.
 
