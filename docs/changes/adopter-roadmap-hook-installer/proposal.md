@@ -41,10 +41,10 @@ an existing husky or raw `.git/hooks` setup.
 ## Decisions
 
 | #   | Decision                                                                       | Rationale                                                                                                  |
-| --- | ------------------------------------------------------------------------------ | ---------------------------------------------------------------------------------------------------------- | -------------------- |
+| --- | ------------------------------------------------------------------------------ | ---------------------------------------------------------------------------------------------------------- |
 | D1  | New `harness roadmap install-hook` subcommand (not a flag on `hooks init`)     | `harness hooks` manages Claude Code tool-use hooks, which cannot fire on `git commit`; this is a GIT hook  |
 | D2  | Fenced managed block (`# >>> … >>>` / `# <<< … <<<`) merged into the hook      | Idempotent replace-in-place; never duplicates and never clobbers the adopter's own hook steps              |
-| D3  | `--mechanism auto` picks husky when `.husky/` exists, else raw `.git/hooks`    | Matches whatever the adopter already uses; `--mechanism husky                                              | git` forces a choice |
+| D3  | `--mechanism auto` picks husky when `.husky/` exists, else raw `.git/hooks`    | Matches whatever the adopter already uses; `--mechanism husky` / `--mechanism git` forces a choice         |
 | D4  | Guarded regen (`git diff --cached … grep docs/roadmap.d`) + fail-closed        | No-op unless a shard is staged; a regen failure blocks the commit rather than committing a stale aggregate |
 | D5  | Skip-with-warning when not sharded; `--force` installs anyway                  | Graceful degradation; `--force` lets an adopter pre-provision before `harness roadmap shard`               |
 | D6  | Default regen command `npx harness roadmap regen`, overridable via `--command` | Resolves the local CLI bin in an adopter repo; override supports pnpm/yarn or a pinned path                |
