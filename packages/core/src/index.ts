@@ -222,6 +222,11 @@ export type {
 } from './telemetry';
 
 /**
+ * Accessibility module.
+ */
+export * from './accessibility';
+
+/**
  * Harness-strength module.
  */
 export * from './harness-strength';
