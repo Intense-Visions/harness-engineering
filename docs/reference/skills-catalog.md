@@ -2,7 +2,7 @@
 
 # Skills Catalog
 
-768 skills across 3 tiers. Tier 1 and 2 skills are registered as slash commands. Tier 3 skills are discoverable via the `search_skills` MCP tool. See the [Features Overview](../guides/features-overview.md) for narrative documentation.
+769 skills across 3 tiers. Tier 1 and 2 skills are registered as slash commands. Tier 3 skills are discoverable via the `search_skills` MCP tool. See the [Features Overview](../guides/features-overview.md) for narrative documentation.
 
 ## Tier 1 — Workflow (15 skills)
 
@@ -151,7 +151,7 @@ Upstream client-inception skill. Ingests a diagram + client conversation notes, 
 - **Cognitive mode:** configuration-interviewer
 - **Depends on:** harness-strategy, harness-brainstorming
 
-## Tier 2 — Maintenance (49 skills)
+## Tier 2 — Maintenance (50 skills)
 
 ### acceptance-eval
 
@@ -238,6 +238,16 @@ Detect documentation that has drifted from code
 - **Platforms:** claude-code, gemini-cli, cursor, codex
 - **Type:** flexible
 - **Cognitive mode:** diagnostic-investigator
+
+### docs-craft
+
+LLM-judgment critique of documentation quality — the ceiling counterpart to the rule-based doc floor (detect-doc-drift / check-docs / docs-pipeline, which enforce existence, link freshness, coverage). Asks whether a doc teaches, whether the order matches the reader's mental model, whether examples earn their place, whether the prose is alive, whether an API doc predicts the response shape, and whether a stranger walks away with the same understanding. Structural twin of harness-design-craft.
+
+- **Triggers:** manual, on_pr, on_new_feature, on_doc_check
+- **Platforms:** claude-code
+- **Type:** rigid
+- **Cognitive mode:** constructive-architect
+- **Depends on:** harness-docs-pipeline, harness-design-craft
 
 ### enforce-architecture
 

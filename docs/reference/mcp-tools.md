@@ -523,6 +523,17 @@ Recommend an optimal skill sequence based on what changed in the codebase. Combi
 - `limit` (number, optional) — Maximum number of skills to return (default: 5)
 - `trigger` (string, optional) — Filter to skills declaring this trigger (e.g. on_pr, on_commit, on_milestone, on_task_complete, on_refactor, on_review). Only skills whose triggers array includes this value are returned.
 
+### `docs_craft`
+
+LLM-judgment critique of documentation quality — the ceiling counterpart to the rule-based documentation floor (detect-doc-drift / check-docs / docs-pipeline, which enforce existence, link freshness, and coverage). Asks the ceiling questions: does this doc teach, does the order match the reader’s mental model, do examples earn their place, is the prose alive, does the API doc predict the response shape, would a stranger walk away with the same understanding, can a reader find the answer fast. 7 seed rubrics; a small curated exemplar set (Stripe / Vercel / MDN / Linear / Tailwind) anchors the catalog. Per-file critique. Emits 3-axis findings (tier x impact x confidence per ADR 0019). Structural twin of design_craft.
+
+**Parameters:**
+
+- `path` (string, required) — Project root path
+- `files` (array, optional) — Optional file scope (overrides docs/ discovery)
+- `excludeDirs` (array, optional) — Extra subdir names to skip under docs/
+- `maxFiles` (number, optional) — Cap doc count (default: 60)
+
 ### `edit_file`
 
 Make a surgical, exact-string edit to a single existing file: replace old_string with new_string. Prefer this over shell redirection (cat >, echo >>) or apply_patch, which corrupt files. old_string must appear EXACTLY ONCE (include enough surrounding context to be unique) unless replace_all is true. Fails without writing if old_string is missing or ambiguous, so you can retry with more context. Does not create files.
