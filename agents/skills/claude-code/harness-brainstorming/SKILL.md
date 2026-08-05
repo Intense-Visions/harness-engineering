@@ -89,6 +89,9 @@ When no arguments are provided (standalone invocation), the skill operates exact
 3. **Acknowledge answers and build on them.** Do not re-ask clarified points. Track decisions as they accumulate.
 4. **Apply YAGNI ruthlessly.** For every proposed capability, ask: "Do we need this for the stated goal, or is this speculative?" If speculative, cut it. If the human insists, note it as a future consideration.
 5. **Surface strategy contradictions.** If Phase 1 step 0a captured a contradiction between the feature description and `STRATEGY.md`, ask the human about it explicitly as one of the first few EVALUATE questions. Frame it as a choice — refine the feature to align, or refine strategy via `/harness:strategy` — never auto-resolve. Skip this when STRATEGY.md was absent or no contradiction was detected.
+
+   Strategy contradiction is one category of a broader **cross-answer contradiction pass**: before moving to PRIORITIZE, scan the accumulated answers against each other for answers that are each fine in isolation but conflict — scope (a "small change" answer vs an answer implying broad blast radius), constraint violations (an answer that breaks a constraint asserted earlier), or an approach that no longer serves the persona/goal named in a prior answer. Surface each contradiction explicitly, quote both answers, and ask the human to reconcile — never auto-pick a side. This pass is instruction-level (agent judgment), consistent with the YAGNI and evidence disciplines, and bounded like a 2-round cap. See `references/question-file-mode.md` for the full category list.
+
 6. **Continue until you have enough clarity** to propose concrete approaches. Typically 3-7 questions suffice. If you need >10, the scope is too large -- decompose.
 
 ### Context Keywords
@@ -291,6 +294,15 @@ If the design reveals larger-than-expected scope:
 1. **Identify natural decomposition boundaries** -- where can it split into independent pieces?
 2. **Propose sub-projects**, each brainstormable and plannable on its own.
 3. **Get approval for decomposition** before continuing.
+
+### Question-File Mode (opt-in)
+
+The default is the interactive Phase 2 EVALUATE loop — one question at a time, in plain text. **Question-file mode** is an opt-in variant for **async, team-reviewable** design decisions — useful when the EVALUATE questions need input from more than one person before the spec is drafted. The skill writes its decision questions to a durable file, the team fills in answers over time, and the skill reads them back. Enter it only when the human asks (e.g. "let's capture these as a question file"); never automatically. The shared convention — file location, the `[Answer]:` tag, the read-back ritual, context hygiene — lives in `references/question-file-mode.md`; this section states only how it maps onto brainstorming.
+
+1. **WRITE.** After EXPLORE, render the EVALUATE decision questions — the same markdown tradeoff tables the interactive flow would present, with your recommendation stated — into `docs/interviews/<feature-slug>-questions.md` (or `.harness/sessions/<slug>/interviews/<feature-slug>-questions.md` when a session slug is known), each followed by an empty `[Answer]:`. Include any Phase 1 strategy contradiction as its own question. Report the path and stop.
+2. **READ-BACK.** On the next run, re-read the file from disk and treat each filled `[Answer]:` as that decision. Because brainstorming questions build on each other, a batch of answers may reveal that a later question is now moot or needs a follow-up — append follow-up questions to the file rather than forcing them into chat.
+3. **CONTRADICTION PASS.** Run the cross-answer contradiction pass (Phase 2 step 5) over the filled answers before PRIORITIZE. Surface each contradiction in the file under the relevant question; never auto-resolve.
+4. **PROCEED.** Continue to the unchanged PRIORITIZE → VALIDATE path (propose approaches, section-by-section spec, soundness review, sign-off). File mode changes only how EVALUATE answers are gathered; the Iron Law (no implementation before approval), the section-by-section spec discipline, and the human sign-off gate are all unchanged.
 
 ## Party Mode
 

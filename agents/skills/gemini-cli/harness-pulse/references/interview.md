@@ -24,6 +24,19 @@ When a proposed metric fails, the skill MUST:
 
 The skill MUST NOT silently accept a metric that fails the bar. Pushback is mandatory.
 
+## Cross-Answer Contradiction Detection
+
+The SMART bar judges one metric/event at a time. This rule judges the collected answers as a set — it catches answers that are each fine in isolation but contradict each other. It runs after enough answers are gathered (in interactive mode, before the confirm step; in question-file mode, after read-back).
+
+| Detection signal                                                             | Example trigger                                                                     |
+| ---------------------------------------------------------------------------- | ----------------------------------------------------------------------------------- |
+| A Key metric whose measuring data source was never wired (metric ⇄ approach) | metric "p95 latency" accepted, but no `tracing` source selected                     |
+| A value-realization event that no wired source can emit                      | value event `plan_completed` but the only wired source is `payments`                |
+| A lookback window that cannot satisfy a metric's implied cadence             | metric framed "per week" but lookback fixed at `24h` with no custom window recorded |
+| Quality-scoring dimension referencing an event that was set to `null`        | quality dimension scores "the plan" but `valueEvent` was left unset                 |
+
+On a hit, the skill MUST surface both conflicting answers, quote them, and ask the human to reconcile — never silently drop the metric to `pendingMetrics` as if the SMART bar alone caught it. This is **surface-and-reconcile, not a gate**, bounded by the same at-most-twice cap. The full cross-skill definition (all categories, file-mode behavior) lives in `references/question-file-mode.md`.
+
 ## READ-WRITE-DB Rejection Rule
 
 When the user offers a database connection string for the `db` source:
