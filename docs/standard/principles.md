@@ -2,12 +2,13 @@
 
 Harness Engineering is a systematic approach to building software that AI agents can work on reliably. This document explains each principle in depth — but it opens with the one idea the rest depend on, and then organizes everything else around a single model of how an AI-native team is shaped.
 
-Two essays by Ajey Gore frame this document:
+Three sources frame this document — two essays by Ajey Gore and one from OpenAI:
 
 - **"The Solo Climb"** — Ajey Gore, 2026-05-27 — <https://ajeygore.in/content/the-solo-climb>
 - **"The Anatomy of an AI-Native Org"** — Ajey Gore, 2026-05-12 — <https://ajeygore.in/content/the-anatomy-of-an-ai-native-org>
+- **"Harness engineering: leveraging Codex in an agent-first world"** — OpenAI — <https://openai.com/index/harness-engineering/>
 
-The first gives us Principle 0 — why the harness has to be load-bearing. The second gives us the structure — the **Why / What / How** layers this document is organized around.
+The first Gore essay gives us Principle 0 — why the harness has to be load-bearing. The second gives us the structure — the **Why / What / How** layers this document is organized around. OpenAI's piece frames a harness as three co-equal pillars — **Constraints, Observability, and Feedback Loops** — which map cleanly onto these principles: constraints onto Architectural Rigidity & Mechanical Constraints (Principle 2), feedback loops onto the Agent Feedback Loop (Principle 3), and observability onto Observability & Trajectory Visibility (Principle 8).
 
 ---
 
@@ -44,11 +45,11 @@ The harness is what makes each layer reliable. The Why layer stays thin only if 
 
 A harness-engineered repository already maps onto these layers:
 
-| Layer                                              | Where it lives in the repo                          | The principles that make it reliable                                                                       |
-| -------------------------------------------------- | --------------------------------------------------- | ---------------------------------------------------------------------------------------------------------- |
-| **Why** — strategic conviction (thin, durable)     | `STRATEGY.md`, core beliefs, architectural intent   | 1. Context Engineering                                                                                     |
-| **What** — judgment and taste (the growing middle) | specs, ADRs, definitions of "done", the review loop | 3. The Agent Feedback Loop · 5. Implementation Strategy (Depth-First) · 6. Key Performance Indicators      |
-| **How** — deep engineering (compressed, hardest)   | code, skills, linters, structural tests, CI gates   | 2. Architectural Rigidity & Mechanical Constraints · 4. Entropy Management · 7. Deterministic-vs-LLM Split |
+| Layer                                              | Where it lives in the repo                          | The principles that make it reliable                                                                                                                  |
+| -------------------------------------------------- | --------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Why** — strategic conviction (thin, durable)     | `STRATEGY.md`, core beliefs, architectural intent   | 1. Context Engineering                                                                                                                                |
+| **What** — judgment and taste (the growing middle) | specs, ADRs, definitions of "done", the review loop | 3. The Agent Feedback Loop · 5. Implementation Strategy (Depth-First) · 6. Key Performance Indicators                                                 |
+| **How** — deep engineering (compressed, hardest)   | code, skills, linters, structural tests, CI gates   | 2. Architectural Rigidity & Mechanical Constraints · 4. Entropy Management · 7. Deterministic-vs-LLM Split · 8. Observability & Trajectory Visibility |
 
 The seven principles below are unchanged in substance — this document groups them by the layer each one holds up. They keep their original numbers so existing references stay valid; read them in whatever order serves you.
 
@@ -1020,6 +1021,88 @@ This sequence ensures LLM effort is never spent on issues that mechanical tools 
 Every skill that produces or modifies code should include a `## Deterministic Checks` section listing what the skill enforces mechanically before and after LLM invocation:
 
 ```markdown
+## Deterministic Checks
+
+### Pre-Execution
+
+- [ ] Target files exist and are readable
+- [ ] Required tools are available (e.g., `tsc`, `eslint`)
+
+### Post-Execution
+
+- [ ] Linter passes on all modified files
+- [ ] Type checker passes
+- [ ] Tests pass (existing + new)
+- [ ] File naming conventions followed
+- [ ] No unresolved merge conflicts
+```
+
+---
+
+### 8. Observability & Trajectory Visibility
+
+_Layer: How — deep engineering_
+
+### What It Is
+
+**Observability** means the harness makes agent work _visible after the fact_ — not just the output, but the path that produced it. When an agent opens a pull request, you can see what it did, retrace the reasoning and tool-call trajectory that got there, tell whether the codebase is drifting, and judge whether what shipped is trustworthy. An agent-first codebase without observability is a black box: the code arrives, but the account of how and why is gone.
+
+This is distinct from the Agent Feedback Loop (Principle 3). A feedback loop acts _during_ the work — catching an issue and sending the agent back to fix it. Observability is what lets a human _look back_ at work that already ran, often unattended, and reconstruct what happened.
+
+### Why It Matters
+
+OpenAI's account of harness engineering frames a harness as three co-equal pillars — constraints, observability, and feedback loops. Constraints stop the wrong change; feedback loops correct it; observability is how anyone knows either one is working. **You cannot trust what you cannot see.** A harness that constrains and self-corrects but leaves no legible trail forces every human back into the loop to verify by hand — exactly the bottleneck that agent-first development is meant to remove.
+
+This is the other half of the holiday test. Principle 0 asks whether you trust what ships while the senior engineer is away. Constraints and feedback loops are what _make_ the output trustworthy; observability is what lets the returning engineer _confirm_ it — to see which agents ran, what they changed, where the signals moved, and whether anything drifted — without re-deriving two weeks of unattended work from the diff alone.
+
+Without observability:
+
+- Unattended agent runs are unauditable — you inherit the result with no account of how it was reached.
+- Drift and regressions surface late, in production, instead of the hour they happen.
+- Trust defaults back to line-by-line human review, erasing the leverage of agent execution.
+
+With observability:
+
+- Every agent run leaves a searchable, retraceable trail.
+- Leading-indicator signals flag regressions while they are still cheap to fix.
+- A returning human can reconstruct and trust unattended work in minutes, not days.
+
+### Key Concepts
+
+#### Session Search and Trajectory Retrieval
+
+Agent sessions are archived and indexed so past work can be searched and retraced. `search_sessions` (backed by a full-text session-search index) turns "what did the agents actually do, and when?" into a query rather than an archaeology project. Each archived session carries a summary of its outcomes, learnings, and failures.
+
+#### Composite Insights
+
+`harness insights` (and its `insights_summary` surface) aggregates project health, entropy, decay, and related dimensions into a single composite report — a periodic read on whether the system as a whole is holding or eroding.
+
+#### Curated Signals
+
+The **Signals** surface (see [Curated Signals](./signals.md)) elevates a small set of leading indicators — the "if any of these moves, a senior wants to know inside the hour" layer — above the raw operational metrics. It is the dashboard's default landing view: the early-warning layer, deliberately chosen so regressions are caught the hour they happen rather than the week they ship.
+
+#### The Dashboard
+
+The harness dashboard renders these surfaces together, so the state of the system — signals, health, activity — is legible at a glance instead of scattered across logs and separate tools.
+
+#### Durable Execution State
+
+Execution is event-sourced, so the state and history of a run are recoverable rather than ephemeral — the trajectory is a durable record, not a transcript that scrolls away.
+
+#### The Pre-Merge Brief as an Observability Surface
+
+At the moment of highest leverage — the click that merges — the pre-merge brief composes the diff summary, the multi-persona review verdict, the curated signal-status snapshot, and a "worth your eyes" section into one place. It points the returning human's attention at exactly what merits it, turning "trust the agents" into "see what the agents did, then decide."
+
+### Implementation Checklist
+
+- [ ] Archive and index agent sessions so past runs are searchable, not lost
+- [ ] Capture per-run summaries (outcomes, learnings, failures), not just the final diff
+- [ ] Aggregate project health into a composite insights report on a regular cadence
+- [ ] Curate a small set of leading-indicator signals with explicit thresholds
+- [ ] Surface signals, health, and activity in one dashboard rather than scattered tools
+- [ ] Compose a pre-merge brief that points the merging human at what deserves review
+- [ ] Ensure unattended runs leave a trail a returning engineer can reconstruct in minutes
+
 ---
 
 ## Summary
@@ -1041,11 +1124,12 @@ These principles are not a checklist to admire; they are the gear that has to ho
 2. **Mechanical Constraints** stop bad changes automatically instead of narrating them.
 3. **Entropy Management** keeps technical debt bounded as agents generate code faster than humans can review it.
 4. **The Deterministic-vs-LLM Split** draws the line between what machines enforce and what LLMs are trusted to judge.
+5. **Observability & Trajectory Visibility** makes agent work visible after the fact, so a returning human can see what shipped and trust it without re-deriving it.
 
 Adopt them progressively:
 
 - **Level 1**: Context Engineering + documentation — make the **Why** legible.
-- **Level 2**: Add Mechanical Constraints + linters + the Deterministic-vs-LLM Split — make the **How** load-bearing.
+- **Level 2**: Add Mechanical Constraints + linters + the Deterministic-vs-LLM Split + Observability — make the **How** load-bearing and legible.
 - **Level 3**: Add the Agent Feedback Loop + Entropy Management — make the **What** reliable and keep it that way.
 
 The measure of success is not how many principles you have adopted. It is whether, with no one watching the rope, you still trust what ships.
@@ -1053,4 +1137,3 @@ The measure of success is not how many principles you have adopted. It is whethe
 [← Back to Overview](./index.md) | [Implementation Guide →](./implementation.md) | [KPIs & Metrics →](./kpis.md)
 
 _Last Updated: 2026-08-05_
-```
