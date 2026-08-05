@@ -102,3 +102,24 @@ ADR a non-zero exit. This matches the graduated-enforcement posture of the other
 - Config file changed but no watched threshold field touched → pass.
 - Config base undiffable → whole-file fallback flag.
 - Git-seam tests for base-ref resolution and changed-file collection.
+
+## Integration points
+
+The command is dogfooded as an **advisory** step in the `build-and-test` job of
+`.github/workflows/ci.yml`, alongside the existing `check-vocabulary` /
+`check-arch` invocations. It is guarded to `pull_request` events only (the check
+is diff-based and needs a base), and runs in default mode — **no `--strict`** —
+so a missing ADR is surfaced in the job log but exits 0 and never fails the PR:
+
+```yaml
+- name: check-operational-drift (advisory)
+  if: github.event_name == 'pull_request'
+  run: node packages/cli/dist/bin/harness.js check-operational-drift --base origin/${{ github.event.pull_request.base.ref }}
+```
+
+Because the `build-and-test` checkout is shallow, a preceding
+`git fetch origin ${{ github.event.pull_request.base.ref }}` step (same
+`pull_request`-only guard) makes `origin/<base_ref>` resolvable for the diff —
+the same base-fetch pattern `required-review.yml` uses. Promote the step to
+`--strict` (or set `operationalPolicy.severity: "blocking"`) once it has proven
+stable on real PRs to make a missing ADR blocking.
