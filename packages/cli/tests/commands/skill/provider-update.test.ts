@@ -13,6 +13,10 @@ vi.mock('../../../src/commands/install', async (importOriginal) => {
   return { ...actual, runInstall: vi.fn().mockResolvedValue({ installed: true, name: 'x', version: '1' }) };
 });
 vi.mock('../../../src/output/prompt', () => ({ prompt: vi.fn() }));
+vi.mock('../../../src/registry/freshness-checker', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('../../../src/registry/freshness-checker')>();
+  return { ...actual, invalidateFreshnessState: vi.fn() };
+});
 
 import { execFileSync } from 'child_process';
 import { readLockfile } from '../../../src/registry/lockfile';
@@ -23,12 +27,13 @@ import {
   updateProviders,
   type ProbedProvider,
 } from '../../../src/commands/skill/provider-update';
-import { MAX_PROVIDERS } from '../../../src/registry/freshness-checker';
+import { MAX_PROVIDERS, invalidateFreshnessState } from '../../../src/registry/freshness-checker';
 
 const mockedExec = vi.mocked(execFileSync);
 const mockedRead = vi.mocked(readLockfile);
 const mockedInstall = vi.mocked(runInstall);
 const mockedPrompt = vi.mocked(prompt);
+const mockedInvalidate = vi.mocked(invalidateFreshnessState);
 
 const gh: ProbedProvider = { name: '@harness-skills/gh', kind: 'github', current: 'old', latest: 'new', outdated: true, global: false, source: { kind: 'github', owner: 'o', repo: 'r', ref: 'main', commit: 'old' } };
 const npm: ProbedProvider = { name: '@harness-skills/n', kind: 'npm', current: '1.0.0', latest: '2.0.0', outdated: true, global: true, source: { kind: 'npm', package: '@harness-skills/n' } };
@@ -212,5 +217,26 @@ describe('updateProviders', () => {
     const out = await updateProviders([gh, npm], { yes: true });
     expect(out[0]).toMatchObject({ name: '@harness-skills/gh', updated: false });
     expect(out[1]).toMatchObject({ name: '@harness-skills/n', updated: true });
+  });
+
+  it('invalidates the freshness cache after ≥1 provider actually updated', async () => {
+    // A successful re-pull rewrote the lockfile, so the cached "N providers
+    // have updates" nudge is now stale and must be dropped (FIX #5).
+    await updateProviders([gh], { yes: true });
+    expect(mockedInvalidate).toHaveBeenCalledTimes(1);
+  });
+
+  it('does NOT invalidate the freshness cache when nothing was updated (declined)', async () => {
+    mockedPrompt.mockResolvedValue('n');
+    await updateProviders([gh]);
+    expect(mockedInstall).not.toHaveBeenCalled();
+    expect(mockedInvalidate).not.toHaveBeenCalled();
+  });
+
+  it('does NOT invalidate the freshness cache when the only update failed', async () => {
+    mockedInstall.mockRejectedValueOnce(new Error('boom'));
+    const out = await updateProviders([gh], { yes: true });
+    expect(out[0]).toMatchObject({ updated: false });
+    expect(mockedInvalidate).not.toHaveBeenCalled();
   });
 });

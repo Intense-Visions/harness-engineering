@@ -9,7 +9,12 @@ vi.mock('../../src/commands/install', async (importOriginal) => {
   const actual = await importOriginal<typeof import('../../src/commands/install')>();
   return { ...actual, resolveCommunityBase: vi.fn(() => ({ communityBase: '/c', lockfilePath: '/c/skills-lock.json' })) };
 });
+vi.mock('node:fs', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('node:fs')>();
+  return { ...actual, existsSync: vi.fn(() => true) };
+});
 
+import { existsSync } from 'node:fs';
 import { probeProviders, updateProviders } from '../../src/commands/skill/provider-update';
 import { prompt } from '../../src/output/prompt';
 import { offerSkillProviderUpdates } from '../../src/commands/update';
@@ -17,6 +22,7 @@ import { offerSkillProviderUpdates } from '../../src/commands/update';
 const mockedProbe = vi.mocked(probeProviders);
 const mockedUpdate = vi.mocked(updateProviders);
 const mockedPrompt = vi.mocked(prompt);
+const mockedExists = vi.mocked(existsSync);
 const outdated = { name: '@harness-skills/gh', kind: 'github', current: 'old', latest: 'new', outdated: true, global: false, source: { kind: 'github', owner: 'o', repo: 'r', ref: 'main', commit: 'old' } } as any;
 
 let logSpy: any;
@@ -27,6 +33,9 @@ beforeEach(() => {
   vi.clearAllMocks();
   process.env = { ...origEnv };
   delete process.env['HARNESS_NO_UPDATE_CHECK'];
+  // Default to "lockfile present" so tests exercising the probe/hint path run;
+  // the no-lockfile tests override this to false explicitly.
+  mockedExists.mockReturnValue(true);
   logSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
 });
 afterEach(() => {
@@ -87,6 +96,28 @@ describe('offerSkillProviderUpdates', () => {
     expect(mockedProbe).not.toHaveBeenCalled();
     expect(mockedPrompt).not.toHaveBeenCalled();
     expect(mockedUpdate).not.toHaveBeenCalled();
+    expect(out()).toBe('');
+  });
+
+  it('prints nothing when no community lockfile exists (no CI noise)', async () => {
+    // No external providers were ever installed => no lockfile => the static
+    // report-only hint must NOT print, even in a non-TTY (FIX #4).
+    setTty(false);
+    mockedExists.mockReturnValue(false);
+    mockedProbe.mockReturnValue({ providers: [outdated], sourceless: [] });
+    await offerSkillProviderUpdates();
+    expect(mockedProbe).not.toHaveBeenCalled();
+    expect(mockedPrompt).not.toHaveBeenCalled();
+    expect(mockedUpdate).not.toHaveBeenCalled();
+    expect(out()).toBe('');
+  });
+
+  it('prints nothing on a TTY when no community lockfile exists', async () => {
+    setTty(true);
+    mockedExists.mockReturnValue(false);
+    mockedProbe.mockReturnValue({ providers: [outdated], sourceless: [] });
+    await offerSkillProviderUpdates();
+    expect(mockedProbe).not.toHaveBeenCalled();
     expect(out()).toBe('');
   });
 

@@ -1,6 +1,11 @@
 import { execFileSync } from 'child_process';
 import { readLockfile, type SkillSource } from '../../registry/lockfile';
-import { evaluateEntry, MAX_PROVIDERS, PROBE_BUDGET_MS } from '../../registry/freshness-checker';
+import {
+  evaluateEntry,
+  invalidateFreshnessState,
+  MAX_PROVIDERS,
+  PROBE_BUDGET_MS,
+} from '../../registry/freshness-checker';
 import { runInstall } from '../install';
 import { logger } from '../../output/logger';
 import { prompt } from '../../output/prompt';
@@ -210,6 +215,18 @@ export async function updateProviders(
       logger.warn(`Failed to update ${p.name}: ${err instanceof Error ? err.message : String(err)}`);
       outcomes.push({ name: p.name, updated: false });
     }
+  }
+  // A successful re-pull rewrote the lockfile commit/version, so the cached
+  // freshness state (which named these providers as outdated) is now stale.
+  // Invalidate it — mirroring update.ts's invalidateCheckState() after
+  // `harness update` — so the next CLI invocation cannot reprint the nudge for
+  // providers we just updated. Placed here (not at the call sites) so BOTH
+  // `harness skill update` and the `harness update` D7 path benefit from a
+  // single source. Only when ≥1 provider actually updated: a run where every
+  // provider was declined/unsafe/failed left the lockfile untouched, so the
+  // cached state is still accurate and must not be discarded.
+  if (outcomes.some((o) => o.updated)) {
+    invalidateFreshnessState();
   }
   return outcomes;
 }

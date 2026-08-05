@@ -526,7 +526,20 @@ export async function offerSkillProviderUpdates(): Promise<void> {
     //    probe, no output.
     if (!isFreshnessCheckEnabled()) return;
 
-    // 2. Non-interactive (CI, piped): never probe. Print only a static,
+    // 2. No community lockfile present => no external providers to check.
+    //    Short-circuit BEFORE printing even the static hint, mirroring how
+    //    freshness-check-hooks / the background probe skip on absent lockfiles.
+    //    Without this, a project that never installed an external provider
+    //    prints a report-only hint on every `harness update` in CI — pure
+    //    noise. Kept AFTER the opt-out check so opt-out-before-probe ordering
+    //    holds (existsSync is a cheap stat, not a network probe).
+    const lockfiles = [
+      { path: resolveCommunityBase(false).lockfilePath, global: false },
+      { path: resolveCommunityBase(true).lockfilePath, global: true },
+    ].filter((l) => existsSync(l.path));
+    if (lockfiles.length === 0) return;
+
+    // 3. Non-interactive (CI, piped): never probe. Print only a static,
     //    report-only hint so `harness update` in CI stays quiet and cheap.
     if (!process.stdout.isTTY || !process.stdin.isTTY) {
       console.log('');
@@ -537,12 +550,8 @@ export async function offerSkillProviderUpdates(): Promise<void> {
       return;
     }
 
-    // 3. Interactive TTY, checks enabled: probe now, surface outdated
+    // 4. Interactive TTY, checks enabled: probe now, surface outdated
     //    providers, and offer to update.
-    const lockfiles = [
-      { path: resolveCommunityBase(false).lockfilePath, global: false },
-      { path: resolveCommunityBase(true).lockfilePath, global: true },
-    ];
     const { providers } = probeProviders(lockfiles);
     const outdated = providers.filter((p) => p.outdated);
     if (outdated.length === 0) return;

@@ -112,9 +112,12 @@ It is best-effort — a freshness error never aborts `update`.
 ## Supply-chain consent posture
 
 The check **nudges but never auto-applies**. Pulling an outdated provider re-executes third-party
-skill content, so the consent gate — a per-provider `(y/N)` confirm defaulting to **No** — *is* the
-authorization to run upstream code. Auto-apply is a deliberately deferred, future config-gated
-opt-in. This posture is the durable contract; its mechanical enforcement lives in the confirm.
+skill content, so the consent gate — a `(y/N)` confirm defaulting to **No** — *is* the
+authorization to run upstream code. `harness skill update` confirms **per-provider** (default N),
+whereas the `harness update` D7 integration authorizes the whole outdated batch with a **single
+aggregate** confirm (default N) then applies all; both gate before any upstream code runs. Auto-apply
+is a deliberately deferred, future config-gated opt-in. This posture is the durable contract; its
+mechanical enforcement lives in the confirm.
 
 ## Injection / DoS hardening
 

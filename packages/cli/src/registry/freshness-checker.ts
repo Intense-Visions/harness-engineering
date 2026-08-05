@@ -103,6 +103,24 @@ export function writeFreshnessState(state: FreshnessState): void {
   fs.renameSync(tmpFile, statePath);
 }
 
+/**
+ * Removes the cached freshness state (~/.harness/skill-freshness.json).
+ *
+ * Call after a successful skill-provider re-pull so the next CLI invocation
+ * cannot print a stale "N skill providers have updates" nudge naming providers
+ * that were just updated. With the file gone, readFreshnessState() returns null
+ * and getFreshnessNotification() bails; the next startup reruns the background
+ * probe on its normal cadence. Mirrors core's invalidateCheckState.
+ */
+export function invalidateFreshnessState(): void {
+  try {
+    fs.unlinkSync(getStatePath());
+  } catch {
+    // Missing file / permission error — fine, the notification path returns
+    // null when state is absent.
+  }
+}
+
 // ---------------------------------------------------------------------------
 // Comparison — pure, unit-tested reference mirror.
 //
