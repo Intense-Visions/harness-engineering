@@ -1170,6 +1170,18 @@ Run a pulse: query configured adapters, sanitize, assemble single-page report
 
 Roadmap management
 
+### `harness roadmap install-hook`
+
+Install a git pre-commit hook that regenerates docs/roadmap.md from the docs/roadmap.d shards
+
+**Options:**
+
+- `--cwd` — Project root (defaults to the current working directory)
+- `--mechanism` — Hook mechanism: "auto" (default), "husky", or "git" (raw .git/hooks) (default: "auto")
+- `--command` — Regen command the hook runs (default: "npx harness roadmap regen")
+- `--force` — Install even when the project is not sharded (no docs/roadmap.d)
+- `--format` — Output format: "human" (default) or "json" (single JSON object for CI consumers) (default: "human")
+
 ### `harness roadmap migrate`
 
 Migrate the project roadmap to a different storage mode

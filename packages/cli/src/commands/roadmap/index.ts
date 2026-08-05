@@ -3,6 +3,7 @@ import { createRoadmapMigrateCommand } from './migrate';
 import { createRoadmapShardCommand } from './shard';
 import { createRoadmapUnshardCommand } from './unshard';
 import { createRoadmapRegenCommand } from './regen';
+import { createRoadmapInstallHookCommand } from './install-hook';
 import { createRoadmapReconcileCommand } from './reconcile';
 import { createRoadmapSyncCommand } from './sync';
 import { createRoadmapReferencedIssuesCommand } from './referenced-issues';
@@ -14,6 +15,7 @@ export function createRoadmapCommand(): Command {
   roadmap.addCommand(createRoadmapShardCommand());
   roadmap.addCommand(createRoadmapUnshardCommand());
   roadmap.addCommand(createRoadmapRegenCommand());
+  roadmap.addCommand(createRoadmapInstallHookCommand());
   roadmap.addCommand(createRoadmapReconcileCommand());
   roadmap.addCommand(createRoadmapSyncCommand());
   roadmap.addCommand(createRoadmapReferencedIssuesCommand());
