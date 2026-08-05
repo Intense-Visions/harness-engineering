@@ -8,7 +8,7 @@ import {
 import { findConfigFile, loadConfig } from '../config/loader';
 import { CLI_VERSION } from '../version';
 
-const DEFAULT_INTERVAL_MS = 86_400_000; // 24 hours
+export const DEFAULT_INTERVAL_MS = 86_400_000; // 24 hours
 
 // Cached config interval — read once per process, shared by both hooks.
 let cachedConfigInterval: number | undefined | null = null; // null = not yet read
@@ -18,7 +18,7 @@ let cachedConfigInterval: number | undefined | null = null; // null = not yet re
  * Returns undefined if config is missing or does not contain the field.
  * Never throws.
  */
-function readConfigInterval(): number | undefined {
+export function readConfigInterval(): number | undefined {
   if (cachedConfigInterval !== null) return cachedConfigInterval;
   try {
     const findResult = findConfigFile();
