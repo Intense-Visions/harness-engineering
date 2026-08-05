@@ -68,3 +68,13 @@ depends_on:
   - audit-component-anatomy
   - audit-brand-compliance
   - harness-design-craft
+capabilities:
+  tools:
+    - Bash
+    - Read
+    - Write
+    - Edit
+    - Glob
+    - Grep
+  network: false
+  filesystem: read-write

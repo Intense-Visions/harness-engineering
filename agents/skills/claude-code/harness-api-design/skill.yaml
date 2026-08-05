@@ -80,3 +80,13 @@ related_skills:
   - graphql-resolver-pattern
   - graphql-pagination-patterns
   - trpc-router-composition
+capabilities:
+  tools:
+    - Bash
+    - Read
+    - Write
+    - Edit
+    - Glob
+    - Grep
+  network: false
+  filesystem: read-write

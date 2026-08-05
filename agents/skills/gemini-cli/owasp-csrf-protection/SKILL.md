@@ -167,6 +167,7 @@ https://owasp.org/www-project-top-ten/
 ## Harness Integration
 
 - **Type:** knowledge — this skill is a reference document, not a procedural workflow.
+- **Advisory by design (not mechanized):** CSRF protection cannot be checked mechanically at a low false-positive rate. Whether a route needs CSRF defense depends on its authentication model — a Bearer-token API is immune, while a cookie-session route is not — and on whether a token or `SameSite` cookie is wired through middleware. Deciding this requires framework-aware data-flow analysis; a pattern-based "missing CSRF protection" check would be noisy, and a noisy security gate is worse than this advisory. Use `/harness:security-review` for a semantic assessment.
 - **No tools or state** — consumed as context by other skills and agents.
 
 ## Success Criteria

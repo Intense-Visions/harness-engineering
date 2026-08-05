@@ -1,6 +1,6 @@
 # Naming Craft
 
-> LLM-judgment skill that critiques identifier names — variables, functions, types, and files — for clarity, concreteness, weight, and predictive power. First member of the craft-pipeline initiative (sub-project #1 of 10). Uses a curated rubric catalog seeded from Martin / Beck / Karlton. Emits 3-axis findings (tier × impact × confidence per ADR 0019).
+> LLM-judgment skill that critiques identifier names — variables, functions, types, and files — for clarity, concreteness, weight, and predictive power. First member of the craft-pipeline initiative. Uses a curated rubric catalog seeded from Martin / Beck / Karlton. Emits 3-axis findings (tier × impact × confidence per ADR 0019).
 
 ## When to Use
 
@@ -222,7 +222,7 @@ NAME-R006 [foundational/medium/high] variable timeout:1
 - **No autofix.** This is ceiling-judgment. v2's `align-naming` may add safe-rename codemods.
 - **No NAMING.md authoring.** v1 derives convention from sampling.
 - **No language support beyond TS/JS.** v1.x.
-- **No modules / branches / commit subjects.** v1.x (and commit subjects go to copy-craft #5).
+- **No modules / branches / commit subjects.** v1.x (and commit subjects go to copy-craft).
 - **No graph persistence.** Phase 1 MVP posture (matches design-craft).
 - **No deep/vision mode.** Naming is text-only.
 
@@ -239,6 +239,6 @@ NAME-R006 [foundational/medium/high] variable timeout:1
 **v1 — in implementation.** See:
 
 - Spec: `docs/changes/craft-pipeline/naming-craft/proposal.md`
-- Roadmap entry: `craft-pipeline sub-project #1` (the first member)
-- Sibling: `harness-design-craft` (design-pipeline #6 — the LLM-judgment template this follows)
-- Future cross-cutters: docs-craft (#2), test-craft (#3), code-craft (#4) will call into naming-craft's `critiqueNamesInFile()` for their domain-specific naming critique.
+- Roadmap entry: part of the `craft-pipeline` initiative (the first member)
+- Sibling: `harness-design-craft` (design-pipeline — the LLM-judgment template this follows)
+- Future cross-cutters: docs-craft, test-craft, code-craft will call into naming-craft's `critiqueNamesInFile()` for their domain-specific naming critique.

@@ -332,6 +332,14 @@ addresses:
     weight: 0.8
   - signal: drift
     weight: 0.6
+capabilities:
+  tools:
+    - Bash
+    - Read
+    - Glob
+    - Grep
+  network: false
+  filesystem: read-write
 
 </execution_context>
 

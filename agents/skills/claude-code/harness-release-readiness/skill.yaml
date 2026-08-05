@@ -59,3 +59,13 @@ depends_on:
   - enforce-architecture
   - harness-diagnostics
   - harness-parallel-agents
+capabilities:
+  tools:
+    - Bash
+    - Read
+    - Write
+    - Edit
+    - Glob
+    - Grep
+  network: false
+  filesystem: read-write

@@ -5,9 +5,10 @@ import { z } from 'zod';
  * parallelization planning.
  *
  * `dependsOn` is the explicit dependency edge (task ids) introduced by the
- * standardize-parallel-execution feature. `owns` is READ if present but
- * OWNED/DEFINED by roadmap #601 — do not treat its presence here as this
- * feature adopting `owns:[paths]` authoring.
+ * standardize-parallel-execution feature. `owns` is the owned-files declaration
+ * defined by roadmap #601: path globs a task claims ownership of, consumed for
+ * cheap deterministic pre-execution parallel-conflict forecasting (glob overlap
+ * between two tasks' owned paths implies a potential parallel conflict).
  */
 export const PlanTaskSchema = z
   .object({
@@ -17,7 +18,7 @@ export const PlanTaskSchema = z
     files: z.array(z.string()),
     /** Ids of tasks that must complete before this one (explicit DAG edges). */
     dependsOn: z.array(z.string()).optional(),
-    /** Path globs the task claims ownership of. Consumed if present; defined by #601. */
+    /** Path globs the task claims ownership of (owned-files declaration, #601). */
     owns: z.array(z.string()).optional(),
   })
   .strict();

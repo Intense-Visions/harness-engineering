@@ -27,6 +27,14 @@ export interface OutcomeEvalInput {
   /** Pre-resolved judgment section; otherwise the section-resolver runs. */
   specSection?: string;
   /**
+   * Head commit sha of the change under judgment. Persisted onto the
+   * `execution_outcome` node's metadata (`commit`) so downstream consumers
+   * (e.g. the pre-merge brief) can look the verdict up by sha. Optional and
+   * additive: absent leaves the persisted node byte-identical to no-commit
+   * wiring.
+   */
+  commit?: string;
+  /**
    * Advisory guardian diff-coverage records read from `.harness/analyses/`
    * (#914). Absent/empty leaves the verdict byte-identical to no guardian
    * wiring; when present, a deterministic one-line signal is appended to the

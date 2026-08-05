@@ -108,7 +108,7 @@ harness-engineering/
 │   ├── skills/cursor/        # 741 skills (mirrored from claude-code for platform parity)
 │   ├── skills/templates/     # Shared discipline template (Evidence Requirements, Red Flags, Rationalizations to Reject)
 │   └── personas/             # 16 personas (adversarial-reviewer, architecture-enforcer, code-reviewer, codebase-health-analyst, documentation-maintainer, entropy-cleaner, frontend-races-reviewer, graph-maintainer, harness-pm, parallel-coordinator, performance-guardian, planner, security-reviewer, task-executor, typescript-strict-reviewer, verifier)
-├── templates/                 # 19 project scaffolding templates (language bases + framework overlays: Express, NestJS, Next.js, FastAPI, Django, Gin, Axum, Spring Boot, React Vite, Vue, and more) — plus the opt-in `ci-required-review` template that `harness init` renders into a GitHub Actions workflow + branch-protection ruleset wiring the `harness review-ci` required check
+├── templates/                 # 19 project scaffolding templates (language bases + framework overlays: Express, NestJS, Next.js, FastAPI, Django, Gin, Axum, Spring Boot, React Vite, Vue, and more) — plus the opt-in `ci-required-review` template that `harness init` renders into a GitHub Actions workflow + branch-protection ruleset wiring the `harness review-ci` required check, and the opt-in `ci-pre-merge-brief` template that renders a workflow + ruleset posting the senior-facing `harness pre-merge-brief` sticky PR comment
 ├── examples/                  # Progressive tutorial examples
 │   ├── hello-world/          # Basic adoption level
 │   ├── task-api/             # Intermediate adoption level

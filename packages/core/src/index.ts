@@ -222,6 +222,11 @@ export type {
 } from './telemetry';
 
 /**
+ * Accessibility module.
+ */
+export * from './accessibility';
+
+/**
  * Harness-strength module.
  */
 export * from './harness-strength';
@@ -258,6 +263,8 @@ export type {
   FiringDecision,
   WaveSeverity,
 } from './parallelization/plan';
+export { forecastOwnershipConflicts, pathsOverlap } from './parallelization/ownership';
+export type { OwnershipConflict, OwnershipOverlap } from './parallelization/ownership';
 
 /**
  * Proposals module.

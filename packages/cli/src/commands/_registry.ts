@@ -16,6 +16,7 @@ import { createCheckDepsCommand } from './check-deps';
 import { createCheckDesignCommand } from './check-design';
 import { createCheckDocsCommand } from './check-docs';
 import { createCheckHarnessStrengthCommand } from './check-harness-strength';
+import { createCheckOperationalDriftCommand } from './check-operational-drift';
 import { createCheckPerfCommand } from './check-perf';
 import { createCheckPhaseGateCommand } from './check-phase-gate';
 import { createCheckSecurityCommand } from './check-security';
@@ -29,6 +30,7 @@ import { createCreateSkillCommand } from './create-skill';
 import { createCrossCheckCommand } from './cross-check';
 import { createDashboardCommand } from './dashboard';
 import { createDesignPipelineCommand } from './design-pipeline';
+import { createDocsCraftCommand } from './docs-craft';
 import { createDoctorCommand } from './doctor';
 import { createFixDriftCommand } from './fix-drift';
 import { createGatewayCommand } from './gateway';
@@ -50,11 +52,13 @@ import { createLinterCommand } from './linter';
 import { createMaintenanceCommand } from './maintenance';
 import { createMcpCommand } from './mcp';
 import { createMcpGuardCommand } from './mcp-guard';
+import { createMcpListCapabilitiesCommand } from './mcp';
 import { createMigrateCommand } from './migrate';
 import { createModelsCommand } from './models';
 import { createNamingCraftCommand } from './naming-craft';
 import { createNotificationsCommand } from './notifications';
 import { createOrchestratorCommand } from './orchestrator';
+import { createOutcomeEvalCiCommand } from './outcome-eval-ci';
 import { createPerfCommand } from './perf';
 import { createPersonaCommand } from './persona';
 import { createPredictCommand } from './predict';
@@ -110,6 +114,7 @@ export const commandCreators: Array<() => Command> = [
   createCheckDesignCommand,
   createCheckDocsCommand,
   createCheckHarnessStrengthCommand,
+  createCheckOperationalDriftCommand,
   createCheckPerfCommand,
   createCheckPhaseGateCommand,
   createCheckSecurityCommand,
@@ -123,6 +128,7 @@ export const commandCreators: Array<() => Command> = [
   createCrossCheckCommand,
   createDashboardCommand,
   createDesignPipelineCommand,
+  createDocsCraftCommand,
   createDoctorCommand,
   createFixDriftCommand,
   createGatewayCommand,
@@ -144,11 +150,13 @@ export const commandCreators: Array<() => Command> = [
   createMaintenanceCommand,
   createMcpCommand,
   createMcpGuardCommand,
+  createMcpListCapabilitiesCommand,
   createMigrateCommand,
   createModelsCommand,
   createNamingCraftCommand,
   createNotificationsCommand,
   createOrchestratorCommand,
+  createOutcomeEvalCiCommand,
   createPerfCommand,
   createPersonaCommand,
   createPredictCommand,

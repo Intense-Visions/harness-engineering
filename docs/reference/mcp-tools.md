@@ -523,6 +523,17 @@ Recommend an optimal skill sequence based on what changed in the codebase. Combi
 - `limit` (number, optional) — Maximum number of skills to return (default: 5)
 - `trigger` (string, optional) — Filter to skills declaring this trigger (e.g. on_pr, on_commit, on_milestone, on_task_complete, on_refactor, on_review). Only skills whose triggers array includes this value are returned.
 
+### `docs_craft`
+
+LLM-judgment critique of documentation quality — the ceiling counterpart to the rule-based documentation floor (detect-doc-drift / check-docs / docs-pipeline, which enforce existence, link freshness, and coverage). Asks the ceiling questions: does this doc teach, does the order match the reader’s mental model, do examples earn their place, is the prose alive, does the API doc predict the response shape, would a stranger walk away with the same understanding, can a reader find the answer fast. 7 seed rubrics; a small curated exemplar set (Stripe / Vercel / MDN / Linear / Tailwind) anchors the catalog. Per-file critique. Emits 3-axis findings (tier x impact x confidence per ADR 0019). Structural twin of design_craft.
+
+**Parameters:**
+
+- `path` (string, required) — Project root path
+- `files` (array, optional) — Optional file scope (overrides docs/ discovery)
+- `excludeDirs` (array, optional) — Extra subdir names to skip under docs/
+- `maxFiles` (number, optional) — Cap doc count (default: 60)
+
 ### `edit_file`
 
 Make a surgical, exact-string edit to a single existing file: replace old_string with new_string. Prefer this over shell redirection (cat >, echo >>) or apply_patch, which corrupt files. old_string must appear EXACTLY ONCE (include enough surrounding context to be unique) unless replace_all is true. Fails without writing if old_string is missing or ambiguous, so you can retry with more context. Does not create files.
@@ -623,10 +634,11 @@ Post-execution LLM-judgment: did the implementation actually satisfy its spec? R
 - `testOutput` (string, required) — Captured test-runner stdout+stderr. Required: empty/unparseable output is tolerated but degrades the verdict toward INCONCLUSIVE/advisory.
 - `model` (string, optional) — Optional model override for the outcome-eval LLM call
 - `path` (string, optional) — Project root used to resolve the knowledge graph (default: cwd)
+- `commit` (string, optional) — Optional head commit sha of the change under judgment. Persisted onto the execution_outcome node so a sha-keyed consumer (e.g. the pre-merge brief) can look the verdict up. Omitting it is safe (additive).
 
 ### `plan_parallelization`
 
-Plan safe parallel execution for a set of plan tasks. Builds a task DAG from dependsOn plus file/owns overlap, wave-groups it, annotates each wave with conflict severity and a firing decision, and returns a ParallelizationPlan (waves, serialized, cyclic, narration).
+Plan safe parallel execution for a set of plan tasks. Builds a task DAG from dependsOn plus glob-aware file/owns overlap, wave-groups it, annotates each wave with conflict severity and a firing decision, and returns a ParallelizationPlan (waves, serialized, cyclic, ownershipForecast, narration). ownershipForecast is a cheap deterministic list of task pairs whose declared owns:[paths] overlap.
 
 **Parameters:**
 
@@ -1075,7 +1087,7 @@ List known state streams with branch associations and last-active timestamps
 
 ### `manage_roadmap`
 
-Manage the project roadmap: show, add, update, remove, promote, sync, groom features, or query by filter. Reads and writes the project roadmap (sharded or single-file). The "promote" action transitions an existing row toward planned (backlog→planned) and links its spec atomically — creating a new planned row under the "Intake" lane if the feature does not exist — returning a structured RoadmapPromoteResult envelope. The "groom" action tidies the roadmap: it demotes unactionable planned rows (no spec & no plan) to backlog and moves completed features into docs/roadmap-archive.md, returning the list of changes.
+Manage the project roadmap: show, add, update, remove, promote, sync, groom features, or query by filter. Reads and writes the project roadmap (sharded or single-file). The "promote" action transitions an existing row toward planned (backlog→planned) and links its spec atomically — creating a new planned row under the "Intake" lane if the feature does not exist — returning a structured RoadmapPromoteResult envelope. The "groom" action tidies the roadmap: it demotes unactionable planned rows (no spec & no plan) to backlog and archives completed features, returning the list of changes. In sharded mode each done shard is MOVED into the sharded archive `docs/roadmap.d/archive/<slug>.md` (preserving its full content, excluded from the active aggregate); in monolith mode completed features are appended to docs/roadmap-archive.md.
 
 **Parameters:**
 

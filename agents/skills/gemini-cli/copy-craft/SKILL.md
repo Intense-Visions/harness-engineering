@@ -9,7 +9,7 @@
 - Periodically (per-release) to catch accumulated noise in log lines + comment rot
 - As the user-facing-copy critic alongside design-craft (which owns UI copy)
 - NOT for UI copy in components (use design-craft)
-- NOT for prose documentation in `docs/` (use docs-craft #2 when it ships)
+- NOT for prose documentation in `docs/` (use docs-craft when it ships)
 - NOT for autofix / rewriting (this is judgment-only; v2 may ship `align-copy`)
 - NOT for JSDoc / TSDoc structured API docs (docs-craft territory)
 - NOT for non-TS/JS languages in v1 (v1.x)
@@ -165,7 +165,7 @@ Skipped surfaces:
 ## Gates
 
 - **No autofix.** v2's `align-copy` may add safe rewrites.
-- **No JSDoc / TSDoc.** docs-craft #2 territory.
+- **No JSDoc / TSDoc.** docs-craft territory.
 - **No PR / review comments.** v1.x.
 - **No commit BODY critique.** Subjects only in v1.
 - **No B' bootstrap.** Same posture as naming/spec-craft.
@@ -186,7 +186,7 @@ Skipped surfaces:
 **v1 — in implementation.** See:
 
 - Spec: `docs/changes/craft-pipeline/copy-craft/proposal.md`
-- Roadmap entry: `craft-pipeline sub-project #5`
-- Sibling craft skills: `naming-craft` (#1), `spec-craft` (#6)
+- Roadmap entry: part of the `craft-pipeline` initiative
+- Sibling craft skills: `naming-craft`, `spec-craft`
 - Shared infrastructure: `packages/cli/src/shared/craft/` (extracted by spec-craft)
-- Future: `align-copy` (FIX side, v2), docs-craft (#2, prose docs), test-craft (#3), code-craft (#4)
+- Future: `align-copy` (FIX side, v2), docs-craft (prose docs), test-craft, code-craft

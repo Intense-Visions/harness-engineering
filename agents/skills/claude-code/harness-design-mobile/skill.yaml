@@ -71,3 +71,13 @@ stack_signals:
 depends_on:
   - harness-design-system
   - harness-design
+capabilities:
+  tools:
+    - Bash
+    - Read
+    - Write
+    - Edit
+    - Glob
+    - Grep
+  network: false
+  filesystem: read-write

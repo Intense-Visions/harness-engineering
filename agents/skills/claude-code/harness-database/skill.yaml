@@ -93,3 +93,13 @@ related_skills:
   - prisma-migrations
   - drizzle-schema-definition
   - drizzle-migrations
+capabilities:
+  tools:
+    - Bash
+    - Read
+    - Write
+    - Edit
+    - Glob
+    - Grep
+  network: false
+  filesystem: read-write

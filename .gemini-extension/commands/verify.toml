@@ -233,6 +233,13 @@ state:
   persistent: false
   files: []
 depends_on: []
+capabilities:
+  tools:
+    - Bash
+    - Read
+    - Glob
+  network: false
+  filesystem: read-write
 
 </execution_context>
 

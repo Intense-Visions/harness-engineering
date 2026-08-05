@@ -32,6 +32,8 @@ export { saveGraph, loadGraph, loadGraphMetadata } from './store/Serializer.js';
 export type { LoadGraphResult, LoadMetadataResult } from './store/Serializer.js';
 export { PackedSummaryCache, normalizeIntent } from './store/PackedSummaryCache.js';
 export type { CacheableEnvelope } from './store/PackedSummaryCache.js';
+export { resolveGraphDir, localGraphDir, findMainWorktreeRoot } from './store/resolve-graph-dir.js';
+export type { GraphDirMode } from './store/resolve-graph-dir.js';
 
 // Query
 export { ContextQL } from './query/ContextQL.js';

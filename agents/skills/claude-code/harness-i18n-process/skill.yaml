@@ -60,3 +60,10 @@ stack_signals:
   - backend
   - mobile
 depends_on: []
+capabilities:
+  tools:
+    - Read
+    - Glob
+    - Grep
+  network: false
+  filesystem: read

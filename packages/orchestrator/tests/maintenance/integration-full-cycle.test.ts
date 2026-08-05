@@ -103,8 +103,12 @@ describe('Integration: full maintenance cycle', () => {
       // Trigger evaluation at 2am when arch-violations is due
       await scheduler.evaluate(new Date('2026-04-17T02:00:00'));
 
-      // Verify the full pipeline executed
-      expect(checkRunner.run).toHaveBeenCalledWith(['check-arch'], '/test/project');
+      // Verify the full pipeline executed (#691: arch-violations now runs the
+      // check with --findings-json to emit the machine-readable findings contract).
+      expect(checkRunner.run).toHaveBeenCalledWith(
+        ['check-arch', '--findings-json'],
+        '/test/project'
+      );
       expect(agentDispatcher.dispatch).toHaveBeenCalledWith(
         'harness-arch-fix',
         'harness-maint/arch-fixes',

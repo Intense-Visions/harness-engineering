@@ -49,3 +49,13 @@ addresses:
     metric: couplingRatio
     threshold: 0.5
     weight: 0.6
+capabilities:
+  tools:
+    - Bash
+    - Read
+    - Write
+    - Edit
+    - Glob
+    - Grep
+  network: false
+  filesystem: read-write

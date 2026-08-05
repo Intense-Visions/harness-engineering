@@ -1227,6 +1227,16 @@ addresses:
     weight: 0.6
   - signal: circular-deps
     weight: 0.5
+capabilities:
+  tools:
+    - Bash
+    - Read
+    - Write
+    - Edit
+    - Glob
+    - Grep
+  network: false
+  filesystem: read-write
 
 </execution_context>
 

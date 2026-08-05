@@ -1,6 +1,6 @@
 ---
 name: harness:align-design-system
-description: Apply codemods for safe DRIFT-T001/T002/T003 token-bypass findings; emit precise suggestions for DRIFT-T004 (deprecated tokens) and all DRIFT-P* (primitive adoption). FIX half of design-pipeline sub-project
+description: Apply codemods for safe DRIFT-T001/T002/T003 token-bypass findings; emit precise suggestions for DRIFT-T004 (deprecated tokens) and all DRIFT-P* (primitive adoption). FIX half of the design-pipeline drift-remediation sub-project; pairs with detect-design-drift.
 argument-hint: '[--path <path>] [--dry-run <dry-run>] [--files <files>] [--mode <mode>] [--revert <revert>]'
 allowed-tools:
   - Bash
@@ -19,7 +19,7 @@ Type: rigid
 </context>
 
 <objective>
-Apply codemods for safe DRIFT-T001/T002/T003 token-bypass findings; emit precise suggestions for DRIFT-T004 (deprecated tokens) and all DRIFT-P* (primitive adoption). FIX half of design-pipeline sub-project
+Apply codemods for safe DRIFT-T001/T002/T003 token-bypass findings; emit precise suggestions for DRIFT-T004 (deprecated tokens) and all DRIFT-P* (primitive adoption). FIX half of the design-pipeline drift-remediation sub-project; pairs with detect-design-drift.
 
 Phases:
 

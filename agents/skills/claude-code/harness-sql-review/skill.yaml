@@ -82,3 +82,14 @@ related_skills:
   - drizzle-performance-patterns
   - prisma-raw-queries
   - drizzle-query-builder
+capabilities:
+  tools:
+    - Bash
+    - Read
+    - Write
+    - Edit
+    - Glob
+    - Grep
+    - emit_interaction
+  network: false
+  filesystem: read-write

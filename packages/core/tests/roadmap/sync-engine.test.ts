@@ -748,4 +748,85 @@ describe('fullSync()', () => {
       'github:owner/repo#1'
     );
   });
+
+  // #1037: `--apply` succeeds with zero errors yet `last_synced` used to stay stale
+  // (the "22 days behind" symptom). A successful writeback must stamp it.
+  it('stamps last_synced on a successful monolith writeback (#1037)', async () => {
+    const roadmap = makeRoadmap([makeFeature({ name: 'Stamp Me' })]);
+    writeRoadmap(roadmap);
+    const adapter = mockAdapter({ fetchAllTickets: vi.fn(async () => Ok([])) });
+
+    const result = await fullSync(tmpDir, adapter, CONFIG);
+    expect(result.errors).toHaveLength(0);
+
+    const raw = fs.readFileSync(roadmapPath, 'utf-8');
+    const stamped = /last_synced:\s*(.+)/.exec(raw)?.[1]?.trim();
+    expect(stamped).toBeDefined();
+    // The stale seed value ('2026-04-01T00:00:00Z') must have been overwritten.
+    expect(stamped).not.toContain('2026-04-01T00:00:00Z');
+    expect(Date.parse(stamped!.replace(/['"]/g, ''))).toBeGreaterThan(
+      Date.parse('2026-04-01T00:00:00Z')
+    );
+  });
+
+  it('stamps last_synced in _meta.md on a successful sharded writeback (#1037)', async () => {
+    const roadmap = makeRoadmap([makeFeature({ name: 'Sharded Stamp' })]);
+    const { shards, meta } = roadmapToShards(roadmap);
+    const shardDir = path.join(tmpDir, 'docs', 'roadmap.d');
+    fs.mkdirSync(shardDir, { recursive: true });
+    for (const shard of shards) {
+      fs.writeFileSync(path.join(shardDir, `${shard.slug}.md`), serializeShard(shard), 'utf-8');
+    }
+    fs.writeFileSync(path.join(shardDir, '_meta.md'), serializeMeta(meta), 'utf-8');
+
+    const adapter = mockAdapter({ fetchAllTickets: vi.fn(async () => Ok([])) });
+    const result = await fullSync(tmpDir, adapter, CONFIG);
+    expect(result.errors).toHaveLength(0);
+
+    const metaRaw = fs.readFileSync(path.join(shardDir, '_meta.md'), 'utf-8');
+    const stamped = /last_synced:\s*"?([^"\n]+)"?/.exec(metaRaw)?.[1]?.trim();
+    expect(stamped).toBeDefined();
+    expect(Date.parse(stamped!)).toBeGreaterThan(Date.parse('2026-04-01T00:00:00Z'));
+  });
+
+  // #1036: a shard whose frontmatter slug is a hand-shortened form of the title
+  // (slugify(name) !== slug). The externalId backfill addresses it by slugify(name);
+  // before the fix that ENOENT'd and aborted the ENTIRE writeback batch — dropping
+  // the backfill and risking a duplicate issue on the next run. It must patch cleanly.
+  it('backfills externalId on a title-slug ≠ frontmatter-slug shard without aborting (#1036)', async () => {
+    const shardDir = path.join(tmpDir, 'docs', 'roadmap.d');
+    fs.mkdirSync(shardDir, { recursive: true });
+    // Hand-write a shard whose file identity ('short') diverges from slugify(name).
+    const longName = 'A Very Long Feature Name Needing A Ticket';
+    const shard = {
+      slug: 'short',
+      milestone: 'M1',
+      order: 0,
+      feature: makeFeature({ name: longName }),
+    };
+    fs.writeFileSync(path.join(shardDir, 'short.md'), serializeShard(shard), 'utf-8');
+    const meta = {
+      frontmatter: {
+        project: 'test',
+        version: 1,
+        lastSynced: '2026-04-01T00:00:00Z',
+        lastManualEdit: '2026-04-01T00:00:00Z',
+      },
+      milestones: ['M1'],
+    };
+    fs.writeFileSync(path.join(shardDir, '_meta.md'), serializeMeta(meta), 'utf-8');
+
+    const adapter = mockAdapter({ fetchAllTickets: vi.fn(async () => Ok([])) });
+    const result = await fullSync(tmpDir, adapter, CONFIG);
+
+    // No batch abort: writeback succeeded (no '*' envelope error) and the ticket was created.
+    expect(result.errors).toHaveLength(0);
+    expect(result.created).toHaveLength(1);
+    // The externalId was persisted to the REAL shard file, not a slugify-named phantom.
+    const persisted = fs.readFileSync(path.join(shardDir, 'short.md'), 'utf-8');
+    expect(persisted).toContain('github:owner/repo#1');
+    expect(
+      fs.existsSync(path.join(shardDir, `${'a-very-long-feature-name-needing-a-ticket'}.md`))
+    ).toBe(false);
+  });
 });

@@ -324,7 +324,7 @@ last_manual_edit: 2026-06-27T12:51:51.967Z
 ### Adopter-facing git-hook installer for roadmap aggregate regeneration
 
 - **Status:** planned
-- **Spec:** —
+- **Spec:** docs/changes/adopter-roadmap-hook-installer/proposal.md
 - **Summary:** Follow-up from #684 (roadmap sharding). Deferred by design from Phase 6 rollout. #684 ships sharding with the **CI aggregate-drift check** (`harness validate`) as the portable adopter freshness contract, plus the local `.husky/{pre-commit,post-merge}` regen hooks for this repo (dev convenience). **Not** shipped: an installer that sets up the regen git-hooks in an *adopter's* repo. Rationale: harness installs no git hooks today, and a general installer must compose with arbitrary adopter husky/`.git/hooks` setups — its own scoped piece of work. The CI drift-check already keeps adopters correct (invariant R means a missed regen only yields a stale *cosmetic* aggregate, never wrong tooling). **Scope if pursued:** - Decide mechanism (husky vs raw `.git/hooks` vs a `harness hooks install` command) and composition with existing adopter hooks. - Wire into `harness init` (opt-in) for new projects; a one-shot install for existing adopters who run `harness roadmap shard`. - Keep it optional — CI drift-check remains the authoritative freshness mechanism. See ADR 0050 (read-source invariant R) and docs/guides/roadmap-sharding.md.
 - **Blockers:** —
 - **Plan:** —
@@ -425,7 +425,7 @@ last_manual_edit: 2026-06-27T12:51:51.967Z
 ### Promote 5 domain skills from advisory to load-bearing checks
 
 - **Status:** planned
-- **Spec:** —
+- **Spec:** docs/changes/domain-skills-load-bearing/proposal.md
 - **Summary:** Five domain skills have genuine domain-specific assertions but are currently prose-only advisories. Wire them as load-bearing checks invoked by their parent harness skill: `api-idempotency-keys` → `harness-api-design`; `owasp-injection-prevention`, `owasp-csrf-protection`, `owasp-rate-limiting` → `harness-security-scan`; `a11y-aria-patterns` → `harness-accessibility`. Each is roughly one week of work to convert from advisory prose to a mechanical check. Source: Pass 4 action 3.
 - **Blockers:** —
 - **Plan:** —
@@ -539,7 +539,7 @@ last_manual_edit: 2026-06-27T12:51:51.967Z
 ### Pin MCP server version in plugin install + document trust model
 
 - **Status:** planned
-- **Spec:** —
+- **Spec:** [docs/changes/pin-mcp-version-trust-model/proposal.md](../changes/pin-mcp-version-trust-model/proposal.md)
 - **Summary:** `.claude-plugin/plugin.json:14-16` — `mcpServers.harness.command: "npx -y -p @harness-engineering/cli@latest harness-mcp"`. Every Claude Code session pulls the latest npm publish (subject to npx's ~24h cache). No version pinning by default. A compromised publish propagates to every active adopter within a day. Pin to a specific version; update via plugin update flow. Add `docs/security/trust-model.md` explaining what an adopter trusts when installing each marketplace plugin and how to verify integrity. Source: Pass 6 #4 + #6.
 - **Blockers:** —
 - **Plan:** —
@@ -550,7 +550,7 @@ last_manual_edit: 2026-06-27T12:51:51.967Z
 ### Add per-skill capability declarations
 
 - **Status:** planned
-- **Spec:** —
+- **Spec:** [docs/changes/per-skill-capabilities/proposal.md](../changes/per-skill-capabilities/proposal.md)
 - **Summary:** Skills are markdown files; the agent reads them and may take any action the user permitted Claude Code. No skill manifest declares "this skill needs Bash + Edit + WebFetch and nothing else." Add a `capabilities:` manifest field to skill.yaml declaring tool/network/file requirements. The orchestrator/agent enforces it as bounds. Closes the article's gear #4 ("bounded, observable, reversible") at the skill grain — currently it only applies at the orchestrator-workspace grain, and only when the daemon is running. Source: Pass 6 #5.
 - **Blockers:** —
 - **Plan:** —
@@ -561,7 +561,7 @@ last_manual_edit: 2026-06-27T12:51:51.967Z
 ### Strengthen telemetry consent surface
 
 - **Status:** planned
-- **Spec:** —
+- **Spec:** docs/changes/telemetry-consent-stdout/proposal.md
 - **Summary:** `packages/cli/src/hooks/telemetry-reporter.js` prints first-run privacy notice to stderr. In IDE sessions stderr is often invisible — adopters technically opted in by installing the plugin but the consent surface is weak. Move the notice to stdout. Optionally add a `harness.config.json` `telemetry.consented: true` field that the adopter must set before first batch send. The PostHog ingest is real (1319 dogfood records over 80 days); the consent surface should match the data flow. Source: Pass 5 #3.
 - **Blockers:** —
 - **Plan:** —
@@ -583,7 +583,7 @@ last_manual_edit: 2026-06-27T12:51:51.967Z
 ### Require ADR for operational policy changes
 
 - **Status:** planned
-- **Spec:** —
+- **Spec:** [docs/changes/require-adr-operational-policy/proposal.md](../changes/require-adr-operational-policy/proposal.md)
 - **Summary:** ADRs in `docs/knowledge/decisions/` capture architectural decisions. Changes to hook profiles, threshold values, `--skip` lists, and baseline-update policies are also load-bearing — and they accumulate silently in commits without ADR-grade artifacts. Add a `harness:check-operational-drift` check (or extend the existing `harness:enforce-architecture`) that flags PRs touching `.husky/`, `harness.config.json` thresholds, the pre-commit `--skip` list, or `packages/cli/src/hooks/profiles.ts` without a corresponding ADR. Forces the "we silently softened a gate" decision to surface as a deliberate ADR-grade record. Closes the surface where Pass 1 #1 (pre-commit auto-baseline) entered the codebase without a documented decision in the first place. Source: Pass 7 final-pass synthesis.
 - **Blockers:** —
 - **Plan:** —
@@ -591,12 +591,23 @@ last_manual_edit: 2026-06-27T12:51:51.967Z
 - **Priority:** P2
 - **External-ID:** github:Intense-Visions/harness-engineering#565
 
+### Strip internal roadmap/PR references from shipped skills & artifacts
+
+- **Status:** planned
+- **Spec:** docs/changes/shipped-skill-ref-hygiene/proposal.md
+- **Summary:** Shipped skills, slash commands, subagent defs, plugin bodies, and MCP tool description strings are distributed to adopter projects but leak harness-engineering-internal references (roadmap/PR/issue numbers, sub-project indices) meaningless to adopters. Genericize (not delete) so shipped text stays meaningful, regenerate distributed artifacts, add a grep/test guard so new leaks are caught. Internal linkage stays in specs/commits/PR bodies. Principle: shipped/rendered text = generic; code comments = internal-linkage OK.
+- **Blockers:** —
+- **Plan:** —
+- **Assignee:** —
+- **Priority:** —
+- **External-ID:** github:Intense-Visions/harness-engineering#1059
+
 ## v5.0 — Article-Framing Docs & Personas
 
 ### Invert README lede to lead with the article's binary question
 
 - **Status:** planned
-- **Spec:** —
+- **Spec:** Direct docs change — see [README.md](../../README.md) lede + "The Gears" section.
 - **Summary:** `README.md:7-19` opens with feature copy: "Mechanical constraints for AI agents. Ship faster without the chaos." Compare against what an article-aligned adopter weighs hardest. Rewrite the top 20% to lead with: "If your senior engineer goes on holiday for two weeks and your agents keep shipping — do you trust what comes out the other side? This tool is the gear list that makes the answer yes." Then walk through the 7 pieces and what the tool ships for each. Today the README sells features; article-readers buy outcomes. Source: Pass 2 #8, Pass 3 #9.
 - **Blockers:** —
 - **Plan:** —
@@ -607,7 +618,7 @@ last_manual_edit: 2026-06-27T12:51:51.967Z
 ### Adopt the article's framing in docs/standard/principles.md
 
 - **Status:** planned
-- **Spec:** —
+- **Spec:** docs/standard/principles.md
 - **Summary:** `docs/standard/principles.md` opens with "Context Engineering" — an internal abstraction, not a binary test. The article's framing question ("if the senior disappears for two weeks, what holds?") appears nowhere in public-facing docs. Add a Principle #0 (or lift it to the top): "The harness is load-bearing. It catches when no human is watching." Use the article's vocabulary (load-bearing, gear, holiday test) in principles so adopters get the framing they came for. Source: Pass 3 #3.
 - **Blockers:** —
 - **Plan:** —
@@ -618,7 +629,7 @@ last_manual_edit: 2026-06-27T12:51:51.967Z
 ### Document the article's failure-pattern checklist
 
 - **Status:** planned
-- **Spec:** —
+- **Spec:** docs/standard/article-failure-patterns.md
 - **Summary:** New `docs/standard/article-failure-patterns.md`. Name the article's five failure modes (theatre, gaps stopped naming, happy-path-only, no eval, no safe failure mode). For each, point at how `harness:audit-harness-strength` (new skill above) detects it in the adopter's own project. Provides the conceptual scaffolding for the self-audit tool. Source: Pass 1 #10.
 - **Blockers:** Build harness:audit-harness-strength self-audit skill
 - **Plan:** —
@@ -673,7 +684,7 @@ last_manual_edit: 2026-06-27T12:51:51.967Z
 ### Reframe principles.md around Why/What/How three-layer model
 
 - **Status:** planned
-- **Spec:** —
+- **Spec:** docs/standard/principles.md
 - **Summary:** "The Anatomy of an AI-Native Org" companion article structures AI-native orgs as three enduring layers: Why (strategic conviction, small), What (taste/judgement, growing — the "dominant middle"), How (architecture/trust-systems/harnesses, shrinking). The project's artifacts already map cleanly: STRATEGY.md = Why, specs in docs/changes/ + ADRs = What, code + skills + ESLint plugin = How. But `docs/standard/principles.md` opens with "Context Engineering" — an internal abstraction — and the Why/What/How vocabulary appears nowhere in public-facing docs (only coincidental matches in developer-quickstart table headers). Reframe `principles.md` so principle #0 names the three layers, maps the project's artifacts onto them, and explains that the harness is what makes each layer reliable. Adopters reading the article series land on this doc and immediately see "I know this framework." Source: Pass 8 (Anatomy of AI-Native Org companion article).
 - **Blockers:** —
 - **Plan:** —
@@ -705,8 +716,8 @@ last_manual_edit: 2026-06-27T12:51:51.967Z
 
 ### Wire outcome-eval into the lifecycle as an automatic spec-satisfaction gate
 
-- **Status:** planned
-- **Spec:** —
+- **Status:** in-progress
+- **Spec:** docs/changes/wire-outcome-eval-gate/proposal.md
 - **Summary:** outcome-eval is the harness's first blocking post-execution spec-satisfaction gate, but nothing invokes it automatically — verified 2026-06 it is absent from .husky/, .github/workflows/, AND the harness-autopilot VERIFY/INTEGRATE/REVIEW loop. Its blocking authority (high-confidence NOT_SATISFIED) only bites when a human or agent chooses to run /harness:outcome-eval or mcp**harness**outcome_eval. Wire it in: (a) call outcome_eval in harness-autopilot after REVIEW (post-execution, before PHASE_COMPLETE), gathering diff+testOutput from the session and halting on a blocking verdict; (b) add a pre-merge CI job (sibling to .github/workflows/required-review.yml) that runs it on PRs and surfaces the verdict, blocking only on high-confidence NOT_SATISFIED. This makes the #1-gap gate actually load-bearing and unblocks the assumptions baked into #569 (pre-merge-brief surfaces 'outcome-eval result when available'), #533 (post-merge rollback on failed eval), and #552 (Holiday Confidence KPI measures 'outcome-eval passed'). Recommended priority: P1.
 - **Blockers:** —
 - **Plan:** —
@@ -728,7 +739,7 @@ last_manual_edit: 2026-06-27T12:51:51.967Z
 ### Auto-wire standalone drift and audit pipelines on PRs
 
 - **Status:** planned
-- **Spec:** —
+- **Spec:** docs/changes/auto-wire-drift-audit-pr-jobs/proposal.md
 - **Summary:** Several high-value checks have no owning persona, so the persona-trigger work (above) does not cover them, and — verified 2026-06 — none runs automatically on PRs: detect-design-drift / design-pipeline (design-system drift), detect-doc-drift / docs-pipeline (doc drift; only a lightweight slice runs today inside the entropy check in harness.yml), supply-chain-audit (6-factor dependency risk), and test-advisor (test-strategy/coverage advice). Add PR-scoped CI jobs (path-filtered where sensible: design-drift on UI/token paths, supply-chain-audit on dependency-manifest changes, doc-drift on docs/source changes, test-advisor on test/source changes) that run these and surface findings, advisory-by-default with opt-in blocking. Note the agent-runtime constraint: the full LLM-judgment pipelines need an agent runner (the required-review.yml 'harness review-ci' pattern), not just the lightweight CLI validators GitHub Actions can run unaided. Recommended priority: P2.
 - **Blockers:** —
 - **Plan:** —
@@ -899,7 +910,7 @@ last_manual_edit: 2026-06-27T12:51:51.967Z
 ### Owned-Files Declaration in Plans/Tasks
 
 - **Status:** planned
-- **Spec:** —
+- **Spec:** docs/changes/owned-files-declaration/proposal.md
 - **Summary:** Add an owns:[paths] field to harness plan tasks declaring the source files each task owns, enabling cheap deterministic pre-execution conflict forecasting alongside the heavier graph-based independence check (check_task_independence). A near-free parallel-safety guardrail. Adapted from Spec Kitty's per-work-package owned-files frontmatter. Adoption #4 from docs/research/spec-kitty-comparison-analysis.md [SPECKITTY-4]
 - **Blockers:** —
 - **Plan:** —
@@ -1168,8 +1179,8 @@ last_manual_edit: 2026-06-27T12:51:51.967Z
 
 ### Maintenance checks need a standard machine-parseable findings contract
 
-- **Status:** planned
-- **Spec:** —
+- **Status:** in-progress
+- **Spec:** docs/changes/maintenance-findings-contract/proposal.md
 - **Summary:** Follow-up from the on-demand maintenance pipeline (#687). **Problem:** `harness maintenance run` derives each task's findings count by regex-recovering it from free-text check output (`N findings|issues|violations|errors`, plus a keyword fallback in `classifyCheckExecutionFailure`). This is fragile: `doc-drift` (`check-docs`) and `entropy` (`cleanup`) emit no clean count and rely on recovery; if any check changes its output wording the count can silently break (the same class of bug that originally made the report show a uniform '1 finding'). **Proposal:** give maintenance check subcommands a standard machine-readable findings contract (e.g. a `--json` mode emitting `{ findings: N, ... }`) and have the runner consume that instead of regex-recovering from prose. Cross-cutting across ~18 check commands — deserves its own spec. **Scope note:** deliberately deferred from #687 to avoid scope creep; the regex recovery is the documented stopgap.
 - **Blockers:** —
 - **Plan:** —
@@ -1191,7 +1202,7 @@ last_manual_edit: 2026-06-27T12:51:51.967Z
 ### Sharded roadmap: archive done rows into docs/roadmap.d/archive/
 
 - **Status:** planned
-- **Spec:** —
+- **Spec:** docs/changes/roadmap-sharded-archive/proposal.md
 - **Summary:** Follow-up from #684 (roadmap sharding). Keep the active shard set lean by moving `done` rows out of `docs/roadmap.d/` into a `docs/roadmap.d/archive/` subdirectory — the sharded equivalent of the existing `docs/roadmap-archive.md` + RMH001 + groom "archive done" behavior. **Why this is the one organization idea worth doing** (per-status subdirs were rejected — path should encode identity/slug, not mutable status; a status change shouldn't move a file): - `done` is terminal/one-way, so the move cost is bounded (unlike planned↔in-progress↔blocked churn). - At merge time the active set was ~175 shards, roughly half done. **Scope / design constraints:** - The store/reconciler must MOVE a shard into `archive/` on the `done` transition (not just patch in place) — touches `patchFeature` + the auto-done reconciler. - `readShardDir`/assembler must glob recursively and keep slug uniqueness across `docs/roadmap.d/` and `docs/roadmap.d/archive/`. - Must UNIFY with the existing `docs/roadmap-archive.md` + RMH001 + groom archive path, not add a second archive mechanism. - Preserve invariant R (only the regenerator reads the aggregate) and the conflict-free single-shard-per-row property. See ADRs 0050 (read-source invariant) and the proposal at docs/changes/roadmap-shard-store/proposal.md.
 - **Blockers:** —
 - **Plan:** —

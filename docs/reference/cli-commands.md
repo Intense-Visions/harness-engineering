@@ -72,14 +72,19 @@ Check architecture assertions against baseline and thresholds
 - `--module` — Check a single module
 - `--allow-regress` — Permit a --update-baseline that worsens a metric (requires --reason)
 - `--reason` — Why an accepted regression is acceptable (logged to audit)
+- `--findings-json` — Emit findings contract as a trailing JSON line (#691)
 
 ### `harness check-deps`
 
 Validate dependency layers and detect circular dependencies
 
+**Options:**
+
+- `--findings-json` — Emit the machine-readable maintenance findings contract ({ findings: N }) as a trailing stdout line (#691)
+
 ### `harness check-design`
 
-Run the design verifier suite (component-anatomy + design-craft critique). Mirrors `harness check-docs`. Single-pass; the convergence fix loop lives in the design-pipeline orchestrator (sub-project #5).
+Run the design verifier suite (component-anatomy + design-craft critique). Mirrors `harness check-docs`. Single-pass; the convergence fix loop lives in the design-pipeline orchestrator.
 
 **Options:**
 
@@ -93,6 +98,7 @@ Check documentation coverage
 **Options:**
 
 - `--min-coverage` — Minimum coverage percentage (default: "80")
+- `--findings-json` — Emit the machine-readable maintenance findings contract ({ findings: N }) as a trailing stdout line (#691)
 
 ### `harness check-harness-strength`
 
@@ -105,6 +111,15 @@ Mechanically audit this project's harness setup against the 7 strength patterns
 - `--toolkit` — Force toolkit mode
 - `--adopter` — Force adopter mode
 - `--report-only` — Always exit 0 regardless of findings
+
+### `harness check-operational-drift`
+
+Flag operational-policy changes (hooks, thresholds, --skip list) that lack a corresponding ADR
+
+**Options:**
+
+- `--base` — Base git ref to diff against (default: merge-base with default branch)
+- `--strict` — Treat a missing ADR as blocking (non-zero exit), overriding config
 
 ### `harness check-perf`
 
@@ -128,6 +143,7 @@ Run lightweight security scan: secrets, injection, XSS, weak crypto
 
 - `--severity` — Minimum severity that fails the command; findings below it are excluded from the report and never fail the gate (error, warning, info) (default: "warning")
 - `--changed-only` — Only scan git-changed files
+- `--findings-json` — Emit the machine-readable maintenance findings contract ({ findings: N }) as a trailing stdout line (#691)
 
 ### `harness check-vocabulary`
 
@@ -140,6 +156,7 @@ Detect entropy issues (doc drift, dead code, patterns)
 **Options:**
 
 - `-t, --type` — Issue type: drift, dead-code, patterns, all (default: "all")
+- `--findings-json` — Emit the machine-readable maintenance findings contract ({ findings: N }) as a trailing stdout line (#691)
 
 ### `harness cleanup-sessions`
 
@@ -188,6 +205,7 @@ Check cross-artifact consistency (plan-to-implementation coverage and staleness)
 
 - `--specs-dir` — Specs directory relative to project root (default: docs/specs)
 - `--plans-dir` — Plans directory relative to project root (default: docs/plans)
+- `--findings-json` — Emit the machine-readable maintenance findings contract ({ findings: N }) as a trailing stdout line (#691)
 
 ### `harness dashboard`
 
@@ -214,6 +232,16 @@ Run the design-pipeline orchestrator: FRESHEN → DETECT → FIX → AUDIT → F
 - `-f, --files` — Optional file/glob scope passed to each verifier
 - `-m, --mode` — Verifier mode: fast | full (default: "fast")
 - `--design-strictness` — Override design.strictness: strict | standard | permissive
+
+### `harness docs-craft`
+
+LLM-judgment critique of documentation quality — the ceiling counterpart to the rule-based doc floor (detect-doc-drift / check-docs / docs-pipeline). 7 seed rubrics (teaches-not-describes, order-matches-mental-model, examples-earn-their-place, prose-is-alive, api-doc-predicts-response, stranger-same-understanding, scannable-and-navigable). Per-file critique.
+
+**Options:**
+
+- `-f, --files` — Optional file scope (overrides docs/ discovery)
+- `--exclude-dirs` — Additional subdir names to skip under docs/
+- `--max-files` — Cap doc count (default: 60)
 
 ### `harness doctor`
 
@@ -358,6 +386,15 @@ Run knowledge extraction, drift detection, and gap analysis
 - `--coverage` — Display per-domain coverage report
 - `--check-contradictions` — Display cross-source contradiction report
 
+### `harness list-capabilities`
+
+Audit each MCP tool: read/write/exec scope, network access, and trust tag
+
+**Options:**
+
+- `--by-permission` — Group tools by read/write/exec/network scope
+- `--json` — Emit machine-readable JSON
+
 ### `harness naming-craft`
 
 LLM-judgment critique of identifier names (variables, functions, types, files). First craft-pipeline ceiling skill; uses curated rubric catalog from Martin/Beck/Karlton.
@@ -368,6 +405,21 @@ LLM-judgment critique of identifier names (variables, functions, types, files). 
 - `-k, --kinds` — Restrict to variable / function / type / file (default: all)
 - `--max-files` — Cap file count (default: 100)
 - `--max-identifiers-per-file` — Cap per-file identifier sampling (default: 15)
+
+### `harness outcome-eval-ci`
+
+Run the post-execution spec-satisfaction gate (outcome-eval) for CI: judge the change against its spec and block (exit 1) only on a high-confidence NOT_SATISFIED
+
+**Options:**
+
+- `--spec` — spec markdown to judge against (default: auto-discover from the diff)
+- `--diff` — git range (default: origin/<base>...HEAD)
+- `--test-output` — file with captured test-runner output (default: none)
+- `--block-on` — blocking | none (default: "blocking")
+- `--model` — model override for the outcome-eval LLM call
+- `--commit` — head sha to stamp on the persisted node (default: git rev-parse HEAD)
+- `--comment` — post the verdict as a comment on the current branch's PR via gh
+- `--out` — write the verdict JSON artifact to a file (use the global --json to stream it to stdout instead)
 
 ### `harness pre-merge-brief`
 
@@ -1144,6 +1196,18 @@ Run a pulse: query configured adapters, sanitize, assemble single-page report
 ## Roadmap Commands
 
 Roadmap management
+
+### `harness roadmap install-hook`
+
+Install a git pre-commit hook that regenerates docs/roadmap.md from the docs/roadmap.d shards
+
+**Options:**
+
+- `--cwd` — Project root (defaults to the current working directory)
+- `--mechanism` — Hook mechanism: "auto" (default), "husky", or "git" (raw .git/hooks) (default: "auto")
+- `--command` — Regen command the hook runs (default: "npx harness roadmap regen")
+- `--force` — Install even when the project is not sharded (no docs/roadmap.d)
+- `--format` — Output format: "human" (default) or "json" (single JSON object for CI consumers) (default: "human")
 
 ### `harness roadmap migrate`
 

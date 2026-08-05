@@ -8,6 +8,7 @@ import { ShardStore } from './shard-store';
 import { MonolithStore } from './monolith-store';
 import { createNodeRoadmapIO } from './node-io';
 import { writeRegeneratedRoadmap } from './regenerator';
+import { archiveShards, type ShardArchiveResult } from './archive';
 import { detectRoadmapStorageMode } from '../load-mode';
 
 /**
@@ -75,6 +76,42 @@ export function roadmapAggregatePath(projectRoot: string): string {
   // Forward slashes so the path is stable across OSes (used as a lock key /
   // watch target and as the store's IO path; Node fs accepts '/' on Windows).
   return path.join(projectRoot, 'docs', 'roadmap.md').replaceAll('\\', '/');
+}
+
+/**
+ * The absolute path to a project's shard directory (`<root>/docs/roadmap.d`).
+ * Like {@link roadmapAggregatePath}, the `roadmap.d` literal lives only in this
+ * already store-sanctioned module so callers (e.g. the CLI groom handler) can
+ * archive done shards WITHOUT naming a roadmap path themselves (invariant R).
+ */
+function shardDirForProject(projectRoot: string): string {
+  // Forward slashes for OS-stable IO paths (Node fs accepts '/' on Windows).
+  return path.join(projectRoot, 'docs', 'roadmap.d').replaceAll('\\', '/');
+}
+
+/**
+ * Archive `done` shards for a sharded project: MOVE each `<slug>.md` into the
+ * sharded archive `docs/roadmap.d/archive/<slug>.md` (byte-for-byte), then
+ * regenerate the active aggregate `docs/roadmap.md` so the archived rows drop out
+ * of the active set immediately — even when the groom made no other (demotion)
+ * changes that would otherwise trigger regeneration. The archive is history:
+ * `load()`/active queries already exclude the `archive/` subdirectory.
+ *
+ * Project-level wrapper over {@link archiveShards} so the CLI passes only a
+ * projectRoot + slugs and never names a roadmap path (invariant R). Only meaningful
+ * in sharded mode; the monolith archive stays a whole-file write in the CLI.
+ */
+export async function archiveDoneShardsForProject(
+  projectRoot: string,
+  slugs: string[],
+  io: ShardIO = createNodeRoadmapIO()
+): Promise<Result<ShardArchiveResult>> {
+  const shardDir = shardDirForProject(projectRoot);
+  const moved = await archiveShards(shardDir, io, slugs);
+  if (!moved.ok) return moved;
+  const regen = await writeRegeneratedRoadmap(shardDir, roadmapAggregatePath(projectRoot), io);
+  if (!regen.ok) return regen;
+  return moved;
 }
 
 export function resolveRoadmapStore(options: ResolveRoadmapStoreOptions): RoadmapStore {
@@ -166,5 +203,8 @@ function withAggregateRegen(
     // section stays fresh.
     patchAssignmentHistory: async (history: AssignmentRecord[]) =>
       regen(await base.patchAssignmentHistory(history)),
+    // Writes _meta.md in sharded mode (last_synced) → regenerate so the aggregate's
+    // frontmatter reflects the fresh stamp (#1037).
+    stampLastSynced: async (timestamp: string) => regen(await base.stampLastSynced(timestamp)),
   };
 }

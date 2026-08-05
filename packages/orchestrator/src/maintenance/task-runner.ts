@@ -35,6 +35,15 @@ export interface CheckCommandResult {
    * that predate this field.
    */
   executionFailed?: boolean;
+  /**
+   * How `findings` was derived (#691). `'contract'` means the check emitted the
+   * standard machine-readable findings envelope (`{ findings: N, ... }`) and the
+   * runner consumed THAT — the robust, wording-independent path. `'regex'` means
+   * the count was recovered by scanning free-text output — the legacy fallback,
+   * kept for checks not yet migrated to the contract. Omitted for runners (e.g.
+   * `CheckScriptRunner`) that don't distinguish the two.
+   */
+  findingsSource?: 'contract' | 'regex';
 }
 
 /**

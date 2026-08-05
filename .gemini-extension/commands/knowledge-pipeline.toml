@@ -372,6 +372,16 @@ state:
     - .harness/knowledge/staged/pipeline-staged.jsonl
     - .harness/knowledge/gaps.md
 depends_on: []
+capabilities:
+  tools:
+    - Bash
+    - Read
+    - Write
+    - Edit
+    - Glob
+    - Grep
+  network: false
+  filesystem: read-write
 
 </execution_context>
 

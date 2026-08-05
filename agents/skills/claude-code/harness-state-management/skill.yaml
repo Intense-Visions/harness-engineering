@@ -39,3 +39,12 @@ related_skills:
   - state-zustand-slices
   - redux-slice-pattern
   - state-context-pattern
+capabilities:
+  tools:
+    - Bash
+    - Read
+    - Write
+    - Edit
+    - Glob
+  network: false
+  filesystem: read-write

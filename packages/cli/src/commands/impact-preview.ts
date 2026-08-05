@@ -33,9 +33,10 @@ function getStagedFiles(cwd: string): string[] {
   }
 }
 
-function graphExists(projectPath: string): boolean {
+async function graphExists(projectPath: string): Promise<boolean> {
   try {
-    return fs.existsSync(path.join(projectPath, '.harness', 'graph', 'graph.json'));
+    const { resolveGraphDir } = await import('@harness-engineering/graph');
+    return fs.existsSync(path.join(resolveGraphDir(projectPath), 'graph.json'));
   } catch {
     return false;
   }
@@ -291,7 +292,7 @@ export async function runImpactPreview(options: ImpactPreviewOptions): Promise<s
   const stagedFiles = getStagedFiles(projectPath);
   if (stagedFiles.length === 0) return 'Impact Preview: no staged changes';
 
-  if (!graphExists(projectPath)) {
+  if (!(await graphExists(projectPath))) {
     return 'Impact Preview: skipped (no graph — run `harness graph scan` to enable)';
   }
 

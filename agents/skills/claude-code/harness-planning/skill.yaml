@@ -63,3 +63,13 @@ state:
 depends_on:
   - harness-verification
   - harness-soundness-review
+capabilities:
+  tools:
+    - Bash
+    - Read
+    - Write
+    - Edit
+    - Glob
+    - emit_interaction
+  network: false
+  filesystem: read-write

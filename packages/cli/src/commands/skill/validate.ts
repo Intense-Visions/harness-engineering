@@ -2,7 +2,11 @@ import { Command } from 'commander';
 import * as fs from 'fs';
 import * as path from 'path';
 import { parse } from 'yaml';
-import { SkillMetadataSchema } from '../../skill/schema';
+import {
+  SkillMetadataSchema,
+  capabilityDriftErrors,
+  type SkillCapabilities,
+} from '../../skill/schema';
 import { logger } from '../../output/logger';
 import { ExitCode } from '../../utils/errors';
 import { resolveProjectSkillsDir, resolveSkillsDir } from '../../utils/paths';
@@ -58,6 +62,46 @@ function validateSkillMd(
   }
 }
 
+/**
+ * Harness-authored skills are the ones the harness itself ships and is
+ * accountable for. They carry the reserved `harness-` name prefix, so the
+ * capabilities envelope is mandatory for them; third-party/community skills may
+ * still declare it (and are checked for consistency when they do) but are not
+ * required to.
+ */
+export function isHarnessAuthoredSkill(name: string): boolean {
+  return name.startsWith('harness-');
+}
+
+/**
+ * Enforce the per-skill capability declaration (#558):
+ *
+ * - Every harness-authored skill MUST declare `capabilities`.
+ * - Any skill that declares `capabilities` must keep it consistent with its
+ *   `tools:` list (derived network/filesystem/tool-set).
+ *
+ * This is the wired half of the declaration layer: it runs in `harness skill
+ * validate` and in CI, and fails on a missing or drifted declaration. Runtime
+ * bounds-enforcement (blocking a skill that exceeds its envelope) is deferred.
+ */
+function validateCapabilities(
+  name: string,
+  meta: { tools?: string[] | undefined; capabilities?: SkillCapabilities | undefined },
+  errors: string[]
+): void {
+  if (!meta.capabilities) {
+    if (isHarnessAuthoredSkill(name)) {
+      errors.push(
+        `${name}/skill.yaml: harness-authored skill must declare capabilities (derive from tools; run \`harness skill validate\` for the expected values)`
+      );
+    }
+    return;
+  }
+  for (const drift of capabilityDriftErrors(meta.tools ?? [], meta.capabilities)) {
+    errors.push(`${name}/skill.yaml: ${drift}`);
+  }
+}
+
 export function validateSkillEntry(name: string, skillsDir: string, errors: string[]): boolean {
   const skillDir = path.join(skillsDir, name);
   const yamlPath = path.join(skillDir, 'skill.yaml');
@@ -75,6 +119,7 @@ export function validateSkillEntry(name: string, skillsDir: string, errors: stri
       return false;
     }
     validateSkillMd(name, path.join(skillDir, 'SKILL.md'), result.data.type, errors);
+    validateCapabilities(name, result.data, errors);
     return true;
   } catch (e) {
     errors.push(`${name}: parse error — ${e instanceof Error ? e.message : String(e)}`);

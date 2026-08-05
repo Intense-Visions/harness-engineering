@@ -52,3 +52,11 @@ state:
   persistent: false
   files: []
 depends_on: []
+capabilities:
+  tools:
+    - Bash
+    - Read
+    - Grep
+    - Glob
+  network: false
+  filesystem: read-write

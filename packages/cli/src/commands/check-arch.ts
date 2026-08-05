@@ -14,6 +14,7 @@ import type {
   MetricResult,
   Violation,
 } from '@harness-engineering/core';
+import { formatFindingsContract } from '@harness-engineering/types';
 import { findConfigFile, loadConfig } from '../config/loader';
 import { OutputFormatter, OutputMode, type OutputModeType } from '../output/formatter';
 import { logger } from '../output/logger';
@@ -314,6 +315,15 @@ function printArchResult(
   if (output) console.log(output);
 }
 
+/** #691: emit the findings contract (new + threshold violations + regressions)
+ * when `--findings-json` is set. Extracted so the action stays under the
+ * complexity/length arch thresholds. */
+function maybeEmitArchFindings(findingsJson: boolean | undefined, value: CheckArchResult): void {
+  if (findingsJson) {
+    console.log(formatFindingsContract(buildArchIssues(value).length, 'check-arch'));
+  }
+}
+
 export function createCheckArchCommand(): Command {
   const command = new Command('check-arch')
     .description('Check architecture assertions against baseline and thresholds')
@@ -324,6 +334,7 @@ export function createCheckArchCommand(): Command {
       'Permit a --update-baseline that worsens a metric (requires --reason)'
     )
     .option('--reason <text>', 'Why an accepted regression is acceptable (logged to audit)')
+    .option('--findings-json', 'Emit findings contract as a trailing JSON line (#691)')
     .action(async (opts, cmd) => {
       const globalOpts = cmd.optsWithGlobals();
       const mode = resolveOutputMode(globalOpts);
@@ -355,6 +366,7 @@ export function createCheckArchCommand(): Command {
       }
 
       printArchResult(value, mode, formatter);
+      maybeEmitArchFindings(opts.findingsJson, value);
       process.exit(value.passed ? ExitCode.SUCCESS : ExitCode.VALIDATION_FAILED);
     });
 

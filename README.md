@@ -4,7 +4,23 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![pnpm](https://img.shields.io/badge/maintained%20with-pnpm-cc00ff.svg)](https://pnpm.io/)
 
-**Mechanical constraints for AI agents. Ship faster without the chaos.**
+**If your senior engineer goes on holiday for two weeks and your agents keep shipping — do you trust what comes out the other side?**
+
+Harness Engineering is the gear list that makes the answer _yes_. The framing draws on a growing body of work on harness engineering — Ajey Gore's ["The Solo Climb"](https://ajeygore.in/content/the-solo-climb) and ["The Anatomy of an AI-Native Org"](https://ajeygore.in/content/the-anatomy-of-an-ai-native-org), OpenAI's ["Harness engineering"](https://openai.com/index/harness-engineering/), and Martin Fowler's ["Harness engineering for coding agents"](https://martinfowler.com/articles/harness-engineering.html) — distilled to one question: shipping with agents unsupervised isn't a prompt problem, it's an equipment problem. The holiday test is Gore's; _The Solo Climb_ names the gear you need before that holiday is safe. Here is each piece — and what harness ships for it.
+
+## The Gears
+
+1. **Specs you operate from** — the input the agent works from, the source the eval checks against, and the artifact the team reviews when something breaks. harness both authors and polices them: `brainstorming` and `spec-craft` produce specs and ADRs, and `acceptance-eval` refuses a spec that lacks measurable, testable acceptance criteria.
+
+2. **A test suite the team trusts enough to ship on** — green means ship, red means don't. harness doesn't write your tests, but it makes them load-bearing: `test-advisor` selects the tests a change actually needs and audits coverage gaps, and the `verify` gate runs test/lint/typecheck as a single hard pass/fail.
+
+3. **An eval suite for "did it solve the right problem"** — the layer above the unit tests that catches the change which passes every test and still does the wrong thing. harness ships `outcome-eval`, a blocking post-execution gate that judges the diff against the spec's acceptance criteria before the change is allowed to ship.
+
+4. **A sandboxed environment the agent can operate in** — bounded, observable, reversible, so a mistake's blast radius never reaches the user. harness covers this partly: isolated git worktrees bound the work, session search and `insights` make it observable, and the `rollback` skill proposes a full-context revert when a shipped change fails. It orchestrates your environment rather than providing the sandbox itself.
+
+5. **Gates that actually gate** — the build either goes to production or it doesn't; no soft gates that warn and wave you through. This is the core of harness: architectural boundaries enforced by ESLint, CI checks that fail the build, a `block-no-verify` hook that refuses `--no-verify`, and phase gates that won't advance on a failed checkpoint.
+
+6. **Agent-of-agent review** — one agent writes, another reviews, a third runs the tests. harness ships a multi-phase `code-review` pipeline that fans work out to parallel persona reviewers (architecture, security, TypeScript-strict, frontend-races, adversarial) and supports peer review between agents.
 
 ## Why This Exists
 
@@ -114,9 +130,9 @@ For identity-tagged telemetry (project/team/alias), run the interactive wizard o
 Plugin users have two update channels that can drift slightly:
 
 - **Bundled artifacts** (skills, slash commands, subagents, hooks) ship from this git repo. Update via `/plugin update harness-claude`.
-- **MCP server binary** is launched via `npx -y -p @harness-engineering/cli@latest harness-mcp`, so each new session pulls the latest published npm version (subject to npx's ~24h cache).
+- **MCP server binary** is launched via `npx -y -p @harness-engineering/cli@<pinned-version> harness-mcp`, where `<pinned-version>` is an exact version pinned in the plugin manifest (not `@latest`). Every adopter runs that exact published build, and updates arrive deliberately — a `/plugin update` pulls a manifest whose pin has been bumped, rather than each new session silently pulling whatever is newest on npm. See [docs/security/trust-model.md](docs/security/trust-model.md) for the full trust and integrity model.
 
-In practice they stay close together because npm publishes follow git tags. If you need them locked in step (e.g. for a release window), `npm install -g @harness-engineering/cli` and use `harness setup` instead.
+Both channels move together on a `/plugin update`: the git artifacts and the pinned MCP version are bumped in the same manifest revision. If you instead want to always track the newest publish yourself, `npm install -g @harness-engineering/cli` and use `harness setup` — the global install is the opt-in "latest" path.
 
 #### Shell-from-plugin escape hatch
 

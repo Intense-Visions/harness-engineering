@@ -11,6 +11,13 @@ vi.mock('fs', () => ({
   existsSync: vi.fn(),
 }));
 
+// Mock the graph package's dir resolver so graphExists() reduces to the mocked
+// fs.existsSync check. The real resolver touches fs.statSync/readFileSync, which
+// this test's partial fs mock deliberately does not provide.
+vi.mock('@harness-engineering/graph', () => ({
+  resolveGraphDir: (projectPath: string) => `${projectPath}/.harness/graph`,
+}));
+
 // Mock handleGetImpact
 vi.mock('../../src/mcp/tools/graph/index', () => ({
   handleGetImpact: vi.fn(),

@@ -52,3 +52,13 @@ keywords:
   - upstream-grounding
   - compound-engineering
   - rumelt
+capabilities:
+  tools:
+    - Bash
+    - Read
+    - Write
+    - Edit
+    - Glob
+    - Grep
+  network: false
+  filesystem: read-write

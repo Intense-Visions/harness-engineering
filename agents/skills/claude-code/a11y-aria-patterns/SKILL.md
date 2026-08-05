@@ -174,7 +174,11 @@ https://www.w3.org/TR/wai-aria-1.2/
 
 ## Harness Integration
 
-- **Type:** knowledge — this skill is a reference document, not a procedural workflow.
+- **Type:** knowledge — this skill is a reference document consumed as context, but two of its assertions are also **load-bearing**: they are enforced mechanically by `harness-accessibility` via the `AriaScanner` in `@harness-engineering/core`.
+  - `A11Y-014` — `aria-hidden="true"` on a focusable element (rule #4 of ARIA: do not hide a focusable control from assistive technology).
+  - `A11Y-042` — positive `tabindex`, which disrupts the natural tab order.
+    These fire only on statically-decidable values (a dynamic `aria-hidden={expr}` or a `tabIndex={0}`/`tabIndex={-1}` is never flagged), keeping false positives near zero.
+- **What remains advisory (not mechanized):** accessible-name presence (`aria-label`/`aria-labelledby`), role-appropriate keyboard operability, live-region and state-attribute correctness. These require resolving relationships across elements or runtime state and cannot be enforced at a low false-positive rate by pattern matching, so they stay prose guidance here.
 - **No tools or state** — consumed as context by other skills and agents.
 
 ## Success Criteria

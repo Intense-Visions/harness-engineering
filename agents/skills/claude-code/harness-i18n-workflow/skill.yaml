@@ -74,3 +74,13 @@ stack_signals:
   - frontend
 depends_on:
   - harness-i18n
+capabilities:
+  tools:
+    - Bash
+    - Read
+    - Write
+    - Edit
+    - Glob
+    - Grep
+  network: false
+  filesystem: read-write

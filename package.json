@@ -42,7 +42,7 @@
     "generate:plugin:check": "node scripts/generate-plugin.mjs --target claude --check && node scripts/generate-plugin.mjs --target cursor --check && node scripts/generate-plugin.mjs --target gemini --check && node scripts/generate-plugin.mjs --target codex --check",
     "changeset": "changeset",
     "check:changesets": "BASE_REF=origin/main node scripts/check-changesets.mjs",
-    "version": "changeset version",
+    "version": "changeset version && node scripts/sync-plugin-pin.mjs",
     "release": "pnpm build && changeset publish",
     "prepare": "husky"
   },

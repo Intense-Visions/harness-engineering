@@ -2,6 +2,8 @@ import type { ConflictPrediction, ConflictSeverity } from '@harness-engineering/
 import type { PlanTask } from '@harness-engineering/types';
 import { findParallelGroups } from '../review/parallel-groups';
 import type { GraphNode } from '../review/types';
+import { forecastOwnershipConflicts, pathsOverlap } from './ownership';
+import type { OwnershipConflict } from './ownership';
 
 /** Per-wave firing decision (Phase 1: basic derivation; Phase 2 refines). */
 export type FiringDecision = 'auto-dispatch' | 'confirm' | 'serialize';
@@ -29,6 +31,13 @@ export interface ParallelizationPlan {
   serialized: string[];
   /** Dependency cycles (blocking). Disjoint from `waves` and `serialized`. */
   cyclic: string[];
+  /**
+   * Cheap deterministic `owns:[paths]` overlap forecast (roadmap #601): task
+   * pairs whose declared owned paths overlap and so may conflict if run in
+   * parallel. Empty when no tasks declare overlapping `owns`. Advisory —
+   * additive alongside the conflict-driven waves/serialized channels.
+   */
+  ownershipForecast: OwnershipConflict[];
   /** Human-readable DAG summary for announce-and-proceed. */
   narration: string;
 }
@@ -46,18 +55,31 @@ export interface PlanTaskValidation {
   warnings: string[];
 }
 
-/** Union of a task's declared file touches and owned globs (exact-string set). */
-function footprintOf(task: PlanTask): Set<string> {
-  const files = task.files || [];
-  const owns = task.owns || [];
-  return new Set<string>([...files, ...owns]);
+/**
+ * Union of a task's declared file touches and owned globs, as match patterns.
+ * A concrete file path is a trivial glob, so files and `owns` entries are
+ * compared uniformly by {@link shareFootprint}.
+ */
+function footprintOf(task: PlanTask): string[] {
+  return [...(task.files || []), ...(task.owns || [])];
 }
 
-/** True when two footprints share at least one exact entry. */
-function shareFootprint(a: Set<string> | undefined, b: Set<string> | undefined): boolean {
+/**
+ * True when two footprints share at least one overlapping path/glob.
+ *
+ * Uses glob-aware overlap (roadmap #601), so an `owns` glob (`src/api/**`)
+ * overlaps a concrete path it covers (`src/api/users.ts`). For two concrete
+ * paths this reduces to string equality, preserving prior file-overlap behavior.
+ */
+function shareFootprint(
+  a: readonly string[] | undefined,
+  b: readonly string[] | undefined
+): boolean {
   if (!a || !b) return false;
-  for (const item of a) {
-    if (b.has(item)) return true;
+  for (const pa of a) {
+    for (const pb of b) {
+      if (pathsOverlap(pa, pb)) return true;
+    }
   }
   return false;
 }
@@ -384,6 +406,7 @@ export function planParallelization(input: PlanParallelizationInput): Paralleliz
     waves,
     serialized,
     cyclic,
+    ownershipForecast: forecastOwnershipConflicts(tasks),
     narration: narrate(waves, reasons, serialized, cyclic, nodes),
   };
 }

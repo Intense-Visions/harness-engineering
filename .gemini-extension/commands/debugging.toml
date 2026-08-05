@@ -497,6 +497,16 @@ addresses:
     weight: 0.5
   - signal: anomaly-outlier
     weight: 0.6
+capabilities:
+  tools:
+    - Bash
+    - Read
+    - Write
+    - Edit
+    - Glob
+    - Grep
+  network: false
+  filesystem: read-write
 
 </execution_context>
 

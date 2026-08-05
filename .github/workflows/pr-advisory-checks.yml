@@ -1,0 +1,150 @@
+name: PR Advisory Checks
+
+# Roadmap #664 — Auto-wire standalone drift and audit pipelines on PRs.
+#
+# Runs the LIGHTWEIGHT, CLI-runnable harness validators on PRs and surfaces
+# their findings. Every job here is ADVISORY (non-blocking): the validator
+# steps run under `continue-on-error: true`, so a finding is reported in the
+# job log but never flips the PR's required-check status. Blocking is opt-in
+# and out of scope for this workflow.
+#
+# Only validators that run UNAIDED via `node packages/cli/dist/bin/harness.js`
+# — no API key, no agent runner, no network, no pre-built knowledge graph —
+# are wired here. The full LLM-judgment pipelines (design-pipeline /
+# docs-pipeline / design-craft) and the network+agent-driven skills
+# (supply-chain-audit, test-advisor) need the `required-review.yml`
+# `harness review-ci` agent-runtime pattern and are intentionally NOT wired.
+# See docs/changes/auto-wire-drift-audit-pr-jobs/proposal.md.
+
+on:
+  pull_request:
+    branches: [main]
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  # ---------------------------------------------------------------------------
+  # Design-token drift (detect-design-drift rule floor).
+  #
+  # `align-design-system --dry-run` invokes detect-design-drift internally and
+  # reports DRIFT-T*/DRIFT-P* findings WITHOUT writing any files (report-only,
+  # exit 0). It is purely rule-based (regex + TS-compiler JSX parsing over
+  # design-system/tokens.json + DESIGN.md) — no LLM, no graph, no network.
+  # Scoped to the PR's changed UI/token files via `-f`.
+  # ---------------------------------------------------------------------------
+  design-drift:
+    name: Design-token drift (advisory)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          # Full history so origin/<base> is a usable diff base.
+          fetch-depth: 0
+
+      - name: Detect changed UI/token files
+        id: changes
+        run: |
+          git fetch origin "${{ github.base_ref }}" >/dev/null 2>&1 || true
+          CHANGED="$(git diff --name-only --diff-filter=d "origin/${{ github.base_ref }}...HEAD" || true)"
+          FILES="$(printf '%s\n' "$CHANGED" | grep -E '\.(ts|tsx|js|jsx|css|scss)$' || true)"
+          if [ -n "$FILES" ]; then
+            echo "run=true" >> "$GITHUB_OUTPUT"
+            # Space-join for a single -f invocation; persist via a heredoc.
+            {
+              echo "files<<EOF"
+              printf '%s\n' "$FILES"
+              echo "EOF"
+            } >> "$GITHUB_OUTPUT"
+            echo "Changed UI/token files:"
+            printf '%s\n' "$FILES"
+          else
+            echo "run=false" >> "$GITHUB_OUTPUT"
+            echo "No UI/token files changed — skipping design-drift."
+          fi
+
+      - uses: pnpm/action-setup@v5
+        if: steps.changes.outputs.run == 'true'
+
+      - uses: actions/setup-node@v6
+        if: steps.changes.outputs.run == 'true'
+        with:
+          node-version: 22
+          cache: 'pnpm'
+
+      - run: pnpm install --frozen-lockfile
+        if: steps.changes.outputs.run == 'true'
+
+      - run: pnpm build
+        if: steps.changes.outputs.run == 'true'
+
+      - name: detect-design-drift (advisory, report-only)
+        if: steps.changes.outputs.run == 'true'
+        continue-on-error: true
+        run: |
+          # xargs feeds the changed files as -f args; --dry-run guarantees
+          # report-only (no source is modified). Advisory: continue-on-error
+          # means a finding never fails the PR.
+          printf '%s\n' "${{ steps.changes.outputs.files }}" \
+            | xargs node packages/cli/dist/bin/harness.js align-design-system --dry-run -f
+
+  # ---------------------------------------------------------------------------
+  # Documentation drift (detect-doc-drift).
+  #
+  # The detect-doc-drift skill's Phase 1 runs `harness check-docs` (doc
+  # coverage, exit 0) and `harness cleanup --type drift` (AST-based stale/
+  # renamed-symbol detection via EntropyAnalyzer, exit 1 on findings). Both are
+  # self-contained — no LLM, no network, no pre-built knowledge graph — so they
+  # run unaided. `cleanup` exits non-zero when it finds drift, so the step runs
+  # under continue-on-error to keep the job advisory.
+  # ---------------------------------------------------------------------------
+  doc-drift:
+    name: Documentation drift (advisory)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - name: Detect changed docs/source files
+        id: changes
+        run: |
+          git fetch origin "${{ github.base_ref }}" >/dev/null 2>&1 || true
+          CHANGED="$(git diff --name-only --diff-filter=d "origin/${{ github.base_ref }}...HEAD" || true)"
+          FILES="$(printf '%s\n' "$CHANGED" | grep -E '\.(ts|tsx|js|jsx|md|mdx)$|(^|/)docs/|(^|/)AGENTS\.md$' || true)"
+          if [ -n "$FILES" ]; then
+            echo "run=true" >> "$GITHUB_OUTPUT"
+            echo "Changed docs/source files detected — running doc-drift."
+          else
+            echo "run=false" >> "$GITHUB_OUTPUT"
+            echo "No docs/source files changed — skipping doc-drift."
+          fi
+
+      - uses: pnpm/action-setup@v5
+        if: steps.changes.outputs.run == 'true'
+
+      - uses: actions/setup-node@v6
+        if: steps.changes.outputs.run == 'true'
+        with:
+          node-version: 22
+          cache: 'pnpm'
+
+      - run: pnpm install --frozen-lockfile
+        if: steps.changes.outputs.run == 'true'
+
+      - run: pnpm build
+        if: steps.changes.outputs.run == 'true'
+
+      - name: check-docs coverage (advisory)
+        if: steps.changes.outputs.run == 'true'
+        continue-on-error: true
+        run: node packages/cli/dist/bin/harness.js check-docs
+
+      - name: detect-doc-drift (advisory)
+        if: steps.changes.outputs.run == 'true'
+        continue-on-error: true
+        run: node packages/cli/dist/bin/harness.js cleanup --type drift

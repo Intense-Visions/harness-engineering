@@ -56,7 +56,7 @@
 ## Harness Integration
 
 - **`harness check-security`** — CLI command that invokes this skill's scanner.
-- **`SecurityScanner`** — Core class from `@harness-engineering/core` that executes the rule engine.
+- **`SecurityScanner`** — Core class from `@harness-engineering/core` that executes the rule engine. Its injection rule set (`SEC-INJ-*`) is the load-bearing enforcement of the `owasp-injection-prevention` domain skill's concrete anti-patterns — `eval`/`Function`, SQL string concatenation, command injection, and Prisma `$queryRawUnsafe`/`$executeRawUnsafe` called with interpolated input. Deep injection classes that need data-flow (NoSQL operator injection, second-order injection) are intentionally out of scope for this mechanical scan and belong to `/harness:security-review`.
 - **`harness.config.json`** — Security section configures severity threshold and file exclusions.
 - **codebase-health-analyst persona** — Invokes this skill as part of its sweep.
 

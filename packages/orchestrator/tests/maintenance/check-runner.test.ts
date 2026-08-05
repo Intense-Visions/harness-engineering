@@ -8,6 +8,7 @@ import {
   type RunHarnessCheckOptions,
 } from '../../src/maintenance/check-runner';
 import { classifyCheckExecutionFailure } from '../../src/maintenance/task-runner';
+import { formatFindingsContract } from '@harness-engineering/types';
 
 /** An execFile stub that RESOLVES with the given stdout (clean run). */
 function resolveWith(stdout: string): ExecFileAsyncFn {
@@ -115,6 +116,61 @@ describe('runHarnessCheck — shared cron+CLI spawn/parse/timeout core', () => {
     // The marker is appended after the partial output, yet classification still
     // resolves to `unrunnable` (timeout wins ahead of explicitFindingsCount).
     expect(classifyCheckExecutionFailure(r.output).kind).toBe('unrunnable');
+  });
+
+  // --- #691: machine-readable findings contract preferred over regex ---
+
+  it('clean exit WITH the findings contract → count from contract, source=contract', async () => {
+    const r = await runHarnessCheck(SPAWN, '/repo', {
+      execFileAsync: resolveWith(
+        `Documentation coverage: 62%\n${formatFindingsContract(3, 'check-docs')}\n`
+      ),
+    });
+    expect(r.findings).toBe(3);
+    expect(r.passed).toBe(false);
+    expect(r.executionFailed).toBe(false);
+    expect(r.findingsSource).toBe('contract');
+  });
+
+  it('contract with findings:0 → passed, source=contract (a migrated clean check)', async () => {
+    const r = await runHarnessCheck(SPAWN, '/repo', {
+      execFileAsync: resolveWith(`${formatFindingsContract(0, 'cleanup')}\n`),
+    });
+    expect(r.findings).toBe(0);
+    expect(r.passed).toBe(true);
+    expect(r.findingsSource).toBe('contract');
+  });
+
+  it('non-zero exit WITH the contract → real findings, NOT executionFailed, source=contract', async () => {
+    const r = await runHarnessCheck(SPAWN, '/repo', {
+      execFileAsync: rejectWith({
+        stdout: `Entropy issues: 8\n${formatFindingsContract(8, 'cleanup')}`,
+        code: 1,
+      }),
+    });
+    expect(r.findings).toBe(8);
+    expect(r.executionFailed).toBe(false);
+    expect(r.findingsSource).toBe('contract');
+  });
+
+  it('a wording change does NOT break a migrated check: prose says "clean" but contract says 5', async () => {
+    // The prose carries no `N issues` token the regex could match — and even
+    // reads as clean — yet the contract is authoritative, so the count is 5.
+    const r = await runHarnessCheck(SPAWN, '/repo', {
+      execFileAsync: resolveWith(
+        `No problems detected. Everything looks great!\n${formatFindingsContract(5, 'check-arch')}`
+      ),
+    });
+    expect(r.findings).toBe(5);
+    expect(r.findingsSource).toBe('contract');
+  });
+
+  it('regex remains the labeled fallback for an unmigrated check (no contract line)', async () => {
+    const r = await runHarnessCheck(SPAWN, '/repo', {
+      execFileAsync: resolveWith('Found 45 issues\n'),
+    });
+    expect(r.findings).toBe(45);
+    expect(r.findingsSource).toBe('regex');
   });
 
   it('empty command output on success-with-buffer is stringified safely', async () => {

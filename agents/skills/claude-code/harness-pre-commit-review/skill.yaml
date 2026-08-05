@@ -51,3 +51,11 @@ stack_signals:
   - vitest
 depends_on:
   - harness-code-review
+capabilities:
+  tools:
+    - Bash
+    - Read
+    - Glob
+    - Grep
+  network: false
+  filesystem: read-write

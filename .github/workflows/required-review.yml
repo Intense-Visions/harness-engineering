@@ -56,6 +56,25 @@ jobs:
         # degrades to floor-only if ANTHROPIC_API_KEY is unset. --json writes the
         # verdict artifact the pre-merge-brief step reuses (no second review run).
         run: node packages/cli/dist/bin/harness.js review-ci --runner claude --block-on request-changes --diff "origin/${{ github.base_ref }}...HEAD" --json /tmp/review.json
+      - name: Run outcome-eval spec-satisfaction gate
+        # Post-execution SHIP GATE (the first blocking spec-satisfaction gate).
+        # Judges the PR's change against its spec and persists the
+        # execution_outcome node — keyed by `git rev-parse HEAD` — that the
+        # pre-merge-brief step below consumes (no --commit: both this step and the
+        # brief default to `git rev-parse HEAD`, so the sha matches in-workspace).
+        #
+        # WIRED NON-BLOCKING FIRST (mirrors the required-review dogfood posture):
+        # continue-on-error keeps even a blocking verdict from failing the PR
+        # during bake-in. --block-on blocking makes the command exit 1 ONLY on a
+        # high-confidence NOT_SATISFIED (authority is DERIVED in TypeScript, never
+        # from the LLM); promote it to a required check only after it proves
+        # stable. Degrade-safe: no spec in the diff, or no ANTHROPIC_API_KEY,
+        # yields an INCONCLUSIVE/advisory verdict and exit 0.
+        if: always()
+        continue-on-error: true
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+        run: node packages/cli/dist/bin/harness.js outcome-eval-ci --diff "origin/${{ github.base_ref }}...HEAD" --block-on blocking --out /tmp/outcome.json
       - name: Post senior pre-merge brief
         # Dogfood (spec #569, D4/D5): compose the senior-facing brief from the
         # review verdict above + live signals + outcome-eval, and upsert it as a

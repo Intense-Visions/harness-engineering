@@ -748,6 +748,16 @@ phases:
 state:
   persistent: false
 depends_on: []
+capabilities:
+  tools:
+    - Bash
+    - Read
+    - Write
+    - Edit
+    - Glob
+    - Grep
+  network: false
+  filesystem: read-write
 
 </execution_context>
 

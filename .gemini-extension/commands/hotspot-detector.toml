@@ -249,6 +249,14 @@ addresses:
     weight: 0.7
   - signal: articulation-point
     weight: 0.8
+capabilities:
+  tools:
+    - Bash
+    - Read
+    - Glob
+    - Grep
+  network: false
+  filesystem: read-write
 
 </execution_context>
 

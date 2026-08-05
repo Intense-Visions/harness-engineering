@@ -71,7 +71,7 @@ Append one `rollback_event` to `.harness/signals/`: `{ targetPr, trigger, revert
 ## Triggers
 
 - **Signal arm (live):** the scheduled `rollback-propose.yml` workflow runs `harness rollback sweep`, which reads `.harness/signals/timeline.json` and, for each `rollback.signals` entry `{ threshold, direction, window }`, detects an edge crossing, resolves the PR(s) merged in the window, and forwards each to `evaluate --trigger signal`.
-- **Eval arm (dark until #31):** guarded by `rollback.evalTrigger.enabled` (default `false`). When outcome-eval is wired to run post-merge (#31), a high-confidence `NOT_SATISFIED` will route through the same engine with `--trigger eval`. Until then the path exists and is unit-tested but never fires — enabling it is a config flip, not a code change.
+- **Eval arm (dark until outcome-eval runs post-merge):** guarded by `rollback.evalTrigger.enabled` (default `false`). When outcome-eval is wired to run post-merge, a high-confidence `NOT_SATISFIED` will route through the same engine with `--trigger eval`. Until then the path exists and is unit-tested but never fires — enabling it is a config flip, not a code change.
 
 ## Harness Integration
 
@@ -115,9 +115,9 @@ Append one `rollback_event` to `.harness/signals/`: `{ targetPr, trigger, revert
 
 ```
 sweep reads .harness/signals/timeline.json → error-rate crosses 50 (edge, not plateau)
-→ resolves PRs merged in the 24h window: #758
-→ evaluate --pr 758 --trigger signal
-   RESOLVE:  #758 merged, two-parent merge commit
+→ resolves PRs merged in the 24h window: #<pr>
+→ evaluate --pr <pr> --trigger signal
+   RESOLVE:  #<pr> merged, two-parent merge commit
    CLASSIFY: merge-tree revert clean; no later merge touches its files → revert-ready
    COMPOSE:  opens "revert: Add tiered discount pricing (automated rollback)"
              labeled harness:rollback, body carries trigger + blast-radius + migration warning
@@ -130,9 +130,9 @@ sweep reads .harness/signals/timeline.json → error-rate crosses 50 (edge, not 
 **Context:** Manual invocation `harness rollback evaluate --pr 740 --dry-run`.
 
 ```
-CLASSIFY: PR #752 merged after #740 and touches the same files (dependent merge)
+CLASSIFY: a later PR merged after the target and touches the same files (dependent merge)
 → revertReady: false, action: "blocked"
-→ no PR opened; decision reports "a later merge (#752) depends on this PR's files"
+→ no PR opened; decision reports "a later merge depends on this PR's files"
 ```
 
 ## Escalation
@@ -141,7 +141,7 @@ CLASSIFY: PR #752 merged after #740 and touches the same files (dependent merge)
 - **`git merge-tree` exits non-zero for a reason other than conflict (e.g. 128 bad object):** this is an error, not a conflict. Re-throw and surface it; do not report a false `skipped`.
 - **A crossing resolves to many PRs in the window:** evaluate each independently; the composer's label idempotency prevents duplicate revert PRs. If the volume looks wrong (an unexpectedly wide window), check for date-truncation in the resolver before proposing.
 - **The human asks to auto-merge the revert:** decline for v1 — that authority is the deferred Stage-2 trust tier (ADR 0063), gated on the `rollback_event` track record. Open the PR and let a human merge.
-- **`rollback.evalTrigger.enabled` is true but #31 has not landed:** the eval arm has no post-merge invoker yet, so it still won't fire; note the dependency rather than wiring a bespoke trigger.
+- **`rollback.evalTrigger.enabled` is true but the post-merge invoker has not landed:** the eval arm has no post-merge invoker yet, so it still won't fire; note the dependency rather than wiring a bespoke trigger.
 
 
 --- skill.yaml (agents/skills/gemini-cli/harness-rollback/skill.yaml) ---
@@ -197,6 +197,16 @@ state:
   persistent: false
 depends_on:
   - outcome-eval
+capabilities:
+  tools:
+    - Bash
+    - Read
+    - Write
+    - Edit
+    - Glob
+    - Grep
+  network: false
+  filesystem: read-write
 
 </execution_context>
 

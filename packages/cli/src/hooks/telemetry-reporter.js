@@ -10,6 +10,7 @@ import { join } from 'node:path';
 import { randomUUID } from 'node:crypto';
 import { execFileSync } from 'node:child_process';
 import process from 'node:process';
+import { readHookStdin } from './read-hook-stdin.js';
 
 // PostHog project API key — public, write-only (cannot read data)
 const POSTHOG_API_KEY = process.env.POSTHOG_API_KEY ?? 'phc_wNTdCMcfJXZPgdNeDociZW6vwoGGo4nb7vqEfWThFfsG'; // harness-ignore SEC-SEC-002: public PostHog write-only ingest key
@@ -17,8 +18,11 @@ const POSTHOG_BATCH_URL = 'https://app.posthog.com/batch';
 const MAX_ATTEMPTS = 3;
 const TIMEOUT_MS = 5000;
 
-const FIRST_RUN_NOTICE = `Harness collects anonymous usage analytics to improve the tool.
-No personal information is sent. Disable with:
+const FIRST_RUN_NOTICE = `Harness collects usage analytics to improve the tool: which skills run,
+their outcome, duration, and phases reached, plus your OS, Node, and harness
+versions. Events are keyed by a random install ID; when configured, your git
+user.name and project/team names are also included. No source code, file
+contents, or command arguments are sent. Opt out with:
   DO_NOT_TRACK=1  or  harness.config.json \u2192 telemetry.enabled: false\n`;
 
 // --- Helpers ---
@@ -241,7 +245,11 @@ function showFirstRunNotice(cwd) {
   const flagFile = join(cwd, '.harness', '.telemetry-notice-shown');
   if (existsSync(flagFile)) return;
 
-  process.stderr.write(FIRST_RUN_NOTICE);
+  // Written to stdout (not stderr) so the consent notice is visible in IDE
+  // sessions where stderr is often hidden. The notice is plain prose, never
+  // JSON, so it cannot be mistaken for a hook's structured-output protocol;
+  // callers that spawn this hook ignore its stdout entirely.
+  process.stdout.write(FIRST_RUN_NOTICE);
 
   try {
     mkdirSync(join(cwd, '.harness'), { recursive: true });
@@ -254,12 +262,16 @@ function showFirstRunNotice(cwd) {
 // --- Main ---
 
 async function main() {
-  let raw = '';
-  try {
-    raw = readFileSync(0, 'utf-8');
-  } catch {
+  // readHookStdin retries the EAGAIN that fd 0 throws under compound load (v8
+  // coverage on the pre-push gate): the writer races ahead of the read, and a
+  // raw readFileSync(0) would mistake that backpressure for empty stdin and
+  // fail-open, flaking the suite (#620). Log-only hook, so a genuine read
+  // failure or empty stdin still exits 0.
+  const stdin = readHookStdin();
+  if (!stdin.ok) {
     process.exit(0);
   }
+  const raw = stdin.data;
 
   if (!raw.trim()) {
     process.exit(0);
