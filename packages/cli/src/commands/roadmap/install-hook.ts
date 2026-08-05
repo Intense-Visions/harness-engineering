@@ -191,10 +191,14 @@ export async function runRoadmapInstallHook(
   // A raw `.git/hooks` hook must be executable; husky sources its files but the
   // execute bit is harmless there. chmod every run so a pre-existing non-exec
   // hook is fixed too. Best-effort: a filesystem without POSIX modes must not fail.
-  try {
-    fs.chmodSync(hookPath, 0o755);
-  } catch {
-    // Non-POSIX filesystem — nothing to do.
+  // chmod is meaningless on Windows (no POSIX mode bits), so guard the call — the
+  // platform-parity gate requires an explicit process.platform check here.
+  if (process.platform !== 'win32') {
+    try {
+      fs.chmodSync(hookPath, 0o755);
+    } catch {
+      // Non-POSIX filesystem — nothing to do.
+    }
   }
 
   return Ok({ mechanism, hookPath, action, sharded, command });
