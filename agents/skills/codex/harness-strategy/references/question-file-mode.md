@@ -24,13 +24,22 @@ It is never entered automatically.
 
 ## Answer-file location and naming
 
-Durable (default): `docs/interviews/<topic>-questions.md`
+The **durable** location is **skill-specific**: each interview co-locates its answer file
+with the artifact it produces, so the file is committable, team-reviewable, and archives
+alongside that artifact — provenance is never lost. See each skill's "Question-File Mode"
+section for the exact path. The three durable homes are:
 
-- `<topic>` is the skill's subject: `strategy`, `pulse`, or the brainstorming feature slug.
-- This path is committable and team-reviewable — that is the point.
+- **harness-brainstorming** → `docs/changes/<feature>/interview.md` — the same `<feature>`
+  directory that holds the `proposal.md`, `SKILLS.md`, and `plans/` the brainstorm produces,
+  so the interview archives with the change it drove.
+- **harness-strategy** → `docs/strategy/interviews/<topic>-questions.md` — a strategy-scoped
+  home (strategy updates the root `STRATEGY.md`, so there is no per-change slug).
+- **harness-pulse** → `docs/pulse/interviews/<topic>-questions.md` — a pulse-scoped home next
+  to the pulse config it produces (no per-change slug).
 
 Session-scoped (when a session slug is known, e.g. under autopilot):
-`.harness/sessions/<slug>/interviews/<topic>-questions.md`
+`.harness/sessions/<slug>/interviews/<topic>-questions.md` — where `<topic>` is the skill's
+subject (`strategy`, `pulse`, or the brainstorming feature slug).
 
 The skill MUST create the parent directory if absent and MUST NOT overwrite an existing
 answer file without explicit confirmation — a half-filled file is the human's in-progress
