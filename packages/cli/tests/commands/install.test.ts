@@ -1,5 +1,10 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { createInstallCommand, runInstall, runBulkInstall } from '../../src/commands/install';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import {
+  createInstallCommand,
+  runInstall,
+  runBulkInstall,
+  offerGenerateSlashCommands,
+} from '../../src/commands/install';
 
 vi.mock('child_process', async (importOriginal) => {
   const actual = await importOriginal<typeof import('child_process')>();
@@ -10,6 +15,8 @@ vi.mock('child_process', async (importOriginal) => {
     }),
   };
 });
+
+vi.mock('../../src/output/prompt', () => ({ prompt: vi.fn() }));
 
 // Mock all registry modules
 vi.mock('../../src/registry/npm-client', () => ({
@@ -72,7 +79,11 @@ import { readLockfile, writeLockfile, updateLockfileEntry } from '../../src/regi
 import { getBundledSkillNames } from '../../src/registry/bundled-skills';
 import { parse as yamlParse } from 'yaml';
 import * as fs from 'fs';
+import { execFileSync } from 'child_process';
+import { prompt } from '../../src/output/prompt';
 
+const mockedExecFileSync = vi.mocked(execFileSync);
+const mockedPrompt = vi.mocked(prompt);
 const mockedFetchMetadata = vi.mocked(fetchPackageMetadata);
 const mockedDownloadTarball = vi.mocked(downloadTarball);
 const mockedExtractTarball = vi.mocked(extractTarball);
@@ -533,5 +544,70 @@ describe('GitHub install', () => {
     // The parseGitHubRef function is internal, but we can test through runInstall
     // which will try to clone — this will fail in test env but validates the path
     await expect(runInstall('acme', { from: 'github:owner/repo' })).rejects.toThrow(); // Will fail at git clone, but proves the GitHub path is taken
+  });
+});
+
+describe('offerGenerateSlashCommands', () => {
+  const originalIsTTY = process.stdout.isTTY;
+  let logSpy: ReturnType<typeof vi.spyOn>;
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mockedExecFileSync.mockImplementation(() => Buffer.from(''));
+    logSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
+  });
+  afterEach(() => {
+    process.stdout.isTTY = originalIsTTY;
+    logSpy.mockRestore();
+  });
+
+  const hintPrinted = (): boolean =>
+    logSpy.mock.calls.some((c) => c.some((a) => String(a).includes('generate-slash-commands')));
+  const generateRan = (): boolean =>
+    mockedExecFileSync.mock.calls.some(
+      (c) => c[0] === 'harness' && Array.isArray(c[1]) && c[1][0] === 'generate-slash-commands'
+    );
+
+  it('TTY + assent runs generate-slash-commands', async () => {
+    process.stdout.isTTY = true;
+    mockedPrompt.mockResolvedValue(''); // default Y
+    await offerGenerateSlashCommands({});
+    expect(mockedPrompt).toHaveBeenCalled();
+    expect(generateRan()).toBe(true);
+  });
+
+  it('TTY + decline does not run generate-slash-commands', async () => {
+    process.stdout.isTTY = true;
+    mockedPrompt.mockResolvedValue('n');
+    await offerGenerateSlashCommands({});
+    expect(generateRan()).toBe(false);
+    expect(hintPrinted()).toBe(true);
+  });
+
+  it('non-TTY prints the hint without prompting or running', async () => {
+    process.stdout.isTTY = false;
+    await offerGenerateSlashCommands({});
+    expect(mockedPrompt).not.toHaveBeenCalled();
+    expect(generateRan()).toBe(false);
+    expect(hintPrinted()).toBe(true);
+  });
+
+  it('--generate runs without prompting and threads global scope flags', async () => {
+    process.stdout.isTTY = false;
+    await offerGenerateSlashCommands({ generate: true, global: true });
+    expect(mockedPrompt).not.toHaveBeenCalled();
+    expect(mockedExecFileSync).toHaveBeenCalledWith(
+      'harness',
+      ['generate-slash-commands', '--global', '--include-global'],
+      { stdio: 'inherit' }
+    );
+  });
+
+  it('--no-generate suppresses entirely (no prompt, run, or hint)', async () => {
+    process.stdout.isTTY = true;
+    await offerGenerateSlashCommands({ generate: false });
+    expect(mockedPrompt).not.toHaveBeenCalled();
+    expect(generateRan()).toBe(false);
+    expect(hintPrinted()).toBe(false);
   });
 });

@@ -23,6 +23,7 @@ import {
 import { getBundledSkillNames } from '../registry/bundled-skills';
 import { resolveGlobalSkillsDir, resolveGlobalCommunityBaseDir } from '../utils/paths';
 import { logger } from '../output/logger';
+import { prompt } from '../output/prompt';
 import { DEFAULT_SKIP_DIRS } from '@harness-engineering/graph';
 
 export interface InstallOptions {
@@ -412,6 +413,49 @@ export async function runInstall(
   return result;
 }
 
+/**
+ * After a successful install/upgrade, offers to run `generate-slash-commands`.
+ * TTY-gated so non-interactive / CI installs never hang:
+ *   - `--no-generate` (opts.generate === false): suppressed entirely.
+ *   - `--generate` (opts.generate === true): runs without prompting.
+ *   - interactive TTY: prompts "Generate slash commands now? (Y/n)" (default Y).
+ *   - non-TTY: prints today's manual hint unchanged.
+ */
+export async function offerGenerateSlashCommands(opts: InstallOptions): Promise<void> {
+  if (opts.generate === false) return; // --no-generate: suppress entirely
+
+  const scopeFlags = opts.global ? ['--global', '--include-global'] : [];
+  const hint = `Run \`harness generate-slash-commands${
+    opts.global ? ' --global --include-global' : ''
+  }\` to register slash commands.`;
+
+  const run = (): void => {
+    try {
+      execFileSync('harness', ['generate-slash-commands', ...scopeFlags], { stdio: 'inherit' });
+    } catch {
+      logger.warn('Failed to generate slash commands.');
+      logger.info(hint);
+    }
+  };
+
+  if (opts.generate === true) {
+    run(); // --generate: run without prompting
+    return;
+  }
+
+  if (!process.stdout.isTTY) {
+    logger.info(hint); // non-TTY: print today's hint unchanged
+    return;
+  }
+
+  const answer = await prompt('Generate slash commands now? (Y/n) ');
+  if (answer === 'n' || answer === 'no') {
+    logger.info(hint);
+    return;
+  }
+  run();
+}
+
 export function createInstallCommand(): Command {
   const cmd = new Command('install');
   cmd
@@ -442,12 +486,9 @@ export function createInstallCommand(): Command {
           logger.success(`Installed ${result.name}@${result.version}`);
         }
 
-        // Prompt to generate slash commands after successful install/upgrade
+        // Offer to generate slash commands after successful install/upgrade
         if (result.installed || result.upgraded) {
-          const globalFlag = opts.global ? ' --global --include-global' : '';
-          logger.info(
-            `Run \`harness generate-slash-commands${globalFlag}\` to register slash commands.`
-          );
+          await offerGenerateSlashCommands(opts);
         }
       } catch (err) {
         logger.error(err instanceof Error ? err.message : String(err));
