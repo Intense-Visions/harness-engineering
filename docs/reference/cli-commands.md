@@ -1375,6 +1375,20 @@ Search for community skills on the @harness-skills registry
 - `--trigger` — Filter by trigger type (e.g., manual, automatic)
 - `--registry` — Use a custom npm registry URL
 
+### `harness skill update [name]`
+
+Check and update external skill providers (github/npm) to their latest upstream
+
+**Arguments:**
+
+- `name` (optional) — Only consider the provider with this short name
+
+**Options:**
+
+- `--check` — Report only; exit non-zero if any provider is outdated
+- `--global` — Operate on the global (~/.harness) skill lockfile only
+- `--yes` — Skip per-provider confirmation and update all outdated providers
+
 ### `harness skill validate [skill-name]`
 
 Validate skill.yaml files and SKILL.md structure
