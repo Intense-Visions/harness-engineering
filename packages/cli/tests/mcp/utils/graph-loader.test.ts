@@ -15,6 +15,9 @@ class MockGraphStore {
 
 vi.mock('@harness-engineering/graph', () => ({
   GraphStore: MockGraphStore,
+  // The loader now resolves the graph dir through the graph package (git-worktree
+  // aware). Mirror the local-dir behavior so the loader still keys by projectRoot.
+  resolveGraphDir: (projectRoot: string) => `${projectRoot}/.harness/graph`,
 }));
 
 // Mock fs/promises for stat

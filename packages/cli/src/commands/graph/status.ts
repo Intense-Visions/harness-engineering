@@ -35,8 +35,9 @@ async function readConnectorSyncStatus(graphDir: string): Promise<Record<string,
  * which happens for graphs written before that field was added.
  */
 export async function runGraphStatus(projectPath: string): Promise<GraphStatusResult> {
-  const { GraphStore, loadGraphMetadata } = await import('@harness-engineering/graph');
-  const graphDir = path.join(projectPath, '.harness', 'graph');
+  const { GraphStore, loadGraphMetadata, resolveGraphDir } =
+    await import('@harness-engineering/graph');
+  const graphDir = resolveGraphDir(projectPath);
 
   const metaResult = await loadGraphMetadata(graphDir);
   if (metaResult.status === 'not_found') {

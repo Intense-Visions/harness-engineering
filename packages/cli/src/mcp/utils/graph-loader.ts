@@ -30,8 +30,8 @@ function evictIfNeeded(): void {
 }
 
 async function doLoadGraphStore(projectRoot: string) {
-  const { GraphStore } = await import('@harness-engineering/graph');
-  const graphDir = path.join(projectRoot, '.harness', 'graph');
+  const { GraphStore, resolveGraphDir } = await import('@harness-engineering/graph');
+  const graphDir = resolveGraphDir(projectRoot);
   const store = new GraphStore();
   const loaded = await store.load(graphDir);
   if (!loaded) return null;
@@ -39,7 +39,8 @@ async function doLoadGraphStore(projectRoot: string) {
 }
 
 export async function loadGraphStore(projectRoot: string) {
-  const graphDir = path.join(projectRoot, '.harness', 'graph');
+  const { resolveGraphDir } = await import('@harness-engineering/graph');
+  const graphDir = resolveGraphDir(projectRoot);
   const graphPath = path.join(graphDir, 'graph.json');
 
   let mtimeMs: number;

@@ -1,8 +1,6 @@
-import * as path from 'path';
-
 export async function runGraphExport(projectPath: string, format: string): Promise<string> {
-  const { GraphStore } = await import('@harness-engineering/graph');
-  const graphDir = path.join(projectPath, '.harness', 'graph');
+  const { GraphStore, resolveGraphDir } = await import('@harness-engineering/graph');
+  const graphDir = resolveGraphDir(projectPath);
   const store = new GraphStore();
   const loaded = await store.load(graphDir);
   if (!loaded) throw new Error('No graph found. Run `harness graph scan` first.');
