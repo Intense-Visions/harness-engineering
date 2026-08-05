@@ -55,8 +55,8 @@ leading-dash guard, `owner/repo`/`ref` separator guards on re-pull, and `MAX_PRO
 - **Neutral.** The lockfile format is now versioned (v1 ⇄ v2); consumers reading it directly must
   tolerate both. Auto-apply remains unbuilt by design.
 - **Negative (accepted residual risk).** A custom **npm registry URL** recorded in a *community*
-  lockfile becomes an attacker-reachable outbound host during probing: `npm view <pkg> --registry
-  <url>` contacts whatever registry the entry names, so an actor who can plant a lockfile entry
+  lockfile becomes an attacker-reachable outbound host during probing: `npm view <pkg> --registry <url>`
+  contacts whatever registry the entry names, so an actor who can plant a lockfile entry
   can cause a victim's machine to make an outbound request to a host of their choosing on the next
   CLI invocation. This is **accepted** because supporting custom/private registries is a
   first-class, documented install feature that inherently requires probing them. It is mitigated,
