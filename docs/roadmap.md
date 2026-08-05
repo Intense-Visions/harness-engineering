@@ -212,7 +212,7 @@ last_manual_edit: 2026-06-27T12:51:51.967Z
 ### bug(roadmap): sync writeback resolves shards by title-slug not frontmatter slug, silently aborting the whole batch
 
 - **Status:** planned
-- **Spec:** —
+- **Spec:** .changeset/roadmap-writeback-slug-fix.md
 - **Summary:** `applyRoadmapDiff` (packages/core/src/roadmap/store/apply-diff.ts) keys every shard by `slugifyFeatureName(feature.name)`, but the sharded store's real identity is the frontmatter `slug` — which `load()` enforces to equal the filename base, and which is frequently a hand-shortened or length-truncated form of the title. For the 22 shards (of 104) where `slugify(title) !== frontmatter.slug` (e.g. filename `lmlm-wire-engine-to-operator-surfaces` vs `slugify("LMLM Phases 4–9: wire the engine to operator surfaces")`), `patchFeature`/`addFeature`/`removeFeature` open `{slugify(title)}.md`, hit ENOENT, and `applyRoadmapDiff` **returns Err on the first failure — aborting the entire writeback batch**. Impact observed live during a full `roadmap sync --apply` (2026-08-04): all 11 external-ID backfills were dropped, `last_synced` was never stamped, and — most dangerously — a create path would have persisted the new issue on GitHub while failing to write its `externalId` back locally, so the next run recreates it (duplicate issues). **Fix:** resolve shards by the loaded feature's frontmatter slug (carry it on `RoadmapFeature` or index `before`/`after` by it), OR make the writeback collect per-shard errors instead of aborting on the first. Add a regression test with a shard whose title-slug ≠ frontmatter-slug. Workaround used on 2026-08-04: hand-backfill External-IDs so `changedFeatureNames` is empty and the buggy path is never entered.
 - **Blockers:** —
 - **Plan:** —
@@ -223,7 +223,7 @@ last_manual_edit: 2026-06-27T12:51:51.967Z
 ### bug(roadmap): harness roadmap sync never stamps last_synced on success
 
 - **Status:** planned
-- **Spec:** —
+- **Spec:** .changeset/roadmap-writeback-slug-fix.md
 - **Summary:** `fullSync` (packages/core/src/roadmap/sync-engine.ts) pushes, pulls, and writes back changed rows, but never sets `roadmap.frontmatter.lastSynced`. Because `applyRoadmapDiff` only writes frontmatter when it differs, a successful `harness roadmap sync --apply` leaves `_meta.md`'s `last_synced` untouched — so the field stays stale even though a sync just completed. This is the exact "`last_synced` 22 days behind `last_manual_edit`" symptom the sync command's own docstring cites as its reason for existing, and it undermines the human-always-wins staleness heuristic and any observability keyed on last_synced. Confirmed live 2026-08-04: `--apply` reported 104 patches / 0 errors yet `last_synced` remained at the pre-run value (manually corrected afterward). **Fix:** stamp `frontmatter.lastSynced = now` in `fullSync` before writeback (guard against `Date.now()` in test seams as elsewhere), and cover it with a test asserting last_synced advances on a no-op-diff successful sync.
 - **Blockers:** —
 - **Plan:** —
@@ -236,7 +236,7 @@ last_manual_edit: 2026-06-27T12:51:51.967Z
 ### Audit and cap the pre-commit --skip list
 
 - **Status:** planned
-- **Spec:** —
+- **Spec:** docs/changes/audit-precommit-skip-list/proposal.md
 - **Summary:** `.husky/pre-commit:4` silently skips `entropy,docs,perf,security,deps,phase-gate` — six categories disabled at commit time. The skips may be justified individually, but the cumulative silence is the article's failure pattern #2: "every gap was once a known issue. Then it became background noise. Then it became invisible." Either move slow checks to pre-push with no auto-skip, or emit a one-line stderr warning per skipped category so the gaps remain visibly named. Source: Pass 1 #4.
 - **Blockers:** —
 - **Plan:** —
@@ -640,7 +640,7 @@ last_manual_edit: 2026-06-27T12:51:51.967Z
 ### Build harness:offboarding skill symmetric to onboarding
 
 - **Status:** planned
-- **Spec:** —
+- **Spec:** docs/changes/harness-offboarding/proposal.md
 - **Summary:** `harness:onboarding` exists for arrivals. There is no symmetric `harness:offboarding` for departures. Article framing is the team-shrinkage scenario; the transition is the load test. Without an extraction flow, the social knowledge the departing engineer enforced informally is lost the day they leave. Build `harness:offboarding` that conducts a structured debrief (recent decisions made, undocumented gotchas, conventions held in head, areas of expertise, known fragile components), generates ADR drafts and knowledge graph entries from the answers, and reviews the AGENTS.md / STRATEGY.md / learnings.md surfaces against the answers to identify gaps. Output: a structured `docs/knowledge/handoff-{person}-{date}.md` file plus graph ingestion. Source: Pass 7-B.
 - **Blockers:** —
 - **Plan:** —
@@ -750,7 +750,7 @@ last_manual_edit: 2026-06-27T12:51:51.967Z
 ### Graduate pre-merge-brief to adopter template + ruleset
 
 - **Status:** planned
-- **Spec:** —
+- **Spec:** docs/changes/pre-merge-brief-adopter-template/proposal.md
 - **Summary:** Follow-up to the senior accountability surface (#569, D5): ship the adopter-facing pre-merge-brief as a templates/ci/*.yml.hbs rendered by `harness init`, plus a ruleset for the eventual gate. Deferred so the brief's Markdown format bakes on dogfood PRs before adopters are locked in — mirrors how required-review graduated. Natural companion to fully extracting signal providers into shared core.
 - **Blockers:** Build senior-engineer accountability surface for PR push
 - **Plan:** —
@@ -842,7 +842,7 @@ last_manual_edit: 2026-06-27T12:51:51.967Z
 ### craft-pipeline sub-project #2: docs-craft
 
 - **Status:** planned
-- **Spec:** —
+- **Spec:** docs/changes/docs-craft/proposal.md
 - **Summary:** LLM-judgment skill for documentation quality — the ceiling counterpart to harness-detect-doc-drift / harness-check-docs / harness-docs-pipeline (which enforce existence, link freshness, coverage). Ceiling questions: does this doc teach? does the order match the reader's mental model? are examples earning their place? is prose alive or bureaucratic? does the API doc predict the response shape? would a stranger walk away with the same understanding? Direct structural twin of design-craft-elevator — same B' progressive upgrade to a docs intent skill if no doc style guide exists, same 3-axis findings, same growth catalog. Exemplars include Stripe Docs, Vercel Academy, MDN, Linear docs, Tailwind docs. Follows ADRs 0018-0021. ~3-4 week build (catalog-heavy).
 - **Blockers:** —
 - **Plan:** —
@@ -989,7 +989,7 @@ last_manual_edit: 2026-06-27T12:51:51.967Z
 ### Question-File Interview Mode
 
 - **Status:** planned
-- **Spec:** —
+- **Spec:** docs/changes/question-file-interview-mode/proposal.md
 - **Summary:** File-based question/answer mode for strategy, pulse, and brainstorming interviews — durable, team-reviewable, async-friendly decision capture — plus a cross-answer contradiction-detection pass added to existing pushback rules. Adapted from AI-DLC's [Answer]: tag question-file ritual and mandatory ambiguity analysis. Adoption #4 from docs/research/aidlc-comparison-analysis.md [AIDLC-4]
 - **Blockers:** —
 - **Plan:** —
