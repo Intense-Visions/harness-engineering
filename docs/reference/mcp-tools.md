@@ -646,6 +646,7 @@ Post-execution LLM-judgment: did the implementation actually satisfy its spec? R
 - `testOutput` (string, required) — Captured test-runner stdout+stderr. Required: empty/unparseable output is tolerated but degrades the verdict toward INCONCLUSIVE/advisory.
 - `model` (string, optional) — Optional model override for the outcome-eval LLM call
 - `path` (string, optional) — Project root used to resolve the knowledge graph (default: cwd)
+- `commit` (string, optional) — Optional head commit sha of the change under judgment. Persisted onto the execution_outcome node so a sha-keyed consumer (e.g. the pre-merge brief) can look the verdict up. Omitting it is safe (additive).
 
 ### `plan_parallelization`
 
@@ -1098,7 +1099,7 @@ List known state streams with branch associations and last-active timestamps
 
 ### `manage_roadmap`
 
-Manage the project roadmap: show, add, update, remove, promote, sync, groom features, or query by filter. Reads and writes the project roadmap (sharded or single-file). The "promote" action transitions an existing row toward planned (backlog→planned) and links its spec atomically — creating a new planned row under the "Intake" lane if the feature does not exist — returning a structured RoadmapPromoteResult envelope. The "groom" action tidies the roadmap: it demotes unactionable planned rows (no spec & no plan) to backlog and moves completed features into docs/roadmap-archive.md, returning the list of changes.
+Manage the project roadmap: show, add, update, remove, promote, sync, groom features, or query by filter. Reads and writes the project roadmap (sharded or single-file). The "promote" action transitions an existing row toward planned (backlog→planned) and links its spec atomically — creating a new planned row under the "Intake" lane if the feature does not exist — returning a structured RoadmapPromoteResult envelope. The "groom" action tidies the roadmap: it demotes unactionable planned rows (no spec & no plan) to backlog and archives completed features, returning the list of changes. In sharded mode each done shard is MOVED into the sharded archive `docs/roadmap.d/archive/<slug>.md` (preserving its full content, excluded from the active aggregate); in monolith mode completed features are appended to docs/roadmap-archive.md.
 
 **Parameters:**
 
