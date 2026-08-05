@@ -22,6 +22,24 @@ const ROOT = resolve(import.meta.dirname, '..');
 const REFERENCE_DIR = join(ROOT, 'docs', 'reference');
 const HEADER = '<!-- AUTO-GENERATED — do not edit. Run `pnpm run generate-docs` to regenerate. -->\n\n';
 
+/**
+ * Locale-independent, platform-stable string comparison in Unicode code-point
+ * order. Used for every ordering decision in the generators.
+ *
+ * `String.prototype.localeCompare` is ICU/locale-dependent: the same list of
+ * names can order differently across operating systems (and even across Node
+ * builds with different bundled ICU), and it can rank two *distinct* names as
+ * equal when they differ only by "variable" punctuation — leaving the tie to be
+ * broken by the underlying `fs.readdir` order, which itself varies by
+ * filesystem/platform. Either path yields platform-dependent bytes in the
+ * generated docs and spurious "Reference docs are stale" CI failures (#1081).
+ * A raw code-point comparison is a total order over distinct strings and is
+ * identical on every platform, so the output is byte-identical everywhere.
+ */
+function byCodePoint(a, b) {
+  return a < b ? -1 : a > b ? 1 : 0;
+}
+
 /** Escape angle brackets so VitePress doesn't parse them as Vue/HTML tags. */
 function escapeVitePress(text) {
   return text.replace(/<([a-zA-Z])/g, '&lt;$1').replace(/(<\/[a-zA-Z])/g, (m) => '&lt;' + m.slice(2));
@@ -66,18 +84,18 @@ async function generateCliReference() {
 
   // Top-level commands
   lines.push('## Top-Level Commands\n\n');
-  for (const cmd of topLevel.sort((a, b) => a.name().localeCompare(b.name()))) {
+  for (const cmd of topLevel.sort((a, b) => byCodePoint(a.name(), b.name()))) {
     lines.push(formatCommand(cmd, 'harness'));
   }
 
   // Grouped commands
-  for (const [name, group] of [...groups.entries()].sort((a, b) => a[0].localeCompare(b[0]))) {
+  for (const [name, group] of [...groups.entries()].sort((a, b) => byCodePoint(a[0], b[0]))) {
     const title = name.charAt(0).toUpperCase() + name.slice(1);
     lines.push(`## ${title} Commands\n\n`);
     if (group.description) {
       lines.push(`${group.description}\n\n`);
     }
-    for (const cmd of group.commands.sort((a, b) => a.name().localeCompare(b.name()))) {
+    for (const cmd of group.commands.sort((a, b) => byCodePoint(a.name(), b.name()))) {
       lines.push(formatCommand(cmd, `harness ${name}`));
     }
   }
@@ -223,9 +241,9 @@ async function generateMcpReference(cliAnchorLookup = new Map()) {
     categories.get(category).push(tool);
   }
 
-  for (const [category, tools] of [...categories.entries()].sort((a, b) => a[0].localeCompare(b[0]))) {
+  for (const [category, tools] of [...categories.entries()].sort((a, b) => byCodePoint(a[0], b[0]))) {
     lines.push(`## ${category}\n\n`);
-    for (const tool of tools.sort((a, b) => a.name.localeCompare(b.name))) {
+    for (const tool of tools.sort((a, b) => byCodePoint(a.name, b.name))) {
       lines.push(renderMcpTool(tool, toolToCliCommand, cliAnchorLookup));
     }
   }
@@ -328,7 +346,12 @@ function parseToolDefinitionsFromSource() {
   // Collect all .ts files including subdirectories (e.g., graph/)
   const tsFiles = [];
   function collectTsFiles(dir) {
-    for (const entry of readdirSync(dir, { withFileTypes: true })) {
+    // Sort readdir output: filesystem/platform enumeration order is not
+    // guaranteed, and we want a stable traversal (#1081).
+    const entries = readdirSync(dir, { withFileTypes: true }).sort((a, b) =>
+      byCodePoint(a.name, b.name)
+    );
+    for (const entry of entries) {
       if (entry.isDirectory()) {
         collectTsFiles(join(dir, entry.name));
       } else if (entry.name.endsWith('.ts')) {
@@ -369,7 +392,13 @@ function parseToolDefinitionsFromSource() {
  */
 function loadSkills(skillsDir) {
   const skills = [];
-  for (const dir of readdirSync(skillsDir, { withFileTypes: true })) {
+  // Sort readdir output for a stable primary traversal order; the emit step
+  // sorts again by skill name, but a deterministic source order guards against
+  // ties and future edits (#1081).
+  const dirEntries = readdirSync(skillsDir, { withFileTypes: true }).sort((a, b) =>
+    byCodePoint(a.name, b.name)
+  );
+  for (const dir of dirEntries) {
     if (!dir.isDirectory()) continue;
     const yamlPath = join(skillsDir, dir.name, 'skill.yaml');
     if (!existsSync(yamlPath)) continue;
@@ -430,7 +459,7 @@ function generateSkillsCatalog() {
 
   // Sort within tiers
   for (const tier of Object.values(tiers)) {
-    tier.skills.sort((a, b) => a.name.localeCompare(b.name));
+    tier.skills.sort((a, b) => byCodePoint(a.name, b.name));
   }
 
   const lines = [
