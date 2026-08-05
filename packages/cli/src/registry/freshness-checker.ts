@@ -84,7 +84,16 @@ export function readFreshnessState(): FreshnessState | null {
   }
 }
 
-/** Atomically writes state (tmp-file + rename), mirroring update-checker. */
+/**
+ * Atomically writes state (tmp-file + rename), mirroring update-checker.
+ *
+ * NOTE (reference mirror — see FIX #3 / buildProbeScript): the shipped write
+ * path lives inline in the detached child produced by buildProbeScript(), which
+ * cannot import project TS. This function is the tested reference mirror of that
+ * inlined logic (same tmp-file + rename + 0o644 shape). Keep the two in sync —
+ * a divergence here means the child's on-disk format drifts from what
+ * readFreshnessState() expects.
+ */
 export function writeFreshnessState(state: FreshnessState): void {
   const statePath = getStatePath();
   const stateDir = path.dirname(statePath);
@@ -95,9 +104,15 @@ export function writeFreshnessState(state: FreshnessState): void {
 }
 
 // ---------------------------------------------------------------------------
-// Comparison — pure, unit-tested. The detached probe (spawnBackgroundFreshnessCheck)
-// inlines the identical trivial `!==` comparison because a `node -e` string cannot
-// import project TS; this mirrors how update-checker.ts inlines its write logic.
+// Comparison — pure, unit-tested reference mirror.
+//
+// The shipped probe path lives inline in the detached child string built by
+// buildProbeScript() below, because a `node -e` string cannot import project TS
+// (this mirrors how core/update-checker.ts inlines its write logic). evaluateEntry
+// re-expresses that child's skip rules and `!==` comparison in importable TS so
+// they can be unit-tested directly. buildProbeScript's own end-to-end test guards
+// the shipped copy; keep the two in sync — a divergence means the child probes
+// entries evaluateEntry would skip, or classifies outdated differently.
 // ---------------------------------------------------------------------------
 
 /**
@@ -145,23 +160,32 @@ export function getFreshnessNotification(): string | null {
 // ---------------------------------------------------------------------------
 
 /**
- * Spawns a detached, unref-ed Node process that reads the given lockfile(s)
- * and, per freshness-eligible entry:
- *   github -> `git ls-remote <https-url> <ref>`  (outdated = upstream SHA !== source.commit)
- *   npm    -> `npm view <pkg> version` (honoring source.registry) (outdated = latest !== version)
- * then writes ~/.harness/skill-freshness.json atomically (tmp-file + rename).
- *
- * The inline script is fully self-contained: it must handle every error
- * internally so the user never sees a failure. Uses execFileSync (argument
- * arrays) so lockfile-sourced owner/repo/package/registry strings are never
- * shell-interpolated. Skips entries with no source, kind 'local', or an
- * unrecognized kind. Matches the structure of core/update-checker.ts.
+ * Hard cap on how many providers a single background run will probe. Bounds the
+ * subprocess storm a maliciously large lockfile (thousands of entries) could
+ * otherwise trigger — cheap DoS hardening (FIX #4). Non-probeable entries
+ * (local / unrecognized / skipped) do not count against this cap.
  */
-export function spawnBackgroundFreshnessCheck(lockfilePaths: string[]): void {
-  const statePath = getStatePath();
-  const stateDir = path.dirname(statePath);
+export const MAX_PROVIDERS = 100;
 
-  const script = `
+/**
+ * Total wall-clock budget across all probes in a single run. Checked between
+ * probes so, combined with MAX_PROVIDERS, the detached child can never run for
+ * an unbounded time (FIX #4). A run stops probing once this elapses; whatever
+ * was collected so far is still written.
+ */
+export const PROBE_BUDGET_MS = 120_000;
+
+/**
+ * Builds the self-contained `node -e` script body for the detached freshness
+ * probe. Extracted as a pure, testable builder (FIX #2) so the *shipped* probe
+ * logic — not just a parallel copy — can be exercised end-to-end against stub
+ * git/npm executables. The returned string must remain self-contained: it
+ * cannot import project TS and must swallow every error so the user never sees
+ * a failure. Uses execFileSync (argument arrays, no shell) so lockfile-sourced
+ * strings are never shell-interpolated.
+ */
+export function buildProbeScript(lockfilePaths: string[], statePath: string, stateDir: string): string {
+  return `
 const { execFileSync } = require('child_process');
 const fs = require('fs');
 const path = require('path');
@@ -170,23 +194,39 @@ try {
   const lockfilePaths = ${JSON.stringify(lockfilePaths)};
   const statePath = ${JSON.stringify(statePath)};
   const stateDir = ${JSON.stringify(stateDir)};
+  const MAX_PROVIDERS = ${MAX_PROVIDERS};
+  const PROBE_BUDGET_MS = ${PROBE_BUDGET_MS};
+  // Argument-injection defense-in-depth (FIX #1): a leading '-' in any
+  // lockfile-sourced value would be parsed by git/npm as an option flag rather
+  // than a positional value. execFileSync already avoids the shell, but a
+  // hostile lockfile could still smuggle flags this way, so skip such entries.
+  const dash = (v) => typeof v === 'string' && v.charAt(0) === '-';
   const providers = [];
+  const startedAt = Date.now();
+  let probed = 0;
+  outer:
   for (const lp of lockfilePaths) {
     let parsed;
     try { parsed = JSON.parse(fs.readFileSync(lp, 'utf-8')); } catch (_) { continue; }
     const skills = parsed && parsed.skills ? parsed.skills : {};
     for (const name of Object.keys(skills)) {
+      // Bound total work: stop once the provider cap or wall-clock budget is hit.
+      if (probed >= MAX_PROVIDERS || Date.now() - startedAt > PROBE_BUDGET_MS) break outer;
       const entry = skills[name];
       const source = entry && entry.source;
       if (!source || !source.kind) continue;
       try {
         if (source.kind === 'github') {
+          if (dash(source.owner) || dash(source.repo) || dash(source.ref)) continue;
+          probed++;
           const url = 'https://github.com/' + source.owner + '/' + source.repo + '.git';
           const ref = source.ref || 'HEAD';
           const out = execFileSync('git', ['ls-remote', url, ref], { encoding: 'utf-8', timeout: 15000, stdio: ['ignore', 'pipe', 'ignore'] }).trim();
           const sha = out ? out.split(/\\s+/)[0] : null;
           if (sha) providers.push({ name: name, kind: 'github', current: source.commit, latest: sha, outdated: sha !== source.commit });
         } else if (source.kind === 'npm') {
+          if (dash(source.package) || dash(source.registry)) continue;
+          probed++;
           const args = ['view', source.package, 'version'];
           if (source.registry) { args.push('--registry', source.registry); }
           const latest = execFileSync('npm', args, { encoding: 'utf-8', timeout: 15000, stdio: ['ignore', 'pipe', 'ignore'] }).trim();
@@ -202,6 +242,23 @@ try {
   fs.renameSync(tmpFile, statePath);
 } catch (_) {}
 `.trim();
+}
+
+/**
+ * Spawns a detached, unref-ed Node process that reads the given lockfile(s)
+ * and, per freshness-eligible entry:
+ *   github -> `git ls-remote <https-url> <ref>`  (outdated = upstream SHA !== source.commit)
+ *   npm    -> `npm view <pkg> version` (honoring source.registry) (outdated = latest !== version)
+ * then writes ~/.harness/skill-freshness.json atomically (tmp-file + rename).
+ *
+ * The script body comes from buildProbeScript() (a pure, tested builder). It is
+ * fully self-contained, handles every error internally so the user never sees a
+ * failure, and matches the structure of core/update-checker.ts.
+ */
+export function spawnBackgroundFreshnessCheck(lockfilePaths: string[]): void {
+  const statePath = getStatePath();
+  const stateDir = path.dirname(statePath);
+  const script = buildProbeScript(lockfilePaths, statePath, stateDir);
 
   try {
     const child = spawn(process.execPath, ['-e', script], {
