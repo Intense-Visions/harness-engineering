@@ -8,6 +8,7 @@
 import { readFileSync, writeFileSync, mkdirSync, appendFileSync, existsSync } from 'node:fs';
 import { join } from 'node:path';
 import process from 'node:process';
+import { readHookStdin } from './read-hook-stdin.js';
 
 const ADOPTION_CURSOR_FILE = '.adoption-cursor';
 
@@ -114,19 +115,18 @@ function deriveDuration(events) {
 
 /** Read stdin (fd 0) and parse it as JSON. Returns null when it should exit-0. */
 function readStdinJson() {
-  let raw;
-  try {
-    raw = readFileSync(0, 'utf-8');
-  } catch {
+  // readHookStdin retries the EAGAIN that fd 0 throws under compound load (v8
+  // coverage on the pre-push gate): the writer races ahead of the read, and a
+  // raw readFileSync(0) would mistake that backpressure for empty stdin and
+  // skip the adoption write, flaking the suite (#620). A genuine read failure
+  // or empty stdin still returns null (fail-open — this is a log-only hook).
+  const stdin = readHookStdin();
+  if (!stdin.ok || !stdin.data.trim()) {
     return null;
   }
 
-  if (!raw.trim()) {
-    return null;
-  }
-
   try {
-    return JSON.parse(raw);
+    return JSON.parse(stdin.data);
   } catch {
     process.stderr.write('[adoption-tracker] Could not parse stdin — skipping\n');
     return null;

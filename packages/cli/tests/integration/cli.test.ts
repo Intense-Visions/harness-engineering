@@ -14,7 +14,11 @@ function runCLI(args: string[], cwd?: string) {
   });
 }
 
-describe('CLI Integration', { timeout: 30000 }, () => {
+// No per-suite timeout override: these tests spawn the built CLI as a
+// subprocess, which cold-starts slowly under the pre-push gate's compound
+// coverage load. Inherit the package-level testTimeout (raised for exactly this
+// subprocess-latency class — see vitest.config.mts, #620).
+describe('CLI Integration', () => {
   let tempDir: string;
 
   beforeEach(() => {

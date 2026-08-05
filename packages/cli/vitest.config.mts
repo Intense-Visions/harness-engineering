@@ -6,8 +6,19 @@ export default defineConfig({
     environment: 'node',
     include: ['tests/**/*.test.ts', 'src/**/*.test.ts'],
     setupFiles: ['tests/setup.ts'],
-    testTimeout: 30_000,
-    hookTimeout: 30_000,
+    // 37 test files in this package spawn `node`/`git` subprocesses. On the
+    // pre-push gate the package runs under v8 coverage with files in parallel,
+    // and `turbo --concurrency=2` may run a second package's suite alongside it.
+    // Under that compound load, subprocess cold-start starves for CPU: single-
+    // spawn tests were observed taking 42-46s against the old 30s default and
+    // failing with a *timeout* (never an assertion) even though every spawn
+    // ultimately succeeded (#620). A timeout is a latency ceiling, not a
+    // correctness gate — raising it removes the false failures without weakening
+    // any assertion or reducing parallelism (which would slow the gate). CI
+    // still runs the full authoritative suite. Serial spawn-loop tests that need
+    // more headroom set an even higher per-test timeout locally.
+    testTimeout: 90_000,
+    hookTimeout: 90_000,
     coverage: {
       provider: 'v8',
       reporter: ['text', 'json', 'json-summary', 'html'],
