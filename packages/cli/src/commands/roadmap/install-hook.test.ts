@@ -135,8 +135,12 @@ describe('runRoadmapInstallHook', () => {
     const hookContent = fs.readFileSync(first.value.hookPath, 'utf-8');
     expect(hookContent).toContain(HOOK_BLOCK_BEGIN);
     expect(hookContent).toContain(DEFAULT_REGEN_COMMAND);
-    // Executable bit set (POSIX).
-    expect(fs.statSync(first.value.hookPath).mode & 0o111).not.toBe(0);
+    // Executable bit set (POSIX). Skipped on Windows, where chmod is a
+    // deliberate no-op (git for Windows honors the hook regardless of mode) —
+    // matching the platform guard in runRoadmapInstallHook.
+    if (process.platform !== 'win32') {
+      expect(fs.statSync(first.value.hookPath).mode & 0o111).not.toBe(0);
+    }
 
     const second = await runRoadmapInstallHook({ cwd });
     expect(second.ok).toBe(true);
