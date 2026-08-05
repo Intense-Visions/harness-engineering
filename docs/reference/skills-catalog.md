@@ -227,7 +227,7 @@ LLM-judgment critique of code quality / readability (TS/JS source) — the ceili
 - **Platforms:** claude-code
 - **Type:** rigid
 - **Cognitive mode:** constructive-architect
-- **Depends on:** harness-cleanup-dead-code, harness-enforce-architecture, harness-naming-craft
+- **Depends on:** cleanup-dead-code, enforce-architecture, naming-craft
 
 ### copy-craft
 
