@@ -2,6 +2,7 @@ import * as fs from 'fs';
 import * as path from 'path';
 import * as os from 'os';
 import * as crypto from 'crypto';
+import { spawn } from 'child_process';
 import { isUpdateCheckEnabled } from '@harness-engineering/core';
 import type { SkillSource } from './lockfile';
 
@@ -137,4 +138,78 @@ export function getFreshnessNotification(): string | null {
   const noun = n === 1 ? 'provider' : 'providers';
   const verb = n === 1 ? 'has' : 'have';
   return `${n} skill ${noun} ${verb} updates — run \`harness skill update\``;
+}
+
+// ---------------------------------------------------------------------------
+// Background probe
+// ---------------------------------------------------------------------------
+
+/**
+ * Spawns a detached, unref-ed Node process that reads the given lockfile(s)
+ * and, per freshness-eligible entry:
+ *   github -> `git ls-remote <https-url> <ref>`  (outdated = upstream SHA !== source.commit)
+ *   npm    -> `npm view <pkg> version` (honoring source.registry) (outdated = latest !== version)
+ * then writes ~/.harness/skill-freshness.json atomically (tmp-file + rename).
+ *
+ * The inline script is fully self-contained: it must handle every error
+ * internally so the user never sees a failure. Uses execFileSync (argument
+ * arrays) so lockfile-sourced owner/repo/package/registry strings are never
+ * shell-interpolated. Skips entries with no source, kind 'local', or an
+ * unrecognized kind. Matches the structure of core/update-checker.ts.
+ */
+export function spawnBackgroundFreshnessCheck(lockfilePaths: string[]): void {
+  const statePath = getStatePath();
+  const stateDir = path.dirname(statePath);
+
+  const script = `
+const { execFileSync } = require('child_process');
+const fs = require('fs');
+const path = require('path');
+const crypto = require('crypto');
+try {
+  const lockfilePaths = ${JSON.stringify(lockfilePaths)};
+  const statePath = ${JSON.stringify(statePath)};
+  const stateDir = ${JSON.stringify(stateDir)};
+  const providers = [];
+  for (const lp of lockfilePaths) {
+    let parsed;
+    try { parsed = JSON.parse(fs.readFileSync(lp, 'utf-8')); } catch (_) { continue; }
+    const skills = parsed && parsed.skills ? parsed.skills : {};
+    for (const name of Object.keys(skills)) {
+      const entry = skills[name];
+      const source = entry && entry.source;
+      if (!source || !source.kind) continue;
+      try {
+        if (source.kind === 'github') {
+          const url = 'https://github.com/' + source.owner + '/' + source.repo + '.git';
+          const ref = source.ref || 'HEAD';
+          const out = execFileSync('git', ['ls-remote', url, ref], { encoding: 'utf-8', timeout: 15000, stdio: ['ignore', 'pipe', 'ignore'] }).trim();
+          const sha = out ? out.split(/\\s+/)[0] : null;
+          if (sha) providers.push({ name: name, kind: 'github', current: source.commit, latest: sha, outdated: sha !== source.commit });
+        } else if (source.kind === 'npm') {
+          const args = ['view', source.package, 'version'];
+          if (source.registry) { args.push('--registry', source.registry); }
+          const latest = execFileSync('npm', args, { encoding: 'utf-8', timeout: 15000, stdio: ['ignore', 'pipe', 'ignore'] }).trim();
+          if (latest) providers.push({ name: name, kind: 'npm', current: entry.version, latest: latest, outdated: latest !== entry.version });
+        }
+        // local / unrecognized kinds are skipped
+      } catch (_) { /* per-provider probe failure -> skip */ }
+    }
+  }
+  fs.mkdirSync(stateDir, { recursive: true });
+  const tmpFile = path.join(stateDir, '.skill-freshness-' + crypto.randomBytes(4).toString('hex') + '.tmp');
+  fs.writeFileSync(tmpFile, JSON.stringify({ lastCheckTime: Date.now(), providers: providers }), { mode: 0o644 });
+  fs.renameSync(tmpFile, statePath);
+} catch (_) {}
+`.trim();
+
+  try {
+    const child = spawn(process.execPath, ['-e', script], {
+      detached: true,
+      stdio: 'ignore',
+    });
+    child.unref();
+  } catch {
+    // spawn() itself can throw (e.g. ENOENT). Swallow silently.
+  }
 }

@@ -1,7 +1,15 @@
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import * as fs from 'fs';
 import * as os from 'os';
 import * as path from 'path';
+
+const mockUnref = vi.fn();
+const mockSpawn = vi.fn().mockReturnValue({ unref: mockUnref, pid: 4321 });
+vi.mock('child_process', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('child_process')>();
+  return { ...actual, spawn: (...args: unknown[]) => mockSpawn(...args) };
+});
+
 import {
   readFreshnessState,
   writeFreshnessState,
@@ -9,6 +17,7 @@ import {
   shouldRunFreshnessCheck,
   evaluateEntry,
   getFreshnessNotification,
+  spawnBackgroundFreshnessCheck,
   type FreshnessState,
   type FreshnessProvider,
 } from '../../src/registry/freshness-checker';
@@ -158,5 +167,32 @@ describe('getFreshnessNotification', () => {
       { name: 'b', kind: 'github', current: 'x', latest: 'y', outdated: true },
     ]);
     expect(getFreshnessNotification()).toBe('2 skill providers have updates — run `harness skill update`');
+  });
+});
+
+describe('spawnBackgroundFreshnessCheck', () => {
+  beforeEach(() => {
+    mockSpawn.mockClear();
+    mockUnref.mockClear();
+    mockSpawn.mockReturnValue({ unref: mockUnref, pid: 4321 });
+  });
+
+  it('spawns a detached, unref-ed process with stdio ignored', () => {
+    spawnBackgroundFreshnessCheck(['/some/skills-lock.json']);
+    expect(mockSpawn).toHaveBeenCalledTimes(1);
+    const [cmd, args, opts] = mockSpawn.mock.calls[0] as [string, string[], Record<string, unknown>];
+    expect(cmd).toBe(process.execPath);
+    expect(args[0]).toBe('-e');
+    expect(typeof args[1]).toBe('string');
+    expect(args[1]).toContain('/some/skills-lock.json'); // lockfile paths embedded
+    expect(opts).toMatchObject({ detached: true, stdio: 'ignore' });
+    expect(mockUnref).toHaveBeenCalledTimes(1);
+  });
+
+  it('swallows spawn() throwing', () => {
+    mockSpawn.mockImplementationOnce(() => {
+      throw new Error('ENOENT');
+    });
+    expect(() => spawnBackgroundFreshnessCheck(['/x'])).not.toThrow();
   });
 });
