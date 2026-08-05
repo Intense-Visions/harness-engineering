@@ -106,6 +106,15 @@ Mechanically audit this project's harness setup against the 7 strength patterns
 - `--adopter` — Force adopter mode
 - `--report-only` — Always exit 0 regardless of findings
 
+### `harness check-operational-drift`
+
+Flag operational-policy changes (hooks, thresholds, --skip list) that lack a corresponding ADR
+
+**Options:**
+
+- `--base` — Base git ref to diff against (default: merge-base with default branch)
+- `--strict` — Treat a missing ADR as blocking (non-zero exit), overriding config
+
 ### `harness check-perf`
 
 Run performance checks: structural complexity, coupling, and size budgets
@@ -664,6 +673,26 @@ Run an agent task
 - `--timeout` — Timeout in milliseconds (default: "300000")
 - `--persona` — Run a persona by name
 - `--trigger` — Trigger context (auto, on_pr, on_commit, manual) (default: "auto")
+
+## Black-box Commands
+
+Inspect durable per-run orchestrator flight records (provenance, verdicts, tool-use)
+
+### `harness black-box list`
+
+List recorded runs, newest first
+
+**Options:**
+
+- `--dir` — Black-box directory (default: ".harness/black-box")
+
+### `harness black-box show <runId>`
+
+Show provenance, verdicts, convergence, and tool-use for a run
+
+**Options:**
+
+- `--dir` — Black-box directory (default: ".harness/black-box")
 
 ## Ci Commands
 
