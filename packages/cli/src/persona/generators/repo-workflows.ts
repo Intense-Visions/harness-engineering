@@ -152,7 +152,7 @@ export function renderPersonaWorkflowFile(
           '# Drift guard:  npx harness persona sync-workflows --check',
         ];
   const blockingNote = options.advisory
-    ? "# Advisory (continue-on-error): honors the persona's declared triggers at the"
+    ? "# Advisory (warn-not-fail): a finding is surfaced as a ::warning:: but the check stays green. Honors the persona's declared triggers at the"
     : "# Honors the persona's declared triggers at the";
   const header = [
     '# GENERATED FILE — do not edit by hand.',

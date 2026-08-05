@@ -122,7 +122,10 @@ describe('renderPersonaWorkflowFile', () => {
     expect(rendered.ok).toBe(true);
     if (!rendered.ok) return;
     expect(rendered.value).toContain('# GENERATED FILE — do not edit by hand.');
-    expect(rendered.value).toContain('continue-on-error: true');
+    // Advisory wraps command steps to warn-not-fail (green check), not a
+    // job-level continue-on-error.
+    expect(rendered.value).not.toContain('continue-on-error: true');
+    expect(rendered.value).toContain('::warning::advisory persona check');
     expect(rendered.value).toContain('node packages/cli/dist/bin/harness.js validate');
     expect(rendered.value).toContain('pnpm build');
     // Dogfood header points at the repo's own pnpm scripts.

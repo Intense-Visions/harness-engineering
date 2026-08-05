@@ -169,11 +169,27 @@ describe('generateCIWorkflow (options)', () => {
     expect(cmds.some((r) => r.includes('check-perf --severity'))).toBe(false);
   });
 
-  it('advisory adds continue-on-error to the job', () => {
+  it('advisory wraps command steps to warn-not-fail (green check, no continue-on-error)', () => {
     const result = generateCIWorkflow(mockPersona, 'github', { advisory: true });
     if (!result.ok) return;
     const workflow = YAML.parse(result.value);
-    expect(workflow.jobs.enforce['continue-on-error']).toBe(true);
+    // No job-level continue-on-error — the job passes green instead of showing
+    // a tolerated-red.
+    expect(workflow.jobs.enforce['continue-on-error']).toBeUndefined();
+    const runSteps = (workflow.jobs.enforce.steps as { run?: string }[])
+      .map((s) => s.run)
+      .filter((r): r is string => typeof r === 'string' && r.includes('harness'));
+    // Every command step is wrapped so a finding warns but never fails the step.
+    expect(runSteps.length).toBeGreaterThan(0);
+    for (const r of runSteps) {
+      expect(r).toContain('|| echo "::warning::advisory persona check');
+    }
+  });
+
+  it('non-advisory command steps are NOT wrapped (blocking gate)', () => {
+    const result = generateCIWorkflow(mockPersona, 'github', { advisory: false });
+    if (!result.ok) return;
+    expect(result.value).not.toContain('::warning::');
   });
 
   it('sets least-privilege read-only permissions', () => {

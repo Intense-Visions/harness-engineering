@@ -92,9 +92,12 @@ export interface CIWorkflowOptions {
    */
   runner?: 'npx' | 'workspace';
   /**
-   * When true, the job runs under `continue-on-error: true` so a finding is
-   * surfaced in the log without failing the check. Mirrors how blocking gates
-   * are introduced non-blocking first.
+   * When true, each command step is wrapped so a finding is surfaced as a
+   * GitHub `::warning::` annotation (and in the log) but never fails the step —
+   * the check reads green-with-warnings rather than red. Persona commands exit
+   * non-zero on any finding, so without this an advisory persona would show red
+   * on every PR. Mirrors how blocking gates are introduced non-blocking first;
+   * promoting a persona to a blocking gate means generating without `advisory`.
    */
   advisory?: boolean;
 }
@@ -169,12 +172,22 @@ export function generateCIWorkflow(
 
     const invoke = runner === 'workspace' ? 'node packages/cli/dist/bin/harness.js' : 'npx harness';
     for (const step of commandSteps) {
-      steps.push({ run: `${invoke} ${step.command}${severityFlagFor(step.command, severity)}` });
+      const cmd = `${invoke} ${step.command}${severityFlagFor(step.command, severity)}`;
+      if (options.advisory) {
+        // Advisory: surface findings as a GitHub warning annotation but do NOT
+        // fail the step, so the check reads green-with-warnings instead of a
+        // perennial red on every PR (the persona commands legitimately exit
+        // non-zero whenever they find something). The command's full output
+        // still lands in the job log. A blocking gate would drop the `|| :`.
+        steps.push({
+          run: `${cmd} || echo "::warning::advisory persona check '${step.command}' reported findings (non-blocking)"`,
+        });
+      } else {
+        steps.push({ run: cmd });
+      }
     }
 
     const job: Record<string, unknown> = { 'runs-on': 'ubuntu-latest' };
-    // Non-blocking: a finding is reported in the log but never flips the check.
-    if (options.advisory) job['continue-on-error'] = true;
     job.steps = steps;
 
     const workflow: Record<string, unknown> = {
