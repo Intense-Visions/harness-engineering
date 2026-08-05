@@ -413,7 +413,7 @@ last_manual_edit: 2026-06-27T12:51:51.967Z
 
 ### Promote 5 domain skills from advisory to load-bearing checks
 
-- **Status:** planned
+- **Status:** done
 - **Spec:** docs/changes/domain-skills-load-bearing/proposal.md
 - **Summary:** Five domain skills have genuine domain-specific assertions but are currently prose-only advisories. Wire them as load-bearing checks invoked by their parent harness skill: `api-idempotency-keys` → `harness-api-design`; `owasp-injection-prevention`, `owasp-csrf-protection`, `owasp-rate-limiting` → `harness-security-scan`; `a11y-aria-patterns` → `harness-accessibility`. Each is roughly one week of work to convert from advisory prose to a mechanical check. Source: Pass 4 action 3.
 - **Blockers:** —
@@ -528,7 +528,7 @@ last_manual_edit: 2026-06-27T12:51:51.967Z
 ### Pin MCP server version in plugin install + document trust model
 
 - **Status:** planned
-- **Spec:** [docs/changes/pin-mcp-version-trust-model/proposal.md](../changes/pin-mcp-version-trust-model/proposal.md)
+- **Spec:** —
 - **Summary:** `.claude-plugin/plugin.json:14-16` — `mcpServers.harness.command: "npx -y -p @harness-engineering/cli@latest harness-mcp"`. Every Claude Code session pulls the latest npm publish (subject to npx's ~24h cache). No version pinning by default. A compromised publish propagates to every active adopter within a day. Pin to a specific version; update via plugin update flow. Add `docs/security/trust-model.md` explaining what an adopter trusts when installing each marketplace plugin and how to verify integrity. Source: Pass 6 #4 + #6.
 - **Blockers:** —
 - **Plan:** —
