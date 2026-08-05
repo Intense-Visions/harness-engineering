@@ -93,6 +93,7 @@ export const TOOL_CAPABILITY_DECLARATIONS: Readonly<Record<string, ToolCapabilit
   security_craft: { scopes: ['read'] }, // AST critique; "child_process" match was a rubric string
   docs_craft: { scopes: ['read'] },
   code_craft: { scopes: ['read'] }, // per-unit AST critique; returns findings, not persisted
+  cli_ergonomics_craft: { scopes: ['read'] },
   acceptance_eval: { scopes: ['read'] }, // advisory verdict; not persisted
   validate_strategy: { scopes: ['read'] },
   read_strategy: { scopes: ['read'] },

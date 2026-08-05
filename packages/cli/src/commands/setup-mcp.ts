@@ -157,6 +157,8 @@ export const ALL_MCP_TOOLS: string[] = [
   'docs_craft',
   // craft-pipeline — code-craft LLM-judgment ceiling skill (code readability, per-unit critique)
   'code_craft',
+  // craft-pipeline — cli-ergonomics-craft LLM-judgment ceiling skill (CLI quality)
+  'cli_ergonomics_craft',
   // outcome-eval — post-execution spec-satisfaction verdict (tiered confidence→authority)
   'outcome_eval',
   // acceptance-eval — pre-execution acceptance-criteria measurability verdict (upstream twin of outcome_eval)

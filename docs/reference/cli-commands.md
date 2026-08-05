@@ -170,6 +170,17 @@ Remove stale entries from .harness/. Default: only .harness/sessions/ (no write 
 - `--include` — Comma-separated target names (mutually-exclusive with --exclude/--all)
 - `--exclude` — Comma-separated target names to skip
 
+### `harness cli-ergonomics-craft`
+
+LLM-judgment critique of CLI ergonomics quality — the ceiling questions a mechanical check cannot ask. 7 seed rubrics (names-are-predictable, help-is-task-oriented, errors-are-actionable, defaults-are-sane, output-is-scannable, composes-with-other-tools, destructive-actions-are-guarded). Critiques a project’s own command definitions per file.
+
+**Options:**
+
+- `-f, --files` — Optional file scope (overrides command discovery)
+- `--commands-dir` — Directory of command definitions to critique
+- `--exclude-dirs` — Additional subdir names to skip while walking
+- `--max-files` — Cap command count (default: 60)
+
 ### `harness code-craft`
 
 LLM-judgment critique of code quality / readability — the ceiling counterpart to the rule-based code floor (entropy-cleaner / enforce-architecture / complexity thresholds). 7 seed rubrics (reveals-intent, control-flow-honest, one-story-one-altitude, abstraction-earns-keep, simplest-it-could-be, signature-keeps-promise, senior-nods-not-winces). Per-unit critique of functions, methods, and classes. Identifier-level naming is delegated to naming-craft.
