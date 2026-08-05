@@ -28,6 +28,14 @@ import { runAudit as runComponentAnatomyAudit } from '../mcp/tools/audit-anatomy
 import { runDetectDrift } from '../mcp/tools/detect-drift';
 import { runAuditBrand } from '../mcp/tools/audit-brand';
 
+type ValidateSeverity = 'error' | 'warning' | 'info';
+
+const SEVERITY_RANK: Record<ValidateSeverity, number> = {
+  error: 3,
+  warning: 2,
+  info: 1,
+};
+
 interface ValidateOptions {
   cwd?: string;
   configPath?: string;
@@ -37,6 +45,15 @@ interface ValidateOptions {
   agentConfigs?: boolean;
   strict?: boolean;
   agnixBin?: string;
+  /**
+   * Minimum severity that fails the command. When set, aggregated findings
+   * below the threshold are excluded from BOTH the report and the pass/fail
+   * verdict — the same contract as `check-security --severity`. When omitted,
+   * behavior is unchanged: every finding is reported and the verdict fails on
+   * the hard checks (which carry no explicit severity and are treated as
+   * error-level) and on error-severity findings, while warnings never fail.
+   */
+  severity?: ValidateSeverity;
 }
 
 interface ValidateResult {
@@ -459,6 +476,24 @@ export async function runValidate(
     }
   }
 
+  // `--severity` (when provided) bounds BOTH the reported findings and the
+  // pass/fail verdict, mirroring `check-security`: validation fails only when a
+  // finding at or above the requested threshold exists, and findings below it are
+  // excluded from the report and never fail the gate. When the flag is OMITTED,
+  // behavior is unchanged — the per-check `result.valid` accumulated above (hard
+  // checks and error-severity findings fail; warnings are reported but never
+  // flip the verdict) stands as-is. Several hard checks (agentsMap, knowledgeMap,
+  // pulseConfig, solutionsDir) push findings with no explicit severity; they are
+  // hard failures, so they rank as error-level for threshold comparison.
+  if (options.severity) {
+    const thresholdRank = SEVERITY_RANK[options.severity];
+    const filtered = result.issues.filter(
+      (issue) => SEVERITY_RANK[issue.severity ?? 'error'] >= thresholdRank
+    );
+    result.issues = filtered;
+    result.valid = filtered.length === 0;
+  }
+
   return Ok(result);
 }
 
@@ -495,6 +530,17 @@ export function createValidateCommand(): Command {
     )
     .option('--strict', 'Treat warnings as errors (applies to --agent-configs)')
     .option('--agnix-bin <path>', 'Override the agnix binary path discovered on PATH')
+    .option(
+      '--severity <level>',
+      'Minimum severity that fails the command; when set, findings below it are excluded from the report and never fail the gate (error, warning, info)'
+    )
+    .hook('preAction', (thisCommand) => {
+      const severity = thisCommand.opts().severity;
+      if (severity !== undefined && !['error', 'warning', 'info'].includes(severity)) {
+        logger.error(`Invalid severity: "${severity}". Must be one of: error, warning, info`);
+        process.exit(ExitCode.ERROR);
+      }
+    })
     .action(async (opts, cmd) => runValidateAction(opts, cmd.optsWithGlobals()));
   return command;
 }
@@ -514,6 +560,7 @@ async function runValidateAction(
     agentConfigs: opts.agentConfigs === true,
     strict: opts.strict === true,
     ...(typeof opts.agnixBin === 'string' && { agnixBin: opts.agnixBin }),
+    ...(typeof opts.severity === 'string' && { severity: opts.severity as ValidateSeverity }),
   });
 
   if (!result.ok) {
