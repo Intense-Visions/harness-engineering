@@ -13,6 +13,7 @@ import type {
   RoadmapMeta,
 } from './roadmap-store';
 import type { FileIO } from './monolith-store';
+import { slugifyFeatureName } from './monolith-store';
 import { parseShard, serializeShard } from './shard';
 import { parseMeta, serializeMeta } from './meta';
 import { assembleRoadmap } from './assembler';
@@ -136,18 +137,56 @@ export class ShardStore implements RoadmapStore {
     return Ok(assembleRoadmap(read.value.shards, read.value.meta));
   }
 
-  async patchFeature(slug: string, mutate: FeatureMutation): Promise<Result<void>> {
-    const path = joinPath(this.shardDir, `${slug}.md`);
-    let content: string;
+  /**
+   * Resolve the on-disk shard addressed by a diff-supplied `slug`. `applyRoadmapDiff`
+   * computes the slug as `slugifyFeatureName(feature.name)`, but a shard's real file
+   * identity is its frontmatter `slug` — frequently a hand-shortened / length-truncated
+   * form of the title, so the two diverge for many rows (#1036). Try the direct
+   * `{slug}.md` first (the common case where they match); on a miss, scan the shard dir
+   * for the shard whose feature name slugifies to `slug` and address it by its real
+   * frontmatter slug. Returns the resolved path + parsed shard, or `Err` when no shard
+   * matches (a genuinely absent row) or the directory/shard fails to read/parse.
+   *
+   * Prior to this the slug mismatch surfaced as an ENOENT that aborted the whole
+   * writeback batch — silently dropping every external-ID backfill and, worst case,
+   * re-creating a duplicate tracker issue on the next run.
+   */
+  private async resolveShard(slug: string): Promise<Result<{ path: string; shard: Shard }>> {
+    const direct = joinPath(this.shardDir, `${slug}.md`);
+    let directContent: string | null = null;
     try {
-      content = await this.io.readFile(path);
-    } catch (err) {
-      return Err(new Error(`patchFeature: shard "${slug}" not found: ${(err as Error).message}`));
+      directContent = await this.io.readFile(direct);
+    } catch {
+      // Not addressable by the diff slug as a filename — fall through to the
+      // name-slug scan below (the title-slug ≠ frontmatter-slug case, #1036).
     }
-    const parsed = parseShard(content);
-    if (!parsed.ok) return parsed;
+    if (directContent !== null) {
+      const parsed = parseShard(directContent);
+      if (!parsed.ok) return parsed;
+      return Ok({ path: direct, shard: parsed.value });
+    }
 
-    const updated: Shard = { ...parsed.value, feature: mutate(parsed.value.feature) };
+    const read = await readShardDir(this.shardDir, this.io);
+    if (!read.ok) return read;
+    for (const shard of read.value.shards) {
+      if (slugifyFeatureName(shard.feature.name) === slug) {
+        return Ok({ path: joinPath(this.shardDir, `${shard.slug}.md`), shard });
+      }
+    }
+    return Err(
+      new Error(
+        `shard "${slug}" not found: no file named "${slug}.md" and no row whose name ` +
+          `slugifies to it in ${this.shardDir}`
+      )
+    );
+  }
+
+  async patchFeature(slug: string, mutate: FeatureMutation): Promise<Result<void>> {
+    const resolved = await this.resolveShard(slug);
+    if (!resolved.ok) return Err(new Error(`patchFeature: ${resolved.error.message}`));
+    const { path, shard } = resolved.value;
+
+    const updated: Shard = { ...shard, feature: mutate(shard.feature) };
     return this.writeShard(path, updated);
   }
 
@@ -173,11 +212,16 @@ export class ShardStore implements RoadmapStore {
   }
 
   async removeFeature(slug: string): Promise<Result<void>> {
-    const path = joinPath(this.shardDir, `${slug}.md`);
+    // Resolve the real file first so a title-slug ≠ frontmatter-slug row (#1036)
+    // deletes the correct shard instead of ENOENT-ing on the diff slug.
+    const resolved = await this.resolveShard(slug);
+    if (!resolved.ok) return Err(new Error(`removeFeature: ${resolved.error.message}`));
     try {
-      await this.io.deleteFile(path);
+      await this.io.deleteFile(resolved.value.path);
     } catch (err) {
-      return Err(new Error(`removeFeature: shard "${slug}" not found: ${(err as Error).message}`));
+      return Err(
+        new Error(`removeFeature: failed to delete shard "${slug}": ${(err as Error).message}`)
+      );
     }
     return Ok(undefined);
   }
@@ -209,6 +253,35 @@ export class ShardStore implements RoadmapStore {
     const parsed = parseMeta(content);
     if (!parsed.ok) return parsed;
     const updated = { ...parsed.value, assignmentHistory: history };
+    try {
+      await this.io.writeFile(metaPath, serializeMeta(updated));
+    } catch (err) {
+      return Err(new Error(`Failed to write ${metaPath}: ${(err as Error).message}`));
+    }
+    return Ok(undefined);
+  }
+
+  // `lastSynced` is roadmap-level and lives in `_meta.md` in sharded mode (the
+  // aggregate's frontmatter is regenerated from it), so — unlike `patchFrontmatter`,
+  // which no-ops here to keep per-feature writes off `_meta` — stamping it must
+  // genuinely rewrite `_meta.md`. No feature shard is touched, so ordinary status
+  // edits still stay off this path (#1037).
+  async stampLastSynced(timestamp: string): Promise<Result<void>> {
+    const metaPath = joinPath(this.shardDir, META_FILE);
+    let content: string;
+    try {
+      content = await this.io.readFile(metaPath);
+    } catch (err) {
+      return Err(
+        new Error(`Failed to read ${META_FILE} in ${this.shardDir}: ${(err as Error).message}`)
+      );
+    }
+    const parsed = parseMeta(content);
+    if (!parsed.ok) return parsed;
+    const updated: RoadmapMeta = {
+      ...parsed.value,
+      frontmatter: { ...parsed.value.frontmatter, lastSynced: timestamp },
+    };
     try {
       await this.io.writeFile(metaPath, serializeMeta(updated));
     } catch (err) {

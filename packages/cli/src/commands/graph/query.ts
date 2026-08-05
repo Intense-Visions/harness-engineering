@@ -12,9 +12,9 @@ export async function runQuery(
   rootNodeId: string,
   opts: { depth?: number; types?: string; edges?: string; bidirectional?: boolean }
 ): Promise<ContextQLResult> {
-  const { GraphStore, ContextQL } = await import('@harness-engineering/graph');
+  const { GraphStore, ContextQL, resolveGraphDir } = await import('@harness-engineering/graph');
   const store = new GraphStore();
-  const graphDir = path.join(projectPath, '.harness', 'graph');
+  const graphDir = resolveGraphDir(projectPath);
   const loaded = await store.load(graphDir);
   if (!loaded) throw new Error('No graph found. Run `harness graph scan` first.');
 

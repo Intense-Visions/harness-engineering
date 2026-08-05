@@ -15,6 +15,12 @@ export interface TemplateContext {
   pythonMinVersion?: string;
   javaGroupId?: string;
   rustEdition?: string;
+  // Named-template variables (currently the ci-pre-merge-brief workflow). The
+  // engine compiles Handlebars in strict mode, so any template that references
+  // these must have them supplied by the caller (see commands/init.ts).
+  runner?: string;
+  blockOn?: string;
+  baseBranch?: string;
 }
 
 interface TemplateFile {
@@ -207,14 +213,38 @@ export class TemplateEngine {
       return Err(new Error('Level is required for TypeScript/JavaScript templates'));
     }
 
+    // Primary: an adoption-level scaffold (template.json `level` === level).
     const levelDir = this.findTemplateDir(level, 'level');
-    if (!levelDir) return Err(new Error(`Template not found for level: ${level}`));
+    if (levelDir) return this.resolveTemplateDir(levelDir, level, framework);
 
-    const metaPath = path.join(levelDir, 'template.json');
+    // Named-template fallback: `harness init --template <name>` passes the
+    // template name in as `level`. When no adoption-level template matches, try
+    // resolving a standalone named template (e.g. `orchestrator`,
+    // `ci-pre-merge-brief`) by its `name`. It renders on its own — honoring an
+    // explicit `extends` if the template declares one, but never dragging in the
+    // basic-level scaffold. This is what makes `--template <name>` reachable.
+    const namedDir = this.findTemplateDir(level, 'name');
+    if (namedDir) return this.resolveTemplateDir(namedDir, level, framework);
+
+    return Err(new Error(`Template not found for level: ${level}`));
+  }
+
+  /**
+   * Resolve a single template directory into a ResolvedTemplate: its own files,
+   * optionally merged over the files of a declared `extends` base, then an
+   * optional framework overlay. Shared by the adoption-level path and the
+   * named-template (`--template <name>`) fallback in resolveTemplate.
+   */
+  private resolveTemplateDir(
+    dir: string,
+    sourceName: string,
+    framework?: string
+  ): Result<ResolvedTemplate, Error> {
+    const metaPath = path.join(dir, 'template.json');
     const metaRaw = JSON.parse(fs.readFileSync(metaPath, 'utf-8'));
     const metaResult = TemplateMetadataSchema.safeParse(metaRaw);
     if (!metaResult.success)
-      return Err(new Error(`Invalid template.json in ${level}: ${metaResult.error.message}`));
+      return Err(new Error(`Invalid template.json in ${sourceName}: ${metaResult.error.message}`));
 
     const metadata = metaResult.data;
     let files: TemplateFile[] = [];
@@ -224,8 +254,8 @@ export class TemplateEngine {
       if (fs.existsSync(baseDir)) files = this.collectFiles(baseDir, metadata.extends);
     }
 
-    const levelFiles = this.collectFiles(levelDir, level);
-    files = this.mergeFileLists(files, levelFiles);
+    const ownFiles = this.collectFiles(dir, sourceName);
+    files = this.mergeFileLists(files, ownFiles);
 
     let overlayMetadata: TemplateMetadata | undefined;
     if (framework) {

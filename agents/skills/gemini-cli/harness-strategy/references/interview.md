@@ -53,6 +53,23 @@ Three rules, each cited verbatim in the skill output when it fires (so the user 
 
 > Feature lists don't survive contact with reality. What's the **coherent action** these features are instances of? The features are downstream of the bet. State the bet, then the features become consequences ("we're betting on agent-orchestrated workflows, so dashboard/SSO/mobile fall out of that"), not the strategy itself.
 
+### Rule 4: Cross-answer contradiction detection
+
+**What it catches:** Answers that are each fine in isolation but contradict _each other_. The three rules above judge one answer at a time; this rule judges the collected answers as a set. It runs after enough sections are answered (in interactive mode, before the final assemble; in question-file mode, after read-back).
+
+| Detection signal                                                       | Example trigger                                                                |
+| ---------------------------------------------------------------------- | ------------------------------------------------------------------------------ |
+| A `Key metrics` bullet the `Our approach` bet cannot plausibly produce | approach bets on async workflows, but a metric measures live-session latency   |
+| A `Tracks` entry that contradicts the stated `Our approach`            | approach says "no net-new surfaces this cycle" but a track ships a new surface |
+| `Who it's for` names a persona the `Our approach` does not serve       | persona is "non-technical admin" but the approach ships a CLI-only workflow    |
+| Any two sections that assert mutually exclusive constraints            | `Not working on` excludes X, but a `Track` invests in X                        |
+
+**Repair script:**
+
+> Those two answers point in different directions: _"<A>"_ and _"<B>"_. Which one holds? Strategy has to be internally coherent — reconcile them (revise one, or state why both are true) before we write.
+
+This rule is **surface-and-reconcile, not a gate**: quote both conflicting answers, ask the human to reconcile, and never auto-pick a side. It is bounded by the same 2-round cap. The full cross-skill definition (categories, file-mode behavior) lives in `references/question-file-mode.md`.
+
 ## The 2-Round Cap
 
 For every section, each rule fires at most twice:

@@ -29,7 +29,8 @@ function countByType<T extends { type: string }>(items: T[]): Record<string, num
 }
 
 async function readLastScanTimestamp(projectRoot: string): Promise<string | null> {
-  const metadataPath = path.join(projectRoot, '.harness', 'graph', 'metadata.json');
+  const { resolveGraphDir } = await import('@harness-engineering/graph');
+  const metadataPath = path.join(resolveGraphDir(projectRoot), 'metadata.json');
   try {
     const raw = JSON.parse(await fs.readFile(metadataPath, 'utf-8'));
     return raw.lastScanTimestamp ?? null;

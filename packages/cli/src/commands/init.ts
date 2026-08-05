@@ -130,6 +130,13 @@ async function scaffoldProject(
   const renderResult = engine.render(resolveResult.value, {
     projectName: name,
     level: level ?? '',
+    // Defaults for named-template variables (the ci-pre-merge-brief workflow).
+    // Handlebars compiles in strict mode, so these must be present for any
+    // template that references them; templates that don't simply ignore them.
+    // Adopters edit the rendered workflow to change runner/block-on/base branch.
+    runner: 'claude',
+    blockOn: 'request-changes',
+    baseBranch: 'main',
     ...(options.framework !== undefined && { framework: options.framework }),
     ...(language !== undefined && { language }),
   });

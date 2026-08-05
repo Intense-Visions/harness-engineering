@@ -1,0 +1,53 @@
+name: docs-craft
+version: "0.1.0"
+description: LLM-judgment critique of documentation quality — the ceiling counterpart to the rule-based doc floor (detect-doc-drift / check-docs / docs-pipeline, which enforce existence, link freshness, coverage). Asks whether a doc teaches, whether the order matches the reader's mental model, whether examples earn their place, whether the prose is alive, whether an API doc predicts the response shape, and whether a stranger walks away with the same understanding. Structural twin of harness-design-craft.
+stability: draft
+cognitive_mode: constructive-architect
+triggers:
+  - manual
+  - on_pr
+  - on_new_feature
+  - on_doc_check
+platforms:
+  - claude-code
+tools:
+  - Bash
+  - Read
+  - Glob
+  - Grep
+cli:
+  command: harness docs-craft
+  args:
+    - name: path
+      description: Project root path
+      required: false
+    - name: files
+      description: Optional file scope (overrides docs/ discovery)
+      required: false
+    - name: exclude-dirs
+      description: Extra subdir names to skip under docs/
+      required: false
+    - name: max-files
+      description: Cap doc count (default 60)
+      required: false
+mcp:
+  tool: docs_craft
+  input:
+    path: string
+type: rigid
+tier: 2
+phases:
+  - name: discover
+    description: Walk docs/ + root README; classify each doc; exclude sibling-owned + generated dirs
+    required: true
+  - name: critique
+    description: LLM-rubric loop per (doc, rubric) filtered by doc kind — 7 seed rubrics
+    required: true
+  - name: report
+    description: Aggregate findings + rubric/exemplar catalog + cost telemetry + doc counts
+    required: true
+state:
+  persistent: false
+depends_on:
+  - harness-docs-pipeline
+  - harness-design-craft

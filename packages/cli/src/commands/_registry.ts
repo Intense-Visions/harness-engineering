@@ -30,6 +30,7 @@ import { createCreateSkillCommand } from './create-skill';
 import { createCrossCheckCommand } from './cross-check';
 import { createDashboardCommand } from './dashboard';
 import { createDesignPipelineCommand } from './design-pipeline';
+import { createDocsCraftCommand } from './docs-craft';
 import { createDoctorCommand } from './doctor';
 import { createFixDriftCommand } from './fix-drift';
 import { createGatewayCommand } from './gateway';
@@ -126,6 +127,7 @@ export const commandCreators: Array<() => Command> = [
   createCrossCheckCommand,
   createDashboardCommand,
   createDesignPipelineCommand,
+  createDocsCraftCommand,
   createDoctorCommand,
   createFixDriftCommand,
   createGatewayCommand,

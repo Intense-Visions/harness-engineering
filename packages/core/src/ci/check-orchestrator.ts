@@ -21,7 +21,7 @@ import { SecurityScanner } from '../security/scanner';
 import { parseSecurityConfig } from '../security/config';
 import { TypeScriptParser } from '../shared/parsers';
 import { ArchConfigSchema, runAll as runArchCollectors } from '../architecture';
-import { GraphStore, queryTraceability } from '@harness-engineering/graph';
+import { GraphStore, queryTraceability, resolveGraphDir } from '@harness-engineering/graph';
 
 export interface RunCIChecksInput {
   projectRoot: string;
@@ -371,7 +371,7 @@ async function runTraceabilityCheck(
   const traceConfig = (config.traceability as Record<string, unknown>) || {};
   if (traceConfig.enabled === false) return issues;
 
-  const graphDir = path.join(projectRoot, '.harness', 'graph');
+  const graphDir = resolveGraphDir(projectRoot);
   const store = new GraphStore();
   const loaded = await store.load(graphDir);
   if (!loaded) {

@@ -203,5 +203,8 @@ function withAggregateRegen(
     // section stays fresh.
     patchAssignmentHistory: async (history: AssignmentRecord[]) =>
       regen(await base.patchAssignmentHistory(history)),
+    // Writes _meta.md in sharded mode (last_synced) → regenerate so the aggregate's
+    // frontmatter reflects the fresh stamp (#1037).
+    stampLastSynced: async (timestamp: string) => regen(await base.stampLastSynced(timestamp)),
   };
 }

@@ -1,0 +1,42 @@
+name: harness-offboarding
+version: "1.0.0"
+description: Offboard a departing developer from a harness-managed project
+stability: static
+cognitive_mode: advisory-guide
+triggers:
+  - manual
+platforms:
+  - claude-code
+  - gemini-cli
+  - cursor
+  - codex
+tools:
+  - Bash
+  - Read
+  - Glob
+  - Write
+cli:
+  command: harness skill run harness-offboarding
+  args:
+    - name: path
+      description: Project root path
+      required: false
+mcp:
+  tool: run_skill
+  input:
+    skill: harness-offboarding
+    path: string
+type: flexible
+tier: 1
+state:
+  persistent: false
+  files: []
+depends_on: []
+capabilities:
+  tools:
+    - Bash
+    - Read
+    - Glob
+    - Write
+  network: false
+  filesystem: read-write

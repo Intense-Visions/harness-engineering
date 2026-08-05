@@ -10,6 +10,7 @@
 
 import * as fs from 'node:fs';
 import * as path from 'node:path';
+import { resolveGraphDir } from '@harness-engineering/graph';
 import type { DesignPipelineContext } from '../context.js';
 
 export interface FreshenInput {
@@ -20,7 +21,7 @@ export interface FreshenInput {
 export function runFreshen(input: FreshenInput): void {
   const { projectRoot, context } = input;
 
-  context.graphAvailable = fs.existsSync(path.join(projectRoot, '.harness', 'graph'));
+  context.graphAvailable = fs.existsSync(path.join(resolveGraphDir(projectRoot), 'graph.json'));
 
   const designMdPath = path.join(projectRoot, 'design-system', 'DESIGN.md');
   const tokensJsonPath = path.join(projectRoot, 'design-system', 'tokens.json');

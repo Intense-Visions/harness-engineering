@@ -1,0 +1,69 @@
+# Rendered by `harness init` (ci-pre-merge-brief template).
+# The job name below ("pre-merge-brief") is the check name bound as REQUIRED
+# by pre-merge-brief.ruleset.json. Keep them identical.
+#
+# NOTE ON ESCAPING: GitHub Actions expressions ($\{{ ... }}) collide with the
+# Handlebars template engine under its strict compile mode, which provides no
+# raw/literal block helper. Each GH expression below therefore escapes the
+# opening braces per-line (a backslash before the mustache: $\{{ ... }}) so
+# Handlebars emits them verbatim (the rendered output is the literal
+# dollar-double-brace form GitHub Actions evaluates at runtime). A future editor
+# must NOT "fix" these by removing the backslash — that breaks the render.
+# Only the runner and blockOn mustaches are real template vars (substituted);
+# baseBranch is real too, but the diff range uses the RUNTIME github.base_ref.
+name: Pre-merge Brief
+
+on:
+  pull_request:
+    branches: ['{{baseBranch}}']
+
+# The brief upserts a single sticky senior-facing PR comment, so the job needs
+# pull-requests: write. review-ci itself only reads the diff.
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  pre-merge-brief:
+    name: pre-merge-brief
+    runs-on: ubuntu-latest
+    env:
+      # review-ci's heuristic floor runs regardless of runner. The LLM tier only
+      # activates when its secret is present, degrading gracefully otherwise.
+      ANTHROPIC_API_KEY: $\{{ secrets.ANTHROPIC_API_KEY }}
+      GEMINI_API_KEY: $\{{ secrets.GEMINI_API_KEY }}
+      OPENAI_API_KEY: $\{{ secrets.OPENAI_API_KEY }}
+      HARNESS_LOCAL_ENDPOINT: $\{{ secrets.HARNESS_LOCAL_ENDPOINT }}
+      HARNESS_LOCAL_MODEL: $\{{ secrets.HARNESS_LOCAL_MODEL }}
+      # The brief posts its sticky comment through the GitHub CLI.
+      GH_TOKEN: $\{{ secrets.GITHUB_TOKEN }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # Full history so the PR base branch is reachable for the diff range.
+          fetch-depth: 0
+      - name: Fetch PR base branch
+        # actions/checkout leaves origin/HEAD unresolved on pull_request events,
+        # which would make the diff range fall back to origin/main...HEAD (wrong or
+        # empty diff if the PR base is not main). Fetch the real base so the
+        # explicit origin/$\{{ github.base_ref }}...HEAD range below resolves.
+        run: git fetch origin $\{{ github.base_ref }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: npm install -g @harness-engineering/cli@latest
+      - name: Review the diff (feeds the brief's review section)
+        # continue-on-error: a blocking verdict must NOT fail the brief job. The
+        # brief is informational; gating on the verdict is the ci-required-review
+        # template's job. --out writes the verdict artifact the brief step reuses,
+        # so review runs once. The runner/block-on values are substituted; the GH
+        # expression is preserved verbatim (see escaping note at top of file).
+        continue-on-error: true
+        run: harness review-ci --runner {{runner}} --block-on {{blockOn}} --diff "origin/$\{{ github.base_ref }}...HEAD" --out /tmp/review.json
+      - name: Post the senior pre-merge brief
+        # Compose the brief (diff summary, review verdict, Signal status,
+        # outcome-eval, and a derived "Worth your eyes") and upsert it as a single
+        # sticky PR comment (upsert by hidden marker). Every section degrades
+        # independently, so a missing input renders "unavailable" and never fails
+        # the job. Reuses the review-ci artifact above (no second review run).
+        run: harness pre-merge-brief --from /tmp/review.json --diff "origin/$\{{ github.base_ref }}...HEAD" --comment
