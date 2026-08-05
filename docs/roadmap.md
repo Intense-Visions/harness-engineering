@@ -582,7 +582,7 @@ last_manual_edit: 2026-06-27T12:51:51.967Z
 
 ### Strip internal roadmap/PR references from shipped skills & artifacts
 
-- **Status:** planned
+- **Status:** done
 - **Spec:** docs/changes/shipped-skill-ref-hygiene/proposal.md
 - **Summary:** Shipped skills, slash commands, subagent defs, plugin bodies, and MCP tool description strings are distributed to adopter projects but leak harness-engineering-internal references (roadmap/PR/issue numbers, sub-project indices) meaningless to adopters. Genericize (not delete) so shipped text stays meaningful, regenerate distributed artifacts, add a grep/test guard so new leaks are caught. Internal linkage stays in specs/commits/PR bodies. Principle: shipped/rendered text = generic; code comments = internal-linkage OK.
 - **Blockers:** —
