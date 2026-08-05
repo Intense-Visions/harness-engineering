@@ -596,7 +596,7 @@ last_manual_edit: 2026-06-27T12:51:51.967Z
 ### Adopt the article's framing in docs/standard/principles.md
 
 - **Status:** planned
-- **Spec:** —
+- **Spec:** docs/standard/principles.md
 - **Summary:** `docs/standard/principles.md` opens with "Context Engineering" — an internal abstraction, not a binary test. The article's framing question ("if the senior disappears for two weeks, what holds?") appears nowhere in public-facing docs. Add a Principle #0 (or lift it to the top): "The harness is load-bearing. It catches when no human is watching." Use the article's vocabulary (load-bearing, gear, holiday test) in principles so adopters get the framing they came for. Source: Pass 3 #3.
 - **Blockers:** —
 - **Plan:** —
@@ -662,7 +662,7 @@ last_manual_edit: 2026-06-27T12:51:51.967Z
 ### Reframe principles.md around Why/What/How three-layer model
 
 - **Status:** planned
-- **Spec:** —
+- **Spec:** docs/standard/principles.md
 - **Summary:** "The Anatomy of an AI-Native Org" companion article structures AI-native orgs as three enduring layers: Why (strategic conviction, small), What (taste/judgement, growing — the "dominant middle"), How (architecture/trust-systems/harnesses, shrinking). The project's artifacts already map cleanly: STRATEGY.md = Why, specs in docs/changes/ + ADRs = What, code + skills + ESLint plugin = How. But `docs/standard/principles.md` opens with "Context Engineering" — an internal abstraction — and the Why/What/How vocabulary appears nowhere in public-facing docs (only coincidental matches in developer-quickstart table headers). Reframe `principles.md` so principle #0 names the three layers, maps the project's artifacts onto them, and explains that the harness is what makes each layer reliable. Adopters reading the article series land on this doc and immediately see "I know this framework." Source: Pass 8 (Anatomy of AI-Native Org companion article).
 - **Blockers:** —
 - **Plan:** —

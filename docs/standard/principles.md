@@ -1,10 +1,66 @@
-# The Seven Core Principles of Harness Engineering
+# The Core Principles of Harness Engineering
 
-This document provides a detailed explanation of each principle that defines Harness Engineering. Each principle addresses a specific challenge in building systems that AI agents can work with reliably.
+Harness Engineering is a systematic approach to building software that AI agents can work on reliably. This document explains each principle in depth — but it opens with the one idea the rest depend on, and then organizes everything else around a single model of how an AI-native team is shaped.
+
+Two essays by Ajey Gore frame this document:
+
+- **"The Solo Climb"** — Ajey Gore, 2026-05-27 — <https://ajeygore.in/content/the-solo-climb>
+- **"The Anatomy of an AI-Native Org"** — Ajey Gore, 2026-05-12 — <https://ajeygore.in/content/the-anatomy-of-an-ai-native-org>
+
+The first gives us Principle 0 — why the harness has to be load-bearing. The second gives us the structure — the **Why / What / How** layers this document is organized around.
 
 ---
 
-## 1. Context Engineering
+## Principle 0 — The harness is load-bearing. It catches when no human is watching.
+
+Before any of the principles below, one idea holds them up.
+
+In climbing, a harness is not decoration. It is the gear that catches you when you fall — and it earns its place precisely in the moment no one is holding the rope. Ajey Gore's **"The Solo Climb"** carries that image into software: as AI agents take over the bulk of execution, the team that used to catch you "is not on the wall." Safeguards that were once redundant — a reviewer here, a second pair of eyes there — become genuinely load-bearing for the first time.
+
+The test Gore proposes is blunt, and it is the test this standard is built to pass:
+
+> If the senior engineer goes on holiday for two weeks and the agents keep shipping, do you trust what comes out the other side?
+
+This is the **holiday test**. An agent opens a pull request late on a Friday while the senior engineer sleeps. There is no review meeting. There is no second pair of eyes. Either the harness stops the bad change, or nothing does.
+
+Which is why a harness has to _stop_, not merely warn:
+
+> A harness that warns but doesn't stop is not a harness. It's a notification.
+
+Every principle that follows exists to make one of the three layers of an AI-native team survive the holiday test — to turn warnings into gear that actually catches.
+
+---
+
+## The three layers: Why, What, How
+
+Gore's companion essay, **"The Anatomy of an AI-Native Org,"** describes how a team is shaped once agents do the bulk of the conversion work. It is not a pyramid of headcount; it is three layers of human judgment resting on a foundation of agents:
+
+- **Why** — a small, durable group defining strategic purpose. "The _why_ layer was always thin and is going to stay thin, because conviction doesn't scale linearly with headcount."
+- **What** — a _larger_ group than before defining what to build and what "good" looks like. Not product managers in the old sense, but "people who can sit between the _why_ and the agent ... and make the dozens of small calls per day about what 'good' looks like." This is the dominant middle: taste and judgment.
+- **How** — a _smaller_ group doing the hardest engineering. "Not ticket conversion. Architecture. Trust systems. Performance." Harnesses, evals, agent-safe architecture.
+- **Agents** — beneath all three, doing the bulk of the conversion work: "Writing the PR. Updating the doc. Filing the ticket. Drafting the release note."
+
+The harness is what makes each layer reliable. The Why layer stays thin only if its intent is captured somewhere agents can read it. The What layer can make dozens of calls a day only if "good" is defined and measurable. The How layer is load-bearing only if its constraints actually stop bad changes rather than narrate them.
+
+A harness-engineered repository already maps onto these layers:
+
+| Layer                                              | Where it lives in the repo                          | The principles that make it reliable                                                                       |
+| -------------------------------------------------- | --------------------------------------------------- | ---------------------------------------------------------------------------------------------------------- |
+| **Why** — strategic conviction (thin, durable)     | `STRATEGY.md`, core beliefs, architectural intent   | 1. Context Engineering                                                                                     |
+| **What** — judgment and taste (the growing middle) | specs, ADRs, definitions of "done", the review loop | 3. The Agent Feedback Loop · 5. Implementation Strategy (Depth-First) · 6. Key Performance Indicators      |
+| **How** — deep engineering (compressed, hardest)   | code, skills, linters, structural tests, CI gates   | 2. Architectural Rigidity & Mechanical Constraints · 4. Entropy Management · 7. Deterministic-vs-LLM Split |
+
+The seven principles below are unchanged in substance — this document groups them by the layer each one holds up. They keep their original numbers so existing references stay valid; read them in whatever order serves you.
+
+---
+
+## Why — strategic conviction
+
+The thinnest layer, and the most durable. Its job is to make the reasoning behind the system legible to everyone who touches it — including agents that were never in the room when the decisions were made. A thin Why layer only survives the holiday test if its intent is written down where an agent can find it.
+
+### 1. Context Engineering
+
+_Layer: Why — strategic conviction_
 
 ### What It Is
 
@@ -55,142 +111,427 @@ docs/
 
 A top-level file (~100 lines) that acts as a navigation guide for AI agents:
 
-```markdown
+````markdown
 # Knowledge Map
-
-## About This Project
-
-Brief description and links to core documents.
-
-## Core Beliefs
-
-- File: docs/core-beliefs.md
-
-## Architecture
-
-- Layers and dependencies: docs/architecture/layers.md
-- Design decisions: docs/architecture/decisions/
-
-## Implementation
-
-- How to build features: docs/guides/
-- Code examples: examples/
-
-## Agent Resources
-
-- Skills available: agents/skills/
-- How agents work: docs/agent-feedback-loop.md
-```
-
-Agents can read AGENTS.md first, understand the structure, then navigate to relevant documentation.
-
-#### Documentation Coverage
-
-Measure what percentage of your codebase is documented:
-
-- Documented: Code with corresponding design docs, README, or ADRs
-- Undocumented: Code without any architectural explanation
-- Goal: >90% coverage, with explicit exceptions for obvious code
-
-### Examples
-
-#### Example 1: API Design Decision
-
-Instead of context living in Slack:
-
-```
-[Slack conversation lost in 500+ messages]
-Engineer A: "Should we return error objects or status codes?"
-Engineer B: "Objects, they're easier to parse"
-Engineer A: "Cool"
-```
-
-Document in git:
-
-```markdown
-# ADR-042: Error Response Format
-
-## Context
-
-Our API needs to communicate errors to clients...
-
-## Decision
-
-Return error objects with code, message, and details fields.
-Rationale: Easier for clients to parse, extensible for future fields.
-
-## Implementation
-
-File: src/api/error-response.ts
-Tests: tests/api/error-response.test.ts
-```
-
-Now agents can read this decision and follow it consistently.
-
-#### Example 2: Layer Boundaries
-
-Slack/tribal knowledge:
-
-```
-"Yeah, services can't import from UI... I think?
-(Everyone has a different understanding)
-```
-
-Repository documentation:
-
-```
-# Architecture Layers
-
-## Dependency Model
-Types → Config → Repository → Service → UI
-
-One-way flow only. UI can import from Service.
-Service cannot import from UI.
-
-## Enforcement
-- ESLint rule: no-ui-imports-in-service
-- Structural tests verify dependencies at build time
-- Failed rule = CI fails, PR blocked
-
-## Exceptions
-None currently. If you need an exception, file an ADR.
-```
-
-Agents know exactly what's allowed and can be held to the same standards.
-
-### Implementation Checklist
-
-- [ ] Create `docs/core-beliefs.md` with product values and non-negotiables
-- [ ] Create `docs/architecture/layers.md` documenting your dependency model
-- [ ] Create `docs/architecture/decisions/` directory for ADRs
-- [ ] Create top-level `AGENTS.md` knowledge map
-- [ ] Document all major design decisions as ADRs
-- [ ] Ensure all package READMEs are comprehensive
-- [ ] Run `harness validate` to check documentation coverage
-
-### Token Budget Allocation
-
-When assembling context for a skill or workflow, allocate the available context window using these recommended proportions:
-
-| Category                             | Budget | Purpose                                                |
-| ------------------------------------ | ------ | ------------------------------------------------------ |
-| System prompt / skill instructions   | 15%    | Behavioral guidance, skill process, and constraints    |
-| Project manifest (AGENTS.md, config) | 5%     | Project structure, conventions, layer definitions      |
-| Task specification                   | 20%    | What to do — the spec, plan, or user request           |
-| Active code (under review/edit)      | 40%    | The primary work material — source files, diffs, tests |
-| Interfaces and type definitions      | 10%    | Structural context — types, schemas, API contracts     |
-| Reserve (agent reasoning)            | 10%    | Working memory for the agent's chain-of-thought        |
-
-**How to use these budgets:**
-
-- **These are guidelines, not hard limits.** Adjust based on task complexity. A review task needs more active code; a planning task needs more spec.
-- **When context overflows, summarize lower-priority categories first.** The priority order is: Active code > Task spec > Interfaces > Project manifest > System prompt (already compressed by design).
-- **Skills should declare which categories they consume.** A review skill consumes mainly Active code + Interfaces. A planning skill consumes mainly Task spec + Project manifest.
-- **Measure, don't guess.** If a skill consistently runs out of context, audit which categories are consuming more than their budget.
 
 ---
 
-## 2. Architectural Rigidity & Mechanical Constraints
+## What — judgment and taste
+
+The dominant middle. Agents can generate endlessly; this layer decides what is worth shipping, defines what "done" and "good" look like, and measures whether the system is actually producing it. These principles are how a growing group of people hold the context of what is being built and make the dozens of small calls a day that agents cannot make for themselves.
+
+### 3. The Agent Feedback Loop
+
+_Layer: What — judgment and taste_
+
+### What It Is
+
+**The Agent Feedback Loop** is a self-correcting cycle where agents execute work, review their own changes, request peer reviews, and iterate based on feedback. This reduces human review burden while catching issues early.
+
+Typical flow:
+
+1. Agent receives task
+2. Agent writes code, runs tests
+3. Agent creates PR with self-review checklist
+4. Agent (or peer agent) reviews the changes
+5. If issues found, agent fixes them; if approved, human reviewer checks
+6. Merge
+
+### Why It Matters
+
+Without feedback loops:
+
+- Every agent PR requires extensive human review (expensive)
+- Agents don't learn from mistakes; they repeat patterns
+- Simple issues (missing tests, lint errors) waste reviewer time
+- Agents have no visibility into whether their work failed or succeeded
+
+With feedback loops:
+
+- Agents catch 80% of issues before human review
+- Agents improve over time by learning from past reviews
+- Human review focuses on correctness and design, not lint errors
+- Agents understand their own performance through telemetry
+
+### Key Concepts
+
+#### Agent-Led PRs
+
+Agents open PRs themselves with:
+
+```markdown
+---
+
+### 5. Implementation Strategy (Depth-First)
+
+_Layer: What — judgment and taste_
+
+### What It Is
+
+**Depth-First Implementation** means completing features end-to-end (Design → Implementation → Testing → Deployment) before starting the next feature. The opposite is breadth-first, where you sketch many features shallowly.
+
+Depth-first approach:
+
+- Pick one story
+- Take it to 100% completion (design, code, tests, docs, deploy)
+- Learn from that vertical slice
+- Move to next story with lessons learned
+
+### Why It Matters
+
+For agent-driven development, breadth-first scaling creates problems:
+
+- Agents don't have clear examples of "done" (what does complete look like?)
+- Patterns aren't established (agents learn from partial examples)
+- Technical debt accumulates (incomplete features need rework)
+- Quality suffers (shallow implementation means missed edge cases)
+
+Depth-first approach provides:
+
+- Clear definition of complete (agents see full vertical slice)
+- Concrete patterns to follow (not abstract guidelines)
+- Stable foundation for next feature (completed code is reference)
+- Higher quality (edge cases caught during vertical slice)
+
+### Key Concepts
+
+#### The Vertical Slice
+
+A complete, shippable feature from design to deployment:
+
+1. **Design**: Write design doc explaining intent, trade-offs, alternatives
+2. **Implementation**: Write code following established patterns
+3. **Testing**: Comprehensive unit, integration, and e2e tests
+4. **Documentation**: Update guides, examples, AGENTS.md as needed
+5. **Deployment**: Release, monitor, verify in production
+6. **Reflection**: Document learnings for next vertical slice
+
+Example vertical slice: "Add email notifications to user signups"
+```
+````
+
+Day 1: Design
+
+- Write design doc: docs/design-docs/email-notifications.md
+- Specify: Service contract, retry logic, templates
+- Get approval from architecture team
+
+Days 2-3: Implementation
+
+- Create service: src/services/notifications/
+- Implement: Queue, retry logic, template rendering
+- Tests: 30+ unit tests covering edge cases
+
+Day 4: Testing & Docs
+
+- Add integration tests with mock email provider
+- Add e2e test: user signs up → email received
+- Update: docs/services/notifications.md, AGENTS.md
+
+Day 5: Deploy & Verify
+
+- Deploy to staging
+- Verify: Metrics, error rates, email delivery
+- Deploy to production
+- Monitor: First 24h of real data
+
+Day 6: Reflection
+
+- Document: What went well, what was hard
+- Patterns: How should other features do notifications?
+- Next: Use these learnings for next story
+
+```
+
+#### Building Abstractions from Concrete
+
+Each vertical slice teaches you how to do that type of work:
+
+```
+
+Slice 1: Add email notifications
+
+- Learn: How to queue async work
+- Learn: How to handle retries
+- Learn: How to template content
+
+Slice 2: Add SMS notifications
+
+- Don't: Copy email service and modify
+- Do: Extract common notification abstraction from learnings in Slice 1
+- Result: Both services use shared notification abstraction
+
+```
+
+Agents learn from concrete examples, not abstract interfaces. Depth-first ensures examples exist before abstraction.
+
+#### Definition of Done
+
+Each vertical slice must be:
+
+- ✓ Coded (implementation complete)
+- ✓ Tested (unit, integration, e2e tests passing)
+- ✓ Documented (design doc, implementation guide, examples)
+- ✓ Deployed (in production, not staging)
+- ✓ Verified (metrics show it's working correctly)
+- ✓ Reflected (learnings documented for next slice)
+
+Missing any of these = not done. Don't move to next feature.
+
+### Examples
+
+#### Example 1: Depth-First (Good)
+
+Feature: "Add user search to dashboard"
+
+```
+
+Week 1: Design & Implement
+
+- Write design: Query format, performance targets, edge cases
+- Implement: Search service, database queries, API endpoint
+- Test: 40 tests covering search behavior
+- Document: guides/search.md, examples/search-examples.md
+
+Week 2: Deploy & Learn
+
+- Deploy to production
+- Monitor: Query latency, index health, error rates
+- Gather metrics: 95th percentile latency = 200ms ✓
+- Document learnings: "Full-text search on postgres works well"
+
+Week 3: Next Feature (Informed)
+
+- Next feature: "Add filters to search results"
+- Build on learnings: Use same query pattern
+- Result: Faster implementation, better design
+
+Week 4: Polish
+
+- Next feature: "Add saved searches"
+- Use abstractions learned from search implementation
+- Result: High quality, consistent with existing patterns
+
+```
+
+Agents writing each feature have concrete examples and can see the full "done" state.
+
+#### Example 2: Breadth-First (Bad)
+
+Feature: "Add user dashboard"
+
+```
+
+Week 1: Sketch 5 features
+
+- User search: Sketch endpoint, not tested
+- Saved searches: Sketch schema, not implemented
+- Analytics: Sketch query, not integrated
+- Filters: Sketch UI, not connected
+- Export: List as TODO
+
+Week 2: Implement Search Partially
+
+- Missing tests for edge cases
+- Design doc wasn't updated
+- Incomplete; moved to next feature
+
+Week 3: Try Filters (without learning from search)
+
+- Implementation style differs from search
+- Tests less comprehensive
+- Pattern inconsistency emerging
+
+Result:
+
+- Agents see incomplete examples
+- No clear "done" state
+- Each feature implemented differently
+- Technical debt accumulating
+
+```
+
+Agents don't have clear patterns to follow. Quality suffers.
+
+### Implementation Checklist
+
+- [ ] Create feature selection process (prioritize by impact × effort)
+- [ ] Define "Definition of Done" for your team
+- [ ] Require design doc before implementation
+- [ ] Require comprehensive tests (target >80% coverage)
+- [ ] Require updated documentation for each feature
+- [ ] Block PRs that don't meet DoD
+- [ ] Track: Time per vertical slice, quality metrics
+- [ ] Reflect: Lessons learned from each slice
+- [ ] Share: Patterns with team/agents for next slice
+
+---
+
+### 6. Key Performance Indicators
+
+_Layer: What — judgment and taste_
+
+
+### What Are KPIs?
+
+KPIs (Key Performance Indicators) are metrics that measure how well Harness Engineering is working. Three core metrics:
+
+1. **Agent Autonomy** - What % of PRs are merged without human code changes?
+2. **Harness Coverage** - What % of architectural rules are enforced mechanically?
+3. **Context Density** - What's the ratio of documentation to code?
+
+### Why These Three?
+
+These three metrics are interconnected:
+
+- **High Context Density** → Agents have information to make decisions
+- **High Harness Coverage** → Mechanical constraints prevent bad decisions
+- **High Agent Autonomy** → Result of good context + good constraints
+
+Together, they measure progress toward the goal: **AI agents operating reliably and independently.**
+
+### Agent Autonomy
+
+**Definition**: % of PRs merged without human code intervention.
+
+**What counts as "without human code intervention"**:
+
+- Commits only from: GitHub Actions, agent automation, linter fixes
+- Exclude: PRs where humans add code after PR creation
+- Include: PRs where humans approve/merge, but don't modify code
+
+**How to measure**:
+
+1. Check each merged PR in GitHub
+2. List commits: are they all from bots/automation?
+3. Count: PRs with 100% bot commits / total PRs
+4. Calculate: `(bot_commits / total_commits) * 100`
+
+**Target**: 60% by Month 6, 80% by Month 12
+
+**Example**:
+
+```
+
+Month 1: 10 PRs merged
+
+- 7 PRs: all bot commits (agent + linter fixes)
+- 3 PRs: includes human commits (human debugging)
+  Agent Autonomy = 70% ✓
+
+```
+
+[Read more about Agent Autonomy in KPIs](./kpis.md)
+
+### Harness Coverage
+
+**Definition**: % of architectural rules enforced mechanically.
+
+**What counts as "mechanically enforced"**:
+
+- ESLint/linter rules that block PR if violated
+- Structural tests that fail CI if violated
+- Runtime validation that throws on violation
+- Exclude: Rules only enforced in code review
+
+**How to measure**:
+
+1. List all architectural rules (from docs/architecture/, linter config, tests)
+2. For each rule: is it enforced mechanically (fails CI)?
+3. Count: mechanical rules / total rules
+4. Calculate: `(mechanical_rules / total_rules) * 100`
+
+**Target**: 90% by Month 6, 95% by Month 12
+
+**Example**:
+
+```
+
+Total rules: 15
+
+- No UI imports in service layer (ESLint rule) ✓
+- No circular dependencies (structural test) ✓
+- No hardcoded secrets (pre-commit hook) ✓
+- Results must use Result type (linter rule) ✓
+- ... (15 total)
+
+Mechanical rules: 14 (14/15 = 93%)
+Manual rules: 1 ("Don't copy-paste code" - cannot automate)
+
+Harness Coverage = 93% ✓
+
+````
+
+[Read more about Harness Coverage in KPIs](./kpis.md)
+
+### Context Density
+
+**Definition**: Ratio of documentation to code.
+
+**Formula**: `(lines_of_docs / lines_of_code)`
+
+**What counts**:
+
+- Documentation: .md files in `/docs/` (excluding generated API docs)
+- Code: .ts, .rs, .py files in `/src/` (excluding tests, `node_modules`)
+
+**How to measure**:
+
+```bash
+# Count docs lines (excluding generated)
+docs_lines=$(find docs -name "*.md" -not -path "*/generated/*" | xargs wc -l | tail -1 | awk '{print $1}')
+
+# Count code lines (excluding tests, node_modules)
+code_lines=$(find src -name "*.ts" -o -name "*.py" -o -name "*.rs" | xargs wc -l | tail -1 | awk '{print $1}')
+
+# Calculate ratio
+ratio=$(echo "scale=2; $docs_lines / $code_lines" | bc)
+````
+
+**Target**: >0.3 (e.g., 3,000 docs lines for 10,000 code lines)
+
+**Example**:
+
+```
+docs/ lines: 2,500 (design docs, guides, API docs)
+src/ lines: 8,000 (implementation code, excluding tests)
+Ratio: 2500 / 8000 = 0.31
+
+Context Density = 0.31 ✓ (above target of 0.3)
+```
+
+[Read more about Context Density in KPIs](./kpis.md)
+
+### Tracking KPIs
+
+**Monthly**:
+
+- Automated scripts calculate all three metrics
+- Results published to `docs/metrics/` (markdown + charts)
+- Reviewed in team sync
+
+**Quarterly**:
+
+- Compare to OKRs set at quarter start
+- Reflect on progress and blockers
+- Adjust priorities if needed
+
+**Tool Integration**:
+
+- GitHub API: Pull agents' autonomy metrics
+- npm/PyPI: Download counts
+- Analytics: Documentation site traffic
+- Custom scripts: Context density, harness coverage
+
+---
+
+## How — deep engineering
+
+The compressed, load-bearing layer — the hardest _how_ work: architecture, trust systems, performance. These are the mechanical guarantees that let the holiday test pass: constraints that stop rather than warn, cleanup that keeps entropy bounded, and a clear line between what machines enforce and what LLMs are trusted to judge.
+
+### 2. Architectural Rigidity & Mechanical Constraints
+
+_Layer: How — deep engineering_
 
 ### What It Is
 
@@ -380,197 +721,9 @@ Result: Agents know immediately: "I can't import from services in UI files. I'll
 
 ---
 
-## 3. The Agent Feedback Loop
+### 4. Entropy Management (Garbage Collection)
 
-### What It Is
-
-**The Agent Feedback Loop** is a self-correcting cycle where agents execute work, review their own changes, request peer reviews, and iterate based on feedback. This reduces human review burden while catching issues early.
-
-Typical flow:
-
-1. Agent receives task
-2. Agent writes code, runs tests
-3. Agent creates PR with self-review checklist
-4. Agent (or peer agent) reviews the changes
-5. If issues found, agent fixes them; if approved, human reviewer checks
-6. Merge
-
-### Why It Matters
-
-Without feedback loops:
-
-- Every agent PR requires extensive human review (expensive)
-- Agents don't learn from mistakes; they repeat patterns
-- Simple issues (missing tests, lint errors) waste reviewer time
-- Agents have no visibility into whether their work failed or succeeded
-
-With feedback loops:
-
-- Agents catch 80% of issues before human review
-- Agents improve over time by learning from past reviews
-- Human review focuses on correctness and design, not lint errors
-- Agents understand their own performance through telemetry
-
-### Key Concepts
-
-#### Agent-Led PRs
-
-Agents open PRs themselves with:
-
-```markdown
-## Summary
-
-Implemented feature X with behavior Y.
-
-## Changes
-
-- Added service layer for X
-- Added tests covering scenarios A, B, C
-- Updated documentation in docs/guides/
-
-## Self-Review Checklist
-
-- [x] Tests pass locally
-- [x] ESLint passes
-- [x] No architectural violations
-- [x] Documentation updated
-- [x] Dependency graph validated
-
-## Remaining Questions
-
-- Should X behavior handle edge case Z? (Flagged for review)
-```
-
-Agents describe their work clearly so reviewers can focus on design questions, not implementation details.
-
-#### Self-Review Checklist
-
-Before requesting human review, agents verify:
-
-```typescript
-const selfReviewChecklist = [
-  { check: 'Tests pass', passed: true },
-  { check: 'Linting clean', passed: true },
-  { check: 'No architectural violations', passed: true },
-  { check: 'Documentation updated', passed: false, suggestion: 'Update guide.md' },
-  { check: 'Dependency graph valid', passed: true },
-];
-```
-
-Failed checks trigger agent fixes, not human review.
-
-#### Peer Agent Review
-
-For critical PRs, request a specialized agent reviewer:
-
-```typescript
-await requestPeerReview({
-  agentType: 'architecture-enforcer',
-  context: {
-    files: changedFiles,
-    diff: gitDiff,
-    commitMessage: 'Add caching layer to user service',
-  },
-});
-```
-
-Specialized agents check:
-
-- `architecture-enforcer` - Validates architectural decisions
-- `documentation-maintainer` - Ensures docs are updated
-- `test-reviewer` - Verifies test coverage
-- `security-checker` - Looks for vulnerabilities
-
-#### Observability Integration
-
-Agents access telemetry to diagnose failures:
-
-```typescript
-const telemetry = await getTelemetry('user-service', {
-  timeRange: { start: '1h ago', end: 'now' },
-  filter: { level: 'ERROR' },
-});
-
-if (telemetry.errors > threshold) {
-  // Agent can see what went wrong and propose a fix
-  console.log('High error rate detected. Proposing rollback.');
-}
-```
-
-Agents with observability access can:
-
-- Diagnose test failures by reading logs
-- Understand performance issues
-- Propose fixes based on actual system behavior
-
-### Examples
-
-#### Example 1: Agent Self-Review in Action
-
-```markdown
-## PR: Add email notification service
-
-### Summary
-
-Added new service for sending notifications via email.
-Implements exponential backoff retry logic.
-
-### Self-Review
-
-- [x] Unit tests: 15 tests, all passing
-- [x] Integration tests: 3 tests with mock email provider
-- [x] ESLint: Clean
-- [x] Circular dependencies: None
-- [x] Documentation: Updated docs/services/notifications.md
-
-### Peer Review Requested
-
-Requesting @architecture-enforcer review of dependency choices.
-
-### Ready for Human Review
-
-Questions for reviewer:
-
-- Should we log PII in error cases? (Currently no)
-- Is exponential backoff config acceptable? (Currently 1s → 60s)
-```
-
-Human reviewer can focus on design questions, not lint errors.
-
-#### Example 2: Agent Debugging with Telemetry
-
-Agent fails test run. Instead of waiting for human help:
-
-```typescript
-// Agent reads logs
-const logs = await getTelemetry('test-service', {
-  filter: { testName: 'send-email-on-signup' },
-});
-
-// Sees: "TIMEOUT: Email provider took > 5s to respond"
-// Realizes: Mock email provider needs tweaking
-// Fixes: Adjusts mock timeout config
-// Reruns: Tests pass
-
-// Opens PR: "Fix flaky email test by increasing mock timeout"
-```
-
-Faster iteration, no human involvement needed.
-
-### Implementation Checklist
-
-- [ ] Set up agent skill for code generation (Claude Code, Gemini CLI, etc.)
-- [ ] Create self-review checklist template in git (e.g., `REVIEW_TEMPLATE.md`)
-- [ ] Configure specialized agent personas (architecture-enforcer, etc.)
-- [ ] Set up GitHub Actions (or CI/CD equivalent) for agent PR automation
-- [ ] Integrate telemetry adapter (OpenTelemetry, Sentry, etc.)
-- [ ] Create logs and metrics that agents can read
-- [ ] Document how agents should request peer review
-- [ ] Train team on interpreting agent-led PRs
-
----
-
-## 4. Entropy Management (Garbage Collection)
+_Layer: How — deep engineering_
 
 ### What It Is
 
@@ -779,336 +932,9 @@ Action:
 
 ---
 
-## 5. Implementation Strategy (Depth-First)
+### 7. Deterministic-vs-LLM Responsibility Split
 
-### What It Is
-
-**Depth-First Implementation** means completing features end-to-end (Design → Implementation → Testing → Deployment) before starting the next feature. The opposite is breadth-first, where you sketch many features shallowly.
-
-Depth-first approach:
-
-- Pick one story
-- Take it to 100% completion (design, code, tests, docs, deploy)
-- Learn from that vertical slice
-- Move to next story with lessons learned
-
-### Why It Matters
-
-For agent-driven development, breadth-first scaling creates problems:
-
-- Agents don't have clear examples of "done" (what does complete look like?)
-- Patterns aren't established (agents learn from partial examples)
-- Technical debt accumulates (incomplete features need rework)
-- Quality suffers (shallow implementation means missed edge cases)
-
-Depth-first approach provides:
-
-- Clear definition of complete (agents see full vertical slice)
-- Concrete patterns to follow (not abstract guidelines)
-- Stable foundation for next feature (completed code is reference)
-- Higher quality (edge cases caught during vertical slice)
-
-### Key Concepts
-
-#### The Vertical Slice
-
-A complete, shippable feature from design to deployment:
-
-1. **Design**: Write design doc explaining intent, trade-offs, alternatives
-2. **Implementation**: Write code following established patterns
-3. **Testing**: Comprehensive unit, integration, and e2e tests
-4. **Documentation**: Update guides, examples, AGENTS.md as needed
-5. **Deployment**: Release, monitor, verify in production
-6. **Reflection**: Document learnings for next vertical slice
-
-Example vertical slice: "Add email notifications to user signups"
-
-```
-Day 1: Design
-- Write design doc: docs/design-docs/email-notifications.md
-- Specify: Service contract, retry logic, templates
-- Get approval from architecture team
-
-Days 2-3: Implementation
-- Create service: src/services/notifications/
-- Implement: Queue, retry logic, template rendering
-- Tests: 30+ unit tests covering edge cases
-
-Day 4: Testing & Docs
-- Add integration tests with mock email provider
-- Add e2e test: user signs up → email received
-- Update: docs/services/notifications.md, AGENTS.md
-
-Day 5: Deploy & Verify
-- Deploy to staging
-- Verify: Metrics, error rates, email delivery
-- Deploy to production
-- Monitor: First 24h of real data
-
-Day 6: Reflection
-- Document: What went well, what was hard
-- Patterns: How should other features do notifications?
-- Next: Use these learnings for next story
-```
-
-#### Building Abstractions from Concrete
-
-Each vertical slice teaches you how to do that type of work:
-
-```
-Slice 1: Add email notifications
-- Learn: How to queue async work
-- Learn: How to handle retries
-- Learn: How to template content
-
-Slice 2: Add SMS notifications
-- Don't: Copy email service and modify
-- Do: Extract common notification abstraction from learnings in Slice 1
-- Result: Both services use shared notification abstraction
-```
-
-Agents learn from concrete examples, not abstract interfaces. Depth-first ensures examples exist before abstraction.
-
-#### Definition of Done
-
-Each vertical slice must be:
-
-- ✓ Coded (implementation complete)
-- ✓ Tested (unit, integration, e2e tests passing)
-- ✓ Documented (design doc, implementation guide, examples)
-- ✓ Deployed (in production, not staging)
-- ✓ Verified (metrics show it's working correctly)
-- ✓ Reflected (learnings documented for next slice)
-
-Missing any of these = not done. Don't move to next feature.
-
-### Examples
-
-#### Example 1: Depth-First (Good)
-
-Feature: "Add user search to dashboard"
-
-```
-Week 1: Design & Implement
-- Write design: Query format, performance targets, edge cases
-- Implement: Search service, database queries, API endpoint
-- Test: 40 tests covering search behavior
-- Document: guides/search.md, examples/search-examples.md
-
-Week 2: Deploy & Learn
-- Deploy to production
-- Monitor: Query latency, index health, error rates
-- Gather metrics: 95th percentile latency = 200ms ✓
-- Document learnings: "Full-text search on postgres works well"
-
-Week 3: Next Feature (Informed)
-- Next feature: "Add filters to search results"
-- Build on learnings: Use same query pattern
-- Result: Faster implementation, better design
-
-Week 4: Polish
-- Next feature: "Add saved searches"
-- Use abstractions learned from search implementation
-- Result: High quality, consistent with existing patterns
-```
-
-Agents writing each feature have concrete examples and can see the full "done" state.
-
-#### Example 2: Breadth-First (Bad)
-
-Feature: "Add user dashboard"
-
-```
-Week 1: Sketch 5 features
-- User search: Sketch endpoint, not tested
-- Saved searches: Sketch schema, not implemented
-- Analytics: Sketch query, not integrated
-- Filters: Sketch UI, not connected
-- Export: List as TODO
-
-Week 2: Implement Search Partially
-- Missing tests for edge cases
-- Design doc wasn't updated
-- Incomplete; moved to next feature
-
-Week 3: Try Filters (without learning from search)
-- Implementation style differs from search
-- Tests less comprehensive
-- Pattern inconsistency emerging
-
-Result:
-- Agents see incomplete examples
-- No clear "done" state
-- Each feature implemented differently
-- Technical debt accumulating
-```
-
-Agents don't have clear patterns to follow. Quality suffers.
-
-### Implementation Checklist
-
-- [ ] Create feature selection process (prioritize by impact × effort)
-- [ ] Define "Definition of Done" for your team
-- [ ] Require design doc before implementation
-- [ ] Require comprehensive tests (target >80% coverage)
-- [ ] Require updated documentation for each feature
-- [ ] Block PRs that don't meet DoD
-- [ ] Track: Time per vertical slice, quality metrics
-- [ ] Reflect: Lessons learned from each slice
-- [ ] Share: Patterns with team/agents for next slice
-
----
-
-## 6. Key Performance Indicators
-
-### What Are KPIs?
-
-KPIs (Key Performance Indicators) are metrics that measure how well Harness Engineering is working. Three core metrics:
-
-1. **Agent Autonomy** - What % of PRs are merged without human code changes?
-2. **Harness Coverage** - What % of architectural rules are enforced mechanically?
-3. **Context Density** - What's the ratio of documentation to code?
-
-### Why These Three?
-
-These three metrics are interconnected:
-
-- **High Context Density** → Agents have information to make decisions
-- **High Harness Coverage** → Mechanical constraints prevent bad decisions
-- **High Agent Autonomy** → Result of good context + good constraints
-
-Together, they measure progress toward the goal: **AI agents operating reliably and independently.**
-
-### Agent Autonomy
-
-**Definition**: % of PRs merged without human code intervention.
-
-**What counts as "without human code intervention"**:
-
-- Commits only from: GitHub Actions, agent automation, linter fixes
-- Exclude: PRs where humans add code after PR creation
-- Include: PRs where humans approve/merge, but don't modify code
-
-**How to measure**:
-
-1. Check each merged PR in GitHub
-2. List commits: are they all from bots/automation?
-3. Count: PRs with 100% bot commits / total PRs
-4. Calculate: `(bot_commits / total_commits) * 100`
-
-**Target**: 60% by Month 6, 80% by Month 12
-
-**Example**:
-
-```
-Month 1: 10 PRs merged
-- 7 PRs: all bot commits (agent + linter fixes)
-- 3 PRs: includes human commits (human debugging)
-Agent Autonomy = 70% ✓
-```
-
-[Read more about Agent Autonomy in KPIs](./kpis.md)
-
-### Harness Coverage
-
-**Definition**: % of architectural rules enforced mechanically.
-
-**What counts as "mechanically enforced"**:
-
-- ESLint/linter rules that block PR if violated
-- Structural tests that fail CI if violated
-- Runtime validation that throws on violation
-- Exclude: Rules only enforced in code review
-
-**How to measure**:
-
-1. List all architectural rules (from docs/architecture/, linter config, tests)
-2. For each rule: is it enforced mechanically (fails CI)?
-3. Count: mechanical rules / total rules
-4. Calculate: `(mechanical_rules / total_rules) * 100`
-
-**Target**: 90% by Month 6, 95% by Month 12
-
-**Example**:
-
-```
-Total rules: 15
-- No UI imports in service layer (ESLint rule) ✓
-- No circular dependencies (structural test) ✓
-- No hardcoded secrets (pre-commit hook) ✓
-- Results must use Result type (linter rule) ✓
-- ... (15 total)
-
-Mechanical rules: 14 (14/15 = 93%)
-Manual rules: 1 ("Don't copy-paste code" - cannot automate)
-
-Harness Coverage = 93% ✓
-```
-
-[Read more about Harness Coverage in KPIs](./kpis.md)
-
-### Context Density
-
-**Definition**: Ratio of documentation to code.
-
-**Formula**: `(lines_of_docs / lines_of_code)`
-
-**What counts**:
-
-- Documentation: .md files in `/docs/` (excluding generated API docs)
-- Code: .ts, .rs, .py files in `/src/` (excluding tests, `node_modules`)
-
-**How to measure**:
-
-```bash
-# Count docs lines (excluding generated)
-docs_lines=$(find docs -name "*.md" -not -path "*/generated/*" | xargs wc -l | tail -1 | awk '{print $1}')
-
-# Count code lines (excluding tests, node_modules)
-code_lines=$(find src -name "*.ts" -o -name "*.py" -o -name "*.rs" | xargs wc -l | tail -1 | awk '{print $1}')
-
-# Calculate ratio
-ratio=$(echo "scale=2; $docs_lines / $code_lines" | bc)
-```
-
-**Target**: >0.3 (e.g., 3,000 docs lines for 10,000 code lines)
-
-**Example**:
-
-```
-docs/ lines: 2,500 (design docs, guides, API docs)
-src/ lines: 8,000 (implementation code, excluding tests)
-Ratio: 2500 / 8000 = 0.31
-
-Context Density = 0.31 ✓ (above target of 0.3)
-```
-
-[Read more about Context Density in KPIs](./kpis.md)
-
-### Tracking KPIs
-
-**Monthly**:
-
-- Automated scripts calculate all three metrics
-- Results published to `docs/metrics/` (markdown + charts)
-- Reviewed in team sync
-
-**Quarterly**:
-
-- Compare to OKRs set at quarter start
-- Reflect on progress and blockers
-- Adjust priorities if needed
-
-**Tool Integration**:
-
-- GitHub API: Pull agents' autonomy metrics
-- npm/PyPI: Download counts
-- Analytics: Documentation site traffic
-- Custom scripts: Context density, harness coverage
-
----
-
-## 7. Deterministic-vs-LLM Responsibility Split
+_Layer: How — deep engineering_
 
 ### What It Is
 
@@ -1194,116 +1020,37 @@ This sequence ensures LLM effort is never spent on issues that mechanical tools 
 Every skill that produces or modifies code should include a `## Deterministic Checks` section listing what the skill enforces mechanically before and after LLM invocation:
 
 ```markdown
-## Deterministic Checks
-
-### Pre-Execution
-
-- [ ] Target files exist and are readable
-- [ ] Required tools are available (e.g., `tsc`, `eslint`)
-
-### Post-Execution
-
-- [ ] Linter passes on all modified files
-- [ ] Type checker passes
-- [ ] Tests pass (existing + new)
-- [ ] File naming conventions followed
-- [ ] No unresolved merge conflicts
-```
-
-Skills that only read or analyze (e.g., review, planning) may have lighter deterministic checks (e.g., "target files exist"). Skills that write code must include the full post-execution checks.
-
-### Examples
-
-#### Example 1: Deciding Where to Enforce a New Rule
-
-Scenario: Team decides "all API endpoints must return a standard error envelope."
-
-Apply the heuristic:
-
-- Can you write it as if-else? → **Yes**: check if response type matches `{ error: { code, message } }` schema
-- Same input → same output? → **Yes**: a response either matches the schema or it doesn't
-
-Decision: **Mechanical enforcement**
-
-```typescript
-// Structural test: verify all endpoint handlers return ErrorEnvelope
-const endpoints = findAllEndpoints('src/api/');
-for (const endpoint of endpoints) {
-  const returnType = getReturnType(endpoint);
-  expect(returnType).toMatch(/ErrorEnvelope/);
-}
-```
-
-Not: "Ask the LLM to check if error handling looks right."
-
-#### Example 2: Deciding Where NOT to Mechanically Enforce
-
-Scenario: Team wants to ensure "services use appropriate abstractions."
-
-Apply the heuristic:
-
-- Can you write it as if-else? → **No**: "appropriate" depends on domain context
-- Same input → same output? → **No**: what's appropriate varies by situation
-
-Decision: **LLM judgment** (documented as review guidance)
-
-```markdown
-## Review Guidance: Abstraction Quality
-
-When reviewing service code, consider:
-
-- Does each service have a single domain concept?
-- Are there signs of a god object (>5 public methods)?
-- Could any method be extracted to a shared utility?
-
-Flag for human review if uncertain.
-```
-
-#### Example 3: Mixed Responsibility
-
-Scenario: Code review for a new feature.
-
-- **Mechanical** (run first): lint, typecheck, test execution, import ordering, naming conventions
-- **LLM** (run after mechanical passes): logic correctness, edge case coverage, architectural fit, documentation quality
-
-The LLM reviewer never comments on formatting or import order — those are already verified mechanically. It focuses on what only reasoning can evaluate.
-
-### Connection to Other Principles
-
-- **Principle 2 (Architectural Rigidity)**: Defines the constraints. This principle defines which constraints are mechanical vs. guidance.
-- **Principle 3 (Agent Feedback Loop)**: The feedback loop should run deterministic checks first, then LLM review — never the reverse.
-- **Principle 4 (Entropy Management)**: Cleanup agents should prioritize mechanically detectable drift (schema mismatches, dead code) over judgment-dependent drift (abstraction quality).
-- **Principle 6 (KPIs)**: Harness Coverage (% of rules enforced mechanically) directly measures how well teams apply this split.
-
-### Implementation Checklist
-
-- [ ] Audit existing conventions: which are deterministic? which require judgment?
-- [ ] Convert all deterministic conventions to linter rules or structural tests
-- [ ] Document remaining LLM-judgment conventions as review guidance
-- [ ] Add `## Deterministic Checks` section to all code-producing skills
-- [ ] Ensure skill execution follows deterministic-first sequence
-- [ ] Measure: track the ratio of mechanical rules to total rules (Harness Coverage KPI)
-
 ---
 
 ## Summary
 
-These seven principles work together to create a system where:
+These principles are not a checklist to admire; they are the gear that has to hold when the senior engineer is on holiday and the agents keep shipping. Grouped by the layer each one supports:
 
-1. **Context Engineering** ensures agents have the information they need
-2. **Mechanical Constraints** prevent bad decisions automatically
-3. **Agent Feedback Loop** lets agents self-correct before human review
-4. **Entropy Management** keeps technical debt bounded
-5. **Depth-First Implementation** builds clear examples and patterns
-6. **KPIs** measure progress toward agent autonomy
-7. **Deterministic-vs-LLM Split** draws a clear line between what machines enforce and what LLMs reason about
+**Why — strategic conviction**
+
+1. **Context Engineering** captures the durable intent behind the system where agents can read it.
+
+**What — judgment and taste**
+
+3. **The Agent Feedback Loop** lets agents self-correct so human judgment is spent on design, not lint errors.
+4. **Depth-First Implementation** defines what "done" looks like and produces the concrete examples that teach taste.
+5. **KPIs** measure whether the system is actually producing good outcomes — agent autonomy, harness coverage, context density.
+
+**How — deep engineering**
+
+2. **Mechanical Constraints** stop bad changes automatically instead of narrating them.
+3. **Entropy Management** keeps technical debt bounded as agents generate code faster than humans can review it.
+4. **The Deterministic-vs-LLM Split** draws the line between what machines enforce and what LLMs are trusted to judge.
 
 Adopt them progressively:
 
-- **Level 1**: Context Engineering + Documentation
-- **Level 2**: Add Mechanical Constraints + Linters + Deterministic-vs-LLM Split
-- **Level 3**: Add Agent Feedback Loop + Entropy Management
+- **Level 1**: Context Engineering + documentation — make the **Why** legible.
+- **Level 2**: Add Mechanical Constraints + linters + the Deterministic-vs-LLM Split — make the **How** load-bearing.
+- **Level 3**: Add the Agent Feedback Loop + Entropy Management — make the **What** reliable and keep it that way.
+
+The measure of success is not how many principles you have adopted. It is whether, with no one watching the rope, you still trust what ships.
 
 [← Back to Overview](./index.md) | [Implementation Guide →](./implementation.md) | [KPIs & Metrics →](./kpis.md)
 
-_Last Updated: 2026-03-16_
+_Last Updated: 2026-08-05_
+```
