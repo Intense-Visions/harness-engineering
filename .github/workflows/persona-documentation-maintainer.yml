@@ -37,5 +37,5 @@ jobs:
       - run: pnpm install --frozen-lockfile
       - run: pnpm build
       - run: node packages/cli/dist/bin/harness.js check-docs
-      - run: node packages/cli/dist/bin/harness.js validate --severity warning
+      - run: node packages/cli/dist/bin/harness.js validate
       - run: node packages/cli/dist/bin/harness.js scan

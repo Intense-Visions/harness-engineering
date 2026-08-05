@@ -35,5 +35,5 @@ jobs:
           cache: pnpm
       - run: pnpm install --frozen-lockfile
       - run: pnpm build
-      - run: node packages/cli/dist/bin/harness.js check-perf --severity error
+      - run: node packages/cli/dist/bin/harness.js check-perf
       - run: node packages/cli/dist/bin/harness.js perf

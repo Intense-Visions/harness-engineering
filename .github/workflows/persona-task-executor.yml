@@ -37,6 +37,6 @@ jobs:
           cache: pnpm
       - run: pnpm install --frozen-lockfile
       - run: pnpm build
-      - run: node packages/cli/dist/bin/harness.js validate --severity error
+      - run: node packages/cli/dist/bin/harness.js validate
       - run: node packages/cli/dist/bin/harness.js check-deps
       - run: node packages/cli/dist/bin/harness.js scan

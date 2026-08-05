@@ -34,5 +34,5 @@ jobs:
       - run: pnpm build
       - run: node packages/cli/dist/bin/harness.js graph status
       - run: node packages/cli/dist/bin/harness.js check-deps
-      - run: node packages/cli/dist/bin/harness.js check-perf --severity warning
+      - run: node packages/cli/dist/bin/harness.js check-perf
       - run: node packages/cli/dist/bin/harness.js check-security --severity warning

@@ -104,8 +104,12 @@ export interface CIWorkflowOptions {
  * to any other command hard-errors under commander (`unknown option`), which —
  * with job-level `continue-on-error` — silently skips every subsequent step. So
  * the flag must be added per-command, not blanket-appended to the whole list.
+ *
+ * Verified against the built CLI: `check-security` is the only persona-invoked
+ * command that declares `--severity`; `validate`, `check-perf`, `check-deps`,
+ * `check-docs`, `cleanup`, `fix-drift` all reject it.
  */
-const SEVERITY_AWARE_COMMANDS = new Set(['validate', 'check-perf', 'check-security']);
+const SEVERITY_AWARE_COMMANDS = new Set(['check-security']);
 
 /** The `--severity <level>` suffix for `command`, or '' when it takes no such flag. */
 function severityFlagFor(command: string, severity: string | undefined): string {
