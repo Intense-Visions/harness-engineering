@@ -130,6 +130,7 @@ Run performance checks: structural complexity, coupling, and size budgets
 - `--structural` — Run structural complexity checks only
 - `--coupling` — Run coupling metric checks only
 - `--size` — Run size budget checks only
+- `--severity` — Minimum severity that fails the command; when set, violations below it are excluded from the report and never fail the gate (error, warning, info)
 
 ### `harness check-phase-gate`
 
@@ -649,6 +650,7 @@ Run all validation checks
 - `--agent-configs` — Validate agent configs (CLAUDE.md, hooks, skills) via agnix or built-in fallback rules
 - `--strict` — Treat warnings as errors (applies to --agent-configs)
 - `--agnix-bin` — Override the agnix binary path discovered on PATH
+- `--severity` — Minimum severity that fails the command; when set, findings below it are excluded from the report and never fail the gate (error, warning, info)
 
 ### `harness verify`
 
