@@ -1,4 +1,9 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
+import * as path from 'node:path';
+
+// Build expected lockfile paths the SAME way the code does (path.join), so the
+// string comparison is correct on Windows (backslashes) as well as POSIX.
+const GLOBAL_LOCK = path.join('/home/.harness/skills/community', 'skills-lock.json');
 
 const mockSpawn = vi.fn();
 const mockGetNotification = vi.fn();
@@ -45,12 +50,10 @@ describe('freshness-check-hooks', () => {
   afterEach(() => vi.restoreAllMocks());
 
   it('spawns with existing lockfile paths only', () => {
-    mockExistsSync.mockImplementation(
-      (p) => String(p) === '/home/.harness/skills/community/skills-lock.json'
-    );
+    mockExistsSync.mockImplementation((p) => String(p) === GLOBAL_LOCK);
     runFreshnessCheckAtStartup();
     expect(mockSpawn).toHaveBeenCalledTimes(1);
-    expect(mockSpawn).toHaveBeenCalledWith(['/home/.harness/skills/community/skills-lock.json']);
+    expect(mockSpawn).toHaveBeenCalledWith([GLOBAL_LOCK]);
   });
 
   it('does not spawn when no lockfile exists', () => {
