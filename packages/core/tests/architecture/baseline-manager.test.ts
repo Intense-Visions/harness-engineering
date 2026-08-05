@@ -259,5 +259,58 @@ describe('ArchBaselineManager', () => {
       const loaded = manager.load();
       expect(loaded!.metrics['coupling']!.value).toBe(1);
     });
+
+    // Stabilization: a re-run whose metrics are unchanged must not churn the
+    // volatile stamps, so the committed file stays byte-identical and does not
+    // spuriously conflict across branches.
+    it('preserves updatedAt/updatedFrom (byte-stable) when metrics are unchanged', () => {
+      const results: MetricResult[] = [
+        {
+          category: 'complexity',
+          scope: 'project',
+          value: 2,
+          violations: [
+            { id: 'cx-1', file: 'a.ts', detail: 'd', severity: 'warning' },
+            { id: 'cx-2', file: 'b.ts', detail: 'd', severity: 'warning' },
+          ],
+        },
+      ];
+      manager.update(results, 'commit-1');
+      const first = readFileSync(join(tmpDir, '.harness', 'arch', 'baselines.json'), 'utf-8');
+
+      // Same metrics, different commit hash + a reordered violation list.
+      manager.update(
+        [
+          {
+            category: 'complexity',
+            scope: 'project',
+            value: 2,
+            violations: [
+              { id: 'cx-2', file: 'b.ts', detail: 'd', severity: 'warning' },
+              { id: 'cx-1', file: 'a.ts', detail: 'd', severity: 'warning' },
+            ],
+          },
+        ],
+        'commit-2-different'
+      );
+      const second = readFileSync(join(tmpDir, '.harness', 'arch', 'baselines.json'), 'utf-8');
+      expect(second).toBe(first);
+    });
+
+    it('bumps updatedAt/updatedFrom when a metric actually changes', () => {
+      manager.update(
+        [{ category: 'complexity', scope: 'project', value: 2, violations: [] }],
+        'commit-1'
+      );
+      const before = manager.load()!;
+      manager.update(
+        [{ category: 'complexity', scope: 'project', value: 5, violations: [] }],
+        'commit-2'
+      );
+      const after = manager.load()!;
+      expect(after.metrics['complexity']!.value).toBe(5);
+      expect(after.updatedFrom).toBe('commit-2');
+      expect(after.updatedFrom).not.toBe(before.updatedFrom);
+    });
   });
 });
