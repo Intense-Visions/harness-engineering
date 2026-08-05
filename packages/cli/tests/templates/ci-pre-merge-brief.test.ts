@@ -126,4 +126,42 @@ describe('ci-pre-merge-brief template', () => {
     expect(ci!.level).toBeUndefined();
     expect(ci!.framework).toBeUndefined();
   });
+
+  it('resolves + renders through the real init path (`--template ci-pre-merge-brief`)', () => {
+    // `harness init --template ci-pre-merge-brief` passes the template name in as
+    // `level` (commands/init.ts). This is the exact resolution call init makes,
+    // and is what proves the workflow is emitted into an adopter repo — the
+    // hand-built engine.render() test above never exercises resolveTemplate.
+    const engine = new TemplateEngine(TEMPLATES);
+    const resolved = engine.resolveTemplate('ci-pre-merge-brief', undefined, 'typescript');
+    expect(resolved.ok).toBe(true);
+    if (!resolved.ok) return;
+
+    // Named standalone template: no `extends`, so ONLY its own files resolve —
+    // the pre-merge-brief workflow, ruleset, and README, and no basic/base
+    // level-scaffold files (e.g. harness.config.json / AGENTS.md) leak in.
+    const paths = resolved.value.files.map((f) => f.relativePath).sort();
+    expect(paths).toEqual(
+      ['README.md', 'pre-merge-brief.ruleset.json', 'pre-merge-brief.yml.hbs'].sort()
+    );
+
+    // Render with the same defaults commands/init.ts supplies. Strict-mode
+    // Handlebars would throw if a referenced var were missing.
+    const rendered = engine.render(resolved.value, {
+      projectName: 'demo',
+      level: '',
+      runner: 'claude',
+      blockOn: 'request-changes',
+      baseBranch: 'main',
+    });
+    expect(rendered.ok).toBe(true);
+    if (!rendered.ok) return;
+
+    // The `.hbs` is stripped: `harness init --template ci-pre-merge-brief` emits
+    // the runnable `pre-merge-brief.yml` workflow.
+    const wf = rendered.value.files.find((f) => f.relativePath === 'pre-merge-brief.yml');
+    expect(wf).toBeDefined();
+    expect(wf!.content).toContain('name: pre-merge-brief');
+    expect(wf!.content).toContain('--runner claude');
+  });
 });
