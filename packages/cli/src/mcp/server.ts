@@ -239,6 +239,10 @@ import {
 // pulling in server.ts (which would create a cycle). See ./tool-types.ts.
 export type { ToolDefinition } from './tool-types.js';
 import type { ToolDefinition } from './tool-types.js';
+// Authoritative, evidence-based per-tool capability declarations. Merged onto
+// each definition below so the registry (and `harness mcp list-capabilities`)
+// carries DECLARED read/write/exec/network scopes, not a name heuristic.
+import { TOOL_CAPABILITY_DECLARATIONS } from './tool-capability-declarations.js';
 type ToolHandler = (
   input: Record<string, unknown>
 ) => Promise<{ content: Array<{ type: string; text: string }>; isError?: boolean }>;
@@ -341,7 +345,14 @@ const TOOL_DEFINITIONS: ToolDefinition[] = [
   seedPulseFromStrategyDefinition,
   acquireCompoundLockDefinition,
   releaseCompoundLockDefinition,
-].map((def) => ({ ...def, trustedOutput: true }));
+].map((def) => {
+  const capability = TOOL_CAPABILITY_DECLARATIONS[def.name];
+  // All current harness MCP tools return internal project content, so each is
+  // marked trustedOutput. The capability declaration (when present) is merged
+  // in so the shipped registry carries DECLARED scopes; tools with no entry
+  // fall back to the name heuristic in tool-capabilities.ts.
+  return { ...def, trustedOutput: true, ...(capability ? { capability } : {}) };
+});
 const TOOL_HANDLERS: Record<string, ToolHandler> = {
   validate_project: handleValidateProject as ToolHandler,
   check_dependencies: handleCheckDependencies as ToolHandler,
