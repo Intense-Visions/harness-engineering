@@ -32,7 +32,9 @@
 
 2. The command reads `.harness/metrics/adoption.jsonl` via `readAdoptionRecords`, derives the report via `getCatalogRetrospectiveReport`, and renders it via `renderRetrospectiveMarkdown` (all in `@harness-engineering/core`). Coverage context is computed against the skills discovered under `agents/skills/claude-code/`; when that directory is absent (a consumer project), the coverage line is omitted rather than reporting a false zero.
 
-3. If there are no records, say so plainly and stop: "No adoption telemetry found at `.harness/metrics/adoption.jsonl`. Nothing to retrospect on yet."
+3. The report is followed by a **Bayesian skill-effectiveness** section (`## Bayesian skill effectiveness`), computed by the skill scorer in `@harness-engineering/intelligence`. This applies the same Laplace-smoothed success rate (α = 1) the persona scorer uses, so a skill invoked once cannot claim 0% or 100% certainty. It surfaces the least-effective skills, failing skills, and abandoned-mid-workflow skills ranked sample-aware — the view you should act on when deciding what to fix or prune. In `--json` mode the same data appears under the `skillEffectiveness` key (`scores`, `failing`, `abandoned`).
+
+4. If there are no records, say so plainly and stop: "No adoption telemetry found at `.harness/metrics/adoption.jsonl`. Nothing to retrospect on yet."
 
 ### Phase 2: INTERPRET — Signal vs. Noise
 
@@ -42,6 +44,7 @@ Read the report with these discriminations:
 - **Failing skills are not automatically broken.** Some commands fail _by design_ (a gate like `ci.check` returning non-zero on a real violation is the gate working). Before flagging a high failure rate as a problem, note whether the skill is a checker/gate whose failures are expected. Call out only failures that look like defects (crashes, unexpected non-zero on clean input).
 - **Abandoned mid-workflow** uses the broadened definition: an explicit `abandoned` outcome, or a non-completed run that had already reached ≥1 phase. Small counts here are meaningful — a workflow skill people start and bail out of mid-way is a UX signal even at n=1.
 - **Stale skills** are drawn only from _ever-invoked_ skills quiet ≥ the threshold. When the record window is shorter than the threshold, the section says so and reports nothing — do not present that emptiness as "everything is healthy."
+- **Bayesian ranking over raw counts.** The top-failing and abandoned-mid-workflow tables rank by raw count; the Bayesian skill-effectiveness section ranks the same signals by Laplace-smoothed success rate, so a skill that failed 1/1 does not outrank one that failed 30/50. When the two disagree, trust the Bayesian view for prioritization — it discounts low-volume noise. A skill needs at least a couple of failures (or abandonments) before it appears in the Bayesian failing/abandoned tables at all.
 
 ### Phase 3: REPORT — Surface and Recommend
 
@@ -57,17 +60,19 @@ Read the report with these discriminations:
 - **`harness adoption retrospective`** — the CLI entry point (a subcommand of the existing `adoption` command group). Writes `docs/retrospectives/<date>.md` by default.
 - **`getCatalogRetrospectiveReport` / `renderRetrospectiveMarkdown` / `isAbandonedMidWorkflow`** — the pure aggregation + render functions in `@harness-engineering/core` (`packages/core/src/adoption/retrospective.ts`). Callers can supply a fixed `now` and `catalogSkills` for deterministic output.
 - **`readAdoptionRecords`** — reads and parses `.harness/metrics/adoption.jsonl` (read-only; the file is appended by the adoption-tracker hook, never by this skill).
+- **`computeSkillEffectiveness` / `detectFailingSkills` / `detectAbandonedSkills`** — the Bayesian skill scorer in `@harness-engineering/intelligence` (`packages/intelligence/src/effectiveness/skill-scorer.ts`). The skill-grain counterpart to the persona scorer: same Laplace smoothing and threshold-based detectors, applied to adoption records instead of graph outcome nodes. The retrospective command consumes these to render the Bayesian skill-effectiveness section and the `skillEffectiveness` JSON key.
 - **`harness adoption skills` / `recent` / `skill <name>`** — the point-in-time siblings; this skill is the periodic, persisted counterpart.
 
 ## Success Criteria
 
 1. The retrospective is derived from `.harness/metrics/adoption.jsonl` without mutating it.
 2. The report ranks top-invoked, top-failing, and abandoned-mid-workflow skills, and flags ever-invoked stale skills.
-3. The report states telemetry coverage (how much of the catalog emits any signal) when the catalog is discoverable.
-4. The stale-skills section notes when the record window is shorter than the inactivity threshold instead of silently reporting zero.
-5. The summary separates real signal (defect-shaped failures, mid-workflow abandonment) from telemetry gaps (uninstrumented skills) and from expected gate failures.
-6. A dated report is written to `docs/retrospectives/<date>.md` (unless `--no-write`/`--json` is requested).
-7. The skill recommends but never prunes, edits, or deletes catalog skills.
+3. The report includes a Bayesian skill-effectiveness section that ranks failing and abandoned-mid-workflow skills by Laplace-smoothed success rate, so low-volume skills do not dominate the recommendation.
+4. The report states telemetry coverage (how much of the catalog emits any signal) when the catalog is discoverable.
+5. The stale-skills section notes when the record window is shorter than the inactivity threshold instead of silently reporting zero.
+6. The summary separates real signal (defect-shaped failures, mid-workflow abandonment) from telemetry gaps (uninstrumented skills) and from expected gate failures.
+7. A dated report is written to `docs/retrospectives/<date>.md` (unless `--no-write`/`--json` is requested).
+8. The skill recommends but never prunes, edits, or deletes catalog skills.
 
 ## Rationalizations to Reject
 
