@@ -18,6 +18,11 @@ const mockedUpdate = vi.mocked(updateProviders);
 
 const outdatedGh = { name: '@harness-skills/gh', kind: 'github', current: 'old', latest: 'new', outdated: true, global: false, source: { kind: 'github', owner: 'o', repo: 'r', ref: 'main', commit: 'old' } } as any;
 const currentNpm = { name: '@harness-skills/n', kind: 'npm', current: '1', latest: '1', outdated: false, global: true, source: { kind: 'npm', package: '@harness-skills/n' } } as any;
+// A provider whose upstream probe failed (offline/CI): latest === null. Fail-safe:
+// never outdated, never auto-repulled — but must render distinctly, not "up to date".
+const uncheckedGh = { name: '@harness-skills/u', kind: 'github', current: 'abc123', latest: null, outdated: false, global: false, source: { kind: 'github', owner: 'o', repo: 'u', ref: 'main', commit: 'abc123' } } as any;
+
+function out() { return logSpy.mock.calls.map((c: any[]) => c.map((x) => String(x)).join(' ')).join('\n'); }
 
 let exitSpy: any;
 let logSpy: any;
@@ -69,6 +74,20 @@ describe('harness skill update', () => {
     mockedUpdate.mockResolvedValue([{ name: '@harness-skills/gh', updated: true }]);
     await run(['--yes']);
     expect(mockedUpdate).toHaveBeenCalledWith([outdatedGh], { yes: true });
+  });
+
+  it('renders a failed probe as "could not check", not "(up to date)"', async () => {
+    mockedProbe.mockReturnValue({ providers: [uncheckedGh], sourceless: [] });
+    expect(await run(['--check'])).toBe('exit:0'); // probe failure is NOT outdated
+    const rendered = out();
+    expect(rendered).toContain('could not check');
+    expect(rendered).not.toContain('up to date');
+  });
+
+  it('--check exits 0 when the only provider could not be checked (never auto-repull on probe failure)', async () => {
+    mockedProbe.mockReturnValue({ providers: [uncheckedGh], sourceless: [] });
+    expect(await run(['--check'])).toBe('exit:0');
+    expect(mockedUpdate).not.toHaveBeenCalled();
   });
 
   it('filters to a single provider by [name]', async () => {

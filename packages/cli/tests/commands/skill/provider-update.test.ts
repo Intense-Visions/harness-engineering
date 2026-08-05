@@ -23,6 +23,7 @@ import {
   updateProviders,
   type ProbedProvider,
 } from '../../../src/commands/skill/provider-update';
+import { MAX_PROVIDERS } from '../../../src/registry/freshness-checker';
 
 const mockedExec = vi.mocked(execFileSync);
 const mockedRead = vi.mocked(readLockfile);
@@ -108,6 +109,34 @@ describe('probeProviders', () => {
     expect(p[0]).toMatchObject({ outdated: false, latest: null }); // probe refused -> null -> fail-safe
     expect(mockedExec).not.toHaveBeenCalled();
   });
+
+  it('bounds probing to MAX_PROVIDERS on an oversized lockfile (DoS guard)', () => {
+    const skills: Record<string, unknown> = {};
+    for (let i = 0; i < MAX_PROVIDERS + 25; i++) {
+      skills[`@harness-skills/n${i}`] = { version: '1.0.0', resolved: '', integrity: '', platforms: [], installedAt: '', dependencyOf: null,
+        source: { kind: 'npm', package: `@harness-skills/n${i}` } };
+    }
+    mockedRead.mockReturnValue(lock(skills));
+    mockedExec.mockReturnValue('2.0.0\n' as any);
+    const { providers } = probeProviders([{ path: '/p', global: false }]);
+    // At most MAX_PROVIDERS network probes fire even though the lockfile holds more.
+    expect(mockedExec).toHaveBeenCalledTimes(MAX_PROVIDERS);
+    expect(providers.length).toBe(MAX_PROVIDERS);
+  });
+
+  it('does not count sourceless/local entries against the probe cap', () => {
+    const skills: Record<string, unknown> = {
+      '@harness-skills/old': { version: '1.0.0', resolved: '', integrity: '', platforms: [], installedAt: '', dependencyOf: null },
+      '@harness-skills/local': { version: '1.0.0', resolved: '', integrity: '', platforms: [], installedAt: '', dependencyOf: null, source: { kind: 'local', path: '/x' } },
+      '@harness-skills/n': { version: '1.0.0', resolved: '', integrity: '', platforms: [], installedAt: '', dependencyOf: null, source: { kind: 'npm', package: '@harness-skills/n' } },
+    };
+    mockedRead.mockReturnValue(lock(skills));
+    mockedExec.mockReturnValue('2.0.0\n' as any);
+    const { providers, sourceless } = probeProviders([{ path: '/p', global: false }]);
+    expect(mockedExec).toHaveBeenCalledTimes(1); // only the npm entry is probed
+    expect(providers).toHaveLength(1);
+    expect(sourceless).toHaveLength(1);
+  });
 });
 
 describe('updateProviders', () => {
@@ -149,6 +178,33 @@ describe('updateProviders', () => {
     const out = await updateProviders([bad], { yes: true });
     expect(mockedInstall).not.toHaveBeenCalled();
     expect(out[0]).toMatchObject({ updated: false, skipped: 'unsafe' });
+  });
+
+  it.each([
+    ['owner', 'o/evil'],
+    ['owner', 'o#evil'],
+    ['repo', 'r/evil'],
+    ['repo', 'r#evil'],
+    ['ref', 'main#evil'],
+  ])('skips a github provider whose %s carries an embedded %s delimiter (spec injection)', async (field, value) => {
+    const bad = { ...gh, source: { kind: 'github', owner: 'o', repo: 'r', ref: 'main', commit: 'old', [field]: value } } as ProbedProvider;
+    const out = await updateProviders([bad], { yes: true });
+    expect(mockedInstall).not.toHaveBeenCalled();
+    expect(out[0]).toMatchObject({ updated: false, skipped: 'unsafe' });
+  });
+
+  it('allows a slash-containing branch ref (round-trips cleanly, not unsafe)', async () => {
+    const ok = { ...gh, source: { kind: 'github', owner: 'o', repo: 'r', ref: 'feature/foo', commit: 'old' } } as ProbedProvider;
+    await updateProviders([ok], { yes: true });
+    // `feature/foo` sits after the single '#' delimiter, so it round-trips
+    // through parseGitHubRef back to ref='feature/foo' — must NOT be skipped.
+    expect(mockedInstall).toHaveBeenCalledWith('@harness-skills/gh', expect.objectContaining({ from: 'github:o/r#feature/foo' }));
+  });
+
+  it('still allows a plain HEAD-relative ref with no delimiters', async () => {
+    const ok = { ...gh, source: { kind: 'github', owner: 'o', repo: 'r', ref: 'v1.2.3', commit: 'old' } } as ProbedProvider;
+    await updateProviders([ok], { yes: true });
+    expect(mockedInstall).toHaveBeenCalledWith('@harness-skills/gh', expect.objectContaining({ from: 'github:o/r#v1.2.3' }));
   });
 
   it('logs and continues when one provider re-pull throws (no abort)', async () => {

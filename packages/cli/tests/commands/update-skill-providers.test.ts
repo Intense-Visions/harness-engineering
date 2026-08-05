@@ -43,6 +43,7 @@ const out = () => logSpy.mock.calls.map((c: any[]) => c.map((x) => String(x)).jo
 
 describe('offerSkillProviderUpdates', () => {
   it('stays silent when nothing is outdated', async () => {
+    setTty(true);
     mockedProbe.mockReturnValue({ providers: [{ ...outdated, outdated: false }], sourceless: [] });
     await offerSkillProviderUpdates();
     expect(mockedUpdate).not.toHaveBeenCalled();
@@ -65,26 +66,32 @@ describe('offerSkillProviderUpdates', () => {
     expect(out()).toContain('harness skill update');
   });
 
-  it('non-TTY prints a report-only hint and never prompts', async () => {
+  it('non-TTY prints a report-only hint and never probes or prompts', async () => {
     setTty(false);
     mockedProbe.mockReturnValue({ providers: [outdated], sourceless: [] });
     await offerSkillProviderUpdates();
+    // A non-interactive shell (CI, piped) must never trigger the synchronous
+    // git/npm probe storm — the report-only hint is static.
+    expect(mockedProbe).not.toHaveBeenCalled();
     expect(mockedPrompt).not.toHaveBeenCalled();
     expect(mockedUpdate).not.toHaveBeenCalled();
     expect(out()).toContain('harness skill update');
   });
 
-  it('HARNESS_NO_UPDATE_CHECK=1 degrades to report-only even on a TTY', async () => {
+  it('HARNESS_NO_UPDATE_CHECK=1 suppresses ALL freshness behavior (no probe, no output)', async () => {
     setTty(true);
     process.env['HARNESS_NO_UPDATE_CHECK'] = '1';
     mockedProbe.mockReturnValue({ providers: [outdated], sourceless: [] });
     await offerSkillProviderUpdates();
+    // Opt-out is checked BEFORE probing: no probe, no prompt, no output.
+    expect(mockedProbe).not.toHaveBeenCalled();
     expect(mockedPrompt).not.toHaveBeenCalled();
     expect(mockedUpdate).not.toHaveBeenCalled();
-    expect(out()).toContain('harness skill update');
+    expect(out()).toBe('');
   });
 
   it('never throws when the probe fails (does not abort update)', async () => {
+    setTty(true);
     mockedProbe.mockImplementation(() => { throw new Error('probe boom'); });
     await expect(offerSkillProviderUpdates()).resolves.toBeUndefined();
   });

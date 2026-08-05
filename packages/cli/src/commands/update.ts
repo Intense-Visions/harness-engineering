@@ -17,6 +17,7 @@ import { reconcileIntegrations } from '../integrations/reconcile';
 import { INTEGRATION_REGISTRY } from '../integrations/registry';
 import { resolveCommunityBase } from './install';
 import { probeProviders, updateProviders } from './skill/provider-update';
+import { isFreshnessCheckEnabled } from '../registry/freshness-checker';
 
 type PackageManager = 'npm' | 'pnpm' | 'yarn';
 
@@ -516,6 +517,28 @@ export function offerIntegrationsSync(cwd: string = process.cwd()): void {
  */
 export async function offerSkillProviderUpdates(): Promise<void> {
   try {
+    // Gate BEFORE probing so no synchronous git/npm probe storm ever fires
+    // unless we are actually going to use the result.
+    //
+    // 1. Opt-out: reuse isFreshnessCheckEnabled (parity with the background
+    //    freshness path) rather than a raw env read, so HARNESS_NO_UPDATE_CHECK
+    //    (or a zero interval) suppresses ALL freshness network behavior — no
+    //    probe, no output.
+    if (!isFreshnessCheckEnabled()) return;
+
+    // 2. Non-interactive (CI, piped): never probe. Print only a static,
+    //    report-only hint so `harness update` in CI stays quiet and cheap.
+    if (!process.stdout.isTTY || !process.stdin.isTTY) {
+      console.log('');
+      console.log(
+        `  Run ${chalk.cyan('harness skill update')} to check skill providers for updates.`
+      );
+      console.log('');
+      return;
+    }
+
+    // 3. Interactive TTY, checks enabled: probe now, surface outdated
+    //    providers, and offer to update.
     const lockfiles = [
       { path: resolveCommunityBase(false).lockfilePath, global: false },
       { path: resolveCommunityBase(true).lockfilePath, global: true },
@@ -528,13 +551,6 @@ export async function offerSkillProviderUpdates(): Promise<void> {
     logger.info(`${outdated.length} skill provider(s) have upstream updates:`);
     for (const p of outdated) {
       console.log(`  ${p.name}: ${chalk.dim(p.current)} → ${chalk.green(String(p.latest))}`);
-    }
-
-    const optedOut = process.env['HARNESS_NO_UPDATE_CHECK'] === '1';
-    if (optedOut || !process.stdout.isTTY || !process.stdin.isTTY) {
-      console.log(`  Update: ${chalk.cyan('harness skill update')}`);
-      console.log('');
-      return;
     }
 
     const answer = await prompt('Update skill providers now? (y/N) ');

@@ -30,7 +30,18 @@ function matchesName(providerName: string, name: string): boolean {
 
 function printTable(providers: ProbedProvider[]): void {
   for (const p of providers) {
-    const detail = p.outdated ? `${p.current} -> ${p.latest}` : `${p.current} (up to date)`;
+    // A failed probe (latest === null) is fail-safe (never outdated, never
+    // auto-repulled) but must NOT masquerade as "(up to date)" — a green
+    // --check offline/CI would otherwise falsely imply the upstream was
+    // verified. Render it as visually distinct "could not check".
+    let detail: string;
+    if (p.latest === null) {
+      detail = `${p.current} (could not check)`;
+    } else if (p.outdated) {
+      detail = `${p.current} -> ${p.latest}`;
+    } else {
+      detail = `${p.current} (up to date)`;
+    }
     console.log(`  ${p.name} [${p.kind}] ${detail}`);
   }
 }
