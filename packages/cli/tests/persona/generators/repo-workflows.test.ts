@@ -116,15 +116,33 @@ describe('renderPersonaWorkflowFile', () => {
   });
   afterEach(() => fs.rmSync(dir, { recursive: true, force: true }));
 
-  it('emits an advisory workspace-runner workflow with a generated header', () => {
+  it('emits an advisory workspace-runner workflow when asked (dogfood shape)', () => {
     const [target] = getPersonaWorkflowTargets(dir);
-    const rendered = renderPersonaWorkflowFile(target);
+    const rendered = renderPersonaWorkflowFile(target, { runner: 'workspace', advisory: true });
     expect(rendered.ok).toBe(true);
     if (!rendered.ok) return;
     expect(rendered.value).toContain('# GENERATED FILE — do not edit by hand.');
     expect(rendered.value).toContain('continue-on-error: true');
     expect(rendered.value).toContain('node packages/cli/dist/bin/harness.js validate');
     expect(rendered.value).toContain('pnpm build');
+    // Dogfood header points at the repo's own pnpm scripts.
+    expect(rendered.value).toContain('pnpm generate:persona-workflows');
+  });
+
+  it('defaults to the adopter shape: npx runner, blocking, portable header', () => {
+    const [target] = getPersonaWorkflowTargets(dir);
+    const rendered = renderPersonaWorkflowFile(target);
+    expect(rendered.ok).toBe(true);
+    if (!rendered.ok) return;
+    // Published CLI via npx, no build step, blocking (no continue-on-error).
+    expect(rendered.value).toContain('npx harness validate');
+    expect(rendered.value).not.toContain('node packages/cli/dist/bin/harness.js');
+    expect(rendered.value).not.toContain('pnpm build');
+    expect(rendered.value).not.toContain('continue-on-error: true');
+    // Adopter header carries no harness-repo-internal references.
+    expect(rendered.value).toContain('npx harness persona sync-workflows');
+    expect(rendered.value).not.toContain('pnpm generate:persona-workflows');
+    expect(rendered.value).not.toContain('required-review.yml');
   });
 });
 
@@ -191,7 +209,11 @@ describe('committed persona workflows (repo drift guard)', () => {
   it('every persona-declared CI trigger has an up-to-date committed workflow', () => {
     const personasDir = resolvePersonasDir();
     const workflowsDir = resolveWorkflowsDir(personasDir);
-    const result = checkPersonaWorkflows(personasDir, workflowsDir);
+    // This repo commits the dogfood shape (workspace runner, advisory) — match it.
+    const result = checkPersonaWorkflows(personasDir, workflowsDir, {
+      runner: 'workspace',
+      advisory: true,
+    });
     expect(result.ok).toBe(true);
     if (!result.ok) return;
     const detail = result.value.issues

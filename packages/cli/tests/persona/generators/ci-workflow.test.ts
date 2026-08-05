@@ -127,9 +127,10 @@ describe('generateCIWorkflow (options)', () => {
       s.run.startsWith('node packages/cli/dist/bin/harness.js')
     );
     expect(cmdSteps).toHaveLength(2);
-    expect(cmdSteps[0].run).toBe(
-      'node packages/cli/dist/bin/harness.js check-deps --severity error'
-    );
+    // `--severity` is appended ONLY to commands that accept it: `check-deps`
+    // does not (bare), `validate` does.
+    expect(cmdSteps[0].run).toBe('node packages/cli/dist/bin/harness.js check-deps');
+    expect(cmdSteps[1].run).toBe('node packages/cli/dist/bin/harness.js validate --severity error');
     // Node 22 (not the npx default of 20) and a concurrency guard.
     expect(workflow.on).toBeDefined();
     expect(workflow.concurrency['cancel-in-progress']).toBe(true);
@@ -167,8 +168,9 @@ describe('generateCIWorkflow (gitlab)', () => {
     const result = generateCIWorkflow(mockPersona, 'gitlab');
     if (!result.ok) return;
     const pipeline = YAML.parse(result.value);
+    // `--severity` only on commands that accept it (validate), not check-deps.
     expect(pipeline.enforce.script).toEqual([
-      'npx harness check-deps --severity error',
+      'npx harness check-deps',
       'npx harness validate --severity error',
     ]);
   });

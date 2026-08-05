@@ -8,7 +8,7 @@ vi.mock('../../../src/persona/generators/repo-workflows', () => ({
 }));
 
 vi.mock('../../../src/utils/paths', () => ({
-  resolvePersonasDir: vi.fn(() => '/tmp/personas'),
+  resolveProjectPersonasDir: vi.fn(() => '/tmp/personas'),
 }));
 
 vi.mock('../../../src/output/logger', () => ({
@@ -19,11 +19,13 @@ import {
   checkPersonaWorkflows,
   writePersonaWorkflows,
 } from '../../../src/persona/generators/repo-workflows';
+import { resolveProjectPersonasDir } from '../../../src/utils/paths';
 import { logger } from '../../../src/output/logger';
 import { createSyncWorkflowsCommand } from '../../../src/commands/persona/sync-workflows';
 
 const mockedCheck = vi.mocked(checkPersonaWorkflows);
 const mockedWrite = vi.mocked(writePersonaWorkflows);
+const mockedResolve = vi.mocked(resolveProjectPersonasDir);
 
 function createProgram(): Command {
   const program = new Command();
@@ -40,7 +42,11 @@ describe('persona sync-workflows command', () => {
     throw new Error('process.exit');
   });
 
-  beforeEach(() => vi.clearAllMocks());
+  beforeEach(() => {
+    vi.clearAllMocks();
+    // Default to a resolvable project personas dir; the guard test overrides to null.
+    mockedResolve.mockReturnValue('/tmp/personas');
+  });
 
   it('has a --check option', () => {
     const cmd = createSyncWorkflowsCommand();
@@ -48,7 +54,8 @@ describe('persona sync-workflows command', () => {
     expect(cmd.options.find((o) => o.long === '--check')).toBeDefined();
   });
 
-  it('write mode regenerates and exits 0', async () => {
+  it('write mode regenerates with the adopter default (npx, blocking) and exits 0', async () => {
+    mockedResolve.mockReturnValue('/tmp/personas');
     mockedWrite.mockReturnValue({
       ok: true,
       value: { targets: [], issues: [], written: ['a.yml'] },
@@ -57,8 +64,46 @@ describe('persona sync-workflows command', () => {
     await expect(program.parseAsync(['node', 'test', 'persona', 'sync-workflows'])).rejects.toThrow(
       'process.exit'
     );
-    expect(mockedWrite).toHaveBeenCalledWith('/tmp/personas', '/tmp/wf');
+    expect(mockedWrite).toHaveBeenCalledWith('/tmp/personas', '/tmp/wf', {
+      runner: 'npx',
+      advisory: false,
+    });
     expect(mockExit).toHaveBeenCalledWith(0);
+  });
+
+  it('threads --runner workspace --advisory through to the generator', async () => {
+    mockedResolve.mockReturnValue('/tmp/personas');
+    mockedWrite.mockReturnValue({
+      ok: true,
+      value: { targets: [], issues: [], written: ['a.yml'] },
+    } as any);
+    const program = createProgram();
+    await expect(
+      program.parseAsync([
+        'node',
+        'test',
+        'persona',
+        'sync-workflows',
+        '--runner',
+        'workspace',
+        '--advisory',
+      ])
+    ).rejects.toThrow('process.exit');
+    expect(mockedWrite).toHaveBeenCalledWith('/tmp/personas', '/tmp/wf', {
+      runner: 'workspace',
+      advisory: true,
+    });
+  });
+
+  it('errors (exit 2) when the project has no agents/personas dir — never writes node_modules', async () => {
+    mockedResolve.mockReturnValue(null);
+    const program = createProgram();
+    await expect(program.parseAsync(['node', 'test', 'persona', 'sync-workflows'])).rejects.toThrow(
+      'process.exit'
+    );
+    expect(mockExit).toHaveBeenCalledWith(2);
+    expect(mockedWrite).not.toHaveBeenCalled();
+    expect(logger.error).toHaveBeenCalledWith(expect.stringContaining('agents/personas'));
   });
 
   it('--check exits 0 when there is no drift', async () => {

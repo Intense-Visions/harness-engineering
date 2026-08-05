@@ -5,7 +5,7 @@ import { Ok } from '@harness-engineering/core';
 import { loadPersona } from '../loader';
 import type { Persona, CommandStep } from '../schema';
 import { toKebabCase } from '../../utils/string';
-import { generateCIWorkflow } from './ci-workflow';
+import { generateCIWorkflow, type CIWorkflowOptions } from './ci-workflow';
 
 /**
  * Repo-local persona CI-workflow synchronization (#663).
@@ -47,12 +47,43 @@ function hasCITrigger(persona: Persona): boolean {
 }
 
 /**
+ * CLI commands whose behavior `harness ci check` already runs on every PR
+ * (harness.yml). A persona workflow that only invokes these adds nothing but a
+ * duplicate job.
+ */
+const CI_CHECK_COVERED_COMMANDS = new Set([
+  'validate',
+  'check-deps',
+  'check-docs',
+  'check-security',
+  'check-perf',
+  'check-arch',
+]);
+
+/**
+ * True when a persona's CI tier does something the standard PR gate does not:
+ * run on a schedule (`ci check` only runs on PR/push), or invoke a command
+ * outside the `ci check` aggregate (e.g. `graph scan`/`ingest`, `cleanup`,
+ * `fix-drift`). Personas whose only command steps duplicate `ci check` get no
+ * committed workflow — this is the redundancy guard that keeps adopters (and
+ * this repo) from N near-identical per-PR jobs that re-run `ci check` piecemeal.
+ */
+function addsBeyondCiCheck(persona: Persona): boolean {
+  if (persona.triggers.some((t) => t.event === 'scheduled')) return true;
+  return persona.steps.some(
+    (s): s is CommandStep =>
+      'command' in s && !CI_CHECK_COVERED_COMMANDS.has(s.command.trim().split(/\s+/)[0] ?? '')
+  );
+}
+
+/**
  * Enumerate the personas that should have a committed CI workflow.
  *
  * A persona qualifies when it (a) opts in via `outputs.ci-workflow: true`,
- * (b) declares at least one CI-firing trigger, and (c) has at least one command
- * step to run (skill-only personas produce no runnable CI job). Invalid persona
- * files are skipped — the loader validates them elsewhere.
+ * (b) declares at least one CI-firing trigger, (c) has at least one command step
+ * to run (skill-only personas produce no runnable CI job), and (d) does something
+ * `harness ci check` does not already cover (see {@link addsBeyondCiCheck}).
+ * Invalid persona files are skipped — the loader validates them elsewhere.
  */
 export function getPersonaWorkflowTargets(personasDir: string): PersonaWorkflowTarget[] {
   if (!fs.existsSync(personasDir)) return [];
@@ -68,6 +99,8 @@ export function getPersonaWorkflowTargets(personasDir: string): PersonaWorkflowT
     if (!persona.outputs['ci-workflow']) continue;
     if (!hasCITrigger(persona)) continue;
     if (!hasCommandStep(persona)) continue;
+    // Skip personas whose CI tier only duplicates `harness ci check` (harness.yml).
+    if (!addsBeyondCiCheck(persona)) continue;
     const slug = toKebabCase(persona.name);
     targets.push({
       persona,
@@ -80,27 +113,55 @@ export function getPersonaWorkflowTargets(personasDir: string): PersonaWorkflowT
 }
 
 /**
+ * How persona workflows are shaped when generated. Adopters (the default) get a
+ * published-CLI `npx` runner with blocking checks. The harness repo itself passes
+ * `{ runner: 'workspace', advisory: true }` to build the CLI from source and wire
+ * the jobs non-blocking first — matching how it dogfoods its other gates.
+ */
+export type PersonaWorkflowRenderOptions = Required<CIWorkflowOptions>;
+
+/** The adopter-facing default: published CLI via `npx`, blocking on findings. */
+export const DEFAULT_RENDER_OPTIONS: PersonaWorkflowRenderOptions = {
+  runner: 'npx',
+  advisory: false,
+};
+
+/**
  * Render the full file content (header + YAML) for a persona's workflow.
  *
- * Uses the `workspace` runner (build-from-source, node 22) and `advisory` mode
- * (continue-on-error) so the job honors the declared triggers without blocking.
+ * The header is written for the target runner: the adopter (`npx`) header
+ * references portable `npx harness persona sync-workflows` commands and carries
+ * no harness-repo-internal references; the `workspace` (dogfood) header points at
+ * the repo's own pnpm scripts.
  */
-export function renderPersonaWorkflowFile(target: PersonaWorkflowTarget): Result<string, Error> {
-  const result = generateCIWorkflow(target.persona, 'github', {
-    runner: 'workspace',
-    advisory: true,
-  });
+export function renderPersonaWorkflowFile(
+  target: PersonaWorkflowTarget,
+  options: PersonaWorkflowRenderOptions = DEFAULT_RENDER_OPTIONS
+): Result<string, Error> {
+  const result = generateCIWorkflow(target.persona, 'github', options);
   if (!result.ok) return result;
+
+  const regen =
+    options.runner === 'workspace'
+      ? [
+          '# Regenerate:   pnpm generate:persona-workflows',
+          '# Drift guard:  pnpm generate:persona-workflows:check  (enforced in CI)',
+        ]
+      : [
+          '# Regenerate:   npx harness persona sync-workflows',
+          '# Drift guard:  npx harness persona sync-workflows --check',
+        ];
+  const blockingNote = options.advisory
+    ? "# Advisory (continue-on-error): honors the persona's declared triggers at the"
+    : "# Honors the persona's declared triggers at the";
   const header = [
     '# GENERATED FILE — do not edit by hand.',
     `# Source persona: agents/personas/${target.sourceFile} (outputs.ci-workflow: true)`,
-    '# Regenerate:   pnpm generate:persona-workflows',
-    '# Drift guard:  pnpm generate:persona-workflows:check  (enforced in CI)',
+    ...regen,
     '#',
-    "# Advisory (continue-on-error): honors the persona's declared triggers at the",
-    "# CLI-command tier without blocking the PR. The persona's LLM/agent-runtime",
-    '# steps (skill steps) are delivered via required-review.yml, not here. See',
-    '# docs/changes/honor-persona-triggers/proposal.md (#663).',
+    blockingNote,
+    "# CLI-command tier. The persona's LLM/agent-runtime (skill) steps are not run",
+    '# here — a persona review that needs an agent runtime is delivered separately.',
     '',
     '',
   ].join('\n');
@@ -135,14 +196,15 @@ export function resolveWorkflowsDir(personasDir: string): string {
  */
 export function checkPersonaWorkflows(
   personasDir: string,
-  workflowsDir: string
+  workflowsDir: string,
+  options: PersonaWorkflowRenderOptions = DEFAULT_RENDER_OPTIONS
 ): Result<WorkflowSyncResult, Error> {
   const targets = getPersonaWorkflowTargets(personasDir);
   const issues: WorkflowDriftIssue[] = [];
   const expectedFilenames = new Set(targets.map((t) => t.filename));
 
   for (const target of targets) {
-    const rendered = renderPersonaWorkflowFile(target);
+    const rendered = renderPersonaWorkflowFile(target, options);
     if (!rendered.ok) return rendered;
     const filePath = path.join(workflowsDir, target.filename);
     if (!fs.existsSync(filePath)) {
@@ -186,7 +248,8 @@ export function checkPersonaWorkflows(
  */
 export function writePersonaWorkflows(
   personasDir: string,
-  workflowsDir: string
+  workflowsDir: string,
+  options: PersonaWorkflowRenderOptions = DEFAULT_RENDER_OPTIONS
 ): Result<WorkflowSyncResult, Error> {
   const targets = getPersonaWorkflowTargets(personasDir);
   const written: string[] = [];
@@ -194,7 +257,7 @@ export function writePersonaWorkflows(
 
   const expectedFilenames = new Set(targets.map((t) => t.filename));
   for (const target of targets) {
-    const rendered = renderPersonaWorkflowFile(target);
+    const rendered = renderPersonaWorkflowFile(target, options);
     if (!rendered.ok) return rendered;
     const filePath = path.join(workflowsDir, target.filename);
     fs.writeFileSync(filePath, rendered.value);

@@ -23,7 +23,9 @@ if (!existsSync(tsx)) {
 }
 
 const isCheck = process.argv.includes('--check');
-const args = [cliEntry, 'persona', 'sync-workflows'];
+// This repo dogfoods the workspace runner (builds the CLI from source) and wires
+// the persona jobs non-blocking first — adopters get the npx/blocking default.
+const args = [cliEntry, 'persona', 'sync-workflows', '--runner', 'workspace', '--advisory'];
 if (isCheck) args.push('--check');
 
 try {

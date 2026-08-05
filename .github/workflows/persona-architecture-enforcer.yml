@@ -4,9 +4,8 @@
 # Drift guard:  pnpm generate:persona-workflows:check  (enforced in CI)
 #
 # Advisory (continue-on-error): honors the persona's declared triggers at the
-# CLI-command tier without blocking the PR. The persona's LLM/agent-runtime
-# steps (skill steps) are delivered via required-review.yml, not here. See
-# docs/changes/honor-persona-triggers/proposal.md (#663).
+# CLI-command tier. The persona's LLM/agent-runtime (skill) steps are not run
+# here — a persona review that needs an agent runtime is delivered separately.
 
 name: Architecture Enforcer
 on:
@@ -39,5 +38,5 @@ jobs:
           cache: pnpm
       - run: pnpm install --frozen-lockfile
       - run: pnpm build
-      - run: node packages/cli/dist/bin/harness.js check-deps --severity error
+      - run: node packages/cli/dist/bin/harness.js check-deps
       - run: node packages/cli/dist/bin/harness.js validate --severity error

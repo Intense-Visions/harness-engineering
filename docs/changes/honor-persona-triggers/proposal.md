@@ -57,14 +57,45 @@ provide. This mirrors the split already drawn by #664 (`pr-advisory-checks.yml`)
 
 ## Acceptance criteria
 
-- `.github/workflows/persona-*.yml` exists for all 11 qualifying personas, each
-  valid GitHub Actions YAML, advisory (`continue-on-error: true`), and invoking
-  the workspace CLI after a build. (observable: files committed + YAML parses)
+- `.github/workflows/persona-*.yml` exists for each persona whose CI tier adds
+  value beyond `harness ci check` (a scheduled sweep, or a command outside the
+  `ci check` aggregate), each valid GitHub Actions YAML, advisory
+  (`continue-on-error: true`), invoking the workspace CLI after a build.
+  (observable: files committed + YAML parses)
+- Every emitted command step is one the target command actually accepts —
+  `--severity` is appended only to commands that declare it. (observable: unit
+  tests assert `check-deps` bare vs `validate --severity`; no `unknown option`)
 - `pnpm generate:persona-workflows:check` exits 0 on a fresh generation and
   non-zero when a persona is added/edited without regenerating. (observable: CI
   step + unit tests for missing/stale/orphaned drift)
-- The adopter-facing `generateCIWorkflow` default output is unchanged.
-  (observable: existing generator tests still pass)
+- `harness persona sync-workflows` is adopter-usable: defaults to the published
+  CLI via `npx` (no `pnpm build`, no `dist` bin path) with a portable header, and
+  refuses to run when the project has no `agents/personas/` (never writes the
+  bundled personas into `node_modules`). `--runner workspace --advisory`
+  reproduces this repo's dogfood shape. (observable: command tests)
+
+## Corrections (rework of the initial cut)
+
+The first cut shipped 11 workflows that were mostly non-functional or redundant.
+Fixed here:
+
+1. **Blocking bug:** the generator appended `--severity` to every command, but
+   only `validate` / `check-perf` / `check-security` accept it — the rest
+   hard-errored (`unknown option`), and job-level `continue-on-error` then
+   skipped all later steps. `--severity` is now applied per-command.
+2. **Redundancy:** personas whose only command steps duplicate `harness ci
+check` (already run on every PR via `harness.yml`) no longer get a workflow.
+   This dropped the pure-duplicate PR personas; the remaining set each runs a
+   scheduled sweep or a command outside the `ci check` aggregate.
+3. **Adopter usability:** the command hardcoded the dogfood runner
+   (`workspace` + `pnpm build` + the `dist` bin path) and silently resolved to
+   the CLI's bundled personas when a project had none. It now defaults to the
+   `npx` runner with a portable header, exposes `--runner`/`--advisory`, and
+   refuses the bundled-personas fallback.
+
+Deferred follow-up: collapsing the shared setup into a `workflow_call` reusable
+workflow. A job matrix cannot express the personas' heterogeneous triggers, so
+that is a separate refactor; the redundancy cut already reduced the file count.
 
 ## Non-goals
 

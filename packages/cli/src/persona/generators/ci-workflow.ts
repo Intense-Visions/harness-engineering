@@ -99,6 +99,21 @@ export interface CIWorkflowOptions {
   advisory?: boolean;
 }
 
+/**
+ * The only `harness` subcommands that accept a `--severity` flag. Appending it
+ * to any other command hard-errors under commander (`unknown option`), which —
+ * with job-level `continue-on-error` — silently skips every subsequent step. So
+ * the flag must be added per-command, not blanket-appended to the whole list.
+ */
+const SEVERITY_AWARE_COMMANDS = new Set(['validate', 'check-perf', 'check-security']);
+
+/** The `--severity <level>` suffix for `command`, or '' when it takes no such flag. */
+function severityFlagFor(command: string, severity: string | undefined): string {
+  if (!severity) return '';
+  const leading = command.trim().split(/\s+/)[0];
+  return SEVERITY_AWARE_COMMANDS.has(leading ?? '') ? ` --severity ${severity}` : '';
+}
+
 export function generateCIWorkflow(
   persona: Persona,
   platform: 'github' | 'gitlab',
@@ -107,12 +122,13 @@ export function generateCIWorkflow(
   try {
     const runner = options.runner ?? 'npx';
     const severity = persona.config.severity;
-    const severityFlag = severity ? ` --severity ${severity}` : '';
     // Only emit command steps in CI (skill steps require AI agent runtime).
     const commandSteps = persona.steps.filter((s): s is CommandStep => 'command' in s);
 
     if (platform === 'gitlab') {
-      const script = commandSteps.map((step) => `npx harness ${step.command}${severityFlag}`);
+      const script = commandSteps.map(
+        (step) => `npx harness ${step.command}${severityFlagFor(step.command, severity)}`
+      );
       const rules = buildGitLabRules(persona.triggers);
       const enforce: Record<string, unknown> = {
         image: 'node:20',
@@ -149,7 +165,7 @@ export function generateCIWorkflow(
 
     const invoke = runner === 'workspace' ? 'node packages/cli/dist/bin/harness.js' : 'npx harness';
     for (const step of commandSteps) {
-      steps.push({ run: `${invoke} ${step.command}${severityFlag}` });
+      steps.push({ run: `${invoke} ${step.command}${severityFlagFor(step.command, severity)}` });
     }
 
     const job: Record<string, unknown> = { 'runs-on': 'ubuntu-latest' };
