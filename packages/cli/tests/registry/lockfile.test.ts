@@ -132,6 +132,12 @@ describe('lockfile v2 provenance', () => {
     expect(() => readLockfile(lockPath)).toThrow('Invalid lockfile format');
   });
 
+  it('rejects literal null content with the friendly error (not a raw TypeError)', () => {
+    const lockPath = path.join(tmpDir, 'skills-lock.json');
+    fs.writeFileSync(lockPath, 'null');
+    expect(() => readLockfile(lockPath)).toThrow('Invalid lockfile format');
+  });
+
   it('always writes version 2 even when the in-memory lockfile is version 1', () => {
     const lockPath = path.join(tmpDir, 'skills-lock.json');
     writeLockfile(lockPath, { version: 1, skills: {} });

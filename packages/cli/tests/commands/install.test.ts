@@ -638,6 +638,18 @@ describe('GitHub source provenance', () => {
       commit: 'deadbeefsha',
     });
   });
+
+  it('cleans up the temp clone dir when git rev-parse fails (not just clone)', async () => {
+    // clone succeeds (empty buffer), rev-parse throws — the temp dir must still be removed.
+    mockedExecFileSync.mockImplementation(((_cmd: string, args?: readonly string[]) => {
+      if (Array.isArray(args) && args.includes('rev-parse')) {
+        throw new Error('rev-parse failed');
+      }
+      return Buffer.from('');
+    }) as typeof execFileSync);
+    await expect(runInstall('ignored', { from: 'github:owner/repo#main' })).rejects.toThrow();
+    expect(mockedCleanup).toHaveBeenCalled();
+  });
 });
 
 describe('local source provenance', () => {

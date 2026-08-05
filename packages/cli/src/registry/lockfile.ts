@@ -64,12 +64,15 @@ export function readLockfile(filePath: string): SkillsLockfile {
         `Delete it and re-run harness install to regenerate.`
     );
   }
-  const version = (parsed as Record<string, unknown>).version;
+  // Guard object-ness BEFORE reading `.version` — JSON.parse('null') yields null,
+  // and reading a property off it would throw a raw TypeError instead of the
+  // friendly "Invalid lockfile format" message this block exists to produce.
   if (
     !parsed ||
     typeof parsed !== 'object' ||
     !('version' in parsed) ||
-    (version !== 1 && version !== 2) ||
+    ((parsed as Record<string, unknown>).version !== 1 &&
+      (parsed as Record<string, unknown>).version !== 2) ||
     !('skills' in parsed) ||
     typeof (parsed as Record<string, unknown>).skills !== 'object'
   ) {
@@ -84,6 +87,9 @@ export function readLockfile(filePath: string): SkillsLockfile {
 /**
  * Write a skills-lock.json file. Output is deterministic (sorted keys, 2-space
  * indent, trailing newline). Creates parent directories if needed.
+ *
+ * Always emits the current schema version (2), regardless of the `version` on
+ * the passed lockfile — a read-then-write of a v1 file upgrades it in place.
  */
 export function writeLockfile(filePath: string, lockfile: SkillsLockfile): void {
   const dir = path.dirname(filePath);
