@@ -17,7 +17,10 @@ export const BUILT_IN_TASKS: readonly TaskDefinition[] = [
     description: 'Detect and fix architecture violations',
     schedule: '0 2 * * *',
     branch: 'harness-maint/arch-fixes',
-    checkCommand: ['check-arch'],
+    // `--findings-json` emits the standard machine-readable findings contract
+    // (#691); the runner consumes `{ findings: N }` instead of regex-recovering
+    // the count from prose.
+    checkCommand: ['check-arch', '--findings-json'],
     fixSkill: 'harness-arch-fix',
   },
   {
@@ -26,7 +29,7 @@ export const BUILT_IN_TASKS: readonly TaskDefinition[] = [
     description: 'Detect and fix dependency violations',
     schedule: '0 2 * * *',
     branch: 'harness-maint/dep-fixes',
-    checkCommand: ['check-deps'],
+    checkCommand: ['check-deps', '--findings-json'],
     fixSkill: 'harness-dep-fix',
   },
   {
@@ -35,7 +38,7 @@ export const BUILT_IN_TASKS: readonly TaskDefinition[] = [
     description: 'Detect and fix documentation drift',
     schedule: '0 3 * * *',
     branch: 'harness-maint/doc-fixes',
-    checkCommand: ['check-docs'],
+    checkCommand: ['check-docs', '--findings-json'],
     fixSkill: 'harness-doc-fix',
   },
   {
@@ -44,7 +47,7 @@ export const BUILT_IN_TASKS: readonly TaskDefinition[] = [
     description: 'Detect and fix security findings',
     schedule: '0 1 * * *',
     branch: 'harness-maint/security-fixes',
-    checkCommand: ['check-security'],
+    checkCommand: ['check-security', '--findings-json'],
     fixSkill: 'harness-security-fix',
   },
   {
@@ -53,7 +56,7 @@ export const BUILT_IN_TASKS: readonly TaskDefinition[] = [
     description: 'Detect and fix codebase entropy',
     schedule: '0 3 * * *',
     branch: 'harness-maint/entropy-fixes',
-    checkCommand: ['cleanup'],
+    checkCommand: ['cleanup', '--findings-json'],
     fixSkill: 'harness-entropy-fix',
   },
   {
@@ -77,7 +80,9 @@ export const BUILT_IN_TASKS: readonly TaskDefinition[] = [
     // WITHOUT running the full `harness validate` suite. It prints a parseable
     // `Cross-check: N issues` line and exits 0 (clean) / 1 (N issues), so the
     // maintenance runner reports real results instead of an honest `failure`.
-    checkCommand: ['cross-check'],
+    // `--findings-json` additionally emits the machine-readable findings contract
+    // (#691) so the count is read from `{ findings: N }`, not the prose line.
+    checkCommand: ['cross-check', '--findings-json'],
     fixSkill: 'harness-cross-check-fix',
   },
 

@@ -72,10 +72,15 @@ Check architecture assertions against baseline and thresholds
 - `--module` — Check a single module
 - `--allow-regress` — Permit a --update-baseline that worsens a metric (requires --reason)
 - `--reason` — Why an accepted regression is acceptable (logged to audit)
+- `--findings-json` — Emit findings contract as a trailing JSON line (#691)
 
 ### `harness check-deps`
 
 Validate dependency layers and detect circular dependencies
+
+**Options:**
+
+- `--findings-json` — Emit the machine-readable maintenance findings contract ({ findings: N }) as a trailing stdout line (#691)
 
 ### `harness check-design`
 
@@ -93,6 +98,7 @@ Check documentation coverage
 **Options:**
 
 - `--min-coverage` — Minimum coverage percentage (default: "80")
+- `--findings-json` — Emit the machine-readable maintenance findings contract ({ findings: N }) as a trailing stdout line (#691)
 
 ### `harness check-harness-strength`
 
@@ -128,6 +134,7 @@ Run lightweight security scan: secrets, injection, XSS, weak crypto
 
 - `--severity` — Minimum severity that fails the command; findings below it are excluded from the report and never fail the gate (error, warning, info) (default: "warning")
 - `--changed-only` — Only scan git-changed files
+- `--findings-json` — Emit the machine-readable maintenance findings contract ({ findings: N }) as a trailing stdout line (#691)
 
 ### `harness check-vocabulary`
 
@@ -140,6 +147,7 @@ Detect entropy issues (doc drift, dead code, patterns)
 **Options:**
 
 - `-t, --type` — Issue type: drift, dead-code, patterns, all (default: "all")
+- `--findings-json` — Emit the machine-readable maintenance findings contract ({ findings: N }) as a trailing stdout line (#691)
 
 ### `harness cleanup-sessions`
 
@@ -188,6 +196,7 @@ Check cross-artifact consistency (plan-to-implementation coverage and staleness)
 
 - `--specs-dir` — Specs directory relative to project root (default: docs/specs)
 - `--plans-dir` — Plans directory relative to project root (default: docs/plans)
+- `--findings-json` — Emit the machine-readable maintenance findings contract ({ findings: N }) as a trailing stdout line (#691)
 
 ### `harness dashboard`
 

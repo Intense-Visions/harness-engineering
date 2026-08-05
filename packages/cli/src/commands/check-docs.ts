@@ -2,6 +2,7 @@ import { Command } from 'commander';
 import * as path from 'path';
 import type { Result } from '@harness-engineering/core';
 import { Ok, Err } from '@harness-engineering/core';
+import { formatFindingsContract } from '@harness-engineering/types';
 import { checkDocCoverage, validateKnowledgeMap } from '@harness-engineering/core';
 import { resolveConfig } from '../config/loader';
 import { OutputFormatter, OutputMode } from '../output/formatter';
@@ -130,6 +131,10 @@ export function createCheckDocsCommand(): Command {
   const command = new Command('check-docs')
     .description('Check documentation coverage')
     .option('--min-coverage <percent>', 'Minimum coverage percentage', '80')
+    .option(
+      '--findings-json',
+      'Emit the machine-readable maintenance findings contract ({ findings: N }) as a trailing stdout line (#691)'
+    )
     .action(async (opts, cmd) => {
       const globalOpts = cmd.optsWithGlobals();
       const mode = resolveOutputMode(globalOpts);
@@ -156,6 +161,12 @@ export function createCheckDocsCommand(): Command {
         console.log(JSON.stringify(result.value, null, 2));
       } else if (mode !== OutputMode.QUIET) {
         printCheckDocsResult(result.value, mode, formatter);
+      }
+
+      // #691: findings = undocumented files + broken knowledge-map links.
+      if (opts.findingsJson) {
+        const findings = result.value.undocumented.length + result.value.brokenLinks.length;
+        console.log(formatFindingsContract(findings, 'check-docs'));
       }
 
       process.exit(result.value.valid ? ExitCode.SUCCESS : ExitCode.VALIDATION_FAILED);

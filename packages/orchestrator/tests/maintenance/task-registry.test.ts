@@ -81,7 +81,8 @@ describe('task-registry', () => {
       expect(t.type).toBe('mechanical-ai');
       expect(t.schedule).toBe('0 2 * * *');
       expect(t.branch).toBe('harness-maint/arch-fixes');
-      expect(t.checkCommand).toEqual(['check-arch']);
+      // #691: emits the machine-readable findings contract via --findings-json.
+      expect(t.checkCommand).toEqual(['check-arch', '--findings-json']);
     });
 
     it('dep-violations: daily 2am, mechanical-ai', () => {
@@ -89,7 +90,7 @@ describe('task-registry', () => {
       expect(t.type).toBe('mechanical-ai');
       expect(t.schedule).toBe('0 2 * * *');
       expect(t.branch).toBe('harness-maint/dep-fixes');
-      expect(t.checkCommand).toEqual(['check-deps']);
+      expect(t.checkCommand).toEqual(['check-deps', '--findings-json']);
     });
 
     it('doc-drift: daily 3am, mechanical-ai', () => {
@@ -130,7 +131,8 @@ describe('task-registry', () => {
       // staleness) via the `validate_cross_check` core (`runCrossCheck`) WITHOUT
       // running the full `harness validate` suite. Emits a parseable
       // `Cross-check: N issues` line so the runner reports real results.
-      expect(t.checkCommand).toEqual(['cross-check']);
+      // #691: also emits the machine-readable findings contract via --findings-json.
+      expect(t.checkCommand).toEqual(['cross-check', '--findings-json']);
     });
 
     it('every built-in checkCommand uses a real CLI subcommand, not an MCP tool name', () => {

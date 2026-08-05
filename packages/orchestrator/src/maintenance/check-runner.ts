@@ -10,6 +10,7 @@
 
 import { execFile as nodeExecFile } from 'node:child_process';
 import { promisify } from 'node:util';
+import { parseFindingsContract } from '@harness-engineering/types';
 import type { CheckCommandResult } from './task-runner';
 
 /**
@@ -32,7 +33,10 @@ export const MAINTENANCE_CHECK_MAX_BUFFER = 64 * 1024 * 1024;
  */
 export const MAINTENANCE_CHECK_TIMEOUT_MS = 300_000;
 
-/** Primary findings-count parser ("45 issues", "3 findings", …). */
+/** Legacy findings-count parser ("45 issues", "3 findings", …). Used ONLY as a
+ * fallback for checks that have not yet emitted the machine-readable findings
+ * contract ({@link parseFindingsContract}); migrated checks are read from the
+ * contract and never touch this regex (#691). */
 const FINDINGS_RE = /(\d+)\s+(?:finding|issue|violation|error)/i;
 
 const nodeExecFileAsync = promisify(nodeExecFile);
@@ -81,6 +85,10 @@ export function isCheckTimeoutError(e: ExecFileError): boolean {
  * Spawn a resolved harness check invocation and classify its result into a
  * {@link CheckCommandResult}. Behavior (shared by cron + CLI):
  *
+ *   - findings contract present (#691) → the machine-readable envelope
+ *     (`{ findings: N, ... }`) wins over everything below, on BOTH a clean and a
+ *     non-zero exit (`findingsSource: 'contract'`). A migrated check reports its
+ *     count as structured data, so no wording change can break it.
  *   - clean exit, parseable count → `{ findings: N }` (or 0 on a parse-miss; a
  *     check that ran and said nothing is clean, not "1 finding").
  *   - non-zero exit WITH a parseable count → real findings (`executionFailed:
@@ -111,9 +119,29 @@ export async function runHarnessCheck(
       maxBuffer,
     });
     const text = String(stdout);
+    // Prefer the machine-readable findings contract (#691): a migrated check
+    // emits `{ findings: N, ... }` and we trust that count verbatim, immune to
+    // any wording change in the surrounding human output. Regex is the labeled
+    // fallback for checks not yet emitting the contract.
+    const contract = parseFindingsContract(text);
+    if (contract) {
+      return {
+        passed: contract.findings === 0,
+        findings: contract.findings,
+        output: text,
+        executionFailed: false,
+        findingsSource: 'contract',
+      };
+    }
     const m = text.match(FINDINGS_RE);
     const findings = m ? parseInt(m[1]!, 10) : 0;
-    return { passed: findings === 0, findings, output: text, executionFailed: false };
+    return {
+      passed: findings === 0,
+      findings,
+      output: text,
+      executionFailed: false,
+      findingsSource: 'regex',
+    };
   } catch (err) {
     const e = err as ExecFileError;
     let output = [e.stdout, e.stderr]
@@ -132,13 +160,33 @@ export async function runHarnessCheck(
       return { passed: false, findings: 0, output, executionFailed: true };
     }
 
+    // A migrated check that found issues exits non-zero but STILL emits the
+    // contract (#691). The envelope proves the check ran and reported N — trust
+    // it over both the regex and the executionFailed classification below.
+    const contract = parseFindingsContract(output);
+    if (contract) {
+      return {
+        passed: contract.findings === 0,
+        findings: contract.findings,
+        output,
+        executionFailed: false,
+        findingsSource: 'contract',
+      };
+    }
+
     const m = output.match(FINDINGS_RE);
     if (m) {
       // Non-zero exit WITH a parseable count: the check ran and found issues.
-      return { passed: false, findings: parseInt(m[1]!, 10), output, executionFailed: false };
+      return {
+        passed: false,
+        findings: parseInt(m[1]!, 10),
+        output,
+        executionFailed: false,
+        findingsSource: 'regex',
+      };
     }
     // Non-zero exit / spawn error with NO parseable count: could not produce a
     // usable result (ENOENT, unknown subcommand, crash). Flag executionFailed.
-    return { passed: false, findings: 0, output, executionFailed: true };
+    return { passed: false, findings: 0, output, executionFailed: true, findingsSource: 'regex' };
   }
 }
