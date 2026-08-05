@@ -46,6 +46,11 @@ export const ROADMAP_READ_ALLOWLIST: readonly string[] = [
   'packages/cli/src/commands/roadmap/unshard.ts',
   'packages/cli/src/commands/roadmap/migrate.ts',
   'packages/cli/src/commands/roadmap/migrate-lock.ts',
+  // Adopter-facing git-hook installer: writes a pre-commit hook whose generated
+  // shell block names `docs/roadmap.md` (git add + fail message) — a path in a
+  // shell string, not a content parse-read; the hook shells out to `harness
+  // roadmap regen`, which goes through the store.
+  'packages/cli/src/commands/roadmap/install-hook.ts',
   // Read-only auto-triage: parses items to score dispatchability (report +
   // --brainstorm); never writes roadmap.md. Same parse pattern as its peer
   // roadmap commands above (shard/regen), and default-off behind roadmap.autoTriage.

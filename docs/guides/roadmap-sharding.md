@@ -96,6 +96,33 @@ shards and **warns when the committed `docs/roadmap.md` has drifted**
 harness roadmap regen
 ```
 
+### Optional: install the local regen hook in your repo
+
+The `.husky/pre-commit` regen step above is this repo's own hook. Adopters get the
+same local convenience with a one-shot installer:
+
+```bash
+harness roadmap install-hook
+```
+
+This wires a guarded regen step into your `pre-commit` hook — when any
+`docs/roadmap.d/` shard is staged it runs `harness roadmap regen` and re-stages
+`docs/roadmap.md` (blocking the commit if regen fails). It is idempotent and
+composes safely with an existing hook:
+
+- `--mechanism auto` (default) writes to `.husky/pre-commit` when a `.husky/`
+  directory exists, otherwise to raw `.git/hooks/pre-commit`. Force a choice with
+  `--mechanism husky` or `--mechanism git`.
+- Re-running replaces its own fenced block in place (never duplicated) and never
+  clobbers your other hook steps.
+- It skips gracefully when the repo is not sharded yet (no `docs/roadmap.d/`);
+  pass `--force` to pre-provision before `harness roadmap shard`.
+- `--command <cmd>` overrides the embedded regen invocation (default `npx harness
+roadmap regen`) for pnpm/yarn or a pinned CLI path.
+
+Like all local git hooks this is per-developer and bypassable — **CI (`harness
+validate`) remains the authoritative freshness contract**, not this hook.
+
 ### Optional: regenerate-on-push CI (auto-fix instead of fail-on-drift)
 
 Teams that prefer CI to _fix_ drift rather than fail on it can add a small workflow
