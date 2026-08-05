@@ -115,6 +115,24 @@ jobs:
       # Dogfood the shipped semantic-vocabulary gate against harness's own config.
       - run: node packages/cli/dist/bin/harness.js check-vocabulary
 
+      # The operational-drift check is diff-based, so it needs the PR base commit
+      # reachable. The build-and-test checkout above is shallow (fetch-depth 1),
+      # so fetch the base branch to make origin/<base_ref> resolvable — the same
+      # pattern required-review.yml uses for its diff range.
+      - name: Fetch PR base for operational-drift diff
+        if: github.event_name == 'pull_request'
+        run: git fetch origin ${{ github.event.pull_request.base.ref }}
+
+      # ADVISORY (non-blocking): dogfood check-operational-drift on the PR diff.
+      # Surfaces gate-softening operational changes (hook profiles, harness.config
+      # thresholds, the pre-commit --skip list, .husky/**) that land without an
+      # accompanying ADR under docs/knowledge/decisions/. Runs in default mode
+      # (NO --strict) so a missing ADR reports in the job log but exits 0 and
+      # never fails the PR. Promote to --strict later to make it blocking.
+      - name: check-operational-drift (advisory)
+        if: github.event_name == 'pull_request'
+        run: node packages/cli/dist/bin/harness.js check-operational-drift --base origin/${{ github.event.pull_request.base.ref }}
+
   # Regenerate auto-generated baselines on main after merge to prevent drift.
   # Downloads coverage from the test job to avoid running the full test suite twice.
   refresh-baselines:

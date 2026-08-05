@@ -561,7 +561,7 @@ last_manual_edit: 2026-06-27T12:51:51.967Z
 ### Add harness mcp list-capabilities CLI for adopter audit
 
 - **Status:** planned
-- **Spec:** [docs/changes/mcp-list-capabilities/proposal.md](../changes/mcp-list-capabilities/proposal.md)
+- **Spec:** —
 - **Summary:** MCP server has 101 tool files (`packages/cli/src/mcp/tools/`). Per-tool `trustedOutput` flag exists but per-tool capability declarations don't. Adopters have no easy way to audit what their agent can do via MCP. Add `harness mcp list-capabilities --by-permission` CLI command that surfaces each tool's read/write/exec scope, network access, and trust tag. Source: Pass 6 #3.
 - **Blockers:** —
 - **Plan:** —
@@ -572,7 +572,7 @@ last_manual_edit: 2026-06-27T12:51:51.967Z
 ### Require ADR for operational policy changes
 
 - **Status:** planned
-- **Spec:** —
+- **Spec:** [docs/changes/require-adr-operational-policy/proposal.md](../changes/require-adr-operational-policy/proposal.md)
 - **Summary:** ADRs in `docs/knowledge/decisions/` capture architectural decisions. Changes to hook profiles, threshold values, `--skip` lists, and baseline-update policies are also load-bearing — and they accumulate silently in commits without ADR-grade artifacts. Add a `harness:check-operational-drift` check (or extend the existing `harness:enforce-architecture`) that flags PRs touching `.husky/`, `harness.config.json` thresholds, the pre-commit `--skip` list, or `packages/cli/src/hooks/profiles.ts` without a corresponding ADR. Forces the "we silently softened a gate" decision to surface as a deliberate ADR-grade record. Closes the surface where Pass 1 #1 (pre-commit auto-baseline) entered the codebase without a documented decision in the first place. Source: Pass 7 final-pass synthesis.
 - **Blockers:** —
 - **Plan:** —
@@ -1033,7 +1033,7 @@ last_manual_edit: 2026-06-27T12:51:51.967Z
 ### Semantic-Vocabulary CI Gate
 
 - **Status:** planned
-- **Spec:** docs/changes/semantic-vocabulary-ci-gate/proposal.md
+- **Spec:** —
 - **Summary:** Add a harness analog of Spec Kitty's test_no_legacy_terminology architectural test: a CI gate that fails when deprecated or renamed canonical terms reappear in skills/docs, protecting the glossary and naming-craft investment from vocabulary drift over time. Adapted from Spec Kitty's semantic-terminology architectural test. Adoption #8 from docs/research/spec-kitty-comparison-analysis.md [SPECKITTY-8]
 - **Blockers:** —
 - **Plan:** —

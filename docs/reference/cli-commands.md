@@ -106,6 +106,15 @@ Mechanically audit this project's harness setup against the 7 strength patterns
 - `--adopter` — Force adopter mode
 - `--report-only` — Always exit 0 regardless of findings
 
+### `harness check-operational-drift`
+
+Flag operational-policy changes (hooks, thresholds, --skip list) that lack a corresponding ADR
+
+**Options:**
+
+- `--base` — Base git ref to diff against (default: merge-base with default branch)
+- `--strict` — Treat a missing ADR as blocking (non-zero exit), overriding config
+
 ### `harness check-perf`
 
 Run performance checks: structural complexity, coupling, and size budgets

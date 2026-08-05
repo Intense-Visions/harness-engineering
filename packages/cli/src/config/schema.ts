@@ -833,6 +833,40 @@ export const LocalModelsConfigSchema = z.object({
     .optional(),
 });
 
+/**
+ * Operational-policy drift settings, consumed by `harness check-operational-drift`
+ * (roadmap #565). Flags a diff that touches operational-policy surfaces (hook
+ * profiles, the pre-commit `--skip` list, config threshold values, baseline
+ * policy) without a corresponding ADR under `adrDir`. Every field is optional and
+ * layered over built-in defaults; `.passthrough()` keeps it forward-compatible.
+ */
+export const OperationalPolicyConfigSchema = z
+  .object({
+    /** When false, `check-operational-drift` is a no-op. Default: true. */
+    enabled: z.boolean().optional(),
+    /**
+     * `advisory` (default): report but exit 0. `blocking`: a missing ADR exits
+     * non-zero. Also forced to blocking by the `--strict` flag.
+     */
+    severity: z.enum(['advisory', 'blocking']).optional(),
+    /** Directory (repo-relative) where ADRs live. Default: `docs/knowledge/decisions`. */
+    adrDir: z.string().optional(),
+    /**
+     * Glob patterns (repo-relative) whose changed files count as operational
+     * changes. Default: `.husky/**`, `packages/cli/src/hooks/profiles.ts`.
+     */
+    watchedPaths: z.array(z.string()).optional(),
+    /** The config file whose threshold fields are watched. Default: `harness.config.json`. */
+    configFile: z.string().optional(),
+    /**
+     * Dotted JSON paths inside `configFile` whose sub-tree is threshold/skip-list
+     * policy. A change to any sub-tree flags. Defaults cover the architecture and
+     * performance budgets plus the security gate strictness.
+     */
+    configThresholdPaths: z.array(z.string()).optional(),
+  })
+  .passthrough();
+
 export const HarnessConfigSchema = z.object({
   /** Configuration schema version */
   version: z.literal(1),
@@ -902,6 +936,8 @@ export const HarnessConfigSchema = z.object({
   integrations: IntegrationsConfigSchema.optional(),
   /** General architectural enforcement settings */
   architecture: ArchConfigSchema.optional(),
+  /** Operational-policy drift settings (ADR requirement for hooks/thresholds/skip-list) */
+  operationalPolicy: OperationalPolicyConfigSchema.optional(),
   /** Skill loading, suggestion, and tier override settings */
   skills: z
     .object({
