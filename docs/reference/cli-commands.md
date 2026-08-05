@@ -315,6 +315,8 @@ Install skills from npm registry, local directory, or GitHub repository
 - `--from` — Install from local path, directory, or GitHub (github:owner/repo, https://github.com/owner/repo)
 - `--global` — Install globally (~/.harness/skills/community/) for all projects
 - `--registry` — Use a custom npm registry URL
+- `--generate` — Generate slash commands after install without prompting
+- `--no-generate` — Skip generating slash commands after install
 
 ### `harness install-constraints <source>`
 
