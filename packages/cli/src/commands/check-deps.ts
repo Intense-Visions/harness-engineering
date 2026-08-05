@@ -9,6 +9,7 @@ import {
   TypeScriptParser,
 } from '@harness-engineering/core';
 import type { LayerConfig } from '@harness-engineering/core';
+import { formatFindingsContract } from '@harness-engineering/types';
 import { resolveConfig } from '../config/loader';
 import { OutputFormatter, OutputMode, type OutputModeType } from '../output/formatter';
 import { logger } from '../output/logger';
@@ -111,12 +112,15 @@ export async function runCheckDeps(
   return Ok(result);
 }
 
-async function runCheckDepsAction(globalOpts: {
-  config?: string;
-  json?: boolean;
-  verbose?: boolean;
-  quiet?: boolean;
-}): Promise<void> {
+async function runCheckDepsAction(
+  globalOpts: {
+    config?: string;
+    json?: boolean;
+    verbose?: boolean;
+    quiet?: boolean;
+  },
+  localOpts: { findingsJson?: boolean } = {}
+): Promise<void> {
   const mode: OutputModeType = globalOpts.json
     ? OutputMode.JSON
     : globalOpts.quiet
@@ -162,14 +166,23 @@ async function runCheckDepsAction(globalOpts: {
     console.log(output);
   }
 
+  // #691: findings = layer violations + circular dependencies.
+  if (localOpts.findingsJson) {
+    console.log(formatFindingsContract(issues.length, 'check-deps'));
+  }
+
   process.exit(result.value.valid ? ExitCode.SUCCESS : ExitCode.VALIDATION_FAILED);
 }
 
 export function createCheckDepsCommand(): Command {
   const command = new Command('check-deps')
     .description('Validate dependency layers and detect circular dependencies')
-    .action(async (_opts, cmd) => {
-      await runCheckDepsAction(cmd.optsWithGlobals());
+    .option(
+      '--findings-json',
+      'Emit the machine-readable maintenance findings contract ({ findings: N }) as a trailing stdout line (#691)'
+    )
+    .action(async (opts, cmd) => {
+      await runCheckDepsAction(cmd.optsWithGlobals(), { findingsJson: opts.findingsJson });
     });
 
   return command;

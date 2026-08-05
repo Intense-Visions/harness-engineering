@@ -3,6 +3,7 @@ import { Command } from 'commander';
 import * as path from 'path';
 import type { Result, EntropyConfig, DriftConfig } from '@harness-engineering/core';
 import { Ok, Err, EntropyAnalyzer } from '@harness-engineering/core';
+import { formatFindingsContract } from '@harness-engineering/types';
 import { resolveConfig } from '../config/loader';
 import { OutputFormatter, OutputMode } from '../output/formatter';
 import { resolveOutputMode } from '../utils/output';
@@ -153,6 +154,10 @@ export function createCleanupCommand(): Command {
   const command = new Command('cleanup')
     .description('Detect entropy issues (doc drift, dead code, patterns)')
     .option('-t, --type <type>', 'Issue type: drift, dead-code, patterns, all', 'all')
+    .option(
+      '--findings-json',
+      'Emit the machine-readable maintenance findings contract ({ findings: N }) as a trailing stdout line (#691)'
+    )
     .action(async (opts, cmd) => {
       const globalOpts = cmd.optsWithGlobals();
       const mode = resolveOutputMode(globalOpts);
@@ -179,6 +184,11 @@ export function createCleanupCommand(): Command {
         console.log(JSON.stringify(result.value, null, 2));
       } else if (mode !== OutputMode.QUIET || result.value.totalIssues > 0) {
         printCleanupResult(result.value, formatter);
+      }
+
+      // #691: findings = total entropy issues (drift + dead code + patterns).
+      if (opts.findingsJson) {
+        console.log(formatFindingsContract(result.value.totalIssues, 'cleanup'));
       }
 
       process.exit(result.value.totalIssues === 0 ? ExitCode.SUCCESS : ExitCode.VALIDATION_FAILED);

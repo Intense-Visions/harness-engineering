@@ -1,6 +1,7 @@
 import { Command } from 'commander';
 import * as path from 'path';
 import chalk from 'chalk';
+import { formatFindingsContract } from '@harness-engineering/types';
 import { runCrossCheck } from './validate-cross-check';
 import { OutputMode, type OutputModeType } from '../output/formatter';
 import { ExitCode } from '../utils/errors';
@@ -11,6 +12,7 @@ interface CrossCheckCommandOptions {
   json?: boolean;
   verbose?: boolean;
   quiet?: boolean;
+  findingsJson?: boolean;
 }
 
 interface CrossCheckValue {
@@ -53,6 +55,10 @@ async function runCrossCheckCommand(options: CrossCheckCommandOptions): Promise<
 
   const { warnings } = result.value;
   emitCrossCheckResult(result.value, mode);
+  // #691: findings = cross-artifact consistency warnings.
+  if (options.findingsJson) {
+    console.log(formatFindingsContract(warnings, 'cross-check'));
+  }
   process.exit(warnings === 0 ? ExitCode.SUCCESS : ExitCode.VALIDATION_FAILED);
 }
 
@@ -94,6 +100,10 @@ export function createCrossCheckCommand(): Command {
     .description('Check cross-artifact consistency (plan-to-implementation coverage and staleness)')
     .option('--specs-dir <path>', 'Specs directory relative to project root (default: docs/specs)')
     .option('--plans-dir <path>', 'Plans directory relative to project root (default: docs/plans)')
+    .option(
+      '--findings-json',
+      'Emit the machine-readable maintenance findings contract ({ findings: N }) as a trailing stdout line (#691)'
+    )
     .action(async (opts, cmd) => {
       const globalOpts = cmd.optsWithGlobals();
       await runCrossCheckCommand({
@@ -102,6 +112,7 @@ export function createCrossCheckCommand(): Command {
         json: globalOpts.json,
         verbose: globalOpts.verbose,
         quiet: globalOpts.quiet,
+        findingsJson: opts.findingsJson,
       });
     });
 }

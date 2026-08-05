@@ -9,6 +9,7 @@ import {
   parseSecurityConfig,
 } from '@harness-engineering/core';
 import type { SecurityFinding, SecuritySeverity } from '@harness-engineering/core';
+import { formatFindingsContract } from '@harness-engineering/types';
 import { OutputFormatter, OutputMode, type OutputModeType } from '../output/formatter';
 import { logger } from '../output/logger';
 import { ExitCode } from '../utils/errors';
@@ -131,7 +132,7 @@ export async function runCheckSecurity(
 }
 
 async function runCheckSecurityAction(
-  opts: { severity: SecuritySeverity; changedOnly?: boolean },
+  opts: { severity: SecuritySeverity; changedOnly?: boolean; findingsJson?: boolean },
   globalOpts: { json?: boolean; quiet?: boolean; verbose?: boolean }
 ): Promise<void> {
   const mode: OutputModeType = globalOpts.json
@@ -172,6 +173,11 @@ async function runCheckSecurityAction(
     console.log(output);
   }
 
+  // #691: findings = security findings at or above the requested severity.
+  if (opts.findingsJson) {
+    console.log(formatFindingsContract(result.value.findings.length, 'check-security'));
+  }
+
   process.exit(result.value.valid ? ExitCode.SUCCESS : ExitCode.VALIDATION_FAILED);
 }
 
@@ -191,6 +197,10 @@ export function createCheckSecurityCommand(): Command {
       }
     })
     .option('--changed-only', 'Only scan git-changed files')
+    .option(
+      '--findings-json',
+      'Emit the machine-readable maintenance findings contract ({ findings: N }) as a trailing stdout line (#691)'
+    )
     .action(async (opts, cmd) => {
       await runCheckSecurityAction(opts, cmd.optsWithGlobals());
     });

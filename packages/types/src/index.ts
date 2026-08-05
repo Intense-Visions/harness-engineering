@@ -251,6 +251,14 @@ export type {
   OsvGuardConfig,
 } from './maintenance';
 
+// --- Maintenance findings contract (#691) ---
+export {
+  MAINTENANCE_FINDINGS_CONTRACT_VERSION,
+  formatFindingsContract,
+  parseFindingsContract,
+} from './maintenance-findings';
+export type { MaintenanceFindingsContract } from './maintenance-findings';
+
 // --- Auth (Hermes Phase 0) ---
 export {
   TokenScopeSchema,
