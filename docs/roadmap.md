@@ -561,7 +561,7 @@ last_manual_edit: 2026-06-27T12:51:51.967Z
 ### Add harness mcp list-capabilities CLI for adopter audit
 
 - **Status:** planned
-- **Spec:** —
+- **Spec:** [docs/changes/mcp-list-capabilities/proposal.md](../changes/mcp-list-capabilities/proposal.md)
 - **Summary:** MCP server has 101 tool files (`packages/cli/src/mcp/tools/`). Per-tool `trustedOutput` flag exists but per-tool capability declarations don't. Adopters have no easy way to audit what their agent can do via MCP. Add `harness mcp list-capabilities --by-permission` CLI command that surfaces each tool's read/write/exec scope, network access, and trust tag. Source: Pass 6 #3.
 - **Blockers:** —
 - **Plan:** —
@@ -841,7 +841,7 @@ last_manual_edit: 2026-06-27T12:51:51.967Z
 
 ### craft-pipeline sub-project #2: docs-craft
 
-- **Status:** planned
+- **Status:** done
 - **Spec:** docs/changes/docs-craft/proposal.md
 - **Summary:** LLM-judgment skill for documentation quality — the ceiling counterpart to harness-detect-doc-drift / harness-check-docs / harness-docs-pipeline (which enforce existence, link freshness, coverage). Ceiling questions: does this doc teach? does the order match the reader's mental model? are examples earning their place? is prose alive or bureaucratic? does the API doc predict the response shape? would a stranger walk away with the same understanding? Direct structural twin of design-craft-elevator — same B' progressive upgrade to a docs intent skill if no doc style guide exists, same 3-axis findings, same growth catalog. Exemplars include Stripe Docs, Vercel Academy, MDN, Linear docs, Tailwind docs. Follows ADRs 0018-0021. ~3-4 week build (catalog-heavy).
 - **Blockers:** —
@@ -1033,7 +1033,7 @@ last_manual_edit: 2026-06-27T12:51:51.967Z
 ### Semantic-Vocabulary CI Gate
 
 - **Status:** planned
-- **Spec:** —
+- **Spec:** docs/changes/semantic-vocabulary-ci-gate/proposal.md
 - **Summary:** Add a harness analog of Spec Kitty's test_no_legacy_terminology architectural test: a CI gate that fails when deprecated or renamed canonical terms reappear in skills/docs, protecting the glossary and naming-craft investment from vocabulary drift over time. Adapted from Spec Kitty's semantic-terminology architectural test. Adoption #8 from docs/research/spec-kitty-comparison-analysis.md [SPECKITTY-8]
 - **Blockers:** —
 - **Plan:** —
