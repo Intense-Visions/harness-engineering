@@ -415,9 +415,9 @@ last_manual_edit: 2026-06-27T12:51:51.967Z
 
 - **Status:** planned
 - **Spec:** —
-- **Summary:** Three confirmed/suspected clusters of concept fragmentation in the catalog. CONFIRMED: `harness-i18n` + `harness-i18n-workflow` + `harness-i18n-process` — overlap is admitted in i18n SKILL.md:13-14. SUSPECTED: six `harness-design*` skills (`harness-design`, `harness-design-craft`, `harness-design-mobile`, `harness-design-pipeline`, `harness-design-system`, `harness-design-web`). SUSPECTED: `harness-verify` + `harness-verification` + `harness-integrity`. Audit each cluster and merge to one skill per concept. Source: Pass 4 action 2.
+- **Summary:** Three confirmed/suspected clusters of concept fragmentation in the catalog. CONFIRMED: `harness-i18n` + `harness-i18n-workflow` + `harness-i18n-process` — overlap is admitted in i18n SKILL.md:13-14. SUSPECTED: six `harness-design*` skills (`harness-design`, `harness-design-craft`, `harness-design-mobile`, `harness-design-pipeline`, `harness-design-system`, `harness-design-web`). SUSPECTED: `harness-verify` + `harness-verification` + `harness-integrity`. Audit each cluster and merge to one skill per concept. Source: Pass 4 action 2. AUDIT OUTCOME (see `docs/changes/catalog-cluster-merge-audit/`): no skills merged — all three clusters are well-factored by lifecycle role, cognitive mode, and composition layer. The i18n "CONFIRMED" label is a false positive (SKILL.md:13-14 is disambiguation, not overlap). The only genuine issue is the `verify` vs `verification` naming collision — a discoverability/rename problem, not fragmentation — flagged for human review as a separate non-destructive item. Awaiting human decision to close or reclassify.
 - **Blockers:** —
-- **Plan:** —
+- **Plan:** See audit — `docs/changes/catalog-cluster-merge-audit/proposal.md`
 - **Assignee:** —
 - **Priority:** P1
 - **External-ID:** github:Intense-Visions/harness-engineering#546
@@ -716,8 +716,8 @@ last_manual_edit: 2026-06-27T12:51:51.967Z
 
 ### Wire outcome-eval into the lifecycle as an automatic spec-satisfaction gate
 
-- **Status:** planned
-- **Spec:** —
+- **Status:** in-progress
+- **Spec:** docs/changes/wire-outcome-eval-gate/proposal.md
 - **Summary:** outcome-eval is the harness's first blocking post-execution spec-satisfaction gate, but nothing invokes it automatically — verified 2026-06 it is absent from .husky/, .github/workflows/, AND the harness-autopilot VERIFY/INTEGRATE/REVIEW loop. Its blocking authority (high-confidence NOT_SATISFIED) only bites when a human or agent chooses to run /harness:outcome-eval or mcp**harness**outcome_eval. Wire it in: (a) call outcome_eval in harness-autopilot after REVIEW (post-execution, before PHASE_COMPLETE), gathering diff+testOutput from the session and halting on a blocking verdict; (b) add a pre-merge CI job (sibling to .github/workflows/required-review.yml) that runs it on PRs and surfaces the verdict, blocking only on high-confidence NOT_SATISFIED. This makes the #1-gap gate actually load-bearing and unblocks the assumptions baked into #569 (pre-merge-brief surfaces 'outcome-eval result when available'), #533 (post-merge rollback on failed eval), and #552 (Holiday Confidence KPI measures 'outcome-eval passed'). Recommended priority: P1.
 - **Blockers:** —
 - **Plan:** —
@@ -989,7 +989,7 @@ last_manual_edit: 2026-06-27T12:51:51.967Z
 ### NFR Elicitation in Planning
 
 - **Status:** planned
-- **Spec:** —
+- **Spec:** docs/changes/nfr-elicitation-planning/proposal.md
 - **Summary:** Explicit NFR-requirements step in harness-planning eliciting performance, security, scalability, and resilience targets whose outputs become verifiable plan tasks wired to existing perf baselines and security scan machinery — NFRs as proactive design inputs rather than reactive review findings. Adapted from AI-DLC's per-unit NFR requirements/design stages. Adoption #3 from docs/research/aidlc-comparison-analysis.md [AIDLC-3]
 - **Blockers:** —
 - **Plan:** —
@@ -1202,7 +1202,7 @@ last_manual_edit: 2026-06-27T12:51:51.967Z
 ### Sharded roadmap: archive done rows into docs/roadmap.d/archive/
 
 - **Status:** planned
-- **Spec:** —
+- **Spec:** docs/changes/roadmap-sharded-archive/proposal.md
 - **Summary:** Follow-up from #684 (roadmap sharding). Keep the active shard set lean by moving `done` rows out of `docs/roadmap.d/` into a `docs/roadmap.d/archive/` subdirectory — the sharded equivalent of the existing `docs/roadmap-archive.md` + RMH001 + groom "archive done" behavior. **Why this is the one organization idea worth doing** (per-status subdirs were rejected — path should encode identity/slug, not mutable status; a status change shouldn't move a file): - `done` is terminal/one-way, so the move cost is bounded (unlike planned↔in-progress↔blocked churn). - At merge time the active set was ~175 shards, roughly half done. **Scope / design constraints:** - The store/reconciler must MOVE a shard into `archive/` on the `done` transition (not just patch in place) — touches `patchFeature` + the auto-done reconciler. - `readShardDir`/assembler must glob recursively and keep slug uniqueness across `docs/roadmap.d/` and `docs/roadmap.d/archive/`. - Must UNIFY with the existing `docs/roadmap-archive.md` + RMH001 + groom archive path, not add a second archive mechanism. - Preserve invariant R (only the regenerator reads the aggregate) and the conflict-free single-shard-per-row property. See ADRs 0050 (read-source invariant) and the proposal at docs/changes/roadmap-shard-store/proposal.md.
 - **Blockers:** —
 - **Plan:** —

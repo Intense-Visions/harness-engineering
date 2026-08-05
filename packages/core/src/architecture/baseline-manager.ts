@@ -5,6 +5,32 @@ import { ArchBaselineSchema } from './types';
 import type { ArchBaseline, MetricResult, CategoryBaseline } from './types';
 
 /**
+ * Deep-equality for two baseline metric maps, treating each category's
+ * `violationIds` as a set (order-insensitive) so a reordering alone does not
+ * count as a change. Used to decide whether a baseline refresh actually moved
+ * any metric — if not, the volatile stamps are preserved to keep the file
+ * byte-stable.
+ */
+function metricsEqual(
+  a: Record<string, CategoryBaseline>,
+  b: Record<string, CategoryBaseline>
+): boolean {
+  const keys = new Set([...Object.keys(a), ...Object.keys(b)]);
+  for (const key of keys) {
+    const ca = a[key];
+    const cb = b[key];
+    if (!ca || !cb) return false;
+    if (ca.value !== cb.value) return false;
+    if (ca.violationIds.length !== cb.violationIds.length) return false;
+    const setA = new Set(ca.violationIds);
+    for (const id of cb.violationIds) {
+      if (!setA.has(id)) return false;
+    }
+  }
+  return true;
+}
+
+/**
  * Manages architecture baselines stored on disk.
  *
  * Baselines are stored at `.harness/arch/baselines.json` relative to the project root.
@@ -40,9 +66,12 @@ export class ArchBaselineManager {
       }
     }
 
-    // Deduplicate violationIds per category
+    // Deduplicate and sort violationIds per category. Sorting makes the stored
+    // order a deterministic function of the set (not of collection order), so
+    // an unchanged set always serializes to identical bytes — a prerequisite
+    // for the byte-stable no-op regen below.
     for (const baseline of Object.values(metrics)) {
-      baseline.violationIds = [...new Set(baseline.violationIds)];
+      baseline.violationIds = [...new Set(baseline.violationIds)].sort();
     }
 
     return {
@@ -96,6 +125,17 @@ export class ArchBaselineManager {
     const existing = this.load();
     if (existing) {
       fresh.metrics = { ...existing.metrics, ...fresh.metrics };
+      // Keep the committed file a pure function of the metrics: only bump the
+      // volatile `updatedAt`/`updatedFrom` stamps when the metrics actually
+      // changed. A no-op regen then produces a byte-identical file, so PRs that
+      // don't move any metric never touch baselines.json — which stops the
+      // spurious merge-conflict churn on this generated file (the `merge=ours`
+      // attribute only resolves LOCAL merges; GitHub's server-side merge cannot
+      // run it, so any diff here shows as a conflict there).
+      if (metricsEqual(existing.metrics, fresh.metrics)) {
+        fresh.updatedAt = existing.updatedAt;
+        fresh.updatedFrom = existing.updatedFrom;
+      }
     }
     this.save(fresh);
     return fresh;

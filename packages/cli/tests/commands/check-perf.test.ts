@@ -475,4 +475,145 @@ describe('check-perf command', () => {
       }
     });
   });
+
+  // `--severity` mirrors `check-security`: the flag bounds BOTH the report and
+  // the pass/fail verdict. When omitted, behavior is unchanged (report all,
+  // fail only on error). When set, findings below the threshold are excluded
+  // from the report and never fail the gate.
+  describe('severity threshold', () => {
+    const WARNING_ONLY = {
+      ok: true as const,
+      value: {
+        complexity: {
+          violations: [],
+          stats: { filesAnalyzed: 4, violationCount: 0, errorCount: 0, warningCount: 0 },
+        },
+        coupling: {
+          violations: [
+            {
+              tier: 2,
+              severity: 'warning',
+              metric: 'afferent-coupling',
+              file: 'src/hub.ts',
+              value: 30,
+              threshold: 20,
+              message: 'High afferent coupling',
+            },
+          ],
+          stats: { violationCount: 1, warningCount: 1 },
+        },
+        sizeBudget: { violations: [] },
+      },
+    };
+
+    const MIXED = {
+      ok: true as const,
+      value: {
+        complexity: {
+          violations: [
+            {
+              tier: 1,
+              severity: 'error',
+              metric: 'cc',
+              file: 'a.ts',
+              function: 'f',
+              value: 20,
+              threshold: 10,
+              message: 'too complex',
+            },
+            {
+              tier: 3,
+              severity: 'info',
+              metric: 'lines-of-code',
+              file: 'c.ts',
+              function: 'g',
+              value: 100,
+              threshold: 80,
+              message: 'long',
+            },
+          ],
+          stats: { filesAnalyzed: 6, violationCount: 2, errorCount: 1, warningCount: 0 },
+        },
+        coupling: {
+          violations: [
+            {
+              tier: 2,
+              severity: 'warning',
+              metric: 'coupling',
+              file: 'b.ts',
+              value: 15,
+              threshold: 10,
+              message: 'high coupling',
+            },
+          ],
+          stats: { violationCount: 1, warningCount: 1 },
+        },
+        sizeBudget: { violations: [] },
+      },
+    };
+
+    it('default (no --severity): a warning-only run stays valid and reports the warning', async () => {
+      mockAnalyze.mockResolvedValue(WARNING_ONLY);
+      const result = await runCheckPerf('/tmp/test', {});
+      expect(result.ok).toBe(true);
+      if (!result.ok) return;
+      // Unchanged default behavior: warnings are reported and never fail.
+      expect(result.value.valid).toBe(true);
+      expect(result.value.violations).toHaveLength(1);
+      expect(result.value.stats.warningCount).toBe(1);
+    });
+
+    it('does NOT fail --severity error on a warning-only run and drops it from the report', async () => {
+      mockAnalyze.mockResolvedValue(WARNING_ONLY);
+      const result = await runCheckPerf('/tmp/test', { severity: 'error' });
+      expect(result.ok).toBe(true);
+      if (!result.ok) return;
+      expect(result.value.valid).toBe(true);
+      expect(result.value.violations).toHaveLength(0);
+      expect(result.value.stats.warningCount).toBe(0);
+    });
+
+    it('DOES fail --severity error when an error violation exists', async () => {
+      mockAnalyze.mockResolvedValue(MIXED);
+      const result = await runCheckPerf('/tmp/test', { severity: 'error' });
+      expect(result.ok).toBe(true);
+      if (!result.ok) return;
+      expect(result.value.valid).toBe(false);
+      // Only the error survives the filter; warning + info are excluded.
+      expect(result.value.violations).toHaveLength(1);
+      expect(result.value.violations[0].severity).toBe('error');
+      expect(result.value.stats.errorCount).toBe(1);
+      expect(result.value.stats.warningCount).toBe(0);
+      expect(result.value.stats.infoCount).toBe(0);
+    });
+
+    it('fails --severity warning when a warning is at/above the threshold', async () => {
+      mockAnalyze.mockResolvedValue(WARNING_ONLY);
+      const result = await runCheckPerf('/tmp/test', { severity: 'warning' });
+      expect(result.ok).toBe(true);
+      if (!result.ok) return;
+      // Under threshold=warning the warning now fails the gate.
+      expect(result.value.valid).toBe(false);
+      expect(result.value.violations).toHaveLength(1);
+      expect(result.value.stats.warningCount).toBe(1);
+    });
+
+    it('--severity warning keeps error+warning but excludes info from report and verdict', async () => {
+      mockAnalyze.mockResolvedValue(MIXED);
+      const result = await runCheckPerf('/tmp/test', { severity: 'warning' });
+      expect(result.ok).toBe(true);
+      if (!result.ok) return;
+      expect(result.value.valid).toBe(false);
+      expect(result.value.violations).toHaveLength(2);
+      expect(result.value.stats.errorCount).toBe(1);
+      expect(result.value.stats.warningCount).toBe(1);
+      expect(result.value.stats.infoCount).toBe(0);
+    });
+
+    it('registers the --severity option on the command', () => {
+      const cmd = createCheckPerfCommand();
+      const opt = cmd.options.find((o) => o.long === '--severity');
+      expect(opt).toBeDefined();
+    });
+  });
 });
