@@ -3,10 +3,10 @@ import { execFile, execFileSync } from 'node:child_process';
 import { realpathSync, existsSync, readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { promisify } from 'node:util';
-import readline from 'node:readline';
 import chalk from 'chalk';
 import { invalidateCheckState } from '@harness-engineering/core';
 import { logger } from '../output/logger';
+import { prompt } from '../output/prompt';
 import { ExitCode } from '../utils/errors';
 import { initHooks } from './hooks/init';
 import type { HookProfile } from '../hooks/profiles';
@@ -15,6 +15,9 @@ import { CLI_VERSION } from '../version';
 import { readConfiguredServers } from './integrations/sync';
 import { reconcileIntegrations } from '../integrations/reconcile';
 import { INTEGRATION_REGISTRY } from '../integrations/registry';
+import { resolveCommunityBase } from './install';
+import { probeProviders, updateProviders } from './skill/provider-update';
+import { isFreshnessCheckEnabled } from '../registry/freshness-checker';
 
 type PackageManager = 'npm' | 'pnpm' | 'yarn';
 
@@ -134,19 +137,6 @@ export function getInstalledPackages(pm: PackageManager): string[] {
     // Fallback: assume the core packages are installed
     return [CLI_PACKAGE, '@harness-engineering/core'];
   }
-}
-
-function prompt(question: string): Promise<string> {
-  const rl = readline.createInterface({
-    input: process.stdin,
-    output: process.stdout,
-  });
-  return new Promise((resolve) => {
-    rl.question(question, (answer) => {
-      rl.close();
-      resolve(answer.trim().toLowerCase());
-    });
-  });
 }
 
 export interface HarnessInstall {
@@ -519,6 +509,72 @@ export function offerIntegrationsSync(cwd: string = process.cwd()): void {
   }
 }
 
+/**
+ * Surface outdated external skill providers during `harness update` (D7),
+ * mirroring offerIntegrationsSync. Uses the shared probe/update core. On a TTY
+ * with checks enabled, offers to run the update; otherwise prints a report-only
+ * hint. Best-effort — never breaks `update` (all failures swallowed).
+ */
+export async function offerSkillProviderUpdates(): Promise<void> {
+  try {
+    // Gate BEFORE probing so no synchronous git/npm probe storm ever fires
+    // unless we are actually going to use the result.
+    //
+    // 1. Opt-out: reuse isFreshnessCheckEnabled (parity with the background
+    //    freshness path) rather than a raw env read, so HARNESS_NO_UPDATE_CHECK
+    //    (or a zero interval) suppresses ALL freshness network behavior — no
+    //    probe, no output.
+    if (!isFreshnessCheckEnabled()) return;
+
+    // 2. No community lockfile present => no external providers to check.
+    //    Short-circuit BEFORE printing even the static hint, mirroring how
+    //    freshness-check-hooks / the background probe skip on absent lockfiles.
+    //    Without this, a project that never installed an external provider
+    //    prints a report-only hint on every `harness update` in CI — pure
+    //    noise. Kept AFTER the opt-out check so opt-out-before-probe ordering
+    //    holds (existsSync is a cheap stat, not a network probe).
+    const lockfiles = [
+      { path: resolveCommunityBase(false).lockfilePath, global: false },
+      { path: resolveCommunityBase(true).lockfilePath, global: true },
+    ].filter((l) => existsSync(l.path));
+    if (lockfiles.length === 0) return;
+
+    // 3. Non-interactive (CI, piped): never probe. Print only a static,
+    //    report-only hint so `harness update` in CI stays quiet and cheap.
+    if (!process.stdout.isTTY || !process.stdin.isTTY) {
+      console.log('');
+      console.log(
+        `  Run ${chalk.cyan('harness skill update')} to check skill providers for updates.`
+      );
+      console.log('');
+      return;
+    }
+
+    // 4. Interactive TTY, checks enabled: probe now, surface outdated
+    //    providers, and offer to update.
+    const { providers } = probeProviders(lockfiles);
+    const outdated = providers.filter((p) => p.outdated);
+    if (outdated.length === 0) return;
+
+    console.log('');
+    logger.info(`${outdated.length} skill provider(s) have upstream updates:`);
+    for (const p of outdated) {
+      console.log(`  ${p.name}: ${chalk.dim(p.current)} → ${chalk.green(String(p.latest))}`);
+    }
+
+    const answer = await prompt('Update skill providers now? (y/N) ');
+    if (answer !== 'y' && answer !== 'yes') {
+      console.log(`  Update later: ${chalk.cyan('harness skill update')}`);
+      console.log('');
+      return;
+    }
+    await updateProviders(outdated, { yes: true });
+    console.log('');
+  } catch {
+    // best-effort nudge — never break `update`
+  }
+}
+
 async function runUpdateAction(
   opts: { version?: string; force?: boolean; regenerate?: boolean },
   globalOpts: Record<string, unknown>
@@ -558,6 +614,7 @@ async function runUpdateAction(
       await offerCleanupOfOtherInstalls(getActiveInstallDir());
       await offerRegeneration();
       offerIntegrationsSync();
+      await offerSkillProviderUpdates();
       process.exit(ExitCode.SUCCESS);
     }
 
@@ -607,6 +664,9 @@ async function runUpdateAction(
 
   // 10. Surface MCP-catalog drift so a refreshed catalog isn't invisible.
   offerIntegrationsSync();
+
+  // 11. Surface outdated external skill providers (D7) — shared probe/update core.
+  await offerSkillProviderUpdates();
 
   process.exit(ExitCode.SUCCESS);
 }

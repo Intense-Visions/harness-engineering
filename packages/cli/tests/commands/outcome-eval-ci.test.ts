@@ -1,4 +1,5 @@
 import { describe, it, expect, vi } from 'vitest';
+import * as path from 'node:path';
 import type { OutcomeVerdict } from '@harness-engineering/intelligence';
 import {
   deriveExitCode,
@@ -66,8 +67,10 @@ describe('resolveSpecPath', () => {
     const runGit = vi
       .fn()
       .mockReturnValue('src/a.ts\ndocs/changes/my-feature/proposal.md\nREADME.md');
+    // resolveSpecPath returns an fs path via path.join, so the separator is
+    // OS-native — build the expectation the same way so it holds on Windows too.
     expect(resolveSpecPath({ range: 'r', cwd: '/repo', runGit })).toBe(
-      '/repo/docs/changes/my-feature/proposal.md'
+      path.join('/repo', 'docs/changes/my-feature/proposal.md')
     );
   });
 
