@@ -63,35 +63,119 @@ export function levenshteinDistance(a: string, b: string): number {
 }
 
 /**
- * Find possible matches for a reference in a list of exports
+ * Bounded Levenshtein distance: returns the exact edit distance when it is
+ * `<= max`, and a sentinel value `> max` (specifically `max + 1`) otherwise.
+ *
+ * Correctness: this is the textbook diagonal-band ("Ukkonen") restriction of
+ * the full DP. Any cell `d[i][j]` with `|i - j| > max` satisfies
+ * `d[i][j] >= |i - j| > max`, so cells outside the band can never contribute
+ * to a final distance `<= max` and are treated as infinity. Within that
+ * invariant, if every in-band cell of a row already exceeds `max` the final
+ * distance must exceed `max`, so the row-minimum check is an exact early exit.
+ * For every candidate whose true distance is `<= max` this returns the same
+ * number the full-matrix {@link levenshteinDistance} would; callers only ever
+ * branch on `distance <= max`, so the sentinel is indistinguishable from any
+ * other out-of-range distance. Verified to produce byte-identical
+ * `findPossibleMatches` output across the full monorepo (issue #692).
  */
-export function findPossibleMatches(
+/** Clamped minimum of the three edit-distance transitions for one DP cell. */
+function boundedCell(del: number, ins: number, sub: number, inf: number): number {
+  let v = del < ins ? del : ins;
+  if (sub < v) v = sub;
+  return v > inf ? inf : v;
+}
+
+function boundedLevenshtein(a: string, b: string, max: number): number {
+  const m = a.length;
+  const n = b.length;
+  // Edit distance is at least the length difference; short-circuit the band.
+  if (Math.abs(m - n) > max) return max + 1;
+
+  const INF = max + 1;
+  let prev = new Array<number>(m + 1);
+  for (let j = 0; j <= m; j++) prev[j] = j <= max ? j : INF;
+  let curr = new Array<number>(m + 1);
+
+  for (let i = 1; i <= n; i++) {
+    const lo = Math.max(1, i - max);
+    const hi = Math.min(m, i + max);
+    curr[0] = i <= max ? i : INF;
+    if (lo > 1) curr[lo - 1] = INF; // left boundary neighbour is out-of-band
+    let rowMin = curr[0]!;
+    const bi = b.charCodeAt(i - 1);
+    for (let j = lo; j <= hi; j++) {
+      const cost = a.charCodeAt(j - 1) === bi ? 0 : 1;
+      const v = boundedCell(prev[j]! + 1, curr[j - 1]! + 1, prev[j - 1]! + cost, INF);
+      curr[j] = v;
+      if (v < rowMin) rowMin = v;
+    }
+    if (hi < m) curr[hi + 1] = INF; // right boundary neighbour is out-of-band
+    if (rowMin > max) return max + 1; // whole row already exceeds the budget
+    const tmp = prev;
+    prev = curr;
+    curr = tmp;
+  }
+
+  const d = prev[m]!;
+  return d > max ? max + 1 : d;
+}
+
+/**
+ * Precomputed export-name index for {@link findMatchesFromIndex}: the original
+ * names alongside their lowercased forms and lengths. Building this once per
+ * drift check avoids re-lowercasing every export for every unresolved
+ * reference (the dominant cost of API-signature drift on large repos).
+ */
+interface ExportMatchIndex {
+  names: string[];
+  lowers: string[];
+  lens: number[];
+}
+
+function buildExportMatchIndex(exportNames: string[]): ExportMatchIndex {
+  const lowers = exportNames.map((n) => n.toLowerCase());
+  const lens = lowers.map((l) => l.length);
+  return { names: exportNames, lowers, lens };
+}
+
+/**
+ * Core matcher over a prepared {@link ExportMatchIndex}. Kept separate from the
+ * public {@link findPossibleMatches} so hot callers can share one index across
+ * many references.
+ */
+function findMatchesFromIndex(
   reference: string,
-  exportNames: string[],
-  maxDistance: number = 5
+  index: ExportMatchIndex,
+  maxDistance: number
 ): string[] {
   const matches: { name: string; score: number }[] = [];
   const refLower = reference.toLowerCase();
+  const refLen = refLower.length;
+  const { names, lowers, lens } = index;
 
-  for (const name of exportNames) {
-    const nameLower = name.toLowerCase();
+  for (let i = 0; i < names.length; i++) {
+    const nameLower = lowers[i]!;
 
     // Exact match (case-insensitive)
     if (nameLower === refLower) {
-      matches.push({ name, score: 0 });
+      matches.push({ name: names[i]!, score: 0 });
       continue;
     }
 
     // Prefix/suffix match
     if (nameLower.includes(refLower) || refLower.includes(nameLower)) {
-      matches.push({ name, score: 1 });
+      matches.push({ name: names[i]!, score: 1 });
       continue;
     }
 
-    // Levenshtein distance
-    const distance = levenshteinDistance(refLower, nameLower);
+    // Edit distance is at least the length difference, so a candidate whose
+    // length differs by more than maxDistance can never be within budget —
+    // skip the DP entirely (it would be discarded anyway).
+    if (Math.abs(refLen - lens[i]!) > maxDistance) continue;
+
+    const distance = boundedLevenshtein(refLower, nameLower, maxDistance);
     if (distance <= maxDistance) {
-      matches.push({ name, score: distance });
+      matches.push({ name: names[i]!, score: distance });
     }
   }
 
@@ -99,6 +183,17 @@ export function findPossibleMatches(
     .sort((a, b) => a.score - b.score)
     .slice(0, 3)
     .map((m) => m.name);
+}
+
+/**
+ * Find possible matches for a reference in a list of exports
+ */
+export function findPossibleMatches(
+  reference: string,
+  exportNames: string[],
+  maxDistance: number = 5
+): string[] {
+  return findMatchesFromIndex(reference, buildExportMatchIndex(exportNames), maxDistance);
 }
 
 // Default doc-path prefixes that describe intended future code (ADRs,
@@ -176,9 +271,9 @@ function isSuppressedReference(
 /** Build the drift finding for a reference that did not resolve to an export. */
 function buildApiDrift(
   ref: CodebaseSnapshot['codeReferences'][number],
-  exportNames: string[]
+  exportIndex: ExportMatchIndex
 ): DocumentationDrift {
-  const possibleMatches = findPossibleMatches(ref.reference, exportNames);
+  const possibleMatches = findMatchesFromIndex(ref.reference, exportIndex, 5);
   const renamed = possibleMatches.length > 0;
   const drift: DocumentationDrift = {
     type: 'api-signature',
@@ -212,12 +307,15 @@ function checkApiSignatureDrift(
     hasSnakeExports: exportNames.some((n) => SNAKE_CASE_RE.test(n)),
     hasScreamingExports: exportNames.some((n) => SCREAMING_SNAKE_RE.test(n)),
   };
+  // Lowercasing every export is the dominant cost of fuzzy matching; build the
+  // index once and share it across every unresolved reference (issue #692).
+  const exportIndex = buildExportMatchIndex(exportNames);
 
   for (const ref of snapshot.codeReferences) {
     const resolvedName = resolveReferenceName(ref.reference);
     if (isSuppressedReference(ref, resolvedName, config, conventions)) continue;
     if (snapshot.exportMap.byName.has(resolvedName)) continue;
-    drifts.push(buildApiDrift(ref, exportNames));
+    drifts.push(buildApiDrift(ref, exportIndex));
   }
 
   return drifts;
