@@ -2,7 +2,7 @@
 
 # Skills Catalog
 
-771 skills across 3 tiers. Tier 1 and 2 skills are registered as slash commands. Tier 3 skills are discoverable via the `search_skills` MCP tool. See the [Features Overview](../guides/features-overview.md) for narrative documentation.
+772 skills across 3 tiers. Tier 1 and 2 skills are registered as slash commands. Tier 3 skills are discoverable via the `search_skills` MCP tool. See the [Features Overview](../guides/features-overview.md) for narrative documentation.
 
 ## Tier 1 — Workflow (16 skills)
 
@@ -160,7 +160,7 @@ Upstream client-inception skill. Ingests a diagram + client conversation notes, 
 - **Cognitive mode:** configuration-interviewer
 - **Depends on:** harness-strategy, harness-brainstorming
 
-## Tier 2 — Maintenance (51 skills)
+## Tier 2 — Maintenance (52 skills)
 
 ### acceptance-eval
 
@@ -228,6 +228,16 @@ LLM-judgment critique of command-line ergonomics quality — the ceiling counter
 - **Type:** rigid
 - **Cognitive mode:** constructive-architect
 - **Depends on:** docs-craft
+
+### code-craft
+
+LLM-judgment critique of code quality / readability (TS/JS source) — the ceiling counterpart to the rule-based code floor (entropy-cleaner for dead code / drift, enforce-architecture for boundaries + deps, complexity thresholds). Asks whether the code reveals intent and reads in the domain's language, whether the control flow is honest, whether a function tells one story at one altitude, whether each abstraction earns its keep, whether it is as simple as it could be, whether the signature keeps its promise, and whether a senior would nod or wince. Per-unit critique of functions, methods, and classes; identifier-level naming is delegated to naming-craft. Structural twin of harness-security-craft.
+
+- **Triggers:** manual, on_pr, on_new_feature
+- **Platforms:** claude-code
+- **Type:** rigid
+- **Cognitive mode:** constructive-architect
+- **Depends on:** cleanup-dead-code, enforce-architecture, naming-craft
 
 ### copy-craft
 
