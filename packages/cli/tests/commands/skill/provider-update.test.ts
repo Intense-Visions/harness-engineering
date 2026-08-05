@@ -8,13 +8,29 @@ vi.mock('../../../src/registry/lockfile', async (importOriginal) => {
   const actual = await importOriginal<typeof import('../../../src/registry/lockfile')>();
   return { ...actual, readLockfile: vi.fn() };
 });
+vi.mock('../../../src/commands/install', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('../../../src/commands/install')>();
+  return { ...actual, runInstall: vi.fn().mockResolvedValue({ installed: true, name: 'x', version: '1' }) };
+});
+vi.mock('../../../src/output/prompt', () => ({ prompt: vi.fn() }));
 
 import { execFileSync } from 'child_process';
 import { readLockfile } from '../../../src/registry/lockfile';
-import { probeProviders } from '../../../src/commands/skill/provider-update';
+import { runInstall } from '../../../src/commands/install';
+import { prompt } from '../../../src/output/prompt';
+import {
+  probeProviders,
+  updateProviders,
+  type ProbedProvider,
+} from '../../../src/commands/skill/provider-update';
 
 const mockedExec = vi.mocked(execFileSync);
 const mockedRead = vi.mocked(readLockfile);
+const mockedInstall = vi.mocked(runInstall);
+const mockedPrompt = vi.mocked(prompt);
+
+const gh: ProbedProvider = { name: '@harness-skills/gh', kind: 'github', current: 'old', latest: 'new', outdated: true, global: false, source: { kind: 'github', owner: 'o', repo: 'r', ref: 'main', commit: 'old' } };
+const npm: ProbedProvider = { name: '@harness-skills/n', kind: 'npm', current: '1.0.0', latest: '2.0.0', outdated: true, global: true, source: { kind: 'npm', package: '@harness-skills/n' } };
 
 function lock(skills: Record<string, unknown>) {
   return { version: 2, skills } as any;
@@ -91,5 +107,54 @@ describe('probeProviders', () => {
     const p = probeProviders([{ path: '/p', global: false }]).providers;
     expect(p[0]).toMatchObject({ outdated: false, latest: null }); // probe refused -> null -> fail-safe
     expect(mockedExec).not.toHaveBeenCalled();
+  });
+});
+
+describe('updateProviders', () => {
+  beforeEach(() => vi.clearAllMocks());
+
+  it('re-pulls a github provider via a reconstructed from-spec with force', async () => {
+    await updateProviders([gh], { yes: true });
+    expect(mockedInstall).toHaveBeenCalledWith('@harness-skills/gh',
+      expect.objectContaining({ from: 'github:o/r#main', force: true, global: false, generate: false }));
+  });
+
+  it('re-pulls an npm provider by package name with force', async () => {
+    await updateProviders([npm], { yes: true });
+    expect(mockedInstall).toHaveBeenCalledWith('@harness-skills/n',
+      expect.objectContaining({ force: true, global: true, generate: false }));
+  });
+
+  it('omits the "#HEAD" ref when reconstructing a HEAD-tracking github spec', async () => {
+    const head = { ...gh, source: { ...gh.source, ref: 'HEAD' } } as ProbedProvider;
+    await updateProviders([head], { yes: true });
+    expect(mockedInstall).toHaveBeenCalledWith('@harness-skills/gh', expect.objectContaining({ from: 'github:o/r' }));
+  });
+
+  it('confirms per provider (default N) and skips on decline', async () => {
+    mockedPrompt.mockResolvedValue('n');
+    const out = await updateProviders([gh]);
+    expect(mockedInstall).not.toHaveBeenCalled();
+    expect(out[0]).toMatchObject({ name: '@harness-skills/gh', updated: false, skipped: 'declined' });
+  });
+
+  it('re-pulls on affirmative confirmation', async () => {
+    mockedPrompt.mockResolvedValue('y');
+    await updateProviders([gh]);
+    expect(mockedInstall).toHaveBeenCalledTimes(1);
+  });
+
+  it('skips a provider whose reconstructed source is unsafe (leading dash)', async () => {
+    const bad = { ...gh, source: { kind: 'github', owner: '-o', repo: 'r', ref: 'main', commit: 'old' } } as ProbedProvider;
+    const out = await updateProviders([bad], { yes: true });
+    expect(mockedInstall).not.toHaveBeenCalled();
+    expect(out[0]).toMatchObject({ updated: false, skipped: 'unsafe' });
+  });
+
+  it('logs and continues when one provider re-pull throws (no abort)', async () => {
+    mockedInstall.mockRejectedValueOnce(new Error('boom')).mockResolvedValueOnce({ installed: true, name: 'x', version: '2' } as any);
+    const out = await updateProviders([gh, npm], { yes: true });
+    expect(out[0]).toMatchObject({ name: '@harness-skills/gh', updated: false });
+    expect(out[1]).toMatchObject({ name: '@harness-skills/n', updated: true });
   });
 });

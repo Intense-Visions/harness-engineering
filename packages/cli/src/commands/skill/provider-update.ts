@@ -1,6 +1,9 @@
 import { execFileSync } from 'child_process';
 import { readLockfile, type SkillSource } from '../../registry/lockfile';
 import { evaluateEntry } from '../../registry/freshness-checker';
+import { runInstall } from '../install';
+import { logger } from '../../output/logger';
+import { prompt } from '../../output/prompt';
 
 /** A lockfile to probe, tagged with its install scope for re-pull routing. */
 export interface LockfileRef {
@@ -91,4 +94,73 @@ export function probeProviders(lockfiles: LockfileRef[]): ProbeResult {
     }
   }
   return { providers, sourceless };
+}
+
+export interface UpdateOptions {
+  yes?: boolean;
+}
+
+export interface UpdateOutcome {
+  name: string;
+  updated: boolean;
+  skipped?: 'declined' | 'unsafe';
+}
+
+/** Reconstruct the `--from` spec for a github source (null if unsafe). */
+function reconstructGitHubSpec(source: Extract<SkillSource, { kind: 'github' }>): string | null {
+  if (hasLeadingDash(source.owner) || hasLeadingDash(source.repo) || hasLeadingDash(source.ref)) return null;
+  const ref = source.ref && source.ref !== 'HEAD' ? `#${source.ref}` : '';
+  return `github:${source.owner}/${source.repo}${ref}`;
+}
+
+/**
+ * Re-pulls each outdated provider from its recorded source (github via a
+ * reconstructed `--from` spec, npm via its package name), forcing a reinstall
+ * so the lockfile commit/version is rewritten. Per-provider confirm (default
+ * N) unless `yes`. Entries whose source fields start with a dash are skipped
+ * as unsafe. Best-effort per provider — one failure is logged and does not
+ * abort the rest.
+ */
+export async function updateProviders(
+  outdated: ProbedProvider[],
+  opts: UpdateOptions = {}
+): Promise<UpdateOutcome[]> {
+  const outcomes: UpdateOutcome[] = [];
+  for (const p of outdated) {
+    if (!opts.yes) {
+      const answer = await prompt(`Update ${p.name} (${p.current} -> ${p.latest}) — proceed? (y/N) `);
+      if (answer !== 'y' && answer !== 'yes') {
+        outcomes.push({ name: p.name, updated: false, skipped: 'declined' });
+        continue;
+      }
+    }
+    try {
+      if (p.source.kind === 'github') {
+        const spec = reconstructGitHubSpec(p.source);
+        if (!spec) {
+          logger.warn(`Skipping ${p.name}: unsafe source fields.`);
+          outcomes.push({ name: p.name, updated: false, skipped: 'unsafe' });
+          continue;
+        }
+        await runInstall(p.name, { from: spec, force: true, global: p.global, generate: false });
+      } else if (p.source.kind === 'npm') {
+        if (hasLeadingDash(p.source.package) || hasLeadingDash(p.source.registry)) {
+          logger.warn(`Skipping ${p.name}: unsafe source fields.`);
+          outcomes.push({ name: p.name, updated: false, skipped: 'unsafe' });
+          continue;
+        }
+        await runInstall(p.source.package, {
+          force: true,
+          global: p.global,
+          generate: false,
+          ...(p.source.registry ? { registry: p.source.registry } : {}),
+        });
+      }
+      outcomes.push({ name: p.name, updated: true });
+    } catch (err) {
+      logger.warn(`Failed to update ${p.name}: ${err instanceof Error ? err.message : String(err)}`);
+      outcomes.push({ name: p.name, updated: false });
+    }
+  }
+  return outcomes;
 }
