@@ -263,7 +263,7 @@ Installed skills are tracked in `agents/skills/community/skills-lock.json`:
 
 ```json
 {
-  "version": 1,
+  "version": 2,
   "skills": {
     "@harness-skills/deployment": {
       "version": "1.2.0",
@@ -271,13 +271,70 @@ Installed skills are tracked in `agents/skills/community/skills-lock.json`:
       "integrity": "sha512-...",
       "platforms": ["claude-code", "gemini-cli"],
       "installedAt": "2026-03-25T10:00:00Z",
-      "dependencyOf": null
+      "dependencyOf": null,
+      "source": { "kind": "npm", "package": "@harness-skills/deployment" }
     }
   }
 }
 ```
 
 The lockfile is deterministic (sorted keys) so it produces clean git diffs. You can commit it for reproducibility or `.gitignore` it.
+
+The lockfile is at **version 2**: each entry may carry a `source` describing where it came from
+(`github` with `owner/repo/ref/commit`, `npm` with `package` and optional `registry`, or
+`local` with a `path`). This provenance is what powers freshness checks. A version-1 lockfile
+still loads; its entries have no `source` and are reported "source unknown — reinstall to enable
+freshness" until reinstalled.
+
+## Keeping providers fresh
+
+GitHub- and npm-sourced providers record where they came from, so harness can tell when an
+upstream provider has moved on. (Local `--from` installs are recorded but never probed — there is
+no meaningful upstream.)
+
+### The passive nudge
+
+On CLI startup — gated by the same switches as the CLI's own update check and silenced by
+`HARNESS_NO_UPDATE_CHECK=1` — a detached background probe checks each recorded provider and caches
+the result in `~/.harness/skill-freshness.json`. When something is outdated you'll see a one-line
+nudge:
+
+```
+2 skill providers have updates — run `harness skill update`
+```
+
+The nudge never pulls anything on its own.
+
+### Applying updates
+
+```bash
+# Report only — exits non-zero if any provider is outdated
+harness skill update --check
+
+# Refresh outdated providers, confirming each (old -> new) — default is No
+harness skill update
+
+# Only the global (~/.harness) lockfile; skip per-provider prompts
+harness skill update --global --yes
+
+# A single provider by name
+harness skill update deployment
+```
+
+Each outdated provider is re-pulled from its recorded source (`--force`) and its lockfile
+`commit`/`version` is rewritten. Confirmation defaults to **No**: because a re-pull re-executes
+third-party skill content, the confirm is your consent to run upstream code. `harness update`
+surfaces the same outdated-provider summary and (on a TTY) offers to refresh them.
+
+### Install follow-through
+
+After a successful install on a TTY, `harness install` now asks — defaulting to **Yes** — to run
+`generate-slash-commands` for you instead of only printing the hint. Use `--generate` to run it
+without prompting or `--no-generate` to suppress it; non-interactive installs still just print the
+hint.
+
+See [`docs/knowledge/cli/skill-freshness.md`](../knowledge/cli/skill-freshness.md) for the full
+freshness contract and hardening details.
 
 ## Architecture
 
@@ -287,6 +344,7 @@ packages/cli/src/
 │   ├── install.ts              — harness install <skill> (registry, local, GitHub, bulk)
 │   ├── uninstall.ts            — harness uninstall <skill>
 │   └── skill/
+│       ├── update.ts             — harness skill update <name> (freshness + re-pull)
 │       ├── search.ts           — harness skill search <query>
 │       ├── create.ts           — harness skill create <name>
 │       ├── publish.ts          — harness skill publish
@@ -295,6 +353,7 @@ packages/cli/src/
 │       ├── run.ts              — harness skill run <name>
 │       └── validate.ts         — harness skill validate <name>
 ├── registry/
+│   ├── freshness-checker.ts     — background probe + freshness nudge
 │   ├── npm-client.ts           — npm API: fetch, download, search, .npmrc tokens
 │   ├── tarball.ts              — extract tgz, place/remove skill content
 │   ├── resolver.ts             — semver version resolution, dependent finder
