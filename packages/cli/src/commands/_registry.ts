@@ -24,6 +24,7 @@ import { createCheckVocabularyCommand } from './check-vocabulary';
 import { createCICommand } from './ci';
 import { createCleanupCommand } from './cleanup';
 import { createCleanupSessionsCommand } from './cleanup-sessions';
+import { createCodeCraftCommand } from './code-craft';
 import { createCliErgonomicsCraftCommand } from './cli-ergonomics-craft';
 import { createCompoundCommand } from './compound';
 import { createCopyCraftCommand } from './copy-craft';
@@ -123,6 +124,7 @@ export const commandCreators: Array<() => Command> = [
   createCICommand,
   createCleanupCommand,
   createCleanupSessionsCommand,
+  createCodeCraftCommand,
   createCliErgonomicsCraftCommand,
   createCompoundCommand,
   createCopyCraftCommand,
