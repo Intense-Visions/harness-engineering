@@ -9,7 +9,7 @@
 - Adding a new component (module, service, package) that must be wired into existing layer boundaries
 - Adding a new skill to the project's skill library
 - When a plan calls for introducing a new architectural boundary or module
-- NOT when initializing a project from scratch (use initialize-harness-project)
+- NOT when initializing a project from scratch (use harness-initialize-project)
 - NOT when modifying an existing component (use standard editing workflows)
 - NOT when removing components (manual process — removing requires careful dependency analysis)
 
@@ -29,7 +29,7 @@
    - **Component:** Name, which layer it belongs to, what it depends on, what will depend on it
    - **Skill:** Name, purpose, type (rigid or flexible), triggers
 
-3. **Check prerequisites.** The project must already be initialized with harness. If `harness.config.json` does not exist, stop and run initialize-harness-project first.
+3. **Check prerequisites.** The project must already be initialized with harness. If `harness.config.json` does not exist, stop and run harness-initialize-project first.
 
 ### Phase 2: VALIDATE — Check Against Existing Constraints
 

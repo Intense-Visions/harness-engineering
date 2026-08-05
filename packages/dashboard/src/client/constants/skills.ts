@@ -23,6 +23,30 @@ export const SKILL_REGISTRY: SkillEntry[] = [
     category: 'health',
     slashCommand: '/harness:integrity',
   },
+  {
+    id: 'harness:verification',
+    name: 'Verify Phase',
+    description: 'Verify built artifacts against their spec and plan at three tiers.',
+    category: 'health',
+    slashCommand: '/harness:verification',
+    loadBearing: true,
+  },
+  {
+    id: 'harness:outcome-eval',
+    name: 'Outcome Eval',
+    description: 'Ship gate — judge whether an implementation satisfied its spec.',
+    category: 'health',
+    slashCommand: '/harness:outcome-eval',
+    loadBearing: true,
+  },
+  {
+    id: 'harness:audit-strength',
+    name: 'Audit Harness Strength',
+    description: "Audit the project's own harness setup against known failure patterns.",
+    category: 'health',
+    slashCommand: '/harness:audit-strength',
+    loadBearing: true,
+  },
 
   // Security
   {
@@ -75,6 +99,7 @@ export const SKILL_REGISTRY: SkillEntry[] = [
     description: 'Perform an automated deep-context code review of recent changes.',
     category: 'code-quality',
     slashCommand: '/harness:code-review',
+    loadBearing: true,
   },
   {
     id: 'harness:codebase-cleanup',
@@ -108,11 +133,36 @@ export const SKILL_REGISTRY: SkillEntry[] = [
 
   // Workflow
   {
+    id: 'harness:initialize-project',
+    name: 'Initialize Project',
+    description: 'Scaffold or migrate a harness-managed project, design system, and roadmap.',
+    category: 'workflow',
+    slashCommand: '/harness:initialize-project',
+    loadBearing: true,
+  },
+  {
+    id: 'harness:strategy',
+    name: 'Strategy',
+    description: 'Set the durable product anchor (STRATEGY.md) read across the workflow.',
+    category: 'workflow',
+    slashCommand: '/harness:strategy',
+    loadBearing: true,
+  },
+  {
+    id: 'harness:compound',
+    name: 'Compound',
+    description: 'Capture the post-mortem so the next run compounds on this one.',
+    category: 'workflow',
+    slashCommand: '/harness:compound',
+    loadBearing: true,
+  },
+  {
     id: 'harness:brainstorming',
     name: 'Brainstorm',
     description: 'Explore ideas, architectural patterns, and implementation strategies.',
     category: 'workflow',
     slashCommand: '/harness:brainstorming',
+    loadBearing: true,
   },
   {
     id: 'harness:planning',
@@ -120,6 +170,7 @@ export const SKILL_REGISTRY: SkillEntry[] = [
     description: 'Generate a detailed implementation plan with atomic tasks.',
     category: 'workflow',
     slashCommand: '/harness:planning',
+    loadBearing: true,
   },
   {
     id: 'harness:execution',
@@ -127,6 +178,7 @@ export const SKILL_REGISTRY: SkillEntry[] = [
     description: 'Implement a feature or fix task-by-task with atomic commits.',
     category: 'workflow',
     slashCommand: '/harness:execution',
+    loadBearing: true,
   },
   {
     id: 'harness:tdd',
@@ -134,6 +186,7 @@ export const SKILL_REGISTRY: SkillEntry[] = [
     description: 'Execute a test-driven development cycle for a specific unit.',
     category: 'workflow',
     slashCommand: '/harness:tdd',
+    loadBearing: true,
   },
   {
     id: 'harness:debugging',
@@ -141,6 +194,7 @@ export const SKILL_REGISTRY: SkillEntry[] = [
     description: 'Analyze logs, traces, and code to find and fix the root cause.',
     category: 'workflow',
     slashCommand: '/harness:debugging',
+    loadBearing: true,
   },
   {
     id: 'harness:refactoring',

@@ -26,6 +26,7 @@ mcp:
     skill: harness-strategy
 type: rigid
 tier: 2
+catalog_tier: 0
 phases:
   - name: route
     description: Route by STRATEGY.md presence and validity (absent → first-run; valid → update; invalid → repair offer)

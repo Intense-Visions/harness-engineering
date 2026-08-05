@@ -1,6 +1,6 @@
 // packages/cli/tests/integration/skill-catalog-consistency.test.ts
 //
-// Vocabulary & catalog regression lock for `initialize-harness-project`.
+// Vocabulary & catalog regression lock for `harness-initialize-project`.
 //
 // Each assertion below guards against a SPECIFIC regression that already
 // happened in this repo — restating the motivation here so a future reader
@@ -68,7 +68,7 @@ const SKILL_YAML = path.join(
   'agents',
   'skills',
   'claude-code',
-  'initialize-harness-project',
+  'harness-initialize-project',
   'skill.yaml'
 );
 const SKILL_MD = path.join(
@@ -76,7 +76,7 @@ const SKILL_MD = path.join(
   'agents',
   'skills',
   'claude-code',
-  'initialize-harness-project',
+  'harness-initialize-project',
   'SKILL.md'
 );
 const CATALOG = path.join(REPO_ROOT, 'docs', 'reference', 'skills-catalog.md');
@@ -95,7 +95,7 @@ function extractDescription(yamlText: string): string {
 }
 
 describe('skill catalog ↔ SKILL.md consistency (spec #15)', () => {
-  it('skill.yaml description appears verbatim in skills-catalog.md under initialize-harness-project', () => {
+  it('skill.yaml description appears verbatim in skills-catalog.md under harness-initialize-project', () => {
     const yamlText = fs.readFileSync(SKILL_YAML, 'utf-8');
     const description = extractDescription(yamlText);
     expect(description).toContain('design system');

@@ -3,7 +3,7 @@
 // Contract tests for the initialize-test-suite-project skill. Generic schema,
 // structure, and platform-parity checks live in the sibling *.test.ts files;
 // this file locks in invariants specific to this skill — its composition with
-// initialize-harness-project, phase structure, and the cross-file references
+// harness-initialize-project, phase structure, and the cross-file references
 // that make the slash command and docs discoverable.
 
 import { describe, it, expect } from 'vitest';
@@ -17,7 +17,7 @@ const SKILLS_DIR = resolve(__dirname, '..');
 const REPO_ROOT = resolve(SKILLS_DIR, '..', '..');
 
 const SKILL_NAME = 'initialize-test-suite-project';
-const PARENT_SKILL = 'initialize-harness-project';
+const PARENT_SKILL = 'harness-initialize-project';
 const PLATFORMS = ['claude-code', 'gemini-cli', 'cursor', 'codex'] as const;
 
 function readSkillYaml(platform: string): Record<string, unknown> {
@@ -38,7 +38,7 @@ describe('initialize-test-suite-project metadata', () => {
     expect(meta.cognitive_mode).toBe('constructive-architect');
   });
 
-  it.each(PLATFORMS)('%s skill.yaml depends on initialize-harness-project', (platform) => {
+  it.each(PLATFORMS)('%s skill.yaml depends on harness-initialize-project', (platform) => {
     const meta = readSkillYaml(platform);
     expect(meta.depends_on).toContain(PARENT_SKILL);
   });
@@ -153,7 +153,7 @@ describe('initialize-test-suite-project canary Phase 0 probe + delegation', () =
   );
 });
 
-describe('initialize-test-suite-project composition with initialize-harness-project', () => {
+describe('initialize-test-suite-project composition with harness-initialize-project', () => {
   it.each(PLATFORMS)('%s parent skill dispatches to initialize-test-suite-project', (platform) => {
     const parentPath = resolve(SKILLS_DIR, platform, PARENT_SKILL, 'SKILL.md');
     if (!existsSync(parentPath)) return;
