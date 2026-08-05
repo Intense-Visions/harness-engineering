@@ -492,4 +492,125 @@ describe('validate command', () => {
       expect(anatomyIssue?.message).toContain('boom: parser crashed');
     });
   });
+
+  // `--severity` mirrors `check-security`: when provided, the flag bounds BOTH
+  // the reported findings and the pass/fail verdict. When omitted, behavior is
+  // unchanged (hard checks + error-severity findings fail; warnings are reported
+  // but never flip the verdict).
+  describe('severity threshold', () => {
+    // Produces a single warning-severity component-anatomy finding, on an
+    // otherwise-clean project, so the aggregated issue set is exactly one
+    // warning.
+    function mockWarningFinding(): void {
+      vi.mocked(runComponentAnatomyAudit).mockResolvedValueOnce({
+        findings: [
+          {
+            code: 'ANAT-D000',
+            severity: 'warn',
+            file: 'src/Tabs.tsx',
+            line: null,
+            componentType: 'Tabs',
+            message: 'JSDoc anatomy declaration diverges from convention',
+            evidence: { snippet: '' },
+            rule: { id: 'ANAT-D000', source: 'convention/divergence' },
+            fix: { kind: 'manual', description: 'Update JSDoc or convention' },
+          },
+        ],
+        summary: {
+          totalFiles: 1,
+          durationMs: 5,
+          bySeverity: { error: 0, warn: 1, info: 0 },
+          byCode: { 'ANAT-D000': 1 },
+        },
+        catalog: { conventionsApplied: ['Tabs'], patternsApplied: [] },
+        meta: { mode: 'fast', deferredToA11y: 0 },
+      } as never);
+    }
+
+    it('default (no --severity): a warning-only run stays valid and reports the warning', async () => {
+      mockWarningFinding();
+      const result = await runValidate({ cwd: '/tmp/test' });
+      expect(result.ok).toBe(true);
+      if (!result.ok) return;
+      // Unchanged default behavior: the warning is reported but never fails.
+      expect(result.value.valid).toBe(true);
+      const warn = result.value.issues.find((i) => i.check === 'componentAnatomy');
+      expect(warn?.severity).toBe('warning');
+    });
+
+    it('--severity error: excludes the warning from the report and stays valid', async () => {
+      mockWarningFinding();
+      const result = await runValidate({ cwd: '/tmp/test', severity: 'error' });
+      expect(result.ok).toBe(true);
+      if (!result.ok) return;
+      expect(result.value.valid).toBe(true);
+      expect(result.value.issues).toHaveLength(0);
+    });
+
+    it('--severity warning: the warning now fails the gate and is reported', async () => {
+      mockWarningFinding();
+      const result = await runValidate({ cwd: '/tmp/test', severity: 'warning' });
+      expect(result.ok).toBe(true);
+      if (!result.ok) return;
+      expect(result.value.valid).toBe(false);
+      expect(result.value.issues).toHaveLength(1);
+      expect(result.value.issues[0].severity).toBe('warning');
+    });
+
+    it('--severity error: an error finding still fails and survives the filter', async () => {
+      vi.mocked(runComponentAnatomyAudit).mockResolvedValueOnce({
+        findings: [
+          {
+            code: 'ANAT-D001',
+            severity: 'error',
+            file: 'src/Button.tsx',
+            line: 14,
+            componentType: 'Button',
+            message: 'Button is missing required slot: content',
+            evidence: { snippet: '' },
+            rule: { id: 'ANAT-D001', source: 'APG/button' },
+            fix: { kind: 'manual', description: 'Add a children/content prop' },
+          },
+        ],
+        summary: {
+          totalFiles: 1,
+          durationMs: 5,
+          bySeverity: { error: 1, warn: 0, info: 0 },
+          byCode: { 'ANAT-D001': 1 },
+        },
+        catalog: { conventionsApplied: ['Button'], patternsApplied: [] },
+        meta: { mode: 'fast', deferredToA11y: 0 },
+      } as never);
+
+      const result = await runValidate({ cwd: '/tmp/test', severity: 'error' });
+      expect(result.ok).toBe(true);
+      if (!result.ok) return;
+      expect(result.value.valid).toBe(false);
+      expect(result.value.issues).toHaveLength(1);
+      expect(result.value.issues[0].severity).toBe('error');
+    });
+
+    it('--severity error: a hard check with no explicit severity is treated as error and fails', async () => {
+      vi.mocked(validateAgentsMap).mockResolvedValueOnce({
+        ok: false,
+        error: { message: 'AGENTS.md not found', suggestions: [] },
+      } as never);
+
+      const result = await runValidate({ cwd: '/tmp/test', severity: 'error' });
+      expect(result.ok).toBe(true);
+      if (!result.ok) return;
+      // No explicit severity on the agentsMap finding, but it is a hard failure,
+      // so it ranks as error-level and fails under `--severity error`.
+      expect(result.value.valid).toBe(false);
+      const issue = result.value.issues.find((i) => i.check === 'agentsMap');
+      expect(issue).toBeDefined();
+    });
+  });
+
+  describe('createValidateCommand --severity', () => {
+    it('registers the --severity option', () => {
+      const cmd = createValidateCommand();
+      expect(cmd.options.find((o) => o.long === '--severity')).toBeDefined();
+    });
+  });
 });
