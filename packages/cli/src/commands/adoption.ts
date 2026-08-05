@@ -2,6 +2,11 @@ import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { Command } from 'commander';
 import type { SkillAdoptionSummary } from '@harness-engineering/types';
+import type {
+  SkillEffectivenessScore,
+  FailingSkill,
+  AbandonedSkill,
+} from '@harness-engineering/intelligence';
 import { logger } from '../output/logger';
 
 function formatDuration(ms: number): string {
@@ -227,6 +232,105 @@ function discoverCatalogSkills(projectRoot: string): string[] | undefined {
   return names.length > 0 ? names : undefined;
 }
 
+interface SkillEffectivenessSection {
+  /** Per-skill Bayesian scores, worst smoothed success rate first. */
+  scores: SkillEffectivenessScore[];
+  /** Skills failing above threshold, sample-aware ranked. */
+  failing: FailingSkill[];
+  /** Skills abandoned mid-workflow above threshold, sample-aware ranked. */
+  abandoned: AbandonedSkill[];
+}
+
+/** Renders a heading + Markdown table (or an italic empty-note when no rows). */
+function markdownSection(
+  heading: string,
+  columns: string[],
+  rows: string[][],
+  emptyNote: string
+): string[] {
+  const out = [heading, ''];
+  if (rows.length === 0) {
+    out.push(`_${emptyNote}_`);
+  } else {
+    out.push(`| ${columns.join(' | ')} |`);
+    out.push(`| ${columns.map(() => '---').join(' | ')} |`);
+    out.push(...rows.map((cells) => `| ${cells.join(' | ')} |`));
+  }
+  out.push('');
+  return out;
+}
+
+/**
+ * Renders the Bayesian skill-effectiveness section appended to the base
+ * retrospective Markdown. The scores come from the intelligence skill scorer;
+ * Laplace smoothing keeps low-volume skills from dominating the ranking.
+ */
+function renderSkillEffectivenessSection(section: SkillEffectivenessSection): string {
+  const lines = [
+    '## Bayesian skill effectiveness',
+    '',
+    'Laplace-smoothed success rate (α = 1), so a skill invoked once cannot claim 0% or 100% ' +
+      'certainty. Use this sample-aware view — not raw counts — to decide what to fix or prune.',
+    '',
+    ...markdownSection(
+      '### Least effective skills (smoothed success rate ascending)',
+      ['Skill', 'Invocations', 'Completed', 'Failed', 'Abandoned', 'Smoothed success rate'],
+      section.scores.map((s) => [
+        `\`${s.skill}\``,
+        `${s.invocations}`,
+        `${s.completed}`,
+        `${s.failed}`,
+        `${s.abandonedMidWorkflow}`,
+        formatRate(s.successRate),
+      ]),
+      'No skill telemetry to score.'
+    ),
+    ...markdownSection(
+      '### Failing skills (Bayesian-ranked)',
+      ['Skill', 'Invocations', 'Failed', 'Raw failure rate', 'Smoothed success rate'],
+      section.failing.map((s) => [
+        `\`${s.skill}\``,
+        `${s.invocations}`,
+        `${s.failed}`,
+        formatRate(s.failureRate),
+        formatRate(s.smoothedSuccessRate),
+      ]),
+      'No skill meets the failing-rate threshold.'
+    ),
+    ...markdownSection(
+      '### Abandoned mid-workflow (Bayesian-ranked)',
+      ['Skill', 'Invocations', 'Abandoned', 'Abandonment rate', 'Smoothed success rate'],
+      section.abandoned.map((s) => [
+        `\`${s.skill}\``,
+        `${s.invocations}`,
+        `${s.abandonedMidWorkflow}`,
+        formatRate(s.abandonmentRate),
+        formatRate(s.smoothedSuccessRate),
+      ]),
+      'No skill meets the abandonment-rate threshold.'
+    ),
+  ];
+  return lines.join('\n').trimEnd() + '\n';
+}
+
+/**
+ * Computes the Bayesian skill-effectiveness view from adoption records.
+ * `computeSkillEffectiveness` sorts best first, so the scores are reversed to
+ * surface the least effective skills at the top.
+ */
+async function buildSkillEffectiveness(
+  records: import('@harness-engineering/types').SkillInvocationRecord[],
+  topN: number
+): Promise<SkillEffectivenessSection> {
+  const { computeSkillEffectiveness, detectFailingSkills, detectAbandonedSkills } =
+    await import('@harness-engineering/intelligence');
+  return {
+    scores: computeSkillEffectiveness(records).reverse().slice(0, topN),
+    failing: detectFailingSkills(records).slice(0, topN),
+    abandoned: detectAbandonedSkills(records).slice(0, topN),
+  };
+}
+
 function registerRetrospectiveCommand(adoption: Command): void {
   adoption
     .command('retrospective')
@@ -244,18 +348,23 @@ function registerRetrospectiveCommand(adoption: Command): void {
       const records = readAdoptionRecords(cwd);
       const catalogSkills = discoverCatalogSkills(cwd);
 
+      const topN = Math.max(parseInt(opts.top, 10) || 10, 1);
       const report = getCatalogRetrospectiveReport(records, {
         inactiveDays: Math.max(parseInt(opts.inactiveDays, 10) || 90, 1),
-        topN: Math.max(parseInt(opts.top, 10) || 10, 1),
+        topN,
         ...(catalogSkills ? { catalogSkills } : {}),
       });
+      const skillEffectiveness = await buildSkillEffectiveness(records, topN);
 
       if (globalOpts.json) {
-        console.log(JSON.stringify(report, null, 2));
+        console.log(JSON.stringify({ ...report, skillEffectiveness }, null, 2));
         return;
       }
 
-      const markdown = renderRetrospectiveMarkdown(report);
+      const markdown =
+        renderRetrospectiveMarkdown(report) +
+        '\n' +
+        renderSkillEffectivenessSection(skillEffectiveness);
 
       // --no-write sets opts.write === false (commander negation semantics).
       if (opts.write === false) {
@@ -263,19 +372,31 @@ function registerRetrospectiveCommand(adoption: Command): void {
         return;
       }
 
-      const date = report.generatedAt.slice(0, 10);
-      const outPath = opts.out
-        ? path.resolve(cwd, opts.out)
-        : path.join(cwd, 'docs', 'retrospectives', `${date}.md`);
-      fs.mkdirSync(path.dirname(outPath), { recursive: true });
-      fs.writeFileSync(outPath, markdown, 'utf-8');
-
-      const relPath = path.relative(cwd, outPath).replaceAll('\\', '/');
-      logger.info(`Catalog retrospective written to ${relPath}`);
-      logger.info(
-        `${report.totalRecords} records · ${report.distinctSkills} skills · window ${report.windowDays}d`
-      );
+      writeRetrospectiveFile(cwd, opts.out, report, markdown);
     });
+}
+
+/** Writes the rendered retrospective to disk and logs a one-line summary. */
+function writeRetrospectiveFile(
+  cwd: string,
+  outOpt: string | undefined,
+  report: Awaited<
+    ReturnType<typeof import('@harness-engineering/core').getCatalogRetrospectiveReport>
+  >,
+  markdown: string
+): void {
+  const date = report.generatedAt.slice(0, 10);
+  const outPath = outOpt
+    ? path.resolve(cwd, outOpt)
+    : path.join(cwd, 'docs', 'retrospectives', `${date}.md`);
+  fs.mkdirSync(path.dirname(outPath), { recursive: true });
+  fs.writeFileSync(outPath, markdown, 'utf-8');
+
+  const relPath = path.relative(cwd, outPath).replaceAll('\\', '/');
+  logger.info(`Catalog retrospective written to ${relPath}`);
+  logger.info(
+    `${report.totalRecords} records · ${report.distinctSkills} skills · window ${report.windowDays}d`
+  );
 }
 
 export function createAdoptionCommand(): Command {
