@@ -35,8 +35,7 @@ async function run(args: string[]) {
 }
 
 describe('harness skill update', () => {
-  // Registration is wired in Task 5; un-skipped there.
-  it.skip('is registered under the skill command group', () => {
+  it('is registered under the skill command group', () => {
     expect(createSkillCommand().commands.find((c) => c.name() === 'update')).toBeDefined();
   });
 
