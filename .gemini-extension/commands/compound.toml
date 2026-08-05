@@ -238,6 +238,16 @@ keywords:
   - playbook
   - bug-track
   - knowledge-track
+capabilities:
+  tools:
+    - Bash
+    - Read
+    - Write
+    - Edit
+    - Glob
+    - Grep
+  network: false
+  filesystem: read-write
 
 </execution_context>
 

@@ -83,3 +83,13 @@ related_skills:
   - events-pubsub-pattern
   - events-kafka-patterns
   - events-outbox-pattern
+capabilities:
+  tools:
+    - Bash
+    - Read
+    - Write
+    - Edit
+    - Glob
+    - Grep
+  network: false
+  filesystem: read-write

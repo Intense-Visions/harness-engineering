@@ -648,6 +648,18 @@ state:
     - .harness/sessions/*/integration-updates.json
 depends_on:
   - harness-verification
+capabilities:
+  tools:
+    - Bash
+    - Read
+    - Write
+    - Edit
+    - Glob
+    - Grep
+    - emit_interaction
+    - manage_state
+  network: false
+  filesystem: read-write
 
 </execution_context>
 

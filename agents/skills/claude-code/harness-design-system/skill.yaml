@@ -81,3 +81,13 @@ related_skills:
   - design-naming-conventions
   - design-brand-consistency
 depends_on: []
+capabilities:
+  tools:
+    - Bash
+    - Read
+    - Write
+    - Edit
+    - Glob
+    - Grep
+  network: false
+  filesystem: read-write

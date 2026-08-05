@@ -50,3 +50,13 @@ state:
   persistent: false
 depends_on:
   - outcome-eval
+capabilities:
+  tools:
+    - Bash
+    - Read
+    - Write
+    - Edit
+    - Glob
+    - Grep
+  network: false
+  filesystem: read-write

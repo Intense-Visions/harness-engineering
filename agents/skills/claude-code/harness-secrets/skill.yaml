@@ -77,3 +77,12 @@ state:
   persistent: false
   files: []
 depends_on: []
+capabilities:
+  tools:
+    - Bash
+    - Read
+    - Glob
+    - Grep
+    - emit_interaction
+  network: false
+  filesystem: read-write

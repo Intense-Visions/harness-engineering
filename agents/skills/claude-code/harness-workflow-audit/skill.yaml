@@ -59,3 +59,11 @@ depends_on: []
 addresses:
   - signal: security-findings
     weight: 0.4
+capabilities:
+  tools:
+    - Bash
+    - Read
+    - Glob
+    - Grep
+  network: false
+  filesystem: read-write

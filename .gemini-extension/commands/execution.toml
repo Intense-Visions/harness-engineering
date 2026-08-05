@@ -603,6 +603,17 @@ state:
     - .harness/learnings.md
 depends_on:
   - harness-verification
+capabilities:
+  tools:
+    - Bash
+    - Read
+    - Write
+    - Edit
+    - Glob
+    - Grep
+    - emit_interaction
+  network: false
+  filesystem: read-write
 
 </execution_context>
 

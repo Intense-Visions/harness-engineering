@@ -920,6 +920,15 @@ addresses:
     weight: 0.5
   - signal: high-coupling
     weight: 0.4
+capabilities:
+  tools:
+    - Bash
+    - Read
+    - Glob
+    - Grep
+    - emit_interaction
+  network: false
+  filesystem: read-write
 
 </execution_context>
 

@@ -78,3 +78,13 @@ stack_signals:
   - backend
   - mobile
 depends_on: []
+capabilities:
+  tools:
+    - Bash
+    - Read
+    - Write
+    - Edit
+    - Glob
+    - Grep
+  network: false
+  filesystem: read-write

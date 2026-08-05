@@ -82,3 +82,14 @@ related_skills:
   - resilience-retry-pattern
   - resilience-bulkhead-pattern
   - resilience-fallback-pattern
+capabilities:
+  tools:
+    - Bash
+    - Read
+    - Write
+    - Edit
+    - Glob
+    - Grep
+    - emit_interaction
+  network: false
+  filesystem: read-write

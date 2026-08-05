@@ -464,6 +464,14 @@ state:
   persistent: false
   files: []
 depends_on: []
+capabilities:
+  tools:
+    - Bash
+    - Read
+    - Glob
+    - emit_interaction
+  network: false
+  filesystem: read-write
 
 </execution_context>
 

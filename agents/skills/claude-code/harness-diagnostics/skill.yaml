@@ -71,3 +71,13 @@ stack_signals:
   - typescript
   - rust
 depends_on: []
+capabilities:
+  tools:
+    - Bash
+    - Read
+    - Glob
+    - Grep
+    - Edit
+    - Write
+  network: false
+  filesystem: read-write
