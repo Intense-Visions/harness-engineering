@@ -170,6 +170,17 @@ Remove stale entries from .harness/. Default: only .harness/sessions/ (no write 
 - `--include` — Comma-separated target names (mutually-exclusive with --exclude/--all)
 - `--exclude` — Comma-separated target names to skip
 
+### `harness code-craft`
+
+LLM-judgment critique of code quality / readability — the ceiling counterpart to the rule-based code floor (entropy-cleaner / enforce-architecture / complexity thresholds). 7 seed rubrics (reveals-intent, control-flow-honest, one-story-one-altitude, abstraction-earns-keep, simplest-it-could-be, signature-keeps-promise, senior-nods-not-winces). Per-unit critique of functions, methods, and classes. Identifier-level naming is delegated to naming-craft.
+
+**Options:**
+
+- `-f, --files` — Optional file scope (overrides packages/\*/src discovery)
+- `--packages` — Restrict to specific packages under packages/
+- `--max-files` — Cap source-file count (default: 100)
+- `--max-units-per-file` — Cap per-file unit critique (default: 20)
+
 ### `harness copy-craft`
 
 LLM-judgment critique of prose-in-code across six surfaces: error messages, log lines, CLI output, commit subjects, PR descriptions, code comments. Third craft-pipeline ceiling skill. Graceful degradation when git/gh prereqs absent.

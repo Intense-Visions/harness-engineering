@@ -208,6 +208,8 @@ import { knowledgeCraftDefinition, handleKnowledgeCraft } from './tools/knowledg
 import { securityCraftDefinition, handleSecurityCraft } from './tools/security-craft.js';
 // craft-pipeline: docs-craft LLM-judgment skill (documentation quality, per-file critique).
 import { docsCraftDefinition, handleDocsCraft } from './tools/docs-craft.js';
+// craft-pipeline: code-craft LLM-judgment skill (code readability, per-unit critique).
+import { codeCraftDefinition, handleCodeCraft } from './tools/code-craft.js';
 import { outcomeEvalDefinition, handleOutcomeEval } from './tools/outcome-eval.js';
 import { acceptanceEvalDefinition, handleAcceptanceEval } from './tools/acceptance-eval.js';
 // strategic-anchor: STRATEGY.md read/validate/write tools so skills don't have
@@ -339,6 +341,7 @@ const TOOL_DEFINITIONS: ToolDefinition[] = [
   knowledgeCraftDefinition,
   securityCraftDefinition,
   docsCraftDefinition,
+  codeCraftDefinition,
   outcomeEvalDefinition,
   acceptanceEvalDefinition,
   validateStrategyDefinition,
@@ -443,6 +446,7 @@ const TOOL_HANDLERS: Record<string, ToolHandler> = {
   knowledge_craft: handleKnowledgeCraft as unknown as ToolHandler,
   security_craft: handleSecurityCraft as unknown as ToolHandler,
   docs_craft: handleDocsCraft as unknown as ToolHandler,
+  code_craft: handleCodeCraft as unknown as ToolHandler,
   outcome_eval: handleOutcomeEval as unknown as ToolHandler,
   acceptance_eval: handleAcceptanceEval as unknown as ToolHandler,
   validate_strategy: handleValidateStrategy as unknown as ToolHandler,
