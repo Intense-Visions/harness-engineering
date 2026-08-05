@@ -10,7 +10,7 @@ function runHook(
   stdinData: string,
   cwd: string,
   env?: Record<string, string>
-): { exitCode: number; stderr: string } {
+): { exitCode: number; stdout: string; stderr: string } {
   // Sanitize telemetry opt-out vars from the inherited base env so each test
   // fully controls telemetry state via the explicit `env` arg. The global test
   // setup sets DO_NOT_TRACK=1 by default (to keep telemetry export from making
@@ -31,6 +31,7 @@ function runHook(
   });
   return {
     exitCode: result.status ?? (result.signal ? 0 : 1),
+    stdout: result.stdout ?? '',
     stderr: result.stderr ?? '',
   };
 }
@@ -89,14 +90,16 @@ describe('telemetry-reporter', { timeout: 60000 }, () => {
     const result = runHook(STDIN_INPUT, tmpDir, { DO_NOT_TRACK: '1' });
     expect(result.exitCode).toBe(0);
     // Should not show first-run notice
-    expect(result.stderr).not.toContain('anonymous usage analytics');
+    expect(result.stdout).not.toContain('usage analytics');
+    expect(result.stderr).not.toContain('usage analytics');
   });
 
   it('exits 0 without HTTP when HARNESS_TELEMETRY_OPTOUT=1', () => {
     writeAdoptionJsonl(tmpDir, [SAMPLE_RECORD]);
     const result = runHook(STDIN_INPUT, tmpDir, { HARNESS_TELEMETRY_OPTOUT: '1' });
     expect(result.exitCode).toBe(0);
-    expect(result.stderr).not.toContain('anonymous usage analytics');
+    expect(result.stdout).not.toContain('usage analytics');
+    expect(result.stderr).not.toContain('usage analytics');
   });
 
   it('exits 0 without HTTP when telemetry.enabled is false in config', () => {
@@ -107,17 +110,20 @@ describe('telemetry-reporter', { timeout: 60000 }, () => {
     );
     const result = runHook(STDIN_INPUT, tmpDir);
     expect(result.exitCode).toBe(0);
-    expect(result.stderr).not.toContain('anonymous usage analytics');
+    expect(result.stdout).not.toContain('usage analytics');
+    expect(result.stderr).not.toContain('usage analytics');
   });
 
   // --- First-run notice ---
 
-  it('shows first-run notice when flag file does not exist', () => {
+  it('shows first-run notice on stdout when flag file does not exist', () => {
     writeAdoptionJsonl(tmpDir, [SAMPLE_RECORD]);
     const result = runHook(STDIN_INPUT, tmpDir);
     expect(result.exitCode).toBe(0);
-    expect(result.stderr).toContain('anonymous usage analytics');
-    expect(result.stderr).toContain('DO_NOT_TRACK=1');
+    // The consent notice must go to stdout (visible in IDE sessions), not stderr.
+    expect(result.stdout).toContain('usage analytics');
+    expect(result.stdout).toContain('DO_NOT_TRACK=1');
+    expect(result.stderr).not.toContain('usage analytics');
     // Flag file should be created
     expect(existsSync(join(tmpDir, '.harness', '.telemetry-notice-shown'))).toBe(true);
   });
@@ -128,7 +134,8 @@ describe('telemetry-reporter', { timeout: 60000 }, () => {
     writeFileSync(join(tmpDir, '.harness', '.telemetry-notice-shown'), 'shown');
     const result = runHook(STDIN_INPUT, tmpDir);
     expect(result.exitCode).toBe(0);
-    expect(result.stderr).not.toContain('anonymous usage analytics');
+    expect(result.stdout).not.toContain('usage analytics');
+    expect(result.stderr).not.toContain('usage analytics');
   });
 
   // --- Install ID ---

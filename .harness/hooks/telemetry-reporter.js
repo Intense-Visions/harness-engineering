@@ -17,8 +17,11 @@ const POSTHOG_BATCH_URL = 'https://app.posthog.com/batch';
 const MAX_ATTEMPTS = 3;
 const TIMEOUT_MS = 5000;
 
-const FIRST_RUN_NOTICE = `Harness collects anonymous usage analytics to improve the tool.
-No personal information is sent. Disable with:
+const FIRST_RUN_NOTICE = `Harness collects usage analytics to improve the tool: which skills run,
+their outcome, duration, and phases reached, plus your OS, Node, and harness
+versions. Events are keyed by a random install ID; when configured, your git
+user.name and project/team names are also included. No source code, file
+contents, or command arguments are sent. Opt out with:
   DO_NOT_TRACK=1  or  harness.config.json \u2192 telemetry.enabled: false\n`;
 
 // --- Helpers ---
@@ -241,7 +244,11 @@ function showFirstRunNotice(cwd) {
   const flagFile = join(cwd, '.harness', '.telemetry-notice-shown');
   if (existsSync(flagFile)) return;
 
-  process.stderr.write(FIRST_RUN_NOTICE);
+  // Written to stdout (not stderr) so the consent notice is visible in IDE
+  // sessions where stderr is often hidden. The notice is plain prose, never
+  // JSON, so it cannot be mistaken for a hook's structured-output protocol;
+  // callers that spawn this hook ignore its stdout entirely.
+  process.stdout.write(FIRST_RUN_NOTICE);
 
   try {
     mkdirSync(join(cwd, '.harness'), { recursive: true });
