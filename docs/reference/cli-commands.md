@@ -138,6 +138,10 @@ Run lightweight security scan: secrets, injection, XSS, weak crypto
 - `--severity` — Minimum severity that fails the command; findings below it are excluded from the report and never fail the gate (error, warning, info) (default: "warning")
 - `--changed-only` — Only scan git-changed files
 
+### `harness check-vocabulary`
+
+Fail when deprecated or renamed canonical terms reappear in skills/docs prose
+
 ### `harness cleanup`
 
 Detect entropy issues (doc drift, dead code, patterns)
@@ -360,16 +364,6 @@ Run knowledge extraction, drift detection, and gap analysis
 - `--image-paths` — Comma-separated image file paths for analysis
 - `--coverage` — Display per-domain coverage report
 - `--check-contradictions` — Display cross-source contradiction report
-
-### `harness mcp`
-
-Start the MCP (Model Context Protocol) server on stdio
-
-**Options:**
-
-- `--tools` — Only register the specified tools (used by Cursor integration)
-- `--tier` — Load a preset tool tier instead of all tools
-- `--budget-tokens` — Auto-select tier to fit this baseline token budget
 
 ### `harness naming-craft`
 
@@ -954,6 +948,19 @@ Show last N persisted runs for a task (from .harness/maintenance/[id]/outputs/)
 - `--limit` — Number of runs to show (default: "5")
 - `--json` — Emit machine-readable JSON
 - `--path` — Project root path (default: ".")
+
+## Mcp Commands
+
+Start the MCP (Model Context Protocol) server on stdio
+
+### `harness mcp list-capabilities`
+
+Audit each MCP tool: read/write/exec scope, network access, and trust tag
+
+**Options:**
+
+- `--by-permission` — Group tools by read/write/exec/network scope
+- `--json` — Emit machine-readable JSON
 
 ## Mcp-guard Commands
 

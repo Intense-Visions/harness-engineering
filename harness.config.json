@@ -307,6 +307,36 @@
       "budgets": {}
     }
   },
+  "vocabulary": {
+    "enabled": true,
+    "rules": [
+      {
+        "deprecated": "sub-agent",
+        "canonical": "subagent",
+        "reason": "harness/Anthropic canonical spelling is the closed compound \"subagent\""
+      },
+      {
+        "deprecated": "sub-task",
+        "canonical": "subtask",
+        "reason": "canonical spelling is the closed compound \"subtask\""
+      },
+      {
+        "deprecated": "code base",
+        "canonical": "codebase",
+        "reason": "canonical spelling is the closed compound \"codebase\""
+      },
+      {
+        "deprecated": "green field",
+        "canonical": "greenfield",
+        "reason": "canonical spelling is the closed compound \"greenfield\""
+      },
+      {
+        "deprecated": "master branch",
+        "canonical": "main branch",
+        "reason": "the default branch is \"main\"; \"master\" is the retired name"
+      }
+    ]
+  },
   "roadmap": {
     "tracker": {
       "kind": "github",
