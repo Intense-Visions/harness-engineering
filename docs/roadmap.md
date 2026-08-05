@@ -750,7 +750,7 @@ last_manual_edit: 2026-06-27T12:51:51.967Z
 ### Graduate pre-merge-brief to adopter template + ruleset
 
 - **Status:** planned
-- **Spec:** —
+- **Spec:** docs/changes/pre-merge-brief-adopter-template/proposal.md
 - **Summary:** Follow-up to the senior accountability surface (#569, D5): ship the adopter-facing pre-merge-brief as a templates/ci/*.yml.hbs rendered by `harness init`, plus a ruleset for the eventual gate. Deferred so the brief's Markdown format bakes on dogfood PRs before adopters are locked in — mirrors how required-review graduated. Natural companion to fully extracting signal providers into shared core.
 - **Blockers:** Build senior-engineer accountability surface for PR push
 - **Plan:** —
