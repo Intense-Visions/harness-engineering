@@ -112,8 +112,34 @@ docs/
 
 A top-level file (~100 lines) that acts as a navigation guide for AI agents:
 
-````markdown
+```markdown
 # Knowledge Map
+
+## About This Project
+
+Brief description and links to core documents.
+
+## Core Beliefs
+
+- File: docs/core-beliefs.md
+
+## Architecture
+
+- Layers and dependencies: docs/architecture/layers.md
+- Design decisions: docs/architecture/decisions/
+
+## Implementation
+
+- How to build features: docs/guides/
+- Code examples: examples/
+
+## Agent Resources
+
+- Skills available: agents/skills/
+- How agents work: docs/agent-feedback-loop.md
+```
+
+Agents can read AGENTS.md first, understand the structure, then navigate to relevant documentation.
 
 ---
 
@@ -161,6 +187,31 @@ With feedback loops:
 Agents open PRs themselves with:
 
 ```markdown
+## Summary
+
+Implemented feature X with behavior Y.
+
+## Changes
+
+- Added service layer for X
+- Added tests covering scenarios A, B, C
+- Updated documentation in docs/guides/
+
+## Self-Review Checklist
+
+- [x] Tests pass locally
+- [x] ESLint passes
+- [x] No architectural violations
+- [x] Documentation updated
+- [x] Dependency graph validated
+
+## Remaining Questions
+
+- Should X behavior handle edge case Z? (Flagged for review)
+```
+
+Agents describe their work clearly so reviewers can focus on design questions, not implementation details.
+
 ---
 
 ### 5. Implementation Strategy (Depth-First)
@@ -208,9 +259,8 @@ A complete, shippable feature from design to deployment:
 6. **Reflection**: Document learnings for next vertical slice
 
 Example vertical slice: "Add email notifications to user signups"
-```
-````
 
+```
 Day 1: Design
 
 - Write design doc: docs/design-docs/email-notifications.md
@@ -372,7 +422,6 @@ Agents don't have clear patterns to follow. Quality suffers.
 
 _Layer: What — judgment and taste_
 
-
 ### What Are KPIs?
 
 KPIs (Key Performance Indicators) are metrics that measure how well Harness Engineering is working. Three core metrics:
@@ -460,8 +509,7 @@ Mechanical rules: 14 (14/15 = 93%)
 Manual rules: 1 ("Don't copy-paste code" - cannot automate)
 
 Harness Coverage = 93% ✓
-
-````
+```
 
 [Read more about Harness Coverage in KPIs](./kpis.md)
 
@@ -487,7 +535,7 @@ code_lines=$(find src -name "*.ts" -o -name "*.py" -o -name "*.rs" | xargs wc -l
 
 # Calculate ratio
 ratio=$(echo "scale=2; $docs_lines / $code_lines" | bc)
-````
+```
 
 **Target**: >0.3 (e.g., 3,000 docs lines for 10,000 code lines)
 
