@@ -15,7 +15,7 @@
 
 import { readFileSync, writeFileSync, readdirSync, existsSync, mkdirSync } from 'node:fs';
 import { resolve, join, basename } from 'node:path';
-import { execSync } from 'node:child_process';
+import { execSync, execFileSync } from 'node:child_process';
 import { parse as parseYaml } from 'yaml';
 
 const ROOT = resolve(import.meta.dirname, '..');
@@ -527,7 +527,11 @@ async function main() {
     const promptArgs = isCheck
       ? ['scripts/generate-agent-setup-prompt.mjs', '--check']
       : ['scripts/generate-agent-setup-prompt.mjs'];
-    execSync(`node ${promptArgs.join(' ')}`, { cwd: ROOT, stdio: 'inherit' });
+    // execFileSync, not execSync: no shell, so the argv is passed through
+    // literally and a path with a space (or anything else) can never be
+    // re-parsed as shell syntax. `process.execPath` also pins the child to the
+    // Node running this script rather than whatever `node` is first on PATH.
+    execFileSync(process.execPath, promptArgs, { cwd: ROOT, stdio: 'inherit' });
     console.log('    ✓ docs/agent-setup/prompt.md');
   } catch (err) {
     if (isCheck) {

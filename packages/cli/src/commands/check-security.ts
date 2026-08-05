@@ -4,6 +4,8 @@ import { execSync } from 'child_process';
 import type { Result } from '@harness-engineering/core';
 import {
   Ok,
+  SECURITY_SCAN_DEFAULT_IGNORE,
+  SECURITY_SCAN_GLOB,
   SecurityScanner,
   SecurityTimelineManager,
   parseSecurityConfig,
@@ -23,11 +25,18 @@ const SEVERITY_RANK: Record<SecuritySeverity, number> = {
 interface CheckSecurityOptions {
   severity?: SecuritySeverity;
   changedOnly?: boolean;
+  failOnEmpty?: boolean;
 }
 
 interface CheckSecurityResult {
   valid: boolean;
   findings: SecurityFinding[];
+  /**
+   * True when the scan matched zero files. A scan that read nothing did not pass —
+   * it abstained — and callers must be able to tell the two apart, which
+   * `valid: true, findings: []` alone cannot express.
+   */
+  scannedNothing: boolean;
   stats: {
     filesScanned: number;
     rulesApplied: number;
@@ -81,14 +90,12 @@ export async function runCheckSecurity(
     filesToScan = getChangedFiles(projectRoot);
   } else {
     const { glob } = await import('glob');
-    const pattern = '**/*.{ts,tsx,js,jsx,go,py,java,rb}';
-    const ignore = securityConfig.exclude ?? [
-      '**/node_modules/**',
-      '**/dist/**',
-      '**/*.test.ts',
-      '**/fixtures/**',
-    ];
-    filesToScan = await glob(pattern, { cwd: projectRoot, absolute: true, ignore });
+    const ignore = securityConfig.exclude ?? [...SECURITY_SCAN_DEFAULT_IGNORE];
+    filesToScan = await glob(SECURITY_SCAN_GLOB, {
+      cwd: projectRoot,
+      absolute: true,
+      ignore,
+    });
   }
 
   const result = await scanner.scanFiles(filesToScan);
@@ -118,9 +125,17 @@ export async function runCheckSecurity(
   // filtered the report but not the verdict — leaving lower-severity requests
   // (`--severity warning`/`info`) unable to fail and giving downstream gates the
   // impression that findings below the requested severity were blocking.
+  // A zero-file scan is an abstention, not a clean bill of health: nothing was
+  // read, so nothing was verified. It stays non-blocking by default (a repo may
+  // legitimately have no scannable source, and flipping every such repo red on
+  // upgrade would be a worse failure), but it is always reported, and
+  // `--fail-on-empty` lets a CI gate treat it as the non-result it is.
+  const scannedNothing = result.scannedFiles === 0;
+
   return Ok({
-    valid: filtered.length === 0,
+    valid: filtered.length === 0 && !(scannedNothing && options.failOnEmpty === true),
     findings: filtered,
+    scannedNothing,
     stats: {
       filesScanned: result.scannedFiles,
       rulesApplied: result.rulesApplied,
@@ -132,7 +147,12 @@ export async function runCheckSecurity(
 }
 
 async function runCheckSecurityAction(
-  opts: { severity: SecuritySeverity; changedOnly?: boolean; findingsJson?: boolean },
+  opts: {
+    severity: SecuritySeverity;
+    changedOnly?: boolean;
+    findingsJson?: boolean;
+    failOnEmpty?: boolean;
+  },
   globalOpts: { json?: boolean; quiet?: boolean; verbose?: boolean }
 ): Promise<void> {
   const mode: OutputModeType = globalOpts.json
@@ -148,6 +168,7 @@ async function runCheckSecurityAction(
   const result = await runCheckSecurity(process.cwd(), {
     severity: opts.severity,
     ...(opts.changedOnly !== undefined && { changedOnly: opts.changedOnly }),
+    ...(opts.failOnEmpty !== undefined && { failOnEmpty: opts.failOnEmpty }),
   });
 
   if (!result.ok) {
@@ -164,13 +185,47 @@ async function runCheckSecurityAction(
     message: `[${f.ruleId}] ${f.severity.toUpperCase()} ${f.message}`,
   }));
 
-  const output = formatter.formatValidation({
-    valid: result.value.valid,
-    issues,
-  });
+  // An empty scan surfaces as an issue rather than a footnote, so it cannot be
+  // read as a clean run in any output mode.
+  if (result.value.scannedNothing) {
+    issues.unshift({
+      file: process.cwd(),
+      message:
+        'ABSTAINED: 0 files scanned — nothing was verified. Check the scan pattern ' +
+        'and `security.exclude` in harness.config.json (use --fail-on-empty to make this fail).',
+    });
+  }
 
-  if (output) {
-    console.log(output);
+  if (mode === OutputMode.JSON) {
+    // Additive: the denominator ships alongside the verdict so a consumer can tell
+    // "clean" from "read nothing".
+    console.log(
+      JSON.stringify(
+        {
+          valid: result.value.valid,
+          issues,
+          scannedNothing: result.value.scannedNothing,
+          stats: result.value.stats,
+        },
+        null,
+        2
+      )
+    );
+  } else {
+    const output = formatter.formatValidation({
+      valid: result.value.valid,
+      issues,
+    });
+    if (output) {
+      console.log(output);
+    }
+    // The denominator is part of the result, not trivia: a pass over 0 files and a
+    // pass over 4,000 are different claims.
+    if (mode !== OutputMode.QUIET) {
+      console.log(
+        `  ${result.value.stats.filesScanned} file(s) scanned, ${result.value.stats.rulesApplied} rule(s) applied`
+      );
+    }
   }
 
   // #691: findings = security findings at or above the requested severity.
@@ -197,6 +252,10 @@ export function createCheckSecurityCommand(): Command {
       }
     })
     .option('--changed-only', 'Only scan git-changed files')
+    .option(
+      '--fail-on-empty',
+      'Fail when the scan matched 0 files. A scan that read nothing abstained rather than passed; recommended for CI gates'
+    )
     .option(
       '--findings-json',
       'Emit the machine-readable maintenance findings contract ({ findings: N }) as a trailing stdout line (#691)'

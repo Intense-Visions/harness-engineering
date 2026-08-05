@@ -8,7 +8,7 @@
  *   node scripts/benchmark-check.mjs --update  # Write current values as new baselines
  */
 
-import { execSync } from 'node:child_process';
+import { execFileSync } from 'node:child_process';
 import { readFileSync, writeFileSync, unlinkSync } from 'node:fs';
 import { resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -67,7 +67,10 @@ export function mergeBenchmarkBaselines(existing = {}, fresh = {}, threshold = T
 function runBenchmarks(pkg) {
   const outputFile = resolve(ROOT, `.bench-output-${pkg.name}.json`);
   try {
-    execSync(`npx vitest bench --run --outputJson ${outputFile}`, {
+    // execFileSync with an argv array: `outputFile` embeds the package name and
+    // an absolute repo path, so keeping it out of a shell string means a space or
+    // shell metacharacter in either cannot split the command.
+    execFileSync('npx', ['vitest', 'bench', '--run', '--outputJson', outputFile], {
       cwd: pkg.dir,
       stdio: 'pipe',
       timeout: 120_000,
