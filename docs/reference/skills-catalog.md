@@ -2,7 +2,7 @@
 
 # Skills Catalog
 
-770 skills across 3 tiers. Tier 1 and 2 skills are registered as slash commands. Tier 3 skills are discoverable via the `search_skills` MCP tool. See the [Features Overview](../guides/features-overview.md) for narrative documentation.
+771 skills across 3 tiers. Tier 1 and 2 skills are registered as slash commands. Tier 3 skills are discoverable via the `search_skills` MCP tool. See the [Features Overview](../guides/features-overview.md) for narrative documentation.
 
 ## Tier 1 — Workflow (16 skills)
 
@@ -160,7 +160,7 @@ Upstream client-inception skill. Ingests a diagram + client conversation notes, 
 - **Cognitive mode:** configuration-interviewer
 - **Depends on:** harness-strategy, harness-brainstorming
 
-## Tier 2 — Maintenance (50 skills)
+## Tier 2 — Maintenance (51 skills)
 
 ### acceptance-eval
 
@@ -218,6 +218,16 @@ Detect and auto-fix dead code including dead exports, commented-out code, and or
 - **Platforms:** claude-code, gemini-cli, cursor, codex
 - **Type:** flexible
 - **Cognitive mode:** diagnostic-investigator
+
+### cli-ergonomics-craft
+
+LLM-judgment critique of command-line ergonomics quality — the ceiling counterpart to mechanical CLI checks, and the one craft skill with no rule-based floor twin. Asks whether command and flag names are predictable and consistent, whether help text is task-oriented, whether errors are actionable, whether defaults are sane and safe, whether output is scannable and terminal-aware, whether the CLI composes (pipeable, machine-readable, honest exit codes), and whether destructive actions are guarded. Structural twin of harness-docs-craft.
+
+- **Triggers:** manual, on_pr, on_new_feature
+- **Platforms:** claude-code
+- **Type:** rigid
+- **Cognitive mode:** constructive-architect
+- **Depends on:** docs-craft
 
 ### copy-craft
 

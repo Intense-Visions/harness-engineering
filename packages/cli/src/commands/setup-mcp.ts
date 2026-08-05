@@ -155,6 +155,8 @@ export const ALL_MCP_TOOLS: string[] = [
   'security_craft',
   // craft-pipeline — docs-craft LLM-judgment ceiling skill (documentation quality)
   'docs_craft',
+  // craft-pipeline — cli-ergonomics-craft LLM-judgment ceiling skill (CLI quality)
+  'cli_ergonomics_craft',
   // outcome-eval — post-execution spec-satisfaction verdict (tiered confidence→authority)
   'outcome_eval',
   // acceptance-eval — pre-execution acceptance-criteria measurability verdict (upstream twin of outcome_eval)

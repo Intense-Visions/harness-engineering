@@ -886,7 +886,7 @@ last_manual_edit: 2026-06-27T12:51:51.967Z
 ### craft-pipeline sub-project #8: cli-ergonomics
 
 - **Status:** planned
-- **Spec:** —
+- **Spec:** docs/changes/cli-ergonomics-craft/proposal.md
 - **Summary:** LLM-judgment skill for CLI quality — for projects that ship CLIs (including harness itself). NO rule-based floor counterpart. Ceiling questions: does this CLI discover itself? are flag names consistent across subcommands? is help text earning its space or just listing flags? does the output respect the user's terminal (width, color, structure)? does the error path teach what to do next? would a power-user pipe this output to grep/awk and get useful results? would a beginner not piping anywhere understand what happened? Follows ADRs 0018-0021. Exemplars: gh, fly, rg, eza, fd, bun, Linear CLI, the Stripe CLI, mise.
 - **Blockers:** —
 - **Plan:** —
@@ -989,7 +989,7 @@ last_manual_edit: 2026-06-27T12:51:51.967Z
 ### NFR Elicitation in Planning
 
 - **Status:** planned
-- **Spec:** docs/changes/nfr-elicitation-planning/proposal.md
+- **Spec:** —
 - **Summary:** Explicit NFR-requirements step in harness-planning eliciting performance, security, scalability, and resilience targets whose outputs become verifiable plan tasks wired to existing perf baselines and security scan machinery — NFRs as proactive design inputs rather than reactive review findings. Adapted from AI-DLC's per-unit NFR requirements/design stages. Adoption #3 from docs/research/aidlc-comparison-analysis.md [AIDLC-3]
 - **Blockers:** —
 - **Plan:** —
