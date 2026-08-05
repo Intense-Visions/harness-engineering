@@ -33,7 +33,8 @@ const HEADER = '// AUTO-GENERATED — do not edit. Run `pnpm run generate:barrel
 const SELECTIVE_EXPORTS = {
   shared: [
     {
-      comment: 'Error types and helper functions for standardized error handling across the toolkit.',
+      comment:
+        'Error types and helper functions for standardized error handling across the toolkit.',
       lines: [
         "export type {\n  BaseError,\n  ValidationError,\n  ContextError,\n  ConstraintError,\n  EntropyError,\n  FeedbackError,\n} from './shared/errors';",
         "export { createError } from './shared/errors';",
@@ -107,6 +108,8 @@ const SELECTIVE_EXPORTS = {
       lines: [
         "export { planParallelization, validatePlanTasks, buildTaskGraph } from './parallelization/plan';",
         "export type {\n  ParallelizationPlan,\n  ParallelizationWave,\n  PlanParallelizationInput,\n  PlanTaskValidation,\n  FiringDecision,\n  WaveSeverity,\n} from './parallelization/plan';",
+        "export { forecastOwnershipConflicts, pathsOverlap } from './parallelization/ownership';",
+        "export type { OwnershipConflict, OwnershipOverlap } from './parallelization/ownership';",
       ],
     },
   ],
@@ -127,7 +130,8 @@ const DIR_COMMENTS = {
   context: 'Context module for managing AI agent context and knowledge maps.',
   constraints: 'Constraints module for enforcing architectural boundaries and dependency rules.',
   annotations: 'Annotations module for protected code regions and harness-ignore directives.',
-  entropy: 'Entropy module for detecting and remediating codebase drift, dead code, and complexity.',
+  entropy:
+    'Entropy module for detecting and remediating codebase drift, dead code, and complexity.',
   performance: 'Performance module for benchmarking and regression detection.',
   feedback: 'Feedback module for agent-driven code review and telemetry.',
   architecture: 'Architecture module for analyzing and visualizing codebase structure.',
@@ -138,8 +142,7 @@ const DIR_COMMENTS = {
   ci: 'CI module for integrating with continuous integration systems.',
   review: 'Review pipeline module for automated code review workflows.',
   roadmap: 'Roadmap module for parsing, serializing, and syncing project roadmaps.',
-  rollback:
-    'Rollback module — post-ship revert-readiness classification (pure, IO-injected).',
+  rollback: 'Rollback module — post-ship revert-readiness classification (pure, IO-injected).',
   interaction: 'Interaction module for managing agent-to-human interactions.',
   blueprint: 'Blueprint module for scanning projects and generating codebase blueprints.',
   'update-checker': 'Update checker utilities for checking for new versions of the toolkit.',
@@ -241,7 +244,7 @@ function generate() {
   lines.push('/**');
   lines.push(' * The current version of the Harness Engineering core library.');
   lines.push(' *');
-  lines.push(" * @deprecated Read the CLI version from `@harness-engineering/cli/package.json`");
+  lines.push(' * @deprecated Read the CLI version from `@harness-engineering/cli/package.json`');
   lines.push(' * instead. This hardcoded constant drifts from the actual CLI version on each');
   lines.push(' * release. Kept only as a fallback for consumers that cannot resolve the CLI');
   lines.push(' * package at runtime.');
