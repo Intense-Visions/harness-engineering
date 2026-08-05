@@ -68,6 +68,47 @@ describe('OutcomeEvaluator persistence — real GraphStore + effectiveness score
     expect(computePersonaEffectiveness(store)).toEqual([]);
   });
 
+  it('persists the FULL verdict (rationale/authority/unmetCriteria) + commit so a sha-keyed consumer can reconstruct it', async () => {
+    const store = new GraphStore();
+    const p = writeSpec(SPEC);
+    await new OutcomeEvaluator(
+      provider({
+        verdict: 'NOT_SATISFIED',
+        confidence: 'high',
+        rationale: 'the 404 branch is missing',
+        unmetCriteria: ['404 path unimplemented'],
+      }),
+      store
+    ).evaluate({ specPath: p, diff: 'd', testOutput: 't', commit: 'deadbeef' });
+
+    const nodes = store.findNodes({ type: 'execution_outcome' });
+    expect(nodes).toHaveLength(1);
+    const m = nodes[0].metadata;
+    // The node is a faithful, self-describing record of the verdict.
+    expect(m.verdict).toBe('NOT_SATISFIED');
+    expect(m.confidence).toBe('high');
+    expect(m.rationale).toBe('the 404 branch is missing');
+    expect(m.unmetCriteria).toEqual(['404 path unimplemented']);
+    // authority is the TS-derived value (high NOT_SATISFIED => blocking), copied
+    // onto the node — NEVER read from the LLM payload.
+    expect(m.authority).toBe('blocking');
+    // The head sha lets a sha-keyed consumer (pre-merge brief) match this node.
+    expect(m.commit).toBe('deadbeef');
+  });
+
+  it('omits commit from metadata when none is supplied (additive, byte-identical to no-commit wiring)', async () => {
+    const store = new GraphStore();
+    const p = writeSpec(SPEC);
+    await new OutcomeEvaluator(
+      provider({ verdict: 'SATISFIED', confidence: 'high', rationale: 'ok', unmetCriteria: [] }),
+      store
+    ).evaluate({ specPath: p, diff: 'd', testOutput: 't' });
+
+    const m = store.findNodes({ type: 'execution_outcome' })[0].metadata;
+    expect('commit' in m).toBe(false);
+    expect(m.authority).toBe('advisory'); // SATISFIED => advisory
+  });
+
   it('scorer surfaces a persona-attributed execution_outcome linked to a seeded system node', () => {
     const store = new GraphStore();
     store.addNode({ id: 'module:api', type: 'module', name: 'api', metadata: {} });

@@ -192,9 +192,12 @@ export class OutcomeEvaluator {
    *   included for human readability only.
    * - taskType: OMITTED. The outcome-eval judge has no task categorization, and
    *   asserting a false 'feature' would mislead specialization analytics (SUG-2).
-   * - metadata: verdict-specific signal carried through the connector's
-   *   additive pass-through (verdict/confidence/judgedAgainst/source) so the
-   *   true 3-valued verdict is durable on the node (Truth 3).
+   * - metadata: the full verdict carried through the connector's additive
+   *   pass-through (verdict/confidence/judgedAgainst/rationale/authority/
+   *   unmetCriteria/source, plus commit when supplied) so the true 3-valued
+   *   verdict is durable and self-describing on the node (Truth 3) and a
+   *   sha-keyed consumer can reconstruct the OutcomeVerdict. `authority` is a
+   *   copy of the TS-derived value, never trusted from the LLM.
    */
   private toExecutionOutcome(verdict: OutcomeVerdict, input: OutcomeEvalInput): ExecutionOutcome {
     const timestamp = new Date().toISOString();
@@ -215,6 +218,18 @@ export class OutcomeEvaluator {
         confidence: verdict.confidence,
         judgedAgainst: verdict.judgedAgainst,
         source: 'outcome-eval',
+        // The full verdict, carried additively so the node is a faithful,
+        // self-describing record and a consumer (e.g. the pre-merge brief's
+        // findOutcomeVerdict) can reconstruct the OutcomeVerdict without
+        // re-running the judge. `authority` here is the TS-derived value from
+        // the verdict — it is a copy of the computed authority, never trusted
+        // from the LLM. `unmetCriteria` mirrors failureReasons additively
+        // (failureReasons is a reserved/core key the consumer does not read).
+        rationale: verdict.rationale,
+        authority: verdict.authority,
+        unmetCriteria: verdict.unmetCriteria,
+        // Head sha (when supplied) lets a sha-keyed consumer match this node.
+        ...(input.commit !== undefined && input.commit !== '' ? { commit: input.commit } : {}),
       },
     };
   }
