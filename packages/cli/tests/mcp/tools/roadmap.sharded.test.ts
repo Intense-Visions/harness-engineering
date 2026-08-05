@@ -267,7 +267,7 @@ describe('manage_roadmap sharded — promote', () => {
 });
 
 describe('manage_roadmap sharded — groom (per-shard archive/demote)', () => {
-  it('archives a done row by deleting its shard; archive file is whole-file', async () => {
+  it('archives a done row by MOVING its shard into roadmap.d/archive/ (sharded archive)', async () => {
     // Mark Auth System done so groom archives it.
     await handleManageRoadmap({
       path: dir,
@@ -276,15 +276,19 @@ describe('manage_roadmap sharded — groom (per-shard archive/demote)', () => {
       status: 'done',
     });
     expect(fs.existsSync(path.join(shardDir, 'auth-system.md'))).toBe(true);
+    const before = fs.readFileSync(path.join(shardDir, 'auth-system.md'), 'utf-8');
 
     const res = await handleManageRoadmap({ path: dir, action: 'groom' });
     expect(res.isError).toBeFalsy();
 
-    // The archived (done) row's shard is removed; _meta.md survives.
+    // The archived (done) row's shard is MOVED into the sharded archive, not
+    // deleted: identical bytes now live under roadmap.d/archive/; _meta.md survives.
     expect(fs.existsSync(path.join(shardDir, 'auth-system.md'))).toBe(false);
     expect(fs.existsSync(path.join(shardDir, '_meta.md'))).toBe(true);
-    // The archive is a standalone whole-file document (not sharded).
-    expect(fs.existsSync(path.join(dir, 'docs', 'roadmap-archive.md'))).toBe(true);
+    const archived = fs.readFileSync(path.join(shardDir, 'archive', 'auth-system.md'), 'utf-8');
+    expect(archived).toBe(before); // full frontmatter + body preserved
+    // Sharded mode does NOT write the whole-file monolith archive.
+    expect(fs.existsSync(path.join(dir, 'docs', 'roadmap-archive.md'))).toBe(false);
     // Aggregate regenerated without the archived row's heading (a stale blocker
     // reference may remain, but the Feature heading must be gone).
     expect(fs.readFileSync(path.join(dir, 'docs', 'roadmap.md'), 'utf-8')).not.toContain(
