@@ -561,7 +561,7 @@ last_manual_edit: 2026-06-27T12:51:51.967Z
 ### Add harness mcp list-capabilities CLI for adopter audit
 
 - **Status:** planned
-- **Spec:** —
+- **Spec:** [docs/changes/mcp-list-capabilities/proposal.md](../changes/mcp-list-capabilities/proposal.md)
 - **Summary:** MCP server has 101 tool files (`packages/cli/src/mcp/tools/`). Per-tool `trustedOutput` flag exists but per-tool capability declarations don't. Adopters have no easy way to audit what their agent can do via MCP. Add `harness mcp list-capabilities --by-permission` CLI command that surfaces each tool's read/write/exec scope, network access, and trust tag. Source: Pass 6 #3.
 - **Blockers:** —
 - **Plan:** —
@@ -705,8 +705,8 @@ last_manual_edit: 2026-06-27T12:51:51.967Z
 
 ### Wire outcome-eval into the lifecycle as an automatic spec-satisfaction gate
 
-- **Status:** planned
-- **Spec:** —
+- **Status:** in-progress
+- **Spec:** docs/changes/wire-outcome-eval-gate/proposal.md
 - **Summary:** outcome-eval is the harness's first blocking post-execution spec-satisfaction gate, but nothing invokes it automatically — verified 2026-06 it is absent from .husky/, .github/workflows/, AND the harness-autopilot VERIFY/INTEGRATE/REVIEW loop. Its blocking authority (high-confidence NOT_SATISFIED) only bites when a human or agent chooses to run /harness:outcome-eval or mcp**harness**outcome_eval. Wire it in: (a) call outcome_eval in harness-autopilot after REVIEW (post-execution, before PHASE_COMPLETE), gathering diff+testOutput from the session and halting on a blocking verdict; (b) add a pre-merge CI job (sibling to .github/workflows/required-review.yml) that runs it on PRs and surfaces the verdict, blocking only on high-confidence NOT_SATISFIED. This makes the #1-gap gate actually load-bearing and unblocks the assumptions baked into #569 (pre-merge-brief surfaces 'outcome-eval result when available'), #533 (post-merge rollback on failed eval), and #552 (Holiday Confidence KPI measures 'outcome-eval passed'). Recommended priority: P1.
 - **Blockers:** —
 - **Plan:** —
@@ -1033,7 +1033,7 @@ last_manual_edit: 2026-06-27T12:51:51.967Z
 ### Semantic-Vocabulary CI Gate
 
 - **Status:** planned
-- **Spec:** —
+- **Spec:** docs/changes/semantic-vocabulary-ci-gate/proposal.md
 - **Summary:** Add a harness analog of Spec Kitty's test_no_legacy_terminology architectural test: a CI gate that fails when deprecated or renamed canonical terms reappear in skills/docs, protecting the glossary and naming-craft investment from vocabulary drift over time. Adapted from Spec Kitty's semantic-terminology architectural test. Adoption #8 from docs/research/spec-kitty-comparison-analysis.md [SPECKITTY-8]
 - **Blockers:** —
 - **Plan:** —

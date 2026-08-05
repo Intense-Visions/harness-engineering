@@ -394,6 +394,21 @@ LLM-judgment critique of identifier names (variables, functions, types, files). 
 - `--max-files` — Cap file count (default: 100)
 - `--max-identifiers-per-file` — Cap per-file identifier sampling (default: 15)
 
+### `harness outcome-eval-ci`
+
+Run the post-execution spec-satisfaction gate (outcome-eval) for CI: judge the change against its spec and block (exit 1) only on a high-confidence NOT_SATISFIED
+
+**Options:**
+
+- `--spec` — spec markdown to judge against (default: auto-discover from the diff)
+- `--diff` — git range (default: origin/<base>...HEAD)
+- `--test-output` — file with captured test-runner output (default: none)
+- `--block-on` — blocking | none (default: "blocking")
+- `--model` — model override for the outcome-eval LLM call
+- `--commit` — head sha to stamp on the persisted node (default: git rev-parse HEAD)
+- `--comment` — post the verdict as a comment on the current branch's PR via gh
+- `--out` — write the verdict JSON artifact to a file (use the global --json to stream it to stdout instead)
+
 ### `harness pre-merge-brief`
 
 Compose a senior-facing pre-merge PR brief (diff, review, signals, outcome, "worth your eyes")

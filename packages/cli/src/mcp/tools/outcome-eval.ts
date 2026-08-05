@@ -42,6 +42,13 @@ export interface OutcomeEvalToolInput {
   model?: string;
   /** Project root used to resolve the knowledge graph (default: cwd). */
   path?: string;
+  /**
+   * Optional head commit sha of the change under judgment. When supplied it is
+   * persisted onto the `execution_outcome` node's metadata so a sha-keyed
+   * consumer (e.g. the pre-merge brief) can look the verdict up. Additive:
+   * omitting it leaves the persisted node byte-identical to prior behaviour.
+   */
+  commit?: string;
 }
 
 export const outcomeEvalDefinition = {
@@ -82,6 +89,13 @@ export const outcomeEvalDefinition = {
       path: {
         type: 'string',
         description: 'Project root used to resolve the knowledge graph (default: cwd)',
+      },
+      commit: {
+        type: 'string',
+        description:
+          'Optional head commit sha of the change under judgment. Persisted onto the ' +
+          'execution_outcome node so a sha-keyed consumer (e.g. the pre-merge brief) can ' +
+          'look the verdict up. Omitting it is safe (additive).',
       },
     },
     required: ['specPath', 'diff', 'testOutput'],
@@ -160,6 +174,7 @@ export async function handleOutcomeEval(input: OutcomeEvalToolInput): Promise<To
       specPath: input.specPath,
       diff: input.diff,
       testOutput: input.testOutput,
+      ...(typeof input.commit === 'string' && input.commit !== '' ? { commit: input.commit } : {}),
       ...(guardian.length > 0 ? { guardian } : {}),
     });
 

@@ -57,6 +57,7 @@ import { createModelsCommand } from './models';
 import { createNamingCraftCommand } from './naming-craft';
 import { createNotificationsCommand } from './notifications';
 import { createOrchestratorCommand } from './orchestrator';
+import { createOutcomeEvalCiCommand } from './outcome-eval-ci';
 import { createPerfCommand } from './perf';
 import { createPersonaCommand } from './persona';
 import { createPredictCommand } from './predict';
@@ -153,6 +154,7 @@ export const commandCreators: Array<() => Command> = [
   createNamingCraftCommand,
   createNotificationsCommand,
   createOrchestratorCommand,
+  createOutcomeEvalCiCommand,
   createPerfCommand,
   createPersonaCommand,
   createPredictCommand,
