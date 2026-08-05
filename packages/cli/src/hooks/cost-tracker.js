@@ -3,40 +3,19 @@
 // Appends token usage to .harness/metrics/costs.jsonl.
 // Exit codes: 0 = allow (always, log-only hook)
 
-import { readFileSync, mkdirSync, appendFileSync } from 'node:fs';
+import { mkdirSync, appendFileSync } from 'node:fs';
 import { join } from 'node:path';
 import process from 'node:process';
-
-/** Synchronous sleep (no busy-spin) used to back off between stdin read retries. */
-function sleepMs(ms) {
-  Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, ms);
-}
-
-/**
- * Read all of stdin synchronously, tolerating the EAGAIN that fd 0 throws when
- * it is a non-blocking pipe with data not yet delivered. Under load (notably CI
- * under v8 coverage) the first read can race ahead of the writer; without the
- * retry the hook silently fail-opens and drops the cost entry. A genuinely empty
- * stdin returns '' immediately (EOF, no EAGAIN), so the empty/malformed paths
- * stay fast. Bounded so a stuck pipe can't hang the hook.
- */
-function readStdin() {
-  const deadline = Date.now() + 2000;
-  for (;;) {
-    try {
-      return readFileSync(0, 'utf-8');
-    } catch (err) {
-      if (err && err.code === 'EAGAIN' && Date.now() < deadline) {
-        sleepMs(10);
-        continue;
-      }
-      return '';
-    }
-  }
-}
+import { readHookStdin } from './read-hook-stdin.js';
 
 function main() {
-  const raw = readStdin();
+  // readHookStdin retries the EAGAIN that fd 0 throws under compound load (v8
+  // coverage on the pre-push gate): the writer races ahead of the read, and a
+  // raw readFileSync(0) would mistake that backpressure for empty stdin and
+  // drop the cost entry (#620). Log-only hook, so a genuine read failure is
+  // treated the same as empty stdin (fail-open, exit 0).
+  const stdin = readHookStdin();
+  const raw = stdin.ok ? stdin.data : '';
 
   if (!raw.trim()) {
     process.exit(0);

@@ -7,6 +7,7 @@
 import { readFileSync, writeFileSync, mkdirSync } from 'node:fs';
 import { resolve, dirname } from 'node:path';
 import process from 'node:process';
+import { readHookStdin } from './read-hook-stdin.js';
 
 // Minimal inline patterns for when @harness-engineering/core isn't available.
 // Keep in sync with @harness-engineering/core injection-patterns.ts ALL_PATTERNS.
@@ -66,15 +67,15 @@ function inlineScan(text) {
 
 /** Read stdin (fd 0) and parse it as JSON. Returns null when it should exit-0. */
 function readStdinJson() {
-  let raw;
+  // readHookStdin retries the EAGAIN that fd 0 throws under compound load (v8
+  // coverage on the pre-push gate): the writer races ahead of the read, and a
+  // raw readFileSync(0) would mistake that backpressure for empty stdin and
+  // fail-open, flaking the suite (#620). A genuine read failure or empty stdin
+  // still returns null (fail-open — PostToolUse cannot block anyway).
+  const stdin = readHookStdin();
+  if (!stdin.ok || !stdin.data.trim()) return null;
   try {
-    raw = readFileSync(0, 'utf-8');
-  } catch {
-    return null;
-  }
-  if (!raw.trim()) return null;
-  try {
-    return JSON.parse(raw);
+    return JSON.parse(stdin.data);
   } catch {
     return null;
   }
