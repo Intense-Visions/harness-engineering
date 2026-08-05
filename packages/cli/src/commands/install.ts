@@ -19,6 +19,7 @@ import {
   writeLockfile,
   updateLockfileEntry,
   type LockfileEntry,
+  type SkillSource,
 } from '../registry/lockfile';
 import { getBundledSkillNames } from '../registry/bundled-skills';
 import { resolveGlobalSkillsDir, resolveGlobalCommunityBaseDir } from '../utils/paths';
@@ -111,9 +112,9 @@ function parseGitHubRef(from: string): { owner: string; repo: string; ref: strin
 
 /**
  * Clone a GitHub repo to a temp directory (shallow clone).
- * Returns the path to the cloned directory.
+ * Returns the path to the cloned directory and the resolved commit SHA.
  */
-function cloneGitHubRepo(owner: string, repo: string, ref: string): string {
+function cloneGitHubRepo(owner: string, repo: string, ref: string): { dir: string; commit: string } {
   const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'harness-gh-install-'));
   const url = `https://github.com/${owner}/${repo}.git`;
 
@@ -124,13 +125,20 @@ function cloneGitHubRepo(owner: string, repo: string, ref: string): string {
     }
     cloneArgs.push(url, tmpDir);
     execFileSync('git', cloneArgs, { timeout: 60_000, stdio: 'pipe' });
+    const commit = execFileSync('git', ['rev-parse', 'HEAD'], {
+      cwd: tmpDir,
+      timeout: 60_000,
+      stdio: 'pipe',
+    })
+      .toString()
+      .trim();
+    return { dir: tmpDir, commit };
   } catch (err) {
     cleanupTempDir(tmpDir);
     throw new Error(`Failed to clone ${url}: ${err instanceof Error ? err.message : String(err)}`, {
       cause: err,
     });
   }
-  return tmpDir;
 }
 
 /**
@@ -182,10 +190,11 @@ function resolveLocalPkgDir(fromPath: string): { pkgDir: string; extractDir: str
 }
 
 /** Install a single validated skill directory into the community base. */
-function installSkillDir(
+export function installSkillDir(
   pkgDir: string,
   resolvedPath: string,
-  options: InstallOptions
+  options: InstallOptions,
+  source?: SkillSource
 ): InstallResult {
   const skillYamlPath = path.join(pkgDir, 'skill.yaml');
   if (!fs.existsSync(skillYamlPath)) {
@@ -216,16 +225,21 @@ function installSkillDir(
     platforms: skillYaml.platforms,
     installedAt: new Date().toISOString(),
     dependencyOf: options._dependencyOf ?? null,
+    source: source ?? { kind: 'local', path: resolvedPath },
   };
   writeLockfile(lockfilePath, updateLockfileEntry(lockfile, packageName, entry));
 
   return { installed: true, name: packageName, version: skillYaml.version };
 }
 
-async function runLocalInstall(fromPath: string, options: InstallOptions): Promise<InstallResult> {
+async function runLocalInstall(
+  fromPath: string,
+  options: InstallOptions,
+  source?: SkillSource
+): Promise<InstallResult> {
   const { pkgDir, extractDir } = resolveLocalPkgDir(fromPath);
   try {
-    return installSkillDir(pkgDir, path.resolve(fromPath), options);
+    return installSkillDir(pkgDir, path.resolve(fromPath), options, source);
   } finally {
     if (extractDir) cleanupTempDir(extractDir);
   }
@@ -237,7 +251,8 @@ async function runLocalInstall(fromPath: string, options: InstallOptions): Promi
  */
 export async function runBulkInstall(
   rootDir: string,
-  options: InstallOptions
+  options: InstallOptions,
+  source?: SkillSource
 ): Promise<InstallResult[]> {
   const skillDirs = discoverSkillDirs(rootDir);
   if (skillDirs.length === 0) {
@@ -248,7 +263,7 @@ export async function runBulkInstall(
 
   const results: InstallResult[] = [];
   for (const skillDir of skillDirs) {
-    const result = await runLocalInstall(skillDir, options);
+    const result = await runLocalInstall(skillDir, options, source);
     results.push(result);
   }
   return results;
@@ -262,9 +277,16 @@ async function runGitHubInstall(from: string, options: InstallOptions): Promise<
   const ghRef = parseGitHubRef(from);
   if (!ghRef) throw new Error(`Invalid GitHub reference: ${from}`);
 
-  const tmpDir = cloneGitHubRepo(ghRef.owner, ghRef.repo, ghRef.ref);
+  const { dir: tmpDir, commit } = cloneGitHubRepo(ghRef.owner, ghRef.repo, ghRef.ref);
+  const source: SkillSource = {
+    kind: 'github',
+    owner: ghRef.owner,
+    repo: ghRef.repo,
+    ref: ghRef.ref,
+    commit,
+  };
   try {
-    return await runBulkInstall(tmpDir, options);
+    return await runBulkInstall(tmpDir, options, source);
   } finally {
     cleanupTempDir(tmpDir);
   }

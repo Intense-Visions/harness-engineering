@@ -1,8 +1,10 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import * as path from 'path';
 import {
   createInstallCommand,
   runInstall,
   runBulkInstall,
+  installSkillDir,
   offerGenerateSlashCommands,
 } from '../../src/commands/install';
 
@@ -559,6 +561,112 @@ describe('GitHub install', () => {
     // The parseGitHubRef function is internal, but we can test through runInstall
     // which will try to clone — this will fail in test env but validates the path
     await expect(runInstall('acme', { from: 'github:owner/repo' })).rejects.toThrow(); // Will fail at git clone, but proves the GitHub path is taken
+  });
+});
+
+describe('installSkillDir source recording', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mockedGetBundledNames.mockReturnValue(new Set());
+    mockedReadLockfile.mockReturnValue({ version: 2, skills: {} });
+    mockedUpdateLockfileEntry.mockImplementation((lf, name, entry) => ({
+      ...lf,
+      skills: { ...lf.skills, [name]: entry },
+    }));
+    mockedExistsSync.mockReturnValue(true);
+    mockedYamlParse.mockReturnValue({
+      name: 'acme',
+      version: '1.0.0',
+      description: 'd',
+      triggers: ['manual'],
+      platforms: ['claude-code'],
+      tools: [],
+      type: 'flexible',
+      depends_on: [],
+    });
+  });
+
+  it('defaults to a local source when none is provided', () => {
+    installSkillDir('/pkg', '/resolved/path', {});
+    const entry = mockedUpdateLockfileEntry.mock.calls.at(-1)![2];
+    expect(entry.source).toEqual({ kind: 'local', path: '/resolved/path' });
+  });
+
+  it('records an explicit github source when provided', () => {
+    const source = { kind: 'github', owner: 'o', repo: 'r', ref: 'main', commit: 'sha' } as const;
+    installSkillDir('/pkg', '/resolved/path', {}, source);
+    const entry = mockedUpdateLockfileEntry.mock.calls.at(-1)![2];
+    expect(entry.source).toEqual(source);
+  });
+});
+
+describe('GitHub source provenance', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mockedGetBundledNames.mockReturnValue(new Set());
+    mockedReadLockfile.mockReturnValue({ version: 2, skills: {} });
+    mockedUpdateLockfileEntry.mockImplementation((lf, name, entry) => ({
+      ...lf,
+      skills: { ...lf.skills, [name]: entry },
+    }));
+    mockedExistsSync.mockReturnValue(true);
+    mockedStatSync.mockReturnValue({ isDirectory: () => true } as fs.Stats);
+    mockedYamlParse.mockReturnValue({
+      name: 'gh-skill',
+      version: '1.0.0',
+      description: 'd',
+      triggers: ['manual'],
+      platforms: ['claude-code'],
+      tools: [],
+      type: 'flexible',
+      depends_on: [],
+    });
+    mockedExecFileSync.mockImplementation(((_cmd: string, args?: readonly string[]) => {
+      if (Array.isArray(args) && args.includes('rev-parse')) return Buffer.from('deadbeefsha\n');
+      return Buffer.from('');
+    }) as typeof execFileSync);
+  });
+
+  it('records a github source with the resolved commit SHA', async () => {
+    await runInstall('ignored', { from: 'github:owner/repo#main' });
+    const entry = mockedUpdateLockfileEntry.mock.calls.at(-1)![2];
+    expect(entry.source).toEqual({
+      kind: 'github',
+      owner: 'owner',
+      repo: 'repo',
+      ref: 'main',
+      commit: 'deadbeefsha',
+    });
+  });
+});
+
+describe('local source provenance', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mockedGetBundledNames.mockReturnValue(new Set());
+    mockedReadLockfile.mockReturnValue({ version: 2, skills: {} });
+    mockedUpdateLockfileEntry.mockImplementation((lf, name, entry) => ({
+      ...lf,
+      skills: { ...lf.skills, [name]: entry },
+    }));
+    mockedExistsSync.mockReturnValue(true);
+    mockedStatSync.mockReturnValue({ isDirectory: () => true } as fs.Stats);
+    mockedYamlParse.mockReturnValue({
+      name: 'local-skill',
+      version: '0.1.0',
+      description: 'd',
+      triggers: ['manual'],
+      platforms: ['claude-code'],
+      tools: [],
+      type: 'flexible',
+      depends_on: [],
+    });
+  });
+
+  it('records a local source for --from installs', async () => {
+    await runInstall('local-skill', { from: '/path/to/skill' });
+    const entry = mockedUpdateLockfileEntry.mock.calls.at(-1)![2];
+    expect(entry.source).toEqual({ kind: 'local', path: path.resolve('/path/to/skill') });
   });
 });
 
