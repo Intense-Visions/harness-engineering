@@ -6,7 +6,7 @@ order: 4
 
 ### Question-File Interview Mode
 
-- **Status:** planned
+- **Status:** done
 - **Spec:** docs/changes/question-file-interview-mode/proposal.md
 - **Summary:** File-based question/answer mode for strategy, pulse, and brainstorming interviews — durable, team-reviewable, async-friendly decision capture — plus a cross-answer contradiction-detection pass added to existing pushback rules. Adapted from AI-DLC's [Answer]: tag question-file ritual and mandatory ambiguity analysis. Adoption #4 from docs/research/aidlc-comparison-analysis.md [AIDLC-4]
 - **Blockers:** —
