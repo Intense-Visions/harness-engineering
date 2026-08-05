@@ -207,6 +207,7 @@ https://cheatsheetseries.owasp.org/cheatsheets/Denial_of_Service_Cheat_Sheet.htm
 ## Harness Integration
 
 - **Type:** knowledge — this skill is a reference document, not a procedural workflow.
+- **Advisory by design (not mechanized):** "this endpoint should be rate-limited but isn't" is a missing-control judgment. Detecting it requires tracing route definitions to their middleware chain and applying business context about which operations are sensitive (auth, password reset, export). A pattern-based check cannot decide this without a high false-positive rate, and a noisy gate is worse than this advisory. Use `/harness:security-review` for a semantic assessment.
 - **No tools or state** — consumed as context by other skills and agents.
 - **related_skills:** owasp-auth-patterns, owasp-logging-monitoring, security-zero-trust-principles, security-threat-modeling-stride, api-rate-limiting, api-rate-limit-headers
 

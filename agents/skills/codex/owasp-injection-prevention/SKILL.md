@@ -151,7 +151,8 @@ https://owasp.org/www-project-top-ten/
 
 ## Harness Integration
 
-- **Type:** knowledge — this skill is a reference document, not a procedural workflow.
+- **Type:** knowledge — this skill is a reference document consumed as context, but its concrete anti-patterns are also **load-bearing**: they are enforced mechanically by `harness-security-scan` via the injection rule set in `@harness-engineering/core` (`SEC-INJ-001` eval/Function, `SEC-INJ-002` SQL string concatenation, `SEC-INJ-003` command injection, `SEC-INJ-004` Prisma `$queryRawUnsafe`/`$executeRawUnsafe` with interpolated input). A finding from any of these rules is a real, citable violation of this skill.
+- **What remains advisory (not mechanized):** NoSQL/MongoDB operator injection (passing an unvalidated request body to `find`/`findOne`) and second-order injection both require framework-aware data-flow analysis to detect without a high false-positive rate. Those stay prose guidance here and are covered by `/harness:security-review` (semantic taint tracking), not the mechanical scan.
 - **No tools or state** — consumed as context by other skills and agents.
 
 ## Success Criteria

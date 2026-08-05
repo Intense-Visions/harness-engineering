@@ -356,6 +356,15 @@ Run knowledge extraction, drift detection, and gap analysis
 - `--coverage` — Display per-domain coverage report
 - `--check-contradictions` — Display cross-source contradiction report
 
+### `harness list-capabilities`
+
+Audit each MCP tool: read/write/exec scope, network access, and trust tag
+
+**Options:**
+
+- `--by-permission` — Group tools by read/write/exec/network scope
+- `--json` — Emit machine-readable JSON
+
 ### `harness naming-craft`
 
 LLM-judgment critique of identifier names (variables, functions, types, files). First craft-pipeline ceiling skill; uses curated rubric catalog from Martin/Beck/Karlton.

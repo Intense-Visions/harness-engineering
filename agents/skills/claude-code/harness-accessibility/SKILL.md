@@ -40,6 +40,8 @@
 - If `enabled: false` or absent: scan for `A11Y-010` / `A11Y-050` as normal (no deferral).
 - Same i18n-style deduplication pattern as step 2.5 — prevents one root cause from appearing in both the accessibility report and the anatomy report.
 
+  2.7. **Run the mechanical ARIA scanner first.** Call `AriaScanner.scanFiles()` from `@harness-engineering/core` (the same load-bearing pattern by which `harness-security-scan` calls `SecurityScanner.scanFiles()`). It authoritatively produces `A11Y-014` (`aria-hidden="true"` on a focusable element) and `A11Y-042` (positive `tabindex`) — the two ARIA rules that are decidable from a single element at a near-zero false-positive rate. Treat its findings as the source of truth for those two codes; the grep heuristics below cover only the remaining rules. These two codes are the load-bearing enforcement of the `a11y-aria-patterns` domain skill.
+
 3. **Scan component files.** Search all files matching `.tsx`, `.jsx`, `.vue`, `.svelte`, `.html` for the following violations:
 
    **Images and media:**
@@ -185,6 +187,7 @@ This phase is optional. It applies fixes only for **mechanical issues** -- viola
 
 ## Harness Integration
 
+- **`AriaScanner`** (`@harness-engineering/core`) -- Mechanical rule engine that produces `A11Y-014` (aria-hidden on a focusable element) and `A11Y-042` (positive tabindex). This is the load-bearing enforcement of the `a11y-aria-patterns` domain skill, invoked in the SCAN phase exactly as `harness-security-scan` invokes `SecurityScanner`. Rules fire only on statically-true values, so dynamic `aria-hidden={expr}` and `tabIndex={0}`/`{-1}` are never flagged.
 - **`harness validate`** -- Accessibility findings surface as design constraint violations when `design.strictness` is `strict` or `standard`. Running validate after a scan reflects the current a11y state.
 - **`harness scan`** -- Refresh the knowledge graph after fixes to update `VIOLATES` edges. Ensures impact analysis stays current.
 - **`DesignConstraintAdapter`** (`packages/graph/src/constraints/DesignConstraintAdapter.ts`) -- Reads `design.strictness` from project config to control violation severity. Manages `VIOLATES` edges in the graph for design and accessibility constraints.

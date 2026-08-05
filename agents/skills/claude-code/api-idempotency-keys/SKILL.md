@@ -164,6 +164,7 @@ Stripe's measured outcome: introducing idempotency keys reduced duplicate charge
 ## Harness Integration
 
 - **Type:** knowledge — this skill is a reference document, not a procedural workflow.
+- **Advisory by design (not mechanized):** the core assertion — "mutating endpoints with side effects must accept an idempotency key" — is a missing-control judgment scoped to only the financially or data-integrity sensitive operations, not every POST/PATCH/DELETE. Deciding which endpoints qualify, and confirming the key is actually stored and enforced, requires semantic understanding of the handler that pattern matching cannot supply without a high false-positive rate. `harness-api-design` reviews idempotency as part of its DESIGN/VALIDATE phases; a blocking mechanical check is deferred rather than shipped noisy.
 - **No tools or state** — consumed as context by other skills and agents.
 - **related_skills:** api-http-methods, events-idempotency-pattern, api-bulk-operations, api-retry-guidance
 
