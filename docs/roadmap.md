@@ -550,7 +550,7 @@ last_manual_edit: 2026-06-27T12:51:51.967Z
 ### Strengthen telemetry consent surface
 
 - **Status:** planned
-- **Spec:** docs/changes/telemetry-consent-stdout/proposal.md
+- **Spec:** —
 - **Summary:** `packages/cli/src/hooks/telemetry-reporter.js` prints first-run privacy notice to stderr. In IDE sessions stderr is often invisible — adopters technically opted in by installing the plugin but the consent surface is weak. Move the notice to stdout. Optionally add a `harness.config.json` `telemetry.consented: true` field that the adopter must set before first batch send. The PostHog ingest is real (1319 dogfood records over 80 days); the consent surface should match the data flow. Source: Pass 5 #3.
 - **Blockers:** —
 - **Plan:** —
@@ -727,7 +727,7 @@ last_manual_edit: 2026-06-27T12:51:51.967Z
 
 ### Auto-wire standalone drift and audit pipelines on PRs
 
-- **Status:** planned
+- **Status:** done
 - **Spec:** docs/changes/auto-wire-drift-audit-pr-jobs/proposal.md
 - **Summary:** Several high-value checks have no owning persona, so the persona-trigger work (above) does not cover them, and — verified 2026-06 — none runs automatically on PRs: detect-design-drift / design-pipeline (design-system drift), detect-doc-drift / docs-pipeline (doc drift; only a lightweight slice runs today inside the entropy check in harness.yml), supply-chain-audit (6-factor dependency risk), and test-advisor (test-strategy/coverage advice). Add PR-scoped CI jobs (path-filtered where sensible: design-drift on UI/token paths, supply-chain-audit on dependency-manifest changes, doc-drift on docs/source changes, test-advisor on test/source changes) that run these and surface findings, advisory-by-default with opt-in blocking. Note the agent-runtime constraint: the full LLM-judgment pipelines need an agent runner (the required-review.yml 'harness review-ci' pattern), not just the lightweight CLI validators GitHub Actions can run unaided. Recommended priority: P2.
 - **Blockers:** —
