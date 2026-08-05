@@ -343,6 +343,8 @@ Install skills from npm registry, local directory, or GitHub repository
 - `--from` — Install from local path, directory, or GitHub (github:owner/repo, https://github.com/owner/repo)
 - `--global` — Install globally (~/.harness/skills/community/) for all projects
 - `--registry` — Use a custom npm registry URL
+- `--generate` — Generate slash commands after install without prompting
+- `--no-generate` — Skip generating slash commands after install
 
 ### `harness install-constraints <source>`
 
@@ -1436,6 +1438,20 @@ Search for community skills on the @harness-skills registry
 - `--platform` — Filter by platform (e.g., claude-code)
 - `--trigger` — Filter by trigger type (e.g., manual, automatic)
 - `--registry` — Use a custom npm registry URL
+
+### `harness skill update [name]`
+
+Check and update external skill providers (github/npm) to their latest upstream
+
+**Arguments:**
+
+- `name` (optional) — Only consider the provider with this short name
+
+**Options:**
+
+- `--check` — Report only; exit non-zero if any provider is outdated
+- `--global` — Operate on the global (~/.harness) skill lockfile only
+- `--yes` — Skip per-provider confirmation and update all outdated providers
 
 ### `harness skill validate [skill-name]`
 

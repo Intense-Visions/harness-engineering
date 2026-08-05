@@ -1,5 +1,12 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { createInstallCommand, runInstall, runBulkInstall } from '../../src/commands/install';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import * as path from 'path';
+import {
+  createInstallCommand,
+  runInstall,
+  runBulkInstall,
+  installSkillDir,
+  offerGenerateSlashCommands,
+} from '../../src/commands/install';
 
 vi.mock('child_process', async (importOriginal) => {
   const actual = await importOriginal<typeof import('child_process')>();
@@ -10,6 +17,8 @@ vi.mock('child_process', async (importOriginal) => {
     }),
   };
 });
+
+vi.mock('../../src/output/prompt', () => ({ prompt: vi.fn() }));
 
 // Mock all registry modules
 vi.mock('../../src/registry/npm-client', () => ({
@@ -72,7 +81,11 @@ import { readLockfile, writeLockfile, updateLockfileEntry } from '../../src/regi
 import { getBundledSkillNames } from '../../src/registry/bundled-skills';
 import { parse as yamlParse } from 'yaml';
 import * as fs from 'fs';
+import { execFileSync } from 'child_process';
+import { prompt } from '../../src/output/prompt';
 
+const mockedExecFileSync = vi.mocked(execFileSync);
+const mockedPrompt = vi.mocked(prompt);
 const mockedFetchMetadata = vi.mocked(fetchPackageMetadata);
 const mockedDownloadTarball = vi.mocked(downloadTarball);
 const mockedExtractTarball = vi.mocked(extractTarball);
@@ -294,6 +307,31 @@ describe('createInstallCommand options', () => {
     const cmd = createInstallCommand();
     const opt = cmd.options.find((o) => o.long === '--registry');
     expect(opt).toBeDefined();
+  });
+
+  it('has --generate option', () => {
+    const cmd = createInstallCommand();
+    expect(cmd.options.find((o) => o.long === '--generate')).toBeDefined();
+  });
+
+  it('has --no-generate option', () => {
+    const cmd = createInstallCommand();
+    expect(cmd.options.find((o) => o.long === '--no-generate')).toBeDefined();
+  });
+
+  it('resolves generate as a tri-state: undefined / true / false', () => {
+    // Guards the implicit contract that --generate is declared before --no-generate;
+    // reordering would make Commander default `generate` to true and silently break
+    // the interactive-prompt-by-default behavior.
+    const parse = (argv: string[]): boolean | undefined => {
+      const cmd = createInstallCommand();
+      cmd.exitOverride().action(() => {}); // no-op action; we only want parsed opts
+      cmd.parse(['some-skill', ...argv], { from: 'user' });
+      return cmd.opts().generate as boolean | undefined;
+    };
+    expect(parse([])).toBeUndefined();
+    expect(parse(['--generate'])).toBe(true);
+    expect(parse(['--no-generate'])).toBe(false);
   });
 });
 
@@ -523,5 +561,261 @@ describe('GitHub install', () => {
     // The parseGitHubRef function is internal, but we can test through runInstall
     // which will try to clone — this will fail in test env but validates the path
     await expect(runInstall('acme', { from: 'github:owner/repo' })).rejects.toThrow(); // Will fail at git clone, but proves the GitHub path is taken
+  });
+});
+
+describe('installSkillDir source recording', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mockedGetBundledNames.mockReturnValue(new Set());
+    mockedReadLockfile.mockReturnValue({ version: 2, skills: {} });
+    mockedUpdateLockfileEntry.mockImplementation((lf, name, entry) => ({
+      ...lf,
+      skills: { ...lf.skills, [name]: entry },
+    }));
+    mockedExistsSync.mockReturnValue(true);
+    mockedYamlParse.mockReturnValue({
+      name: 'acme',
+      version: '1.0.0',
+      description: 'd',
+      triggers: ['manual'],
+      platforms: ['claude-code'],
+      tools: [],
+      type: 'flexible',
+      depends_on: [],
+    });
+  });
+
+  it('defaults to a local source when none is provided', () => {
+    installSkillDir('/pkg', '/resolved/path', {});
+    const entry = mockedUpdateLockfileEntry.mock.calls.at(-1)![2];
+    expect(entry.source).toEqual({ kind: 'local', path: '/resolved/path' });
+  });
+
+  it('records an explicit github source when provided', () => {
+    const source = { kind: 'github', owner: 'o', repo: 'r', ref: 'main', commit: 'sha' } as const;
+    installSkillDir('/pkg', '/resolved/path', {}, source);
+    const entry = mockedUpdateLockfileEntry.mock.calls.at(-1)![2];
+    expect(entry.source).toEqual(source);
+  });
+});
+
+describe('GitHub source provenance', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mockedGetBundledNames.mockReturnValue(new Set());
+    mockedReadLockfile.mockReturnValue({ version: 2, skills: {} });
+    mockedUpdateLockfileEntry.mockImplementation((lf, name, entry) => ({
+      ...lf,
+      skills: { ...lf.skills, [name]: entry },
+    }));
+    mockedExistsSync.mockReturnValue(true);
+    mockedStatSync.mockReturnValue({ isDirectory: () => true } as fs.Stats);
+    mockedYamlParse.mockReturnValue({
+      name: 'gh-skill',
+      version: '1.0.0',
+      description: 'd',
+      triggers: ['manual'],
+      platforms: ['claude-code'],
+      tools: [],
+      type: 'flexible',
+      depends_on: [],
+    });
+    mockedExecFileSync.mockImplementation(((_cmd: string, args?: readonly string[]) => {
+      if (Array.isArray(args) && args.includes('rev-parse')) return Buffer.from('deadbeefsha\n');
+      return Buffer.from('');
+    }) as typeof execFileSync);
+  });
+
+  it('records a github source with the resolved commit SHA', async () => {
+    await runInstall('ignored', { from: 'github:owner/repo#main' });
+    const entry = mockedUpdateLockfileEntry.mock.calls.at(-1)![2];
+    expect(entry.source).toEqual({
+      kind: 'github',
+      owner: 'owner',
+      repo: 'repo',
+      ref: 'main',
+      commit: 'deadbeefsha',
+    });
+  });
+
+  it('cleans up the temp clone dir when git rev-parse fails (not just clone)', async () => {
+    // clone succeeds (empty buffer), rev-parse throws — the temp dir must still be removed.
+    mockedExecFileSync.mockImplementation(((_cmd: string, args?: readonly string[]) => {
+      if (Array.isArray(args) && args.includes('rev-parse')) {
+        throw new Error('rev-parse failed');
+      }
+      return Buffer.from('');
+    }) as typeof execFileSync);
+    await expect(runInstall('ignored', { from: 'github:owner/repo#main' })).rejects.toThrow();
+    expect(mockedCleanup).toHaveBeenCalled();
+  });
+});
+
+describe('local source provenance', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mockedGetBundledNames.mockReturnValue(new Set());
+    mockedReadLockfile.mockReturnValue({ version: 2, skills: {} });
+    mockedUpdateLockfileEntry.mockImplementation((lf, name, entry) => ({
+      ...lf,
+      skills: { ...lf.skills, [name]: entry },
+    }));
+    mockedExistsSync.mockReturnValue(true);
+    mockedStatSync.mockReturnValue({ isDirectory: () => true } as fs.Stats);
+    mockedYamlParse.mockReturnValue({
+      name: 'local-skill',
+      version: '0.1.0',
+      description: 'd',
+      triggers: ['manual'],
+      platforms: ['claude-code'],
+      tools: [],
+      type: 'flexible',
+      depends_on: [],
+    });
+  });
+
+  it('records a local source for --from installs', async () => {
+    await runInstall('local-skill', { from: '/path/to/skill' });
+    const entry = mockedUpdateLockfileEntry.mock.calls.at(-1)![2];
+    expect(entry.source).toEqual({ kind: 'local', path: path.resolve('/path/to/skill') });
+  });
+});
+
+describe('npm source provenance', () => {
+  const metadata = {
+    name: '@harness-skills/deployment',
+    'dist-tags': { latest: '1.0.0' },
+    versions: {
+      '1.0.0': {
+        version: '1.0.0',
+        dist: {
+          tarball: 'https://registry.npmjs.org/@harness-skills/deployment/-/deployment-1.0.0.tgz',
+          shasum: 'abc',
+          integrity: 'sha512-abc',
+        },
+      },
+    },
+  };
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mockedGetBundledNames.mockReturnValue(new Set());
+    mockedReadLockfile.mockReturnValue({ version: 2, skills: {} });
+    mockedUpdateLockfileEntry.mockImplementation((lf, name, entry) => ({
+      ...lf,
+      skills: { ...lf.skills, [name]: entry },
+    }));
+    mockedFetchMetadata.mockResolvedValue(metadata);
+    mockedResolveVersion.mockReturnValue(metadata.versions['1.0.0']);
+    mockedDownloadTarball.mockResolvedValue(Buffer.from('tarball'));
+    mockedExtractTarball.mockReturnValue('/tmp/extracted');
+    mockedExistsSync.mockReturnValue(true);
+    mockedYamlParse.mockReturnValue({
+      name: 'deployment',
+      version: '1.0.0',
+      description: 'd',
+      triggers: ['manual'],
+      platforms: ['claude-code'],
+      tools: [],
+      type: 'flexible',
+      depends_on: [],
+    });
+  });
+
+  it('records an npm source with the resolved package name', async () => {
+    await runInstall('deployment', {});
+    const entry = mockedUpdateLockfileEntry.mock.calls.at(-1)![2];
+    expect(entry.source).toEqual({ kind: 'npm', package: '@harness-skills/deployment' });
+  });
+
+  it('includes the custom registry in the npm source', async () => {
+    await runInstall('deployment', { registry: 'https://custom.example.com' });
+    const entry = mockedUpdateLockfileEntry.mock.calls.at(-1)![2];
+    expect(entry.source).toEqual({
+      kind: 'npm',
+      package: '@harness-skills/deployment',
+      registry: 'https://custom.example.com',
+    });
+  });
+});
+
+describe('offerGenerateSlashCommands', () => {
+  const originalStdoutIsTTY = process.stdout.isTTY;
+  const originalStdinIsTTY = process.stdin.isTTY;
+  let logSpy: ReturnType<typeof vi.spyOn>;
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mockedExecFileSync.mockImplementation(() => Buffer.from(''));
+    logSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
+  });
+  afterEach(() => {
+    process.stdout.isTTY = originalStdoutIsTTY;
+    process.stdin.isTTY = originalStdinIsTTY;
+    logSpy.mockRestore();
+  });
+
+  const hintPrinted = (): boolean =>
+    logSpy.mock.calls.some((c) => c.some((a) => String(a).includes('generate-slash-commands')));
+  const generateRan = (): boolean =>
+    mockedExecFileSync.mock.calls.some(
+      (c) => c[0] === 'harness' && Array.isArray(c[1]) && c[1][0] === 'generate-slash-commands'
+    );
+
+  it('TTY + assent runs generate-slash-commands', async () => {
+    process.stdout.isTTY = true;
+    process.stdin.isTTY = true;
+    mockedPrompt.mockResolvedValue(''); // default Y
+    await offerGenerateSlashCommands({});
+    expect(mockedPrompt).toHaveBeenCalled();
+    expect(generateRan()).toBe(true);
+  });
+
+  it('TTY + decline does not run generate-slash-commands', async () => {
+    process.stdout.isTTY = true;
+    process.stdin.isTTY = true;
+    mockedPrompt.mockResolvedValue('n');
+    await offerGenerateSlashCommands({});
+    expect(generateRan()).toBe(false);
+    expect(hintPrinted()).toBe(true);
+  });
+
+  it('piped stdin (stdout TTY, stdin non-TTY) prints hint without prompting', async () => {
+    // Guards the "never hangs on readline" contract: prompt() reads stdin, so an
+    // EOF/piped stdin must fall back to the hint even when stdout is a TTY.
+    process.stdout.isTTY = true;
+    process.stdin.isTTY = false;
+    await offerGenerateSlashCommands({});
+    expect(mockedPrompt).not.toHaveBeenCalled();
+    expect(generateRan()).toBe(false);
+    expect(hintPrinted()).toBe(true);
+  });
+
+  it('non-TTY prints the hint without prompting or running', async () => {
+    process.stdout.isTTY = false;
+    await offerGenerateSlashCommands({});
+    expect(mockedPrompt).not.toHaveBeenCalled();
+    expect(generateRan()).toBe(false);
+    expect(hintPrinted()).toBe(true);
+  });
+
+  it('--generate runs without prompting and threads global scope flags', async () => {
+    process.stdout.isTTY = false;
+    await offerGenerateSlashCommands({ generate: true, global: true });
+    expect(mockedPrompt).not.toHaveBeenCalled();
+    expect(mockedExecFileSync).toHaveBeenCalledWith(
+      'harness',
+      ['generate-slash-commands', '--global', '--include-global'],
+      { stdio: 'inherit' }
+    );
+  });
+
+  it('--no-generate suppresses entirely (no prompt, run, or hint)', async () => {
+    process.stdout.isTTY = true;
+    await offerGenerateSlashCommands({ generate: false });
+    expect(mockedPrompt).not.toHaveBeenCalled();
+    expect(generateRan()).toBe(false);
+    expect(hintPrinted()).toBe(false);
   });
 });

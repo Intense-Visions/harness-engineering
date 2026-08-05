@@ -110,6 +110,17 @@ last_manual_edit: 2026-06-27T12:51:51.967Z
 - **Priority:** P2
 - **External-ID:** github:Intense-Visions/harness-engineering#1033
 
+### skill-provider-freshness
+
+- **Status:** planned
+- **Spec:** docs/changes/skill-provider-freshness/proposal.md
+- **Summary:** External Skill-Provider Freshness & Install Follow-Through
+- **Blockers:** —
+- **Plan:** —
+- **Assignee:** —
+- **Priority:** —
+- **External-ID:** github:Intense-Visions/harness-engineering#1066
+
 ### Language-aware workspace bootstrap + verify for local dispatch
 
 - **Status:** planned
