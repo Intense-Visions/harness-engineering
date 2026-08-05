@@ -62,7 +62,7 @@ INIT → ASSESS → PLAN → APPROVE_PLAN → EXECUTE → VERIFY → INTEGRATE �
                                                                                   │
                                                                            [next phase?]
                                                                             │           │
-                                                                         ASSESS   FINAL_REVIEW → DONE
+                                                                         ASSESS   FINAL_REVIEW → OUTCOME_EVAL → DONE
 ```
 
 ---
@@ -245,17 +245,46 @@ Persist findings to `{sessionDir}/phase-{N}-review.json`. No blocking → PHASE_
    subagent_type: "harness-code-reviewer"
    prompt: "Final cross-phase review. Diff: git diff {startingCommit}..HEAD. Session: {sessionSlug}. Prior findings: {collected}. Focus on cross-phase coherence: naming, duplicated utilities, architectural drift. Report findings (critical / important / suggestion)."
    ```
-4. No blocking: store in `finalReview.findings`, set `"passed"` → DONE.
+4. No blocking: store in `finalReview.findings`, set `"passed"` → OUTCOME_EVAL.
 5. Blocking: ask "fix / override / stop."
    - `fix`: increment `finalReview.retryCount` (max 3). Dispatch harness-task-executor: "Fix these blocking findings: {findings with file, line, title}. Session: {sessionSlug}. Commit each fix atomically." Run `harness validate`. Re-run FINAL_REVIEW from step 1. If retryCount > 3: stop, record in `.harness/failures.md`.
-   - `override`: record rationale in `decisions[]`. Set `"overridden"` → DONE.
+   - `override`: record rationale in `decisions[]`. Set `"overridden"` → OUTCOME_EVAL.
    - `stop`: save state and exit (resumable).
+
+---
+
+### OUTCOME_EVAL
+
+The blocking post-execution **spec-satisfaction gate** — the harness's ship gate. It fires ONCE per session, after FINAL_REVIEW and before DONE, judging the WHOLE change against the spec. (It runs at the ship boundary, not per phase: a per-phase judgment would spuriously fail while later phases are still outstanding.) It runs at every rigor level — the gate is not weakened by `--fast`.
+
+1. Set `currentState: "OUTCOME_EVAL"`.
+2. **Gather the evidence (required).** Capture the cumulative change as a unified diff: `git diff {startingCommit}..HEAD`. Capture the most recent test-runner output retained from VERIFY; if none is retained, re-run the project test command and capture stdout+stderr. Resolve the head sha via `git rev-parse HEAD`.
+3. **Invoke the gate.** Call the `outcome_eval` MCP tool:
+
+   ```json
+   {
+     "specPath": "<spec path>",
+     "diff": "<git diff {startingCommit}..HEAD>",
+     "testOutput": "<captured test output>",
+     "commit": "<git rev-parse HEAD>"
+   }
+   ```
+
+   Supplying real `diff` and `testOutput` is mandatory — omitting them degrades the verdict to INCONCLUSIVE/advisory, a silent false-negative that defeats the gate. The tool persists the verdict as an `execution_outcome` node (keyed by `commit`) and returns `verdict`, `confidence`, `judgedAgainst`, `rationale`, `unmetCriteria`, and the TS-derived `authority`.
+
+4. **Honor the TS-derived authority — never the LLM.** `authority` is computed in TypeScript from `(verdict, confidence)`; read it, never recompute or override it.
+   - `authority === "advisory"` (all `SATISFIED`, all `INCONCLUSIVE`, and every `medium`/`low` `NOT_SATISFIED`): record the verdict in `finalReview` and proceed → DONE. An advisory `NOT_SATISFIED` is surfaced for human attention but does not halt.
+   - `authority === "blocking"` (a high-confidence `NOT_SATISFIED`, and ONLY that): HALT before DONE. Report `unmetCriteria` and ask "fix / override / stop."
+     - `fix`: increment `finalReview.retryCount` (max 3). Dispatch harness-task-executor to address the unmet criteria, run `harness validate`, then re-enter OUTCOME_EVAL. If retryCount > 3: stop, record in `.harness/failures.md`.
+     - `override`: record the rationale in `decisions[]` — the audit trail for shipping over a blocking verdict → DONE.
+     - `stop`: save state and exit (resumable).
+5. **Never block on infrastructure noise.** A provider failure, a missing/unjudgable spec, or an absent `ANTHROPIC_API_KEY` degrades to `INCONCLUSIVE`/advisory and proceeds — surface the degradation to the human, but do not halt.
 
 ---
 
 ### DONE
 
-1. Present: total phases, tasks, retries, time, `finalReview.status` + findings count, any overridden findings.
+1. Present: total phases, tasks, retries, time, `finalReview.status` + findings count, any overridden findings, and the OUTCOME_EVAL verdict (`verdict` / `confidence` / `authority`, plus any recorded override).
 2. Ask "Create a PR? (yes / no)." When creating the PR, include a bare closing line `Closes #<N>` where `<N>` is the issue number from the roadmap row's `External-ID`. The keyword MUST sit IMMEDIATELY before the ref — no intervening words (`Closes #<N>`, never `Closes roadmap #<N>`), or GitHub will not link/close the issue and roadmap auto-done will skip the row.
 3. Write final handoff to `{sessionDir}/handoff.json`. Append learnings to `.harness/learnings.md`. Call `promoteSessionLearnings(projectPath, sessionSlug)`. If learnings count > 30, suggest `harness learnings prune`.
 4. If `docs/roadmap.md` exists: call `manage_roadmap update` to set feature done. Skip if not found.
@@ -275,7 +304,7 @@ Persist findings to `{sessionDir}/phase-{N}-review.json`. No blocking → PHASE_
 6. **INTEGRATE** — Resolve integration tier, dispatch harness-integration, verify system wiring, knowledge materialization, and documentation per tier.
 7. **REVIEW** — Dispatch harness-code-reviewer, fix blocking findings.
 8. **PHASE_COMPLETE** — Summarize (including integration report), sync roadmap, loop to ASSESS for next phase or proceed to FINAL_REVIEW.
-9. **FINAL_REVIEW → DONE** — Cross-phase review, offer PR creation, write final handoff.
+9. **FINAL_REVIEW → OUTCOME_EVAL → DONE** — Cross-phase review, then the blocking spec-satisfaction gate (halt on a high-confidence NOT_SATISFIED), offer PR creation, write final handoff.
 
 ---
 
@@ -292,7 +321,8 @@ Persist findings to `{sessionDir}/phase-{N}-review.json`. No blocking → PHASE_
 
 - **No reimplementing delegated skills.** Writing planning/execution/verification/review/integration logic → STOP. Delegate via `subagent_type`.
 - **No executing without plan approval.** Every plan passes APPROVE_PLAN. No exceptions.
-- **No skipping VERIFY, INTEGRATE, or REVIEW.** Human can override findings; steps cannot be skipped. INTEGRATE may be skipped only via explicit "skip" choice with decision recorded in `decisions[]`.
+- **No skipping VERIFY, INTEGRATE, REVIEW, or OUTCOME_EVAL.** Human can override findings; steps cannot be skipped. INTEGRATE may be skipped only via explicit "skip" choice with decision recorded in `decisions[]`.
+- **Ship authority for OUTCOME_EVAL is derived in TypeScript, never read from the LLM.** Read `authority` off the verdict; do not recompute or override it. A high-confidence `NOT_SATISFIED` (`authority: "blocking"`) HALTS before DONE — shipping over it requires an explicit `override` recorded in `decisions[]`. Every other verdict is advisory.
 - **No infinite retries.** EXECUTE budget: 3 attempts. FINAL_REVIEW: 3 cycles. If exhausted, stop and surface.
 - **No modifying state files manually.** If corrupted, start fresh.
 
@@ -321,6 +351,7 @@ Persist findings to `{sessionDir}/phase-{N}-review.json`. No blocking → PHASE_
 - Every plan approval is recorded in `decisions[]` (auto or manual)
 - Retry budget (3 attempts) is enforced — exhausted retries surface to user, never silently continue
 - FINAL_REVIEW runs on `startingCommit..HEAD` diff and catches cross-phase coherence issues
+- OUTCOME_EVAL runs at the ship boundary on the full `startingCommit..HEAD` change; a high-confidence `NOT_SATISFIED` halts before DONE and its verdict persists as an `execution_outcome` node
 - State is persisted to `autopilot-state.json` after every state transition — re-invocation resumes correctly
 - `harness validate` passes after every phase
 

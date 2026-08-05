@@ -7,6 +7,9 @@ import {
   resolveRoadmapStore,
   applyRoadmapDiff,
   roadmapSourceExists,
+  detectRoadmapStorageMode,
+  archiveDoneShardsForProject,
+  slugifyFeatureName,
 } from '@harness-engineering/core';
 import type { Roadmap, Result } from '@harness-engineering/types';
 import { resultToMcpResponse } from '../utils/result-adapter.js';
@@ -17,7 +20,7 @@ import { handleManageRoadmapFileLess } from './roadmap-file-less.js';
 export const manageRoadmapDefinition = {
   name: 'manage_roadmap',
   description:
-    'Manage the project roadmap: show, add, update, remove, promote, sync, groom features, or query by filter. Reads and writes the project roadmap (sharded or single-file). The "promote" action transitions an existing row toward planned (backlog→planned) and links its spec atomically — creating a new planned row under the "Intake" lane if the feature does not exist — returning a structured RoadmapPromoteResult envelope. The "groom" action tidies the roadmap: it demotes unactionable planned rows (no spec & no plan) to backlog and moves completed features into docs/roadmap-archive.md, returning the list of changes.',
+    'Manage the project roadmap: show, add, update, remove, promote, sync, groom features, or query by filter. Reads and writes the project roadmap (sharded or single-file). The "promote" action transitions an existing row toward planned (backlog→planned) and links its spec atomically — creating a new planned row under the "Intake" lane if the feature does not exist — returning a structured RoadmapPromoteResult envelope. The "groom" action tidies the roadmap: it demotes unactionable planned rows (no spec & no plan) to backlog and archives completed features, returning the list of changes. In sharded mode each done shard is MOVED into the sharded archive `docs/roadmap.d/archive/<slug>.md` (preserving its full content, excluded from the active aggregate); in monolith mode completed features are appended to docs/roadmap-archive.md.',
   inputSchema: {
     type: 'object' as const,
     properties: {
@@ -649,22 +652,76 @@ async function handleGroom(
     );
   }
 
-  // The archive stays a whole-file write (docs/roadmap-archive.md is NOT sharded).
-  appendToArchive(projectPath, archived, groomed.frontmatter.project, deps);
   groomed.frontmatter.lastManualEdit = new Date().toISOString();
-  // Per-shard: archived rows are removeFeature'd, demoted rows patchFeature'd.
-  const persisted = await persistRoadmap(projectPath, before, groomed);
+
+  const sharded = detectRoadmapStorageMode(projectPath) === 'sharded';
+  const persisted = sharded
+    ? await persistGroomSharded(projectPath, before, groomed, archived)
+    : await persistGroomMonolith(projectPath, before, groomed, archived, deps);
   if (!persisted.ok) return resultToMcpResponse(persisted);
 
   const demoted = changes.filter((c) => c.kind === 'demoted').length;
+  const archiveTarget = sharded ? 'docs/roadmap.d/archive/' : 'docs/roadmap-archive.md';
   return resultToMcpResponse(
     Ok({
       changes,
       archived: archived.length,
       demoted,
-      message: `Groomed: ${demoted} demoted to backlog, ${archived.length} archived to docs/roadmap-archive.md.`,
+      message: `Groomed: ${demoted} demoted to backlog, ${archived.length} archived to ${archiveTarget}.`,
     })
   );
+}
+
+/**
+ * Monolith groom persistence: append archived rows to the whole-file archive
+ * (`docs/roadmap-archive.md`) and persist demotions/removals against the aggregate.
+ */
+async function persistGroomMonolith(
+  projectPath: string,
+  before: Roadmap,
+  groomed: Roadmap,
+  archived: import('@harness-engineering/types').RoadmapFeature[],
+  deps: RoadmapDeps
+): Promise<Result<void>> {
+  // The archive stays a whole-file write (docs/roadmap-archive.md is NOT sharded).
+  appendToArchive(projectPath, archived, groomed.frontmatter.project, deps);
+  // Archived rows are removeFeature'd, demoted rows patchFeature'd.
+  return persistRoadmap(projectPath, before, groomed);
+}
+
+/**
+ * Sharded groom persistence: MOVE each `done` shard into the sharded archive
+ * (`docs/roadmap.d/archive/<slug>.md`, byte-for-byte) and regenerate the active
+ * aggregate so archived rows drop out — then persist demotions/unassignments.
+ *
+ * The archive move (not a `removeFeature`) is what preserves the shard's full
+ * frontmatter + body, keeping the motion reversible. Demotions are diffed against
+ * `before` MINUS the archived rows so `applyRoadmapDiff` never issues a
+ * `removeFeature` for a shard already moved out of the active dir.
+ */
+async function persistGroomSharded(
+  projectPath: string,
+  before: Roadmap,
+  groomed: Roadmap,
+  archived: import('@harness-engineering/types').RoadmapFeature[]
+): Promise<Result<void>> {
+  const slugs = archived.map((f) => slugifyFeatureName(f.name));
+  const moved = await archiveDoneShardsForProject(projectPath, slugs);
+  if (!moved.ok) return moved;
+
+  // Demotions only: the archived shards are already moved, so exclude them from
+  // `before` to avoid a removeFeature on a now-absent shard. `archiveDoneShardsForProject`
+  // already regenerated the aggregate, so a groom with no demotions still lands
+  // an archive-excluding aggregate.
+  const archivedSlugs = new Set(slugs);
+  const beforeActive: Roadmap = {
+    ...before,
+    milestones: before.milestones.map((m) => ({
+      ...m,
+      features: m.features.filter((f) => !archivedSlugs.has(slugifyFeatureName(f.name))),
+    })),
+  };
+  return persistRoadmap(projectPath, beforeActive, groomed);
 }
 
 const readOnlyActions = new Set(['show', 'query']);
