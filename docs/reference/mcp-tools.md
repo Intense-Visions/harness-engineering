@@ -120,6 +120,18 @@ Validate STRATEGY.md at the project root. Returns { present, valid, error? }. So
 
 ## Code Navigation
 
+### `code_craft`
+
+LLM-judgment critique of code quality / readability — the ceiling counterpart to the rule-based code floor (entropy-cleaner for dead code / drift, enforce-architecture for boundaries + deps, complexity thresholds). Asks the ceiling questions: does the code reveal intent and read in the domain’s language, is the control flow honest, does the function tell one story at one altitude, does each abstraction earn its keep, is this as simple as it could be, does the signature keep its promise, would a senior nod or wince. Walks `packages/<pkg>/src`, extracts substantive units (functions, methods, classes) via the TS Compiler API, and critiques each against 7 seed rubrics; files with no substantive unit are skipped. A small curated exemplar set (Anthropic SDK / TanStack Query / ky / SWR / date-fns) anchors the catalog. Identifier-level naming is delegated to `naming_craft`. Emits 3-axis findings (tier x impact x confidence per ADR 0019). Structural twin of `security_craft`.
+
+**Parameters:**
+
+- `path` (string, required) — Project root path
+- `files` (array, optional) — Optional file scope (overrides packages/\*/src discovery)
+- `packages` (array, optional) — Restrict to specific packages under packages/
+- `maxFiles` (number, optional) — Cap source-file count (default: 100)
+- `maxUnitsPerFile` (number, optional) — Cap per-file unit critique (default: 20)
+
 ### `code_outline`
 
 Get a structural skeleton of a file or files matching a glob: exports, classes, functions, types with signatures and line numbers. No implementation bodies. 4-8x token savings vs full file read.

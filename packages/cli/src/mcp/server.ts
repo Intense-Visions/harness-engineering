@@ -208,6 +208,8 @@ import { knowledgeCraftDefinition, handleKnowledgeCraft } from './tools/knowledg
 import { securityCraftDefinition, handleSecurityCraft } from './tools/security-craft.js';
 // craft-pipeline: docs-craft LLM-judgment skill (documentation quality, per-file critique).
 import { docsCraftDefinition, handleDocsCraft } from './tools/docs-craft.js';
+// craft-pipeline: code-craft LLM-judgment skill (code readability, per-unit critique).
+import { codeCraftDefinition, handleCodeCraft } from './tools/code-craft.js';
 // craft-pipeline: cli-ergonomics-craft LLM-judgment skill (CLI quality, per-command critique).
 import {
   cliErgonomicsCraftDefinition,
@@ -344,6 +346,7 @@ const TOOL_DEFINITIONS: ToolDefinition[] = [
   knowledgeCraftDefinition,
   securityCraftDefinition,
   docsCraftDefinition,
+  codeCraftDefinition,
   cliErgonomicsCraftDefinition,
   outcomeEvalDefinition,
   acceptanceEvalDefinition,
@@ -449,6 +452,7 @@ const TOOL_HANDLERS: Record<string, ToolHandler> = {
   knowledge_craft: handleKnowledgeCraft as unknown as ToolHandler,
   security_craft: handleSecurityCraft as unknown as ToolHandler,
   docs_craft: handleDocsCraft as unknown as ToolHandler,
+  code_craft: handleCodeCraft as unknown as ToolHandler,
   cli_ergonomics_craft: handleCliErgonomicsCraft as unknown as ToolHandler,
   outcome_eval: handleOutcomeEval as unknown as ToolHandler,
   acceptance_eval: handleAcceptanceEval as unknown as ToolHandler,
