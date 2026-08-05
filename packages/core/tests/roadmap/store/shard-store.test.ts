@@ -6,7 +6,7 @@ import { assembleRoadmap } from '../../../src/roadmap/store/assembler';
 import { serializeShard } from '../../../src/roadmap/store/shard';
 import { serializeMeta } from '../../../src/roadmap/store/meta';
 import { serializeRoadmap } from '../../../src/roadmap/serialize';
-import { ASSEMBLER_SHARDS, ASSEMBLER_META } from './fixtures';
+import { ASSEMBLER_SHARDS, ASSEMBLER_META, feat } from './fixtures';
 
 const SHARD_DIR = '/repo/docs/roadmap.d';
 
@@ -197,6 +197,65 @@ describe('ShardStore', () => {
     expect(r.ok).toBe(false);
     expect(writes).toHaveLength(0);
     expect(files.get(`${SHARD_DIR}/a-feature.md`)).toBe(before);
+  });
+
+  // #1036: a shard's real file identity is its frontmatter `slug` (often a
+  // hand-shortened / length-truncated form of the title), so
+  // `slugifyFeatureName(name)` — the key `applyRoadmapDiff` addresses it by —
+  // frequently differs. Before the fix that mismatch ENOENT'd and aborted the
+  // whole writeback batch. patchFeature must resolve the real shard by name-slug.
+  it('patchFeature() resolves a shard whose title-slug ≠ frontmatter slug (#1036)', async () => {
+    const { io, files, writes } = makeShardIO();
+    const mismatched = {
+      slug: 'short-id',
+      milestone: 'MVP Release',
+      order: 30,
+      feature: feat('A Much Longer Feature Title That Was Hand Shortened', 'planned'),
+    };
+    files.set(`${SHARD_DIR}/short-id.md`, serializeShard(mismatched));
+    const store = new ShardStore({ shardDir: SHARD_DIR, io });
+
+    // The diff addresses the row by slugifyFeatureName(name), NOT the frontmatter slug.
+    const diffSlug = 'a-much-longer-feature-title-that-was-hand-shortened';
+    expect(diffSlug).not.toBe(mismatched.slug);
+    const r = await store.patchFeature(diffSlug, (f) => ({
+      ...f,
+      externalId: 'github:owner/repo#9',
+    }));
+    expect(r.ok).toBe(true);
+    // It rewrote the REAL shard file, not a slugify-named phantom (no ENOENT abort).
+    expect(writes.map(basename)).toEqual(['short-id.md']);
+    expect(files.get(`${SHARD_DIR}/short-id.md`)).toContain('github:owner/repo#9');
+    expect(files.has(`${SHARD_DIR}/${diffSlug}.md`)).toBe(false);
+  });
+
+  it('removeFeature() resolves a shard whose title-slug ≠ frontmatter slug (#1036)', async () => {
+    const { io, files, deletes } = makeShardIO();
+    const mismatched = {
+      slug: 'trunc',
+      milestone: 'MVP Release',
+      order: 31,
+      feature: feat('Yet Another Long Title Kept Under A Short Slug', 'planned'),
+    };
+    files.set(`${SHARD_DIR}/trunc.md`, serializeShard(mismatched));
+    const store = new ShardStore({ shardDir: SHARD_DIR, io });
+
+    const diffSlug = 'yet-another-long-title-kept-under-a-short-slug';
+    const r = await store.removeFeature(diffSlug);
+    expect(r.ok).toBe(true);
+    expect(deletes).toEqual([`${SHARD_DIR}/trunc.md`]);
+    expect(files.has(`${SHARD_DIR}/trunc.md`)).toBe(false);
+  });
+
+  // #1037: last_synced lives in _meta.md in sharded mode. Stamping it must
+  // genuinely rewrite _meta.md (patchFrontmatter no-ops here) — and touch no shard.
+  it('stampLastSynced() rewrites ONLY _meta.md with the new timestamp (#1037)', async () => {
+    const { io, files, writes } = makeShardIO();
+    const store = new ShardStore({ shardDir: SHARD_DIR, io });
+    const r = await store.stampLastSynced('2027-01-01T00:00:00.000Z');
+    expect(r.ok).toBe(true);
+    expect(writes).toEqual([`${SHARD_DIR}/_meta.md`]);
+    expect(files.get(`${SHARD_DIR}/_meta.md`)).toContain('last_synced: "2027-01-01T00:00:00.000Z"');
   });
 });
 

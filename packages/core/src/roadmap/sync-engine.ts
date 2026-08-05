@@ -416,11 +416,23 @@ export async function fullSync(
     // Merge results (surface a writeback failure under the '*' envelope)
     const writebackErrors =
       persisted && !persisted.ok ? [{ featureOrId: '*', error: persisted.error }] : [];
+
+    // Stamp `last_synced` on a successful non-dry-run writeback (#1037). Previously
+    // nothing on this path ever wrote it — `applyRoadmapDiff`'s frontmatter branch
+    // only fires when before/after frontmatter differ (it never does here) and is a
+    // no-op in sharded mode anyway — so `_meta.md` drifted arbitrarily stale ("22
+    // days behind") even when every patch applied cleanly. A dry run writes nothing;
+    // a failed writeback leaves the prior stamp untouched.
+    let stampErrors: { featureOrId: string; error: Error }[] = [];
+    if (!dryRun && persisted && persisted.ok) {
+      const stamped = await store.stampLastSynced(new Date().toISOString());
+      if (!stamped.ok) stampErrors = [{ featureOrId: '*', error: stamped.error }];
+    }
     return {
       created: pushResult.created,
       updated: pushResult.updated,
       assignmentChanges: pullResult.assignmentChanges,
-      errors: [...pushResult.errors, ...pullResult.errors, ...writebackErrors],
+      errors: [...pushResult.errors, ...pullResult.errors, ...writebackErrors, ...stampErrors],
       dryRun,
       planned: {
         creates: pushResult.planned.creates,

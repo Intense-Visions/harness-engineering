@@ -70,4 +70,14 @@ export interface RoadmapStore {
    * (never a feature shard).
    */
   patchAssignmentHistory(history: AssignmentRecord[]): Promise<Result<void>>;
+  /**
+   * Stamp the roadmap-level `lastSynced` timestamp on a successful sync (#1037).
+   * A distinct operation from {@link patchFrontmatter} (a deliberate no-op in
+   * sharded mode to protect the single-shard write invariant): `lastSynced` lives
+   * in `_meta.md` in sharded mode, so it needs a real write there — the shard
+   * backend rewrites only `_meta.md` (never a feature shard); monolith rewrites the
+   * whole file. Callers invoke this after a successful writeback so the aggregate's
+   * `last_synced` reflects when the sync actually ran.
+   */
+  stampLastSynced(timestamp: string): Promise<Result<void>>;
 }
