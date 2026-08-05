@@ -2,6 +2,7 @@
 import 'dotenv/config';
 import { createProgram, handleError } from '../index';
 import { runUpdateCheckAtStartup, printUpdateNotification } from './update-check-hooks';
+import { runFreshnessCheckAtStartup, printFreshnessNotification } from './freshness-check-hooks';
 import { installCommandTelemetry } from './command-telemetry';
 import { printFirstRunWelcome } from '../utils/first-run';
 import { sessionStartDispatch, formatDispatchBanner } from '../skill/dispatch-session';
@@ -13,6 +14,9 @@ async function main(): Promise<void> {
 
   // Fire-and-forget: spawn background version check if cooldown elapsed
   runUpdateCheckAtStartup();
+
+  // Fire-and-forget: spawn background skill-provider freshness check
+  runFreshnessCheckAtStartup();
 
   // Fire-and-forget: session-start skill dispatch (prints banner at end)
   const dispatchPromise: Promise<SessionDispatchResult> = sessionStartDispatch(process.cwd()).catch(
@@ -36,6 +40,7 @@ async function main(): Promise<void> {
   // (cache TTL 24h), producing contradictory output on the same invocation.
   if (process.argv[2] !== 'update') {
     printUpdateNotification();
+    printFreshnessNotification();
   }
 
   // Show skill dispatch recommendations if HEAD changed

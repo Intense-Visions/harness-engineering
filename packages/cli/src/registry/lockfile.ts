@@ -1,6 +1,11 @@
 import * as fs from 'fs';
 import * as path from 'path';
 
+export type SkillSource =
+  | { kind: 'github'; owner: string; repo: string; ref: string; commit: string }
+  | { kind: 'npm'; package: string; registry?: string }
+  | { kind: 'local'; path: string };
+
 export interface LockfileEntry {
   version: string;
   resolved: string;
@@ -8,6 +13,7 @@ export interface LockfileEntry {
   platforms: string[];
   installedAt: string;
   dependencyOf: string | null;
+  source?: SkillSource;
 }
 
 export interface SkillsLockfile {
@@ -16,7 +22,7 @@ export interface SkillsLockfile {
 }
 
 function createEmptyLockfile(): SkillsLockfile {
-  return { version: 1, skills: {} };
+  return { version: 2, skills: {} };
 }
 
 /**
@@ -58,16 +64,20 @@ export function readLockfile(filePath: string): SkillsLockfile {
         `Delete it and re-run harness install to regenerate.`
     );
   }
+  // Guard object-ness BEFORE reading `.version` — JSON.parse('null') yields null,
+  // and reading a property off it would throw a raw TypeError instead of the
+  // friendly "Invalid lockfile format" message this block exists to produce.
   if (
     !parsed ||
     typeof parsed !== 'object' ||
     !('version' in parsed) ||
-    (parsed as Record<string, unknown>).version !== 1 ||
+    ((parsed as Record<string, unknown>).version !== 1 &&
+      (parsed as Record<string, unknown>).version !== 2) ||
     !('skills' in parsed) ||
     typeof (parsed as Record<string, unknown>).skills !== 'object'
   ) {
     throw new Error(
-      `Invalid lockfile format at ${filePath}. Expected version 1 with a skills object. ` +
+      `Invalid lockfile format at ${filePath}. Expected version 1 or 2 with a skills object. ` +
         `Delete it and re-run harness install to regenerate.`
     );
   }
@@ -77,11 +87,14 @@ export function readLockfile(filePath: string): SkillsLockfile {
 /**
  * Write a skills-lock.json file. Output is deterministic (sorted keys, 2-space
  * indent, trailing newline). Creates parent directories if needed.
+ *
+ * Always emits the current schema version (2), regardless of the `version` on
+ * the passed lockfile — a read-then-write of a v1 file upgrades it in place.
  */
 export function writeLockfile(filePath: string, lockfile: SkillsLockfile): void {
   const dir = path.dirname(filePath);
   fs.mkdirSync(dir, { recursive: true });
-  fs.writeFileSync(filePath, sortedStringify(lockfile) + '\n', 'utf-8');
+  fs.writeFileSync(filePath, sortedStringify({ ...lockfile, version: 2 }) + '\n', 'utf-8');
 }
 
 /**
