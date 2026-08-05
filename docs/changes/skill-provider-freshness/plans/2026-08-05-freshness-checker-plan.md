@@ -43,7 +43,7 @@ Add a CLI-located background freshness checker (`packages/cli/src/registry/fresh
 
 **In scope:** the new `freshness-checker.ts` (state IO + validation for `~/.harness/skill-freshness.json`; enable/interval gating reusing core's `isUpdateCheckEnabled`; a detached, `unref()`-ed background probe that runs `git ls-remote` / `npm view` per eligible entry and writes state atomically; `getFreshnessNotification()`); a `bin/freshness-check-hooks.ts` that mirrors `bin/update-check-hooks.ts` (resolves the global + project community lockfile paths, spawns the check, prints the notification); wiring both into `bin/harness.ts`; unit tests for comparison logic, notification formatting, defensive skipping, state read/write validation, and the hooks.
 
-**Out of scope (later phases — do NOT touch):** the `harness skill update` command (`commands/skill/update.ts`) and its registration (Phase 4), the `harness update` `offerSkillProviderUpdates()` integration (Phase 4), and all docs/ADR (Phase 5). Do **not** implement any actual provider re-pull/update here — Phase 3 only *detects and nudges*.
+**Out of scope (later phases — do NOT touch):** the `harness skill update` command (`commands/skill/update.ts`) and its registration (Phase 4), the `harness update` `offerSkillProviderUpdates()` integration (Phase 4), and all docs/ADR (Phase 5). Do **not** implement any actual provider re-pull/update here — Phase 3 only _detects and nudges_.
 
 ## Observable Truths (Acceptance Criteria)
 
@@ -169,7 +169,9 @@ _Not produced — task count (5) is below the standard-mode skeleton threshold (
        );
        expect(readFreshnessState()).toEqual({
          lastCheckTime: 5,
-         providers: [{ name: 'ok', kind: 'npm', current: '1.0.0', latest: '1.1.0', outdated: true }],
+         providers: [
+           { name: 'ok', kind: 'npm', current: '1.0.0', latest: '1.1.0', outdated: true },
+         ],
        });
      });
 
@@ -183,7 +185,9 @@ _Not produced — task count (5) is below the standard-mode skeleton threshold (
 
      it('shouldRunFreshnessCheck gates by interval', () => {
        expect(shouldRunFreshnessCheck(null, 1000)).toBe(true);
-       expect(shouldRunFreshnessCheck({ lastCheckTime: Date.now(), providers: [] }, 1_000_000)).toBe(false);
+       expect(
+         shouldRunFreshnessCheck({ lastCheckTime: Date.now(), providers: [] }, 1_000_000)
+       ).toBe(false);
        expect(shouldRunFreshnessCheck({ lastCheckTime: 0, providers: [] }, 1000)).toBe(true);
      });
    });
@@ -236,7 +240,10 @@ _Not produced — task count (5) is below the standard-mode skeleton threshold (
    export const isFreshnessCheckEnabled = isUpdateCheckEnabled;
 
    /** Re-expresses core's shouldRunCheck for the freshness state shape. */
-   export function shouldRunFreshnessCheck(state: FreshnessState | null, intervalMs: number): boolean {
+   export function shouldRunFreshnessCheck(
+     state: FreshnessState | null,
+     intervalMs: number
+   ): boolean {
      if (state === null) return true;
      return state.lastCheckTime + intervalMs <= Date.now();
    }
@@ -252,7 +259,8 @@ _Not produced — task count (5) is below the standard-mode skeleton threshold (
        typeof (p as FreshnessProvider).name === 'string' &&
        ((p as FreshnessProvider).kind === 'github' || (p as FreshnessProvider).kind === 'npm') &&
        typeof (p as FreshnessProvider).current === 'string' &&
-       (typeof (p as FreshnessProvider).latest === 'string' || (p as FreshnessProvider).latest === null) &&
+       (typeof (p as FreshnessProvider).latest === 'string' ||
+         (p as FreshnessProvider).latest === null) &&
        typeof (p as FreshnessProvider).outdated === 'boolean'
      );
    }
@@ -289,7 +297,10 @@ _Not produced — task count (5) is below the standard-mode skeleton threshold (
      const statePath = getStatePath();
      const stateDir = path.dirname(statePath);
      fs.mkdirSync(stateDir, { recursive: true });
-     const tmpFile = path.join(stateDir, '.skill-freshness-' + crypto.randomBytes(4).toString('hex') + '.tmp');
+     const tmpFile = path.join(
+       stateDir,
+       '.skill-freshness-' + crypto.randomBytes(4).toString('hex') + '.tmp'
+     );
      fs.writeFileSync(tmpFile, JSON.stringify(state), { mode: 0o644 });
      fs.renameSync(tmpFile, statePath);
    }
@@ -328,10 +339,18 @@ _Not produced — task count (5) is below the standard-mode skeleton threshold (
 
      it('records current/latest/kind correctly per source', () => {
        expect(evaluateEntry('s', gh, '9.9.9', 'bbb')).toEqual({
-         name: 's', kind: 'github', current: 'aaa', latest: 'bbb', outdated: true,
+         name: 's',
+         kind: 'github',
+         current: 'aaa',
+         latest: 'bbb',
+         outdated: true,
        });
        expect(evaluateEntry('s', npm, '1.0.0', '1.1.0')).toEqual({
-         name: 's', kind: 'npm', current: '1.0.0', latest: '1.1.0', outdated: true,
+         name: 's',
+         kind: 'npm',
+         current: '1.0.0',
+         latest: '1.1.0',
+         outdated: true,
        });
      });
 
@@ -344,7 +363,9 @@ _Not produced — task count (5) is below the standard-mode skeleton threshold (
        expect(evaluateEntry('s', undefined, '1.0.0', 'x')).toBeNull();
        expect(evaluateEntry('s', { kind: 'local', path: '/p' }, '1.0.0', 'x')).toBeNull();
        // legacy / unrecognized kind at runtime must not crash
-       expect(evaluateEntry('s', { kind: 'svn' } as unknown as SkillSource, '1.0.0', 'x')).toBeNull();
+       expect(
+         evaluateEntry('s', { kind: 'svn' } as unknown as SkillSource, '1.0.0', 'x')
+       ).toBeNull();
      });
    });
 
@@ -378,12 +399,16 @@ _Not produced — task count (5) is below the standard-mode skeleton threshold (
 
      it('pluralizes correctly', () => {
        write([{ name: 'a', kind: 'npm', current: '1', latest: '2', outdated: true }]);
-       expect(getFreshnessNotification()).toBe('1 skill provider has updates — run `harness skill update`');
+       expect(getFreshnessNotification()).toBe(
+         '1 skill provider has updates — run `harness skill update`'
+       );
        write([
          { name: 'a', kind: 'npm', current: '1', latest: '2', outdated: true },
          { name: 'b', kind: 'github', current: 'x', latest: 'y', outdated: true },
        ]);
-       expect(getFreshnessNotification()).toBe('2 skill providers have updates — run `harness skill update`');
+       expect(getFreshnessNotification()).toBe(
+         '2 skill providers have updates — run `harness skill update`'
+       );
      });
    });
    ```
@@ -412,10 +437,22 @@ _Not produced — task count (5) is below the standard-mode skeleton threshold (
    ): FreshnessProvider | null {
      if (!source) return null;
      if (source.kind === 'github') {
-       return { name, kind: 'github', current: source.commit, latest, outdated: latest != null && latest !== source.commit };
+       return {
+         name,
+         kind: 'github',
+         current: source.commit,
+         latest,
+         outdated: latest != null && latest !== source.commit,
+       };
      }
      if (source.kind === 'npm') {
-       return { name, kind: 'npm', current: entryVersion, latest, outdated: latest != null && latest !== entryVersion };
+       return {
+         name,
+         kind: 'npm',
+         current: entryVersion,
+         latest,
+         outdated: latest != null && latest !== entryVersion,
+       };
      }
      return null; // local or unrecognized kind
    }
@@ -471,7 +508,11 @@ _Not produced — task count (5) is below the standard-mode skeleton threshold (
      it('spawns a detached, unref-ed process with stdio ignored', () => {
        spawnBackgroundFreshnessCheck(['/some/skills-lock.json']);
        expect(mockSpawn).toHaveBeenCalledTimes(1);
-       const [cmd, args, opts] = mockSpawn.mock.calls[0] as [string, string[], Record<string, unknown>];
+       const [cmd, args, opts] = mockSpawn.mock.calls[0] as [
+         string,
+         string[],
+         Record<string, unknown>,
+       ];
        expect(cmd).toBe(process.execPath);
        expect(args[0]).toBe('-e');
        expect(typeof args[1]).toBe('string');
@@ -611,7 +652,10 @@ _Not produced — task count (5) is below the standard-mode skeleton threshold (
    }));
 
    import * as fs from 'fs';
-   import { runFreshnessCheckAtStartup, printFreshnessNotification } from '../../src/bin/freshness-check-hooks';
+   import {
+     runFreshnessCheckAtStartup,
+     printFreshnessNotification,
+   } from '../../src/bin/freshness-check-hooks';
 
    describe('freshness-check-hooks', () => {
      beforeEach(() => {
@@ -659,7 +703,9 @@ _Not produced — task count (5) is below the standard-mode skeleton threshold (
      });
 
      it('prints the notification to stderr when present', () => {
-       mockGetNotification.mockReturnValue('1 skill provider has updates — run `harness skill update`');
+       mockGetNotification.mockReturnValue(
+         '1 skill provider has updates — run `harness skill update`'
+       );
        const write = vi.spyOn(process.stderr, 'write').mockReturnValue(true);
        printFreshnessNotification();
        expect(write).toHaveBeenCalledWith(expect.stringContaining('has updates'));

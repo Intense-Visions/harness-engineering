@@ -333,7 +333,13 @@ _Not produced — task count (3) is below the standard-mode skeleton threshold (
      });
 
      it('records an explicit github source when provided', () => {
-       const source = { kind: 'github', owner: 'o', repo: 'r', ref: 'main', commit: 'sha' } as const;
+       const source = {
+         kind: 'github',
+         owner: 'o',
+         repo: 'r',
+         ref: 'main',
+         commit: 'sha',
+       } as const;
        installSkillDir('/pkg', '/resolved/path', {}, source);
        const entry = mockedUpdateLockfileEntry.mock.calls.at(-1)![2];
        expect(entry.source).toEqual(source);
@@ -442,7 +448,11 @@ _Not produced — task count (3) is below the standard-mode skeleton threshold (
    b. Change `cloneGitHubRepo` to also resolve and return the commit SHA. Update its signature/return and body so it returns `{ dir, commit }` (the `rev-parse` runs inside the existing `try` so a failure still triggers `cleanupTempDir`):
 
    ```ts
-   function cloneGitHubRepo(owner: string, repo: string, ref: string): { dir: string; commit: string } {
+   function cloneGitHubRepo(
+     owner: string,
+     repo: string,
+     ref: string
+   ): { dir: string; commit: string } {
      const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'harness-gh-install-'));
      const url = `https://github.com/${owner}/${repo}.git`;
 
@@ -463,9 +473,12 @@ _Not produced — task count (3) is below the standard-mode skeleton threshold (
        return { dir: tmpDir, commit };
      } catch (err) {
        cleanupTempDir(tmpDir);
-       throw new Error(`Failed to clone ${url}: ${err instanceof Error ? err.message : String(err)}`, {
-         cause: err,
-       });
+       throw new Error(
+         `Failed to clone ${url}: ${err instanceof Error ? err.message : String(err)}`,
+         {
+           cause: err,
+         }
+       );
      }
    }
    ```
@@ -518,13 +531,16 @@ _Not produced — task count (3) is below the standard-mode skeleton threshold (
    and inside the loop:
 
    ```ts
-       const result = await runLocalInstall(skillDir, options, source);
+   const result = await runLocalInstall(skillDir, options, source);
    ```
 
    f. Build the github `source` in `runGitHubInstall` and pass it down:
 
    ```ts
-   async function runGitHubInstall(from: string, options: InstallOptions): Promise<InstallResult[]> {
+   async function runGitHubInstall(
+     from: string,
+     options: InstallOptions
+   ): Promise<InstallResult[]> {
      const ghRef = parseGitHubRef(from);
      if (!ghRef) throw new Error(`Invalid GitHub reference: ${from}`);
 
@@ -578,7 +594,8 @@ _Not produced — task count (3) is below the standard-mode skeleton threshold (
          '1.0.0': {
            version: '1.0.0',
            dist: {
-             tarball: 'https://registry.npmjs.org/@harness-skills/deployment/-/deployment-1.0.0.tgz',
+             tarball:
+               'https://registry.npmjs.org/@harness-skills/deployment/-/deployment-1.0.0.tgz',
              shasum: 'abc',
              integrity: 'sha512-abc',
            },
@@ -675,17 +692,17 @@ _Not produced — task count (3) is below the standard-mode skeleton threshold (
 
 ## Traceability (Observable Truth → Task)
 
-| Observable Truth | Task |
-| --- | --- |
-| 1 (`SkillSource` + `source?`) | Task 1 |
-| 2 (writeLockfile forces v2) | Task 1 |
-| 3 (v1 loads, no crash, no rewrite) | Task 1 |
-| 4 (accepts 1 or 2, rejects others) | Task 1 |
-| 5 (source round-trips, deterministic keys) | Task 1 |
-| 6 (github source + commit SHA) | Task 2 |
-| 7 (npm source + optional registry) | Task 3 |
-| 8 (local source) | Task 2 |
-| 9 (validate + tests + lint) | Every task |
+| Observable Truth                           | Task       |
+| ------------------------------------------ | ---------- |
+| 1 (`SkillSource` + `source?`)              | Task 1     |
+| 2 (writeLockfile forces v2)                | Task 1     |
+| 3 (v1 loads, no crash, no rewrite)         | Task 1     |
+| 4 (accepts 1 or 2, rejects others)         | Task 1     |
+| 5 (source round-trips, deterministic keys) | Task 1     |
+| 6 (github source + commit SHA)             | Task 2     |
+| 7 (npm source + optional registry)         | Task 3     |
+| 8 (local source)                           | Task 2     |
+| 9 (validate + tests + lint)                | Every task |
 
 ## Integration Points
 

@@ -93,7 +93,9 @@ describe('freshness state IO + gating', () => {
 
   it('shouldRunFreshnessCheck gates by interval', () => {
     expect(shouldRunFreshnessCheck(null, 1000)).toBe(true);
-    expect(shouldRunFreshnessCheck({ lastCheckTime: Date.now(), providers: [] }, 1_000_000)).toBe(false);
+    expect(shouldRunFreshnessCheck({ lastCheckTime: Date.now(), providers: [] }, 1_000_000)).toBe(
+      false
+    );
     expect(shouldRunFreshnessCheck({ lastCheckTime: 0, providers: [] }, 1000)).toBe(true);
   });
 });
@@ -114,10 +116,18 @@ describe('evaluateEntry (comparison + defensive skip)', () => {
 
   it('records current/latest/kind correctly per source', () => {
     expect(evaluateEntry('s', gh, '9.9.9', 'bbb')).toEqual({
-      name: 's', kind: 'github', current: 'aaa', latest: 'bbb', outdated: true,
+      name: 's',
+      kind: 'github',
+      current: 'aaa',
+      latest: 'bbb',
+      outdated: true,
     });
     expect(evaluateEntry('s', npm, '1.0.0', '1.1.0')).toEqual({
-      name: 's', kind: 'npm', current: '1.0.0', latest: '1.1.0', outdated: true,
+      name: 's',
+      kind: 'npm',
+      current: '1.0.0',
+      latest: '1.1.0',
+      outdated: true,
     });
   });
 
@@ -164,12 +174,16 @@ describe('getFreshnessNotification', () => {
 
   it('pluralizes correctly', () => {
     write([{ name: 'a', kind: 'npm', current: '1', latest: '2', outdated: true }]);
-    expect(getFreshnessNotification()).toBe('1 skill provider has updates — run `harness skill update`');
+    expect(getFreshnessNotification()).toBe(
+      '1 skill provider has updates — run `harness skill update`'
+    );
     write([
       { name: 'a', kind: 'npm', current: '1', latest: '2', outdated: true },
       { name: 'b', kind: 'github', current: 'x', latest: 'y', outdated: true },
     ]);
-    expect(getFreshnessNotification()).toBe('2 skill providers have updates — run `harness skill update`');
+    expect(getFreshnessNotification()).toBe(
+      '2 skill providers have updates — run `harness skill update`'
+    );
   });
 });
 
@@ -183,7 +197,11 @@ describe('spawnBackgroundFreshnessCheck', () => {
   it('spawns a detached, unref-ed process with stdio ignored', () => {
     spawnBackgroundFreshnessCheck(['/some/skills-lock.json']);
     expect(mockSpawn).toHaveBeenCalledTimes(1);
-    const [cmd, args, opts] = mockSpawn.mock.calls[0] as [string, string[], Record<string, unknown>];
+    const [cmd, args, opts] = mockSpawn.mock.calls[0] as [
+      string,
+      string[],
+      Record<string, unknown>,
+    ];
     expect(cmd).toBe(process.execPath);
     expect(args[0]).toBe('-e');
     expect(typeof args[1]).toBe('string');
@@ -202,7 +220,11 @@ describe('spawnBackgroundFreshnessCheck', () => {
 
 describe('buildProbeScript (shipped probe body)', () => {
   it('embeds the exact execFileSync argv shapes for git and npm', () => {
-    const script = buildProbeScript(['/lock/skills-lock.json'], '/state/skill-freshness.json', '/state');
+    const script = buildProbeScript(
+      ['/lock/skills-lock.json'],
+      '/state/skill-freshness.json',
+      '/state'
+    );
     // FIX #2: assert the shipped argv shapes (no shell) rather than just "a path".
     expect(script).toContain("execFileSync('git', ['ls-remote', url, ref]");
     expect(script).toContain("['view', source.package, 'version']");
@@ -210,19 +232,31 @@ describe('buildProbeScript (shipped probe body)', () => {
   });
 
   it('embeds the leading-dash argument-injection guard for every consumed value', () => {
-    const script = buildProbeScript(['/lock/skills-lock.json'], '/state/skill-freshness.json', '/state');
+    const script = buildProbeScript(
+      ['/lock/skills-lock.json'],
+      '/state/skill-freshness.json',
+      '/state'
+    );
     // FIX #1: dash helper + guards on owner/repo/ref (git) and package/registry (npm).
     expect(script).toContain("const dash = (v) => typeof v === 'string' && v.charAt(0) === '-'");
-    expect(script).toContain('if (dash(source.owner) || dash(source.repo) || dash(source.ref)) continue;');
+    expect(script).toContain(
+      'if (dash(source.owner) || dash(source.repo) || dash(source.ref)) continue;'
+    );
     expect(script).toContain('if (dash(source.package) || dash(source.registry)) continue;');
   });
 
   it('embeds the provider cap and wall-clock budget bounds', () => {
-    const script = buildProbeScript(['/lock/skills-lock.json'], '/state/skill-freshness.json', '/state');
+    const script = buildProbeScript(
+      ['/lock/skills-lock.json'],
+      '/state/skill-freshness.json',
+      '/state'
+    );
     // FIX #4: bounded work so a giant lockfile cannot spawn an unbounded probe storm.
     expect(script).toContain(`const MAX_PROVIDERS = ${MAX_PROVIDERS};`);
     expect(script).toContain('const PROBE_BUDGET_MS = 120000;');
-    expect(script).toContain('if (probed >= MAX_PROVIDERS || Date.now() - startedAt > PROBE_BUDGET_MS) break outer;');
+    expect(script).toContain(
+      'if (probed >= MAX_PROVIDERS || Date.now() - startedAt > PROBE_BUDGET_MS) break outer;'
+    );
   });
 
   it('embeds the provided lockfile, state, and state-dir paths', () => {
@@ -293,13 +327,19 @@ e2e('buildProbeScript end-to-end (stub git/npm)', () => {
       JSON.stringify({
         version: 2,
         skills: {
-          'gh-outdated': { version: '0.0.0', source: { kind: 'github', owner: 'o', repo: 'r', ref: 'main', commit: 'aaa' } },
+          'gh-outdated': {
+            version: '0.0.0',
+            source: { kind: 'github', owner: 'o', repo: 'r', ref: 'main', commit: 'aaa' },
+          },
           'npm-outdated': { version: '1.0.0', source: { kind: 'npm', package: 'pkg' } },
           'local-skip': { version: '1.0.0', source: { kind: 'local', path: '/x' } },
           'no-source': { version: '1.0.0' },
           'unknown-kind': { version: '1.0.0', source: { kind: 'svn' } },
           // FIX #1: leading-dash values must be skipped WITHOUT invoking the tool.
-          'dash-ref': { version: '0.0.0', source: { kind: 'github', owner: 'o', repo: 'r', ref: '-oops', commit: 'aaa' } },
+          'dash-ref': {
+            version: '0.0.0',
+            source: { kind: 'github', owner: 'o', repo: 'r', ref: '-oops', commit: 'aaa' },
+          },
           'dash-pkg': { version: '1.0.0', source: { kind: 'npm', package: '-evil' } },
         },
       })
@@ -344,7 +384,13 @@ e2e('buildProbeScript end-to-end (stub git/npm)', () => {
         skills: {
           'gh-current': {
             version: '0.0.0',
-            source: { kind: 'github', owner: 'o', repo: 'r', ref: 'main', commit: 'feedface0000000000000000000000000000cafe' },
+            source: {
+              kind: 'github',
+              owner: 'o',
+              repo: 'r',
+              ref: 'main',
+              commit: 'feedface0000000000000000000000000000cafe',
+            },
           },
         },
       })

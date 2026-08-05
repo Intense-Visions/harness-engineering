@@ -1,7 +1,16 @@
 ---
 feature: skill-provider-freshness
 status: proposed
-keywords: [skill-install, skill-provider, freshness, lockfile-provenance, update-nudge, generate-slash-commands, supply-chain-consent]
+keywords:
+  [
+    skill-install,
+    skill-provider,
+    freshness,
+    lockfile-provenance,
+    update-nudge,
+    generate-slash-commands,
+    supply-chain-consent,
+  ]
 strategy_track: external-adoption-flywheel
 ---
 
@@ -12,7 +21,7 @@ strategy_track: external-adoption-flywheel
 External skill providers (e.g. `harness install skills --from github:Intense-Visions/harness-iv --global`)
 are installed once and then go stale silently: the CLI keeps no record of where a
 GitHub-sourced skill came from, so it can never learn the upstream repository changed.
-Separately, a successful install only *prints* a follow-up command
+Separately, a successful install only _prints_ a follow-up command
 (`Run \`harness generate-slash-commands\`…`) instead of offering to run it.
 
 This change closes both gaps for the external-skill-provider lifecycle.
@@ -38,15 +47,15 @@ keeping third-party skill providers fresh is core to that bet.
 
 ## Decisions Made
 
-| # | Decision | Rationale |
-| --- | --- | --- |
-| D1 | Passive nudge **+** on-demand `harness skill update`; **no auto-apply** in v1 | Honors the user's "or at least prompt"; keeps unvetted third-party code from executing without an explicit human "yes". |
-| D2 | Cover **GitHub + npm**; **record-but-skip local** | GitHub is the literal ask; npm `@harness-skills/*` is the other real provider channel; local `--from` has no meaningful upstream. |
-| D3 | Post-install **ask-and-run** `generate-slash-commands`, default `Y`, TTY-gated, with `--generate` / `--no-generate` overrides | Honors "ask and run" without hanging the non-interactive/CI installs the command already supports. |
-| D4 | Extend `LockfileEntry` with a `source` field (original spec + resolved commit/version); bump lockfile to **v2** | GitHub installs currently discard their source (`packages/cli/src/commands/install.ts:209` records `local:<tempdir>`); nothing can be diffed against upstream without this. |
-| D5 | New `packages/cli/src/registry/freshness-checker.ts` mirroring the **structure** of `packages/core/src/update-checker.ts`; own `~/.harness/skill-freshness.json`; respects `HARNESS_NO_UPDATE_CHECK` | Clean separation from the CLI-version hot path; reuses a pattern the team already trusts. Located in the CLI (not core) because lockfile reading is a CLI-domain concern. |
-| D6 | `harness skill update` **confirms per-provider** (`oldSHA → newSHA`) before pulling | Supply-chain safety — the confirm *is* the consent to execute upstream code (enforces D1). |
-| D7 | `harness update` also **surfaces outdated skill providers** and offers to run the update, mirroring `offerIntegrationsSync` / `offerRegeneration` | `harness update` is where users already go to refresh everything harness-related; the freshness check belongs there too, not only in the passive background nudge. |
+| #   | Decision                                                                                                                                                                                             | Rationale                                                                                                                                                                   |
+| --- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| D1  | Passive nudge **+** on-demand `harness skill update`; **no auto-apply** in v1                                                                                                                        | Honors the user's "or at least prompt"; keeps unvetted third-party code from executing without an explicit human "yes".                                                     |
+| D2  | Cover **GitHub + npm**; **record-but-skip local**                                                                                                                                                    | GitHub is the literal ask; npm `@harness-skills/*` is the other real provider channel; local `--from` has no meaningful upstream.                                           |
+| D3  | Post-install **ask-and-run** `generate-slash-commands`, default `Y`, TTY-gated, with `--generate` / `--no-generate` overrides                                                                        | Honors "ask and run" without hanging the non-interactive/CI installs the command already supports.                                                                          |
+| D4  | Extend `LockfileEntry` with a `source` field (original spec + resolved commit/version); bump lockfile to **v2**                                                                                      | GitHub installs currently discard their source (`packages/cli/src/commands/install.ts:209` records `local:<tempdir>`); nothing can be diffed against upstream without this. |
+| D5  | New `packages/cli/src/registry/freshness-checker.ts` mirroring the **structure** of `packages/core/src/update-checker.ts`; own `~/.harness/skill-freshness.json`; respects `HARNESS_NO_UPDATE_CHECK` | Clean separation from the CLI-version hot path; reuses a pattern the team already trusts. Located in the CLI (not core) because lockfile reading is a CLI-domain concern.   |
+| D6  | `harness skill update` **confirms per-provider** (`oldSHA → newSHA`) before pulling                                                                                                                  | Supply-chain safety — the confirm _is_ the consent to execute upstream code (enforces D1).                                                                                  |
+| D7  | `harness update` also **surfaces outdated skill providers** and offers to run the update, mirroring `offerIntegrationsSync` / `offerRegeneration`                                                    | `harness update` is where users already go to refresh everything harness-related; the freshness check belongs there too, not only in the passive background nudge.          |
 
 ## Technical Design
 
@@ -77,7 +86,7 @@ Deterministic `sortedStringify` already handles the nested `source` object. No d
 
 - `cloneGitHubRepo` also runs `git rev-parse HEAD` in the clone dir and returns the resolved SHA.
 - The GitHub ref + commit thread down through `runGitHubInstall → runBulkInstall → runLocalInstall
-  → installSkillDir` via a new optional `source` parameter, so GitHub-sourced entries record
+→ installSkillDir` via a new optional `source` parameter, so GitHub-sourced entries record
   `{ kind: 'github', owner, repo, ref, commit }` instead of `local:<tempdir>`.
 - The npm path in `runInstall` records `{ kind: 'npm', package: packageName, registry? }`.
 - Local `--from` entries record `{ kind: 'local', path }` (recorded, not probed).
@@ -93,10 +102,9 @@ Mirrors the shape of `core/update-checker.ts`:
   lockfile(s), and per eligible `source`:
   - **github** → `git ls-remote <https-url> <ref>` → upstream SHA; `outdated = sha !== source.commit`.
   - **npm** → `npm view <pkg> version` (honoring a custom registry) → `outdated = latest !== version`.
-  Writes `{ lastCheckTime, providers: [{ name, kind, current, latest, outdated }] }` atomically
-  (tmp-file + rename, as update-checker does).
-- `getFreshnessNotification()` → `"N skill provider(s) have updates — run \`harness skill update\`"`
-  or `null`.
+    Writes `{ lastCheckTime, providers: [{ name, kind, current, latest, outdated }] }` atomically
+    (tmp-file + rename, as update-checker does).
+- `getFreshnessNotification()` → `"N skill provider(s) have updates — run \`harness skill update\`"`or`null`.
 
 ### 4. Wiring — `packages/cli/src/bin/harness.ts`
 
@@ -149,29 +157,34 @@ report-only hint pointing at `harness skill update`. Best-effort — never break
 ## Integration Points
 
 **Entry Points**
+
 - New `harness skill update` subcommand.
 - `harness install` gains `--generate` / `--no-generate` flags and post-install ask-and-run.
 - New background freshness check + notification line in `bin/harness.ts`.
 - `harness update` gains an `offerSkillProviderUpdates()` step (D7).
 
 **Registrations Required**
+
 - Register `skill update` in `packages/cli/src/commands/skill/index.ts`.
 - Wire `spawnBackgroundFreshnessCheck` + `getFreshnessNotification` into `bin/harness.ts`.
 - Regenerate generated CLI command docs if applicable.
 
 **Documentation Updates**
+
 - New `docs/knowledge/cli/skill-freshness.md` (freshness-check contract + source provenance).
 - AGENTS.md CLI command list; install/update guide; CHANGELOG.
 
 **Architectural Decisions**
-- One ADR — *"External skill-provider freshness & consent model"* — covering **D1** (nudge-not-auto-apply
+
+- One ADR — _"External skill-provider freshness & consent model"_ — covering **D1** (nudge-not-auto-apply
   consent posture) and **D4** (lockfile v2 + source provenance). Both set durable contracts (on-disk
   format + supply-chain consent) that outlive this change; **D6** is the mechanical enforcement of D1.
   Warrants a standalone ADR because the lockfile format and the "never execute unvetted upstream code
   without explicit consent" posture are cross-cutting commitments future skill-distribution work must honor.
 
 **Knowledge Impact**
-- New concepts: *skill-source provenance* and *freshness-check contract*.
+
+- New concepts: _skill-source provenance_ and _freshness-check contract_.
 - Relationship to the existing update-checker pattern and a `distinct-axis` note against
   `docs/knowledge/cli/skill-provenance.md` (authorship channel, not source freshness).
 
@@ -239,5 +252,5 @@ the probe + re-pull into shared functions. Then wire `offerSkillProviderUpdates(
 
 <!-- complexity: low -->
 
-Write `docs/knowledge/cli/skill-freshness.md`, the ADR *"External skill-provider freshness & consent
-model"*, AGENTS.md command-list entry, and CHANGELOG. Update the install/update guide.
+Write `docs/knowledge/cli/skill-freshness.md`, the ADR _"External skill-provider freshness & consent
+model"_, AGENTS.md command-list entry, and CHANGELOG. Update the install/update guide.

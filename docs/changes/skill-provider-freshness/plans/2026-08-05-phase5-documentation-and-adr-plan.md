@@ -69,9 +69,9 @@ can never learn the upstream source moved on. **Skill-source freshness** closes
 that gap by recording provenance at install time and probing it later.
 
 > **Distinct axis from [`skill-provenance.md`](./skill-provenance.md).** Provenance
-> answers *who authored a skill* (`user-authored` / `agent-proposed` / `community`),
-> stored in `skill.yaml` and used for audit. Freshness answers *where the installed
-> copy came from and whether upstream has changed*, stored in the community
+> answers _who authored a skill_ (`user-authored` / `agent-proposed` / `community`),
+> stored in `skill.yaml` and used for audit. Freshness answers _where the installed
+> copy came from and whether upstream has changed_, stored in the community
 > `skills-lock.json` `source` field. They are orthogonal: a `community`-authored skill
 > and a `github`-sourced install are independent facts about the same skill.
 
@@ -108,11 +108,11 @@ crashing.
 
 A provider is evaluated by `evaluateEntry` (`packages/cli/src/registry/freshness-checker.ts`):
 
-| Source kind | `current` baseline | `latest` probe | `outdated` |
-| --- | --- | --- | --- |
-| `github` | `source.commit` | `git ls-remote <https-url> <ref>` → upstream SHA | `latest != null && latest !== source.commit` |
-| `npm` | entry `version` | `npm view <pkg> version` (honoring `registry`) | `latest != null && latest !== version` |
-| `local` / no source / unknown | — | — | skipped (never probed) |
+| Source kind                   | `current` baseline | `latest` probe                                   | `outdated`                                   |
+| ----------------------------- | ------------------ | ------------------------------------------------ | -------------------------------------------- |
+| `github`                      | `source.commit`    | `git ls-remote <https-url> <ref>` → upstream SHA | `latest != null && latest !== source.commit` |
+| `npm`                         | entry `version`    | `npm view <pkg> version` (honoring `registry`)   | `latest != null && latest !== version`       |
+| `local` / no source / unknown | —                  | —                                                | skipped (never probed)                       |
 
 A failed probe yields `latest === null`, which is **fail-safe**: `outdated` is `false`, so a
 network blip or offline run never triggers a spurious re-pull nor masquerades as "up to date"
@@ -168,7 +168,7 @@ It is best-effort — a freshness error never aborts `update`.
 ## Supply-chain consent posture
 
 The check **nudges but never auto-applies**. Pulling an outdated provider re-executes third-party
-skill content, so the consent gate — a per-provider `(y/N)` confirm defaulting to **No** — *is* the
+skill content, so the consent gate — a per-provider `(y/N)` confirm defaulting to **No** — _is_ the
 authorization to run upstream code. Auto-apply is a deliberately deferred, future config-gated
 opt-in. This posture is the durable contract; its mechanical enforcement lives in the confirm.
 
@@ -206,7 +206,7 @@ opt-in. This posture is the durable contract; its mechanical enforcement lives i
 1. Before writing, re-confirm the next number is free: `ls docs/knowledge/decisions/0083* 2>/dev/null` (expect no match). If taken, use the next free number and update all links.
 2. Create `docs/knowledge/decisions/0083-external-skill-provider-freshness-and-consent-model.md` with exactly this content:
 
-````markdown
+```markdown
 ---
 number: 0083
 title: External skill-provider freshness & consent model
@@ -224,7 +224,7 @@ External skill providers installed via `harness install --from github:owner/repo
 could never detect that a provider's upstream had changed. The external-adoption flywheel
 (`STRATEGY.md`) depends on third-party skill providers staying fresh, which forces two durable,
 cross-cutting commitments: an on-disk format that records enough provenance to diff against
-upstream, and a supply-chain posture for *when* unvetted upstream code is allowed to run. Both
+upstream, and a supply-chain posture for _when_ unvetted upstream code is allowed to run. Both
 outlive this change and must be honored by future skill-distribution work, which is why they are
 captured here rather than left implicit in the code.
 
@@ -243,7 +243,7 @@ destructive rewrite. A v1 (sourceless) entry loads freshness-ineligible and is r
 "reinstall to enable freshness", never crashing. This on-disk format is a durable contract.
 
 **D6 — Per-provider consent is the enforcement of D1.** `harness skill update` confirms each
-outdated provider (`old -> new`, default **N**) before re-pulling. The confirm *is* the consent
+outdated provider (`old -> new`, default **N**) before re-pulling. The confirm _is_ the consent
 to execute upstream code — the mechanical teeth behind D1's posture.
 
 **D7 — `harness update` surfaces freshness too.** `harness update` is where users refresh
@@ -263,9 +263,9 @@ leading-dash guard, `owner/repo`/`ref` separator guards on re-pull, and `MAX_PRO
   all background network probes.
 - **Neutral.** The lockfile format is now versioned (v1 ⇄ v2); consumers reading it directly must
   tolerate both. Auto-apply remains unbuilt by design.
-- **Negative (accepted residual risk).** A custom **npm registry URL** recorded in a *community*
+- **Negative (accepted residual risk).** A custom **npm registry URL** recorded in a _community_
   lockfile becomes an attacker-reachable outbound host during probing: `npm view <pkg> --registry
-  <url>` contacts whatever registry the entry names, so an actor who can plant a lockfile entry
+<url>` contacts whatever registry the entry names, so an actor who can plant a lockfile entry
   can cause a victim's machine to make an outbound request to a host of their choosing on the next
   CLI invocation. This is **accepted** because supporting custom/private registries is a
   first-class, documented install feature that inherently requires probing them. It is mitigated,
@@ -276,7 +276,7 @@ leading-dash guard, `owner/repo`/`ref` separator guards on re-pull, and `MAX_PRO
 See [`docs/knowledge/cli/skill-freshness.md`](../cli/skill-freshness.md) for the full contract and
 [`docs/knowledge/cli/skill-provenance.md`](../cli/skill-provenance.md) for the distinct authorship
 axis.
-````
+```
 
 3. Run: `harness validate`
 4. Commit: `HUSKY=0 git commit` — `docs(adr): 0083 external skill-provider freshness & consent model`
@@ -418,7 +418,7 @@ axis.
 
 ---
 
-### Task 6: Final docs sweep — validate, no-regen, doc-drift  `[checkpoint:human-verify]`
+### Task 6: Final docs sweep — validate, no-regen, doc-drift `[checkpoint:human-verify]`
 
 **Depends on:** Task 1, Task 2, Task 3, Task 4, Task 5 | **Files:** (verification only) | **Category:** integration
 
@@ -442,6 +442,9 @@ axis.
 
 - **Documentation Updates:** knowledge doc → Task 1; AGENTS.md → Task 3; install/update guide → Task 4; CHANGELOG → Task 5.
 - **Architectural Decisions:** the one ADR → Task 2.
-- **Knowledge Impact:** the *skill-source provenance* + *freshness-check contract* concepts and the distinct-axis note → Task 1 (+ Task 2 consequences).
+- **Knowledge Impact:** the _skill-source provenance_ + _freshness-check contract_ concepts and the distinct-axis note → Task 1 (+ Task 2 consequences).
 - **Registrations Required / Entry Points:** already landed in Phases 1–4; the generated `cli-commands.md` was regenerated there (Task 6 verifies no further regen).
-````
+
+```
+
+```

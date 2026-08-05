@@ -13,9 +13,9 @@ can never learn the upstream source moved on. **Skill-source freshness** closes
 that gap by recording provenance at install time and probing it later.
 
 > **Distinct axis from [`skill-provenance.md`](./skill-provenance.md).** Provenance
-> answers *who authored a skill* (`user-authored` / `agent-proposed` / `community`),
-> stored in `skill.yaml` and used for audit. Freshness answers *where the installed
-> copy came from and whether upstream has changed*, stored in the community
+> answers _who authored a skill_ (`user-authored` / `agent-proposed` / `community`),
+> stored in `skill.yaml` and used for audit. Freshness answers _where the installed
+> copy came from and whether upstream has changed_, stored in the community
 > `skills-lock.json` `source` field. They are orthogonal: a `community`-authored skill
 > and a `github`-sourced install are independent facts about the same skill.
 
@@ -52,11 +52,11 @@ crashing.
 
 A provider is evaluated by `evaluateEntry` (`packages/cli/src/registry/freshness-checker.ts`):
 
-| Source kind | `current` baseline | `latest` probe | `outdated` |
-| --- | --- | --- | --- |
-| `github` | `source.commit` | `git ls-remote <https-url> <ref>` → upstream SHA | `latest != null && latest !== source.commit` |
-| `npm` | entry `version` | `npm view <pkg> version` (honoring `registry`) | `latest != null && latest !== version` |
-| `local` / no source / unknown | — | — | skipped (never probed) |
+| Source kind                   | `current` baseline | `latest` probe                                   | `outdated`                                   |
+| ----------------------------- | ------------------ | ------------------------------------------------ | -------------------------------------------- |
+| `github`                      | `source.commit`    | `git ls-remote <https-url> <ref>` → upstream SHA | `latest != null && latest !== source.commit` |
+| `npm`                         | entry `version`    | `npm view <pkg> version` (honoring `registry`)   | `latest != null && latest !== version`       |
+| `local` / no source / unknown | —                  | —                                                | skipped (never probed)                       |
 
 A failed probe yields `latest === null`, which is **fail-safe**: `outdated` is `false`, so a
 network blip or offline run never triggers a spurious re-pull nor masquerades as "up to date"
@@ -112,7 +112,7 @@ It is best-effort — a freshness error never aborts `update`.
 ## Supply-chain consent posture
 
 The check **nudges but never auto-applies**. Pulling an outdated provider re-executes third-party
-skill content, so the consent gate — a `(y/N)` confirm defaulting to **No** — *is* the
+skill content, so the consent gate — a `(y/N)` confirm defaulting to **No** — _is_ the
 authorization to run upstream code. `harness skill update` confirms **per-provider** (default N),
 whereas the `harness update` D7 integration authorizes the whole outdated batch with a **single
 aggregate** confirm (default N) then applies all; both gate before any upstream code runs. Auto-apply

@@ -349,14 +349,14 @@ The spec's Integration Points section covers the whole feature; for **Phase 1** 
 
 ## Verification Trace
 
-| Observable Truth | Task(s) |
-| --- | --- |
-| 1 (shared prompt module) | Task 1 |
-| 2 (update reuses prompt, readline removed) | Task 2 |
-| 3 (flags + tri-state) | Task 3 |
-| 4 (TTY assent runs) | Task 4 |
-| 5 (TTY decline prints hint) | Task 4 |
-| 6 (non-TTY prints hint) | Task 4 |
-| 7 (--generate runs) | Task 4 |
-| 8 (--no-generate suppresses) | Task 4 |
-| 9 (validate + tests pass) | all tasks |
+| Observable Truth                           | Task(s)   |
+| ------------------------------------------ | --------- |
+| 1 (shared prompt module)                   | Task 1    |
+| 2 (update reuses prompt, readline removed) | Task 2    |
+| 3 (flags + tri-state)                      | Task 3    |
+| 4 (TTY assent runs)                        | Task 4    |
+| 5 (TTY decline prints hint)                | Task 4    |
+| 6 (non-TTY prints hint)                    | Task 4    |
+| 7 (--generate runs)                        | Task 4    |
+| 8 (--no-generate suppresses)               | Task 4    |
+| 9 (validate + tests pass)                  | all tasks |

@@ -151,48 +151,106 @@ with exact parity to how installs write them. Correctness is proven by the downs
      beforeEach(() => vi.clearAllMocks());
 
      it('flags a github provider outdated when upstream SHA differs', () => {
-       mockedRead.mockReturnValue(lock({
-         '@harness-skills/gh': { version: '1.0.0', resolved: '', integrity: '', platforms: [], installedAt: '', dependencyOf: null,
-           source: { kind: 'github', owner: 'o', repo: 'r', ref: 'main', commit: 'oldsha' } },
-       }));
+       mockedRead.mockReturnValue(
+         lock({
+           '@harness-skills/gh': {
+             version: '1.0.0',
+             resolved: '',
+             integrity: '',
+             platforms: [],
+             installedAt: '',
+             dependencyOf: null,
+             source: { kind: 'github', owner: 'o', repo: 'r', ref: 'main', commit: 'oldsha' },
+           },
+         })
+       );
        mockedExec.mockReturnValue('newsha\trefs/heads/main\n' as any);
        const { providers } = probeProviders([{ path: '/p', global: false }]);
        expect(providers).toHaveLength(1);
-       expect(providers[0]).toMatchObject({ name: '@harness-skills/gh', kind: 'github', current: 'oldsha', latest: 'newsha', outdated: true, global: false });
+       expect(providers[0]).toMatchObject({
+         name: '@harness-skills/gh',
+         kind: 'github',
+         current: 'oldsha',
+         latest: 'newsha',
+         outdated: true,
+         global: false,
+       });
      });
 
      it('marks a github provider current when SHA matches', () => {
-       mockedRead.mockReturnValue(lock({
-         '@harness-skills/gh': { version: '1.0.0', resolved: '', integrity: '', platforms: [], installedAt: '', dependencyOf: null,
-           source: { kind: 'github', owner: 'o', repo: 'r', ref: 'main', commit: 'samesha' } },
-       }));
+       mockedRead.mockReturnValue(
+         lock({
+           '@harness-skills/gh': {
+             version: '1.0.0',
+             resolved: '',
+             integrity: '',
+             platforms: [],
+             installedAt: '',
+             dependencyOf: null,
+             source: { kind: 'github', owner: 'o', repo: 'r', ref: 'main', commit: 'samesha' },
+           },
+         })
+       );
        mockedExec.mockReturnValue('samesha\trefs/heads/main\n' as any);
        expect(probeProviders([{ path: '/p', global: false }]).providers[0].outdated).toBe(false);
      });
 
      it('flags an npm provider outdated when latest version differs', () => {
-       mockedRead.mockReturnValue(lock({
-         '@harness-skills/n': { version: '1.0.0', resolved: '', integrity: '', platforms: [], installedAt: '', dependencyOf: null,
-           source: { kind: 'npm', package: '@harness-skills/n' } },
-       }));
+       mockedRead.mockReturnValue(
+         lock({
+           '@harness-skills/n': {
+             version: '1.0.0',
+             resolved: '',
+             integrity: '',
+             platforms: [],
+             installedAt: '',
+             dependencyOf: null,
+             source: { kind: 'npm', package: '@harness-skills/n' },
+           },
+         })
+       );
        mockedExec.mockReturnValue('2.0.0\n' as any);
        const p = probeProviders([{ path: '/p', global: true }]).providers[0];
-       expect(p).toMatchObject({ kind: 'npm', current: '1.0.0', latest: '2.0.0', outdated: true, global: true });
+       expect(p).toMatchObject({
+         kind: 'npm',
+         current: '1.0.0',
+         latest: '2.0.0',
+         outdated: true,
+         global: true,
+       });
      });
 
      it('marks an npm provider current when version matches', () => {
-       mockedRead.mockReturnValue(lock({
-         '@harness-skills/n': { version: '2.0.0', resolved: '', integrity: '', platforms: [], installedAt: '', dependencyOf: null,
-           source: { kind: 'npm', package: '@harness-skills/n' } },
-       }));
+       mockedRead.mockReturnValue(
+         lock({
+           '@harness-skills/n': {
+             version: '2.0.0',
+             resolved: '',
+             integrity: '',
+             platforms: [],
+             installedAt: '',
+             dependencyOf: null,
+             source: { kind: 'npm', package: '@harness-skills/n' },
+           },
+         })
+       );
        mockedExec.mockReturnValue('2.0.0\n' as any);
        expect(probeProviders([{ path: '/p', global: false }]).providers[0].outdated).toBe(false);
      });
 
      it('reports a sourceless (legacy v1) entry instead of probing it', () => {
-       mockedRead.mockReturnValue(lock({
-         '@harness-skills/old': { version: '1.0.0', resolved: '', integrity: '', platforms: [], installedAt: '', dependencyOf: null },
-       }));
+       mockedRead.mockReturnValue(
+         lock({
+           '@harness-skills/old': {
+             version: '1.0.0',
+             resolved: '',
+             integrity: '',
+             platforms: [],
+             installedAt: '',
+             dependencyOf: null,
+           },
+         })
+       );
        const { providers, sourceless } = probeProviders([{ path: '/p', global: false }]);
        expect(providers).toHaveLength(0);
        expect(sourceless).toEqual([{ name: '@harness-skills/old', global: false }]);
@@ -200,10 +258,28 @@ with exact parity to how installs write them. Correctness is proven by the downs
      });
 
      it('silently skips local and unrecognized-kind entries', () => {
-       mockedRead.mockReturnValue(lock({
-         '@harness-skills/local': { version: '1.0.0', resolved: '', integrity: '', platforms: [], installedAt: '', dependencyOf: null, source: { kind: 'local', path: '/x' } },
-         '@harness-skills/weird': { version: '1.0.0', resolved: '', integrity: '', platforms: [], installedAt: '', dependencyOf: null, source: { kind: 'svn' } as any },
-       }));
+       mockedRead.mockReturnValue(
+         lock({
+           '@harness-skills/local': {
+             version: '1.0.0',
+             resolved: '',
+             integrity: '',
+             platforms: [],
+             installedAt: '',
+             dependencyOf: null,
+             source: { kind: 'local', path: '/x' },
+           },
+           '@harness-skills/weird': {
+             version: '1.0.0',
+             resolved: '',
+             integrity: '',
+             platforms: [],
+             installedAt: '',
+             dependencyOf: null,
+             source: { kind: 'svn' } as any,
+           },
+         })
+       );
        const { providers, sourceless } = probeProviders([{ path: '/p', global: false }]);
        expect(providers).toHaveLength(0);
        expect(sourceless).toHaveLength(0);
@@ -211,10 +287,19 @@ with exact parity to how installs write them. Correctness is proven by the downs
      });
 
      it('skips a github entry whose source field starts with a dash (unsafe)', () => {
-       mockedRead.mockReturnValue(lock({
-         '@harness-skills/bad': { version: '1.0.0', resolved: '', integrity: '', platforms: [], installedAt: '', dependencyOf: null,
-           source: { kind: 'github', owner: '-o', repo: 'r', ref: 'main', commit: 'x' } },
-       }));
+       mockedRead.mockReturnValue(
+         lock({
+           '@harness-skills/bad': {
+             version: '1.0.0',
+             resolved: '',
+             integrity: '',
+             platforms: [],
+             installedAt: '',
+             dependencyOf: null,
+             source: { kind: 'github', owner: '-o', repo: 'r', ref: 'main', commit: 'x' },
+           },
+         })
+       );
        const p = probeProviders([{ path: '/p', global: false }]).providers;
        expect(p[0]).toMatchObject({ outdated: false, latest: null }); // probe refused -> null -> fail-safe
        expect(mockedExec).not.toHaveBeenCalled();
@@ -267,12 +352,15 @@ with exact parity to how installs write them. Correctness is proven by the downs
    }
 
    function probeGitHub(source: Extract<SkillSource, { kind: 'github' }>): string | null {
-     if (hasLeadingDash(source.owner) || hasLeadingDash(source.repo) || hasLeadingDash(source.ref)) return null;
+     if (hasLeadingDash(source.owner) || hasLeadingDash(source.repo) || hasLeadingDash(source.ref))
+       return null;
      try {
        const url = `https://github.com/${source.owner}/${source.repo}.git`;
        const ref = source.ref || 'HEAD';
        const out = execFileSync('git', ['ls-remote', url, ref], {
-         encoding: 'utf-8', timeout: 15000, stdio: ['ignore', 'pipe', 'ignore'],
+         encoding: 'utf-8',
+         timeout: 15000,
+         stdio: ['ignore', 'pipe', 'ignore'],
        }).trim();
        return out ? (out.split(/\s+/)[0] ?? null) : null;
      } catch {
@@ -286,7 +374,9 @@ with exact parity to how installs write them. Correctness is proven by the downs
        const args = ['view', source.package, 'version'];
        if (source.registry) args.push('--registry', source.registry);
        const latest = execFileSync('npm', args, {
-         encoding: 'utf-8', timeout: 15000, stdio: ['ignore', 'pipe', 'ignore'],
+         encoding: 'utf-8',
+         timeout: 15000,
+         stdio: ['ignore', 'pipe', 'ignore'],
        }).trim();
        return latest || null;
      } catch {
@@ -343,7 +433,10 @@ with exact parity to how installs write them. Correctness is proven by the downs
    ```ts
    vi.mock('../../../src/commands/install', async (importOriginal) => {
      const actual = await importOriginal<typeof import('../../../src/commands/install')>();
-     return { ...actual, runInstall: vi.fn().mockResolvedValue({ installed: true, name: 'x', version: '1' }) };
+     return {
+       ...actual,
+       runInstall: vi.fn().mockResolvedValue({ installed: true, name: 'x', version: '1' }),
+     };
    });
    vi.mock('../../../src/output/prompt', () => ({ prompt: vi.fn() }));
    ```
@@ -353,40 +446,75 @@ with exact parity to how installs write them. Correctness is proven by the downs
    ```ts
    import { runInstall } from '../../../src/commands/install';
    import { prompt } from '../../../src/output/prompt';
-   import { updateProviders, type ProbedProvider } from '../../../src/commands/skill/provider-update';
+   import {
+     updateProviders,
+     type ProbedProvider,
+   } from '../../../src/commands/skill/provider-update';
 
    const mockedInstall = vi.mocked(runInstall);
    const mockedPrompt = vi.mocked(prompt);
 
-   const gh: ProbedProvider = { name: '@harness-skills/gh', kind: 'github', current: 'old', latest: 'new', outdated: true, global: false, source: { kind: 'github', owner: 'o', repo: 'r', ref: 'main', commit: 'old' } };
-   const npm: ProbedProvider = { name: '@harness-skills/n', kind: 'npm', current: '1.0.0', latest: '2.0.0', outdated: true, global: true, source: { kind: 'npm', package: '@harness-skills/n' } };
+   const gh: ProbedProvider = {
+     name: '@harness-skills/gh',
+     kind: 'github',
+     current: 'old',
+     latest: 'new',
+     outdated: true,
+     global: false,
+     source: { kind: 'github', owner: 'o', repo: 'r', ref: 'main', commit: 'old' },
+   };
+   const npm: ProbedProvider = {
+     name: '@harness-skills/n',
+     kind: 'npm',
+     current: '1.0.0',
+     latest: '2.0.0',
+     outdated: true,
+     global: true,
+     source: { kind: 'npm', package: '@harness-skills/n' },
+   };
 
    describe('updateProviders', () => {
      beforeEach(() => vi.clearAllMocks());
 
      it('re-pulls a github provider via a reconstructed from-spec with force', async () => {
        await updateProviders([gh], { yes: true });
-       expect(mockedInstall).toHaveBeenCalledWith('@harness-skills/gh',
-         expect.objectContaining({ from: 'github:o/r#main', force: true, global: false, generate: false }));
+       expect(mockedInstall).toHaveBeenCalledWith(
+         '@harness-skills/gh',
+         expect.objectContaining({
+           from: 'github:o/r#main',
+           force: true,
+           global: false,
+           generate: false,
+         })
+       );
      });
 
      it('re-pulls an npm provider by package name with force', async () => {
        await updateProviders([npm], { yes: true });
-       expect(mockedInstall).toHaveBeenCalledWith('@harness-skills/n',
-         expect.objectContaining({ force: true, global: true, generate: false }));
+       expect(mockedInstall).toHaveBeenCalledWith(
+         '@harness-skills/n',
+         expect.objectContaining({ force: true, global: true, generate: false })
+       );
      });
 
      it('omits the "#HEAD" ref when reconstructing a HEAD-tracking github spec', async () => {
        const head = { ...gh, source: { ...gh.source, ref: 'HEAD' } } as ProbedProvider;
        await updateProviders([head], { yes: true });
-       expect(mockedInstall).toHaveBeenCalledWith('@harness-skills/gh', expect.objectContaining({ from: 'github:o/r' }));
+       expect(mockedInstall).toHaveBeenCalledWith(
+         '@harness-skills/gh',
+         expect.objectContaining({ from: 'github:o/r' })
+       );
      });
 
      it('confirms per provider (default N) and skips on decline', async () => {
        mockedPrompt.mockResolvedValue('n');
        const out = await updateProviders([gh]);
        expect(mockedInstall).not.toHaveBeenCalled();
-       expect(out[0]).toMatchObject({ name: '@harness-skills/gh', updated: false, skipped: 'declined' });
+       expect(out[0]).toMatchObject({
+         name: '@harness-skills/gh',
+         updated: false,
+         skipped: 'declined',
+       });
      });
 
      it('re-pulls on affirmative confirmation', async () => {
@@ -396,14 +524,19 @@ with exact parity to how installs write them. Correctness is proven by the downs
      });
 
      it('skips a provider whose reconstructed source is unsafe (leading dash)', async () => {
-       const bad = { ...gh, source: { kind: 'github', owner: '-o', repo: 'r', ref: 'main', commit: 'old' } } as ProbedProvider;
+       const bad = {
+         ...gh,
+         source: { kind: 'github', owner: '-o', repo: 'r', ref: 'main', commit: 'old' },
+       } as ProbedProvider;
        const out = await updateProviders([bad], { yes: true });
        expect(mockedInstall).not.toHaveBeenCalled();
        expect(out[0]).toMatchObject({ updated: false, skipped: 'unsafe' });
      });
 
      it('logs and continues when one provider re-pull throws (no abort)', async () => {
-       mockedInstall.mockRejectedValueOnce(new Error('boom')).mockResolvedValueOnce({ installed: true, name: 'x', version: '2' } as any);
+       mockedInstall
+         .mockRejectedValueOnce(new Error('boom'))
+         .mockResolvedValueOnce({ installed: true, name: 'x', version: '2' } as any);
        const out = await updateProviders([gh, npm], { yes: true });
        expect(out[0]).toMatchObject({ name: '@harness-skills/gh', updated: false });
        expect(out[1]).toMatchObject({ name: '@harness-skills/n', updated: true });
@@ -427,7 +560,8 @@ with exact parity to how installs write them. Correctness is proven by the downs
 
    /** Reconstruct the `--from` spec for a github source (null if unsafe). */
    function reconstructGitHubSpec(source: Extract<SkillSource, { kind: 'github' }>): string | null {
-     if (hasLeadingDash(source.owner) || hasLeadingDash(source.repo) || hasLeadingDash(source.ref)) return null;
+     if (hasLeadingDash(source.owner) || hasLeadingDash(source.repo) || hasLeadingDash(source.ref))
+       return null;
      const ref = source.ref && source.ref !== 'HEAD' ? `#${source.ref}` : '';
      return `github:${source.owner}/${source.repo}${ref}`;
    }
@@ -447,7 +581,9 @@ with exact parity to how installs write them. Correctness is proven by the downs
      const outcomes: UpdateOutcome[] = [];
      for (const p of outdated) {
        if (!opts.yes) {
-         const answer = await prompt(`Update ${p.name} (${p.current} -> ${p.latest}) — proceed? (y/N) `);
+         const answer = await prompt(
+           `Update ${p.name} (${p.current} -> ${p.latest}) — proceed? (y/N) `
+         );
          if (answer !== 'y' && answer !== 'yes') {
            outcomes.push({ name: p.name, updated: false, skipped: 'declined' });
            continue;
@@ -477,7 +613,9 @@ with exact parity to how installs write them. Correctness is proven by the downs
          }
          outcomes.push({ name: p.name, updated: true });
        } catch (err) {
-         logger.warn(`Failed to update ${p.name}: ${err instanceof Error ? err.message : String(err)}`);
+         logger.warn(
+           `Failed to update ${p.name}: ${err instanceof Error ? err.message : String(err)}`
+         );
          outcomes.push({ name: p.name, updated: false });
        }
      }
@@ -508,7 +646,13 @@ with exact parity to how installs write them. Correctness is proven by the downs
    }));
    vi.mock('../../src/commands/install', async (importOriginal) => {
      const actual = await importOriginal<typeof import('../../src/commands/install')>();
-     return { ...actual, resolveCommunityBase: vi.fn(() => ({ communityBase: '/c', lockfilePath: '/c/skills-lock.json' })) };
+     return {
+       ...actual,
+       resolveCommunityBase: vi.fn(() => ({
+         communityBase: '/c',
+         lockfilePath: '/c/skills-lock.json',
+       })),
+     };
    });
 
    import { probeProviders, updateProviders } from '../../src/commands/skill/provider-update';
@@ -518,21 +662,46 @@ with exact parity to how installs write them. Correctness is proven by the downs
    const mockedProbe = vi.mocked(probeProviders);
    const mockedUpdate = vi.mocked(updateProviders);
 
-   const outdatedGh = { name: '@harness-skills/gh', kind: 'github', current: 'old', latest: 'new', outdated: true, global: false, source: { kind: 'github', owner: 'o', repo: 'r', ref: 'main', commit: 'old' } } as any;
-   const currentNpm = { name: '@harness-skills/n', kind: 'npm', current: '1', latest: '1', outdated: false, global: true, source: { kind: 'npm', package: '@harness-skills/n' } } as any;
+   const outdatedGh = {
+     name: '@harness-skills/gh',
+     kind: 'github',
+     current: 'old',
+     latest: 'new',
+     outdated: true,
+     global: false,
+     source: { kind: 'github', owner: 'o', repo: 'r', ref: 'main', commit: 'old' },
+   } as any;
+   const currentNpm = {
+     name: '@harness-skills/n',
+     kind: 'npm',
+     current: '1',
+     latest: '1',
+     outdated: false,
+     global: true,
+     source: { kind: 'npm', package: '@harness-skills/n' },
+   } as any;
 
    let exitSpy: any;
    let logSpy: any;
    beforeEach(() => {
      vi.clearAllMocks();
-     exitSpy = vi.spyOn(process, 'exit').mockImplementation(((c?: number) => { throw new Error(`exit:${c}`); }) as any);
+     exitSpy = vi.spyOn(process, 'exit').mockImplementation(((c?: number) => {
+       throw new Error(`exit:${c}`);
+     }) as any);
      logSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
    });
-   afterEach(() => { exitSpy.mockRestore(); logSpy.mockRestore(); });
+   afterEach(() => {
+     exitSpy.mockRestore();
+     logSpy.mockRestore();
+   });
 
    async function run(args: string[]) {
      const cmd = createUpdateCommand();
-     try { await cmd.parseAsync(['node', 'skill-update', ...args]); } catch (e) { return String((e as Error).message); }
+     try {
+       await cmd.parseAsync(['node', 'skill-update', ...args]);
+     } catch (e) {
+       return String((e as Error).message);
+     }
      return null;
    }
 
@@ -553,7 +722,10 @@ with exact parity to how installs write them. Correctness is proven by the downs
      });
 
      it('reports sourceless entries without crashing', async () => {
-       mockedProbe.mockReturnValue({ providers: [], sourceless: [{ name: '@harness-skills/old', global: false }] });
+       mockedProbe.mockReturnValue({
+         providers: [],
+         sourceless: [{ name: '@harness-skills/old', global: false }],
+       });
        await run([]);
        const out = logSpy.mock.calls.map((c: any[]) => String(c[0] ?? '')).join('\n');
        expect(out.toLowerCase()).toContain('source unknown');
@@ -630,7 +802,9 @@ with exact parity to how installs write them. Correctness is proven by the downs
 
    export function createUpdateCommand(): Command {
      return new Command('update')
-       .description('Check and update external skill providers (github/npm) to their latest upstream')
+       .description(
+         'Check and update external skill providers (github/npm) to their latest upstream'
+       )
        .argument('[name]', 'Only consider the provider with this short name')
        .option('--check', 'Report only; exit non-zero if any provider is outdated')
        .option('--global', 'Operate on the global (~/.harness) skill lockfile only')
@@ -710,7 +884,13 @@ with exact parity to how installs write them. Correctness is proven by the downs
    vi.mock('../../src/output/prompt', () => ({ prompt: vi.fn() }));
    vi.mock('../../src/commands/install', async (importOriginal) => {
      const actual = await importOriginal<typeof import('../../src/commands/install')>();
-     return { ...actual, resolveCommunityBase: vi.fn(() => ({ communityBase: '/c', lockfilePath: '/c/skills-lock.json' })) };
+     return {
+       ...actual,
+       resolveCommunityBase: vi.fn(() => ({
+         communityBase: '/c',
+         lockfilePath: '/c/skills-lock.json',
+       })),
+     };
    });
 
    import { probeProviders, updateProviders } from '../../src/commands/skill/provider-update';
@@ -720,7 +900,15 @@ with exact parity to how installs write them. Correctness is proven by the downs
    const mockedProbe = vi.mocked(probeProviders);
    const mockedUpdate = vi.mocked(updateProviders);
    const mockedPrompt = vi.mocked(prompt);
-   const outdated = { name: '@harness-skills/gh', kind: 'github', current: 'old', latest: 'new', outdated: true, global: false, source: { kind: 'github', owner: 'o', repo: 'r', ref: 'main', commit: 'old' } } as any;
+   const outdated = {
+     name: '@harness-skills/gh',
+     kind: 'github',
+     current: 'old',
+     latest: 'new',
+     outdated: true,
+     global: false,
+     source: { kind: 'github', owner: 'o', repo: 'r', ref: 'main', commit: 'old' },
+   } as any;
 
    let logSpy: any;
    const origTtyOut = process.stdout.isTTY;
@@ -746,7 +934,10 @@ with exact parity to how installs write them. Correctness is proven by the downs
 
    describe('offerSkillProviderUpdates', () => {
      it('stays silent when nothing is outdated', async () => {
-       mockedProbe.mockReturnValue({ providers: [{ ...outdated, outdated: false }], sourceless: [] });
+       mockedProbe.mockReturnValue({
+         providers: [{ ...outdated, outdated: false }],
+         sourceless: [],
+       });
        await offerSkillProviderUpdates();
        expect(mockedUpdate).not.toHaveBeenCalled();
      });
@@ -788,7 +979,9 @@ with exact parity to how installs write them. Correctness is proven by the downs
      });
 
      it('never throws when the probe fails (does not abort update)', async () => {
-       mockedProbe.mockImplementation(() => { throw new Error('probe boom'); });
+       mockedProbe.mockImplementation(() => {
+         throw new Error('probe boom');
+       });
        await expect(offerSkillProviderUpdates()).resolves.toBeUndefined();
      });
    });

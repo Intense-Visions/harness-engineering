@@ -79,7 +79,10 @@ function validateSkillYaml(parsed: unknown): SkillYaml {
  * --global installs to ~/.harness/skills/community/ (available to all projects).
  * Otherwise installs to the project-level agents/skills/community/.
  */
-export function resolveCommunityBase(global: boolean): { communityBase: string; lockfilePath: string } {
+export function resolveCommunityBase(global: boolean): {
+  communityBase: string;
+  lockfilePath: string;
+} {
   if (global) {
     const communityBase = resolveGlobalCommunityBaseDir();
     return { communityBase, lockfilePath: path.join(communityBase, 'skills-lock.json') };
@@ -114,7 +117,11 @@ function parseGitHubRef(from: string): { owner: string; repo: string; ref: strin
  * Clone a GitHub repo to a temp directory (shallow clone).
  * Returns the path to the cloned directory and the resolved commit SHA.
  */
-function cloneGitHubRepo(owner: string, repo: string, ref: string): { dir: string; commit: string } {
+function cloneGitHubRepo(
+  owner: string,
+  repo: string,
+  ref: string
+): { dir: string; commit: string } {
   const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'harness-gh-install-'));
   const url = `https://github.com/${owner}/${repo}.git`;
 

@@ -15,7 +15,7 @@ External skill providers installed via `harness install --from github:owner/repo
 could never detect that a provider's upstream had changed. The external-adoption flywheel
 (`STRATEGY.md`) depends on third-party skill providers staying fresh, which forces two durable,
 cross-cutting commitments: an on-disk format that records enough provenance to diff against
-upstream, and a supply-chain posture for *when* unvetted upstream code is allowed to run. Both
+upstream, and a supply-chain posture for _when_ unvetted upstream code is allowed to run. Both
 outlive this change and must be honored by future skill-distribution work, which is why they are
 captured here rather than left implicit in the code.
 
@@ -34,7 +34,7 @@ destructive rewrite. A v1 (sourceless) entry loads freshness-ineligible and is r
 "reinstall to enable freshness", never crashing. This on-disk format is a durable contract.
 
 **D6 — Per-provider consent is the enforcement of D1.** `harness skill update` confirms each
-outdated provider (`old -> new`, default **N**) before re-pulling. The confirm *is* the consent
+outdated provider (`old -> new`, default **N**) before re-pulling. The confirm _is_ the consent
 to execute upstream code — the mechanical teeth behind D1's posture.
 
 **D7 — `harness update` surfaces freshness too.** `harness update` is where users refresh
@@ -54,7 +54,7 @@ leading-dash guard, `owner/repo`/`ref` separator guards on re-pull, and `MAX_PRO
   all background network probes.
 - **Neutral.** The lockfile format is now versioned (v1 ⇄ v2); consumers reading it directly must
   tolerate both. Auto-apply remains unbuilt by design.
-- **Negative (accepted residual risk).** A custom **npm registry URL** recorded in a *community*
+- **Negative (accepted residual risk).** A custom **npm registry URL** recorded in a _community_
   lockfile becomes an attacker-reachable outbound host during probing: `npm view <pkg> --registry <url>`
   contacts whatever registry the entry names, so an actor who can plant a lockfile entry
   can cause a victim's machine to make an outbound request to a host of their choosing on the next

@@ -67,12 +67,15 @@ function refHasInjectionChar(v: string | undefined): boolean {
 }
 
 function probeGitHub(source: Extract<SkillSource, { kind: 'github' }>): string | null {
-  if (hasLeadingDash(source.owner) || hasLeadingDash(source.repo) || hasLeadingDash(source.ref)) return null;
+  if (hasLeadingDash(source.owner) || hasLeadingDash(source.repo) || hasLeadingDash(source.ref))
+    return null;
   try {
     const url = `https://github.com/${source.owner}/${source.repo}.git`;
     const ref = source.ref || 'HEAD';
     const out = execFileSync('git', ['ls-remote', url, ref], {
-      encoding: 'utf-8', timeout: 15000, stdio: ['ignore', 'pipe', 'ignore'],
+      encoding: 'utf-8',
+      timeout: 15000,
+      stdio: ['ignore', 'pipe', 'ignore'],
     }).trim();
     return out ? (out.split(/\s+/)[0] ?? null) : null;
   } catch {
@@ -86,7 +89,9 @@ function probeNpm(source: Extract<SkillSource, { kind: 'npm' }>): string | null 
     const args = ['view', source.package, 'version'];
     if (source.registry) args.push('--registry', source.registry);
     const latest = execFileSync('npm', args, {
-      encoding: 'utf-8', timeout: 15000, stdio: ['ignore', 'pipe', 'ignore'],
+      encoding: 'utf-8',
+      timeout: 15000,
+      stdio: ['ignore', 'pipe', 'ignore'],
     }).trim();
     return latest || null;
   } catch {
@@ -151,7 +156,8 @@ export interface UpdateOutcome {
 
 /** Reconstruct the `--from` spec for a github source (null if unsafe). */
 function reconstructGitHubSpec(source: Extract<SkillSource, { kind: 'github' }>): string | null {
-  if (hasLeadingDash(source.owner) || hasLeadingDash(source.repo) || hasLeadingDash(source.ref)) return null;
+  if (hasLeadingDash(source.owner) || hasLeadingDash(source.repo) || hasLeadingDash(source.ref))
+    return null;
   // Defense-in-depth: reject embedded spec delimiters so the reconstructed
   // spec can't round-trip to a different owner/repo/ref. Field-specific — a
   // slash-containing branch ref (e.g. `feature/foo`) is legitimate and round-
@@ -182,7 +188,9 @@ export async function updateProviders(
   const outcomes: UpdateOutcome[] = [];
   for (const p of outdated) {
     if (!opts.yes) {
-      const answer = await prompt(`Update ${p.name} (${p.current} -> ${p.latest}) — proceed? (y/N) `);
+      const answer = await prompt(
+        `Update ${p.name} (${p.current} -> ${p.latest}) — proceed? (y/N) `
+      );
       if (answer !== 'y' && answer !== 'yes') {
         outcomes.push({ name: p.name, updated: false, skipped: 'declined' });
         continue;
@@ -212,7 +220,9 @@ export async function updateProviders(
       }
       outcomes.push({ name: p.name, updated: true });
     } catch (err) {
-      logger.warn(`Failed to update ${p.name}: ${err instanceof Error ? err.message : String(err)}`);
+      logger.warn(
+        `Failed to update ${p.name}: ${err instanceof Error ? err.message : String(err)}`
+      );
       outcomes.push({ name: p.name, updated: false });
     }
   }

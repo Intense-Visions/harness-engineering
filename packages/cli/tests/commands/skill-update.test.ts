@@ -6,7 +6,13 @@ vi.mock('../../src/commands/skill/provider-update', () => ({
 }));
 vi.mock('../../src/commands/install', async (importOriginal) => {
   const actual = await importOriginal<typeof import('../../src/commands/install')>();
-  return { ...actual, resolveCommunityBase: vi.fn(() => ({ communityBase: '/c', lockfilePath: '/c/skills-lock.json' })) };
+  return {
+    ...actual,
+    resolveCommunityBase: vi.fn(() => ({
+      communityBase: '/c',
+      lockfilePath: '/c/skills-lock.json',
+    })),
+  };
 });
 
 import { probeProviders, updateProviders } from '../../src/commands/skill/provider-update';
@@ -16,26 +22,61 @@ import { createSkillCommand } from '../../src/commands/skill/index';
 const mockedProbe = vi.mocked(probeProviders);
 const mockedUpdate = vi.mocked(updateProviders);
 
-const outdatedGh = { name: '@harness-skills/gh', kind: 'github', current: 'old', latest: 'new', outdated: true, global: false, source: { kind: 'github', owner: 'o', repo: 'r', ref: 'main', commit: 'old' } } as any;
-const currentNpm = { name: '@harness-skills/n', kind: 'npm', current: '1', latest: '1', outdated: false, global: true, source: { kind: 'npm', package: '@harness-skills/n' } } as any;
+const outdatedGh = {
+  name: '@harness-skills/gh',
+  kind: 'github',
+  current: 'old',
+  latest: 'new',
+  outdated: true,
+  global: false,
+  source: { kind: 'github', owner: 'o', repo: 'r', ref: 'main', commit: 'old' },
+} as any;
+const currentNpm = {
+  name: '@harness-skills/n',
+  kind: 'npm',
+  current: '1',
+  latest: '1',
+  outdated: false,
+  global: true,
+  source: { kind: 'npm', package: '@harness-skills/n' },
+} as any;
 // A provider whose upstream probe failed (offline/CI): latest === null. Fail-safe:
 // never outdated, never auto-repulled — but must render distinctly, not "up to date".
-const uncheckedGh = { name: '@harness-skills/u', kind: 'github', current: 'abc123', latest: null, outdated: false, global: false, source: { kind: 'github', owner: 'o', repo: 'u', ref: 'main', commit: 'abc123' } } as any;
+const uncheckedGh = {
+  name: '@harness-skills/u',
+  kind: 'github',
+  current: 'abc123',
+  latest: null,
+  outdated: false,
+  global: false,
+  source: { kind: 'github', owner: 'o', repo: 'u', ref: 'main', commit: 'abc123' },
+} as any;
 
-function out() { return logSpy.mock.calls.map((c: any[]) => c.map((x) => String(x)).join(' ')).join('\n'); }
+function out() {
+  return logSpy.mock.calls.map((c: any[]) => c.map((x) => String(x)).join(' ')).join('\n');
+}
 
 let exitSpy: any;
 let logSpy: any;
 beforeEach(() => {
   vi.clearAllMocks();
-  exitSpy = vi.spyOn(process, 'exit').mockImplementation(((c?: number) => { throw new Error(`exit:${c}`); }) as any);
+  exitSpy = vi.spyOn(process, 'exit').mockImplementation(((c?: number) => {
+    throw new Error(`exit:${c}`);
+  }) as any);
   logSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
 });
-afterEach(() => { exitSpy.mockRestore(); logSpy.mockRestore(); });
+afterEach(() => {
+  exitSpy.mockRestore();
+  logSpy.mockRestore();
+});
 
 async function run(args: string[]) {
   const cmd = createUpdateCommand();
-  try { await cmd.parseAsync(['node', 'skill-update', ...args]); } catch (e) { return String((e as Error).message); }
+  try {
+    await cmd.parseAsync(['node', 'skill-update', ...args]);
+  } catch (e) {
+    return String((e as Error).message);
+  }
   return null;
 }
 
@@ -56,7 +97,10 @@ describe('harness skill update', () => {
   });
 
   it('reports sourceless entries without crashing', async () => {
-    mockedProbe.mockReturnValue({ providers: [], sourceless: [{ name: '@harness-skills/old', global: false }] });
+    mockedProbe.mockReturnValue({
+      providers: [],
+      sourceless: [{ name: '@harness-skills/old', global: false }],
+    });
     await run([]);
     const out = logSpy.mock.calls.map((c: any[]) => c.map((x) => String(x)).join(' ')).join('\n');
     expect(out.toLowerCase()).toContain('source unknown');

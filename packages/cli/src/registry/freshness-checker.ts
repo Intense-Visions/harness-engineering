@@ -52,7 +52,8 @@ function isValidProvider(p: unknown): p is FreshnessProvider {
     typeof (p as FreshnessProvider).name === 'string' &&
     ((p as FreshnessProvider).kind === 'github' || (p as FreshnessProvider).kind === 'npm') &&
     typeof (p as FreshnessProvider).current === 'string' &&
-    (typeof (p as FreshnessProvider).latest === 'string' || (p as FreshnessProvider).latest === null) &&
+    (typeof (p as FreshnessProvider).latest === 'string' ||
+      (p as FreshnessProvider).latest === null) &&
     typeof (p as FreshnessProvider).outdated === 'boolean'
   );
 }
@@ -98,7 +99,10 @@ export function writeFreshnessState(state: FreshnessState): void {
   const statePath = getStatePath();
   const stateDir = path.dirname(statePath);
   fs.mkdirSync(stateDir, { recursive: true });
-  const tmpFile = path.join(stateDir, '.skill-freshness-' + crypto.randomBytes(4).toString('hex') + '.tmp');
+  const tmpFile = path.join(
+    stateDir,
+    '.skill-freshness-' + crypto.randomBytes(4).toString('hex') + '.tmp'
+  );
   fs.writeFileSync(tmpFile, JSON.stringify(state), { mode: 0o644 });
   fs.renameSync(tmpFile, statePath);
 }
@@ -147,10 +151,22 @@ export function evaluateEntry(
 ): FreshnessProvider | null {
   if (!source) return null;
   if (source.kind === 'github') {
-    return { name, kind: 'github', current: source.commit, latest, outdated: latest != null && latest !== source.commit };
+    return {
+      name,
+      kind: 'github',
+      current: source.commit,
+      latest,
+      outdated: latest != null && latest !== source.commit,
+    };
   }
   if (source.kind === 'npm') {
-    return { name, kind: 'npm', current: entryVersion, latest, outdated: latest != null && latest !== entryVersion };
+    return {
+      name,
+      kind: 'npm',
+      current: entryVersion,
+      latest,
+      outdated: latest != null && latest !== entryVersion,
+    };
   }
   return null; // local or unrecognized kind
 }
@@ -202,7 +218,11 @@ export const PROBE_BUDGET_MS = 120_000;
  * a failure. Uses execFileSync (argument arrays, no shell) so lockfile-sourced
  * strings are never shell-interpolated.
  */
-export function buildProbeScript(lockfilePaths: string[], statePath: string, stateDir: string): string {
+export function buildProbeScript(
+  lockfilePaths: string[],
+  statePath: string,
+  stateDir: string
+): string {
   return `
 const { execFileSync } = require('child_process');
 const fs = require('fs');

@@ -7,7 +7,13 @@ vi.mock('../../src/commands/skill/provider-update', () => ({
 vi.mock('../../src/output/prompt', () => ({ prompt: vi.fn() }));
 vi.mock('../../src/commands/install', async (importOriginal) => {
   const actual = await importOriginal<typeof import('../../src/commands/install')>();
-  return { ...actual, resolveCommunityBase: vi.fn(() => ({ communityBase: '/c', lockfilePath: '/c/skills-lock.json' })) };
+  return {
+    ...actual,
+    resolveCommunityBase: vi.fn(() => ({
+      communityBase: '/c',
+      lockfilePath: '/c/skills-lock.json',
+    })),
+  };
 });
 vi.mock('node:fs', async (importOriginal) => {
   const actual = await importOriginal<typeof import('node:fs')>();
@@ -23,7 +29,15 @@ const mockedProbe = vi.mocked(probeProviders);
 const mockedUpdate = vi.mocked(updateProviders);
 const mockedPrompt = vi.mocked(prompt);
 const mockedExists = vi.mocked(existsSync);
-const outdated = { name: '@harness-skills/gh', kind: 'github', current: 'old', latest: 'new', outdated: true, global: false, source: { kind: 'github', owner: 'o', repo: 'r', ref: 'main', commit: 'old' } } as any;
+const outdated = {
+  name: '@harness-skills/gh',
+  kind: 'github',
+  current: 'old',
+  latest: 'new',
+  outdated: true,
+  global: false,
+  source: { kind: 'github', owner: 'o', repo: 'r', ref: 'main', commit: 'old' },
+} as any;
 
 let logSpy: any;
 const origTtyOut = process.stdout.isTTY;
@@ -123,7 +137,9 @@ describe('offerSkillProviderUpdates', () => {
 
   it('never throws when the probe fails (does not abort update)', async () => {
     setTty(true);
-    mockedProbe.mockImplementation(() => { throw new Error('probe boom'); });
+    mockedProbe.mockImplementation(() => {
+      throw new Error('probe boom');
+    });
     await expect(offerSkillProviderUpdates()).resolves.toBeUndefined();
   });
 });

@@ -28,7 +28,7 @@ Content-based skill recommendations for a spec
 
 ### `harness align-design-system`
 
-Apply codemods for safe DRIFT-T001/T002/T003 findings and emit suggestions for DRIFT-T004 + all DRIFT-P*. Runs standalone (invokes detect-design-drift internally) or pipeline (reads pipeline.driftFindings from .harness/handoff.json).
+Apply codemods for safe DRIFT-T001/T002/T003 findings and emit suggestions for DRIFT-T004 + all DRIFT-P\*. Runs standalone (invokes detect-design-drift internally) or pipeline (reads pipeline.driftFindings from .harness/handoff.json).
 
 **Options:**
 
@@ -1588,4 +1588,3 @@ List recent sessions with token usage and cost
 **Options:**
 
 - `--limit` — Number of sessions to show (default: 10, max: 100) (default: "10")
-

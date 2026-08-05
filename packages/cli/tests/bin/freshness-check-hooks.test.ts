@@ -30,7 +30,10 @@ vi.mock('../../src/utils/paths', () => ({
   resolveGlobalCommunityBaseDir: () => '/home/.harness/skills/community',
 }));
 
-import { runFreshnessCheckAtStartup, printFreshnessNotification } from '../../src/bin/freshness-check-hooks';
+import {
+  runFreshnessCheckAtStartup,
+  printFreshnessNotification,
+} from '../../src/bin/freshness-check-hooks';
 
 describe('freshness-check-hooks', () => {
   beforeEach(() => {
@@ -78,7 +81,9 @@ describe('freshness-check-hooks', () => {
   });
 
   it('prints the notification to stderr when present', () => {
-    mockGetNotification.mockReturnValue('1 skill provider has updates — run `harness skill update`');
+    mockGetNotification.mockReturnValue(
+      '1 skill provider has updates — run `harness skill update`'
+    );
     const write = vi.spyOn(process.stderr, 'write').mockReturnValue(true);
     printFreshnessNotification();
     expect(write).toHaveBeenCalledWith(expect.stringContaining('has updates'));
