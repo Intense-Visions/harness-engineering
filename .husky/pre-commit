@@ -29,6 +29,15 @@ fi
 # guardrail stays visibly named — roadmap #529) AND passed to `ci check` via
 # "$SKIP". Editing this list updates the warnings and the actual skip together;
 # they cannot drift.
+#
+# CAP (roadmap #529): this is a CLOSED, documented allowlist — it cannot silently
+# grow. Every category is enumerated with its rationale in
+# .husky/pre-commit-skip-allowlist.md, and
+# packages/cli/tests/hooks/pre-commit-skip-allowlist.test.ts FAILS if this SKIP
+# set, the per-category `case` rationale arms below, and that allowlist doc ever
+# diverge. Adding a skip is therefore a visible, reviewed three-way edit (this
+# list + a rationale arm + the allowlist doc), never a silent one-token append.
+#
 # NOTE (#529 follow-up, resolved in #965): the STRENGTH-003 skip-list auditor now
 # resolves this `--skip "$SKIP"` variable form — it finds the matching `SKIP="a,b,c"`
 # assignment in this file and audits that list — so review-time coverage of the skip
@@ -46,7 +55,28 @@ old_ifs=$IFS
 IFS=,
 set -f
 for cat in $SKIP; do
-  echo "⚠ pre-commit: '$cat' check SKIPPED (deferred to CI) — see roadmap #529" >&2
+  # One rationale arm per category: WHY it is deferred + WHERE it runs instead
+  # (so the gap is named, not just numbered — roadmap #529). Every category in
+  # $SKIP MUST have an explicit arm; the `*` arm names an UNDOCUMENTED skip so a
+  # new category can never pass silently. Keep the arms in sync with
+  # .husky/pre-commit-skip-allowlist.md (the allowlist test enforces both).
+  case "$cat" in
+    entropy)
+      why="drift/dead-code graph walk, too slow per-commit; runs in CI (harness ci check)" ;;
+    docs)
+      why="doc-drift analysis, graph-dependent; runs in CI + PR doc-drift advisory" ;;
+    perf)
+      why="complexity/coupling graph walk, slow + already arch-baselined locally; runs in CI" ;;
+    security)
+      why="whole-tree static security scan, slow per-commit; runs in CI + security ledger" ;;
+    deps)
+      why="dependency/supply-chain health, slow; runs in CI" ;;
+    phase-gate)
+      why="spec/impl phase gate, needs CLI phase context; runs in CI + 'harness check-phase-gate'" ;;
+    *)
+      why="UNDOCUMENTED skip — add it to .husky/pre-commit-skip-allowlist.md with a rationale" ;;
+  esac
+  echo "⚠ pre-commit: skipping '$cat' check (deferred) — $why" >&2
 done
 set +f
 IFS=$old_ifs
