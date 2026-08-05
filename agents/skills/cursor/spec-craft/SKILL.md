@@ -10,9 +10,9 @@
 - Periodically (per-sprint or per-release) to catch spec drift
 - As the cross-cutting spec critic for harness-brainstorming (when newly-authored specs land)
 - NOT for spec-structure enforcement (use `harness-soundness-review` — that's the rule-based floor)
-- NOT for README / general-doc critique (use `docs-craft` #2)
+- NOT for README / general-doc critique (use `docs-craft`)
 - NOT for autofix / spec rewriting (this is judgment-only; v1.x may add `align-spec` sibling)
-- NOT for source-code comment critique (use `code-craft` #4 or `docs-craft` #2)
+- NOT for source-code comment critique (use `code-craft` or `docs-craft`)
 - NOT for RFCs in v1 (v1.x)
 
 ## Process
@@ -158,7 +158,7 @@ Summary: 0 findings across 0 docs (0 sections, 7 rubrics, 0 LLM calls, $0.0000, 
 ## Gates
 
 - **No autofix.** Sibling `align-spec` deferred until signal warrants safe-to-apply rewrites.
-- **No README / general doc critique.** docs-craft (#2) territory.
+- **No README / general doc critique.** docs-craft territory.
 - **No source-code comment critique.** code-craft / docs-craft territory.
 - **No B' bootstrap.** Same posture as naming-craft v1.
 - **No graph persistence.** Phase 1 MVP.
@@ -178,7 +178,7 @@ Summary: 0 findings across 0 docs (0 sections, 7 rubrics, 0 LLM calls, $0.0000, 
 **v1 — in implementation.** See:
 
 - Spec: `docs/changes/craft-pipeline/spec-craft/proposal.md`
-- Roadmap entry: `craft-pipeline sub-project #6` (the highest-leverage craft skill)
-- Sibling craft skills: `harness-design-craft` (design-pipeline #6), `naming-craft` (craft-pipeline #1)
+- Roadmap entry: part of the `craft-pipeline` initiative (the highest-leverage craft skill)
+- Sibling craft skills: `harness-design-craft` (design-pipeline), `naming-craft` (craft-pipeline)
 - Shared infrastructure: `packages/cli/src/shared/craft/` (extracted on this PR)
-- Future: `align-spec` (FIX side), docs-craft (#2), test-craft (#3), code-craft (#4) — each can call `critiqueSpecFile` if they want spec-level critique for a doc they're already processing.
+- Future: `align-spec` (FIX side), docs-craft, test-craft, code-craft — each can call `critiqueSpecFile` if they want spec-level critique for a doc they're already processing.

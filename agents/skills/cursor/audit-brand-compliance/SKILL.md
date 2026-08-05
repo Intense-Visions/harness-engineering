@@ -63,8 +63,8 @@
 
 - **`harness validate`** — Fast-mode hook gated by `design.audit.brandCompliance.enabled`. Degrades gracefully on failure (single warning; other checks continue).
 - **`harness check-design`** — Composes brand as the 4th verifier alongside audit-anatomy, design-craft critique, and detect-design-drift. This is the canonical invocation path.
-- **`mcp__harness__audit_brand`** — MCP tool. Input: `{ path, mode, files?, designStrictness?, rules? }`. Output: `{ findings, summary, catalog, meta }`. Consumed by check-design and the (future) #5 design-pipeline orchestrator.
-- **`DesignConstraintAdapter.recordFindings()`** — Generic graph persistence entry point shipped in PR #390. Brand findings reuse the adapter (no graph schema changes in v1).
+- **`mcp__harness__audit_brand`** — MCP tool. Input: `{ path, mode, files?, designStrictness?, rules? }`. Output: `{ findings, summary, catalog, meta }`. Consumed by check-design and the (future) design-pipeline orchestrator.
+- **`DesignConstraintAdapter.recordFindings()`** — Generic graph persistence entry point. Brand findings reuse the adapter (no graph schema changes in v1).
 - **`harness-design` skill** — Authors `DESIGN.md ## Brand Rules`. audit-brand-compliance is the matching enforcer.
 - **`Verifier<F>` interface** — Extracted in this PR at the 4th-verifier threshold. Lives at `packages/cli/src/shared/verifier.ts`. Adding a 5th verifier requires only a type-alias declaration of conformance.
 
@@ -184,6 +184,6 @@ BRAND-V001 [warn] src/Cta.tsx:1 — UI copy contains forbidden phrase "click her
 
 - Spec: `docs/changes/design-pipeline/audit-brand-compliance/proposal.md`
 - ADR (input schema source): `docs/knowledge/decisions/0028-brand-guidelines-source-of-truth.md`
-- Roadmap entry: `design-pipeline sub-project #3` in `docs/roadmap.md`
-- Sibling rule-based audits: `audit-component-anatomy` (#2), `detect-design-drift` (#1)
+- Roadmap entry: part of the `design-pipeline` initiative in `docs/roadmap.md`
+- Sibling rule-based audits: `audit-component-anatomy`, `detect-design-drift`
 - Cross-cutting: extracts `Verifier<F>` interface at `packages/cli/src/shared/verifier.ts` (deferred until 4th data point — this is it)

@@ -1,6 +1,6 @@
 # Security Craft
 
-> LLM-judgment critique of security posture for TS/JS source — the ceiling counterpart to `harness-security-scan` (CVE/OWASP rule-based floor) and `harness-security-reviewer` (procedural review). Threat-modeling-as-skill rather than pattern-matching. Critiques whether trust boundaries are respected, where implicit privilege escalation lurks, whether the code defends in depth or just at the gate, whether principle of least authority is honored. Sixth non-design member of the craft-pipeline initiative (#10 of 10; the final sub-project). Emits 3-axis findings (tier × impact × confidence per ADR 0019).
+> LLM-judgment critique of security posture for TS/JS source — the ceiling counterpart to `harness-security-scan` (CVE/OWASP rule-based floor) and `harness-security-reviewer` (procedural review). Threat-modeling-as-skill rather than pattern-matching. Critiques whether trust boundaries are respected, where implicit privilege escalation lurks, whether the code defends in depth or just at the gate, whether principle of least authority is honored. Sixth non-design member of the craft-pipeline initiative (the final sub-project). Emits 3-axis findings (tier × impact × confidence per ADR 0019).
 
 ## When to Use
 
@@ -101,7 +101,7 @@ See `docs/changes/craft-pipeline/security-craft/proposal.md` for the full 29 suc
 - AST detector emits signals for all 7 signal kinds; comment / string contents don't fire (AST-aware, not regex)
 - Files with zero signals are skipped (`filesSkippedNoSignal` tracked)
 - Per-rubric `appliesToSignals` pre-filter avoids irrelevant LLM calls
-- 3-axis output preserved; confidence defaults to medium per the spec's Decision #3
+- 3-axis output preserved; confidence defaults to medium per the spec's confidence-defaults decision
 - `cite.rubricId` populated on every finding (ADR 0020)
 - `critiqueSecurityInFile` cross-cutting API works on a single file
 
@@ -199,7 +199,7 @@ The 12 files were scanned for signals but skipped because none had security-rele
 **v1 — in implementation.** See:
 
 - Spec: `docs/changes/craft-pipeline/security-craft/proposal.md`
-- Roadmap entry: `craft-pipeline sub-project #10` (the final sub-project; the craft-pipeline initiative completes with this PR)
-- Sibling craft skills: `naming-craft` (#1), `spec-craft` (#6), `copy-craft` (#5), `test-craft` (#3), `knowledge-craft` (#9), `harness-design-craft` (design-pipeline #6)
+- Roadmap entry: part of the `craft-pipeline` initiative (the final sub-project; the craft-pipeline initiative completes with this PR)
+- Sibling craft skills: `naming-craft`, `spec-craft`, `copy-craft`, `test-craft`, `knowledge-craft`, `harness-design-craft` (design-pipeline)
 - Shared infrastructure: `packages/cli/src/shared/craft/`
 - Future: `align-security` (FIX side; aggressive safeguards), IaC critique, multi-file auth-flow tracing, test-file security, framework expansions (tRPC / Convex / Cloudflare Workers / Hono RPC).

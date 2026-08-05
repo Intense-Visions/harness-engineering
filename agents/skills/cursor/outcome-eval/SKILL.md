@@ -1,6 +1,6 @@
 # Outcome Eval
 
-> Post-execution LLM-judgment: did the implementation actually satisfy its spec? Reads the spec's acceptance section, the change diff, and test output, and emits a confidence-rated `OutcomeVerdict` (`SATISFIED | NOT_SATISFIED | INCONCLUSIVE`) with a rationale and unmet criteria. Ship authority is derived in TypeScript, never trusted from the LLM: a high-confidence `NOT_SATISFIED` blocks ship; every other verdict is advisory. The harness's first blocking post-execution spec-satisfaction gate (the roadmap's named #1 gap). Each verdict persists as an `execution_outcome` node, compounding into skill-effectiveness baselines.
+> Post-execution LLM-judgment: did the implementation actually satisfy its spec? Reads the spec's acceptance section, the change diff, and test output, and emits a confidence-rated `OutcomeVerdict` (`SATISFIED | NOT_SATISFIED | INCONCLUSIVE`) with a rationale and unmet criteria. Ship authority is derived in TypeScript, never trusted from the LLM: a high-confidence `NOT_SATISFIED` blocks ship; every other verdict is advisory. The harness's first blocking post-execution spec-satisfaction gate (long a top-priority gap). Each verdict persists as an `execution_outcome` node, compounding into skill-effectiveness baselines.
 
 ## When to Use
 
@@ -50,7 +50,7 @@ The evaluator resolves the section internally via the fallback chain `## Success
 
 - **INCONCLUSIVE persistence:** the persisted node maps `INCONCLUSIVE -> result: 'failure'` for type-validity, but it OMITS `agentPersona` and writes `affectedSystemNodeIds: []`. The effectiveness scorer (`gatherOutcomes`) ignores any node missing `agentPersona` or `outcome_of` edges, so outcome-eval nodes are **scorer-non-counting** in v1 — the INCONCLUSIVE-as-failure mapping is therefore harmless and does not punish any persona. If a future change attaches persona/affected-system attribution, it MUST first change INCONCLUSIVE modeling (do not persist INCONCLUSIVE, or use a distinct result value the scorer excludes) before the node becomes scorer-counted.
 - **openai-compatible strict mode:** `zodToJsonSchema` does not emit `additionalProperties: false`, which OpenAI strict structured output requires. The v1 supported path is claude-cli / anthropic. Follow-up tracked.
-- **CI required-check wiring:** deferred to roadmap #540 (unbuilt CI workflow template).
+- **CI required-check wiring:** deferred to a future CI workflow template.
 
 ## Success Criteria
 

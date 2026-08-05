@@ -1,12 +1,12 @@
 # Align Design System
 
-> Apply codemods for safe DRIFT-T001/T002/T003 token-bypass findings (replace hex / font-family / px-spacing literals with token references) and emit precise suggestions for DRIFT-T004 (deprecated tokens) and all DRIFT-P\* (primitive adoption). The FIX half of design-pipeline sub-project #1, paired with detect-design-drift.
+> Apply codemods for safe DRIFT-T001/T002/T003 token-bypass findings (replace hex / font-family / px-spacing literals with token references) and emit precise suggestions for DRIFT-T004 (deprecated tokens) and all DRIFT-P\* (primitive adoption). The FIX half of design-pipeline drift-remediation sub-project, paired with detect-design-drift.
 
 ## When to Use
 
 - After detect-design-drift reports DRIFT-T001/T002/T003 findings — align replaces literals with token references where the fix is unambiguous
 - Before a PR that touches UI code lands — pair with detect-design-drift to surface AND fix drift in one shot
-- Inside a (future) #5 design-pipeline orchestrator's convergence loop — align is the FIX step the loop runs between DETECT and VERIFY
+- Inside a (future) design-pipeline orchestrator's convergence loop — align is the FIX step the loop runs between DETECT and VERIFY
 - When you want to dry-run the fixes first (`--dry-run`) and review the diff before writing
 - NOT for primitive-adoption codemods — v1 emits suggestions only for DRIFT-P\*; the prop-translation work lives in v1.x
 - NOT for adding new tokens to tokens.json (no auto-add of palette entries; that's a separate intentional act)
@@ -68,7 +68,7 @@ For each finding classified as `suggestion`: emit a human-readable description p
 - **`harness align-design-system --revert`** — inverse-applies the most-recent batch recorded at `.harness/align/last-batch.json`. Skips files edited externally since the apply (content-hash check). Idempotent: a second revert on the same batch is a no-op because the file no longer matches the recorded post-apply text.
 - **`mcp__harness__align_design_system`** — MCP tool for agent consumption. Same input/output shape as the function call.
 - **`detect-design-drift`** — soft dependency. Standalone mode invokes detect internally; pipeline mode trusts the orchestrator to have done it.
-- **`harness check-design`** — composes detect (as 3rd verifier) into a single-pass design check. align is the matching FIX step; together they form the DETECT → FIX cycle that the (future) #5 orchestrator will loop.
+- **`harness check-design`** — composes detect (as 3rd verifier) into a single-pass design check. align is the matching FIX step; together they form the DETECT → FIX cycle that the (future) orchestrator will loop.
 - **`DesignConstraintAdapter`** — align does NOT write to the graph. The graph already tracks `VIOLATES_design` edges (the findings). Re-running detect after align shows the delta — no separate fix-edge needed.
 
 ## Success Criteria
@@ -188,5 +188,5 @@ If the file has been edited externally between apply and revert (the SHA-256 doe
 **v1 — in implementation.** See:
 
 - Spec: `docs/changes/design-pipeline/align-design-system/proposal.md`
-- Roadmap entry: `design-pipeline sub-project #1` (align half) in `docs/roadmap.md`
-- Sibling: `detect-design-drift` (detect half — shipped PR #396)
+- Roadmap entry: part of the `design-pipeline` initiative (align half) in `docs/roadmap.md`
+- Sibling: `detect-design-drift` (detect half)

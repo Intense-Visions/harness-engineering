@@ -1,6 +1,6 @@
 # Knowledge Craft
 
-> LLM-judgment critique of knowledge-entry quality. Critiques `docs/knowledge/` entries (EXCLUDING `decisions/` — that's spec-craft's territory) against a curated rubric catalog: does this state a load-bearing FACT or paraphrase the code? Would deleting it lose specific signal? Does it earn its place in the knowledge graph as `business_fact` / `business_rule` / `business_concept` / `business_decision`? Fifth non-design member of the craft-pipeline initiative (#9 of 10). Emits 3-axis findings (tier × impact × confidence per ADR 0019).
+> LLM-judgment critique of knowledge-entry quality. Critiques `docs/knowledge/` entries (EXCLUDING `decisions/` — that's spec-craft's territory) against a curated rubric catalog: does this state a load-bearing FACT or paraphrase the code? Would deleting it lose specific signal? Does it earn its place in the knowledge graph as `business_fact` / `business_rule` / `business_concept` / `business_decision`? Fifth non-design member of the craft-pipeline initiative. Emits 3-axis findings (tier × impact × confidence per ADR 0019).
 
 ## When to Use
 
@@ -13,7 +13,7 @@
 - NOT for AGENTS.md critique (different shape: navigational manifest, not fact-bearing entry — v1.x)
 - NOT for autofix / knowledge-entry rewriting (this is judgment-only; v1.x may add `align-knowledge` sibling)
 - NOT for graph-membership checks (no graph reads at runtime — references the taxonomy in rubric prompts)
-- NOT for source-code comment critique (use `code-craft` #4 or `docs-craft` #2)
+- NOT for source-code comment critique (use `code-craft` or `docs-craft`)
 
 ## Process
 
@@ -174,7 +174,7 @@ Summary: 0 findings across 0 entries (0 skipped, 7 rubrics, 0 LLM calls, $0.0000
 **v1 — in implementation.** See:
 
 - Spec: `docs/changes/craft-pipeline/knowledge-craft/proposal.md`
-- Roadmap entry: `craft-pipeline sub-project #9`
-- Sibling craft skills: `naming-craft` (#1), `spec-craft` (#6), `copy-craft` (#5), `test-craft` (#3), `harness-design-craft` (design-pipeline #6)
+- Roadmap entry: part of the `craft-pipeline` initiative
+- Sibling craft skills: `naming-craft`, `spec-craft`, `copy-craft`, `test-craft`, `harness-design-craft` (design-pipeline)
 - Shared infrastructure: `packages/cli/src/shared/craft/`
 - Future: `align-knowledge` (FIX side), AGENTS.md / `.mdx` support, graph-aware mode, composition with `harness-knowledge-pipeline` at ingest time.

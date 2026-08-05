@@ -1,6 +1,6 @@
 # Detect Design Drift
 
-> Detect design-system drift — hardcoded values where tokens exist, and raw HTML primitives where registered components exist. The rule-based floor of design-pipeline #1 (detect half). Reports findings; never modifies source. Pairs with a separate align-design-system fixer skill (deferred to a sibling sub-project).
+> Detect design-system drift — hardcoded values where tokens exist, and raw HTML primitives where registered components exist. The rule-based floor of design-pipeline (detect half). Reports findings; never modifies source. Pairs with a separate align-design-system fixer skill (deferred to a sibling sub-project).
 
 ## When to Use
 
@@ -59,8 +59,8 @@
 
 - **`harness validate`** — Fast-mode hook runs the detect-drift verifier. Findings respect `design.strictness`. Failures degrade gracefully: if the verifier throws, validate logs a warning and continues with other checks.
 - **`harness check-design`** — One of three composed verifiers. The orchestrator aggregates findings across audit-anatomy, design-craft, and detect-drift; persists all three to the graph; and surfaces a unified report.
-- **`mcp__harness__detect_drift`** — Programmatic API. Input: `{ path, mode, files?, designStrictness?, rules? }`. Output: `{ findings, summary, catalog, meta }`. Consumed by the design-pipeline orchestrator (sub-project #5).
-- **`DesignConstraintAdapter.recordFindings()`** — Generic graph persistence entry point shipped in PR #390. Drift findings reuse the adapter; no extra graph plumbing.
+- **`mcp__harness__detect_drift`** — Programmatic API. Input: `{ path, mode, files?, designStrictness?, rules? }`. Output: `{ findings, summary, catalog, meta }`. Consumed by the design-pipeline orchestrator.
+- **`DesignConstraintAdapter.recordFindings()`** — Generic graph persistence entry point. Drift findings reuse the adapter; no extra graph plumbing.
 - **Future align-design-system skill** — Separate sub-project. Reads the same finding codes (DRIFT-T\*, DRIFT-P\*) and applies fixes. Decoupling detect from align keeps each skill testable in isolation and lets the detect side ship first.
 
 ## Success Criteria
@@ -135,5 +135,5 @@ DRIFT-T004 [warn] src/legacy.css:3 — Token "color.brand.500" is deprecated and
 **v1 — in implementation.** See:
 
 - Spec: `docs/changes/design-pipeline/detect-design-drift/proposal.md`
-- Roadmap entry: `design-pipeline sub-project #1` (detect half) in `docs/roadmap.md`
+- Roadmap entry: part of the `design-pipeline` initiative (detect half) in `docs/roadmap.md`
 - Sibling: `align-design-system` (fix half — deferred to a separate sub-project)

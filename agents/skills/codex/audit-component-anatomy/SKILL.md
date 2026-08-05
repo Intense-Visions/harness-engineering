@@ -87,7 +87,7 @@
 ## Harness Integration
 
 - **`harness validate`** — Fast-mode audit hook (convention catalog only; patterns are opt-in via `fastMode.patterns: true`). Findings respect `design.strictness`.
-- **`mcp__harness__audit_anatomy`** — Programmatic API (input: path, mode, files, designStrictness, catalog; output: findings, summary, catalog applied, deferrals count). Consumed by harness check-design verifier (sub-project #4) and design-pipeline orchestrator (sub-project #5).
+- **`mcp__harness__audit_anatomy`** — Programmatic API (input: path, mode, files, designStrictness, catalog; output: findings, summary, catalog applied, deferrals count). Consumed by harness check-design verifier and design-pipeline orchestrator.
 - **`DesignConstraintAdapter`** — Extended to register `ANAT-*` rule code namespace and write VIOLATES_CRAFT edges. Mirrors how harness-accessibility uses it for A11Y-\* codes.
 - **`harness-accessibility`** — Coordinates via i18n-style deferral pattern. When `design.audit.componentAnatomy.enabled = true`, a11y defers A11Y-010 and A11Y-050 for catalogued components.
 - **`design-component-anatomy`** (knowledge skill) — Source of convention vocabulary (slot, variant, state, size, exclusivity, required). This skill's catalog operationalizes that knowledge.
@@ -178,4 +178,4 @@ The `ANAT-D000` info code surfaces JSDoc-vs-convention divergence so authors can
 - Spec: `docs/changes/design-pipeline/audit-component-anatomy/proposal.md`
 - Plan: `docs/changes/design-pipeline/audit-component-anatomy/plans/2026-05-23-audit-component-anatomy-plan.md`
 - Finding codes: `docs/changes/design-pipeline/audit-component-anatomy/finding-codes.md`
-- Roadmap entry: `design-pipeline sub-project #2` in `docs/roadmap.md`
+- Roadmap entry: part of the `design-pipeline` initiative in `docs/roadmap.md`
