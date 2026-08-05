@@ -454,6 +454,18 @@ Classify a test prompt with canary and recommend a framework (deterministic, no 
 
 - `prompt` (string, required) — Natural-language description of the test to scaffold, e.g. "end-to-end login flow in the browser".
 
+### `cli_ergonomics_craft`
+
+LLM-judgment critique of CLI ergonomics quality — the ceiling counterpart to mechanical CLI checks, and the only craft skill with no rule-based floor twin (a linter can verify a flag is documented, but not whether the name is predictable or the error says what to do next). Asks the ceiling questions: are command and flag names predictable and consistent, is help text task-oriented, are errors actionable, are defaults sane and safe, is output scannable and terminal-aware, does the CLI compose (pipeable, machine-readable, honest exit codes), are destructive actions guarded. 7 seed rubrics; a small curated exemplar set (gh / cargo / ripgrep / docker / Stripe CLI) anchors the catalog. Critiques a project’s own command definitions per file. Emits 3-axis findings (tier x impact x confidence per ADR 0019). Structural twin of docs_craft.
+
+**Parameters:**
+
+- `path` (string, required) — Project root path
+- `files` (array, optional) — Optional file scope (overrides command discovery)
+- `commandsDir` (string, optional) — Directory of command definitions to critique
+- `excludeDirs` (array, optional) — Extra subdir names to skip while walking
+- `maxFiles` (number, optional) — Cap command count (default: 60)
+
 ### `compact`
 
 Compact content, resolve intents into aggregated packed responses, or re-compress prior tool output. Returns a packed envelope with source attribution and reduction metadata.
