@@ -53,3 +53,14 @@ depends_on:
   - harness-brainstorming
   - harness-autopilot
   - harness-roadmap
+capabilities:
+  tools:
+    - Bash
+    - Read
+    - Write
+    - Edit
+    - Glob
+    - Grep
+    - emit_interaction
+  network: false
+  filesystem: read-write

@@ -55,3 +55,13 @@ depends_on:
 addresses:
   - signal: security-findings
     weight: 0.6
+capabilities:
+  tools:
+    - Bash
+    - Read
+    - Write
+    - Grep
+    - Glob
+    - WebFetch
+  network: true
+  filesystem: read-write

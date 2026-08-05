@@ -54,3 +54,11 @@ addresses:
     weight: 0.7
   - signal: dead-code
     weight: 0.5
+capabilities:
+  tools:
+    - Bash
+    - Read
+    - Glob
+    - Grep
+  network: false
+  filesystem: read-write

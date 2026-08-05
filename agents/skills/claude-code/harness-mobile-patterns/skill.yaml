@@ -93,3 +93,14 @@ related_skills:
   - mobile-navigation-pattern
   - mobile-network-patterns
   - mobile-storage-patterns
+capabilities:
+  tools:
+    - Bash
+    - Read
+    - Write
+    - Edit
+    - Glob
+    - Grep
+    - emit_interaction
+  network: false
+  filesystem: read-write

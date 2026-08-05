@@ -77,3 +77,13 @@ depends_on: []
 related_skills:
   - resilience-rate-limiting
   - resilience-fallback-pattern
+capabilities:
+  tools:
+    - Bash
+    - Read
+    - Write
+    - Edit
+    - Glob
+    - Grep
+  network: false
+  filesystem: read-write

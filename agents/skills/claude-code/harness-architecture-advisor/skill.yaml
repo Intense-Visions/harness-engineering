@@ -50,3 +50,11 @@ state:
   files:
     - docs/architecture/
 depends_on: []
+capabilities:
+  tools:
+    - Read
+    - Glob
+    - Grep
+    - Bash
+  network: false
+  filesystem: read-write

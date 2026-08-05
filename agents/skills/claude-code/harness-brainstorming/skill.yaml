@@ -55,3 +55,14 @@ depends_on:
   - harness-planning
   - harness-autopilot
   - harness-soundness-review
+capabilities:
+  tools:
+    - Bash
+    - Read
+    - Write
+    - Edit
+    - Glob
+    - Grep
+    - emit_interaction
+  network: false
+  filesystem: read-write

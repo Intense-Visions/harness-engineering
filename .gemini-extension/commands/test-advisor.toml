@@ -319,6 +319,14 @@ state:
   persistent: false
   files: []
 depends_on: []
+capabilities:
+  tools:
+    - Bash
+    - Read
+    - Glob
+    - Grep
+  network: false
+  filesystem: read-write
 
 </execution_context>
 

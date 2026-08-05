@@ -91,3 +91,14 @@ related_skills:
   - test-playwright-patterns
   - test-playwright-setup
   - test-msw-pattern
+capabilities:
+  tools:
+    - Bash
+    - Read
+    - Write
+    - Edit
+    - Glob
+    - Grep
+    - emit_interaction
+  network: false
+  filesystem: read-write

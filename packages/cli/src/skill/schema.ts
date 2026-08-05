@@ -68,6 +68,88 @@ export const SkillContextBudgetSchema = z.object({
   priority: z.number().int().min(1).max(5).default(3),
 });
 
+/** Filesystem-access levels a skill may declare, from least to most authority. */
+export const FILESYSTEM_LEVELS = ['none', 'read', 'read-write'] as const;
+export type FilesystemLevel = (typeof FILESYSTEM_LEVELS)[number];
+
+// Tool → capability classification. Kept here (not in the check) so both the
+// derivation used to seed skill.yaml and the consistency check that guards it
+// read from a single source of truth.
+const FS_WRITE_TOOLS = new Set(['Write', 'Edit', 'MultiEdit', 'NotebookEdit', 'Bash']);
+const FS_READ_TOOLS = new Set(['Read', 'Glob', 'Grep']);
+const NETWORK_TOOLS = new Set(['WebFetch', 'WebSearch']);
+
+/**
+ * A skill's declared capability envelope — the tool/network/filesystem surface
+ * it is allowed to touch. Declaration + validation layer only; runtime
+ * bounds-enforcement (an orchestrator actually blocking a skill that exceeds
+ * this) is a follow-up. `tools` mirrors the skill's `tools:` list so the
+ * envelope is self-contained for a future enforcer that never re-reads the
+ * skill body.
+ */
+export const SkillCapabilitiesSchema = z.object({
+  tools: z.array(z.string()).default([]),
+  network: z.boolean(),
+  filesystem: z.enum(FILESYSTEM_LEVELS),
+});
+export type SkillCapabilities = z.infer<typeof SkillCapabilitiesSchema>;
+
+/**
+ * Mechanically derive the capability envelope from a skill's `tools:` list.
+ *
+ * - `filesystem` is `read-write` when any mutating tool (Write/Edit/Bash/…) is
+ *   present, `read` when only read-only tools (Read/Glob/Grep) are, else `none`.
+ *   Bash counts as read-write: a shell can create and delete files.
+ * - `network` is true when a network tool (WebFetch/WebSearch) is present.
+ * - `tools` is the declared list verbatim.
+ *
+ * This is the seed used to populate `capabilities:` and the reference the
+ * consistency check compares against, so the two never drift.
+ */
+export function deriveCapabilities(tools: readonly string[]): SkillCapabilities {
+  const filesystem: FilesystemLevel = tools.some((t) => FS_WRITE_TOOLS.has(t))
+    ? 'read-write'
+    : tools.some((t) => FS_READ_TOOLS.has(t))
+      ? 'read'
+      : 'none';
+  return {
+    tools: [...tools],
+    network: tools.some((t) => NETWORK_TOOLS.has(t)),
+    filesystem,
+  };
+}
+
+/**
+ * Compare a declared capability envelope against what its `tools:` list implies
+ * and return one message per inconsistency (empty when consistent). This is the
+ * teeth: a skill that adds `WebFetch` to `tools` but not `network: true`, or
+ * lists tools its capabilities omit, fails validation.
+ */
+export function capabilityDriftErrors(
+  tools: readonly string[],
+  declared: SkillCapabilities
+): string[] {
+  const derived = deriveCapabilities(tools);
+  const errors: string[] = [];
+
+  const declaredTools = new Set(declared.tools);
+  const skillTools = new Set(tools);
+  const mismatched =
+    declaredTools.size !== skillTools.size || [...skillTools].some((t) => !declaredTools.has(t));
+  if (mismatched) {
+    errors.push(
+      `capabilities.tools [${[...declaredTools].sort().join(', ')}] must match the skill's tools [${[...skillTools].sort().join(', ')}]`
+    );
+  }
+  if (declared.network !== derived.network) {
+    errors.push(`capabilities.network must be ${derived.network} (derived from tools)`);
+  }
+  if (declared.filesystem !== derived.filesystem) {
+    errors.push(`capabilities.filesystem must be "${derived.filesystem}" (derived from tools)`);
+  }
+  return errors;
+}
+
 export const SkillAddressSchema = z.object({
   signal: z.string(),
   hard: z.boolean().optional(),
@@ -121,6 +203,7 @@ export const SkillMetadataSchema = z
       .optional(),
     addresses: z.array(SkillAddressSchema).default([]),
     context_budget: SkillContextBudgetSchema.optional(),
+    capabilities: SkillCapabilitiesSchema.optional(),
   })
   .superRefine((data, ctx) => {
     if (data.type === 'knowledge') {

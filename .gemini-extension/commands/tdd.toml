@@ -291,6 +291,16 @@ related_skills:
 addresses:
   - signal: low-coverage
     weight: 0.9
+capabilities:
+  tools:
+    - Bash
+    - Read
+    - Write
+    - Edit
+    - Glob
+    - Grep
+  network: false
+  filesystem: read-write
 
 </execution_context>
 

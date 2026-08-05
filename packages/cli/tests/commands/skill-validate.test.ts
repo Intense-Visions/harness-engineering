@@ -210,6 +210,85 @@ escalate here
     });
   });
 
+  describe('capabilities enforcement (#558)', () => {
+    const behavioralMd = `# Skill
+## When to Use
+x
+## Process
+x
+## Harness Integration
+x
+## Success Criteria
+x
+## Examples
+x
+## Rationalizations to Reject
+x
+## Gates
+x
+## Escalation
+x
+`;
+
+    const harnessYaml = (extra: string) => `name: harness-thing
+version: "1.0.0"
+description: A harness skill
+triggers: [manual]
+platforms: [claude-code]
+tools: [Bash, Read, Write]
+type: rigid
+${extra}`;
+
+    it('requires harness-authored skills to declare capabilities', () => {
+      writeSkill('harness-thing', harnessYaml(''), behavioralMd);
+      const errors: string[] = [];
+      validateSkillEntry('harness-thing', tempDir, errors);
+      expect(errors.some((e) => e.includes('must declare capabilities'))).toBe(true);
+    });
+
+    it('does not require non-harness skills to declare capabilities', () => {
+      writeSkill(
+        'third-party-thing',
+        harnessYaml('').replace('harness-thing', 'third-party-thing'),
+        behavioralMd
+      );
+      const errors: string[] = [];
+      validateSkillEntry('third-party-thing', tempDir, errors);
+      expect(errors.some((e) => e.includes('capabilities'))).toBe(false);
+    });
+
+    it('passes when a harness skill declares a consistent envelope', () => {
+      writeSkill(
+        'harness-thing',
+        harnessYaml(`capabilities:
+  tools: [Bash, Read, Write]
+  network: false
+  filesystem: read-write
+`),
+        behavioralMd
+      );
+      const errors: string[] = [];
+      validateSkillEntry('harness-thing', tempDir, errors);
+      expect(errors.some((e) => e.includes('capabilities'))).toBe(false);
+    });
+
+    it('flags a drifted capabilities envelope', () => {
+      writeSkill(
+        'harness-thing',
+        harnessYaml(`capabilities:
+  tools: [Bash, Read, Write]
+  network: true
+  filesystem: read
+`),
+        behavioralMd
+      );
+      const errors: string[] = [];
+      validateSkillEntry('harness-thing', tempDir, errors);
+      expect(errors.some((e) => e.includes('capabilities.network'))).toBe(true);
+      expect(errors.some((e) => e.includes('capabilities.filesystem'))).toBe(true);
+    });
+  });
+
   describe('createValidateCommand', () => {
     it('creates command with correct name', () => {
       const cmd = createValidateCommand();

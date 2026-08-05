@@ -48,3 +48,10 @@ stack_signals:
   - github
   - gitlab
 depends_on: []
+capabilities:
+  tools:
+    - Bash
+    - Read
+    - Glob
+  network: false
+  filesystem: read-write

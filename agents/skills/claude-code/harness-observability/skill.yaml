@@ -84,3 +84,14 @@ related_skills:
   - otel-tracing-pattern
   - otel-metrics-pattern
   - otel-logging-pattern
+capabilities:
+  tools:
+    - Bash
+    - Read
+    - Write
+    - Edit
+    - Glob
+    - Grep
+    - emit_interaction
+  network: false
+  filesystem: read-write

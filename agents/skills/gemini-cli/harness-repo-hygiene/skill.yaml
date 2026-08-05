@@ -48,3 +48,10 @@ related_skills:
 metadata:
   author: Bri Stevenski
   upstream: "https://github.com/Intense-Visions/harness-engineering"
+capabilities:
+  tools:
+    - Bash
+    - Read
+    - Glob
+  network: false
+  filesystem: read-write

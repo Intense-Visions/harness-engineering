@@ -41,3 +41,9 @@ state:
   persistent: false
   files: []
 depends_on: []
+capabilities:
+  tools:
+    - Bash
+    - Read
+  network: false
+  filesystem: read-write

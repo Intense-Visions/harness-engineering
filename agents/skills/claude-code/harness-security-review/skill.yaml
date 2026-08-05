@@ -87,3 +87,13 @@ related_skills:
   - security-zero-trust-principles
   - security-audit-log-design
   - security-injection-families
+capabilities:
+  tools:
+    - Bash
+    - Read
+    - Write
+    - Edit
+    - Glob
+    - Grep
+  network: false
+  filesystem: read-write

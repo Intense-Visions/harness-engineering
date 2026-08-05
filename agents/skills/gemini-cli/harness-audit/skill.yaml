@@ -79,3 +79,11 @@ addresses:
     weight: 0.3
   - signal: dead-code
     weight: 0.3
+capabilities:
+  tools:
+    - Bash
+    - Read
+    - Glob
+    - Grep
+  network: false
+  filesystem: read-write
