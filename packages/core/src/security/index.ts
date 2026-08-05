@@ -8,6 +8,16 @@
 export { SecurityScanner, parseHarnessIgnore } from './scanner';
 
 /**
+ * The scan surface — which extensions a security scan reads. Single source of
+ * truth for every caller that globs source files for the scanner.
+ */
+export {
+  SECURITY_SCAN_EXTENSIONS,
+  SECURITY_SCAN_GLOB,
+  SECURITY_SCAN_DEFAULT_IGNORE,
+} from './scan-targets';
+
+/**
  * Hermes Phase 2 — Pre-launch OSV malware guard.
  */
 export { createOsvClient } from './osv-client';

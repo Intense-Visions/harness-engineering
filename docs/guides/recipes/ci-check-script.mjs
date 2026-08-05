@@ -14,8 +14,8 @@
  *   HARNESS_REPORT   - Output report path (default: harness-report.json)
  */
 
-import { execSync } from 'child_process';
-import { readFileSync, existsSync } from 'fs';
+import { execFileSync } from 'child_process';
+import { readFileSync, writeFileSync, existsSync } from 'fs';
 
 // ---- Configuration ----
 const failOn = process.env.HARNESS_FAIL_ON ?? 'error';
@@ -24,27 +24,39 @@ const reportFile = process.env.HARNESS_REPORT ?? 'harness-report.json';
 
 // ---- Install ----
 try {
-  execSync('harness --version', { stdio: 'ignore' });
+  execFileSync('harness', ['--version'], { stdio: 'ignore' });
 } catch {
   console.log('Installing @harness-engineering/cli...');
-  execSync('npm install -g @harness-engineering/cli', { stdio: 'inherit' });
+  execFileSync('npm', ['install', '-g', '@harness-engineering/cli'], { stdio: 'inherit' });
 }
 
 // ---- Build Command ----
-let cmd = `harness ci check --json --fail-on ${failOn}`;
+// An argv array, never a shell string. Every value below comes from the
+// environment, and this file is meant to be copied into other people's CI — a
+// concatenated `sh -c` string here would hand whoever controls those variables
+// arbitrary command execution on the runner.
+const args = ['ci', 'check', '--json', '--fail-on', failOn];
 if (skipChecks) {
-  cmd += ` --skip ${skipChecks}`;
+  args.push('--skip', skipChecks);
 }
 
 // ---- Run ----
 console.log('Running harness checks...');
-console.log(`Command: ${cmd}`);
+console.log(`Command: harness ${args.join(' ')}`);
 console.log('');
 
+// Capture stdout in-process and write the report with writeFileSync, rather than
+// using a shell `>` redirect — that redirect is the only reason this script
+// needed a shell at all. `harness ci check` exits non-zero when checks fail, so
+// the report still has to be written from the error path.
 try {
-  execSync(`${cmd} > "${reportFile}" 2>&1`, { stdio: 'inherit', shell: true });
-} catch {
-  // Command may exit non-zero; continue to parse the report
+  const stdout = execFileSync('harness', args, { encoding: 'utf-8' });
+  writeFileSync(reportFile, stdout);
+  process.stdout.write(stdout);
+} catch (err) {
+  const stdout = err.stdout ?? '';
+  writeFileSync(reportFile, stdout || String(err.stderr ?? err.message ?? ''));
+  if (stdout) process.stdout.write(stdout);
 }
 
 // ---- Report ----
