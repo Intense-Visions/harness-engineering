@@ -69,7 +69,10 @@ export function resolveSpecPath(opts: {
   const match = names
     .map((n) => n.trim())
     .find((n) => /^docs\/changes\/[^/]+\/proposal\.md$/.test(n));
-  return match ? path.join(opts.cwd, match) : undefined;
+  // Normalize to forward slashes: spec paths are git-relative (always POSIX)
+  // and `path.join` would emit backslashes on Windows, breaking cross-platform
+  // comparisons and the deterministic spec identity.
+  return match ? path.join(opts.cwd, match).replaceAll('\\', '/') : undefined;
 }
 
 /**
