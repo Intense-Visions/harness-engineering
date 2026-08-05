@@ -1,0 +1,40 @@
+# GENERATED FILE — do not edit by hand.
+# Source persona: agents/personas/graph-maintainer.yaml (outputs.ci-workflow: true)
+# Regenerate:   pnpm generate:persona-workflows
+# Drift guard:  pnpm generate:persona-workflows:check  (enforced in CI)
+#
+# Advisory (continue-on-error): honors the persona's declared triggers at the
+# CLI-command tier without blocking the PR. The persona's LLM/agent-runtime
+# steps (skill steps) are delivered via required-review.yml, not here. See
+# docs/changes/honor-persona-triggers/proposal.md (#663).
+
+name: Graph Maintainer
+on:
+  schedule:
+    - cron: 0 4 * * *
+  push:
+    branches:
+      - main
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+permissions:
+  contents: read
+jobs:
+  enforce:
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+      - uses: pnpm/action-setup@v5
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm build
+      - run: node packages/cli/dist/bin/harness.js scan --severity warning
+      - run: node packages/cli/dist/bin/harness.js ingest --severity warning
+      - run: node packages/cli/dist/bin/harness.js graph status --severity warning

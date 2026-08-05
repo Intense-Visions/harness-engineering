@@ -93,6 +93,65 @@ describe('generateCIWorkflow', () => {
   });
 });
 
+describe('generateCIWorkflow (options)', () => {
+  it('defaults to the npx runner with no continue-on-error', () => {
+    const result = generateCIWorkflow(mockPersona, 'github');
+    if (!result.ok) return;
+    const workflow = YAML.parse(result.value);
+    const job = workflow.jobs.enforce;
+    expect(job['continue-on-error']).toBeUndefined();
+    const runSteps = job.steps.filter((s: Record<string, unknown>) => typeof s.run === 'string');
+    expect(runSteps.every((s: { run: string }) => s.run.startsWith('npx harness'))).toBe(true);
+    // npx runner keeps the minimal setup (no build step).
+    expect(result.value).not.toContain('pnpm build');
+  });
+
+  it('workspace runner builds the workspace bin and invokes the dist entry', () => {
+    const result = generateCIWorkflow(mockPersona, 'github', { runner: 'workspace' });
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    const workflow = YAML.parse(result.value);
+    const steps = workflow.jobs.enforce.steps;
+    const uses = steps.filter((s: Record<string, unknown>) => typeof s.uses === 'string');
+    expect(uses.map((s: { uses: string }) => s.uses)).toEqual([
+      'actions/checkout@v6',
+      'pnpm/action-setup@v5',
+      'actions/setup-node@v6',
+    ]);
+    const runSteps = steps.filter((s: Record<string, unknown>) => typeof s.run === 'string');
+    expect(runSteps.some((s: { run: string }) => s.run === 'pnpm install --frozen-lockfile')).toBe(
+      true
+    );
+    expect(runSteps.some((s: { run: string }) => s.run === 'pnpm build')).toBe(true);
+    const cmdSteps = runSteps.filter((s: { run: string }) =>
+      s.run.startsWith('node packages/cli/dist/bin/harness.js')
+    );
+    expect(cmdSteps).toHaveLength(2);
+    expect(cmdSteps[0].run).toBe(
+      'node packages/cli/dist/bin/harness.js check-deps --severity error'
+    );
+    // Node 22 (not the npx default of 20) and a concurrency guard.
+    expect(workflow.on).toBeDefined();
+    expect(workflow.concurrency['cancel-in-progress']).toBe(true);
+    const nodeStep = uses.find((s: { uses: string }) => s.uses === 'actions/setup-node@v6');
+    expect(nodeStep.with['node-version']).toBe(22);
+  });
+
+  it('advisory adds continue-on-error to the job', () => {
+    const result = generateCIWorkflow(mockPersona, 'github', { advisory: true });
+    if (!result.ok) return;
+    const workflow = YAML.parse(result.value);
+    expect(workflow.jobs.enforce['continue-on-error']).toBe(true);
+  });
+
+  it('sets least-privilege read-only permissions', () => {
+    const result = generateCIWorkflow(mockPersona, 'github');
+    if (!result.ok) return;
+    const workflow = YAML.parse(result.value);
+    expect(workflow.permissions).toEqual({ contents: 'read' });
+  });
+});
+
 describe('generateCIWorkflow (gitlab)', () => {
   it('generates valid GitLab CI YAML with an enforce job', () => {
     const result = generateCIWorkflow(mockPersona, 'gitlab');
