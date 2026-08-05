@@ -79,7 +79,7 @@ Validate dependency layers and detect circular dependencies
 
 ### `harness check-design`
 
-Run the design verifier suite (component-anatomy + design-craft critique). Mirrors `harness check-docs`. Single-pass; the convergence fix loop lives in the design-pipeline orchestrator (sub-project #5).
+Run the design verifier suite (component-anatomy + design-craft critique). Mirrors `harness check-docs`. Single-pass; the convergence fix loop lives in the design-pipeline orchestrator.
 
 **Options:**
 

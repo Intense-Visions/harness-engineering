@@ -164,7 +164,7 @@ Pre-execution LLM-judgment skill: does a spec carry measurable, testable, comple
 
 ### align-design-system
 
-Apply codemods for safe DRIFT-T001/T002/T003 token-bypass findings; emit precise suggestions for DRIFT-T004 (deprecated tokens) and all DRIFT-P\* (primitive adoption). FIX half of design-pipeline sub-project
+Apply codemods for safe DRIFT-T001/T002/T003 token-bypass findings; emit precise suggestions for DRIFT-T004 (deprecated tokens) and all DRIFT-P\* (primitive adoption). FIX half of the design-pipeline drift-remediation sub-project; pairs with detect-design-drift.
 
 - **Triggers:** manual, on_pr, on_new_feature
 - **Platforms:** claude-code

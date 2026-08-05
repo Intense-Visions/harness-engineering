@@ -380,7 +380,7 @@ When referencing existing code in task specs, cite evidence using `file:line` fo
 
 - **`harness validate`** — Run in Phase 4 (before writing plan) and included in every task.
 - **`harness check-deps`** — Referenced in tasks adding imports or creating modules.
-- **Plan commit** — After writing the plan (Phase 4 Step 8), commit `docs/changes/<topic>/plans/YYYY-MM-DD-<feature-name>-plan.md` so the paper trail enters git history at planning time. `harness-execution` does not backfill — see issue #487.
+- **Plan commit** — After writing the plan (Phase 4 Step 8), commit `docs/changes/<topic>/plans/YYYY-MM-DD-<feature-name>-plan.md` so the paper trail enters git history at planning time. `harness-execution` does not backfill this commit.
 - **Plan location** — `docs/changes/<topic>/plans/YYYY-MM-DD-<feature-name>-plan.md` when the spec lives under `docs/changes/<topic>/proposal.md`; otherwise `docs/plans/` as a fallback.
 - **Handoff** — Once approved, invoke harness-execution for task-by-task implementation.
 - **Session directory** — Session-scoped writes go to `.harness/sessions/<slug>/`. Structure: `handoff.json`, `state.json`, `artifacts.json` (registry of spec/plan paths and produced file lists). Global `.harness/handoff.json` is deprecated for session-aware invocations.

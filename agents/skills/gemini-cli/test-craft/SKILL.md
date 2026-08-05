@@ -207,7 +207,7 @@ TEST-R004 [polish/large/medium] vitest:142
 **v1 — in implementation.** See:
 
 - Spec: `docs/changes/craft-pipeline/test-craft/proposal.md`
-- Roadmap entry: `craft-pipeline sub-project #3`
-- Sibling craft skills: `naming-craft` (#1), `spec-craft` (#6), `copy-craft` (#5)
+- Roadmap entry: part of the `craft-pipeline` initiative
+- Sibling craft skills: `naming-craft`, `spec-craft`, `copy-craft`
 - Shared infrastructure: `packages/cli/src/shared/craft/`
-- Future: `align-test` (FIX side, v2), docs-craft (#2), code-craft (#4)
+- Future: `align-test` (FIX side, v2), docs-craft, code-craft

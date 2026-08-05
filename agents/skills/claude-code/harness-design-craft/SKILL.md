@@ -85,7 +85,7 @@ Before any phase runs, check four preconditions and offer to fulfill missing one
 
 ### Phase: REPORT — Format and persist outputs
 
-1. **Write to graph:** CRITIQUE/POLISH findings → `VIOLATES_CRAFT` edges via extended `DesignConstraintAdapter`. BENCHMARK scores → `CRAFT_SCORE` nodes attached to component nodes. All carry `runId` for sub-project #4 fixpoint detection. Idempotent.
+1. **Write to graph:** CRITIQUE/POLISH findings → `VIOLATES_CRAFT` edges via extended `DesignConstraintAdapter`. BENCHMARK scores → `CRAFT_SCORE` nodes attached to component nodes. All carry `runId` for check-design verifier fixpoint detection. Idempotent.
 
 2. **Format markdown report.** Grouped by component, with `CRAFT-*` codes linked to `finding-codes.md` and rubric/pattern/exemplar names linked to their catalog entries. Low-confidence findings visually distinguished (italic or `(low confidence:)` prefix).
 
@@ -96,7 +96,7 @@ Before any phase runs, check four preconditions and offer to fulfill missing one
 ## Harness Integration
 
 - **`harness validate`** — Fast-mode CRITIQUE hook (subset of rubrics; opt-in). Findings respect `design.strictness`.
-- **`mcp__harness__design_craft`** — Programmatic API. Consumed by harness check-design verifier (#4) and design-pipeline orchestrator (#5). Phase selector exposed.
+- **`mcp__harness__design_craft`** — Programmatic API. Consumed by harness check-design verifier and design-pipeline orchestrator. Phase selector exposed.
 - **`harness-design`** — Soft dependency. B' progressive upgrade chains to it when AestheticIntent missing. Defers declared-anti-pattern findings to it.
 - **`harness-design-system`** — Soft dependency. Token-related polish patterns enriched when tokens exist.
 - **`DesignConstraintAdapter`** — Extended for `CRAFT-*` codes (CRAFT-C* critique, CRAFT-P* polish, CRAFT-B\* benchmark identifiers) + `CRAFT_SCORE` node type.
@@ -208,5 +208,5 @@ CRAFT-B001 EmptyState component scored against Linear empty list exemplar
 - Finding codes: `docs/changes/design-pipeline/design-craft-elevator/finding-codes.md`
 - Contribution guide: `docs/changes/design-pipeline/design-craft-elevator/contribution.md`
 - Growth trajectory: `docs/changes/design-pipeline/design-craft-elevator/growth-trajectory.md`
-- Roadmap entry: `design-pipeline sub-project #6` in `docs/roadmap.md`
-- Prior-art references: `docs/changes/design-pipeline/REFERENCES.md` tier-1 entries #2, #3, #4 (impeccable, emil-design-eng, huashu-design)
+- Roadmap entry: part of the `design-pipeline` initiative in `docs/roadmap.md`
+- Prior-art references: `docs/changes/design-pipeline/REFERENCES.md` tier-1 entries (impeccable, emil-design-eng, huashu-design)

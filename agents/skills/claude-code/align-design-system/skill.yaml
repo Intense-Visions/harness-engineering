@@ -1,6 +1,6 @@
 name: align-design-system
 version: "0.1.0"
-description: Apply codemods for safe DRIFT-T001/T002/T003 token-bypass findings; emit precise suggestions for DRIFT-T004 (deprecated tokens) and all DRIFT-P* (primitive adoption). FIX half of design-pipeline sub-project #1; pairs with detect-design-drift.
+description: Apply codemods for safe DRIFT-T001/T002/T003 token-bypass findings; emit precise suggestions for DRIFT-T004 (deprecated tokens) and all DRIFT-P* (primitive adoption). FIX half of the design-pipeline drift-remediation sub-project; pairs with detect-design-drift.
 stability: draft
 cognitive_mode: constructive-architect
 triggers:

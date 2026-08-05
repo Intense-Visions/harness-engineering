@@ -439,7 +439,7 @@ export function createCheckDesignCommand(): Command {
     .description(
       'Run the design verifier suite (component-anatomy + design-craft critique). ' +
         'Mirrors `harness check-docs`. Single-pass; the convergence fix loop lives ' +
-        'in the design-pipeline orchestrator (sub-project #5).'
+        'in the design-pipeline orchestrator.'
     )
     .option('-m, --mode <mode>', 'Audit mode: fast | full', 'full')
     .option(

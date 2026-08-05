@@ -261,6 +261,6 @@ Summary: 0 total findings (0 error, 0 warn, 0 info) in 89ms
 **v1 — in implementation.** See:
 
 - Spec: `docs/changes/design-pipeline/orchestrator/proposal.md`
-- Roadmap entry: `design-pipeline sub-project #5` (the orchestrator)
+- Roadmap entry: part of the `design-pipeline` initiative (the orchestrator)
 - Sibling: `harness-docs-pipeline` (the pattern this mirrors)
-- Floor + ceiling sub-skills: `detect-design-drift` (#1), `align-design-system` (#1), `audit-component-anatomy` (#2), `audit-brand-compliance` (#3), `check-design` (#4), `harness-design-craft` (#6)
+- Floor + ceiling sub-skills: `detect-design-drift`, `align-design-system`, `audit-component-anatomy`, `audit-brand-compliance`, `check-design`, `harness-design-craft`
