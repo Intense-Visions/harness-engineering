@@ -3,6 +3,7 @@ import * as path from 'path';
 import * as os from 'os';
 import * as crypto from 'crypto';
 import { isUpdateCheckEnabled } from '@harness-engineering/core';
+import type { SkillSource } from './lockfile';
 
 // ---------------------------------------------------------------------------
 // Types
@@ -90,4 +91,50 @@ export function writeFreshnessState(state: FreshnessState): void {
   const tmpFile = path.join(stateDir, '.skill-freshness-' + crypto.randomBytes(4).toString('hex') + '.tmp');
   fs.writeFileSync(tmpFile, JSON.stringify(state), { mode: 0o644 });
   fs.renameSync(tmpFile, statePath);
+}
+
+// ---------------------------------------------------------------------------
+// Comparison — pure, unit-tested. The detached probe (spawnBackgroundFreshnessCheck)
+// inlines the identical trivial `!==` comparison because a `node -e` string cannot
+// import project TS; this mirrors how update-checker.ts inlines its write logic.
+// ---------------------------------------------------------------------------
+
+/**
+ * Builds a provider record for a lockfile entry, or returns null to skip it.
+ * Skips: no source (legacy v1), kind 'local' (recorded, never probed), and any
+ * unrecognized kind (defensive against future/legacy lockfiles).
+ * `latest === null` (failed probe) is fail-safe: outdated is false.
+ */
+export function evaluateEntry(
+  name: string,
+  source: SkillSource | undefined,
+  entryVersion: string,
+  latest: string | null
+): FreshnessProvider | null {
+  if (!source) return null;
+  if (source.kind === 'github') {
+    return { name, kind: 'github', current: source.commit, latest, outdated: latest != null && latest !== source.commit };
+  }
+  if (source.kind === 'npm') {
+    return { name, kind: 'npm', current: entryVersion, latest, outdated: latest != null && latest !== entryVersion };
+  }
+  return null; // local or unrecognized kind
+}
+
+// ---------------------------------------------------------------------------
+// Notification
+// ---------------------------------------------------------------------------
+
+/**
+ * Returns a one-line nudge naming the count of outdated providers, or null
+ * when the state is absent or nothing is outdated.
+ */
+export function getFreshnessNotification(): string | null {
+  const state = readFreshnessState();
+  if (!state) return null;
+  const n = state.providers.filter((p) => p.outdated).length;
+  if (n === 0) return null;
+  const noun = n === 1 ? 'provider' : 'providers';
+  const verb = n === 1 ? 'has' : 'have';
+  return `${n} skill ${noun} ${verb} updates — run \`harness skill update\``;
 }
