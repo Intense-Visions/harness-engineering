@@ -46,6 +46,7 @@ keeping third-party skill providers fresh is core to that bet.
 | D4 | Extend `LockfileEntry` with a `source` field (original spec + resolved commit/version); bump lockfile to **v2** | GitHub installs currently discard their source (`packages/cli/src/commands/install.ts:209` records `local:<tempdir>`); nothing can be diffed against upstream without this. |
 | D5 | New `packages/cli/src/registry/freshness-checker.ts` mirroring the **structure** of `packages/core/src/update-checker.ts`; own `~/.harness/skill-freshness.json`; respects `HARNESS_NO_UPDATE_CHECK` | Clean separation from the CLI-version hot path; reuses a pattern the team already trusts. Located in the CLI (not core) because lockfile reading is a CLI-domain concern. |
 | D6 | `harness skill update` **confirms per-provider** (`oldSHA → newSHA`) before pulling | Supply-chain safety — the confirm *is* the consent to execute upstream code (enforces D1). |
+| D7 | `harness update` also **surfaces outdated skill providers** and offers to run the update, mirroring `offerIntegrationsSync` / `offerRegeneration` | `harness update` is where users already go to refresh everything harness-related; the freshness check belongs there too, not only in the passive background nudge. |
 
 ## Technical Design
 
@@ -119,6 +120,21 @@ harness skill update [name] [--check] [--global] [--yes]
 - Legacy v1 / sourceless entries report `"source unknown — reinstall to enable freshness"` and are
   skipped, never crash.
 
+Factor the probe + per-provider re-pull into reusable functions (e.g. `probeProviders(lockfilePaths)`
+and `updateProviders(outdated, { yes })`) so both this command and the `harness update` integration
+below call the same core rather than duplicating logic.
+
+### 7. `harness update` integration — `packages/cli/src/commands/update.ts`
+
+Add `offerSkillProviderUpdates()`, invoked from `runUpdateAction` alongside the existing
+`offerRegeneration()` / `offerCleanupOfOtherInstalls()` / `offerIntegrationsSync()` steps (both the
+"already up to date" branch and the post-update branch). It calls the shared `probeProviders`; if any
+provider is outdated it prints the `old → new` summary and — TTY only — asks
+`Update skill providers now? (y/N)` (default `N`, matching the supply-chain-consent posture of D1/D6),
+running the shared `updateProviders` on assent. Non-TTY / `HARNESS_NO_UPDATE_CHECK=1` → print the
+report-only hint pointing at `harness skill update`. Best-effort — never breaks `update`, exactly as
+`offerIntegrationsSync` is written.
+
 ### 6. Install ask-and-run — `packages/cli/src/commands/install.ts` action + shared prompt util
 
 - Extract the private `prompt()` from `commands/update.ts` into `packages/cli/src/output/prompt.ts`;
@@ -136,6 +152,7 @@ harness skill update [name] [--check] [--global] [--yes]
 - New `harness skill update` subcommand.
 - `harness install` gains `--generate` / `--no-generate` flags and post-install ask-and-run.
 - New background freshness check + notification line in `bin/harness.ts`.
+- `harness update` gains an `offerSkillProviderUpdates()` step (D7).
 
 **Registrations Required**
 - Register `skill update` in `packages/cli/src/commands/skill/index.ts`.
@@ -175,6 +192,9 @@ harness skill update [name] [--check] [--global] [--yes]
 7. All background/network freshness behavior is suppressed when `HARNESS_NO_UPDATE_CHECK=1`.
 8. A v1 lockfile loads without error; sourceless entries are reported
    "source unknown — reinstall to enable freshness," never crashing.
+9. `harness update`, when skill providers are outdated, surfaces them and (TTY) offers to update via
+   the same shared probe/update core as `harness skill update`; it degrades to a report-only hint in
+   non-TTY / `HARNESS_NO_UPDATE_CHECK=1` and never aborts the `update` run on freshness errors.
 
 ## Implementation Order
 
@@ -210,7 +230,10 @@ cached `~/.harness/skill-freshness.json`, `getFreshnessNotification()`), mirrori
 
 Add `packages/cli/src/commands/skill/update.ts` (`[name] [--check] [--global] [--yes]`) and register it
 in `commands/skill/index.ts`. Report-only `--check` with non-zero exit on drift; default per-provider
-confirm then re-pull via the existing install paths; sourceless entries reported, never crash. Tests.
+confirm then re-pull via the existing install paths; sourceless entries reported, never crash. Factor
+the probe + re-pull into shared functions. Then wire `offerSkillProviderUpdates()` into
+`commands/update.ts` (D7) reusing that shared core. Tests for the command and the `update` integration
+(TTY-assent, non-TTY report-only, freshness-error-does-not-abort-update).
 
 ### Phase 5: Documentation And ADR
 
