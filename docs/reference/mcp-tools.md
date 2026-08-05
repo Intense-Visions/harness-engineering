@@ -626,7 +626,7 @@ Post-execution LLM-judgment: did the implementation actually satisfy its spec? R
 
 ### `plan_parallelization`
 
-Plan safe parallel execution for a set of plan tasks. Builds a task DAG from dependsOn plus file/owns overlap, wave-groups it, annotates each wave with conflict severity and a firing decision, and returns a ParallelizationPlan (waves, serialized, cyclic, narration).
+Plan safe parallel execution for a set of plan tasks. Builds a task DAG from dependsOn plus glob-aware file/owns overlap, wave-groups it, annotates each wave with conflict severity and a firing decision, and returns a ParallelizationPlan (waves, serialized, cyclic, ownershipForecast, narration). ownershipForecast is a cheap deterministic list of task pairs whose declared owns:[paths] overlap.
 
 **Parameters:**
 

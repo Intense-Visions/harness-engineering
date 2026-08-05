@@ -55,6 +55,24 @@ describe('buildTaskGraph()', () => {
     const b = nodes.find((n) => n.id === 'b')!;
     expect(b.dependsOn.filter((d) => d === 'a')).toHaveLength(1);
   });
+
+  it('adds an implicit edge when an owns glob covers another task file (#601)', () => {
+    const nodes = buildTaskGraph([
+      { id: 'a', files: [], owns: ['src/api/**'] },
+      { id: 'b', files: ['src/api/users.ts'] },
+    ]);
+    const b = nodes.find((n) => n.id === 'b')!;
+    expect(b.dependsOn).toContain('a');
+  });
+
+  it('does not add an edge for disjoint owns globs (#601)', () => {
+    const nodes = buildTaskGraph([
+      { id: 'a', files: [], owns: ['src/api/**'] },
+      { id: 'b', files: [], owns: ['src/web/**'] },
+    ]);
+    const b = nodes.find((n) => n.id === 'b')!;
+    expect(b.dependsOn).not.toContain('a');
+  });
 });
 
 describe('validatePlanTasks()', () => {
@@ -191,6 +209,30 @@ describe('planParallelization()', () => {
     expect(plan.waves.map((w) => w.tasks)).toEqual([['a'], ['b']]);
     expect(plan.cyclic).toEqual([]);
     expect(plan.narration).toContain('Wave 1');
+  });
+
+  it('surfaces an owns-glob overlap in ownershipForecast (#601)', () => {
+    const tasks = [
+      { id: 'a', files: [], owns: ['src/api/**'] },
+      { id: 'b', files: [], owns: ['src/api/users.ts'] },
+    ];
+    const plan = planParallelization({ tasks, conflicts: noConflicts(['a', 'b']) });
+    expect(plan.ownershipForecast).toEqual([
+      {
+        taskA: 'a',
+        taskB: 'b',
+        overlaps: [{ ownedByA: 'src/api/**', ownedByB: 'src/api/users.ts' }],
+      },
+    ]);
+  });
+
+  it('leaves ownershipForecast empty when no owns declared (#601)', () => {
+    const tasks = [
+      { id: 'a', files: ['shared.ts'] },
+      { id: 'b', files: ['shared.ts'] },
+    ];
+    const plan = planParallelization({ tasks, conflicts: noConflicts(['a', 'b']) });
+    expect(plan.ownershipForecast).toEqual([]);
   });
 
   it('separates file-overlapping tasks across waves (Truth #4)', () => {

@@ -7,7 +7,7 @@ order: 4
 ### Owned-Files Declaration in Plans/Tasks
 
 - **Status:** planned
-- **Spec:** —
+- **Spec:** docs/changes/owned-files-declaration/proposal.md
 - **Summary:** Add an owns:[paths] field to harness plan tasks declaring the source files each task owns, enabling cheap deterministic pre-execution conflict forecasting alongside the heavier graph-based independence check (check_task_independence). A near-free parallel-safety guardrail. Adapted from Spec Kitty's per-work-package owned-files frontmatter. Adoption #4 from docs/research/spec-kitty-comparison-analysis.md [SPECKITTY-4]
 - **Blockers:** —
 - **Plan:** —
