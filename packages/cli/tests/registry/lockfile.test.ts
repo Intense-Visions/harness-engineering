@@ -24,7 +24,7 @@ describe('readLockfile', () => {
 
   it('returns default empty lockfile when file does not exist', () => {
     const result = readLockfile(path.join(tmpDir, 'skills-lock.json'));
-    expect(result).toEqual({ version: 1, skills: {} });
+    expect(result).toEqual({ version: 2, skills: {} });
   });
 
   it('throws on malformed JSON', () => {
@@ -67,6 +67,113 @@ describe('readLockfile', () => {
   });
 });
 
+describe('lockfile v2 provenance', () => {
+  let tmpDir: string;
+
+  beforeEach(() => {
+    tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'lockfile-test-'));
+  });
+
+  afterEach(() => {
+    fs.rmSync(tmpDir, { recursive: true, force: true });
+  });
+
+  it('loads a v1 lockfile without source, does not crash, and does not rewrite', () => {
+    const lockPath = path.join(tmpDir, 'skills-lock.json');
+    const v1 = {
+      version: 1,
+      skills: {
+        '@harness-skills/legacy': {
+          version: '1.0.0',
+          resolved: 'https://example.com/legacy.tgz',
+          integrity: 'sha512-x',
+          platforms: ['claude-code'],
+          installedAt: '2026-03-01T00:00:00Z',
+          dependencyOf: null,
+        },
+      },
+    };
+    fs.writeFileSync(lockPath, JSON.stringify(v1, null, 2));
+    const before = fs.readFileSync(lockPath, 'utf-8');
+    const result = readLockfile(lockPath);
+    expect(result.version).toBe(1);
+    expect(result.skills['@harness-skills/legacy'].source).toBeUndefined();
+    expect(fs.readFileSync(lockPath, 'utf-8')).toBe(before);
+  });
+
+  it('loads a v2 lockfile and preserves the source field', () => {
+    const lockPath = path.join(tmpDir, 'skills-lock.json');
+    const source = { kind: 'github', owner: 'o', repo: 'r', ref: 'main', commit: 'sha1' };
+    fs.writeFileSync(
+      lockPath,
+      JSON.stringify({
+        version: 2,
+        skills: {
+          '@harness-skills/x': {
+            version: '1.0.0',
+            resolved: 'local:/x',
+            integrity: '',
+            platforms: ['claude-code'],
+            installedAt: '2026-08-05T00:00:00Z',
+            dependencyOf: null,
+            source,
+          },
+        },
+      })
+    );
+    const result = readLockfile(lockPath);
+    expect(result.version).toBe(2);
+    expect(result.skills['@harness-skills/x'].source).toEqual(source);
+  });
+
+  it('rejects an unsupported version (3)', () => {
+    const lockPath = path.join(tmpDir, 'skills-lock.json');
+    fs.writeFileSync(lockPath, JSON.stringify({ version: 3, skills: {} }));
+    expect(() => readLockfile(lockPath)).toThrow('Invalid lockfile format');
+  });
+
+  it('always writes version 2 even when the in-memory lockfile is version 1', () => {
+    const lockPath = path.join(tmpDir, 'skills-lock.json');
+    writeLockfile(lockPath, { version: 1, skills: {} });
+    const parsed = JSON.parse(fs.readFileSync(lockPath, 'utf-8'));
+    expect(parsed.version).toBe(2);
+  });
+
+  it('round-trips a github source through write then read', () => {
+    const lockPath = path.join(tmpDir, 'skills-lock.json');
+    const entry: LockfileEntry = {
+      version: '1.0.0',
+      resolved: 'local:/tmp/x',
+      integrity: '',
+      platforms: ['claude-code'],
+      installedAt: '2026-08-05T00:00:00Z',
+      dependencyOf: null,
+      source: { kind: 'github', owner: 'o', repo: 'r', ref: 'main', commit: 'abc' },
+    };
+    writeLockfile(lockPath, { version: 2, skills: { '@harness-skills/x': entry } });
+    const result = readLockfile(lockPath);
+    expect(result.version).toBe(2);
+    expect(result.skills['@harness-skills/x'].source).toEqual(entry.source);
+  });
+
+  it('serializes the nested source object with sorted keys', () => {
+    const lockPath = path.join(tmpDir, 'skills-lock.json');
+    const entry: LockfileEntry = {
+      version: '1.0.0',
+      resolved: 'local:/tmp/x',
+      integrity: '',
+      platforms: ['claude-code'],
+      installedAt: '2026-08-05T00:00:00Z',
+      dependencyOf: null,
+      source: { kind: 'github', owner: 'o', repo: 'r', ref: 'main', commit: 'abc' },
+    };
+    writeLockfile(lockPath, { version: 2, skills: { '@harness-skills/x': entry } });
+    const raw = fs.readFileSync(lockPath, 'utf-8');
+    expect(raw.indexOf('"commit"')).toBeLessThan(raw.indexOf('"kind"'));
+    expect(raw.indexOf('"kind"')).toBeLessThan(raw.indexOf('"owner"'));
+  });
+});
+
 describe('writeLockfile', () => {
   let tmpDir: string;
 
@@ -80,12 +187,13 @@ describe('writeLockfile', () => {
 
   it('writes lockfile as formatted JSON with trailing newline', () => {
     const lockPath = path.join(tmpDir, 'skills-lock.json');
-    const data: SkillsLockfile = { version: 1, skills: {} };
+    const data: SkillsLockfile = { version: 2, skills: {} };
     writeLockfile(lockPath, data);
     const raw = fs.readFileSync(lockPath, 'utf-8');
     // Keys are sorted alphabetically (deterministic), so "skills" comes before "version"
     const parsed = JSON.parse(raw);
     expect(parsed).toEqual(data);
+    expect(parsed.version).toBe(2);
     expect(raw.endsWith('\n')).toBe(true);
     // Verify it's formatted with 2-space indent
     expect(raw).toContain('  "skills"');
