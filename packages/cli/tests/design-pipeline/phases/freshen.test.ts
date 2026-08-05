@@ -65,10 +65,17 @@ describe('runFreshen', () => {
     expect(ctx.inputs.tokensJsonExists).toBe(true);
   });
 
-  it('detects .harness/graph directory for graphAvailable', () => {
-    fs.mkdirSync(path.join(tmpDir, '.harness', 'graph'), { recursive: true });
+  it('detects a persisted graph (graph.json) for graphAvailable', () => {
+    writeFile('.harness/graph/graph.json', '{"kind":"schema"}\n');
     const ctx = newContext();
     runFreshen({ projectRoot: tmpDir, context: ctx });
     expect(ctx.graphAvailable).toBe(true);
+  });
+
+  it('treats an empty .harness/graph directory (no graph.json) as unavailable', () => {
+    fs.mkdirSync(path.join(tmpDir, '.harness', 'graph'), { recursive: true });
+    const ctx = newContext();
+    runFreshen({ projectRoot: tmpDir, context: ctx });
+    expect(ctx.graphAvailable).toBe(false);
   });
 });

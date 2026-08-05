@@ -390,12 +390,6 @@ export interface OutcomeStore {
 }
 
 /**
- * Directory (relative to the project root) where the knowledge graph is
- * persisted — the SAME path `gatherSignals` loads from (`.harness/graph`).
- */
-const GRAPH_DIR = '.harness/graph';
-
-/**
  * Best-effort graph load for the outcome lookup, mirroring
  * `gatherSignals`' `loadGraphStore`: returns `undefined` (never throws) when the
  * graph dir is absent or unloadable, preserving the "not yet evaluated"
@@ -403,8 +397,9 @@ const GRAPH_DIR = '.harness/graph';
  */
 export async function loadOutcomeStore(projectPath: string): Promise<OutcomeStore | undefined> {
   try {
+    const { resolveGraphDir } = await import('@harness-engineering/graph');
     const store = new GraphStore();
-    const loaded = await store.load(join(projectPath, GRAPH_DIR));
+    const loaded = await store.load(resolveGraphDir(projectPath));
     return loaded ? store : undefined;
   } catch {
     return undefined;
