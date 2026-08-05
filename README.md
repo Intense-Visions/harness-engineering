@@ -6,7 +6,7 @@
 
 **If your senior engineer goes on holiday for two weeks and your agents keep shipping — do you trust what comes out the other side?**
 
-Harness Engineering is the gear list that makes the answer _yes_. The framing is Ajey Gore's, from ["The Solo Climb"](https://ajeygore.in/content/the-solo-climb): shipping with agents unsupervised isn't a prompt problem, it's an equipment problem. The article names the gear you need before that holiday is safe. Here is each piece — and what harness ships for it.
+Harness Engineering is the gear list that makes the answer _yes_. The framing draws on a growing body of work on harness engineering — Ajey Gore's ["The Solo Climb"](https://ajeygore.in/content/the-solo-climb) and ["The Anatomy of an AI-Native Org"](https://ajeygore.in/content/the-anatomy-of-an-ai-native-org), OpenAI's ["Harness engineering"](https://openai.com/index/harness-engineering/), and Martin Fowler's ["Harness engineering for coding agents"](https://martinfowler.com/articles/harness-engineering.html) — distilled to one question: shipping with agents unsupervised isn't a prompt problem, it's an equipment problem. The holiday test is Gore's; _The Solo Climb_ names the gear you need before that holiday is safe. Here is each piece — and what harness ships for it.
 
 ## The Gears
 
