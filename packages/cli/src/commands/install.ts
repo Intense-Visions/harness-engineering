@@ -79,7 +79,7 @@ function validateSkillYaml(parsed: unknown): SkillYaml {
  * --global installs to ~/.harness/skills/community/ (available to all projects).
  * Otherwise installs to the project-level agents/skills/community/.
  */
-function resolveCommunityBase(global: boolean): { communityBase: string; lockfilePath: string } {
+export function resolveCommunityBase(global: boolean): { communityBase: string; lockfilePath: string } {
   if (global) {
     const communityBase = resolveGlobalCommunityBaseDir();
     return { communityBase, lockfilePath: path.join(communityBase, 'skills-lock.json') };
