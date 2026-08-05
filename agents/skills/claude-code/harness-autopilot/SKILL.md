@@ -120,7 +120,7 @@ On return: read `planPath` from `{sessionDir}/handoff.json`. Complexity override
    }
    ```
 
-   It returns a `ParallelizationPlan`: `waves[]` (each `{ tasks, severity, firing, analysisLevel }`), `serialized[]`, `cyclic[]`, `narration`, and `ownershipForecast`. Forwarding each task's `owns` lets the cheap deterministic owns-overlap check (#601) contribute implicit edges to the wave DAG and surface any overlapping ownership pairs in `ownershipForecast`. Omit `owns` for tasks that declare none — it stays a no-op.
+   It returns a `ParallelizationPlan`: `waves[]` (each `{ tasks, severity, firing, analysisLevel }`), `serialized[]`, `cyclic[]`, `narration`, and `ownershipForecast`. Forwarding each task's `owns` lets the cheap deterministic owns-overlap check contribute implicit edges to the wave DAG and surface any overlapping ownership pairs in `ownershipForecast`. Omit `owns` for tasks that declare none — it stays a no-op.
 
 2. **If `cyclic` is non-empty:** STOP. Surface the cycle and route back to PLAN/APPROVE_PLAN (a dependency cycle is a plan defect). Do not dispatch.
 

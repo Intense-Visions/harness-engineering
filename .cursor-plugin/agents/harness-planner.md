@@ -280,7 +280,7 @@ Report progress: `**[Phase 2/4]** DECOMPOSE — mapping file structure and creat
 ### Phase 3: SEQUENCE — Order Tasks and Identify Dependencies
 
 1. **Order by dependency.** Types before implementations. Implementations before integrations. Integration tasks (tagged `category: "integration"`) after all implementation tasks. Tests alongside implementations (same task, TDD style).
-2. **Identify parallel opportunities and record dependency edges.** Tasks touching different subsystems with no shared state can run in parallel. Record each task's real dependencies as `dependsOn` (the task IDs it must follow) in the task header `**Depends on:**` line, and keep the task's `**Files:**` list accurate — together these are exactly the edges `plan_parallelization` consumes (explicit `dependsOn` unioned with file-overlap edges) to build the wave DAG at execution time. A task with no dependencies records `**Depends on:** none`. Optionally, add an `**Owns:**` line listing glob paths a task claims ownership of (e.g. `src/api/**`); it feeds the cheap, deterministic, graph-free `owns`-overlap forecast in `plan_parallelization` (roadmap #601) — two tasks whose owned globs overlap are flagged in `ownershipForecast` and gain an implicit DAG edge, alongside the file-overlap edges. `Owns` is OPTIONAL: a task with no distinct ownership just omits it.
+2. **Identify parallel opportunities and record dependency edges.** Tasks touching different subsystems with no shared state can run in parallel. Record each task's real dependencies as `dependsOn` (the task IDs it must follow) in the task header `**Depends on:**` line, and keep the task's `**Files:**` list accurate — together these are exactly the edges `plan_parallelization` consumes (explicit `dependsOn` unioned with file-overlap edges) to build the wave DAG at execution time. A task with no dependencies records `**Depends on:** none`. Optionally, add an `**Owns:**` line listing glob paths a task claims ownership of (e.g. `src/api/**`); it feeds the cheap, deterministic, graph-free `owns`-overlap forecast in `plan_parallelization` — two tasks whose owned globs overlap are flagged in `ownershipForecast` and gain an implicit DAG edge, alongside the file-overlap edges. `Owns` is OPTIONAL: a task with no distinct ownership just omits it.
 3. **Number tasks sequentially.** Use `Task 1`, `Task 2`, etc. Dependencies reference task numbers.
 4. **Estimate total time.** Sum 2-5 minutes per task. If total exceeds available time, identify a milestone boundary for pausing.
 
@@ -351,7 +351,7 @@ One sentence.
 
 **Depends on:** none | **Files:** path/to/file.ts, path/to/file.test.ts | **Owns:** path/to/\*\*
 
-<!-- `Depends on` lists the task IDs this task must follow (its `dependsOn` edges); `Files` is the independence-checking input; `Owns` (optional) lists glob paths this task claims, feeding the deterministic owns-overlap forecast (#601). All three feed `plan_parallelization` during execution. -->
+<!-- `Depends on` lists the task IDs this task must follow (its `dependsOn` edges); `Files` is the independence-checking input; `Owns` (optional) lists glob paths this task claims, feeding the deterministic owns-overlap forecast. All three feed `plan_parallelization` during execution. -->
 
 1. Create test file with exact test code
 2. Run test — observe failure
