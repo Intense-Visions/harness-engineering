@@ -212,7 +212,7 @@ last_manual_edit: 2026-06-27T12:51:51.967Z
 ### bug(roadmap): sync writeback resolves shards by title-slug not frontmatter slug, silently aborting the whole batch
 
 - **Status:** planned
-- **Spec:** .changeset/roadmap-writeback-slug-fix.md
+- **Spec:** —
 - **Summary:** `applyRoadmapDiff` (packages/core/src/roadmap/store/apply-diff.ts) keys every shard by `slugifyFeatureName(feature.name)`, but the sharded store's real identity is the frontmatter `slug` — which `load()` enforces to equal the filename base, and which is frequently a hand-shortened or length-truncated form of the title. For the 22 shards (of 104) where `slugify(title) !== frontmatter.slug` (e.g. filename `lmlm-wire-engine-to-operator-surfaces` vs `slugify("LMLM Phases 4–9: wire the engine to operator surfaces")`), `patchFeature`/`addFeature`/`removeFeature` open `{slugify(title)}.md`, hit ENOENT, and `applyRoadmapDiff` **returns Err on the first failure — aborting the entire writeback batch**. Impact observed live during a full `roadmap sync --apply` (2026-08-04): all 11 external-ID backfills were dropped, `last_synced` was never stamped, and — most dangerously — a create path would have persisted the new issue on GitHub while failing to write its `externalId` back locally, so the next run recreates it (duplicate issues). **Fix:** resolve shards by the loaded feature's frontmatter slug (carry it on `RoadmapFeature` or index `before`/`after` by it), OR make the writeback collect per-shard errors instead of aborting on the first. Add a regression test with a shard whose title-slug ≠ frontmatter-slug. Workaround used on 2026-08-04: hand-backfill External-IDs so `changedFeatureNames` is empty and the buggy path is never entered.
 - **Blockers:** —
 - **Plan:** —
@@ -223,7 +223,7 @@ last_manual_edit: 2026-06-27T12:51:51.967Z
 ### bug(roadmap): harness roadmap sync never stamps last_synced on success
 
 - **Status:** planned
-- **Spec:** .changeset/roadmap-writeback-slug-fix.md
+- **Spec:** —
 - **Summary:** `fullSync` (packages/core/src/roadmap/sync-engine.ts) pushes, pulls, and writes back changed rows, but never sets `roadmap.frontmatter.lastSynced`. Because `applyRoadmapDiff` only writes frontmatter when it differs, a successful `harness roadmap sync --apply` leaves `_meta.md`'s `last_synced` untouched — so the field stays stale even though a sync just completed. This is the exact "`last_synced` 22 days behind `last_manual_edit`" symptom the sync command's own docstring cites as its reason for existing, and it undermines the human-always-wins staleness heuristic and any observability keyed on last_synced. Confirmed live 2026-08-04: `--apply` reported 104 patches / 0 errors yet `last_synced` remained at the pre-run value (manually corrected afterward). **Fix:** stamp `frontmatter.lastSynced = now` in `fullSync` before writeback (guard against `Date.now()` in test seams as elsewhere), and cover it with a test asserting last_synced advances on a no-op-diff successful sync.
 - **Blockers:** —
 - **Plan:** —
@@ -235,7 +235,7 @@ last_manual_edit: 2026-06-27T12:51:51.967Z
 
 ### Audit and cap the pre-commit --skip list
 
-- **Status:** planned
+- **Status:** done
 - **Spec:** docs/changes/audit-precommit-skip-list/proposal.md
 - **Summary:** `.husky/pre-commit:4` silently skips `entropy,docs,perf,security,deps,phase-gate` — six categories disabled at commit time. The skips may be justified individually, but the cumulative silence is the article's failure pattern #2: "every gap was once a known issue. Then it became background noise. Then it became invisible." Either move slow checks to pre-push with no auto-skip, or emit a one-line stderr warning per skipped category so the gaps remain visibly named. Source: Pass 1 #4.
 - **Blockers:** —
@@ -561,7 +561,7 @@ last_manual_edit: 2026-06-27T12:51:51.967Z
 ### Add harness mcp list-capabilities CLI for adopter audit
 
 - **Status:** planned
-- **Spec:** —
+- **Spec:** [docs/changes/mcp-list-capabilities/proposal.md](../changes/mcp-list-capabilities/proposal.md)
 - **Summary:** MCP server has 101 tool files (`packages/cli/src/mcp/tools/`). Per-tool `trustedOutput` flag exists but per-tool capability declarations don't. Adopters have no easy way to audit what their agent can do via MCP. Add `harness mcp list-capabilities --by-permission` CLI command that surfaces each tool's read/write/exec scope, network access, and trust tag. Source: Pass 6 #3.
 - **Blockers:** —
 - **Plan:** —
@@ -989,7 +989,7 @@ last_manual_edit: 2026-06-27T12:51:51.967Z
 ### Question-File Interview Mode
 
 - **Status:** planned
-- **Spec:** docs/changes/question-file-interview-mode/proposal.md
+- **Spec:** —
 - **Summary:** File-based question/answer mode for strategy, pulse, and brainstorming interviews — durable, team-reviewable, async-friendly decision capture — plus a cross-answer contradiction-detection pass added to existing pushback rules. Adapted from AI-DLC's [Answer]: tag question-file ritual and mandatory ambiguity analysis. Adoption #4 from docs/research/aidlc-comparison-analysis.md [AIDLC-4]
 - **Blockers:** —
 - **Plan:** —
@@ -1033,7 +1033,7 @@ last_manual_edit: 2026-06-27T12:51:51.967Z
 ### Semantic-Vocabulary CI Gate
 
 - **Status:** planned
-- **Spec:** —
+- **Spec:** docs/changes/semantic-vocabulary-ci-gate/proposal.md
 - **Summary:** Add a harness analog of Spec Kitty's test_no_legacy_terminology architectural test: a CI gate that fails when deprecated or renamed canonical terms reappear in skills/docs, protecting the glossary and naming-craft investment from vocabulary drift over time. Adapted from Spec Kitty's semantic-terminology architectural test. Adoption #8 from docs/research/spec-kitty-comparison-analysis.md [SPECKITTY-8]
 - **Blockers:** —
 - **Plan:** —
