@@ -82,16 +82,24 @@ function buildPrompt(input: CritiqueInput): string {
   ].join('\n');
 }
 
-function parseFencedJson(raw: string): Record<string, unknown> | null {
+/** Strip an optional ```json fence, returning the trimmed payload. */
+function stripJsonFence(raw: string): string {
   const match = /```(?:json)?\s*\n?([\s\S]*?)\n?\s*```/.exec(raw);
-  const body = (match?.[1] ?? raw).trim();
+  return (match?.[1] ?? raw).trim();
+}
+
+/** Narrow parsed JSON to a plain object, rejecting null/arrays/primitives. */
+function asJsonObject(parsed: unknown): Record<string, unknown> | null {
+  if (parsed === null || typeof parsed !== 'object') return null;
+  return parsed as Record<string, unknown>;
+}
+
+function parseFencedJson(raw: string): Record<string, unknown> | null {
+  const body = stripJsonFence(raw);
   if (body === 'null') return null;
   try {
-    // harness-ignore SEC-DES-001: parses LLM model output; typeof check below gates shape, downstream callers re-validate fields
-    const parsed: unknown = JSON.parse(body);
-    return parsed !== null && typeof parsed === 'object'
-      ? (parsed as Record<string, unknown>)
-      : null;
+    // harness-ignore SEC-DES-001: parses LLM model output; asJsonObject gates shape, downstream callers re-validate fields
+    return asJsonObject(JSON.parse(body));
   } catch {
     return null;
   }
