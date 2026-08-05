@@ -670,6 +670,64 @@ describe('local source provenance', () => {
   });
 });
 
+describe('npm source provenance', () => {
+  const metadata = {
+    name: '@harness-skills/deployment',
+    'dist-tags': { latest: '1.0.0' },
+    versions: {
+      '1.0.0': {
+        version: '1.0.0',
+        dist: {
+          tarball: 'https://registry.npmjs.org/@harness-skills/deployment/-/deployment-1.0.0.tgz',
+          shasum: 'abc',
+          integrity: 'sha512-abc',
+        },
+      },
+    },
+  };
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mockedGetBundledNames.mockReturnValue(new Set());
+    mockedReadLockfile.mockReturnValue({ version: 2, skills: {} });
+    mockedUpdateLockfileEntry.mockImplementation((lf, name, entry) => ({
+      ...lf,
+      skills: { ...lf.skills, [name]: entry },
+    }));
+    mockedFetchMetadata.mockResolvedValue(metadata);
+    mockedResolveVersion.mockReturnValue(metadata.versions['1.0.0']);
+    mockedDownloadTarball.mockResolvedValue(Buffer.from('tarball'));
+    mockedExtractTarball.mockReturnValue('/tmp/extracted');
+    mockedExistsSync.mockReturnValue(true);
+    mockedYamlParse.mockReturnValue({
+      name: 'deployment',
+      version: '1.0.0',
+      description: 'd',
+      triggers: ['manual'],
+      platforms: ['claude-code'],
+      tools: [],
+      type: 'flexible',
+      depends_on: [],
+    });
+  });
+
+  it('records an npm source with the resolved package name', async () => {
+    await runInstall('deployment', {});
+    const entry = mockedUpdateLockfileEntry.mock.calls.at(-1)![2];
+    expect(entry.source).toEqual({ kind: 'npm', package: '@harness-skills/deployment' });
+  });
+
+  it('includes the custom registry in the npm source', async () => {
+    await runInstall('deployment', { registry: 'https://custom.example.com' });
+    const entry = mockedUpdateLockfileEntry.mock.calls.at(-1)![2];
+    expect(entry.source).toEqual({
+      kind: 'npm',
+      package: '@harness-skills/deployment',
+      registry: 'https://custom.example.com',
+    });
+  });
+});
+
 describe('offerGenerateSlashCommands', () => {
   const originalStdoutIsTTY = process.stdout.isTTY;
   const originalStdinIsTTY = process.stdin.isTTY;

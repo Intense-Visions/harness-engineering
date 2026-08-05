@@ -405,6 +405,11 @@ export async function runInstall(
     platforms: skillYaml.platforms,
     installedAt: new Date().toISOString(),
     dependencyOf: options._dependencyOf ?? null,
+    source: {
+      kind: 'npm',
+      package: packageName,
+      ...(options.registry ? { registry: options.registry } : {}),
+    },
   };
 
   let updatedLockfile = updateLockfileEntry(lockfile, packageName, entry);
