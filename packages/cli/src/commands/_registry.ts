@@ -9,6 +9,7 @@ import { createAgentCommand } from './agent';
 import { createAlignDesignSystemCommand } from './align-design-system';
 import { createAuditProtectedCommand } from './audit-protected';
 import { createBackfillSkillProvenanceCommand } from './backfill-skill-provenance';
+import { createBlackBoxCommand } from './orchestrator-black-box';
 import { createBlueprintCommand } from './blueprint';
 import { createCheckArchCommand } from './check-arch';
 import { createCheckDepsCommand } from './check-deps';
@@ -18,6 +19,7 @@ import { createCheckHarnessStrengthCommand } from './check-harness-strength';
 import { createCheckPerfCommand } from './check-perf';
 import { createCheckPhaseGateCommand } from './check-phase-gate';
 import { createCheckSecurityCommand } from './check-security';
+import { createCheckVocabularyCommand } from './check-vocabulary';
 import { createCICommand } from './ci';
 import { createCleanupCommand } from './cleanup';
 import { createCleanupSessionsCommand } from './cleanup-sessions';
@@ -101,6 +103,7 @@ export const commandCreators: Array<() => Command> = [
   createAlignDesignSystemCommand,
   createAuditProtectedCommand,
   createBackfillSkillProvenanceCommand,
+  createBlackBoxCommand,
   createBlueprintCommand,
   createCheckArchCommand,
   createCheckDepsCommand,
@@ -110,6 +113,7 @@ export const commandCreators: Array<() => Command> = [
   createCheckPerfCommand,
   createCheckPhaseGateCommand,
   createCheckSecurityCommand,
+  createCheckVocabularyCommand,
   createCICommand,
   createCleanupCommand,
   createCleanupSessionsCommand,

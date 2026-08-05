@@ -112,6 +112,9 @@ jobs:
 
       - run: pnpm test:platform-parity
 
+      # Dogfood the shipped semantic-vocabulary gate against harness's own config.
+      - run: node packages/cli/dist/bin/harness.js check-vocabulary
+
   # Regenerate auto-generated baselines on main after merge to prevent drift.
   # Downloads coverage from the test job to avoid running the full test suite twice.
   refresh-baselines:

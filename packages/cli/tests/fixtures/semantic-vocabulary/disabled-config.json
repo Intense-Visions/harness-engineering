@@ -1,0 +1,9 @@
+{
+  "version": 1,
+  "vocabulary": {
+    "enabled": false,
+    "rules": [{ "deprecated": "sub-agent", "canonical": "subagent", "reason": "closed compound" }],
+    "paths": ["deprecated-sample.md"],
+    "exclude": []
+  }
+}

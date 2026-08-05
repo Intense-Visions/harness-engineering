@@ -1,0 +1,9 @@
+{
+  "version": 1,
+  "vocabulary": {
+    "enabled": true,
+    "rules": [],
+    "paths": ["deprecated-sample.md"],
+    "exclude": []
+  }
+}

@@ -129,6 +129,10 @@ Run lightweight security scan: secrets, injection, XSS, weak crypto
 - `--severity` — Minimum severity that fails the command; findings below it are excluded from the report and never fail the gate (error, warning, info) (default: "warning")
 - `--changed-only` — Only scan git-changed files
 
+### `harness check-vocabulary`
+
+Fail when deprecated or renamed canonical terms reappear in skills/docs prose
+
 ### `harness cleanup`
 
 Detect entropy issues (doc drift, dead code, patterns)
@@ -654,6 +658,26 @@ Run an agent task
 - `--timeout` — Timeout in milliseconds (default: "300000")
 - `--persona` — Run a persona by name
 - `--trigger` — Trigger context (auto, on_pr, on_commit, manual) (default: "auto")
+
+## Black-box Commands
+
+Inspect durable per-run orchestrator flight records (provenance, verdicts, tool-use)
+
+### `harness black-box list`
+
+List recorded runs, newest first
+
+**Options:**
+
+- `--dir` — Black-box directory (default: ".harness/black-box")
+
+### `harness black-box show <runId>`
+
+Show provenance, verdicts, convergence, and tool-use for a run
+
+**Options:**
+
+- `--dir` — Black-box directory (default: ".harness/black-box")
 
 ## Ci Commands
 

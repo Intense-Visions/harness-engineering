@@ -441,6 +441,60 @@ export const IntegrationsConfigSchema = z.object({
 });
 
 /**
+ * Schema for a single semantic-vocabulary rule (`vocabulary.rules[]`).
+ *
+ * Each rule maps a deprecated / renamed term to its canonical replacement. The
+ * `harness check-vocabulary` gate fails when the deprecated form reappears in
+ * scanned Markdown prose (fenced code blocks and inline code are ignored), and
+ * points the author at the canonical term with the exact file and line.
+ */
+export const VocabularyRuleSchema = z.object({
+  /** The deprecated / renamed term that must no longer appear in prose. */
+  deprecated: z.string().min(1),
+  /** The canonical term to suggest in its place. */
+  canonical: z.string().min(1),
+  /** Why the term was deprecated — shown in the failure message. */
+  reason: z.string().min(1).optional(),
+  /**
+   * Optional regex sources (compiled case-insensitively) that exempt a
+   * legitimate occurrence on a matching line. Use sparingly.
+   */
+  allow: z.array(z.string().min(1)).optional(),
+});
+
+/**
+ * Schema for the semantic-vocabulary CI gate (`vocabulary`).
+ *
+ * A config-driven, adopter-facing gate: `harness check-vocabulary` scans the
+ * configured Markdown surfaces and fails when a deprecated / renamed canonical
+ * term reappears in prose, protecting a glossary or naming investment from
+ * vocabulary drift. When `enabled` is false or `rules` is empty the gate passes
+ * trivially. Omit the block entirely to leave the gate inert.
+ *
+ * `paths` / `exclude` default to authored-prose surfaces (skills + docs) while
+ * skipping archival/historical ones (ADRs, change proposals, research) that
+ * legitimately quote old or external vocabulary.
+ */
+export const VocabularyConfigSchema = z.object({
+  /** Whether the vocabulary gate is enabled (default: true). */
+  enabled: z.boolean().default(true),
+  /** Deprecated → canonical term mappings. Empty ⇒ the gate passes trivially. */
+  rules: z.array(VocabularyRuleSchema).default([]),
+  /** Glob patterns of Markdown surfaces to scan (default: skills + docs prose). */
+  paths: z.array(z.string().min(1)).default(['agents/skills/**/*.md', 'docs/**/*.md']),
+  /** Glob patterns to skip (default: archival/historical surfaces + node_modules). */
+  exclude: z
+    .array(z.string().min(1))
+    .default([
+      '**/node_modules/**',
+      'docs/knowledge/decisions/**',
+      'docs/changes/**',
+      'docs/research/**',
+      'docs/roadmap-archive.md',
+    ]),
+});
+
+/**
  * The main Harness configuration schema.
  */
 /**
@@ -836,6 +890,8 @@ export const HarnessConfigSchema = z.object({
   phaseGates: PhaseGatesConfigSchema.optional(),
   /** Design system consistency settings */
   design: DesignConfigSchema.optional(),
+  /** Semantic-vocabulary CI gate settings (`harness check-vocabulary`) */
+  vocabulary: VocabularyConfigSchema.optional(),
   /** Shared configuration for craft-pipeline ceiling skills (LLM-judgment) */
   craft: CraftConfigSchema.optional(),
   /** Internationalization (i18n) settings */
@@ -947,6 +1003,11 @@ export type HarnessConfig = z.infer<typeof HarnessConfigSchema>;
  * Type for design-specific configuration.
  */
 export type DesignConfig = z.infer<typeof DesignConfigSchema>;
+
+/**
+ * Type for semantic-vocabulary gate configuration.
+ */
+export type VocabularyConfig = z.infer<typeof VocabularyConfigSchema>;
 
 /**
  * Type for i18n-specific configuration.
