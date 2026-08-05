@@ -162,6 +162,12 @@ export class MonolithStore implements RoadmapStore {
     return this.write(roadmap);
   }
 
+  // Monolith keeps `lastSynced` in the aggregate frontmatter, so stamping it is a
+  // whole-file rewrite via `patchFrontmatter` (#1037).
+  async stampLastSynced(timestamp: string): Promise<Result<void>> {
+    return this.patchFrontmatter((fm) => ({ ...fm, lastSynced: timestamp }));
+  }
+
   private async write(roadmap: Roadmap): Promise<Result<void>> {
     // Data-loss guard (#839): a whole-file rewrite serializes only the fields the
     // model captures, silently dropping hand-authored content the parser does not

@@ -84,6 +84,10 @@ function inMemoryStore(initial: Roadmap) {
       calls.patchAssignmentHistory.push(structuredClone(history));
       return Ok(undefined);
     },
+    stampLastSynced: async (timestamp) => {
+      current.frontmatter = { ...current.frontmatter, lastSynced: timestamp };
+      return Ok(undefined);
+    },
   };
   return {
     store,
