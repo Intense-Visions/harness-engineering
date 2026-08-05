@@ -51,6 +51,19 @@ This law is not theoretical. Both real failures of the reference implementation 
 
 In both cases the denominator was non-zero and the arithmetic was correct. Zero-denominator checks caught neither. Only reconciliation against ground truth did.
 
+#### Corollary: a forecast may only escalate in proportion to the evidence behind it
+
+Incurred spend is a fact and may always raise the alarm. A projection is evidence whose weight grows with the week, and must earn severity gradually.
+
+The reference implementation shipped this wrong too, in the opposite direction from the failures above. It derived status from `max(projected, used)`, so 2% of budget spent in a week's first three hours extrapolated to 118% and fired `CRITICAL`. The warning then read "5.8M used this week ... 108% of your weekly budget" — self-contradictory on its face, which teaches the reader to discount every future alarm. **An alarm that fires on noise is worse than no alarm**, because it spends the credibility the real one depends on.
+
+Two mechanisms, and both are needed:
+
+- **Shrink the forecast toward the trailing baseline** in proportion to how much of the week has not yet happened. Early on, the best available estimate of where the week lands is "a normal week". Report the raw extrapolation alongside the blended figure — quietly adjusting a number the user reads daily is its own kind of untrustworthiness, even when the adjustment is the statistically sound one.
+- **Cap how far a low-confidence forecast may escalate** (e.g. low → no escalation, medium → at most the second tier, high → any tier). With no baseline there is nothing to shrink toward, so this cap carries the load alone.
+
+Note the asymmetry is deliberate and runs one way only: withhold a _reassuring_ verdict on thin evidence, and withhold an _alarming_ verdict built on a thin _forecast_ — but never withhold one built on spend already incurred.
+
 ---
 
 ### Phase 1: INSTALL — Wire It Up Without Breaking Anything
@@ -103,6 +116,11 @@ In both cases the denominator was non-zero and the arithmetic was correct. Zero-
    - Empty store → status must be `NO_DATA` ("blind, not clear"), never `0% — fine`.
 
 3. **Confirm the reminders fire.** With an elevated status the post-turn hook must warn; at `OK` or `EARLY` it must stay silent, or it becomes wallpaper.
+
+4. **Test both directions of the forecast asymmetry**, because muting noise and muting a real alarm are the same edit if done carelessly:
+   - Small spend a few hours into the week, whose linear extrapolation exceeds the budget → must **not** escalate, and must not print an exhaustion date.
+   - Spend already past the budget a few hours into the week → **must** escalate to the top tier regardless of forecast confidence.
+     A change that satisfies only the first is a muted alarm, not a fixed one.
 
 **Gate G6/G7.**
 
@@ -166,30 +184,33 @@ Escalate to the user rather than guessing:
 
 ## Red Flags
 
-| Signal                                                         | Why it is a stop                                                                                           |
-| -------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------- |
-| "It says 3% so we're fine" with no calibration on record       | An uncalibrated percentage is meaningless. Check for a budget and calibration before repeating any number. |
-| Status flipped to a much lower figure with no behaviour change | Suspect record loss or a window change, not a quiet week.                                                  |
-| `files_rescanned: 1` alongside a suddenly small record total   | The exact signature of fingerprints outliving their records. Force a rebuild.                              |
-| Adjusting the budget so the HUD agrees with `/usage`           | This hides a window error behind a fudged ceiling. Fix the window instead.                                 |
-| Calibrating within hours of a reset                            | Whole-percent rounding makes this near-useless. Wait for mid-week.                                         |
-| A green statusline the user disputes                           | Diagnose before defending the number.                                                                      |
-| Installing on a platform without POSIX locking                 | Unsynchronised scans corrupt the store, and a corrupt store reports green. Refuse.                         |
+| Signal                                                                  | Why it is a stop                                                                                                                                     |
+| ----------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------- |
+| "It says 3% so we're fine" with no calibration on record                | An uncalibrated percentage is meaningless. Check for a budget and calibration before repeating any number.                                           |
+| Status flipped to a much lower figure with no behaviour change          | Suspect record loss or a window change, not a quiet week.                                                                                            |
+| `files_rescanned: 1` alongside a suddenly small record total            | The exact signature of fingerprints outliving their records. Force a rebuild.                                                                        |
+| Adjusting the budget so the HUD agrees with `/usage`                    | This hides a window error behind a fudged ceiling. Fix the window instead.                                                                           |
+| Calibrating within hours of a reset                                     | Whole-percent rounding makes this near-useless. Wait for mid-week.                                                                                   |
+| A green statusline the user disputes                                    | Diagnose before defending the number.                                                                                                                |
+| An alarm firing in the first hours of a week on a small absolute spend  | The forecast rests on almost no week. Verify the projection is shrunk and confidence-capped before believing it.                                     |
+| A warning quoting a projected percentage beside a small absolute figure | Self-contradictory on its face ("5.8M used ... 108% of budget"), which trains the reader to discount later alarms. Lead with what is actually spent. |
+| Installing on a platform without POSIX locking                          | Unsynchronised scans corrupt the store, and a corrupt store reports green. Refuse.                                                                   |
 
 ## Rationalizations to Reject
 
-| Rationalization                                                    | Reality                                                                                                                                                                                                             |
-| ------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| "The numbers look plausible, so calibration can wait"              | Plausible is exactly how both failures presented. The 81× understatement looked like a quiet week; the 85% record loss looked like 3% of budget. Reconcile or report nothing.                                       |
-| "The denominator is non-zero, so the reading is sound"             | Both real failures had non-zero denominators and correct arithmetic. Zero-denominator checks catch _no data_; they cannot catch _wrong window_ or _partial data_.                                                   |
-| "Weekday is enough — the exact reset time hardly matters"          | A time-of-day error shifts the window by hours; combined with the wrong weekday it produced an 81× error. Set weekday, time, and timezone.                                                                          |
-| "Atomic writes are in place, so a record-count check is redundant" | Atomic writes prevent _new_ corruption; they do not detect _existing_ loss. The count header is what makes fingerprints and records fail together instead of the fingerprints silently vouching for a gutted store. |
-| "Scanning after every turn keeps it fresh"                         | That frequency caused the write race. Usage cannot move meaningfully inside a minute; throttle.                                                                                                                     |
-| "Just set a budget from the trailing median"                       | A self-referential budget drifts with behaviour and never maps to the real ceiling. It is a fallback for _no calibration yet_, not a substitute.                                                                    |
-| "The promo ends eventually; no need to record a date"              | An unrecorded expiry is a budget that under-warns silently from that day on.                                                                                                                                        |
-| "Tests are overkill for a personal statusline"                     | The tool's entire job is not lying about usage, and it lied twice.                                                                                                                                                  |
-| "The pooled percentage is fine, so we're fine"                     | Per-model limits are separate and can be fully spent while the pooled bar looks healthy.                                                                                                                            |
-| "The user is probably misreading it"                               | They caught both real failures before the tool did. Diagnose first.                                                                                                                                                 |
+| Rationalization                                                    | Reality                                                                                                                                                                                                                                       |
+| ------------------------------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| "The numbers look plausible, so calibration can wait"              | Plausible is exactly how both failures presented. The 81× understatement looked like a quiet week; the 85% record loss looked like 3% of budget. Reconcile or report nothing.                                                                 |
+| "The denominator is non-zero, so the reading is sound"             | Both real failures had non-zero denominators and correct arithmetic. Zero-denominator checks catch _no data_; they cannot catch _wrong window_ or _partial data_.                                                                             |
+| "Weekday is enough — the exact reset time hardly matters"          | A time-of-day error shifts the window by hours; combined with the wrong weekday it produced an 81× error. Set weekday, time, and timezone.                                                                                                    |
+| "Atomic writes are in place, so a record-count check is redundant" | Atomic writes prevent _new_ corruption; they do not detect _existing_ loss. The count header is what makes fingerprints and records fail together instead of the fingerprints silently vouching for a gutted store.                           |
+| "Scanning after every turn keeps it fresh"                         | That frequency caused the write race. Usage cannot move meaningfully inside a minute; throttle.                                                                                                                                               |
+| "Just set a budget from the trailing median"                       | A self-referential budget drifts with behaviour and never maps to the real ceiling. It is a fallback for _no calibration yet_, not a substitute.                                                                                              |
+| "The promo ends eventually; no need to record a date"              | An unrecorded expiry is a budget that under-warns silently from that day on.                                                                                                                                                                  |
+| "Tests are overkill for a personal statusline"                     | The tool's entire job is not lying about usage, and it lied twice.                                                                                                                                                                            |
+| "The pooled percentage is fine, so we're fine"                     | Per-model limits are separate and can be fully spent while the pooled bar looks healthy.                                                                                                                                                      |
+| "The user is probably misreading it"                               | They caught both real failures before the tool did. Diagnose first.                                                                                                                                                                           |
+| "The projection says 120%, so warn now"                            | A projection is not spend. Early in the week it is an extrapolation from hours, and escalating on it burns the credibility the real alarm depends on. Cap what a low-confidence forecast may escalate to; let incurred spend escalate freely. |
 
 ## Examples
 

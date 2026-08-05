@@ -39,6 +39,23 @@ function roadmap(features: RoadmapFeature[]): Roadmap {
   };
 }
 
+/** Apply `mutate` to the first feature matching `slug`, in place. */
+function patchFeatureInPlace(
+  roadmap: Roadmap,
+  slug: string,
+  mutate: (
+    feature: Roadmap['milestones'][number]['features'][number]
+  ) => Roadmap['milestones'][number]['features'][number]
+): void {
+  for (const m of roadmap.milestones) {
+    const idx = m.features.findIndex((f) => slugifyFeatureName(f.name) === slug);
+    if (idx >= 0) {
+      m.features[idx] = mutate(m.features[idx]!);
+      return;
+    }
+  }
+}
+
 /**
  * In-memory store that actually applies mutations to a held `Roadmap` (so a
  * second reconcile pass sees the persisted state) and records each op so tests
@@ -56,13 +73,7 @@ function inMemoryStore(initial: Roadmap) {
   const store: RoadmapStore = {
     load: async () => Ok(structuredClone(current)),
     patchFeature: async (slug, mutate) => {
-      for (const m of current.milestones) {
-        const idx = m.features.findIndex((f) => slugifyFeatureName(f.name) === slug);
-        if (idx >= 0) {
-          m.features[idx] = mutate(m.features[idx]!);
-          break;
-        }
-      }
+      patchFeatureInPlace(current, slug, mutate);
       calls.patchFeature.push(slug);
       return Ok(undefined);
     },
