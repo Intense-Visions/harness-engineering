@@ -634,6 +634,7 @@ Post-execution LLM-judgment: did the implementation actually satisfy its spec? R
 - `testOutput` (string, required) — Captured test-runner stdout+stderr. Required: empty/unparseable output is tolerated but degrades the verdict toward INCONCLUSIVE/advisory.
 - `model` (string, optional) — Optional model override for the outcome-eval LLM call
 - `path` (string, optional) — Project root used to resolve the knowledge graph (default: cwd)
+- `commit` (string, optional) — Optional head commit sha of the change under judgment. Persisted onto the execution_outcome node so a sha-keyed consumer (e.g. the pre-merge brief) can look the verdict up. Omitting it is safe (additive).
 
 ### `plan_parallelization`
 
