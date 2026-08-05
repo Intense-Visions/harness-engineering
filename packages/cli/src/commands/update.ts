@@ -3,10 +3,10 @@ import { execFile, execFileSync } from 'node:child_process';
 import { realpathSync, existsSync, readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { promisify } from 'node:util';
-import readline from 'node:readline';
 import chalk from 'chalk';
 import { invalidateCheckState } from '@harness-engineering/core';
 import { logger } from '../output/logger';
+import { prompt } from '../output/prompt';
 import { ExitCode } from '../utils/errors';
 import { initHooks } from './hooks/init';
 import type { HookProfile } from '../hooks/profiles';
@@ -134,19 +134,6 @@ export function getInstalledPackages(pm: PackageManager): string[] {
     // Fallback: assume the core packages are installed
     return [CLI_PACKAGE, '@harness-engineering/core'];
   }
-}
-
-function prompt(question: string): Promise<string> {
-  const rl = readline.createInterface({
-    input: process.stdin,
-    output: process.stdout,
-  });
-  return new Promise((resolve) => {
-    rl.question(question, (answer) => {
-      rl.close();
-      resolve(answer.trim().toLowerCase());
-    });
-  });
 }
 
 export interface HarnessInstall {
