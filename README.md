@@ -114,9 +114,9 @@ For identity-tagged telemetry (project/team/alias), run the interactive wizard o
 Plugin users have two update channels that can drift slightly:
 
 - **Bundled artifacts** (skills, slash commands, subagents, hooks) ship from this git repo. Update via `/plugin update harness-claude`.
-- **MCP server binary** is launched via `npx -y -p @harness-engineering/cli@latest harness-mcp`, so each new session pulls the latest published npm version (subject to npx's ~24h cache).
+- **MCP server binary** is launched via `npx -y -p @harness-engineering/cli@<pinned-version> harness-mcp`, where `<pinned-version>` is an exact version pinned in the plugin manifest (not `@latest`). Every adopter runs that exact published build, and updates arrive deliberately — a `/plugin update` pulls a manifest whose pin has been bumped, rather than each new session silently pulling whatever is newest on npm. See [docs/security/trust-model.md](docs/security/trust-model.md) for the full trust and integrity model.
 
-In practice they stay close together because npm publishes follow git tags. If you need them locked in step (e.g. for a release window), `npm install -g @harness-engineering/cli` and use `harness setup` instead.
+Both channels move together on a `/plugin update`: the git artifacts and the pinned MCP version are bumped in the same manifest revision. If you instead want to always track the newest publish yourself, `npm install -g @harness-engineering/cli` and use `harness setup` — the global install is the opt-in "latest" path.
 
 #### Shell-from-plugin escape hatch
 
