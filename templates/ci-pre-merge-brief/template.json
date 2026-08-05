@@ -1,0 +1,5 @@
+{
+  "name": "ci-pre-merge-brief",
+  "description": "Opt-in GitHub Actions pre-merge brief: renders a workflow that runs `harness pre-merge-brief` to upsert a senior-facing sticky PR comment (diff, review verdict, signals, outcome-eval, \"worth your eyes\"), plus a matching branch-protection ruleset for the eventual acknowledgment gate.",
+  "version": 1
+}
