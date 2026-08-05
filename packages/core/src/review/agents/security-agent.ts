@@ -1,5 +1,6 @@
 import type { ContextBundle, ReviewFinding, ReviewAgentDescriptor } from '../types';
 import { makeFindingId } from '../constants';
+import { isReferenceOnlySecretValue } from '../../security/secret-reference';
 
 export const SECURITY_DESCRIPTOR: ReviewAgentDescriptor = {
   domain: 'security',
@@ -18,11 +19,29 @@ export const SECURITY_DESCRIPTOR: ReviewAgentDescriptor = {
 /** Patterns that indicate dangerous eval/Function usage. */
 const EVAL_PATTERN = /\beval\s*\(|new\s+Function\s*\(/;
 
-/** Patterns that indicate hardcoded secrets. */
+/**
+ * Patterns that indicate hardcoded secrets. Group 1 captures the candidate
+ * secret VALUE so `detectHardcodedSecrets` can tell a literal from a
+ * variable/expression reference (`$VAR`, `${{ secrets.X }}`) — see
+ * `isReferenceOnlySecretValue`.
+ */
 const SECRET_PATTERNS = [
-  /(?:api[_-]?key|secret|password|token|private[_-]?key)\s*=\s*["'][^"']{8,}/i,
-  /["'](?:sk|pk|api|key|secret|token|password)[-_][a-zA-Z0-9]{10,}["']/i,
+  /(?:api[_-]?key|secret|password|token|private[_-]?key)\s*=\s*["']([^"']{8,})/i,
+  /["']((?:sk|pk|api|key|secret|token|password)[-_][a-zA-Z0-9]{10,})["']/i,
 ];
+
+/**
+ * Return the captured secret VALUE for the first matching pattern, or `null`
+ * when no pattern matches. An empty string is a valid (matched-but-empty) value
+ * distinct from `null` (no match).
+ */
+function matchSecretValue(text: string): string | null {
+  for (const pattern of SECRET_PATTERNS) {
+    const m = pattern.exec(text);
+    if (m) return m[1] ?? '';
+  }
+  return null;
+}
 
 /**
  * Pattern for SQL string concatenation.
@@ -347,8 +366,12 @@ function detectHardcodedSecrets(bundle: ContextBundle): ReviewFinding[] {
       const line = lines[i]!;
       if (codeFile && isCommentLine(line)) continue;
       const codePart = codeFile ? stripTrailingLineComment(line) : line;
-      const matched = SECRET_PATTERNS.some((p) => p.test(codePart));
-      if (!matched) continue;
+      const value = matchSecretValue(codePart);
+      if (value === null) continue;
+      // A `$VAR` / `${{ secrets.X }}` reference is resolved at runtime, not
+      // embedded in source — flagging it as a hardcoded literal mis-fires on
+      // essentially every CI workflow line that wires a secret into an env var.
+      if (isReferenceOnlySecretValue(value)) continue;
       findings.push(makeSecretFinding(cf.path, i + 1));
     }
   }

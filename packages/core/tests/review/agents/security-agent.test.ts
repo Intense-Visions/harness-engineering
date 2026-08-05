@@ -489,6 +489,83 @@ describe('runSecurityAgent()', () => {
     expect(runSecurityAgent(bundle).length).toBe(1);
   });
 
+  // ---- reference-vs-literal guard: a matched value that is a shell/env var
+  // or a CI expression is resolved at runtime, not embedded in source, so it
+  // must NOT be flagged as a hardcoded secret. This mis-fired on essentially
+  // every PR touching a workflow file (e.g. GH_TOKEN="$AUTOAPPROVE_PAT"). ----
+
+  it('does NOT flag a CI expression value in a workflow file', () => {
+    const bundle = makeBundle({
+      changedFiles: [
+        {
+          path: '.github/workflows/ci.yml',
+          content: 'AUTOAPPROVE_PAT: "${{ secrets.BASELINE_AUTOAPPROVE_PAT }}"',
+          reason: 'changed',
+          lines: 1,
+        },
+      ],
+    });
+    expect(runSecurityAgent(bundle).length).toBe(0);
+  });
+
+  it('does NOT flag a shell variable reference assigned to a token', () => {
+    const bundle = makeBundle({
+      changedFiles: [
+        {
+          path: '.github/workflows/ci.yml',
+          content: 'GH_TOKEN="$AUTOAPPROVE_PAT" gh pr review "$PR_URL" --approve',
+          reason: 'changed',
+          lines: 1,
+        },
+      ],
+    });
+    expect(runSecurityAgent(bundle).length).toBe(0);
+  });
+
+  it('does NOT flag a ${VAR} brace reference assigned to a token', () => {
+    const bundle = makeBundle({
+      changedFiles: [
+        {
+          path: 'deploy/run.sh',
+          content: 'export API_KEY="${DEPLOY_API_KEY}"',
+          reason: 'changed',
+          lines: 1,
+        },
+      ],
+    });
+    expect(runSecurityAgent(bundle).length).toBe(0);
+  });
+
+  it('STILL flags a genuine hardcoded literal (guard must not over-suppress)', () => {
+    const bundle = makeBundle({
+      changedFiles: [
+        {
+          path: 'src/config.ts',
+          content: 'const API_KEY = "sk-ant-api03-REALLOOKINGKEY0123456789abcdef";',
+          reason: 'changed',
+          lines: 1,
+        },
+      ],
+    });
+    const findings = runSecurityAgent(bundle);
+    expect(findings.length).toBe(1);
+    expect(findings[0]!.cweId).toBe('CWE-798');
+  });
+
+  it('STILL flags a literal with a variable-only PREFIX — a partial reference is not reference-only', () => {
+    const bundle = makeBundle({
+      changedFiles: [
+        {
+          path: 'deploy/run.sh',
+          content: 'export API_KEY="${PREFIX}sk-live-0123456789abcdef"',
+          reason: 'changed',
+          lines: 1,
+        },
+      ],
+    });
+    expect(runSecurityAgent(bundle).length).toBe(1);
+  });
+
   // ---- guards are code-scoped: test-markers and comment syntax are JS/TS
   // conventions, so they must not suppress findings in non-code files ----
 

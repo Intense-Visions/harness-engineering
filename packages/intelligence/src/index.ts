@@ -137,6 +137,18 @@ export type {
   BlindSpot,
   PersonaRecommendation,
 } from './effectiveness/types.js';
+// Skill-grain effectiveness — Bayesian scoring over adoption telemetry
+// Wired into the `harness adoption retrospective` CLI command (catalog-retrospective skill)
+export {
+  computeSkillEffectiveness,
+  detectFailingSkills,
+  detectAbandonedSkills,
+} from './effectiveness/skill-scorer.js';
+export type {
+  SkillEffectivenessScore,
+  FailingSkill,
+  AbandonedSkill,
+} from './effectiveness/types.js';
 
 // Specialization — persistent agent expertise tracking
 // Wired into orchestrator pipeline-runner: refreshProfiles called on startup and after each analysis pass

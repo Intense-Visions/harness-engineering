@@ -2,6 +2,7 @@ import * as fs from 'node:fs/promises';
 import { minimatch } from 'minimatch';
 import { RuleRegistry } from './rules/registry';
 import { resolveRuleSeverity } from './config';
+import { isReferenceOnlySecretValue, extractQuotedSecretValue } from './secret-reference';
 import { detectStack } from './stack-detector';
 import { secretRules } from './rules/secrets';
 import { injectionRules } from './rules/injection';
@@ -158,7 +159,16 @@ export class SecurityScanner {
   ): SecurityFinding | null {
     for (const pattern of rule.patterns) {
       pattern.lastIndex = 0; // Reset regex lastIndex for global/sticky patterns
-      if (!pattern.test(line)) continue;
+      const match = pattern.exec(line);
+      if (!match) continue;
+      // Secret rules match assignment shapes like `TOKEN="..."`. When the value
+      // is a variable/expression reference (`$VAR`, `${{ secrets.X }}`) rather
+      // than a literal, nothing is embedded in source — the secret is resolved
+      // at runtime — so a "hardcoded secret" finding here is a false positive.
+      if (rule.category === 'secrets') {
+        const value = extractQuotedSecretValue(match[0]);
+        if (value !== null && isReferenceOnlySecretValue(value)) continue;
+      }
       return {
         ruleId: rule.id,
         ruleName: rule.name,
