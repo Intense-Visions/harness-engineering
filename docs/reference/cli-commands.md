@@ -130,6 +130,7 @@ Run performance checks: structural complexity, coupling, and size budgets
 - `--structural` — Run structural complexity checks only
 - `--coupling` — Run coupling metric checks only
 - `--size` — Run size budget checks only
+- `--severity` — Minimum severity that fails the command; when set, violations below it are excluded from the report and never fail the gate (error, warning, info)
 
 ### `harness check-phase-gate`
 
@@ -181,6 +182,17 @@ LLM-judgment critique of CLI ergonomics quality — the ceiling questions a mech
 - `--commands-dir` — Directory of command definitions to critique
 - `--exclude-dirs` — Additional subdir names to skip while walking
 - `--max-files` — Cap command count (default: 60)
+
+### `harness code-craft`
+
+LLM-judgment critique of code quality / readability — the ceiling counterpart to the rule-based code floor (entropy-cleaner / enforce-architecture / complexity thresholds). 7 seed rubrics (reveals-intent, control-flow-honest, one-story-one-altitude, abstraction-earns-keep, simplest-it-could-be, signature-keeps-promise, senior-nods-not-winces). Per-unit critique of functions, methods, and classes. Identifier-level naming is delegated to naming-craft.
+
+**Options:**
+
+- `-f, --files` — Optional file scope (overrides packages/\*/src discovery)
+- `--packages` — Restrict to specific packages under packages/
+- `--max-files` — Cap source-file count (default: 100)
+- `--max-units-per-file` — Cap per-file unit critique (default: 20)
 
 ### `harness copy-craft`
 
@@ -649,6 +661,7 @@ Run all validation checks
 - `--agent-configs` — Validate agent configs (CLAUDE.md, hooks, skills) via agnix or built-in fallback rules
 - `--strict` — Treat warnings as errors (applies to --agent-configs)
 - `--agnix-bin` — Override the agnix binary path discovered on PATH
+- `--severity` — Minimum severity that fails the command; when set, findings below it are excluded from the report and never fail the gate (error, warning, info)
 
 ### `harness verify`
 
