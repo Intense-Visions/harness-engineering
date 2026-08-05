@@ -618,7 +618,7 @@ last_manual_edit: 2026-06-27T12:51:51.967Z
 ### Document the article's failure-pattern checklist
 
 - **Status:** planned
-- **Spec:** —
+- **Spec:** docs/standard/article-failure-patterns.md
 - **Summary:** New `docs/standard/article-failure-patterns.md`. Name the article's five failure modes (theatre, gaps stopped naming, happy-path-only, no eval, no safe failure mode). For each, point at how `harness:audit-harness-strength` (new skill above) detects it in the adopter's own project. Provides the conceptual scaffolding for the self-audit tool. Source: Pass 1 #10.
 - **Blockers:** Build harness:audit-harness-strength self-audit skill
 - **Plan:** —
