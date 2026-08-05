@@ -215,6 +215,16 @@ Run the design-pipeline orchestrator: FRESHEN → DETECT → FIX → AUDIT → F
 - `-m, --mode` — Verifier mode: fast | full (default: "fast")
 - `--design-strictness` — Override design.strictness: strict | standard | permissive
 
+### `harness docs-craft`
+
+LLM-judgment critique of documentation quality — the ceiling counterpart to the rule-based doc floor (detect-doc-drift / check-docs / docs-pipeline). 7 seed rubrics (teaches-not-describes, order-matches-mental-model, examples-earn-their-place, prose-is-alive, api-doc-predicts-response, stranger-same-understanding, scannable-and-navigable). Per-file critique.
+
+**Options:**
+
+- `-f, --files` — Optional file scope (overrides docs/ discovery)
+- `--exclude-dirs` — Additional subdir names to skip under docs/
+- `--max-files` — Cap doc count (default: 60)
+
 ### `harness doctor`
 
 Check environment health: Node, slash commands, MCP, integrations, integration credentials, hooks, baselines, sessions
@@ -355,6 +365,15 @@ Run knowledge extraction, drift detection, and gap analysis
 - `--image-paths` — Comma-separated image file paths for analysis
 - `--coverage` — Display per-domain coverage report
 - `--check-contradictions` — Display cross-source contradiction report
+
+### `harness list-capabilities`
+
+Audit each MCP tool: read/write/exec scope, network access, and trust tag
+
+**Options:**
+
+- `--by-permission` — Group tools by read/write/exec/network scope
+- `--json` — Emit machine-readable JSON
 
 ### `harness naming-craft`
 
