@@ -316,6 +316,21 @@ describe('createInstallCommand options', () => {
     const cmd = createInstallCommand();
     expect(cmd.options.find((o) => o.long === '--no-generate')).toBeDefined();
   });
+
+  it('resolves generate as a tri-state: undefined / true / false', () => {
+    // Guards the implicit contract that --generate is declared before --no-generate;
+    // reordering would make Commander default `generate` to true and silently break
+    // the interactive-prompt-by-default behavior.
+    const parse = (argv: string[]): boolean | undefined => {
+      const cmd = createInstallCommand();
+      cmd.exitOverride().action(() => {}); // no-op action; we only want parsed opts
+      cmd.parse(['some-skill', ...argv], { from: 'user' });
+      return cmd.opts().generate as boolean | undefined;
+    };
+    expect(parse([])).toBeUndefined();
+    expect(parse(['--generate'])).toBe(true);
+    expect(parse(['--no-generate'])).toBe(false);
+  });
 });
 
 describe('local install (--from)', () => {
@@ -548,7 +563,8 @@ describe('GitHub install', () => {
 });
 
 describe('offerGenerateSlashCommands', () => {
-  const originalIsTTY = process.stdout.isTTY;
+  const originalStdoutIsTTY = process.stdout.isTTY;
+  const originalStdinIsTTY = process.stdin.isTTY;
   let logSpy: ReturnType<typeof vi.spyOn>;
 
   beforeEach(() => {
@@ -557,7 +573,8 @@ describe('offerGenerateSlashCommands', () => {
     logSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
   });
   afterEach(() => {
-    process.stdout.isTTY = originalIsTTY;
+    process.stdout.isTTY = originalStdoutIsTTY;
+    process.stdin.isTTY = originalStdinIsTTY;
     logSpy.mockRestore();
   });
 
@@ -570,6 +587,7 @@ describe('offerGenerateSlashCommands', () => {
 
   it('TTY + assent runs generate-slash-commands', async () => {
     process.stdout.isTTY = true;
+    process.stdin.isTTY = true;
     mockedPrompt.mockResolvedValue(''); // default Y
     await offerGenerateSlashCommands({});
     expect(mockedPrompt).toHaveBeenCalled();
@@ -578,8 +596,20 @@ describe('offerGenerateSlashCommands', () => {
 
   it('TTY + decline does not run generate-slash-commands', async () => {
     process.stdout.isTTY = true;
+    process.stdin.isTTY = true;
     mockedPrompt.mockResolvedValue('n');
     await offerGenerateSlashCommands({});
+    expect(generateRan()).toBe(false);
+    expect(hintPrinted()).toBe(true);
+  });
+
+  it('piped stdin (stdout TTY, stdin non-TTY) prints hint without prompting', async () => {
+    // Guards the "never hangs on readline" contract: prompt() reads stdin, so an
+    // EOF/piped stdin must fall back to the hint even when stdout is a TTY.
+    process.stdout.isTTY = true;
+    process.stdin.isTTY = false;
+    await offerGenerateSlashCommands({});
+    expect(mockedPrompt).not.toHaveBeenCalled();
     expect(generateRan()).toBe(false);
     expect(hintPrinted()).toBe(true);
   });

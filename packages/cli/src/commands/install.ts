@@ -425,8 +425,9 @@ export async function offerGenerateSlashCommands(opts: InstallOptions): Promise<
   if (opts.generate === false) return; // --no-generate: suppress entirely
 
   const scopeFlags = opts.global ? ['--global', '--include-global'] : [];
+  // Derive the hint from scopeFlags so the printed command can't drift from the executed one.
   const hint = `Run \`harness generate-slash-commands${
-    opts.global ? ' --global --include-global' : ''
+    scopeFlags.length ? ' ' + scopeFlags.join(' ') : ''
   }\` to register slash commands.`;
 
   const run = (): void => {
@@ -443,8 +444,10 @@ export async function offerGenerateSlashCommands(opts: InstallOptions): Promise<
     return;
   }
 
-  if (!process.stdout.isTTY) {
-    logger.info(hint); // non-TTY: print today's hint unchanged
+  // Gate on BOTH streams: the prompt reads stdin, so a piped/EOF stdin (even with a TTY stdout,
+  // e.g. `echo | harness install foo`) must fall back to the hint rather than block on readline.
+  if (!process.stdout.isTTY || !process.stdin.isTTY) {
+    logger.info(hint); // non-interactive: print today's hint unchanged
     return;
   }
 
