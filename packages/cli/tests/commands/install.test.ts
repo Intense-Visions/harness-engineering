@@ -295,6 +295,16 @@ describe('createInstallCommand options', () => {
     const opt = cmd.options.find((o) => o.long === '--registry');
     expect(opt).toBeDefined();
   });
+
+  it('has --generate option', () => {
+    const cmd = createInstallCommand();
+    expect(cmd.options.find((o) => o.long === '--generate')).toBeDefined();
+  });
+
+  it('has --no-generate option', () => {
+    const cmd = createInstallCommand();
+    expect(cmd.options.find((o) => o.long === '--no-generate')).toBeDefined();
+  });
 });
 
 describe('local install (--from)', () => {

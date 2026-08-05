@@ -31,6 +31,12 @@ export interface InstallOptions {
   from?: string;
   registry?: string;
   global?: boolean;
+  /**
+   * Post-install generate-slash-commands behavior. `undefined` = prompt when
+   * interactive (TTY); `true` = run without prompting (`--generate`);
+   * `false` = suppress entirely (`--no-generate`).
+   */
+  generate?: boolean;
   /** Internal: tracks which package triggered this install (for transitive deps) */
   _dependencyOf?: string | null;
 }
@@ -419,6 +425,8 @@ export function createInstallCommand(): Command {
     )
     .option('--global', 'Install globally (~/.harness/skills/community/) for all projects', false)
     .option('--registry <url>', 'Use a custom npm registry URL')
+    .option('--generate', 'Generate slash commands after install without prompting')
+    .option('--no-generate', 'Skip generating slash commands after install')
     .action(async (skill: string, opts: InstallOptions) => {
       try {
         const result = await runInstall(skill, opts);
