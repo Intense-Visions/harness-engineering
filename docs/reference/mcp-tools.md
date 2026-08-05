@@ -127,7 +127,7 @@ Get a structural skeleton of a file or files matching a glob: exports, classes, 
 **Parameters:**
 
 - `path` (string, required) — Absolute file path or directory path. When a directory, outlines all supported files within it.
-- `glob` (string, optional) — Optional glob pattern to filter files (e.g. "_.ts", "src/\*\*/_.py"). Only used when path is a directory.
+- `glob` (string, optional) — Optional glob pattern to filter files (e.g. "*.ts", "src/**/*.py"). Only used when path is a directory.
 - `offset` (number, optional) — Number of file entries to skip (pagination, directory mode only). Default: 0. Files are sorted by modification time desc.
 - `limit` (number, optional) — Max file entries to return (pagination, directory mode only). Default: 30.
 
@@ -139,7 +139,7 @@ Search for symbols (functions, classes, types, variables) by name or pattern acr
 
 - `query` (string, required) — Symbol name or substring to search for (case-insensitive).
 - `directory` (string, required) — Absolute path to directory to search in.
-- `glob` (string, optional) — Optional glob pattern to filter files (e.g. "\*.ts").
+- `glob` (string, optional) — Optional glob pattern to filter files (e.g. "*.ts").
 
 ### `code_unfold`
 
@@ -394,7 +394,7 @@ Content-based skill recommendations for a spec or feature description. Returns t
 
 ### `align_design_system`
 
-Apply codemods for DRIFT-T001/T002/T003 (hex/font/spacing tokens) where pre-flight classifier deems the change safe; emit precise suggestions for DRIFT-T004 (deprecated tokens) and all DRIFT-P\* (primitive adoption). Runs standalone (invokes detect-design-drift internally) or as the FIX step in a pipeline (reads pipeline.driftFindings from handoff.json).
+Apply codemods for DRIFT-T001/T002/T003 (hex/font/spacing tokens) where pre-flight classifier deems the change safe; emit precise suggestions for DRIFT-T004 (deprecated tokens) and all DRIFT-P* (primitive adoption). Runs standalone (invokes detect-design-drift internally) or as the FIX step in a pipeline (reads pipeline.driftFindings from handoff.json).
 
 **Parameters:**
 
@@ -425,14 +425,14 @@ Audit components for anatomy completeness. Emits ANAT-D* findings for component 
 **Parameters:**
 
 - `path` (string, required) — Project root path
-- `mode` (string, optional) — fast = conventions only (cheap AST scan); full additionally runs the ANAT-P\* composition patterns.
+- `mode` (string, optional) — fast = conventions only (cheap AST scan); full additionally runs the ANAT-P* composition patterns.
 - `files` (array, optional) — Optional explicit file list (paths or globs) to scope the audit.
 - `designStrictness` (string, optional) — Overrides design.strictness from harness.config.json.
 - `catalog` (array, optional) — Optional subset of catalog entries to run.
 
 ### `audit_brand`
 
-Audit brand-semantics violations: tokens used in forbidden contexts per their $extensions.harness.brand metadata (BRAND-T\*), and UI copy containing voice.forbidden_phrases from DESIGN.md ## Brand Rules (BRAND-V001). 4th verifier composed by harness check-design.
+Audit brand-semantics violations: tokens used in forbidden contexts per their $extensions.harness.brand metadata (BRAND-T*), and UI copy containing voice.forbidden_phrases from DESIGN.md ## Brand Rules (BRAND-V001). 4th verifier composed by harness check-design.
 
 **Parameters:**
 
@@ -1123,3 +1123,4 @@ Manage harness project state: show current state, record learnings/failures, arc
 - `reason` (string, optional) — Reason for a forced transition
 
 **CLI equivalent:** [`harness state show`](cli-commands.md#harness-state-show)
+

@@ -164,7 +164,7 @@ Pre-execution LLM-judgment skill: does a spec carry measurable, testable, comple
 
 ### align-design-system
 
-Apply codemods for safe DRIFT-T001/T002/T003 token-bypass findings; emit precise suggestions for DRIFT-T004 (deprecated tokens) and all DRIFT-P\* (primitive adoption). FIX half of design-pipeline sub-project
+Apply codemods for safe DRIFT-T001/T002/T003 token-bypass findings; emit precise suggestions for DRIFT-T004 (deprecated tokens) and all DRIFT-P* (primitive adoption). FIX half of design-pipeline sub-project
 
 - **Triggers:** manual, on_pr, on_new_feature
 - **Platforms:** claude-code
@@ -1045,7 +1045,7 @@ Keyset (seek) pagination with composite key design, sort order stability, and co
 
 ### api-pagination-offset
 
-Offset/limit pagination including COUNT(\*) costs, page drift on inserts/deletes, max offset limits, and UI implications
+Offset/limit pagination including COUNT(*) costs, page drift on inserts/deletes, max offset limits, and UI implications
 
 - **Triggers:** manual
 - **Platforms:** claude-code, gemini-cli, cursor, codex
@@ -6962,3 +6962,4 @@ Model variant types with z.union, z.discriminatedUnion, z.intersection, and type
 - **Platforms:** claude-code, gemini-cli, cursor, codex
 - **Type:** knowledge
 - **Cognitive mode:** advisory-guide
+
