@@ -470,11 +470,14 @@ async function handleClaim(c: Context, ctx: ServerContext): Promise<Response> {
 
 async function handleIdentity(c: Context): Promise<Response> {
   const identity = await resolveIdentity();
+  // The presentation-only role preference (default `dev`) rides along even when
+  // identity resolution fails, so an operator's `HARNESS_DASHBOARD_ROLE` seed
+  // isn't silently dropped on the 503 path.
+  const role = resolveRole();
   if (!identity) {
-    return c.json({ error: 'Could not resolve GitHub identity' }, 503);
+    return c.json({ error: 'Could not resolve GitHub identity', role }, 503);
   }
-  // Attach the presentation-only role preference (default `dev`).
-  return c.json({ ...identity, role: resolveRole() });
+  return c.json({ ...identity, role });
 }
 
 export function buildActionsRouter(ctx: ServerContext): Hono {

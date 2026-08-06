@@ -209,16 +209,29 @@ import { securityCraftDefinition, handleSecurityCraft } from './tools/security-c
 // craft-pipeline: docs-craft LLM-judgment skill (documentation quality, per-file critique).
 import { docsCraftDefinition, handleDocsCraft } from './tools/docs-craft.js';
 // craft-pipeline: code-craft LLM-judgment skill (code readability, per-unit critique).
-import { codeCraftDefinition, handleCodeCraft } from './tools/code-craft.js';
+import {
+  codeCraftDefinition,
+  codeCraftFinalizeDefinition,
+  handleCodeCraft,
+  handleCodeCraftFinalize,
+} from './tools/code-craft.js';
 // craft-pipeline: cli-ergonomics-craft LLM-judgment skill (CLI quality, per-command critique).
 import {
   cliErgonomicsCraftDefinition,
+  cliErgonomicsCraftFinalizeDefinition,
   handleCliErgonomicsCraft,
+  handleCliErgonomicsCraftFinalize,
 } from './tools/cli-ergonomics-craft.js';
 // craft-pipeline: api-craft LLM-judgment skill (API quality, per-surface critique).
-import { apiCraftDefinition, handleApiCraft } from './tools/api-craft.js';
+import {
+  apiCraftDefinition,
+  apiCraftFinalizeDefinition,
+  handleApiCraft,
+  handleApiCraftFinalize,
+} from './tools/api-craft.js';
 import { outcomeEvalDefinition, handleOutcomeEval } from './tools/outcome-eval.js';
 import { acceptanceEvalDefinition, handleAcceptanceEval } from './tools/acceptance-eval.js';
+import { uatSignoffDefinition, handleUatSignoff } from './tools/uat-signoff.js';
 // strategic-anchor: STRATEGY.md read/validate/write tools so skills don't have
 // to shell out to `node -e "import('@harness-engineering/core')..."` from a cwd
 // that may not have core installed.
@@ -349,10 +362,14 @@ const TOOL_DEFINITIONS: ToolDefinition[] = [
   securityCraftDefinition,
   docsCraftDefinition,
   codeCraftDefinition,
+  codeCraftFinalizeDefinition,
   cliErgonomicsCraftDefinition,
+  cliErgonomicsCraftFinalizeDefinition,
   apiCraftDefinition,
+  apiCraftFinalizeDefinition,
   outcomeEvalDefinition,
   acceptanceEvalDefinition,
+  uatSignoffDefinition,
   validateStrategyDefinition,
   readStrategyDefinition,
   writeStrategyDefinition,
@@ -456,10 +473,14 @@ const TOOL_HANDLERS: Record<string, ToolHandler> = {
   security_craft: handleSecurityCraft as unknown as ToolHandler,
   docs_craft: handleDocsCraft as unknown as ToolHandler,
   code_craft: handleCodeCraft as unknown as ToolHandler,
+  code_craft_finalize: handleCodeCraftFinalize as unknown as ToolHandler,
   cli_ergonomics_craft: handleCliErgonomicsCraft as unknown as ToolHandler,
+  cli_ergonomics_craft_finalize: handleCliErgonomicsCraftFinalize as unknown as ToolHandler,
   api_craft: handleApiCraft as unknown as ToolHandler,
+  api_craft_finalize: handleApiCraftFinalize as unknown as ToolHandler,
   outcome_eval: handleOutcomeEval as unknown as ToolHandler,
   acceptance_eval: handleAcceptanceEval as unknown as ToolHandler,
+  uat_signoff: handleUatSignoff as unknown as ToolHandler,
   validate_strategy: handleValidateStrategy as unknown as ToolHandler,
   read_strategy: handleReadStrategy as unknown as ToolHandler,
   write_strategy: handleWriteStrategy as unknown as ToolHandler,
