@@ -7,7 +7,7 @@ import { TemplateEngine } from '../../src/templates/engine';
 import { resolveTemplatesDir } from '../../src/utils/paths';
 
 describe('harness init integration', () => {
-  const levels = ['basic', 'intermediate', 'advanced'] as const;
+  const levels = ['basic', 'intermediate', 'load-bearing-minimum', 'advanced'] as const;
 
   for (const level of levels) {
     it(`scaffolds a valid ${level} project`, async () => {

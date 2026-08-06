@@ -4,7 +4,20 @@ import { BrowserRouter, Routes, Route, Navigate } from 'react-router';
 import { ChatLayout } from './components/layout/ChatLayout';
 import { ThreadRoute, SystemRoute } from './components/layout/ThreadView';
 import { ProjectPulseProvider } from './hooks/useProjectPulse';
+import { RoleProvider, useRole } from './hooks/useRole';
+import { defaultRouteForRole } from './types/roles';
 import './index.css';
+
+/**
+ * Role-aware home: redirect `/` to the current role's default landing route.
+ * Waits for the role to resolve so an env-configured lane lands correctly on
+ * first load; developers (the default) still land on Signals.
+ */
+function RoleHome() {
+  const { role, ready } = useRole();
+  if (!ready) return null;
+  return <Navigate to={defaultRouteForRole(role)} replace />;
+}
 
 // Legacy route redirects: map old domain-prefixed and flat routes to /s/:page
 const LEGACY_REDIRECTS: Array<{ from: string; to: string }> = [
@@ -52,23 +65,26 @@ if (root) {
   createRoot(root).render(
     <StrictMode>
       <ProjectPulseProvider>
-        <BrowserRouter>
-          <ChatLayout>
-            <Routes>
-              {/* Core chat-first routes */}
-              {/* Spec 534 — dashboard opens on the signal layer.
-                  Chat remains reachable via the sidebar "New Chat" button and /t/:threadId. */}
-              <Route path="/" element={<Navigate to="/s/signals" replace />} />
-              <Route path="/t/:threadId" element={<ThreadRoute />} />
-              <Route path="/s/:systemPage" element={<SystemRoute />} />
+        <RoleProvider>
+          <BrowserRouter>
+            <ChatLayout>
+              <Routes>
+                {/* Core chat-first routes */}
+                {/* The dashboard opens on the current role's default landing
+                    route (Signals for developers). Chat remains reachable via
+                    the sidebar "New Chat" button and /t/:threadId. */}
+                <Route path="/" element={<RoleHome />} />
+                <Route path="/t/:threadId" element={<ThreadRoute />} />
+                <Route path="/s/:systemPage" element={<SystemRoute />} />
 
-              {/* Legacy redirects */}
-              {LEGACY_REDIRECTS.map(({ from, to }) => (
-                <Route key={from} path={from} element={<Navigate to={to} replace />} />
-              ))}
-            </Routes>
-          </ChatLayout>
-        </BrowserRouter>
+                {/* Legacy redirects */}
+                {LEGACY_REDIRECTS.map(({ from, to }) => (
+                  <Route key={from} path={from} element={<Navigate to={to} replace />} />
+                ))}
+              </Routes>
+            </ChatLayout>
+          </BrowserRouter>
+        </RoleProvider>
       </ProjectPulseProvider>
     </StrictMode>
   );

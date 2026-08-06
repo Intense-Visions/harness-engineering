@@ -1,5 +1,6 @@
 import type { FeatureStatus } from '@harness-engineering/core';
 import type { AdoptionSnapshot, SkillAdoptionSummary } from '@harness-engineering/types';
+import type { DashboardRole } from './roles';
 export type { FeatureStatus, AdoptionSnapshot, SkillAdoptionSummary };
 
 /** Health check response shape */
@@ -143,10 +144,25 @@ export const CONFLICT_TOAST_TEMPLATE = (conflictedWith: string | null): string =
 
 // --- Identity types ---
 
-/** GET /api/identity response body */
-export interface IdentityResponse {
+/**
+ * The resolved GitHub identity (username + how it was resolved). This is the
+ * output of the server-side identity waterfall and carries no preferences.
+ */
+export interface ResolvedIdentity {
   username: string;
   source: 'github-api' | 'gh-cli' | 'git-config';
+}
+
+/**
+ * GET /api/identity response body: the resolved identity plus the viewer's
+ * dashboard `role` preference.
+ *
+ * `role` is PRESENTATION-ONLY — it selects the navigation lane the client
+ * renders, not what the viewer is permitted to reach. It is not a security
+ * boundary.
+ */
+export interface IdentityResponse extends ResolvedIdentity {
+  role: DashboardRole;
 }
 
 // --- Health types ---

@@ -53,6 +53,23 @@ describe('defaultLocalVerifyRunner (B4)', () => {
     expect(r.ok).toBe(false);
     expect(r.output).toContain('typecheck failed');
   });
+
+  it('language-aware: a non-node (Go) workspace runs the Go toolchain, not pnpm', async () => {
+    // A workspace detected as Go must NOT shell `pnpm` (the historical
+    // environmental false-red). `go` is absent in most CI images, so the runner
+    // shelling a real `go build` → an ENOENT/exec error → RED gate carrying the
+    // Go command. The assertion is that the FAILURE names the detected toolchain
+    // (`go ...`), never `pnpm`, proving the ecosystem dispatch fired.
+    fs.writeFileSync(path.join(tmp, 'go.mod'), 'module example.com/x\n\ngo 1.22\n');
+    const r = await defaultLocalVerifyRunner(tmp);
+    // Either `go` is installed and the trivial module builds/vets/tests clean
+    // (ok:true), or `go` is absent and the gate is red on a `go` command — never
+    // on pnpm. Both outcomes prove pnpm was not invoked for a non-node workspace.
+    if (!r.ok) {
+      expect(r.output).toContain('go ');
+      expect(r.output).not.toContain('pnpm');
+    }
+  });
 });
 
 /**

@@ -36,6 +36,7 @@ vi.mock('../../../src/server/gather/anomalies', () => ({
 }));
 vi.mock('../../../src/server/identity', () => ({
   resolveIdentity: vi.fn().mockResolvedValue({ username: 'testuser', source: 'git-config' }),
+  resolveRole: vi.fn().mockReturnValue('dev'),
 }));
 
 const CLAIMABLE_ROADMAP = `---
@@ -280,11 +281,16 @@ describe('GET /api/identity', () => {
     const { resolveIdentity } = await import('../../../src/server/identity');
     vi.mocked(resolveIdentity).mockResolvedValueOnce({ username: 'octocat', source: 'github-api' });
 
+    const { resolveRole } = await import('../../../src/server/identity');
+    vi.mocked(resolveRole).mockReturnValueOnce('pm-ba');
+
     const res = await app.request('/api/identity');
     expect(res.status).toBe(200);
     const body = await res.json();
     expect(body.username).toBe('octocat');
     expect(body.source).toBe('github-api');
+    // The presentation-only role preference rides along on the identity payload.
+    expect(body.role).toBe('pm-ba');
   });
 
   it('returns 503 when identity resolution fails', async () => {
