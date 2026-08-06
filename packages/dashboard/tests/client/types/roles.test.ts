@@ -54,7 +54,7 @@ describe('role → visible-pages mapping', () => {
     expect(pages).not.toContain('local-models');
   });
 
-  it('client sees only the curated read-only pair', () => {
+  it('client sees only the curated pair', () => {
     const pages = pagesForRole('client').map((e) => e.page);
     expect(pages).toEqual(['roadmap', 'traceability']);
   });
