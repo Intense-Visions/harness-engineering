@@ -129,6 +129,26 @@ describe('detectFailingSkills', () => {
     expect(failing[0].smoothedSuccessRate).toBeCloseTo(1 / 3, 5);
   });
 
+  it('groups failing skills by failureCategory', () => {
+    const records = [
+      makeRecord({ skill: 'a', outcome: 'failed', failureCategory: 'gate-rejected' }),
+      makeRecord({ skill: 'a', outcome: 'failed', failureCategory: 'gate-rejected' }),
+      makeRecord({ skill: 'a', outcome: 'failed', failureCategory: 'timeout' }),
+    ];
+    const failing = detectFailingSkills(records);
+    expect(failing).toHaveLength(1);
+    expect(failing[0].failureCategories).toEqual({ 'gate-rejected': 2, timeout: 1 });
+  });
+
+  it('returns an empty failureCategories map for uncategorized failures', () => {
+    const records = [
+      makeRecord({ skill: 'a', outcome: 'failed' }),
+      makeRecord({ skill: 'a', outcome: 'failed' }),
+    ];
+    const failing = detectFailingSkills(records);
+    expect(failing[0].failureCategories).toEqual({});
+  });
+
   it('honours custom thresholds', () => {
     const records = [
       makeRecord({ skill: 'a', outcome: 'failed' }),
