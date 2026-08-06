@@ -6,6 +6,7 @@
  * that rounds up shows a threshold being crossed that was not.
  */
 import { writeFileSync } from 'node:fs';
+import path from 'node:path';
 
 import { afterEach, describe, expect, it } from 'vitest';
 
@@ -72,9 +73,12 @@ describe('config', () => {
   });
 
   it('resolves paths from the CLAUDE_HUD_* overrides', () => {
-    const paths = resolvePaths({ CLAUDE_HUD_HOME: '/tmp/x', HOME: '/home/nobody' });
-    expect(paths.hud).toBe('/tmp/x');
-    expect(paths.summary).toContain('/tmp/x');
+    const home = path.join(path.sep, 'tmp', 'x');
+    const paths = resolvePaths({ CLAUDE_HUD_HOME: home, HOME: path.join(path.sep, 'nobody') });
+    expect(paths.hud).toBe(home);
+    // Built with path.join, so the separator is the platform's — asserting a
+    // literal '/' here is what failed the Windows leg of CI.
+    expect(paths.summary).toBe(path.join(home, 'state', 'summary.json'));
   });
 
   it('falls back to UTC for an unknown timezone instead of throwing', () => {
