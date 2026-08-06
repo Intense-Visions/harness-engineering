@@ -1175,6 +1175,16 @@ Generate artifacts from a persona config
 
 List available agent personas
 
+### `harness persona sync-workflows`
+
+Generate/verify committed CI workflows for persona-declared triggers
+
+**Options:**
+
+- `--check` — Verify committed workflows are up to date; exit non-zero on drift
+- `--runner` — How the CLI is invoked in each step: "npx" (published CLI, default) or "workspace" (build from source) (default: "npx")
+- `--advisory` — Emit continue-on-error jobs (report findings without failing the check)
+
 ## Proposals Commands
 
 Skill-proposal review queue
