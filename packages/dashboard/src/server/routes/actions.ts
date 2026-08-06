@@ -12,7 +12,7 @@ import {
 } from '@harness-engineering/core';
 import type { Roadmap, RoadmapFeature, FeatureStatus } from '@harness-engineering/types';
 import type { ServerContext } from '../context';
-import { resolveIdentity } from '../identity';
+import { resolveIdentity, resolveRole } from '../identity';
 import { gatherSecurity } from '../gather/security';
 import { gatherPerf } from '../gather/perf';
 import { gatherArch } from '../gather/arch';
@@ -473,7 +473,8 @@ async function handleIdentity(c: Context): Promise<Response> {
   if (!identity) {
     return c.json({ error: 'Could not resolve GitHub identity' }, 503);
   }
-  return c.json(identity);
+  // Attach the presentation-only role preference (default `dev`).
+  return c.json({ ...identity, role: resolveRole() });
 }
 
 export function buildActionsRouter(ctx: ServerContext): Hono {
