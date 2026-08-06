@@ -43,7 +43,9 @@ export function RoleProvider({ children }: { children: ReactNode }) {
     if (storedRole !== null) return; // client preference wins; skip the fetch
     let cancelled = false;
     fetch('/api/identity')
-      .then((res) => (res.ok ? res.json() : null))
+      // The server attaches the role seed even on the 503 identity-failure path,
+      // so parse the body regardless of status to avoid dropping it.
+      .then((res) => res.json().catch(() => null))
       .then((data: { role?: unknown } | null) => {
         if (cancelled) return;
         if (data && isDashboardRole(data.role)) setRoleState(data.role);
