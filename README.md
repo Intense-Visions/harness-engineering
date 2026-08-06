@@ -364,7 +364,7 @@ enabled = true
 | Component                              | Count | Description                                                                                                    |
 | -------------------------------------- | ----- | -------------------------------------------------------------------------------------------------------------- |
 | [Packages](./packages/)                | 9     | Core library, CLI, ESLint plugin, linter generator, graph, intelligence, orchestrator, dashboard, shared types |
-| [Skills](./agents/skills/claude-code/) | 771   | Agent workflows. **12 are load-bearing gear (Tier-0)** — see below; the rest are an on-demand library          |
+| [Skills](./agents/skills/claude-code/) | 773   | Agent workflows. **12 are load-bearing gear (Tier-0)** — see below; the rest are an on-demand library          |
 | [Personas](./agents/personas/)         | 12    | Architecture enforcer, code reviewer, planner, verifier, task executor, and 7 more                             |
 | [Templates](./templates/)              | 19    | Language bases, framework overlays (Express, NestJS, Django, FastAPI, Gin, Axum, Spring Boot, and more)        |
 | [Examples](./examples/)                | 3     | Progressive tutorials from 5 minutes to 30 minutes                                                             |
