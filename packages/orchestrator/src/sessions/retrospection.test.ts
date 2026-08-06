@@ -1,7 +1,7 @@
 import { mkdtempSync, rmSync, mkdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import type {
   AnalysisProvider,
   AnalysisRequest,
@@ -152,6 +152,62 @@ describe('retrospectArchivedSession', () => {
     expect(result.value.skipped).toBe(1);
     const persisted = await listProposals(projectPath, { kind: 'skill' });
     expect(persisted).toHaveLength(1);
+  });
+
+  it('clears the timeout timer on the happy path (never keeps the loop alive)', async () => {
+    // Regression: the `Promise.race` timeout `setTimeout` used to leak — on the
+    // fast/happy path the timer stayed armed for the full `timeoutMs`, keeping
+    // the event loop alive and stalling `archive_session` / test workers. With
+    // fake timers we can prove no timer remains after the call settles.
+    vi.useFakeTimers();
+    try {
+      const archiveDir = seedArchive(projectPath, 'sess-timer');
+      const result = await retrospectArchivedSession({
+        archiveDir,
+        sessionId: 'sess-timer',
+        projectPath,
+        config: { enabled: true, timeoutMs: 60_000 },
+        provider: providerReturning({ proposals: [NEW_SKILL_DRAFT] }),
+      });
+      expect(result.ok).toBe(true);
+      // The 60s timeout timer must have been cleared in `finally`; if it leaked
+      // this count would be 1 and the loop would stay alive for a full minute.
+      expect(vi.getTimerCount()).toBe(0);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('truncates an over-returning provider to maxProposals instead of dropping all', async () => {
+    // Regression: the response schema carried a `.max(10)`, so a provider that
+    // returned >10 drafts failed validation and ALL proposals were dropped.
+    // The cap now lives in the runtime `.slice(0, maxProposals)`, which keeps
+    // the first N. Twelve valid drafts (over the old bound) must yield N, not 0.
+    const archiveDir = seedArchive(projectPath, 'sess-many');
+    const many = Array.from({ length: 12 }, (_, i) => ({
+      kind: 'new-skill' as const,
+      justification:
+        'The session repeatedly hand-rolled the same helper; capture it as a reusable skill.',
+      content: {
+        name: `over-limit-skill-${i}`,
+        description: `A distinct new-skill draft number ${i} produced by an over-eager provider run.`,
+        skillYaml: `name: over-limit-skill-${i}\ndescription: helper\n`,
+        skillMd: `# Over Limit ${i}\n\nDo the thing.\n`,
+      },
+    }));
+    const result = await retrospectArchivedSession({
+      archiveDir,
+      sessionId: 'sess-many',
+      projectPath,
+      config: { enabled: true, maxProposals: 3 },
+      provider: providerReturning({ proposals: many }),
+    });
+
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.value.written).toHaveLength(3);
+    const persisted = await listProposals(projectPath, { kind: 'skill' });
+    expect(persisted).toHaveLength(3);
   });
 
   it('respects the maxProposals cap', async () => {

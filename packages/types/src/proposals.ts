@@ -264,8 +264,16 @@ export const RetrospectionProposalDraftSchema = z.object({
 });
 export type RetrospectionProposalDraft = z.infer<typeof RetrospectionProposalDraftSchema>;
 
-/** Structured payload the retrospection LLM returns: a bounded list of drafts. */
+/**
+ * Structured payload the retrospection LLM returns: a list of drafts.
+ *
+ * No upper `.max()` bound here on purpose. The effective cap is a runtime
+ * `.slice(0, maxProposals)` in `retrospectArchivedSession`, which truncates an
+ * over-eager provider to the first N drafts. A schema `.max()` would instead
+ * *reject* the whole payload when the model returns one too many, dropping
+ * every proposal rather than keeping the top N — the opposite of graceful.
+ */
 export const RetrospectionProposalsResponseSchema = z.object({
-  proposals: z.array(RetrospectionProposalDraftSchema).max(10).default([]),
+  proposals: z.array(RetrospectionProposalDraftSchema).default([]),
 });
 export type RetrospectionProposalsResponse = z.infer<typeof RetrospectionProposalsResponseSchema>;

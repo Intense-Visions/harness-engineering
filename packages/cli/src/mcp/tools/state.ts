@@ -7,6 +7,17 @@ import { resolveAnalysisProvider } from '../utils/analysis-provider.js';
 import { autoSyncRoadmap } from './roadmap-auto-sync.js';
 import { emitSkillEvent } from './event-emitter.js';
 
+/**
+ * Retrospection timeout for the live `archive_session` path.
+ *
+ * Retrospection runs inline before `archive_session` returns, so a slow
+ * provider stalls the archive up to this bound. The orchestrator default is
+ * 60s — too long to hang an interactive MCP call on — so the live path caps it
+ * lower. A provider that misses this window is skipped (archiving proceeds
+ * unaffected); the background/CLI path keeps the longer default.
+ */
+const LIVE_RETROSPECTION_TIMEOUT_MS = 15_000;
+
 /** Truthy env-flag test (`1`/`true`/`yes`, case-insensitive). */
 function envEnabled(value: string | undefined): boolean {
   if (!value) return false;
@@ -370,7 +381,9 @@ async function handleArchiveSession(projectPath: string, input: StateInput) {
     const resolved = await resolveAnalysisProvider();
     if (resolved) {
       provider = resolved as AnalysisProvider;
-      sessionsConfig = { retrospection: { enabled: true } };
+      sessionsConfig = {
+        retrospection: { enabled: true, timeoutMs: LIVE_RETROSPECTION_TIMEOUT_MS },
+      };
     }
   }
 

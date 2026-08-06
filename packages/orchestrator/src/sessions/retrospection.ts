@@ -106,7 +106,20 @@ export async function retrospectArchivedSession(
   const prompt = buildUserPrompt(truncateForBudget(corpus, inputBudgetTokens), maxProposals);
 
   let response;
+  // Capture the timeout handle so it can be cleared once the race settles.
+  // Without this the timer stays armed for the full `timeoutMs` on the happy
+  // path, keeping the event loop alive and stalling whatever awaits this call
+  // (the `archive_session` MCP tool, test workers). `.unref()` additionally
+  // ensures a still-pending timer never blocks process exit.
+  let timeoutHandle: ReturnType<typeof setTimeout> | undefined;
   try {
+    const timeoutPromise = new Promise<never>((_, reject) => {
+      timeoutHandle = setTimeout(
+        () => reject(new Error(`provider call timed out after ${timeoutMs}ms`)),
+        timeoutMs
+      );
+      timeoutHandle.unref?.();
+    });
     response = await Promise.race([
       ctx.provider.analyze<RetrospectionProposalsResponse>({
         prompt,
@@ -114,15 +127,12 @@ export async function retrospectArchivedSession(
         responseSchema: RetrospectionProposalsResponseSchema,
         ...(ctx.config?.model && { model: ctx.config.model }),
       }),
-      new Promise<never>((_, reject) =>
-        setTimeout(
-          () => reject(new Error(`provider call timed out after ${timeoutMs}ms`)),
-          timeoutMs
-        )
-      ),
+      timeoutPromise,
     ]);
   } catch (e) {
     return Err(new Error(`retrospection failed: ${e instanceof Error ? e.message : String(e)}`));
+  } finally {
+    if (timeoutHandle) clearTimeout(timeoutHandle);
   }
 
   const parsed = RetrospectionProposalsResponseSchema.safeParse(response.result);
