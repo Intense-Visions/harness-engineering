@@ -7,7 +7,8 @@ import type {
   AnalysisRequest,
   AnalysisResponse,
 } from '@harness-engineering/intelligence';
-import type { SessionSummary } from '@harness-engineering/types';
+import type { SessionSummary, RetrospectionProposalsResponse } from '@harness-engineering/types';
+import { listProposals } from '@harness-engineering/core';
 import { buildArchiveHooks } from './archive-hooks';
 import { openSearchIndex, searchIndexPath } from './search-index';
 
@@ -34,6 +35,35 @@ function throwingProvider(): AnalysisProvider {
   return {
     async analyze() {
       throw new Error('provider boom');
+    },
+  };
+}
+
+/** Provider returning one applyable new-skill proposal for the retrospection step. */
+function retrospectionProvider(): AnalysisProvider {
+  const payload: RetrospectionProposalsResponse = {
+    proposals: [
+      {
+        kind: 'new-skill',
+        justification:
+          'The session hand-rolled retry logic worth capturing as a reusable catalog skill.',
+        content: {
+          name: 'resilient-retry',
+          description: 'Standardises exponential-backoff retry handling across network calls.',
+          skillYaml: 'name: resilient-retry\ndescription: retry helper\n',
+          skillMd: '# Resilient Retry\n\nUse exponential backoff.\n',
+        },
+      },
+    ],
+  };
+  return {
+    async analyze<T>(): Promise<AnalysisResponse<T>> {
+      return {
+        result: payload as unknown as T,
+        tokenUsage: { inputTokens: 10, outputTokens: 5, totalTokens: 15 },
+        model: 'test-model',
+        latencyMs: 1,
+      };
     },
   };
 }
@@ -118,6 +148,75 @@ describe('buildArchiveHooks', () => {
     expect(existsSync(join(archiveDir, 'llm-summary.md'))).toBe(false);
     // Indexing still runs.
     expect(existsSync(searchIndexPath(projectPath))).toBe(true);
+  });
+
+  it('auto-triggers retrospection at the terminus and emits applyable proposals', async () => {
+    const archiveDir = seedFixtureArchive(projectPath, 'sess-retro');
+    const hooks = buildArchiveHooks({
+      projectPath,
+      provider: retrospectionProvider(),
+      // Retrospection on; summary omitted so it is skipped for this case.
+      config: { enabled: true, retrospection: { enabled: true } },
+      logger,
+    });
+
+    await hooks.onArchived({ sessionId: 'sess-retro', archiveDir, projectPath });
+
+    const proposals = await listProposals(projectPath, { kind: 'skill' });
+    expect(proposals).toHaveLength(1);
+    expect(proposals[0]!.status).toBe('open');
+    expect(proposals[0]!.proposedBy).toBe('retrospection:session-terminus');
+    // Index step still runs alongside retrospection.
+    expect(existsSync(searchIndexPath(projectPath))).toBe(true);
+  });
+
+  it('does not fire retrospection when the config block is absent', async () => {
+    const archiveDir = seedFixtureArchive(projectPath, 'sess-no-retro');
+    const hooks = buildArchiveHooks({
+      projectPath,
+      provider: retrospectionProvider(),
+      config: { enabled: true, summary: { enabled: false } },
+      logger,
+    });
+
+    await hooks.onArchived({ sessionId: 'sess-no-retro', archiveDir, projectPath });
+
+    const proposals = await listProposals(projectPath, { kind: 'skill' });
+    expect(proposals).toHaveLength(0);
+  });
+
+  it('does not fire retrospection when no provider is present', async () => {
+    const archiveDir = seedFixtureArchive(projectPath, 'sess-retro-no-provider');
+    const hooks = buildArchiveHooks({
+      projectPath,
+      config: { enabled: true, retrospection: { enabled: true } },
+      logger,
+    });
+
+    await hooks.onArchived({ sessionId: 'sess-retro-no-provider', archiveDir, projectPath });
+
+    const proposals = await listProposals(projectPath, { kind: 'skill' });
+    expect(proposals).toHaveLength(0);
+  });
+
+  it('logs but does not throw when retrospection provider call throws', async () => {
+    const archiveDir = seedFixtureArchive(projectPath, 'sess-retro-throws');
+    const hooks = buildArchiveHooks({
+      projectPath,
+      provider: throwingProvider(),
+      config: { enabled: true, retrospection: { enabled: true } },
+      logger,
+    });
+
+    await expect(
+      hooks.onArchived({ sessionId: 'sess-retro-throws', archiveDir, projectPath })
+    ).resolves.toBeUndefined();
+
+    expect(warnings.some((w) => w.msg.includes('retrospection'))).toBe(true);
+    // Index step still attempted (independent of retrospection).
+    expect(existsSync(searchIndexPath(projectPath))).toBe(true);
+    const proposals = await listProposals(projectPath, { kind: 'skill' });
+    expect(proposals).toHaveLength(0);
   });
 
   it('logs but does not throw when provider call throws', async () => {
