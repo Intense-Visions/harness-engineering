@@ -40,6 +40,7 @@ import { createGatewayCommand } from './gateway';
 import { createGenerateAgentDefinitionsCommand } from './generate-agent-definitions';
 import { createGenerateCommand } from './generate';
 import { createGenerateSlashCommandsCommand } from './generate-slash-commands';
+import { createGoldenBuildCommand } from './golden-build';
 import { createGraphCommand } from './graph';
 import { createHolidayConfidenceCommand } from './holiday-confidence';
 import { createHooksCommand } from './hooks';
@@ -142,6 +143,7 @@ export const commandCreators: Array<() => Command> = [
   createGenerateAgentDefinitionsCommand,
   createGenerateCommand,
   createGenerateSlashCommandsCommand,
+  createGoldenBuildCommand,
   createGraphCommand,
   createHolidayConfidenceCommand,
   createHooksCommand,

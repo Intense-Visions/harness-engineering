@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { ArchConfigSchema } from '@harness-engineering/core';
+import { ArchConfigSchema, GoldenConfigSchema } from '@harness-engineering/core';
 import { skipDirGlobs } from '@harness-engineering/graph';
 import { BackendDefSchema, RoutingConfigSchema } from '@harness-engineering/orchestrator';
 import { IngestConfigSchema } from './ingest-schema.js';
@@ -936,6 +936,8 @@ export const HarnessConfigSchema = z.object({
   integrations: IntegrationsConfigSchema.optional(),
   /** General architectural enforcement settings */
   architecture: ArchConfigSchema.optional(),
+  /** Golden-build (known-good reference-state) settings (`harness golden-build`) */
+  golden: GoldenConfigSchema.optional(),
   /** Operational-policy drift settings (ADR requirement for hooks/thresholds/skip-list) */
   operationalPolicy: OperationalPolicyConfigSchema.optional(),
   /** Skill loading, suggestion, and tier override settings */

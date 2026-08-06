@@ -846,6 +846,34 @@ Inspect and manage webhook delivery queue
 
 Manage Gateway API tokens
 
+## Golden-build Commands
+
+Capture, verify, and diff a golden (known-good) reference state of the repo
+
+### `harness golden-build diff`
+
+Show what has drifted since the last golden build (advisory; always exits 0)
+
+**Options:**
+
+- `--path` — Reference file to fingerprint (repeatable; overrides config) (default: [])
+
+### `harness golden-build promote`
+
+Snapshot the current working tree as the golden (known-good) reference state
+
+**Options:**
+
+- `--path` — Reference file to fingerprint (repeatable; overrides config) (default: [])
+
+### `harness golden-build verify`
+
+Verify the working tree against the most recent golden; exits non-zero on drift
+
+**Options:**
+
+- `--path` — Reference file to fingerprint (repeatable; overrides config) (default: [])
+
 ## Graph Commands
 
 Knowledge graph management
