@@ -2,8 +2,13 @@ import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import * as os from 'node:os';
-import { runCliErgonomicsCraft, critiqueCommandFile } from '../../src/cli-ergonomics-craft';
-import { MockLlmProvider } from '../../src/shared/craft/llm/provider';
+import {
+  runCliErgonomicsCraft,
+  critiqueCommandFile,
+  collectCliErgonomicsCraftPrompts,
+  finalizeCliErgonomicsCraft,
+} from '../../src/cli-ergonomics-craft';
+import { MockLlmProvider, InSessionLlmProvider } from '../../src/shared/craft/llm/provider';
 
 const LEAF = "new Command('build').option('--out <f>').action(async () => {});";
 const GROUP = "new Command('db').addCommand(a).addCommand(b);";
@@ -137,5 +142,63 @@ describe('runCliErgonomicsCraft (integration)', () => {
       files: [path.join(tmpDir, 'src/commands/a.ts')],
     });
     expect(out.summary.counts.filesScanned).toBe(1);
+  });
+});
+
+// The default runtime provider is in-session (host-chat). Before the fix,
+// runCliErgonomicsCraft swallowed the deferral in a bare catch and returned a
+// zero-finding SUCCESS — a silent no-op. These tests pin the corrected
+// two-step collect→finalize behavior.
+describe('runCliErgonomicsCraft (in-session default path)', () => {
+  let tmpDir: string;
+
+  beforeEach(() => {
+    tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'cli-craft-insession-'));
+  });
+
+  afterEach(() => {
+    fs.rmSync(tmpDir, { recursive: true, force: true });
+  });
+
+  function writeFile(rel: string, content: string): void {
+    const full = path.join(tmpDir, rel);
+    fs.mkdirSync(path.dirname(full), { recursive: true });
+    fs.writeFileSync(full, content);
+  }
+
+  it('inline entry throws a loud guard under the in-session provider (never a silent [])', async () => {
+    writeFile('src/commands/build.ts', LEAF);
+    await expect(
+      runCliErgonomicsCraft({ path: tmpDir, __testProvider: new InSessionLlmProvider() })
+    ).rejects.toThrow(/two-step flow/);
+  });
+
+  it('collect returns pending prompts instead of empty findings', async () => {
+    writeFile('src/commands/build.ts', LEAF);
+    const collected = await collectCliErgonomicsCraftPrompts({ path: tmpDir });
+    expect(collected.status).toBe('collected');
+    expect(collected.pendingPrompts.length).toBeGreaterThan(0);
+    expect(collected.runId).toBeTruthy();
+  });
+
+  it('round-trips collect → finalize into real findings', async () => {
+    writeFile('src/commands/build.ts', LEAF);
+    const collected = await collectCliErgonomicsCraftPrompts({ path: tmpDir });
+    const responses = collected.pendingPrompts.map((p, i) => ({
+      promptId: p.promptId,
+      raw:
+        i === 0
+          ? '```json\n{"tier":"foundational","impact":"large","confidence":"high","message":"--out breaks --output convention"}\n```'
+          : '```json\nnull\n```',
+    }));
+    const out = await finalizeCliErgonomicsCraft({
+      path: tmpDir,
+      runId: collected.runId,
+      responses,
+    });
+    expect(out.findings.length).toBeGreaterThanOrEqual(1);
+    expect(out.summary.runId).toBe(collected.runId);
+    expect(out.summary.llmCalls.provider).toBe('in-session');
+    expect(out.findings[0]!.target.relative).toBe('src/commands/build.ts');
   });
 });

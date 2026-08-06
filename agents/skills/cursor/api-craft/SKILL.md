@@ -84,7 +84,8 @@ Emit `ApiCraftOutput`:
 ## Harness Integration
 
 - **`harness api-craft`** — CLI entry. `--files <glob>` / `--routes-dir <dir>` / `--spec-file <file>` / `--exclude-dirs <dirs...>` / `--max-files <n>` / `--json` / `--verbose`. Exits non-zero when any `foundational`-tier finding is present.
-- **`mcp__harness__api_craft`** — MCP tool. Same input/output. Consumed by agents.
+- **`mcp__harness__api_craft`** — MCP tool. Two modes (see "In-session flow" below).
+- **`mcp__harness__api_craft_finalize`** — MCP tool that completes the in-session flow.
 - **Cross-cutting API:** `critiqueApiSurfaceFile(file, opts)` exported from `packages/cli/src/api-craft/index.ts`. Another craft skill (or an orchestrator) can critique a single spec or route file without re-walking the project.
 - **Shared craft infrastructure:** `LlmProvider`, `MockLlmProvider`, `derivePriority`, and the 3-axis types all live in `packages/cli/src/shared/craft/`.
 - **Sibling boundaries:** copy-craft owns error-message and log prose; security-craft owns trust-boundary and least-authority critique; the rule-based API floor owns OpenAPI/webhook format compliance. api-craft owns the SHAPE of the API contract — resource modeling, naming, verbs, status codes, error contracts, response shapes, pagination, idempotency, and compatible evolution.

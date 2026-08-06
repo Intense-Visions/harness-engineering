@@ -157,14 +157,19 @@ export const ALL_MCP_TOOLS: string[] = [
   'docs_craft',
   // craft-pipeline — code-craft LLM-judgment ceiling skill (code readability, per-unit critique)
   'code_craft',
+  'code_craft_finalize',
   // craft-pipeline — cli-ergonomics-craft LLM-judgment ceiling skill (CLI quality)
   'cli_ergonomics_craft',
+  'cli_ergonomics_craft_finalize',
   // craft-pipeline — api-craft LLM-judgment ceiling skill (API quality, per-surface critique)
   'api_craft',
+  'api_craft_finalize',
   // outcome-eval — post-execution spec-satisfaction verdict (tiered confidence→authority)
   'outcome_eval',
   // acceptance-eval — pre-execution acceptance-criteria measurability verdict (upstream twin of outcome_eval)
   'acceptance_eval',
+  // uat-signoff — records a HUMAN acceptance sign-off as an execution_outcome node (advisory / record-only)
+  'uat_signoff',
   // strategic-anchor — STRATEGY.md read/validate/write so projects can call
   // these via MCP without needing @harness-engineering/core in node_modules
   'validate_strategy',

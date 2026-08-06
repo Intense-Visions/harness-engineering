@@ -104,7 +104,7 @@ This mirrors the ask-once-record-the-answer pattern also used by the i18n and de
    - **Intermediate:** Has layers defined, dependency constraints between layers, at least one custom skill. `harness check-deps` runs and passes.
    - **Advanced:** Has full persona configuration, custom skills for the team's workflows, state management, learnings capture, and CI integration for `harness validate`.
 
-4. **Recommend the target adoption level.** For new projects, recommend `load-bearing-minimum` — the minimum tier that keeps its guarantees when the senior reviewer disappears for two weeks (ESLint + layer enforcement, complexity cap 15, module-size cap, multi-persona review, and the outcome-eval ship gate wired into a scaffolded CI workflow), without the full advanced-tier surface area. Offer `basic` as an explicit opt-down for teams that want the lightest possible touch or are brand new to harness. For existing projects, recommend one level up from current. Present the recommendation and wait for confirmation.
+4. **Recommend the target adoption level.** For new projects, recommend `load-bearing-minimum` — the minimum tier that keeps its guarantees when the senior reviewer disappears for two weeks (ESLint + layer enforcement, complexity cap 15, module-size cap, multi-persona review, and the outcome-eval ship gate wired into a scaffolded CI workflow), without the full advanced-tier surface area. Offer `basic` as an explicit opt-down for teams that want the lightest possible touch or are brand new to harness. For existing projects, suggest one level up from current. Present the guidance and wait for confirmation.
 
 5. **Classify the project shape — product/service or test-suite?** Check these signals; if any match, the project is a test suite and the rest of this skill's flow changes:
    - Repo or package name matches `*test*`, `*-e2e*`, `*-qa*`, `*-automation*`
@@ -122,7 +122,7 @@ This mirrors the ask-once-record-the-answer pattern also used by the i18n and de
 1. **Run `harness init` with the appropriate flags:**
    - New JS/TS project (recommended default `load-bearing-minimum`): `harness init` or `harness init --level load-bearing-minimum`
    - Lightest-touch new JS/TS project: `harness init --level basic`
-   - With framework: `harness init --framework <framework>` (defaults to `load-bearing-minimum`; add `--level basic` for the lightest touch)
+   - With framework: `harness init --framework <framework>` (uses `load-bearing-minimum` unless a `--level` is given; add `--level basic` for the lightest touch)
    - Non-JS language: `harness init --language <python|go|rust|java>`
    - Non-JS with framework: `harness init --framework <fastapi|django|gin|axum|spring-boot>`
    - Existing project (auto-detect): `harness init` (no flags -- auto-detection runs)
@@ -411,7 +411,7 @@ Phase 0 (strategy): "Capture strategic anchor (STRATEGY.md) now?"
 
 ```
 Human: "I'm starting a new Next.js web app. Single-language, but it definitely needs a design system."
-Check for .harness/ — not found. Recommend: load-bearing-minimum (the default). Human opts down to basic for the first pass.
+Check for .harness/ — not found. Suggested tier: load-bearing-minimum (the standard starting point). Human opts down to basic for the first pass.
 Phase 1 step 5 classification: not a test suite (Next.js app with src/, no playwright/cypress).
 ```
 
@@ -534,7 +534,7 @@ Check `command -v harness` — not on PATH. Plugin-only install confirmed.
 All CLI invocations below will be prefixed with `npx @harness-engineering/cli`.
 
 Detect framework: package.json has "express" — auto-detection will pick this up.
-Recommend: load-bearing-minimum (the default). Human opts down: "Basic is fine for this first pass."
+Suggested tier: load-bearing-minimum (the standard starting point). Human opts down: "Basic is fine for this first pass."
 ```
 
 **SCAFFOLD:**

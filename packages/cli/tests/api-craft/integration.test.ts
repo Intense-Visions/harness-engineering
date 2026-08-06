@@ -2,8 +2,13 @@ import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import * as os from 'node:os';
-import { runApiCraft, critiqueApiSurfaceFile } from '../../src/api-craft';
-import { MockLlmProvider } from '../../src/shared/craft/llm/provider';
+import {
+  runApiCraft,
+  critiqueApiSurfaceFile,
+  collectApiCraftPrompts,
+  finalizeApiCraft,
+} from '../../src/api-craft';
+import { MockLlmProvider, InSessionLlmProvider } from '../../src/shared/craft/llm/provider';
 
 const ROUTE = "router.post('/widgets', async (req, res) => { res.json({}); });";
 const OPENAPI_YAML = 'openapi: 3.0.0\ninfo:\n  title: Widgets\n  version: 1.0.0\npaths: {}\n';
@@ -136,5 +141,59 @@ describe('runApiCraft (integration)', () => {
       files: [path.join(tmpDir, 'src/routes/a.ts')],
     });
     expect(out.summary.counts.filesScanned).toBe(1);
+  });
+});
+
+// The default runtime provider is in-session (host-chat). Before the fix,
+// runApiCraft swallowed the deferral in a bare catch and returned a
+// zero-finding SUCCESS — a silent no-op. These tests pin the corrected
+// two-step collect→finalize behavior.
+describe('runApiCraft (in-session default path)', () => {
+  let tmpDir: string;
+
+  beforeEach(() => {
+    tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'api-craft-insession-'));
+  });
+
+  afterEach(() => {
+    fs.rmSync(tmpDir, { recursive: true, force: true });
+  });
+
+  function writeFile(rel: string, content: string): void {
+    const full = path.join(tmpDir, rel);
+    fs.mkdirSync(path.dirname(full), { recursive: true });
+    fs.writeFileSync(full, content);
+  }
+
+  it('inline entry throws a loud guard under the in-session provider (never a silent [])', async () => {
+    writeFile('src/routes/widgets.ts', ROUTE);
+    await expect(
+      runApiCraft({ path: tmpDir, __testProvider: new InSessionLlmProvider() })
+    ).rejects.toThrow(/two-step flow/);
+  });
+
+  it('collect returns pending prompts instead of empty findings', async () => {
+    writeFile('src/routes/widgets.ts', ROUTE);
+    const collected = await collectApiCraftPrompts({ path: tmpDir });
+    expect(collected.status).toBe('collected');
+    expect(collected.pendingPrompts.length).toBeGreaterThan(0);
+    expect(collected.runId).toBeTruthy();
+  });
+
+  it('round-trips collect → finalize into real findings', async () => {
+    writeFile('src/routes/widgets.ts', ROUTE);
+    const collected = await collectApiCraftPrompts({ path: tmpDir });
+    const responses = collected.pendingPrompts.map((p, i) => ({
+      promptId: p.promptId,
+      raw:
+        i === 0
+          ? '```json\n{"tier":"foundational","impact":"large","confidence":"high","message":"verb dishonest"}\n```'
+          : '```json\nnull\n```',
+    }));
+    const out = await finalizeApiCraft({ path: tmpDir, runId: collected.runId, responses });
+    expect(out.findings.length).toBeGreaterThanOrEqual(1);
+    expect(out.summary.runId).toBe(collected.runId);
+    expect(out.summary.llmCalls.provider).toBe('in-session');
+    expect(out.findings[0]!.target.relative).toBe('src/routes/widgets.ts');
   });
 });

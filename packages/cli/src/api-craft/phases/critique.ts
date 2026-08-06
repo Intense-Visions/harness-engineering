@@ -20,7 +20,7 @@ const MAX_CONTENT_CHARS = 8000;
 /** Fenced-JSON block extractor, hoisted so its quantifiers don't inflate the parser's complexity. */
 const FENCED_JSON = /```(?:json)?\s*\n?([\s\S]*?)\n?\s*```/;
 
-const SYSTEM_PROMPT =
+export const CRITIQUE_SYSTEM_PROMPT =
   'You are a senior API designer critiquing a single API surface (an OpenAPI/Swagger document ' +
   'or a route/handler definition) against a single craft rubric. You judge the CEILING — is the ' +
   'endpoint at the right abstraction, is the HTTP verb honest, does the resource name belong in ' +
@@ -50,7 +50,20 @@ export interface CritiqueInput {
 export async function critiqueOne(input: CritiqueInput): Promise<ApiFinding | null> {
   const { file, relative, kind, rubric, provider } = input;
   const prompt = buildPrompt(input);
-  const raw = await provider.callText(prompt, { systemPrompt: SYSTEM_PROMPT });
+  const raw = await provider.callText(prompt, { systemPrompt: CRITIQUE_SYSTEM_PROMPT });
+  return parseFindingFromRaw(raw, { file, relative, kind, rubric });
+}
+
+/**
+ * Parse a raw LLM response (fenced JSON) into an ApiFinding. Returns null
+ * when the response says null / fails validation. Pure — no LLM call — so
+ * the in-session two-step flow can reuse it after the calling agent answers.
+ */
+export function parseFindingFromRaw(
+  raw: string,
+  ctx: { file: string; relative: string; kind: ApiSurfaceKind; rubric: ApiRubric }
+): ApiFinding | null {
+  const { file, relative, kind, rubric } = ctx;
   const parsed = parseFencedJson(raw);
   if (parsed === null) return null;
   if (typeof parsed !== 'object') return null;
@@ -74,7 +87,15 @@ export async function critiqueOne(input: CritiqueInput): Promise<ApiFinding | nu
   };
 }
 
-function buildPrompt(input: CritiqueInput): string {
+export interface BuildPromptInput {
+  file: string;
+  relative: string;
+  kind: ApiSurfaceKind;
+  content: string;
+  rubric: ApiRubric;
+}
+
+export function buildPrompt(input: BuildPromptInput): string {
   const { file, relative, kind, content, rubric } = input;
   const body =
     content.length > MAX_CONTENT_CHARS

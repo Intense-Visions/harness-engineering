@@ -189,7 +189,20 @@ jobs:
       # overwrote the whole-repo module-size/dependency-depth aggregates with a
       # cli-only subset, so every clean-checkout `ci check` reported permanent
       # false regressions. `--update-baseline` now rejects `--module`.
-      - run: node packages/cli/dist/bin/harness.js check-arch --update-baseline
+      #
+      # This job is the SINGLE authoritative post-merge updater of the committed snapshot,
+      # so it must fold in whatever the merged branches acknowledged via per-PR allowances:
+      #   - HARNESS_ARCH_FORCE_WORKING_TREE pins whole-snapshot resolution (the checkout is a
+      #     DETACHED HEAD at the merged SHA, where the base-aware resolver could otherwise pick
+      #     `base-ref` and write an allowance instead of advancing the snapshot — a treadmill).
+      #   - --allow-regress --reason absorbs the merged code's regression vs the not-yet-advanced
+      #     committed baseline (that absorption IS folding the allowances in). The consumed
+      #     allowance files are then deleted by the commit step below.
+      - run: >-
+          node packages/cli/dist/bin/harness.js check-arch --update-baseline --allow-regress
+          --reason "post-merge refresh: fold merged allowances into the authoritative snapshot"
+        env:
+          HARNESS_ARCH_FORCE_WORKING_TREE: '1'
 
       # Regenerate benchmark baselines
       - run: node scripts/benchmark-check.mjs --update
@@ -200,7 +213,24 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           BASELINE_FILES=".harness/arch/baselines.json packages/cli/.harness/arch/baselines.json coverage-baselines.json benchmark-baselines.json"
+          # Per-PR arch allowance files are TRANSIENT: the `--update-baseline` regen above has
+          # now folded any accepted regression into the committed snapshot, so the allowance
+          # has served its purpose (like a consumed changeset). Delete any that arrived with
+          # the merge so they never accumulate on main. `|| true` keeps a clean cycle a no-op.
+          ALLOWANCE_DIRS=".harness/arch/allowances packages/cli/.harness/arch/allowances"
+          rm -f .harness/arch/allowances/*.json packages/cli/.harness/arch/allowances/*.json 2>/dev/null || true
+          # Dir-prefix entries (trailing slash) let the self-approval scope guard accept the
+          # allowance DELETIONS in the PR diff alongside the exact-match baseline files.
+          # NOTE: `gh pr diff --name-only` cannot distinguish add from delete, so the prefix
+          # technically also permits an allowance ADDITION to self-approve. That is a
+          # negligible risk: this job only ever DELETES allowances (it never writes them), and
+          # an allowance file cannot weaken main on its own — it is inert unless a regression
+          # is actually present, and the very next refresh would fold + delete it regardless.
+          SCOPE_ALLOW="$BASELINE_FILES .harness/arch/allowances/ packages/cli/.harness/arch/allowances/"
           git add $BASELINE_FILES
+          for d in $ALLOWANCE_DIRS; do
+            if [ -d "$d" ]; then git add -A "$d"; fi
+          done
           if git diff --cached --quiet; then
             echo "No baseline changes to commit."
             exit 0
@@ -225,6 +255,12 @@ jobs:
           # this re-apply can never conflict.
           git checkout "$OURS" -- $BASELINE_FILES
           git add $BASELINE_FILES
+          # Re-apply the transient-allowance cleanup on top of latest main (the merge may
+          # have carried allowance files onto main). --ignore-unmatch keeps this a no-op
+          # when none are present.
+          for d in $ALLOWANCE_DIRS; do
+            git rm -q -r --ignore-unmatch "$d" >/dev/null 2>&1 || true
+          done
           if git diff --cached --quiet; then
             echo "Latest main already carries these baselines; nothing to PR."
             exit 0
@@ -242,7 +278,7 @@ jobs:
           # baseline files, but never self-approve a PR whose diff reaches beyond
           # them. $BASELINE_FILES is the single source of truth for the allowlist.
           # Fails closed — any unexpected path (or an empty diff) aborts before approval.
-          gh pr diff "$PR_URL" --name-only | node scripts/assert-baseline-only-diff.mjs $BASELINE_FILES
+          gh pr diff "$PR_URL" --name-only | node scripts/assert-baseline-only-diff.mjs $SCOPE_ALLOW
           # Approve inline with the PAT. Events triggered by GITHUB_TOKEN do not start
           # workflow runs, so a separate auto-approve workflow on pull_request_target
           # would never fire for this PR.

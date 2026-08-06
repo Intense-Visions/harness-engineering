@@ -2,7 +2,7 @@
 
 # Skills Catalog
 
-773 skills. Skills carry two independent tier axes: a **loading tier** (whether a skill registers as a slash command or is discovered on demand) and a **curation tier** (how load-bearing it is). A senior engineer can hold ~12 skills in their head, not hundreds — the curation tier names that short list.
+774 skills. Skills carry two independent tier axes: a **loading tier** (whether a skill registers as a slash command or is discovered on demand) and a **curation tier** (how load-bearing it is). A senior engineer can hold ~12 skills in their head, not hundreds — the curation tier names that short list.
 
 See the [Features Overview](../guides/features-overview.md) for narrative documentation.
 
@@ -27,7 +27,7 @@ The 12 skills that carry the core workflow. Learn these first; everything else i
 
 Tier 1 and 2 skills are registered as slash commands. Tier 3 skills are discoverable via the `search_skills` MCP tool.
 
-## Tier 1 — Workflow (16 skills)
+## Tier 1 — Workflow (17 skills)
 
 ### add-harness-component
 
@@ -188,6 +188,16 @@ Upstream client-inception skill. Ingests a diagram + client conversation notes, 
 - **Type:** rigid
 - **Cognitive mode:** configuration-interviewer
 - **Depends on:** harness-strategy, harness-brainstorming
+
+### uat-signoff
+
+Human-judged acceptance sign-off skill — the terminal, human-authority stage of the change lifecycle under the `docs/changes/<slug>/` directory. Reads the change's proposal.md Success Criteria (plus plans and prior review/outcome-eval records) as the acceptance checklist, walks a human through user-acceptance testing one item at a time (ACCEPT / REJECT / CHANGES_REQUESTED), captures one overall decision plus the signer, writes `docs/changes/<slug>/signoff.md`, and records a single execution_outcome node via uat_signoff. The human is the authority — it never runs an LLM verdict, never derives ship authority, and never blocks. Advisory / record-only.
+
+- **Triggers:** manual
+- **Platforms:** claude-code, gemini-cli, cursor, codex
+- **Type:** rigid
+- **Cognitive mode:** configuration-interviewer
+- **Depends on:** outcome-eval
 
 ## Tier 2 — Maintenance (53 skills)
 
