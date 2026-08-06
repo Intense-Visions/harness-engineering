@@ -1,7 +1,8 @@
-// uat-signoff — human-judged intent(BRD)-vs-shipped-reality acceptance record.
-// The far-end mirror of product-advisor's inception edge: it records the
-// human's UAT decision as an execution_outcome node. Human is the authority —
-// no LLM verdict, no derived ship authority, advisory / record-only.
+// uat-signoff — human-judged intent(Success Criteria)-vs-shipped-reality
+// acceptance record. The terminal, human-authority stage of the change lifecycle
+// under docs/changes/<slug>/: it records the human's UAT decision as an
+// execution_outcome node. Human is the authority — no LLM verdict, no derived
+// ship authority, advisory / record-only.
 export type {
   UatItemDisposition,
   UatOverallDecision,

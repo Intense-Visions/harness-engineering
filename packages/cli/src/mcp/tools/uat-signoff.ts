@@ -1,17 +1,18 @@
 /**
  * MCP tool: `mcp__harness__uat_signoff`.
  *
- * Records a HUMAN user-acceptance-testing (UAT) sign-off for an engagement as a
- * single `execution_outcome` node. This is the far-end mirror of the inception
- * edge (`product-advisor` writes the BRD; this records the human's acceptance of
- * the shipped reality against it).
+ * Records a HUMAN user-acceptance-testing (UAT) sign-off for a change as a
+ * single `execution_outcome` node. This is the terminal, human-authority stage
+ * of the change lifecycle under `docs/changes/<slug>/` — the same slug used by
+ * the spec, plan, code review, and outcome-eval; it records the human's
+ * acceptance of the shipped reality against the change's Success Criteria.
  *
  * The CORE CONTRACT that makes UAT distinct from acceptance-eval / outcome-eval:
  * those are spec-vs-implementation, LLM-judged, TS-authority-derived, and
- * merge/ship-blocking. UAT is intent(BRD)-vs-shipped-reality, HUMAN-judged. The
- * human IS the authority — this tool derives NO authority and runs NO LLM. It
- * durably records the decision the human already made. It is advisory /
- * record-only: it never blocks.
+ * merge/ship-blocking. UAT is intent(Success Criteria)-vs-shipped-reality,
+ * HUMAN-judged. The human IS the authority — this tool derives NO authority and
+ * runs NO LLM. It durably records the decision the human already made. It is
+ * advisory / record-only: it never blocks.
  *
  * The node reuses the shared `execution_outcome` shape (via
  * `UatSignoffRecorder` -> `ExecutionOutcomeConnector`) with
@@ -37,16 +38,16 @@ export interface UatSignoffToolItem {
 }
 
 export interface UatSignoffToolInput {
-  /** Engagement slug — the `docs/inception/<engagement>/` owner. Required. */
-  engagement: string;
+  /** Change slug — the `docs/changes/<slug>/` owner (same slug as spec/plan/review). Required. */
+  slug: string;
   /** The overall human verdict. Required. */
   decision: 'ACCEPTED' | 'REJECTED' | 'CHANGES_REQUESTED';
   /** Name/identity of the human who signed off. Required. */
   signedOffBy: string;
   /** Per-item dispositions ruled on during the interview. */
   items?: UatSignoffToolItem[];
-  /** BRD/gap ids the sign-off closes (the accepted acceptance items). */
-  brdRefs?: string[];
+  /** Success-Criterion ids the sign-off closes (the accepted acceptance items). */
+  criteriaRefs?: string[];
   /** ISO timestamp of the sign-off; defaults to now when omitted. */
   timestamp?: string;
   /** Project root used to resolve the knowledge graph (default: cwd). */
@@ -59,9 +60,10 @@ const DISPOSITIONS = ['ACCEPT', 'REJECT', 'CHANGES_REQUESTED'] as const;
 export const uatSignoffDefinition = {
   name: 'uat_signoff',
   description:
-    'Record a HUMAN user-acceptance-testing (UAT) sign-off for an engagement as one ' +
-    'execution_outcome node. The far-end mirror of the inception BRD: it records the ' +
-    "human's acceptance of the shipped reality against intent. Unlike acceptance_eval / " +
+    'Record a HUMAN user-acceptance-testing (UAT) sign-off for a change as one ' +
+    'execution_outcome node. The terminal, human-authority stage of the change ' +
+    "lifecycle under the `docs/changes/<slug>/` directory: it records the human's " +
+    "acceptance of the shipped reality against the change's Success Criteria. Unlike acceptance_eval / " +
     'outcome_eval this runs NO LLM and derives NO authority — the HUMAN is the authority, ' +
     'and the record is advisory (never blocks). Persists metadata.source = "uat-signoff" ' +
     'onto the shared execution_outcome shape so the eval-fail-rate signal consumes it. ' +
@@ -71,9 +73,9 @@ export const uatSignoffDefinition = {
   inputSchema: {
     type: 'object' as const,
     properties: {
-      engagement: {
+      slug: {
         type: 'string',
-        description: 'Engagement slug — the docs/inception/<engagement>/ owner',
+        description: 'Change slug — the docs/changes/<slug>/ owner (same slug as spec/plan/review)',
       },
       decision: {
         type: 'string',
@@ -90,7 +92,10 @@ export const uatSignoffDefinition = {
         items: {
           type: 'object',
           properties: {
-            id: { type: 'string', description: 'Stable id of the acceptance/gap item (e.g. G3)' },
+            id: {
+              type: 'string',
+              description: 'Stable id of the Success-Criterion item (e.g. SC3)',
+            },
             disposition: {
               type: 'string',
               enum: [...DISPOSITIONS],
@@ -101,10 +106,10 @@ export const uatSignoffDefinition = {
           required: ['id', 'disposition'],
         },
       },
-      brdRefs: {
+      criteriaRefs: {
         type: 'array',
         items: { type: 'string' },
-        description: 'BRD/gap ids the sign-off closes (the accepted acceptance items)',
+        description: 'Success-Criterion ids the sign-off closes (the accepted acceptance items)',
       },
       timestamp: {
         type: 'string',
@@ -115,14 +120,14 @@ export const uatSignoffDefinition = {
         description: 'Project root used to resolve the knowledge graph (default: cwd)',
       },
     },
-    required: ['engagement', 'decision', 'signedOffBy'],
+    required: ['slug', 'decision', 'signedOffBy'],
   },
 };
 
 /** Validate the required inputs. Returns an error message or null. */
 function validateInput(input: UatSignoffToolInput): string | null {
-  if (typeof input?.engagement !== 'string' || input.engagement.length === 0) {
-    return 'uat_signoff: `engagement` is required';
+  if (typeof input?.slug !== 'string' || input.slug.length === 0) {
+    return 'uat_signoff: `slug` is required';
   }
   if (!DECISIONS.includes(input?.decision)) {
     return `uat_signoff: \`decision\` must be one of ${DECISIONS.join(' | ')}`;
@@ -136,11 +141,11 @@ function validateInput(input: UatSignoffToolInput): string | null {
 /** Normalize the tool input into the recorder's `UatSignoffInput` (drops empty optionals). */
 function toRecorderInput(input: UatSignoffToolInput) {
   return {
-    engagement: input.engagement,
+    slug: input.slug,
     decision: input.decision,
     signedOffBy: input.signedOffBy,
     items: Array.isArray(input.items) ? input.items : [],
-    ...(Array.isArray(input.brdRefs) ? { brdRefs: input.brdRefs } : {}),
+    ...(Array.isArray(input.criteriaRefs) ? { criteriaRefs: input.criteriaRefs } : {}),
     ...(typeof input.timestamp === 'string' && input.timestamp !== ''
       ? { timestamp: input.timestamp }
       : {}),

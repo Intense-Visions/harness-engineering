@@ -799,15 +799,15 @@ Trigger a maintenance task ad-hoc via POST /api/v1/jobs/maintenance. Requires tr
 
 ### `uat_signoff`
 
-Record a HUMAN user-acceptance-testing (UAT) sign-off for an engagement as one execution_outcome node. The far-end mirror of the inception BRD: it records the human's acceptance of the shipped reality against intent. Unlike acceptance_eval / outcome_eval this runs NO LLM and derives NO authority — the HUMAN is the authority, and the record is advisory (never blocks). Persists metadata.source = "uat-signoff" onto the shared execution_outcome shape so the eval-fail-rate signal consumes it. result is success iff decision === ACCEPTED, else failure. Call this AFTER the guided interview has captured the overall decision, the signer, and per-item dispositions — do not fabricate a verdict.
+Record a HUMAN user-acceptance-testing (UAT) sign-off for a change as one execution_outcome node. The terminal, human-authority stage of the change lifecycle under the `docs/changes/<slug>/` directory: it records the human's acceptance of the shipped reality against the change's Success Criteria. Unlike acceptance_eval / outcome_eval this runs NO LLM and derives NO authority — the HUMAN is the authority, and the record is advisory (never blocks). Persists metadata.source = "uat-signoff" onto the shared execution_outcome shape so the eval-fail-rate signal consumes it. result is success iff decision === ACCEPTED, else failure. Call this AFTER the guided interview has captured the overall decision, the signer, and per-item dispositions — do not fabricate a verdict.
 
 **Parameters:**
 
-- `engagement` (string, required) — Engagement slug — the docs/inception/&lt;engagement>/ owner
+- `slug` (string, required) — Change slug — the docs/changes/&lt;slug>/ owner (same slug as spec/plan/review)
 - `decision` (string, required) — The overall human verdict (ACCEPTED | REJECTED | CHANGES_REQUESTED)
 - `signedOffBy` (string, required) — Name/identity of the human who signed off
 - `items` (array, optional) — Per-item dispositions ruled on during the interview
-- `brdRefs` (array, optional) — BRD/gap ids the sign-off closes (the accepted acceptance items)
+- `criteriaRefs` (array, optional) — Success-Criterion ids the sign-off closes (the accepted acceptance items)
 - `timestamp` (string, optional) — ISO timestamp of the sign-off; defaults to now when omitted
 - `path` (string, optional) — Project root used to resolve the knowledge graph (default: cwd)
 

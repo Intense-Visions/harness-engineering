@@ -9,14 +9,14 @@ import type { UatSignoffInput } from '../../src/uat-signoff/index.js';
 import { computePersonaEffectiveness } from '../../src/effectiveness/scorer.js';
 
 const BASE: UatSignoffInput = {
-  engagement: 'acme-loyalty',
+  slug: 'acme-loyalty',
   decision: 'ACCEPTED',
   signedOffBy: 'Dana (client PO)',
   items: [
-    { id: 'G1', disposition: 'ACCEPT', note: 'auth works' },
-    { id: 'G2', disposition: 'ACCEPT' },
+    { id: 'SC1', disposition: 'ACCEPT', note: 'auth works' },
+    { id: 'SC2', disposition: 'ACCEPT' },
   ],
-  brdRefs: ['G1', 'G2'],
+  criteriaRefs: ['SC1', 'SC2'],
   timestamp: '2026-06-22T00:00:00Z',
 };
 
@@ -32,9 +32,10 @@ describe('toUatExecutionOutcome — human decision -> execution_outcome shape', 
     expect(outcome.id).toMatch(/^outcome:uat-signoff:acme-loyalty:/);
     expect(outcome.metadata).toMatchObject({
       source: UAT_SIGNOFF_SOURCE,
+      slug: 'acme-loyalty',
       decision: 'ACCEPTED',
       signedOffBy: 'Dana (client PO)',
-      brdRefs: ['G1', 'G2'],
+      criteriaRefs: ['SC1', 'SC2'],
     });
     // No items were rejected, so no failure reasons.
     expect(outcome.failureReasons).toEqual([]);
@@ -45,23 +46,23 @@ describe('toUatExecutionOutcome — human decision -> execution_outcome shape', 
       ...BASE,
       decision: 'REJECTED',
       items: [
-        { id: 'G1', disposition: 'ACCEPT' },
-        { id: 'G2', disposition: 'REJECT', note: 'missing 404 path' },
-        { id: 'G3', disposition: 'CHANGES_REQUESTED' },
+        { id: 'SC1', disposition: 'ACCEPT' },
+        { id: 'SC2', disposition: 'REJECT', note: 'missing 404 path' },
+        { id: 'SC3', disposition: 'CHANGES_REQUESTED' },
       ],
     });
     expect(rejected.result).toBe('failure');
-    expect(rejected.failureReasons).toEqual(['G2', 'G3']);
+    expect(rejected.failureReasons).toEqual(['SC2', 'SC3']);
 
     const changes = toUatExecutionOutcome({ ...BASE, decision: 'CHANGES_REQUESTED' });
     expect(changes.result).toBe('failure');
   });
 
-  it('defaults timestamp to now and brdRefs to [] when omitted', () => {
-    const { timestamp: _t, brdRefs: _b, ...rest } = BASE;
+  it('defaults timestamp to now and criteriaRefs to [] when omitted', () => {
+    const { timestamp: _t, criteriaRefs: _c, ...rest } = BASE;
     const outcome = toUatExecutionOutcome(rest);
     expect(Number.isNaN(Date.parse(outcome.timestamp))).toBe(false);
-    expect(outcome.metadata?.brdRefs).toEqual([]);
+    expect(outcome.metadata?.criteriaRefs).toEqual([]);
   });
 
   it('gives each sign-off a unique id (no same-millisecond collision)', () => {
@@ -77,7 +78,7 @@ describe('UatSignoffRecorder — persists into a real GraphStore', () => {
     const { outcomeId, ingest } = new UatSignoffRecorder(store).record({
       ...BASE,
       decision: 'REJECTED',
-      items: [{ id: 'G2', disposition: 'REJECT' }],
+      items: [{ id: 'SC2', disposition: 'REJECT' }],
     });
 
     expect(ingest.nodesAdded).toBe(1);

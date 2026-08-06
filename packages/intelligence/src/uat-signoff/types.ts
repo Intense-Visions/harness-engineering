@@ -7,8 +7,8 @@ export type UatOverallDecision = 'ACCEPTED' | 'REJECTED' | 'CHANGES_REQUESTED';
 /** One acceptance item the human ruled on during sign-off. */
 export interface UatSignoffItem {
   /**
-   * Stable identifier of the item — e.g. a BRD gap id (`G3`) or an
-   * acceptance-criterion id. Used verbatim; the recorder never invents ids.
+   * Stable identifier of the item — a Success-Criterion id from the change's
+   * `proposal.md` (e.g. `SC3`). Used verbatim; the recorder never invents ids.
    */
   id: string;
   /** The human's disposition for this item. */
@@ -18,25 +18,26 @@ export interface UatSignoffItem {
 }
 
 /**
- * A recorded human UAT sign-off for one engagement.
+ * A recorded human UAT sign-off for one change.
  *
  * This is the HUMAN's decision, captured verbatim: no LLM produces the verdict
- * and no ship authority is derived. It is the far-end mirror of the inception
- * BRD — intent(BRD)-vs-shipped-reality, human-judged. The recorder maps it onto
- * the shared `execution_outcome` node shape so the existing eval-fail-rate
- * signal and effectiveness baselines consume it for free.
+ * and no ship authority is derived. It is the far-end, human-authority mirror of
+ * the lifecycle's machine gates — intent(spec Success Criteria)-vs-shipped-reality,
+ * human-judged. The recorder maps it onto the shared `execution_outcome` node
+ * shape so the existing eval-fail-rate signal and effectiveness baselines consume
+ * it for free.
  */
 export interface UatSignoffInput {
-  /** Engagement slug — the `docs/inception/<engagement>/` owner. */
-  engagement: string;
+  /** Change slug — the `docs/changes/<slug>/` owner (same slug as spec/plan/review). */
+  slug: string;
   /** The overall human verdict. */
   decision: UatOverallDecision;
   /** Name/identity of the human who signed off. */
   signedOffBy: string;
   /** Per-item dispositions ruled on during the interview. */
   items: UatSignoffItem[];
-  /** BRD/gap ids the sign-off closes (the accepted acceptance items). */
-  brdRefs?: string[];
+  /** Success-Criterion ids the sign-off closes (the accepted acceptance items). */
+  criteriaRefs?: string[];
   /** ISO timestamp of the sign-off; defaults to now when omitted. */
   timestamp?: string;
 }

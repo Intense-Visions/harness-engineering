@@ -19,20 +19,16 @@ afterEach(() => {
 });
 
 describe('uatSignoffDefinition', () => {
-  it('is named uat_signoff and requires engagement/decision/signedOffBy', () => {
+  it('is named uat_signoff and requires slug/decision/signedOffBy', () => {
     expect(uatSignoffDefinition.name).toBe('uat_signoff');
-    expect(uatSignoffDefinition.inputSchema.required).toEqual([
-      'engagement',
-      'decision',
-      'signedOffBy',
-    ]);
+    expect(uatSignoffDefinition.inputSchema.required).toEqual(['slug', 'decision', 'signedOffBy']);
   });
 });
 
 describe('handleUatSignoff', () => {
   it('rejects a missing decision', async () => {
     const r = await handleUatSignoff({
-      engagement: 'acme',
+      slug: 'acme',
       // @ts-expect-error deliberately invalid to exercise validation
       decision: 'NOPE',
       signedOffBy: 'Dana',
@@ -43,14 +39,14 @@ describe('handleUatSignoff', () => {
 
   it('records a human sign-off and persists a readable execution_outcome node', async () => {
     const r = await handleUatSignoff({
-      engagement: 'acme-loyalty',
+      slug: 'acme-loyalty',
       decision: 'REJECTED',
       signedOffBy: 'Dana (client PO)',
       items: [
-        { id: 'G1', disposition: 'ACCEPT' },
-        { id: 'G2', disposition: 'REJECT', note: 'missing 404 path' },
+        { id: 'SC1', disposition: 'ACCEPT' },
+        { id: 'SC2', disposition: 'REJECT', note: 'missing 404 path' },
       ],
-      brdRefs: ['G1'],
+      criteriaRefs: ['SC1'],
       path: dir,
     });
     expect(isErr(r)).toBe(false);

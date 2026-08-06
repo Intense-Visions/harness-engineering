@@ -28,9 +28,10 @@ export const UAT_SIGNOFF_SOURCE = 'uat-signoff' as const;
  *   acceptance, not a code-node blast radius, so it seeds no `outcome_of` edges.
  * - `failureReasons`: the ids of items the human did NOT accept, so a downstream
  *   reader sees what blocked acceptance without re-reading `signoff.md`.
- * - `metadata`: the human decision carried additively (decision / signedOffBy /
- *   brdRefs / items / source). Reserved core keys (result / timestamp / …) are
- *   written by the connector and can never be shadowed by this metadata.
+ * - `metadata`: the human decision carried additively (slug / decision /
+ *   signedOffBy / criteriaRefs / items / source). Reserved core keys
+ *   (result / timestamp / …) are written by the connector and can never be
+ *   shadowed by this metadata.
  */
 export function toUatExecutionOutcome(input: UatSignoffInput): ExecutionOutcome {
   const timestamp = input.timestamp ?? new Date().toISOString();
@@ -38,9 +39,9 @@ export function toUatExecutionOutcome(input: UatSignoffInput): ExecutionOutcome 
     .filter((item) => item.disposition !== 'ACCEPT')
     .map((item) => item.id);
   return {
-    id: `outcome:uat-signoff:${input.engagement}:${randomUUID()}`,
+    id: `outcome:uat-signoff:${input.slug}:${randomUUID()}`,
     issueId: 'uat-signoff',
-    identifier: `uat-signoff:${input.engagement}`,
+    identifier: `uat-signoff:${input.slug}`,
     result: input.decision === 'ACCEPTED' ? 'success' : 'failure',
     retryCount: 0,
     failureReasons: rejectedItemIds,
@@ -51,9 +52,10 @@ export function toUatExecutionOutcome(input: UatSignoffInput): ExecutionOutcome 
     timestamp,
     metadata: {
       source: UAT_SIGNOFF_SOURCE,
+      slug: input.slug,
       decision: input.decision,
       signedOffBy: input.signedOffBy,
-      brdRefs: input.brdRefs ?? [],
+      criteriaRefs: input.criteriaRefs ?? [],
       items: input.items,
     },
   };
