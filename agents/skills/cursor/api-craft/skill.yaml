@@ -1,0 +1,57 @@
+name: api-craft
+version: "0.1.0"
+description: LLM-judgment critique of API design quality — the ceiling counterpart to rule-based API checks (OpenAPI-format and webhook-format compliance). Asks whether resources model the domain rather than the implementation, whether resource naming and URL structure are predictable (path vs query param), whether HTTP methods are honest, whether status codes are correct, whether error responses tell the consumer what to do, whether response shapes are predictable and consistent, whether collections paginate and filter consistently, whether mutations are idempotency-honest, and whether the API evolves without breaking consumers. Structural twin of harness-cli-ergonomics-craft.
+stability: draft
+cognitive_mode: constructive-architect
+triggers:
+  - manual
+  - on_pr
+  - on_new_feature
+platforms:
+  - claude-code
+tools:
+  - Bash
+  - Read
+  - Glob
+  - Grep
+cli:
+  command: harness api-craft
+  args:
+    - name: path
+      description: Project root path
+      required: false
+    - name: files
+      description: Optional file scope (overrides API-surface discovery)
+      required: false
+    - name: routes-dir
+      description: Directory of route/handler definitions to critique
+      required: false
+    - name: spec-file
+      description: Explicit OpenAPI/Swagger document to critique
+      required: false
+    - name: exclude-dirs
+      description: Extra subdir names to skip while walking
+      required: false
+    - name: max-files
+      description: Cap surface count (default 60)
+      required: false
+mcp:
+  tool: api_craft
+  input:
+    path: string
+type: rigid
+tier: 2
+phases:
+  - name: discover
+    description: Discover OpenAPI/Swagger documents and route/handler definitions; classify each surface as openapi or route; exclude tests, barrels, helpers, and build dirs
+    required: true
+  - name: critique
+    description: LLM-rubric loop per (surface, rubric) filtered by surface kind — 9 seed rubrics
+    required: true
+  - name: report
+    description: Aggregate findings + rubric/exemplar catalog + cost telemetry + surface counts
+    required: true
+state:
+  persistent: false
+depends_on:
+  - cli-ergonomics-craft

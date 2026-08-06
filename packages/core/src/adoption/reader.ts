@@ -1,6 +1,8 @@
 import * as fs from 'node:fs';
 import * as path from 'node:path';
-import type { SkillInvocationRecord } from '@harness-engineering/types';
+import { FAILURE_CATEGORIES, type SkillInvocationRecord } from '@harness-engineering/types';
+
+const FAILURE_CATEGORY_SET = new Set<string>(FAILURE_CATEGORIES);
 
 /**
  * Parses a single JSONL line into a SkillInvocationRecord.
@@ -20,6 +22,12 @@ function parseLine(line: string, lineNumber: number): SkillInvocationRecord | nu
         `[harness adoption] Skipping malformed JSONL line ${lineNumber}: missing required fields\n`
       );
       return null;
+    }
+    // Back-compat: `failureCategory` is optional and additive. Records written
+    // before it existed simply lack it; drop an unrecognized value rather than
+    // letting it leak into typed consumers.
+    if (parsed.failureCategory !== undefined && !FAILURE_CATEGORY_SET.has(parsed.failureCategory)) {
+      delete parsed.failureCategory;
     }
     return parsed as SkillInvocationRecord;
   } catch {

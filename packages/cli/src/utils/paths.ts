@@ -57,6 +57,18 @@ export function resolvePersonasDir(): string {
   return path.join(__dirname, 'agents', 'personas');
 }
 
+/**
+ * Resolve the PROJECT's `agents/personas` dir by walking up from cwd. Returns
+ * null when the project has none — unlike {@link resolvePersonasDir}, it never
+ * falls back to the CLI's bundled personas (in `dist`/`node_modules`). Callers
+ * that WRITE into the project (e.g. `persona sync-workflows`) use this so they
+ * never generate the harness's own bundled personas into an adopter's tree.
+ */
+export function resolveProjectPersonasDir(cwd?: string): string | null {
+  const agentsDir = findUpFrom(cwd ?? process.cwd(), 'agents', 'personas', 8);
+  return agentsDir ? path.join(agentsDir, 'personas') : null;
+}
+
 export function resolveSkillsDir(): string {
   // Walk up first (works in monorepo dev), then fall back to bundled agents in dist/
   const agentsDir = findUpDir('agents', 'skills');
