@@ -2,7 +2,7 @@
 
 # Skills Catalog
 
-772 skills across 3 tiers. Tier 1 and 2 skills are registered as slash commands. Tier 3 skills are discoverable via the `search_skills` MCP tool. See the [Features Overview](../guides/features-overview.md) for narrative documentation.
+773 skills across 3 tiers. Tier 1 and 2 skills are registered as slash commands. Tier 3 skills are discoverable via the `search_skills` MCP tool. See the [Features Overview](../guides/features-overview.md) for narrative documentation.
 
 ## Tier 1 — Workflow (16 skills)
 
@@ -160,7 +160,7 @@ Upstream client-inception skill. Ingests a diagram + client conversation notes, 
 - **Cognitive mode:** configuration-interviewer
 - **Depends on:** harness-strategy, harness-brainstorming
 
-## Tier 2 — Maintenance (52 skills)
+## Tier 2 — Maintenance (53 skills)
 
 ### acceptance-eval
 
@@ -474,6 +474,15 @@ First-run pulse interview. Converts intent into a validated pulse config with SM
 - **Platforms:** claude-code, gemini-cli, cursor, codex
 - **Type:** rigid
 - **Cognitive mode:** configuration-interviewer
+
+### harness-rehearse
+
+Rehearse an agent against a deliberately-broken fixture and score how well it recovers. Picks a fixture from templates/rehearsal-fixtures/ (each plants one failure mode a real harness check catches — leaked secret, layer violation, dependency cycle, broken doc link), copies it into a scratch workspace, has the agent detect and repair the planted defect, assembles a structured recovery record, and runs `harness rehearse score` for a deterministic 0-100 score and pass/partial/fail tier across four dimensions (detected, correctCheck, fixed, noCollateral). Used to train personas before production trust and to regression-test the harness's own gates against known failure shapes.
+
+- **Triggers:** manual, on_milestone
+- **Platforms:** claude-code, gemini-cli, cursor, codex
+- **Type:** rigid
+- **Cognitive mode:** constructive-architect
 
 ### harness-release-readiness
 

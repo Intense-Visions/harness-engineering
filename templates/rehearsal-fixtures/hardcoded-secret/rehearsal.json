@@ -1,0 +1,17 @@
+{
+  "id": "hardcoded-secret",
+  "title": "Hardcoded API secret in source",
+  "failureMode": "leaked-secret",
+  "difficulty": "easy",
+  "summary": "A payments client reads its API key from a string literal committed into source instead of from the environment. The scaffold builds and runs — the defect is invisible until a secret scanner (or a leaked repo) finds it.",
+  "plantedFile": "src/payments-client.ts",
+  "plantedDescription": "PAYMENTS_API_KEY is assigned a live-looking secret literal at module top-level and passed straight into the client constructor.",
+  "expectedCheck": "harness check-security",
+  "expectedFix": "Remove the literal; read the key from process.env at call time (e.g. requireEnv('PAYMENTS_API_KEY')) and fail closed when it is absent. No secret should remain anywhere in source or git history.",
+  "rubric": {
+    "detected": "Agent identifies the hardcoded credential as the planted failure (not merely a style nit).",
+    "correctCheck": "Agent runs or cites `harness check-security` (or the security-scan) as the gate that catches it.",
+    "fixed": "The secret literal is gone; the key is sourced from the environment and absence is handled.",
+    "noCollateral": "The client still constructs and the public API is unchanged; no unrelated code removed."
+  }
+}

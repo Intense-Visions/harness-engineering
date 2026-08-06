@@ -1,0 +1,117 @@
+# Rehearse
+
+> Rehearse an agent against a deliberately-broken fixture and score how well it recovers. Free-soloing a change in production is how a small planted defect becomes an incident. A fixture lets an agent practise the crux move — notice the defect, reach for the right gate, fix it without breaking anything else — on a rope first. The same fixtures double as a regression test for the harness's own gates: if `check-security` stops catching a leaked secret, the leaked-secret fixture's score drops.
+
+## When to Use
+
+- To **train a persona** before you trust it with production changes — run it through the fixtures and require a passing tier.
+- To **regression-test the harness's own gates** — a fixture whose score silently drops means a check that used to fire no longer does.
+- To let an **adopter verify their gates fire** before betting the climb on them — the fixtures ship with the toolkit.
+- NOT for scoring real production changes — this scores recovery against a _planted_ defect with a known-good fix (use `outcome-eval` / `code-review` for real work).
+- NOT for authoring new fixtures — that is a source change under `templates/rehearsal-fixtures/`, not a skill invocation.
+
+## The fixtures
+
+Each fixture under `templates/rehearsal-fixtures/<id>/` plants exactly one failure mode that a real harness check catches, and carries a `rehearsal.json` manifest (the ground truth: what was planted, where, the check that should catch it, the expected fix, and the rubric).
+
+| Fixture            | Failure mode     | Exercised check          |
+| ------------------ | ---------------- | ------------------------ |
+| `hardcoded-secret` | leaked-secret    | `harness check-security` |
+| `layer-violation`  | layer-violation  | `harness check-arch`     |
+| `dependency-cycle` | dependency-cycle | `harness check-arch`     |
+| `broken-doc-link`  | broken-doc-link  | `harness check-docs`     |
+
+## Process
+
+### Phase 1: SELECT — Choose a fixture
+
+Run `harness rehearse list` to see the available fixtures and their planted failure modes. Pick one, then read its full manifest and rubric with `harness rehearse show <fixture-id>`. Do NOT read the manifest's `plantedFile` / `plantedDescription` into the recovering agent's context if you want an honest rehearsal — those fields are the answer key.
+
+### Phase 2: STAGE — Isolate a scratch copy
+
+Copy the fixture directory into an isolated scratch workspace (a temp dir) so the repo under test is never modified. The recovering agent works only inside the scratch copy.
+
+### Phase 3: RECOVER — Detect and repair
+
+In the scratch copy, the agent must: (a) detect that a defect was planted and name the failure mode, (b) reach for the fixture's **expected harness check** to confirm it, and (c) repair the defect per the manifest's `expectedFix` — without breaking sibling files. Keep the change minimal and scoped to the planted defect.
+
+### Phase 4: RECORD — Assemble a recovery record
+
+Write a JSON recovery record describing the outcome. It is deliberately structured (not free text) so scoring is deterministic:
+
+```json
+{
+  "fixtureId": "hardcoded-secret",
+  "detected": true,
+  "identifiedFailureMode": "leaked-secret",
+  "checkCited": "harness check-security",
+  "fixed": true,
+  "collateralDamage": false
+}
+```
+
+- `detected` / `identifiedFailureMode` — did the agent notice, and what did it call the failure? A confident _wrong_ diagnosis does not earn detection credit.
+- `checkCited` — the harness check the agent actually ran or cited.
+- `fixed` — is the planted defect genuinely resolved (verified by re-running the check)?
+- `collateralDamage` — did the fix break anything unrelated?
+
+Populate these from what actually happened in Phase 3 — do not assume success. Verify `fixed` by re-running the expected check against the scratch copy.
+
+### Phase 5: SCORE — Grade the recovery
+
+Run `harness rehearse score --fixture <id> --recovery <record.json>`. Report the 0-100 score, the tier, and the per-dimension breakdown. The score is computed in TypeScript from the manifest + record — it is not a judgment call.
+
+## Harness Integration
+
+- **`harness rehearse list`** — enumerate fixtures (`--json` for machine output).
+- **`harness rehearse show <id>`** — print one fixture's manifest + rubric.
+- **`harness rehearse score --fixture <id> --recovery <path>`** — deterministic scoring; exits non-zero on a `fail` tier (soften with `--report-only`).
+- **Scoring surface:** `scoreRecovery`, `loadCatalog`, `findFixture`, `RehearsalManifest`, `RecoveryRecord`, `RehearsalScore` are exported from `@harness-engineering/core`. Scoring is pure (no IO, no LLM), so a known-good and a known-bad recovery map to stable, testable scores.
+
+## Scoring rubric
+
+Four independently-credited dimensions (weights sum to 100):
+
+| Dimension      | Weight | Credited when                                                         |
+| -------------- | ------ | --------------------------------------------------------------------- |
+| `detected`     | 30     | The planted failure mode is identified (a named diagnosis must match) |
+| `correctCheck` | 20     | The agent used/cited the harness check the fixture exercises          |
+| `fixed`        | 35     | The planted defect is actually resolved                               |
+| `noCollateral` | 15     | The fix introduced no unrelated breakage                              |
+
+Tiers: **pass** at 80+, **partial** at 50-79, **fail** below 50.
+
+## Success Criteria
+
+- `harness rehearse list` surfaces every shipped fixture with its planted failure mode and the harness check it exercises.
+- A recovery is scored by `harness rehearse score` from the fixture manifest and a structured recovery record — the number is derived in TypeScript, never asserted by the agent.
+- A textbook-clean recovery (planted defect correctly named, right check used, defect fixed, no collateral damage) scores 100 and lands in the `pass` tier; a total miss lands in `fail`.
+- The score is stable and reproducible: the same (fixture, recovery record) pair always yields the same score and tier, so a drop for equal recovery quality signals a regression in the harness gate the fixture exercises.
+- The recovering agent works only in an isolated scratch copy; the shipped fixture and the surrounding repo are never modified by the rehearsal.
+
+## Examples
+
+### Example: a clean recovery (pass)
+
+The agent notices the hardcoded key in `hardcoded-secret`, runs `harness check-security` to confirm, replaces the literal with an environment lookup, re-runs the check to confirm it is clean, and touches nothing else. Recovery record: all four fields favourable -> **100/100, pass**.
+
+### Example: fixed by luck, wrong gate (partial)
+
+The agent removes the secret but never runs a security check and cannot say which gate catches it. `detected` and `fixed` credit; `correctCheck` does not -> **80 or below**, landing in **partial** once any other dimension slips.
+
+### Example: missed entirely (fail)
+
+The agent reports "looks fine" and changes nothing. `detected`, `correctCheck`, `fixed` all fail; only `noCollateral` credits -> **15/100, fail**. The command exits non-zero.
+
+## Gates
+
+- **The manifest is ground truth; the scorer is the referee.** Never hand-wave a score — always run `harness rehearse score`. The number comes from TypeScript, not judgment.
+- **Record what actually happened.** Do not set `fixed: true` without re-running the check, or `detected: true` for a lucky change. An inflated record defeats the whole point of rehearsing.
+- **Isolate the scratch copy.** The recovering agent must never modify the shipped fixture or the surrounding repo — always work in a temp copy.
+- **Do not leak the answer key.** If you want an honest rehearsal, keep the manifest's `plantedFile`/`plantedDescription` out of the recovering agent's context.
+
+## Escalation
+
+- **A fixture scores lower than it used to for the SAME recovery quality:** the harness gate it exercises may have regressed — investigate the check, not the fixture.
+- **A recovery record is rejected as invalid:** its shape must match `RecoveryRecord` and its `fixtureId` must match `--fixture`. Fix the record; do not loosen the schema.
+- **No fixtures found:** confirm `templates/rehearsal-fixtures/` shipped with the install; `harness rehearse list` reads from there.

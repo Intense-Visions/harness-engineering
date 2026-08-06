@@ -1,0 +1,17 @@
+{
+  "id": "broken-doc-link",
+  "title": "Documentation link points at a missing file",
+  "failureMode": "broken-doc-link",
+  "difficulty": "easy",
+  "summary": "A guide links to a sibling reference page that does not exist. Prose reads fine, so the dead link survives review until a docs gate resolves link targets.",
+  "plantedFile": "docs/getting-started.md",
+  "plantedDescription": "getting-started.md links to ./api-reference.md, but that file was never created (only configuration.md exists in the docs folder).",
+  "expectedCheck": "harness check-docs",
+  "expectedFix": "Repair the link so its target resolves — point it at an existing page, or create the referenced api-reference.md. No link in the docs set should resolve to a missing file.",
+  "rubric": {
+    "detected": "Agent identifies the dead link to the missing api-reference.md as the planted failure.",
+    "correctCheck": "Agent runs or cites `harness check-docs` as the gate that catches broken doc links.",
+    "fixed": "The link resolves to a real file (target created or link retargeted).",
+    "noCollateral": "Other links in the docs set still resolve; no unrelated prose broken."
+  }
+}

@@ -5,10 +5,19 @@ import { TemplateMetadataSchema } from '../../src/templates/schema';
 
 const TEMPLATES_DIR = path.resolve(__dirname, '..', '..', '..', '..', 'templates');
 
+// Directories under templates/ that are intentionally NOT project scaffolds and
+// therefore carry no template.json. The template engine's listTemplates() skips
+// any directory without a template.json (engine.ts), so these are invisible to
+// `init`; this test mirrors that contract rather than demanding a manifest they
+// are not meant to have. `rehearsal-fixtures/` is a collection of
+// deliberately-broken rehearsal fixtures, not a scaffold.
+const NON_TEMPLATE_DIRS = new Set(['rehearsal-fixtures']);
+
 describe('template content files', () => {
   const templateDirs = fs
     .readdirSync(TEMPLATES_DIR)
-    .filter((d) => fs.statSync(path.join(TEMPLATES_DIR, d)).isDirectory());
+    .filter((d) => fs.statSync(path.join(TEMPLATES_DIR, d)).isDirectory())
+    .filter((d) => !NON_TEMPLATE_DIRS.has(d));
 
   for (const dir of templateDirs) {
     it(`${dir}/template.json is valid`, () => {

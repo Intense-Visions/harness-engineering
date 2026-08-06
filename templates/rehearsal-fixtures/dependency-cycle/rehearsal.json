@@ -1,0 +1,17 @@
+{
+  "id": "dependency-cycle",
+  "title": "Circular import between two modules",
+  "failureMode": "dependency-cycle",
+  "difficulty": "medium",
+  "summary": "invoice.ts and customer.ts import each other, forming a cycle. It may run today but is fragile to initialisation order and blocks clean layering — the kind of coupling a dependency/architecture gate is meant to surface.",
+  "plantedFile": "src/customer.ts",
+  "plantedDescription": "invoice.ts imports customer.ts and customer.ts imports invoice.ts, creating an A<->B import cycle.",
+  "expectedCheck": "harness check-arch",
+  "expectedFix": "Break the cycle by extracting the shared type/logic into a third module both depend on (e.g. types.ts), or invert one dependency so the import graph is acyclic. Neither module should import the other after the fix.",
+  "rubric": {
+    "detected": "Agent identifies the invoice<->customer import cycle as the planted failure.",
+    "correctCheck": "Agent runs or cites `harness check-arch` (circular-dependency detection) as the gate.",
+    "fixed": "The cycle is broken — the two modules no longer import each other.",
+    "noCollateral": "Both modules still expose their original behaviour; no feature dropped to break the cycle."
+  }
+}

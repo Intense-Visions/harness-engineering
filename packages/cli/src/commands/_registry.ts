@@ -24,8 +24,8 @@ import { createCheckVocabularyCommand } from './check-vocabulary';
 import { createCICommand } from './ci';
 import { createCleanupCommand } from './cleanup';
 import { createCleanupSessionsCommand } from './cleanup-sessions';
-import { createCodeCraftCommand } from './code-craft';
 import { createCliErgonomicsCraftCommand } from './cli-ergonomics-craft';
+import { createCodeCraftCommand } from './code-craft';
 import { createCompoundCommand } from './compound';
 import { createCopyCraftCommand } from './copy-craft';
 import { createCreateSkillCommand } from './create-skill';
@@ -69,6 +69,7 @@ import { createProposalsCommand } from './proposals';
 import { createPublishAnalysesCommand } from './publish-analyses';
 import { createPulseCommand } from './pulse';
 import { createRecommendCommand } from './recommend';
+import { createRehearseCommand } from './rehearse';
 import { createReviewCiCommand } from './review-ci';
 import { createRoadmapCommand } from './roadmap';
 import { createRollbackCommand } from './rollback';
@@ -124,8 +125,8 @@ export const commandCreators: Array<() => Command> = [
   createCICommand,
   createCleanupCommand,
   createCleanupSessionsCommand,
-  createCodeCraftCommand,
   createCliErgonomicsCraftCommand,
+  createCodeCraftCommand,
   createCompoundCommand,
   createCopyCraftCommand,
   createCreateSkillCommand,
@@ -169,6 +170,7 @@ export const commandCreators: Array<() => Command> = [
   createPublishAnalysesCommand,
   createPulseCommand,
   createRecommendCommand,
+  createRehearseCommand,
   createReviewCiCommand,
   createRoadmapCommand,
   createRollbackCommand,
