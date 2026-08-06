@@ -37,25 +37,27 @@ describe('buildSettingsHooks', () => {
     expect(hooks.Stop).toBeUndefined();
   });
 
-  it('builds standard profile with 8 hooks across 4 events', () => {
+  it('builds standard profile with 9 hooks across 4 events', () => {
     const hooks = buildSettingsHooks('standard');
     expect(hooks.PreToolUse).toHaveLength(3); // block-no-verify, protect-config, sentinel-pre
     expect(hooks.PostToolUse).toHaveLength(2); // quality-warner, sentinel-post
     expect(hooks.PreCompact).toHaveLength(1);
-    expect(hooks.Stop).toHaveLength(2);
+    expect(hooks.Stop).toHaveLength(3);
     expect(hooks.Stop[0].hooks[0].command).toContain('adoption-tracker.js');
     expect(hooks.Stop[1].hooks[0].command).toContain('telemetry-reporter.js');
+    expect(hooks.Stop[2].hooks[0].command).toContain('session-retrospect.js');
   });
 
-  it('builds strict profile with all 10 hooks across 4 events', () => {
+  it('builds strict profile with all 11 hooks across 4 events', () => {
     const hooks = buildSettingsHooks('strict');
     expect(hooks.PreToolUse).toHaveLength(3); // block-no-verify, protect-config, sentinel-pre (all from standard)
     expect(hooks.PostToolUse).toHaveLength(3); // quality-warner, sentinel-post (from standard), strict-quality-gate
     expect(hooks.PreCompact).toHaveLength(1);
-    expect(hooks.Stop).toHaveLength(3);
+    expect(hooks.Stop).toHaveLength(4);
     expect(hooks.Stop[0].hooks[0].command).toContain('adoption-tracker.js');
     expect(hooks.Stop[1].hooks[0].command).toContain('telemetry-reporter.js');
-    expect(hooks.Stop[2].hooks[0].command).toContain('cost-tracker.js');
+    expect(hooks.Stop[2].hooks[0].command).toContain('session-retrospect.js');
+    expect(hooks.Stop[3].hooks[0].command).toContain('cost-tracker.js');
   });
 });
 
@@ -405,7 +407,7 @@ describe('listHooks', () => {
     const result = listHooks(tmpDir);
     expect(result.installed).toBe(true);
     expect(result.profile).toBe('strict');
-    expect(result.hooks).toHaveLength(10); // all hooks incl. strict-quality-gate, adoption-tracker, telemetry-reporter, sentinel-pre, and sentinel-post
+    expect(result.hooks).toHaveLength(11); // all hooks incl. strict-quality-gate, adoption-tracker, telemetry-reporter, session-retrospect, sentinel-pre, and sentinel-post
   });
 
   it('returns correct hook metadata', () => {

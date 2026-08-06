@@ -2,7 +2,7 @@
 
 Hooks are Claude Code lifecycle hooks that enforce security and quality policies during AI agent sessions. They run automatically at key moments -- before a tool executes, after a tool produces output, before context compaction, and when a session ends -- giving you guardrails without manual intervention.
 
-Harness ships ten hooks organized into three profiles. Each hook is a standalone Node.js script that reads JSON from stdin, performs its check, and exits with code 0 (allow) or 2 (block).
+Harness ships eleven hooks organized into three profiles. Each hook is a standalone Node.js script that reads JSON from stdin, performs its check, and exits with code 0 (allow) or 2 (block).
 
 ## How Hooks Work
 
@@ -133,6 +133,16 @@ Respects opt-out via any of:
 
 Shows a one-time privacy notice on first run. Uses a write-only PostHog API key -- no data can be read through it. Retries up to 3 times on server errors with exponential backoff.
 
+### session-retrospect.js
+
+**Event:** `Stop:*` | **Profile:** standard | **Can block:** No
+
+Opt-in end-of-session trigger for interactive sessions. The session-archive lifecycle runs its end-of-session analysis (summary, index, and retrospection) only when a session is archived, and the only caller that archives a session is the `archive_session` state action used by autonomous flows. A manual, interactive session is otherwise never archived, so this hook archives the active session at session end -- through the same archive seam -- so that analysis runs for manually driven sessions too.
+
+Because a `Stop` hook fires on every turn-stop rather than only at genuine session end, the hook archives **at most once per session**: it keys on the Claude `session_id` and records a sentinel under `.harness/state/retrospection/` after a successful archive, so every later stop for the same session is a no-op. A stop that finds no session to archive writes no sentinel, so a session created later in the same run can still be caught.
+
+Off by default. Enable it (together with the retrospection step inside the archive lifecycle) by setting `HARNESS_SESSION_RETROSPECTION` to `1` (or `true`). Fail-soft: any error -- unreadable stdin, missing packages, a failed archive -- is swallowed and the hook exits 0, never blocking the session.
+
 ## Hook Profiles
 
 Profiles are **additive** -- each higher tier includes all hooks from lower tiers.
@@ -157,6 +167,7 @@ Adds config protection, quality checks, state preservation, and usage tracking.
 | pre-compact-state  | PreCompact  | \*          |
 | adoption-tracker   | Stop        | \*          |
 | telemetry-reporter | Stop        | \*          |
+| session-retrospect | Stop        | \*          |
 
 ### strict
 
@@ -170,6 +181,7 @@ Adds full prompt injection defense and cost tracking.
 | pre-compact-state   | PreCompact  | \*          |
 | adoption-tracker    | Stop        | \*          |
 | telemetry-reporter  | Stop        | \*          |
+| session-retrospect  | Stop        | \*          |
 | strict-quality-gate | PostToolUse | Edit\|Write |
 | cost-tracker        | Stop        | \*          |
 | sentinel-pre        | PreToolUse  | \*          |
