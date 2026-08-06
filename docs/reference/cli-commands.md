@@ -780,6 +780,57 @@ Show provenance, verdicts, convergence, and tool-use for a run
 
 - `--dir` — Black-box directory (default: ".harness/black-box")
 
+## Burn Commands
+
+Claude Code usage burn: pace, budget, calibration
+
+### `harness burn budget [value]`
+
+Set or clear the self-imposed weekly ceiling (250M, 1.2x, or off)
+
+**Arguments:**
+
+- `value` (optional) — budget value; omit to show the current setting
+
+### `harness burn calibrate <percent> [valid-until]`
+
+Anchor the budget to a real /usage reading
+
+**Arguments:**
+
+- `percent` (required) — the percentage /usage reports right now
+- `valid-until` (optional) — YYYY-MM-DD after which this calibration is distrusted
+
+### `harness burn install`
+
+Wire the burn HUD statusline and hooks into ~/.claude/settings.json
+
+**Options:**
+
+- `--dry-run` — show what would change without writing
+
+### `harness burn report`
+
+Rescan and print the full burn report (default)
+
+### `harness burn reset-day [day] [time] [tz]`
+
+Align the week window with the reset /usage reports
+
+**Arguments:**
+
+- `day` (optional) — mon..sun or 0..6 (0=Mon); omit to show the current setting
+- `time` (optional) — local time of the reset, e.g. 08:59
+- `tz` (optional) — IANA timezone, e.g. America/Chicago
+
+### `harness burn scan`
+
+Force a cache refresh
+
+### `harness burn weeks`
+
+Weekly usage history, anchored to the configured reset
+
 ## Ci Commands
 
 CI/CD integration commands
