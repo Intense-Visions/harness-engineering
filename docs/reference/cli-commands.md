@@ -557,6 +557,20 @@ Extract and publish a constraints bundle from constraints.yaml
 
 - `-o, --output` — Output directory for the bundle (default: ".")
 
+### `harness skill-regression`
+
+Run the golden-fixture skill-regression gate: score candidate skill outputs against per-skill rubrics and block (exit 1) only on a high-confidence quality regression
+
+**Options:**
+
+- `--fixtures` — golden fixtures directory (default: fixtures/skill-regression)
+- `--candidate` — directory of captured candidate outputs (default: self-test)
+- `--skill` — only evaluate fixtures for this skill
+- `--block-on` — regressed | none (default: "regressed")
+- `--update-baseline` — re-score golden reference outputs and rewrite fixture baselines
+- `--model` — model override for the judge LLM call
+- `--out` — write the verdicts JSON artifact to a file
+
 ### `harness spec-craft`
 
 LLM-judgment critique of spec quality (proposals + ADRs). Second craft-pipeline ceiling skill; 7 seed rubrics from the spec-quality canon. Per-section critique.

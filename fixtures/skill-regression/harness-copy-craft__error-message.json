@@ -1,0 +1,32 @@
+{
+  "schemaVersion": 1,
+  "skill": "harness-copy-craft",
+  "id": "error-message",
+  "description": "A good user-facing error message names what failed, states the likely cause, and tells the reader the next action — without blame or raw internals.",
+  "input": "Rewrite this error message so it is actionable: \"Error: operation failed (code 500).\" Context: a CLI command tried to read a config file that does not exist at the expected path.",
+  "rubric": [
+    {
+      "id": "names-what-failed",
+      "criterion": "The message names the specific operation that failed (reading the config file), not a generic 'operation failed'.",
+      "weight": 2
+    },
+    {
+      "id": "states-cause",
+      "criterion": "The message states the concrete cause (the config file was not found at a named path)."
+    },
+    {
+      "id": "gives-next-action",
+      "criterion": "The message tells the reader what to do next (a specific, followable fix)."
+    },
+    {
+      "id": "no-blame-no-internals",
+      "criterion": "The message avoids blame and does not leak raw internals (no bare stack trace, no undecoded numeric code as the only signal)."
+    }
+  ],
+  "referenceOutput": "Could not read the harness config: no file found at ./harness.config.json.\n\nThis usually means the command was run outside a harness project, or the config has not been created yet.\n\nTo fix: run `harness init` in your project root to create harness.config.json, or pass --config <path> to point at an existing one.\n",
+  "baseline": {
+    "score": 1,
+    "k": 1,
+    "tolerance": 0.25
+  }
+}

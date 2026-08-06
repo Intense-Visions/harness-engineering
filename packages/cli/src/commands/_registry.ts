@@ -24,8 +24,8 @@ import { createCheckVocabularyCommand } from './check-vocabulary';
 import { createCICommand } from './ci';
 import { createCleanupCommand } from './cleanup';
 import { createCleanupSessionsCommand } from './cleanup-sessions';
-import { createCodeCraftCommand } from './code-craft';
 import { createCliErgonomicsCraftCommand } from './cli-ergonomics-craft';
+import { createCodeCraftCommand } from './code-craft';
 import { createCompoundCommand } from './compound';
 import { createCopyCraftCommand } from './copy-craft';
 import { createCreateSkillCommand } from './create-skill';
@@ -80,6 +80,7 @@ import { createSetupCommand } from './setup';
 import { createSetupMcpCommand } from './setup-mcp';
 import { createShareCommand } from './share';
 import { createSkillCommand } from './skill';
+import { createSkillRegressionCommand } from './skill-regression';
 import { createSnapshotCommand } from './snapshot';
 import { createSpecCraftCommand } from './spec-craft';
 import { createStaleConstraintsCommand } from './stale-constraints';
@@ -124,8 +125,8 @@ export const commandCreators: Array<() => Command> = [
   createCICommand,
   createCleanupCommand,
   createCleanupSessionsCommand,
-  createCodeCraftCommand,
   createCliErgonomicsCraftCommand,
+  createCodeCraftCommand,
   createCompoundCommand,
   createCopyCraftCommand,
   createCreateSkillCommand,
@@ -180,6 +181,7 @@ export const commandCreators: Array<() => Command> = [
   createSetupMcpCommand,
   createShareCommand,
   createSkillCommand,
+  createSkillRegressionCommand,
   createSnapshotCommand,
   createSpecCraftCommand,
   createStaleConstraintsCommand,

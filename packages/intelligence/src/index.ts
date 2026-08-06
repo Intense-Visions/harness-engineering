@@ -118,6 +118,38 @@ export type {
   AcceptanceEvaluatorOptions,
 } from './acceptance-eval/index.js';
 
+// Skill-Regression — golden-fixture evaluation framework that detects skill regressions.
+// Reuses the outcome-eval judge pattern; wired into the `harness skill-regression` CLI gate.
+export {
+  deriveRegressionAuthority,
+  SKILL_REGRESSION_SYSTEM_PROMPT,
+  buildUserPrompt as buildSkillRegressionUserPrompt,
+  criterionJudgmentSchema,
+  judgeResponseSchema,
+  weightedScore,
+  aggregateAtK,
+  regressionFloor,
+  deriveRegressionVerdict,
+  fixtureSchema,
+  parseFixture,
+  serializeFixture,
+  SkillRegressionEvaluator,
+  computeBaselineScore,
+} from './skill-regression/index.js';
+export type {
+  JudgeResponse as SkillRegressionJudgeResponse,
+  RegressionVerdictKind,
+  RegressionConfidence,
+  RegressionAuthority,
+  RubricCriterion,
+  GoldenBaseline,
+  SkillRegressionFixture,
+  CriterionJudgment,
+  SkillRegressionInput,
+  SkillRegressionVerdict,
+  SkillRegressionEvaluatorOptions,
+} from './skill-regression/index.js';
+
 // CML Historical
 export { computeHistoricalComplexity } from './cml/historical.js';
 
