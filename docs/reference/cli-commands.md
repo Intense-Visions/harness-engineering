@@ -38,6 +38,18 @@ Apply codemods for safe DRIFT-T001/T002/T003 findings and emit suggestions for D
 - `--design-strictness` — Override design.strictness: strict | standard | permissive
 - `--revert` — Inverse-apply the most-recent batch recorded at .harness/align/last-batch.json. Skips files edited externally since the apply.
 
+### `harness api-craft`
+
+LLM-judgment critique of API quality — the ceiling questions a rule-based OpenAPI check cannot ask. 9 seed rubrics (resource-models-the-domain, naming-is-predictable, verbs-are-honest, status-codes-are-correct, errors-are-actionable, response-shapes-are-predictable, collections-paginate-and-filter, mutations-are-idempotency-honest, evolves-without-breaking). Critiques a project’s own OpenAPI documents and route/handler definitions per file.
+
+**Options:**
+
+- `-f, --files` — Optional file scope (overrides API-surface discovery)
+- `--routes-dir` — Directory of route/handler definitions to critique
+- `--spec-file` — Explicit OpenAPI/Swagger document to critique
+- `--exclude-dirs` — Additional subdir names to skip while walking
+- `--max-files` — Cap surface count (default: 60)
+
 ### `harness audit-protected`
 
 Report all harness-ignore protected code regions
