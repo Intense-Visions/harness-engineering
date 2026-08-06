@@ -36,6 +36,7 @@
     "@harness-engineering/core": "workspace:*",
     "@harness-engineering/dashboard": "workspace:*",
     "@harness-engineering/graph": "workspace:*",
+    "@harness-engineering/intelligence": "workspace:*",
     "@harness-engineering/linter-gen": "workspace:*",
     "@harness-engineering/orchestrator": "workspace:*",
     "@harness-engineering/signals": "workspace:*",
