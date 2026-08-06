@@ -6,7 +6,8 @@ import {
   selectSidebarSections,
   useThreadStore,
 } from '../../stores/threadStore';
-import { SYSTEM_PAGES } from '../../types/thread';
+import { useRole } from '../../hooks/useRole';
+import { DASHBOARD_ROLES, ROLE_LANES, isDashboardRole, pagesForRole } from '../../types/roles';
 import { Sigil } from '../NeonAI/Sigil';
 import { SidebarSection } from '../sidebar/SidebarSection';
 import { SystemNavItem } from '../sidebar/SystemNavItem';
@@ -14,6 +15,8 @@ import { ThreadListItem } from '../sidebar/ThreadListItem';
 
 export function ThreadSidebar() {
   const navigate = useNavigate();
+  const { role, setRole } = useRole();
+  const rolePages = useMemo(() => pagesForRole(role), [role]);
   const threads = useThreadStore((s) => s.threads);
   const sidebarSections = useMemo(
     () => selectSidebarSections({ threads } as Parameters<typeof selectSidebarSections>[0]),
@@ -111,7 +114,7 @@ export function ThreadSidebar() {
 
           <SidebarSection label="System">
             <div className="flex flex-col gap-0.5 px-1">
-              {SYSTEM_PAGES.map((entry) => (
+              {rolePages.map((entry) => (
                 <SystemNavItem
                   key={entry.page}
                   page={entry.page}
@@ -121,6 +124,30 @@ export function ThreadSidebar() {
               ))}
             </div>
           </SidebarSection>
+        </div>
+
+        {/* Lane switcher — presentation-only role preference. */}
+        <div className="border-t border-white/[0.06] px-3 py-2.5">
+          <label
+            htmlFor="role-lane"
+            className="mb-1 block text-[8px] font-bold uppercase tracking-[0.2em] text-neutral-muted/70"
+          >
+            Lane
+          </label>
+          <select
+            id="role-lane"
+            value={role}
+            onChange={(e) => {
+              if (isDashboardRole(e.target.value)) setRole(e.target.value);
+            }}
+            className="w-full rounded-lg border border-white/[0.08] bg-white/[0.04] px-2 py-1.5 text-[11px] font-medium text-neutral-text hover:bg-white/[0.08] focus:outline-none focus:ring-1 focus:ring-primary-500/40 transition-colors"
+          >
+            {DASHBOARD_ROLES.map((r) => (
+              <option key={r} value={r} className="bg-neutral-surface text-neutral-text">
+                {ROLE_LANES[r].label}
+              </option>
+            ))}
+          </select>
         </div>
       </div>
     </aside>
