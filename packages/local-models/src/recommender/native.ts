@@ -2,12 +2,12 @@
  * Native recommender seam (Phase 6).
  *
  * The scheduler needs a single `recommend(hardware)` call that turns the
- * operator's candidate set into a hardware-aware ranking each tick. Phase 2's
- * live-HF candidate parser (arbitrary HF model → `RankerCandidate` with
- * `sizeB`/`quant` extracted from the GGUF manifest) was never built, so this
- * seam takes the candidate list **explicitly** (frozen-snapshot- or
- * config-derived) rather than discovering brand-new HF models autonomously —
- * autonomous discovery is deferred to the Phase 2 recommender completion.
+ * operator's candidate set into a hardware-aware ranking each tick. This seam
+ * takes the candidate list **explicitly** (frozen-snapshot- or config-derived,
+ * or the live-discovered set) rather than fetching HF itself — discovery is a
+ * separate composed step (`../candidates/discover.ts` → `parseHfModelToCandidates`,
+ * wired by the orchestrator's `refreshCandidatesLive`), keeping this ranking path
+ * pure and free of per-call network I/O.
  *
  * The recommender is degradation-first (S4/O4):
  *  - The benchmark snapshot loads via `loadFrozenSnapshot` (the offline

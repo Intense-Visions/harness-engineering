@@ -89,6 +89,10 @@ jobs:
         if: matrix.os == 'ubuntu-latest'
         run: pnpm generate:plugin:check
 
+      - name: Verify persona CI workflows are fresh
+        if: matrix.os == 'ubuntu-latest'
+        run: pnpm generate:persona-workflows:check
+
       - name: Upload coverage to Codecov
         if: matrix.os == 'ubuntu-latest'
         uses: codecov/codecov-action@v5

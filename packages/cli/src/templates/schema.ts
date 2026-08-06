@@ -24,7 +24,7 @@ export const MergeStrategySchema = z.object({
 export const TemplateMetadataSchema = z.object({
   name: z.string(),
   description: z.string(),
-  level: z.enum(['basic', 'intermediate', 'advanced']).optional(),
+  level: z.enum(['basic', 'intermediate', 'load-bearing-minimum', 'advanced']).optional(),
   framework: z.string().optional(),
   extends: z.string().optional(),
   mergeStrategy: MergeStrategySchema.default({}),

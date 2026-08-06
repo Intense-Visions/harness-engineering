@@ -1,60 +1,52 @@
 # Harness Engineering Implementation Guide
 
-This guide provides step-by-step instructions for adopting Harness Engineering practices in your project. Start with Level 1 and progress to higher levels as your team grows and tooling matures.
+Build the harness first, then climb.
+
+The tempting way to adopt these practices is to grow _into_ a harness over a quarter: a couple of weeks of documentation, then a few weeks of linters, then a month or two of agent tooling before anything actually catches a bad change. That framing is backwards. A harness only earns its name when it **stops** a bad change with no human watching — the [holiday test from Principle 0](./principles.md#principle-0-the-harness-is-load-bearing-it-catches-when-no-human-is-watching). Until it does that, you have documentation and notifications, not a harness.
+
+So don't sell yourself weeks of climbing before the rope is attached. Start with the smallest configuration that already passes the holiday test — the **load-bearing minimum** — and scaffold it in one command. Then climb toward the advanced tier only if and when the payoff is real. The adoption tiers are not a mandatory multi-month sequence; they are a floor you stand on and a ceiling you can grow toward.
 
 ---
 
-## Three Levels of Adoption
+## Start here: scaffold the load-bearing minimum
 
-### Level 1: Foundation (Context Engineering)
+```bash
+harness init --level load-bearing-minimum
+```
 
-**Time to implement**: 1-2 weeks
-**Effort**: Moderate (writing documentation)
-**Payoff**: 20% improvement in onboarding, agent context
+This is the recommended starting point for most teams. It scaffolds the minimum harness that still holds when the senior engineer disappears for two weeks:
 
-**What you get**:
+- **Mechanical constraints** — ESLint with layer enforcement, a cyclomatic-complexity cap of 15, a coupling cap, and a module-size cap, all enforced through `harness.config.json`.
+- **The multi-persona review gate** — `harness review-ci`, wired into a scaffolded `.github/workflows/required-review.yml` that runs on every pull request.
+- **The outcome-eval ship gate** — `harness outcome-eval-ci`, which judges each change against its spec and blocks on a high-confidence failure.
+- **Local scripts** — `npm run harness:review` and `npm run harness:outcome-eval`, so you can run the same gates at your desk.
 
-- Clear knowledge map (AGENTS.md)
-- Organized documentation structure
-- Better agent context understanding
+The two agent-loop gates are what catch the regressions no one is watching for, sitting on top of the mechanical floor. Together they turn a pile of warnings into gear that actually catches — the reason this tier, and not the lighter ones, is the recommended place to begin.
 
-**Who should start here**: All teams
-
----
-
-### Level 2: Mechanical Constraints
-
-**Time to implement**: 2-4 weeks (after Level 1)
-**Effort**: High (setup and linter configuration)
-**Payoff**: 50% reduction in architectural violations, faster reviews
-
-**What you get**:
-
-- Automated enforcement of architectural rules
-- Linter rules for common patterns
-- Structural tests for dependencies
-
-**Who should start here**: Teams building systems with 3+ interconnected services
+The rest of this guide explains what is inside that harness — so you can understand it, hand-build it, or extend it — and how to climb toward the advanced tier when you need more.
 
 ---
 
-### Level 3: Full Harness (Agent Loop + Entropy Management)
+## The adoption tiers
 
-**Time to implement**: 4-8 weeks (after Levels 1 & 2)
-**Effort**: Very high (agent setup, CI/CD configuration)
-**Payoff**: 70%+ agent autonomy, near-zero technical debt
+Adoption is expressed as a `--level` on `harness init`. There are four tiers, but they are **not** steps you must climb in order:
 
-**What you get**:
+| Tier                                     | What it adds on top of the tier before it                                                                                                                        | Passes the holiday test?                                          |
+| ---------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------- |
+| `basic`                                  | AGENTS.md, a documentation structure, and a one-way layer model — validated but not enforced with thresholds. The shared foundation every higher tier builds on. | No — it captures intent; it does not stop bad changes.            |
+| `intermediate`                           | Mechanical constraints: ESLint layer enforcement, complexity / coupling / module-size caps, structural tests, and a CI gate.                                     | Partly — it stops structural drift, but nothing reviews behavior. |
+| `load-bearing-minimum` **(recommended)** | The two agent-loop gates — multi-persona review and the outcome-eval ship gate — wired into CI on top of the intermediate constraints.                           | **Yes** — the smallest tier that stops a bad change unwatched.    |
+| `advanced`                               | The full harness: scheduled entropy cleanup, agent personas, telemetry and trajectory visibility, and the complete feedback loop.                                | Yes, with the widest surface area — ambitious, not necessary.     |
 
-- Autonomous agent workflows
-- Scheduled cleanup tasks
-- Self-correcting development cycle
+`basic` and `intermediate` are lighter subsets — useful if you genuinely cannot start at the load-bearing minimum yet, or as a way to understand each layer in isolation. `advanced` is a destination to climb toward, not a prerequisite for shipping safely. **The load-bearing minimum is the pragmatic entry point: it holds the moment you scaffold it.**
 
-**Who should start here**: Teams ready for agent-driven development (after stable Level 2)
+The walkthrough below follows the layers in the order they stack — the context foundation, the mechanical constraints, then the two load-bearing gates that complete the recommended tier — and closes with the climb to `advanced`.
 
 ---
 
-## Level 1: Foundation - Context Engineering
+## The foundation: context engineering
+
+This is the shared groundwork every tier stands on — the `basic` tier ships exactly this, and every higher tier includes it. It makes the reasoning behind the system legible to agents that were never in the room. On its own it does not stop a bad change, which is why it is a foundation rather than a harness.
 
 ### Step 1: Set Up Documentation Structure
 
@@ -555,7 +547,7 @@ Update root `README.md` to point to documentation:
 [Other sections...]
 ````
 
-### Step 8: Verify Level 1 Complete
+### Step 8: Verify the foundation is complete
 
 Checklist:
 
@@ -571,7 +563,9 @@ Checklist:
 
 ---
 
-## Level 2: Mechanical Constraints
+## Mechanical constraints
+
+This is the layer the `intermediate` tier adds, and it is the mechanical floor of the load-bearing minimum: linters, layer enforcement, complexity and module-size caps, and structural tests that stop architectural drift before review. It stops _structural_ regressions — but nothing here reviews behavior, which is what the two load-bearing gates in the next section add.
 
 ### Step 1: Set Up Linting
 
@@ -783,7 +777,7 @@ export async function getUser(req: Request) {
 }
 ```
 
-### Step 6: Verify Level 2 Complete
+### Step 6: Verify the mechanical constraints are complete
 
 Checklist:
 
@@ -799,7 +793,59 @@ Checklist:
 
 ---
 
-## Level 3: Full Harness (Agent Loop + Entropy Management)
+## The load-bearing gates: review and outcome-eval
+
+The mechanical constraints above stop _structural_ regressions. What makes the load-bearing minimum actually hold the holiday test is the pair of agent-loop gates that review the _behavior_ of a change with no human in the loop: multi-persona review and the outcome-eval ship gate. These two gates are the difference between the `intermediate` tier and the recommended `load-bearing-minimum` tier.
+
+If you scaffolded with `harness init --level load-bearing-minimum`, both gates are already wired in — this section explains what they do and how to run them by hand. If you started lighter, this is the section that upgrades you to a harness that holds.
+
+### Step 1: The multi-persona review gate
+
+`harness review-ci` runs a panel of specialized review personas over the pull request diff and fails the check when a persona requests changes. It is scaffolded into `.github/workflows/required-review.yml`, running on every pull request against `main`:
+
+```bash
+harness review-ci --runner claude --block-on request-changes --diff "origin/main...HEAD"
+```
+
+Run the same gate locally before you push:
+
+```bash
+npm run harness:review
+```
+
+The heuristic floor of the gate runs on any runner; the LLM tier activates only when an API-key secret is present, degrading gracefully otherwise.
+
+### Step 2: The outcome-eval ship gate
+
+`harness outcome-eval-ci` judges the change against its spec and blocks only on a high-confidence `NOT_SATISFIED` verdict — it auto-discovers the spec from the diff. It is the second job in the scaffolded `required-review.yml`:
+
+```bash
+harness outcome-eval-ci --block-on blocking --diff "origin/main...HEAD"
+```
+
+Locally:
+
+```bash
+npm run harness:outcome-eval
+```
+
+### Step 3: Verify the load-bearing minimum is complete
+
+Checklist:
+
+- [ ] The foundation (context engineering) and mechanical constraints above are in place
+- [ ] `.github/workflows/required-review.yml` runs both gates on pull requests
+- [ ] `harness review-ci` blocks a PR when a persona requests changes
+- [ ] `harness outcome-eval-ci` blocks a PR on a high-confidence spec-satisfaction failure
+- [ ] `npm run harness:review` and `npm run harness:outcome-eval` run at your desk
+
+**Test**: Open a PR that quietly breaks a documented behavior. With no human reviewing, the gates should stop it. That is the holiday test — and passing it is what makes this the recommended tier.
+
+---
+
+## Climbing to advanced: the full agent loop and entropy management
+
+Everything below is the `advanced` tier. It is ambitious, not necessary — climb here when the payoff is real, not as a prerequisite for shipping safely. It widens the surface area with a full self-review template, scheduled entropy cleanup, telemetry and trajectory visibility, and configurable agent personas.
 
 ### Step 1: Set Up Agent Self-Review
 
@@ -1008,7 +1054,7 @@ jobs:
             })
 ```
 
-### Step 6: Verify Level 3 Complete
+### Step 6: Verify the advanced tier is complete
 
 Checklist:
 
@@ -1253,14 +1299,14 @@ Proposes PRs when docs don't match code.
 
 ## Next Steps
 
-1. **Start with Level 1** - Documentation and AGENTS.md
-2. **Validate with early adopters** - Get feedback before Level 2
-3. **Progress to Level 2** - Linters and mechanical constraints
-4. **Measure KPIs** - Context density, harness coverage, agent autonomy
-5. **Progress to Level 3** - Agent feedback loop and entropy management
+1. **Scaffold the load-bearing minimum** — `harness init --level load-bearing-minimum`. This is the harness; the rest is climbing.
+2. **Confirm it holds** — open a PR that breaks a documented behavior and watch the review and outcome-eval gates stop it. That is the holiday test.
+3. **Fill in the foundation** — flesh out AGENTS.md, the architecture docs, and the ADRs so agents have the context the gates assume.
+4. **Measure KPIs** — context density, harness coverage, agent autonomy.
+5. **Climb to advanced only when the payoff is real** — scheduled entropy cleanup, agent personas, and the full feedback loop are ambitious, not necessary.
 
 ---
 
 [← Back to Principles](./principles.md) | [KPIs & Metrics →](./kpis.md)
 
-_Last Updated: 2026-03-16_
+_Last Updated: 2026-08-05_
