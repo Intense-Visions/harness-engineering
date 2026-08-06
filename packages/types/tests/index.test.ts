@@ -1,5 +1,12 @@
 import { describe, it, expect } from 'vitest';
-import { Ok, Err, isOk, isErr, STANDARD_COGNITIVE_MODES } from '../src/index.js';
+import {
+  Ok,
+  Err,
+  isOk,
+  isErr,
+  STANDARD_COGNITIVE_MODES,
+  FAILURE_CATEGORIES,
+} from '../src/index.js';
 
 describe('Result helpers', () => {
   it('Ok creates a successful result', () => {
@@ -48,5 +55,20 @@ describe('STANDARD_COGNITIVE_MODES', () => {
     expect(STANDARD_COGNITIVE_MODES).toContain('advisory-guide');
     expect(STANDARD_COGNITIVE_MODES).toContain('meticulous-verifier');
     expect(STANDARD_COGNITIVE_MODES).toHaveLength(6);
+  });
+});
+
+describe('FAILURE_CATEGORIES', () => {
+  it('is a closed, deduplicated taxonomy of the expected categories', () => {
+    expect([...FAILURE_CATEGORIES]).toEqual([
+      'prerequisite-missing',
+      'gate-rejected',
+      'user-cancelled',
+      'timeout',
+      'dependency-failure',
+      'agent-error',
+      'inconclusive',
+    ]);
+    expect(new Set(FAILURE_CATEGORIES).size).toBe(FAILURE_CATEGORIES.length);
   });
 });

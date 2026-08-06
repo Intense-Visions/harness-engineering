@@ -17,6 +17,8 @@ import {
   type PoolFilesystem,
   type PoolState,
   type RemoteModelInfo,
+  type FrozenCandidate,
+  type RankerCandidate,
 } from '@harness-engineering/local-models';
 import type {
   WorkflowConfig,
@@ -671,6 +673,187 @@ describe('Orchestrator LMLM Phase 7 — drain liveness on refresh tick (P7-SUG-D
 
     expect(evicts.map((e) => e.name)).toEqual(['qwen2.5:32b']);
     expect(manager.listPendingEvictions()).toHaveLength(0);
+
+    await orch.stop();
+  });
+});
+
+// ── Live HF candidate discovery → recommender wiring ───────────────────────────
+//
+// The parser (`parseHfModelToCandidates`) and the fail-soft discovery function
+// (`discoverCandidates`) are unit-tested in local-models. These tests cover the
+// orchestrator glue that turns the loop from wired-but-inert to LIVE:
+// `refreshCandidatesLive` runs the injected discovery seam, filters to the
+// operator allowlist, and re-seeds the recommender that `GET /recommendations`
+// and the scheduler tick consume. Also covers the fail-closed branches.
+
+/** Structural access to the private `refreshCandidatesLive`, bound to `orch`. */
+function refreshLiveOf(
+  orch: Orchestrator
+): (signal?: AbortSignal) => Promise<{ source: 'frozen' | 'live'; count: number }> {
+  return (
+    orch as unknown as {
+      refreshCandidatesLive(signal?: AbortSignal): Promise<{
+        source: 'frozen' | 'live';
+        count: number;
+      }>;
+    }
+  ).refreshCandidatesLive.bind(orch);
+}
+
+/** Structural access to the private `candidateSourceState` snapshot. */
+function candidateSourceOf(orch: Orchestrator): { source: 'frozen' | 'live'; count: number } {
+  return (orch as unknown as { candidateSourceState: { source: 'frozen' | 'live'; count: number } })
+    .candidateSourceState;
+}
+
+/** Structural access to the private `recommenderCandidates` held set. */
+function heldCandidatesOf(orch: Orchestrator): readonly RankerCandidate[] {
+  return (orch as unknown as { recommenderCandidates: readonly RankerCandidate[] })
+    .recommenderCandidates;
+}
+
+function startSchedulerOf(orch: Orchestrator): void {
+  (orch as unknown as { startRefreshScheduler(): void }).startRefreshScheduler();
+}
+
+function makeOrchestratorWithDiscovery(
+  discoverCandidates: () => Promise<{ candidates: FrozenCandidate[]; warnings: string[] }>
+): Orchestrator {
+  return new Orchestrator(makeConfig(localModelsWithHardware()), 'Prompt', {
+    tracker: makeMockTracker(),
+    backend: new MockBackend(),
+    execFileFn: noopExecFile,
+    schedulerTimer: noopTimer,
+    discoverCandidates,
+  });
+}
+
+describe('Orchestrator LMLM — live HF candidate discovery wiring', () => {
+  const LIVE_CANDIDATES: FrozenCandidate[] = [
+    {
+      hfRepoId: 'Qwen/Qwen3-4B-GGUF',
+      ollamaName: 'qwen3:4b',
+      family: 'qwen3',
+      sizeB: 4,
+      quant: 'Q4_K_M',
+    },
+    {
+      hfRepoId: 'Qwen/Qwen3-1.7B-GGUF',
+      ollamaName: 'qwen3:1.7b',
+      family: 'qwen3',
+      sizeB: 1.7,
+      quant: 'Q4_K_M',
+    },
+    // Dropped by selectCandidates: org not in the operator allowlist (['Qwen']).
+    {
+      hfRepoId: 'meta-llama/Llama-3.2-3B-GGUF',
+      ollamaName: 'llama3.2:3b',
+      family: 'llama3',
+      sizeB: 3,
+      quant: 'Q4_K_M',
+    },
+  ];
+
+  it('re-seeds the recommender with discovered, allowlist-filtered candidates and ranks them', async () => {
+    const orch = makeOrchestratorWithDiscovery(async () => ({
+      candidates: LIVE_CANDIDATES,
+      warnings: [],
+    }));
+
+    const result = await refreshLiveOf(orch)();
+
+    // The out-of-allowlist Llama repo is filtered out; two Qwen candidates seed the recommender.
+    expect(result).toEqual({ source: 'live', count: 2 });
+    expect(candidateSourceOf(orch)).toEqual({ source: 'live', count: 2 });
+    expect(
+      heldCandidatesOf(orch)
+        .map((c) => c.hfRepoId)
+        .sort()
+    ).toEqual(['Qwen/Qwen3-1.7B-GGUF', 'Qwen/Qwen3-4B-GGUF']);
+
+    // The now-live recommender actually consumes the discovered set — proving the
+    // loop is live, not inert. GET /recommendations and the scheduler tick call this same binding.
+    const recommend = recommenderOf(orch);
+    expect(recommend).not.toBeNull();
+    const ranking = await recommend!(await detectHardwareOf(orch)());
+    const rankedRepos = (ranking.ranked as Array<{ hfRepoId: string }>).map((r) => r.hfRepoId);
+    expect(rankedRepos).toContain('Qwen/Qwen3-4B-GGUF');
+    expect(rankedRepos).not.toContain('meta-llama/Llama-3.2-3B-GGUF');
+
+    await orch.stop();
+  });
+
+  it('keeps the current (frozen) candidates when live discovery throws (fail-closed)', async () => {
+    const orch = makeOrchestratorWithDiscovery(async () => {
+      throw new Error('HF unreachable');
+    });
+    // Seed the recommender from the frozen snapshot first (as scheduler start does).
+    setModelPool(orch, (await makeSeededPool([REPLACES])).manager);
+    startSchedulerOf(orch);
+    const seeded = candidateSourceOf(orch);
+    expect(seeded.source).toBe('frozen');
+    expect(seeded.count).toBeGreaterThan(0);
+
+    const result = await refreshLiveOf(orch)();
+
+    // A discovery failure must not clear or replace the standing frozen candidates.
+    expect(result).toEqual(seeded);
+    expect(candidateSourceOf(orch)).toEqual(seeded);
+
+    await orch.stop();
+  });
+
+  it('keeps the current candidates when live discovery yields nothing installable', async () => {
+    // All discovered repos are outside the operator allowlist → selection empties them.
+    const orch = makeOrchestratorWithDiscovery(async () => ({
+      candidates: [
+        {
+          hfRepoId: 'meta-llama/Llama-3.2-3B-GGUF',
+          ollamaName: 'llama3.2:3b',
+          sizeB: 3,
+          quant: 'Q4_K_M',
+        },
+      ],
+      warnings: ['org list failed'],
+    }));
+    setModelPool(orch, (await makeSeededPool([REPLACES])).manager);
+    startSchedulerOf(orch);
+    const seeded = candidateSourceOf(orch);
+
+    const result = await refreshLiveOf(orch)();
+
+    expect(result).toEqual(seeded);
+    expect(candidateSourceOf(orch)).toEqual(seeded);
+
+    await orch.stop();
+  });
+
+  it('is a no-op that keeps frozen candidates when no orgs are approved', async () => {
+    let discoverCalled = false;
+    const orch = new Orchestrator(
+      makeConfig({
+        ...localModelsWithHardware(),
+        pool: { diskBudgetGb: 100, allowedOrgs: [], allowedFamilies: [] },
+      }),
+      'Prompt',
+      {
+        tracker: makeMockTracker(),
+        backend: new MockBackend(),
+        execFileFn: noopExecFile,
+        schedulerTimer: noopTimer,
+        discoverCandidates: async () => {
+          discoverCalled = true;
+          return { candidates: LIVE_CANDIDATES, warnings: [] };
+        },
+      }
+    );
+
+    const result = await refreshLiveOf(orch)();
+
+    // Empty allowlist short-circuits before any network/discovery work.
+    expect(discoverCalled).toBe(false);
+    expect(result).toEqual(candidateSourceOf(orch));
 
     await orch.stop();
   });

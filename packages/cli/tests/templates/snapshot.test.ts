@@ -7,7 +7,7 @@ const TEMPLATES_DIR = path.resolve(__dirname, '..', '..', '..', '..', 'templates
 describe('template snapshots', () => {
   const engine = new TemplateEngine(TEMPLATES_DIR);
 
-  for (const level of ['basic', 'intermediate', 'advanced'] as const) {
+  for (const level of ['basic', 'intermediate', 'load-bearing-minimum', 'advanced'] as const) {
     it(`${level} template output matches snapshot`, () => {
       const resolved = engine.resolveTemplate(level);
       if (!resolved.ok) throw new Error(resolved.error.message);
