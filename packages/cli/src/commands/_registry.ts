@@ -24,8 +24,8 @@ import { createCheckVocabularyCommand } from './check-vocabulary';
 import { createCICommand } from './ci';
 import { createCleanupCommand } from './cleanup';
 import { createCleanupSessionsCommand } from './cleanup-sessions';
-import { createCodeCraftCommand } from './code-craft';
 import { createCliErgonomicsCraftCommand } from './cli-ergonomics-craft';
+import { createCodeCraftCommand } from './code-craft';
 import { createCompoundCommand } from './compound';
 import { createCopyCraftCommand } from './copy-craft';
 import { createCreateSkillCommand } from './create-skill';
@@ -40,6 +40,7 @@ import { createGenerateAgentDefinitionsCommand } from './generate-agent-definiti
 import { createGenerateCommand } from './generate';
 import { createGenerateSlashCommandsCommand } from './generate-slash-commands';
 import { createGraphCommand } from './graph';
+import { createHolidayConfidenceCommand } from './holiday-confidence';
 import { createHooksCommand } from './hooks';
 import { createImpactPreviewCommand } from './impact-preview';
 import { createInitCommand } from './init';
@@ -124,8 +125,8 @@ export const commandCreators: Array<() => Command> = [
   createCICommand,
   createCleanupCommand,
   createCleanupSessionsCommand,
-  createCodeCraftCommand,
   createCliErgonomicsCraftCommand,
+  createCodeCraftCommand,
   createCompoundCommand,
   createCopyCraftCommand,
   createCreateSkillCommand,
@@ -140,6 +141,7 @@ export const commandCreators: Array<() => Command> = [
   createGenerateCommand,
   createGenerateSlashCommandsCommand,
   createGraphCommand,
+  createHolidayConfidenceCommand,
   createHooksCommand,
   createImpactPreviewCommand,
   createInitCommand,
