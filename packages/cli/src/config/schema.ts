@@ -900,7 +900,7 @@ export const HarnessConfigSchema = z.object({
   template: z
     .object({
       /** Complexity level of the template (JS/TS only) */
-      level: z.enum(['basic', 'intermediate', 'advanced']).optional(),
+      level: z.enum(['basic', 'intermediate', 'load-bearing-minimum', 'advanced']).optional(),
       /** Target language */
       language: z.enum(['typescript', 'python', 'go', 'rust', 'java']).optional(),
       /** Primary technology framework */

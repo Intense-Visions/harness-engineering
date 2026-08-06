@@ -20,8 +20,9 @@ export const initProjectDefinition = {
       name: { type: 'string', description: 'Project name' },
       level: {
         type: 'string',
-        enum: ['basic', 'intermediate', 'advanced'],
-        description: 'Adoption level (JS/TS only)',
+        enum: ['basic', 'intermediate', 'load-bearing-minimum', 'advanced'],
+        description:
+          'Adoption level (JS/TS only). load-bearing-minimum sits between intermediate and advanced: ESLint + complexity cap 15 + module-size cap + multi-persona review + outcome-eval.',
       },
       framework: { type: 'string', description: 'Framework overlay (e.g., nextjs, fastapi, gin)' },
       language: {

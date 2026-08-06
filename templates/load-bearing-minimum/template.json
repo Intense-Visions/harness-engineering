@@ -1,0 +1,7 @@
+{
+  "name": "load-bearing-minimum",
+  "description": "The minimum harness that holds when the senior disappears for two weeks: ESLint + layer enforcement, a cyclomatic-complexity cap of 15, a module-size cap, multi-persona review wired into CI, and the outcome-eval ship gate. Sits between intermediate and advanced.",
+  "level": "load-bearing-minimum",
+  "extends": "base",
+  "version": 1
+}

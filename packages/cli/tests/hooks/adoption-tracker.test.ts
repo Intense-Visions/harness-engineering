@@ -136,6 +136,96 @@ describe('adoption-tracker', { timeout: 60000 }, () => {
     expect((records[0] as Record<string, unknown>).outcome).toBe('failed');
   });
 
+  it('does not emit failureCategory on a completed run', () => {
+    writeEventsJsonl(tmpDir, SAMPLE_EVENTS);
+    const result = runHook(JSON.stringify({ session_id: 'test' }), tmpDir);
+    expect(result.exitCode).toBe(0);
+    const record = readAdoptionRecords(tmpDir)[0] as Record<string, unknown>;
+    expect(record.outcome).toBe('completed');
+    expect(record).not.toHaveProperty('failureCategory');
+  });
+
+  it('classifies an error failureType into a failureCategory', () => {
+    const events = [
+      {
+        timestamp: '2026-04-09T10:00:00.000Z',
+        skill: 'harness-execution',
+        type: 'phase_transition',
+        summary: 'Starting PREPARE',
+        data: { from: 'init', to: 'PREPARE' },
+      },
+      {
+        timestamp: '2026-04-09T10:05:00.000Z',
+        skill: 'harness-execution',
+        type: 'error',
+        summary: 'Run exceeded the time budget',
+        data: { failureType: 'execution timed-out' },
+      },
+    ];
+    writeEventsJsonl(tmpDir, events);
+    const result = runHook(JSON.stringify({ session_id: 'test' }), tmpDir);
+    expect(result.exitCode).toBe(0);
+    const record = readAdoptionRecords(tmpDir)[0] as Record<string, unknown>;
+    expect(record.outcome).toBe('failed');
+    expect(record.failureCategory).toBe('timeout');
+  });
+
+  it('defaults an unrecognized error failureType to agent-error', () => {
+    const events = [
+      {
+        timestamp: '2026-04-09T10:00:00.000Z',
+        skill: 'harness-execution',
+        type: 'error',
+        summary: 'Something broke',
+        data: { failureType: 'kaboom' },
+      },
+    ];
+    writeEventsJsonl(tmpDir, events);
+    runHook(JSON.stringify({ session_id: 'test' }), tmpDir);
+    const record = readAdoptionRecords(tmpDir)[0] as Record<string, unknown>;
+    expect(record.failureCategory).toBe('agent-error');
+  });
+
+  it('derives gate-rejected from a failed gate_result when no error is present', () => {
+    const events = [
+      {
+        timestamp: '2026-04-09T10:00:00.000Z',
+        skill: 'harness-verify',
+        type: 'phase_transition',
+        summary: 'Starting VERIFY',
+        data: { from: 'init', to: 'VERIFY' },
+      },
+      {
+        timestamp: '2026-04-09T10:05:00.000Z',
+        skill: 'harness-verify',
+        type: 'gate_result',
+        summary: 'gate failed',
+        data: { passed: false },
+      },
+    ];
+    writeEventsJsonl(tmpDir, events);
+    runHook(JSON.stringify({ session_id: 'test' }), tmpDir);
+    const record = readAdoptionRecords(tmpDir)[0] as Record<string, unknown>;
+    expect(record.failureCategory).toBe('gate-rejected');
+  });
+
+  it('omits failureCategory for an abandoned run with no error or failed gate', () => {
+    const events = [
+      {
+        timestamp: '2026-04-09T10:00:00.000Z',
+        skill: 'harness-planning',
+        type: 'phase_transition',
+        summary: 'Starting SCOPE',
+        data: { from: 'init', to: 'SCOPE' },
+      },
+    ];
+    writeEventsJsonl(tmpDir, events);
+    runHook(JSON.stringify({ session_id: 'test' }), tmpDir);
+    const record = readAdoptionRecords(tmpDir)[0] as Record<string, unknown>;
+    expect(record.outcome).toBe('abandoned');
+    expect(record).not.toHaveProperty('failureCategory');
+  });
+
   it('derives outcome=abandoned when no handoff, no final phase, no error', () => {
     const events = [
       {

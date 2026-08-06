@@ -277,7 +277,11 @@ export function createInitCommand(): Command {
   const command = new Command('init')
     .description('Initialize a new harness-engineering project')
     .option('-n, --name <name>', 'Project name')
-    .option('-l, --level <level>', 'Adoption level (basic, intermediate, advanced)', 'basic')
+    .option(
+      '-l, --level <level>',
+      'Adoption level (basic, intermediate, load-bearing-minimum, advanced)',
+      'basic'
+    )
     .option('-t, --template <template>', 'Specific template name (e.g. orchestrator)')
     .option('--framework <framework>', 'Framework overlay (nextjs)')
     .option('--language <language>', 'Target language (typescript, python, go, rust, java)')

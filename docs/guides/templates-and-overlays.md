@@ -8,7 +8,7 @@ Every template is a directory under `templates/` containing a `template.json` me
 
 Templates compose through two mechanisms:
 
-- **Inheritance** -- level templates (basic, intermediate, advanced) extend the `base` template. Language-base templates (go-base, python-base, etc.) stand alone. Files from the parent are included first, then the child overlays or replaces them.
+- **Inheritance** -- level templates (basic, intermediate, load-bearing-minimum, advanced) extend the `base` template. Language-base templates (go-base, python-base, etc.) stand alone. Files from the parent are included first, then the child overlays or replaces them.
 - **Framework overlays** -- framework templates layer on top of a base, adding framework-specific files and merging JSON configs. For TypeScript frameworks, the overlay merges with the level template. For non-JS frameworks, the overlay merges with the language-base template.
 
 JSON files are deep-merged so that base configuration and overlay configuration combine cleanly. `package.json` dependencies are concatenated rather than overwritten.
@@ -47,14 +47,14 @@ harness init --name my-service --language java --framework spring-boot
 
 ### CLI Options
 
-| Flag                | Description                                                           |
-| ------------------- | --------------------------------------------------------------------- |
-| `--name <name>`     | Project name (defaults to current directory name)                     |
-| `--level <level>`   | Adoption level: `basic`, `intermediate`, `advanced` (TypeScript only) |
-| `--framework <fw>`  | Framework overlay to apply                                            |
-| `--language <lang>` | Target language: `typescript`, `python`, `go`, `rust`, `java`         |
-| `--template <name>` | Specific template name (e.g., `orchestrator`)                         |
-| `--force`           | Overwrite existing files                                              |
+| Flag                | Description                                                                                   |
+| ------------------- | --------------------------------------------------------------------------------------------- |
+| `--name <name>`     | Project name (defaults to current directory name)                                             |
+| `--level <level>`   | Adoption level: `basic`, `intermediate`, `load-bearing-minimum`, `advanced` (TypeScript only) |
+| `--framework <fw>`  | Framework overlay to apply                                                                    |
+| `--language <lang>` | Target language: `typescript`, `python`, `go`, `rust`, `java`                                 |
+| `--template <name>` | Specific template name (e.g., `orchestrator`)                                                 |
+| `--force`           | Overwrite existing files                                                                      |
 
 ### Auto-Detection
 
@@ -75,7 +75,7 @@ The shared foundation for all TypeScript-level templates. Not used directly.
 
 ### Adoption Level Templates (TypeScript)
 
-These three templates target TypeScript/JavaScript projects at increasing levels of harness adoption. Each extends the base template.
+These templates target TypeScript/JavaScript projects at increasing levels of harness adoption. Each extends the base template.
 
 #### Basic
 
@@ -109,6 +109,21 @@ Adds on top of basic:
 - `harness.config.json` -- adds `forbiddenImports` rules and `boundaries.requireSchema` for the API layer
 - `package.json` -- adds ESLint, Vitest, and harness ESLint plugin as dev dependencies
 - Scaffold directories: `src/types/`, `src/domain/`, `src/services/` (matching the layer definitions)
+
+#### Load-bearing minimum
+
+**Use when:** The project must keep quality holding under reduced human oversight -- the minimum harness that still holds when the senior disappears for two weeks. It sits between intermediate and advanced: it adds the two agent-loop gates that catch regressions no one is watching for, without the full advanced-tier surface area.
+
+```bash
+harness init --name my-project --level load-bearing-minimum
+```
+
+Adds on top of intermediate:
+
+- `harness.config.json` -- keeps the intermediate mechanical gates: a cyclomatic-complexity cap of `15` and a module-size cap (`maxFiles: 40`, `maxLoc: 4000`)
+- `eslint.config.mjs` -- ESLint configuration with harness rules
+- `.github/workflows/required-review.yml` -- a `pull_request` workflow with two jobs: the multi-persona review gate (`harness review-ci`) and the outcome-eval ship gate (`harness outcome-eval-ci`). Both run a heuristic floor on any runner and activate their LLM tier only when an API-key secret is present, degrading gracefully otherwise.
+- `package.json` -- adds `harness:review` and `harness:outcome-eval` scripts so both gates can run locally
 
 #### Advanced
 
@@ -192,7 +207,7 @@ harness init --name my-service --language rust
 
 ### Framework Overlay Templates
 
-Framework overlays add framework-specific files and conventions on top of a base template. For TypeScript frameworks, they overlay onto a level template (basic/intermediate/advanced). For non-JS frameworks, they overlay onto the corresponding language-base template.
+Framework overlays add framework-specific files and conventions on top of a base template. For TypeScript frameworks, they overlay onto a level template (basic/intermediate/load-bearing-minimum/advanced). For non-JS frameworks, they overlay onto the corresponding language-base template.
 
 Each framework overlay also appends a conventions section to AGENTS.md with framework-specific guidance for AI agents.
 
@@ -252,7 +267,7 @@ Regardless of template choice, every initialized project includes:
 
 When you specify both a level and a framework (TypeScript path), or a language and a framework (non-JS path), the engine composes templates in order:
 
-**TypeScript path:** `base` -> `level` (basic/intermediate/advanced) -> `framework` overlay
+**TypeScript path:** `base` -> `level` (basic/intermediate/load-bearing-minimum/advanced) -> `framework` overlay
 
 **Non-JS path:** `language-base` (go-base/python-base/etc.) -> `framework` overlay
 
