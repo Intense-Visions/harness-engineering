@@ -34,6 +34,8 @@ import * as path from 'node:path';
 import type { BenchmarkScore, RadarDimension, Confidence } from '../findings/schema.js';
 import type { ExemplarDefinition } from '../catalog/exemplars/linear-empty-list.js';
 import type { LlmProvider } from '../llm/provider.js';
+import { computeAwardBar } from './award-bar.js';
+import type { AwardBarConfig } from './award-bar.js';
 
 export interface BenchmarkTarget {
   file: string;
@@ -51,6 +53,12 @@ export interface BenchmarkArgs {
   targets: BenchmarkTarget[];
   exemplars: ExemplarDefinition[];
   provider: LlmProvider;
+  /**
+   * Award-bar thresholds (partial — merged over defaults). Controls the
+   * machine award-tier verdict computed for each score. Omit for defaults
+   * (80 / 0.95 / medium).
+   */
+  awardBar?: Partial<AwardBarConfig>;
 }
 
 const CONFIDENCE_VALUES: readonly Confidence[] = ['high', 'medium', 'low'];
@@ -185,7 +193,8 @@ function meanScore(scores: readonly number[]): number {
 function buildScore(
   target: BenchmarkTarget,
   exemplars: ExemplarDefinition[],
-  parsed: ParsedBenchmarkResponse
+  parsed: ParsedBenchmarkResponse,
+  awardBarConfig?: Partial<AwardBarConfig>
 ): BenchmarkScore {
   const dims: RadarDimension[] = [
     parsed.philosophicalCoherence,
@@ -196,18 +205,20 @@ function buildScore(
   ];
   const overallScore = meanScore(dims.map((d) => d.score));
   const overallConfidence = minConfidence(dims.map((d) => d.confidence));
+  const radar: BenchmarkScore['radar'] = {
+    philosophicalCoherence: parsed.philosophicalCoherence,
+    hierarchy: parsed.hierarchy,
+    craftExecution: parsed.craftExecution,
+    function: parsed.function,
+    innovation: parsed.innovation,
+  };
   return {
     target: { file: target.file, component: target.component },
     exemplars: exemplars.map((e) => e.id),
-    radar: {
-      philosophicalCoherence: parsed.philosophicalCoherence,
-      hierarchy: parsed.hierarchy,
-      craftExecution: parsed.craftExecution,
-      function: parsed.function,
-      innovation: parsed.innovation,
-    },
+    radar,
     overall: { score: overallScore, confidence: overallConfidence },
     gaps: parsed.gaps,
+    awardBar: computeAwardBar(radar, exemplars, awardBarConfig),
   };
 }
 
@@ -288,7 +299,7 @@ export async function runBenchmark(args: BenchmarkArgs): Promise<BenchmarkScore[
     const raw = await args.provider.callText(prompt);
     const parsed = parseBenchmarkResponse(raw);
     if (parsed === null) continue;
-    scores.push(buildScore(target, matched, parsed));
+    scores.push(buildScore(target, matched, parsed, args.awardBar));
   }
   return scores;
 }

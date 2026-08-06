@@ -109,6 +109,50 @@ export interface RadarDimension {
   notes: string;
 }
 
+/** The five radar dimension keys (BENCHMARK). */
+export type RadarDimensionName =
+  | 'philosophicalCoherence'
+  | 'hierarchy'
+  | 'craftExecution'
+  | 'function'
+  | 'innovation';
+
+/**
+ * Machine award-tier verdict. Authority lives in TypeScript — this is
+ * NEVER emitted by the LLM. The LLM produces the radar it always has;
+ * `computeAwardBar` (phases/award-bar.ts) derives the verdict from that
+ * radar + the cited exemplars' reference scores. Mirrors the authority-in-TS
+ * pattern used by outcome-eval / acceptance-eval.
+ */
+export type AwardVerdict = 'cleared' | 'not-cleared' | 'indeterminate';
+
+/** Per-dimension award-bar detail — the derived floor and whether it was cleared. */
+export interface AwardBarDimension {
+  /** Target's radar score for this dimension (echoed for legibility). */
+  score: number;
+  /** Derived award-tier floor the target had to clear. */
+  floor: number;
+  /** Whether the target's score met or exceeded the floor. */
+  cleared: boolean;
+}
+
+/**
+ * Machine-derived award-tier verdict for a BENCHMARK target. Per-dimension
+ * (not a single overall threshold): an equal-weight mean hides a weak axis,
+ * so each radar dimension must clear its own exemplar-relative floor
+ * (ADR 0019). Any dimension whose confidence is below the configured floor
+ * forces `indeterminate` — a high score the model is unsure about must never
+ * certify award tier.
+ */
+export interface AwardBar {
+  verdict: AwardVerdict;
+  dimensions: Record<RadarDimensionName, AwardBarDimension>;
+  /** Dimensions whose score fell below floor ([] when the verdict is `cleared`). */
+  shortfalls: RadarDimensionName[];
+  /** Why the verdict is `indeterminate` (e.g. `low-confidence`), when applicable. */
+  reason?: string;
+}
+
 /**
  * BENCHMARK output for a single target component, scored against one or
  * more cited exemplars.
@@ -159,6 +203,13 @@ export interface BenchmarkScore {
    * is forward-compatible.
    */
   gaps: string[];
+
+  /**
+   * Machine-derived award-tier verdict (authority in TS, never LLM-emitted).
+   * Computed by `computeAwardBar` from this score's radar + the cited
+   * exemplars' reference scores. Present on every BenchmarkScore.
+   */
+  awardBar: AwardBar;
 }
 
 /**

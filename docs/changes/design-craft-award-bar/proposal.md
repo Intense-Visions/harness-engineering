@@ -19,8 +19,8 @@ Two clarifications ground this spec:
 
 ## Decisions made
 
-- **D1 — Per-dimension bar, not a single overall threshold.** ADR 0082 diagnosed that template-y pages "score 88–94 [overall] while still carrying every template tell." An equal-weight mean hides the weak axis; a hard overall bar would still certify those pages. A per-dimension bar fails the exact axis that is weak. Consistent with ADR 0019 (never collapse the axes). *(Human decision, this session.)*
-- **D2 — Hybrid exemplar-relative bar (Approach 3).** Per dimension, floor = `max(configFloor, round(fraction × median(cited-exemplar references)))`. The corpus defines the bar (no magic number for "award tier"), a hard config floor keeps it from eroding, and the **median** makes it robust to one weak exemplar. *(Human decision, this session.)*
+- **D1 — Per-dimension bar, not a single overall threshold.** ADR 0082 diagnosed that template-y pages "score 88–94 [overall] while still carrying every template tell." An equal-weight mean hides the weak axis; a hard overall bar would still certify those pages. A per-dimension bar fails the exact axis that is weak. Consistent with ADR 0019 (never collapse the axes). _(Human decision, this session.)_
+- **D2 — Hybrid exemplar-relative bar (Approach 3).** Per dimension, floor = `max(configFloor, round(fraction × median(cited-exemplar references)))`. The corpus defines the bar (no magic number for "award tier"), a hard config floor keeps it from eroding, and the **median** makes it robust to one weak exemplar. _(Human decision, this session.)_
 - **D3 — Low confidence forces `indeterminate`.** If any radar dimension's confidence is below `confidenceFloor` (default `medium`), the verdict is `indeterminate` regardless of scores. A high score the model isn't sure about must never certify award tier. Honors ADR 0018/0019.
 - **D4 — Authority in TypeScript.** `awardBar` is computed by a pure function from the parsed radar + cited exemplars + config. The LLM never emits the verdict — it only produces the radar it always has.
 
@@ -32,19 +32,23 @@ Two clarifications ground this spec:
 export type AwardVerdict = 'cleared' | 'not-cleared' | 'indeterminate';
 
 export type RadarDimensionName =
-  | 'philosophicalCoherence' | 'hierarchy' | 'craftExecution' | 'function' | 'innovation';
+  | 'philosophicalCoherence'
+  | 'hierarchy'
+  | 'craftExecution'
+  | 'function'
+  | 'innovation';
 
 export interface AwardBarDimension {
-  score: number;    // target's radar score for this dimension (echoed for legibility)
-  floor: number;    // derived bar the target had to clear
+  score: number; // target's radar score for this dimension (echoed for legibility)
+  floor: number; // derived bar the target had to clear
   cleared: boolean; // score >= floor
 }
 
 export interface AwardBar {
-  verdict: AwardVerdict;                                     // TS authority; never LLM-emitted
+  verdict: AwardVerdict; // TS authority; never LLM-emitted
   dimensions: Record<RadarDimensionName, AwardBarDimension>;
-  shortfalls: RadarDimensionName[];                          // dims below floor ([] when cleared)
-  reason?: string;                                           // e.g. 'low-confidence' when indeterminate
+  shortfalls: RadarDimensionName[]; // dims below floor ([] when cleared)
+  reason?: string; // e.g. 'low-confidence' when indeterminate
 }
 ```
 
@@ -54,19 +58,20 @@ Add `awardBar: AwardBar` as a required field on `BenchmarkScore`.
 
 ```ts
 export interface AwardBarConfig {
-  dimensionFloor: number;   // hard safety floor, default 80
-  fraction: number;         // fraction of median exemplar reference, default 0.95
+  dimensionFloor: number; // hard safety floor, default 80
+  fraction: number; // fraction of median exemplar reference, default 0.95
   confidenceFloor: Confidence; // default 'medium'
 }
 
 export function computeAwardBar(
   radar: BenchmarkScore['radar'],
   exemplars: ExemplarDefinition[],
-  config: AwardBarConfig,
+  config: AwardBarConfig
 ): AwardBar;
 ```
 
 Algorithm:
+
 1. Per dimension `d`: `refs = exemplars.map(e => e.radarReference[d])`; `floor = max(config.dimensionFloor, round(config.fraction × median(refs)))`; `cleared = radar[d].score >= floor`.
 2. **Confidence gate:** if any `radar[d].confidence` ranks below `config.confidenceFloor` → `verdict = 'indeterminate'`, `reason = 'low-confidence'` (dimensions/shortfalls still populated for legibility).
 3. Else `verdict = shortfalls.length === 0 ? 'cleared' : 'not-cleared'`.
@@ -94,7 +99,7 @@ Omitting the block uses the defaults (80 / 0.95 / medium).
 
 ### Report
 
-The markdown formatter in `design-craft.ts` renders one verdict line per benchmarked target: `AWARD BAR: CLEARED` / `not cleared — shortfalls: innovation, craftExecution` / `indeterminate — low confidence`.
+The verdict is carried on the **structured** output (`DesignCraftOutput.scores[].awardBar`) — the machine-consumable surface downstream agents read to stop guessing. There is currently **no markdown renderer for BENCHMARK scores anywhere** in the codebase (`check-design.ts` renders findings, not scores), so there is no existing surface to add a verdict line to. Markdown rendering of the verdict is deferred to whenever a benchmark-score report surface is introduced; it is explicitly out of scope here (YAGNI — building a report surface just to host one line is unjustified).
 
 ## Integration Points
 
@@ -112,7 +117,7 @@ The markdown formatter in `design-craft.ts` renders one verdict line per benchma
 4. Derived floor per dimension = `max(dimensionFloor, round(fraction × median(cited exemplar references)))`; a single low outlier exemplar does not drag the floor below the median-based value (unit-tested).
 5. Every `BenchmarkScore` in `DesignCraftOutput.scores` carries a well-formed `awardBar`.
 6. `design.craft.benchmark.awardBar.*` overrides defaults; omitting the block yields 80 / 0.95 / medium.
-7. The markdown report shows the verdict per benchmarked target.
+7. The verdict is present on the structured output (`DesignCraftOutput.scores[].awardBar`) and survives the MCP JSON round-trip. _(Markdown rendering deferred — no BENCHMARK-score report surface exists yet; see Technical Design → Report.)_
 8. All pre-existing design-craft tests still pass.
 
 ## Implementation order
@@ -120,5 +125,5 @@ The markdown formatter in `design-craft.ts` renders one verdict line per benchma
 1. **Schema** — add `AwardVerdict`/`AwardBar`/`AwardBarDimension` types + `awardBar` on `BenchmarkScore` (`findings/schema.ts`); add `benchmark.awardBar` to `DesignCraftConfigSchema` (`config/schema.ts`).
 2. **Compute** — `phases/award-bar.ts` pure `computeAwardBar()` + unit tests (cleared / not-cleared / indeterminate / median / safety-floor / outlier-robustness).
 3. **Wire** — thread config through `runBenchmark`/`buildScore` (`benchmark.ts`) and from the MCP tool (`design-craft.ts`).
-4. **Report + integration test** — render the verdict; extend `tests/design-craft/integration/benchmark-phase.test.ts` to assert `awardBar` is present and correct.
+4. **Integration test** — extend `tests/design-craft/integration/benchmark-phase.test.ts` to assert `awardBar` is present and correct end-to-end (structured output + MCP JSON round-trip). Markdown rendering deferred (see Report).
 5. **Docs** — SKILL.md BENCHMARK section (4 client copies), ADR, changeset.
