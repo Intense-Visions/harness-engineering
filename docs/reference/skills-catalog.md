@@ -2,9 +2,9 @@
 
 # Skills Catalog
 
-772 skills across 3 tiers. Tier 1 and 2 skills are registered as slash commands. Tier 3 skills are discoverable via the `search_skills` MCP tool. See the [Features Overview](../guides/features-overview.md) for narrative documentation.
+773 skills across 3 tiers. Tier 1 and 2 skills are registered as slash commands. Tier 3 skills are discoverable via the `search_skills` MCP tool. See the [Features Overview](../guides/features-overview.md) for narrative documentation.
 
-## Tier 1 — Workflow (16 skills)
+## Tier 1 — Workflow (17 skills)
 
 ### add-harness-component
 
@@ -159,6 +159,16 @@ Upstream client-inception skill. Ingests a diagram + client conversation notes, 
 - **Type:** rigid
 - **Cognitive mode:** configuration-interviewer
 - **Depends on:** harness-strategy, harness-brainstorming
+
+### uat-signoff
+
+Human-judged acceptance sign-off skill — the far-end mirror of the inception BRD. Reads the engagement's inception brd.md + gaps.md, walks a human through user-acceptance testing one item at a time (ACCEPT / REJECT / CHANGES_REQUESTED), captures one overall decision plus the signer, writes a per-engagement signoff.md, and records a single execution_outcome node via uat_signoff. The human is the authority — it never runs an LLM verdict, never derives ship authority, and never blocks. Advisory / record-only.
+
+- **Triggers:** manual
+- **Platforms:** claude-code, gemini-cli, cursor, codex
+- **Type:** rigid
+- **Cognitive mode:** configuration-interviewer
+- **Depends on:** product-advisor
 
 ## Tier 2 — Maintenance (52 skills)
 

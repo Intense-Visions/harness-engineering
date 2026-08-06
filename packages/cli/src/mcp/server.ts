@@ -217,6 +217,7 @@ import {
 } from './tools/cli-ergonomics-craft.js';
 import { outcomeEvalDefinition, handleOutcomeEval } from './tools/outcome-eval.js';
 import { acceptanceEvalDefinition, handleAcceptanceEval } from './tools/acceptance-eval.js';
+import { uatSignoffDefinition, handleUatSignoff } from './tools/uat-signoff.js';
 // strategic-anchor: STRATEGY.md read/validate/write tools so skills don't have
 // to shell out to `node -e "import('@harness-engineering/core')..."` from a cwd
 // that may not have core installed.
@@ -350,6 +351,7 @@ const TOOL_DEFINITIONS: ToolDefinition[] = [
   cliErgonomicsCraftDefinition,
   outcomeEvalDefinition,
   acceptanceEvalDefinition,
+  uatSignoffDefinition,
   validateStrategyDefinition,
   readStrategyDefinition,
   writeStrategyDefinition,
@@ -456,6 +458,7 @@ const TOOL_HANDLERS: Record<string, ToolHandler> = {
   cli_ergonomics_craft: handleCliErgonomicsCraft as unknown as ToolHandler,
   outcome_eval: handleOutcomeEval as unknown as ToolHandler,
   acceptance_eval: handleAcceptanceEval as unknown as ToolHandler,
+  uat_signoff: handleUatSignoff as unknown as ToolHandler,
   validate_strategy: handleValidateStrategy as unknown as ToolHandler,
   read_strategy: handleReadStrategy as unknown as ToolHandler,
   write_strategy: handleWriteStrategy as unknown as ToolHandler,

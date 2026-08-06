@@ -1,0 +1,71 @@
+name: uat-signoff
+version: "0.1.0"
+description: Human-judged acceptance sign-off skill — the far-end mirror of the inception BRD. Reads the engagement's inception brd.md + gaps.md, walks a human through user-acceptance testing one item at a time (ACCEPT / REJECT / CHANGES_REQUESTED), captures one overall decision plus the signer, writes a per-engagement signoff.md, and records a single execution_outcome node via uat_signoff. The human is the authority — it never runs an LLM verdict, never derives ship authority, and never blocks. Advisory / record-only.
+stability: draft
+cognitive_mode: configuration-interviewer
+triggers:
+  - manual
+platforms:
+  - claude-code
+  - gemini-cli
+  - cursor
+  - codex
+tools:
+  - Bash
+  - Read
+  - Write
+  - Edit
+  - Glob
+  - Grep
+cli:
+  command: harness skill run uat-signoff
+  args:
+    - name: engagement
+      description: Short name/slug for the client engagement. Used to resolve the docs/inception/<engagement>/ acceptance basis and the signoff.md artifact.
+      required: false
+mcp:
+  tool: uat_signoff
+  input:
+    engagement: 'string (required) — engagement slug; the docs/inception/<engagement>/ owner'
+    decision: 'string (required) — the overall human verdict (ACCEPTED | REJECTED | CHANGES_REQUESTED)'
+    signedOffBy: 'string (required) — name/identity of the human who signed off'
+    items: 'array (optional) — per-item dispositions [{ id, disposition: ACCEPT|REJECT|CHANGES_REQUESTED, note? }]'
+    brdRefs: 'array (optional) — BRD/gap ids the sign-off closes (the accepted items)'
+    timestamp: 'string (optional) — ISO timestamp of the sign-off; defaults to now'
+    path: 'string (optional) — project root used to resolve the knowledge graph (default cwd)'
+type: rigid
+tier: 1
+phases:
+  - name: resolve
+    description: Resolve the engagement slug and read docs/inception/<engagement>/brd.md + gaps.md; assemble the acceptance checklist (BRD functional requirements / success criteria + resolved and open gaps). Soft-degrade to a supplied checklist when the basis is thin and record what is missing.
+    required: true
+  - name: interview
+    description: Present each acceptance item to the human one at a time (plain-text choice), capturing ACCEPT / REJECT / CHANGES_REQUESTED plus a note verbatim. Never infer a disposition.
+    required: true
+  - name: verdict
+    description: Ask the human for one overall decision (ACCEPTED / REJECTED / CHANGES_REQUESTED) and the signer identity; read back and confirm before recording.
+    required: true
+  - name: record
+    description: Write docs/inception/<engagement>/signoff.md (resolved-vs-rejected + signer + timestamp) and persist one execution_outcome node via uat_signoff (source uat-signoff, result derived from the overall decision). Advisory / record-only — blocks nothing.
+    required: true
+state:
+  persistent: true
+  files:
+    - docs/inception/
+depends_on:
+  - product-advisor
+related_skills:
+  - product-advisor
+  - harness-acceptance-eval
+  - harness-outcome-eval
+keywords:
+  - uat-signoff
+  - user-acceptance-testing
+  - acceptance
+  - sign-off
+  - human-in-the-loop
+  - client-acceptance
+  - engagement
+  - brd
+  - outcome-edge
+  - record-only
