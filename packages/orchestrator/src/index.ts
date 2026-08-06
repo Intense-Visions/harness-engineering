@@ -24,6 +24,12 @@ export * from './tracker/adapters/roadmap';
 export * from './tracker/extensions/linear';
 export * from './workspace/manager';
 export * from './workspace/hooks';
+// Language-aware workspace ecosystem detector — the single source of truth mapping
+// a workspace's lockfiles/manifests to its dependency-install + verify command set.
+// Consumed by the local enforced gate (verify) and available to `harness init` so a
+// matching `hooks.afterCreate` install command can be scaffolded per ecosystem.
+export { detectEcosystem, detectEcosystemFromFiles, ECOSYSTEM_RULES } from './workspace/ecosystem';
+export type { Ecosystem, EcosystemId } from './workspace/ecosystem';
 // Backend implementations are internal — use Orchestrator's factory methods instead.
 // Re-exporting only the mock backend for test consumers.
 export * from './agent/backends/mock';

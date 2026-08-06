@@ -181,6 +181,16 @@ Apply codemods for safe DRIFT-T001/T002/T003 token-bypass findings; emit precise
 - **Cognitive mode:** constructive-architect
 - **Depends on:** detect-design-drift
 
+### api-craft
+
+LLM-judgment critique of API design quality — the ceiling counterpart to rule-based API checks (OpenAPI-format and webhook-format compliance). Asks whether resources model the domain rather than the implementation, whether resource naming and URL structure are predictable (path vs query param), whether HTTP methods are honest, whether status codes are correct, whether error responses tell the consumer what to do, whether response shapes are predictable and consistent, whether collections paginate and filter consistently, whether mutations are idempotency-honest, and whether the API evolves without breaking consumers. Structural twin of harness-cli-ergonomics-craft.
+
+- **Triggers:** manual, on_pr, on_new_feature
+- **Platforms:** claude-code
+- **Type:** rigid
+- **Cognitive mode:** constructive-architect
+- **Depends on:** cli-ergonomics-craft
+
 ### audit-brand-compliance
 
 Rule-based brand-semantics audit. Detects token misuse (BRAND-T001 via $extensions.harness.brand.forbidden_contexts) and voice violations (BRAND-V001 via DESIGN.md voice.forbidden_phrases). 4th composed verifier in harness check-design. Triggers extraction of the formal verifier interface.

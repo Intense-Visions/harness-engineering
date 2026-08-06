@@ -49,6 +49,7 @@ import { RoadmapTrackerAdapter } from './tracker/adapters/roadmap';
 import { GitHubIssuesIssueTrackerAdapter } from './tracker/adapters/github-issues-issue-tracker';
 import { WorkspaceManager } from './workspace/manager';
 import { WorkspaceHooks } from './workspace/hooks';
+import { detectEcosystem } from './workspace/ecosystem';
 import { AgentRunner } from './agent/runner';
 import { PromptRenderer } from './prompt/renderer';
 // Spec 2 SC30 / Task 11: backend class imports moved to
@@ -240,14 +241,18 @@ export function normalizeHarnessCommand(command: string[]): string[] {
 export { truncateGateOutput } from './workflow/gate-feedback';
 
 /**
- * local-backend-full-workflow Phase 2 (Option C): the production default verify
- * runner for the local enforced gate. It runs the project's own mechanical gate
- * (typecheck + lint + test) over `workspacePath` via `pnpm -w run <script>` for
- * whichever of `typecheck`/`lint`/`test` the workspace's package.json declares,
- * short-circuiting on the first red gate. Adopter-portable: it only runs the
- * scripts that exist, and a missing package.json / no scripts → a passing gate
- * (nothing to check). Fully self-contained; tests inject a fake via the
- * `verifyRunner` seam so this concrete detector is never exercised in unit tests.
+ * The production default verify runner for the local enforced gate. It is
+ * language-aware: {@link detectEcosystem} classifies the workspace by the
+ * lockfiles/manifests present, and the runner executes THAT ecosystem's verify
+ * command set, short-circuiting on the first red gate. For a node workspace it
+ * runs the project's own scripts (typecheck + lint + test) via `pnpm run`, scoped
+ * to the changed packages; for a Python/Rust/Go/Ruby/Java workspace it runs that
+ * toolchain's commands (e.g. `pytest`, `cargo test`, `go test ./...`) at the root
+ * so verify no longer fails ENVIRONMENTALLY for non-JS adopters. Adopter-portable:
+ * the node path only runs the scripts that exist, and an unrecognized workspace /
+ * missing package.json → a passing gate (nothing to check). Fully self-contained;
+ * tests inject a fake via the `verifyRunner` seam so this concrete detector is
+ * never exercised in unit tests.
  */
 export function changedWorkspacePackages(porcelain: string): string[] {
   const dirs = new Set<string>();
@@ -314,13 +319,16 @@ export async function defaultLocalVerifyRunner(
   const pathMod = await import('node:path');
 
   // Manual Promise wrapper around execFile (avoids promisify's overloaded typing).
-  const run = (args: string[]): Promise<{ ok: boolean; output: string }> =>
+  // Generalized over the binary so the gate is language-aware: the node path binds
+  // it to `pnpm`, a non-node ecosystem binds it to its own toolchain (cargo, go,
+  // pytest, …). Nothing here hardcodes a package manager.
+  const runCmd = (bin: string, args: string[]): Promise<{ ok: boolean; output: string }> =>
     new Promise((resolve) => {
-      // S2: bound each verify step (typecheck/lint/test) with the same wall-clock
-      // limit as the acceptance command — a wedged or watch-mode script must not hang
-      // the settle/tick forever. A timeout (Node sets `killed:true`) is a gate FAIL.
+      // S2: bound each verify step with the same wall-clock limit as the acceptance
+      // command — a wedged or watch-mode script must not hang the settle/tick
+      // forever. A timeout (Node sets `killed:true`) is a gate FAIL.
       cp.execFile(
-        'pnpm',
+        bin,
         args,
         { cwd: workspacePath, maxBuffer: 32 * 1024 * 1024, timeout: LOCAL_GATE_TIMEOUT_MS },
         (error, stdout, stderr) => {
@@ -329,7 +337,7 @@ export async function defaultLocalVerifyRunner(
             const suffix = timedOut ? ` (TIMED OUT after ${LOCAL_GATE_TIMEOUT_MS}ms)` : '';
             resolve({
               ok: false,
-              output: `${args.join(' ')} failed${suffix}:\n${stdout ?? ''}\n${stderr ?? error.message}`,
+              output: `${[bin, ...args].join(' ')} failed${suffix}:\n${stdout ?? ''}\n${stderr ?? error.message}`,
             });
           } else {
             resolve({ ok: true, output: '' });
@@ -337,6 +345,29 @@ export async function defaultLocalVerifyRunner(
         }
       );
     });
+
+  // Language-aware gate: detect the workspace ecosystem from its lockfiles /
+  // manifests and, for a NON-node ecosystem, run THAT toolchain's verify commands
+  // at the workspace root, in order, short-circuiting on the first failure. This
+  // is the fix for the environmental false-red: a Python/Rust/Go/… workspace no
+  // longer has `pnpm -w run …` (absent binary, no package.json) shelled at it. The
+  // node path below is preserved byte-for-byte for JS adopters (pnpm-scoped,
+  // package.json-script-probing), and an unrecognized workspace falls through to
+  // it (where a missing package.json is a clean pass — nothing to check).
+  const ecosystem = detectEcosystem(workspacePath);
+  if (ecosystem !== null && ecosystem.language !== 'node') {
+    for (const cmd of ecosystem.verifyCommands) {
+      const parts = cmd.split(/\s+/).filter((p) => p.length > 0);
+      const bin = parts[0];
+      if (bin === undefined) continue;
+      const result = await runCmd(bin, parts.slice(1));
+      if (!result.ok) return result;
+    }
+    return { ok: true, output: '' };
+  }
+
+  // NODE (or unrecognized) path — unchanged pnpm-scoped behavior.
+  const run = (args: string[]): Promise<{ ok: boolean; output: string }> => runCmd('pnpm', args);
 
   const readPkg = (dir: string): { name?: string; scripts: Record<string, string> } => {
     try {
@@ -789,8 +820,9 @@ export class Orchestrator extends EventEmitter {
   /**
    * LMLM Phase 7: the hardware-aware recommender bound at scheduler start. Reused
    * by `GET /api/v1/local-models/recommendations`. Null when LMLM is disabled (no
-   * pool → scheduler never armed). Ranks the (currently empty) candidate set —
-   * see the Phase 2 candidate-parser gap noted on `startRefreshScheduler`.
+   * pool → scheduler never armed). Seeded from the bundled frozen snapshot at
+   * scheduler start and re-seeded with live HuggingFace candidates by
+   * `refreshCandidatesLive` (startup + operator Refresh) — see `seedRecommender`.
    */
   private modelRecommender: ReturnType<typeof createNativeRecommender> | null = null;
   /**
@@ -4429,12 +4461,12 @@ export class Orchestrator extends EventEmitter {
    * pool. No-op when LMLM is disabled (`modelPool` null). Each tick runs
    * hardware→recommend→reconcile(D12 drift)→diff→emit→score-writeback.
    *
-   * NOTE (deferred): the recommender is seeded with an empty candidate set —
-   * Phase 2's live-HF→RankerCandidate parser was never built, so autonomous
-   * swap-proposal discovery is out of scope here (flagged concern). The tick
-   * still performs F10 drift reconciliation, O1 logging, and re-ranks/dedups
-   * whatever candidates are supplied — the wiring is complete and candidate
-   * breadth is the only piece deferred to the Phase 2 recommender.
+   * The recommender is seeded here from the bundled frozen snapshot (offline-safe,
+   * deterministic) filtered to the operator's org/family allowlist. Live HF
+   * candidate discovery then runs in the background on startup (and on the operator
+   * Refresh button) via `refreshCandidatesLive`, which swaps in a fresh recommender
+   * over the discovered set so the tick and `GET /recommendations` emit real,
+   * up-to-date swap proposals.
    */
   private startRefreshScheduler(): void {
     if (this.modelPool === null) return;

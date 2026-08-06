@@ -17,7 +17,7 @@ function renderConfig(tier: string): unknown {
 }
 
 describe('template architecture thresholds', () => {
-  for (const tier of ['basic', 'intermediate']) {
+  for (const tier of ['basic', 'intermediate', 'load-bearing-minimum']) {
     it(`${tier} template renders a config valid against HarnessConfigSchema`, () => {
       const result = HarnessConfigSchema.safeParse(renderConfig(tier));
       expect(result.success).toBe(true);
@@ -63,5 +63,21 @@ describe('template architecture thresholds', () => {
       };
       expect(config.architecture.thresholds['dependency-depth'].max).toBe(8);
     }
+  });
+
+  it('load-bearing-minimum caps complexity at 15 and ships a module-size cap', () => {
+    const config = renderConfig('load-bearing-minimum') as {
+      architecture: {
+        thresholds: {
+          complexity: { max: number };
+          'module-size': { maxFiles: number; maxLoc: number };
+        };
+      };
+    };
+    // The load-bearing minimum inherits intermediate's mechanical gates: a
+    // complexity cap of 15 and a bounded module-size budget.
+    expect(config.architecture.thresholds.complexity.max).toBe(15);
+    expect(config.architecture.thresholds['module-size'].maxFiles).toBe(40);
+    expect(config.architecture.thresholds['module-size'].maxLoc).toBe(4000);
   });
 });

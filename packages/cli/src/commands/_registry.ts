@@ -7,6 +7,7 @@ import { createAdoptionCommand } from './adoption';
 import { createAdviseSkillsCommand } from './advise-skills';
 import { createAgentCommand } from './agent';
 import { createAlignDesignSystemCommand } from './align-design-system';
+import { createApiCraftCommand } from './api-craft';
 import { createAuditProtectedCommand } from './audit-protected';
 import { createBackfillSkillProvenanceCommand } from './backfill-skill-provenance';
 import { createBlackBoxCommand } from './orchestrator-black-box';
@@ -40,6 +41,7 @@ import { createGenerateAgentDefinitionsCommand } from './generate-agent-definiti
 import { createGenerateCommand } from './generate';
 import { createGenerateSlashCommandsCommand } from './generate-slash-commands';
 import { createGraphCommand } from './graph';
+import { createHolidayConfidenceCommand } from './holiday-confidence';
 import { createHooksCommand } from './hooks';
 import { createImpactPreviewCommand } from './impact-preview';
 import { createInitCommand } from './init';
@@ -108,6 +110,7 @@ export const commandCreators: Array<() => Command> = [
   createAdviseSkillsCommand,
   createAgentCommand,
   createAlignDesignSystemCommand,
+  createApiCraftCommand,
   createAuditProtectedCommand,
   createBackfillSkillProvenanceCommand,
   createBlackBoxCommand,
@@ -141,6 +144,7 @@ export const commandCreators: Array<() => Command> = [
   createGenerateCommand,
   createGenerateSlashCommandsCommand,
   createGraphCommand,
+  createHolidayConfidenceCommand,
   createHooksCommand,
   createImpactPreviewCommand,
   createInitCommand,

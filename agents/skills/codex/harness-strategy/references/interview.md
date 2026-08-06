@@ -110,6 +110,15 @@ Phase 1 walks the sections in template order. Each prompt is a single focused qu
 | Not working on (opt) | _"What did you deliberately decide NOT to invest in this cycle? Explicit non-goals reduce future drift."_                                                        | Fluff                                                                                                                                            |
 | Marketing (opt)      | _"What 1-3 sentences describe how you'd pitch this to the persona? Often this is downstream of `Target problem` + `Our approach`."_                              | Fluff                                                                                                                                            |
 
+## Positive counterpart: what a good input looks like
+
+The rules above define what the interview _rejects_. For the positive side —
+worked examples of high-quality answers to every section, across four quadrants
+(full vs minimal × greenfield vs brownfield) — see `references/writing-inputs.md`.
+Offer it to the user up front and again whenever a pushback rule fires and they
+seem unsure what a concrete answer looks like. It lowers the entry cost of clearing
+the bar without lowering the bar.
+
 ## Anti-pattern fixtures (referenced by the contract test)
 
 The skill's contract test (`agents/skills/tests/harness-strategy.test.ts`) asserts the rule names and key repair-script phrases appear in this file. The fixtures below are the canonical anti-patterns each rule must catch.

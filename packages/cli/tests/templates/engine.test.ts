@@ -512,7 +512,7 @@ describe('TemplateEngine', () => {
     });
 
     const frameworks = ['react-vite', 'vue', 'express', 'nestjs'] as const;
-    const levels = ['basic', 'intermediate', 'advanced'] as const;
+    const levels = ['basic', 'intermediate', 'load-bearing-minimum', 'advanced'] as const;
 
     for (const fw of frameworks) {
       it(`resolves ${fw} overlay with basic level`, () => {
