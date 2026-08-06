@@ -271,6 +271,33 @@ Configures security scanning for the project. When enabled, Harness scans source
 }
 ```
 
+## `constraintPacks`
+
+- **Type:** `string[]`
+- **Required:** No
+
+Opts the project into named **constraint packs** — bundles of blocking rules enforced per lifecycle stage rather than all-or-nothing. Each pack maps onto existing security rule sets and elevates a set of rules to blocking at the stage(s) it declares (`pre-commit`, `pre-merge`, `pre-release`). Leaving this empty or absent changes nothing — no pack rules are enforced.
+
+Opting into a pack is equivalent to setting the corresponding `security.rules` overrides by hand, packaged under a memorable name and scoped to a stage. A project's own explicit `security.rules` entry always wins over a pack, so you can still dial an individual rule back down.
+
+`harness ci check --stage <stage>` enforces only the packs that apply at that stage; without `--stage`, every stage of every opted-in pack is enforced (the most conservative combined gate). The check report includes a per-pack, per-stage compliance summary (`compliant` / `non-compliant` / `n/a`).
+
+### Built-in packs
+
+| Pack                    | Blocks                                                                 | Stage(s)                   |
+| ----------------------- | ---------------------------------------------------------------------- | -------------------------- |
+| `secrets-and-injection` | Hardcoded secrets and injection vulnerabilities                        | `pre-merge`, `pre-release` |
+| `ai-agent-safety`       | Unsafe AI-agent and MCP configurations (prompt-injection, tool access) | `pre-merge`                |
+| `web-hardening`         | XSS, path traversal, unsafe network calls, weak crypto (strict)        | `pre-release`              |
+
+### Example
+
+```json
+{
+  "constraintPacks": ["secrets-and-injection", "web-hardening"]
+}
+```
+
 ## `performance`
 
 - **Type:** `PerformanceConfig`

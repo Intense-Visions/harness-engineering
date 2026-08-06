@@ -62,6 +62,44 @@ export interface CICheckSummary {
 }
 
 /**
+ * Lifecycle stage at which a constraint pack is enforced. Packs opt a project
+ * into blocking rules per stage rather than all-at-once:
+ * - `pre-commit`  — cheap checks a developer runs before committing
+ * - `pre-merge`   — checks a pull request must pass before it lands
+ * - `pre-release` — the strictest gate, run before cutting a release
+ */
+export type ConstraintStage = 'pre-commit' | 'pre-merge' | 'pre-release';
+
+/**
+ * Compliance verdict for one constraint pack at one lifecycle stage.
+ * - `compliant`     — the pack's rules were evaluated and none were violated
+ * - `non-compliant` — at least one of the pack's rules was violated (blocking)
+ * - `n/a`           — the pack does not apply at the stage that was run, or the
+ *                     governing check was skipped, so no verdict was produced
+ */
+export type ConstraintPackComplianceStatus = 'compliant' | 'non-compliant' | 'n/a';
+
+/**
+ * Compliance verdict for a single (pack, stage) pair.
+ */
+export interface ConstraintPackStageCompliance {
+  /** Lifecycle stage this verdict is for. */
+  stage: ConstraintStage;
+  /** Whether the pack's rules held at this stage. */
+  status: ConstraintPackComplianceStatus;
+}
+
+/**
+ * Per-stage compliance summary for one opted-in constraint pack.
+ */
+export interface ConstraintPackCompliance {
+  /** Name of the resolved constraint pack. */
+  pack: string;
+  /** One verdict per stage the pack declares. */
+  stages: ConstraintPackStageCompliance[];
+}
+
+/**
  * Final report for a CI run.
  */
 export interface CICheckReport {
@@ -77,6 +115,16 @@ export interface CICheckReport {
   summary: CICheckSummary;
   /** Process exit code suggested for the CI runner */
   exitCode: 0 | 1 | 2;
+  /**
+   * Per-pack, per-stage compliance summary for opted-in constraint packs.
+   * Absent when the project has opted into no packs (default behavior).
+   */
+  constraintPacks?: ConstraintPackCompliance[];
+  /**
+   * Names listed in `constraintPacks` that matched no known built-in pack.
+   * Absent when every configured name resolved.
+   */
+  unknownConstraintPacks?: string[];
 }
 
 /**

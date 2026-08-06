@@ -4,6 +4,7 @@ import type {
   CICheckName,
   CICheckReport,
   CIFailOnSeverity,
+  ConstraintStage,
 } from '@harness-engineering/core';
 import { runCIChecks } from '@harness-engineering/core';
 import { resolveConfig } from '../../config/loader';
@@ -28,6 +29,7 @@ export async function runCICheck(options: {
   configPath?: string;
   skip?: CICheckName[];
   failOn?: CIFailOnSeverity;
+  stage?: ConstraintStage;
 }): Promise<Result<CICheckReport, CLIError>> {
   const configResult = resolveConfig(options.configPath);
   if (!configResult.ok) {
@@ -40,6 +42,7 @@ export async function runCICheck(options: {
   };
   if (options.skip) input.skip = options.skip;
   if (options.failOn) input.failOn = options.failOn;
+  if (options.stage) input.stage = options.stage;
 
   const result = await runCIChecks(input);
 
@@ -66,11 +69,36 @@ function parseFailOn(failOn?: string): CIFailOnSeverity {
   return 'error';
 }
 
+const VALID_STAGES: ConstraintStage[] = ['pre-commit', 'pre-merge', 'pre-release'];
+
+function parseStage(stage?: string): ConstraintStage | undefined {
+  if (stage && VALID_STAGES.includes(stage as ConstraintStage)) {
+    return stage as ConstraintStage;
+  }
+  return undefined;
+}
+
 function checkLogFn(status: string): (msg: string) => void {
   if (status === 'pass') return logger.success;
   if (status === 'fail') return logger.error;
   if (status === 'warn') return logger.warn;
   return logger.dim;
+}
+
+function printConstraintPacks(report: CICheckReport): void {
+  if (report.constraintPacks && report.constraintPacks.length > 0) {
+    console.log('');
+    logger.dim('Constraint packs:');
+    for (const pack of report.constraintPacks) {
+      const stageSummary = pack.stages.map((s) => `${s.stage}: ${s.status}`).join(', ');
+      const nonCompliant = pack.stages.some((s) => s.status === 'non-compliant');
+      const line = `  ${pack.pack} — ${stageSummary}`;
+      (nonCompliant ? logger.error : logger.dim)(line);
+    }
+  }
+  if (report.unknownConstraintPacks && report.unknownConstraintPacks.length > 0) {
+    logger.warn(`Unknown constraint pack(s) ignored: ${report.unknownConstraintPacks.join(', ')}`);
+  }
 }
 
 function printCheckReport(report: CICheckReport): void {
@@ -81,6 +109,7 @@ function printCheckReport(report: CICheckReport): void {
       console.log(`${prefix} ${issue.message}${issue.file ? ` (${issue.file})` : ''}`);
     }
   }
+  printConstraintPacks(report);
   console.log('');
   if (report.exitCode === 0) {
     logger.success(`All checks passed (${report.summary.passed}/${report.summary.total})`);
@@ -92,17 +121,24 @@ function printCheckReport(report: CICheckReport): void {
 }
 
 async function runCheckAction(
-  opts: { skip?: string; failOn?: string },
+  opts: { skip?: string; failOn?: string; stage?: string },
   globalOpts: Record<string, unknown>
 ): Promise<void> {
   const mode = resolveOutputMode(globalOpts);
   const skip = parseSkip(opts.skip);
   const failOn = parseFailOn(opts.failOn);
+  const stage = parseStage(opts.stage);
 
-  const opts2: { configPath?: string; skip?: CICheckName[]; failOn?: CIFailOnSeverity } = {
+  const opts2: {
+    configPath?: string;
+    skip?: CICheckName[];
+    failOn?: CIFailOnSeverity;
+    stage?: ConstraintStage;
+  } = {
     skip,
     failOn,
   };
+  if (stage) opts2.stage = stage;
   if (typeof globalOpts.config === 'string') opts2.configPath = globalOpts.config;
   const result = await runCICheck(opts2);
 
@@ -131,6 +167,10 @@ export function createCheckCommand(): Command {
     .description('Run all harness checks for CI (validate, deps, docs, entropy, phase-gate, arch)')
     .option('--skip <checks>', 'Comma-separated checks to skip (e.g., entropy,docs)')
     .option('--fail-on <severity>', 'Fail on severity level: error (default) or warning', 'error')
+    .option(
+      '--stage <stage>',
+      'Enforce only the opted-in constraint packs for this lifecycle stage: pre-commit, pre-merge, or pre-release'
+    )
     .action(async (opts, cmd) => {
       await runCheckAction(opts, cmd.optsWithGlobals());
     });
