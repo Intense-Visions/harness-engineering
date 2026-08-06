@@ -34,7 +34,25 @@ export const fixtureSchema = z
     id: z.string().min(1),
     description: z.string().optional(),
     input: z.string(),
-    rubric: z.array(rubricCriterionSchema).min(1),
+    // Rubric ids must be distinct: the scorer maps each judge ruling to a
+    // criterion by id, so a duplicate id inflates totalWeight while a single
+    // ruling silently maps to both, skewing the aggregate score.
+    rubric: z
+      .array(rubricCriterionSchema)
+      .min(1)
+      .superRefine((rubric, ctx) => {
+        const seen = new Set<string>();
+        rubric.forEach((criterion, index) => {
+          if (seen.has(criterion.id)) {
+            ctx.addIssue({
+              code: z.ZodIssueCode.custom,
+              message: `duplicate rubric id "${criterion.id}"`,
+              path: [index, 'id'],
+            });
+          }
+          seen.add(criterion.id);
+        });
+      }),
     referenceOutput: z.string(),
     baseline: goldenBaselineSchema,
   })

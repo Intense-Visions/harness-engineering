@@ -581,14 +581,14 @@ Extract and publish a constraints bundle from constraints.yaml
 
 ### `harness skill-regression`
 
-Run the golden-fixture skill-regression gate: score candidate skill outputs against per-skill rubrics and block (exit 1) only on a high-confidence quality regression
+Run the golden-fixture skill-regression gate: score candidate skill outputs against per-skill rubrics. Advisory by default; pass --block-on regressed to block (exit 1) on a high-confidence quality regression once you have recorded real baselines
 
 **Options:**
 
 - `--fixtures` — golden fixtures directory (default: fixtures/skill-regression)
 - `--candidate` — directory of captured candidate outputs (default: self-test)
 - `--skill` — only evaluate fixtures for this skill
-- `--block-on` — regressed | none (default: "regressed")
+- `--block-on` — regressed | none (advisory by default; record baselines with --update-baseline before opting into regressed) (default: "none")
 - `--update-baseline` — re-score golden reference outputs and rewrite fixture baselines
 - `--model` — model override for the judge LLM call
 - `--out` — write the verdicts JSON artifact to a file

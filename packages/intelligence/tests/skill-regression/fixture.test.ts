@@ -68,4 +68,28 @@ describe('fixture (de)serialization', () => {
       fixtureSchema.parse({ ...FIXTURE, baseline: { score: 2, k: 1, tolerance: 0.1 } })
     ).toThrow();
   });
+
+  it('rejects duplicate rubric ids (a duplicate would inflate the score weight)', () => {
+    expect(() =>
+      fixtureSchema.parse({
+        ...FIXTURE,
+        rubric: [
+          { id: 'dup', criterion: 'first' },
+          { id: 'dup', criterion: 'second' },
+        ],
+      })
+    ).toThrow(/duplicate rubric id/);
+  });
+
+  it('accepts distinct rubric ids', () => {
+    expect(() =>
+      fixtureSchema.parse({
+        ...FIXTURE,
+        rubric: [
+          { id: 'a', criterion: 'first' },
+          { id: 'b', criterion: 'second' },
+        ],
+      })
+    ).not.toThrow();
+  });
 });

@@ -18,15 +18,24 @@ import { logger } from '../output/logger';
  * REGRESSED.
  *
  * Ship authority is DERIVED in TypeScript from (verdict, confidence) — never
- * read from the LLM. The gate blocks (exit 1) iff `--block-on regressed` (the
- * default) and any fixture verdict is `blocking` (a high-confidence REGRESSED);
- * every other verdict is advisory and exits 0. The whole path is degrade-safe:
- * a missing provider, a missing fixtures dir, or a malformed payload resolves to
- * an INCONCLUSIVE/advisory verdict and exit 0 — it never blocks on noise.
+ * read from the LLM. The gate ships advisory-first: the default is `--block-on
+ * none`, so every verdict (even a high-confidence REGRESSED) exits 0 until an
+ * adopter opts into blocking with `--block-on regressed`. Under `--block-on
+ * regressed` the gate blocks (exit 1) iff any fixture verdict is `blocking` (a
+ * high-confidence REGRESSED); every other verdict stays advisory. The whole
+ * path is degrade-safe: a missing provider, a missing fixtures dir, or a
+ * malformed payload resolves to an INCONCLUSIVE/advisory verdict and exit 0 —
+ * it never blocks on noise.
+ *
+ * Adopter rollout: the two shipped example fixtures carry aspirational
+ * (un-measured) baselines, so blocking is deliberately opt-in. Before flipping
+ * to `--block-on regressed`, record real baselines against your own provider
+ * with `--update-baseline`, commit them, THEN enable blocking — otherwise a
+ * real judge that rules a reference below the floor would spuriously REGRESS.
  *
  * `--update-baseline` re-scores each fixture's golden reference output and
- * rewrites the fixture's `baseline.score` in byte-stable JSON, so a re-run that
- * changes nothing produces a no-op diff.
+ * rewrites the fixture's `baseline.score` (rounded to 3dp) in byte-stable JSON,
+ * so a re-run that changes nothing produces a no-op diff.
  */
 
 export type SkillRegressionBlockOn = 'regressed' | 'none';
@@ -93,9 +102,14 @@ export function resolveCandidates(
   const prefix = `${fixture.skill}__${fixture.id}`;
   let names: string[];
   try {
-    names = list(candidateDir).filter(
-      (n) => n === `${prefix}.txt` || (n.startsWith(`${prefix}.`) && n.endsWith('.txt'))
-    );
+    // Match only `<prefix>.txt` (single candidate) or `<prefix>.<n>.txt` where
+    // `<n>` is a run of digits (the k samples). The digit-only middle segment
+    // keeps stray siblings like `<prefix>.backup.txt` out of the scored set.
+    names = list(candidateDir).filter((n) => {
+      if (!n.startsWith(prefix)) return false;
+      const rest = n.slice(prefix.length);
+      return rest === '.txt' || /^\.\d+\.txt$/.test(rest);
+    });
   } catch {
     return [];
   }
@@ -178,7 +192,9 @@ export async function runSkillRegression(
   opts: SkillRegressionOptions
 ): Promise<SkillRegressionResult> {
   const cwd = opts.cwd ?? process.cwd();
-  const blockOn = opts.blockOn ?? 'regressed';
+  // Advisory-first default: shipping requires an explicit `--block-on regressed`
+  // opt-in, so an un-measured example baseline can never spuriously block CI.
+  const blockOn = opts.blockOn ?? 'none';
   const fixturesDir = path.isAbsolute(opts.fixturesDir ?? DEFAULT_FIXTURES_DIR)
     ? (opts.fixturesDir ?? DEFAULT_FIXTURES_DIR)
     : path.join(cwd, opts.fixturesDir ?? DEFAULT_FIXTURES_DIR);
@@ -202,15 +218,18 @@ export async function runSkillRegression(
       continue;
     }
     try {
-      if (opts.updateBaseline) {
-        await rewriteBaseline(fixture, filePath, evaluator, opts, intelligence);
-      }
-      const candidates = resolveCand(fixture, opts.candidateDir);
+      // Under --update-baseline the fixture's baseline is re-recorded first; the
+      // returned fixture carries the fresh baseline so the verdict below is
+      // evaluated against the value just written, not a stale in-memory one.
+      const effective = opts.updateBaseline
+        ? await rewriteBaseline(fixture, filePath, evaluator, opts, intelligence)
+        : fixture;
+      const candidates = resolveCand(effective, opts.candidateDir);
       const verdict = await evaluator.evaluate({
-        fixture,
+        fixture: effective,
         ...(candidates.length > 0 ? { candidates } : {}),
       });
-      verdicts.push({ fixture, verdict });
+      verdicts.push({ fixture: effective, verdict });
     } catch {
       verdicts.push({ fixture, verdict: noProviderVerdict(fixture) });
     }
@@ -225,10 +244,18 @@ export async function runSkillRegression(
   };
 }
 
+/** Round a rubric score to a fixed precision so a re-baseline is a clean no-op diff. */
+function roundScore(score: number): number {
+  return Math.round(score * 1000) / 1000;
+}
+
 /**
  * Re-score a fixture's golden reference output and rewrite its `baseline.score`
- * in byte-stable JSON. A degrade (INCONCLUSIVE) leaves the existing baseline
- * untouched — a bad run never overwrites a good baseline with a degenerate 0.
+ * (rounded to 3dp) in byte-stable JSON. A degrade (INCONCLUSIVE) leaves the
+ * existing baseline untouched — a bad run never overwrites a good baseline with
+ * a degenerate 0 — and returns the original fixture unchanged. Otherwise returns
+ * the updated fixture so the caller evaluates against the freshly-written
+ * baseline rather than the stale in-memory one.
  */
 async function rewriteBaseline(
   fixture: SkillRegressionFixture,
@@ -236,22 +263,23 @@ async function rewriteBaseline(
   evaluator: SkillRegressionEvaluatorLike,
   opts: SkillRegressionOptions,
   intelligence: typeof import('@harness-engineering/intelligence')
-): Promise<void> {
+): Promise<SkillRegressionFixture> {
   const verdict = await evaluator.evaluate({ fixture, candidates: [fixture.referenceOutput] });
   if (verdict.verdict === 'INCONCLUSIVE') {
     logger.warn(
       `skill-regression: baseline for ${fixture.skill}/${fixture.id} not updated (inconclusive).`
     );
-    return;
+    return fixture;
   }
   const updated: SkillRegressionFixture = {
     ...fixture,
-    baseline: { ...fixture.baseline, score: verdict.score, k: 1 },
+    baseline: { ...fixture.baseline, score: roundScore(verdict.score), k: 1 },
   };
   const write =
     opts.writeFixture ??
     ((p: string, f: SkillRegressionFixture) => writeFileSync(p, intelligence.serializeFixture(f)));
   write(filePath, updated);
+  return updated;
 }
 
 /** Render the per-fixture verdicts as a Markdown summary. Pure (no I/O). */
@@ -284,15 +312,20 @@ export function createSkillRegressionCommand(): Command {
   return new Command('skill-regression')
     .description(
       'Run the golden-fixture skill-regression gate: score candidate skill outputs against ' +
-        'per-skill rubrics and block (exit 1) only on a high-confidence quality regression'
+        'per-skill rubrics. Advisory by default; pass --block-on regressed to block (exit 1) ' +
+        'on a high-confidence quality regression once you have recorded real baselines'
     )
     .option('--fixtures <dir>', `golden fixtures directory (default: ${DEFAULT_FIXTURES_DIR})`)
     .option('--candidate <dir>', 'directory of captured candidate outputs (default: self-test)')
     .option('--skill <name>', 'only evaluate fixtures for this skill')
     .addOption(
-      new Option('--block-on <level>', SKILL_REGRESSION_BLOCK_ON.join(' | '))
+      new Option(
+        '--block-on <level>',
+        `${SKILL_REGRESSION_BLOCK_ON.join(' | ')} (advisory by default; ` +
+          'record baselines with --update-baseline before opting into regressed)'
+      )
         .choices(SKILL_REGRESSION_BLOCK_ON)
-        .default('regressed')
+        .default('none')
     )
     .option('--update-baseline', 're-score golden reference outputs and rewrite fixture baselines')
     .option('--model <model>', 'model override for the judge LLM call')

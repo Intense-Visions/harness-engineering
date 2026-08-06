@@ -7,6 +7,7 @@ import {
   runSkillRegression,
   deriveExitCode,
   buildSkillRegressionBody,
+  resolveCandidates,
   type LoadedFixture,
   type SkillRegressionEvaluatorLike,
 } from './skill-regression';
@@ -96,14 +97,27 @@ describe('runSkillRegression', () => {
     expect(result.verdicts[0]!.verdict.verdict).toBe('STABLE');
   });
 
-  it('a blocking regression → exit 1', async () => {
+  it('a blocking regression under --block-on regressed → exit 1', async () => {
     const result = await runSkillRegression({
+      blockOn: 'regressed',
       loadFixtures: () => loaded([FIXTURE]),
       makeEvaluator: async () =>
         stubEvaluator({ verdict: 'REGRESSED', authority: 'blocking', score: 0.5 }),
       resolveCandidates: () => ['weak output'],
     });
     expect(result.exitCode).toBe(1);
+  });
+
+  it('ships advisory-first: a blocking regression exits 0 under the default gate', async () => {
+    const result = await runSkillRegression({
+      // no blockOn → the shipped default is advisory (`none`)
+      loadFixtures: () => loaded([FIXTURE]),
+      makeEvaluator: async () =>
+        stubEvaluator({ verdict: 'REGRESSED', authority: 'blocking', score: 0.5 }),
+      resolveCandidates: () => ['weak output'],
+    });
+    expect(result.exitCode).toBe(0);
+    expect(result.verdicts[0]!.verdict.authority).toBe('blocking');
   });
 
   it('degrades to advisory INCONCLUSIVE (exit 0) when no provider is configured', async () => {
@@ -131,7 +145,7 @@ describe('runSkillRegression', () => {
 
   it('--update-baseline rewrites the fixture with the re-scored baseline', async () => {
     const writes: Array<{ path: string; fixture: SkillRegressionFixture }> = [];
-    await runSkillRegression({
+    const result = await runSkillRegression({
       updateBaseline: true,
       loadFixtures: () => loaded([{ ...FIXTURE, baseline: { score: 0.4, k: 1, tolerance: 0.25 } }]),
       makeEvaluator: async () =>
@@ -141,6 +155,23 @@ describe('runSkillRegression', () => {
     });
     expect(writes).toHaveLength(1);
     expect(writes[0]!.fixture.baseline.score).toBe(1);
+    // The reported verdict must reflect the freshly-written baseline, not the
+    // stale 0.4 the fixture was loaded with (stale-in-memory-baseline fix).
+    expect(result.verdicts[0]!.verdict.baselineScore).toBe(1);
+    expect(result.verdicts[0]!.fixture.baseline.score).toBe(1);
+  });
+
+  it('--update-baseline rounds the recorded score to 3dp', async () => {
+    const writes: Array<{ path: string; fixture: SkillRegressionFixture }> = [];
+    await runSkillRegression({
+      updateBaseline: true,
+      loadFixtures: () => loaded([FIXTURE]),
+      makeEvaluator: async () =>
+        stubEvaluator({ verdict: 'STABLE', score: 0.6666666666, authority: 'advisory' }),
+      resolveCandidates: () => [],
+      writeFixture: (path, fixture) => writes.push({ path, fixture }),
+    });
+    expect(writes[0]!.fixture.baseline.score).toBe(0.667);
   });
 
   it('empty fixtures → exit 0 with an empty verdict set', async () => {
@@ -149,6 +180,32 @@ describe('runSkillRegression', () => {
       makeEvaluator: async () => stubEvaluator({}),
     });
     expect(result).toEqual({ verdicts: [], exitCode: 0 });
+  });
+});
+
+describe('resolveCandidates', () => {
+  const prefix = `${FIXTURE.skill}__${FIXTURE.id}`;
+
+  it('matches <prefix>.txt and <prefix>.<digits>.txt but excludes stray siblings', () => {
+    const files = [
+      `${prefix}.txt`,
+      `${prefix}.1.txt`,
+      `${prefix}.2.txt`,
+      `${prefix}.backup.txt`, // non-digit middle segment — excluded
+      `${prefix}.1a.txt`, // non-digit middle segment — excluded
+      `${prefix}.txt.bak`, // wrong extension — excluded
+      `${prefix}extra.txt`, // no dot after prefix — excluded
+      'other-skill__other-id.txt', // different fixture — excluded
+    ];
+    // candidateDir '.' exists so the existsSync guard passes; the list/read
+    // seams keep the match purely in-memory (read echoes the file name).
+    const out = resolveCandidates(
+      FIXTURE,
+      '.',
+      (p) => p,
+      () => files
+    );
+    expect(out).toEqual([`${prefix}.1.txt`, `${prefix}.2.txt`, `${prefix}.txt`]);
   });
 });
 
