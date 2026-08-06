@@ -32,6 +32,7 @@ import type {
   RadarDimensionName,
 } from '../findings/schema.js';
 import type { ExemplarDefinition } from '../catalog/exemplars/linear-empty-list.js';
+import { CONFIDENCE_RANK } from '../../shared/craft/findings/axes.js';
 
 /** Tunable thresholds for the award-bar verdict. */
 export interface AwardBarConfig {
@@ -53,8 +54,6 @@ export const DEFAULT_AWARD_BAR_CONFIG: AwardBarConfig = {
 export function resolveAwardBarConfig(partial?: Partial<AwardBarConfig>): AwardBarConfig {
   return { ...DEFAULT_AWARD_BAR_CONFIG, ...(partial ?? {}) };
 }
-
-const CONFIDENCE_RANK: Record<Confidence, number> = { high: 3, medium: 2, low: 1 };
 
 const DIMENSION_NAMES: readonly RadarDimensionName[] = [
   'philosophicalCoherence',

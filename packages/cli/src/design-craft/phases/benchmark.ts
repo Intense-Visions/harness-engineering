@@ -36,6 +36,7 @@ import type { ExemplarDefinition } from '../catalog/exemplars/linear-empty-list.
 import type { LlmProvider } from '../llm/provider.js';
 import { computeAwardBar } from './award-bar.js';
 import type { AwardBarConfig } from './award-bar.js';
+import { CONFIDENCE_RANK } from '../../shared/craft/findings/axes.js';
 
 export interface BenchmarkTarget {
   file: string;
@@ -163,12 +164,6 @@ function readSource(target: BenchmarkTarget): string {
  * confidence; an aggregate that floats up to 'high' when one dimension is
  * 'low' is the failure mode this is designed to avoid.
  */
-const CONFIDENCE_RANK: Record<Confidence, number> = {
-  high: 3,
-  medium: 2,
-  low: 1,
-};
-
 function minConfidence(confidences: readonly Confidence[]): Confidence {
   const first = confidences[0];
   if (first === undefined) return 'low';

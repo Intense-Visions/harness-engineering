@@ -165,4 +165,24 @@ describe('computeAwardBar', () => {
       expect(result.dimensions[dim].floor).toBe(90);
     }
   });
+
+  it('indeterminate overrides not-cleared when a dimension is both sub-floor and low-confidence', () => {
+    // Every score (60) is below the floor (80) AND innovation is low-confidence.
+    // The confidence gate must win: verdict `indeterminate`, not `not-cleared`.
+    const result = computeAwardBar(radar(60, 'high', { innovation: { confidence: 'low' } }), [
+      exemplar(80),
+    ]);
+    expect(result.verdict).toBe('indeterminate');
+    expect(result.reason).toBe('low-confidence');
+    // shortfalls are still recorded for legibility even when indeterminate.
+    expect(result.shortfalls.length).toBeGreaterThan(0);
+  });
+
+  it('falls back to the config safety floor when no exemplars are cited', () => {
+    const result = computeAwardBar(radar(85, 'high'), []);
+    for (const dim of DIMS) {
+      expect(result.dimensions[dim].floor).toBe(DEFAULT_AWARD_BAR_CONFIG.dimensionFloor);
+    }
+    expect(result.verdict).toBe('cleared');
+  });
 });
