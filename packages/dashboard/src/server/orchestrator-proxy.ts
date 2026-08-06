@@ -13,6 +13,21 @@ import { isBadPort } from '@harness-engineering/core';
 import { ORCHESTRATOR_PORT } from '../shared/constants';
 
 /**
+ * AUTHORIZATION SEAM (not yet implemented).
+ *
+ * The dashboard exposes a presentation-only `role` preference (`dev` | `pm-ba`
+ * | `client`) that selects which navigation lane the client renders. It is NOT
+ * a security boundary: a viewer in a restricted lane can still hand-type any
+ * `/s/:page` route or call any API prefix below directly.
+ *
+ * Real per-role enforcement — rejecting requests to surfaces a role is not
+ * permitted to reach — belongs here, at the proxy, keyed off an authenticated
+ * session rather than a client-supplied preference. That work depends on
+ * multi-user hosting and server-side sessions and is intentionally deferred;
+ * this comment marks where the check would attach once those land.
+ */
+
+/**
  * Route prefixes that belong to the orchestrator.
  * Order matches vite.config.ts — more-specific prefixes first.
  */
