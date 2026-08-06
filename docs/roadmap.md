@@ -154,6 +154,17 @@ last_manual_edit: 2026-06-27T12:51:51.967Z
 - **Priority:** P2
 - **External-ID:** github:Intense-Visions/harness-engineering#1004
 
+### design-craft award bar
+
+- **Status:** planned
+- **Spec:** docs/changes/design-craft-award-bar/proposal.md
+- **Summary:** Design-Craft Award Bar — a machine-derived award-tier verdict on BENCHMARK output
+- **Blockers:** —
+- **Plan:** —
+- **Assignee:** —
+- **Priority:** —
+- **External-ID:** github:Intense-Visions/harness-engineering#1141
+
 ### Automate best-model discovery/recommendation for local dispatch
 
 - **Status:** planned
