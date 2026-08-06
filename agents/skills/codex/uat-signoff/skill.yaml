@@ -1,0 +1,70 @@
+name: uat-signoff
+version: "0.1.0"
+description: Human-judged acceptance sign-off skill — the terminal, human-authority stage of the change lifecycle under the `docs/changes/<slug>/` directory. Reads the change's proposal.md Success Criteria (plus plans and prior review/outcome-eval records) as the acceptance checklist, walks a human through user-acceptance testing one item at a time (ACCEPT / REJECT / CHANGES_REQUESTED), captures one overall decision plus the signer, writes `docs/changes/<slug>/signoff.md`, and records a single execution_outcome node via uat_signoff. The human is the authority — it never runs an LLM verdict, never derives ship authority, and never blocks. Advisory / record-only.
+stability: draft
+cognitive_mode: configuration-interviewer
+triggers:
+  - manual
+platforms:
+  - claude-code
+  - gemini-cli
+  - cursor
+  - codex
+tools:
+  - Bash
+  - Read
+  - Write
+  - Edit
+  - Glob
+  - Grep
+cli:
+  command: harness skill run uat-signoff
+  args:
+    - name: slug
+      description: Change slug (the same slug used by spec/plan/review). Used to resolve the docs/changes/<slug>/ acceptance basis and the signoff.md artifact.
+      required: false
+mcp:
+  tool: uat_signoff
+  input:
+    slug: 'string (required) — change slug; the docs/changes/<slug>/ owner'
+    decision: 'string (required) — the overall human verdict (ACCEPTED | REJECTED | CHANGES_REQUESTED)'
+    signedOffBy: 'string (required) — name/identity of the human who signed off'
+    items: 'array (optional) — per-item dispositions [{ id, disposition: ACCEPT|REJECT|CHANGES_REQUESTED, note? }]'
+    criteriaRefs: 'array (optional) — Success-Criterion ids the sign-off closes (the accepted items)'
+    timestamp: 'string (optional) — ISO timestamp of the sign-off; defaults to now'
+    path: 'string (optional) — project root used to resolve the knowledge graph (default cwd)'
+type: rigid
+tier: 1
+phases:
+  - name: resolve
+    description: Resolve the change slug and read docs/changes/<slug>/proposal.md ## Success Criteria; assemble the acceptance checklist keyed by criterion id (with plans and prior review/outcome-eval records as supporting context). Soft-degrade to a supplied checklist when the basis is thin and record what is missing.
+    required: true
+  - name: interview
+    description: Present each acceptance item to the human one at a time (plain-text choice), capturing ACCEPT / REJECT / CHANGES_REQUESTED plus a note verbatim. Never infer a disposition.
+    required: true
+  - name: verdict
+    description: Ask the human for one overall decision (ACCEPTED / REJECTED / CHANGES_REQUESTED) and the signer identity; read back and confirm before recording.
+    required: true
+  - name: record
+    description: Write docs/changes/<slug>/signoff.md (accepted-vs-rejected + signer + timestamp) and persist one execution_outcome node via uat_signoff (source uat-signoff, result derived from the overall decision). Advisory / record-only — blocks nothing.
+    required: true
+state:
+  persistent: true
+  files:
+    - docs/changes/
+depends_on:
+  - outcome-eval
+related_skills:
+  - harness-outcome-eval
+  - harness-acceptance-eval
+  - harness-brainstorming
+keywords:
+  - uat-signoff
+  - user-acceptance-testing
+  - acceptance
+  - sign-off
+  - human-in-the-loop
+  - change-lifecycle
+  - success-criteria
+  - outcome-edge
+  - record-only

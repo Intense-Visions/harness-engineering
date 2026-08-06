@@ -99,6 +99,7 @@ describe('MCP Server Integration', () => {
     expect(names).toContain('release_compound_lock');
     expect(names).toContain('outcome_eval');
     expect(names).toContain('acceptance_eval');
+    expect(names).toContain('uat_signoff');
     expect(names).toContain('canary_probe');
     expect(names).toContain('canary_recommend_framework');
     // standardize-parallel-execution Phase 1 — parallelization planner tool
@@ -109,7 +110,7 @@ describe('MCP Server Integration', () => {
     expect(names).toContain('code_craft_finalize');
     expect(names).toContain('cli_ergonomics_craft_finalize');
     expect(names).toContain('api_craft_finalize');
-    expect(tools).toHaveLength(101);
+    expect(tools).toHaveLength(102);
   });
 
   it('all tool definitions have inputSchema', () => {

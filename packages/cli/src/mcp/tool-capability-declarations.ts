@@ -117,6 +117,7 @@ export const TOOL_CAPABILITY_DECLARATIONS: Readonly<Record<string, ToolCapabilit
   emit_skill_proposal: { scopes: ['write'] }, // createProposal writes .harness/proposals/
   align_design_system: { scopes: ['write'] }, // applies codemods + writes last-batch/handoff
   outcome_eval: { scopes: ['read', 'write'] }, // reads diff/tests; persists execution_outcome graph node
+  uat_signoff: { scopes: ['read', 'write'] }, // loads graph; persists one human-signoff execution_outcome node
   run_design_pipeline: { scopes: ['read', 'write'] }, // detect (read) + align FIX writes codemods/handoff
   write_strategy: { scopes: ['write'] }, // writeStrategyDoc
   write_pulse_config: { scopes: ['write'] }, // core.writePulseConfig
