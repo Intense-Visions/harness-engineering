@@ -1,0 +1,111 @@
+name: Holiday Confidence Tracker
+
+# Records the Holiday Confidence KPI over time so the trend is visible without
+# anyone running the command by hand.
+#
+# Once a week it runs `harness holiday-confidence --json`, appends a single
+# `{ date, score, verdict }` record to `.harness/metrics/holiday-confidence.jsonl`,
+# and commits it back to the default branch with `[skip ci]` (mirroring the
+# Architecture Snapshot job's commit-back pattern).
+#
+# Fail-soft by design:
+#   - The KPI command is fail-soft itself: when `gh` is unavailable or
+#     unauthenticated it returns `status: error` with a null value instead of
+#     throwing, and an empty window returns `status: pending`. In either case
+#     this job records NOTHING and still succeeds — a missing data point is
+#     honest, a fabricated one is not.
+#   - It never appends a second record for a date already present, so a manual
+#     re-run (workflow_dispatch) on the same day cannot spam duplicate rows.
+#
+# Adopter note: this workflow is generic — copy it as-is. The only repo-specific
+# assumption is the `harness` CLI build path below.
+
+on:
+  schedule:
+    - cron: '30 7 * * 1' # Every Monday at 07:30 UTC
+  workflow_dispatch: {} # Manual trigger
+
+# Serialize commit-backs so two runs can never race the same append+push.
+concurrency:
+  group: holiday-confidence-track
+  cancel-in-progress: false
+
+permissions:
+  contents: write # commit the trend ledger back to the default branch
+
+jobs:
+  track:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 22
+      - uses: pnpm/action-setup@v5
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm build
+
+      - name: Compute and record Holiday Confidence
+        env:
+          # The KPI shells out to `gh` for the merged-PR list; without a token it
+          # degrades to `status: error` and this job records nothing (fail-soft).
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          # The command is fail-soft and exits 0 even when undeterminable; `|| true`
+          # guards against an unexpected build/runtime error taking the job red.
+          node packages/cli/dist/bin/harness.js holiday-confidence --json > result.json || true
+
+          node - <<'NODE'
+          const fs = require('node:fs');
+
+          const LEDGER = '.harness/metrics/holiday-confidence.jsonl';
+
+          // 1) Parse the KPI output. Any parse failure => nothing to record.
+          let result;
+          try {
+            result = JSON.parse(fs.readFileSync('result.json', 'utf-8'));
+          } catch {
+            console.log('No parseable KPI output; recording nothing (fail-soft).');
+            process.exit(0);
+          }
+
+          // 2) Only record a determinable score. error/pending or a null value
+          //    means the KPI could not be computed — abstain, do not fabricate.
+          const { value, status } = result;
+          if (value === null || value === undefined || !['ok', 'warn', 'alert'].includes(status)) {
+            console.log(`Score undeterminable (status=${status}, value=${value}); recording nothing (fail-soft).`);
+            process.exit(0);
+          }
+
+          // 3) Date the record by the KPI's own generatedAt (UTC), falling back to today.
+          const generated = typeof result.generatedAt === 'string' ? result.generatedAt : '';
+          const date = (generated.slice(0, 10).match(/^\d{4}-\d{2}-\d{2}$/) || [])[0]
+            || new Date().toISOString().slice(0, 10);
+
+          // 4) Dedupe: never append a second entry for a date already present.
+          let existing = '';
+          try { existing = fs.readFileSync(LEDGER, 'utf-8'); } catch { /* first run */ }
+          const lines = existing.split('\n').filter(Boolean);
+          const last = lines.length ? JSON.parse(lines[lines.length - 1]) : null;
+          if (last && last.date === date) {
+            console.log(`Ledger already has an entry for ${date}; recording nothing (dedupe).`);
+            process.exit(0);
+          }
+
+          // 5) Append one record: { date, score, verdict }.
+          const record = { date, score: value, verdict: status };
+          fs.mkdirSync('.harness/metrics', { recursive: true });
+          fs.appendFileSync(LEDGER, JSON.stringify(record) + '\n');
+          console.log(`Recorded ${JSON.stringify(record)} to ${LEDGER}.`);
+          NODE
+
+          rm -f result.json
+
+      - name: Commit the trend ledger
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add .harness/metrics/holiday-confidence.jsonl
+          git diff --cached --quiet || git commit -m "chore(metrics): holiday-confidence $(date -u +%Y-%m-%d) [skip ci]"
+          git push
