@@ -789,8 +789,9 @@ export class Orchestrator extends EventEmitter {
   /**
    * LMLM Phase 7: the hardware-aware recommender bound at scheduler start. Reused
    * by `GET /api/v1/local-models/recommendations`. Null when LMLM is disabled (no
-   * pool → scheduler never armed). Ranks the (currently empty) candidate set —
-   * see the Phase 2 candidate-parser gap noted on `startRefreshScheduler`.
+   * pool → scheduler never armed). Seeded from the bundled frozen snapshot at
+   * scheduler start and re-seeded with live HuggingFace candidates by
+   * `refreshCandidatesLive` (startup + operator Refresh) — see `seedRecommender`.
    */
   private modelRecommender: ReturnType<typeof createNativeRecommender> | null = null;
   /**
@@ -4429,12 +4430,12 @@ export class Orchestrator extends EventEmitter {
    * pool. No-op when LMLM is disabled (`modelPool` null). Each tick runs
    * hardware→recommend→reconcile(D12 drift)→diff→emit→score-writeback.
    *
-   * NOTE (deferred): the recommender is seeded with an empty candidate set —
-   * Phase 2's live-HF→RankerCandidate parser was never built, so autonomous
-   * swap-proposal discovery is out of scope here (flagged concern). The tick
-   * still performs F10 drift reconciliation, O1 logging, and re-ranks/dedups
-   * whatever candidates are supplied — the wiring is complete and candidate
-   * breadth is the only piece deferred to the Phase 2 recommender.
+   * The recommender is seeded here from the bundled frozen snapshot (offline-safe,
+   * deterministic) filtered to the operator's org/family allowlist. Live HF
+   * candidate discovery then runs in the background on startup (and on the operator
+   * Refresh button) via `refreshCandidatesLive`, which swaps in a fresh recommender
+   * over the discovered set so the tick and `GET /recommendations` emit real,
+   * up-to-date swap proposals.
    */
   private startRefreshScheduler(): void {
     if (this.modelPool === null) return;
