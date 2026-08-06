@@ -29,6 +29,12 @@ export interface CICheckIssue {
   file?: string;
   /** Line number in the affected file */
   line?: number;
+  /**
+   * Originating rule identifier, when the check attributes issues to rules
+   * (e.g. the security scanner's `SEC-XXX-NNN`). Used to attribute a failing
+   * finding to the constraint pack(s) whose rule prefixes cover it.
+   */
+  ruleId?: string;
 }
 
 /**

@@ -16,12 +16,26 @@ describe('constraint packs — manifest', () => {
       const stages = Object.entries(pack.stages);
       expect(stages.length).toBeGreaterThan(0);
       for (const [, spec] of stages) {
-        const hasEffect =
-          (spec.securityRules && Object.keys(spec.securityRules).length > 0) ||
-          spec.securityStrict === true;
+        const hasEffect = Boolean(spec.securityRules && Object.keys(spec.securityRules).length > 0);
         expect(hasEffect).toBe(true);
       }
     }
+  });
+
+  it('web-hardening expresses its intent as explicit prefix elevations, not global strict', () => {
+    // Regression: web-hardening must block only its four named prefixes, never
+    // promote every warning/info rule to error via a `strict` flag.
+    const pack = getConstraintPack('web-hardening');
+    expect(pack).toBeDefined();
+    const preRelease = pack!.stages['pre-release'];
+    expect(preRelease?.securityRules).toEqual({
+      'SEC-XSS-*': 'error',
+      'SEC-PTH-*': 'error',
+      'SEC-NET-*': 'error',
+      'SEC-CRY-*': 'error',
+    });
+    // The pack model no longer carries any strict/blanket-promotion escape hatch.
+    expect(preRelease as Record<string, unknown>).not.toHaveProperty('securityStrict');
   });
 
   it('looks a pack up by name', () => {
@@ -42,7 +56,6 @@ describe('resolveConstraintPacks', () => {
     expect(resolved.resolved).toHaveLength(0);
     expect(resolved.unknown).toHaveLength(0);
     expect(resolved.securityRuleOverlay).toEqual({});
-    expect(resolved.securityStrict).toBe(false);
   });
 
   it('flattens the security-rule overlay across all stages when no stage filter is given', () => {
@@ -57,11 +70,14 @@ describe('resolveConstraintPacks', () => {
     // web-hardening only targets pre-release; asking for pre-merge yields no overlay.
     const preMerge = resolveConstraintPacks(['web-hardening'], { stage: 'pre-merge' });
     expect(preMerge.securityRuleOverlay).toEqual({});
-    expect(preMerge.securityStrict).toBe(false);
 
     const preRelease = resolveConstraintPacks(['web-hardening'], { stage: 'pre-release' });
-    expect(preRelease.securityRuleOverlay).toMatchObject({ 'SEC-XSS-*': 'error' });
-    expect(preRelease.securityStrict).toBe(true);
+    expect(preRelease.securityRuleOverlay).toMatchObject({
+      'SEC-XSS-*': 'error',
+      'SEC-PTH-*': 'error',
+      'SEC-NET-*': 'error',
+      'SEC-CRY-*': 'error',
+    });
   });
 
   it('merges overlapping rules to the most-blocking severity', () => {

@@ -178,6 +178,79 @@ describe('constraint packs — orchestrator wiring', () => {
     for (const s of pack!.stages) expect(s.status).toBe('non-compliant');
   });
 
+  it('multi-pack: a SEC-SEC finding marks only the pack whose prefixes cover it', async () => {
+    scanFilesMock.mockResolvedValue({
+      findings: [
+        {
+          ruleId: 'SEC-SEC-001',
+          severity: 'error',
+          message: 'Hardcoded secret',
+          match: 'x',
+          file: '/fake/a.ts',
+          line: 1,
+        },
+      ],
+      scannedFiles: 1,
+      rulesApplied: 10,
+      externalToolsUsed: [],
+      coverage: 'baseline',
+    });
+
+    const result = await runCIChecks({
+      projectRoot: '/fake',
+      config: baseConfig({ constraintPacks: ['secrets-and-injection', 'ai-agent-safety'] }),
+    });
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+
+    const secrets = result.value.constraintPacks?.find((p) => p.pack === 'secrets-and-injection');
+    const agent = result.value.constraintPacks?.find((p) => p.pack === 'ai-agent-safety');
+    expect(secrets).toBeDefined();
+    expect(agent).toBeDefined();
+    // The finding's rule id is covered by secrets-and-injection's SEC-SEC-* prefix.
+    for (const s of secrets!.stages) expect(s.status).toBe('non-compliant');
+    // ai-agent-safety governs SEC-AGT-*/SEC-MCP-* only, so a SEC-SEC finding must
+    // not mark it non-compliant — the verdict is attributed, not aggregate.
+    for (const s of agent!.stages) expect(s.status).toBe('compliant');
+  });
+
+  it('a non-pack finding fails security but marks no pack non-compliant', async () => {
+    // SEC-XSS is outside both opted-in packs' prefixes. Security fails overall,
+    // but neither pack should be blamed for a rule it does not govern.
+    scanFilesMock.mockResolvedValue({
+      findings: [
+        {
+          ruleId: 'SEC-XSS-001',
+          severity: 'error',
+          message: 'innerHTML assignment',
+          match: 'x',
+          file: '/fake/a.ts',
+          line: 1,
+        },
+      ],
+      scannedFiles: 1,
+      rulesApplied: 10,
+      externalToolsUsed: [],
+      coverage: 'baseline',
+    });
+
+    const result = await runCIChecks({
+      projectRoot: '/fake',
+      config: baseConfig({ constraintPacks: ['secrets-and-injection', 'ai-agent-safety'] }),
+    });
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+
+    // Security still fails the gate...
+    expect(result.value.exitCode).toBe(1);
+    // ...but no pack is marked non-compliant for a rule it does not govern.
+    for (const pack of result.value.constraintPacks ?? []) {
+      for (const stage of pack.stages) {
+        expect(stage.status).not.toBe('non-compliant');
+      }
+    }
+  });
+
   it('surfaces unknown pack names without failing resolution', async () => {
     const result = await runCIChecks({
       projectRoot: '/fake',

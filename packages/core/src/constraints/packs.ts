@@ -29,8 +29,6 @@ export interface ConstraintPackStageSpec {
    * escape hatch).
    */
   securityRules?: Record<string, RuleOverride>;
-  /** When true, force `security.strict` on for this stage. */
-  securityStrict?: boolean;
 }
 
 /**
@@ -79,13 +77,16 @@ export const BUILT_IN_CONSTRAINT_PACKS: readonly ConstraintPack[] = [
       'Blocks web-surface risks — XSS, path traversal, unsafe network calls, and weak crypto — before release.',
     stages: {
       'pre-release': {
+        // Explicit `error` elevations on exactly the four web-surface prefixes.
+        // This pack deliberately does *not* promote every warning/info rule to
+        // error (there is no `strict` escape hatch worth the blast radius) — it
+        // blocks only the risks it names.
         securityRules: {
           'SEC-XSS-*': 'error',
           'SEC-PTH-*': 'error',
           'SEC-NET-*': 'error',
           'SEC-CRY-*': 'error',
         },
-        securityStrict: true,
       },
     },
   },
@@ -104,8 +105,6 @@ export interface ResolvedConstraintPacks {
    * set the same rule, the more-blocking severity wins.
    */
   securityRuleOverlay: Record<string, RuleOverride>;
-  /** True when any applicable stage requested `security.strict`. */
-  securityStrict: boolean;
 }
 
 /** Higher = more blocking. `off` disables a rule; `error` fails the gate. */
@@ -156,7 +155,6 @@ export function resolveConstraintPacks(
   }
 
   const securityRuleOverlay: Record<string, RuleOverride> = {};
-  let securityStrict = false;
 
   for (const pack of resolved) {
     for (const [stage, spec] of Object.entries(pack.stages) as [
@@ -164,7 +162,6 @@ export function resolveConstraintPacks(
       ConstraintPackStageSpec,
     ][]) {
       if (options.stage && options.stage !== stage) continue;
-      if (spec.securityStrict) securityStrict = true;
       for (const [ruleId, severity] of Object.entries(spec.securityRules ?? {})) {
         const existing = securityRuleOverlay[ruleId];
         securityRuleOverlay[ruleId] = existing ? mostBlocking(existing, severity) : severity;
@@ -172,5 +169,5 @@ export function resolveConstraintPacks(
     }
   }
 
-  return { resolved, unknown, securityRuleOverlay, securityStrict };
+  return { resolved, unknown, securityRuleOverlay };
 }

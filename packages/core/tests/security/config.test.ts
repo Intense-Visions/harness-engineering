@@ -65,6 +65,38 @@ describe('resolveRuleSeverity', () => {
     expect(severity).toBe('error');
   });
 
+  it('prefers the most-specific wildcard when several match (regardless of order)', () => {
+    // A broad `SEC-*: off` base plus a specific `SEC-INJ-*: error` elevation —
+    // the narrow prefix must win so the base never shadows the elevation. This
+    // is what lets a constraint pack force-enable the scanner for only its own
+    // prefixes while holding everything else off.
+    const elevated = resolveRuleSeverity(
+      'SEC-INJ-001',
+      'warning',
+      { 'SEC-*': 'off', 'SEC-INJ-*': 'error' },
+      false
+    );
+    expect(elevated).toBe('error');
+
+    // Insertion order reversed — same result.
+    const reversed = resolveRuleSeverity(
+      'SEC-INJ-001',
+      'warning',
+      { 'SEC-INJ-*': 'error', 'SEC-*': 'off' },
+      false
+    );
+    expect(reversed).toBe('error');
+
+    // A rule outside the elevated prefix stays silenced by the broad base.
+    const silenced = resolveRuleSeverity(
+      'SEC-EDGE-001',
+      'error',
+      { 'SEC-*': 'off', 'SEC-INJ-*': 'error' },
+      false
+    );
+    expect(silenced).toBe('off');
+  });
+
   it('promotes warnings to errors in strict mode', () => {
     const severity = resolveRuleSeverity('SEC-NET-001', 'warning', {}, true);
     expect(severity).toBe('error');

@@ -63,20 +63,34 @@ function constraintPackNames(config: Record<string, unknown>): string[] {
  * blocking rules, so it turns the security check on even when `security.enabled`
  * is false — opting into a blocking pack while globally disabling security is
  * contradictory, and the narrower signal wins.
+ *
+ * Force-enable blast radius: when the scanner was explicitly disabled
+ * (`security.enabled: false`) and a pack force-enables it, we first silence
+ * every rule the scanner blocks by default (`'SEC-*': 'off'`) and then let the
+ * pack's specific prefixes re-elevate only what it targets. Without this base,
+ * flipping `enabled` back on would run all default-error rules (including
+ * prefixes no pack references, e.g. SEC-EDGE), so opting into one pack would
+ * enable the whole scanner. With it, opting into a pack is truly equivalent to
+ * setting only that pack's `security.rules` overrides. The base is injected
+ * only in the force-enable case; a project that already runs the scanner keeps
+ * its existing default-error rules untouched.
  */
 function applyConstraintPackOverlay(
   config: Record<string, unknown>,
   resolved: ResolvedConstraintPacks
 ): Record<string, unknown> {
-  const hasOverlay =
-    Object.keys(resolved.securityRuleOverlay).length > 0 || resolved.securityStrict;
+  const hasOverlay = Object.keys(resolved.securityRuleOverlay).length > 0;
   if (!hasOverlay) return config;
 
   const security = { ...((config.security as Record<string, unknown>) ?? {}) };
   const userRules = (security.rules as Record<string, unknown>) ?? {};
-  // Overlay first, user per-rule overrides layered on top so the project wins.
-  security.rules = { ...resolved.securityRuleOverlay, ...userRules };
-  security.strict = security.strict === true || resolved.securityStrict;
+  const scannerWasDisabled = security.enabled === false;
+  // Only when force-enabling a previously-disabled scanner: silence all rules
+  // as the base, so non-pack rules stay non-blocking (see doc comment).
+  const forceEnableBase: Record<string, unknown> = scannerWasDisabled ? { 'SEC-*': 'off' } : {};
+  // Base first, then the pack's specific elevations, then the user's per-rule
+  // overrides last so the project always wins.
+  security.rules = { ...forceEnableBase, ...resolved.securityRuleOverlay, ...userRules };
   security.enabled = true;
 
   return { ...config, security };
@@ -295,6 +309,7 @@ async function runSecurityCheck(
       message: `[${finding.ruleId}] ${finding.message}: ${finding.match}`,
       file: finding.file,
       line: finding.line,
+      ruleId: finding.ruleId,
     });
   }
   return issues;
@@ -531,13 +546,22 @@ function determineExitCode(summary: CICheckSummary, failOn: CIFailOnSeverity = '
   return 0;
 }
 
+/** True when `ruleId` is covered by one of the pack patterns (exact or `*`). */
+function ruleMatchesAny(ruleId: string, patterns: readonly string[]): boolean {
+  return patterns.some((pattern) =>
+    pattern.endsWith('*') ? ruleId.startsWith(pattern.slice(0, -1)) : ruleId === pattern
+  );
+}
+
 /**
  * Compute the per-pack, per-stage compliance summary for the opted-in packs.
- * A pack governs the `security` check (its rules are security-rule elevations),
- * so its verdict at an applicable stage tracks that check's outcome:
- * `non-compliant` when the security check failed, `compliant` when it did not,
- * and `n/a` when the stage is out of scope for this run or the security check
- * was skipped.
+ * A pack governs a specific set of security rules (its per-stage elevations),
+ * so its verdict is attributed, not aggregate: a stage is `non-compliant` only
+ * when a *failing* security finding's rule id is covered by that stage's own
+ * rule prefixes. A failing finding from a rule no pack references — or one that
+ * belongs to a different pack — never marks this pack non-compliant. A stage is
+ * `n/a` when it is out of scope for this run or the security check was skipped,
+ * and `compliant` otherwise.
  */
 function computeConstraintPackCompliance(
   resolved: ResolvedConstraintPacks,
@@ -545,6 +569,13 @@ function computeConstraintPackCompliance(
   runStage: ConstraintStage | undefined
 ): ConstraintPackCompliance[] {
   const securitySkippedOrAbsent = !securityCheck || securityCheck.status === 'skip';
+  // Rule ids of the security findings that actually fail the gate.
+  const failingRuleIds = securitySkippedOrAbsent
+    ? []
+    : securityCheck!.issues
+        .filter((issue) => issue.severity === 'error' && typeof issue.ruleId === 'string')
+        .map((issue) => issue.ruleId as string);
+
   return resolved.resolved.map((pack) => ({
     pack: pack.name,
     stages: (Object.keys(pack.stages) as ConstraintStage[]).map((stage) => {
@@ -552,7 +583,9 @@ function computeConstraintPackCompliance(
       if ((runStage && runStage !== stage) || securitySkippedOrAbsent) {
         status = 'n/a';
       } else {
-        status = securityCheck!.status === 'fail' ? 'non-compliant' : 'compliant';
+        const patterns = Object.keys(pack.stages[stage]?.securityRules ?? {});
+        const violated = failingRuleIds.some((ruleId) => ruleMatchesAny(ruleId, patterns));
+        status = violated ? 'non-compliant' : 'compliant';
       }
       return { stage, status };
     }),

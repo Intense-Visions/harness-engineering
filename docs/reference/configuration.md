@@ -278,9 +278,11 @@ Configures security scanning for the project. When enabled, Harness scans source
 
 Opts the project into named **constraint packs** — bundles of blocking rules enforced per lifecycle stage rather than all-or-nothing. Each pack maps onto existing security rule sets and elevates a set of rules to blocking at the stage(s) it declares (`pre-commit`, `pre-merge`, `pre-release`). Leaving this empty or absent changes nothing — no pack rules are enforced.
 
-Opting into a pack is equivalent to setting the corresponding `security.rules` overrides by hand, packaged under a memorable name and scoped to a stage. A project's own explicit `security.rules` entry always wins over a pack, so you can still dial an individual rule back down.
+Opting into a pack is equivalent to setting **only** that pack's `security.rules` overrides by hand — no more. A pack elevates exactly the rule prefixes it names (for example `web-hardening` blocks `SEC-XSS-*`, `SEC-PTH-*`, `SEC-NET-*`, and `SEC-CRY-*`); it never promotes unrelated rules. A project's own explicit `security.rules` entry always wins over a pack, so you can still dial an individual rule back down.
 
-`harness ci check --stage <stage>` enforces only the packs that apply at that stage; without `--stage`, every stage of every opted-in pack is enforced (the most conservative combined gate). The check report includes a per-pack, per-stage compliance summary (`compliant` / `non-compliant` / `n/a`).
+If a pack is opted in while `security.enabled` is `false`, the pack turns the security check back on — but only its own rule prefixes block. Every other rule the scanner would run by default is held at `off`, so opting into one pack never enables the whole scanner. When security is already enabled, the pack's elevations are layered on top of your existing rules and defaults.
+
+`harness ci check --stage <stage>` enforces only the packs that apply at that stage; without `--stage`, every stage of every opted-in pack is enforced (the most conservative combined gate). An unrecognized `--stage` value is rejected with an error rather than silently running every stage. The check report includes a per-pack, per-stage compliance summary (`compliant` / `non-compliant` / `n/a`); a stage is marked `non-compliant` only when a failing security finding belongs to one of that pack's own rule prefixes. If packs are opted in but the security check is skipped, `harness ci check` warns that their rules were not enforced.
 
 ### Built-in packs
 
@@ -288,7 +290,7 @@ Opting into a pack is equivalent to setting the corresponding `security.rules` o
 | ----------------------- | ---------------------------------------------------------------------- | -------------------------- |
 | `secrets-and-injection` | Hardcoded secrets and injection vulnerabilities                        | `pre-merge`, `pre-release` |
 | `ai-agent-safety`       | Unsafe AI-agent and MCP configurations (prompt-injection, tool access) | `pre-merge`                |
-| `web-hardening`         | XSS, path traversal, unsafe network calls, weak crypto (strict)        | `pre-release`              |
+| `web-hardening`         | XSS, path traversal, unsafe network calls, weak crypto                 | `pre-release`              |
 
 ### Example
 

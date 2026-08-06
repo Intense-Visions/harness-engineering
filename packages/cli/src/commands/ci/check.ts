@@ -71,11 +71,8 @@ function parseFailOn(failOn?: string): CIFailOnSeverity {
 
 const VALID_STAGES: ConstraintStage[] = ['pre-commit', 'pre-merge', 'pre-release'];
 
-function parseStage(stage?: string): ConstraintStage | undefined {
-  if (stage && VALID_STAGES.includes(stage as ConstraintStage)) {
-    return stage as ConstraintStage;
-  }
-  return undefined;
+function isValidStage(stage: string): stage is ConstraintStage {
+  return VALID_STAGES.includes(stage as ConstraintStage);
 }
 
 function checkLogFn(status: string): (msg: string) => void {
@@ -94,6 +91,15 @@ function printConstraintPacks(report: CICheckReport): void {
       const nonCompliant = pack.stages.some((s) => s.status === 'non-compliant');
       const line = `  ${pack.pack} — ${stageSummary}`;
       (nonCompliant ? logger.error : logger.dim)(line);
+    }
+    // The packs only govern the security check; if it was skipped, their
+    // elevations never ran and every stage is reported n/a. Warn so the opt-in
+    // is not silently a no-op.
+    const securitySkipped = report.checks.some((c) => c.name === 'security' && c.status === 'skip');
+    if (securitySkipped) {
+      logger.warn(
+        'Constraint packs are opted in but the security check was skipped — their rules were not enforced.'
+      );
     }
   }
   if (report.unknownConstraintPacks && report.unknownConstraintPacks.length > 0) {
@@ -127,7 +133,20 @@ async function runCheckAction(
   const mode = resolveOutputMode(globalOpts);
   const skip = parseSkip(opts.skip);
   const failOn = parseFailOn(opts.failOn);
-  const stage = parseStage(opts.stage);
+
+  // Reject an unrecognized --stage instead of silently falling back to running
+  // every stage (the most conservative gate), which would surprise a caller who
+  // asked for one specific stage.
+  if (opts.stage !== undefined && !isValidStage(opts.stage)) {
+    const message = `Unrecognized --stage "${opts.stage}". Valid stages: ${VALID_STAGES.join(', ')}.`;
+    if (mode === OutputMode.JSON) {
+      console.log(JSON.stringify({ error: message }));
+    } else {
+      logger.error(message);
+    }
+    process.exit(ExitCode.ERROR);
+  }
+  const stage = opts.stage !== undefined && isValidStage(opts.stage) ? opts.stage : undefined;
 
   const opts2: {
     configPath?: string;
