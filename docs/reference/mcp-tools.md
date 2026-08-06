@@ -64,6 +64,10 @@ Run all validation checks on a harness engineering project
 
 LLM-judgment critique of code quality / readability — the ceiling counterpart to the
 
+### `code_craft_finalize`
+
+Finalize a code_craft in-session run by submitting the calling agent
+
 ### `code_outline`
 
 Get a structural skeleton of a file or files matching a glob: exports, classes, functions, types with signatures and line numbers. No implementation bodies. 4-8x token savings vs full file read.
@@ -194,6 +198,10 @@ Parse a git diff and check for forbidden patterns, oversized files, and missing 
 
 LLM-judgment critique of API quality — the ceiling counterpart to rule-based API checks
 
+### `api_craft_finalize`
+
+Finalize an api_craft in-session run by submitting the calling agent
+
 ### `audit_anatomy`
 
 Audit components for anatomy completeness. Emits ANAT-D\* findings for component definitions
@@ -213,6 +221,10 @@ Classify a test prompt with canary and recommend a framework (deterministic, no 
 ### `cli_ergonomics_craft`
 
 LLM-judgment critique of CLI ergonomics quality — the ceiling counterpart to mechanical CLI
+
+### `cli_ergonomics_craft_finalize`
+
+Finalize a cli_ergonomics_craft in-session run by submitting the calling agent
 
 ### `compact`
 

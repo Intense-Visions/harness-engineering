@@ -170,9 +170,15 @@ describe('PrivacyNoMatch → routing:no-tier-match steward escalation (finding #
     const handled = await i.handleRoutingFailure(ISSUE, new PrivacyNoMatch('no compliant backend'));
 
     expect(handled).toBe(true); // boundary claimed it — the generic transport path must NOT also run
-    for (let n = 0; n < 50 && queued.filter((q) => q.issueId === ISSUE.id).length === 0; n++) {
-      await new Promise((r) => setTimeout(r, 5));
-    }
+    // Wait for the escalation to be queued. The push happens on an async path,
+    // so a fixed short poll (previously 50×5ms = 250ms) is fragile on slow /
+    // loaded CI runners (observed flaking Windows-only, where the file's git
+    // execSync setup alone runs ~16s/test). vi.waitFor gives a generous budget
+    // without masking a genuine no-queue bug — that still times out and fails.
+    await vi.waitFor(() => expect(queued.filter((q) => q.issueId === ISSUE.id).length).toBeGreaterThan(0), {
+      timeout: 5000,
+      interval: 10,
+    });
     const escs = queued.filter((q) => q.issueId === ISSUE.id);
     expect(escs).toHaveLength(1);
     expect(escs[0]!.type).toBe('needs-human');
@@ -194,9 +200,15 @@ describe('PrivacyNoMatch → routing:no-tier-match steward escalation (finding #
     );
 
     expect(handled).toBe(true);
-    for (let n = 0; n < 50 && queued.filter((q) => q.issueId === ISSUE.id).length === 0; n++) {
-      await new Promise((r) => setTimeout(r, 5));
-    }
+    // Wait for the escalation to be queued. The push happens on an async path,
+    // so a fixed short poll (previously 50×5ms = 250ms) is fragile on slow /
+    // loaded CI runners (observed flaking Windows-only, where the file's git
+    // execSync setup alone runs ~16s/test). vi.waitFor gives a generous budget
+    // without masking a genuine no-queue bug — that still times out and fails.
+    await vi.waitFor(() => expect(queued.filter((q) => q.issueId === ISSUE.id).length).toBeGreaterThan(0), {
+      timeout: 5000,
+      interval: 10,
+    });
     expect(queued.filter((q) => q.issueId === ISSUE.id)).toHaveLength(1);
   });
 
