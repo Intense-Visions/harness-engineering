@@ -248,7 +248,6 @@ mcp:
     path: string
 type: rigid
 tier: 2
-catalog_tier: 0
 phases:
   - name: scan
     description: Resolve mode and run harness check-harness-strength against the target repo

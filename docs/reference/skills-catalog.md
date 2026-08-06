@@ -10,14 +10,14 @@ See the [Features Overview](../guides/features-overview.md) for narrative docume
 
 The 12 skills that carry the core workflow. Learn these first; everything else is a library you reach for on demand.
 
-- **harness-audit-harness-strength** — Mechanically audit a project's own harness setup against the seven STRENGTH failure patterns; reports per-pattern findings, a 0-100 strength score, and a tier label (solid/at-risk/theatre). Orchestrates harness check-harness-strength; never reimplements detection.
+- **harness-autopilot** — Autonomous phase execution loop — chains planning, execution, verification, and review, pausing only at human decision points
 - **harness-brainstorming** — Structured ideation and exploration with harness methodology
 - **harness-code-review** — Multi-phase code review pipeline with mechanical checks, graph-scoped context, and parallel review agents
-- **harness-compound** — 5-phase post-mortem capture. Writes a structured solution doc at docs/solutions/{track}/{category}/{slug}.md with frontmatter, overlap-detection, and per-category lock for concurrency safety.
 - **harness-debugging** — Systematic debugging with harness validation and state tracking
 - **harness-execution** — Execute a planned set of tasks with harness validation and state tracking
 - **harness-initialize-project** — Scaffold a new harness-compliant project, including design system and roadmap configuration
 - **harness-planning** — Structured project planning with harness constraints and validation
+- **harness-roadmap-pilot** — AI-assisted selection of the next highest-impact roadmap item with scoring, assignment, and skill transition
 - **harness-strategy** — First-run interview and update flow for STRATEGY.md — the durable upstream product anchor read by harness-brainstorming, harness-ideate, and harness-roadmap-pilot. Enforces three pushback rules (fluff, goal-as-strategy, feature-list-as-strategy) with a 2-round-per-section cap. Downstream skills (init, brainstorming, roadmap-pilot, ideate, knowledge graph) consume STRATEGY.md as grounding.
 - **harness-tdd** — Test-driven development integrated with harness validation
 - **harness-verification** — Comprehensive harness verification of project health and compliance
@@ -43,6 +43,7 @@ Add a component to an existing harness project
 
 Autonomous phase execution loop — chains planning, execution, verification, and review, pausing only at human decision points
 
+- **Catalog tier:** Tier-0 — load-bearing gear
 - **Triggers:** manual
 - **Platforms:** claude-code, gemini-cli, cursor, codex
 - **Type:** rigid
@@ -359,7 +360,6 @@ Cross-dimensional codebase audit orchestrator — classify repo shape, fan out p
 
 Mechanically audit a project's own harness setup against the seven STRENGTH failure patterns; reports per-pattern findings, a 0-100 strength score, and a tier label (solid/at-risk/theatre). Orchestrates harness check-harness-strength; never reimplements detection.
 
-- **Catalog tier:** Tier-0 — load-bearing gear
 - **Triggers:** manual, on_milestone
 - **Platforms:** claude-code, gemini-cli, cursor, codex
 - **Type:** rigid
@@ -398,7 +398,6 @@ Orchestrate dead code removal and architecture violation fixes with shared conve
 
 5-phase post-mortem capture. Writes a structured solution doc at docs/solutions/{track}/{category}/{slug}.md with frontmatter, overlap-detection, and per-category lock for concurrency safety.
 
-- **Catalog tier:** Tier-0 — load-bearing gear
 - **Triggers:** manual
 - **Platforms:** claude-code, gemini-cli, cursor, codex
 - **Type:** rigid
@@ -550,6 +549,7 @@ Create and manage a unified project roadmap from existing specs and plans
 
 AI-assisted selection of the next highest-impact roadmap item with scoring, assignment, and skill transition
 
+- **Catalog tier:** Tier-0 — load-bearing gear
 - **Triggers:** manual
 - **Platforms:** claude-code, gemini-cli, cursor, codex
 - **Type:** rigid

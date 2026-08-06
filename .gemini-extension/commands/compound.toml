@@ -210,7 +210,6 @@ mcp:
     context: string
 type: rigid
 tier: 2
-catalog_tier: 0
 phases:
   - name: identify
     description: Extract problem and solution from conversation, debug session, recent commits

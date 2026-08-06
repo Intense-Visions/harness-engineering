@@ -45,7 +45,6 @@ export const SKILL_REGISTRY: SkillEntry[] = [
     description: "Audit the project's own harness setup against known failure patterns.",
     category: 'health',
     slashCommand: '/harness:audit-strength',
-    loadBearing: true,
   },
 
   // Security
@@ -154,7 +153,6 @@ export const SKILL_REGISTRY: SkillEntry[] = [
     description: 'Capture the post-mortem so the next run compounds on this one.',
     category: 'workflow',
     slashCommand: '/harness:compound',
-    loadBearing: true,
   },
   {
     id: 'harness:brainstorming',
@@ -216,6 +214,7 @@ export const SKILL_REGISTRY: SkillEntry[] = [
     description: 'Run an autonomous agent loop to solve a complex issue.',
     category: 'workflow',
     slashCommand: '/harness:autopilot',
+    loadBearing: true,
   },
   {
     id: 'harness:roadmap-pilot',
@@ -223,6 +222,7 @@ export const SKILL_REGISTRY: SkillEntry[] = [
     description: 'Autonomously execute the next logical item on the roadmap.',
     category: 'workflow',
     slashCommand: '/harness:roadmap-pilot',
+    loadBearing: true,
   },
   {
     id: 'harness:roadmap-sync',

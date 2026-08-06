@@ -373,20 +373,20 @@ enabled = true
 
 The catalog runs to hundreds of skills, but a senior engineer only needs to hold a dozen in their head. These twelve carry the core workflow end to end — learn them first; everything else is a library you reach for on demand. Skills declare their standing with a first-class `catalog_tier` field in `skill.yaml` (`0` = load-bearing, `1` = library, `2` = retire candidate), surfaced here, in the [Skills Catalog](./docs/reference/skills-catalog.md), and in the dashboard command palette.
 
-| Skill                            | Slash command                 | What it carries                                   |
-| -------------------------------- | ----------------------------- | ------------------------------------------------- |
-| `harness-initialize-project`     | `/harness:initialize-project` | Scaffold or migrate a harness-managed project     |
-| `harness-strategy`               | `/harness:strategy`           | Set the durable product anchor (`STRATEGY.md`)    |
-| `harness-brainstorming`          | `/harness:brainstorming`      | Turn intent into a spec                           |
-| `harness-planning`               | `/harness:planning`           | Decompose a spec into an ordered plan             |
-| `harness-execution`              | `/harness:execution`          | Implement a plan task-by-task with state tracking |
-| `harness-tdd`                    | `/harness:tdd`                | Test-driven development inside the loop           |
-| `harness-verification`           | `/harness:verification`       | Verify built artifacts against spec and plan      |
-| `harness-code-review`            | `/harness:code-review`        | Multi-persona review pipeline                     |
-| `outcome-eval`                   | `/harness:outcome-eval`       | Ship gate — did the change satisfy its spec?      |
-| `harness-debugging`              | `/harness:debugging`          | Systematic debugging with validation              |
-| `harness-audit-harness-strength` | `/harness:audit-strength`     | Audit the project's own harness setup             |
-| `harness-compound`               | `/harness:compound`           | Capture the post-mortem so the next run compounds |
+| Skill                        | Slash command                 | What it carries                                          |
+| ---------------------------- | ----------------------------- | -------------------------------------------------------- |
+| `harness-initialize-project` | `/harness:initialize-project` | Scaffold or migrate a harness-managed project            |
+| `harness-strategy`           | `/harness:strategy`           | Set the durable product anchor (`STRATEGY.md`)           |
+| `harness-brainstorming`      | `/harness:brainstorming`      | Turn intent into a spec                                  |
+| `harness-planning`           | `/harness:planning`           | Decompose a spec into an ordered plan                    |
+| `harness-execution`          | `/harness:execution`          | Implement a plan task-by-task with state tracking        |
+| `harness-tdd`                | `/harness:tdd`                | Test-driven development inside the loop                  |
+| `harness-verification`       | `/harness:verification`       | Verify built artifacts against spec and plan             |
+| `harness-code-review`        | `/harness:code-review`        | Multi-persona review pipeline                            |
+| `outcome-eval`               | `/harness:outcome-eval`       | Ship gate — did the change satisfy its spec?             |
+| `harness-debugging`          | `/harness:debugging`          | Systematic debugging with validation                     |
+| `harness-autopilot`          | `/harness:autopilot`          | Autonomous phase loop — plan → execute → verify → review |
+| `harness-roadmap-pilot`      | `/harness:roadmap-pilot`      | Pick the next highest-impact roadmap item and drive it   |
 
 ## Examples
 
