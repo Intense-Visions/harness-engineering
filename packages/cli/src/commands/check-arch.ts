@@ -7,10 +7,21 @@ import {
   ArchBaselineManager,
   runAll,
   diff,
+  resolveArchBaseline,
+  loadArchAllowances,
+  filterDiffByAllowances,
+  writeArchAllowance,
+  archAllowancesDir,
+  archAllowanceSlug,
+  ArchAllowanceSchema,
 } from '@harness-engineering/core';
 import type {
   ArchConfig,
+  ArchBaseline,
   ArchDiffResult,
+  ArchMetricCategory,
+  ArchAllowance,
+  AllowanceFilteredDiff,
   MetricResult,
   Violation,
 } from '@harness-engineering/core';
@@ -113,6 +124,166 @@ function findThresholdViolations(results: MetricResult[]): Violation[] {
   return violations;
 }
 
+/** A CheckArchResult that reports a clean baseline pass (no violations to surface). */
+function cleanBaselineResult(extra: Partial<CheckArchResult>): CheckArchResult {
+  return {
+    passed: true,
+    mode: 'baseline',
+    totalViolations: 0,
+    newViolations: [],
+    resolvedViolations: [],
+    preExisting: [],
+    regressions: [],
+    thresholdViolations: [],
+    ...extra,
+  };
+}
+
+/** A genuine error-severity threshold breach can never be waived by an allowance. */
+function errorSeverityRefusal(errorNew: Violation[]): CLIError {
+  const summary = errorNew.map((v) => `  - ${v.file}: ${v.detail}`).join('\n');
+  return new CLIError(
+    `Cannot allowance ${errorNew.length} error-severity violation(s) — a genuine ` +
+      `threshold breach must be FIXED, not acknowledged:\n${summary}`,
+    ExitCode.ERROR
+  );
+}
+
+function missingReasonError(baselinePath: string): CLIError {
+  return new CLIError(
+    `Writing an arch allowance requires a reason. Re-run with:\n` +
+      `  harness check-arch --update-baseline --reason "<why this regression is accepted>"\n` +
+      `This writes a per-PR file under ${baselinePath.replace(/baselines\.json$/, 'allowances/')} ` +
+      `and leaves baselines.json unchanged.`,
+    ExitCode.ERROR
+  );
+}
+
+/** Build the allowance payload from the still-uncovered items of a filtered diff. */
+function buildAllowance(
+  filtered: AllowanceFilteredDiff,
+  reason: string,
+  cwd: string
+): ArchAllowance {
+  const categories: Partial<Record<ArchMetricCategory, number>> = {};
+  for (const r of filtered.regressions) categories[r.category] = r.currentValue;
+  return {
+    reason: reason.trim(),
+    categories,
+    violationIds: filtered.newViolations.map((v) => v.id).sort(),
+    createdFrom: getCommitHash(cwd),
+  };
+}
+
+/** The `reason` recorded in an existing allowance file, if it parses; else undefined. */
+function existingAllowanceReason(ownFile: string): string | undefined {
+  if (!fs.existsSync(ownFile)) return undefined;
+  try {
+    const parsed = ArchAllowanceSchema.safeParse(JSON.parse(fs.readFileSync(ownFile, 'utf-8')));
+    return parsed.success ? parsed.data.reason : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
+/**
+ * PR-context `--update-baseline`: write a uniquely-named per-PR ALLOWANCE file instead of
+ * rewriting the shared snapshot (which is what caused the baselines.json merge cascade).
+ * The allowance acknowledges the regression the branch introduces relative to the base
+ * baseline; `refresh-baselines` on main later folds it in and deletes it. A genuine
+ * error-severity threshold breach can never be allowanced — it must be fixed.
+ */
+function writeAllowanceUpdate(
+  cwd: string,
+  archConfig: ArchConfig,
+  results: MetricResult[],
+  baseBaseline: ArchBaseline,
+  reason: string | undefined
+): Result<CheckArchResult, CLIError> {
+  const rawDiff = diff(results, baseBaseline, {
+    regressionTolerance: archConfig.regressionTolerance,
+  });
+  const errorNew = rawDiff.newViolations.filter((v) => v.severity === 'error');
+  if (errorNew.length > 0) return Err(errorSeverityRefusal(errorNew));
+
+  // Exclude THIS branch's own allowance from the coverage filter so a re-run rebuilds the
+  // FULL set of the branch's acknowledged violations vs base — not just the newly-uncovered
+  // ones. Otherwise iterating (ack A, later add B) would rewrite the file as {B} and DROP A.
+  const slug = archAllowanceSlug(cwd);
+  const ownFile = path.join(archAllowancesDir(cwd, archConfig.baselinePath), `${slug}.json`);
+  const coverage = loadArchAllowances(cwd, archConfig.baselinePath, { excludeFiles: [ownFile] });
+  const filtered = filterDiffByAllowances(rawDiff, coverage);
+  if (filtered.newViolations.length === 0 && filtered.regressions.length === 0) {
+    return Ok(
+      cleanBaselineResult({
+        baselineUpdated: false,
+        warning: 'Arch gate already passes against the base baseline; no allowance needed.',
+      })
+    );
+  }
+
+  // A bare `--update-baseline` re-run (no new --reason) reuses the reason already recorded
+  // in this branch's own allowance, so iterating never demands the reason be re-typed.
+  const effectiveReason = reason?.trim() || existingAllowanceReason(ownFile);
+  if (!effectiveReason) return Err(missingReasonError(archConfig.baselinePath));
+
+  const file = writeArchAllowance(
+    cwd,
+    archConfig.baselinePath,
+    buildAllowance(filtered, effectiveReason, cwd),
+    slug
+  );
+  return Ok(
+    cleanBaselineResult({
+      baselineUpdated: true,
+      warning:
+        `Wrote arch allowance ${file} ` +
+        `(${filtered.regressions.length} regression(s), ${filtered.newViolations.length} new violation(s)). ` +
+        `Commit it — baselines.json stays byte-identical to the base.`,
+    })
+  );
+}
+
+/**
+ * Whole-snapshot `--update-baseline` (base branch / non-git context): the pre-existing
+ * behavior. #530: an update that WORSENS a metric must be an explicit, recorded decision
+ * (`--allow-regress --reason`), not a silent rewrite. #268: merge into the existing baseline
+ * so categories absent from a partial collector run are not silently dropped.
+ */
+function wholeSnapshotUpdate(
+  cwd: string,
+  archConfig: ArchConfig,
+  results: MetricResult[],
+  manager: ArchBaselineManager,
+  options: CheckArchOptions
+): Result<CheckArchResult, CLIError> {
+  const existingBaseline = manager.load();
+  if (existingBaseline) {
+    const regressions = diff(results, existingBaseline, {
+      regressionTolerance: archConfig.regressionTolerance,
+    }).regressions;
+    if (regressions.length > 0) {
+      const summary = regressions
+        .map((r) => `  - ${r.category}: ${r.baselineValue} → ${r.currentValue} (+${r.delta})`)
+        .join('\n');
+      if (!options.allowRegress || !options.reason || options.reason.trim() === '') {
+        return Err(
+          new CLIError(
+            `Refusing to update the baseline: it WORSENS ${regressions.length} metric(s):\n${summary}\n\n` +
+              `A regression must be an explicit decision. Re-run with:\n` +
+              `  harness check-arch --update-baseline --allow-regress --reason "<why this regression is accepted>"\n` +
+              `The reason is recorded in .harness/audit.log.`,
+            ExitCode.ERROR
+          )
+        );
+      }
+      appendArchRegressionAudit(cwd, options.reason, regressions);
+    }
+  }
+  manager.update(results, getCommitHash(cwd));
+  return Ok(cleanBaselineResult({ baselineUpdated: true }));
+}
+
 export async function runCheckArch(
   options: CheckArchOptions
 ): Promise<Result<CheckArchResult, CLIError>> {
@@ -183,56 +354,26 @@ export async function runCheckArch(
 
   // --update-baseline mode
   if (options.updateBaseline) {
-    // #530: a baseline update that WORSENS a metric must be an explicit, recorded
-    // decision — not a silent rewrite. Diff the new results against the CURRENT
-    // baseline; if that update would regress any category, reject it unless the
-    // caller passed `--allow-regress --reason "…"`, and log the acceptance to the
-    // audit trail. No existing baseline ⇒ nothing to worsen (first capture).
-    const existingBaseline = manager.load();
-    if (existingBaseline) {
-      const regressions = diff(results, existingBaseline, {
-        regressionTolerance: archConfig.regressionTolerance,
-      }).regressions;
-      if (regressions.length > 0) {
-        const summary = regressions
-          .map((r) => `  - ${r.category}: ${r.baselineValue} → ${r.currentValue} (+${r.delta})`)
-          .join('\n');
-        if (!options.allowRegress || !options.reason || options.reason.trim() === '') {
-          return Err(
-            new CLIError(
-              `Refusing to update the baseline: it WORSENS ${regressions.length} metric(s):\n${summary}\n\n` +
-                `A regression must be an explicit decision. Re-run with:\n` +
-                `  harness check-arch --update-baseline --allow-regress --reason "<why this regression is accepted>"\n` +
-                `The reason is recorded in .harness/audit.log.`,
-              ExitCode.ERROR
-            )
-          );
-        }
-        appendArchRegressionAudit(cwd, options.reason, regressions);
-      }
+    // Base-aware routing: in a PR (feature-branch) context, acknowledging a regression must
+    // NOT rewrite the shared snapshot (the merge-cascade root cause). Write a uniquely-named
+    // per-PR allowance file instead. On main / non-git the whole-snapshot behavior below is
+    // preserved (the refresh-baselines job is the single writer of the committed snapshot).
+    const resolution = resolveArchBaseline(cwd, archConfig.baselinePath, manager);
+    if (resolution.source === 'base-ref' && resolution.baseline) {
+      return writeAllowanceUpdate(cwd, archConfig, results, resolution.baseline, options.reason);
     }
-    const commitHash = getCommitHash(cwd);
-    // Merge into the existing baseline so categories absent from `results`
-    // (e.g. silent collector failures) are not silently dropped (issue #268).
-    manager.update(results, commitHash);
-    return Ok({
-      passed: true,
-      mode: 'baseline',
-      totalViolations: 0,
-      newViolations: [],
-      resolvedViolations: [],
-      preExisting: [],
-      regressions: [],
-      thresholdViolations: [],
-      baselineUpdated: true,
-    });
+    // On the base branch / non-git: keep the whole-snapshot behavior (single-writer trunk).
+    return wholeSnapshotUpdate(cwd, archConfig, results, manager, options);
   }
 
-  // Collect threshold violations from metric results
+  // Collect threshold violations from metric results. These are ALWAYS enforced and are
+  // never subject to allowances — a genuine error-severity threshold breach hard-fails.
   const thresholdViolations = findThresholdViolations(results);
 
-  // Load baseline
-  const baseline = manager.load();
+  // Load baseline, base-aware: in a PR context this is the base ref's committed baseline
+  // (a true delta-vs-main); on main / non-git it is the working-tree file, as before.
+  const resolution = resolveArchBaseline(cwd, archConfig.baselinePath, manager);
+  const baseline = resolution.baseline;
 
   if (!baseline) {
     // Threshold-only mode
@@ -254,9 +395,15 @@ export async function runCheckArch(
   // Baseline mode: run diff. Honor the configured regression tolerance so a
   // branch does not report false regressions (and force a baseline rewrite)
   // for the sub-tolerance drift it inherits when it merges `main`.
-  const diffResult: ArchDiffResult = diff(results, baseline, {
+  const rawDiff: ArchDiffResult = diff(results, baseline, {
     regressionTolerance: archConfig.regressionTolerance,
   });
+
+  // Fold in per-PR allowances: an intentional (warning-level) regression acknowledged by an
+  // allowance file no longer fails the gate, WITHOUT any change to baselines.json. Error-
+  // severity new violations are never covered (see filterDiffByAllowances).
+  const coverage = loadArchAllowances(cwd, archConfig.baselinePath);
+  const diffResult = filterDiffByAllowances(rawDiff, coverage);
 
   // Fail if EITHER threshold exceeded OR baseline regressed
   const passed = diffResult.passed && thresholdViolations.length === 0;

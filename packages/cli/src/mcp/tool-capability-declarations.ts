@@ -93,8 +93,11 @@ export const TOOL_CAPABILITY_DECLARATIONS: Readonly<Record<string, ToolCapabilit
   security_craft: { scopes: ['read'] }, // AST critique; "child_process" match was a rubric string
   docs_craft: { scopes: ['read'] },
   code_craft: { scopes: ['read'] }, // per-unit AST critique; returns findings, not persisted
+  code_craft_finalize: { scopes: ['read'] },
   cli_ergonomics_craft: { scopes: ['read'] },
+  cli_ergonomics_craft_finalize: { scopes: ['read'] },
   api_craft: { scopes: ['read'] }, // per-surface API critique; returns findings, not persisted
+  api_craft_finalize: { scopes: ['read'] },
   acceptance_eval: { scopes: ['read'] }, // advisory verdict; not persisted
   validate_strategy: { scopes: ['read'] },
   read_strategy: { scopes: ['read'] },
@@ -114,6 +117,7 @@ export const TOOL_CAPABILITY_DECLARATIONS: Readonly<Record<string, ToolCapabilit
   emit_skill_proposal: { scopes: ['write'] }, // createProposal writes .harness/proposals/
   align_design_system: { scopes: ['write'] }, // applies codemods + writes last-batch/handoff
   outcome_eval: { scopes: ['read', 'write'] }, // reads diff/tests; persists execution_outcome graph node
+  uat_signoff: { scopes: ['read', 'write'] }, // loads graph; persists one human-signoff execution_outcome node
   run_design_pipeline: { scopes: ['read', 'write'] }, // detect (read) + align FIX writes codemods/handoff
   write_strategy: { scopes: ['write'] }, // writeStrategyDoc
   write_pulse_config: { scopes: ['write'] }, // core.writePulseConfig
