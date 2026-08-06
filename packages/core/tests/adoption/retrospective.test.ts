@@ -166,4 +166,37 @@ describe('renderRetrospectiveMarkdown', () => {
     const md = renderRetrospectiveMarkdown(report);
     expect(md).toContain('shorter than the threshold');
   });
+
+  it('renders a failure-categories section from category totals', () => {
+    const records = [
+      makeRecord({ skill: 'alpha', outcome: 'failed', failureCategory: 'gate-rejected' }),
+      makeRecord({ skill: 'beta', outcome: 'failed', failureCategory: 'gate-rejected' }),
+      makeRecord({ skill: 'beta', outcome: 'failed', failureCategory: 'timeout' }),
+    ];
+    const report = getCatalogRetrospectiveReport(records, { now: NOW });
+    expect(report.failureCategoryTotals).toEqual({ 'gate-rejected': 2, timeout: 1 });
+    const md = renderRetrospectiveMarkdown(report);
+    expect(md).toContain('### Failure categories');
+    expect(md).toContain('`gate-rejected`');
+  });
+
+  it('notes when no categorized failures exist', () => {
+    const report = getCatalogRetrospectiveReport([makeRecord({ skill: 'alpha' })], { now: NOW });
+    expect(report.failureCategoryTotals).toEqual({});
+    const md = renderRetrospectiveMarkdown(report);
+    expect(md).toContain('No categorized failures recorded.');
+  });
+});
+
+describe('getCatalogRetrospectiveReport failure categories', () => {
+  it('tallies failureCategory per skill on the stat rows', () => {
+    const records = [
+      makeRecord({ skill: 'alpha', outcome: 'failed', failureCategory: 'timeout' }),
+      makeRecord({ skill: 'alpha', outcome: 'failed', failureCategory: 'timeout' }),
+      makeRecord({ skill: 'alpha', outcome: 'completed' }),
+    ];
+    const report = getCatalogRetrospectiveReport(records, { now: NOW });
+    const alpha = report.topInvoked.find((s) => s.skill === 'alpha')!;
+    expect(alpha.failureCategories).toEqual({ timeout: 2 });
+  });
 });

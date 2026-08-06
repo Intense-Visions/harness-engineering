@@ -1,6 +1,6 @@
 import { z } from 'zod';
 import { defaultCommandRunner } from '../command-runner';
-import { bucketsToHistory, deriveEndpointTrend, toDate } from '../shared';
+import { ASSESSMENT_MARKER, bucketsToHistory, deriveEndpointTrend, toDate } from '../shared';
 import type {
   CommandRunner,
   SignalContext,
@@ -22,14 +22,6 @@ const WINDOW_DAYS = 30;
  * the window as possibly-truncated and annotate `detail` rather than undercount silently.
  */
 const FETCH_LIMIT = 500;
-
-/**
- * Marker emitted in the GitHub PR review summary body by the multi-persona review
- * pipeline (`core/src/review/output/format-github.ts` → `formatGitHubSummary`). A merged
- * PR is considered reviewed iff at least one of its reviews contains this string. If the
- * pipeline ever changes its summary header, this single const is the only thing to update.
- */
-const ASSESSMENT_MARKER = '## Assessment:';
 
 /** Build a degraded `error` result that never crashes the panel. */
 function errorResult(detail: string): SignalResult {

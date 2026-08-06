@@ -23,14 +23,14 @@ This page maps every major capability to the command, skill, or tool that provid
 
 Start a new project or adopt harness in an existing one.
 
-| Command                           | Description                                                                                       |
-| --------------------------------- | ------------------------------------------------------------------------------------------------- |
-| `harness init`                    | Scaffold a new harness project with templates                                                     |
-| `harness init --framework <name>` | Use a framework overlay (Express, Next.js, FastAPI, Django, Gin, Axum, Spring Boot, etc.)         |
-| `harness init --level <level>`    | Set adoption level: basic (validate only), intermediate (+ constraints), advanced (full pipeline) |
-| `harness setup`                   | Complete setup wizard — Node check, slash commands, MCP server, integrations                      |
-| `harness doctor`                  | Diagnose environment: Node.js, git, MCP, integrations health                                      |
-| `harness add <type> <name>`       | Add a layer, module, doc, skill, or persona to an existing project                                |
+| Command                           | Description                                                                                                                                                |
+| --------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `harness init`                    | Scaffold a new harness project with templates                                                                                                              |
+| `harness init --framework <name>` | Use a framework overlay (Express, Next.js, FastAPI, Django, Gin, Axum, Spring Boot, etc.)                                                                  |
+| `harness init --level <level>`    | Set adoption level: basic (validate only), intermediate (+ constraints), load-bearing-minimum (+ review & outcome-eval CI gates), advanced (full pipeline) |
+| `harness setup`                   | Complete setup wizard — Node check, slash commands, MCP server, integrations                                                                               |
+| `harness doctor`                  | Diagnose environment: Node.js, git, MCP, integrations health                                                                                               |
+| `harness add <type> <name>`       | Add a layer, module, doc, skill, or persona to an existing project                                                                                         |
 
 **Related skills:** `/harness:initialize-project`, `/harness:initialize-test-suite-project`, `/harness:onboarding`, `/harness:add-component`
 

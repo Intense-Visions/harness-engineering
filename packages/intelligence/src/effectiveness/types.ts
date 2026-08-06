@@ -106,6 +106,13 @@ export interface FailingSkill {
   failureRate: number;
   /** Laplace-smoothed success rate in [0, 1]. */
   smoothedSuccessRate: number;
+  /**
+   * Count of this skill's non-completed runs by `FailureCategory`, keyed by the
+   * category string. Only categories that actually occurred appear (no zero
+   * entries). Empty when no non-completed run carried a category — e.g. records
+   * predate the field. Lets callers see *why* a skill fails, not just that it does.
+   */
+  failureCategories: Record<string, number>;
 }
 
 /**
