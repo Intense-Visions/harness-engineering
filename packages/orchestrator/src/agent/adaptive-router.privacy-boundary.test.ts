@@ -175,10 +175,13 @@ describe('PrivacyNoMatch → routing:no-tier-match steward escalation (finding #
     // loaded CI runners (observed flaking Windows-only, where the file's git
     // execSync setup alone runs ~16s/test). vi.waitFor gives a generous budget
     // without masking a genuine no-queue bug — that still times out and fails.
-    await vi.waitFor(() => expect(queued.filter((q) => q.issueId === ISSUE.id).length).toBeGreaterThan(0), {
-      timeout: 5000,
-      interval: 10,
-    });
+    await vi.waitFor(
+      () => expect(queued.filter((q) => q.issueId === ISSUE.id).length).toBeGreaterThan(0),
+      {
+        timeout: 5000,
+        interval: 10,
+      }
+    );
     const escs = queued.filter((q) => q.issueId === ISSUE.id);
     expect(escs).toHaveLength(1);
     expect(escs[0]!.type).toBe('needs-human');
@@ -205,10 +208,13 @@ describe('PrivacyNoMatch → routing:no-tier-match steward escalation (finding #
     // loaded CI runners (observed flaking Windows-only, where the file's git
     // execSync setup alone runs ~16s/test). vi.waitFor gives a generous budget
     // without masking a genuine no-queue bug — that still times out and fails.
-    await vi.waitFor(() => expect(queued.filter((q) => q.issueId === ISSUE.id).length).toBeGreaterThan(0), {
-      timeout: 5000,
-      interval: 10,
-    });
+    await vi.waitFor(
+      () => expect(queued.filter((q) => q.issueId === ISSUE.id).length).toBeGreaterThan(0),
+      {
+        timeout: 5000,
+        interval: 10,
+      }
+    );
     expect(queued.filter((q) => q.issueId === ISSUE.id)).toHaveLength(1);
   });
 

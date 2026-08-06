@@ -168,6 +168,8 @@ export const ALL_MCP_TOOLS: string[] = [
   'outcome_eval',
   // acceptance-eval — pre-execution acceptance-criteria measurability verdict (upstream twin of outcome_eval)
   'acceptance_eval',
+  // uat-signoff — records a HUMAN acceptance sign-off as an execution_outcome node (advisory / record-only)
+  'uat_signoff',
   // strategic-anchor — STRATEGY.md read/validate/write so projects can call
   // these via MCP without needing @harness-engineering/core in node_modules
   'validate_strategy',
