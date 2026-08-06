@@ -98,6 +98,26 @@ describe('scoreRecovery', () => {
     expect(s.score).toBe(100 - REHEARSAL_WEIGHTS.correctCheck);
   });
 
+  describe('correctCheck citation containment (no reverse leniency)', () => {
+    const archManifest: RehearsalManifest = { ...manifest, expectedCheck: 'harness check-arch' };
+    const archRecovery: RecoveryRecord = { ...goodRecovery, checkCited: 'harness check-arch' };
+
+    it('does NOT credit a bare/short citation that is merely a substring of the expected check', () => {
+      const s = scoreRecovery(archManifest, { ...archRecovery, checkCited: 'check' });
+      expect(s.dimensions.find((d) => d.name === 'correctCheck')?.credited).toBe(false);
+    });
+
+    it('credits the full check token with the harness prefix', () => {
+      const s = scoreRecovery(archManifest, { ...archRecovery, checkCited: 'harness check-arch' });
+      expect(s.dimensions.find((d) => d.name === 'correctCheck')?.credited).toBe(true);
+    });
+
+    it('credits the full check token when the harness prefix is omitted', () => {
+      const s = scoreRecovery(archManifest, { ...archRecovery, checkCited: 'check-arch' });
+      expect(s.dimensions.find((d) => d.name === 'correctCheck')?.credited).toBe(true);
+    });
+  });
+
   it('penalises collateral damage even on an otherwise clean fix', () => {
     const s = scoreRecovery(manifest, { ...goodRecovery, collateralDamage: true });
     expect(s.dimensions.find((d) => d.name === 'noCollateral')?.credited).toBe(false);

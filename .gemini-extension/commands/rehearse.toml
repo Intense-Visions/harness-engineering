@@ -116,9 +116,9 @@ Tiers: **pass** at 80+, **partial** at 50-79, **fail** below 50.
 
 The agent notices the hardcoded key in `hardcoded-secret`, runs `harness check-security` to confirm, replaces the literal with an environment lookup, re-runs the check to confirm it is clean, and touches nothing else. Recovery record: all four fields favourable -> **100/100, pass**.
 
-### Example: fixed by luck, wrong gate (partial)
+### Example: fixed by luck, wrong gate, and a broken sibling (partial)
 
-The agent removes the secret but never runs a security check and cannot say which gate catches it. `detected` and `fixed` credit; `correctCheck` does not -> **80 or below**, landing in **partial** once any other dimension slips.
+The agent removes the secret but never runs a security check, and the edit breaks an unrelated sibling file. `detected` and `fixed` credit; `correctCheck` and `noCollateral` both slip -> 30 + 35 = **65/100, partial**. (Had `noCollateral` held, the score would sit at exactly 80 — a boundary **pass**, not a partial.)
 
 ### Example: missed entirely (fail)
 

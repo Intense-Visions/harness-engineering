@@ -65,14 +65,15 @@ function scoreDetected(manifest: RehearsalManifest, record: RecoveryRecord): Sco
 /**
  * correctCheck — the agent reached for the harness check this fixture exists to
  * exercise. Compared normalised so "harness check-security" matches
- * "check-security".
+ * "check-security". The citation must CONTAIN the expected token (so a
+ * "harness "-prefixed form still credits), but we do NOT credit the reverse:
+ * a bare/short citation like "check" or "arch" must not satisfy "check-arch"
+ * — that direction would credit almost any fixture.
  */
 function scoreCorrectCheck(manifest: RehearsalManifest, record: RecoveryRecord): ScoreDimension {
   const expected = normalizeCheck(manifest.expectedCheck);
   const cited = record.checkCited !== undefined ? normalizeCheck(record.checkCited) : '';
-  const credited =
-    cited.length > 0 &&
-    (cited === expected || cited.includes(expected) || expected.includes(cited));
+  const credited = cited.length > 0 && (cited === expected || cited.includes(expected));
   const reason = credited
     ? `Agent used the expected check ("${manifest.expectedCheck}").`
     : record.checkCited

@@ -1,7 +1,7 @@
 {
   "version": 1,
-  "updatedAt": "2026-08-06T04:16:46.885Z",
-  "updatedFrom": "7c680202a",
+  "updatedAt": "2026-08-06T12:02:15.488Z",
+  "updatedFrom": "efad6bdf5",
   "metrics": {
     "circular-deps": {
       "value": 0,
@@ -321,7 +321,7 @@
       "violationIds": []
     },
     "module-size": {
-      "value": 216388,
+      "value": 218844,
       "violationIds": [
         "14c3c7cf4350a3212158ff69554ef83629eb26d75ffaf4d24bbded2841aa58ad",
         "4d6965066aaca1a3553a39fac1fb531ec9ecb47395a5a4420adbd066d367c3b6",
@@ -337,7 +337,7 @@
       ]
     },
     "dependency-depth": {
-      "value": 554,
+      "value": 555,
       "violationIds": []
     }
   }
