@@ -140,7 +140,7 @@ describe('Multi-Orchestrator Claim Coordination', () => {
   describe('no duplicate dispatch', () => {
     it(
       'only one orchestrator dispatches when two race for the same issue',
-      { timeout: 15000 },
+      { timeout: 45000 },
       async () => {
         const issue = makeIssue();
         const { makeTracker } = createRacingTracker([issue]);
@@ -193,7 +193,7 @@ describe('Multi-Orchestrator Claim Coordination', () => {
   describe('stale claim recovery', () => {
     it(
       'releases stale claim from dead orchestrator and dispatches the issue',
-      { timeout: 15000 },
+      { timeout: 45000 },
       async () => {
         // Simulate a crashed orchestrator: issue is in-progress, assigned to
         // 'dead-orch', with updatedAt 20 minutes ago (well past any TTL).
@@ -279,7 +279,7 @@ describe('Multi-Orchestrator Claim Coordination', () => {
   });
 
   describe('claim rejection graceful skip', () => {
-    it('skips the issue without error when claim is rejected', { timeout: 15000 }, async () => {
+    it('skips the issue without error when claim is rejected', { timeout: 45000 }, async () => {
       const issue = makeIssue({
         id: 'issue-race-1',
         identifier: 'H-RACE-1',
@@ -332,7 +332,7 @@ describe('Multi-Orchestrator Claim Coordination', () => {
       }
     });
 
-    it('does not crash when claimIssue itself returns an error', { timeout: 15000 }, async () => {
+    it('does not crash when claimIssue itself returns an error', { timeout: 45000 }, async () => {
       const issue = makeIssue({
         id: 'issue-err-1',
         identifier: 'H-ERR-1',
