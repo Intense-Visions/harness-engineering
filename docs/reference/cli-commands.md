@@ -336,7 +336,7 @@ Initialize a new harness-engineering project
 **Options:**
 
 - `-n, --name` — Project name
-- `-l, --level` — Adoption level (basic, intermediate, advanced) (default: "basic")
+- `-l, --level` — Adoption level (basic, intermediate, load-bearing-minimum, advanced) (default: "basic")
 - `-t, --template` — Specific template name (e.g. orchestrator)
 - `--framework` — Framework overlay (nextjs)
 - `--language` — Target language (typescript, python, go, rust, java)
