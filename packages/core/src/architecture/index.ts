@@ -71,6 +71,7 @@ export type {
   ArchAllowance,
   ArchAllowanceCoverage,
   AllowanceFilteredDiff,
+  LoadAllowancesOptions,
 } from './baseline-resolver';
 export { diff } from './diff';
 export { resolveThresholds } from './config';

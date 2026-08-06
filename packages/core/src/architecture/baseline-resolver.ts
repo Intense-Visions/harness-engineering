@@ -8,7 +8,7 @@ import {
   renameSync,
   writeFileSync,
 } from 'node:fs';
-import { dirname, join } from 'node:path';
+import { dirname, join, resolve } from 'node:path';
 import { z } from 'zod';
 import { ArchBaselineSchema, ArchMetricCategorySchema } from './types';
 import type {
@@ -108,6 +108,16 @@ export function resolveArchBaseline(
     return { baseline, source: baseline ? 'working-tree' : 'none' };
   };
 
+  // Escape hatch for the authoritative post-merge `refresh-baselines` job (and any other
+  // caller that must own the committed snapshot): force whole-snapshot / working-tree
+  // resolution regardless of git context. In CI the refresh job runs on a DETACHED HEAD at
+  // the merged main SHA, where branch-name detection ('main') fails and, if `origin/main`
+  // happened to be reachable, this resolver would otherwise pick `base-ref` and make
+  // `--update-baseline` write an ALLOWANCE instead of advancing the snapshot — which would
+  // never fold merged allowances in (an allowance treadmill). This env pins it to today's
+  // whole-snapshot behavior so the refresh job always advances the authoritative baseline.
+  if (process.env.HARNESS_ARCH_FORCE_WORKING_TREE) return workingTree();
+
   const baseRef = options?.baseRef ?? process.env.HARNESS_ARCH_BASE_REF ?? DEFAULT_BASE_REF;
 
   // Not a git repo → nothing to diff against; use the working-tree file.
@@ -176,21 +186,33 @@ function emptyCoverage(): ArchAllowanceCoverage {
   return { violationIds: new Set(), categoryCeilings: new Map(), files: [], reasons: [] };
 }
 
+export interface LoadAllowancesOptions {
+  /**
+   * Absolute paths to skip. Used by the WRITE path so a branch rebuilding its OWN allowance
+   * excludes its own file from the coverage filter — otherwise a re-run would only re-record
+   * the newly-uncovered violations and silently DROP the ones it acknowledged on a prior run.
+   */
+  excludeFiles?: string[];
+}
+
 /**
  * Read + aggregate every `*.json` allowance in the allowances dir. Invalid or unparseable
  * files are skipped (never a hard failure — a malformed allowance must not break the gate).
  */
 export function loadArchAllowances(
   projectRoot: string,
-  baselinePath: string
+  baselinePath: string,
+  options?: LoadAllowancesOptions
 ): ArchAllowanceCoverage {
   const dir = archAllowancesDir(projectRoot, baselinePath);
   const coverage = emptyCoverage();
   if (!existsSync(dir)) return coverage;
+  const excluded = new Set((options?.excludeFiles ?? []).map((f) => resolve(f)));
 
   for (const entry of readdirSync(dir).sort()) {
     if (!entry.endsWith('.json')) continue;
     const full = join(dir, entry);
+    if (excluded.has(resolve(full))) continue;
     let parsed: z.SafeParseReturnType<unknown, ArchAllowance>;
     try {
       parsed = ArchAllowanceSchema.safeParse(JSON.parse(readFileSync(full, 'utf-8')));

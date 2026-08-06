@@ -140,6 +140,25 @@ describe('resolveArchBaseline (base-aware)', () => {
     expect(resolution.baseline?.metrics.complexity?.value).toBe(11);
   });
 
+  it('forces working-tree resolution when $HARNESS_ARCH_FORCE_WORKING_TREE is set (refresh job)', () => {
+    // Feature branch with a reachable base ref would normally resolve base-ref; the force
+    // env pins whole-snapshot behavior so the authoritative refresh job always advances the
+    // committed snapshot (its checkout is a detached HEAD where branch detection fails).
+    initRepo(root);
+    commitBaseline(root, makeBaseline(200));
+    git(root, ['checkout', '-b', 'feature']);
+    const prev = process.env.HARNESS_ARCH_FORCE_WORKING_TREE;
+    process.env.HARNESS_ARCH_FORCE_WORKING_TREE = '1';
+    try {
+      const manager = new ArchBaselineManager(root);
+      const resolution = resolveArchBaseline(root, BASELINE_REL, manager, { baseRef: 'main' });
+      expect(resolution.source).toBe('working-tree');
+    } finally {
+      if (prev === undefined) delete process.env.HARNESS_ARCH_FORCE_WORKING_TREE;
+      else process.env.HARNESS_ARCH_FORCE_WORKING_TREE = prev;
+    }
+  });
+
   it('honors $HARNESS_ARCH_BASE_REF as the default base ref', () => {
     initRepo(root);
     commitBaseline(root, makeBaseline(64));
@@ -205,6 +224,29 @@ describe('arch allowances', () => {
     expect([...coverage.violationIds].sort()).toEqual(['v1', 'v2']);
     expect(coverage.categoryCeilings.get('complexity')).toBe(350); // max, not sum
     expect(coverage.files).toHaveLength(2);
+  });
+
+  it('excludeFiles skips the named allowance file (WRITE-path own-file exclusion)', () => {
+    const dir = archAllowancesDir(root, BASELINE_REL);
+    mkdirSync(dir, { recursive: true });
+    const own = join(dir, 'feature.json');
+    writeFileSync(
+      own,
+      JSON.stringify({ reason: 'mine', categories: { complexity: 300 }, violationIds: ['a'] })
+    );
+    writeFileSync(
+      join(dir, 'other.json'),
+      JSON.stringify({ reason: 'theirs', categories: { coupling: 40 }, violationIds: ['b'] })
+    );
+
+    const all = loadArchAllowances(root, BASELINE_REL);
+    expect([...all.violationIds].sort()).toEqual(['a', 'b']);
+
+    const excludingOwn = loadArchAllowances(root, BASELINE_REL, { excludeFiles: [own] });
+    // The branch's own file is skipped, so only the OTHER branch's coverage remains.
+    expect([...excludingOwn.violationIds]).toEqual(['b']);
+    expect(excludingOwn.categoryCeilings.has('complexity')).toBe(false);
+    expect(excludingOwn.categoryCeilings.get('coupling')).toBe(40);
   });
 
   it('returns empty coverage when the allowances dir is absent', () => {

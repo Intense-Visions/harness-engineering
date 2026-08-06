@@ -719,4 +719,94 @@ describe('check-arch: base-aware gating + allowances (PR context)', () => {
       fs.rmSync(ctx.tmpDir, { recursive: true, force: true });
     }
   });
+
+  // FINDING 1: the authoritative refresh job (HARNESS_ARCH_FORCE_WORKING_TREE) must ADVANCE
+  // the committed snapshot past a merged regression via --allow-regress --reason — NOT write
+  // an allowance — so merged allowances actually get folded in (no allowance treadmill).
+  it('with HARNESS_ARCH_FORCE_WORKING_TREE, --update-baseline --allow-regress advances the snapshot (not an allowance)', async () => {
+    const ctx = await seedPrContext(); // feature branch, module-size regressed vs base
+    const prevForce = process.env.HARNESS_ARCH_FORCE_WORKING_TREE;
+    process.env.HARNESS_ARCH_FORCE_WORKING_TREE = '1';
+    try {
+      const before = JSON.parse(fs.readFileSync(ctx.baselinePath, 'utf-8'));
+      const result = await runCheckArch({
+        cwd: ctx.tmpDir,
+        configPath: ctx.configPath,
+        updateBaseline: true,
+        allowRegress: true,
+        reason: 'post-merge refresh: fold merged allowances into the authoritative snapshot',
+      });
+      expect(result.ok).toBe(true);
+      if (result.ok) expect(result.value.baselineUpdated).toBe(true);
+
+      // The committed snapshot ADVANCED (module-size grew) — the regression was absorbed.
+      const after = JSON.parse(fs.readFileSync(ctx.baselinePath, 'utf-8'));
+      expect(after.metrics['module-size'].value).toBeGreaterThan(
+        before.metrics['module-size'].value
+      );
+      // And NO allowance was written (forced whole-snapshot path, not the PR path).
+      expect(fs.existsSync(ctx.allowancesDir)).toBe(false);
+    } finally {
+      if (prevForce === undefined) delete process.env.HARNESS_ARCH_FORCE_WORKING_TREE;
+      else process.env.HARNESS_ARCH_FORCE_WORKING_TREE = prevForce;
+      ctx.restore();
+      fs.rmSync(ctx.tmpDir, { recursive: true, force: true });
+    }
+  });
+
+  // FINDING 2: iterative `--update-baseline` on a branch must ACCUMULATE acknowledged
+  // violations, never drop a previously-acknowledged one when a new violation is added.
+  it('iterative --update-baseline accumulates acknowledged violationIds (never drops the prior set)', async () => {
+    const longFn = (name: string): string =>
+      `export function ${name}() {\n` +
+      Array.from({ length: 60 }, (_, i) => `  const _${i} = ${i};`).join('\n') +
+      `\n  return 0;\n}\n`;
+
+    const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'check-arch-iter-'));
+    execFileSync('git', ['init', '-b', 'main'], { cwd: tmpDir, stdio: 'ignore' });
+    execFileSync('git', ['config', 'user.email', 't@e.com'], { cwd: tmpDir, stdio: 'ignore' });
+    execFileSync('git', ['config', 'user.name', 'T'], { cwd: tmpDir, stdio: 'ignore' });
+    const configPath = path.join(tmpDir, 'harness.config.json');
+    fs.writeFileSync(configPath, JSON.stringify({ version: 1, architecture: { enabled: true } }));
+    fs.writeFileSync(path.join(tmpDir, 'code.ts'), 'export const x = 1;\n');
+    // Baseline on main (no long functions → no functionLength violations), committed.
+    await runCheckArch({ cwd: tmpDir, configPath, updateBaseline: true });
+    execFileSync('git', ['add', '-A'], { cwd: tmpDir, stdio: 'ignore' });
+    execFileSync('git', ['commit', '-m', 'seed'], { cwd: tmpDir, stdio: 'ignore' });
+    execFileSync('git', ['checkout', '-b', 'feature'], { cwd: tmpDir, stdio: 'ignore' });
+
+    const prev = process.env.HARNESS_ARCH_BASE_REF;
+    process.env.HARNESS_ARCH_BASE_REF = 'main';
+    const allowanceFile = path.join(tmpDir, '.harness', 'arch', 'allowances', 'feature.json');
+    try {
+      // Run 1: acknowledge the first long function (in its own file → stable, distinct id).
+      fs.writeFileSync(path.join(tmpDir, 'foo.ts'), longFn('foo'));
+      const r1 = await runCheckArch({
+        cwd: tmpDir,
+        configPath,
+        updateBaseline: true,
+        reason: 'accepted growth R1',
+      });
+      expect(r1.ok).toBe(true);
+      const ids1: string[] = JSON.parse(fs.readFileSync(allowanceFile, 'utf-8')).violationIds;
+      expect(ids1.length).toBeGreaterThanOrEqual(1);
+
+      // Run 2: add a SECOND long function, re-run WITHOUT --reason (reason must be reused).
+      fs.writeFileSync(path.join(tmpDir, 'bar.ts'), longFn('bar'));
+      const r2 = await runCheckArch({ cwd: tmpDir, configPath, updateBaseline: true });
+      expect(r2.ok).toBe(true);
+      const allowance2 = JSON.parse(fs.readFileSync(allowanceFile, 'utf-8'));
+      const ids2: string[] = allowance2.violationIds;
+
+      // The prior acknowledgment is PRESERVED and the new one is ADDED (no silent drop).
+      for (const id of ids1) expect(ids2).toContain(id);
+      expect(ids2.length).toBeGreaterThan(ids1.length);
+      // The reason from run 1 was reused (bare re-run needs no new --reason).
+      expect(allowance2.reason).toBe('accepted growth R1');
+    } finally {
+      if (prev === undefined) delete process.env.HARNESS_ARCH_BASE_REF;
+      else process.env.HARNESS_ARCH_BASE_REF = prev;
+      fs.rmSync(tmpDir, { recursive: true, force: true });
+    }
+  });
 });

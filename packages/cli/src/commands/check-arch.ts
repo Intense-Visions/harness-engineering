@@ -11,6 +11,9 @@ import {
   loadArchAllowances,
   filterDiffByAllowances,
   writeArchAllowance,
+  archAllowancesDir,
+  archAllowanceSlug,
+  ArchAllowanceSchema,
 } from '@harness-engineering/core';
 import type {
   ArchConfig,
@@ -172,6 +175,17 @@ function buildAllowance(
   };
 }
 
+/** The `reason` recorded in an existing allowance file, if it parses; else undefined. */
+function existingAllowanceReason(ownFile: string): string | undefined {
+  if (!fs.existsSync(ownFile)) return undefined;
+  try {
+    const parsed = ArchAllowanceSchema.safeParse(JSON.parse(fs.readFileSync(ownFile, 'utf-8')));
+    return parsed.success ? parsed.data.reason : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
 /**
  * PR-context `--update-baseline`: write a uniquely-named per-PR ALLOWANCE file instead of
  * rewriting the shared snapshot (which is what caused the baselines.json merge cascade).
@@ -192,7 +206,12 @@ function writeAllowanceUpdate(
   const errorNew = rawDiff.newViolations.filter((v) => v.severity === 'error');
   if (errorNew.length > 0) return Err(errorSeverityRefusal(errorNew));
 
-  const coverage = loadArchAllowances(cwd, archConfig.baselinePath);
+  // Exclude THIS branch's own allowance from the coverage filter so a re-run rebuilds the
+  // FULL set of the branch's acknowledged violations vs base — not just the newly-uncovered
+  // ones. Otherwise iterating (ack A, later add B) would rewrite the file as {B} and DROP A.
+  const slug = archAllowanceSlug(cwd);
+  const ownFile = path.join(archAllowancesDir(cwd, archConfig.baselinePath), `${slug}.json`);
+  const coverage = loadArchAllowances(cwd, archConfig.baselinePath, { excludeFiles: [ownFile] });
   const filtered = filterDiffByAllowances(rawDiff, coverage);
   if (filtered.newViolations.length === 0 && filtered.regressions.length === 0) {
     return Ok(
@@ -203,12 +222,16 @@ function writeAllowanceUpdate(
     );
   }
 
-  if (!reason || reason.trim() === '') return Err(missingReasonError(archConfig.baselinePath));
+  // A bare `--update-baseline` re-run (no new --reason) reuses the reason already recorded
+  // in this branch's own allowance, so iterating never demands the reason be re-typed.
+  const effectiveReason = reason?.trim() || existingAllowanceReason(ownFile);
+  if (!effectiveReason) return Err(missingReasonError(archConfig.baselinePath));
 
   const file = writeArchAllowance(
     cwd,
     archConfig.baselinePath,
-    buildAllowance(filtered, reason, cwd)
+    buildAllowance(filtered, effectiveReason, cwd),
+    slug
   );
   return Ok(
     cleanBaselineResult({

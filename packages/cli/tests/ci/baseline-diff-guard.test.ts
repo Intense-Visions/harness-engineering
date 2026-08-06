@@ -81,7 +81,10 @@ describe('assertBaselineOnly', () => {
 
 describe('ci.yml refresh-baselines self-approval guard', () => {
   const wf = parse(raw) as {
-    jobs: Record<string, { steps: Array<{ run?: string; name?: string }> }>;
+    jobs: Record<
+      string,
+      { steps: Array<{ run?: string; name?: string; env?: Record<string, string> }> }
+    >;
   };
   const refreshStep = Object.values(wf.jobs)
     .flatMap((j) => j.steps)
@@ -105,5 +108,18 @@ describe('ci.yml refresh-baselines self-approval guard', () => {
 
   it('deletes consumed per-PR allowances so they never accumulate on main', () => {
     expect(stepRun).toMatch(/rm -f .*\.harness\/arch\/allowances\/\*\.json/);
+  });
+
+  it('advances the authoritative snapshot past merged allowances (--allow-regress + force env)', () => {
+    // FINDING 1: without --allow-regress the post-merge refresh hits the #530 guard (merged
+    // code regresses vs the un-advanced committed baseline) and the baseline never advances;
+    // without the force env the detached-HEAD checkout could resolve base-ref and write an
+    // allowance instead of advancing. Both must be present on the refresh check-arch step.
+    const refreshCheckArch = Object.values(wf.jobs)
+      .flatMap((j) => j.steps)
+      .find((s) => (s.run ?? '').includes('check-arch --update-baseline'));
+    expect(refreshCheckArch).toBeDefined();
+    expect(refreshCheckArch?.run).toMatch(/check-arch --update-baseline --allow-regress --reason/);
+    expect(refreshCheckArch?.env?.HARNESS_ARCH_FORCE_WORKING_TREE).toBe('1');
   });
 });
