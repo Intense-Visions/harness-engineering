@@ -215,6 +215,8 @@ import {
   cliErgonomicsCraftDefinition,
   handleCliErgonomicsCraft,
 } from './tools/cli-ergonomics-craft.js';
+// craft-pipeline: api-craft LLM-judgment skill (API quality, per-surface critique).
+import { apiCraftDefinition, handleApiCraft } from './tools/api-craft.js';
 import { outcomeEvalDefinition, handleOutcomeEval } from './tools/outcome-eval.js';
 import { acceptanceEvalDefinition, handleAcceptanceEval } from './tools/acceptance-eval.js';
 // strategic-anchor: STRATEGY.md read/validate/write tools so skills don't have
@@ -348,6 +350,7 @@ const TOOL_DEFINITIONS: ToolDefinition[] = [
   docsCraftDefinition,
   codeCraftDefinition,
   cliErgonomicsCraftDefinition,
+  apiCraftDefinition,
   outcomeEvalDefinition,
   acceptanceEvalDefinition,
   validateStrategyDefinition,
@@ -454,6 +457,7 @@ const TOOL_HANDLERS: Record<string, ToolHandler> = {
   docs_craft: handleDocsCraft as unknown as ToolHandler,
   code_craft: handleCodeCraft as unknown as ToolHandler,
   cli_ergonomics_craft: handleCliErgonomicsCraft as unknown as ToolHandler,
+  api_craft: handleApiCraft as unknown as ToolHandler,
   outcome_eval: handleOutcomeEval as unknown as ToolHandler,
   acceptance_eval: handleAcceptanceEval as unknown as ToolHandler,
   validate_strategy: handleValidateStrategy as unknown as ToolHandler,

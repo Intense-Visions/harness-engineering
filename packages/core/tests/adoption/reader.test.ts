@@ -95,6 +95,52 @@ describe('readAdoptionRecords', () => {
     stderrSpy.mockRestore();
   });
 
+  it('preserves a valid failureCategory field', () => {
+    const record = {
+      skill: 'harness-execution',
+      session: 'sess-fc',
+      startedAt: '2026-04-09T10:00:00.000Z',
+      duration: 1000,
+      outcome: 'failed',
+      phasesReached: ['prepare'],
+      failureCategory: 'gate-rejected',
+    };
+    fs.writeFileSync(adoptionFile, JSON.stringify(record) + '\n');
+    const records = readAdoptionRecords(tmpDir);
+    expect(records[0]!.failureCategory).toBe('gate-rejected');
+  });
+
+  it('drops an unrecognized failureCategory value', () => {
+    const record = {
+      skill: 'harness-execution',
+      session: 'sess-bad',
+      startedAt: '2026-04-09T10:00:00.000Z',
+      duration: 1000,
+      outcome: 'failed',
+      phasesReached: [],
+      failureCategory: 'not-a-real-category',
+    };
+    fs.writeFileSync(adoptionFile, JSON.stringify(record) + '\n');
+    const records = readAdoptionRecords(tmpDir);
+    expect(records).toHaveLength(1);
+    expect(records[0]!.failureCategory).toBeUndefined();
+  });
+
+  it('parses back-compat records that lack failureCategory', () => {
+    const record = {
+      skill: 'harness-brainstorming',
+      session: 'sess-old',
+      startedAt: '2026-04-09T10:00:00.000Z',
+      duration: 1000,
+      outcome: 'failed',
+      phasesReached: [],
+    };
+    fs.writeFileSync(adoptionFile, JSON.stringify(record) + '\n');
+    const records = readAdoptionRecords(tmpDir);
+    expect(records).toHaveLength(1);
+    expect(records[0]!.failureCategory).toBeUndefined();
+  });
+
   it('skips blank lines without warning', () => {
     const valid = {
       skill: 'harness-brainstorming',

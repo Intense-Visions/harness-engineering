@@ -430,6 +430,19 @@ Parse a git diff and check for forbidden patterns, oversized files, and missing 
 - `maxFileSize` (number, optional) — Maximum number of lines changed per file before flagging
 - `maxFileCount` (number, optional) — Maximum number of changed files before flagging
 
+### `api_craft`
+
+LLM-judgment critique of API quality — the ceiling counterpart to rule-based API checks (OpenAPI-format and webhook-format compliance). Asks the ceiling questions a linter cannot: do resources model the domain rather than the implementation, is the resource naming and URL structure predictable (path vs query param), are HTTP methods honest, are status codes correct, do error responses tell the consumer what to do, are response shapes predictable and consistent, do collections paginate and filter consistently, are mutations idempotency-honest, and does the API evolve without breaking consumers. Discovers a project’s own API surface — OpenAPI/Swagger documents and route/handler definitions — and critiques each per file. 9 seed rubrics; a curated exemplar set (Stripe / Linear / GitHub / Resend / Anthropic) anchors the catalog. Emits 3-axis findings (tier x impact x confidence per ADR 0019). Structural twin of cli_ergonomics_craft.
+
+**Parameters:**
+
+- `path` (string, required) — Project root path
+- `files` (array, optional) — Optional file scope (overrides API-surface discovery)
+- `routesDir` (string, optional) — Directory of route/handler definitions to critique
+- `specFile` (string, optional) — Explicit OpenAPI/Swagger document to critique
+- `excludeDirs` (array, optional) — Extra subdir names to skip while walking
+- `maxFiles` (number, optional) — Cap surface count (default: 60)
+
 ### `audit_anatomy`
 
 Audit components for anatomy completeness. Emits ANAT-D* findings for component definitions missing required slots/states (e.g., Button missing `content`). In v1 vertical slice runs the component conventions, plus 10 ANAT-P* composition patterns (missing empty/loading/error states, modal dismiss, submit feedback, list keys, route 404, destructive-action confirm, …) in full mode.
@@ -597,7 +610,7 @@ Scaffold a new harness engineering project from a template
 
 - `path` (string, required) — Target directory
 - `name` (string, optional) — Project name
-- `level` (string, optional) — Adoption level (JS/TS only). load-bearing-minimum sits between intermediate and advanced: ESLint + complexity cap 15 + module-size cap + multi-persona review + outcome-eval.
+- `level` (string, optional) — Adoption level (JS/TS only). Defaults to load-bearing-minimum, which sits between intermediate and advanced: ESLint + complexity cap 15 + module-size cap + multi-persona review + outcome-eval — the minimum that holds when the senior reviewer is away. Use basic for the lightest touch.
 - `framework` (string, optional) — Framework overlay (e.g., nextjs, fastapi, gin)
 - `language` (string, optional) — Target language
 

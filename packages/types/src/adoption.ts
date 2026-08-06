@@ -1,4 +1,49 @@
 /**
+ * Closed taxonomy of *why* a skill invocation did not complete. Recorded on
+ * `SkillInvocationRecord.failureCategory` so downstream consumers (the
+ * skill-effectiveness scorer and the catalog retrospective) can distinguish
+ * failure reasons instead of treating every non-completed run as undifferentiated
+ * noise.
+ *
+ * The categories are intentionally small and mutually exclusive:
+ * - `prerequisite-missing` — a required precondition/input was absent (e.g. a
+ *   missing spec, config, or upstream artifact) so the skill could not start.
+ * - `gate-rejected` — a mechanical or evaluative gate returned a failing verdict
+ *   (a failed `gate_result`, or an outcome/verify evaluation that was not
+ *   satisfied).
+ * - `user-cancelled` — a human aborted, interrupted, or declined to continue.
+ * - `timeout` — the run exceeded a time budget / deadline.
+ * - `dependency-failure` — an upstream dependency or blocking skill failed,
+ *   leaving this run unable to proceed.
+ * - `agent-error` — an unclassified execution error the agent hit (the default
+ *   for a recorded error with no more specific signal).
+ * - `inconclusive` — the run stopped without a determinable pass/fail verdict.
+ */
+export type FailureCategory =
+  | 'prerequisite-missing'
+  | 'gate-rejected'
+  | 'user-cancelled'
+  | 'timeout'
+  | 'dependency-failure'
+  | 'agent-error'
+  | 'inconclusive';
+
+/**
+ * The full closed set of {@link FailureCategory} values, in a stable order.
+ * Exported so producers and consumers can validate against a single source of
+ * truth. Keep in sync with the derivation table in the adoption-tracker hook.
+ */
+export const FAILURE_CATEGORIES: readonly FailureCategory[] = [
+  'prerequisite-missing',
+  'gate-rejected',
+  'user-cancelled',
+  'timeout',
+  'dependency-failure',
+  'agent-error',
+  'inconclusive',
+];
+
+/**
  * A single skill invocation record stored in adoption.jsonl.
  * One line per invocation, appended by the adoption-tracker hook.
  */
@@ -19,6 +64,13 @@ export interface SkillInvocationRecord {
   tier?: number;
   /** How the skill was triggered. Absent when not derivable from events. */
   trigger?: string;
+  /**
+   * Why a non-completed run stopped. Absent for completed runs and for
+   * non-completed runs whose reason cannot be determined from the event stream
+   * (the reason is genuinely unknown rather than guessed). Optional and additive:
+   * records written before this field existed still parse.
+   */
+  failureCategory?: FailureCategory;
 }
 
 /**

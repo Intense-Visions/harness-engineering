@@ -1,5 +1,24 @@
 import type { SignalPoint, SignalResult } from './types';
 
+/**
+ * The canonical rolling window (in days) shared by every curated signal and by
+ * the composed Holiday Confidence KPI. Providers may still declare their own
+ * local `WINDOW_DAYS`, but new consumers should default to this so the window is
+ * defined in one place.
+ */
+export const DEFAULT_WINDOW_DAYS = 30;
+
+/**
+ * Marker emitted in a GitHub PR review body by the multi-persona review pipeline
+ * (`core/src/review/output/format-github.ts` → `formatGitHubSummary`). A merged PR
+ * is considered to have had a multi-persona review iff at least one of its review
+ * bodies contains this string. Exported so every consumer (the
+ * `pr-merged-without-multi-persona-review` signal and the Holiday Confidence KPI)
+ * shares one definition and cannot drift apart. If the pipeline ever changes its
+ * summary header, this single const is the only thing to update.
+ */
+export const ASSESSMENT_MARKER = '## Assessment:';
+
 /** Truncate an ISO timestamp to a `YYYY-MM-DD` date string (UTC). */
 export function toDate(iso: string): string {
   return iso.slice(0, 10);

@@ -1,7 +1,8 @@
 import { execFile } from 'node:child_process';
-import type { IdentityResponse } from '../shared/types';
+import type { ResolvedIdentity } from '../shared/types';
+import { coerceRole, type DashboardRole } from '../shared/roles';
 
-let pending: Promise<IdentityResponse | null> | null = null;
+let pending: Promise<ResolvedIdentity | null> | null = null;
 
 function execAsync(cmd: string, args: string[]): Promise<string> {
   return new Promise<string>((resolve, reject) => {
@@ -15,7 +16,7 @@ function execAsync(cmd: string, args: string[]): Promise<string> {
   });
 }
 
-async function resolveFromGithubApi(): Promise<IdentityResponse | null> {
+async function resolveFromGithubApi(): Promise<ResolvedIdentity | null> {
   const token = process.env['GITHUB_TOKEN'];
   if (!token) return null;
   try {
@@ -35,7 +36,7 @@ async function resolveFromGithubApi(): Promise<IdentityResponse | null> {
   return null;
 }
 
-async function resolveFromGhCli(): Promise<IdentityResponse | null> {
+async function resolveFromGhCli(): Promise<ResolvedIdentity | null> {
   try {
     const login = await execAsync('gh', ['api', 'user', '--jq', '.login']);
     if (login) return { username: login, source: 'gh-cli' };
@@ -45,7 +46,7 @@ async function resolveFromGhCli(): Promise<IdentityResponse | null> {
   return null;
 }
 
-async function resolveFromGitConfig(): Promise<IdentityResponse | null> {
+async function resolveFromGitConfig(): Promise<ResolvedIdentity | null> {
   try {
     const name = await execAsync('git', ['config', 'user.name']);
     if (name) return { username: name, source: 'git-config' };
@@ -55,7 +56,7 @@ async function resolveFromGitConfig(): Promise<IdentityResponse | null> {
   return null;
 }
 
-async function resolveInner(): Promise<IdentityResponse | null> {
+async function resolveInner(): Promise<ResolvedIdentity | null> {
   return (
     (await resolveFromGithubApi()) ?? (await resolveFromGhCli()) ?? (await resolveFromGitConfig())
   );
@@ -66,7 +67,7 @@ async function resolveInner(): Promise<IdentityResponse | null> {
  * Waterfall: GitHub API -> gh CLI -> git config. Cached for server lifetime.
  * Concurrent calls share the same in-flight promise to avoid redundant API calls.
  */
-export async function resolveIdentity(): Promise<IdentityResponse | null> {
+export async function resolveIdentity(): Promise<ResolvedIdentity | null> {
   if (!pending) {
     pending = resolveInner();
   }
@@ -76,4 +77,17 @@ export async function resolveIdentity(): Promise<IdentityResponse | null> {
 /** Clear cached identity (for testing). */
 export function clearIdentityCache(): void {
   pending = null;
+}
+
+/**
+ * Resolve the dashboard `role` preference from the environment.
+ *
+ * Reads `HARNESS_DASHBOARD_ROLE` and validates it against the known roles,
+ * defaulting to `dev` when unset or invalid. This is a PRESENTATION-ONLY
+ * preference (it selects the client's navigation lane); it is not a security
+ * boundary and is intentionally not cached, so an operator can change lanes by
+ * restarting with a different value.
+ */
+export function resolveRole(): DashboardRole {
+  return coerceRole(process.env['HARNESS_DASHBOARD_ROLE']);
 }

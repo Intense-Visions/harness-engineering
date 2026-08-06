@@ -26,6 +26,8 @@ interface SkillCounts {
   completed: number;
   failed: number;
   abandonedMidWorkflow: number;
+  /** Non-completed runs tallied by FailureCategory (only observed keys present). */
+  failureCategories: Record<string, number>;
 }
 
 /**
@@ -42,6 +44,28 @@ function isAbandonedMidWorkflow(record: SkillInvocationRecord): boolean {
   return record.outcome !== 'completed' && record.phasesReached.length > 0;
 }
 
+function emptyCounts(): SkillCounts {
+  return {
+    invocations: 0,
+    completed: 0,
+    failed: 0,
+    abandonedMidWorkflow: 0,
+    failureCategories: {},
+  };
+}
+
+/** Fold a single record's outcome and failure category into the running counts. */
+function tallyRecord(counts: SkillCounts, record: SkillInvocationRecord): void {
+  counts.invocations += 1;
+  if (record.outcome === 'completed') counts.completed += 1;
+  else if (record.outcome === 'failed') counts.failed += 1;
+  if (isAbandonedMidWorkflow(record)) counts.abandonedMidWorkflow += 1;
+  const category = record.failureCategory;
+  if (category) {
+    counts.failureCategories[category] = (counts.failureCategories[category] ?? 0) + 1;
+  }
+}
+
 /**
  * Traverse the records once and tally per-skill outcome counts. Records whose
  * `skill` is missing or empty are ignored.
@@ -56,13 +80,10 @@ function gatherCounts(records: SkillInvocationRecord[]): Map<string, SkillCounts
     if (typeof skill !== 'string' || skill.length === 0) continue;
     let counts = map.get(skill);
     if (!counts) {
-      counts = { invocations: 0, completed: 0, failed: 0, abandonedMidWorkflow: 0 };
+      counts = emptyCounts();
       map.set(skill, counts);
     }
-    counts.invocations += 1;
-    if (record.outcome === 'completed') counts.completed += 1;
-    else if (record.outcome === 'failed') counts.failed += 1;
-    if (isAbandonedMidWorkflow(record)) counts.abandonedMidWorkflow += 1;
+    tallyRecord(counts, record);
   }
   return map;
 }
@@ -142,6 +163,7 @@ export function detectFailingSkills(
       failed: counts.failed,
       failureRate,
       smoothedSuccessRate: smoothedSuccessRate(counts),
+      failureCategories: { ...counts.failureCategories },
     });
   }
 

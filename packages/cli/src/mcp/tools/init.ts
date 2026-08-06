@@ -22,7 +22,7 @@ export const initProjectDefinition = {
         type: 'string',
         enum: ['basic', 'intermediate', 'load-bearing-minimum', 'advanced'],
         description:
-          'Adoption level (JS/TS only). load-bearing-minimum sits between intermediate and advanced: ESLint + complexity cap 15 + module-size cap + multi-persona review + outcome-eval.',
+          'Adoption level (JS/TS only). Defaults to load-bearing-minimum, which sits between intermediate and advanced: ESLint + complexity cap 15 + module-size cap + multi-persona review + outcome-eval — the minimum that holds when the senior reviewer is away. Use basic for the lightest touch.',
       },
       framework: { type: 'string', description: 'Framework overlay (e.g., nextjs, fastapi, gin)' },
       language: {
@@ -105,7 +105,7 @@ function scaffoldMcp(
   language: string | undefined
 ): McpToolResponse {
   const isNonJs = language && language !== 'typescript';
-  const level = isNonJs ? undefined : (i.level ?? 'basic');
+  const level = isNonJs ? undefined : (i.level ?? 'load-bearing-minimum');
 
   const resolveResult = engine.resolveTemplate(level, i.framework, language);
   if (!resolveResult.ok) return resultToMcpResponse(resolveResult);
