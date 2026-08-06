@@ -70,18 +70,72 @@ function buildGitLabRules(triggers: PersonaTrigger[]): Record<string, unknown>[]
   return rules;
 }
 
+/**
+ * Options controlling how the GitHub Actions workflow is shaped.
+ *
+ * The defaults reproduce the adopter-facing shape (a published `harness` CLI
+ * invoked via `npx`, no build step, blocking on findings). The `workspace`
+ * runner and `advisory` flag exist for repos that build the CLI from source and
+ * want the persona jobs wired non-blocking first — matching how this repo
+ * dogfoods `required-review.yml` / `pr-advisory-checks.yml`.
+ *
+ * These options only affect the GitHub platform; GitLab output is unchanged.
+ */
+export interface CIWorkflowOptions {
+  /**
+   * How the harness CLI is invoked in each command step.
+   *  - `npx` (default): `npx harness <command>` — for adopters who install the
+   *    published `@harness-engineering/cli`.
+   *  - `workspace`: `node packages/cli/dist/bin/harness.js <command>`, preceded
+   *    by `pnpm install` + `pnpm build`, node 22, full git history. For repos
+   *    where the CLI IS the source (dogfooding).
+   */
+  runner?: 'npx' | 'workspace';
+  /**
+   * When true, each command step is wrapped so a finding is surfaced as a
+   * GitHub `::warning::` annotation (and in the log) but never fails the step —
+   * the check reads green-with-warnings rather than red. Persona commands exit
+   * non-zero on any finding, so without this an advisory persona would show red
+   * on every PR. Mirrors how blocking gates are introduced non-blocking first;
+   * promoting a persona to a blocking gate means generating without `advisory`.
+   */
+  advisory?: boolean;
+}
+
+/**
+ * The only `harness` subcommands that accept a `--severity` flag. Appending it
+ * to any other command hard-errors under commander (`unknown option`), which —
+ * with job-level `continue-on-error` — silently skips every subsequent step. So
+ * the flag must be added per-command, not blanket-appended to the whole list.
+ *
+ * Verified against the built CLI: `check-security` is the only persona-invoked
+ * command that declares `--severity`; `validate`, `check-perf`, `check-deps`,
+ * `check-docs`, `cleanup`, `fix-drift` all reject it.
+ */
+const SEVERITY_AWARE_COMMANDS = new Set(['check-security']);
+
+/** The `--severity <level>` suffix for `command`, or '' when it takes no such flag. */
+function severityFlagFor(command: string, severity: string | undefined): string {
+  if (!severity) return '';
+  const leading = command.trim().split(/\s+/)[0];
+  return SEVERITY_AWARE_COMMANDS.has(leading ?? '') ? ` --severity ${severity}` : '';
+}
+
 export function generateCIWorkflow(
   persona: Persona,
-  platform: 'github' | 'gitlab'
+  platform: 'github' | 'gitlab',
+  options: CIWorkflowOptions = {}
 ): Result<string, Error> {
   try {
+    const runner = options.runner ?? 'npx';
     const severity = persona.config.severity;
-    const severityFlag = severity ? ` --severity ${severity}` : '';
     // Only emit command steps in CI (skill steps require AI agent runtime).
     const commandSteps = persona.steps.filter((s): s is CommandStep => 'command' in s);
 
     if (platform === 'gitlab') {
-      const script = commandSteps.map((step) => `npx harness ${step.command}${severityFlag}`);
+      const script = commandSteps.map(
+        (step) => `npx harness ${step.command}${severityFlagFor(step.command, severity)}`
+      );
       const rules = buildGitLabRules(persona.triggers);
       const enforce: Record<string, unknown> = {
         image: 'node:20',
@@ -98,25 +152,59 @@ export function generateCIWorkflow(
       return Ok(YAML.stringify(pipeline, { lineWidth: 0 }));
     }
 
-    const steps: Record<string, unknown>[] = [
-      { uses: 'actions/checkout@v4' },
-      { uses: 'actions/setup-node@v4', with: { 'node-version': '20' } },
-      { uses: 'pnpm/action-setup@v4', with: { run_install: 'frozen' } },
-    ];
+    const steps: Record<string, unknown>[] =
+      runner === 'workspace'
+        ? [
+            // Full history so git-history-driven commands (hotspots, churn,
+            // graph scan) have the data they need.
+            { uses: 'actions/checkout@v6', with: { 'fetch-depth': 0 } },
+            { uses: 'pnpm/action-setup@v5' },
+            { uses: 'actions/setup-node@v6', with: { 'node-version': 22, cache: 'pnpm' } },
+            { run: 'pnpm install --frozen-lockfile' },
+            // The CLI IS this repo's source; build the workspace bin before use.
+            { run: 'pnpm build' },
+          ]
+        : [
+            { uses: 'actions/checkout@v4' },
+            { uses: 'actions/setup-node@v4', with: { 'node-version': '20' } },
+            { uses: 'pnpm/action-setup@v4', with: { run_install: 'frozen' } },
+          ];
+
+    const invoke = runner === 'workspace' ? 'node packages/cli/dist/bin/harness.js' : 'npx harness';
     for (const step of commandSteps) {
-      steps.push({ run: `npx harness ${step.command}${severityFlag}` });
+      const cmd = `${invoke} ${step.command}${severityFlagFor(step.command, severity)}`;
+      if (options.advisory) {
+        // Advisory: surface findings as a GitHub warning annotation but do NOT
+        // fail the step, so the check reads green-with-warnings instead of a
+        // perennial red on every PR (the persona commands legitimately exit
+        // non-zero whenever they find something). The command's full output
+        // still lands in the job log. A blocking gate would drop the `|| :`.
+        steps.push({
+          run: `${cmd} || echo "::warning::advisory persona check '${step.command}' reported findings (non-blocking)"`,
+        });
+      } else {
+        steps.push({ run: cmd });
+      }
     }
 
-    const workflow = {
+    const job: Record<string, unknown> = { 'runs-on': 'ubuntu-latest' };
+    job.steps = steps;
+
+    const workflow: Record<string, unknown> = {
       name: persona.name,
       on: buildGitHubTriggers(persona.triggers),
-      jobs: {
-        enforce: {
-          'runs-on': 'ubuntu-latest',
-          steps,
-        },
-      },
     };
+    if (runner === 'workspace') {
+      // Cancel superseded runs on rapid pushes so advisory jobs don't pile up
+      // (matches harness.yml / pr-advisory-checks.yml).
+      workflow.concurrency = {
+        group: '${{ github.workflow }}-${{ github.ref }}',
+        'cancel-in-progress': true,
+      };
+    }
+    // These jobs only read the tree; least-privilege token.
+    workflow.permissions = { contents: 'read' };
+    workflow.jobs = { enforce: job };
 
     return Ok(YAML.stringify(workflow, { lineWidth: 0 }));
   } catch (error) {

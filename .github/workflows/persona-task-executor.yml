@@ -1,0 +1,41 @@
+# GENERATED FILE — do not edit by hand.
+# Source persona: agents/personas/task-executor.yaml (outputs.ci-workflow: true)
+# Regenerate:   pnpm generate:persona-workflows
+# Drift guard:  pnpm generate:persona-workflows:check  (enforced in CI)
+#
+# Advisory (warn-not-fail): a finding is surfaced as a ::warning:: but the check stays green. Honors the persona's declared triggers at the
+# CLI-command tier. The persona's LLM/agent-runtime (skill) steps are not run
+# here — a persona review that needs an agent runtime is delivered separately.
+
+name: Task Executor
+on:
+  pull_request:
+    paths:
+      - src/**
+      - packages/**
+  push:
+    branches:
+      - main
+      - develop
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+permissions:
+  contents: read
+jobs:
+  enforce:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+      - uses: pnpm/action-setup@v5
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm build
+      - run: node packages/cli/dist/bin/harness.js validate || echo "::warning::advisory persona check 'validate' reported findings (non-blocking)"
+      - run: node packages/cli/dist/bin/harness.js check-deps || echo "::warning::advisory persona check 'check-deps' reported findings (non-blocking)"
+      - run: node packages/cli/dist/bin/harness.js scan || echo "::warning::advisory persona check 'scan' reported findings (non-blocking)"

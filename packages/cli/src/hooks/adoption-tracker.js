@@ -32,7 +32,9 @@ function isAdoptionEnabled(cwd) {
 /** Read the cursor offset for events.jsonl processing. */
 function readEventsCursor(cwd) {
   try {
-    const data = JSON.parse(readFileSync(join(cwd, '.harness', 'metrics', ADOPTION_CURSOR_FILE), 'utf-8'));
+    const data = JSON.parse(
+      readFileSync(join(cwd, '.harness', 'metrics', ADOPTION_CURSOR_FILE), 'utf-8')
+    );
     return typeof data.offset === 'number' ? data.offset : 0;
   } catch {
     return 0;
@@ -85,6 +87,57 @@ function deriveOutcome(events) {
   if (hasHandoff || hasFinalPhase) return 'completed';
   if (hasError) return 'failed';
   return 'abandoned';
+}
+
+/**
+ * Failure-reason taxonomy (keep in sync with FAILURE_CATEGORIES in
+ * @harness-engineering/types). Each rule maps a keyword pattern found in an
+ * error event's `failureType` to a category; the first match wins.
+ */
+const FAILURE_CATEGORY_RULES = [
+  [/timeout|timed[-_ ]?out|deadline/i, 'timeout'],
+  [/cancel|abort|interrupt|user[-_ ]?stop|declin/i, 'user-cancelled'],
+  [/prereq|prerequisite|precondition|not[-_ ]?found|missing/i, 'prerequisite-missing'],
+  [/depend|upstream|blocked|blocker/i, 'dependency-failure'],
+  [/gate|reject|verify|unsatisf|not[-_ ]?satisf|outcome/i, 'gate-rejected'],
+  [/inconclusive|unknown|indeterminate/i, 'inconclusive'],
+];
+
+/** Map a free-form failureType string to a closed FailureCategory. */
+function classifyFailureType(failureType) {
+  if (typeof failureType === 'string' && failureType) {
+    for (const [pattern, category] of FAILURE_CATEGORY_RULES) {
+      if (pattern.test(failureType)) return category;
+    }
+  }
+  // A recorded error with no more specific signal is a generic agent error.
+  return 'agent-error';
+}
+
+/**
+ * Derive the failure category for a run, or undefined when it does not apply.
+ *
+ * - Completed runs never carry a category.
+ * - An explicit `error` event is the most specific signal: its `failureType`
+ *   is mapped through the keyword table (defaulting to `agent-error`).
+ * - Otherwise a failed `gate_result` (passed === false) is a `gate-rejected`.
+ * - A run that merely stopped (abandoned) with no error and no failed gate has
+ *   no determinable reason, so the field is omitted rather than guessed.
+ */
+function deriveFailureCategory(events, outcome) {
+  if (outcome === 'completed') return undefined;
+
+  const errorEvent = events.find((e) => e.type === 'error');
+  if (errorEvent) {
+    return classifyFailureType(errorEvent.data && errorEvent.data.failureType);
+  }
+
+  const gateRejected = events.some(
+    (e) => e.type === 'gate_result' && e.data && e.data.passed === false
+  );
+  if (gateRejected) return 'gate-rejected';
+
+  return undefined;
 }
 
 /** Derive phases reached from phase_transition events. */
@@ -149,14 +202,19 @@ function groupBySkill(events) {
 function buildRecord(skill, events, allEvents, sessionId) {
   // Use all events for this skill (including non-relevant) for timing
   const allSkillEvents = allEvents.filter((e) => e.skill === skill);
-  return {
+  const outcome = deriveOutcome(events);
+  const record = {
     skill,
     session: sessionId,
     startedAt: allSkillEvents[0]?.timestamp ?? events[0].timestamp,
     duration: deriveDuration(allSkillEvents.length > 0 ? allSkillEvents : events),
-    outcome: deriveOutcome(events),
+    outcome,
     phasesReached: derivePhasesReached(events),
   };
+  // Additive, optional: only present when a reason is determinable.
+  const failureCategory = deriveFailureCategory(events, outcome);
+  if (failureCategory) record.failureCategory = failureCategory;
+  return record;
 }
 
 function main() {

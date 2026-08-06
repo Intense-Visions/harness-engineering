@@ -6,7 +6,7 @@ order: 20
 
 ### skill-provider-freshness
 
-- **Status:** planned
+- **Status:** done
 - **Spec:** docs/changes/skill-provider-freshness/proposal.md
 - **Summary:** External Skill-Provider Freshness & Install Follow-Through
 - **Blockers:** —

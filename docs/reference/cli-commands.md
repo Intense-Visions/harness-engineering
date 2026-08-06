@@ -38,6 +38,18 @@ Apply codemods for safe DRIFT-T001/T002/T003 findings and emit suggestions for D
 - `--design-strictness` — Override design.strictness: strict | standard | permissive
 - `--revert` — Inverse-apply the most-recent batch recorded at .harness/align/last-batch.json. Skips files edited externally since the apply.
 
+### `harness api-craft`
+
+LLM-judgment critique of API quality — the ceiling questions a rule-based OpenAPI check cannot ask. 9 seed rubrics (resource-models-the-domain, naming-is-predictable, verbs-are-honest, status-codes-are-correct, errors-are-actionable, response-shapes-are-predictable, collections-paginate-and-filter, mutations-are-idempotency-honest, evolves-without-breaking). Critiques a project’s own OpenAPI documents and route/handler definitions per file.
+
+**Options:**
+
+- `-f, --files` — Optional file scope (overrides API-surface discovery)
+- `--routes-dir` — Directory of route/handler definitions to critique
+- `--spec-file` — Explicit OpenAPI/Swagger document to critique
+- `--exclude-dirs` — Additional subdir names to skip while walking
+- `--max-files` — Cap surface count (default: 60)
+
 ### `harness audit-protected`
 
 Report all harness-ignore protected code regions
@@ -346,7 +358,7 @@ Initialize a new harness-engineering project
 **Options:**
 
 - `-n, --name` — Project name
-- `-l, --level` — Adoption level (basic, intermediate, advanced) (default: "basic")
+- `-l, --level` — Adoption level (basic, intermediate, load-bearing-minimum, advanced) (default: "load-bearing-minimum")
 - `-t, --template` — Specific template name (e.g. orchestrator)
 - `--framework` — Framework overlay (nextjs)
 - `--language` — Target language (typescript, python, go, rust, java)
@@ -1184,6 +1196,16 @@ Generate artifacts from a persona config
 ### `harness persona list`
 
 List available agent personas
+
+### `harness persona sync-workflows`
+
+Generate/verify committed CI workflows for persona-declared triggers
+
+**Options:**
+
+- `--check` — Verify committed workflows are up to date; exit non-zero on drift
+- `--runner` — How the CLI is invoked in each step: "npx" (published CLI, default) or "workspace" (build from source) (default: "npx")
+- `--advisory` — Emit continue-on-error jobs (report findings without failing the check)
 
 ## Proposals Commands
 

@@ -1,4 +1,4 @@
-import { STAGE_PROMPT_TEMPLATE } from './orchestrator-context.js';
+import { STAGE_PROMPT_TEMPLATE } from './stage-prompt-template.js';
 
 /**
  * split-routing / per-phase routing — the LOCAL-aware per-stage prompt template.

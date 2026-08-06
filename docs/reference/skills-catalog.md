@@ -2,7 +2,7 @@
 
 # Skills Catalog
 
-772 skills across 3 tiers. Tier 1 and 2 skills are registered as slash commands. Tier 3 skills are discoverable via the `search_skills` MCP tool. See the [Features Overview](../guides/features-overview.md) for narrative documentation.
+773 skills across 3 tiers. Tier 1 and 2 skills are registered as slash commands. Tier 3 skills are discoverable via the `search_skills` MCP tool. See the [Features Overview](../guides/features-overview.md) for narrative documentation.
 
 ## Tier 1 — Workflow (16 skills)
 
@@ -160,7 +160,7 @@ Upstream client-inception skill. Ingests a diagram + client conversation notes, 
 - **Cognitive mode:** configuration-interviewer
 - **Depends on:** harness-strategy, harness-brainstorming
 
-## Tier 2 — Maintenance (52 skills)
+## Tier 2 — Maintenance (53 skills)
 
 ### acceptance-eval
 
@@ -180,6 +180,16 @@ Apply codemods for safe DRIFT-T001/T002/T003 token-bypass findings; emit precise
 - **Type:** rigid
 - **Cognitive mode:** constructive-architect
 - **Depends on:** detect-design-drift
+
+### api-craft
+
+LLM-judgment critique of API design quality — the ceiling counterpart to rule-based API checks (OpenAPI-format and webhook-format compliance). Asks whether resources model the domain rather than the implementation, whether resource naming and URL structure are predictable (path vs query param), whether HTTP methods are honest, whether status codes are correct, whether error responses tell the consumer what to do, whether response shapes are predictable and consistent, whether collections paginate and filter consistently, whether mutations are idempotency-honest, and whether the API evolves without breaking consumers. Structural twin of harness-cli-ergonomics-craft.
+
+- **Triggers:** manual, on_pr, on_new_feature
+- **Platforms:** claude-code
+- **Type:** rigid
+- **Cognitive mode:** constructive-architect
+- **Depends on:** cli-ergonomics-craft
 
 ### audit-brand-compliance
 
