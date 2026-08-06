@@ -42,6 +42,7 @@ import { createGenerateCommand } from './generate';
 import { createGenerateSlashCommandsCommand } from './generate-slash-commands';
 import { createGoldenBuildCommand } from './golden-build';
 import { createGraphCommand } from './graph';
+import { createHolidayConfidenceCommand } from './holiday-confidence';
 import { createHooksCommand } from './hooks';
 import { createImpactPreviewCommand } from './impact-preview';
 import { createInitCommand } from './init';
@@ -144,6 +145,7 @@ export const commandCreators: Array<() => Command> = [
   createGenerateSlashCommandsCommand,
   createGoldenBuildCommand,
   createGraphCommand,
+  createHolidayConfidenceCommand,
   createHooksCommand,
   createImpactPreviewCommand,
   createInitCommand,

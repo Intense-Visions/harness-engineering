@@ -5,7 +5,7 @@ import * as os from 'os';
 import { runInit } from '../../src/commands/init';
 
 describe('runInit', () => {
-  it('scaffolds a basic project by default', async () => {
+  it('defaults to the load-bearing-minimum level when no level is given', async () => {
     const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'harness-init-'));
     const result = await runInit({ cwd: tmpDir, name: 'test-project' });
     expect(result.ok).toBe(true);
@@ -13,6 +13,8 @@ describe('runInit', () => {
     expect(fs.existsSync(path.join(tmpDir, 'harness.config.json'))).toBe(true);
     expect(fs.existsSync(path.join(tmpDir, 'AGENTS.md'))).toBe(true);
     expect(fs.existsSync(path.join(tmpDir, 'package.json'))).toBe(true);
+    const config = JSON.parse(fs.readFileSync(path.join(tmpDir, 'harness.config.json'), 'utf-8'));
+    expect(config.template.level).toBe('load-bearing-minimum');
     fs.rmSync(tmpDir, { recursive: true });
   });
 
