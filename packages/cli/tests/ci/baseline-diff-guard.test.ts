@@ -58,6 +58,25 @@ describe('assertBaselineOnly', () => {
     const r = assertBaselineOnly(['.harness/arch/baselines.json'], ALLOW);
     expect(r.ok).toBe(true);
   });
+
+  it('accepts transient allowance DELETIONS under the allowance dir prefixes', () => {
+    // The refresh job deletes consumed per-PR allowance files; those deletions show up in
+    // the PR diff and must pass the self-approval guard via the `allowances/` dir prefixes.
+    const scope = [...ALLOW, '.harness/arch/allowances/', 'packages/cli/.harness/arch/allowances/'];
+    const r = assertBaselineOnly(
+      ['.harness/arch/baselines.json', '.harness/arch/allowances/feat-x.json'],
+      scope
+    );
+    expect(r.ok).toBe(true);
+    expect(r.offending).toEqual([]);
+  });
+
+  it('still rejects a stray non-allowance file even with the allowance prefixes allowed', () => {
+    const scope = [...ALLOW, '.harness/arch/allowances/', 'packages/cli/.harness/arch/allowances/'];
+    const r = assertBaselineOnly(['.harness/arch/allowances/feat-x.json', 'src/evil.ts'], scope);
+    expect(r.ok).toBe(false);
+    expect(r.offending).toEqual(['src/evil.ts']);
+  });
 });
 
 describe('ci.yml refresh-baselines self-approval guard', () => {
@@ -77,8 +96,14 @@ describe('ci.yml refresh-baselines self-approval guard', () => {
     expect(guardIdx).toBeLessThan(approveIdx);
   });
 
-  it('feeds the guard the PR diff and the $BASELINE_FILES allowlist (single source of truth)', () => {
+  it('feeds the guard the PR diff and the $SCOPE_ALLOW allowlist (baselines + allowance prefixes)', () => {
     expect(stepRun).toMatch(/gh pr diff "\$PR_URL" --name-only/);
-    expect(stepRun).toMatch(/assert-baseline-only-diff\.mjs \$BASELINE_FILES/);
+    expect(stepRun).toMatch(/assert-baseline-only-diff\.mjs \$SCOPE_ALLOW/);
+    // SCOPE_ALLOW is the baseline files PLUS the transient allowance dir prefixes.
+    expect(stepRun).toMatch(/SCOPE_ALLOW="\$BASELINE_FILES [^"]*allowances\//);
+  });
+
+  it('deletes consumed per-PR allowances so they never accumulate on main', () => {
+    expect(stepRun).toMatch(/rm -f .*\.harness\/arch\/allowances\/\*\.json/);
   });
 });

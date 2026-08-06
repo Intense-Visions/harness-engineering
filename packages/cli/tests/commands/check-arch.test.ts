@@ -1,5 +1,8 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { Command } from 'commander';
+import { execFileSync } from 'node:child_process';
+import * as fs from 'node:fs';
+import * as os from 'node:os';
 import { createCheckArchCommand, runCheckArch } from '../../src/commands/check-arch';
 import * as path from 'path';
 
@@ -564,5 +567,156 @@ describe('check-arch command', () => {
 
       fsSync.rmSync(tmpDir, { recursive: true, force: true });
     });
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Base-aware gating + per-PR allowance files (the baselines.json merge-cascade
+// fix). In a PR (feature-branch) context, `--update-baseline` must write a
+// uniquely-named allowance file INSTEAD of rewriting the shared snapshot, so
+// baselines.json stays byte-identical to the base and never conflicts.
+// ---------------------------------------------------------------------------
+describe('check-arch: base-aware gating + allowances (PR context)', () => {
+  function gitq(cwd: string, args: string[]): void {
+    execFileSync('git', args, { cwd, stdio: 'ignore' });
+  }
+
+  /**
+   * A git repo with a committed arch baseline on `main`, then a `feature` branch that grows
+   * a source file enough to regress module-size beyond tolerance. Returns the paths plus a
+   * restore() for the HARNESS_ARCH_BASE_REF env override (no `origin` remote exists in a
+   * throwaway repo, so we point the resolver at the local `main` ref).
+   */
+  async function seedPrContext(): Promise<{
+    tmpDir: string;
+    configPath: string;
+    baselinePath: string;
+    allowancesDir: string;
+    restore: () => void;
+  }> {
+    const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'check-arch-allow-'));
+    execFileSync('git', ['init', '-b', 'main'], { cwd: tmpDir, stdio: 'ignore' });
+    gitq(tmpDir, ['config', 'user.email', 'test@example.com']);
+    gitq(tmpDir, ['config', 'user.name', 'Test']);
+
+    const configPath = path.join(tmpDir, 'harness.config.json');
+    fs.writeFileSync(configPath, JSON.stringify({ version: 1, architecture: { enabled: true } }));
+    const codePath = path.join(tmpDir, 'code.ts');
+    fs.writeFileSync(codePath, `export const x = 1;\n`);
+
+    // Capture the baseline on main (whole-snapshot behavior on the base branch) and commit it.
+    await runCheckArch({ cwd: tmpDir, configPath, updateBaseline: true });
+    gitq(tmpDir, ['add', '-A']);
+    gitq(tmpDir, ['commit', '-m', 'seed baseline']);
+
+    // Feature branch that regresses module-size well beyond tolerance.
+    gitq(tmpDir, ['checkout', '-b', 'feature']);
+    const bloat = Array.from({ length: 80 }, (_, i) => `export const v${i} = ${i};`).join('\n');
+    fs.writeFileSync(codePath, `${bloat}\n`);
+
+    // Point the resolver at the local `main` ref (throwaway repo has no `origin`).
+    const prev = process.env.HARNESS_ARCH_BASE_REF;
+    process.env.HARNESS_ARCH_BASE_REF = 'main';
+
+    return {
+      tmpDir,
+      configPath,
+      baselinePath: path.join(tmpDir, '.harness', 'arch', 'baselines.json'),
+      allowancesDir: path.join(tmpDir, '.harness', 'arch', 'allowances'),
+      restore: () => {
+        if (prev === undefined) delete process.env.HARNESS_ARCH_BASE_REF;
+        else process.env.HARNESS_ARCH_BASE_REF = prev;
+      },
+    };
+  }
+
+  it('the read gate REGRESSES vs the base baseline on the branch (before any allowance)', async () => {
+    const ctx = await seedPrContext();
+    try {
+      const result = await runCheckArch({ cwd: ctx.tmpDir, configPath: ctx.configPath });
+      expect(result.ok).toBe(true);
+      if (result.ok) {
+        expect(result.value.mode).toBe('baseline');
+        expect(result.value.passed).toBe(false);
+        expect(result.value.regressions.length).toBeGreaterThan(0);
+      }
+    } finally {
+      ctx.restore();
+      fs.rmSync(ctx.tmpDir, { recursive: true, force: true });
+    }
+  });
+
+  it('`--update-baseline --reason` writes an ALLOWANCE and leaves baselines.json byte-identical to base (AC1)', async () => {
+    const ctx = await seedPrContext();
+    try {
+      const before = fs.readFileSync(ctx.baselinePath, 'utf-8');
+      const result = await runCheckArch({
+        cwd: ctx.tmpDir,
+        configPath: ctx.configPath,
+        updateBaseline: true,
+        reason: 'intentional growth for the new feature',
+      });
+      expect(result.ok).toBe(true);
+      if (result.ok) expect(result.value.baselineUpdated).toBe(true);
+
+      // An allowance file was written, named after the branch (conflict-free).
+      const files = fs.readdirSync(ctx.allowancesDir);
+      expect(files).toEqual(['feature.json']);
+      const allowance = JSON.parse(
+        fs.readFileSync(path.join(ctx.allowancesDir, 'feature.json'), 'utf-8')
+      );
+      expect(allowance.reason).toBe('intentional growth for the new feature');
+      expect(Object.keys(allowance.categories)).toContain('module-size');
+
+      // baselines.json is UNCHANGED (the whole point — no snapshot rewrite on the branch).
+      expect(fs.readFileSync(ctx.baselinePath, 'utf-8')).toBe(before);
+      const gitDiff = execFileSync('git', ['diff', 'main', '--', '.harness/arch/baselines.json'], {
+        cwd: ctx.tmpDir,
+        encoding: 'utf-8',
+      });
+      expect(gitDiff.trim()).toBe('');
+    } finally {
+      ctx.restore();
+      fs.rmSync(ctx.tmpDir, { recursive: true, force: true });
+    }
+  });
+
+  it('after writing the allowance, the read gate PASSES (AC1) with baselines.json still unchanged', async () => {
+    const ctx = await seedPrContext();
+    try {
+      await runCheckArch({
+        cwd: ctx.tmpDir,
+        configPath: ctx.configPath,
+        updateBaseline: true,
+        reason: 'accepted',
+      });
+      const result = await runCheckArch({ cwd: ctx.tmpDir, configPath: ctx.configPath });
+      expect(result.ok).toBe(true);
+      if (result.ok) {
+        expect(result.value.passed).toBe(true);
+        expect(result.value.regressions).toEqual([]);
+      }
+    } finally {
+      ctx.restore();
+      fs.rmSync(ctx.tmpDir, { recursive: true, force: true });
+    }
+  });
+
+  it('rejects an allowance write without a --reason', async () => {
+    const ctx = await seedPrContext();
+    try {
+      const result = await runCheckArch({
+        cwd: ctx.tmpDir,
+        configPath: ctx.configPath,
+        updateBaseline: true,
+      });
+      expect(result.ok).toBe(false);
+      if (!result.ok) expect(result.error.message).toMatch(/requires a reason/);
+      // No allowance file, and baselines.json untouched.
+      expect(fs.existsSync(ctx.allowancesDir)).toBe(false);
+    } finally {
+      ctx.restore();
+      fs.rmSync(ctx.tmpDir, { recursive: true, force: true });
+    }
   });
 });
