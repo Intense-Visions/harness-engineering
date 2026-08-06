@@ -882,13 +882,13 @@ Metadata about the project template used to initialize this configuration. Typic
 
 ### TemplateConfig Object
 
-| Field       | Type                                                           | Required | Description                             |
-| ----------- | -------------------------------------------------------------- | -------- | --------------------------------------- |
-| `level`     | `"basic"` \| `"intermediate"` \| `"advanced"`                  | No       | Template complexity level (JS/TS only)  |
-| `language`  | `"typescript"` \| `"python"` \| `"go"` \| `"rust"` \| `"java"` | No       | Target language                         |
-| `framework` | `string`                                                       | No       | Primary technology framework            |
-| `version`   | `number`                                                       | Yes      | Template version number                 |
-| `tooling`   | `ToolingConfig`                                                | No       | Language-specific tooling configuration |
+| Field       | Type                                                                      | Required | Description                             |
+| ----------- | ------------------------------------------------------------------------- | -------- | --------------------------------------- |
+| `level`     | `"basic"` \| `"intermediate"` \| `"load-bearing-minimum"` \| `"advanced"` | No       | Template complexity level (JS/TS only)  |
+| `language`  | `"typescript"` \| `"python"` \| `"go"` \| `"rust"` \| `"java"`            | No       | Target language                         |
+| `framework` | `string`                                                                  | No       | Primary technology framework            |
+| `version`   | `number`                                                                  | Yes      | Template version number                 |
+| `tooling`   | `ToolingConfig`                                                           | No       | Language-specific tooling configuration |
 
 ### ToolingConfig Object
 

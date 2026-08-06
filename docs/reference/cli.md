@@ -87,7 +87,7 @@ harness init [options]
 
 ```
 -n, --name <name>       Project name
--l, --level <level>     Adoption level (basic, intermediate, advanced)
+-l, --level <level>     Adoption level (basic, intermediate, load-bearing-minimum, advanced)
 --framework <overlay>   Framework overlay (e.g., nextjs)
 --language <lang>       Target language (typescript, python, go, rust, java)
 -f, --force             Overwrite existing files
