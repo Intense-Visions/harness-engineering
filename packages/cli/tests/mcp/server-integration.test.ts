@@ -106,7 +106,11 @@ describe('MCP Server Integration', () => {
     expect(names).toContain('plan_parallelization');
     // craft-pipeline — api-craft LLM-judgment ceiling skill (API quality)
     expect(names).toContain('api_craft');
-    expect(tools).toHaveLength(99);
+    // craft-pipeline — in-session finalize tools for the three fixed craft skills
+    expect(names).toContain('code_craft_finalize');
+    expect(names).toContain('cli_ergonomics_craft_finalize');
+    expect(names).toContain('api_craft_finalize');
+    expect(tools).toHaveLength(102);
   });
 
   it('all tool definitions have inputSchema', () => {

@@ -11,8 +11,13 @@ import type { ProjectContext, StrengthFinding, StrengthRule } from '../types';
 
 const INIT_SKILL_PATH = 'agents/skills/claude-code/initialize-harness-project/SKILL.md';
 
+// Fire only when `basic` sits adjacent (within ~40 non-newline chars, either
+// direction) to a default/recommend token — i.e. `basic` is genuinely being
+// named as the default/recommended tier. A line that merely mentions both words
+// far apart (e.g. "recommend load-bearing-minimum … offer basic as an opt-down")
+// must not trip.
 const DEFAULT_BASIC =
-  /default(?:s| recommendation)?[^\n]*\bbasic\b|\bbasic\b[^\n]*\b(?:default|recommend)/i;
+  /\b(?:default|recommend)\w*[^\n]{0,40}?\bbasic\b|\bbasic\b[^\n]{0,40}?\b(?:default|recommend)/i;
 
 export const strength005LowestTier: StrengthRule = {
   id: 'STRENGTH-005',
