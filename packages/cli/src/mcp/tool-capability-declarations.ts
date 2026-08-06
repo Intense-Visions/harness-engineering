@@ -94,6 +94,7 @@ export const TOOL_CAPABILITY_DECLARATIONS: Readonly<Record<string, ToolCapabilit
   docs_craft: { scopes: ['read'] },
   code_craft: { scopes: ['read'] }, // per-unit AST critique; returns findings, not persisted
   cli_ergonomics_craft: { scopes: ['read'] },
+  api_craft: { scopes: ['read'] }, // per-surface API critique; returns findings, not persisted
   acceptance_eval: { scopes: ['read'] }, // advisory verdict; not persisted
   validate_strategy: { scopes: ['read'] },
   read_strategy: { scopes: ['read'] },
