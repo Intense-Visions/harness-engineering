@@ -122,7 +122,7 @@ async function scaffoldProject(
 ): Promise<Result<InitResult, CLIError>> {
   const { cwd, name, force, language, options } = ctx;
   const isNonJs = language && language !== 'typescript';
-  const level = isNonJs ? undefined : (options.level ?? 'basic');
+  const level = isNonJs ? undefined : (options.level ?? 'load-bearing-minimum');
 
   const resolveResult = engine.resolveTemplate(level, options.framework, language);
   if (!resolveResult.ok) return Err(new CLIError(resolveResult.error.message, ExitCode.ERROR));
@@ -280,7 +280,7 @@ export function createInitCommand(): Command {
     .option(
       '-l, --level <level>',
       'Adoption level (basic, intermediate, load-bearing-minimum, advanced)',
-      'basic'
+      'load-bearing-minimum'
     )
     .option('-t, --template <template>', 'Specific template name (e.g. orchestrator)')
     .option('--framework <framework>', 'Framework overlay (nextjs)')
