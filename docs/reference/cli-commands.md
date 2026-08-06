@@ -331,6 +331,16 @@ Generate native commands for Claude Code, Gemini CLI, Codex CLI, and Cursor from
 - `--yes` — Skip deletion confirmation prompts
 - `--cursor-mode` — For cursor platform: "rules" (.mdc with description/globs/alwaysApply, default) or "commands" (.md with name/description for plugin commands/ dir) (default: "rules")
 
+### `harness holiday-confidence`
+
+Holiday Confidence KPI — % of merged PRs in the window that cleared review, outcome-eval, and the no-drift window gates.
+
+**Options:**
+
+- `--window` — Rolling window in days (default 30)
+- `--path` — Project root (default: cwd)
+- `--json` — Emit JSON to stdout instead of pretty text
+
 ### `harness impact-preview`
 
 Show blast radius of staged changes using the knowledge graph
