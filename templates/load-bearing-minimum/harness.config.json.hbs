@@ -1,0 +1,58 @@
+{
+  "version": 1,
+  "name": "{{projectName}}",
+  "layers": [
+    { "name": "types", "pattern": "src/types/**", "allowedDependencies": [] },
+    { "name": "domain", "pattern": "src/domain/**", "allowedDependencies": ["types"] },
+    { "name": "services", "pattern": "src/services/**", "allowedDependencies": ["types", "domain"] },
+    { "name": "api", "pattern": "src/api/**", "allowedDependencies": ["types", "domain", "services"] }
+  ],
+  "forbiddenImports": [
+    { "from": "src/types/**", "disallow": ["src/services/**", "src/api/**"], "message": "Types layer cannot import from services or API" }
+  ],
+  "boundaries": {
+    "requireSchema": ["src/api/**"]
+  },
+  "architecture": {
+    "enabled": true,
+    "baselinePath": ".harness/arch/baselines.json",
+    "thresholds": {
+      "circular-deps": { "max": 0 },
+      "layer-violations": { "max": 0 },
+      "forbidden-imports": { "max": 0 },
+      "complexity": { "max": 15 },
+      "coupling": { "maxFanIn": 15, "maxFanOut": 12 },
+      "module-size": { "maxFiles": 40, "maxLoc": 4000 },
+      "dependency-depth": { "max": 8 }
+    }
+  },
+  "agentsMapPath": "./AGENTS.md",
+  "docsDir": "./docs",
+  "security": {
+    "enabled": true,
+    "strict": false,
+    "exclude": ["**/node_modules/**", "**/dist/**", "**/*.test.ts"]
+  },
+  "entropy": {
+    "excludePatterns": ["**/node_modules/**", "**/dist/**", "**/*.test.ts"],
+    "autoFix": false
+  },
+  "performance": {
+    "complexity": {
+      "enabled": true,
+      "thresholds": {
+        "cyclomaticComplexity": { "error": 15, "warn": 10 }
+      }
+    },
+    "coupling": {
+      "enabled": true,
+      "thresholds": {
+        "fanOut": { "warn": 12 }
+      }
+    }
+  },
+  "template": {
+    "level": "load-bearing-minimum",
+    "version": 1
+  }
+}

@@ -597,7 +597,7 @@ Scaffold a new harness engineering project from a template
 
 - `path` (string, required) — Target directory
 - `name` (string, optional) — Project name
-- `level` (string, optional) — Adoption level (JS/TS only)
+- `level` (string, optional) — Adoption level (JS/TS only). load-bearing-minimum sits between intermediate and advanced: ESLint + complexity cap 15 + module-size cap + multi-persona review + outcome-eval.
 - `framework` (string, optional) — Framework overlay (e.g., nextjs, fastapi, gin)
 - `language` (string, optional) — Target language
 
