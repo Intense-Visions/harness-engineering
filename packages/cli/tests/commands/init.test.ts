@@ -5,7 +5,7 @@ import * as os from 'os';
 import { runInit } from '../../src/commands/init';
 
 describe('runInit', () => {
-  it('scaffolds a basic project by default', async () => {
+  it('defaults to the load-bearing-minimum level when no level is given', async () => {
     const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'harness-init-'));
     const result = await runInit({ cwd: tmpDir, name: 'test-project' });
     expect(result.ok).toBe(true);
@@ -13,6 +13,8 @@ describe('runInit', () => {
     expect(fs.existsSync(path.join(tmpDir, 'harness.config.json'))).toBe(true);
     expect(fs.existsSync(path.join(tmpDir, 'AGENTS.md'))).toBe(true);
     expect(fs.existsSync(path.join(tmpDir, 'package.json'))).toBe(true);
+    const config = JSON.parse(fs.readFileSync(path.join(tmpDir, 'harness.config.json'), 'utf-8'));
+    expect(config.template.level).toBe('load-bearing-minimum');
     fs.rmSync(tmpDir, { recursive: true });
   });
 
@@ -35,6 +37,35 @@ describe('runInit', () => {
     expect(fs.existsSync(path.join(tmpDir, 'eslint.config.mjs'))).toBe(true);
     const config = JSON.parse(fs.readFileSync(path.join(tmpDir, 'harness.config.json'), 'utf-8'));
     expect(config.template.level).toBe('intermediate');
+    fs.rmSync(tmpDir, { recursive: true });
+  });
+
+  it('scaffolds a load-bearing-minimum project with ESLint and the review + outcome-eval CI gate', async () => {
+    const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'harness-init-'));
+    const result = await runInit({
+      cwd: tmpDir,
+      name: 'test-project',
+      level: 'load-bearing-minimum',
+    });
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+
+    // ESLint ships (the harness plugin config).
+    expect(fs.existsSync(path.join(tmpDir, 'eslint.config.mjs'))).toBe(true);
+
+    const config = JSON.parse(fs.readFileSync(path.join(tmpDir, 'harness.config.json'), 'utf-8'));
+    expect(config.template.level).toBe('load-bearing-minimum');
+    // Complexity cap of 15 and a module-size cap.
+    expect(config.architecture.thresholds.complexity.max).toBe(15);
+    expect(config.architecture.thresholds['module-size']).toBeDefined();
+
+    // Multi-persona review + outcome-eval wired into a CI workflow.
+    const workflow = path.join(tmpDir, '.github', 'workflows', 'required-review.yml');
+    expect(fs.existsSync(workflow)).toBe(true);
+    const wf = fs.readFileSync(workflow, 'utf-8');
+    expect(wf).toContain('harness review-ci');
+    expect(wf).toContain('harness outcome-eval-ci');
+
     fs.rmSync(tmpDir, { recursive: true });
   });
 

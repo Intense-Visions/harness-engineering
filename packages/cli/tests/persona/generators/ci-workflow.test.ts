@@ -66,10 +66,21 @@ describe('generateCIWorkflow', () => {
     expect(runSteps[1].run).toContain('harness validate');
   });
 
-  it('includes severity flag when severity is set', () => {
+  it('includes the severity flag for a severity-aware command (check-security)', () => {
+    const securityPersona: Persona = {
+      ...mockPersona,
+      steps: [{ command: 'check-security', when: 'always' }],
+    };
+    const result = generateCIWorkflow(securityPersona, 'github');
+    if (!result.ok) return;
+    expect(result.value).toContain('check-security --severity error');
+  });
+
+  it('omits the severity flag when no command accepts it', () => {
+    // mockPersona runs check-deps + validate, neither of which takes --severity.
     const result = generateCIWorkflow(mockPersona, 'github');
     if (!result.ok) return;
-    expect(result.value).toContain('--severity error');
+    expect(result.value).not.toContain('--severity');
   });
 
   it('only emits command steps in CI (skips skill steps)', () => {
@@ -93,6 +104,102 @@ describe('generateCIWorkflow', () => {
   });
 });
 
+describe('generateCIWorkflow (options)', () => {
+  it('defaults to the npx runner with no continue-on-error', () => {
+    const result = generateCIWorkflow(mockPersona, 'github');
+    if (!result.ok) return;
+    const workflow = YAML.parse(result.value);
+    const job = workflow.jobs.enforce;
+    expect(job['continue-on-error']).toBeUndefined();
+    const runSteps = job.steps.filter((s: Record<string, unknown>) => typeof s.run === 'string');
+    expect(runSteps.every((s: { run: string }) => s.run.startsWith('npx harness'))).toBe(true);
+    // npx runner keeps the minimal setup (no build step).
+    expect(result.value).not.toContain('pnpm build');
+  });
+
+  it('workspace runner builds the workspace bin and invokes the dist entry', () => {
+    const result = generateCIWorkflow(mockPersona, 'github', { runner: 'workspace' });
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    const workflow = YAML.parse(result.value);
+    const steps = workflow.jobs.enforce.steps;
+    const uses = steps.filter((s: Record<string, unknown>) => typeof s.uses === 'string');
+    expect(uses.map((s: { uses: string }) => s.uses)).toEqual([
+      'actions/checkout@v6',
+      'pnpm/action-setup@v5',
+      'actions/setup-node@v6',
+    ]);
+    const runSteps = steps.filter((s: Record<string, unknown>) => typeof s.run === 'string');
+    expect(runSteps.some((s: { run: string }) => s.run === 'pnpm install --frozen-lockfile')).toBe(
+      true
+    );
+    expect(runSteps.some((s: { run: string }) => s.run === 'pnpm build')).toBe(true);
+    const cmdSteps = runSteps.filter((s: { run: string }) =>
+      s.run.startsWith('node packages/cli/dist/bin/harness.js')
+    );
+    expect(cmdSteps).toHaveLength(2);
+    // Neither check-deps nor validate accepts --severity, so both are bare.
+    expect(cmdSteps[0].run).toBe('node packages/cli/dist/bin/harness.js check-deps');
+    expect(cmdSteps[1].run).toBe('node packages/cli/dist/bin/harness.js validate');
+    // Node 22 (not the npx default of 20) and a concurrency guard.
+    expect(workflow.on).toBeDefined();
+    expect(workflow.concurrency['cancel-in-progress']).toBe(true);
+    const nodeStep = uses.find((s: { uses: string }) => s.uses === 'actions/setup-node@v6');
+    expect(nodeStep.with['node-version']).toBe(22);
+  });
+
+  it('appends --severity only to check-security, the one command that accepts it', () => {
+    const securityPersona: Persona = {
+      ...mockPersona,
+      steps: [
+        { command: 'check-security', when: 'always' },
+        { command: 'check-perf', when: 'always' },
+      ],
+    };
+    // Default runner is npx → steps read `npx harness <command>`.
+    const result = generateCIWorkflow(securityPersona, 'github');
+    if (!result.ok) return;
+    const workflow = YAML.parse(result.value);
+    const cmds = (workflow.jobs.enforce.steps as { run?: string }[])
+      .map((s) => s.run)
+      .filter((r): r is string => typeof r === 'string' && r.includes('npx harness'));
+    expect(cmds.some((r) => r.endsWith('check-security --severity error'))).toBe(true);
+    // check-perf rejects --severity, so it stays bare.
+    expect(cmds.some((r) => r.endsWith('check-perf'))).toBe(true);
+    expect(cmds.some((r) => r.includes('check-perf --severity'))).toBe(false);
+  });
+
+  it('advisory wraps command steps to warn-not-fail (green check, no continue-on-error)', () => {
+    const result = generateCIWorkflow(mockPersona, 'github', { advisory: true });
+    if (!result.ok) return;
+    const workflow = YAML.parse(result.value);
+    // No job-level continue-on-error — the job passes green instead of showing
+    // a tolerated-red.
+    expect(workflow.jobs.enforce['continue-on-error']).toBeUndefined();
+    const runSteps = (workflow.jobs.enforce.steps as { run?: string }[])
+      .map((s) => s.run)
+      .filter((r): r is string => typeof r === 'string' && r.includes('harness'));
+    // Every command step is wrapped so a finding warns but never fails the step.
+    expect(runSteps.length).toBeGreaterThan(0);
+    for (const r of runSteps) {
+      expect(r).toContain('|| echo "::warning::advisory persona check');
+    }
+  });
+
+  it('non-advisory command steps are NOT wrapped (blocking gate)', () => {
+    const result = generateCIWorkflow(mockPersona, 'github', { advisory: false });
+    if (!result.ok) return;
+    expect(result.value).not.toContain('::warning::');
+  });
+
+  it('sets least-privilege read-only permissions', () => {
+    const result = generateCIWorkflow(mockPersona, 'github');
+    if (!result.ok) return;
+    const workflow = YAML.parse(result.value);
+    expect(workflow.permissions).toEqual({ contents: 'read' });
+  });
+});
+
 describe('generateCIWorkflow (gitlab)', () => {
   it('generates valid GitLab CI YAML with an enforce job', () => {
     const result = generateCIWorkflow(mockPersona, 'gitlab');
@@ -108,10 +215,8 @@ describe('generateCIWorkflow (gitlab)', () => {
     const result = generateCIWorkflow(mockPersona, 'gitlab');
     if (!result.ok) return;
     const pipeline = YAML.parse(result.value);
-    expect(pipeline.enforce.script).toEqual([
-      'npx harness check-deps --severity error',
-      'npx harness validate --severity error',
-    ]);
+    // Neither check-deps nor validate accepts --severity, so both are bare.
+    expect(pipeline.enforce.script).toEqual(['npx harness check-deps', 'npx harness validate']);
   });
 
   it('translates triggers into rules (MR source, branch match, schedule)', () => {

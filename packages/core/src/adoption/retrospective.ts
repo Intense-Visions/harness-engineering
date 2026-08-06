@@ -35,6 +35,12 @@ export interface SkillRetroStat {
   lastUsed: string;
   /** Whole days between lastUsed and the reference "now". */
   daysSinceLastUse: number;
+  /**
+   * This skill's non-completed runs tallied by `FailureCategory` (only observed
+   * keys present). Empty when no non-completed run carried a category. Lets the
+   * retrospective show *why* a skill fails, not just how often.
+   */
+  failureCategories: Record<string, number>;
 }
 
 /** Telemetry-coverage context: how much of the catalog emits any signal at all. */
@@ -73,6 +79,12 @@ export interface RetrospectiveReport {
   abandonedMidWorkflow: SkillRetroStat[];
   /** Ever-invoked skills quiet for at least inactiveDaysThreshold days. */
   staleSkills: SkillRetroStat[];
+  /**
+   * Catalog-wide tally of non-completed runs by `FailureCategory` (only observed
+   * keys present). Answers "why is the catalog failing overall" across every
+   * skill. Empty when no record carried a failure category.
+   */
+  failureCategoryTotals: Record<string, number>;
   /** Telemetry-coverage context across the catalog. */
   coverage: RetrospectiveCoverage;
 }
@@ -97,6 +109,17 @@ function resolveNowMs(records: SkillInvocationRecord[], now?: Date): number {
   return latest === Number.NEGATIVE_INFINITY ? Date.now() : latest;
 }
 
+/** Tally the `failureCategory` field across a set of records (skips absent). */
+function tallyFailureCategories(records: SkillInvocationRecord[]): Record<string, number> {
+  const totals: Record<string, number> = {};
+  for (const record of records) {
+    if (record.failureCategory) {
+      totals[record.failureCategory] = (totals[record.failureCategory] ?? 0) + 1;
+    }
+  }
+  return totals;
+}
+
 function buildStat(skill: string, records: SkillInvocationRecord[], nowMs: number): SkillRetroStat {
   const invocations = records.length;
   const failures = records.filter((r) => r.outcome === 'failed').length;
@@ -113,6 +136,7 @@ function buildStat(skill: string, records: SkillInvocationRecord[], nowMs: numbe
     abandonedMidWorkflow: abandoned,
     lastUsed,
     daysSinceLastUse,
+    failureCategories: tallyFailureCategories(records),
   };
 }
 
@@ -206,6 +230,7 @@ export function getCatalogRetrospectiveReport(
     topFailing,
     abandonedMidWorkflow,
     staleSkills,
+    failureCategoryTotals: tallyFailureCategories(records),
     coverage: computeCoverage(new Set(bySkill.keys()), options.catalogSkills),
   };
 }
@@ -246,6 +271,19 @@ function renderOverview(report: RetrospectiveReport): string {
   return lines.join('\n');
 }
 
+function renderFailureCategories(totals: Record<string, number>): string {
+  const entries = Object.entries(totals).sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]));
+  if (entries.length === 0) {
+    return '### Failure categories\n\n_No categorized failures recorded._\n';
+  }
+  const total = entries.reduce((sum, [, count]) => sum + count, 0);
+  const header = '| Category | Count | Share |\n| -------- | ----- | ----- |';
+  const rows = entries
+    .map(([category, count]) => `| \`${category}\` | ${count} | ${formatRate(count / total)} |`)
+    .join('\n');
+  return `### Failure categories\n\n${header}\n${rows}\n`;
+}
+
 function staleEmptyNote(report: RetrospectiveReport): string {
   const base = `No ever-invoked skill is inactive ≥${report.inactiveDaysThreshold} days.`;
   if (report.windowDays < report.inactiveDaysThreshold) {
@@ -269,6 +307,7 @@ export function renderRetrospectiveMarkdown(report: RetrospectiveReport): string
       report.abandonedMidWorkflow,
       'No abandoned-mid-workflow runs recorded.'
     ),
+    renderFailureCategories(report.failureCategoryTotals),
     renderStatSection(
       `Stale skills (inactive ≥${report.inactiveDaysThreshold} days)`,
       report.staleSkills,
