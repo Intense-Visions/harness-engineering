@@ -93,4 +93,80 @@ describe('ConfluenceConnector.draft', () => {
     expect(result.ok).toBe(false);
     if (!result.ok) expect(result.error).toContain('baseUrl');
   });
+
+  it('issues a PUT (not POST) when updating an existing page id, still draft-only', async () => {
+    const { client, calls } = fakeHttp();
+    const c = new ConfluenceConnector({ baseUrl: 'https://example.atlassian.net' }, client);
+    const result = await c.draft({ pageId: 'EXISTING1', spaceId: 'SPACE', title: 'Updated' });
+    expect(result.ok).toBe(true);
+    if (result.ok) expect(result.value.pageId).toBe('EXISTING1');
+    expect(calls[0]?.method).toBe('PUT');
+    expect(calls[0]?.url).toContain('/content/EXISTING1');
+    for (const call of calls) expect(call.url).not.toContain('status=current');
+  });
+
+  it('serializes ADF body as atlas_doc_format on the write request', async () => {
+    const bodies: Array<string | undefined> = [];
+    const client: HttpClient = (url, init) => {
+      bodies.push(typeof init?.body === 'string' ? init.body : undefined);
+      return Promise.resolve({
+        ok: true,
+        status: 200,
+        text: async () => '',
+        json: async () => ({ id: 'PAGE123' }),
+      } as HttpResponse);
+    };
+    const c = new ConfluenceConnector({ baseUrl: 'https://example.atlassian.net' }, client);
+    await c.draft({ spaceId: 'SPACE', title: 'T', adf: { type: 'doc', content: [] } });
+    expect(bodies[0]).toContain('atlas_doc_format');
+  });
+});
+
+describe('ConfluenceConnector.pageTree', () => {
+  it('creates each child draft-only and applies the move endpoint for ordering', async () => {
+    const { client, calls } = fakeHttp();
+    const c = new ConfluenceConnector({ baseUrl: 'https://example.atlassian.net' }, client);
+    const result = await c.pageTree({
+      spaceId: 'SPACE',
+      parentId: 'PARENT1',
+      children: [
+        { title: 'Child A' },
+        { title: 'Child B', movePosition: 'after', targetId: 'PAGE123' },
+      ],
+    });
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.value.parentId).toBe('PARENT1');
+      expect(result.value.childPageIds).toHaveLength(2);
+    }
+    // Exactly one move call for the single child that specified ordering.
+    const moves = calls.filter((call) => call.url.includes('/move/'));
+    expect(moves).toHaveLength(1);
+    expect(moves[0]?.url).toContain('/move/after/PAGE123');
+    expect(moves[0]?.method).toBe('PUT');
+  });
+
+  it('returns a structured error when a move fails', async () => {
+    let n = 0;
+    const client: HttpClient = (url) => {
+      n += 1;
+      // draft write + read-back ok; the move (3rd call) fails.
+      const ok = !url.includes('/move/');
+      return Promise.resolve({
+        ok,
+        status: ok ? 200 : 500,
+        text: async () => '',
+        json: async () => ({ id: 'PAGE123' }),
+      } as HttpResponse);
+    };
+    const c = new ConfluenceConnector({ baseUrl: 'https://example.atlassian.net' }, client);
+    const result = await c.pageTree({
+      spaceId: 'SPACE',
+      parentId: 'PARENT1',
+      children: [{ title: 'Child', movePosition: 'append', targetId: 'PARENT1' }],
+    });
+    expect(result.ok).toBe(false);
+    if (!result.ok) expect(result.error).toMatch(/move failed/);
+    expect(n).toBeGreaterThanOrEqual(3);
+  });
 });
