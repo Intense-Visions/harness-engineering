@@ -116,11 +116,32 @@ importers:
         specifier: ^3.5.0
         version: 3.5.31(typescript@5.9.3)
 
+  packages/burn:
+    devDependencies:
+      '@types/node':
+        specifier: ^22.19.15
+        version: 22.19.15
+      '@vitest/coverage-v8':
+        specifier: ^4.1.5
+        version: 4.1.5(vitest@4.1.5)
+      tsup:
+        specifier: ^8.5.1
+        version: 8.5.1(tsx@4.21.0)(typescript@5.9.3)(yaml@2.8.3)
+      typescript:
+        specifier: ^5.9.3
+        version: 5.9.3
+      vitest:
+        specifier: ^4.1.5
+        version: 4.1.5(@types/node@22.19.15)(@vitest/coverage-v8@4.1.5)(jsdom@29.0.1)(vite@6.4.3)
+
   packages/cli:
     dependencies:
       '@clack/prompts':
         specifier: ^0.9.1
         version: 0.9.1
+      '@harness-engineering/burn':
+        specifier: workspace:*
+        version: link:../burn
       '@harness-engineering/core':
         specifier: workspace:*
         version: link:../core
@@ -6956,8 +6977,8 @@ packages:
   /magicast@0.5.2:
     resolution: {integrity: sha512-E3ZJh4J3S9KfwdjZhe2afj6R9lGIN5Pher1pF39UGrXRqq/VDaGVIGN13BjHd2u8B61hArAGOnso7nBOouW3TQ==}
     dependencies:
-      '@babel/parser': 7.29.2
-      '@babel/types': 7.29.0
+      '@babel/parser': 7.29.7
+      '@babel/types': 7.29.7
       source-map-js: 1.2.1
     dev: true
 
@@ -8835,7 +8856,7 @@ packages:
       lines-and-columns: 1.2.4
       mz: 2.7.0
       pirates: 4.0.7
-      tinyglobby: 0.2.15
+      tinyglobby: 0.2.17
       ts-interface-checker: 0.1.13
     dev: true
 
@@ -9179,7 +9200,7 @@ packages:
       source-map: 0.7.6
       sucrase: 3.35.1
       tinyexec: 0.3.2
-      tinyglobby: 0.2.15
+      tinyglobby: 0.2.17
       tree-kill: 1.2.2
       typescript: 5.9.3
     transitivePeerDependencies:
@@ -9717,7 +9738,7 @@ packages:
       std-env: 4.0.0
       tinybench: 2.9.0
       tinyexec: 1.0.4
-      tinyglobby: 0.2.16
+      tinyglobby: 0.2.17
       tinyrainbow: 3.1.0
       vite: 6.4.3(@types/node@22.19.15)(tsx@4.21.0)(yaml@2.8.3)
       why-is-node-running: 2.3.0

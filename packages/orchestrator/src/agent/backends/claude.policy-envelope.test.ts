@@ -4,14 +4,19 @@ import { ClaudeBackend, type PolicyAuditRecord } from './claude';
 /**
  * Proves the orchestrator gateway policy envelope is stamped at spawn: the
  * ClaudeBackend hands the audit sink the resolved PolicyMetadata plus the NAMES
- * of parent-env vars withheld from the subprocess (never their values). Uses the
- * always-present `true` binary as the spawned command so the turn terminates
- * immediately with no stream output.
+ * of parent-env vars withheld from the subprocess (never their values). Spawns
+ * `process.execPath` (the running Node binary) as the command: it is always
+ * present on every platform (unlike the Unix-only `true`, which has no
+ * `true.exe` on Windows and would hang the spawn until the test timed out).
+ * The backend passes its fixed Claude-CLI flags, so Node rejects the unknown
+ * `--output-format` option and exits immediately with empty stdout — the turn
+ * terminates at once with no stream output, exactly as `true` did. The audit
+ * stamp is emitted before the spawn, so the record is captured regardless.
  */
 describe('ClaudeBackend policy envelope + subprocess air-gap', () => {
   it('(c) stamps PolicyMetadata + stripped env keys into the audit sink at spawn', async () => {
     const records: PolicyAuditRecord[] = [];
-    const backend = new ClaudeBackend('true', {
+    const backend = new ClaudeBackend(process.execPath, {
       sandboxMode: 'docker',
       networkMode: 'restricted',
       agentVersion: '1.2.3',
@@ -63,7 +68,7 @@ describe('ClaudeBackend policy envelope + subprocess air-gap', () => {
 
   it('defaults policy posture to none/unrestricted/unknown when unset', async () => {
     const records: PolicyAuditRecord[] = [];
-    const backend = new ClaudeBackend('true', {
+    const backend = new ClaudeBackend(process.execPath, {
       policyAudit: (r) => records.push(r),
       envSource: { PATH: '/usr/bin' },
     });

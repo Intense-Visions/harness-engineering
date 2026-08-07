@@ -256,7 +256,14 @@ describe('runScanConfig', () => {
       const start = Date.now();
       await runScanConfig(tempDir, {});
       const elapsed = Date.now() - start;
-      expect(elapsed).toBeLessThan(100);
+      // 100ms is the uninstrumented budget. Under v8 coverage the scan is
+      // instrumented and parallel-worker CPU starvation adds another order of
+      // magnitude, so the strict budget flakes on the pre-push gate. Relax it
+      // under coverage (HARNESS_COVERAGE is forwarded by vitest.config) while
+      // still catching an order-of-magnitude regression. The intent — the scan
+      // is fast, not accidentally quadratic — is preserved.
+      const budgetMs = process.env['HARNESS_COVERAGE'] === '1' ? 2000 : 100;
+      expect(elapsed).toBeLessThan(budgetMs);
     });
 
     it('does not scan files outside the CONFIG_FILES list', async () => {
