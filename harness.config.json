@@ -1,6 +1,7 @@
 {
   "version": 1,
   "name": "harness-engineering",
+  "constraintPacks": ["secrets-and-injection"],
   "layers": [
     {
       "name": "types",
