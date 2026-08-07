@@ -563,7 +563,7 @@ Configure MCP server for AI agent integration
 
 **Options:**
 
-- `--client` — Client to configure (claude, gemini, codex, cursor, opencode, all) (default: "all")
+- `--client` — Client to configure (claude, gemini, codex, cursor, opencode, antigravity, all) (default: "all")
 - `--pick` — Launch interactive tool picker (Cursor only)
 - `--yes` — Bypass interactive picker and use curated 25-tool set (Cursor only)
 
@@ -1328,6 +1328,10 @@ Reject a proposal with a one-line reason
 ### `harness proposals show <id>`
 
 Show a single proposal in full
+
+### `harness proposals status`
+
+Report queue counts and whether each emission surface (manual emit, retrospection) is live or dormant. Provider resolvability is inferred from env-var presence, not by constructing a provider. Use the global --json flag for the machine-readable ProposalsStatusReport.
 
 ## Pulse Commands
 

@@ -299,6 +299,15 @@ export function setupMcp(
     trustedFolder = addGeminiTrustedFolder(cwd);
   }
 
+  if (client === 'all' || client === 'antigravity') {
+    const configPath = path.join(cwd, '.gemini', 'config', 'mcp_config.json');
+    if (configureMcpServer(configPath)) {
+      configured.push('Antigravity CLI');
+    } else {
+      skipped.push('Antigravity CLI');
+    }
+  }
+
   if (client === 'all' || client === 'codex') {
     const configPath = path.join(cwd, '.codex', 'config.toml');
     const alreadyConfigured = (() => {
@@ -399,7 +408,7 @@ export function createSetupMcpCommand(): Command {
     .description('Configure MCP server for AI agent integration')
     .option(
       '--client <client>',
-      'Client to configure (claude, gemini, codex, cursor, opencode, all)',
+      'Client to configure (claude, gemini, codex, cursor, opencode, antigravity, all)',
       'all'
     )
     .option('--pick', 'Launch interactive tool picker (Cursor only)')

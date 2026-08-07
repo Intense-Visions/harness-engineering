@@ -6,6 +6,7 @@ import { sanitizePath } from '../utils/sanitize-path.js';
 import { resolveAnalysisProvider } from '../utils/analysis-provider.js';
 import { autoSyncRoadmap } from './roadmap-auto-sync.js';
 import { emitSkillEvent } from './event-emitter.js';
+import { envEnabled } from '../../utils/env-flag.js';
 
 /**
  * Retrospection timeout for the live `archive_session` path.
@@ -17,13 +18,6 @@ import { emitSkillEvent } from './event-emitter.js';
  * unaffected); the background/CLI path keeps the longer default.
  */
 const LIVE_RETROSPECTION_TIMEOUT_MS = 15_000;
-
-/** Truthy env-flag test (`1`/`true`/`yes`, case-insensitive). */
-function envEnabled(value: string | undefined): boolean {
-  if (!value) return false;
-  const v = value.trim().toLowerCase();
-  return v === '1' || v === 'true' || v === 'yes' || v === 'on';
-}
 
 // ── manage_state ──────────────────────────────────────────────────────
 
