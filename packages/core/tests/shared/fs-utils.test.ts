@@ -109,21 +109,12 @@ describe('findFiles', () => {
 
       const files = await findFiles('**/*.ts', root);
 
-      expect(files.some((f) => f.includes('.canary/skills/x/mod.ts'))).toBe(true);
-      expect(files.some((f) => f.endsWith('src/main.ts'))).toBe(true);
-    });
-
-    it('returns forward-slash (POSIX) paths on every platform', async () => {
-      // On Windows glob returns backslash paths; findFiles must normalise so
-      // downstream `/`-based matching works cross-platform (#1146).
-      await mkdir(join(root, 'src', 'nested'), { recursive: true });
-      await writeFile(join(root, 'src', 'nested', 'deep.ts'), 'export const a = 1;\n');
-
-      const files = await findFiles('**/*.ts', root);
-
-      expect(files.length).toBeGreaterThan(0);
-      expect(files.every((f) => !f.includes('\\'))).toBe(true);
-      expect(files.some((f) => f.endsWith('src/nested/deep.ts'))).toBe(true);
+      // findFiles returns platform-separator paths (backslash on Windows); the
+      // assertion normalises the candidate so it is separator-agnostic.
+      expect(files.some((f) => f.replaceAll('\\', '/').includes('.canary/skills/x/mod.ts'))).toBe(
+        true
+      );
+      expect(files.some((f) => f.replaceAll('\\', '/').endsWith('src/main.ts'))).toBe(true);
     });
 
     it('keeps .git, node_modules, and .harness runtime excluded even with dot traversal', async () => {
@@ -138,7 +129,7 @@ describe('findFiles', () => {
 
       const files = await findFiles('**/*.ts', root);
 
-      expect(files.some((f) => f.includes('.canary/keep.ts'))).toBe(true);
+      expect(files.some((f) => f.replaceAll('\\', '/').includes('.canary/keep.ts'))).toBe(true);
       expect(files.some((f) => f.includes('.git/'))).toBe(false);
       expect(files.some((f) => f.includes('node_modules'))).toBe(false);
       expect(files.some((f) => f.includes('.harness/'))).toBe(false);
