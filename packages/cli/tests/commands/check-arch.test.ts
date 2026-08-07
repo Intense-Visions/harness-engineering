@@ -810,3 +810,172 @@ describe('check-arch: base-aware gating + allowances (PR context)', () => {
     }
   });
 });
+
+// ---------------------------------------------------------------------------
+// Feature-branch SAFETY NET: when the base ref is EXPECTED but unreadable (unfetched worktree,
+// shallow clone, unreadable base copy), `--update-baseline` must NOT rewrite the committed
+// snapshot on the branch — that silently reintroduces the exact baselines.json merge cascade
+// #1140 killed. It must acknowledge via an allowance instead. Only the legitimate single-writer
+// contexts (base branch / non-git / force-env / genuine bootstrap) still rewrite the snapshot.
+// (Root-cause regression: the routing previously sent EVERY non-`base-ref` resolution to the
+// whole-snapshot path, so an unfetched-worktree feature branch diverged baselines.json.)
+// ---------------------------------------------------------------------------
+describe('check-arch: feature-branch safety net when the base ref is unreadable', () => {
+  function gitq(cwd: string, args: string[]): void {
+    execFileSync('git', args, { cwd, stdio: 'ignore' });
+  }
+
+  /**
+   * A repo with a committed baseline on `main`, then a `feature` branch that regresses
+   * module-size — but with NO reachable base ref (no `origin` remote; the default `origin/main`
+   * cannot be resolved), simulating an unfetched worktree / shallow clone. `HARNESS_ARCH_BASE_REF`
+   * is explicitly cleared (and restored) so no sibling test's override leaks a REACHABLE ref in.
+   */
+  async function seedUnreachableBaseCtx(withBaseline = true): Promise<{
+    tmpDir: string;
+    configPath: string;
+    baselinePath: string;
+    allowancesDir: string;
+    restore: () => void;
+  }> {
+    const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'check-arch-unreach-'));
+    execFileSync('git', ['init', '-b', 'main'], { cwd: tmpDir, stdio: 'ignore' });
+    gitq(tmpDir, ['config', 'user.email', 'test@example.com']);
+    gitq(tmpDir, ['config', 'user.name', 'Test']);
+    const configPath = path.join(tmpDir, 'harness.config.json');
+    fs.writeFileSync(configPath, JSON.stringify({ version: 1, architecture: { enabled: true } }));
+    fs.writeFileSync(path.join(tmpDir, 'code.ts'), `export const x = 1;\n`);
+
+    const prev = process.env.HARNESS_ARCH_BASE_REF;
+    delete process.env.HARNESS_ARCH_BASE_REF;
+
+    if (withBaseline) {
+      // On main (base branch) this is a legitimate whole-snapshot capture.
+      await runCheckArch({ cwd: tmpDir, configPath, updateBaseline: true });
+    }
+    gitq(tmpDir, ['add', '-A']);
+    gitq(tmpDir, ['commit', '-m', 'seed']);
+    gitq(tmpDir, ['checkout', '-b', 'feature']);
+    const bloat = Array.from({ length: 80 }, (_, i) => `export const v${i} = ${i};`).join('\n');
+    fs.writeFileSync(path.join(tmpDir, 'code.ts'), `${bloat}\n`);
+
+    return {
+      tmpDir,
+      configPath,
+      baselinePath: path.join(tmpDir, '.harness', 'arch', 'baselines.json'),
+      allowancesDir: path.join(tmpDir, '.harness', 'arch', 'allowances'),
+      restore: () => {
+        if (prev === undefined) delete process.env.HARNESS_ARCH_BASE_REF;
+        else process.env.HARNESS_ARCH_BASE_REF = prev;
+      },
+    };
+  }
+
+  it('writes an ALLOWANCE (never rewrites the snapshot) and a follow-up read PASSES', async () => {
+    const ctx = await seedUnreachableBaseCtx(true);
+    try {
+      const before = fs.readFileSync(ctx.baselinePath, 'utf-8');
+      const result = await runCheckArch({
+        cwd: ctx.tmpDir,
+        configPath: ctx.configPath,
+        updateBaseline: true,
+        reason: 'accepted growth on an unfetched-worktree branch',
+      });
+      expect(result.ok).toBe(true);
+      if (result.ok) expect(result.value.baselineUpdated).toBe(true);
+
+      // THE FIX: baselines.json is byte-identical — no snapshot rewrite, no merge cascade.
+      expect(fs.readFileSync(ctx.baselinePath, 'utf-8')).toBe(before);
+      const gitDiff = execFileSync('git', ['diff', 'main', '--', '.harness/arch/baselines.json'], {
+        cwd: ctx.tmpDir,
+        encoding: 'utf-8',
+      });
+      expect(gitDiff.trim()).toBe('');
+
+      // An allowance file was written, covering the aggregate VALUE regression.
+      const files = fs.readdirSync(ctx.allowancesDir);
+      expect(files).toEqual(['feature.json']);
+      const allowance = JSON.parse(
+        fs.readFileSync(path.join(ctx.allowancesDir, 'feature.json'), 'utf-8')
+      );
+      expect(Object.keys(allowance.categories)).toContain('module-size');
+
+      // With the allowance present, the read gate passes — WITHOUT any baselines.json change.
+      const read = await runCheckArch({ cwd: ctx.tmpDir, configPath: ctx.configPath });
+      expect(read.ok).toBe(true);
+      if (read.ok) {
+        expect(read.value.passed).toBe(true);
+        expect(read.value.regressions).toEqual([]);
+      }
+    } finally {
+      ctx.restore();
+      fs.rmSync(ctx.tmpDir, { recursive: true, force: true });
+    }
+  });
+
+  it('BOOTSTRAP preserved: with NO existing baseline it still whole-snapshots (creates it)', async () => {
+    const ctx = await seedUnreachableBaseCtx(false);
+    try {
+      expect(fs.existsSync(ctx.baselinePath)).toBe(false);
+      const result = await runCheckArch({
+        cwd: ctx.tmpDir,
+        configPath: ctx.configPath,
+        updateBaseline: true,
+      });
+      expect(result.ok).toBe(true);
+      if (result.ok) expect(result.value.baselineUpdated).toBe(true);
+      // A brand-new snapshot is created (no allowance) — there was nothing to protect.
+      expect(fs.existsSync(ctx.baselinePath)).toBe(true);
+      expect(fs.existsSync(ctx.allowancesDir)).toBe(false);
+    } finally {
+      ctx.restore();
+      fs.rmSync(ctx.tmpDir, { recursive: true, force: true });
+    }
+  });
+
+  it('GATE INTEGRITY: an error-severity NEW violation can never be allowanced (hard-fails)', async () => {
+    const ctx = await seedUnreachableBaseCtx(true);
+    try {
+      // Introduce a function whose cyclomatic complexity blows past the error threshold (15):
+      // ~24 decision points → an error-severity NEW complexity violation.
+      const branches = Array.from({ length: 24 }, (_, i) => `  if (n > ${i}) r += ${i};`).join(
+        '\n'
+      );
+      fs.writeFileSync(
+        path.join(ctx.tmpDir, 'code.ts'),
+        `export function tangled(n: number): number {\n  let r = 0;\n${branches}\n  return r;\n}\n`
+      );
+
+      // The WRITE path refuses to allowance a genuine error-severity breach — it must be FIXED.
+      const write = await runCheckArch({
+        cwd: ctx.tmpDir,
+        configPath: ctx.configPath,
+        updateBaseline: true,
+        reason: 'trying (and failing) to acknowledge an error breach',
+      });
+      expect(write.ok).toBe(false);
+      if (!write.ok) expect(write.error.message).toMatch(/error-severity/);
+      // No allowance was written for the error breach.
+      expect(fs.existsSync(ctx.allowancesDir)).toBe(false);
+
+      // Even if a hand-crafted allowance names that violation id, the READ gate still hard-fails.
+      fs.mkdirSync(ctx.allowancesDir, { recursive: true });
+      const read0 = await runCheckArch({ cwd: ctx.tmpDir, configPath: ctx.configPath });
+      expect(read0.ok).toBe(true);
+      const errorIds = read0.ok
+        ? read0.value.newViolations.filter((v) => v.severity === 'error').map((v) => v.id)
+        : [];
+      expect(errorIds.length).toBeGreaterThan(0);
+      fs.writeFileSync(
+        path.join(ctx.allowancesDir, 'feature.json'),
+        JSON.stringify({ reason: 'overbroad', categories: {}, violationIds: errorIds })
+      );
+      const read = await runCheckArch({ cwd: ctx.tmpDir, configPath: ctx.configPath });
+      expect(read.ok).toBe(true);
+      if (read.ok) expect(read.value.passed).toBe(false);
+    } finally {
+      ctx.restore();
+      fs.rmSync(ctx.tmpDir, { recursive: true, force: true });
+    }
+  });
+});
