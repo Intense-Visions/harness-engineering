@@ -10,7 +10,7 @@ export {
   manualToRawWorkItem,
 } from './adapters/index.js';
 export type { JiraIssue, GitHubIssue, LinearIssue, ManualInput } from './adapters/index.js';
-export { createCanaryAdapter } from './adapters/index.js';
+export { createCanaryAdapter, resolveTestCommand } from './adapters/index.js';
 export type {
   CanaryAdapter,
   CanaryProbe,
@@ -18,6 +18,7 @@ export type {
   CanaryExec,
   FrameworkRecommendation,
   CanaryFinding,
+  CanaryFrameworkInfo,
 } from './adapters/index.js';
 
 // Types
