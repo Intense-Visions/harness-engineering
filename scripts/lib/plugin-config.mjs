@@ -73,6 +73,26 @@ export const PLUGIN_CONFIGS = {
     generateAgents: false,
     generateHooks: false,
   },
+  antigravity: {
+    label: 'Antigravity CLI',
+    pluginDir: '.antigravity-extension',
+    slashCommandsPlatform: 'gemini-cli',
+    // KEY divergence from the gemini extension: agy reads persona agents from
+    // ~/.gemini/agents/*.md, so we DO render agents (the gemini-cli agent
+    // renderer emits .md). The gemini extension target sets this to undefined.
+    agentPlatform: 'gemini-cli',
+    // Reuse the gemini-cli skill tree so generated command TOMLs embed
+    // gemini-cli-relative reference paths; agy shares ~/.gemini/.
+    skillsDir: 'agents/skills/gemini-cli',
+    // Hooks deferred to Phase 2 — agy's stdin/stdout decision contract differs
+    // fundamentally from Claude Code's exit-code contract.
+    hooksCommandTemplate: undefined,
+    cursorMode: undefined,
+    commandExt: '.toml',
+    generateCommands: true,
+    generateAgents: true,
+    generateHooks: false,
+  },
   codex: {
     label: 'Codex CLI',
     pluginDir: '.codex-plugin',
