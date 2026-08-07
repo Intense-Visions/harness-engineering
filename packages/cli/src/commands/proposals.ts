@@ -193,9 +193,16 @@ async function actRejectCommand(id: string, opts: { reason: string }): Promise<v
   }
 }
 
-export async function actStatusCommand(opts: { json?: boolean }): Promise<void> {
+export async function actStatusCommand(
+  opts: { json?: boolean },
+  cmd?: Command
+): Promise<void> {
+  // `--json` is the root program's global flag (see createProgram); it is
+  // shadowed at the leaf, so read it via optsWithGlobals. The direct-call path
+  // (opts.json) keeps the action unit-testable without a Command instance.
+  const json = opts.json === true || cmd?.optsWithGlobals?.().json === true;
   const report = await runProposalsStatus(process.env, projectRoot());
-  if (opts.json) {
+  if (json) {
     console.log(JSON.stringify(report, null, 2));
     return;
   }
@@ -269,9 +276,8 @@ export function createProposalsCommand(): Command {
   cmd
     .command('status')
     .description(
-      'Report queue counts and whether each emission surface (manual emit, retrospection) is live or dormant'
+      'Report queue counts and whether each emission surface (manual emit, retrospection) is live or dormant. Use the global --json flag for the machine-readable ProposalsStatusReport.'
     )
-    .option('--json', 'Emit the machine-readable ProposalsStatusReport')
     .action(actStatusCommand);
 
   return cmd;
