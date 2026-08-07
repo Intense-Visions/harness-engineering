@@ -33,6 +33,7 @@
   },
   "dependencies": {
     "@clack/prompts": "^0.9.1",
+    "@harness-engineering/burn": "workspace:*",
     "@harness-engineering/core": "workspace:*",
     "@harness-engineering/dashboard": "workspace:*",
     "@harness-engineering/graph": "workspace:*",
