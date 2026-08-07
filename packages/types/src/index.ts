@@ -275,6 +275,22 @@ export {
 } from './auth';
 export type { TokenScope, BridgeKind, AuthToken, AuthTokenPublic, AuthAuditEntry } from './auth';
 
+// --- Policy envelope + governance audit (orchestrator gateway policy envelope) ---
+export {
+  PolicyApprovalModeSchema,
+  PolicySandboxModeSchema,
+  PolicyNetworkModeSchema,
+  PolicyMetadataSchema,
+  PolicyAuditEntrySchema,
+} from './policy';
+export type {
+  PolicyApprovalMode,
+  PolicySandboxMode,
+  PolicyNetworkMode,
+  PolicyMetadata,
+  PolicyAuditEntry,
+} from './policy';
+
 // --- Webhooks (Hermes Phase 0 — Phase 4) ---
 export {
   WebhookSubscriptionSchema,

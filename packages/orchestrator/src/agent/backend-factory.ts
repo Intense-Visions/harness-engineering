@@ -1,7 +1,12 @@
-import type { AgentBackend, BackendDef } from '@harness-engineering/types';
+import type {
+  AgentBackend,
+  BackendDef,
+  PolicySandboxMode,
+  PolicyNetworkMode,
+} from '@harness-engineering/types';
 import type { CacheMetricsRecorder } from '@harness-engineering/core';
 import { MockBackend } from './backends/mock.js';
-import { ClaudeBackend } from './backends/claude.js';
+import { ClaudeBackend, type PolicyAuditSink } from './backends/claude.js';
 import { AnthropicBackend } from './backends/anthropic.js';
 import { OpenAIBackend } from './backends/openai.js';
 import { GeminiBackend } from './backends/gemini.js';
@@ -31,6 +36,16 @@ export interface CreateBackendOptions {
    * `local-models`.
    */
   hardwareMemoryGb?: number;
+  /**
+   * Policy-envelope + subprocess air-gap wiring, forwarded to subprocess-spawning
+   * backends (currently `claude`). `sandboxMode`/`networkMode` populate the audit
+   * record's policy; `policyAudit` is the governance sink; `subprocessEnvAllow`
+   * extends the env allowlist. Other backends accept-but-ignore these.
+   */
+  sandboxMode?: PolicySandboxMode;
+  networkMode?: PolicyNetworkMode;
+  policyAudit?: PolicyAuditSink;
+  subprocessEnvAllow?: readonly string[];
 }
 
 /**
@@ -114,6 +129,10 @@ function createClaudeBackend(
 ): AgentBackend {
   return new ClaudeBackend(def.command ?? 'claude', {
     ...(options.cacheMetrics ? { cacheMetrics: options.cacheMetrics } : {}),
+    ...(options.sandboxMode ? { sandboxMode: options.sandboxMode } : {}),
+    ...(options.networkMode ? { networkMode: options.networkMode } : {}),
+    ...(options.policyAudit ? { policyAudit: options.policyAudit } : {}),
+    ...(options.subprocessEnvAllow ? { subprocessEnvAllow: options.subprocessEnvAllow } : {}),
   });
 }
 
