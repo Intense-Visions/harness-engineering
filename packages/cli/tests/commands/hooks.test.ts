@@ -233,7 +233,8 @@ describe('initHooks', () => {
 
     initHooks({ profile: 'minimal', projectDir: tmpDir });
     const minimalFiles = fs.readdirSync(hooksDir).filter((f) => f.endsWith('.js'));
-    expect(minimalFiles).toEqual(['block-no-verify.js']);
+    // minimal ships block-no-verify.js plus its shared support module.
+    expect(minimalFiles.sort()).toEqual(['block-no-verify.js', 'read-hook-stdin.js']);
   });
 });
 
@@ -362,7 +363,10 @@ describe('initHooks support files (format-check.js)', () => {
     expect(fs.existsSync(path.join(hooksDir(), 'format-check.js'))).toBe(true);
     initHooks({ profile: 'minimal', projectDir: tmpDir });
     const remaining = fs.readdirSync(hooksDir()).filter((f) => f.endsWith('.js'));
-    expect(remaining).toEqual(['block-no-verify.js']);
+    // format-check.js is orphaned by the downgrade and dropped; block-no-verify
+    // and its own support module read-hook-stdin.js remain.
+    expect(remaining.sort()).toEqual(['block-no-verify.js', 'read-hook-stdin.js']);
+    expect(remaining).not.toContain('format-check.js');
   });
 
   it('the copied strict-quality-gate.js resolves its sibling import and runs (exit 0 on empty stdin)', () => {
@@ -379,6 +383,60 @@ describe('initHooks support files (format-check.js)', () => {
     // exit non-zero with ERR_MODULE_NOT_FOUND. Exit 0 proves resolution worked.
     expect(result.signal ? 0 : (result.status ?? 1)).toBe(0);
     expect(result.stderr ?? '').not.toContain('ERR_MODULE_NOT_FOUND');
+  });
+});
+
+// Regression: installed ESM hooks warned MODULE_TYPELESS_PACKAGE_JSON on every
+// fire in adopters whose nearest package.json is CommonJS-default (or absent),
+// because the installer shipped bare `.js` ES modules with no `package.json`
+// declaring the hooks dir as `"type": "module"`. Claude Code surfaced the
+// per-fire stderr warning as a non-blocking "hook error". The installer must
+// write the ESM marker beside the copied hooks.
+describe('initHooks ESM module marker (MODULE_TYPELESS_PACKAGE_JSON)', () => {
+  let tmpDir: string;
+
+  beforeEach(() => {
+    tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'harness-hooks-esm-'));
+  });
+
+  afterEach(() => {
+    fs.rmSync(tmpDir, { recursive: true, force: true });
+  });
+
+  const markerPath = () => path.join(tmpDir, '.harness', 'hooks', 'package.json');
+
+  it('writes .harness/hooks/package.json declaring type:module', () => {
+    initHooks({ profile: 'standard', projectDir: tmpDir });
+    expect(fs.existsSync(markerPath())).toBe(true);
+    expect(JSON.parse(fs.readFileSync(markerPath(), 'utf-8'))).toEqual({ type: 'module' });
+  });
+
+  it('preserves the marker across the stale-.js wipe on profile downgrade', () => {
+    initHooks({ profile: 'strict', projectDir: tmpDir });
+    initHooks({ profile: 'minimal', projectDir: tmpDir });
+    expect(fs.existsSync(markerPath())).toBe(true);
+    expect(JSON.parse(fs.readFileSync(markerPath(), 'utf-8'))).toEqual({ type: 'module' });
+  });
+
+  it('loads a copied hook cleanly in a CommonJS-default adopter (no warning, no missing sibling)', () => {
+    // Reproduce the adopter condition: a root package.json WITHOUT type:module.
+    // Two failure modes are guarded together here:
+    //  - Without the .harness/hooks marker, Node reparses the ESM hook and warns
+    //    MODULE_TYPELESS_PACKAGE_JSON on every fire.
+    //  - Without the hook's shared support module shipped alongside it, the static
+    //    `import './read-hook-stdin.js'` fails at load with ERR_MODULE_NOT_FOUND.
+    fs.writeFileSync(path.join(tmpDir, 'package.json'), '{"name":"adopter"}\n');
+    initHooks({ profile: 'minimal', projectDir: tmpDir });
+    const hookPath = path.join(tmpDir, '.harness', 'hooks', 'block-no-verify.js');
+    const result = spawnSync('node', [hookPath], {
+      input: '',
+      encoding: 'utf-8',
+      cwd: tmpDir,
+      timeout: 30000,
+    });
+    const stderr = result.stderr ?? '';
+    expect(stderr).not.toContain('MODULE_TYPELESS_PACKAGE_JSON');
+    expect(stderr).not.toContain('ERR_MODULE_NOT_FOUND');
   });
 });
 
@@ -519,6 +577,25 @@ describe('addHooks', () => {
       e.hooks.map((h: any) => h.command)
     );
     expect(preCommands).toContain(buildHookCommand('sentinel-pre'));
+  });
+
+  it('writes the ESM module marker and ships support modules so copied hooks load cleanly', () => {
+    fs.writeFileSync(path.join(tmpDir, 'package.json'), '{"name":"adopter"}\n');
+    addHooks('sentinel', tmpDir);
+    const markerPath = path.join(tmpDir, '.harness', 'hooks', 'package.json');
+    expect(JSON.parse(fs.readFileSync(markerPath, 'utf-8'))).toEqual({ type: 'module' });
+    // sentinel-pre imports './read-hook-stdin.js'; addHooks must ship it too.
+    expect(fs.existsSync(path.join(tmpDir, '.harness', 'hooks', 'read-hook-stdin.js'))).toBe(true);
+    const hookPath = path.join(tmpDir, '.harness', 'hooks', 'sentinel-pre.js');
+    const result = spawnSync('node', [hookPath], {
+      input: '',
+      encoding: 'utf-8',
+      cwd: tmpDir,
+      timeout: 30000,
+    });
+    const stderr = result.stderr ?? '';
+    expect(stderr).not.toContain('MODULE_TYPELESS_PACKAGE_JSON');
+    expect(stderr).not.toContain('ERR_MODULE_NOT_FOUND');
   });
 
   it('adds a single hook by name', () => {

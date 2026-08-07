@@ -11,8 +11,22 @@
  * ADR: "installer ships hook support files".
  */
 export const HOOK_SUPPORT_FILES: Record<string, string[]> = {
+  // Hooks that share format-check.js.
   'quality-warner': ['format-check.js'],
   'strict-quality-gate': ['format-check.js'],
+  // Hooks that share read-hook-stdin.js (extracted in #994). Every hook that
+  // `import`s a sibling must be listed here, or the installer ships a hook whose
+  // static import fails at load with ERR_MODULE_NOT_FOUND in the adopter — a
+  // non-blocking failure that silently stops the gate from running. The
+  // registry↔import drift guard in support-files.test.ts pins this invariant.
+  'block-no-verify': ['read-hook-stdin.js'],
+  'adoption-tracker': ['read-hook-stdin.js'],
+  'cost-tracker': ['read-hook-stdin.js'],
+  'protect-config': ['read-hook-stdin.js'],
+  'pre-compact-state': ['read-hook-stdin.js'],
+  'sentinel-pre': ['read-hook-stdin.js'],
+  'sentinel-post': ['read-hook-stdin.js'],
+  'telemetry-reporter': ['read-hook-stdin.js'],
 };
 
 /**
