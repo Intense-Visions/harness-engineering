@@ -6,16 +6,25 @@ vi.mock('@harness-engineering/core', async (importOriginal) => {
   return { ...actual, parseDiff: parseDiffMock };
 });
 
+import { execFileSync } from 'node:child_process';
+import { mkdtempSync, writeFileSync, rmSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import {
   resolveDiffRange,
   buildDiffInfo,
   runReviewCi,
+  buildDegradedResult,
+  defaultRunGit,
+  GIT_MAX_BUFFER_BYTES,
   emitReviewCi,
   buildReviewBody,
   createReviewCiCommand,
   assertKnownRunner,
 } from '../../src/commands/review-ci';
+import { parseCiReviewVerdict } from '@harness-engineering/core';
 import type { CiReviewResult, RunCiReviewOptions } from '@harness-engineering/core';
+import { ExitCode } from '../../src/utils/errors';
 import { logger } from '../../src/output/logger';
 
 describe('resolveDiffRange', () => {
@@ -227,6 +236,137 @@ describe('runReviewCi', () => {
     ).rejects.toThrow(/unknown runner 'foo'/);
     // It must reject at the boundary, never reaching the orchestrator with a bad cast.
     expect(runCiReviewImpl).not.toHaveBeenCalled();
+  });
+});
+
+// Regression coverage for issue #1098: a git diff larger than Node's default
+// 1 MB `spawnSync` maxBuffer must not crash review-ci with `spawnSync git
+// ENOBUFS` / exit 2 / empty stdout.
+describe('defaultRunGit maxBuffer (issue #1098)', () => {
+  it('exposes a generous bounded (finite) maxBuffer well above the 1 MB default', () => {
+    expect(GIT_MAX_BUFFER_BYTES).toBe(256 * 1024 * 1024);
+    expect(Number.isFinite(GIT_MAX_BUFFER_BYTES)).toBe(true);
+    expect(GIT_MAX_BUFFER_BYTES).toBeGreaterThan(1024 * 1024);
+  });
+
+  it('returns a git diff larger than the 1 MB default without throwing ENOBUFS', () => {
+    const repo = mkdtempSync(join(tmpdir(), 'review-ci-enobufs-'));
+    try {
+      const raw = ['-C', repo] as const;
+      execFileSync('git', [...raw, 'init', '-q']);
+      execFileSync('git', [...raw, 'config', 'user.email', 'test@example.com']);
+      execFileSync('git', [...raw, 'config', 'user.name', 'Harness Test']);
+      // ~1.7 MB single staged addition, so `git diff --cached` emits the whole
+      // payload — comfortably over the 1,048,576-byte default that trips ENOBUFS.
+      const big = ('x'.repeat(120) + '\n').repeat(14000);
+      writeFileSync(join(repo, 'big.txt'), big);
+      execFileSync('git', [...raw, 'add', 'big.txt']);
+
+      // Baseline: the SAME call on the default (unset) maxBuffer throws ENOBUFS —
+      // this is the exact bug the fix removes.
+      expect(() =>
+        execFileSync('git', [...raw, 'diff', '--cached'], { encoding: 'utf-8' })
+      ).toThrow(/ENOBUFS/);
+
+      // Fixed seam: the bounded maxBuffer carries the >1 MB payload back intact.
+      const diff = defaultRunGit([...raw, 'diff', '--cached']);
+      expect(Buffer.byteLength(diff, 'utf-8')).toBeGreaterThan(1024 * 1024);
+      expect(diff).toContain('big.txt');
+    } finally {
+      rmSync(repo, { recursive: true, force: true });
+    }
+  });
+});
+
+describe('graceful degradation on git failure (issue #1098)', () => {
+  it('buildDegradedResult produces a parseable abstained verdict with exit 3', () => {
+    const result = buildDegradedResult(new Error('spawnSync git ENOBUFS'));
+    // Parseable envelope — a `--json` consumer always gets a valid verdict.
+    const verdict = parseCiReviewVerdict(result.verdict);
+    expect(verdict.skipped).toBe(true);
+    expect(verdict.skipReason).toBe('internal error: spawnSync git ENOBUFS');
+    expect(verdict.runner).toBe('floor-only');
+    expect(verdict.ranLlmTier).toBe(false);
+    expect(verdict.findings).toEqual([]);
+    // Abstained: non-zero (never reads green) but distinct from 1 (objected) and
+    // 2 (crash).
+    expect(result.exitCode).toBe(ExitCode.ZERO_DENOMINATOR);
+    expect(result.exitCode).toBe(3);
+    expect(result.terminalOutput).toContain('not an approval');
+  });
+
+  it('degrades (does not throw) when the raw-diff resolution overflows/errors', async () => {
+    const runGit = vi.fn(() => 'refs/remotes/origin/main');
+    const resolveRaw = vi.fn(() => {
+      throw new Error('spawnSync git ENOBUFS');
+    });
+    const runCiReviewImpl = vi.fn();
+    const result = await runReviewCi({
+      runGit,
+      resolveRaw,
+      runCiReviewImpl,
+      diffRange: 'origin/main...HEAD',
+    });
+    // No throw, no exit 2: a degraded verdict is returned instead.
+    expect(runCiReviewImpl).not.toHaveBeenCalled();
+    expect(result.exitCode).toBe(3);
+    const verdict = parseCiReviewVerdict(result.verdict);
+    expect(verdict.skipped).toBe(true);
+    expect(verdict.skipReason).toContain('internal error: spawnSync git ENOBUFS');
+  });
+
+  it('degrades when the diff cannot be parsed (buildDiffInfo throws)', async () => {
+    parseDiffMock.mockReturnValue({ ok: false, error: { message: 'bad diff' } });
+    const runGit = vi.fn(() => 'refs/remotes/origin/main');
+    const resolveRaw = vi.fn(() => 'not a valid diff');
+    const runCiReviewImpl = vi.fn();
+    const result = await runReviewCi({
+      runGit,
+      resolveRaw,
+      runCiReviewImpl,
+      diffRange: 'a...b',
+    });
+    expect(runCiReviewImpl).not.toHaveBeenCalled();
+    expect(result.exitCode).toBe(3);
+    expect(parseCiReviewVerdict(result.verdict).skipReason).toContain('internal error:');
+  });
+
+  it('runs the review normally on a large (>1 MB) diff payload — no degradation', async () => {
+    parseDiffMock.mockReturnValue({
+      ok: true,
+      value: { files: [{ path: 'big.txt', status: 'added', additions: 1, deletions: 0 }] },
+    });
+    const bigRaw = 'diff --git a/big.txt b/big.txt\n' + '+x'.repeat(600_000);
+    expect(bigRaw.length).toBeGreaterThan(1024 * 1024);
+    const runGit = vi.fn(() => 'refs/remotes/origin/main');
+    const resolveRaw = vi.fn(() => bigRaw);
+    const runCiReviewImpl = vi.fn(
+      async () =>
+        ({
+          verdict: { assessment: 'approve' } as CiReviewResult['verdict'],
+          exitCode: 0,
+          terminalOutput: 'ok',
+          ranLlmTier: true,
+        }) as CiReviewResult
+    );
+    const result = await runReviewCi({
+      runGit,
+      resolveRaw,
+      runCiReviewImpl,
+      diffRange: 'a...b',
+    });
+    // The large diff reaches the real reviewer — a genuine verdict, not an abstention.
+    expect(runCiReviewImpl).toHaveBeenCalledTimes(1);
+    expect(result.exitCode).toBe(0);
+    expect(result.verdict.assessment).toBe('approve');
+  });
+
+  it('still fails fast (throws) on an unknown runner — NOT laundered into an abstention', async () => {
+    const runGit = vi.fn(() => 'refs/remotes/origin/main');
+    const resolveRaw = vi.fn(() => 'diff --git a/x b/x\n+x');
+    await expect(
+      runReviewCi({ runGit, resolveRaw, runner: 'nope', diffRange: 'a...b' })
+    ).rejects.toThrow(/unknown runner 'nope'/);
   });
 });
 

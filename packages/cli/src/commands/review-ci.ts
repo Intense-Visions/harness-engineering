@@ -1,7 +1,13 @@
 import { execFileSync } from 'node:child_process';
 import { writeFileSync } from 'node:fs';
 import { Command, Option } from 'commander';
-import { parseDiff, runCiReview, RUNNER_PRESETS, CI_ASSESSMENTS } from '@harness-engineering/core';
+import {
+  parseDiff,
+  runCiReview,
+  buildCiReviewVerdict,
+  RUNNER_PRESETS,
+  CI_ASSESSMENTS,
+} from '@harness-engineering/core';
 import type {
   DiffInfo,
   RunCiReviewOptions,
@@ -11,6 +17,7 @@ import type {
 } from '@harness-engineering/core';
 import { createLocalInvoke } from './review-ci-local-adapter';
 import { logger } from '../output/logger';
+import { ExitCode } from '../utils/errors';
 
 /**
  * The real, complete set of runner ids — derived from core's `RUNNER_PRESETS`
@@ -52,8 +59,24 @@ export function assertKnownRunner(
  */
 export type RunGit = (args: string[]) => string;
 
-const defaultRunGit: RunGit = (args) =>
-  execFileSync('git', args, { encoding: 'utf-8' }).toString().trim();
+/**
+ * Generous bounded stdout cap for git calls (256 MB).
+ *
+ * `execFileSync` inherits Node's 1 MB default `maxBuffer` when unset, so a
+ * `git diff` whose unified output exceeds ~1 MB throws `spawnSync git ENOBUFS`
+ * (issue #1098). 256 MB is ~170x the reported 1.5 MB failure and covers even
+ * large generated-file or vendored-lockfile diffs, while staying finite so a
+ * pathological unbounded diff surfaces as a caught overflow (degraded to an
+ * abstained verdict) rather than exhausting process memory. Applied on the
+ * shared seam so BOTH git calls it makes — `symbolic-ref` and the
+ * payload-carrying `diff` — are covered by one bound.
+ */
+export const GIT_MAX_BUFFER_BYTES = 256 * 1024 * 1024;
+
+export const defaultRunGit: RunGit = (args) =>
+  execFileSync('git', args, { encoding: 'utf-8', maxBuffer: GIT_MAX_BUFFER_BYTES })
+    .toString()
+    .trim();
 
 /**
  * Resolve the git range to diff for the review.
@@ -177,19 +200,63 @@ function buildCallOpts(opts: ReviewCiOptions, cwd: string, diff: DiffInfo): RunC
   };
 }
 
+/**
+ * Assemble a degraded {@link CiReviewResult} from an internal error so a failed
+ * git/diff resolution NEVER crashes the gate with a bare exit 2 and empty stdout
+ * (issue #1098). The verdict is built through {@link buildCiReviewVerdict} so it
+ * satisfies every schema invariant and remains parseable by `--json` consumers;
+ * `skipped: true` + `skipReason: "internal error: …"` lets a consumer tell "the
+ * reviewer could not run" from "the reviewer objected".
+ *
+ * The verdict's own `exitCode` is 0 (the schema requires it for a non-blocking
+ * `comment` assessment), but the PROCESS exit code is
+ * {@link ExitCode.ZERO_DENOMINATOR} (3): an abstained gate is non-zero (it must
+ * never read as a clean green pass) yet distinct from 1 (objected) and 2 (crash).
+ */
+export function buildDegradedResult(err: unknown): CiReviewResult {
+  const message = err instanceof Error ? err.message : String(err);
+  const verdict = buildCiReviewVerdict({
+    runner: 'floor-only',
+    ranLlmTier: false,
+    assessment: 'comment',
+    findings: [],
+    skipped: true,
+    skipReason: `internal error: ${message}`,
+  });
+  return {
+    verdict,
+    exitCode: ExitCode.ZERO_DENOMINATOR,
+    terminalOutput:
+      'harness review-ci — could not run (abstained)\n' +
+      `reason: ${verdict.skipReason}\n` +
+      'The review did not run; this is not an approval.',
+    ranLlmTier: false,
+  };
+}
+
 export async function runReviewCi(opts: ReviewCiOptions): Promise<CiReviewResult> {
   // Fail closed at the boundary: an unknown runner must surface a clear error
-  // here, not a downstream `TypeError` from an undefined preset in core.
+  // here, not a downstream `TypeError` from an undefined preset in core. This
+  // stays OUTSIDE the degradation guard — a bad `--runner` is caller error and
+  // must keep failing fast (exit 2), never be laundered into an abstention.
   assertKnownRunner(opts.runner);
   const cwd = opts.cwd ?? process.cwd();
   const runGit = opts.runGit ?? defaultRunGit;
-  const range = resolveDiffRange({
-    ...(opts.diffRange ? { range: opts.diffRange } : {}),
-    cwd,
-    runGit,
-  });
-  const rawDiff = (opts.resolveRaw ?? defaultResolveRaw)(range, cwd, runGit);
-  const diff = buildDiffInfo(rawDiff);
+  let diff: DiffInfo;
+  try {
+    const range = resolveDiffRange({
+      ...(opts.diffRange ? { range: opts.diffRange } : {}),
+      cwd,
+      runGit,
+    });
+    const rawDiff = (opts.resolveRaw ?? defaultResolveRaw)(range, cwd, runGit);
+    diff = buildDiffInfo(rawDiff);
+  } catch (err) {
+    // A git/diff/parse failure (e.g. an ENOBUFS overflow beyond the buffer bound,
+    // a missing ref, git absent from PATH, or an unparseable diff) degrades to a
+    // parseable abstained verdict instead of crashing with exit 2 / empty stdout.
+    return buildDegradedResult(err);
+  }
   const callOpts = buildCallOpts(opts, cwd, diff);
   return (opts.runCiReviewImpl ?? runCiReview)(callOpts);
 }
