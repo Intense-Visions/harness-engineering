@@ -79,7 +79,10 @@ AGENTS.md                                           # note the two new wirings
 ### Adapter surface additions (`canary.ts`)
 
 ```ts
-// canary frameworks --json  → { frameworks: string[], details: CanaryFrameworkInfo[] }
+// canary frameworks --json  → { frameworks: CanaryFrameworkInfo[] }
+// [PLAN-VERIFIED against the live CLI]: the detail objects live directly under `frameworks`;
+// there is NO top-level `details[]` key. Parsing `details[]` would make listFrameworks() a
+// silent no-op ([]). The adapter parses `frameworks[]` and returns parsed.data.frameworks.
 export const canaryFrameworkInfoSchema = z.object({
   name: z.string(),
   languages: z.array(z.string()).default([]),
@@ -99,7 +102,7 @@ export interface CanaryAdapter {
 }
 ```
 
-- `listFrameworks()` execs `canary frameworks --json` through the existing `execCanary` seam and zod-parses `details[]`; returns `[]` on any degrade (identical taxonomy to the other methods). Total — never throws.
+- `listFrameworks()` execs `canary frameworks --json` through the existing `execCanary` seam and zod-parses `frameworks[]` (the detail objects live directly under `frameworks`; there is no `details[]` key — PLAN-VERIFIED against the live CLI); returns `[]` on any degrade (identical taxonomy to the other methods). Total — never throws.
 - **Pure resolution helper** `resolveTestCommand(fw: CanaryFrameworkInfo, file: string, opts?: { ci?: boolean }): string | null` — returns `null` when `execution_command` is `null`; otherwise substitutes `{file}` (and leaves non-`{file}` commands as whole-suite commands), appending `ci_flags` (joined) when `opts.ci`. No `{target}`-only security scanners are resolvable to a test command → `null`. Pure and unit-testable, no exec.
 
 ### Detection + the new MCP tool (`canary_discover_test_command`)
@@ -157,7 +160,7 @@ RED-phase step "Write the test file" gains a detect-and-offer branch:
 
 ## Risks & open questions
 
-- **[RISK] CLI `frameworks --json` shape vs. the plugin MCP shape.** The contract was captured from the plugin MCP `list_frameworks` (`{frameworks, details}`). The adapter execs the CLI (`canary frameworks --json`). Mitigation: permissive zod schema (D6) parsing `details[]`; degrade to `[]` on mismatch. A Phase-0 check confirms the CLI shape before the skill relies on it.
+- **[RESOLVED — Phase 0] CLI `frameworks --json` shape.** The plugin MCP `list_frameworks` returns `{frameworks: string[], details: CanaryFrameworkInfo[]}`, but the **CLI** `canary frameworks --json` (what the adapter execs) returns `{frameworks: CanaryFrameworkInfo[]}` — detail objects directly under `frameworks`, no `details[]` key. Verified live against the 27-framework registry. The adapter parses `frameworks[]` with the permissive zod schema (D6) and degrades to `[]` on mismatch.
 - **[RISK] Extension collisions.** `spec.ts`/`test.ts` map to both playwright and vitest. Mitigation: longest-suffix match + `preferred`/`full`-tier tie-break; when still ambiguous, return all matches and let verify prefer the project's configured runner (heuristic fallback still available).
 - **[RISK] `{target}` / non-`{file}` / null commands.** Security scanners and catalog-tier frameworks have no resolvable per-file test command. Mitigation: `resolveTestCommand()` returns `null` and the tool omits them.
 
