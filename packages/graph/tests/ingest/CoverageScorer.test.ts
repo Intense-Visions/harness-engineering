@@ -117,7 +117,7 @@ describe('CoverageScorer', () => {
     expect(report.overallScore).toBe(expectedOverall);
   });
 
-  it('returns empty report for empty graph', () => {
+  it('abstains (N/A) for an empty graph rather than grading F (#1110)', () => {
     const store = new GraphStore();
     const scorer = new CoverageScorer();
 
@@ -125,7 +125,10 @@ describe('CoverageScorer', () => {
 
     expect(report.domains).toHaveLength(0);
     expect(report.overallScore).toBe(0);
-    expect(report.overallGrade).toBe('F');
+    // An empty graph is "no data", not "bad coverage" — it must not read as F.
+    expect(report.overallGrade).toBe('N/A');
+    expect(report.graphPresent).toBe(false);
+    expect(report.measuredDomainCount).toBe(0);
     expect(report.generatedAt).toBeDefined();
     // Validate ISO timestamp format
     expect(() => new Date(report.generatedAt)).not.toThrow();
@@ -345,6 +348,80 @@ describe('CoverageScorer', () => {
     const report = scorer.score(store);
     expect(report.overallScore).toBe(report.domains[0]!.score);
     expect(report.overallGrade).toBe(report.domains[0]!.grade);
+  });
+
+  describe('unmeasured domains abstain instead of grading F (#1110)', () => {
+    it('a domain with a zero linkable-code denominator is N/A, not F', () => {
+      const store = new GraphStore();
+      const scorer = new CoverageScorer();
+
+      // Knowledge only, no code entities in this domain → 0/0, nothing to link.
+      store.addNode(makeKnowledgeNode('kn-1', 'docsdomain', 'confluence'));
+      store.addNode(makeKnowledgeNode('kn-2', 'docsdomain', 'jira'));
+
+      const report = scorer.score(store);
+      const domain = findDomain(report, 'docsdomain');
+
+      expect(domain).toBeDefined();
+      expect(domain!.codeEntities).toBe(0);
+      expect(domain!.measured).toBe(false);
+      expect(domain!.grade).toBe('N/A');
+    });
+
+    it('a domain WITH real linkage still grades normally', () => {
+      const store = new GraphStore();
+      const scorer = new CoverageScorer();
+
+      // 3 code, all linked, 10 knowledge from 3 sources → grade A, measured.
+      for (let i = 0; i < 3; i++) store.addNode(makeCodeNode(`c-${i}`, 'measured'));
+      for (let i = 0; i < 10; i++) {
+        store.addNode(makeKnowledgeNode(`k-${i}`, 'measured', ['a', 'b', 'c'][i % 3]!));
+      }
+      for (let i = 0; i < 3; i++) store.addEdge(makeEdge(`k-${i}`, `c-${i}`, 'governs'));
+
+      const report = scorer.score(store);
+      const domain = findDomain(report, 'measured');
+
+      expect(domain!.measured).toBe(true);
+      expect(domain!.grade).toBe('A');
+    });
+
+    it('excludes unmeasured domains from the aggregate (not averaged as zero)', () => {
+      const store = new GraphStore();
+      const scorer = new CoverageScorer();
+
+      // Measured domain: full coverage → grade A.
+      for (let i = 0; i < 3; i++) store.addNode(makeCodeNode(`m-${i}`, 'graded'));
+      for (let i = 0; i < 10; i++) {
+        store.addNode(makeKnowledgeNode(`gk-${i}`, 'graded', ['a', 'b', 'c'][i % 3]!));
+      }
+      for (let i = 0; i < 3; i++) store.addEdge(makeEdge(`gk-${i}`, `m-${i}`, 'governs'));
+
+      // Unmeasured domain: knowledge only, 0/0.
+      store.addNode(makeKnowledgeNode('u-1', 'ungraded', 'confluence'));
+
+      const report = scorer.score(store);
+      const graded = findDomain(report, 'graded');
+
+      // Overall reflects the measured domain only — the 0/0 domain must not
+      // drag the aggregate down toward F.
+      expect(report.measuredDomainCount).toBe(1);
+      expect(report.overallScore).toBe(graded!.score);
+      expect(report.overallGrade).toBe(graded!.grade);
+      expect(report.graphPresent).toBe(true);
+    });
+
+    it('graphPresent is false only when there are no nodes at all', () => {
+      const store = new GraphStore();
+      const scorer = new CoverageScorer();
+      store.addNode(makeKnowledgeNode('kn-only', 'x', 'docs'));
+
+      const report = scorer.score(store);
+      // Knowledge exists → graph is present, but no measurable domain → N/A.
+      expect(report.graphPresent).toBe(true);
+      expect(report.overallGrade).toBe('N/A');
+      expect(report.measuredDomainCount).toBe(0);
+    });
   });
 
   describe('inferenceOptions plumbing (Phase 4)', () => {

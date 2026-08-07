@@ -44,7 +44,8 @@ function buildPipelineOptions(
   opts: KnowledgePipelineCommandOptions,
   projectDir: string,
   graphDir: string,
-  inferenceOptions: Record<string, unknown> | undefined
+  inferenceOptions: Record<string, unknown> | undefined,
+  extractionExclude: readonly string[]
 ): Record<string, unknown> {
   const pipelineOpts: Record<string, unknown> = {
     projectDir,
@@ -54,6 +55,7 @@ function buildPipelineOptions(
     graphDir,
     analyzeImages: Boolean(opts.analyzeImages),
     ...(inferenceOptions ? { inferenceOptions } : {}),
+    ...(extractionExclude.length > 0 ? { extractionExclude } : {}),
   };
 
   // Parse image paths if provided
@@ -118,6 +120,8 @@ function printJsonResult(result: KnowledgePipelineResult): void {
         coverage: {
           overallScore: result.coverage.overallScore,
           overallGrade: result.coverage.overallGrade,
+          graphPresent: result.coverage.graphPresent,
+          measuredDomainCount: result.coverage.measuredDomainCount,
           domains: result.coverage.domains.length,
         },
         ...(result.materialization
@@ -148,7 +152,13 @@ function printSummary(result: KnowledgePipelineResult): void {
   console.log('');
   console.log(`KNOWLEDGE PIPELINE -- Verdict: ${verdictColor}`);
   console.log('');
-  console.log(`  Drift Score: ${result.driftScore.toFixed(2)}`);
+  // On a first run every finding is `new` (no prior graph state), which drives
+  // the drift score toward 1.00. Label it so the headline is not misread as
+  // "everything drifted" when the verdict beneath it is correctly WARN (#1110).
+  const f = result.findings;
+  const firstRun = f.new > 0 && f.stale === 0 && f.drifted === 0 && f.contradicting === 0;
+  const driftLabel = firstRun ? ' (first run — no prior graph state)' : '';
+  console.log(`  Drift Score: ${result.driftScore.toFixed(2)}${driftLabel}`);
   console.log(
     `  Findings: ${result.findings.new} new, ${result.findings.stale} stale, ${result.findings.drifted} drifted, ${result.findings.contradicting} contradicting`
   );
@@ -222,8 +232,32 @@ function printCoverage(
     return;
   }
   console.log('');
-  console.log(`  Coverage: ${result.coverage.overallGrade} (${result.coverage.overallScore}/100)`);
-  for (const d of result.coverage.domains) {
+
+  const cov = result.coverage;
+
+  // No graph (or an empty one): abstain loudly and point at the escalation the
+  // SKILL already specifies, rather than emitting a confident failing grade on
+  // no data (#1110).
+  if (!cov.graphPresent) {
+    console.log(`  Coverage: ${chalk.yellow('N/A')} — no graph found (gap-analysis mode)`);
+    console.log(`    Run ${chalk.cyan('harness graph scan')} to enable coverage grading.`);
+    return;
+  }
+
+  const overall =
+    cov.overallGrade === 'N/A'
+      ? `${chalk.yellow('N/A')} — no measurable domains (run ${chalk.cyan('harness graph scan')})`
+      : `${cov.overallGrade} (${cov.overallScore}/100)`;
+  console.log(`  Coverage: ${overall}`);
+
+  for (const d of cov.domains) {
+    if (!d.measured) {
+      // No linkable-code denominator (0/0): report undetermined, not F.
+      console.log(
+        `    ${d.domain}: ${chalk.yellow('N/A')} — ${d.knowledgeEntries} knowledge, no code to link (run graph scan)`
+      );
+      continue;
+    }
     console.log(
       `    ${d.domain}: ${d.grade} (${d.score}/100) — ${d.knowledgeEntries} knowledge, ${d.linkedEntities}/${d.codeEntities} code linked`
     );
@@ -276,9 +310,16 @@ export function createKnowledgePipelineCommand(): Command {
         const cfgResult = resolveConfig();
         const cfgKnowledge = cfgResult.ok ? cfgResult.value.knowledge : undefined;
         const inferenceOptions = resolveInferenceOptions(cfgKnowledge);
+        const extractionExclude = cfgKnowledge?.extractionExclude ?? [];
 
         // Build pipeline options
-        const pipelineOpts = buildPipelineOptions(opts, projectDir, graphDir, inferenceOptions);
+        const pipelineOpts = buildPipelineOptions(
+          opts,
+          projectDir,
+          graphDir,
+          inferenceOptions,
+          extractionExclude
+        );
 
         // Set up analysis provider for image analysis if requested
         if (opts.analyzeImages) {
