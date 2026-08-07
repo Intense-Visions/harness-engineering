@@ -5,12 +5,14 @@ import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import {
   resolveArchBaseline,
+  isWholeSnapshotContext,
   loadArchAllowances,
   filterDiffByAllowances,
   writeArchAllowance,
   archAllowanceSlug,
   archAllowancesDir,
 } from '../../src/architecture/baseline-resolver';
+import type { ArchBaselineResolution } from '../../src/architecture/baseline-resolver';
 import { ArchBaselineManager } from '../../src/architecture/baseline-manager';
 import type { ArchBaseline, ArchDiffResult, Violation } from '../../src/architecture/types';
 
@@ -173,6 +175,107 @@ describe('resolveArchBaseline (base-aware)', () => {
     } finally {
       if (prev === undefined) delete process.env.HARNESS_ARCH_BASE_REF;
       else process.env.HARNESS_ARCH_BASE_REF = prev;
+    }
+  });
+
+  // The `fallback` discriminant is what lets the `--update-baseline` WRITE path tell a
+  // legitimate single-writer whole-snapshot context (base branch / non-git / forced) apart
+  // from a feature branch whose base ref was merely unreadable — where rewriting the shared
+  // snapshot would reintroduce the baselines.json merge cascade.
+  it('tags fallback=base-ref-unreachable on a feature branch when the base ref is unresolvable', () => {
+    initRepo(root);
+    commitBaseline(root, makeBaseline(7));
+    git(root, ['checkout', '-b', 'feature']);
+    const manager = new ArchBaselineManager(root);
+    const resolution = resolveArchBaseline(root, BASELINE_REL, manager, {
+      baseRef: 'origin/does-not-exist',
+    });
+    expect(resolution.source).toBe('working-tree');
+    expect(resolution.fallback).toBe('base-ref-unreachable');
+  });
+
+  it('tags fallback=base-branch on the base branch itself', () => {
+    initRepo(root);
+    commitBaseline(root, makeBaseline(50));
+    const manager = new ArchBaselineManager(root);
+    const resolution = resolveArchBaseline(root, BASELINE_REL, manager, { baseRef: 'main' });
+    expect(resolution.source).toBe('working-tree');
+    expect(resolution.fallback).toBe('base-branch');
+  });
+
+  it('tags fallback=non-git outside a git repo', () => {
+    mkdirSync(join(root, '.harness', 'arch'), { recursive: true });
+    writeFileSync(join(root, BASELINE_REL), JSON.stringify(makeBaseline(3), null, 2));
+    const manager = new ArchBaselineManager(root);
+    const resolution = resolveArchBaseline(root, BASELINE_REL, manager);
+    expect(resolution.fallback).toBe('non-git');
+  });
+
+  it('tags fallback=forced under HARNESS_ARCH_FORCE_WORKING_TREE', () => {
+    initRepo(root);
+    commitBaseline(root, makeBaseline(200));
+    git(root, ['checkout', '-b', 'feature']);
+    const prev = process.env.HARNESS_ARCH_FORCE_WORKING_TREE;
+    process.env.HARNESS_ARCH_FORCE_WORKING_TREE = '1';
+    try {
+      const manager = new ArchBaselineManager(root);
+      const resolution = resolveArchBaseline(root, BASELINE_REL, manager, { baseRef: 'main' });
+      expect(resolution.fallback).toBe('forced');
+    } finally {
+      if (prev === undefined) delete process.env.HARNESS_ARCH_FORCE_WORKING_TREE;
+      else process.env.HARNESS_ARCH_FORCE_WORKING_TREE = prev;
+    }
+  });
+
+  it('tags fallback=base-ref-absent when the base branch has no baseline (bootstrap)', () => {
+    initRepo(root);
+    // Commit something OTHER than the baseline on main, so the ref resolves but the file is absent.
+    writeFileSync(join(root, 'seed.txt'), 'x');
+    git(root, ['add', '-A']);
+    git(root, ['commit', '-m', 'seed']);
+    git(root, ['checkout', '-b', 'feature']);
+    // A working-tree baseline exists on the branch, but main has none.
+    mkdirSync(join(root, '.harness', 'arch'), { recursive: true });
+    writeFileSync(join(root, BASELINE_REL), JSON.stringify(makeBaseline(9), null, 2));
+    const manager = new ArchBaselineManager(root);
+    const resolution = resolveArchBaseline(root, BASELINE_REL, manager, { baseRef: 'main' });
+    expect(resolution.source).toBe('working-tree');
+    expect(resolution.fallback).toBe('base-ref-absent');
+  });
+
+  it('does NOT set a fallback on a base-ref resolution (PR context)', () => {
+    initRepo(root);
+    commitBaseline(root, makeBaseline(100));
+    git(root, ['checkout', '-b', 'feature']);
+    const manager = new ArchBaselineManager(root);
+    const resolution = resolveArchBaseline(root, BASELINE_REL, manager, { baseRef: 'main' });
+    expect(resolution.source).toBe('base-ref');
+    expect(resolution.fallback).toBeUndefined();
+  });
+});
+
+describe('isWholeSnapshotContext (which contexts may rewrite the committed snapshot)', () => {
+  const res = (over: Partial<ArchBaselineResolution>): ArchBaselineResolution => ({
+    baseline: makeBaseline(1),
+    source: 'working-tree',
+    ...over,
+  });
+
+  it('is FALSE for a base-ref (PR) resolution — a PR acknowledges via an allowance', () => {
+    expect(isWholeSnapshotContext(res({ source: 'base-ref', fallback: undefined }))).toBe(false);
+  });
+
+  it('is TRUE for the legitimate single-writer contexts', () => {
+    for (const fallback of ['forced', 'non-git', 'base-branch', 'base-ref-absent'] as const) {
+      expect(isWholeSnapshotContext(res({ fallback }))).toBe(true);
+    }
+  });
+
+  // THE FIX: a feature branch whose base ref was merely unreadable must NOT rewrite the shared
+  // snapshot — that is the baselines.json merge cascade. It is not a whole-snapshot context.
+  it('is FALSE when a feature branch could not read the base ref (unreachable / invalid)', () => {
+    for (const fallback of ['base-ref-unreachable', 'base-ref-invalid'] as const) {
+      expect(isWholeSnapshotContext(res({ fallback }))).toBe(false);
     }
   });
 });
