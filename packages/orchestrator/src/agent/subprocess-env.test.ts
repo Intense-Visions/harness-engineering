@@ -110,4 +110,45 @@ describe('buildSubprocessEnv (subprocess air-gap)', () => {
     expect(isEnvKeyAllowed('CUSTOM', extra)).toBe(true);
     expect(isEnvKeyAllowed('DATABASE_URL', extra)).toBe(false);
   });
+
+  it('(windows) forwards the OS-plumbing vars a subprocess needs to spawn', () => {
+    // Regression: the allowlist was POSIX-only, so on Windows every subprocess
+    // spawned with a stripped env crashed/hung — node.exe cannot initialize
+    // without SystemRoot, and executables cannot resolve without PATHEXT/ComSpec.
+    const source: NodeJS.ProcessEnv = {
+      // Canonical Windows casings straight from process.env on win32.
+      Path: 'C:\\Windows\\System32',
+      SystemRoot: 'C:\\Windows',
+      SystemDrive: 'C:',
+      ComSpec: 'C:\\Windows\\System32\\cmd.exe',
+      PATHEXT: '.COM;.EXE;.BAT;.CMD',
+      windir: 'C:\\Windows',
+      TEMP: 'C:\\Users\\a\\AppData\\Local\\Temp',
+      USERPROFILE: 'C:\\Users\\a',
+      APPDATA: 'C:\\Users\\a\\AppData\\Roaming',
+      LOCALAPPDATA: 'C:\\Users\\a\\AppData\\Local',
+      NUMBER_OF_PROCESSORS: '8',
+      'ProgramFiles(x86)': 'C:\\Program Files (x86)',
+      // An unrelated secret must still be dropped.
+      DATABASE_URL: 'postgres://user:pw@host/db',
+    };
+    const { env, stripped } = buildSubprocessEnv(source);
+    for (const key of Object.keys(source)) {
+      if (key === 'DATABASE_URL') continue;
+      expect(env[key]).toBe(source[key]);
+    }
+    expect(env).not.toHaveProperty('DATABASE_URL');
+    expect(stripped).toEqual(['DATABASE_URL']);
+  });
+
+  it('(windows) matches allowlist entries case-insensitively', () => {
+    const extra = new Set<string>();
+    // OS supplies mixed casing; the allowlist stores canonical/upper forms.
+    expect(isEnvKeyAllowed('Path', extra)).toBe(true);
+    expect(isEnvKeyAllowed('SystemRoot', extra)).toBe(true);
+    expect(isEnvKeyAllowed('Temp', extra)).toBe(true);
+    expect(isEnvKeyAllowed('ComSpec', extra)).toBe(true);
+    // A case-insensitive extraAllow name resolves regardless of OS casing.
+    expect(isEnvKeyAllowed('My_Custom', new Set(['MY_CUSTOM']))).toBe(true);
+  });
 });

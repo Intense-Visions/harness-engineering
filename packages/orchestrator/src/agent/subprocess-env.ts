@@ -72,6 +72,42 @@ export const SUBPROCESS_ENV_ALLOWLIST: readonly string[] = [
   'FORCE_COLOR',
   'NO_COLOR',
   'CI',
+  // Windows OS plumbing. Windows processes (including node.exe itself) FAIL to
+  // initialize without these — most critically SystemRoot (ntdll/crypto) and
+  // PATHEXT/COMSPEC (executable resolution). Withholding them doesn't just hide
+  // a var, it makes every subprocess spawn crash or hang on Windows. Listed in
+  // their canonical Windows casing; matching is case-insensitive (see
+  // isEnvKeyAllowed) so the OS's actual casing (`Path`, `Temp`, …) resolves too.
+  'SYSTEMROOT',
+  'SYSTEMDRIVE',
+  'WINDIR',
+  'COMSPEC',
+  'PATHEXT',
+  'NUMBER_OF_PROCESSORS',
+  'PROCESSOR_ARCHITECTURE',
+  'PROCESSOR_ARCHITEW6432',
+  'PROCESSOR_IDENTIFIER',
+  'PROCESSOR_LEVEL',
+  'PROCESSOR_REVISION',
+  'OS',
+  'USERPROFILE',
+  'USERNAME',
+  'USERDOMAIN',
+  'USERDOMAIN_ROAMINGPROFILE',
+  'HOMEDRIVE',
+  'HOMEPATH',
+  'APPDATA',
+  'LOCALAPPDATA',
+  'PROGRAMDATA',
+  'ALLUSERSPROFILE',
+  'PUBLIC',
+  'SESSIONNAME',
+  'PROGRAMFILES',
+  'PROGRAMFILES(X86)',
+  'PROGRAMW6432',
+  'COMMONPROGRAMFILES',
+  'COMMONPROGRAMFILES(X86)',
+  'COMMONPROGRAMW6432',
 ];
 
 /**
@@ -166,12 +202,30 @@ function parseAllowList(value: string | undefined): string[] {
     .filter((s) => s.length > 0);
 }
 
+// Precomputed uppercase forms for case-insensitive matching. Windows env var
+// names are case-insensitive and the OS supplies them in mixed case (`Path`,
+// `SystemRoot`, `Temp`), so an exact case-sensitive check would strip even PATH
+// on Windows and break every spawn. Normalizing to uppercase makes the allowlist
+// resolve identically on every platform; the small extra permissiveness on
+// POSIX (a var literally named `path`) only ever admits OS-plumbing names, never
+// a credential the rules didn't already admit via prefix/suffix.
+const ALLOWLIST_UPPER: ReadonlySet<string> = new Set(
+  SUBPROCESS_ENV_ALLOWLIST.map((n) => n.toUpperCase())
+);
+const ALLOWED_PREFIXES_UPPER: readonly string[] = SUBPROCESS_ENV_ALLOWED_PREFIXES.map((p) =>
+  p.toUpperCase()
+);
+
 /** Is `name` permitted through the air-gap given the merged allow set? */
 export function isEnvKeyAllowed(name: string, extraAllow: ReadonlySet<string>): boolean {
+  const upper = name.toUpperCase();
   if (extraAllow.has(name)) return true;
-  if (SUBPROCESS_ENV_ALLOWLIST.includes(name)) return true;
-  if (name.endsWith(API_KEY_SUFFIX)) return true;
-  return SUBPROCESS_ENV_ALLOWED_PREFIXES.some((prefix) => name.startsWith(prefix));
+  for (const e of extraAllow) {
+    if (e.toUpperCase() === upper) return true;
+  }
+  if (ALLOWLIST_UPPER.has(upper)) return true;
+  if (upper.endsWith(API_KEY_SUFFIX)) return true;
+  return ALLOWED_PREFIXES_UPPER.some((prefix) => upper.startsWith(prefix));
 }
 
 /**
