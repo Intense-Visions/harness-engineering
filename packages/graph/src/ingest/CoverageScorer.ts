@@ -5,6 +5,13 @@ import { inferDomain, type DomainInferenceOptions } from './domain-inference.js'
 
 // --- Exported result types ---
 
+/**
+ * Coverage grade. `'N/A'` is the *unmeasured* state: it is emitted when there
+ * is no linkable-code denominator to score against (0/0), so that "no graph /
+ * no data" is never rendered as the confident failing grade `'F'` (#1110).
+ */
+export type Grade = 'A' | 'B' | 'C' | 'D' | 'F' | 'N/A';
+
 export interface DomainCoverageScore {
   readonly domain: string;
   readonly score: number;
@@ -13,13 +20,25 @@ export interface DomainCoverageScore {
   readonly linkedEntities: number;
   readonly unlinkedEntities: number;
   readonly sourceBreakdown: Record<string, number>;
-  readonly grade: 'A' | 'B' | 'C' | 'D' | 'F';
+  /**
+   * Whether this domain had a linkable-code denominator (`codeEntities > 0`).
+   * When `false` the domain is *unmeasured*: its `grade` is `'N/A'` and it is
+   * excluded from the report aggregate rather than averaging a zero into it.
+   */
+  readonly measured: boolean;
+  readonly grade: Grade;
 }
 
 export interface CoverageReport {
   readonly domains: readonly DomainCoverageScore[];
+  /** Rounded average of *measured* domains only (0 when none are measured). */
   readonly overallScore: number;
-  readonly overallGrade: 'A' | 'B' | 'C' | 'D' | 'F';
+  /** `'N/A'` when no domain was measurable (no linkable code anywhere). */
+  readonly overallGrade: Grade;
+  /** Whether the graph contained any code or knowledge nodes at all. */
+  readonly graphPresent: boolean;
+  /** Count of domains with a linkable-code denominator. */
+  readonly measuredDomainCount: number;
   readonly generatedAt: string;
 }
 
@@ -146,6 +165,11 @@ function scoreDomain(
 
   const score = computeDomainScore(knowledgeEntries, codeEntities, linkedEntities, uniqueSources);
 
+  // A domain is *measured* only when it has a linkable-code denominator. With
+  // `codeEntities === 0` there is nothing to link (0/0), so we abstain from a
+  // letter grade rather than emit a confident `F` on no data (#1110).
+  const measured = codeEntities > 0;
+
   return {
     domain,
     score,
@@ -154,7 +178,8 @@ function scoreDomain(
     linkedEntities,
     unlinkedEntities: codeEntities - linkedEntities,
     sourceBreakdown,
-    grade: toGrade(score),
+    measured,
+    grade: measured ? toGrade(score) : 'N/A',
   };
 }
 
@@ -179,15 +204,22 @@ export class CoverageScorer {
       );
     }
 
+    // Aggregate over *measured* domains only. Averaging no-denominator zeros
+    // into the overall would let an unscanned repo read as a failing grade
+    // (#1110). When nothing is measurable the overall grade abstains to 'N/A'.
+    const measuredDomains = domains.filter((d) => d.measured);
     const overallScore =
-      domains.length > 0
-        ? Math.round(domains.reduce((sum, d) => sum + d.score, 0) / domains.length)
+      measuredDomains.length > 0
+        ? Math.round(measuredDomains.reduce((sum, d) => sum + d.score, 0) / measuredDomains.length)
         : 0;
+    const graphPresent = knowledgeNodes.length > 0 || codeNodes.length > 0;
 
     return {
       domains,
       overallScore,
-      overallGrade: toGrade(overallScore),
+      overallGrade: measuredDomains.length > 0 ? toGrade(overallScore) : 'N/A',
+      graphPresent,
+      measuredDomainCount: measuredDomains.length,
       generatedAt: new Date().toISOString(),
     };
   }

@@ -662,6 +662,13 @@ export const KnowledgeConfigSchema = z.object({
     .default([]),
   /** Caller-supplied blocklisted path segments (e.g. `["scratch", "fixtures"]`). Extends defaults. */
   domainBlocklist: z.array(z.string().min(1)).optional().default([]),
+  /**
+   * Caller-supplied glob patterns (minimatch) excluded from code-signal
+   * extraction, e.g. `["**\/golden/**"]`. Extends the built-in defaults
+   * (test files and fixture/golden trees), which are always excluded so the
+   * gap report is not inflated with test titles and fixture data (#1111).
+   */
+  extractionExclude: z.array(z.string().min(1)).optional().default([]),
 });
 
 /**

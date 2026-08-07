@@ -5,6 +5,7 @@ import * as os from 'os';
 import {
   ExtractionRunner,
   detectLanguage,
+  DEFAULT_EXTRACTION_EXCLUDE,
 } from '../../../src/ingest/extractors/ExtractionRunner.js';
 import { GraphStore } from '../../../src/store/GraphStore.js';
 import type {
@@ -159,6 +160,78 @@ describe('ExtractionRunner', () => {
     // No new nodes on second run
     expect(nodesAfter).toBe(nodesBefore);
     expect(result2.nodesAdded).toBe(0);
+  });
+
+  describe('test / fixture exclusion (#1111)', () => {
+    /** Write a small polyglot-free TS project tree under a temp root. */
+    async function buildProjectTree(root: string): Promise<void> {
+      const write = async (rel: string, body = 'export const x = 1;\n') => {
+        const full = path.join(root, rel);
+        await fs.mkdir(path.dirname(full), { recursive: true });
+        await fs.writeFile(full, body, 'utf-8');
+      };
+      await write('src/orders.ts'); // genuine first-party source
+      await write('src/orders.test.ts'); // co-located test file
+      await write('tests/sync-runtime.test.ts'); // test directory
+      await write('tests/skills/fixtures/optum/expected/schema.ts'); // golden fixture
+      await write('src/__snapshots__/thing.ts'); // snapshot tree
+    }
+
+    it('findSourceFiles walks first-party source but skips test files and fixtures', async () => {
+      const root = await fs.mkdtemp(path.join(os.tmpdir(), 'excl-test-'));
+      await buildProjectTree(root);
+
+      const runner = new ExtractionRunner([]);
+      const files = (await runner.findSourceFiles(root)).map((f) =>
+        path.relative(root, f).replaceAll('\\', '/')
+      );
+
+      expect(files).toContain('src/orders.ts');
+      expect(files).not.toContain('src/orders.test.ts');
+      expect(files).not.toContain('tests/sync-runtime.test.ts');
+      expect(files).not.toContain('tests/skills/fixtures/optum/expected/schema.ts');
+      expect(files).not.toContain('src/__snapshots__/thing.ts');
+    });
+
+    it('extracts a genuine first-party signal but not test/fixture-derived ones', async () => {
+      const root = await fs.mkdtemp(path.join(os.tmpdir(), 'excl-test-'));
+      await buildProjectTree(root);
+      const outDir = await fs.mkdtemp(path.join(os.tmpdir(), 'excl-out-'));
+
+      // Stub emits one record per file it is given — so the produced records'
+      // filePaths reveal exactly which files the runner fed to the extractors.
+      const stub = createStubExtractor('probe');
+      const runner = new ExtractionRunner([stub]);
+      const store = new GraphStore();
+      await runner.run(root, store, outDir);
+
+      const paths = store
+        .findNodes({ type: 'business_rule' })
+        .filter((n) => n.metadata.source === 'code-extractor')
+        .map((n) => n.path);
+
+      expect(paths).toContain('src/orders.ts');
+      expect(paths).not.toContain('src/orders.test.ts');
+      expect(paths).not.toContain('tests/sync-runtime.test.ts');
+      expect(paths).not.toContain('tests/skills/fixtures/optum/expected/schema.ts');
+    });
+
+    it('honors caller-supplied excludeGlobs that extend the defaults', async () => {
+      const root = await fs.mkdtemp(path.join(os.tmpdir(), 'excl-test-'));
+      await fs.mkdir(path.join(root, 'src'), { recursive: true });
+      await fs.writeFile(path.join(root, 'src/orders.ts'), 'export const x = 1;\n');
+      await fs.writeFile(path.join(root, 'src/generated.ts'), 'export const y = 2;\n');
+
+      const runner = new ExtractionRunner([], {
+        excludeGlobs: [...DEFAULT_EXTRACTION_EXCLUDE, '**/generated.ts'],
+      });
+      const files = (await runner.findSourceFiles(root)).map((f) =>
+        path.relative(root, f).replaceAll('\\', '/')
+      );
+
+      expect(files).toContain('src/orders.ts');
+      expect(files).not.toContain('src/generated.ts');
+    });
   });
 
   it('marks stale nodes when signals disappear', async () => {

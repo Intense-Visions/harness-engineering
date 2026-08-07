@@ -74,6 +74,13 @@ export interface KnowledgePipelineOptions {
    * `knowledge.domainBlocklist` (→ extraBlocklist). Defaults to {} when absent.
    */
   readonly inferenceOptions?: DomainInferenceOptions;
+  /**
+   * Caller-supplied glob patterns that *extend* the built-in
+   * `DEFAULT_EXTRACTION_EXCLUDE` set for code-signal extraction. Sourced by the
+   * CLI from `harness.config.json#knowledge.extractionExclude`. Test files and
+   * fixture trees are always excluded regardless of this list (#1111).
+   */
+  readonly extractionExclude?: readonly string[];
 }
 
 export interface ExtractionCounts {
@@ -267,8 +274,9 @@ export class KnowledgePipelineRunner {
     const extractedDir = path.join(options.projectDir, '.harness', 'knowledge', 'extracted');
     await fs.mkdir(extractedDir, { recursive: true });
 
-    // Code signal extractors
-    const runner = createExtractionRunner();
+    // Code signal extractors (test files + fixture trees excluded by default;
+    // config-supplied globs extend that set)
+    const runner = createExtractionRunner(options.extractionExclude ?? []);
     const extractionResult = await runner.run(options.projectDir, this.store, extractedDir);
 
     // Diagram parsers
@@ -462,15 +470,21 @@ export class KnowledgePipelineRunner {
 
     const stagedEntries: StagedEntry[] = newFindings
       .filter((f): f is DriftFinding & { fresh: KnowledgeSnapshotEntry } => f.fresh != null)
-      .map((f) => ({
-        id: f.fresh.id,
-        source: this.classifySource(f.fresh.source),
-        nodeType: f.fresh.type,
-        name: f.fresh.name,
-        confidence: 0.7,
-        contentHash: f.fresh.contentHash,
-        timestamp: new Date().toISOString(),
-      }));
+      .map((f) => {
+        // Carry the source file path from the materialized graph node so a
+        // staged finding is attributable without grepping the repo (#1111).
+        const nodePath = this.store.getNode(f.fresh.id)?.path;
+        return {
+          id: f.fresh.id,
+          source: this.classifySource(f.fresh.source),
+          nodeType: f.fresh.type,
+          name: f.fresh.name,
+          confidence: 0.7,
+          contentHash: f.fresh.contentHash,
+          timestamp: new Date().toISOString(),
+          ...(nodePath ? { path: nodePath } : {}),
+        };
+      });
 
     if (stagedEntries.length > 0) {
       const aggregator = new KnowledgeStagingAggregator(options.projectDir, this.inferenceOptions);

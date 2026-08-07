@@ -1,9 +1,39 @@
 import * as fs from 'node:fs/promises';
 import * as path from 'node:path';
+import { minimatch } from 'minimatch';
 import type { GraphStore } from '../../store/GraphStore.js';
 import type { IngestResult, GraphNode, GraphEdge, EdgeType } from '../../types.js';
 import { DEFAULT_SKIP_DIRS } from '../skip-dirs.js';
 import type { ExtractionRecord, Language, SignalExtractor } from './types.js';
+
+/**
+ * Default glob patterns (minimatch, POSIX-relative) excluded from knowledge
+ * extraction. Test files and fixture/golden-file trees exist to be executed or
+ * compared, not to state business knowledge — extracting them inflates the gap
+ * report with unactionable "undocumented" signals (#1111). This mirrors the
+ * intent of the `security.exclude` / `entropy.excludePatterns` sets already in
+ * `harness.config.json`.
+ *
+ * Callers extend (not replace) this set via `knowledge.extractionExclude`.
+ */
+export const DEFAULT_EXTRACTION_EXCLUDE: readonly string[] = [
+  // Test files (naming conventions across languages)
+  '**/*.test.*',
+  '**/*.spec.*',
+  '**/*_test.go',
+  '**/test_*.py',
+  '**/*_test.py',
+  // Test directories
+  '**/tests/**',
+  '**/__tests__/**',
+  '**/test/**',
+  // Fixture / golden-file / snapshot trees
+  '**/fixtures/**',
+  '**/__fixtures__/**',
+  '**/expected/**',
+  '**/__snapshots__/**',
+  '**/rehearsal-fixtures/**',
+];
 
 /** Map file extensions to Language. */
 const EXT_TO_LANGUAGE: Record<string, Language> = {
@@ -45,7 +75,15 @@ const EXTRACTOR_EDGE_TYPE: Record<string, EdgeType> = {
  * persists to graph, and handles stale detection.
  */
 export class ExtractionRunner {
-  constructor(private readonly extractors: readonly SignalExtractor[]) {}
+  /** Effective exclude globs (POSIX-relative, minimatch). */
+  private readonly excludeGlobs: readonly string[];
+
+  constructor(
+    private readonly extractors: readonly SignalExtractor[],
+    options: { excludeGlobs?: readonly string[] } = {}
+  ) {
+    this.excludeGlobs = options.excludeGlobs ?? DEFAULT_EXTRACTION_EXCLUDE;
+  }
 
   /**
    * Run all extractors against a project directory.
@@ -231,8 +269,18 @@ export class ExtractionRunner {
     return count;
   }
 
-  /** Recursively find source files, skipping common non-source directories. */
+  /**
+   * Recursively find source files, skipping common non-source directories and
+   * any path matching {@link excludeGlobs} (test files, fixture/golden trees).
+   * Exclude globs are matched against each path's POSIX form relative to `dir`
+   * (the walk root), so they behave the same whether the runner is pointed at a
+   * project root or a subtree.
+   */
   async findSourceFiles(dir: string): Promise<string[]> {
+    return this.walkSourceFiles(dir, dir);
+  }
+
+  private async walkSourceFiles(dir: string, root: string): Promise<string[]> {
     const results: string[] = [];
     let entries: import('node:fs').Dirent[];
     try {
@@ -242,12 +290,38 @@ export class ExtractionRunner {
     }
     for (const entry of entries) {
       const fullPath = path.join(dir, entry.name);
-      if (entry.isDirectory() && !DEFAULT_SKIP_DIRS.has(entry.name)) {
-        results.push(...(await this.findSourceFiles(fullPath)));
+      const relPath = path.relative(root, fullPath).replaceAll('\\', '/');
+      if (entry.isDirectory()) {
+        if (DEFAULT_SKIP_DIRS.has(entry.name)) continue;
+        if (this.isDirExcluded(relPath)) continue;
+        results.push(...(await this.walkSourceFiles(fullPath, root)));
       } else if (entry.isFile() && detectLanguage(fullPath) !== undefined) {
+        if (this.isFileExcluded(relPath)) continue;
         results.push(fullPath);
       }
     }
     return results;
+  }
+
+  /** Match a project-relative POSIX file path against the exclude globs. */
+  private isFileExcluded(relPath: string): boolean {
+    for (const pattern of this.excludeGlobs) {
+      if (minimatch(relPath, pattern, { dot: true })) return true;
+    }
+    return false;
+  }
+
+  /**
+   * Prune a directory whose entire subtree is excluded. Applies only to
+   * directory-scoped patterns (those ending in `/**`); file-name patterns like
+   * `**\/*.test.*` are handled per-file in {@link isFileExcluded}.
+   */
+  private isDirExcluded(relPath: string): boolean {
+    for (const pattern of this.excludeGlobs) {
+      if (!pattern.endsWith('/**')) continue;
+      const base = pattern.slice(0, -3);
+      if (minimatch(relPath, base, { dot: true })) return true;
+    }
+    return false;
   }
 }

@@ -90,7 +90,7 @@ export type {
   ContradictionResult,
 } from './ingest/ContradictionDetector.js';
 export { CoverageScorer } from './ingest/CoverageScorer.js';
-export type { DomainCoverageScore, CoverageReport } from './ingest/CoverageScorer.js';
+export type { DomainCoverageScore, CoverageReport, Grade } from './ingest/CoverageScorer.js';
 export { KnowledgeStagingAggregator } from './ingest/KnowledgeStagingAggregator.js';
 export type {
   StagedEntry,

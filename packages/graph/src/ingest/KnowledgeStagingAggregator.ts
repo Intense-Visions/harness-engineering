@@ -22,6 +22,13 @@ export interface StagedEntry {
   readonly confidence: number;
   readonly contentHash: string;
   readonly timestamp: string;
+  /**
+   * Source file path (repo-relative) the entry was derived from, when known.
+   * Carried so a reviewer can attribute a staged finding to its origin without
+   * grepping the repo for the name string — the step that surfaced the
+   * fixture-derived provenance in #1111.
+   */
+  readonly path?: string;
 }
 
 export interface GapEntry {

@@ -343,6 +343,36 @@ Route all auth through AuthService.
         // File may not exist if no new findings
       }
     });
+    it('carries the source file path on staged extractor findings (#1111)', async () => {
+      // A genuine first-party source signal: a Zod schema in src/ (not a test
+      // file or fixture) → validation-rules extractor → business_rule node.
+      const srcDir = path.join(tmpDir, 'src');
+      await fs.mkdir(srcDir, { recursive: true });
+      await fs.writeFile(
+        path.join(srcDir, 'orders.ts'),
+        'import { z } from "zod";\nexport const OrderSchema = z.object({\n  id: z.string().min(1),\n});\n'
+      );
+
+      const runner = new KnowledgePipelineRunner(store);
+      await runner.run(makeOptions());
+
+      const stagedPath = path.join(
+        tmpDir,
+        '.harness',
+        'knowledge',
+        'staged',
+        'pipeline-staged.jsonl'
+      );
+      const content = await fs.readFile(stagedPath, 'utf-8');
+      const entries = content
+        .trim()
+        .split('\n')
+        .map((l) => JSON.parse(l) as { source: string; path?: string; name: string });
+
+      const extractorEntry = entries.find((e) => e.source === 'extractor' && e.path);
+      expect(extractorEntry).toBeDefined();
+      expect(extractorEntry!.path).toBe('src/orders.ts');
+    });
   });
 
   describe('CI mode', () => {

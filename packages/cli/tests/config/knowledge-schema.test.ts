@@ -178,6 +178,7 @@ describe('HarnessConfigSchema with knowledge block', () => {
     expect(result.knowledge).toEqual({
       domainPatterns: [],
       domainBlocklist: [],
+      extractionExclude: [],
     });
   });
 });
