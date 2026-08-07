@@ -113,6 +113,19 @@ describe('findFiles', () => {
       expect(files.some((f) => f.endsWith('src/main.ts'))).toBe(true);
     });
 
+    it('returns forward-slash (POSIX) paths on every platform', async () => {
+      // On Windows glob returns backslash paths; findFiles must normalise so
+      // downstream `/`-based matching works cross-platform (#1146).
+      await mkdir(join(root, 'src', 'nested'), { recursive: true });
+      await writeFile(join(root, 'src', 'nested', 'deep.ts'), 'export const a = 1;\n');
+
+      const files = await findFiles('**/*.ts', root);
+
+      expect(files.length).toBeGreaterThan(0);
+      expect(files.every((f) => !f.includes('\\'))).toBe(true);
+      expect(files.some((f) => f.endsWith('src/nested/deep.ts'))).toBe(true);
+    });
+
     it('keeps .git, node_modules, and .harness runtime excluded even with dot traversal', async () => {
       await mkdir(join(root, '.git'), { recursive: true });
       await writeFile(join(root, '.git/hook.ts'), 'export const a = 1;\n');

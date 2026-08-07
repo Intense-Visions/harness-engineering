@@ -60,14 +60,15 @@ export const DEFAULT_FIND_FILES_IGNORE: readonly string[] = skipDirGlobs();
  * @param pattern - The glob pattern to search for.
  * @param cwd - The current working directory for the search (default: process.cwd()).
  * @param extraIgnore - Additional ignore patterns, applied on top of {@link DEFAULT_FIND_FILES_IGNORE}.
- * @returns A promise that resolves to an array of absolute file paths matching the pattern.
+ * @returns A promise that resolves to an array of absolute file paths matching
+ *   the pattern, always forward-slash separated (POSIX) on every platform.
  */
 export async function findFiles(
   pattern: string,
   cwd: string = process.cwd(),
   extraIgnore: readonly string[] = []
 ): Promise<string[]> {
-  return glob(pattern, {
+  const matches = await glob(pattern, {
     cwd,
     absolute: true,
     // `dot: true` lets discovery see first-party source that lives under a
@@ -81,6 +82,13 @@ export async function findFiles(
     dot: true,
     ignore: [...DEFAULT_FIND_FILES_IGNORE, ...extraIgnore],
   });
+  // Normalise to forward slashes. On Windows `glob` returns backslash-separated
+  // paths, which break every downstream consumer that matches on `/` — doc
+  // coverage's link matching, drift's exports index, and callers' own
+  // `.includes('a/b')` checks (#1146). Node's fs APIs accept `/` on Windows, so
+  // emitting POSIX paths everywhere is safe and keeps discovery output
+  // platform-consistent.
+  return matches.map((f) => f.replaceAll('\\', '/'));
 }
 
 /**
