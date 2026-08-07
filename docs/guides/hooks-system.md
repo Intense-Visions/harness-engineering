@@ -2,7 +2,9 @@
 
 Hooks are Claude Code lifecycle hooks that enforce security and quality policies during AI agent sessions. They run automatically at key moments -- before a tool executes, after a tool produces output, before context compaction, and when a session ends -- giving you guardrails without manual intervention.
 
-Harness ships ten hooks organized into three profiles. Each hook is a standalone Node.js script that reads JSON from stdin, performs its check, and exits with code 0 (allow) or 2 (block).
+Harness ships eleven hooks organized into three profiles. Each hook is a standalone Node.js script that reads JSON from stdin, performs its check, and exits with code 0 (allow) or 2 (block).
+
+Most hooks are Claude Code lifecycle hooks. The one exception is the opt-in [`session-retrospect`](#session-retrospect-multi-agent) trigger, which is **multi-agent**: it installs into Claude Code, Gemini CLI, Codex CLI, and Cursor, each in that agent's native config format. See its section below for the per-agent coverage matrix.
 
 ## How Hooks Work
 
@@ -133,6 +135,34 @@ Respects opt-out via any of:
 
 Shows a one-time privacy notice on first run. Uses a write-only PostHog API key -- no data can be read through it. Retries up to 3 times on server errors with exponential backoff.
 
+### session-retrospect (multi-agent)
+
+**Event:** `Stop:*` (Claude Code) | **Profile:** standard | **Can block:** No
+
+Opt-in end-of-session trigger for **manual, interactive sessions** — and, unlike every other hook in this guide, it works across **all the agents the harness supports**, not just Claude Code. The session-archive lifecycle runs its end-of-session analysis (summary, index, and retrospection) only when a session is archived, and the only caller that archives a session is the `archive_session` state action used by autonomous flows. A manual, interactive session is otherwise never archived, so this trigger archives the active session at session end -- through the same archive seam -- so that analysis runs for manually driven sessions too.
+
+Because a session-end hook can fire more than once per real session (Claude Code's `Stop` fires on every turn-stop; Codex's `notify` fires on every agent turn), the trigger archives **at most once per session**: it keys on the agent's session id and records a sentinel under `.harness/state/retrospection/` after a successful archive, so every later fire for the same session is a no-op. A fire that finds no session to archive writes no sentinel, so a session created later in the same run can still be caught.
+
+Off by default. Enable it (together with the retrospection step inside the archive lifecycle) by setting `HARNESS_SESSION_RETROSPECTION` to `1` (or `true`). Fail-soft: any error -- unreadable input, missing packages, a failed archive -- is swallowed and the hook exits 0, never blocking or delaying session exit.
+
+**Architecture.** An agent-agnostic core (`session-retrospect-core.js`) holds the opt-in gate, the once-per-session dedupe, the active-session resolver, and the single archive call. Each agent has a thin entry point that parses its own session-end event, extracts a session id, and delegates to the core — so every agent runs the exact same archive engine.
+
+**Per-agent coverage.** When `harness hooks init` (or `harness setup`) runs at the `standard` profile or higher, the trigger is installed into Claude Code's `.claude/settings.json` and, for every other agent whose project-level config dir is present, into that agent's own config in its native format:
+
+| Agent       | Detected via | Config written          | Event(s)                       | Session id field                          | Status                             |
+| ----------- | ------------ | ----------------------- | ------------------------------ | ----------------------------------------- | ---------------------------------- |
+| Claude Code | `.claude`    | `.claude/settings.json` | `Stop`                         | `session_id` (stdin)                      | Working                            |
+| Gemini CLI  | `.gemini`    | `.gemini/settings.json` | `SessionEnd`                   | `session_id` (stdin)                      | Working                            |
+| Codex CLI   | `.codex`     | `.codex/config.toml`    | `notify` (agent-turn-complete) | `thread-id` (JSON argv arg)               | Working (per-turn; deduped)        |
+| Cursor      | `.cursor`    | `.cursor/hooks.json`    | `stop` + `sessionEnd`          | `session_id` \| `conversation_id` (stdin) | Wired; **CLI-limited** (see below) |
+
+Notes:
+
+- **Codex CLI** has no session-end lifecycle hook — its `[hooks]`/hooks.json engine only exposes tool-use events. The only end-of-turn seam is the `notify` key, which fires on `agent-turn-complete` and passes its payload as a single JSON argv argument. `notify` holds a single program, so if you already have a non-harness `notify` configured, the harness leaves it untouched and reports a conflict rather than clobbering it.
+- **Cursor — CLI limitation.** `sessionEnd` is documented as IDE-only ("tied to the IDE session, not a cloud agent chat"), and the local `cursor-agent` CLI has historically emitted only `beforeShellExecution` / `afterShellExecution`. The `stop` event is documented for cloud/agent chats. The harness wires **both** `stop` and `sessionEnd`, so end-of-session retrospection works today in the **Cursor IDE agent** (and in cloud agents that emit `stop`) and begins working in the **local CLI** the moment it starts emitting these events — but full local-CLI coverage cannot be guaranteed yet.
+
+All per-agent triggers are gated by the same `HARNESS_SESSION_RETROSPECTION` opt-in and are runtime no-ops until it is set, exactly like the Claude Code hook. Installation is idempotent — re-running never duplicates an entry, and unrelated user config is preserved.
+
 ## Hook Profiles
 
 Profiles are **additive** -- each higher tier includes all hooks from lower tiers.
@@ -157,6 +187,7 @@ Adds config protection, quality checks, state preservation, and usage tracking.
 | pre-compact-state  | PreCompact  | \*          |
 | adoption-tracker   | Stop        | \*          |
 | telemetry-reporter | Stop        | \*          |
+| session-retrospect | Stop        | \*          |
 
 ### strict
 
@@ -170,6 +201,7 @@ Adds full prompt injection defense and cost tracking.
 | pre-compact-state   | PreCompact  | \*          |
 | adoption-tracker    | Stop        | \*          |
 | telemetry-reporter  | Stop        | \*          |
+| session-retrospect  | Stop        | \*          |
 | strict-quality-gate | PostToolUse | Edit\|Write |
 | cost-tracker        | Stop        | \*          |
 | sentinel-pre        | PreToolUse  | \*          |
@@ -338,6 +370,11 @@ After installation, the hooks system creates these files:
     pre-compact-state.js
     adoption-tracker.js
     telemetry-reporter.js
+    session-retrospect.js         # Claude Code session-end trigger (opt-in)
+    session-retrospect-core.js    # shared agent-agnostic core
+    session-retrospect-gemini.js  # Gemini CLI SessionEnd entry point
+    session-retrospect-codex.js   # Codex CLI notify entry point
+    session-retrospect-cursor.js  # Cursor stop/sessionEnd entry point
     strict-quality-gate.js    # strict only
     cost-tracker.js           # strict only
     sentinel-pre.js           # strict only

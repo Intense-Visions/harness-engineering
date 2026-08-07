@@ -19,6 +19,7 @@ describe('profiles', () => {
     expect(PROFILES.standard).toContain('pre-compact-state');
     expect(PROFILES.standard).toContain('adoption-tracker');
     expect(PROFILES.standard).toContain('telemetry-reporter');
+    expect(PROFILES.standard).toContain('session-retrospect');
     expect(PROFILES.standard).toContain('sentinel-pre');
     expect(PROFILES.standard).toContain('sentinel-post');
     expect(PROFILES.standard).not.toContain('cost-tracker');
@@ -45,7 +46,7 @@ describe('profiles', () => {
   });
 
   it('HOOK_SCRIPTS defines event, matcher, and profile for each hook', () => {
-    expect(HOOK_SCRIPTS).toHaveLength(10);
+    expect(HOOK_SCRIPTS).toHaveLength(11);
     const blockNoVerify = HOOK_SCRIPTS.find((h) => h.name === 'block-no-verify');
     expect(blockNoVerify).toBeDefined();
     expect(blockNoVerify!.event).toBe('PreToolUse');

@@ -34,13 +34,13 @@ describe('hooks CLI integration: init -> list -> remove cycle', () => {
     expect(settings.hooks.PreToolUse).toHaveLength(3); // block-no-verify + protect-config + sentinel-pre
     expect(settings.hooks.PostToolUse).toHaveLength(2); // quality-warner + sentinel-post
     expect(settings.hooks.PreCompact).toHaveLength(1); // pre-compact-state
-    expect(settings.hooks.Stop).toHaveLength(2); // adoption-tracker + telemetry-reporter
+    expect(settings.hooks.Stop).toHaveLength(3); // adoption-tracker + telemetry-reporter + session-retrospect
 
     // 4. List shows correct state
     const listResult = listHooks(tmpDir);
     expect(listResult.installed).toBe(true);
     expect(listResult.profile).toBe('standard');
-    expect(listResult.hooks).toHaveLength(8);
+    expect(listResult.hooks).toHaveLength(9);
 
     // 5. Remove cleans everything
     const removeResult = removeHooks(tmpDir);
@@ -77,13 +77,13 @@ describe('hooks CLI integration: init -> list -> remove cycle', () => {
     initHooks({ profile: 'strict', projectDir: tmpDir });
     const strictList = listHooks(tmpDir);
     expect(strictList.profile).toBe('strict');
-    expect(strictList.hooks).toHaveLength(10);
+    expect(strictList.hooks).toHaveLength(11);
 
     // Verify settings.json reflects strict
     const settings = JSON.parse(
       fs.readFileSync(path.join(tmpDir, '.claude', 'settings.json'), 'utf-8')
     );
-    expect(settings.hooks.Stop).toHaveLength(3);
+    expect(settings.hooks.Stop).toHaveLength(4);
   });
 
   it('preserves existing .claude/settings.json content through full cycle', () => {

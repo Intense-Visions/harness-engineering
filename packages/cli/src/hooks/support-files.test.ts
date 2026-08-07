@@ -98,6 +98,18 @@ describe('supportFilesFor', () => {
     expect(supportFilesFor([])).toEqual([]);
   });
 
+  it('preserves first-seen order across distinct support files', () => {
+    // Derive expectations from the registry itself so this test tracks the real
+    // source of truth rather than a hardcoded ordering. The registry spans
+    // multiple distinct support files (format-check.js, read-hook-stdin.js, and
+    // the session-retrospect core + per-agent entry scripts); assert the
+    // resolved union preserves first-seen order deterministically.
+    const registered = Object.entries(HOOK_SUPPORT_FILES);
+    const withFiles = registered.filter(([, files]) => files.length > 0);
+    const distinct = [...new Set(withFiles.flatMap(([, files]) => files))];
+    expect(supportFilesFor(withFiles.map(([name]) => name))).toEqual(distinct);
+  });
+
   it('does not mutate the underlying registry entries', () => {
     const before = [...HOOK_SUPPORT_FILES['quality-warner']!];
     const result = supportFilesFor(['quality-warner']);

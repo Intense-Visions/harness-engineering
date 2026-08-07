@@ -566,6 +566,52 @@ describe('runSecurityAgent()', () => {
     expect(runSecurityAgent(bundle).length).toBe(1);
   });
 
+  // ---- command substitution: `$( ... )` / backticks produce the value at
+  // runtime, so no secret literal is assigned in source and the finding must
+  // not fire (issue-reported false positive: `GH_TOKEN="$(gh auth token)"`). ----
+
+  it('does NOT flag a $() command-substitution value assigned to a token', () => {
+    const bundle = makeBundle({
+      changedFiles: [
+        {
+          path: '.github/workflows/ci.yml',
+          content: 'GH_TOKEN="$(gh auth token)" gh pr create --title x',
+          reason: 'changed',
+          lines: 1,
+        },
+      ],
+    });
+    expect(runSecurityAgent(bundle).length).toBe(0);
+  });
+
+  it('does NOT flag a backtick command-substitution value assigned to a token', () => {
+    const bundle = makeBundle({
+      changedFiles: [
+        {
+          path: 'deploy/run.sh',
+          content: 'API_KEY="`vault read -field=token secret/ci`"',
+          reason: 'changed',
+          lines: 1,
+        },
+      ],
+    });
+    expect(runSecurityAgent(bundle).length).toBe(0);
+  });
+
+  it('STILL flags a command substitution mixed with a literal suffix (guard must not over-suppress)', () => {
+    const bundle = makeBundle({
+      changedFiles: [
+        {
+          path: 'deploy/run.sh',
+          content: 'export API_KEY="$(id -u)-sk-live-0123456789abcdef"',
+          reason: 'changed',
+          lines: 1,
+        },
+      ],
+    });
+    expect(runSecurityAgent(bundle).length).toBe(1);
+  });
+
   // ---- guards are code-scoped: test-markers and comment syntax are JS/TS
   // conventions, so they must not suppress findings in non-code files ----
 
