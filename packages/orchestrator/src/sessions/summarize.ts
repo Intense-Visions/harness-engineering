@@ -70,7 +70,7 @@ export interface SummarizeResult {
 }
 
 /** Read and concatenate the session's input files with `## FILE:` separators. */
-function readInputCorpus(archiveDir: string): string {
+export function readInputCorpus(archiveDir: string): string {
   const parts: string[] = [];
   for (const { filename, kind } of SUMMARY_INPUT_FILES) {
     const p = path.join(archiveDir, filename);

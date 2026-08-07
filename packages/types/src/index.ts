@@ -330,6 +330,7 @@ export type {
   InsightsReport,
   SessionSummarizationConfig,
   SessionSearchConfig,
+  RetrospectionConfig,
   SessionsConfig,
 } from './sessions';
 
@@ -393,6 +394,8 @@ export {
   migrateProposalRecord,
   EmitSkillProposalInputSchema,
   EditProposalInputSchema,
+  RetrospectionProposalDraftSchema,
+  RetrospectionProposalsResponseSchema,
 } from './proposals';
 export type {
   SkillProvenance,
@@ -413,4 +416,6 @@ export type {
   ModelProposalRecord,
   EmitSkillProposalInput,
   EditProposalInput,
+  RetrospectionProposalDraft,
+  RetrospectionProposalsResponse,
 } from './proposals';

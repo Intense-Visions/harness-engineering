@@ -119,11 +119,31 @@ export interface SessionSearchConfig {
   maxIndexBytesPerFile?: number;
 }
 
+/**
+ * Auto-triggered retrospection config.
+ *
+ * When enabled (and an `AnalysisProvider` is available), archiving a session —
+ * the session terminus — fires a retrospection over the archived session corpus
+ * and emits *applyable* skill proposals into `.harness/proposals/`. Emission
+ * only: nothing is auto-applied. Approval/promotion stays a separate,
+ * human-gated step (the existing proposals queue). Opt-in and safe by default —
+ * off unless a `retrospection` block is present with `enabled !== false`.
+ */
+export interface RetrospectionConfig {
+  enabled?: boolean;
+  /** Max proposals persisted per session terminus. Default 3. */
+  maxProposals?: number;
+  inputBudgetTokens?: number;
+  timeoutMs?: number;
+  model?: string;
+}
+
 /** Root sessions config block (optional field on WorkflowConfig). */
 export interface SessionsConfig {
   enabled?: boolean;
   summary?: SessionSummarizationConfig;
   search?: SessionSearchConfig;
+  retrospection?: RetrospectionConfig;
 }
 
 /** Defaults applied when reading config — exported for use by both consumers. */
@@ -137,5 +157,11 @@ export const SESSIONS_DEFAULTS = {
   search: {
     indexedFileKinds: [...INDEXED_FILE_KINDS] as IndexedFileKind[],
     maxIndexBytesPerFile: 256 * 1024,
+  },
+  retrospection: {
+    enabled: undefined as boolean | undefined,
+    maxProposals: 3,
+    inputBudgetTokens: 16_000,
+    timeoutMs: 60_000,
   },
 } as const;
