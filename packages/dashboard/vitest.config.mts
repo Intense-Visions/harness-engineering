@@ -1,4 +1,6 @@
 import { defineConfig } from 'vitest/config';
+// eslint-disable-next-line import/no-relative-packages -- config reaches into repo-root scripts/ on purpose
+import { prepushTestOptions } from '../../scripts/vitest-prepush-reporter.mjs';
 import path from 'node:path';
 
 export default defineConfig({
@@ -8,6 +10,7 @@ export default defineConfig({
     },
   },
   test: {
+    ...prepushTestOptions(),
     globals: true,
     testTimeout: 15_000,
     // Server tests run in node; client tests run in jsdom via projects below

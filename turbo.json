@@ -1,6 +1,14 @@
 {
   "$schema": "https://v2-9-6.turborepo.dev/schema.json",
   "globalDependencies": ["**/.env.*local"],
+  // turbo 2.x defaults to strict env mode, which strips undeclared env vars from
+  // task processes. The pre-push gate sets HARNESS_PREPUSH=1 to switch each
+  // package's vitest config into the diagnosable json-reporter mode (#1094); it
+  // must reach the vitest workers turbo spawns. Declared as pass-through (not
+  // `globalEnv`) on purpose: it toggles a diagnostic side-output only, never the
+  // test result, so it must NOT enter the cache key — a coverage cache hit stays
+  // valid whether or not this run was under the pre-push gate.
+  "globalPassThroughEnv": ["HARNESS_PREPUSH"],
   "tasks": {
     "build": {
       "dependsOn": ["^build"],

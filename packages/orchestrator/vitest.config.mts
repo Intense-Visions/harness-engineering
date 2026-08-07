@@ -1,4 +1,6 @@
 import { defineConfig } from 'vitest/config';
+// eslint-disable-next-line import/no-relative-packages -- config reaches into repo-root scripts/ on purpose
+import { prepushTestOptions } from '../../scripts/vitest-prepush-reporter.mjs';
 
 // Coverage instrumentation (v8) is only active when the run passed `--coverage`
 // (i.e. `test:coverage`). Vitest does NOT propagate a coverage flag into the
@@ -12,6 +14,7 @@ const COVERAGE = process.argv.includes('--coverage');
 
 export default defineConfig({
   test: {
+    ...prepushTestOptions(),
     include: ['src/**/*.test.ts', 'tests/**/*.test.ts'],
     setupFiles: ['./tests/setup.ts'],
     environment: 'node',
