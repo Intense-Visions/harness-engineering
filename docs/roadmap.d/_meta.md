@@ -7,6 +7,7 @@ last_synced: "2026-08-04T19:50:51.000Z"
 last_manual_edit: "2026-06-27T12:51:51.967Z"
 milestones:
   - "Intake"
+  - "Fleet Family — Batch Orchestration"
   - "v5.0 — Enforcement Hardening"
   - "v5.0 — Catalog Rationalization"
   - "v5.0 — Telemetry & Effectiveness"
