@@ -130,7 +130,7 @@ describe('Orchestrator Integration', () => {
     }
   });
 
-  it('should poll, dispatch, and run an agent session', { timeout: 15000 }, async () => {
+  it('should poll, dispatch, and run an agent session', async () => {
     // 1. Initial tick
     await orchestrator.tick();
 
@@ -153,7 +153,7 @@ describe('Orchestrator Integration', () => {
     expect((finalSnapshot.completed as string[]).includes(mockIssue.id)).toBe(true);
   });
 
-  it('should stop active runs when orchestrator stops', { timeout: 15000 }, async () => {
+  it('should stop active runs when orchestrator stops', async () => {
     await orchestrator.tick();
     const snapshot = orchestrator.getSnapshot();
     expect(snapshot.running.length).toBe(1);

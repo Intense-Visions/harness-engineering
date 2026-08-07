@@ -243,7 +243,14 @@ describe('codex sync', () => {
     expect(results[0].unchanged.length).toBeGreaterThan(0);
   });
 
-  it('detects orphaned codex skill directories for removal', { timeout: 15000 }, () => {
+  // No per-test timeout: inherit the package-wide 90s ceiling (vitest.config).
+  // This test runs `generateSlashCommands` twice (heavy synchronous filesystem
+  // writes over the whole skill fixture set); under the full-suite coverage gate
+  // (v8 instrumentation + parallel workers self-contending) that work reliably
+  // blew the tight 15s cap, deterministically failing every `test:coverage` run
+  // and blocking the pre-push gauntlet. The 90s ceiling only tolerates a
+  // slow/loaded runner — a genuine hang still fails — so it cannot mask a bug.
+  it('detects orphaned codex skill directories for removal', () => {
     // First generate to create the skill directories
     generateSlashCommands({
       platforms: ['codex'],
