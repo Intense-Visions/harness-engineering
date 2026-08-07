@@ -57,6 +57,7 @@ export const TOOL_CAPABILITY_DECLARATIONS: Readonly<Record<string, ToolCapabilit
   gather_context: { scopes: ['read'] },
   canary_probe: { scopes: ['read'] },
   canary_recommend_framework: { scopes: ['read'] },
+  canary_discover_test_command: { scopes: ['read'] },
   detect_anomalies: { scopes: ['read'] },
   ask_graph: { scopes: ['read'] },
   check_task_independence: { scopes: ['read'] },

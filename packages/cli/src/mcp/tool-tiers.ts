@@ -55,6 +55,7 @@ const STANDARD_EXTRA: readonly string[] = [
   'assess_project',
   'canary_probe',
   'canary_recommend_framework',
+  'canary_discover_test_command',
   'recommend_skills',
   'search_skills',
   'code_unfold',
