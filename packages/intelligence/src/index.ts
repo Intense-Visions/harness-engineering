@@ -12,6 +12,7 @@ export {
 export type { JiraIssue, GitHubIssue, LinearIssue, ManualInput } from './adapters/index.js';
 export {
   createCanaryAdapter,
+  resolveTestCommand,
   canaryRunRecordSchema,
   canaryTestResultSchema,
 } from './adapters/index.js';
@@ -23,6 +24,7 @@ export type {
   CanaryReader,
   FrameworkRecommendation,
   CanaryFinding,
+  CanaryFrameworkInfo,
   CanaryRunRecord,
   CanaryTestResult,
 } from './adapters/index.js';

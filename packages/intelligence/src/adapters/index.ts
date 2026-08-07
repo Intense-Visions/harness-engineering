@@ -10,7 +10,12 @@ export type { LinearIssue, LinearLabel, LinearComment, LinearRelation } from './
 export { manualToRawWorkItem } from './manual.js';
 export type { ManualInput } from './manual.js';
 
-export { createCanaryAdapter, canaryRunRecordSchema, canaryTestResultSchema } from './canary.js';
+export {
+  createCanaryAdapter,
+  resolveTestCommand,
+  canaryRunRecordSchema,
+  canaryTestResultSchema,
+} from './canary.js';
 export type {
   CanaryAdapter,
   CanaryProbe,
@@ -19,6 +24,7 @@ export type {
   CanaryReader,
   FrameworkRecommendation,
   CanaryFinding,
+  CanaryFrameworkInfo,
   CanaryRunRecord,
   CanaryTestResult,
 } from './canary.js';
