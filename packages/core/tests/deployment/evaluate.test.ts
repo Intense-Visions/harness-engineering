@@ -58,7 +58,7 @@ describe('evaluateDeploymentGate — status + DEPLOY-SEC001', () => {
 });
 
 describe('evaluateDeploymentGate — DEPLOY-RB001 (rollback path)', () => {
-  it('blocks when a deploy target has no rollback path (SC4)', () => {
+  it('blocks when a deploy target has no rollback path (SC3)', () => {
     const res = evaluateDeploymentGate(surface({ hasProductionTarget: true }), { enabled: true });
     const rb = res.findings.find((f) => f.code === 'DEPLOY-RB001');
     expect(rb?.severity).toBe('hard');
@@ -94,7 +94,7 @@ describe('evaluateDeploymentGate — DEPLOY-RB001 (rollback path)', () => {
 });
 
 describe('evaluateDeploymentGate — DEPLOY-ENV001 (promotion gate)', () => {
-  it('blocks an ungated production deploy (SC3)', () => {
+  it('blocks an ungated production deploy (SC4)', () => {
     const res = evaluateDeploymentGate(
       surface({ hasProductionTarget: true, productionUngated: true, rollbackSignalInFiles: true }),
       { enabled: true }

@@ -40,8 +40,9 @@ function parseEnvPairs(content: string): Map<string, string> {
     const line = raw.trim();
     if (line === '' || line.startsWith('#')) continue;
     const m = /^([A-Za-z_][A-Za-z0-9_]*)\s*[:=]\s*(.*)$/.exec(line);
-    if (!m) continue;
-    pairs.set(m[1]!, (m[2] ?? '').trim());
+    const key = m?.[1];
+    if (!key) continue;
+    pairs.set(key, (m?.[2] ?? '').trim());
   }
   return pairs;
 }
@@ -50,9 +51,13 @@ function parseEnvPairs(content: string): Map<string, string> {
 function hasSharedEnvConfig(surface: DeploymentSurface): boolean {
   const parsed = surface.envFiles.map((f) => parseEnvPairs(f.content));
   for (let i = 0; i < parsed.length; i++) {
+    const a = parsed[i];
+    if (!a) continue;
     for (let j = i + 1; j < parsed.length; j++) {
-      for (const [k, v] of parsed[i]!) {
-        if (v !== '' && parsed[j]!.get(k) === v) return true;
+      const b = parsed[j];
+      if (!b) continue;
+      for (const [k, v] of a) {
+        if (v !== '' && b.get(k) === v) return true;
       }
     }
   }
