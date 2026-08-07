@@ -319,6 +319,85 @@ last_manual_edit: 2026-06-27T12:51:51.967Z
 - **Priority:** P2
 - **External-ID:** github:Intense-Visions/harness-engineering#1129
 
+## Fleet Family — Batch Orchestration
+
+### issue-fleet — autonomous intake/triage of the open-issue backlog
+
+- **Status:** planned
+- **Spec:** —
+- **Summary:** Part of the `-fleet` skill family (epic #1194) — the family technique is autonomous fan-out orchestration over an SDLC work-queue, with batch human review and never auto-merge. issue-fleet is the intake stage: it autonomously triages the open-issue backlog (labeling, deduping, routing, and prioritizing) so downstream fleets receive a clean, ordered queue. It is the entry point of the fleet spine issue-fleet → adr-fleet → roadmap-fleet → pr-fleet, with cicd-fleet / test-fleet / cleanup-fleet running alongside.
+- **Blockers:** —
+- **Plan:** —
+- **Assignee:** —
+- **Priority:** —
+- **External-ID:** github:Intense-Visions/harness-engineering#1195
+
+### adr-fleet — batch-drive pending architectural decisions to ADRs
+
+- **Status:** planned
+- **Spec:** —
+- **Summary:** Part of the `-fleet` skill family (epic #1194) — the family technique is autonomous fan-out orchestration over an SDLC work-queue, with batch human review and never auto-merge. adr-fleet sweeps the backlog of pending architectural decisions and drives each to a batch ADR sign-off, fanning out drafting work and collecting the results for a single human review pass. It sits second in the fleet spine issue-fleet → adr-fleet → roadmap-fleet → pr-fleet, with cicd-fleet / test-fleet / cleanup-fleet running alongside.
+- **Blockers:** —
+- **Plan:** —
+- **Assignee:** —
+- **Priority:** —
+- **External-ID:** github:Intense-Visions/harness-engineering#1197
+
+### roadmap-fleet — backlog → verified merge-ready PRs
+
+- **Status:** planned
+- **Spec:** —
+- **Summary:** Part of the `-fleet` skill family (epic #1194) — the family technique is autonomous fan-out orchestration over an SDLC work-queue, with batch human review and never auto-merge. roadmap-fleet turns the backlog (external issues + roadmap shards) into verified, merge-ready PRs, fanning out implementation across the queue and gating on verification before batching the results for human review. It is the delivery hub of the fleet spine issue-fleet → adr-fleet → roadmap-fleet → pr-fleet, with cicd-fleet / test-fleet / cleanup-fleet running alongside.
+- **Blockers:** —
+- **Plan:** —
+- **Assignee:** —
+- **Priority:** —
+- **External-ID:** github:Intense-Visions/harness-engineering#1198
+
+### pr-fleet — PR-queue triage, review-assist & land
+
+- **Status:** planned
+- **Spec:** —
+- **Summary:** Part of the `-fleet` skill family (epic #1194) — the family technique is autonomous fan-out orchestration over an SDLC work-queue, with batch human review and never auto-merge. pr-fleet works the open-PR queue: triaging, assisting review, and landing PRs across the queue while keeping the final merge decision with a human. It is the terminal stage of the fleet spine issue-fleet → adr-fleet → roadmap-fleet → pr-fleet, with cicd-fleet / test-fleet / cleanup-fleet running alongside.
+- **Blockers:** —
+- **Plan:** —
+- **Assignee:** —
+- **Priority:** —
+- **External-ID:** github:Intense-Visions/harness-engineering#1186
+
+### cicd-fleet — autonomous CI/CD-red / flaky-test backlog sweep
+
+- **Status:** planned
+- **Spec:** —
+- **Summary:** Part of the `-fleet` skill family (epic #1194) — the family technique is autonomous fan-out orchestration over an SDLC work-queue, with batch human review and never auto-merge. cicd-fleet sweeps the CI/CD-red and flaky-test backlog, fanning out diagnosis and fixes across failing pipelines and batching remediation PRs for human review. It runs alongside the core fleet spine issue-fleet → adr-fleet → roadmap-fleet → pr-fleet.
+- **Blockers:** —
+- **Plan:** —
+- **Assignee:** —
+- **Priority:** —
+- **External-ID:** github:Intense-Visions/harness-engineering#1196
+
+### test-fleet — autonomous test-coverage backlog sweep
+
+- **Status:** planned
+- **Spec:** —
+- **Summary:** Part of the `-fleet` skill family (epic #1194) — the family technique is autonomous fan-out orchestration over an SDLC work-queue, with batch human review and never auto-merge. test-fleet works the test-coverage backlog, fanning out test authoring across under-covered areas and producing a batch of test PRs for human review. It runs alongside the core fleet spine issue-fleet → adr-fleet → roadmap-fleet → pr-fleet.
+- **Blockers:** —
+- **Plan:** —
+- **Assignee:** —
+- **Priority:** —
+- **External-ID:** github:Intense-Visions/harness-engineering#1199
+
+### cleanup-fleet — autonomous entropy/hotspot remediation sweep
+
+- **Status:** planned
+- **Spec:** —
+- **Summary:** Part of the `-fleet` skill family (epic #1194) — the family technique is autonomous fan-out orchestration over an SDLC work-queue, with batch human review and never auto-merge. cleanup-fleet sweeps the entropy/hotspot backlog, fanning out remediation across high-churn and high-risk areas and batching the resulting cleanup PRs for human review. It runs alongside the core fleet spine issue-fleet → adr-fleet → roadmap-fleet → pr-fleet.
+- **Blockers:** —
+- **Plan:** —
+- **Assignee:** —
+- **Priority:** —
+- **External-ID:** github:Intense-Visions/harness-engineering#1200
+
 ## v5.0 — Enforcement Hardening
 
 ### Audit and cap the pre-commit --skip list
