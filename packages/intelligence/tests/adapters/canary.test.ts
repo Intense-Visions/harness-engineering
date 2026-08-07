@@ -116,8 +116,12 @@ describe('CanaryAdapter.readRunHistory', () => {
       return Promise.resolve(`${JSON.stringify(RUN_A)}\n`);
     };
     await createCanaryAdapter(inertExec, reader).readRunHistory({ cwd: '/tmp/project' });
-    expect(seenPath).toContain('test-results/reports/history-v2.jsonl');
-    expect(seenPath.startsWith('/tmp/project')).toBe(true);
+    // Normalize native separators: path.join yields backslashes on Windows, so
+    // assert against the forward-slash form. The resolved store path must end
+    // with the canary store location and sit under the supplied cwd.
+    const normalizedPath = seenPath.replaceAll('\\', '/');
+    expect(normalizedPath.endsWith('test-results/reports/history-v2.jsonl')).toBe(true);
+    expect(normalizedPath).toContain('/tmp/project');
   });
 });
 
