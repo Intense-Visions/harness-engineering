@@ -83,6 +83,10 @@ Before any phase runs, check four preconditions and offer to fulfill missing one
 
 4. **Cite exemplars used.** Each `BenchmarkScore` lists `exemplars` (ids) consulted. Increment per-exemplar `citationCount` for measurement.
 
+5. **Derive the award-tier verdict (machine-computed, not LLM-emitted).** Each `BenchmarkScore` carries an `awardBar` verdict — `cleared`, `not-cleared`, or `indeterminate` — derived in code from the radar plus the cited exemplars' reference scores, never emitted by the LLM. The bar is per-dimension: each dimension must reach `max(dimensionFloor, round(fraction × median(cited-exemplar references)))`. Any dimension whose confidence falls below the confidence floor forces `indeterminate` — a score the model is unsure about never certifies award tier. Tunable via `design.craft.benchmark.awardBar` (`dimensionFloor` default 80, `fraction` default 0.95, `confidenceFloor` default medium).
+
+   > **Scope:** the verdict certifies **desktop aesthetic clearance** across the five aesthetic radar dimensions — it is **not** a mobile/responsiveness gate. A page can clear every dimension while carrying award-tier-fatal mobile defects (a nav that `display:none`s with no hamburger, horizontal overflow). Do not read `cleared` as "ship-ready on mobile." A dedicated `responsive` dimension is a future increment, gated on mobile exemplars to calibrate against.
+
 ### Phase: REPORT — Format and persist outputs
 
 1. **Write to graph:** CRITIQUE/POLISH findings → `VIOLATES_CRAFT` edges via extended `DesignConstraintAdapter`. BENCHMARK scores → `CRAFT_SCORE` nodes attached to component nodes. All carry `runId` for check-design verifier fixpoint detection. Idempotent.

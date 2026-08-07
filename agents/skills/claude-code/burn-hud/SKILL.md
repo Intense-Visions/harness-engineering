@@ -22,16 +22,21 @@
 
 ## Implementation
 
-This skill governs _how_ to install, calibrate and trust a usage HUD. The scanner, statusline, hooks and CLI are a separate deliverable, because a ~1.4k-line Python and shell tool does not belong inside a skill directory.
+This skill governs _how_ to install, calibrate and trust a usage HUD. The scanner, statusline, hooks and CLI are a separate deliverable, because a ~1.4k-line tool does not belong inside a skill directory.
 
-A reference implementation providing `scan.py`, `statusline.sh`, `burn.py` (the `claude-burn` CLI), `install.sh`, `uninstall.sh` and a stdlib test suite is expected at the path the user supplies. Its contract, which this skill assumes throughout:
+For Claude Code the reference implementation ships with the harness itself, as `@harness-engineering/burn`:
+
+- `harness burn` — the interactive surface (report, `weeks`, `calibrate`, `reset-day`, `budget`, `scan`, `install`).
+- `harness-burn-hud` — a standalone binary for the two hot paths (`line` for the statusline, `session-start`/`stop` for the hooks). It deliberately imports nothing from the CLI: loading that module graph costs ~0.85s against a ~0.11s repaint budget, and a laggy statusline is a regression nobody bisects.
+
+For any other agent CLI, an equivalent implementation is expected at the path the user supplies. Either way the contract this skill assumes throughout is:
 
 | Artifact             | Contract                                                                                                                                                       |
 | -------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `state/summary.json` | Written atomically. Carries `status`, `week.reset_spec`, `wtd.units`, `budget.pct_used`, `projection.confidence`, `models_exhausted`, `calibration`, `scan.*`. |
 | `state/usage.tsv`    | Deduped record store, one row per request id.                                                                                                                  |
 | `state/files.tsv`    | Scan fingerprints, first line `#count\t<n>` — the record count, written in the same atomic write.                                                              |
-| `claude-burn`        | `status`, `weeks`, `calibrate <pct> [valid_until]`, `reset-day <day> [time] [tz]`, `budget`, `scan`.                                                           |
+| CLI                  | `report`, `weeks`, `calibrate <pct> [valid_until]`, `reset-day <day> [time] [tz]`, `budget`, `scan` (for Claude Code: `harness burn <subcommand>`).            |
 | statusline           | Reads the cached summary only. Never scans.                                                                                                                    |
 
 If the user has no implementation, that is the blocker to resolve first — do not hand-roll a partial scanner mid-session, because an under-counting scanner is precisely the failure this skill exists to prevent.
@@ -84,7 +89,7 @@ Note the asymmetry is deliberate and runs one way only: withhold a _reassuring_ 
 
 1. **Ask the user to run `/usage`** and report: the weekly percentage, the reset day _and_ time _and_ timezone, whether any per-model bar is shown separately, and whether a promo or temporary limit is active.
 
-2. **Set the window first.** `claude-burn reset-day <mon..sun> <HH:MM> <tz>`. Weekday alone is not enough — a time-of-day error is a multi-hour window shift, and the two together caused the 81× understatement.
+2. **Set the window first.** `harness burn reset-day <mon..sun> <HH:MM> <tz>`. Weekday alone is not enough — a time-of-day error is a multi-hour window shift, and the two together caused the 81× understatement.
 
 3. **Re-scan.** The window change recuts every historical bucket, so the baseline moves too.
 
@@ -96,7 +101,7 @@ Note the asymmetry is deliberate and runs one way only: withhold a _reassuring_ 
 
 1. **Calibrate late in the week, not early.** `/usage` reports whole percents, so the error is `±0.5/pct`: ~17% at 3%, ~1.5% at 34%. Calibrating just after a reset produces a near-useless ceiling.
 
-2. **Record the validity date if a promo is active.** `claude-burn calibrate <pct> <YYYY-MM-DD>`. A promo inflates the ceiling; a calibration taken during one **under-warns** once it lapses. With a date recorded the HUD flags itself instead of quietly trusting a stale budget.
+2. **Record the validity date if a promo is active.** `harness burn calibrate <pct> <YYYY-MM-DD>`. A promo inflates the ceiling; a calibration taken during one **under-warns** once it lapses. With a date recorded the HUD flags itself instead of quietly trusting a stale budget.
 
 3. **Add per-model budgets** if `/usage` shows a separate family bar. A family limit can be fully spent while the pooled bar looks survivable — observed in practice at 100% of one model family's own limit while that family was only 29% of the pooled week.
 
@@ -229,7 +234,7 @@ That combination is diagnostic: the record store lost rows while the fingerprint
 
 ```bash
 rm ~/.claude/hud/state/files.tsv     # distrust the fingerprints
-claude-burn                          # rebuild from source
+harness burn                         # rebuild from source
 ```
 
 Recovered 29,475 records; status moved `OK (3%)` → `CRITICAL (98%)`. Cause named: record loss. Then fixed structurally — atomic writes, an `flock`, and a count header so fingerprints and records can never again disagree.
@@ -239,8 +244,8 @@ Recovered 29,475 records; status moved `OK (3%)` → `CRITICAL (98%)`. Cause nam
 `/usage` showed `97% used`, reset `Wed 08:59 America/Chicago`, a separate model-family bar at `100%`, and a `+50% weekly limits` promo with an end date.
 
 ```bash
-claude-burn reset-day wed 08:59 America/Chicago   # window FIRST
-claude-burn calibrate 97 2026-08-19               # expiry recorded
+harness burn reset-day wed 08:59 America/Chicago   # window FIRST
+harness burn calibrate 97 2026-08-19               # expiry recorded
 ```
 
 Then a per-family budget for the separate bar. Reconciled: HUD `97.2%` against `/usage` `97%` — inside G4.

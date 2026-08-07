@@ -1,12 +1,12 @@
 # KPIs & Metrics: Measuring Harness Engineering Success
 
-Harness Engineering success is measured through three interconnected metrics. These KPIs tell you whether your system is enabling agent-driven development effectively.
+Harness Engineering success is measured through three interconnected **input** KPIs — Context Density, Harness Coverage, and Agent Autonomy — plus one **composite outcome** KPI, Holiday Confidence, that rolls the whole system up into a single "is this safe to leave unwatched?" number. The three input KPIs tell you whether your system is set up to enable agent-driven development; the outcome KPI tells you whether it actually held.
 
 ---
 
 ## Overview
 
-### The Three Core KPIs
+### The Three Core Input KPIs
 
 ```
 Context Density
@@ -27,6 +27,10 @@ These three metrics are interdependent:
 - **High context density** enables good decisions
 - **High harness coverage** prevents bad decisions
 - **Together**, they enable **high agent autonomy**
+
+And the composite outcome sits on top of all three:
+
+- **Holiday Confidence** measures how many merged PRs actually cleared every unwatched-safety gate — the observable result of context, coverage, and autonomy working together.
 
 ---
 
@@ -552,6 +556,65 @@ Payoff in saved time:
 Total payoff over 6 months: ~100 hours saved
 ROI: 100 saved / 40 invested = 2.5x return on investment
 ```
+
+---
+
+## KPI: Holiday Confidence
+
+### Definition
+
+**Holiday Confidence**: The percentage of merged PRs in a rolling window (default 30 days) that cleared **all four** "would you leave this unwatched?" gates:
+
+- **(a) A multi-persona review fired** — the PR carried a `## Assessment:` review marker.
+- **(b) The post-merge outcome-eval did not fail** — the merge commit has no FAILED `execution_outcome` in the knowledge graph.
+- **(c) No baseline was silently auto-updated** during the window.
+- **(d) No curated Signal was in breach** (warn/alert) during the window.
+
+Gates (a) and (b) are scored **per-PR** (a graded pass fraction). Gates (c) and (d) are **window-wide** conditions: if either breaches, the whole window's score is gated to 0 — because a window in which drift crept in or a Signal went red was not safe to leave unattended, regardless of how clean the individual PRs looked.
+
+Where the three input KPIs above each measure one ingredient, Holiday Confidence operationalizes the whole thesis as a single number: _if the senior disappears for two weeks, what holds?_ It is documented as KPI #6 in [STRATEGY.md](../../STRATEGY.md).
+
+### Why It Matters
+
+The three input KPIs are leading indicators — they tell you the substrate is set up correctly. Holiday Confidence is the lagging indicator that tells you it actually worked when nobody was watching:
+
+- **Low confidence** (<75%, `alert`) = Merges are slipping through without the safety gates firing; the system is not yet safe to leave unattended.
+- **Medium confidence** (75–89%, `warn`) = Most merges are covered, but there are gaps — an unreviewed PR, a failed outcome-eval, or a drift/Signal breach in the window.
+- **High confidence** (≥90%, `ok`) = Nearly every merge cleared every gate; the harness is holding on its own.
+
+Because a single window-wide breach (c/d) zeroes the score, this KPI is deliberately unforgiving: it answers "would I trust this to run itself," not "how good is the average PR."
+
+### How to Measure
+
+Holiday Confidence is a **first-class command** — no bash recipe required. It reuses the existing curated-Signal authorities (the `gh` merged-PR list, the review marker, the graph's `execution_outcome` nodes, and the baseline / Signal statuses) and is computed by `computeHolidayConfidence` in `@harness-engineering/signals`.
+
+```bash
+# Human-readable summary
+harness holiday-confidence
+
+# Machine-readable (for dashboards, trend tracking, CI)
+harness holiday-confidence --json
+
+# Custom window
+harness holiday-confidence --window 14
+```
+
+The `--json` output is a stable object; the fields that matter for tracking are:
+
+| Field          | Meaning                                                             |
+| -------------- | ------------------------------------------------------------------- |
+| `value`        | The score, 0–100 (or `null` when undeterminable, e.g. `gh` is down) |
+| `status`       | `ok` (≥90) · `warn` (75–89) · `alert` (<75) · `pending` · `error`   |
+| `windowDays`   | The rolling window used                                             |
+| `mergedPrs`    | PRs merged in the window (the denominator)                          |
+| `confidentPrs` | PRs that cleared all four gates (the numerator)                     |
+| `criteria`     | Per-gate breakdown for (a)–(d)                                      |
+
+The command is **fail-soft**: when `gh` is unavailable or unauthenticated it returns `status: "error"` with a `null` value rather than throwing, and an empty window returns `status: "pending"`.
+
+### Tracking the Trend Automatically
+
+So the trend is visible without anyone running the command, a weekly workflow (`.github/workflows/holiday-confidence-track.yml`) runs `harness holiday-confidence --json` and appends one `{ date, score, verdict }` record per week to `.harness/metrics/holiday-confidence.jsonl`, committing it back with `[skip ci]`. The tracker is fail-soft: when the score is undeterminable (`error`/`pending`) it records nothing and does not fail the workflow, and it never appends a second entry for a date already present. See the [Tracking KPIs Over Time](#tracking-kpis-over-time) section for the shared dashboard pattern.
 
 ---
 
