@@ -1,8 +1,0 @@
-{
-  "reason": "agent-rehearsal-fixtures adds rehearsal harness modules that raise the aggregate dependency-depth metric by 6 (573->579); no per-module depth threshold is breached and no new complexity violations are introduced",
-  "categories": {
-    "dependency-depth": 579
-  },
-  "violationIds": [],
-  "createdFrom": "3692c3543"
-}
