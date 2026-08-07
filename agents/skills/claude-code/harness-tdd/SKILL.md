@@ -26,17 +26,24 @@ If you find yourself writing production code first, STOP. Delete it. Write the t
 
 2. **Write the test file or add to the appropriate test file.** Follow the project's existing test conventions (file naming, framework, location).
 
-3. **Write ONE minimal test** that asserts the expected behavior. The test should:
+3. **Canary-aware authoring (detect-and-offer).** Before writing the test by hand, call the `canary_probe` MCP tool.
+   - **If `degraded`** (canary absent / binary missing / bad output): author the failing test freehand exactly as today. In `prompt` mode, add a single one-line nudge that installing canary enables generated first tests; otherwise stay silent.
+   - **If `available`:**
+     - If no test framework is configured for the target, call `canary_recommend_framework` with a short description of the behavior under test and surface the recommendation.
+     - Offer the `/canary-write-test` skill to author the failing test. Honor `autoCapture`: under `auto` (autopilot/headless) generate without prompting; under `prompt` offer the choice; under `skip` stay freehand silently.
+   - **The Iron Law is unchanged.** However the test is authored — by hand or by canary — you MUST run it and watch it FAIL for the right reason (the "watch it fail" step below) before writing any GREEN code. The generation source never bypasses the RED contract.
+
+4. **Write ONE minimal test** that asserts the expected behavior. The test should:
    - Have a clear, descriptive name that states what behavior is expected
    - Set up only the minimal fixtures needed
    - Make a single assertion about the expected outcome
    - NOT test implementation details — test observable behavior
 
-4. **Run the test suite.** Use the project's test runner (e.g., `npx vitest run path/to/test`, `npm test`, `pytest`).
+5. **Run the test suite.** Use the project's test runner (e.g., `npx vitest run path/to/test`, `npm test`, `pytest`).
 
-5. **MANDATORY: Watch the test FAIL.** Read the failure message. Confirm it fails for the RIGHT reason — the behavior is not yet implemented, not because the test is broken. If the test passes, either the behavior already exists (skip this cycle) or the test is wrong (fix the test).
+6. **MANDATORY: Watch the test FAIL.** Read the failure message. Confirm it fails for the RIGHT reason — the behavior is not yet implemented, not because the test is broken. If the test passes, either the behavior already exists (skip this cycle) or the test is wrong (fix the test).
 
-6. **Record the failure.** Note the test name and failure reason. This is your contract for the GREEN phase.
+7. **Record the failure.** Note the test name and failure reason. This is your contract for the GREEN phase.
 
 ### Phase 2: GREEN — Write the Simplest Code to Pass
 
@@ -137,6 +144,7 @@ Repeat the 4 phases for each new behavior. A typical feature requires 3-10 cycle
 | "Harness validate can wait until the end of the feature since it slows down the cycle"              | No skipping VALIDATE. Every cycle must end with harness check-deps and harness validate. A passing test with a failing validation means the implementation violated a project constraint.           |
 | "This edge case is unlikely, so I will skip writing a test for it"                                  | If the edge case can happen, it needs a test. Unlikely is not impossible. The test is cheap; the production bug is expensive.                                                                       |
 | "The existing tests cover this behavior implicitly, so no new test is needed"                       | Implicit coverage is not TDD. If you cannot point to a specific test that asserts the specific behavior, write one. Implicit coverage breaks silently when the implying test changes.               |
+| "Canary generated the failing test, so I can trust it and skip watching it fail"                    | Generation source does not change the RED contract. A canary-authored test MUST still be run and observed to FAIL for the right reason before GREEN, exactly like a hand-written one. An unwatched generated test can pass for the wrong reason — the whole point of RED is defeated. |
 
 ## Examples
 
