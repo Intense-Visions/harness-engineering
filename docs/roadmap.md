@@ -198,6 +198,17 @@ last_manual_edit: 2026-06-27T12:51:51.967Z
 - **Priority:** P2
 - **External-ID:** github:Intense-Visions/harness-engineering#1006
 
+### canary-results-ingest
+
+- **Status:** planned
+- **Spec:** docs/changes/canary-results-ingest/proposal.md
+- **Summary:** Consume canary structured test results into graph / outcome-eval / pulse
+- **Blockers:** —
+- **Plan:** —
+- **Assignee:** —
+- **Priority:** —
+- **External-ID:** github:Intense-Visions/harness-engineering#1185
+
 ### Wire suggested MCP servers (incl. harness itself) into the OllamaBackend agent
 
 - **Status:** done
