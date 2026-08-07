@@ -26,7 +26,7 @@ const EVAL_PATTERN = /\beval\s*\(|new\s+Function\s*\(/;
  * `isReferenceOnlySecretValue`.
  */
 const SECRET_PATTERNS = [
-  /(?:api[_-]?key|secret|password|token|private[_-]?key)\s*=\s*["']([^"']{8,})/i,
+  /(?:api[_-]?key|secret|password|token|private[_-]?key)\s*=\s*(?:"((?:\\.|[^"\\]){8,})|'((?:\\.|[^'\\]){8,}))/i,
   /["']((?:sk|pk|api|key|secret|token|password)[-_][a-zA-Z0-9]{10,})["']/i,
 ];
 
@@ -34,11 +34,22 @@ const SECRET_PATTERNS = [
  * Return the captured secret VALUE for the first matching pattern, or `null`
  * when no pattern matches. An empty string is a valid (matched-but-empty) value
  * distinct from `null` (no match).
+ *
+ * Pattern 1 branches per quote character so the value runs to the *matching*
+ * close quote: a single `["']([^"']{8,})` class stops at the first quote of
+ * either type, truncating `"$(sed -n 's/^TOKEN=//p' .env)"` to `$(sed -n ` and
+ * `"${TOKEN#\"}"` to `${TOKEN#\`. Neither fragment parses as a reference, so
+ * the value read as a literal and every env-plumbing line in a shell script
+ * was reported as a hardcoded secret (capwell#1372). Two branches means two
+ * groups, hence the `m[1] ?? m[2]` — only one can be defined per match.
+ *
+ * The closing quote stays optional, as before, so an unterminated string is
+ * still scanned rather than silently skipped.
  */
 function matchSecretValue(text: string): string | null {
   for (const pattern of SECRET_PATTERNS) {
     const m = pattern.exec(text);
-    if (m) return m[1] ?? '';
+    if (m) return m[1] ?? m[2] ?? '';
   }
   return null;
 }
