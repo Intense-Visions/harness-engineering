@@ -11,7 +11,7 @@
 - When someone asks "how do we hand this off?" or "what do we lose when X leaves?"
 - NOT for routine end-of-session handoff between agents (use `summarize_session` / session state directly)
 - NOT for archiving or decommissioning a whole project (this is about a _person_ leaving, not the repo ending)
-- NOT when the project has no harness configuration (there is no durable surface to write the handoff into — onboard to harness first with initialize-harness-project)
+- NOT when the project has no harness configuration (there is no durable surface to write the handoff into — onboard to harness first with harness-initialize-project)
 
 ## Process
 

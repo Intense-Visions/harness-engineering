@@ -356,6 +356,60 @@ describe('manage_state tool', () => {
     expect(response.content[0].text).toContain('session is required');
   });
 
+  it('archive_session archives a real session (retrospection off by default)', async () => {
+    const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'state-archive-'));
+    const prev = process.env.HARNESS_SESSION_RETROSPECTION;
+    delete process.env.HARNESS_SESSION_RETROSPECTION;
+    try {
+      const sessionDir = path.join(tmpDir, '.harness', 'sessions', 'test-session');
+      fs.mkdirSync(sessionDir, { recursive: true });
+      fs.writeFileSync(path.join(sessionDir, 'summary.md'), '# session summary');
+
+      const response = await handleManageState({
+        path: tmpDir,
+        action: 'archive_session',
+        session: 'test-session',
+      });
+      expect(response.isError).toBeFalsy();
+      expect(JSON.parse(response.content[0].text).archived).toBe(true);
+      // No provider requested → no proposals emitted.
+      expect(fs.existsSync(path.join(tmpDir, '.harness', 'proposals'))).toBe(false);
+    } finally {
+      if (prev === undefined) delete process.env.HARNESS_SESSION_RETROSPECTION;
+      else process.env.HARNESS_SESSION_RETROSPECTION = prev;
+      fs.rmSync(tmpDir, { recursive: true, force: true });
+    }
+  });
+
+  it('archive_session opts into retrospection when the env flag + a provider are present', async () => {
+    const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'state-archive-retro-'));
+    const prevFlag = process.env.HARNESS_SESSION_RETROSPECTION;
+    const prevBase = process.env.HARNESS_ANALYSIS_BASE_URL;
+    // Flag on + a resolvable (local, unreachable) provider so the opt-in branch
+    // runs. The provider call fails fast and is non-fatal — archive still succeeds.
+    process.env.HARNESS_SESSION_RETROSPECTION = '1';
+    process.env.HARNESS_ANALYSIS_BASE_URL = 'http://127.0.0.1:9';
+    try {
+      const sessionDir = path.join(tmpDir, '.harness', 'sessions', 'retro-session');
+      fs.mkdirSync(sessionDir, { recursive: true });
+      fs.writeFileSync(path.join(sessionDir, 'summary.md'), '# session summary');
+
+      const response = await handleManageState({
+        path: tmpDir,
+        action: 'archive_session',
+        session: 'retro-session',
+      });
+      expect(response.isError).toBeFalsy();
+      expect(JSON.parse(response.content[0].text).archived).toBe(true);
+    } finally {
+      if (prevFlag === undefined) delete process.env.HARNESS_SESSION_RETROSPECTION;
+      else process.env.HARNESS_SESSION_RETROSPECTION = prevFlag;
+      if (prevBase === undefined) delete process.env.HARNESS_ANALYSIS_BASE_URL;
+      else process.env.HARNESS_ANALYSIS_BASE_URL = prevBase;
+      fs.rmSync(tmpDir, { recursive: true, force: true });
+    }
+  });
+
   it('has task and phase lifecycle actions in enum', () => {
     const actionProp = manageStateDefinition.inputSchema.properties.action as {
       type: string;

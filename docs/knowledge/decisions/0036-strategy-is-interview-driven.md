@@ -59,4 +59,4 @@ Pushback rules from `agents/skills/claude-code/harness-strategy/references/inter
 - `agents/skills/claude-code/harness-strategy/references/interview.md` defines the three anti-pattern detectors (fluff / goal / feature-list) and the 2-round cap.
 - `BusinessKnowledgeIngestor.ingestStrategy` (`packages/graph/src/ingest/BusinessKnowledgeIngestor.ts`) reads `STRATEGY.md` and emits `business_fact` nodes — read-only on the file.
 - `KnowledgePipelineRunner.extract` invokes `ingestStrategy` alongside other ingestors with a try/catch that soft-fails on absence.
-- Init flow (`agents/skills/claude-code/initialize-harness-project/SKILL.md` Phase 3) records `init.strategy.declined: true` in `.harness/state.json` when the user declines.
+- Init flow (`agents/skills/claude-code/harness-initialize-project/SKILL.md` Phase 3) records `init.strategy.declined: true` in `.harness/state.json` when the user declines.

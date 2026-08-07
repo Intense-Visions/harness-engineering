@@ -13,7 +13,28 @@ import {
   Err,
   AgentError,
 } from '@harness-engineering/types';
+import type {
+  PolicyMetadata,
+  PolicySandboxMode,
+  PolicyNetworkMode,
+} from '@harness-engineering/types';
 import type { CacheMetricsRecorder } from '@harness-engineering/core';
+import { buildSubprocessEnv } from '../subprocess-env.js';
+
+/**
+ * Governance record handed to a {@link ClaudeBackendOptions.policyAudit} sink at
+ * spawn time. The orchestrator wires this to `.harness/audit.log`. NO payload,
+ * NO env values — `strippedEnvKeys` carries names only.
+ */
+export interface PolicyAuditRecord {
+  sessionId: string;
+  workspacePath?: string;
+  policy: PolicyMetadata;
+  strippedEnvKeys: string[];
+  enforced: boolean;
+}
+
+export type PolicyAuditSink = (record: PolicyAuditRecord) => void;
 
 function resolveExitCode(
   code: number | null,
@@ -401,16 +422,47 @@ export interface ClaudeBackendOptions {
    * recorder lifecycle; non-Anthropic backends ignore the option.
    */
   cacheMetrics?: CacheMetricsRecorder;
+  /**
+   * Sandbox posture recorded in the policy envelope. Threaded from the backend
+   * factory (`docker` when the dispatch is container-wrapped). Default `none`.
+   */
+  sandboxMode?: PolicySandboxMode;
+  /** Network posture recorded in the policy envelope. Default `unrestricted`. */
+  networkMode?: PolicyNetworkMode;
+  /** Best-effort agent CLI version for the audit record. Default `unknown`. */
+  agentVersion?: string;
+  /**
+   * Governance sink invoked once per spawn with the resolved policy + the names
+   * of env vars withheld from the subprocess. When absent the record is not
+   * written (env stripping still happens regardless — it is unconditional).
+   */
+  policyAudit?: PolicyAuditSink;
+  /** Extra env var names to allow through the air-gap (merged with the base allowlist). */
+  subprocessEnvAllow?: readonly string[];
+  /** Test seam: override the env source read for the allowlist. Defaults to `process.env`. */
+  envSource?: NodeJS.ProcessEnv;
 }
 
 export class ClaudeBackend implements AgentBackend {
   readonly name = 'claude';
   private command: string;
   private cacheMetrics?: CacheMetricsRecorder;
+  private sandboxMode: PolicySandboxMode;
+  private networkMode: PolicyNetworkMode;
+  private agentVersion: string;
+  private policyAudit?: PolicyAuditSink;
+  private subprocessEnvAllow?: readonly string[];
+  private envSource: NodeJS.ProcessEnv;
 
   constructor(command = 'claude', options: ClaudeBackendOptions = {}) {
     this.command = options.command ?? command;
     if (options.cacheMetrics) this.cacheMetrics = options.cacheMetrics;
+    this.sandboxMode = options.sandboxMode ?? 'none';
+    this.networkMode = options.networkMode ?? 'unrestricted';
+    this.agentVersion = options.agentVersion ?? 'unknown';
+    if (options.policyAudit) this.policyAudit = options.policyAudit;
+    if (options.subprocessEnvAllow) this.subprocessEnvAllow = options.subprocessEnvAllow;
+    this.envSource = options.envSource ?? process.env;
   }
 
   async startSession(params: SessionStartParams): Promise<Result<AgentSession, AgentError>> {
@@ -444,9 +496,43 @@ export class ClaudeBackend implements AgentBackend {
       args.push('--session-id', session.sessionId);
     }
 
+    // Subprocess air-gap: hand the agent an ALLOWLISTED env instead of the full
+    // parent `process.env`, so unrelated host secrets never leak into the spawned
+    // CLI. Provider creds / HARNESS_* / runtime plumbing still pass through — see
+    // subprocess-env.ts. Stripping is unconditional; the audit sink is optional.
+    const { env, stripped, enforced } = buildSubprocessEnv(
+      this.envSource,
+      this.subprocessEnvAllow ? { extraAllow: this.subprocessEnvAllow } : {}
+    );
+
+    // Stamp the per-call policy envelope into the governance audit trail. The
+    // permission-mode flag below is a permission-bypassing ("dangerous") flag,
+    // so it is recorded as such. Best-effort: never let audit faults block spawn.
+    if (this.policyAudit) {
+      const policy: PolicyMetadata = {
+        approvalMode: 'bypass',
+        sandboxMode: this.sandboxMode,
+        networkMode: this.networkMode,
+        dangerousFlags: ['--permission-mode=bypassPermissions'],
+        agentFamily: 'claude',
+        agentVersion: this.agentVersion,
+      };
+      try {
+        this.policyAudit({
+          sessionId: session.sessionId,
+          workspacePath: session.workspacePath,
+          policy,
+          strippedEnvKeys: stripped,
+          enforced,
+        });
+      } catch {
+        // Audit is advisory; a sink fault must not stop the agent.
+      }
+    }
+
     const child = spawn(this.command, args, {
       cwd: session.workspacePath,
-      env: process.env,
+      env,
     });
 
     // Close stdin to signal no input is coming

@@ -34,9 +34,11 @@ import * as path from 'node:path';
 import type { BenchmarkScore, RadarDimension, Confidence } from '../findings/schema.js';
 import type { ExemplarDefinition } from '../catalog/exemplars/linear-empty-list.js';
 import type { LlmProvider } from '../llm/provider.js';
-import { computeAwardBar } from './award-bar.js';
+import { computeAwardBar, applyResponsiveGate } from './award-bar.js';
 import type { AwardBarConfig } from './award-bar.js';
 import { CONFIDENCE_RANK } from '../../shared/craft/findings/axes.js';
+import { computeResponsiveGate } from '../../responsive/index.js';
+import type { ResponsiveMetrics, ResponsiveGateConfig } from '../../responsive/index.js';
 
 export interface BenchmarkTarget {
   file: string;
@@ -60,6 +62,17 @@ export interface BenchmarkArgs {
    * (80 / 0.95 / medium).
    */
   awardBar?: Partial<AwardBarConfig>;
+  /**
+   * Responsive gate inputs. `metrics` are per-target rendered layout metrics
+   * (matched to a target by `file`); `config` tunes the gate thresholds;
+   * `require` makes a `not-evaluated` gate downgrade a would-be `cleared` to
+   * `indeterminate`. Omit entirely to leave every score `not-evaluated`.
+   */
+  responsive?: {
+    metrics?: ResponsiveMetrics[];
+    config?: Partial<ResponsiveGateConfig>;
+    require?: boolean;
+  };
 }
 
 const CONFIDENCE_VALUES: readonly Confidence[] = ['high', 'medium', 'low'];
@@ -189,7 +202,8 @@ function buildScore(
   target: BenchmarkTarget,
   exemplars: ExemplarDefinition[],
   parsed: ParsedBenchmarkResponse,
-  awardBarConfig?: Partial<AwardBarConfig>
+  awardBarConfig?: Partial<AwardBarConfig>,
+  responsive?: BenchmarkArgs['responsive']
 ): BenchmarkScore {
   const dims: RadarDimension[] = [
     parsed.philosophicalCoherence,
@@ -207,13 +221,19 @@ function buildScore(
     function: parsed.function,
     innovation: parsed.innovation,
   };
+  const aesthetic = computeAwardBar(radar, exemplars, awardBarConfig);
+  const metricsForTarget = responsive?.metrics?.find((m) => m.file === target.file);
+  const gate = computeResponsiveGate(metricsForTarget, responsive?.config);
+  const awardBar = applyResponsiveGate(aesthetic, gate, {
+    require: responsive?.require ?? false,
+  });
   return {
     target: { file: target.file, component: target.component },
     exemplars: exemplars.map((e) => e.id),
     radar,
     overall: { score: overallScore, confidence: overallConfidence },
     gaps: parsed.gaps,
-    awardBar: computeAwardBar(radar, exemplars, awardBarConfig),
+    awardBar,
   };
 }
 
@@ -294,7 +314,7 @@ export async function runBenchmark(args: BenchmarkArgs): Promise<BenchmarkScore[
     const raw = await args.provider.callText(prompt);
     const parsed = parseBenchmarkResponse(raw);
     if (parsed === null) continue;
-    scores.push(buildScore(target, matched, parsed, args.awardBar));
+    scores.push(buildScore(target, matched, parsed, args.awardBar, args.responsive));
   }
   return scores;
 }

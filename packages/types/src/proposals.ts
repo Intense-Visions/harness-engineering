@@ -238,3 +238,42 @@ export const EditProposalInputSchema = z.object({
   content: ProposalContentSchema.partial(),
 });
 export type EditProposalInput = z.infer<typeof EditProposalInputSchema>;
+
+/**
+ * A single *applyable* proposal draft produced by auto-triggered retrospection
+ * at a session terminus.
+ *
+ * This is intentionally a projection of `EmitSkillProposalInput` with the
+ * server-injected provenance fields (`proposedBy`, `sessionId`, `taskId`)
+ * omitted — the retrospection step stamps those. It reuses `SkillKindSchema` +
+ * `ProposalContentSchema` verbatim so that a draft which validates here can be
+ * handed straight to `createProposal` and land in `.harness/proposals/` as an
+ * ordinary `SkillProposal`, flowing through the same review → gate → promote
+ * ("apply") path. No parallel proposal type is introduced.
+ *
+ * "Applyable" = the draft carries the target (`targetSkill` for refinements),
+ * the change (`content.diff` for refinements, `content.skillYaml`+`skillMd` for
+ * new skills), and the rationale (`justification`). The apply affordance is the
+ * existing proposals queue (`/s/proposals`, `harness proposals approve`).
+ */
+export const RetrospectionProposalDraftSchema = z.object({
+  kind: SkillKindSchema,
+  targetSkill: z.string().optional(),
+  justification: z.string().min(20).max(2000),
+  content: ProposalContentSchema,
+});
+export type RetrospectionProposalDraft = z.infer<typeof RetrospectionProposalDraftSchema>;
+
+/**
+ * Structured payload the retrospection LLM returns: a list of drafts.
+ *
+ * No upper `.max()` bound here on purpose. The effective cap is a runtime
+ * `.slice(0, maxProposals)` in `retrospectArchivedSession`, which truncates an
+ * over-eager provider to the first N drafts. A schema `.max()` would instead
+ * *reject* the whole payload when the model returns one too many, dropping
+ * every proposal rather than keeping the top N — the opposite of graceful.
+ */
+export const RetrospectionProposalsResponseSchema = z.object({
+  proposals: z.array(RetrospectionProposalDraftSchema).default([]),
+});
+export type RetrospectionProposalsResponse = z.infer<typeof RetrospectionProposalsResponseSchema>;

@@ -293,6 +293,19 @@ export const DesignCraftConfigSchema = z.object({
           dimensionFloor: z.number().min(0).max(100).default(80),
           fraction: z.number().min(0).max(1).default(0.95),
           confidenceFloor: z.enum(['high', 'medium', 'low']).default('medium'),
+          /**
+           * Mechanical responsive gate (ADR 0085). A `defective` gate vetoes
+           * `cleared`. `require: true` makes a `not-evaluated` gate downgrade a
+           * would-be `cleared` to `indeterminate` (mobile mandatory). Omit for
+           * defaults (require false / 390px / 1px tolerance).
+           */
+          responsive: z
+            .object({
+              require: z.boolean().default(false),
+              viewport: z.number().int().positive().default(390),
+              overflowTolerancePx: z.number().min(0).default(1),
+            })
+            .optional(),
         })
         .optional(),
     })
@@ -954,6 +967,14 @@ export const HarnessConfigSchema = z.object({
   integrations: IntegrationsConfigSchema.optional(),
   /** General architectural enforcement settings */
   architecture: ArchConfigSchema.optional(),
+  /**
+   * Opt-in constraint packs: named bundles of blocking rules the project
+   * chooses to enforce, each applied at its declared lifecycle stage(s)
+   * (pre-commit / pre-merge / pre-release). Built-in packs map onto the
+   * security rule sets; unknown names are reported but ignored. Empty or
+   * absent means no packs are enforced (default behavior unchanged).
+   */
+  constraintPacks: z.array(z.string()).optional(),
   /** Golden-build (known-good reference-state) settings (`harness golden-build`) */
   golden: GoldenConfigSchema.optional(),
   /** Operational-policy drift settings (ADR requirement for hooks/thresholds/skip-list) */

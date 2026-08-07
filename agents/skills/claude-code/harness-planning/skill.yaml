@@ -44,6 +44,7 @@ mcp:
     path: string
 type: rigid
 tier: 1
+catalog_tier: 0
 phases:
   - name: scope
     description: Define goals and constraints

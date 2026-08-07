@@ -244,6 +244,13 @@ export type { SummarizeContext, SummarizeResult } from './sessions/summarize';
 export { buildArchiveHooks } from './sessions/archive-hooks';
 export type { BuildArchiveHooksOptions } from './sessions/archive-hooks';
 
+export {
+  retrospectArchivedSession,
+  isRetrospectionEnabled,
+  RETROSPECTION_PROPOSED_BY,
+} from './sessions/retrospection';
+export type { RetrospectionContext, RetrospectionResult } from './sessions/retrospection';
+
 // Notification sinks (envelope wrapper, Slack adapter, in-process dispatcher).
 // The CLI's `harness notifications test` and the integration tests reach for
 // these directly; everything else is wired by the orchestrator boot.

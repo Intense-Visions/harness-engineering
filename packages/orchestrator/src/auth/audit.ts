@@ -1,6 +1,12 @@
 import { appendFile, mkdir } from 'node:fs/promises';
 import { dirname } from 'node:path';
-import { AuthAuditEntrySchema, type AuthAuditEntry } from '@harness-engineering/types';
+import {
+  AuthAuditEntrySchema,
+  PolicyAuditEntrySchema,
+  type AuthAuditEntry,
+  type PolicyAuditEntry,
+  type PolicyMetadata,
+} from '@harness-engineering/types';
 
 export interface AuditAppendInput {
   tokenId: string;
@@ -8,6 +14,18 @@ export interface AuditAppendInput {
   route: string;
   method: string;
   status: number;
+}
+
+/**
+ * Input for a per-dispatch agent policy record. NO payload, NO env values —
+ * `strippedEnvKeys` carries names only.
+ */
+export interface PolicyAppendInput {
+  sessionId: string;
+  workspacePath?: string;
+  policy: PolicyMetadata;
+  strippedEnvKeys: string[];
+  enforced: boolean;
 }
 
 export interface AuditLoggerOptions {
@@ -43,6 +61,26 @@ export class AuditLogger {
     });
     const line = `${JSON.stringify(entry)}\n`;
     // Serialize writes to prevent interleaving; never block caller on a fault.
+    this.queue = this.queue.then(() => this.writeLine(line)).catch(() => undefined);
+  }
+
+  /**
+   * Append a per-dispatch agent policy record (the orchestrator gateway policy
+   * envelope) to the same audit log. Same best-effort guarantees as
+   * {@link append}: write faults warn and never throw. NO payload/env values.
+   */
+  async appendPolicy(input: PolicyAppendInput): Promise<void> {
+    const entry: PolicyAuditEntry = PolicyAuditEntrySchema.parse({
+      timestamp: new Date().toISOString(),
+      event: 'agent_dispatch',
+      sessionId: input.sessionId,
+      ...(input.workspacePath ? { workspacePath: input.workspacePath } : {}),
+      policy: input.policy,
+      strippedEnvKeyCount: input.strippedEnvKeys.length,
+      strippedEnvKeys: input.strippedEnvKeys,
+      enforced: input.enforced,
+    });
+    const line = `${JSON.stringify(entry)}\n`;
     this.queue = this.queue.then(() => this.writeLine(line)).catch(() => undefined);
   }
 

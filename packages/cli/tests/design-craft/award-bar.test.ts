@@ -6,9 +6,11 @@
 import { describe, it, expect } from 'vitest';
 import {
   computeAwardBar,
+  applyResponsiveGate,
   resolveAwardBarConfig,
   DEFAULT_AWARD_BAR_CONFIG,
 } from '../../src/design-craft/phases/award-bar.js';
+import type { ResponsiveGateResult } from '../../src/responsive/probe.js';
 import type { AwardBarConfig } from '../../src/design-craft/phases/award-bar.js';
 import type {
   BenchmarkScore,
@@ -184,5 +186,63 @@ describe('computeAwardBar', () => {
       expect(result.dimensions[dim].floor).toBe(DEFAULT_AWARD_BAR_CONFIG.dimensionFloor);
     }
     expect(result.verdict).toBe('cleared');
+  });
+
+  it('defaults responsive to not-evaluated', () => {
+    const result = computeAwardBar(radar(85, 'high'), [exemplar(80)]);
+    expect(result.responsive).toEqual({ status: 'not-evaluated', defects: [] });
+  });
+});
+
+describe('applyResponsiveGate', () => {
+  const clearedAesthetic = () => computeAwardBar(radar(85, 'high'), [exemplar(80)]); // verdict 'cleared'
+  const clean: ResponsiveGateResult = { status: 'clean', viewport: 390, defects: [] };
+  const defective: ResponsiveGateResult = {
+    status: 'defective',
+    viewport: 390,
+    defects: [{ kind: 'horizontal-overflow', detail: 'overflows 47px', viewport: 390 }],
+  };
+  const notEvaluated: ResponsiveGateResult = { status: 'not-evaluated', defects: [] };
+
+  it('leaves a cleared verdict cleared when the gate is clean', () => {
+    const r = applyResponsiveGate(clearedAesthetic(), clean, { require: false });
+    expect(r.verdict).toBe('cleared');
+    expect(r.responsive).toBe(clean);
+  });
+
+  it('vetoes cleared → not-cleared when the gate is defective', () => {
+    const r = applyResponsiveGate(clearedAesthetic(), defective, { require: false });
+    expect(r.verdict).toBe('not-cleared');
+    expect(r.reason).toBe('responsive-defects');
+    expect(r.responsive.status).toBe('defective');
+  });
+
+  it('a defective gate outranks an aesthetic indeterminate (low confidence)', () => {
+    const aesthetic = computeAwardBar(radar(99, 'high', { innovation: { confidence: 'low' } }), [
+      exemplar(80),
+    ]);
+    expect(aesthetic.verdict).toBe('indeterminate');
+    const r = applyResponsiveGate(aesthetic, defective, { require: false });
+    expect(r.verdict).toBe('not-cleared');
+    expect(r.reason).toBe('responsive-defects');
+  });
+
+  it('not-evaluated leaves the aesthetic verdict unchanged when require=false', () => {
+    const r = applyResponsiveGate(clearedAesthetic(), notEvaluated, { require: false });
+    expect(r.verdict).toBe('cleared');
+    expect(r.responsive.status).toBe('not-evaluated');
+  });
+
+  it('not-evaluated + require downgrades a would-be cleared to indeterminate', () => {
+    const r = applyResponsiveGate(clearedAesthetic(), notEvaluated, { require: true });
+    expect(r.verdict).toBe('indeterminate');
+    expect(r.reason).toBe('responsive-not-evaluated');
+  });
+
+  it('not-evaluated + require does NOT touch an already not-cleared aesthetic verdict', () => {
+    const aestheticFail = computeAwardBar(radar(50, 'high'), [exemplar(80)]);
+    expect(aestheticFail.verdict).toBe('not-cleared');
+    const r = applyResponsiveGate(aestheticFail, notEvaluated, { require: true });
+    expect(r.verdict).toBe('not-cleared');
   });
 });

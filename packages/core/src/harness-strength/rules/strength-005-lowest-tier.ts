@@ -9,7 +9,7 @@ import type { ProjectContext, StrengthFinding, StrengthRule } from '../types';
  *   - toolkit: scan the init skill text for a default-`basic` recommendation.
  */
 
-const INIT_SKILL_PATH = 'agents/skills/claude-code/initialize-harness-project/SKILL.md';
+const INIT_SKILL_PATH = 'agents/skills/claude-code/harness-initialize-project/SKILL.md';
 
 // Fire only when `basic` sits adjacent (within ~40 non-newline chars, either
 // direction) to a default/recommend token — i.e. `basic` is genuinely being

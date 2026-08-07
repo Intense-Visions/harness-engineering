@@ -1,4 +1,4 @@
-name: initialize-harness-project
+name: harness-initialize-project
 version: "1.0.0"
 description: Scaffold a new harness-compliant project, including design system and roadmap configuration
 stability: static
@@ -17,7 +17,7 @@ tools:
   - Write
   - Glob
 cli:
-  command: harness skill run initialize-harness-project
+  command: harness skill run harness-initialize-project
   args:
     - name: path
       description: Project root path
@@ -25,10 +25,11 @@ cli:
 mcp:
   tool: run_skill
   input:
-    skill: initialize-harness-project
+    skill: harness-initialize-project
     path: string
 type: flexible
 tier: 1
+catalog_tier: 0
 state:
   persistent: false
   files: []
@@ -36,3 +37,11 @@ depends_on:
   - initialize-test-suite-project
   - harness-design-system
   - harness-roadmap
+capabilities:
+  tools:
+    - Bash
+    - Read
+    - Write
+    - Glob
+  network: false
+  filesystem: read-write

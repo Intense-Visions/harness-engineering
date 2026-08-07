@@ -5,11 +5,17 @@ import type {
   RoutingUseCase,
   ContainerConfig,
   SecretConfig,
+  PolicyNetworkMode,
 } from '@harness-engineering/types';
+import type { PolicyAuditSink } from './backends/claude.js';
 import type { CacheMetricsRecorder } from '@harness-engineering/core';
 import { BackendRouter } from './backend-router.js';
 import type { RoutingDecisionBus } from '../routing/decision-bus.js';
-import { createBackend, isLocalEndpointBackend } from './backend-factory.js';
+import {
+  createBackend,
+  isLocalEndpointBackend,
+  type CreateBackendOptions,
+} from './backend-factory.js';
 import { ContainerBackend } from './backends/container.js';
 import { DockerRuntime } from './runtime/docker.js';
 import { createSecretBackend } from './secrets/index.js';
@@ -80,6 +86,16 @@ export interface OrchestratorBackendFactoryOptions {
    * every resolve() during forUseCase / resolveName emits.
    */
   decisionBus?: RoutingDecisionBus;
+  /**
+   * Orchestrator gateway policy envelope + subprocess air-gap. `policyAudit` is
+   * the governance sink each subprocess-spawning backend calls once per spawn
+   * (wired to `.harness/audit.log`). `sandboxMode` is DERIVED per dispatch from
+   * `sandboxPolicy` (docker wrap ⇒ `docker`), so it is not accepted here.
+   * `networkMode` + `subprocessEnvAllow` are forwarded verbatim.
+   */
+  policyAudit?: PolicyAuditSink;
+  networkMode?: PolicyNetworkMode;
+  subprocessEnvAllow?: readonly string[];
 }
 
 /**
@@ -136,6 +152,24 @@ export class OrchestratorBackendFactory {
     return this.router;
   }
 
+  /**
+   * Assemble the per-dispatch {@link CreateBackendOptions}: the shared cache
+   * recorder plus the orchestrator gateway policy-envelope / subprocess air-gap
+   * wiring. `sandboxMode` is DERIVED from the dispatch's sandbox policy (a docker
+   * wrap ⇒ the subprocess runs container-isolated); the rest is forwarded
+   * verbatim so subprocess-spawning backends can stamp the audit trail + enforce
+   * the env allowlist. Extracted from `forUseCase` to keep that method flat.
+   */
+  private buildCreateOpts(): CreateBackendOptions {
+    return {
+      ...(this.opts.cacheMetrics ? { cacheMetrics: this.opts.cacheMetrics } : {}),
+      sandboxMode: this.opts.sandboxPolicy === 'docker' ? 'docker' : 'none',
+      ...(this.opts.networkMode ? { networkMode: this.opts.networkMode } : {}),
+      ...(this.opts.policyAudit ? { policyAudit: this.opts.policyAudit } : {}),
+      ...(this.opts.subprocessEnvAllow ? { subprocessEnvAllow: this.opts.subprocessEnvAllow } : {}),
+    };
+  }
+
   forUseCase(useCase: RoutingUseCase, opts?: { invocationOverride?: string }): AgentBackend {
     // Spec B Phase 4 (closes P1-IMP-2): single resolve() per dispatch.
     // Pre-Phase-4 this method called resolveDefinition() and resolve()
@@ -145,7 +179,7 @@ export class OrchestratorBackendFactory {
     const { def, decision } = this.router.resolveDecisionAndDef(useCase, opts);
     const name = decision.backendName;
     let backend: AgentBackend;
-    const createOpts = this.opts.cacheMetrics ? { cacheMetrics: this.opts.cacheMetrics } : {};
+    const createOpts = this.buildCreateOpts();
 
     if (isLocalEndpointBackend(def) && this.opts.getResolverModelFor) {
       // T17: thread the routed use-case so the resolver can order pooled

@@ -1,8 +1,29 @@
 import { Ok } from '@harness-engineering/core';
+import type { AnalysisProvider } from '@harness-engineering/intelligence';
+import type { SessionsConfig } from '@harness-engineering/types';
 import { resultToMcpResponse } from '../utils/result-adapter.js';
 import { sanitizePath } from '../utils/sanitize-path.js';
+import { resolveAnalysisProvider } from '../utils/analysis-provider.js';
 import { autoSyncRoadmap } from './roadmap-auto-sync.js';
 import { emitSkillEvent } from './event-emitter.js';
+
+/**
+ * Retrospection timeout for the live `archive_session` path.
+ *
+ * Retrospection runs inline before `archive_session` returns, so a slow
+ * provider stalls the archive up to this bound. The orchestrator default is
+ * 60s — too long to hang an interactive MCP call on — so the live path caps it
+ * lower. A provider that misses this window is skipped (archiving proceeds
+ * unaffected); the background/CLI path keeps the longer default.
+ */
+const LIVE_RETROSPECTION_TIMEOUT_MS = 15_000;
+
+/** Truthy env-flag test (`1`/`true`/`yes`, case-insensitive). */
+function envEnabled(value: string | undefined): boolean {
+  if (!value) return false;
+  const v = value.trim().toLowerCase();
+  return v === '1' || v === 'true' || v === 'yes' || v === 'on';
+}
 
 // ── manage_state ──────────────────────────────────────────────────────
 
@@ -348,7 +369,29 @@ async function handleArchiveSession(projectPath: string, input: StateInput) {
   if (!input.session) return mcpError('Error: session is required for archive_session action');
   const { archiveSession } = await import('@harness-engineering/core');
   const { buildArchiveHooks } = await import('@harness-engineering/orchestrator');
-  const hooks = buildArchiveHooks({ projectPath });
+
+  // Auto-triggered retrospection (opt-in). When HARNESS_SESSION_RETROSPECTION is
+  // set AND an analysis provider is resolvable, archiving a session fires a
+  // retrospection at this terminus that emits applyable proposals into
+  // `.harness/proposals/`. Emission only — approval/promotion stays human-gated.
+  // Absent the flag or a provider, behaviour is byte-identical to before.
+  let provider: AnalysisProvider | undefined;
+  let sessionsConfig: SessionsConfig | undefined;
+  if (envEnabled(process.env.HARNESS_SESSION_RETROSPECTION)) {
+    const resolved = await resolveAnalysisProvider();
+    if (resolved) {
+      provider = resolved as AnalysisProvider;
+      sessionsConfig = {
+        retrospection: { enabled: true, timeoutMs: LIVE_RETROSPECTION_TIMEOUT_MS },
+      };
+    }
+  }
+
+  const hooks = buildArchiveHooks({
+    projectPath,
+    ...(provider && { provider }),
+    ...(sessionsConfig && { config: sessionsConfig }),
+  });
   const result = await archiveSession(projectPath, input.session, { hooks });
   if (!result.ok) return resultToMcpResponse(result);
 

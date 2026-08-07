@@ -52,14 +52,23 @@ export function resolveRuleSeverity(
     return overrides[ruleId];
   }
 
-  // Check wildcard matches (e.g. "SEC-INJ-*")
+  // Check wildcard matches (e.g. "SEC-INJ-*"). When several wildcards match
+  // (e.g. a broad `SEC-*` base alongside a specific `SEC-INJ-*` elevation), the
+  // most-specific (longest-prefix) pattern wins, so a narrow override is never
+  // shadowed by a broader one regardless of insertion order.
+  let bestPrefix: string | undefined;
+  let bestOverride: RuleOverride | undefined;
   for (const [pattern, override] of Object.entries(overrides)) {
-    if (pattern.endsWith('*')) {
-      const prefix = pattern.slice(0, -1);
-      if (ruleId.startsWith(prefix)) {
-        return override;
-      }
+    if (!pattern.endsWith('*')) continue;
+    const prefix = pattern.slice(0, -1);
+    if (!ruleId.startsWith(prefix)) continue;
+    if (bestPrefix === undefined || prefix.length > bestPrefix.length) {
+      bestPrefix = prefix;
+      bestOverride = override;
     }
+  }
+  if (bestOverride !== undefined) {
+    return bestOverride;
   }
 
   // Apply strict mode: promote warnings/info to error

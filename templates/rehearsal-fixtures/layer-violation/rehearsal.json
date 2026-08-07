@@ -1,0 +1,17 @@
+{
+  "id": "layer-violation",
+  "title": "UI layer reaches past the service layer into the database",
+  "failureMode": "layer-violation",
+  "difficulty": "medium",
+  "summary": "A three-layer app (ui -> service -> db) has a UI component importing the db layer directly, bypassing the service boundary. It compiles and works, so only an architecture gate catches the eroded boundary.",
+  "plantedFile": "src/ui/user-card.ts",
+  "plantedDescription": "user-card.ts (ui layer) imports directly from ../db/user-repository, which the layer model forbids — ui may depend on service only.",
+  "expectedCheck": "harness check-arch",
+  "expectedFix": "Route the read through the service layer: user-card.ts imports from ../service/user-service, and the service calls the repository. The ui->db import is removed so the layer model holds.",
+  "rubric": {
+    "detected": "Agent identifies the ui->db import as an architectural layer violation (not just a refactor preference).",
+    "correctCheck": "Agent runs or cites `harness check-arch` as the gate that catches the boundary crossing.",
+    "fixed": "The ui module no longer imports the db layer; the call goes through the service layer.",
+    "noCollateral": "The service and db layers still work and the rendered output is unchanged."
+  }
+}

@@ -11,7 +11,7 @@ Scaffold a new harness-compliant project, including design system and roadmap co
 </objective>
 
 <execution_context>
---- SKILL.md (agents/skills/gemini-cli/initialize-harness-project/SKILL.md) ---
+--- SKILL.md (agents/skills/gemini-cli/harness-initialize-project/SKILL.md) ---
 # Initialize Harness Project
 
 > Scaffold a new harness-compliant project, migrate an existing project to the next adoption level, or bootstrap an existing project that just got the harness marketplace plugin installed (no `harness setup`). Ground the project in a strategic anchor (`STRATEGY.md`) first, then assess current state, scaffold or migrate, configure, validate, instrument (baselines / telemetry / Tier-0 integrations), and finalize.
@@ -621,8 +621,8 @@ git commit -m "feat: bootstrap harness on existing project (plugin install)"
 - Custom skills for all common team workflows
 
 
---- skill.yaml (agents/skills/gemini-cli/initialize-harness-project/skill.yaml) ---
-name: initialize-harness-project
+--- skill.yaml (agents/skills/gemini-cli/harness-initialize-project/skill.yaml) ---
+name: harness-initialize-project
 version: "1.0.0"
 description: Scaffold a new harness-compliant project, including design system and roadmap configuration
 stability: static
@@ -641,7 +641,7 @@ tools:
   - Write
   - Glob
 cli:
-  command: harness skill run initialize-harness-project
+  command: harness skill run harness-initialize-project
   args:
     - name: path
       description: Project root path
@@ -649,10 +649,11 @@ cli:
 mcp:
   tool: run_skill
   input:
-    skill: initialize-harness-project
+    skill: harness-initialize-project
     path: string
 type: flexible
 tier: 1
+catalog_tier: 0
 state:
   persistent: false
   files: []
@@ -660,11 +661,19 @@ depends_on:
   - initialize-test-suite-project
   - harness-design-system
   - harness-roadmap
+capabilities:
+  tools:
+    - Bash
+    - Read
+    - Write
+    - Glob
+  network: false
+  filesystem: read-write
 
 </execution_context>
 
 <process>
-1. Try: invoke mcp__harness__run_skill with skill: "initialize-harness-project"
+1. Try: invoke mcp__harness__run_skill with skill: "harness-initialize-project"
 2. If MCP unavailable: follow the SKILL.md workflow provided above directly
 3. Pass through any arguments provided by the user
 </process>

@@ -843,6 +843,7 @@ Run all harness checks for CI (validate, deps, docs, entropy, phase-gate, arch)
 
 - `--skip` — Comma-separated checks to skip (e.g., entropy,docs)
 - `--fail-on` — Fail on severity level: error (default) or warning (default: "error")
+- `--stage` — Enforce only the opted-in constraint packs for this lifecycle stage: pre-commit, pre-merge, or pre-release
 
 ### `harness ci init`
 
@@ -1328,6 +1329,28 @@ Run a pulse: query configured adapters, sanitize, assemble single-page report
 - `--non-interactive` — Emit single-line JSON status on stdout instead of headlines+path. Auto-detected when stdout is not a TTY.
 - `--config` — Path to harness.config.json (default: "harness.config.json")
 - `--output-dir` — Directory to write the report into (default: "docs/pulse-reports")
+
+## Rehearse Commands
+
+Rehearse an agent against a deliberately-broken fixture and score how well it recovers
+
+### `harness rehearse list`
+
+List the available rehearsal fixtures and their planted failure modes
+
+### `harness rehearse score`
+
+Score a recovery attempt against a fixture (0-100 + pass/partial/fail tier)
+
+**Options:**
+
+- `--fixture` — Fixture id to score against
+- `--recovery` — Path to a JSON recovery record
+- `--report-only` — Always exit 0, even on a fail-tier score
+
+### `harness rehearse show <fixture-id>`
+
+Print one fixture manifest: what was planted, the expected fix, and the rubric
 
 ## Roadmap Commands
 

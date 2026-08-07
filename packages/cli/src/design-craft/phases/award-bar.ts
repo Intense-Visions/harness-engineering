@@ -33,6 +33,7 @@ import type {
 } from '../findings/schema.js';
 import type { ExemplarDefinition } from '../catalog/exemplars/linear-empty-list.js';
 import { CONFIDENCE_RANK } from '../../shared/craft/findings/axes.js';
+import type { ResponsiveGateResult } from '../../responsive/index.js';
 
 /** Tunable thresholds for the award-bar verdict. */
 export interface AwardBarConfig {
@@ -106,10 +107,56 @@ export function computeAwardBar(
     lowestConfidenceRank = Math.min(lowestConfidenceRank, CONFIDENCE_RANK[radar[dim].confidence]);
   }
 
+  // `responsive` defaults to not-evaluated here — the aesthetic computation
+  // knows nothing about mobile. `applyResponsiveGate` composes a real gate
+  // result (and may veto the verdict) once layout metrics are available.
+  const responsive: ResponsiveGateResult = { status: 'not-evaluated', defects: [] };
+
   if (lowestConfidenceRank < CONFIDENCE_RANK[cfg.confidenceFloor]) {
-    return { verdict: 'indeterminate', dimensions, shortfalls, reason: 'low-confidence' };
+    return {
+      verdict: 'indeterminate',
+      dimensions,
+      shortfalls,
+      reason: 'low-confidence',
+      responsive,
+    };
   }
 
   const verdict: AwardVerdict = shortfalls.length === 0 ? 'cleared' : 'not-cleared';
-  return { verdict, dimensions, shortfalls };
+  return { verdict, dimensions, shortfalls, responsive };
+}
+
+/**
+ * Compose the mechanical responsive gate onto an aesthetic award-bar verdict.
+ *
+ * The aesthetic verdict from {@link computeAwardBar} certifies desktop craft
+ * only; this folds in the responsive gate so `cleared` cannot certify a
+ * phone-broken page:
+ *   - `defective` → `not-cleared` (reason `responsive-defects`), overriding an
+ *     aesthetic `cleared` OR `indeterminate` — a proven defect outranks both a
+ *     pass and aesthetic uncertainty.
+ *   - `not-evaluated` + `require` → downgrade a would-be `cleared` to
+ *     `indeterminate` (reason `responsive-not-evaluated`); a verdict that was
+ *     already not-cleared/indeterminate is left as-is (mobile eval wouldn't
+ *     upgrade it).
+ *   - otherwise the aesthetic verdict stands; the gate result is attached for
+ *     legibility.
+ */
+export function applyResponsiveGate(
+  aesthetic: AwardBar,
+  responsive: ResponsiveGateResult,
+  opts: { require: boolean }
+): AwardBar {
+  if (responsive.status === 'defective') {
+    return { ...aesthetic, verdict: 'not-cleared', reason: 'responsive-defects', responsive };
+  }
+  if (responsive.status === 'not-evaluated' && opts.require && aesthetic.verdict === 'cleared') {
+    return {
+      ...aesthetic,
+      verdict: 'indeterminate',
+      reason: 'responsive-not-evaluated',
+      responsive,
+    };
+  }
+  return { ...aesthetic, responsive };
 }

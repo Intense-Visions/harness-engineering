@@ -1,5 +1,5 @@
 import { useState, useMemo } from 'react';
-import { Search } from 'lucide-react';
+import { Search, Anchor } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { SKILL_REGISTRY } from '../../constants/skills';
 import type { SkillEntry, SkillCategory } from '../../types/skills';
@@ -33,9 +33,19 @@ export function CommandPalette({ onSelect }: Props) {
     );
   }, [search]);
 
+  // Load-bearing gear (curation Tier-0) surfaces first, above the category
+  // groups, so the ~12 core-workflow skills are the first thing a reader sees.
+  const loadBearingSkills = useMemo(
+    () => filteredSkills.filter((skill) => skill.loadBearing),
+    [filteredSkills]
+  );
+
   const groupedSkills = useMemo(() => {
     const groups: Partial<Record<SkillCategory, SkillEntry[]>> = {};
     for (const skill of filteredSkills) {
+      // Load-bearing skills are pinned in their own section above; don't repeat
+      // them in the category groups.
+      if (skill.loadBearing) continue;
       if (!groups[skill.category]) groups[skill.category] = [];
       groups[skill.category]!.push(skill);
     }
@@ -64,6 +74,32 @@ export function CommandPalette({ onSelect }: Props) {
         <AnimatePresence mode="popLayout">
           {filteredSkills.length > 0 ? (
             <div className="flex flex-col gap-5 pb-4">
+              {loadBearingSkills.length > 0 && (
+                <motion.div
+                  key="load-bearing"
+                  initial={{ opacity: 0, y: 8 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, scale: 0.95 }}
+                  transition={{ duration: 0.3 }}
+                >
+                  <div className="flex items-center gap-3 mb-2">
+                    <h3 className="flex items-center gap-1.5 text-[9px] font-black uppercase tracking-[0.2em] text-primary-300">
+                      <Anchor size={11} />
+                      Load-Bearing Gear (Tier-0)
+                    </h3>
+                    <div className="flex-1 h-px bg-primary-400/20" />
+                  </div>
+                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-1.5">
+                    {loadBearingSkills.map((skill) => (
+                      <SkillCard
+                        key={`lb-${skill.id}`}
+                        skill={skill}
+                        onClick={() => onSelect(skill)}
+                      />
+                    ))}
+                  </div>
+                </motion.div>
+              )}
               {CATEGORIES.map((cat) => {
                 const skills = groupedSkills[cat.id];
                 if (!skills) return null;

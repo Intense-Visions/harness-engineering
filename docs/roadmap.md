@@ -143,6 +143,17 @@ last_manual_edit: 2026-06-27T12:51:51.967Z
 - **Priority:** P2
 - **External-ID:** github:Intense-Visions/harness-engineering#1003
 
+### design-craft award bar
+
+- **Status:** done
+- **Spec:** docs/changes/design-craft-award-bar/proposal.md
+- **Summary:** Design-Craft Award Bar — a machine-derived award-tier verdict on BENCHMARK output
+- **Blockers:** —
+- **Plan:** —
+- **Assignee:** —
+- **Priority:** —
+- **External-ID:** github:Intense-Visions/harness-engineering#1141
+
 ### Agentic-suitability in the local-model pool recommender
 
 - **Status:** in-progress
@@ -154,16 +165,16 @@ last_manual_edit: 2026-06-27T12:51:51.967Z
 - **Priority:** P2
 - **External-ID:** github:Intense-Visions/harness-engineering#1004
 
-### design-craft award bar
+### design-craft responsive gate
 
 - **Status:** planned
-- **Spec:** docs/changes/design-craft-award-bar/proposal.md
-- **Summary:** Design-Craft Award Bar — a machine-derived award-tier verdict on BENCHMARK output
+- **Spec:** docs/changes/design-craft-responsive-gate/proposal.md
+- **Summary:** Responsive Gate for awardBar — a mechanical mobile-defect veto on the award-tier verdict
 - **Blockers:** —
 - **Plan:** —
 - **Assignee:** —
 - **Priority:** —
-- **External-ID:** github:Intense-Visions/harness-engineering#1141
+- **External-ID:** github:Intense-Visions/harness-engineering#1148
 
 ### Automate best-model discovery/recommendation for local dispatch
 
@@ -961,6 +972,14 @@ last_manual_edit: 2026-06-27T12:51:51.967Z
 - **Assignee:** —
 - **Priority:** —
 - **External-ID:** github:Intense-Visions/harness-engineering#603
+
+### Orchestrator Codex Backend Subprocess Env Air-Gap (follow-up)
+
+- **Status:** planned
+- **Spec:** —
+- **Summary:** Apply the subprocess env allowlist air-gap to the Codex backend. The gateway policy-envelope work air-gapped the Claude backend's subprocess spawn (replaced `env: process.env` with an explicit allowlist), but the Codex backend (`packages/orchestrator/src/backends/codex.ts`) still passes the full parent environment to its spawned subprocess — the same leak, unpatched. Extend the shared subprocess-env allowlist + PolicyMetadata stamping to codex.ts so both backends enforce the boundary identically. Follow-up to the orchestrator gateway policy envelope + subprocess air-gap.
+- **Blockers:** —
+- **Plan:** —
 
 ### Orchestrator Gateway Policy Envelope and Subprocess Air-Gap
 

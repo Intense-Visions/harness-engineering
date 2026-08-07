@@ -44,7 +44,7 @@ describe('STRENGTH-005 lowest-tier default', () => {
       })
     );
     expect(findings).toHaveLength(1);
-    expect(findings[0]!.file).toContain('initialize-harness-project');
+    expect(findings[0]!.file).toContain('harness-initialize-project');
   });
 
   it('passes a toolkit init skill recommending standard', () => {

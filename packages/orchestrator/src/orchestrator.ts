@@ -97,6 +97,7 @@ import { redriveInstallingProposals } from './proposals/model-handlers';
 import type { ModelProposalRecord } from '@harness-engineering/types';
 import { migrateAgentConfig } from './agent/config-migration';
 import { OrchestratorBackendFactory } from './agent/orchestrator-backend-factory';
+import { AuditLogger } from './auth/audit';
 import { isLocalEndpointBackend, isLocalExecutionBackend } from './agent/backend-factory';
 import { makeBackendResolver } from './agent/backend-resolver';
 import { createAgentDispatcher } from './maintenance/agent-dispatcher';
@@ -1234,10 +1235,20 @@ export class Orchestrator extends EventEmitter {
         capacity: 500,
         logger: this.logger,
       });
+      // Orchestrator gateway policy envelope: one append-only governance record
+      // per agent subprocess dispatch, written to the same `.harness/audit.log`
+      // the gateway HTTP layer uses. Best-effort; a write fault never blocks a
+      // dispatch. Path resolution mirrors the HTTP server (HARNESS_AUDIT_PATH).
+      const policyAuditLogger = new AuditLogger(
+        process.env['HARNESS_AUDIT_PATH'] ?? path.resolve('.harness', 'audit.log')
+      );
       this.backendFactory = new OrchestratorBackendFactory({
         backends: this.config.agent.backends,
         routing,
         sandboxPolicy,
+        policyAudit: (record) => {
+          void policyAuditLogger.appendPolicy(record);
+        },
         ...(this.config.agent.container !== undefined
           ? { container: this.config.agent.container }
           : {}),

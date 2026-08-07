@@ -139,11 +139,11 @@ describe('buildProjectContext (present inputs)', () => {
   it('populates templates (.hbs) and initSkill in toolkit mode', () => {
     mkdirSync(join(root, 'templates', 'basic'), { recursive: true });
     writeFileSync(join(root, 'templates', 'basic', 'harness.config.json.hbs'), '{}');
-    mkdirSync(join(root, 'agents', 'skills', 'claude-code', 'initialize-harness-project'), {
+    mkdirSync(join(root, 'agents', 'skills', 'claude-code', 'harness-initialize-project'), {
       recursive: true,
     });
     writeFileSync(
-      join(root, 'agents', 'skills', 'claude-code', 'initialize-harness-project', 'SKILL.md'),
+      join(root, 'agents', 'skills', 'claude-code', 'harness-initialize-project', 'SKILL.md'),
       '# init\nrecommends basic\n'
     );
     const ctx = buildProjectContext(root, 'toolkit');

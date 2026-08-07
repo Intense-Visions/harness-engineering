@@ -474,6 +474,7 @@ mcp:
     path: string
 type: rigid
 tier: 1
+catalog_tier: 0
 phases:
   - name: investigate
     description: Entropy analysis and root cause search
