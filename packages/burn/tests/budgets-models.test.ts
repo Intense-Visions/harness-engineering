@@ -40,10 +40,20 @@ function lateWeekConfig(now: Date, extra: Record<string, unknown> = {}): Record<
   };
 }
 
-/** A reset placed so that `now` sits `days` into the current week. */
+/**
+ * A reset placed so that `now` sits exactly `days` into the current week.
+ *
+ * Deflake: this previously forced `time: '00:00'`, dropping `start`'s time-of-day.
+ * That made the real days-into-week depend on `now`'s wall-clock time (and which
+ * side of midnight `now - days` fell on), so the early-week tests intermittently
+ * saw `frac >= 0.15` → 'medium' confidence instead of 'low' (summary.ts:162).
+ * Preserving `start`'s HH:MM makes days-into-week == `days` for ANY `now`.
+ */
 function weekStartingDaysAgo(now: Date, days: number): Record<string, unknown> {
   const start = daysAgo(now, days);
-  return { weekday: utcIsoWeekday(start), time: '00:00', tz: 'UTC' };
+  const hh = String(start.getUTCHours()).padStart(2, '0');
+  const mm = String(start.getUTCMinutes()).padStart(2, '0');
+  return { weekday: utcIsoWeekday(start), time: `${hh}:${mm}`, tz: 'UTC' };
 }
 
 /** `currentLines` plus enough prior-week volume to form a baseline. */
