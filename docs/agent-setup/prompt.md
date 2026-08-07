@@ -19,9 +19,9 @@ Verify these yourself before installing:
 npm install -g @harness-engineering/cli && harness setup
 ```
 
-`harness setup` auto-detects every AI client on this machine (Claude Code, Gemini CLI, Codex CLI, Cursor, OpenCode) and lays down skills, slash commands, agent personas, MCP, and hooks. Prefer this path: it is a single shell command you can run yourself, and it covers every client — including ones with no marketplace plugin.
+`harness setup` auto-detects every AI client on this machine (Claude Code, Gemini CLI, Codex CLI, Cursor, OpenCode, Antigravity CLI) and lays down skills, slash commands, agent personas, MCP, and hooks. Prefer this path: it is a single shell command you can run yourself, and it covers every client — including ones with no marketplace plugin.
 
-### Optional: marketplace plugin (Claude Code / Gemini CLI / Codex CLI / Cursor)
+### Optional: marketplace plugin (Claude Code / Gemini CLI / Codex CLI / Cursor / Antigravity CLI)
 
 For auto-update via `/plugin update` (and, on Cursor, curated project rules), the user can also install the marketplace plugin for their client. These are interactive client slash-commands, not shell commands, so ask the user to run the pair matching their client:
 
@@ -51,6 +51,13 @@ For auto-update via `/plugin update` (and, on Cursor, curated project rules), th
 ```
 /plugin marketplace add Intense-Visions/harness-engineering
 /plugin install harness-cursor
+```
+
+**Antigravity CLI**
+
+```
+/plugin marketplace add Intense-Visions/harness-engineering
+/plugin install harness-antigravity
 ```
 
 If you cannot identify the client, or it has no plugin above, the npm + `harness setup` path already covers it — nothing more is needed.
