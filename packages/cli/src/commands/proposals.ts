@@ -198,10 +198,7 @@ async function actRejectCommand(id: string, opts: { reason: string }): Promise<v
   }
 }
 
-export async function actStatusCommand(
-  opts: { json?: boolean },
-  cmd?: Command
-): Promise<void> {
+export async function actStatusCommand(opts: { json?: boolean }, cmd?: Command): Promise<void> {
   // `--json` is the root program's global flag (see createProgram); it is
   // shadowed at the leaf, so read it via optsWithGlobals. The direct-call path
   // (opts.json) keeps the action unit-testable without a Command instance.

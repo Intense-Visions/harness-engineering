@@ -32,7 +32,7 @@ Justification:
 - `packages/cli/src/utils/` already exists as the home for cross-cutting CLI helpers (`string.ts`, `output.ts`, `node-version.ts`) — the natural, dependency-free location.
 - Single source of truth (D6, OT5): `state.ts` imports the hoisted function, so the predicate cannot fork.
 
-The **provider-resolvability** check stays a small local helper in `proposals.ts` (env-presence only, mirroring `resolveAnalysisProvider`'s precedence: `ANTHROPIC_API_KEY` → else `HARNESS_ANALYSIS_BASE_URL`). It is intentionally **not** hoisted from `analysis-provider.ts`, because that module *constructs* providers (and imports intelligence); a presence check cannot reuse it. D6 mandates a single source only for the flag predicate.
+The **provider-resolvability** check stays a small local helper in `proposals.ts` (env-presence only, mirroring `resolveAnalysisProvider`'s precedence: `ANTHROPIC_API_KEY` → else `HARNESS_ANALYSIS_BASE_URL`). It is intentionally **not** hoisted from `analysis-provider.ts`, because that module _constructs_ providers (and imports intelligence); a presence check cannot reuse it. D6 mandates a single source only for the flag predicate.
 
 ## Grounding (verified against the worktree)
 
@@ -136,6 +136,7 @@ _Not produced — task count (5) is below the standard-mode threshold (8)._
    ```
 
    (path: `mcp/tools/` → `../../utils/env-flag.js` = `src/utils/env-flag.ts`.)
+
 3. Verify OT5: `grep -rn "function envEnabled\|export function envEnabled" packages/cli/src` returns exactly one definition (in `env-flag.ts`).
 4. Run: `pnpm --filter @harness-engineering/cli typecheck`
 5. Run existing state tests: `pnpm --filter @harness-engineering/cli exec vitest run tests/mcp` (or the state test path) — observe green (no behavior change).
@@ -181,10 +182,15 @@ _Not produced — task count (5) is below the standard-mode threshold (8)._
        const r = await runProposalsStatus({}, tmp);
        expect(r.queue.total).toBe(0);
        expect(r.queue).toMatchObject({
-         open: 0, gateRunning: 0, gateFailed: 0, approved: 0, rejected: 0,
+         open: 0,
+         gateRunning: 0,
+         gateFailed: 0,
+         approved: 0,
+         rejected: 0,
        });
        expect(r.emitters.manualEmit).toEqual({
-         surface: 'emit_skill_proposal', available: true,
+         surface: 'emit_skill_proposal',
+         available: true,
        });
      });
 
@@ -197,7 +203,12 @@ _Not produced — task count (5) is below the standard-mode threshold (8)._
        const { updateProposal } = await import('@harness-engineering/core');
        await updateProposal(tmp, p2.id, {
          status: 'rejected',
-         decision: { decidedAt: new Date().toISOString(), decidedBy: 't', action: 'rejected', reason: 'dup' },
+         decision: {
+           decidedAt: new Date().toISOString(),
+           decidedBy: 't',
+           action: 'rejected',
+           reason: 'dup',
+         },
        });
        const r = await runProposalsStatus({}, tmp);
        expect(r.queue.total).toBe(2);
@@ -236,7 +247,9 @@ _Not produced — task count (5) is below the standard-mode threshold (8)._
 
      it('flag set + ANTHROPIC_API_KEY → enabled, no dormantReason', async () => {
        const r = await runProposalsStatus(
-         { HARNESS_SESSION_RETROSPECTION: 'true', ANTHROPIC_API_KEY: 'x' }, tmp);
+         { HARNESS_SESSION_RETROSPECTION: 'true', ANTHROPIC_API_KEY: 'x' },
+         tmp
+       );
        const rp = r.emitters.retrospection;
        expect(rp).toMatchObject({ enabled: true, envFlagSet: true, providerResolvable: true });
        expect(rp.dormantReason).toBeUndefined();
@@ -244,7 +257,12 @@ _Not produced — task count (5) is below the standard-mode threshold (8)._
 
      it('flag set + HARNESS_ANALYSIS_BASE_URL (local) → enabled via precedence', async () => {
        const r = await runProposalsStatus(
-         { HARNESS_SESSION_RETROSPECTION: 'on', HARNESS_ANALYSIS_BASE_URL: 'http://127.0.0.1:11434/v1' }, tmp);
+         {
+           HARNESS_SESSION_RETROSPECTION: 'on',
+           HARNESS_ANALYSIS_BASE_URL: 'http://127.0.0.1:11434/v1',
+         },
+         tmp
+       );
        expect(r.emitters.retrospection.enabled).toBe(true);
        expect(r.emitters.retrospection.providerResolvable).toBe(true);
      });
@@ -290,16 +308,30 @@ _Not produced — task count (5) is below the standard-mode threshold (8)._
      ): Promise<ProposalsStatusReport> {
        const proposals = await listProposals(projectRootPath, { kind: 'skill' });
        const queue = {
-         open: 0, gateRunning: 0, gateFailed: 0, approved: 0, rejected: 0,
+         open: 0,
+         gateRunning: 0,
+         gateFailed: 0,
+         approved: 0,
+         rejected: 0,
          total: proposals.length,
        };
        for (const p of proposals) {
          switch (p.status) {
-           case 'open': queue.open++; break;
-           case 'gate-running': queue.gateRunning++; break;
-           case 'gate-failed': queue.gateFailed++; break;
-           case 'approved': queue.approved++; break;
-           case 'rejected': queue.rejected++; break;
+           case 'open':
+             queue.open++;
+             break;
+           case 'gate-running':
+             queue.gateRunning++;
+             break;
+           case 'gate-failed':
+             queue.gateFailed++;
+             break;
+           case 'approved':
+             queue.approved++;
+             break;
+           case 'rejected':
+             queue.rejected++;
+             break;
          }
        }
 
@@ -426,6 +458,7 @@ _Not produced — task count (5) is below the standard-mode threshold (8)._
    ```
 
    (Update the Task-4 test import to `actStatusCommand`.)
+
 4. Run the test — observe pass.
 5. Run: `pnpm --filter @harness-engineering/cli exec vitest run tests/commands/proposals-status.test.ts tests/commands/proposals.test.ts && pnpm --filter @harness-engineering/cli typecheck && pnpm --filter @harness-engineering/cli lint`
 6. Commit: `feat(cli): register harness proposals status subcommand (table + --json)`
@@ -456,15 +489,15 @@ _Not produced — task count (5) is below the standard-mode threshold (8)._
 
 ## Validation trace (truths → tasks)
 
-| Observable truth | Delivered by |
-| --- | --- |
-| OT1 (core exists, dormant reason names flag) | Task 3 |
-| OT2 (`--json` valid shape) | Task 4 |
-| OT3 (flag + key → enabled) | Task 3 (matrix), Task 4 (wiring) |
-| OT4 (matrix + tally + predicate tests) | Tasks 1, 3, 4 |
-| OT5 (single envEnabled) | Tasks 1, 2 |
-| OT6 (no intelligence import) | Task 3 (D6 decision) |
-| OT7 (green + regenerated reference) | Tasks 1–5 |
+| Observable truth                             | Delivered by                     |
+| -------------------------------------------- | -------------------------------- |
+| OT1 (core exists, dormant reason names flag) | Task 3                           |
+| OT2 (`--json` valid shape)                   | Task 4                           |
+| OT3 (flag + key → enabled)                   | Task 3 (matrix), Task 4 (wiring) |
+| OT4 (matrix + tally + predicate tests)       | Tasks 1, 3, 4                    |
+| OT5 (single envEnabled)                      | Tasks 1, 2                       |
+| OT6 (no intelligence import)                 | Task 3 (D6 decision)             |
+| OT7 (green + regenerated reference)          | Tasks 1–5                        |
 
 ## Out of scope (Phase 2/3)
 

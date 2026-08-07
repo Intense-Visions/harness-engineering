@@ -23,7 +23,7 @@ Out of the box, both emission surfaces are inert:
 
 - The manual capture tool is always **available** but only fires when an agent
   chooses to call it.
-- Automated retrospection is **off** unless you set an env flag *and* provide an
+- Automated retrospection is **off** unless you set an env flag _and_ provide an
   analysis provider (see [Gating](#gating-for-retrospection)).
 
 This is deliberate — the loop never fabricates proposals or runs an LLM without
@@ -35,7 +35,7 @@ harness proposals status
 
 `status` is provider-independent and never mutates the queue. It reports queue
 counts by status and, per surface, whether that surface is live or dormant and
-*why* (which precondition is missing). Add `--json` for machine-readable output.
+_why_ (which precondition is missing). Add `--json` for machine-readable output.
 
 ## The two emission surfaces
 
@@ -44,7 +44,7 @@ counts by status and, per surface, whether that surface is live or dormant and
 The `emit_skill_proposal` MCP tool is the always-available capture surface. An
 agent calls it explicitly — typically at the end of a non-trivial task — to record
 a candidate skill (new or a refinement of an existing one). Nothing calls it
-automatically; it is a surface an agent *chooses* to use, not a background loop.
+automatically; it is a surface an agent _chooses_ to use, not a background loop.
 Emitting a proposal writes a record into `.harness/proposals/`; it does **not**
 promote anything. Promotion is a separate, human-gated step.
 

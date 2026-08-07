@@ -118,7 +118,7 @@ contradicted by the README**, so an operator cannot tell "dormant by design" fro
   spec and the changeset reference #551.
 - **D6 — Single source of truth for the flag predicate.** The retrospection env gate
   (`envEnabled`) already lives in `packages/cli/src/mcp/tools/state.ts`. `status` must
-  use the *same* predicate the runtime uses so the report cannot drift from behavior.
+  use the _same_ predicate the runtime uses so the report cannot drift from behavior.
   The planner decides whether to export the existing `envEnabled` for reuse or hoist it
   to a shared module; either way `status` must not fork a second copy of the predicate.
 
@@ -229,7 +229,7 @@ always-on loop, (c) links the new guide, (d) mentions `harness proposals status`
 ## Implementation order
 
 1. **Phase 1 — Observability command.** Add `runProposalsStatus` + `harness proposals
-   status` (default table + `--json`); make `envEnabled` reusable (per D6); unit tests
+status` (default table + `--json`); make `envEnabled` reusable (per D6); unit tests
    across the enablement matrix. Regenerate CLI reference.
 2. **Phase 2 — Documentation + honesty.** Write `docs/guides/skill-proposal-loop.md`;
    correct the README Skill Proposals bullet (claim + ADR link). Add a changeset.

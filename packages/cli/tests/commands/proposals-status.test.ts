@@ -103,7 +103,10 @@ describe('runProposalsStatus — enablement matrix (flag × provider)', () => {
 
   it('flag set + HARNESS_ANALYSIS_BASE_URL (local) → enabled via precedence', async () => {
     const r = await runProposalsStatus(
-      { HARNESS_SESSION_RETROSPECTION: 'on', HARNESS_ANALYSIS_BASE_URL: 'http://127.0.0.1:11434/v1' },
+      {
+        HARNESS_SESSION_RETROSPECTION: 'on',
+        HARNESS_ANALYSIS_BASE_URL: 'http://127.0.0.1:11434/v1',
+      },
       tmp
     );
     expect(r.emitters.retrospection.enabled).toBe(true);

@@ -81,14 +81,15 @@ Out of the box, both emission surfaces are inert:
 
 - The manual capture tool is always **available** but only fires when an agent
   chooses to call it.
-- Automated retrospection is **off** unless you set an env flag *and* provide an
+- Automated retrospection is **off** unless you set an env flag _and_ provide an
   analysis provider (see [Gating](#gating-for-retrospection)).
 
 This is deliberate — the loop never fabricates proposals or runs an LLM without
 your say-so. Check the live posture at any time:
-
 ```
+
 harness proposals status
+
 ```
 
 `status` is provider-independent and never mutates the queue. It reports queue
@@ -138,20 +139,27 @@ To turn retrospection on for local runs, set the flag and provide a provider in
 your environment before archiving sessions:
 
 ```
+
 # Cloud provider
+
 export HARNESS_SESSION_RETROSPECTION=1
 export ANTHROPIC_API_KEY=sk-...
 
 # — or — local OpenAI-compatible endpoint
+
 export HARNESS_SESSION_RETROSPECTION=on
 export HARNESS_ANALYSIS_BASE_URL=http://localhost:11434/v1
+
 ```
 
 Confirm the loop reports live before relying on it:
 
 ```
+
 harness proposals status
+
 # retrospection.enabled = true, no dormantReason
+
 ```
 
 Leave these unset (the default) to keep retrospection dormant. Activation is a
@@ -220,11 +228,13 @@ and the review → soundness-gate → promotion flow. Inspect live posture with
 1. Replace the exact current bullet at `README.md` line 49:
 
 **OLD (exact):**
+
 ```
 - **Skill Proposals** — Agents emit skill candidates (new or refinement) via the `emit_skill_proposal` MCP tool; proposals queue in `.harness/proposals/` and route through a mechanical soundness gate before reviewer approval. Every skill carries `provenance: community | agent-proposed | user-authored`. CLI: `harness proposals list|show|approve|reject`. Dashboard review queue at `/s/proposals`. See [ADR 0016](docs/knowledge/decisions/0016-hermes-phase-4-skill-proposal-workflow.md).
 ```
 
 **NEW (exact):**
+
 ```
 - **Skill Proposals** — An **opt-in** loop for growing the skill catalog. Agents can capture skill candidates (new or refinement) via the `emit_skill_proposal` MCP tool, and — only when explicitly enabled — session-terminus retrospection can emit candidates automatically. Neither surface runs by default (retrospection needs `HARNESS_SESSION_RETROSPECTION` plus an analysis provider). Captured proposals queue in `.harness/proposals/`, pass a mechanical soundness gate at approval time, and carry `provenance: community | agent-proposed | user-authored`. Inspect loop state with `harness proposals status`; triage with `harness proposals list|show|approve|reject` or the dashboard queue at `/s/proposals`. See the [skill-proposal loop guide](docs/guides/skill-proposal-loop.md) and [ADR 0016](docs/knowledge/decisions/0016-skill-proposal-workflow.md).
 ```
