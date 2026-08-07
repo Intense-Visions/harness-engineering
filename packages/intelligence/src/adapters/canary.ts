@@ -92,6 +92,7 @@ export interface CanaryAdapter {
   probe(): Promise<CanaryProbe>;
   recommendFramework(prompt: string): Promise<FrameworkRecommendation>;
   reviewTest(path: string, framework?: string): Promise<CanaryFinding[]>;
+  listFrameworks(): Promise<CanaryFrameworkInfo[]>; // NEW — [] when unavailable/malformed
 }
 
 import { execFile } from 'node:child_process';
@@ -229,6 +230,13 @@ async function reviewTestCanary(
   return parsed.success ? parsed.data : [];
 }
 
+async function listFrameworksCanary(exec: CanaryExec): Promise<CanaryFrameworkInfo[]> {
+  const res = await execCanary(exec, ['frameworks', '--json']);
+  if (!res.ok) return [];
+  const parsed = canaryFrameworksResponseSchema.safeParse(safeJson(res.stdout));
+  return parsed.success ? parsed.data.frameworks : [];
+}
+
 export function createCanaryAdapter(exec: CanaryExec = defaultExec): CanaryAdapter {
   let cachedProbe: Promise<CanaryProbe> | undefined;
 
@@ -240,5 +248,7 @@ export function createCanaryAdapter(exec: CanaryExec = defaultExec): CanaryAdapt
   const reviewTest = (path: string, framework?: string): Promise<CanaryFinding[]> =>
     reviewTestCanary(exec, path, framework);
 
-  return { probe, recommendFramework, reviewTest };
+  const listFrameworks = (): Promise<CanaryFrameworkInfo[]> => listFrameworksCanary(exec);
+
+  return { probe, recommendFramework, reviewTest, listFrameworks };
 }

@@ -198,3 +198,70 @@ describe('resolveTestCommand (pure)', () => {
     });
   });
 });
+
+describe('CanaryAdapter.listFrameworks', () => {
+  // Captured from the live CLI (`canary frameworks --json`): the detail objects live
+  // directly under `frameworks` (no `details[]` key); each carries extra ignored keys.
+  const FRAMEWORKS_FIXTURE = {
+    frameworks: [
+      {
+        name: 'playwright',
+        category: 'e2e_ui',
+        categories: ['e2e_ui', 'api'],
+        languages: ['typescript', 'javascript'],
+        file_extensions: ['spec.ts', 'spec.js', 'test.ts', 'test.js'],
+        execution_command: 'npx --yes playwright test {file}',
+        ci_flags: ['--reporter=list'],
+        status: 'preferred',
+        capabilities: { scaffold: true, execute: true, tier: 'full' },
+        tier: 'full',
+      },
+      {
+        name: 'opentelemetry',
+        file_extensions: [],
+        execution_command: null,
+        ci_flags: [],
+        status: 'supported',
+        tier: 'catalog',
+      },
+    ],
+  };
+
+  it('parses the top-level frameworks array on success', async () => {
+    const list = await createCanaryAdapter(
+      execResolves(JSON.stringify(FRAMEWORKS_FIXTURE))
+    ).listFrameworks();
+    expect(list).toHaveLength(2);
+    expect(list[0].name).toBe('playwright');
+    expect(list[0].execution_command).toBe('npx --yes playwright test {file}');
+    expect(list[1].execution_command).toBeNull(); // catalog-tier preserved, not dropped
+  });
+
+  it('returns [] on bad JSON (no throw)', async () => {
+    expect(await createCanaryAdapter(execResolves('not json')).listFrameworks()).toEqual([]);
+  });
+
+  it('returns [] on schema mismatch (no throw)', async () => {
+    expect(
+      await createCanaryAdapter(execResolves(JSON.stringify({ frameworks: [{ name: 123 }] }))).listFrameworks()
+    ).toEqual([]);
+  });
+
+  it('returns [] when canary is not installed (ENOENT)', async () => {
+    expect(await createCanaryAdapter(execRejects({ code: 'ENOENT' })).listFrameworks()).toEqual([]);
+  });
+
+  it('returns [] when the native binary is missing', async () => {
+    expect(
+      await createCanaryAdapter(
+        execRejects({ code: 1, stderr: 'canary binary not found' })
+      ).listFrameworks()
+    ).toEqual([]);
+  });
+
+  it('returns [] on other non-zero exit', async () => {
+    expect(
+      await createCanaryAdapter(execRejects({ code: 2, stderr: 'boom' })).listFrameworks()
+    ).toEqual([]);
+  });
+});
