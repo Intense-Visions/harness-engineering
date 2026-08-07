@@ -491,6 +491,15 @@ Audit brand-semantics violations: tokens used in forbidden contexts per their $e
 - `designStrictness` (string, optional) — Overrides design.strictness from harness.config.json.
 - `rules` (object, optional) — Per-rule enable flags.
 
+### `canary_discover_test_command`
+
+Resolve the authoritative per-file test command from the canary framework registry. Input { files?: string[], ci?: boolean }. Probes canary first; when unavailable returns { status: "degraded", reason, frameworks: [] } so the caller falls back to its own command heuristics. When available, matches each file against a framework by longest file-extension suffix (preferring preferred-status / full-tier frameworks, then registry order on ties) and returns { status: "available", frameworks: [{ name, command, matchedFiles[] }] }. Frameworks without a resolvable per-file command (null or non-{file} commands) are omitted. Never runs the resolved command and never throws.
+
+**Parameters:**
+
+- `files` (array, optional) — Candidate test-file paths to match against the registry (e.g. detected spec/test files).
+- `ci` (boolean, optional) — When true, append each framework's ci_flags to the resolved command.
+
 ### `canary_probe`
 
 Probe availability of the optional canary test CLI (canary-test-cli). Returns { status: "available" | "degraded", version?, reason? } where reason is one of not-installed | binary-missing | exec-failed | bad-output. Never errors when canary is absent — call it before surfacing canary-backed steps so the audit can degrade gracefully.
