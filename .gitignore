@@ -59,7 +59,9 @@ temp/
 **/.harness/proposals/
 **/.harness/workspaces/
 **/.harness/black-box/
-**/.harness/metrics/
+# metrics/: track the holiday-confidence trend ledger, ignore everything else
+**/.harness/metrics/*
+!**/.harness/metrics/holiday-confidence.jsonl
 # security/: track timeline.json (trend ledger), ignore everything else
 **/.harness/security/*
 !**/.harness/security/timeline.json

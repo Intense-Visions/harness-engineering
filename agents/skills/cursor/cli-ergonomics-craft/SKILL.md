@@ -80,10 +80,24 @@ Emit `CliErgonomicsCraftOutput`:
 ## Harness Integration
 
 - **`harness cli-ergonomics-craft`** — CLI entry. `--files <glob>` / `--commands-dir <dir>` / `--exclude-dirs <dirs...>` / `--max-files <n>` / `--json` / `--verbose`. Exits non-zero when any `foundational`-tier finding is present.
-- **`mcp__harness__cli_ergonomics_craft`** — MCP tool. Same input/output. Consumed by agents.
+- **`mcp__harness__cli_ergonomics_craft`** — MCP tool. Two modes (see "In-session flow" below).
+- **`mcp__harness__cli_ergonomics_craft_finalize`** — MCP tool that completes the in-session flow.
 - **Cross-cutting API:** `critiqueCommandFile(file, opts)` exported from `packages/cli/src/cli-ergonomics-craft/index.ts`. Another craft skill (or an orchestrator) can critique a single command without re-walking the project.
 - **Shared craft infrastructure:** `LlmProvider`, `MockLlmProvider`, `derivePriority`, and the 3-axis types all live in `packages/cli/src/shared/craft/`.
 - **Sibling boundaries:** copy-craft owns error-message and log prose; docs-craft owns authored teaching prose. cli-ergonomics-craft owns the shape of the command surface — names, help structure, defaults, output contract, and destructive-action guards.
+- **LLM provider:** configured in `harness.config.json` under `craft.llm` (`{ "backend": "<name>" }` for one of `agent.backends`, or `{ "mode": "in-session" | "mock" }`). Default when nothing is set: `in-session` (host chat answers prompts via the two-step MCP flow). `HARNESS_CRAFT_LLM` overrides the file (`in-session`, `mock`, or a backend name).
+
+## In-session flow (default)
+
+When `HARNESS_CRAFT_LLM` is unset (or set to `in-session`), the MCP tool does **not** call any LLM. It discovers the command definitions, builds one prompt per (command, rubric) pair, and returns them for the calling agent to answer with its own model. This is a two-step protocol — skipping step 3 leaves you with prompts, never findings.
+
+**Step 1 — `mcp__harness__cli_ergonomics_craft({ path, ... })`** returns `{ "status": "collected", "runId": "<uuid>", "pendingPrompts": [{ "promptId", "systemPrompt", "userPrompt" }, ...], "projection": { "promptCount": N, "budget": 100 } }`. If `projection.promptCount > budget`, `status` is `"budget-exceeded"` and `pendingPrompts` is empty — re-invoke with a smaller `maxFiles`, or pass `promptBudget` to raise the ceiling.
+
+**Step 2** — for each pending prompt, generate the fenced-JSON response as if you were a senior CLI/developer-experience engineer applying the rubric to the command: a fenced `null` block if the rubric does not apply or the command already clears the bar, otherwise a fenced block of `{ "tier": "foundational|polish|aspirational", "impact": "small|medium|large", "confidence": "high|medium|low", "message": "a critique naming the specific command/flag/handler and a concrete suggested change" }`.
+
+**Step 3 — `mcp__harness__cli_ergonomics_craft_finalize({ path, runId, responses: [{ promptId, raw }, ...] })`** parses the responses through the same validation the inline path uses and returns the standard `CliErgonomicsCraftOutput`.
+
+If you want inline behavior (the skill calls an LLM directly), pass `mode: 'inline'` to step 1 and set `HARNESS_CRAFT_LLM` to a non-`in-session` provider. Running the CLI (`harness cli-ergonomics-craft`) under the default in-session provider fails loudly with this guidance rather than returning an empty result.
 
 ## Success Criteria
 

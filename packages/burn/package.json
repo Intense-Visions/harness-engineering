@@ -1,0 +1,52 @@
+{
+  "name": "@harness-engineering/burn",
+  "version": "0.0.0",
+  "license": "MIT",
+  "description": "Claude Code usage-burn HUD: transcript scanner, week-anchored rollup, and a dependency-free statusline renderer",
+  "main": "./dist/index.js",
+  "module": "./dist/index.mjs",
+  "types": "./dist/index.d.ts",
+  "bin": {
+    "harness-burn-hud": "./dist/bin/burn-hud.mjs"
+  },
+  "files": [
+    "dist",
+    "README.md"
+  ],
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.mjs",
+      "require": "./dist/index.js"
+    }
+  },
+  "scripts": {
+    "build": "tsup",
+    "dev": "tsup --watch",
+    "lint": "eslint src",
+    "typecheck": "tsc --noEmit",
+    "clean": "node ../../scripts/clean.mjs dist",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:coverage": "vitest run --coverage"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/Intense-Visions/harness-engineering.git",
+    "directory": "packages/burn"
+  },
+  "bugs": {
+    "url": "https://github.com/Intense-Visions/harness-engineering/issues"
+  },
+  "homepage": "https://github.com/Intense-Visions/harness-engineering/tree/main/packages/burn#readme",
+  "devDependencies": {
+    "@types/node": "^22.19.15",
+    "@vitest/coverage-v8": "^4.1.5",
+    "tsup": "^8.5.1",
+    "typescript": "^5.9.3",
+    "vitest": "^4.1.5"
+  }
+}

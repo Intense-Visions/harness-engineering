@@ -7,10 +7,12 @@ import { createAdoptionCommand } from './adoption';
 import { createAdviseSkillsCommand } from './advise-skills';
 import { createAgentCommand } from './agent';
 import { createAlignDesignSystemCommand } from './align-design-system';
+import { createApiCraftCommand } from './api-craft';
 import { createAuditProtectedCommand } from './audit-protected';
 import { createBackfillSkillProvenanceCommand } from './backfill-skill-provenance';
 import { createBlackBoxCommand } from './orchestrator-black-box';
 import { createBlueprintCommand } from './blueprint';
+import { createBurnCommand } from './burn';
 import { createCheckArchCommand } from './check-arch';
 import { createCheckDepsCommand } from './check-deps';
 import { createCheckDesignCommand } from './check-design';
@@ -26,7 +28,6 @@ import { createCleanupCommand } from './cleanup';
 import { createCleanupSessionsCommand } from './cleanup-sessions';
 import { createCliErgonomicsCraftCommand } from './cli-ergonomics-craft';
 import { createCodeCraftCommand } from './code-craft';
-import { createApiCraftCommand } from './api-craft';
 import { createCompoundCommand } from './compound';
 import { createCopyCraftCommand } from './copy-craft';
 import { createCreateSkillCommand } from './create-skill';
@@ -40,6 +41,7 @@ import { createGatewayCommand } from './gateway';
 import { createGenerateAgentDefinitionsCommand } from './generate-agent-definitions';
 import { createGenerateCommand } from './generate';
 import { createGenerateSlashCommandsCommand } from './generate-slash-commands';
+import { createGoldenBuildCommand } from './golden-build';
 import { createGraphCommand } from './graph';
 import { createHolidayConfidenceCommand } from './holiday-confidence';
 import { createHooksCommand } from './hooks';
@@ -109,10 +111,12 @@ export const commandCreators: Array<() => Command> = [
   createAdviseSkillsCommand,
   createAgentCommand,
   createAlignDesignSystemCommand,
+  createApiCraftCommand,
   createAuditProtectedCommand,
   createBackfillSkillProvenanceCommand,
   createBlackBoxCommand,
   createBlueprintCommand,
+  createBurnCommand,
   createCheckArchCommand,
   createCheckDepsCommand,
   createCheckDesignCommand,
@@ -128,7 +132,6 @@ export const commandCreators: Array<() => Command> = [
   createCleanupSessionsCommand,
   createCliErgonomicsCraftCommand,
   createCodeCraftCommand,
-  createApiCraftCommand,
   createCompoundCommand,
   createCopyCraftCommand,
   createCreateSkillCommand,
@@ -142,6 +145,7 @@ export const commandCreators: Array<() => Command> = [
   createGenerateAgentDefinitionsCommand,
   createGenerateCommand,
   createGenerateSlashCommandsCommand,
+  createGoldenBuildCommand,
   createGraphCommand,
   createHolidayConfidenceCommand,
   createHooksCommand,

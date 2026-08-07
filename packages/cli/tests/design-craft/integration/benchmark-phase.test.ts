@@ -114,6 +114,24 @@ describe('design-craft BENCHMARK phase', () => {
     expect(score.overall.confidence).toBe('medium');
     expect(score.gaps).toHaveLength(2);
     expect(score.gaps[0]).toContain('illustration');
+
+    // Award bar: single Linear exemplar (refs pc90/h95/ce92/fn95/inn70).
+    // Floors = max(80, round(0.95 × ref)): pc86, h90, ce87, fn90, inn80.
+    // Target scores 80/85/70/90/60 → only `function` (90 ≥ 90) clears.
+    // Min confidence is medium (≥ medium floor) so the verdict is decided.
+    expect(score.awardBar.verdict).toBe('not-cleared');
+    expect(score.awardBar.shortfalls).toEqual([
+      'philosophicalCoherence',
+      'hierarchy',
+      'craftExecution',
+      'innovation',
+    ]);
+    expect(score.awardBar.dimensions.function).toEqual({
+      score: 90,
+      floor: 90,
+      cleared: true,
+    });
+    expect(score.awardBar.reason).toBeUndefined();
   });
 
   it('drops to overall confidence "low" when any dimension is low (ADR 0019)', async () => {
@@ -131,6 +149,11 @@ describe('design-craft BENCHMARK phase', () => {
     });
 
     expect(score.overall.confidence).toBe('low');
+    // A low-confidence dimension forces the award verdict to `indeterminate`
+    // regardless of scores — a score the model is unsure about must never
+    // certify award tier.
+    expect(score.awardBar.verdict).toBe('indeterminate');
+    expect(score.awardBar.reason).toBe('low-confidence');
   });
 
   it('skips targets whose componentType does not match any exemplar', async () => {
@@ -183,6 +206,11 @@ describe('design-craft MCP handler — BENCHMARK phase wiring', () => {
         target: { component: string };
         exemplars: string[];
         overall: { score: number; confidence: string };
+        awardBar: {
+          verdict: string;
+          dimensions: Record<string, { score: number; floor: number; cleared: boolean }>;
+          shortfalls: string[];
+        };
       }>;
       summary: {
         phaseRun: string[];
@@ -202,6 +230,17 @@ describe('design-craft MCP handler — BENCHMARK phase wiring', () => {
       'exemplar-notion-empty-database',
     ]);
     expect(payload.scores[0].overall.score).toBe(77);
+    // Award bar survives the MCP JSON round-trip and is well-formed.
+    expect(['cleared', 'not-cleared', 'indeterminate']).toContain(
+      payload.scores[0].awardBar.verdict
+    );
+    expect(Object.keys(payload.scores[0].awardBar.dimensions).sort()).toEqual([
+      'craftExecution',
+      'function',
+      'hierarchy',
+      'innovation',
+      'philosophicalCoherence',
+    ]);
     expect(payload.summary.phaseRun).toEqual(['benchmark']);
     expect(payload.summary.catalog.exemplarsCited).toEqual([
       'exemplar-linear-empty-list',

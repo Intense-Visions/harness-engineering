@@ -138,148 +138,145 @@ describe('Multi-Orchestrator Claim Coordination', () => {
   // tick that claims an issue takes ~2s. Tests involving claims need a
   // generous timeout to avoid flaking.
   describe('no duplicate dispatch', () => {
-    it(
-      'only one orchestrator dispatches when two race for the same issue',
-      { timeout: 15000 },
-      async () => {
-        const issue = makeIssue();
-        const { makeTracker } = createRacingTracker([issue]);
+    // No per-test timeout: inherit the package-wide 90s ceiling (vitest.config).
+    // A tight 15s cap here overrode that generous global and flaked under the
+    // pre-push coverage gate (v8 + parallel workers starve subprocess spawns).
+    it('only one orchestrator dispatches when two race for the same issue', async () => {
+      const issue = makeIssue();
+      const { makeTracker } = createRacingTracker([issue]);
 
-        // Two orchestrators sharing the same tracker (shared claimedBy state)
-        const trackerA = makeTracker();
-        const trackerB = makeTracker();
+      // Two orchestrators sharing the same tracker (shared claimedBy state)
+      const trackerA = makeTracker();
+      const trackerB = makeTracker();
 
-        const orchA = new Orchestrator(
-          createMockConfig({ orchestratorId: 'orch-alpha' }),
-          'Prompt',
-          { tracker: trackerA, backend: new MockBackend(), execFileFn: noopExecFile }
-        );
-        const orchB = new Orchestrator(
-          createMockConfig({ orchestratorId: 'orch-beta' }),
-          'Prompt',
-          { tracker: trackerB, backend: new MockBackend(), execFileFn: noopExecFile }
-        );
+      const orchA = new Orchestrator(createMockConfig({ orchestratorId: 'orch-alpha' }), 'Prompt', {
+        tracker: trackerA,
+        backend: new MockBackend(),
+        execFileFn: noopExecFile,
+      });
+      const orchB = new Orchestrator(createMockConfig({ orchestratorId: 'orch-beta' }), 'Prompt', {
+        tracker: trackerB,
+        backend: new MockBackend(),
+        execFileFn: noopExecFile,
+      });
 
-        try {
-          // Both tick -- the first claimIssue call wins the shared tracker
-          await orchA.tick();
-          await orchB.tick();
+      try {
+        // Both tick -- the first claimIssue call wins the shared tracker
+        await orchA.tick();
+        await orchB.tick();
 
-          // Wait for async dispatch to settle
-          await new Promise((resolve) => setTimeout(resolve, 500));
+        // Wait for async dispatch to settle
+        await new Promise((resolve) => setTimeout(resolve, 500));
 
-          const snapA = orchA.getSnapshot();
-          const snapB = orchB.getSnapshot();
+        const snapA = orchA.getSnapshot();
+        const snapB = orchB.getSnapshot();
 
-          // Exactly one should have dispatched (claimed or completed)
-          const aDispatched =
-            (snapA.claimed as string[]).includes(issue.id) ||
-            (snapA.completed as string[]).includes(issue.id);
-          const bDispatched =
-            (snapB.claimed as string[]).includes(issue.id) ||
-            (snapB.completed as string[]).includes(issue.id);
+        // Exactly one should have dispatched (claimed or completed)
+        const aDispatched =
+          (snapA.claimed as string[]).includes(issue.id) ||
+          (snapA.completed as string[]).includes(issue.id);
+        const bDispatched =
+          (snapB.claimed as string[]).includes(issue.id) ||
+          (snapB.completed as string[]).includes(issue.id);
 
-          // One dispatched, not both
-          expect(aDispatched || bDispatched).toBe(true);
-          expect(aDispatched && bDispatched).toBe(false);
-        } finally {
-          await orchA.stop();
-          await orchB.stop();
-        }
+        // One dispatched, not both
+        expect(aDispatched || bDispatched).toBe(true);
+        expect(aDispatched && bDispatched).toBe(false);
+      } finally {
+        await orchA.stop();
+        await orchB.stop();
       }
-    );
+    });
   });
 
   describe('stale claim recovery', () => {
-    it(
-      'releases stale claim from dead orchestrator and dispatches the issue',
-      { timeout: 15000 },
-      async () => {
-        // Simulate a crashed orchestrator: issue is in-progress, assigned to
-        // 'dead-orch', with updatedAt 20 minutes ago (well past any TTL).
-        const staleIssue = makeIssue({
-          id: 'issue-stale-1',
-          identifier: 'H-STALE-1',
-          state: 'in-progress',
-          assignee: 'dead-orch',
-          updatedAt: new Date(Date.now() - 1_200_000).toISOString(), // 20 min ago
-        });
+    // Inherit the package-wide 90s ceiling (see vitest.config); the tight 15s
+    // cap here defeated that global and flaked under the pre-push coverage gate.
+    it('releases stale claim from dead orchestrator and dispatches the issue', async () => {
+      // Simulate a crashed orchestrator: issue is in-progress, assigned to
+      // 'dead-orch', with updatedAt 20 minutes ago (well past any TTL).
+      const staleIssue = makeIssue({
+        id: 'issue-stale-1',
+        identifier: 'H-STALE-1',
+        state: 'in-progress',
+        assignee: 'dead-orch',
+        updatedAt: new Date(Date.now() - 1_200_000).toISOString(), // 20 min ago
+      });
 
-        // The tracker starts with the stale issue as the only candidate.
-        // After releaseIssue is called, the issue reverts to 'planned' state
-        // and becomes a normal candidate on the same tick.
-        let issueState = { ...staleIssue };
-        const tracker: IssueTrackerClient = {
-          fetchCandidateIssues: vi.fn().mockImplementation(() => {
-            // Return the issue in its current state
-            return Promise.resolve(Ok([{ ...issueState }]));
-          }),
-          fetchIssuesByStates: vi.fn().mockResolvedValue(Ok([])),
-          fetchIssueStatesByIds: vi.fn().mockImplementation((ids: string[]) => {
-            const map = new Map<string, Issue>();
-            for (const id of ids) {
-              if (id === issueState.id) {
-                map.set(id, { ...issueState });
-              }
+      // The tracker starts with the stale issue as the only candidate.
+      // After releaseIssue is called, the issue reverts to 'planned' state
+      // and becomes a normal candidate on the same tick.
+      let issueState = { ...staleIssue };
+      const tracker: IssueTrackerClient = {
+        fetchCandidateIssues: vi.fn().mockImplementation(() => {
+          // Return the issue in its current state
+          return Promise.resolve(Ok([{ ...issueState }]));
+        }),
+        fetchIssuesByStates: vi.fn().mockResolvedValue(Ok([])),
+        fetchIssueStatesByIds: vi.fn().mockImplementation((ids: string[]) => {
+          const map = new Map<string, Issue>();
+          for (const id of ids) {
+            if (id === issueState.id) {
+              map.set(id, { ...issueState });
             }
-            return Promise.resolve(Ok(map));
-          }),
-          markIssueComplete: vi.fn().mockResolvedValue(Ok(undefined)),
-          claimIssue: vi.fn().mockImplementation((_id: string, orchestratorId: string) => {
-            issueState = {
-              ...issueState,
-              assignee: orchestratorId,
-              state: 'in-progress',
-              updatedAt: new Date().toISOString(),
-            };
-            return Promise.resolve(Ok(undefined));
-          }),
-          releaseIssue: vi.fn().mockImplementation((_id: string) => {
-            issueState = {
-              ...issueState,
-              assignee: null,
-              state: 'planned',
-              updatedAt: new Date().toISOString(),
-            };
-            return Promise.resolve(Ok(undefined));
-          }),
-        };
+          }
+          return Promise.resolve(Ok(map));
+        }),
+        markIssueComplete: vi.fn().mockResolvedValue(Ok(undefined)),
+        claimIssue: vi.fn().mockImplementation((_id: string, orchestratorId: string) => {
+          issueState = {
+            ...issueState,
+            assignee: orchestratorId,
+            state: 'in-progress',
+            updatedAt: new Date().toISOString(),
+          };
+          return Promise.resolve(Ok(undefined));
+        }),
+        releaseIssue: vi.fn().mockImplementation((_id: string) => {
+          issueState = {
+            ...issueState,
+            assignee: null,
+            state: 'planned',
+            updatedAt: new Date().toISOString(),
+          };
+          return Promise.resolve(Ok(undefined));
+        }),
+      };
 
-        const orch = new Orchestrator(createMockConfig({ orchestratorId: 'orch-live' }), 'Prompt', {
-          tracker,
-          backend: new MockBackend(),
-          execFileFn: noopExecFile,
-        });
+      const orch = new Orchestrator(createMockConfig({ orchestratorId: 'orch-live' }), 'Prompt', {
+        tracker,
+        backend: new MockBackend(),
+        execFileFn: noopExecFile,
+      });
 
-        try {
-          // First tick: detects stale claim, releases it.
-          // The issue becomes available but won't be dispatched on this tick
-          // because releaseIssue resets the state after candidates are fetched.
-          await orch.tick();
+      try {
+        // First tick: detects stale claim, releases it.
+        // The issue becomes available but won't be dispatched on this tick
+        // because releaseIssue resets the state after candidates are fetched.
+        await orch.tick();
 
-          // releaseIssue should have been called for the stale claim
-          expect(tracker.releaseIssue).toHaveBeenCalledWith('issue-stale-1');
+        // releaseIssue should have been called for the stale claim
+        expect(tracker.releaseIssue).toHaveBeenCalledWith('issue-stale-1');
 
-          // Second tick: issue is now in 'planned' state, normal candidate flow
-          await orch.tick();
+        // Second tick: issue is now in 'planned' state, normal candidate flow
+        await orch.tick();
 
-          // Wait for async dispatch to settle
-          await new Promise((resolve) => setTimeout(resolve, 500));
+        // Wait for async dispatch to settle
+        await new Promise((resolve) => setTimeout(resolve, 500));
 
-          const snapshot = orch.getSnapshot();
-          const dispatched =
-            (snapshot.claimed as string[]).includes('issue-stale-1') ||
-            (snapshot.completed as string[]).includes('issue-stale-1');
-          expect(dispatched).toBe(true);
-        } finally {
-          await orch.stop();
-        }
+        const snapshot = orch.getSnapshot();
+        const dispatched =
+          (snapshot.claimed as string[]).includes('issue-stale-1') ||
+          (snapshot.completed as string[]).includes('issue-stale-1');
+        expect(dispatched).toBe(true);
+      } finally {
+        await orch.stop();
       }
-    );
+    });
   });
 
   describe('claim rejection graceful skip', () => {
-    it('skips the issue without error when claim is rejected', { timeout: 15000 }, async () => {
+    it('skips the issue without error when claim is rejected', async () => {
       const issue = makeIssue({
         id: 'issue-race-1',
         identifier: 'H-RACE-1',
@@ -332,7 +329,7 @@ describe('Multi-Orchestrator Claim Coordination', () => {
       }
     });
 
-    it('does not crash when claimIssue itself returns an error', { timeout: 15000 }, async () => {
+    it('does not crash when claimIssue itself returns an error', async () => {
       const issue = makeIssue({
         id: 'issue-err-1',
         identifier: 'H-ERR-1',

@@ -19,7 +19,9 @@ health-snapshot.json
 release-readiness.json
 skills-index.json
 stack-profile.json
-metrics/
+# metrics/: track the holiday-confidence trend ledger, ignore everything else
+metrics/*
+!metrics/holiday-confidence.jsonl
 events.jsonl
 .install-id
 telemetry.json
