@@ -68,8 +68,16 @@ jobs:
       - run: pnpm format:check
         if: matrix.os == 'ubuntu-latest'
 
+      # Ubuntu runs the fail-fast coverage suite (`test:ci`). Non-ubuntu legs
+      # (windows/macos) run with turbo `--continue` so a single failing package
+      # cannot mask failures in packages that sort after it. Issue #1096: a
+      # Windows-only `core#test` failure hid two `cli#test` failures because
+      # turbo bails at the first failed task, so the whole platform looked green
+      # by omission. `--continue` runs every package's test task; turbo still
+      # exits non-zero if any task fails, so the leg stays red on any failure —
+      # the platform's red state becomes the full list, not just the first hit.
       - name: Test (with coverage on ubuntu)
-        run: ${{ matrix.os == 'ubuntu-latest' && 'pnpm test:ci' || 'pnpm test' }}
+        run: ${{ matrix.os == 'ubuntu-latest' && 'pnpm test:ci' || 'pnpm test -- --continue' }}
 
       - name: Coverage ratchet check
         if: matrix.os == 'ubuntu-latest'
