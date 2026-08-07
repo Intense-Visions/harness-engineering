@@ -143,6 +143,17 @@ last_manual_edit: 2026-06-27T12:51:51.967Z
 - **Priority:** P2
 - **External-ID:** github:Intense-Visions/harness-engineering#1003
 
+### design-craft award bar
+
+- **Status:** done
+- **Spec:** docs/changes/design-craft-award-bar/proposal.md
+- **Summary:** Design-Craft Award Bar — a machine-derived award-tier verdict on BENCHMARK output
+- **Blockers:** —
+- **Plan:** —
+- **Assignee:** —
+- **Priority:** —
+- **External-ID:** github:Intense-Visions/harness-engineering#1141
+
 ### Agentic-suitability in the local-model pool recommender
 
 - **Status:** in-progress
@@ -154,16 +165,16 @@ last_manual_edit: 2026-06-27T12:51:51.967Z
 - **Priority:** P2
 - **External-ID:** github:Intense-Visions/harness-engineering#1004
 
-### design-craft award bar
+### design-craft responsive gate
 
 - **Status:** planned
-- **Spec:** docs/changes/design-craft-award-bar/proposal.md
-- **Summary:** Design-Craft Award Bar — a machine-derived award-tier verdict on BENCHMARK output
+- **Spec:** docs/changes/design-craft-responsive-gate/proposal.md
+- **Summary:** Responsive Gate for awardBar — a mechanical mobile-defect veto on the award-tier verdict
 - **Blockers:** —
 - **Plan:** —
 - **Assignee:** —
 - **Priority:** —
-- **External-ID:** github:Intense-Visions/harness-engineering#1141
+- **External-ID:** github:Intense-Visions/harness-engineering#1148
 
 ### Automate best-model discovery/recommendation for local dispatch
 
@@ -252,6 +263,28 @@ last_manual_edit: 2026-06-27T12:51:51.967Z
 - **Assignee:** —
 - **Priority:** P2
 - **External-ID:** github:Intense-Visions/harness-engineering#1037
+
+### init: scaffold ecosystem-matched install command + warn when neither install nor verify is configured
+
+- **Status:** planned
+- **Spec:** —
+- **Summary:** Follow-up to #1115 (lang-aware local-dispatch, #1002). The ecosystem detector (`packages/orchestrator/src/workspace/ecosystem.ts`) already exposes each ecosystem's INSTALL command alongside verify, but only verify is wired. Wire `harness init` to scaffold a matching `hooks.afterCreate` install command from the detected ecosystem, and warn loudly when a workspace has neither an install nor a verify command resolvable.
+- **Blockers:** —
+- **Plan:** —
+- **Assignee:** —
+- **Priority:** P2
+- **External-ID:** github:Intense-Visions/harness-engineering#1128
+
+### local dispatch: make the self-verify stage-prompt prose ecosystem-aware
+
+- **Status:** planned
+- **Spec:** —
+- **Summary:** Follow-up to #1115 (#1002). #1115 made the enforced verify GATE ecosystem-aware, but the local stage-prompt's self-verify PROSE still hardcodes `pnpm --filter …`. Make the self-verify guidance render the detected ecosystem's verify commands; per #1115 this needs a strict-variables renderer change so the prompt accepts the ecosystem-derived command set.
+- **Blockers:** —
+- **Plan:** —
+- **Assignee:** —
+- **Priority:** P2
+- **External-ID:** github:Intense-Visions/harness-engineering#1129
 
 ## v5.0 — Enforcement Hardening
 
