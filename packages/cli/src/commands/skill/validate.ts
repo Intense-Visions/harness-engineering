@@ -3,6 +3,11 @@ import * as fs from 'fs';
 import * as path from 'path';
 import { parse } from 'yaml';
 import {
+  BEHAVIORAL_REQUIRED_SECTIONS,
+  KNOWLEDGE_REQUIRED_SECTIONS,
+  RIGID_SECTIONS,
+} from '@harness-engineering/core';
+import {
   SkillMetadataSchema,
   capabilityDriftErrors,
   type SkillCapabilities,
@@ -10,17 +15,6 @@ import {
 import { logger } from '../../output/logger';
 import { ExitCode } from '../../utils/errors';
 import { resolveProjectSkillsDir, resolveSkillsDir } from '../../utils/paths';
-
-const BEHAVIORAL_REQUIRED_SECTIONS = [
-  '## When to Use',
-  '## Process',
-  '## Harness Integration',
-  '## Success Criteria',
-  '## Examples',
-  '## Rationalizations to Reject',
-];
-
-const KNOWLEDGE_REQUIRED_SECTIONS = ['## Instructions'];
 
 function validateSkillMd(
   name: string,
@@ -55,10 +49,11 @@ function validateSkillMd(
     }
   }
   if (skillType === 'rigid') {
-    if (!mdContent.includes('## Gates'))
-      errors.push(`${name}/SKILL.md: rigid skill missing "## Gates" section`);
-    if (!mdContent.includes('## Escalation'))
-      errors.push(`${name}/SKILL.md: rigid skill missing "## Escalation" section`);
+    for (const section of RIGID_SECTIONS) {
+      if (!mdContent.includes(section)) {
+        errors.push(`${name}/SKILL.md: rigid skill missing "${section}" section`);
+      }
+    }
   }
 }
 

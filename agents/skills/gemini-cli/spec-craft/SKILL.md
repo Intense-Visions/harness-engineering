@@ -99,6 +99,18 @@ See `docs/changes/craft-pipeline/spec-craft/proposal.md` for the full 34 success
 - `critiqueSpecFile` cross-cutting API works on a single file without project walk
 - All existing design-craft + naming-craft tests still pass after shared/craft extraction (zero behavior change)
 
+## Rationalizations to Reject
+
+These are common rationalizations that sound reasonable but lead to incorrect results. When you catch yourself thinking any of these, stop and follow the documented process instead.
+
+| Rationalization                                                                      | Why It Is Wrong                                                                                                                                                                                                   |
+| ------------------------------------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| "This spec has all the required section headings, so it passes."                     | Structural completeness is `harness-soundness-review`'s floor. Spec-craft critiques the ceiling: a fully-structured Decisions section stuffed with vague qualifiers still fails SPEC-R001 and SPEC-R004.          |
+| "SPEC-R005 only applies to a section literally titled 'Rationalizations to Reject'." | The mapping is a regex (`rationalizations*`). A section headed "Objections considered" matches the intent, and a strawmanned rejection fails SPEC-R005 regardless of the exact heading text.                      |
+| "The Overview reads well, so I'll run every rubric against it to be thorough."       | Rubric-to-section mapping means most rubrics do not apply to most sections. SPEC-R002 (cuts-at-joints) targets decisions/scope/technical-design, not Overview. Running an inapplicable rubric manufactures noise. |
+| "'A modern, scalable stack' is a fine summary, so SPEC-R001 passes."                 | Sharpness-vs-vagueness flags exactly this: no framework named, no scale metric, no operational definition of "modern". A plausible-sounding summary is the vagueness the rubric targets.                          |
+| "This out-of-scope item is really a deferred feature, so SPEC-R006 passes."          | Non-goals-are-non-goals asks whether the item is a true boundary or a disguised requirement. A deferred feature smuggled into Out-of-scope is precisely the failure SPEC-R006 exists to catch.                    |
+
 ## Examples
 
 ### Example: Vague Decisions section

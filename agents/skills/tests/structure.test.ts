@@ -5,20 +5,15 @@ import { readFileSync, existsSync } from 'fs';
 import { resolve, dirname } from 'path';
 import { fileURLToPath } from 'url';
 import { parse } from 'yaml';
+import {
+  BEHAVIORAL_REQUIRED_SECTIONS,
+  KNOWLEDGE_REQUIRED_SECTIONS,
+  RIGID_SECTIONS,
+} from '@harness-engineering/core';
 import { SkillMetadataSchema } from './schema';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const SKILLS_DIR = resolve(__dirname, '..');
-
-const BEHAVIORAL_REQUIRED_SECTIONS = [
-  '## When to Use',
-  '## Process',
-  '## Harness Integration',
-  '## Success Criteria',
-  '## Examples',
-];
-const KNOWLEDGE_REQUIRED_SECTIONS = ['## Instructions'];
-const RIGID_SECTIONS = ['## Gates', '## Escalation'];
 
 function getSkillType(skillDir: string): string | null {
   const yamlPath = resolve(skillDir, 'skill.yaml');

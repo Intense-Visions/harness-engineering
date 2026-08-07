@@ -181,6 +181,18 @@ See `docs/changes/design-pipeline/orchestrator/proposal.md` for the full 34 succ
 - 4-platform skill markdown shipped
 - MCP tool `run_design_pipeline` registered (count 73 → 74)
 
+## Rationalizations to Reject
+
+These are common rationalizations that sound reasonable but lead to incorrect results. When you catch yourself thinking any of these, stop and follow the documented process instead.
+
+| Rationalization                                                                                                              | Why It Is Wrong                                                                                                                                                                                                                                       |
+| ---------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| "Looping detect → fix → detect is slow — I'll apply every fix in one pass and skip the re-detect."                           | Each align pass fixes only safe codemods, and re-running detect is how the loop measures progress, detects plateau (`newCount >= previousCount`), and catches fix oscillation. Collapsing the loop hides non-convergence and leaves drift unmeasured. |
+| "Detecting this drift inline is just a regex — I'll compute it in the orchestrator instead of invoking detect-design-drift." | Iron Law: the pipeline delegates, never reimplements. Inline detect/fix/audit logic diverges from the sub-skill's rules and defeats the whole composition contract. Invoke `runDetectDrift`.                                                          |
+| "align classified this as a suggestion, but it looks safe to me — I'll auto-apply it from the orchestrator."                 | Safe fixes are silent, unsafe fixes surface. Overriding align's pre-flight classifier from the orchestrator is explicitly forbidden; `suggestion` / `skipped-unsafe` / `failed` outcomes surface in the report, never as writes.                      |
+| "Only one warn-severity finding remains — I'll report `pass` so CI stays green."                                             | The verdict table is fixed: any warn-severity finding OR craft suggestion OR bootstrap yields `warn`, never `pass`. Downgrading the verdict hides declared violations from the humans relying on it.                                                  |
+| "I'm adding a 5th verifier — I'll branch on its name inside the audit loop to wire it in."                                   | The Iron Law requires the audit loop stay verifier-agnostic; adding a verifier is a `register()` call. Branching on verifier name inside the loop breaks the generic registry and the "5th verifier composes for free" guarantee.                     |
+
 ## Examples
 
 ### Example: Clean project, default flags

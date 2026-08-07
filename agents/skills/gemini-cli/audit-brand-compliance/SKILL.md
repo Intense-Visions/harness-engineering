@@ -82,6 +82,18 @@ See `docs/changes/design-pipeline/audit-brand-compliance/proposal.md` for the fu
 - `harness check-design` test extended for 4-verifier composition (zero regressions)
 - MCP tool count bumps 72 → 73
 
+## Rationalizations to Reject
+
+These are common rationalizations that sound reasonable but lead to incorrect results. When you catch yourself thinking any of these, stop and follow the documented process instead.
+
+| Rationalization                                                                                                        | Why It Is Wrong                                                                                                                                                                                                                                                                                      |
+| ---------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| "This copy says 'world-class' which sounds off-brand, so I'll flag it even though it isn't in `forbidden_phrases`."    | BRAND-V001 fires ONLY on phrases declared in `DESIGN.md ## Brand Rules → voice.forbidden_phrases`. Inventing violations beyond the declared list is editorializing, not auditing. If the phrase should be banned, that is a DESIGN.md authoring change (via `harness-design`), not an audit finding. |
+| "This token is clearly used decoratively, so I'll flag it even though `decorative` isn't in its `forbidden_contexts`." | BRAND-T001 fires only when a matched context keyword is in that token's declared `forbidden_contexts`, and honors `approved_contexts`. The policy lives in the token metadata — do not substitute your own judgment for the declared contract.                                                       |
+| "This `.ts` file has a forbidden phrase in a string, so I'll flag it."                                                 | BRAND-V001 scans only `.jsx`/`.tsx` — user-visible JSX text and string-typed JSX attributes. `.ts`/`.js` and `.md` copy are a different audience and explicitly out of scope.                                                                                                                        |
+| "`## Brand Rules` is missing from DESIGN.md, but I can infer the brand voice, so I'll audit anyway."                   | The DESIGN.md parser returns `null` when the section is absent, and BRAND-V001 silently skips. Likewise BRAND-T\* skips when no token carries `$extensions.harness.brand`. No findings without parsed inputs — a null resolver is not a verifier failure.                                            |
+| "This copy looks like an error state, so I'll infer the tone-by-context and flag a mismatch."                          | Tone-by-context inference is deferred to v1.x. v1 matches only the explicit context-vocabulary keywords against adjacent source text. Do not simulate component-state inference the audit does not yet perform.                                                                                      |
+
 ## Examples
 
 ### Example: Token used in forbidden context

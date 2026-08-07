@@ -222,6 +222,11 @@ export type {
 } from './telemetry';
 
 /**
+ * Skills module — canonical required-section lists for skill validation gates.
+ */
+export * from './skills';
+
+/**
  * Accessibility module.
  */
 export * from './accessibility';

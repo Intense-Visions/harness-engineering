@@ -89,6 +89,18 @@ See `docs/changes/craft-pipeline/knowledge-craft/proposal.md` for the full 25 su
 - `KNOW-R003` references graph node types in rubric prompt without graph imports at runtime
 - `critiqueKnowledgeFile` cross-cutting API works on a single file without project walk
 
+## Rationalizations to Reject
+
+These are common rationalizations that sound reasonable but lead to incorrect results. When you catch yourself thinking any of these, stop and follow the documented process instead.
+
+| Rationalization                                                                       | Why It Is Wrong                                                                                                                                                                                        |
+| ------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| "This entry is well-written and accurate, so KNOW-R001 passes."                       | Accuracy is not the bar. KNOW-R001 asks whether it states a load-bearing FACT a code reader could not derive. A polished, correct paraphrase of the implementation still fails.                        |
+| "It lives under `docs/knowledge/`, so it earns a graph node — KNOW-R003 passes."      | Location does not confer membership. KNOW-R003 asks whether it maps to `business_fact` / `business_rule` / `business_concept` / `business_decision`. A how-the-code-works note fits none.              |
+| "I personally would keep this entry, so KNOW-R005 (deleting loses something) passes." | The test is whether deletion loses knowledge a reader could not reconstruct from the source. If the code already conveys it, deletion loses nothing — your preference to keep it is irrelevant.        |
+| "This entry sits in `decisions/` and bears a decision, so I'll critique it here."     | `decisions/` is hard-excluded — it is spec-craft's territory. Critiquing it here produces double-critique noise on the same file. Refuse to walk it.                                                   |
+| "The entry explains the WHY, so KNOW-R004 (carries forward a decision) passes."       | Carrying forward a decision that would erode requires the rejected alternative AND the reason. The WHY alone, without the option that was turned down, leaves the choice reconstructible as arbitrary. |
+
 ## Examples
 
 ### Example: Paraphrase entry
