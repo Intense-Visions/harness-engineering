@@ -136,10 +136,20 @@ describe('proposals status action', () => {
     expect(process.exitCode).toBe(0);
   });
 
-  it('default (table) prints without throwing and exits 0', async () => {
-    vi.spyOn(console, 'log').mockImplementation(() => {});
+  it('default (table) renders the dormant reason and exits 0', async () => {
+    const spy = vi.spyOn(console, 'log').mockImplementation(() => {});
+    const origFlag = process.env['HARNESS_SESSION_RETROSPECTION'];
+    delete process.env['HARNESS_SESSION_RETROSPECTION'];
     process.exitCode = 0;
-    await actStatusCommand({});
+    try {
+      await actStatusCommand({});
+    } finally {
+      if (origFlag !== undefined) process.env['HARNESS_SESSION_RETROSPECTION'] = origFlag;
+    }
+    const printed = spy.mock.calls.map((c) => String(c[0])).join('\n');
+    expect(printed).toContain('retrospection: dormant');
+    expect(printed).toContain('flag unset');
+    expect(printed).toContain('reason: HARNESS_SESSION_RETROSPECTION is not set');
     expect(process.exitCode).toBe(0);
   });
 });

@@ -111,6 +111,11 @@ export async function runProposalsStatus(
       case 'rejected':
         queue.rejected++;
         break;
+      // No default: listProposals is filtered to kind:'skill', so p.status is
+      // one of the five skill statuses above at runtime. (The static Proposal
+      // type is the skill∪model union, so a `never` exhaustiveness assertion
+      // would spuriously fail on the model-only statuses installing /
+      // failed_target_missing, which cannot occur here.)
     }
   }
 
@@ -217,7 +222,7 @@ export async function actStatusCommand(
   console.log('  manual emit (emit_skill_proposal): available');
   console.log(
     `  retrospection: ${r.enabled ? 'ENABLED' : 'dormant'}` +
-      `  [flag ${r.envFlagSet ? 'set' : 'unset'}, provider ${r.providerResolvable ? 'resolvable' : 'unresolvable'}]`
+      `  [flag ${r.envFlagSet ? 'set' : 'unset'}, provider ${r.providerResolvable ? 'resolvable (inferred from env)' : 'unresolvable'}]`
   );
   if (r.dormantReason) console.log(`    reason: ${r.dormantReason}`);
   // Status is a report, never a gate: exit 0 always.
@@ -276,7 +281,7 @@ export function createProposalsCommand(): Command {
   cmd
     .command('status')
     .description(
-      'Report queue counts and whether each emission surface (manual emit, retrospection) is live or dormant. Use the global --json flag for the machine-readable ProposalsStatusReport.'
+      'Report queue counts and whether each emission surface (manual emit, retrospection) is live or dormant. Provider resolvability is inferred from env-var presence, not by constructing a provider. Use the global --json flag for the machine-readable ProposalsStatusReport.'
     )
     .action(actStatusCommand);
 
