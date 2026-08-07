@@ -1,11 +1,22 @@
 import { defineConfig } from 'vitest/config';
 
+// v8 coverage is only active when the run passed `--coverage` (i.e.
+// `test:coverage`). Vitest does not propagate a coverage flag into the worker
+// `process.env`, so a test that needs to relax a timing-sensitive budget under
+// coverage cannot detect it on its own. Detect it here — where the CLI argv is
+// visible — and forward it via `test.env` as HARNESS_COVERAGE. Consumed by
+// scan-config's coverage-aware perf budget.
+const COVERAGE = process.argv.includes('--coverage');
+
 export default defineConfig({
   test: {
     globals: true,
     environment: 'node',
     include: ['tests/**/*.test.ts', 'src/**/*.test.ts'],
     setupFiles: ['tests/setup.ts'],
+    // Forward the coverage signal into the worker environment (see COVERAGE note
+    // above). Empty string when not running under coverage.
+    env: { HARNESS_COVERAGE: COVERAGE ? '1' : '' },
     // 37 test files in this package spawn `node`/`git` subprocesses. On the
     // pre-push gate the package runs under v8 coverage with files in parallel,
     // and `turbo --concurrency=2` may run a second package's suite alongside it.
