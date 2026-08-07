@@ -243,6 +243,7 @@ Wired onto `HarnessConfigSchema` as `deployment: DeploymentGateConfigSchema.opti
   wiring as path-verification, not invocation)** warrant an ADR — both define durable cross-skill
   contracts (the abstention semantics and the deploy↔rollback seam) future work will depend on.
   D3's hard-block set is captured in this spec and the skill body; it does not need a separate ADR.
+  ADR: `docs/knowledge/decisions/0086-enforcing-deploy-gate-exit-contract-and-rollback-seam.md`.
 - **Knowledge Impact:** new concepts — "enforcing deploy gate", "deployment readiness criteria",
   "loud abstention (ZERO_DENOMINATOR)", and the "pre-ship gate ↔ post-ship rollback" relationship
   between `harness-deployment` and `harness-rollback`.

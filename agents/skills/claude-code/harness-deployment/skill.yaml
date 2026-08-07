@@ -1,9 +1,9 @@
 name: harness-deployment
-version: "1.0.0"
+version: "2.0.0"
 description: CI/CD pipelines, blue-green, canary, and environment management
 stability: static
-cognitive_mode: advisory-guide
-tier: 3
+cognitive_mode: meticulous-verifier
+tier: 2
 internal: false
 keywords:
   - deployment
@@ -30,6 +30,7 @@ stack_signals:
 triggers:
   - manual
   - on_new_feature
+  - on_pr
 platforms:
   - claude-code
   - gemini-cli
@@ -62,6 +63,9 @@ mcp:
     path: string
 type: rigid
 phases:
+  - name: enforce
+    description: Run harness check-deployment; block on hard violations, advise on gaps, abstain loudly with no config
+    required: true
   - name: detect
     description: Identify existing CI/CD configuration and deployment targets
     required: true
