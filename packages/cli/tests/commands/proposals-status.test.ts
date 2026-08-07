@@ -1,9 +1,9 @@
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import * as os from 'node:os';
 import { createProposal } from '@harness-engineering/core';
-import { runProposalsStatus } from '../../src/commands/proposals';
+import { runProposalsStatus, actStatusCommand } from '../../src/commands/proposals';
 
 const SKILL_INPUT = {
   kind: 'new-skill' as const,
@@ -108,5 +108,38 @@ describe('runProposalsStatus — enablement matrix (flag × provider)', () => {
     );
     expect(r.emitters.retrospection.enabled).toBe(true);
     expect(r.emitters.retrospection.providerResolvable).toBe(true);
+  });
+});
+
+describe('proposals status action', () => {
+  const ORIG = process.env['HARNESS_PROJECT_ROOT'];
+  let tmp: string;
+  beforeEach(() => {
+    tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'harness-status-act-'));
+    process.env['HARNESS_PROJECT_ROOT'] = tmp;
+  });
+  afterEach(() => {
+    fs.rmSync(tmp, { recursive: true, force: true });
+    if (ORIG !== undefined) process.env['HARNESS_PROJECT_ROOT'] = ORIG;
+    else delete process.env['HARNESS_PROJECT_ROOT'];
+    vi.restoreAllMocks();
+  });
+
+  it('--json prints a valid ProposalsStatusReport and exits 0', async () => {
+    const spy = vi.spyOn(console, 'log').mockImplementation(() => {});
+    process.exitCode = 0;
+    await actStatusCommand({ json: true });
+    const printed = spy.mock.calls.map((c) => String(c[0])).join('\n');
+    const parsed = JSON.parse(printed);
+    expect(parsed.queue.total).toBe(0);
+    expect(parsed.emitters.manualEmit.available).toBe(true);
+    expect(process.exitCode).toBe(0);
+  });
+
+  it('default (table) prints without throwing and exits 0', async () => {
+    vi.spyOn(console, 'log').mockImplementation(() => {});
+    process.exitCode = 0;
+    await actStatusCommand({});
+    expect(process.exitCode).toBe(0);
   });
 });

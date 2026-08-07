@@ -193,6 +193,29 @@ async function actRejectCommand(id: string, opts: { reason: string }): Promise<v
   }
 }
 
+export async function actStatusCommand(opts: { json?: boolean }): Promise<void> {
+  const report = await runProposalsStatus(process.env, projectRoot());
+  if (opts.json) {
+    console.log(JSON.stringify(report, null, 2));
+    return;
+  }
+  const q = report.queue;
+  const r = report.emitters.retrospection;
+  console.log('Skill-proposal queue');
+  console.log(
+    `  open ${q.open}  gate-running ${q.gateRunning}  gate-failed ${q.gateFailed}` +
+      `  approved ${q.approved}  rejected ${q.rejected}  (total ${q.total})`
+  );
+  console.log('Emitters');
+  console.log('  manual emit (emit_skill_proposal): available');
+  console.log(
+    `  retrospection: ${r.enabled ? 'ENABLED' : 'dormant'}` +
+      `  [flag ${r.envFlagSet ? 'set' : 'unset'}, provider ${r.providerResolvable ? 'resolvable' : 'unresolvable'}]`
+  );
+  if (r.dormantReason) console.log(`    reason: ${r.dormantReason}`);
+  // Status is a report, never a gate: exit 0 always.
+}
+
 async function actApproveCommand(id: string): Promise<void> {
   const orchestratorUrl = process.env['HARNESS_ORCHESTRATOR_URL'] ?? 'http://127.0.0.1:4577';
   const token = process.env['HARNESS_ADMIN_TOKEN'];
@@ -242,6 +265,14 @@ export function createProposalsCommand(): Command {
       'Approve a proposal (runs the soundness-review gate then promotes). Requires the orchestrator to be running.'
     )
     .action(actApproveCommand);
+
+  cmd
+    .command('status')
+    .description(
+      'Report queue counts and whether each emission surface (manual emit, retrospection) is live or dormant'
+    )
+    .option('--json', 'Emit the machine-readable ProposalsStatusReport')
+    .action(actStatusCommand);
 
   return cmd;
 }
