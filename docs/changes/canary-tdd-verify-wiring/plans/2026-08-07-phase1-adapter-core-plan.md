@@ -73,9 +73,7 @@ describe('resolveTestCommand (pure)', () => {
     expect(resolveTestCommand(playwright, 'a.spec.ts', { ci: true })).toBe(
       'npx --yes playwright test a.spec.ts --reporter=list'
     );
-    expect(resolveTestCommand(playwright, 'a.spec.ts')).toBe(
-      'npx --yes playwright test a.spec.ts'
-    );
+    expect(resolveTestCommand(playwright, 'a.spec.ts')).toBe('npx --yes playwright test a.spec.ts');
   });
 
   it('returns null when execution_command is null (catalog-tier framework)', () => {
@@ -216,7 +214,9 @@ describe('CanaryAdapter.listFrameworks', () => {
 
   it('returns [] on schema mismatch (no throw)', async () => {
     expect(
-      await createCanaryAdapter(execResolves(JSON.stringify({ frameworks: [{ name: 123 }] }))).listFrameworks()
+      await createCanaryAdapter(
+        execResolves(JSON.stringify({ frameworks: [{ name: 123 }] }))
+      ).listFrameworks()
     ).toEqual([]);
   });
 
@@ -264,9 +264,9 @@ describe('CanaryAdapter.listFrameworks', () => {
    c. Wire it into the factory (`createCanaryAdapter`, ~line 188):
 
    ```typescript
-     const listFrameworks = (): Promise<CanaryFrameworkInfo[]> => listFrameworksCanary(exec);
+   const listFrameworks = (): Promise<CanaryFrameworkInfo[]> => listFrameworksCanary(exec);
 
-     return { probe, recommendFramework, reviewTest, listFrameworks };
+   return { probe, recommendFramework, reviewTest, listFrameworks };
    ```
 
 5. Run: `npx vitest run packages/intelligence/tests/adapters/canary.test.ts`
@@ -335,18 +335,18 @@ export type {
 
 ## Traceability Matrix
 
-| Observable Truth                                   | Delivered by Task(s) |
-| -------------------------------------------------- | -------------------- |
-| 1. Parses top-level `frameworks` array             | Task 2               |
-| 2. `[]` on every degrade, never throws             | Task 2, Task 4       |
-| 3. Permissive schema defaults / ignored extra keys | Task 1, Task 2       |
-| 4. `resolveTestCommand` fills `{file}`             | Task 1               |
-| 5. `ci_flags` appended only under `ci`             | Task 1               |
-| 6. `null` for null `execution_command`             | Task 1               |
-| 7. `null` for no-`{file}` commands                 | Task 1               |
+| Observable Truth                                   | Delivered by Task(s)   |
+| -------------------------------------------------- | ---------------------- |
+| 1. Parses top-level `frameworks` array             | Task 2                 |
+| 2. `[]` on every degrade, never throws             | Task 2, Task 4         |
+| 3. Permissive schema defaults / ignored extra keys | Task 1, Task 2         |
+| 4. `resolveTestCommand` fills `{file}`             | Task 1                 |
+| 5. `ci_flags` appended only under `ci`             | Task 1                 |
+| 6. `null` for null `execution_command`             | Task 1                 |
+| 7. `null` for no-`{file}` commands                 | Task 1                 |
 | 8. Adapter exposes `listFrameworks`; boundary OK   | Task 2, Task 3, Task 4 |
-| 9. Barrel exports resolve                          | Task 3               |
-| 10. `harness validate` passes                      | All tasks            |
+| 9. Barrel exports resolve                          | Task 3                 |
+| 10. `harness validate` passes                      | All tasks              |
 
 ## Feasibility notes (carried into Phases 2–4)
 

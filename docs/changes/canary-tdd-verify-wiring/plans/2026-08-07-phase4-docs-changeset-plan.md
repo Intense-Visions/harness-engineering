@@ -45,7 +45,6 @@ CREATE .changeset/canary-tdd-verify-wiring.md           (cli + intelligence: min
 2. In the `## How skills reach it` section, append after the existing test-advisor sentence:
 
 ```markdown
-
 `harness-verify` DETECT reaches the registry through a third MCP tool, `canary_discover_test_command` (`{ files?, ci? }`): it probes, matches each file against a framework by longest file-extension suffix (preferring preferred-status / full-tier, then registry order on ties), resolves the per-file test command, and returns `{ status, frameworks: [{ name, command, matchedFiles }] }`. DETECT uses it as registry truth for the **test** command and falls back to `package.json`/`Makefile` heuristics when it degrades. `harness-tdd` RED reuses the existing `canary_probe` and `canary_recommend_framework` tools plus the generative `/canary-write-test` plugin skill (detect-and-offer / B'); it adds no new adapter method.
 ```
 
@@ -134,11 +133,11 @@ the dependency stays optional and the adapter boundary is unchanged.
 
 ## Traceability Matrix
 
-| Observable Truth                             | Delivered by Task(s) |
-| -------------------------------------------- | -------------------- |
-| 1. Knowledge node surface + tool + seam note | Task 1               |
-| 2. Corrected contract + schema behavior noted | Task 1               |
-| 3. AGENTS.md notes both wirings              | Task 2               |
-| 4. Changeset bumps both packages minor       | Task 3               |
-| 5. No internal numbers in shipped bodies     | Task 1, Task 2, Task 3, Task 4 |
-| 6. Full gauntlet green, boundary intact      | Task 4               |
+| Observable Truth                              | Delivered by Task(s)           |
+| --------------------------------------------- | ------------------------------ |
+| 1. Knowledge node surface + tool + seam note  | Task 1                         |
+| 2. Corrected contract + schema behavior noted | Task 1                         |
+| 3. AGENTS.md notes both wirings               | Task 2                         |
+| 4. Changeset bumps both packages minor        | Task 3                         |
+| 5. No internal numbers in shipped bodies      | Task 1, Task 2, Task 3, Task 4 |
+| 6. Full gauntlet green, boundary intact       | Task 4                         |

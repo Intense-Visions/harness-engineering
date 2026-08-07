@@ -166,9 +166,7 @@ describe('resolveTestCommand (pure)', () => {
     expect(resolveTestCommand(playwright, 'a.spec.ts', { ci: true })).toBe(
       'npx --yes playwright test a.spec.ts --reporter=list'
     );
-    expect(resolveTestCommand(playwright, 'a.spec.ts')).toBe(
-      'npx --yes playwright test a.spec.ts'
-    );
+    expect(resolveTestCommand(playwright, 'a.spec.ts')).toBe('npx --yes playwright test a.spec.ts');
   });
 
   it('returns null when execution_command is null (catalog-tier framework)', () => {
@@ -243,7 +241,9 @@ describe('CanaryAdapter.listFrameworks', () => {
 
   it('returns [] on schema mismatch (no throw)', async () => {
     expect(
-      await createCanaryAdapter(execResolves(JSON.stringify({ frameworks: [{ name: 123 }] }))).listFrameworks()
+      await createCanaryAdapter(
+        execResolves(JSON.stringify({ frameworks: [{ name: 123 }] }))
+      ).listFrameworks()
     ).toEqual([]);
   });
 

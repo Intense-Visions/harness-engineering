@@ -348,18 +348,18 @@ import {
 
 ## Traceability Matrix
 
-| Observable Truth                             | Delivered by Task(s) |
-| -------------------------------------------- | -------------------- |
-| 1. Degraded probe short-circuits             | Task 1               |
-| 2. Registry-truth per-file command           | Task 1               |
-| 3. `ci_flags` appended under `ci`            | Task 1               |
-| 4. No-match → empty, never error             | Task 1               |
-| 5. Longest-suffix; no-`{file}` dropped       | Task 1               |
-| 6. Deterministic registry-order tie-break    | Task 1               |
-| 7. Never throws; env-agnostic default        | Task 1               |
-| 8. Registered in server.ts + exported        | Task 1, Task 2       |
-| 9. No internal numbers in description        | Task 1               |
-| 10. `harness validate` passes                | All tasks            |
+| Observable Truth                          | Delivered by Task(s) |
+| ----------------------------------------- | -------------------- |
+| 1. Degraded probe short-circuits          | Task 1               |
+| 2. Registry-truth per-file command        | Task 1               |
+| 3. `ci_flags` appended under `ci`         | Task 1               |
+| 4. No-match → empty, never error          | Task 1               |
+| 5. Longest-suffix; no-`{file}` dropped    | Task 1               |
+| 6. Deterministic registry-order tie-break | Task 1               |
+| 7. Never throws; env-agnostic default     | Task 1               |
+| 8. Registered in server.ts + exported     | Task 1, Task 2       |
+| 9. No internal numbers in description     | Task 1               |
+| 10. `harness validate` passes             | All tasks            |
 
 ## Feasibility note
 

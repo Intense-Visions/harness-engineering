@@ -128,9 +128,7 @@ function bestFrameworkForFile(
       if (!file.endsWith(`.${ext}`)) continue;
       const len = ext.length;
       const better =
-        best === null ||
-        len > best.len ||
-        (len === best.len && tieScore(fw) > tieScore(best.fw));
+        best === null || len > best.len || (len === best.len && tieScore(fw) > tieScore(best.fw));
       if (better) best = { fw, len };
     }
   }
