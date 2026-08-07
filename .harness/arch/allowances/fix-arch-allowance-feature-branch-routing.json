@@ -1,9 +1,0 @@
-{
-  "reason": "Acknowledge module-size/dependency-depth growth introduced by the new baseline-resolver routing code in this PR.",
-  "categories": {
-    "module-size": 223715,
-    "dependency-depth": 573
-  },
-  "violationIds": [],
-  "createdFrom": "d74f5ecf2"
-}
