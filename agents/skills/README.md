@@ -34,7 +34,7 @@ agents/skills/
 
 ### Setup
 
-- `initialize-harness-project` - Scaffold new project
+- `harness-initialize-project` - Scaffold new project
 - `initialize-test-suite-project` - Scaffold a test-suite project (API / E2E-UI / shared library)
 - `add-harness-component` - Add components
 

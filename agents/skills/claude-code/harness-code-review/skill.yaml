@@ -58,6 +58,7 @@ mcp:
     path: string
 type: rigid
 tier: 2
+catalog_tier: 0
 state:
   persistent: false
   files: []

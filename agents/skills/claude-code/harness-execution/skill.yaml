@@ -45,6 +45,7 @@ mcp:
     path: string
 type: rigid
 tier: 1
+catalog_tier: 0
 phases:
   - name: prepare
     description: Load state and verify prerequisites

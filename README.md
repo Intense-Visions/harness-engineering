@@ -364,10 +364,29 @@ enabled = true
 | Component                              | Count | Description                                                                                                    |
 | -------------------------------------- | ----- | -------------------------------------------------------------------------------------------------------------- |
 | [Packages](./packages/)                | 9     | Core library, CLI, ESLint plugin, linter generator, graph, intelligence, orchestrator, dashboard, shared types |
-| [Skills](./agents/skills/claude-code/) | 741   | Agent workflows across 3 tiers: workflow, maintenance, and domain catalog                                      |
+| [Skills](./agents/skills/claude-code/) | 773   | Agent workflows. **12 are load-bearing gear (Tier-0)** — see below; the rest are an on-demand library          |
 | [Personas](./agents/personas/)         | 12    | Architecture enforcer, code reviewer, planner, verifier, task executor, and 7 more                             |
 | [Templates](./templates/)              | 19    | Language bases, framework overlays (Express, NestJS, Django, FastAPI, Gin, Axum, Spring Boot, and more)        |
 | [Examples](./examples/)                | 3     | Progressive tutorials from 5 minutes to 30 minutes                                                             |
+
+### Load-bearing skills (Tier-0)
+
+The catalog runs to hundreds of skills, but a senior engineer only needs to hold a dozen in their head. These twelve carry the core workflow end to end — learn them first; everything else is a library you reach for on demand. Skills declare their standing with a first-class `catalog_tier` field in `skill.yaml` (`0` = load-bearing, `1` = library, `2` = retire candidate), surfaced here, in the [Skills Catalog](./docs/reference/skills-catalog.md), and in the dashboard command palette.
+
+| Skill                        | Slash command                 | What it carries                                          |
+| ---------------------------- | ----------------------------- | -------------------------------------------------------- |
+| `harness-initialize-project` | `/harness:initialize-project` | Scaffold or migrate a harness-managed project            |
+| `harness-strategy`           | `/harness:strategy`           | Set the durable product anchor (`STRATEGY.md`)           |
+| `harness-brainstorming`      | `/harness:brainstorming`      | Turn intent into a spec                                  |
+| `harness-planning`           | `/harness:planning`           | Decompose a spec into an ordered plan                    |
+| `harness-execution`          | `/harness:execution`          | Implement a plan task-by-task with state tracking        |
+| `harness-tdd`                | `/harness:tdd`                | Test-driven development inside the loop                  |
+| `harness-verification`       | `/harness:verification`       | Verify built artifacts against spec and plan             |
+| `harness-code-review`        | `/harness:code-review`        | Multi-persona review pipeline                            |
+| `outcome-eval`               | `/harness:outcome-eval`       | Ship gate — did the change satisfy its spec?             |
+| `harness-debugging`          | `/harness:debugging`          | Systematic debugging with validation                     |
+| `harness-autopilot`          | `/harness:autopilot`          | Autonomous phase loop — plan → execute → verify → review |
+| `harness-roadmap-pilot`      | `/harness:roadmap-pilot`      | Pick the next highest-impact roadmap item and drive it   |
 
 ## Examples
 

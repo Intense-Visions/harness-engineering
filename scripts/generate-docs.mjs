@@ -409,6 +409,10 @@ function loadSkills(skillsDir) {
       skills.push({
         name: skill.name || dir.name,
         tier: skill.tier || 3,
+        // Curation tier for the catalog surface (0 = load-bearing gear,
+        // 1 = library / on-demand reference, 2 = retire candidate). Distinct
+        // from `tier` (loading). Missing → 1 (library), the sensible default.
+        catalogTier: skill.catalog_tier ?? 1,
         description: skill.description || '',
         triggers: skill.triggers || [],
         platforms: skill.platforms || [],
@@ -423,11 +427,23 @@ function loadSkills(skillsDir) {
   return skills;
 }
 
+/** Human-readable label for a curation (catalog) tier. */
+const CATALOG_TIER_LABELS = {
+  0: 'Tier-0 — load-bearing gear',
+  1: 'Tier-1 — library / on-demand reference',
+  2: 'Tier-2 — deprecated / retire candidate',
+};
+
 /** Render a single skill's catalog entry (heading, description, metadata bullets). */
 function renderSkillEntry(skill) {
   const lines = [];
   lines.push(`### ${skill.name}\n\n`);
   lines.push(`${skill.description}\n\n`);
+  // Surface the curation tier for non-default (load-bearing / retire) skills so
+  // the ~12 gear skills stand out from the long tail of library references.
+  if (skill.catalogTier !== 1) {
+    lines.push(`- **Catalog tier:** ${CATALOG_TIER_LABELS[skill.catalogTier]}\n`);
+  }
   lines.push(`- **Triggers:** ${skill.triggers.join(', ') || 'manual'}\n`);
   lines.push(`- **Platforms:** ${skill.platforms.join(', ') || 'all'}\n`);
   lines.push(`- **Type:** ${skill.type}\n`);
@@ -462,14 +478,45 @@ function generateSkillsCatalog() {
     tier.skills.sort((a, b) => byCodePoint(a.name, b.name));
   }
 
+  // Curation tier: the ~12 load-bearing gear skills surfaced first, so a reader
+  // sees the set worth holding in their head before the long tail.
+  const loadBearing = skills
+    .filter((s) => s.catalogTier === 0)
+    .sort((a, b) => byCodePoint(a.name, b.name));
+  const retireCandidates = skills
+    .filter((s) => s.catalogTier === 2)
+    .sort((a, b) => byCodePoint(a.name, b.name));
+
   const lines = [
     HEADER,
     '# Skills Catalog\n\n',
-    `${skills.length} skills across 3 tiers. `,
-    'Tier 1 and 2 skills are registered as slash commands. ',
-    'Tier 3 skills are discoverable via the `search_skills` MCP tool. ',
+    `${skills.length} skills. Skills carry two independent tier axes: a **loading tier** `,
+    '(whether a skill registers as a slash command or is discovered on demand) and a ',
+    '**curation tier** (how load-bearing it is). A senior engineer can hold ~12 skills in ',
+    'their head, not hundreds — the curation tier names that short list.\n\n',
     'See the [Features Overview](../guides/features-overview.md) for narrative documentation.\n\n',
+    '## Load-Bearing Gear (Tier-0)\n\n',
+    `The ${loadBearing.length} skills that carry the core workflow. Learn these first; `,
+    'everything else is a library you reach for on demand.\n\n',
   ];
+
+  for (const skill of loadBearing) {
+    lines.push(`- **${skill.name}** — ${skill.description}\n`);
+  }
+  lines.push('\n');
+
+  if (retireCandidates.length > 0) {
+    lines.push('## Retire Candidates (Tier-2)\n\n');
+    lines.push('Deprecated or slated for removal — avoid building new work on these.\n\n');
+    for (const skill of retireCandidates) {
+      lines.push(`- **${skill.name}** — ${skill.description}\n`);
+    }
+    lines.push('\n');
+  }
+
+  lines.push('## By Loading Tier\n\n');
+  lines.push('Tier 1 and 2 skills are registered as slash commands. ');
+  lines.push('Tier 3 skills are discoverable via the `search_skills` MCP tool.\n\n');
 
   for (const [_tierNum, tier] of Object.entries(tiers)) {
     lines.push(`## ${tier.label} (${tier.skills.length} skills)\n\n`);

@@ -1,6 +1,6 @@
 name: harness-strategy
 version: "0.1.0"
-description: First-run interview and update flow for STRATEGY.md — the durable upstream product anchor read by harness-brainstorming, harness-ideate, and harness-roadmap-pilot. Enforces three pushback rules (fluff, goal-as-strategy, feature-list-as-strategy) with a 2-round-per-section cap. Phase 2 ships the skill; downstream wiring (init, brainstorming, roadmap-pilot, ideate, knowledge graph) ships in spec Phases 3-7.
+description: First-run interview and update flow for STRATEGY.md — the durable upstream product anchor read by harness-brainstorming, harness-ideate, and harness-roadmap-pilot. Enforces three pushback rules (fluff, goal-as-strategy, feature-list-as-strategy) with a 2-round-per-section cap. Downstream skills (init, brainstorming, roadmap-pilot, ideate, knowledge graph) consume STRATEGY.md as grounding.
 stability: static
 cognitive_mode: configuration-interviewer
 triggers:
@@ -26,6 +26,7 @@ mcp:
     skill: harness-strategy
 type: rigid
 tier: 2
+catalog_tier: 0
 phases:
   - name: route
     description: Route by STRATEGY.md presence and validity (absent → first-run; valid → update; invalid → repair offer)

@@ -2,7 +2,30 @@
 
 # Skills Catalog
 
-775 skills across 3 tiers. Tier 1 and 2 skills are registered as slash commands. Tier 3 skills are discoverable via the `search_skills` MCP tool. See the [Features Overview](../guides/features-overview.md) for narrative documentation.
+774 skills. Skills carry two independent tier axes: a **loading tier** (whether a skill registers as a slash command or is discovered on demand) and a **curation tier** (how load-bearing it is). A senior engineer can hold ~12 skills in their head, not hundreds — the curation tier names that short list.
+
+See the [Features Overview](../guides/features-overview.md) for narrative documentation.
+
+## Load-Bearing Gear (Tier-0)
+
+The 12 skills that carry the core workflow. Learn these first; everything else is a library you reach for on demand.
+
+- **harness-autopilot** — Autonomous phase execution loop — chains planning, execution, verification, and review, pausing only at human decision points
+- **harness-brainstorming** — Structured ideation and exploration with harness methodology
+- **harness-code-review** — Multi-phase code review pipeline with mechanical checks, graph-scoped context, and parallel review agents
+- **harness-debugging** — Systematic debugging with harness validation and state tracking
+- **harness-execution** — Execute a planned set of tasks with harness validation and state tracking
+- **harness-initialize-project** — Scaffold a new harness-compliant project, including design system and roadmap configuration
+- **harness-planning** — Structured project planning with harness constraints and validation
+- **harness-roadmap-pilot** — AI-assisted selection of the next highest-impact roadmap item with scoring, assignment, and skill transition
+- **harness-strategy** — First-run interview and update flow for STRATEGY.md — the durable upstream product anchor read by harness-brainstorming, harness-ideate, and harness-roadmap-pilot. Enforces three pushback rules (fluff, goal-as-strategy, feature-list-as-strategy) with a 2-round-per-section cap. Downstream skills (init, brainstorming, roadmap-pilot, ideate, knowledge graph) consume STRATEGY.md as grounding.
+- **harness-tdd** — Test-driven development integrated with harness validation
+- **harness-verification** — Comprehensive harness verification of project health and compliance
+- **outcome-eval** — LLM-judgment skill that produces a structured, confidence-rated verdict on whether an implementation satisfied its spec. Reads the spec's acceptance section, the change diff, and test output; emits an OutcomeVerdict (SATISFIED | NOT_SATISFIED | INCONCLUSIVE) with confidence, rationale, and unmet criteria. Authority is derived in TypeScript, never from the LLM: a high-confidence NOT_SATISFIED blocks ship; every other verdict is advisory. The verdict persists as an execution_outcome node and feeds skill-effectiveness baselines. The harness's first blocking post-execution spec-satisfaction gate.
+
+## By Loading Tier
+
+Tier 1 and 2 skills are registered as slash commands. Tier 3 skills are discoverable via the `search_skills` MCP tool.
 
 ## Tier 1 — Workflow (17 skills)
 
@@ -14,12 +37,13 @@ Add a component to an existing harness project
 - **Platforms:** claude-code, gemini-cli, cursor, codex
 - **Type:** flexible
 - **Cognitive mode:** constructive-architect
-- **Depends on:** initialize-harness-project
+- **Depends on:** harness-initialize-project
 
 ### harness-autopilot
 
 Autonomous phase execution loop — chains planning, execution, verification, and review, pausing only at human decision points
 
+- **Catalog tier:** Tier-0 — load-bearing gear
 - **Triggers:** manual
 - **Platforms:** claude-code, gemini-cli, cursor, codex
 - **Type:** rigid
@@ -30,6 +54,7 @@ Autonomous phase execution loop — chains planning, execution, verification, an
 
 Structured ideation and exploration with harness methodology
 
+- **Catalog tier:** Tier-0 — load-bearing gear
 - **Triggers:** manual, on_new_feature
 - **Platforms:** claude-code, gemini-cli, cursor, codex
 - **Type:** rigid
@@ -40,6 +65,7 @@ Structured ideation and exploration with harness methodology
 
 Systematic debugging with harness validation and state tracking
 
+- **Catalog tier:** Tier-0 — load-bearing gear
 - **Triggers:** manual, on_bug_fix
 - **Platforms:** claude-code, gemini-cli, cursor, codex
 - **Type:** rigid
@@ -49,11 +75,23 @@ Systematic debugging with harness validation and state tracking
 
 Execute a planned set of tasks with harness validation and state tracking
 
+- **Catalog tier:** Tier-0 — load-bearing gear
 - **Triggers:** manual, on_new_feature, on_bug_fix
 - **Platforms:** claude-code, gemini-cli, cursor, codex
 - **Type:** rigid
 - **Cognitive mode:** meticulous-implementer
 - **Depends on:** harness-verification
+
+### harness-initialize-project
+
+Scaffold a new harness-compliant project, including design system and roadmap configuration
+
+- **Catalog tier:** Tier-0 — load-bearing gear
+- **Triggers:** manual, on_project_init
+- **Platforms:** claude-code, gemini-cli, cursor, codex
+- **Type:** flexible
+- **Cognitive mode:** constructive-architect
+- **Depends on:** initialize-test-suite-project, harness-design-system, harness-roadmap
 
 ### harness-integration
 
@@ -87,6 +125,7 @@ Onboard a new developer to a harness-managed project
 
 Structured project planning with harness constraints and validation
 
+- **Catalog tier:** Tier-0 — load-bearing gear
 - **Triggers:** manual, on_new_feature, on_project_init
 - **Platforms:** claude-code, gemini-cli, cursor, codex
 - **Type:** rigid
@@ -124,21 +163,12 @@ Create and maintain harness skills following the rich skill format
 
 Test-driven development integrated with harness validation
 
+- **Catalog tier:** Tier-0 — load-bearing gear
 - **Triggers:** manual, on_new_feature, on_bug_fix
 - **Platforms:** claude-code, gemini-cli, cursor, codex
 - **Type:** rigid
 - **Cognitive mode:** meticulous-implementer
 - **Depends on:** harness-verification
-
-### initialize-harness-project
-
-Scaffold a new harness-compliant project, including design system and roadmap configuration
-
-- **Triggers:** manual, on_project_init
-- **Platforms:** claude-code, gemini-cli, cursor, codex
-- **Type:** flexible
-- **Cognitive mode:** constructive-architect
-- **Depends on:** initialize-test-suite-project, harness-design-system, harness-roadmap
 
 ### initialize-test-suite-project
 
@@ -148,7 +178,7 @@ Scaffold or migrate a test-suite project (API, E2E/UI, or shared library) with t
 - **Platforms:** claude-code, gemini-cli, cursor, codex
 - **Type:** flexible
 - **Cognitive mode:** constructive-architect
-- **Depends on:** initialize-harness-project
+- **Depends on:** harness-initialize-project
 
 ### product-advisor
 
@@ -170,7 +200,7 @@ Human-judged acceptance sign-off skill — the terminal, human-authority stage o
 - **Cognitive mode:** configuration-interviewer
 - **Depends on:** outcome-eval
 
-## Tier 2 — Maintenance (54 skills)
+## Tier 2 — Maintenance (53 skills)
 
 ### acceptance-eval
 
@@ -348,6 +378,7 @@ Monthly retrospective over skill-adoption telemetry — ranks most-invoked, fail
 
 Multi-phase code review pipeline with mechanical checks, graph-scoped context, and parallel review agents
 
+- **Catalog tier:** Tier-0 — load-bearing gear
 - **Triggers:** manual, on_pr, on_review
 - **Platforms:** claude-code, gemini-cli, cursor, codex
 - **Type:** rigid
@@ -495,15 +526,6 @@ First-run pulse interview. Converts intent into a validated pulse config with SM
 - **Type:** rigid
 - **Cognitive mode:** configuration-interviewer
 
-### harness-rehearse
-
-Rehearse an agent against a deliberately-broken fixture and score how well it recovers. Picks a fixture from templates/rehearsal-fixtures/ (each plants one failure mode a real harness check catches — leaked secret, layer violation, dependency cycle, broken doc link), copies it into a scratch workspace, has the agent detect and repair the planted defect, assembles a structured recovery record, and runs `harness rehearse score` for a deterministic 0-100 score and pass/partial/fail tier across four dimensions (detected, correctCheck, fixed, noCollateral). Used to train personas before production trust and to regression-test the harness's own gates against known failure shapes.
-
-- **Triggers:** manual, on_milestone
-- **Platforms:** claude-code, gemini-cli, cursor, codex
-- **Type:** rigid
-- **Cognitive mode:** constructive-architect
-
 ### harness-release-readiness
 
 Audit npm release readiness, run maintenance checks, offer auto-fixes, track progress across sessions
@@ -527,6 +549,7 @@ Create and manage a unified project roadmap from existing specs and plans
 
 AI-assisted selection of the next highest-impact roadmap item with scoring, assignment, and skill transition
 
+- **Catalog tier:** Tier-0 — load-bearing gear
 - **Triggers:** manual
 - **Platforms:** claude-code, gemini-cli, cursor, codex
 - **Type:** rigid
@@ -563,8 +586,9 @@ Deep soundness analysis of specs and plans with auto-fix and convergence loop
 
 ### harness-strategy
 
-First-run interview and update flow for STRATEGY.md — the durable upstream product anchor read by harness-brainstorming, harness-ideate, and harness-roadmap-pilot. Enforces three pushback rules (fluff, goal-as-strategy, feature-list-as-strategy) with a 2-round-per-section cap. Phase 2 ships the skill; downstream wiring (init, brainstorming, roadmap-pilot, ideate, knowledge graph) ships in spec Phases 3-7.
+First-run interview and update flow for STRATEGY.md — the durable upstream product anchor read by harness-brainstorming, harness-ideate, and harness-roadmap-pilot. Enforces three pushback rules (fluff, goal-as-strategy, feature-list-as-strategy) with a 2-round-per-section cap. Downstream skills (init, brainstorming, roadmap-pilot, ideate, knowledge graph) consume STRATEGY.md as grounding.
 
+- **Catalog tier:** Tier-0 — load-bearing gear
 - **Triggers:** manual
 - **Platforms:** claude-code, gemini-cli, cursor, codex
 - **Type:** rigid
@@ -593,6 +617,7 @@ Graph-based test selection and project-wide coverage audit — answers "what tes
 
 Comprehensive harness verification of project health and compliance
 
+- **Catalog tier:** Tier-0 — load-bearing gear
 - **Triggers:** manual, on_pr, on_commit
 - **Platforms:** claude-code, gemini-cli, cursor, codex
 - **Type:** rigid
@@ -640,6 +665,7 @@ LLM-judgment skill that critiques identifier names (variables, functions, types,
 
 LLM-judgment skill that produces a structured, confidence-rated verdict on whether an implementation satisfied its spec. Reads the spec's acceptance section, the change diff, and test output; emits an OutcomeVerdict (SATISFIED | NOT_SATISFIED | INCONCLUSIVE) with confidence, rationale, and unmet criteria. Authority is derived in TypeScript, never from the LLM: a high-confidence NOT_SATISFIED blocks ship; every other verdict is advisory. The verdict persists as an execution_outcome node and feeds skill-effectiveness baselines. The harness's first blocking post-execution spec-satisfaction gate.
 
+- **Catalog tier:** Tier-0 — load-bearing gear
 - **Triggers:** manual, on_pr
 - **Platforms:** claude-code
 - **Type:** rigid

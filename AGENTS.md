@@ -79,7 +79,7 @@ checks shape when the file exists.
 
 - `/harness:strategy` — run interview / update STRATEGY.md.
 - `/harness:ideate` — generate ranked candidate ideas grounded in strategy.
-- `initialize-harness-project` Phase 3 — 3-way yes/no/later question on
+- `harness-initialize-project` Phase 3 — 3-way yes/no/later question on
   capturing strategy at project init. Decline persists to the event-sourced
   `.harness` state (recorded as an event, read back via the snapshot
   projection) as `init.strategy.declined: true` so re-runs respect the prior

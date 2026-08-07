@@ -188,6 +188,11 @@ export const SkillMetadataSchema = z
     depends_on: z.array(z.string()).default([]),
     repository: z.string().url().optional(),
     tier: z.number().int().min(1).max(3).optional(),
+    // Curation tier for the user-facing catalog surface (distinct from `tier`,
+    // which controls slash-command/catalog *loading*). 0 = load-bearing gear a
+    // senior engineer holds in their head, 1 = library / on-demand reference
+    // (the default when omitted), 2 = deprecated / retire candidate.
+    catalog_tier: z.number().int().min(0).max(2).optional(),
     internal: z.boolean().default(false),
     keywords: z.array(z.string()).default([]),
     stack_signals: z.array(z.string()).default([]),
