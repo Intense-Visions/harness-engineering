@@ -21,12 +21,12 @@ Scaffold a new harness-compliant project, including design system and roadmap co
 </objective>
 
 <execution_context>
-@agents/skills/claude-code/initialize-harness-project/SKILL.md
-@agents/skills/claude-code/initialize-harness-project/skill.yaml
+@agents/skills/claude-code/harness-initialize-project/SKILL.md
+@agents/skills/claude-code/harness-initialize-project/skill.yaml
 </execution_context>
 
 <process>
-1. Try: invoke mcp__harness__run_skill with skill: "initialize-harness-project"
+1. Try: invoke mcp__harness__run_skill with skill: "harness-initialize-project"
 2. If MCP unavailable: read SKILL.md and follow its workflow directly
 3. Pass through any arguments provided by the user
 </process>

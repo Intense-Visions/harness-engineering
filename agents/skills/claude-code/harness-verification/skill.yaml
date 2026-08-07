@@ -33,6 +33,7 @@ mcp:
     path: string
 type: rigid
 tier: 2
+catalog_tier: 0
 phases:
   - name: check
     description: Run all harness validation commands

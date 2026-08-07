@@ -34,6 +34,7 @@ mcp:
     path: 'string (optional) — project root used to resolve the knowledge graph (default cwd)'
 type: rigid
 tier: 2
+catalog_tier: 0
 phases:
   - name: gather
     description: Collect the unified diff (git diff), capture test output, resolve the spec path

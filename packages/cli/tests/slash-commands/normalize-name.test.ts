@@ -10,8 +10,10 @@ describe('normalizeName', () => {
     expect(normalizeName('harness-code-review')).toBe('code-review');
   });
 
-  it('strips interior -harness- from names', () => {
-    expect(normalizeName('initialize-harness-project')).toBe('initialize-project');
+  it('maps the renamed harness-initialize-project skill to the initialize-project command', () => {
+    // The skill dir is harness-initialize-project (sorts with the workflow gear)
+    // but its slash command must stay /harness:initialize-project.
+    expect(normalizeName('harness-initialize-project')).toBe('initialize-project');
   });
 
   it('strips interior -harness- from other names', () => {

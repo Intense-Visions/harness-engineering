@@ -1,20 +1,20 @@
 # Initialize Test Suite Project
 
-> Scaffold or migrate a test-suite project — API, E2E/UI, or shared test library. Owns test-suite-specific archetype selection, shared-library vs in-repo scaffolding decision, layer variants, tag taxonomy, reporter stack, and custom report. Cross-cutting concerns (adoption level, personas, AGENTS.md base template, i18n, knowledge graph, roadmap nudge, final commit) delegate to `initialize-harness-project`.
+> Scaffold or migrate a test-suite project — API, E2E/UI, or shared test library. Owns test-suite-specific archetype selection, shared-library vs in-repo scaffolding decision, layer variants, tag taxonomy, reporter stack, and custom report. Cross-cutting concerns (adoption level, personas, AGENTS.md base template, i18n, knowledge graph, roadmap nudge, final commit) delegate to `harness-initialize-project`.
 
 ## When to Use
 
 - Initializing a new test-suite project (you already know it is a test suite)
 - Migrating an existing test-suite project to the next adoption level
-- When `initialize-harness-project`'s Phase 1 classification step hands off here
-- NOT when the project is a product or service (use `initialize-harness-project`)
+- When `harness-initialize-project`'s Phase 1 classification step hands off here
+- NOT when the project is a product or service (use `harness-initialize-project`)
 - NOT when adding a single spec, domain, or fixture to an already-configured test suite (use `add-harness-component`)
 
-## Composition with `initialize-harness-project`
+## Composition with `harness-initialize-project`
 
 This skill owns only the _test-suite-specific_ pieces. The generic harness flow belongs to the parent skill. Two invocation patterns:
 
-1. **Parent dispatches here.** The user runs `initialize-harness-project`; its Phase 1 step 5 classifies the project as a test suite and dispatches to this skill. Run the parent's Phase 2 (scaffolding) first, then this skill's full flow, then return to the parent for Phase 4 wrap-up (knowledge graph, roadmap, commit).
+1. **Parent dispatches here.** The user runs `harness-initialize-project`; its Phase 1 step 5 classifies the project as a test suite and dispatches to this skill. Run the parent's Phase 2 (scaffolding) first, then this skill's full flow, then return to the parent for Phase 4 wrap-up (knowledge graph, roadmap, commit).
 
 2. **Direct invocation.** The user knows up front it's a test suite and invokes this skill directly. Run the parent's Phase 1 (assess state), Phase 2 (`harness init`), and Phase 3 steps 1–2 and 5 (personas, AGENTS.md base, i18n) inline or by invoking the parent explicitly, then apply this skill's Phase 1–4, then hand back to the parent's Phase 4 steps 4–5.
 
@@ -198,13 +198,13 @@ npx eslint 'src/**/*.ts' 'tests/**/*.ts'
 
 All three must pass before proceeding.
 
-**Clean-tree passing is necessary but not sufficient.** All three tools can pass while the rules are silently misconfigured (layer ordering wrong, ESLint files glob missing, forbidden-imports schema fields dropped). Before handing back to `initialize-harness-project` for wrap-up:
+**Clean-tree passing is necessary but not sufficient.** All three tools can pass while the rules are silently misconfigured (layer ordering wrong, ESLint files glob missing, forbidden-imports schema fields dropped). Before handing back to `harness-initialize-project` for wrap-up:
 
 - Insert one deliberate forbidden import — a sibling-domain import is the easiest (e.g. `src/api/users/users-manager.ts` importing `../auth/auth-manager`). Run `npx eslint <file>` and confirm it reports the violation.
 - Insert one deliberate cross-layer import (e.g. `src/utils/foo.ts` importing from `src/api/users/`). Run `harness check-deps` and confirm it reports the violation.
 - Revert both edits. Confirm the clean tree is green on all three gates.
 
-After verification passes, return to `initialize-harness-project`'s Phase 4 for:
+After verification passes, return to `harness-initialize-project`'s Phase 4 for:
 
 - `harness scan` (knowledge graph)
 - Roadmap nudge
@@ -212,7 +212,7 @@ After verification passes, return to `initialize-harness-project`'s Phase 4 for:
 
 ## Harness Integration
 
-- **`initialize-harness-project`** — parent skill. Owns adoption-level selection, `harness init` invocation, persona configuration, AGENTS.md base template, i18n decision, knowledge-graph build, roadmap nudge, final commit.
+- **`harness-initialize-project`** — parent skill. Owns adoption-level selection, `harness init` invocation, persona configuration, AGENTS.md base template, i18n decision, knowledge-graph build, roadmap nudge, final commit.
 - **`canary_probe` / `canary_recommend_framework`** (MCP) — Phase 0 probes the optional deterministic canary test CLI (`canary-test-cli`). When `available`, framework selection delegates to `canary_recommend_framework` (Phase 3 step 4) and scaffolding + reporter to `canary init` (test-reporter `version:1`, read by canary's `ci-ready` check, Phase 3 step 11). Degrades to the built-in flow (follow-up test skills + bespoke `scripts/generate-reports.ts`) when canary is absent.
 - **`harness validate`** — verifies `harness.config.json` schema, AGENTS.md, layers, persona config.
 - **`harness check-deps`** — verifies layer-graph dependency constraints at the file level.
@@ -238,7 +238,7 @@ After verification passes, return to `initialize-harness-project`'s Phase 4 for:
 - Reporting: when canary is `available` it uses the canary test-reporter `version:1` contract via `canary init` (no bespoke `scripts/generate-reports.ts`); when `degraded`, `scripts/generate-reports.ts` exists and is wired to `npm run generate-custom-reports`
 - All three Phase 4 gates pass on the clean tree
 - "Prove the guards fire" step completed — deliberate violations were caught and reverted
-- Control returned to `initialize-harness-project` for knowledge-graph build and final commit
+- Control returned to `harness-initialize-project` for knowledge-graph build and final commit
 
 ## Rationalizations to Reject
 
@@ -280,7 +280,7 @@ so framework + reporter are N/A regardless.) Result recorded in AGENTS.md.
 This is the shared library itself — scaffold in-repo. Phase 2 is trivial.
 ```
 
-**SCAFFOLD (delegated to `initialize-harness-project`):**
+**SCAFFOLD (delegated to `harness-initialize-project`):**
 
 ```bash
 harness init --level intermediate --language typescript
@@ -334,7 +334,7 @@ npx eslint 'src/**/*.ts'  # Pass
 
 # Prove the guards fire: insert a sibling-domain import, eslint reports it, revert.
 
-# Hand back to initialize-harness-project:
+# Hand back to harness-initialize-project:
 harness scan         # Builds .harness/graph/
 git commit -m "feat: initialize harness project at intermediate level for shared API test library"
 ```
@@ -365,7 +365,7 @@ Shared library exists → consume it. Layer variant B (shared-library consumer).
 Do NOT scaffold src/api/. Record decision in AGENTS.md.
 ```
 
-**SCAFFOLD (delegated to `initialize-harness-project`):**
+**SCAFFOLD (delegated to `harness-initialize-project`):**
 
 ```bash
 harness init --level intermediate --language typescript
@@ -457,7 +457,7 @@ npm run smoke        # Sanity: runs only @smoke-tagged specs
 npx eslint tests/challenges/create.spec.ts  # Should report violation
 # revert, confirm green
 
-# Hand back to initialize-harness-project:
+# Hand back to harness-initialize-project:
 git commit -m "feat: initialize harness project at intermediate level for Playwright API suite"
 ```
 

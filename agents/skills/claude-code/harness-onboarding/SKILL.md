@@ -8,8 +8,8 @@
 - Resuming work on a project after extended time away and needing to re-orient
 - When `on_project_init` triggers fire in an existing project (agent starting a new session)
 - When someone asks "how does this project work?" or "where do I start?"
-- NOT when initializing a new project (use initialize-harness-project)
-- NOT when the project has no harness configuration (onboard to harness first with initialize-harness-project)
+- NOT when initializing a new project (use harness-initialize-project)
+- NOT when the project has no harness configuration (onboard to harness first with harness-initialize-project)
 - NOT when deep-diving into a specific module (use standard code exploration — onboarding gives the big picture)
 
 ## Process
@@ -285,7 +285,7 @@ Getting Started:
 1. Run npm install && npm test to verify the project builds and tests pass
 2. Read AGENTS.md for project context and conventions
 3. Consider migrating to intermediate level to add layer boundaries
-   (use initialize-harness-project to upgrade)
+   (use harness-initialize-project to upgrade)
 ```
 
 ## Adoption Maturity

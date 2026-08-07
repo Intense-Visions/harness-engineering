@@ -32,4 +32,4 @@ state:
   persistent: false
   files: []
 depends_on:
-  - initialize-harness-project
+  - harness-initialize-project

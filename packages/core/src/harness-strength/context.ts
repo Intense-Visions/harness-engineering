@@ -267,7 +267,7 @@ function readTemplates(root: string): { path: string; text: string }[] {
 /** Toolkit-only: the init skill's SKILL.md text, or null. */
 function readInitSkill(root: string): string | null {
   return readTextOrNull(
-    join(root, 'agents', 'skills', 'claude-code', 'initialize-harness-project', 'SKILL.md')
+    join(root, 'agents', 'skills', 'claude-code', 'harness-initialize-project', 'SKILL.md')
   );
 }
 

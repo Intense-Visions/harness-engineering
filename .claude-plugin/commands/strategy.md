@@ -1,6 +1,6 @@
 ---
 name: harness:strategy
-description: First-run interview and update flow for STRATEGY.md — the durable upstream product anchor read by harness-brainstorming, harness-ideate, and harness-roadmap-pilot. Enforces three pushback rules (fluff, goal-as-strategy, feature-list-as-strategy) with a 2-round-per-section cap. Phase 2 ships the skill; downstream wiring (init, brainstorming, roadmap-pilot, ideate, knowledge graph) ships in spec Phases 3-7.
+description: First-run interview and update flow for STRATEGY.md — the durable upstream product anchor read by harness-brainstorming, harness-ideate, and harness-roadmap-pilot. Enforces three pushback rules (fluff, goal-as-strategy, feature-list-as-strategy) with a 2-round-per-section cap. Downstream skills (init, brainstorming, roadmap-pilot, ideate, knowledge graph) consume STRATEGY.md as grounding.
 allowed-tools:
   - Bash
   - Read
@@ -19,7 +19,7 @@ State: persistent (files: STRATEGY.md, STRATEGY.md.bak)
 </context>
 
 <objective>
-First-run interview and update flow for STRATEGY.md — the durable upstream product anchor read by harness-brainstorming, harness-ideate, and harness-roadmap-pilot. Enforces three pushback rules (fluff, goal-as-strategy, feature-list-as-strategy) with a 2-round-per-section cap. Phase 2 ships the skill; downstream wiring (init, brainstorming, roadmap-pilot, ideate, knowledge graph) ships in spec Phases 3-7.
+First-run interview and update flow for STRATEGY.md — the durable upstream product anchor read by harness-brainstorming, harness-ideate, and harness-roadmap-pilot. Enforces three pushback rules (fluff, goal-as-strategy, feature-list-as-strategy) with a 2-round-per-section cap. Downstream skills (init, brainstorming, roadmap-pilot, ideate, knowledge graph) consume STRATEGY.md as grounding.
 
 Phases:
 

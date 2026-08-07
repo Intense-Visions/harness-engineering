@@ -5,6 +5,7 @@ import {
   Layers,
   Code,
   Zap,
+  Anchor,
   ChevronRight,
   type LucideIcon,
 } from 'lucide-react';
@@ -50,6 +51,15 @@ export function SkillCard({ skill, onClick }: Props) {
           <h4 className="text-xs font-semibold text-white group-hover:text-primary-300 transition-colors">
             {skill.name}
           </h4>
+          {skill.loadBearing && (
+            <span
+              className="inline-flex items-center gap-0.5 rounded px-1 py-px text-[8px] font-black uppercase tracking-[0.12em] text-primary-300 bg-primary-400/10 border border-primary-400/20"
+              title="Load-bearing gear (Tier-0) — core workflow skill"
+            >
+              <Anchor size={8} />
+              Tier-0
+            </span>
+          )}
           <span className="text-[9px] font-mono text-neutral-muted/30 hidden sm:inline">
             {skill.slashCommand}
           </span>
