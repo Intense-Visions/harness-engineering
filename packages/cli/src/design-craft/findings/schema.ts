@@ -25,6 +25,7 @@
 // reference these types directly, so we both import and re-export.
 import type { Tier, Impact, Confidence } from '../../shared/craft/findings/axes.js';
 export type { Tier, Impact, Confidence };
+import type { ResponsiveGateResult } from '../../responsive/index.js';
 
 /**
  * Which phase emitted the finding.
@@ -144,23 +145,35 @@ export interface AwardBarDimension {
  * forces `indeterminate` — a high score the model is unsure about must never
  * certify award tier.
  *
- * SCOPE — desktop aesthetic clearance, NOT a mobile/responsiveness gate.
- * The five radar dimensions are aesthetic (philosophical coherence, hierarchy,
- * craft execution, function, innovation); none evaluates responsive layout or
- * mobile behavior. A page can clear every dimension while carrying award-tier-
- * fatal mobile defects (e.g. a nav that `display:none`s to nothing with no
- * hamburger, or horizontal overflow). Downstream MUST NOT read
- * `verdict: 'cleared'` as "ship-ready on mobile." A dedicated `responsive`
- * dimension is a named future increment, gated on mobile exemplars existing to
- * calibrate against (ADR 0084 Consequences).
+ * SCOPE — the five radar dimensions are aesthetic (philosophical coherence,
+ * hierarchy, craft execution, function, innovation) and certify DESKTOP craft.
+ * Mobile/responsive behavior is NOT judged by the radar — it is enforced by a
+ * separate mechanical gate (`responsive`, ADR 0085): a page with detectable
+ * mobile defects (a nav that `display:none`s with no hamburger, horizontal
+ * overflow) can never be `cleared`. What `verdict: 'cleared'` means therefore
+ * depends on `responsive.status`:
+ *   - `responsive.status === 'clean'`  → desktop aesthetic AND mobile-clean.
+ *   - `responsive.status === 'not-evaluated'` → desktop aesthetic ONLY; mobile
+ *     was not checked. Downstream MUST NOT read `cleared` as "ship-ready on
+ *     mobile" in this case (set `responsive.require` to force `indeterminate`
+ *     instead of a mobile-blind `cleared`).
+ * A `defective` responsive gate forces `not-cleared` regardless of the radar.
  */
 export interface AwardBar {
   verdict: AwardVerdict;
   dimensions: Record<RadarDimensionName, AwardBarDimension>;
   /** Dimensions whose score fell below floor ([] when the verdict is `cleared`). */
   shortfalls: RadarDimensionName[];
-  /** Why the verdict is `indeterminate` (e.g. `low-confidence`), when applicable. */
+  /**
+   * Why the verdict is `indeterminate` / `not-cleared`, when applicable:
+   * `low-confidence`, `responsive-defects`, or `responsive-not-evaluated`.
+   */
   reason?: string;
+  /**
+   * Mechanical responsive gate (ADR 0085). `not-evaluated` when no mobile
+   * layout metrics were supplied. A `defective` gate vetoes `cleared`.
+   */
+  responsive: ResponsiveGateResult;
 }
 
 /**

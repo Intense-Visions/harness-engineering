@@ -173,6 +173,45 @@ describe('design-craft BENCHMARK phase', () => {
 
     expect(scores).toEqual([]);
   });
+
+  it('vetoes the aesthetic verdict when responsive metrics show a mobile defect', async () => {
+    const provider = new MockLlmProvider([
+      { promptIncludes: 'EmptyInbox', response: buildRadarResponse() },
+    ]);
+    const [score] = await runBenchmark({
+      targets: [target],
+      exemplars: [linearEmptyListExemplar],
+      provider,
+      responsive: {
+        metrics: [
+          {
+            file: target.file,
+            viewport: 390,
+            documentScrollWidth: 437,
+            viewportWidth: 390,
+            primaryNavVisible: true,
+            menuToggleVisible: false,
+          },
+        ],
+      },
+    });
+    expect(score.awardBar.responsive.status).toBe('defective');
+    expect(score.awardBar.responsive.defects.map((d) => d.kind)).toContain('horizontal-overflow');
+    expect(score.awardBar.verdict).toBe('not-cleared');
+    expect(score.awardBar.reason).toBe('responsive-defects');
+  });
+
+  it('leaves the responsive gate not-evaluated when no metrics are supplied', async () => {
+    const provider = new MockLlmProvider([
+      { promptIncludes: 'EmptyInbox', response: buildRadarResponse() },
+    ]);
+    const [score] = await runBenchmark({
+      targets: [target],
+      exemplars: [linearEmptyListExemplar],
+      provider,
+    });
+    expect(score.awardBar.responsive.status).toBe('not-evaluated');
+  });
 });
 
 describe('design-craft MCP handler — BENCHMARK phase wiring', () => {
@@ -197,6 +236,16 @@ describe('design-craft MCP handler — BENCHMARK phase wiring', () => {
           componentType: 'EmptyState',
         },
       ],
+      responsiveMetrics: [
+        {
+          file: fixturePath,
+          viewport: 390,
+          documentScrollWidth: 465,
+          viewportWidth: 390,
+          primaryNavVisible: false,
+          menuToggleVisible: false,
+        },
+      ],
       __testProvider: provider,
     });
 
@@ -210,6 +259,8 @@ describe('design-craft MCP handler — BENCHMARK phase wiring', () => {
           verdict: string;
           dimensions: Record<string, { score: number; floor: number; cleared: boolean }>;
           shortfalls: string[];
+          reason?: string;
+          responsive: { status: string; defects: Array<{ kind: string }> };
         };
       }>;
       summary: {
@@ -241,6 +292,15 @@ describe('design-craft MCP handler — BENCHMARK phase wiring', () => {
       'innovation',
       'philosophicalCoherence',
     ]);
+    // Responsive gate survives the MCP JSON round-trip; the supplied metrics
+    // (overflow + unreachable nav) make it defective, vetoing the verdict.
+    expect(payload.scores[0].awardBar.responsive.status).toBe('defective');
+    expect(payload.scores[0].awardBar.responsive.defects.map((d) => d.kind).sort()).toEqual([
+      'horizontal-overflow',
+      'unreachable-nav',
+    ]);
+    expect(payload.scores[0].awardBar.verdict).toBe('not-cleared');
+    expect(payload.scores[0].awardBar.reason).toBe('responsive-defects');
     expect(payload.summary.phaseRun).toEqual(['benchmark']);
     expect(payload.summary.catalog.exemplarsCited).toEqual([
       'exemplar-linear-empty-list',
