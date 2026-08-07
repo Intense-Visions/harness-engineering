@@ -232,6 +232,11 @@ export * from './skills';
 export * from './accessibility';
 
 /**
+ * Deployment module.
+ */
+export * from './deployment';
+
+/**
  * Golden module.
  */
 export * from './golden';

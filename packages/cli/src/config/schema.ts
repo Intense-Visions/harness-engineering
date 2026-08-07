@@ -526,6 +526,21 @@ export const VocabularyConfigSchema = z.object({
 });
 
 /**
+ * Schema for the enforcing pre/post-deploy gate (`harness check-deployment`).
+ *
+ * Structurally compatible with the core engine's `DeploymentGateConfig` interface.
+ * `rules` overrides a rule's severity: `'off'` downgrades a HARD rule to advisory
+ * — except DEPLOY-SEC001, which the engine treats as non-waivable (D4).
+ */
+export const DeploymentGateConfigSchema = z.object({
+  /** Master switch. Default true; `false` short-circuits the gate to SUCCESS with an opt-out note. */
+  enabled: z.boolean().default(true),
+  /** Per-code severity override. 'off' downgrades a HARD rule to advisory.
+   *  DEPLOY-SEC001 ignores 'off' (non-waivable, D4). */
+  rules: z.record(z.string(), z.enum(['error', 'warn', 'off'])).optional(),
+});
+
+/**
  * The main Harness configuration schema.
  */
 /**
@@ -1016,6 +1031,8 @@ export const HarnessConfigSchema = z.object({
   roadmap: RoadmapConfigSchema.optional(),
   /** Post-ship rollback circuit-breaker settings (signal arm live, eval arm dark). */
   rollback: RollbackConfigSchema.optional(),
+  /** Enforcing pre/post-deploy gate settings (`harness check-deployment`). */
+  deployment: DeploymentGateConfigSchema.optional(),
   /** Knowledge-pipeline domain-inference settings */
   knowledge: KnowledgeConfigSchema.optional(),
   /** Adoption telemetry settings */
@@ -1132,6 +1149,11 @@ export type KnowledgeConfig = z.infer<typeof KnowledgeConfigSchema>;
  * Type for rollback circuit-breaker configuration.
  */
 export type RollbackConfig = z.infer<typeof RollbackConfigSchema>;
+
+/**
+ * Type for the enforcing deployment-gate configuration.
+ */
+export type DeploymentGateConfig = z.infer<typeof DeploymentGateConfigSchema>;
 
 /**
  * Type for telemetry block configuration (PostHog opt-in + OTLP export).
