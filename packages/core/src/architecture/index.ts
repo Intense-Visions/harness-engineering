@@ -57,6 +57,7 @@ export type { StaleConstraint, DetectStaleResult } from './detect-stale';
 export { ArchBaselineManager } from './baseline-manager';
 export {
   resolveArchBaseline,
+  isWholeSnapshotContext,
   ArchAllowanceSchema,
   archAllowancesDir,
   loadArchAllowances,
@@ -66,6 +67,7 @@ export {
 } from './baseline-resolver';
 export type {
   ArchBaselineSource,
+  ArchBaselineFallback,
   ArchBaselineResolution,
   ResolveArchBaselineOptions,
   ArchAllowance,

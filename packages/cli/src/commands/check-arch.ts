@@ -8,6 +8,7 @@ import {
   runAll,
   diff,
   resolveArchBaseline,
+  isWholeSnapshotContext,
   loadArchAllowances,
   filterDiffByAllowances,
   writeArchAllowance,
@@ -362,7 +363,22 @@ export async function runCheckArch(
     if (resolution.source === 'base-ref' && resolution.baseline) {
       return writeAllowanceUpdate(cwd, archConfig, results, resolution.baseline, options.reason);
     }
-    // On the base branch / non-git: keep the whole-snapshot behavior (single-writer trunk).
+    // Feature-branch SAFETY NET: the base ref was EXPECTED but unreadable (unfetched worktree,
+    // shallow clone, or an unreadable base copy) AND this branch already has a committed
+    // baseline. Falling through to `wholeSnapshotUpdate` here would REWRITE that shared snapshot
+    // on the branch — silently reintroducing the exact `baselines.json` merge cascade #1140
+    // exists to prevent. So acknowledge against the working-tree baseline via an allowance
+    // instead; the snapshot stays byte-identical. Only the legitimate single-writer contexts
+    // (base branch / non-git / HARNESS_ARCH_FORCE_WORKING_TREE / a genuine bootstrap where the
+    // base has no baseline) still reach the whole-snapshot path below.
+    if (
+      !isWholeSnapshotContext(resolution) &&
+      resolution.source === 'working-tree' &&
+      resolution.baseline
+    ) {
+      return writeAllowanceUpdate(cwd, archConfig, results, resolution.baseline, options.reason);
+    }
+    // Base branch / non-git / forced / genuine bootstrap: whole-snapshot (single-writer trunk).
     return wholeSnapshotUpdate(cwd, archConfig, results, manager, options);
   }
 

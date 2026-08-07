@@ -75,6 +75,24 @@ function baseBranchName(baseRef: string): string {
 
 export type ArchBaselineSource = 'base-ref' | 'working-tree' | 'none';
 
+/**
+ * WHY a resolution did NOT use the base ref. Only set when `source !== 'base-ref'`. This is
+ * what lets the `--update-baseline` WRITE path tell apart the LEGITIMATE single-writer
+ * whole-snapshot contexts (`forced` / `non-git` / `base-branch`) — where rewriting the
+ * committed snapshot is correct — from a FEATURE-BRANCH context where the base ref was merely
+ * unreadable (`base-ref-unreachable` / `base-ref-invalid`). In the latter case rewriting the
+ * shared snapshot on a branch silently reintroduces the `baselines.json` merge cascade, so the
+ * WRITE path must acknowledge via an allowance instead. `base-ref-absent` means the base branch
+ * has no baseline at all (a genuine bootstrap), where a whole-snapshot CREATE is safe.
+ */
+export type ArchBaselineFallback =
+  | 'forced'
+  | 'non-git'
+  | 'base-branch'
+  | 'base-ref-unreachable'
+  | 'base-ref-absent'
+  | 'base-ref-invalid';
+
 export interface ArchBaselineResolution {
   /** The baseline to gate against (null when neither base nor working-tree file exists). */
   baseline: ArchBaseline | null;
@@ -82,6 +100,8 @@ export interface ArchBaselineResolution {
   source: ArchBaselineSource;
   /** The ref used when `source === 'base-ref'`. */
   baseRef?: string;
+  /** Why the base ref was NOT used (set only when `source !== 'base-ref'`); see the type doc. */
+  fallback?: ArchBaselineFallback;
 }
 
 export interface ResolveArchBaselineOptions {
@@ -103,9 +123,9 @@ export function resolveArchBaseline(
   manager: Pick<ArchBaselineManager, 'load'>,
   options?: ResolveArchBaselineOptions
 ): ArchBaselineResolution {
-  const workingTree = (): ArchBaselineResolution => {
+  const workingTree = (fallback: ArchBaselineFallback): ArchBaselineResolution => {
     const baseline = manager.load();
-    return { baseline, source: baseline ? 'working-tree' : 'none' };
+    return { baseline, source: baseline ? 'working-tree' : 'none', fallback };
   };
 
   // Escape hatch for the authoritative post-merge `refresh-baselines` job (and any other
@@ -116,22 +136,23 @@ export function resolveArchBaseline(
   // `--update-baseline` write an ALLOWANCE instead of advancing the snapshot — which would
   // never fold merged allowances in (an allowance treadmill). This env pins it to today's
   // whole-snapshot behavior so the refresh job always advances the authoritative baseline.
-  if (process.env.HARNESS_ARCH_FORCE_WORKING_TREE) return workingTree();
+  if (process.env.HARNESS_ARCH_FORCE_WORKING_TREE) return workingTree('forced');
 
   const baseRef = options?.baseRef ?? process.env.HARNESS_ARCH_BASE_REF ?? DEFAULT_BASE_REF;
 
   // Not a git repo → nothing to diff against; use the working-tree file.
-  if (git(projectRoot, ['rev-parse', '--is-inside-work-tree']) !== 'true') return workingTree();
+  if (git(projectRoot, ['rev-parse', '--is-inside-work-tree']) !== 'true')
+    return workingTree('non-git');
 
   // On the base branch itself (e.g. `main`) the working-tree file is authoritative — the
   // base ref may lag HEAD after a just-merged advance, so diffing against it could report
   // a phantom regression. This preserves today's behavior on main.
   const branch = git(projectRoot, ['rev-parse', '--abbrev-ref', 'HEAD']);
-  if (branch === baseBranchName(baseRef)) return workingTree();
+  if (branch === baseBranchName(baseRef)) return workingTree('base-branch');
 
-  // Base ref unreachable (fresh shallow clone, no remote) → fall back.
+  // Base ref unreachable (fresh shallow clone, no remote, unfetched worktree) → fall back.
   if (git(projectRoot, ['rev-parse', '--verify', '--quiet', baseRef]) === null) {
-    return workingTree();
+    return workingTree('base-ref-unreachable');
   }
 
   // `git show` needs a repo-root-relative path; `baselinePath` is relative to projectRoot,
@@ -139,11 +160,40 @@ export function resolveArchBaseline(
   const prefix = git(projectRoot, ['rev-parse', '--show-prefix']) ?? '';
   const gitPath = (prefix + baselinePath).replace(/\\/g, '/');
   const raw = git(projectRoot, ['show', `${baseRef}:${gitPath}`]);
-  if (raw === null) return workingTree(); // absent on base (new project) → fall back
+  if (raw === null) return workingTree('base-ref-absent'); // absent on base (new project) → fall back
   const baseline = parseBaseline(raw);
-  if (!baseline) return workingTree(); // unparseable on base → fail-open
+  if (!baseline) return workingTree('base-ref-invalid'); // unparseable on base → fail-open
 
   return { baseline, source: 'base-ref', baseRef };
+}
+
+/**
+ * Whether a resolution is a LEGITIMATE single-writer whole-snapshot context — the ONLY
+ * contexts in which `--update-baseline` may REWRITE the committed `baselines.json`:
+ *
+ *   - `base-branch`  — on the trunk itself; the working-tree file is authoritative.
+ *   - `non-git`      — nothing to diff against a base.
+ *   - `forced`       — `HARNESS_ARCH_FORCE_WORKING_TREE` (the post-merge refresh-baselines job).
+ *   - `base-ref-absent` — the base branch has NO baseline, so a whole-snapshot CREATE cannot
+ *     conflict with anything (a genuine bootstrap).
+ *
+ * A `base-ref` resolution is a PR context (allowance-write), never whole-snapshot. Crucially, a
+ * FEATURE branch whose base ref was merely UNREADABLE (`base-ref-unreachable` — unfetched
+ * worktree / shallow clone — or `base-ref-invalid`) is NOT a whole-snapshot context: rewriting
+ * the shared snapshot there silently reintroduces the `baselines.json` merge cascade #1140
+ * exists to prevent. Such a branch must acknowledge via an allowance instead.
+ */
+export function isWholeSnapshotContext(resolution: ArchBaselineResolution): boolean {
+  if (resolution.source === 'base-ref') return false;
+  switch (resolution.fallback) {
+    case 'forced':
+    case 'non-git':
+    case 'base-branch':
+    case 'base-ref-absent':
+      return true;
+    default:
+      return false;
+  }
 }
 
 // --- Per-PR allowance files -------------------------------------------------
