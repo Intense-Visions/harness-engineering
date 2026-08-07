@@ -76,14 +76,24 @@ export async function checkDocCoverage(
     // analyzer's DEFAULT_INCLUDE_PATTERNS.
     const sourceFiles = await findFiles('**/*.{ts,js,tsx,jsx,mjs,cjs}', sourceDir);
 
-    // Filter out excluded patterns
+    // Filter out excluded patterns.
+    //
+    // Match the skip-dir/exclude globs ONLY against the scan-root-relative
+    // path — never the absolute path. `findFiles` returns absolute paths, and
+    // matching an exclude glob like `**/.claude/**` against an absolute path
+    // self-excludes every file whenever the checkout's own path prefix
+    // contains that segment (e.g. an `isolation: worktree` agent whose
+    // checkout lives under `<repo>/.claude/worktrees/<agent>/`). That drove
+    // the denominator to zero and, since #1165 made a zero denominator a loud
+    // failure, produced deterministic false "stale docs" failures for those
+    // checkouts. Anchoring to the relative path keeps the intended behavior —
+    // a `.claude/` (or any skip) dir that genuinely lives INSIDE the scanned
+    // tree still matches via its relative path and is excluded — while the
+    // checkout's path prefix can no longer self-match. (`snapshot.ts` already
+    // filters relative-only for the same reason.)
     const filteredSourceFiles = sourceFiles.filter((file) => {
       const relativePath = relativePosix(sourceDir, file);
-      return !excludePatterns.some((pattern) => {
-        return (
-          minimatch(relativePath, pattern, { dot: true }) || minimatch(file, pattern, { dot: true })
-        );
-      });
+      return !excludePatterns.some((pattern) => minimatch(relativePath, pattern, { dot: true }));
     });
 
     // Find all documentation files
