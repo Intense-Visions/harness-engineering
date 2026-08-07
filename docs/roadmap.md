@@ -873,7 +873,7 @@ last_manual_edit: 2026-06-27T12:51:51.967Z
 ### Extend enforcement past ship (deployment + operations)
 
 - **Status:** planned
-- **Spec:** —
+- **Spec:** docs/changes/enforcing-deploy-gate/proposal.md
 - **Summary:** **Priority: NEXT.** Upgrade `harness-deployment` from Tier-3 advisory to enforcing, and add an operations skill that pulls production signals (incidents, monitoring) back into the knowledge graph. Today the lifecycle stops enforcing the moment code ships; this extends the constraint loop past release. --- _Part of the **Full-lifecycle reach** track (STRATEGY.md v2). Rationale: `docs/knowledge/skills/sdlc-coverage-and-agentic-trajectory.md`._
 - **Blockers:** —
 - **Plan:** —
