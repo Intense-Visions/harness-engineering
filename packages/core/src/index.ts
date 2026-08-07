@@ -282,6 +282,11 @@ export * from './proposals';
 export * from './pulse';
 
 /**
+ * Rehearsal module.
+ */
+export * from './rehearsal';
+
+/**
  * Solutions module.
  */
 export * from './solutions';

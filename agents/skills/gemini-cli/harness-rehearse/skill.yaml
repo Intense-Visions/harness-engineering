@@ -1,0 +1,78 @@
+name: harness-rehearse
+version: '0.1.0'
+description: >-
+  Rehearse an agent against a deliberately-broken fixture and score how well it
+  recovers. Picks a fixture from templates/rehearsal-fixtures/ (each plants one
+  failure mode a real harness check catches — leaked secret, layer violation,
+  dependency cycle, broken doc link), copies it into a scratch workspace, has the
+  agent detect and repair the planted defect, assembles a structured recovery
+  record, and runs `harness rehearse score` for a deterministic 0-100 score and
+  pass/partial/fail tier across four dimensions (detected, correctCheck, fixed,
+  noCollateral). Used to train personas before production trust and to
+  regression-test the harness's own gates against known failure shapes.
+stability: draft
+cognitive_mode: constructive-architect
+triggers:
+  - manual
+  - on_milestone
+platforms:
+  - claude-code
+  - gemini-cli
+  - cursor
+  - codex
+tools:
+  - Bash
+  - Read
+  - Write
+  - Edit
+  - Grep
+  - Glob
+cli:
+  command: harness rehearse
+  args:
+    - name: fixture
+      description: Fixture id to rehearse/score against (see `harness rehearse list`)
+      required: false
+    - name: recovery
+      description: Path to the JSON recovery record for `harness rehearse score`
+      required: false
+    - name: report-only
+      description: Always exit 0 from `score`, even on a fail-tier result
+      required: false
+mcp:
+  tool: run_skill
+  input:
+    skill: harness-rehearse
+    path: string
+type: rigid
+tier: 2
+phases:
+  - name: select
+    description: Run `harness rehearse list` and pick a fixture; read its manifest via `harness rehearse show <id>`
+    required: true
+  - name: stage
+    description: Copy the fixture directory into an isolated scratch workspace so the repo under test is untouched
+    required: true
+  - name: recover
+    description: In the scratch copy, detect the planted defect, reach for the fixture's expected harness check, and repair it without breaking siblings
+    required: true
+  - name: record
+    description: Assemble a structured recovery record (detected, identifiedFailureMode, checkCited, fixed, collateralDamage)
+    required: true
+  - name: score
+    description: Run `harness rehearse score --fixture <id> --recovery <record.json>`; report the 0-100 score, tier, and per-dimension breakdown
+    required: true
+state:
+  persistent: false
+  files: []
+depends_on: []
+capabilities:
+  tools:
+    - Bash
+    - Read
+    - Write
+    - Edit
+    - Grep
+    - Glob
+  network: false
+  filesystem: read-write

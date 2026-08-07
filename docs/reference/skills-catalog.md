@@ -2,7 +2,7 @@
 
 # Skills Catalog
 
-774 skills. Skills carry two independent tier axes: a **loading tier** (whether a skill registers as a slash command or is discovered on demand) and a **curation tier** (how load-bearing it is). A senior engineer can hold ~12 skills in their head, not hundreds — the curation tier names that short list.
+775 skills. Skills carry two independent tier axes: a **loading tier** (whether a skill registers as a slash command or is discovered on demand) and a **curation tier** (how load-bearing it is). A senior engineer can hold ~12 skills in their head, not hundreds — the curation tier names that short list.
 
 See the [Features Overview](../guides/features-overview.md) for narrative documentation.
 
@@ -200,7 +200,7 @@ Human-judged acceptance sign-off skill — the terminal, human-authority stage o
 - **Cognitive mode:** configuration-interviewer
 - **Depends on:** outcome-eval
 
-## Tier 2 — Maintenance (53 skills)
+## Tier 2 — Maintenance (54 skills)
 
 ### acceptance-eval
 
@@ -525,6 +525,15 @@ First-run pulse interview. Converts intent into a validated pulse config with SM
 - **Platforms:** claude-code, gemini-cli, cursor, codex
 - **Type:** rigid
 - **Cognitive mode:** configuration-interviewer
+
+### harness-rehearse
+
+Rehearse an agent against a deliberately-broken fixture and score how well it recovers. Picks a fixture from templates/rehearsal-fixtures/ (each plants one failure mode a real harness check catches — leaked secret, layer violation, dependency cycle, broken doc link), copies it into a scratch workspace, has the agent detect and repair the planted defect, assembles a structured recovery record, and runs `harness rehearse score` for a deterministic 0-100 score and pass/partial/fail tier across four dimensions (detected, correctCheck, fixed, noCollateral). Used to train personas before production trust and to regression-test the harness's own gates against known failure shapes.
+
+- **Triggers:** manual, on_milestone
+- **Platforms:** claude-code, gemini-cli, cursor, codex
+- **Type:** rigid
+- **Cognitive mode:** constructive-architect
 
 ### harness-release-readiness
 

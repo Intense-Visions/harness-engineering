@@ -1329,6 +1329,28 @@ Run a pulse: query configured adapters, sanitize, assemble single-page report
 - `--config` — Path to harness.config.json (default: "harness.config.json")
 - `--output-dir` — Directory to write the report into (default: "docs/pulse-reports")
 
+## Rehearse Commands
+
+Rehearse an agent against a deliberately-broken fixture and score how well it recovers
+
+### `harness rehearse list`
+
+List the available rehearsal fixtures and their planted failure modes
+
+### `harness rehearse score`
+
+Score a recovery attempt against a fixture (0-100 + pass/partial/fail tier)
+
+**Options:**
+
+- `--fixture` — Fixture id to score against
+- `--recovery` — Path to a JSON recovery record
+- `--report-only` — Always exit 0, even on a fail-tier score
+
+### `harness rehearse show <fixture-id>`
+
+Print one fixture manifest: what was planted, the expected fix, and the rubric
+
 ## Roadmap Commands
 
 Roadmap management

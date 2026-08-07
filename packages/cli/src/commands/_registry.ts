@@ -73,6 +73,7 @@ import { createProposalsCommand } from './proposals';
 import { createPublishAnalysesCommand } from './publish-analyses';
 import { createPulseCommand } from './pulse';
 import { createRecommendCommand } from './recommend';
+import { createRehearseCommand } from './rehearse';
 import { createReviewCiCommand } from './review-ci';
 import { createRoadmapCommand } from './roadmap';
 import { createRollbackCommand } from './rollback';
@@ -177,6 +178,7 @@ export const commandCreators: Array<() => Command> = [
   createPublishAnalysesCommand,
   createPulseCommand,
   createRecommendCommand,
+  createRehearseCommand,
   createReviewCiCommand,
   createRoadmapCommand,
   createRollbackCommand,
