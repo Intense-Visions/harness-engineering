@@ -58,3 +58,19 @@ indeterminate`) — to every `BenchmarkScore`, computed by a pure function
   benchmark-score report surface is introduced.
 - CRAFT_SCORE graph-node authoring is still unimplemented; when it lands,
   `awardBar.verdict` should become a queryable attribute on the node.
+- **Scope boundary: desktop aesthetic clearance, not a mobile/responsiveness
+  gate.** The five radar dimensions are aesthetic; none evaluates responsive
+  layout or mobile behavior. Consuming-side evidence (the `iv-demo` fleet
+  audit) confirmed the hazard: ~10 of 14 demos carried award-tier-fatal mobile
+  defects — a nav that `display:none`d to nothing with no hamburger, 21–75px of
+  horizontal overflow — and every one would clear all five current dimensions.
+  So `verdict: 'cleared'` certifies desktop aesthetic quality only and MUST NOT
+  be read as "ship-ready on mobile." The schema and SKILL docs state this
+  explicitly so downstream agents do not over-read `cleared`.
+- **Future increment: a `responsive` dimension.** The fuller fix is a sixth
+  radar dimension (or a parallel responsive gate) folded into the floor
+  computation. It is deferred, not declined, and is gated on mobile exemplars
+  existing to calibrate against — adding a responsive axis with no calibrated
+  exemplar references would fabricate a bar rather than derive one, violating
+  the exemplar-relative principle (D2). Revisit once the corpus carries
+  mobile-audited exemplars.

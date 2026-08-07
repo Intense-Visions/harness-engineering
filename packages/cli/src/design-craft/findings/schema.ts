@@ -143,6 +143,16 @@ export interface AwardBarDimension {
  * (ADR 0019). Any dimension whose confidence is below the configured floor
  * forces `indeterminate` — a high score the model is unsure about must never
  * certify award tier.
+ *
+ * SCOPE — desktop aesthetic clearance, NOT a mobile/responsiveness gate.
+ * The five radar dimensions are aesthetic (philosophical coherence, hierarchy,
+ * craft execution, function, innovation); none evaluates responsive layout or
+ * mobile behavior. A page can clear every dimension while carrying award-tier-
+ * fatal mobile defects (e.g. a nav that `display:none`s to nothing with no
+ * hamburger, or horizontal overflow). Downstream MUST NOT read
+ * `verdict: 'cleared'` as "ship-ready on mobile." A dedicated `responsive`
+ * dimension is a named future increment, gated on mobile exemplars existing to
+ * calibrate against (ADR 0084 Consequences).
  */
 export interface AwardBar {
   verdict: AwardVerdict;

@@ -15,6 +15,8 @@ Two clarifications ground this spec:
 
 **Non-goals (YAGNI):** no changes to how the radar itself is scored; no new exemplars; no vision-mode changes; no graph-node authoring (deferred — CRAFT_SCORE node writing is not yet implemented; awardBar rides along when it lands).
 
+**Scope boundary (added post-review):** `awardBar` certifies **desktop aesthetic clearance** across the five aesthetic radar dimensions — it is explicitly **not** a mobile/responsiveness gate. Consuming-side evidence (the `iv-demo` fleet audit) showed pages that clear all five dimensions while carrying award-tier-fatal mobile defects (nav `display:none` with no hamburger; horizontal overflow). A dedicated `responsive` dimension is deferred, not declined — gated on mobile exemplars existing to calibrate against (adding an uncalibrated axis would fabricate a bar, violating D2). Scoped in the schema type + SKILL docs so downstream agents never read `cleared` as "ship-ready on mobile."
+
 **Strategy grounding:** advances the **Ceiling-raising via LLM judgment** track (`STRATEGY.md#tracks`) — a TS-derived verdict over an LLM score, the same authority-in-TS pattern `outcome-eval`/`acceptance-eval` already use (authority in TS, never the LLM).
 
 ## Decisions made
