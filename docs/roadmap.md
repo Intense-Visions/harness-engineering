@@ -220,6 +220,17 @@ last_manual_edit: 2026-06-27T12:51:51.967Z
 - **Priority:** P1
 - **External-ID:** github:Intense-Visions/harness-engineering#849
 
+### PR Queue Triage & Merge Assistant Skill
+
+- **Status:** planned
+- **Spec:** —
+- **Summary:** A skill to help teams stay on top of a large PR backlog in busy projects — triage/sort the open-PR list by risk & readiness, surface what needs review vs. what is mergeable, and assist with review and merge to cut the manual sorting effort.
+- **Blockers:** —
+- **Plan:** —
+- **Assignee:** —
+- **Priority:** —
+- **External-ID:** github:Intense-Visions/harness-engineering#1186
+
 ### Curate which MCP-server tools the local agent sees (per-server tool allowlist)
 
 - **Status:** in-progress
