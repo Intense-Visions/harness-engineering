@@ -1,0 +1,8 @@
+{
+  "name": "harness-antigravity",
+  "version": "0.1.0",
+  "description": "Harness for Antigravity CLI (agy) — /harness:* slash commands, persona agents (~/.gemini/agents/*.md), and the harness MCP server. Shares the ~/.gemini/ root with Gemini CLI but is a distinct target: agy reads persona agents and MCP from locations gemini-cli does not. Sibling plugins exist for Claude Code, Cursor, Gemini CLI, and Codex.",
+  "contextFileName": "GEMINI.md",
+  "commands": "./commands/",
+  "agents": "./agents/"
+}
