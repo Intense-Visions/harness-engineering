@@ -173,6 +173,16 @@ Practical workflows showing how to combine MCP tools for common tasks:
 
 **Best for:** AI agents and developers using harness MCP tools in combination
 
+### [Skill-Proposal Loop](./skill-proposal-loop.md)
+
+Operate the opt-in skill-proposal loop: the two emission surfaces
+(`emit_skill_proposal` capture + session-terminus retrospection), the exact
+retrospection gating (env flag + analysis provider), how to activate it locally,
+and the review → soundness-gate → promotion flow. Inspect live posture with
+`harness proposals status`.
+
+**Best for:** Operators enabling and triaging agent-proposed skills
+
 ### [Local Model Lifecycle Manager](./local-model-lifecycle.md)
 
 Enable and operate the local model pool: hardware-aware recommendations,
