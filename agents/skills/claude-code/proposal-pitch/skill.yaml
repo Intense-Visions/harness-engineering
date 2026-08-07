@@ -1,6 +1,6 @@
 name: proposal-pitch
 version: '0.1.0'
-description: The draft-first proposal pipeline — gather the source, agree the page structure before building, render concept stills, publish as drafts only, and close the loop on the source. Composes docs-confluence-publish; enforces drafts-only, render-verify, epistemic-label, and no-customer-data gates. Ships zero company-specific content.
+description: The draft-first proposal pipeline — gather the source, agree the page structure before building, render concept stills, publish as drafts only, and close the loop on the source. Composes the docs-publish contract (resolving a configured provider adapter); enforces drafts-only, render-verify, epistemic-label, and no-customer-data gates. Ships zero company-specific content.
 stability: draft
 cognitive_mode: disciplined-facilitator
 triggers:
@@ -34,7 +34,7 @@ phases:
     description: Agree the page structure with the author BEFORE building anything
     required: true
   - name: render-stills
-    description: Render concept stills, delegating the mechanics to docs-confluence-publish
+    description: Render concept stills, delegating the mechanics to the docs-publish contract
     required: true
   - name: publish-drafts
     description: Publish pages as DRAFTS only; never move a draft to current
@@ -46,4 +46,4 @@ state:
   persistent: false
   files: []
 depends_on:
-  - docs-confluence-publish
+  - docs-publish

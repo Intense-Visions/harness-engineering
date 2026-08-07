@@ -1,15 +1,16 @@
-# Confluence Cloud Publishing Mechanics
+# Confluence Adapter for docs-publish
 
-> Portable, battle-tested recipe for publishing figures and pages to Confluence Cloud — the attachment-upload workaround, ADF media forms, page-tree ops, the draft/publish race, DOM render verification, and deterministic stills. Ships zero company-specific content: every org-specific pointer is read from the shared company-knowledge config contract.
+> The Confluence Cloud adapter implementing the `docs-publish` contract. It maps the contract's four operations — draft, attach-media, verify-render, page-tree — to hard-won Confluence Cloud mechanics: the attachment-upload workaround, ADF media forms, page-tree ops, the draft/publish race, DOM render verification, and deterministic stills. This is one adapter of the contract; a future Notion/GDocs/Markdown adapter would slot in the same way. Ships zero company-specific content: every org-specific pointer is read from the shared company-knowledge config contract.
 
 ## When to Use
 
+- When you are implementing or using the Confluence adapter of the `docs-publish` contract and need the concrete Confluence Cloud mechanics behind each operation.
 - When building or updating a Confluence Cloud page that must carry embedded figures and you need the images to render (not just store).
 - When you hit the Atlassian MCP's missing attachment API and need the proven upload workaround.
-- When another pipeline (for example, a proposal or design-review flow) needs a portable, reusable publishing reference to compose against.
+- When another pipeline (for example, a proposal or design-review flow) resolves this adapter through the `docs-publish` contract and needs its publishing mechanics.
 - When you must verify that a page actually renders correctly — not merely that its stored ADF parsed.
 - NOT when reading or ingesting Confluence content — that is a connector/ingest concern, not publishing.
-- NOT when running the proposal pipeline end to end — use `proposal-pitch`, which composes this skill for the mechanics.
+- NOT when running the proposal pipeline end to end — use `proposal-pitch`, which depends on the `docs-publish` contract that this adapter implements.
 - NOT when publishing a draft to current/live — that promotion is the page owner's explicit click, never this skill's action.
 
 ## Process
@@ -20,16 +21,26 @@
 
 A page whose ADF stored without error can still render broken figures. An attachment whose injection reported success can still be missing. The only trustworthy signals are a `GET` of the actual state and a DOM assertion against the actual render.
 
+**This adapter maps each `docs-publish` contract operation to its Confluence mechanics:**
+
+- **draft** → Confluence draft page semantics and the draft/publish race (Phase 1 PREFLIGHT + Phase 5).
+- **attach-media** → the osascript + FormData attachment recipe and its three traps, confirmed by an authoritative `GET` (Phase 2).
+- **verify-render** → the ADF media-form choice plus the DOM render assertions, including `mediaSingle`-vs-`mediaGroup` counting (Phase 3 + Phase 6).
+- **page-tree** → children under a draft parent, the REST move endpoint for sibling ordering, and `data-local-id` preservation across full-body round-trips (Phase 4).
+- **Deterministic stills** (Phase 7) are this adapter's still-rendering implementation, feeding the figures the contract operations publish and verify.
+
+The contract's cross-cutting invariants (drafts-only, verify-render before "done", authoritative read-back over optimistic success, stored-format correctness is not rendering correctness) are exactly the invariants the phases below enforce with Confluence-specific mechanics.
+
 ---
 
-### Phase 1: PREFLIGHT — Establish a Trustworthy Session and Target
+### Phase 1: PREFLIGHT — Establish a Trustworthy Session and Target (contract op: draft)
 
 1. Confirm a logged-in browser tab is open on the Atlassian origin (the real cloud origin, not a loopback address). The upload recipe relies on that tab's authenticated cookies.
 2. Resolve the target page id from the config contract or from the parent page you are working under. Record it as `<PAGE_ID>`.
 3. Confirm you are operating on a DRAFT. If the target is already current/live, stop — promotion is the owner's decision (see Gates).
 4. Do not proceed until all three are true. A wrong origin, an unknown page id, or an unconfirmed draft state each invalidate every later phase.
 
-### Phase 2: UPLOAD ATTACHMENTS — The osascript + FormData Recipe
+### Phase 2: UPLOAD ATTACHMENTS — The osascript + FormData Recipe (contract op: attach-media)
 
 The Atlassian MCP has **no** attachment API. Use this recipe instead:
 
@@ -53,14 +64,14 @@ Traps to call out explicitly:
 - **(b) Never serve bytes from `127.0.0.1`** — fetches against the loopback IP literal hang silently with no error. Use the real origin (or `localhost` for local serving), never the `127.0.0.1` literal.
 - **(c) Never trust the injecting tab** — verify with a `GET` of the attachments, not by reading the tab you injected into.
 
-### Phase 3: EMIT ADF — media-single, Not media-group
+### Phase 3: EMIT ADF — media-single, Not media-group (contract op: verify-render, figure form)
 
 1. **Always emit `media-single` figures.** A `media-single` node renders as a real inline figure at the intended width.
 2. `media-group` stores without error but renders as cropped attachment cards showing a filename and an upload date — not a figure. It is a silent downgrade.
 3. Document and use the `media-inline` file-chip form when you want an inline attachment chip rather than a figure.
 4. This distinction is **undocumented in the MCP schema** — it was discovered by writing `mediaSingle` ADF and reading it back as HTML. Treat the render, not the schema, as the source of truth.
 
-### Phase 4: PAGE-TREE OPS — Children, Ordering, Round-Trips
+### Phase 4: PAGE-TREE OPS — Children, Ordering, Round-Trips (contract op: page-tree)
 
 1. Create child pages under a DRAFT parent.
 2. Sidebar ordering has **no MCP support** — use the REST move endpoint directly:
@@ -71,13 +82,13 @@ Traps to call out explicitly:
 
 3. When you round-trip a full page body (read → edit → write back), you MUST preserve `data-local-id` on every retained node. Dropping it makes Confluence treat retained nodes as new, which breaks comments, anchors, and ordering.
 
-### Phase 5: HANDLE DRAFT/PUBLISH RACE
+### Phase 5: HANDLE DRAFT/PUBLISH RACE (contract op: draft)
 
 1. A `status: draft` update issued against a page the owner JUST published becomes a **pending edit**, not a new page. Its response tiny-link encodes a different id — that is NOT a fork.
 2. A stale, still-open editor tab that clicks "Update" will clobber your API edits. Confirm no editor tab is mid-edit before writing.
 3. Tiny links resolve only AFTER publish. A tiny link that 404s pre-publish is expected, not a failure.
 
-### Phase 6: VERIFY RENDER — DOM Assertions
+### Phase 6: VERIFY RENDER — DOM Assertions (contract op: verify-render)
 
 Assert against the rendered DOM in view or editor mode. A page is not done until:
 
@@ -85,7 +96,7 @@ Assert against the rendered DOM in view or editor mode. A page is not done until
 2. There are ZERO `media-card-error` nodes.
 3. The count of `mediaSingle` figures matches the intended count, and there are ZERO unexpected `mediaGroup` nodes. **Counting loaded images alone is insufficient** — thumbnail cards from a `media-group` downgrade ALSO pass a `naturalWidth > 0` check, so compare `mediaSingle` vs `mediaGroup` counts explicitly.
 
-### Phase 7: DETERMINISTIC STILLS
+### Phase 7: DETERMINISTIC STILLS (adapter still-rendering implementation)
 
 1. Render stills with a browser automation tool (for example, Playwright) against local `file://` HTML.
 2. Pin the environment for reproducibility: `emulateMedia({ colorScheme, reducedMotion: 'reduce' })`.
@@ -94,9 +105,10 @@ Assert against the rendered DOM in view or editor mode. A page is not done until
 
 ## Harness Integration
 
-- **`harness skill run docs-confluence-publish`** / **`run_skill`** — invoke this skill.
-- **`harness skill validate docs-confluence-publish`** — validate this skill's structure and schema.
-- **Config contract (read from the shared company-knowledge file):** this skill reads the `confluence` block via the companion config loader. Documented with placeholder keys only:
+- **`harness skill run docs-publish-confluence`** / **`run_skill`** — invoke this skill.
+- **`harness skill validate docs-publish-confluence`** — validate this skill's structure and schema.
+- **Implements the `docs-publish` contract.** `depends_on: docs-publish`. This adapter provides the contract's four operations — draft, attach-media, verify-render, page-tree — with Confluence Cloud mechanics, and inherits the contract's cross-cutting invariants (drafts-only, verify-render before "done", authoritative read-back over optimistic success, stored-format correctness is not rendering correctness).
+- **Config contract (read from the shared company-knowledge file):** this adapter reads its own `confluence` block via the companion config loader. The `confluence` block is the adapter's configuration — the generic contract names no provider block; this adapter names and owns it. Documented with placeholder keys only:
 
   ```jsonc
   "confluence": {

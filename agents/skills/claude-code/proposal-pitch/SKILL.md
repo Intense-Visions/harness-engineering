@@ -1,13 +1,13 @@
 # Proposal Pitch Pipeline
 
-> Turn a source (chat, issue, or doc) into a reviewable Confluence proposal, draft-first: gather the source, agree the page structure with the author before building, render concept stills, publish as drafts only, and close the loop on the source. Composes `docs-confluence-publish` for the mechanics and enforces the gates that keep a pitch honest and safe — drafts-only, render-verify, epistemic labels, and no real customer data.
+> Turn a source (chat, issue, or doc) into a reviewable proposal via a configured provider adapter, draft-first: gather the source, agree the page structure with the author before building, render concept stills, publish as drafts only, and close the loop on the source. Composes the `docs-publish` contract for the mechanics (which resolves a configured provider adapter) and enforces the gates that keep a pitch honest and safe — drafts-only, render-verify, epistemic labels, and no real customer data.
 
 ## When to Use
 
-- When turning a chat thread, issue, or design doc into a reviewable Confluence proposal.
+- When turning a chat thread, issue, or design doc into a reviewable proposal published through a configured provider adapter.
 - When pitching a concept as a set of draft pages with concept stills for an author to review and later publish.
 - When you need the discipline gates (drafts-only, render-verify, epistemic labels, no customer data) wrapped around a publishing flow.
-- NOT for the raw publishing mechanics (attachment upload, ADF forms, render verification) — delegate those to `docs-confluence-publish`.
+- NOT for the raw publishing mechanics (attachment upload, media forms, render verification) — delegate those to the `docs-publish` contract and its configured provider adapter.
 - NOT for publishing final/current/live pages — this pipeline is drafts-only; promotion is the author's click.
 - NOT when the proposal would require real customer data in a rendered still — that is never permitted (see Gates).
 - NOT when the author has not yet agreed the page structure — stop and get agreement first.
@@ -37,14 +37,14 @@ A proposal is the author's argument, not the agent's. The agent gathers, structu
 ### Phase 3: RENDER STILLS
 
 1. Render the concept stills that illustrate the proposal.
-2. Delegate the mechanics to `docs-confluence-publish` — deterministic stills, attachment upload, and ADF media forms are its responsibility. Do not duplicate that recipe here.
+2. Delegate the mechanics to the `docs-publish` contract — deterministic stills, attachment upload, and media forms are the configured provider adapter's responsibility. Do not duplicate that recipe here.
 3. Use clearly fabricated fixtures for any data shown in a still. Never use real customer data (see Gates).
 
 ### Phase 4: PUBLISH DRAFTS
 
-1. Publish the pages as DRAFTS only, delegating the publishing mechanics to `docs-confluence-publish`.
+1. Publish the pages as DRAFTS only, delegating the publishing mechanics to the `docs-publish` contract (its draft and attach-media operations, via the configured provider adapter).
 2. Never move a draft to current/live. Promotion is the author's click.
-3. Render-verify every page before handoff (via `docs-confluence-publish` Phase 6). An unverified page is not done — stored-format correctness is not rendering correctness.
+3. Render-verify every page before handoff (via the contract's verify-render operation). An unverified page is not done — stored-format correctness is not rendering correctness.
 
 ### Phase 5: CLOSE THE LOOP
 
@@ -60,28 +60,22 @@ A proposal is the author's argument, not the agent's. The agent gathers, structu
 
 - **`harness skill run proposal-pitch`** / **`run_skill`** — invoke this skill.
 - **`harness skill validate proposal-pitch`** — validate this skill's structure and schema.
-- **Composition:** this pipeline `depends_on` and invokes **`docs-confluence-publish`** for all publishing mechanics (attachment upload, ADF media forms, page-tree ops, render verification, deterministic stills). Do not reimplement those here.
-- **Config contract (read from the shared company-knowledge file):** reads a `confluence` block and `brand.proposal_css_path` via the companion config loader. Documented with placeholder keys only:
+- **Composition:** this pipeline `depends_on` and invokes the **`docs-publish`** contract for all publishing mechanics (attachment upload, media forms, page-tree ops, render verification, deterministic stills), which the contract fulfills through a configured provider adapter. Do not reimplement those here, and do not name a provider — the contract resolves the adapter.
+- **Config contract (read from the shared company-knowledge file):** the configured provider adapter reads its own provider pointers from the shared company-knowledge tier and documents those keys itself — the pipeline names no provider block. The pipeline itself reads only `brand.proposal_css_path` for still styling. Documented with placeholder keys only:
 
   ```jsonc
-  "confluence": {
-    "cloud_id": "<CLOUD_ID>",
-    "space_id": "<SPACE_ID>",
-    "proposals_index_page_id": "<PAGE_ID>",
-    "exemplar_page_ids": ["<PAGE_ID>"]
-  },
   "brand": {
     "proposal_css_path": "<PATH_TO_CSS>"
   }
   ```
 
-- **Absent-block degradation:** when the `confluence` block is absent from the shared company-knowledge file, print a clear message that names the missing pointers (`confluence.cloud_id`, `confluence.space_id`, `confluence.proposals_index_page_id`, `confluence.exemplar_page_ids`, and `brand.proposal_css_path`) and how to add them. Do NOT crash and do NOT silently no-op.
+- **Absent-config degradation:** when no provider adapter is configured, or when `brand.proposal_css_path` is absent from the shared company-knowledge file, print a clear message that names what is missing (a configured provider adapter, and/or `brand.proposal_css_path`) and how to add it. Do NOT crash and do NOT silently no-op.
 
 ## Success Criteria
 
 - The source is gathered and its settled vs open items are separated.
 - The page structure was agreed with the author BEFORE any page was built.
-- Concept stills are rendered and render-verified (via `docs-confluence-publish`).
+- Concept stills are rendered and render-verified (via the `docs-publish` contract's verify-render operation).
 - Pages are published as drafts only — never moved to current/live.
 - Every claim carries an epistemic label (verified / inferred / proposed), and no open question was resolved by the skill's own suggestion.
 - No real customer data appears in any rendered still.
@@ -93,18 +87,18 @@ A proposal is the author's argument, not the agent's. The agent gathers, structu
 
 1. GATHER SOURCE: read the chat thread. Settled: "the pitch is a two-page proposal with one hero figure." Open: "which pricing tier is the default" — record as open, do not answer.
 2. AGREE STRUCTURE: propose a parent page plus one child, with the hero figure on the parent. The author replies "yes, but swap the section order." Update the outline and re-confirm. Only now proceed.
-3. RENDER STILLS: build the hero still with a fabricated sample dataset (no real customer names or numbers). Delegate the still render to `docs-confluence-publish`.
-4. PUBLISH DRAFTS: create the parent and child as drafts under `<PAGE_ID>` via `docs-confluence-publish`. Render-verify: every figure `img` has `naturalWidth > 0`, zero `media-card-error`, `mediaSingle` count matches intent.
+3. RENDER STILLS: build the hero still with a fabricated sample dataset (no real customer names or numbers). Delegate the still render to the `docs-publish` contract.
+4. PUBLISH DRAFTS: create the parent and child as drafts under `<PAGE_ID>` (the provider's page handle) via the `docs-publish` contract. Render-verify via the contract's verify-render operation: media loaded, zero broken-media indicators, the intended figure form matches intent.
 5. CLOSE THE LOOP: comment on the source chat — "Built draft parent + child at `<PAGE_ID>` (draft). Hero figure verified [verified]. Default pricing tier still open [proposed: tier B] — needs your call." Leave the draft-to-current promotion to the author.
 
 ## Gates
 
 - **Drafts only.** Publishing is the author's click. Never move a draft to current/live, and never auto-promote.
-- **Render-verify before handoff.** An unverified page is not done. Stored-format correctness is not rendering correctness — run the `docs-confluence-publish` DOM assertions first.
+- **Render-verify before handoff.** An unverified page is not done. Stored-format correctness is not rendering correctness — run the `docs-publish` contract's verify-render operation first.
 - **Epistemic labels on every claim.** Every claim on the page and in the report is labeled verified / inferred / proposed. The skill's own suggestion NEVER "resolves" an open question.
 - **Defects tracked, not narrated.** Fix, file-with-repro, or flag-suspected. "As-designed" requires evidence — it is not an escape hatch.
 - **No real customer data in any still, ever.** Use clearly fabricated fixtures.
-- **No public hosting of proposal content without the author's explicit yes.** Draft-in-Confluence is not public exposure; a public URL is — and it requires an explicit yes.
+- **No public hosting of proposal content without the author's explicit yes.** A private draft in the provider is not public exposure; a public URL is — and it requires an explicit yes.
 
 ## Escalation
 
@@ -116,12 +110,12 @@ A proposal is the author's argument, not the agent's. The agent gathers, structu
 
 ## Rationalizations to Reject
 
-| Rationalization                                                           | Reality                                                                                                               |
-| ------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------- |
-| "The author will obviously want this published, I'll move it to current." | Publishing is the author's click. Ship drafts only; never auto-promote.                                               |
-| "The page stored without error, so it's done."                            | Stored-format correctness is not rendering correctness. Render-verify (via `docs-confluence-publish`) before handoff. |
-| "I'll label this claim verified since it sounds right."                   | Verified means you ran or read it with citable evidence. Otherwise it is `inferred` or `proposed`.                    |
-| "My suggestion answers the open question."                                | A skill's own suggestion never resolves an open question. Label it `proposed` and carry it back to the author.        |
-| "This defect is as-designed."                                             | "As-designed" needs evidence. Otherwise fix it, file it with a repro, or flag it suspected.                           |
-| "Synthetic-looking sample data is fine in a still."                       | No real customer data in any still, ever. Use clearly fabricated fixtures.                                            |
-| "I'll drop it on a public URL so the author can preview."                 | No public hosting without an explicit author yes. A draft in Confluence is private; a public URL is exposure.         |
+| Rationalization                                                           | Reality                                                                                                                 |
+| ------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------- |
+| "The author will obviously want this published, I'll move it to current." | Publishing is the author's click. Ship drafts only; never auto-promote.                                                 |
+| "The page stored without error, so it's done."                            | Stored-format correctness is not rendering correctness. Render-verify (via the `docs-publish` contract) before handoff. |
+| "I'll label this claim verified since it sounds right."                   | Verified means you ran or read it with citable evidence. Otherwise it is `inferred` or `proposed`.                      |
+| "My suggestion answers the open question."                                | A skill's own suggestion never resolves an open question. Label it `proposed` and carry it back to the author.          |
+| "This defect is as-designed."                                             | "As-designed" needs evidence. Otherwise fix it, file it with a repro, or flag it suspected.                             |
+| "Synthetic-looking sample data is fine in a still."                       | No real customer data in any still, ever. Use clearly fabricated fixtures.                                              |
+| "I'll drop it on a public URL so the author can preview."                 | No public hosting without an explicit author yes. A private draft in the provider is not exposure; a public URL is.     |

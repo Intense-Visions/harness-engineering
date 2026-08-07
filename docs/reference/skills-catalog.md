@@ -2,7 +2,7 @@
 
 # Skills Catalog
 
-777 skills. Skills carry two independent tier axes: a **loading tier** (whether a skill registers as a slash command or is discovered on demand) and a **curation tier** (how load-bearing it is). A senior engineer can hold ~12 skills in their head, not hundreds — the curation tier names that short list.
+778 skills. Skills carry two independent tier axes: a **loading tier** (whether a skill registers as a slash command or is discovered on demand) and a **curation tier** (how load-bearing it is). A senior engineer can hold ~12 skills in their head, not hundreds — the curation tier names that short list.
 
 See the [Features Overview](../guides/features-overview.md) for narrative documentation.
 
@@ -200,7 +200,7 @@ Human-judged acceptance sign-off skill — the terminal, human-authority stage o
 - **Cognitive mode:** configuration-interviewer
 - **Depends on:** outcome-eval
 
-## Tier 2 — Maintenance (56 skills)
+## Tier 2 — Maintenance (57 skills)
 
 ### acceptance-eval
 
@@ -318,15 +318,6 @@ Detect documentation that has drifted from code
 - **Type:** flexible
 - **Cognitive mode:** diagnostic-investigator
 
-### docs-confluence-publish
-
-Portable Confluence Cloud publishing mechanics — the attachment-upload recipe, ADF media forms, page-tree ops, the draft/publish race, render verification, and deterministic stills. Ships zero company-specific content; reads org pointers from the shared company-knowledge config contract.
-
-- **Triggers:** manual
-- **Platforms:** claude-code
-- **Type:** rigid
-- **Cognitive mode:** methodical-operator
-
 ### docs-craft
 
 LLM-judgment critique of documentation quality — the ceiling counterpart to the rule-based doc floor (detect-doc-drift / check-docs / docs-pipeline, which enforce existence, link freshness, coverage). Asks whether a doc teaches, whether the order matches the reader's mental model, whether examples earn their place, whether the prose is alive, whether an API doc predicts the response shape, and whether a stranger walks away with the same understanding. Structural twin of harness-design-craft.
@@ -336,6 +327,25 @@ LLM-judgment critique of documentation quality — the ceiling counterpart to th
 - **Type:** rigid
 - **Cognitive mode:** constructive-architect
 - **Depends on:** harness-docs-pipeline, harness-design-craft
+
+### docs-publish
+
+The vendor-neutral publishing contract — the four operations every provider adapter must implement (draft, attach-media, verify-render, page-tree) and the cross-cutting invariants (drafts-only, verify-render before done, authoritative read-back over optimistic success, stored-format correctness is not rendering correctness). Names no provider; pipelines depend on this, adapters implement it.
+
+- **Triggers:** manual
+- **Platforms:** claude-code
+- **Type:** rigid
+- **Cognitive mode:** methodical-operator
+
+### docs-publish-confluence
+
+Confluence provider adapter implementing the docs-publish contract — maps draft, attach-media, verify-render, and page-tree to Confluence Cloud mechanics (the attachment-upload recipe, ADF media forms, the draft/publish race, the page-tree move endpoint, DOM render verification, and deterministic stills). Ships zero company-specific content; reads org pointers from the shared company-knowledge config contract.
+
+- **Triggers:** manual
+- **Platforms:** claude-code
+- **Type:** rigid
+- **Cognitive mode:** methodical-operator
+- **Depends on:** docs-publish
 
 ### enforce-architecture
 
@@ -701,13 +711,13 @@ Guided-interview skill that turns one picked work item into a durable Product Re
 
 ### proposal-pitch
 
-The draft-first proposal pipeline — gather the source, agree the page structure before building, render concept stills, publish as drafts only, and close the loop on the source. Composes docs-confluence-publish; enforces drafts-only, render-verify, epistemic-label, and no-customer-data gates. Ships zero company-specific content.
+The draft-first proposal pipeline — gather the source, agree the page structure before building, render concept stills, publish as drafts only, and close the loop on the source. Composes the docs-publish contract (resolving a configured provider adapter); enforces drafts-only, render-verify, epistemic-label, and no-customer-data gates. Ships zero company-specific content.
 
 - **Triggers:** manual
 - **Platforms:** claude-code
 - **Type:** rigid
 - **Cognitive mode:** disciplined-facilitator
-- **Depends on:** docs-confluence-publish
+- **Depends on:** docs-publish
 
 ### security-craft
 

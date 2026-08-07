@@ -1,6 +1,6 @@
-name: docs-confluence-publish
+name: docs-publish-confluence
 version: '0.1.0'
-description: Portable Confluence Cloud publishing mechanics — the attachment-upload recipe, ADF media forms, page-tree ops, the draft/publish race, render verification, and deterministic stills. Ships zero company-specific content; reads org pointers from the shared company-knowledge config contract.
+description: Confluence provider adapter implementing the docs-publish contract — maps draft, attach-media, verify-render, and page-tree to Confluence Cloud mechanics (the attachment-upload recipe, ADF media forms, the draft/publish race, the page-tree move endpoint, DOM render verification, and deterministic stills). Ships zero company-specific content; reads org pointers from the shared company-knowledge config contract.
 stability: draft
 cognitive_mode: methodical-operator
 triggers:
@@ -15,7 +15,7 @@ tools:
   - Glob
   - Grep
 cli:
-  command: harness skill run docs-confluence-publish
+  command: harness skill run docs-publish-confluence
   args:
     - name: path
       description: Project root path
@@ -23,7 +23,7 @@ cli:
 mcp:
   tool: run_skill
   input:
-    skill: docs-confluence-publish
+    skill: docs-publish-confluence
 type: rigid
 tier: 2
 phases:
@@ -51,4 +51,5 @@ phases:
 state:
   persistent: false
   files: []
-depends_on: []
+depends_on:
+  - docs-publish
