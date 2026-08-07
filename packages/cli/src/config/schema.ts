@@ -967,6 +967,14 @@ export const HarnessConfigSchema = z.object({
   integrations: IntegrationsConfigSchema.optional(),
   /** General architectural enforcement settings */
   architecture: ArchConfigSchema.optional(),
+  /**
+   * Opt-in constraint packs: named bundles of blocking rules the project
+   * chooses to enforce, each applied at its declared lifecycle stage(s)
+   * (pre-commit / pre-merge / pre-release). Built-in packs map onto the
+   * security rule sets; unknown names are reported but ignored. Empty or
+   * absent means no packs are enforced (default behavior unchanged).
+   */
+  constraintPacks: z.array(z.string()).optional(),
   /** Golden-build (known-good reference-state) settings (`harness golden-build`) */
   golden: GoldenConfigSchema.optional(),
   /** Operational-policy drift settings (ADR requirement for hooks/thresholds/skip-list) */

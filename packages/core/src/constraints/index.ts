@@ -43,3 +43,10 @@ export type {
  * Utilities for sharing constraints across projects via manifest, bundle, or lockfile.
  */
 export * from './sharing';
+
+/**
+ * Opt-in constraint packs: named bundles of blocking rules with per-stage
+ * enforcement, layered over the existing security rule sets.
+ */
+export { BUILT_IN_CONSTRAINT_PACKS, getConstraintPack, resolveConstraintPacks } from './packs';
+export type { ConstraintPack, ConstraintPackStageSpec, ResolvedConstraintPacks } from './packs';

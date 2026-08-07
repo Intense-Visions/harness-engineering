@@ -52,6 +52,10 @@ export type {
   CICheckOptions,
   CIPlatform,
   CIInitOptions,
+  ConstraintStage,
+  ConstraintPackComplianceStatus,
+  ConstraintPackStageCompliance,
+  ConstraintPackCompliance,
 } from './ci';
 
 // --- CI Notify ---

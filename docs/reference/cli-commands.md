@@ -843,6 +843,7 @@ Run all harness checks for CI (validate, deps, docs, entropy, phase-gate, arch)
 
 - `--skip` — Comma-separated checks to skip (e.g., entropy,docs)
 - `--fail-on` — Fail on severity level: error (default) or warning (default: "error")
+- `--stage` — Enforce only the opted-in constraint packs for this lifecycle stage: pre-commit, pre-merge, or pre-release
 
 ### `harness ci init`
 

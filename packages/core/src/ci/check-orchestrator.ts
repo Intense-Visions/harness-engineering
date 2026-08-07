@@ -14,9 +14,14 @@ import type {
   CICheckSummary,
   CICheckIssue,
   CIFailOnSeverity,
+  ConstraintStage,
+  ConstraintPackCompliance,
+  ConstraintPackComplianceStatus,
 } from '@harness-engineering/types';
 import type { Result } from '../shared/result';
 import { Ok, Err } from '../shared/result';
+import { resolveConstraintPacks } from '../constraints/packs';
+import type { ResolvedConstraintPacks } from '../constraints/packs';
 import { validateAgentsMap } from '../context/agents-map';
 import { validateDependencies, defineLayer } from '../constraints/dependencies';
 import { checkDocCoverage } from '../context/doc-coverage';
@@ -34,6 +39,66 @@ export interface RunCIChecksInput {
   config: Record<string, unknown>;
   skip?: CICheckName[];
   failOn?: CIFailOnSeverity;
+  /**
+   * Lifecycle stage to enforce. When set, only the opted-in constraint packs'
+   * specs for this stage are applied and only those stages appear in the
+   * per-pack compliance summary. When omitted, every stage of every opted-in
+   * pack is applied (the most conservative combined gate).
+   */
+  stage?: ConstraintStage;
+}
+
+/**
+ * Read the opted-in constraint pack names from the raw config. Non-string
+ * entries and a non-array value are ignored (treated as "no packs").
+ */
+function constraintPackNames(config: Record<string, unknown>): string[] {
+  const raw = config.constraintPacks;
+  if (!Array.isArray(raw)) return [];
+  return raw.filter((p): p is string => typeof p === 'string');
+}
+
+/**
+ * Overlay the resolved constraint packs onto a config, returning a shallow
+ * clone with the packs' security-rule elevations merged into `security.rules`.
+ *
+ * Precedence: an explicit project-level `security.rules[id]` always wins over a
+ * pack overlay, so a project retains a per-rule escape hatch to dial a rule
+ * back down. But a pack opt-in is a more-specific, explicit intent to enforce
+ * blocking rules, so it turns the security check on even when `security.enabled`
+ * is false — opting into a blocking pack while globally disabling security is
+ * contradictory, and the narrower signal wins.
+ *
+ * Force-enable blast radius: when the scanner was explicitly disabled
+ * (`security.enabled: false`) and a pack force-enables it, we first silence
+ * every rule the scanner blocks by default (`'SEC-*': 'off'`) and then let the
+ * pack's specific prefixes re-elevate only what it targets. Without this base,
+ * flipping `enabled` back on would run all default-error rules (including
+ * prefixes no pack references, e.g. SEC-EDGE), so opting into one pack would
+ * enable the whole scanner. With it, opting into a pack is truly equivalent to
+ * setting only that pack's `security.rules` overrides. The base is injected
+ * only in the force-enable case; a project that already runs the scanner keeps
+ * its existing default-error rules untouched.
+ */
+function applyConstraintPackOverlay(
+  config: Record<string, unknown>,
+  resolved: ResolvedConstraintPacks
+): Record<string, unknown> {
+  const hasOverlay = Object.keys(resolved.securityRuleOverlay).length > 0;
+  if (!hasOverlay) return config;
+
+  const security = { ...((config.security as Record<string, unknown>) ?? {}) };
+  const userRules = (security.rules as Record<string, unknown>) ?? {};
+  const scannerWasDisabled = security.enabled === false;
+  // Only when force-enabling a previously-disabled scanner: silence all rules
+  // as the base, so non-pack rules stay non-blocking (see doc comment).
+  const forceEnableBase: Record<string, unknown> = scannerWasDisabled ? { 'SEC-*': 'off' } : {};
+  // Base first, then the pack's specific elevations, then the user's per-rule
+  // overrides last so the project always wins.
+  security.rules = { ...forceEnableBase, ...resolved.securityRuleOverlay, ...userRules };
+  security.enabled = true;
+
+  return { ...config, security };
 }
 
 /**
@@ -249,6 +314,7 @@ async function runSecurityCheck(
       message: `[${finding.ruleId}] ${finding.message}: ${finding.match}`,
       file: finding.file,
       line: finding.line,
+      ruleId: finding.ruleId,
     });
   }
   return issues;
@@ -493,31 +559,117 @@ function determineExitCode(summary: CICheckSummary, failOn: CIFailOnSeverity = '
   return 0;
 }
 
+/** True when `ruleId` is covered by one of the pack patterns (exact or `*`). */
+function ruleMatchesAny(ruleId: string, patterns: readonly string[]): boolean {
+  return patterns.some((pattern) =>
+    pattern.endsWith('*') ? ruleId.startsWith(pattern.slice(0, -1)) : ruleId === pattern
+  );
+}
+
+/**
+ * Compute the per-pack, per-stage compliance summary for the opted-in packs.
+ * A pack governs a specific set of security rules (its per-stage elevations),
+ * so its verdict is attributed, not aggregate: a stage is `non-compliant` only
+ * when a *failing* security finding's rule id is covered by that stage's own
+ * rule prefixes. A failing finding from a rule no pack references — or one that
+ * belongs to a different pack — never marks this pack non-compliant. A stage is
+ * `n/a` when it is out of scope for this run or the security check was skipped,
+ * and `compliant` otherwise.
+ */
+function computeConstraintPackCompliance(
+  resolved: ResolvedConstraintPacks,
+  securityCheck: CICheckResult | undefined,
+  runStage: ConstraintStage | undefined
+): ConstraintPackCompliance[] {
+  const securitySkippedOrAbsent = !securityCheck || securityCheck.status === 'skip';
+  // Rule ids of the security findings that actually fail the gate.
+  const failingRuleIds = securitySkippedOrAbsent
+    ? []
+    : securityCheck!.issues
+        .filter((issue) => issue.severity === 'error' && typeof issue.ruleId === 'string')
+        .map((issue) => issue.ruleId as string);
+
+  return resolved.resolved.map((pack) => ({
+    pack: pack.name,
+    stages: (Object.keys(pack.stages) as ConstraintStage[]).map((stage) => {
+      let status: ConstraintPackComplianceStatus;
+      if ((runStage && runStage !== stage) || securitySkippedOrAbsent) {
+        status = 'n/a';
+      } else {
+        const patterns = Object.keys(pack.stages[stage]?.securityRules ?? {});
+        const violated = failingRuleIds.some((ruleId) => ruleMatchesAny(ruleId, patterns));
+        status = violated ? 'non-compliant' : 'compliant';
+      }
+      return { stage, status };
+    }),
+  }));
+}
+
+/**
+ * Attach the constraint-pack sections to a report, in place. Populated only
+ * when the project opted into at least one resolvable or unknown pack.
+ */
+function attachConstraintPackResults(
+  report: CICheckReport,
+  resolvedPacks: ResolvedConstraintPacks,
+  checks: CICheckResult[],
+  stage: ConstraintStage | undefined
+): void {
+  if (resolvedPacks.resolved.length > 0) {
+    const securityCheck = checks.find((c) => c.name === 'security');
+    report.constraintPacks = computeConstraintPackCompliance(resolvedPacks, securityCheck, stage);
+  }
+  if (resolvedPacks.unknown.length > 0) {
+    report.unknownConstraintPacks = resolvedPacks.unknown;
+  }
+}
+
+/**
+ * Run every check (validate first, the rest in parallel), honoring the skip
+ * set. Extracted so the top-level orchestrator stays small.
+ */
+async function runAllChecks(
+  projectRoot: string,
+  config: Record<string, unknown>,
+  skippedSet: Set<CICheckName>
+): Promise<CICheckResult[]> {
+  const checks: CICheckResult[] = [];
+
+  // Phase 1: validate runs first (deps may depend on config resolution)
+  if (skippedSet.has('validate')) {
+    checks.push({ name: 'validate', status: 'skip', issues: [], durationMs: 0 });
+  } else {
+    checks.push(await runSingleCheck('validate', projectRoot, config));
+  }
+
+  // Phase 2: all remaining checks in parallel
+  const phase2Results = await Promise.all(
+    ALL_CHECKS.slice(1).map(async (name) => {
+      if (skippedSet.has(name)) {
+        return { name, status: 'skip' as const, issues: [] as CICheckIssue[], durationMs: 0 };
+      }
+      return runSingleCheck(name, projectRoot, config);
+    })
+  );
+  checks.push(...phase2Results);
+
+  return checks;
+}
+
 export async function runCIChecks(input: RunCIChecksInput): Promise<Result<CICheckReport, Error>> {
-  const { projectRoot, config, skip = [], failOn = 'error' } = input;
+  const { projectRoot, config, skip = [], failOn = 'error', stage } = input;
 
   try {
-    const checks: CICheckResult[] = [];
-    const skippedSet = new Set(skip);
-
-    // Phase 1: validate runs first (deps may depend on config resolution)
-    if (skippedSet.has('validate')) {
-      checks.push({ name: 'validate', status: 'skip', issues: [], durationMs: 0 });
-    } else {
-      checks.push(await runSingleCheck('validate', projectRoot, config));
-    }
-
-    // Phase 2: all remaining checks in parallel
-    const remainingChecks = ALL_CHECKS.slice(1);
-    const phase2Results = await Promise.all(
-      remainingChecks.map(async (name) => {
-        if (skippedSet.has(name)) {
-          return { name, status: 'skip' as const, issues: [] as CICheckIssue[], durationMs: 0 };
-        }
-        return runSingleCheck(name, projectRoot, config);
-      })
+    // Resolve opted-in constraint packs and overlay their blocking-rule
+    // elevations onto the config the checks actually see. Absent/empty
+    // `constraintPacks` leaves the config untouched (current behavior).
+    const resolvedPacks = resolveConstraintPacks(
+      constraintPackNames(config),
+      stage ? { stage } : {}
     );
-    checks.push(...phase2Results);
+    const effectiveConfig = applyConstraintPackOverlay(config, resolvedPacks);
+
+    const checks = await runAllChecks(projectRoot, effectiveConfig, new Set(skip));
 
     const summary = buildSummary(checks);
     const exitCode = determineExitCode(summary, failOn);
@@ -530,6 +682,8 @@ export async function runCIChecks(input: RunCIChecksInput): Promise<Result<CIChe
       summary,
       exitCode,
     };
+
+    attachConstraintPackResults(report, resolvedPacks, checks, stage);
 
     return Ok(report);
   } catch (error) {

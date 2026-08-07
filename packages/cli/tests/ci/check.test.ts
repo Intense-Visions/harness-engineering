@@ -34,6 +34,7 @@ vi.mock('../../src/config/loader', () => ({
 import { runCICheck, createCheckCommand } from '../../src/commands/ci/check';
 import { runCIChecks } from '@harness-engineering/core';
 import { resolveConfig } from '../../src/config/loader';
+import { ExitCode } from '../../src/utils/errors';
 
 describe('ci check command', () => {
   beforeEach(() => {
@@ -223,6 +224,33 @@ describe('ci check command', () => {
       await safeParseAsync(program, ['node', 'test', 'check', '--fail-on', 'warning']);
 
       expect(runCIChecks).toHaveBeenCalledWith(expect.objectContaining({ failOn: 'warning' }));
+    });
+
+    it('passes a recognized --stage through to core', async () => {
+      const program = makeProgram();
+      await safeParseAsync(program, ['node', 'test', 'check', '--stage', 'pre-merge']);
+
+      expect(runCIChecks).toHaveBeenCalledWith(expect.objectContaining({ stage: 'pre-merge' }));
+    });
+
+    it('rejects an unrecognized --stage instead of silently running every stage', async () => {
+      const program = makeProgram();
+      await safeParseAsync(program, ['node', 'test', 'check', '--stage', 'pre-deploy']);
+
+      // Must not fall through to running the checks with no stage.
+      expect(runCIChecks).not.toHaveBeenCalled();
+      // Exits with an error code rather than proceeding.
+      expect(mockExit).toHaveBeenCalledWith(ExitCode.ERROR);
+    });
+
+    it('reports an unrecognized --stage as JSON error under --json', async () => {
+      const program = makeProgram();
+      await safeParseAsync(program, ['node', 'test', '--json', 'check', '--stage', 'nonsense']);
+
+      expect(runCIChecks).not.toHaveBeenCalled();
+      const output = mockConsoleLog.mock.calls[0]?.[0];
+      expect(output).toContain('Unrecognized --stage');
+      expect(() => JSON.parse(output)).not.toThrow();
     });
 
     it('exits with report exitCode when checks have failures', async () => {
