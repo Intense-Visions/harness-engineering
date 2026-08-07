@@ -61,7 +61,7 @@ describe('SC3 concurrency (INV-1/INV-2)', () => {
     for (const w of writerIds) {
       expect(loaded.value.filter((e) => e.writerId === w).length).toBe(K);
     }
-  }, 30_000);
+  });
 
   it('N processes spilling oversized payloads lose zero events and all blobs rehydrate (I5)', async () => {
     // Stresses the real edge the design hinges on: blob spill firing UNDER concurrent
@@ -106,5 +106,5 @@ describe('SC3 concurrency (INV-1/INV-2)', () => {
     // shared blob for it, so total distinct blobs is (unique payloads) + 1, well under N*K.
     const blobCount = fs.readdirSync(blobsDir).length;
     expect(blobCount).toBe(N * (K - 1) + 1);
-  }, 30_000);
+  });
 });

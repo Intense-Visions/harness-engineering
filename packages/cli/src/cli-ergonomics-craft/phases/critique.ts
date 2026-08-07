@@ -11,6 +11,15 @@ import { derivePriority } from '../../shared/craft/findings/derived.js';
 
 const MAX_CONTENT_CHARS = 6000;
 
+export const CRITIQUE_SYSTEM_PROMPT =
+  'You are a senior CLI/developer-experience engineer critiquing a single command ' +
+  'definition against a single craft rubric. You judge the CEILING (are names predictable, ' +
+  'does help teach, are errors actionable, are defaults sane, is output scannable, does it ' +
+  'compose, are destructive actions guarded), not the floor (does the flag exist, does the ' +
+  'file compile) — those are handled elsewhere. Reason from the command definition source. ' +
+  'Respond ONLY with a fenced JSON block. If the rubric does not apply or the command ' +
+  'already clears this bar, return `null` (literally the word null inside the JSON block).';
+
 export interface CritiqueInput {
   file: string;
   /** Relative path from the project root for the finding's target.relative. */
@@ -24,16 +33,20 @@ export interface CritiqueInput {
 export async function critiqueOne(input: CritiqueInput): Promise<CliErgonomicsFinding | null> {
   const { file, relative, kind, rubric, provider } = input;
   const prompt = buildPrompt(input);
-  const raw = await provider.callText(prompt, {
-    systemPrompt:
-      'You are a senior CLI/developer-experience engineer critiquing a single command ' +
-      'definition against a single craft rubric. You judge the CEILING (are names predictable, ' +
-      'does help teach, are errors actionable, are defaults sane, is output scannable, does it ' +
-      'compose, are destructive actions guarded), not the floor (does the flag exist, does the ' +
-      'file compile) — those are handled elsewhere. Reason from the command definition source. ' +
-      'Respond ONLY with a fenced JSON block. If the rubric does not apply or the command ' +
-      'already clears this bar, return `null` (literally the word null inside the JSON block).',
-  });
+  const raw = await provider.callText(prompt, { systemPrompt: CRITIQUE_SYSTEM_PROMPT });
+  return parseFindingFromRaw(raw, { file, relative, kind, rubric });
+}
+
+/**
+ * Parse a raw LLM response (fenced JSON) into a CliErgonomicsFinding. Returns
+ * null when the response says null / fails validation. Pure — no LLM call — so
+ * the in-session two-step flow can reuse it after the calling agent answers.
+ */
+export function parseFindingFromRaw(
+  raw: string,
+  ctx: { file: string; relative: string; kind: CommandKind; rubric: CliRubric }
+): CliErgonomicsFinding | null {
+  const { file, relative, kind, rubric } = ctx;
   const parsed = parseFencedJson(raw);
   if (parsed === null) return null;
   if (typeof parsed !== 'object') return null;
@@ -57,7 +70,15 @@ export async function critiqueOne(input: CritiqueInput): Promise<CliErgonomicsFi
   };
 }
 
-function buildPrompt(input: CritiqueInput): string {
+export interface BuildPromptInput {
+  file: string;
+  relative: string;
+  kind: CommandKind;
+  content: string;
+  rubric: CliRubric;
+}
+
+export function buildPrompt(input: BuildPromptInput): string {
   const { file, relative, kind, content, rubric } = input;
   const body =
     content.length > MAX_CONTENT_CHARS

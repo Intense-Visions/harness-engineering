@@ -31,9 +31,11 @@
 //   section "MCP tool API" (lines ~205–221).
 
 import * as crypto from 'node:crypto';
+import * as path from 'node:path';
 import { execSync } from 'node:child_process';
 import { Ok, Err } from '@harness-engineering/core';
 import type { Result } from '@harness-engineering/core';
+import { resolveConfig } from '../../config/loader.js';
 import { resultToMcpResponse } from '../utils/result-adapter.js';
 import type { McpToolResponse } from '../utils/result-adapter.js';
 import { runCritique, runVisionCritique } from '../../design-craft/phases/critique.js';
@@ -42,6 +44,7 @@ import { runPolish } from '../../design-craft/phases/polish.js';
 import type { PolishTarget } from '../../design-craft/phases/polish.js';
 import { runBenchmark } from '../../design-craft/phases/benchmark.js';
 import type { BenchmarkTarget } from '../../design-craft/phases/benchmark.js';
+import type { AwardBarConfig } from '../../design-craft/phases/award-bar.js';
 import { SEED_RUBRICS } from '../../design-craft/catalog/rubrics/index.js';
 import { SEED_PATTERNS } from '../../design-craft/catalog/patterns/index.js';
 import { SEED_EXEMPLARS } from '../../design-craft/catalog/exemplars/index.js';
@@ -104,6 +107,13 @@ export interface DesignCraftInput {
    * array of `{ file, image, component? }` to stdout.
    */
   captureCommand?: string;
+  /**
+   * Award-bar thresholds (partial — merged over defaults). When omitted, the
+   * pipeline reads `design.craft.benchmark.awardBar` from the project's
+   * harness.config.json (falling back to defaults). An explicit value here
+   * takes precedence and is the test/programmatic seam.
+   */
+  awardBar?: Partial<AwardBarConfig>;
   /**
    * Test seam — replace the capture-command executor. Receives `(command,
    * files)` and returns the command's stdout. NOT in the MCP schema.
@@ -219,6 +229,21 @@ function buildTargetsFromFiles(files: string[] | undefined): CritiqueTarget[] {
 function buildPolishTargets(files: string[] | undefined): PolishTarget[] {
   if (!files || files.length === 0) return [];
   return files.map((file) => ({ file }));
+}
+
+/**
+ * Read `design.craft.benchmark.awardBar` from the project's
+ * harness.config.json. Defensive: any failure (missing file, invalid config)
+ * yields `undefined` so the award-bar computation falls back to its defaults.
+ */
+function readAwardBarConfig(projectPath: string): Partial<AwardBarConfig> | undefined {
+  try {
+    const resolved = resolveConfig(path.join(projectPath, 'harness.config.json'));
+    if (!resolved.ok) return undefined;
+    return resolved.value.design?.craft?.benchmark?.awardBar;
+  } catch {
+    return undefined;
+  }
 }
 
 function buildBenchmarkTargets(
@@ -403,10 +428,12 @@ async function runPipeline(
   let exemplarsCited: string[] = [];
   if (phases.includes('benchmark') && benchmarkTargets.length > 0) {
     const exemplars = [...SEED_EXEMPLARS];
+    const awardBar = input.awardBar ?? readAwardBarConfig(input.path);
     const benchmarkScores = await runBenchmark({
       targets: benchmarkTargets,
       exemplars,
       provider,
+      ...(awardBar !== undefined ? { awardBar } : {}),
     });
     scores.push(...benchmarkScores);
     exemplarsCited = Array.from(new Set(benchmarkScores.flatMap((s) => s.exemplars)));

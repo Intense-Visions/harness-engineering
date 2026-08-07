@@ -29,7 +29,7 @@ const FENCED_JSON = /```(?:json)?\s*\n?([\s\S]*?)\n?\s*```/;
  * to return `null` freely — a report full of low-value nits erodes trust faster
  * than a missed nicety.
  */
-const SYSTEM_PROMPT =
+export const CRITIQUE_SYSTEM_PROMPT =
   'You are a senior engineer critiquing a SINGLE code unit (a function, method, or class) ' +
   'against a SINGLE craft rubric. You judge the CEILING — does the code reveal intent, is the ' +
   'control flow honest, does it tell one story, does the abstraction earn its keep, is it as ' +
@@ -55,7 +55,20 @@ export interface CritiqueInput {
 export async function critiqueOne(input: CritiqueInput): Promise<CodeFinding | null> {
   const { file, unit, rubric, provider } = input;
   const prompt = buildPrompt(input);
-  const raw = await provider.callText(prompt, { systemPrompt: SYSTEM_PROMPT });
+  const raw = await provider.callText(prompt, { systemPrompt: CRITIQUE_SYSTEM_PROMPT });
+  return parseFindingFromRaw(raw, { file, unit, rubric });
+}
+
+/**
+ * Parse a raw LLM response (fenced JSON) into a CodeFinding. Returns null
+ * when the response says null / fails validation. Pure — no LLM call — so
+ * the in-session two-step flow can reuse it after the calling agent answers.
+ */
+export function parseFindingFromRaw(
+  raw: string,
+  ctx: { file: string; unit: CodeUnit; rubric: CodeRubric }
+): CodeFinding | null {
+  const { file, unit, rubric } = ctx;
   const parsed = parseFencedJson(raw);
   if (parsed === null) return null;
   if (typeof parsed !== 'object') return null;
@@ -79,7 +92,14 @@ export async function critiqueOne(input: CritiqueInput): Promise<CodeFinding | n
   };
 }
 
-function buildPrompt(input: CritiqueInput): string {
+export interface BuildPromptInput {
+  file: string;
+  source: string;
+  unit: CodeUnit;
+  rubric: CodeRubric;
+}
+
+export function buildPrompt(input: BuildPromptInput): string {
   const { file, source, unit, rubric } = input;
   const snippet = unitSource(source, unit, MAX_UNIT_CHARS);
   return [

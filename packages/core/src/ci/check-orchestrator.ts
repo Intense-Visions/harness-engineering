@@ -2,6 +2,11 @@ import * as path from 'node:path';
 import { skipDirGlobs } from '@harness-engineering/graph';
 import { ArchBaselineManager } from '../architecture/baseline-manager';
 import { diff } from '../architecture/diff';
+import {
+  resolveArchBaseline,
+  loadArchAllowances,
+  filterDiffByAllowances,
+} from '../architecture/baseline-resolver';
 import type {
   CICheckName,
   CICheckResult,
@@ -393,14 +398,22 @@ async function runArchCheck(
 
   const results = await runArchCollectors(archConfig, projectRoot);
 
-  // Load baseline and diff if available
+  // Resolve the baseline for this context. In a PR (feature-branch) context this is the
+  // BASE ref's committed baseline (a true delta-vs-main), so the branch never has to touch
+  // its own `baselines.json`; on main / non-git it falls back to the working-tree file.
   const baselineManager = new ArchBaselineManager(projectRoot, archConfig.baselinePath);
-  const baseline = baselineManager.load();
+  const { baseline } = resolveArchBaseline(projectRoot, archConfig.baselinePath, baselineManager);
 
   if (baseline) {
-    const diffResult = diff(results, baseline, {
+    // Filter the diff through any per-PR allowance files: an intentional regression is
+    // acknowledged by a uniquely-named allowance rather than by rewriting the snapshot.
+    // Error-severity NEW violations are never allowanced — a genuine threshold breach
+    // always hard-fails here.
+    const rawDiff = diff(results, baseline, {
       regressionTolerance: archConfig.regressionTolerance,
     });
+    const coverage = loadArchAllowances(projectRoot, archConfig.baselinePath);
+    const diffResult = filterDiffByAllowances(rawDiff, coverage);
     if (!diffResult.passed) {
       for (const v of diffResult.newViolations) {
         issues.push({

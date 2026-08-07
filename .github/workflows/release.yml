@@ -28,6 +28,15 @@ jobs:
       - run: pnpm install --frozen-lockfile
       - run: pnpm build
       - run: pnpm typecheck
+      # Advisory (non-blocking) golden-build drift report against the last
+      # promoted golden. `golden-build diff` always exits 0 and reports cleanly
+      # when no golden has been promoted yet (first release), so this is a clean
+      # no-op then and never fails the gate. The `|| echo ::warning::` guard only
+      # fires if the binary itself cannot run — it must never block the release.
+      - name: Golden-build drift report (advisory)
+        run: |
+          node packages/cli/dist/bin/harness.js golden-build diff \
+            || echo "::warning::golden-build drift check could not complete (advisory)"
 
   release:
     needs: ci-gate
@@ -77,6 +86,23 @@ jobs:
             VERSION=$(node -p "require('./packages/cli/package.json').version")
           fi
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+
+      # A published release SETS a new golden known-good reference: snapshot the
+      # just-released working tree (version-bumped manifests, lockfile, config,
+      # baselines) and commit the manifest back to main. Only runs on an actual
+      # publish. `[skip ci]` on the commit stops this push from re-triggering
+      # the Release workflow. HUSKY=0 keeps the commit hook-safe (no --no-verify).
+      - name: Promote golden build reference state
+        if: steps.changesets.outputs.published == 'true'
+        env:
+          HUSKY: '0'
+        run: |
+          node packages/cli/dist/bin/harness.js golden-build promote
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add .harness/golden/manifest.json
+          git diff --cached --quiet || git commit -m "chore: promote golden build reference state [skip ci]"
+          git push
 
   docker:
     needs: release

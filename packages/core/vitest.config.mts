@@ -4,7 +4,18 @@ export default defineConfig({
   test: {
     globals: true,
     environment: 'node',
-    testTimeout: 15_000,
+    // Generous global ceiling. Many core suites spawn real git/node subprocesses
+    // (baseline-resolver, derive-repo, git-scan, hotspot, event-sourcing
+    // concurrency). Under `test:coverage` the v8 instrumentation plus parallel
+    // workers starve those subprocess spawns of CPU, so a 15s default timed out
+    // intermittently even on green code. A larger ceiling only tolerates slow /
+    // loaded runners — a genuine hang still fails — so it cannot mask a real bug.
+    testTimeout: 60_000,
+    // Same rationale for setup/teardown hooks, which have their own separate
+    // budget (vitest default 10s). Several suites do `git init` + commits inside
+    // `beforeEach` via execSync; under coverage-load CPU starvation those hooks
+    // blew the 10s default and failed green suites. Raise the hook ceiling too.
+    hookTimeout: 60_000,
     setupFiles: ['./tests/setup.ts'],
     // Restrict discovery to source/test trees. Without this, vitest 4's
     // default include picks up compiled `dist/**/*.test.js` artifacts whose

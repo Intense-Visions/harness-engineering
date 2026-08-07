@@ -100,7 +100,10 @@ describe('OTLPExporter', () => {
     exporter.start();
     exporter.push(makeSpan());
 
-    await vi.waitFor(() => expect(receiver.received).toHaveLength(1), { timeout: 1000 });
+    await vi.waitFor(() => expect(receiver.received).toHaveLength(1), {
+      timeout: 10_000,
+      interval: 20,
+    });
     const envelope = receiver.received[0] as {
       resourceSpans: [{ scopeSpans: [{ spans: unknown[] }] }];
     };
@@ -119,7 +122,10 @@ describe('OTLPExporter', () => {
     exporter.push(makeSpan({ name: 'span-c' }));
     exporter.push(makeSpan({ name: 'span-d' }));
 
-    await vi.waitFor(() => expect(receiver.received).toHaveLength(2), { timeout: 2000 });
+    await vi.waitFor(() => expect(receiver.received).toHaveLength(2), {
+      timeout: 10_000,
+      interval: 20,
+    });
   });
 
   it('drops the batch after 3 failed attempts and warns once', async () => {
@@ -145,7 +151,14 @@ describe('OTLPExporter', () => {
     await advanceAll();
     vi.useRealTimers();
 
-    await vi.waitFor(() => expect(warn).toHaveBeenCalledTimes(1), { timeout: 2000 });
+    // The terminal warn fires only after 3 real HTTP round-trips to the 503
+    // receiver complete; under v8 coverage overhead + loaded runners those
+    // round-trips are slow, so give vi.waitFor a generous budget. A genuine
+    // never-warn bug still fails (it just fails later), so this cannot mask one.
+    await vi.waitFor(() => expect(warn).toHaveBeenCalledTimes(1), {
+      timeout: 15_000,
+      interval: 20,
+    });
     expect(receiver.received).toHaveLength(0);
   });
 
@@ -200,7 +213,10 @@ describe('OTLPExporter', () => {
     });
     exporter.push(span);
 
-    await vi.waitFor(() => expect(receiver.received).toHaveLength(1), { timeout: 1000 });
+    await vi.waitFor(() => expect(receiver.received).toHaveLength(1), {
+      timeout: 10_000,
+      interval: 20,
+    });
     const env = receiver.received[0] as {
       resourceSpans: [
         {

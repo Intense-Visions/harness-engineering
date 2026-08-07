@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import * as http from 'node:http';
 import * as fs from 'node:fs/promises';
 import * as path from 'node:path';
@@ -154,12 +154,20 @@ describe('OrchestratorServer integration', () => {
     const content = await fs.readFile(planFile, 'utf-8');
     expect(content).toBe('# Plan for ISSUE-SC8');
 
-    // Wait for plan watcher to auto-resolve
-    await new Promise((r) => setTimeout(r, 1000));
-
-    const interactions = await queue.list();
-    const resolved = interactions.find((i) => i.id === 'int-sc8');
-    expect(resolved?.status).toBe('resolved');
+    // Wait for the plan watcher to auto-resolve the interaction. The watcher is
+    // fully asynchronous (fs event → debounce → resolve), so a fixed sleep races
+    // under coverage load (v8 instrumentation + parallel workers) and the read
+    // lands while the status is still 'pending'. Poll instead: this returns as
+    // soon as the watcher fires and only fails if resolution never happens —
+    // preserving the intent while being deterministic under load.
+    await vi.waitFor(
+      async () => {
+        const interactions = await queue.list();
+        const resolved = interactions.find((i) => i.id === 'int-sc8');
+        expect(resolved?.status).toBe('resolved');
+      },
+      { timeout: 15_000, interval: 50 }
+    );
   });
 
   it('state snapshot endpoint still works', async () => {

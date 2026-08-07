@@ -21,8 +21,31 @@ describe('discoverSourceFiles (code-craft)', () => {
     fs.writeFileSync(full, 'export const x = 1;\n');
   }
 
-  it('returns [] when there is no packages/ dir', () => {
+  it('returns [] when there is neither a packages/ nor a src/app/ dir', () => {
     expect(discoverSourceFiles(tmpDir)).toEqual([]);
+  });
+
+  it('falls back to src/ when packages/ is absent (single-package repo, #1089 gap)', () => {
+    writeFile('src/index.ts');
+    writeFile('src/lib/util.ts');
+    const files = discoverSourceFiles(tmpDir);
+    expect(files).toHaveLength(2);
+    expect(files.every((f) => f.includes(`${path.sep}src${path.sep}`))).toBe(true);
+  });
+
+  it('falls back to app/ when packages/ and src/ are both absent', () => {
+    writeFile('app/routes/page.ts');
+    const files = discoverSourceFiles(tmpDir);
+    expect(files).toHaveLength(1);
+    expect(files[0]).toContain('page.ts');
+  });
+
+  it('excludes fixtures/ from the walk (#1089 gap — twins already exclude it)', () => {
+    writeFile('packages/api/src/real.ts');
+    writeFile('packages/api/src/fixtures/sample.ts');
+    const files = discoverSourceFiles(tmpDir);
+    expect(files).toHaveLength(1);
+    expect(files[0]).toContain('real.ts');
   });
 
   it('excludes test files and build/coverage/node_modules dirs', () => {

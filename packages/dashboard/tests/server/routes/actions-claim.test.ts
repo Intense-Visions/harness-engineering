@@ -297,9 +297,14 @@ describe('GET /api/identity', () => {
     const { resolveIdentity } = await import('../../../src/server/identity');
     vi.mocked(resolveIdentity).mockResolvedValueOnce(null);
 
+    const { resolveRole } = await import('../../../src/server/identity');
+    vi.mocked(resolveRole).mockReturnValueOnce('client');
+
     const res = await app.request('/api/identity');
     expect(res.status).toBe(503);
     const body = await res.json();
     expect(body.error).toBeDefined();
+    // The role seed rides along even on failure so it isn't silently dropped.
+    expect(body.role).toBe('client');
   });
 });

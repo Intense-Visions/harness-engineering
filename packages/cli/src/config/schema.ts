@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { ArchConfigSchema } from '@harness-engineering/core';
+import { ArchConfigSchema, GoldenConfigSchema } from '@harness-engineering/core';
 import { skipDirGlobs } from '@harness-engineering/graph';
 import { BackendDefSchema, RoutingConfigSchema } from '@harness-engineering/orchestrator';
 import { IngestConfigSchema } from './ingest-schema.js';
@@ -277,6 +277,24 @@ export const DesignCraftConfigSchema = z.object({
     .object({
       /** N=5 by default — emit candidate pattern proposal after this many recurrences */
       proposalThreshold: z.number().int().positive().default(5),
+    })
+    .optional(),
+  /** BENCHMARK-phase configuration */
+  benchmark: z
+    .object({
+      /**
+       * Award-bar verdict thresholds. Per dimension, the floor is
+       * max(dimensionFloor, round(fraction × median(cited-exemplar
+       * references))); any dimension below `confidenceFloor` forces an
+       * `indeterminate` verdict. Omit for defaults (80 / 0.95 / medium).
+       */
+      awardBar: z
+        .object({
+          dimensionFloor: z.number().min(0).max(100).default(80),
+          fraction: z.number().min(0).max(1).default(0.95),
+          confidenceFloor: z.enum(['high', 'medium', 'low']).default('medium'),
+        })
+        .optional(),
     })
     .optional(),
 });
@@ -944,6 +962,8 @@ export const HarnessConfigSchema = z.object({
    * absent means no packs are enforced (default behavior unchanged).
    */
   constraintPacks: z.array(z.string()).optional(),
+  /** Golden-build (known-good reference-state) settings (`harness golden-build`) */
+  golden: GoldenConfigSchema.optional(),
   /** Operational-policy drift settings (ADR requirement for hooks/thresholds/skip-list) */
   operationalPolicy: OperationalPolicyConfigSchema.optional(),
   /** Skill loading, suggestion, and tier override settings */

@@ -45,7 +45,10 @@ export interface RoleLane {
  * - `dev`    — every page, lands on Signals (unchanged default experience).
  * - `pm-ba`  — Roadmap, Work in Flight, live agents/streams, and the proposal
  *              review queue: author intent, watch agents, adjudicate.
- * - `client` — a curated, read-only pair: Roadmap plus Traceability.
+ * - `client` — a curated pair for progress and traceability: Roadmap plus
+ *              Traceability. Presentation-only, like every lane: it does not
+ *              enforce read-only access (a Claim write action still ships on
+ *              the Roadmap page).
  */
 export const ROLE_LANES: Record<DashboardRole, RoleLane> = {
   dev: {
@@ -65,7 +68,7 @@ export const ROLE_LANES: Record<DashboardRole, RoleLane> = {
   client: {
     role: 'client',
     label: 'Client',
-    description: 'A curated, read-only view of progress and traceability.',
+    description: 'A curated view of progress and traceability.',
     pages: ['roadmap', 'traceability'],
     defaultRoute: '/s/roadmap',
   },

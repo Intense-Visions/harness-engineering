@@ -2,10 +2,15 @@ import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import * as os from 'node:os';
-import { runCodeCraft, critiqueCodeInFile } from '../../src/code-craft';
+import {
+  runCodeCraft,
+  critiqueCodeInFile,
+  collectCodeCraftPrompts,
+  finalizeCodeCraft,
+} from '../../src/code-craft';
 import { SEED_RUBRICS, rubricApplies } from '../../src/code-craft/catalog/rubrics';
 import { SEED_EXEMPLARS } from '../../src/code-craft/catalog/exemplars';
-import { MockLlmProvider } from '../../src/shared/craft/llm/provider';
+import { MockLlmProvider, InSessionLlmProvider } from '../../src/shared/craft/llm/provider';
 
 const RUBRICS_FOR_FUNCTION = SEED_RUBRICS.filter((r) => rubricApplies(r, 'function')).length;
 
@@ -153,5 +158,60 @@ describe('runCodeCraft (integration)', () => {
     writeFile('packages/api/src/trivial.ts', 'export const x = 1;\n');
     const findings = await critiqueCodeInFile(path.join(tmpDir, 'packages/api/src/trivial.ts'));
     expect(findings).toEqual([]);
+  });
+});
+
+// The default runtime provider is in-session (host-chat). Before the fix,
+// runCodeCraft swallowed the deferral in a bare catch and returned a
+// zero-finding SUCCESS — a silent no-op. These tests pin the corrected
+// behavior: the inline entry throws a loud guard, and the two-step
+// collect→finalize flow actually produces findings.
+describe('runCodeCraft (in-session default path)', () => {
+  let tmpDir: string;
+
+  beforeEach(() => {
+    tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'code-craft-insession-'));
+  });
+
+  afterEach(() => {
+    fs.rmSync(tmpDir, { recursive: true, force: true });
+  });
+
+  function writeFile(rel: string, content: string): void {
+    const full = path.join(tmpDir, rel);
+    fs.mkdirSync(path.dirname(full), { recursive: true });
+    fs.writeFileSync(full, content);
+  }
+
+  it('inline entry throws a loud guard under the in-session provider (never a silent [])', async () => {
+    writeFile('packages/api/src/classify.ts', SUBSTANTIVE_FN);
+    await expect(
+      runCodeCraft({ path: tmpDir, __testProvider: new InSessionLlmProvider() })
+    ).rejects.toThrow(/two-step flow/);
+  });
+
+  it('collect returns pending prompts instead of empty findings', async () => {
+    writeFile('packages/api/src/classify.ts', SUBSTANTIVE_FN);
+    const collected = await collectCodeCraftPrompts({ path: tmpDir });
+    expect(collected.status).toBe('collected');
+    expect(collected.pendingPrompts.length).toBeGreaterThan(0);
+    expect(collected.runId).toBeTruthy();
+  });
+
+  it('round-trips collect → finalize into real findings', async () => {
+    writeFile('packages/api/src/classify.ts', SUBSTANTIVE_FN);
+    const collected = await collectCodeCraftPrompts({ path: tmpDir });
+    const responses = collected.pendingPrompts.map((p, i) => ({
+      promptId: p.promptId,
+      raw:
+        i === 0
+          ? '```json\n{"tier":"foundational","impact":"large","confidence":"high","message":"invert the guard"}\n```'
+          : '```json\nnull\n```',
+    }));
+    const out = await finalizeCodeCraft({ path: tmpDir, runId: collected.runId, responses });
+    expect(out.findings.length).toBeGreaterThanOrEqual(1);
+    expect(out.summary.runId).toBe(collected.runId);
+    expect(out.summary.llmCalls.provider).toBe('in-session');
+    expect(out.findings[0]!.target.unit).toBe('classify');
   });
 });

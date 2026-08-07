@@ -14,7 +14,8 @@
  * - `dev`    — the full operator surface (default; unchanged behavior).
  * - `pm-ba`  — product / business-analyst lane: author intent, watch agents,
  *              adjudicate at decision points.
- * - `client` — a curated, read-only lane.
+ * - `client` — a curated lane for progress and traceability (presentation-only,
+ *              like every lane — not a read-only access guarantee).
  */
 export type DashboardRole = 'dev' | 'pm-ba' | 'client';
 
