@@ -143,6 +143,17 @@ last_manual_edit: 2026-06-27T12:51:51.967Z
 - **Priority:** P2
 - **External-ID:** github:Intense-Visions/harness-engineering#1003
 
+### design-craft award bar
+
+- **Status:** done
+- **Spec:** docs/changes/design-craft-award-bar/proposal.md
+- **Summary:** Design-Craft Award Bar — a machine-derived award-tier verdict on BENCHMARK output
+- **Blockers:** —
+- **Plan:** —
+- **Assignee:** —
+- **Priority:** —
+- **External-ID:** github:Intense-Visions/harness-engineering#1141
+
 ### Agentic-suitability in the local-model pool recommender
 
 - **Status:** in-progress
@@ -154,16 +165,16 @@ last_manual_edit: 2026-06-27T12:51:51.967Z
 - **Priority:** P2
 - **External-ID:** github:Intense-Visions/harness-engineering#1004
 
-### design-craft award bar
+### design-craft responsive gate
 
 - **Status:** planned
-- **Spec:** docs/changes/design-craft-award-bar/proposal.md
-- **Summary:** Design-Craft Award Bar — a machine-derived award-tier verdict on BENCHMARK output
+- **Spec:** docs/changes/design-craft-responsive-gate/proposal.md
+- **Summary:** Responsive Gate for awardBar — a mechanical mobile-defect veto on the award-tier verdict
 - **Blockers:** —
 - **Plan:** —
 - **Assignee:** —
 - **Priority:** —
-- **External-ID:** github:Intense-Visions/harness-engineering#1141
+- **External-ID:** github:Intense-Visions/harness-engineering#1148
 
 ### Automate best-model discovery/recommendation for local dispatch
 

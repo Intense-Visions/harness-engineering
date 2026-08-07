@@ -582,6 +582,8 @@ Run the harness-design-craft skill: CRITIQUE / POLISH / BENCHMARK phases over a 
 - `designStrictness` (string, optional) — Overall design strictness (passed through to harness-design when chained).
 - `benchmarkTargets` (array, optional) — BENCHMARK target descriptors. Each entry needs at minimum { file, component }; optional componentType narrows exemplar selection.
 - `captures` (array, optional) — Deep-mode (vision) captures: rendered component screenshots. Required when mode="deep" and the critique phase runs. Each entry: { file, image, component? }, where `image` is a path to a PNG/JPEG/WebP screenshot (the CLI does not render components itself).
+- `responsiveMetrics` (array, optional) — Rendered mobile layout metrics for the BENCHMARK award-bar's responsive gate, one entry per target (matched by `file`). A `defective` gate (horizontal overflow or an unreachable nav) vetoes an award-tier `cleared`. Supply directly (e.g. from a Playwright MCP run) or via `responsiveProbeCommand`. Omit to leave the gate not-evaluated.
+- `responsiveProbeCommand` (string, optional) — Responsive probe command (mirrors captureCommand): a render step that receives the target files via HARNESS_DESIGN_CRAFT_FILES and the mobile width via HARNESS_DESIGN_CRAFT_VIEWPORT, and prints a ResponsiveMetrics[] JSON array to stdout. How a browserless CLI obtains layout metrics. Ignored when responsiveMetrics is supplied.
 
 ### `dispatch_skills`
 

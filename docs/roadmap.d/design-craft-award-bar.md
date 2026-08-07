@@ -6,7 +6,7 @@ order: 23
 
 ### design-craft award bar
 
-- **Status:** planned
+- **Status:** done
 - **Spec:** docs/changes/design-craft-award-bar/proposal.md
 - **Summary:** Design-Craft Award Bar — a machine-derived award-tier verdict on BENCHMARK output
 - **Blockers:** —

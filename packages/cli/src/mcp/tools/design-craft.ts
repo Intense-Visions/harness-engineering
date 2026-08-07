@@ -45,6 +45,8 @@ import type { PolishTarget } from '../../design-craft/phases/polish.js';
 import { runBenchmark } from '../../design-craft/phases/benchmark.js';
 import type { BenchmarkTarget } from '../../design-craft/phases/benchmark.js';
 import type { AwardBarConfig } from '../../design-craft/phases/award-bar.js';
+import type { ResponsiveMetrics, ResponsiveGateConfig } from '../../responsive/index.js';
+import { DEFAULT_RESPONSIVE_GATE_CONFIG } from '../../responsive/index.js';
 import { SEED_RUBRICS } from '../../design-craft/catalog/rubrics/index.js';
 import { SEED_PATTERNS } from '../../design-craft/catalog/patterns/index.js';
 import { SEED_EXEMPLARS } from '../../design-craft/catalog/exemplars/index.js';
@@ -115,10 +117,29 @@ export interface DesignCraftInput {
    */
   awardBar?: Partial<AwardBarConfig>;
   /**
+   * Rendered layout metrics for the responsive gate, one entry per target
+   * (matched by `file`). Supply these directly (e.g. from a Playwright MCP
+   * run) to gate `awardBar` on mobile behavior. When omitted and no
+   * `responsiveProbeCommand` is set, the gate is `not-evaluated`.
+   */
+  responsiveMetrics?: ResponsiveMetrics[];
+  /**
+   * Responsive probe command (mirrors `captureCommand`): a caller-supplied
+   * render step that receives the target files via the
+   * `HARNESS_DESIGN_CRAFT_FILES` env var and prints a `ResponsiveMetrics[]`
+   * JSON array to stdout. How a browserless CLI obtains layout metrics.
+   * Ignored when `responsiveMetrics` is supplied.
+   */
+  responsiveProbeCommand?: string;
+  /**
    * Test seam — replace the capture-command executor. Receives `(command,
    * files)` and returns the command's stdout. NOT in the MCP schema.
    */
   __runCapture?: (command: string, files: string[]) => string;
+  /**
+   * Test seam — replace the responsive-probe executor. NOT in the MCP schema.
+   */
+  __runResponsiveProbe?: (command: string, files: string[]) => string;
   /**
    * Test seam — inject an LlmProvider directly (e.g. MockLlmProvider).
    * NOT documented in the MCP tool schema; used by integration tests so
@@ -210,6 +231,42 @@ export const designCraftToolDefinition = {
           required: ['file', 'image'],
         },
       },
+      responsiveMetrics: {
+        type: 'array',
+        description:
+          "Rendered mobile layout metrics for the BENCHMARK award-bar's responsive gate, one " +
+          'entry per target (matched by `file`). A `defective` gate (horizontal overflow or an ' +
+          'unreachable nav) vetoes an award-tier `cleared`. Supply directly (e.g. from a ' +
+          'Playwright MCP run) or via `responsiveProbeCommand`. Omit to leave the gate ' +
+          'not-evaluated.',
+        items: {
+          type: 'object',
+          properties: {
+            file: { type: 'string' },
+            viewport: { type: 'number' },
+            documentScrollWidth: { type: 'number' },
+            viewportWidth: { type: 'number' },
+            primaryNavVisible: { type: 'boolean' },
+            menuToggleVisible: { type: 'boolean' },
+          },
+          required: [
+            'file',
+            'viewport',
+            'documentScrollWidth',
+            'viewportWidth',
+            'primaryNavVisible',
+            'menuToggleVisible',
+          ],
+        },
+      },
+      responsiveProbeCommand: {
+        type: 'string',
+        description:
+          'Responsive probe command (mirrors captureCommand): a render step that receives the ' +
+          'target files via HARNESS_DESIGN_CRAFT_FILES and the mobile width via ' +
+          'HARNESS_DESIGN_CRAFT_VIEWPORT, and prints a ResponsiveMetrics[] JSON array to stdout. ' +
+          'How a browserless CLI obtains layout metrics. Ignored when responsiveMetrics is supplied.',
+      },
     },
     required: ['path'],
   },
@@ -240,10 +297,129 @@ function readAwardBarConfig(projectPath: string): Partial<AwardBarConfig> | unde
   try {
     const resolved = resolveConfig(path.join(projectPath, 'harness.config.json'));
     if (!resolved.ok) return undefined;
-    return resolved.value.design?.craft?.benchmark?.awardBar;
+    const awardBar = resolved.value.design?.craft?.benchmark?.awardBar;
+    if (!awardBar) return undefined;
+    // Strip the nested `responsive` block — it is not part of AwardBarConfig
+    // (award-bar thresholds); the responsive gate reads it separately.
+    const { responsive: _responsive, ...thresholds } = awardBar;
+    return thresholds;
   } catch {
     return undefined;
   }
+}
+
+/**
+ * Read `design.craft.benchmark.awardBar.responsive` from the project's
+ * harness.config.json. Returns the gate thresholds plus the `require` flag,
+ * or `undefined` on any failure (→ defaults / gate not required).
+ */
+function readResponsiveConfig(
+  projectPath: string
+): { require: boolean; config: Partial<ResponsiveGateConfig> } | undefined {
+  try {
+    const resolved = resolveConfig(path.join(projectPath, 'harness.config.json'));
+    if (!resolved.ok) return undefined;
+    const responsive = resolved.value.design?.craft?.benchmark?.awardBar?.responsive;
+    if (!responsive) return undefined;
+    return {
+      require: responsive.require,
+      config: {
+        viewport: responsive.viewport,
+        overflowTolerancePx: responsive.overflowTolerancePx,
+      },
+    };
+  } catch {
+    return undefined;
+  }
+}
+
+/**
+ * Invoke the responsive probe command and parse its `ResponsiveMetrics[]`
+ * manifest. Mirrors {@link runCaptureCommand}: the command receives the target
+ * files via `HARNESS_DESIGN_CRAFT_FILES` and prints the metrics JSON to stdout.
+ * Any failure returns `undefined` so the gate falls back to `not-evaluated`.
+ */
+function runResponsiveProbeCommand(
+  command: string,
+  files: string[],
+  viewport: number,
+  exec?: (command: string, files: string[]) => string
+): ResponsiveMetrics[] | undefined {
+  let stdout: string;
+  try {
+    stdout = exec
+      ? exec(command, files)
+      : execSync(command, {
+          encoding: 'utf-8',
+          env: {
+            ...process.env,
+            HARNESS_DESIGN_CRAFT_FILES: JSON.stringify(files),
+            // Tell the render step which mobile width to evaluate at, so the
+            // reported metrics match the configured `viewport` the gate checks.
+            HARNESS_DESIGN_CRAFT_VIEWPORT: String(viewport),
+          },
+          maxBuffer: 16 * 1024 * 1024,
+        });
+  } catch {
+    return undefined;
+  }
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(stdout);
+  } catch {
+    return undefined;
+  }
+  if (!Array.isArray(parsed)) return undefined;
+  const metrics: ResponsiveMetrics[] = [];
+  for (const item of parsed) {
+    if (
+      item !== null &&
+      typeof item === 'object' &&
+      typeof (item as ResponsiveMetrics).file === 'string' &&
+      typeof (item as ResponsiveMetrics).viewport === 'number' &&
+      typeof (item as ResponsiveMetrics).documentScrollWidth === 'number' &&
+      typeof (item as ResponsiveMetrics).viewportWidth === 'number' &&
+      typeof (item as ResponsiveMetrics).primaryNavVisible === 'boolean' &&
+      typeof (item as ResponsiveMetrics).menuToggleVisible === 'boolean'
+    ) {
+      metrics.push(item as ResponsiveMetrics);
+    }
+  }
+  return metrics.length > 0 ? metrics : undefined;
+}
+
+/**
+ * Assemble the responsive-gate arguments for `runBenchmark` from the input +
+ * project config. Metrics come from `responsiveMetrics` (direct) or the
+ * `responsiveProbeCommand` (rendered manifest); thresholds + `require` come
+ * from `design.craft.benchmark.awardBar.responsive`. Returns `undefined` when
+ * there is nothing to contribute (the gate then stays `not-evaluated`, and —
+ * absent a `require` config — the aesthetic verdict is unaffected).
+ */
+function resolveResponsiveArgs(
+  input: DesignCraftInput
+):
+  | { metrics?: ResponsiveMetrics[]; config?: Partial<ResponsiveGateConfig>; require?: boolean }
+  | undefined {
+  const cfg = readResponsiveConfig(input.path);
+  const probeFiles = input.benchmarkTargets?.map((t) => t.file) ?? input.files ?? [];
+  const viewport = cfg?.config.viewport ?? DEFAULT_RESPONSIVE_GATE_CONFIG.viewport;
+  const metrics =
+    input.responsiveMetrics ??
+    (input.responsiveProbeCommand
+      ? runResponsiveProbeCommand(
+          input.responsiveProbeCommand,
+          probeFiles,
+          viewport,
+          input.__runResponsiveProbe
+        )
+      : undefined);
+
+  if (metrics === undefined && cfg === undefined) return undefined;
+  return {
+    ...(metrics !== undefined ? { metrics } : {}),
+    ...(cfg !== undefined ? { config: cfg.config, require: cfg.require } : {}),
+  };
 }
 
 function buildBenchmarkTargets(
@@ -429,11 +605,13 @@ async function runPipeline(
   if (phases.includes('benchmark') && benchmarkTargets.length > 0) {
     const exemplars = [...SEED_EXEMPLARS];
     const awardBar = input.awardBar ?? readAwardBarConfig(input.path);
+    const responsive = resolveResponsiveArgs(input);
     const benchmarkScores = await runBenchmark({
       targets: benchmarkTargets,
       exemplars,
       provider,
       ...(awardBar !== undefined ? { awardBar } : {}),
+      ...(responsive !== undefined ? { responsive } : {}),
     });
     scores.push(...benchmarkScores);
     exemplarsCited = Array.from(new Set(benchmarkScores.flatMap((s) => s.exemplars)));
