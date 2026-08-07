@@ -48,6 +48,11 @@ export type { CodeIngestorOptions } from './ingest/CodeIngestor.js';
 export { DEFAULT_SKIP_DIRS, resolveSkipDirs, skipDirGlobs } from './ingest/skip-dirs.js';
 export { GitIngestor } from './ingest/GitIngestor.js';
 export type { GitRunner } from './ingest/GitIngestor.js';
+export { CanaryResultsIngestor } from './ingest/CanaryResultsIngestor.js';
+export type {
+  CanaryRunRecordInput,
+  CanaryTestResultInput,
+} from './ingest/CanaryResultsIngestor.js';
 export { TopologicalLinker } from './ingest/TopologicalLinker.js';
 export type { LinkResult } from './ingest/TopologicalLinker.js';
 export { KnowledgeIngestor } from './ingest/KnowledgeIngestor.js';

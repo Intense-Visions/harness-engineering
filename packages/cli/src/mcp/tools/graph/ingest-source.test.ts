@@ -26,10 +26,14 @@ const mocks = vi.hoisted(() => {
       git: makeResult('git-ingest', 1000),
       signals: makeResult('signals-ingest', 10000),
       diagrams: makeResult('diagrams-ingest', 100000),
+      canary: makeResult('canary-ingest', 1000000),
     },
     nodeCount: 42,
     edgeCount: 7,
     ingestOptions: { sentinel: 'ingest-options' } as const,
+    // A stand-in canary record — the fake ingestor ignores its contents; we only
+    // assert the records read from the adapter are handed to the ingestor ctor.
+    canaryRecords: [{ run_id: 'run-1', tests: [] }],
     load: vi.fn(async () => {}),
     save: vi.fn(async () => {}),
     mkdir: vi.fn(async () => {}),
@@ -41,6 +45,9 @@ const mocks = vi.hoisted(() => {
     signalsRun: vi.fn(),
     diagramsIngest: vi.fn(),
     loadIngestOptions: vi.fn(),
+    canaryCtor: vi.fn(),
+    canaryIngest: vi.fn(),
+    readRunHistory: vi.fn(),
   };
 });
 
@@ -78,6 +85,16 @@ vi.mock('@harness-engineering/graph', () => ({
     constructor(_store: unknown) {}
     ingest = mocks.diagramsIngest;
   },
+  CanaryResultsIngestor: class {
+    constructor(store: unknown, records: unknown) {
+      mocks.canaryCtor(store, records);
+    }
+    ingest = mocks.canaryIngest;
+  },
+}));
+
+vi.mock('@harness-engineering/intelligence', () => ({
+  createCanaryAdapter: () => ({ readRunHistory: mocks.readRunHistory }),
 }));
 
 vi.mock('node:fs/promises', () => ({
@@ -116,6 +133,9 @@ beforeEach(() => {
   mocks.gitIngest.mockResolvedValue(mocks.results.git);
   mocks.signalsRun.mockResolvedValue(mocks.results.signals);
   mocks.diagramsIngest.mockResolvedValue(mocks.results.diagrams);
+  // Default: canary produced no history → adapter returns [] (the no-op path).
+  mocks.readRunHistory.mockResolvedValue([]);
+  mocks.canaryIngest.mockReturnValue(mocks.results.canary);
 });
 
 describe('handleIngestSource — source branching', () => {
@@ -181,6 +201,38 @@ describe('handleIngestSource — source branching', () => {
     expect(mocks.codeIngest).not.toHaveBeenCalled();
     expect(mocks.signalsRun).not.toHaveBeenCalled();
   });
+
+  it('source "test-results" reads canary history via the adapter and drives only the canary ingestor', async () => {
+    mocks.readRunHistory.mockResolvedValue(mocks.canaryRecords);
+
+    await handleIngestSource({ path: PROJECT_PATH, source: 'test-results' });
+
+    // Canary coupling lives in the CLI layer: records read via the adapter (scoped
+    // to the project path) then handed to the graph-only ingestor's constructor.
+    expect(mocks.readRunHistory).toHaveBeenCalledTimes(1);
+    expect(mocks.readRunHistory).toHaveBeenCalledWith({ cwd: PROJECT_PATH });
+    expect(mocks.canaryCtor).toHaveBeenCalledTimes(1);
+    expect(mocks.canaryCtor).toHaveBeenCalledWith(expect.anything(), mocks.canaryRecords);
+    expect(mocks.canaryIngest).toHaveBeenCalledTimes(1);
+
+    // No other ingestor runs for a test-results-only ingest.
+    expect(mocks.codeIngest).not.toHaveBeenCalled();
+    expect(mocks.knowledgeIngestAll).not.toHaveBeenCalled();
+    expect(mocks.gitIngest).not.toHaveBeenCalled();
+    expect(mocks.signalsRun).not.toHaveBeenCalled();
+    expect(mocks.diagramsIngest).not.toHaveBeenCalled();
+  });
+
+  it('source "test-results" is a graceful no-op when canary produced no history (adapter returns [])', async () => {
+    // Default readRunHistory resolves [] (no history-v2.jsonl). The branch must
+    // still drive the ingestor on [] and not throw (Truth 5).
+    const res = await handleIngestSource({ path: PROJECT_PATH, source: 'test-results' });
+
+    expect(mocks.readRunHistory).toHaveBeenCalledWith({ cwd: PROJECT_PATH });
+    expect(mocks.canaryCtor).toHaveBeenCalledWith(expect.anything(), []);
+    expect(mocks.canaryIngest).toHaveBeenCalledTimes(1);
+    expect(res.isError).toBeUndefined();
+  });
 });
 
 describe('handleIngestSource — "all" aggregation', () => {
@@ -193,6 +245,8 @@ describe('handleIngestSource — "all" aggregation', () => {
     expect(mocks.gitIngest).toHaveBeenCalledTimes(1);
     expect(mocks.signalsRun).toHaveBeenCalledTimes(1);
     expect(mocks.diagramsIngest).toHaveBeenCalledTimes(1);
+    expect(mocks.readRunHistory).toHaveBeenCalledTimes(1);
+    expect(mocks.canaryIngest).toHaveBeenCalledTimes(1);
 
     const all = Object.values(mocks.results);
     const sum = (

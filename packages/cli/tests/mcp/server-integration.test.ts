@@ -111,7 +111,7 @@ describe('MCP Server Integration', () => {
     expect(names).toContain('code_craft_finalize');
     expect(names).toContain('cli_ergonomics_craft_finalize');
     expect(names).toContain('api_craft_finalize');
-    expect(tools).toHaveLength(103);
+    expect(tools).toHaveLength(104);
   });
 
   it('all tool definitions have inputSchema', () => {

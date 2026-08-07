@@ -10,15 +10,23 @@ export {
   manualToRawWorkItem,
 } from './adapters/index.js';
 export type { JiraIssue, GitHubIssue, LinearIssue, ManualInput } from './adapters/index.js';
-export { createCanaryAdapter, resolveTestCommand } from './adapters/index.js';
+export {
+  createCanaryAdapter,
+  resolveTestCommand,
+  canaryRunRecordSchema,
+  canaryTestResultSchema,
+} from './adapters/index.js';
 export type {
   CanaryAdapter,
   CanaryProbe,
   CanaryDegradeReason,
   CanaryExec,
+  CanaryReader,
   FrameworkRecommendation,
   CanaryFinding,
   CanaryFrameworkInfo,
+  CanaryRunRecord,
+  CanaryTestResult,
 } from './adapters/index.js';
 
 // Types
@@ -79,6 +87,7 @@ export type {
   Authority,
   OutcomeEvalInput,
   OutcomeVerdict,
+  CanaryRunOutcome,
   LlmVerdict,
   ResolvedSection,
   OutcomeEvaluatorOptions,

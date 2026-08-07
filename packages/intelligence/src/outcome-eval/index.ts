@@ -6,6 +6,7 @@ export type {
   Authority,
   OutcomeEvalInput,
   OutcomeVerdict,
+  CanaryRunOutcome,
 } from './types.js';
 export { deriveAuthority } from './authority.js';
 export { verdictSchema, OUTCOME_EVAL_SYSTEM_PROMPT, buildUserPrompt } from './prompts.js';
