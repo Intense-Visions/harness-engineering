@@ -143,7 +143,7 @@ writes the harness entry to `.gemini/config/mcp_config.json` via the existing
 - **Knowledge Impact:** reinforces the existing `ci-review-contract` multi-client concept —
   antigravity now has plugin parity with its CI-runner status. No new graph node required.
 
-## Success criteria (observable, testable)
+## Success Criteria
 
 1. `pnpm generate:plugin --target antigravity` emits `commands/*.toml` and `agents/*.md`
    under `.antigravity-extension/`, and leaves the hand-maintained `config/mcp_config.json`
