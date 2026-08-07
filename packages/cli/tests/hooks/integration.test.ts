@@ -49,6 +49,7 @@ describe('hook scripts integration', () => {
         'pre-compact-state',
         'cost-tracker',
         'telemetry-reporter',
+        'session-retrospect',
       ];
       for (const hookName of failOpenHooks) {
         const hookPath = join(HOOKS_DIR, `${hookName}.js`);

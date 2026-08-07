@@ -4,10 +4,11 @@
  * Profiles are additive: each higher tier includes all hooks from lower tiers.
  * - minimal: safety floor (block-no-verify only)
  * - standard: + protect-config, quality-warner (quality gates warn, never block),
- *   pre-compact-state, adoption-tracker, telemetry-reporter, plus the security floor:
- *   sentinel-pre (exit-2 blocks a destructive op in an already-tainted session — the
- *   same safety-floor class as block-no-verify) and sentinel-post (detection only;
- *   always exit 0, never blocks). Quality gates warn-never-block here. (default)
+ *   pre-compact-state, adoption-tracker, telemetry-reporter, session-retrospect
+ *   (opt-in, off by default), plus the security floor: sentinel-pre (exit-2 blocks
+ *   a destructive op in an already-tainted session — the same safety-floor class as
+ *   block-no-verify) and sentinel-post (detection only; always exit 0, never
+ *   blocks). Quality gates warn-never-block here. (default)
  * - strict: + strict-quality-gate (blocks on quality violations), cost-tracker
  */
 
@@ -31,6 +32,7 @@ export const HOOK_SCRIPTS: HookScript[] = [
   { name: 'pre-compact-state', event: 'PreCompact', matcher: '*', minProfile: 'standard' },
   { name: 'adoption-tracker', event: 'Stop', matcher: '*', minProfile: 'standard' },
   { name: 'telemetry-reporter', event: 'Stop', matcher: '*', minProfile: 'standard' },
+  { name: 'session-retrospect', event: 'Stop', matcher: '*', minProfile: 'standard' },
   {
     name: 'strict-quality-gate',
     event: 'PostToolUse',

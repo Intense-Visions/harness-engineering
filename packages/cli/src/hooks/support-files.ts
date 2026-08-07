@@ -13,6 +13,18 @@
 export const HOOK_SUPPORT_FILES: Record<string, string[]> = {
   'quality-warner': ['format-check.js'],
   'strict-quality-gate': ['format-check.js'],
+  // The session-retrospect trigger is split into an agent-agnostic core plus a
+  // thin per-agent entry point. Claude Code's hook (session-retrospect.js) is
+  // the profile-installed script; the core it imports and the Gemini / Codex /
+  // Cursor entry points must ship alongside it so the multi-agent triggers
+  // (wired into each agent's native config by agent-retrospect.ts) resolve, and
+  // so they are preserved across the installer's stale-.js wipe.
+  'session-retrospect': [
+    'session-retrospect-core.js',
+    'session-retrospect-gemini.js',
+    'session-retrospect-codex.js',
+    'session-retrospect-cursor.js',
+  ],
 };
 
 /**

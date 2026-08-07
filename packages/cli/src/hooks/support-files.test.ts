@@ -54,6 +54,9 @@ describe('supportFilesFor', () => {
     const withFiles = registered.filter(([, files]) => files.length > 0);
     // Current registry only contains one distinct support file; assert the
     // dedupe still yields that single-element ordering deterministically.
+    // The registry now spans multiple distinct support files (format-check plus
+    // the session-retrospect core + per-agent entry scripts); assert the
+    // resolved union preserves first-seen order deterministically.
     const distinct = [...new Set(withFiles.flatMap(([, files]) => files))];
     expect(supportFilesFor(withFiles.map(([name]) => name))).toEqual(distinct);
   });
