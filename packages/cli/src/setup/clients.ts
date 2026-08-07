@@ -55,6 +55,22 @@ export const SETUP_CLIENTS: SetupClient[] = [
     },
   },
   {
+    name: 'Antigravity CLI',
+    // agy shares the ~/.gemini/ home dir with Gemini CLI; the antigravity-cli/ subdir
+    // (where agy bundles its own docs) is the marker that distinguishes an agy install
+    // from a plain gemini-cli install, so a gemini-only user is not misdetected as agy.
+    detectDir: '.gemini/antigravity-cli',
+    client: 'antigravity',
+    // agy reads MCP from config/mcp_config.json; declaring it in settings.json is
+    // silently ignored (unlike the gemini client, which writes .gemini/settings.json).
+    configTarget: '.gemini/config/mcp_config.json',
+    install: {
+      kind: 'plugin',
+      marketplace: 'Intense-Visions/harness-engineering',
+      plugin: 'harness-antigravity',
+    },
+  },
+  {
     name: 'Codex CLI',
     detectDir: '.codex',
     client: 'codex',

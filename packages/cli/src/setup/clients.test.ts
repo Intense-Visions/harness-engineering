@@ -8,7 +8,14 @@ import { SETUP_CLIENTS } from './clients';
  * added in one place cannot silently miss the other. If you add/remove a
  * detected client in setup.ts, update this list in the SAME commit.
  */
-const SETUP_DETECTED_CLIENT_KEYS = ['claude', 'cursor', 'gemini', 'codex', 'opencode'];
+const SETUP_DETECTED_CLIENT_KEYS = [
+  'claude',
+  'cursor',
+  'gemini',
+  'antigravity',
+  'codex',
+  'opencode',
+];
 
 describe('SETUP_CLIENTS', () => {
   it('covers exactly the clients harness setup detects', () => {
@@ -29,6 +36,7 @@ describe('SETUP_CLIENTS', () => {
       'harness-claude',
       'harness-cursor',
       'harness-gemini',
+      'harness-antigravity',
       'harness-codex',
     ]);
     for (const c of SETUP_CLIENTS) {

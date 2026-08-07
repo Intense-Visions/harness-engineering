@@ -39,6 +39,9 @@ export const MANIFEST_PATHS = [
   '.codex-plugin/plugin.json',
   '.cursor-plugin/plugin.json',
   '.gemini-extension/gemini-extension.json',
+  // agy declares MCP in config/mcp_config.json (declaring it in settings.json is
+  // ignored). The pin lives here, not in plugin.json, so keep it in lockstep too.
+  '.antigravity-extension/config/mcp_config.json',
 ];
 
 const PIN_PREFIX = '@harness-engineering/cli@';

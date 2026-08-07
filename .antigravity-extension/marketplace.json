@@ -1,0 +1,34 @@
+{
+  "name": "harness",
+  "owner": {
+    "name": "Intense Visions",
+    "url": "https://github.com/Intense-Visions"
+  },
+  "description": "Harness — agent-first development toolkit. The `harness-antigravity` extension ships /harness:* slash commands, persona agents, and the harness MCP server for the Antigravity CLI (agy). Sibling plugins (`harness-claude`, `harness-cursor`, `harness-gemini`, `harness-codex`) target the other major AI coding tools.",
+  "plugins": [
+    {
+      "name": "harness-antigravity",
+      "source": ".",
+      "description": "Harness for Antigravity CLI (agy): every /harness:* slash command (commands/*.toml, read from ~/.gemini/commands/**), persona agents (agents/*.md, read from ~/.gemini/agents/*.md), and the harness MCP server (config/mcp_config.json). Unlike the Gemini CLI extension, agy natively supports persona agents. Lifecycle hooks are a deferred second phase (agy's stdin/stdout hook contract differs from Claude Code's).",
+      "version": "0.1.0",
+      "author": {
+        "name": "Intense Visions",
+        "url": "https://github.com/Intense-Visions"
+      },
+      "homepage": "https://github.com/Intense-Visions/harness-engineering",
+      "license": "MIT",
+      "keywords": [
+        "harness",
+        "agent-first",
+        "skills",
+        "slash-commands",
+        "agents",
+        "mcp",
+        "antigravity",
+        "agy",
+        "validation",
+        "scaffolding"
+      ]
+    }
+  ]
+}

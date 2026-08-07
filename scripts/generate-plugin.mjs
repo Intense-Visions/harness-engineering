@@ -42,7 +42,9 @@ function parseArg(name) {
 
 const target = parseArg('--target');
 if (!target) {
-  console.error('Usage: generate-plugin.mjs --target <claude|cursor|gemini|codex> [--check]');
+  console.error(
+    'Usage: generate-plugin.mjs --target <claude|cursor|gemini|antigravity|codex> [--check]'
+  );
   process.exit(1);
 }
 

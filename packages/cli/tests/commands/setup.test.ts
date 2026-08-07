@@ -86,6 +86,7 @@ function mockAllClientsExist() {
     const s = String(p);
     if (s === path.join(os.homedir(), '.claude')) return true;
     if (s === path.join(os.homedir(), '.gemini')) return true;
+    if (s === path.join(os.homedir(), '.gemini', 'antigravity-cli')) return true;
     if (s === path.join(os.homedir(), '.codex')) return true;
     if (s === path.join(os.homedir(), '.cursor')) return true;
     if (s === path.join(os.homedir(), '.config', 'opencode')) return true;
@@ -108,7 +109,7 @@ describe('runSetup', () => {
     const { steps, success } = await runSetup('/tmp/test');
 
     expect(success).toBe(true);
-    expect(steps).toHaveLength(12);
+    expect(steps).toHaveLength(13);
     expect(steps[0].status).toBe('pass');
     expect(steps[0].message).toContain('Node.js');
     expect(steps[1].status).toBe('pass');
@@ -120,10 +121,10 @@ describe('runSetup', () => {
         yes: true,
       })
     );
-    // setupMcp now runs for all five clients (claude, gemini, codex, cursor, opencode).
-    expect(setupMcp).toHaveBeenCalledTimes(5);
-    expect(steps[7].status).toBe('pass');
-    expect(steps[7].message).toContain('MCP integrations');
+    // setupMcp now runs for all six clients (claude, gemini, antigravity, codex, cursor, opencode).
+    expect(setupMcp).toHaveBeenCalledTimes(6);
+    expect(steps[8].status).toBe('pass');
+    expect(steps[8].message).toContain('MCP integrations');
     expect(markSetupComplete).toHaveBeenCalled();
   });
 
@@ -152,17 +153,20 @@ describe('runSetup', () => {
     const { steps, success } = await runSetup('/tmp/test');
 
     expect(success).toBe(true);
-    expect(steps).toHaveLength(12);
+    expect(steps).toHaveLength(13);
     const geminiStep = steps[3];
     expect(geminiStep.status).toBe('warn');
     expect(geminiStep.message).toContain('Gemini CLI not detected');
-    const codexStep = steps[4];
+    const antigravityStep = steps[4];
+    expect(antigravityStep.status).toBe('warn');
+    expect(antigravityStep.message).toContain('Antigravity CLI not detected');
+    const codexStep = steps[5];
     expect(codexStep.status).toBe('warn');
     expect(codexStep.message).toContain('Codex CLI not detected');
-    const cursorStep = steps[5];
+    const cursorStep = steps[6];
     expect(cursorStep.status).toBe('warn');
     expect(cursorStep.message).toContain('Cursor not detected');
-    const opencodeStep = steps[6];
+    const opencodeStep = steps[7];
     expect(opencodeStep.status).toBe('warn');
     expect(opencodeStep.message).toContain('OpenCode not detected');
     expect(setupMcp).toHaveBeenCalledTimes(1);
@@ -179,7 +183,7 @@ describe('runSetup', () => {
     expect(success).toBe(true);
     expect(setupMcp).not.toHaveBeenCalled();
     const mcpSteps = steps.filter((s) => s.message.includes('not detected'));
-    expect(mcpSteps).toHaveLength(5);
+    expect(mcpSteps).toHaveLength(6);
     expect(markSetupComplete).toHaveBeenCalled();
   });
 

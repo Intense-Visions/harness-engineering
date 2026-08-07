@@ -73,6 +73,34 @@ export const PLUGIN_CONFIGS = {
     generateAgents: false,
     generateHooks: false,
   },
+  antigravity: {
+    label: 'Antigravity CLI',
+    pluginDir: '.antigravity-extension',
+    // agy shares the ~/.gemini/ home dir and reuses gemini-cli's TOML slash-command
+    // format (it reads ~/.gemini/commands/**), so we generate from the gemini-cli
+    // platform. See docs/changes/antigravity-plugin-target/proposal.md (contract from #979).
+    slashCommandsPlatform: 'gemini-cli',
+    // Unlike the gemini *extension* target (agentPlatform: undefined — gemini extensions
+    // have no agents field), agy DOES read persona agents from ~/.gemini/agents/*.md.
+    // The gemini-cli agent renderer emits .md, which is exactly what agy consumes.
+    agentPlatform: 'gemini-cli',
+    // Reuse gemini-cli's (symlink-mirror) skill tree so generated command TOMLs embed
+    // gemini-cli-relative reference paths; agy shares ~/.gemini/. See cursor/gemini notes
+    // re: symlinks and --skills-dir-only.
+    skillsDir: 'agents/skills/gemini-cli',
+    // agy supports lifecycle hooks, but with a different contract than Claude Code
+    // (stdin JSON payload -> stdout decision object, not exit codes) and different
+    // events/matchers. Porting the hook scripts is Phase 2 (see proposal); generating a
+    // hooks.json now would install non-functional guards, so hooks are skipped for the
+    // MVP target — matching the honest posture of the gemini and codex targets.
+    hooksCommandTemplate: undefined,
+    cursorMode: undefined,
+    // agy commands are TOML, same as gemini.
+    commandExt: '.toml',
+    generateCommands: true,
+    generateAgents: true,
+    generateHooks: false,
+  },
   codex: {
     label: 'Codex CLI',
     pluginDir: '.codex-plugin',
