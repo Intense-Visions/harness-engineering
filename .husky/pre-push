@@ -83,7 +83,15 @@ if [ "$AFFECTED_OK" = "1" ]; then
   node scripts/coverage-ratchet.mjs --clean
   # Cap turbo concurrency to 2 packages-at-a-time. Without this, filesystem/sqlite/HTTP-heavy
   # tests flake under compound parallel load (Phase 2 raises this cap after test isolation).
-  pnpm exec turbo run test:coverage --affected --concurrency=2
+  # Clear stale per-package reports so the summarizer only reads this run.
+  find packages -maxdepth 2 -name .vitest-report.json -delete 2>/dev/null || true
+  # HARNESS_PREPUSH activates the json reporter in each package's vitest config.
+  # On non-zero exit, print a concise failing-test summary, then preserve the
+  # blocking exit code (turbo's interleaved stream may drop the FAIL line, #1094).
+  if ! HARNESS_PREPUSH=1 pnpm exec turbo run test:coverage --affected --concurrency=2; then
+    node scripts/summarize-test-failures.mjs || true
+    exit 1
+  fi
   # Partial mode: --affected skips unchanged packages, so tolerate their missing coverage.
   # CI's ratchet runs flagless (full/authoritative) and is unaffected.
   node scripts/coverage-ratchet.mjs --allow-missing
@@ -91,7 +99,11 @@ else
   # Full fallback: whole-tree prettier + all-package typecheck/test.
   pnpm run format:check
   pnpm run typecheck
-  pnpm exec turbo run test:coverage --concurrency=2
+  find packages -maxdepth 2 -name .vitest-report.json -delete 2>/dev/null || true
+  if ! HARNESS_PREPUSH=1 pnpm exec turbo run test:coverage --concurrency=2; then
+    node scripts/summarize-test-failures.mjs || true
+    exit 1
+  fi
   node scripts/coverage-ratchet.mjs
 fi
 
