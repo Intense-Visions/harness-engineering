@@ -83,4 +83,18 @@ export const SETUP_CLIENTS: SetupClient[] = [
     configTarget: 'opencode.json',
     install: NPM_INSTALL,
   },
+  {
+    name: 'Antigravity CLI',
+    // agy-specific marker under the shared ~/.gemini/ root — distinct from
+    // gemini's ".gemini" so a plain gemini install is not misdetected as agy.
+    detectDir: '.gemini/antigravity-cli',
+    client: 'antigravity',
+    // Empirically-verified agy MCP location — NOT settings.json (agy ignores it).
+    configTarget: '.gemini/config/mcp_config.json',
+    install: {
+      kind: 'plugin',
+      marketplace: 'Intense-Visions/harness-engineering',
+      plugin: 'harness-antigravity',
+    },
+  },
 ];
