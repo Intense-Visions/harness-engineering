@@ -50,15 +50,46 @@ export interface AgentRetrospectResult {
 // eslint-disable-next-line @typescript-eslint/no-explicit-any -- dynamic JSON config shapes
 type JsonObject = Record<string, any>;
 
-function readJsonObject(filePath: string): JsonObject {
-  if (!fs.existsSync(filePath)) return {};
+/**
+ * Read a JSON config file, distinguishing three outcomes so a caller never
+ * silently destroys a user's existing config:
+ *  - `absent`      — the file does not exist (or is empty); safe to create.
+ *  - `parsed`      — a valid JSON object; merge into it and preserve its keys.
+ *  - `unparseable` — the file exists with content that is not a JSON object
+ *                    (malformed JSON, JSONC/comments, a top-level array, …).
+ *
+ * A previous version returned `{}` for the `unparseable` case, which caused the
+ * caller's write to OVERWRITE the user's whole config with only the harness
+ * hook — silent data loss that violated this module's "unrelated user config is
+ * always preserved" contract. We now surface it so the writers report a
+ * `conflict` and leave the file untouched, mirroring how `hooks init` refuses to
+ * clobber a malformed `.claude/settings.json`.
+ */
+type JsonReadResult =
+  | { kind: 'absent' }
+  | { kind: 'parsed'; value: JsonObject }
+  | { kind: 'unparseable' };
+
+function readJsonConfig(filePath: string): JsonReadResult {
+  if (!fs.existsSync(filePath)) return { kind: 'absent' };
+  let raw: string;
   try {
-    const parsed = JSON.parse(fs.readFileSync(filePath, 'utf-8'));
-    return parsed && typeof parsed === 'object' ? (parsed as JsonObject) : {};
+    raw = fs.readFileSync(filePath, 'utf-8');
   } catch {
-    // Malformed config — treat as absent rather than crash the installer. The
-    // caller's atomic write below replaces it with a valid document.
-    return {};
+    // Unreadable (permissions, race) — do not clobber.
+    return { kind: 'unparseable' };
+  }
+  if (raw.trim() === '') return { kind: 'absent' };
+  try {
+    const parsed = JSON.parse(raw);
+    if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
+      return { kind: 'parsed', value: parsed as JsonObject };
+    }
+    // Valid JSON but not an object (array / string / number) — not a config
+    // shape we can safely merge into, so preserve it rather than overwrite.
+    return { kind: 'unparseable' };
+  } catch {
+    return { kind: 'unparseable' };
   }
 }
 
@@ -85,13 +116,17 @@ function hasRetrospectEntry(entries: JsonObject[], command: string): boolean {
 
 /**
  * Wire the SessionEnd trigger into `.gemini/settings.json`. Preserves all other
- * settings and all other hook events; idempotent by name/command.
+ * settings and all other hook events; idempotent by name/command. An existing
+ * file that is not a JSON object is reported as a `conflict` and left untouched
+ * rather than overwritten.
  */
 export function writeGeminiSessionEndHook(
   settingsPath: string,
   command: string
 ): AgentRetrospectStatus {
-  const settings = readJsonObject(settingsPath);
+  const read = readJsonConfig(settingsPath);
+  if (read.kind === 'unparseable') return 'conflict';
+  const settings: JsonObject = read.kind === 'parsed' ? read.value : {};
   if (!settings.hooks || typeof settings.hooks !== 'object') settings.hooks = {};
   if (!Array.isArray(settings.hooks.SessionEnd)) settings.hooks.SessionEnd = [];
 
@@ -111,13 +146,17 @@ export function writeGeminiSessionEndHook(
 
 /**
  * Wire the `stop` + `sessionEnd` triggers into `.cursor/hooks.json`. Preserves
- * the existing version and any other events/entries; idempotent by command.
+ * the existing version and any other events/entries; idempotent by command. An
+ * existing file that is not a JSON object is reported as a `conflict` and left
+ * untouched rather than overwritten.
  */
 export function writeCursorRetrospectHooks(
   hooksPath: string,
   command: string
 ): AgentRetrospectStatus {
-  const config = readJsonObject(hooksPath);
+  const read = readJsonConfig(hooksPath);
+  if (read.kind === 'unparseable') return 'conflict';
+  const config: JsonObject = read.kind === 'parsed' ? read.value : {};
   if (typeof config.version !== 'number') config.version = 1;
   if (!config.hooks || typeof config.hooks !== 'object') config.hooks = {};
 
@@ -143,8 +182,13 @@ export function writeCursorRetrospectHooks(
  *  - already ours      → 'skipped' (idempotent)
  *  - a different notify → 'conflict' (left untouched; caller warns)
  *
- * The notify entry is a top-level TOML key, so it must be inserted BEFORE the
- * first table header (otherwise it would be parsed into that table).
+ * The notify entry is a top-level TOML key, so it must precede the first table
+ * header (otherwise it would be parsed into that table). We prepend it at the
+ * very top of the file: a top-level key on line 1 is always valid TOML — it
+ * comes before every table AND is never spliced inside a multi-line array. The
+ * previous "find the first line starting with `[` and insert before it"
+ * heuristic could mistake an array-element line (e.g. `  [1, 2],` inside a
+ * top-level array literal) for a table header and corrupt the file.
  */
 export function writeCodexNotifyHook(
   configPath: string,
@@ -165,17 +209,9 @@ export function writeCodexNotifyHook(
   if (existing.trim() === '') {
     updated = notifyLine + '\n';
   } else {
-    const lines = existing.split('\n');
-    const firstTableIdx = lines.findIndex((l) => /^[ \t]*\[/.test(l));
-    if (firstTableIdx === -1) {
-      // No tables: append as another top-level key.
-      const sep = existing.endsWith('\n') ? '' : '\n';
-      updated = existing + sep + notifyLine + '\n';
-    } else {
-      // Insert before the first table, with a blank-line separator.
-      lines.splice(firstTableIdx, 0, notifyLine, '');
-      updated = lines.join('\n');
-    }
+    // Prepend as a top-level key. A blank line keeps it visually separate from
+    // whatever the user already had at the top of the file.
+    updated = notifyLine + '\n\n' + existing;
   }
 
   fs.mkdirSync(path.dirname(configPath), { recursive: true });
@@ -202,7 +238,11 @@ export function installAgentRetrospectHooks(options: {
   if (fs.existsSync(path.join(projectDir, '.gemini'))) {
     const configPath = path.join(projectDir, '.gemini', 'settings.json');
     const status = writeGeminiSessionEndHook(configPath, buildCommand('session-retrospect-gemini'));
-    results.push({ agent: 'Gemini CLI', status, configPath });
+    const geminiResult: AgentRetrospectResult = { agent: 'Gemini CLI', status, configPath };
+    if (status === 'conflict') {
+      geminiResult.reason = 'unparseable .gemini/settings.json left untouched';
+    }
+    results.push(geminiResult);
   }
 
   // Codex CLI — .codex present.
@@ -226,7 +266,11 @@ export function installAgentRetrospectHooks(options: {
       configPath,
       buildCommand('session-retrospect-cursor')
     );
-    results.push({ agent: 'Cursor', status, configPath });
+    const cursorResult: AgentRetrospectResult = { agent: 'Cursor', status, configPath };
+    if (status === 'conflict') {
+      cursorResult.reason = 'unparseable .cursor/hooks.json left untouched';
+    }
+    results.push(cursorResult);
   }
 
   return results;
