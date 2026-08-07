@@ -8,6 +8,7 @@ import {
   type Proposal,
   type ProposalStatus,
 } from '@harness-engineering/core';
+import { envEnabled } from '../utils/env-flag.js';
 
 function projectRoot(): string {
   return resolve(process.env['HARNESS_PROJECT_ROOT'] ?? process.cwd());
@@ -51,6 +52,98 @@ export async function runProposalsList(
 
 export async function runProposalsShow(id: string): Promise<Proposal | null> {
   return getProposal(projectRoot(), id);
+}
+
+export interface ProposalsStatusReport {
+  queue: {
+    open: number;
+    gateRunning: number;
+    gateFailed: number;
+    approved: number;
+    rejected: number;
+    total: number;
+  };
+  emitters: {
+    manualEmit: { surface: 'emit_skill_proposal'; available: true };
+    retrospection: {
+      enabled: boolean;
+      envFlagSet: boolean;
+      providerResolvable: boolean;
+      dormantReason?: string;
+    };
+  };
+}
+
+/** Env-presence proxy for `resolveAnalysisProvider` precedence (Anthropic → local /v1). */
+function providerResolvable(env: NodeJS.ProcessEnv): boolean {
+  if (env['ANTHROPIC_API_KEY']?.trim()) return true;
+  if (env['HARNESS_ANALYSIS_BASE_URL']?.trim()) return true;
+  return false;
+}
+
+export async function runProposalsStatus(
+  env: NodeJS.ProcessEnv,
+  projectRootPath: string
+): Promise<ProposalsStatusReport> {
+  const proposals = await listProposals(projectRootPath, { kind: 'skill' });
+  const queue = {
+    open: 0,
+    gateRunning: 0,
+    gateFailed: 0,
+    approved: 0,
+    rejected: 0,
+    total: proposals.length,
+  };
+  for (const p of proposals) {
+    switch (p.status) {
+      case 'open':
+        queue.open++;
+        break;
+      case 'gate-running':
+        queue.gateRunning++;
+        break;
+      case 'gate-failed':
+        queue.gateFailed++;
+        break;
+      case 'approved':
+        queue.approved++;
+        break;
+      case 'rejected':
+        queue.rejected++;
+        break;
+      // No default: listProposals is filtered to kind:'skill', so p.status is
+      // one of the five skill statuses above at runtime. (The static Proposal
+      // type is the skill∪model union, so a `never` exhaustiveness assertion
+      // would spuriously fail on the model-only statuses installing /
+      // failed_target_missing, which cannot occur here.)
+    }
+  }
+
+  const envFlagSet = envEnabled(env['HARNESS_SESSION_RETROSPECTION']);
+  const resolvable = providerResolvable(env);
+  const enabled = envFlagSet && resolvable;
+  // Precedence mirrors the runtime (state.ts): flag checked before provider.
+  let dormantReason: string | undefined;
+  if (!envFlagSet) {
+    dormantReason =
+      'HARNESS_SESSION_RETROSPECTION is not set — session-terminus retrospection is opt-in';
+  } else if (!resolvable) {
+    dormantReason =
+      'no analysis provider resolvable — set ANTHROPIC_API_KEY or HARNESS_ANALYSIS_BASE_URL';
+  }
+
+  return {
+    queue,
+    emitters: {
+      manualEmit: { surface: 'emit_skill_proposal', available: true },
+      retrospection: {
+        enabled,
+        envFlagSet,
+        providerResolvable: resolvable,
+        ...(dormantReason ? { dormantReason } : {}),
+      },
+    },
+  };
 }
 
 export async function runProposalsReject(id: string, reason: string): Promise<Proposal> {
@@ -105,6 +198,33 @@ async function actRejectCommand(id: string, opts: { reason: string }): Promise<v
   }
 }
 
+export async function actStatusCommand(opts: { json?: boolean }, cmd?: Command): Promise<void> {
+  // `--json` is the root program's global flag (see createProgram); it is
+  // shadowed at the leaf, so read it via optsWithGlobals. The direct-call path
+  // (opts.json) keeps the action unit-testable without a Command instance.
+  const json = opts.json === true || cmd?.optsWithGlobals?.().json === true;
+  const report = await runProposalsStatus(process.env, projectRoot());
+  if (json) {
+    console.log(JSON.stringify(report, null, 2));
+    return;
+  }
+  const q = report.queue;
+  const r = report.emitters.retrospection;
+  console.log('Skill-proposal queue');
+  console.log(
+    `  open ${q.open}  gate-running ${q.gateRunning}  gate-failed ${q.gateFailed}` +
+      `  approved ${q.approved}  rejected ${q.rejected}  (total ${q.total})`
+  );
+  console.log('Emitters');
+  console.log('  manual emit (emit_skill_proposal): available');
+  console.log(
+    `  retrospection: ${r.enabled ? 'ENABLED' : 'dormant'}` +
+      `  [flag ${r.envFlagSet ? 'set' : 'unset'}, provider ${r.providerResolvable ? 'resolvable (inferred from env)' : 'unresolvable'}]`
+  );
+  if (r.dormantReason) console.log(`    reason: ${r.dormantReason}`);
+  // Status is a report, never a gate: exit 0 always.
+}
+
 async function actApproveCommand(id: string): Promise<void> {
   const orchestratorUrl = process.env['HARNESS_ORCHESTRATOR_URL'] ?? 'http://127.0.0.1:4577';
   const token = process.env['HARNESS_ADMIN_TOKEN'];
@@ -154,6 +274,13 @@ export function createProposalsCommand(): Command {
       'Approve a proposal (runs the soundness-review gate then promotes). Requires the orchestrator to be running.'
     )
     .action(actApproveCommand);
+
+  cmd
+    .command('status')
+    .description(
+      'Report queue counts and whether each emission surface (manual emit, retrospection) is live or dormant. Provider resolvability is inferred from env-var presence, not by constructing a provider. Use the global --json flag for the machine-readable ProposalsStatusReport.'
+    )
+    .action(actStatusCommand);
 
   return cmd;
 }

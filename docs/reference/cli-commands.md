@@ -1329,6 +1329,10 @@ Reject a proposal with a one-line reason
 
 Show a single proposal in full
 
+### `harness proposals status`
+
+Report queue counts and whether each emission surface (manual emit, retrospection) is live or dormant. Provider resolvability is inferred from env-var presence, not by constructing a provider. Use the global --json flag for the machine-readable ProposalsStatusReport.
+
 ## Pulse Commands
 
 Pulse (read-side observability) commands
