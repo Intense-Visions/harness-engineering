@@ -279,6 +279,24 @@ export const DesignCraftConfigSchema = z.object({
       proposalThreshold: z.number().int().positive().default(5),
     })
     .optional(),
+  /** BENCHMARK-phase configuration */
+  benchmark: z
+    .object({
+      /**
+       * Award-bar verdict thresholds. Per dimension, the floor is
+       * max(dimensionFloor, round(fraction × median(cited-exemplar
+       * references))); any dimension below `confidenceFloor` forces an
+       * `indeterminate` verdict. Omit for defaults (80 / 0.95 / medium).
+       */
+      awardBar: z
+        .object({
+          dimensionFloor: z.number().min(0).max(100).default(80),
+          fraction: z.number().min(0).max(1).default(0.95),
+          confidenceFloor: z.enum(['high', 'medium', 'low']).default('medium'),
+        })
+        .optional(),
+    })
+    .optional(),
 });
 
 /**

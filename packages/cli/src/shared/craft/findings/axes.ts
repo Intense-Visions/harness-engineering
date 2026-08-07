@@ -43,3 +43,15 @@ export type Impact = 'small' | 'medium' | 'large';
  * strictnesses.
  */
 export type Confidence = 'high' | 'medium' | 'low';
+
+/**
+ * Numeric ranking of the confidence axis (higher = more confident).
+ * Canonical so every craft consumer orders confidence identically — e.g.
+ * min-confidence aggregation (design-craft benchmark) and the award-bar
+ * confidence gate. Import this rather than re-declaring the map.
+ */
+export const CONFIDENCE_RANK: Record<Confidence, number> = {
+  high: 3,
+  medium: 2,
+  low: 1,
+};
