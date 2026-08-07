@@ -54,6 +54,7 @@ import {
   createSkillDefinition,
   handleCreateSkill,
 } from './tools/skill.js';
+import { docsPublishDefinition, handleDocsPublish } from './tools/docs-publish.js';
 import { getSkillsResource } from './resources/skills.js';
 import { getRulesResource } from './resources/rules.js';
 import { getProjectResource } from './resources/project.js';
@@ -295,6 +296,7 @@ const TOOL_DEFINITIONS: ToolDefinition[] = [
   checkPhaseGateDefinition,
   validateCrossCheckDefinition,
   createSkillDefinition,
+  docsPublishDefinition,
   generateSlashCommandsDefinition,
   queryGraphDefinition,
   searchSimilarDefinition,
@@ -406,6 +408,7 @@ const TOOL_HANDLERS: Record<string, ToolHandler> = {
   check_phase_gate: handleCheckPhaseGate as ToolHandler,
   validate_cross_check: handleValidateCrossCheck as ToolHandler,
   create_skill: handleCreateSkill as ToolHandler,
+  docs_publish: handleDocsPublish as ToolHandler,
   generate_slash_commands: handleGenerateSlashCommands as ToolHandler,
   query_graph: handleQueryGraph as ToolHandler,
   search_similar: handleSearchSimilar as ToolHandler,

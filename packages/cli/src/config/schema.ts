@@ -962,6 +962,15 @@ export const HarnessConfigSchema = z.object({
   phaseGates: PhaseGatesConfigSchema.optional(),
   /** Design system consistency settings */
   design: DesignConfigSchema.optional(),
+  /**
+   * Docs-publish connector selection (`harness docs-publish`). Names the
+   * connector to resolve (e.g. `confluence`) and its provider-specific config
+   * block. Absent means no connector is configured — the resolver degrades
+   * gracefully with an actionable message rather than crashing.
+   */
+  docsPublish: z
+    .object({ connector: z.string(), config: z.record(z.unknown()).default({}) })
+    .optional(),
   /** Semantic-vocabulary CI gate settings (`harness check-vocabulary`) */
   vocabulary: VocabularyConfigSchema.optional(),
   /** Shared configuration for craft-pipeline ceiling skills (LLM-judgment) */

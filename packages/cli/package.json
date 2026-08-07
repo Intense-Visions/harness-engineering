@@ -60,10 +60,14 @@
     "zod": "^3.25.76"
   },
   "peerDependencies": {
-    "@harness-engineering/intelligence": "workspace:*"
+    "@harness-engineering/intelligence": "workspace:*",
+    "playwright": "^1.48.0"
   },
   "peerDependenciesMeta": {
     "@harness-engineering/intelligence": {
+      "optional": true
+    },
+    "playwright": {
       "optional": true
     }
   },

@@ -1,266 +1,285 @@
 ---
-title: Generic Docs-Publish Contract + Confluence Adapter + Proposal-Pitch Skills
+title: Docs-Publish Connector (harness.config.json) + Confluence Implementation + Proposal-Pitch Skill
 status: proposed
 owner: Chad Warner
 keywords:
   [
     docs-publish,
-    publish-contract,
-    provider-adapter,
+    connector,
+    resolver,
+    harness-config,
     confluence,
     adf,
     atlassian,
-    proposal,
-    drafts,
+    playwright,
     render-verify,
-    epistemic-labels,
-    skills,
+    cli-command,
+    mcp-tool,
+    proposal-pitch,
   ]
 ---
 
-# Generic Docs-Publish Contract + Confluence Adapter + Proposal-Pitch Skills
+# Docs-Publish Connector (harness.config.json) + Confluence Implementation + Proposal-Pitch Skill
 
 ## Overview
 
-Three new `claude-code` skills that separate a vendor-neutral publishing
-**contract** from its provider **adapter** and from the **pipeline** that consumes
-it. This supersedes the earlier two-skill design that tied the pipeline directly
-to Confluence: the mechanics are just as valuable, but nothing in the pipeline is
-Confluence-specific, so the dependency is inverted through a small generic
-contract.
+The publishing capability moves from a prose "contract skill" to a real **code
+connector** configured in `harness.config.json`. A `DocsPublishConnector`
+interface defines four operations (`draft`, `attachMedia`, `verifyRender`,
+`pageTree`); a resolver reads a new `docsPublish` config block and returns the
+configured connector with graceful degradation when none is set. `ConfluenceConnector`
+implements the interface, codifying the API-driven Atlassian mechanics in code and
+modeling the headless-impossible attachment upload as a typed manual-step result.
+`proposal-pitch` stays a skill but now invokes the connector through a real
+surface — a `harness docs-publish <op>` CLI command and a `docs_publish` MCP tool —
+instead of a prose dependency.
 
-A grep of `agents/skills/` finds no publishing contract or Confluence publishing
-skill today; the only Confluence mentions are incidental prose inside unrelated
-skills and the graph `ConfluenceConnector` (ingest-only, unrelated to publishing).
-
-- **`docs-publish`** (NEW) — the generic, vendor-neutral publishing contract.
-  Specifies four operations every provider adapter must implement — **draft**,
-  **attach-media**, **verify-render**, **page-tree** — plus the cross-cutting
-  invariants (drafts-only, verify-before-done, authoritative read-back). Names no
-  vendor. Pipelines depend on this; adapters implement it.
-- **`docs-publish-confluence`** (was `docs-confluence-publish`) — the Confluence
-  **provider adapter** that implements the `docs-publish` contract. Keeps all the
-  hard-won Atlassian mechanics (osascript/FormData attachment recipe + traps, ADF
-  media-single vs media-group, draft/publish race, page-tree move ops, DOM
-  render-verify, deterministic Playwright stills). Framed explicitly as "one
-  adapter of the contract" so future Notion/GDocs/Markdown adapters slot in
-  without touching the pipeline.
-- **`proposal-pitch`** — the target-agnostic pipeline and its gates (gather source
-  → agree structure → render stills → publish as drafts → close the loop).
-  Depends on `docs-publish` (the contract), **not** on any provider. Ships no
-  space ids, page ids, or brand assets; those come from a shared config contract.
-
-All three are authored as claude-code source with `codex`/`cursor`/`gemini-cli`
-symlinks, matching the repo's existing platform-mirror convention.
+This supersedes the three-skill design (contract skill + adapter skill + pipeline
+skill). The two `docs-publish*` skills are **deleted**; their hard-won knowledge is
+preserved in code (implementations + structured guidance + comments).
 
 ## Problem Boundary
 
-**In scope:** three rigid, user-facing skills in the rich harness format, each
-passing `harness skill validate` and the skill-structure vitest, registered for
-`claude-code` with platform symlinks. Grep-clean of company-specific content. The
-generic contract's four operations + invariants specified vendor-neutrally.
-Reframing the Confluence mechanics as one adapter of the contract, with the
-mechanics preserved verbatim in substance. Prose documentation of the shared
-config contract and its graceful-degradation message.
+**In scope:**
 
-**Out of scope:** implementing any additional adapter (Notion/GDocs/Markdown) —
-the contract is authored so they can be added later without touching
-`proposal-pitch`. Implementing the shared company-knowledge loader (canary-side
-prerequisite; these skills read from it and degrade in prose when the `confluence`
-block is absent — they ship no loader). Company-specific Atlassian defaults (a
-separate downstream layer). Any actual publish to a live target during this change.
+- `DocsPublishConnector` interface + operation/result types + documented invariants,
+  in `packages/cli/src/docs-publish/`.
+- A resolver reading `config.docsPublish` (`{ connector, config }`) from
+  `harness.config.json`, returning the connector by name with graceful degradation
+  (typed error / no-op) when absent or unknown. Modeled on the graph-connector and
+  agent-backend resolver idioms.
+- `docsPublish` config block added to `packages/cli/src/config/schema.ts`.
+- `ConfluenceConnector implements DocsPublishConnector`: page CRUD + sidebar
+  tree/move via Atlassian REST; ADF `media-single` serialization (never media-group);
+  `verifyRender` via Playwright (lazy/optional). `attachMedia` returns a typed
+  `{ status: 'manual-step-required', instructions, verifyWith }` (the Chrome-tab +
+  osascript FormData recipe and its three traps preserved as the instructions payload
+  and code comments).
+- `harness docs-publish <op>` CLI command (subops draft/attach-media/verify-render/
+  page-tree) and a `docs_publish` MCP tool as the pipeline's invocation surface.
+- `proposal-pitch` skill retained (pipeline + 6 gates), body updated to invoke the
+  connector surface; names no vendor.
+- Delete the `docs-publish` and `docs-publish-confluence` skills (dirs, symlinks,
+  command files, catalog rows).
+
+**Out of scope:** additional connectors (Notion/GDocs/Markdown) — the interface is
+authored so they slot in via the resolver without touching the pipeline. Actually
+performing a live publish during this change. Automating the headless-impossible
+attachment upload (it stays a surfaced manual step by design). Shipping a browser
+binary (Playwright is an optional peer; render-verify degrades with a clear
+install message when it is absent).
 
 ## Decisions Made
 
-1. **Three skills: contract / adapter / pipeline.** The publishing mechanics and
-   the pitch pipeline have different audiences and change cadences, and the
-   pipeline is provider-agnostic. Introducing a thin generic contract skill
-   (`docs-publish`) lets the pipeline depend on the contract while the Confluence
-   adapter depends on it too — inverting the earlier direct pipeline→Confluence
-   dependency. Future adapters implement the same contract with zero pipeline
-   edits.
+1. **Connector is code, not a skill.** A `DocsPublishConnector` TypeScript interface
+   with concrete implementations resolved from `harness.config.json` replaces the
+   prose contract. This gives real types, testability, and a stable invocation
+   surface, and aligns with how the repo already models pluggable backends.
 
-2. **The contract is a skill, not just a prose section.** A first-class
-   `docs-publish` skill gives adapters a single normative reference to implement
-   against and gives the pipeline a stable `depends_on` target. It carries the
-   four operations and the cross-cutting invariants; it carries no vendor
-   mechanics. This is the cleanest fit for the harness skill model (discoverable,
-   validatable, symlinked like every other skill).
+2. **Resolver idiom: name-keyed factory with graceful degradation.** Following the
+   agent-backend resolver (`makeBackendResolver` → returns `null` on unknown) and the
+   graph `SyncManager` (never-throw, structured error), the docs-publish resolver
+   reads `config.docsPublish`, dispatches on `connector` name, and returns a typed
+   "not configured" / "unknown connector" result rather than throwing. Consumers
+   surface it as an actionable message.
 
-3. **Rename `docs-confluence-publish` → `docs-publish-confluence`.** The
-   `docs-publish` / `docs-publish-confluence` family makes the contract↔adapter
-   relationship legible and signals exactly where a future `docs-publish-notion`
-   would live. The mechanics are preserved; only the framing and name change.
+3. **`attachMedia` is a typed manual step, not an automated upload.** The Atlassian
+   MCP has no attachment API and the working upload recipe requires a logged-in
+   Chrome tab driven by osascript — impossible headless. `attachMedia` returns
+   `{ status: 'manual-step-required', instructions, verifyWith }`; the pipeline
+   surfaces the instructions (the osascript/FormData recipe + the three traps) to the
+   human and later confirms via `verifyRender` / an authoritative read-back. The
+   knowledge is preserved verbatim in the instructions payload and code comments.
 
-4. **All three rigid.** Each carries hard stops where skipping causes real damage:
-   publishing draft→current is the author's click (never the agent's); an
-   unverified page is silently broken (stored-format correctness ≠ render
-   correctness); real customer data must never reach a rendered still. Rigid skills
-   require `## Gates` and `## Escalation`, which is exactly the discipline these
-   need.
+4. **Playwright is an optional peer with lazy import.** `verifyRender` needs a real
+   browser; a hard runtime dep on a publishable package (`@harness-engineering/cli`)
+   would force a browser download on every install. Playwright is declared a
+   `peerDependency` + `peerDependenciesMeta.optional`, imported via a guarded
+   `await import('playwright')` that returns a clear "install playwright to enable
+   render-verify" degradation when absent. (Mirrors the existing optional-peer
+   pattern for `@harness-engineering/intelligence` and lazy `await import` precedents
+   in the MCP server.)
 
-5. **Config contract read from the shared tier, documented in prose.** Per the
-   companion config-contract amendment, `confluence` (cloud_id, space_id,
-   proposals_index_page_id, exemplar_page_ids) and `brand.proposal_css_path` are
-   org pointers read from the shared company-knowledge tier. The adapter and the
-   pipeline describe the contract and the exact degradation message when the block
-   is absent — a clear instruction to the author, not a crash or a silent no-op.
-   No loader code ships here.
+5. **Two invocation surfaces: CLI + MCP.** `harness docs-publish <op>` (for humans /
+   scripts) and a `docs_publish` MCP tool (for the skill/agent) both call the same
+   resolver + connector. The skill calls the surface; it does not embed mechanics.
 
-6. **Zero company-specific content, enforced by grep.** No space ids, page ids,
-   brand hex, product names, or personal names in any skill body. This is an
-   acceptance gate and a shipped-artifact rule. Shipped bodies also carry no
-   internal roadmap/PR/issue numbers.
+6. **Delete the two `docs-publish*` skills.** With the capability in code, a contract
+   skill and an adapter skill are redundant. `proposal-pitch` remains the only skill,
+   pointing at the CLI/MCP surface.
+
+7. **Invariants encoded, not just stated.** drafts-only (no operation publishes or
+   promotes), verify-render-before-done (a page is not "done" until `verifyRender`
+   passes), authoritative read-back over optimistic success (results carry a
+   confirmed-by-read flag), stored ≠ rendered (only `verifyRender` decides render
+   correctness). These live in the interface docs and are honored by each operation.
 
 ## Technical Design
 
 ### File layout
 
 ```
-agents/skills/claude-code/docs-publish/                 (NEW — generic contract)
-  skill.yaml            # type: rigid; depends_on: []
-  SKILL.md
-agents/skills/claude-code/docs-publish-confluence/      (RENAMED from docs-confluence-publish)
-  skill.yaml            # type: rigid; depends_on: [docs-publish]
-  SKILL.md
-agents/skills/claude-code/proposal-pitch/               (EDITED — retarget dependency)
-  skill.yaml            # type: rigid; depends_on: [docs-publish]  (was docs-confluence-publish)
-  SKILL.md
-agents/skills/{codex,cursor,gemini-cli}/<skill> -> ../claude-code/<skill>   (symlinks, all three)
+packages/cli/src/docs-publish/
+  interface.ts        # DocsPublishConnector + op input/result types + invariants (doc comments)
+  resolver.ts         # resolveDocsPublishConnector(config): Result<DocsPublishConnector, CLIError> — graceful
+  connectors/
+    confluence.ts     # ConfluenceConnector implements DocsPublishConnector (injectable HttpClient)
+    adf.ts            # ADF media-single serialization helpers (never media-group)
+  render/
+    verify.ts         # verifyRender via lazy `await import('playwright')`, guarded degradation
+  index.ts            # barrel (interface + resolver + connector registry)
+packages/cli/src/config/schema.ts                 # + docsPublish block
+packages/cli/src/commands/docs-publish/
+  index.ts            # createDocsPublishCommand() addCommand(draft/attach-media/verify-render/page-tree)
+  draft.ts attach-media.ts verify-render.ts page-tree.ts
+packages/cli/src/mcp/tools/docs-publish.ts         # docsPublishDefinition + handleDocsPublish
+packages/cli/src/mcp/server.ts                     # register (import + TOOL_DEFINITIONS + TOOL_HANDLERS)
+packages/cli/src/mcp/tool-capability-declarations.ts  # docs_publish: { scopes:['write'], network:true }
+agents/skills/claude-code/proposal-pitch/          # EDITED — invoke the surface
+# DELETED: agents/skills/claude-code/docs-publish, docs-publish-confluence (+ symlinks + command files + catalog rows)
 ```
 
-### `docs-publish` content (the generic contract, rigid)
+### `DocsPublishConnector` interface (shape)
 
-Required sections: `## When to Use`, `## Process`, `## Harness Integration`,
-`## Success Criteria`, `## Examples`, `## Gates`, `## Escalation`,
-`## Rationalizations to Reject` (domain-specific).
+```ts
+export interface DocsPublishConnector {
+  readonly name: string; // e.g. 'confluence'
+  draft(input: DraftInput): Promise<DocsPublishResult<DraftHandle>>;
+  attachMedia(input: AttachMediaInput): Promise<AttachMediaResult>;
+  verifyRender(input: VerifyRenderInput): Promise<VerifyRenderResult>;
+  pageTree(input: PageTreeInput): Promise<DocsPublishResult<PageTreeResult>>;
+}
 
-The Process defines the contract as four operations an adapter must provide and a
-pipeline may rely on — described in vendor-neutral terms:
+// attachMedia never silently "succeeds": headless upload is impossible, so it
+// returns a manual step the pipeline surfaces to the human.
+export type AttachMediaResult =
+  | { status: 'manual-step-required'; instructions: string; verifyWith: string }
+  | { status: 'unsupported'; reason: string };
 
-- **draft** — create/update a publish target in a non-live DRAFT state; never
-  publish or promote. Return a stable handle to the draft.
-- **attach-media** — attach a media asset to a draft and return an authoritative
-  confirmation (a read-back, not the caller's optimistic success).
-- **verify-render** — assert the rendered output is correct, not merely stored:
-  media actually loaded, zero broken-media indicators, intended figure form. Return
-  a pass/fail with the failing assertions.
-- **page-tree** — create children under a draft parent and order siblings; preserve
-  provider-native node identity across full-body round-trips.
-
-Cross-cutting invariants the contract mandates (and every adapter inherits):
-drafts-only; verify-render before "done"; authoritative read-back over optimistic
-success; stored-format correctness is not rendering correctness. The skill states
-what an adapter MUST implement and what a consumer (like `proposal-pitch`) may
-assume — with a clear degradation path when no adapter is configured.
-
-### `docs-publish-confluence` content (the Confluence adapter, rigid)
-
-Same required section set. Framed as "the Confluence adapter implementing the
-`docs-publish` contract." Each contract operation maps to its Confluence mechanics,
-preserved from the prior skill:
-
-- **draft** → Confluence draft page semantics; the draft/publish race
-  (a `status: draft` update against a just-published page becomes a pending edit,
-  its tiny-link id is not a fork; stale editor tab clobbers API edits; tiny links
-  resolve only after publish).
-- **attach-media** → the osascript + FormData recipe (Atlassian MCP has no
-  attachment API): scratch-file JS injected via `osascript`, `atob` → `File` →
-  `FormData` → `POST /wiki/rest/api/content/{id}/child/attachment?status=draft`
-  with `X-Atlassian-Token: nocheck`; the three traps (no large base64 through tool
-  params; never serve from the `127.0.0.1` literal; verify authoritatively with a
-  GET because osascript may run in a different tab).
-- **verify-render** → DOM assertions: `img` with `naturalWidth > 0`, zero
-  `media-card-error`, compare `mediaSingle` vs `mediaGroup` counts (thumbnail cards
-  also pass a naturalWidth check). ADF `media-single` vs `media-group` (always emit
-  `media-single`; `media-inline` chips) lives here.
-- **page-tree** → children under a draft parent; sidebar ordering via
-  `PUT /content/{id}/move/{before|after|append}/{target}` (no MCP support);
-  full-body round-trips preserving `data-local-id`.
-- Deterministic stills (Playwright against local `file://` HTML with
-  `emulateMedia({colorScheme, reducedMotion:'reduce'})` and
-  `screenshot({scale:'device'})`) are the adapter's still-rendering implementation.
-
-`depends_on: [docs-publish]`.
-
-### `proposal-pitch` content (the pipeline, rigid)
-
-Unchanged pipeline phases (gather source → agree structure → render stills →
-publish as drafts → close the loop) and unchanged gates (drafts-only,
-render-verify, epistemic labels, defects-tracked, no customer data, no public
-hosting). The only change: it depends on and invokes the **`docs-publish`
-contract** for all publishing mechanics — resolving a configured provider adapter
-(Confluence today) — instead of naming Confluence directly. `depends_on:
-[docs-publish]` (was `docs-confluence-publish`). References to "the publishing
-mechanics" point at the contract, not at any vendor.
-
-### Config contract (documented in adapter + pipeline)
-
-```jsonc
-"confluence": { "cloud_id", "space_id", "proposals_index_page_id", "exemplar_page_ids" },
-"brand": { "proposal_css_path" }
+// verifyRender is the only authority on render correctness.
+export interface VerifyRenderResult {
+  ok: boolean;
+  imagesLoaded: number; // img with naturalWidth > 0
+  mediaCardErrors: number; // must be 0
+  mediaSingleCount: number;
+  mediaGroupCount: number; // expected 0
+  degraded?: 'playwright-not-installed';
+  failures: string[];
+}
 ```
 
-Read from the shared company-knowledge tier. The `confluence` block is adapter
-configuration (named by the Confluence adapter, not by the generic contract or the
-pipeline). Absent-block degradation message (prose): tell the author which pointers
-are missing and how to add them; do not crash, do not silently no-op.
+Operations follow the never-throw, structured-result idiom (`DocsPublishResult<T>` =
+`{ ok: true; value: T; confirmedByReadBack: boolean } | { ok: false; error: string }`).
+`draft` targets draft state only. `pageTree` uses the Atlassian move endpoint and
+preserves `data-local-id` on retained nodes across round-trips.
+
+### `resolver.ts`
+
+`resolveDocsPublishConnector(config: HarnessConfig): Result<DocsPublishConnector, CLIError>`:
+returns an `Err(CLIError('docsPublish not configured — add a "docsPublish" block …'))`
+when the block is absent (graceful, exit code carrying), an `Err` naming valid
+connectors when the name is unknown, and `Ok(connector)` otherwise. A small registry
+`Record<string, (cfg) => DocsPublishConnector>` maps `'confluence'` → `ConfluenceConnector`.
+
+### `ConfluenceConnector` (mechanics preserved in code)
+
+- **draft** → create/update a Confluence page in draft state via REST; documents the
+  draft/publish race (pending-edit-not-fork, stale-editor clobber, tiny-link timing)
+  as code comments; never publishes.
+- **attachMedia** → returns `manual-step-required` with the osascript + FormData recipe
+  (scratch-file JS, `atob`→`File`→`FormData`→
+  `POST /wiki/rest/api/content/{id}/child/attachment?status=draft` with
+  `X-Atlassian-Token: nocheck`) and the three traps (no large base64 through params;
+  never the `127.0.0.1` literal; verify with an authoritative GET) as the `instructions`
+  payload; `verifyWith` names the GET/verifyRender check.
+- **verifyRender** → `render/verify.ts` drives Playwright (lazy import) to assert
+  `naturalWidth > 0`, zero `media-card-error`, `mediaSingle` vs `mediaGroup` counts.
+- **pageTree** → children under a draft parent; sidebar order via
+  `PUT /content/{id}/move/{before|after|append}/{target}`; `data-local-id` preserved.
+- **adf.ts** → always emit `media-single`; never `media-group`; `media-inline` chips
+  helper.
+
+Injectable `HttpClient` (default `withRetry(fetch)`), mirroring `JiraConnector`, for
+testability without network.
+
+### CLI + MCP surface
+
+`harness docs-publish draft|attach-media|verify-render|page-tree` — each subcommand
+resolves config, resolves the connector, runs the op, prints JSON (`--json`) or human
+output, exits `ExitCode.SUCCESS` / `VALIDATION_FAILED` / `ERROR`. The `docs_publish`
+MCP tool takes `{ op, ...opInput }` and dispatches to the same resolver+connector,
+returning structured content (and `isError` on failure / not-configured).
+
+### Config schema
+
+```ts
+docsPublish: z
+  .object({ connector: z.string(), config: z.record(z.unknown()).default({}) })
+  .optional(),
+```
+
+added to `HarnessConfigSchema`.
 
 ## Integration Points
 
-- **Entry Points** — one NEW skill (`docs-publish`), one RENAMED skill
-  (`docs-publish-confluence`), one EDITED skill (`proposal-pitch`), each invocable
-  via `harness skill run <name>` and `run_skill`. Platform symlinks add
-  `codex`/`cursor`/`gemini-cli` entries for all three.
-- **Registrations Required** — skills auto-appear in the generated
-  `docs/reference/skills-catalog.md` (via `scripts/generate-docs.mjs` `loadSkills`).
-  Run `pnpm run generate-docs` after build. Create/refresh the platform symlinks;
-  remove the stale `docs-confluence-publish` symlinks and command files. Verify
-  `pnpm generate:plugin:check` exits 0 (the rename retires the old command file and
-  adds the new ones — the net is additive-plus-rename, never the destructive prune).
-- **Documentation Updates** — regenerated skills-catalog; no AGENTS.md change
-  required (skills are discovered dynamically).
-- **Architectural Decisions** — the contract/adapter split (Decision 1 + 2) is the
-  load-bearing architectural decision, but it is skill-local and fully captured in
-  Decisions Made; it does not warrant a standalone repo-level ADR.
-- **Knowledge Impact** — introduces the "generic publish contract (draft /
-  attach-media / verify-render / page-tree)" and "provider-adapter pattern for
-  publishing" concepts, plus the retained "ADF media-single vs media-group" and
-  "draft/publish race" facts as Confluence-adapter knowledge.
+- **Entry Points** — new `harness docs-publish` CLI command (4 subops); new
+  `docs_publish` MCP tool; new `packages/cli/src/docs-publish/` module; edited
+  `proposal-pitch` skill. Deleted: two `docs-publish*` skills.
+- **Registrations Required** — `pnpm run generate-barrel-exports` (auto-discovers the
+  new command dir into `_registry.ts`); MCP `server.ts` 3-edit registration +
+  `tool-capability-declarations.ts` entry (`docs_publish: { scopes:['write'],
+network:true }`) or `tests/commands/mcp-list-capabilities.test.ts` fails; config
+  schema block; `pnpm run generate-docs` (regenerates `cli-commands.md` +
+  `mcp-tools.md`, requires a prior build); skills-catalog + plugin command files
+  updated for the skill deletions.
+- **Documentation Updates** — regenerated `docs/reference/cli-commands.md`,
+  `docs/reference/mcp-tools.md`, `docs/reference/skills-catalog.md`.
+- **Architectural Decisions** — the connector-in-config architecture (Decisions 1–2)
+  is the load-bearing decision; it is captured here and mirrors existing
+  backend/connector patterns, so no standalone repo-level ADR is required.
+- **Knowledge Impact** — introduces the "docs-publish connector interface +
+  config-driven resolver" and "headless-impossible upload as typed manual step"
+  concepts; retains "ADF media-single vs media-group" and "draft/publish race" as
+  Confluence-connector knowledge.
 
 ## Success Criteria
 
-- Three skills exist in the rich harness format (`SKILL.md` + `skill.yaml`) and
-  `harness skill validate` passes with zero errors for each.
-- The skill-structure vitest (`agents/skills/tests`) passes, including the
-  `## Rationalizations to Reject` parity check with domain-specific content for all
-  three, and the platform-parity test (each skill present in all four platform
-  dirs with identical content).
-- `docs-publish` names no vendor: grep-clean of `confluence`, `atlassian`, `adf`,
-  and any provider term in its body.
-- `proposal-pitch` names no vendor and `depends_on: [docs-publish]` (no
-  Confluence dependency remains).
-- `docs-publish-confluence` preserves every mechanic from the prior skill and
-  `depends_on: [docs-publish]`.
-- Grep-clean of company-specific content and internal roadmap/PR/issue numbers in
-  all three bodies.
-- All three registered for `claude-code` with `codex`/`cursor`/`gemini-cli`
-  symlinks; the stale `docs-confluence-publish` entries (dir, symlinks, command
-  files, catalog row) are removed; `pnpm generate:plugin:check` exits 0.
-- `pnpm format:check` clean; `.harness/arch/baselines.json` byte-identical to
-  origin/main.
+- `DocsPublishConnector` interface + resolver + `ConfluenceConnector` exist under
+  `packages/cli/src/docs-publish/`, typecheck, and are unit-tested (resolver graceful
+  degradation; ADF media-single serialization; attachMedia manual-step shape;
+  verifyRender degradation when Playwright absent) — with an injectable HTTP client so
+  tests need no network.
+- `docsPublish` block parses in `harness.config.json`; absent block degrades with a
+  clear message (no crash, no silent no-op); unknown connector names a valid set.
+- `harness docs-publish <op>` runs all four subops; `docs_publish` MCP tool registered
+  (capability declaration present; `mcp-list-capabilities` test passes).
+- Playwright is an optional peer; `verify-render` prints an actionable install message
+  when it is absent (no hard dependency; `pnpm install` pulls no browser).
+- The two `docs-publish*` skills are removed (dirs, symlinks, command files, catalog
+  rows); `proposal-pitch` remains, invokes the surface, names no vendor,
+  `harness skill validate proposal-pitch` EXIT 0.
+- Atlassian mechanics preserved in code/guidance: media-single serialization, page
+  CRUD + move, `data-local-id` preservation, verifyRender DOM assertions, and the full
+  osascript/FormData recipe + three traps as the attachMedia instructions.
+- `.changeset/*.md` present (`@harness-engineering/cli` minor); `pnpm build`,
+  `pnpm typecheck`, `pnpm test` (cli), `pnpm generate-docs --check`,
+  `pnpm generate:barrels:check`, `pnpm generate:plugin:check`, `pnpm format:check` all
+  green; `.harness/arch/baselines.json` byte-identical to origin/main (allowance file
+  only for a real regression).
 
 ## Implementation Order
 
-1. Author `docs-publish` (skill.yaml + SKILL.md) — the vendor-neutral contract.
-2. Rename `docs-confluence-publish` → `docs-publish-confluence`; reframe its body
-   as the Confluence adapter of the contract; preserve all mechanics; retarget
-   `depends_on` to `docs-publish`.
-3. Retarget `proposal-pitch` to `depends_on: [docs-publish]` and repoint its prose
-   from Confluence to the contract; keep phases and gates.
-4. Refresh platform symlinks for all three; remove stale `docs-confluence-publish`
-   symlinks/command files.
-5. Build dist; run `harness skill validate` for all three; run skill-structure +
-   platform-parity vitest.
-6. Regenerate docs; grep-clean checks; format; generate:plugin:check; arch/changeset
-   gates.
+1. Add the `docsPublish` config block to `schema.ts`.
+2. Author `docs-publish/` interface + result types + invariants doc comments.
+3. Author the resolver (graceful degradation) + connector registry.
+4. Author `ConfluenceConnector` + `adf.ts` (media-single) + `render/verify.ts`
+   (lazy Playwright); model `attachMedia` as the typed manual step with the recipe +
+   traps preserved.
+5. Add the `harness docs-publish` CLI command (4 subops) and the `docs_publish` MCP
+   tool (+ registration + capability declaration).
+6. Delete the two `docs-publish*` skills (dirs/symlinks/command files); update
+   `proposal-pitch` to invoke the surface.
+7. Unit tests for resolver / adf / attachMedia shape / verifyRender degradation.
+8. `playwright` optional peer in `packages/cli/package.json`.
+9. Build; regenerate barrels + docs; changeset; run gates (typecheck, cli tests,
+   generate:plugin:check, format, arch).

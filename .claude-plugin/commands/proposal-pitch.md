@@ -1,6 +1,6 @@
 ---
 name: harness:proposal-pitch
-description: The draft-first proposal pipeline — gather the source, agree the page structure before building, render concept stills, publish as drafts only, and close the loop on the source. Composes the docs-publish contract (resolving a configured provider adapter); enforces drafts-only, render-verify, epistemic-label, and no-customer-data gates. Ships zero company-specific content.
+description: The draft-first proposal pipeline — gather the source, agree the page structure before building, render concept stills, publish as drafts only, and close the loop on the source. Invokes the docs-publish surface (the `harness docs-publish` CLI command / `docs_publish` MCP tool, resolving a configured connector) for the publishing mechanics; enforces drafts-only, render-verify, epistemic-label, and no-customer-data gates. Ships zero company-specific content.
 argument-hint: '[--path <path>]'
 allowed-tools:
   - Bash
@@ -19,14 +19,14 @@ Type: rigid
 </context>
 
 <objective>
-The draft-first proposal pipeline — gather the source, agree the page structure before building, render concept stills, publish as drafts only, and close the loop on the source. Composes the docs-publish contract (resolving a configured provider adapter); enforces drafts-only, render-verify, epistemic-label, and no-customer-data gates. Ships zero company-specific content.
+The draft-first proposal pipeline — gather the source, agree the page structure before building, render concept stills, publish as drafts only, and close the loop on the source. Invokes the docs-publish surface (the `harness docs-publish` CLI command / `docs_publish` MCP tool, resolving a configured connector) for the publishing mechanics; enforces drafts-only, render-verify, epistemic-label, and no-customer-data gates. Ships zero company-specific content.
 
 Phases:
 
 - gather-source: Collect the source (chat, issue, or doc) and identify what is settled vs open
 - agree-structure: Agree the page structure with the author BEFORE building anything
-- render-stills: Render concept stills, delegating the mechanics to the docs-publish contract
-- publish-drafts: Publish pages as DRAFTS only; never move a draft to current
+- render-stills: Render concept stills, invoking the docs-publish surface (the `harness docs-publish` CLI / `docs_publish` MCP tool) for the mechanics
+- publish-drafts: Publish pages as DRAFTS only via the docs-publish surface; surface any manual attach-media step to the human; never move a draft to current
 - close-the-loop: Report back on the source with what was built, epistemic labels on every claim, and what remains open
   </objective>
 
