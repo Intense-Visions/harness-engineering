@@ -106,6 +106,18 @@ The default is the interactive first-run interview above. **Question-file mode**
 - When `STRATEGY.md` exists, `name` and `Key metrics` seed the interview; missing/malformed STRATEGY.md soft-fails with warnings.
 - `harness validate` passes after the interview completes.
 
+## Rationalizations to Reject
+
+These are common rationalizations that sound reasonable but lead to incorrect results. When you catch yourself thinking any of these, stop and follow the documented process instead.
+
+| Rationalization                                                                                      | Why It Is Wrong                                                                                                                                                                                                                            |
+| ---------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| "The user pasted an admin DB connection string, but they clearly know their setup — I'll accept it." | The READ-WRITE-DB rejection is non-negotiable: no flag, no override, no "I know what I'm doing" path. Refuse, cite Decision 6, and set `sources.db.enabled: false`. A pulse report never needs write access.                               |
+| "'Engagement' is a bit vague, but I know what they mean — I'll record it without SMART pushback."    | SMART pushback is mandatory on every proposed metric/event. Silently accepting a vague name pollutes the config and produces an unmeasurable pulse. Push back until the metric names a concrete, measurable event.                         |
+| "It's just one field — I'll hand-edit the `pulse:` block into `harness.config.json` directly."       | `write_pulse_config` is the only sanctioned write path: it preserves all non-pulse keys, validates against `PulseConfigSchema`, and writes the `.bak`. A hand-edit bypasses the schema gate and can clobber sibling config.                |
+| "STRATEGY.md already lists the key metrics — I'll copy them into the config as-is."                  | Every seeded key metric must still clear the SMART bar and be mapped to a wired event. Metrics with no data source belong in `pendingMetrics`, not the live block — copying them wholesale ships a config that silently can't be computed. |
+| "The config assembled cleanly — I'll skip `harness validate`."                                       | A malformed `pulse:` block silently breaks the daily `product-pulse` task once the run path ships. Validation is a gate that must pass before exit, not an optional final touch.                                                           |
+
 ## Examples
 
 ### Example: greenfield (no STRATEGY.md, no existing pulse block)

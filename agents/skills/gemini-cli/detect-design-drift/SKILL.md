@@ -74,6 +74,18 @@ See `docs/changes/design-pipeline/detect-design-drift/proposal.md` for the full 
 - `harness validate` runtime budget &lt; 3s on a 500-file repo with both rule families enabled
 - Both rule families gated independently via config (a project can disable primitive-adoption without disabling token-bypass)
 
+## Rationalizations to Reject
+
+These are common rationalizations that sound reasonable but lead to incorrect results. When you catch yourself thinking any of these, stop and follow the documented process instead.
+
+| Rationalization                                                                                                   | Why It Is Wrong                                                                                                                                                                                                            |
+| ----------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| "I found the hardcoded `#ff0000` and the token swap is obvious, so I'll just replace it in the source."           | This skill detects only and NEVER modifies source. Findings carry codemod-todo fix hints; applying them is the separate align-design-system fixer's job. Emit the DRIFT-T001 finding and stop.                             |
+| "`tokens.json` is absent, but I know the brand palette, so I'll flag hardcoded colors anyway."                    | No findings without resolved inputs. When `tokens.json` doesn't load, all T\* rules silently skip — a missing resolver means the project hasn't opted in, not that drift exists. Speculative findings are false positives. |
+| "The project registered a component for `<select>`, so I'll add a primitive-adoption finding for raw `<select>`." | Only the four registered tags are in scope for v1 — `<button>`, `<input>`, `<a>`, `<textarea>`. Other tags are out of scope even if a component exists; subsumption ships in v1.x.                                         |
+| "`harness.config.json` doesn't set strictness, so I'll treat every finding as `error` to be safe."                | Strictness is read from config, not assumed — default to `standard`, not `strict`. Under `standard` only DRIFT-T001/T002/P001 are errors; forcing everything to `error` misrepresents severity and can wrongly block CI.   |
+| "Graph persistence threw, so I'll abort the run."                                                                 | The graph is a consumer, not a gate. If `recordFindings()` fails, skip graph integration for that run — the findings still appear in the report. Never fail the verifier on a persistence error.                           |
+
 ## Examples
 
 ### Example: Hardcoded brand color outside the palette

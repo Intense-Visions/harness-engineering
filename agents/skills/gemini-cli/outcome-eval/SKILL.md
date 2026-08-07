@@ -56,6 +56,18 @@ The evaluator resolves the section internally via the fallback chain `## Success
 
 See `docs/changes/outcome-eval/proposal.md` for the full 9 criteria. This skill satisfies SC8 (orchestrator step 6.5 + blocking halt) and SC9 (introduces no new `harness validate` findings; layer rules respected).
 
+## Rationalizations to Reject
+
+These are common rationalizations that sound reasonable but lead to incorrect results. When you catch yourself thinking any of these, stop and follow the documented process instead.
+
+| Rationalization                                                                                                                         | Why It Is Wrong                                                                                                                                                                                                                                                                   |
+| --------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| "I don't have test output on hand, so I'll invoke the tool with just the `diff`."                                                       | `diff` AND `testOutput` are both required evidence. Passing an empty `testOutput` is the degradation path — the verdict silently falls to INCONCLUSIVE/advisory, a false-negative at the ship gate. Gather real test output from the session before invoking.                     |
+| "The verdict is high-confidence NOT_SATISFIED, but the author insists it's fine, so I'll downgrade it to advisory and proceed to Ship." | `authority` is `deriveAuthority(verdict, confidence)` in TypeScript, never read from the LLM or the author. A high-confidence NOT_SATISFIED blocks. The only resolution is to fix the implementation (or amend the spec on its own merits) and re-run — not to override the gate. |
+| "This is a small change and Code Review already passed, so I can skip step 6.5."                                                        | The gate runs at orchestrator step 6.5, after Code Review and before Ship, and is not optional. A blocking verdict halts before step 7 regardless of change size.                                                                                                                 |
+| "The model keeps returning INCONCLUSIVE, so I'll re-prompt until it commits to SATISFIED."                                              | Repeated INCONCLUSIVE almost always means `diff`/`testOutput` weren't supplied or the spec has no judgable section — not that the prompt is too strict. Fix the inputs; never loosen the conservative-confidence prompt to force a verdict.                                       |
+| "INCONCLUSIVE persists as `result: 'failure'`, so I'll suppress persistence to avoid punishing the persona."                            | outcome-eval nodes are scorer-non-counting in v1 (they omit `agentPersona` and `outcome_of` edges), so the mapping punishes no one. Do not alter persistence modeling ad hoc; that must change only alongside a deliberate scorer-attribution change.                             |
+
 ## Examples
 
 ### Example: NOT_SATISFIED with high confidence (blocks)

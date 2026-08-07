@@ -71,6 +71,18 @@ For responsibility (b), supply test evidence so the judge can flag user-visible 
 
 See `docs/changes/harness-pm-persona/proposal.md` for the full criteria. This skill satisfies SC1 (skill exists, `tier: 2`, `type: rigid`, four-client artifacts), SC6 (blocking halt on high-confidence NOT_MEASURABLE; advisory-and-proceed otherwise), and SC7 (emits advisory `criteriaFindings` / `coverageFindings`).
 
+## Rationalizations to Reject
+
+These are common rationalizations that sound reasonable but lead to incorrect results. When you catch yourself thinking any of these, stop and follow the documented process instead.
+
+| Rationalization                                                                                                   | Why It Is Wrong                                                                                                                                                                                                                                                        |
+| ----------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| "The model returned NOT_MEASURABLE and I agree, so I'll mark the verdict blocking and halt the spec."             | `authority` is never read from the LLM — it is `deriveAcceptanceAuthority(measurability, confidence)` computed in TypeScript. A `NOT_MEASURABLE` at `medium`/`low` confidence is advisory. Report the derived verdict exactly; do not upgrade it to blocking yourself. |
+| "The success criteria are vague, so I'll rewrite them into measurable assertions and re-judge."                   | `acceptance-eval` reviews specs; it never authors the criteria it judges. Humans own the thinking layer. Report the criteriaFindings and halt if blocking — do not fix the spec to make the gate pass.                                                                 |
+| "`ANTHROPIC_API_KEY` isn't configured, so I'll fail the gate to stay safe."                                       | Infrastructure noise must degrade to INCONCLUSIVE/advisory, never a block or a throw. A missing provider disables the gate; surface that to the human rather than manufacturing a halt.                                                                                |
+| "There's no `## Success Criteria` section, but the Overview reads measurable enough, so I'll call it MEASURABLE." | Section resolution is the evaluator's fallback chain (`Success Criteria` → `User-Visible Behavior` → `Overview`) recorded in `judgedAgainst`. If nothing judgable resolves, the verdict is INCONCLUSIVE/advisory — do not fabricate a MEASURABLE verdict from prose.   |
+| "The coverageFindings show a user-visible behavior with no test, so I'll block until a test exists."              | Coverage findings (b) are heuristic and advisory and NEVER affect the (c) measurability gate. Only a high-confidence NOT_MEASURABLE blocks. Surface the coverage gap for attention and proceed.                                                                        |
+
 ## Examples
 
 ### Example: NOT_MEASURABLE with high confidence (blocks)

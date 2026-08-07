@@ -102,6 +102,18 @@ See `docs/changes/design-pipeline/audit-component-anatomy/proposal.md` for the f
 - harness-accessibility deferral works (one finding for one root cause, not two)
 - Fast-mode runtime ≤ 3s on 500-file repo
 
+## Rationalizations to Reject
+
+These are common rationalizations that sound reasonable but lead to incorrect results. When you catch yourself thinking any of these, stop and follow the documented process instead.
+
+| Rationalization                                                                                     | Why It Is Wrong                                                                                                                                                                                                                              |
+| --------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| "This Button's prop type omits a `loading` state, but the component renders fine, so I'll pass it." | Detecting exactly that gap is the point of the audit. The Button convention marks `state:loading` as required, so a missing required part must emit ANAT-D002. Passing it defeats the enforcement — surface the finding with its fix hint.   |
+| "This file isn't in the catalog, but it looks like a Modal, so I'll audit it as one."               | Component type is resolved by JSDoc → DESIGN.md Registry → export-name match. No match means silent skip — that is how the audit keeps zero false positives. Guessing a type produces findings against conventions the author never adopted. |
+| "The `.map()` has no empty-state branch and the fix is one line, so I'll just add `<EmptyState>`."  | This skill never modifies source. ANAT-P\* findings carry concrete fix-hint text only; autofix is out of scope. Emit ANAT-P001 and leave the code untouched.                                                                                 |
+| "harness-accessibility already flags the missing label association, so I'll skip owning it here."   | When `componentAnatomy.enabled = true`, this skill OWNS label-slot definition findings and a11y DEFERS A11Y-010/A11Y-050 for catalogued components — one finding per root cause. Skipping it means the anatomy-level cause goes unreported.  |
+| "The convention catalog won't load, so I'll emit findings from what I remember of the conventions." | No findings without a parsed catalog. If the convention library or DESIGN.md catalog cannot be loaded, stop with an explanatory error — never emit speculative findings from memory.                                                         |
+
 ## Examples
 
 ### Example: Button missing a required state

@@ -110,6 +110,18 @@ Tiers: **pass** at 80+, **partial** at 50-79, **fail** below 50.
 - The score is stable and reproducible: the same (fixture, recovery record) pair always yields the same score and tier, so a drop for equal recovery quality signals a regression in the harness gate the fixture exercises.
 - The recovering agent works only in an isolated scratch copy; the shipped fixture and the surrounding repo are never modified by the rehearsal.
 
+## Rationalizations to Reject
+
+These are common rationalizations that sound reasonable but lead to incorrect results. When you catch yourself thinking any of these, stop and follow the documented process instead.
+
+| Rationalization                                                                                          | Why It Is Wrong                                                                                                                                                                                                                               |
+| -------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| "I removed the defect, so I will set `fixed: true` in the recovery record."                              | `fixed` credits only when the planted defect is genuinely resolved, VERIFIED by re-running the fixture's expected check against the scratch copy. Assuming success inflates the record and defeats the whole point of rehearsing on a rope.   |
+| "The planted defect is right there in the manifest, so I will read `plantedFile` to guide the recovery." | Reading the answer key (`plantedFile` / `plantedDescription`) into the recovering agent's context makes the rehearsal dishonest — detection credit must come from the agent actually noticing the defect, not from being handed the location. |
+| "The recovery obviously passes, so I will just report 100/100."                                          | The score is computed in TypeScript by `harness rehearse score` from the manifest plus the structured record — never asserted by the agent. Hand-waving a number bypasses the referee and makes the result unreproducible.                    |
+| "It is faster to fix the defect directly in the fixture directory."                                      | The recovering agent must work only in an isolated scratch copy. Modifying the shipped fixture or the surrounding repo corrupts the ground truth for every future rehearsal and for the gate-regression signal the fixtures provide.          |
+| "This fixture scores lower than it used to, so I will tweak the fixture or loosen the rubric."           | A lower score for the SAME recovery quality signals a regression in the harness gate the fixture exercises — investigate the check, not the fixture. Loosening the fixture hides exactly the regression it was built to catch.                |
+
 ## Examples
 
 ### Example: a clean recovery (pass)

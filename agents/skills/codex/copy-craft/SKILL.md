@@ -94,6 +94,18 @@ See `docs/changes/craft-pipeline/copy-craft/proposal.md` for the full 39 success
 - Graceful degradation: `summary.skippedSurfaces` records when git/gh surfaces couldn't run
 - Cross-cutting `critiqueCopyInFile` exported (source surfaces only)
 
+## Rationalizations to Reject
+
+These are common rationalizations that sound reasonable but lead to incorrect results. When you catch yourself thinking any of these, stop and follow the documented process instead.
+
+| Rationalization                                                                        | Why It Is Wrong                                                                                                                                                                                   |
+| -------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| "This error message is a clean, grammatical sentence, so it passes COPY-R001."         | Grammar is not the rubric. COPY-R001 asks for WHAT failed, WHY, and HOW to fix. A fluent sentence that names no artifact and offers no recovery path still fails — emit the finding.              |
+| "It's just a `debug`-level log, so COPY-R004 (signal-not-noise) doesn't really apply." | signal-not-noise applies to every log line regardless of level. A debug log that fires on every invocation carrying no state or decision is exactly the noise the rubric exists for.              |
+| "The commit subject accurately describes what the author did, so COPY-R006 passes."    | COPY-R006 is describes-change-not-work. "update tests" describes the activity, not the behaviour that changed. Describing the work performed IS the failure mode, not the pass.                   |
+| "The git/gh surface was skipped, so I'll infer commit or PR quality from the diff."    | Skipped surfaces are recorded in `summary.skippedSurfaces` with a reason — never backfilled by inference. Fabricating findings for a surface that did not execute corrupts the report.            |
+| "This copy is clearly bad, so I'll mark it high confidence and foundational."          | tier, impact, and confidence are three independent axes (ADR 0019). A genuinely bad string can be low-impact, and you may only be medium-confident. Collapsing the axes defeats `derivePriority`. |
+
 ## Examples
 
 ### Example: Generic error message

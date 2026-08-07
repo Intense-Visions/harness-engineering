@@ -102,6 +102,18 @@ See `docs/changes/api-craft/proposal.md` for the full success criteria. Highligh
 - Cross-cutting `critiqueApiSurfaceFile` works on a single surface without a project walk
 - Graceful degradation: runs with seed rubrics when no API style guide is declared
 
+## Rationalizations to Reject
+
+These are common rationalizations that sound reasonable but lead to incorrect results. When you catch yourself thinking any of these, stop and follow the documented process instead.
+
+| Rationalization                                                                        | Why It Is Wrong                                                                                                                                                                                                                                          |
+| -------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| "This endpoint validates against its OpenAPI schema, so the contract is fine."         | Schema validity is the mechanical floor. api-craft asks whether the SHAPE is right — is the verb honest, does the resource model the domain, does the error tell the consumer what to do. A schema-valid `GET /widgets/delete/:id` still fails API-R003. |
+| "It is just an internal API, so I can skip the compatibility critique."                | API-R009 applies wherever there are consumers. Internal callers break exactly the way external ones do when a response shape or field meaning shifts unannounced — the blast radius is smaller, not the rule.                                            |
+| "The handler returns a 500 with a message, so errors are covered."                     | API-R004 and API-R005 ask whether the status code is CORRECT for the failure and whether the body tells the consumer what to DO next — not merely that some error came back. A generic 500 on a client-caused failure fails both.                        |
+| "I can see the fix, so I will add the idempotency key to the handler while I am here." | api-craft is judgment-only. It emits a finding naming the surface and a concrete suggested change; it never rewrites a contract or handler. Editing here violates the no-autofix gate and hides the finding from the consumer who owns the decision.     |
+| "No API style guide is declared, so a critique would not be meaningful."               | The B' check degrades to the seed rubrics — it never blocks. Refusing to critique because a project has not written its conventions down abandons the ceiling role; note the degraded context and run anyway.                                            |
+
 ## Examples
 
 ### Example: A GET that mutates state

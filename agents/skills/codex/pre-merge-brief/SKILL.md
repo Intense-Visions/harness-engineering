@@ -57,6 +57,18 @@ Emit the transition via `emit_interaction`. The brief is advisory and non-blocki
 
 Maps to spec `docs/changes/senior-accountability-surface/proposal.md`. This skill satisfies criterion #2 (the skill wrapping the command, `on_pr` + `manual`) and supports #1/#3/#4 by driving the command whose pure functions are unit-tested. Introduces no new `harness validate` findings.
 
+## Rationalizations to Reject
+
+These are common rationalizations that sound reasonable but lead to incorrect results. When you catch yourself thinking any of these, stop and follow the documented process instead.
+
+| Rationalization                                                                                                      | Why It Is Wrong                                                                                                                                                                                                                                                               |
+| -------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| "The `review-ci --json` artifact is missing, so I'll re-run the review pipeline myself to fill the verdict section." | This skill CONSUMES the review verdict via `--from`; it never re-runs the review. `review-ci` is the single source of review truth. Absent `--from`, the review section degrades to "unavailable" — that is the correct outcome, not a reason to re-run.                      |
+| "The outcome section says 'not yet evaluated', so I'll write in a plausible verdict so the brief looks complete."    | Each input degrades independently to an explicit "unavailable / not yet evaluated" line. Pre-merge the `execution_outcome` node is commonly absent by design. Fabricating a section defeats the accountability the brief exists to provide — report the degradation honestly. |
+| "`gh` posting failed, so I'll exit non-zero so CI notices."                                                          | Delivery must fail soft: print the brief, warn on one line, and exit 0 (S1). The brief step is `continue-on-error` and must never fail the PR or flip the review gate.                                                                                                        |
+| "A senior asked for the brief to block merges, so I'll add an acknowledgment gate."                                  | The acknowledgment gate is deliberately deferred (D3). The brief is advisory; the review gate's exit code is authoritative. Keep it non-blocking and point them at the follow-up.                                                                                             |
+| "I'll compute the signal snapshot inline here — it's cleaner than routing through the command."                      | Thin wrapper only: all composition, signal computation (from `@harness-engineering/signals`), and the "Worth your eyes" union logic live in the command. The skill orchestrates invocation and reports coverage — it recomputes nothing.                                      |
+
 ## Escalation
 
 - **No PR for the current branch (`--comment`).** The command warns and prints the brief to stdout instead of posting, still exiting 0. Surface the warning; do not treat it as a failure.
