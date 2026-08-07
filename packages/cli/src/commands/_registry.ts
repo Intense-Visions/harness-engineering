@@ -12,6 +12,7 @@ import { createAuditProtectedCommand } from './audit-protected';
 import { createBackfillSkillProvenanceCommand } from './backfill-skill-provenance';
 import { createBlackBoxCommand } from './orchestrator-black-box';
 import { createBlueprintCommand } from './blueprint';
+import { createBurnCommand } from './burn';
 import { createCheckArchCommand } from './check-arch';
 import { createCheckDepsCommand } from './check-deps';
 import { createCheckDesignCommand } from './check-design';
@@ -40,6 +41,7 @@ import { createGatewayCommand } from './gateway';
 import { createGenerateAgentDefinitionsCommand } from './generate-agent-definitions';
 import { createGenerateCommand } from './generate';
 import { createGenerateSlashCommandsCommand } from './generate-slash-commands';
+import { createGoldenBuildCommand } from './golden-build';
 import { createGraphCommand } from './graph';
 import { createHolidayConfidenceCommand } from './holiday-confidence';
 import { createHooksCommand } from './hooks';
@@ -114,6 +116,7 @@ export const commandCreators: Array<() => Command> = [
   createBackfillSkillProvenanceCommand,
   createBlackBoxCommand,
   createBlueprintCommand,
+  createBurnCommand,
   createCheckArchCommand,
   createCheckDepsCommand,
   createCheckDesignCommand,
@@ -142,6 +145,7 @@ export const commandCreators: Array<() => Command> = [
   createGenerateAgentDefinitionsCommand,
   createGenerateCommand,
   createGenerateSlashCommandsCommand,
+  createGoldenBuildCommand,
   createGraphCommand,
   createHolidayConfidenceCommand,
   createHooksCommand,
