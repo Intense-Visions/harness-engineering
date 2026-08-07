@@ -1329,6 +1329,10 @@ Reject a proposal with a one-line reason
 
 Show a single proposal in full
 
+### `harness proposals status`
+
+Show queue counts and whether each proposal emitter is live or dormant (use --json for the full report)
+
 ## Pulse Commands
 
 Pulse (read-side observability) commands

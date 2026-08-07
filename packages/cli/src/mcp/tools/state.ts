@@ -19,7 +19,7 @@ import { emitSkillEvent } from './event-emitter.js';
 const LIVE_RETROSPECTION_TIMEOUT_MS = 15_000;
 
 /** Truthy env-flag test (`1`/`true`/`yes`, case-insensitive). */
-function envEnabled(value: string | undefined): boolean {
+export function envEnabled(value: string | undefined): boolean {
   if (!value) return false;
   const v = value.trim().toLowerCase();
   return v === '1' || v === 'true' || v === 'yes' || v === 'on';
