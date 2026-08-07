@@ -8,6 +8,7 @@ import {
   type Proposal,
   type ProposalStatus,
 } from '@harness-engineering/core';
+import { envEnabled } from '../utils/env-flag.js';
 
 function projectRoot(): string {
   return resolve(process.env['HARNESS_PROJECT_ROOT'] ?? process.cwd());
@@ -51,6 +52,93 @@ export async function runProposalsList(
 
 export async function runProposalsShow(id: string): Promise<Proposal | null> {
   return getProposal(projectRoot(), id);
+}
+
+export interface ProposalsStatusReport {
+  queue: {
+    open: number;
+    gateRunning: number;
+    gateFailed: number;
+    approved: number;
+    rejected: number;
+    total: number;
+  };
+  emitters: {
+    manualEmit: { surface: 'emit_skill_proposal'; available: true };
+    retrospection: {
+      enabled: boolean;
+      envFlagSet: boolean;
+      providerResolvable: boolean;
+      dormantReason?: string;
+    };
+  };
+}
+
+/** Env-presence proxy for `resolveAnalysisProvider` precedence (Anthropic → local /v1). */
+function providerResolvable(env: NodeJS.ProcessEnv): boolean {
+  if (env['ANTHROPIC_API_KEY']?.trim()) return true;
+  if (env['HARNESS_ANALYSIS_BASE_URL']?.trim()) return true;
+  return false;
+}
+
+export async function runProposalsStatus(
+  env: NodeJS.ProcessEnv,
+  projectRootPath: string
+): Promise<ProposalsStatusReport> {
+  const proposals = await listProposals(projectRootPath, { kind: 'skill' });
+  const queue = {
+    open: 0,
+    gateRunning: 0,
+    gateFailed: 0,
+    approved: 0,
+    rejected: 0,
+    total: proposals.length,
+  };
+  for (const p of proposals) {
+    switch (p.status) {
+      case 'open':
+        queue.open++;
+        break;
+      case 'gate-running':
+        queue.gateRunning++;
+        break;
+      case 'gate-failed':
+        queue.gateFailed++;
+        break;
+      case 'approved':
+        queue.approved++;
+        break;
+      case 'rejected':
+        queue.rejected++;
+        break;
+    }
+  }
+
+  const envFlagSet = envEnabled(env['HARNESS_SESSION_RETROSPECTION']);
+  const resolvable = providerResolvable(env);
+  const enabled = envFlagSet && resolvable;
+  // Precedence mirrors the runtime (state.ts): flag checked before provider.
+  let dormantReason: string | undefined;
+  if (!envFlagSet) {
+    dormantReason =
+      'HARNESS_SESSION_RETROSPECTION is not set — session-terminus retrospection is opt-in';
+  } else if (!resolvable) {
+    dormantReason =
+      'no analysis provider resolvable — set ANTHROPIC_API_KEY or HARNESS_ANALYSIS_BASE_URL';
+  }
+
+  return {
+    queue,
+    emitters: {
+      manualEmit: { surface: 'emit_skill_proposal', available: true },
+      retrospection: {
+        enabled,
+        envFlagSet,
+        providerResolvable: resolvable,
+        ...(dormantReason ? { dormantReason } : {}),
+      },
+    },
+  };
 }
 
 export async function runProposalsReject(id: string, reason: string): Promise<Proposal> {
