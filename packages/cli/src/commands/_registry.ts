@@ -12,6 +12,7 @@ import { createAuditProtectedCommand } from './audit-protected';
 import { createBackfillSkillProvenanceCommand } from './backfill-skill-provenance';
 import { createBlackBoxCommand } from './orchestrator-black-box';
 import { createBlueprintCommand } from './blueprint';
+import { createBurnCommand } from './burn';
 import { createCheckArchCommand } from './check-arch';
 import { createCheckDepsCommand } from './check-deps';
 import { createCheckDesignCommand } from './check-design';
@@ -115,6 +116,7 @@ export const commandCreators: Array<() => Command> = [
   createBackfillSkillProvenanceCommand,
   createBlackBoxCommand,
   createBlueprintCommand,
+  createBurnCommand,
   createCheckArchCommand,
   createCheckDepsCommand,
   createCheckDesignCommand,
