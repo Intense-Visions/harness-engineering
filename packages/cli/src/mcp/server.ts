@@ -125,6 +125,8 @@ import {
   handleCanaryProbe,
   canaryRecommendFrameworkDefinition,
   handleCanaryRecommendFramework,
+  canaryRunHistoryDefinition,
+  handleCanaryRunHistory,
 } from './tools/canary.js';
 import { reviewChangesDefinition, handleReviewChanges } from './tools/review-changes.js';
 import {
@@ -317,6 +319,7 @@ const TOOL_DEFINITIONS: ToolDefinition[] = [
   assessProjectDefinition,
   canaryProbeDefinition,
   canaryRecommendFrameworkDefinition,
+  canaryRunHistoryDefinition,
   reviewChangesDefinition,
   detectAnomaliesDefinition,
   askGraphDefinition,
@@ -428,6 +431,7 @@ const TOOL_HANDLERS: Record<string, ToolHandler> = {
   assess_project: handleAssessProject as ToolHandler,
   canary_probe: handleCanaryProbe as ToolHandler,
   canary_recommend_framework: handleCanaryRecommendFramework as ToolHandler,
+  canary_run_history: handleCanaryRunHistory as ToolHandler,
   review_changes: handleReviewChanges as ToolHandler,
   detect_anomalies: handleDetectAnomalies as ToolHandler,
   ask_graph: handleAskGraph as ToolHandler,

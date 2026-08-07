@@ -47,7 +47,7 @@ emits run records as JSON — timeline querying lives in an internal module
 is the stable contract; execing a non-existent verb is not.
 
 **Why this still honors ADR-0039 and the #913/#1184 seam:** the boundary's invariant
-is that *all canary coupling* is confined to one module, zod-validated, and totally
+is that _all canary coupling_ is confined to one module, zod-validated, and totally
 degrading — not that coupling must be `execFile`. We add a `read` seam beside the
 existing `exec` seam, both injectable, both classified into the degrade taxonomy.
 The seam shape is unchanged: **one total adapter method + one thin MCP tool per
@@ -128,6 +128,7 @@ acquisition foundation (D1/D2) makes the pulse phase a thin adapter over
 ## Integration Points
 
 ### Entry Points
+
 - New MCP tool `canary_run_history` (CLI MCP server).
 - New `ingest_source` source value `test-results` (existing MCP tool, additive enum).
 - New adapter method `CanaryAdapter.readRunHistory` + barrel exports from `@harness-engineering/intelligence`.
@@ -135,19 +136,23 @@ acquisition foundation (D1/D2) makes the pulse phase a thin adapter over
 - Extended `OutcomeEvalInput` contract (additive optional field).
 
 ### Registrations Required
+
 - MCP tool registries: tool-count test, `tool-capability-declarations.ts`, `tool-tiers.ts`, `ALL_MCP_TOOLS`, `setup-mcp.ts`.
 - Barrel exports: `packages/intelligence/src/adapters/index.ts`, `src/index.ts`; `packages/graph/src/index.ts`.
 - Regenerate `docs/reference/mcp-tools.md` after a full build.
 
 ### Documentation Updates
+
 - `docs/reference/mcp-tools.md` (generated).
 - `docs/knowledge/intelligence/canary-adapter.md` — add the `readRunHistory` capability + the NDJSON acquisition decision.
 - `docs/knowledge/graph/node-edge-taxonomy.md` — note canary as a `test_result` producer (Ingestor Responsibility Map).
 
 ### Architectural Decisions
+
 - **D1 — Acquisition via documented NDJSON store (not CLI exec)** warrants a short ADR: it extends ADR-0039's boundary from "exec-only" to "exec + documented-artifact read", a reusable precedent for any future tool whose stable contract is a file rather than a CLI verb. Medium tier.
 
 ### Knowledge Impact
+
 - Canary is a new external `test_result` producer in the graph taxonomy.
 - The adapter boundary now spans two acquisition seams (exec + read) — a generalization of ADR-0039 worth capturing.
 

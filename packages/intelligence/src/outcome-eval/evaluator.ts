@@ -2,7 +2,7 @@ import { readFile } from 'node:fs/promises';
 import { randomUUID } from 'node:crypto';
 import type { GraphStore } from '@harness-engineering/graph';
 import type { AnalysisProvider } from '../analysis-provider/interface.js';
-import type { OutcomeEvalInput, OutcomeVerdict, JudgedAgainst } from './types.js';
+import type { OutcomeEvalInput, OutcomeVerdict, JudgedAgainst, CanaryRunOutcome } from './types.js';
 import { deriveAuthority } from './authority.js';
 import { resolveSection } from './section-resolver.js';
 import { OUTCOME_EVAL_SYSTEM_PROMPT, buildUserPrompt, verdictSchema } from './prompts.js';
@@ -28,6 +28,37 @@ export function withGuardianSignal(
   if (!summary) return verdict;
   const rationale = verdict.rationale ? `${verdict.rationale}\n\n${summary}` : summary;
   return { ...verdict, rationale };
+}
+
+/**
+ * Fold a structured canary run outcome into a verdict's rationale as a single
+ * deterministic line. Pure and total: an absent canaryRun returns the verdict
+ * UNCHANGED (referentially identical), preserving the "no canary wiring"
+ * contract byte-for-byte. Never touches `authority` — ship authority stays
+ * TS-derived from (verdict, confidence). Mirrors withGuardianSignal (#914).
+ */
+export function withCanaryRunSignal(
+  verdict: OutcomeVerdict,
+  canaryRun: CanaryRunOutcome | undefined
+): OutcomeVerdict {
+  if (!canaryRun) return verdict;
+  const line = summarizeCanaryRun(canaryRun);
+  const rationale = verdict.rationale ? `${verdict.rationale}\n\n${line}` : line;
+  return { ...verdict, rationale };
+}
+
+/** Human labels for canary's gate exit codes. */
+const CANARY_GATE_LABELS: Readonly<Record<number, string>> = {
+  0: 'clean',
+  1: 'findings',
+  2: 'surface',
+  3: 'abstained',
+};
+
+/** Deterministic, secret-free one-line summary of a canary run outcome. */
+function summarizeCanaryRun(run: CanaryRunOutcome): string {
+  const label = CANARY_GATE_LABELS[run.exitCode] ?? 'unknown';
+  return `Canary gate: exit ${run.exitCode} (${label}); ${run.passed} passed, ${run.failed} failed, ${run.flaky} flaky, ${run.skipped} skipped.`;
 }
 
 export interface OutcomeEvaluatorOptions {
@@ -144,8 +175,9 @@ export class OutcomeEvaluator {
    */
   private async finish(verdict: OutcomeVerdict, input: OutcomeEvalInput): Promise<OutcomeVerdict> {
     const withGuardian = withGuardianSignal(verdict, input.guardian);
-    await this.persistOutcome(withGuardian, input);
-    return withGuardian;
+    const withCanary = withCanaryRunSignal(withGuardian, input.canaryRun);
+    await this.persistOutcome(withCanary, input);
+    return withCanary;
   }
 
   private async resolveJudgmentSection(
@@ -230,6 +262,20 @@ export class OutcomeEvaluator {
         unmetCriteria: verdict.unmetCriteria,
         // Head sha (when supplied) lets a sha-keyed consumer match this node.
         ...(input.commit !== undefined && input.commit !== '' ? { commit: input.commit } : {}),
+        // Additive canary* metadata (only when a canaryRun is supplied). These
+        // keys are NOT in RESERVED_METADATA_KEYS, so they survive the
+        // connector's stripReservedKeys merge as genuinely-additive keys. An
+        // absent canaryRun emits ZERO extra keys → node byte-identical to today.
+        // Authority above stays the TS-derived copy; canary never affects it.
+        ...(input.canaryRun !== undefined
+          ? {
+              canaryGateExitCode: input.canaryRun.exitCode,
+              canaryPassed: input.canaryRun.passed,
+              canaryFailed: input.canaryRun.failed,
+              canaryFlaky: input.canaryRun.flaky,
+              canarySkipped: input.canaryRun.skipped,
+            }
+          : {}),
       },
     };
   }

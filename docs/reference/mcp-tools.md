@@ -192,12 +192,12 @@ Add a component (layer, doc, or component type) to the project using the harness
 
 ### `ingest_source`
 
-Ingest sources into the project knowledge graph. Supports code analysis, knowledge documents, git history, or all at once.
+Ingest sources into the project knowledge graph. Supports code analysis, knowledge documents, git history, canary test results, or all at once.
 
 **Parameters:**
 
 - `path` (string, required) — Path to project root
-- `source` (string, required) — Type of source to ingest
+- `source` (string, required) — Type of source to ingest. "test-results" reads canary run history and writes test_result nodes with tested_by/failed_in edges.
 
 **CLI equivalent:** [`harness graph ingest`](cli-commands.md#harness-graph-ingest)
 
@@ -502,6 +502,15 @@ Classify a test prompt with canary and recommend a framework (deterministic, no 
 **Parameters:**
 
 - `prompt` (string, required) — Natural-language description of the test to scaffold, e.g. "end-to-end login flow in the browser".
+
+### `canary_run_history`
+
+Read canary's persisted structured run history (NDJSON at test-results/reports/history-v2.jsonl) as a validated array of RunRecords (run outcome + per-test status/failure_category/retry_count/flaky). Optional { path?, limit? }: path is the project root (default cwd); limit caps to the most-recent N runs. Returns [] (never errors) when canary has produced no results or the store is missing/unreadable/malformed.
+
+**Parameters:**
+
+- `path` (string, optional) — Project root (default: cwd)
+- `limit` (number, optional) — Cap to the most-recent N run records
 
 ### `cli_ergonomics_craft`
 

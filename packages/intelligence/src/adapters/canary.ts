@@ -1,4 +1,6 @@
 import { z } from 'zod';
+import { readFile } from 'node:fs/promises';
+import * as nodePath from 'node:path';
 
 /**
  * Canary adapter — a total, gracefully-degrading boundary around the deterministic
@@ -44,10 +46,56 @@ export const canaryFindingSchema = z.object({
 export const canaryFindingsSchema = z.array(canaryFindingSchema);
 export type CanaryFinding = z.infer<typeof canaryFindingSchema>;
 
+// One embedded per-test result inside a canary RunRecord. Permissive on unmodeled
+// fields: `status`/`failure_category` are kept as raw strings (a strict enum would
+// drop a whole record on one unseen value — same rationale as `severity` in
+// canaryFindingSchema). Every field is optional + `.passthrough()` so schema drift
+// (renamed/added keys) never hard-fails a whole line.
+export const canaryTestResultSchema = z
+  .object({
+    test_name: z.string().optional(),
+    name: z.string().optional(),
+    status: z.string().optional(),
+    suite: z.string().optional(),
+    test_file: z.string().optional(),
+    area: z.string().optional(),
+    failure_category: z.string().optional(),
+    error_text: z.string().optional(),
+    retry_count: z.number().optional(),
+    duration_ms: z.number().optional(),
+    flaky: z.boolean().optional(),
+    tags: z.array(z.string()).optional(),
+  })
+  .passthrough();
+export type CanaryTestResult = z.infer<typeof canaryTestResultSchema>;
+
+// One RunRecord per NDJSON line in history-v2.jsonl. `tests` defaults to [] so a
+// record missing the array still validates. All scalar fields optional + passthrough
+// so one unmodeled/renamed field never drops the record.
+export const canaryRunRecordSchema = z
+  .object({
+    run_id: z.string().optional(),
+    suite: z.string().optional(),
+    repo: z.string().optional(),
+    branch: z.string().optional(),
+    commit_sha: z.string().optional(),
+    timestamp: z.string().optional(),
+    exit_code: z.number().optional(),
+    total: z.number().optional(),
+    passed: z.number().optional(),
+    failed: z.number().optional(),
+    flaky: z.number().optional(),
+    skipped: z.number().optional(),
+    tests: z.array(canaryTestResultSchema).default([]),
+  })
+  .passthrough();
+export type CanaryRunRecord = z.infer<typeof canaryRunRecordSchema>;
+
 export interface CanaryAdapter {
   probe(): Promise<CanaryProbe>;
   recommendFramework(prompt: string): Promise<FrameworkRecommendation>;
   reviewTest(path: string, framework?: string): Promise<CanaryFinding[]>;
+  readRunHistory(opts?: { cwd?: string; limit?: number }): Promise<CanaryRunRecord[]>;
 }
 
 import { execFile } from 'node:child_process';
@@ -60,6 +108,25 @@ import { execFile } from 'node:child_process';
  * in `execCanary` fully under test.
  */
 export type CanaryExec = (cmd: string, args: string[]) => Promise<{ stdout: string }>;
+
+/**
+ * The raw file-read seam: resolves the utf8 contents of a path, or rejects
+ * (ENOENT / EACCES). Parallels {@link CanaryExec} — the single injection point for
+ * the documented-artifact acquisition path. The default reads the real file; tests
+ * inject a fake. Keeping the seam here (rather than at a higher level) keeps the
+ * degrade-classification in `readRunHistoryCanary` fully under test.
+ */
+export type CanaryReader = (filePath: string) => Promise<string>;
+
+/**
+ * Canary's documented, stable structured run-history store, relative to the project
+ * root (cwd). One JSON RunRecord per line (NDJSON). Confined to this module so the
+ * canary coupling stays inside the adapter boundary.
+ */
+const HISTORY_STORE_RELATIVE = 'test-results/reports/history-v2.jsonl';
+
+/** Default read seam: utf8 `fs.readFile`. */
+const defaultReader: CanaryReader = (filePath) => readFile(filePath, 'utf8');
 
 /** Bound exec time so a hung CLI degrades instead of blocking the caller forever. */
 const EXEC_TIMEOUT_MS = 30_000;
@@ -185,7 +252,39 @@ async function reviewTestCanary(
   return parsed.success ? parsed.data : [];
 }
 
-export function createCanaryAdapter(exec: CanaryExec = defaultExec): CanaryAdapter {
+/**
+ * Read canary's documented NDJSON run-history store and return validated records.
+ * Total (never throws): a missing/unreadable store degrades to `[]`, and individual
+ * malformed lines are dropped while valid records survive (permissive per-line
+ * `safeParse`). Records are newest-last in the file; `limit` caps to the most-recent N.
+ */
+async function readRunHistoryCanary(
+  reader: CanaryReader,
+  opts: { cwd?: string; limit?: number } = {}
+): Promise<CanaryRunRecord[]> {
+  const filePath = nodePath.resolve(opts.cwd ?? process.cwd(), HISTORY_STORE_RELATIVE);
+  let raw: string;
+  try {
+    raw = await reader(filePath);
+  } catch {
+    return []; // missing / unreadable → degrade to []
+  }
+  const records: CanaryRunRecord[] = [];
+  for (const line of raw.split('\n')) {
+    const trimmed = line.trim();
+    if (trimmed === '') continue; // ignore blank lines
+    const json = safeJson(trimmed); // reuse the existing non-throwing JSON parser
+    if (json === undefined) continue; // drop malformed line, keep the rest
+    const parsed = canaryRunRecordSchema.safeParse(json);
+    if (parsed.success) records.push(parsed.data);
+  }
+  return typeof opts.limit === 'number' && opts.limit >= 0 ? records.slice(-opts.limit) : records;
+}
+
+export function createCanaryAdapter(
+  exec: CanaryExec = defaultExec,
+  reader: CanaryReader = defaultReader
+): CanaryAdapter {
   let cachedProbe: Promise<CanaryProbe> | undefined;
 
   const probe = (): Promise<CanaryProbe> => (cachedProbe ??= probeCanary(exec));
@@ -196,5 +295,8 @@ export function createCanaryAdapter(exec: CanaryExec = defaultExec): CanaryAdapt
   const reviewTest = (path: string, framework?: string): Promise<CanaryFinding[]> =>
     reviewTestCanary(exec, path, framework);
 
-  return { probe, recommendFramework, reviewTest };
+  const readRunHistory = (opts?: { cwd?: string; limit?: number }): Promise<CanaryRunRecord[]> =>
+    readRunHistoryCanary(reader, opts);
+
+  return { probe, recommendFramework, reviewTest, readRunHistory };
 }

@@ -42,6 +42,34 @@ export interface OutcomeEvalInput {
    * verdict + confidence).
    */
   guardian?: GuardianAnalysis[];
+  /**
+   * Structured canary run outcome (gate exit code + pass/fail/flaky/skipped
+   * counts). Absent/empty leaves the verdict byte-identical to no canary
+   * wiring; when present, a deterministic one-line signal is appended to the
+   * verdict rationale and `canary*` metadata is stamped onto the
+   * execution_outcome node. Never affects ship authority. Mirrors `guardian?`.
+   */
+  canaryRun?: CanaryRunOutcome;
+}
+
+/**
+ * Structured outcome of a canary test run, folded additively into outcome-eval.
+ * `exitCode` is canary's gate exit code: 0 clean / 1 findings / 2 surface /
+ * 3 abstained. Absent leaves the verdict byte-identical to no canary wiring;
+ * never affects ship authority (still TS-derived from verdict + confidence).
+ * This is the minimal structured summary the judge needs — a caller derives it
+ * from the adapter's fuller `CanaryRunRecord`, keeping outcome-eval decoupled
+ * from the adapter's record schema.
+ */
+export interface CanaryRunOutcome {
+  /** Canary gate exit code: 0 clean, 1 findings, 2 surface, 3 abstained. */
+  exitCode: number;
+  passed: number;
+  failed: number;
+  flaky: number;
+  skipped: number;
+  /** Optional total case count (passed + failed + flaky + skipped). */
+  total?: number;
 }
 
 export interface OutcomeVerdict {

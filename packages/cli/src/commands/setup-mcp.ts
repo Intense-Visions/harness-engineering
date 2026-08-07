@@ -94,6 +94,7 @@ export const ALL_MCP_TOOLS: string[] = [
   'assess_project',
   'canary_probe',
   'canary_recommend_framework',
+  'canary_run_history',
   'review_changes',
   'detect_anomalies',
   'ask_graph',

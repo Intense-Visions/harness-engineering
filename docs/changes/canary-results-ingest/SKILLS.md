@@ -4,18 +4,19 @@
 
 ## Reference (load as context)
 
-| Skill | Purpose | When | Relevance |
-|-------|---------|------|-----------|
-| `ts-zod-integration` | Stack: typescript; Domain: data, testing | Architecture decisions | 0.53 |
-| `ts-testing-types` | Stack: typescript; Domain: data, testing | Testing | 0.5 |
-| `ts-type-guards` | Stack: typescript; Domain: data, testing | During implementation | 0.47 |
-| `ts-performance-patterns` | Stack: typescript; Domain: data, testing | During implementation | 0.46 |
-| `gof-memento-pattern` | Stack: typescript; Domain: data, testing | Testing | 0.44 |
-| `zod-infer-types` | Stack: typescript; Domain: data, testing | Architecture decisions | 0.43 |
-| `gof-builder-pattern` | Stack: typescript; Domain: data, testing | Architecture decisions | 0.4 |
-| `trpc-input-validation` | Stack: typescript; Domain: data, testing | Architecture decisions | 0.4 |
-| `zod-nextjs-integration` | Stack: typescript; Domain: data, testing | Architecture decisions | 0.4 |
-| `graphql-codegen-pattern` | Stack: typescript; Domain: data, testing | Architecture decisions | 0.39 |
+| Skill                     | Purpose                                  | When                   | Relevance |
+| ------------------------- | ---------------------------------------- | ---------------------- | --------- |
+| `ts-zod-integration`      | Stack: typescript; Domain: data, testing | Architecture decisions | 0.53      |
+| `ts-testing-types`        | Stack: typescript; Domain: data, testing | Testing                | 0.5       |
+| `ts-type-guards`          | Stack: typescript; Domain: data, testing | During implementation  | 0.47      |
+| `ts-performance-patterns` | Stack: typescript; Domain: data, testing | During implementation  | 0.46      |
+| `gof-memento-pattern`     | Stack: typescript; Domain: data, testing | Testing                | 0.44      |
+| `zod-infer-types`         | Stack: typescript; Domain: data, testing | Architecture decisions | 0.43      |
+| `gof-builder-pattern`     | Stack: typescript; Domain: data, testing | Architecture decisions | 0.4       |
+| `trpc-input-validation`   | Stack: typescript; Domain: data, testing | Architecture decisions | 0.4       |
+| `zod-nextjs-integration`  | Stack: typescript; Domain: data, testing | Architecture decisions | 0.4       |
+| `graphql-codegen-pattern` | Stack: typescript; Domain: data, testing | Architecture decisions | 0.39      |
 
 ---
-*Scanned 770 skills in 188ms. Signals: 10 keywords, 2 stack markers, 2 domains.*
+
+_Scanned 770 skills in 188ms. Signals: 10 keywords, 2 stack markers, 2 domains._

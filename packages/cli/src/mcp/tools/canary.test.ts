@@ -1,6 +1,10 @@
 import { describe, it, expect } from 'vitest';
 import type { CanaryAdapter } from '@harness-engineering/intelligence';
-import { handleCanaryProbe, handleCanaryRecommendFramework } from './canary.js';
+import {
+  handleCanaryProbe,
+  handleCanaryRecommendFramework,
+  handleCanaryRunHistory,
+} from './canary.js';
 
 // Minimal fake adapters — the handlers just call through and JSON-encode.
 function fakeAdapter(over: Partial<CanaryAdapter>): CanaryAdapter {
@@ -15,6 +19,7 @@ function fakeAdapter(over: Partial<CanaryAdapter>): CanaryAdapter {
       alternatives: [],
     }),
     reviewTest: async () => [],
+    readRunHistory: async () => [],
     ...over,
   };
 }
@@ -72,5 +77,34 @@ describe('canary_recommend_framework handler', () => {
   it('passes through a degraded sentinel when canary is unavailable', async () => {
     const res = await handleCanaryRecommendFramework({ prompt: 'x' }, fakeAdapter({}));
     expect(parse(res).status).toBe('degraded');
+  });
+});
+
+describe('canary_run_history handler', () => {
+  it('passes through injected run records as a JSON array', async () => {
+    const records = [
+      { run_id: 'run-a', passed: 3, failed: 0, tests: [] },
+      { run_id: 'run-b', passed: 2, failed: 1, tests: [{ test_name: 'login', status: 'failed' }] },
+    ];
+    const adapter = fakeAdapter({ readRunHistory: async () => records });
+    const res = await handleCanaryRunHistory({}, adapter);
+    expect(parse(res)).toEqual(records);
+  });
+
+  it('forwards path and limit to the adapter', async () => {
+    let seen: { cwd?: number | string; limit?: number } | undefined;
+    const adapter = fakeAdapter({
+      readRunHistory: async (opts) => {
+        seen = opts;
+        return [];
+      },
+    });
+    await handleCanaryRunHistory({ path: '/tmp/project', limit: 5 }, adapter);
+    expect(seen).toEqual({ cwd: '/tmp/project', limit: 5 });
+  });
+
+  it('degrades to [] when canary is unavailable (default fake)', async () => {
+    const res = await handleCanaryRunHistory({}, fakeAdapter({}));
+    expect(parse(res)).toEqual([]);
   });
 });
