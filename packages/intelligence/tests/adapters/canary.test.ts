@@ -1,5 +1,10 @@
 import { describe, it, expect } from 'vitest';
-import { createCanaryAdapter, type CanaryExec } from '../../src/adapters/canary.js';
+import {
+  createCanaryAdapter,
+  resolveTestCommand,
+  canaryFrameworkInfoSchema,
+  type CanaryExec,
+} from '../../src/adapters/canary.js';
 
 // Inject a fake exec seam — no node:child_process mocking. The adapter's
 // degrade-classification still runs, since we resolve/reject the raw seam exactly
@@ -138,5 +143,58 @@ describe('CanaryAdapter.reviewTest', () => {
     const findings = await createCanaryAdapter(execResolves(JSON.stringify(mixed))).reviewTest('x');
     expect(findings).toHaveLength(2);
     expect(findings[1].severity).toBe('critical');
+  });
+});
+
+describe('resolveTestCommand (pure)', () => {
+  // Build inputs through the schema so permissive defaults fill in.
+  const fw = (over: Record<string, unknown>) =>
+    canaryFrameworkInfoSchema.parse({ name: 'x', ...over });
+
+  it('fills the {file} placeholder', () => {
+    const playwright = fw({ execution_command: 'npx --yes playwright test {file}' });
+    expect(resolveTestCommand(playwright, 'login.spec.ts')).toBe(
+      'npx --yes playwright test login.spec.ts'
+    );
+  });
+
+  it('appends joined ci_flags only under ci', () => {
+    const playwright = fw({
+      execution_command: 'npx --yes playwright test {file}',
+      ci_flags: ['--reporter=list'],
+    });
+    expect(resolveTestCommand(playwright, 'a.spec.ts', { ci: true })).toBe(
+      'npx --yes playwright test a.spec.ts --reporter=list'
+    );
+    expect(resolveTestCommand(playwright, 'a.spec.ts')).toBe(
+      'npx --yes playwright test a.spec.ts'
+    );
+  });
+
+  it('returns null when execution_command is null (catalog-tier framework)', () => {
+    expect(resolveTestCommand(fw({ execution_command: null }), 'a.ts')).toBeNull();
+  });
+
+  it('returns null for {target}-only security scanners', () => {
+    const semgrep = fw({ execution_command: 'semgrep --config auto {target}' });
+    expect(resolveTestCommand(semgrep, 'rules.yaml')).toBeNull();
+  });
+
+  it('returns null for whole-suite commands with no {file} placeholder', () => {
+    const stryker = fw({ execution_command: 'npx --yes stryker run' });
+    expect(resolveTestCommand(stryker, 'a.ts')).toBeNull();
+  });
+
+  it('applies permissive schema defaults for a bare entry', () => {
+    const parsed = canaryFrameworkInfoSchema.parse({ name: 'bare', category: 'ignored' });
+    expect(parsed).toEqual({
+      name: 'bare',
+      languages: [],
+      file_extensions: [],
+      execution_command: null,
+      ci_flags: [],
+      status: '',
+      tier: '',
+    });
   });
 });

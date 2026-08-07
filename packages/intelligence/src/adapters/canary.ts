@@ -44,6 +44,50 @@ export const canaryFindingSchema = z.object({
 export const canaryFindingsSchema = z.array(canaryFindingSchema);
 export type CanaryFinding = z.infer<typeof canaryFindingSchema>;
 
+// canary frameworks --json → { frameworks: CanaryFrameworkInfo[] }.
+// NOTE: the live CLI returns the detail array under the `frameworks` key itself
+// (no separate `details[]` key — confirmed against canary 27-framework registry).
+// Permissive by design (D6): the live registry has null execution_command catalog
+// frameworks (opentelemetry, tosca) and non-{file} commands (stryker, semgrep). A
+// strict schema would drop the whole array on one unmodeled value; unknown keys
+// (category, categories, capabilities) are ignored rather than rejected.
+export const canaryFrameworkInfoSchema = z.object({
+  name: z.string(),
+  languages: z.array(z.string()).default([]),
+  file_extensions: z.array(z.string()).default([]),
+  execution_command: z.string().nullable().default(null),
+  ci_flags: z.array(z.string()).default([]),
+  status: z.string().default(''), // preferred | supported | commercial | ...
+  tier: z.string().default(''), //   full | executable | catalog
+});
+export type CanaryFrameworkInfo = z.infer<typeof canaryFrameworkInfoSchema>;
+
+export const canaryFrameworksResponseSchema = z.object({
+  frameworks: z.array(canaryFrameworkInfoSchema).default([]),
+});
+
+/**
+ * Pure resolution of a per-file test command from a registry entry. No exec.
+ *  - null execution_command  → null (catalog-tier frameworks have no runner)
+ *  - command without {file}   → null (whole-suite / {target}-only scanners are not
+ *                               resolvable to a per-file test command)
+ * Otherwise substitutes {file} and, under opts.ci, appends the joined ci_flags.
+ */
+export function resolveTestCommand(
+  fw: CanaryFrameworkInfo,
+  file: string,
+  opts?: { ci?: boolean }
+): string | null {
+  const command = fw.execution_command;
+  if (command === null) return null;
+  if (!command.includes('{file}')) return null;
+  let resolved = command.replaceAll('{file}', file);
+  if (opts?.ci && fw.ci_flags.length > 0) {
+    resolved = `${resolved} ${fw.ci_flags.join(' ')}`;
+  }
+  return resolved;
+}
+
 export interface CanaryAdapter {
   probe(): Promise<CanaryProbe>;
   recommendFramework(prompt: string): Promise<FrameworkRecommendation>;
