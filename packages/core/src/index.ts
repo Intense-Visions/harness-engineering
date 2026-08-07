@@ -227,6 +227,11 @@ export type {
 export * from './accessibility';
 
 /**
+ * Golden module.
+ */
+export * from './golden';
+
+/**
  * Harness-strength module.
  */
 export * from './harness-strength';

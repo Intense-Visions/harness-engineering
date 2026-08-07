@@ -150,6 +150,21 @@ export type {
   SkillRegressionEvaluatorOptions,
 } from './skill-regression/index.js';
 
+// UAT Sign-off — human-judged intent(BRD)-vs-shipped-reality acceptance record
+// (the far-end mirror of product-advisor's inception edge). Human is the
+// authority: no LLM verdict, no derived authority, advisory / record-only.
+export {
+  toUatExecutionOutcome,
+  UatSignoffRecorder,
+  UAT_SIGNOFF_SOURCE,
+} from './uat-signoff/index.js';
+export type {
+  UatItemDisposition,
+  UatOverallDecision,
+  UatSignoffItem,
+  UatSignoffInput,
+} from './uat-signoff/index.js';
+
 // CML Historical
 export { computeHistoricalComplexity } from './cml/historical.js';
 

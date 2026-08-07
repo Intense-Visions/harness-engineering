@@ -99,13 +99,18 @@ describe('MCP Server Integration', () => {
     expect(names).toContain('release_compound_lock');
     expect(names).toContain('outcome_eval');
     expect(names).toContain('acceptance_eval');
+    expect(names).toContain('uat_signoff');
     expect(names).toContain('canary_probe');
     expect(names).toContain('canary_recommend_framework');
     // standardize-parallel-execution Phase 1 — parallelization planner tool
     expect(names).toContain('plan_parallelization');
     // craft-pipeline — api-craft LLM-judgment ceiling skill (API quality)
     expect(names).toContain('api_craft');
-    expect(tools).toHaveLength(98);
+    // craft-pipeline — in-session finalize tools for the three fixed craft skills
+    expect(names).toContain('code_craft_finalize');
+    expect(names).toContain('cli_ergonomics_craft_finalize');
+    expect(names).toContain('api_craft_finalize');
+    expect(tools).toHaveLength(102);
   });
 
   it('all tool definitions have inputSchema', () => {

@@ -122,7 +122,7 @@ Validate STRATEGY.md at the project root. Returns { present, valid, error? }. So
 
 ### `code_craft`
 
-LLM-judgment critique of code quality / readability — the ceiling counterpart to the rule-based code floor (entropy-cleaner for dead code / drift, enforce-architecture for boundaries + deps, complexity thresholds). Asks the ceiling questions: does the code reveal intent and read in the domain’s language, is the control flow honest, does the function tell one story at one altitude, does each abstraction earn its keep, is this as simple as it could be, does the signature keep its promise, would a senior nod or wince. Walks `packages/<pkg>/src`, extracts substantive units (functions, methods, classes) via the TS Compiler API, and critiques each against 7 seed rubrics; files with no substantive unit are skipped. A small curated exemplar set (Anthropic SDK / TanStack Query / ky / SWR / date-fns) anchors the catalog. Identifier-level naming is delegated to `naming_craft`. Emits 3-axis findings (tier x impact x confidence per ADR 0019). Structural twin of `security_craft`.
+LLM-judgment critique of code quality / readability — the ceiling counterpart to the rule-based code floor (entropy-cleaner for dead code / drift, enforce-architecture for boundaries + deps, complexity thresholds). Asks the ceiling questions: does the code reveal intent and read in the domain’s language, is the control flow honest, does the function tell one story at one altitude, does each abstraction earn its keep, is this as simple as it could be, does the signature keep its promise, would a senior nod or wince. Walks `packages/<pkg>/src` (falling back to `src`/`app` for single-package repos), extracts substantive units (functions, methods, classes) via the TS Compiler API, and critiques each against 7 seed rubrics; files with no substantive unit are skipped. A small curated exemplar set (Anthropic SDK / TanStack Query / ky / SWR / date-fns) anchors the catalog. Identifier-level naming is delegated to `naming_craft`. Emits 3-axis findings (tier x impact x confidence per ADR 0019). Structural twin of `security_craft`. In-session mode (default in Claude Code) returns prompts for the calling agent to answer; call code_craft_finalize with the responses to get findings.
 
 **Parameters:**
 
@@ -131,6 +131,18 @@ LLM-judgment critique of code quality / readability — the ceiling counterpart 
 - `packages` (array, optional) — Restrict to specific packages under packages/
 - `maxFiles` (number, optional) — Cap source-file count (default: 100)
 - `maxUnitsPerFile` (number, optional) — Cap per-file unit critique (default: 20)
+- `mode` (string, optional) — 'in-session' (default): return prompts for the calling agent to answer, then call code_craft_finalize. 'inline': run end-to-end via the configured provider (HARNESS_CRAFT_LLM).
+- `promptBudget` (number, optional) — Cap prompt count in in-session mode (default: 100)
+
+### `code_craft_finalize`
+
+Finalize a code_craft in-session run by submitting the calling agent's responses to the prompts collected by code_craft. Returns the standard CodeCraftOutput with findings.
+
+**Parameters:**
+
+- `path` (string, required) — Project root path used in the collect call (must match)
+- `runId` (string, required) — runId returned by the code_craft collect call
+- `responses` (array, required) — Per-prompt responses. `raw` is the fenced JSON block the calling agent produced.
 
 ### `code_outline`
 
@@ -432,7 +444,7 @@ Parse a git diff and check for forbidden patterns, oversized files, and missing 
 
 ### `api_craft`
 
-LLM-judgment critique of API quality — the ceiling counterpart to rule-based API checks (OpenAPI-format and webhook-format compliance). Asks the ceiling questions a linter cannot: do resources model the domain rather than the implementation, is the resource naming and URL structure predictable (path vs query param), are HTTP methods honest, are status codes correct, do error responses tell the consumer what to do, are response shapes predictable and consistent, do collections paginate and filter consistently, are mutations idempotency-honest, and does the API evolve without breaking consumers. Discovers a project’s own API surface — OpenAPI/Swagger documents and route/handler definitions — and critiques each per file. 9 seed rubrics; a curated exemplar set (Stripe / Linear / GitHub / Resend / Anthropic) anchors the catalog. Emits 3-axis findings (tier x impact x confidence per ADR 0019). Structural twin of cli_ergonomics_craft.
+LLM-judgment critique of API quality — the ceiling counterpart to rule-based API checks (OpenAPI-format and webhook-format compliance). Asks the ceiling questions a linter cannot: do resources model the domain rather than the implementation, is the resource naming and URL structure predictable (path vs query param), are HTTP methods honest, are status codes correct, do error responses tell the consumer what to do, are response shapes predictable and consistent, do collections paginate and filter consistently, are mutations idempotency-honest, and does the API evolve without breaking consumers. Discovers a project’s own API surface — OpenAPI/Swagger documents and route/handler definitions — and critiques each per file. 9 seed rubrics; a curated exemplar set (Stripe / Linear / GitHub / Resend / Anthropic) anchors the catalog. Emits 3-axis findings (tier x impact x confidence per ADR 0019). Structural twin of cli_ergonomics_craft. In-session mode (default in Claude Code) returns prompts for the calling agent to answer; call api_craft_finalize with the responses to get findings.
 
 **Parameters:**
 
@@ -442,6 +454,18 @@ LLM-judgment critique of API quality — the ceiling counterpart to rule-based A
 - `specFile` (string, optional) — Explicit OpenAPI/Swagger document to critique
 - `excludeDirs` (array, optional) — Extra subdir names to skip while walking
 - `maxFiles` (number, optional) — Cap surface count (default: 60)
+- `mode` (string, optional) — 'in-session' (default): return prompts for the calling agent to answer, then call api_craft_finalize. 'inline': run end-to-end via the configured provider (HARNESS_CRAFT_LLM).
+- `promptBudget` (number, optional) — Cap prompt count in in-session mode (default: 100)
+
+### `api_craft_finalize`
+
+Finalize an api_craft in-session run by submitting the calling agent's responses to the prompts collected by api_craft. Returns the standard ApiCraftOutput with findings.
+
+**Parameters:**
+
+- `path` (string, required) — Project root path used in the collect call (must match)
+- `runId` (string, required) — runId returned by the api_craft collect call
+- `responses` (array, required) — Per-prompt responses. `raw` is the fenced JSON block the calling agent produced.
 
 ### `audit_anatomy`
 
@@ -481,7 +505,7 @@ Classify a test prompt with canary and recommend a framework (deterministic, no 
 
 ### `cli_ergonomics_craft`
 
-LLM-judgment critique of CLI ergonomics quality — the ceiling counterpart to mechanical CLI checks, and the only craft skill with no rule-based floor twin (a linter can verify a flag is documented, but not whether the name is predictable or the error says what to do next). Asks the ceiling questions: are command and flag names predictable and consistent, is help text task-oriented, are errors actionable, are defaults sane and safe, is output scannable and terminal-aware, does the CLI compose (pipeable, machine-readable, honest exit codes), are destructive actions guarded. 7 seed rubrics; a small curated exemplar set (gh / cargo / ripgrep / docker / Stripe CLI) anchors the catalog. Critiques a project’s own command definitions per file. Emits 3-axis findings (tier x impact x confidence per ADR 0019). Structural twin of docs_craft.
+LLM-judgment critique of CLI ergonomics quality — the ceiling counterpart to mechanical CLI checks, and the only craft skill with no rule-based floor twin (a linter can verify a flag is documented, but not whether the name is predictable or the error says what to do next). Asks the ceiling questions: are command and flag names predictable and consistent, is help text task-oriented, are errors actionable, are defaults sane and safe, is output scannable and terminal-aware, does the CLI compose (pipeable, machine-readable, honest exit codes), are destructive actions guarded. 7 seed rubrics; a small curated exemplar set (gh / cargo / ripgrep / docker / Stripe CLI) anchors the catalog. Critiques a project’s own command definitions per file. Emits 3-axis findings (tier x impact x confidence per ADR 0019). Structural twin of docs_craft. In-session mode (default in Claude Code) returns prompts for the calling agent to answer; call cli_ergonomics_craft_finalize with the responses to get findings.
 
 **Parameters:**
 
@@ -490,6 +514,18 @@ LLM-judgment critique of CLI ergonomics quality — the ceiling counterpart to m
 - `commandsDir` (string, optional) — Directory of command definitions to critique
 - `excludeDirs` (array, optional) — Extra subdir names to skip while walking
 - `maxFiles` (number, optional) — Cap command count (default: 60)
+- `mode` (string, optional) — 'in-session' (default): return prompts for the calling agent to answer, then call cli_ergonomics_craft_finalize. 'inline': run end-to-end via the configured provider (HARNESS_CRAFT_LLM).
+- `promptBudget` (number, optional) — Cap prompt count in in-session mode (default: 100)
+
+### `cli_ergonomics_craft_finalize`
+
+Finalize a cli_ergonomics_craft in-session run by submitting the calling agent's responses to the prompts collected by cli_ergonomics_craft. Returns the standard CliErgonomicsCraftOutput with findings.
+
+**Parameters:**
+
+- `path` (string, required) — Project root path used in the collect call (must match)
+- `runId` (string, required) — runId returned by the cli_ergonomics_craft collect call
+- `responses` (array, required) — Per-prompt responses. `raw` is the fenced JSON block the calling agent produced.
 
 ### `compact`
 
@@ -796,6 +832,20 @@ Trigger a maintenance task ad-hoc via POST /api/v1/jobs/maintenance. Requires tr
 
 - `taskId` (string, required) — Registered maintenance task identifier (e.g. cleanup-sessions)
 - `params` (object, optional) — Optional task-specific parameters
+
+### `uat_signoff`
+
+Record a HUMAN user-acceptance-testing (UAT) sign-off for a change as one execution_outcome node. The terminal, human-authority stage of the change lifecycle under the `docs/changes/<slug>/` directory: it records the human's acceptance of the shipped reality against the change's Success Criteria. Unlike acceptance_eval / outcome_eval this runs NO LLM and derives NO authority — the HUMAN is the authority, and the record is advisory (never blocks). Persists metadata.source = "uat-signoff" onto the shared execution_outcome shape so the eval-fail-rate signal consumes it. result is success iff decision === ACCEPTED, else failure. Call this AFTER the guided interview has captured the overall decision, the signer, and per-item dispositions — do not fabricate a verdict.
+
+**Parameters:**
+
+- `slug` (string, required) — Change slug — the docs/changes/&lt;slug>/ owner (same slug as spec/plan/review)
+- `decision` (string, required) — The overall human verdict (ACCEPTED | REJECTED | CHANGES_REQUESTED)
+- `signedOffBy` (string, required) — Name/identity of the human who signed off
+- `items` (array, optional) — Per-item dispositions ruled on during the interview
+- `criteriaRefs` (array, optional) — Success-Criterion ids the sign-off closes (the accepted acceptance items)
+- `timestamp` (string, optional) — ISO timestamp of the sign-off; defaults to now when omitted
+- `path` (string, optional) — Project root used to resolve the knowledge graph (default: cwd)
 
 ### `write_pulse_config`
 
