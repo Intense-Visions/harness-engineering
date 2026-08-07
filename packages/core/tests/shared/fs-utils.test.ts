@@ -1,4 +1,6 @@
-import { describe, it, expect } from 'vitest';
+import { afterEach, beforeEach, describe, it, expect } from 'vitest';
+import { mkdtemp, mkdir, rm, writeFile } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
 import { fileExists, readFileContent, findFiles } from '../../src/shared/fs-utils';
 import { isOk, isErr } from '../../src/shared/result';
 import { join } from 'path';
@@ -83,6 +85,54 @@ describe('findFiles', () => {
 
       expect(files).toHaveLength(1);
       expect(files[0]).toMatch(/src[\\/]code\.ts$/);
+    });
+  });
+
+  // #1146: discovery must see first-party source under dot-directories while
+  // still excluding the genuine ignore list (.git, node_modules, .harness, ...).
+  describe('dot-directory traversal (#1146)', () => {
+    let root: string;
+
+    beforeEach(async () => {
+      root = await mkdtemp(join(tmpdir(), 'harness-findfiles-'));
+    });
+
+    afterEach(async () => {
+      await rm(root, { recursive: true, force: true });
+    });
+
+    it('discovers files under a first-party dot-directory', async () => {
+      await mkdir(join(root, '.canary/skills/x'), { recursive: true });
+      await writeFile(join(root, '.canary/skills/x/mod.ts'), 'export const a = 1;\n');
+      await mkdir(join(root, 'src'), { recursive: true });
+      await writeFile(join(root, 'src/main.ts'), 'export const b = 2;\n');
+
+      const files = await findFiles('**/*.ts', root);
+
+      // findFiles returns platform-separator paths (backslash on Windows); the
+      // assertion normalises the candidate so it is separator-agnostic.
+      expect(files.some((f) => f.replaceAll('\\', '/').includes('.canary/skills/x/mod.ts'))).toBe(
+        true
+      );
+      expect(files.some((f) => f.replaceAll('\\', '/').endsWith('src/main.ts'))).toBe(true);
+    });
+
+    it('keeps .git, node_modules, and .harness runtime excluded even with dot traversal', async () => {
+      await mkdir(join(root, '.git'), { recursive: true });
+      await writeFile(join(root, '.git/hook.ts'), 'export const a = 1;\n');
+      await mkdir(join(root, 'node_modules/pkg'), { recursive: true });
+      await writeFile(join(root, 'node_modules/pkg/dep.ts'), 'export const b = 2;\n');
+      await mkdir(join(root, '.harness'), { recursive: true });
+      await writeFile(join(root, '.harness/runtime.ts'), 'export const c = 3;\n');
+      await mkdir(join(root, '.canary'), { recursive: true });
+      await writeFile(join(root, '.canary/keep.ts'), 'export const d = 4;\n');
+
+      const files = await findFiles('**/*.ts', root);
+
+      expect(files.some((f) => f.replaceAll('\\', '/').includes('.canary/keep.ts'))).toBe(true);
+      expect(files.some((f) => f.includes('.git/'))).toBe(false);
+      expect(files.some((f) => f.includes('node_modules'))).toBe(false);
+      expect(files.some((f) => f.includes('.harness/'))).toBe(false);
     });
   });
 });

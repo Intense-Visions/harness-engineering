@@ -60,7 +60,12 @@ export const DEFAULT_FIND_FILES_IGNORE: readonly string[] = skipDirGlobs();
  * @param pattern - The glob pattern to search for.
  * @param cwd - The current working directory for the search (default: process.cwd()).
  * @param extraIgnore - Additional ignore patterns, applied on top of {@link DEFAULT_FIND_FILES_IGNORE}.
- * @returns A promise that resolves to an array of absolute file paths matching the pattern.
+ * @returns A promise that resolves to an array of absolute file paths matching
+ *   the pattern. Paths use the platform separator (backslash on Windows);
+ *   consumers that compare on `/` must normalise locally (e.g. via
+ *   {@link relativePosix}). Do NOT normalise here — the dead-code detector's
+ *   reachability map mixes these with `path.join`-built keys and relies on
+ *   the native separator (#1146 follow-up).
  */
 export async function findFiles(
   pattern: string,
@@ -70,6 +75,15 @@ export async function findFiles(
   return glob(pattern, {
     cwd,
     absolute: true,
+    // `dot: true` lets discovery see first-party source that lives under a
+    // dot-directory (e.g. `.canary/`, `.config/`, `.server/` in ESM overlay
+    // repos). Without it, a repo whose entire surface is under a dot-dir scans
+    // as ~nothing (#1146). The genuine ignore list below still keeps `.git`,
+    // `node_modules`, `.harness` runtime, virtualenvs, and build/tooling caches
+    // excluded — glob propagates `dot` to its ignore matchers, so `**/.git/**`
+    // and friends continue to match. The policy is "do not blanket-exclude ALL
+    // dot-dirs", not "stop ignoring anything".
+    dot: true,
     ignore: [...DEFAULT_FIND_FILES_IGNORE, ...extraIgnore],
   });
 }
