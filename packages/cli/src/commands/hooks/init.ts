@@ -41,6 +41,28 @@ export function resolveHookSourceDir(): string {
 }
 
 /**
+ * Write the ESM module-type marker into `.harness/hooks/`.
+ *
+ * Hook scripts are ES modules (`import`/`export`) shipped as bare `.js`. Without
+ * a `package.json` declaring `"type": "module"` beside them, Node resolves each
+ * hook's module type from the adopter's nearest package.json — which is
+ * CommonJS-default (or absent) in most non-harness projects. Node then reparses
+ * every hook as ESM at runtime and emits a `MODULE_TYPELESS_PACKAGE_JSON`
+ * performance warning on each fire; Claude Code surfaces that stderr as a
+ * non-blocking "hook error" (spam on every PreToolUse:Bash call). A local marker
+ * pins the directory to ESM regardless of the adopter's root package.json.
+ *
+ * The stale-`.js` wipe in initHooks only removes `.js` entries, so this marker
+ * survives regeneration; removeHooks deletes the whole directory.
+ */
+export function writeHooksModuleMarker(hooksDestDir: string): void {
+  fs.writeFileSync(
+    path.join(hooksDestDir, 'package.json'),
+    JSON.stringify({ type: 'module' }, null, 2) + '\n'
+  );
+}
+
+/**
  * Build the settings.json `command` for a hook script.
  *
  * The generated command must resolve `.harness/hooks/<name>.js` against the
@@ -169,6 +191,9 @@ export function initHooks(options: { profile: HookProfile; projectDir: string; f
   // 1. Copy active hook scripts to .harness/hooks/
   const hooksDestDir = path.join(projectDir, '.harness', 'hooks');
   fs.mkdirSync(hooksDestDir, { recursive: true });
+  // Declare the hooks dir as ESM so Node doesn't reparse each copied .js hook
+  // and warn (MODULE_TYPELESS_PACKAGE_JSON) in CommonJS-default adopters.
+  writeHooksModuleMarker(hooksDestDir);
 
   const profilePath = path.join(hooksDestDir, 'profile.json');
   const recordedHashes = readRecordedHashes(profilePath);
