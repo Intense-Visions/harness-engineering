@@ -12,25 +12,25 @@ Ship a pure, injected-IO `packages/core/src/deployment/` module — `detectDeplo
 - **No skill edits.** `skill.yaml` / `SKILL.md` / ADR are **Phase 3**.
 - **No Half (B) ops-signal work.** No incident/monitoring ingestion, no production-signal sources, no knowledge-graph writes. The engine only reads config + repo files.
 - **No new secret regexes.** DEPLOY-SEC001 reuses `SecurityScanner` (`packages/core/src/security/scanner.ts`); do not add or fork secret patterns.
-- **No deploy/rollback execution.** DEPLOY-RB001 verifies a rollback path *exists*; it never runs a deploy or a revert.
+- **No deploy/rollback execution.** DEPLOY-RB001 verifies a rollback path _exists_; it never runs a deploy or a revert.
 
 ## Observable Truths (Acceptance Criteria)
 
 Traces to spec Success Criteria (SC) 2, 3, 4, 5, 6, 7, 8.
 
-1. **SC6 (abstain).** *When a repo has no CI/CD files, no deploy scripts, and no `deployment` config, `evaluateDeploymentGate` shall return `status: 'abstained'` and `deriveExitCode` shall return `ExitCode.ZERO_DENOMINATOR` (3)* — never `pass`, never `blocked`.
-2. **SC7 (opt-out).** *When `deployment.enabled === false`, the gate shall short-circuit to `status: 'disabled'` and `deriveExitCode` → `ExitCode.SUCCESS` (0)* with a distinct note (not abstention).
-3. **SC2 (secret leak, non-waivable).** *If a pipeline or committed env file contains a hardcoded secret literal, the gate shall emit `DEPLOY-SEC001` at `severity: 'hard'` and `deriveExitCode` → `1`; a value that is only an env-var/CI reference (`${{ secrets.X }}`, `process.env.X`, `$VAR`) shall NOT trip it, and `rules: { "DEPLOY-SEC001": "off" }` shall be ignored.*
-4. **SC4 (rollback path).** *If a deploy target is detected but no rollback path exists (no `rollback` config, no revert/rollback workflow or `deploy/rollback` script, no runbook), the gate shall emit `DEPLOY-RB001` (hard) whose `remediation` names `harness-rollback`, and `deriveExitCode` → `1`.*
-5. **SC3 (promotion gate).** *If a production deploy is reachable with no environment protection, no manual approval, and no prior staging/promotion job, the gate shall emit `DEPLOY-ENV001` (hard) and `deriveExitCode` → `1`.*
-6. **SC8 (override).** *`rules: { "DEPLOY-ENV001": "off" }` shall downgrade `DEPLOY-ENV001` to `severity: 'soft'` (advisory) so it no longer blocks; the same override on `DEPLOY-SEC001` shall be ignored.*
-7. **SC5 (soft-only).** *When a repo has deployment config and only soft findings (`DEPLOY-STAGE001` / `DEPLOY-ENV002` / `DEPLOY-HC001` / `DEPLOY-PERF001`), the gate shall return `status: 'pass'` with the advisories listed, and `deriveExitCode` → `0`.*
+1. **SC6 (abstain).** _When a repo has no CI/CD files, no deploy scripts, and no `deployment` config, `evaluateDeploymentGate` shall return `status: 'abstained'` and `deriveExitCode` shall return `ExitCode.ZERO_DENOMINATOR` (3)_ — never `pass`, never `blocked`.
+2. **SC7 (opt-out).** _When `deployment.enabled === false`, the gate shall short-circuit to `status: 'disabled'` and `deriveExitCode` → `ExitCode.SUCCESS` (0)_ with a distinct note (not abstention).
+3. **SC2 (secret leak, non-waivable).** _If a pipeline or committed env file contains a hardcoded secret literal, the gate shall emit `DEPLOY-SEC001` at `severity: 'hard'` and `deriveExitCode` → `1`; a value that is only an env-var/CI reference (`${{ secrets.X }}`, `process.env.X`, `$VAR`) shall NOT trip it, and `rules: { "DEPLOY-SEC001": "off" }` shall be ignored._
+4. **SC4 (rollback path).** _If a deploy target is detected but no rollback path exists (no `rollback` config, no revert/rollback workflow or `deploy/rollback` script, no runbook), the gate shall emit `DEPLOY-RB001` (hard) whose `remediation` names `harness-rollback`, and `deriveExitCode` → `1`._
+5. **SC3 (promotion gate).** _If a production deploy is reachable with no environment protection, no manual approval, and no prior staging/promotion job, the gate shall emit `DEPLOY-ENV001` (hard) and `deriveExitCode` → `1`._
+6. **SC8 (override).** _`rules: { "DEPLOY-ENV001": "off" }` shall downgrade `DEPLOY-ENV001` to `severity: 'soft'` (advisory) so it no longer blocks; the same override on `DEPLOY-SEC001` shall be ignored._
+7. **SC5 (soft-only).** _When a repo has deployment config and only soft findings (`DEPLOY-STAGE001` / `DEPLOY-ENV002` / `DEPLOY-HC001` / `DEPLOY-PERF001`), the gate shall return `status: 'pass'` with the advisories listed, and `deriveExitCode` → `0`._
 8. **Edge cases.** An unparseable pipeline file still counts as a detected deployment surface (repo does not abstain) and yields a `DEPLOY-STAGE001`-class advisory; the engine never throws on one bad file. A repo with `deployment` config present but no CI/CD files still evaluates rules it can (does not abstain).
 9. `DeploymentGateConfigSchema` parses `{ enabled?, rules? }`; `deployment` is optional on `HarnessConfigSchema`; `harness validate` passes and the core barrel stays in sync (`pnpm generate:barrels:check`).
 
 ## Grounding (evidence: file:line)
 
-- **Mirror target** — `packages/core/src/architecture/`: pure functions with a config type in `types.ts`, barrel `index.ts` (explicit re-exports, `packages/core/src/architecture/index.ts:1-151`), `config.ts` helper (`packages/core/src/architecture/config.ts:41`). The core top barrel is **auto-generated** — `packages/core/src/index.ts:1` (`// AUTO-GENERATED — do not edit. Run \`pnpm run generate:barrels\``); `:92` `export * from './architecture';`. A new `deployment/index.ts` is picked up by `pnpm generate:barrels`.
+- **Mirror target** — `packages/core/src/architecture/`: pure functions with a config type in `types.ts`, barrel `index.ts` (explicit re-exports, `packages/core/src/architecture/index.ts:1-151`), `config.ts` helper (`packages/core/src/architecture/config.ts:41`). The core top barrel is **auto-generated** — `packages/core/src/index.ts:1` (`// AUTO-GENERATED — do not edit. Run \`pnpm run generate:barrels\``); `:92` `export \* from './architecture';`. A new `deployment/index.ts`is picked up by`pnpm generate:barrels`.
 - **Secret scanner to reuse (D8)** — `packages/core/src/security/scanner.ts`: `class SecurityScanner` (`:46`), `new SecurityScanner()` registers `secretRules` (`:57`), `scanFileContent(content, filePath, startLine?)` (`:107`) applies fileGlob filtering to in-memory content (no disk read). The leak-vs-reference guard is automatic inside `matchRuleLine` (`:168-171`): for `category === 'secrets'` it calls `extractQuotedSecretValue` + `isReferenceOnlySecretValue` (`packages/core/src/security/secret-reference.ts:63`, `:101`) and `continue`s on a reference. Findings carry `category: 'secrets'`, `ruleId` (e.g. `SEC-SEC-002`), `severity`, `file`, `line`, `message` (`SecurityFinding`, exported from `packages/core/src/security/index.ts:92-102`). `SecurityScanner` is exported from the security barrel (`packages/core/src/security/index.ts:8`).
 - **Exit-code contract (D2)** — `packages/cli/src/utils/errors.ts:4-20`: `ExitCode.SUCCESS=0`, `VALIDATION_FAILED=1`, `ERROR=2`, `ZERO_DENOMINATOR=3`. `ExitCode` lives in the **CLI** package; core must NOT import from CLI. Therefore `deriveExitCode` returns a plain `0 | 1 | 2 | 3` numeric literal (documented to equal the `ExitCode` values); the CLI (Phase 2) maps that number through `process.exit`. The `ZERO_DENOMINATOR` doctrine ("examined NOTHING — abstained, not passed") is quoted verbatim at `errors.ts:11-18`.
 - **Config schema pattern** — `packages/cli/src/config/schema.ts`: `VocabularyConfigSchema` is defined inline in this file (`:509`) and wired onto `HarnessConfigSchema` (`:908`) as `vocabulary: VocabularyConfigSchema.optional()` (`:966`); `rollback: RollbackConfigSchema.optional()` (`:1018`, schema at `:631`); `architecture: ArchConfigSchema.optional()` (`:976`, schema imported from core). Type exports use `z.infer` (e.g. `RollbackConfig`, `schema.ts:~1130`). The spec (Technical Design → Config) directs `DeploymentGateConfigSchema` to be defined **in `schema.ts`** (Vocabulary/Rollback pattern, not the core-defined Arch pattern).
@@ -174,9 +174,15 @@ Traces to spec Success Criteria (SC) 2, 3, 4, 5, 6, 7, 8.
 
    export function surface(p: Partial<DeploymentSurface> = {}): DeploymentSurface {
      return {
-       pipelineFiles: [], deployScripts: [], envFiles: [],
-       detectedEnvironments: [], hasProductionTarget: false, productionUngated: false,
-       rollbackSignalInFiles: false, hasHealthCheck: false, presentStages: [],
+       pipelineFiles: [],
+       deployScripts: [],
+       envFiles: [],
+       detectedEnvironments: [],
+       hasProductionTarget: false,
+       productionUngated: false,
+       rollbackSignalInFiles: false,
+       hasHealthCheck: false,
+       presentStages: [],
        ...p,
      };
    }
@@ -222,7 +228,10 @@ Traces to spec Success Criteria (SC) 2, 3, 4, 5, 6, 7, 8.
        expect(s.envFiles).toHaveLength(0);
      });
      it('detects a GitHub Actions ungated production deploy', () => {
-       const s = detectDeploymentSurface('.', memFs({ '.github/workflows/deploy.yml': ghDeployProd }));
+       const s = detectDeploymentSurface(
+         '.',
+         memFs({ '.github/workflows/deploy.yml': ghDeployProd })
+       );
        expect(s.pipelineFiles).toHaveLength(1);
        expect(s.hasProductionTarget).toBe(true);
        expect(s.productionUngated).toBe(true);
@@ -233,11 +242,17 @@ Traces to spec Success Criteria (SC) 2, 3, 4, 5, 6, 7, 8.
        expect(s.envFiles.map((f) => f.path)).toContain('.env.production');
      });
      it('finds a rollback signal from a rollback workflow', () => {
-       const s = detectDeploymentSurface('.', memFs({ '.github/workflows/rollback.yml': 'name: rollback' }));
+       const s = detectDeploymentSurface(
+         '.',
+         memFs({ '.github/workflows/rollback.yml': 'name: rollback' })
+       );
        expect(s.rollbackSignalInFiles).toBe(true);
      });
      it('counts an unparseable pipeline file as a surface without throwing', () => {
-       const s = detectDeploymentSurface('.', memFs({ '.github/workflows/bad.yml': ':\n  - [garbage' }));
+       const s = detectDeploymentSurface(
+         '.',
+         memFs({ '.github/workflows/bad.yml': ':\n  - [garbage' })
+       );
        expect(s.pipelineFiles).toHaveLength(1);
        expect(s.pipelineFiles[0]!.unparseable).toBe(true);
      });
@@ -282,7 +297,10 @@ Traces to spec Success Criteria (SC) 2, 3, 4, 5, 6, 7, 8.
    import { surface } from './fixtures';
 
    const withPipeline = (content: string) =>
-     surface({ pipelineFiles: [{ path: '.github/workflows/deploy.yml', content }], hasProductionTarget: true });
+     surface({
+       pipelineFiles: [{ path: '.github/workflows/deploy.yml', content }],
+       hasProductionTarget: true,
+     });
 
    describe('evaluateDeploymentGate — status + DEPLOY-SEC001', () => {
      it('disabled short-circuits (SC7)', () => {
@@ -303,12 +321,15 @@ Traces to spec Success Criteria (SC) 2, 3, 4, 5, 6, 7, 8.
        expect(res.status).toBe('blocked');
      });
      it('does NOT flag an env-var/CI reference (SC2, D8)', () => {
-       const res = evaluateDeploymentGate(withPipeline('env:\n  TOKEN: ${{ secrets.NPM_TOKEN }}'), { enabled: true });
+       const res = evaluateDeploymentGate(withPipeline('env:\n  TOKEN: ${{ secrets.NPM_TOKEN }}'), {
+         enabled: true,
+       });
        expect(res.findings.some((f) => f.code === 'DEPLOY-SEC001')).toBe(false);
      });
      it('ignores an override on DEPLOY-SEC001 (SC8, non-waivable)', () => {
        const res = evaluateDeploymentGate(withPipeline('env:\n  AWS: "AKIAIOSFODNN7EXAMPLE"'), {
-         enabled: true, rules: { 'DEPLOY-SEC001': 'off' },
+         enabled: true,
+         rules: { 'DEPLOY-SEC001': 'off' },
        });
        expect(res.findings.find((f) => f.code === 'DEPLOY-SEC001')?.severity).toBe('hard');
      });
@@ -379,8 +400,14 @@ Traces to spec Success Criteria (SC) 2, 3, 4, 5, 6, 7, 8.
    ```ts
    import { describe, it, expect } from 'vitest';
    import { deriveExitCode } from '../../src/deployment/exit-code';
-   const r = (status: 'pass' | 'blocked' | 'abstained' | 'disabled') =>
-     ({ status, findings: [], hardViolations: [], softViolations: [], detectedEnvironments: [], rollbackPathPresent: false });
+   const r = (status: 'pass' | 'blocked' | 'abstained' | 'disabled') => ({
+     status,
+     findings: [],
+     hardViolations: [],
+     softViolations: [],
+     detectedEnvironments: [],
+     rollbackPathPresent: false,
+   });
    describe('deriveExitCode (D2)', () => {
      it('pass → 0', () => expect(deriveExitCode(r('pass'))).toBe(0));
      it('disabled → 0', () => expect(deriveExitCode(r('disabled'))).toBe(0));
@@ -435,8 +462,14 @@ Traces to spec Success Criteria (SC) 2, 3, 4, 5, 6, 7, 8.
    export { evaluateDeploymentGate } from './evaluate';
    export { deriveExitCode } from './exit-code';
    export type {
-     DeploymentFsPort, DeploymentSurface, DeploymentFile, DeploymentFinding,
-     DeploymentSeverity, DeploymentGateResult, DeploymentGateConfig, DeploymentExitCode,
+     DeploymentFsPort,
+     DeploymentSurface,
+     DeploymentFile,
+     DeploymentFinding,
+     DeploymentSeverity,
+     DeploymentGateResult,
+     DeploymentGateConfig,
+     DeploymentExitCode,
    } from './types';
    ```
 2. Regenerate the auto-generated core top barrel: `pnpm generate:barrels`, then `pnpm generate:barrels:check` — expect no diff and confirm `export * from './deployment';` is present in `packages/core/src/index.ts`.
@@ -458,17 +491,17 @@ Traces to spec Success Criteria (SC) 2, 3, 4, 5, 6, 7, 8.
 
 ## Traceability
 
-| Observable truth (SC)              | Delivered by      |
-| ---------------------------------- | ----------------- |
-| SC6 abstain / SC7 disabled         | Task 3            |
-| SC2 secret leak (non-waivable, D8) | Task 3            |
-| SC4 rollback path (D5)             | Task 4            |
-| SC3 promotion gate                 | Task 4            |
-| SC8 severity override              | Tasks 3, 4        |
-| SC5 soft-only + edge cases         | Task 5            |
-| Exit-code contract (D2)            | Task 6            |
-| Config schema + wiring             | Task 7            |
-| Barrel / validate / layer guard    | Task 8            |
+| Observable truth (SC)              | Delivered by |
+| ---------------------------------- | ------------ |
+| SC6 abstain / SC7 disabled         | Task 3       |
+| SC2 secret leak (non-waivable, D8) | Task 3       |
+| SC4 rollback path (D5)             | Task 4       |
+| SC3 promotion gate                 | Task 4       |
+| SC8 severity override              | Tasks 3, 4   |
+| SC5 soft-only + edge cases         | Task 5       |
+| Exit-code contract (D2)            | Task 6       |
+| Config schema + wiring             | Task 7       |
+| Barrel / validate / layer guard    | Task 8       |
 
 ## Concerns
 

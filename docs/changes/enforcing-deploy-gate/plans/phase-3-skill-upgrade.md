@@ -87,9 +87,9 @@ Traces to spec Success Criteria (SC) 9 (and reinforces the D2/D5 contracts).
      > If the schema does not allow `enforce_command`, instead document the command in `SKILL.md`'s Harness Integration (Task 2) and leave `cli.command` as-is — verify which the loader accepts via `harness skill validate`.
    - `phases:` add a leading `enforce` phase before `detect` (`:64`):
      ```yaml
-       - name: enforce
-         description: Run harness check-deployment; block on hard violations, advise on gaps, abstain loudly with no config
-         required: true
+     - name: enforce
+       description: Run harness check-deployment; block on hard violations, advise on gaps, abstain loudly with no config
+       required: true
      ```
    - Bump `version: "1.0.0"` → `version: "2.0.0"` (major: cognitive-mode/tier change is a behavioral break).
    - Do NOT add any internal issue/PR number.
@@ -108,7 +108,7 @@ Traces to spec Success Criteria (SC) 9 (and reinforces the D2/D5 contracts).
    - The **block-vs-advise table** (copy from the spec Technical Design): HARD = `DEPLOY-SEC001` (non-waivable), `DEPLOY-RB001`, `DEPLOY-ENV001`; SOFT/advisory = `DEPLOY-STAGE001`, `DEPLOY-ENV002`, `DEPLOY-HC001`, `DEPLOY-PERF001`. Note the `deployment.rules` override downgrades a waivable hard rule to advisory but never `DEPLOY-SEC001` (D4).
    - A one-line pointer: when the gate blocks, use the DETECT/ANALYZE/DESIGN prose below to fix the finding.
 3. Rewrite `## Gates` (`:243-248`) to state the **mechanical** contract instead of prose "flag as blocking": each hard rule maps to a non-zero exit; the gate is the authority, and the skill does not hand-wave past a `1`. Keep it a rigid `## Gates` section (required by the validator).
-4. Wire the **rollback seam (D5)** in `## Harness Integration` (`:169-174`): add a bullet describing the pre/post-ship pair — `harness check-deployment` verifies a rollback *path exists* (pre-ship readiness), satisfied by a `rollback` config block, a revert/rollback workflow or `deploy/rollback` script, or a documented runbook; `harness-rollback` executes post-ship (opens the revert PR when a signal/eval fires, propose-only). On a `DEPLOY-RB001` block, point the human at `harness-rollback`.
+4. Wire the **rollback seam (D5)** in `## Harness Integration` (`:169-174`): add a bullet describing the pre/post-ship pair — `harness check-deployment` verifies a rollback _path exists_ (pre-ship readiness), satisfied by a `rollback` config block, a revert/rollback workflow or `deploy/rollback` script, or a documented runbook; `harness-rollback` executes post-ship (opens the revert PR when a signal/eval fires, propose-only). On a `DEPLOY-RB001` block, point the human at `harness-rollback`.
 5. Ensure NO internal roadmap/PR/issue numbers appear anywhere added.
 6. Run: `harness skill validate harness-deployment` — expect exit `0` (all required sections still present).
 7. Run: `harness validate`
@@ -137,6 +137,7 @@ Traces to spec Success Criteria (SC) 9 (and reinforces the D2/D5 contracts).
 
 1. First: `ls docs/knowledge/decisions | sort | tail -3` to confirm 0086 is free (renumber if a concurrent branch claimed it).
 2. Create `docs/knowledge/decisions/0086-enforcing-deploy-gate-exit-contract-and-rollback-seam.md` using the repo frontmatter (model on `0010-...md:1-8`):
+
    ```md
    ---
    number: 0086
@@ -147,10 +148,12 @@ Traces to spec Success Criteria (SC) 9 (and reinforces the D2/D5 contracts).
    source: docs/changes/enforcing-deploy-gate/proposal.md
    ---
    ```
+
    - `## Context` — the harness stops enforcing at ship; `harness-deployment` named hard rules in prose with no exit-code authority. Two durable cross-skill contracts must be pinned before the gate ships: how it reports outcomes, and how it connects to `harness-rollback`. (This section MAY reference issue `#712`.)
-   - `## Decision` — **D2:** reuse the existing `ExitCode` enum with four values: `0 SUCCESS` (config detected, no hard violations, or explicitly disabled), `1 VALIDATION_FAILED` (≥1 hard violation), `2 ERROR` (internal/misconfig), `3 ZERO_DENOMINATOR` (no deployment config → abstained loudly — examined nothing, not a pass, never green). Quote the `ZERO_DENOMINATOR` doctrine from `packages/cli/src/utils/errors.ts`. The core `deriveExitCode` returns the numeric literal; the CLI owns `process.exit` and the `2` path. **D5:** the gate's `DEPLOY-RB001` is a rollback-*path-existence verification*, not an invocation — satisfied by a `rollback` config block, a revert/rollback workflow or `deploy/rollback` script, or a documented runbook. It never deploys and never merges a revert. On failure it points at `harness-rollback`, establishing the pre-ship (readiness) ↔ post-ship (execution) pair connected by the shared `rollback` config seam.
+   - `## Decision` — **D2:** reuse the existing `ExitCode` enum with four values: `0 SUCCESS` (config detected, no hard violations, or explicitly disabled), `1 VALIDATION_FAILED` (≥1 hard violation), `2 ERROR` (internal/misconfig), `3 ZERO_DENOMINATOR` (no deployment config → abstained loudly — examined nothing, not a pass, never green). Quote the `ZERO_DENOMINATOR` doctrine from `packages/cli/src/utils/errors.ts`. The core `deriveExitCode` returns the numeric literal; the CLI owns `process.exit` and the `2` path. **D5:** the gate's `DEPLOY-RB001` is a rollback-_path-existence verification_, not an invocation — satisfied by a `rollback` config block, a revert/rollback workflow or `deploy/rollback` script, or a documented runbook. It never deploys and never merges a revert. On failure it points at `harness-rollback`, establishing the pre-ship (readiness) ↔ post-ship (execution) pair connected by the shared `rollback` config seam.
    - `## Consequences` — Positive/Negative/Neutral (e.g. abstention semantics are now reusable by future gates; the deploy↔rollback seam is a config edge, not new coupling; negative: adopters must learn that exit 3 ≠ green).
    - `## Related` — the spec, the `harness-rollback` ADR if one exists, `packages/core/src/deployment/`, `harness check-deployment`.
+
 3. Add a one-line reference to this ADR in `docs/changes/enforcing-deploy-gate/proposal.md` Integration Points → Architectural Decisions (`proposal.md:242-245`): "ADR: `docs/knowledge/decisions/0086-...md`".
 4. Run: `harness validate`
 5. Commit: `docs(adr): 0086 deploy-gate exit-code contract and rollback seam`
@@ -188,14 +191,14 @@ Traces to spec Success Criteria (SC) 9 (and reinforces the D2/D5 contracts).
 
 ## Traceability
 
-| Observable truth (SC / contract)     | Delivered by   |
-| ------------------------------------ | -------------- |
-| SC9 metadata (mode/tier/phase/trigger) | Task 1         |
-| SC9 structure (ENFORCE/gates/seam)   | Task 2         |
-| SC9 rationalizations                 | Task 3         |
-| SC9 validator exits 0                | Tasks 1-3, 5, 6 |
-| ADR (D2 + D5)                        | Task 4         |
-| No internal identifiers / artifacts in sync | Task 5, 6 |
+| Observable truth (SC / contract)            | Delivered by    |
+| ------------------------------------------- | --------------- |
+| SC9 metadata (mode/tier/phase/trigger)      | Task 1          |
+| SC9 structure (ENFORCE/gates/seam)          | Task 2          |
+| SC9 rationalizations                        | Task 3          |
+| SC9 validator exits 0                       | Tasks 1-3, 5, 6 |
+| ADR (D2 + D5)                               | Task 4          |
+| No internal identifiers / artifacts in sync | Task 5, 6       |
 
 ## Concerns
 

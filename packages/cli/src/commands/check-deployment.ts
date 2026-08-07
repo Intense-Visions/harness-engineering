@@ -142,7 +142,9 @@ function mapDeploymentExitCode(code: DeploymentExitCode): ExitCodeType {
 }
 
 /** Flatten findings (hard first, then soft advisories) into displayable issues. */
-function buildDeploymentIssues(result: DeploymentGateResult): Array<{ file?: string; message: string }> {
+function buildDeploymentIssues(
+  result: DeploymentGateResult
+): Array<{ file?: string; message: string }> {
   return [...result.hardViolations, ...result.softViolations].map((f) => ({
     ...(f.file ? { file: f.file } : {}),
     message: `[${f.severity}] ${f.code}: ${f.detail} — ${f.remediation}`,

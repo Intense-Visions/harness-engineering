@@ -66,9 +66,7 @@ function hasSharedEnvConfig(surface: DeploymentSurface): boolean {
 
 /** True when a pipeline chains jobs (`needs:`) without any caching directive. */
 function hasSerialNoCacheSmell(surface: DeploymentSurface): boolean {
-  return surface.pipelineFiles.some(
-    (f) => /needs:/i.test(f.content) && !/cache/i.test(f.content)
-  );
+  return surface.pipelineFiles.some((f) => /needs:/i.test(f.content) && !/cache/i.test(f.content));
 }
 
 /** DEPLOY-SEC001 — hardcoded secret literal in a pipeline or committed env file (non-waivable). */
@@ -97,8 +95,7 @@ export function evaluateDeploymentGate(
   surface: DeploymentSurface,
   config?: DeploymentGateConfig
 ): DeploymentGateResult {
-  const rollbackPathPresent =
-    surface.rollbackSignalInFiles || config?.rollbackConfigured === true;
+  const rollbackPathPresent = surface.rollbackSignalInFiles || config?.rollbackConfigured === true;
   const base = {
     detectedEnvironments: surface.detectedEnvironments,
     rollbackPathPresent,
@@ -173,9 +170,7 @@ export function evaluateDeploymentGate(
         reasons.push(`missing recommended stage(s): ${missingStages.join(', ')}`);
       }
       if (unparseable.length > 0) {
-        reasons.push(
-          `unparseable pipeline file(s): ${unparseable.map((f) => f.path).join(', ')}`
-        );
+        reasons.push(`unparseable pipeline file(s): ${unparseable.map((f) => f.path).join(', ')}`);
       }
       findings.push({
         code: 'DEPLOY-STAGE001',
@@ -193,7 +188,8 @@ export function evaluateDeploymentGate(
         code: 'DEPLOY-HC001',
         severity: 'soft',
         detail: 'No post-deploy health check is wired for the detected deploy target.',
-        remediation: 'Add a post-deploy health/smoke check so a bad deploy is caught automatically.',
+        remediation:
+          'Add a post-deploy health/smoke check so a bad deploy is caught automatically.',
       });
     }
 

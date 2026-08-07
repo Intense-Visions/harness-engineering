@@ -34,10 +34,9 @@ describe('evaluateDeploymentGate — status + DEPLOY-SEC001', () => {
     expect(res.findings.some((f) => f.code === 'DEPLOY-SEC001')).toBe(false);
   });
   it('does NOT flag a shell-var reference (SC2, D8)', () => {
-    const res = evaluateDeploymentGate(
-      withPipeline('env:\n  password: "$AUTOAPPROVE_PAT"'),
-      { enabled: true }
-    );
+    const res = evaluateDeploymentGate(withPipeline('env:\n  password: "$AUTOAPPROVE_PAT"'), {
+      enabled: true,
+    });
     expect(res.findings.some((f) => f.code === 'DEPLOY-SEC001')).toBe(false);
   });
   it('ignores an override on DEPLOY-SEC001 (SC8, non-waivable)', () => {
@@ -182,7 +181,8 @@ describe('evaluateDeploymentGate — soft advisories (SC5 + edges)', () => {
         pipelineFiles: [
           {
             path: '.github/workflows/ci.yml',
-            content: 'jobs:\n  build: {}\n  deploy:\n    needs: build\n    steps:\n      - run: deploy to production',
+            content:
+              'jobs:\n  build: {}\n  deploy:\n    needs: build\n    steps:\n      - run: deploy to production',
           },
         ],
       }),

@@ -39,7 +39,10 @@ describe('detectDeploymentSurface', () => {
     expect(s.rollbackSignalInFiles).toBe(true);
   });
   it('finds a rollback signal from a deploy/rollback script', () => {
-    const s = detectDeploymentSurface('.', memFs({ 'deploy/rollback.sh': '#!/bin/sh\nkubectl rollout undo' }));
+    const s = detectDeploymentSurface(
+      '.',
+      memFs({ 'deploy/rollback.sh': '#!/bin/sh\nkubectl rollout undo' })
+    );
     expect(s.rollbackSignalInFiles).toBe(true);
   });
   it('finds a rollback signal from a runbook doc', () => {
@@ -47,7 +50,10 @@ describe('detectDeploymentSurface', () => {
     expect(s.rollbackSignalInFiles).toBe(true);
   });
   it('counts an unparseable pipeline file as a surface without throwing', () => {
-    const s = detectDeploymentSurface('.', memFs({ '.github/workflows/bad.yml': ':\n  - [garbage' }));
+    const s = detectDeploymentSurface(
+      '.',
+      memFs({ '.github/workflows/bad.yml': ':\n  - [garbage' })
+    );
     expect(s.pipelineFiles).toHaveLength(1);
     expect(s.pipelineFiles[0]!.unparseable).toBe(true);
   });
@@ -77,16 +83,25 @@ jobs:
     expect(s.productionUngated).toBe(false);
   });
   it('discovers a deploy script under deploy/', () => {
-    const s = detectDeploymentSurface('.', memFs({ 'deploy/deploy.sh': '#!/bin/sh\necho deploying to production' }));
+    const s = detectDeploymentSurface(
+      '.',
+      memFs({ 'deploy/deploy.sh': '#!/bin/sh\necho deploying to production' })
+    );
     expect(s.deployScripts.map((f) => f.path)).toContain('deploy/deploy.sh');
     expect(s.hasProductionTarget).toBe(true);
   });
   it('discovers scripts/deploy* scripts', () => {
-    const s = detectDeploymentSurface('.', memFs({ 'scripts/deploy-prod.sh': '#!/bin/sh\nkubectl apply' }));
+    const s = detectDeploymentSurface(
+      '.',
+      memFs({ 'scripts/deploy-prod.sh': '#!/bin/sh\nkubectl apply' })
+    );
     expect(s.deployScripts.map((f) => f.path)).toContain('scripts/deploy-prod.sh');
   });
   it('discovers a .gitlab-ci.yml pipeline', () => {
-    const s = detectDeploymentSurface('.', memFs({ '.gitlab-ci.yml': 'deploy:\n  script: echo deploy to production' }));
+    const s = detectDeploymentSurface(
+      '.',
+      memFs({ '.gitlab-ci.yml': 'deploy:\n  script: echo deploy to production' })
+    );
     expect(s.pipelineFiles.map((f) => f.path)).toContain('.gitlab-ci.yml');
   });
 });

@@ -45,7 +45,11 @@ function isYamlPipeline(path: string): boolean {
 }
 
 /** Capture a file's contents through the port; returns null when absent. */
-function capture(fsPort: DeploymentFsPort, path: string, yamlAware: boolean): DeploymentFile | null {
+function capture(
+  fsPort: DeploymentFsPort,
+  path: string,
+  yamlAware: boolean
+): DeploymentFile | null {
   const content = fsPort.readFile(path);
   if (content === null) return null;
   const file: DeploymentFile = { path, content };
@@ -92,10 +96,7 @@ const STAGE_KEYWORDS: Array<{ stage: string; re: RegExp }> = [
   { stage: 'post-deploy', re: /post[-\s]?deploy/i },
 ];
 
-export function detectDeploymentSurface(
-  root: string,
-  fsPort: DeploymentFsPort
-): DeploymentSurface {
+export function detectDeploymentSurface(root: string, fsPort: DeploymentFsPort): DeploymentSurface {
   void root; // paths are already root-relative for the injected port.
 
   const pipelineFiles: DeploymentFile[] = [];

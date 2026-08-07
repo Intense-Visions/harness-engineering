@@ -21,10 +21,10 @@ supply later. No ops-signal ingestion, incident/monitoring data, or signal sourc
 
 ## Overview and Goals
 
-Today the harness lifecycle stops *enforcing* the moment code ships. `harness-deployment` is a
+Today the harness lifecycle stops _enforcing_ the moment code ships. `harness-deployment` is a
 Tier-3 `advisory-guide` — a prose walkthrough (DETECT → ANALYZE → DESIGN → VALIDATE) that produces
 recommendations but has no exit-code authority and cannot block a merge or a deploy. Its
-`## Gates` section already *names* the hard rules ("No production deploy without staging
+`## Gates` section already _names_ the hard rules ("No production deploy without staging
 validation", "No long-lived credentials in pipelines", "No deploy without rollback") but nothing
 mechanically enforces them.
 
@@ -49,7 +49,7 @@ exit-code contract, driven by `harness.config.json`, and a skill whose `cognitiv
 **Non-goals (out of scope):**
 
 - Half (B): operations signal ingestion (incidents, monitoring → knowledge graph). Deferred.
-- Executing a deploy or a rollback. The gate verifies a rollback *path exists*; it never deploys
+- Executing a deploy or a rollback. The gate verifies a rollback _path exists_; it never deploys
   and never merges a revert (`harness-rollback` stays propose-only, a human merges).
 - Replacing platform-native deploy tooling or linting deep pipeline semantics beyond the readiness
   criteria below.
@@ -59,23 +59,23 @@ exit-code contract, driven by `harness.config.json`, and a skill whose `cognitiv
 - **D1 — Shape: a `check-*` CLI command backed by a pure core engine, not a new MCP tool.** This
   is the established enforcing-gate shape (`check-arch`, `check-deps`, `check-vocabulary`). It
   avoids MCP-registry churn and gives CI a direct exit-code contract. The skill invokes the command
-  rather than reimplementing detection. *Rationale: consistency with every existing rule-based gate;
-  the skill body must never reimplement the mechanical check (a Red-Flag pattern).*
+  rather than reimplementing detection. _Rationale: consistency with every existing rule-based gate;
+  the skill body must never reimplement the mechanical check (a Red-Flag pattern)._
 
 - **D2 — Four-value exit-code contract reusing the existing `ExitCode` enum.**
   `0 SUCCESS` (config detected, no hard violations), `1 VALIDATION_FAILED` (≥1 hard violation),
   `2 ERROR` (internal/misconfig), `3 ZERO_DENOMINATOR` (no deployment config detected → abstained).
-  *Rationale: `ExitCode.ZERO_DENOMINATOR` already exists precisely for "the gate examined NOTHING —
+  _Rationale: `ExitCode.ZERO_DENOMINATOR` already exists precisely for "the gate examined NOTHING —
   abstained, not passed, must never read as green." Reusing it makes graceful degradation
-  doctrine-aligned rather than bespoke.*
+  doctrine-aligned rather than bespoke._
 
 - **D3 — A small, non-arbitrary hard-block set; everything else advises.** This is the key design
   decision and was evaluated as a potential fork ("what should HARD-block a deploy?"). It is **not**
   a genuine fork: the harness doctrine already answers it. `check-arch` hard-fails only
-  *error-severity threshold breaches* (non-waivable) and treats everything else as the softer diff;
-  `outcome-eval` blocks only a *high-confidence* NOT_SATISFIED. Applying the same
+  _error-severity threshold breaches_ (non-waivable) and treats everything else as the softer diff;
+  `outcome-eval` blocks only a _high-confidence_ NOT*SATISFIED. Applying the same
   "block only the unambiguous, incident-causing violations" principle to deployment yields three
-  hard blocks and pushes maturity gaps to advisory (see Technical Design). *Rationale: a large
+  hard blocks and pushes maturity gaps to advisory (see Technical Design). \_Rationale: a large
   hard-block set produces false blocks and trains users to disable the gate; a doctrine-aligned
   minimal set is enforceable and trusted.*
 
@@ -85,36 +85,36 @@ exit-code contract, driven by `harness.config.json`, and a skill whose `cognitiv
   repo's opted-in secrets-and-injection constraint pack. The other two hard rules
   (`DEPLOY-RB001`, `DEPLOY-ENV001`) may be downgraded to advisory via `deployment.rules` for repos
   where the concept genuinely does not apply (e.g. an intentionally single-environment service).
-  *Rationale: graceful degradation needs an escape hatch, but a security leak is never a judgment
-  call.*
+  _Rationale: graceful degradation needs an escape hatch, but a security leak is never a judgment
+  call._
 
-- **D5 — Rollback wiring is a path-existence *verification*, not an invocation.** The gate's
+- **D5 — Rollback wiring is a path-existence _verification_, not an invocation.** The gate's
   `DEPLOY-RB001` requires that a rollback path exists, satisfied by any of: a `rollback` block in
   `harness.config.json` (the `harness-rollback` circuit breaker is wired), a revert/rollback
   workflow or `deploy/rollback` script, or a documented rollback runbook. On failure the message
   points at `harness-rollback` and explains the complementarity: **check-deployment = pre-ship
   readiness (can we roll back?); harness-rollback = post-ship execution (open the revert PR when a
-  signal/eval fires).** *Rationale: the two skills form the pre/post-ship pair the issue calls for,
-  connected by a config seam (`rollback`) both already read — no new coupling surface.*
+  signal/eval fires).** _Rationale: the two skills form the pre/post-ship pair the issue calls for,
+  connected by a config seam (`rollback`) both already read — no new coupling surface._
 
 - **D6 — The gate is standalone + opt-in, not forced into the default `ci check` orchestrator.**
   It ships as its own command and is documented for CI use; projects opt in via `deployment.enabled`
-  and by adding it to their workflow. *Rationale: silently adding a new blocking gate to the default
+  and by adding it to their workflow. _Rationale: silently adding a new blocking gate to the default
   orchestrator would hard-fail unrelated repos (including this one) on first upgrade — a breaking
-  change disguised as a feature.*
+  change disguised as a feature._
 
 - **D7 — Retain the advisory prose (DETECT/ANALYZE/DESIGN) in the skill body.** Enforcement adds an
   `ENFORCE` phase and flips `cognitive_mode`/`tier`; it does not delete the human-facing guidance,
-  which is the context a human needs when the gate blocks. *Rationale: the mechanical gate answers
-  "does it pass?"; the prose answers "how do I fix it?".*
+  which is the context a human needs when the gate blocks. _Rationale: the mechanical gate answers
+  "does it pass?"; the prose answers "how do I fix it?"._
 
 - **D8 — `DEPLOY-SEC001` reuses the existing security secret-scanner, not new patterns.** The core
   security module already ships a secret detector (`packages/core/src/security/rules/secrets.ts`)
   and, critically, `packages/core/src/security/secret-reference.ts`, which discriminates a genuine
-  hardcoded secret from an env-var *reference* (`${{ secrets.X }}`, `process.env.X`) — the exact
+  hardcoded secret from an env-var _reference_ (`${{ secrets.X }}`, `process.env.X`) — the exact
   false-positive guard a pipeline/env-file scan needs. The deploy engine runs that detector over the
-  discovered CI/CD and env files rather than reinventing regexes. *Rationale: feasibility + fidelity
-  — the leak-vs-reference distinction is subtle and already solved; duplicating it would drift.*
+  discovered CI/CD and env files rather than reinventing regexes. _Rationale: feasibility + fidelity
+  — the leak-vs-reference distinction is subtle and already solved; duplicating it would drift._
 
 ## Assumptions
 
@@ -132,20 +132,20 @@ exit-code contract, driven by `harness.config.json`, and a skill whose `cognitiv
 
 **HARD violations — block, exit `1 VALIDATION_FAILED`:**
 
-| Code           | Fires when                                                                                                                                                                 | Waivable?                         |
-| -------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------- |
-| `DEPLOY-SEC001`| A hardcoded secret or long-lived cloud credential appears in a CI/CD pipeline file, or a committed environment file (`.env.production`, etc.) contains live secret values. | **No** — non-waivable (D4).       |
-| `DEPLOY-RB001` | A deployment target is detected but **no rollback path** is wired (no `rollback` config, no revert/rollback workflow or script, no documented runbook).                    | Yes → advisory via `rules` (D4).  |
-| `DEPLOY-ENV001`| A **production** deploy is reachable with **no promotion/approval gate** — deploy-to-prod triggered directly (e.g. on push) with no environment protection, no manual approval, and no prior staging/promotion job. | Yes → advisory via `rules` (D4).  |
+| Code            | Fires when                                                                                                                                                                                                          | Waivable?                        |
+| --------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------- |
+| `DEPLOY-SEC001` | A hardcoded secret or long-lived cloud credential appears in a CI/CD pipeline file, or a committed environment file (`.env.production`, etc.) contains live secret values.                                          | **No** — non-waivable (D4).      |
+| `DEPLOY-RB001`  | A deployment target is detected but **no rollback path** is wired (no `rollback` config, no revert/rollback workflow or script, no documented runbook).                                                             | Yes → advisory via `rules` (D4). |
+| `DEPLOY-ENV001` | A **production** deploy is reachable with **no promotion/approval gate** — deploy-to-prod triggered directly (e.g. on push) with no environment protection, no manual approval, and no prior staging/promotion job. | Yes → advisory via `rules` (D4). |
 
 **SOFT violations — advise, exit `0 SUCCESS` (surfaced, non-blocking):**
 
-| Code            | Fires when                                                                                                          |
-| --------------- | ------------------------------------------------------------------------------------------------------------------- |
-| `DEPLOY-STAGE001`| Recommended pre-deploy check stages are missing (security scan, smoke tests, post-deploy verification).            |
-| `DEPLOY-ENV002` | Weak environment separation (shared **non-secret** config across environments) that is not an outright leak.        |
-| `DEPLOY-HC001`  | No post-deploy health check wired for a deploy target.                                                               |
-| `DEPLOY-PERF001`| Pipeline structure smells (serial stages that could parallelize, missing dependency/build caching).                 |
+| Code              | Fires when                                                                                                   |
+| ----------------- | ------------------------------------------------------------------------------------------------------------ |
+| `DEPLOY-STAGE001` | Recommended pre-deploy check stages are missing (security scan, smoke tests, post-deploy verification).      |
+| `DEPLOY-ENV002`   | Weak environment separation (shared **non-secret** config across environments) that is not an outright leak. |
+| `DEPLOY-HC001`    | No post-deploy health check wired for a deploy target.                                                       |
+| `DEPLOY-PERF001`  | Pipeline structure smells (serial stages that could parallelize, missing dependency/build caching).          |
 
 **ABSTAIN — exit `3 ZERO_DENOMINATOR`:** no CI/CD config, no deploy scripts, and no `deployment`
 config detected. Emits a loud "No deployment configuration detected; deploy gate not applicable
@@ -179,11 +179,11 @@ Pure, injected-IO functions (no direct `process`/network), mirroring `architectu
 
   ```ts
   interface DeploymentFinding {
-    code: string;              // e.g. "DEPLOY-SEC001"
+    code: string; // e.g. "DEPLOY-SEC001"
     severity: 'hard' | 'soft';
     file?: string;
     detail: string;
-    remediation: string;       // human-facing fix, references harness-rollback for DEPLOY-RB001
+    remediation: string; // human-facing fix, references harness-rollback for DEPLOY-RB001
   }
   interface DeploymentGateResult {
     status: 'pass' | 'blocked' | 'abstained' | 'disabled';

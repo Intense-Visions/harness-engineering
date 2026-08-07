@@ -1,5 +1,5 @@
 name: harness-deployment
-version: "2.0.0"
+version: '2.0.0'
 description: CI/CD pipelines, blue-green, canary, and environment management
 stability: static
 cognitive_mode: meticulous-verifier
@@ -20,13 +20,13 @@ keywords:
   - production
   - CD
 stack_signals:
-  - ".github/workflows/"
-  - ".gitlab-ci.yml"
-  - "Jenkinsfile"
-  - "deploy/"
-  - "infrastructure/"
-  - ".circleci/"
-  - "bitbucket-pipelines.yml"
+  - '.github/workflows/'
+  - '.gitlab-ci.yml'
+  - 'Jenkinsfile'
+  - 'deploy/'
+  - 'infrastructure/'
+  - '.circleci/'
+  - 'bitbucket-pipelines.yml'
 triggers:
   - manual
   - on_new_feature

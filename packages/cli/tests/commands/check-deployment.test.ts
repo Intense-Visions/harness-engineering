@@ -12,10 +12,7 @@ import {
  * Create a throwaway project dir with a harness.config.json plus optional files.
  * `config` is serialized as-is (pass a raw string for the malformed-config case).
  */
-function makeProject(opts: {
-  config: object | string;
-  files?: Record<string, string>;
-}): string {
+function makeProject(opts: { config: object | string; files?: Record<string, string> }): string {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'check-deployment-'));
   const raw = typeof opts.config === 'string' ? opts.config : JSON.stringify(opts.config);
   fs.writeFileSync(path.join(dir, 'harness.config.json'), raw);

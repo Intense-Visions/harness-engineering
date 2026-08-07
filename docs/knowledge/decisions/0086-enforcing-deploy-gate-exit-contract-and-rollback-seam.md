@@ -9,16 +9,16 @@ source: docs/changes/enforcing-deploy-gate/proposal.md
 
 ## Context
 
-The harness lifecycle stops *enforcing* the moment code ships. `harness-deployment`
+The harness lifecycle stops _enforcing_ the moment code ships. `harness-deployment`
 was a Tier-3 `advisory-guide` — a prose walkthrough (DETECT → ANALYZE → DESIGN →
 VALIDATE) that produced recommendations but carried no exit-code authority: its
-`## Gates` section *named* the hard rules ("No production deploy without staging
+`## Gates` section _named_ the hard rules ("No production deploy without staging
 validation", "No long-lived credentials in pipelines", "No deploy without rollback")
 yet nothing mechanically enforced them.
 
 Turning those named gates into a real enforcing gate (`harness check-deployment`, a
 pure core engine + a `check-*` CLI command, mirroring `check-arch` / `check-deps`)
-surfaces two durable cross-skill contracts that must be pinned *before* the gate
+surfaces two durable cross-skill contracts that must be pinned _before_ the gate
 ships, because future work will depend on both:
 
 1. **How the gate reports outcomes** — pass, block, error, and the delicate
@@ -39,12 +39,12 @@ owner decision and is out of scope here.
 `harness check-deployment` reports exactly four outcomes, reusing the enum in
 `packages/cli/src/utils/errors.ts` rather than inventing a bespoke scheme:
 
-| Exit | `ExitCode`         | Meaning                                                                                            |
-| ---- | ------------------ | -------------------------------------------------------------------------------------------------- |
-| `0`  | `SUCCESS`          | Deployment config detected, no hard violations — or the gate is explicitly disabled.               |
-| `1`  | `VALIDATION_FAILED`| At least one hard violation → blocked.                                                              |
-| `2`  | `ERROR`            | Internal failure or misconfiguration (unreadable/malformed `harness.config.json`).                 |
-| `3`  | `ZERO_DENOMINATOR` | No deployment configuration detected → **abstained loudly**.                                        |
+| Exit | `ExitCode`          | Meaning                                                                              |
+| ---- | ------------------- | ------------------------------------------------------------------------------------ |
+| `0`  | `SUCCESS`           | Deployment config detected, no hard violations — or the gate is explicitly disabled. |
+| `1`  | `VALIDATION_FAILED` | At least one hard violation → blocked.                                               |
+| `2`  | `ERROR`             | Internal failure or misconfiguration (unreadable/malformed `harness.config.json`).   |
+| `3`  | `ZERO_DENOMINATOR`  | No deployment configuration detected → **abstained loudly**.                         |
 
 `ExitCode.ZERO_DENOMINATOR` already exists precisely for the case where "the gate
 examined NOTHING — abstained, not passed, must never read as green." Reusing it makes
@@ -60,9 +60,9 @@ The pure core `deriveExitCode(result)` maps the engine's `status`
 `process.exit` and the `2 ERROR` path (config/IO failures the pure engine never
 raises itself).
 
-### D5 — Rollback wiring is a path-existence *verification*, not an invocation
+### D5 — Rollback wiring is a path-existence _verification_, not an invocation
 
-The gate's `DEPLOY-RB001` rule verifies that a rollback *path exists* — it does not
+The gate's `DEPLOY-RB001` rule verifies that a rollback _path exists_ — it does not
 run one. The requirement is satisfied by any of: a `rollback` block in
 `harness.config.json` (the `harness-rollback` circuit breaker is wired), a
 revert/rollback workflow or `deploy/rollback` script, or a documented rollback
@@ -91,7 +91,7 @@ already read — so the seam is an existing config edge, not a new coupling surf
 - Adopters must learn that exit `3` is **not** green. A pipeline that naively treats
   "non-1 = success" will mis-read an abstention as a pass; the contract and the skill
   body call this out explicitly, but it is a genuine onboarding cost.
-- Verifying a rollback *path* (not exercising a real rollback) means a wired-but-broken
+- Verifying a rollback _path_ (not exercising a real rollback) means a wired-but-broken
   rollback still passes `DEPLOY-RB001`. This is an accepted limit: the gate proves the
   path exists; correctness of the path is the post-ship circuit breaker's concern.
 

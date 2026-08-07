@@ -20,11 +20,11 @@ Ship `harness check-deployment` — a `check-*` CLI command that resolves config
 Traces to spec Success Criteria (SC) 1, 2, 3, 4, 5, 6, 7, 8.
 
 1. **SC1.** `harness check-deployment` exists, is registered (appears in `createProgram()` output / `harness --help`), and after docs regen appears in `docs/reference/cli-commands.md`.
-2. **SC2/3/4 (block).** *When the engine returns `status: 'blocked'`, the command shall print the hard finding(s) and exit `1`.* Verified over a leaked-secret fixture (`DEPLOY-SEC001`), a no-rollback fixture (`DEPLOY-RB001`, remediation names `harness-rollback`), and an ungated-prod fixture (`DEPLOY-ENV001`).
-3. **SC5 (soft-only).** *When the engine returns `status: 'pass'` with only advisories, the command shall list them and exit `0`.*
-4. **SC6 (abstain).** *When the engine returns `status: 'abstained'`, the command shall print a loud "No deployment configuration detected; deploy gate not applicable (abstained)." message and exit `3`* — never `0`, never `1`.
-5. **SC7 (opt-out).** *When `deployment.enabled === false`, the command shall exit `0` with an explicit opt-out note distinct from the abstention message.*
-6. **Error path (D2).** *If `harness.config.json` is missing or malformed, the command shall surface the parse error verbatim and exit `2` (`ExitCode.ERROR`).*
+2. **SC2/3/4 (block).** _When the engine returns `status: 'blocked'`, the command shall print the hard finding(s) and exit `1`._ Verified over a leaked-secret fixture (`DEPLOY-SEC001`), a no-rollback fixture (`DEPLOY-RB001`, remediation names `harness-rollback`), and an ungated-prod fixture (`DEPLOY-ENV001`).
+3. **SC5 (soft-only).** _When the engine returns `status: 'pass'` with only advisories, the command shall list them and exit `0`._
+4. **SC6 (abstain).** _When the engine returns `status: 'abstained'`, the command shall print a loud "No deployment configuration detected; deploy gate not applicable (abstained)." message and exit `3`_ — never `0`, never `1`.
+5. **SC7 (opt-out).** _When `deployment.enabled === false`, the command shall exit `0` with an explicit opt-out note distinct from the abstention message._
+6. **Error path (D2).** _If `harness.config.json` is missing or malformed, the command shall surface the parse error verbatim and exit `2` (`ExitCode.ERROR`)._
 7. **`--json` / `--findings-json`.** `--json` prints the full `DeploymentGateResult`; `--findings-json` appends a trailing `formatFindingsContract(count, 'check-deployment')` line. Neither changes the exit code.
 8. **Rollback seam wired (D5).** The command sets `rollbackConfigured` on the engine config from `config.rollback != null` so a `rollback` block satisfies `DEPLOY-RB001`.
 
@@ -33,7 +33,7 @@ Traces to spec Success Criteria (SC) 1, 2, 3, 4, 5, 6, 7, 8.
 - **Reference command** — `packages/cli/src/commands/check-arch.ts`: option/action shape (`createCheckArchCommand`, `:490`), `--findings-json` option (`:500`), `resolveOutputMode` (`:439`), JSON short-circuit + `logger.error` on `!result.ok` (`:515-519`), `maybeEmitArchFindings` using `formatFindingsContract(count, 'check-arch')` (`:484-488`), final `process.exit(value.passed ? ExitCode.SUCCESS : ExitCode.VALIDATION_FAILED)` (`:533`). Config resolution: `findConfigFile()` / `loadConfig(configPath)` from `../config/loader` (`:30`, `:299-309`); `cwd = options.cwd ?? path.dirname(configPath)` (`:311`).
 - **Exit codes** — `packages/cli/src/utils/errors.ts:4-20`: `SUCCESS=0`, `VALIDATION_FAILED=1`, `ERROR=2`, `ZERO_DENOMINATOR=3`; `CLIError(message, exitCode)` (`:31-46`). A malformed-config `loadConfig` returns `Err` — surface it and `process.exit(ExitCode.ERROR)`.
 - **Findings contract** — `formatFindingsContract(findings, check?)` from `@harness-engineering/types` (`packages/types/src/maintenance-findings.ts:52`), imported in check-arch at `:29`.
-- **Registry (auto-generated)** — `packages/cli/src/commands/_registry.ts:1` (`// AUTO-GENERATED — do not edit. Run \`pnpm run generate-barrel-exports\``). Commands are imported (`:16` `createCheckArchCommand`) and pushed alphabetically to `commandCreators` (`:122`). A new `check-deployment.ts` exporting `createCheckDeploymentCommand` is picked up by `pnpm generate-barrel-exports`; it lands between `createCheckDesignCommand` and `createCheckDocsCommand` alphabetically.
+- **Registry (auto-generated)** — `packages/cli/src/commands/_registry.ts:1` (`// AUTO-GENERATED — do not edit. Run \`pnpm run generate-barrel-exports\``). Commands are imported (`:16` `createCheckArchCommand`) and pushed alphabetically to `commandCreators` (`:122`). A new `check-deployment.ts`exporting`createCheckDeploymentCommand`is picked up by`pnpm generate-barrel-exports`; it lands between `createCheckDesignCommand`and`createCheckDocsCommand` alphabetically.
 - **CLI command tests** — `packages/cli/tests/commands/check-arch.test.ts` is the convention for command tests (mkdtemp fixture config, invoke the action).
 - **Docs regen** — `pnpm generate-docs` → `scripts/generate-docs.mjs` writes `docs/reference/cli-commands.md` (`:550-551`). Requires a build first (the generator reads built command metadata).
 - **Changeset format** — `.changeset/*.md` with front-matter `'@harness-engineering/cli': minor` (single quotes), e.g. `.changeset/adopter-roadmap-hook-installer.md`.
@@ -141,6 +141,7 @@ Traces to spec Success Criteria (SC) 1, 2, 3, 4, 5, 6, 7, 8.
 **Depends on:** Task 2 | **Files:** `.changeset/enforcing-deploy-gate-cli.md` | **Category:** integration
 
 1. Create `.changeset/enforcing-deploy-gate-cli.md`:
+
    ```md
    ---
    '@harness-engineering/cli': minor
@@ -165,7 +166,9 @@ Traces to spec Success Criteria (SC) 1, 2, 3, 4, 5, 6, 7, 8.
    The `@harness-engineering/core` bump ships the new `deployment` engine module
    (detect + evaluate + exit-code) reused by the command.
    ```
+
    > Do NOT include internal roadmap/PR/issue numbers in the changeset body (it ships in the published changelog). The spec/plan/ADR may reference them; the changeset may not.
+
 2. Run: `harness validate`
 3. Commit: `chore(changeset): enforcing deploy gate CLI command`
 
@@ -198,17 +201,17 @@ Traces to spec Success Criteria (SC) 1, 2, 3, 4, 5, 6, 7, 8.
 
 ## Traceability
 
-| Observable truth (SC)         | Delivered by   |
-| ----------------------------- | -------------- |
-| SC1 exists + registered       | Tasks 3, 4     |
-| SC2/3/4 block → exit 1        | Tasks 2, 6     |
-| SC5 soft-only → exit 0        | Tasks 2, 6     |
-| SC6 abstain → exit 3          | Tasks 2, 6     |
-| SC7 opt-out → exit 0          | Tasks 2, 6     |
-| Error path → exit 2 (D2)      | Tasks 1, 2     |
-| `--json` / `--findings-json`  | Task 2         |
-| Rollback seam (D5)            | Task 1, Task 6 |
-| Changeset present             | Task 5         |
+| Observable truth (SC)        | Delivered by   |
+| ---------------------------- | -------------- |
+| SC1 exists + registered      | Tasks 3, 4     |
+| SC2/3/4 block → exit 1       | Tasks 2, 6     |
+| SC5 soft-only → exit 0       | Tasks 2, 6     |
+| SC6 abstain → exit 3         | Tasks 2, 6     |
+| SC7 opt-out → exit 0         | Tasks 2, 6     |
+| Error path → exit 2 (D2)     | Tasks 1, 2     |
+| `--json` / `--findings-json` | Task 2         |
+| Rollback seam (D5)           | Task 1, Task 6 |
+| Changeset present            | Task 5         |
 
 ## Concerns
 
