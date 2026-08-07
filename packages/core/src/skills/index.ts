@@ -1,0 +1,5 @@
+export {
+  BEHAVIORAL_REQUIRED_SECTIONS,
+  KNOWLEDGE_REQUIRED_SECTIONS,
+  RIGID_SECTIONS,
+} from './required-sections';

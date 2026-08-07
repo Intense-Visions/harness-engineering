@@ -105,6 +105,18 @@ See `docs/changes/craft-pipeline/security-craft/proposal.md` for the full 29 suc
 - `cite.rubricId` populated on every finding (ADR 0020)
 - `critiqueSecurityInFile` cross-cutting API works on a single file
 
+## Rationalizations to Reject
+
+These are common rationalizations that sound reasonable but lead to incorrect results. When you catch yourself thinking any of these, stop and follow the documented process instead.
+
+| Rationalization                                                                              | Why It Is Wrong                                                                                                                                                                                                                  |
+| -------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| "`harness-security-scan` found no CVEs, so this handler is secure."                          | That scanner is the rule-based floor. Security-craft critiques shape: a CVE-clean handler can still load a document before authorizing (SEC-R008) or fail open on error (SEC-R006).                                              |
+| "The file contains the words `exec` and `token`, so I'll critique it even with no signal."   | Detection is AST-driven, not regex. `exec` in a comment or `token` as a CSS property name emits no `SecuritySignal`; zero-signal files are skipped by design. Do not critique a string match.                                    |
+| "This looks dangerous but I can't name the exploit, so I'll mark it high confidence anyway." | The system prompt biases to `medium` by default; `high` requires a specific named anti-pattern or a visibly missing guard. "Feels risky" without a named sink is `medium` at most.                                               |
+| "An auth check exists in the handler, so SEC-R003 (defense in depth) passes."                | A single check at the entrance is exactly gate-only defense. SEC-R003 asks whether the code defends in depth — one authz gate with no downstream validation is what the rubric flags.                                            |
+| "It's an internal-only endpoint, so the adversary model is moot and SEC-R004 passes."        | Assumed-adversary-realistic-for-the-deployment is not "internal, therefore trusted". SSRF, compromised neighbours, and confused-deputy paths all reach internal endpoints. State the realistic adversary; don't assume one away. |
+
 ## Examples
 
 ### Example: User input flowing into child_process

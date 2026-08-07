@@ -121,6 +121,18 @@ See `docs/changes/design-pipeline/design-craft-elevator/proposal.md` for the ful
 - Fast-mode ≤ 30s / 50 files; deep-mode ≤ 3min / 10 components
 - LLM cost tracked per audit
 
+## Rationalizations to Reject
+
+These are common rationalizations that sound reasonable but lead to incorrect results. When you catch yourself thinking any of these, stop and follow the documented process instead.
+
+| Rationalization                                                                                                 | Why It Is Wrong                                                                                                                                                                                                                                                                       |
+| --------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| "The screenshot looks stunning, so I will certify this component award-tier / `cleared`."                       | The `awardBar` verdict is machine-computed in code from the radar plus the cited exemplars' reference scores — never LLM-asserted. And the mechanical responsive gate can veto a strong aesthetic score to `not-cleared`. You emit dimension scores; the referee derives the verdict. |
+| "The model is only medium-confident on craftExecution, but the visual is clearly strong, so I will upgrade it." | Any dimension whose confidence falls below the confidence floor forces `indeterminate` by design — a score the model is unsure about must never certify award tier. Silently upgrading confidence defeats the honesty the 3-axis output exists to preserve.                           |
+| "POLISH found a better spring curve, so I will apply the codemod to the component."                             | POLISH emits before/after sketches only (`fix kind: codemod-todo`); it never modifies source. Applying the change yourself violates the no-autofix gate — the user applies via their own tools.                                                                                       |
+| "No DESIGN.md aesthetic intent is declared, so I will skip this component."                                     | The B' check degrades to generic-craft rubrics (or offers to chain to harness-design) — it never skips. Running with generic rubrics and noting the degraded quality is the documented fallback; abstaining abandons the ceiling role.                                                |
+| "This CRITIQUE finding matches a declared anti-pattern in DESIGN.md, but it is worth restating for emphasis."   | When `design.craft.enabled` and DESIGN.md declares the matching anti-pattern, defer to harness-design and suppress the finding (increment `deferralsToHarnessDesign`). Restating double-counts what the rule-based floor already owns.                                                |
+
 ## Examples
 
 ### Example: CRITIQUE finds hierarchy muddiness

@@ -111,6 +111,18 @@ See `docs/changes/cli-ergonomics-craft/proposal.md` for the full success criteri
 - Cross-cutting `critiqueCommandFile` works on a single command without a project walk
 - Graceful degradation: runs with seed rubrics when no CLI style guide is declared
 
+## Rationalizations to Reject
+
+These are common rationalizations that sound reasonable but lead to incorrect results. When you catch yourself thinking any of these, stop and follow the documented process instead.
+
+| Rationalization                                                                                       | Why It Is Wrong                                                                                                                                                                                                                             |
+| ----------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| "The flag is registered and the command compiles, so the surface is sound."                           | Registration and compilation are the mechanical floor. CLI-R001 asks whether the name is PREDICTABLE against the rest of the surface — a working `--out` still breaks the convention when every sibling command uses `--output`.            |
+| "The help text lists every flag, so the command is documented."                                       | CLI-R002 wants task-oriented help that teaches the job. An exhaustive flag enumeration is a reference dump, not teaching — a user still cannot tell what the command is FOR or which flags they actually need.                              |
+| "It prints a friendly message when it fails, so error handling is fine."                              | CLI-R003 wants the error to name the cause AND the next step; CLI-R006 wants an honest exit code. A friendly message that still exits 0 on failure silently breaks every script and pipeline that consumes the command.                     |
+| "I collected the pending prompts, so the critique is done."                                           | The in-session flow is a two-step protocol. Stopping after step 1 leaves you with prompts and zero findings — you must answer each prompt as the rubric-applying reviewer and call `..._finalize` to get a real `CliErgonomicsCraftOutput`. |
+| "This is a pure namespace group, but I will still apply the destructive-guard rubric to be thorough." | The kind filter fires CLI-R007 (and the output/default/safety rubrics) on `leaf` commands only. A `group` has no action handler to guard; forcing the rubric onto it manufactures a false finding the kind filter exists to prevent.        |
+
 ## Examples
 
 ### Example: A flag that breaks the naming convention

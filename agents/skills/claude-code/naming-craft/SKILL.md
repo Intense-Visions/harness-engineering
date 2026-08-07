@@ -172,6 +172,18 @@ See `docs/changes/craft-pipeline/naming-craft/proposal.md` for the full 34 succe
 - LlmProvider / MockLlmProvider IMPORTED from design-craft (no duplication)
 - MCP tool count bumps (running total maintained by parallel PRs)
 
+## Rationalizations to Reject
+
+These are common rationalizations that sound reasonable but lead to incorrect results. When you catch yourself thinking any of these, stop and follow the documented process instead.
+
+| Rationalization                                                                         | Why It Is Wrong                                                                                                                                                                        |
+| --------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| "This name is camelCase and matches the project convention, so it's fine."              | Convention conformance (NAME-R004) is one rubric of six. A perfectly-cased `processData` still fails predictive-power (R001) and concreteness (R002) — cased correctly, says nothing.  |
+| "`timeout` reads clearly in context, so NAME-R006 (encoded measure) doesn't apply."     | Encoded-measure asks whether the unit is silent — `timeout` could be ms or seconds. Reads-fine-in-context is exactly how silent-unit bugs ship. Suggest `timeoutMs`.                   |
+| "The convention sampler returned null, so I'll infer the dominant style and flag it."   | Below the >50% threshold the sampler returns null and NAME-R004 silently skips by design. Guessing a convention on a mid-migration project manufactures wrong findings.                |
+| "A one-letter loop variable `x` is lazy naming, so I'll flag it foundational."          | NAME-R005 is scope-match: length proportional to scope. `x` in a ≤10-line body is appropriate; the same name at file scope is not. Scope size decides the verdict, not brevity alone.  |
+| "This is a judgment call I'm unsure about, so I'll emit it high confidence to be safe." | Confidence is an honesty axis, not a safety lever. Unsure means low/medium so `derivePriority` de-emphasizes it. Inflating confidence to hedge pollutes the report with false urgency. |
+
 ## Examples
 
 ### Example: Vague function name

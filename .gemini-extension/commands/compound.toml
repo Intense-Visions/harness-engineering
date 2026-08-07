@@ -132,6 +132,18 @@ Read `docs/solutions/references/schema.yaml` for the authoritative track/categor
 - The skill never invents a new category — unknown categories are escalated.
 - PII is not written into the doc (the agent reads from local conversation/commits; no remote queries).
 
+## Rationalizations to Reject
+
+These are common rationalizations that sound reasonable but lead to incorrect results. When you catch yourself thinking any of these, stop and follow the documented process instead.
+
+| Rationalization                                                                                   | Why It Is Wrong                                                                                                                                                                                                                                                     |
+| ------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| "This problem is obviously new — I'll skip the Phase 3 overlap-check and write the doc directly." | Phase 3 is mandatory, no exceptions. "Obviously new" is exactly the assumption that produces duplicate docs and erodes the corpus's value. List the existing docs in the target category and compute overlap before writing.                                        |
+| "No category fits perfectly — I'll invent one that describes this problem better."                | The track/category enum in `packages/core/src/solutions/schema.ts` is the single source of truth. Inventing a category requires a PR (Decision 8). Stop and escalate; a mislabeled doc is worse than a delayed one.                                                 |
+| "The compound lock is held by another pid — I'll retry in a loop until it frees."                 | The contract is report-and-stop, never auto-retry. The holding invocation will produce the canonical doc, and a later re-run on the same problem goes through Phase 3 and finds it. Busy-looping defeats the per-category serialization the lock exists to provide. |
+| "Overlap is high, but my instance is a little different, so a fresh doc is cleaner."              | Iron Law: one problem, one canonical doc. A near-duplicate splits the playbook across two files. Append a bullet under `## Solution`/`## Guidance` and bump `last_updated` instead of forking.                                                                      |
+| "The doc is written and the frontmatter looks right — I'll skip `harness validate`."              | Frontmatter errors silently break the corpus (`validateSolutionsDir` is what catches them). Validation is a gate that must pass before exit; a doc that fails schema is not "done."                                                                                 |
+
 ## Examples
 
 ### Example: bug-track

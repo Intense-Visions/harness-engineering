@@ -153,6 +153,7 @@ const DIR_COMMENTS = {
   compaction: 'Compaction module for reducing MCP tool response token consumption.',
   caching: 'Caching module — stability classification and cache-aware utilities.',
   telemetry: 'Telemetry module for consent resolution and install identity.',
+  skills: 'Skills module — canonical required-section lists for skill validation gates.',
 };
 
 // ---------------------------------------------------------------------------

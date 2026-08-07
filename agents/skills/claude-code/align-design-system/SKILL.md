@@ -85,6 +85,18 @@ See `docs/changes/design-pipeline/align-design-system/proposal.md` for the full 
 - Re-running detect after align produces strictly fewer T001/T002/T003 findings
 - `--revert` re-applies the inverse of the most-recent `fixesApplied` batch; no-op when the file has been edited externally since the apply
 
+## Rationalizations to Reject
+
+These are common rationalizations that sound reasonable but lead to incorrect results. When you catch yourself thinking any of these, stop and follow the documented process instead.
+
+| Rationalization                                                                                            | Why It Is Wrong                                                                                                                                                                                                                                      |
+| ---------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| "The token import is missing, but I can just add the import line and then apply the codemod."              | Adding an import is its own ambiguity surface — named vs default vs barrel vs relative alias. The classifier deliberately downgrades to a suggestion when no import is present; synthesizing one turns a safe replacement into an unverified edit.   |
+| "This literal is `13px` and the nearest spacing token is `12px` — close enough to snap it."                | Non-exact px matches are a design decision, not a mechanical fix. T003 is safe-codemod only when the px matches a spacing token's `$value` EXACTLY. Rounding invents intent the tool has no authority to invent.                                     |
+| "This raw `<button>` obviously maps to the registered `<Button>` — I'll translate the props and apply it." | Prop translation across `<button>` ⇄ `<Button>` is genuinely ambiguous (event handlers, ref forwarding, class merging). v1 ALWAYS emits a suggestion for DRIFT-P\*; there is no codemod path, and auto-applying one produces broken markup.          |
+| "Two tokens share this hex value, but the brand one is clearly intended — I'll pick it and apply."         | When multiple tokens match a value the classifier downgrades to a suggestion by design. Choosing "the obvious one" is exactly the judgment call the pre-flight gate refuses to make; the resolution belongs in DESIGN.md or the source, not a guess. |
+| "The file changed since detect ran, but the finding's line still looks right — I'll apply anyway."         | Applying against content that moved risks mutating the wrong span. The contract is to skip with `skipped-unsafe / reason: file changed since finding`; re-run detect to get fresh line positions instead of trusting a stale offset.                 |
+
 ## Examples
 
 ### Example: Apply a T001 codemod (hex → token reference)

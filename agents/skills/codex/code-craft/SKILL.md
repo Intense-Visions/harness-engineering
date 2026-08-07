@@ -118,6 +118,18 @@ See `docs/changes/code-craft/proposal.md` for the full success criteria. Highlig
 - A curated exemplar set anchors the catalog and grows without a schema change
 - Cross-cutting `critiqueCodeInFile` works on a single file without a project walk
 
+## Rationalizations to Reject
+
+These are common rationalizations that sound reasonable but lead to incorrect results. When you catch yourself thinking any of these, stop and follow the documented process instead.
+
+| Rationalization                                                                            | Why It Is Wrong                                                                                                                                                                                                                                                               |
+| ------------------------------------------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| "The complexity score is under threshold, so this function is fine."                       | Thresholds are the floor. code-craft asks the ceiling questions a metric cannot — is the abstraction earned (CODE-R004), is the happy path buried (CODE-R002), would a senior wince (CODE-R007). A cyclomatic-clean function can still tell three stories at three altitudes. |
+| "This identifier reads poorly, so I will flag it under CODE-R006."                         | Identifier-naming quality is naming-craft's territory. CODE-R006 fires ONLY when a signature's SHAPE misrepresents behavior — a boolean that lies about what it does, a return type that hides a throw. Critiquing the name itself here double-critiques what a sibling owns. |
+| "This unit is intentionally dense (a hot loop, a parser), so I will drop the finding."     | The confidence axis exists precisely for this. Emit the finding at low confidence and let the consumer dismiss it — silently dropping it collapses the honest 3-axis output and hides a judgment call the reviewer is entitled to see.                                        |
+| "I can see the guard-clause inversion, so I will just refactor it."                        | code-craft is judgment-only. It emits a finding naming the construct plus a concrete suggested revision; it never edits source. A future `align-code` sibling owns the FIX side — applying it here violates the no-autofix gate.                                              |
+| "This file is all one-line pass-throughs, but I should critique it anyway to be thorough." | Sub-substantive units (fewer than 3 statements and no control flow) fall below the bar and their files are skipped by design. Critiquing them burns LLM cost and manufactures the noise the `filesSkippedNoUnit` filter exists to prevent.                                    |
+
 ## Examples
 
 ### Example: A function that buries the happy path

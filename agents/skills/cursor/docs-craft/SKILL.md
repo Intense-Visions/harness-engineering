@@ -98,6 +98,18 @@ See `docs/changes/docs-craft/proposal.md` for the full success criteria. Highlig
 - Cross-cutting `critiqueDocFile` works on a single doc without a project walk
 - Graceful degradation: runs with seed rubrics when no doc style guide is declared
 
+## Rationalizations to Reject
+
+These are common rationalizations that sound reasonable but lead to incorrect results. When you catch yourself thinking any of these, stop and follow the documented process instead.
+
+| Rationalization                                                                           | Why It Is Wrong                                                                                                                                                                                                                                |
+| ----------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| "The doc exists and its links resolve, so the documentation is in good shape."            | Existence, link freshness, and coverage are the floor (harness-check-docs). docs-craft asks whether the doc TEACHES — does a stranger walk away with the same mental model (DOCS-R006), or does it just enumerate features it happens to have. |
+| "This reference page lists every field, so the reader knows the response."                | DOCS-R005 wants the reader to PREDICT the response shape — a concrete example response plus the errors the endpoint can raise, not a bare field table. A field list without a worked example still leaves the reader guessing.                 |
+| "It is a knowledge fact entry / an ADR, but it is still markdown, so I will critique it." | `docs/knowledge/` (knowledge-craft) and `docs/changes/` + ADRs (spec-craft) are hard-excluded from discovery so the same file is never double-critiqued. Reaching into a sibling's tree is a boundary violation, not thoroughness.             |
+| "The prose is grammatically correct, so DOCS-R004 passes."                                | DOCS-R004 asks whether the prose is ALIVE, not merely correct. Grammatically clean, bureaucratic boilerplate fails it — voice and momentum are the bar, not the absence of typos.                                                              |
+| "The intro paragraph is muddy, so I will rewrite it to fix the finding."                  | docs-craft is judgment-only. It emits a finding; a future `align-docs` sibling owns safe rewrites. Rewriting the prose here is out of scope and hides the finding from the author who owns the doc.                                            |
+
 ## Examples
 
 ### Example: A guide that describes but never teaches

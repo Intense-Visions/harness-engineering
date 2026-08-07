@@ -116,6 +116,18 @@ The default is the interactive, section-by-section interview above. **Question-f
 - A `STRATEGY.md.bak` is written on the _first_ overwrite of an existing file, but NOT clobbered on subsequent overwrites (idempotency).
 - A present-but-invalid STRATEGY.md surfaces the validation error and offers the three repair paths from Phase 0; the skill never auto-overwrites a present-but-invalid file.
 
+## Rationalizations to Reject
+
+These are common rationalizations that sound reasonable but lead to incorrect results. When you catch yourself thinking any of these, stop and follow the documented process instead.
+
+| Rationalization                                                                                    | Why It Is Wrong                                                                                                                                                                                                 |
+| -------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| "'We want to be the market leader in X' is a clear direction — I'll accept it as their approach."  | That is a goal/aspiration, not a bet on HOW. The `Goal-as-strategy` rule must fire: strategy is the distinctive choice about how to win, not the outcome you hope to reach. Push for the diagnosis and the bet. |
+| "They listed three features as their approach — that's basically the strategy, I'll record it."    | The `Feature-list-as-strategy` rule must fire. A list of features is not a coherent bet; ask "what's the coherent action these features are instances of?" and capture that instead.                            |
+| "The answer is a little fluffy but they seem confident — I'll accept it without pushing back."     | Round 1 pushback MUST always fire when a rule matches (Iron Law). The 2-round cap is the capitulation point, not a bypass — skipping round 1 lets empty-modifier vocabulary into a durable anchor.              |
+| "The doc assembled cleanly — I'll write STRATEGY.md and show them the result after."               | The skill must NEVER write without explicit user confirmation of the assembled/updated doc. Show the full doc (or diff) and wait for an explicit yes before calling `write_strategy`.                           |
+| "STRATEGY.md is present but invalid — the cleanest fix is to overwrite it with a fresh interview." | Never auto-overwrite a present-but-invalid file; it is the user's prior work even when broken. Offer the three Phase 0 repair paths (fix-now / back-up-and-restart / exit) and let the user choose.             |
+
 ## Examples
 
 ### Example: greenfield (no STRATEGY.md)

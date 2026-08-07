@@ -113,6 +113,18 @@ See `docs/changes/craft-pipeline/test-craft/proposal.md` for the full 36 success
 - Source pairing best-effort with silent skip when no match
 - Plugin slash-commands pre-generated (avoids CI drift failure pattern)
 
+## Rationalizations to Reject
+
+These are common rationalizations that sound reasonable but lead to incorrect results. When you catch yourself thinking any of these, stop and follow the documented process instead.
+
+| Rationalization                                                                           | Why It Is Wrong                                                                                                                                                                                 |
+| ----------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| "This test is green and coverage went up, so it's a good test."                           | Coverage is the floor (`vitest --coverage`). Test-craft asks whether the assertion proves something the implementation could plausibly violate (TEST-R002). A green tautology adds zero signal. |
+| "`expect(user).toBeDefined()` after `createUser(...)` confirms it works, so R002 passes." | The return is defined by the signature — the assertion cannot fail. That is the tautology TEST-R002 targets. Assert the contract (`user.name`), not mere existence.                             |
+| "The test asserts the mock returned exactly what I stubbed, so behaviour is verified."    | Asserting the mock echoes your own setup, not the unit's behaviour. TEST-R007 wants assertions against the source's public contract, not the test's own scaffolding.                            |
+| "Source pairing didn't resolve, so I'll still critique TEST-R007 from the test body."     | Without resolved source, contract-not-implementation has nothing to compare against and should skip. Inventing a contract from the test body inverts the rubric it is meant to enforce.         |
+| "The test name reads like a full sentence, so TEST-R001 passes."                          | Contract-not-narrative-name wants the contract ("returns null when empty"), not readable narrative ("works correctly"). A grammatical sentence that names no contract is the failure mode.      |
+
 ## Examples
 
 ### Example: Narrative test name

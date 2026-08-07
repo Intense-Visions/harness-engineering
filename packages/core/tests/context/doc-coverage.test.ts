@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, it, expect } from 'vitest';
 import { mkdtemp, mkdir, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { checkDocCoverage } from '../../src/context/doc-coverage';
+import { skipDirGlobs } from '@harness-engineering/graph';
 import { join } from 'path';
 
 describe('checkDocCoverage', () => {
@@ -133,6 +134,45 @@ describe('checkDocCoverage', () => {
         expect(all.some((f) => f.includes('.git/'))).toBe(false);
         expect(all.some((f) => f.includes('.harness/'))).toBe(false);
         expect(result.value.scanned).toBe(1);
+      }
+    });
+
+    // Regression: a scanner must not self-exclude when the CHECKOUT's own
+    // absolute path contains a skip-dir segment (e.g. an `isolation: worktree`
+    // agent checked out under `<repo>/.claude/worktrees/<agent>/`). The
+    // default `skipDirGlobs()` list includes `**/.claude/**`; when that glob
+    // was matched against the absolute file path, the checkout's `.claude`
+    // prefix matched every file and drove the denominator to zero — a loud
+    // false failure since #1165. See docs/changes/fix-scanner-skip-dir-self-exclude.
+    it('does not self-exclude when the scan-root path contains a skip-dir segment (.claude)', async () => {
+      // Build a source tree whose ABSOLUTE path literally contains `/.claude/`,
+      // mirroring a worktree checkout under `<repo>/.claude/worktrees/<agent>/`.
+      const proj = join(root, '.claude', 'worktrees', 'agent-x', 'proj');
+      const src = join(proj, 'src');
+      await mkdir(src, { recursive: true });
+      await writeFile(join(src, 'alpha.ts'), 'export const a = 1;\n');
+      await writeFile(join(src, 'beta.ts'), 'export const b = 2;\n');
+      // A genuinely-nested `.claude/` INSIDE the scanned tree must STILL be
+      // excluded — anchoring must not become "never skip .claude".
+      await mkdir(join(src, '.claude', 'nested'), { recursive: true });
+      await writeFile(join(src, '.claude', 'nested', 'inside.ts'), 'export const c = 3;\n');
+
+      const result = await checkDocCoverage('project', {
+        docsDir: join(proj, 'docs'),
+        sourceDir: src,
+        // The default exclude set — the vulnerable configuration.
+        excludePatterns: [...skipDirGlobs(), '**/*.test.ts', '**/*.spec.ts'],
+      });
+
+      expect(result.ok).toBe(true);
+      if (result.ok) {
+        const all = [...result.value.documented, ...result.value.undocumented];
+        // Files ARE discovered despite the `.claude` checkout-path prefix.
+        expect(result.value.scanned).toBe(2);
+        expect(all).toContain('alpha.ts');
+        expect(all).toContain('beta.ts');
+        // The genuinely-nested `.claude/` inside the tree stays excluded.
+        expect(all.some((f) => f.includes('.claude/'))).toBe(false);
       }
     });
 

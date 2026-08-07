@@ -1,5 +1,10 @@
 import { describe, it, expect } from 'vitest';
-import { createCanaryAdapter, type CanaryExec } from '../../src/adapters/canary.js';
+import {
+  createCanaryAdapter,
+  resolveTestCommand,
+  canaryFrameworkInfoSchema,
+  type CanaryExec,
+} from '../../src/adapters/canary.js';
 
 // Inject a fake exec seam — no node:child_process mocking. The adapter's
 // degrade-classification still runs, since we resolve/reject the raw seam exactly
@@ -138,5 +143,125 @@ describe('CanaryAdapter.reviewTest', () => {
     const findings = await createCanaryAdapter(execResolves(JSON.stringify(mixed))).reviewTest('x');
     expect(findings).toHaveLength(2);
     expect(findings[1].severity).toBe('critical');
+  });
+});
+
+describe('resolveTestCommand (pure)', () => {
+  // Build inputs through the schema so permissive defaults fill in.
+  const fw = (over: Record<string, unknown>) =>
+    canaryFrameworkInfoSchema.parse({ name: 'x', ...over });
+
+  it('fills the {file} placeholder', () => {
+    const playwright = fw({ execution_command: 'npx --yes playwright test {file}' });
+    expect(resolveTestCommand(playwright, 'login.spec.ts')).toBe(
+      'npx --yes playwright test login.spec.ts'
+    );
+  });
+
+  it('appends joined ci_flags only under ci', () => {
+    const playwright = fw({
+      execution_command: 'npx --yes playwright test {file}',
+      ci_flags: ['--reporter=list'],
+    });
+    expect(resolveTestCommand(playwright, 'a.spec.ts', { ci: true })).toBe(
+      'npx --yes playwright test a.spec.ts --reporter=list'
+    );
+    expect(resolveTestCommand(playwright, 'a.spec.ts')).toBe('npx --yes playwright test a.spec.ts');
+  });
+
+  it('returns null when execution_command is null (catalog-tier framework)', () => {
+    expect(resolveTestCommand(fw({ execution_command: null }), 'a.ts')).toBeNull();
+  });
+
+  it('returns null for {target}-only security scanners', () => {
+    const semgrep = fw({ execution_command: 'semgrep --config auto {target}' });
+    expect(resolveTestCommand(semgrep, 'rules.yaml')).toBeNull();
+  });
+
+  it('returns null for whole-suite commands with no {file} placeholder', () => {
+    const stryker = fw({ execution_command: 'npx --yes stryker run' });
+    expect(resolveTestCommand(stryker, 'a.ts')).toBeNull();
+  });
+
+  it('applies permissive schema defaults for a bare entry', () => {
+    const parsed = canaryFrameworkInfoSchema.parse({ name: 'bare', category: 'ignored' });
+    expect(parsed).toEqual({
+      name: 'bare',
+      languages: [],
+      file_extensions: [],
+      execution_command: null,
+      ci_flags: [],
+      status: '',
+      tier: '',
+    });
+  });
+});
+
+describe('CanaryAdapter.listFrameworks', () => {
+  // Captured from the live CLI (`canary frameworks --json`): the detail objects live
+  // directly under `frameworks` (no `details[]` key); each carries extra ignored keys.
+  const FRAMEWORKS_FIXTURE = {
+    frameworks: [
+      {
+        name: 'playwright',
+        category: 'e2e_ui',
+        categories: ['e2e_ui', 'api'],
+        languages: ['typescript', 'javascript'],
+        file_extensions: ['spec.ts', 'spec.js', 'test.ts', 'test.js'],
+        execution_command: 'npx --yes playwright test {file}',
+        ci_flags: ['--reporter=list'],
+        status: 'preferred',
+        capabilities: { scaffold: true, execute: true, tier: 'full' },
+        tier: 'full',
+      },
+      {
+        name: 'opentelemetry',
+        file_extensions: [],
+        execution_command: null,
+        ci_flags: [],
+        status: 'supported',
+        tier: 'catalog',
+      },
+    ],
+  };
+
+  it('parses the top-level frameworks array on success', async () => {
+    const list = await createCanaryAdapter(
+      execResolves(JSON.stringify(FRAMEWORKS_FIXTURE))
+    ).listFrameworks();
+    expect(list).toHaveLength(2);
+    expect(list[0].name).toBe('playwright');
+    expect(list[0].execution_command).toBe('npx --yes playwright test {file}');
+    expect(list[1].execution_command).toBeNull(); // catalog-tier preserved, not dropped
+  });
+
+  it('returns [] on bad JSON (no throw)', async () => {
+    expect(await createCanaryAdapter(execResolves('not json')).listFrameworks()).toEqual([]);
+  });
+
+  it('returns [] on schema mismatch (no throw)', async () => {
+    expect(
+      await createCanaryAdapter(
+        execResolves(JSON.stringify({ frameworks: [{ name: 123 }] }))
+      ).listFrameworks()
+    ).toEqual([]);
+  });
+
+  it('returns [] when canary is not installed (ENOENT)', async () => {
+    expect(await createCanaryAdapter(execRejects({ code: 'ENOENT' })).listFrameworks()).toEqual([]);
+  });
+
+  it('returns [] when the native binary is missing', async () => {
+    expect(
+      await createCanaryAdapter(
+        execRejects({ code: 1, stderr: 'canary binary not found' })
+      ).listFrameworks()
+    ).toEqual([]);
+  });
+
+  it('returns [] on other non-zero exit', async () => {
+    expect(
+      await createCanaryAdapter(execRejects({ code: 2, stderr: 'boom' })).listFrameworks()
+    ).toEqual([]);
   });
 });
