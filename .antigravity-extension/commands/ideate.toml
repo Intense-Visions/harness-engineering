@@ -235,6 +235,18 @@ Sort by final score descending. Stable on ties (preserve generation order so the
 - The output filename collision rule (6-char hex suffix on same-day re-run for the same focus) produces a stable, deterministic suffix from `sha1(focus + iso_timestamp)`.
 - The artifact's frontmatter explicitly states the ranking formula so a future reader can reproduce the order.
 
+## Rationalizations to Reject
+
+These are common rationalizations that sound reasonable but lead to incorrect results. When you catch yourself thinking any of these, stop and follow the documented process instead.
+
+| Rationalization                                                                                            | Why It Is Wrong                                                                                                                                                                                                                |
+| ---------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ----------- | -------------------------------------------------------------------------------------------------------------------------------------- |
+| "The top-ranked idea is clearly the winner — I'll write its spec while I'm here."                          | Iron Law: exactly ONE ranked artifact per run, and NEVER a spec, plan, ADR, or code. Producing a spec is `harness-brainstorming`'s job; ideate's output is an INPUT to it, not a substitute.                                   |
+| "Idea 3's objection is weak — I'll skip its critique paragraph to move faster."                            | Every candidate needs its single strongest-objection paragraph. An idea whose objection goes unstated ranks as if it had none, which silently inflates it above ideas whose risks were honestly surfaced.                      |
+| "These ideas are all roughly medium on impact, confidence, and effort — I'll score them all medium."       | Undifferentiated scores make the `(impact × confidence) ÷ effort` ranking uninformative. Slow down and re-estimate the extremes; push for the highest-impact and highest-confidence outliers rather than defaulting to medium. |
+| "Idea 1 aligns with a track, so I'll add the +0.75 bonus even though it already beats Idea 2 comfortably." | The strategy-alignment bonus is bounded: it applies ONLY when `                                                                                                                                                                | Δbase_score | ≤ 0.05`. Outside that tie window the base score wins and the bonus is recorded for transparency but must never reorder a clear winner. |
+| "STRATEGY.md is present but invalid — I'll fix it so grounding works."                                     | Ideate READS STRATEGY.md; it never modifies it. On present-but-invalid, print the error verbatim, continue with `strategy_grounded: false`, and route the user to `/harness:strategy`. Repair is not this skill's job.         |
+
 ## Examples
 
 ### Example: With STRATEGY.md (grounded, 10 candidates)
