@@ -1,0 +1,32 @@
+{
+  "schemaVersion": 1,
+  "skill": "harness-spec-craft",
+  "id": "minimal-adr",
+  "description": "A minimal architecture decision record must state the decision, weigh at least two alternatives with explicit trade-offs, and record consequences and a status.",
+  "input": "Write an ADR for choosing a message queue for a new order-processing service. Candidates under consideration: a managed cloud queue and a self-hosted broker. Traffic is spiky; the team is small.",
+  "rubric": [
+    {
+      "id": "states-decision",
+      "criterion": "The output states a single, unambiguous decision (which option was chosen).",
+      "weight": 2
+    },
+    {
+      "id": "weighs-alternatives",
+      "criterion": "At least two alternatives are compared with explicit, concrete trade-offs (not just named)."
+    },
+    {
+      "id": "records-consequences",
+      "criterion": "The output records the consequences of the decision, including at least one downside or follow-up the team accepts."
+    },
+    {
+      "id": "has-status",
+      "criterion": "The output carries a decision status (e.g. Proposed / Accepted) and enough context to know why the decision was needed."
+    }
+  ],
+  "referenceOutput": "# ADR-014: Message queue for the order-processing service\n\n**Status:** Accepted\n\n## Context\nThe new order-processing service must absorb spiky traffic (flash-sale bursts of ~20x baseline) with a small team that has no dedicated ops on-call. We need durable, at-least-once delivery between the order API and the fulfilment workers.\n\n## Decision\nWe will use the managed cloud queue (SQS-style) rather than a self-hosted broker.\n\n## Alternatives considered\n- **Managed cloud queue (chosen):** No brokers to patch or scale; autoscales through bursts; pay-per-message. Trade-off: per-message cost is higher at steady state, and we accept vendor lock-in on the queue API.\n- **Self-hosted broker (e.g. RabbitMQ/Kafka):** Lower marginal cost at high steady volume and richer routing. Trade-off: the team must own capacity planning, upgrades, and 24/7 failure recovery — unacceptable for a team with no on-call rotation.\n\n## Consequences\n- We accept higher per-message cost in exchange for zero operational burden.\n- We accept lock-in to the managed queue's API; we will isolate it behind a thin publisher interface so a future migration is contained.\n- Follow-up: revisit the cost trade-off if steady-state volume grows past the point where a self-hosted broker pays for a dedicated operator.\n",
+  "baseline": {
+    "score": 1,
+    "k": 1,
+    "tolerance": 0.25
+  }
+}

@@ -85,6 +85,7 @@ import { createSetupCommand } from './setup';
 import { createSetupMcpCommand } from './setup-mcp';
 import { createShareCommand } from './share';
 import { createSkillCommand } from './skill';
+import { createSkillRegressionCommand } from './skill-regression';
 import { createSnapshotCommand } from './snapshot';
 import { createSpecCraftCommand } from './spec-craft';
 import { createStaleConstraintsCommand } from './stale-constraints';
@@ -190,6 +191,7 @@ export const commandCreators: Array<() => Command> = [
   createSetupMcpCommand,
   createShareCommand,
   createSkillCommand,
+  createSkillRegressionCommand,
   createSnapshotCommand,
   createSpecCraftCommand,
   createStaleConstraintsCommand,

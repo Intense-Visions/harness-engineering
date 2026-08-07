@@ -118,6 +118,38 @@ export type {
   AcceptanceEvaluatorOptions,
 } from './acceptance-eval/index.js';
 
+// Skill-Regression — golden-fixture evaluation framework that detects skill regressions.
+// Reuses the outcome-eval judge pattern; wired into the `harness skill-regression` CLI gate.
+export {
+  deriveRegressionAuthority,
+  SKILL_REGRESSION_SYSTEM_PROMPT,
+  buildUserPrompt as buildSkillRegressionUserPrompt,
+  criterionJudgmentSchema,
+  judgeResponseSchema,
+  weightedScore,
+  aggregateAtK,
+  regressionFloor,
+  deriveRegressionVerdict,
+  fixtureSchema,
+  parseFixture,
+  serializeFixture,
+  SkillRegressionEvaluator,
+  computeBaselineScore,
+} from './skill-regression/index.js';
+export type {
+  JudgeResponse as SkillRegressionJudgeResponse,
+  RegressionVerdictKind,
+  RegressionConfidence,
+  RegressionAuthority,
+  RubricCriterion,
+  GoldenBaseline,
+  SkillRegressionFixture,
+  CriterionJudgment,
+  SkillRegressionInput,
+  SkillRegressionVerdict,
+  SkillRegressionEvaluatorOptions,
+} from './skill-regression/index.js';
+
 // UAT Sign-off — human-judged intent(BRD)-vs-shipped-reality acceptance record
 // (the far-end mirror of product-advisor's inception edge). Human is the
 // authority: no LLM verdict, no derived authority, advisory / record-only.
