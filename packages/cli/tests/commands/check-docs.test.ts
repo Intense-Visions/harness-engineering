@@ -1,5 +1,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { Command } from 'commander';
+import { mkdtemp, mkdir, rm, writeFile } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
 import { createCheckDocsCommand, runCheckDocs } from '../../src/commands/check-docs';
 import * as path from 'path';
 
@@ -43,6 +45,54 @@ describe('check-docs command', () => {
       if (result.ok) {
         expect(result.value.valid).toBe(true);
       }
+    });
+
+    it('reports the denominator scanned on a real project', async () => {
+      const result = await runCheckDocs({
+        cwd: validProjectPath,
+        configPath: path.join(validProjectPath, 'harness.config.json'),
+      });
+      expect(result.ok).toBe(true);
+      if (result.ok) {
+        expect(result.value.scanned).toBeGreaterThan(0);
+        expect(result.value.scannedNothing).toBe(false);
+      }
+    });
+
+    // #1146: a scan that read zero source files abstained — it must never pass
+    // at min-coverage 0, and must report the abstention explicitly.
+    describe('zero source files scanned (#1146)', () => {
+      let root: string;
+
+      beforeEach(async () => {
+        root = await mkdtemp(path.join(tmpdir(), 'harness-checkdocs-'));
+        // docs/ present, but no source files at all.
+        await mkdir(path.join(root, 'docs'), { recursive: true });
+        await writeFile(path.join(root, 'docs/readme.md'), '# Docs\n');
+        await writeFile(
+          path.join(root, 'harness.config.json'),
+          JSON.stringify({ version: 1, name: 'empty', rootDir: '.', docsDir: './docs' })
+        );
+      });
+
+      afterEach(async () => {
+        await rm(root, { recursive: true, force: true });
+      });
+
+      it('abstains (valid false, scannedNothing) instead of reporting 100%', async () => {
+        const result = await runCheckDocs({
+          cwd: root,
+          configPath: path.join(root, 'harness.config.json'),
+          minCoverage: 0,
+        });
+        expect(result.ok).toBe(true);
+        if (result.ok) {
+          expect(result.value.scanned).toBe(0);
+          expect(result.value.scannedNothing).toBe(true);
+          expect(result.value.coveragePercent).not.toBe(100);
+          expect(result.value.valid).toBe(false);
+        }
+      });
     });
   });
 

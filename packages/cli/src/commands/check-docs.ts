@@ -4,6 +4,7 @@ import type { Result } from '@harness-engineering/core';
 import { Ok, Err } from '@harness-engineering/core';
 import { formatFindingsContract } from '@harness-engineering/types';
 import { checkDocCoverage, validateKnowledgeMap } from '@harness-engineering/core';
+import { skipDirGlobs } from '@harness-engineering/graph';
 import { resolveConfig } from '../config/loader';
 import { OutputFormatter, OutputMode } from '../output/formatter';
 import type { OutputModeType } from '../output/formatter';
@@ -26,6 +27,10 @@ interface CheckDocsResult {
   documented: string[];
   undocumented: string[];
   brokenLinks: string[];
+  // Denominator: source files actually scanned. `scannedNothing` (scanned === 0)
+  // is an abstention, not a pass — the scan verified nothing (#1146).
+  scanned: number;
+  scannedNothing: boolean;
 }
 
 export async function runCheckDocs(
@@ -44,18 +49,24 @@ export async function runCheckDocs(
   const docsDir = path.resolve(cwd, config.docsDir);
   const sourceDir = path.resolve(cwd, config.rootDir);
 
+  // Honor `entropy.excludePatterns` from harness.config.json. Previously this
+  // command hardcoded its excludes, so config had no effect on `check-docs` at
+  // all and the fix that worked via the `harness ci check` path was unavailable
+  // here (#1146). The fallback deliberately does NOT exclude `**/fixtures/**`:
+  // baking fixture-exclusion into the default is exactly the footgun that drives
+  // the denominator to zero and turns the gate green (#1146 §3). A project that
+  // genuinely wants fixtures excluded opts in via `entropy.excludePatterns`.
+  const excludePatterns = config.entropy?.excludePatterns ?? [
+    ...skipDirGlobs(),
+    '**/*.test.ts',
+    '**/*.spec.ts',
+  ];
+
   // Check documentation coverage
   const coverageResult = await checkDocCoverage('project', {
     docsDir,
     sourceDir,
-    excludePatterns: [
-      '**/*.test.ts',
-      '**/*.spec.ts',
-      '**/node_modules/**',
-      '**/dist/**',
-      '**/coverage/**',
-      '**/.turbo/**',
-    ],
+    excludePatterns,
   });
 
   if (!coverageResult.ok) {
@@ -79,13 +90,20 @@ export async function runCheckDocs(
   }
 
   const coveragePercent = coverageResult.value.coveragePercentage;
+  const scanned = coverageResult.value.scanned;
+  const scannedNothing = scanned === 0;
 
   const result: CheckDocsResult = {
-    valid: coveragePercent >= minCoverage && brokenLinks.length === 0,
+    // A scan that read zero source files abstained rather than passed: it
+    // verified nothing, so it can never be valid regardless of the (0%)
+    // coverage number (#1146).
+    valid: !scannedNothing && coveragePercent >= minCoverage && brokenLinks.length === 0,
     coveragePercent,
     documented: coverageResult.value.documented,
     undocumented: coverageResult.value.undocumented,
     brokenLinks,
+    scanned,
+    scannedNothing,
   };
 
   return Ok(result);
@@ -107,6 +125,19 @@ function printCheckDocsResult(
   mode: OutputModeType,
   formatter: OutputFormatter
 ): void {
+  // An empty scan surfaces explicitly, never as a coverage number: a scan that
+  // read nothing abstained rather than passed (#1146).
+  if (value.scannedNothing) {
+    console.log(
+      formatter.formatSummary('Documentation coverage', 'undetermined (0 files scanned)', false)
+    );
+    console.log(
+      '\nABSTAINED: 0 source files scanned — coverage undetermined, not a pass.\n' +
+        'Check config.rootDir and `entropy.excludePatterns` in harness.config.json.'
+    );
+    return;
+  }
+
   console.log(
     formatter.formatSummary(
       'Documentation coverage',
@@ -114,6 +145,11 @@ function printCheckDocsResult(
       value.valid
     )
   );
+
+  // The denominator is part of the result, not trivia: 100% over 4 files and
+  // 100% over 4,000 are different claims. State it on every run so a collapsed
+  // scope is visible.
+  console.log(`  ${value.documented.length}/${value.scanned} source files documented`);
 
   if (mode === OutputMode.VERBOSE || !value.valid) {
     printUndocumentedFiles(value.undocumented);
@@ -169,6 +205,11 @@ export function createCheckDocsCommand(): Command {
         console.log(formatFindingsContract(findings, 'check-docs'));
       }
 
+      // A zero-file scan abstained: distinct exit code (3) so CI can tell "read
+      // nothing" from "verified and failed" (1) or "verified and passed" (0).
+      if (result.value.scannedNothing) {
+        process.exit(ExitCode.ZERO_DENOMINATOR);
+      }
       process.exit(result.value.valid ? ExitCode.SUCCESS : ExitCode.VALIDATION_FAILED);
     });
 

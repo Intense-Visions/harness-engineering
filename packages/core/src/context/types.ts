@@ -39,6 +39,10 @@ export interface CoverageReport {
   documented: string[]; // Files mentioned in docs
   undocumented: string[]; // Files not mentioned
   coveragePercentage: number;
+  // Denominator: source files actually scanned (documented + undocumented).
+  // `scanned === 0` means the scan abstained — it verified nothing, so
+  // `coveragePercentage` is 0, never a confident 100% (#1146).
+  scanned: number;
   gaps: DocumentationGap[];
 }
 

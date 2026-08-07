@@ -65,13 +65,16 @@ export async function checkDocCoverage(
       documented: graphCoverage.documented,
       undocumented: graphCoverage.undocumented,
       coveragePercentage: graphCoverage.coveragePercentage,
+      scanned: graphCoverage.documented.length + graphCoverage.undocumented.length,
       gaps,
     });
   }
 
   try {
-    // Find all source files in the domain
-    const sourceFiles = await findFiles('**/*.{ts,js,tsx,jsx}', sourceDir);
+    // Find all source files in the domain. Includes `.mjs`/`.cjs` so ESM-first
+    // repos are not invisible to docs coverage (#1146) — matching the entropy
+    // analyzer's DEFAULT_INCLUDE_PATTERNS.
+    const sourceFiles = await findFiles('**/*.{ts,js,tsx,jsx,mjs,cjs}', sourceDir);
 
     // Filter out excluded patterns
     const filteredSourceFiles = sourceFiles.filter((file) => {
@@ -132,15 +135,19 @@ export async function checkDocCoverage(
       }
     }
 
-    // Calculate coverage percentage
+    // Calculate coverage percentage. A zero denominator is an abstention, not a
+    // pass: a scan that read no source files verified nothing, so it must never
+    // report a confident 100% (#1146). Callers detect abstention via
+    // `scanned === 0` and surface it as an explicit non-green state.
     const total = documented.length + undocumented.length;
-    const coveragePercentage = total > 0 ? Math.round((documented.length / total) * 100) : 100;
+    const coveragePercentage = total > 0 ? Math.round((documented.length / total) * 100) : 0;
 
     return Ok({
       domain,
       documented,
       undocumented,
       coveragePercentage,
+      scanned: total,
       gaps,
     });
   } catch (error) {
