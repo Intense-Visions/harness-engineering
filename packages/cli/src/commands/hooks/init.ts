@@ -3,6 +3,10 @@ import * as crypto from 'node:crypto';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import {
+  installAgentRetrospectHooks,
+  type AgentRetrospectResult,
+} from '../../hooks/agent-retrospect';
 import { HOOK_SCRIPTS, PROFILES, type HookProfile } from '../../hooks/profiles';
 import { supportFilesFor } from '../../hooks/support-files';
 import { logger } from '../../output/logger';
@@ -158,6 +162,7 @@ export function initHooks(options: { profile: HookProfile; projectDir: string; f
   settingsPath: string;
   profilePath: string;
   skippedModified: string[];
+  agentRetrospect: AgentRetrospectResult[];
 } {
   const { profile, projectDir, force = false } = options;
 
@@ -259,7 +264,18 @@ export function initHooks(options: { profile: HookProfile; projectDir: string; f
   const merged = mergeSettings(existing, hooksConfig);
   fs.writeFileSync(settingsPath, JSON.stringify(merged, null, 2) + '\n');
 
-  return { copiedScripts, settingsPath, profilePath, skippedModified };
+  // 4. Wire the session-retrospect trigger into every OTHER detected agent
+  //    (Gemini CLI, Codex CLI, Cursor) in that agent's native config format.
+  //    Only when session-retrospect is in the active profile (standard+) — at
+  //    minimal the Claude hook is absent and its support scripts are wiped, so
+  //    there is nothing to trigger. Runtime remains gated by
+  //    HARNESS_SESSION_RETROSPECTION, exactly like the Claude hook.
+  let agentRetrospect: AgentRetrospectResult[] = [];
+  if (PROFILES[profile].includes('session-retrospect')) {
+    agentRetrospect = installAgentRetrospectHooks({ projectDir, buildCommand: buildHookCommand });
+  }
+
+  return { copiedScripts, settingsPath, profilePath, skippedModified, agentRetrospect };
 }
 
 /** Print the human-readable summary of an initHooks run. */
@@ -277,6 +293,18 @@ function printInitResult(
   }
   logger.info(`Profile: ${profile}`);
   logger.info(`Settings: ${path.relative(projectDir, result.settingsPath).replaceAll('\\', '/')}`);
+  for (const agent of result.agentRetrospect) {
+    const rel = path.relative(projectDir, agent.configPath).replaceAll('\\', '/');
+    if (agent.status === 'installed') {
+      logger.success(`Wired session-retrospect into ${agent.agent} (${rel})`);
+    } else if (agent.status === 'skipped') {
+      logger.dim(`session-retrospect already wired into ${agent.agent} (${rel})`);
+    } else {
+      logger.warn(
+        `Skipped ${agent.agent} session-retrospect: ${agent.reason ?? 'config conflict'} (${rel})`
+      );
+    }
+  }
   logger.dim("Run 'harness hooks list' to see installed hooks");
 }
 
@@ -307,6 +335,7 @@ export function createInitCommand(): Command {
               skippedModified: result.skippedModified,
               settingsPath: result.settingsPath,
               profilePath: result.profilePath,
+              agentRetrospect: result.agentRetrospect,
             })
           );
         } else {

@@ -14,6 +14,7 @@ import {
 import { tmpdir } from 'node:os';
 
 const HOOK_SRC = resolve(__dirname, '../../src/hooks/session-retrospect.js');
+const CORE_SRC = resolve(__dirname, '../../src/hooks/session-retrospect-core.js');
 
 /**
  * The hook resolves `@harness-engineering/core` and `@harness-engineering/
@@ -69,9 +70,11 @@ export function buildArchiveHooks(opts) {
 function setupProject(): string {
   const dir = mkdtempSync(join(tmpdir(), 'session-retrospect-'));
   writeFileSync(join(dir, 'package.json'), '{"type":"module"}\n');
-  // Copy the hook into the temp project so bare-specifier imports resolve
-  // against the temp project's node_modules stubs.
+  // Copy the hook AND its shared core sibling into the temp project so bare-
+  // specifier imports resolve against the temp project's node_modules stubs and
+  // the entry point's `./session-retrospect-core.js` import resolves.
   copyFileSync(HOOK_SRC, join(dir, 'session-retrospect.js'));
+  copyFileSync(CORE_SRC, join(dir, 'session-retrospect-core.js'));
   writeStubPackage(dir, '@harness-engineering/core', CORE_STUB);
   writeStubPackage(dir, '@harness-engineering/orchestrator', ORCHESTRATOR_STUB);
   return dir;
