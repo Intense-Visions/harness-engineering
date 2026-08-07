@@ -323,7 +323,12 @@ async function readRunHistoryCanary(
     const parsed = canaryRunRecordSchema.safeParse(json);
     if (parsed.success) records.push(parsed.data);
   }
-  return typeof opts.limit === 'number' && opts.limit >= 0 ? records.slice(-opts.limit) : records;
+  if (typeof opts.limit === 'number' && opts.limit >= 0) {
+    // `slice(-0)` is `slice(0)` (returns everything), so a `limit` of 0 must be
+    // special-cased to honor the documented "most-recent N" contract (0 → none).
+    return opts.limit === 0 ? [] : records.slice(-opts.limit);
+  }
+  return records;
 }
 
 async function listFrameworksCanary(exec: CanaryExec): Promise<CanaryFrameworkInfo[]> {

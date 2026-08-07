@@ -67,6 +67,14 @@ describe('CanaryAdapter.readRunHistory', () => {
     expect(records[0].run_id).toBe('run-b');
   });
 
+  it('returns [] for limit 0 (most-recent 0, not "all" via slice(-0))', async () => {
+    const ndjson = `${JSON.stringify(RUN_A)}\n${JSON.stringify(RUN_B)}\n`;
+    const records = await createCanaryAdapter(inertExec, readerResolves(ndjson)).readRunHistory({
+      limit: 0,
+    });
+    expect(records).toEqual([]);
+  });
+
   it('returns [] (never throws) when the file is missing (reader rejects ENOENT)', async () => {
     const records = await createCanaryAdapter(
       inertExec,
