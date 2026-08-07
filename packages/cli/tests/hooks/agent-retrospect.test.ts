@@ -68,6 +68,26 @@ describe('agent-retrospect writers', () => {
       const cfg = JSON.parse(fs.readFileSync(p, 'utf-8'));
       expect(cfg.hooks.SessionEnd).toHaveLength(1);
     });
+
+    it('never clobbers an unparseable settings.json — reports a conflict', () => {
+      const p = path.join(dir, '.gemini', 'settings.json');
+      fs.mkdirSync(path.dirname(p), { recursive: true });
+      // Valid-looking but malformed (trailing comma) — a hand-edited config.
+      const original = '{\n  "theme": "dark",\n  "mcpServers": { "harness": {} },\n}\n';
+      fs.writeFileSync(p, original);
+      expect(writeGeminiSessionEndHook(p, CMD)).toBe('conflict');
+      // The user's config is left exactly as it was — nothing overwritten.
+      expect(fs.readFileSync(p, 'utf-8')).toBe(original);
+    });
+
+    it('treats an empty file as absent and installs cleanly', () => {
+      const p = path.join(dir, '.gemini', 'settings.json');
+      fs.mkdirSync(path.dirname(p), { recursive: true });
+      fs.writeFileSync(p, '   \n');
+      expect(writeGeminiSessionEndHook(p, CMD)).toBe('installed');
+      const cfg = JSON.parse(fs.readFileSync(p, 'utf-8'));
+      expect(cfg.hooks.SessionEnd).toHaveLength(1);
+    });
   });
 
   describe('Cursor (.cursor/hooks.json)', () => {
@@ -106,6 +126,15 @@ describe('agent-retrospect writers', () => {
       const cfg = JSON.parse(fs.readFileSync(p, 'utf-8'));
       expect(cfg.hooks.stop).toHaveLength(1);
       expect(cfg.hooks.sessionEnd).toHaveLength(1);
+    });
+
+    it('never clobbers an unparseable hooks.json — reports a conflict', () => {
+      const p = path.join(dir, '.cursor', 'hooks.json');
+      fs.mkdirSync(path.dirname(p), { recursive: true });
+      const original = '{ this is not valid json }';
+      fs.writeFileSync(p, original);
+      expect(writeCursorRetrospectHooks(p, CMD)).toBe('conflict');
+      expect(fs.readFileSync(p, 'utf-8')).toBe(original);
     });
   });
 
@@ -149,6 +178,27 @@ describe('agent-retrospect writers', () => {
       expect(writeCodexNotifyHook(p, SCRIPT)).toBe('conflict');
       // The user's notify is untouched.
       expect(fs.readFileSync(p, 'utf-8')).toBe('notify = ["python3", "/home/me/my-notify.py"]\n');
+    });
+
+    it('does not corrupt a top-level nested-array literal (array element line begins with `[`)', () => {
+      const p = path.join(dir, '.codex', 'config.toml');
+      fs.mkdirSync(path.dirname(p), { recursive: true });
+      // `matrix` is a multi-line array whose element lines start with `[`. The
+      // old "insert before the first line starting with `[`" heuristic would
+      // splice `notify` INTO this array and corrupt the TOML.
+      const arrayBlock = 'matrix = [\n  [1, 2],\n  [3, 4],\n]';
+      fs.writeFileSync(p, `model = "gpt-5"\n${arrayBlock}\n\n[mcp_servers.foo]\ncommand = "x"\n`);
+      expect(writeCodexNotifyHook(p, SCRIPT)).toBe('installed');
+
+      const toml = fs.readFileSync(p, 'utf-8');
+      // notify lands as a top-level key, before both the array and the table.
+      const notifyIdx = toml.indexOf('notify =');
+      expect(notifyIdx).toBeGreaterThanOrEqual(0);
+      expect(notifyIdx).toBeLessThan(toml.indexOf('matrix'));
+      expect(notifyIdx).toBeLessThan(toml.indexOf('[mcp_servers.foo]'));
+      // The array block survives intact — not split by the insertion.
+      expect(toml).toContain(arrayBlock);
+      expect(toml).toContain('command = "x"');
     });
   });
 
