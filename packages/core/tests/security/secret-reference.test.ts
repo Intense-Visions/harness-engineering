@@ -49,4 +49,31 @@ describe('extractQuotedSecretValue', () => {
   it('returns null when the match carries no quoted value', () => {
     expect(extractQuotedSecretValue('postgres://user:pass@host')).toBeNull();
   });
+
+  // capwell#1372: the value must run to the *matching* close quote. A class
+  // excluding both quote types truncates at the first inner quote, and the
+  // fragment left behind (`$(sed -n `, `${TOKEN#\`) no longer parses as a
+  // reference — so `isReferenceOnlySecretValue` reads it as a literal and the
+  // line is reported as a hardcoded secret.
+  it('keeps the opposite quote type inside the value', () => {
+    expect(extractQuotedSecretValue(`TOKEN="$(sed -n 's/^TOKEN=//p' .env)"`)).toBe(
+      `$(sed -n 's/^TOKEN=//p' .env)`
+    );
+  });
+
+  it('keeps an escaped quote inside the value', () => {
+    expect(extractQuotedSecretValue('TOKEN="${TOKEN#\\"}"')).toBe('${TOKEN#\\"}');
+  });
+
+  it('extracts values that survive as reference-only end to end', () => {
+    const value = extractQuotedSecretValue(`TOKEN="$(sed -n 's/^TOKEN=//p' .env)"`);
+    expect(value).not.toBeNull();
+    expect(isReferenceOnlySecretValue(value as string)).toBe(true);
+  });
+
+  it('still treats a literal containing an escaped quote as a literal', () => {
+    const value = extractQuotedSecretValue('TOKEN="abc\\"def-sk-live-9999"');
+    expect(value).toBe('abc\\"def-sk-live-9999');
+    expect(isReferenceOnlySecretValue(value as string)).toBe(false);
+  });
 });

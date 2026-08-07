@@ -73,12 +73,32 @@ export function isReferenceOnlySecretValue(value: string): boolean {
 }
 
 /**
+ * Body of a quoted string: characters up to the *matching* close quote.
+ *
+ * Two properties matter, and getting either wrong truncates the value:
+ *
+ *  - **Quote-type aware.** `(?!\1)` lets the opposite quote appear inside, so
+ *    `"$(sed -n 's/^TOKEN=//p' .env)"` yields the whole command substitution
+ *    rather than stopping at the inner `'`. A class like `[^'"]` stops at the
+ *    first quote of *either* type.
+ *  - **Escape aware.** `\\.` consumes `\"` as one unit, so
+ *    `"${TOKEN#\"}"` yields the whole brace expansion rather than stopping at
+ *    the escaped quote.
+ *
+ * Truncation is what makes this a correctness bug rather than cosmetics: a
+ * half-captured `$(sed -n ` or `${TOKEN#\` is no longer recognizable as a
+ * reference, so `isReferenceOnlySecretValue` sees literal residue and the line
+ * is reported as a hardcoded secret (capwell#1372).
+ */
+const QUOTED_BODY = /(['"])((?:\\.|(?!\1)[^\\])*)\1/;
+
+/**
  * Extract the quoted value from a matched secret assignment, e.g.
  * `TOKEN="$AUTOAPPROVE_PAT"` → `$AUTOAPPROVE_PAT`. Returns `null` when the match
  * carries no quoted value, so callers treat unquoted/bare-token matches (which
  * the reference forms never produce) as literals rather than suppressing them.
  */
 export function extractQuotedSecretValue(matchText: string): string | null {
-  const m = /['"]([^'"]*)['"]/.exec(matchText);
-  return m ? (m[1] ?? '') : null;
+  const m = QUOTED_BODY.exec(matchText);
+  return m ? (m[2] ?? '') : null;
 }

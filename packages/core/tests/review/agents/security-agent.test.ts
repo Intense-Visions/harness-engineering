@@ -598,6 +598,82 @@ describe('runSecurityAgent()', () => {
     expect(runSecurityAgent(bundle).length).toBe(0);
   });
 
+  // ---- capwell#1372: shell env plumbing. The reference forms above were
+  // already understood; what broke was EXTRACTION. `["']([^"']{8,})` stops at
+  // the first quote of either type, so a value containing an inner quote came
+  // back truncated (`$(sed -n `, `${GITHUB_TOKEN#\`), no longer parsed as a
+  // reference, and was reported as a literal secret. This is the verbatim
+  // `.husky/pre-push` block that made every PR touching that file inherit a
+  // `critical` finding. ----
+
+  it('does NOT flag the .husky/pre-push env-plumbing block (capwell#1372)', () => {
+    const bundle = makeBundle({
+      changedFiles: [
+        {
+          path: '.husky/pre-push',
+          content: [
+            '#!/usr/bin/env sh',
+            'if [ -z "${GITHUB_TOKEN:-}" ] && [ -f .env ]; then',
+            `  GITHUB_TOKEN="$(sed -n 's/^GITHUB_TOKEN=//p' .env | tail -n 1)"`,
+            '  GITHUB_TOKEN="${GITHUB_TOKEN#\\"}"',
+            '  GITHUB_TOKEN="${GITHUB_TOKEN%\\"}"',
+            '  GITHUB_TOKEN="${GITHUB_TOKEN#\\\'}"',
+            '  GITHUB_TOKEN="${GITHUB_TOKEN%\\\'}"',
+            'fi',
+            'export GITHUB_TOKEN="${GITHUB_TOKEN:-}"',
+          ].join('\n'),
+          reason: 'changed',
+          lines: 9,
+        },
+      ],
+    });
+    expect(runSecurityAgent(bundle)).toEqual([]);
+  });
+
+  it('does NOT flag a command substitution whose argument is single-quoted', () => {
+    const bundle = makeBundle({
+      changedFiles: [
+        {
+          path: 'scripts/env.sh',
+          content: `TOKEN="$(sed -n 's/^TOKEN=//p' .env)"`,
+          reason: 'changed',
+          lines: 1,
+        },
+      ],
+    });
+    expect(runSecurityAgent(bundle).length).toBe(0);
+  });
+
+  // The other direction: widening extraction must not create a blind spot.
+
+  it('STILL flags a literal secret in a shell file', () => {
+    const bundle = makeBundle({
+      changedFiles: [
+        {
+          path: 'deploy/run.sh',
+          content: 'export API_KEY="sk-live-0123456789abcdef"',
+          reason: 'changed',
+          lines: 1,
+        },
+      ],
+    });
+    expect(runSecurityAgent(bundle).length).toBe(1);
+  });
+
+  it('STILL flags a literal secret that itself contains an escaped quote', () => {
+    const bundle = makeBundle({
+      changedFiles: [
+        {
+          path: 'deploy/run.sh',
+          content: 'export TOKEN="abc\\"def-sk-live-0123456789"',
+          reason: 'changed',
+          lines: 1,
+        },
+      ],
+    });
+    expect(runSecurityAgent(bundle).length).toBe(1);
+  });
+
   it('STILL flags a command substitution mixed with a literal suffix (guard must not over-suppress)', () => {
     const bundle = makeBundle({
       changedFiles: [
