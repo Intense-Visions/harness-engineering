@@ -46,6 +46,7 @@ import { runBenchmark } from '../../design-craft/phases/benchmark.js';
 import type { BenchmarkTarget } from '../../design-craft/phases/benchmark.js';
 import type { AwardBarConfig } from '../../design-craft/phases/award-bar.js';
 import type { ResponsiveMetrics, ResponsiveGateConfig } from '../../responsive/index.js';
+import { DEFAULT_RESPONSIVE_GATE_CONFIG } from '../../responsive/index.js';
 import { SEED_RUBRICS } from '../../design-craft/catalog/rubrics/index.js';
 import { SEED_PATTERNS } from '../../design-craft/catalog/patterns/index.js';
 import { SEED_EXEMPLARS } from '../../design-craft/catalog/exemplars/index.js';
@@ -230,6 +231,42 @@ export const designCraftToolDefinition = {
           required: ['file', 'image'],
         },
       },
+      responsiveMetrics: {
+        type: 'array',
+        description:
+          "Rendered mobile layout metrics for the BENCHMARK award-bar's responsive gate, one " +
+          'entry per target (matched by `file`). A `defective` gate (horizontal overflow or an ' +
+          'unreachable nav) vetoes an award-tier `cleared`. Supply directly (e.g. from a ' +
+          'Playwright MCP run) or via `responsiveProbeCommand`. Omit to leave the gate ' +
+          'not-evaluated.',
+        items: {
+          type: 'object',
+          properties: {
+            file: { type: 'string' },
+            viewport: { type: 'number' },
+            documentScrollWidth: { type: 'number' },
+            viewportWidth: { type: 'number' },
+            primaryNavVisible: { type: 'boolean' },
+            menuToggleVisible: { type: 'boolean' },
+          },
+          required: [
+            'file',
+            'viewport',
+            'documentScrollWidth',
+            'viewportWidth',
+            'primaryNavVisible',
+            'menuToggleVisible',
+          ],
+        },
+      },
+      responsiveProbeCommand: {
+        type: 'string',
+        description:
+          'Responsive probe command (mirrors captureCommand): a render step that receives the ' +
+          'target files via HARNESS_DESIGN_CRAFT_FILES and the mobile width via ' +
+          'HARNESS_DESIGN_CRAFT_VIEWPORT, and prints a ResponsiveMetrics[] JSON array to stdout. ' +
+          'How a browserless CLI obtains layout metrics. Ignored when responsiveMetrics is supplied.',
+      },
     },
     required: ['path'],
   },
@@ -305,6 +342,7 @@ function readResponsiveConfig(
 function runResponsiveProbeCommand(
   command: string,
   files: string[],
+  viewport: number,
   exec?: (command: string, files: string[]) => string
 ): ResponsiveMetrics[] | undefined {
   let stdout: string;
@@ -313,7 +351,13 @@ function runResponsiveProbeCommand(
       ? exec(command, files)
       : execSync(command, {
           encoding: 'utf-8',
-          env: { ...process.env, HARNESS_DESIGN_CRAFT_FILES: JSON.stringify(files) },
+          env: {
+            ...process.env,
+            HARNESS_DESIGN_CRAFT_FILES: JSON.stringify(files),
+            // Tell the render step which mobile width to evaluate at, so the
+            // reported metrics match the configured `viewport` the gate checks.
+            HARNESS_DESIGN_CRAFT_VIEWPORT: String(viewport),
+          },
           maxBuffer: 16 * 1024 * 1024,
         });
   } catch {
@@ -359,12 +403,14 @@ function resolveResponsiveArgs(
   | undefined {
   const cfg = readResponsiveConfig(input.path);
   const probeFiles = input.benchmarkTargets?.map((t) => t.file) ?? input.files ?? [];
+  const viewport = cfg?.config.viewport ?? DEFAULT_RESPONSIVE_GATE_CONFIG.viewport;
   const metrics =
     input.responsiveMetrics ??
     (input.responsiveProbeCommand
       ? runResponsiveProbeCommand(
           input.responsiveProbeCommand,
           probeFiles,
+          viewport,
           input.__runResponsiveProbe
         )
       : undefined);

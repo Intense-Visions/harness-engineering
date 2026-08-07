@@ -93,6 +93,30 @@ export function computeResponsiveGate(
     return { ...NOT_EVALUATED_RESPONSIVE };
   }
   const cfg = resolveResponsiveGateConfig(config);
+
+  // Trust guard: a malformed manifest entry (missing/NaN numbers, non-boolean
+  // visibility flags) must never masquerade as a defect OR a pass. The probe
+  // command path validates field types, but direct `responsiveMetrics` callers
+  // are only TS-checked — stay robust at the floor.
+  if (
+    !Number.isFinite(metrics.documentScrollWidth) ||
+    !Number.isFinite(metrics.viewportWidth) ||
+    typeof metrics.primaryNavVisible !== 'boolean' ||
+    typeof metrics.menuToggleVisible !== 'boolean'
+  ) {
+    return { ...NOT_EVALUATED_RESPONSIVE };
+  }
+
+  // Width guard: the gate certifies MOBILE behavior, so the metrics must have
+  // been rendered at (or below) the configured mobile viewport. A desktop-width
+  // render that reports no overflow is not "mobile-clean" — it is
+  // `not-evaluated`. (A narrower-than-configured render is still mobile and is
+  // accepted; overflow there is a real defect.) This is what makes `cfg.viewport`
+  // load-bearing rather than advisory.
+  if (metrics.viewportWidth > cfg.viewport) {
+    return { ...NOT_EVALUATED_RESPONSIVE };
+  }
+
   const defects: ResponsiveDefect[] = [];
   const viewport = metrics.viewport;
 

@@ -309,4 +309,59 @@ describe('design-craft MCP handler — BENCHMARK phase wiring', () => {
 
     fs.rmSync(tmpDir, { recursive: true, force: true });
   });
+
+  it('reads responsive.require from harness.config.json and downgrades a mobile-blind cleared to indeterminate', async () => {
+    const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'design-craft-responsive-cfg-'));
+    const fixturePath = path.join(tmpDir, 'EmptyInbox.tsx');
+    fs.writeFileSync(fixturePath, EMPTY_STATE_SOURCE, 'utf8');
+    // Low award-bar floors so the mock radar clears aesthetically; require:true
+    // with NO metrics must then downgrade the mobile-blind `cleared`.
+    fs.writeFileSync(
+      path.join(tmpDir, 'harness.config.json'),
+      JSON.stringify({
+        version: 1,
+        design: {
+          craft: {
+            benchmark: {
+              awardBar: {
+                dimensionFloor: 40,
+                fraction: 0.1,
+                responsive: { require: true },
+              },
+            },
+          },
+        },
+      }),
+      'utf8'
+    );
+
+    const provider = new MockLlmProvider([
+      { promptIncludes: 'EmptyInbox', response: buildRadarResponse() },
+    ]);
+
+    const result = await handleDesignCraft({
+      path: tmpDir,
+      mode: 'fast',
+      phases: ['benchmark'],
+      autoCapture: 'skip',
+      benchmarkTargets: [
+        { file: fixturePath, component: 'EmptyInbox', componentType: 'EmptyState' },
+      ],
+      // No responsiveMetrics / responsiveProbeCommand → gate is not-evaluated.
+      __testProvider: provider,
+      __recordMeasurement: false,
+    });
+
+    expect(result.isError).toBeFalsy();
+    const payload = JSON.parse(result.content[0].text) as {
+      scores: Array<{
+        awardBar: { verdict: string; reason?: string; responsive: { status: string } };
+      }>;
+    };
+    expect(payload.scores[0].awardBar.responsive.status).toBe('not-evaluated');
+    expect(payload.scores[0].awardBar.verdict).toBe('indeterminate');
+    expect(payload.scores[0].awardBar.reason).toBe('responsive-not-evaluated');
+
+    fs.rmSync(tmpDir, { recursive: true, force: true });
+  });
 });

@@ -99,4 +99,24 @@ describe('computeResponsiveGate', () => {
     });
     expect(r.status).toBe('clean');
   });
+
+  it('is not-evaluated when the render was wider than the configured mobile viewport', () => {
+    // A desktop-width render must not falsely pass as mobile-clean.
+    const r = computeResponsiveGate(
+      metrics({ viewport: 1280, viewportWidth: 1280, documentScrollWidth: 1280 })
+    );
+    expect(r.status).toBe('not-evaluated');
+  });
+
+  it('accepts a render narrower than the configured viewport', () => {
+    const r = computeResponsiveGate(
+      metrics({ viewport: 360, viewportWidth: 360, documentScrollWidth: 360 })
+    );
+    expect(r.status).toBe('clean');
+  });
+
+  it('is not-evaluated when metrics are malformed (NaN width)', () => {
+    const bad = metrics({ documentScrollWidth: Number.NaN });
+    expect(computeResponsiveGate(bad).status).toBe('not-evaluated');
+  });
 });
