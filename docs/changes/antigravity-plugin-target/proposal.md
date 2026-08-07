@@ -32,7 +32,7 @@ Claude Code's (stdin/stdout decision object vs exit codes) and needs real work i
 1. **Distinct target, not a `gemini` alias.** agy shares the `~/.gemini/` home directory
    with gemini-cli but is **not** configuration-compatible with it (see contract table).
    The two divergences that force a separate target: agy reads persona agents from
-   `~/.gemini/agents/*.md` (the gemini *extension* target sets `agentPlatform: undefined`
+   `~/.gemini/agents/*.md` (the gemini _extension_ target sets `agentPlatform: undefined`
    because gemini extensions have no agents field — agy does), and agy reads MCP from
    `config/mcp_config.json` (declaring MCP in `settings.json`, as the gemini extension
    does, is silently ignored by agy). _Rationale:_ aliasing to `gemini` would ship no
@@ -84,12 +84,12 @@ gemini-cli install sharing the same `~/.gemini/` root.
 
 ### Surface → artifact mapping (Phase 1)
 
-| Harness surface      | agy artifact                                                         | How it is produced                                                                                          |
-| -------------------- | -------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------- |
-| Slash commands       | `commands/*.toml` (agy reads `~/.gemini/commands/**`)                | `harness generate-slash-commands --platforms gemini-cli` (same TOML the gemini target already emits)        |
-| Persona agents       | `agents/*.md` (agy reads `~/.gemini/agents/*.md`)                    | `harness generate-agent-definitions --platforms gemini-cli` (the gemini-cli renderer emits `.md`)           |
-| MCP server           | `config/mcp_config.json` shaped `{ "mcpServers": { "harness": … } }` | Hand-maintained file at the empirically-verified location; MCP version pin kept in lockstep by pin-sync     |
-| Marketplace metadata | `plugin.json` + `marketplace.json`                                   | Hand-maintained, mirroring the sibling plugins                                                              |
+| Harness surface      | agy artifact                                                         | How it is produced                                                                                      |
+| -------------------- | -------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------- |
+| Slash commands       | `commands/*.toml` (agy reads `~/.gemini/commands/**`)                | `harness generate-slash-commands --platforms gemini-cli` (same TOML the gemini target already emits)    |
+| Persona agents       | `agents/*.md` (agy reads `~/.gemini/agents/*.md`)                    | `harness generate-agent-definitions --platforms gemini-cli` (the gemini-cli renderer emits `.md`)       |
+| MCP server           | `config/mcp_config.json` shaped `{ "mcpServers": { "harness": … } }` | Hand-maintained file at the empirically-verified location; MCP version pin kept in lockstep by pin-sync |
+| Marketplace metadata | `plugin.json` + `marketplace.json`                                   | Hand-maintained, mirroring the sibling plugins                                                          |
 
 ### MCP config file (`.antigravity-extension/config/mcp_config.json`)
 
@@ -147,7 +147,7 @@ writes the harness entry to `.gemini/config/mcp_config.json` via the existing
 
 1. `pnpm generate:plugin --target antigravity` emits `commands/*.toml` and `agents/*.md`
    under `.antigravity-extension/`, and leaves the hand-maintained `config/mcp_config.json`
-   + `plugin.json` + `marketplace.json` in place.
+   - `plugin.json` + `marketplace.json` in place.
 2. `pnpm generate:plugin:check` exits 0 with the antigravity target wired into `:all`/`:check`.
 3. Existing targets' artifacts remain intact (claude/cursor/gemini/codex dirs not emptied);
    the change is purely additive.
@@ -162,7 +162,7 @@ writes the harness entry to `.gemini/config/mcp_config.json` via the existing
 1. **Config + generator wiring** — add `PLUGIN_CONFIGS.antigravity`, the `pnpm` script,
    wire into `:all`/`:check`; add the MCP-config path to `MANIFEST_PATHS`.
 2. **Hand-maintained manifests** — author `.antigravity-extension/{config/mcp_config.json,
-   plugin.json, marketplace.json}`.
+plugin.json, marketplace.json}`.
 3. **Generate artifacts** — run the generator to emit `commands/*.toml` + `agents/*.md`.
 4. **Setup client wiring** — register the `antigravity` client + `setupMcp()` branch;
    update parity/setup tests.
@@ -188,7 +188,7 @@ need payload mapping.
 
 ## Non-goals / unverified
 
-- agy's own extension/plugin *manifest* schema (from the bundled `plugins.md`) was not
+- agy's own extension/plugin _manifest_ schema (from the bundled `plugins.md`) was not
   quoted in #979, so `plugin.json`/`marketplace.json` are authored to mirror the sibling
   marketplace manifests for discoverability and pin-sync parity — they do **not** claim an
   agy-specific manifest field that could not be verified. The MCP declaration lives in the

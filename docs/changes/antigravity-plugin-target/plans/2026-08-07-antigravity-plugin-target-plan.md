@@ -65,6 +65,7 @@ Add an `antigravity` target to the plugin generator so agy users get harness ski
 ## Skeleton
 
 Standard rigor, 6 tasks (< 8 threshold) — skeleton not required. Ordered groups:
+
 1. Config + generator wiring (Task 1)
 2. Hand-authored manifests (Task 2)
 3. Generate artifacts (Task 3)
@@ -313,7 +314,14 @@ Tasks are almost entirely **serial**: Task 1 and Task 3 both touch generator con
 3. In `packages/cli/src/setup/clients.test.ts`:
    - Add `'antigravity'` to `SETUP_DETECTED_CLIENT_KEYS`:
      ```ts
-     const SETUP_DETECTED_CLIENT_KEYS = ['claude', 'cursor', 'gemini', 'codex', 'opencode', 'antigravity'];
+     const SETUP_DETECTED_CLIENT_KEYS = [
+       'claude',
+       'cursor',
+       'gemini',
+       'codex',
+       'opencode',
+       'antigravity',
+     ];
      ```
    - Add `'harness-antigravity'` to the `allowed` set in the "references only real marketplace plugin names" test:
      ```ts
@@ -383,11 +391,19 @@ Tasks are almost entirely **serial**: Task 1 and Task 3 both touch generator con
 
    test('hand-authored manifests exist with the verified MCP location + shape', () => {
      const mcp = JSON.parse(readFileSync(path.join(EXT, 'config', 'mcp_config.json'), 'utf8'));
-     assert.ok(mcp.mcpServers?.harness?.args?.some((a) => String(a).startsWith('@harness-engineering/cli@')),
-       'mcp_config.json must carry the pinned npx form');
+     assert.ok(
+       mcp.mcpServers?.harness?.args?.some((a) =>
+         String(a).startsWith('@harness-engineering/cli@')
+       ),
+       'mcp_config.json must carry the pinned npx form'
+     );
      const plugin = JSON.parse(readFileSync(path.join(EXT, 'plugin.json'), 'utf8'));
      assert.equal(plugin.name, 'harness-antigravity');
-     assert.equal(plugin.mcpServers, undefined, 'MCP must not live in the manifest (agy ignores it)');
+     assert.equal(
+       plugin.mcpServers,
+       undefined,
+       'MCP must not live in the manifest (agy ignores it)'
+     );
      const market = JSON.parse(readFileSync(path.join(EXT, 'marketplace.json'), 'utf8'));
      assert.ok(market.plugins?.some((p) => p.name === 'harness-antigravity'));
    });
