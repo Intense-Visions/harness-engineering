@@ -4,7 +4,7 @@ import * as path from 'node:path';
 import { HOOK_SCRIPTS } from '../../hooks/profiles';
 import { supportFilesFor } from '../../hooks/support-files';
 import { logger } from '../../output/logger';
-import { buildHookCommand, resolveHookSourceDir } from './init';
+import { buildHookCommand, resolveHookSourceDir, writeHooksModuleMarker } from './init';
 
 const ALIASES: Record<string, string[]> = {
   sentinel: ['sentinel-pre', 'sentinel-post'],
@@ -37,6 +37,9 @@ export function addHooks(hookName: string, projectDir: string): AddResult {
   const srcDir = resolveHookSourceDir();
   const destDir = path.join(projectDir, '.harness', 'hooks');
   fs.mkdirSync(destDir, { recursive: true });
+  // Declare the hooks dir as ESM so Node doesn't reparse each copied .js hook
+  // and warn (MODULE_TYPELESS_PACKAGE_JSON) in CommonJS-default adopters.
+  writeHooksModuleMarker(destDir);
 
   const claudeDir = path.join(projectDir, '.claude');
   fs.mkdirSync(claudeDir, { recursive: true });
