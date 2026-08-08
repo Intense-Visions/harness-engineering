@@ -2,7 +2,7 @@
 
 # Skills Catalog
 
-776 skills. Skills carry two independent tier axes: a **loading tier** (whether a skill registers as a slash command or is discovered on demand) and a **curation tier** (how load-bearing it is). A senior engineer can hold ~12 skills in their head, not hundreds — the curation tier names that short list.
+777 skills. Skills carry two independent tier axes: a **loading tier** (whether a skill registers as a slash command or is discovered on demand) and a **curation tier** (how load-bearing it is). A senior engineer can hold ~12 skills in their head, not hundreds — the curation tier names that short list.
 
 See the [Features Overview](../guides/features-overview.md) for narrative documentation.
 
@@ -200,7 +200,7 @@ Human-judged acceptance sign-off skill — the terminal, human-authority stage o
 - **Cognitive mode:** configuration-interviewer
 - **Depends on:** outcome-eval
 
-## Tier 2 — Maintenance (56 skills)
+## Tier 2 — Maintenance (57 skills)
 
 ### acceptance-eval
 
@@ -688,6 +688,16 @@ LLM-judgment skill that produces a structured, confidence-rated verdict on wheth
 - **Platforms:** claude-code
 - **Type:** rigid
 - **Cognitive mode:** constructive-architect
+
+### pr-fleet
+
+Autonomous PR-queue land orchestrator — triage the open-PR queue, fan out worktree-isolated review-assist subagents that run the real code-review pipeline, independently verify each PR by all-OS CI and review verdict, and land exactly the PRs a human authorized up front. Never silently auto-merges unreviewed work.
+
+- **Triggers:** manual
+- **Platforms:** claude-code, codex, cursor, gemini-cli
+- **Type:** rigid
+- **Cognitive mode:** systematic-orchestrator
+- **Depends on:** harness-roadmap-pilot, harness-code-review
 
 ### product-requirements
 

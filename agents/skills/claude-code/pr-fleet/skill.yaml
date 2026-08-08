@@ -1,0 +1,74 @@
+name: pr-fleet
+version: '1.0.0'
+description: Autonomous PR-queue land orchestrator — triage the open-PR queue, fan out worktree-isolated review-assist subagents that run the real code-review pipeline, independently verify each PR by all-OS CI and review verdict, and land exactly the PRs a human authorized up front. Never silently auto-merges unreviewed work.
+stability: static
+cognitive_mode: systematic-orchestrator
+triggers:
+  - manual
+platforms:
+  - claude-code
+  - codex
+  - cursor
+  - gemini-cli
+tools:
+  - Bash
+  - Read
+  - Glob
+  - Grep
+cli:
+  command: harness skill run pr-fleet
+  args:
+    - name: path
+      description: Project root path
+      required: false
+    - name: --concurrency
+      description: 'Cap on concurrent review-assist subagents (default: 2, max recommended 3 — the machine-storm limit)'
+      required: false
+    - name: --report-only
+      description: Enumerate, triage, and present the ranked PR queue without dispatching assist subagents or landing
+      required: false
+    - name: --dry-run
+      description: Run SELECT and CONFIRM only; do not fan out, verify, or land
+      required: false
+mcp:
+  tool: run_skill
+  input:
+    skill: pr-fleet
+    path: string
+type: rigid
+tier: 2
+phases:
+  - name: select
+    description: Enumerate the open-PR queue, triage each PR into the land-readiness taxonomy, cross-check for superseded/already-resolved PRs, and order landable candidates by land-priority
+    required: true
+  - name: confirm
+    description: Present the triaged queue in one round — superseded items flagged for closure, decision forks as questions, proposed concurrency — for a single up-front human approval that carries the per-PR merge authorization
+    required: true
+  - name: dispatch
+    description: Fan out worktree-isolated subagents that each run the real code-review pipeline for one PR, push fix commits for mechanical findings, and re-run CI — never merging, never fabricating approval — capped at the concurrency governor
+    required: true
+  - name: verify
+    description: Independently confirm each PR proposed to land is CI-green across all OS plus enforce and harness, carries a review verdict, and is mergeable — never by subagent self-report
+    required: true
+  - name: land
+    description: Merge only the PRs that are both human-approved in confirm and independently verified, honoring branch protection; emit a one-row-per-PR batch summary and close superseded PRs citing the superseding PR; never merge unapproved or unverified work
+    required: true
+state:
+  persistent: false
+  files: []
+depends_on:
+  - harness-roadmap-pilot
+  - harness-code-review
+addresses:
+  - signal: backlog-pressure
+    weight: 0.5
+  - signal: drift
+    weight: 0.2
+capabilities:
+  tools:
+    - Bash
+    - Read
+    - Glob
+    - Grep
+  network: false
+  filesystem: read-write
