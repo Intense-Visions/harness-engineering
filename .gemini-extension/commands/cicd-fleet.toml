@@ -34,17 +34,17 @@ The five-phase spine, the concurrency governor, the artifact + all-OS-CI verific
 - Turning a heterogeneous red/flaky backlog into a set of verified remediation PRs plus a clear report of what could not be remediated and why
 - When the failing items are largely independent — each is remediated on its own branch and does not require another's fix to land first
 - NOT for a single failing run or one flaky test — diagnose and fix it directly with `harness-debugging`; a fleet's overhead only pays off across a backlog
-- NOT for building or fixing a *feature* — a red whose root cause is a substantial product defect needing design judgment is parked as `needs-design` and handed to a human / `roadmap-fleet`; `cicd-fleet` remediates pipelines, it does not open feature work
+- NOT for building or fixing a _feature_ — a red whose root cause is a substantial product defect needing design judgment is parked as `needs-design` and handed to a human / `roadmap-fleet`; `cicd-fleet` remediates pipelines, it does not open feature work
 - NOT for making the board green by disabling, skipping, or blanket-retrying tests — that hides failures instead of remediating them and is out of scope by design
 - NOT for converging one flaky test to stable through repeated rounds — that is a **pipeline** (it loops on one target), not a fleet (which fans out across many independent items)
 
 ## Flags
 
-| Flag            | Effect                                                                                             |
-| --------------- | -------------------------------------------------------------------------------------------------- |
-| `--concurrency` | Cap concurrent remediation subagents (default 2, max recommended 3 — the machine-storm limit)      |
-| `--report-only` | Enumerate and triage the red/flaky queue and present the ranked batch; do not dispatch or verify   |
-| `--dry-run`     | Run SELECT and CONFIRM only; stop before fan-out                                                   |
+| Flag            | Effect                                                                                           |
+| --------------- | ------------------------------------------------------------------------------------------------ |
+| `--concurrency` | Cap concurrent remediation subagents (default 2, max recommended 3 — the machine-storm limit)    |
+| `--report-only` | Enumerate and triage the red/flaky queue and present the ranked batch; do not dispatch or verify |
+| `--dry-run`     | Run SELECT and CONFIRM only; stop before fan-out                                                 |
 
 ## Process
 
@@ -61,13 +61,13 @@ Phase 1: SELECT --> Phase 2: CONFIRM --> Phase 3: DISPATCH
                      Phase 5: REPORT <-- Phase 4: VERIFY
 ```
 
-| Phase       | Purpose                                                                     | Exit Condition                                                                    |
-| ----------- | --------------------------------------------------------------------------- | --------------------------------------------------------------------------------- |
-| 1. SELECT   | Enumerate the red/flaky queue, classify each item by cause, cross-check, order | Triaged `CicdCandidate[]` with cause buckets and detected forks                   |
-| 2. CONFIRM  | One up-front human round: approve/trim, answer forks, set concurrency       | Human-approved batch with answered forks and agreed concurrency                   |
-| 3. DISPATCH | Worktree-isolated subagents run the real deflake/heal pipeline per item     | Every confirmed item returned a branch, parked, or failed (all recorded)          |
-| 4. VERIFY   | Independent artifact + deterministic all-OS-CI confirmation, never self-report | Each returned item marked verified / rejected / retry                          |
-| 5. REPORT   | One-row-per-item batch summary; close already-green runs; never merge        | Report delivered; already-green/superseded runs closed with citations            |
+| Phase       | Purpose                                                                        | Exit Condition                                                           |
+| ----------- | ------------------------------------------------------------------------------ | ------------------------------------------------------------------------ |
+| 1. SELECT   | Enumerate the red/flaky queue, classify each item by cause, cross-check, order | Triaged `CicdCandidate[]` with cause buckets and detected forks          |
+| 2. CONFIRM  | One up-front human round: approve/trim, answer forks, set concurrency          | Human-approved batch with answered forks and agreed concurrency          |
+| 3. DISPATCH | Worktree-isolated subagents run the real deflake/heal pipeline per item        | Every confirmed item returned a branch, parked, or failed (all recorded) |
+| 4. VERIFY   | Independent artifact + deterministic all-OS-CI confirmation, never self-report | Each returned item marked verified / rejected / retry                    |
+| 5. REPORT   | One-row-per-item batch summary; close already-green runs; never merge          | Report delivered; already-green/superseded runs closed with citations    |
 
 The five-phase spine, the concurrency governor, the artifact + all-OS-CI verification discipline, the worktree fan-out with its push-path caveat, and the never-silent-merge invariant are the family-shared scaffolding — stated once in `docs/reference/fleet-family.md`. This skill states only what is specific to the CI/CD-remediation stage: the red/flaky queue, the red-cause triage taxonomy, the deflake/heal pipeline, and the batch-remediation-PR terminal act.
 
@@ -211,28 +211,28 @@ The five-phase spine, the concurrency governor, the artifact + all-OS-CI verific
 
 ## Rationalizations to Reject
 
-| Rationalization                                                                          | Reality                                                                                                                                                                        |
-| ---------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| "It passed on the re-run, so the flake is fixed"                                         | A rerun-green is the flake's own signature, not a fix. A deflake requires removing the nondeterminism and confirming deterministic green across repeated runs.                  |
-| "This test is flaky — I'll add a retry / mark it skip to get the board green"            | Hiding a failure is not remediation. Deflake removes the nondeterminism; a test that cannot be deflaked parks a tracked quarantine proposal for a human, never a silent skip.  |
-| "The subagent reported it fixed the failure and CI is green, so it did"                  | A self-report is a claim, not evidence. Independently confirm the `docs/changes/<slug>/plans/` artifact and autopilot-state exist and CI is green — or the item did not run.   |
-| "CI is green on Linux, ship the fix"                                                     | Green on one OS is not green. Merge-ready requires all operating systems plus the enforce and harness checks. A subset-red branch is reported failed, not shipped.             |
-| "This red is really a product bug — I'll just patch the product code and move on"        | A substantial product defect is a `needs-design` item: park and report it for a human / `roadmap-fleet`. The sweep remediates pipelines, it does not force-fix feature defects. |
-| "I'll hand-patch this one failing test — it's faster than the debugging pipeline"        | Dogfood the real per-item skills. A hand-patched fix leaves no plan artifact, fails VERIFY, and breaks the guarantee that every remediation ran the audited pipeline.          |
-| "The batch is verified — I'll merge the remediations to save the human a step"           | Never auto-merge. The fleet stops at reviewable PRs; the human (or `pr-fleet`) lands the batch. Auto-merging removes the one review the whole model is built around.           |
-| "This red looks new to me, no need to check for a later green run"                       | Cross-check every item. An already-green run re-remediated from scratch is duplicate work and a conflicting PR; already-green runs get closed with a citation, not rebuilt.    |
-| "Bumping concurrency to six will clear the red board sooner"                             | Beyond ~3 concurrent agents is the machine-storm zone — the compound load manufactures the very flaky failures the fleet is trying to eliminate.                               |
+| Rationalization                                                                   | Reality                                                                                                                                                                         |
+| --------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| "It passed on the re-run, so the flake is fixed"                                  | A rerun-green is the flake's own signature, not a fix. A deflake requires removing the nondeterminism and confirming deterministic green across repeated runs.                  |
+| "This test is flaky — I'll add a retry / mark it skip to get the board green"     | Hiding a failure is not remediation. Deflake removes the nondeterminism; a test that cannot be deflaked parks a tracked quarantine proposal for a human, never a silent skip.   |
+| "The subagent reported it fixed the failure and CI is green, so it did"           | A self-report is a claim, not evidence. Independently confirm the `docs/changes/<slug>/plans/` artifact and autopilot-state exist and CI is green — or the item did not run.    |
+| "CI is green on Linux, ship the fix"                                              | Green on one OS is not green. Merge-ready requires all operating systems plus the enforce and harness checks. A subset-red branch is reported failed, not shipped.              |
+| "This red is really a product bug — I'll just patch the product code and move on" | A substantial product defect is a `needs-design` item: park and report it for a human / `roadmap-fleet`. The sweep remediates pipelines, it does not force-fix feature defects. |
+| "I'll hand-patch this one failing test — it's faster than the debugging pipeline" | Dogfood the real per-item skills. A hand-patched fix leaves no plan artifact, fails VERIFY, and breaks the guarantee that every remediation ran the audited pipeline.           |
+| "The batch is verified — I'll merge the remediations to save the human a step"    | Never auto-merge. The fleet stops at reviewable PRs; the human (or `pr-fleet`) lands the batch. Auto-merging removes the one review the whole model is built around.            |
+| "This red looks new to me, no need to check for a later green run"                | Cross-check every item. An already-green run re-remediated from scratch is duplicate work and a conflicting PR; already-green runs get closed with a citation, not rebuilt.     |
+| "Bumping concurrency to six will clear the red board sooner"                      | Beyond ~3 concurrent agents is the machine-storm zone — the compound load manufactures the very flaky failures the fleet is trying to eliminate.                                |
 
 ## Red Flags
 
-| Flag                                                                       | Corrective Action                                                                                                          |
-| -------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------- |
-| "It passed on re-run, mark the flake done"                                 | STOP. A rerun-green is the flake signature. Require deterministic green across repeated runs before a deflake is done.      |
-| "Just skip / retry the flaky test to get green"                            | STOP. Never hide a failure. Deflake removes the nondeterminism; an un-deflakable flake parks a tracked quarantine proposal. |
-| "I'll mark it remediated based on the subagent's summary"                  | STOP. Independently check the artifact and CI. A summary is not a verification.                                            |
-| "The pre-push gate is failing in this worktree — I'll `--no-verify`"       | STOP. Never bypass. Push via the GitHub API or a non-`.claude` worktree; the gate is part of the verification.            |
-| "All verified — let me merge the fixes and close the loop"                 | STOP. The fleet never merges. Deliver the remediation PRs for review; landing is the human's step.                         |
-| "This red is a product bug, I'll just fix the feature here"                | STOP. Park it as `needs-design` for a human / `roadmap-fleet`. The sweep does not open feature work.                       |
+| Flag                                                                 | Corrective Action                                                                                                           |
+| -------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------- |
+| "It passed on re-run, mark the flake done"                           | STOP. A rerun-green is the flake signature. Require deterministic green across repeated runs before a deflake is done.      |
+| "Just skip / retry the flaky test to get green"                      | STOP. Never hide a failure. Deflake removes the nondeterminism; an un-deflakable flake parks a tracked quarantine proposal. |
+| "I'll mark it remediated based on the subagent's summary"            | STOP. Independently check the artifact and CI. A summary is not a verification.                                             |
+| "The pre-push gate is failing in this worktree — I'll `--no-verify`" | STOP. Never bypass. Push via the GitHub API or a non-`.claude` worktree; the gate is part of the verification.              |
+| "All verified — let me merge the fixes and close the loop"           | STOP. The fleet never merges. Deliver the remediation PRs for review; landing is the human's step.                          |
+| "This red is a product bug, I'll just fix the feature here"          | STOP. Park it as `needs-design` for a human / `roadmap-fleet`. The sweep does not open feature work.                        |
 
 ## Examples
 
