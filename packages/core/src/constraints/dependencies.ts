@@ -260,7 +260,14 @@ function checkLayerViolations(
 export async function validateDependencies(
   config: LayerConfig
 ): Promise<Result<DependencyValidation, ConstraintError>> {
-  const { layers, rootDir, parser, fallbackBehavior = 'error', graphDependencyData } = config;
+  const {
+    layers,
+    rootDir,
+    parser,
+    fallbackBehavior = 'error',
+    graphDependencyData,
+    extraIgnore,
+  } = config;
 
   // When graph data is provided, skip parser health check and file collection
   if (graphDependencyData) {
@@ -314,7 +321,7 @@ export async function validateDependencies(
   const allFiles: string[] = [];
   for (const layer of layers) {
     for (const pattern of layer.patterns) {
-      const files = await findFiles(pattern, rootDir);
+      const files = await findFiles(pattern, rootDir, extraIgnore ?? []);
       allFiles.push(...files);
     }
   }

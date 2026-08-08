@@ -46,6 +46,13 @@ export { createParseError } from './shared/parsers';
 export { WHATWG_BAD_PORTS, isBadPort, assertPortUsable } from './shared/port';
 
 /**
+ * Shared filesystem discovery constant — the default skip-dir ignore set
+ * (node_modules, dist, .git, etc.) applied by core's findFiles. Exported so
+ * the CLI findFiles helper can apply the same defaults (issue #1188).
+ */
+export { DEFAULT_FIND_FILES_IGNORE } from './shared/fs-utils';
+
+/**
  * Validation module for verifying project structure, configuration, and conventions.
  */
 export * from './validation';

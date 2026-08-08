@@ -1,0 +1,250 @@
+# Roadmap Fleet
+
+> Autonomous batch-build orchestrator — score a batch of backlog candidates, confirm it with the human in one up-front round, fan out worktree-isolated subagents that each run the **real** per-item pipeline (brainstorming then autopilot), independently verify every result by artifact and all-OS CI, and hand back a set of merge-ready PRs for one bulk review. The fleet never auto-merges and never trusts a subagent's self-report.
+
+Building a backlog through the harness pipeline one item at a time is an attention slog: every roadmap item or external issue must be hand-driven through brainstorming then autopilot, with a human present at each clarifying question, spec sign-off, and autopilot decision. For dozens of items the human's attention — not the machinery — is the bottleneck. `roadmap-fleet` inverts the model: it takes a **batch**, runs the real per-item pipeline autonomously and in isolation for each candidate, verifies the result, and returns **merge-ready PRs to review in bulk** — moving the human from "drive every item" to "confirm the batch once, review the PRs once." It is the **build** stage of the `-fleet` family conveyor: intake → decide → **build (roadmap-fleet)** → land.
+
+## When to Use
+
+- A batch of independent backlog candidates (open issues and/or unblocked roadmap items) needs autonomous build plus one bulk PR review
+- Clearing accumulated backlog pressure where per-item interactive driving does not scale
+- Turning a triaged, roughly-independent work queue into a set of verified, merge-ready PRs in a single session
+- When the items are genuinely parallelizable — each produces its own PR and does not depend on another item's output
+- NOT for a single item — invoke `harness-brainstorming` then `harness-autopilot` directly; a fleet's overhead only pays off across a batch
+- NOT for landing / merging PRs — that is `pr-fleet`; `roadmap-fleet` stops at merge-ready and never merges
+- NOT for convergence on one target — iterating a single spec/PR to done is a **pipeline** (it loops on one thing), not a fleet (which fans out across many independent items into many PRs)
+- NOT when items are tightly coupled (each depends on the previous one's merge) — sequence them through autopilot instead; fan-out assumes independence
+
+## Flags
+
+| Flag            | Effect                                                                                  |
+| --------------- | --------------------------------------------------------------------------------------- |
+| `--concurrency` | Cap concurrent build subagents (default 2, max recommended 3 — the machine-storm limit) |
+| `--report-only` | Enumerate, score, and present the ranked batch; do not dispatch, verify, or report PRs  |
+| `--dry-run`     | Run SELECT and CONFIRM only; stop before fan-out                                        |
+
+## Process
+
+### Iron Law
+
+**A PR is "merge-ready" only after independent artifact + all-OS-CI verification. The fleet never auto-merges, and never accepts a subagent's self-report as proof its pipeline ran.**
+
+A subagent that reports "done — pipeline ran, CI green" has told you what it believes, not what is true. The only evidence that the real per-item pipeline ran is the artifact it necessarily leaves behind (a plan directory plus an autopilot-state) and the CI signal on the pushed branch. If either is missing, the item did not run the pipeline as required and is rejected or retried — regardless of how confident the report reads. And landing the batch is the human's call: the fleet stops at a set of verified, reviewable PRs.
+
+```
+Phase 1: SELECT --> Phase 2: CONFIRM --> Phase 3: DISPATCH
+                                                    |
+                                                    v
+                     Phase 5: REPORT <-- Phase 4: VERIFY
+```
+
+| Phase       | Purpose                                                               | Exit Condition                                                           |
+| ----------- | --------------------------------------------------------------------- | ------------------------------------------------------------------------ |
+| 1. SELECT   | Enumerate + cross-check + score candidates                            | Ranked `Candidate[]` with cross-check verdicts and detected forks        |
+| 2. CONFIRM  | One up-front human round: approve/trim, answer forks, set concurrency | Human-approved batch with answered forks and agreed concurrency          |
+| 3. DISPATCH | Worktree-isolated subagents run the real per-item pipeline            | Every confirmed item returned a branch, parked, or failed (all recorded) |
+| 4. VERIFY   | Independent artifact + all-OS-CI confirmation, never self-report      | Each returned item marked verified / rejected / retry                    |
+| 5. REPORT   | One-row-per-item batch summary; close resolved issues; never merge    | Report delivered; resolved issues closed with resolving-PR citations     |
+
+### Phase 1: SELECT — Enumerate, Cross-Check, Score
+
+1. **Enumerate candidates from both sources.** Open external issues via `gh` (`gh issue list --state open`) and unblocked roadmap items via `manage_roadmap` (planned/unblocked shards only — never items already `in-progress` under another owner). Missing `gh` auth or a missing roadmap degrades to whichever source is available; record which source was unavailable rather than aborting.
+
+2. **Cross-check each candidate against merged and open PRs.** For every candidate, search merged PRs (`gh pr list --state merged --search`) and open PRs for one that already resolves it. A candidate whose work already merged is **already-resolved** — mark it for closure, not rebuild. A candidate with an open PR in flight is **in-progress elsewhere** — drop it from the batch.
+
+3. **Score and order via `roadmap-pilot` impact scoring.** Do not rank ad-hoc. Reuse `harness-roadmap-pilot`'s impact scoring so selection is principled and reproducible; order the batch highest-impact first.
+
+4. **Detect decision forks up front.** For each candidate, scan its issue/spec text for genuine ambiguity that a builder would otherwise have to guess (e.g. "store as UTC or local?", "extend the existing table or add a new one?"). These _known_ forks are surfaced in CONFIRM. Do not attempt to answer them here.
+
+5. **Build the `Candidate` record** for each survivor:
+
+   ```
+   Candidate {
+     source,            // "issue" | "roadmap-shard"
+     id,                // issue ref or shard id
+     title,
+     score,             // roadmap-pilot impact score
+     crossCheck,        // "novel" | "already-resolved" | "in-progress-elsewhere"
+     resolvingPr,       // set when crossCheck = already-resolved
+     alreadyResolved,   // boolean, flags for closure not rebuild
+     forks,             // detected known decision forks (may be empty)
+   }
+   ```
+
+### Phase 2: CONFIRM — The Single Up-Front Human Gate `[checkpoint:human-verify]`
+
+1. **Present the ranked batch in one round.** This is the **only guaranteed human touchpoint before PR review** — everything downstream runs autonomously. Present, together, in a single surface:
+   - The ranked candidates (highest-impact first) with scores.
+   - Already-resolved items **flagged for closure** with their resolving PR — the human confirms closing, the fleet never rebuilds them.
+   - Every detected known decision fork as a **multiple-choice question** with a recommended default.
+   - The **proposed concurrency** (default 2, capped at ~3).
+
+2. **The human approves or trims once, and answers the forks.** Batch approval, fork answering, and stale-issue triage all happen in this same gate — front-loading the genuinely-ambiguous items is what keeps wrong-guess rework low. Answered forks are recorded and fed into each item's DISPATCH brief.
+
+3. **From here it is autonomous.** After this gate the fleet does not pause per-item. The only thing that re-surfaces to the human before REPORT is an _unforeseen_ fork that parks a single item (see DISPATCH) — and even that does not block the batch. Under `--dry-run` the skill stops at the end of this phase.
+
+### Phase 3: DISPATCH — Worktree Fan-Out With a Concurrency Governor
+
+1. **One worktree-isolated subagent per confirmed item.** Each subagent is briefed to run the **real** per-item pipeline for its one item: `harness-brainstorming` then `harness-autopilot` in autonomous mode. It does not hand-implement, and it does not skip the pipeline — the artifacts the pipeline leaves behind are what VERIFY checks for. Feed the item's answered forks from CONFIRM into the brief so the builder never re-asks a settled question.
+
+2. **Cap concurrency at the governor (default 2, max ~3).** This is the machine-storm limit: beyond roughly three concurrent build agents the compound load produces flaky failures that are indistinguishable from real ones. Never exceed the confirmed concurrency to "go faster" — a stormed batch is slower once you account for re-runs.
+
+3. **Park unforeseen forks; never guess mid-flight.** A subagent runs autonomously on recommended-option defaults for anything routine. But if an item hits a genuinely **unforeseen** decision fork — one that was not surfaced in CONFIRM and that materially changes the outcome — that item **parks and reports** the fork instead of guessing. Parking is per-item: the other items in the batch continue uninterrupted. The parked fork appears in REPORT for the human.
+
+4. **Record an "assumptions made" note per item.** Each subagent records the recommended-option defaults it took so the eventual PR carries an assumptions note — batch review is only trustworthy when the reviewer can see what was assumed.
+
+5. **Push-path caveat.** A worktree created under a `.claude/`-nested path breaks the local pre-push `check-docs` gate (it self-excludes and scans zero files). Subagents push via the GitHub API or from a non-`.claude` throwaway worktree. **Never `--no-verify`** — bypassing the gate defeats the verification the fleet depends on.
+
+### Phase 4: VERIFY — Independent Confirmation, Never Self-Report
+
+1. **Never accept a subagent's self-report as verification.** "The pipeline ran and CI is green" is a claim to be checked, not a result. For each returned branch, the orchestrator independently confirms the evidence itself.
+
+2. **Require the pipeline artifact.** Confirm that both exist on the branch:
+   - A plan artifact under `docs/changes/<slug>/plans/` — the necessary trace of a real brainstorming→autopilot run.
+   - An autopilot-state (session state) for the item.
+
+   An item with **no plan artifact did not run the real pipeline** — regardless of what the subagent reported. Reject it (or retry once); it is never marked merge-ready.
+
+3. **Require all-OS CI green.** Confirm the pushed branch's CI is green on **all three operating systems** plus the enforce and harness checks (`gh pr checks` / `gh run list`). Green on one OS is not green. A subset-red branch is not merge-ready — it is reported as failed, and the batch continues.
+
+4. **Classify each returned item** as `verified` (artifact present + all-OS CI green), `rejected` (missing artifact or definitively red), or `retry` (transient, retried at most once). No item reaches REPORT as merge-ready without passing both the artifact and the CI check.
+
+### Phase 5: REPORT — Batch Summary, Resolved-Issue Closure, Never Merge
+
+1. **Emit a one-row-per-item batch summary** for bulk human review:
+
+   | Item | Verdict | PR  | Assumptions made | Parked forks |
+   | ---- | ------- | --- | ---------------- | ------------ |
+
+   Every verified item's row carries its PR link, the **assumptions-made note** from DISPATCH, and any parked unforeseen fork. Rejected/failed items are listed with the reason.
+
+2. **Close already-resolved issues accurately.** For each item flagged already-resolved in SELECT and confirmed in CONFIRM, close the issue with a comment **citing the resolving PR** — never a bare close, and never a rebuild.
+
+3. **Never merge.** The fleet delivers verified, reviewable PRs; the human (optionally via `pr-fleet`) lands the batch. Auto-merging a feature PR is out of scope by design.
+
+4. **Degrade gracefully.** A missing roadmap, missing `gh` auth, or a single item's failed pipeline results in that item (or source) being **reported** while the rest of the batch proceeds. One bad item never sinks the batch.
+
+## Harness Integration
+
+- **`harness skill run roadmap-fleet`** — Run the full five-phase batch pipeline.
+- **`harness-roadmap-pilot`** — Composed in SELECT for principled impact scoring and ordering of the batch.
+- **`manage_roadmap`** — Enumerate unblocked roadmap shards (SELECT) and reconcile status after the batch.
+- **`gh`** — Enumerate open issues, cross-check merged/open PRs (SELECT), read `gh pr checks` (VERIFY), and close already-resolved issues with resolving-PR citations (REPORT).
+- **`run_skill` / `harness skill run`** — Each build subagent invokes the real `harness-brainstorming` then `harness-autopilot` for its one item (DISPATCH).
+- **`harness-autopilot`'s code-review phase** — The per-item quality gate inside each subagent's pipeline; the fleet does not re-implement review.
+- **`harness skill validate roadmap-fleet`** — The authoring-time gate for this skill's own structure and schema.
+
+## Success Criteria
+
+- Given a confirmed batch of N candidates, the fleet produces **up to N** PRs, each with a verified plan artifact and green CI across all three OS plus enforce and harness.
+- There is **exactly one** up-front human decision round; no per-item interactive pauses except a genuinely-new fork parked to its own item.
+- **Every emitted PR carries an "assumptions made" note.**
+- Already-resolved candidates are **closed with resolving-PR citations, not rebuilt**.
+- The skill **never auto-merges** a feature PR.
+- It **degrades gracefully**: a missing roadmap, missing `gh` auth, or a single item's failed pipeline is reported while the batch continues.
+- Concurrency never exceeds the confirmed governor (default 2, max ~3).
+- No item is marked merge-ready on a subagent self-report — every verdict is backed by independently-checked artifact + CI evidence.
+
+## Gates
+
+- **No "merge-ready" without a verified plan artifact.** An item lacking `docs/changes/<slug>/plans/` did not run the real pipeline. It is rejected or retried — never reported as merge-ready, no matter what the subagent claimed.
+- **No "merge-ready" without all-OS CI green.** Green on a subset of operating systems (or with enforce/harness checks red) is not merge-ready. Report it failed; do not ship it.
+- **Never auto-merge.** The fleet stops at reviewable PRs. Merging a feature PR from inside the fleet = gate violation; the human lands the batch.
+- **Never exceed the concurrency governor.** More than ~3 concurrent build agents is the machine-storm zone; do not raise the cap to "go faster."
+- **A self-report is never verification.** Accepting "pipeline ran, CI green" without independently checking the artifact and CI = gate violation. Re-verify independently.
+- **Never `--no-verify`.** No subagent bypasses the pre-push gates; a `.claude/`-nested worktree pushes via the GitHub API or a non-nested worktree instead.
+
+## Escalation
+
+- **Missing roadmap (`manage_roadmap` returns nothing):** proceed with issues-only enumeration; record the missing roadmap in REPORT rather than aborting the batch.
+- **Missing `gh` auth:** proceed with roadmap-only enumeration (cross-check against PRs is degraded); note the gap in REPORT. If both sources are unavailable, stop and report — there is nothing to build.
+- **A subagent returns a branch with no plan artifact:** do not accept its self-report. Reject or retry once; if it still produces no artifact, report the item as "did not run the pipeline" and move on — the batch continues.
+- **An item parks on an unforeseen fork:** surface the fork (with the item's context and the recommended default) in REPORT for the human; do not guess and continue. The parked item is the only one affected.
+- **CI red on a subset of OS:** report the item failed with the failing OS/check named; never mark it merge-ready. Do not average a mixed CI result into "mostly green".
+- **The batch appears coupled (one item's branch depends on another's merge):** stop fanning out those items; the coupling means they are a pipeline, not a fleet. Escalate to the human to sequence them through autopilot.
+
+## Rationalizations to Reject
+
+| Rationalization                                                                   | Reality                                                                                                                                                                            |
+| --------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| "The subagent reported its pipeline ran and CI is green, so it did"               | A self-report is a claim, not evidence. Independently confirm the `docs/changes/<slug>/plans/` artifact and autopilot-state exist and CI is green — or the item did not run.       |
+| "CI is green on Linux, ship it"                                                   | Green on one OS is not green. Merge-ready requires all three operating systems plus the enforce and harness checks. A subset-red branch is reported failed, not shipped.           |
+| "This item's fork is small — I'll just guess and keep the batch moving"           | Unforeseen forks **park and report**; they are never silently guessed mid-flight. Guessing buries an unstated assumption in a PR the reviewer cannot see.                          |
+| "I'll hand-implement this one item — it's faster than driving the whole pipeline" | Dogfood the real per-item skills. A hand-built item leaves no plan artifact, fails VERIFY, and breaks the guarantee that every PR ran the audited pipeline.                        |
+| "The batch is verified and ready — I'll merge them to save the human a step"      | Never auto-merge. The fleet stops at reviewable PRs; the human (or `pr-fleet`) lands the batch. Auto-merging removes the one review the whole model is built around.               |
+| "One item's pipeline failed, so the run is a bust — abort the batch"              | Degrade gracefully. Report the failed item and keep the verified ones; one bad item never sinks the batch.                                                                         |
+| "This candidate looks new to me, no need to check merged PRs"                     | Cross-check every candidate against merged/open PRs. An already-resolved item rebuilt from scratch is duplicate work and a conflicting PR; resolved items get closed, not rebuilt. |
+| "Bumping concurrency to six will finish the batch sooner"                         | Beyond ~3 concurrent build agents is the machine-storm zone — compound load produces flaky failures that cost more in re-runs than the extra parallelism saves.                    |
+
+## Red Flags
+
+| Flag                                                                    | Corrective Action                                                                                              |
+| ----------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------- |
+| "I'll mark it verified based on the subagent's summary"                 | STOP. Independently check the artifact and CI. A summary is not a verification.                                |
+| "I'll answer this new fork with the obvious choice and continue"        | STOP. Unforeseen forks park and report. Record it for the human; do not guess it into a PR.                    |
+| "The pre-push gate is failing in this worktree — I'll `--no-verify`"    | STOP. Never bypass. Push via the GitHub API or a non-`.claude` worktree; the gate is part of the verification. |
+| "All verified — let me merge and close the loop"                        | STOP. The fleet never merges. Deliver the PRs for review; landing is the human's step.                         |
+| "I'll rebuild this item; it's easier than confirming whether it merged" | STOP. Cross-check first. Rebuilding an already-resolved item creates a conflicting duplicate PR.               |
+
+## Examples
+
+### Example: A six-candidate backlog batch
+
+```
+$ harness skill run roadmap-fleet --concurrency 2
+
+Phase 1: SELECT
+  Enumerated: 4 open issues (gh) + 3 unblocked roadmap shards (manage_roadmap).
+  Cross-check vs merged/open PRs:
+    - "cache invalidation on tag write"  -> already-resolved (merged PR: link) -> flag for closure
+    - "retry policy for webhook sender"  -> in-progress-elsewhere (open PR) -> dropped
+  Scored 5 survivors via roadmap-pilot impact scoring; ordered highest-first.
+  Detected forks: 2
+    - "token store": UTC vs local expiry timestamps?
+    - "audit log": extend existing table vs new table?
+
+Phase 2: CONFIRM  [checkpoint:human-verify]
+  Ranked batch (5) presented. Already-resolved item flagged for closure.
+  Human answers forks: token store -> UTC; audit log -> new table.
+  Human trims 1 low-value item -> batch = 4. Concurrency confirmed: 2.
+
+Phase 3: DISPATCH (governor = 2)
+  4 worktree-isolated subagents, 2 at a time, each running real
+  brainstorming -> autopilot for its one item; answered forks fed into briefs.
+  Item "rate-limit headers" hits an UNFORESEEN fork (per-route vs global limit)
+    -> parks and reports; the other 3 continue.
+
+Phase 4: VERIFY (independent — no self-report)
+  item A: plan artifact + autopilot-state present, CI green all 3 OS + enforce + harness -> verified
+  item B: plan artifact + autopilot-state present, CI green all 3 OS -> verified
+  item C: NO plan artifact on the branch (self-reported "done") -> REJECTED (hand-built, not piped)
+  item D: parked in DISPATCH -> not verified (fork awaits human)
+
+Phase 5: REPORT
+  | Item              | Verdict   | PR    | Assumptions made           | Parked forks            |
+  | ----------------- | --------- | ----- | -------------------------- | ----------------------- |
+  | token store       | verified  | link  | UTC expiry (from confirm)  | —                       |
+  | audit log         | verified  | link  | new table (from confirm)   | —                       |
+  | webhook signing   | rejected  | —     | —                          | — (no plan artifact)    |
+  | rate-limit headers| parked    | —     | —                          | per-route vs global?    |
+  Closed 1 already-resolved issue with a comment citing the resolving PR.
+  Never merged. 2 PRs handed to the human for bulk review.
+```
+
+### Example: Rejecting a hand-built item
+
+A subagent returns a branch and reports "done — implemented the fix, tests pass, CI green." VERIFY looks for `docs/changes/<slug>/plans/` and finds nothing: there is no plan artifact and no autopilot-state. The item was hand-implemented, short-cutting the real pipeline. Per the Iron Law it is **rejected** (retried once, still no artifact → reported as "did not run the pipeline"), never marked merge-ready. The batch's other verified items proceed to REPORT unaffected.
+
+## Test Scenarios
+
+### Scenario 1: Gate — a self-report accepted as verification
+
+VERIFY receives a subagent claiming "pipeline ran, CI green" but the branch has no `docs/changes/<slug>/plans/` artifact. Expected: the "no merge-ready without a verified plan artifact" Gate halts marking it merge-ready; the item is rejected/retried, not reported as a PR. Accepting the self-report is the failure this scenario guards against.
+
+### Scenario 2: Rationalization — hand-implementing one item
+
+An operator reasons "I'll just hand-implement this small item, it's faster than the pipeline." Expected: rejected by the "dogfood the real per-item skills" rationalization — the hand-built item leaves no plan artifact and fails VERIFY. The correct action is to dispatch the real brainstorming→autopilot pipeline for it like every other item.
+
+### Scenario 3: Park-unforeseen — a new fork mid-flight
+
+A build subagent hits a genuinely new decision fork not surfaced in CONFIRM (per-route vs global rate limit). Expected: the item **parks and reports** the fork rather than guessing; the parked fork appears in REPORT for the human; the other in-flight items continue uninterrupted. Silently guessing the fork is the failure this scenario guards against.
