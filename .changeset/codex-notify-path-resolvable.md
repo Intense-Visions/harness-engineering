@@ -1,5 +1,5 @@
 ---
-"@harness-engineering/cli": minor
+'@harness-engineering/cli': minor
 ---
 
 Emit a PATH-resolvable Codex `notify` command instead of a machine-specific absolute path.

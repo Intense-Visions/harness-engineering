@@ -99,7 +99,11 @@ Centralize the ~12-line Codex payload-parse contract so `run.ts` and `session-re
    ```
 4. Refactor `session-retrospect-codex.js` `main()` to use the helper (preserving exit-0 fail-soft):
    ```js
-   import { parseCodexNotifyPayload, retrospectLogLine, retrospectSession } from './session-retrospect-core.js';
+   import {
+     parseCodexNotifyPayload,
+     retrospectLogLine,
+     retrospectSession,
+   } from './session-retrospect-core.js';
    // ...
    const parsed = parseCodexNotifyPayload(process.argv[2]);
    if (!parsed) process.exit(0);
@@ -108,7 +112,9 @@ Centralize the ~12-line Codex payload-parse contract so `run.ts` and `session-re
      const line = retrospectLogLine('session-retrospect-codex', result);
      if (line) process.stderr.write(line);
      process.exit(0);
-   } catch (err) { /* existing stderr + exit 0 */ }
+   } catch (err) {
+     /* existing stderr + exit 0 */
+   }
    ```
 5. Update the `session-retrospect-codex.js` header note (lines ~8-9) so it no longer states notify points at an absolute path — describe it as fired via the PATH-resolvable `harness hooks run session-retrospect-codex` command (this file remains shipped as the copied support script for backward compatibility, but the generated notify line no longer references it).
 6. Run the test — observe pass. Run the existing `packages/cli/tests/hooks/session-retrospect-agents.test.ts` — observe still green (codex path behavior unchanged).
@@ -124,6 +130,7 @@ Implements D1/D2/D4/D5. Covers criteria 3 (parse + delegate seam) and 4 (fail-so
 **Design for testability:** factor logic into an exported `async function runHook(name, rawPayload): Promise<number>` that returns the intended exit code (always 0) and never throws; the Commander `.action()` calls it and then `process.exit(<code>)`. Tests call `runHook` directly, so no `process.exit` fires inside vitest.
 
 **Import-boundary determination (resolve here):** try `import { parseCodexNotifyPayload, retrospectSession, retrospectLogLine } from '../../hooks/session-retrospect-core.js';` in `run.ts`.
+
 - Run `pnpm --filter @harness-engineering/cli typecheck` (or `build`) on Node 22.
 - If it typechecks/builds cleanly → keep the import (preferred; no duplication).
 - If TS rejects the untyped `.js` import under strict tsup/tsc → fall back to inlining the ~12-line parse from Task 1's helper directly in `run.ts` and importing only `retrospectSession`/`retrospectLogLine` (which are already imported by other consumers). Behavior is the contract; either path satisfies the criteria. Record the chosen path in the commit body.
@@ -134,7 +141,7 @@ Implements D1/D2/D4/D5. Covers criteria 3 (parse + delegate seam) and 4 (fail-so
    - `runHook('session-retrospect-codex', 'not json')` resolves to `0` (malformed).
    - `runHook('session-retrospect-codex', JSON.stringify({ 'thread-id': 't1', cwd: <tmpdir> }))` resolves to `0` and, with the flag unset, is a no-op (spy asserts `retrospectSession` returns `{status:'disabled'}` OR simply that it resolves 0 without throwing and writes no sentinel under `<tmpdir>/.harness/state/retrospection`).
    - Also assert `createRunCommand()` returns a `Command` named `run` with a `<name>` arg and `[payload]` optional arg.
-   > Archive-on-enabled equivalence (criterion 3's "archives once") is inherited from the shared `retrospectSession` core and is already proven end-to-end by `session-retrospect-agents.test.ts`; `run.ts` re-uses that exact core, so these tests verify the parse+delegate+exit-0 seam, not a re-proof of archiving.
+     > Archive-on-enabled equivalence (criterion 3's "archives once") is inherited from the shared `retrospectSession` core and is already proven end-to-end by `session-retrospect-agents.test.ts`; `run.ts` re-uses that exact core, so these tests verify the parse+delegate+exit-0 seam, not a re-proof of archiving.
 2. Run the test — observe failure (module does not exist).
 3. Create `packages/cli/src/commands/hooks/run.ts`:
    - A dispatch table `{ 'session-retrospect-codex': async (rawPayload) => { ... } }`. Unknown name → return 0 (D4).
@@ -144,8 +151,13 @@ Implements D1/D2/D4/D5. Covers criteria 3 (parse + delegate seam) and 4 (fail-so
      ```ts
      return new Command('run')
        .argument('<name>', 'Hook name to run (e.g. session-retrospect-codex)')
-       .argument('[payload]', 'JSON payload delivered by the agent (Codex notify passes it as the trailing arg)')
-       .description('Run a bundled agent lifecycle hook by name (PATH-resolvable entry for Codex notify)')
+       .argument(
+         '[payload]',
+         'JSON payload delivered by the agent (Codex notify passes it as the trailing arg)'
+       )
+       .description(
+         'Run a bundled agent lifecycle hook by name (PATH-resolvable entry for Codex notify)'
+       )
        .action(async (name: string, payload: string | undefined) => {
          process.exit(await runHook(name, payload));
        });
