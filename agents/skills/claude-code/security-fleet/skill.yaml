@@ -1,0 +1,77 @@
+name: security-fleet
+version: '1.0.0'
+description: Autonomous security backlog sweep — enumerate risk-ranked code areas plus the resolved dependency tree, discard every candidate that cannot produce concrete evidence, confirm one ranked batch with the human, then route each survivor by a bounded-fix test — safe bounded fixes are built through the real pipeline into independently verified PRs, risky or structural findings are filed with their evidence packet instead of force-fixed. Never auto-merges, never closes a finding by suppression, and never reports a secret's value.
+stability: static
+cognitive_mode: systematic-orchestrator
+triggers:
+  - manual
+platforms:
+  - claude-code
+  - codex
+  - cursor
+  - gemini-cli
+tools:
+  - Bash
+  - Read
+  - Glob
+  - Grep
+cli:
+  command: harness skill run security-fleet
+  args:
+    - name: path
+      description: Project root path
+      required: false
+    - name: --concurrency
+      description: 'Cap on concurrent fix subagents (default: 2, max recommended 3 — the machine-storm limit)'
+      required: false
+    - name: --report-only
+      description: Enumerate, gate on evidence, tier, and present the ranked finding batch without dispatching fix subagents or filing issues
+      required: false
+    - name: --dry-run
+      description: Run SELECT and CONFIRM only; do not fan out, verify, file, or report
+      required: false
+mcp:
+  tool: run_skill
+  input:
+    skill: security-fleet
+    path: string
+type: rigid
+tier: 2
+phases:
+  - name: select
+    description: Enumerate the two-sourced queue — mechanical code scan plus judgment critique over graph-ranked high-exposure areas, and dependency risk plus advisory matching over the resolved tree — apply the evidence gate discarding every candidate without a named evidence class, cross-check survivors against already-fixed, in-flight, and already-filed state, assign a FIX or FILE tier by the bounded-fix test, and order by severity times evidence strength times exposure via roadmap-pilot impact scoring
+    required: true
+  - name: confirm
+    description: Present the ranked finding batch in one round — each item with its evidence class and proposed tier, the aggregate evidence-gate discard count, duplicates and superseded items flagged for drop or closure, decision forks as questions, proposed concurrency — for a single up-front human approval that may also re-tier an item
+    required: true
+  - name: dispatch
+    description: Fan out worktree-isolated subagents for FIX-tier findings that re-confirm the evidence in their own worktree, run the real brainstorming then autopilot pipeline, add a regression test that fails before the fix where the finding is code-side, and self-review their own diff with the OWASP and CWE security reviewer; FILE-tier findings produce evidence packets instead of branches, and any item that proves structural mid-flight re-tiers to FILE and parks
+    required: true
+  - name: verify
+    description: Independently confirm each returned FIX-tier branch has a plan artifact plus autopilot-state, that the original evidence no longer reproduces, that the branch introduces no new security finding, and that CI is green across all OS; confirm each FILE-tier item exists with a named evidence class and trace and is not a duplicate — never by subagent self-report
+    required: true
+  - name: report
+    description: Emit a one-row-per-item batch summary with evidence class, tier, verdict, PR or issue link, assumptions, and parked or re-tiered items, plus the aggregate evidence-gate discard count, reporting any secret by location and type only, and never merge
+    required: true
+state:
+  persistent: false
+  files: []
+depends_on:
+  - harness-security-scan
+  - harness-supply-chain-audit
+  - security-craft
+  - harness-security-review
+  - harness-roadmap-pilot
+addresses:
+  - signal: security-findings
+    weight: 0.5
+  - signal: backlog-pressure
+    weight: 0.2
+capabilities:
+  tools:
+    - Bash
+    - Read
+    - Glob
+    - Grep
+  network: false
+  filesystem: read-write
