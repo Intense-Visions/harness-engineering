@@ -1,5 +1,226 @@
 # @harness-engineering/orchestrator
 
+## 0.20.0
+
+### Minor Changes
+
+- d59c152: Make the local-dispatch enforced verify gate language-aware.
+
+  The local gate's default verify runner shelled out to `pnpm -w run …`
+  unconditionally, so verification failed environmentally for every non-JS
+  workspace (pnpm absent / no `package.json`) and blocked the dispatch for a
+  reason unrelated to the change under test. A new pure ecosystem detector
+  (`detectEcosystem` / `detectEcosystemFromFiles`) classifies a workspace from the
+  lockfiles/manifests present — pnpm/npm/yarn (node), uv/poetry/pipenv/pip
+  (python), cargo (rust), go, bundler (ruby), maven/gradle (java) — in a
+  deterministic priority order, and returns both the dependency-install command
+  (for scaffolding a matching `hooks.afterCreate`) and the ordered verify command
+  set. The verify runner now dispatches a non-node workspace to its own toolchain
+  (e.g. `pytest`, `cargo test`, `go test ./...`) while preserving the existing
+  pnpm-scoped, changed-package behavior for node workspaces. An unrecognized
+  workspace remains a clean pass (nothing to check). Every choice stays overridable
+  via config.
+
+- de52864: Add an orchestrator gateway policy envelope + subprocess env air-gap.
+
+  Every agent subprocess dispatch now carries a `PolicyMetadata` envelope
+  (`approvalMode`, `sandboxMode`, `networkMode`, `dangerousFlags[]`, `agentFamily`,
+  `agentVersion`) that is stamped as a one-line-per-dispatch governance record into
+  `.harness/audit.log` (alongside the existing gateway auth records, discriminated
+  by `event: "agent_dispatch"`). The record logs the NAMES of any parent-env vars
+  withheld from the subprocess — never their values, never the prompt/payload.
+
+  The load-bearing control: the `claude` backend no longer spawns with
+  `env: process.env` (which leaked the orchestrator's ENTIRE environment — every
+  unrelated secret — into the agent subprocess). It now spawns with an
+  allowlisted environment (`buildSubprocessEnv`) that forwards well-known-safe
+  plumbing (PATH/HOME/SHELL/locale/TLS/proxy/temp), the harness runtime + session
+  vars (`HARNESS_*`), the agent CLI's own config (`CLAUDE_*`/`ANTHROPIC_*`), git
+  tooling (`GIT_*`/`GH_*`/`GITHUB_*`), and cloud model-provider credentials
+  (prefix-matched providers plus any `*_API_KEY`), while dropping arbitrary
+  unrelated secrets. The allowlist is extensible per-call and via the
+  `HARNESS_SUBPROCESS_ENV_ALLOW` escape hatch, with a
+  `HARNESS_SUBPROCESS_ENV_UNSAFE_PASSTHROUGH` kill-switch for advisory-only mode.
+
+### Patch Changes
+
+- fc20e42: Auto-triggered retrospection with applyable proposals.
+
+  Archiving a session — the session terminus — now optionally fires a
+  retrospection over the archived session corpus and emits _applyable_ skill
+  proposals into `.harness/proposals/`, rather than requiring a manual retro run.
+
+  The trigger reuses the existing session-archive lifecycle: `buildArchiveHooks()`
+  gains a third `onArchived` step (alongside summary and search-index) that runs a
+  new `retrospectArchivedSession()` in `@harness-engineering/orchestrator`. It is
+  opt-in and safe — it fires only when a `sessions.retrospection` config block is
+  present (`enabled !== false`) and an analysis provider is available, and every
+  step remains individually non-fatal. The `manage_state` `archive_session` MCP
+  action activates it live when `HARNESS_SESSION_RETROSPECTION` is set and a
+  provider resolves; otherwise behaviour is unchanged.
+
+  Emitted proposals are ordinary `SkillProposal` records — the same shape produced
+  by `emit_skill_proposal` — so they carry the target (`targetSkill` for
+  refinements), the change (`content.diff`, or `content.skillYaml` + `skillMd` for
+  new skills), and the rationale (`justification`), and they surface, gate, and
+  promote through the unchanged review pipeline. New in
+  `@harness-engineering/types`: `RetrospectionProposalDraftSchema` /
+  `RetrospectionProposalsResponseSchema` (a projection of the emit input, no
+  parallel proposal type) and a `RetrospectionConfig` on `SessionsConfig`.
+
+  Emission only — nothing is auto-applied. Approval and promotion stay a separate,
+  human-gated step.
+
+- 18f2180: Break the circular import among the workflow modules
+  (`orchestrator-context.ts` ↔ `local-stage-prompt.ts`, and
+  `orchestrator-context.ts` → `execute-workflow.ts` → `local-stage-prompt.ts` →
+  `orchestrator-context.ts`). The shared `STAGE_PROMPT_TEMPLATE` constant moves to
+  a new dependency-free leaf module `workflow/stage-prompt-template.ts`;
+  `orchestrator-context.ts` re-exports it (preserving the existing import surface)
+  and `local-stage-prompt.ts` now imports it directly from the leaf. This removes
+  the shared back-edge that closed both cycles. No runtime behavior change — the
+  template string is byte-identical and all exports keep their names.
+- 9255687: Deflake timing-sensitive tests that fail intermittently under `test:coverage`.
+
+  Several suites spawn real git/node subprocesses (`baseline-resolver`,
+  `derive-repo`, `git-scan`, `hotspot`, event-sourcing `concurrency` in core;
+  `claim-coordination` and `orchestrator` integration in orchestrator) and one
+  exercises a real HTTP receiver with a retry/backoff path (the core OTLP
+  exporter). Under v8 coverage instrumentation plus parallel workers, those
+  subprocess spawns are starved of CPU on loaded runners and intermittently blew
+  tight timeouts — failing green code and blocking the pre-push gauntlet for every
+  PR touching core (orchestrator is `--affected` by any core change).
+
+  The fix is test-only and deterministic:
+  - **core**: raise the global vitest `testTimeout` and the separately-budgeted
+    `hookTimeout` (git init/cleanup runs in `beforeEach`) to a generous 60s
+    ceiling, and widen the OTLP exporter's `vi.waitFor` budgets with a small poll
+    interval.
+  - **orchestrator**: the package `vitest.config` already sets a generous 90s
+    `testTimeout`/`hookTimeout` for exactly this reason, but four
+    `claim-coordination` tests and two `orchestrator` integration tests carried
+    per-test `{ timeout: 15000 }` overrides that capped them _below_ that global,
+    defeating the protection. Those caps are removed so the tests inherit the 90s
+    ceiling.
+
+  A larger ceiling only tolerates slow/loaded runners; a genuine hang still fails,
+  so it cannot mask a real bug. No assertions were weakened, no tests skipped, and
+  coverage is unchanged.
+
+- bfb3500: Deflake orchestrator tests that fail intermittently under `test:coverage`.
+
+  The telemetry-latency p99 budget carried a coverage-relaxation branch keyed on
+  `NODE_V8_COVERAGE` / `VITEST_COVERAGE`, but vitest sets neither in the worker
+  environment under `--coverage`, so the branch was dead and the strict 5 ms
+  budget applied under coverage — where v8 instrumentation plus parallel-worker
+  CPU starvation routinely pushes the measured delta past it. The vitest config
+  now detects `--coverage` in the CLI argv and forwards it to the worker as
+  `HARNESS_COVERAGE`, which the test reads to apply the intended relaxed budget.
+  The assertion (exporter overhead is bounded) is preserved, just made
+  deterministic under coverage.
+
+  The package's global test/hook timeout ceiling is raised 90s → 120s. Several
+  integration/tracker suites run `git init` + commits inside `beforeEach` via
+  `execSync`; under full-suite coverage load those subprocess cold-starts
+  occasionally blew the 90s hook ceiling on green code. A higher ceiling only
+  tolerates a slow/loaded runner — a genuine hang still fails — so it cannot mask
+  a real bug.
+
+  The server integration `SC8` test replaced a fixed 1 s sleep (racing the
+  asynchronous plan-watcher auto-resolve under load) with a polling `vi.waitFor`,
+  so it resolves as soon as the watcher fires and only fails if resolution never
+  happens.
+
+  Test-only and deterministic: no source or behavior changes, no assertions
+  weakened, no tests skipped, coverage unchanged.
+
+- a42b4f2: Correct stale LMLM candidate-discovery documentation and lock in the
+  live-discovery → recommender wiring with regression tests.
+
+  The live-HuggingFace → `RankerCandidate` parser (`parseHfModelToCandidates`),
+  the fail-soft discovery function (`discoverCandidates`), and the orchestrator
+  glue (`refreshCandidatesLive` → `seedRecommender`, wired at the CLI composition
+  root and fired on startup + the operator Refresh button) are all in place — the
+  autonomous swap-proposal loop consumes discovered candidates, so it is live, not
+  inert. Three source comments (`Orchestrator.modelRecommender`,
+  `startRefreshScheduler`, and `createNativeRecommender`) still asserted the
+  parser "was never built" and that the recommender is "seeded with an empty
+  candidate set"; those claims contradicted the shipped code and are corrected.
+
+  Adds orchestrator integration tests covering the previously-untested glue:
+  `refreshCandidatesLive` re-seeds the recommender with discovered,
+  allowlist-filtered candidates and the recommender ranks them (proving the loop
+  is live), plus the three fail-closed branches — discovery throws, discovery
+  yields nothing installable, and no orgs approved — each keeping the standing
+  frozen candidates. No runtime behavior change.
+
+- 5c72805: Give maintenance checks a standard machine-parseable findings contract (#691).
+
+  `harness maintenance run` (and the cron orchestrator) previously recovered each
+  task's findings COUNT by regex-scanning free-text check output
+  (`N findings|issues|violations|errors`, plus a keyword fallback). That is
+  fragile: checks like `check-docs` (doc-drift) and `cleanup` (entropy) emit no
+  clean count — so doc-drift reported a uniform "1 finding" — and any wording
+  change could silently break the count.
+
+  A new shared envelope (`@harness-engineering/types`:
+  `MaintenanceFindingsContract` + `formatFindingsContract` / `parseFindingsContract`)
+  lets a check subcommand emit its count as structured data
+  (`{"findings":N,"check":"...","v":1}`) under a `--findings-json` flag. The
+  runner's shared spawn/parse core (`runHarnessCheck`) now prefers that envelope
+  over the regex on both clean and non-zero exits, and labels the source
+  (`findingsSource: 'contract' | 'regex'`). The legacy regex remains the fallback
+  for checks not yet migrated.
+
+  Migrated built-in checks: `check-arch`, `check-deps`, `check-docs`, `cleanup`,
+  `check-security`, `cross-check` (their registry `checkCommand`s now pass
+  `--findings-json`). Fully additive and backward-compatible — the flag defaults
+  off for interactive CLI use and unmigrated checks are unchanged.
+
+- Updated dependencies [88ea428]
+- Updated dependencies [21df39b]
+- Updated dependencies [0498381]
+- Updated dependencies [59590da]
+- Updated dependencies [fc20e42]
+- Updated dependencies [b83b45b]
+- Updated dependencies [b83b45b]
+- Updated dependencies [9852aaa]
+- Updated dependencies [22c2686]
+- Updated dependencies [9255687]
+- Updated dependencies [e294b1d]
+- Updated dependencies [1e5db59]
+- Updated dependencies [991adce]
+- Updated dependencies [29bdefe]
+- Updated dependencies [f91c9c4]
+- Updated dependencies [a6fb723]
+- Updated dependencies [af8b56f]
+- Updated dependencies [d6c160c]
+- Updated dependencies [a42b4f2]
+- Updated dependencies [5c72805]
+- Updated dependencies [7369e11]
+- Updated dependencies [de52864]
+- Updated dependencies [a766cda]
+- Updated dependencies [2f5d572]
+- Updated dependencies [e69f401]
+- Updated dependencies [97ddd1c]
+- Updated dependencies [817e40c]
+- Updated dependencies [ad21769]
+- Updated dependencies [d3e725d]
+- Updated dependencies [d5760a7]
+- Updated dependencies [21a995b]
+- Updated dependencies [5c7332f]
+- Updated dependencies [3aec4bd]
+- Updated dependencies [5a454d5]
+- Updated dependencies [c9076aa]
+- Updated dependencies [0922728]
+- Updated dependencies [c6ee2dc]
+- Updated dependencies [a2e4cc6]
+  - @harness-engineering/core@0.40.0
+  - @harness-engineering/types@0.27.0
+  - @harness-engineering/intelligence@0.11.0
+  - @harness-engineering/graph@0.12.0
+  - @harness-engineering/local-models@0.7.3
+
 ## 0.19.0
 
 ### Minor Changes

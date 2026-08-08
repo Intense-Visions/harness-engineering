@@ -1,5 +1,512 @@
 # Changelog
 
+## 0.40.0
+
+### Minor Changes
+
+- 21df39b: Add failure-reason categorization to `.harness/metrics/adoption.jsonl`.
+
+  Adoption records previously captured `outcome: completed | failed | abandoned` —
+  the _what_ of a skill run without the _why_. A new optional `failureCategory`
+  field records the reason a run did not complete, drawn from a small closed
+  taxonomy (`FailureCategory`): `prerequisite-missing`, `gate-rejected`,
+  `user-cancelled`, `timeout`, `dependency-failure`, `agent-error`, and
+  `inconclusive`.
+
+  The category is derived by the adoption-tracker hook at the failure/gate points
+  already present in the skill-event stream: an `error` event's `failureType` is
+  mapped through a keyword table (defaulting to `agent-error`), and a failed
+  `gate_result` yields `gate-rejected`. It is only emitted when a reason is
+  determinable — completed runs and reason-less abandonments carry no category, so
+  the field is never guessed.
+
+  The field is optional and additive: records written before it existed still
+  parse, and the reader drops any unrecognized value. Downstream consumers now use
+  it — the skill-effectiveness scorer (`detectFailingSkills`) reports a
+  per-skill `failureCategories` breakdown, and the catalog retrospective adds a
+  per-skill breakdown, a catalog-wide `failureCategoryTotals`, and a rendered
+  "Failure categories" section — so failing skills can be grouped by _why_ they
+  fail, not just how often.
+
+- 0498381: Fix `check-arch --update-baseline` rewriting the committed arch snapshot on a feature branch
+  when the base ref is unreadable (closing a gap in the per-PR allowance feature).
+
+  The allowance feature routed `--update-baseline` to the snapshot-rewriting whole-snapshot path
+  for EVERY resolution that was not `base-ref`. But a feature branch resolves to `working-tree`
+  not only in the legitimate single-writer contexts (on the base branch, in a non-git dir, under
+  `HARNESS_ARCH_FORCE_WORKING_TREE`) — it also falls back to `working-tree` whenever the base ref
+  is merely unreadable: an unfetched worktree, a shallow clone, or a moved/unreadable base copy.
+  In that case `--update-baseline` REWROTE `.harness/arch/baselines.json` on the branch (and
+  without `--allow-regress` refused with "it WORSENS N metric(s)"), silently reintroducing the
+  exact `baselines.json` merge cascade the allowance mechanism exists to prevent, so a legitimate
+  value regression (e.g. `dependency-depth`, `module-size`) could never be acknowledged
+  conflict-free.
+
+  The whole-snapshot (snapshot-rewriting) path is now restricted to the contexts where it is
+  actually correct — the base branch, a non-git dir, `HARNESS_ARCH_FORCE_WORKING_TREE` (the
+  post-merge refresh-baselines job), and a genuine bootstrap where the base branch has no
+  baseline at all. A feature branch whose base ref was unreadable but which already has a
+  committed baseline now writes a per-PR allowance against the working-tree baseline instead,
+  leaving `baselines.json` byte-identical. Aggregate category value regressions and warning-level
+  new violations are both allowanceable; error-severity new violations are still never
+  allowanceable — a genuine threshold breach must be fixed.
+  - `resolveArchBaseline` now reports a `fallback` reason (`forced` / `non-git` / `base-branch` /
+    `base-ref-unreachable` / `base-ref-absent` / `base-ref-invalid`) on every non-`base-ref`
+    resolution, and a new `isWholeSnapshotContext(resolution)` helper encodes which contexts may
+    rewrite the committed snapshot. Both are re-exported from `@harness-engineering/core`.
+
+- 59590da: Arch baseline gating is now delta-vs-base with per-PR allowance files, ending the
+  `.harness/arch/baselines.json` merge cascade.
+
+  Previously a PR that added complexity failed the arch gate, and the only way to pass was
+  `check-arch --update-baseline`, which REWROTE the shared `baselines.json` snapshot on the
+  branch. The `merge=ours` attribute only resolves LOCAL merges, so GitHub's server-side
+  3-way merge conflicted, and every merge into the trunk re-conflicted all other open PRs.
+
+  Two additive changes fix it:
+  - **Base-aware resolution** (`resolveArchBaseline`): in a PR context the gate compares
+    current metrics against the base ref's committed baseline
+    (`git show origin/main:…`, overridable via `HARNESS_ARCH_BASE_REF`) rather than the
+    working-tree file — a true delta-vs-base. It is strictly fail-open: on the base branch,
+    a fresh/detached checkout with no reachable base ref, a non-git directory, or an
+    absent/invalid base copy, it falls back to today's working-tree behavior and never
+    produces a false failure.
+  - **Per-PR allowance files** (`.harness/arch/allowances/<branch>.json`): an intentional
+    regression is acknowledged with a uniquely-named per-PR file (the same conflict-free
+    one-file-per-PR pattern as changesets), so two branches never touch the same file. In a
+    PR context `check-arch --update-baseline --reason "…"` WRITES an allowance instead of
+    rewriting the snapshot; on the trunk it keeps the whole-snapshot behavior. The gate
+    accepts a regression only when a present allowance covers it. Genuine NEW error-severity
+    threshold violations are NEVER allowanced and still hard-fail — only the
+    snapshot-commit requirement is removed, not the gate itself.
+
+  The committed snapshot is now single-writer: only the post-merge baseline-refresh job
+  advances it, and it also folds in and deletes consumed allowance files.
+
+- e294b1d: check-deps no longer fails on cycles inside vendored `node_modules`: the CLI
+  `findFiles` helper now applies core's shared `DEFAULT_FIND_FILES_IGNORE`. Adds a
+  `deps.exclude` config block (minimatch globs) to suppress additional paths from
+  check-deps discovery, threads it through both the layer-validation and
+  circular-detection paths, attributes circular findings to their first-cycle
+  file, and prints the analyzed-module denominator — failing rather than
+  reporting clean when layers are configured but zero modules are analyzed.
+  Exports `DEFAULT_FIND_FILES_IGNORE` from `@harness-engineering/core`. (#1188)
+- 1e5db59: Promote two domain skills from advisory prose to load-bearing mechanical checks. `owasp-injection-prevention` gains `SEC-INJ-004`, which flags Prisma `$queryRawUnsafe`/`$executeRawUnsafe` called with interpolated or concatenated input (enforced by `harness-security-scan`). `a11y-aria-patterns` gains a new `AriaScanner` (`A11Y-014` aria-hidden on a focusable element, `A11Y-042` positive tabindex), invoked by `harness-accessibility`. Both checks fire only on statically-decidable values to keep false positives near zero. The CSRF, rate-limiting, and idempotency-key skills remain advisory — a low-false-positive mechanical check is not achievable for them without framework-aware data-flow analysis.
+- 991adce: Add `harness check-deployment` — an enforcing pre/post-deploy gate backed by a
+  pure `packages/core/src/deployment` engine. It verifies deployment readiness and
+  exits non-zero on unambiguous, incident-causing violations so CI can gate a deploy:
+  a hardcoded secret in a pipeline or committed env file (`DEPLOY-SEC001`,
+  non-waivable), a deploy target with no rollback path wired (`DEPLOY-RB001`), and a
+  direct-to-production deploy with no promotion/approval gate (`DEPLOY-ENV001`).
+  Maturity gaps (missing stages, weak env separation, no health check, pipeline
+  smells) are surfaced as non-blocking advisories. On a repo with no deployment
+  configuration the gate abstains loudly (exit 3, never a false green); `enabled:
+false` opts out explicitly (exit 0). The rollback requirement is satisfied by a
+  `rollback` config block, a revert/rollback workflow or script, or a documented
+  runbook, tying the pre-ship gate to the post-ship rollback circuit breaker. The
+  gate is standalone and opt-in via `deployment.enabled` — it is not added to the
+  default `ci check`.
+
+  The `@harness-engineering/core` bump ships the new `deployment` engine module
+  (detect + evaluate + exit-code) reused by the command.
+
+- a6fb723: Add the `harness golden-build` reference-state primitive.
+
+  A golden build is the canonical known-good reference state of the repo — an
+  immutable, tag-like snapshot, distinct from the per-metric baselines (arch,
+  coverage, benchmark) which are moving numeric ratchets. It answers "is the repo
+  still the exact known-good shape we last trusted?" rather than "did metric X
+  regress?".
+
+  The snapshot is a composite fingerprint (SHA-256 per reference file) over a
+  configurable set of reference files — by default the three metric-baseline files
+  plus dependency/config identity anchors (`package.json`, the lockfile, the
+  harness config). Hashing the baseline files means a golden sits _above_ them:
+  a baseline rewrite moves the golden fingerprint too.
+
+  Three subcommands:
+  - `harness golden-build promote` — snapshot the working tree to
+    `.harness/golden/manifest.json`. Byte-stable: a re-promote whose fingerprint
+    is unchanged leaves the manifest untouched (informational provenance —
+    `promotedAt`/`commit`/`branch` — is ignored by comparison and only refreshed
+    when the fingerprint actually changes).
+  - `harness golden-build verify` — compare the working tree against the golden
+    and exit non-zero on any drift (changed, missing, or added reference file).
+  - `harness golden-build diff` — explain what has drifted since the last golden
+    (advisory; always exits 0).
+
+  Configurable via an optional `golden` config block (`manifestPath`,
+  `referencePaths`) and a repeatable `--path` override on every subcommand.
+
+- 7369e11: Add opt-in constraint packs — named bundles of blocking rules a project chooses
+  to enforce per lifecycle stage rather than all-or-nothing.
+
+  A project opts in via `constraintPacks: [...]` in `harness.config.json`. Each
+  pack maps onto the existing security rule sets and elevates a set of rules to
+  blocking at the stage(s) it declares (`pre-commit`, `pre-merge`, `pre-release`).
+  Three built-in packs ship: `secrets-and-injection` (secrets + injection, at
+  pre-merge and pre-release), `ai-agent-safety` (unsafe AI-agent/MCP config, at
+  pre-merge), and `web-hardening` (XSS, path traversal, unsafe network, weak
+  crypto, at pre-release).
+
+  Packs are a thin overlay on the existing check machinery, not a new enforcement
+  engine: `runCIChecks` resolves the opted-in packs and merges their rule
+  elevations into the security check's config before it runs, so opting in
+  genuinely turns the rules on. A project's own explicit `security.rules` entry
+  always wins over a pack overlay (a per-rule escape hatch). `harness ci check`
+  gains a `--stage <stage>` flag to enforce only the packs that apply at that
+  stage, and the check report carries a per-pack, per-stage compliance summary
+  (`compliant` / `non-compliant` / `n/a`). Empty or absent `constraintPacks`
+  leaves all existing behavior unchanged.
+
+  Opting into a pack is scoped to exactly that pack's rule prefixes:
+  - When a pack force-enables a scanner that was `security.enabled: false`, a
+    `'SEC-*': 'off'` base is injected before the pack's elevations, so only the
+    pack's own prefixes block — opting into one pack no longer turns on every
+    default-error rule in the scanner. Wildcard rule resolution now prefers the
+    most-specific (longest-prefix) match, so a narrow elevation is never shadowed
+    by that broad base.
+  - `web-hardening` no longer promotes every warning/info rule via a global
+    `strict` flag (the `securityStrict` pack field is removed); it blocks only its
+    four named prefixes (`SEC-XSS-*`, `SEC-PTH-*`, `SEC-NET-*`, `SEC-CRY-*`).
+  - Per-pack compliance is attributed by rule prefix: a stage is `non-compliant`
+    only when a failing security finding's rule id is covered by that pack's own
+    prefixes, so an unrelated finding no longer marks every pack non-compliant.
+    `CICheckIssue` gains an optional `ruleId` to carry this attribution.
+  - `harness ci check` rejects an unrecognized `--stage` instead of silently
+    running every stage, and warns when packs are opted in but the security check
+    was skipped.
+
+- d5760a7: Ship agent-rehearsal fixtures and the `harness rehearse` skill/command.
+
+  `templates/rehearsal-fixtures/` now carries a set of tiny, self-contained,
+  deliberately-broken fixtures — each planting exactly one failure mode that a
+  real harness check is designed to catch: a hardcoded secret (`check-security`),
+  an architectural layer violation and a circular import (`check-arch`), and a
+  broken documentation link (`check-docs`). Each fixture ships a `rehearsal.json`
+  manifest — the ground truth for what was planted, the check that should catch
+  it, the expected fix, and a four-dimension scoring rubric.
+
+  A new `harness rehearse` command drives them: `list` enumerates the fixtures,
+  `show <id>` prints a manifest + rubric, and `score --fixture <id> --recovery
+<record.json>` grades a structured recovery record with a deterministic,
+  IO-free, LLM-free scorer (0-100 across `detected` / `correctCheck` / `fixed` /
+  `noCollateral`, with pass/partial/fail tiers). The `harness:rehearse` skill
+  (all four platforms) orchestrates the loop — stage a scratch copy, detect and
+  repair the planted defect, assemble the record, and score. Use it to train
+  personas before production trust, to regression-test the harness's own gates
+  against known failure shapes, and to let adopters verify their gates fire.
+
+  The scoring engine, catalogue loader, and contracts (`scoreRecovery`,
+  `loadCatalog`, `findFixture`, `RehearsalManifest`, `RecoveryRecord`,
+  `RehearsalScore`) are exported from `@harness-engineering/core`.
+
+- 3aec4bd: Make the two skill required-section gates read one source of truth.
+
+  The `harness skill validate` CLI validator and the `agents/skills` vitest
+  structure test each maintained their own copy of the required-section lists,
+  and they had drifted: the validator required `## Rationalizations to Reject`
+  on behavioral skills while the structure test did not, so skills missing that
+  section passed CI on the weaker gate.
+
+  `@harness-engineering/core` now exports the canonical lists —
+  `BEHAVIORAL_REQUIRED_SECTIONS`, `KNOWLEDGE_REQUIRED_SECTIONS`, and
+  `RIGID_SECTIONS` — from a new `skills/required-sections` module. The CLI
+  validator (`harness skill validate`) imports them instead of its former inline
+  copies, so both gates derive their rules from the same constant and cannot
+  silently diverge again. Validator behavior is unchanged; this is an
+  internal dedup plus a new public export.
+
+### Patch Changes
+
+- 88ea428: Add `harness roadmap install-hook` — an adopter-facing installer for the roadmap
+  aggregate-regeneration git hook (#688).
+
+  Projects that shard their roadmap (`docs/roadmap.d/`) keep the generated
+  `docs/roadmap.md` aggregate fresh with a `pre-commit` step that runs `harness
+roadmap regen`. This command installs that step into an adopter's own hook,
+  composing safely with an existing husky (`.husky/pre-commit`) or raw
+  `.git/hooks/pre-commit` setup. It is idempotent (a fenced managed block is
+  replaced in place, never duplicated, and never clobbers the adopter's own hook
+  steps) and degrades gracefully when the project is not sharded (skips unless
+  `--force`). CI (`harness validate`) remains the authoritative freshness contract;
+  this hook is a local developer convenience.
+
+  The `@harness-engineering/core` bump is the read-source invariant-R allowlist
+  entry for the new command (the generated hook block names `docs/roadmap.md` as a
+  git path, not a content read); no runtime behavior changes in core.
+
+- 22c2686: Fix `check-docs` / `cleanup` file-discovery blind spots (#1146).
+
+  Three independent blind spots made these gates report on an unrepresentative
+  slice of a repo — and, in the degenerate case, a confident 100% green over zero
+  files:
+  - **`.mjs` / `.cjs` were invisible.** `checkDocCoverage` discovered source with
+    `**/*.{ts,js,tsx,jsx}`; it now includes `.mjs`/`.cjs`, matching the entropy
+    analyzer. Every ESM-first repo was previously invisible to docs coverage.
+  - **Dot-directories were never traversed.** The shared `findFiles` now passes
+    `dot: true`, so first-party source under a dot-directory (`.canary/`,
+    `.config/`, …) is discovered. The genuine ignore list (`.git`,
+    `node_modules`, the `.harness` runtime, virtualenvs, build/tooling caches)
+    stays excluded. This also cures false `NOT_FOUND` drift findings from
+    `cleanup --type drift`, whose exports index is built from the same discovery.
+  - **A zero-file scan reported 100%.** `checkDocCoverage` now reports a `scanned`
+    denominator and never returns a confident 100% when it read nothing; the
+    `check-docs` command surfaces the abstention explicitly (distinct exit code,
+    `x/y files documented` denominator on every run), mirroring the
+    `check-security` precedent.
+
+  Additionally, `check-docs` now honors `entropy.excludePatterns` from
+  `harness.config.json` (previously hardcoded), so config governs it identically
+  to the `harness ci check` path.
+
+- 9255687: Deflake timing-sensitive tests that fail intermittently under `test:coverage`.
+
+  Several suites spawn real git/node subprocesses (`baseline-resolver`,
+  `derive-repo`, `git-scan`, `hotspot`, event-sourcing `concurrency` in core;
+  `claim-coordination` and `orchestrator` integration in orchestrator) and one
+  exercises a real HTTP receiver with a retry/backoff path (the core OTLP
+  exporter). Under v8 coverage instrumentation plus parallel workers, those
+  subprocess spawns are starved of CPU on loaded runners and intermittently blew
+  tight timeouts — failing green code and blocking the pre-push gauntlet for every
+  PR touching core (orchestrator is `--affected` by any core change).
+
+  The fix is test-only and deterministic:
+  - **core**: raise the global vitest `testTimeout` and the separately-budgeted
+    `hookTimeout` (git init/cleanup runs in `beforeEach`) to a generous 60s
+    ceiling, and widen the OTLP exporter's `vi.waitFor` budgets with a small poll
+    interval.
+  - **orchestrator**: the package `vitest.config` already sets a generous 90s
+    `testTimeout`/`hookTimeout` for exactly this reason, but four
+    `claim-coordination` tests and two `orchestrator` integration tests carried
+    per-test `{ timeout: 15000 }` overrides that capped them _below_ that global,
+    defeating the protection. Those caps are removed so the tests inherit the 90s
+    ceiling.
+
+  A larger ceiling only tolerates slow/loaded runners; a genuine hang still fails,
+  so it cannot mask a real bug. No assertions were weakened, no tests skipped, and
+  coverage is unchanged.
+
+- 29bdefe: Speed up entropy/cleanup API-signature drift detection (~2.7x faster `harness cleanup`). Fuzzy export matching now builds the lowercased export index once per drift check instead of per unresolved reference, skips the edit-distance DP when a candidate's length differs by more than the max distance, and uses a bounded (diagonal-band) Levenshtein with an exact early exit. Detection output is unchanged.
+- f91c9c4: Fix documentation-coverage scanner self-excluding when the checkout's own
+  absolute path contains a skip-dir segment (notably `.claude`).
+
+  `checkDocCoverage` matched its exclude globs against each file's absolute path
+  as well as its scan-root-relative path. When the default skip-dir globs include
+  `**/.claude/**` and the checkout lives under `<repo>/.claude/worktrees/<agent>/`
+  (where `isolation: worktree` agents run), every file's absolute path contained
+  `/.claude/` and matched, dropping all files. The denominator collapsed to zero,
+  which — since the zero-denominator became a loud failure — produced
+  deterministic false "stale docs" failures on those checkouts (CI was unaffected
+  because CI checkouts are not nested under a skip-dir).
+
+  The exclude globs now match the scan-root-relative path only, so the checkout's
+  own path prefix can no longer self-match. A skip directory that genuinely lives
+  inside the scanned tree is still excluded.
+
+- af8b56f: Make the knowledge graph work inside git worktrees. `.harness/graph/` is
+  gitignored, so `git worktree add` never copies it into a linked worktree and
+  every graph read reported "No graph found". A new `resolveGraphDir` in
+  `@harness-engineering/graph` lets reads borrow the main worktree's graph (located
+  via git's `commondir` metadata) when the worktree has none, while writes stay
+  worktree-local so a scan never clobbers the main graph and a worktree-local scan
+  still takes precedence. All graph read paths (graph query/export/status,
+  traceability, impact-preview, freshen, pre-merge-brief, signals, and the whole
+  MCP graph surface via the shared loader) are routed through it.
+- a766cda: Define the `owns:[paths]` owned-files declaration on plan tasks (#601). Adds a cheap, deterministic, graph-free pre-execution conflict forecast: `forecastOwnershipConflicts` and glob-aware `pathsOverlap` (via minimatch) flag task pairs whose declared owned paths overlap and so may conflict if run in parallel. `buildTaskGraph`/`planParallelization` now compute footprint overlap glob-aware and surface an `ownershipForecast` field on `ParallelizationPlan`. Fully additive — absent `owns` preserves current behavior.
+- 2f5d572: Sharded roadmap: `groom` now archives `done` rows into a sharded archive
+  (`docs/roadmap.d/archive/<slug>.md`) instead of the monolith
+  `docs/roadmap-archive.md` when the project is in sharded mode. Each done shard is
+  MOVED byte-for-byte (full frontmatter + body preserved), so the motion is lossless
+  and reversible. The active read path already excludes the `archive/` subdirectory,
+  so archived shards drop out of `load()`, the regenerated aggregate `docs/roadmap.md`,
+  and active `show`/`query` — the archive is history, not active state. The monolith
+  `groom` path is unchanged.
+
+  New core store helpers: `archiveShards`, `restoreShards`, `readArchivedShards`,
+  `archiveShardDir`, `ARCHIVE_SUBDIR`, and the project-level `archiveDoneShardsForProject`.
+
+- e69f401: Fix two roadmap-sync writeback bugs that silently corrupted GitHub sync in sharded mode.
+  - **#1036 (writeback aborted on title-slug ≠ frontmatter-slug):** `applyRoadmapDiff`
+    addresses each shard by `slugifyFeatureName(feature.name)`, but a shard's real file
+    identity is its frontmatter `slug` — frequently a hand-shortened / length-truncated
+    form of the title. For rows where the two diverge, the writeback ENOENT'd and aborted
+    the _entire_ batch, dropping every external-ID backfill and the `last_synced` stamp,
+    and (worst case) re-creating a duplicate tracker issue on the next run. `ShardStore`
+    now resolves the real shard by name-slug when the direct path misses, so `patchFeature`
+    / `removeFeature` address the correct file without aborting.
+  - **#1037 (`last_synced` never stamped on success):** `fullSync` never wrote
+    `last_synced` on a clean apply — `applyRoadmapDiff`'s frontmatter branch only fires
+    when before/after frontmatter differ (never here) and is a no-op in sharded mode — so
+    `_meta.md` drifted arbitrarily stale even with zero errors. Added a `stampLastSynced`
+    store operation (writes `_meta.md` in sharded mode, the aggregate frontmatter in
+    monolith mode) and `fullSync` now stamps it on every successful non-dry-run writeback.
+
+- 97ddd1c: Stop the CWE-798 secret detector flagging command-substitution values as
+  hardcoded secrets.
+
+  The reference-vs-literal guard already suppressed variable references
+  (`$NAME`, `${NAME}`, `${NAME:-default}`) and CI expressions
+  (`${{ secrets.X }}`). It still flagged a quoted **command substitution**, whose
+  value is produced by running a command at runtime rather than embedded in
+  source, e.g. `GH_TOKEN="$(gh auth token)"` or the backtick form. That fired a
+  blocking `critical` on the ordinary, shellcheck-clean way to pass a token to a
+  subcommand in a CI workflow.
+
+  `isReferenceOnlySecretValue` now strips single-level `$( ... )` and backtick
+  `` ` ... ` `` substitutions before its literal-residue check, so both the
+  heuristic review-tier detector and the deterministic `SEC-SEC-*` rules stop
+  mis-firing. Genuine literals — including a command substitution mixed with a
+  literal suffix (`"$(id)-sk-live-..."`) and nested substitutions — are still
+  detected.
+
+- 817e40c: Extract secret values to the matching close quote, so shell env plumbing stops
+  reporting as a hardcoded secret.
+
+  The reference-vs-literal guard added for the `${{ secrets.X }}` false positive
+  works, but the value handed to it was truncated. Both extractors used a
+  character class excluding _both_ quote types — `["']([^"']{8,})` in the
+  review-tier detector and `['"]([^'"]*)['"]` in `extractQuotedSecretValue` — and
+  neither understood backslash escapes, so any value containing an inner quote
+  came back as a fragment:
+
+  ```sh
+  GITHUB_TOKEN="$(sed -n 's/^GITHUB_TOKEN=//p' .env)"   # -> $(sed -n
+  GITHUB_TOKEN="${GITHUB_TOKEN#\"}"                     # -> ${GITHUB_TOKEN#\
+  ```
+
+  Neither fragment parses as a command substitution or a brace expansion, so
+  `isReferenceOnlySecretValue` saw literal residue and reported `critical`. Only
+  values with no inner quote (`"${TOKEN:-}"`) were suppressed correctly — which is
+  why the workflow-YAML class looked fixed while the shell class was not.
+
+  Extraction is now quote-type aware and escape aware, so the value runs to the
+  matching close quote. The closing quote stays optional in the review-tier
+  pattern, so an unterminated string is still scanned rather than skipped.
+
+  Verified against a real `.husky/pre-push`: 5 findings → 0. Literal secrets still
+  fire, including a literal containing an escaped quote.
+
+  Refs Capillary/capwell#1372, Capillary/capwell#1216.
+
+- ad21769: Fix `check-security` scanning no `.mjs`/`.cjs` files, and report the scan
+  denominator (#1084).
+
+  The scan glob was `**/*.{ts,tsx,js,jsx,go,py,java,rb}`, so an ESM-only Node
+  project got a scan that matched none of its source and a gate that passed because
+  it read nothing — indistinguishable, in the output, from a genuinely clean run. In
+  the repo where this surfaced, 144 tracked `.mjs` sources went unread while a
+  security ledger recorded `securityScore: 100`; a planted AWS key was detected in
+  `.ts` and `.py` and invisible in the byte-identical `.mjs`.
+
+  The glob was duplicated across `check-security`, the CI check-orchestrator, and
+  the dashboard's security gatherer, and the copies had drifted (the orchestrator's
+  also omitted `java`/`rb`). It now has one home,
+  `core/src/security/scan-targets.ts` (exported as `SECURITY_SCAN_GLOB` /
+  `SECURITY_SCAN_EXTENSIONS` / `SECURITY_SCAN_DEFAULT_IGNORE`), with `mts`/`cts`
+  added alongside `mjs`/`cjs`.
+
+  `check-security` now also reports what it read: text output appends the
+  files-scanned and rules-applied counts, JSON output gains `scannedNothing` and
+  `stats`, and a zero-file scan emits an explicit ABSTAINED issue instead of
+  presenting as clean. New `--fail-on-empty` makes that abstention blocking for CI
+  gates; the default stays non-blocking so repos with legitimately no scannable
+  source are not reddened by the upgrade.
+
+  Behaviour change to expect: projects containing `.mjs`/`.cjs`/`.mts`/`.cts`
+  sources will see findings that were previously invisible, including in
+  `harness ci check` and the dashboard's security panel.
+
+- d3e725d: Stop the security review flagging secret **references** as hardcoded secrets.
+
+  Both the deterministic secret rules (`SEC-SEC-*`) and the heuristic review-tier
+  secret detector match assignment shapes like `TOKEN="..."`. When the right-hand
+  side is a variable or expression reference rather than a literal, nothing is
+  embedded in source — the real value is resolved at runtime — so a
+  "Hardcoded secret or API key detected" finding there is a false positive.
+
+  The detectors now extract the matched value and suppress the finding when it is
+  composed solely of references:
+  - shell/env variables: `$NAME`, `${NAME}`, `${NAME:-default}`
+  - CI expressions: `${{ secrets.X }}`, `${{ env.X }}`, `${{ vars.X }}`, and any
+    `${{ ... }}`
+
+  This mis-fired on essentially every pull request touching a CI workflow file
+  (e.g. `GH_TOKEN="$AUTOAPPROVE_PAT"`, `TOKEN: "${{ secrets.FOO }}"`), and in
+  floor-only review mode it produced a blocking request-changes verdict. Genuine
+  hardcoded literals — including values with a variable-only prefix such as
+  `"${PREFIX}sk-live-..."` — are still detected. The shared reference check lives
+  in `security/secret-reference.ts` so both detection tiers benefit.
+
+- 5a454d5: Make the architecture baseline file (`.harness/arch/baselines.json`) a pure
+  function of its metrics, eliminating spurious merge-conflict churn.
+
+  `ArchBaselineManager.update` now preserves the `updatedAt`/`updatedFrom` stamps
+  when a refresh does not actually change any metric, and `capture` sorts each
+  category's `violationIds`. A no-op regeneration therefore produces a
+  byte-identical file, so a PR that moves no metric never touches the baseline —
+  and no longer conflicts with `main` on every merge. (The `merge=ours` git
+  attribute only resolves this file for _local_ merges; GitHub's server-side merge
+  cannot run a custom driver, so any diff here surfaces as a conflict there.)
+  Genuine metric changes still bump the stamps and update the values as before.
+
+- c9076aa: Fix STRENGTH-005 (`tier-default`) false positive in toolkit mode.
+
+  The toolkit-mode detector matched any line where `basic` merely co-occurred with
+  `default`/`recommend`, so after the init skill began recommending
+  `load-bearing-minimum` as the default (with `basic` offered as an explicit
+  opt-down), the audit falsely reported that the init skill "recommends the `basic`
+  tier by default" — the opposite of the truth.
+
+  The regex now fires only when `basic` sits adjacent (within ~40 non-newline
+  characters, in either direction) to a `default`/`recommend` token, so a line that
+  names `basic` as an opt-down far from the recommendation no longer trips the rule
+  while a genuine "defaults to basic" still does. The init skill's wording is also
+  adjusted so `basic` and `default`/`recommend` no longer share a line, giving the
+  fix defense in depth. A regression test pins both the real-world opt-down phrasing
+  (must not fire) and a literal default-to-basic line (must fire).
+
+- 0922728: Tier the skill catalog with first-class curation metadata and surface it.
+
+  Skills now carry a first-class `catalog_tier` field in `skill.yaml` (`0` =
+  load-bearing gear, `1` = library / on-demand reference — the default, `2` =
+  deprecated / retire candidate). This is distinct from the existing `tier` field,
+  which governs slash-command/catalog _loading_; the new axis names how
+  load-bearing a skill is. The premise: a senior engineer can hold ~12 skills in
+  their head, not hundreds — so the twelve load-bearing gear skills are marked and
+  surfaced first.
+
+  The tier is genuinely wired through the surfaces a reader sees:
+  - **Skills Catalog** (`docs/reference/skills-catalog.md`) leads with a
+    "Load-Bearing Gear (Tier-0)" section and annotates non-default entries with
+    their curation tier.
+  - **README** gains a "Load-bearing skills (Tier-0)" table mapping each gear skill
+    to its slash command.
+  - **Dashboard command palette** pins the load-bearing skills in their own section
+    above the category groups and badges each card (`@harness-engineering/dashboard`).
+
+  The `@harness-engineering/cli` bump adds the `catalog_tier` field to the skill
+  metadata schema. The `@harness-engineering/core` bump tracks the
+  `initialize-harness-project` → `harness-initialize-project` skill rename in the
+  harness-strength init-skill path (the STRENGTH-005 rule and context loader); no
+  runtime behavior changes.
+
+  The load-bearing init skill is renamed from `initialize-harness-project` to
+  `harness-initialize-project` so it sorts with the rest of the workflow gear. The
+  slash command is unchanged — it stays `/harness:initialize-project`.
+
+- Updated dependencies [21df39b]
+- Updated dependencies [fc20e42]
+- Updated dependencies [b83b45b]
+- Updated dependencies [af8b56f]
+- Updated dependencies [d6c160c]
+- Updated dependencies [5c72805]
+- Updated dependencies [7369e11]
+- Updated dependencies [de52864]
+- Updated dependencies [a766cda]
+  - @harness-engineering/types@0.27.0
+  - @harness-engineering/graph@0.12.0
+
 ## 0.39.0
 
 ### Minor Changes

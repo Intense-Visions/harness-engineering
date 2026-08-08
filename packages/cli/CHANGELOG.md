@@ -1,5 +1,964 @@
 # @harness-engineering/cli
 
+## 11.0.0
+
+### Minor Changes
+
+- 21df39b: Add failure-reason categorization to `.harness/metrics/adoption.jsonl`.
+
+  Adoption records previously captured `outcome: completed | failed | abandoned` —
+  the _what_ of a skill run without the _why_. A new optional `failureCategory`
+  field records the reason a run did not complete, drawn from a small closed
+  taxonomy (`FailureCategory`): `prerequisite-missing`, `gate-rejected`,
+  `user-cancelled`, `timeout`, `dependency-failure`, `agent-error`, and
+  `inconclusive`.
+
+  The category is derived by the adoption-tracker hook at the failure/gate points
+  already present in the skill-event stream: an `error` event's `failureType` is
+  mapped through a keyword table (defaulting to `agent-error`), and a failed
+  `gate_result` yields `gate-rejected`. It is only emitted when a reason is
+  determinable — completed runs and reason-less abandonments carry no category, so
+  the field is never guessed.
+
+  The field is optional and additive: records written before it existed still
+  parse, and the reader drops any unrecognized value. Downstream consumers now use
+  it — the skill-effectiveness scorer (`detectFailingSkills`) reports a
+  per-skill `failureCategories` breakdown, and the catalog retrospective adds a
+  per-skill breakdown, a catalog-wide `failureCategoryTotals`, and a rendered
+  "Failure categories" section — so failing skills can be grouped by _why_ they
+  fail, not just how often.
+
+- 4550b35: Add an `antigravity` plugin-generator target (agy / Antigravity CLI). The
+  plugin generator now emits `/harness:*` slash commands, persona agents, and a
+  pinned MCP declaration for agy alongside the existing claude/cursor/gemini/codex
+  targets, and `harness setup` detects and configures the Antigravity CLI client.
+
+  agy shares the `~/.gemini/` root with Gemini CLI but is a distinct target: it
+  reads persona agents from `~/.gemini/agents/*.md` and MCP from
+  `~/.gemini/config/mcp_config.json` (declaring MCP in `settings.json` is silently
+  ignored). Lifecycle hooks are deferred to a follow-up phase because agy's
+  stdin/stdout decision contract differs from Claude Code's exit-code contract.
+
+- 6b3ba5e: Add `api-craft` — an LLM-judgment ceiling skill for API design quality, the
+  structural twin of `cli-ergonomics-craft` and the ceiling counterpart to the
+  rule-based API floor (OpenAPI-format and webhook-format compliance). A linter can
+  confirm a path is documented and a schema validates; only judgment can tell
+  whether the endpoint sits at the right abstraction, whether the HTTP verb is
+  honest, whether a resource name belongs in the URL or a query param, whether a
+  stranger could predict the response shape, and whether the error tells the
+  consumer what to do. It discovers a project's own API surface — OpenAPI/Swagger
+  documents and route/handler definitions — and critiques whether resources model
+  the domain rather than the implementation, whether resource naming and URL
+  structure are predictable, whether HTTP methods are honest, whether status codes
+  are correct, whether error responses are actionable, whether response shapes are
+  predictable and consistent, whether collections paginate and filter consistently,
+  whether mutations are idempotency-honest, and whether the API evolves without
+  breaking consumers — 9 seed rubrics emitting 3-axis findings (tier × impact ×
+  confidence), a curated exemplar set (Stripe / Linear / GitHub / Resend /
+  Anthropic), and kind-aware rubric filtering (the idempotency rubric never fires on
+  a static OpenAPI document). Ships the `harness api-craft` CLI, the `api_craft` MCP
+  tool, and the cross-cutting `critiqueApiSurfaceFile` API.
+- 59590da: Arch baseline gating is now delta-vs-base with per-PR allowance files, ending the
+  `.harness/arch/baselines.json` merge cascade.
+
+  Previously a PR that added complexity failed the arch gate, and the only way to pass was
+  `check-arch --update-baseline`, which REWROTE the shared `baselines.json` snapshot on the
+  branch. The `merge=ours` attribute only resolves LOCAL merges, so GitHub's server-side
+  3-way merge conflicted, and every merge into the trunk re-conflicted all other open PRs.
+
+  Two additive changes fix it:
+  - **Base-aware resolution** (`resolveArchBaseline`): in a PR context the gate compares
+    current metrics against the base ref's committed baseline
+    (`git show origin/main:…`, overridable via `HARNESS_ARCH_BASE_REF`) rather than the
+    working-tree file — a true delta-vs-base. It is strictly fail-open: on the base branch,
+    a fresh/detached checkout with no reachable base ref, a non-git directory, or an
+    absent/invalid base copy, it falls back to today's working-tree behavior and never
+    produces a false failure.
+  - **Per-PR allowance files** (`.harness/arch/allowances/<branch>.json`): an intentional
+    regression is acknowledged with a uniquely-named per-PR file (the same conflict-free
+    one-file-per-PR pattern as changesets), so two branches never touch the same file. In a
+    PR context `check-arch --update-baseline --reason "…"` WRITES an allowance instead of
+    rewriting the snapshot; on the trunk it keeps the whole-snapshot behavior. The gate
+    accepts a regression only when a present allowance covers it. Genuine NEW error-severity
+    threshold violations are NEVER allowanced and still hard-fail — only the
+    snapshot-commit requirement is removed, not the gate itself.
+
+  The committed snapshot is now single-writer: only the post-merge baseline-refresh job
+  advances it, and it also folds in and deletes consumed allowance files.
+
+- d74f5ec: Ship the usage-burn HUD as `@harness-engineering/burn` + `harness burn`, replacing the
+  standalone `claude-burn-hud` Python/shell tool.
+
+  The HUD reports Claude Code usage pace from local transcripts: week-anchored spend,
+  a baseline-shrunk forecast, per-model family limits, and a `/clear` nudge once the
+  checked-out branch has merged. It is a local proxy, never Anthropic's real quota —
+  `/usage` remains the authority, and no percentage is trustworthy until reconciled
+  against it.
+
+  Two surfaces, split on latency rather than taste:
+  - `harness burn` (report, `weeks`, `calibrate`, `budget`, `reset-day`, `scan`,
+    `install`) — human-invoked, so the CLI's module graph is affordable.
+  - `harness-burn-hud` (`line`, `session-start`, `stop`, `scan`) — a standalone binary
+    for the statusline repaint and the Stop hook. `harness --version` costs ~0.85s to
+    load against a ~0.11s repaint budget, so this binary imports nothing from
+    `@harness-engineering/*`; a test asserts that import graph, because the regression
+    would show up only as a terminal that feels slow.
+
+  Every regression test from the Python suite came across, each still tied to a defect
+  that actually shipped: the Monday-UTC week assumption that understated a 97% week by
+  ~81×, the write race that silently dropped 85% of the record store, transcript usage
+  blocks inflating totals ~3.5×, and a 3-hour extrapolation firing CRITICAL. Parity was
+  verified against 33,305 real records — every shared record byte-identical, and with
+  `now` pinned the summaries differ only in float rendering.
+
+  The port also fixed two hot-path defects of its own: the binary is emitted as `.mjs`
+  so Node does not detect-and-reparse it on every launch, and `line` no longer blocks
+  forever when run from a terminal.
+
+  `harness burn install` performs the cutover into `~/.claude/settings.json` additively —
+  it backs the file up, leaves unrelated hooks alone, and leaves the previous
+  `~/.claude/hud` install on disk so there is a way back.
+
+- b83b45b: Add `CanaryAdapter.readRunHistory` (new injectable `CanaryReader` file-read seam +
+  permissive `canaryRunRecordSchema`/`canaryTestResultSchema`) and the thin
+  `canary_run_history` MCP tool. Reads canary's documented NDJSON run-history store
+  (`test-results/reports/history-v2.jsonl`) and degrades to `[]` — never throws — on a
+  missing/unreadable store or malformed lines. Foundation for graph/outcome-eval ingest.
+- 9852aaa: Wire canary into harness-verify and harness-tdd through the existing adapter seam.
+
+  `CanaryAdapter` gains a total `listFrameworks()` method (execs `canary frameworks --json`,
+  zod-parses the framework registry, returns `[]` on any degrade) and a pure
+  `resolveTestCommand()` helper that fills the `{file}` placeholder and appends CI flags.
+  A new MCP tool, `canary_discover_test_command`, matches candidate test files against the
+  registry by longest file-extension suffix and returns the resolved per-file test command.
+
+  `harness-verify` DETECT now consults registry truth for the test command before its
+  `package.json`/`Makefile` heuristics, and `harness-tdd` RED offers canary-authored failing
+  tests (detect-and-offer). Both degrade silently to today's behavior when canary is absent —
+  the dependency stays optional and the adapter boundary is unchanged.
+
+- a060f80: Add `cli-ergonomics-craft` — an LLM-judgment ceiling skill for command-line
+  ergonomics quality, the structural twin of `docs-craft` and the ceiling
+  counterpart to mechanical CLI checks. Unlike the other craft skills it has no
+  rule-based floor twin: a linter can confirm a flag is documented, but only
+  judgment can tell whether the name is predictable, whether the help teaches, and
+  whether the error says what to do next. It critiques whether command and flag
+  names are predictable and consistent, whether help text is task-oriented,
+  whether errors are actionable, whether defaults are sane and safe, whether
+  output is scannable and terminal-aware, whether the CLI composes (pipeable,
+  machine-readable, honest exit codes), and whether destructive actions are
+  guarded — 7 seed rubrics emitting 3-axis findings (tier × impact × confidence),
+  a curated exemplar set (gh / cargo / ripgrep / docker / Stripe CLI), and
+  kind-aware rubric filtering (a pure namespace command is critiqued only for
+  naming and help). Ships the `harness cli-ergonomics-craft` CLI, the
+  `cli_ergonomics_craft` MCP tool, and the cross-cutting `critiqueCommandFile` API.
+- b9380ba: Add `code-craft` — an LLM-judgment ceiling skill for code quality / readability,
+  the structural twin of `security-craft` and the counterpart to the rule-based
+  code floor (cleanup-dead-code / enforce-architecture / complexity thresholds).
+  It walks `packages/*/src`, extracts the substantive units a senior reviews
+  (functions, methods, classes) via the TS Compiler API, and critiques each unit
+  against 7 seed rubrics — whether the code reveals intent, whether the control
+  flow is honest, whether a function tells one story at one altitude, whether each
+  abstraction earns its keep, whether it is as simple as it could be, whether the
+  signature keeps its promise, and whether a senior would nod or wince. Emits
+  3-axis findings (tier × impact × confidence), skips files with no substantive
+  unit (`filesSkippedNoUnit` tracked), and delegates identifier-level naming to
+  `naming-craft` (re-exported as `critiqueNamesInFile`) rather than duplicating it.
+  A curated exemplar set (Anthropic SDK / TanStack Query / ky / SWR / date-fns)
+  anchors the catalog. Ships the `harness code-craft` CLI, the `code_craft` MCP
+  tool, and the cross-cutting `critiqueCodeInFile` API.
+- e294b1d: check-deps no longer fails on cycles inside vendored `node_modules`: the CLI
+  `findFiles` helper now applies core's shared `DEFAULT_FIND_FILES_IGNORE`. Adds a
+  `deps.exclude` config block (minimatch globs) to suppress additional paths from
+  check-deps discovery, threads it through both the layer-validation and
+  circular-detection paths, attributes circular findings to their first-cycle
+  file, and prints the analyzed-module denominator — failing rather than
+  reporting clean when layers are configured but zero modules are analyzed.
+  Exports `DEFAULT_FIND_FILES_IGNORE` from `@harness-engineering/core`. (#1188)
+- 3dc2ddc: Add a machine-derived award-tier verdict (`awardBar`) to the design-craft
+  BENCHMARK output. Every `BenchmarkScore` now carries
+  `awardBar: { verdict: 'cleared' | 'not-cleared' | 'indeterminate'; dimensions; shortfalls; reason? }`,
+  computed in TypeScript from the 5-dimension radar and the cited exemplars'
+  reference scores — never emitted by the LLM (the authority-in-TS pattern used
+  by outcome-eval / acceptance-eval). The bar is per-dimension rather than a
+  single overall threshold, because an equal-weight mean hides a weak axis: each
+  dimension must reach `max(dimensionFloor, round(fraction × median(cited-exemplar
+references)))`, so the verdict fails on the exact axis that falls short. Any
+  dimension whose confidence is below the floor forces `indeterminate` — a score
+  the model is unsure about never certifies award tier. Thresholds are tunable via
+  `design.craft.benchmark.awardBar` (`dimensionFloor` default 80, `fraction`
+  default 0.95, `confidenceFloor` default medium); omit the block for defaults.
+  This replaces free-hand "is this good enough?" judgment with an honest,
+  corpus-calibrated machine signal downstream agents can read directly.
+- 8b47517: Add a mechanical responsive gate that vetoes the design-craft award-bar
+  verdict when a target carries mobile defects. Every `BenchmarkScore.awardBar`
+  now carries `responsive: { status: 'clean' | 'defective' | 'not-evaluated';
+viewport?; defects[] }`, computed by a new floor-layer module
+  (`src/responsive/`) from per-target rendered layout metrics — not a sixth
+  aesthetic radar dimension. A `defective` gate (a `horizontal-overflow` or an
+  `unreachable-nav` — no visible nav and no menu toggle) forces `not-cleared`
+  regardless of the aesthetic score, so `cleared` can no longer certify a
+  phone-broken page. Layout metrics are supplied via `responsiveMetrics` (e.g. a
+  Playwright MCP run) or a `responsiveProbeCommand` that prints a
+  `ResponsiveMetrics[]` manifest (the CLI ships no browser). With no metrics the
+  gate is `not-evaluated` and the aesthetic verdict is unchanged; set
+  `design.craft.benchmark.awardBar.responsive.require` to force `indeterminate`
+  instead of a mobile-blind `cleared`. Thresholds
+  (`viewport` 390 / `overflowTolerancePx` 1) are configurable. The aesthetic
+  `computeAwardBar` path and its behavior are unchanged.
+- 8e99a31: Add `docs-craft` — an LLM-judgment ceiling skill for documentation quality, the
+  structural twin of `design-craft` and the counterpart to the rule-based doc
+  floor (detect-doc-drift / check-docs / docs-pipeline). It critiques whether a
+  doc teaches, whether its order matches the reader's mental model, whether
+  examples earn their place, whether the prose is alive, whether an API/reference
+  doc predicts the response shape, whether a stranger walks away with the same
+  understanding, and whether the doc is scannable — 7 seed rubrics emitting 3-axis
+  findings (tier × impact × confidence), a curated exemplar set (Stripe / Vercel /
+  MDN / Linear / Tailwind), kind-aware rubric filtering, and hard exclusion of
+  sibling-owned trees (knowledge-craft, spec-craft). Ships the `harness docs-craft`
+  CLI, the `docs_craft` MCP tool, and the cross-cutting `critiqueDocFile` API.
+- 991adce: Add `harness check-deployment` — an enforcing pre/post-deploy gate backed by a
+  pure `packages/core/src/deployment` engine. It verifies deployment readiness and
+  exits non-zero on unambiguous, incident-causing violations so CI can gate a deploy:
+  a hardcoded secret in a pipeline or committed env file (`DEPLOY-SEC001`,
+  non-waivable), a deploy target with no rollback path wired (`DEPLOY-RB001`), and a
+  direct-to-production deploy with no promotion/approval gate (`DEPLOY-ENV001`).
+  Maturity gaps (missing stages, weak env separation, no health check, pipeline
+  smells) are surfaced as non-blocking advisories. On a repo with no deployment
+  configuration the gate abstains loudly (exit 3, never a false green); `enabled:
+false` opts out explicitly (exit 0). The rollback requirement is satisfied by a
+  `rollback` config block, a revert/rollback workflow or script, or a documented
+  runbook, tying the pre-ship gate to the post-ship rollback circuit breaker. The
+  gate is standalone and opt-in via `deployment.enabled` — it is not added to the
+  default `ci check`.
+
+  The `@harness-engineering/core` bump ships the new `deployment` engine module
+  (detect + evaluate + exit-code) reused by the command.
+
+- 0156e0d: Fix a silent no-op in `code-craft`, `cli-ergonomics-craft`, and `api-craft` when
+  run in their default (in-session) runtime mode.
+
+  The default LLM provider for the craft family is the in-session provider: rather
+  than call an LLM, it records each prompt and throws a deferral sentinel so the
+  host chat session can answer the prompts and feed them back through a second
+  `<skill>_finalize` step. `naming-craft` already implemented this two-step
+  collect → finalize flow, but the three skills above swallowed the deferral in a
+  bare `catch {}` and never surfaced the collected prompts. The result was that a
+  default-mode invocation returned zero findings and exited successfully — a silent
+  lie that looked like a clean pass.
+
+  These three skills now implement the real two-step flow, mirroring
+  `naming-craft`:
+  - Each orchestrator gains `collect<Skill>Prompts` (walks the target, builds one
+    prompt per unit/command/surface × rubric, persists run-state, and returns the
+    prompts) and `finalize<Skill>` (stitches the host's answers back into findings
+    through the same parser the inline path uses).
+  - The inline entry points (`runCodeCraft`, `runCliErgonomicsCraft`,
+    `runApiCraft`) now fail loudly with guidance when handed the in-session
+    provider instead of returning an empty result.
+  - Three new MCP tools — `code_craft_finalize`, `cli_ergonomics_craft_finalize`,
+    and `api_craft_finalize` — complete the flow, and the three primary tools now
+    route to the collect step in in-session mode (raising the harness MCP tool
+    count to 101).
+
+  Also closes two `code-craft` discovery gaps: it now falls back to conventional
+  `src/` (then `app/`) roots when a project has no `packages/` directory — so a
+  single-package repo is no longer scanned as empty — and excludes `fixtures/`
+  directories from the walk, matching its `cli-ergonomics-craft` and `api-craft`
+  twins.
+
+- a6fb723: Add the `harness golden-build` reference-state primitive.
+
+  A golden build is the canonical known-good reference state of the repo — an
+  immutable, tag-like snapshot, distinct from the per-metric baselines (arch,
+  coverage, benchmark) which are moving numeric ratchets. It answers "is the repo
+  still the exact known-good shape we last trusted?" rather than "did metric X
+  regress?".
+
+  The snapshot is a composite fingerprint (SHA-256 per reference file) over a
+  configurable set of reference files — by default the three metric-baseline files
+  plus dependency/config identity anchors (`package.json`, the lockfile, the
+  harness config). Hashing the baseline files means a golden sits _above_ them:
+  a baseline rewrite moves the golden fingerprint too.
+
+  Three subcommands:
+  - `harness golden-build promote` — snapshot the working tree to
+    `.harness/golden/manifest.json`. Byte-stable: a re-promote whose fingerprint
+    is unchanged leaves the manifest untouched (informational provenance —
+    `promotedAt`/`commit`/`branch` — is ignored by comparison and only refreshed
+    when the fingerprint actually changes).
+  - `harness golden-build verify` — compare the working tree against the golden
+    and exit non-zero on any drift (changed, missing, or added reference file).
+  - `harness golden-build diff` — explain what has drifted since the last golden
+    (advisory; always exits 0).
+
+  Configurable via an optional `golden` config block (`manifestPath`,
+  `referencePaths`) and a repeatable `--path` override on every subcommand.
+
+- 4bf8831: Add the Holiday Confidence KPI — the composed "if the senior disappears for two
+  weeks, what holds?" measure.
+
+  `computeHolidayConfidence` (in `@harness-engineering/signals`) reports the % of
+  merged PRs over a rolling window that cleared all four unwatched-safety gates:
+  (a) a multi-persona review fired, (b) the post-merge outcome-eval did not fail,
+  (c) no baseline was silently auto-updated during the window, and (d) no curated
+  Signal was in breach. Gates (a)/(b) are evaluated per-PR (a graded pass
+  fraction); (c)/(d) are window-wide gates that collapse confidence to 0 when the
+  window was not safe to leave unwatched. It reuses the existing curated-Signal
+  authorities rather than pulling data in parallel — the `gh` merged-PR list plus
+  the `## Assessment:` review marker for (a), graph `execution_outcome` nodes for
+  (b), and the `baseline-auto-update-count` / all-Signal statuses for (c)/(d). The
+  computation is repo-agnostic and parameterizable (window days, project path,
+  injectable command runner / graph store / signals), so an adopter project can
+  compute it too.
+
+  The new `harness holiday-confidence` command surfaces it (`--window`, `--path`,
+  `--json`). The multi-persona-review marker and the default 30-day window are now
+  shared constants (`ASSESSMENT_MARKER`, `DEFAULT_WINDOW_DAYS`) so the KPI and the
+  `pr-merged-without-multi-persona-review` Signal cannot drift apart.
+
+- 4e73689: Honor persona-declared CI triggers. `harness persona sync-workflows` regenerates
+  and drift-guards the committed `.github/workflows/persona-*.yml` files that make
+  persona `on_pr` / `on_commit` / `scheduled` triggers real (CLI-command tier only;
+  skill/LLM steps are served elsewhere).
+  - Adopter-first: defaults to the published CLI via `npx` with a portable header,
+    and refuses to run when the project has no `agents/personas/` (never writes the
+    bundled personas into `node_modules`). `--runner workspace --advisory`
+    reproduces the build-from-source, non-blocking dogfood shape.
+  - `--severity` is appended only to commands that accept it (`validate`,
+    `check-perf`, `check-security`) — previously it was blanket-appended and made
+    most emitted steps hard-error.
+  - A persona only gets a workflow when its CI tier adds something `harness ci
+check` does not already run (a scheduled sweep, or a command outside the
+    `ci check` aggregate), so redundant per-PR duplicate jobs are not emitted.
+
+- ad3a9bb: Change the init default recommendation away from `basic` to
+  `load-bearing-minimum`. `harness init` (and the `init_project` MCP tool) now
+  scaffold the `load-bearing-minimum` tier when no `--level` is given, and the
+  `initialize-harness-project` skill recommends it for new projects — the minimum
+  harness that still holds when the senior reviewer is away, rather than the
+  no-thresholds `basic` template that does not deliver a load-bearing harness.
+
+  `basic` remains available as an explicit opt-down (`harness init --level basic`)
+  for teams that want the lightest possible touch. The `--level` option set is
+  unchanged; only the default and the skill's recommendation prose changed.
+
+- ebcb014: Add the `load-bearing-minimum` adoption tier, sitting between `intermediate` and
+  `advanced`. It is the minimum harness that still holds when the senior
+  disappears for two weeks: the intermediate mechanical gates (ESLint + layer
+  enforcement, a cyclomatic-complexity cap of 15, and a module-size cap) plus the
+  two agent-loop gates that catch regressions no one is watching for — multi-persona
+  review (`harness review-ci`) and the outcome-eval ship gate
+  (`harness outcome-eval-ci`) — wired into a scaffolded CI workflow, without the
+  full advanced-tier surface area.
+
+  Scaffold it with `harness init --level load-bearing-minimum` (or the
+  `init_project` MCP tool). The new `templates/load-bearing-minimum/` template
+  ships `harness.config.json`, `eslint.config.mjs`, a `.github/workflows/required-review.yml`
+  that runs both gates on pull requests, and `harness:review` / `harness:outcome-eval`
+  package scripts for running them locally. The `--level` enum in the config
+  schema, the template metadata schema, and the `init_project` MCP tool all accept
+  the new value.
+
+- 7369e11: Add opt-in constraint packs — named bundles of blocking rules a project chooses
+  to enforce per lifecycle stage rather than all-or-nothing.
+
+  A project opts in via `constraintPacks: [...]` in `harness.config.json`. Each
+  pack maps onto the existing security rule sets and elevates a set of rules to
+  blocking at the stage(s) it declares (`pre-commit`, `pre-merge`, `pre-release`).
+  Three built-in packs ship: `secrets-and-injection` (secrets + injection, at
+  pre-merge and pre-release), `ai-agent-safety` (unsafe AI-agent/MCP config, at
+  pre-merge), and `web-hardening` (XSS, path traversal, unsafe network, weak
+  crypto, at pre-release).
+
+  Packs are a thin overlay on the existing check machinery, not a new enforcement
+  engine: `runCIChecks` resolves the opted-in packs and merges their rule
+  elevations into the security check's config before it runs, so opting in
+  genuinely turns the rules on. A project's own explicit `security.rules` entry
+  always wins over a pack overlay (a per-rule escape hatch). `harness ci check`
+  gains a `--stage <stage>` flag to enforce only the packs that apply at that
+  stage, and the check report carries a per-pack, per-stage compliance summary
+  (`compliant` / `non-compliant` / `n/a`). Empty or absent `constraintPacks`
+  leaves all existing behavior unchanged.
+
+  Opting into a pack is scoped to exactly that pack's rule prefixes:
+  - When a pack force-enables a scanner that was `security.enabled: false`, a
+    `'SEC-*': 'off'` base is injected before the pack's elevations, so only the
+    pack's own prefixes block — opting into one pack no longer turns on every
+    default-error rule in the scanner. Wildcard rule resolution now prefers the
+    most-specific (longest-prefix) match, so a narrow elevation is never shadowed
+    by that broad base.
+  - `web-hardening` no longer promotes every warning/info rule via a global
+    `strict` flag (the `securityStrict` pack field is removed); it blocks only its
+    four named prefixes (`SEC-XSS-*`, `SEC-PTH-*`, `SEC-NET-*`, `SEC-CRY-*`).
+  - Per-pack compliance is attributed by rule prefix: a stage is `non-compliant`
+    only when a failing security finding's rule id is covered by that pack's own
+    prefixes, so an unrelated finding no longer marks every pack non-compliant.
+    `CICheckIssue` gains an optional `ruleId` to carry this attribution.
+  - `harness ci check` rejects an unrecognized `--stage` instead of silently
+    running every stage, and warns when packs are opted in but the security check
+    was skipped.
+
+- 77cbacd: Add an opt-in, **multi-agent** `session-retrospect` trigger so end-of-session analysis reaches manual, interactive sessions across every agent the harness supports — Claude Code, Gemini CLI, Codex CLI, and Cursor.
+
+  The session-archive lifecycle runs its `onArchived` step (summary, index, and retrospection) only when a session is archived, and the only caller that archives a session is the `archive_session` state action used by autonomous flows. A manually driven session is otherwise never archived, so its end-of-session analysis never runs. This trigger closes that gap: at session end it archives the active session through the same public archive seam, so `onArchived` fires for manual sessions too.
+  - **One archive engine, many agents.** An agent-agnostic core (opt-in gate + once-per-session dedupe + archive call) is shared by a thin per-agent entry point. When hooks are installed at the `standard` (or `strict`) profile, the trigger is wired into each detected agent's native config: Claude Code `Stop` in `.claude/settings.json`, Gemini CLI `SessionEnd` in `.gemini/settings.json`, Codex CLI `notify` (agent-turn-complete) in `.codex/config.toml`, and Cursor `stop` + `sessionEnd` in `.cursor/hooks.json`. Only agents whose project config dir is present are wired; unrelated user config is preserved and installs are idempotent.
+  - **Opt-in.** Every agent's trigger is a no-op unless `HARNESS_SESSION_RETROSPECTION` is enabled — the same flag that gates the retrospection step inside the archive lifecycle.
+  - **Once per session.** Because a session-end hook can fire more than once (Claude's `Stop` on every turn-stop; Codex's `notify` on every turn), the trigger archives at most once per session, keyed on the agent's session id via a sentinel under `.harness/state/retrospection/`. A fire that finds no session writes no sentinel, so a session created later in the same run is still caught.
+  - **Fail-soft.** Any error is swallowed and the hook exits 0, never blocking or delaying session exit.
+  - **Known limitation (Cursor CLI).** Cursor's `sessionEnd` is IDE-only and the local `cursor-agent` CLI has historically emitted only shell-execution events. The trigger is wired for both `stop` and `sessionEnd` so it works in the Cursor IDE agent today and in the local CLI the moment it emits these events. Codex `notify` holds a single program, so an existing non-harness `notify` is reported as a conflict and left untouched rather than clobbered.
+
+- d5760a7: Ship agent-rehearsal fixtures and the `harness rehearse` skill/command.
+
+  `templates/rehearsal-fixtures/` now carries a set of tiny, self-contained,
+  deliberately-broken fixtures — each planting exactly one failure mode that a
+  real harness check is designed to catch: a hardcoded secret (`check-security`),
+  an architectural layer violation and a circular import (`check-arch`), and a
+  broken documentation link (`check-docs`). Each fixture ships a `rehearsal.json`
+  manifest — the ground truth for what was planted, the check that should catch
+  it, the expected fix, and a four-dimension scoring rubric.
+
+  A new `harness rehearse` command drives them: `list` enumerates the fixtures,
+  `show <id>` prints a manifest + rubric, and `score --fixture <id> --recovery
+<record.json>` grades a structured recovery record with a deterministic,
+  IO-free, LLM-free scorer (0-100 across `detected` / `correctCheck` / `fixed` /
+  `noCollateral`, with pass/partial/fail tiers). The `harness:rehearse` skill
+  (all four platforms) orchestrates the loop — stage a scratch copy, detect and
+  repair the planted defect, assemble the record, and score. Use it to train
+  personas before production trust, to regression-test the harness's own gates
+  against known failure shapes, and to let adopters verify their gates fire.
+
+  The scoring engine, catalogue loader, and contracts (`scoreRecovery`,
+  `loadCatalog`, `findFixture`, `RehearsalManifest`, `RecoveryRecord`,
+  `RehearsalScore`) are exported from `@harness-engineering/core`.
+
+- 21a995b: Extend the effectiveness scorer to skill grain. A new Bayesian skill scorer
+  (`computeSkillEffectiveness`, `detectFailingSkills`, `detectAbandonedSkills` in
+  `@harness-engineering/intelligence`) applies the same Laplace-smoothed approach
+  as the persona scorer to `.harness/metrics/adoption.jsonl` records, identifying
+  failing skills and skills abandoned mid-workflow ranked sample-aware so
+  low-volume skills don't dominate.
+
+  The `harness adoption retrospective` command (the catalog-retrospective skill's
+  entry point) now consumes these scores: it renders a Bayesian skill-effectiveness
+  section in the Markdown report and exposes the same data under the
+  `skillEffectiveness` key in `--json` output. This closes the loop between
+  adoption telemetry and catalog improvement decisions.
+
+- 840288a: External skill-provider freshness and install follow-through. `harness install` now
+  offers to run `generate-slash-commands` for you (TTY-gated, with `--generate` /
+  `--no-generate`) instead of only printing the hint. Skill installs record their source
+  provenance in a v2 lockfile (GitHub installs capture the resolved commit SHA; v1
+  lockfiles still load), and a background check passively nudges when a GitHub or npm
+  provider has upstream changes. A new `harness skill update [--check]` command re-pulls
+  outdated providers behind a per-provider consent prompt, and `harness update` surfaces
+  outdated providers alongside its existing offers. All freshness network behavior honors
+  the `HARNESS_NO_UPDATE_CHECK` kill-switch; nothing re-pulls upstream code without an
+  explicit confirmation.
+- 5c7332f: Add the skill-regression evaluator — a golden-fixture framework that detects
+  when a skill's output quality regresses.
+
+  A golden fixture pins one skill: a canonical input, a weighted quality rubric,
+  a golden reference output, and a recorded baseline score. The
+  `SkillRegressionEvaluator` scores candidate outputs semantically against the
+  rubric (an LLM rules each criterion met / not-met; TypeScript computes the
+  weighted score@k) and compares the aggregate to the baseline. A drop past the
+  fixture's tolerance is a regression.
+
+  The new `harness skill-regression` command runs the gate over a fixtures
+  directory, blocking (exit 1) only on a high-confidence regression; every other
+  verdict is advisory. Ship authority is derived in TypeScript from
+  (verdict, confidence) and is never read from the model. The whole path is
+  degrade-safe: a missing provider, missing fixtures, or a malformed judge
+  payload resolves to an advisory verdict and exits 0. `--update-baseline`
+  re-scores the golden reference output and rewrites the fixture baseline in
+  byte-stable JSON. Ships with example fixtures for `harness-spec-craft` and
+  `harness-copy-craft`.
+
+- c6ee2dc: Add `uat-signoff` — a human-judged user-acceptance sign-off skill and its
+  `uat_signoff` MCP tool. This closes the acceptance/outcome edge of the change
+  lifecycle: it is the terminal, human-authority stage under
+  `docs/changes/<slug>/`, the same slug used by the spec, plan, code review, and
+  `outcome-eval`. Where `acceptance-eval` and `outcome-eval` are
+  spec-vs-implementation, LLM-judged, TS-authority-derived, and
+  merge/ship-blocking, `uat-signoff` is intent(Success-Criteria)-vs-shipped-reality,
+  HUMAN-judged, and advisory. The human is the authority: the skill runs no LLM
+  verdict and derives no ship authority — it records the decision a person already
+  made.
+
+  The skill is a plain-text guided interview (slug-scoped, no code surface). It
+  reads the change's `docs/changes/<slug>/proposal.md` `## Success Criteria` (with
+  `plans/` and prior review/outcome-eval records as supporting context), walks the
+  human through each acceptance item one at a time (capturing ACCEPT, REJECT, or
+  CHANGES_REQUESTED with an optional note), captures one overall decision plus the
+  signer, writes `docs/changes/<slug>/signoff.md`, and persists exactly one
+  `execution_outcome`-shaped node via the `uat_signoff` MCP tool
+  (`source: "uat-signoff"`, `result` derived from the overall decision; the
+  per-item dispositions, signer, and closed criteria refs ride in additive
+  metadata). Reusing the shared `execution_outcome` shape means the eval-fail-rate
+  signal and effectiveness baselines consume the record for free — no new node
+  type. The skill ships across all four platform trees (claude-code / cursor /
+  codex / gemini-cli) and is wired into the catalog, slash commands, and plugin.
+
+- 409e970: Add a real `--severity <error|warning|info>` flag to `harness validate` and
+  `harness check-perf`, mirroring `harness check-security`.
+
+  Persona CI workflows pass a persona-declared `--severity <level>` to their
+  command steps, but only `check-security` accepted the flag — `validate` and
+  `check-perf` hard-errored on it despite both already carrying a per-finding
+  severity model. Both commands now honor the threshold: when `--severity` is set,
+  findings below it are excluded from BOTH the report and the pass/fail verdict
+  (the command fails only when a finding at or above the threshold exists);
+  findings below the threshold never fail the gate.
+
+  Default behavior is unchanged. When `--severity` is omitted, every finding is
+  still reported and the verdict fails only on error-severity findings (for
+  `validate`, the hard checks that carry no explicit severity continue to fail as
+  before) — warnings and info are reported but never flip the verdict.
+
+  Widening the persona generator's flag whitelist so personas can declare these
+  thresholds is a follow-up; this change is the command capability only.
+
+- a2e4cc6: Wire outcome-eval in as an automatic, blocking post-execution spec-satisfaction gate.
+  - Add `harness outcome-eval-ci`: a headless, CI-runnable surface of the outcome-eval gate. It resolves the spec (explicit `--spec` or auto-discovered from the diff), the diff range, and optional captured test output; runs the `OutcomeEvaluator`; persists the `execution_outcome` node to `.harness/graph`; and turns the TypeScript-derived ship authority into an exit code — blocking (exit 1) only on a high-confidence `NOT_SATISFIED` under `--block-on blocking` (the default). Degrade-safe: no resolvable spec, no analysis provider, an empty diff, or a persistence failure yields an `INCONCLUSIVE`/advisory verdict and exit 0.
+  - Enrich `OutcomeEvaluator` persistence: the `execution_outcome` node now carries the full verdict (`rationale`, `authority`, `unmetCriteria`) plus an optional `commit` sha, so a sha-keyed consumer (the pre-merge brief) can reconstruct and surface the verdict. `OutcomeEvalInput` gains an optional `commit` field; the `outcome_eval` MCP tool threads it through. All additive — a node written without a commit keeps the prior shape aside from the new verdict fields. `authority` on the node is the TS-derived value, never read from the LLM.
+
+### Patch Changes
+
+- 88ea428: Add `harness roadmap install-hook` — an adopter-facing installer for the roadmap
+  aggregate-regeneration git hook (#688).
+
+  Projects that shard their roadmap (`docs/roadmap.d/`) keep the generated
+  `docs/roadmap.md` aggregate fresh with a `pre-commit` step that runs `harness
+roadmap regen`. This command installs that step into an adopter's own hook,
+  composing safely with an existing husky (`.husky/pre-commit`) or raw
+  `.git/hooks/pre-commit` setup. It is idempotent (a fenced managed block is
+  replaced in place, never duplicated, and never clobbers the adopter's own hook
+  steps) and degrades gracefully when the project is not sharded (skips unless
+  `--force`). CI (`harness validate`) remains the authoritative freshness contract;
+  this hook is a local developer convenience.
+
+  The `@harness-engineering/core` bump is the read-source invariant-R allowlist
+  entry for the new command (the generated hook block names `docs/roadmap.md` as a
+  git path, not a content read); no runtime behavior changes in core.
+
+- 0498381: Fix `check-arch --update-baseline` rewriting the committed arch snapshot on a feature branch
+  when the base ref is unreadable (closing a gap in the per-PR allowance feature).
+
+  The allowance feature routed `--update-baseline` to the snapshot-rewriting whole-snapshot path
+  for EVERY resolution that was not `base-ref`. But a feature branch resolves to `working-tree`
+  not only in the legitimate single-writer contexts (on the base branch, in a non-git dir, under
+  `HARNESS_ARCH_FORCE_WORKING_TREE`) — it also falls back to `working-tree` whenever the base ref
+  is merely unreadable: an unfetched worktree, a shallow clone, or a moved/unreadable base copy.
+  In that case `--update-baseline` REWROTE `.harness/arch/baselines.json` on the branch (and
+  without `--allow-regress` refused with "it WORSENS N metric(s)"), silently reintroducing the
+  exact `baselines.json` merge cascade the allowance mechanism exists to prevent, so a legitimate
+  value regression (e.g. `dependency-depth`, `module-size`) could never be acknowledged
+  conflict-free.
+
+  The whole-snapshot (snapshot-rewriting) path is now restricted to the contexts where it is
+  actually correct — the base branch, a non-git dir, `HARNESS_ARCH_FORCE_WORKING_TREE` (the
+  post-merge refresh-baselines job), and a genuine bootstrap where the base branch has no
+  baseline at all. A feature branch whose base ref was unreadable but which already has a
+  committed baseline now writes a per-PR allowance against the working-tree baseline instead,
+  leaving `baselines.json` byte-identical. Aggregate category value regressions and warning-level
+  new violations are both allowanceable; error-severity new violations are still never
+  allowanceable — a genuine threshold breach must be fixed.
+  - `resolveArchBaseline` now reports a `fallback` reason (`forced` / `non-git` / `base-branch` /
+    `base-ref-unreachable` / `base-ref-absent` / `base-ref-invalid`) on every non-`base-ref`
+    resolution, and a new `isWholeSnapshotContext(resolution)` helper encodes which contexts may
+    rewrite the committed snapshot. Both are re-exported from `@harness-engineering/core`.
+
+- fc20e42: Auto-triggered retrospection with applyable proposals.
+
+  Archiving a session — the session terminus — now optionally fires a
+  retrospection over the archived session corpus and emits _applyable_ skill
+  proposals into `.harness/proposals/`, rather than requiring a manual retro run.
+
+  The trigger reuses the existing session-archive lifecycle: `buildArchiveHooks()`
+  gains a third `onArchived` step (alongside summary and search-index) that runs a
+  new `retrospectArchivedSession()` in `@harness-engineering/orchestrator`. It is
+  opt-in and safe — it fires only when a `sessions.retrospection` config block is
+  present (`enabled !== false`) and an analysis provider is available, and every
+  step remains individually non-fatal. The `manage_state` `archive_session` MCP
+  action activates it live when `HARNESS_SESSION_RETROSPECTION` is set and a
+  provider resolves; otherwise behaviour is unchanged.
+
+  Emitted proposals are ordinary `SkillProposal` records — the same shape produced
+  by `emit_skill_proposal` — so they carry the target (`targetSkill` for
+  refinements), the change (`content.diff`, or `content.skillYaml` + `skillMd` for
+  new skills), and the rationale (`justification`), and they surface, gate, and
+  promote through the unchanged review pipeline. New in
+  `@harness-engineering/types`: `RetrospectionProposalDraftSchema` /
+  `RetrospectionProposalsResponseSchema` (a projection of the emit input, no
+  parallel proposal type) and a `RetrospectionConfig` on `SessionsConfig`.
+
+  Emission only — nothing is auto-applied. Approval and promotion stay a separate,
+  human-gated step.
+
+- b83b45b: Add `CanaryResultsIngestor` — turns canary run history into `test_result` nodes
+  (per run + per test) with `tested_by`/`failed_in` edges, reusing existing graph
+  node/edge types (no schema bump). Wire `ingest_source({ source: 'test-results' })`
+  to read records via the canary adapter (CLI layer) and drive the graph-only
+  ingestor; a no-op when canary has produced no results. `CanaryResultsIngestor`
+  imports no canary code, so `@harness-engineering/graph` stays free of canary
+  coupling.
+- 22c2686: Fix `check-docs` / `cleanup` file-discovery blind spots (#1146).
+
+  Three independent blind spots made these gates report on an unrepresentative
+  slice of a repo — and, in the degenerate case, a confident 100% green over zero
+  files:
+  - **`.mjs` / `.cjs` were invisible.** `checkDocCoverage` discovered source with
+    `**/*.{ts,js,tsx,jsx}`; it now includes `.mjs`/`.cjs`, matching the entropy
+    analyzer. Every ESM-first repo was previously invisible to docs coverage.
+  - **Dot-directories were never traversed.** The shared `findFiles` now passes
+    `dot: true`, so first-party source under a dot-directory (`.canary/`,
+    `.config/`, …) is discovered. The genuine ignore list (`.git`,
+    `node_modules`, the `.harness` runtime, virtualenvs, build/tooling caches)
+    stays excluded. This also cures false `NOT_FOUND` drift findings from
+    `cleanup --type drift`, whose exports index is built from the same discovery.
+  - **A zero-file scan reported 100%.** `checkDocCoverage` now reports a `scanned`
+    denominator and never returns a confident 100% when it read nothing; the
+    `check-docs` command surfaces the abstention explicitly (distinct exit code,
+    `x/y files documented` denominator on every run), mirroring the
+    `check-security` precedent.
+
+  Additionally, `check-docs` now honors `entropy.excludePatterns` from
+  `harness.config.json` (previously hardcoded), so config governs it identically
+  to the `harness ci check` path.
+
+- c246089: Add `harness check-operational-drift`: a diff-based check that flags changes to operational-policy surfaces (hook profiles, `.husky/**`, the pre-commit `--skip` list, and `harness.config.json` threshold fields) that lack a corresponding ADR under `docs/knowledge/decisions/`. Advisory by default; configurable to blocking via `operationalPolicy` config or `--strict`.
+- bfb3500: Deflake the two CLI tests that block the full-suite `test:coverage` pre-push
+  gauntlet.
+
+  The pre-push gate runs `turbo run test:coverage` for the whole workspace, so a
+  flaky CLI test gates every PR — including orchestrator-only changes, since CLI
+  depends on orchestrator. Two CLI tests fail under v8 coverage + parallel-worker
+  CPU starvation:
+  - `slash-commands/integration.ts > detects orphaned codex skill directories`
+    carried a per-test `{ timeout: 15000 }` cap that overrode the package's 90s
+    ceiling. The test runs `generateSlashCommands` twice (heavy synchronous
+    filesystem writes) and reliably blew 15s under full-suite coverage load,
+    failing effectively every `test:coverage` run. The cap is removed so it
+    inherits the generous global ceiling (same fix as #1153 for orchestrator).
+  - `commands/scan-config.ts > scans large config files within 100ms` asserted a
+    hard 100ms perf budget that v8 instrumentation inflates past. The budget is
+    now coverage-aware (relaxed via HARNESS_COVERAGE, forwarded from vitest.config
+    when `--coverage` is passed) while still catching an order-of-magnitude
+    regression.
+
+  Test-only and deterministic: no source or behavior changes, no assertions
+  weakened, no tests skipped, coverage unchanged.
+
+- 160a243: Support path exclusions for the design-token drift linter via `design.exclude`.
+  The linter now honors a `design.exclude` glob list (minimatch), stacked on top
+  of the project-wide `analysis.exclude` — letting monorepos scope DRIFT-\* findings
+  out of token-palette sources, test files, and non-UI code. This also makes the
+  drift linter honor `analysis.exclude`, which every other analysis scanner already
+  respects. Default behavior is unchanged when neither is configured.
+- 0563679: Dogfood the Holiday Confidence KPI in this repo: register the tracking command
+  and wire a scheduled workflow that records the measure at each release point, so
+  the "if the senior disappears for two weeks, what holds?" signal is exercised on
+  our own history rather than only shipped for adopters.
+- 1e5db59: Promote two domain skills from advisory prose to load-bearing mechanical checks. `owasp-injection-prevention` gains `SEC-INJ-004`, which flags Prisma `$queryRawUnsafe`/`$executeRawUnsafe` called with interpolated or concatenated input (enforced by `harness-security-scan`). `a11y-aria-patterns` gains a new `AriaScanner` (`A11Y-014` aria-hidden on a focusable element, `A11Y-042` positive tabindex), invoked by `harness-accessibility`. Both checks fire only on statically-decidable values to keep false positives near zero. The CSRF, rate-limiting, and idempotency-key skills remain advisory — a low-false-positive mechanical check is not achievable for them without framework-aware data-flow analysis.
+- f91c9c4: Fix documentation-coverage scanner self-excluding when the checkout's own
+  absolute path contains a skip-dir segment (notably `.claude`).
+
+  `checkDocCoverage` matched its exclude globs against each file's absolute path
+  as well as its scan-root-relative path. When the default skip-dir globs include
+  `**/.claude/**` and the checkout lives under `<repo>/.claude/worktrees/<agent>/`
+  (where `isolation: worktree` agents run), every file's absolute path contained
+  `/.claude/` and matched, dropping all files. The denominator collapsed to zero,
+  which — since the zero-denominator became a loud failure — produced
+  deterministic false "stale docs" failures on those checkouts (CI was unaffected
+  because CI checkouts are not nested under a skip-dir).
+
+  The exclude globs now match the scan-root-relative path only, so the checkout's
+  own path prefix can no longer self-match. A skip directory that genuinely lives
+  inside the scanned tree is still excluded.
+
+- af8b56f: Make the knowledge graph work inside git worktrees. `.harness/graph/` is
+  gitignored, so `git worktree add` never copies it into a linked worktree and
+  every graph read reported "No graph found". A new `resolveGraphDir` in
+  `@harness-engineering/graph` lets reads borrow the main worktree's graph (located
+  via git's `commondir` metadata) when the worktree has none, while writes stay
+  worktree-local so a scan never clobbers the main graph and a worktree-local scan
+  still takes precedence. All graph read paths (graph query/export/status,
+  traceability, impact-preview, freshen, pre-merge-brief, signals, and the whole
+  MCP graph surface via the shared loader) are routed through it.
+- c2371d1: Fix the hook installer so installed hooks load cleanly in adopter projects.
+  - Write `.harness/hooks/package.json` (`{ "type": "module" }`) at install time (both `harness hooks init` and `harness hooks add`). The hook scripts are ES modules shipped as bare `.js`; without this marker Node resolves their module type from the adopter's nearest `package.json` — which is CommonJS-default (or absent) in most projects — and reparses each hook as ESM at runtime, emitting a `MODULE_TYPELESS_PACKAGE_JSON` warning on every hook fire.
+  - Ship `read-hook-stdin.js` alongside the hooks that import it. Those hooks were installed without their shared sibling module and failed at load with `ERR_MODULE_NOT_FOUND` — a non-blocking failure that silently stopped the gate from running. A new registry↔import drift guard fails the build if a hook imports a sibling module the installer does not ship, so this cannot silently regress.
+
+- 24ad8c3: Make `harness init --template <name>` actually render standalone named templates.
+  `init` passes the `--template` value in as `level`, but `resolveTemplate` only
+  matched an adoption-level scaffold (`template.json.level`), so named templates
+  whose `template.json` declares no `level` (`ci-pre-merge-brief`, and even the
+  documented `orchestrator` example) failed with `Template not found for level: <name>`.
+  `resolveTemplate` now falls back to matching by template `name` when no level
+  matches, rendering that template standalone — honoring an explicit `extends` but
+  never dragging in the basic-level scaffold. `init` also supplies the
+  `runner`/`blockOn`/`baseBranch` defaults the `ci-pre-merge-brief` workflow needs
+  under strict-mode Handlebars. Level-based `init` is unchanged.
+- 68b0da7: Guard the `chmodSync` in `harness roadmap install-hook` with a `process.platform !== 'win32'` check (regression from the initial install-hook landing) so the platform-parity gate passes and Windows adopters don't hit a chmod error.
+- d6c160c: Fix two `harness knowledge-pipeline` correctness bugs where the command produced
+  confident, unactionable verdicts (#1110, #1111).
+
+  **Coverage abstains on a zero denominator (#1110).** `CoverageScorer` graded a
+  domain `F` whenever it had no linkable code (`0/0`), so "no graph / no data" and
+  "genuinely bad coverage" were indistinguishable — a fresh checkout with no graph
+  scored worse than a real assessment. Domains with no linkable-code denominator
+  are now reported as `measured: false` / grade `N/A` and excluded from the
+  aggregate; an entirely empty graph yields `graphPresent: false` and an `N/A`
+  overall grade. The `--coverage` output prints an explicit "no graph — run
+  `harness graph scan`" escalation instead of a grade, and per-domain `0/0` lines
+  render `N/A` rather than `F (0/100)`. A first-run drift score (all findings
+  `new`) is now labelled so `1.00` is not misread as "everything drifted".
+
+  **Test files and fixtures are excluded from extraction (#1111).** The code-signal
+  extractors walked `tests/`, `fixtures/`, `expected/`, and snapshot trees, staging
+  test titles and golden-file data as `business_rule`/`business_term` gaps — so the
+  gap report's "undocumented" count was dominated by test artifacts. `ExtractionRunner`
+  now applies a default exclude set (test files and fixture/golden/snapshot trees,
+  mirroring the existing `security.exclude` / `entropy.excludePatterns` conventions),
+  extendable via a new `knowledge.extractionExclude` config field. Staged entries
+  now carry their source `path` so a finding is attributable without grepping the
+  repo. First-party source is untouched.
+
+- 5c72805: Give maintenance checks a standard machine-parseable findings contract (#691).
+
+  `harness maintenance run` (and the cron orchestrator) previously recovered each
+  task's findings COUNT by regex-scanning free-text check output
+  (`N findings|issues|violations|errors`, plus a keyword fallback). That is
+  fragile: checks like `check-docs` (doc-drift) and `cleanup` (entropy) emit no
+  clean count — so doc-drift reported a uniform "1 finding" — and any wording
+  change could silently break the count.
+
+  A new shared envelope (`@harness-engineering/types`:
+  `MaintenanceFindingsContract` + `formatFindingsContract` / `parseFindingsContract`)
+  lets a check subcommand emit its count as structured data
+  (`{"findings":N,"check":"...","v":1}`) under a `--findings-json` flag. The
+  runner's shared spawn/parse core (`runHarnessCheck`) now prefers that envelope
+  over the regex on both clean and non-zero exits, and labels the source
+  (`findingsSource: 'contract' | 'regex'`). The legacy regex remains the fallback
+  for checks not yet migrated.
+
+  Migrated built-in checks: `check-arch`, `check-deps`, `check-docs`, `cleanup`,
+  `check-security`, `cross-check` (their registry `checkCommand`s now pass
+  `--findings-json`). Fully additive and backward-compatible — the flag defaults
+  off for interactive CLI use and unmigrated checks are unchanged.
+
+- 4b6f846: Add `harness mcp list-capabilities [--by-permission] [--json]` — a read-only adopter-audit command that surfaces, per MCP tool, its read/write/exec scopes, network access, and the existing `trustedOutput` trust tag. Scopes are now authoritative, evidence-based DECLARATIONS carried on each tool definition (`capability?: { scopes; network? }`, authored in `tool-capability-declarations.ts` and compiled into the registry), derived from each tool's actual behavior — fs writes, `child_process`/`execFile`/`spawn`, outbound `fetch`/HTTP, graph/DB writes — not from the tool name. The tool-name verb-prefix heuristic is kept only as a clearly-labeled fallback (`source: heuristic`) for any not-yet-declared tool; a coverage test forces every registered tool to declare. Helps adopters see exactly what their agent can do through the MCP server.
+- a766cda: Define the `owns:[paths]` owned-files declaration on plan tasks (#601). Adds a cheap, deterministic, graph-free pre-execution conflict forecast: `forecastOwnershipConflicts` and glob-aware `pathsOverlap` (via minimatch) flag task pairs whose declared owned paths overlap and so may conflict if run in parallel. `buildTaskGraph`/`planParallelization` now compute footprint overlap glob-aware and surface an `ownershipForecast` field on `ParallelizationPlan`. Fully additive — absent `owns` preserves current behavior.
+- 9e838bb: Add per-skill `capabilities:` declarations to skill.yaml (#558).
+
+  Skills now declare a capability envelope — `{ tools, network, filesystem }` —
+  derived mechanically from the existing `tools:` list. `harness skill validate`
+  enforces it: every harness-authored skill must declare `capabilities`, and any
+  declared envelope must stay consistent with the skill's `tools:` (drift, e.g.
+  adding `WebFetch` without `network: true`, fails validation). All 89
+  harness-authored skills are seeded. This ships the declaration + validation
+  layer; runtime bounds-enforcement is a follow-up.
+
+- 24ad8c3: Graduate the pre-merge brief to an adopter-facing artifact. `harness init` can
+  now render the opt-in `ci-pre-merge-brief` template — a GitHub Actions workflow
+  that runs `harness review-ci` then upserts the senior-facing `harness
+pre-merge-brief` sticky PR comment (diff, review verdict, Signal status,
+  outcome-eval, and "worth your eyes") — plus a matching branch-protection ruleset
+  for the eventual acknowledgment gate. Mirrors how `ci-required-review` graduated:
+  a discoverable, opt-in named template directory rendered by the existing
+  `TemplateEngine` (no engine change). Every brief section degrades independently,
+  so the workflow runs in a plain adopter CI without a daemon or signal providers.
+- 308b4b9: Make the runtime hooks read stdin resiliently under load. `adoption-tracker`,
+  `pre-compact-state`, `telemetry-reporter`, `sentinel-post`, and `cost-tracker`
+  now read stdin through the shared `readHookStdin()` helper (already used by the
+  enforcing hooks) instead of a raw `readFileSync(0)`. The helper retries the
+  EAGAIN that fd 0 throws when the writer hasn't filled the pipe yet, so under
+  compound load (the pre-push `test:coverage` gate running these hooks under v8
+  coverage) the hooks no longer mistake pipe backpressure for empty stdin and
+  silently skip their work — the dominant source of non-deterministic failures in
+  the pre-push gate (#620). Behavior is otherwise unchanged: these log-only hooks
+  still fail open on a genuine read failure or empty stdin.
+- cf37c7d: Add `harness proposals status` and correct the skill-proposal docs (#551).
+
+  `harness proposals status` is a provider-independent, read-only report of the
+  skill-proposal loop: queue counts by status plus, per emission surface, whether it
+  is live or dormant and why. It reuses the same env predicates the runtime uses
+  (`HARNESS_SESSION_RETROSPECTION` truthy test; `ANTHROPIC_API_KEY` /
+  `HARNESS_ANALYSIS_BASE_URL` provider resolvability) so the report cannot drift from
+  behavior, and it never constructs a provider or mutates the queue. Supports the
+  global `--json` flag; always exits 0.
+
+  Docs honesty pass: the README "Skill Proposals" bullet no longer implies an
+  always-on loop — it now describes an opt-in capture surface plus opt-in
+  session-terminus retrospection, links the new operator guide, and fixes the stale
+  ADR link. New guide `docs/guides/skill-proposal-loop.md` documents both emission
+  surfaces, the exact retrospection gating, local activation, and the
+  review → soundness-gate → promotion flow.
+
+- a72ecae: Fix `harness review-ci` crashing with `spawnSync git ENOBUFS` (exit 2, no verdict) on any diff larger than ~1 MB (#1098).
+  - The injectable git seam now passes an explicit, bounded `maxBuffer` (256 MB) to `execFileSync`, so `git diff` for large PRs no longer overflows Node's 1 MB default and throws `ENOBUFS`. The bound is applied on the shared seam, covering both the `symbolic-ref` and payload-carrying `diff` calls.
+  - `review-ci` now degrades gracefully: if a git/diff/parse step still fails (an overflow beyond the bound, a missing ref, git absent from PATH, or an unparseable diff), it emits a valid, parseable verdict envelope with `skipped: true` and `skipReason: "internal error: <message>"` instead of crashing with a bare exit 2 and empty stdout. A `--json` consumer always receives a parseable result and can distinguish "the reviewer could not run" (process exit 3, abstained) from "the reviewer objected" (exit 1).
+  - An unknown `--runner` still fails fast (exit 2) and is never laundered into an abstention.
+
+- 2f5d572: Sharded roadmap: `groom` now archives `done` rows into a sharded archive
+  (`docs/roadmap.d/archive/<slug>.md`) instead of the monolith
+  `docs/roadmap-archive.md` when the project is in sharded mode. Each done shard is
+  MOVED byte-for-byte (full frontmatter + body preserved), so the motion is lossless
+  and reversible. The active read path already excludes the `archive/` subdirectory,
+  so archived shards drop out of `load()`, the regenerated aggregate `docs/roadmap.md`,
+  and active `show`/`query` — the archive is history, not active state. The monolith
+  `groom` path is unchanged.
+
+  New core store helpers: `archiveShards`, `restoreShards`, `readArchivedShards`,
+  `archiveShardDir`, `ARCHIVE_SUBDIR`, and the project-level `archiveDoneShardsForProject`.
+
+- ad21769: Fix `check-security` scanning no `.mjs`/`.cjs` files, and report the scan
+  denominator (#1084).
+
+  The scan glob was `**/*.{ts,tsx,js,jsx,go,py,java,rb}`, so an ESM-only Node
+  project got a scan that matched none of its source and a gate that passed because
+  it read nothing — indistinguishable, in the output, from a genuinely clean run. In
+  the repo where this surfaced, 144 tracked `.mjs` sources went unread while a
+  security ledger recorded `securityScore: 100`; a planted AWS key was detected in
+  `.ts` and `.py` and invisible in the byte-identical `.mjs`.
+
+  The glob was duplicated across `check-security`, the CI check-orchestrator, and
+  the dashboard's security gatherer, and the copies had drifted (the orchestrator's
+  also omitted `java`/`rb`). It now has one home,
+  `core/src/security/scan-targets.ts` (exported as `SECURITY_SCAN_GLOB` /
+  `SECURITY_SCAN_EXTENSIONS` / `SECURITY_SCAN_DEFAULT_IGNORE`), with `mts`/`cts`
+  added alongside `mjs`/`cjs`.
+
+  `check-security` now also reports what it read: text output appends the
+  files-scanned and rules-applied counts, JSON output gains `scannedNothing` and
+  `stats`, and a zero-file scan emits an explicit ABSTAINED issue instead of
+  presenting as clean. New `--fail-on-empty` makes that abstention blocking for CI
+  gates; the default stays non-blocking so repos with legitimately no scannable
+  source are not reddened by the upgrade.
+
+  Behaviour change to expect: projects containing `.mjs`/`.cjs`/`.mts`/`.cts`
+  sources will see findings that were previously invisible, including in
+  `harness ci check` and the dashboard's security panel.
+
+- 254e959: Add the `harness check-vocabulary` command — a config-driven, adopter-facing semantic-vocabulary gate. It reads a `vocabulary` block from the project's `harness.config.json` (deprecated → canonical term rules, plus `paths`/`exclude` globs) and fails when a deprecated or renamed canonical term reappears in Markdown prose, reporting the file, line, deprecated term, and suggested canonical replacement. The pure scanner strips fenced/inline code, matches case-insensitively on word boundaries, and honors per-rule `allow` exemptions; `--json` output is supported and the gate passes trivially when disabled or ruleless. Harness dogfoods it via its own five seed rules wired into CI.
+- 999819a: Fix two config-preservation gaps in the multi-agent session-retrospect installer (follow-up to #1136).
+
+  The installer that wires the opt-in `session-retrospect` trigger into Gemini CLI, Codex CLI, and Cursor documents that "unrelated user config is always preserved," but two paths violated that:
+  - **Gemini / Cursor JSON clobber (data loss).** When an existing `.gemini/settings.json` or `.cursor/hooks.json` failed to parse (a hand-edited file, JSONC/comments, a trailing comma, a partial write), the reader treated it as absent and the writer then overwrote the whole file with only the harness hook — silently destroying the user's `theme`, `mcpServers`, and every other setting. The reader now distinguishes absent / valid-object / unparseable and the writers report a `conflict` (leaving the file untouched) instead of overwriting, mirroring how `hooks init` refuses to clobber a malformed `.claude/settings.json`.
+  - **Codex TOML corruption.** The `notify` key was inserted before "the first line beginning with `[`". A top-level nested-array literal (e.g. `matrix = [\n  [1, 2],\n]`) has element lines that begin with `[`, so `notify` could be spliced _inside_ the array and corrupt the TOML. `notify` is now prepended as a top-level key at the very top of the file, which is always valid TOML — it precedes every table and is never placed inside a multi-line array.
+
+  Both fixes are covered by new regression tests. Runtime behavior of the hooks themselves is unchanged; this only hardens the one-time install-time config writes.
+
+- 2868bb4: Strip a harness-engineering-internal sub-project reference (`(sub-project #5)`) from the adopter-facing `harness check-design` command description. Part of the broader pass that genericizes internal roadmap/PR/issue/sub-project references leaking into shipped skills, slash commands, and subagent definitions, with a new guard test (`agents/skills/tests/internal-refs.test.ts`) that fails when a new internal reference reaches a distributed surface.
+- 3aec4bd: Make the two skill required-section gates read one source of truth.
+
+  The `harness skill validate` CLI validator and the `agents/skills` vitest
+  structure test each maintained their own copy of the required-section lists,
+  and they had drifted: the validator required `## Rationalizations to Reject`
+  on behavioral skills while the structure test did not, so skills missing that
+  section passed CI on the weaker gate.
+
+  `@harness-engineering/core` now exports the canonical lists —
+  `BEHAVIORAL_REQUIRED_SECTIONS`, `KNOWLEDGE_REQUIRED_SECTIONS`, and
+  `RIGID_SECTIONS` — from a new `skills/required-sections` module. The CLI
+  validator (`harness skill validate`) imports them instead of its former inline
+  copies, so both gates derive their rules from the same constant and cannot
+  silently diverge again. Validator behavior is unchanged; this is an
+  internal dedup plus a new public export.
+
+- cf9044c: Move the first-run telemetry privacy notice from stderr to stdout so it is visible in IDE sessions where stderr is hidden, and reword it to truthfully describe what is collected (skill name/outcome/duration/phases, OS/Node/harness versions, a random install ID, and — when configured — git user.name and project/team names). The once-only first-run marker behavior and all telemetry send behavior are unchanged.
+- 0922728: Tier the skill catalog with first-class curation metadata and surface it.
+
+  Skills now carry a first-class `catalog_tier` field in `skill.yaml` (`0` =
+  load-bearing gear, `1` = library / on-demand reference — the default, `2` =
+  deprecated / retire candidate). This is distinct from the existing `tier` field,
+  which governs slash-command/catalog _loading_; the new axis names how
+  load-bearing a skill is. The premise: a senior engineer can hold ~12 skills in
+  their head, not hundreds — so the twelve load-bearing gear skills are marked and
+  surfaced first.
+
+  The tier is genuinely wired through the surfaces a reader sees:
+  - **Skills Catalog** (`docs/reference/skills-catalog.md`) leads with a
+    "Load-Bearing Gear (Tier-0)" section and annotates non-default entries with
+    their curation tier.
+  - **README** gains a "Load-bearing skills (Tier-0)" table mapping each gear skill
+    to its slash command.
+  - **Dashboard command palette** pins the load-bearing skills in their own section
+    above the category groups and badges each card (`@harness-engineering/dashboard`).
+
+  The `@harness-engineering/cli` bump adds the `catalog_tier` field to the skill
+  metadata schema. The `@harness-engineering/core` bump tracks the
+  `initialize-harness-project` → `harness-initialize-project` skill rename in the
+  harness-strength init-skill path (the STRENGTH-005 rule and context loader); no
+  runtime behavior changes.
+
+  The load-bearing init skill is renamed from `initialize-harness-project` to
+  `harness-initialize-project` so it sorts with the rest of the workflow gear. The
+  slash command is unchanged — it stays `/harness:initialize-project`.
+
+- 16ce217: Reduce `parseFencedJson` complexity in `docs-craft/phases/critique.ts` past the
+  arch gate's new-code threshold (cyclomaticComplexity 12 > 10), which was blocking
+  all commits on `main` (#1087). Fence-stripping and object-narrowing are extracted
+  to `stripJsonFence` and `asJsonObject`, leaving the parser as try/catch plus two
+  calls. Behaviour is unchanged and the `SEC-DES-001` ignore comment is retained,
+  now pointing at `asJsonObject` where the shape gate lives.
+- 7541324: Fix two Windows platform-parity failures: `resolveSpecPath` in `outcome-eval-ci` now normalizes joined paths to forward slashes so spec identity is stable across platforms (it previously emitted backslashes on Windows), and the `roadmap install-hook` executable-bit test assertion is now guarded to non-Windows, matching the `chmodSync` platform guard from #1092 (chmod is a no-op on Windows).
+- Updated dependencies [88ea428]
+- Updated dependencies [21df39b]
+- Updated dependencies [0498381]
+- Updated dependencies [59590da]
+- Updated dependencies [fc20e42]
+- Updated dependencies [18f2180]
+- Updated dependencies [d74f5ec]
+- Updated dependencies [b83b45b]
+- Updated dependencies [b83b45b]
+- Updated dependencies [9852aaa]
+- Updated dependencies [22c2686]
+- Updated dependencies [89fcfd7]
+- Updated dependencies [9255687]
+- Updated dependencies [bfb3500]
+- Updated dependencies [2115861]
+- Updated dependencies [e294b1d]
+- Updated dependencies [1e5db59]
+- Updated dependencies [991adce]
+- Updated dependencies [29bdefe]
+- Updated dependencies [f91c9c4]
+- Updated dependencies [a6fb723]
+- Updated dependencies [af8b56f]
+- Updated dependencies [4bf8831]
+- Updated dependencies [d6c160c]
+- Updated dependencies [a42b4f2]
+- Updated dependencies [d59c152]
+- Updated dependencies [5c72805]
+- Updated dependencies [7369e11]
+- Updated dependencies [de52864]
+- Updated dependencies [a766cda]
+- Updated dependencies [2f5d572]
+- Updated dependencies [e69f401]
+- Updated dependencies [4cc1e4e]
+- Updated dependencies [97ddd1c]
+- Updated dependencies [817e40c]
+- Updated dependencies [ad21769]
+- Updated dependencies [d3e725d]
+- Updated dependencies [d5760a7]
+- Updated dependencies [21a995b]
+- Updated dependencies [5c7332f]
+- Updated dependencies [3aec4bd]
+- Updated dependencies [5a454d5]
+- Updated dependencies [c9076aa]
+- Updated dependencies [0922728]
+- Updated dependencies [c6ee2dc]
+- Updated dependencies [a2e4cc6]
+  - @harness-engineering/core@0.40.0
+  - @harness-engineering/types@0.27.0
+  - @harness-engineering/intelligence@0.11.0
+  - @harness-engineering/orchestrator@0.20.0
+  - @harness-engineering/burn@0.1.0
+  - @harness-engineering/graph@0.12.0
+  - @harness-engineering/dashboard@0.15.0
+  - @harness-engineering/signals@0.3.0
+
 ## 10.2.0
 
 ### Minor Changes

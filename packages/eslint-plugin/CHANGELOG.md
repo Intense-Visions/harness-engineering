@@ -1,5 +1,15 @@
 # @harness-engineering/eslint-plugin
 
+## 0.6.2
+
+### Patch Changes
+
+- 5ae2da3: Add no-process-exit ESLint rule.
+- 00ab8d9: Add prefer-execfile-over-exec ESLint rule — flags child_process exec/execSync
+  calls made with a string command (shell invocation) and steers toward
+  execFile/execFileSync with an argument array. Registered in the recommended
+  (warn) and strict (error) configs.
+
 ## 0.6.1
 
 ### Patch Changes

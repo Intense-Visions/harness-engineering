@@ -1,5 +1,59 @@
 # @harness-engineering/signals
 
+## 0.3.0
+
+### Minor Changes
+
+- 4bf8831: Add the Holiday Confidence KPI — the composed "if the senior disappears for two
+  weeks, what holds?" measure.
+
+  `computeHolidayConfidence` (in `@harness-engineering/signals`) reports the % of
+  merged PRs over a rolling window that cleared all four unwatched-safety gates:
+  (a) a multi-persona review fired, (b) the post-merge outcome-eval did not fail,
+  (c) no baseline was silently auto-updated during the window, and (d) no curated
+  Signal was in breach. Gates (a)/(b) are evaluated per-PR (a graded pass
+  fraction); (c)/(d) are window-wide gates that collapse confidence to 0 when the
+  window was not safe to leave unwatched. It reuses the existing curated-Signal
+  authorities rather than pulling data in parallel — the `gh` merged-PR list plus
+  the `## Assessment:` review marker for (a), graph `execution_outcome` nodes for
+  (b), and the `baseline-auto-update-count` / all-Signal statuses for (c)/(d). The
+  computation is repo-agnostic and parameterizable (window days, project path,
+  injectable command runner / graph store / signals), so an adopter project can
+  compute it too.
+
+  The new `harness holiday-confidence` command surfaces it (`--window`, `--path`,
+  `--json`). The multi-persona-review marker and the default 30-day window are now
+  shared constants (`ASSESSMENT_MARKER`, `DEFAULT_WINDOW_DAYS`) so the KPI and the
+  `pr-merged-without-multi-persona-review` Signal cannot drift apart.
+
+### Patch Changes
+
+- 2115861: Deflake the `command-runner` subprocess test under full-suite parallelism.
+
+  `defaultCommandRunner` spawned its `execFile` child under a fixed 5s timeout.
+  Under a full-suite parallel test run — many workers each launching a fresh
+  `node` subprocess — even a bare launch can exceed 5s purely from host load, so
+  the fixed budget killed an otherwise-healthy child and surfaced a spurious
+  failure. The timeout is now an optional third argument (default unchanged at 5s,
+  exposed as `DEFAULT_COMMAND_TIMEOUT_MS`); callers on a loaded host can widen it,
+  and the runner's own test does so. A larger budget only tolerates a slow runner
+  — a genuine hang still fails — so it cannot mask a real defect. Production
+  behavior for real git/gh callers (the 5s default) is unchanged.
+
+- af8b56f: Make the knowledge graph work inside git worktrees. `.harness/graph/` is
+  gitignored, so `git worktree add` never copies it into a linked worktree and
+  every graph read reported "No graph found". A new `resolveGraphDir` in
+  `@harness-engineering/graph` lets reads borrow the main worktree's graph (located
+  via git's `commondir` metadata) when the worktree has none, while writes stay
+  worktree-local so a scan never clobbers the main graph and a worktree-local scan
+  still takes precedence. All graph read paths (graph query/export/status,
+  traceability, impact-preview, freshen, pre-merge-brief, signals, and the whole
+  MCP graph surface via the shared loader) are routed through it.
+- Updated dependencies [b83b45b]
+- Updated dependencies [af8b56f]
+- Updated dependencies [d6c160c]
+  - @harness-engineering/graph@0.12.0
+
 ## 0.2.10
 
 ### Patch Changes

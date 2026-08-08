@@ -1,5 +1,127 @@
 # @harness-engineering/intelligence
 
+## 0.11.0
+
+### Minor Changes
+
+- 21df39b: Add failure-reason categorization to `.harness/metrics/adoption.jsonl`.
+
+  Adoption records previously captured `outcome: completed | failed | abandoned` —
+  the _what_ of a skill run without the _why_. A new optional `failureCategory`
+  field records the reason a run did not complete, drawn from a small closed
+  taxonomy (`FailureCategory`): `prerequisite-missing`, `gate-rejected`,
+  `user-cancelled`, `timeout`, `dependency-failure`, `agent-error`, and
+  `inconclusive`.
+
+  The category is derived by the adoption-tracker hook at the failure/gate points
+  already present in the skill-event stream: an `error` event's `failureType` is
+  mapped through a keyword table (defaulting to `agent-error`), and a failed
+  `gate_result` yields `gate-rejected`. It is only emitted when a reason is
+  determinable — completed runs and reason-less abandonments carry no category, so
+  the field is never guessed.
+
+  The field is optional and additive: records written before it existed still
+  parse, and the reader drops any unrecognized value. Downstream consumers now use
+  it — the skill-effectiveness scorer (`detectFailingSkills`) reports a
+  per-skill `failureCategories` breakdown, and the catalog retrospective adds a
+  per-skill breakdown, a catalog-wide `failureCategoryTotals`, and a rendered
+  "Failure categories" section — so failing skills can be grouped by _why_ they
+  fail, not just how often.
+
+- b83b45b: Add `CanaryAdapter.readRunHistory` (new injectable `CanaryReader` file-read seam +
+  permissive `canaryRunRecordSchema`/`canaryTestResultSchema`) and the thin
+  `canary_run_history` MCP tool. Reads canary's documented NDJSON run-history store
+  (`test-results/reports/history-v2.jsonl`) and degrades to `[]` — never throws — on a
+  missing/unreadable store or malformed lines. Foundation for graph/outcome-eval ingest.
+- 9852aaa: Wire canary into harness-verify and harness-tdd through the existing adapter seam.
+
+  `CanaryAdapter` gains a total `listFrameworks()` method (execs `canary frameworks --json`,
+  zod-parses the framework registry, returns `[]` on any degrade) and a pure
+  `resolveTestCommand()` helper that fills the `{file}` placeholder and appends CI flags.
+  A new MCP tool, `canary_discover_test_command`, matches candidate test files against the
+  registry by longest file-extension suffix and returns the resolved per-file test command.
+
+  `harness-verify` DETECT now consults registry truth for the test command before its
+  `package.json`/`Makefile` heuristics, and `harness-tdd` RED offers canary-authored failing
+  tests (detect-and-offer). Both degrade silently to today's behavior when canary is absent —
+  the dependency stays optional and the adapter boundary is unchanged.
+
+- 21a995b: Extend the effectiveness scorer to skill grain. A new Bayesian skill scorer
+  (`computeSkillEffectiveness`, `detectFailingSkills`, `detectAbandonedSkills` in
+  `@harness-engineering/intelligence`) applies the same Laplace-smoothed approach
+  as the persona scorer to `.harness/metrics/adoption.jsonl` records, identifying
+  failing skills and skills abandoned mid-workflow ranked sample-aware so
+  low-volume skills don't dominate.
+
+  The `harness adoption retrospective` command (the catalog-retrospective skill's
+  entry point) now consumes these scores: it renders a Bayesian skill-effectiveness
+  section in the Markdown report and exposes the same data under the
+  `skillEffectiveness` key in `--json` output. This closes the loop between
+  adoption telemetry and catalog improvement decisions.
+
+- 5c7332f: Add the skill-regression evaluator — a golden-fixture framework that detects
+  when a skill's output quality regresses.
+
+  A golden fixture pins one skill: a canonical input, a weighted quality rubric,
+  a golden reference output, and a recorded baseline score. The
+  `SkillRegressionEvaluator` scores candidate outputs semantically against the
+  rubric (an LLM rules each criterion met / not-met; TypeScript computes the
+  weighted score@k) and compares the aggregate to the baseline. A drop past the
+  fixture's tolerance is a regression.
+
+  The new `harness skill-regression` command runs the gate over a fixtures
+  directory, blocking (exit 1) only on a high-confidence regression; every other
+  verdict is advisory. Ship authority is derived in TypeScript from
+  (verdict, confidence) and is never read from the model. The whole path is
+  degrade-safe: a missing provider, missing fixtures, or a malformed judge
+  payload resolves to an advisory verdict and exits 0. `--update-baseline`
+  re-scores the golden reference output and rewrites the fixture baseline in
+  byte-stable JSON. Ships with example fixtures for `harness-spec-craft` and
+  `harness-copy-craft`.
+
+- c6ee2dc: Add `uat-signoff` — a human-judged user-acceptance sign-off skill and its
+  `uat_signoff` MCP tool. This closes the acceptance/outcome edge of the change
+  lifecycle: it is the terminal, human-authority stage under
+  `docs/changes/<slug>/`, the same slug used by the spec, plan, code review, and
+  `outcome-eval`. Where `acceptance-eval` and `outcome-eval` are
+  spec-vs-implementation, LLM-judged, TS-authority-derived, and
+  merge/ship-blocking, `uat-signoff` is intent(Success-Criteria)-vs-shipped-reality,
+  HUMAN-judged, and advisory. The human is the authority: the skill runs no LLM
+  verdict and derives no ship authority — it records the decision a person already
+  made.
+
+  The skill is a plain-text guided interview (slug-scoped, no code surface). It
+  reads the change's `docs/changes/<slug>/proposal.md` `## Success Criteria` (with
+  `plans/` and prior review/outcome-eval records as supporting context), walks the
+  human through each acceptance item one at a time (capturing ACCEPT, REJECT, or
+  CHANGES_REQUESTED with an optional note), captures one overall decision plus the
+  signer, writes `docs/changes/<slug>/signoff.md`, and persists exactly one
+  `execution_outcome`-shaped node via the `uat_signoff` MCP tool
+  (`source: "uat-signoff"`, `result` derived from the overall decision; the
+  per-item dispositions, signer, and closed criteria refs ride in additive
+  metadata). Reusing the shared `execution_outcome` shape means the eval-fail-rate
+  signal and effectiveness baselines consume the record for free — no new node
+  type. The skill ships across all four platform trees (claude-code / cursor /
+  codex / gemini-cli) and is wired into the catalog, slash commands, and plugin.
+
+- a2e4cc6: Wire outcome-eval in as an automatic, blocking post-execution spec-satisfaction gate.
+  - Add `harness outcome-eval-ci`: a headless, CI-runnable surface of the outcome-eval gate. It resolves the spec (explicit `--spec` or auto-discovered from the diff), the diff range, and optional captured test output; runs the `OutcomeEvaluator`; persists the `execution_outcome` node to `.harness/graph`; and turns the TypeScript-derived ship authority into an exit code — blocking (exit 1) only on a high-confidence `NOT_SATISFIED` under `--block-on blocking` (the default). Degrade-safe: no resolvable spec, no analysis provider, an empty diff, or a persistence failure yields an `INCONCLUSIVE`/advisory verdict and exit 0.
+  - Enrich `OutcomeEvaluator` persistence: the `execution_outcome` node now carries the full verdict (`rationale`, `authority`, `unmetCriteria`) plus an optional `commit` sha, so a sha-keyed consumer (the pre-merge brief) can reconstruct and surface the verdict. `OutcomeEvalInput` gains an optional `commit` field; the `outcome_eval` MCP tool threads it through. All additive — a node written without a commit keeps the prior shape aside from the new verdict fields. `authority` on the node is the TS-derived value, never read from the LLM.
+
+### Patch Changes
+
+- Updated dependencies [21df39b]
+- Updated dependencies [fc20e42]
+- Updated dependencies [b83b45b]
+- Updated dependencies [af8b56f]
+- Updated dependencies [d6c160c]
+- Updated dependencies [5c72805]
+- Updated dependencies [7369e11]
+- Updated dependencies [de52864]
+- Updated dependencies [a766cda]
+  - @harness-engineering/types@0.27.0
+  - @harness-engineering/graph@0.12.0
+
 ## 0.10.2
 
 ### Patch Changes
