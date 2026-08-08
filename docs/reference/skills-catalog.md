@@ -2,7 +2,7 @@
 
 # Skills Catalog
 
-777 skills. Skills carry two independent tier axes: a **loading tier** (whether a skill registers as a slash command or is discovered on demand) and a **curation tier** (how load-bearing it is). A senior engineer can hold ~12 skills in their head, not hundreds — the curation tier names that short list.
+778 skills. Skills carry two independent tier axes: a **loading tier** (whether a skill registers as a slash command or is discovered on demand) and a **curation tier** (how load-bearing it is). A senior engineer can hold ~12 skills in their head, not hundreds — the curation tier names that short list.
 
 See the [Features Overview](../guides/features-overview.md) for narrative documentation.
 
@@ -200,7 +200,7 @@ Human-judged acceptance sign-off skill — the terminal, human-authority stage o
 - **Cognitive mode:** configuration-interviewer
 - **Depends on:** outcome-eval
 
-## Tier 2 — Maintenance (57 skills)
+## Tier 2 — Maintenance (58 skills)
 
 ### acceptance-eval
 
@@ -210,6 +210,16 @@ Pre-execution LLM-judgment skill: does a spec carry measurable, testable, comple
 - **Platforms:** claude-code, cursor, codex, gemini-cli
 - **Type:** rigid
 - **Cognitive mode:** constructive-architect
+
+### adr-fleet
+
+Autonomous decide-stage orchestrator — sweep the backlog of pending architectural decisions, fan out worktree-isolated subagents that each run the real architecture-advisor pipeline to draft one ADR, independently verify every draft is a well-formed record, and hand the human one batch sign-off pass. Never auto-accepts.
+
+- **Triggers:** manual
+- **Platforms:** claude-code, codex, cursor, gemini-cli
+- **Type:** rigid
+- **Cognitive mode:** systematic-orchestrator
+- **Depends on:** harness-roadmap-pilot, harness-architecture-advisor
 
 ### align-design-system
 

@@ -79,3 +79,4 @@ The spine above is shared. Each member's own `SKILL.md` defines:
 - **ADR 0087** — Subagent worktree fan-out (vs the Workflow primitive) for `-fleet` execution.
 - **ADR 0088** — The front-load / park-unforeseen interaction model for the `-fleet` family.
 - **ADR 0089** — The `pr-fleet` land-stage human-merge-gate model.
+- **ADR 0090** — The `adr-fleet` decide-stage batch-sign-off-gate model.
