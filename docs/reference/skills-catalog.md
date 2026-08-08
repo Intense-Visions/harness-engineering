@@ -2,7 +2,7 @@
 
 # Skills Catalog
 
-781 skills. Skills carry two independent tier axes: a **loading tier** (whether a skill registers as a slash command or is discovered on demand) and a **curation tier** (how load-bearing it is). A senior engineer can hold ~12 skills in their head, not hundreds — the curation tier names that short list.
+783 skills. Skills carry two independent tier axes: a **loading tier** (whether a skill registers as a slash command or is discovered on demand) and a **curation tier** (how load-bearing it is). A senior engineer can hold ~12 skills in their head, not hundreds — the curation tier names that short list.
 
 See the [Features Overview](../guides/features-overview.md) for narrative documentation.
 
@@ -200,7 +200,7 @@ Human-judged acceptance sign-off skill — the terminal, human-authority stage o
 - **Cognitive mode:** configuration-interviewer
 - **Depends on:** outcome-eval
 
-## Tier 2 — Maintenance (61 skills)
+## Tier 2 — Maintenance (63 skills)
 
 ### acceptance-eval
 
@@ -767,6 +767,16 @@ LLM-judgment critique of security posture (TS/JS source). Threat-modeling-as-ski
 - **Type:** rigid
 - **Cognitive mode:** constructive-architect
 - **Depends on:** harness-security-scan, harness-security-review
+
+### security-fleet
+
+Autonomous security backlog sweep — enumerate risk-ranked code areas plus the resolved dependency tree, discard every candidate that cannot produce concrete evidence, confirm one ranked batch with the human, then route each survivor by a bounded-fix test — safe bounded fixes are built through the real pipeline into independently verified PRs, risky or structural findings are filed with their evidence packet instead of force-fixed. Never auto-merges, never closes a finding by suppression, and never reports a secret's value.
+
+- **Triggers:** manual
+- **Platforms:** claude-code, codex, cursor, gemini-cli
+- **Type:** rigid
+- **Cognitive mode:** systematic-orchestrator
+- **Depends on:** harness-security-scan, harness-supply-chain-audit, security-craft, harness-security-review, harness-roadmap-pilot
 
 ### spec-craft
 
