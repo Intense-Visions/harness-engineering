@@ -1,7 +1,7 @@
 import * as fs from 'fs';
 import * as os from 'os';
 import * as path from 'path';
-import { ensureHarnessGitignore } from '../../src/templates/post-write';
+import { ensureHarnessGitignore, applyEcosystemAfterCreate } from '../../src/templates/post-write';
 
 describe('ensureHarnessGitignore', () => {
   let tmpDir: string;
@@ -106,5 +106,93 @@ describe('ensureHarnessGitignore', () => {
     expect(lines).not.toContain('security/');
     expect(lines).toContain('security/*');
     expect(lines).toContain('!security/timeline.json');
+  });
+});
+
+describe('applyEcosystemAfterCreate', () => {
+  let tmpDir: string;
+
+  beforeEach(() => {
+    tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'harness-aftercreate-'));
+  });
+
+  afterEach(() => {
+    fs.rmSync(tmpDir, { recursive: true, force: true });
+  });
+
+  const CONFIG = 'harness.orchestrator.md';
+  function writeConfig(
+    dir: string,
+    afterCreateLine = "  afterCreate: 'pnpm install --prefer-offline'"
+  ) {
+    fs.writeFileSync(
+      path.join(dir, CONFIG),
+      ['---', 'hooks:', afterCreateLine, '  beforeRun: null', '---', ''].join('\n')
+    );
+  }
+
+  it('rewrites afterCreate to the pnpm install command for a node-pnpm workspace', () => {
+    fs.writeFileSync(path.join(tmpDir, 'pnpm-lock.yaml'), '');
+    writeConfig(tmpDir);
+    const res = applyEcosystemAfterCreate(tmpDir, [CONFIG]);
+    expect(res.ecosystem?.id).toBe('node-pnpm');
+    expect(res.rewritten).toBe(true);
+    expect(res.installCommand).toBe('pnpm install');
+    const out = fs.readFileSync(path.join(tmpDir, CONFIG), 'utf-8');
+    expect(out).toContain("  afterCreate: 'pnpm install'");
+    expect(out).not.toContain('--prefer-offline');
+    expect(out).toContain('  beforeRun: null'); // sibling hook untouched
+  });
+
+  it('rewrites afterCreate to uv sync for a non-node (uv.lock) workspace', () => {
+    fs.writeFileSync(path.join(tmpDir, 'uv.lock'), '');
+    writeConfig(tmpDir);
+    const res = applyEcosystemAfterCreate(tmpDir, [CONFIG]);
+    expect(res.ecosystem?.id).toBe('python-uv');
+    expect(res.installCommand).toBe('uv sync');
+    const out = fs.readFileSync(path.join(tmpDir, CONFIG), 'utf-8');
+    expect(out).toContain("  afterCreate: 'uv sync'");
+    expect(out).not.toMatch(/pnpm/);
+  });
+
+  it('returns ecosystem null for an unrecognized (empty) workspace and does not rewrite', () => {
+    writeConfig(tmpDir); // config present, but no lockfile/manifest markers
+    const res = applyEcosystemAfterCreate(tmpDir, [CONFIG]);
+    expect(res.ecosystem).toBeNull();
+    expect(res.rewritten).toBe(false);
+  });
+
+  it('no-ops when the orchestrator config is absent from the write set', () => {
+    fs.writeFileSync(path.join(tmpDir, 'pnpm-lock.yaml'), '');
+    writeConfig(tmpDir); // file on disk, but NOT passed in writtenFiles
+    const res = applyEcosystemAfterCreate(tmpDir, []);
+    expect(res.orchestratorConfigWritten).toBe(false);
+    expect(res.rewritten).toBe(false);
+  });
+
+  it('no-ops without throwing when the afterCreate line is missing/malformed', () => {
+    fs.writeFileSync(path.join(tmpDir, 'pnpm-lock.yaml'), '');
+    fs.writeFileSync(
+      path.join(tmpDir, CONFIG),
+      ['---', 'hooks:', '  beforeRun: null', '---', ''].join('\n')
+    );
+    const res = applyEcosystemAfterCreate(tmpDir, [CONFIG]);
+    expect(res.rewritten).toBe(false); // no throw
+  });
+
+  it('leaves an empty-value afterCreate line (and its sibling) untouched', () => {
+    // An `afterCreate:` line with no value must not match — the separator is
+    // `[ \t]`, not `\s`, so the rewrite cannot consume the following newline and
+    // delete the next sibling hook line.
+    fs.writeFileSync(path.join(tmpDir, 'pnpm-lock.yaml'), '');
+    fs.writeFileSync(
+      path.join(tmpDir, CONFIG),
+      ['---', 'hooks:', '  afterCreate:', '  beforeRun: null', '---', ''].join('\n')
+    );
+    const res = applyEcosystemAfterCreate(tmpDir, [CONFIG]);
+    expect(res.rewritten).toBe(false);
+    const out = fs.readFileSync(path.join(tmpDir, CONFIG), 'utf-8');
+    expect(out).toContain('  afterCreate:'); // empty-value line preserved
+    expect(out).toContain('  beforeRun: null'); // sibling not consumed
   });
 });

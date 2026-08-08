@@ -1,5 +1,6 @@
 import * as fs from 'fs';
 import * as path from 'path';
+import { detectEcosystem, type Ecosystem } from '@harness-engineering/orchestrator';
 import type { ResolvedTemplate } from './engine.js';
 import { appendFrameworkSection } from './agents-append.js';
 
@@ -136,5 +137,65 @@ export function appendFrameworkAgents(
     }
   } catch {
     // AGENTS.md is unreadable — skip append silently
+  }
+}
+
+export interface EcosystemAfterCreateResult {
+  ecosystem: Ecosystem | null;
+  orchestratorConfigWritten: boolean;
+  rewritten: boolean;
+  installCommand?: string;
+}
+
+const ORCHESTRATOR_CONFIG = 'harness.orchestrator.md';
+
+/**
+ * Best-effort post-write step: when the scaffolded orchestrator config is in the
+ * write set and an ecosystem is detected at `cwd`, rewrite the single
+ * `afterCreate:` frontmatter line to the ecosystem's install command. Never throws
+ * — a read/write failure or an absent/malformed `afterCreate:` line degrades to
+ * `rewritten: false` so `harness init` never fails on this advisory step.
+ */
+export function applyEcosystemAfterCreate(
+  cwd: string,
+  writtenFiles: string[]
+): EcosystemAfterCreateResult {
+  const ecosystem = detectEcosystem(cwd);
+  const configPath = path.join(cwd, ORCHESTRATOR_CONFIG);
+  const orchestratorConfigWritten =
+    writtenFiles.includes(ORCHESTRATOR_CONFIG) && fs.existsSync(configPath);
+
+  if (!ecosystem || !orchestratorConfigWritten) {
+    return { ecosystem, orchestratorConfigWritten, rewritten: false };
+  }
+
+  try {
+    const content = fs.readFileSync(configPath, 'utf-8');
+    // Anchored to the `afterCreate:` key; non-global → first match only. Sibling
+    // hook lines and the comment block above are untouched. The separator after
+    // the colon is `[ \t]` (not `\s`) so an empty-value `afterCreate:` line does
+    // not match — matching `\s` there would let it consume the following newline
+    // and delete the next sibling hook line (the docstring's "malformed → no-op").
+    const pattern = /^([ \t]*)afterCreate:[ \t].*$/m;
+    if (!pattern.test(content)) {
+      return { ecosystem, orchestratorConfigWritten, rewritten: false };
+    }
+    // Replacer function (not a replacement string) so the install command is
+    // treated as a literal — a `$` in the command would otherwise be reinterpreted
+    // as a `$n`/`$&` pattern by String.prototype.replace.
+    const updated = content.replace(
+      pattern,
+      (_match, indent: string) => `${indent}afterCreate: '${ecosystem.installCommand}'`
+    );
+    fs.writeFileSync(configPath, updated);
+    return {
+      ecosystem,
+      orchestratorConfigWritten,
+      rewritten: true,
+      installCommand: ecosystem.installCommand,
+    };
+  } catch {
+    // Read/write failure — degrade to no-op; init must not fail here.
+    return { ecosystem, orchestratorConfigWritten, rewritten: false };
   }
 }
