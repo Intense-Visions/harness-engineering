@@ -15,7 +15,7 @@ Author the `cleanup-fleet` claude-code rigid orchestrator skill (`SKILL.md` + `s
 5. `agents/skills/{codex,cursor,gemini-cli}/cleanup-fleet` each resolve as symlinks to `../claude-code/cleanup-fleet` (generated).
 6. SKILL.md cites `docs/reference/fleet-family.md` as the shared spine and does not re-extract it; the queue/per-item/terminal parts are cleanup-fleet's own.
 7. `docs/reference/skills-catalog.md` is regenerated and lists `cleanup-fleet`.
-8. No new ADR — the family ADRs (*Subagent worktree fan-out…*, *front-load / park-unforeseen…*) are cited by title only.
+8. No new ADR — the family ADRs (_Subagent worktree fan-out…_, _front-load / park-unforeseen…_) are cited by title only.
 9. `harness skill validate` (whole-suite) still exits 0 (no regression across the other skills).
 10. `prettier --check` reports no formatting diffs for the created/edited files; `generate:plugin:check` and `generate-docs --check` pass for all targets.
 
