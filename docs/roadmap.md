@@ -3,7 +3,7 @@ project: harness-engineering
 version: 1
 created: 2026-03-21
 updated: 2026-08-04
-last_synced: 2026-08-04T19:50:51.000Z
+last_synced: 2026-08-08T12:01:13.104Z
 last_manual_edit: 2026-06-27T12:51:51.967Z
 ---
 
@@ -263,6 +263,17 @@ last_manual_edit: 2026-06-27T12:51:51.967Z
 - **Assignee:** —
 - **Priority:** P2
 - **External-ID:** github:Intense-Visions/harness-engineering#1035
+
+### init-ecosystem-aftercreate
+
+- **Status:** planned
+- **Spec:** docs/changes/init-ecosystem-aftercreate/proposal.md
+- **Summary:** Scaffold ecosystem-matched afterCreate install command + warn when neither install nor verify resolves
+- **Blockers:** —
+- **Plan:** —
+- **Assignee:** —
+- **Priority:** —
+- **External-ID:** github:Intense-Visions/harness-engineering#1128
 
 ### Cloud autopilot: independent diagnostic agent on stuck retry
 
