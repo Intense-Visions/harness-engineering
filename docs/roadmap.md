@@ -310,7 +310,7 @@ last_manual_edit: 2026-06-27T12:51:51.967Z
 
 ### local dispatch: make the self-verify stage-prompt prose ecosystem-aware
 
-- **Status:** planned
+- **Status:** done
 - **Spec:** —
 - **Summary:** Follow-up to #1115 (#1002). #1115 made the enforced verify GATE ecosystem-aware, but the local stage-prompt's self-verify PROSE still hardcodes `pnpm --filter …`. Make the self-verify guidance render the detected ecosystem's verify commands; per #1115 this needs a strict-variables renderer change so the prompt accepts the ecosystem-derived command set.
 - **Blockers:** —
