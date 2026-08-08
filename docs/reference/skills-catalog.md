@@ -2,7 +2,7 @@
 
 # Skills Catalog
 
-777 skills. Skills carry two independent tier axes: a **loading tier** (whether a skill registers as a slash command or is discovered on demand) and a **curation tier** (how load-bearing it is). A senior engineer can hold ~12 skills in their head, not hundreds — the curation tier names that short list.
+779 skills. Skills carry two independent tier axes: a **loading tier** (whether a skill registers as a slash command or is discovered on demand) and a **curation tier** (how load-bearing it is). A senior engineer can hold ~12 skills in their head, not hundreds — the curation tier names that short list.
 
 See the [Features Overview](../guides/features-overview.md) for narrative documentation.
 
@@ -200,7 +200,7 @@ Human-judged acceptance sign-off skill — the terminal, human-authority stage o
 - **Cognitive mode:** configuration-interviewer
 - **Depends on:** outcome-eval
 
-## Tier 2 — Maintenance (57 skills)
+## Tier 2 — Maintenance (59 skills)
 
 ### acceptance-eval
 
@@ -259,6 +259,16 @@ Install, calibrate, verify and diagnose a local Claude Code usage-pace HUD that 
 - **Platforms:** claude-code, gemini-cli, codex, cursor
 - **Type:** rigid
 - **Cognitive mode:** constructive-architect
+
+### cicd-fleet
+
+Autonomous CI/CD-remediation orchestrator — triage the red CI/CD-run and flaky-test backlog by cause, fan out worktree-isolated subagents that run the real deflake/heal pipeline, independently verify each fix by artifact and deterministic all-OS CI, and hand back a batch of remediation PRs for one bulk human review. Never auto-merges and never hides a failure to clear the board.
+
+- **Triggers:** manual
+- **Platforms:** claude-code, codex, cursor, gemini-cli
+- **Type:** rigid
+- **Cognitive mode:** systematic-orchestrator
+- **Depends on:** harness-roadmap-pilot, harness-debugging, harness-workflow-audit
 
 ### cleanup-dead-code
 

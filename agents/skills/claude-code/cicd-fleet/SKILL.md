@@ -1,0 +1,282 @@
+# CICD Fleet
+
+> Autonomous CI/CD-remediation orchestrator — triage the red CI/CD-run and flaky-test backlog by cause, confirm the batch with the human in one up-front round, fan out worktree-isolated subagents that each run the **real** per-item remediation pipeline (deflake a flaky test / heal a real failure), independently verify every fix by artifact and **deterministic** all-OS CI, and hand back a batch of remediation PRs for one bulk review. The fleet never auto-merges, never trusts a subagent's self-report, and never makes a board green by hiding a failure.
+
+Sweeping a red CI/CD board is the same attention slog the rest of the `-fleet` family attacks, applied to the quality queue. Every failing pipeline has to be hand-triaged — real regression, flaky test, or infra/config defect? — then diagnosed to root cause, fixed, and re-run to confirm green, one failing run at a time. Flaky tests are worse: they reproduce only sometimes, tempt a tired human into "just re-run it" or "mark it skip," and quietly erode trust in the whole board. For a board of dozens of red runs and a handful of chronic flakes, the human's attention is the bottleneck, not the machinery. `cicd-fleet` works this quality queue **alongside** the core spine conveyor (intake → decide → build → land), the way `test-fleet` and `cleanup-fleet` do: it enumerates the red/flaky backlog, classifies each item by cause, runs the real remediation pipeline autonomously and in isolation for each item, verifies the fix, and returns **remediation PRs to review in bulk**.
+
+The five-phase spine, the concurrency governor, the artifact + all-OS-CI verification discipline, the worktree fan-out with its push-path caveat, and the never-silent-merge invariant are the family-shared scaffolding — stated once in `docs/reference/fleet-family.md`. This skill states only what is specific to the **CI/CD-remediation** stage: the red/flaky queue source, the red-cause triage taxonomy, the deflake/heal per-item pipeline, and the batch-remediation-PR terminal act.
+
+## When to Use
+
+- A red CI/CD board of many failing runs plus a set of chronic flaky tests needs autonomous triage, remediation, and one bulk PR review instead of per-run babysitting
+- Clearing accumulated CI/CD-red pressure where diagnosing and fixing each failing pipeline by hand does not scale
+- Turning a heterogeneous red/flaky backlog into a set of verified remediation PRs plus a clear report of what could not be remediated and why
+- When the failing items are largely independent — each is remediated on its own branch and does not require another's fix to land first
+- NOT for a single failing run or one flaky test — diagnose and fix it directly with `harness-debugging`; a fleet's overhead only pays off across a backlog
+- NOT for building or fixing a _feature_ — a red whose root cause is a substantial product defect needing design judgment is parked as `needs-design` and handed to a human / `roadmap-fleet`; `cicd-fleet` remediates pipelines, it does not open feature work
+- NOT for making the board green by disabling, skipping, or blanket-retrying tests — that hides failures instead of remediating them and is out of scope by design
+- NOT for converging one flaky test to stable through repeated rounds — that is a **pipeline** (it loops on one target), not a fleet (which fans out across many independent items)
+
+## Flags
+
+| Flag            | Effect                                                                                           |
+| --------------- | ------------------------------------------------------------------------------------------------ |
+| `--concurrency` | Cap concurrent remediation subagents (default 2, max recommended 3 — the machine-storm limit)    |
+| `--report-only` | Enumerate and triage the red/flaky queue and present the ranked batch; do not dispatch or verify |
+| `--dry-run`     | Run SELECT and CONFIRM only; stop before fan-out                                                 |
+
+## Process
+
+### Iron Law
+
+**A remediation is "merge-ready" only after independent artifact + deterministic all-OS-CI verification. The fleet never auto-merges, never accepts a subagent's self-report as proof its pipeline ran, and never clears a red board by hiding a failure — a test is deflaked by removing its nondeterminism, never disabled, skipped, or blanket-retried.**
+
+A subagent that reports "fixed — pipeline ran, CI green" has told you what it believes, not what is true. The only evidence that the real remediation pipeline ran is the artifact it necessarily leaves behind (a plan directory plus an autopilot-state) and the CI signal on the pushed branch. For a **flaky** test there is a second trap: a single rerun-green is the flake's own signature, not a fix — deterministic green (the previously-flaky test passing across repeated runs) is required before a deflake is merge-ready. And landing the batch is the human's call: the fleet stops at a set of verified, reviewable remediation PRs.
+
+```
+Phase 1: SELECT --> Phase 2: CONFIRM --> Phase 3: DISPATCH
+                                                    |
+                                                    v
+                     Phase 5: REPORT <-- Phase 4: VERIFY
+```
+
+| Phase       | Purpose                                                                        | Exit Condition                                                           |
+| ----------- | ------------------------------------------------------------------------------ | ------------------------------------------------------------------------ |
+| 1. SELECT   | Enumerate the red/flaky queue, classify each item by cause, cross-check, order | Triaged `CicdCandidate[]` with cause buckets and detected forks          |
+| 2. CONFIRM  | One up-front human round: approve/trim, answer forks, set concurrency          | Human-approved batch with answered forks and agreed concurrency          |
+| 3. DISPATCH | Worktree-isolated subagents run the real deflake/heal pipeline per item        | Every confirmed item returned a branch, parked, or failed (all recorded) |
+| 4. VERIFY   | Independent artifact + deterministic all-OS-CI confirmation, never self-report | Each returned item marked verified / rejected / retry                    |
+| 5. REPORT   | One-row-per-item batch summary; close already-green runs; never merge          | Report delivered; already-green/superseded runs closed with citations    |
+
+The five-phase spine, the concurrency governor, the artifact + all-OS-CI verification discipline, the worktree fan-out with its push-path caveat, and the never-silent-merge invariant are the family-shared scaffolding — stated once in `docs/reference/fleet-family.md`. This skill states only what is specific to the CI/CD-remediation stage: the red/flaky queue, the red-cause triage taxonomy, the deflake/heal pipeline, and the batch-remediation-PR terminal act.
+
+### Phase 1: SELECT — Enumerate, Classify by Cause, Cross-Check, Order
+
+1. **Enumerate the red/flaky queue from both signals.** Red runs via `gh` (`gh run list --status failure`, plus per-PR `gh pr checks` failures) and flaky-test signals derived from rerun history (`gh run list` / `gh run view` job logs) — a test whose outcome flipped across reruns of the **same commit SHA** is the canonical flake signature. Missing `gh` auth degrades to whichever signal is available and is reported, not aborted — with no board access there is nothing to sweep.
+
+2. **Classify each item into the red-cause taxonomy.** The fix differs per cause, so triage drives everything downstream:
+   - **real-failure** — a deterministic failure that reproduces on rerun of the same SHA → **heal** (diagnose root cause and fix).
+   - **flake** — a non-deterministic failure (passes on rerun of the same SHA) → **deflake** (remove the nondeterminism — the race, the time/order/seed dependency, the shared-state leak).
+   - **infra/config** — a workflow-file, runner, permissions, or action-pinning defect → **heal via `harness-workflow-audit`**.
+   - **already-green / superseded** — a run a newer green run or a merged fix already resolved → flag for closure, not remediation.
+   - **needs-design** — a red whose root cause is a substantial product defect requiring design judgment → park and report; hand to a human / `roadmap-fleet`.
+
+3. **Cross-check for already-green / superseded runs.** For every candidate, check whether a later green run of the same job, or a merged fix, already resolved it. An already-resolved run is **flagged for closure with a citation**, never re-remediated.
+
+4. **Order remediable candidates by remediation-priority.** Do not rank ad-hoc. Reuse `harness-roadmap-pilot`-style impact scoring so ordering is principled and reproducible — a chronically-red **required** check that blocks every PR outranks a one-off failure on a non-blocking job. Order highest-impact-to-remediate first.
+
+5. **Detect decision forks up front.** Scan each item for genuine ambiguity a remediator would otherwise have to guess (e.g. "is this timeout the test's fault or a slow dependency?", "deflake by seeding the RNG or by isolating the shared fixture?"). Surface these _known_ forks in CONFIRM; do not answer them here.
+
+6. **Build the `CicdCandidate` record** for each item:
+
+   ```
+   CicdCandidate {
+     id,               // run id / check name / test id
+     title,
+     source,           // "red-run" | "flaky-test"
+     cause,            // "real-failure" | "flake" | "infra-config" | "already-green" | "needs-design"
+     ciStatus,         // per-OS CI signal
+     flakeEvidence,    // the passed-and-failed-on-same-SHA trace (set when cause = flake)
+     score,            // roadmap-pilot impact score
+     supersededBy,     // set when cause = already-green
+     remediation,      // actions taken (filled in DISPATCH)
+     forks,            // detected known decision forks (may be empty)
+   }
+   ```
+
+### Phase 2: CONFIRM — The Single Up-Front Human Gate `[checkpoint:human-verify]`
+
+1. **Present the triaged queue in one round.** This is the **only guaranteed human touchpoint before PR review** — everything downstream runs autonomously. Present, together, in a single surface:
+   - The remediable items (real-failure / flake / infra-config), ordered by remediation-priority, each with its cause bucket and CI status.
+   - Already-green / superseded runs **flagged for closure** with their resolving run/PR — the human confirms closing; the fleet never re-remediates them.
+   - `needs-design` items **flagged to park** — the fleet will not force-fix a substantial product defect inside the sweep.
+   - Every detected known decision fork as a **multiple-choice question** with a recommended default.
+   - The **proposed concurrency** (default 2, capped at ~3).
+
+2. **The human approves or trims once, and answers the forks.** Batch approval, fork answering, and closure confirmation all happen in this same gate — front-loading the genuinely-ambiguous items is what keeps wrong-guess rework low. Answered forks are recorded and fed into each item's DISPATCH brief.
+
+3. **From here it is autonomous.** After this gate the fleet does not pause per-item. The only thing that re-surfaces before REPORT is an _unforeseen_ fork, or a flake that cannot be deflaked, that parks a single item (see DISPATCH) — and even that does not block the batch. Under `--dry-run` the skill stops at the end of this phase.
+
+### Phase 3: DISPATCH — Worktree Remediation Fan-Out With a Concurrency Governor
+
+1. **One worktree-isolated subagent per remediable item.** Each subagent is briefed to run the **real** per-item remediation pipeline for its one item: `harness-debugging` (systematic root-cause-before-fix) for a real-failure or a flake, or `harness-workflow-audit` for an infra/config defect. It does not hand-patch and does not skip the pipeline — the artifacts the pipeline leaves behind are what VERIFY checks for. Feed the item's answered forks from CONFIRM into the brief so the remediator never re-asks a settled question.
+
+2. **Deflake means remove the nondeterminism — never hide it.** A flaky test is fixed by eliminating the source of nondeterminism (seed the RNG, isolate the shared fixture, await the async settle, pin the clock). Adding a blanket retry, marking the test `skip`, lowering an assertion to make it pass, or deleting the test is **not** a deflake — it spends the trust the sweep exists to rebuild. A flake the subagent **cannot** deflake within the item **parks and reports a quarantine proposal** (a documented, tracked, human-decided quarantine), never a silent disable.
+
+3. **Cap concurrency at the governor (default 2, max ~3).** This is the machine-storm limit, and it is doubly relevant here: beyond roughly three concurrent agents the compound load manufactures exactly the flaky failures the fleet is trying to eliminate. Never exceed the confirmed concurrency to "go faster" — a stormed batch is slower once you account for re-runs.
+
+4. **Park unforeseen forks; never guess mid-flight.** A subagent runs autonomously on recommended-option defaults for anything routine. But if an item hits a genuinely **unforeseen** decision fork — one not surfaced in CONFIRM that materially changes the fix — or reveals a `needs-design` product defect mid-diagnosis, that item **parks and reports** instead of guessing. Parking is per-item: the rest of the batch continues uninterrupted. The parked fork appears in REPORT for the human.
+
+5. **Record a "remediation actions / assumptions made" note per item.** Each subagent records the root cause it found, the fix it applied, and the recommended-option defaults it took, so the eventual PR carries an auditable note — batch review is only trustworthy when the reviewer can see what was changed and assumed.
+
+6. **Push-path caveat.** A worktree created under a `.claude/`-nested path breaks the local pre-push `check-docs` gate (it self-excludes and scans zero files). Subagents push via the GitHub API or from a non-`.claude` throwaway worktree. **Never `--no-verify`** — bypassing the gate defeats the verification the fleet depends on.
+
+### Phase 4: VERIFY — Independent Confirmation, Never Self-Report
+
+1. **Never accept a subagent's self-report as verification.** "The fix landed and CI is green" is a claim to be checked, not a result. For each returned branch, the orchestrator independently confirms the evidence itself.
+
+2. **Require the pipeline artifact.** Confirm that both exist on the branch:
+   - A plan artifact under `docs/changes/<slug>/plans/` — the necessary trace of a real remediation run.
+   - An autopilot-state (session state) for the item.
+
+   An item with **no plan artifact did not run the real pipeline** — regardless of what the subagent reported. Reject it (or retry once); it is never marked merge-ready.
+
+3. **Require all-OS CI green.** Confirm the pushed branch's CI is green on **all** operating systems plus the enforce and harness checks (`gh pr checks` / `gh run list`). Green on one OS is not green. A subset-red branch is not merge-ready — it is reported as failed, and the batch continues.
+
+4. **For a deflake, require _deterministic_ green.** A single rerun-green is the flake's own signature, not proof of a fix. Confirm the previously-flaky test now passes across **repeated** runs (the branch's CI re-runs, or a repeated-run job) before marking the deflake merge-ready. One green run does not clear a flake.
+
+5. **Classify each returned item** as `verified` (artifact present + all-OS CI green + deterministic green for deflakes), `rejected` (missing artifact, definitively red, or a "fix" that only hid the failure), or `retry` (transient, retried at most once). No item reaches REPORT as merge-ready without passing every applicable check.
+
+### Phase 5: REPORT — Batch Summary, Already-Green Closure, Never Merge
+
+1. **Emit a one-row-per-item batch summary** for bulk human review:
+
+   | Item | Cause | Verdict | Remediation actions | PR  | Parked / quarantine |
+   | ---- | ----- | ------- | ------------------- | --- | ------------------- |
+
+   Every verified item's row carries its PR link, the **remediation-actions / assumptions note** from DISPATCH, and any parked fork or quarantine proposal. Rejected/failed items are listed with the reason.
+
+2. **Close already-green / superseded runs accurately.** For each run flagged already-green in SELECT and confirmed in CONFIRM, close its tracking with a comment **citing the resolving run/PR** — never a bare close, and never a re-remediation.
+
+3. **Never merge.** The fleet delivers verified, reviewable remediation PRs; the human (optionally via `pr-fleet`) lands the batch. Auto-merging a remediation is out of scope by design.
+
+4. **Degrade gracefully.** Missing `gh` auth, an unavailable signal source, or a single item's failed remediation results in that item (or source) being **reported** while the rest of the batch proceeds. One bad item never sinks the batch.
+
+## Harness Integration
+
+- **`harness skill run cicd-fleet`** — Run the full five-phase remediation pipeline.
+- **`harness-roadmap-pilot`** — Its impact scoring is reused in SELECT to order remediable items by remediation-priority.
+- **`harness-debugging`** — The real per-item root-cause-before-fix pipeline each remediation subagent runs in DISPATCH for real-failures and flakes; the fleet composes it and never reimplements diagnosis.
+- **`harness-workflow-audit`** — The per-item pipeline for infra/config red (workflow-file, permissions, action-pinning, self-trigger defects).
+- **`gh`** — Enumerate red runs and flaky signals, read `gh pr checks` / `gh run view` (SELECT/VERIFY), push remediation branches, and close already-green runs with citations (REPORT).
+- **`docs/reference/fleet-family.md`** — The shared `-fleet` spine this skill builds on (the five-phase skeleton, the concurrency governor, the artifact + all-OS-CI verification discipline, the worktree fan-out, and the never-silent-merge invariant), stated once for the family.
+- **`harness skill validate cicd-fleet`** — The authoring-time gate for this skill's own structure and schema.
+
+## Success Criteria
+
+- Given a confirmed batch of N remediable items, the fleet produces **up to N** remediation PRs, each with a verified plan artifact and green CI across all OS plus enforce and harness.
+- There is **exactly one** up-front human decision round; no per-item interactive pauses except a genuinely-new fork or an un-deflakable flake parked to its own item.
+- **Every remediation PR carries a remediation-actions / assumptions-made note.**
+- **Every deflake is verified by deterministic green** (repeated-run stability), never a single rerun-green.
+- **No test is disabled, skipped, or blanket-retried to clear the board** — an un-deflakable flake parks a quarantine proposal for a human.
+- Already-green / superseded runs are **closed with citations, not re-remediated**.
+- A red whose root cause is a substantial product defect is **parked as `needs-design`, not force-fixed** inside the sweep.
+- The skill **never auto-merges** a remediation PR.
+- It **degrades gracefully**: missing `gh` auth, an unavailable signal source, or a single item's failed remediation is reported while the batch continues.
+- Concurrency never exceeds the confirmed governor (default 2, max ~3).
+- No item is marked remediated on a subagent self-report — every verdict is backed by independently-checked artifact + CI evidence.
+
+## Gates
+
+- **No "merge-ready" without a verified plan artifact.** An item lacking `docs/changes/<slug>/plans/` did not run the real pipeline. It is rejected or retried — never reported as merge-ready, no matter what the subagent claimed.
+- **No "merge-ready" without all-OS CI green.** Green on a subset of operating systems (or with enforce/harness checks red) is not merge-ready. Report it failed; do not ship it.
+- **No deflake without deterministic green.** A single rerun-green is the flake signature, not a fix. A deflake that passed once but has not been shown stable across repeated runs is not merge-ready.
+- **Never hide a failure to clear the board.** Disabling, skipping, blanket-retrying, or deleting a test to make CI green = gate violation. Deflake removes the nondeterminism; an un-deflakable flake parks a quarantine proposal.
+- **Never force-fix a `needs-design` red.** A substantial product defect surfaced by a red run is parked and reported, not patched over inside the sweep.
+- **Never auto-merge.** The fleet stops at reviewable PRs. Merging a remediation from inside the fleet = gate violation; the human lands the batch.
+- **A self-report is never verification.** Accepting "fixed, CI green" without independently checking the artifact and CI = gate violation. Re-verify independently.
+- **Never exceed the concurrency governor.** More than ~3 concurrent agents is the machine-storm zone — and it manufactures the very flakes the fleet is eliminating.
+- **Never `--no-verify`.** No subagent bypasses the pre-push gates; a `.claude/`-nested worktree pushes via the GitHub API or a non-nested worktree instead.
+
+## Escalation
+
+- **Missing `gh` auth:** with no board access there is nothing to sweep — proceed with whichever signal is available (red runs or flake history), record the gap in REPORT; if both are unavailable, stop and report.
+- **A subagent returns a branch with no plan artifact:** do not accept its self-report. Reject or retry once; if it still produces no artifact, report the item as "did not run the pipeline" and move on — the batch continues.
+- **A flake cannot be deflaked within the item:** the subagent parks and reports a **quarantine proposal** (with a tracking rationale) for a human decision — it never silently disables the test. The parked item is the only one affected.
+- **An item reveals a `needs-design` product defect mid-diagnosis:** park it and report; the fix needs a human / `roadmap-fleet`. The sweep does not open feature work.
+- **CI green on a subset of OS:** report the item failed with the failing OS/check named; never mark it merge-ready. Do not average a mixed CI result into "mostly green".
+- **A deflake passes once but flaps on a repeated run:** it is not deflaked — report it not-merge-ready (or park a quarantine proposal); a single green does not clear a flake.
+- **The batch appears coupled (one item's fix depends on another's merge):** stop fanning out those items; the coupling means they are a pipeline, not a fleet. Escalate to the human to sequence them.
+
+## Rationalizations to Reject
+
+| Rationalization                                                                   | Reality                                                                                                                                                                         |
+| --------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| "It passed on the re-run, so the flake is fixed"                                  | A rerun-green is the flake's own signature, not a fix. A deflake requires removing the nondeterminism and confirming deterministic green across repeated runs.                  |
+| "This test is flaky — I'll add a retry / mark it skip to get the board green"     | Hiding a failure is not remediation. Deflake removes the nondeterminism; a test that cannot be deflaked parks a tracked quarantine proposal for a human, never a silent skip.   |
+| "The subagent reported it fixed the failure and CI is green, so it did"           | A self-report is a claim, not evidence. Independently confirm the `docs/changes/<slug>/plans/` artifact and autopilot-state exist and CI is green — or the item did not run.    |
+| "CI is green on Linux, ship the fix"                                              | Green on one OS is not green. Merge-ready requires all operating systems plus the enforce and harness checks. A subset-red branch is reported failed, not shipped.              |
+| "This red is really a product bug — I'll just patch the product code and move on" | A substantial product defect is a `needs-design` item: park and report it for a human / `roadmap-fleet`. The sweep remediates pipelines, it does not force-fix feature defects. |
+| "I'll hand-patch this one failing test — it's faster than the debugging pipeline" | Dogfood the real per-item skills. A hand-patched fix leaves no plan artifact, fails VERIFY, and breaks the guarantee that every remediation ran the audited pipeline.           |
+| "The batch is verified — I'll merge the remediations to save the human a step"    | Never auto-merge. The fleet stops at reviewable PRs; the human (or `pr-fleet`) lands the batch. Auto-merging removes the one review the whole model is built around.            |
+| "This red looks new to me, no need to check for a later green run"                | Cross-check every item. An already-green run re-remediated from scratch is duplicate work and a conflicting PR; already-green runs get closed with a citation, not rebuilt.     |
+| "Bumping concurrency to six will clear the red board sooner"                      | Beyond ~3 concurrent agents is the machine-storm zone — the compound load manufactures the very flaky failures the fleet is trying to eliminate.                                |
+
+## Red Flags
+
+| Flag                                                                 | Corrective Action                                                                                                           |
+| -------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------- |
+| "It passed on re-run, mark the flake done"                           | STOP. A rerun-green is the flake signature. Require deterministic green across repeated runs before a deflake is done.      |
+| "Just skip / retry the flaky test to get green"                      | STOP. Never hide a failure. Deflake removes the nondeterminism; an un-deflakable flake parks a tracked quarantine proposal. |
+| "I'll mark it remediated based on the subagent's summary"            | STOP. Independently check the artifact and CI. A summary is not a verification.                                             |
+| "The pre-push gate is failing in this worktree — I'll `--no-verify`" | STOP. Never bypass. Push via the GitHub API or a non-`.claude` worktree; the gate is part of the verification.              |
+| "All verified — let me merge the fixes and close the loop"           | STOP. The fleet never merges. Deliver the remediation PRs for review; landing is the human's step.                          |
+| "This red is a product bug, I'll just fix the feature here"          | STOP. Park it as `needs-design` for a human / `roadmap-fleet`. The sweep does not open feature work.                        |
+
+## Examples
+
+### Example: A red board with a chronic flake
+
+```
+$ harness skill run cicd-fleet --concurrency 2
+
+Phase 1: SELECT
+  Enumerated: 5 red runs (gh run list --status failure) + 2 flaky-test signals (rerun history).
+  Classify:
+    - "auth spec — token expiry"      -> real-failure (reproduces on rerun) -> heal
+    - "checkout e2e — cart total"      -> flake (passed+failed on same SHA)  -> deflake
+    - "release workflow — bad path filter" -> infra/config -> heal via workflow-audit
+    - "lint job on #old-branch"        -> already-green (a later run is green) -> flag for closure
+    - "payments spec — rounding"       -> needs-design (product rounding defect) -> park
+  Ordered remediable items by impact via roadmap-pilot scoring (required checks first).
+  Detected forks: 1 — "checkout e2e: deflake by awaiting the settle or by seeding the fixture?"
+
+Phase 2: CONFIRM  [checkpoint:human-verify]
+  Triaged queue presented. "lint job" flagged for closure (already-green).
+  "payments rounding" flagged to park (needs-design).
+  Human answers fork: checkout e2e -> await the settle. Concurrency confirmed: 2.
+
+Phase 3: DISPATCH (governor = 2)
+  "auth spec", "checkout e2e" -> remediation subagents run harness-debugging.
+  "release workflow" -> harness-workflow-audit fixes the path filter.
+  "auth spec": root cause = clock not pinned in test -> healed.
+  "checkout e2e": removed the async race (awaited the settle) -> deflaked.
+
+Phase 4: VERIFY (independent — no self-report)
+  auth spec:     plan artifact + autopilot-state present, CI green all OS + enforce + harness -> verified
+  checkout e2e:  plan artifact present, CI green all OS, previously-flaky test stable across repeated runs -> verified (deterministic)
+  release wf:    plan artifact present, CI green all OS -> verified
+  payments:      parked in CONFIRM (needs-design) -> not remediated
+
+Phase 5: REPORT
+  | Item          | Cause         | Verdict  | Remediation actions          | PR    | Parked / quarantine     |
+  | ------------- | ------------- | -------- | ---------------------------- | ----- | ----------------------- |
+  | auth spec     | real-failure  | verified | pinned the test clock        | link  | —                       |
+  | checkout e2e  | flake         | verified | awaited async settle (fork)  | link  | —                       |
+  | release wf    | infra/config  | verified | fixed path filter            | link  | —                       |
+  | payments      | needs-design  | parked   | —                            | —     | product rounding defect |
+  Closed 1 already-green run, citing the resolving green run.
+  Never merged. 3 remediation PRs handed to the human for bulk review.
+```
+
+### Example: Refusing to hide a flake
+
+A flaky e2e test cannot be deflaked within the item — the nondeterminism traces to an upstream service the test cannot control. The subagent does **not** mark it `skip` or wrap it in a blanket retry to make the board green. Per the Iron Law it **parks and reports a quarantine proposal**: a documented, tracked, human-decided quarantine with the rationale. The board stays honestly red on that one item; the batch's other verified remediations proceed to REPORT unaffected.
+
+## Test Scenarios
+
+### Scenario 1: Gate — a rerun-green accepted as a deflake
+
+VERIFY receives a flaky test whose branch CI is green — but only a single run has been observed. Expected: the "no deflake without deterministic green" Gate halts marking it merge-ready; the deflake must be shown stable across repeated runs first. Accepting the single rerun-green (the flake's own signature) is the failure this scenario guards against.
+
+### Scenario 2: Rationalization — skipping a flaky test to clear the board
+
+A subagent finds a flake it cannot immediately deflake and reasons "I'll just mark it `skip` so CI goes green." Expected: rejected by the "never hide a failure" gate — deflaking removes the nondeterminism, and a test that cannot be deflaked parks a tracked quarantine proposal for a human. Silently disabling the test is the failure this scenario guards against.
+
+### Scenario 3: Self-report — accepting "fixed, CI green" without checking
+
+A subagent reports "healed the failure, CI is green." Expected: the "a self-report is never verification" gate requires the orchestrator to independently confirm the `docs/changes/<slug>/plans/` artifact, the autopilot-state, and all-OS CI via `gh` before marking it remediated. Marking it merge-ready on the report alone is the failure this scenario guards against.
+
+### Scenario 4: Park-unforeseen — a red that is really a product defect
+
+A subagent diagnosing a red run discovers the root cause is a substantial product defect needing design judgment. Expected: the item **parks as `needs-design`** and reports rather than force-fixing the feature inside the sweep; the parked item appears in REPORT for a human / `roadmap-fleet`; the other in-flight items continue uninterrupted. Patching over the product defect to clear the red is the failure this scenario guards against.
