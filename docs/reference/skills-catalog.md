@@ -261,6 +261,16 @@ Audit component definitions for missing required anatomy parts (slots, states, s
 - **Cognitive mode:** constructive-architect
 - **Depends on:** design-component-anatomy, harness-accessibility
 
+### bug-fleet
+
+Proactive undiscovered-bug hunt across the standing codebase — rank the codebase into disjoint risk-ordered areas by composing the existing detection analyses, confirm the batch once, fan out worktree-isolated subagents that each run the real per-area hunt (review machinery, adversarial refutation, a tdd-authored reproducing test, tracker cross-check, classification, debugging-driven fix), independently verify every item by pipeline-provenance artifact plus a re-run reproducing test at the pinned base SHA plus all-OS CI, and hand back a tiered batch of fix PRs and filed issues. No reproduction, no bug. Never auto-merges.
+
+- **Triggers:** manual
+- **Platforms:** claude-code, codex, cursor, gemini-cli
+- **Type:** rigid
+- **Cognitive mode:** systematic-orchestrator
+- **Depends on:** harness-hotspot-detector, harness-impact-analysis, harness-test-advisor, harness-code-review, harness-security-review, harness-tdd, harness-debugging, harness-roadmap-pilot
+
 ### burn-hud
 
 Install, calibrate, verify and diagnose a local Claude Code usage-pace HUD that cannot fail green
