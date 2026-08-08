@@ -3,6 +3,8 @@ import * as path from 'node:path';
 import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
 import { WorkspaceConfig, Result, Ok, Err } from '@harness-engineering/types';
+import type { HarnessIdentity } from '@harness-engineering/types';
+import { ensureIdentity, assignNumber, readHarnessIdentity } from '@harness-engineering/core';
 import { parseIntroducedHunks, type IntroducedHunk } from '../agent/quality-verdict.js';
 
 /**
@@ -99,6 +101,37 @@ export class WorkspaceManager {
   public resolvePath(identifier: string): string {
     const sanitized = this.sanitizeIdentifier(identifier);
     return path.join(this.config.root, sanitized);
+  }
+
+  /** Path to a worktree's identity record under the (gitignored) .harness dir. */
+  private worktreeIdentityPath(identifier: string, repoRoot: string): string {
+    return path.join(
+      repoRoot,
+      '.harness',
+      'worktrees',
+      `${this.sanitizeIdentifier(identifier)}.json`
+    );
+  }
+
+  /** Path to the per-repo worktree completion-number counter. */
+  private worktreeCounterPath(repoRoot: string): string {
+    return path.join(repoRoot, '.harness', 'worktrees', '.number-counter');
+  }
+
+  /**
+   * Best-effort: record an immutable ULID identity for a worktree task.
+   * Never throws — identity is metadata and must not block worktree creation.
+   */
+  private async recordWorktreeIdentity(identifier: string): Promise<void> {
+    try {
+      const repoRoot = await this.getRepoRoot();
+      ensureIdentity(this.worktreeIdentityPath(identifier, repoRoot), {
+        slug: this.sanitizeIdentifier(identifier),
+        domain: 'worktree',
+      });
+    } catch {
+      // best-effort
+    }
   }
 
   /**
@@ -254,6 +287,11 @@ export class WorkspaceManager {
       if (opts?.preserve === true) {
         try {
           await fs.access(path.join(workspacePath, '.git'));
+          // Reuse short-circuit MUST stay git-call-free (no getRepoRoot / spawn) so
+          // the agent's in-flight worktree is truly untouched. The identity was
+          // already recorded (immutably) when this worktree was first created on
+          // the fresh-create path below, so re-recording here would be redundant
+          // AND would spawn a `git rev-parse` on the preserve fast-path.
           return Ok({ path: workspacePath, reused: true });
         } catch {
           // No valid worktree to preserve — proceed to fresh create below.
@@ -305,6 +343,7 @@ export class WorkspaceManager {
       // a dispatched agent with a roadmap entry but no proposal to work from.
       await this.seedWorkspace(workspacePath, repoRoot);
 
+      await this.recordWorktreeIdentity(identifier);
       return Ok({ path: workspacePath, reused: false });
     } catch (error) {
       return Err(error instanceof Error ? error : new Error(String(error)));
@@ -499,6 +538,32 @@ export class WorkspaceManager {
     }
   }
 
+  /** Reads the recorded worktree identity, or null if absent/unreadable. */
+  public async getWorkspaceIdentity(identifier: string): Promise<HarnessIdentity | null> {
+    try {
+      const repoRoot = await this.getRepoRoot();
+      return readHarnessIdentity(this.worktreeIdentityPath(identifier, repoRoot));
+    } catch {
+      return null;
+    }
+  }
+
+  /**
+   * Best-effort: assign (idempotently) the worktree's completion number.
+   * Returns the updated/existing identity, or null on failure/absence.
+   */
+  public async assignWorkspaceNumber(identifier: string): Promise<HarnessIdentity | null> {
+    try {
+      const repoRoot = await this.getRepoRoot();
+      return assignNumber(
+        this.worktreeIdentityPath(identifier, repoRoot),
+        this.worktreeCounterPath(repoRoot)
+      );
+    } catch {
+      return null;
+    }
+  }
+
   /**
    * Checks whether a worktree has commits ahead of the base branch that have
    * been pushed to a remote branch. Returns the remote branch name if found,
@@ -630,6 +695,7 @@ export class WorkspaceManager {
       if (remoteExists) {
         const existingPr = await this.openPrForBranch(branch, workspacePath);
         if (existingPr !== null) {
+          await this.assignWorkspaceNumber(identifier); // idempotent
           return Ok(existingPr.length > 0 ? { branch, prUrl: existingPr } : { branch });
         }
       }
@@ -719,6 +785,7 @@ export class WorkspaceManager {
       }
       if (lastErr !== null) throw lastErr;
 
+      await this.assignWorkspaceNumber(identifier);
       return Ok(prUrl.length > 0 ? { branch, prUrl } : { branch });
     } catch (error) {
       return Err(error instanceof Error ? error : new Error(String(error)));
