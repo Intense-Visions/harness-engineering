@@ -199,11 +199,11 @@ The family forms a conveyor across the delivery lifecycle:
 | **Build** | **`roadmap-fleet`** | **Confirmed backlog candidates → verified, merge-ready PRs** |
 | Land      | `pr-fleet`          | Merge-ready PRs → merged                                     |
 
-`roadmap-fleet` is the **build** stage: it scores and confirms a batch of backlog candidates, fans out worktree-isolated sub-agents that each run the real brainstorming → autopilot pipeline, independently verifies each result by artifact and all-OS CI, and returns merge-ready PRs. It never auto-merges — landing the batch is the human's step (optionally via `pr-fleet`).
+`roadmap-fleet` is the **build** stage: it scores and confirms a batch of backlog candidates, fans out worktree-isolated subagents that each run the real brainstorming → autopilot pipeline, independently verifies each result by artifact and all-OS CI, and returns merge-ready PRs. It never auto-merges — landing the batch is the human's step (optionally via `pr-fleet`).
 
 Every family member shares one interaction model — **front-load every known decision fork into one up-front batched round, run autonomously on recommended defaults thereafter, and park any unforeseen mid-flight fork to its own item without blocking the batch**, with each output carrying an "assumptions made" note. Two ADRs govern the family:
 
-- [ADR 0087 — sub-agent fan-out vs the Workflow primitive](../knowledge/decisions/0087-sub-agent-fanout-vs-workflow-primitive.md): why v1 uses model-driven sub-agent worktree fan-out, with the deterministic `Workflow` primitive named as a future upgrade.
+- [ADR 0087 — subagent fan-out vs the Workflow primitive](../knowledge/decisions/0087-subagent-fanout-vs-workflow-primitive.md): why v1 uses model-driven subagent worktree fan-out, with the deterministic `Workflow` primitive named as a future upgrade.
 - [ADR 0088 — the front-load / park-unforeseen interaction model](../knowledge/decisions/0088-front-load-park-unforeseen-interaction-model.md): the canonical statement of the shared interaction model that every `-fleet` member references rather than restating.
 
 A `-fleet` is distinct from a convergence **pipeline**: a pipeline loops on one target until it converges, while a fleet fans out across many independent items into many outputs.

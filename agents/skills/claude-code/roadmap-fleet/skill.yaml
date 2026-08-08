@@ -1,6 +1,6 @@
 name: roadmap-fleet
 version: '1.0.0'
-description: Autonomous batch-build orchestrator — score and confirm a batch of backlog candidates, fan out worktree-isolated sub-agents that run the real per-item pipeline, independently verify each result by artifact and all-OS CI, and hand back a batch of merge-ready PRs for one bulk human review. Never auto-merges.
+description: Autonomous batch-build orchestrator — score and confirm a batch of backlog candidates, fan out worktree-isolated subagents that run the real per-item pipeline, independently verify each result by artifact and all-OS CI, and hand back a batch of merge-ready PRs for one bulk human review. Never auto-merges.
 stability: static
 cognitive_mode: systematic-orchestrator
 triggers:
@@ -22,10 +22,10 @@ cli:
       description: Project root path
       required: false
     - name: --concurrency
-      description: 'Cap on concurrent build sub-agents (default: 2, max recommended 3 — the machine-storm limit)'
+      description: 'Cap on concurrent build subagents (default: 2, max recommended 3 — the machine-storm limit)'
       required: false
     - name: --report-only
-      description: Enumerate, score, and present the ranked batch without dispatching build sub-agents
+      description: Enumerate, score, and present the ranked batch without dispatching build subagents
       required: false
     - name: --dry-run
       description: Run SELECT and CONFIRM only; do not fan out, verify, or report
@@ -45,10 +45,10 @@ phases:
     description: Present the ranked batch in one round — resolved items flagged for closure, decision forks as questions, proposed concurrency — for a single up-front human approval
     required: true
   - name: dispatch
-    description: Fan out worktree-isolated sub-agents, each running the real brainstorming then autopilot pipeline for one item, capped at the concurrency governor
+    description: Fan out worktree-isolated subagents, each running the real brainstorming then autopilot pipeline for one item, capped at the concurrency governor
     required: true
   - name: verify
-    description: Independently confirm each returned branch has a plan artifact plus autopilot-state and is CI-green across all OS plus enforce and harness — never by sub-agent self-report
+    description: Independently confirm each returned branch has a plan artifact plus autopilot-state and is CI-green across all OS plus enforce and harness — never by subagent self-report
     required: true
   - name: report
     description: Emit a one-row-per-item batch summary with assumptions notes for bulk human review, close already-resolved issues citing the resolving PR, never merge

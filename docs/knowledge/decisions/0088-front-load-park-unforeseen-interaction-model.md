@@ -84,6 +84,6 @@ rather than restating the model.
 ## References
 
 - Source proposal: `docs/changes/roadmap-fleet/proposal.md`.
-- Companion: [`0087-sub-agent-fanout-vs-workflow-primitive.md`](0087-sub-agent-fanout-vs-workflow-primitive.md) — the execution architecture the model runs on.
+- Companion: [`0087-subagent-fanout-vs-workflow-primitive.md`](0087-subagent-fanout-vs-workflow-primitive.md) — the execution architecture the model runs on.
 - First instance: `agents/skills/claude-code/roadmap-fleet/SKILL.md` (CONFIRM gate, DISPATCH fork-parking, REPORT assumptions note).
 - Family overview: `docs/guides/features-overview.md` (the `-fleet` family section).

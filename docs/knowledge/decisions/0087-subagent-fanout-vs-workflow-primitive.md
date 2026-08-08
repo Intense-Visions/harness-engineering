@@ -1,6 +1,6 @@
 ---
 number: 0087
-title: Sub-agent worktree fan-out (vs the Workflow primitive) for -fleet execution
+title: Subagent worktree fan-out (vs the Workflow primitive) for -fleet execution
 date: 2026-08-07
 status: accepted
 tier: large
@@ -17,8 +17,8 @@ one another, collect their results, and verify each independently.
 
 There are two credible ways to drive that fan-out:
 
-1. **Model-driven sub-agent fan-out.** The skill instructs the orchestrating agent to spawn
-   worktree-isolated sub-agents, one per item, each briefed to run the per-item pipeline; the
+1. **Model-driven subagent fan-out.** The skill instructs the orchestrating agent to spawn
+   worktree-isolated subagents, one per item, each briefed to run the per-item pipeline; the
    orchestrator collects branches and verifies them. This is prose in a `SKILL.md` — portable
    to any platform that can run the skill, and identical to the fan-out precedent already
    shipped by `harness-audit` (parallel worktree-isolated agents, one per dimension).
@@ -29,14 +29,14 @@ There are two credible ways to drive that fan-out:
    value rather than as instructions the model must follow.
 
 The pattern this skill codifies was proven by executing roughly ten candidates by hand in a
-single session, using sub-agent fan-out with a concurrency cap — it produced verified,
+single session, using subagent fan-out with a concurrency cap — it produced verified,
 merge-ready PRs. The `Workflow` primitive does not yet exist as a stable, portable authoring
 surface.
 
 ## Decision
 
-**v1 executes `-fleet` fan-out via model-driven sub-agent worktree isolation.** The skill body
-instructs the orchestrator to spawn one worktree-isolated sub-agent per confirmed item, cap
+**v1 executes `-fleet` fan-out via model-driven subagent worktree isolation.** The skill body
+instructs the orchestrator to spawn one worktree-isolated subagent per confirmed item, cap
 concurrency at the machine-storm limit (~2–3), collect returned branches, and verify each
 independently. Selection and ordering reuse `harness-roadmap-pilot`'s impact scoring rather
 than an ad-hoc ranker, and execution reuses the existing worktree-isolation primitive that

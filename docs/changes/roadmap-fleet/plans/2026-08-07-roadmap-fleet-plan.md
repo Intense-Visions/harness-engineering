@@ -15,7 +15,7 @@ Author the `roadmap-fleet` claude-code rigid orchestrator skill (`SKILL.md` + `s
 5. `agents/skills/{codex,cursor,gemini-cli}/roadmap-fleet` each resolve as symlinks to `../claude-code/roadmap-fleet`.
 6. `pnpm generate:plugin:check` exits 0 (generated plugin artifacts are consistent with the new skill; no write-mode generate:plugin was run in the worktree).
 7. `docs/reference/skills-catalog.md` is regenerated (`pnpm run generate-docs`) and lists `roadmap-fleet`.
-8. Two ADRs exist: `docs/knowledge/decisions/0087-sub-agent-fanout-vs-workflow-primitive.md` and `docs/knowledge/decisions/0088-front-load-park-unforeseen-interaction-model.md`, each with the repo ADR frontmatter + Context/Decision/Consequences/Alternatives Considered/References.
+8. Two ADRs exist: `docs/knowledge/decisions/0087-subagent-fanout-vs-workflow-primitive.md` and `docs/knowledge/decisions/0088-front-load-park-unforeseen-interaction-model.md`, each with the repo ADR frontmatter + Context/Decision/Consequences/Alternatives Considered/References.
 9. A short `-fleet` family docs section exists with cross-links to the two ADRs and to the family conveyor position (build stage).
 10. `pnpm format:check` reports no formatting diffs for the created/edited files.
 
@@ -33,7 +33,7 @@ Author the `roadmap-fleet` claude-code rigid orchestrator skill (`SKILL.md` + `s
 - CREATE `agents/skills/codex/roadmap-fleet` (symlink → `../claude-code/roadmap-fleet`)
 - CREATE `agents/skills/cursor/roadmap-fleet` (symlink → `../claude-code/roadmap-fleet`)
 - CREATE `agents/skills/gemini-cli/roadmap-fleet` (symlink → `../claude-code/roadmap-fleet`)
-- CREATE `docs/knowledge/decisions/0087-sub-agent-fanout-vs-workflow-primitive.md`
+- CREATE `docs/knowledge/decisions/0087-subagent-fanout-vs-workflow-primitive.md`
 - CREATE `docs/knowledge/decisions/0088-front-load-park-unforeseen-interaction-model.md`
 - MODIFY `docs/reference/skills-catalog.md` (regenerated — do not hand-edit)
 - MODIFY (or CREATE) a `-fleet` family docs section — `docs/guides/features-overview.md` (append a `-fleet` family subsection) and/or a short family page under `docs/guides/`
@@ -95,7 +95,7 @@ Author the top of SKILL.md: `# Roadmap Fleet`, a one-sentence `>` summary, `## W
 
 **Depends on:** Task 2 · **Files:** `agents/skills/claude-code/roadmap-fleet/SKILL.md`
 
-Add `## Process`, an `### Iron Law` (e.g. "Every PR ships only after independent artifact + all-OS-CI verification; the fleet never auto-merges and never trusts sub-agent self-report"), then `### Phase 1: SELECT`. SELECT prose must instruct: enumerate open external issues via `gh` and unblocked roadmap shards via `manage_roadmap`; cross-check each candidate against merged/open PRs; mark already-resolved items for closure (not rebuild); score and order via `roadmap-pilot`'s impact scoring; define the **Candidate** record (source, id, title, score, cross-check result / resolving PR, already-resolved flag, detected decision forks).
+Add `## Process`, an `### Iron Law` (e.g. "Every PR ships only after independent artifact + all-OS-CI verification; the fleet never auto-merges and never trusts subagent self-report"), then `### Phase 1: SELECT`. SELECT prose must instruct: enumerate open external issues via `gh` and unblocked roadmap shards via `manage_roadmap`; cross-check each candidate against merged/open PRs; mark already-resolved items for closure (not rebuild); score and order via `roadmap-pilot`'s impact scoring; define the **Candidate** record (source, id, title, score, cross-check result / resolving PR, already-resolved flag, detected decision forks).
 
 **Acceptance:** Phase 1 names `gh`, `manage_roadmap`, `roadmap-pilot` scoring, and the Candidate record fields.
 
@@ -111,7 +111,7 @@ Add `### Phase 2: CONFIRM`. Prose: present the ranked batch in one round — alr
 
 **Depends on:** Task 4 · **Files:** `agents/skills/claude-code/roadmap-fleet/SKILL.md`
 
-Add `### Phase 3: DISPATCH`. Prose: for each confirmed item spawn a worktree-isolated sub-agent briefed to run the **real** `harness-brainstorming` then `harness-autopilot` (autonomous mode) for that one item; feed answered forks into the brief; cap concurrency at ~2–3 (the machine-storm limit); if an item hits an **unforeseen** fork it **parks and reports** without blocking the batch (Decision 1 park-unforeseen). Include the push-path caveat: sub-agents must not push from a `.claude/`-nested worktree (breaks `check-docs`); use GitHub API or a non-`.claude` throwaway worktree; never `--no-verify`.
+Add `### Phase 3: DISPATCH`. Prose: for each confirmed item spawn a worktree-isolated subagent briefed to run the **real** `harness-brainstorming` then `harness-autopilot` (autonomous mode) for that one item; feed answered forks into the brief; cap concurrency at ~2–3 (the machine-storm limit); if an item hits an **unforeseen** fork it **parks and reports** without blocking the batch (Decision 1 park-unforeseen). Include the push-path caveat: subagents must not push from a `.claude/`-nested worktree (breaks `check-docs`); use GitHub API or a non-`.claude` throwaway worktree; never `--no-verify`.
 
 **Acceptance:** Phase 3 names real brainstorming+autopilot dogfood, the ~2–3 concurrency governor, fork-parking, and the push-path caveat.
 
@@ -119,7 +119,7 @@ Add `### Phase 3: DISPATCH`. Prose: for each confirmed item spawn a worktree-iso
 
 **Depends on:** Task 5 · **Files:** `agents/skills/claude-code/roadmap-fleet/SKILL.md`
 
-Add `### Phase 4: VERIFY`. Prose: for each returned branch, independently confirm (never by sub-agent self-report) that the plan artifact `docs/changes/<slug>/plans/` and an autopilot-state exist, and that CI is green on all three OS plus the enforce and harness checks. An item lacking a plan artifact did not run the real pipeline → reject or retry. This encodes the "verify adherence by artifact" hard invariant (Decision 5).
+Add `### Phase 4: VERIFY`. Prose: for each returned branch, independently confirm (never by subagent self-report) that the plan artifact `docs/changes/<slug>/plans/` and an autopilot-state exist, and that CI is green on all three OS plus the enforce and harness checks. An item lacking a plan artifact did not run the real pipeline → reject or retry. This encodes the "verify adherence by artifact" hard invariant (Decision 5).
 
 **Acceptance:** Phase 4 requires both the `plans/` artifact and autopilot-state, all-three-OS + enforce + harness CI, and explicitly forbids self-report.
 
@@ -135,7 +135,7 @@ Add `### Phase 5: REPORT`. Prose: emit a batch summary table (one row per item �
 
 **Depends on:** Task 7 · **Files:** `agents/skills/claude-code/roadmap-fleet/SKILL.md`
 
-Add `## Harness Integration` (list every harness/CLI/MCP touchpoint: `manage_roadmap`, `roadmap-pilot` scoring, `run_skill`/`harness skill run` for sub-agent pipelines, `gh` for issues/PRs, `harness skill validate` for authoring) and `## Success Criteria` (mirror the spec's Success Criteria as observable, verifiable bullets — N candidates → up to N verified PRs, exactly one up-front round, assumptions note on every PR, resolved items closed not rebuilt, never auto-merge, graceful degradation, validate passes + docs regenerated + all-OS CI green).
+Add `## Harness Integration` (list every harness/CLI/MCP touchpoint: `manage_roadmap`, `roadmap-pilot` scoring, `run_skill`/`harness skill run` for subagent pipelines, `gh` for issues/PRs, `harness skill validate` for authoring) and `## Success Criteria` (mirror the spec's Success Criteria as observable, verifiable bullets — N candidates → up to N verified PRs, exactly one up-front round, assumptions note on every PR, resolved items closed not rebuilt, never auto-merge, graceful degradation, validate passes + docs regenerated + all-OS CI green).
 
 **Acceptance:** Both sections present; each success criterion is observable/verifiable.
 
@@ -143,7 +143,7 @@ Add `## Harness Integration` (list every harness/CLI/MCP touchpoint: `manage_roa
 
 **Depends on:** Task 8 · **Files:** `agents/skills/claude-code/roadmap-fleet/SKILL.md`
 
-Add `## Gates` (hard stops with consequences: no PR is "merge-ready" without a verified plan artifact + all-OS-CI green; never auto-merge a feature PR; concurrency must not exceed the cap; a sub-agent self-report is never accepted as verification) and `## Escalation` (symptom→cause→report for: missing roadmap, missing `gh` auth, a sub-agent that produced no plan artifact, an item that parks on an unforeseen fork, CI red on a subset of OS).
+Add `## Gates` (hard stops with consequences: no PR is "merge-ready" without a verified plan artifact + all-OS-CI green; never auto-merge a feature PR; concurrency must not exceed the cap; a subagent self-report is never accepted as verification) and `## Escalation` (symptom→cause→report for: missing roadmap, missing `gh` auth, a subagent that produced no plan artifact, an item that parks on an unforeseen fork, CI red on a subset of OS).
 
 **Acceptance:** Both sections present with concrete conditions/consequences; `harness skill validate` will require these for `type: rigid`.
 
@@ -151,7 +151,7 @@ Add `## Gates` (hard stops with consequences: no PR is "merge-ready" without a v
 
 **Depends on:** Task 9 · **Files:** `agents/skills/claude-code/roadmap-fleet/SKILL.md`
 
-Author 4–6 domain-specific rows (`| Rationalization | Reality |`). Examples of the domain shortcuts to reject: "The sub-agent said its pipeline ran, so it did" → verify the `plans/` artifact independently; "CI is green on Linux, ship it" → all three OS plus enforce and harness must be green; "This item's fork is small, I'll just guess and keep going" → unforeseen forks park and report, they do not get silently guessed mid-flight; "I'll hand-implement this one item, it's faster than the pipeline" → dogfood the real per-item skills, no short-cut; "The batch is ready, I'll merge them to save the human a step" → never auto-merge, the human lands the batch. Do NOT include the three universal filler rows.
+Author 4–6 domain-specific rows (`| Rationalization | Reality |`). Examples of the domain shortcuts to reject: "The subagent said its pipeline ran, so it did" → verify the `plans/` artifact independently; "CI is green on Linux, ship it" → all three OS plus enforce and harness must be green; "This item's fork is small, I'll just guess and keep going" → unforeseen forks park and report, they do not get silently guessed mid-flight; "I'll hand-implement this one item, it's faster than the pipeline" → dogfood the real per-item skills, no short-cut; "The batch is ready, I'll merge them to save the human a step" → never auto-merge, the human lands the batch. Do NOT include the three universal filler rows.
 
 **Acceptance:** 3–8 domain rows, none matching the universal filler; parity validator passes.
 
@@ -203,11 +203,11 @@ Write a short section describing the `-fleet` family (autonomous fan-out over a 
 
 **Acceptance:** Family section renders; links to `0087` and `0088` ADRs resolve; no internal numbers in adopter-facing prose.
 
-### Task 17: ADR 0087 — sub-agent fan-out vs the Workflow primitive
+### Task 17: ADR 0087 — subagent fan-out vs the Workflow primitive
 
-**Depends on:** Task 12 · **Files:** `docs/knowledge/decisions/0087-sub-agent-fanout-vs-workflow-primitive.md`
+**Depends on:** Task 12 · **Files:** `docs/knowledge/decisions/0087-subagent-fanout-vs-workflow-primitive.md`
 
-Author the ADR in the repo format (frontmatter: `number: 0087`, `title`, `date: 2026-08-07`, `status: accepted`, `tier: large`, `source: docs/changes/roadmap-fleet/proposal.md`; body: Context / Decision / Consequences (positive, negative, reversibility) / Alternatives Considered / References). Decision: model-driven sub-agent worktree fan-out in v1; name the `Workflow` primitive as the future deterministic/resumable upgrade (heavier to author, less portable). Cite reuse of `roadmap-pilot` scoring and the worktree-isolation primitive. Reference `harness-audit` as fan-out prior art.
+Author the ADR in the repo format (frontmatter: `number: 0087`, `title`, `date: 2026-08-07`, `status: accepted`, `tier: large`, `source: docs/changes/roadmap-fleet/proposal.md`; body: Context / Decision / Consequences (positive, negative, reversibility) / Alternatives Considered / References). Decision: model-driven subagent worktree fan-out in v1; name the `Workflow` primitive as the future deterministic/resumable upgrade (heavier to author, less portable). Cite reuse of `roadmap-pilot` scoring and the worktree-isolation primitive. Reference `harness-audit` as fan-out prior art.
 
 **Acceptance:** File parses with valid frontmatter; `number` is 0087 and unused; sections present; no internal PR/issue numbers.
 

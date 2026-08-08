@@ -701,7 +701,7 @@ Guided-interview skill that turns one picked work item into a durable Product Re
 
 ### roadmap-fleet
 
-Autonomous batch-build orchestrator — score and confirm a batch of backlog candidates, fan out worktree-isolated sub-agents that run the real per-item pipeline, independently verify each result by artifact and all-OS CI, and hand back a batch of merge-ready PRs for one bulk human review. Never auto-merges.
+Autonomous batch-build orchestrator — score and confirm a batch of backlog candidates, fan out worktree-isolated subagents that run the real per-item pipeline, independently verify each result by artifact and all-OS CI, and hand back a batch of merge-ready PRs for one bulk human review. Never auto-merges.
 
 - **Triggers:** manual
 - **Platforms:** claude-code, codex, cursor, gemini-cli
