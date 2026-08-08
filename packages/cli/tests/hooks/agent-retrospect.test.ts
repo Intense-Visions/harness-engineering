@@ -139,20 +139,23 @@ describe('agent-retrospect writers', () => {
   });
 
   describe('Codex (.codex/config.toml)', () => {
-    const SCRIPT = '/proj/.harness/hooks/session-retrospect-codex.js';
+    const NEW_NOTIFY = 'notify = ["harness", "hooks", "run", "session-retrospect-codex"]';
 
-    it('inserts the notify key into an empty config', () => {
+    it('inserts a PATH-resolvable notify key with no absolute path into an empty config', () => {
       const p = path.join(dir, '.codex', 'config.toml');
-      expect(writeCodexNotifyHook(p, SCRIPT)).toBe('installed');
+      expect(writeCodexNotifyHook(p)).toBe('installed');
       const toml = fs.readFileSync(p, 'utf-8');
-      expect(toml).toContain(`notify = ["node", ${JSON.stringify(SCRIPT)}]`);
+      expect(toml).toContain(NEW_NOTIFY);
+      // Portable output (criterion 1): the notify line carries no filesystem path.
+      const notifyLine = toml.split('\n').find((l) => l.trimStart().startsWith('notify')) ?? '';
+      expect(notifyLine).not.toContain('/');
     });
 
     it('inserts notify BEFORE the first table so it stays top-level', () => {
       const p = path.join(dir, '.codex', 'config.toml');
       fs.mkdirSync(path.dirname(p), { recursive: true });
       fs.writeFileSync(p, '[mcp_servers.harness]\ncommand = "harness"\nargs = ["mcp"]\n');
-      expect(writeCodexNotifyHook(p, SCRIPT)).toBe('installed');
+      expect(writeCodexNotifyHook(p)).toBe('installed');
 
       const toml = fs.readFileSync(p, 'utf-8');
       const notifyIdx = toml.indexOf('notify =');
@@ -163,10 +166,32 @@ describe('agent-retrospect writers', () => {
       expect(toml).toContain('command = "harness"');
     });
 
-    it('is idempotent (a harness notify already present is skipped)', () => {
+    it('is machine-independent: identical output from two different project roots', () => {
+      const rootA = fs.mkdtempSync(path.join(os.tmpdir(), 'codex-a-'));
+      const rootB = fs.mkdtempSync(path.join(os.tmpdir(), 'codex-b-'));
+      try {
+        fs.mkdirSync(path.join(rootA, '.codex'), { recursive: true });
+        fs.mkdirSync(path.join(rootB, '.codex'), { recursive: true });
+        installAgentRetrospectHooks({ projectDir: rootA, buildCommand: () => 'ignored' });
+        installAgentRetrospectHooks({ projectDir: rootB, buildCommand: () => 'ignored' });
+        const notifyOf = (root: string) =>
+          fs
+            .readFileSync(path.join(root, '.codex', 'config.toml'), 'utf-8')
+            .split('\n')
+            .find((l) => l.trimStart().startsWith('notify'));
+        expect(notifyOf(rootA)).toBe(NEW_NOTIFY);
+        expect(notifyOf(rootB)).toBe(NEW_NOTIFY);
+        expect(notifyOf(rootA)).toBe(notifyOf(rootB));
+      } finally {
+        fs.rmSync(rootA, { recursive: true, force: true });
+        fs.rmSync(rootB, { recursive: true, force: true });
+      }
+    });
+
+    it('is idempotent (the new-form notify already present is skipped)', () => {
       const p = path.join(dir, '.codex', 'config.toml');
-      expect(writeCodexNotifyHook(p, SCRIPT)).toBe('installed');
-      expect(writeCodexNotifyHook(p, SCRIPT)).toBe('skipped');
+      expect(writeCodexNotifyHook(p)).toBe('installed');
+      expect(writeCodexNotifyHook(p)).toBe('skipped');
       const occurrences = fs.readFileSync(p, 'utf-8').match(/notify =/g) ?? [];
       expect(occurrences).toHaveLength(1);
     });
@@ -175,9 +200,26 @@ describe('agent-retrospect writers', () => {
       const p = path.join(dir, '.codex', 'config.toml');
       fs.mkdirSync(path.dirname(p), { recursive: true });
       fs.writeFileSync(p, 'notify = ["python3", "/home/me/my-notify.py"]\n');
-      expect(writeCodexNotifyHook(p, SCRIPT)).toBe('conflict');
+      expect(writeCodexNotifyHook(p)).toBe('conflict');
       // The user's notify is untouched.
       expect(fs.readFileSync(p, 'utf-8')).toBe('notify = ["python3", "/home/me/my-notify.py"]\n');
+    });
+
+    it('upgrades a legacy absolute-path harness notify in place → installed', () => {
+      const p = path.join(dir, '.codex', 'config.toml');
+      fs.mkdirSync(path.dirname(p), { recursive: true });
+      const oldLine = 'notify = ["node", "/abs/proj/.harness/hooks/session-retrospect-codex.js"]';
+      fs.writeFileSync(p, `${oldLine}\n\n[mcp_servers.harness]\ncommand = "harness"\n`);
+      expect(writeCodexNotifyHook(p)).toBe('installed');
+
+      const toml = fs.readFileSync(p, 'utf-8');
+      expect(toml).toContain(NEW_NOTIFY);
+      // The stale absolute-path reference is gone.
+      expect(toml).not.toContain('session-retrospect-codex.js');
+      expect(toml).not.toContain('/abs/proj');
+      // Exactly one notify line remains and the rest of the file is preserved.
+      expect((toml.match(/notify =/g) ?? []).length).toBe(1);
+      expect(toml).toContain('command = "harness"');
     });
 
     it('does not corrupt a top-level nested-array literal (array element line begins with `[`)', () => {
@@ -188,7 +230,7 @@ describe('agent-retrospect writers', () => {
       // splice `notify` INTO this array and corrupt the TOML.
       const arrayBlock = 'matrix = [\n  [1, 2],\n  [3, 4],\n]';
       fs.writeFileSync(p, `model = "gpt-5"\n${arrayBlock}\n\n[mcp_servers.foo]\ncommand = "x"\n`);
-      expect(writeCodexNotifyHook(p, SCRIPT)).toBe('installed');
+      expect(writeCodexNotifyHook(p)).toBe('installed');
 
       const toml = fs.readFileSync(p, 'utf-8');
       // notify lands as a top-level key, before both the array and the table.
@@ -271,8 +313,10 @@ describe('initHooks multi-agent wiring', () => {
     expect(gemini.hooks.SessionEnd[0].hooks[0].command).toContain('session-retrospect-gemini.js');
     const cursor = JSON.parse(fs.readFileSync(path.join(dir, '.cursor', 'hooks.json'), 'utf-8'));
     expect(cursor.hooks.stop[0].command).toContain('session-retrospect-cursor.js');
+    // Codex now emits the PATH-resolvable command form (no absolute .js path).
     const codex = fs.readFileSync(path.join(dir, '.codex', 'config.toml'), 'utf-8');
-    expect(codex).toContain('session-retrospect-codex.js');
+    expect(codex).toContain('notify = ["harness", "hooks", "run", "session-retrospect-codex"]');
+    expect(codex).not.toContain('session-retrospect-codex.js');
   });
 
   it('is idempotent — re-running initHooks does not duplicate agent config', () => {
