@@ -186,6 +186,28 @@ Run coding agents at scale.
 
 **Guide:** [docs/guides/orchestrator.md](orchestrator.md)
 
+## The `-fleet` Family
+
+The `-fleet` family is a set of skills unified by a single technique: **autonomous fan-out over a work-queue with deferred batch human review**. Rather than driving one item at a time, a fleet takes a batch, runs the real per-item pipeline autonomously and in isolation for each candidate, verifies every result, and hands the human a set of artifacts to review in bulk. The human's involvement moves from "drive every item" to "confirm the batch once, review the output once."
+
+The family forms a conveyor across the delivery lifecycle:
+
+| Stage     | Skill               | Queue → Output                                               |
+| --------- | ------------------- | ------------------------------------------------------------ |
+| Intake    | `issue-fleet`       | Raw signals → triaged, well-formed issues                    |
+| Decide    | `adr-fleet`         | Open architectural questions → recorded decisions            |
+| **Build** | **`roadmap-fleet`** | **Confirmed backlog candidates → verified, merge-ready PRs** |
+| Land      | `pr-fleet`          | Merge-ready PRs → merged                                     |
+
+`roadmap-fleet` is the **build** stage: it scores and confirms a batch of backlog candidates, fans out worktree-isolated sub-agents that each run the real brainstorming → autopilot pipeline, independently verifies each result by artifact and all-OS CI, and returns merge-ready PRs. It never auto-merges — landing the batch is the human's step (optionally via `pr-fleet`).
+
+Every family member shares one interaction model — **front-load every known decision fork into one up-front batched round, run autonomously on recommended defaults thereafter, and park any unforeseen mid-flight fork to its own item without blocking the batch**, with each output carrying an "assumptions made" note. Two ADRs govern the family:
+
+- [ADR 0087 — sub-agent fan-out vs the Workflow primitive](../knowledge/decisions/0087-sub-agent-fanout-vs-workflow-primitive.md): why v1 uses model-driven sub-agent worktree fan-out, with the deterministic `Workflow` primitive named as a future upgrade.
+- [ADR 0088 — the front-load / park-unforeseen interaction model](../knowledge/decisions/0088-front-load-park-unforeseen-interaction-model.md): the canonical statement of the shared interaction model that every `-fleet` member references rather than restating.
+
+A `-fleet` is distinct from a convergence **pipeline**: a pipeline loops on one target until it converges, while a fleet fans out across many independent items into many outputs.
+
 ## Ecosystem & Extensibility
 
 | Feature                        | Description                                                                                     |

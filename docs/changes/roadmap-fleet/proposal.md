@@ -29,7 +29,7 @@ The pattern is not hypothetical — it was executed by hand across roughly ten c
 
 ## Decisions made
 
-1. **Interaction model: front-load, autonomous-default, park-unforeseen — with a per-PR assumptions note.** A triage pass surfaces every *known* decision fork up front in one batched round; everything else runs fully autonomously on recommended-option defaults; an *unforeseen* mid-flight fork parks that one item and reports it, without blocking the batch. Each PR carries an "assumptions made" note so batch review is grounded. Rationale: this is exactly what kept rework low in the reference run — front-loading the genuinely-ambiguous items prevented wrong-guess churn, while the rest flowed to merge-ready PRs, and no single item's fork ever stalled the batch.
+1. **Interaction model: front-load, autonomous-default, park-unforeseen — with a per-PR assumptions note.** A triage pass surfaces every _known_ decision fork up front in one batched round; everything else runs fully autonomously on recommended-option defaults; an _unforeseen_ mid-flight fork parks that one item and reports it, without blocking the batch. Each PR carries an "assumptions made" note so batch review is grounded. Rationale: this is exactly what kept rework low in the reference run — front-loading the genuinely-ambiguous items prevented wrong-guess churn, while the rest flowed to merge-ready PRs, and no single item's fork ever stalled the batch.
 
 2. **Execution architecture: pilot-scored selection, sub-agent worktree fan-out for execution.** Reuse `roadmap-pilot`'s impact-scoring to pick and order the batch (rather than ad-hoc ranking); execute via worktree-isolated sub-agents that each run the real per-item pipeline. Concurrency is capped at ~2–3 (the machine-storm limit observed in the reference run). Rationale: sub-agent fan-out is what actually delivered; grafting on the roadmap system's own scoring makes selection principled. The `Workflow` primitive is the theoretically-cleaner deterministic/resumable answer and is named as a future upgrade, but it is heavier to author and less portable than a skill that instructs the agent to fan out.
 
@@ -37,7 +37,7 @@ The pattern is not hypothetical — it was executed by hand across roughly ten c
 
 4. **Naming and family.** `roadmap-fleet` is the build member of the `-fleet` family — skills unified by one technique (autonomous fan-out over a work-queue with batch human review), analogous to how the `-craft` family is unified by LLM-judgment critique. The family conveyor is `issue-fleet` then `adr-fleet` then `roadmap-fleet` then `pr-fleet`, with `cicd-fleet`, `test-fleet`, and `cleanup-fleet` working quality queues alongside.
 
-5. **Hard invariants (shared with the family).** Dogfood the real per-item skills; verify adherence by artifact (a `plans/` directory plus an autopilot-state) and all-OS CI green before "merge-ready"; never auto-merge feature PRs. A `-fleet` is distinct from a convergence *pipeline* (which loops on one target) — it fans out across many independent items into many PRs.
+5. **Hard invariants (shared with the family).** Dogfood the real per-item skills; verify adherence by artifact (a `plans/` directory plus an autopilot-state) and all-OS CI green before "merge-ready"; never auto-merge feature PRs. A `-fleet` is distinct from a convergence _pipeline_ (which loops on one target) — it fans out across many independent items into many PRs.
 
 ## Technical design
 
@@ -69,7 +69,7 @@ A claude-code rigid skill at `agents/skills/claude-code/roadmap-fleet/` (`SKILL.
 - **Entry Points.** A new skill `roadmap-fleet`, invocable as `/harness:roadmap-fleet`, via the `run_skill` MCP tool, and via the skill CLI. No new MCP tool is required in v1 (it orchestrates existing skills/tools).
 - **Registrations Required.** Skill tier assignment in `skill.yaml`; plugin-artifact regeneration; `skills-catalog.md` regeneration; platform-variant symlinks.
 - **Documentation Updates.** The skills catalog; a short section describing the `-fleet` family and `roadmap-fleet`'s place in it; a link from the family epic.
-- **Architectural Decisions.** Two decisions rise to standalone ADRs: *sub-agent fan-out versus the Workflow primitive* (why model-driven fan-out in v1, Workflow as a future upgrade), and the *front-load / park-unforeseen interaction model* (shared across the family — the canonical statement belongs in one ADR the other members reference).
+- **Architectural Decisions.** Two decisions rise to standalone ADRs: _sub-agent fan-out versus the Workflow primitive_ (why model-driven fan-out in v1, Workflow as a future upgrade), and the _front-load / park-unforeseen interaction model_ (shared across the family — the canonical statement belongs in one ADR the other members reference).
 - **Knowledge Impact.** The fleet pattern — autonomous fan-out orchestration over a work-queue with deferred batch review — enters the knowledge graph as a reusable concept, with relationships to `roadmap-pilot`, `harness-autopilot`, and the downstream `pr-fleet`.
 
 ## Success Criteria
