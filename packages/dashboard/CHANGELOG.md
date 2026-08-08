@@ -1,5 +1,145 @@
 # @harness-engineering/dashboard
 
+## 0.15.0
+
+### Minor Changes
+
+- 4cc1e4e: Add role-shaped front doors to the dashboard: a presentation-only `role`
+  preference (`dev` | `pm-ba` | `client`) that scopes the sidebar and picks a
+  per-role default landing route.
+  - `dev` (default) is unchanged — every page, lands on Signals.
+  - `pm-ba` sees Roadmap, Work in Flight, live agents/streams, and the proposal
+    review queue, landing on Roadmap.
+  - `client` sees a curated, read-only pair — Roadmap and Traceability — landing
+    on Roadmap.
+
+  The role resolves from a persisted client preference, else the
+  `HARNESS_DASHBOARD_ROLE` server default, else `dev`, and can be switched from a
+  lane selector in the sidebar. This is a navigation convenience, **not a
+  security boundary**: a viewer can still reach any surface by typing its route.
+  Real per-role authorization is left as a documented seam at the orchestrator
+  proxy, pending multi-user hosting and authenticated sessions.
+
+### Patch Changes
+
+- 89fcfd7: Correct the `client` dashboard lane wording and stop dropping the role seed on
+  the identity-failure path (follow-up to #1132).
+
+  The `client` lane was described as "read-only", but the lanes are
+  presentation-only and enforce no authorization — the lane defaults to `/s/roadmap`,
+  where a live **Claim** write action (`POST /api/actions/roadmap/claim`) ships.
+  The "read-only" wording implied an access guarantee that is not enforced, so it
+  is dropped from the lane description and the surrounding comments (client `roles.ts`
+  and shared `roles.ts`); the "presentation-only, not a security boundary" caveat
+  is kept and reinforced. No behavior change — the Claim button is intentionally
+  not hidden by role (that would be half-authorization, which #1132 deliberately
+  avoided).
+
+  `GET /api/identity` now returns the `role` preference (from
+  `HARNESS_DASHBOARD_ROLE`) even on the 503 identity-resolution-failure path, and
+  the client `useRole` hook reads the body regardless of status, so an operator's
+  role seed is no longer silently dropped when GitHub identity cannot be resolved.
+
+- ad21769: Fix `check-security` scanning no `.mjs`/`.cjs` files, and report the scan
+  denominator (#1084).
+
+  The scan glob was `**/*.{ts,tsx,js,jsx,go,py,java,rb}`, so an ESM-only Node
+  project got a scan that matched none of its source and a gate that passed because
+  it read nothing — indistinguishable, in the output, from a genuinely clean run. In
+  the repo where this surfaced, 144 tracked `.mjs` sources went unread while a
+  security ledger recorded `securityScore: 100`; a planted AWS key was detected in
+  `.ts` and `.py` and invisible in the byte-identical `.mjs`.
+
+  The glob was duplicated across `check-security`, the CI check-orchestrator, and
+  the dashboard's security gatherer, and the copies had drifted (the orchestrator's
+  also omitted `java`/`rb`). It now has one home,
+  `core/src/security/scan-targets.ts` (exported as `SECURITY_SCAN_GLOB` /
+  `SECURITY_SCAN_EXTENSIONS` / `SECURITY_SCAN_DEFAULT_IGNORE`), with `mts`/`cts`
+  added alongside `mjs`/`cjs`.
+
+  `check-security` now also reports what it read: text output appends the
+  files-scanned and rules-applied counts, JSON output gains `scannedNothing` and
+  `stats`, and a zero-file scan emits an explicit ABSTAINED issue instead of
+  presenting as clean. New `--fail-on-empty` makes that abstention blocking for CI
+  gates; the default stays non-blocking so repos with legitimately no scannable
+  source are not reddened by the upgrade.
+
+  Behaviour change to expect: projects containing `.mjs`/`.cjs`/`.mts`/`.cts`
+  sources will see findings that were previously invisible, including in
+  `harness ci check` and the dashboard's security panel.
+
+- 0922728: Tier the skill catalog with first-class curation metadata and surface it.
+
+  Skills now carry a first-class `catalog_tier` field in `skill.yaml` (`0` =
+  load-bearing gear, `1` = library / on-demand reference — the default, `2` =
+  deprecated / retire candidate). This is distinct from the existing `tier` field,
+  which governs slash-command/catalog _loading_; the new axis names how
+  load-bearing a skill is. The premise: a senior engineer can hold ~12 skills in
+  their head, not hundreds — so the twelve load-bearing gear skills are marked and
+  surfaced first.
+
+  The tier is genuinely wired through the surfaces a reader sees:
+  - **Skills Catalog** (`docs/reference/skills-catalog.md`) leads with a
+    "Load-Bearing Gear (Tier-0)" section and annotates non-default entries with
+    their curation tier.
+  - **README** gains a "Load-bearing skills (Tier-0)" table mapping each gear skill
+    to its slash command.
+  - **Dashboard command palette** pins the load-bearing skills in their own section
+    above the category groups and badges each card (`@harness-engineering/dashboard`).
+
+  The `@harness-engineering/cli` bump adds the `catalog_tier` field to the skill
+  metadata schema. The `@harness-engineering/core` bump tracks the
+  `initialize-harness-project` → `harness-initialize-project` skill rename in the
+  harness-strength init-skill path (the STRENGTH-005 rule and context loader); no
+  runtime behavior changes.
+
+  The load-bearing init skill is renamed from `initialize-harness-project` to
+  `harness-initialize-project` so it sorts with the rest of the workflow gear. The
+  slash command is unchanged — it stays `/harness:initialize-project`.
+
+- Updated dependencies [88ea428]
+- Updated dependencies [21df39b]
+- Updated dependencies [0498381]
+- Updated dependencies [59590da]
+- Updated dependencies [fc20e42]
+- Updated dependencies [18f2180]
+- Updated dependencies [b83b45b]
+- Updated dependencies [22c2686]
+- Updated dependencies [9255687]
+- Updated dependencies [bfb3500]
+- Updated dependencies [2115861]
+- Updated dependencies [e294b1d]
+- Updated dependencies [1e5db59]
+- Updated dependencies [991adce]
+- Updated dependencies [29bdefe]
+- Updated dependencies [f91c9c4]
+- Updated dependencies [a6fb723]
+- Updated dependencies [af8b56f]
+- Updated dependencies [4bf8831]
+- Updated dependencies [d6c160c]
+- Updated dependencies [a42b4f2]
+- Updated dependencies [d59c152]
+- Updated dependencies [5c72805]
+- Updated dependencies [7369e11]
+- Updated dependencies [de52864]
+- Updated dependencies [a766cda]
+- Updated dependencies [2f5d572]
+- Updated dependencies [e69f401]
+- Updated dependencies [97ddd1c]
+- Updated dependencies [817e40c]
+- Updated dependencies [ad21769]
+- Updated dependencies [d3e725d]
+- Updated dependencies [d5760a7]
+- Updated dependencies [3aec4bd]
+- Updated dependencies [5a454d5]
+- Updated dependencies [c9076aa]
+- Updated dependencies [0922728]
+  - @harness-engineering/core@0.40.0
+  - @harness-engineering/types@0.27.0
+  - @harness-engineering/orchestrator@0.20.0
+  - @harness-engineering/graph@0.12.0
+  - @harness-engineering/signals@0.3.0
+
 ## 0.14.8
 
 ### Patch Changes

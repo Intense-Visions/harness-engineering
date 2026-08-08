@@ -1,5 +1,147 @@
 # @harness-engineering/types
 
+## 0.27.0
+
+### Minor Changes
+
+- 21df39b: Add failure-reason categorization to `.harness/metrics/adoption.jsonl`.
+
+  Adoption records previously captured `outcome: completed | failed | abandoned` —
+  the _what_ of a skill run without the _why_. A new optional `failureCategory`
+  field records the reason a run did not complete, drawn from a small closed
+  taxonomy (`FailureCategory`): `prerequisite-missing`, `gate-rejected`,
+  `user-cancelled`, `timeout`, `dependency-failure`, `agent-error`, and
+  `inconclusive`.
+
+  The category is derived by the adoption-tracker hook at the failure/gate points
+  already present in the skill-event stream: an `error` event's `failureType` is
+  mapped through a keyword table (defaulting to `agent-error`), and a failed
+  `gate_result` yields `gate-rejected`. It is only emitted when a reason is
+  determinable — completed runs and reason-less abandonments carry no category, so
+  the field is never guessed.
+
+  The field is optional and additive: records written before it existed still
+  parse, and the reader drops any unrecognized value. Downstream consumers now use
+  it — the skill-effectiveness scorer (`detectFailingSkills`) reports a
+  per-skill `failureCategories` breakdown, and the catalog retrospective adds a
+  per-skill breakdown, a catalog-wide `failureCategoryTotals`, and a rendered
+  "Failure categories" section — so failing skills can be grouped by _why_ they
+  fail, not just how often.
+
+- 7369e11: Add opt-in constraint packs — named bundles of blocking rules a project chooses
+  to enforce per lifecycle stage rather than all-or-nothing.
+
+  A project opts in via `constraintPacks: [...]` in `harness.config.json`. Each
+  pack maps onto the existing security rule sets and elevates a set of rules to
+  blocking at the stage(s) it declares (`pre-commit`, `pre-merge`, `pre-release`).
+  Three built-in packs ship: `secrets-and-injection` (secrets + injection, at
+  pre-merge and pre-release), `ai-agent-safety` (unsafe AI-agent/MCP config, at
+  pre-merge), and `web-hardening` (XSS, path traversal, unsafe network, weak
+  crypto, at pre-release).
+
+  Packs are a thin overlay on the existing check machinery, not a new enforcement
+  engine: `runCIChecks` resolves the opted-in packs and merges their rule
+  elevations into the security check's config before it runs, so opting in
+  genuinely turns the rules on. A project's own explicit `security.rules` entry
+  always wins over a pack overlay (a per-rule escape hatch). `harness ci check`
+  gains a `--stage <stage>` flag to enforce only the packs that apply at that
+  stage, and the check report carries a per-pack, per-stage compliance summary
+  (`compliant` / `non-compliant` / `n/a`). Empty or absent `constraintPacks`
+  leaves all existing behavior unchanged.
+
+  Opting into a pack is scoped to exactly that pack's rule prefixes:
+  - When a pack force-enables a scanner that was `security.enabled: false`, a
+    `'SEC-*': 'off'` base is injected before the pack's elevations, so only the
+    pack's own prefixes block — opting into one pack no longer turns on every
+    default-error rule in the scanner. Wildcard rule resolution now prefers the
+    most-specific (longest-prefix) match, so a narrow elevation is never shadowed
+    by that broad base.
+  - `web-hardening` no longer promotes every warning/info rule via a global
+    `strict` flag (the `securityStrict` pack field is removed); it blocks only its
+    four named prefixes (`SEC-XSS-*`, `SEC-PTH-*`, `SEC-NET-*`, `SEC-CRY-*`).
+  - Per-pack compliance is attributed by rule prefix: a stage is `non-compliant`
+    only when a failing security finding's rule id is covered by that pack's own
+    prefixes, so an unrelated finding no longer marks every pack non-compliant.
+    `CICheckIssue` gains an optional `ruleId` to carry this attribution.
+  - `harness ci check` rejects an unrecognized `--stage` instead of silently
+    running every stage, and warns when packs are opted in but the security check
+    was skipped.
+
+- de52864: Add an orchestrator gateway policy envelope + subprocess env air-gap.
+
+  Every agent subprocess dispatch now carries a `PolicyMetadata` envelope
+  (`approvalMode`, `sandboxMode`, `networkMode`, `dangerousFlags[]`, `agentFamily`,
+  `agentVersion`) that is stamped as a one-line-per-dispatch governance record into
+  `.harness/audit.log` (alongside the existing gateway auth records, discriminated
+  by `event: "agent_dispatch"`). The record logs the NAMES of any parent-env vars
+  withheld from the subprocess — never their values, never the prompt/payload.
+
+  The load-bearing control: the `claude` backend no longer spawns with
+  `env: process.env` (which leaked the orchestrator's ENTIRE environment — every
+  unrelated secret — into the agent subprocess). It now spawns with an
+  allowlisted environment (`buildSubprocessEnv`) that forwards well-known-safe
+  plumbing (PATH/HOME/SHELL/locale/TLS/proxy/temp), the harness runtime + session
+  vars (`HARNESS_*`), the agent CLI's own config (`CLAUDE_*`/`ANTHROPIC_*`), git
+  tooling (`GIT_*`/`GH_*`/`GITHUB_*`), and cloud model-provider credentials
+  (prefix-matched providers plus any `*_API_KEY`), while dropping arbitrary
+  unrelated secrets. The allowlist is extensible per-call and via the
+  `HARNESS_SUBPROCESS_ENV_ALLOW` escape hatch, with a
+  `HARNESS_SUBPROCESS_ENV_UNSAFE_PASSTHROUGH` kill-switch for advisory-only mode.
+
+### Patch Changes
+
+- fc20e42: Auto-triggered retrospection with applyable proposals.
+
+  Archiving a session — the session terminus — now optionally fires a
+  retrospection over the archived session corpus and emits _applyable_ skill
+  proposals into `.harness/proposals/`, rather than requiring a manual retro run.
+
+  The trigger reuses the existing session-archive lifecycle: `buildArchiveHooks()`
+  gains a third `onArchived` step (alongside summary and search-index) that runs a
+  new `retrospectArchivedSession()` in `@harness-engineering/orchestrator`. It is
+  opt-in and safe — it fires only when a `sessions.retrospection` config block is
+  present (`enabled !== false`) and an analysis provider is available, and every
+  step remains individually non-fatal. The `manage_state` `archive_session` MCP
+  action activates it live when `HARNESS_SESSION_RETROSPECTION` is set and a
+  provider resolves; otherwise behaviour is unchanged.
+
+  Emitted proposals are ordinary `SkillProposal` records — the same shape produced
+  by `emit_skill_proposal` — so they carry the target (`targetSkill` for
+  refinements), the change (`content.diff`, or `content.skillYaml` + `skillMd` for
+  new skills), and the rationale (`justification`), and they surface, gate, and
+  promote through the unchanged review pipeline. New in
+  `@harness-engineering/types`: `RetrospectionProposalDraftSchema` /
+  `RetrospectionProposalsResponseSchema` (a projection of the emit input, no
+  parallel proposal type) and a `RetrospectionConfig` on `SessionsConfig`.
+
+  Emission only — nothing is auto-applied. Approval and promotion stay a separate,
+  human-gated step.
+
+- 5c72805: Give maintenance checks a standard machine-parseable findings contract (#691).
+
+  `harness maintenance run` (and the cron orchestrator) previously recovered each
+  task's findings COUNT by regex-scanning free-text check output
+  (`N findings|issues|violations|errors`, plus a keyword fallback). That is
+  fragile: checks like `check-docs` (doc-drift) and `cleanup` (entropy) emit no
+  clean count — so doc-drift reported a uniform "1 finding" — and any wording
+  change could silently break the count.
+
+  A new shared envelope (`@harness-engineering/types`:
+  `MaintenanceFindingsContract` + `formatFindingsContract` / `parseFindingsContract`)
+  lets a check subcommand emit its count as structured data
+  (`{"findings":N,"check":"...","v":1}`) under a `--findings-json` flag. The
+  runner's shared spawn/parse core (`runHarnessCheck`) now prefers that envelope
+  over the regex on both clean and non-zero exits, and labels the source
+  (`findingsSource: 'contract' | 'regex'`). The legacy regex remains the fallback
+  for checks not yet migrated.
+
+  Migrated built-in checks: `check-arch`, `check-deps`, `check-docs`, `cleanup`,
+  `check-security`, `cross-check` (their registry `checkCommand`s now pass
+  `--findings-json`). Fully additive and backward-compatible — the flag defaults
+  off for interactive CLI use and unmigrated checks are unchanged.
+
+- a766cda: Define the `owns:[paths]` owned-files declaration on plan tasks (#601). Adds a cheap, deterministic, graph-free pre-execution conflict forecast: `forecastOwnershipConflicts` and glob-aware `pathsOverlap` (via minimatch) flag task pairs whose declared owned paths overlap and so may conflict if run in parallel. `buildTaskGraph`/`planParallelization` now compute footprint overlap glob-aware and surface an `ownershipForecast` field on `ParallelizationPlan`. Fully additive — absent `owns` preserves current behavior.
+
 ## 0.26.0
 
 ### Minor Changes
