@@ -1,0 +1,91 @@
+name: craft-fleet
+version: '1.0.0'
+description: Ceiling-raising code-quality elevation sweep — compose the eleven craft skills into ranked (scope, domain) targets, drop the noise floor, route each finding elevate/file/route by a mechanical boundary, confirm one batch with a taste-calibration sample of verbatim findings, fan out worktree-isolated subagents that each run the real harness-refactoring pipeline over one target's cited findings, then independently verify every item by critique provenance plus the step-granular refactoring commit trail plus a two-run re-critique that proves net improvement, and hand back a tiered batch of elevation PRs and filed roadmap items. No cited finding, no rewrite. Never auto-merges.
+stability: static
+cognitive_mode: systematic-orchestrator
+triggers:
+  - manual
+platforms:
+  - claude-code
+  - codex
+  - cursor
+  - gemini-cli
+tools:
+  - Bash
+  - Read
+  - Glob
+  - Grep
+cli:
+  command: harness skill run craft-fleet
+  args:
+    - name: path
+      description: Project root path
+      required: false
+    - name: --concurrency
+      description: 'Cap on concurrent elevation subagents (default: 2, max recommended 3 — the machine-storm limit)'
+      required: false
+    - name: --domains
+      description: Restrict the sweep to a comma-separated subset of the craft domains; the full enabled set is confirmed at CONFIRM either way
+      required: false
+    - name: --report-only
+      description: Compose the critique, rank the targets, and present the batch with its taste-calibration sample without dispatching elevation subagents or filing items
+      required: false
+    - name: --dry-run
+      description: Run SELECT and CONFIRM only; do not fan out, verify, file, or open PRs
+      required: false
+    - name: --file-only
+      description: Open no elevation PR; every elevate-routed target converts its already-budgeted elevation slot into a filed item carrying its cited finding, so the per-batch caps still hold
+      required: false
+mcp:
+  tool: run_skill
+  input:
+    skill: craft-fleet
+    path: string
+type: rigid
+tier: 2
+phases:
+  - name: select
+    description: Compose the enabled craft skills over the repository, fold their findings into (scope, craft domain) targets, apply the noise floor, cross-check each target against open elevation PRs and already-filed quality items, route every surviving finding elevate or file or route by the mechanical boundary and then re-form the targets by verdict so a split scope yields at most one elevate target and at most one file item each carrying only its own findings, enforce the caps in emitted items rather than findings, and order by tier times impact with roadmap-pilot impact scoring
+    required: true
+  - name: confirm
+    description: Present the enabled craft domains, the ranked targets with their elevate and file split, a taste-calibration sample of verbatim findings, the noise floor, the per-batch caps, the proposed concurrency, and the pinned base SHA for a single up-front human approval that may disable domains or re-tune the floor
+    required: true
+  - name: dispatch
+    description: Fan out worktree-isolated subagents, one per confirmed elevate target, each running the real harness-refactoring pipeline over that target's cited findings and pushing a branch carrying its step-granular commit trail; a target that needs a structural change or whose baseline is not clean at the pinned base — a red suite or a failing harness validate or check-deps — downgrades itself to file and reports, and no subagent runs a re-critique
+    required: true
+  - name: verify
+    description: For every elevation independently confirm critique provenance for each changed location, the step-granular refactoring commit trail, and net improvement via a two-run re-critique executed here rather than read from the subagent, plus behavior preservation and all-OS CI green; for every filing, which has no branch, confirm the narrower verified-filing standard of critique provenance plus the cross-check that the target is not already addressed — never by subagent self-report
+    required: true
+  - name: file-and-report
+    description: Open one elevation PR per verified target and craft domain without merging, file every verified and every downgraded item as a roadmap item carrying its cite and rubric and location plus an assumptions-made note the orchestrator writes here from the SELECT routing basis, convert every elevation slot to a filed item under --file-only, park routed correctness and security findings for hand-back, and emit a one-row-per-item batch summary including noise-floor drops, over-cap counts, downgrade reasons, cross-check drops, and quiet targets
+    required: true
+state:
+  persistent: false
+  files: []
+depends_on:
+  - naming-craft
+  - code-craft
+  - copy-craft
+  - test-craft
+  - docs-craft
+  - knowledge-craft
+  - spec-craft
+  - api-craft
+  - cli-ergonomics-craft
+  - security-craft
+  - harness-design-craft
+  - harness-refactoring
+  - harness-roadmap-pilot
+addresses:
+  - signal: drift
+    weight: 0.3
+  - signal: high-complexity
+    weight: 0.2
+capabilities:
+  tools:
+    - Bash
+    - Read
+    - Glob
+    - Grep
+  network: false
+  filesystem: read-write
