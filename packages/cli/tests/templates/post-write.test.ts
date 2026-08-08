@@ -1,10 +1,7 @@
 import * as fs from 'fs';
 import * as os from 'os';
 import * as path from 'path';
-import {
-  ensureHarnessGitignore,
-  applyEcosystemAfterCreate,
-} from '../../src/templates/post-write';
+import { ensureHarnessGitignore, applyEcosystemAfterCreate } from '../../src/templates/post-write';
 
 describe('ensureHarnessGitignore', () => {
   let tmpDir: string;

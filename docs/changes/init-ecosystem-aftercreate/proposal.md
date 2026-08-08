@@ -2,7 +2,17 @@
 title: Scaffold ecosystem-matched afterCreate install command + warn when neither install nor verify resolves
 status: planned
 tier: small
-keywords: [init, ecosystem-detector, afterCreate, install-command, verify-gate, local-dispatch, orchestrator-config, workspace-bootstrap]
+keywords:
+  [
+    init,
+    ecosystem-detector,
+    afterCreate,
+    install-command,
+    verify-gate,
+    local-dispatch,
+    orchestrator-config,
+    workspace-bootstrap,
+  ]
 external-id: 1128
 ---
 
@@ -98,6 +108,7 @@ export function applyEcosystemAfterCreate(
 ```
 
 Behavior:
+
 - `detectEcosystem(cwd)` (imported from `@harness-engineering/orchestrator`).
 - If `harness.orchestrator.md` is among `writtenFiles` and exists on disk and an ecosystem
   was detected: read the file, replace the value on the single `afterCreate:` frontmatter

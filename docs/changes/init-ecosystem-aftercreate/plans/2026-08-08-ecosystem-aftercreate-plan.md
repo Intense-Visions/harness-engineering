@@ -53,7 +53,10 @@ _Not produced — task count (3) is below the standard-mode threshold (8)._
 
    ```ts
    const CONFIG = 'harness.orchestrator.md';
-   function writeConfig(dir: string, afterCreateLine = "  afterCreate: 'pnpm install --prefer-offline'") {
+   function writeConfig(
+     dir: string,
+     afterCreateLine = "  afterCreate: 'pnpm install --prefer-offline'"
+   ) {
      fs.writeFileSync(
        path.join(dir, CONFIG),
        ['---', 'hooks:', afterCreateLine, '  beforeRun: null', '---', ''].join('\n')
@@ -105,7 +108,10 @@ _Not produced — task count (3) is below the standard-mode threshold (8)._
 
    it('no-ops without throwing when the afterCreate line is missing/malformed', () => {
      fs.writeFileSync(path.join(tmpDir, 'pnpm-lock.yaml'), '');
-     fs.writeFileSync(path.join(tmpDir, CONFIG), ['---', 'hooks:', '  beforeRun: null', '---', ''].join('\n'));
+     fs.writeFileSync(
+       path.join(tmpDir, CONFIG),
+       ['---', 'hooks:', '  beforeRun: null', '---', ''].join('\n')
+     );
      const res = applyEcosystemAfterCreate(tmpDir, [CONFIG]);
      expect(res.rewritten).toBe(false); // no throw
    });
