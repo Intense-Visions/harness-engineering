@@ -270,6 +270,16 @@ Install, calibrate, verify and diagnose a local Claude Code usage-pace HUD that 
 - **Type:** rigid
 - **Cognitive mode:** constructive-architect
 
+### cicd-fleet
+
+Autonomous CI/CD-remediation orchestrator — triage the red CI/CD-run and flaky-test backlog by cause, fan out worktree-isolated subagents that run the real deflake/heal pipeline, independently verify each fix by artifact and deterministic all-OS CI, and hand back a batch of remediation PRs for one bulk human review. Never auto-merges and never hides a failure to clear the board.
+
+- **Triggers:** manual
+- **Platforms:** claude-code, codex, cursor, gemini-cli
+- **Type:** rigid
+- **Cognitive mode:** systematic-orchestrator
+- **Depends on:** harness-roadmap-pilot, harness-debugging, harness-workflow-audit
+
 ### cleanup-dead-code
 
 Detect and auto-fix dead code including dead exports, commented-out code, and orphaned dependencies
@@ -278,6 +288,16 @@ Detect and auto-fix dead code including dead exports, commented-out code, and or
 - **Platforms:** claude-code, gemini-cli, cursor, codex
 - **Type:** flexible
 - **Cognitive mode:** diagnostic-investigator
+
+### cleanup-fleet
+
+Autonomous entropy/hotspot remediation sweep — enumerate the entropy/hotspot backlog by composing the existing detection skills, rank the targets, confirm the batch once, fan out worktree-isolated subagents that each run the real per-target cleanup pipeline, independently verify each result by convergence artifact and all-OS CI, and hand back a batch of scoped cleanup PRs for one bulk human review. Never auto-merges.
+
+- **Triggers:** manual
+- **Platforms:** claude-code, codex, cursor, gemini-cli
+- **Type:** rigid
+- **Cognitive mode:** systematic-orchestrator
+- **Depends on:** harness-hotspot-detector, cleanup-dead-code, harness-dependency-health, harness-codebase-cleanup, harness-roadmap-pilot
 
 ### cli-ergonomics-craft
 
