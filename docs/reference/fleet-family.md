@@ -10,7 +10,7 @@ A `-fleet` is **distinct from a convergence _pipeline_** (`docs-pipeline`, `code
 
 ## The conveyor
 
-`ideate-fleet` (ideate) → `issue-fleet` (intake) → `adr-fleet` (decide) → `roadmap-fleet` (build) → `pr-fleet` (land); `cicd-fleet`, `test-fleet`, `cleanup-fleet`, and `bug-fleet` work quality queues alongside. Each member owns one stage's queue and terminal act; the spine below is common to all.
+`ideate-fleet` (ideate) → `issue-fleet` (intake) → `adr-fleet` (decide) → `roadmap-fleet` (build) → `pr-fleet` (land); `cicd-fleet`, `test-fleet`, `security-fleet`, `cleanup-fleet`, and `bug-fleet` work quality queues alongside. Each member owns one stage's queue and terminal act; the spine below is common to all.
 
 ## The shared five-phase spine
 
@@ -64,17 +64,18 @@ The spine above is shared. Each member's own `SKILL.md` defines:
 
 ## Members
 
-| Member          | Stage  | Queue                               | Per-item pipeline                                    | Terminal act                             |
-| --------------- | ------ | ----------------------------------- | ---------------------------------------------------- | ---------------------------------------- |
-| `ideate-fleet`  | ideate | strategy themes / opportunity areas | `harness-ideate`                                     | curated ranked shortlist (files nothing) |
-| `issue-fleet`   | intake | open-issue backlog                  | triage / dedup / cross-check                         | ranked, deduped, resolved-closed queue   |
-| `adr-fleet`     | decide | pending architectural decisions     | `architecture-advisor`                               | batch ADR sign-off                       |
-| `roadmap-fleet` | build  | backlog (issues + roadmap shards)   | `brainstorming` → `autopilot`                        | REPORT (merge-ready PRs; never merges)   |
-| `pr-fleet`      | land   | open-PR queue                       | `code-review` (review-assist)                        | LAND (human-authorized) + REPORT         |
-| `cicd-fleet`    | —      | CI/CD-red / flaky-test runs         | deflake / heal                                       | REPORT                                   |
-| `test-fleet`    | —      | test-coverage gaps                  | `test-advisor` → `tdd` / `test-craft`                | test PRs                                 |
-| `cleanup-fleet` | —      | entropy / hotspot backlog           | `codebase-cleanup` (per-target)                      | remediation PRs                          |
-| `bug-fleet`     | —      | latent-defect risk (standing code)  | review machinery → `tdd` (repro) → `debugging` (fix) | tiered: fix PRs + filed issues           |
+| Member           | Stage  | Queue                                           | Per-item pipeline                                                                         | Terminal act                             |
+| ---------------- | ------ | ----------------------------------------------- | ----------------------------------------------------------------------------------------- | ---------------------------------------- |
+| `ideate-fleet`   | ideate | strategy themes / opportunity areas             | `harness-ideate`                                                                          | curated ranked shortlist (files nothing) |
+| `issue-fleet`    | intake | open-issue backlog                              | triage / dedup / cross-check                                                              | ranked, deduped, resolved-closed queue   |
+| `adr-fleet`      | decide | pending architectural decisions                 | `architecture-advisor`                                                                    | batch ADR sign-off                       |
+| `roadmap-fleet`  | build  | backlog (issues + roadmap shards)               | `brainstorming` → `autopilot`                                                             | REPORT (merge-ready PRs; never merges)   |
+| `pr-fleet`       | land   | open-PR queue                                   | `code-review` (review-assist)                                                             | LAND (human-authorized) + REPORT         |
+| `cicd-fleet`     | —      | CI/CD-red / flaky-test runs                     | deflake / heal                                                                            | REPORT                                   |
+| `test-fleet`     | —      | test-coverage gaps                              | `test-advisor` → `tdd` / `test-craft`                                                     | test PRs                                 |
+| `security-fleet` | —      | evidence-gated security findings + supply chain | `security-scan` / `supply-chain-audit` / `security-craft` → `brainstorming` → `autopilot` | fix PRs + filed evidence packets         |
+| `cleanup-fleet`  | —      | entropy / hotspot backlog                       | `codebase-cleanup` (per-target)                                                           | remediation PRs                          |
+| `bug-fleet`      | —      | latent-defect risk (standing code)              | review machinery → `tdd` (repro) → `debugging` (fix)                                      | tiered: fix PRs + filed issues           |
 
 ## References
 
