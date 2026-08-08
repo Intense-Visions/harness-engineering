@@ -17,8 +17,11 @@ describe('findFiles — default node_modules ignore (#1188)', () => {
 
   it('excludes node_modules by default', async () => {
     const found = await findFiles('pkg/**/*.ts', tmp);
-    expect(found.some((f) => f.includes('node_modules'))).toBe(false);
-    expect(found.some((f) => f.endsWith('src/a.ts'))).toBe(true);
+    // findFiles returns platform-separator paths (backslashes on Windows), so
+    // normalize to posix before matching a forward-slash suffix (#1188).
+    const posix = found.map((f) => f.replaceAll('\\', '/'));
+    expect(posix.some((f) => f.includes('node_modules'))).toBe(false);
+    expect(posix.some((f) => f.endsWith('src/a.ts'))).toBe(true);
   });
 
   it('honors extraIgnore on top of the defaults', async () => {
