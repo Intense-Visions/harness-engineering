@@ -1,5 +1,60 @@
 # @harness-engineering/cli
 
+## 11.1.0
+
+### Minor Changes
+
+- 63f6ba0: Add `adr-fleet` — the **decide** stage of the `-fleet` family (issue-fleet → adr-fleet → roadmap-fleet → pr-fleet). It sweeps the backlog of pending architectural decisions (undocumented decision points, decision-blocked work, parked forks), fans out worktree-isolated subagents that each run the real `harness-architecture-advisor` pipeline to draft one ADR under `docs/knowledge/decisions/` at `status: proposed`, independently verifies every draft is a well-formed record (never a subagent self-report) on a CI-green branch, and hands the human one batch sign-off pass. It never auto-accepts — a drafted ADR stays `proposed` until an explicit human sign-off flips it to `accepted`.
+
+  The skill is self-contained `SKILL.md` + `skill.yaml` that cites the shared spine (`docs/reference/fleet-family.md`) and defines only its decide-stage parts: the pending-decision queue, advisor-drafting with orchestrator-pre-allocated ADR numbers, and the terminal human batch sign-off gate. Ships with platform symlinks (codex/cursor/gemini-cli), the decide-stage batch-sign-off-gate ADR (the complement to the fan-out, interaction-model, and land-merge-gate ADRs), a new `proposed` status in the ADR vocabulary, and regenerated plugin/catalog artifacts.
+
+- 6818d63: Emit a PATH-resolvable Codex `notify` command instead of a machine-specific absolute path.
+
+  `harness update` / `harness hooks init` now wire Codex's `.codex/config.toml` `notify` as `["harness", "hooks", "run", "session-retrospect-codex"]` rather than `["node", "<abs path>/.harness/hooks/session-retrospect-codex.js"]`. The generated line no longer contains a machine-specific filesystem path, so it is byte-identical on every machine and safe to commit for the whole team (previously it churned per machine and broke other contributors and CI).
+
+  A new `harness hooks run <name> [payload]` subcommand backs this: it reads the JSON payload Codex delivers on argv, self-locates the project from the payload's `cwd`, and delegates to the shared session-retrospect core. It is fail-soft (unknown name, absent/malformed payload, or any error exits 0). An existing absolute-path Codex `notify` line written by a prior harness version is upgraded in place on the next run; a foreign `notify` is left untouched. Claude, Gemini, and Cursor hook wiring is unchanged.
+
+- d4a763e: Add a `docs-publish` code connector configured via `harness.config.json`. Introduces a `DocsPublishConnector` interface (operations: draft, attach-media, verify-render, page-tree) with a config-driven resolver that degrades gracefully when no connector is configured, a Confluence implementation (page CRUD + sidebar move via Atlassian REST, ADF media-single serialization, Playwright-based render verification), a `harness docs-publish <op>` CLI command, and a `docs_publish` MCP tool. The headless-impossible attachment upload is modeled as a typed manual-step result the pipeline surfaces to the human. Playwright is an optional peer dependency loaded lazily. The former `docs-publish` and `docs-publish-confluence` skills are removed; `proposal-pitch` now invokes the connector surface.
+
+### Patch Changes
+
+- 1ee0b13: `harness init` now scaffolds `hooks.afterCreate` in the orchestrator config from the
+  detected ecosystem's install command (e.g. `uv sync` for a `uv.lock` workspace,
+  `pnpm install` for a `pnpm-lock.yaml` workspace) instead of hardcoding
+  `pnpm install --prefer-offline` for every adopter. When no lockfile or manifest is
+  recognized at the workspace root, init now emits a single loud, non-blocking warning
+  that neither an install nor a verify command could be resolved (the same condition
+  that silently no-ops the runtime verify gate) and still exits successfully.
+- e44460c: Supply-chain audit: re-tighten drifted security override floors
+
+  The root `pnpm.overrides` security pins had drifted below their currently
+  patched versions again (open-ended `>=x` floors resolve to the floor, not the
+  latest patch). Bumped the floors and added two new pins, clearing 25 of 30
+  `pnpm audit` advisories — all within the current major, no breaking jumps:
+  - `hono` `>=4.12.25` → `>=4.12.34` (ReDoS, SSR cross-user disclosure, DoS)
+  - `postcss` `>=8.5.10` → `>=8.5.23` (arbitrary `.map` file read ×3)
+  - `ip-address` `>=10.1.1` → `>=10.3.1` (SSRF / trust-boundary bypass ×3)
+  - `fast-uri` `>=3.1.4` → `>=3.1.5` (host confusion)
+  - `undici` `^7.28.0` → `>=7.29.0` (response desync, cache disclosure, CRLF ×4)
+  - `brace-expansion@2` `>=2.1.2` → `>=2.1.4`; `brace-expansion@5` `^5.0.6` → `>=5.0.9` (DoS)
+  - `js-yaml@3` `>=3.15.0` → `>=3.15.1`; `js-yaml@4` `>=4.2.0` → `>=4.3.1` (quadratic CPU)
+  - new: `nanoid` `>=3.3.17` (infinite loop), `react-router` `>=7.18.2 <8` (RSC CSRF bypass)
+
+  Also bumped the direct `react-router` dep in `@harness-engineering/dashboard`
+  to `^7.18.2`. The 5 remaining advisories are all the pre-accepted
+  `auditExceptions` (esbuild/vite in the vitepress ^5 chain, dev/docs-only).
+
+- Updated dependencies [65d1831]
+- Updated dependencies [e44460c]
+- Updated dependencies [5d6436c]
+  - @harness-engineering/orchestrator@0.21.0
+  - @harness-engineering/dashboard@0.15.1
+  - @harness-engineering/types@0.28.0
+  - @harness-engineering/core@0.41.0
+  - @harness-engineering/graph@0.12.1
+  - @harness-engineering/intelligence@0.11.1
+  - @harness-engineering/signals@0.3.1
+
 ## 11.0.0
 
 ### Minor Changes
