@@ -5,15 +5,16 @@ import { loadIngestOptions } from '../../../commands/graph/ingest-options.js';
 export const ingestSourceDefinition = {
   name: 'ingest_source',
   description:
-    'Ingest sources into the project knowledge graph. Supports code analysis, knowledge documents, git history, or all at once.',
+    'Ingest sources into the project knowledge graph. Supports code analysis, knowledge documents, git history, canary test results, or all at once.',
   inputSchema: {
     type: 'object' as const,
     properties: {
       path: { type: 'string', description: 'Path to project root' },
       source: {
         type: 'string',
-        enum: ['code', 'knowledge', 'git', 'business-signals', 'diagrams', 'all'],
-        description: 'Type of source to ingest',
+        enum: ['code', 'knowledge', 'git', 'business-signals', 'diagrams', 'test-results', 'all'],
+        description:
+          'Type of source to ingest. "test-results" reads canary run history and writes test_result nodes with tested_by/failed_in edges.',
       },
     },
     required: ['path', 'source'],
@@ -22,7 +23,7 @@ export const ingestSourceDefinition = {
 
 export async function handleIngestSource(input: {
   path: string;
-  source: 'code' | 'knowledge' | 'git' | 'business-signals' | 'diagrams' | 'all';
+  source: 'code' | 'knowledge' | 'git' | 'business-signals' | 'diagrams' | 'test-results' | 'all';
 }) {
   try {
     const projectPath = sanitizePath(input.path);
@@ -76,6 +77,18 @@ export async function handleIngestSource(input: {
       const diagramParser = new DiagramParser(store);
       const diagramResult = await diagramParser.ingest(projectPath);
       results.push(diagramResult);
+    }
+
+    if (input.source === 'test-results' || input.source === 'all') {
+      // Canary coupling stays in the CLI layer: read records via the adapter,
+      // then drive the graph-only ingestor (graph imports NO canary). The adapter
+      // is total — readRunHistory returns [] when no history store exists, so the
+      // ingestor runs on [] and adds 0 nodes (degrade-safe no-op).
+      const { createCanaryAdapter } = await import('@harness-engineering/intelligence');
+      const { CanaryResultsIngestor } = await import('@harness-engineering/graph');
+      const records = await createCanaryAdapter().readRunHistory({ cwd: projectPath });
+      const canaryResult = new CanaryResultsIngestor(store, records).ingest();
+      results.push(canaryResult);
     }
 
     // Save the graph

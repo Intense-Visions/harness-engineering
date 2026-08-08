@@ -1,17 +1,53 @@
 # Harness Deployment
 
-> CI/CD pipeline analysis, deployment strategy design, and environment management. From commit to production with confidence.
+> CI/CD pipeline analysis, deployment strategy design, and environment management. From commit to production with confidence. Deployment readiness is a hard gate: `harness check-deployment` **blocks** a deploy on unambiguous, incident-causing violations, **advises** on maturity gaps, and **abstains loudly** when a repo does not deploy. This is a gate, not a suggestion.
 
 ## When to Use
 
+- Before approving a pull request or a merge that changes deployment configuration
 - When setting up or reviewing CI/CD pipelines for a new or existing project
 - When evaluating deployment strategies (blue-green, canary, rolling) for a service
 - When auditing environment separation and promotion workflows
+- When `on_pr` triggers fire and the change touches pipeline, environment, or deploy-script files
 - NOT for container image building or registry management (use harness-containerization)
 - NOT for infrastructure provisioning (use harness-infrastructure-as-code)
 - NOT for application performance under load (use harness-perf)
+- NOT for post-ship operational signal ingestion (incidents, live monitoring, error-budget feeds) — that operations half is out of scope here and deferred to a dedicated ops skill
 
 ## Process
+
+### Phase 0: ENFORCE -- Run the deployment gate
+
+This is the mechanical gate and it runs first. The phases below (DETECT/ANALYZE/DESIGN/VALIDATE) are the advisory context you use to _fix_ what the gate finds — they never replace it.
+
+1. **Invoke the gate. Never reimplement it.** Run `harness check-deployment` (add `--json` for machine output, `--findings-json` for the trailing findings-contract line). The skill invokes the command; it does not re-derive the detection or the block/advise decision by hand. Hand-rolling the mechanical check instead of calling the command is a Red-Flag pattern.
+
+2. **Read the exit code as the authority.** The gate reports one of four values, and each means exactly one thing:
+
+   | Exit | Meaning                                                                                                                         | What it says about the deploy                                                                                                                        |
+   | ---- | ------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------- |
+   | `0`  | **Pass** — deployment config detected, no hard violations (or the gate is explicitly disabled via `deployment.enabled: false`). | Cleared. Soft findings may still be listed as advisories.                                                                                            |
+   | `1`  | **Blocked** — at least one hard violation.                                                                                      | Do not deploy. Fix the finding; the gate is the authority and does not get hand-waved past.                                                          |
+   | `2`  | **Error** — internal failure or misconfiguration (unreadable/malformed `harness.config.json`).                                  | Indeterminate. Fix the tooling/config; never treat a `2` as a pass.                                                                                  |
+   | `3`  | **Abstained** — no deployment configuration detected at all.                                                                    | The gate examined **nothing** — abstained, not passed. Never green. Confirm the repo genuinely does not deploy, or that detection missed the config. |
+
+3. **Apply the block-vs-advise contract.** Hard rules block (exit `1`); soft rules advise (surfaced, exit `0`):
+
+   | Code              | Class                   | Fires when                                                                                                                                                                                             |
+   | ----------------- | ----------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+   | `DEPLOY-SEC001`   | **HARD — non-waivable** | A hardcoded secret or long-lived cloud credential appears in a pipeline file or a committed environment file. A `${{ secrets.X }}` / `process.env.X` **reference** is not a leak and does not trip it. |
+   | `DEPLOY-RB001`    | **HARD**                | A deploy target is detected but no rollback path is wired.                                                                                                                                             |
+   | `DEPLOY-ENV001`   | **HARD**                | A production deploy is reachable with no promotion/approval gate (direct-to-prod, no environment protection, no manual approval, no prior staging job).                                                |
+   | `DEPLOY-STAGE001` | SOFT                    | Recommended pre-deploy stages are missing (security scan, smoke tests, post-deploy verification), or a pipeline file is unparseable.                                                                   |
+   | `DEPLOY-ENV002`   | SOFT                    | Weak environment separation (shared **non-secret** config across environments) that is not an outright leak.                                                                                           |
+   | `DEPLOY-HC001`    | SOFT                    | No post-deploy health check wired for a deploy target.                                                                                                                                                 |
+   | `DEPLOY-PERF001`  | SOFT                    | Pipeline structure smells (serial stages that could parallelize, missing dependency/build caching).                                                                                                    |
+
+4. **Severity overrides are per-rule and bounded.** `deployment.rules` may downgrade a waivable hard rule (`DEPLOY-RB001`, `DEPLOY-ENV001`) to advisory for a repo where the concept genuinely does not apply — with a config comment saying why. `DEPLOY-SEC001` ignores any downgrade: a leaked credential is never a judgment call. Disabling the whole gate (`deployment.enabled: false`) is an explicit, reviewable opt-out — not a fix for a single finding.
+
+5. **When the gate blocks, drop into the advisory phases.** Use DETECT to locate the offending config, ANALYZE to understand the gap, and DESIGN to write the fix in the project's CI/CD syntax. Re-run the gate until it clears.
+
+---
 
 ### Phase 1: DETECT -- Identify Pipeline and Environment Configuration
 
@@ -168,10 +204,12 @@
 
 ## Harness Integration
 
-- **`harness skill run harness-deployment`** -- Primary invocation for deployment analysis.
+- **`harness check-deployment`** -- The mechanical gate. Verifies deployment readiness and exits per the four-value contract (`0` pass / `1` blocked / `2` error / `3` abstained). `--json` emits the full result; `--findings-json` emits the trailing findings-contract line. The skill invokes this command; it never reimplements the check.
+- **`harness skill run harness-deployment`** -- Advisory invocation for the DETECT/ANALYZE/DESIGN/VALIDATE walkthrough used to fix what the gate reports.
 - **`harness validate`** -- Run after any pipeline configuration changes to verify project health.
 - **`harness check-deps`** -- Verify deployment script dependencies are available.
 - **`emit_interaction`** -- Present deployment readiness report and gather decisions on strategy.
+- **Rollback seam (pre-ship gate ↔ post-ship circuit breaker).** `harness check-deployment` verifies a rollback _path exists_ — pre-ship readiness answering "can we roll back?" It is satisfied by any of: a `rollback` block in `harness.config.json` (the circuit breaker is wired), a revert/rollback workflow or `deploy/rollback` script, or a documented rollback runbook. It never deploys and never merges a revert. Its complement, **`harness-rollback`**, executes post-ship: when a signal or evaluation fires, it opens a revert PR (propose-only; a human merges). The two are connected by the shared `rollback` config seam. On a `DEPLOY-RB001` block, point the human at `harness-rollback` to establish the missing post-ship path — but the gate's job is only to confirm the path exists before this merges.
 
 ## Success Criteria
 
@@ -242,10 +280,15 @@ Phase 4: VALIDATE
 
 ## Gates
 
-- **No production deploy without staging validation.** If the pipeline allows direct-to-production deployment without a prior staging step, flag as a blocking issue.
-- **No long-lived credentials in pipelines.** Hardcoded secrets or long-lived access keys in pipeline files are blocking findings. OIDC or short-lived tokens must be used.
-- **No deploy without rollback.** Every deployment target must have a documented or automated rollback mechanism. Missing rollback is a blocking warning.
-- **No skipping pipeline lint.** Pipeline configuration must pass syntax validation before recommendations are made.
+These are hard stops enforced mechanically by `harness check-deployment`. A hard violation is an error, not a warning — it maps to a non-zero exit and the skill does not hand-wave past it.
+
+- **`harness check-deployment` is the authority.** Each hard rule maps to exit `1`. If the gate returns `1`, the deploy does not proceed until the finding is fixed and the gate clears. There is no "explain it away" path around a `1`.
+- **`DEPLOY-SEC001` (leaked/long-lived credential) is non-waivable.** A hardcoded secret or long-lived cloud credential in a pipeline file or a committed env file blocks the deploy and cannot be downgraded by `deployment.rules`. Rotate the credential and remove the literal.
+- **`DEPLOY-RB001` (no rollback path) blocks.** A detected deploy target with no rollback path (no `rollback` config, no revert/rollback workflow or script, no runbook) exits `1`. Wire the path before this merges; on a block, hand off to `harness-rollback` for the post-ship half.
+- **`DEPLOY-ENV001` (direct-to-prod, no promotion gate) blocks.** A production deploy reachable with no approval/promotion gate exits `1`.
+- **Abstention (exit `3`) is not a pass.** When the gate detects no deployment configuration it examines nothing and abstains loudly — never green. Confirm the repo genuinely does not deploy before treating a `3` as clear.
+- **Error (exit `2`) is not a pass.** A malformed or unreadable `harness.config.json` exits `2`; fix the tooling before shipping. The gate never guesses config.
+- **Overrides are per-rule, explicit, and reviewable.** Downgrading `DEPLOY-RB001`/`DEPLOY-ENV001` requires a `deployment.rules` entry with a rationale comment. Disabling the gate (`deployment.enabled: false`) is a visible opt-out, not a remediation.
 
 ## Evidence Requirements
 
@@ -295,11 +338,16 @@ These reasoning patterns sound plausible but lead to bad outcomes. Reject them.
 
 ### Domain-Specific
 
-| Rationalization                                | Reality                                                                                                                                |
-| ---------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------- |
-| "It's just a config change, not a code change" | Config changes cause outages at the same rate as code changes. Deploy them with the same rigor and rollback strategy.                  |
-| "We tested this in staging"                    | Staging is not production. Traffic patterns, data volume, and edge cases differ. Staging success does not guarantee production safety. |
-| "Downtime will be brief"                       | Brief is not zero. Quantify the expected impact and communicate it to stakeholders before deploying.                                   |
+| Rationalization                                                                      | Reality                                                                                                                                                                                                 |
+| ------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| "The secret is only in a workflow file, not application code"                        | A leaked credential in a pipeline is a live secret. `DEPLOY-SEC001` is non-waivable — rotate it and remove the literal; `deployment.rules` cannot downgrade it.                                         |
+| "We'll add a rollback path before we actually deploy"                                | The gate verifies the rollback path exists **now**. "Later" means an incident finds you with no revert route. Wire `rollback` config, a rollback workflow/script, or a runbook before this merges.      |
+| "This repo only has one environment, so the promotion gate does not apply"           | Then downgrade `DEPLOY-ENV001` explicitly via `deployment.rules` with a comment — do not disable the whole gate. An unconfigured direct-to-prod path is exactly what `DEPLOY-ENV001` exists to catch.   |
+| "The gate abstained, so we're clear to ship"                                         | Abstention (exit `3`) means the gate examined **nothing** — it is not a pass. Either the repo genuinely does not deploy, or detection missed the config. Confirm which before treating it as green.     |
+| "Just set `enabled: false` to get the pipeline green"                                | Disabling the gate is an explicit opt-out that shows up in config review, not a fix. If one hard rule is wrong for this repo, downgrade that single rule with a rationale; do not blind the whole gate. |
+| "The pipeline references `${{ secrets.X }}`, so `DEPLOY-SEC001` is a false positive" | An env-var _reference_ is not a leak and does not trip the rule — a _hardcoded_ value does. If the gate flagged it, the literal is real; do not suppress it, remove it.                                 |
+| "It's just a config change, not a code change"                                       | Config changes cause outages at the same rate as code changes. The gate applies the same rigor and rollback requirement to them.                                                                        |
+| "We tested this in staging"                                                          | Staging is not production. Traffic patterns, data volume, and edge cases differ. Staging success does not clear a hard gate finding.                                                                    |
 
 ## Escalation
 

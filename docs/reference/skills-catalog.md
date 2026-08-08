@@ -200,7 +200,7 @@ Human-judged acceptance sign-off skill — the terminal, human-authority stage o
 - **Cognitive mode:** configuration-interviewer
 - **Depends on:** outcome-eval
 
-## Tier 2 — Maintenance (55 skills)
+## Tier 2 — Maintenance (56 skills)
 
 ### acceptance-eval
 
@@ -411,6 +411,15 @@ Analyze structural health of the codebase using graph metrics
 - **Platforms:** claude-code, gemini-cli, cursor, codex
 - **Type:** rigid
 - **Cognitive mode:** analytical-reporter
+
+### harness-deployment
+
+CI/CD pipelines, blue-green, canary, and environment management
+
+- **Triggers:** manual, on_new_feature, on_pr
+- **Platforms:** claude-code, gemini-cli, cursor, codex
+- **Type:** rigid
+- **Cognitive mode:** meticulous-verifier
 
 ### harness-design-craft
 
@@ -729,7 +738,7 @@ LLM-judgment critique of test quality across vitest / jest / mocha / playwright 
 - **Cognitive mode:** constructive-architect
 - **Depends on:** harness-tdd, harness-design-craft
 
-## Tier 3 — Domain (704 skills)
+## Tier 3 — Domain (703 skills)
 
 ### a11y-aria-patterns
 
@@ -2987,15 +2996,6 @@ Schema validation, data contracts, and pipeline data quality
 ### harness-database
 
 Schema design, migrations, ORM patterns, and migration safety checks
-
-- **Triggers:** manual, on_new_feature
-- **Platforms:** claude-code, gemini-cli, cursor, codex
-- **Type:** rigid
-- **Cognitive mode:** advisory-guide
-
-### harness-deployment
-
-CI/CD pipelines, blue-green, canary, and environment management
 
 - **Triggers:** manual, on_new_feature
 - **Platforms:** claude-code, gemini-cli, cursor, codex

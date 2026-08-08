@@ -31,6 +31,8 @@ The knowledge graph organizes all project data into typed nodes and directed edg
 
 Each node category has a dedicated ingestor: CodeIngestor (code), KnowledgeIngestor (knowledge), GitIngestor + CIConnector (VCS), BusinessKnowledgeIngestor (business), DesignIngestor (design), RequirementIngestor (traceability). External data flows through connectors (Jira, Slack, Confluence, Figma, Miro) implementing the `GraphConnector` interface.
 
+CanaryResultsIngestor is an additional `test_result` producer: it turns canary run history into one `test_result` node per run plus one per embedded test, wiring each per-test node to its resolved code node via `tested_by` and to its run node via `failed_in` (failing tests only). It reuses the existing `test_result` node and `tested_by`/`failed_in` edge types — no schema change. Boundary: `CanaryResultsIngestor` lives in `@harness-engineering/graph` and imports no canary code; the `ingest_source({ source: 'test-results' })` handler (CLI layer) reads records via the canary adapter and passes them in, so canary coupling never reaches the graph package.
+
 ## Domain Inference
 
 Every node carries a `domain` field used by drift detection, gap reporting, and the knowledge pipeline to bucket findings (e.g. `payments`, `auth`, `graph`). Domain is resolved per node by the inference pipeline, with explicit signals winning over heuristic ones.

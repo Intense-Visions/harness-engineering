@@ -11,14 +11,17 @@ The canary adapter (`packages/intelligence/src/adapters/canary.ts`) is a total, 
 
 ## Surface
 
-`createCanaryAdapter(exec?)` returns an adapter with four total methods:
+`createCanaryAdapter(exec?, reader?)` returns an adapter with five total methods:
 
 - `probe()` → `{ status: 'available' | 'degraded', version?, reason? }`. Classifies absence as `not-installed` (ENOENT), `binary-missing` (launcher present but the native binary was never downloaded — postinstall skipped, offline, or unsupported platform), `exec-failed`, or `bad-output`.
 - `recommendFramework(prompt)` → zod-validated `FrameworkRecommendation` (`canary recommend --json`); a `degraded` sentinel when unavailable.
 - `reviewTest(path, framework?)` → zod-validated `CanaryFinding[]` (`canary review-test --json`); `[]` when unavailable.
 - `listFrameworks()` → zod-validated `CanaryFrameworkInfo[]` (`canary frameworks --json`); `[]` when unavailable or malformed. The live CLI returns the detail objects directly under the top-level `frameworks` key (there is no separate `details[]` key), so the adapter parses `frameworks` and tolerates extra keys (`category`, `capabilities`, …). The pure `resolveTestCommand(fw, file, { ci? })` helper fills `{file}`, appends `ci_flags` under CI, and returns `null` for null or non-`{file}` commands (catalog-tier and `{target}`-only scanners are not per-file test commands).
+- `readRunHistory(opts?)` → zod-validated `CanaryRunRecord[]` read from canary's documented NDJSON store (`test-results/reports/history-v2.jsonl`) under `opts.cwd`; `[]` when the file is missing, unreadable, or every line is malformed (a single bad line is dropped, valid records kept). Optional `opts.limit` caps the most-recent records returned.
 
-The process-spawning seam (`CanaryExec`) is injectable so the degradation taxonomy is unit-testable without the real CLI. `execFile` is called with an args array (no shell interpolation) and bounded by a timeout so a hung CLI degrades rather than blocking.
+The adapter has **two injectable acquisition seams**: the process-spawning `CanaryExec` (for the `--json` CLI subcommands above) and a file-reading `CanaryReader` (for `readRunHistory`). Both keep the degradation taxonomy unit-testable without a real canary install. `execFile` is called with an args array (no shell interpolation) and bounded by a timeout so a hung CLI degrades rather than blocking. Reading the documented on-disk artifact — rather than execing a (non-existent) history CLI verb — is the acquisition choice recorded in ADR-0086, which extends the ADR-0039 boundary from "exec-only" to "exec or documented-artifact read".
+
+Run history is consumed downstream by the knowledge graph (`CanaryResultsIngestor` writes `test_result` nodes + `tested_by`/`failed_in` edges) and by outcome-eval (a canary run's gate exit code + pass/fail/flaky counts fold into the verdict rationale and the `execution_outcome` node metadata). The graph package never imports canary — the CLI layer reads via this adapter and passes plain records in.
 
 ## Two surfaces, deliberately separated
 
@@ -32,7 +35,7 @@ Markdown skills cannot import the adapter, so it is exposed via two MCP tools in
 
 ## One capability = one method + one tool
 
-Every new canary capability is added as exactly **one total adapter method plus one thin MCP tool** — never a new integration pattern. `listFrameworks()` + `canary_discover_test_command` follow the same shape as `probe`/`recommendFramework` and their tools, so the sibling results-ingestion work can add a `readHistory()`-style method + tool to this same boundary additively. The boundary stays read-only: tools return resolved strings; the resolved command is executed only by the calling skill's own EXECUTE phase, never inside the adapter or tool.
+Every new canary capability is added as exactly **one total adapter method plus one thin MCP tool** — never a new integration pattern. `listFrameworks()` + `canary_discover_test_command` and `readRunHistory()` + `canary_run_history` both follow the same shape as `probe`/`recommendFramework` and their tools. `readRunHistory` additionally proves the boundary generalizes beyond `execFile`: it acquires canary's output by reading the documented NDJSON artifact through an injectable `CanaryReader` seam (ADR-0086), while keeping the one-method-one-tool invariant. The boundary stays read-only: tools return resolved data; any resolved command is executed only by the calling skill's own EXECUTE phase, never inside the adapter or tool.
 
 ## Related
 

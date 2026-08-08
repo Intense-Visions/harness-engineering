@@ -14,6 +14,7 @@ import { createBlackBoxCommand } from './orchestrator-black-box';
 import { createBlueprintCommand } from './blueprint';
 import { createBurnCommand } from './burn';
 import { createCheckArchCommand } from './check-arch';
+import { createCheckDeploymentCommand } from './check-deployment';
 import { createCheckDepsCommand } from './check-deps';
 import { createCheckDesignCommand } from './check-design';
 import { createCheckDocsCommand } from './check-docs';
@@ -121,6 +122,7 @@ export const commandCreators: Array<() => Command> = [
   createBlueprintCommand,
   createBurnCommand,
   createCheckArchCommand,
+  createCheckDeploymentCommand,
   createCheckDepsCommand,
   createCheckDesignCommand,
   createCheckDocsCommand,

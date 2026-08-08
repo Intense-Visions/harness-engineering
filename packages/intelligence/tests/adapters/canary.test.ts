@@ -4,6 +4,7 @@ import {
   resolveTestCommand,
   canaryFrameworkInfoSchema,
   type CanaryExec,
+  type CanaryReader,
 } from '../../src/adapters/canary.js';
 
 // Inject a fake exec seam — no node:child_process mocking. The adapter's
@@ -16,6 +17,113 @@ function execResolves(stdout: string): CanaryExec {
 function execRejects(err: { code?: number | string; stderr?: string }): CanaryExec {
   return () => Promise.reject(Object.assign(new Error('exec'), err));
 }
+
+// exec is irrelevant to readRunHistory — pass an inert seam and inject the reader.
+const inertExec: CanaryExec = () => Promise.resolve({ stdout: '' });
+
+function readerResolves(contents: string): CanaryReader {
+  return () => Promise.resolve(contents);
+}
+
+function readerRejects(err: { code?: number | string } = {}): CanaryReader {
+  return () => Promise.reject(Object.assign(new Error('read'), err));
+}
+
+describe('CanaryAdapter.readRunHistory', () => {
+  const RUN_A = {
+    run_id: 'run-a',
+    timestamp: '2026-08-01T00:00:00Z',
+    passed: 3,
+    failed: 0,
+    tests: [],
+  };
+  const RUN_B = {
+    run_id: 'run-b',
+    timestamp: '2026-08-02T00:00:00Z',
+    passed: 2,
+    failed: 1,
+    tests: [
+      { test_name: 'login', status: 'failed', failure_category: 'assertion', retry_count: 1 },
+    ],
+  };
+
+  it('returns validated records from well-formed NDJSON (newest-last)', async () => {
+    const ndjson = `${JSON.stringify(RUN_A)}\n${JSON.stringify(RUN_B)}\n`;
+    const adapter = createCanaryAdapter(inertExec, readerResolves(ndjson));
+    const records = await adapter.readRunHistory();
+    expect(records).toHaveLength(2);
+    expect(records[0].run_id).toBe('run-a');
+    expect(records[1].run_id).toBe('run-b');
+    // permissive per-test fields survive
+    expect(records[1].tests[0].failure_category).toBe('assertion');
+  });
+
+  it('respects limit by returning the most-recent N (newest-last)', async () => {
+    const ndjson = `${JSON.stringify(RUN_A)}\n${JSON.stringify(RUN_B)}\n`;
+    const records = await createCanaryAdapter(inertExec, readerResolves(ndjson)).readRunHistory({
+      limit: 1,
+    });
+    expect(records).toHaveLength(1);
+    expect(records[0].run_id).toBe('run-b');
+  });
+
+  it('returns [] for limit 0 (most-recent 0, not "all" via slice(-0))', async () => {
+    const ndjson = `${JSON.stringify(RUN_A)}\n${JSON.stringify(RUN_B)}\n`;
+    const records = await createCanaryAdapter(inertExec, readerResolves(ndjson)).readRunHistory({
+      limit: 0,
+    });
+    expect(records).toEqual([]);
+  });
+
+  it('returns [] (never throws) when the file is missing (reader rejects ENOENT)', async () => {
+    const records = await createCanaryAdapter(
+      inertExec,
+      readerRejects({ code: 'ENOENT' })
+    ).readRunHistory();
+    expect(records).toEqual([]);
+  });
+
+  it('returns [] (never throws) when the reader rejects with a generic error', async () => {
+    const records = await createCanaryAdapter(inertExec, readerRejects()).readRunHistory();
+    expect(records).toEqual([]);
+  });
+
+  it('returns [] when every line is malformed', async () => {
+    const records = await createCanaryAdapter(
+      inertExec,
+      readerResolves('not json\n{oops\n')
+    ).readRunHistory();
+    expect(records).toEqual([]);
+  });
+
+  it('drops a single malformed line but keeps the valid records', async () => {
+    const ndjson = `${JSON.stringify(RUN_A)}\nnot json\n${JSON.stringify(RUN_B)}\n`;
+    const records = await createCanaryAdapter(inertExec, readerResolves(ndjson)).readRunHistory();
+    expect(records).toHaveLength(2);
+    expect(records.map((r) => r.run_id)).toEqual(['run-a', 'run-b']);
+  });
+
+  it('ignores blank lines', async () => {
+    const ndjson = `\n${JSON.stringify(RUN_A)}\n\n  \n${JSON.stringify(RUN_B)}\n`;
+    const records = await createCanaryAdapter(inertExec, readerResolves(ndjson)).readRunHistory();
+    expect(records).toHaveLength(2);
+  });
+
+  it('resolves the store under a supplied cwd', async () => {
+    let seenPath = '';
+    const reader: CanaryReader = (filePath) => {
+      seenPath = filePath;
+      return Promise.resolve(`${JSON.stringify(RUN_A)}\n`);
+    };
+    await createCanaryAdapter(inertExec, reader).readRunHistory({ cwd: '/tmp/project' });
+    // Normalize native separators: path.join yields backslashes on Windows, so
+    // assert against the forward-slash form. The resolved store path must end
+    // with the canary store location and sit under the supplied cwd.
+    const normalizedPath = seenPath.replaceAll('\\', '/');
+    expect(normalizedPath.endsWith('test-results/reports/history-v2.jsonl')).toBe(true);
+    expect(normalizedPath).toContain('/tmp/project');
+  });
+});
 
 describe('CanaryAdapter.probe', () => {
   it('returns available with version on success', async () => {

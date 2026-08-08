@@ -102,3 +102,7 @@ tmp-plugin-*-agents/
 
 # Local e2e scratch (model pull logs, pids)
 .harness/e2e/
+
+# Transient per-package vitest report written only under the pre-push gate
+# (HARNESS_PREPUSH=1). Never committed. See scripts/vitest-prepush-reporter.mjs.
+**/.vitest-report.json

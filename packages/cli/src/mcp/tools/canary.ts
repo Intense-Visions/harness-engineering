@@ -44,6 +44,24 @@ export const canaryRecommendFrameworkDefinition = {
   },
 };
 
+export const canaryRunHistoryDefinition = {
+  name: 'canary_run_history',
+  description:
+    "Read canary's persisted structured run history (NDJSON at " +
+    'test-results/reports/history-v2.jsonl) as a validated array of RunRecords ' +
+    '(run outcome + per-test status/failure_category/retry_count/flaky). ' +
+    'Optional { path?, limit? }: path is the project root (default cwd); limit caps ' +
+    'to the most-recent N runs. Returns [] (never errors) when canary has produced no ' +
+    'results or the store is missing/unreadable/malformed.',
+  inputSchema: {
+    type: 'object' as const,
+    properties: {
+      path: { type: 'string', description: 'Project root (default: cwd)' },
+      limit: { type: 'number', description: 'Cap to the most-recent N run records' },
+    },
+  },
+};
+
 export const canaryDiscoverTestCommandDefinition = {
   name: 'canary_discover_test_command',
   description:
@@ -100,6 +118,20 @@ export async function handleCanaryRecommendFramework(
     };
   }
   return jsonResponse(await adapter.recommendFramework(prompt));
+}
+
+export async function handleCanaryRunHistory(
+  input: { path?: unknown; limit?: unknown },
+  adapter: CanaryAdapter = createCanaryAdapter()
+) {
+  const cwd = typeof input?.path === 'string' ? input.path : undefined;
+  const limit = typeof input?.limit === 'number' ? input.limit : undefined;
+  return jsonResponse(
+    await adapter.readRunHistory({
+      ...(cwd ? { cwd } : {}),
+      ...(limit !== undefined ? { limit } : {}),
+    })
+  );
 }
 
 interface DiscoveredFramework {

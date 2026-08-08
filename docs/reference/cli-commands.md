@@ -86,6 +86,14 @@ Check architecture assertions against baseline and thresholds
 - `--reason` — Why an accepted regression is acceptable (logged to audit)
 - `--findings-json` — Emit findings contract as a trailing JSON line (#691)
 
+### `harness check-deployment`
+
+Verify deployment readiness and gate a deploy on hard violations
+
+**Options:**
+
+- `--findings-json` — Emit findings contract as a trailing JSON line
+
 ### `harness check-deps`
 
 Validate dependency layers and detect circular dependencies
