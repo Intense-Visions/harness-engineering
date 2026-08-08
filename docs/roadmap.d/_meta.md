@@ -53,3 +53,4 @@ milestones:
 | Add architecture thresholds to basic and intermediate templates | chad.warner@gmail.com | assigned | 2026-06-23 |
 | Add architecture thresholds to basic and intermediate templates | @chadjw | assigned | 2026-06-25 |
 | Add architecture thresholds to basic and intermediate templates | @chadjw | unassigned | 2026-06-25 |
+| bug-fleet — proactive undiscovered-bug hunt across the standing codebase | Chad Warner | unassigned | 2026-08-08 |
