@@ -35,7 +35,7 @@ This skill builds on the shared `-fleet` spine documented in `docs/reference/fle
 
 ### Iron Law
 
-**A candidate defect is not a bug until a failing test reproduces it — deterministically, against unmodified code, at the pinned batch base SHA. No reproduction ⇒ discarded, never filed. The fleet never auto-merges, never patches a security-routed finding inline, and never accepts a subagent's self-report as proof its pipeline ran.**
+**REPRODUCTION-REQUIRED — a candidate defect is not a bug until a failing test reproduces it — deterministically, against unmodified code, at the pinned batch base SHA. No reproduction ⇒ discarded, never filed. The fleet never auto-merges, never patches a security-routed finding inline, and never accepts a subagent's self-report as proof its pipeline ran.**
 
 Bug-hunting language models hallucinate defects at a high rate. A reviewer's confident prose describing a null-dereference that cannot occur reads exactly like a reviewer's confident prose describing one that can — and a proactive hunter with a weak bar is not a signal generator, it is a backlog spammer that costs more attention than it saves. An executable, deterministic reproduction is the only evidence that cannot be hallucinated: the test either goes red against unmodified code or it does not. Everything else in this skill exists to serve that bar.
 
