@@ -107,22 +107,36 @@ describe('validateDependencies', () => {
   });
 
   it('honors extraIgnore — excluded globs are not discovered (#1188)', async () => {
-    const fixturesDir = join(__dirname, '../fixtures/valid-layers');
-    const result = await validateDependencies({
-      layers: [
-        defineLayer('domain', ['domain/**'], []),
-        defineLayer('services', ['services/**'], ['domain']),
-        defineLayer('api', ['api/**'], ['services', 'domain']),
-      ],
+    // The layer-violations fixture has a WRONG_LAYER edge originating in
+    // domain/user.ts (domain -> services). Excluding domain/** from discovery
+    // must make that violation disappear — proving extraIgnore genuinely
+    // removes files from the walked set (a no-op ignore would leave the
+    // violation, so the assertion is meaningful, not vacuous).
+    const fixturesDir = join(__dirname, '../fixtures/layer-violations');
+    const layers = [
+      defineLayer('domain', ['domain/**'], []),
+      defineLayer('services', ['services/**'], ['domain']),
+      defineLayer('api', ['api/**'], ['services', 'domain']),
+    ];
+
+    // Baseline: without the ignore, the violation is detected.
+    const baseline = await validateDependencies({ layers, rootDir: fixturesDir, parser });
+    expect(baseline.ok).toBe(true);
+    if (baseline.ok) {
+      expect(baseline.value.valid).toBe(false);
+      expect(baseline.value.violations.some((v) => v.fromLayer === 'domain')).toBe(true);
+    }
+
+    // With domain/** excluded, the offending file is not walked → no violation.
+    const excluded = await validateDependencies({
+      layers,
       rootDir: fixturesDir,
       parser,
-      // Exclude the entire api layer's files from discovery.
-      extraIgnore: ['api/**'],
+      extraIgnore: ['domain/**'],
     });
-    expect(result.ok).toBe(true);
-    if (result.ok) {
-      // With api excluded, no api->services/domain edges are walked; still valid.
-      expect(result.value.valid).toBe(true);
+    expect(excluded.ok).toBe(true);
+    if (excluded.ok) {
+      expect(excluded.value.violations.some((v) => v.fromLayer === 'domain')).toBe(false);
     }
   });
 
