@@ -1,0 +1,74 @@
+name: adr-fleet
+version: '1.0.0'
+description: Autonomous decide-stage orchestrator — sweep the backlog of pending architectural decisions, fan out worktree-isolated subagents that each run the real architecture-advisor pipeline to draft one ADR, independently verify every draft is a well-formed record, and hand the human one batch sign-off pass. Never auto-accepts.
+stability: static
+cognitive_mode: systematic-orchestrator
+triggers:
+  - manual
+platforms:
+  - claude-code
+  - codex
+  - cursor
+  - gemini-cli
+tools:
+  - Bash
+  - Read
+  - Glob
+  - Grep
+cli:
+  command: harness skill run adr-fleet
+  args:
+    - name: path
+      description: Project root path
+      required: false
+    - name: --concurrency
+      description: 'Cap on concurrent draft subagents (default: 2, max recommended 3 — the machine-storm limit)'
+      required: false
+    - name: --report-only
+      description: Enumerate, cross-check, and present the ranked pending-decision batch without dispatching draft subagents
+      required: false
+    - name: --dry-run
+      description: Run SELECT and CONFIRM only; do not fan out, verify, or sign off
+      required: false
+mcp:
+  tool: run_skill
+  input:
+    skill: adr-fleet
+    path: string
+type: rigid
+tier: 2
+phases:
+  - name: select
+    description: Enumerate the pending-decision queue (undocumented decision points, decision-blocked work, parked forks), cross-check against existing ADRs, score and order via roadmap-pilot impact scoring, and pre-allocate a contiguous block of ADR numbers
+    required: true
+  - name: confirm
+    description: Present the ranked batch in one round — already-decided points flagged for closure, each decision's key trade-off question as a fork, proposed concurrency — for a single up-front human approval
+    required: true
+  - name: dispatch
+    description: Fan out worktree-isolated subagents, each running the real architecture-advisor pipeline for one decision and drafting docs/knowledge/decisions/NNNN-slug.md at status proposed, capped at the concurrency governor
+    required: true
+  - name: verify
+    description: Independently confirm each returned branch has a well-formed drafted ADR (required frontmatter, unique sequential number, status proposed, Context/Decision/Consequences) and is CI-green across all OS plus enforce and harness — never by subagent self-report
+    required: true
+  - name: signoff
+    description: Present every verified drafted ADR in one batch pass; flip status proposed to accepted only for ADRs the human explicitly accepts; emit a one-row-per-decision summary and close already-decided candidates citing the existing ADR; never auto-accept
+    required: true
+state:
+  persistent: false
+  files: []
+depends_on:
+  - harness-roadmap-pilot
+  - harness-architecture-advisor
+addresses:
+  - signal: backlog-pressure
+    weight: 0.5
+  - signal: drift
+    weight: 0.2
+capabilities:
+  tools:
+    - Bash
+    - Read
+    - Glob
+    - Grep
+  network: false
+  filesystem: read-write

@@ -211,6 +211,16 @@ Pre-execution LLM-judgment skill: does a spec carry measurable, testable, comple
 - **Type:** rigid
 - **Cognitive mode:** constructive-architect
 
+### adr-fleet
+
+Autonomous decide-stage orchestrator — sweep the backlog of pending architectural decisions, fan out worktree-isolated subagents that each run the real architecture-advisor pipeline to draft one ADR, independently verify every draft is a well-formed record, and hand the human one batch sign-off pass. Never auto-accepts.
+
+- **Triggers:** manual
+- **Platforms:** claude-code, codex, cursor, gemini-cli
+- **Type:** rigid
+- **Cognitive mode:** systematic-orchestrator
+- **Depends on:** harness-roadmap-pilot, harness-architecture-advisor
+
 ### align-design-system
 
 Apply codemods for safe DRIFT-T001/T002/T003 token-bypass findings; emit precise suggestions for DRIFT-T004 (deprecated tokens) and all DRIFT-P\* (primitive adoption). FIX half of the design-pipeline drift-remediation sub-project; pairs with detect-design-drift.
@@ -250,6 +260,16 @@ Audit component definitions for missing required anatomy parts (slots, states, s
 - **Type:** rigid
 - **Cognitive mode:** constructive-architect
 - **Depends on:** design-component-anatomy, harness-accessibility
+
+### bug-fleet
+
+Proactive undiscovered-bug hunt across the standing codebase — rank the codebase into disjoint risk-ordered areas by composing the existing detection analyses, confirm the batch once, fan out worktree-isolated subagents that each run the real per-area hunt (review machinery, adversarial refutation, a tdd-authored reproducing test, tracker cross-check, classification, debugging-driven fix), independently verify every item by pipeline-provenance artifact plus a re-run reproducing test at the pinned base SHA plus all-OS CI, and hand back a tiered batch of fix PRs and filed issues. No reproduction, no bug. Never auto-merges.
+
+- **Triggers:** manual
+- **Platforms:** claude-code, codex, cursor, gemini-cli
+- **Type:** rigid
+- **Cognitive mode:** systematic-orchestrator
+- **Depends on:** harness-hotspot-detector, harness-impact-analysis, harness-test-advisor, harness-code-review, harness-security-review, harness-tdd, harness-debugging, harness-roadmap-pilot
 
 ### burn-hud
 

@@ -10,7 +10,7 @@ A `-fleet` is **distinct from a convergence _pipeline_** (`docs-pipeline`, `code
 
 ## The conveyor
 
-`issue-fleet` (intake) → `adr-fleet` (decide) → `roadmap-fleet` (build) → `pr-fleet` (land); `cicd-fleet`, `test-fleet`, `security-fleet`, and `cleanup-fleet` work quality queues alongside. Each member owns one stage's queue and terminal act; the spine below is common to all.
+`issue-fleet` (intake) → `adr-fleet` (decide) → `roadmap-fleet` (build) → `pr-fleet` (land); `cicd-fleet`, `test-fleet`, `security-fleet`, `cleanup-fleet`, and `bug-fleet` work quality queues alongside. Each member owns one stage's queue and terminal act; the spine below is common to all.
 
 ## The shared five-phase spine
 
@@ -56,7 +56,7 @@ A worktree created under a `.claude/`-nested path breaks the local pre-push `che
 
 The spine above is shared. Each member's own `SKILL.md` defines:
 
-- **Its queue** — what SELECT enumerates (open issues, pending ADRs, backlog shards, the open-PR queue, CI-red runs, coverage gaps, entropy hotspots).
+- **Its queue** — what SELECT enumerates (open issues, pending ADRs, backlog shards, the open-PR queue, CI-red runs, coverage gaps, entropy hotspots, risk-ranked standing-code areas).
 - **Its per-item pipeline** — the real skill DISPATCH runs per item (`brainstorming`→`autopilot` for build, `code-review` for land, etc.).
 - **Its triage/scoring specifics** — any stage-specific taxonomy (e.g. `pr-fleet`'s land-readiness buckets).
 - **Its terminal act** — REPORT (build), LAND-with-human-authorization (land), batch sign-off (decide), etc.
@@ -74,9 +74,11 @@ The spine above is shared. Each member's own `SKILL.md` defines:
 | `test-fleet`     | —      | test-coverage gaps                              | `test-advisor` → `tdd` / `test-craft`                                                     | test PRs                               |
 | `security-fleet` | —      | evidence-gated security findings + supply chain | `security-scan` / `supply-chain-audit` / `security-craft` → `brainstorming` → `autopilot` | fix PRs + filed evidence packets       |
 | `cleanup-fleet`  | —      | entropy / hotspot backlog                       | `codebase-cleanup` (per-target)                                                           | remediation PRs                        |
+| `bug-fleet`      | —      | latent-defect risk (standing code)              | review machinery → `tdd` (repro) → `debugging` (fix)                                      | tiered: fix PRs + filed issues         |
 
 ## References
 
 - **ADR 0087** — Subagent worktree fan-out (vs the Workflow primitive) for `-fleet` execution.
 - **ADR 0088** — The front-load / park-unforeseen interaction model for the `-fleet` family.
 - **ADR 0089** — The `pr-fleet` land-stage human-merge-gate model.
+- **ADR 0090** — The `adr-fleet` decide-stage batch-sign-off-gate model.
