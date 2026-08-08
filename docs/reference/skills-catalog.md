@@ -659,6 +659,16 @@ CI/GitHub-Actions workflow-file quality and hygiene auditor
 - **Type:** rigid
 - **Cognitive mode:** adversarial-reviewer
 
+### issue-fleet
+
+Autonomous open-issue-backlog intake orchestrator — enumerate the open-issue queue, triage each issue (label, dedup, route, prioritize), confirm the destructive closes with the human in one up-front round, fan out concurrency-governed triage subagents over queue slices, independently re-derive every mutation from the issue's own signals, and hand the downstream fleets a clean, ranked, deduped, routed queue. Never silently closes an issue.
+
+- **Triggers:** manual
+- **Platforms:** claude-code, codex, cursor, gemini-cli
+- **Type:** rigid
+- **Cognitive mode:** systematic-orchestrator
+- **Depends on:** harness-roadmap-pilot
+
 ### knowledge-craft
 
 LLM-judgment critique of knowledge-entry quality (docs/knowledge/, excluding decisions/ which is spec-craft territory). Per-file critique against 7 seed rubrics that ask whether the entry states a load-bearing fact, earns a place in the graph taxonomy, carries forward a decision that would otherwise erode. Fifth non-design craft-pipeline ceiling skill.
