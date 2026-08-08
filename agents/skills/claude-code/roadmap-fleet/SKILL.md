@@ -133,6 +133,7 @@ Phase 1: SELECT --> Phase 2: CONFIRM --> Phase 3: DISPATCH
 - **`run_skill` / `harness skill run`** — Each build subagent invokes the real `harness-brainstorming` then `harness-autopilot` for its one item (DISPATCH).
 - **`harness-autopilot`'s code-review phase** — The per-item quality gate inside each subagent's pipeline; the fleet does not re-implement review.
 - **`harness skill validate roadmap-fleet`** — The authoring-time gate for this skill's own structure and schema.
+- **`docs/reference/fleet-family.md`** — The shared `-fleet` spine this skill builds on (the five-phase skeleton, the concurrency governor, the artifact + all-OS-CI verification discipline, the worktree fan-out, and the never-silent-merge invariant), stated once for the family.
 
 ## Success Criteria
 
