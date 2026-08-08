@@ -2,7 +2,7 @@
 
 # Skills Catalog
 
-779 skills. Skills carry two independent tier axes: a **loading tier** (whether a skill registers as a slash command or is discovered on demand) and a **curation tier** (how load-bearing it is). A senior engineer can hold ~12 skills in their head, not hundreds — the curation tier names that short list.
+781 skills. Skills carry two independent tier axes: a **loading tier** (whether a skill registers as a slash command or is discovered on demand) and a **curation tier** (how load-bearing it is). A senior engineer can hold ~12 skills in their head, not hundreds — the curation tier names that short list.
 
 See the [Features Overview](../guides/features-overview.md) for narrative documentation.
 
@@ -200,7 +200,7 @@ Human-judged acceptance sign-off skill — the terminal, human-authority stage o
 - **Cognitive mode:** configuration-interviewer
 - **Depends on:** outcome-eval
 
-## Tier 2 — Maintenance (59 skills)
+## Tier 2 — Maintenance (61 skills)
 
 ### acceptance-eval
 
@@ -268,6 +268,16 @@ Detect and auto-fix dead code including dead exports, commented-out code, and or
 - **Platforms:** claude-code, gemini-cli, cursor, codex
 - **Type:** flexible
 - **Cognitive mode:** diagnostic-investigator
+
+### cleanup-fleet
+
+Autonomous entropy/hotspot remediation sweep — enumerate the entropy/hotspot backlog by composing the existing detection skills, rank the targets, confirm the batch once, fan out worktree-isolated subagents that each run the real per-target cleanup pipeline, independently verify each result by convergence artifact and all-OS CI, and hand back a batch of scoped cleanup PRs for one bulk human review. Never auto-merges.
+
+- **Triggers:** manual
+- **Platforms:** claude-code, codex, cursor, gemini-cli
+- **Type:** rigid
+- **Cognitive mode:** systematic-orchestrator
+- **Depends on:** harness-hotspot-detector, cleanup-dead-code, harness-dependency-health, harness-codebase-cleanup, harness-roadmap-pilot
 
 ### cli-ergonomics-craft
 

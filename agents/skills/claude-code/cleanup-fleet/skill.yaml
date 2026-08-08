@@ -1,0 +1,80 @@
+name: cleanup-fleet
+version: '1.0.0'
+description: Autonomous entropy/hotspot remediation sweep — enumerate the entropy/hotspot backlog by composing the existing detection skills, rank the targets, confirm the batch once, fan out worktree-isolated subagents that each run the real per-target cleanup pipeline, independently verify each result by convergence artifact and all-OS CI, and hand back a batch of scoped cleanup PRs for one bulk human review. Never auto-merges.
+stability: static
+cognitive_mode: systematic-orchestrator
+triggers:
+  - manual
+platforms:
+  - claude-code
+  - codex
+  - cursor
+  - gemini-cli
+tools:
+  - Bash
+  - Read
+  - Glob
+  - Grep
+cli:
+  command: harness skill run cleanup-fleet
+  args:
+    - name: path
+      description: Project root path
+      required: false
+    - name: --concurrency
+      description: 'Cap on concurrent remediation subagents (default: 2, max recommended 3 — the machine-storm limit)'
+      required: false
+    - name: --report-only
+      description: Enumerate, score, and present the ranked target batch without dispatching remediation subagents
+      required: false
+    - name: --dry-run
+      description: Run SELECT and CONFIRM only; do not fan out, verify, or open PRs
+      required: false
+    - name: --safe-only
+      description: Restrict remediation to the safe class even if a target's risky change looks mechanical
+      required: false
+mcp:
+  tool: run_skill
+  input:
+    skill: cleanup-fleet
+    path: string
+type: rigid
+tier: 2
+phases:
+  - name: select
+    description: Enumerate the entropy/hotspot backlog by composing hotspot-detector, cleanup-dead-code, dependency-health, detect_entropy and a churn pass into remediation targets, cross-check against merged/open PRs, classify safe vs risky, and score by composite churn x structural-risk x finding-density
+    required: true
+  - name: confirm
+    description: Present the ranked target batch in one round — already-cleaned targets flagged for drop, safe/risky classifications confirmed, risky targets flagged as will-park, proposed concurrency — for a single up-front human approval
+    required: true
+  - name: dispatch
+    description: Fan out worktree-isolated subagents, each running the real harness-codebase-cleanup --fix for one target, capped at the concurrency governor; a target needing a risky structural change parks and reports
+    required: true
+  - name: verify
+    description: Independently confirm each returned branch converged (opening findings resolved and a fresh re-scan clean) and is CI-green across all OS plus enforce and harness — never by subagent self-report
+    required: true
+  - name: report
+    description: Emit a one-row-per-target batch summary with findings-resolved counts, assumptions notes, and parked risky remediations for bulk human review, annotate already-cleaned targets citing the resolving PR, never merge
+    required: true
+state:
+  persistent: false
+  files: []
+depends_on:
+  - harness-hotspot-detector
+  - cleanup-dead-code
+  - harness-dependency-health
+  - harness-codebase-cleanup
+  - harness-roadmap-pilot
+addresses:
+  - signal: drift
+    weight: 0.5
+  - signal: complexity
+    weight: 0.2
+capabilities:
+  tools:
+    - Bash
+    - Read
+    - Glob
+    - Grep
+  network: false
+  filesystem: read-write
