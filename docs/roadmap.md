@@ -3,7 +3,7 @@ project: harness-engineering
 version: 1
 created: 2026-03-21
 updated: 2026-08-04
-last_synced: 2026-08-08T12:01:13.104Z
+last_synced: 2026-08-08T19:42:56.341Z
 last_manual_edit: 2026-06-27T12:51:51.967Z
 ---
 
@@ -422,14 +422,25 @@ last_manual_edit: 2026-06-27T12:51:51.967Z
 
 ### bug-fleet — proactive undiscovered-bug hunt across the standing codebase
 
-- **Status:** in-progress
+- **Status:** done
 - **Spec:** docs/changes/bug-fleet/proposal.md
 - **Summary:** Part of the `-fleet` skill family (epic #1194) — the family technique is autonomous fan-out orchestration over an SDLC work-queue, with batch human review and never auto-merge. bug-fleet is the proactive correctness hunter: it ranks the standing codebase into risk-ordered areas, hunts each with the real review machinery, and holds a REPRODUCTION-REQUIRED bar (no failing test, no bug) before emitting a tiered batch of fix PRs and filed issues. It runs alongside the core fleet spine issue-fleet → adr-fleet → roadmap-fleet → pr-fleet.
 - **Blockers:** —
 - **Plan:** docs/changes/bug-fleet/plans/2026-08-08-bug-fleet-plan.md
-- **Assignee:** Chad Warner
+- **Assignee:** —
 - **Priority:** —
 - **External-ID:** github:Intense-Visions/harness-engineering#1225
+
+### craft-fleet — ceiling-raising code-quality elevation sweep
+
+- **Status:** in-progress
+- **Spec:** docs/changes/craft-fleet/proposal.md
+- **Summary:** Part of the `-fleet` skill family (epic #1194) — the family technique is autonomous fan-out orchestration over an SDLC work-queue, with batch human review and never auto-merge. craft-fleet is the ceiling twin of cleanup-fleet: where cleanup-fleet works the rule-based entropy floor, craft-fleet sweeps the craft skills' LLM-judgment critique and hands back a tiered batch — elevation PRs for bounded, high-confidence, cited polish and filed roadmap items for structural quality debt. It runs alongside the core fleet spine issue-fleet → adr-fleet → roadmap-fleet → pr-fleet.
+- **Blockers:** —
+- **Plan:** docs/changes/craft-fleet/plans/2026-08-08-craft-fleet-plan.md
+- **Assignee:** Chad Warner
+- **Priority:** —
+- **External-ID:** github:Intense-Visions/harness-engineering#1224
 
 ## v5.0 — Enforcement Hardening
 
@@ -1125,6 +1136,9 @@ last_manual_edit: 2026-06-27T12:51:51.967Z
 - **Summary:** Apply the subprocess env allowlist air-gap to the Codex backend. The gateway policy-envelope work air-gapped the Claude backend's subprocess spawn (replaced `env: process.env` with an explicit allowlist), but the Codex backend (`packages/orchestrator/src/backends/codex.ts`) still passes the full parent environment to its spawned subprocess — the same leak, unpatched. Extend the shared subprocess-env allowlist + PolicyMetadata stamping to codex.ts so both backends enforce the boundary identically. Follow-up to the orchestrator gateway policy envelope + subprocess air-gap.
 - **Blockers:** —
 - **Plan:** —
+- **Assignee:** —
+- **Priority:** —
+- **External-ID:** github:Intense-Visions/harness-engineering#1158
 
 ### Orchestrator Gateway Policy Envelope and Subprocess Air-Gap
 

@@ -2,7 +2,7 @@
 
 # Skills Catalog
 
-785 skills. Skills carry two independent tier axes: a **loading tier** (whether a skill registers as a slash command or is discovered on demand) and a **curation tier** (how load-bearing it is). A senior engineer can hold ~12 skills in their head, not hundreds — the curation tier names that short list.
+786 skills. Skills carry two independent tier axes: a **loading tier** (whether a skill registers as a slash command or is discovered on demand) and a **curation tier** (how load-bearing it is). A senior engineer can hold ~12 skills in their head, not hundreds — the curation tier names that short list.
 
 See the [Features Overview](../guides/features-overview.md) for narrative documentation.
 
@@ -200,7 +200,7 @@ Human-judged acceptance sign-off skill — the terminal, human-authority stage o
 - **Cognitive mode:** configuration-interviewer
 - **Depends on:** outcome-eval
 
-## Tier 2 — Maintenance (65 skills)
+## Tier 2 — Maintenance (66 skills)
 
 ### acceptance-eval
 
@@ -338,6 +338,16 @@ LLM-judgment critique of prose-in-code across six surfaces (error messages, log 
 - **Type:** rigid
 - **Cognitive mode:** constructive-architect
 - **Depends on:** harness-design-craft, naming-craft
+
+### craft-fleet
+
+Ceiling-raising code-quality elevation sweep — compose the eleven craft skills into ranked (scope, domain) targets, drop the noise floor, route each finding elevate/file/route by a mechanical boundary, confirm one batch with a taste-calibration sample of verbatim findings, fan out worktree-isolated subagents that each run the real harness-refactoring pipeline over one target's cited findings, then independently verify every item by critique provenance plus the step-granular refactoring commit trail plus a two-run re-critique that proves net improvement, and hand back a tiered batch of elevation PRs and filed roadmap items. No cited finding, no rewrite. Never auto-merges.
+
+- **Triggers:** manual
+- **Platforms:** claude-code, codex, cursor, gemini-cli
+- **Type:** rigid
+- **Cognitive mode:** systematic-orchestrator
+- **Depends on:** naming-craft, code-craft, copy-craft, test-craft, docs-craft, knowledge-craft, spec-craft, api-craft, cli-ergonomics-craft, security-craft, harness-design-craft, harness-refactoring, harness-roadmap-pilot
 
 ### detect-design-drift
 
