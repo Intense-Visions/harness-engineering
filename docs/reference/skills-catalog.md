@@ -200,7 +200,7 @@ Human-judged acceptance sign-off skill — the terminal, human-authority stage o
 - **Cognitive mode:** configuration-interviewer
 - **Depends on:** outcome-eval
 
-## Tier 2 — Maintenance (55 skills)
+## Tier 2 — Maintenance (56 skills)
 
 ### acceptance-eval
 
