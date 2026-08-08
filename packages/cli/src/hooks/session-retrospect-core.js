@@ -86,6 +86,29 @@ export function readHookStdin() {
   return { ok: true, data: Buffer.concat(chunks).toString('utf-8') };
 }
 
+/**
+ * Parse Codex's notify JSON payload (delivered as a single argv string) into
+ * the retrospect inputs. Returns null when the payload is absent or unparseable
+ * so callers can fail-soft (exit 0). `thread-id` (hyphenated) is Codex's stable
+ * per-conversation session id; cwd falls back to the process cwd because the
+ * notify subprocess cwd is not guaranteed to be the project.
+ * @param {unknown} raw
+ * @returns {{ sessionId: string, cwd: string } | null}
+ */
+export function parseCodexNotifyPayload(raw) {
+  if (typeof raw !== 'string' || !raw.trim()) return null;
+  let input;
+  try {
+    input = JSON.parse(raw);
+  } catch {
+    return null;
+  }
+  if (!input || typeof input !== 'object') return null;
+  const sessionId = typeof input['thread-id'] === 'string' ? input['thread-id'] : 'unknown';
+  const cwd = typeof input.cwd === 'string' && input.cwd ? input.cwd : process.cwd();
+  return { sessionId, cwd };
+}
+
 /** Whether end-of-session retrospection is opted in via env flag (default off). */
 export function isRetrospectionEnabled() {
   const value = (process.env.HARNESS_SESSION_RETROSPECTION ?? '').trim().toLowerCase();
