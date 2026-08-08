@@ -2,7 +2,7 @@
 
 # Skills Catalog
 
-778 skills. Skills carry two independent tier axes: a **loading tier** (whether a skill registers as a slash command or is discovered on demand) and a **curation tier** (how load-bearing it is). A senior engineer can hold ~12 skills in their head, not hundreds — the curation tier names that short list.
+781 skills. Skills carry two independent tier axes: a **loading tier** (whether a skill registers as a slash command or is discovered on demand) and a **curation tier** (how load-bearing it is). A senior engineer can hold ~12 skills in their head, not hundreds — the curation tier names that short list.
 
 See the [Features Overview](../guides/features-overview.md) for narrative documentation.
 
@@ -200,7 +200,7 @@ Human-judged acceptance sign-off skill — the terminal, human-authority stage o
 - **Cognitive mode:** configuration-interviewer
 - **Depends on:** outcome-eval
 
-## Tier 2 — Maintenance (58 skills)
+## Tier 2 — Maintenance (61 skills)
 
 ### acceptance-eval
 
@@ -268,6 +268,16 @@ Detect and auto-fix dead code including dead exports, commented-out code, and or
 - **Platforms:** claude-code, gemini-cli, cursor, codex
 - **Type:** flexible
 - **Cognitive mode:** diagnostic-investigator
+
+### cleanup-fleet
+
+Autonomous entropy/hotspot remediation sweep — enumerate the entropy/hotspot backlog by composing the existing detection skills, rank the targets, confirm the batch once, fan out worktree-isolated subagents that each run the real per-target cleanup pipeline, independently verify each result by convergence artifact and all-OS CI, and hand back a batch of scoped cleanup PRs for one bulk human review. Never auto-merges.
+
+- **Triggers:** manual
+- **Platforms:** claude-code, codex, cursor, gemini-cli
+- **Type:** rigid
+- **Cognitive mode:** systematic-orchestrator
+- **Depends on:** harness-hotspot-detector, cleanup-dead-code, harness-dependency-health, harness-codebase-cleanup, harness-roadmap-pilot
 
 ### cli-ergonomics-craft
 
@@ -659,6 +669,16 @@ CI/GitHub-Actions workflow-file quality and hygiene auditor
 - **Type:** rigid
 - **Cognitive mode:** adversarial-reviewer
 
+### issue-fleet
+
+Autonomous open-issue-backlog intake orchestrator — enumerate the open-issue queue, triage each issue (label, dedup, route, prioritize), confirm the destructive closes with the human in one up-front round, fan out concurrency-governed triage subagents over queue slices, independently re-derive every mutation from the issue's own signals, and hand the downstream fleets a clean, ranked, deduped, routed queue. Never silently closes an issue.
+
+- **Triggers:** manual
+- **Platforms:** claude-code, codex, cursor, gemini-cli
+- **Type:** rigid
+- **Cognitive mode:** systematic-orchestrator
+- **Depends on:** harness-roadmap-pilot
+
 ### knowledge-craft
 
 LLM-judgment critique of knowledge-entry quality (docs/knowledge/, excluding decisions/ which is spec-craft territory). Per-file critique against 7 seed rubrics that ask whether the entry states a load-bearing fact, earns a place in the graph taxonomy, carries forward a decision that would otherwise erode. Fifth non-design craft-pipeline ceiling skill.
@@ -757,6 +777,16 @@ LLM-judgment critique of test quality across vitest / jest / mocha / playwright 
 - **Type:** rigid
 - **Cognitive mode:** constructive-architect
 - **Depends on:** harness-tdd, harness-design-craft
+
+### test-fleet
+
+Autonomous test-coverage backlog sweep — enumerate under-covered areas and uncovered critical paths, confirm a ranked target batch with the human once, fan out worktree-isolated subagents that author tests via the real tdd then test-craft flow, independently verify each by added behavior-asserting tests plus a coverage delta plus all-OS CI, and hand back a batch of green test PRs for human review. Never auto-merges.
+
+- **Triggers:** manual
+- **Platforms:** claude-code, codex, cursor, gemini-cli
+- **Type:** rigid
+- **Cognitive mode:** systematic-orchestrator
+- **Depends on:** harness-test-advisor, harness-tdd, test-craft, harness-roadmap-pilot
 
 ## Tier 3 — Domain (703 skills)
 

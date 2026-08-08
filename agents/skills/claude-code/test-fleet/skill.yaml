@@ -1,0 +1,76 @@
+name: test-fleet
+version: '1.0.0'
+description: Autonomous test-coverage backlog sweep — enumerate under-covered areas and uncovered critical paths, confirm a ranked target batch with the human once, fan out worktree-isolated subagents that author tests via the real tdd then test-craft flow, independently verify each by added behavior-asserting tests plus a coverage delta plus all-OS CI, and hand back a batch of green test PRs for human review. Never auto-merges.
+stability: static
+cognitive_mode: systematic-orchestrator
+triggers:
+  - manual
+platforms:
+  - claude-code
+  - codex
+  - cursor
+  - gemini-cli
+tools:
+  - Bash
+  - Read
+  - Glob
+  - Grep
+cli:
+  command: harness skill run test-fleet
+  args:
+    - name: path
+      description: Project root path
+      required: false
+    - name: --concurrency
+      description: 'Cap on concurrent authoring subagents (default: 2, max recommended 3 — the machine-storm limit)'
+      required: false
+    - name: --report-only
+      description: Enumerate, score, and present the ranked coverage-target batch without dispatching authoring subagents
+      required: false
+    - name: --dry-run
+      description: Run SELECT and CONFIRM only; do not fan out, verify, or report PRs
+      required: false
+mcp:
+  tool: run_skill
+  input:
+    skill: test-fleet
+    path: string
+type: rigid
+tier: 2
+phases:
+  - name: select
+    description: Enumerate coverage gaps by composing test-advisor's coverage audit plus uncovered critical paths, cross-check against in-flight/merged coverage, score and order targets by criticality times coverage-deficit via roadmap-pilot impact scoring
+    required: true
+  - name: confirm
+    description: Present the ranked target batch in one round — already-covered/in-flight targets flagged for drop, decision forks as questions, proposed PR grouping and concurrency — for a single up-front human approval
+    required: true
+  - name: dispatch
+    description: Fan out worktree-isolated subagents, each running the real tdd then test-craft authoring flow for one target, never coverage-theater and never editing code under test, capped at the concurrency governor
+    required: true
+  - name: verify
+    description: Independently confirm each returned branch adds behavior-asserting test files, improves the target's coverage (test-advisor re-audit), and is CI-green across all OS plus enforce and harness — never by subagent self-report
+    required: true
+  - name: report
+    description: Emit a one-row-per-target batch summary with coverage deltas and assumptions notes for bulk human review, annotate already-covered targets, never merge
+    required: true
+state:
+  persistent: false
+  files: []
+depends_on:
+  - harness-test-advisor
+  - harness-tdd
+  - test-craft
+  - harness-roadmap-pilot
+addresses:
+  - signal: test-coverage-gap
+    weight: 0.5
+  - signal: drift
+    weight: 0.2
+capabilities:
+  tools:
+    - Bash
+    - Read
+    - Glob
+    - Grep
+  network: false
+  filesystem: read-write
