@@ -1026,6 +1026,15 @@ Show installed hooks and active profile
 
 Remove harness-managed hooks from the current project
 
+### `harness hooks run <name> [payload]`
+
+Run a bundled agent lifecycle hook by name (PATH-resolvable entry for Codex notify)
+
+**Arguments:**
+
+- `name` (required) — Hook name to run (e.g. session-retrospect-codex)
+- `payload` (optional) — JSON payload delivered by the agent (Codex notify passes it as the trailing arg)
+
 ## Integrations Commands
 
 Manage MCP peer integrations (add, list, remove, dismiss, sync)
