@@ -70,7 +70,7 @@ A claude-code rigid skill at `agents/skills/claude-code/cleanup-fleet/` (`SKILL.
 - **Entry Points** — A new claude-code skill `cleanup-fleet` (`harness skill run cleanup-fleet`) and its MCP `run_skill` mapping. No new CLI command, MCP tool, or route.
 - **Registrations Required** — Skill discovery regeneration: `harness generate` regenerates the plugin command directories, the skills-catalog, and platform variants. The generated shared catalog files (`skills-catalog.md`, plugin command dirs) are shared artifacts that drift as sibling `-fleet` skills land.
 - **Documentation Updates** — Add `cleanup-fleet`'s row to the Members table in `docs/reference/fleet-family.md` is already present (the queue/pipeline/terminal entry); no other doc edits required beyond the generated catalog.
-- **Architectural Decisions** — None new. `cleanup-fleet` consumes the already-ratified family ADRs by title: *Subagent worktree fan-out (vs the Workflow primitive) for -fleet execution*, *The front-load / park-unforeseen interaction model for the -fleet family*. No standalone ADR — this is a family member built on a settled contract, not a new decision.
+- **Architectural Decisions** — None new. `cleanup-fleet` consumes the already-ratified family ADRs by title: _Subagent worktree fan-out (vs the Workflow primitive) for -fleet execution_, _The front-load / park-unforeseen interaction model for the -fleet family_. No standalone ADR — this is a family member built on a settled contract, not a new decision.
 - **Knowledge Impact** — Reinforces the `-fleet` family concept in the graph: a quality-queue member composing existing detectors, distinct from the core-spine build/land members.
 
 ## Success Criteria
