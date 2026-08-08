@@ -39,7 +39,7 @@ Every flag has a default and is restated in the CONFIRM round, so a bare invocat
 
 ### Iron Law
 
-**NOTHING IS FILED — the fleet never creates an issue, never adds or mutates a roadmap row, never writes a spec, plan, or ADR, and never opens a PR. It commits nothing, stages nothing, and pushes nothing. Ideas leave this run in exactly one form: a curated shortlist a human picks from. The pick is the human's act, and it happens after the run has ended.**
+**NOTHING IS FILED — the fleet never creates an issue, never adds or mutates a roadmap row, never writes a spec, plan, or ADR, and never opens a PR. It commits nothing, stages nothing, and pushes nothing. Ideas leave this run _promoted_ in exactly one form: a curated shortlist a human picks from — the collected per-theme artifacts are left beside it as un-promoted evidence. The pick is the human's act, and it happens after the run has ended.**
 
 Ideation is the lowest-precision stage in the lifecycle. `harness-ideate` fills its requested count with whatever is plausible, and the fan-out multiplies that by the theme count — so the fleet's raw output is, by construction, mostly ideas that should never become work. Auto-filing them would hand `issue-fleet` a backlog the fleet itself manufactured, making the intake stage's job harder rather than easier, and would launder machine speculation into tracked work that then looks like a commitment somebody made. `bug-fleet` refuses to file a defect without a reproduction because confident prose is not evidence; the same reasoning applies here with more force, because an idea has no equivalent of a failing test. **The human pick is the only gate that converts an idea into work**, and this fleet does not stand on that side of it.
 
@@ -119,20 +119,21 @@ One worktree-isolated subagent per confirmed theme, each running the **real** `h
    - **Inputs** — the confirmed theme focus line and the confirmed candidate count.
    - **Objections** — the confirmed policy, **default `none`**: every strongest objection stands as an accepted downside. An unanswered objection lowers an idea's standing, which is the honest default for a machine-generated rebuttal to a machine-generated critique. A fleet that answered its own objections would inflate its own rankings, and the human who picks from the shortlist reads the standing objection as part of the pick.
 
-3. **PRESELECT the theme's top-K.** Take the top `--cut` candidates by the artifact's own final-score order as this theme's shortlist proposal. Everything below the cut stays in the artifact — un-promoted, never deleted.
+3. **PRESELECT the theme's top-K.** Take the top `--cut` candidates by the artifact's own order as this theme's shortlist **proposal** — provisionally. Phase 3 reads that order for convenience; Phase 4 re-derives it before anything is promoted, so trusting it here costs nothing. Everything below the cut stays in the artifact — un-promoted, never deleted.
 
-4. **CROSS-CHECK each preselected candidate for novelty.** Check it against **open issues**, **existing roadmap rows**, and **recently-shipped features** — PRs merged within the confirmed lookback window (default 90 days) plus roadmap rows in a done state.
+4. **CROSS-CHECK each preselected candidate for novelty.** Check it against **open issues** (via `gh`), **existing roadmap rows** (read directly from `docs/roadmap.md` / `docs/roadmap.d/` — never by invoking a roadmap skill), and **recently-shipped features** — PRs merged within the confirmed lookback window (default 90 days, via `gh`) plus roadmap rows in a done state.
    - An already-tracked or already-shipped idea is annotated **`already-known`** and dropped **citing the issue, roadmap row, or PR that covers it** — never re-surfaced as new.
    - Each drop **backfills** from the next-highest below-cut candidate in that theme until the cut refills or the theme's candidates are exhausted. Every backfill is recorded.
    - If a cross-check source is unavailable (`gh` unauthenticated, no tracker, no roadmap), the candidate is annotated **`novelty-unknown`** — **not `novel`**. It stays eligible, its shortlist row says the check could not run and names the missing source, and the batch's assumptions note records it. Never launder an unrun check into a novelty claim.
 
 5. **COLLECT the artifact verbatim before the worktree is released.** Each `harness-ideate` run writes its artifact inside that theme's worktree, and this fleet pushes nothing — so without collection the artifacts die with the worktrees and every shortlist link dangles. Copy each theme's artifact **byte-identical** into the invoking working tree's `docs/ideation/`. Copying is not editing, and writing a local file is not filing.
-   - **The collision rule is applied at collection, not in the worktree.** Each worktree starts with its own empty `docs/ideation/`, so a subagent never observes a collision and never applies `harness-ideate`'s hex-suffix rule. Two themes whose focus lines truncate to the same 30-character slug — and a retry re-running the same focus on the pinned date — would otherwise arrive as the same filename and one would silently overwrite the other. The collector therefore applies that same rule on arrival, deriving the 6-character lowercase hex suffix from `sha1(focus + generated_at)` exactly as `harness-ideate` specifies, so both files coexist and each stays resolvable by its frontmatter.
-   - A theme whose artifact **cannot be collected** (destination unwritable, worktree unreadable) is **parked** with the filesystem error surfaced verbatim — not rejected. A collection failure is the orchestrator's plumbing problem, and calling it a failed pipeline run would blame the subagent for the fleet's own wiring.
+   - **The collision rule is applied at collection, not in the worktree.** Each worktree starts with its own empty `docs/ideation/`, so a subagent never observes a collision and never applies `harness-ideate`'s hex-suffix rule. Two themes whose focus lines truncate to the same 30-character slug — and a retry re-running the same focus on the pinned date — would otherwise arrive as the same filename and one would silently overwrite the other. The collector therefore applies that same rule on arrival, deriving the 6-character lowercase hex suffix from the SHA-1 of the focus line plus the run's ISO timestamp — which the artifact records as `generated_at` — so both files coexist and each stays resolvable by its frontmatter.
+   - **Release the worktree only after its artifact has landed** in the invoking tree. Removing it first destroys the only copy.
+   - A theme whose artifact **cannot be collected** (destination unwritable, worktree unreadable) is **parked** with the filesystem error surfaced verbatim — not rejected, and its worktree is **left in place** so the artifact is still recoverable by hand. A collection failure is the orchestrator's plumbing problem, and calling it a failed pipeline run would blame the subagent for the fleet's own wiring.
 
 6. **Never edit a per-theme artifact.** The fleet reads it, re-derives from it, and links it. Cross-check results, backfills, and verdicts live in the returned record, never in the artifact — an edited artifact can no longer serve as evidence that the pipeline produced it.
 
-7. **Cap concurrency at the governor (default 2, max ~3)** and at the confirmed candidate count per theme. This is the machine-storm limit: beyond roughly three concurrent subagents the compound load produces failures indistinguishable from real ones. Never raise the cap to "go faster."
+7. **Cap concurrency at the governor (default 2, max ~3).** This is the machine-storm limit: beyond roughly three concurrent subagents the compound load produces failures indistinguishable from real ones. Never raise the cap to "go faster." The confirmed candidate count is a separate bound — it caps what each subagent asks `harness-ideate` for, not how many subagents run.
 
 8. **Record an "assumptions made" note per theme** — the derivation basis the theme came from and any merge folded into it, the pinned batch date, the objection policy applied, the cut and cap in force, and every novelty call including the sources that were unavailable. A shortlist is only trustworthy when the reader can see what was assumed and what was deliberately dropped.
 
@@ -153,6 +154,7 @@ Candidate {
   effort,          // low | medium | high
   recordedScore,   // the base score the artifact records
   rederivedScore,  // the base score the orchestrator recomputes in VERIFY
+  finalScore,      // rederivedScore + the artifact's recorded bonus (the bonus is read, never recomputed)
   alignment,       // "applied" | "recorded-not-applied" + reason
   objection,       // the standing strongest-objection paragraph
   novelty,         // "novel" | "already-known" + citation | "novelty-unknown" + missing source
@@ -160,23 +162,43 @@ Candidate {
 }
 ```
 
+And the batch itself carries the record every shortlist row and every assumptions note is written against:
+
+```
+Batch {
+  label,           // the human's invocation topic, or the highest-weighted theme's focus when none was given
+  slug,            // batch-slug: kebab-cased label, truncated to 30 chars (+ hex suffix on collision)
+  pinnedDate,      // the UTC date fixed at CONFIRM, used for the shortlist filename and artifact resolution
+  themes,          // the confirmed Theme[] with their SELECT order
+  bounds,          // count, cut, cap (and any reserved-slot raise), lookback, governor
+  objectionPolicy, // the policy answered into every harness-ideate run (default "none")
+  verdicts,        // per-theme: verified | thin | parked | rejected
+  artifacts,       // the collected artifact path per theme
+}
+```
+
 ### Phase 4: VERIFY — Provenance Plus a Re-Derived Ranking, Never Self-Report
 
 1. **Why two checks, and why CI is not one of them.** The family invariant requires proof the **real per-item pipeline ran** and forbids accepting a subagent's word for it. This member produces **no code and no PR**, so the family's all-OS-CI half has **no subject** — it is recorded as **not applicable** for every theme rather than quietly dropped, and its evidentiary weight is carried by a second check instead. Provenance proves the pipeline ran; it says nothing about whether the order it produced follows from its own inputs. Re-derivation proves the ranking was computed rather than asserted; it says nothing about whether a real run produced it. Neither does the other's job, so both run, independently, for every theme. **Never accept a subagent's self-report** — "generated ten, ranked them, top three attached" is a claim to be checked, not a result.
 
-2. **Provenance — the pipeline actually ran.** The collected artifact must exist under `docs/ideation/` with frontmatter `topic` matching the theme's confirmed focus line.
+2. **Provenance — the pipeline actually ran.** The collected artifact must exist directly under `docs/ideation/` with frontmatter `topic` matching the theme's confirmed focus line. **The scan excludes `docs/ideation/shortlists/`** — that subdirectory holds this fleet's own terminal artifacts, and a prior batch's shortlist must never be readable as a per-theme artifact.
    - **Resolve the artifact by that frontmatter, not by an exact filename.** `harness-ideate` truncates slugs to 30 characters, and the collector applies its hex-suffix collision rule on arrival — which a retry and two themes sharing a truncated slug both trigger. An exact-path check would reject its own pipeline's legitimate output.
    - It must carry the frontmatter `harness-ideate` mandates: `topic`, `generated_at`, `strategy_grounded`, `strategy_path`, `count_requested`, `count_generated`, and `ranking_formula`. `count_requested` must equal the confirmed candidate count, and `count_generated` must equal the number of candidates actually present.
    - Each candidate must carry the six persisted fields — premise, persona, complexity, impact, confidence, effort — plus its strongest-objection paragraph. (`key_risk` is the seed the artifact renders as that paragraph, not a separate persisted field.)
    - **Absent or malformed ⇒ the pipeline did not run ⇒ rejected**, however good the ideas look.
-   - A `count_generated` **below** `count_requested` is **not** a rejection. `harness-ideate` is required to prefer fewer-but-distinct over padded near-duplicates, so a documented shortfall is reported as **thin**. Only a count that **exceeds** the confirmed request, or candidates missing their fields, indicates the contract was not honored.
+   - A `count_generated` **below** `count_requested` is **not** a rejection — it is reported as **thin**. `harness-ideate` asks for exactly N and prefers fewer-but-distinct over padded near-duplicates, so the two readings of a shortfall are "the run under-delivered" and "the run refused to pad", and the artifact does not say which. Rejecting on that ambiguity would discard real candidates to punish an unproven contract breach, so the fleet takes the conservative side and reports it. Only a count that **exceeds** the confirmed request, or candidates missing their fields, is unambiguous enough to reject on.
 
-3. **Re-derived ranking — the order follows from the recorded inputs.** Recompute `(impact × confidence) ÷ effort` for every candidate from that candidate's **own recorded** impact/confidence/effort using the published `1|2|3` mapping, then confirm all three properties:
+3. **Re-derived ranking — the order follows from the recorded inputs.** Recompute `(impact × confidence) ÷ effort` for every candidate from that candidate's **own recorded** impact/confidence/effort using the published `1|2|3` mapping, then confirm three properties:
    - **Score equality** — each candidate's recorded base score equals the recomputed one.
-   - **Non-increasing order** — the artifact's order is monotonically non-increasing in final score. Order is checked as a **monotonicity property, not as one permitted permutation**: the `1|2|3` mapping yields only nine distinct base-score values, so exact ties are the common case, and the generation order that breaks them is not persisted in the artifact. Demanding one exact order would reject legitimate artifacts for an unknowable reason. **Exact ties in any order are accepted.**
-   - **Bounded tiebreaker** — any strategy-alignment bonus stayed within its published bounds (max `+0.75`, applied only when the adjacent base-score delta is within `0.05`) and reordered nothing outside a tie window.
+   - **Non-increasing base-score order** — the artifact's order is monotonically non-increasing in **base** score. Order is checked as a **monotonicity property, not as one permitted permutation**, and **on the base score, not the final score**. Two reasons, both structural:
+     - The base score is the only quantity fully re-derivable from the artifact's persisted inputs. The alignment bonus is read, never recomputed, so a final-score check would be half-borrowed from the very artifact it is auditing.
+     - The `1|2|3` mapping yields **twelve** distinct base-score values, whose smallest gap is `1/6 ≈ 0.167` — larger than the `0.05` tie window, so **the window is only ever entered by exact ties**. But the bonus can reach `+0.75`, which **exceeds seven of the eleven inter-value gaps**. So a tied candidate that earns the full bonus can carry a higher _final_ score than a candidate legitimately ranked above it on base, and the artifact's final-score sequence is then **not** non-increasing while the artifact is perfectly conforming. Checking final-score monotonicity would reject that artifact and discard the whole theme.
 
-   A recomputed-score mismatch, a non-monotonic order, or an out-of-bounds bonus is **rejected, not corrected**. An order that does not follow from the recorded inputs means the ranking was asserted rather than computed — and re-deriving is the one check an eloquent subagent cannot talk its way past. Silently re-sorting would repair the symptom and destroy the signal.
+     **Exact base-score ties in any order are accepted** — the generation order that breaks them is not persisted, so demanding one exact permutation would reject legitimate artifacts for an unknowable reason.
+
+   - **Bounded bonus** — any strategy-alignment bonus is checked as a **standalone bounded property**, not as an ordering claim: it is within `0 ≤ bonus ≤ 0.75`, and it is non-zero only for a candidate in an **exact base-score tie** (the only case the `0.05` window admits). How `harness-ideate` resolves order between a bonused candidate and a higher-base one is **its** call, and this fleet accepts either resolution rather than forcing one.
+
+   A recomputed-score mismatch, a non-monotonic base-score order, or an out-of-bounds bonus is **rejected, not corrected**. An order that does not follow from the recorded inputs means the ranking was asserted rather than computed — and re-deriving is the one check an eloquent subagent cannot talk its way past. Silently re-sorting would repair the symptom and destroy the signal.
 
 4. **Assign exactly one verdict per theme:**
    - `verified` — artifact resolved, frontmatter and fields complete, every score re-derived, order non-increasing, tiebreaker in bounds.
@@ -196,7 +218,11 @@ Candidate {
    - If the reserved slots alone exceed the cap, **raise the cap to the theme count and report the raise**.
    - Everything below the cut stays in its per-theme artifact, which the shortlist links. Nothing is destroyed — only un-promoted.
 
-3. **Write exactly one shortlist**, to `docs/ideation/shortlists/` as `<batch-slug>-<pinned-UTC-date>.md`. That is a distinct namespace from the per-theme artifacts, so nothing the fleet writes can be mistaken for a `harness-ideate` run's own output or violate its one-artifact-per-run law. Each row carries:
+3. **Write exactly one shortlist**, to `docs/ideation/shortlists/` as `<batch-slug>-<pinned-UTC-date>.md`. That is a distinct namespace from the per-theme artifacts, so nothing the fleet writes can be mistaken for a `harness-ideate` run's own output or violate its one-artifact-per-run law.
+   - **`batch-slug`** is derived the same way `harness-ideate` derives a topic slug: kebab-case the batch label (the human's invocation topic, or the highest-weighted theme's focus line when none was given), lowercase, collapse everything outside `[a-z0-9-]` to `-`, trim, truncate to **30 characters**.
+   - **The shortlist carries the same collision rule as the artifacts.** Two batches on the same pinned UTC date would otherwise resolve to one filename and the second would silently overwrite the first — the exact loss the artifact collision rule exists to prevent. On collision, append a 6-character lowercase hex suffix derived from the batch label and the pinned timestamp, so both shortlists coexist. **Nothing the fleet writes is ever overwritten.**
+
+   Each row carries:
 
    | Premise | Theme | Re-derived score | Standing objection | Novelty | Artifact |
    | ------- | ----- | ---------------- | ------------------ | ------- | -------- |
@@ -218,7 +244,7 @@ Candidate {
 - **`@harness-engineering/core`** — `harness-ideate`'s documented fallback for `read_strategy` when the harness MCP server is unavailable; if it is also unresolvable the run has no strategy source.
 - **`harness-strategy`** — The read-only boundary: strategy **writes** `STRATEGY.md`, this fleet only **reads** it. An invalid document is surfaced verbatim and routed to that skill, never repaired here.
 - **`harness-ideate`** — The real per-theme pipeline each DISPATCH subagent runs to its ranked artifact. Its artifact, its frontmatter contract, its `(impact × confidence) ÷ effort` scoring, its bounded strategy-alignment tiebreaker, and its slug/collision rules are consumed as-is — never reimplemented, never forked.
-- **`harness-roadmap-pilot`** — Its impact-scoring approach is reused in SELECT to order themes by strategic weight; it also supplies the existing-roadmap view the novelty cross-check reads.
+- **`harness-roadmap-pilot`** — Its impact-scoring **approach** is reused in SELECT to order themes by strategic weight. It is a reference for how to score, **never a skill this fleet invokes**: it opens its own human confirmation round and terminates by transitioning into spec or build work, both of which this fleet's Iron Law forbids. The roadmap rows the novelty cross-check reads come from `docs/roadmap.md` / `docs/roadmap.d/` directly.
 - **`harness-brainstorming`** — The documented downstream a human routes a pick to. **This fleet never invokes it** — doing so would be filing by another name.
 - **`gh`** — Novelty cross-check only: open issues and PRs merged within the confirmed lookback window. It is never used to create an issue, comment, or PR.
 - **`harness skill validate ideate-fleet`** — The authoring-time gate for this skill's own structure and schema.
@@ -229,8 +255,8 @@ Candidate {
 - Given a confirmed batch of N themes, the fleet produces **exactly one** curated ranked shortlist under `docs/ideation/shortlists/`, and **no issue, roadmap row, spec, plan, ADR, or PR is created**.
 - The fleet **commits, stages, and pushes nothing**: the shortlist and the collected per-theme artifacts are left as working-tree changes.
 - **Every shortlisted candidate traces to a verified per-theme artifact** collected into `docs/ideation/`, resolved by its frontmatter `topic` rather than by an exact filename, so slug truncation and the hex-suffix collision rule cause no false rejections. A theme with no artifact, or a malformed one, is rejected as not having run the real pipeline.
-- **Every shortlisted candidate's score is independently re-derived** from the artifact's own impact/confidence/effort values. A recorded score that differs from the recomputed one, or an order that is not non-increasing in final score, is **rejected rather than silently re-sorted**; exact ties in any order are accepted, because the generation order that breaks them is not persisted.
-- The strategy-alignment bonus is confirmed to have stayed within its published bounds and to have reordered nothing outside a tie window; an out-of-bounds application is a rejection.
+- **Every shortlisted candidate's score is independently re-derived** from the artifact's own impact/confidence/effort values. A recorded score that differs from the recomputed one, or an order that is not non-increasing in **base** score, is **rejected rather than silently re-sorted**; exact base-score ties in any order are accepted, because the generation order that breaks them is not persisted.
+- The strategy-alignment bonus is checked as a **standalone bounded property** (`0 ≤ bonus ≤ 0.75`, non-zero only on an exact base-score tie), never as an ordering claim — a bonused tie may legitimately carry a higher final score than a higher-base candidate, and rejecting that would discard a conforming artifact. An out-of-bounds bonus is a rejection.
 - A verified artifact whose `count_generated` is **below** the confirmed request is reported **thin**, not rejected; only a count exceeding the request, or candidates missing their persisted fields, is a rejection.
 - The shortlist is **bounded** by the confirmed per-theme cut and global cap, and when the two collide the reserved-slot rule resolves it so **no non-thin theme is silently erased**. Every below-the-cut candidate stays reachable through its linked, collected artifact.
 - Already-tracked or already-shipped ideas are **dropped citing the covering issue, roadmap row, or PR**, never re-surfaced as new, and each drop **backfills** from the next below-cut candidate until the cut refills or the theme is exhausted.
@@ -249,11 +275,11 @@ Candidate {
 ## Gates
 
 - **NOTHING IS FILED.** No issue, no roadmap row, no spec, no plan, no ADR, no PR — in any quantity, under any confidence. Filing from inside this fleet is a gate violation regardless of how good the idea is.
-- **Nothing is committed, staged, or pushed.** The shortlist and the collected artifacts are working-tree changes. `git add`, `git commit`, and `git push` are all outside this fleet's authority.
+- **Nothing is committed, staged, or pushed.** The shortlist and the collected artifacts are working-tree changes. `git add`, `git commit`, and `git push` are all outside this fleet's authority. **Creating and removing the dispatch worktrees is the one permitted git operation** — it is the fan-out primitive, it mutates no branch and no index, and each worktree is removed after its artifact is collected.
 - **Never generate ideas by hand.** Every theme's candidates come from a real `harness-ideate` run; an artifact the fleet authored itself is not provenance, and VERIFY rejects the theme.
 - **Never edit a collected artifact.** Collection is a byte-identical copy. Annotations live in the record and the shortlist, never in the evidence.
 - **Never modify `STRATEGY.md`.** Present-but-invalid is surfaced verbatim and degraded around; repair belongs to `harness-strategy`.
-- **A score mismatch or non-monotonic order is a rejection, not a re-sort.** Correcting the order would hide the fact that the ranking was asserted rather than computed. Exact ties in any order are accepted.
+- **A score mismatch or a non-monotonic base-score order is a rejection, not a re-sort.** Correcting the order would hide the fact that the ranking was asserted rather than computed. Monotonicity is checked on the **base** score — the only quantity fully re-derivable from the artifact — never on the final score, because a bonused tie can legitimately outscore a higher-base candidate. Exact base-score ties in any order are accepted.
 - **An unrun novelty check is `novelty-unknown`, never `novel`.** A missing source is reported by name; it is never resolved in the fleet's own favor.
 - **Never pad a thin theme.** A theme with no surviving candidate is reported thin. Manufacturing a filler idea to make the shortlist look full is the failure the Iron Law exists to prevent.
 - **Never exceed the concurrency governor or the confirmed count, cut, cap, or lookback.** More than ~3 concurrent subagents is the machine-storm zone.
@@ -282,7 +308,7 @@ Candidate {
 | "I'll answer the objections myself so the ideas score better"                          | Machine rebuttals to machine critiques inflate the fleet's own rankings. The default policy is `none`: the objection stands, and the human reads it as part of the pick.                     |
 | "`gh` isn't authenticated, so nothing came back — mark them novel"                     | An unrun check is `novelty-unknown`, never `novel`. Resolving a missing source in the fleet's own favor launders an unknown into a claim.                                                    |
 | "The artifact is close but missing `count_generated` — I'll add the frontmatter field" | Editing the evidence destroys it. A malformed artifact means the pipeline did not run as contracted; the theme is rejected, retried once, and reported.                                      |
-| "The order differs from what I'd have picked, so the artifact is wrong"                | Order is checked as non-increasing final score, not as one permitted permutation. Exact ties are the common case and their generation order is not persisted — ties in any order are fine.   |
+| "The final scores aren't descending, so the artifact's ranking is wrong"               | Monotonicity is checked on the **base** score. A tied candidate with the full `+0.75` bonus can outscore a higher-base one — that is conforming, and rejecting it discards the whole theme.  |
 | "Two themes overlap a bit, but merging loses nuance — just run both"                   | Overlapping themes generate the same idea in two worktrees, and the fleet becomes a duplicate factory. Merge at SELECT and show both source lines at CONFIRM.                                |
 | "The human is clearly going to pick the top one — I'll start its spec while I'm here"  | Writing a spec is filing, and the run ends at presentation. `harness-brainstorming` is invoked by the human, after the fleet has stopped.                                                    |
 | "Six themes is slow — bump concurrency to six and finish in one pass"                  | Beyond ~3 concurrent subagents is the machine-storm zone; the compound load costs more in re-runs and flaky failures than the parallelism saves.                                             |

@@ -707,7 +707,7 @@ Strategy-grounded ideation fan-out at the head of the fleet spine — derive a q
 - **Platforms:** claude-code, codex, cursor, gemini-cli
 - **Type:** rigid
 - **Cognitive mode:** systematic-orchestrator
-- **Depends on:** harness-ideate, harness-strategy, harness-roadmap-pilot, harness-brainstorming
+- **Depends on:** harness-ideate, harness-strategy
 
 ### issue-fleet
 

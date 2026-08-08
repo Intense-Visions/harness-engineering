@@ -5,6 +5,7 @@ argument-hint: '[--path <path>] [----themes <--themes>] [----count <--count>] [-
 allowed-tools:
   - Bash
   - Read
+  - Write
   - Glob
   - Grep
 ---

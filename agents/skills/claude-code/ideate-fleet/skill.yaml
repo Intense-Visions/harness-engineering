@@ -13,6 +13,7 @@ platforms:
 tools:
   - Bash
   - Read
+  - Write
   - Glob
   - Grep
 cli:
@@ -71,12 +72,11 @@ state:
 depends_on:
   - harness-ideate
   - harness-strategy
-  - harness-roadmap-pilot
-  - harness-brainstorming
 capabilities:
   tools:
     - Bash
     - Read
+    - Write
     - Glob
     - Grep
   network: false
