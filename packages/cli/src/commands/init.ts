@@ -10,6 +10,7 @@ import {
   persistToolingConfig,
   appendFrameworkAgents,
   ensureHarnessGitignore,
+  applyEcosystemAfterCreate,
 } from '../templates/post-write';
 import { logger } from '../output/logger';
 import { CLIError, ExitCode } from '../utils/errors';
@@ -178,6 +179,20 @@ async function scaffoldProject(
   persistToolingConfig(cwd, resolveResult.value, options.framework);
   appendFrameworkAgents(cwd, options.framework, language);
   ensureHarnessGitignore(cwd);
+
+  const eco = applyEcosystemAfterCreate(cwd, writeResult.value.written);
+  if (eco.rewritten) {
+    logger.info(
+      `Scaffolded afterCreate install hook for ${eco.ecosystem!.id}: ${eco.installCommand}`
+    );
+  } else if (eco.ecosystem === null) {
+    logger.warn(
+      'No install or verify command could be resolved for this workspace ' +
+        '(no recognized lockfile or manifest at the root). The local enforced verify gate ' +
+        'has nothing to run and no afterCreate install hook was scaffolded. Configure ' +
+        'hooks.afterCreate and the verify command manually for your toolchain.'
+    );
+  }
 
   // Sharded-by-default (D5): a brand-new project gets a sharded roadmap — an empty
   // `docs/roadmap.d/_meta.md` and NO monolith aggregate. Per-row shards are the
