@@ -38,11 +38,11 @@ Working down a backlog of undocumented architectural decisions is the same atten
 
 ## Flags
 
-| Flag            | Effect                                                                                       |
-| --------------- | -------------------------------------------------------------------------------------------- |
-| `--concurrency` | Cap concurrent draft subagents (default 2, max recommended 3 — the machine-storm limit)      |
+| Flag            | Effect                                                                                        |
+| --------------- | --------------------------------------------------------------------------------------------- |
+| `--concurrency` | Cap concurrent draft subagents (default 2, max recommended 3 — the machine-storm limit)       |
 | `--report-only` | Enumerate, cross-check, and present the ranked pending-decision batch; do not dispatch drafts |
-| `--dry-run`     | Run SELECT and CONFIRM only; stop before fan-out                                             |
+| `--dry-run`     | Run SELECT and CONFIRM only; stop before fan-out                                              |
 
 ## Process
 
@@ -59,13 +59,13 @@ Phase 1: SELECT --> Phase 2: CONFIRM --> Phase 3: DISPATCH
              Phase 5: SIGN-OFF + REPORT <-- Phase 4: VERIFY
 ```
 
-| Phase               | Purpose                                                                          | Exit Condition                                                            |
-| ------------------- | -------------------------------------------------------------------------------- | ------------------------------------------------------------------------- |
-| 1. SELECT           | Enumerate + cross-check the pending-decision queue, score, pre-allocate numbers  | Ranked `DecisionCandidate[]` with cross-check verdicts and detected forks |
-| 2. CONFIRM          | One up-front human round: approve/trim, answer forks, set concurrency            | Human-approved batch with answered forks and agreed concurrency           |
-| 3. DISPATCH         | Worktree-isolated subagents run the real advisor pipeline and draft one ADR each | Every confirmed decision returned a drafted ADR, parked, or failed        |
-| 4. VERIFY           | Independent drafted-ADR + all-OS-CI confirmation, never self-report              | Each returned draft marked verified / rejected / retry                    |
-| 5. SIGN-OFF + REPORT | One batch sign-off pass; accept only what the human accepts; summarize            | Accepted ADRs flipped to `accepted`; report delivered; never auto-accept  |
+| Phase                | Purpose                                                                          | Exit Condition                                                            |
+| -------------------- | -------------------------------------------------------------------------------- | ------------------------------------------------------------------------- |
+| 1. SELECT            | Enumerate + cross-check the pending-decision queue, score, pre-allocate numbers  | Ranked `DecisionCandidate[]` with cross-check verdicts and detected forks |
+| 2. CONFIRM           | One up-front human round: approve/trim, answer forks, set concurrency            | Human-approved batch with answered forks and agreed concurrency           |
+| 3. DISPATCH          | Worktree-isolated subagents run the real advisor pipeline and draft one ADR each | Every confirmed decision returned a drafted ADR, parked, or failed        |
+| 4. VERIFY            | Independent drafted-ADR + all-OS-CI confirmation, never self-report              | Each returned draft marked verified / rejected / retry                    |
+| 5. SIGN-OFF + REPORT | One batch sign-off pass; accept only what the human accepts; summarize           | Accepted ADRs flipped to `accepted`; report delivered; never auto-accept  |
 
 The five-phase spine, the concurrency governor, the artifact + all-OS-CI verification discipline, the worktree fan-out with its push-path caveat, and the never-silent invariant are the family-shared scaffolding — stated once in `docs/reference/fleet-family.md`. This skill states only what is specific to the **decide** stage: the pending-decision queue, advisor-drafting, and the human batch sign-off gate.
 
@@ -201,26 +201,26 @@ The five-phase spine, the concurrency governor, the artifact + all-OS-CI verific
 
 ## Rationalizations to Reject
 
-| Rationalization                                                                       | Reality                                                                                                                                                                        |
-| ------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| "The subagent reported the advisor ran and the ADR is drafted, so it did"             | A self-report is a claim, not evidence. Independently confirm a well-formed `proposed` ADR exists at its pre-allocated number and CI is green — or the decision did not run.   |
-| "The draft passed VERIFY and reads well — I'll mark it accepted and save the human a step" | Never auto-accept. VERIFY proves the draft is well-formed, not that the decision is right. The `proposed` → `accepted` flip requires an explicit human sign-off.           |
-| "CI is green on Linux, this draft is ready"                                           | Green on one OS is not green. Sign-off-ready requires all three operating systems plus the enforce and harness checks. A subset-red branch is reported failed, not carried.    |
-| "This decision's fork is small — I'll just guess and keep the batch moving"           | Unforeseen questions **park and report**; they are never silently guessed mid-flight. Guessing buries an unstated assumption in an ADR the reviewer cannot see.                |
-| "I'll hand-write this ADR — it's faster than running the advisor"                     | Dogfood the real advisor pipeline. A hand-written ADR skips the ANALYZE/PROPOSE trade-off surfacing the drafts depend on, leaves no evidence the pipeline ran, and fails VERIFY. |
-| "This decision looks new to me, no need to check existing ADRs"                       | Cross-check every candidate against `docs/knowledge/decisions/`. An already-decided point re-drafted is duplicate work and a conflicting ADR; decided points get closed, not re-drafted. |
-| "Each subagent can just scan-and-increment for its ADR number"                        | Under concurrent fan-out, scan-and-increment collides — two subagents claim the same number. Numbers are **pre-allocated by the orchestrator** in SELECT, one per decision.   |
-| "Bumping concurrency to six will finish the batch sooner"                             | Beyond ~3 concurrent draft agents is the machine-storm zone — compound load produces flaky failures that cost more in re-runs than the extra parallelism saves.                |
+| Rationalization                                                                            | Reality                                                                                                                                                                                  |
+| ------------------------------------------------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| "The subagent reported the advisor ran and the ADR is drafted, so it did"                  | A self-report is a claim, not evidence. Independently confirm a well-formed `proposed` ADR exists at its pre-allocated number and CI is green — or the decision did not run.             |
+| "The draft passed VERIFY and reads well — I'll mark it accepted and save the human a step" | Never auto-accept. VERIFY proves the draft is well-formed, not that the decision is right. The `proposed` → `accepted` flip requires an explicit human sign-off.                         |
+| "CI is green on Linux, this draft is ready"                                                | Green on one OS is not green. Sign-off-ready requires all three operating systems plus the enforce and harness checks. A subset-red branch is reported failed, not carried.              |
+| "This decision's fork is small — I'll just guess and keep the batch moving"                | Unforeseen questions **park and report**; they are never silently guessed mid-flight. Guessing buries an unstated assumption in an ADR the reviewer cannot see.                          |
+| "I'll hand-write this ADR — it's faster than running the advisor"                          | Dogfood the real advisor pipeline. A hand-written ADR skips the ANALYZE/PROPOSE trade-off surfacing the drafts depend on, leaves no evidence the pipeline ran, and fails VERIFY.         |
+| "This decision looks new to me, no need to check existing ADRs"                            | Cross-check every candidate against `docs/knowledge/decisions/`. An already-decided point re-drafted is duplicate work and a conflicting ADR; decided points get closed, not re-drafted. |
+| "Each subagent can just scan-and-increment for its ADR number"                             | Under concurrent fan-out, scan-and-increment collides — two subagents claim the same number. Numbers are **pre-allocated by the orchestrator** in SELECT, one per decision.              |
+| "Bumping concurrency to six will finish the batch sooner"                                  | Beyond ~3 concurrent draft agents is the machine-storm zone — compound load produces flaky failures that cost more in re-runs than the extra parallelism saves.                          |
 
 ## Red Flags
 
-| Flag                                                                    | Corrective Action                                                                                              |
-| ----------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------- |
-| "I'll mark it verified based on the subagent's summary"                 | STOP. Independently check the drafted ADR and CI. A summary is not a verification.                             |
-| "The draft is verified — let me flip it to accepted and close the loop" | STOP. The fleet never accepts. Present the draft for human sign-off; the `proposed` → `accepted` flip is theirs. |
-| "I'll answer this new question with the obvious choice and continue"    | STOP. Unforeseen questions park and report. Record it for the human; do not guess it into an ADR.             |
-| "The pre-push gate is failing in this worktree — I'll `--no-verify`"    | STOP. Never bypass. Push via the GitHub API or a non-`.claude` worktree; the gate is part of the verification. |
-| "I'll re-draft this decision; it's easier than confirming whether an ADR exists" | STOP. Cross-check first. Re-drafting an already-decided point creates a conflicting duplicate ADR.       |
+| Flag                                                                             | Corrective Action                                                                                                |
+| -------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------- |
+| "I'll mark it verified based on the subagent's summary"                          | STOP. Independently check the drafted ADR and CI. A summary is not a verification.                               |
+| "The draft is verified — let me flip it to accepted and close the loop"          | STOP. The fleet never accepts. Present the draft for human sign-off; the `proposed` → `accepted` flip is theirs. |
+| "I'll answer this new question with the obvious choice and continue"             | STOP. Unforeseen questions park and report. Record it for the human; do not guess it into an ADR.                |
+| "The pre-push gate is failing in this worktree — I'll `--no-verify`"             | STOP. Never bypass. Push via the GitHub API or a non-`.claude` worktree; the gate is part of the verification.   |
+| "I'll re-draft this decision; it's easier than confirming whether an ADR exists" | STOP. Cross-check first. Re-drafting an already-decided point creates a conflicting duplicate ADR.               |
 
 ## Examples
 

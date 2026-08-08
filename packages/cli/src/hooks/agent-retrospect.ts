@@ -176,11 +176,25 @@ export function writeCursorRetrospectHooks(
 }
 
 /**
- * Wire the `notify` trigger into `.codex/config.toml`. Codex `notify` holds a
- * SINGLE program, so we never clobber a user's existing non-harness notify:
- *  - absent            → insert ours and return 'installed'
- *  - already ours      → 'skipped' (idempotent)
- *  - a different notify → 'conflict' (left untouched; caller warns)
+ * Wire the `notify` trigger into `.codex/config.toml`. Codex `notify` is a raw
+ * argv array with no shell and a subprocess CWD that is not guaranteed to be the
+ * repo root, so — unlike the other agents — it cannot use a `git rev-parse`
+ * shell command. We route it through the PATH-resolvable command
+ * `["harness", "hooks", "run", "session-retrospect-codex"]`, which carries no
+ * absolute path and is therefore byte-identical on every machine (committable).
+ *
+ * Codex `notify` holds a SINGLE program, so we never clobber a user's existing
+ * non-harness notify. An existing `notify` line is classified into three cases:
+ *  - New form — already the PATH-resolvable line (the bare `session-retrospect-codex`
+ *    marker, no `.js`) → 'skipped' (idempotent no-op).
+ *  - Old harness form — references the copied `session-retrospect-codex.js`
+ *    entry script (the absolute-path line only the OLD harness generator ever
+ *    wrote) → rewritten IN PLACE to the new form → 'installed' (an upgrade).
+ *  - Foreign — any other notify → 'conflict' (left untouched; caller warns).
+ * Absent → insert ours → 'installed'.
+ *
+ * This no longer takes a `scriptPath`: the emitted line is a fixed, PATH-resolvable
+ * command with no filesystem path at all.
  *
  * The notify entry is a top-level TOML key, so it must precede the first table
  * header (otherwise it would be parsed into that table). We prepend it at the
@@ -190,20 +204,30 @@ export function writeCursorRetrospectHooks(
  * heuristic could mistake an array-element line (e.g. `  [1, 2],` inside a
  * top-level array literal) for a table header and corrupt the file.
  */
-export function writeCodexNotifyHook(
-  configPath: string,
-  scriptPath: string
-): AgentRetrospectStatus {
+export function writeCodexNotifyHook(configPath: string): AgentRetrospectStatus {
+  // Only the OLD harness generator ever wrote a notify line referencing the
+  // copied `.js` entry script, so its presence proves harness ownership.
   const scriptMarker = 'session-retrospect-codex.js';
+  const notifyLine = 'notify = ["harness", "hooks", "run", "session-retrospect-codex"]';
   const existing = fs.existsSync(configPath) ? fs.readFileSync(configPath, 'utf-8') : '';
 
   const notifyLineRe = /^[ \t]*notify[ \t]*=.*$/m;
   const match = existing.match(notifyLineRe);
   if (match) {
-    return match[0].includes(scriptMarker) ? 'skipped' : 'conflict';
+    const line = match[0];
+    // Old harness form (absolute-path `.js`) → upgrade in place.
+    if (line.includes(scriptMarker)) {
+      const updatedInPlace = existing.replace(notifyLineRe, notifyLine);
+      const tmpPath = configPath + '.tmp';
+      fs.writeFileSync(tmpPath, updatedInPlace);
+      fs.renameSync(tmpPath, configPath);
+      return 'installed';
+    }
+    // New form (bare `session-retrospect-codex` marker, no `.js`) → idempotent skip.
+    if (line.includes('session-retrospect-codex')) return 'skipped';
+    // Anything else is a foreign notify → conflict, untouched.
+    return 'conflict';
   }
-
-  const notifyLine = `notify = ["node", ${JSON.stringify(scriptPath)}]`;
 
   let updated: string;
   if (existing.trim() === '') {
@@ -248,10 +272,10 @@ export function installAgentRetrospectHooks(options: {
   // Codex CLI — .codex present.
   if (fs.existsSync(path.join(projectDir, '.codex'))) {
     const configPath = path.join(projectDir, '.codex', 'config.toml');
-    // notify cannot run a shell snippet cleanly, so it points at an absolute
-    // path to the project's copied entry script.
-    const scriptPath = path.join(projectDir, '.harness', 'hooks', 'session-retrospect-codex.js');
-    const status = writeCodexNotifyHook(configPath, scriptPath);
+    // notify cannot run a shell snippet cleanly, so it uses the PATH-resolvable
+    // `harness hooks run session-retrospect-codex` command instead of an
+    // absolute path — machine-independent and committable.
+    const status = writeCodexNotifyHook(configPath);
     const codexResult: AgentRetrospectResult = { agent: 'Codex CLI', status, configPath };
     if (status === 'conflict') {
       codexResult.reason = 'existing non-harness `notify` in .codex/config.toml left untouched';

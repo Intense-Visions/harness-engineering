@@ -627,6 +627,25 @@ LLM-judgment critique of documentation quality — the ceiling counterpart to th
 - `excludeDirs` (array, optional) — Extra subdir names to skip under docs/
 - `maxFiles` (number, optional) — Cap doc count (default: 60)
 
+### `docs_publish`
+
+Draft-first docs publishing via the configured connector (draft/attach-media/verify-render/page-tree).
+
+**Parameters:**
+
+- `op` (string, required) — Operation to run
+- `path` (string, optional) — Project root path for config resolution
+- `pageId` (string, optional) — Page id (draft/attach-media)
+- `spaceId` (string, optional) — Space id (draft/page-tree)
+- `title` (string, optional) — Page title (draft)
+- `parentId` (string, optional) — Parent page id (draft/page-tree)
+- `body` (string, optional) — Storage/body string (draft)
+- `adf` (object, optional) — Page body as ADF (draft)
+- `mediaFilePath` (string, optional) — Local media file path (attach-media)
+- `origin` (string, optional) — Provider origin (attach-media)
+- `targetUrl` (string, optional) — Rendered URL to assert (verify-render)
+- `children` (array, optional) — Child nodes to create/order (page-tree)
+
 ### `edit_file`
 
 Make a surgical, exact-string edit to a single existing file: replace old_string with new_string. Prefer this over shell redirection (cat >, echo >>) or apply_patch, which corrupt files. old_string must appear EXACTLY ONCE (include enough surrounding context to be unique) unless replace_all is true. Fails without writing if old_string is missing or ambiguous, so you can retry with more context. Does not create files.

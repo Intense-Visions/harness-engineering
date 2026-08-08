@@ -184,6 +184,8 @@ export const ALL_MCP_TOOLS: string[] = [
   // skill threads a token between calls)
   'acquire_compound_lock',
   'release_compound_lock',
+  // docs-publish — draft-first publishing via the configured connector
+  'docs_publish',
 ];
 
 /**

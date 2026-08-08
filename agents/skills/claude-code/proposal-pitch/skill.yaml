@@ -1,0 +1,48 @@
+name: proposal-pitch
+version: '0.1.0'
+description: The draft-first proposal pipeline — gather the source, agree the page structure before building, render concept stills, publish as drafts only, and close the loop on the source. Invokes the docs-publish surface (the `harness docs-publish` CLI command / `docs_publish` MCP tool, resolving a configured connector) for the publishing mechanics; enforces drafts-only, render-verify, epistemic-label, and no-customer-data gates. Ships zero company-specific content.
+stability: draft
+cognitive_mode: disciplined-facilitator
+triggers:
+  - manual
+platforms:
+  - claude-code
+tools:
+  - Bash
+  - Read
+  - Write
+  - Edit
+  - Glob
+  - Grep
+cli:
+  command: harness skill run proposal-pitch
+  args:
+    - name: path
+      description: Project root path
+      required: false
+mcp:
+  tool: run_skill
+  input:
+    skill: proposal-pitch
+type: rigid
+tier: 2
+phases:
+  - name: gather-source
+    description: Collect the source (chat, issue, or doc) and identify what is settled vs open
+    required: true
+  - name: agree-structure
+    description: Agree the page structure with the author BEFORE building anything
+    required: true
+  - name: render-stills
+    description: Render concept stills, invoking the docs-publish surface (the `harness docs-publish` CLI / `docs_publish` MCP tool) for the mechanics
+    required: true
+  - name: publish-drafts
+    description: Publish pages as DRAFTS only via the docs-publish surface; surface any manual attach-media step to the human; never move a draft to current
+    required: true
+  - name: close-the-loop
+    description: Report back on the source with what was built, epistemic labels on every claim, and what remains open
+    required: true
+state:
+  persistent: false
+  files: []
+depends_on: []

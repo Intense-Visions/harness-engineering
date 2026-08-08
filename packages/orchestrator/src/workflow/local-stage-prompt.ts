@@ -3,10 +3,11 @@ import { STAGE_PROMPT_TEMPLATE } from './stage-prompt-template.js';
 /**
  * split-routing / per-phase routing — the LOCAL-aware per-stage prompt template.
  *
- * Mirrors {@link STAGE_PROMPT_TEMPLATE}'s exact variable set (`stageNumber`,
+ * Mirrors {@link STAGE_PROMPT_TEMPLATE}'s variable set (`stageNumber`,
  * `identifier`, `title`, `description`, `skill`, `cognitiveMode`, `produces`,
- * `priorEntries`)
- * (plus the optional `documentStage` flag) — LiquidJS `strictVariables` is on, so
+ * `priorEntries`) plus the LOCAL-only `verifyCommands` (the ecosystem-aware
+ * self-verify command list) and the optional `documentPath` / `reviewStage` flags
+ * — LiquidJS `strictVariables` is on, so
  * it MUST reference no variable the shared `renderStagePrompt` renderer does not
  * supply. It replaces the Claude-shaped "Perform the '{{ skill }}' step" line with
  * the LOCAL indirection: a local backend has no `/harness:*` slash commands, so it
@@ -52,15 +53,13 @@ The skill will instruct you to WRITE the implementation ({{ produces }}): do the
 To CHANGE an existing file, edit SURGICALLY — modify only the exact lines that must change and keep every other line byte-for-byte. NEVER rewrite, replace, or truncate a whole existing file: doing so deletes unrelated content and has corrupted real work — e.g. rewriting a shared reference doc drops every OTHER rule's entry, and rewriting a barrel \`index.ts\` drops other exports. When you ADD to an existing document or list (a reference doc, a README, a config array), APPEND your new entry and keep ALL existing entries intact — never regenerate the file from scratch. Prefer an exact-edit tool if you have one — \`harness__edit_file\` (exact \`old_string\` → \`new_string\`; copy \`old_string\` verbatim with indentation + surrounding context so it is unique). If your only edit tool is a patch tool (e.g. \`apply_patch\`), that is fine — but emit a MINIMAL hunk that touches just the needed lines, NEVER a full-file replacement. Use a whole-file write (or \`cat >\`) ONLY to create a brand-NEW file, never on one that already exists.
 
 ## Before you finish this stage: self-verify
-An automated gate will run **typecheck + lint + the FULL test suite** on every package you touched — not just the file you added — and it BLOCKS the entire task on ANY failure. Passing only your own new test is NOT enough. So before you stop, run those exact checks yourself for each changed package and FIX every error and failing test until they are all green. In particular, actually RUN any test you authored and confirm it PASSES against your implementation — the test must agree with the code (e.g. cases that SHOULD be flagged go in the "invalid" set and cases that should NOT in the "valid" set; getting them backwards fails the suite). A test you wrote but did not run is not done:
+An automated gate will run **your workspace's verify commands — the exact commands shown below** — over everything you touched, not just the file you added, and it BLOCKS the entire task on ANY failure. Passing only your own new test is NOT enough. So before you stop, run those exact commands yourself and FIX every error and failing check until they are all green. In particular, actually RUN any test you authored and confirm it PASSES against your implementation — the test must agree with the code (e.g. cases that SHOULD be flagged go in the "invalid" set and cases that should NOT in the "valid" set; getting them backwards fails the suite). A test you wrote but did not run is not done:
 
 \`\`\`bash
-pnpm --filter <changed-package-name> typecheck
-pnpm --filter <changed-package-name> lint
-pnpm --filter <changed-package-name> test
-\`\`\`
+{% for cmd in verifyCommands %}{{ cmd }}
+{% endfor %}\`\`\`
 
-Common misses that fail the gate even when your own test passes: type errors that tests don't catch (tests run through esbuild, which strips types — so ALWAYS run typecheck), and inventory/count assertions elsewhere in the suite that your change invalidates (e.g. a test asserting the number of registered rules/exports — update it). Iterate here until all three are green; do not rely on a later retry.
+Common misses that fail the gate even when your own test passes: inventory/count assertions elsewhere in the suite that your change invalidates (e.g. a test asserting the number of registered rules/exports — update it), and — for a TypeScript/Node package — type errors that tests don't catch (tests run through esbuild, which strips types — so ALWAYS run the typecheck command too). Iterate here until every command above is green; do not rely on a later retry.
 
 The gate ALSO checks documentation: any NEW public source file you add must be referenced under \`docs/\` (a real merge fails the repo's doc-drift check otherwise). If you add a new rule/API/module, document it in the matching \`docs/\` reference (e.g. a new ESLint rule goes in \`docs/reference/eslint-rules.md\` and the package README) and update any feature/rule COUNT in that doc — as part of THIS change, not a follow-up.
 

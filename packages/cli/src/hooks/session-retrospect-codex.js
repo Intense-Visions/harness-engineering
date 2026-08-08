@@ -5,11 +5,17 @@
 // `[hooks]`/hooks.json engine only exposes tool-use events. The only end-of-turn
 // seam is the `notify` key in `.codex/config.toml`, which fires on
 // `agent-turn-complete` and passes its event as a SINGLE JSON ARGV ARGUMENT (not
-// stdin) — `notify = ["node", "<abs path to this script>"]` (per
-// https://learn.chatgpt.com/docs/config-file/config-advanced and
+// stdin) (per https://learn.chatgpt.com/docs/config-file/config-advanced and
 // https://github.com/openai/codex, verified 2026-08). The payload fields are
 // `type`, `thread-id` (the session/conversation identifier), `turn-id`, `cwd`,
 // `input-messages`, and `last-assistant-message`.
+//
+// The generated notify line no longer references this file by absolute path.
+// notify is now fired via the PATH-resolvable `harness hooks run
+// session-retrospect-codex` command (machine-independent, committable). This
+// file remains shipped as a copied support script for backward compatibility
+// with configs that still reference it; both paths share the same payload
+// parser (`parseCodexNotifyPayload`) and archive core so they cannot drift.
 //
 // notify fires once per AGENT TURN, not once per session, so this would fire
 // many times in an interactive session. The shared core dedupes per session id
@@ -27,27 +33,21 @@
 // Exit codes: 0 = allow (always, log-only hook)
 
 import process from 'node:process';
-import { retrospectLogLine, retrospectSession } from './session-retrospect-core.js';
+import {
+  parseCodexNotifyPayload,
+  retrospectLogLine,
+  retrospectSession,
+} from './session-retrospect-core.js';
 
 async function main() {
   // Codex delivers the notification as a single JSON string in argv, not stdin.
-  const raw = process.argv[2];
-  if (typeof raw !== 'string' || !raw.trim()) {
-    process.exit(0);
-  }
-
-  let input;
-  try {
-    input = JSON.parse(raw);
-  } catch {
+  const parsed = parseCodexNotifyPayload(process.argv[2]);
+  if (!parsed) {
     process.exit(0);
   }
 
   try {
-    // `thread-id` (hyphenated) is Codex's stable per-conversation session id.
-    const sessionId = typeof input['thread-id'] === 'string' ? input['thread-id'] : 'unknown';
-    const cwd = typeof input.cwd === 'string' && input.cwd ? input.cwd : process.cwd();
-    const result = await retrospectSession({ cwd, sessionId });
+    const result = await retrospectSession(parsed);
     const line = retrospectLogLine('session-retrospect-codex', result);
     if (line) process.stderr.write(line);
     process.exit(0);

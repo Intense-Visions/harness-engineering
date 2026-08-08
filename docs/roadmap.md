@@ -3,7 +3,7 @@ project: harness-engineering
 version: 1
 created: 2026-03-21
 updated: 2026-08-04
-last_synced: 2026-08-04T19:50:51.000Z
+last_synced: 2026-08-08T12:01:13.104Z
 last_manual_edit: 2026-06-27T12:51:51.967Z
 ---
 
@@ -264,6 +264,17 @@ last_manual_edit: 2026-06-27T12:51:51.967Z
 - **Priority:** P2
 - **External-ID:** github:Intense-Visions/harness-engineering#1035
 
+### init-ecosystem-aftercreate
+
+- **Status:** planned
+- **Spec:** docs/changes/init-ecosystem-aftercreate/proposal.md
+- **Summary:** Scaffold ecosystem-matched afterCreate install command + warn when neither install nor verify resolves
+- **Blockers:** —
+- **Plan:** —
+- **Assignee:** —
+- **Priority:** —
+- **External-ID:** github:Intense-Visions/harness-engineering#1128
+
 ### Cloud autopilot: independent diagnostic agent on stuck retry
 
 - **Status:** planned
@@ -318,6 +329,17 @@ last_manual_edit: 2026-06-27T12:51:51.967Z
 - **Assignee:** —
 - **Priority:** P2
 - **External-ID:** github:Intense-Visions/harness-engineering#1129
+
+### Codex notify hook should emit a PATH-resolvable command, not an absolute path
+
+- **Status:** planned
+- **Spec:** [docs/changes/codex-notify-path-resolvable/proposal.md](../changes/codex-notify-path-resolvable/proposal.md)
+- **Summary:** `harness update` writes `.codex/config.toml` `notify` as an absolute `["node", "<abs path>/.harness/hooks/session-retrospect-codex.js"]`, baking a machine-specific path into a shared file (churns per machine, breaks contributors/CI). Codex `notify` is shell-less and its CWD is not guaranteed to be the repo root, so the git-rev-parse shell trick used for Claude/Gemini/Cursor cannot apply. Fix: route through a PATH-resolvable command — `notify = ["harness", "hooks", "run", "session-retrospect-codex"]` — backed by a new `harness hooks run <name>` subcommand that reads the JSON payload from argv and self-locates via the payload's `cwd`. Codex generator only; other agents unchanged.
+- **Blockers:** —
+- **Plan:** —
+- **Assignee:** —
+- **Priority:** P2
+- **External-ID:** github:Intense-Visions/harness-engineering#1208
 
 ## Fleet Family — Batch Orchestration
 

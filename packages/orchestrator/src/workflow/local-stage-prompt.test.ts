@@ -4,8 +4,11 @@ import {
   LOCAL_STAGE_PROMPT_TEMPLATE,
   stagePersonaSystemPrompt,
 } from './local-stage-prompt';
-import { STAGE_PROMPT_TEMPLATE } from './orchestrator-context';
+import { STAGE_PROMPT_TEMPLATE, deriveVerifyCommands } from './orchestrator-context';
 import { PromptRenderer } from '../prompt/renderer';
+import * as fs from 'node:fs';
+import * as os from 'node:os';
+import * as path from 'node:path';
 
 /** The full variable bag the renderStagePrompt seam supplies (strictVariables). */
 const RENDER_BAG = {
@@ -19,6 +22,11 @@ const RENDER_BAG = {
   documentPath: '',
   reviewStage: '',
   priorEntries: [] as Array<{ name: string; output: string }>,
+  verifyCommands: [
+    'pnpm --filter <changed-package-name> typecheck',
+    'pnpm --filter <changed-package-name> lint',
+    'pnpm --filter <changed-package-name> test',
+  ] as string[],
 };
 
 /**
@@ -198,5 +206,81 @@ describe('LOCAL template — document vs code stage (true-autopilot artifacts)',
     expect(out).toContain('self-verify');
     expect(out).not.toContain('produces a DOCUMENT');
     expect(out).not.toContain('REVIEW/CHECK');
+  });
+});
+
+describe('LOCAL self-verify block is ecosystem-aware (proposal SC1-SC3)', () => {
+  const renderer = new PromptRenderer();
+
+  const SCOPED_PNPM_FALLBACK = [
+    'pnpm --filter <changed-package-name> typecheck',
+    'pnpm --filter <changed-package-name> lint',
+    'pnpm --filter <changed-package-name> test',
+  ];
+
+  function mkWorkspace(markers: string[]): string {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'eco-'));
+    for (const m of markers) fs.writeFileSync(path.join(dir, m), '');
+    return dir;
+  }
+
+  // SC1: non-node ecosystem → that toolchain's commands, NO pnpm --filter
+  it('renders the detected non-node ecosystem commands and no pnpm --filter line', async () => {
+    const dir = mkWorkspace(['Cargo.toml']);
+    const verifyCommands = deriveVerifyCommands(dir);
+    expect(verifyCommands).toEqual(['cargo build', 'cargo test']);
+    const out = await renderer.render(LOCAL_STAGE_PROMPT_TEMPLATE, {
+      ...RENDER_BAG,
+      produces: 'impl',
+      documentPath: '',
+      reviewStage: '',
+      verifyCommands,
+    });
+    expect(out).toContain('cargo build');
+    expect(out).toContain('cargo test');
+    expect(out).not.toContain('pnpm --filter');
+    // Lock the multi-command newline joining directly on the non-node path (not
+    // just transitively via the pnpm-fallback parity test): each command emits
+    // `cmd\n`, so the block is newline-separated inside the ```bash fence.
+    expect(out).toContain('```bash\ncargo build\ncargo test\n```');
+  });
+
+  // SC2a: node workspace → byte-identical scoped pnpm fallback
+  it('falls back to the scoped pnpm prose on a node workspace', () => {
+    const dir = mkWorkspace(['pnpm-lock.yaml']);
+    expect(deriveVerifyCommands(dir)).toEqual(SCOPED_PNPM_FALLBACK);
+  });
+
+  // SC2b: unrecognized / unreadable workspace → same scoped pnpm fallback
+  it('falls back to the scoped pnpm prose when no ecosystem is detected', () => {
+    const empty = mkWorkspace([]);
+    expect(deriveVerifyCommands(empty)).toEqual(SCOPED_PNPM_FALLBACK);
+    expect(deriveVerifyCommands(path.join(empty, 'does-not-exist'))).toEqual(SCOPED_PNPM_FALLBACK);
+  });
+
+  // SC2 (render parity): the fallback bag renders the exact pre-change block
+  it('renders the byte-identical scoped pnpm block for the fallback command set', async () => {
+    const out = await renderer.render(LOCAL_STAGE_PROMPT_TEMPLATE, {
+      ...RENDER_BAG,
+      produces: 'impl',
+      documentPath: '',
+      reviewStage: '',
+      verifyCommands: SCOPED_PNPM_FALLBACK,
+    });
+    expect(out).toContain(
+      'pnpm --filter <changed-package-name> typecheck\n' +
+        'pnpm --filter <changed-package-name> lint\n' +
+        'pnpm --filter <changed-package-name> test\n'
+    );
+  });
+
+  // SC3: default (cloud) template never references verifyCommands and renders
+  // under strictVariables WITHOUT it in the bag.
+  it('leaves the default template independent of verifyCommands (strictVariables safe)', async () => {
+    expect(STAGE_PROMPT_TEMPLATE).not.toContain('verifyCommands');
+    const { verifyCommands: _omit, ...bagWithoutVerify } = RENDER_BAG;
+    await expect(renderer.render(STAGE_PROMPT_TEMPLATE, bagWithoutVerify)).resolves.toContain(
+      'artifact.md'
+    );
   });
 });
