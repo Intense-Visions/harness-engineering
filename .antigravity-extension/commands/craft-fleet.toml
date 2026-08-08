@@ -10,11 +10,11 @@ Type: rigid
 Ceiling-raising code-quality elevation sweep — compose the eleven craft skills into ranked (scope, domain) targets, drop the noise floor, route each finding elevate/file/route by a mechanical boundary, confirm one batch with a taste-calibration sample of verbatim findings, fan out worktree-isolated subagents that each run the real harness-refactoring pipeline over one target's cited findings, then independently verify every item by critique provenance plus the step-granular refactoring commit trail plus a two-run re-critique that proves net improvement, and hand back a tiered batch of elevation PRs and filed roadmap items. No cited finding, no rewrite. Never auto-merges.
 
 Phases:
-- select: Compose the enabled craft skills over the repository, fold their findings into (scope, craft domain) targets, apply the noise floor, cross-check each target against open elevation PRs and already-filed quality items, route every surviving finding elevate or file or route by the mechanical boundary, and order by tier times impact with roadmap-pilot impact scoring
+- select: Compose the enabled craft skills over the repository, fold their findings into (scope, craft domain) targets, apply the noise floor, cross-check each target against open elevation PRs and already-filed quality items, route every surviving finding elevate or file or route by the mechanical boundary and then re-form the targets by verdict so a split scope yields at most one elevate target and at most one file item each carrying only its own findings, enforce the caps in emitted items rather than findings, and order by tier times impact with roadmap-pilot impact scoring
 - confirm: Present the enabled craft domains, the ranked targets with their elevate and file split, a taste-calibration sample of verbatim findings, the noise floor, the per-batch caps, the proposed concurrency, and the pinned base SHA for a single up-front human approval that may disable domains or re-tune the floor
-- dispatch: Fan out worktree-isolated subagents, one per confirmed elevate target, each running the real harness-refactoring pipeline over that target's cited findings and pushing a branch carrying its step-granular commit trail; a target that needs a structural change or whose baseline suite is red downgrades itself to file and reports, and no subagent runs a re-critique
-- verify: Independently confirm critique provenance for every changed location, the step-granular refactoring commit trail, and net improvement via a two-run re-critique executed here rather than read from the subagent, plus behavior preservation and all-OS CI green — never by subagent self-report
-- file-and-report: Open one elevation PR per verified target and craft domain without merging, file every verified and every downgraded item as a roadmap item carrying its cite and rubric and location, park routed correctness and security findings for hand-back, and emit a one-row-per-item batch summary including noise-floor drops, over-cap counts, downgrade reasons, cross-check drops, and quiet targets
+- dispatch: Fan out worktree-isolated subagents, one per confirmed elevate target, each running the real harness-refactoring pipeline over that target's cited findings and pushing a branch carrying its step-granular commit trail; a target that needs a structural change or whose baseline is not clean at the pinned base — a red suite or a failing harness validate or check-deps — downgrades itself to file and reports, and no subagent runs a re-critique
+- verify: For every elevation independently confirm critique provenance for each changed location, the step-granular refactoring commit trail, and net improvement via a two-run re-critique executed here rather than read from the subagent, plus behavior preservation and all-OS CI green; for every filing, which has no branch, confirm the narrower verified-filing standard of critique provenance plus the cross-check that the target is not already addressed — never by subagent self-report
+- file-and-report: Open one elevation PR per verified target and craft domain without merging, file every verified and every downgraded item as a roadmap item carrying its cite and rubric and location plus an assumptions-made note the orchestrator writes here from the SELECT routing basis, convert every elevation slot to a filed item under --file-only, park routed correctness and security findings for hand-back, and emit a one-row-per-item batch summary including noise-floor drops, over-cap counts, downgrade reasons, cross-check drops, and quiet targets
 </objective>
 
 <execution_context>
@@ -45,19 +45,19 @@ This skill builds on the shared `-fleet` spine documented in `docs/reference/fle
 
 ## Flags
 
-| Flag            | Effect                                                                                                                                    |
-| --------------- | ----------------------------------------------------------------------------------------------------------------------------------------- |
-| `--concurrency` | Cap concurrent elevation subagents (default 2, max recommended 3 — the machine-storm limit)                                               |
-| `--domains`     | Restrict the sweep to a comma-separated subset of the craft domains; the enabled set is confirmed at CONFIRM either way                   |
-| `--report-only` | Compose the critique, rank the targets, and present the batch with its taste-calibration sample; do not dispatch elevations or file items |
-| `--dry-run`     | Run SELECT and CONFIRM only; stop before fan-out — nothing is verified, filed, or opened as a PR                                          |
-| `--file-only`   | File every verified target as a roadmap item carrying its cited finding; never open an elevation PR                                       |
+| Flag            | Effect                                                                                                                                                 |
+| --------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `--concurrency` | Cap concurrent elevation subagents (default 2, max recommended 3 — the machine-storm limit)                                                            |
+| `--domains`     | Restrict the sweep to a comma-separated subset of the craft domains; the enabled set is confirmed at CONFIRM either way                                |
+| `--report-only` | Compose the critique, rank the targets, and present the batch with its taste-calibration sample; do not dispatch elevations or file items              |
+| `--dry-run`     | Run SELECT and CONFIRM only; stop before fan-out — nothing is verified, filed, or opened as a PR                                                       |
+| `--file-only`   | Open no elevation PR: every `elevate` target converts its budgeted elevation slot into a filed item carrying its cited finding, so the caps still hold |
 
 ## Process
 
 ### Iron Law
 
-**CITED-AND-NET-BETTER — no line is rewritten without a cited craft finding (a `runId` + `rubricId` + location from an actual craft-skill run), and nothing is emitted that a re-critique does not show as net better. The fleet never auto-applies a structural, contract-touching, or cross-module change, never elevates a prose surface or a published contract, never publishes a security finding, and never accepts a subagent's self-report as proof its pipeline ran.**
+**CITED-AND-NET-BETTER — no line is rewritten without a cited craft finding (a `runId` + `rubricId` + location from an actual craft-skill run), and nothing is emitted that a re-critique does not show as net better. The fleet never auto-applies a structural, contract-touching, or cross-module change, never elevates a prose file or a published contract, never publishes a routed security vulnerability, and never accepts a subagent's self-report as proof its pipeline ran.**
 
 The craft skills are advisory **by design** — they emit judgment carrying a visible confidence axis precisely because their findings are not binary — so a fleet built on them must not convert advice into authority. The cite is the ceiling analogue of a reproduction: it is the one piece of evidence that cannot be produced by asserting it. Confident prose explaining why a rewrite is better reads exactly like confident prose explaining why a rewrite that is worse is better; a `runId` and a `rubricId` either point at a real catalog run at a real location or they do not.
 
@@ -72,13 +72,13 @@ Phase 1: SELECT --> Phase 2: CONFIRM --> Phase 3: DISPATCH
              Phase 5: FILE-AND-REPORT <-- Phase 4: VERIFY
 ```
 
-| Phase              | Purpose                                                                               | Exit Condition                                                                         |
-| ------------------ | ------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------- |
-| 1. SELECT          | Compose the craft skills into ranked `(scope, domain)` targets                        | Ranked `Target[]` with routing verdicts, cross-check results, and floor/cap counts     |
-| 2. CONFIRM         | One human round: domains, batch, taste sample, floor, caps, governor, pinned base SHA | Approved batch with a pinned base SHA and confirmed domains, floor, and caps           |
-| 3. DISPATCH        | Subagents run the real `harness-refactoring` over one target's cited findings         | Every elevate target returned a branch, downgraded, parked, or failed (all recorded)   |
-| 4. VERIFY          | Critique provenance + elevation provenance + two-run re-critique + all-OS CI          | Each item marked verified-elevation / verified-filing / routed / downgraded / rejected |
-| 5. FILE-AND-REPORT | Tiered dual terminal act, batch summary                                               | Report delivered; nothing merged                                                       |
+| Phase              | Purpose                                                                                                  | Exit Condition                                                                         |
+| ------------------ | -------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------- |
+| 1. SELECT          | Compose the craft skills into ranked `(scope, domain)` targets                                           | Ranked `Target[]` with routing verdicts, cross-check results, and floor/cap counts     |
+| 2. CONFIRM         | One human round: domains, batch, taste sample, floor, caps, governor, pinned base SHA                    | Approved batch with a pinned base SHA and confirmed domains, floor, and caps           |
+| 3. DISPATCH        | Subagents run the real `harness-refactoring` over one target's cited findings                            | Every elevate target returned a branch, downgraded, parked, or failed (all recorded)   |
+| 4. VERIFY          | Elevations: critique + elevation provenance, two-run re-critique, all-OS CI; filings: cite + cross-check | Each item marked verified-elevation / verified-filing / routed / downgraded / rejected |
+| 5. FILE-AND-REPORT | Tiered dual terminal act, batch summary                                                                  | Report delivered; nothing merged                                                       |
 
 ### Phase 1: SELECT — Compose the Craft Skills, Floor, Route, Rank
 
@@ -93,13 +93,15 @@ Phase 1: SELECT --> Phase 2: CONFIRM --> Phase 3: DISPATCH
 4. **Cross-check every target.** Search open elevation PRs and already-filed quality items for one that already addresses this target. An already-addressed target is **dropped and annotated citing the resolving PR or item**, never re-elevated. A fleet whose output is half duplicates costs more attention than it saves, by exactly the route its noise floor was meant to close.
 
 5. **Route every survivor mechanically** — on the finding's own axes plus a surface rule, never on how bad the finding feels:
-   - **`elevate`** (a direct PR) requires **all** of: `confidence: high`; the change is confined to one target and is behavior-preserving; no public-API, observable-contract, or exported-identifier change; no cross-module reach; and the finding's surface is on the **elevation-eligible list** for its domain.
+   - **`elevate`** (a direct PR) requires **all** of: `confidence: high`; the change is confined to one target and is behavior-preserving; no public-API, observable-contract, or exported-identifier change; no cross-module reach; and the finding's surface is on the **elevation-eligible list** for its domain — see _Elevation Eligibility_ below.
    - **`file`** (a roadmap item) — everything else above the floor: any structural change, any contract-touching change, any `medium`- or `low`-confidence finding, and every finding in a file-only domain.
    - **`route`** — the finding is really a correctness defect or a genuine security vulnerability. Routing is **park-and-hand-back, not a new mechanism**: the item is neither elevated nor filed by this fleet, and it surfaces in the batch report for the human to place.
 
-6. **Enforce the caps after ranking.** Default **20 filed items and 20 elevation PRs** per batch, hard. The cap keeps the highest tier × impact and drops the rest **as over-cap, reported with its count** — never silently. The caps bound **SELECT-time intake**, so a target that later downgrades from `elevate` to `file` **converts an already-budgeted elevation slot** rather than adding new intake; a batch therefore never hands back more than the two caps together allow, whatever happens downstream.
+   **Route per finding, then re-form the targets by verdict.** The routing rules read a finding, not a target, so a `(scope, domain)` pair whose findings split across verdicts never becomes a mixed target. It yields **at most one `elevate` target and at most one `file` item** for that same scope and domain, each carrying **only its own findings**; routed findings leave the pair entirely and are parked. That re-forming is what makes every downstream unit unambiguous — DISPATCH runs over one `elevate` target's findings plural, and VERIFY assigns exactly one verdict per emitted item. It also fixes the accounting: **the caps count emitted items — elevation PRs and filed items — never findings.**
 
-   **The cap, not the floor, is the real guard.** Filing opens a tracking issue per item, so an uncapped sweep is a tracker flood no one-cell floor rule can prevent: the surviving `medium`-confidence middle of the distribution is large and legitimately routes to `file`. The floor removes the obvious tail cheaply; claiming it prevents backlog spam would be overselling a one-cell rule against a twenty-seven-cell distribution.
+6. **Enforce the caps after ranking.** Default **20 filed items and 20 elevation PRs** per batch, hard — counted in **emitted items**, per the re-forming rule above. The cap keeps the highest tier × impact and drops the rest **as over-cap, reported with its count** — never silently. The caps bound **SELECT-time intake**, so a target that later downgrades from `elevate` to `file` **converts an already-budgeted elevation slot** rather than adding new intake; a batch therefore never hands back more than the two caps together allow, whatever happens downstream.
+
+   **The cap, not the floor, is the real guard.** Filing opens a tracking issue per item, so an uncapped sweep is a tracker flood no five-cell floor rule can prevent: the surviving `medium`-confidence middle of the distribution is large and legitimately routes to `file`. The floor removes the obvious tail cheaply; claiming it prevents backlog spam would be overselling a five-cell rule against a twenty-seven-cell distribution.
 
 7. **Score and order by tier × impact.** Reuse `harness-roadmap-pilot`-style impact scoring so the ordering is principled and reproducible rather than a matter of which finding read most sharply. `confidence` is the **routing** axis and is deliberately **not** folded into the score. The 3-axis output model exists precisely because collapsing these axes destroys the information a reviewer needs to prioritize — a fleet that invented a second severity vocabulary would be re-collapsing them, and would drift from the catalogs it consumes.
 
@@ -112,9 +114,22 @@ Phase 1: SELECT --> Phase 2: CONFIRM --> Phase 3: DISPATCH
      scope,       // the files / docs / specs it covers
      findings,    // each: runId, rubricId, location, tier, impact, confidence
      score,       // composite tier x impact
-     verdict,     // "elevate" | "file" | "route"
+     verdict,     // "elevate" | "file" — uniform, per the re-forming rule
      crossCheck,  // "novel" | "already-addressed" + resolving PR/item
      forks,       // detected decision forks to surface at CONFIRM (may be empty)
+   }
+   ```
+
+   And the `Batch` record that scopes the whole run, settled once at CONFIRM:
+
+   ```
+   Batch {
+     domains,     // the enabled craft domains
+     baseSha,     // the pinned base SHA every target works against
+     floor,       // the confirmed noise floor
+     caps,        // the confirmed per-batch caps { elevate, file }
+     governor,    // the confirmed concurrency (default 2, max ~3)
+     targets,     // the confirmed targets, each with its verdict
    }
    ```
 
@@ -140,11 +155,11 @@ Phase 1: SELECT --> Phase 2: CONFIRM --> Phase 3: DISPATCH
 
 2. **Each subagent runs the real `harness-refactoring` pipeline** over its one target's cited findings: tests green before and after **every** change, `harness validate` plus `harness check-deps` per step, blast radius computed up front, **one small change per commit**, and that skill's own revert-if-the-refactoring-introduced-no-improvement rule. The subagent does not hand-edit and does not short-cut the pipeline — the step-granular commit trail the pipeline necessarily leaves behind is exactly what VERIFY checks for.
 
-   The anti-churn discipline this fleet needs is therefore **already law inside the skill it composes**, rather than a policy layered on top of a free-hand editor. Composing that skill also inherits its precondition: it refuses to run against a failing suite, so elevation assumes a **green baseline suite at the pinned base SHA**.
+   The anti-churn discipline this fleet needs is therefore **already law inside the skill it composes**, rather than a policy layered on top of a free-hand editor. Composing that skill also inherits its precondition, which is broader than the suite alone: it refuses to run against a failing suite **and** requires a baseline `harness validate` and `harness check-deps` that both pass before the first step. Elevation therefore assumes a **clean baseline at the pinned base SHA** on all three.
 
 3. **The subagent runs no re-critique.** That proof belongs to VERIFY and to VERIFY alone. The subagent's job ends at pushing a branch that carries its commit trail and its cited findings; anything it concluded about its own work is a claim, and a claim is not what the fleet's verdicts rest on.
 
-4. **Downgrade rules.** A target whose elevation turns out to need a **structural** change — cross-module reach, a contract or exported-identifier change, a module split, an abstraction redesign — **downgrades itself to `file` and reports**, rather than applying it. A target whose **baseline suite is red** at the pinned base takes the same path, since the elevation pipeline's entire safety net is a green suite. A downgrade is a **normal outcome, not a failure**: the critique remains valid and still reaches the human as a filed item; only the autonomous rewrite is withheld.
+4. **Downgrade rules.** A target whose elevation turns out to need a **structural** change — cross-module reach, a contract or exported-identifier change, a module split, an abstraction redesign — **downgrades itself to `file` and reports**, rather than applying it. A target whose **baseline is not clean** at the pinned base — a red suite, or a failing `harness validate`, or a failing `harness check-deps` — takes the same path, since those three checks together are the elevation pipeline's entire safety net. A downgrade is a **normal outcome, not a failure**: the critique remains valid and still reaches the human as a filed item; only the autonomous rewrite is withheld.
 
 5. **Cap concurrency at the confirmed governor (default 2, max ~3)** and at the per-batch caps. This is the machine-storm limit: beyond roughly three concurrent elevation agents the compound load produces flaky failures indistinguishable from real ones — and in a fleet whose net-improvement proof is an already-noisy oracle, manufactured noise on top of it is uniquely corrosive. Never raise the cap to "go faster."
 
@@ -184,7 +199,7 @@ Four of eleven domains clear the bar. The other seven are file-only, and each fo
 
 ### Phase 4: VERIFY — Three Independent Proofs, Never Self-Report
 
-1. **Why three proofs and not one.** No single artifact covers this fleet's two distinct risks. One risk is an agent applying **its own taste** — a change no critique asked for, which a clean commit trail and a green suite would both wave through. The other is an elevation that makes things **worse** — a change a real finding did ask for, applied so that it trades the cited problem for a new one, which a cite and a trail would in turn both wave through. Each proof closes what the others leave open, so VERIFY checks all three, independently, for every item. **Never accept a subagent's self-report**: "cited it, elevated it, re-critiqued it clean" is a claim to be checked, not a result.
+1. **Why three proofs and not one.** No single artifact covers this fleet's two distinct risks. One risk is an agent applying **its own taste** — a change no critique asked for, which a clean commit trail and a green suite would both wave through. The other is an elevation that makes things **worse** — a change a real finding did ask for, applied so that it trades the cited problem for a new one, which a cite and a trail would in turn both wave through. Each proof closes what the others leave open, so VERIFY checks all three, independently, for **every elevation** — the `file` tier is verified here too, but to the narrower standard stated below, because it never produced a branch to check. **Never accept a subagent's self-report**: "cited it, elevated it, re-critiqued it clean" is a claim to be checked, not a result.
 
 2. **Critique provenance — the change was asked for.** Every changed location maps to a cited finding from a real craft-skill run (`runId` + `rubricId` + location). A changed location that maps to no finding is **the orchestrator's own taste and is rejected, however good it looks**. That last clause is load-bearing: a taste-driven fleet's most attractive failure is the improvement nobody requested, and it is attractive precisely because it does look good.
 
@@ -203,15 +218,17 @@ Four of eleven domains clear the bar. The other seven are file-only, and each fo
 
 6. **VERIFY owns both runs; the DISPATCH subagent runs none.** A subagent that re-critiques its own branch and reports the outcome leaves the orchestrator reading a **claim** rather than checking a **proof** — exactly what the family's never-self-report invariant forbids. Having both the subagent and VERIFY re-run would satisfy the invariant at four runs per item. Concentrating both runs here keeps the total at **two** _and_ makes them independent, so the cost argument and the invariant are satisfied by the same choice instead of traded against each other.
 
-7. **Plus behavior preservation and CI.** The passing-test count does not decrease; no public-API or observable-contract change is present; CI is green on **all three operating systems** plus the enforce and harness checks. Green on one OS is not green.
+7. **Plus behavior preservation and CI.** The passing-test count does not decrease; no public-API or observable-contract change is present; CI is green on **all three operating systems** plus the enforce and harness checks. Green on one OS is not green. These, like the three proofs above, are **elevation** checks.
 
-8. **Assign exactly one verdict per item:** `verified-elevation`, `verified-filing`, `routed`, `downgraded`, or `rejected`. A rejected item is **retried once**; still failing, it is reported as rejected with its reason and the batch continues. **Degradation never reaches VERIFY.** A missing craft skill degrades in SELECT and a structural discovery downgrades in DISPATCH, but a proof that cannot be produced here is a **rejection**, not a graceful skip. The asymmetry is the point: the earlier phases can afford to lose coverage, and this one cannot afford to lose rigor.
+8. **The `file` tier is verified too — to its own, narrower standard.** A `file` item never enters DISPATCH, so it has no branch, no commit trail, no re-critique, and no CI: four of the checks above have nothing to read. `verified-filing` therefore requires exactly two things — **critique provenance**, the cite resolving to a real craft-skill run (`runId` + `rubricId` + location) exactly as an elevation's must, and the **cross-check**, confirming at verification time that the target is still not already addressed by an open elevation PR or an existing filed item. An item failing either is **rejected rather than filed**. Those are the only two claims a filing actually makes, and a stale cite or a duplicate filing costs the human precisely the attention this fleet exists to save.
+
+9. **Assign exactly one verdict per item:** `verified-elevation`, `verified-filing`, `routed`, `downgraded`, or `rejected`. A rejected item is **retried once**; still failing, it is reported as rejected with its reason and the batch continues. **Degradation never reaches VERIFY.** A missing craft skill degrades in SELECT and a structural discovery downgrades in DISPATCH, but a proof that this phase's standard for **that item's tier** demands and that cannot be produced is a **rejection**, not a graceful skip. The asymmetry is the point: the earlier phases can afford to lose coverage, and this one cannot afford to lose rigor.
 
 ### Phase 5: FILE-AND-REPORT — Tiered Dual Terminal Act, Never Merge
 
 1. **One elevation PR per verified `(target, craft domain)`** — never one per finding, never mixed across domains — each carrying its cited findings and its assumptions-made note. **Never merged.** The granularity is chosen, not inherited: one-PR-per-item is right when each item is a distinct defect, but forty naming fixes as forty PRs is a denial-of-service on review, and forty mixed fixes in one PR forces the reviewer to switch judgment modes line by line. Homogeneous batching gives the reviewer **one kind of taste question at a time over one coherent scope**, which is the only shape in which bulk taste review is actually tractable. Landing the batch is the human's call, optionally via `pr-fleet`.
 
-2. **File each verified `file` item as a roadmap item** — including **every target downgraded from `elevate`**, whose critique remains valid even though its rewrite was withheld. Each filed item carries its **cite, rubric, and location**, so the eventual builder acts on the original judgment instead of re-deriving a critique that has already been paid for once.
+2. **File each verified `file` item as a roadmap item** — including **every target downgraded from `elevate`**, whose critique remains valid even though its rewrite was withheld. Each filed item carries its **cite, rubric, and location**, so the eventual builder acts on the original judgment instead of re-deriving a critique that has already been paid for once. **The orchestrator writes each filed item's "assumptions made" note here**, from SELECT's routing basis: the ranking basis that ordered it, the routing call that split it, and why it was filed rather than elevated. A downgraded target arrives carrying the note its subagent already wrote in DISPATCH; a pure-`file` item never had a subagent, so this is the phase that produces its note.
 
 3. **Park-and-hand-back the routed findings.** A correctness candidate is handed back as a **seed candidate for the correctness queue** — proving a defect requires a reproduction, and this member has no machinery for one. A genuine security vulnerability goes **privately to the human** and is **never opened as a public item**: filing a security finding publicly _is_ disclosure, and this fleet has no disclosure machinery, no severity rating, and no embargo. Ordinary `security-craft` posture findings that are not vulnerabilities take the `file` path like any other file-only domain.
 
@@ -222,7 +239,9 @@ Four of eleven domains clear the bar. The other seven are file-only, and each fo
 
    Alongside the table, report every non-item outcome with its count and its reason: **dropped-by-noise-floor** findings, **over-cap** findings shed after ranking, **downgraded** targets with their downgrade reason, **cross-check drops** each citing its resolving PR or item, **routed** findings, and **quiet** targets. Quiet targets are reported **as quiet — a valid outcome, not a failure**.
 
-5. **Degrade gracefully in SELECT and DISPATCH only.** A missing or erroring craft skill, a target that downgraded, or one target's failed elevation is reported while the batch continues. One bad target never sinks the batch, and a batch of filings with no elevations is a perfectly good batch.
+5. **Under `--file-only`, every `elevate` target files instead.** No branch is pushed and no PR is opened: each `elevate`-routed target **converts its already-budgeted elevation slot** into a filed item, exactly as a downgrade does, so the combined total still never exceeds what the two caps allow. Because no branch exists, no commit trail, no re-critique, and no CI apply — those items are verified to the **`verified-filing` standard**, cite plus cross-check, like any other filing.
+
+6. **Degrade gracefully in SELECT and DISPATCH only.** A missing or erroring craft skill, a target that downgraded, or one target's failed elevation is reported while the batch continues. One bad target never sinks the batch, and a batch of filings with no elevations is a perfectly good batch.
 
 ## Harness Integration
 
@@ -243,7 +262,7 @@ Four of eleven domains clear the bar. The other seven are file-only, and each fo
 - **Every elevation PR carries the step-granular `harness-refactoring` commit trail** (one small change per commit, suite green throughout); an item with no such trail is rejected as not having run the real pipeline.
 - **Every elevation is confirmed net better by a two-run re-critique that VERIFY itself executes**, never by one the dispatch subagent ran and reported. Each cited finding is absent from **both** runs, and **no** run reports a new finding at equal-or-higher tier (`foundational` > `polish` > `aspirational`). A re-critique that trades one finding for another is style-thrash and does not ship; two runs that disagree leave the elevation unproven and the item **downgrades to `file`**; a re-critique that could not run at all is **rejected** for want of proof, never passed.
 - Every elevation PR preserves behavior — the passing-test count does not decrease and no public-API or observable-contract change is present — and is green across all three operating systems plus the enforce and harness checks.
-- **No structural quality change is ever auto-applied.** Cross-module reach, contract change, exported-identifier change, module splits, and abstraction redesign are filed, always — including when a target discovers mid-flight that its elevation requires one, and including when the baseline suite is red at the pinned base SHA. Both cases downgrade to `file` and report.
+- **No structural quality change is ever auto-applied.** Cross-module reach, contract change, exported-identifier change, module splits, and abstraction redesign are filed, always — including when a target discovers mid-flight that its elevation requires one, and including when the baseline is not clean at the pinned base SHA — a red suite, a failing `harness validate`, or a failing `harness check-deps`. Both cases downgrade to `file` and report.
 - **Only `naming-craft`, `code-craft`, `copy-craft`, and `test-craft` ever produce an elevation**, and only on their eligible surfaces. The other seven domains are file-only: no prose file, no design token, no API or CLI contract surface, and no `security-craft` finding is ever rewritten by this fleet — and a ratified ADR is never edited at all.
 - **User-facing output is never elevated, whichever domain surfaced it.** A `copy-craft` finding on an error message or a CLI output string is filed on the same terms as a `cli-ergonomics-craft` finding on the same bytes; only internal-facing prose — code comments and internal log lines — is elevation-eligible.
 - **A `test-craft` elevation leaves every assertion expression byte-identical** and the passing-test count unchanged, with the passing test-ID set differing only by the renames the elevation itself applied; anything that changes what a test asserts is filed.
@@ -255,9 +274,9 @@ Four of eleven domains clear the bar. The other seven are file-only, and each fo
 - Already-addressed targets are **dropped and annotated citing the resolving PR or item, not re-elevated**.
 - A target with nothing above the noise floor is reported as **quiet** — a valid outcome, not a failure.
 - The skill **never auto-merges** an elevation PR.
-- It **degrades gracefully in SELECT**: a missing or erroring craft skill, a downgraded target, or a single target's failed elevation is reported while the batch continues, and a rejected item is retried at most once. **Degradation never reaches VERIFY** — a proof that cannot be produced there is a rejection, not a graceful skip.
+- It **degrades gracefully in SELECT and DISPATCH**: a missing or erroring craft skill, a downgraded target, or a single target's failed elevation is reported while the batch continues, and a rejected item is retried at most once. **Degradation never reaches VERIFY** — a proof that phase's standard for the item's tier demands and cannot produce is a rejection, not a graceful skip.
 - Concurrency never exceeds the confirmed governor (default 2, max ~3).
-- **No item is marked verified on a subagent self-report** — every verdict is backed by independently-checked critique provenance, independently-checked elevation provenance, a re-critique VERIFY ran itself, and all-OS CI.
+- **No item is marked verified on a subagent self-report.** Every **elevation** verdict is backed by independently-checked critique provenance, independently-checked elevation provenance, a re-critique VERIFY ran itself, and all-OS CI; every **filing** verdict — which has no branch to check — is backed by its cite resolving to a real craft-skill run and by a cross-check that the target is not already addressed.
 
 ## Gates
 
@@ -267,7 +286,7 @@ Four of eleven domains clear the bar. The other seven are file-only, and each fo
 - **A re-critique that could not run is a rejection, not a pass.** Retried once; if it still cannot run, the item is reported as unverifiable and never shipped.
 - **Two runs that disagree downgrade the item to `file`.** Never ship the unproven rewrite; never discard the valid critique.
 - **VERIFY executes both re-critique runs.** A re-critique the dispatch subagent ran and reported is never accepted as proof, no matter how detailed the report.
-- **Never auto-apply a structural, contract-touching, cross-module, or exported-identifier change.** Filed, always — including when the discovery happens mid-flight and including when the baseline suite is red.
+- **Never auto-apply a structural, contract-touching, cross-module, or exported-identifier change.** Filed, always — including when the discovery happens mid-flight and including when the baseline is not clean (red suite, or a failing `harness validate` or `check-deps`).
 - **Only `naming-craft`, `code-craft`, `copy-craft`, and `test-craft` ever elevate**, and only on their eligible surfaces. No prose file, no design token, no API or CLI contract surface.
 - **Never edit a ratified ADR.** It is a record of a decision, not a document to be improved.
 - **Never elevate user-facing output**, whichever domain surfaced it. Error messages and CLI output strings are observable contracts and are filed.
@@ -283,7 +302,7 @@ Four of eleven domains clear the bar. The other seven are file-only, and each fo
 
 - **A craft skill is missing or errors:** degrade to the remaining ones and record which one was unavailable in the batch summary. If no craft skill is available, stop and report — there is nothing to rank.
 - **The re-critique provider is unavailable or the prompt budget is exceeded:** the item is rejected for want of proof and retried once. If it still cannot run, report the item as unverifiable rather than passing it — an unproven elevation is exactly what the Iron Law's second half forbids.
-- **The baseline suite is red at the pinned base SHA:** the affected targets do not elevate. They downgrade to `file` and report, because the elevation pipeline's entire safety net is a green suite and there is nothing to substitute for it.
+- **The baseline is not clean at the pinned base SHA** — a red suite, or a failing `harness validate` or `check-deps`: the affected targets do not elevate. They downgrade to `file` and report, because those three checks are the elevation pipeline's entire safety net and there is nothing to substitute for them.
 - **A target discovers mid-flight that its elevation needs a structural change:** downgrade it to `file` and report the reason; do not apply it, and do not narrow the change until it fits. The critique still reaches the human.
 - **A finding turns out to be a correctness defect:** park it and hand it back as a seed candidate for the correctness queue. Proving a defect requires a reproduction, and this member has no machinery for one.
 - **A finding turns out to be a genuine security vulnerability:** hand it to the human privately. Never patch it, never open a public item, and do not continue pulling on the thread looking for adjacent findings.
@@ -369,11 +388,13 @@ Phase 4: VERIFY (independent — both re-critique runs executed here)
                         -> REJECTED (retried once, same) — orchestrator's own taste
 
 Phase 5: FILE-AND-REPORT
+  Batch summary — one row per item; excerpt shown:
   | Item                 | Target               | Domain       | Verdict            | PR / Filed item | Cite                | Assumptions made              |
   | -------------------- | -------------------- | ------------ | ------------------ | --------------- | ------------------- | ----------------------------- |
   | local name clarity   | auth-session-naming  | naming-craft | verified-elevation | PR link         | run + rubric + loc  | non-exported identifiers only |
   | comment accuracy     | sync-comments        | copy-craft   | verified-elevation | PR link         | run + rubric + loc  | internal prose only           |
   | test-name clarity    | export-test-names    | test-craft   | verified-elevation | PR link         | run + rubric + loc  | assertions frozen             |
+  | endpoint naming      | billing-api-surface  | api-craft    | verified-filing    | filed item      | run + rubric + loc  | filed: published contract     |
   | control-flow honesty | retry-control-flow   | code-craft   | downgraded         | filed item      | run + rubric + loc  | runs split; rewrite withheld  |
   | abstraction redesign | billing-abstraction  | code-craft   | downgraded         | filed item      | run + rubric + loc  | module split -> structural    |
   | guard-clause tidy    | ledger-guard-clauses | code-craft   | rejected           | —               | (uncited location)  | no cite for 1 changed line    |
@@ -443,7 +464,7 @@ cli:
       description: Run SELECT and CONFIRM only; do not fan out, verify, file, or open PRs
       required: false
     - name: --file-only
-      description: File every verified target as a roadmap item carrying its cited finding; never open an elevation PR
+      description: Open no elevation PR; every elevate-routed target converts its already-budgeted elevation slot into a filed item carrying its cited finding, so the per-batch caps still hold
       required: false
 mcp:
   tool: run_skill
@@ -454,19 +475,19 @@ type: rigid
 tier: 2
 phases:
   - name: select
-    description: Compose the enabled craft skills over the repository, fold their findings into (scope, craft domain) targets, apply the noise floor, cross-check each target against open elevation PRs and already-filed quality items, route every surviving finding elevate or file or route by the mechanical boundary, and order by tier times impact with roadmap-pilot impact scoring
+    description: Compose the enabled craft skills over the repository, fold their findings into (scope, craft domain) targets, apply the noise floor, cross-check each target against open elevation PRs and already-filed quality items, route every surviving finding elevate or file or route by the mechanical boundary and then re-form the targets by verdict so a split scope yields at most one elevate target and at most one file item each carrying only its own findings, enforce the caps in emitted items rather than findings, and order by tier times impact with roadmap-pilot impact scoring
     required: true
   - name: confirm
     description: Present the enabled craft domains, the ranked targets with their elevate and file split, a taste-calibration sample of verbatim findings, the noise floor, the per-batch caps, the proposed concurrency, and the pinned base SHA for a single up-front human approval that may disable domains or re-tune the floor
     required: true
   - name: dispatch
-    description: Fan out worktree-isolated subagents, one per confirmed elevate target, each running the real harness-refactoring pipeline over that target's cited findings and pushing a branch carrying its step-granular commit trail; a target that needs a structural change or whose baseline suite is red downgrades itself to file and reports, and no subagent runs a re-critique
+    description: Fan out worktree-isolated subagents, one per confirmed elevate target, each running the real harness-refactoring pipeline over that target's cited findings and pushing a branch carrying its step-granular commit trail; a target that needs a structural change or whose baseline is not clean at the pinned base — a red suite or a failing harness validate or check-deps — downgrades itself to file and reports, and no subagent runs a re-critique
     required: true
   - name: verify
-    description: Independently confirm critique provenance for every changed location, the step-granular refactoring commit trail, and net improvement via a two-run re-critique executed here rather than read from the subagent, plus behavior preservation and all-OS CI green — never by subagent self-report
+    description: For every elevation independently confirm critique provenance for each changed location, the step-granular refactoring commit trail, and net improvement via a two-run re-critique executed here rather than read from the subagent, plus behavior preservation and all-OS CI green; for every filing, which has no branch, confirm the narrower verified-filing standard of critique provenance plus the cross-check that the target is not already addressed — never by subagent self-report
     required: true
   - name: file-and-report
-    description: Open one elevation PR per verified target and craft domain without merging, file every verified and every downgraded item as a roadmap item carrying its cite and rubric and location, park routed correctness and security findings for hand-back, and emit a one-row-per-item batch summary including noise-floor drops, over-cap counts, downgrade reasons, cross-check drops, and quiet targets
+    description: Open one elevation PR per verified target and craft domain without merging, file every verified and every downgraded item as a roadmap item carrying its cite and rubric and location plus an assumptions-made note the orchestrator writes here from the SELECT routing basis, convert every elevation slot to a filed item under --file-only, park routed correctness and security findings for hand-back, and emit a one-row-per-item batch summary including noise-floor drops, over-cap counts, downgrade reasons, cross-check drops, and quiet targets
     required: true
 state:
   persistent: false
