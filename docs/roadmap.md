@@ -1076,7 +1076,7 @@ last_manual_edit: 2026-06-27T12:51:51.967Z
 
 ### ULID Identity for Sessions and Worktrees
 
-- **Status:** planned
+- **Status:** done
 - **Spec:** —
 - **Summary:** Adopt collision-free immutable ULID identity for harness sessions and worktree-isolated tasks, with human-friendly numbering assigned only at completion — fixing the worktree/branch/dashboard disambiguation problem that slug-prefix schemes collide on. Adapted from Spec Kitty's ULID mission identity (mission_id immutable, mission_number at merge). Adoption #6 from docs/research/spec-kitty-comparison-analysis.md [SPECKITTY-6]
 - **Blockers:** —
