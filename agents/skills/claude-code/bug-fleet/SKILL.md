@@ -1,0 +1,350 @@
+# Bug Fleet
+
+> Proactive undiscovered-bug hunt across the standing codebase — rank the code into disjoint risk-ordered areas, confirm the batch with the human in one up-front round, fan out worktree-isolated subagents that each run the **real** per-area hunt pipeline, admit nothing as a bug until a deterministic failing test reproduces it against unmodified code at the pinned base SHA, and hand back a tiered batch of fix PRs and filed issues for one bulk review. The fleet never auto-merges and never trusts a subagent's self-report.
+
+Every existing correctness gate looks at code that is already suspect. CI-red and flaky-run work starts from a failure that has **already manifested**. Interactive debugging is **reactive** — it begins with a known problem. Code, security, and soundness review are **diff- or spec-scoped** — they judge what changed, not what is standing. Coverage-driven test authoring chases untested lines, where bugs are an incidental by-product. Nothing proactively sweeps **already-merged, standing code** for the defects nobody has hit yet, and those are precisely the defects that surface in production rather than in a pull request.
+
+`bug-fleet` fills that gap, and it inverts the attention economics while doing so. Hunting a large codebase by hand is a per-defect slog: pick an area, reason about its failure modes, convince yourself a suspicion is real, write a test to prove it, decide whether the fix is safe, and do it again — one area at a time, with a human present throughout. The fleet moves the human from "hunt every area" to **"confirm the batch once, review the batch once."** It is a **quality-queue** member of the `-fleet` family: it does not sit on the core intake → decide → build → land spine, but works the latent-defect queue alongside it, as its siblings work the CI-red, coverage-gap, and entropy-hotspot queues.
+
+This skill builds on the shared `-fleet` spine documented in `docs/reference/fleet-family.md` — the five-phase SELECT → CONFIRM → DISPATCH → VERIFY → terminal skeleton, the concurrency governor, the artifact + all-OS-CI verification discipline, the worktree fan-out with its nested-path push caveat, the front-load / park-unforeseen interaction model, and the never-silent-merge invariant. The family ADRs cited there — _Subagent worktree fan-out (vs the Workflow primitive) for `-fleet` execution_ and _The front-load / park-unforeseen interaction model for the `-fleet` family_ — state that contract once for the family. This SKILL.md defines only what is `bug-fleet`'s own: its queue, its hunt taxonomy, its reproduction-gated verification, its tiered terminal act, and its domain-specific rationalizations.
+
+## When to Use
+
+- Proactively sweeping standing, already-merged code for latent defects nobody has reported yet — the case no reactive gate covers
+- Turning hotspot, critical-path, blast-radius, and coverage-depth analysis into **verified** defects rather than a list of risky-looking places
+- Batch-scale hunting across many areas, where per-defect interactive investigation does not scale and the human's attention is the bottleneck
+- When the areas are genuinely independent — each is a distinct module or subsystem, hunted in its own worktree, and one area's findings do not depend on another's fix
+- When the output must be trustworthy enough to act on without re-litigating it: every item arrives with an executable reproduction
+- NOT for a single known bug — investigating one reported defect is `harness-debugging`; a fleet's overhead only pays off across a batch
+- NOT for diff-scoped review of in-flight changes — reviewing what a branch changed is `harness-code-review`
+- NOT for coverage-driven test authoring — closing coverage gaps is `test-fleet`; `bug-fleet` writes tests only as reproduction evidence, and uses coverage depth only as a risk multiplier
+- NOT for failures that have already manifested — red or flaky CI runs are `cicd-fleet`; `bug-fleet` hunts what has not failed yet
+- NOT for landing or merging PRs — that is `pr-fleet`; `bug-fleet` stops at reviewable and never merges
+- NOT for security-specific machinery or supply-chain risk — `bug-fleet` owns general correctness; a candidate that is genuinely a vulnerability is **security-routed** to the human, not worked here
+
+## Flags
+
+| Flag            | Effect                                                                                               |
+| --------------- | ---------------------------------------------------------------------------------------------------- |
+| `--concurrency` | Cap concurrent hunt subagents (default 2, max recommended 3 — the machine-storm limit)               |
+| `--report-only` | Enumerate, score, and present the ranked area batch; do not dispatch hunt subagents, verify, or file |
+| `--dry-run`     | Run SELECT and CONFIRM only; stop before fan-out                                                     |
+| `--file-only`   | File every verified bug as an issue with its reproducing test; never open a fix PR                   |
+
+## Process
+
+### Iron Law
+
+**A candidate defect is not a bug until a failing test reproduces it — deterministically, against unmodified code, at the pinned batch base SHA. No reproduction ⇒ discarded, never filed. The fleet never auto-merges, never patches a security-routed finding inline, and never accepts a subagent's self-report as proof its pipeline ran.**
+
+Bug-hunting language models hallucinate defects at a high rate. A reviewer's confident prose describing a null-dereference that cannot occur reads exactly like a reviewer's confident prose describing one that can — and a proactive hunter with a weak bar is not a signal generator, it is a backlog spammer that costs more attention than it saves. An executable, deterministic reproduction is the only evidence that cannot be hallucinated: the test either goes red against unmodified code or it does not. Everything else in this skill exists to serve that bar.
+
+The corollary matters as much as the law. **A clean area is a valid, valuable result.** The pressure to return something — anything — so a sweep does not look wasted is the exact failure mode the Iron Law prevents. An area hunted honestly and found sound is a finding: it tells the human where the risk is not. Manufacturing a marginal item to justify the run destroys the property that makes this fleet's output worth reading.
+
+```
+Phase 1: SELECT --> Phase 2: CONFIRM --> Phase 3: DISPATCH
+                                                    |
+                                                    v
+             Phase 5: FILE-AND-REPORT <-- Phase 4: VERIFY
+```
+
+| Phase              | Purpose                                                                                   | Exit Condition                                                                |
+| ------------------ | ----------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------- |
+| 1. SELECT          | Compose the analyses into disjoint, risk-ranked areas                                     | Ranked `Area[]`, disjoint and within the size bound, each with its risk basis |
+| 2. CONFIRM         | One human round: the batch, the pinned base SHA, the governor, the caps, the fix boundary | Approved batch with a pinned base SHA and confirmed caps                      |
+| 3. DISPATCH        | Subagents run HUNT → REFUTE → REPRODUCE → CROSS-CHECK → CLASSIFY → FIX                    | Every area returned candidates, clean, parked, or failed (all recorded)       |
+| 4. VERIFY          | Provenance + transplanted repro + all-OS CI, never a self-report                          | Each item marked verified-fix / verified-issue / security-routed / rejected   |
+| 5. FILE-AND-REPORT | Dedup backstop, tiered terminal act, batch summary                                        | Report delivered; nothing merged                                              |
+
+### Phase 1: SELECT — Compose the Analyses into Disjoint, Risk-Ranked Areas
+
+1. **Enumerate latent-defect risk by composing the existing analyses — reimplement none of them.** Run and fold together:
+   - `harness-hotspot-detector` — structural risk from co-change and churn analysis.
+   - `get_critical_paths` — the execution paths whose failure has the widest consequence.
+   - `harness-impact-analysis` / `compute_blast_radius` — dependents and blast radius per module.
+   - a git-churn pass (`git log --format=format: --name-only --since=...` → per-file commit counts).
+   - `harness-test-advisor` coverage depth — used **only as a risk multiplier**. Thin coverage over high-risk code is where latent defects survive; closing the coverage gap itself is not this fleet's job.
+
+   Missing any one source **degrades to the others rather than aborting**; record which source was unavailable so the batch summary can carry it. If no source is available, stop and report — there is nothing to rank.
+
+2. **Seed the queue with bugs parked by the other quality-queue members.** Suspected defects that a sibling fleet surfaced and handed back for routing enter SELECT as pre-scored candidate areas rather than being rediscovered from scratch.
+
+3. **Fold the analyses into areas.** An **area** is one coherent module or subsystem — the unit that becomes one hunt, in one worktree. Two constraints are hard:
+   - **Disjoint.** A file belongs to **exactly one** area. Overlapping areas mean two worktrees hunt the same code and return the same defect twice, which is how a fleet becomes a duplicate factory.
+   - **Bounded.** Default **40 files / 4,000 LOC**. A larger module is split into sub-areas rather than hunted whole — the bound is what keeps the whole-area review inside the reviewers' context ratio instead of degrading into "prioritize ruthlessly."
+
+4. **Score and order by composite latent-defect risk.** Do not rank ad-hoc. Reuse `harness-roadmap-pilot`-style impact scoring over a composite of **churn × blast radius × critical-path membership × inverse coverage depth**, so the ordering is principled and reproducible rather than a matter of which area looked interesting first. Riskiest area first.
+
+5. **Build the `Area` record** for each survivor:
+
+   ```
+   Area {
+     sources,     // which analyses surfaced it (may be several)
+     id,          // area slug
+     files,       // the files / module the area covers (disjoint, within the size bound)
+     riskBasis,   // churn, blast radius, critical-path membership, coverage depth
+     score,       // composite latent-defect-risk score
+     forks,       // detected decision forks to surface at CONFIRM (may be empty)
+   }
+   ```
+
+### Phase 2: CONFIRM — The Single Up-Front Human Gate `[checkpoint:human-verify]`
+
+1. **Present the whole batch in one round.** This is the **only guaranteed human touchpoint before batch review** — everything downstream runs autonomously. Present, together, in a single surface:
+   - The **ranked areas**, highest-risk first, each with its score and its risk basis (what made it rank: churn, blast radius, critical-path membership, thin coverage).
+   - The **pinned base SHA** the entire batch will verify against. Pinning one commit for the whole batch is what keeps red-on-base from being a moving target across a multi-hour run.
+   - The **proposed concurrency** (default 2, capped at ~3).
+   - The **bounded-safe vs risky/large fix boundary** — which classes of fix the fleet will apply autonomously and which it will file instead.
+   - The **area-size bound** (default 40 files / 4,000 LOC).
+   - The **candidates-per-area cap** (default 8).
+   - The **reproduction-attempt budget** per candidate (default 2).
+
+2. **The human approves or trims once.** Batch approval, the fix boundary, and the caps are all settled in this same gate — front-loading the genuinely-ambiguous calls is what keeps the autonomous stretch from producing work the human would have declined. An area the human drops is dropped; a bound the human tightens applies to the whole batch.
+
+3. **From here it is autonomous.** After this gate the fleet does not pause per area. The only thing that re-surfaces before FILE-AND-REPORT is an area that hits a genuinely-unforeseen fork mid-flight — and that parks only that one area without blocking the batch. Under `--dry-run` the skill stops at the end of this phase.
+
+### Phase 3: DISPATCH — Worktree Fan-Out With a Concurrency Governor
+
+One worktree-isolated subagent per confirmed area, each running the **real** per-area hunt pipeline for its one area. It does not hand-reason its way to a conclusion and it does not short-cut the pipeline — the session artifacts the pipeline necessarily leaves behind are what VERIFY checks for.
+
+1. **HUNT — run the real review machinery over the area's standing code.** The adversarial reviewer constructing failure scenarios, plus the security, typescript-strict, and frontend-races reviewers, honoring **their own activation set** — a non-UI area runs three reviewers, not four. Because that machinery is diff-shaped, four adaptations are explicit rather than assumed:
+   - **Whole-area scope.** The area's standing code is presented as a whole-area scope — mechanically, the area diffed against the empty tree — so every line is in scope rather than only recently-changed lines. Deep tier is therefore **expected, not exceptional**.
+   - **MECHANICAL is informational, never a stop.** The review pipeline's mechanical phase normally halts on a red suite or a failing type-check. For a standing-code hunt that would make any repository with one pre-existing red test un-huntable — and a pre-existing failure is itself a **lead**. The hunt **records** the mechanical result and proceeds.
+   - **Area size is bounded** (the confirmed bound, default 40 files / 4,000 LOC) so the whole-area fan-out stays inside the reviewers' context ratio.
+   - **Security review runs in full mode**, not the changed-files mode a diff would select, so its threat-model phase actually runs.
+
+2. **REFUTE — actively try to prove the candidate cannot occur.** For each candidate the hunt surfaced, run an adversarial pass whose goal is **disproof**: the input is guarded upstream, the branch is unreachable, the type system prevents it, an existing test already covers it. This removes the plausible-but-impossible class **before** the expensive reproduction attempt, which is the whole reason it earns its place in the pipeline. Every refuted candidate is **recorded with its refutation reason** so a human can spot-check what was dropped — a silent refutation step is indistinguishable from a lazy one.
+
+3. **REPRODUCE — the real `harness-tdd` authors a test that must fail observably and deterministically against unmodified code.** Run it **three times** at the pinned base SHA and require a **consistent red result**. A repro that is red only sometimes is **nondeterministic and discarded**: a test that fails by chance satisfies red-on-base by chance, and proves nothing about the defect. A candidate that survives refutation but cannot be reproduced within the confirmed attempt budget (default 2) is **discarded here — it never reaches VERIFY and is never filed**. It is reported as discarded, with its attempts, in the batch summary.
+
+4. **CROSS-CHECK — is this already tracked or already fixed?** Check the reproduced defect against open issues and recently-merged fix PRs. An already-tracked or already-fixed defect is annotated **already-known** and dropped **citing the resolving issue or PR** — never re-filed. The fleet's whole value proposition is signal quality, and a duplicate-heavy filer is a spammer by another route.
+
+5. **CLASSIFY — tier on fix risk, never on bug severity.** Assign exactly one class:
+   - **`bounded-safe`** — the fix is confined to the area, changes no public API or observable contract, requires no cross-module refactor, and carries no schema or migration change.
+   - **`risky-large`** — anything else: cross-module reach, contract change, or a blast radius a bulk reviewer could not hold in their head.
+   - **`security-routed`** — the candidate is genuinely a security vulnerability, regardless of how contained its fix looks.
+
+   Severity does not enter the classification. A catastrophic bug with a one-line, area-local fix is `bounded-safe`; a cosmetic bug whose fix rewrites a shared contract is `risky-large`. Tiering on fix risk keeps the boundary mechanical instead of a judgment call about how bad a defect feels.
+
+6. **FIX — bounded-safe only, via the real `harness-debugging`.** The subagent drives the actual debugging pipeline; it does not hand-patch. One PR per verified bug, so each is independently reviewable and independently revertible. `risky-large` and `security-routed` items are **never fixed here** — their reproducing test is pushed and the item is handed on for FILE-AND-REPORT to route.
+
+7. **Cap concurrency at the governor (default 2, max ~3)** and at the confirmed candidates-per-area cap. This is the machine-storm limit: beyond roughly three concurrent hunt agents the compound load produces flaky failures indistinguishable from real ones — and in a fleet whose entire bar is determinism, manufactured flakiness is uniquely corrosive. Never raise the cap to "go faster."
+
+8. **Record an "assumptions made" note per area** — the ranking basis it worked from, the hunt scope it took, the refutation calls it made, and the fix-class call for each candidate. Batch review is only trustworthy when the reviewer can see what was assumed and what was deliberately dropped.
+
+9. **Park the unforeseen.** An area that hits a genuinely-unforeseen fork — the area turns out not to be disjoint, an analysis source contradicts another, the hunt cannot proceed — **parks that one area and reports it**. The other areas continue uninterrupted.
+
+10. **Push-path caveat.** A worktree created under a nested agent-config path breaks the local pre-push documentation gate (it self-excludes and scans zero files). Subagents push via the GitHub API or from a non-nested throwaway worktree. **Never `--no-verify`** — bypassing the gate defeats the verification the fleet depends on.
+
+Each surviving candidate carries this record forward:
+
+```
+Candidate {
+  area,                 // the area it was hunted in
+  description,          // the defect, concretely
+  originatingReviewer,  // which reviewer surfaced it
+  refutation,           // "survived" | "refuted" + reason
+  reproduction,         // "reproduced" + test path | "unreproduced" + attempts | "nondeterministic"
+  crossCheck,           // "novel" | "already-known" + resolving issue/PR
+  fixClass,             // "bounded-safe" | "risky-large" | "security-routed"
+  provenance,           // session paths for the tdd / debugging runs
+}
+```
+
+### Phase 4: VERIFY — Two Independent Proofs, Never Self-Report
+
+1. **Why two artifacts and not one.** The family invariant requires proof the **real per-item pipeline ran**. The Iron Law additionally requires proof the **bug is real**. Neither artifact does both jobs: a hand-written test plus a hand-applied patch would sail through a repro check while proving no pipeline ran, and a genuine pipeline run proves nothing about whether the defect it chased exists. VERIFY therefore checks both, independently, for every item. **Never accept a subagent's self-report** — "reproduced it, fixed it, CI green" is a claim to be checked, not a result.
+
+2. **Provenance — the pipeline actually ran.** Confirm the `harness-tdd` session state (and, for fix items, the `harness-debugging` session state) the per-area pipeline necessarily leaves behind under `.harness/sessions/<slug>/`. **Absent provenance = the pipeline did not run = rejected**, regardless of how good the test looks.
+
+3. **Repro evidence — transplanted and re-run.** Check out the **pinned batch base SHA** into a scratch worktree, apply **only the test file(s)** from the item's branch, and run them. Then:
+   - The result must be an **assertion failure**. A compile, import, or module-resolution error means the test depends on the fix rather than reproducing the defect — the item is **rejected, not verified**. This distinction is the single most-cheated step in the whole pipeline: a test that cannot even load at the base SHA is red for the wrong reason and proves nothing about the defect.
+   - Confirm the same test **passes on the branch**.
+   - Confirm the **rest of the suite stayed green** on the branch.
+   - Confirm **CI is green on all three operating systems** plus the enforce and harness checks. Green on one OS is not green.
+   - **File-only items are verified the same way** against their test-only reproduction branch: red — by assertion — at the pinned base, with no fix present.
+
+4. **Assign exactly one verdict per item:**
+   - `verified-fix` — provenance present, assertion-failure at the pinned base, green on branch, suite green, all-OS CI green.
+   - `verified-issue` — provenance present, assertion-failure at the pinned base on a test-only reproduction branch; no fix applied.
+   - `security-routed` — verified as a defect, but routed to the human rather than fixed or publicly filed.
+   - `rejected` — any proof missing or wrong-shaped. **Retried once**; still failing, it is reported as rejected with the reason and the batch continues.
+
+### Phase 5: FILE-AND-REPORT — Tiered Terminal Act, Never Merge
+
+1. **Run the cross-area dedup backstop.** Areas are disjoint by construction, so intra-batch duplicates should not arise — this is a backstop, not the primary defense. Two items describing the same defect collapse into one, with the drop recorded.
+
+2. **One fix PR per verified bounded-safe bug**, carrying the now-passing reproducing test. One bug per PR, so each is independently reviewable and independently revertible — the same granularity that makes a bulk review tractable at all. **Never merged.** The fleet's product is a reviewable batch; landing it is the human's call, optionally via `pr-fleet`.
+
+3. **Each risky/large bug is filed as an issue, never auto-fixed.** Its reproducing test is pushed as a **test-only reproduction branch**, and the issue **links that branch and quotes the test source** so both VERIFY and the eventual fixer can run it without archaeology. The reproducing test proves the **defect**, not the **fix** — which is exactly why a fix whose blast radius a bulk review could not hold stays a human decision.
+
+4. **Security-routed findings go to the human, and nowhere else.** Report the finding with its reproducing test held on the pushed branch. **Never patch it inline** — even when the fix looks bounded — and **never publish the exploit on a public issue**: filing a public reproducing exploit _is_ disclosure. Severity rating, backporting, and disclosure timing are the human's call, and this fleet has no machinery for any of them.
+
+5. **Emit a one-row-per-item batch summary** for bulk review:
+
+   | Item | Area | Verdict | PR / Issue | Repro test | Assumptions made |
+   | ---- | ---- | ------- | ---------- | ---------- | ---------------- |
+
+   Alongside the table, report the counts and the reasons for every non-item outcome: **discarded** candidates (survived refutation, never reproduced within the budget — with attempt counts), **refuted** candidates (with their refutation reasons, so the drops are spot-checkable), **already-known** drops (each citing the resolving issue or PR), and **clean areas**. Clean areas are reported **as clean — a valid outcome, not a failure**.
+
+6. **Degrade gracefully.** A missing analysis source, a candidate that would not reproduce, or one area's failed hunt is **reported** while the rest of the batch proceeds. One bad area never sinks the batch, and one empty area is not a bad area.
+
+## Harness Integration
+
+- **`harness skill run bug-fleet`** — Run the full five-phase batch pipeline.
+- **`harness-hotspot-detector`** — Composed in SELECT for structural risk from co-change and churn.
+- **`harness-impact-analysis`** / **`compute_blast_radius`** — Composed in SELECT for dependents and blast radius per module.
+- **`get_critical_paths`** — Composed in SELECT to weight the execution paths whose failure has the widest consequence.
+- **`harness-test-advisor`** — Composed in SELECT for coverage depth, used **only as a risk multiplier**; closing the gaps it finds is not this fleet's job.
+- **`harness-roadmap-pilot`** — Its impact-scoring approach is reused in SELECT to order areas by composite latent-defect risk.
+- **`harness-code-review`** — The review machinery each DISPATCH subagent runs over its area's standing code in HUNT, with the four standing-code adaptations (whole-area scope, MECHANICAL informational, bounded area size, full-mode security review).
+- **`harness-security-review`** — Run in **full** mode inside HUNT so its threat-model phase actually runs; a genuine vulnerability terminates as `security-routed`.
+- **`harness-tdd`** — The real skill that authors each reproducing test in REPRODUCE; its session artifacts are half the evidence VERIFY requires.
+- **`harness-debugging`** — The real per-item fix pipeline DISPATCH runs for `bounded-safe` items only; its session artifacts complete the provenance for fix items.
+- **`harness-verify`** — Independent confirmation support in VERIFY when re-running the transplanted test and the branch suite.
+- **`gh`** — Tracker cross-check (DISPATCH), CI reads across all three OS (VERIFY), and fix-PR / issue creation (FILE-AND-REPORT).
+- **`harness skill validate bug-fleet`** — The authoring-time gate for this skill's own structure and schema.
+- **`docs/reference/fleet-family.md`** — The shared `-fleet` spine this skill builds on (the five-phase skeleton, the concurrency governor, the artifact + all-OS-CI verification discipline, the worktree fan-out and its push caveat, and the never-silent-merge invariant), stated once for the family.
+
+## Success Criteria
+
+- Given a confirmed batch of N risk-ranked areas, the fleet produces a tiered batch of **verified** items — fix PRs and filed issues — where **every** item carries a deterministic reproducing failing test.
+- **Every verified item carries pipeline-provenance artifacts** under `.harness/sessions/<slug>/` (`harness-tdd`, plus `harness-debugging` for fix items); an item with no provenance is rejected as not having run the real pipeline.
+- **No item is filed or PR'd without repro evidence.** A candidate that cannot be reproduced deterministically within the confirmed attempt budget is discarded and reported as discarded, never filed.
+- Every fix PR's reproducing test is independently confirmed to fail with an **assertion failure at the pinned base SHA** — a compile or resolution failure is a rejection, not a pass — and to pass on the branch, with the rest of the suite green and CI green across all three OS plus enforce and harness.
+- Every filed issue **links and quotes a test-only reproduction branch** whose test is independently confirmed red, by assertion, at the pinned base SHA.
+- There is **exactly one** up-front human decision round; no per-area interactive pauses except a genuinely-unforeseen fork parked to its own area.
+- **Every emitted PR and issue carries an "assumptions made" note** (ranking basis, hunt scope, refutation calls, fix-class call).
+- Risky/large fixes are **filed with their reproducing test, never auto-applied**.
+- Security-routed findings are **reported to the human without a published exploit, and never patched inline**.
+- Already-known defects are **dropped and annotated citing the resolving issue or PR, not re-filed**; the batch summary also lists discarded and refuted candidates with reasons.
+- An area with no reproducible defect is reported as **clean** — a valid outcome, not a failure.
+- The skill **never auto-merges** a fix PR.
+- It **degrades gracefully**: a missing analysis source, a non-reproducing candidate, or a single area's failed hunt is reported while the batch continues; a rejected item is retried at most once.
+- Concurrency never exceeds the confirmed governor (default 2, max ~3), and no area exceeds the confirmed size bound or candidates-per-area cap.
+- **No item is marked verified on a subagent self-report** — every verdict is backed by independently-checked provenance plus an independently re-run reproducing test plus, for fix PRs, all-OS CI.
+
+## Gates
+
+- **No filing without a deterministic reproducing failing test.** A high-confidence reviewer finding is a candidate, not a bug. No repro ⇒ discarded and reported as discarded — never filed, never PR'd.
+- **A repro that fails at the pinned base with a compile, import, or module-resolution error is a rejection, not a pass.** Erroring is not asserting; a test that cannot load against unmodified code depends on the fix and proves nothing.
+- **A repro that is red only sometimes across the three base runs is nondeterministic ⇒ discarded.** A test that fails by chance satisfies red-on-base by chance.
+- **No verified item without pipeline provenance.** Absent `harness-tdd` (and, for fix items, `harness-debugging`) session artifacts means the real pipeline did not run; the item is rejected however good the test looks.
+- **Never auto-apply a risky/large fix.** It is filed as an issue with its reproducing test on a pushed reproduction branch. The repro proves the defect, not the fix.
+- **Never patch a security-routed finding inline, and never publish its exploit on a public issue.** Report it to the human with the repro held on the branch; disclosure is the human's call.
+- **Never auto-merge a fix PR.** The fleet stops at reviewable. Merging from inside the fleet is a gate violation.
+- **Never exceed the concurrency governor or the confirmed area-size, candidates-per-area, or attempt caps.** More than ~3 concurrent hunt agents is the machine-storm zone, and manufactured flakiness is fatal to a determinism bar.
+- **A self-report is never verification.** Provenance, the independently re-run transplanted repro, and all-OS CI are checked by the orchestrator itself, every time.
+- **Never manufacture a finding to justify a sweep.** A clean area is a valid result and is reported as clean.
+- **Never `--no-verify`.** A worktree whose push gate fails pushes via the GitHub API or a non-nested throwaway worktree instead.
+
+## Escalation
+
+- **An analysis source is unavailable (`get_critical_paths` errors, no git history, coverage data missing):** proceed with whichever analyses are available and record the missing source in the report rather than aborting. If no source is available, stop and report — there is nothing to rank.
+- **A candidate survives refutation but will not reproduce within the attempt budget:** discard it and report it as discarded with its attempt count and the closest failing behavior observed. Do not file it "for a human to look into" — that is the backlog-spam failure mode by another name.
+- **An area's hunt fails, or the area turns out not to be disjoint / forks unforeseeably:** park that one area with its context and a recommendation; the rest of the batch continues uninterrupted.
+- **CI red on a subset of operating systems for a fix PR:** report the item failed with the failing OS and check named. Never average a mixed CI result into "mostly green," and never mark it verified.
+- **The batch appears coupled (one area's fix depends on another's merge):** stop fanning out those areas — the coupling means they are one investigation, not independent hunts. Escalate to the human to sequence them.
+- **A candidate turns out to be a security vulnerability:** terminate it as `security-routed` immediately. Report it to the human with the reproducing test on the pushed branch; do not fix it, do not file it publicly, and do not continue hunting adjacent exploits.
+
+## Rationalizations to Reject
+
+| Rationalization                                                                         | Reality                                                                                                                                                                               |
+| --------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| "The reviewer is highly confident this is a real bug — file it without a repro"         | Confidence is exactly what a hallucinated defect also has. The Iron Law admits one kind of evidence: a test that goes red against unmodified code. No repro ⇒ discarded.              |
+| "The repro only fails sometimes — a failure is a failure"                               | A test that fails by chance satisfies red-on-base by chance. Nondeterministic repros are discarded; otherwise the bar admits noise and the whole batch stops being trustworthy.       |
+| "The test errors at the base SHA because the helper doesn't exist there — close enough" | Erroring is not asserting. A test that cannot load against unmodified code depends on the fix; it proves nothing about the defect. That is a rejection, not a pass.                   |
+| "This bug is severe, so fix it even though the fix spans five modules"                  | Tier on fix risk, never on severity. The repro proves the defect, not the fix — a five-module change is exactly the blast radius a bulk review cannot hold. File it with its repro.   |
+| "I found a security hole with a clean repro — file the issue so it gets attention"      | Filing a public reproducing exploit _is_ disclosure. Security-routed findings go to the human with the repro held on the branch; timing and severity are not this fleet's call.       |
+| "The area is large but I'll just review the interesting files"                          | Cherry-picking silently converts a whole-area hunt into a guess, and the un-reviewed files are where an un-hit defect most likely lives. Split the area to the size bound instead.    |
+| "MECHANICAL is red from a pre-existing failing test, so this area is un-huntable"       | For standing code, a red mechanical result is informational — and it is itself a lead. Record it and hunt on; halting here would make any repo with one red test permanently unswept. |
+| "No defect here — but a sweep with nothing to show looks like a wasted run"             | A clean area is a valid, valuable result: it tells the human where the risk is not. Manufacturing a marginal item to fill the report is the failure the Iron Law exists to prevent.   |
+| "I'll hand-write the failing test and the patch; driving tdd/debugging is slower"       | Hand work leaves no provenance, so VERIFY rejects it — and it breaks the guarantee that every item ran the audited pipeline. Dogfood the real skills; the artifacts are the evidence. |
+| "It's already tracked but my repro is better — file it anyway"                          | An already-known defect is dropped citing the resolving issue or PR. A duplicate with a nicer test is still a duplicate, and a duplicate-heavy filer is a spammer by another route.   |
+
+## Red Flags
+
+| Flag                                                                       | Corrective Action                                                                                                                          |
+| -------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------ |
+| "I'll mark it verified based on the subagent's summary"                    | STOP. Independently check provenance, re-run the transplanted repro at the pinned base, and read CI. A summary is not a verification.      |
+| "This finding is obviously real — file it even though it never repro'd"    | STOP. No repro, no bug. Discard it and report it as discarded; do not launder a suspicion into the tracker.                                |
+| "The fix touches a shared contract but it looks contained — just apply it" | STOP. That is `risky-large`. File the issue with its reproduction branch; the fleet auto-applies only the bounded-safe class.              |
+| "I've got a clean security repro — let me put it on the issue"             | STOP. Never publish the exploit. Route it to the human with the repro held on the pushed branch; disclosure is not the fleet's decision.   |
+| "The pre-push gate is failing in this worktree — I'll `--no-verify`"       | STOP. Never bypass. Push via the GitHub API or a non-nested worktree; the gate is part of the verification the fleet's guarantees rest on. |
+
+## Examples
+
+### Example: A five-area proactive sweep
+
+```
+$ harness skill run bug-fleet --concurrency 2
+
+Phase 1: SELECT
+  Composed analyses:
+    hotspot-detector  -> 9 high-churn/high-coupling hotspots
+    critical-paths    -> 4 paths flagged (auth, billing, sync, export)
+    impact-analysis   -> blast radius per module (top: sync/, 31 dependents)
+    churn pass        -> top-10% files identified (90-day window)
+    test-advisor      -> coverage depth: sync/ 34%, export/ 41% (risk multiplier)
+  Folded into 5 disjoint areas, each within the 40-file / 4,000-LOC bound.
+  Scored by churn x blast-radius x critical-path x inverse-coverage; ordered.
+
+Phase 2: CONFIRM  [checkpoint:human-verify]
+  Ranked areas (5) presented with risk basis.
+  Pinned base SHA: 4f2c9ab. Concurrency: 2. Area bound: 40 files / 4,000 LOC.
+  Candidates/area cap: 8. Reproduction-attempt budget: 2.
+  Fix boundary confirmed: bounded-safe auto-fixed; risky-large + security filed.
+  Human drops 1 low-risk area -> batch = 4.
+
+Phase 3: DISPATCH (governor = 2)
+  area sync/       HUNT 6 candidates -> REFUTE 3 (guarded upstream x2, unreachable x1)
+                   -> REPRODUCE 2 of 3 (1 discarded: budget exhausted)
+                   -> CROSS-CHECK: 1 already-known (resolving issue cited), 1 novel
+                   -> CLASSIFY bounded-safe -> FIX via debugging
+  area export/     HUNT 4 -> REFUTE 1 -> REPRODUCE 2 (1 nondeterministic, discarded)
+                   -> CROSS-CHECK novel -> CLASSIFY 1 bounded-safe, 1 risky-large
+  area auth/       HUNT 3 -> REFUTE 1 -> REPRODUCE 1 -> CLASSIFY security-routed
+  area billing/    HUNT 5 -> REFUTE 5 -> no candidates survived -> CLEAN
+
+Phase 4: VERIFY (independent — no self-report)
+  sync/ off-by-one window   provenance OK; base 4f2c9ab -> assertion failure;
+                            branch green; suite green; CI green 3 OS -> verified-fix
+  export/ CSV quote escape  provenance OK; base -> assertion failure; branch green;
+                            CI green 3 OS -> verified-fix
+  export/ encoding rewrite  provenance OK; repro red at base on repro branch;
+                            fix spans 3 modules -> verified-issue
+  auth/ token replay        provenance OK; repro red at base -> security-routed
+  sync/ retry storm         base run -> MODULE NOT FOUND (test imports new helper)
+                            -> REJECTED (retried once, same) — depends on the fix
+
+Phase 5: FILE-AND-REPORT
+  Cross-area dedup backstop: no duplicates (areas disjoint).
+  | Item                    | Area    | Verdict         | PR / Issue | Repro test        | Assumptions made              |
+  | ----------------------- | ------- | --------------- | ---------- | ----------------- | ----------------------------- |
+  | off-by-one window       | sync/   | verified-fix    | PR link    | sync window spec  | churn-ranked; area-local fix  |
+  | CSV quote escape        | export/ | verified-fix    | PR link    | csv escape spec   | contract unchanged            |
+  | encoding rewrite        | export/ | verified-issue  | issue link | repro branch link | 3-module reach -> risky-large |
+  | token replay            | auth/   | security-routed | (withheld) | on branch only    | reported to human, not filed  |
+  | retry storm             | sync/   | rejected        | —          | —                 | errored at base, not asserted |
+  Discarded 2 (budget exhausted x1, nondeterministic x1). Refuted 10 with reasons.
+  Already-known 1, dropped citing the resolving issue. Clean areas: 1 (billing/).
+  Never merged. 2 fix PRs + 1 issue handed to the human for bulk review.
+```
+
+### Example: Rejecting an item whose repro errors at the base
+
+A subagent returns a branch and reports "reproduced and fixed the retry storm — test red before, green after." VERIFY checks out the pinned base SHA, applies **only** the test file, and runs it: the test fails with a module-resolution error, because it imports a retry helper that the fix introduced and that does not exist at the base. That is not a reproduction — the test depends on the fix, so it proves nothing about whether the defect existed. Per the Iron Law and the Gates the item is **rejected** (retried once, same result), and the batch's other verified items proceed to FILE-AND-REPORT unaffected.
+
+## Test Scenarios
+
+### Scenario 1: Gate — an unreproduced but "obviously real" finding is filed anyway
+
+The adversarial reviewer surfaces a null-dereference in a rarely-taken branch and rates it high confidence, but `harness-tdd` exhausts the reproduction budget without producing a failing test. Expected: the "no filing without a deterministic reproducing failing test" Gate discards the candidate and reports it as discarded with its attempt count. Filing it on the strength of reviewer confidence — the "the reviewer is highly confident" rationalization — is the failure this scenario guards against.
+
+### Scenario 2: Gate — a repro that errors rather than asserts at the pinned base is accepted
+
+An item's reproducing test fails at the pinned base SHA with an import error, because it references a helper the fix added. Expected: the "compile/import/resolution error is a rejection, not a pass" Gate rejects the item rather than marking it verified; it is retried once and then reported as rejected. Accepting erroring-as-red — the "close enough to red" rationalization — would admit items whose test proves nothing about the defect.
+
+### Scenario 3: Gate — a security-routed candidate is patched inline or filed publicly
+
+A hunt reproduces a token-replay vulnerability whose fix looks like a one-line change inside the area. Expected: the "never patch a security-routed finding inline, and never publish its exploit" Gate stops both the inline fix and the public issue; the finding is reported to the human with the reproducing test held on the pushed branch. The "clean repro, file it so it gets attention" rationalization is rejected — filing the exploit publicly is itself disclosure.
