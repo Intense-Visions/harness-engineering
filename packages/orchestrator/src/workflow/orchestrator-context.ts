@@ -15,6 +15,7 @@ import { AgentRunner } from '../agent/runner.js';
 import { isLocalExecutionBackend } from '../agent/backend-factory.js';
 import type { OrchestratorBackendFactory } from '../agent/orchestrator-backend-factory.js';
 import { selectStagePromptTemplate } from './local-stage-prompt.js';
+import { detectEcosystem } from '../workspace/ecosystem.js';
 import type { StreamRecorder } from '../core/stream-recorder.js';
 import type { StructuredLogger } from '../logging/logger.js';
 import { PromptRenderer } from '../prompt/renderer.js';
@@ -304,10 +305,30 @@ function gateFailurePreamble(reason: string): string {
   return `\n\n## Previous attempt failed the enforced gate\n\nYour prior attempt at this task was blocked by the harness gate and re-dispatched. The gate runs typecheck + lint + tests on the changed packages — passing tests alone is NOT enough. Fix the following before finishing this stage:\n\n${reason}\n`;
 }
 
+/**
+ * Derive the self-verify command set the LOCAL stage prompt renders. Mirrors the
+ * enforced gate's node / non-node split (#1115): a non-node ecosystem renders THAT
+ * toolchain's verify commands verbatim; a node ecosystem — or nothing detected
+ * (unreadable / unrecognized root) — falls back to the existing scoped per-package
+ * pnpm prose, byte-identical to the previously hardcoded block. Reuses
+ * `detectEcosystem` (no duplicated detection logic).
+ */
+export function deriveVerifyCommands(workspacePath: string): string[] {
+  const ecosystem = detectEcosystem(workspacePath);
+  return ecosystem !== null && ecosystem.language !== 'node'
+    ? [...ecosystem.verifyCommands]
+    : [
+        'pnpm --filter <changed-package-name> typecheck',
+        'pnpm --filter <changed-package-name> lint',
+        'pnpm --filter <changed-package-name> test',
+      ];
+}
+
 /** Build the engine's `renderStagePrompt` seam over a pure renderer + issue. */
 function renderStagePromptFactory(
   promptRenderer: PromptRenderer,
   issue: Issue,
+  workspacePath: string,
   priorGateFailure?: string
 ): NonNullable<WorkflowEngineContext['renderStagePrompt']> {
   return async (step, index, priorOutputs, isLocalBackend) => {
@@ -324,6 +345,7 @@ function renderStagePromptFactory(
     // run tools, commit nothing), CODE (impl → write code + self-verify).
     const documentPath = documentStagePath(produces, issue.identifier);
     const reviewStage = REVIEW_ARTIFACTS.has(produces) ? produces : '';
+    const verifyCommands = deriveVerifyCommands(workspacePath);
     // Per-phase routing: pick the LOCAL-indirection template for a local-endpoint
     // routed backend, else the byte-identical default (SC-LOCAL/SC3). The variable
     // bag is identical for both templates (strictVariables — no new required var).
@@ -341,6 +363,9 @@ function renderStagePromptFactory(
         // strictVariables is satisfied and exactOptionalPropertyTypes never sees an
         // explicit undefined.
         produces,
+        // Ecosystem-aware self-verify prose: the LOCAL template loops this set; the
+        // default template never references it (strictVariables-safe extra bag entry).
+        verifyCommands,
         // Non-empty ⇒ DOCUMENT stage: write {{ produces }} markdown to this exact path.
         documentPath,
         // Non-empty ⇒ REVIEW stage: run review/check tools, commit no report file.
@@ -427,7 +452,12 @@ export function buildWorkflowContext(deps: BuildWorkflowContextDeps): WorkflowEn
     // prior-stage outputs) via the pure PromptRenderer — no orchestrator import.
     // The prior gate failure (on a retry) is appended so the executor sees the
     // exact error to fix instead of re-deriving the same blocked attempt.
-    renderStagePrompt: renderStagePromptFactory(promptRenderer, issue, deps.priorGateFailure),
+    renderStagePrompt: renderStagePromptFactory(
+      promptRenderer,
+      issue,
+      workspacePath,
+      deps.priorGateFailure
+    ),
     persistStageDocument: persistStageDocumentFactory(workspacePath, issue, logger),
 
     // per-phase routing: resolve a routed backend's locality so the renderer
