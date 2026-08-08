@@ -162,11 +162,11 @@ Candidate {
    - Confirm the same test **passes on the branch**.
    - Confirm the **rest of the suite stayed green** on the branch.
    - Confirm **CI is green on all three operating systems** plus the enforce and harness checks. Green on one OS is not green.
-   - **File-only items are verified the same way** against their test-only reproduction branch: red — by assertion — at the pinned base, with no fix present.
+   - **File-only items are verified the same way** against their test-only `repro/<slug>` branch — the reproduction branch every filed item carries: red, by assertion, at the pinned base, with no fix present.
 
 4. **Assign exactly one verdict per item:**
    - `verified-fix` — provenance present, assertion-failure at the pinned base, green on branch, suite green, all-OS CI green.
-   - `verified-issue` — provenance present, assertion-failure at the pinned base on a test-only reproduction branch; no fix applied.
+   - `verified-issue` — provenance present, assertion-failure at the pinned base on the item's `repro/<slug>` branch; no fix applied.
    - `security-routed` — verified as a defect, but routed to the human rather than fixed or publicly filed.
    - `rejected` — any proof missing or wrong-shaped. **Retried once**; still failing, it is reported as rejected with the reason and the batch continues.
 
@@ -176,7 +176,7 @@ Candidate {
 
 2. **One fix PR per verified bounded-safe bug**, carrying the now-passing reproducing test. One bug per PR, so each is independently reviewable and independently revertible — the same granularity that makes a bulk review tractable at all. **Never merged.** The fleet's product is a reviewable batch; landing it is the human's call, optionally via `pr-fleet`.
 
-3. **Each risky/large bug is filed as an issue, never auto-fixed.** Its reproducing test is pushed as a **test-only reproduction branch**, and the issue **links that branch and quotes the test source** so both VERIFY and the eventual fixer can run it without archaeology. The reproducing test proves the **defect**, not the **fix** — which is exactly why a fix whose blast radius a bulk review could not hold stays a human decision.
+3. **Each risky/large bug is filed as an issue, never auto-fixed.** Its reproducing test is pushed as a **test-only `repro/<slug>` branch** — that naming convention is fixed, so every reproduction branch the fleet emits is findable by the same pattern — and the issue **links that branch and quotes the test source** so both VERIFY and the eventual fixer can run it without archaeology. The reproducing test proves the **defect**, not the **fix** — which is exactly why a fix whose blast radius a bulk review could not hold stays a human decision.
 
 4. **Security-routed findings go to the human, and nowhere else.** Report the finding with its reproducing test held on the pushed branch. **Never patch it inline** — even when the fix looks bounded — and **never publish the exploit on a public issue**: filing a public reproducing exploit _is_ disclosure. Severity rating, backporting, and disclosure timing are the human's call, and this fleet has no machinery for any of them.
 
@@ -212,7 +212,7 @@ Candidate {
 - **Every verified item carries pipeline-provenance artifacts** under `.harness/sessions/<slug>/` (`harness-tdd`, plus `harness-debugging` for fix items); an item with no provenance is rejected as not having run the real pipeline.
 - **No item is filed or PR'd without repro evidence.** A candidate that cannot be reproduced deterministically within the confirmed attempt budget is discarded and reported as discarded, never filed.
 - Every fix PR's reproducing test is independently confirmed to fail with an **assertion failure at the pinned base SHA** — a compile or resolution failure is a rejection, not a pass — and to pass on the branch, with the rest of the suite green and CI green across all three OS plus enforce and harness.
-- Every filed issue **links and quotes a test-only reproduction branch** whose test is independently confirmed red, by assertion, at the pinned base SHA.
+- Every filed issue **links and quotes a test-only `repro/<slug>` branch** whose test is independently confirmed red, by assertion, at the pinned base SHA.
 - There is **exactly one** up-front human decision round; no per-area interactive pauses except a genuinely-unforeseen fork parked to its own area.
 - **Every emitted PR and issue carries an "assumptions made" note** (ranking basis, hunt scope, refutation calls, fix-class call).
 - Risky/large fixes are **filed with their reproducing test, never auto-applied**.
@@ -230,7 +230,7 @@ Candidate {
 - **A repro that fails at the pinned base with a compile, import, or module-resolution error is a rejection, not a pass.** Erroring is not asserting; a test that cannot load against unmodified code depends on the fix and proves nothing.
 - **A repro that is red only sometimes across the three base runs is nondeterministic ⇒ discarded.** A test that fails by chance satisfies red-on-base by chance.
 - **No verified item without pipeline provenance.** Absent `harness-tdd` (and, for fix items, `harness-debugging`) session artifacts means the real pipeline did not run; the item is rejected however good the test looks.
-- **Never auto-apply a risky/large fix.** It is filed as an issue with its reproducing test on a pushed reproduction branch. The repro proves the defect, not the fix.
+- **Never auto-apply a risky/large fix.** It is filed as an issue with its reproducing test on a pushed `repro/<slug>` branch. The repro proves the defect, not the fix.
 - **Never patch a security-routed finding inline, and never publish its exploit on a public issue.** Report it to the human with the repro held on the branch; disclosure is the human's call.
 - **Never auto-merge a fix PR.** The fleet stops at reviewable. Merging from inside the fleet is a gate violation.
 - **Never exceed the concurrency governor or the confirmed area-size, candidates-per-area, or attempt caps.** More than ~3 concurrent hunt agents is the machine-storm zone, and manufactured flakiness is fatal to a determinism bar.
@@ -268,7 +268,7 @@ Candidate {
 | -------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------ |
 | "I'll mark it verified based on the subagent's summary"                    | STOP. Independently check provenance, re-run the transplanted repro at the pinned base, and read CI. A summary is not a verification.      |
 | "This finding is obviously real — file it even though it never repro'd"    | STOP. No repro, no bug. Discard it and report it as discarded; do not launder a suspicion into the tracker.                                |
-| "The fix touches a shared contract but it looks contained — just apply it" | STOP. That is `risky-large`. File the issue with its reproduction branch; the fleet auto-applies only the bounded-safe class.              |
+| "The fix touches a shared contract but it looks contained — just apply it" | STOP. That is `risky-large`. File the issue with its `repro/<slug>` branch; the fleet auto-applies only the bounded-safe class.            |
 | "I've got a clean security repro — let me put it on the issue"             | STOP. Never publish the exploit. Route it to the human with the repro held on the pushed branch; disclosure is not the fleet's decision.   |
 | "The pre-push gate is failing in this worktree — I'll `--no-verify`"       | STOP. Never bypass. Push via the GitHub API or a non-nested worktree; the gate is part of the verification the fleet's guarantees rest on. |
 
@@ -311,7 +311,7 @@ Phase 4: VERIFY (independent — no self-report)
                             branch green; suite green; CI green 3 OS -> verified-fix
   export/ CSV quote escape  provenance OK; base -> assertion failure; branch green;
                             CI green 3 OS -> verified-fix
-  export/ encoding rewrite  provenance OK; repro red at base on repro branch;
+  export/ encoding rewrite  provenance OK; repro red at base on repro/export-encoding;
                             fix spans 3 modules -> verified-issue
   auth/ token replay        provenance OK; repro red at base -> security-routed
   sync/ retry storm         base run -> MODULE NOT FOUND (test imports new helper)
@@ -323,7 +323,7 @@ Phase 5: FILE-AND-REPORT
   | ----------------------- | ------- | --------------- | ---------- | ----------------- | ----------------------------- |
   | off-by-one window       | sync/   | verified-fix    | PR link    | sync window spec  | churn-ranked; area-local fix  |
   | CSV quote escape        | export/ | verified-fix    | PR link    | csv escape spec   | contract unchanged            |
-  | encoding rewrite        | export/ | verified-issue  | issue link | repro branch link | 3-module reach -> risky-large |
+  | encoding rewrite        | export/ | verified-issue  | issue link | repro/export-encoding | 3-module reach -> risky-large |
   | token replay            | auth/   | security-routed | (withheld) | on branch only    | reported to human, not filed  |
   | retry storm             | sync/   | rejected        | —          | —                 | errored at base, not asserted |
   Discarded 2 (budget exhausted x1, nondeterministic x1). Refuted 10 with reasons.
