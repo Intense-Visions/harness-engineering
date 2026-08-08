@@ -345,7 +345,7 @@ last_manual_edit: 2026-06-27T12:51:51.967Z
 
 ### roadmap-fleet — backlog → verified merge-ready PRs
 
-- **Status:** planned
+- **Status:** done
 - **Spec:** —
 - **Summary:** Part of the `-fleet` skill family (epic #1194) — the family technique is autonomous fan-out orchestration over an SDLC work-queue, with batch human review and never auto-merge. roadmap-fleet turns the backlog (external issues + roadmap shards) into verified, merge-ready PRs, fanning out implementation across the queue and gating on verification before batching the results for human review. It is the delivery hub of the fleet spine issue-fleet → adr-fleet → roadmap-fleet → pr-fleet, with cicd-fleet / test-fleet / cleanup-fleet running alongside.
 - **Blockers:** —
@@ -1321,7 +1321,7 @@ last_manual_edit: 2026-06-27T12:51:51.967Z
 
 ### feat(design): support path exclusions for the design-token drift linter (design.exclude)
 
-- **Status:** done
+- **Status:** planned
 - **Spec:** docs/changes/design-drift-exclude/proposal.md
 - **Summary:** Problem Since v4, `harness validate` runs the design-token drift linter (DRIFT-T001..T004) over every `.ts/.tsx/.js/.jsx/.css/.scss` file under the project root (skipping only `node_modules`/`dist`/`build`/`coverage`/dot-dirs). The only configuration surface is `design.strictness` and `design.audit.driftDetection.enabled`. In a real monorepo this produces thousands of unavoidable findings: - **The token palette sources themselves** (e.g. a `tokens-reference.ts` or generated `theme/tokens.ts`) by definition contain raw hex literals — ours account for 350+ DRIFT-T001 errors. - **Test files** asserting on rendered colors/fonts. - **Non-UI code** (backend service definitions, DSL/DAG files) where hex strings aren't design tokens at all. With no way to scope the linter, the practical options today are `strictness: permissive` (gate passes but output is still swamped) or disabling drift detection entirely — losing the signal where it *is* valuable (component source in the UI package). Proposal Support an exclusion/scoping config for drift detection, mirroring the existing `security.exclude` shape, e.g.: An `include` allowlist (or per-path severity, e.g. error in `packages/ui`, warn elsewhere) would be even better, but plain excludes would unblock most monorepos. Context harness-engineering CLI 4.1.0. Observed while re-greening `harness validate` after the 2.8 → 4.x upgrade: 1,614 findings, 1,545 errors, 100% from `driftDetection`.
 - **Blockers:** —
