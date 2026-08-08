@@ -709,6 +709,15 @@ Guided-interview skill that turns one picked work item into a durable Product Re
 - **Cognitive mode:** configuration-interviewer
 - **Depends on:** harness-brainstorming
 
+### proposal-pitch
+
+The draft-first proposal pipeline — gather the source, agree the page structure before building, render concept stills, publish as drafts only, and close the loop on the source. Invokes the docs-publish surface (the `harness docs-publish` CLI command / `docs_publish` MCP tool, resolving a configured connector) for the publishing mechanics; enforces drafts-only, render-verify, epistemic-label, and no-customer-data gates. Ships zero company-specific content.
+
+- **Triggers:** manual
+- **Platforms:** claude-code
+- **Type:** rigid
+- **Cognitive mode:** disciplined-facilitator
+
 ### roadmap-fleet
 
 Autonomous batch-build orchestrator — score and confirm a batch of backlog candidates, fan out worktree-isolated subagents that run the real per-item pipeline, independently verify each result by artifact and all-OS CI, and hand back a batch of merge-ready PRs for one bulk human review. Never auto-merges.

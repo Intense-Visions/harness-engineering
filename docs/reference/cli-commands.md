@@ -908,6 +908,51 @@ Scan recent fixes and hotspots for undocumented learnings; write candidate promp
 - `--output-path` — Override output file path (default: docs/solutions/.candidates/{YYYY-WW}.md)
 - `--solutions-dir` — Solutions directory to cross-reference (default: "docs/solutions")
 
+## Docs-publish Commands
+
+Publish docs to a configured provider (draft-first)
+
+### `harness docs-publish attach-media`
+
+Attach media to a draft page (returns a typed manual step to surface)
+
+**Options:**
+
+- `--page-id` — Draft page id the attachment belongs to
+- `--media-file` — Local path to the media file to upload
+- `--origin` — Provider origin (real cloud origin or localhost — never 127.0.0.1)
+
+### `harness docs-publish draft`
+
+Create or update a page in DRAFT state (never publishes)
+
+**Options:**
+
+- `--page-id` — Existing page id to update (omit to create a new draft)
+- `--space-id` — Target space id
+- `--title` — Page title
+- `--parent-id` — Parent page id for placement
+- `--body-file` — File containing the storage/body string
+- `--adf-file` — File containing the page body as ADF JSON
+
+### `harness docs-publish page-tree`
+
+Create/order draft child pages under a draft parent
+
+**Options:**
+
+- `--space-id` — Target space id
+- `--parent-id` — Draft parent page id
+- `--children-file` — JSON file: array of child nodes (title, adf/body, ordering)
+
+### `harness docs-publish verify-render`
+
+Verify a page actually renders (the only authority on render correctness)
+
+**Options:**
+
+- `--url` — Rendered URL (http(s) or file://) to assert against
+
 ## Gateway Commands
 
 Gateway API administration

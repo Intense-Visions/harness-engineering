@@ -147,9 +147,11 @@ describe('deriveToolCapabilities over the live registry', () => {
       .map((c) => c.name)
       .sort();
     // Grounded, evidence-based network set (Gateway API, webhook, GitHub sync,
-    // PR-comment posting). Asserted explicitly so a regression is loud.
+    // PR-comment posting, docs-publish connector REST). Asserted explicitly so a
+    // regression is loud.
     expect(networked).toEqual(
       [
+        'docs_publish',
         'list_gateway_tokens',
         'manage_roadmap',
         'run_code_review',

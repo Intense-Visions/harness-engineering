@@ -142,4 +142,5 @@ export const TOOL_CAPABILITY_DECLARATIONS: Readonly<Record<string, ToolCapabilit
   subscribe_webhook: { scopes: ['write'], network: true }, // registers webhook (outbound) + persists sub
   manage_roadmap: { scopes: ['write'], network: true }, // persistRoadmap + GitHub tracker fetch()/fullSync
   run_code_review: { scopes: ['read'], network: true }, // in-process review; posts PR comments to GitHub
+  docs_publish: { scopes: ['write'], network: true }, // drafts/attaches (write) via provider REST (network)
 };
