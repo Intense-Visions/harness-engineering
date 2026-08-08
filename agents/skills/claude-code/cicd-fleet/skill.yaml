@@ -1,0 +1,75 @@
+name: cicd-fleet
+version: '1.0.0'
+description: Autonomous CI/CD-remediation orchestrator — triage the red CI/CD-run and flaky-test backlog by cause, fan out worktree-isolated subagents that run the real deflake/heal pipeline, independently verify each fix by artifact and deterministic all-OS CI, and hand back a batch of remediation PRs for one bulk human review. Never auto-merges and never hides a failure to clear the board.
+stability: static
+cognitive_mode: systematic-orchestrator
+triggers:
+  - manual
+platforms:
+  - claude-code
+  - codex
+  - cursor
+  - gemini-cli
+tools:
+  - Bash
+  - Read
+  - Glob
+  - Grep
+cli:
+  command: harness skill run cicd-fleet
+  args:
+    - name: path
+      description: Project root path
+      required: false
+    - name: --concurrency
+      description: 'Cap on concurrent remediation subagents (default: 2, max recommended 3 — the machine-storm limit)'
+      required: false
+    - name: --report-only
+      description: Enumerate and triage the red/flaky queue and present the ranked batch without dispatching remediation subagents
+      required: false
+    - name: --dry-run
+      description: Run SELECT and CONFIRM only; do not fan out, verify, or report
+      required: false
+mcp:
+  tool: run_skill
+  input:
+    skill: cicd-fleet
+    path: string
+type: rigid
+tier: 2
+phases:
+  - name: select
+    description: Enumerate red CI/CD runs and flaky-test signals via gh, classify each into the red-cause taxonomy (real-failure / flake / infra-config / already-green / needs-design), cross-check for already-green/superseded runs, and order remediable candidates by impact via roadmap-pilot scoring
+    required: true
+  - name: confirm
+    description: Present the triaged queue in one round — remediable items with their cause buckets, already-green items flagged for closure, needs-design items flagged to park, decision forks as questions, proposed concurrency — for a single up-front human approval
+    required: true
+  - name: dispatch
+    description: Fan out worktree-isolated subagents, each running the real harness-debugging (heal/deflake) or harness-workflow-audit (infra/config) pipeline for one item, capped at the concurrency governor; an un-deflakable flake or unforeseen fork parks and reports rather than hiding the failure
+    required: true
+  - name: verify
+    description: Independently confirm each returned branch has a plan artifact plus autopilot-state and is CI-green across all OS plus enforce and harness — with deterministic repeated-run green for deflakes — never by subagent self-report
+    required: true
+  - name: report
+    description: Emit a one-row-per-item batch summary with remediation-actions notes for bulk human review, close already-green/superseded runs citing the resolving run/PR, and never merge
+    required: true
+state:
+  persistent: false
+  files: []
+depends_on:
+  - harness-roadmap-pilot
+  - harness-debugging
+  - harness-workflow-audit
+addresses:
+  - signal: drift
+    weight: 0.5
+  - signal: backlog-pressure
+    weight: 0.3
+capabilities:
+  tools:
+    - Bash
+    - Read
+    - Glob
+    - Grep
+  network: false
+  filesystem: read-write
