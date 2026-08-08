@@ -5,6 +5,7 @@ import type { Result } from '../shared/result';
 import { Ok, Err } from '../shared/result';
 import { resolveSessionDir } from './session-resolver';
 import { HARNESS_DIR, ARCHIVE_DIR } from './constants';
+import { assignNumber } from '../identity/store';
 
 /**
  * Hook invoked after a session directory has been successfully moved into
@@ -19,6 +20,10 @@ export interface ArchiveHooks {
     /** Absolute path of the new archived directory. */
     archiveDir: string;
     projectPath: string;
+    /** Additive: the immutable ULID of the archived session (best-effort). */
+    ulid?: string | undefined;
+    /** Additive: the completion number assigned at archive (best-effort). */
+    number?: number | undefined;
   }) => Promise<void> | void;
 }
 
@@ -80,12 +85,31 @@ export async function archiveSession(
       }
     }
 
+    // Best-effort: allocate the human-friendly completion number against the
+    // archived identity. Never blocks the archive (which has already succeeded).
+    let ulid: string | undefined;
+    let number: number | undefined;
+    try {
+      const identity = assignNumber(
+        path.join(dest, 'identity.json'),
+        path.join(archiveBase, '.number-counter')
+      );
+      if (identity) {
+        ulid = identity.ulid;
+        number = identity.number ?? undefined;
+      }
+    } catch {
+      // best-effort
+    }
+
     if (options.hooks?.onArchived) {
       try {
         await options.hooks.onArchived({
           sessionId: sessionSlug,
           archiveDir: dest,
           projectPath,
+          ulid,
+          number,
         });
       } catch (hookErr) {
         console.warn(

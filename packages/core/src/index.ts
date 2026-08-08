@@ -259,6 +259,11 @@ export * from './harness-strength';
 export * from './health-signals';
 
 /**
+ * Identity module.
+ */
+export * from './identity';
+
+/**
  * Insights module.
  */
 export * from './insights';

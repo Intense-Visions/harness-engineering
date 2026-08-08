@@ -4,6 +4,7 @@ import * as path from 'path';
 import type { Result } from '../shared/result';
 import { Ok, Err } from '../shared/result';
 import { HARNESS_DIR, SESSIONS_DIR, SESSION_INDEX_FILE } from './constants';
+import { ensureIdentity } from '../identity/store';
 
 /**
  * Resolves the directory path for a session.
@@ -28,6 +29,16 @@ export function resolveSessionDir(
 
   if (options?.create) {
     fs.mkdirSync(sessionDir, { recursive: true });
+    // Best-effort: record an immutable ULID identity alongside the session.
+    // Never blocks session-dir creation — identity is metadata, not a gate.
+    try {
+      ensureIdentity(path.join(sessionDir, 'identity.json'), {
+        slug: sessionSlug,
+        domain: 'session',
+      });
+    } catch {
+      // best-effort
+    }
   }
 
   return Ok(sessionDir);

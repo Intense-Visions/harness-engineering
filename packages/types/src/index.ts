@@ -423,3 +423,6 @@ export type {
   RetrospectionProposalDraft,
   RetrospectionProposalsResponse,
 } from './proposals';
+
+// --- Identity ---
+export type { HarnessIdentity, IdentityDomain } from './identity';
