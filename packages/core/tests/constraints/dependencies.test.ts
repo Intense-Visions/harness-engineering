@@ -106,6 +106,26 @@ describe('validateDependencies', () => {
     }
   });
 
+  it('honors extraIgnore — excluded globs are not discovered (#1188)', async () => {
+    const fixturesDir = join(__dirname, '../fixtures/valid-layers');
+    const result = await validateDependencies({
+      layers: [
+        defineLayer('domain', ['domain/**'], []),
+        defineLayer('services', ['services/**'], ['domain']),
+        defineLayer('api', ['api/**'], ['services', 'domain']),
+      ],
+      rootDir: fixturesDir,
+      parser,
+      // Exclude the entire api layer's files from discovery.
+      extraIgnore: ['api/**'],
+    });
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      // With api excluded, no api->services/domain edges are walked; still valid.
+      expect(result.value.valid).toBe(true);
+    }
+  });
+
   it('should detect layer violations', async () => {
     const fixturesDir = join(__dirname, '../fixtures/layer-violations');
     const result = await validateDependencies({

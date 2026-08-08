@@ -99,6 +99,35 @@ Defines the dependency layers in your project. Each layer declares which other l
 
 Layers are evaluated top-down. A file matching the `api` pattern that imports from a module matching `types` is allowed because `"types"` appears in `allowedDependencies`. An import from `api` into `repository` that is not listed would be flagged as a violation.
 
+## `deps`
+
+- **Type:** `DepsConfig`
+- **Required:** No
+
+Tunes `harness check-deps` discovery — the set of files considered for both layer-boundary validation and circular-dependency detection.
+
+`check-deps` **always** skips vendored and generated directories (`node_modules`, `dist`, virtualenvs, caches — the shared default skip-list documented under [`ingest`](#ingest)). This means a broad layer `pattern` such as `packages/**` no longer walks into `packages/foo/node_modules/**`, so circular dependencies inside third-party packages (e.g. `yargs`, `@grpc/grpc-js`) never fail the gate — they are not the consuming repo's to fix.
+
+### DepsConfig Object
+
+| Field     | Type       | Default | Description                                                                                                                                                         |
+| --------- | ---------- | ------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `exclude` | `string[]` | `[]`    | Extra glob patterns (minimatch) excluded from `check-deps` discovery, stacked on top of the built-in skip-list. Lets you scope without shrinking a layer `pattern`. |
+
+Mirrors [`analysis.exclude`](#analysis) and [`design.exclude`](#design). Prefer `deps.exclude` over narrowing a layer `pattern` to silence a finding — narrowing the pattern also shrinks what the gate actually checks.
+
+`check-deps` reports the analyzed-module count ("Analyzed N module(s) across M layer(s).") so the scanned denominator is observable. A run with layers configured that discovers **zero** modules fails rather than reporting clean.
+
+### Example
+
+```json
+{
+  "deps": {
+    "exclude": ["packages/*/generated/**", "**/*.pb.ts"]
+  }
+}
+```
+
 ## `forbiddenImports`
 
 - **Type:** `Array<ForbiddenImport>`

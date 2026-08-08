@@ -14,6 +14,9 @@ export interface LayerConfig {
   parser: LanguageParser;
   fallbackBehavior?: 'skip' | 'error' | 'warn';
   graphDependencyData?: GraphDependencyData;
+  /** Extra glob patterns excluded from per-layer file discovery, stacked on
+   *  top of core's DEFAULT_FIND_FILES_IGNORE (issue #1188). */
+  extraIgnore?: readonly string[];
 }
 
 // Dependency Graph Types

@@ -1,0 +1,6 @@
+{
+  "version": 1,
+  "rootDir": ".",
+  "layers": [{ "name": "app", "pattern": "src/**", "allowedDependencies": [] }],
+  "deps": { "exclude": ["src/**"] }
+}

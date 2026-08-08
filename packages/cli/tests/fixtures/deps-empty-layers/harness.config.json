@@ -1,0 +1,5 @@
+{
+  "version": 1,
+  "rootDir": ".",
+  "layers": [{ "name": "app", "pattern": "does-not-exist/**", "allowedDependencies": [] }]
+}

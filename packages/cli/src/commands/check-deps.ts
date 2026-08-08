@@ -11,6 +11,7 @@ import {
 import type { LayerConfig } from '@harness-engineering/core';
 import { formatFindingsContract } from '@harness-engineering/types';
 import { resolveConfig } from '../config/loader';
+import { loadDepsExclude } from '../config/schema';
 import { OutputFormatter, OutputMode, type OutputModeType } from '../output/formatter';
 import { logger } from '../output/logger';
 import { CLIError, ExitCode } from '../utils/errors';
@@ -26,6 +27,13 @@ interface CheckDepsOptions {
 
 interface CheckDepsResult {
   valid: boolean;
+  /** Number of unique modules (files) discovered and analyzed (#1188). */
+  modulesAnalyzed: number;
+  /** Number of layers configured in `harness.config.json` (#1188). */
+  layersConfigured: number;
+  /** Set when layers are configured but zero modules were analyzed — the
+   *  reason check-deps refuses to report clean (#1188). */
+  analysisNote?: string;
   layerViolations: Array<{
     file: string;
     imports: string;
@@ -35,6 +43,8 @@ interface CheckDepsResult {
   }>;
   circularDeps: Array<{
     cycle: string[];
+    /** Posix-relative path of the first module in the cycle (#1188). */
+    file: string;
   }>;
 }
 
@@ -52,6 +62,8 @@ export async function runCheckDeps(
 
   const result: CheckDepsResult = {
     valid: true,
+    modulesAnalyzed: 0,
+    layersConfigured: 0,
     layerViolations: [],
     circularDeps: [],
   };
@@ -60,6 +72,17 @@ export async function runCheckDeps(
   if (!config.layers || config.layers.length === 0) {
     return Ok(result);
   }
+
+  result.layersConfigured = config.layers.length;
+
+  // Additional discovery-scoping globs (stacked on core's node_modules/skip-dir
+  // defaults) — prefer the resolved config's `deps.exclude` (honors whatever
+  // config path resolveConfig found), falling back to the best-effort
+  // `loadDepsExclude(cwd)` loader for callers without a resolved block (#1188).
+  const depsExclude =
+    config.deps?.exclude && config.deps.exclude.length > 0
+      ? config.deps.exclude
+      : loadDepsExclude(cwd);
 
   const rootDir = path.resolve(cwd, config.rootDir);
   const parser = new TypeScriptParser();
@@ -73,6 +96,7 @@ export async function runCheckDeps(
     rootDir,
     parser,
     fallbackBehavior: 'warn',
+    extraIgnore: depsExclude,
   };
 
   // Validate dependencies
@@ -93,10 +117,20 @@ export async function runCheckDeps(
   // Collect all files for circular dependency detection
   const allFiles: string[] = [];
   for (const layer of config.layers) {
-    const files = await findFiles(layer.pattern, rootDir);
+    const files = await findFiles(layer.pattern, rootDir, depsExclude);
     allFiles.push(...files);
   }
   const uniqueFiles = [...new Set(allFiles)];
+  result.modulesAnalyzed = uniqueFiles.length;
+
+  // Zero-module abstention (D5): layers are configured but nothing was
+  // discovered — refuse to report clean rather than silently pass (#1188).
+  if (config.layers.length > 0 && uniqueFiles.length === 0) {
+    result.valid = false;
+    result.analysisNote =
+      `check-deps analyzed 0 modules across ${config.layers.length} configured ` +
+      `layer(s) — refusing to report clean (check layer patterns / deps.exclude).`;
+  }
 
   // Detect circular dependencies
   if (uniqueFiles.length > 0) {
@@ -104,7 +138,11 @@ export async function runCheckDeps(
     if (circularResult.ok && circularResult.value.hasCycles) {
       result.valid = false;
       for (const cycle of circularResult.value.cycles) {
-        result.circularDeps.push({ cycle: cycle.cycle });
+        // Attribute each finding to the first module in the cycle as a
+        // posix-relative path (not "* unknown") (#1188).
+        const first = cycle.cycle[0] ?? '';
+        const file = first ? path.relative(rootDir, first).replaceAll('\\', '/') : '';
+        result.circularDeps.push({ cycle: cycle.cycle, file });
       }
     }
   }
@@ -147,19 +185,34 @@ async function runCheckDepsAction(
     process.exit(result.error.exitCode);
   }
 
-  const issues = [
+  const issues: Array<{ file?: string; message: string }> = [
     ...result.value.layerViolations.map((v) => ({
       file: v.file,
       message: `Layer violation: ${v.fromLayer} -> ${v.toLayer} (${v.message})`,
     })),
     ...result.value.circularDeps.map((c) => ({
+      ...(c.file ? { file: c.file } : {}),
       message: `Circular dependency: ${c.cycle.join(' -> ')}`,
     })),
   ];
 
+  // Surface the zero-module abstention reason as an issue (#1188).
+  if (result.value.analysisNote) {
+    issues.push({ message: result.value.analysisNote });
+  }
+
+  // Print the analyzed-module denominator in human-facing modes (#1188).
+  if (mode === OutputMode.TEXT || mode === OutputMode.VERBOSE) {
+    console.log(
+      `Analyzed ${result.value.modulesAnalyzed} module(s) across ${result.value.layersConfigured} layer(s).`
+    );
+  }
+
   const output = formatter.formatValidation({
     valid: result.value.valid,
     issues,
+    modulesAnalyzed: result.value.modulesAnalyzed,
+    layersConfigured: result.value.layersConfigured,
   });
 
   if (output) {
