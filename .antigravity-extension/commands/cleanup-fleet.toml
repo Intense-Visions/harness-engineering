@@ -40,11 +40,11 @@ This skill builds on the shared `-fleet` spine documented in `docs/reference/fle
 
 ## Flags
 
-| Flag            | Effect                                                                                       |
-| --------------- | -------------------------------------------------------------------------------------------- |
+| Flag            | Effect                                                                                        |
+| --------------- | --------------------------------------------------------------------------------------------- |
 | `--concurrency` | Cap concurrent remediation subagents (default 2, max recommended 3 — the machine-storm limit) |
 | `--report-only` | Enumerate, score, and present the ranked target batch; do not dispatch, verify, or open PRs   |
-| `--dry-run`     | Run SELECT and CONFIRM only; stop before fan-out                                             |
+| `--dry-run`     | Run SELECT and CONFIRM only; stop before fan-out                                              |
 | `--safe-only`   | Restrict remediation to the safe class even if a target's risky change looks mechanical       |
 
 ## Process
@@ -62,13 +62,13 @@ Phase 1: SELECT --> Phase 2: CONFIRM --> Phase 3: DISPATCH
                      Phase 5: REPORT <-- Phase 4: VERIFY
 ```
 
-| Phase       | Purpose                                                                     | Exit Condition                                                             |
-| ----------- | --------------------------------------------------------------------------- | -------------------------------------------------------------------------- |
-| 1. SELECT   | Compose detectors into targets, cross-check, score by remediation value     | Ranked `Target[]` with safety class, cross-check verdicts, detected forks  |
-| 2. CONFIRM  | One up-front human round: approve/trim, confirm safe/risky calls, set cap   | Human-approved batch with confirmed classes and agreed concurrency         |
+| Phase       | Purpose                                                                        | Exit Condition                                                             |
+| ----------- | ------------------------------------------------------------------------------ | -------------------------------------------------------------------------- |
+| 1. SELECT   | Compose detectors into targets, cross-check, score by remediation value        | Ranked `Target[]` with safety class, cross-check verdicts, detected forks  |
+| 2. CONFIRM  | One up-front human round: approve/trim, confirm safe/risky calls, set cap      | Human-approved batch with confirmed classes and agreed concurrency         |
 | 3. DISPATCH | Worktree-isolated subagents run the real `harness-codebase-cleanup` per target | Every confirmed target returned a branch, parked, or failed (all recorded) |
-| 4. VERIFY   | Independent convergence + all-OS-CI confirmation, never self-report          | Each returned target marked verified / rejected / retry                    |
-| 5. REPORT   | One-row-per-target batch summary; never merge                               | Report delivered; parked risky remediations surfaced for the human         |
+| 4. VERIFY   | Independent convergence + all-OS-CI confirmation, never self-report            | Each returned target marked verified / rejected / retry                    |
+| 5. REPORT   | One-row-per-target batch summary; never merge                                  | Report delivered; parked risky remediations surfaced for the human         |
 
 ### Phase 1: SELECT — Compose Detectors, Cross-Check, Score
 
@@ -206,27 +206,27 @@ Phase 1: SELECT --> Phase 2: CONFIRM --> Phase 3: DISPATCH
 
 ## Rationalizations to Reject
 
-| Rationalization                                                                       | Reality                                                                                                                                                                       |
-| ------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| "The subagent reported the findings are gone and CI is green, so the target is clean" | A self-report is a claim, not evidence. Independently confirm the target's re-scan is clean and CI is green — or the cleanup did not converge.                                 |
-| "Dead code is obviously safe — bundle every target's cleanup into one big PR"         | Scope one coherent target per PR. A mega-cleanup is un-reviewable and un-revertible; the whole model depends on the reviewer holding one target's diff in their head.          |
-| "This hotspot is high-churn, so just refactor it aggressively while we're in there"   | High churn means high risk. Auto-apply only the safe class; a structural rewrite of the busiest file parks for the human — it is not mechanical hygiene.                       |
-| "The re-scan still shows a couple of findings but CI is green — ship it"              | Convergence is a gate. A cleanup that did not resolve the findings it opened with is not merge-ready; report it as non-converging, do not ship a half-cleanup.                 |
-| "Just suppress / ignore the finding — that clears the detector"                       | Suppression is not remediation. A silenced finding fails the convergence re-scan by design; the fleet remediates, it does not mute.                                           |
-| "I'll hand-edit this one target — it's faster than driving the whole cleanup pipeline"| Dogfood the real per-target skill. A hand-edited target leaves no convergence record, fails VERIFY, and breaks the guarantee that every PR ran the audited pipeline.           |
-| "The batch is verified — I'll merge these cleanups to save the human a step"          | Never auto-merge. Cleanup lands in the highest-risk corners of the codebase; that is exactly where the one review the whole model is built around must happen.                 |
-| "One target's cleanup didn't converge, so the sweep is a bust — abort the batch"      | Degrade gracefully. Report the non-converging target and keep the verified ones; one bad target never sinks the batch.                                                         |
-| "I'll reimplement dead-code detection here so the fleet is self-contained"            | Compose, don't reimplement. The detectors exist and are battle-tested; a second detection engine is drift waiting to happen. The fleet's value is orchestration + batch review.|
+| Rationalization                                                                        | Reality                                                                                                                                                                         |
+| -------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| "The subagent reported the findings are gone and CI is green, so the target is clean"  | A self-report is a claim, not evidence. Independently confirm the target's re-scan is clean and CI is green — or the cleanup did not converge.                                  |
+| "Dead code is obviously safe — bundle every target's cleanup into one big PR"          | Scope one coherent target per PR. A mega-cleanup is un-reviewable and un-revertible; the whole model depends on the reviewer holding one target's diff in their head.           |
+| "This hotspot is high-churn, so just refactor it aggressively while we're in there"    | High churn means high risk. Auto-apply only the safe class; a structural rewrite of the busiest file parks for the human — it is not mechanical hygiene.                        |
+| "The re-scan still shows a couple of findings but CI is green — ship it"               | Convergence is a gate. A cleanup that did not resolve the findings it opened with is not merge-ready; report it as non-converging, do not ship a half-cleanup.                  |
+| "Just suppress / ignore the finding — that clears the detector"                        | Suppression is not remediation. A silenced finding fails the convergence re-scan by design; the fleet remediates, it does not mute.                                             |
+| "I'll hand-edit this one target — it's faster than driving the whole cleanup pipeline" | Dogfood the real per-target skill. A hand-edited target leaves no convergence record, fails VERIFY, and breaks the guarantee that every PR ran the audited pipeline.            |
+| "The batch is verified — I'll merge these cleanups to save the human a step"           | Never auto-merge. Cleanup lands in the highest-risk corners of the codebase; that is exactly where the one review the whole model is built around must happen.                  |
+| "One target's cleanup didn't converge, so the sweep is a bust — abort the batch"       | Degrade gracefully. Report the non-converging target and keep the verified ones; one bad target never sinks the batch.                                                          |
+| "I'll reimplement dead-code detection here so the fleet is self-contained"             | Compose, don't reimplement. The detectors exist and are battle-tested; a second detection engine is drift waiting to happen. The fleet's value is orchestration + batch review. |
 
 ## Red Flags
 
-| Flag                                                                     | Corrective Action                                                                                              |
-| ------------------------------------------------------------------------ | -------------------------------------------------------------------------------------------------------------- |
-| "I'll mark it verified based on the subagent's summary"                  | STOP. Independently re-scan the target and check CI. A summary is not a verification.                          |
-| "This structural refactor looks safe enough — I'll just apply it"        | STOP. Risky remediations park and report. Record it with a recommendation for the human; do not auto-apply it. |
-| "The pre-push gate is failing in this worktree — I'll `--no-verify`"     | STOP. Never bypass. Push via the GitHub API or a non-`.claude` worktree; the gate is part of the verification. |
-| "All verified — let me merge and close the loop"                         | STOP. The fleet never merges. Deliver the PRs for review; landing is the human's step.                         |
-| "The detector's finding is noisy — I'll just suppress it"                | STOP. Suppression is not remediation. Remediate the finding or park the target; never mute the detector.       |
+| Flag                                                                 | Corrective Action                                                                                              |
+| -------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------- |
+| "I'll mark it verified based on the subagent's summary"              | STOP. Independently re-scan the target and check CI. A summary is not a verification.                          |
+| "This structural refactor looks safe enough — I'll just apply it"    | STOP. Risky remediations park and report. Record it with a recommendation for the human; do not auto-apply it. |
+| "The pre-push gate is failing in this worktree — I'll `--no-verify`" | STOP. Never bypass. Push via the GitHub API or a non-`.claude` worktree; the gate is part of the verification. |
+| "All verified — let me merge and close the loop"                     | STOP. The fleet never merges. Deliver the PRs for review; landing is the human's step.                         |
+| "The detector's finding is noisy — I'll just suppress it"            | STOP. Suppression is not remediation. Remediate the finding or park the target; never mute the detector.       |
 
 ## Examples
 

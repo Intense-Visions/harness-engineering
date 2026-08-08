@@ -17,7 +17,7 @@ Every ADR is a Markdown file with YAML frontmatter followed by three required se
 number: NNNN
 title: <decision title>
 date: YYYY-MM-DD
-status: accepted | superseded | deprecated
+status: proposed | accepted | superseded | deprecated
 tier: small | medium | large
 source: <spec path or session slug>
 supersedes: <prior ADR number, if any>
@@ -39,11 +39,12 @@ supersedes: <prior ADR number, if any>
 
 ## Status Values
 
-| Status       | Meaning                                                             |
-| ------------ | ------------------------------------------------------------------- |
-| `accepted`   | Active decision that governs current architecture                   |
-| `superseded` | Replaced by a newer ADR (set `supersedes` field in the replacement) |
-| `deprecated` | No longer relevant; kept for historical context                     |
+| Status       | Meaning                                                                            |
+| ------------ | ---------------------------------------------------------------------------------- |
+| `proposed`   | Drafted but not yet accepted — awaiting human sign-off (e.g. an `adr-fleet` draft) |
+| `accepted`   | Active decision that governs current architecture                                  |
+| `superseded` | Replaced by a newer ADR (set `supersedes` field in the replacement)                |
+| `deprecated` | No longer relevant; kept for historical context                                    |
 
 ## Creating a New ADR
 
