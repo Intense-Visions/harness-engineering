@@ -279,6 +279,16 @@ Detect and auto-fix dead code including dead exports, commented-out code, and or
 - **Type:** flexible
 - **Cognitive mode:** diagnostic-investigator
 
+### cleanup-fleet
+
+Autonomous entropy/hotspot remediation sweep — enumerate the entropy/hotspot backlog by composing the existing detection skills, rank the targets, confirm the batch once, fan out worktree-isolated subagents that each run the real per-target cleanup pipeline, independently verify each result by convergence artifact and all-OS CI, and hand back a batch of scoped cleanup PRs for one bulk human review. Never auto-merges.
+
+- **Triggers:** manual
+- **Platforms:** claude-code, codex, cursor, gemini-cli
+- **Type:** rigid
+- **Cognitive mode:** systematic-orchestrator
+- **Depends on:** harness-hotspot-detector, cleanup-dead-code, harness-dependency-health, harness-codebase-cleanup, harness-roadmap-pilot
+
 ### cli-ergonomics-craft
 
 LLM-judgment critique of command-line ergonomics quality — the ceiling counterpart to mechanical CLI checks, and the one craft skill with no rule-based floor twin. Asks whether command and flag names are predictable and consistent, whether help text is task-oriented, whether errors are actionable, whether defaults are sane and safe, whether output is scannable and terminal-aware, whether the CLI composes (pipeable, machine-readable, honest exit codes), and whether destructive actions are guarded. Structural twin of harness-docs-craft.

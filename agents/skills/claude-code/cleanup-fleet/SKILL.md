@@ -1,0 +1,275 @@
+# Cleanup Fleet
+
+> Autonomous entropy/hotspot remediation sweep — enumerate the entropy/hotspot backlog by composing the existing detection skills, rank the targets by remediation value, confirm the batch with the human in one up-front round, fan out worktree-isolated subagents that each run the **real** per-target cleanup pipeline (`harness-codebase-cleanup`), independently verify every result by convergence artifact and all-OS CI, and hand back a set of scoped cleanup PRs for one bulk review. The fleet never auto-merges and never trusts a subagent's self-report.
+
+Working an entropy/hotspot backlog down by hand is a per-target attention slog: every high-churn, high-risk area must be found, its remediation scoped, driven through `harness-codebase-cleanup` to convergence, and turned into a reviewable PR — one at a time, with a human present throughout. For a codebase with dozens of risk hotspots the human's attention, not the machinery, is the bottleneck. `cleanup-fleet` inverts the model: it enumerates the backlog by composing the existing detectors, runs the real per-target pipeline autonomously and in isolation for each target, verifies the result, and returns **scoped cleanup PRs to review in bulk** — moving the human from "remediate every hotspot" to "confirm the batch once, review the PRs once." It is a **quality-queue** member of the `-fleet` family: it does not sit on the core intake → decide → build → land spine, but works the entropy/hotspot queue alongside it.
+
+This skill builds on the shared `-fleet` spine documented in `docs/reference/fleet-family.md` — the five-phase SELECT → CONFIRM → DISPATCH → VERIFY → terminal skeleton, the concurrency governor, the artifact + all-OS-CI verification discipline, the worktree fan-out with its `.claude/`-nested push caveat, and the never-silent-merge invariant. That page states the family contract once; this SKILL.md defines only what is `cleanup-fleet`'s own: its queue, its triage taxonomy, its per-target pipeline, its terminal act, and its domain-specific rationalizations.
+
+## When to Use
+
+- An entropy/hotspot backlog has accumulated (dead code, drift, structural risk in high-churn areas) and needs autonomous remediation plus one bulk PR review
+- Clearing codebase-hygiene debt across many independent hotspots where per-target interactive remediation does not scale
+- Turning the output of `harness-hotspot-detector` / `cleanup-dead-code` / `harness-dependency-health` / `detect_entropy` into a set of verified, scoped, merge-ready cleanup PRs in a single session
+- When the targets are genuinely independent — each is a distinct hotspot cluster or finding-group producing its own PR, and remediating one does not depend on another's merge
+- NOT for a single hotspot — invoke `harness-codebase-cleanup` directly; a fleet's overhead only pays off across a batch
+- NOT for landing / merging PRs — that is `pr-fleet`; `cleanup-fleet` stops at merge-ready and never merges
+- NOT for convergence on one target — iterating a single module to clean is `harness-codebase-cleanup` (a **pipeline** that loops on one thing), not a fleet (which fans out across many independent targets into many PRs)
+- NOT for risky structural refactors — those are not the safe class; `cleanup-fleet` parks them for human decision rather than auto-applying them
+
+## Flags
+
+| Flag            | Effect                                                                                       |
+| --------------- | -------------------------------------------------------------------------------------------- |
+| `--concurrency` | Cap concurrent remediation subagents (default 2, max recommended 3 — the machine-storm limit) |
+| `--report-only` | Enumerate, score, and present the ranked target batch; do not dispatch, verify, or open PRs   |
+| `--dry-run`     | Run SELECT and CONFIRM only; stop before fan-out                                             |
+| `--safe-only`   | Restrict remediation to the safe class even if a target's risky change looks mechanical       |
+
+## Process
+
+### Iron Law
+
+**A cleanup PR is "merge-ready" only after independent convergence + all-OS-CI verification. The fleet never auto-merges, never applies a risky structural change autonomously, and never accepts a subagent's self-report as proof its pipeline ran.**
+
+A subagent that reports "cleaned it up — findings gone, CI green" has told you what it believes, not what is true. The only evidence that the real per-target pipeline ran and worked is the convergence record it necessarily leaves behind — the findings the target opened with are resolved and a re-scan of the target is clean — plus the CI signal on the pushed branch. If the re-scan still shows findings, the cleanup did not converge and the item is rejected or retried, regardless of how confident the report reads. And landing the batch is the human's call: the fleet stops at a set of verified, reviewable PRs, because remediation lands in the codebase's highest-risk corners — exactly where a silently-merged bad change hides.
+
+```
+Phase 1: SELECT --> Phase 2: CONFIRM --> Phase 3: DISPATCH
+                                                    |
+                                                    v
+                     Phase 5: REPORT <-- Phase 4: VERIFY
+```
+
+| Phase       | Purpose                                                                     | Exit Condition                                                             |
+| ----------- | --------------------------------------------------------------------------- | -------------------------------------------------------------------------- |
+| 1. SELECT   | Compose detectors into targets, cross-check, score by remediation value     | Ranked `Target[]` with safety class, cross-check verdicts, detected forks  |
+| 2. CONFIRM  | One up-front human round: approve/trim, confirm safe/risky calls, set cap   | Human-approved batch with confirmed classes and agreed concurrency         |
+| 3. DISPATCH | Worktree-isolated subagents run the real `harness-codebase-cleanup` per target | Every confirmed target returned a branch, parked, or failed (all recorded) |
+| 4. VERIFY   | Independent convergence + all-OS-CI confirmation, never self-report          | Each returned target marked verified / rejected / retry                    |
+| 5. REPORT   | One-row-per-target batch summary; never merge                               | Report delivered; parked risky remediations surfaced for the human         |
+
+### Phase 1: SELECT — Compose Detectors, Cross-Check, Score
+
+1. **Enumerate the entropy/hotspot backlog by composing the existing detectors — reimplement none of them.** Run and fold together:
+   - `harness-hotspot-detector` — structural-risk hotspots via co-change + churn analysis.
+   - `cleanup-dead-code` — dead exports, commented-out code, orphaned dependencies.
+   - `harness-dependency-health` — graph-metric risk (coupling, centrality, dependents).
+   - `detect_entropy` — drift/entropy findings.
+   - a git-churn pass (`git log --format=format: --name-only --since=...` → per-file commit counts).
+
+   Missing any one source degrades to whichever detectors are available; record which source was unavailable rather than aborting.
+
+2. **Fold findings into remediation targets.** A **target** is one coherent hotspot cluster or one entropy finding-group — the unit that becomes one PR. Group co-located findings in the same high-churn area into a single target; never split a coherent cleanup across PRs, and never bundle unrelated cleanups into one.
+
+3. **Classify each target's safety.** Tag each target `safe` or `risky`:
+   - **safe** (auto-applied via `harness-codebase-cleanup --fix`): dead-code / dead-export removal, commented-out-code removal, orphaned-dependency removal, import-ordering, forbidden-import replacement.
+   - **risky** (parked for the human): structural refactor of a high-churn hotspot, splitting a god-module, or any change that alters a public API or observable behavior.
+
+4. **Cross-check each target against merged and open PRs.** For every target, search merged/open PRs for one that already cleaned that area. A target whose area was already remediated is **already-cleaned** — flag it for drop/annotate, not re-remediation.
+
+5. **Score and order by composite remediation value.** Do not rank ad-hoc. Reuse `roadmap-pilot`-style impact scoring over a composite of **churn × structural risk × entropy-finding density**, so the highest-risk areas that also carry remediable findings come first and selection is principled and reproducible.
+
+6. **Build the `Target` record** for each survivor:
+
+   ```
+   Target {
+     sources,           // which detectors surfaced it (may be several)
+     id,                // target slug
+     area,              // files / module the target covers
+     findings,          // the findings summary the target opens with
+     safety,            // "safe" | "risky"
+     score,             // composite remediation-value score
+     crossCheck,        // "novel" | "already-cleaned"
+     resolvingPr,       // set when crossCheck = already-cleaned
+     forks,             // detected risky-remediation forks (may be empty)
+   }
+   ```
+
+### Phase 2: CONFIRM — The Single Up-Front Human Gate `[checkpoint:human-verify]`
+
+1. **Present the ranked target batch in one round.** This is the **only guaranteed human touchpoint before PR review** — everything downstream runs autonomously. Present, together, in a single surface:
+   - The ranked targets (highest-value first) with scores and the findings each opens with.
+   - Each target's **safe / risky** classification — with risky targets flagged as they will **park** (never auto-apply).
+   - Already-cleaned targets **flagged for drop** with the resolving PR.
+   - The **proposed concurrency** (default 2, capped at ~3).
+
+2. **The human approves or trims once, and confirms the classifications.** Batch approval, safe/risky confirmation, and already-cleaned triage all happen in this same gate — front-loading the genuinely-ambiguous calls is what keeps wrong-remediation rework low. A target the human downgrades to risky is treated as parked from the start.
+
+3. **From here it is autonomous.** After this gate the fleet does not pause per-target. The only thing that re-surfaces to the human before REPORT is a target that turns out mid-flight to need a **risky** change (see DISPATCH) — and even that parks only that one target without blocking the batch. Under `--dry-run` the skill stops at the end of this phase.
+
+### Phase 3: DISPATCH — Worktree Fan-Out With a Concurrency Governor
+
+1. **One worktree-isolated subagent per confirmed target.** Each subagent is briefed to run the **real** per-target pipeline for its one target: `harness-codebase-cleanup --fix` in convergence mode. It does not hand-edit, and it does not short-cut the pipeline — the convergence record the pipeline leaves behind is what VERIFY checks for.
+
+2. **Cap concurrency at the governor (default 2, max ~3).** This is the machine-storm limit: beyond roughly three concurrent remediation agents the compound load produces flaky failures indistinguishable from real ones. Never exceed the confirmed concurrency to "go faster" — a stormed batch is slower once re-runs are counted.
+
+3. **Park risky remediation; never apply it autonomously.** A subagent runs autonomously on the safe class for its target. But if remediating the target turns out to require a **risky** structural change — one that alters a public API or observable behavior, or that rewrites a high-churn hotspot — that target **parks and reports** the change (with a recommendation) instead of applying it. Parking is per-target: the other targets in the batch continue uninterrupted. The parked risky remediation appears in REPORT for the human.
+
+4. **Record an "assumptions made" note per target.** Each subagent records the ranking basis, the remediation scope it took, and the safe-vs-risky calls it made, so the eventual PR carries an assumptions note — batch review is only trustworthy when the reviewer can see what was assumed and what was deliberately left un-remediated.
+
+5. **Push-path caveat.** A worktree created under a `.claude/`-nested path breaks the local pre-push `check-docs` gate (it self-excludes and scans zero files). Subagents push via the GitHub API or from a non-`.claude` throwaway worktree. **Never `--no-verify`** — bypassing the gate defeats the verification the fleet depends on.
+
+### Phase 4: VERIFY — Independent Confirmation, Never Self-Report
+
+1. **Never accept a subagent's self-report as verification.** "The cleanup ran and CI is green" is a claim to be checked, not a result. For each returned branch, the orchestrator independently confirms the evidence itself.
+
+2. **Require the convergence artifact.** Confirm that the target actually converged:
+   - The findings the target opened with (from SELECT) are **resolved**.
+   - A fresh re-scan of the target's area (re-running the relevant detector over it) is **clean**.
+
+   A branch whose re-scan **still reports findings did not converge** — regardless of what the subagent reported. Reject it (or retry once); it is never marked merge-ready.
+
+3. **Require all-OS CI green.** Confirm the pushed branch's CI is green on **all three operating systems** plus the enforce and harness checks (`gh pr checks` / `gh run list`). Green on one OS is not green. A subset-red branch is not merge-ready — it is reported as failed, and the batch continues.
+
+4. **Classify each returned target** as `verified` (converged + all-OS CI green), `rejected` (did not converge or definitively red), or `retry` (transient, retried at most once). No target reaches REPORT as merge-ready without passing both the convergence and the CI check.
+
+### Phase 5: REPORT — Batch Summary, Never Merge
+
+1. **Emit a one-row-per-target batch summary** for bulk human review:
+
+   | Target | Verdict | PR  | Findings resolved | Assumptions made | Parked risky remediation |
+   | ------ | ------- | --- | ----------------- | ---------------- | ------------------------ |
+
+   Every verified target's row carries its PR link, the count of findings resolved, the **assumptions-made note** from DISPATCH, and any parked risky remediation. Rejected/failed targets are listed with the reason.
+
+2. **Annotate already-cleaned targets accurately.** For each target flagged already-cleaned in SELECT and confirmed in CONFIRM, record it as dropped with a note **citing the resolving PR** — never a re-remediation.
+
+3. **Never merge.** The fleet delivers verified, reviewable cleanup PRs; the human (optionally via `pr-fleet`) lands the batch. Auto-merging a cleanup PR is out of scope by design — the highest-risk corners of the codebase are exactly where a silent merge hides a regression.
+
+4. **Degrade gracefully.** A missing detector source, an already-cleaned area, or a single target's non-converging cleanup results in that target (or source) being **reported** while the rest of the batch proceeds. One bad target never sinks the batch.
+
+## Harness Integration
+
+- **`harness skill run cleanup-fleet`** — Run the full five-phase batch pipeline.
+- **`harness-hotspot-detector`** — Composed in SELECT to surface structural-risk hotspots via co-change + churn.
+- **`cleanup-dead-code`** — Composed in SELECT to surface dead-export / commented-out / orphaned-dependency findings.
+- **`harness-dependency-health`** — Composed in SELECT for graph-metric risk (coupling, centrality, dependents).
+- **`detect_entropy`** — Composed in SELECT to fold drift/entropy findings into the target queue.
+- **`harness-roadmap-pilot`** — Its impact-scoring approach is reused in SELECT to order targets by composite remediation value.
+- **`harness-codebase-cleanup`** — The real per-target remediation pipeline each DISPATCH subagent runs; the fleet composes it and never reimplements detection or remediation.
+- **`gh`** — Cross-check merged/open PRs (SELECT), read `gh pr checks` (VERIFY), and open the cleanup PRs (REPORT).
+- **`harness skill validate cleanup-fleet`** — The authoring-time gate for this skill's own structure and schema.
+- **`docs/reference/fleet-family.md`** — The shared `-fleet` spine this skill builds on (the five-phase skeleton, the concurrency governor, the convergence/CI verification discipline, the worktree fan-out, and the never-silent-merge invariant), stated once for the family.
+
+## Success Criteria
+
+- Given a confirmed batch of N remediation targets, the fleet produces **up to N** cleanup PRs, each with a verified convergence record (re-scan clean) and green CI across all three OS plus enforce and harness.
+- There is **exactly one** up-front human decision round; no per-target interactive pauses except a genuinely-risky remediation parked to its own target.
+- **Every emitted PR carries an "assumptions made" note** (ranking basis, remediation scope, safe-vs-risky calls).
+- Risky structural remediations are **parked and reported, never auto-applied**.
+- Already-cleaned targets are **dropped/annotated with a resolving-PR citation, not re-remediated**.
+- The skill **never auto-merges** a cleanup PR.
+- It **degrades gracefully**: a missing detector source or a single target's non-converging cleanup is reported while the batch continues.
+- Concurrency never exceeds the confirmed governor (default 2, max ~3).
+- No target is marked merge-ready on a subagent self-report — every verdict is backed by an independently-checked convergence record + CI.
+
+## Gates
+
+- **No "merge-ready" without a verified convergence record.** A target whose re-scan still reports findings did not converge. It is rejected or retried — never reported as merge-ready, no matter what the subagent claimed.
+- **No "merge-ready" without all-OS CI green.** Green on a subset of operating systems (or with enforce/harness checks red) is not merge-ready. Report it failed; do not ship it.
+- **Never auto-apply a risky remediation.** Structural refactors, god-module splits, and public-API / behavior changes park for the human; the fleet applies only the safe class autonomously.
+- **Never auto-merge.** The fleet stops at reviewable PRs. Merging a cleanup PR from inside the fleet = gate violation; the human lands the batch.
+- **Never exceed the concurrency governor.** More than ~3 concurrent remediation agents is the machine-storm zone; do not raise the cap to "go faster."
+- **A self-report is never verification.** Accepting "findings gone, CI green" without independently confirming the re-scan is clean and CI is green = gate violation. Re-verify independently.
+- **Never suppress a finding as remediation.** Silencing or ignoring a detector's finding is not cleanup; a suppressed finding fails the convergence re-scan by design.
+- **Never `--no-verify`.** No subagent bypasses the pre-push gates; a `.claude/`-nested worktree pushes via the GitHub API or a non-nested worktree instead.
+
+## Escalation
+
+- **A detector source is unavailable (`detect_entropy` errors, no git history, etc.):** proceed with whichever detectors are available; record the missing source in REPORT rather than aborting. If no detector is available, stop and report — there is nothing to enumerate.
+- **A subagent returns a branch whose re-scan still shows findings:** do not accept its self-report. Reject or retry once; if it still does not converge, report the target as "did not converge" and move on — the batch continues.
+- **A target parks on a risky remediation:** surface the risky change (with the target's context and a recommendation) in REPORT for the human; do not apply it and continue. The parked target is the only one affected.
+- **CI red on a subset of OS:** report the target failed with the failing OS/check named; never mark it merge-ready. Do not average a mixed CI result into "mostly green".
+- **The batch appears coupled (one target's cleanup depends on another's merge):** stop fanning out those targets; the coupling means they are one convergence pipeline, not a fleet. Escalate to the human to sequence them through `harness-codebase-cleanup`.
+
+## Rationalizations to Reject
+
+| Rationalization                                                                       | Reality                                                                                                                                                                       |
+| ------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| "The subagent reported the findings are gone and CI is green, so the target is clean" | A self-report is a claim, not evidence. Independently confirm the target's re-scan is clean and CI is green — or the cleanup did not converge.                                 |
+| "Dead code is obviously safe — bundle every target's cleanup into one big PR"         | Scope one coherent target per PR. A mega-cleanup is un-reviewable and un-revertible; the whole model depends on the reviewer holding one target's diff in their head.          |
+| "This hotspot is high-churn, so just refactor it aggressively while we're in there"   | High churn means high risk. Auto-apply only the safe class; a structural rewrite of the busiest file parks for the human — it is not mechanical hygiene.                       |
+| "The re-scan still shows a couple of findings but CI is green — ship it"              | Convergence is a gate. A cleanup that did not resolve the findings it opened with is not merge-ready; report it as non-converging, do not ship a half-cleanup.                 |
+| "Just suppress / ignore the finding — that clears the detector"                       | Suppression is not remediation. A silenced finding fails the convergence re-scan by design; the fleet remediates, it does not mute.                                           |
+| "I'll hand-edit this one target — it's faster than driving the whole cleanup pipeline"| Dogfood the real per-target skill. A hand-edited target leaves no convergence record, fails VERIFY, and breaks the guarantee that every PR ran the audited pipeline.           |
+| "The batch is verified — I'll merge these cleanups to save the human a step"          | Never auto-merge. Cleanup lands in the highest-risk corners of the codebase; that is exactly where the one review the whole model is built around must happen.                 |
+| "One target's cleanup didn't converge, so the sweep is a bust — abort the batch"      | Degrade gracefully. Report the non-converging target and keep the verified ones; one bad target never sinks the batch.                                                         |
+| "I'll reimplement dead-code detection here so the fleet is self-contained"            | Compose, don't reimplement. The detectors exist and are battle-tested; a second detection engine is drift waiting to happen. The fleet's value is orchestration + batch review.|
+
+## Red Flags
+
+| Flag                                                                     | Corrective Action                                                                                              |
+| ------------------------------------------------------------------------ | -------------------------------------------------------------------------------------------------------------- |
+| "I'll mark it verified based on the subagent's summary"                  | STOP. Independently re-scan the target and check CI. A summary is not a verification.                          |
+| "This structural refactor looks safe enough — I'll just apply it"        | STOP. Risky remediations park and report. Record it with a recommendation for the human; do not auto-apply it. |
+| "The pre-push gate is failing in this worktree — I'll `--no-verify`"     | STOP. Never bypass. Push via the GitHub API or a non-`.claude` worktree; the gate is part of the verification. |
+| "All verified — let me merge and close the loop"                         | STOP. The fleet never merges. Deliver the PRs for review; landing is the human's step.                         |
+| "The detector's finding is noisy — I'll just suppress it"                | STOP. Suppression is not remediation. Remediate the finding or park the target; never mute the detector.       |
+
+## Examples
+
+### Example: A five-target entropy/hotspot sweep
+
+```
+$ harness skill run cleanup-fleet --concurrency 2
+
+Phase 1: SELECT
+  Composed detectors:
+    hotspot-detector -> 6 high-churn/high-coupling hotspots
+    cleanup-dead-code -> 22 dead exports, 4 orphaned deps across 9 files
+    dependency-health -> 3 over-central modules
+    detect_entropy -> 11 drift findings
+    churn pass -> top-10% files identified
+  Folded into 7 targets; cross-check vs merged/open PRs:
+    - "legacy date-utils module" -> already-cleaned (merged PR: link) -> flag for drop
+  Classified: 5 safe, 1 risky ("split god-module orchestrator/router.ts")
+  Scored 6 survivors by churn x risk x finding-density; ordered highest-first.
+
+Phase 2: CONFIRM  [checkpoint:human-verify]
+  Ranked batch (6) presented. Already-cleaned target flagged for drop.
+  Risky target "split router.ts" flagged as will-park (not auto-applied).
+  Human trims 1 low-value target -> batch = 5 (4 safe + 1 risky). Concurrency: 2.
+
+Phase 3: DISPATCH (governor = 2)
+  4 safe targets: worktree-isolated subagents, 2 at a time, each running real
+  harness-codebase-cleanup --fix for its one target.
+  Risky target "split router.ts" -> parks and reports (structural, alters imports
+  across many callers); the other 4 continue.
+
+Phase 4: VERIFY (independent — no self-report)
+  target A (dead exports): re-scan clean, CI green all 3 OS + enforce + harness -> verified
+  target B (orphaned deps): re-scan clean, CI green all 3 OS -> verified
+  target C (import-order + forbidden-import): re-scan clean, CI green -> verified
+  target D (commented-out code): re-scan STILL shows 3 findings (did not converge) -> REJECTED
+  target E (split router.ts): parked in DISPATCH -> not verified (risky, awaits human)
+
+Phase 5: REPORT
+  | Target             | Verdict  | PR   | Findings resolved | Assumptions made                  | Parked risky remediation |
+  | ------------------ | -------- | ---- | ----------------- | --------------------------------- | ------------------------ |
+  | dead exports       | verified | link | 14                | scope: web/ exports only          | —                        |
+  | orphaned deps      | verified | link | 4                 | removed 4 unused deps             | —                        |
+  | import-order       | verified | link | 9                 | forbidden-import -> shared util   | —                        |
+  | commented-out code | rejected | —    | —                 | —                                 | — (did not converge)     |
+  | split router.ts    | parked   | —    | —                 | —                                 | god-module split (risky) |
+  Dropped 1 already-cleaned target with a note citing the resolving PR.
+  Never merged. 3 PRs handed to the human for bulk review.
+```
+
+### Example: Rejecting a non-converging target
+
+A subagent returns a branch and reports "done — removed the dead code, CI green." VERIFY re-scans the target's area with `cleanup-dead-code` and still finds three dead exports the subagent missed: the cleanup **did not converge**. Per the Iron Law it is **rejected** (retried once, still non-converging → reported as "did not converge"), never marked merge-ready. The batch's other verified targets proceed to REPORT unaffected.
+
+## Test Scenarios
+
+### Scenario 1: Gate — a self-report accepted as verification
+
+VERIFY receives a subagent claiming "findings gone, CI green" but a fresh re-scan of the target still reports findings. Expected: the "no merge-ready without a verified convergence record" Gate halts marking it merge-ready; the target is rejected/retried, not reported as a PR. Accepting the self-report is the failure this scenario guards against.
+
+### Scenario 2: Gate — auto-applying a risky remediation
+
+A target's cleanup turns out to require splitting a god-module, which alters imports across many callers. Expected: the "never auto-apply a risky remediation" Gate parks the target and reports the change with a recommendation; the risky change is never applied autonomously. The other in-flight targets continue uninterrupted.
+
+### Scenario 3: Rationalization — reimplementing detection
+
+An operator reasons "I'll reimplement dead-code detection inside the fleet so it's self-contained." Expected: rejected by the "compose, don't reimplement" rationalization — the fleet composes `harness-hotspot-detector`, `cleanup-dead-code`, `harness-dependency-health`, and `detect_entropy` for its queue, and runs the real `harness-codebase-cleanup` per target. A second detection engine is drift waiting to happen.
