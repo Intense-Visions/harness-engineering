@@ -2,7 +2,7 @@
 
 # Skills Catalog
 
-785 skills. Skills carry two independent tier axes: a **loading tier** (whether a skill registers as a slash command or is discovered on demand) and a **curation tier** (how load-bearing it is). A senior engineer can hold ~12 skills in their head, not hundreds — the curation tier names that short list.
+786 skills. Skills carry two independent tier axes: a **loading tier** (whether a skill registers as a slash command or is discovered on demand) and a **curation tier** (how load-bearing it is). A senior engineer can hold ~12 skills in their head, not hundreds — the curation tier names that short list.
 
 See the [Features Overview](../guides/features-overview.md) for narrative documentation.
 
@@ -200,7 +200,7 @@ Human-judged acceptance sign-off skill — the terminal, human-authority stage o
 - **Cognitive mode:** configuration-interviewer
 - **Depends on:** outcome-eval
 
-## Tier 2 — Maintenance (65 skills)
+## Tier 2 — Maintenance (66 skills)
 
 ### acceptance-eval
 
@@ -698,6 +698,16 @@ CI/GitHub-Actions workflow-file quality and hygiene auditor
 - **Platforms:** claude-code, gemini-cli, cursor, codex
 - **Type:** rigid
 - **Cognitive mode:** adversarial-reviewer
+
+### ideate-fleet
+
+Strategy-grounded ideation fan-out at the head of the fleet spine — derive a queue of disjoint themes from STRATEGY.md tracks and supplied opportunity areas, confirm the batch once, fan out worktree-isolated subagents that each run the real harness-ideate pipeline for one theme to its ranked artifact, collect every artifact verbatim out of its worktree, verify by artifact provenance plus an independently re-derived ranking rather than a self-report, and hand back one curated ranked shortlist for a human to pick from. Files nothing — no issue, roadmap row, spec, plan, ADR, or PR — and commits, stages, and pushes nothing.
+
+- **Triggers:** manual
+- **Platforms:** claude-code, codex, cursor, gemini-cli
+- **Type:** rigid
+- **Cognitive mode:** systematic-orchestrator
+- **Depends on:** harness-ideate, harness-strategy
 
 ### issue-fleet
 
