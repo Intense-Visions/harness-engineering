@@ -88,3 +88,41 @@ export function loadDesignExclude(projectPath: string): string[] {
   if (!parsed.success) return [];
   return parsed.data.exclude;
 }
+
+/**
+ * Schema for the `deps.exclude` glob list (check-deps discovery scoping).
+ * Kept here — alongside `analysis.exclude` / `design.exclude` — so check-deps
+ * can load it without importing the full HarnessConfigSchema. Patterns are
+ * minimatch globs stacked on top of the built-in node_modules/skip-dir
+ * defaults (issue #1188).
+ */
+export const DepsConfigSchema = z.object({
+  /** Extra glob patterns (minimatch) excluded from check-deps discovery. */
+  exclude: z.array(z.string().min(1)).default([]),
+});
+
+export type DepsConfig = z.infer<typeof DepsConfigSchema>;
+
+/**
+ * Best-effort load of `deps.exclude` from `<projectPath>/harness.config.json`.
+ * Returns `[]` on any miss (no file, malformed JSON, or a `deps` block that
+ * fails validation) so check-deps keeps working on un-configured projects.
+ * Mirrors `loadDesignExclude`.
+ */
+export function loadDepsExclude(projectPath: string): string[] {
+  const configPath = path.join(projectPath, 'harness.config.json');
+  if (!fs.existsSync(configPath)) return [];
+
+  let raw: unknown;
+  try {
+    raw = JSON.parse(fs.readFileSync(configPath, 'utf-8'));
+  } catch {
+    return [];
+  }
+
+  const depsRaw = (raw as { deps?: unknown } | null | undefined)?.deps;
+  if (depsRaw === undefined || depsRaw === null || typeof depsRaw !== 'object') return [];
+  const parsed = DepsConfigSchema.safeParse(depsRaw);
+  if (!parsed.success) return [];
+  return parsed.data.exclude;
+}

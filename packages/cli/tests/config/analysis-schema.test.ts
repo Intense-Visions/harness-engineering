@@ -2,7 +2,12 @@ import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import * as os from 'node:os';
-import { AnalysisConfigSchema, loadAnalysisExclude } from '../../src/config/analysis-schema';
+import {
+  AnalysisConfigSchema,
+  loadAnalysisExclude,
+  DepsConfigSchema,
+  loadDepsExclude,
+} from '../../src/config/analysis-schema';
 import { HarnessConfigSchema } from '../../src/config/schema';
 
 describe('AnalysisConfigSchema', () => {
@@ -79,5 +84,39 @@ describe('loadAnalysisExclude', () => {
   it('returns [] when the analysis block fails validation', () => {
     writeConfig(JSON.stringify({ version: 1, analysis: { exclude: 'not-an-array' } }));
     expect(loadAnalysisExclude(tmpDir)).toEqual([]);
+  });
+});
+
+describe('DepsConfigSchema + loadDepsExclude (#1188)', () => {
+  let tmp: string;
+  beforeEach(() => {
+    tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'deps-exclude-test-'));
+  });
+  afterEach(() => fs.rmSync(tmp, { recursive: true, force: true }));
+
+  it('defaults exclude to []', () => {
+    expect(DepsConfigSchema.parse({}).exclude).toEqual([]);
+  });
+
+  it('returns [] when config file is missing', () => {
+    expect(loadDepsExclude(tmp)).toEqual([]);
+  });
+
+  it('returns [] when deps block is absent', () => {
+    fs.writeFileSync(path.join(tmp, 'harness.config.json'), JSON.stringify({ version: '1' }));
+    expect(loadDepsExclude(tmp)).toEqual([]);
+  });
+
+  it('returns configured exclude globs', () => {
+    fs.writeFileSync(
+      path.join(tmp, 'harness.config.json'),
+      JSON.stringify({ deps: { exclude: ['**/generated/**'] } })
+    );
+    expect(loadDepsExclude(tmp)).toEqual(['**/generated/**']);
+  });
+
+  it('returns [] on malformed JSON', () => {
+    fs.writeFileSync(path.join(tmp, 'harness.config.json'), '{ not json');
+    expect(loadDepsExclude(tmp)).toEqual([]);
   });
 });

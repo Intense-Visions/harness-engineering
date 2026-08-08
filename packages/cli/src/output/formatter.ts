@@ -41,6 +41,10 @@ interface ValidationResult {
   valid: boolean;
   /** A list of issues found during validation */
   issues: ValidationIssue[];
+  /** Optional count of modules analyzed, surfaced in JSON output (#1188). */
+  modulesAnalyzed?: number;
+  /** Optional count of layers configured, surfaced in JSON output (#1188). */
+  layersConfigured?: number;
 }
 
 /** Append formatted lines for a single validation issue into the lines array. */
