@@ -45,7 +45,10 @@ const HOOKS: Record<string, (rawPayload: string | undefined) => Promise<number>>
  */
 export async function runHook(name: string, rawPayload: string | undefined): Promise<number> {
   try {
-    const handler = HOOKS[name];
+    // Guard with Object.hasOwn so inherited prototype names ('toString',
+    // 'constructor', ...) do not resolve a handler off the prototype chain and
+    // bypass the unknown-name → exit 0 fail-soft (D4).
+    const handler = Object.hasOwn(HOOKS, name) ? HOOKS[name] : undefined;
     if (!handler) return 0;
     return await handler(rawPayload);
   } catch (err: unknown) {
