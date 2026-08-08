@@ -2,7 +2,7 @@
 
 # Skills Catalog
 
-777 skills. Skills carry two independent tier axes: a **loading tier** (whether a skill registers as a slash command or is discovered on demand) and a **curation tier** (how load-bearing it is). A senior engineer can hold ~12 skills in their head, not hundreds — the curation tier names that short list.
+779 skills. Skills carry two independent tier axes: a **loading tier** (whether a skill registers as a slash command or is discovered on demand) and a **curation tier** (how load-bearing it is). A senior engineer can hold ~12 skills in their head, not hundreds — the curation tier names that short list.
 
 See the [Features Overview](../guides/features-overview.md) for narrative documentation.
 
@@ -200,7 +200,7 @@ Human-judged acceptance sign-off skill — the terminal, human-authority stage o
 - **Cognitive mode:** configuration-interviewer
 - **Depends on:** outcome-eval
 
-## Tier 2 — Maintenance (57 skills)
+## Tier 2 — Maintenance (59 skills)
 
 ### acceptance-eval
 
@@ -757,6 +757,16 @@ LLM-judgment critique of test quality across vitest / jest / mocha / playwright 
 - **Type:** rigid
 - **Cognitive mode:** constructive-architect
 - **Depends on:** harness-tdd, harness-design-craft
+
+### test-fleet
+
+Autonomous test-coverage backlog sweep — enumerate under-covered areas and uncovered critical paths, confirm a ranked target batch with the human once, fan out worktree-isolated subagents that author tests via the real tdd then test-craft flow, independently verify each by added behavior-asserting tests plus a coverage delta plus all-OS CI, and hand back a batch of green test PRs for human review. Never auto-merges.
+
+- **Triggers:** manual
+- **Platforms:** claude-code, codex, cursor, gemini-cli
+- **Type:** rigid
+- **Cognitive mode:** systematic-orchestrator
+- **Depends on:** harness-test-advisor, harness-tdd, test-craft, harness-roadmap-pilot
 
 ## Tier 3 — Domain (703 skills)
 
