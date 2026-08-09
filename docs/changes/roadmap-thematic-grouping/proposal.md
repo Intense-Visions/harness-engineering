@@ -33,6 +33,9 @@ the file be machine-readable.
 3. malformed feature input **still errors cleanly**, and
 4. narrative sections are **never silently dropped** on any write path.
 
+> **Addendum to goal 4 (as shipped).** Scoped to the **monolith** write paths. The
+> derived sharded aggregate is explicitly out of scope — see the D2 addendum.
+
 ### Non-goals
 
 - Redesigning the roadmap model or the milestone→features shape (every consumer
@@ -87,6 +90,24 @@ parse → mutate → serialize write path (monolith `manage_roadmap`
 update/promote/sync, migration round-trip) **preserves** the narrative rather
 than silently deleting it. This directly answers the reporter's stated fear that
 conforming such a roadmap "would flatten and destroy the arc narrative."
+
+- **Addendum — the invariant is scoped to the MONOLITH paths, and "preserves" means
+  "never silently loses".** As shipped, the monolith paths honor it in two ways, not
+  one: `serializeRoadmap` re-emits every group, and where a writer cannot guarantee
+  that, it **fails loudly instead of writing** — the single-file writer usually
+  refuses with a "cannot preserve" error (a line-level guard, so a group body of
+  only modeled `- **Key:**` bullets does not trip it and the rewrite proceeds, moving
+  the group after that milestone's features), and `harness roadmap shard` **aborts**
+  rather than flattening groups away. Neither "preserves and writes" in the literal
+  sense the original wording implies; both satisfy "nothing is silently destroyed".
+- **Addendum — the derived sharded aggregate is explicitly OUT OF SCOPE.** In sharded
+  mode `docs/roadmap.md` is a read-aggregate regenerated wholesale from
+  `docs/roadmap.d/` and is **never hand-edited**, so it has no preservation guard at
+  all: a group added there is dropped by the next `harness roadmap regen`/`unshard`,
+  exactly as any other hand-added aggregate content already was. This is consistent
+  with the non-goal "no grouping support in sharded mode", and it is pinned by
+  characterization tests in `groups-write-paths.test.ts` — so the unqualified "any
+  write path" in the heading and in goal 4 must be read as "any monolith write path".
 
 ### D3 — Group bodies are not feature-validated
 
