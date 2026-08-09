@@ -3,6 +3,7 @@ import type {
   RoadmapFrontmatter,
   RoadmapMilestone,
   RoadmapFeature,
+  RoadmapGroup,
   FeatureStatus,
   Priority,
   AssignmentRecord,
@@ -20,6 +21,9 @@ const VALID_STATUSES: ReadonlySet<string> = new Set([
 ]);
 
 const EM_DASH = '\u2014';
+
+/** Heading-text prefix that marks an H3 as a narrative group rather than a feature. */
+const GROUP_PREFIX = 'Group: ';
 
 const VALID_PRIORITIES: ReadonlySet<string> = new Set(['P0', 'P1', 'P2', 'P3']);
 
@@ -111,21 +115,31 @@ function parseMilestones(body: string): Result<RoadmapMilestone[]> {
     const isBacklog = h2.heading === 'Backlog';
     const milestoneName = isBacklog ? 'Backlog' : h2.heading.replace(/^Milestone:\s*/, '');
 
-    const featuresResult = parseFeatures(sectionBody);
-    if (!featuresResult.ok) return featuresResult;
+    const sectionsResult = parseFeatures(sectionBody);
+    if (!sectionsResult.ok) return sectionsResult;
+    const { features, groups } = sectionsResult.value;
 
-    milestones.push({
-      name: milestoneName,
-      isBacklog,
-      features: featuresResult.value,
-    });
+    // `groups` is attached ONLY when non-empty, so a strict roadmap's milestones
+    // keep their exact prior own-key shape (name, isBacklog, features). The
+    // shard round-trip guard compares with isDeepStrictEqual, which is not
+    // undefined-tolerant, so this gating is load-bearing.
+    const milestone: RoadmapMilestone = { name: milestoneName, isBacklog, features };
+    if (groups.length > 0) milestone.groups = groups;
+    milestones.push(milestone);
   }
 
   return Ok(milestones);
 }
 
-function parseFeatures(sectionBody: string): Result<RoadmapFeature[]> {
+/** The two kinds of H3 section a milestone body can hold. */
+interface MilestoneSections {
+  features: RoadmapFeature[];
+  groups: RoadmapGroup[];
+}
+
+function parseFeatures(sectionBody: string): Result<MilestoneSections> {
   const features: RoadmapFeature[] = [];
+  const groups: RoadmapGroup[] = [];
   // Split on H3 headings — accept both "### Feature: X" and "### X"
   const h3Pattern = /^### (?:Feature: )?(.+)$/gm;
   const h3Matches: Array<{ name: string; startIndex: number; fullMatch: string }> = [];
@@ -139,12 +153,20 @@ function parseFeatures(sectionBody: string): Result<RoadmapFeature[]> {
     const nextStart = i + 1 < h3Matches.length ? h3Matches[i + 1]!.startIndex : sectionBody.length;
     const featureBody = sectionBody.slice(h3.startIndex + h3.fullMatch.length, nextStart);
 
+    // Explicit `### Group: <name>` marker: capture the section verbatim and skip
+    // feature validation entirely. The marker is authoritative — a plain `### X`
+    // with no Status still errors below (no silent inference).
+    if (h3.name.startsWith(GROUP_PREFIX)) {
+      groups.push({ name: h3.name.slice(GROUP_PREFIX.length), body: featureBody.trim() });
+      continue;
+    }
+
     const featureResult = parseFeatureBlock(h3.name, featureBody);
     if (!featureResult.ok) return featureResult;
     features.push(featureResult.value);
   }
 
-  return Ok(features);
+  return Ok({ features, groups });
 }
 
 function extractFieldMap(body: string): Map<string, string> {
