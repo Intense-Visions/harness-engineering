@@ -4,6 +4,9 @@ import type {
   RoadmapFeature,
   AssignmentRecord,
 } from '@harness-engineering/types';
+// The marker prefixes live in `./parse`, the reader that defines them, so the
+// emitter cannot drift from it. See GROUP_PREFIX's doc comment there.
+import { GROUP_PREFIX, FEATURE_PREFIX } from './parse';
 
 const EM_DASH = '\u2014';
 
@@ -36,6 +39,18 @@ export function serializeRoadmap(roadmap: Roadmap): string {
     for (const feature of milestone.features) {
       lines.push('');
       lines.push(...serializeFeature(feature));
+    }
+    // Narrative `### Group:` sections are re-emitted verbatim AFTER the strict
+    // features so a parse → mutate → serialize cycle never silently drops them.
+    for (const group of milestone.groups ?? []) {
+      lines.push('');
+      lines.push(`### Group: ${group.name}`);
+      // An empty body emits the heading alone — pushing a blank line plus an empty
+      // string would leave a stray trailing blank line in the file.
+      if (group.body !== '') {
+        lines.push('');
+        lines.push(group.body);
+      }
     }
   }
 
@@ -80,6 +95,28 @@ function serializeExtendedLines(feature: RoadmapFeature): string[] {
 }
 
 /**
+ * Emit a feature's H3 heading. Normally the bare `### <name>` form, but a name that
+ * begins with either marker prefix MUST be escaped with an explicit `### Feature: `
+ * prefix. The two readers of an H3 heading differ in what they would otherwise do:
+ *
+ *  - `Feature: x` — BOTH readers strip a leading `Feature: `, so in either format the
+ *    row would be read back as plain `x`: silently renamed, and in the shard format
+ *    re-slugged with it.
+ *  - `Group: x` — only `parseRoadmap`'s `h3Pattern` treats this as a narrative group
+ *    (silently dropping the tracked row). The shard format's `H3_NAME` has no
+ *    `Group: ` handling at all and would round-trip it unescaped; it is escaped
+ *    anyway so one emitter serves both formats and the shard reader needs no
+ *    knowledge of the group marker.
+ *
+ * Escaping both keeps serialize → parse an identity for every feature name.
+ */
+function serializeFeatureHeading(name: string): string {
+  return name.startsWith(GROUP_PREFIX) || name.startsWith(FEATURE_PREFIX)
+    ? `### ${FEATURE_PREFIX}${name}`
+    : `### ${name}`;
+}
+
+/**
  * Serialize a single feature to its markdown lines: the `### name` heading, a
  * blank line, then the `- **Field:** value` bullet block. Exported so the shard
  * file format can reuse the exact same row emission (spec: reuse, do not
@@ -87,7 +124,7 @@ function serializeExtendedLines(feature: RoadmapFeature): string[] {
  */
 export function serializeFeature(feature: RoadmapFeature): string[] {
   const lines = [
-    `### ${feature.name}`,
+    serializeFeatureHeading(feature.name),
     '',
     `- **Status:** ${feature.status}`,
     `- **Spec:** ${orDash(feature.spec)}`,

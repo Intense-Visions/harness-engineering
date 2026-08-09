@@ -42,6 +42,18 @@ export interface RoadmapFeature {
 }
 
 /**
+ * A thematic grouping / narrative section in a milestone. Authored as an
+ * `### Group: <name>` H3. Its body is free-form markdown captured verbatim and
+ * NOT parsed as roadmap features.
+ */
+export interface RoadmapGroup {
+  /** Group/theme name (heading text after the "Group: " prefix). */
+  name: string;
+  /** Verbatim markdown body of the section (trimmed of surrounding blank lines). */
+  body: string;
+}
+
+/**
  * A milestone grouping in the roadmap. The special "Backlog" milestone
  * has `isBacklog: true` and appears as `## Backlog` instead of `## Milestone: <name>`.
  */
@@ -52,6 +64,8 @@ export interface RoadmapMilestone {
   isBacklog: boolean;
   /** Features in this milestone, in document order */
   features: RoadmapFeature[];
+  /** Narrative grouping sections, in document order. Present only when non-empty. */
+  groups?: RoadmapGroup[];
 }
 
 /**

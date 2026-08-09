@@ -387,3 +387,107 @@ export const HISTORY_ROADMAP: Roadmap = {
     },
   ],
 };
+
+/**
+ * Roadmap markdown with narrative `### Group:` sections: one after a milestone's
+ * strict features, and one in an all-narrative Backlog. Bodies deliberately carry
+ * free-form content the feature parser would reject (inline `Status:` prose, an
+ * unmodeled bullet, a blockquote, a cross-repo link) to prove group bodies are
+ * captured verbatim and never feature-validated.
+ */
+export const GROUPED_ROADMAP_MD = `---
+project: grouped-project
+version: 1
+last_synced: 2026-05-01T10:00:00Z
+last_manual_edit: 2026-05-01T09:00:00Z
+---
+
+# Roadmap
+
+## Delivery Arc
+
+### Ship the parser
+
+- **Status:** in-progress
+- **Spec:** \u2014
+- **Summary:** Teach the parser the group marker
+- **Blockers:** \u2014
+- **Plan:** \u2014
+
+### Group: Narrative arc
+
+- Status: shipped in spirit, not in bytes.
+- Tracks the cross-repo thread at owner/other-repo#7.
+- **Note:** no Status bullet is required in a group body.
+
+> A blockquote inside a group body is captured verbatim.
+
+## Backlog
+
+### Group: Someday themes
+
+- Grouping is narrative; shards stay strict.
+`;
+
+export const GROUPED_ROADMAP: Roadmap = {
+  frontmatter: {
+    project: 'grouped-project',
+    version: 1,
+    lastSynced: '2026-05-01T10:00:00Z',
+    lastManualEdit: '2026-05-01T09:00:00Z',
+  },
+  milestones: [
+    {
+      name: 'Delivery Arc',
+      isBacklog: false,
+      features: [
+        {
+          name: 'Ship the parser',
+          status: 'in-progress',
+          spec: null,
+          plans: [],
+          blockedBy: [],
+          summary: 'Teach the parser the group marker',
+          assignee: null,
+          priority: null,
+          externalId: null,
+          updatedAt: null,
+        },
+      ],
+      groups: [
+        {
+          name: 'Narrative arc',
+          body: [
+            '- Status: shipped in spirit, not in bytes.',
+            '- Tracks the cross-repo thread at owner/other-repo#7.',
+            '- **Note:** no Status bullet is required in a group body.',
+            '',
+            '> A blockquote inside a group body is captured verbatim.',
+          ].join('\n'),
+        },
+      ],
+    },
+    {
+      name: 'Backlog',
+      isBacklog: true,
+      features: [],
+      groups: [{ name: 'Someday themes', body: '- Grouping is narrative; shards stay strict.' }],
+    },
+  ],
+  assignmentHistory: [],
+};
+
+/**
+ * Feature names that collide with the H3 heading markers, plus controls. Shared by
+ * BOTH heading seams — `serializeRoadmap`/`parseRoadmap` (monolith) and
+ * `serializeShard`/`parseShard` (shard) — so the two are provably tested against the
+ * same set rather than drifting apart. Each must survive a write round-trip with its
+ * name byte-stable; see `serialize-groups.test.ts` and `groups-write-paths.test.ts`.
+ */
+export const MARKER_NAMES = [
+  'Group: Auth hardening',
+  'Feature: odd name',
+  'Feature: Group: doubly prefixed',
+  'Group',
+  'plain name',
+] as const;

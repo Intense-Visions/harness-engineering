@@ -6,6 +6,7 @@ import {
   isUnactionablePlanned,
 } from '../../src/roadmap/health';
 import type { Roadmap, RoadmapFeature, RoadmapMilestone } from '@harness-engineering/types';
+import { GROUPED_ROADMAP } from './fixtures';
 
 function feature(overrides: Partial<RoadmapFeature> & { name: string }): RoadmapFeature {
   return {
@@ -179,6 +180,30 @@ describe('groomRoadmap()', () => {
     const { archived } = groomRoadmap(rm, { archiveDone: false });
     expect(archived).toHaveLength(0);
   });
+
+  it('keeps an all-narrative milestone (zero features, non-empty groups)', () => {
+    const rm = roadmap([
+      {
+        name: 'Someday',
+        isBacklog: false,
+        features: [],
+        groups: [{ name: 'Themes', body: '- a' }],
+      },
+      milestone('Craft Pipeline', [feature({ name: 'keep-1', status: 'planned' })]),
+    ]);
+    const { roadmap: out } = groomRoadmap(rm);
+    expect(out.milestones.map((m) => m.name)).toEqual(['Someday', 'Craft Pipeline']);
+    expect(out.milestones[0]?.groups).toEqual([{ name: 'Themes', body: '- a' }]);
+  });
+
+  it('still drops a milestone that grooming emptied and that has no groups', () => {
+    const rm = roadmap([
+      { name: 'Gone', isBacklog: false, features: [], groups: [] },
+      milestone('Craft Pipeline', [feature({ name: 'keep-1', status: 'planned' })]),
+    ]);
+    const { roadmap: out } = groomRoadmap(rm);
+    expect(out.milestones.map((m) => m.name)).toEqual(['Craft Pipeline']);
+  });
 });
 
 describe('RMH005 — assignee invariant', () => {
@@ -256,5 +281,31 @@ describe('groomRoadmap — assignee invariant migration', () => {
     const { roadmap: out, changes } = groomRoadmap(rm);
     expect(out.milestones[0]!.features[0]!.assignee).toBe('orchestrator-5c895000');
     expect(changes.filter((c) => c.feature === 'a')).toHaveLength(0);
+  });
+});
+
+describe('checkRoadmapHealth() — narrative groups are invisible', () => {
+  it('produces identical findings with and without groups', () => {
+    const withGroups = GROUPED_ROADMAP;
+    const withoutGroups = {
+      ...withGroups,
+      milestones: withGroups.milestones.map(({ name, isBacklog, features }) => ({
+        name,
+        isBacklog,
+        features,
+      })),
+    };
+    expect(checkRoadmapHealth(withGroups)).toEqual(checkRoadmapHealth(withoutGroups));
+  });
+
+  it('emits no finding whose feature name is a group name', () => {
+    const findings = checkRoadmapHealth(GROUPED_ROADMAP);
+    // Guard against a vacuous pass: the loop below proves nothing if there are
+    // no findings at all.
+    expect(findings.length).toBeGreaterThan(0);
+    for (const finding of findings) {
+      expect(JSON.stringify(finding)).not.toContain('Narrative arc');
+      expect(JSON.stringify(finding)).not.toContain('Someday themes');
+    }
   });
 });

@@ -6,6 +6,15 @@ import { serializeFeature } from '../serialize';
 import { quoteYamlScalar } from './yaml-scalar';
 import type { Shard } from './roadmap-store';
 
+/**
+ * Reads the feature name back out of the row heading emitted by `serializeFeature`.
+ *
+ * This is an INDEPENDENT copy of the heading grammar in `../parse` (`h3Pattern`), so
+ * the two must agree on the `Feature: ` escape: `serializeFeature` prefixes any name
+ * beginning with `Feature: ` or `Group: ` with `Feature: `, and stripping it here is
+ * what makes the shard round-trip name-preserving. `groups-write-paths.test.ts` pins
+ * this seam with byte-stable round-trips over marker-prefixed names.
+ */
 const H3_NAME = /^###\s+(?:Feature:\s+)?(.+)$/m;
 
 /** Validated shard frontmatter fields (slug/milestone/order). */

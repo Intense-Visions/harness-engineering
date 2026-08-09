@@ -2,7 +2,8 @@
 
 This guide explains the sharded roadmap store: what it is, how new projects get it
 by default, how existing adopters opt in, the git mechanics that keep the generated
-aggregate fresh, and the known limits. For the design rationale see ADRs
+aggregate fresh, the known limits, and how to author narrative `### Group:` sections
+in a single-file roadmap. For the design rationale see ADRs
 [0050](../knowledge/decisions/0050-roadmap-read-source-invariant.md) and
 [0051](../knowledge/decisions/0051-slug-identity-external-id-sync-key.md) and the
 knowledge entries under [`docs/knowledge/roadmap/`](../knowledge/roadmap/).
@@ -190,6 +191,101 @@ report still flips (a conservative default that preserves behavior for adapters 
 cannot supply `state_reason`). Still prefer the Action path: it is driven by the PR's
 closing-issue references, so it also carries each issue's `owner/repo` and cannot
 mis-map a cross-repo issue with a colliding number onto a local row.
+
+## (g) Narrative grouping sections — `### Group: <name>`
+
+Every `### H3` inside a milestone is parsed as a strict feature row and must carry a
+valid `- **Status:** <status>` bullet. To author a **thematic grouping / narrative**
+section instead — a hand-written arc with free-form bullets and prose — prefix the
+heading text with the literal marker `Group: `:
+
+```markdown
+## Delivery Arc
+
+### Ship the parser
+
+- **Status:** in-progress
+- **Spec:** —
+- **Summary:** A strict feature row, validated as usual
+- **Blockers:** —
+- **Plan:** —
+
+### Group: Why this arc matters
+
+- Free-form bullets. No `Status:` bullet is required or parsed here.
+- Prose, blockquotes, and links are captured verbatim.
+```
+
+Rules:
+
+- **The marker is explicit and case-sensitive.** Only `### Group: ` opts a section out
+  of feature validation. A plain `### <name>` with no status bullet still fails to
+  parse — group-ness is never inferred from content, so real work is never silently
+  skipped.
+- **`Feature: ` beats `Group: `.** A genuinely tracked feature may legitimately be
+  _named_ `Group: something`; author it as `### Feature: Group: something` and it stays a
+  validated feature. The serializer adds that prefix automatically for such names, so no
+  tracked row is ever reclassified as narrative.
+- **Group names are trimmed, and an unnamed group is an error.** `### Group: Themes` and
+  `### Group: Themes   ` are the same group. A bare `### Group: ` with no name is
+  rejected with a message naming the milestone and line, because it would round-trip
+  with a trailing space that a trim-on-save editor turns into `### Group:` — no longer
+  the marker, which would then fail the whole file.
+- **Group bodies are never validated.** Text that merely looks like a field (for
+  example `Status: shipped` written as prose) is recorded as-is.
+- **Layout.** Groups are emitted after a milestone's strict features. Author them that
+  way — after the features, or in a dedicated all-narrative milestone — and the file
+  round-trips byte-for-byte.
+- **Grouping is invisible to tooling.** Pilot scoring, `manage_roadmap` reads, and the
+  `roadmapHealth` check in `harness validate` all read `milestone.features` only.
+
+### Hazard: never put a column-0 `### ` or `## ` inside a group body
+
+Indent it, or use `#### ` or deeper. The parser splits milestone bodies on column-0
+headings and does **not** understand fenced code blocks, so a column-0 `### ` inside a
+group body ends the group there. The consequences are worse than a layout glitch:
+
+- A column-0 `### Feature: Example` inside a group body **fabricates a phantom tracked
+  feature** that health checks, pilot scoring, and tracker sync all treat as real work.
+- **Everything after it in the group body — including a closing code fence — is
+  dropped** from the model, and therefore from the file on the next write.
+- If that fabricated row has no valid `- **Status:**` bullet, the whole roadmap instead
+  fails to parse.
+- A column-0 `## ` is the same class of problem: a phantom milestone whose body is
+  emptied.
+
+A fenced code block is the most likely trigger, because the natural thing to paste inside
+one is exactly a `### ` heading — and the fence will not protect it.
+
+### How a grouped roadmap is edited
+
+**A grouped roadmap is edited by hand.** The automated write paths do not maintain group
+sections for you:
+
+| Path                                                      | Behavior with groups                                                                                    |
+| --------------------------------------------------------- | ------------------------------------------------------------------------------------------------------- |
+| `serializeRoadmap` (in memory)                            | Re-emits every group. Nothing is lost.                                                                  |
+| Single-file writer (`manage_roadmap` update/promote/sync) | **Usually refuses** with a "cannot preserve" error — but see the caveat below. Not a group-aware guard. |
+| `harness roadmap shard`                                   | **Refuses** to shard, aborting to protect the file. Shards are one strict row per file.                 |
+| `harness roadmap regen` / `unshard` (sharded aggregate)   | **Silently drops** groups. See below.                                                                   |
+
+**The single-file writer's refusal is not group-aware, so do not rely on it.** The guard
+asks a narrower question: does this file contain any _line_ the roadmap model cannot
+represent? A prose narrative body — free text, blockquotes, unmodeled `- **Key:**`
+bullets — answers yes, so the rewrite is refused. That is the normal case, but it is
+**not guaranteed**: a group body composed only of **modeled** `- **Key:**` bullets
+(`- **Status:** shipped in spirit`, `- **Summary:** …`) produces zero unpreservable
+lines, so the guard sees nothing and **the rewrite proceeds** — the group survives (the
+serializer re-emits it) but is **relocated to after that milestone's features**. Nothing
+is lost either way; the difference is only position, and if you followed the sanctioned
+layout above there is nothing to relocate.
+
+In **sharded** mode, do not put groups in the aggregate at all. `docs/roadmap.md` is a
+derived read-aggregate rebuilt from `docs/roadmap.d/` and is never hand-edited. It is
+rewritten wholesale with no preservation guard at all — not even the line-level one
+above — so a `### Group: ` section added there is dropped on the next
+`harness roadmap regen` or `harness roadmap unshard`, exactly as any other hand-added
+aggregate content already is. Narrative groups belong in a single-file roadmap.
 
 ## See also
 

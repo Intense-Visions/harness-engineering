@@ -3,6 +3,7 @@ import type {
   RoadmapFrontmatter,
   RoadmapMilestone,
   RoadmapFeature,
+  RoadmapGroup,
   FeatureStatus,
   Priority,
   AssignmentRecord,
@@ -20,6 +21,31 @@ const VALID_STATUSES: ReadonlySet<string> = new Set([
 ]);
 
 const EM_DASH = '\u2014';
+
+/**
+ * Heading-text prefix that marks an H3 as a narrative group rather than a feature.
+ *
+ * This module is the SOURCE OF TRUTH for both marker prefixes: `serialize.ts`
+ * imports them so the emitter cannot drift from the reader (a divergence would
+ * silently reclassify or rename tracked rows).
+ *
+ * Two copies of the grammar are NOT shared, both as regex literals: `h3Pattern`
+ * below, and `H3_NAME` in `./store/shard.ts`, which reads the same headings back for
+ * the shard format. Sharing them is a worthwhile follow-up (`shard.ts` already
+ * imports `parseFeatureBlock` from this module, so nothing structural prevents it).
+ * Until then the seams are pinned by byte-stable round-trips over the shared
+ * `MARKER_NAMES` list: `serialize-groups.test.ts` for this reader,
+ * `groups-write-paths.test.ts` for the shard reader.
+ */
+export const GROUP_PREFIX = 'Group: ';
+
+/**
+ * Heading-text prefix that explicitly marks an H3 as a feature. It takes
+ * precedence over {@link GROUP_PREFIX}, so `### Feature: Group: x` is a feature
+ * named `Group: x`. Also the escape the serializer emits for any name that begins
+ * with either prefix.
+ */
+export const FEATURE_PREFIX = 'Feature: ';
 
 const VALID_PRIORITIES: ReadonlySet<string> = new Set(['P0', 'P1', 'P2', 'P3']);
 
@@ -111,40 +137,114 @@ function parseMilestones(body: string): Result<RoadmapMilestone[]> {
     const isBacklog = h2.heading === 'Backlog';
     const milestoneName = isBacklog ? 'Backlog' : h2.heading.replace(/^Milestone:\s*/, '');
 
-    const featuresResult = parseFeatures(sectionBody);
-    if (!featuresResult.ok) return featuresResult;
+    const sectionsResult = parseMilestoneSections(sectionBody, milestoneName);
+    if (!sectionsResult.ok) return sectionsResult;
+    const { features, groups } = sectionsResult.value;
 
-    milestones.push({
-      name: milestoneName,
-      isBacklog,
-      features: featuresResult.value,
-    });
+    // `groups` is attached ONLY when non-empty, so a strict roadmap's milestones
+    // keep their exact prior own-key shape (name, isBacklog, features) — D4.
+    // This is observable, not cosmetic: an unconditional `groups: []` would change
+    // `Object.keys(milestone)` and break the existing `toEqual(VALID_ROADMAP)`
+    // fixtures (toEqual tolerates undefined-valued keys, but NOT an empty array).
+    // Note it is NOT required by the shard round-trip guard: that compares parser
+    // output on BOTH sides, so an unconditional `[]` would appear symmetrically
+    // and stay deep-equal.
+    const milestone: RoadmapMilestone = { name: milestoneName, isBacklog, features };
+    if (groups.length > 0) milestone.groups = groups;
+    milestones.push(milestone);
   }
 
   return Ok(milestones);
 }
 
-function parseFeatures(sectionBody: string): Result<RoadmapFeature[]> {
+/** The two kinds of H3 section a milestone body can hold. */
+interface MilestoneSections {
+  features: RoadmapFeature[];
+  groups: RoadmapGroup[];
+}
+
+/** 1-based line number of `index` within `text`, for error locators. */
+function lineNumberAt(text: string, index: number): number {
+  let line = 1;
+  for (let i = 0; i < index && i < text.length; i++) {
+    if (text[i] === '\n') line++;
+  }
+  return line;
+}
+
+/**
+ * Split one milestone's body into its two kinds of H3 section: strict feature rows and
+ * narrative `### Group:` sections. Sections are walked in document order; each H3 owns
+ * the text up to the next column-0 H3 (or the end of the milestone body).
+ *
+ * `milestoneName` is used only to locate errors. Returns `Err` on the first invalid
+ * feature row or unnamed group, leaving the caller's roadmap unbuilt.
+ */
+function parseMilestoneSections(
+  sectionBody: string,
+  milestoneName: string
+): Result<MilestoneSections> {
   const features: RoadmapFeature[] = [];
-  // Split on H3 headings — accept both "### Feature: X" and "### X"
-  const h3Pattern = /^### (?:Feature: )?(.+)$/gm;
-  const h3Matches: Array<{ name: string; startIndex: number; fullMatch: string }> = [];
+  const groups: RoadmapGroup[] = [];
+  // Split on H3 headings — accept both "### Feature: X" and "### X". The
+  // `Feature: ` prefix is captured (not discarded) so the group test below can be
+  // restricted to headings that did NOT carry it.
+  const h3Pattern = /^### (Feature: )?(.+)$/gm;
+  const h3Matches: Array<{
+    name: string;
+    explicitFeature: boolean;
+    startIndex: number;
+    fullMatch: string;
+  }> = [];
   let match: RegExpExecArray | null;
   while ((match = h3Pattern.exec(sectionBody)) !== null) {
-    h3Matches.push({ name: match[1]!, startIndex: match.index, fullMatch: match[0] });
+    h3Matches.push({
+      name: match[2]!,
+      explicitFeature: match[1] !== undefined,
+      startIndex: match.index,
+      fullMatch: match[0],
+    });
   }
 
   for (let i = 0; i < h3Matches.length; i++) {
     const h3 = h3Matches[i]!;
     const nextStart = i + 1 < h3Matches.length ? h3Matches[i + 1]!.startIndex : sectionBody.length;
-    const featureBody = sectionBody.slice(h3.startIndex + h3.fullMatch.length, nextStart);
+    const h3Body = sectionBody.slice(h3.startIndex + h3.fullMatch.length, nextStart);
 
-    const featureResult = parseFeatureBlock(h3.name, featureBody);
+    // Explicit `### Group: <name>` marker: capture the section verbatim and skip
+    // feature validation entirely. The marker is authoritative — a plain `### X`
+    // with no Status still errors below (no silent inference).
+    //
+    // The explicit `Feature: ` prefix WINS over the group marker, so a genuinely
+    // tracked feature whose name happens to begin with "Group: " can still be
+    // authored as `### Feature: Group: <name>` and stays a feature. Without this
+    // guard such a row (and its External-ID tracker mapping) would be silently
+    // reclassified as narrative and vanish from `milestone.features`.
+    if (!h3.explicitFeature && h3.name.startsWith(GROUP_PREFIX)) {
+      // Trim the name so `Group: Foo` and `Group: Foo   ` are the same group, and
+      // reject an empty one: it would round-trip as `### Group: ` with a trailing
+      // space, which any trim-on-save editor turns into `### Group:` — no longer
+      // the marker, so the whole roadmap would then fail to parse.
+      const groupName = h3.name.slice(GROUP_PREFIX.length).trim();
+      if (groupName === '') {
+        return Err(
+          new Error(
+            `Milestone "${milestoneName}" has a group heading with no name ` +
+              `(line ${lineNumberAt(sectionBody, h3.startIndex)} of that section). ` +
+              'Write `### Group: <name>`, for example `### Group: Delivery arc`.'
+          )
+        );
+      }
+      groups.push({ name: groupName, body: h3Body.trim() });
+      continue;
+    }
+
+    const featureResult = parseFeatureBlock(h3.name, h3Body);
     if (!featureResult.ok) return featureResult;
     features.push(featureResult.value);
   }
 
-  return Ok(features);
+  return Ok({ features, groups });
 }
 
 function extractFieldMap(body: string): Map<string, string> {
