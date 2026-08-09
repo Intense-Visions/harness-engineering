@@ -70,15 +70,25 @@ jobs:
         uses: changesets/action@v1
         with:
           publish: pnpm release
-          # Must be `pnpm version`, not the action's default. The default runs
-          # `changeset version` directly, which bumps package.json but skips
-          # scripts/sync-plugin-pin.mjs — the only thing that re-pins the five
-          # plugin/extension manifests to the new CLI version. Every release
-          # therefore shipped manifests pinned to the PREVIOUS version and left
-          # main red on the plugin-pin-sync assertion in
+          # `pnpm run version` — the `run` is REQUIRED and not stylistic.
+          #
+          # `version` is a built-in pnpm command, so a bare `pnpm version`
+          # resolves to the built-in (which just PRINTS a version dictionary)
+          # and never executes package.json's `version` script. The release then
+          # bumps nothing, `changeset-release/main` comes out identical to main,
+          # and the action dies creating its PR:
+          #   Validation Failed: No commits between main and changeset-release/main
+          # `publish: pnpm release` above is safe from this only because
+          # `release` is NOT a built-in and falls through to `run`.
+          #
+          # We override the action's default (`changeset version`) at all because
+          # the default skips scripts/sync-plugin-pin.mjs — the only thing that
+          # re-pins the five plugin/extension manifests to the new CLI version.
+          # Without it every release shipped manifests pinned to the PREVIOUS
+          # version and left main red on the plugin-pin-sync assertion in
           # tests/scripts/plugin-pin-sync.test.mjs. package.json's `version`
-          # script pairs the two steps; this input is what actually invokes it.
-          version: pnpm version
+          # script pairs the bump and the sync; this input invokes that script.
+          version: pnpm run version
           title: 'chore: version packages'
           commit: 'chore: version packages'
         env:
