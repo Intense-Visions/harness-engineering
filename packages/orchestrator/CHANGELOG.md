@@ -1,5 +1,48 @@
 # @harness-engineering/orchestrator
 
+## 0.21.0
+
+### Minor Changes
+
+- 5d6436c: ULID identity for sessions and worktree-isolated tasks (#603)
+
+  Add immutable ULID identity for sessions and worktree-isolated tasks. Every
+  session and worktree task now gets a collision-free, lexicographically sortable
+  ULID at creation (recorded in an additive `identity.json`), plus a human-friendly
+  sequential number assigned at completion (session archive / worktree ship). Fully
+  backward-compatible and best-effort — the existing slug remains the display label
+  and on-disk directory name.
+
+### Patch Changes
+
+- 65d1831: Local stage prompt now renders the detected ecosystem's self-verify commands (mirroring the enforced gate) instead of hardcoded pnpm --filter lines, and the surrounding self-verify prose is ecosystem-neutral (node-specific typecheck guidance is now explicitly scoped to TypeScript/Node packages). Non-node workspaces no longer get contradictory pnpm guidance.
+- e44460c: Supply-chain audit: re-tighten drifted security override floors
+
+  The root `pnpm.overrides` security pins had drifted below their currently
+  patched versions again (open-ended `>=x` floors resolve to the floor, not the
+  latest patch). Bumped the floors and added two new pins, clearing 25 of 30
+  `pnpm audit` advisories — all within the current major, no breaking jumps:
+  - `hono` `>=4.12.25` → `>=4.12.34` (ReDoS, SSR cross-user disclosure, DoS)
+  - `postcss` `>=8.5.10` → `>=8.5.23` (arbitrary `.map` file read ×3)
+  - `ip-address` `>=10.1.1` → `>=10.3.1` (SSRF / trust-boundary bypass ×3)
+  - `fast-uri` `>=3.1.4` → `>=3.1.5` (host confusion)
+  - `undici` `^7.28.0` → `>=7.29.0` (response desync, cache disclosure, CRLF ×4)
+  - `brace-expansion@2` `>=2.1.2` → `>=2.1.4`; `brace-expansion@5` `^5.0.6` → `>=5.0.9` (DoS)
+  - `js-yaml@3` `>=3.15.0` → `>=3.15.1`; `js-yaml@4` `>=4.2.0` → `>=4.3.1` (quadratic CPU)
+  - new: `nanoid` `>=3.3.17` (infinite loop), `react-router` `>=7.18.2 <8` (RSC CSRF bypass)
+
+  Also bumped the direct `react-router` dep in `@harness-engineering/dashboard`
+  to `^7.18.2`. The 5 remaining advisories are all the pre-accepted
+  `auditExceptions` (esbuild/vite in the vitepress ^5 chain, dev/docs-only).
+
+- Updated dependencies [f231e90]
+- Updated dependencies [5d6436c]
+  - @harness-engineering/core@0.41.0
+  - @harness-engineering/types@0.28.0
+  - @harness-engineering/graph@0.12.1
+  - @harness-engineering/intelligence@0.11.1
+  - @harness-engineering/local-models@0.7.4
+
 ## 0.20.0
 
 ### Minor Changes
