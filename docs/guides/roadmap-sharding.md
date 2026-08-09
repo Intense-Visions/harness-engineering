@@ -227,8 +227,20 @@ Rules:
   parse → edit → write cycle keeps the narrative intact.
 - **Layout.** Groups are emitted after a milestone's strict features. Author them that
   way — after the features, or in a dedicated all-narrative milestone — and the file
-  round-trips byte-for-byte. Use `#### ` or deeper for sub-headings inside a group
-  body; a column-0 `### ` starts a new section.
+  round-trips byte-for-byte.
+- **Never put a column-0 `### ` or `## ` inside a group body — indent it or use
+  `#### `.** The parser splits milestone bodies on column-0 headings, and it does not
+  understand fenced code blocks, so a `### ` inside a group body ends the group there.
+  The consequences are worse than a layout glitch: a column-0 `### Feature: Example`
+  inside a group body **fabricates a phantom tracked feature** that health checks, pilot
+  scoring, and tracker sync will all treat as real work, and **everything after it in
+  the group body — including a closing code fence — is dropped** from the model and
+  therefore from the file on the next write. If that fabricated row has no valid
+  `- **Status:**` bullet, the whole roadmap instead fails to parse. A column-0 `## ` is
+  the same class of problem: a phantom milestone whose body is emptied. A fenced code
+  block is the most likely trigger, because the natural thing to paste inside one is
+  exactly a `### ` heading — and the fence will not protect it. Use `#### ` or deeper, or
+  indent the fence's contents.
 - **Groups are a monolith concept.** Shards are one strict row per file by
   construction, so `harness roadmap shard` refuses to shard a roadmap that carries
   groups rather than flatten them away. For the same reason the single-file writer

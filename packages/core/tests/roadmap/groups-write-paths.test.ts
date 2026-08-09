@@ -37,6 +37,66 @@ describe('narrative groups vs monolith → shard migration (sharded mode stays s
   });
 });
 
+describe('a column-0 `### ` inside a group body ends the group (documented hazard)', () => {
+  /**
+   * The parser splits milestone bodies on column-0 headings and does NOT understand
+   * fenced code blocks. Pinned so the blast radius cannot change silently: a
+   * phantom tracked feature is fabricated, and the remainder of the group body —
+   * including the closing fence — is lost from the model and from the next write.
+   */
+  const MD = `---
+project: p
+version: 1
+last_synced: 2026-05-01T10:00:00Z
+last_manual_edit: 2026-05-01T09:00:00Z
+---
+
+# Roadmap
+
+## M1
+
+### Group: Authoring guide
+
+- Intro prose before the fence.
+
+\`\`\`markdown
+### Feature: Example
+
+- **Status:** planned
+\`\`\`
+
+- Trailing prose AFTER the fence.
+`;
+
+  it('fabricates a phantom tracked feature from the fenced heading', () => {
+    const result = parseRoadmap(MD);
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    // The heading inside the fence became a REAL feature the tooling will act on.
+    expect(result.value.milestones[0]?.features.map((f) => f.name)).toEqual(['Example']);
+    expect(result.value.milestones[0]?.features[0]?.status).toBe('planned');
+  });
+
+  it('truncates the group body at the fence, losing the closing fence and trailing prose', () => {
+    const result = parseRoadmap(MD);
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    const body = result.value.milestones[0]?.groups?.[0]?.body ?? '';
+    expect(body).toBe('- Intro prose before the fence.\n\n```markdown');
+    expect(body).not.toContain('Trailing prose AFTER the fence.');
+  });
+
+  it('drops the lost content from the file on the next serialize', () => {
+    const result = parseRoadmap(MD);
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    const rewritten = serializeRoadmap(result.value);
+    expect(rewritten).not.toContain('Trailing prose AFTER the fence.');
+    // The phantom is promoted to a first-class row in the rewritten file.
+    expect(rewritten).toContain('### Example');
+  });
+});
+
 const SHARD_DIR = '/repo/docs/roadmap.d';
 const ROADMAP_PATH = '/repo/docs/roadmap.md';
 
