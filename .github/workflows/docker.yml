@@ -15,8 +15,19 @@ on:
         required: true
         type: string
 
+# The group MUST start with a literal — never ${{ github.workflow }}.
+#
+# Under `workflow_call` the github context belongs to the CALLER, so
+# ${{ github.workflow }} evaluates to the caller's name ("Release"), making this
+# group "Release-refs/heads/main" — the very group the still-in-flight caller
+# already holds (release.yml uses the same expression with
+# cancel-in-progress: false). A called workflow that demands a concurrency group
+# its own caller holds can never start: GitHub detects the deadlock and kills the
+# run, so no `docker` job record is ever created and the Release run goes red even
+# though every job in it succeeded. That is why no container image was ever
+# published through the release path.
 concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}
+  group: docker-${{ github.ref }}
   cancel-in-progress: false
 
 permissions:
