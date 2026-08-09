@@ -6,7 +6,7 @@ order: 25
 
 ### roadmap-thematic-grouping
 
-- **Status:** planned
+- **Status:** done
 - **Spec:** docs/changes/roadmap-thematic-grouping/proposal.md
 - **Summary:** Roadmap thematic grouping / free-form narrative sections
 - **Blockers:** —

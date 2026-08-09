@@ -187,6 +187,17 @@ last_manual_edit: 2026-06-27T12:51:51.967Z
 - **Priority:** P2
 - **External-ID:** github:Intense-Visions/harness-engineering#1005
 
+### roadmap-thematic-grouping
+
+- **Status:** done
+- **Spec:** docs/changes/roadmap-thematic-grouping/proposal.md
+- **Summary:** Roadmap thematic grouping / free-form narrative sections
+- **Blockers:** —
+- **Plan:** —
+- **Assignee:** —
+- **Priority:** —
+- **External-ID:** github:Intense-Visions/harness-engineering#1176
+
 ### Refresh the suggested MCP-server catalog to current best-in-class
 
 - **Status:** in-progress
