@@ -234,6 +234,13 @@ Rules:
   groups rather than flatten them away. For the same reason the single-file writer
   refuses whole-file rewrites of a grouped roadmap (the same data-loss guard that
   protects any hand-authored prose) — a grouped monolith is edited by hand.
+- **The sharded aggregate is derived, so groups do not belong there.** In sharded mode
+  `docs/roadmap.md` is a read-aggregate rebuilt from `docs/roadmap.d/`, never
+  hand-edited. Unlike the two refusals above it is rewritten wholesale with no
+  preservation guard, so a `### Group: ` section added to the aggregate is dropped on
+  the next `harness roadmap regen` or `harness roadmap unshard` — exactly as any other
+  hand-added aggregate content already is. Put narrative groups in a monolith roadmap,
+  not in a sharded repo's aggregate.
 - **Grouping is invisible to tooling.** Pilot scoring, `manage_roadmap` reads, and the
   `roadmapHealth` check in `harness validate` all read `milestone.features` only.
 
