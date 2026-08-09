@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.41.1
+
+### Patch Changes
+
+- Updated dependencies [a05b6de]
+  - @harness-engineering/graph@0.12.2
+
 ## 0.41.0
 
 ### Minor Changes

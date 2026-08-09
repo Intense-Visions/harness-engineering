@@ -1,5 +1,32 @@
 # @harness-engineering/cli
 
+## 11.1.1
+
+### Patch Changes
+
+- a05b6de: Fix CI's two paths for landing housekeeping commits on a protected `main`.
+
+  `roadmap-auto-done.yml` declared `permissions: pull-requests: read`, but its branch-protection fallback calls `gh pr create` with the built-in `GITHUB_TOKEN`. That call failed with `Resource not accessible by integration (createPullRequest)` _after_ the branch had already been pushed, so every merge into a protected branch stranded a `chore/auto-done-pr*` branch and silently dropped its roadmap flip. The fallback was added without widening the permission, so it had never once succeeded — 58 stranded branches had accumulated, spanning a long run of merges.
+
+  `release.yml`'s "Promote golden build reference state" step pushed straight to `main` with no fallback at all, so it failed on every publish with `GH013: Changes must be made through a pull request`. The packages had already gone out by that point, so releases went red _after_ shipping and the golden reference manifest never advanced. It now uses the same retry-then-scope-guarded-self-approved-PR path as auto-done, with the diff guard pinned to `.harness/golden/manifest.json`.
+
+  Branch protection is unchanged; both paths land through auditable, scope-checked PRs.
+
+- 6c3854a: Fix the release workflow invoking pnpm's built-in `version` command instead of the `version` script.
+
+  `version` is a built-in pnpm command, so the `version: pnpm version` input passed to `changesets/action` resolved to the built-in — which only prints a version dictionary — and never ran package.json's `version` script. The release bumped nothing, so `changeset-release/main` came out byte-identical to `main` and the action failed creating its PR with `Validation Failed: No commits between main and changeset-release/main`.
+
+  Corrected to `pnpm run version`, which invokes the script (`changeset version && node scripts/sync-plugin-pin.mjs`). The sibling `publish: pnpm release` input was never affected because `release` is not a built-in pnpm command and therefore falls through to `run`.
+
+- Updated dependencies [4830b8f]
+- Updated dependencies [a05b6de]
+  - @harness-engineering/orchestrator@0.21.1
+  - @harness-engineering/graph@0.12.2
+  - @harness-engineering/dashboard@0.15.2
+  - @harness-engineering/core@0.41.1
+  - @harness-engineering/intelligence@0.11.2
+  - @harness-engineering/signals@0.3.2
+
 ## 11.1.0
 
 ### Minor Changes
