@@ -191,6 +191,52 @@ cannot supply `state_reason`). Still prefer the Action path: it is driven by the
 closing-issue references, so it also carries each issue's `owner/repo` and cannot
 mis-map a cross-repo issue with a colliding number onto a local row.
 
+## (g) Narrative grouping sections — `### Group: <name>`
+
+Every `### H3` inside a milestone is parsed as a strict feature row and must carry a
+valid `- **Status:** <status>` bullet. To author a **thematic grouping / narrative**
+section instead — a hand-written arc with free-form bullets and prose — prefix the
+heading text with the literal marker `Group: `:
+
+```markdown
+## Delivery Arc
+
+### Ship the parser
+
+- **Status:** in-progress
+- **Spec:** —
+- **Summary:** A strict feature row, validated as usual
+- **Blockers:** —
+- **Plan:** —
+
+### Group: Why this arc matters
+
+- Free-form bullets. No `Status:` bullet is required or parsed here.
+- Prose, blockquotes, and links are captured verbatim.
+```
+
+Rules:
+
+- **The marker is explicit and case-sensitive.** Only `### Group: ` opts a section out
+  of feature validation. A plain `### <name>` with no status bullet still fails to
+  parse — group-ness is never inferred from content, so real work is never silently
+  skipped.
+- **Group bodies are never validated.** Text that merely looks like a field (for
+  example `Status: shipped` written as prose) is recorded as-is.
+- **Groups are preserved, not dropped.** The serializer re-emits every group, so a
+  parse → edit → write cycle keeps the narrative intact.
+- **Layout.** Groups are emitted after a milestone's strict features. Author them that
+  way — after the features, or in a dedicated all-narrative milestone — and the file
+  round-trips byte-for-byte. Use `#### ` or deeper for sub-headings inside a group
+  body; a column-0 `### ` starts a new section.
+- **Groups are a monolith concept.** Shards are one strict row per file by
+  construction, so `harness roadmap shard` refuses to shard a roadmap that carries
+  groups rather than flatten them away. For the same reason the single-file writer
+  refuses whole-file rewrites of a grouped roadmap (the same data-loss guard that
+  protects any hand-authored prose) — a grouped monolith is edited by hand.
+- **Grouping is invisible to tooling.** Pilot scoring, `manage_roadmap` reads, and the
+  `roadmapHealth` check in `harness validate` all read `milestone.features` only.
+
 ## See also
 
 - [`docs/guides/roadmap-sync.md`](roadmap-sync.md) — external-tracker sync and
