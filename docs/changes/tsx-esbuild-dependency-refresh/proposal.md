@@ -91,15 +91,23 @@ change is that its stated reason becomes true again.
 
 ### Files touched
 
-| File                              | Change                                                                |
-| --------------------------------- | --------------------------------------------------------------------- |
-| `pnpm-lock.yaml`                  | `tsx` 4.21.0 → 4.23.11; new `esbuild@0.28.2` entry for tsx's subtree  |
-| `package.json`                    | `tsx` floor `^4.21.0` → `^4.23.11`; GHSA-g7r4 justification rewritten |
-| `packages/core/package.json`      | `tsx` floor `^4.21.0` → `^4.23.11`                                    |
-| `packages/dashboard/package.json` | `tsx` floor `^4.19.0` → `^4.23.11`                                    |
+| File                                           | Change                                                                |
+| ---------------------------------------------- | --------------------------------------------------------------------- |
+| `pnpm-lock.yaml`                               | `tsx` 4.21.0 → 4.23.11; new `esbuild@0.28.2` entry for tsx's subtree  |
+| `package.json`                                 | `tsx` floor `^4.21.0` → `^4.23.11`; GHSA-g7r4 justification rewritten |
+| `packages/core/package.json`                   | `tsx` floor `^4.21.0` → `^4.23.11`                                    |
+| `packages/dashboard/package.json`              | `tsx` floor `^4.19.0` → `^4.23.11`                                    |
+| `.changeset/tsx-esbuild-dependency-refresh.md` | new — required once the two package manifests changed                 |
 
 No source files change. The only manifest edits are the three `tsx` floors (same major)
 and the one justification string.
+
+Editing `packages/core/package.json` and `packages/dashboard/package.json` trips
+`scripts/check-changesets.mjs`, whose `PUBLISHABLE_FILE` regex matches any
+`packages/<pkg>/package.json`. A `patch` changeset for both satisfies it. An empty
+no-release marker would also have been defensible — `tsx` is a devDependency in both, so
+nothing consumers install actually changes — but `patch` matches existing practice for
+dependency-floor changes and leaves a visible release-note record.
 
 ### Resolved-tree transition
 

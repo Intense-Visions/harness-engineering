@@ -17,8 +17,9 @@ Each truth names the command that proves it, so nothing is verified by assertion
 2. The `tsx` entry's `dependencies.esbuild` resolves to a version `>= 0.28.1`, and that `esbuild` version has its own `/esbuild@<v>:` entry in the lockfile.
    **Gate:** `awk '/^  \/tsx@4\.23\.11:/,/^$/' pnpm-lock.yaml | grep 'esbuild:'` → `esbuild: 0.28.1` or higher.
    **`0.28.0` is NOT acceptable.** The advisory range is `>=0.27.3 <0.28.1`; `0.28.0` is still inside it. `tsx@4.23.11` declares `esbuild: ~0.28.0`, which _permits_ 0.28.0 — so this is a real, reachable failure mode, not a theoretical one. Latest published `esbuild` at plan time is `0.28.2`.
-3. No manifest dependency range is edited. `package.json:65`, `packages/core/package.json:75` (`^4.21.0`), and `packages/dashboard/package.json:62` (`^4.19.0`) are unchanged.
-   **Gate:** `git diff --name-only` after the lockfile commit lists **only** `pnpm-lock.yaml`.
+3. ~~No manifest dependency range is edited. `package.json:65`, `packages/core/package.json:75` (`^4.21.0`), and `packages/dashboard/package.json:62` (`^4.19.0`) are unchanged.~~
+   ~~**Gate:** `git diff --name-only` after the lockfile commit lists **only** `pnpm-lock.yaml`.~~
+   **[SUPERSEDED — see "Execution record — Task 2 mechanism replaced" at the end of this plan.]** The lockfile-only mechanism this truth assumed does not exist under pnpm 8. The shipped change deliberately raises all three `tsx` floors to `^4.23.11`. **Replacement truth:** the only manifest edits are the three `tsx` floors (same major) and the one justification string — no other dependency range moves.
 4. **[BLOCKING]** `pnpm-lock.yaml` line 1 is exactly `lockfileVersion: '6.0'`.
    **Gate:** `head -1 pnpm-lock.yaml` (Task 3, assertion A).
 5. **[BLOCKING]** The lockfile `overrides:` block is byte-identical to base and holds 23 entries.
@@ -30,7 +31,7 @@ Each truth names the command that proves it, so nothing is verified by assertion
 8. `package.json` → `auditExceptions["GHSA-g7r4-m6w7-qqqr"]` names **tsup** as the residual holder, states the `^0.27.0` caret-on-`0.x` cap, preserves the dev-only / Windows-only / low framing, states the real fix condition (a tsup release on esbuild `>=0.28.1`), and does **not** assert the advisory is resolved.
    **Gate:** Task 4 human-verify checkpoint + the four `grep` content checks in Task 4.
 9. The other four `auditExceptions` entries (`GHSA-67mh-4wv8-2f99`, `GHSA-4w7w-66w2-5vf9`, `GHSA-fx2h-pf6j-xcff`, `GHSA-v6wh-96g9-6wx3`) are byte-identical to base, and no other `package.json` key changes.
-   **Gate:** `git diff package.json` shows exactly one changed line (Task 4).
+   **Gate:** ~~`git diff package.json` shows exactly one changed line (Task 4).~~ **[SUPERSEDED]** `git diff package.json` shows exactly **two** changed lines — the `tsx` floor and the justification string. The "other four entries untouched / no other key changes" part of this truth stands and was verified.
 10. `pnpm install --frozen-lockfile` succeeds — i.e. the edited lockfile is internally consistent with the unedited manifests.
     **Gate:** exit 0, no `ERR_PNPM_OUTDATED_LOCKFILE` (Task 5).
 11. On disk, `node_modules/.pnpm` contains an `esbuild@0.28.x` (x >= 1) directory and `tsx@4.23.11` links to it.
@@ -79,7 +80,7 @@ No NFR dimension produced a new gate; all four take their documented defaults, a
 - **[ASSUMPTION] `esbuild` resolves to `0.28.2`, not `0.28.0`.** `tsx@4.23.11` declares `esbuild: ~0.28.0`, which permits the still-vulnerable `0.28.0`. pnpm resolves to the highest in-range published version (`0.28.2` at plan time), so this should hold — but Task 3 asserts it explicitly rather than trusting it. If it resolves to `0.28.0`, the change delivers nothing and stops.
 - **[ASSUMPTION] Node 22 is required for `pnpm install`.** `.nvmrc` pins `22`; the ambient interpreter in this worktree is `v26.7.0`, which is known to break `better-sqlite3`'s native ABI in this repo. Task 5 requires `nvm use 22` first. `--lockfile-only` (Task 2) does not build native modules, but Task 1 pins the interpreter once for the whole run to avoid a mid-run switch.
 - **[ASSUMPTION] `node_modules` is absent in this worktree** (verified: no `node_modules` at root or under `packages/*`). Task 5 is therefore a **cold** install, not an incremental one — budget wall-clock accordingly.
-- **[ASSUMPTION] No changeset is required.** `scripts/check-changesets.mjs` only demands a changeset for changes under `packages/<pkg>/src/` or `packages/<pkg>/package.json`. This change touches root `package.json` and `pnpm-lock.yaml` only. Verified by reading the gate's `PUBLISHABLE_FILE` regex.
+- ~~**[ASSUMPTION] No changeset is required.**~~ **[FALSIFIED IN EXECUTION]** This held only for the discarded lockfile-only mechanism. `PUBLISHABLE_FILE = /^packages\/([^/]+)\/(src\/.+|package\.json)$/` matches `packages/core/package.json` and `packages/dashboard/package.json`, both of which the shipped mechanism edits — so the pre-push gate **did** demand a changeset and blocked the first push. Satisfied by adding `.changeset/tsx-esbuild-dependency-refresh.md` (`core` + `dashboard`, `patch`). See S2 in the review record: an empty no-release marker was equally defensible for a devDependency-only change; `patch` was chosen to match existing practice for dependency-floor changes.
 - **[DEFERRABLE] Where the before/after audit + inventory record lands.** The spec's step 5 says "record" but names no file, and Integration Points declare no doc update. **Default taken by this plan:** capture to a scratch directory _outside_ the repo (`/tmp/tsx-refresh/`) so it never pollutes the diff, then reproduce it in the PR description. No repo file is created for it.
 - **[DEFERRABLE] `docs/supply-chain-audit-2026-08-08.md:67`** describes this advisory as "esbuild 0.27.x via build tooling" — still accurate post-change (tsup _is_ build tooling), so no edit is planned. Flagged only so a reviewer does not mistake it for staleness.
 
@@ -88,7 +89,14 @@ No NFR dimension produced a new gate; all four take their documented defaults, a
 - MODIFY `pnpm-lock.yaml` — `tsx` 4.21.0 → 4.23.11; new `esbuild@0.28.x` + `@esbuild/*` entries; `tsup` peer key retag
 - MODIFY `package.json` — `auditExceptions["GHSA-g7r4-m6w7-qqqr"]` justification text (one line)
 
-No source files change. No manifest dependency ranges change. No new files are created in the repo.
+~~No source files change. No manifest dependency ranges change. No new files are created in the repo.~~
+
+**[SUPERSEDED — actual shipped file map]** No source files change. The manifest edits are the three `tsx` floors and the one justification string:
+
+- MODIFY `package.json` — `tsx` floor `^4.21.0` → `^4.23.11`, plus the justification string
+- MODIFY `packages/core/package.json` — `tsx` floor `^4.21.0` → `^4.23.11`
+- MODIFY `packages/dashboard/package.json` — `tsx` floor `^4.19.0` → `^4.23.11`
+- CREATE `.changeset/tsx-esbuild-dependency-refresh.md` — required once the two package manifests changed
 
 Out-of-repo scratch artifacts (not committed, not in the diff):
 
@@ -161,6 +169,8 @@ These hold across every task and are not restated per task:
 9. No commit — this task modifies no repo file.
 
 ### Task 2: Run the narrow lockfile-only tsx update
+
+> **[SUPERSEDED — this task's mechanism was tried, rejected by the Task 3 gate, and replaced. Read "Execution record — Task 2 mechanism replaced" at the end of this plan before following the steps below.]** The command prescribed here is not range-preserving and not targeted under pnpm 8. What shipped instead: raise the three `tsx` floors to `^4.23.11`, then run plain `pnpm install --lockfile-only`.
 
 **Depends on:** Task 1 | **Files:** `pnpm-lock.yaml` | **Owns:** `pnpm-lock.yaml`
 
@@ -282,13 +292,18 @@ This task is the whole safety argument of the change. **Any failure here is a st
    If `esbuild` resolved to a version other than `0.28.2`, or `tsup` is no longer `8.5.1`, adjust only those version numerals — the claim structure (what moved / what remains and why / risk framing / real fix condition) must not change.
 
 2. Verify the rewritten text makes all four required claims:
+
    ```bash
    grep -c 'tsup' package.json                                   # residual holder named
    grep -c '\^0\.27\.0' package.json                             # the cap stated
    grep -c 'Windows-only, low severity' package.json             # risk framing preserved
-   grep -c 'pending a tsup release on esbuild >=0.28.1' package.json  # real fix condition
+   grep -c 'tsup release on esbuild >=0.28.1' package.json       # real fix condition
    ```
+
    Each must be `>= 1`.
+
+   **[CORRECTED]** This gate originally grepped for `pending a tsup release on esbuild >=0.28.1`. The shipped text phrases the same claim as "real fix is a tsup release on esbuild >=0.28.1", so the original pattern matched zero — a gate that could not pass against the artifact it gates. The pattern above is relaxed to the claim-bearing substring, which the shipped string satisfies. All four checks pass against the shipped `package.json`.
+
 3. Verify it does **not** claim resolution:
    ```bash
    awk '/GHSA-g7r4-m6w7-qqqr/' package.json | grep -iE 'resolved|fixed|remediated|cleared|no longer (present|vulnerable)' \
