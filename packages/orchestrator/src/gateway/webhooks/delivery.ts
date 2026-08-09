@@ -3,7 +3,7 @@ import type { WebhookSubscription, GatewayEvent } from '@harness-engineering/typ
 import { sign } from './signer.js';
 import { type WebhookQueue, type QueueRow, RETRY_DELAYS_MS, MAX_ATTEMPTS } from './queue.js';
 import type { WebhookStore } from './store.js';
-import { isPrivateHost } from '../../server/utils/url-guard.js';
+import { guardOutboundHost, type HostLookup } from '../../server/utils/url-guard.js';
 
 interface DeliveryWorkerOptions {
   queue: WebhookQueue;
@@ -19,6 +19,12 @@ interface DeliveryWorkerOptions {
    * bound to 127.0.0.1. Production callers MUST leave this false (default).
    */
   allowPrivateHosts?: boolean;
+  /**
+   * Hostname resolver used by the delivery-time SSRF recheck. Defaults to
+   * `dns.promises.lookup`; injected in tests so the recheck is deterministic
+   * and offline (mirrors the `fetchImpl` seam).
+   */
+  lookupImpl?: HostLookup;
 }
 
 export class WebhookDelivery {
@@ -30,6 +36,7 @@ export class WebhookDelivery {
   private readonly maxConcurrentPerSub: number;
   private readonly drainTimeoutMs: number;
   private readonly allowPrivateHosts: boolean;
+  private readonly lookupImpl: HostLookup | undefined;
   private readonly inFlight = new Map<string, number>();
   /**
    * AbortControllers for currently executing HTTP POSTs, keyed by delivery id.
@@ -49,6 +56,7 @@ export class WebhookDelivery {
     this.maxConcurrentPerSub = opts.maxConcurrentPerSub ?? 4;
     this.drainTimeoutMs = opts.drainTimeoutMs ?? 30_000;
     this.allowPrivateHosts = opts.allowPrivateHosts ?? false;
+    this.lookupImpl = opts.lookupImpl;
   }
 
   enqueue(sub: WebhookSubscription, event: GatewayEvent): void {
@@ -124,14 +132,17 @@ export class WebhookDelivery {
         this.queue.markFailed(row.id, MAX_ATTEMPTS, Date.now(), 'invalid URL');
         return;
       }
-      if (!this.allowPrivateHosts && isPrivateHost(hostname)) {
-        this.queue.markFailed(
-          row.id,
-          MAX_ATTEMPTS,
-          Date.now(),
-          'URL resolves to private/loopback host'
-        );
-        return;
+      if (!this.allowPrivateHosts) {
+        const verdict = await guardOutboundHost(hostname, { lookup: this.lookupImpl });
+        if (verdict.blocked) {
+          this.queue.markFailed(
+            row.id,
+            MAX_ATTEMPTS,
+            Date.now(),
+            `URL resolves to private/loopback host (${verdict.reason}: ${verdict.detail ?? hostname})`
+          );
+          return;
+        }
       }
 
       const signature = sign(sub.secret, row.payload);
@@ -151,9 +162,19 @@ export class WebhookDelivery {
           },
           body: row.payload,
           signal: ctrl.signal,
+          // Do not chase redirects. The host guard above only ever inspected
+          // the subscription's own hostname, so a receiver that answers 3xx
+          // could otherwise walk the delivery onto a private address the guard
+          // never saw. A 307/308 would carry the method, body and signature
+          // headers along with it.
+          redirect: 'manual',
         });
         ok = res.ok;
-        if (!ok) lastError = `HTTP ${res.status}`;
+        if (res.status >= 300 && res.status < 400) {
+          lastError = `redirect not followed (HTTP ${res.status})`;
+        } else if (!ok) {
+          lastError = `HTTP ${res.status}`;
+        }
       } catch (err) {
         aborted = ctrl.signal.aborted;
         lastError = err instanceof Error ? err.message : String(err);
