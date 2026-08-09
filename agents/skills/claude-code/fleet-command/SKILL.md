@@ -1,0 +1,392 @@
+# Fleet Command
+
+> Conductor for the `-fleet` family — one tier above the members, coordinating the fleets themselves rather than fanning out over an item-queue. It derives the run as a hybrid dependency DAG instead of accepting a hand-picked order, enforces **one global** leaf-slot budget across every fleet in flight rather than the sum of their per-fleet governors, deconflicts the lanes whose emissions collide before any of them runs, presents each ready member's own human CONFIRM gate verbatim in one batched round per wave **without ever answering it**, verifies every lane from its emitted artifacts rather than its self-report, and hands back one consolidated report. It **never merges**.
+
+Eleven `-fleet` skills exist, and each is a competent orchestrator over exactly one SDLC work-queue. What does not exist is anything that can run **more than one of them in the same session** without the operator personally holding the whole shape in their head — which fleets may run together, in what order, under what aggregate load, colliding on what, and arriving as how many separate reports.
+
+That gap costs three specific things, and none of them is reachable from inside a single member. **Fan-out².** Each member caps its concurrent subagents at the family's machine-storm limit, and that cap is **per fleet**; nothing enforces it across fleets, so two well-behaved members at their own caps is double the load and a naive "run all the sweeps" is an order of magnitude more. A cap that every participant honors locally and nobody enforces globally is not a cap. **Dependency.** The conveyor is a real chain, not a menu — intake produces the queue that decide and build consume, and land lands what all of them produced — so members run concurrently consume their predecessors' _stale_ output, while members run fully serially waste the genuine parallelism of the quality sweeps, which depend on none of the spine. **Collision.** Members write shared generated artifacts, allocate from shared number sequences, edit the same source regions, and file the same defect several times over, because no member can see the others.
+
+The conductor is **Tier 3** of Skills → Pipelines → Fleets → Conductor, and its authority is deliberately **coordinator plus global governor, never dictator**: it owns the scheduling, the budget, the deconfliction, and the reporting, and it owns none of the judgment inside the fleets it runs. It builds on the shared spine documented in `docs/reference/fleet-family.md` — the five-phase skeleton, the worktree-isolated fan-out, the front-load / park-unforeseen interaction model, and the never-silent-merge invariant — and on the family decisions recorded as _Subagent worktree fan-out (vs the Workflow primitive) for `-fleet` execution_, _The front-load / park-unforeseen interaction model for the `-fleet` family_, _The `pr-fleet` land-stage human-merge-gate model_, _The `adr-fleet` decide-stage batch-sign-off-gate model_, and its own _The `fleet-command` conductor-tier authority model_. It keeps the family's phase **names** deliberately — a conductor that invented a private vocabulary would be harder to reason about standing next to the members it runs — with **one stated substitution: at this tier SELECT enumerates fleets and DISPATCH dispatches fleet lanes**, where a member's SELECT enumerates items and its DISPATCH dispatches item subagents. It is **not** a `-fleet` and is deliberately not named one: a member fans out over an item-queue into outcomes, while this one's queue is other orchestrators.
+
+## When to Use
+
+- Running several fleets in one session, where the aggregate load, the dependency order, and the cross-fleet collisions would otherwise be held in the operator's head
+- A periodic full-conveyor or full-maintenance sweep whose outputs must arrive as **one** report rather than as many separate piles to collate by hand
+- When the interruption budget is the binding constraint: one run-plan authorization plus one batched gate round per wave, instead of every member's gate arriving at an unpredictable moment
+- When the run must be provably bounded — a global cap, one pass per fleet, a fleet cap, and a wall-clock budget, with everything shed named rather than silently dropped
+- NOT for running a single fleet — invoke that member directly; the conductor's scheduling overhead only pays off across several lanes
+- NOT for merging anything — the merge-order plan is advice handed to the land member or to the human, never an action
+- NOT for answering a member's CONFIRM — batching a gate is scheduling, and answering it is the collapse this tier exists to reject
+- NOT for scheduling a convergence pipeline — pipelines are the primitive a fleet runs, and conducting them directly collapses the tier distinction the family is built on
+- NOT for re-verifying every item a member produced — the member already verified them to the family standard, and duplicating that roughly doubles the run's cost for no new evidence
+- NOT for adding a member to the family or changing an existing member's behavior — a fleet that needs a change to be conductable owns that change itself
+
+## Flags
+
+| Flag            | Effect                                                                                                                                                                  |
+| --------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `--fleets`      | Restrict the run to a comma-separated subset of the installed fleets; the selection is confirmed at CONFIRM either way                                                  |
+| `--slots`       | Global cap on concurrent per-item subagents across **every** fleet in flight (default 3, **hard max 4**), with no single fleet ever allocated more than ~3 of that pool |
+| `--max-fleets`  | Cap on how many fleets one run schedules (default 6); every fleet beyond the cap is reported as shed **with its reason**                                                |
+| `--wall-clock`  | Wall-clock budget for the run (default 8h); exhausting it stops scheduling new lanes and reports partial results rather than killing in-flight work                     |
+| `--report-only` | Probe the queues, derive the DAG and the contention map, and present the run plan — dispatch no lane                                                                    |
+| `--dry-run`     | Run SELECT and CONFIRM only; stop before any lane is dispatched                                                                                                         |
+
+**One pass per fleet per run is fixed, and is deliberately not a flag.** A fleet is never re-run inside a run to clear more of its queue. Exposing that as a lever would invite the "just one more sweep" drift the bound exists to prevent, and an unbounded conductor is indistinguishable from no conductor at all.
+
+## Process
+
+### Iron Law
+
+**GLOBAL BUDGET, DERIVED ORDER, UNTOUCHED GATES, NEVER MERGE — no lane is dispatched outside the global governor; no fleet runs before the fleets it depends on have finished; no member's human gate is answered, skipped, or summarized by the conductor; and nothing is merged.**
+
+All four are stated as law rather than guidance because each has an obvious-feeling shortcut, and each shortcut is available at precisely the moment it is most tempting. "Just this once, run them all" arrives when the queues are long and the wall-clock looks generous. "The spine is probably fine out of order" arrives when intake looks quiet and the sweeps are ready first. "That gate's answer is clearly yes" arrives after the fourth identical-looking gate in a batched round. "It is all green, land it" arrives at the end, when the merge order is already computed and sitting in the report. A property that survives only when it is convenient is not a property.
+
+They are also the four that make a multi-fleet run **safe to authorize at all**. The human approving a run plan is approving a bounded amount of machine load, a correct consumption order, an unchanged set of decision rights, and a terminal state that is reviewable rather than landed. Violating any one of them retroactively invalidates the authorization that started the run — which is why a violation is a gate violation and a stop, never a tuning decision made mid-flight.
+
+The corollary matters as much as the law. **A quiet run — every fleet reporting an empty queue — is a valid, valuable result.** It says the backlog is clear, which is worth knowing and worth reporting as such. It is never a reason to lower a member's noise floor, widen a queue, or re-probe with looser criteria so that some lane produces something. The conductor is the one actor in the family positioned to apply that pressure across every member at once, which is exactly why it is the one actor forbidden to.
+
+```
+Phase 1: SELECT --> Phase 2: CONFIRM --> Phase 3: DISPATCH
+                                                    |
+                                                    v
+                     Phase 5: REPORT <-- Phase 4: VERIFY
+```
+
+| Phase       | Purpose                                                                                        | Exit Condition                                                                                      |
+| ----------- | ---------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------- |
+| 1. SELECT   | Enumerate installed fleets, probe their queues, derive the wave DAG, build the contention map  | A `RunPlan` with wave-assigned lanes, probed queue depths, a contention map, and a merge-order plan |
+| 2. CONFIRM  | One human round authorizing the **schedule and the budget** — never the work inside the fleets | An authorized `RunPlan`, possibly with fleets trimmed and the DAG re-derived                        |
+| 3. DISPATCH | Schedule lanes wave by wave under the global governor, batching each wave's member gates       | Every scheduled lane returned, parked, or shed — each recorded with its reason                      |
+| 4. VERIFY   | Confirm each lane from its emitted artifacts, with independent spot-checks of its references   | Every lane carries exactly one verdict: verified, parked, rejected, unscheduled, or quiet           |
+| 5. REPORT   | Emit one consolidated dashboard, the deduped filings, and the merge-order advice               | Report delivered; nothing merged and no land authorized                                             |
+
+### Phase 1: SELECT — Enumerate Fleets, Probe Queues, Derive the DAG, Build the Contention Map
+
+1. **Determine which members are installed.** A missing member does not abort the run: the DAG **degrades to the members present** and the absence is **recorded** in the run plan and the report, never silently dropped. A degraded DAG the human can see is a schedule; a silently degraded one is a surprise. If no member at all is available, stop and report — there is nothing to conduct.
+
+2. **Probe each member's queue depth through its own report-only or dry-run path** — never by reimplementing its SELECT. A member's selection logic is that member's, including its scoring, its noise floor, and its cross-checks; a conductor that re-derived it would drift from the member on the first change to either. A member whose queue comes back empty is **unscheduled, not run**, and is reported as such. A member that errors on its probe degrades exactly like a missing one: recorded, excluded, reported.
+
+3. **Derive the wave assignment from the fixed dependency shape.** Scheduling is derived, never hand-picked:
+
+   | Wave                                | Fleets                                                                                                                                              | Why this wave                                                                                                                                                                                                                   |
+   | ----------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+   | 0 — prerequisite                    | `cicd-fleet`                                                                                                                                        | Every downstream fleet's VERIFY treats all-OS CI green as its evidence. If the CI signal is itself red or flaky, that evidence is meaningless and every downstream verdict is unreliable. A precondition, not a parallel sweep. |
+   | 1 — spine head + independent sweeps | `ideate-fleet` → `issue-fleet` (sequential within the wave); `test-fleet`, `cleanup-fleet`, `bug-fleet`, `security-fleet`, `craft-fleet` (parallel) | Ideation feeds intake. The quality sweeps read standing code and depend on none of the spine, so they are genuinely parallel — subject to the global governor and to deconfliction.                                             |
+   | 2 — decide                          | `adr-fleet`                                                                                                                                         | Consumes intake's routed decisions.                                                                                                                                                                                             |
+   | 3 — build                           | `roadmap-fleet`                                                                                                                                     | Consumes the ranked queue plus the decisions above it.                                                                                                                                                                          |
+   | 4 — terminal                        | `pr-fleet`                                                                                                                                          | Lands what every other lane produced, so it must run last or it lands a stale subset.                                                                                                                                           |
+
+   The wave-0 prerequisite is **derived, not assumed**: it follows from the family's own verification standard rather than from a preference for running CI work first. A wave with no scheduled members **collapses rather than blocking** — an empty wave is not a barrier. Excluding a fleet at CONFIRM **re-derives its dependents** rather than leaving them scheduled against something that will not run.
+
+4. **Build the contention map and the derived merge-order plan** over the four collision classes — see _The Contention Map_ below. This happens **before** dispatch, because its whole product is a scheduling constraint: a serialization decided after two lanes are already running is not a serialization.
+
+5. **Detect run-level forks** worth surfacing — a member whose queue is far larger than the fleet cap can absorb, two sweeps whose contention resolution could go either way, a spine member whose predecessor came back empty. Each is carried to CONFIRM **with a recommended default**, so the human confirms a decision rather than makes one from scratch.
+
+6. **Build the records.**
+
+   ```
+   FleetLane {
+     member,        // the fleet this lane runs
+     wave,          // derived wave index
+     dependsOn,     // the lanes that must finish first
+     queueDepth,    // probed via the member's own report-only path
+     state,         // "scheduled" | "running" | "parked" | "unscheduled"
+     slots,         // leaf slots allocated from the global pool
+     artifacts,     // emitted PRs / filed items / drafted decision records / shortlists
+     verdictRefs,   // per-item verdict references the conductor spot-checks
+     verdict,       // "verified" | "parked" | "rejected" | "unscheduled" | "quiet"
+     parkedForks,   // unforeseen run-level forks this lane parked on
+   }
+   ```
+
+   ```
+   RunPlan {
+     waves,         // the wave-ordered DAG
+     selection,     // the fleets scheduled, with queue depths
+     budget,        // { slots, passesPerFleet: 1, maxFleets, wallClock }
+     contention,    // the contention map (see below)
+     mergeOrder,    // derived merge-order plan — advice, never executed
+     authorization, // the human's single run-plan approval
+   }
+   ```
+
+### Phase 2: CONFIRM — The Single Up-Front Run-Plan Authorization `[checkpoint:human-verify]`
+
+1. **Present the whole run plan in one surface.** This is the only guaranteed human touchpoint before the first lane starts, and everything in it is a scheduling decision the human can still change cheaply:
+   - The **wave DAG**, with each fleet's wave and the dependency that placed it there.
+   - The **fleet selection** with its probed queue depths, and — listed explicitly rather than omitted — the **empty-queue fleets that will not be scheduled** and any member that was missing or errored on its probe.
+   - The **global budget**: the slot cap with its default of 3 and hard max of 4, **one pass per fleet**, the fleet cap, and the wall-clock budget.
+   - The **contention map** with its consequences made concrete — which lanes are serialized into different waves, and what merge order the generated-artifact class implies.
+   - The **detected forks**, each with a recommended default.
+
+2. **The human approves, trims fleets, or re-tunes the budget — once.** Trimming a fleet **re-derives the DAG**, including its dependents, rather than leaving a consumer scheduled against a producer that will not run. Under `--dry-run` the skill stops at the end of this phase; under `--report-only` it presents this same surface and dispatches nothing.
+
+3. **Why this is a run-plan authorization and not a batch approval.** At this tier the human is authorizing a **schedule and a budget** — how much machine load the run may create, in what order, with what collisions already resolved. They are **not** authorizing the work itself. Each member's own approvals still belong to that member's gate and arrive later, per wave, in the member's own words. Conflating the two would be exactly the dictator design this tier rejects: it would convert every member's human taste-check into a single machine judgment made before any of the work was even enumerated, at the largest blast radius in the family.
+
+### Phase 3: DISPATCH — Wave-by-Wave Lane Scheduling Under the Global Governor
+
+1. **One worktree-isolated lane per scheduled fleet**, each running the **real** member skill for its stage — never a reimplementation of what that fleet does. This is the family's dogfooding invariant applied one tier up, and it is also what makes VERIFY possible: the artifacts the real member leaves behind are exactly what VERIFY checks for, and a reimplementation would leave different ones.
+
+2. **The governor allocates leaf slots from one global pool** — default 3, hard max 4, with no single fleet ever allocated more than the family's own per-fleet cap of ~3 of that pool. The unit argument is the whole design: the scarce resource is consumed by the **leaf** subagents a member's DISPATCH fans out, not by a member's cheap select, confirm, verify, or report phases. So **a fleet in a cheap phase holds no slot**, which is precisely what lets several lanes be genuinely in flight while the aggregate load stays at single-fleet scale.
+
+   Capping **fleets** instead would be the wrong unit in both directions at once: one fleet deep in its fan-out outweighs three fleets sitting in their select phases, so a fleet-count cap is simultaneously too permissive and too restrictive. And **summing the per-fleet governors** is the failure mode this skill exists to prevent — it is not a cap, it is an addition. **Never raise the cap to "go faster."** Beyond the family's ceiling the compound load produces flaky failures indistinguishable from real ones, and a stormed run is slower once the re-runs are counted.
+
+3. **Serialized pairs from the contention map never share a wave.** If two lanes were serialized because they edit the same region or allocate from the same sequence, co-scheduling them discards the entire product of SELECT's contention analysis.
+
+4. **Each wave's ready fleets present their own CONFIRM gates together, in one batched round.** A member's CONFIRM is presented **verbatim and unmodified** — its own text, its own options, its own framing. The conductor **never pre-answers, never defaults, never skips, and never summarizes a member's gate into a yes/no**. It is a scheduler for these gates, not a proxy holding a delegated vote. If a fleet blocks on its gate, **its lane parks and the other lanes continue** — one unanswered gate stalls one lane, never the run.
+
+5. **Park the unforeseen.** A lane that hits a genuinely-unforeseen run-level fork — a member reporting a queue shape nobody anticipated, a contention resolution that turns out not to hold — **parks that lane and reports it**, carrying the fork verbatim. The rest of the run continues uninterrupted.
+
+6. **Budget exhaustion stops scheduling new lanes.** In-flight lanes are allowed to finish or park cleanly and are **never killed mid-write** — a lane killed halfway through its terminal act leaves exactly the half-written artifacts VERIFY would then have to interpret. The run reports partial results, with everything shed **named and reasoned**.
+
+7. **Record an assumptions-made note per lane** — the derived wave and the dependency that placed it there, the budget in force, the contention resolutions applied to that lane, and every default taken on its behalf. A consolidated report is only trustworthy when the reader can see what was assumed on their behalf.
+
+8. **Push-path caveat.** A worktree created under a nested agent-config path breaks the local pre-push documentation gate: it self-excludes and scans zero files. Lanes push via the GitHub API or from a non-nested throwaway worktree. **Never `--no-verify`** — bypassing the gate defeats the verification every lane verdict rests on.
+
+### The Contention Map — Four Collision Classes
+
+The map is built **before dispatch**, over collision **classes** rather than as a hard-coded playbook of known conflicting pairs, and each class is resolved with the **cheapest sufficient mechanism** for it. Building it early is what makes it a scheduling input rather than a post-mortem; describing it as classes is what keeps it correct in a project whose shared surfaces are not this one's.
+
+| Collision class              | Example surface                                                                     | Mechanism                                                                                                                                                  |
+| ---------------------------- | ----------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Generated artifacts**      | the generated skills catalog, the platform command manifests, the roadmap aggregate | **Merge-order plan plus regeneration sequencing**, emitted with the report and handed to the land stage — the conductor plans the order, never executes it |
+| **Allocated sequences**      | decision-record numbers, roadmap shard slugs                                        | **Serialize the writers into different waves**; where two same-wave sweeps would allocate from one sequence, one is deferred to the next wave              |
+| **Same-region source edits** | two sweeps elevating or cleaning the same module                                    | **Serialize the lanes, not the merges** — two fleets rewriting one region produce a semantic conflict no merge order fixes                                 |
+| **Duplicate filings**        | one defect filed independently by several quality sweeps                            | **Cross-fleet dedup at report time** — filings are collated across lanes, near-duplicates grouped into one row citing every lane that raised it            |
+
+The mechanisms are deliberately unequal in strength, because the collisions are. A generated-artifact conflict is **textual**: both lanes are right, both regenerated correctly from their own inputs, and a merge order with a regeneration step resolves it completely. A same-region source conflict is **semantic**: two fleets that each rewrote the same module produce something no ordering can reconcile, because the second rewrite was reasoning about code the first one replaced — so those lanes are serialized outright rather than merge-ordered. Applying the cheap mechanism to the expensive class is the failure mode worth naming: a merge order over a semantic conflict looks like a resolution and is not.
+
+**The map degrades to empty, and that is a success.** If a collision class is eliminated upstream — for instance by removing derived counters from generated prose and moving regeneration to a post-merge job on the main branch — then that row of the map simply comes back **empty**, and the merge-order plan becomes a **no-op rather than an error or a stale playbook**. This is designed in, not tolerated. A coordination mechanism written against today's specific conflict shape would need rewriting the moment the underlying tax was fixed, which means it would quietly reward leaving the tax in place. This one shrinks to nothing without breaking, so improving the project's conflict surface is never in tension with conducting it.
+
+**Duplicate filings are the class no single member can see at all**, which is why dedup is a conductor-tier product rather than a member's oversight. Each quality sweep enumerates its own queue, finds the defect, and files it — correctly, independently, and with no way to know that three sibling sweeps did the same thing an hour earlier. Every filing is individually right and the aggregate is four tracker items for one defect, spending exactly the human attention the family exists to save. Only an actor that can see every lane's filings at once can collate them, so the conductor groups near-duplicates into **one row citing every lane that raised it** — preserving each lane's evidence while presenting one item.
+
+### Phase 4: VERIFY — Confirm Each Lane From Its Emitted Artifacts, Never Self-Report
+
+This is the one place a conductor could plausibly cheat by trusting its children, and simultaneously the one place duplicating their work would double the cost of the entire run. A fleet reporting "ran, verified 4 items, 3 PRs open" is a **claim**, and the family's invariant is that a self-report is never verification. But re-verifying every item the member dispatched duplicates work that member already did to the same standard, against the same artifacts, with the same tooling. Verifying **the lane** — its emissions, its evidence, and its adherence to the run's invariants — is the seam that satisfies the invariant without paying for it twice.
+
+1. **The terminal artifact exists** in the form that member's contract specifies. The emitted PRs, filed items, drafted decision records, or ranked shortlist actually exist and are reachable — checked by the conductor, in the artifact store, not read out of the lane's summary.
+
+2. **The member's VERIFY actually ran.** The lane's report carries a per-item verdict for **every** dispatched item, each with the reference it was drawn from, and the conductor **independently spot-checks those references** rather than reading the verdicts. Checking a sample of references is the cheap, decisive test: a lane that ran the family standard can produce references that resolve, and a lane that did not cannot fabricate ones that do. **A lane reporting outcomes with no per-item verdicts did not run the family standard and is rejected**, however plausible its summary reads.
+
+3. **The invariants held.** The lane never exceeded its allocation from the global pool, and **nothing was merged** by any lane other than a land the human authorized inside the land member's own gate. Both are checkable after the fact, and both are gate violations rather than quality findings.
+
+4. **All-OS CI is not applicable at this tier and is recorded as such**, with its reason: the conductor emits no code and opens no PR of its own, so it has no CI subject. Per the family's own rule an inapplicable check is **recorded as not-applicable, never dropped silently** — a skipped check and an inapplicable one must not look alike in a report, because one is a gap and the other is a fact. The per-lane CI evidence stays where it belongs, inside each member's own VERIFY, and is spot-checked there as part of check 2.
+
+**Verdict vocabulary, one per lane:** `verified`, `parked`, `rejected`, `unscheduled`, `quiet`. A `rejected` lane is **retried at most once** — transient failures are common enough to be worth one retry and rare enough that a second is a diagnosis, not a retry. A lane still rejected after its retry is reported with its reason and **the run continues**: one bad lane never sinks a run, and a run of four verified lanes and one rejected one is a useful result reported honestly.
+
+### Phase 5: REPORT — One Consolidated Dashboard, Never a Merge
+
+The report is the conductor's **entire product**. Every other phase exists to make it trustworthy. The value of running many fleets is destroyed if their outputs arrive as separate reports the human must collate by hand — that collation _is_ the coordination work this tier exists to absorb, and handing it back undone would leave the operator doing the job they invoked the conductor to avoid.
+
+1. **One row per lane:**
+
+   | Lane | Wave | Verdict | Emitted | Slots used | Parked forks |
+   | ---- | ---- | ------- | ------- | ---------- | ------------ |
+
+2. **The cross-fleet-deduped filing list** — one row per defect, citing **every** lane that raised it, so the human sees one item carrying several independent confirmations rather than several items describing one problem.
+
+3. **The recommended merge order with its regeneration notes** — which lanes' emissions to land in which order, and what to regenerate between them. This is **advice attached to the report**, computed by the conductor and executed by nobody but the land member under its own gate, or the human.
+
+4. **The run's budget accounting** — slots allocated and peak concurrent usage, passes used, fleets scheduled against the cap, and wall-clock consumed against the budget.
+
+5. **Everything the budget shed, named with its reason** — unscheduled empty-queue fleets, fleets beyond the cap, waves never started because the wall-clock ran out, and members missing or erroring on their probe. A run that quietly did less than it appeared to is worse than one that did less and said so.
+
+6. **An assumptions-made note for the run** — the derived DAG and why, the budget in force, the contention resolutions applied, and the defaults taken.
+
+Two terminal prohibitions close the phase. **The conductor never merges and never authorizes a land on the human's behalf** — landing is the land member's act under its own human gate, or the human's directly, and a conductor that merges has removed the one review the entire model is built around. And a run whose fleets all report empty queues is reported as **quiet**: a valid, informative outcome, never a failure to explain away and never a reason to go back and loosen something so the run has something to show.
+
+## Harness Integration
+
+- **`harness skill run fleet-command`** — Run the full five-phase conductor pipeline.
+- **The `-fleet` members** — The dispatched unit and the entire queue. Each lane runs the **real** member skill for its stage; the conductor reimplements none of them, re-derives none of their selection, and re-runs none of their verification.
+- **Each member's own report-only / dry-run path** — How SELECT probes queue depth without reimplementing a member's selection. A member that offers no such path is probed as best it can be and its uncertainty is recorded, never guessed at.
+- **The subagent worktree-isolation primitive** — Lane isolation, one worktree per scheduled fleet, carrying the family's nested-path push caveat unchanged.
+- **`gh`** — Artifact spot-checks and CI reads during VERIFY. The conductor reads evidence with it and **never merges** with it.
+- **`manage_roadmap`** — Reads filing state during cross-fleet dedup, so one defect raised by several sweeps arrives as one row citing every lane that raised it.
+- **`harness skill validate fleet-command`** — The authoring-time gate for this skill's own structure and schema.
+- **`docs/reference/fleet-family.md`** — The shared `-fleet` spine this skill builds on (the five-phase skeleton, the per-fleet concurrency governor the global one supersedes, the artifact and all-OS-CI verification discipline, the worktree fan-out and its push caveat, the front-load / park-unforeseen interaction model, and the never-silent-merge invariant), and the page that describes the conductor tier above it.
+
+## Success Criteria
+
+- Given a set of installed members and their queues, the run produces **one consolidated report** covering every scheduled lane, each with a verdict, its emitted artifacts, and its budget consumption.
+- **Concurrent per-item subagents across every fleet never exceed the global cap** (default 3, hard max 4), and no single fleet is ever allocated more than ~3 of the pool. The sum of the per-fleet governors is never the operative limit.
+- **The run order is derived, not chosen ad hoc**: the CI-trustworthiness prerequisite precedes every fleet whose verification depends on a trustworthy CI signal, the conveyor spine runs in dependency order, the land stage runs last, and the independent quality sweeps run in parallel alongside — subject to the governor and to deconfliction.
+- **A fleet with an empty queue is reported as unscheduled, not run**, and a fleet the human excludes at CONFIRM drops out with its dependents re-derived.
+- **Every member's own human CONFIRM gate is presented verbatim and answered only by the human.** The conductor never pre-answers, defaults, skips, or summarizes a member's gate into a yes/no. A fleet blocked on its gate parks its lane while the other lanes continue.
+- **The human sees one run-plan authorization plus at most one batched gate round per wave** — never a member's gate arriving unscheduled and alone.
+- **The contention map covers all four collision classes** and resolves each with its stated mechanism: generated artifacts get a merge-order plan with regeneration sequencing, allocated-sequence writers are serialized into different waves, same-region source-edit lanes are serialized rather than merge-ordered, and duplicate filings are deduped across fleets into one row citing every lane that raised it.
+- **Deconfliction degrades to a no-op without breaking.** An empty contention map produces an empty merge-order plan — not an error, and not a stale playbook applied to a conflict that no longer exists.
+- **The run is bounded**: one pass per fleet, a fleet cap, and a wall-clock budget. Exhausting any of them stops scheduling and reports partial results with **everything shed named and reasoned**, while in-flight lanes finish or park cleanly and are never killed mid-write.
+- **No lane verdict rests on a self-report.** Every `verified` lane is backed by an independently-confirmed terminal artifact, per-item verdicts whose references the conductor spot-checked itself, and a confirmed within-allocation, nothing-merged record.
+- **All-OS CI is recorded as not-applicable at this tier**, explicitly and with its reason, never silently omitted — the conductor emits no code and opens no PR of its own, and the per-lane CI evidence stays inside each member's VERIFY where it is spot-checked.
+- The conductor **never merges**, and never authorizes a land on the human's behalf; its merge-order plan is advice attached to the report.
+- The conductor **never schedules a convergence pipeline directly** — pipelines are the primitive its fleets run.
+- **A run whose fleets all report empty queues is reported as quiet** — a valid outcome, never a reason to widen a queue or lower a noise floor so that a lane produces something.
+- It **degrades gracefully**: a missing member, a parked lane, or a single rejected lane is reported while the run continues, and a rejected lane is retried at most once.
+- **Every report carries an assumptions-made note** — the derived DAG and why, the budget in force, the contention resolutions applied, and the defaults taken.
+
+## Gates
+
+- **Never dispatch a lane outside the global governor.** The sum of the per-fleet governors is never the operative limit — that is an addition, not a cap.
+- **Never raise the slot cap above the hard max to go faster.** Beyond the family's ceiling the compound load produces flaky failures indistinguishable from real ones, and a stormed run is slower once the re-runs are counted.
+- **Never allocate one fleet more than the family's per-fleet cap of the pool.** A single lane holding the whole global budget is a single-fleet run wearing a conductor's name.
+- **Never run a fleet before the fleets it depends on have finished.** A consumer scheduled early consumes stale output, and the result is worse than not running it — it looks complete.
+- **Never schedule a fleet with an empty queue.** Report it as unscheduled; an empty lane costs machine time to produce nothing.
+- **Never answer, default, skip, or summarize a member's CONFIRM.** Presenting it verbatim in a batched round is scheduling; answering it is the collapse this tier rejects.
+- **Never merge, and never authorize a land on the human's behalf.** The merge-order plan is advice attached to the report, and it stays advice.
+- **Never mark a lane verified on its self-report.** Terminal artifact, per-item verdicts with independently spot-checked references, within-allocation, nothing-merged — or it is not verified.
+- **Never drop the all-OS CI check silently at this tier.** Record it as not-applicable **with its reason**; a skipped check and an inapplicable one must not look alike.
+- **Never co-schedule a serialized pair.** Same-region editors are serialized as lanes, not merge-ordered — no ordering reconciles a semantic conflict.
+- **Never kill an in-flight lane on budget exhaustion.** Stop scheduling and let in-flight lanes finish or park cleanly; a lane killed mid-write leaves artifacts nothing can interpret.
+- **Never schedule a convergence pipeline directly.** Pipelines are the primitive a fleet runs, not a queue to fan out over.
+- **Never manufacture work for a quiet run.** A quiet run is a valid result, and this is the one actor able to pressure every member into inventing work at once.
+- **Never `--no-verify`.** A lane whose push gate fails pushes via the GitHub API or a non-nested throwaway worktree instead.
+
+## Escalation
+
+- **A member is missing, or errors on its queue probe:** degrade the DAG to the members present, record the absence in the run plan and the report, and continue. If **no** member is available, stop and report — there is nothing to conduct.
+- **A member blocks on its own gate:** park that lane, continue the others, and report the parked gate **verbatim** so the human answers the member's question rather than the conductor's paraphrase of it.
+- **A lane exceeds its allocation from the global pool:** reject the lane and report it. Do not re-run the fleet — the run's budget was already spent, and re-running it spends more to hide that.
+- **A lane's report carries no per-item verdicts:** reject it. The family standard did not run, and a summary that reads as though it did is precisely what the check exists to catch.
+- **A spot-checked reference does not resolve:** reject and retry once; if it still does not resolve, report the lane as unverifiable rather than passing it.
+- **The wall-clock or the fleet cap is exhausted:** stop scheduling new lanes, name everything shed with its reason, and report partial results. Do not raise the budget mid-run to finish the list.
+- **The contention map comes back empty:** proceed. The merge-order plan is a no-op, which is a success — the conflict class was eliminated upstream, and nothing about the run needs to change.
+- **A lane merged something outside an authorized land:** stop the run, report it as a gate violation, and schedule nothing further. This is the one failure that invalidates the authorization the run started under, so it is a stop rather than a rejected lane.
+
+## Rationalizations to Reject
+
+| Rationalization                                                                            | Reality                                                                                                                                                                                                                 |
+| ------------------------------------------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| "Every fleet honors its own cap, so running six of them at once is fine"                   | The aggregate is the storm. Six well-behaved members at their own caps is six times the load nobody authorized, and a cap that every participant honors locally and nobody enforces globally is not a cap.              |
+| "The sweeps are independent, so I will run them all at once to save wall-clock"            | Independence of **queues** is not independence of **load** or of **shared surfaces**. The governor still applies because they share a machine, and the contention map still applies because they share a tree.          |
+| "The spine order is probably fine — intake had nothing new anyway"                         | "Probably fine" is a derivation, not an observation. Run order is derived from the dependency shape, and a consumer scheduled early consumes stale output while looking exactly like one that did not.                  |
+| "That member's gate is obviously a yes; I will approve it and keep the run moving"         | Answering a member's gate converts a human taste-check into a machine judgment at the tier with the largest blast radius in the family. Obviousness is what the human is there to confirm, not what replaces it.        |
+| "Presenting several gates in a round is bad ergonomics, so I will summarize them into one" | Batching is scheduling; summarizing is answering. The gate text is presented verbatim, in the member's own words, because a summary is already a judgment about what mattered in it.                                    |
+| "The lane reported four verified items and CI green, so the lane is verified"              | A self-report is never verification. Check that the terminal artifact exists and spot-check the verdict references yourself — a lane that ran the standard can produce references that resolve.                         |
+| "Re-verifying every item the members produced is the more rigorous choice"                 | It duplicates work already done to the family standard and roughly doubles the run's cost for no new evidence. Rigor here is verifying the lane from artifacts, not repeating the members' work.                        |
+| "Everything is green and the merge order is right there — I will just land it"             | The merge decision is a human act held by the land member's gate. A conductor that merges has removed the one review the entire model is built around, and it holds the merge order precisely because it cannot use it. |
+| "This run produced nothing, so widen a queue or lower a floor so it was not wasted"        | A quiet run is a valid result — it says the backlog is clear. This is the one actor positioned to make every member manufacture work at once, which is exactly why it is forbidden to make any of them.                 |
+| "The token budget is the real constraint, so the governor should meter tokens"             | Tokens spent inside dispatched subagents are not observable, so a token governor would be a promise the skill cannot keep. The budget governs slots, passes, fleets, and wall-clock — and says so.                      |
+| "One lane was rejected, so the run failed and should be re-run from the top"               | A rejected lane is reported and the run continues. Re-running the whole run to clear one lane spends the global budget again on work that already succeeded.                                                            |
+| "This maintenance pipeline is basically a fleet, so the conductor may as well schedule it" | A pipeline converges one target; a fleet fans out across many. Conducting pipelines directly collapses the tier distinction the family is built on, and the conductor's queue is orchestrators.                         |
+
+## Red Flags
+
+| Flag                                                                            | Corrective Action                                                                                                                                                                 |
+| ------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| "The lanes are queueing on slots — I will raise the cap above the hard max"     | STOP. The cap is the machine-storm limit, not a throughput dial. Let the lanes queue; a stormed run is slower once the re-runs are counted.                                       |
+| "This member's gate has an obvious answer and the wave is waiting on it"        | STOP. Present it verbatim and park the lane if it is unanswered. The other lanes continue — one unanswered gate stalls one lane, never the run.                                   |
+| "The lane's report says verified and reads thoroughly, so I will take it"       | STOP. Check the terminal artifact and spot-check the verdict references yourself. A thorough-reading summary with no per-item verdicts is exactly the failure this check catches. |
+| "Every lane is green and the merge order is computed — I will land the batch"   | STOP. The merge-order plan is advice attached to the report. Landing belongs to the land member under its own human gate, or to the human directly.                               |
+| "The pre-push gate is failing in this lane's worktree — I will `--no-verify`"   | STOP. Never bypass. Push via the GitHub API or a non-nested throwaway worktree; that gate is part of the verification every lane verdict rests on.                                |
+| "Two sweeps want the same module and serializing costs a wave — merge-order it" | STOP. That is a semantic conflict, not a textual one. No merge order reconciles two rewrites of the same region; serialize the lanes.                                             |
+
+## Examples
+
+### Example: A seven-fleet maintenance and conveyor run
+
+```
+$ harness skill run fleet-command --slots 3 --max-fleets 6
+
+Phase 1: SELECT
+  Installed members: 10 of 11 (ideate-fleet not installed — recorded, DAG degraded)
+  Queue probes (each via the member's own --report-only path):
+    cicd-fleet      2 red workflows        issue-fleet     31 open items
+    test-fleet      14 coverage gaps       cleanup-fleet   9 entropy targets
+    bug-fleet       6 risk areas           security-fleet  0  -> UNSCHEDULED (quiet queue)
+    craft-fleet     22 findings            adr-fleet       3 pending decisions
+    roadmap-fleet   11 shards              pr-fleet        5 open PRs
+  Derived waves:
+    0  cicd-fleet
+    1  issue-fleet (spine head; ideate-fleet absent) | test-fleet, cleanup-fleet,
+       bug-fleet, craft-fleet (parallel)
+    2  adr-fleet     3  roadmap-fleet     4  pr-fleet
+  Fleet cap 6 -> 9 schedulable, 3 shed with reason (lowest queue depth first)
+  Contention map:
+    generated artifacts   craft-fleet + cleanup-fleet + roadmap-fleet
+                          -> merge-order plan + regeneration sequencing
+    allocated sequences   adr-fleet (record numbers) -> already wave-separated
+    same-region edits     cleanup-fleet + craft-fleet both target the parser module
+                          -> SERIALIZED (craft-fleet deferred to wave 2)
+    duplicate filings     bug-fleet + test-fleet + craft-fleet -> dedup at report
+  Forks detected: 1 (issue-fleet queue exceeds what one pass can clear)
+
+Phase 2: CONFIRM  [checkpoint:human-verify]
+  Run plan presented: waves, selection with queue depths, unscheduled fleets,
+  budget (slots 3 / hard max 4, one pass per fleet, fleet cap 6, wall-clock 8h),
+  contention map with its serialization and merge order, 1 fork with a default.
+  Human trims roadmap-fleet -> DAG re-derived: wave 3 collapses, pr-fleet stays
+  terminal at what remains. Authorization recorded. 5 fleets scheduled.
+
+Phase 3: DISPATCH (global pool = 3 leaf slots)
+  wave 0  cicd-fleet     lane running -> 2 slots -> both workflows healed
+  wave 1  issue-fleet    lane running -> 2 slots
+          test-fleet     admitted at 1 slot; cleanup-fleet HELD (pool full)
+          cleanup-fleet  admitted when issue-fleet entered its cheap verify phase
+          Batched gate round (wave 1): issue-fleet and test-fleet gates presented
+          together, verbatim. Human answers both. cleanup-fleet's gate arrives
+          unanswered -> LANE PARKED, others continue.
+  wave 2  craft-fleet    lane running (deferred here by the same-region serialization)
+                         -> PARKED on an unforeseen fork: two findings contradict
+  wave 4  pr-fleet       lane running -> 1 slot -> 3 PRs reviewed
+  Peak concurrent leaf subagents: 3. Never above the pool.
+
+Phase 4: VERIFY (from artifacts — no lane's self-report accepted)
+  cicd-fleet   workflows green on the artifact; per-run verdicts present with refs;
+               2 refs spot-checked and resolved -> verified
+  issue-fleet  ranked queue artifact present; per-item verdicts with refs;
+               3 refs spot-checked -> verified
+  test-fleet   reports "14 gaps closed, CI green" with NO per-item verdicts
+               -> REJECTED (family standard did not run); retried once, same
+               -> reported as rejected; run continues
+  pr-fleet     review verdicts present with PR refs; 2 spot-checked; nothing merged
+               outside the human-authorized land inside pr-fleet's own gate -> verified
+  cleanup-fleet parked (gate unanswered)   craft-fleet parked (unforeseen fork)
+  All-OS CI: NOT APPLICABLE at this tier — the conductor emits no code and opens
+             no PR of its own. Recorded, not dropped. Per-lane CI evidence stays
+             inside each member's VERIFY and was spot-checked there.
+
+Phase 5: REPORT
+  | Lane          | Wave | Verdict     | Emitted            | Slots used | Parked forks |
+  | ------------- | ---- | ----------- | ------------------ | ---------- | ------------ |
+  | cicd-fleet    | 0    | verified    | 2 healed workflows | 2          | —            |
+  | issue-fleet   | 1    | verified    | ranked queue       | 2          | —            |
+  | test-fleet    | 1    | rejected    | (unverifiable)     | 1          | —            |
+  | cleanup-fleet | 1    | parked      | —                  | 1          | gate         |
+  | craft-fleet   | 2    | parked      | —                  | 1          | 1 fork       |
+  | pr-fleet      | 4    | verified    | 3 reviewed PRs     | 1          | —            |
+  | security-fleet| —    | unscheduled | —                  | 0          | —            |
+  Deduped filings: 4 rows from 9 raw filings — 1 defect cited by bug-fleet,
+    test-fleet, and craft-fleet collapsed into one row citing all three.
+  Merge order (advice, not executed): cicd-fleet -> issue-fleet -> pr-fleet,
+    regenerating the catalog and the command manifests between the last two.
+  Budget: peak 3/3 slots, 1 pass per fleet, 5 of 6 fleets, 4h12m of 8h.
+  Shed with reasons: security-fleet (empty queue); 3 fleets over the fleet cap
+    (named, with their queue depths); roadmap-fleet (trimmed by the human);
+    ideate-fleet (not installed).
+  Assumptions made: DAG derived from the fixed dependency shape with wave 3
+    collapsed after the trim; craft-fleet deferred to wave 2 by the same-region
+    serialization; fork default taken for issue-fleet's oversized queue.
+  Nothing merged. No land authorized.
+```
+
+### Example: The contention map comes back empty
+
+A run schedules four quality sweeps in one wave. The project has already removed derived counters from its generated prose and moved regeneration to a post-merge job on the main branch, so the generated-artifact class has nothing in it; the sweeps target disjoint modules, so the same-region class is empty too; and neither of the remaining classes has a writer this run.
+
+The map is therefore empty, the merge-order plan is a **no-op**, and no lane is serialized. This is reported as a **success, not a defect** — the coordination the conductor would have performed was made unnecessary upstream, and the run simply schedules all four sweeps in parallel under the same global governor. Nothing about the run changes shape and nothing errors. That is the intended behavior: a deconfliction mechanism built against one project's specific conflicts would have needed rewriting the moment those conflicts were fixed, which would quietly reward leaving them in place.
+
+## Test Scenarios
+
+### Scenario 1: Gate — the per-fleet caps are summed instead of pooled
+
+Two lanes are ready in the same wave, and each requests 3 leaf slots on the grounds that "each fleet's own cap allows 3." Expected: the **global governor** Gate admits at most the pool (default 3, hard max 4) across both lanes combined, holds the second lane's fan-out until a slot frees, and never raises the cap to clear the queue. The first lane's cheap phases release its slots, at which point the second is admitted. The run stays bounded at single-fleet aggregate load, which is the property that made the run plan safe to authorize. This scenario guards against "every fleet honors its own cap, so running several at once is fine" — the failure is not any member misbehaving, it is the addition.
+
+### Scenario 2: Gate — a member's CONFIRM is summarized into the run-plan authorization
+
+At CONFIRM, the run plan is presented and the conductor additionally offers to carry the members' upcoming gates as a single "approve all fleets" line, on the grounds that the human is already here. Expected: refused by the **never answer, default, skip, or summarize a member's CONFIRM** Gate. The run-plan authorization covers **the schedule and the budget only**; each member's gate is presented verbatim in its wave's batched round, in the member's own words, and answered only by the human. A member whose gate goes unanswered **parks its lane while the other lanes continue**. This guards against "presenting several gates is bad ergonomics, so I will summarize them" — batching is scheduling, summarizing is already a judgment about what mattered.
+
+### Scenario 3: Gate — a lane is marked verified from its own report
+
+A lane's report reads "ran, 4 items verified, 3 PRs open, CI green" and carries no per-item verdict references. Expected: the **never mark a lane verified on its self-report** Gate rejects it — a lane that ran the family standard carries a per-item verdict for every dispatched item, each with the reference it was drawn from, and the conductor spot-checks a sample of those references itself. The lane is **retried once**; still lacking verdicts, it is reported as rejected with its reason and **the run continues** rather than being re-run from the top. This guards against "the lane reported verified and CI green, so it is verified," and note that the report reading thoroughly is what makes it dangerous rather than what excuses it.

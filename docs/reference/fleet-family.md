@@ -78,9 +78,25 @@ The spine above is shared. Each member's own `SKILL.md` defines:
 | `bug-fleet`      | —      | latent-defect risk (standing code)              | review machinery → `tdd` (repro) → `debugging` (fix)                                      | tiered: fix PRs + filed issues              |
 | `craft-fleet`    | —      | craft-skill findings (LLM-judgment quality)     | eleven `-craft` skills (critique) → `refactoring` (elevation)                             | tiered: elevation PRs + filed roadmap items |
 
+## The conductor tier
+
+Above the members sits one skill that is **not** a member: `fleet-command`, the **conductor**. It coordinates the fleets themselves rather than fanning out over an item-queue, which makes it **Tier 3** of Skills → Pipelines → Fleets → Conductor. It is the family capstone and is built last by construction, since it composes members that must already exist.
+
+**Why it is not named `-fleet`.** A member fans out over a queue of like items into many outcomes; the conductor's queue is other orchestrators. It reuses the spine's five phase **names** deliberately — a conductor with a private vocabulary would be harder to reason about standing next to the members it runs — with **one substitution: at that tier SELECT enumerates fleets and DISPATCH dispatches fleet lanes**, where a member's SELECT enumerates items and its DISPATCH dispatches item subagents. Naming it `-fleet` would collapse exactly the tier distinction it exists to create.
+
+**The four properties it adds on top of the spine:**
+
+1. **One global leaf-slot budget** across every fleet in flight — never the sum of the per-fleet governors above. Slots are consumed by the leaf subagents a member's DISPATCH fans out, so a member in a cheap phase holds no slot.
+2. **A derived hybrid DAG** — a CI-trustworthiness prerequisite first, the conveyor spine in dependency order, the independent quality sweeps parallel alongside, and the land stage terminal. Run order is derived from the dependency shape, never hand-picked.
+3. **Cross-fleet deconfliction** over four collision classes (generated artifacts, allocated sequences, same-region source edits, duplicate filings), degrading to a no-op when a class is eliminated upstream rather than becoming a stale playbook.
+4. **Member gates batched by wave and never answered**, lane verification from each lane's emitted artifacts rather than its self-report, and it **never merges** — its merge-order plan is advice attached to its report.
+
+The authority model behind those four — coordinator plus global governor, never dictator — is **referenced here, not restated**: see ADR 0091 below.
+
 ## References
 
 - **ADR 0087** — Subagent worktree fan-out (vs the Workflow primitive) for `-fleet` execution.
 - **ADR 0088** — The front-load / park-unforeseen interaction model for the `-fleet` family.
 - **ADR 0089** — The `pr-fleet` land-stage human-merge-gate model.
 - **ADR 0090** — The `adr-fleet` decide-stage batch-sign-off-gate model.
+- **ADR 0091** — The `fleet-command` conductor-tier authority model (coordinator + global governor above the members).

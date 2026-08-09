@@ -50,7 +50,7 @@ obvious-feeling shortcut.
    per-fleet cap of ~3. Members are admitted to their fan-out phase only when a slot frees; a
    member in a cheap phase holds no slot, which is what allows several lanes in flight at
    single-fleet aggregate load. The run is additionally bounded by **one pass per fleet**, a
-   **fleet cap**, and a **wall-clock budget**. Token spend is *not* metered: the harness cannot
+   **fleet cap**, and a **wall-clock budget**. Token spend is _not_ metered: the harness cannot
    observe tokens inside dispatched subagents, so the budget governs slots, passes, fleets, and
    time, and says so rather than implying enforcement it cannot perform.
 
@@ -94,7 +94,7 @@ obvious-feeling shortcut.
 - **Reversibility:** high — the budget numbers, the wave assignment, and the gate-batching policy
   are all interaction policy expressed in skill prose. Changing the slot default, re-placing a
   member in the DAG, or presenting gates per-member instead of per-wave is a prose change, not an
-  architecture change. Collapsing the member gates into one approval would *not* be reversible in
+  architecture change. Collapsing the member gates into one approval would _not_ be reversible in
   the same sense: it changes where decision authority sits, and would supersede this ADR.
 - **Degradation by design:** the deconfliction map is built over collision **classes**, so if a
   class is eliminated upstream — for instance by removing derived counters from generated prose and
