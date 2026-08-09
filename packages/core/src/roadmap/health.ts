@@ -307,9 +307,13 @@ export function groomRoadmap(roadmap: Roadmap, options?: RoadmapGroomOptions): R
     );
   }
 
-  // Drop milestones that grooming emptied — but never the intake lane.
+  // Drop milestones that grooming emptied — but never the intake lane, and never
+  // a milestone that still carries narrative `### Group:` sections. An
+  // all-narrative milestone legitimately has zero features, so dropping it here
+  // would silently delete hand-authored prose with no entry in `changes`.
   next.milestones = next.milestones.filter(
-    (m: RoadmapMilestone) => m.features.length > 0 || m.name === opts.intakeMilestone
+    (m: RoadmapMilestone) =>
+      m.features.length > 0 || (m.groups?.length ?? 0) > 0 || m.name === opts.intakeMilestone
   );
 
   return { roadmap: next, archived, changes };

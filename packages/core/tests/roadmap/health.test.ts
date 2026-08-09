@@ -180,6 +180,30 @@ describe('groomRoadmap()', () => {
     const { archived } = groomRoadmap(rm, { archiveDone: false });
     expect(archived).toHaveLength(0);
   });
+
+  it('keeps an all-narrative milestone (zero features, non-empty groups)', () => {
+    const rm = roadmap([
+      {
+        name: 'Someday',
+        isBacklog: false,
+        features: [],
+        groups: [{ name: 'Themes', body: '- a' }],
+      },
+      milestone('Craft Pipeline', [feature({ name: 'keep-1', status: 'planned' })]),
+    ]);
+    const { roadmap: out } = groomRoadmap(rm);
+    expect(out.milestones.map((m) => m.name)).toEqual(['Someday', 'Craft Pipeline']);
+    expect(out.milestones[0]?.groups).toEqual([{ name: 'Themes', body: '- a' }]);
+  });
+
+  it('still drops a milestone that grooming emptied and that has no groups', () => {
+    const rm = roadmap([
+      { name: 'Gone', isBacklog: false, features: [], groups: [] },
+      milestone('Craft Pipeline', [feature({ name: 'keep-1', status: 'planned' })]),
+    ]);
+    const { roadmap: out } = groomRoadmap(rm);
+    expect(out.milestones.map((m) => m.name)).toEqual(['Craft Pipeline']);
+  });
 });
 
 describe('RMH005 — assignee invariant', () => {
