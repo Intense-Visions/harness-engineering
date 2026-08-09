@@ -8,7 +8,7 @@
  *   workflow.ts  — WorkflowStep, Workflow, StepOutcome, WorkflowStepResult, WorkflowResult
  *   skill.ts     — SkillMetadata, SkillContext, TurnContext, SkillError, SkillResult, SkillLifecycleHooks
  *   ci.ts        — CICheck*, CIInitOptions, CIPlatform
- *   roadmap.ts   — FeatureStatus, RoadmapFeature, RoadmapMilestone, Roadmap
+ *   roadmap.ts   — FeatureStatus, RoadmapFeature, RoadmapMilestone, RoadmapGroup, Roadmap
  */
 
 // --- Result ---
@@ -67,6 +67,7 @@ export type {
   Priority,
   RoadmapFeature,
   RoadmapMilestone,
+  RoadmapGroup,
   AssignmentRecord,
   RoadmapFrontmatter,
   Roadmap,
