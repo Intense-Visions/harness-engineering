@@ -61,6 +61,16 @@ prefix `Group: `. This is the sanctioned, explicit opt-in marker.
   are never silently skipped. An author must deliberately write `### Group:` to
   opt a section out of feature validation; a plain `### H3` missing its status
   still errors exactly as today.
+- **Addendum — `Feature: ` takes precedence over `Group: `.** An explicit
+  `### Feature: <name>` prefix wins, so `### Feature: Group: Chat rollout` is a
+  validated **feature** named `Group: Chat rollout`, not a narrative group. This is
+  what makes the symmetry claimed above real rather than nominal: the two prefixes
+  are ordered, so a genuinely tracked row whose name happens to begin with
+  `Group: ` has a sanctioned escape and can never be silently reclassified as
+  narrative (which would drop the row and its `External-ID` tracker mapping from
+  `milestone.features`). The serializer emits the `Feature: ` prefix automatically
+  for any name beginning with either marker, so the escape is applied without
+  author effort and `serialize → parse` stays an identity for every feature name.
 - **Rejected alternatives:**
   - _Frontmatter flag / fenced marker (Option 2 verbatim):_ heavier; splits the
     signal away from the section it governs.
