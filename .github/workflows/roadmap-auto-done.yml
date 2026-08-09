@@ -28,7 +28,13 @@ on:
 permissions:
   contents: write
   issues: read
-  pull-requests: read
+  # `write`, not `read`: the fallback below calls `gh pr create` with the built-in
+  # GITHUB_TOKEN. Under `read` that call fails with "Resource not accessible by
+  # integration (createPullRequest)" AFTER the branch has already been pushed, so
+  # every protected-branch merge stranded a chore/auto-done-pr* branch and silently
+  # dropped its roadmap flip. The fallback shipped without this widening, so it had
+  # never once succeeded.
+  pull-requests: write
 
 # Serialize commit-to-base across simultaneous PR merges into the same base
 # branch: a second auto-done waits for the first to finish its push rather than
