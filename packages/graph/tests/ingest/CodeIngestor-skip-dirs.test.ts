@@ -71,6 +71,38 @@ describe('CodeIngestor — skip-dirs and exclude config', () => {
     expect(paths.some((p) => p.includes('.claude/worktrees'))).toBe(false);
   });
 
+  it('default skip list covers plain-git worktree containers', async () => {
+    // `.claude` covers agent-created worktrees, but a `git worktree add` into
+    // `.git-worktrees/<branch>/` is the same hazard — a full checkout of this
+    // repo — reached without an agent. Omitting these let every scanner count
+    // nested checkouts as first-party source.
+    for (const dir of ['.git-worktrees', '.worktrees']) {
+      expect(DEFAULT_SKIP_DIRS.has(dir)).toBe(true);
+    }
+  });
+
+  it('does not descend into .git-worktrees checkouts', async () => {
+    const root = await buildProject(async (r) => {
+      // Simulate `git worktree add .git-worktrees/feature-x`: a full second
+      // checkout, including a nested package tree that looks like real source.
+      await mkdir(join(r, '.git-worktrees', 'feature-x', 'packages', 'cli', 'src'), {
+        recursive: true,
+      });
+      await writeFile(
+        join(r, '.git-worktrees', 'feature-x', 'packages', 'cli', 'src', 'nested.ts'),
+        'export const nested = 1;\n'
+      );
+      await mkdir(join(r, '.worktrees', 'feature-y', 'src'), { recursive: true });
+      await writeFile(join(r, '.worktrees', 'feature-y', 'src', 'other.ts'), 'x;\n');
+    });
+    const store = new GraphStore();
+    await new CodeIngestor(store).ingest(root);
+    const paths = ingestedPaths(root, store);
+    expect(paths).toContain('src/main.ts');
+    expect(paths.some((p) => p.includes('.git-worktrees'))).toBe(false);
+    expect(paths.some((p) => p.includes('.worktrees'))).toBe(false);
+  });
+
   it('does not descend into .turbo, .vite, or .next caches', async () => {
     const root = await buildProject(async (r) => {
       await mkdir(join(r, '.turbo', 'cache'), { recursive: true });
