@@ -87,6 +87,20 @@ function serializeExtendedLines(feature: RoadmapFeature): string[] {
   return lines;
 }
 
+/** Heading-text prefix that marks an H3 as a narrative group rather than a feature. */
+const GROUP_PREFIX = 'Group: ';
+
+/**
+ * Emit a feature's H3 heading. Normally the bare `### <name>` form, but a feature
+ * whose name begins with `Group: ` MUST be disambiguated with the explicit
+ * `### Feature: ` prefix — otherwise `parseRoadmap` would read the heading back as
+ * a narrative group and silently drop the tracked row. This is what keeps
+ * serialize → parse an identity for every feature name.
+ */
+function serializeFeatureHeading(name: string): string {
+  return name.startsWith(GROUP_PREFIX) ? `### Feature: ${name}` : `### ${name}`;
+}
+
 /**
  * Serialize a single feature to its markdown lines: the `### name` heading, a
  * blank line, then the `- **Field:** value` bullet block. Exported so the shard
@@ -95,7 +109,7 @@ function serializeExtendedLines(feature: RoadmapFeature): string[] {
  */
 export function serializeFeature(feature: RoadmapFeature): string[] {
   const lines = [
-    `### ${feature.name}`,
+    serializeFeatureHeading(feature.name),
     '',
     `- **Status:** ${feature.status}`,
     `- **Spec:** ${orDash(feature.spec)}`,

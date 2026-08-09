@@ -104,3 +104,55 @@ describe('parseRoadmap() — strict roadmaps keep their exact object shape (D4)'
     expect(result.value).toEqual(VALID_ROADMAP);
   });
 });
+
+describe('parseRoadmap() — a real feature may be NAMED "Group: ..." (explicit Feature: wins)', () => {
+  const MD = (section: string) => `---
+project: p
+version: 1
+last_synced: 2026-05-01T10:00:00Z
+last_manual_edit: 2026-05-01T09:00:00Z
+---
+
+# Roadmap
+
+## M1
+
+${section}
+`;
+
+  it('parses `### Feature: Group: X` as a FEATURE, keeping its fields', () => {
+    const result = parseRoadmap(
+      MD(
+        '### Feature: Group: Chat rollout\n\n' +
+          '- **Status:** in-progress\n' +
+          '- **Summary:** A genuinely tracked row\n' +
+          '- **Assignee:** @cwarner\n' +
+          '- **External-ID:** github:o/r#5\n'
+      )
+    );
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    const milestone = result.value.milestones[0];
+    expect(milestone?.features.map((f) => f.name)).toEqual(['Group: Chat rollout']);
+    expect(milestone?.features[0]?.status).toBe('in-progress');
+    expect(milestone?.features[0]?.assignee).toBe('@cwarner');
+    // The tracker mapping must survive — losing it unlinks the row from its issue.
+    expect(milestone?.features[0]?.externalId).toBe('github:o/r#5');
+    expect(milestone?.groups).toBeUndefined();
+  });
+
+  it('still treats a BARE `### Group: X` as a narrative group (D1 unchanged)', () => {
+    const result = parseRoadmap(MD('### Group: Narrative only\n\n- prose\n'));
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.value.milestones[0]?.features).toEqual([]);
+    expect(result.value.milestones[0]?.groups?.map((g) => g.name)).toEqual(['Narrative only']);
+  });
+
+  it('still validates a `### Feature: Group: X` row like any other feature', () => {
+    const result = parseRoadmap(MD('### Feature: Group: Bad\n\n- **Status:** cancelled\n'));
+    expect(result.ok).toBe(false);
+    if (result.ok) return;
+    expect(result.error.message).toContain('Feature "Group: Bad" has invalid status: "cancelled"');
+  });
+});

@@ -140,12 +140,24 @@ interface MilestoneSections {
 function parseFeatures(sectionBody: string): Result<MilestoneSections> {
   const features: RoadmapFeature[] = [];
   const groups: RoadmapGroup[] = [];
-  // Split on H3 headings — accept both "### Feature: X" and "### X"
-  const h3Pattern = /^### (?:Feature: )?(.+)$/gm;
-  const h3Matches: Array<{ name: string; startIndex: number; fullMatch: string }> = [];
+  // Split on H3 headings — accept both "### Feature: X" and "### X". The
+  // `Feature: ` prefix is captured (not discarded) so the group test below can be
+  // restricted to headings that did NOT carry it.
+  const h3Pattern = /^### (Feature: )?(.+)$/gm;
+  const h3Matches: Array<{
+    name: string;
+    explicitFeature: boolean;
+    startIndex: number;
+    fullMatch: string;
+  }> = [];
   let match: RegExpExecArray | null;
   while ((match = h3Pattern.exec(sectionBody)) !== null) {
-    h3Matches.push({ name: match[1]!, startIndex: match.index, fullMatch: match[0] });
+    h3Matches.push({
+      name: match[2]!,
+      explicitFeature: match[1] !== undefined,
+      startIndex: match.index,
+      fullMatch: match[0],
+    });
   }
 
   for (let i = 0; i < h3Matches.length; i++) {
@@ -156,7 +168,13 @@ function parseFeatures(sectionBody: string): Result<MilestoneSections> {
     // Explicit `### Group: <name>` marker: capture the section verbatim and skip
     // feature validation entirely. The marker is authoritative — a plain `### X`
     // with no Status still errors below (no silent inference).
-    if (h3.name.startsWith(GROUP_PREFIX)) {
+    //
+    // The explicit `Feature: ` prefix WINS over the group marker, so a genuinely
+    // tracked feature whose name happens to begin with "Group: " can still be
+    // authored as `### Feature: Group: <name>` and stays a feature. Without this
+    // guard such a row (and its External-ID tracker mapping) would be silently
+    // reclassified as narrative and vanish from `milestone.features`.
+    if (!h3.explicitFeature && h3.name.startsWith(GROUP_PREFIX)) {
       groups.push({ name: h3.name.slice(GROUP_PREFIX.length), body: featureBody.trim() });
       continue;
     }

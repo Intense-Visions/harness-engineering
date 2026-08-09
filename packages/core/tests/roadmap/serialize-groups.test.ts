@@ -1,4 +1,5 @@
 import { describe, it, expect } from 'vitest';
+import type { Roadmap } from '@harness-engineering/types';
 import { serializeRoadmap } from '../../src/roadmap/serialize';
 import { parseRoadmap } from '../../src/roadmap/parse';
 import { GROUPED_ROADMAP, GROUPED_ROADMAP_MD, VALID_ROADMAP, VALID_ROADMAP_MD } from './fixtures';
@@ -55,5 +56,66 @@ describe('round-trip with narrative groups (crit. 4)', () => {
     if (!reparsed.ok) return;
     expect(reparsed.value.milestones[0]?.features[0]?.status).toBe('done');
     expect(reparsed.value.milestones[0]?.groups).toEqual(GROUPED_ROADMAP.milestones[0]?.groups);
+  });
+});
+
+describe('a feature NAMED "Group: ..." survives the write path', () => {
+  /**
+   * Reachable with zero hand-authoring via `manage_roadmap add`, which takes a
+   * free-form feature name. Before the `Feature: ` disambiguation the serializer
+   * emitted bytes its own parser re-read as a narrative group, permanently
+   * destroying the row and its tracker mapping.
+   */
+  const ROADMAP: Roadmap = {
+    frontmatter: {
+      project: 'p',
+      version: 1,
+      lastSynced: '2026-05-01T10:00:00Z',
+      lastManualEdit: '2026-05-01T09:00:00Z',
+    },
+    milestones: [
+      {
+        name: 'M1',
+        isBacklog: false,
+        features: [
+          {
+            name: 'Group: Auth hardening',
+            status: 'in-progress',
+            spec: null,
+            plans: [],
+            blockedBy: [],
+            summary: 'A tracked row whose name starts with the marker',
+            assignee: '@cwarner',
+            priority: null,
+            externalId: 'github:o/r#5',
+            updatedAt: null,
+          },
+        ],
+      },
+    ],
+    assignmentHistory: [],
+  };
+
+  it('emits the explicit `### Feature: ` prefix to disambiguate it', () => {
+    expect(serializeRoadmap(ROADMAP)).toContain('### Feature: Group: Auth hardening');
+  });
+
+  it('round-trips serialize → parse with the feature and its External-ID intact', () => {
+    const reparsed = parseRoadmap(serializeRoadmap(ROADMAP));
+    expect(reparsed.ok).toBe(true);
+    if (!reparsed.ok) return;
+    const milestone = reparsed.value.milestones[0];
+    expect(milestone?.features.map((f) => f.name)).toEqual(['Group: Auth hardening']);
+    expect(milestone?.features[0]?.externalId).toBe('github:o/r#5');
+    expect(milestone?.groups).toBeUndefined();
+  });
+
+  it('is stable across serialize → parse → serialize', () => {
+    const once = serializeRoadmap(ROADMAP);
+    const reparsed = parseRoadmap(once);
+    expect(reparsed.ok).toBe(true);
+    if (!reparsed.ok) return;
+    expect(serializeRoadmap(reparsed.value)).toBe(once);
+    expect(reparsed.value).toEqual(ROADMAP);
   });
 });
