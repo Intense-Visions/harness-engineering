@@ -23,7 +23,7 @@ Written in EARS form; the trailing tag is the spec success criterion each satisf
 7. **While** a roadmap carries groups, `checkRoadmapHealth` shall produce exactly the findings it produces for the same roadmap with its groups removed (groups are invisible to roadmapHealth). _(crit. 5)_
 8. **If** a monolith write path or a monolith→shard migration would drop a group, **then** the system shall fail loudly rather than silently discard it (documented and locked by characterization tests). _(D2, non-goal "no sharded grouping")_
 9. `pnpm --filter @harness-engineering/core exec vitest run tests/roadmap` shall pass with the new group suites green and every pre-existing roadmap test unchanged.
-10. `pnpm generate-docs --check`, `pnpm generate:plugin:check`, `pnpm generate:barrels:check`, `pnpm format:check` shall all exit 0; `harness check-deps` and `harness check-perf --structural` shall exit 0; `.harness/arch/baselines.json` shall be unchanged; `harness validate` shall show no new findings versus the recorded pre-change baseline.
+10. `pnpm generate-docs --check`, `pnpm generate:plugin:check`, `pnpm generate:barrels:check`, `pnpm format:check` shall all exit 0; `harness check-deps` shall exit 0; `.harness/arch/baselines.json` shall be unchanged; `harness validate` shall show no new findings versus the recorded pre-change baseline. **[CORRECTED as shipped]** This originally also required `harness check-perf --structural` to exit 0. It cannot: it already exits 1 on 974 pre-existing issues before this change. The gate as shipped is **974 → 978, four new advisories consciously accepted** — see the correction block under the recorded baseline.
 
 ## NFR Targets
 
@@ -34,7 +34,7 @@ None elicited. This is a pure in-memory parser/serializer change with no I/O, no
 - **[ASSUMPTION]** Group bodies never contain a column-0 `### ` line. The parser splits milestone bodies on `^### `, so a nested H3 inside a group body would split the group. The sanctioned layout documented in Task 8 says to use `#### ` or deeper inside a group body. If an adopter needs column-0 H3s inside a group, Task 2's design needs revision (out of scope here).
 - **[ASSUMPTION → CORRECTED during execution]** Vitest's `toEqual` ignoring `undefined`-valued keys is not sufficient for D4, so Task 3 asserts own-keys explicitly. The original parenthetical justified this with "`assertRegeneratedRoundTrip` uses `node:util.isDeepStrictEqual`, which is **not** `undefined`-tolerant" — **that reason is factually wrong** and was corrected in the code comment: `assertRegeneratedRoundTrip` compares **parser output on both sides**, so an unconditional `groups: []` would appear symmetrically and stay deep-equal. The gating is still load-bearing, but for a different reason: an unconditional `groups: []` would change `Object.keys(milestone)` and break the existing `toEqual(VALID_ROADMAP)` fixtures, since `toEqual` tolerates `undefined`-valued keys but **not** an empty array.
 - **[DEFERRABLE → CHECKPOINT]** The spec is silent on two existing write-path guards that grouped monoliths will trip. Both fail loudly (D2 is satisfied — nothing is silently dropped), but the failure messages do not mention groups:
-  - `findUnpreservedLines` (`packages/core/src/roadmap/preservation.ts`) does not model group-body lines, so `MonolithStore.write` refuses any whole-file rewrite of a grouped monolith with the "cannot preserve" error.
+  - `findUnpreservedLines` (`packages/core/src/roadmap/preservation.ts`) does not model group-body lines, so `MonolithStore.write` refuses a whole-file rewrite of a grouped monolith with the "cannot preserve" error. **[CORRECTED as shipped]** Not _any_ rewrite: the guard is line-level, not group-aware, so a group body composed only of modeled `- **Key:**` bullets yields zero unpreserved lines and the rewrite **proceeds**, relocating the group after that milestone's features. Nothing is lost either way. Pinned by `groups-write-paths.test.ts` and documented in the guide.
   - `harness roadmap shard` calls `assertSemanticRoundTrip`, whose `isDeepStrictEqual` comparison will now differ (original has `groups`, shard-assembled does not), so sharding a grouped monolith aborts to protect the file.
     Task 6 locks both behaviors with characterization tests and raises a `[checkpoint:decision]` for whether to accept them as shipped semantics or open a follow-up.
 - **[RESOLVED at execution time]** This uncertainty originally read: `packages/*/dist` are **symlinks into the root checkout** which two other sessions are using, so `turbo run build` would rewrite their artifacts and success criterion 5's **CLI-level** verification "cannot run locally" and must defer to PR CI. **Both halves are false as executed.** The `dist` symlinks were replaced with **real local directories** before execution began, so the worktree-clobbering hazard was gone; the Task 11 `[checkpoint:decision]` was answered "run the full build", `turbo run build` completed locally (13/13 tasks), and criterion 5 was verified **end-to-end locally through the built binary** — not deferred to CI. Task 7's `checkRoadmapHealth` unit-level check stands as the narrower complement, not as a substitute.
@@ -595,12 +595,12 @@ describe('parseRoadmap() — strict roadmaps keep their exact object shape (D4)'
 
 > Grouped monoliths trip two pre-existing guards. Both fail **loudly** (D2 holds — no silent drop), but neither message mentions groups:
 >
-> |            | A) Accept loud-failure semantics, document them (recommended)                   | B) Make `findUnpreservedLines` group-aware in this phase                     | C) Open a follow-up for group-aware write paths |
-> | ---------- | ------------------------------------------------------------------------------- | ---------------------------------------------------------------------------- | ----------------------------------------------- |
-> | **Pros**   | Zero behavior change; the guards keep protecting the file; spec scope respected | Grouped monoliths become editable via `manage_roadmap`                       | Ships Phase 1 unchanged; the gap is tracked     |
-> | **Cons**   | Grouped monoliths are read-mostly (edit by hand or shard)                       | Weakens the data-loss guard; needs group-body line ranges; out of spec scope | Requires a follow-up intake                     |
-> | **Risk**   | Low                                                                             | High                                                                         | Low                                             |
-> | **Effort** | Low                                                                             | High                                                                         | Low                                             |
+> |            | A) Accept loud-failure semantics, document them (recommended)                                                              | B) Make `findUnpreservedLines` group-aware in this phase                     | C) Open a follow-up for group-aware write paths |
+> | ---------- | -------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------- | ----------------------------------------------- |
+> | **Pros**   | Zero behavior change; the guards keep protecting the file; spec scope respected                                            | Grouped monoliths become editable via `manage_roadmap`                       | Ships Phase 1 unchanged; the gap is tracked     |
+> | **Cons**   | Grouped monoliths are read-mostly (edit by hand — **not** "or shard": sharding a grouped roadmap is precisely what aborts) | Weakens the data-loss guard; needs group-body line ranges; out of spec scope | Requires a follow-up intake                     |
+> | **Risk**   | Low                                                                                                                        | High                                                                         | Low                                             |
+> | **Effort** | Low                                                                                                                        | High                                                                         | Low                                             |
 >
 > **Recommendation:** A, plus C if the human wants the gap tracked. Either way this task's tests are identical — they only lock current behavior.
 
@@ -689,6 +689,24 @@ describe('parseRoadmap() — strict roadmaps keep their exact object shape (D4)'
 **Depends on:** Task 4 | **Files:** `docs/guides/roadmap-sharding.md`
 
 Shipped doc — **no issue or PR numbers**. Keep angle brackets inside backticks (the VitePress build gate rejects bare ones) and keep inline code on a single line.
+
+> **[SUPERSEDED — the shipped guide is the source of truth.]** The draft text below is
+> the **v1** wording as planned. Review cycles corrected it, so do not treat it as a
+> description of what shipped; read `docs/guides/roadmap-sharding.md` section (g)
+> instead. Specifically superseded here:
+>
+> - "**Groups are preserved, not dropped** … a parse → edit → write cycle keeps the
+>   narrative intact" — scoped, as shipped, to `serializeRoadmap` only. It is not a
+>   promise about the automated write paths.
+> - "the single-file writer **refuses whole-file rewrites** of a grouped roadmap" — the
+>   guard is line-level, not group-aware, so it _usually_ refuses; a group body of only
+>   modeled `- **Key:**` bullets does not trip it and the rewrite proceeds, relocating
+>   the group after that milestone's features.
+> - "a column-0 `### ` **starts a new section**" — understated. It fabricates a phantom
+>   tracked feature and truncates the group body at that point; now its own subsection.
+> - Not mentioned at all in v1: the `### Feature: Group: x` precedence escape, the
+>   regenerated sharded aggregate silently dropping groups, and group-name
+>   trimming/empty-name rejection.
 
 1. Insert a new section into `docs/guides/roadmap-sharding.md` immediately **before** `## See also`. The inner fenced example is part of the doc text:
 
@@ -791,7 +809,7 @@ Both `packages/types/src/` and `packages/core/src/` change, so `scripts/check-ch
 
 **Depends on:** Task 10 | **Files:** none (verification only)
 
-**[checkpoint:decision]** Ask before running any build:
+**[checkpoint:decision] — RESOLVED at execution time; the premise below was false.** Before execution began, `packages/*/dist` were replaced with **real local directories**, so the worktree-clobbering hazard this checkpoint was built around did not exist. The human answered "run the full local build", and `turbo run build` completed locally (13/13 tasks) with no impact on any other session. Option C was therefore what actually happened and was **not** forbidden; the "Recommendation: A" below is superseded. Retained verbatim for the decision record only:
 
 > In this worktree `packages/*/dist` are **symlinks into the root checkout**, which two other sessions are actively using. `turbo run build` would rewrite their built artifacts (including the `harness` binary they run).
 >
@@ -818,9 +836,9 @@ Both `packages/types/src/` and `packages/core/src/` change, so `scripts/check-ch
 
 **Depends on:** Task 11 | **Files:** none (verification only)
 
-1. Run: `node packages/cli/dist/bin/harness.js validate 2>&1 | tail -3` — compare the issue count to the recorded baseline (**390 issues, exit 1, 75 `docs/roadmap.md` findings**). The gate is **no new findings**, not exit 0. Note that this binary is the root checkout's prebuilt CLI unless option B was taken in Task 11, so it exercises the pre-change parser — it proves this change introduced no regression in the repo's own strict roadmap, and the grouped-roadmap CLI path is verified by PR CI.
+1. Run: `node packages/cli/dist/bin/harness.js validate 2>&1 | tail -3` — compare the issue count to the recorded baseline (**390 issues, exit 1, 75 `docs/roadmap.md` findings**). The gate is **no new findings**, not exit 0. **[CORRECTED as shipped]** The caveat here originally said this binary "exercises the pre-change parser" and that the grouped-roadmap CLI path "is verified by PR CI". Neither applies: the full local build ran (see Task 11), so this binary is the **rebuilt, post-change** CLI, and criterion 5 was verified end-to-end **locally** through it. `harness validate` was confirmed byte-identical to the recorded baseline, not merely equal in count.
 2. Run: `node packages/cli/dist/bin/harness.js check-deps` — exit 0, `Analyzed 2310 module(s) across 9 layer(s)`.
-3. Run: `node packages/cli/dist/bin/harness.js check-perf --structural` — exit 0, no new error-severity finding naming `packages/core/src/roadmap/parse.ts` (the file gained one branch).
+3. Run: `node packages/cli/dist/bin/harness.js check-perf --structural`. **[CORRECTED as shipped]** This step originally expected "exit 0, no new error-severity finding naming `packages/core/src/roadmap/parse.ts`". Both halves are wrong: the command exits 1 on pre-existing issues, and this change adds **two** advisories naming exactly that file (`File has 367 lines`, `parseFeatures is 63 lines`) plus two complexity-11 warnings in `serialize.ts` and `health.ts`. The real gate is **974 → 978, all four accepted without refactoring** — see the correction block under the recorded baseline for the table and rationale.
 4. Run: `git diff --exit-code .harness/arch/baselines.json` — exit 0 (baselines unchanged).
 5. Run: `git status --porcelain` — no unintended files; nothing outside this worktree touched.
 6. Run: `git log --oneline origin/main..HEAD` — confirm the commit series matches Tasks 1-10.
