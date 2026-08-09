@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { SCOPE_VOCABULARY, requiredScopeForRoute, hasScope } from './scopes';
+import { SCOPE_VOCABULARY, requiredScopeForRoute, hasScope, PREFIX_SCOPES } from './scopes';
 
 describe('SCOPE_VOCABULARY', () => {
   it('contains exactly the eight scopes pinned in the spec (post-Phase-4)', () => {
@@ -76,6 +76,94 @@ describe('requiredScopeForRoute', () => {
     expect(requiredScopeForRoute('PATCH', '/api/v1/proposals/proposal_abc')).toBe(
       'manage-proposals'
     );
+  });
+});
+
+// The prefix map is the last-resort resolution layer, and it is the only one
+// that ever keyed on path alone. These cases pin the method dimension so a new
+// prefix entry cannot re-authorize writes under a read scope.
+describe('requiredScopeForRoute — prefix fallback is method-aware', () => {
+  it('separates read from write on /api/plans', () => {
+    expect(requiredScopeForRoute('GET', '/api/plans')).toBe('read-status');
+    expect(requiredScopeForRoute('POST', '/api/plans')).toBe('trigger-job');
+  });
+
+  it('separates read from write on /api/sessions, including per-id paths', () => {
+    expect(requiredScopeForRoute('GET', '/api/sessions')).toBe('read-status');
+    expect(requiredScopeForRoute('GET', '/api/sessions/abc')).toBe('read-status');
+    expect(requiredScopeForRoute('POST', '/api/sessions')).toBe('trigger-job');
+    expect(requiredScopeForRoute('PATCH', '/api/sessions/abc')).toBe('trigger-job');
+    expect(requiredScopeForRoute('DELETE', '/api/sessions/abc')).toBe('trigger-job');
+  });
+
+  it('requires a write scope for POST /api/analyze (runs the intelligence pipeline)', () => {
+    expect(requiredScopeForRoute('POST', '/api/analyze')).toBe('trigger-job');
+  });
+
+  it('routes the safe verbs to the read scope, not the write scope', () => {
+    for (const method of ['GET', 'HEAD', 'OPTIONS']) {
+      expect(requiredScopeForRoute(method, '/api/plans')).toBe('read-status');
+      expect(requiredScopeForRoute(method, '/api/sessions')).toBe('read-status');
+    }
+  });
+
+  it('normalizes method case before classifying it', () => {
+    expect(requiredScopeForRoute('post', '/api/plans')).toBe('trigger-job');
+    expect(requiredScopeForRoute('delete', '/api/sessions/abc')).toBe('trigger-job');
+    expect(requiredScopeForRoute('get', '/api/sessions')).toBe('read-status');
+  });
+
+  it('default-denies mutating methods on GET-only prefixes', () => {
+    expect(requiredScopeForRoute('POST', '/api/analyses')).toBeNull();
+    expect(requiredScopeForRoute('DELETE', '/api/streams')).toBeNull();
+    expect(requiredScopeForRoute('POST', '/api/local-model')).toBeNull();
+    expect(requiredScopeForRoute('PATCH', '/api/local-models')).toBeNull();
+    // …while their read paths are untouched.
+    expect(requiredScopeForRoute('GET', '/api/analyses')).toBe('read-status');
+    expect(requiredScopeForRoute('GET', '/api/streams')).toBe('read-status');
+  });
+
+  // The `write` field is an allow-list complement, not a deny-list of the four
+  // common verbs. Node's parser accepts plenty of others and will dispatch them,
+  // so anything outside SAFE_METHODS must take the write branch — otherwise
+  // `write: null` would be enforced against exactly four verbs and a handler
+  // added later could quietly inherit the read scope.
+  it('treats uncommon verbs as mutating rather than falling back to read', () => {
+    for (const method of ['MOVE', 'COPY', 'MERGE', 'MKCOL', 'PROPPATCH', 'SEARCH', 'QUERY']) {
+      expect(requiredScopeForRoute(method, '/api/streams')).toBeNull();
+      expect(requiredScopeForRoute(method, '/api/analyses')).toBeNull();
+      expect(requiredScopeForRoute(method, '/api/plans')).toBe('trigger-job');
+      expect(requiredScopeForRoute(method, '/api/sessions/abc')).toBe('trigger-job');
+    }
+  });
+
+  // First-match-wins means a shorter prefix listed earlier makes every longer
+  // prefix after it dead code — silently, and only visibly once the two entries
+  // are given different scopes.
+  it('orders PREFIX_SCOPES so no entry shadows a later one', () => {
+    const shadowed = PREFIX_SCOPES.flatMap((earlier, i) =>
+      PREFIX_SCOPES.slice(i + 1)
+        .filter((later) => later.prefix.startsWith(earlier.prefix))
+        .map((later) => `${earlier.prefix} shadows ${later.prefix}`)
+    );
+    expect(shadowed).toEqual([]);
+  });
+
+  it('does not escalate prefixes that were already write-grade', () => {
+    expect(requiredScopeForRoute('GET', '/api/interactions')).toBe('resolve-interaction');
+    expect(requiredScopeForRoute('PATCH', '/api/interactions/abc')).toBe('resolve-interaction');
+    expect(requiredScopeForRoute('GET', '/api/maintenance/status')).toBe('trigger-job');
+    expect(requiredScopeForRoute('POST', '/api/maintenance/trigger')).toBe('trigger-job');
+  });
+
+  it('keeps the exact /api/chat guard ahead of the /api/chat-proxy prefix', () => {
+    expect(requiredScopeForRoute('GET', '/api/chat')).toBe('trigger-job');
+    expect(requiredScopeForRoute('POST', '/api/chat')).toBe('trigger-job');
+    expect(requiredScopeForRoute('POST', '/api/chat-proxy')).toBe('trigger-job');
+  });
+
+  it('still returns null for a path outside every prefix', () => {
+    expect(requiredScopeForRoute('POST', '/api/unknown')).toBeNull();
   });
 });
 

@@ -1,0 +1,77 @@
+{
+  "schemaVersion": 5,
+  "specPath": "docs/changes/method-aware-route-scopes/proposal.md",
+  "sessionSlug": "changes--method-aware-route-scopes--proposal",
+  "startingCommit": "143b27628d983ac768abdb02f0f05e1a64ce7f17",
+  "rigorLevel": "thorough",
+  "reviewPlans": false,
+  "currentState": "DONE",
+  "currentPhase": 0,
+  "phases": [
+    {
+      "name": "Method-aware prefix scope resolution",
+      "complexity": "low",
+      "complexityOverride": null,
+      "planPath": "docs/changes/method-aware-route-scopes/plans/2026-08-09-phase-1-method-aware-prefix-scopes-plan.md",
+      "status": "PHASE_COMPLETE"
+    }
+  ],
+  "decisions": [
+    {
+      "state": "ASSESS",
+      "what": "Routed phase 1 as low complexity (single file, single exported function, no new dependency).",
+      "why": "Blast radius is one module; the only caller is http.ts:dispatchAuthedRequest and its signature is unchanged."
+    },
+    {
+      "state": "APPROVE_PLAN",
+      "what": "Auto-approved the plan (4 tasks, 1 checkpoint, no concerns).",
+      "why": "No approval signal fired: task count 4 (<15), complexity low, no complexity override, handoff concerns empty."
+    },
+    {
+      "state": "EXECUTE",
+      "what": "Landed the failing HTTP-boundary test before touching scopes.ts.",
+      "why": "Checkpoint in Task 1 required observing the before-state (201 / 200 / 200) so the fix is proven, not assumed."
+    },
+    {
+      "state": "EXECUTE",
+      "what": "Reused the existing trigger-job scope for the mutating entries instead of adding a scope.",
+      "why": "SCOPE_VOCABULARY is pinned; a new scope needs an ADR plus a TokenScopeSchema change. v1-bridge-routes.ts sets the precedent for reuse."
+    },
+    {
+      "state": "EXECUTE",
+      "what": "Gave GET-only prefixes write: null (default-deny) rather than a synthesized write scope.",
+      "why": "Fails in the safe direction: a future mutating handler on those prefixes stays denied until its entry is updated deliberately."
+    },
+    {
+      "state": "VERIFY",
+      "what": "Kept every layer upstream of the scope check, and every route handler, untouched.",
+      "why": "Out of scope per the spec's problem boundary; the fix did not require them. requiredScopeForRoute keeps its exported signature and has one production call site."
+    },
+    {
+      "state": "REVIEW",
+      "what": "Inverted the method classifier from a four-verb mutating deny-list to a SAFE_METHODS allow-list (GET/HEAD/OPTIONS).",
+      "why": "Security review found the write:null guarantee was enforced against only four verbs; Node's parser accepts and dispatches MOVE/PROPPATCH/QUERY and others, which would have inherited the read scope. Latent, not live \u2014 no handler serves those verbs \u2014 but the guarantee is the point of the null."
+    },
+    {
+      "state": "REVIEW",
+      "what": "Reordered /api/local-models ahead of /api/local-model and pinned a no-shadowing invariant test.",
+      "why": "Security review found the singular prefix shadowed the plural one under first-match-wins, making the plural entry dead code and the unit case that named it vacuous. Behavior-neutral today; a fail-open the moment either entry is given a different scope."
+    },
+    {
+      "state": "REVIEW",
+      "what": "Corrected the changeset's 'admin tokens unaffected' claim and documented the trigger-job lateral move.",
+      "why": "Security review verified write:null short-circuits ahead of the admin superset check, so admin now gets 403 (was 404) on those routes \u2014 an admin-visible change the changeset had denied."
+    },
+    {
+      "state": "REVIEW",
+      "what": "Parked the cross-layer method-case normalization suggestion.",
+      "why": "Would require editing the enforcement call site in http.ts, which is outside this change's boundary. Review confirmed all three resolution layers fail closed on a case mismatch, so there is no bypass \u2014 recorded for a follow-up."
+    }
+  ],
+  "gates": {
+    "regressionTest": "packages/orchestrator/src/server/scope-method-enforcement.test.ts",
+    "beforeFix": "5 failed / 1 passed \u2014 POST /api/plans returned 201 and DELETE /api/sessions/<id> returned 200 with a read-status-only bearer",
+    "afterFix": "38 passed / 0 failed across scopes.test.ts + scope-method-enforcement.test.ts",
+    "securityReview": "PASS \u2014 1 MEDIUM + 3 LOW addressed in-branch; 1 LOW parked as out-of-boundary; no exploitable bypass found across method case, verb substitution, override headers, path normalization, prefix shadowing, or the v1 rewrite"
+  }
+}
