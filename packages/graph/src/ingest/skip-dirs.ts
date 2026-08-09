@@ -15,6 +15,7 @@
  *   - JVM build outputs
  *   - IDE / editor metadata
  *   - AI agent sandbox directories (Claude Code worktrees, Cursor, Codex, etc.)
+ *   - Plain-git worktree containers (`.git-worktrees/`, `.worktrees/`)
  *
  * Consumers may extend or replace this set via {@link CodeIngestorOptions}
  * or the project-level `ingest.skipDirs` / `ingest.additionalSkipDirs` config.
@@ -93,6 +94,19 @@ export const DEFAULT_SKIP_DIRS: ReadonlySet<string> = new Set([
   '.agents',
   '.agentastic',
   '.playwright-mcp',
+
+  // Plain-git worktree containers. Same hazard as the agent sandboxes above —
+  // each holds a full checkout of this repo — but reached via `git worktree
+  // add` rather than an agent. Without these, every scanner re-walks each
+  // nested checkout as if it were first-party source: three worktrees here
+  // added 9,818 .ts files on top of 3,302 real ones, which surfaced as a
+  // phantom `[complexity] REGRESSION: 1327 > 333` blocking a docs-only commit,
+  // with findings attributed to paths under `.git-worktrees/<branch>/`.
+  // `findFiles` sets `dot: true` deliberately (#1146) so first-party source
+  // under dot-dirs stays visible, which makes this list the only thing keeping
+  // nested checkouts out.
+  '.git-worktrees',
+  '.worktrees',
 ]);
 
 /**
