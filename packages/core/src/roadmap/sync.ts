@@ -83,16 +83,26 @@ async function inferStatus(
   projectPath: string,
   allFeatures: RoadmapFeature[]
 ): Promise<FeatureStatus | null> {
-  // 1. Blocker check takes precedence
-  if (feature.blockedBy.length > 0) {
-    const blockerNotDone = feature.blockedBy.some((blockerName) => {
+  // 1. Blocker check — cascade-unblock only.
+  //
+  // The `blockedBy` field is informational: it documents the dependency
+  // relationship. It is NOT a signal that the feature's status should be
+  // `blocked`. `Status: blocked` means "actively waiting on something we
+  // can't influence right now" — a planned feature waiting on another
+  // planned feature in the same milestone is normal queue position, not
+  // blocked. Conflating the two silently flipped every item added with
+  // `Blockers: <sibling-planned-item>` to `blocked` on the next sync.
+  //
+  // The only legitimate sync transition based on blocker state is the
+  // cascade-unblock: a feature that was manually marked `blocked` should
+  // return to `planned` once all its blockers complete, so downstream
+  // work is freed without a manual edit.
+  if (feature.status === 'blocked' && feature.blockedBy.length > 0) {
+    const allBlockersDone = feature.blockedBy.every((blockerName) => {
       const blocker = allFeatures.find((f) => f.name.toLowerCase() === blockerName.toLowerCase());
-      return !blocker || blocker.status !== 'done';
+      return blocker?.status === 'done';
     });
-    if (blockerNotDone) return 'blocked';
-    // All blockers are done. Unblock currently-blocked features so cascading
-    // completion frees downstream work without a manual edit.
-    if (feature.status === 'blocked') return 'planned';
+    if (allBlockersDone) return 'planned';
   }
 
   // 2. If no plans linked, cannot infer

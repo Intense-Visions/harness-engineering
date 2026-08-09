@@ -217,7 +217,10 @@ describe('syncRoadmap()', () => {
   });
 
   describe('blocker inference', () => {
-    it('proposes blocked when a blocker feature is not done', async () => {
+    it('leaves planned feature unchanged when blocker is done', async () => {
+      // Sanity: with a `done` blocker, the dependent stays as-is (no change).
+      // (Prior test name said "proposes blocked when blocker is not done"
+      // which contradicted the body — blocker IS done here, expected `[]`.)
       const roadmap = baseRoadmap();
       roadmap.milestones[0]!.features = [
         {
@@ -234,7 +237,7 @@ describe('syncRoadmap()', () => {
           spec: null,
           plans: [],
           blockedBy: ['Feature A'],
-          summary: 'Blocked feature',
+          summary: 'Blocker done; feature stays planned',
         },
       ];
       // Feature A is done, so Feature B should NOT be blocked
@@ -244,7 +247,12 @@ describe('syncRoadmap()', () => {
       expect(result.value).toEqual([]);
     });
 
-    it('proposes blocked when blocker is in-progress', async () => {
+    it('leaves planned feature unchanged when blocker is in-progress', async () => {
+      // `Blockers: <name>` on a planned feature is informational queue
+      // position, not a status signal. The dependency is already documented
+      // by the field. Flipping status to `blocked` adds no information and
+      // corrupts items whose blockers are sibling planned items in the same
+      // milestone.
       const roadmap = baseRoadmap();
       roadmap.milestones[0]!.features = [
         {
@@ -261,13 +269,74 @@ describe('syncRoadmap()', () => {
           spec: null,
           plans: [],
           blockedBy: ['Feature A'],
-          summary: 'Blocked feature',
+          summary: 'Has named dep but is in normal queue position',
         },
       ];
       const result = await syncRoadmap({ projectPath: tmpDir, roadmap });
       expect(result.ok).toBe(true);
       if (!result.ok) return;
-      expect(result.value).toEqual([{ feature: 'Feature B', from: 'planned', to: 'blocked' }]);
+      expect(result.value).toEqual([]);
+    });
+
+    it('leaves planned feature unchanged when blocker is also planned', async () => {
+      // Reproduction of the observed corruption: dependent and blocker are
+      // both `planned`. Neither has any active execution state. The sync
+      // must not invent a `blocked` transition based purely on the
+      // existence of a named dependency.
+      const roadmap = baseRoadmap();
+      roadmap.milestones[0]!.features = [
+        {
+          name: 'outcome-eval skill',
+          status: 'planned',
+          spec: null,
+          plans: [],
+          blockedBy: [],
+          summary: 'Dep, also planned',
+        },
+        {
+          name: 'rollback primitive',
+          status: 'planned',
+          spec: null,
+          plans: [],
+          blockedBy: ['outcome-eval skill'],
+          summary: 'Depends on outcome-eval skill, both planned',
+        },
+      ];
+      const result = await syncRoadmap({ projectPath: tmpDir, roadmap });
+      expect(result.ok).toBe(true);
+      if (!result.ok) return;
+      expect(result.value).toEqual([]);
+    });
+
+    it('leaves in-progress feature unchanged when blocker is not done', async () => {
+      // `in-progress` → `blocked` is a status-rank regression (2 → 1) which
+      // the directional guard blocks anyway (see status-rank.ts).
+      // So the only observable buggy surface is `planned → blocked`.
+      // Confirming here that in-progress features also stay put: `Blockers`
+      // remains informational across all source statuses.
+      const roadmap = baseRoadmap();
+      roadmap.milestones[0]!.features = [
+        {
+          name: 'Feature A',
+          status: 'planned',
+          spec: null,
+          plans: [],
+          blockedBy: [],
+          summary: 'Dep',
+        },
+        {
+          name: 'Feature B',
+          status: 'in-progress',
+          spec: null,
+          plans: [],
+          blockedBy: ['Feature A'],
+          summary: 'Already in-progress despite un-done dep',
+        },
+      ];
+      const result = await syncRoadmap({ projectPath: tmpDir, roadmap });
+      expect(result.ok).toBe(true);
+      if (!result.ok) return;
+      expect(result.value).toEqual([]);
     });
   });
 
