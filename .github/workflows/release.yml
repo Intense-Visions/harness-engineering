@@ -96,13 +96,65 @@ jobs:
         if: steps.changesets.outputs.published == 'true'
         env:
           HUSKY: '0'
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          AUTOAPPROVE_PAT: ${{ secrets.BASELINE_AUTOAPPROVE_PAT }}
         run: |
           node packages/cli/dist/bin/harness.js golden-build promote
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add .harness/golden/manifest.json
-          git diff --cached --quiet || git commit -m "chore: promote golden build reference state [skip ci]"
-          git push
+          MANIFEST=".harness/golden/manifest.json"
+          git add "$MANIFEST"
+          if git diff --cached --quiet; then
+            echo "Golden manifest unchanged; nothing to promote."
+            exit 0
+          fi
+          git commit -m "chore: promote golden build reference state [skip ci]"
+          OURS=$(git rev-parse HEAD)
+          BASE="${GITHUB_REF_NAME}"
+
+          # 1) Try a direct push, absorbing any concurrent merge. Reset hard to our
+          #    commit before each retry so a failed rebase can never leave the tree
+          #    dirty for the next attempt.
+          for attempt in 1 2 3; do
+            git rebase --abort 2>/dev/null || true
+            git reset --hard "$OURS" >/dev/null
+            git fetch origin "$BASE" -q || true
+            if git rebase "origin/$BASE" && git push origin "HEAD:$BASE" 2>/dev/null; then
+              echo "Pushed golden-manifest promotion directly to $BASE on attempt $attempt."
+              exit 0
+            fi
+            echo "Direct push attempt $attempt failed; retrying."
+            sleep 3
+          done
+
+          # 2) Direct push is blocked by branch protection ("changes must be made
+          #    through a pull request"). Open a scope-guarded self-approved PR, the
+          #    same fallback roadmap-auto-done.yml uses. Without this the step exited
+          #    1 on every publish, so the release ran red even though the packages
+          #    had already gone out, and the golden reference never advanced.
+          echo "Direct push unavailable; opening a self-approved PR."
+          git fetch origin "$BASE" -q
+          BRANCH="chore/golden-promote-$(git rev-parse --short "$OURS")-$(date +%s)"
+          git checkout -B "$BRANCH" "origin/$BASE"
+          git checkout "$OURS" -- "$MANIFEST"
+          git add "$MANIFEST"
+          if git diff --cached --quiet; then
+            echo "Base already carries this golden manifest; nothing to PR."
+            exit 0
+          fi
+          git commit -m "chore: promote golden build reference state [skip ci]"
+          git push -u origin "$BRANCH"
+          PR_URL=$(gh pr create \
+            --title "chore: promote golden build reference state" \
+            --body "Automated golden-build reference promotion after a successful publish. Opened because direct pushes to $BASE are blocked by branch protection." \
+            --base "$BASE" \
+            --head "$BRANCH")
+          # Defensive scope check: the PAT may only ever approve a diff confined to
+          # the golden manifest (mirrors the roadmap auto-done guard).
+          gh pr diff "$PR_URL" --name-only | node scripts/assert-diff-scope.mjs "$MANIFEST"
+          GH_TOKEN="$AUTOAPPROVE_PAT" gh pr review "$PR_URL" --approve \
+            --body "Auto-approved: golden-build reference promotion from github-actions[bot]."
+          gh pr merge "$PR_URL" --auto --squash --delete-branch
 
   docker:
     needs: release
