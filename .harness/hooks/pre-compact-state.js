@@ -9,6 +9,7 @@
 import { readFileSync, mkdirSync, writeFileSync, readdirSync, statSync } from 'node:fs';
 import { join } from 'node:path';
 import process from 'node:process';
+import { readHookStdin } from './read-hook-stdin.js';
 
 function readJsonSafe(filePath) {
   try {
@@ -48,13 +49,16 @@ function findActiveSession(sessionsDir) {
  * fail-open stderr message and exits 0. Returns the raw string on success.
  */
 function readValidStdin() {
-  let raw = '';
-  try {
-    raw = readFileSync(0, 'utf-8');
-  } catch {
+  // readHookStdin retries the EAGAIN that fd 0 throws under compound load (v8
+  // coverage on the pre-push gate): the writer races ahead of the read, and a
+  // raw readFileSync(0) would mistake that backpressure for empty stdin and
+  // fail-open, silently skipping the summary write and flaking the suite (#620).
+  const stdin = readHookStdin();
+  if (!stdin.ok) {
     process.stderr.write('[pre-compact-state] Could not read stdin — allowing (fail-open)\n');
     process.exit(0);
   }
+  const raw = stdin.data;
 
   if (!raw.trim()) {
     process.stderr.write('[pre-compact-state] Empty stdin — allowing (fail-open)\n');

@@ -16,5 +16,18 @@
       "command": "npx",
       "args": ["-y", "@playwright/mcp"]
     }
+  },
+  "hooks": {
+    "SessionEnd": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "g=\"$(git rev-parse --path-format=absolute --git-common-dir 2>/dev/null)\" || exit 0; f=\"$(dirname \"$g\")/.harness/hooks/session-retrospect-gemini.js\"; [ -f \"$f\" ] || exit 0; exec node \"$f\"",
+            "name": "harness-session-retrospect"
+          }
+        ]
+      }
+    ]
   }
 }

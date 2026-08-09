@@ -6,7 +6,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "node \"$(git rev-parse --show-toplevel)/.harness/hooks/block-no-verify.js\""
+            "command": "g=\"$(git rev-parse --path-format=absolute --git-common-dir 2>/dev/null)\" || exit 0; f=\"$(dirname \"$g\")/.harness/hooks/block-no-verify.js\"; [ -f \"$f\" ] || exit 0; exec node \"$f\""
           }
         ]
       },
@@ -15,7 +15,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "node \"$(git rev-parse --show-toplevel)/.harness/hooks/protect-config.js\""
+            "command": "g=\"$(git rev-parse --path-format=absolute --git-common-dir 2>/dev/null)\" || exit 0; f=\"$(dirname \"$g\")/.harness/hooks/protect-config.js\"; [ -f \"$f\" ] || exit 0; exec node \"$f\""
           }
         ]
       },
@@ -24,7 +24,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "node \"$(git rev-parse --show-toplevel)/.harness/hooks/sentinel-pre.js\""
+            "command": "g=\"$(git rev-parse --path-format=absolute --git-common-dir 2>/dev/null)\" || exit 0; f=\"$(dirname \"$g\")/.harness/hooks/sentinel-pre.js\"; [ -f \"$f\" ] || exit 0; exec node \"$f\""
           }
         ]
       }
@@ -35,7 +35,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "node \"$(git rev-parse --show-toplevel)/.harness/hooks/quality-warner.js\""
+            "command": "g=\"$(git rev-parse --path-format=absolute --git-common-dir 2>/dev/null)\" || exit 0; f=\"$(dirname \"$g\")/.harness/hooks/quality-warner.js\"; [ -f \"$f\" ] || exit 0; exec node \"$f\""
           }
         ]
       },
@@ -44,7 +44,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "node \"$(git rev-parse --show-toplevel)/.harness/hooks/sentinel-post.js\""
+            "command": "g=\"$(git rev-parse --path-format=absolute --git-common-dir 2>/dev/null)\" || exit 0; f=\"$(dirname \"$g\")/.harness/hooks/sentinel-post.js\"; [ -f \"$f\" ] || exit 0; exec node \"$f\""
           }
         ]
       }
@@ -55,7 +55,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "node \"$(git rev-parse --show-toplevel)/.harness/hooks/pre-compact-state.js\""
+            "command": "g=\"$(git rev-parse --path-format=absolute --git-common-dir 2>/dev/null)\" || exit 0; f=\"$(dirname \"$g\")/.harness/hooks/pre-compact-state.js\"; [ -f \"$f\" ] || exit 0; exec node \"$f\""
           }
         ]
       }
@@ -66,7 +66,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "node \"$(git rev-parse --show-toplevel)/.harness/hooks/adoption-tracker.js\""
+            "command": "g=\"$(git rev-parse --path-format=absolute --git-common-dir 2>/dev/null)\" || exit 0; f=\"$(dirname \"$g\")/.harness/hooks/adoption-tracker.js\"; [ -f \"$f\" ] || exit 0; exec node \"$f\""
           }
         ]
       },
@@ -75,7 +75,16 @@
         "hooks": [
           {
             "type": "command",
-            "command": "node \"$(git rev-parse --show-toplevel)/.harness/hooks/telemetry-reporter.js\""
+            "command": "g=\"$(git rev-parse --path-format=absolute --git-common-dir 2>/dev/null)\" || exit 0; f=\"$(dirname \"$g\")/.harness/hooks/telemetry-reporter.js\"; [ -f \"$f\" ] || exit 0; exec node \"$f\""
+          }
+        ]
+      },
+      {
+        "matcher": "*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "g=\"$(git rev-parse --path-format=absolute --git-common-dir 2>/dev/null)\" || exit 0; f=\"$(dirname \"$g\")/.harness/hooks/session-retrospect.js\"; [ -f \"$f\" ] || exit 0; exec node \"$f\""
           }
         ]
       }

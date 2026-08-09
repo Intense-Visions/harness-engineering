@@ -1,3 +1,20 @@
 {
-  "profile": "standard"
+  "profile": "standard",
+  "fileHashes": {
+    "block-no-verify.js": "9d224eb5dbdfea4f6ae9ae8b82a431a61a983c4589b1bf9230b70f71efafa9e8",
+    "protect-config.js": "91a2b8af5a3f15ca82efaf9f465ebcf936ad9c772fde4fe717f5ac2d8b877c87",
+    "quality-warner.js": "acf787c9904277d18679a5fef98e1bea381ea0938dfe0c150c940f835613f3a8",
+    "pre-compact-state.js": "4b562a64b69c293d73c7a9f902164a59865145a46393be09f3cea430542fb206",
+    "adoption-tracker.js": "211e336a8b63b41e0d7aec020cd6d383bbf2eec7aa2194fb37ae7d1d26c51666",
+    "telemetry-reporter.js": "396f40066d9cbcebd582692d2647cef64de2d540170d1f95ae52755cc3310081",
+    "session-retrospect.js": "54936d2bb4d54ebb18c4fe3df25a517d501c1bf9c83b79f071df6ee062ddc3c2",
+    "sentinel-pre.js": "79e6218ef603d81aaca752db8289cd369bba963135024f486f2ec305253db07f",
+    "sentinel-post.js": "8f892b15d70ee2da155d508ede59e22c1c8f160edc975534546b695253dd03da",
+    "read-hook-stdin.js": "54e8e2606868070d8fbc4b8bbdb277eadea769dfb3483e7c5cdef106c47cfc06",
+    "format-check.js": "8bb8f5e4c97711f8ba633137d7cac99ed2c29bc444a2684cc7d295c10485a4d5",
+    "session-retrospect-core.js": "d6b734cd0fbeb19b1c23ccec0b753965393edfad32da784bc3c5ed172208d909",
+    "session-retrospect-gemini.js": "9e614ea2c6ff0dcee0170113850991f580c7f6760d015f3fb9119944bf5eaab0",
+    "session-retrospect-codex.js": "a748fcf8860c7a3cd4ea4ffcd9736c58cb6c20fb65ee1805109192394173f498",
+    "session-retrospect-cursor.js": "655281322a654cc0b436445340df6ab9aeedfc185c81d87642d7977ffb824c79"
+  }
 }

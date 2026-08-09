@@ -1,3 +1,5 @@
+notify = ["node", "/Users/cwarner/Projects/harness-engineering/.harness/hooks/session-retrospect-codex.js"]
+
 [mcp_servers.context7]
 args = [
     "-y",

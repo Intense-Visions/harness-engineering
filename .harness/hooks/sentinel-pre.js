@@ -5,6 +5,7 @@
 // (the actual prompt-injection vector). This hook performs NO injection detection
 // on tool INPUTS — an agent's own tool inputs are its intent, not untrusted content,
 // and scanning them here falsely tainted legitimate work (e.g. an agent running
+// harness-ignore SEC-AGT-006: this hook's design doc references the bypass flag it guards against
 // `git commit --no-verify`, or inputs containing base64/git-SHA tokens), then blocked
 // the agent's own `git push`. Detection lives in sentinel-post; pre only enforces.
 // Exit codes: 0 = allow, 2 = block
@@ -16,6 +17,8 @@
 import { readFileSync, unlinkSync, realpathSync } from 'node:fs';
 import { resolve } from 'node:path';
 import process from 'node:process';
+
+import { readHookStdin } from './read-hook-stdin.js';
 
 // Destructive tool patterns blocked during taint.
 // Keep in sync with DESTRUCTIVE_BASH exported from @harness-engineering/core injection-patterns.ts.
@@ -39,19 +42,25 @@ function isOutsideWorkspace(filePath, workspaceRoot) {
   return !realResolved.startsWith(workspaceRoot);
 }
 
-/** Read stdin (fd 0) and parse it as JSON. Returns null when it should exit-0. */
+/**
+ * Read stdin (fd 0) and parse it as JSON.
+ *
+ * Returns `{ blind: true }` when the read genuinely FAILED (the guard is blind
+ * and must fail closed), `{ input: null }` for a legitimately empty or malformed
+ * payload (benign — fail open), or `{ input }` on success. Distinguishing a
+ * failed read from an empty one is the whole point: conflating them let a tool
+ * call through unverified during a tainted session whenever the stdin pipe
+ * hiccuped, while the check still reported success (#993, same seam as
+ * block-no-verify).
+ */
 function readStdinJson() {
-  let raw;
+  const stdin = readHookStdin();
+  if (!stdin.ok) return { blind: true, error: stdin.error };
+  if (!stdin.data.trim()) return { input: null };
   try {
-    raw = readFileSync(0, 'utf-8');
+    return { input: JSON.parse(stdin.data) };
   } catch {
-    return null;
-  }
-  if (!raw.trim()) return null;
-  try {
-    return JSON.parse(raw);
-  } catch {
-    return null;
+    return { input: null };
   }
 }
 
@@ -113,7 +122,18 @@ function enforceTaint(toolName, toolInput, workspaceRoot) {
 }
 
 async function main() {
-  const input = readStdinJson();
+  const result = readStdinJson();
+  if (result.blind) {
+    // Fail CLOSED: a taint guard that cannot read the tool call it is guarding
+    // must not wave it through. Exiting 0 here would silently disable Sentinel
+    // during a tainted session on the exact EAGAIN pipe race #993 describes.
+    process.stderr.write(
+      `BLOCKED by Sentinel: could not read hook input (${result.error.code ?? result.error.message}); ` +
+        'refusing to allow the tool call unverified during a possibly-tainted session.\n'
+    );
+    process.exit(2);
+  }
+  const input = result.input;
   if (input === null) {
     process.exit(0);
   }
