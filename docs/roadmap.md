@@ -345,77 +345,77 @@ last_manual_edit: 2026-06-27T12:51:51.967Z
 
 ### issue-fleet — autonomous intake/triage of the open-issue backlog
 
-- **Status:** planned
-- **Spec:** —
+- **Status:** done
+- **Spec:** docs/changes/issue-fleet/proposal.md
 - **Summary:** Part of the `-fleet` skill family (epic #1194) — the family technique is autonomous fan-out orchestration over an SDLC work-queue, with batch human review and never auto-merge. issue-fleet is the intake stage: it autonomously triages the open-issue backlog (labeling, deduping, routing, and prioritizing) so downstream fleets receive a clean, ordered queue. It is the entry point of the fleet spine issue-fleet → adr-fleet → roadmap-fleet → pr-fleet, with cicd-fleet / test-fleet / cleanup-fleet running alongside.
 - **Blockers:** —
-- **Plan:** —
+- **Plan:** docs/changes/issue-fleet/plans/2026-08-08-issue-fleet-plan.md
 - **Assignee:** —
 - **Priority:** —
 - **External-ID:** github:Intense-Visions/harness-engineering#1195
 
 ### adr-fleet — batch-drive pending architectural decisions to ADRs
 
-- **Status:** planned
-- **Spec:** —
+- **Status:** done
+- **Spec:** docs/changes/adr-fleet/proposal.md
 - **Summary:** Part of the `-fleet` skill family (epic #1194) — the family technique is autonomous fan-out orchestration over an SDLC work-queue, with batch human review and never auto-merge. adr-fleet sweeps the backlog of pending architectural decisions and drives each to a batch ADR sign-off, fanning out drafting work and collecting the results for a single human review pass. It sits second in the fleet spine issue-fleet → adr-fleet → roadmap-fleet → pr-fleet, with cicd-fleet / test-fleet / cleanup-fleet running alongside.
 - **Blockers:** —
-- **Plan:** —
+- **Plan:** docs/changes/adr-fleet/plans/2026-08-08-adr-fleet-plan.md
 - **Assignee:** —
 - **Priority:** —
 - **External-ID:** github:Intense-Visions/harness-engineering#1197
 
 ### roadmap-fleet — backlog → verified merge-ready PRs
 
-- **Status:** planned
-- **Spec:** —
+- **Status:** done
+- **Spec:** docs/changes/roadmap-fleet/proposal.md
 - **Summary:** Part of the `-fleet` skill family (epic #1194) — the family technique is autonomous fan-out orchestration over an SDLC work-queue, with batch human review and never auto-merge. roadmap-fleet turns the backlog (external issues + roadmap shards) into verified, merge-ready PRs, fanning out implementation across the queue and gating on verification before batching the results for human review. It is the delivery hub of the fleet spine issue-fleet → adr-fleet → roadmap-fleet → pr-fleet, with cicd-fleet / test-fleet / cleanup-fleet running alongside.
 - **Blockers:** —
-- **Plan:** —
+- **Plan:** docs/changes/roadmap-fleet/plans/2026-08-07-roadmap-fleet-plan.md
 - **Assignee:** —
 - **Priority:** —
 - **External-ID:** github:Intense-Visions/harness-engineering#1198
 
 ### pr-fleet — PR-queue triage, review-assist & land
 
-- **Status:** planned
-- **Spec:** —
+- **Status:** done
+- **Spec:** docs/changes/pr-fleet/proposal.md
 - **Summary:** Part of the `-fleet` skill family (epic #1194) — the family technique is autonomous fan-out orchestration over an SDLC work-queue, with batch human review and never auto-merge. pr-fleet works the open-PR queue: triaging, assisting review, and landing PRs across the queue while keeping the final merge decision with a human. It is the terminal stage of the fleet spine issue-fleet → adr-fleet → roadmap-fleet → pr-fleet, with cicd-fleet / test-fleet / cleanup-fleet running alongside.
 - **Blockers:** —
-- **Plan:** —
+- **Plan:** docs/changes/pr-fleet/plans/2026-08-08-pr-fleet-plan.md
 - **Assignee:** —
 - **Priority:** —
 - **External-ID:** github:Intense-Visions/harness-engineering#1186
 
 ### cicd-fleet — autonomous CI/CD-red / flaky-test backlog sweep
 
-- **Status:** planned
+- **Status:** done
 - **Spec:** docs/changes/cicd-fleet/proposal.md
 - **Summary:** Part of the `-fleet` skill family (epic #1194) — the family technique is autonomous fan-out orchestration over an SDLC work-queue, with batch human review and never auto-merge. cicd-fleet sweeps the CI/CD-red and flaky-test backlog, fanning out diagnosis and fixes across failing pipelines and batching remediation PRs for human review. It runs alongside the core fleet spine issue-fleet → adr-fleet → roadmap-fleet → pr-fleet.
 - **Blockers:** —
-- **Plan:** —
+- **Plan:** docs/changes/cicd-fleet/plans/2026-08-08-cicd-fleet-plan.md
 - **Assignee:** —
 - **Priority:** —
 - **External-ID:** github:Intense-Visions/harness-engineering#1196
 
 ### test-fleet — autonomous test-coverage backlog sweep
 
-- **Status:** planned
-- **Spec:** —
+- **Status:** done
+- **Spec:** docs/changes/test-fleet/proposal.md
 - **Summary:** Part of the `-fleet` skill family (epic #1194) — the family technique is autonomous fan-out orchestration over an SDLC work-queue, with batch human review and never auto-merge. test-fleet works the test-coverage backlog, fanning out test authoring across under-covered areas and producing a batch of test PRs for human review. It runs alongside the core fleet spine issue-fleet → adr-fleet → roadmap-fleet → pr-fleet.
 - **Blockers:** —
-- **Plan:** —
+- **Plan:** docs/changes/test-fleet/plans/2026-08-08-test-fleet-plan.md
 - **Assignee:** —
 - **Priority:** —
 - **External-ID:** github:Intense-Visions/harness-engineering#1199
 
 ### cleanup-fleet — autonomous entropy/hotspot remediation sweep
 
-- **Status:** planned
-- **Spec:** —
+- **Status:** done
+- **Spec:** docs/changes/cleanup-fleet/proposal.md
 - **Summary:** Part of the `-fleet` skill family (epic #1194) — the family technique is autonomous fan-out orchestration over an SDLC work-queue, with batch human review and never auto-merge. cleanup-fleet sweeps the entropy/hotspot backlog, fanning out remediation across high-churn and high-risk areas and batching the resulting cleanup PRs for human review. It runs alongside the core fleet spine issue-fleet → adr-fleet → roadmap-fleet → pr-fleet.
 - **Blockers:** —
-- **Plan:** —
+- **Plan:** docs/changes/cleanup-fleet/plans/2026-08-08-cleanup-fleet-plan.md
 - **Assignee:** —
 - **Priority:** —
 - **External-ID:** github:Intense-Visions/harness-engineering#1200
@@ -433,7 +433,7 @@ last_manual_edit: 2026-06-27T12:51:51.967Z
 
 ### craft-fleet — ceiling-raising code-quality elevation sweep
 
-- **Status:** in-progress
+- **Status:** done
 - **Spec:** docs/changes/craft-fleet/proposal.md
 - **Summary:** Part of the `-fleet` skill family (epic #1194) — the family technique is autonomous fan-out orchestration over an SDLC work-queue, with batch human review and never auto-merge. craft-fleet is the ceiling twin of cleanup-fleet: where cleanup-fleet works the rule-based entropy floor, craft-fleet sweeps the craft skills' LLM-judgment critique and hands back a tiered batch — elevation PRs for bounded, high-confidence, cited polish and filed roadmap items for structural quality debt. It runs alongside the core fleet spine issue-fleet → adr-fleet → roadmap-fleet → pr-fleet.
 - **Blockers:** —
@@ -444,7 +444,7 @@ last_manual_edit: 2026-06-27T12:51:51.967Z
 
 ### ideate-fleet — fan out strategy-grounded ideation as the head of the fleet spine
 
-- **Status:** in-progress
+- **Status:** done
 - **Spec:** docs/changes/ideate-fleet/proposal.md
 - **Summary:** Part of the `-fleet` skill family (epic #1194) — the family technique is autonomous fan-out orchestration over an SDLC work-queue, with batch human review and never auto-merge. ideate-fleet is the head of the core conveyor (ideate → issue → adr → roadmap → pr): it derives a queue of disjoint themes from STRATEGY.md tracks and supplied opportunity areas, fans out worktree-isolated subagents that each run the real `harness-ideate` pipeline to a ranked artifact, re-derives every ranking independently, and returns one curated ranked shortlist for a human to pick from. It files nothing — no issue, roadmap row, spec, or PR.
 - **Blockers:** —
@@ -453,9 +453,53 @@ last_manual_edit: 2026-06-27T12:51:51.967Z
 - **Priority:** —
 - **External-ID:** github:Intense-Visions/harness-engineering#1228
 
+### perf-fleet — fan out performance-budget/regression remediation
+
+- **Status:** backlog
+- **Spec:** —
+- **Summary:** Candidate member of the `-fleet` skill family (epic #1194) — the family technique is autonomous fan-out orchestration over an SDLC work-queue, with batch human review and never auto-merge. perf-fleet fans out perf-budget and regression analysis over hotspots and critical paths, emitting a batch of optimization PRs. Benchmark-gated: a regression needs a measured before/after, mirroring bug-fleet's reproduction bar. Composes the perf skills / check-perf as its DISPATCH engine.
+- **Blockers:** Fold-vs-standalone decision deferred — overlaps cleanup-fleet (hotspots) and bug-fleet (perf-as-defect); may be folded rather than shipped standalone.
+- **Plan:** —
+- **Assignee:** —
+- **Priority:** —
+- **External-ID:** github:Intense-Visions/harness-engineering#1233
+
+### knowledge-fleet — fan out knowledge extraction/reconciliation
+
+- **Status:** backlog
+- **Spec:** —
+- **Summary:** Candidate member of the `-fleet` skill family (epic #1194) — the family technique is autonomous fan-out orchestration over an SDLC work-queue, with batch human review and never auto-merge. knowledge-fleet fleet-ifies knowledge-pipeline: it fans out extraction of undocumented knowledge and decisions across the codebase, emitting a batch of knowledge entries. Composes knowledge-pipeline as its DISPATCH engine.
+- **Blockers:** Fold-vs-standalone decision deferred — overlaps adr-fleet (decisions) and knowledge-craft (quality ceiling); may be folded rather than shipped standalone.
+- **Plan:** —
+- **Assignee:** —
+- **Priority:** —
+- **External-ID:** github:Intense-Visions/harness-engineering#1232
+
+### design-fleet — fan out design-system drift remediation
+
+- **Status:** backlog
+- **Spec:** —
+- **Summary:** Candidate member of the `-fleet` skill family (epic #1194) — the family technique is autonomous fan-out orchestration over an SDLC work-queue, with batch human review and never auto-merge. design-fleet fleet-ifies design-pipeline / detect-design-drift: it fans out design-token and component drift detection, emitting a batch of fixes. Most valuable in design-heavy repos. Composes design-pipeline as its DISPATCH engine.
+- **Blockers:** Fold-vs-standalone decision deferred — overlaps cleanup-fleet (drift floor) and craft-fleet (design-craft ceiling); may be folded rather than shipped standalone.
+- **Plan:** —
+- **Assignee:** —
+- **Priority:** —
+- **External-ID:** github:Intense-Visions/harness-engineering#1231
+
+### docs-fleet — fan out doc-drift remediation across the codebase
+
+- **Status:** backlog
+- **Spec:** —
+- **Summary:** Candidate member of the `-fleet` skill family (epic #1194) — the family technique is autonomous fan-out orchestration over an SDLC work-queue, with batch human review and never auto-merge. docs-fleet fleet-ifies docs-pipeline / detect-doc-drift: it fans out doc-drift detection over the codebase, emitting a batch of doc-fix PRs. Composes docs-pipeline as its DISPATCH engine.
+- **Blockers:** Fold-vs-standalone decision deferred — overlaps cleanup-fleet (drift floor) and craft-fleet (docs-craft ceiling); likely fold is drift to cleanup-fleet and quality to craft-fleet.
+- **Plan:** —
+- **Assignee:** —
+- **Priority:** —
+- **External-ID:** github:Intense-Visions/harness-engineering#1230
+
 ### fleet-command — the conductor coordinating the `-fleet` family across the SDLC
 
-- **Status:** in-progress
+- **Status:** done
 - **Spec:** docs/changes/fleet-command/proposal.md
 - **Summary:** Part of the `-fleet` skill family (epic #1194) — the capstone, one tier above the members and deliberately not named `-fleet`: it coordinates the fleets themselves rather than fanning out over an item-queue. Plans a run as a hybrid dependency DAG (a cicd-fleet CI prerequisite, the conveyor spine sequential, the quality sweeps parallel, pr-fleet terminal), enforces one **global** concurrency budget across every fleet in flight instead of additive per-fleet governors, owns cross-fleet deconfliction (merge-order planning, regeneration sequencing, lane serialization, cross-fleet filing dedup), batches the members' human gates by wave without ever answering them, verifies each lane from its emitted artifacts rather than re-running it, and emits one consolidated report. Never auto-merges.
 - **Blockers:** —

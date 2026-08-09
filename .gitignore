@@ -41,6 +41,7 @@ temp/
 # Worktrees
 .worktrees/
 .claude/worktrees/
+.git-worktrees/
 
 # Harness runtime artifacts (see .harness/.gitignore)
 # Use **/ prefix so patterns match .harness dirs at any depth (e.g. packages/orchestrator/.harness/)
