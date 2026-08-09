@@ -10,6 +10,7 @@ import { join } from 'node:path';
 import { randomUUID } from 'node:crypto';
 import { execFileSync } from 'node:child_process';
 import process from 'node:process';
+import { readHookStdin } from './read-hook-stdin.js';
 
 // PostHog project API key — public, write-only (cannot read data)
 const POSTHOG_API_KEY = process.env.POSTHOG_API_KEY ?? 'phc_wNTdCMcfJXZPgdNeDociZW6vwoGGo4nb7vqEfWThFfsG'; // harness-ignore SEC-SEC-002: public PostHog write-only ingest key
@@ -261,12 +262,16 @@ function showFirstRunNotice(cwd) {
 // --- Main ---
 
 async function main() {
-  let raw = '';
-  try {
-    raw = readFileSync(0, 'utf-8');
-  } catch {
+  // readHookStdin retries the EAGAIN that fd 0 throws under compound load (v8
+  // coverage on the pre-push gate): the writer races ahead of the read, and a
+  // raw readFileSync(0) would mistake that backpressure for empty stdin and
+  // fail-open, flaking the suite (#620). Log-only hook, so a genuine read
+  // failure or empty stdin still exits 0.
+  const stdin = readHookStdin();
+  if (!stdin.ok) {
     process.exit(0);
   }
+  const raw = stdin.data;
 
   if (!raw.trim()) {
     process.exit(0);

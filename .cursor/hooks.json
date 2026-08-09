@@ -1,0 +1,15 @@
+{
+  "version": 1,
+  "hooks": {
+    "stop": [
+      {
+        "command": "g=\"$(git rev-parse --path-format=absolute --git-common-dir 2>/dev/null)\" || exit 0; f=\"$(dirname \"$g\")/.harness/hooks/session-retrospect-cursor.js\"; [ -f \"$f\" ] || exit 0; exec node \"$f\""
+      }
+    ],
+    "sessionEnd": [
+      {
+        "command": "g=\"$(git rev-parse --path-format=absolute --git-common-dir 2>/dev/null)\" || exit 0; f=\"$(dirname \"$g\")/.harness/hooks/session-retrospect-cursor.js\"; [ -f \"$f\" ] || exit 0; exec node \"$f\""
+      }
+    ]
+  }
+}

@@ -7,6 +7,7 @@
 import { readFileSync, writeFileSync, mkdirSync } from 'node:fs';
 import { resolve, dirname } from 'node:path';
 import process from 'node:process';
+import { readHookStdin } from './read-hook-stdin.js';
 
 // Minimal inline patterns for when @harness-engineering/core isn't available.
 // Keep in sync with @harness-engineering/core injection-patterns.ts ALL_PATTERNS.
@@ -32,6 +33,7 @@ const INLINE_RULES = [
   // HIGH: INJ-PERM-002 — Disable safety/security
   { severity: 'high', ruleId: 'INJ-PERM-002', pattern: /(?:disable|turn\s+off|remove|bypass)\s+(?:all\s+)?(?:safety|security|restrictions?|guardrails?|protections?|checks?)/i },
   // HIGH: INJ-PERM-003 — Auto-approve directive
+  // harness-ignore SEC-AGT-006: definitional — this IS the detection pattern for the bypass flags
   { severity: 'high', ruleId: 'INJ-PERM-003', pattern: /(?:auto[- ]?approve|--no-verify|--dangerously-skip-permissions)/i },
   // HIGH: INJ-ENC-001 — Suspicious base64
   { severity: 'high', ruleId: 'INJ-ENC-001', pattern: /(?<!Bearer\s)(?<![:])(?<![A-Za-z0-9/])(?!eyJ)(?:[A-Za-z0-9+/]{4}){7,}(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?(?![A-Za-z0-9/])/ },
@@ -65,15 +67,15 @@ function inlineScan(text) {
 
 /** Read stdin (fd 0) and parse it as JSON. Returns null when it should exit-0. */
 function readStdinJson() {
-  let raw;
+  // readHookStdin retries the EAGAIN that fd 0 throws under compound load (v8
+  // coverage on the pre-push gate): the writer races ahead of the read, and a
+  // raw readFileSync(0) would mistake that backpressure for empty stdin and
+  // fail-open, flaking the suite (#620). A genuine read failure or empty stdin
+  // still returns null (fail-open — PostToolUse cannot block anyway).
+  const stdin = readHookStdin();
+  if (!stdin.ok || !stdin.data.trim()) return null;
   try {
-    raw = readFileSync(0, 'utf-8');
-  } catch {
-    return null;
-  }
-  if (!raw.trim()) return null;
-  try {
-    return JSON.parse(raw);
+    return JSON.parse(stdin.data);
   } catch {
     return null;
   }
