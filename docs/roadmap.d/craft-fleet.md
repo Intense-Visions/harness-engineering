@@ -6,7 +6,7 @@ order: 9
 
 ### craft-fleet — ceiling-raising code-quality elevation sweep
 
-- **Status:** in-progress
+- **Status:** done
 - **Spec:** docs/changes/craft-fleet/proposal.md
 - **Summary:** Part of the `-fleet` skill family (epic #1194) — the family technique is autonomous fan-out orchestration over an SDLC work-queue, with batch human review and never auto-merge. craft-fleet is the ceiling twin of cleanup-fleet: where cleanup-fleet works the rule-based entropy floor, craft-fleet sweeps the craft skills' LLM-judgment critique and hands back a tiered batch — elevation PRs for bounded, high-confidence, cited polish and filed roadmap items for structural quality debt. It runs alongside the core fleet spine issue-fleet → adr-fleet → roadmap-fleet → pr-fleet.
 - **Blockers:** —
