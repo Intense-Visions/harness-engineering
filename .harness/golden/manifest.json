@@ -1,0 +1,32 @@
+{
+  "version": 1,
+  "promotedAt": "2026-08-09T16:18:42.876Z",
+  "commit": "7536404",
+  "branch": "main",
+  "files": [
+    {
+      "path": ".harness/arch/baselines.json",
+      "sha256": "c4da176b404635b70fe79981ec78d546b31326aec9dc2d0aa97e23cc393f37b0"
+    },
+    {
+      "path": "benchmark-baselines.json",
+      "sha256": "64ec8ad9ab67f78da4b78dd783e1ea44ab256ed6d2a81203b2c0fd0701a57255"
+    },
+    {
+      "path": "coverage-baselines.json",
+      "sha256": "9554f80372868c349c6856dc4de8504cd0a38f9133c85d144f2dafea4add796e"
+    },
+    {
+      "path": "harness.config.json",
+      "sha256": "362ad1e8a152de7fa2f4dd8fe30f34620835de917b27dc16db759f45ad520aa4"
+    },
+    {
+      "path": "package.json",
+      "sha256": "ce7187524b79619fa29cad211ed98b152644f2e0dfb28c887c68da0fc1b31417"
+    },
+    {
+      "path": "pnpm-lock.yaml",
+      "sha256": "b2a738b85e7b4577c760f3411ed79a52eab10a65ac1a3a7a4e9df2694ffcda67"
+    }
+  ]
+}
