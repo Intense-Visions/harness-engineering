@@ -4,6 +4,9 @@ import type {
   RoadmapFeature,
   AssignmentRecord,
 } from '@harness-engineering/types';
+// The marker prefixes live in `./parse`, the reader that defines them, so the
+// emitter cannot drift from it. See GROUP_PREFIX's doc comment there.
+import { GROUP_PREFIX, FEATURE_PREFIX } from './parse';
 
 const EM_DASH = '\u2014';
 
@@ -90,11 +93,6 @@ function serializeExtendedLines(feature: RoadmapFeature): string[] {
   }
   return lines;
 }
-
-/** Heading-text prefix that marks an H3 as a narrative group rather than a feature. */
-const GROUP_PREFIX = 'Group: ';
-/** Heading-text prefix that explicitly marks an H3 as a feature. */
-const FEATURE_PREFIX = 'Feature: ';
 
 /**
  * Emit a feature's H3 heading. Normally the bare `### <name>` form, but a name that

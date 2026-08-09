@@ -22,8 +22,25 @@ const VALID_STATUSES: ReadonlySet<string> = new Set([
 
 const EM_DASH = '\u2014';
 
-/** Heading-text prefix that marks an H3 as a narrative group rather than a feature. */
-const GROUP_PREFIX = 'Group: ';
+/**
+ * Heading-text prefix that marks an H3 as a narrative group rather than a feature.
+ *
+ * This module is the SOURCE OF TRUTH for both marker prefixes: `serialize.ts`
+ * imports them so the emitter cannot drift from the reader (a divergence would
+ * silently reclassify or rename tracked rows). `h3Pattern` below encodes
+ * {@link FEATURE_PREFIX} as a regex literal — the one copy that cannot be shared
+ * directly; `serialize-groups.test.ts` pins the two together with byte assertions
+ * over every marker-prefixed name.
+ */
+export const GROUP_PREFIX = 'Group: ';
+
+/**
+ * Heading-text prefix that explicitly marks an H3 as a feature. It takes
+ * precedence over {@link GROUP_PREFIX}, so `### Feature: Group: x` is a feature
+ * named `Group: x`. Also the escape the serializer emits for any name that begins
+ * with either prefix.
+ */
+export const FEATURE_PREFIX = 'Feature: ';
 
 const VALID_PRIORITIES: ReadonlySet<string> = new Set(['P0', 'P1', 'P2', 'P3']);
 
