@@ -70,6 +70,15 @@ jobs:
         uses: changesets/action@v1
         with:
           publish: pnpm release
+          # Must be `pnpm version`, not the action's default. The default runs
+          # `changeset version` directly, which bumps package.json but skips
+          # scripts/sync-plugin-pin.mjs — the only thing that re-pins the five
+          # plugin/extension manifests to the new CLI version. Every release
+          # therefore shipped manifests pinned to the PREVIOUS version and left
+          # main red on the plugin-pin-sync assertion in
+          # tests/scripts/plugin-pin-sync.test.mjs. package.json's `version`
+          # script pairs the two steps; this input is what actually invokes it.
+          version: pnpm version
           title: 'chore: version packages'
           commit: 'chore: version packages'
         env:
