@@ -814,13 +814,51 @@ export class OrchestratorServer {
       this.planWatcher.start();
     }
 
-    return new Promise((resolve) => {
+    return new Promise((resolve, reject) => {
       const host = getBindHost();
-      this.httpServer.listen(this.port, host, () => {
+
+      // A bind failure MUST reject. Without an 'error' listener, `listen()`
+      // emits an unhandled 'error' (crashing the process or, under a test
+      // runner, surfacing as an unrelated "Uncaught Exception") AND this
+      // promise never settles — so an EADDRINUSE collision presented as a
+      // hang until the caller's timeout rather than as a bind failure. Rejecting
+      // turns a multi-minute stall into an immediate, attributable error.
+      const onError = (err: Error): void => {
+        this.httpServer.removeListener('listening', onListening);
+        reject(
+          new Error(`Orchestrator API failed to bind ${host}:${this.port}: ${err.message}`, {
+            cause: err,
+          })
+        );
+      };
+
+      const onListening = (): void => {
+        this.httpServer.removeListener('error', onError);
+        // When port 0 was requested the OS assigns an ephemeral port; adopt it
+        // so callers reading `this.port` (and the log line below) report where
+        // the server is actually listening rather than the sentinel 0.
+        const address = this.httpServer.address();
+        if (typeof address === 'object' && address !== null) {
+          this.port = address.port;
+        }
         console.log(`Orchestrator API listening on ${host}:${this.port}`);
         resolve();
-      });
+      };
+
+      this.httpServer.once('error', onError);
+      this.httpServer.once('listening', onListening);
+      this.httpServer.listen(this.port, host);
     });
+  }
+
+  /**
+   * The port this server is listening on. Equals the constructor argument
+   * except when 0 was passed, in which case it is the OS-assigned ephemeral
+   * port and is only meaningful after `start()` resolves. Tests should bind 0
+   * and read this instead of guessing a random port, which collides.
+   */
+  public get boundPort(): number {
+    return this.port;
   }
 
   public stop(): void {
