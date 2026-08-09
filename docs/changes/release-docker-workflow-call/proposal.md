@@ -55,7 +55,7 @@ registry is empty.
 
 ## Phase 4 — Findings
 
-### [ERROR] concurrency-deadlock — `.github/workflows/docker.yml:17`
+### [ERROR] concurrency-deadlock — `.github/workflows/docker.yml:19` (at base `143b27628`)
 
 Under `workflow_call`, `${{ github.workflow }}` resolves to the **caller's** workflow name, so
 the called workflow's concurrency group evaluates to `Release-refs/heads/main` — the exact group
@@ -88,7 +88,7 @@ container publishing works.
 Requires human decision: whether to backfill images for already-published versions. Explicitly
 out of scope for this change.
 
-### [WARNING] shell-interpolation — `.github/workflows/docker.yml:57`
+### [WARNING] shell-interpolation — `.github/workflows/docker.yml:60` (at base `143b27628`)
 
 `VERSION="${{ inputs.version }}"` interpolates a workflow input straight into a shell script.
 Routing it through `env:` would make it data rather than code.
