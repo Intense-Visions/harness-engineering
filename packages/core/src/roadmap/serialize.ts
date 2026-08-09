@@ -37,6 +37,14 @@ export function serializeRoadmap(roadmap: Roadmap): string {
       lines.push('');
       lines.push(...serializeFeature(feature));
     }
+    // Narrative `### Group:` sections are re-emitted verbatim AFTER the strict
+    // features so a parse → mutate → serialize cycle never silently drops them.
+    for (const group of milestone.groups ?? []) {
+      lines.push('');
+      lines.push(`### Group: ${group.name}`);
+      lines.push('');
+      lines.push(group.body);
+    }
   }
 
   // Assignment history section (omit if empty)
