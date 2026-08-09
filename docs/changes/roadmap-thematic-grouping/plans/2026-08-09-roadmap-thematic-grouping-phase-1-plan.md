@@ -51,17 +51,28 @@ Used by Task 12 as the comparison point. `harness validate` **already fails on t
 | `git diff --exit-code .harness/arch/baselines.json`                                                                   | exit 0 (clean)                                                                                                             |
 | `pnpm --filter @harness-engineering/core exec vitest run tests/roadmap/parse.test.ts tests/roadmap/serialize.test.ts` | 2 files, 16 tests passed                                                                                                   |
 
-> **Correction (measured during execution).** The `check-perf --structural` row originally
-> read "exit 0 (warnings only)". That was wrong: the command already exits 1 with **974**
-> pre-existing structural issues (e.g. `packages/orchestrator/src/orchestrator.ts` at 5195
-> lines). Re-measured before and after this change with the same freshly built binary:
-> **974 → 975**. The single new finding is
-> `packages/core/src/roadmap/parse.ts — File has 305 lines (threshold: 300)`, i.e. the file
-> crossed the 300-line file-length advisory. **Accepted, not refactored:** it is not part of
-> `harness validate`'s gate (validate output is byte-identical to baseline), and it is the
-> same finding class as 974 pre-existing instances, including `health.ts` (317 lines) and
-> `preservation.ts` in this very directory. So the `check-perf` gate for this change is
-> "exactly one new advisory, accepted", not "exit 0".
+> **Correction (measured during execution, updated at HEAD).** The `check-perf --structural`
+> row originally read "exit 0 (warnings only)". That was wrong: the command already exits 1
+> with **974** pre-existing structural issues (e.g. `packages/orchestrator/src/orchestrator.ts`
+> at 5195 lines). Measured with the same freshly built binary, this change takes it
+> **974 → 978**. The four new advisories, all **accepted without refactoring**, are:
+>
+> | New advisory                                                                   | Cause                                                                 |
+> | ------------------------------------------------------------------------------ | --------------------------------------------------------------------- |
+> | `roadmap/parse.ts` — File has 367 lines (threshold: 300)                       | the group branch + the `Feature: ` precedence fix + the error locator |
+> | `roadmap/parse.ts` — Function `parseFeatures` is 63 lines (threshold: 50)      | same                                                                  |
+> | `roadmap/serialize.ts` — `serializeRoadmap` cyclomatic complexity 11 (warning) | the group loop + the empty-body branch                                |
+> | `roadmap/health.ts` — `groomRoadmap` cyclomatic complexity 11 (warning)        | the all-narrative-milestone clause                                    |
+>
+> (Two further diffs are the _same_ pre-existing finding with an updated count, not new
+> findings: `packages/types/src/index.ts` 429 → 430 lines and `roadmap/health.ts` 317 → 321.)
+>
+> **Why accepted:** every one falls directly out of a mandated review fix, none is part of
+> `harness validate`'s gate (validate output is byte-identical to the recorded baseline), and
+> all are the same advisory class as the 974 pre-existing instances — including `health.ts`
+> and `preservation.ts` in this very directory. Code review independently agreed with
+> accepting all four. So the `check-perf` gate for this change is "four new advisories,
+> consciously accepted", not "exit 0".
 
 ## File Map
 
