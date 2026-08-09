@@ -132,7 +132,7 @@ function parseMilestones(body: string): Result<RoadmapMilestone[]> {
     const isBacklog = h2.heading === 'Backlog';
     const milestoneName = isBacklog ? 'Backlog' : h2.heading.replace(/^Milestone:\s*/, '');
 
-    const sectionsResult = parseFeatures(sectionBody);
+    const sectionsResult = parseFeatures(sectionBody, milestoneName);
     if (!sectionsResult.ok) return sectionsResult;
     const { features, groups } = sectionsResult.value;
 
@@ -158,7 +158,16 @@ interface MilestoneSections {
   groups: RoadmapGroup[];
 }
 
-function parseFeatures(sectionBody: string): Result<MilestoneSections> {
+/** 1-based line number of `index` within `text`, for error locators. */
+function lineNumberAt(text: string, index: number): number {
+  let line = 1;
+  for (let i = 0; i < index && i < text.length; i++) {
+    if (text[i] === '\n') line++;
+  }
+  return line;
+}
+
+function parseFeatures(sectionBody: string, milestoneName: string): Result<MilestoneSections> {
   const features: RoadmapFeature[] = [];
   const groups: RoadmapGroup[] = [];
   // Split on H3 headings — accept both "### Feature: X" and "### X". The
@@ -204,8 +213,9 @@ function parseFeatures(sectionBody: string): Result<MilestoneSections> {
       if (groupName === '') {
         return Err(
           new Error(
-            'Group heading is missing a name. Write `### Group: <name>` ' +
-              '(for example `### Group: Delivery arc`).'
+            `Milestone "${milestoneName}" has a group heading with no name ` +
+              `(line ${lineNumberAt(sectionBody, h3.startIndex)} of that section). ` +
+              'Write `### Group: <name>`, for example `### Group: Delivery arc`.'
           )
         );
       }

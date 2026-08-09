@@ -170,6 +170,9 @@ ${section}
     const result = parseRoadmap(MD('### Group: \n\n- a\n'));
     expect(result.ok).toBe(false);
     if (result.ok) return;
-    expect(result.error.message).toContain('Group heading is missing a name');
+    expect(result.error.message).toContain('has a group heading with no name');
+    // Must locate the problem the way every sibling parse error does.
+    expect(result.error.message).toContain('Milestone "M1"');
+    expect(result.error.message).toMatch(/line \d+ of that section/);
   });
 });
