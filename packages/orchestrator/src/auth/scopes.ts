@@ -41,32 +41,73 @@ function exactScopeForRoute(method: string, path: string): TokenScope | null {
 }
 
 /**
+ * One prefix mapping, split by what the request does rather than only where it
+ * points. The two other resolution layers — `V1_BRIDGE_ROUTES` and
+ * `exactScopeForRoute` — have always pinned a method; this layer is the
+ * catch-all and originally keyed on path alone, so a read scope on a prefix
+ * silently authorized every mutating verb the handler underneath happened to
+ * serve.
+ */
+interface PrefixScopeEntry {
+  readonly prefix: string;
+  /** GET / HEAD, and any other non-mutating verb. */
+  readonly read: TokenScope;
+  /**
+   * POST / PUT / PATCH / DELETE. `null` means the prefix has no mutating
+   * surface, so a mutating request default-denies (403) instead of inheriting
+   * the read scope. Adding a mutating verb to such a handler stays denied until
+   * this entry is updated deliberately.
+   */
+  readonly write: TokenScope | null;
+}
+
+/** Verbs that route to `write`. Everything else routes to `read`. */
+const MUTATING_METHODS: ReadonlySet<string> = new Set(['POST', 'PUT', 'PATCH', 'DELETE']);
+
+/**
  * Prefix-based default mapping (Phase 1). Ordered first-match-wins; entries are
  * matched via startsWith except the exact `/api/chat` route, which must not also
  * match `/api/chat-proxy`'s startsWith.
+ *
+ * Scope choices are constrained by the pinned `SCOPE_VOCABULARY` above, so the
+ * mutating entries reuse `trigger-job` — the existing "cause the orchestrator to
+ * do operational work" scope already carried by `/api/maintenance` and
+ * `/api/chat` — rather than minting a new scope, which would require an ADR and
+ * a `TokenScopeSchema` change. `/api/plans` writes into the directory
+ * `PlanWatcher` watches, so a plan write literally enqueues work; `/api/analyze`
+ * runs the intelligence pipeline; session create/update/delete mutates
+ * orchestrator state.
+ *
+ * Entries whose scope was already write-grade repeat it in both fields, so their
+ * resolution is unchanged.
  */
-const PREFIX_SCOPES: ReadonlyArray<readonly [string, TokenScope]> = [
-  ['/api/interactions', 'resolve-interaction'],
-  ['/api/plans', 'read-status'],
-  ['/api/analyze', 'read-status'],
-  ['/api/analyses', 'read-status'],
-  ['/api/roadmap-actions', 'modify-roadmap'],
-  ['/api/dispatch-actions', 'trigger-job'],
-  ['/api/local-model', 'read-status'],
-  ['/api/local-models', 'read-status'],
-  ['/api/maintenance', 'trigger-job'],
-  ['/api/streams', 'read-status'],
-  ['/api/sessions', 'read-status'],
-  ['/api/chat-proxy', 'trigger-job'],
+const PREFIX_SCOPES: ReadonlyArray<PrefixScopeEntry> = [
+  { prefix: '/api/interactions', read: 'resolve-interaction', write: 'resolve-interaction' },
+  { prefix: '/api/plans', read: 'read-status', write: 'trigger-job' },
+  { prefix: '/api/analyze', read: 'read-status', write: 'trigger-job' },
+  { prefix: '/api/analyses', read: 'read-status', write: null },
+  { prefix: '/api/roadmap-actions', read: 'modify-roadmap', write: 'modify-roadmap' },
+  { prefix: '/api/dispatch-actions', read: 'trigger-job', write: 'trigger-job' },
+  { prefix: '/api/local-model', read: 'read-status', write: null },
+  { prefix: '/api/local-models', read: 'read-status', write: null },
+  { prefix: '/api/maintenance', read: 'trigger-job', write: 'trigger-job' },
+  { prefix: '/api/streams', read: 'read-status', write: null },
+  { prefix: '/api/sessions', read: 'read-status', write: 'trigger-job' },
+  { prefix: '/api/chat-proxy', read: 'trigger-job', write: 'trigger-job' },
 ];
 
-/** Resolve a scope from the ordered prefix mapping; null when nothing matches. */
-function prefixScopeForPath(path: string): TokenScope | null {
+/**
+ * Resolve a scope from the ordered prefix mapping for a method + path; null when
+ * nothing matches, or when the matched prefix exposes no mutating surface.
+ */
+function prefixScopeForRoute(method: string, path: string): TokenScope | null {
   // Exact `/api/chat` is not a prefix of any PREFIX_SCOPES entry, so checking it
-  // first preserves the original first-match-wins ordering.
+  // first preserves the original first-match-wins ordering. It is a single
+  // trigger-job route for every method, read and write alike.
   if (path === '/api/chat') return 'trigger-job';
-  for (const [prefix, scope] of PREFIX_SCOPES) {
-    if (path.startsWith(prefix)) return scope;
+  const mutating = MUTATING_METHODS.has(method.toUpperCase());
+  for (const entry of PREFIX_SCOPES) {
+    if (path.startsWith(entry.prefix)) return mutating ? entry.write : entry.read;
   }
   return null;
 }
@@ -86,5 +127,5 @@ export function requiredScopeForRoute(method: string, path: string): TokenScope 
   const exactScope = exactScopeForRoute(method, path);
   if (exactScope) return exactScope;
 
-  return prefixScopeForPath(path);
+  return prefixScopeForRoute(method, path);
 }

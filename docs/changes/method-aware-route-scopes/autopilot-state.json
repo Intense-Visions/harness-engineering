@@ -1,0 +1,56 @@
+{
+  "schemaVersion": 5,
+  "specPath": "docs/changes/method-aware-route-scopes/proposal.md",
+  "sessionSlug": "changes--method-aware-route-scopes--proposal",
+  "startingCommit": "143b27628d983ac768abdb02f0f05e1a64ce7f17",
+  "rigorLevel": "thorough",
+  "reviewPlans": false,
+  "currentState": "DONE",
+  "currentPhase": 0,
+  "phases": [
+    {
+      "name": "Method-aware prefix scope resolution",
+      "complexity": "low",
+      "complexityOverride": null,
+      "planPath": "docs/changes/method-aware-route-scopes/plans/2026-08-09-phase-1-method-aware-prefix-scopes-plan.md",
+      "status": "PHASE_COMPLETE"
+    }
+  ],
+  "decisions": [
+    {
+      "state": "ASSESS",
+      "what": "Routed phase 1 as low complexity (single file, single exported function, no new dependency).",
+      "why": "Blast radius is one module; the only caller is http.ts:dispatchAuthedRequest and its signature is unchanged."
+    },
+    {
+      "state": "APPROVE_PLAN",
+      "what": "Auto-approved the plan (4 tasks, 1 checkpoint, no concerns).",
+      "why": "No approval signal fired: task count 4 (<15), complexity low, no complexity override, handoff concerns empty."
+    },
+    {
+      "state": "EXECUTE",
+      "what": "Landed the failing HTTP-boundary test before touching scopes.ts.",
+      "why": "Checkpoint in Task 1 required observing the before-state (201 / 200 / 200) so the fix is proven, not assumed."
+    },
+    {
+      "state": "EXECUTE",
+      "what": "Reused the existing trigger-job scope for the mutating entries instead of adding a scope.",
+      "why": "SCOPE_VOCABULARY is pinned; a new scope needs an ADR plus a TokenScopeSchema change. v1-bridge-routes.ts sets the precedent for reuse."
+    },
+    {
+      "state": "EXECUTE",
+      "what": "Gave GET-only prefixes write: null (default-deny) rather than a synthesized write scope.",
+      "why": "Fails in the safe direction: a future mutating handler on those prefixes stays denied until its entry is updated deliberately."
+    },
+    {
+      "state": "VERIFY",
+      "what": "Kept resolveAuth, the unauthenticated-dev fallback, CORS/CSRF, the websocket, chat-proxy.ts, and the container image untouched.",
+      "why": "Out of scope per the spec's problem boundary; the fix did not require any of them."
+    }
+  ],
+  "gates": {
+    "regressionTest": "packages/orchestrator/src/server/scope-method-enforcement.test.ts",
+    "beforeFix": "5 failed / 1 passed — POST /api/plans returned 201 and DELETE /api/sessions/<id> returned 200 with a read-status-only bearer",
+    "afterFix": "6 passed / 0 failed"
+  }
+}

@@ -79,6 +79,60 @@ describe('requiredScopeForRoute', () => {
   });
 });
 
+// The prefix map is the last-resort resolution layer, and it is the only one
+// that ever keyed on path alone. These cases pin the method dimension so a new
+// prefix entry cannot re-authorize writes under a read scope.
+describe('requiredScopeForRoute — prefix fallback is method-aware', () => {
+  it('separates read from write on /api/plans', () => {
+    expect(requiredScopeForRoute('GET', '/api/plans')).toBe('read-status');
+    expect(requiredScopeForRoute('POST', '/api/plans')).toBe('trigger-job');
+  });
+
+  it('separates read from write on /api/sessions, including per-id paths', () => {
+    expect(requiredScopeForRoute('GET', '/api/sessions')).toBe('read-status');
+    expect(requiredScopeForRoute('GET', '/api/sessions/abc')).toBe('read-status');
+    expect(requiredScopeForRoute('POST', '/api/sessions')).toBe('trigger-job');
+    expect(requiredScopeForRoute('PATCH', '/api/sessions/abc')).toBe('trigger-job');
+    expect(requiredScopeForRoute('DELETE', '/api/sessions/abc')).toBe('trigger-job');
+  });
+
+  it('requires a write scope for POST /api/analyze (runs the intelligence pipeline)', () => {
+    expect(requiredScopeForRoute('POST', '/api/analyze')).toBe('trigger-job');
+  });
+
+  it('routes HEAD to the read scope, not the write scope', () => {
+    expect(requiredScopeForRoute('HEAD', '/api/plans')).toBe('read-status');
+    expect(requiredScopeForRoute('HEAD', '/api/sessions')).toBe('read-status');
+  });
+
+  it('default-denies mutating methods on GET-only prefixes', () => {
+    expect(requiredScopeForRoute('POST', '/api/analyses')).toBeNull();
+    expect(requiredScopeForRoute('DELETE', '/api/streams')).toBeNull();
+    expect(requiredScopeForRoute('POST', '/api/local-model')).toBeNull();
+    expect(requiredScopeForRoute('PATCH', '/api/local-models')).toBeNull();
+    // …while their read paths are untouched.
+    expect(requiredScopeForRoute('GET', '/api/analyses')).toBe('read-status');
+    expect(requiredScopeForRoute('GET', '/api/streams')).toBe('read-status');
+  });
+
+  it('does not escalate prefixes that were already write-grade', () => {
+    expect(requiredScopeForRoute('GET', '/api/interactions')).toBe('resolve-interaction');
+    expect(requiredScopeForRoute('PATCH', '/api/interactions/abc')).toBe('resolve-interaction');
+    expect(requiredScopeForRoute('GET', '/api/maintenance/status')).toBe('trigger-job');
+    expect(requiredScopeForRoute('POST', '/api/maintenance/trigger')).toBe('trigger-job');
+  });
+
+  it('keeps the exact /api/chat guard ahead of the /api/chat-proxy prefix', () => {
+    expect(requiredScopeForRoute('GET', '/api/chat')).toBe('trigger-job');
+    expect(requiredScopeForRoute('POST', '/api/chat')).toBe('trigger-job');
+    expect(requiredScopeForRoute('POST', '/api/chat-proxy')).toBe('trigger-job');
+  });
+
+  it('still returns null for a path outside every prefix', () => {
+    expect(requiredScopeForRoute('POST', '/api/unknown')).toBeNull();
+  });
+});
+
 describe('hasScope', () => {
   it('admin satisfies any scope', () => {
     expect(hasScope(['admin'], 'trigger-job')).toBe(true);

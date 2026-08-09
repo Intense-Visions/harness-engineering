@@ -83,30 +83,35 @@ Phase 2 will widen the orchestrator's `/api/v1/*` route table beyond these three
 
 `requiredScopeForRoute` resolves a method+path to its required scope. The Phase 1 mapping (`packages/orchestrator/src/auth/scopes.ts`):
 
-| Route prefix                              | Required scope        |
-| ----------------------------------------- | --------------------- |
-| `POST /api/v1/auth/token`                 | `admin`               |
-| `GET /api/v1/auth/tokens`                 | `admin`               |
-| `DELETE /api/v1/auth/tokens/{id}`         | `admin`               |
-| `GET /api/state`, `GET /api/v1/state`     | `read-status`         |
-| `/api/interactions/*`                     | `resolve-interaction` |
-| `/api/plans/*`                            | `read-status`         |
-| `/api/analyze`, `/api/analyses/*`         | `read-status`         |
-| `/api/roadmap-actions/*`                  | `modify-roadmap`      |
-| `/api/dispatch-actions/*`                 | `trigger-job`         |
-| `/api/local-model*`, `/api/local-models*` | `read-status`         |
-| `/api/maintenance/*`                      | `trigger-job`         |
-| `/api/streams/*`                          | `read-status`         |
-| `/api/sessions/*`                         | `read-status`         |
-| `/api/chat-proxy/*`                       | `trigger-job`         |
-| `POST /api/v1/jobs/maintenance`           | `trigger-job`         |
-| `POST /api/v1/interactions/{id}/resolve`  | `resolve-interaction` |
-| `GET /api/v1/events`                      | `read-telemetry`      |
-| `POST /api/v1/webhooks`                   | `subscribe-webhook`   |
-| `DELETE /api/v1/webhooks/{id}`            | `subscribe-webhook`   |
-| `GET /api/v1/webhooks`                    | `subscribe-webhook`   |
+| Route prefix                                      | Required scope        |
+| ------------------------------------------------- | --------------------- |
+| `POST /api/v1/auth/token`                         | `admin`               |
+| `GET /api/v1/auth/tokens`                         | `admin`               |
+| `DELETE /api/v1/auth/tokens/{id}`                 | `admin`               |
+| `GET /api/state`, `GET /api/v1/state`             | `read-status`         |
+| `/api/interactions/*`                             | `resolve-interaction` |
+| `GET /api/plans/*`                                | `read-status`         |
+| `POST /api/plans`                                 | `trigger-job`         |
+| `POST /api/analyze`                               | `trigger-job`         |
+| `GET /api/analyses/*`                             | `read-status`         |
+| `/api/roadmap-actions/*`                          | `modify-roadmap`      |
+| `/api/dispatch-actions/*`                         | `trigger-job`         |
+| `GET /api/local-model*`, `GET /api/local-models*` | `read-status`         |
+| `/api/maintenance/*`                              | `trigger-job`         |
+| `GET /api/streams/*`                              | `read-status`         |
+| `GET /api/sessions/*`                             | `read-status`         |
+| `POST`/`PATCH`/`DELETE` `/api/sessions/*`         | `trigger-job`         |
+| `/api/chat-proxy/*`                               | `trigger-job`         |
+| `POST /api/v1/jobs/maintenance`                   | `trigger-job`         |
+| `POST /api/v1/interactions/{id}/resolve`          | `resolve-interaction` |
+| `GET /api/v1/events`                              | `read-telemetry`      |
+| `POST /api/v1/webhooks`                           | `subscribe-webhook`   |
+| `DELETE /api/v1/webhooks/{id}`                    | `subscribe-webhook`   |
+| `GET /api/v1/webhooks`                            | `subscribe-webhook`   |
 
 The `/api/v1/<slug>(/...)` aliases for the twelve wrappable legacy routes (interactions, plans, analyze, analyses, roadmap-actions, dispatch-actions, local-model, local-models, maintenance, streams, sessions, chat-proxy) inherit the legacy route's scope mapping via the URL rewrite — the scope table does not need separate entries for the v1 aliases.
+
+Resolution is method-aware at every layer. The prefix map — the last-resort layer the legacy `/api/<name>` routes land on — pairs each prefix with a read scope (`GET`/`HEAD`) and a write scope (`POST`/`PUT`/`PATCH`/`DELETE`). Prefixes whose handlers serve reads only (`/api/analyses`, `/api/streams`, `/api/local-model`, `/api/local-models`) declare no write scope, so a mutating request against them resolves to `null` and is default-denied rather than inheriting the read scope. A prefix that later grows a mutating handler stays denied until its entry is updated deliberately.
 
 Unmapped routes return null, which `dispatchAuthedRequest` treats as a 403 after audit (default-deny per ADR 0011 line 30). A route that has not been opted into the scope table is rejected, not exposed-but-broken.
 
