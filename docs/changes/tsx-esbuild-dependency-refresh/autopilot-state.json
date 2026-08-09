@@ -4,7 +4,7 @@
   "specPath": "docs/changes/tsx-esbuild-dependency-refresh/proposal.md",
   "startingCommit": "143b27628d983ac768abdb02f0f05e1a64ce7f17",
   "rigorLevel": "standard",
-  "currentState": "EXECUTE",
+  "currentState": "DONE",
   "currentPhase": 0,
   "retryBudget": 3,
   "runtimeNotes": [
@@ -18,7 +18,7 @@
       "name": "Refresh tsx and correct the exception record",
       "complexity": "low",
       "complexityOverride": null,
-      "status": "in_progress",
+      "status": "complete",
       "planPath": "docs/changes/tsx-esbuild-dependency-refresh/plans/2026-08-09-tsx-esbuild-dependency-refresh-plan.md"
     }
   ],
@@ -40,5 +40,36 @@
       "signalDisposition": "The concerns signal fired (7 planner concerns). All were resolvable inside the pre-authorized scope and were folded into the execution brief rather than escalated; the load-bearing one (concern 1: tsx's '~0.28.0' range admits the still-vulnerable esbuild 0.28.0) was promoted to a blocking assertion requiring the resolved esbuild to be >=0.28.1."
     }
   ],
-  "history": []
+  "history": [
+    {
+      "phase": 0,
+      "name": "Refresh tsx and correct the exception record",
+      "tasksCompleted": 8,
+      "retriesUsed": 1,
+      "retryReason": "The plan's prescribed `pnpm update tsx -r --lockfile-only` was rejected by the Task 3 integrity gate (assertion D: unrelated re-resolution, including a typescript@6.0.3 admitted via transitive peers). Discarded unmodified, then re-executed with a corrected mechanism: raise the three tsx floors, then plain `pnpm install --lockfile-only`.",
+      "verificationPassed": true,
+      "integrationPassed": true,
+      "integrationNote": "Spec declares every Integration Point 'None' — no entry point, registration, doc update, ADR, or knowledge-graph enrichment derived. Verified by inspection, no separate integration task.",
+      "reviewFindings": { "critical": 0, "important": 2, "suggestion": 3 },
+      "reviewDisposition": "Both important findings were plan-record accuracy (the plan still asserted the discarded mechanism in its blocking acceptance criteria, and still recorded a falsified 'no changeset required' assumption). Both fixed in commit c4be58756, along with suggestions S1 and S3. S2 (patch vs empty changeset for a devDependency-only change) was considered and kept as patch to match existing practice; the trade-off is recorded in the proposal and the PR body."
+    }
+  ],
+  "gates": {
+    "build": "13/13 pass",
+    "typecheck": "22/22 pass",
+    "lint": "12/12 pass",
+    "test": "26/26 pass",
+    "testNote": "packages/burn/tests/bin-startup.test.ts is a load-sensitive startup ratio test with a 30s timeout; it is flaky on a loaded machine independent of this change (identical post-change tree: 30007ms timeout, then 2284ms pass; base commit: 24338ms). packages/burn is built by tsup on esbuild 0.27.7, untouched here, and its binary runs under plain node, not tsx."
+  },
+  "lockfileAssertions": {
+    "lockfileVersion": "'6.0' unchanged",
+    "overridesBlock": "byte-identical to base, 23 entries, sha256 a0fdc657261e442a966b59413ecae13a70b239436d45b9458136c85d494d51c4 on both sides",
+    "overriddenVersionsSpotCheck": "undici@7.29.0, hono@4.13.1, qs@6.15.3, tmp@0.2.7, nanoid@3.3.18 all still resolve",
+    "diffScope": "confined to tsx, esbuild, 26 @esbuild/* platform packages, and tsx's own get-tsconfig/resolve-pkg-maps (dropped); tsup/vite/postcss-load-config appear as peer-tag retags only, versions unchanged",
+    "esbuildUnderTsx": "0.28.2 (>=0.28.1 required; ~0.28.0 would also admit the still-vulnerable 0.28.0)"
+  },
+  "outcome": {
+    "advisoryCleared": false,
+    "note": "GHSA-g7r4-m6w7-qqqr remains accepted and is still reported by pnpm audit after this change. tsup 8.5.1 (latest) declares esbuild ^0.27.0, so a vulnerable 0.27.7 copy still resolves via tsup and bundle-require. This is the intended outcome; no pnpm.overrides entry for esbuild was added, per an explicit human rejection."
+  }
 }
