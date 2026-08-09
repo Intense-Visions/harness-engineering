@@ -223,8 +223,10 @@ Rules:
   skipped.
 - **Group bodies are never validated.** Text that merely looks like a field (for
   example `Status: shipped` written as prose) is recorded as-is.
-- **Groups are preserved, not dropped.** The serializer re-emits every group, so a
-  parse → edit → write cycle keeps the narrative intact.
+- **The serializer no longer drops groups.** `serializeRoadmap` re-emits every group, so
+  a parse → edit → serialize cycle in memory keeps the narrative intact. This is a
+  statement about the serializer only — it is **not** a promise that the automated write
+  paths will edit a grouped roadmap for you. See "How a grouped roadmap is edited" below.
 - **Layout.** Groups are emitted after a milestone's strict features. Author them that
   way — after the features, or in a dedicated all-narrative milestone — and the file
   round-trips byte-for-byte.
@@ -241,20 +243,35 @@ Rules:
   block is the most likely trigger, because the natural thing to paste inside one is
   exactly a `### ` heading — and the fence will not protect it. Use `#### ` or deeper, or
   indent the fence's contents.
-- **Groups are a monolith concept.** Shards are one strict row per file by
-  construction, so `harness roadmap shard` refuses to shard a roadmap that carries
-  groups rather than flatten them away. For the same reason the single-file writer
-  refuses whole-file rewrites of a grouped roadmap (the same data-loss guard that
-  protects any hand-authored prose) — a grouped monolith is edited by hand.
-- **The sharded aggregate is derived, so groups do not belong there.** In sharded mode
-  `docs/roadmap.md` is a read-aggregate rebuilt from `docs/roadmap.d/`, never
-  hand-edited. Unlike the two refusals above it is rewritten wholesale with no
-  preservation guard, so a `### Group: ` section added to the aggregate is dropped on
-  the next `harness roadmap regen` or `harness roadmap unshard` — exactly as any other
-  hand-added aggregate content already is. Put narrative groups in a monolith roadmap,
-  not in a sharded repo's aggregate.
 - **Grouping is invisible to tooling.** Pilot scoring, `manage_roadmap` reads, and the
   `roadmapHealth` check in `harness validate` all read `milestone.features` only.
+- **A feature may legitimately be NAMED `Group: something`.** Author it as
+  `### Feature: Group: something` — the explicit `Feature: ` prefix wins over the group
+  marker, and the row stays a validated feature. The serializer emits that prefix
+  automatically for such names, so no tracked row is ever reclassified as narrative.
+
+### How a grouped roadmap is edited
+
+**A grouped roadmap is edited by hand.** The automated write paths do not maintain group
+sections for you, so state this plainly before adopting groups:
+
+| Path                                                      | Behavior with groups                                                                            |
+| --------------------------------------------------------- | ----------------------------------------------------------------------------------------------- |
+| `serializeRoadmap` (in memory)                            | Re-emits every group. Nothing is lost.                                                          |
+| Single-file writer (`manage_roadmap` update/promote/sync) | **Refuses** the whole-file rewrite with a "cannot preserve" error. Fails loudly, edits nothing. |
+| `harness roadmap shard`                                   | **Refuses** to shard, aborting to protect the file. Shards are one strict row per file.         |
+| `harness roadmap regen` / `unshard` (sharded aggregate)   | **Silently drops** groups. See below.                                                           |
+
+So: adding a group to a monolith roadmap means `manage_roadmap` can no longer rewrite
+that file — it will error rather than damage your prose, and you edit the roadmap by
+hand from then on. That is a deliberate trade, not a bug.
+
+And in **sharded** mode, do not put groups in the aggregate at all. `docs/roadmap.md` is
+a derived read-aggregate rebuilt from `docs/roadmap.d/` and is never hand-edited. Unlike
+the two refusals above it is rewritten wholesale with no preservation guard, so a
+`### Group: ` section added to the aggregate is dropped on the next
+`harness roadmap regen` or `harness roadmap unshard` — exactly as any other hand-added
+aggregate content already is. Narrative groups belong in a monolith roadmap.
 
 ## See also
 
