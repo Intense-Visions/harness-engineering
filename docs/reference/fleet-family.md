@@ -84,14 +84,17 @@ Above the members sits one skill that is **not** a member: `fleet-command`, the 
 
 **Why it is not named `-fleet`.** A member fans out over a queue of like items into many outcomes; the conductor's queue is other orchestrators. It reuses the spine's five phase **names** deliberately — a conductor with a private vocabulary would be harder to reason about standing next to the members it runs — with **one substitution: at that tier SELECT enumerates fleets and DISPATCH dispatches fleet lanes**, where a member's SELECT enumerates items and its DISPATCH dispatches item subagents. Naming it `-fleet` would collapse exactly the tier distinction it exists to create.
 
-**The four properties it adds on top of the spine:**
+**The five properties it adds on top of the spine:**
 
-1. **One global leaf-slot budget** across every fleet in flight — never the sum of the per-fleet governors above. Slots are consumed by the leaf subagents a member's DISPATCH fans out, so a member in a cheap phase holds no slot.
-2. **A derived hybrid DAG** — a CI-trustworthiness prerequisite first, the conveyor spine in dependency order, the independent quality sweeps parallel alongside, and the land stage terminal. Run order is derived from the dependency shape, never hand-picked.
-3. **Cross-fleet deconfliction** over four collision classes (generated artifacts, allocated sequences, same-region source edits, duplicate filings), degrading to a no-op when a class is eliminated upstream rather than becoming a stale playbook.
-4. **Member gates batched by wave and never answered**, lane verification from each lane's emitted artifacts rather than its self-report, and it **never merges** — its merge-order plan is advice attached to its report.
+1. **One global leaf-slot budget** across every fleet in flight — never the sum of the per-fleet governors above. Slots are consumed by the leaf subagents a member's DISPATCH fans out, so a member in a cheap phase holds no slot, and no single fleet is allocated more than **2** of the pool (the family's per-fleet _default_, not its ceiling). The budget is imposed through a named seam: every lane is dispatched with `--concurrency <allocated>`, and a lane launched without it reverts to the member's own single-fleet default.
+2. **A derived hybrid DAG** — a CI **trust gate** first, then ideation, then intake with the independent quality sweeps parallel alongside, then decide, then build, with the land stage terminal. Run order is derived from the dependency shape, never hand-picked, and no wave contains a dependency edge. The CI wave is a trust gate rather than a repair: `cicd-fleet` hands back **unmerged** remediation PRs, so an untrustworthy signal is surfaced as a fork at the run-plan gate and its remediation pays off on the _next_ run.
+3. **Cross-fleet deconfliction** over four collision classes (generated artifacts, allocated sequences, same-region source edits, duplicate filings), each resolved with the cheapest sufficient mechanism, and degrading to a no-op when a class is eliminated upstream rather than becoming a stale playbook. Duplicate filings are the class **no single member can see**, which is why dedup belongs to this tier.
+4. **Member gates batched by wave and never answered** — and never fired outside their wave: queue probing uses each member's **gate-free** path only, so a member with no such path is recorded as queue-depth-unknown rather than probed through a path that would raise its gate early.
+5. **Lane verification from emitted artifacts rather than self-report**, with the evidence graded honestly — nothing-merged is a verified check, while staying within allocation is a dispatch-time-enforced property recorded as an assumption, since no artifact records peak concurrency. It **never merges**: its merge-order plan is advice attached to its report.
 
-The authority model behind those four — coordinator plus global governor, never dictator — is **referenced here, not restated**: see ADR 0091 below.
+Four of the five are restated as the conductor's Iron Law — **GLOBAL BUDGET, DERIVED ORDER, UNTOUCHED GATES, NEVER MERGE**. Deconfliction is the one that is a _product_ rather than a prohibition, which is why it is a property of the tier without being a clause of the law.
+
+The authority model behind those five — coordinator plus global governor, never dictator — is **referenced here, not restated**: see ADR 0091 below.
 
 ## References
 
