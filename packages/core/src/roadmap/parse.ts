@@ -137,7 +137,7 @@ function parseMilestones(body: string): Result<RoadmapMilestone[]> {
     const isBacklog = h2.heading === 'Backlog';
     const milestoneName = isBacklog ? 'Backlog' : h2.heading.replace(/^Milestone:\s*/, '');
 
-    const sectionsResult = parseFeatures(sectionBody, milestoneName);
+    const sectionsResult = parseMilestoneSections(sectionBody, milestoneName);
     if (!sectionsResult.ok) return sectionsResult;
     const { features, groups } = sectionsResult.value;
 
@@ -172,7 +172,18 @@ function lineNumberAt(text: string, index: number): number {
   return line;
 }
 
-function parseFeatures(sectionBody: string, milestoneName: string): Result<MilestoneSections> {
+/**
+ * Split one milestone's body into its two kinds of H3 section: strict feature rows and
+ * narrative `### Group:` sections. Sections are walked in document order; each H3 owns
+ * the text up to the next column-0 H3 (or the end of the milestone body).
+ *
+ * `milestoneName` is used only to locate errors. Returns `Err` on the first invalid
+ * feature row or unnamed group, leaving the caller's roadmap unbuilt.
+ */
+function parseMilestoneSections(
+  sectionBody: string,
+  milestoneName: string
+): Result<MilestoneSections> {
   const features: RoadmapFeature[] = [];
   const groups: RoadmapGroup[] = [];
   // Split on H3 headings — accept both "### Feature: X" and "### X". The
@@ -198,7 +209,7 @@ function parseFeatures(sectionBody: string, milestoneName: string): Result<Miles
   for (let i = 0; i < h3Matches.length; i++) {
     const h3 = h3Matches[i]!;
     const nextStart = i + 1 < h3Matches.length ? h3Matches[i + 1]!.startIndex : sectionBody.length;
-    const featureBody = sectionBody.slice(h3.startIndex + h3.fullMatch.length, nextStart);
+    const h3Body = sectionBody.slice(h3.startIndex + h3.fullMatch.length, nextStart);
 
     // Explicit `### Group: <name>` marker: capture the section verbatim and skip
     // feature validation entirely. The marker is authoritative — a plain `### X`
@@ -224,11 +235,11 @@ function parseFeatures(sectionBody: string, milestoneName: string): Result<Miles
           )
         );
       }
-      groups.push({ name: groupName, body: featureBody.trim() });
+      groups.push({ name: groupName, body: h3Body.trim() });
       continue;
     }
 
-    const featureResult = parseFeatureBlock(h3.name, featureBody);
+    const featureResult = parseFeatureBlock(h3.name, h3Body);
     if (!featureResult.ok) return featureResult;
     features.push(featureResult.value);
   }

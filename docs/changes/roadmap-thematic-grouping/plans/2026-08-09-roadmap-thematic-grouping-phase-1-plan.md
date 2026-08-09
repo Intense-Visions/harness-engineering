@@ -23,11 +23,11 @@ Written in EARS form; the trailing tag is the spec success criterion each satisf
 7. **While** a roadmap carries groups, `checkRoadmapHealth` shall produce exactly the findings it produces for the same roadmap with its groups removed (groups are invisible to roadmapHealth). _(crit. 5)_
 8. **If** a monolith write path or a monolith→shard migration would drop a group, **then** the system shall fail loudly rather than silently discard it (documented and locked by characterization tests). _(D2, non-goal "no sharded grouping")_
 9. `pnpm --filter @harness-engineering/core exec vitest run tests/roadmap` shall pass with the new group suites green and every pre-existing roadmap test unchanged.
-10. `pnpm generate-docs --check`, `pnpm generate:plugin:check`, `pnpm generate:barrels:check`, `pnpm format:check` shall all exit 0; `harness check-deps` shall exit 0; `.harness/arch/baselines.json` shall be unchanged; `harness validate` shall show no new findings versus the recorded pre-change baseline. **[CORRECTED as shipped]** This originally also required `harness check-perf --structural` to exit 0. It cannot: it already exits 1 on 974 pre-existing issues before this change. The gate as shipped is **974 → 978, four new advisories consciously accepted** — see the correction block under the recorded baseline.
+10. `pnpm generate-docs --check`, `pnpm generate:plugin:check`, `pnpm generate:barrels:check`, `pnpm format:check` shall all exit 0; `harness check-deps` shall exit 0; `.harness/arch/baselines.json` shall be unchanged; `harness validate` shall show no new findings versus the recorded pre-change baseline. **[CORRECTED as shipped]** This originally also required `harness check-perf --structural` to exit 0. It cannot: it already exits 1 on 974 pre-existing issues before this change. The gate as shipped is **974 → 977, four new advisories consciously accepted** — see the correction block under the recorded baseline.
 
 ## NFR Targets
 
-None elicited. This is a pure in-memory parser/serializer change with no I/O, no untrusted-input surface beyond markdown the parser already reads, and no load dimension. Existing machinery stands unchanged and is asserted in the gauntlet: `harness check-perf --structural` (complexity/coupling budgets — `parseFeatures` gains one branch) and `harness check-security` at its configured floor via `harness validate`. No `category: nfr` tasks are emitted.
+None elicited. This is a pure in-memory parser/serializer change with no I/O, no untrusted-input surface beyond markdown the parser already reads, and no load dimension. Existing machinery stands unchanged and is asserted in the gauntlet: `harness check-perf --structural` (complexity/coupling budgets) and `harness check-security` at its configured floor via `harness validate`. No `category: nfr` tasks are emitted. **[CORRECTED as shipped]** This said `parseFeatures` "gains one branch"; it gained several across the review cycles, was renamed to `parseMilestoneSections`, and does cross the structural budgets — see the accepted-advisory table below.
 
 ## Uncertainties
 
@@ -54,18 +54,20 @@ Used by Task 12 as the comparison point. `harness validate` **already fails on t
 > **Correction (measured during execution, updated at HEAD).** The `check-perf --structural`
 > row originally read "exit 0 (warnings only)". That was wrong: the command already exits 1
 > with **974** pre-existing structural issues (e.g. `packages/orchestrator/src/orchestrator.ts`
-> at 5195 lines). Measured with the same freshly built binary, this change takes it
-> **974 → 978**. The four new advisories, all **accepted without refactoring**, are:
+> at 5195 lines). Measured at HEAD with the same freshly built binary, this change takes it
+> **974 → 977**. The four new advisories, all **accepted without refactoring**, are:
 >
-> | New advisory                                                                   | Cause                                                                 |
-> | ------------------------------------------------------------------------------ | --------------------------------------------------------------------- |
-> | `roadmap/parse.ts` — File has 367 lines (threshold: 300)                       | the group branch + the `Feature: ` precedence fix + the error locator |
-> | `roadmap/parse.ts` — Function `parseFeatures` is 63 lines (threshold: 50)      | same                                                                  |
-> | `roadmap/serialize.ts` — `serializeRoadmap` cyclomatic complexity 11 (warning) | the group loop + the empty-body branch                                |
-> | `roadmap/health.ts` — `groomRoadmap` cyclomatic complexity 11 (warning)        | the all-narrative-milestone clause                                    |
+> | New advisory                                                                   | Cause                                                               |
+> | ------------------------------------------------------------------------------ | ------------------------------------------------------------------- |
+> | `roadmap/parse.ts` — File has 383 lines (threshold: 300)                       | the group branch, the `Feature: ` precedence fix, the error locator |
+> | `roadmap/serialize.ts` — `serializeRoadmap` cyclomatic complexity 11 (warning) | the group loop + the empty-body branch                              |
+> | `roadmap/health.ts` — `groomRoadmap` cyclomatic complexity 11 (warning)        | the all-narrative-milestone clause                                  |
+> | `tests/roadmap/fixtures.ts` — File has 494 lines (threshold: 300)              | the grouped fixture + the shared `MARKER_NAMES` list (test-only)    |
 >
 > (Two further diffs are the _same_ pre-existing finding with an updated count, not new
-> findings: `packages/types/src/index.ts` 429 → 430 lines and `roadmap/health.ts` 317 → 321.)
+> findings: `packages/types/src/index.ts` 429 → 430 lines and `roadmap/health.ts` 317 → 321.
+> An earlier cycle also tripped `parseFeatures is 63 lines`; that advisory is gone at HEAD
+> after the function was renamed to `parseMilestoneSections` and given a doc comment.)
 >
 > **Why accepted:** every one falls directly out of a mandated review fix, none is part of
 > `harness validate`'s gate (validate output is byte-identical to the recorded baseline), and
@@ -838,7 +840,7 @@ Both `packages/types/src/` and `packages/core/src/` change, so `scripts/check-ch
 
 1. Run: `node packages/cli/dist/bin/harness.js validate 2>&1 | tail -3` — compare the issue count to the recorded baseline (**390 issues, exit 1, 75 `docs/roadmap.md` findings**). The gate is **no new findings**, not exit 0. **[CORRECTED as shipped]** The caveat here originally said this binary "exercises the pre-change parser" and that the grouped-roadmap CLI path "is verified by PR CI". Neither applies: the full local build ran (see Task 11), so this binary is the **rebuilt, post-change** CLI, and criterion 5 was verified end-to-end **locally** through it. `harness validate` was confirmed byte-identical to the recorded baseline, not merely equal in count.
 2. Run: `node packages/cli/dist/bin/harness.js check-deps` — exit 0, `Analyzed 2310 module(s) across 9 layer(s)`.
-3. Run: `node packages/cli/dist/bin/harness.js check-perf --structural`. **[CORRECTED as shipped]** This step originally expected "exit 0, no new error-severity finding naming `packages/core/src/roadmap/parse.ts`". Both halves are wrong: the command exits 1 on pre-existing issues, and this change adds **two** advisories naming exactly that file (`File has 367 lines`, `parseFeatures is 63 lines`) plus two complexity-11 warnings in `serialize.ts` and `health.ts`. The real gate is **974 → 978, all four accepted without refactoring** — see the correction block under the recorded baseline for the table and rationale.
+3. Run: `node packages/cli/dist/bin/harness.js check-perf --structural`. **[CORRECTED as shipped]** This step originally expected "exit 0, no new error-severity finding naming `packages/core/src/roadmap/parse.ts`". Both halves are wrong: the command exits 1 on pre-existing issues, and this change adds an advisory naming exactly that file (`File has 383 lines`) plus two complexity-11 warnings in `serialize.ts` and `health.ts` and a file-length advisory on the test fixtures. The real gate is **974 → 977, all four accepted without refactoring** — see the correction block under the recorded baseline for the table and rationale.
 4. Run: `git diff --exit-code .harness/arch/baselines.json` — exit 0 (baselines unchanged).
 5. Run: `git status --porcelain` — no unintended files; nothing outside this worktree touched.
 6. Run: `git log --oneline origin/main..HEAD` — confirm the commit series matches Tasks 1-10.
