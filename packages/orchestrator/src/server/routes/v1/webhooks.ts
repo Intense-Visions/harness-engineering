@@ -2,7 +2,7 @@ import type { IncomingMessage, ServerResponse } from 'node:http';
 import type { EventEmitter } from 'node:events';
 import { z } from 'zod';
 import { readBody } from '../../utils.js';
-import { isPrivateHost } from '../../utils/url-guard.js';
+import { guardOutboundHost } from '../../utils/url-guard.js';
 import { WebhookSubscriptionPublicSchema, type TokenScope } from '@harness-engineering/types';
 import type { WebhookStore } from '../../../gateway/webhooks/store';
 import type { WebhookQueue } from '../../../gateway/webhooks/queue';
@@ -144,8 +144,19 @@ export function handleV1WebhooksRoute(
         sendJSON(res, 422, { error: 'URL must use https' });
         return;
       }
+      // Resolve the hostname before accepting it. A string match alone is not
+      // a network decision: an ordinary public name can carry an A record
+      // pointing at loopback or at the link-local metadata address.
       const targetHostname = new URL(parsed.data.url).hostname;
-      if (isPrivateHost(targetHostname)) {
+      const verdict = await guardOutboundHost(targetHostname);
+      if (verdict.blocked) {
+        // Deliberately generic. The verdict distinguishes "spelled privately"
+        // from "resolves to something internal" from "does not resolve at
+        // all"; returning that discriminator would let a caller enumerate the
+        // internal namespace one registration at a time. It stays in the log.
+        console.warn(
+          `[webhook] refused subscription URL host=${targetHostname} reason=${verdict.reason}`
+        );
         sendJSON(res, 422, { error: 'URL must not target private or loopback addresses' });
         return;
       }

@@ -194,6 +194,84 @@ describe('WebhookDelivery (queue-backed)', () => {
     expect(queue.list({ status: 'dead' })[0]?.lastError).toContain('private/loopback');
   });
 
+  it('dead-letters when the hostname RESOLVES to a private address (no HTTP attempt)', async () => {
+    // The literal `hooks.attacker.example` is an ordinary public name — the
+    // string-matching pre-filter has nothing to catch. Only resolution reveals
+    // that it points at the link-local metadata address.
+    const sub = await store.create({
+      tokenId: 't',
+      url: 'https://hooks.attacker.example/hook',
+      events: ['*.*'],
+    });
+    const lookedUp: string[] = [];
+    const worker = new WebhookDelivery({
+      queue,
+      store,
+      tickIntervalMs: 20,
+      lookupImpl: async (hostname) => {
+        lookedUp.push(hostname);
+        return [{ address: '169.254.169.254', family: 4 }];
+      },
+      fetchImpl: () => {
+        throw new Error('delivery must not issue an HTTP request for a private-resolving host');
+      },
+    });
+    worker.enqueue(sub, makeGatewayEvent());
+    worker.start();
+    await new Promise((r) => setTimeout(r, 150));
+    await worker.stop();
+    expect(lookedUp).toEqual(['hooks.attacker.example']);
+    expect(received).toHaveLength(0);
+    expect(queue.list({ status: 'dead' })).toHaveLength(1);
+    expect(queue.list({ status: 'dead' })[0]?.lastError).toContain('private/loopback');
+  });
+
+  it('does NOT follow a redirect — the redirect target receives nothing', async () => {
+    // A subscription URL can pass every host check and still answer 302 to a
+    // private address. Following it would bypass the guard entirely, so the
+    // worker must refuse the hop and record a failure.
+    const redirectTargetHits: string[] = [];
+    const redirectTarget = http.createServer((req, res) => {
+      redirectTargetHits.push(`${req.method} ${req.url}`);
+      res.writeHead(200);
+      res.end('{}');
+    });
+    await new Promise<void>((r) => redirectTarget.listen(0, '127.0.0.1', () => r()));
+    const targetPort = (redirectTarget.address() as AddressInfo).port;
+
+    const redirector = http.createServer((_req, res) => {
+      res.writeHead(302, { Location: `http://127.0.0.1:${targetPort}/latest/meta-data/` });
+      res.end();
+    });
+    await new Promise<void>((r) => redirector.listen(0, '127.0.0.1', () => r()));
+    const redirectorPort = (redirector.address() as AddressInfo).port;
+
+    const sub = await store.create({
+      tokenId: 't',
+      url: `http://127.0.0.1:${redirectorPort}/hook`,
+      events: ['*.*'],
+    });
+    const worker = new WebhookDelivery({
+      queue,
+      store,
+      tickIntervalMs: 20,
+      allowPrivateHosts: true,
+    });
+    worker.enqueue(sub, makeGatewayEvent());
+    worker.start();
+    await new Promise((r) => setTimeout(r, 250));
+    await worker.stop();
+
+    expect(redirectTargetHits).toEqual([]);
+    expect(queue.stats().delivered).toBe(0);
+    const failed = queue.list({ status: 'failed' });
+    expect(failed).toHaveLength(1);
+    expect(failed[0]?.lastError).toContain('redirect not followed');
+
+    await new Promise<void>((r) => redirectTarget.close(() => r()));
+    await new Promise<void>((r) => redirector.close(() => r()));
+  });
+
   it('deleted subscription dead-letters the queued delivery', async () => {
     const sub = await store.create({ tokenId: 't', url: receiverUrl, events: ['*.*'] });
     const worker = new WebhookDelivery({
