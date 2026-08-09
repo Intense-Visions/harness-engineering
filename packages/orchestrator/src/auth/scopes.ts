@@ -48,21 +48,30 @@ function exactScopeForRoute(method: string, path: string): TokenScope | null {
  * silently authorized every mutating verb the handler underneath happened to
  * serve.
  */
-interface PrefixScopeEntry {
+export interface PrefixScopeEntry {
   readonly prefix: string;
-  /** GET / HEAD, and any other non-mutating verb. */
+  /** The safe, side-effect-free verbs: GET / HEAD / OPTIONS. */
   readonly read: TokenScope;
   /**
-   * POST / PUT / PATCH / DELETE. `null` means the prefix has no mutating
-   * surface, so a mutating request default-denies (403) instead of inheriting
-   * the read scope. Adding a mutating verb to such a handler stays denied until
-   * this entry is updated deliberately.
+   * Every other verb. `null` means the prefix has no mutating surface, so a
+   * mutating request default-denies (403) instead of inheriting the read scope.
+   * Adding a mutating verb to such a handler stays denied until this entry is
+   * updated deliberately.
    */
   readonly write: TokenScope | null;
 }
 
-/** Verbs that route to `write`. Everything else routes to `read`. */
-const MUTATING_METHODS: ReadonlySet<string> = new Set(['POST', 'PUT', 'PATCH', 'DELETE']);
+/**
+ * Verbs that route to `read`. Everything else — including verbs this codebase
+ * does not serve today (MOVE, COPY, MKCOL, PROPPATCH, SEARCH, QUERY, …), which
+ * Node's parser will happily accept and dispatch — routes to `write`.
+ *
+ * Deliberately an allow-list. A deny-list of the four common mutating verbs
+ * would leave `write: null` enforced against only those four, so any verb
+ * outside the list would silently inherit the read scope and defeat the
+ * guarantee this entry shape exists to make.
+ */
+const SAFE_METHODS: ReadonlySet<string> = new Set(['GET', 'HEAD', 'OPTIONS']);
 
 /**
  * Prefix-based default mapping (Phase 1). Ordered first-match-wins; entries are
@@ -81,15 +90,20 @@ const MUTATING_METHODS: ReadonlySet<string> = new Set(['POST', 'PUT', 'PATCH', '
  * Entries whose scope was already write-grade repeat it in both fields, so their
  * resolution is unchanged.
  */
-const PREFIX_SCOPES: ReadonlyArray<PrefixScopeEntry> = [
+export const PREFIX_SCOPES: ReadonlyArray<PrefixScopeEntry> = [
   { prefix: '/api/interactions', read: 'resolve-interaction', write: 'resolve-interaction' },
   { prefix: '/api/plans', read: 'read-status', write: 'trigger-job' },
   { prefix: '/api/analyze', read: 'read-status', write: 'trigger-job' },
   { prefix: '/api/analyses', read: 'read-status', write: null },
   { prefix: '/api/roadmap-actions', read: 'modify-roadmap', write: 'modify-roadmap' },
   { prefix: '/api/dispatch-actions', read: 'trigger-job', write: 'trigger-job' },
-  { prefix: '/api/local-model', read: 'read-status', write: null },
+  // Longest-prefix-first: `/api/local-models` starts with `/api/local-model`, so
+  // the singular entry would shadow the plural one under first-match-wins and
+  // make it dead code. Both resolve identically today, but a future scope change
+  // to one of them must actually take effect on the paths it names. The
+  // no-shadowing invariant is pinned by a test.
   { prefix: '/api/local-models', read: 'read-status', write: null },
+  { prefix: '/api/local-model', read: 'read-status', write: null },
   { prefix: '/api/maintenance', read: 'trigger-job', write: 'trigger-job' },
   { prefix: '/api/streams', read: 'read-status', write: null },
   { prefix: '/api/sessions', read: 'read-status', write: 'trigger-job' },
@@ -105,7 +119,7 @@ function prefixScopeForRoute(method: string, path: string): TokenScope | null {
   // first preserves the original first-match-wins ordering. It is a single
   // trigger-job route for every method, read and write alike.
   if (path === '/api/chat') return 'trigger-job';
-  const mutating = MUTATING_METHODS.has(method.toUpperCase());
+  const mutating = !SAFE_METHODS.has(method.toUpperCase());
   for (const entry of PREFIX_SCOPES) {
     if (path.startsWith(entry.prefix)) return mutating ? entry.write : entry.read;
   }

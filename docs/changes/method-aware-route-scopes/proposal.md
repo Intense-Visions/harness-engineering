@@ -46,11 +46,12 @@ returns depend on the request method as well as the path.
 
 **Out of scope, deliberately:**
 
-- `resolveAuth` and the unauthenticated-dev fallback in `http.ts`. Those decide
-  _who_ the caller is; this change decides _what a known caller may do_. They are
-  independent layers and mixing them would make the fix unreviewable.
-- Origin / CORS / CSRF handling. Different threat, different control.
-- The `chat-proxy` handler, the websocket, and the container image.
+- Everything upstream of the scope check. Identity resolution decides _who_ the
+  caller is; this change decides _what an already-identified caller may do_. They
+  are independent layers, and folding them together would make the fix
+  unreviewable.
+- Every route **handler**. This change alters which scope a request must hold, not
+  what any handler does once it is authorized.
 - The scope **vocabulary** itself. `SCOPE_VOCABULARY` is pinned and adding to it
   requires an ADR plus a `TokenScopeSchema` change. This change reuses existing
   scopes only.
@@ -132,17 +133,32 @@ to a named-field entry:
 ```ts
 interface PrefixScopeEntry {
   readonly prefix: string;
-  /** GET / HEAD. */
+  /** GET / HEAD / OPTIONS. */
   readonly read: TokenScope;
-  /** POST / PUT / PATCH / DELETE. `null` = no mutating surface → default-deny. */
+  /** Every other verb. `null` = no mutating surface → default-deny. */
   readonly write: TokenScope | null;
 }
 ```
 
 `prefixScopeForPath(path)` becomes `prefixScopeForRoute(method, path)` and
-selects `entry.write` for mutating methods, `entry.read` otherwise. Unknown
-methods (anything not GET/HEAD and not in the mutating set — e.g. `OPTIONS`)
-take the read branch, matching the pre-change behavior for those verbs.
+selects `entry.read` when the method is in a `SAFE_METHODS` allow-list
+(`GET`/`HEAD`/`OPTIONS`), `entry.write` otherwise. The method is upper-cased
+before the check.
+
+**The allow-list direction is load-bearing.** A deny-list of the four common
+mutating verbs would enforce `write: null` against exactly those four; Node's
+parser accepts and dispatches many more (`MOVE`, `COPY`, `MERGE`, `MKCOL`,
+`PROPPATCH`, `SEARCH`, `QUERY`, …), and each would silently inherit the read
+scope — reopening the same class of hole one verb over. Today no handler serves
+those verbs, so it would be latent rather than live, but the whole point of
+`write: null` is the guarantee it makes about handlers that do not exist yet.
+
+`PREFIX_SCOPES` is also ordered longest-prefix-first where entries overlap:
+`/api/local-models` starts with `/api/local-model`, so under first-match-wins the
+singular entry would shadow the plural one and make it dead code — invisible
+today because both resolve identically, but a fail-open the moment either is
+given a different scope. A test pins the no-shadowing invariant across the whole
+list rather than that one pair.
 
 `requiredScopeForRoute` keeps its three-step order; only the third step's
 signature changes. No call site outside `scopes.ts` changes.
@@ -173,15 +189,37 @@ signature changes. No call site outside `scopes.ts` changes.
    `DELETE /api/sessions/<id>`.
 6. Every scope resolution that was already correct is unchanged — the existing
    `scopes.test.ts` suite and the orchestrator suite pass untouched.
+7. A verb outside the safe allow-list (`MOVE`, `PROPPATCH`, `QUERY`, …) takes the
+   write branch: `null` on a read-only prefix, `trigger-job` on `/api/plans` and
+   `/api/sessions`.
+8. No entry in `PREFIX_SCOPES` is a prefix of a later entry, so no entry is dead.
+9. The same enforcement holds through the `/api/v1/*` alias, which is rewritten
+   to the legacy path before the scope lookup and is therefore the path that
+   actually feeds the prefix map in production.
 
 ## Compatibility
 
-This is a deliberate, breaking scope tightening, and it is the point of the
-change. A client that today performs `POST /api/plans`, any `/api/sessions`
-mutation, or `POST /api/analyze` while holding **only** `read-status` will begin
-receiving 403. Such a client must be re-issued a token that also carries
-`trigger-job` (or `admin`). Read paths, admin tokens, the unauthenticated
-localhost dev mode, and every already-correct mapping are unaffected.
+Three behavior changes, all deliberate:
+
+1. **The tightening this change exists for.** A client that today performs
+   `POST /api/plans`, any `/api/sessions` mutation, or `POST /api/analyze` while
+   holding **only** `read-status` will begin receiving 403. Such a client must be
+   re-issued a token that also carries `trigger-job` (or `admin`).
+2. **`write: null` denies `admin` too.** A non-safe verb against `/api/analyses`,
+   `/api/streams`, `/api/local-model`, or `/api/local-models` now returns 403
+   instead of falling through to the handler's 404 — including for an `admin`
+   bearer, because the enforcement site tests `!required` before consulting
+   `hasScope`, so the absent write scope short-circuits ahead of the
+   admin-satisfies-everything rule. Both outcomes are refusals; 403 is the honest
+   one and fails closed for any handler added later.
+3. **The re-key is lateral, not only a narrowing.** A token holding `trigger-job`
+   but **not** `read-status` previously received 403 on those writes and now
+   succeeds. That is what `trigger-job` is for, and it does not widen anything a
+   least-privileged reader can reach. Reads were not loosened for anyone — a
+   `trigger-job`-only token still receives 403 on `GET /api/sessions`.
+
+Otherwise unaffected: all read paths, the legacy `HARNESS_API_TOKEN` env token,
+unauthenticated localhost dev mode, and every already-correct mapping.
 
 ## Implementation Order
 

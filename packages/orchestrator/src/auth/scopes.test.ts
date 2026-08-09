@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { SCOPE_VOCABULARY, requiredScopeForRoute, hasScope } from './scopes';
+import { SCOPE_VOCABULARY, requiredScopeForRoute, hasScope, PREFIX_SCOPES } from './scopes';
 
 describe('SCOPE_VOCABULARY', () => {
   it('contains exactly the eight scopes pinned in the spec (post-Phase-4)', () => {
@@ -100,9 +100,17 @@ describe('requiredScopeForRoute — prefix fallback is method-aware', () => {
     expect(requiredScopeForRoute('POST', '/api/analyze')).toBe('trigger-job');
   });
 
-  it('routes HEAD to the read scope, not the write scope', () => {
-    expect(requiredScopeForRoute('HEAD', '/api/plans')).toBe('read-status');
-    expect(requiredScopeForRoute('HEAD', '/api/sessions')).toBe('read-status');
+  it('routes the safe verbs to the read scope, not the write scope', () => {
+    for (const method of ['GET', 'HEAD', 'OPTIONS']) {
+      expect(requiredScopeForRoute(method, '/api/plans')).toBe('read-status');
+      expect(requiredScopeForRoute(method, '/api/sessions')).toBe('read-status');
+    }
+  });
+
+  it('normalizes method case before classifying it', () => {
+    expect(requiredScopeForRoute('post', '/api/plans')).toBe('trigger-job');
+    expect(requiredScopeForRoute('delete', '/api/sessions/abc')).toBe('trigger-job');
+    expect(requiredScopeForRoute('get', '/api/sessions')).toBe('read-status');
   });
 
   it('default-denies mutating methods on GET-only prefixes', () => {
@@ -113,6 +121,32 @@ describe('requiredScopeForRoute — prefix fallback is method-aware', () => {
     // …while their read paths are untouched.
     expect(requiredScopeForRoute('GET', '/api/analyses')).toBe('read-status');
     expect(requiredScopeForRoute('GET', '/api/streams')).toBe('read-status');
+  });
+
+  // The `write` field is an allow-list complement, not a deny-list of the four
+  // common verbs. Node's parser accepts plenty of others and will dispatch them,
+  // so anything outside SAFE_METHODS must take the write branch — otherwise
+  // `write: null` would be enforced against exactly four verbs and a handler
+  // added later could quietly inherit the read scope.
+  it('treats uncommon verbs as mutating rather than falling back to read', () => {
+    for (const method of ['MOVE', 'COPY', 'MERGE', 'MKCOL', 'PROPPATCH', 'SEARCH', 'QUERY']) {
+      expect(requiredScopeForRoute(method, '/api/streams')).toBeNull();
+      expect(requiredScopeForRoute(method, '/api/analyses')).toBeNull();
+      expect(requiredScopeForRoute(method, '/api/plans')).toBe('trigger-job');
+      expect(requiredScopeForRoute(method, '/api/sessions/abc')).toBe('trigger-job');
+    }
+  });
+
+  // First-match-wins means a shorter prefix listed earlier makes every longer
+  // prefix after it dead code — silently, and only visibly once the two entries
+  // are given different scopes.
+  it('orders PREFIX_SCOPES so no entry shadows a later one', () => {
+    const shadowed = PREFIX_SCOPES.flatMap((earlier, i) =>
+      PREFIX_SCOPES.slice(i + 1)
+        .filter((later) => later.prefix.startsWith(earlier.prefix))
+        .map((later) => `${earlier.prefix} shadows ${later.prefix}`)
+    );
+    expect(shadowed).toEqual([]);
   });
 
   it('does not escalate prefixes that were already write-grade', () => {

@@ -44,13 +44,34 @@
     },
     {
       "state": "VERIFY",
-      "what": "Kept resolveAuth, the unauthenticated-dev fallback, CORS/CSRF, the websocket, chat-proxy.ts, and the container image untouched.",
-      "why": "Out of scope per the spec's problem boundary; the fix did not require any of them."
+      "what": "Kept every layer upstream of the scope check, and every route handler, untouched.",
+      "why": "Out of scope per the spec's problem boundary; the fix did not require them. requiredScopeForRoute keeps its exported signature and has one production call site."
+    },
+    {
+      "state": "REVIEW",
+      "what": "Inverted the method classifier from a four-verb mutating deny-list to a SAFE_METHODS allow-list (GET/HEAD/OPTIONS).",
+      "why": "Security review found the write:null guarantee was enforced against only four verbs; Node's parser accepts and dispatches MOVE/PROPPATCH/QUERY and others, which would have inherited the read scope. Latent, not live \u2014 no handler serves those verbs \u2014 but the guarantee is the point of the null."
+    },
+    {
+      "state": "REVIEW",
+      "what": "Reordered /api/local-models ahead of /api/local-model and pinned a no-shadowing invariant test.",
+      "why": "Security review found the singular prefix shadowed the plural one under first-match-wins, making the plural entry dead code and the unit case that named it vacuous. Behavior-neutral today; a fail-open the moment either entry is given a different scope."
+    },
+    {
+      "state": "REVIEW",
+      "what": "Corrected the changeset's 'admin tokens unaffected' claim and documented the trigger-job lateral move.",
+      "why": "Security review verified write:null short-circuits ahead of the admin superset check, so admin now gets 403 (was 404) on those routes \u2014 an admin-visible change the changeset had denied."
+    },
+    {
+      "state": "REVIEW",
+      "what": "Parked the cross-layer method-case normalization suggestion.",
+      "why": "Would require editing the enforcement call site in http.ts, which is outside this change's boundary. Review confirmed all three resolution layers fail closed on a case mismatch, so there is no bypass \u2014 recorded for a follow-up."
     }
   ],
   "gates": {
     "regressionTest": "packages/orchestrator/src/server/scope-method-enforcement.test.ts",
-    "beforeFix": "5 failed / 1 passed — POST /api/plans returned 201 and DELETE /api/sessions/<id> returned 200 with a read-status-only bearer",
-    "afterFix": "6 passed / 0 failed"
+    "beforeFix": "5 failed / 1 passed \u2014 POST /api/plans returned 201 and DELETE /api/sessions/<id> returned 200 with a read-status-only bearer",
+    "afterFix": "38 passed / 0 failed across scopes.test.ts + scope-method-enforcement.test.ts",
+    "securityReview": "PASS \u2014 1 MEDIUM + 3 LOW addressed in-branch; 1 LOW parked as out-of-boundary; no exploitable bypass found across method case, verb substitution, override headers, path normalization, prefix shadowing, or the v1 rewrite"
   }
 }

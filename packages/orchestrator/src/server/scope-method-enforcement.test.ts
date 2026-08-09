@@ -176,4 +176,45 @@ describe('prefix-mapped routes enforce scope per HTTP method', () => {
     expect(res.status).toBe(200);
     expect(existsSync(sessionDir)).toBe(false);
   });
+
+  it('does not grant reads to a write-only bearer', async () => {
+    const { token } = await store.create({ name: 'writer', scopes: ['trigger-job'] });
+    const res = await request('/api/sessions', 'GET', token);
+    expect(res.status).toBe(403);
+  });
+
+  // The /api/v1 alias is rewritten to the legacy path BEFORE the scope lookup,
+  // so it is the path that actually feeds the prefix map in production. Asserting
+  // only the legacy URL would leave the alias untested.
+  it('enforces the same split through the /api/v1 alias', async () => {
+    const { token: reader } = await store.create({ name: 'reader', scopes: ['read-status'] });
+    const { token: writer } = await store.create({ name: 'writer', scopes: ['trigger-job'] });
+
+    const denied = await request('/api/v1/plans', 'POST', reader, {
+      filename: 'via-v1.md',
+      content: '# nope',
+    });
+    expect(denied.status).toBe(403);
+    expect(existsSync(join(plansDir, 'via-v1.md'))).toBe(false);
+
+    const allowed = await request('/api/v1/plans', 'POST', writer, {
+      filename: 'via-v1.md',
+      content: '# ok',
+    });
+    expect(allowed.status).toBe(201);
+    expect(existsSync(join(plansDir, 'via-v1.md'))).toBe(true);
+  });
+
+  // A prefix with no mutating surface must refuse the write outright rather than
+  // fall through to the handler's 404 — including for an admin bearer, because
+  // the null short-circuits ahead of the admin superset check.
+  it('default-denies a mutating verb on a read-only prefix, admin included', async () => {
+    const { token: reader } = await store.create({ name: 'reader', scopes: ['read-status'] });
+    const { token: superuser } = await store.create({ name: 'root', scopes: ['admin'] });
+
+    expect((await request('/api/streams', 'DELETE', reader)).status).toBe(403);
+    expect((await request('/api/analyses', 'POST', superuser, {})).status).toBe(403);
+    // The read path stays open for both.
+    expect((await request('/api/analyses', 'GET', reader)).status).not.toBe(403);
+  });
 });

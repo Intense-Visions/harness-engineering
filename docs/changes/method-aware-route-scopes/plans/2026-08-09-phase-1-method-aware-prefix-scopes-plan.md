@@ -60,9 +60,9 @@ mapping that was already correct resolves to exactly the same scope as before.
 
 - **[CONSTRAINT — spec D3]** `SCOPE_VOCABULARY` is pinned. No new scope may be
   introduced; reuse `trigger-job`.
-- **[CONSTRAINT — spec, out-of-scope list]** `resolveAuth`, the unauthenticated-dev
-  fallback, CORS/CSRF, the websocket, `chat-proxy.ts`, and the container image are
-  not touched. If the fix appears to need any of them, stop rather than grow.
+- **[CONSTRAINT — spec, out-of-scope list]** Nothing upstream of the scope check,
+  and no route handler, is touched. If the fix appears to need either, stop rather
+  than grow it.
 - **[CONSTRAINT — spec D4]** The exact-`/api/chat`-before-iteration guard is
   load-bearing and must be preserved verbatim.
 - **[RISK]** Over-escalating an already-correct mapping (e.g. interactions →
@@ -98,8 +98,8 @@ mapping that was already correct resolves to exactly the same scope as before.
 
 1. Boot a real `OrchestratorServer` on an ephemeral port with injected
    `plansDir` / `sessionsDir` temp dirs and a real `TokenStore` pointed at
-   `HARNESS_TOKENS_PATH`, so `resolveAuth` takes the token path and not the
-   unauthenticated-dev fallback.
+   `HARNESS_TOKENS_PATH`, so identity resolution takes the real token path rather
+   than the localhost dev shortcut.
 2. Assert truths 1–5.
 3. **Verification (before the fix):** the three "rejects" cases fail with
    201/200/200 — proving the vulnerability is real, not inherited. The two
