@@ -27,10 +27,15 @@ const EM_DASH = '\u2014';
  *
  * This module is the SOURCE OF TRUTH for both marker prefixes: `serialize.ts`
  * imports them so the emitter cannot drift from the reader (a divergence would
- * silently reclassify or rename tracked rows). `h3Pattern` below encodes
- * {@link FEATURE_PREFIX} as a regex literal — the one copy that cannot be shared
- * directly; `serialize-groups.test.ts` pins the two together with byte assertions
- * over every marker-prefixed name.
+ * silently reclassify or rename tracked rows).
+ *
+ * Two copies of the grammar are NOT shared, both as regex literals: `h3Pattern`
+ * below, and `H3_NAME` in `./store/shard.ts`, which reads the same headings back for
+ * the shard format. Sharing them is a worthwhile follow-up (`shard.ts` already
+ * imports `parseFeatureBlock` from this module, so nothing structural prevents it).
+ * Until then the seams are pinned by byte-stable round-trips over the shared
+ * `MARKER_NAMES` list: `serialize-groups.test.ts` for this reader,
+ * `groups-write-paths.test.ts` for the shard reader.
  */
 export const GROUP_PREFIX = 'Group: ';
 

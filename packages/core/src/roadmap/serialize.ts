@@ -96,14 +96,17 @@ function serializeExtendedLines(feature: RoadmapFeature): string[] {
 
 /**
  * Emit a feature's H3 heading. Normally the bare `### <name>` form, but a name that
- * begins with either marker prefix MUST be escaped with an explicit
- * `### Feature: ` prefix, because both readers of an H3 heading — `parseRoadmap`'s
- * `h3Pattern` and the shard format's `H3_NAME` — strip a leading `Feature: ` and
- * treat a leading `Group: ` as a narrative section. Without the escape:
+ * begins with either marker prefix MUST be escaped with an explicit `### Feature: `
+ * prefix. The two readers of an H3 heading differ in what they would otherwise do:
  *
- *  - `Group: x`   would be read back as a narrative group, silently dropping the row;
- *  - `Feature: x` would be read back as plain `x`, silently renaming the row (and
- *    changing its shard slug).
+ *  - `Feature: x` — BOTH readers strip a leading `Feature: `, so in either format the
+ *    row would be read back as plain `x`: silently renamed, and in the shard format
+ *    re-slugged with it.
+ *  - `Group: x` — only `parseRoadmap`'s `h3Pattern` treats this as a narrative group
+ *    (silently dropping the tracked row). The shard format's `H3_NAME` has no
+ *    `Group: ` handling at all and would round-trip it unescaped; it is escaped
+ *    anyway so one emitter serves both formats and the shard reader needs no
+ *    knowledge of the group marker.
  *
  * Escaping both keeps serialize → parse an identity for every feature name.
  */
