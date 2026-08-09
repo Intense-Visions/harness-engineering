@@ -4,9 +4,10 @@ import { parseRoadmap } from '../../src/roadmap/parse';
 import { findUnpreservedLines } from '../../src/roadmap/preservation';
 import { roadmapToShards, assertSemanticRoundTrip } from '../../src/roadmap/store/migration';
 import { writeRegeneratedRoadmap } from '../../src/roadmap/store/regenerator';
-import { serializeShard } from '../../src/roadmap/store/shard';
+import { serializeShard, parseShard } from '../../src/roadmap/store/shard';
 import { serializeMeta } from '../../src/roadmap/store/meta';
 import type { ShardIO } from '../../src/roadmap/store/shard-store';
+import type { Shard } from '../../src/roadmap/store/roadmap-store';
 import { GROUPED_ROADMAP } from './fixtures';
 
 describe('narrative groups vs the monolith write-preservation guard', () => {
@@ -100,6 +101,44 @@ last_manual_edit: 2026-05-01T09:00:00Z
     // The phantom is promoted to a first-class row in the rewritten file.
     expect(rewritten).toContain('### Example');
   });
+});
+
+describe('the shard format honors the same H3 marker escaping (shared seam)', () => {
+  /**
+   * `serializeFeature` is shared with the shard format, but `shard.ts` re-reads the
+   * heading with its OWN independently written `H3_NAME` regex. Nothing else pins
+   * the two together, so a marker-prefixed name is round-tripped here to prove the
+   * C1 fix holds in sharded mode too — a rename would also change the shard slug.
+   */
+  for (const name of ['Group: Auth hardening', 'Feature: odd name', 'plain name']) {
+    it(`round-trips a shard whose feature is named ${JSON.stringify(name)}`, () => {
+      const shard: Shard = {
+        slug: 'row-1',
+        milestone: 'M1',
+        order: 0,
+        feature: {
+          name,
+          status: 'planned',
+          spec: null,
+          plans: [],
+          blockedBy: [],
+          summary: 's',
+          assignee: null,
+          priority: null,
+          externalId: 'github:o/r#1',
+          updatedAt: null,
+        },
+      };
+      const md = serializeShard(shard);
+      const reparsed = parseShard(md);
+      expect(reparsed.ok).toBe(true);
+      if (!reparsed.ok) return;
+      expect(reparsed.value.feature.name).toBe(name);
+      expect(reparsed.value.feature.externalId).toBe('github:o/r#1');
+      // Byte-stable, so the name cannot erode across repeated shard writes.
+      expect(serializeShard(reparsed.value)).toBe(md);
+    });
+  }
 });
 
 const SHARD_DIR = '/repo/docs/roadmap.d';
