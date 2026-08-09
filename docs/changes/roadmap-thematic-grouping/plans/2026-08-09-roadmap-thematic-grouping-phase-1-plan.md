@@ -32,7 +32,7 @@ None elicited. This is a pure in-memory parser/serializer change with no I/O, no
 ## Uncertainties
 
 - **[ASSUMPTION]** Group bodies never contain a column-0 `### ` line. The parser splits milestone bodies on `^### `, so a nested H3 inside a group body would split the group. The sanctioned layout documented in Task 8 says to use `#### ` or deeper inside a group body. If an adopter needs column-0 H3s inside a group, Task 2's design needs revision (out of scope here).
-- **[ASSUMPTION]** Vitest's `toEqual` ignoring `undefined`-valued keys is not sufficient for D4, so Task 3 asserts own-keys explicitly. (`assertRegeneratedRoundTrip` uses `node:util.isDeepStrictEqual`, which is **not** `undefined`-tolerant — this is why D4's "add the key only when non-empty" is load-bearing, not cosmetic.)
+- **[ASSUMPTION → CORRECTED during execution]** Vitest's `toEqual` ignoring `undefined`-valued keys is not sufficient for D4, so Task 3 asserts own-keys explicitly. The original parenthetical justified this with "`assertRegeneratedRoundTrip` uses `node:util.isDeepStrictEqual`, which is **not** `undefined`-tolerant" — **that reason is factually wrong** and was corrected in the code comment: `assertRegeneratedRoundTrip` compares **parser output on both sides**, so an unconditional `groups: []` would appear symmetrically and stay deep-equal. The gating is still load-bearing, but for a different reason: an unconditional `groups: []` would change `Object.keys(milestone)` and break the existing `toEqual(VALID_ROADMAP)` fixtures, since `toEqual` tolerates `undefined`-valued keys but **not** an empty array.
 - **[DEFERRABLE → CHECKPOINT]** The spec is silent on two existing write-path guards that grouped monoliths will trip. Both fail loudly (D2 is satisfied — nothing is silently dropped), but the failure messages do not mention groups:
   - `findUnpreservedLines` (`packages/core/src/roadmap/preservation.ts`) does not model group-body lines, so `MonolithStore.write` refuses any whole-file rewrite of a grouped monolith with the "cannot preserve" error.
   - `harness roadmap shard` calls `assertSemanticRoundTrip`, whose `isDeepStrictEqual` comparison will now differ (original has `groups`, shard-assembled does not), so sharding a grouped monolith aborts to protect the file.
@@ -375,9 +375,10 @@ No new source files, so no barrel regeneration is expected — Task 10 asserts t
    const { features, groups } = sectionsResult.value;
 
    // `groups` is attached ONLY when non-empty, so a strict roadmap's milestones
-   // keep their exact prior own-key shape (name, isBacklog, features). The
-   // shard round-trip guard compares with isDeepStrictEqual, which is not
-   // undefined-tolerant, so this gating is load-bearing.
+   // keep their exact prior own-key shape (name, isBacklog, features) — D4.
+   // (The as-shipped comment corrects the reason: this matters for Object.keys
+   // and the toEqual(VALID_ROADMAP) fixtures, NOT for the shard round-trip
+   // guard, which compares parser output on both sides.)
    const milestone: RoadmapMilestone = { name: milestoneName, isBacklog, features };
    if (groups.length > 0) milestone.groups = groups;
    milestones.push(milestone);

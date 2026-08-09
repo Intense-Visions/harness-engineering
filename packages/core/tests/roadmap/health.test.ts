@@ -300,6 +300,9 @@ describe('checkRoadmapHealth() — narrative groups are invisible', () => {
 
   it('emits no finding whose feature name is a group name', () => {
     const findings = checkRoadmapHealth(GROUPED_ROADMAP);
+    // Guard against a vacuous pass: the loop below proves nothing if there are
+    // no findings at all.
+    expect(findings.length).toBeGreaterThan(0);
     for (const finding of findings) {
       expect(JSON.stringify(finding)).not.toContain('Narrative arc');
       expect(JSON.stringify(finding)).not.toContain('Someday themes');

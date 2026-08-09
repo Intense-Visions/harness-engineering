@@ -120,9 +120,13 @@ function parseMilestones(body: string): Result<RoadmapMilestone[]> {
     const { features, groups } = sectionsResult.value;
 
     // `groups` is attached ONLY when non-empty, so a strict roadmap's milestones
-    // keep their exact prior own-key shape (name, isBacklog, features). The
-    // shard round-trip guard compares with isDeepStrictEqual, which is not
-    // undefined-tolerant, so this gating is load-bearing.
+    // keep their exact prior own-key shape (name, isBacklog, features) — D4.
+    // This is observable, not cosmetic: an unconditional `groups: []` would change
+    // `Object.keys(milestone)` and break the existing `toEqual(VALID_ROADMAP)`
+    // fixtures (toEqual tolerates undefined-valued keys, but NOT an empty array).
+    // Note it is NOT required by the shard round-trip guard: that compares parser
+    // output on BOTH sides, so an unconditional `[]` would appear symmetrically
+    // and stay deep-equal.
     const milestone: RoadmapMilestone = { name: milestoneName, isBacklog, features };
     if (groups.length > 0) milestone.groups = groups;
     milestones.push(milestone);
@@ -175,7 +179,20 @@ function parseFeatures(sectionBody: string): Result<MilestoneSections> {
     // guard such a row (and its External-ID tracker mapping) would be silently
     // reclassified as narrative and vanish from `milestone.features`.
     if (!h3.explicitFeature && h3.name.startsWith(GROUP_PREFIX)) {
-      groups.push({ name: h3.name.slice(GROUP_PREFIX.length), body: featureBody.trim() });
+      // Trim the name so `Group: Foo` and `Group: Foo   ` are the same group, and
+      // reject an empty one: it would round-trip as `### Group: ` with a trailing
+      // space, which any trim-on-save editor turns into `### Group:` — no longer
+      // the marker, so the whole roadmap would then fail to parse.
+      const groupName = h3.name.slice(GROUP_PREFIX.length).trim();
+      if (groupName === '') {
+        return Err(
+          new Error(
+            'Group heading is missing a name. Write `### Group: <name>` ' +
+              '(for example `### Group: Delivery arc`).'
+          )
+        );
+      }
+      groups.push({ name: groupName, body: featureBody.trim() });
       continue;
     }
 

@@ -42,8 +42,12 @@ export function serializeRoadmap(roadmap: Roadmap): string {
     for (const group of milestone.groups ?? []) {
       lines.push('');
       lines.push(`### Group: ${group.name}`);
-      lines.push('');
-      lines.push(group.body);
+      // An empty body emits the heading alone — pushing a blank line plus an empty
+      // string would leave a stray trailing blank line in the file.
+      if (group.body !== '') {
+        lines.push('');
+        lines.push(group.body);
+      }
     }
   }
 

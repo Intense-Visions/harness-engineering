@@ -25,6 +25,17 @@ describe('serializeRoadmap() — `### Group:` narrative sections', () => {
   it('leaves a group-free roadmap byte-identical', () => {
     expect(serializeRoadmap(VALID_ROADMAP)).toBe(VALID_ROADMAP_MD);
   });
+
+  it('emits a heading-only group with no stray blank line for an empty body', () => {
+    const out = serializeRoadmap({
+      ...GROUPED_ROADMAP,
+      milestones: [
+        { name: 'M1', isBacklog: false, features: [], groups: [{ name: 'X', body: '' }] },
+      ],
+    });
+    expect(out).toContain('## M1\n\n### Group: X\n');
+    expect(out).not.toContain('### Group: X\n\n\n');
+  });
 });
 
 describe('round-trip with narrative groups (crit. 4)', () => {

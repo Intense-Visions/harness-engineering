@@ -155,4 +155,21 @@ ${section}
     if (result.ok) return;
     expect(result.error.message).toContain('Feature "Group: Bad" has invalid status: "cancelled"');
   });
+
+  it('trims the group name so trailing whitespace is not a distinct group', () => {
+    const result = parseRoadmap(MD('### Group: Foo   \n\n- a\n'));
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.value.milestones[0]?.groups?.map((g) => g.name)).toEqual(['Foo']);
+  });
+
+  it('rejects a group heading with no name rather than emitting an unstable one', () => {
+    // `### Group: ` would round-trip with a trailing space; a trim-on-save editor
+    // turns it into `### Group:`, which is no longer the marker and would make the
+    // whole roadmap fail to parse.
+    const result = parseRoadmap(MD('### Group: \n\n- a\n'));
+    expect(result.ok).toBe(false);
+    if (result.ok) return;
+    expect(result.error.message).toContain('Group heading is missing a name');
+  });
 });

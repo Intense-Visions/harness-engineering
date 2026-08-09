@@ -28,7 +28,12 @@ describe('narrative groups vs monolith → shard migration (sharded mode stays s
     const result = assertSemanticRoundTrip(GROUPED_ROADMAP, shards, meta);
     expect(result.ok).toBe(false);
     if (result.ok) return;
-    expect(result.error.message).toContain('round-trip');
+    // Assert the SPECIFIC branch: all three failure paths in
+    // assertRegeneratedRoundTrip mention "round-trip", so matching only that
+    // would also pass if the roadmap merely failed to parse.
+    expect(result.error.message).toContain(
+      'does not deep-equal parse(regenerate(shards)); aborting to protect the monolith'
+    );
   });
 
   it('emits no shard for a group section', () => {
