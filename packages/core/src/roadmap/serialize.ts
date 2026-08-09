@@ -93,16 +93,26 @@ function serializeExtendedLines(feature: RoadmapFeature): string[] {
 
 /** Heading-text prefix that marks an H3 as a narrative group rather than a feature. */
 const GROUP_PREFIX = 'Group: ';
+/** Heading-text prefix that explicitly marks an H3 as a feature. */
+const FEATURE_PREFIX = 'Feature: ';
 
 /**
- * Emit a feature's H3 heading. Normally the bare `### <name>` form, but a feature
- * whose name begins with `Group: ` MUST be disambiguated with the explicit
- * `### Feature: ` prefix — otherwise `parseRoadmap` would read the heading back as
- * a narrative group and silently drop the tracked row. This is what keeps
- * serialize → parse an identity for every feature name.
+ * Emit a feature's H3 heading. Normally the bare `### <name>` form, but a name that
+ * begins with either marker prefix MUST be escaped with an explicit
+ * `### Feature: ` prefix, because both readers of an H3 heading — `parseRoadmap`'s
+ * `h3Pattern` and the shard format's `H3_NAME` — strip a leading `Feature: ` and
+ * treat a leading `Group: ` as a narrative section. Without the escape:
+ *
+ *  - `Group: x`   would be read back as a narrative group, silently dropping the row;
+ *  - `Feature: x` would be read back as plain `x`, silently renaming the row (and
+ *    changing its shard slug).
+ *
+ * Escaping both keeps serialize → parse an identity for every feature name.
  */
 function serializeFeatureHeading(name: string): string {
-  return name.startsWith(GROUP_PREFIX) ? `### Feature: ${name}` : `### ${name}`;
+  return name.startsWith(GROUP_PREFIX) || name.startsWith(FEATURE_PREFIX)
+    ? `### ${FEATURE_PREFIX}${name}`
+    : `### ${name}`;
 }
 
 /**

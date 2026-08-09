@@ -130,3 +130,52 @@ describe('a feature NAMED "Group: ..." survives the write path', () => {
     expect(reparsed.value).toEqual(ROADMAP);
   });
 });
+
+describe('a feature name that begins with either marker prefix survives the write path', () => {
+  const withName = (name: string): Roadmap => ({
+    frontmatter: {
+      project: 'p',
+      version: 1,
+      lastSynced: '2026-05-01T10:00:00Z',
+      lastManualEdit: '2026-05-01T09:00:00Z',
+    },
+    milestones: [
+      {
+        name: 'M1',
+        isBacklog: false,
+        features: [
+          {
+            name,
+            status: 'planned',
+            spec: null,
+            plans: [],
+            blockedBy: [],
+            summary: 's',
+            assignee: null,
+            priority: null,
+            externalId: 'github:o/r#1',
+            updatedAt: null,
+          },
+        ],
+      },
+    ],
+    assignmentHistory: [],
+  });
+
+  // `Feature: x` is the pre-existing sibling of the `Group: x` bug: both readers of
+  // an H3 heading strip a leading `Feature: `, so without escaping the row was
+  // silently RENAMED on every write (and its shard slug changed with it).
+  for (const name of ['Feature: x', 'Group: x', 'Feature: Group: y', 'Group', 'plain name']) {
+    it(`keeps the name ${JSON.stringify(name)} across serialize → parse → serialize`, () => {
+      const original = withName(name);
+      const once = serializeRoadmap(original);
+      const first = parseRoadmap(once);
+      expect(first.ok).toBe(true);
+      if (!first.ok) return;
+      expect(first.value.milestones[0]?.features[0]?.name).toBe(name);
+      // Byte-stable, so the name cannot erode over repeated writes.
+      expect(serializeRoadmap(first.value)).toBe(once);
+      expect(first.value).toEqual(original);
+    });
+  }
+});
