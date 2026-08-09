@@ -2,7 +2,7 @@
 
 # Skills Catalog
 
-787 skills. Skills carry two independent tier axes: a **loading tier** (whether a skill registers as a slash command or is discovered on demand) and a **curation tier** (how load-bearing it is). A senior engineer can hold ~12 skills in their head, not hundreds — the curation tier names that short list.
+788 skills. Skills carry two independent tier axes: a **loading tier** (whether a skill registers as a slash command or is discovered on demand) and a **curation tier** (how load-bearing it is). A senior engineer can hold ~12 skills in their head, not hundreds — the curation tier names that short list.
 
 See the [Features Overview](../guides/features-overview.md) for narrative documentation.
 
@@ -200,7 +200,7 @@ Human-judged acceptance sign-off skill — the terminal, human-authority stage o
 - **Cognitive mode:** configuration-interviewer
 - **Depends on:** outcome-eval
 
-## Tier 2 — Maintenance (67 skills)
+## Tier 2 — Maintenance (68 skills)
 
 ### acceptance-eval
 
@@ -386,6 +386,16 @@ Validate architectural layer boundaries, detect violations, and auto-fix import 
 - **Platforms:** claude-code, gemini-cli, cursor, codex
 - **Type:** rigid
 - **Cognitive mode:** meticulous-verifier
+
+### fleet-command
+
+Conductor for the fleet family — one tier above the members, coordinating the fleets themselves rather than fanning out over an item queue. Probes each installed fleet's queue through that member's gate-free path only, derives the run as a hybrid dependency DAG (a CI trust gate first, then ideation, then intake with the independent quality sweeps parallel alongside, then decide, build, and the land stage terminal), and enforces one global leaf-slot budget across every fleet in flight instead of additive per-fleet governors by dispatching every lane with its allocated --concurrency, never more than 2 of the pool. The CI wave is a trust gate rather than a repair — the CI member hands back unmerged remediation PRs, so an untrustworthy signal is surfaced at CONFIRM as a fork with a recommended default and any run taken under it has its downstream verdicts labelled degraded. Serializes the lanes whose emissions collide, plans a merge order for the ones that only conflict on generated artifacts, presents each ready fleet's own human CONFIRM verbatim in one batched round per wave without ever answering it, verifies every lane from its emitted artifacts rather than its self-report, and hands back one consolidated report. Never merges.
+
+- **Triggers:** manual
+- **Platforms:** claude-code, codex, cursor, gemini-cli
+- **Type:** rigid
+- **Cognitive mode:** systematic-orchestrator
+- **Depends on:** ideate-fleet, issue-fleet, adr-fleet, roadmap-fleet, pr-fleet, cicd-fleet, test-fleet, security-fleet, cleanup-fleet, bug-fleet, craft-fleet
 
 ### harness-architecture-advisor
 
