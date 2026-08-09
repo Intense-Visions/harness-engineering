@@ -2,6 +2,21 @@ import { describe, it, expect } from 'vitest';
 import { parseRoadmap } from '../../src/roadmap/parse';
 import { GROUPED_ROADMAP_MD, GROUPED_ROADMAP, VALID_ROADMAP_MD, VALID_ROADMAP } from './fixtures';
 
+/** Wrap a milestone-body `section` in a minimal valid roadmap document. */
+const MD = (section: string) => `---
+project: p
+version: 1
+last_synced: 2026-05-01T10:00:00Z
+last_manual_edit: 2026-05-01T09:00:00Z
+---
+
+# Roadmap
+
+## M1
+
+${section}
+`;
+
 describe('parseRoadmap() — `### Group:` narrative sections', () => {
   it('parses a grouped roadmap to the expected object', () => {
     const result = parseRoadmap(GROUPED_ROADMAP_MD);
@@ -48,20 +63,6 @@ describe('parseRoadmap() — `### Group:` narrative sections', () => {
 });
 
 describe('parseRoadmap() — the marker is explicit (no inference)', () => {
-  const MD = (section: string) => `---
-project: p
-version: 1
-last_synced: 2026-05-01T10:00:00Z
-last_manual_edit: 2026-05-01T09:00:00Z
----
-
-# Roadmap
-
-## M1
-
-${section}
-`;
-
   it('still errors on a plain H3 with no status (crit. 6)', () => {
     const result = parseRoadmap(MD('### Mystery section\n\n- some prose, no status bullet\n'));
     expect(result.ok).toBe(false);
@@ -90,6 +91,26 @@ ${section}
     expect(parseRoadmap(MD('### group: not the marker\n\n- prose\n')).ok).toBe(false);
     expect(parseRoadmap(MD('### Group:no-space\n\n- prose\n')).ok).toBe(false);
   });
+
+  it('trims the group name so trailing whitespace is not a distinct group', () => {
+    const result = parseRoadmap(MD('### Group: Foo   \n\n- a\n'));
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.value.milestones[0]?.groups?.map((g) => g.name)).toEqual(['Foo']);
+  });
+
+  it('rejects a group heading with no name rather than emitting an unstable one', () => {
+    // `### Group: ` would round-trip with a trailing space; a trim-on-save editor
+    // turns it into `### Group:`, which is no longer the marker and would make the
+    // whole roadmap fail to parse.
+    const result = parseRoadmap(MD('### Group: \n\n- a\n'));
+    expect(result.ok).toBe(false);
+    if (result.ok) return;
+    expect(result.error.message).toContain('has a group heading with no name');
+    // Must locate the problem the way every sibling parse error does.
+    expect(result.error.message).toContain('Milestone "M1"');
+    expect(result.error.message).toMatch(/line \d+ of that section/);
+  });
 });
 
 describe('parseRoadmap() — strict roadmaps keep their exact object shape (D4)', () => {
@@ -106,20 +127,6 @@ describe('parseRoadmap() — strict roadmaps keep their exact object shape (D4)'
 });
 
 describe('parseRoadmap() — a real feature may be NAMED "Group: ..." (explicit Feature: wins)', () => {
-  const MD = (section: string) => `---
-project: p
-version: 1
-last_synced: 2026-05-01T10:00:00Z
-last_manual_edit: 2026-05-01T09:00:00Z
----
-
-# Roadmap
-
-## M1
-
-${section}
-`;
-
   it('parses `### Feature: Group: X` as a FEATURE, keeping its fields', () => {
     const result = parseRoadmap(
       MD(
@@ -154,25 +161,5 @@ ${section}
     expect(result.ok).toBe(false);
     if (result.ok) return;
     expect(result.error.message).toContain('Feature "Group: Bad" has invalid status: "cancelled"');
-  });
-
-  it('trims the group name so trailing whitespace is not a distinct group', () => {
-    const result = parseRoadmap(MD('### Group: Foo   \n\n- a\n'));
-    expect(result.ok).toBe(true);
-    if (!result.ok) return;
-    expect(result.value.milestones[0]?.groups?.map((g) => g.name)).toEqual(['Foo']);
-  });
-
-  it('rejects a group heading with no name rather than emitting an unstable one', () => {
-    // `### Group: ` would round-trip with a trailing space; a trim-on-save editor
-    // turns it into `### Group:`, which is no longer the marker and would make the
-    // whole roadmap fail to parse.
-    const result = parseRoadmap(MD('### Group: \n\n- a\n'));
-    expect(result.ok).toBe(false);
-    if (result.ok) return;
-    expect(result.error.message).toContain('has a group heading with no name');
-    // Must locate the problem the way every sibling parse error does.
-    expect(result.error.message).toContain('Milestone "M1"');
-    expect(result.error.message).toMatch(/line \d+ of that section/);
   });
 });

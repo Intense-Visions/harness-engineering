@@ -2,7 +2,13 @@ import { describe, it, expect } from 'vitest';
 import type { Roadmap } from '@harness-engineering/types';
 import { serializeRoadmap } from '../../src/roadmap/serialize';
 import { parseRoadmap } from '../../src/roadmap/parse';
-import { GROUPED_ROADMAP, GROUPED_ROADMAP_MD, VALID_ROADMAP, VALID_ROADMAP_MD } from './fixtures';
+import {
+  GROUPED_ROADMAP,
+  GROUPED_ROADMAP_MD,
+  VALID_ROADMAP,
+  VALID_ROADMAP_MD,
+  MARKER_NAMES,
+} from './fixtures';
 
 describe('serializeRoadmap() — `### Group:` narrative sections', () => {
   it('emits a grouped roadmap byte-identically to its fixture', () => {
@@ -70,68 +76,17 @@ describe('round-trip with narrative groups (crit. 4)', () => {
   });
 });
 
-describe('a feature NAMED "Group: ..." survives the write path', () => {
+describe('a feature name that collides with an H3 marker survives the write path', () => {
   /**
    * Reachable with zero hand-authoring via `manage_roadmap add`, which takes a
-   * free-form feature name. Before the `Feature: ` disambiguation the serializer
-   * emitted bytes its own parser re-read as a narrative group, permanently
-   * destroying the row and its tracker mapping.
+   * free-form feature name. Before the `Feature: ` escape the serializer emitted bytes
+   * its own parser re-read as a narrative group (`Group: x`, destroying the row and its
+   * tracker mapping) or as a differently-named row (`Feature: x` -> `x`, silently
+   * renaming it and changing its shard slug).
+   *
+   * Parameterized over the shared MARKER_NAMES so this seam and the shard seam in
+   * `groups-write-paths.test.ts` are provably tested against the same names.
    */
-  const ROADMAP: Roadmap = {
-    frontmatter: {
-      project: 'p',
-      version: 1,
-      lastSynced: '2026-05-01T10:00:00Z',
-      lastManualEdit: '2026-05-01T09:00:00Z',
-    },
-    milestones: [
-      {
-        name: 'M1',
-        isBacklog: false,
-        features: [
-          {
-            name: 'Group: Auth hardening',
-            status: 'in-progress',
-            spec: null,
-            plans: [],
-            blockedBy: [],
-            summary: 'A tracked row whose name starts with the marker',
-            assignee: '@cwarner',
-            priority: null,
-            externalId: 'github:o/r#5',
-            updatedAt: null,
-          },
-        ],
-      },
-    ],
-    assignmentHistory: [],
-  };
-
-  it('emits the explicit `### Feature: ` prefix to disambiguate it', () => {
-    expect(serializeRoadmap(ROADMAP)).toContain('### Feature: Group: Auth hardening');
-  });
-
-  it('round-trips serialize → parse with the feature and its External-ID intact', () => {
-    const reparsed = parseRoadmap(serializeRoadmap(ROADMAP));
-    expect(reparsed.ok).toBe(true);
-    if (!reparsed.ok) return;
-    const milestone = reparsed.value.milestones[0];
-    expect(milestone?.features.map((f) => f.name)).toEqual(['Group: Auth hardening']);
-    expect(milestone?.features[0]?.externalId).toBe('github:o/r#5');
-    expect(milestone?.groups).toBeUndefined();
-  });
-
-  it('is stable across serialize → parse → serialize', () => {
-    const once = serializeRoadmap(ROADMAP);
-    const reparsed = parseRoadmap(once);
-    expect(reparsed.ok).toBe(true);
-    if (!reparsed.ok) return;
-    expect(serializeRoadmap(reparsed.value)).toBe(once);
-    expect(reparsed.value).toEqual(ROADMAP);
-  });
-});
-
-describe('a feature name that begins with either marker prefix survives the write path', () => {
   const withName = (name: string): Roadmap => ({
     frontmatter: {
       project: 'p',
@@ -146,14 +101,14 @@ describe('a feature name that begins with either marker prefix survives the writ
         features: [
           {
             name,
-            status: 'planned',
+            status: 'in-progress',
             spec: null,
             plans: [],
             blockedBy: [],
-            summary: 's',
-            assignee: null,
+            summary: 'A tracked row whose name collides with a marker',
+            assignee: '@cwarner',
             priority: null,
-            externalId: 'github:o/r#1',
+            externalId: 'github:o/r#5',
             updatedAt: null,
           },
         ],
@@ -162,10 +117,13 @@ describe('a feature name that begins with either marker prefix survives the writ
     assignmentHistory: [],
   });
 
-  // `Feature: x` is the pre-existing sibling of the `Group: x` bug: both readers of
-  // an H3 heading strip a leading `Feature: `, so without escaping the row was
-  // silently RENAMED on every write (and its shard slug changed with it).
-  for (const name of ['Feature: x', 'Group: x', 'Feature: Group: y', 'Group', 'plain name']) {
+  it('emits the explicit `### Feature: ` prefix to disambiguate a marker-prefixed name', () => {
+    expect(serializeRoadmap(withName('Group: Auth hardening'))).toContain(
+      '### Feature: Group: Auth hardening'
+    );
+  });
+
+  for (const name of MARKER_NAMES) {
     it(`keeps the name ${JSON.stringify(name)} across serialize → parse → serialize`, () => {
       const original = withName(name);
       const once = serializeRoadmap(original);
@@ -173,7 +131,9 @@ describe('a feature name that begins with either marker prefix survives the writ
       expect(first.ok).toBe(true);
       if (!first.ok) return;
       expect(first.value.milestones[0]?.features[0]?.name).toBe(name);
-      // Byte-stable, so the name cannot erode over repeated writes.
+      expect(first.value.milestones[0]?.groups).toBeUndefined();
+      // Byte-stable, so the name cannot erode over repeated writes. Deep equality
+      // also covers every other field, the External-ID tracker mapping included.
       expect(serializeRoadmap(first.value)).toBe(once);
       expect(first.value).toEqual(original);
     });

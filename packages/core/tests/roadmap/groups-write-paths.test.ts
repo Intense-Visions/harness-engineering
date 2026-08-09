@@ -9,7 +9,7 @@ import { serializeMeta } from '../../src/roadmap/store/meta';
 import type { ShardIO } from '../../src/roadmap/store/shard-store';
 import type { Shard } from '../../src/roadmap/store/roadmap-store';
 import type { Roadmap } from '@harness-engineering/types';
-import { GROUPED_ROADMAP } from './fixtures';
+import { GROUPED_ROADMAP, MARKER_NAMES } from './fixtures';
 
 describe('narrative groups vs the monolith write-preservation guard', () => {
   it('reports group-body lines, so a whole-file rewrite is refused rather than destructive', () => {
@@ -133,9 +133,12 @@ describe('the shard format honors the same H3 marker escaping (shared seam)', ()
    * `serializeFeature` is shared with the shard format, but `shard.ts` re-reads the
    * heading with its OWN independently written `H3_NAME` regex. Nothing else pins
    * the two together, so a marker-prefixed name is round-tripped here to prove the
-   * C1 fix holds in sharded mode too — a rename would also change the shard slug.
+   * escaping holds in sharded mode too — a rename would also change the shard slug.
+   *
+   * Parameterized over the SAME shared MARKER_NAMES as the monolith seam in
+   * `serialize-groups.test.ts`, so the two seams are provably symmetric.
    */
-  for (const name of ['Group: Auth hardening', 'Feature: odd name', 'plain name']) {
+  for (const name of MARKER_NAMES) {
     it(`round-trips a shard whose feature is named ${JSON.stringify(name)}`, () => {
       const shard: Shard = {
         slug: 'row-1',

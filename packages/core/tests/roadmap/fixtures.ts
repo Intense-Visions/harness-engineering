@@ -476,3 +476,18 @@ export const GROUPED_ROADMAP: Roadmap = {
   ],
   assignmentHistory: [],
 };
+
+/**
+ * Feature names that collide with the H3 heading markers, plus controls. Shared by
+ * BOTH heading seams — `serializeRoadmap`/`parseRoadmap` (monolith) and
+ * `serializeShard`/`parseShard` (shard) — so the two are provably tested against the
+ * same set rather than drifting apart. Each must survive a write round-trip with its
+ * name byte-stable; see `serialize-groups.test.ts` and `groups-write-paths.test.ts`.
+ */
+export const MARKER_NAMES = [
+  'Group: Auth hardening',
+  'Feature: odd name',
+  'Feature: Group: doubly prefixed',
+  'Group',
+  'plain name',
+] as const;
