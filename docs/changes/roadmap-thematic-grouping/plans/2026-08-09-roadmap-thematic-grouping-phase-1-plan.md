@@ -37,7 +37,7 @@ None elicited. This is a pure in-memory parser/serializer change with no I/O, no
   - `findUnpreservedLines` (`packages/core/src/roadmap/preservation.ts`) does not model group-body lines, so `MonolithStore.write` refuses any whole-file rewrite of a grouped monolith with the "cannot preserve" error.
   - `harness roadmap shard` calls `assertSemanticRoundTrip`, whose `isDeepStrictEqual` comparison will now differ (original has `groups`, shard-assembled does not), so sharding a grouped monolith aborts to protect the file.
     Task 6 locks both behaviors with characterization tests and raises a `[checkpoint:decision]` for whether to accept them as shipped semantics or open a follow-up.
-- **[DEFERRABLE → CHECKPOINT]** `packages/*/dist` in this worktree are **symlinks into the root checkout**, which two other sessions are actively using. A full `turbo run build` would rewrite their built artifacts. Task 11 raises a `[checkpoint:decision]` before running it. Consequence: success criterion 5's **CLI-level** verification (`harness validate` on a grouped roadmap through the rebuilt binary) cannot run locally without that build — Task 7 verifies criterion 5 at the `checkRoadmapHealth` unit level, and the CLI-level assertion is deferred to PR CI.
+- **[RESOLVED at execution time]** This uncertainty originally read: `packages/*/dist` are **symlinks into the root checkout** which two other sessions are using, so `turbo run build` would rewrite their artifacts and success criterion 5's **CLI-level** verification "cannot run locally" and must defer to PR CI. **Both halves are false as executed.** The `dist` symlinks were replaced with **real local directories** before execution began, so the worktree-clobbering hazard was gone; the Task 11 `[checkpoint:decision]` was answered "run the full build", `turbo run build` completed locally (13/13 tasks), and criterion 5 was verified **end-to-end locally through the built binary** — not deferred to CI. Task 7's `checkRoadmapHealth` unit-level check stands as the narrower complement, not as a substitute.
 
 ## Recorded pre-change baseline (measured in this worktree, 2026-08-09)
 
@@ -47,9 +47,21 @@ Used by Task 12 as the comparison point. `harness validate` **already fails on t
 | --------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------- |
 | `harness validate`                                                                                                    | exit 1 — `Validation failed (390 issues)`; 75 `docs/roadmap.md` findings (1 stale-aggregate + 74 roadmapHealth advisories) |
 | `harness check-deps`                                                                                                  | exit 0 — `Analyzed 2310 module(s) across 9 layer(s)`                                                                       |
-| `harness check-perf --structural`                                                                                     | exit 0 (warnings only)                                                                                                     |
+| `harness check-perf --structural`                                                                                     | exit 1 — `Validation failed (974 issues)` (all pre-existing; see note below)                                               |
 | `git diff --exit-code .harness/arch/baselines.json`                                                                   | exit 0 (clean)                                                                                                             |
 | `pnpm --filter @harness-engineering/core exec vitest run tests/roadmap/parse.test.ts tests/roadmap/serialize.test.ts` | 2 files, 16 tests passed                                                                                                   |
+
+> **Correction (measured during execution).** The `check-perf --structural` row originally
+> read "exit 0 (warnings only)". That was wrong: the command already exits 1 with **974**
+> pre-existing structural issues (e.g. `packages/orchestrator/src/orchestrator.ts` at 5195
+> lines). Re-measured before and after this change with the same freshly built binary:
+> **974 → 975**. The single new finding is
+> `packages/core/src/roadmap/parse.ts — File has 305 lines (threshold: 300)`, i.e. the file
+> crossed the 300-line file-length advisory. **Accepted, not refactored:** it is not part of
+> `harness validate`'s gate (validate output is byte-identical to baseline), and it is the
+> same finding class as 974 pre-existing instances, including `health.ts` (317 lines) and
+> `preservation.ts` in this very directory. So the `check-perf` gate for this change is
+> "exactly one new advisory, accepted", not "exit 0".
 
 ## File Map
 
@@ -65,10 +77,16 @@ CREATE packages/core/tests/roadmap/groups-write-paths.test.ts
 MODIFY packages/core/tests/roadmap/health.test.ts           (append one describe block)
 MODIFY docs/guides/roadmap-sharding.md                      (new section (g))
 CREATE .changeset/roadmap-narrative-group-sections.md
-MODIFY docs/reference/source-map.md                         (regenerated — indexes the 3 new test files)
 ```
 
 No new source files, so no barrel regeneration is expected — Task 10 asserts that with `generate:barrels:check`.
+
+> **Correction (measured during execution).** This map originally also listed
+> `MODIFY docs/reference/source-map.md (regenerated — indexes the 3 new test files)`. That
+> was wrong and the file was correctly **not** modified: `source-map.md` is a curated
+> sample, not an exhaustive test index, so the three new test files produce no delta and
+> `pnpm generate-docs --check` exits 0 without regeneration. Task 10 therefore produced no
+> generated-docs commit.
 
 ## Skeleton
 
