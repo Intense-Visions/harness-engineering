@@ -74,6 +74,12 @@ prefix `Group: `. This is the sanctioned, explicit opt-in marker.
   `milestone.features`). The serializer emits the `Feature: ` prefix automatically
   for any name beginning with either marker, so the escape is applied without
   author effort and `serialize → parse` stays an identity for every feature name.
+- **Addendum — group-name hygiene.** The captured name is `.trim()`-ed, so
+  `Group: Themes` and `Group: Themes   ` are the same group rather than two. A bare
+  `### Group: ` with no name is **rejected** (an `Err` naming the milestone and the
+  line within that section), because it would otherwise round-trip with a trailing
+  space that a trim-on-save editor collapses to `### Group:` — no longer the marker,
+  which would then fail the whole file.
 - **Rejected alternatives:**
   - _Frontmatter flag / fenced marker (Option 2 verbatim):_ heavier; splits the
     signal away from the section it governs.
