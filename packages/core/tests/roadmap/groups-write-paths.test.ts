@@ -8,6 +8,7 @@ import { serializeShard, parseShard } from '../../src/roadmap/store/shard';
 import { serializeMeta } from '../../src/roadmap/store/meta';
 import type { ShardIO } from '../../src/roadmap/store/shard-store';
 import type { Shard } from '../../src/roadmap/store/roadmap-store';
+import type { Roadmap } from '@harness-engineering/types';
 import { GROUPED_ROADMAP } from './fixtures';
 
 describe('narrative groups vs the monolith write-preservation guard', () => {
@@ -20,6 +21,30 @@ describe('narrative groups vs the monolith write-preservation guard', () => {
   it('does not report the group marker heading itself', () => {
     const lost = findUnpreservedLines(serializeRoadmap(GROUPED_ROADMAP));
     expect(lost.map((l) => l.text)).not.toContain('### Group: Narrative arc');
+  });
+
+  it('is NOT group-aware: a modeled-bullet group body does not trip the guard', () => {
+    // The guard classifies LINES, not sections. A narrative body that happens to use
+    // only modeled `- **Key:**` bullets is invisible to it, so the rewrite proceeds
+    // and the group is relocated after the milestone's features. Documented in
+    // docs/guides/roadmap-sharding.md — pinned here so that claim cannot go stale.
+    const roadmap: Roadmap = {
+      ...GROUPED_ROADMAP,
+      milestones: [
+        {
+          name: 'M1',
+          isBacklog: false,
+          features: GROUPED_ROADMAP.milestones[0]!.features,
+          groups: [
+            {
+              name: 'Looks modeled',
+              body: '- **Status:** shipped in spirit\n- **Summary:** all modeled-looking bullets',
+            },
+          ],
+        },
+      ],
+    };
+    expect(findUnpreservedLines(serializeRoadmap(roadmap))).toEqual([]);
   });
 });
 
