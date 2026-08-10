@@ -40,6 +40,8 @@ export interface Hud {
   env: NodeJS.ProcessEnv;
   writeConfig(cfg: Record<string, unknown>): void;
   writeTranscript(name: string, lines: string[]): void;
+  /** Write a transcript under `<session>/subagents/`, where Claude Code puts dispatched agents. */
+  writeSubagentTranscript(name: string, lines: string[]): void;
   cleanup(): void;
 }
 
@@ -68,6 +70,11 @@ export function makeHud(): Hud {
     },
     writeTranscript(name, lines) {
       writeFileSync(path.join(projectDir, name), lines.join('\n') + '\n');
+    },
+    writeSubagentTranscript(name, lines) {
+      const dir = path.join(projectDir, 'session', 'subagents');
+      mkdirSync(dir, { recursive: true });
+      writeFileSync(path.join(dir, name), `${lines.join('\n')}\n`);
     },
     cleanup() {
       rmSync(root, { recursive: true, force: true });
@@ -115,4 +122,24 @@ export function daysAgo(now: Date, days: number): Date {
 /** 0=Mon..6=Sun for a Date, in UTC — the weekday convention the config uses. */
 export function utcIsoWeekday(d: Date): number {
   return (d.getUTCDay() + 6) % 7;
+}
+
+/**
+ * A transcript line carrying Claude Code's identity fields.
+ *
+ * `fields` is applied verbatim so a test can omit one signal and assert the
+ * other still classifies — that independence is the whole point of the
+ * two-signal shape assertion.
+ */
+export function agentLine(
+  requestId: string,
+  when: Date,
+  fields: { isSidechain?: boolean; agentId?: string; attributionAgent?: string },
+  opts: { model?: string; out?: number; in?: number; cw?: number; cr?: number } = {}
+): string {
+  const base = JSON.parse(transcriptLine(requestId, when, opts)) as Record<string, unknown>;
+  for (const [k, v] of Object.entries(fields)) {
+    if (v !== undefined) base[k] = v;
+  }
+  return JSON.stringify(base);
 }

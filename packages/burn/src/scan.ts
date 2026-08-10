@@ -37,6 +37,12 @@ function listTranscripts(root: string): string[] {
 interface TranscriptLine {
   requestId?: string;
   timestamp?: string;
+  /** Claude Code marks a dispatched subagent's turn with this flag. */
+  isSidechain?: boolean;
+  /** The individual dispatch this turn belonged to — one fleet lane. */
+  agentId?: string;
+  /** The agent TYPE, e.g. `harness-task-executor`. */
+  attributionAgent?: string;
   message?: {
     model?: string;
     usage?: {
@@ -56,8 +62,23 @@ interface TranscriptLine {
  * wins: a requestId already present is skipped, which also makes the scan
  * idempotent across overlapping files.
  */
+/**
+ * Whether a transcript path is a dispatched subagent's.
+ *
+ * Two independent signals classify subagent spend — this path check and the
+ * line's own `isSidechain` flag — because both are undocumented Claude Code
+ * internals. Either one alone keeps classification working if the other
+ * moves; both must change at once before attribution degrades.
+ */
+export function isSubagentPath(file: string): boolean {
+  return path.normalize(file).split(path.sep).includes('subagents');
+}
+
 /** One transcript line -> a record, or null when the line is not a usage turn. */
-function toRecord(line: string): { id: string; record: UsageRecord } | null {
+function toRecord(
+  line: string,
+  isSubagentFile: boolean
+): { id: string; record: UsageRecord } | null {
   // Cheap prefilter: most lines are not assistant turns.
   if (!line.includes('"usage"')) return null;
 
@@ -72,6 +93,12 @@ function toRecord(line: string): { id: string; record: UsageRecord } | null {
   const usage = obj.message?.usage;
   if (!id || !usage || typeof usage !== 'object') return null;
 
+  const named = typeof obj.attributionAgent === 'string' ? obj.attributionAgent.trim() : '';
+  const isSubagent = obj.isSidechain === true || isSubagentFile;
+  // A missing label must never collapse into `main` — that would understate
+  // the lanes and overstate the human.
+  const agent = named !== '' ? named : isSubagent ? 'unattributed' : 'main';
+
   return {
     id,
     record: {
@@ -81,9 +108,8 @@ function toRecord(line: string): { id: string; record: UsageRecord } | null {
       in: Number(usage.input_tokens) || 0,
       cacheWrite: Number(usage.cache_creation_input_tokens) || 0,
       cacheRead: Number(usage.cache_read_input_tokens) || 0,
-      // Placeholder: every turn reads as main until classification lands.
-      agent: 'main',
-      agentId: '',
+      agent,
+      agentId: agent === 'main' ? '' : (obj.agentId ?? ''),
     },
   };
 }
@@ -96,9 +122,12 @@ export function parseTranscript(file: string, records: Map<string, UsageRecord>)
     return 0;
   }
 
+  // Once per file, not once per line: the path does not change mid-file.
+  const isSubagentFile = isSubagentPath(file);
+
   let added = 0;
   for (const line of text.split('\n')) {
-    const parsed = toRecord(line);
+    const parsed = toRecord(line, isSubagentFile);
     if (!parsed || records.has(parsed.id)) continue;
     records.set(parsed.id, parsed.record);
     added += 1;
