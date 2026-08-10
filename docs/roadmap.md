@@ -264,6 +264,17 @@ last_manual_edit: 2026-06-27T12:51:51.967Z
 - **Priority:** P1
 - **External-ID:** github:Intense-Visions/harness-engineering#1034
 
+### init-ecosystem-aftercreate
+
+- **Status:** done
+- **Spec:** docs/changes/init-ecosystem-aftercreate/proposal.md
+- **Summary:** Scaffold ecosystem-matched afterCreate install command + warn when neither install nor verify resolves
+- **Blockers:** —
+- **Plan:** —
+- **Assignee:** —
+- **Priority:** —
+- **External-ID:** github:Intense-Visions/harness-engineering#1128
+
 ### Reconcile a project's configured MCP servers against the refreshed catalog (consent-gated)
 
 - **Status:** in-progress
@@ -274,17 +285,6 @@ last_manual_edit: 2026-06-27T12:51:51.967Z
 - **Assignee:** —
 - **Priority:** P2
 - **External-ID:** github:Intense-Visions/harness-engineering#1035
-
-### init-ecosystem-aftercreate
-
-- **Status:** planned
-- **Spec:** docs/changes/init-ecosystem-aftercreate/proposal.md
-- **Summary:** Scaffold ecosystem-matched afterCreate install command + warn when neither install nor verify resolves
-- **Blockers:** —
-- **Plan:** —
-- **Assignee:** —
-- **Priority:** —
-- **External-ID:** github:Intense-Visions/harness-engineering#1128
 
 ### Cloud autopilot: independent diagnostic agent on stuck retry
 
@@ -343,7 +343,7 @@ last_manual_edit: 2026-06-27T12:51:51.967Z
 
 ### init: scaffold ecosystem-matched install command + warn when neither install nor verify is configured
 
-- **Status:** planned
+- **Status:** done
 - **Spec:** —
 - **Summary:** Follow-up to #1115 (lang-aware local-dispatch, #1002). The ecosystem detector (`packages/orchestrator/src/workspace/ecosystem.ts`) already exposes each ecosystem's INSTALL command alongside verify, but only verify is wired. Wire `harness init` to scaffold a matching `hooks.afterCreate` install command from the detected ecosystem, and warn loudly when a workspace has neither an install nor a verify command resolvable.
 - **Blockers:** —
@@ -365,7 +365,7 @@ last_manual_edit: 2026-06-27T12:51:51.967Z
 
 ### local dispatch: make the self-verify stage-prompt prose ecosystem-aware
 
-- **Status:** planned
+- **Status:** done
 - **Spec:** —
 - **Summary:** Follow-up to #1115 (#1002). #1115 made the enforced verify GATE ecosystem-aware, but the local stage-prompt's self-verify PROSE still hardcodes `pnpm --filter …`. Make the self-verify guidance render the detected ecosystem's verify commands; per #1115 this needs a strict-variables renderer change so the prompt accepts the ecosystem-derived command set.
 - **Blockers:** —
@@ -387,7 +387,7 @@ last_manual_edit: 2026-06-27T12:51:51.967Z
 
 ### Codex notify hook should emit a PATH-resolvable command, not an absolute path
 
-- **Status:** planned
+- **Status:** done
 - **Spec:** [docs/changes/codex-notify-path-resolvable/proposal.md](../changes/codex-notify-path-resolvable/proposal.md)
 - **Summary:** `harness update` writes `.codex/config.toml` `notify` as an absolute `["node", "<abs path>/.harness/hooks/session-retrospect-codex.js"]`, baking a machine-specific path into a shared file (churns per machine, breaks contributors/CI). Codex `notify` is shell-less and its CWD is not guaranteed to be the repo root, so the git-rev-parse shell trick used for Claude/Gemini/Cursor cannot apply. Fix: route through a PATH-resolvable command — `notify = ["harness", "hooks", "run", "session-retrospect-codex"]` — backed by a new `harness hooks run <name>` subcommand that reads the JSON payload from argv and self-locates via the payload's `cwd`. Codex generator only; other agents unchanged.
 - **Blockers:** —
@@ -1351,7 +1351,7 @@ last_manual_edit: 2026-06-27T12:51:51.967Z
 
 ### ULID Identity for Sessions and Worktrees
 
-- **Status:** planned
+- **Status:** done
 - **Spec:** —
 - **Summary:** Adopt collision-free immutable ULID identity for harness sessions and worktree-isolated tasks, with human-friendly numbering assigned only at completion — fixing the worktree/branch/dashboard disambiguation problem that slug-prefix schemes collide on. Adapted from Spec Kitty's ULID mission identity (mission_id immutable, mission_number at merge). Adoption #6 from docs/research/spec-kitty-comparison-analysis.md [SPECKITTY-6]
 - **Blockers:** —
