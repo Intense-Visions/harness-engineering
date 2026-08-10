@@ -6,7 +6,7 @@ order: 28
 
 ### init-ecosystem-aftercreate
 
-- **Status:** planned
+- **Status:** done
 - **Spec:** docs/changes/init-ecosystem-aftercreate/proposal.md
 - **Summary:** Scaffold ecosystem-matched afterCreate install command + warn when neither install nor verify resolves
 - **Blockers:** —
