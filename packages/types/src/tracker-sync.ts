@@ -94,6 +94,26 @@ export interface PlannedSyncChanges {
 }
 
 /**
+ * An inbound (tracker → roadmap) write that was computed but deliberately
+ * withheld because the tracker had no opinion to assert. The sync module's
+ * stated convention is that a withheld action lands somewhere, never nowhere
+ * — without this, an operator debugging "why did my GitHub unassign not take
+ * effect" gets silence.
+ */
+export interface SuppressedInbound {
+  /** Roadmap feature name whose local field was kept */
+  feature: string;
+  /** Which local field the inbound write would have touched */
+  field: 'assignee' | 'status';
+  /** Local value that was kept */
+  from: string | null;
+  /** Value the tracker would have written */
+  to: string | null;
+  /** Why the write was withheld */
+  reason: string;
+}
+
+/**
  * Result of a sync operation. Collects successes and errors per-feature.
  */
 export interface SyncResult {
@@ -113,6 +133,8 @@ export interface SyncResult {
   skippedCreates: SkippedCreate[];
   /** Issue state transitions withheld by `syncIssueState: false` */
   skippedStateChanges: SkippedStateChange[];
+  /** Inbound writes withheld because the tracker had no opinion (see applyTicketToFeature) */
+  suppressedInbound: SuppressedInbound[];
   /** What the run actually examined — the denominator behind every count above */
   examined: SyncDenominator;
 }

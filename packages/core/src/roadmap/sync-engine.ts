@@ -27,6 +27,7 @@ function emptySyncResult(): SyncResult {
     planned: { creates: [], updates: [], localWrites: [] },
     skippedCreates: [],
     skippedStateChanges: [],
+    suppressedInbound: [],
     examined: { roadmapRows: 0, ticketsFetched: null },
   };
 }
@@ -441,6 +442,7 @@ export async function fullSync(
       },
       skippedCreates: pushResult.skippedCreates,
       skippedStateChanges: pushResult.skippedStateChanges,
+      suppressedInbound: pullResult.suppressedInbound,
       examined: {
         roadmapRows: countRoadmapRows(roadmap),
         // The push-phase fetch is the authoritative denominator: null means the

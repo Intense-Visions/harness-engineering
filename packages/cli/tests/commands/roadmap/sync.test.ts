@@ -397,6 +397,7 @@ describe('runRoadmapSync() — guard defaults are pass-through', () => {
       planned: { creates: [], updates: [], localWrites: [] },
       skippedCreates: [],
       skippedStateChanges: [],
+      suppressedInbound: [],
       examined: { roadmapRows: 2, ticketsFetched: 1 },
     }));
 
