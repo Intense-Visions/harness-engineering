@@ -186,7 +186,16 @@ function keptAgentLabels(s: Summary, all: [string, AgentBlock][]): Set<string> {
 function attributionCaution(s: Summary): string[] {
   const out: string[] = [];
   const unattributed = s.attribution?.unattributed_units ?? 0;
-  if (unattributed > 0) {
+  if (s.attribution?.degraded) {
+    // Every subagent unit this week lost its label. That is a broken scanner,
+    // not a quiet week, and the two are indistinguishable from the numbers.
+    out.push(
+      '',
+      chalk.red('  ⚠ ATTRIBUTION IS DEGRADED — subagent spend was seen this week and none of'),
+      chalk.red('    it carried a readable agent label. The transcript shape has most likely'),
+      chalk.red('    changed; read the breakdown above as unavailable, not as zero.')
+    );
+  } else if (unattributed > 0) {
     out.push(
       '',
       chalk.yellow(

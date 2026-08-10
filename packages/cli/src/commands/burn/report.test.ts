@@ -342,3 +342,48 @@ describe('report — unattributed is never elided', () => {
     expect(out).not.toContain('pre-migration');
   });
 });
+
+describe('report — degraded attribution', () => {
+  const degradedAgents = {
+    main: { requests: 100, units: 41_200_000, pct_of_week: 97, lanes: 0 },
+    unattributed: { requests: 8, units: 1_400_000, pct_of_week: 3, lanes: 3 },
+  };
+
+  it('escalates a fully degraded attribution to a headline naming the cause', () => {
+    // Degraded tooling is a headline, not a footnote: "0 subagent units"
+    // and "attribution stopped working" look identical from the outside.
+    const out = render({
+      agents: degradedAgents,
+      attribution: {
+        attributed_units: 0,
+        main_units: 41_200_000,
+        unattributed_units: 1_400_000,
+        pre_migration_units: 0,
+        lanes: 3,
+        degraded: true,
+      },
+    });
+    expect(out).toContain('ATTRIBUTION IS DEGRADED');
+    expect(out).toContain('transcript');
+    expect(out).not.toContain('could not be attributed to an agent.');
+  });
+
+  it('keeps the softer caution when only some spend is unattributed', () => {
+    const out = render({
+      agents: {
+        ...degradedAgents,
+        'harness-task-executor': { requests: 6, units: 5_000_000, pct_of_week: 10, lanes: 2 },
+      },
+      attribution: {
+        attributed_units: 5_000_000,
+        main_units: 41_200_000,
+        unattributed_units: 1_400_000,
+        pre_migration_units: 0,
+        lanes: 5,
+        degraded: false,
+      },
+    });
+    expect(out).not.toContain('ATTRIBUTION IS DEGRADED');
+    expect(out).toContain('could not be attributed to an agent.');
+  });
+});
