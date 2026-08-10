@@ -1,4 +1,6 @@
 export type {
+  AgentBlock,
+  AttributionBlock,
   BudgetBlock,
   BurnConfig,
   BurnStatus,
