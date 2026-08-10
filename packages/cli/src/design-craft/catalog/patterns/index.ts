@@ -14,6 +14,7 @@ import { pageTransitionCrossfadePattern } from './page-transition-crossfade.js';
 import { fluidTypeScalePattern } from './fluid-type-scale.js';
 import { progressiveCornerRoundingPattern } from './progressive-corner-rounding.js';
 import { focusRingCraftPattern } from './focus-ring-craft.js';
+import { editorialTwoColumnSplitPattern } from './editorial-two-column-split.js';
 
 export { springPhysicsPattern } from './spring-physics.js';
 export { skeletonContentMatchedPattern } from './skeleton-content-matched.js';
@@ -22,6 +23,7 @@ export { pageTransitionCrossfadePattern } from './page-transition-crossfade.js';
 export { fluidTypeScalePattern } from './fluid-type-scale.js';
 export { progressiveCornerRoundingPattern } from './progressive-corner-rounding.js';
 export { focusRingCraftPattern } from './focus-ring-craft.js';
+export { editorialTwoColumnSplitPattern } from './editorial-two-column-split.js';
 
 /**
  * Phase 2 seed polish patterns. The earlier Phase 2 increment anchored
@@ -59,4 +61,5 @@ export const SEED_PATTERNS: readonly PatternDefinition[] = [
   fluidTypeScalePattern,
   progressiveCornerRoundingPattern,
   focusRingCraftPattern,
+  editorialTwoColumnSplitPattern,
 ];
