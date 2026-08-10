@@ -513,6 +513,80 @@ export async function fullSync(
 }
 
 /**
+ * Push exactly ONE roadmap row to the tracker. Push-only, dedup-aware,
+ * fail-closed. This is the blast-radius-proportional counterpart to
+ * `fullSync`: an operation that writes one row must not reconcile the repo.
+ *
+ * - Takes the SAME module mutex as `fullSync`, so a scoped push and a full
+ *   sync can never interleave their writebacks.
+ * - Locates the row by case-insensitive name (matching the MCP tool). A match
+ *   count other than exactly 1 is an error in the returned SyncResult and
+ *   performs no writes — it never throws. Refusing an ambiguous name up front
+ *   keeps name identity and `applyRoadmapDiff`'s slug identity from meeting.
+ * - Runs NO inbound pull: nothing external can overwrite any local field here,
+ *   so `suppressedInbound` is always empty on this path.
+ * - Does NOT stamp `last_synced`. A scoped push is not a reconcile, and
+ *   bumping the stamp would assert a whole-roadmap comparison that never
+ *   happened. Deliberate behaviour change from the fullSync-on-add status quo.
+ *
+ * `examined.roadmapRows` is 1 by construction (the single-row projection),
+ * which differs in meaning from fullSync's whole-roadmap denominator.
+ */
+export async function syncRowToExternal(
+  projectRoot: string,
+  adapter: TrackerSyncAdapter,
+  config: TrackerSyncConfig,
+  featureName: string,
+  options?: ExternalSyncOptions
+): Promise<SyncResult> {
+  const previousSync = syncMutex;
+  let releaseMutex: () => void;
+  syncMutex = new Promise<void>((resolve) => {
+    releaseMutex = resolve;
+  });
+  await previousSync;
+
+  const dryRun = options?.dryRun ?? false;
+  const fail = (error: Error): SyncResult => ({
+    ...emptySyncResult(),
+    dryRun,
+    errors: [{ featureOrId: featureName, error }],
+  });
+
+  try {
+    const store = resolveRoadmapStore({ projectRoot });
+    const loaded = await store.load();
+    if (!loaded.ok) return fail(loaded.error);
+
+    const roadmap = loaded.value;
+    const matches: Array<{
+      milestone: Roadmap['milestones'][number];
+      feature: RoadmapFeature;
+    }> = [];
+    for (const milestone of roadmap.milestones) {
+      for (const feature of milestone.features) {
+        if (feature.name.toLowerCase() === featureName.toLowerCase()) {
+          matches.push({ milestone, feature });
+        }
+      }
+    }
+    if (matches.length === 0) {
+      return fail(new Error(`Feature "${featureName}" not found in roadmap`));
+    }
+    if (matches.length > 1) {
+      return fail(
+        new Error(`Feature name "${featureName}" is ambiguous (${matches.length} matches)`)
+      );
+    }
+
+    // Filled in by Task 6.
+    return emptySyncResult();
+  } finally {
+    releaseMutex!();
+  }
+}
+
+/**
  * Reset the sync mutex. Only for testing.
  */
 export function _resetSyncMutex(): void {

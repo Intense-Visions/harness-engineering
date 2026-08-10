@@ -6,6 +6,7 @@ import {
   syncToExternal,
   syncFromExternal,
   fullSync,
+  syncRowToExternal,
   _resetSyncMutex,
 } from '../../src/roadmap/sync-engine';
 import type { TrackerSyncAdapter } from '../../src/roadmap/tracker-sync';
@@ -639,5 +640,67 @@ describe('applyTicketToFeature() — bare OPEN is not an opinion about backlog',
 
     expect(feature.status).toBe('blocked');
     expect(result.suppressedInbound).toEqual([]);
+  });
+});
+
+describe('syncRowToExternal() — row identity guard', () => {
+  let tmpDir: string;
+  let roadmapPath: string;
+
+  beforeEach(() => {
+    tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'scoped-push-'));
+    fs.mkdirSync(path.join(tmpDir, 'docs'), { recursive: true });
+    roadmapPath = path.join(tmpDir, 'docs', 'roadmap.md');
+    _resetSyncMutex();
+  });
+
+  afterEach(() => {
+    fs.rmSync(tmpDir, { recursive: true, force: true });
+  });
+
+  it('reports a zero-match name as an error and performs no adapter call', async () => {
+    fs.writeFileSync(roadmapPath, serializeRoadmap(makeRoadmap([makeFeature()])), 'utf-8');
+    const before = fs.readFileSync(roadmapPath, 'utf-8');
+    const adapter = mockAdapter();
+
+    const result = await syncRowToExternal(tmpDir, adapter, CONFIG, 'No Such Row');
+
+    expect(adapter.fetchAllTickets).not.toHaveBeenCalled();
+    expect(adapter.createTicket).not.toHaveBeenCalled();
+    expect(adapter.updateTicket).not.toHaveBeenCalled();
+    expect(result.errors).toHaveLength(1);
+    expect(result.errors[0]!.error.message).toContain('not found');
+    expect(fs.readFileSync(roadmapPath, 'utf-8')).toBe(before);
+  });
+
+  it('reports an ambiguous name as an error rather than throwing', async () => {
+    const roadmap = makeRoadmap([makeFeature({ name: 'Dup' })]);
+    roadmap.milestones.push({
+      name: 'M2',
+      isBacklog: false,
+      features: [makeFeature({ name: 'Dup' })],
+    });
+    fs.writeFileSync(roadmapPath, serializeRoadmap(roadmap), 'utf-8');
+    const adapter = mockAdapter();
+
+    const result = await syncRowToExternal(tmpDir, adapter, CONFIG, 'dup');
+
+    expect(result.errors).toHaveLength(1);
+    expect(result.errors[0]!.error.message).toContain('ambiguous');
+    expect(adapter.createTicket).not.toHaveBeenCalled();
+  });
+
+  it('matches the feature name case-insensitively', async () => {
+    fs.writeFileSync(
+      roadmapPath,
+      serializeRoadmap(makeRoadmap([makeFeature({ name: 'Mixed Case Row' })])),
+      'utf-8'
+    );
+    const adapter = mockAdapter();
+
+    const result = await syncRowToExternal(tmpDir, adapter, CONFIG, 'mIxEd cAsE rOw');
+
+    expect(result.errors).toEqual([]);
+    expect(adapter.createTicket).toHaveBeenCalledOnce();
   });
 });
