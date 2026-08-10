@@ -4,6 +4,8 @@ import type { BurnPaths } from './config';
 import { atomicWrite } from './store';
 import { readRecords } from './store';
 import type {
+  AgentBlock,
+  AttributionBlock,
   BudgetBlock,
   BurnConfig,
   BurnStatus,
@@ -103,6 +105,7 @@ export function buildSummary(
   // aligned to the same anchor as the live week.
   const buckets = new Map<number, { requests: number; out: number; units: number }>();
   const perModel = new Map<string, { requests: number; units: number }>();
+  const perAgent = new Map<string, { requests: number; units: number; lanes: Set<string> }>();
   let sessionUnits = 0;
   let sessionRequests = 0;
 
@@ -126,6 +129,19 @@ export function buildSummary(
       m.requests += 1;
       m.units += u;
       perModel.set(rec.model, m);
+
+      // Defensive: a hand-edited store could carry an empty label, which would
+      // open a nameless bucket nobody reads. It falls to `pre-migration` (the
+      // provenance-unknown label), never to `unattributed` — the latter drives
+      // the degradation alarm, and a corrupt row is not evidence of a broken
+      // transcript shape. This matches the store reader's own fallback.
+      const label = rec.agent || 'pre-migration';
+      const a = perAgent.get(label) ?? { requests: 0, units: 0, lanes: new Set<string>() };
+      a.requests += 1;
+      a.units += u;
+      // `main` carries an empty agentId, so it counts zero lanes.
+      if (rec.agentId) a.lanes.add(rec.agentId);
+      perAgent.set(label, a);
     }
     if (t >= sessionCut) {
       sessionUnits += u;
@@ -218,6 +234,49 @@ export function buildSummary(
     models[name] = entry;
   }
 
+  // ---- per-agent. Same shape as `models`, so an existing consumer reads it
+  // without learning a second idiom.
+  const agents: Record<string, AgentBlock> = {};
+  for (const [label, a] of [...perAgent.entries()].sort((x, y) => y[1].units - x[1].units)) {
+    agents[label] = {
+      requests: a.requests,
+      units: Math.round(a.units),
+      pct_of_week: cur.units ? roundTo((100 * a.units) / cur.units, 1) : 0,
+      lanes: a.lanes.size,
+    };
+  }
+
+  const mainUnits = perAgent.get('main')?.units ?? 0;
+  const unattributedUnits = perAgent.get('unattributed')?.units ?? 0;
+  const preMigrationUnits = perAgent.get('pre-migration')?.units ?? 0;
+  // Summed directly rather than subtracted from the week: a float residue from
+  // subtraction would make the `=== 0` degradation test unreliable. Note that
+  // `pre-migration` is excluded from BOTH sides — counting it as attributed
+  // would let one legacy row suppress a real degradation alarm.
+  let attributedUnits = 0;
+  const allLanes = new Set<string>();
+  for (const [label, a] of perAgent) {
+    if (label !== 'main' && label !== 'unattributed' && label !== 'pre-migration') {
+      attributedUnits += a.units;
+    }
+    // Union across labels, so a lane seen under two labels mid-migration
+    // counts once. This is deliberately not the sum of per-label lanes.
+    for (const id of a.lanes) allLanes.add(id);
+  }
+
+  const attribution: AttributionBlock = {
+    attributed_units: Math.round(attributedUnits),
+    main_units: Math.round(mainUnits),
+    unattributed_units: Math.round(unattributedUnits),
+    pre_migration_units: Math.round(preMigrationUnits),
+    lanes: allLanes.size,
+    // Subagent spend was seen in the current week and none of it carried a
+    // readable label: the transcript shape changed and attribution has stopped
+    // working. Legacy rows cannot raise this alarm — they are not evidence
+    // about the current shape.
+    degraded: unattributedUnits > 0 && attributedUnits === 0,
+  };
+
   // ---- session window
   const session: SessionBlock = {
     window_hours: sessionHours,
@@ -300,6 +359,8 @@ export function buildSummary(
     calibration,
     models,
     models_exhausted: exhausted,
+    agents,
+    attribution,
     session,
     status,
   };
