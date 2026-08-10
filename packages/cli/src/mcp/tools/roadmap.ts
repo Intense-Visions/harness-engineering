@@ -14,7 +14,11 @@ import {
 import type { Roadmap, Result } from '@harness-engineering/types';
 import { resultToMcpResponse } from '../utils/result-adapter.js';
 import { sanitizePath } from '../utils/sanitize-path.js';
-import { triggerExternalSync } from './roadmap-auto-sync.js';
+import {
+  triggerExternalSync,
+  triggerScopedExternalSync,
+  type RowLinkOutcome,
+} from './roadmap-auto-sync.js';
 import { handleManageRoadmapFileLess } from './roadmap-file-less.js';
 
 export const manageRoadmapDefinition = {
@@ -278,13 +282,39 @@ function buildFeatureFromInput(input: ManageRoadmapInput) {
   };
 }
 
+/**
+ * Response envelope for `add`. Follows the `claimRefusedResponse` convention:
+ * the roadmap shape is spread and sibling keys are added, so every consumer
+ * reading `.milestones` / `.assignmentHistory` is unaffected.
+ *
+ * `no-token` and `failed` are surfaced in the response text but the response
+ * is NOT marked isError. The row WAS written and is locally valid; only the
+ * tracker link is missing. Marking it an error would tell callers the add
+ * failed, inviting a retry that mints a duplicate issue. Loud-but-not-fatal
+ * is the correct severity.
+ */
+function addResponse(roadmap: Roadmap, link: RowLinkOutcome): McpResponse {
+  const body: Record<string, unknown> = { ...roadmap, link };
+  if (link.kind === 'no-token') {
+    body.message =
+      'Row added, but the tracker link was skipped: GITHUB_TOKEN not found. ' +
+      'The row has no External-ID and will not be reconciled by merge-triggered auto-done.';
+  } else if (link.kind === 'failed') {
+    body.message =
+      `Row added, but the tracker link failed: ${link.reason}. ` +
+      'The row has no External-ID; re-running add is safe (title dedup prevents a duplicate issue).';
+  }
+  return {
+    content: [{ type: 'text' as const, text: JSON.stringify(body) }],
+    isError: false,
+  };
+}
+
 async function handleAdd(
   projectPath: string,
   input: ManageRoadmapInput,
-  deps: RoadmapDeps
+  _deps: RoadmapDeps
 ): Promise<McpResponse> {
-  const { Ok } = deps;
-
   const validationError = validateAddFields(input);
   if (validationError) return validationError;
 
@@ -312,7 +342,20 @@ async function handleAdd(
 
   const persisted = await persistRoadmap(projectPath, before, roadmap);
   if (!persisted.ok) return resultToMcpResponse(persisted);
-  return resultToMcpResponse(Ok(roadmap));
+
+  // Row-scoped tracker push. Ownership sits HERE, not in the dispatcher: the
+  // response must be annotated BEFORE it is serialized, or every consumer
+  // sees `externalId: null` on a row that is in fact linked on disk.
+  const link = await triggerScopedExternalSync(projectPath, input.feature!);
+  if (link.kind === 'linked') {
+    // The push mutated its own loaded copy; mirror the stamp onto the object
+    // this response serializes so the response matches disk.
+    const added = milestone.features.find(
+      (f) => f.name.toLowerCase() === input.feature!.toLowerCase()
+    );
+    if (added) added.externalId = link.externalId;
+  }
+  return addResponse(roadmap, link);
 }
 
 /**
