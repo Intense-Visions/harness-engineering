@@ -168,3 +168,179 @@ describe('manage_roadmap add — response annotation', () => {
     expect(body.message).toBeUndefined();
   });
 });
+
+describe('scoped push end to end (sharded project, stub tracker)', () => {
+  // Sharded fixture: the target row plus two unrelated rows whose tickets
+  // carry exactly the two inbound hazards D3 guards against.
+  function writeShardedProject(): void {
+    const shardDir = path.join(dir, 'docs', 'roadmap.d');
+    fs.mkdirSync(shardDir, { recursive: true });
+    // Real shard format (slug/milestone/order frontmatter + H3 heading + the
+    // `- **Field:** value` block), matching serializeMeta / serializeShard.
+    fs.writeFileSync(
+      path.join(shardDir, '_meta.md'),
+      [
+        '---',
+        'project: "test-project"',
+        'version: 1',
+        'last_synced: "2026-01-01T00:00:00Z"',
+        'last_manual_edit: "2026-01-01T00:00:00Z"',
+        'milestones:',
+        '  - "MVP Release"',
+        '---',
+        '',
+      ].join('\n'),
+      'utf-8'
+    );
+    fs.writeFileSync(
+      path.join(shardDir, 'owned-row.md'),
+      [
+        '---',
+        'slug: "owned-row"',
+        'milestone: "MVP Release"',
+        'order: 0',
+        '---',
+        '',
+        '### Owned Row',
+        '',
+        '- **Status:** in-progress',
+        '- **Spec:** —',
+        '- **Summary:** Assigned locally',
+        '- **Blockers:** —',
+        '- **Plan:** —',
+        '- **Assignee:** @alice',
+        '- **Priority:** —',
+        '- **External-ID:** github:owner/repo#7',
+        '',
+      ].join('\n'),
+      'utf-8'
+    );
+    fs.writeFileSync(
+      path.join(shardDir, 'idea-row.md'),
+      [
+        '---',
+        'slug: "idea-row"',
+        'milestone: "MVP Release"',
+        'order: 1',
+        '---',
+        '',
+        '### Idea Row',
+        '',
+        '- **Status:** backlog',
+        '- **Spec:** —',
+        '- **Summary:** Just an idea',
+        '- **Blockers:** —',
+        '- **Plan:** —',
+        '- **Assignee:** —',
+        '- **Priority:** —',
+        '- **External-ID:** github:owner/repo#8',
+        '',
+      ].join('\n'),
+      'utf-8'
+    );
+  }
+
+  function snapshotShards(): Map<string, string> {
+    const shardDir = path.join(dir, 'docs', 'roadmap.d');
+    const snap = new Map<string, string>();
+    for (const name of fs.readdirSync(shardDir)) {
+      const full = path.join(shardDir, name);
+      if (fs.statSync(full).isFile()) snap.set(name, fs.readFileSync(full, 'utf-8'));
+    }
+    return snap;
+  }
+
+  /** Stub tracker carrying both inbound hazards. Only the target row is unlinked. */
+  function stubAdapter() {
+    return {
+      createTicket: vi.fn(async () => ({
+        ok: true,
+        value: { externalId: 'github:owner/repo#99', url: 'https://x/99' },
+      })),
+      updateTicket: vi.fn(async (id: string) => ({
+        ok: true,
+        value: { externalId: id, url: 'https://x' },
+      })),
+      fetchTicketState: vi.fn(async () => ({ ok: false, error: new Error('unused') })),
+      fetchAllTickets: vi.fn(async () => ({
+        ok: true,
+        value: [
+          // (i) unrelated assigned row, tracker reports nobody
+          {
+            externalId: 'github:owner/repo#7',
+            title: 'Owned Row',
+            status: 'open',
+            labels: ['harness-managed'],
+            assignee: null,
+          },
+          // (ii) unrelated backlog row, bare OPEN with no status label
+          {
+            externalId: 'github:owner/repo#8',
+            title: 'Idea Row',
+            status: 'open',
+            labels: ['harness-managed'],
+            assignee: null,
+          },
+        ],
+      })),
+      assignTicket: vi.fn(async () => ({ ok: true, value: undefined })),
+      addComment: vi.fn(async () => ({ ok: true, value: undefined })),
+      fetchComments: vi.fn(async () => ({ ok: true, value: [] })),
+    };
+  }
+
+  beforeEach(() => {
+    writeShardedProject();
+    fs.writeFileSync(
+      path.join(dir, 'harness.config.json'),
+      JSON.stringify(TRACKER_CONFIG),
+      'utf-8'
+    );
+    vi.stubEnv('GITHUB_TOKEN', 'stub-token');
+  });
+
+  it('links the added row and leaves every unrelated shard byte-identical', async () => {
+    const linkSpy = vi
+      .spyOn(autoSync, 'triggerScopedExternalSync')
+      .mockResolvedValue({ kind: 'not-configured' });
+
+    await handleManageRoadmap({
+      path: dir,
+      action: 'add',
+      feature: 'Billing',
+      milestone: 'MVP Release',
+      status: 'planned',
+      summary: 'Billing system',
+    });
+    linkSpy.mockRestore();
+
+    const before = snapshotShards();
+    const adapter = stubAdapter();
+
+    const outcome = await triggerScopedExternalSync(dir, 'Billing', {
+      makeAdapter: () => adapter as never,
+    });
+
+    expect(outcome).toEqual({ kind: 'linked', externalId: 'github:owner/repo#99' });
+
+    const after = snapshotShards();
+    // SC2: neither unrelated row was rewritten, in either direction.
+    expect(after.get('owned-row.md')).toBe(before.get('owned-row.md'));
+    expect(after.get('idea-row.md')).toBe(before.get('idea-row.md'));
+    expect(after.get('owned-row.md')).toContain('- **Assignee:** @alice');
+    expect(after.get('idea-row.md')).toContain('- **Status:** backlog');
+
+    // SC6: the new row carries its External-ID, and stamping externalId flips
+    // hasExtended so the whole extended triple is emitted — no serializer change.
+    const billing = after.get('billing.md')!;
+    expect(billing).toContain('- **Assignee:** —');
+    expect(billing).toContain('- **Priority:** —');
+    expect(billing).toContain('- **External-ID:** github:owner/repo#99');
+
+    // No write ever named another row's ticket.
+    for (const call of adapter.updateTicket.mock.calls) {
+      expect(call[0]).toBe('github:owner/repo#99');
+    }
+    expect(adapter.createTicket).toHaveBeenCalledOnce();
+  });
+});
