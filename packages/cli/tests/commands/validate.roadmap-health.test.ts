@@ -42,6 +42,12 @@ describe('runValidate — roadmap health', () => {
     });
     expect(result.ok).toBe(true);
     if (result.ok) expect(result.value.checks.roadmapHealth).toBeUndefined();
+    // An ABSENT roadmap is "not applicable", not "could not check" — file-less
+    // mode and uninitialized projects legitimately have no roadmap.
+    if (result.ok) {
+      expect(result.value.unavailableChecks).toEqual([]);
+      expect(result.value.complete).toBe(true);
+    }
   });
 
   it('fails validation when a catch-all milestone exists (RMH003)', async () => {
@@ -68,6 +74,9 @@ describe('runValidate — roadmap health', () => {
       expect(result.value.checks.roadmapHealth).toBe(false);
       const found = result.value.issues.find((i) => i.ruleId === 'RMH003');
       expect(found?.severity).toBe('error');
+      // "Checked and unhealthy" — the check RAN, so the report is complete.
+      expect(result.value.complete).toBe(true);
+      expect(result.value.unavailableChecks).toEqual([]);
     }
   });
 
@@ -95,6 +104,62 @@ describe('runValidate — roadmap health', () => {
       expect(result.value.checks.roadmapHealth).toBe(true);
       const found = result.value.issues.find((i) => i.ruleId === 'RMH002');
       expect(found?.severity).toBe('warning');
+      // Advisory noise stays advisory — an RMH002-only roadmap is a COMPLETE,
+      // VALID run. This change must not make existing advisories blocking.
+      expect(result.value.complete).toBe(true);
+      expect(result.value.unavailableChecks).toEqual([]);
+    }
+  });
+
+  it('abstains (does not pass) when docs/roadmap.md exists but fails to parse', async () => {
+    dir = makeProjectRoot(
+      `${FRONTMATTER}
+## Milestone: M1
+
+### Ship it
+
+- **Status:** cancelled
+`
+    );
+    const result = await runValidate({
+      configPath: path.join(dir, 'harness.config.json'),
+      cwd: dir,
+    });
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      // The check never ran, so it is neither true nor false.
+      expect(result.value.checks.roadmapHealth).toBeUndefined();
+      expect(result.value.complete).toBe(false);
+      expect(result.value.unavailableChecks).toHaveLength(1);
+      const abstention = result.value.unavailableChecks[0];
+      expect(abstention?.check).toBe('roadmapHealth');
+      expect(abstention?.file).toBe('docs/roadmap.md');
+      // The parser's own message names the offending section — surface it verbatim.
+      expect(abstention?.reason).toContain('cancelled');
+      expect(abstention?.suggestion).toBeTruthy();
+    }
+  });
+
+  it('keeps the parse abstention out of issues so --severity cannot filter it away', async () => {
+    dir = makeProjectRoot(
+      `${FRONTMATTER}
+## Milestone: M1
+
+### Ship it
+
+- **Status:** cancelled
+`
+    );
+    const result = await runValidate({
+      configPath: path.join(dir, 'harness.config.json'),
+      cwd: dir,
+      severity: 'error',
+    });
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.value.unavailableChecks).toHaveLength(1);
+      expect(result.value.complete).toBe(false);
+      expect(result.value.issues.some((i) => i.check === 'roadmapHealth')).toBe(false);
     }
   });
 });
