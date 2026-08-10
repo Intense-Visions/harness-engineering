@@ -780,4 +780,47 @@ describe('syncRowToExternal() — scoped push', () => {
     expect(result.errors[0]!.error.message).toContain('tracker 503');
     expect(fs.readFileSync(roadmapPath, 'utf-8')).toBe(before);
   });
+
+  it('links to an existing labelled ticket with the same title and creates nothing', async () => {
+    const adapter = mockAdapter({
+      fetchAllTickets: vi.fn(async () =>
+        Ok([
+          ticket({
+            externalId: 'github:owner/repo#42',
+            title: 'Target Row',
+            status: 'open',
+            labels: ['harness-managed'],
+          }),
+        ])
+      ),
+    });
+
+    const result = await syncRowToExternal(tmpDir, adapter, CONFIG, 'Target Row');
+
+    expect(adapter.createTicket).not.toHaveBeenCalled();
+    expect(result.created).toEqual([]);
+    expect(result.updated).toEqual(['github:owner/repo#42']);
+    expect(fs.readFileSync(roadmapPath, 'utf-8')).toContain(
+      '- **External-ID:** github:owner/repo#42'
+    );
+  });
+
+  it('ignores a same-title ticket that lacks the configured labels', async () => {
+    const adapter = mockAdapter({
+      fetchAllTickets: vi.fn(async () =>
+        Ok([
+          ticket({
+            externalId: 'github:owner/repo#99',
+            title: 'Target Row',
+            status: 'open',
+            labels: ['unrelated'],
+          }),
+        ])
+      ),
+    });
+
+    await syncRowToExternal(tmpDir, adapter, CONFIG, 'Target Row');
+
+    expect(adapter.createTicket).toHaveBeenCalledOnce();
+  });
 });
