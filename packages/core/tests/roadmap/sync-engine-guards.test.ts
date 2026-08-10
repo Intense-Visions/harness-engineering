@@ -16,7 +16,7 @@ import type {
   ExternalTicketState,
   TrackerSyncConfig,
 } from '@harness-engineering/types';
-import { Ok } from '@harness-engineering/types';
+import { Ok, Err } from '@harness-engineering/types';
 import { serializeRoadmap } from '../../src/roadmap/serialize';
 import { assigneeInvariantHolds } from '../../src/roadmap/assignee-lifecycle';
 
@@ -702,5 +702,82 @@ describe('syncRowToExternal() — row identity guard', () => {
 
     expect(result.errors).toEqual([]);
     expect(adapter.createTicket).toHaveBeenCalledOnce();
+  });
+});
+
+describe('syncRowToExternal() — scoped push', () => {
+  let tmpDir: string;
+  let roadmapPath: string;
+
+  /** Target row plus two unrelated already-linked rows. */
+  function threeRowRoadmap() {
+    return makeRoadmap([
+      makeFeature({ name: 'Target Row', status: 'planned', externalId: null }),
+      makeFeature({
+        name: 'Other A',
+        status: 'in-progress',
+        assignee: '@alice',
+        externalId: 'github:owner/repo#7',
+      }),
+      makeFeature({ name: 'Other B', status: 'backlog', externalId: 'github:owner/repo#8' }),
+    ]);
+  }
+
+  beforeEach(() => {
+    tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'scoped-push-push-'));
+    fs.mkdirSync(path.join(tmpDir, 'docs'), { recursive: true });
+    roadmapPath = path.join(tmpDir, 'docs', 'roadmap.md');
+    fs.writeFileSync(roadmapPath, serializeRoadmap(threeRowRoadmap()), 'utf-8');
+    _resetSyncMutex();
+  });
+
+  afterEach(() => {
+    fs.rmSync(tmpDir, { recursive: true, force: true });
+  });
+
+  it('writes only the target row: one create, and no write naming another externalId', async () => {
+    const adapter = mockAdapter();
+
+    const result = await syncRowToExternal(tmpDir, adapter, CONFIG, 'Target Row');
+
+    expect(adapter.createTicket).toHaveBeenCalledOnce();
+    const created = result.created[0]!.externalId;
+    for (const call of (adapter.updateTicket as ReturnType<typeof vi.fn>).mock.calls) {
+      expect(call[0]).toBe(created);
+    }
+    expect(result.errors).toEqual([]);
+    expect(result.examined.roadmapRows).toBe(1);
+    expect(result.suppressedInbound).toEqual([]);
+
+    // The stamp landed on the real row, not on a throwaway projection.
+    const after = fs.readFileSync(roadmapPath, 'utf-8');
+    expect(after).toContain(`- **External-ID:** ${created}`);
+    expect(after).toContain('github:owner/repo#7');
+    expect(after).toContain('github:owner/repo#8');
+  });
+
+  it('does not stamp last_synced (a scoped push is not a reconcile)', async () => {
+    const before = fs.readFileSync(roadmapPath, 'utf-8');
+    const beforeStamp = /last_synced: (.*)/.exec(before)![1];
+
+    await syncRowToExternal(tmpDir, mockAdapter(), CONFIG, 'Target Row');
+
+    const after = fs.readFileSync(roadmapPath, 'utf-8');
+    expect(/last_synced: (.*)/.exec(after)![1]).toBe(beforeStamp);
+  });
+
+  it('fails closed when fetchAllTickets fails: no create, no update, error reported', async () => {
+    const before = fs.readFileSync(roadmapPath, 'utf-8');
+    const adapter = mockAdapter({
+      fetchAllTickets: vi.fn(async () => Err(new Error('tracker 503'))),
+    });
+
+    const result = await syncRowToExternal(tmpDir, adapter, CONFIG, 'Target Row');
+
+    expect(adapter.createTicket).not.toHaveBeenCalled();
+    expect(adapter.updateTicket).not.toHaveBeenCalled();
+    expect(result.errors).toHaveLength(1);
+    expect(result.errors[0]!.error.message).toContain('tracker 503');
+    expect(fs.readFileSync(roadmapPath, 'utf-8')).toBe(before);
   });
 });

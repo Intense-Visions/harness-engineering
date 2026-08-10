@@ -579,8 +579,43 @@ export async function syncRowToExternal(
       );
     }
 
-    // Filled in by Task 6.
-    return emptySyncResult();
+    const { milestone, feature } = matches[0]!;
+    const before = structuredClone(roadmap);
+
+    // Fetch solely to build the dedup index. FAIL-CLOSED: fullSync degrades to
+    // an empty index when the fetch fails, which for a one-row create would
+    // mint exactly the duplicate issue this function exists to prevent.
+    const fetchResult = await adapter.fetchAllTickets();
+    if (!fetchResult.ok) return fail(fetchResult.error);
+
+    // Single-row projection that SHARES feature object identity with `roadmap`.
+    // syncToExternal mutates features in place, so the externalId it stamps
+    // lands on the real row. Reuse, not reimplementation: create / dedup /
+    // guard / report semantics stay in one place.
+    const projection: Roadmap = {
+      ...roadmap,
+      milestones: [{ ...milestone, features: [feature] }],
+    };
+
+    const pushResult = await syncToExternal(
+      projection,
+      adapter,
+      config,
+      fetchResult.value,
+      options
+    );
+
+    // No `stampLastSynced` here — see the function doc comment.
+    const localWrites = changedFeatureNames(before, roadmap);
+    const persisted = dryRun ? null : await applyRoadmapDiff(store, before, roadmap);
+    const writebackErrors =
+      persisted && !persisted.ok ? [{ featureOrId: featureName, error: persisted.error }] : [];
+
+    return {
+      ...pushResult,
+      errors: [...pushResult.errors, ...writebackErrors],
+      planned: { ...pushResult.planned, localWrites: dryRun ? localWrites : [] },
+    };
   } finally {
     releaseMutex!();
   }
