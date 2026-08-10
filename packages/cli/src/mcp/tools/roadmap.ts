@@ -287,11 +287,11 @@ function buildFeatureFromInput(input: ManageRoadmapInput) {
  * the roadmap shape is spread and sibling keys are added, so every consumer
  * reading `.milestones` / `.assignmentHistory` is unaffected.
  *
- * `no-token` and `failed` are surfaced in the response text but the response
- * is NOT marked isError. The row WAS written and is locally valid; only the
- * tracker link is missing. Marking it an error would tell callers the add
- * failed, inviting a retry that mints a duplicate issue. Loud-but-not-fatal
- * is the correct severity.
+ * `no-token`, `failed`, and a `linked` outcome carrying a warning are all
+ * surfaced in the response text, but the response is NOT marked isError. The
+ * row WAS written and is locally valid; at worst the tracker link is missing.
+ * Marking it an error would tell callers the add failed, inviting a retry that
+ * mints a duplicate issue. Loud-but-not-fatal is the correct severity.
  */
 function addResponse(roadmap: Roadmap, link: RowLinkOutcome, deps: RoadmapDeps): McpResponse {
   const body: Record<string, unknown> = { ...roadmap, link };
