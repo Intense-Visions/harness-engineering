@@ -3,7 +3,7 @@ project: harness-engineering
 version: 1
 created: 2026-03-21
 updated: 2026-08-04
-last_synced: 2026-08-08T19:42:56.341Z
+last_synced: 2026-08-10T14:01:15.588Z
 last_manual_edit: 2026-06-27T12:51:51.967Z
 ---
 
@@ -308,6 +308,17 @@ last_manual_edit: 2026-06-27T12:51:51.967Z
 - **Priority:** P1
 - **External-ID:** github:Intense-Visions/harness-engineering#1036
 
+### Per-subagent token attribution in burn
+
+- **Status:** planned
+- **Spec:** —
+- **Summary:** Group burn's existing transcript scan by `attributionAgent` to produce per-subagent and per-fleet-lane token attribution. Claude Code writes one transcript per subagent to `~/.claude/projects/<project>/<sessionId>/subagents/agent-<id>.jsonl` (816 present locally), each carrying `agentId`, `attributionAgent`, `sessionId`, `sourceToolAssistantUUID`, `requestId`, `model` and a full `usage` block. `burn`'s `listTranscripts()` already recurses into those directories, so the data is ingested today and the identity discarded — this is a grouping key on a scan that already runs, plus the existing `requestId` dedup (transcripts repeat each usage block ~3x). Corrects a documented falsehood: `fleet-command/SKILL.md:319` states subagent tokens "are not observable, so a token governor would be a promise the skill cannot keep". Must assert the transcript shape and degrade to "unattributed" rather than 0 when the undocumented fields change, so a CLI update cannot silently report a fleet run as free. Unblocks per-lane cost measurement for Adaptive Model Routing (#1032). Source: paperclip budget-enforcement model (76.1k stars, MIT) — mechanism only, not the platform. Ideation: docs/ideation/external-source-adoption-tria-2026-08-09.md (score 9.00).
+- **Blockers:** —
+- **Plan:** —
+- **Assignee:** —
+- **Priority:** —
+- **External-ID:** github:Intense-Visions/harness-engineering#1270
+
 ### bug(roadmap): harness roadmap sync never stamps last_synced on success
 
 - **Status:** done
@@ -318,6 +329,17 @@ last_manual_edit: 2026-06-27T12:51:51.967Z
 - **Assignee:** —
 - **Priority:** P2
 - **External-ID:** github:Intense-Visions/harness-engineering#1037
+
+### Publish a reproducible graph token-savings benchmark
+
+- **Status:** planned
+- **Spec:** —
+- **Summary:** Harness ships the code-graph context-scoping capability its two closest competitors benchmark and market, and has never published a number for it. Build a reproducible benchmark comparing graph-scoped retrieval (`query_graph`, `ask_graph`, `get_impact`, `compute_blast_radius`, `code_outline`, `find_context_for`) against naive file-by-file exploration, and publish the methodology alongside the result. Comparators: `DeusData/codebase-memory-mcp` (38.3k, MIT) whose arXiv preprint 2603.27277 reports **10x fewer tokens, 83% answer quality, 2.1x fewer tool calls across 31 real repos** — that is the honest number to beat, NOT the 99.2% README figure which came from 5 hand-picked structural queries; and `tirth8205/code-review-graph` (29.6k, MIT) which publishes `docs/REPRODUCING.md` and claims 71x on flask. Accept the risk that the number may be unflattering: harness's graph is multi-purpose (review scoping, impact, blast radius) where both comparators are single-purpose and optimized for this exact metric, so a losing result is a roadmap input rather than a reason not to measure. Ideation: docs/ideation/external-source-adoption-tria-2026-08-09.md (score 6.75).
+- **Blockers:** —
+- **Plan:** —
+- **Assignee:** —
+- **Priority:** —
+- **External-ID:** github:Intense-Visions/harness-engineering#1271
 
 ### init: scaffold ecosystem-matched install command + warn when neither install nor verify is configured
 
@@ -330,6 +352,17 @@ last_manual_edit: 2026-06-27T12:51:51.967Z
 - **Priority:** P2
 - **External-ID:** github:Intense-Visions/harness-engineering#1128
 
+### Position harness against OpenAI harness engineering
+
+- **Status:** planned
+- **Spec:** —
+- **Summary:** `openai/symphony` (26.5k stars, Apache-2.0, Elixir) states in its README that it "works best in codebases that have adopted harness engineering" and links to openai.com/index/harness-engineering/ — OpenAI publishes a concept under this project's exact name, and Symphony treats it as a prerequisite substrate. This is simultaneously a validation of the thesis and a discoverability collision for anyone searching the term. Symphony is also the closest structural analogue to the fleet family: it watches a Linear board, spawns isolated autonomous implementation runs, and returns proof-of-work (CI status, PR review feedback, complexity analysis, walkthrough videos) before landing PRs. Deliverable: read OpenAI's definition, decide whether to adopt the shared vocabulary or differentiate explicitly, and record the position in STRATEGY.md and the marketing section. NOTE: openai.com/index/harness-engineering/ returned HTTP 403 to automated fetch and has NOT been read — the claim rests solely on Symphony's README, and step one is obtaining the actual page. Serves the External adoption flywheel track. Ideation: docs/ideation/external-source-adoption-tria-2026-08-09.md (score 6.75).
+- **Blockers:** —
+- **Plan:** —
+- **Assignee:** —
+- **Priority:** —
+- **External-ID:** github:Intense-Visions/harness-engineering#1272
+
 ### local dispatch: make the self-verify stage-prompt prose ecosystem-aware
 
 - **Status:** planned
@@ -341,6 +374,17 @@ last_manual_edit: 2026-06-27T12:51:51.967Z
 - **Priority:** P2
 - **External-ID:** github:Intense-Visions/harness-engineering#1129
 
+### System-level DESIGN.md benchmark axis for design-craft
+
+- **Status:** planned
+- **Spec:** —
+- **Summary:** Add a whole-system design-language benchmark axis to `harness:design-craft` BENCHMARK, seeded from the 73 real-world `DESIGN.md` files in `VoltAgent/awesome-design-md` (107.5k stars, MIT — corpus is free to use). This is NOT corpus expansion: the existing `catalog/exemplars/` holds 50 **component-level** exemplars (EmptyState, LoadingState, ErrorState, Modal, Button — 10 each) carrying reference markup and per-exemplar reference scores that feed the machine-computed `awardBar` (dimensionFloor 80, fraction 0.95). The awesome-design-md files are whole design languages with no component markup and no reference scores, so dropping them into the existing corpus would leave `awardBar` with nothing to compute and silently return `indeterminate`. Scope as a second, differently-shaped axis with its own scoring contract, keeping the existing 5-dim radar (philosophicalCoherence, hierarchy, craftExecution, function, innovation) for component-level work. Serves the Ceiling-raising via LLM judgment track. Ideation: docs/ideation/external-source-adoption-tria-2026-08-09.md (score 6.50).
+- **Blockers:** —
+- **Plan:** —
+- **Assignee:** —
+- **Priority:** —
+- **External-ID:** github:Intense-Visions/harness-engineering#1273
+
 ### Codex notify hook should emit a PATH-resolvable command, not an absolute path
 
 - **Status:** planned
@@ -351,6 +395,116 @@ last_manual_edit: 2026-06-27T12:51:51.967Z
 - **Assignee:** —
 - **Priority:** P2
 - **External-ID:** github:Intense-Visions/harness-engineering#1208
+
+### Context-surface attribution report with exact token counts
+
+- **Status:** planned
+- **Spec:** —
+- **Summary:** Report what the always-loaded context surface actually costs per turn, classified as always-loaded vs path-scoped vs invoked-only, with top contributors ranked and over-budget flags. Two mechanisms adopted from `poshan0126/dotclaude`'s `/context-budget` skill (849 stars, MIT): the three-way classification taxonomy, and calling Anthropic's `/v1/messages/count_tokens` endpoint for exact tokenizer counts instead of the `chars / 4` heuristic in `estimateTokens()` (packages/core/src/compaction/envelope.ts). Must measure harness's real surface, not a generic `.claude/` tree: the dominant contributors are MCP tool schemas across ~88 tool modules, four platform skill trees, hooks and AGENTS.md — none of which that skill models. Scope honestly against what already exists: `tool-tiers.ts` (core/standard/full allow-lists) already cuts the exposed tool count and Claude Code's own deferred-tool loading already defers schemas, so measure per-tier and expect the remaining win to be smaller than the source's framing implies. Candidate consumer for the currently-dead `contextBudget()` allocator. Serves the Upstream grounding track. Ideation: docs/ideation/external-source-adoption-tria-2026-08-09.md (score 4.50).
+- **Blockers:** —
+- **Plan:** —
+- **Assignee:** —
+- **Priority:** —
+- **External-ID:** github:Intense-Visions/harness-engineering#1274
+
+### Preventive over-build ladder constraint
+
+- **Status:** planned
+- **Spec:** —
+- **Summary:** Add a preventive simplicity constraint that fires BEFORE code is written, closing a real gap: `harness:code-craft` already asks whether each abstraction earns its keep and whether code is as simple as it could be, but it is post-hoc critique on an existing diff. Mechanism adopted from `DietrichGebert/ponytail` (99.4k stars, MIT): a seven-rung ladder stopped at the first rung that holds — YAGNI, already in this codebase, standard library, native platform feature, installed dependency, one-liner, then minimum code that works — with the ladder running only after the problem is understood and the real flow traced. Also worth taking: root-cause-over-symptom (fix the shared function once rather than per-caller), and marking deliberate corner-cuts with a comment naming the ceiling and upgrade path. Must resolve authority against `code-craft` so an always-loaded rule and a craft skill cannot give contradictory guidance on the same diff. Adopt on mechanism, not evidence: ponytail's ~22% token / ~27% speed claims are self-measured, n=4, Haiku 4.5 only, on FastAPI+React repos. Serves the Ceiling-raising track. Ideation: docs/ideation/external-source-adoption-tria-2026-08-09.md (score 4.00).
+- **Blockers:** —
+- **Plan:** —
+- **Assignee:** —
+- **Priority:** —
+- **External-ID:** github:Intense-Visions/harness-engineering#1275
+
+### Frontier-based round questioning for guided interviews
+
+- **Status:** planned
+- **Spec:** —
+- **Summary:** Adopt frontier/round-based questioning as a shared interview primitive across `harness:product-advisor`, `harness:product-requirements`, `harness:strategy` and `harness:pulse`, which today all interview strictly one question at a time. Mechanism from `mattpocock/skills` `grilling` (211.2k stars, MIT): model the subject as a design tree of decisions; the frontier is the set of decisions whose prerequisites are all settled; each round asks the whole frontier and nothing else, so no answer within a round can invalidate another question in it. Cited effect ~13 questions in ~3 rounds. The highest-value half is the **facts-vs-decisions split** — the skill dispatches sub-agents to settle questions the environment can answer and blocks only on genuine human decisions — which harness's interviews do not do at all. Constraints: one-at-a-time must remain a supported opt-out rather than a regression (the source concedes the round design is "genuinely contested" and that some users read better sequentially), and the frontier is model judgment rather than a computed graph, so mis-grouped questions need a reopen path. Complements the shipped Question-File Interview Mode (#582), which addressed durability/async capture rather than round structure. Serves the Full-lifecycle reach track. Ideation: docs/ideation/external-source-adoption-tria-2026-08-09.md (score 3.75).
+- **Blockers:** —
+- **Plan:** —
+- **Assignee:** —
+- **Priority:** —
+- **External-ID:** github:Intense-Visions/harness-engineering#1276
+
+### DESIGN.md interop with the Google Stitch convention
+
+- **Status:** planned
+- **Spec:** —
+- **Summary:** Add import/export interop between harness's design system and the Google Stitch `DESIGN.md` convention, so teams arriving with an existing DESIGN.md can adopt harness without rewriting it. Two independent sources have standardized on the Stitch format: `VoltAgent/awesome-design-md` (107.5k, MIT) ships 73 files in it, and `pbakaus/impeccable` (57.4k, Apache-2.0) both consumes it and generates it via `/impeccable document`. Concrete divergence to resolve: harness places the file at `design-system/DESIGN.md` paired with `tokens.json`, while the Stitch convention is a plain-markdown file at project root. Scope deliberately as boundary interop, NOT format replacement — harness's format carries the machine-checkable half (`tokens.json`, the `$extensions.harness.brand.forbidden_contexts` schema that `audit-brand-compliance` reads for BRAND-T001) that a plain-markdown standard has nowhere to put, and dropping that would discard the constraints-as-code thesis. Serves the Multi-client portability track. Ideation: docs/ideation/external-source-adoption-tria-2026-08-09.md (score 3.50).
+- **Blockers:** —
+- **Plan:** —
+- **Assignee:** —
+- **Priority:** —
+- **External-ID:** github:Intense-Visions/harness-engineering#1277
+
+### Wire or deprecate the dead contextBudget allocator
+
+- **Status:** planned
+- **Spec:** —
+- **Summary:** `contextBudget()` in `packages/core/src/context/budget.ts` is exported from `@harness-engineering/core` and has **zero non-test callers** — verified by grep across packages excluding dist and tests. It allocates a token budget across six categories (systemPrompt, projectManifest, taskSpec, activeCode, interfaces, reserve) with graph-density weighting, which is genuinely useful logic that nothing invokes. Its sibling `computeLoadPlan()` in the same directory IS wired, via `packages/cli/src/mcp/tools/skill.ts:79`, so the dead one is easy to miss. Two acceptable outcomes: wire it into the Context-surface attribution report (which needs exactly this kind of allocator), or deprecate it on the normal cycle. Deletion is a breaking change for any adopter importing it — it appears in the package's public `.d.ts` — so it cannot simply be removed. Secondary finding worth a look: harness's own dead-export detection and `harness:entropy-cleaner` exist to catch precisely this and did not, so the detector may have a blind spot for exported-but-unused public API. Ideation: docs/ideation/external-source-adoption-tria-2026-08-09.md (score 3.00).
+- **Blockers:** —
+- **Plan:** —
+- **Assignee:** —
+- **Priority:** —
+- **External-ID:** github:Intense-Visions/harness-engineering#1278
+
+### Graph schema introspection tool
+
+- **Status:** planned
+- **Spec:** —
+- **Summary:** Expose a `get_graph_schema`-equivalent MCP tool returning node/edge counts, relationship patterns and per-label property definitions, so an agent can discover the graph's shape before querying it. Harness exposes `query_graph`, `ask_graph`, `get_relationships`, `search_similar`, `compute_blast_radius` and `find_context_for` but nothing that enumerates what node types and edge types exist — `ls packages/cli/src/mcp/tools/ | grep -i schema` returns only the unrelated `interaction-schemas.ts`. An agent must therefore already know the schema to query it, or guess. Adopted from `DeusData/codebase-memory-mcp` (38.3k stars, MIT), whose equivalent tool description reads "Run this first." Cheap, and it raises the usable yield of every other graph tool for agents that did not author them. Feature-level finding — invisible at source level, surfaced only by enumerating that project's 15 MCP tools. Matrix: docs/ideation/external-source-feature-matrix-2026-08-10.md (score 6.00).
+- **Blockers:** —
+- **Plan:** —
+- **Assignee:** —
+- **Priority:** —
+- **External-ID:** github:Intense-Visions/harness-engineering#1280
+
+### Role-lens plan review
+
+- **Status:** planned
+- **Spec:** —
+- **Summary:** Review a *plan* through distinct role lenses before execution, rather than reviewing *code* by persona after it. Harness reviews code by specialist persona (7 review agents) and reviews plans for internal soundness (`harness:soundness-review`, `check_task_independence`, `validate_plan_tasks`) — but never asks "what would a designer / a DevEx engineer / a CEO object to in this plan?" Adopted from `garrytan/gstack` (127.2k stars, MIT), which ships four distinct plan-review lenses: `plan-ceo-review`, `plan-design-review`, `plan-devex-review`, `plan-eng-review`, plus `plan-tune`. The value is catching a plan that is internally coherent but wrong for a stakeholder the author was not thinking about — a failure mode soundness analysis cannot detect by construction. Composes with the existing persona infrastructure (`list_personas`, `run_persona`, `generate_persona_artifacts`) rather than needing new machinery. Feature-level finding: gstack's spine duplicates harness, but its edges do not. Matrix: docs/ideation/external-source-feature-matrix-2026-08-10.md (score 4.00).
+- **Blockers:** —
+- **Plan:** —
+- **Assignee:** —
+- **Priority:** —
+- **External-ID:** github:Intense-Visions/harness-engineering#1281
+
+### Runtime-trace ingestion to validate graph edges
+
+- **Status:** planned
+- **Spec:** —
+- **Summary:** Ingest runtime traces and use them to confirm or refute statically-derived graph edges — a static call/HTTP edge is a hypothesis until observed traffic supports it. Harness ships ten graph ingestors (`CodeIngestor`, `GitIngestor`, `DecisionIngestor`, `KnowledgeIngestor`, `RequirementIngestor`, `DesignIngestor`, `CanaryResultsIngestor`, `BusinessKnowledgeIngestor`, plus `StructuralDriftDetector` and `ContradictionDetector`) and **no runtime-trace ingestor**: grep for `ingest_traces|ingestTrace|HTTP_CALLS|runtime trace` across `packages` returns zero non-dist hits. Adopted from `DeusData/codebase-memory-mcp`'s `ingest_traces` tool ("ingest runtime traces to validate HTTP_CALLS edges"). Strongly on-thesis for constraints-as-code: an edge validated against production traffic is a materially stronger constraint than one inferred from an AST, and an edge the traces contradict is a drift signal nothing currently emits. Existing seam to build on: `CanaryResultsIngestor` already establishes the pattern of folding execution results back into the graph, and the Canary plugin's `canary-instrument` skill already emits OpenTelemetry run artifacts correlating tests to outbound HTTP requests — a plausible first trace source. Matrix: docs/ideation/external-source-feature-matrix-2026-08-10.md (score 3.00).
+- **Blockers:** —
+- **Plan:** —
+- **Assignee:** —
+- **Priority:** —
+- **External-ID:** github:Intense-Visions/harness-engineering#1282
+
+### ADR CRUD as an MCP tool
+
+- **Status:** planned
+- **Spec:** —
+- **Summary:** Expose Architecture Decision Records as a structured MCP tool (create / read / update / list) rather than only as skill-mediated prose. Harness has `harness:adr-fleet` (batch ADR drafting) and `harness:architecture-advisor` (interactive decision surfacing) as skills, and a `DecisionIngestor` that folds ADRs into the knowledge graph — but `ls packages/cli/src/mcp/tools/ | grep -i "adr\|decision"` returns nothing, so no caller can create or amend an ADR programmatically. Adopted from `DeusData/codebase-memory-mcp`'s `manage_adr` tool, which additionally notes a useful concurrency property: query modes do not block behind a same-project reindex while writes remain serialized. Narrow in scope and adjacent to work `adr-fleet` already owns, so the main design question is whether this belongs as its own tool or as an extension of the adr-fleet surface. Matrix: docs/ideation/external-source-feature-matrix-2026-08-10.md (score 3.00).
+- **Blockers:** —
+- **Plan:** —
+- **Assignee:** —
+- **Priority:** —
+- **External-ID:** github:Intense-Visions/harness-engineering#1283
+
+### Multi-language code-graph coverage and published resolution tiers
+
+- **Status:** planned
+- **Spec:** —
+- **Summary:** Widen code-graph language coverage and publish per-language resolution quality, so adopters know what the graph will actually give them. Harness resolves **6** languages — `typescript, javascript, python, go, rust, java` (`packages/core/src/code-nav/types.ts:4`) — and publishes no per-language quality figure. `DeusData/codebase-memory-mcp` (38.3k, MIT) resolves **13** languages with Hybrid LSP semantic type resolution (Python, TS/JS/JSX/TSX, PHP, C#, Go, C, C++, Java, Kotlin, Rust, Perl), parses **158** via vendored tree-sitter grammars, and publishes tiered quality (Excellent / Good / Functional) benchmarked against 64 real repositories with a stated ~95% resolution target on idiomatic code. Consequence today: an adopter on a Kotlin, C#, PHP or Ruby codebase gets a materially thinner graph than a TypeScript adopter, and nothing surfaces that — every downstream capability that reads the graph (impact analysis, blast radius, review scoping, test selection, hotspot detection) silently degrades with it. Directly gates the External adoption flywheel track, since the constraints-as-code thesis can only be tested at scale on codebases the graph can actually read. High effort and deliberately scored as such; the cheap first increment is publishing honest per-language tiers for the 6 already supported. Matrix: docs/ideation/external-source-feature-matrix-2026-08-10.md (score 2.00).
+- **Blockers:** —
+- **Plan:** —
+- **Assignee:** —
+- **Priority:** —
+- **External-ID:** github:Intense-Visions/harness-engineering#1284
 
 ## Fleet Family — Batch Orchestration
 
