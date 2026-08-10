@@ -450,9 +450,12 @@ export async function fullSync(
     releaseMutex = resolve;
   });
 
-  await previousSync;
-
   try {
+    // Inside the try: a rejected predecessor must still reach the `finally`,
+    // or this call's own mutex slot is never released and every subsequent
+    // sync in the process queues behind a promise that never settles.
+    await previousSync;
+
     const store = resolveRoadmapStore({ projectRoot });
     const loaded = await store.load();
     if (!loaded.ok) {
@@ -559,7 +562,6 @@ export async function syncRowToExternal(
   syncMutex = new Promise<void>((resolve) => {
     releaseMutex = resolve;
   });
-  await previousSync;
 
   const dryRun = options?.dryRun ?? false;
   const fail = (error: Error): SyncResult => ({
@@ -569,6 +571,11 @@ export async function syncRowToExternal(
   });
 
   try {
+    // Inside the try: a rejected predecessor must still reach the `finally`,
+    // or this call's own mutex slot is never released and every subsequent
+    // sync in the process queues behind a promise that never settles.
+    await previousSync;
+
     const store = resolveRoadmapStore({ projectRoot });
     const loaded = await store.load();
     if (!loaded.ok) return fail(loaded.error);
