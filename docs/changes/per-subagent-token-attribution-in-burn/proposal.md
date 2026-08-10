@@ -57,7 +57,7 @@ walk, a network call, or a new data source.
 - **A new `harness burn agents` subcommand.** The report already has a "by model" section; "by
   agent" belongs beside it.
 - **Backfilling identity for records whose transcript is gone.** Those rows stay honestly
-  `unattributed`.
+  `pre-migration`.
 
 ## Assumptions
 
@@ -74,10 +74,11 @@ walk, a network call, or a new data source.
   mislabel main-thread spend as a subagent.
 - **`agentId` is unique per dispatch** within the retained transcript window. Lane counts are
   distinct-`agentId` counts, so a reused id would undercount lanes.
-- **Neither new column can contain a tab or newline.** `usage.tsv` is tab-delimited with one
-  record per line (`store.ts:196-202`); an `attributionAgent` or `agentId` value containing
-  either would produce a row with the wrong field count, which `readRecords` then discards.
-  Observed values are agent slugs (`harness-task-executor`) and hex ids.
+- **Neither new column is _expected_ to contain a tab or newline** — observed values are agent
+  slugs (`harness-task-executor`) and hex ids — but the assumption is **not relied upon**.
+  `usage.tsv` is tab-delimited with one record per line (`store.ts:196-202`), so a value
+  containing either would shift every later column and make `readRecords` discard the row; the
+  writer sanitises both columns rather than trusting an undocumented upstream field.
 
 ## Decisions
 

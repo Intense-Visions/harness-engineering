@@ -4,18 +4,19 @@
 
 ## Reference (load as context)
 
-| Skill | Purpose | When | Relevance |
-|-------|---------|------|-----------|
-| `ts-testing-types` | Stack: typescript; Domain: auth, data, infra, testing | Testing | 0.51 |
-| `ts-type-guards` | Stack: typescript; Domain: auth, data, infra, testing | During implementation | 0.51 |
-| `ts-zod-integration` | Stack: typescript; Domain: auth, data, infra, testing | Architecture decisions | 0.49 |
-| `ts-performance-patterns` | Stack: typescript; Domain: auth, data, infra, testing | During implementation | 0.48 |
-| `gof-chain-of-responsibility` | Stack: typescript; Domain: auth, data, infra, testing | Architecture decisions | 0.47 |
-| `gof-factory-method` | Stack: typescript; Domain: auth, data, infra, testing | Architecture decisions | 0.46 |
-| `gof-visitor-pattern` | Stack: typescript; Domain: auth, data, infra, testing | Architecture decisions | 0.46 |
-| `gof-memento-pattern` | Stack: typescript; Domain: auth, data, infra, testing | Testing | 0.43 |
-| `gof-builder-pattern` | Stack: typescript; Domain: auth, data, infra, testing | Architecture decisions | 0.4 |
-| `resilience-rate-limiting` | Stack: typescript; Domain: auth, data, infra, testing | During implementation | 0.4 |
+| Skill                         | Purpose                                               | When                   | Relevance |
+| ----------------------------- | ----------------------------------------------------- | ---------------------- | --------- |
+| `ts-testing-types`            | Stack: typescript; Domain: auth, data, infra, testing | Testing                | 0.51      |
+| `ts-type-guards`              | Stack: typescript; Domain: auth, data, infra, testing | During implementation  | 0.51      |
+| `ts-zod-integration`          | Stack: typescript; Domain: auth, data, infra, testing | Architecture decisions | 0.49      |
+| `ts-performance-patterns`     | Stack: typescript; Domain: auth, data, infra, testing | During implementation  | 0.48      |
+| `gof-chain-of-responsibility` | Stack: typescript; Domain: auth, data, infra, testing | Architecture decisions | 0.47      |
+| `gof-factory-method`          | Stack: typescript; Domain: auth, data, infra, testing | Architecture decisions | 0.46      |
+| `gof-visitor-pattern`         | Stack: typescript; Domain: auth, data, infra, testing | Architecture decisions | 0.46      |
+| `gof-memento-pattern`         | Stack: typescript; Domain: auth, data, infra, testing | Testing                | 0.43      |
+| `gof-builder-pattern`         | Stack: typescript; Domain: auth, data, infra, testing | Architecture decisions | 0.4       |
+| `resilience-rate-limiting`    | Stack: typescript; Domain: auth, data, infra, testing | During implementation  | 0.4       |
 
 ---
-*Scanned 782 skills in 262ms. Signals: 10 keywords, 2 stack markers, 4 domains.*
+
+_Scanned 782 skills in 262ms. Signals: 10 keywords, 2 stack markers, 4 domains._
