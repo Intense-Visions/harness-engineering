@@ -220,20 +220,6 @@ export async function syncToExternal(
   return result;
 }
 
-/** The labels `resolveReverseStatus` treats as status opinions. */
-const DISAMBIGUATING_STATUS_LABELS = ['in-progress', 'blocked', 'planned', 'needs-human'];
-
-/**
- * True when the ticket carries at least one label that expresses a status
- * opinion. `resolveReverseStatus` collapses provenance — it matches its direct
- * key (`open → planned`) BEFORE it ever reaches the compound branch — so the
- * resolved status alone cannot tell an explicit `planned` label apart from a
- * bare `OPEN`. This predicate restores that distinction for the backlog guard.
- */
-function hasDisambiguatingStatusLabel(labels: string[]): boolean {
-  return labels.some((l) => DISAMBIGUATING_STATUS_LABELS.includes(l));
-}
-
 /**
  * Apply a single external ticket's assignee and status to a roadmap feature in-place.
  */
@@ -299,15 +285,21 @@ function applyTicketToFeature(
 
   // Guard: a merely-OPEN issue is not an opinion about backlog vs planned —
   // both are open states, and an unlabelled open issue is the default state of
-  // every issue. Gated on the ABSENCE of a disambiguating label rather than on
-  // the resolved status, because a direct `open → planned` key resolves an
-  // explicitly-labelled `planned` ticket identically to a bare one. An explicit
-  // `planned` label IS an opinion and still promotes.
+  // every issue. Gated on the ABSENCE of a label rather than on the resolved
+  // status, because a direct `open → planned` key resolves an explicitly-
+  // labelled `planned` ticket identically to a bare one.
+  //
+  // The escape is specifically the label that would PRODUCE this write. Any
+  // other status label is not evidence for it: under a direct `open` key the
+  // resolved status is `planned` regardless, so a `blocked`-labelled ticket
+  // would otherwise promote a backlog row on the strength of an opinion the
+  // resolver already discarded. An explicit `planned` label IS an opinion for
+  // `planned`, and still promotes.
   if (
     !forceSync &&
     feature.status === 'backlog' &&
     newStatus === 'planned' &&
-    !hasDisambiguatingStatusLabel(ticketState.labels)
+    !ticketState.labels.includes(newStatus)
   ) {
     result.suppressedInbound.push({
       feature: feature.name,

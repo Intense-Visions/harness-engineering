@@ -683,6 +683,40 @@ describe('applyTicketToFeature() — bare OPEN is not an opinion about backlog',
     expect(result.suppressedInbound).toEqual([]);
   });
 
+  it('does not let a blocked label license a promotion to planned', async () => {
+    // Under a direct `open → planned` key the resolved status is `planned`
+    // whatever the label says, so a `blocked` label's opinion is DISCARDED —
+    // it must not also disable the guard. The escape must be the label that
+    // would actually produce the write.
+    const feature = backlogRow();
+    const roadmap = makeRoadmap([feature]);
+    const adapter = mockAdapter({
+      fetchAllTickets: vi.fn(async () =>
+        Ok([
+          ticket({
+            externalId: 'github:owner/repo#5',
+            title: 'Idea Row',
+            status: 'open',
+            labels: ['harness-managed', 'blocked'],
+          }),
+        ])
+      ),
+    });
+
+    const result = await syncFromExternal(roadmap, adapter, CONFIG_DIRECT_OPEN);
+
+    expect(feature.status).toBe('backlog');
+    expect(result.suppressedInbound).toEqual([
+      {
+        feature: 'Idea Row',
+        field: 'status',
+        from: 'backlog',
+        to: 'planned',
+        reason: 'tracker-open-without-status-label',
+      },
+    ]);
+  });
+
   it('still overwrites backlog under forceSync (escape hatch intact)', async () => {
     const feature = backlogRow();
     const roadmap = makeRoadmap([feature]);

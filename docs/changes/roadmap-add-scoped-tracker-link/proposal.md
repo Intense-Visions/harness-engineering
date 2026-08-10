@@ -163,9 +163,17 @@ repo's own config never reaches compound resolution at all. A naive
 `status === 'backlog' && newStatus === 'planned'` guard would therefore also suppress an
 explicit `planned` label, which _is_ an opinion.
 
-The guard is instead gated on the **absence of any disambiguating status label** on the
-ticket (`in-progress`, `blocked`, `planned`, `needs-human` — the same set
-`resolveReverseStatus` uses). An explicit `planned` label still promotes a `backlog` row.
+The guard is instead gated on the **absence of the label that would produce this very
+write** — `!ticketState.labels.includes(newStatus)`. An explicit `planned` label still
+promotes a `backlog` row.
+
+The escape set is deliberately that one label and not the wider
+`in-progress` / `blocked` / `planned` / `needs-human` set `resolveReverseStatus` recognises.
+Under a direct `open → planned` key the resolved status is `planned` **regardless of the
+label**, so a `blocked`-labelled open ticket would otherwise promote a `backlog` row on the
+strength of an opinion the resolver had already discarded — an escape wider than its own
+rationale. Gating on the produced status keeps the guard's evidence and its effect the same
+proposition.
 
 _Accepted trade-off:_ the pre-existing `blocked` guard on the same line has the identical
 provenance blindness. This spec does not change it — altering `blocked`'s behaviour is out
@@ -289,7 +297,7 @@ SC1, SC3, SC4, SC5, SC7, SC8, SC9, SC10, SC11, SC12 are provable with a stub
 | SC1  | When `add` completes successfully, the system shall not call `triggerExternalSync`.                                                                                                                                                                                                      | #1285                  |
 | SC2  | When a row is added, via the scoped path with a stub tracker that reports (i) an unrelated row's issue as having no assignee while the local row has one, and (ii) an unrelated `backlog` row's issue as bare `OPEN`, the system shall leave both unrelated rows byte-identical on disk. | #1285 end-to-end       |
 | SC3  | If a tracker ticket reports no assignee and `forceSync` is not set, then the system shall not clear a non-null local assignee.                                                                                                                                                           | #1285 (a)              |
-| SC4  | If a tracker ticket is `OPEN` and carries **no** disambiguating status label and `forceSync` is not set, then the system shall not overwrite a local `backlog` status.                                                                                                                   | #1285 (c)              |
+| SC4  | If a tracker ticket is `OPEN` and does **not** carry the label naming the status it would write and `forceSync` is not set, then the system shall not overwrite a local `backlog` status.                                                                                                | #1285 (c)              |
 | SC5  | When `forceSync` is set, the system shall still apply both overwrites in SC3 and SC4.                                                                                                                                                                                                    | escape hatch intact    |
 | SC6  | When `add` runs against a configured stub tracker, the created row shall carry a non-null `External-ID`, and the serialized shard shall contain the `Assignee` / `Priority` / `External-ID` lines.                                                                                       | #1286                  |
 | SC7  | When `syncRowToExternal` runs, the adapter shall receive no write call carrying any `externalId` other than the added row's, and at most one `createTicket` call.                                                                                                                        | #1285 + #1286          |

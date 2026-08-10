@@ -35,10 +35,11 @@ transitions still run the full reconcile:
   reported: `assignmentChanges` now describes the assignee that actually landed
   on disk rather than the intermediate value the pull computed.
 - A merely-`OPEN` issue no longer overwrites a local `backlog` status. The
-  guard is gated on the absence of a disambiguating status label rather than
-  on the resolved status, because a direct `open → planned` mapping resolves a
-  bare issue and an explicitly `planned`-labelled one identically. An explicit
-  `planned` label still promotes.
+  guard is gated on the absence of the label naming the status the write would
+  produce, rather than on the resolved status, because a direct open-to-planned
+  mapping resolves a bare issue and an explicitly `planned`-labelled one
+  identically. An explicit `planned` label still promotes; a `blocked` label
+  does not, since a direct `open` key discards its opinion anyway.
 - Both suppressions are reported in the new `SyncResult.suppressedInbound`
   rather than silently dropped.
 
