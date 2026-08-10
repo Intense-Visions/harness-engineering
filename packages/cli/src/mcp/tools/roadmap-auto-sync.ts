@@ -6,6 +6,8 @@ import {
   applyRoadmapDiff,
   roadmapSourceExists,
 } from '@harness-engineering/core';
+import type { TrackerSyncConfig } from '@harness-engineering/types';
+import type { TrackerSyncAdapter } from '@harness-engineering/core';
 
 /**
  * Automatically sync the roadmap after state transitions.
@@ -98,5 +100,80 @@ export async function triggerExternalSync(projectPath: string): Promise<void> {
     console.error(
       `[roadmap-sync] External sync failed: ${error instanceof Error ? error.message : String(error)}`
     );
+  }
+}
+
+/**
+ * Outcome of linking a single roadmap row to its tracker ticket.
+ * `not-configured` is the silent, expected case for projects with no tracker.
+ */
+export type RowLinkOutcome =
+  | { kind: 'not-configured' }
+  | { kind: 'no-token' }
+  | { kind: 'linked'; externalId: string }
+  | { kind: 'failed'; reason: string };
+
+/**
+ * Push ONE roadmap row to the tracker and report the outcome.
+ *
+ * Unlike `triggerExternalSync` (fire-and-forget, swallows everything), this
+ * reports: a caller that just added a row must be able to tell whether the row
+ * is actually linked. Never throws.
+ *
+ * `deps.makeAdapter` is an injection seam, not decoration: `triggerExternalSync`
+ * builds its adapter internally, which is why no test can drive that path
+ * against a fake tracker. Production callers omit `deps`.
+ */
+export async function triggerScopedExternalSync(
+  projectPath: string,
+  featureName: string,
+  deps?: { makeAdapter?: (token: string, config: TrackerSyncConfig) => TrackerSyncAdapter }
+): Promise<RowLinkOutcome> {
+  try {
+    const trackerConfig = loadTrackerSyncConfig(projectPath);
+    if (!trackerConfig) return { kind: 'not-configured' };
+
+    const projectEnvPath = path.join(projectPath, '.env');
+    if (fs.existsSync(projectEnvPath) && !process.env.GITHUB_TOKEN) {
+      const { config: loadDotenv } = await import('dotenv');
+      loadDotenv({ path: projectEnvPath });
+    }
+
+    const token = process.env.GITHUB_TOKEN;
+    if (!token) {
+      console.warn('[roadmap-sync] GITHUB_TOKEN not found — row link skipped');
+      return { kind: 'no-token' };
+    }
+
+    const { syncRowToExternal, GitHubIssuesSyncAdapter } =
+      await import('@harness-engineering/core');
+    const adapter = deps?.makeAdapter
+      ? deps.makeAdapter(token, trackerConfig)
+      : new GitHubIssuesSyncAdapter({ token, config: trackerConfig });
+
+    const result = await syncRowToExternal(projectPath, adapter, trackerConfig, featureName);
+
+    // This is `feature.externalId` after the push, expressed through the
+    // returned SyncResult: on the create path the id lands in `created`
+    // (resolveExternalId returns false, so no update is issued); on the dedup
+    // and already-linked paths it lands in `updated`. No other case exists.
+    const externalId = result.created[0]?.externalId ?? result.updated[0] ?? null;
+
+    if (result.errors.length > 0) {
+      const reasons = result.errors.map((e) => e.error.message).join('; ');
+      // Create-succeeded-but-writeback-failed is an explicit case, not an
+      // accident: name the orphaned id so an operator can repair by hand. A
+      // retry of the same add is self-healing (the dedup index now matches).
+      const orphan = externalId
+        ? ` (ticket ${externalId} exists but the row was not linked to it)`
+        : '';
+      return { kind: 'failed', reason: `${reasons}${orphan}` };
+    }
+    if (!externalId) {
+      return { kind: 'failed', reason: 'tracker returned no external id for the row' };
+    }
+    return { kind: 'linked', externalId };
+  } catch (error) {
+    return { kind: 'failed', reason: error instanceof Error ? error.message : String(error) };
   }
 }
