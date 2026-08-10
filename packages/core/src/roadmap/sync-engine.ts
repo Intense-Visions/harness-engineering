@@ -237,17 +237,30 @@ function applyTicketToFeature(
   // RMH005 violation in reverse — a non-in-progress row still carrying a claim.
   const localMachineClaim = isMachineAssignee(feature.assignee);
 
-  // Assignee: external wins — EXCEPT a live machine claim, which is local
-  // truth. A machine assignee (orchestrator id) is never pushed to the external
-  // assignee field, so inbound state can only ever lag or contradict it; never
-  // let it clobber the running claim (that was the silent-skip bug).
+  // Assignee: external wins — EXCEPT (i) a live machine claim, which is local
+  // truth, and (ii) tracker SILENCE. A null external assignee is missing
+  // information, not an authoritative empty value: an unassigned issue is the
+  // DEFAULT state of every issue, so letting it clear a local assignee means
+  // the tracker's default silently overwrites a human's decision. Assignment
+  // (null → someone) and reassignment are unaffected; forceSync still clears.
   if (!localMachineClaim && ticketState.assignee !== feature.assignee) {
-    result.assignmentChanges.push({
-      feature: feature.name,
-      from: feature.assignee,
-      to: ticketState.assignee,
-    });
-    feature.assignee = ticketState.assignee;
+    const clearsLocalAssignee = ticketState.assignee === null && feature.assignee !== null;
+    if (clearsLocalAssignee && !forceSync) {
+      result.suppressedInbound.push({
+        feature: feature.name,
+        field: 'assignee',
+        from: feature.assignee,
+        to: null,
+        reason: 'tracker-reports-no-assignee',
+      });
+    } else {
+      result.assignmentChanges.push({
+        feature: feature.name,
+        from: feature.assignee,
+        to: ticketState.assignee,
+      });
+      feature.assignee = ticketState.assignee;
+    }
   }
 
   // Status: use reverse mapping with label disambiguation

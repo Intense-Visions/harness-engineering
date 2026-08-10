@@ -2,7 +2,12 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import * as fs from 'fs';
 import * as path from 'path';
 import * as os from 'os';
-import { syncToExternal, fullSync, _resetSyncMutex } from '../../src/roadmap/sync-engine';
+import {
+  syncToExternal,
+  syncFromExternal,
+  fullSync,
+  _resetSyncMutex,
+} from '../../src/roadmap/sync-engine';
 import type { TrackerSyncAdapter } from '../../src/roadmap/tracker-sync';
 import type {
   Roadmap,
@@ -370,5 +375,92 @@ describe('fullSync() — dryRun end to end', () => {
     expect(adapter.createTicket).toHaveBeenCalledOnce();
     expect(result.dryRun).toBe(false);
     expect(fs.readFileSync(roadmapPath, 'utf-8')).toContain('github:owner/repo#1');
+  });
+});
+
+describe('applyTicketToFeature() — tracker silence is not tracker opinion (assignee)', () => {
+  function ownedRow() {
+    return makeFeature({
+      name: 'Owned Row',
+      status: 'in-progress',
+      assignee: '@alice',
+      externalId: 'github:owner/repo#1',
+    });
+  }
+
+  /** Ticket that agrees on status but reports nobody assigned. */
+  function silentTicket() {
+    return ticket({
+      title: 'Owned Row',
+      assignee: null,
+      labels: ['harness-managed', 'in-progress'],
+    });
+  }
+
+  it('does not clear a non-null local assignee when the ticket reports none', async () => {
+    const feature = ownedRow();
+    const roadmap = makeRoadmap([feature]);
+    const adapter = mockAdapter({ fetchAllTickets: vi.fn(async () => Ok([silentTicket()])) });
+
+    const result = await syncFromExternal(roadmap, adapter, CONFIG);
+
+    expect(feature.assignee).toBe('@alice');
+    expect(result.assignmentChanges).toEqual([]);
+  });
+
+  it('records the suppression rather than dropping it', async () => {
+    const feature = ownedRow();
+    const roadmap = makeRoadmap([feature]);
+    const adapter = mockAdapter({ fetchAllTickets: vi.fn(async () => Ok([silentTicket()])) });
+
+    const result = await syncFromExternal(roadmap, adapter, CONFIG);
+
+    expect(result.suppressedInbound).toEqual([
+      {
+        feature: 'Owned Row',
+        field: 'assignee',
+        from: '@alice',
+        to: null,
+        reason: 'tracker-reports-no-assignee',
+      },
+    ]);
+  });
+
+  it('still clears the assignee under forceSync (escape hatch intact)', async () => {
+    const feature = ownedRow();
+    const roadmap = makeRoadmap([feature]);
+    const adapter = mockAdapter({ fetchAllTickets: vi.fn(async () => Ok([silentTicket()])) });
+
+    const result = await syncFromExternal(roadmap, adapter, CONFIG, { forceSync: true });
+
+    expect(feature.assignee).toBeNull();
+    expect(result.suppressedInbound).toEqual([]);
+    expect(result.assignmentChanges).toEqual([{ feature: 'Owned Row', from: '@alice', to: null }]);
+  });
+
+  it('still applies an inbound assignment (null → someone) and a reassignment', async () => {
+    const unassigned = makeFeature({
+      name: 'Owned Row',
+      status: 'planned',
+      assignee: null,
+      externalId: 'github:owner/repo#1',
+    });
+    const roadmap = makeRoadmap([unassigned]);
+    const adapter = mockAdapter({
+      fetchAllTickets: vi.fn(async () =>
+        Ok([
+          ticket({
+            title: 'Owned Row',
+            assignee: '@bob',
+            labels: ['harness-managed', 'planned'],
+          }),
+        ])
+      ),
+    });
+
+    const result = await syncFromExternal(roadmap, adapter, CONFIG);
+
+    expect(unassigned.assignee).toBe('@bob');
+    expect(result.suppressedInbound).toEqual([]);
   });
 });
