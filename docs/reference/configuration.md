@@ -61,6 +61,54 @@ Path to the documentation directory used by doc validation and generation tools.
 
 How often (in milliseconds) to check for CLI updates. Omit or set to `0` to disable update checks.
 
+### `toolchain`
+
+- **Type:** `object`
+- **Required:** No
+
+Toolchain expectations this workspace declares.
+
+| Key          | Type     | Description                                                        |
+| ------------ | -------- | ------------------------------------------------------------------ |
+| `cliVersion` | `string` | Semver range naming the `@harness-engineering/cli` line to expect. |
+
+```json
+{
+  "toolchain": {
+    "cliVersion": ">=11"
+  }
+}
+```
+
+A stale scanner does not fail — it re-reports findings the workspace has already
+justified and suppressed, so its output is well-formed, confident, and wrong.
+When `cliVersion` is set, the CLI compares its own version against the range
+before running any findings-producing command (`check-security`, `check-docs`,
+`check-deps`, `check-perf`, `check-harness-strength`, `cleanup`, `validate`,
+`review-ci`):
+
+- Range satisfied — silent.
+- Two or more majors below the range minimum — **refuses** and exits `3`
+  (the abstain code: the command examined nothing, so it must never read as
+  green, and must not be confused with exit `1`, which is what these commands
+  return when they found real findings).
+- Exactly one major below, or unsatisfied at a smaller distance — warns and
+  proceeds. Being one major behind is the normal state of a repository partway
+  through an upgrade.
+
+`doctor`, `update`, `setup`, and `init` are never gated — those are the commands
+you need when the toolchain is wrong.
+
+When `cliVersion` is omitted, the CLI falls back to a `@harness-engineering/cli`
+range declared in the project's `package.json` (`devDependencies`, then
+`dependencies`). Non-semver specifiers such as `workspace:*`, `file:`, `link:`,
+`git+`, `*`, and `latest` are ignored rather than coerced. When no expected
+version can be resolved at all, the check is silent.
+
+Set `HARNESS_NO_VERSION_GUARD=1` to downgrade a refusal to a warning. It does not
+silence the warning — a variable that hid the message entirely would restore the
+silent failure the check exists to prevent.
+
 ## `layers`
 
 - **Type:** `Array<Layer>`

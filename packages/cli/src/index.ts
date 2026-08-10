@@ -12,6 +12,7 @@ import { Command } from 'commander';
 import { CLI_VERSION } from './version';
 import { commandCreators } from './commands/_registry';
 import { registerDeprecatedGraphAliases } from './commands/graph/deprecated-aliases';
+import { installVersionGuard } from './utils/version-guard';
 
 /**
  * Creates and configures the main Harness CLI program.
@@ -42,6 +43,11 @@ export function createProgram(): Command {
   // Legacy top-level scan/query/ingest, kept as hidden deprecated aliases of
   // the canonical `harness graph <op>` commands (see #644).
   registerDeprecatedGraphAliases(program);
+
+  // Refuse to emit findings when this CLI is sharply out of step with the
+  // workspace it is scanning. Installed here rather than in bin/harness.ts so
+  // every consumer of createProgram() gets a guarded program.
+  installVersionGuard(program, process.cwd());
 
   return program;
 }

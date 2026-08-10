@@ -52,6 +52,16 @@ Cap concurrent subagents at **2 (default), max ~3**. Beyond roughly three concur
 
 A worktree created under a `.claude/`-nested path breaks the local pre-push `check-docs` gate (it self-excludes and scans zero files). Subagents push via the GitHub API or from a non-`.claude` throwaway worktree. **Never `--no-verify`** — bypassing the gate defeats the verification the fleet depends on.
 
+## Runtime preconditions
+
+A conductor or a fan-out parent is the one actor able to inject a single bad environment assumption into every lane at once, so the runtime a lane inherits is part of the contract — not an implementation detail left to whoever launches it.
+
+**Node 22 or newer is required.** The graph and state layers load a native `better-sqlite3` binding, and a mismatched Node ABI fails at load time rather than at install time. A lane that inherits the wrong interpreter fails in ways that look like flaky subagents.
+
+**Pin the interpreter by absolute path — do not prepend a Node bin directory to `PATH` to obtain it.** A Node installation's `bin` directory is not only an interpreter directory: package managers place shims for globally-installed CLIs there too, and a `harness` shim among them can be years older than the one the operator intends to run. Prepending the directory silently substitutes that older CLI for every child process the run spawns. Pass the resolved absolute path to the interpreter (and, where a lane invokes the CLI, the resolved absolute path to the CLI) instead of mutating `PATH` and relying on implicit resolution order.
+
+**Verify the toolchain before trusting any scan output.** Have SELECT record the resolved paths and the reported `harness --version`, and treat that record as part of the probe's evidence. A stale scanner does not error — it re-reports findings the workspace has already justified and suppressed, so its output is well-formed, confident, and wrong. Findings, queue depths, and any scheduling decision derived from them inherit that corruption silently. Recent CLI versions refuse to run findings-producing commands when they are sharply out of step with the workspace's declared `toolchain.cliVersion`, but that guard cannot fire inside a CLI old enough to predate it, which is exactly the case the pinning rule above exists to prevent.
+
 ## What each member defines for itself
 
 The spine above is shared. Each member's own `SKILL.md` defines:

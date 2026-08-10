@@ -1,6 +1,9 @@
 {
   "version": 1,
   "name": "harness-engineering",
+  "toolchain": {
+    "cliVersion": ">=11"
+  },
   "constraintPacks": ["secrets-and-injection"],
   "layers": [
     {

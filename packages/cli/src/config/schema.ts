@@ -1060,6 +1060,24 @@ export const HarnessConfigSchema = z.object({
   telemetry: TelemetryConfigSchema.optional(),
   /** How often (in ms) to check for CLI updates */
   updateCheckInterval: z.number().int().min(0).optional(),
+  /**
+   * Toolchain expectations this workspace declares.
+   *
+   * Distinct from the top-level `version` (the config schema version) and from
+   * `template.version` — hence the nesting rather than a bare `cliVersion` key.
+   */
+  toolchain: z
+    .object({
+      /**
+       * Semver range naming the `@harness-engineering/cli` line this workspace
+       * expects, e.g. `">=11"`. A CLI two or more majors below the range
+       * minimum refuses to run findings-producing commands, because a scanner
+       * that predates the rules it evaluates re-reports findings the workspace
+       * has already justified.
+       */
+      cliVersion: z.string().optional(),
+    })
+    .optional(),
   /** Graph ingest and connector settings */
   graph: z
     .object({
