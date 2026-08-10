@@ -172,7 +172,16 @@ export function writeFingerprints(
   atomicWrite(paths.filesTsv, lines.join(''));
 }
 
-/** requestId -> record. Rows that do not have all seven fields are discarded. */
+/**
+ * requestId -> record.
+ *
+ * A 7-field row predates attribution and is loaded as `pre-migration` rather
+ * than discarded: discarding would delete the entire pre-migration store.
+ * Nine or more fields carry the label and the lane id, and anything past the
+ * ninth is ignored — accepting `>= 9` rather than `=== 9` costs nothing today
+ * and makes a future column addition survivable by a reader that predates it.
+ * Any other field count is a torn write and is still discarded.
+ */
 export function readRecords(paths: BurnPaths): Map<string, UsageRecord> {
   const records = new Map<string, UsageRecord>();
   if (!existsSync(paths.usageTsv)) return records;
@@ -180,7 +189,8 @@ export function readRecords(paths: BurnPaths): Map<string, UsageRecord> {
   for (const line of readFileSync(paths.usageTsv, 'utf8').split('\n')) {
     if (!line) continue;
     const p = line.split('\t');
-    if (p.length !== 7) continue;
+    if (p.length !== 7 && p.length < 9) continue;
+    const agent = p.length >= 9 ? p[7]! : '';
     records.set(p[0]!, {
       ts: p[1]!,
       model: p[2]!,
@@ -188,22 +198,33 @@ export function readRecords(paths: BurnPaths): Map<string, UsageRecord> {
       in: Number(p[4]) || 0,
       cacheWrite: Number(p[5]) || 0,
       cacheRead: Number(p[6]) || 0,
-      // A 7-field row predates attribution: its provenance is unknown, which is
-      // neither `main` (that would overstate the human) nor `unattributed`
-      // (that is defined as SUBAGENT spend, and would fire the degradation
-      // flag on history alone). It stays `pre-migration` until a rescan of the
-      // still-present transcript relabels it.
-      agent: 'pre-migration',
-      agentId: '',
+      // Never empty. A row of unknown provenance is `pre-migration`, not
+      // `unattributed` — the latter is subagent spend and drives degradation.
+      agent: agent || 'pre-migration',
+      agentId: p.length >= 9 ? p[8]! : '',
     });
   }
   return records;
 }
 
+/**
+ * `usage.tsv` is positional and tab-delimited, so a tab or newline inside an
+ * undocumented upstream field would shift every later column and make the row
+ * get discarded on the next read — a silent, self-inflicted undercount.
+ * Observed values are agent slugs and hex ids, so this is expected to be a
+ * no-op; it is here because the cost of being wrong is losing rows and the
+ * cost of the guard is one `replace`.
+ */
+function tsvSafe(value: string): string {
+  return value.replace(/[\t\r\n]/g, ' ');
+}
+
 export function writeRecords(paths: BurnPaths, records: Map<string, UsageRecord>): void {
   const lines: string[] = [];
   for (const [id, r] of records) {
-    lines.push(`${id}\t${r.ts}\t${r.model}\t${r.out}\t${r.in}\t${r.cacheWrite}\t${r.cacheRead}\n`);
+    lines.push(
+      `${id}\t${r.ts}\t${r.model}\t${r.out}\t${r.in}\t${r.cacheWrite}\t${r.cacheRead}\t${tsvSafe(r.agent)}\t${tsvSafe(r.agentId)}\n`
+    );
   }
   atomicWrite(paths.usageTsv, lines.join(''));
 }
