@@ -61,6 +61,13 @@ interface TranscriptLine {
  * instead of request ids inflates every figure by roughly 3.5x. First write
  * wins: a requestId already present is skipped, which also makes the scan
  * idempotent across overlapping files.
+ *
+ * One exception, and only one: a `pre-migration` row — a row read off a
+ * 7-column store, which never carried a label at all — is upgraded to any
+ * label a later read produces. Classification never yields `pre-migration`,
+ * so this cannot fire between two ordinary reads; it exists so the migration
+ * does not pin a row to `pre-migration` forever while its transcript is still
+ * on disk. An upgrade is not an add.
  */
 /**
  * Whether a transcript path is a dispatched subagent's.
@@ -128,7 +135,24 @@ export function parseTranscript(file: string, records: Map<string, UsageRecord>)
   let added = 0;
   for (const line of text.split('\n')) {
     const parsed = toRecord(line, isSubagentFile);
-    if (!parsed || records.has(parsed.id)) continue;
+    if (!parsed) continue;
+    const existing = records.get(parsed.id);
+    if (existing) {
+      // First write wins, with exactly one exception: a row that NEVER carried
+      // a label — a `pre-migration` row read off a 7-column store — is
+      // replaced once a read produces any real label. Without it, every
+      // migrated row would stay `pre-migration` forever even though its
+      // transcript is still on disk. The rule is deliberately narrow:
+      // classification never yields `pre-migration`, so ordinary dedup across
+      // overlapping transcripts keeps first-write-wins untouched, and an
+      // `unattributed` row (a current observation, not a missing one) is never
+      // revised. An upgrade is not an add — counting it would make the record
+      // count disagree with the store it describes.
+      if (existing.agent === 'pre-migration' && parsed.record.agent !== 'pre-migration') {
+        records.set(parsed.id, parsed.record);
+      }
+      continue;
+    }
     records.set(parsed.id, parsed.record);
     added += 1;
   }

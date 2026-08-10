@@ -6,13 +6,16 @@
  * the populations that must stay separable, plus the rule that keeps a lost
  * label from ever reading as free.
  */
+import { readFileSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 
 import { afterEach, describe, expect, it } from 'vitest';
 
+import { refresh } from '../src/refresh';
 import { parseTranscript } from '../src/scan';
+import { readRecords } from '../src/store';
 import type { UsageRecord } from '../src/types';
-import { agentLine, hoursAgo, makeHud, transcriptLine, type Hud } from './helpers';
+import { DEFAULT_WEEK, agentLine, hoursAgo, makeHud, transcriptLine, type Hud } from './helpers';
 
 let hud: Hud | null = null;
 
@@ -104,5 +107,135 @@ describe('classification', () => {
     const records = new Map<string, UsageRecord>();
     parseTranscript(path.join(h.paths.projects, '-proj', 'stray.jsonl'), records);
     expect(records.get('req_5')!.agent).toBe('unattributed');
+  });
+});
+
+describe('dedup with upgrade', () => {
+  it('upgrades a pre-migration record when a later read finds the label', () => {
+    const h = newHud();
+    h.writeSubagentTranscript('agent-d.jsonl', [
+      agentLine('req_6', hoursAgo(new Date(), 1), {
+        isSidechain: true,
+        agentId: 'lane-6',
+        attributionAgent: 'harness-task-executor',
+      }),
+    ]);
+
+    const records = new Map<string, UsageRecord>([
+      [
+        'req_6',
+        {
+          ts: '2026-08-06T00:00:00Z',
+          model: 'claude-opus-5',
+          out: 1,
+          in: 0,
+          cacheWrite: 0,
+          cacheRead: 0,
+          agent: 'pre-migration',
+          agentId: '',
+        },
+      ],
+    ]);
+
+    // An upgrade is not an add: counting it would make the record count
+    // disagree with the store it describes.
+    expect(
+      parseTranscript(path.join(h.paths.projects, '-proj', SUB, 'agent-d.jsonl'), records)
+    ).toBe(0);
+    expect(records.get('req_6')!.agent).toBe('harness-task-executor');
+    expect(records.get('req_6')!.agentId).toBe('lane-6');
+  });
+
+  it('upgrades a pre-migration record to unattributed when that is all the line offers', () => {
+    // The rule is `pre-migration -> anything`, not `-> a named agent`. A
+    // legacy row that turns out to be unlabelled subagent spend must reach
+    // the bucket that drives the degradation flag, or a broken transcript
+    // shape would hide behind history.
+    const h = newHud();
+    h.writeSubagentTranscript('agent-g.jsonl', [
+      agentLine('req_9', hoursAgo(new Date(), 1), { isSidechain: true, agentId: 'lane-9' }),
+    ]);
+
+    const records = new Map<string, UsageRecord>([
+      [
+        'req_9',
+        {
+          ts: '2026-08-06T00:00:00Z',
+          model: 'claude-opus-5',
+          out: 1,
+          in: 0,
+          cacheWrite: 0,
+          cacheRead: 0,
+          agent: 'pre-migration',
+          agentId: '',
+        },
+      ],
+    ]);
+
+    parseTranscript(path.join(h.paths.projects, '-proj', SUB, 'agent-g.jsonl'), records);
+    expect(records.get('req_9')!.agent).toBe('unattributed');
+  });
+
+  it('never overwrites an unattributed record — only pre-migration is upgradable', () => {
+    // First-write-wins still holds in every direction but the one that heals.
+    // `unattributed` is a CURRENT observation, not a missing one, so it is
+    // not up for revision by a later overlapping transcript.
+    const h = newHud();
+    h.writeSubagentTranscript('agent-e.jsonl', [
+      agentLine('req_7', hoursAgo(new Date(), 1), {
+        isSidechain: true,
+        agentId: 'lane-7',
+        attributionAgent: 'harness-task-executor',
+      }),
+    ]);
+
+    const records = new Map<string, UsageRecord>([
+      [
+        'req_7',
+        {
+          ts: '2026-08-06T00:00:00Z',
+          model: 'claude-opus-5',
+          out: 1,
+          in: 0,
+          cacheWrite: 0,
+          cacheRead: 0,
+          agent: 'unattributed',
+          agentId: 'lane-7',
+        },
+      ],
+    ]);
+
+    parseTranscript(path.join(h.paths.projects, '-proj', SUB, 'agent-e.jsonl'), records);
+    expect(records.get('req_7')!.agent).toBe('unattributed');
+  });
+
+  it('heals a store migrated from the 7-column format on the first rescan', () => {
+    // End to end: the migration relabels every row whose transcript is still
+    // on disk, so nobody is pinned to `pre-migration` by a release.
+    const h = newHud();
+    h.writeConfig({ week_reset: DEFAULT_WEEK });
+    h.writeSubagentTranscript('agent-f.jsonl', [
+      agentLine('req_8', hoursAgo(new Date(), 1), {
+        isSidechain: true,
+        agentId: 'lane-8',
+        attributionAgent: 'harness-task-executor',
+      }),
+    ]);
+    refresh(h.paths);
+
+    // Rewind the store to the pre-migration shape: 7 columns, no #version.
+    const legacyRows = readFileSync(h.paths.usageTsv, 'utf8')
+      .split('\n')
+      .filter(Boolean)
+      .map((r) => r.split('\t').slice(0, 7).join('\t'));
+    writeFileSync(h.paths.usageTsv, `${legacyRows.join('\n')}\n`);
+    const legacyFingerprints = readFileSync(h.paths.filesTsv, 'utf8')
+      .split('\n')
+      .filter((l) => l && !l.startsWith('#version\t'));
+    writeFileSync(h.paths.filesTsv, `${legacyFingerprints.join('\n')}\n`);
+
+    expect(readRecords(h.paths).get('req_8')!.agent).toBe('pre-migration');
+    refresh(h.paths);
+    expect(readRecords(h.paths).get('req_8')!.agent).toBe('harness-task-executor');
   });
 });
