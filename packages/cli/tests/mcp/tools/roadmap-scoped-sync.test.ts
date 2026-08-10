@@ -419,6 +419,41 @@ describe('scoped push end to end (sharded project, stub tracker)', () => {
     }
     expect(adapter.createTicket).toHaveBeenCalledOnce();
   });
+
+  it('SC6 through the real add path: response and disk agree, no mock in between', async () => {
+    // A pass-through spy, not a stub. Every other add test replaces the link
+    // wholesale, and the test above restores the spy and then calls the push
+    // BY HAND — so nothing exercises handleAdd -> triggerScopedExternalSync ->
+    // syncRowToExternal as one path. Deleting handleAdd's `linked` stamp block,
+    // or passing it the wrong feature name, passes every other test here.
+    const adapter = stubAdapter();
+    const real = autoSync.triggerScopedExternalSync;
+    vi.spyOn(autoSync, 'triggerScopedExternalSync').mockImplementation((p, f) =>
+      real(p, f, { makeAdapter: () => adapter as never })
+    );
+
+    const res = await handleManageRoadmap({
+      path: dir,
+      action: 'add',
+      feature: 'Billing',
+      milestone: 'MVP Release',
+      status: 'planned',
+      summary: 'Billing system',
+    });
+
+    // One call, and BOTH the response body…
+    const body = JSON.parse(res.content[0].text);
+    expect(body.link).toEqual({ kind: 'linked', externalId: 'github:owner/repo#99' });
+    const added = body.milestones
+      .flatMap((m: { features: { name: string; externalId: string | null }[] }) => m.features)
+      .find((f: { name: string }) => f.name === 'Billing');
+    expect(added.externalId).toBe('github:owner/repo#99');
+
+    // …and the shard on disk carry the external id.
+    expect(snapshotShards(dir).get('billing.md')).toContain(
+      '- **External-ID:** github:owner/repo#99'
+    );
+  });
 });
 
 /** Monolith roadmap whose two rows slugify identically, so any writeback fails. */
