@@ -52,6 +52,57 @@ units = output×5 + input×1 + cache_write×1.25 + cache_read×0.1
 Cache reads dominate raw token counts but are nearly free, which is why raw tokens are a
 misleading headline and this weighting exists.
 
+## Attribution
+
+Every deduped turn carries the identity of whoever spent it, so the week can be read
+by agent and not only by model.
+
+| Label           | What it means                                                                                                |
+| --------------- | ------------------------------------------------------------------------------------------------------------ |
+| `main`          | Your own thread. Carries no lane id, so it reports zero lanes.                                               |
+| `<agent type>`  | A dispatched subagent, named by its `attributionAgent` (e.g. `harness-task-executor`).                       |
+| `unattributed`  | **Subagent** spend whose identity could not be read. Counted, never dropped, never folded into `main`.       |
+| `pre-migration` | A row written before this feature existed. Provenance unknown; upgraded to a real label on the first rescan. |
+
+`unattributed` is a real bucket, not an error state. A subagent's identity fields are
+undocumented Claude Code internals, so a Claude Code release can stop them being
+readable at any time — and a CLI update must not be able to report a fleet run as free.
+When subagent spend exists in the current week and _none_ of it carries a readable
+label, the summary sets `attribution.degraded` and the report says so in a headline:
+"no fleet ran" and "the scanner stopped working" are indistinguishable from the numbers
+alone. In the report the `unattributed` row is exempt from the top-N cut and the unit
+floor that elide other labels — a bucket that can vanish cannot do its job.
+
+The degradation flag detects labels that went **missing**, not labels that are **wrong**.
+Classification trusts `attributionAgent` unconditionally: a line carrying one is filed under
+that agent whether or not anything else marks it as subagent spend. That holds because
+main-thread turns are not observed to carry the field — they carry `attributionSkill` /
+`attributionPlugin` / `attributionMcpServer` instead — but that is an observation about
+undocumented internals, not a contract. If a Claude Code release began stamping
+`attributionAgent` on main-thread turns, that spend would be silently reattributed: `main`
+would shrink, a lane-less agent bucket would grow, and `attribution.degraded` would stay
+false throughout. This gap is accepted rather than guarded, because requiring a
+corroborating signal before believing a label would suppress real attribution the moment
+either of the other two signals moved — trading a plausible failure for a likelier one. The
+symptom to watch for is a `main` bucket that collapses without a matching rise in lane
+counts.
+
+`pre-migration` is deliberately its own label rather than a shade of `unattributed`.
+Most legacy rows are main-thread spend, so calling them unattributed would be a false
+claim about history _and_ would fire the degradation alarm on the first upgraded scan.
+They are excluded from the degradation test in both directions: they cannot raise it,
+and they cannot suppress it.
+
+A `lane` is one dispatch, counted as a distinct `agentId`. `attribution.lanes` is the
+union across labels, so a lane seen under two labels mid-migration counts once — it is
+not the sum of the per-label counts. Attribution is **retrospective**: it reads
+transcripts a subagent has already written, so it can measure spend but can never
+reserve it before a dispatch happens.
+
+A `burn` older than this change reading a 9-column store discards every row. That is
+accepted rather than mitigated: the integrity gate then re-reads every transcript, and
+this store is a rolling local cache reconstructible from source, not a system of record.
+
 ## Design rules
 
 These come from the "check the denominator" habit: a green readout must never be
@@ -91,15 +142,17 @@ pnpm --filter @harness-engineering/burn test
 Every test in `scan.test.ts`, `statusline.test.ts`, `budgets-models.test.ts` and
 `concurrency.test.ts` corresponds to a defect that actually shipped:
 
-| Group            | Guards against                                                  |
-| ---------------- | --------------------------------------------------------------- |
-| week anchor      | the Monday-UTC assumption that understated a 97% week by ~81×   |
-| data loss        | the write race that silently dropped 85% of the record store    |
-| dedupe           | repeated usage blocks inflating every figure ~3.5×              |
-| abstention       | a zero or thin denominator reading as a pass                    |
-| concurrency      | partial rows and header/store disagreement under parallel scans |
-| budgets & models | a spent per-family limit hiding behind a healthy pooled bar     |
-| bin startup      | the CLI module graph creeping onto the statusline hot path      |
+| Group            | Guards against                                                                 |
+| ---------------- | ------------------------------------------------------------------------------ |
+| week anchor      | the Monday-UTC assumption that understated a 97% week by ~81×                  |
+| data loss        | the write race that silently dropped 85% of the record store                   |
+| dedupe           | repeated usage blocks inflating every figure ~3.5×                             |
+| abstention       | a zero or thin denominator reading as a pass                                   |
+| concurrency      | partial rows and header/store disagreement under parallel scans                |
+| budgets & models | a spent per-family limit hiding behind a healthy pooled bar                    |
+| attribution      | subagent spend reading as zero, or collapsing into the main thread             |
+| migration        | a store widening discarding every legacy row, or pinning it to the wrong label |
+| bin startup      | the CLI module graph creeping onto the statusline hot path                     |
 
 Locking and atomic writes are exercised in real subprocesses, since neither means
 anything within a single process.

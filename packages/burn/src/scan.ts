@@ -5,6 +5,7 @@ import type { BurnPaths } from './config';
 import {
   readFingerprints,
   readRecords,
+  STORE_VERSION,
   withScanLock,
   writeFingerprints,
   writeRecords,
@@ -36,6 +37,12 @@ function listTranscripts(root: string): string[] {
 interface TranscriptLine {
   requestId?: string;
   timestamp?: string;
+  /** Claude Code marks a dispatched subagent's turn with this flag. */
+  isSidechain?: boolean;
+  /** The individual dispatch this turn belonged to — one fleet lane. */
+  agentId?: string;
+  /** The agent TYPE, e.g. `harness-task-executor`. */
+  attributionAgent?: string;
   message?: {
     model?: string;
     usage?: {
@@ -48,15 +55,22 @@ interface TranscriptLine {
 }
 
 /**
- * Fold one transcript into `records`, keyed by requestId.
+ * Whether a transcript path is a dispatched subagent's.
  *
- * Transcripts repeat the same usage block ~3x per request, so counting rows
- * instead of request ids inflates every figure by roughly 3.5x. First write
- * wins: a requestId already present is skipped, which also makes the scan
- * idempotent across overlapping files.
+ * Two independent signals classify subagent spend — this path check and the
+ * line's own `isSidechain` flag — because both are undocumented Claude Code
+ * internals. Either one alone keeps classification working if the other
+ * moves; both must change at once before attribution degrades.
  */
+export function isSubagentPath(file: string): boolean {
+  return path.normalize(file).split(path.sep).includes('subagents');
+}
+
 /** One transcript line -> a record, or null when the line is not a usage turn. */
-function toRecord(line: string): { id: string; record: UsageRecord } | null {
+function toRecord(
+  line: string,
+  isSubagentFile: boolean
+): { id: string; record: UsageRecord } | null {
   // Cheap prefilter: most lines are not assistant turns.
   if (!line.includes('"usage"')) return null;
 
@@ -71,6 +85,19 @@ function toRecord(line: string): { id: string; record: UsageRecord } | null {
   const usage = obj.message?.usage;
   if (!id || !usage || typeof usage !== 'object') return null;
 
+  const named = typeof obj.attributionAgent === 'string' ? obj.attributionAgent.trim() : '';
+  // Type-guarded for the same reason `attributionAgent` is. These are
+  // undocumented Claude Code internals, so a release may change the TYPE of a
+  // field as easily as its name — and the store writer sanitises this column
+  // with `String.replace`, which throws on a non-string and aborts the entire
+  // scan. A shape change must degrade to a missing lane id, never to a scan
+  // that cannot complete.
+  const lane = typeof obj.agentId === 'string' ? obj.agentId : '';
+  const isSubagent = obj.isSidechain === true || isSubagentFile;
+  // A missing label must never collapse into `main` — that would understate
+  // the lanes and overstate the human.
+  const agent = named !== '' ? named : isSubagent ? 'unattributed' : 'main';
+
   return {
     id,
     record: {
@@ -80,10 +107,27 @@ function toRecord(line: string): { id: string; record: UsageRecord } | null {
       in: Number(usage.input_tokens) || 0,
       cacheWrite: Number(usage.cache_creation_input_tokens) || 0,
       cacheRead: Number(usage.cache_read_input_tokens) || 0,
+      agent,
+      agentId: agent === 'main' ? '' : lane,
     },
   };
 }
 
+/**
+ * Fold one transcript into `records`, keyed by requestId.
+ *
+ * Transcripts repeat the same usage block ~3x per request, so counting rows
+ * instead of request ids inflates every figure by roughly 3.5x. First write
+ * wins: a requestId already present is skipped, which also makes the scan
+ * idempotent across overlapping files.
+ *
+ * One exception, and only one: a `pre-migration` row — a row read off a
+ * 7-column store, which never carried a label at all — is upgraded to any
+ * label a later read produces. Classification never yields `pre-migration`,
+ * so this cannot fire between two ordinary reads; it exists so the migration
+ * does not pin a row to `pre-migration` forever while its transcript is still
+ * on disk. An upgrade is not an add.
+ */
 export function parseTranscript(file: string, records: Map<string, UsageRecord>): number {
   let text: string;
   try {
@@ -92,10 +136,30 @@ export function parseTranscript(file: string, records: Map<string, UsageRecord>)
     return 0;
   }
 
+  // Once per file, not once per line: the path does not change mid-file.
+  const isSubagentFile = isSubagentPath(file);
+
   let added = 0;
   for (const line of text.split('\n')) {
-    const parsed = toRecord(line);
-    if (!parsed || records.has(parsed.id)) continue;
+    const parsed = toRecord(line, isSubagentFile);
+    if (!parsed) continue;
+    const existing = records.get(parsed.id);
+    if (existing) {
+      // First write wins, with exactly one exception: a row that NEVER carried
+      // a label — a `pre-migration` row read off a 7-column store — is
+      // replaced once a read produces any real label. Without it, every
+      // migrated row would stay `pre-migration` forever even though its
+      // transcript is still on disk. The rule is deliberately narrow:
+      // classification never yields `pre-migration`, so ordinary dedup across
+      // overlapping transcripts keeps first-write-wins untouched, and an
+      // `unattributed` row (a current observation, not a missing one) is never
+      // revised. An upgrade is not an add — counting it would make the record
+      // count disagree with the store it describes.
+      if (existing.agent === 'pre-migration' && parsed.record.agent !== 'pre-migration') {
+        records.set(parsed.id, parsed.record);
+      }
+      continue;
+    }
     records.set(parsed.id, parsed.record);
     added += 1;
   }
@@ -124,7 +188,7 @@ export function scan(paths: BurnPaths): ScanInfo {
       };
     }
 
-    let { fingerprints, expected } = readFingerprints(paths);
+    let { fingerprints, expected, version } = readFingerprints(paths);
     const records = readRecords(paths);
 
     // Integrity gate. If the store holds materially fewer records than the
@@ -136,6 +200,11 @@ export function scan(paths: BurnPaths): ScanInfo {
       lost = expected - records.size;
       fingerprints = new Map();
     }
+
+    // A store written before the current format cannot be trusted to carry
+    // the columns this code reads, so its fingerprints are dropped the same
+    // way a failed integrity gate drops them: re-read every transcript.
+    if (version === null || version < STORE_VERSION) fingerprints = new Map();
 
     const seen = new Map<string, string>();
     let rescanned = 0;

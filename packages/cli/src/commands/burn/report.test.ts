@@ -244,3 +244,146 @@ describe('weekday parsing', () => {
     expect(parseWeekday('someday')).toBeNull();
   });
 });
+
+describe('report — by agent', () => {
+  const agents = {
+    main: { requests: 100, units: 41_200_000, pct_of_week: 58, lanes: 0 },
+    'harness-task-executor': { requests: 60, units: 18_900_000, pct_of_week: 27, lanes: 6 },
+    unattributed: { requests: 8, units: 1_400_000, pct_of_week: 2, lanes: 3 },
+  };
+  const attribution = {
+    attributed_units: 18_900_000,
+    main_units: 41_200_000,
+    unattributed_units: 1_400_000,
+    pre_migration_units: 0,
+    lanes: 9,
+    degraded: false,
+  };
+
+  it('lists the week by agent, with lane counts for dispatched work', () => {
+    const out = render({ agents, attribution });
+    expect(out).toContain('by agent');
+    expect(out).toContain('harness-task-executor');
+    expect(out).toContain('18.9M');
+    expect(out).toContain('27% of week, 6 lanes');
+  });
+
+  it('does not claim lanes for the main thread', () => {
+    const out = render({ agents, attribution });
+    expect(out).not.toContain('58% of week, 0 lanes');
+  });
+
+  it('reads a summary written before attribution existed without a section or a throw', () => {
+    // Same tolerance `modelsSection` already has for a summary written
+    // before per-model rollup: an older file must still render.
+    expect(() => render()).not.toThrow();
+    expect(render()).not.toContain('by agent');
+  });
+
+  it('omits an ordinary agent below the noise floor', () => {
+    const out = render({
+      agents: { 'claude-tiny-agent': { requests: 1, units: 12, pct_of_week: 0, lanes: 1 } },
+    });
+    expect(out).not.toContain('tiny-agent');
+  });
+
+  it('cautions, in units, about subagent spend it could not attribute', () => {
+    // A fleet run must never be readable as free.
+    const out = render({ agents, attribution });
+    expect(out).toContain('1.4M units of subagent spend could not be attributed');
+  });
+});
+
+describe('report — unattributed is never elided', () => {
+  // The two elisions `modelsSection` applies (top-6 slice, 1000-unit floor)
+  // are exactly how a small or low-ranked unattributed bucket would vanish,
+  // which is the "a fleet run reads as free" failure this section exists to
+  // prevent. `pre-migration` is history, not a live signal, so it keeps them.
+  function withUnattributed(units: number, extra: Record<string, unknown> = {}) {
+    return {
+      agents: {
+        ...extra,
+        unattributed: { requests: 1, units, pct_of_week: 0, lanes: 1 },
+      },
+      attribution: {
+        attributed_units: 0,
+        main_units: 0,
+        unattributed_units: units,
+        pre_migration_units: 0,
+        lanes: 1,
+        degraded: false,
+      },
+    };
+  }
+
+  it('renders an unattributed row below the unit floor that hides other labels', () => {
+    const out = render(withUnattributed(12));
+    expect(out).toContain('unattributed');
+    expect(out).toContain('could not be attributed');
+  });
+
+  it('renders an unattributed row ranked below the top-N cut', () => {
+    const ranked = Object.fromEntries(
+      Array.from({ length: 8 }, (_, i) => [
+        `agent-${i}`,
+        { requests: 1, units: 9_000_000 - i, pct_of_week: 10, lanes: 1 },
+      ])
+    );
+    const out = render(withUnattributed(1_400_000, ranked));
+    expect(out).toContain('unattributed');
+    // ...and the ordinary cut still applies to everything else.
+    expect(out).not.toContain('agent-7');
+  });
+
+  it('still applies the cut and the floor to pre-migration', () => {
+    const out = render({
+      agents: { 'pre-migration': { requests: 1, units: 12, pct_of_week: 0, lanes: 0 } },
+    });
+    expect(out).not.toContain('pre-migration');
+  });
+});
+
+describe('report — degraded attribution', () => {
+  const degradedAgents = {
+    main: { requests: 100, units: 41_200_000, pct_of_week: 97, lanes: 0 },
+    unattributed: { requests: 8, units: 1_400_000, pct_of_week: 3, lanes: 3 },
+  };
+
+  it('escalates a fully degraded attribution to a headline naming the cause', () => {
+    // Degraded tooling is a headline, not a footnote: "0 subagent units"
+    // and "attribution stopped working" look identical from the outside.
+    const out = render({
+      agents: degradedAgents,
+      attribution: {
+        attributed_units: 0,
+        main_units: 41_200_000,
+        unattributed_units: 1_400_000,
+        pre_migration_units: 0,
+        lanes: 3,
+        degraded: true,
+      },
+    });
+    expect(out).toContain('ATTRIBUTION IS DEGRADED');
+    expect(out).toContain('transcript');
+    expect(out).not.toContain('could not be attributed to an agent.');
+  });
+
+  it('keeps the softer caution when only some spend is unattributed', () => {
+    const out = render({
+      agents: {
+        ...degradedAgents,
+        'harness-task-executor': { requests: 6, units: 5_000_000, pct_of_week: 10, lanes: 2 },
+      },
+      attribution: {
+        attributed_units: 5_000_000,
+        main_units: 41_200_000,
+        unattributed_units: 1_400_000,
+        pre_migration_units: 0,
+        lanes: 5,
+        degraded: false,
+      },
+    });
+    expect(out).not.toContain('ATTRIBUTION IS DEGRADED');
+    expect(out).toContain('could not be attributed to an agent.');
+  });
+});

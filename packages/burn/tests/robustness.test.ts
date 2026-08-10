@@ -116,6 +116,8 @@ describe('transcript parsing', () => {
       in: 0,
       cacheWrite: 0,
       cacheRead: 0,
+      agent: 'main',
+      agentId: '',
     });
   });
 

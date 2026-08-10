@@ -129,11 +129,24 @@ export function withScanLock<T>(
   }
 }
 
+/**
+ * On-disk record format version.
+ *
+ * Bump it whenever the column count changes. A fingerprint written under an
+ * older version asserts "already scanned" over rows that cannot carry the
+ * new columns, which would pin the whole store to its migration default
+ * forever. Dropping those fingerprints makes the migration a stated event
+ * — one full rescan — rather than a silent, permanent mislabelling.
+ */
+export const STORE_VERSION = 2;
+
 export interface Fingerprints {
   /** absolute transcript path -> [mtime seconds, size bytes] */
   fingerprints: Map<string, string>;
   /** Record count asserted by the header, or null when absent. */
   expected: number | null;
+  /** Format version asserted by the header, or null when absent (pre-migration). */
+  version: number | null;
 }
 
 /**
@@ -147,7 +160,8 @@ export interface Fingerprints {
 export function readFingerprints(paths: BurnPaths): Fingerprints {
   const fingerprints = new Map<string, string>();
   let expected: number | null = null;
-  if (!existsSync(paths.filesTsv)) return { fingerprints, expected };
+  let version: number | null = null;
+  if (!existsSync(paths.filesTsv)) return { fingerprints, expected, version };
 
   for (const line of readFileSync(paths.filesTsv, 'utf8').split('\n')) {
     if (!line) continue;
@@ -156,10 +170,15 @@ export function readFingerprints(paths: BurnPaths): Fingerprints {
       if (Number.isFinite(n)) expected = n;
       continue;
     }
+    if (line.startsWith('#version\t')) {
+      const n = Number(line.split('\t')[1]);
+      if (Number.isFinite(n)) version = n;
+      continue;
+    }
     const parts = line.split('\t');
     if (parts.length === 3) fingerprints.set(parts[0]!, `${parts[1]}\t${parts[2]}`);
   }
-  return { fingerprints, expected };
+  return { fingerprints, expected, version };
 }
 
 export function writeFingerprints(
@@ -167,12 +186,53 @@ export function writeFingerprints(
   seen: Map<string, string>,
   recordCount: number
 ): void {
-  const lines = [`#count\t${recordCount}\n`];
+  // Count first: the count/fingerprint pairing is what detects a gutted
+  // store, and `scan.test.ts` pins it to the first line.
+  const lines = [`#count\t${recordCount}\n`, `#version\t${STORE_VERSION}\n`];
   for (const [file, sig] of seen) lines.push(`${file}\t${sig}\n`);
   atomicWrite(paths.filesTsv, lines.join(''));
 }
 
-/** requestId -> record. Rows that do not have all seven fields are discarded. */
+/** A tab-delimited numeric column, defaulting a missing or unparseable one to 0. */
+function num(field: string | undefined): number {
+  return Number(field) || 0;
+}
+
+/**
+ * One `usage.tsv` row -> a record, or null when the field count is a torn write.
+ *
+ * A 7-field row predates attribution and is loaded as `pre-migration` rather
+ * than discarded: discarding would delete the entire pre-migration store.
+ * Nine or more fields carry the label and the lane id, and anything past the
+ * ninth is ignored.
+ *
+ * Exactly 8 fields is rejected on purpose, and that is what bounds the forward
+ * tolerance here. A 7-column row with one trailing tab splits into 8 fields
+ * and is indistinguishable from a genuine 8-column row, so 8 has to stay a
+ * torn-write sentinel. The consequence is worth stating plainly: accepting
+ * `>= 9` means a future addition of TWO OR MORE columns survives a reader that
+ * predates it, but an addition of exactly one does not. A single-column
+ * widening would need its own version bump rather than relying on this.
+ */
+function toStoredRecord(p: string[]): UsageRecord | null {
+  const wide = p.length >= 9;
+  if (p.length !== 7 && !wide) return null;
+
+  return {
+    ts: p[1]!,
+    model: p[2]!,
+    out: num(p[3]),
+    in: num(p[4]),
+    cacheWrite: num(p[5]),
+    cacheRead: num(p[6]),
+    // Never empty. A row of unknown provenance is `pre-migration`, not
+    // `unattributed` — the latter is subagent spend and drives degradation.
+    agent: (wide ? p[7]! : '') || 'pre-migration',
+    agentId: wide ? p[8]! : '',
+  };
+}
+
+/** requestId -> record. Rows whose field count is a torn write are discarded. */
 export function readRecords(paths: BurnPaths): Map<string, UsageRecord> {
   const records = new Map<string, UsageRecord>();
   if (!existsSync(paths.usageTsv)) return records;
@@ -180,23 +240,30 @@ export function readRecords(paths: BurnPaths): Map<string, UsageRecord> {
   for (const line of readFileSync(paths.usageTsv, 'utf8').split('\n')) {
     if (!line) continue;
     const p = line.split('\t');
-    if (p.length !== 7) continue;
-    records.set(p[0]!, {
-      ts: p[1]!,
-      model: p[2]!,
-      out: Number(p[3]) || 0,
-      in: Number(p[4]) || 0,
-      cacheWrite: Number(p[5]) || 0,
-      cacheRead: Number(p[6]) || 0,
-    });
+    const record = toStoredRecord(p);
+    if (record) records.set(p[0]!, record);
   }
   return records;
+}
+
+/**
+ * `usage.tsv` is positional and tab-delimited, so a tab or newline inside an
+ * undocumented upstream field would shift every later column and make the row
+ * get discarded on the next read — a silent, self-inflicted undercount.
+ * Observed values are agent slugs and hex ids, so this is expected to be a
+ * no-op; it is here because the cost of being wrong is losing rows and the
+ * cost of the guard is one `replace`.
+ */
+function tsvSafe(value: string): string {
+  return value.replace(/[\t\r\n]/g, ' ');
 }
 
 export function writeRecords(paths: BurnPaths, records: Map<string, UsageRecord>): void {
   const lines: string[] = [];
   for (const [id, r] of records) {
-    lines.push(`${id}\t${r.ts}\t${r.model}\t${r.out}\t${r.in}\t${r.cacheWrite}\t${r.cacheRead}\n`);
+    lines.push(
+      `${id}\t${r.ts}\t${r.model}\t${r.out}\t${r.in}\t${r.cacheWrite}\t${r.cacheRead}\t${tsvSafe(r.agent)}\t${tsvSafe(r.agentId)}\n`
+    );
   }
   atomicWrite(paths.usageTsv, lines.join(''));
 }

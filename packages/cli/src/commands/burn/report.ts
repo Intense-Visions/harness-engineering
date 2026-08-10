@@ -1,4 +1,11 @@
-import { human, readSummary, refresh, resolvePaths, type Summary } from '@harness-engineering/burn';
+import {
+  human,
+  readSummary,
+  refresh,
+  resolvePaths,
+  type AgentBlock,
+  type Summary,
+} from '@harness-engineering/burn';
 import chalk from 'chalk';
 import { Command } from 'commander';
 
@@ -145,6 +152,83 @@ function modelsSection(s: Summary): string[] {
   return out;
 }
 
+/**
+ * Which labels earn a line.
+ *
+ * `unattributed` is exempt from the top-N cut and the unit floor. Applying
+ * either would let a small — or merely seventh-ranked — unattributed bucket
+ * vanish, which is precisely the "a fleet run reads as free" failure this
+ * section exists to prevent. `pre-migration` takes the ordinary cut and
+ * floor: it is history, not a live signal.
+ */
+function keptAgentLabels(s: Summary, all: [string, AgentBlock][]): Set<string> {
+  const kept = new Set(
+    all
+      .filter(([name]) => name !== 'unattributed')
+      .slice(0, 6)
+      .filter(([, e]) => e.units >= 1000)
+      .map(([name]) => name)
+  );
+  if ((s.agents?.unattributed?.units ?? 0) > 0) kept.add('unattributed');
+  return kept;
+}
+
+/** What the section says about spend it could not attribute. */
+function attributionCaution(s: Summary): string[] {
+  const out: string[] = [];
+  const unattributed = s.attribution?.unattributed_units ?? 0;
+  if (s.attribution?.degraded) {
+    // Every subagent unit this week lost its label. That is a broken scanner,
+    // not a quiet week, and the two are indistinguishable from the numbers.
+    out.push(
+      '',
+      chalk.red('  ⚠ ATTRIBUTION IS DEGRADED — subagent spend was seen this week and none of'),
+      chalk.red('    it carried a readable agent label. The transcript shape has most likely'),
+      chalk.red('    changed; read the breakdown above as unavailable, not as zero.')
+    );
+  } else if (unattributed > 0) {
+    out.push(
+      '',
+      chalk.yellow(
+        `  ⚠ ${human(unattributed)} units of subagent spend could not be attributed to an agent.`
+      )
+    );
+  }
+  return out;
+}
+
+/**
+ * Per-agent. The pooled bar cannot tell you that a fleet run, not you, spent
+ * the week — this is where a lane's cost becomes visible.
+ *
+ * Guarded exactly like `modelsSection`: a summary written before attribution
+ * existed carries no `agents` key and must render without throwing. It
+ * borrows that function's cosmetics but NOT its two elisions for the
+ * `unattributed` row — see `keptAgentLabels`.
+ */
+function agentsSection(s: Summary): string[] {
+  const all = Object.entries(s.agents ?? {});
+  if (all.length === 0) return [];
+
+  const kept = keptAgentLabels(s, all);
+
+  const out = ['', `  ${chalk.bold('by agent')}`];
+  // Iterate `all`, which summary.ts already sorted by units descending, so an
+  // exempt row keeps its true rank rather than being appended at the bottom.
+  for (const [name, e] of all) {
+    if (!kept.has(name)) continue;
+    const lanes = e.lanes > 0 ? `, ${e.lanes} lane${e.lanes === 1 ? '' : 's'}` : '';
+    out.push(
+      `  ${pad(name)}${human(e.units).padStart(8)} ${chalk.dim(
+        `(${Math.round(e.pct_of_week)}% of week${lanes})`
+      )}`
+    );
+  }
+
+  out.push(...attributionCaution(s));
+  return out;
+}
+
 function sessionSection(s: Summary): string[] {
   if (s.session?.pct_used == null) return [];
   return [
@@ -221,6 +305,7 @@ export function renderReport(s: Summary): string[] {
     ...spendSection(s),
     ...budgetSection(s, tz),
     ...modelsSection(s),
+    ...agentsSection(s),
     ...sessionSection(s),
     ...calibrationSection(s),
     ...dataLossSection(s),
