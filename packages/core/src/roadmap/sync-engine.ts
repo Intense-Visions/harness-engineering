@@ -272,13 +272,20 @@ function applyTicketToFeature(
   // Guard: external "open" → "planned" must not override manually-set "blocked".
   if (!forceSync && feature.status === 'blocked' && newStatus === 'planned') return;
 
-  // When inbound sync moves a machine-claimed row away from in-progress, route
-  // through setStatus() so the assignee auto-clears and an `unassigned` history
-  // entry is recorded — keeping `assignee ≠ null ⟺ in-progress` (RMH005). For a
-  // human/null assignee the bare status write is fine (the assignee block above
-  // already reconciled the assignee from external).
+  // When inbound sync moves an ASSIGNED row away from in-progress, route
+  // through setStatus() so the assignee is released through the lifecycle
+  // authority and an `unassigned` history entry is recorded — keeping
+  // `assignee ≠ null ⟺ in-progress` (RMH005, an error-severity health rule).
+  //
+  // The condition is deliberately ANY non-null assignee, not just a machine
+  // claim. The bare status write below used to be safe because the assignee
+  // block above always reconciled the assignee from external first; the
+  // tracker-silence guard removed that precondition, so a human-assigned row
+  // whose ticket closes would otherwise land `done` while still assigned.
+  // `feature.assignee` is read AFTER the assignee block, so this sees the
+  // post-reconcile value.
   const date = new Date().toISOString().slice(0, 10);
-  if (localMachineClaim && newStatus !== 'in-progress') {
+  if (feature.assignee !== null && newStatus !== 'in-progress') {
     setStatus(roadmap, feature, newStatus, date);
     return;
   }

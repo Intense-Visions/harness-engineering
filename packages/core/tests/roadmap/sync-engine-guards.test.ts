@@ -17,6 +17,7 @@ import type {
 } from '@harness-engineering/types';
 import { Ok } from '@harness-engineering/types';
 import { serializeRoadmap } from '../../src/roadmap/serialize';
+import { assigneeInvariantHolds } from '../../src/roadmap/assignee-lifecycle';
 
 /**
  * CI-safety guards on the roadmap↔tracker sync.
@@ -462,5 +463,56 @@ describe('applyTicketToFeature() — tracker silence is not tracker opinion (ass
 
     expect(unassigned.assignee).toBe('@bob');
     expect(result.suppressedInbound).toEqual([]);
+  });
+});
+
+describe('applyTicketToFeature() — RMH005 holds after an inbound move off in-progress', () => {
+  it('releases a HUMAN assignee through setStatus when the ticket closes', async () => {
+    const feature = makeFeature({
+      name: 'Owned Row',
+      status: 'in-progress',
+      assignee: '@alice',
+      externalId: 'github:owner/repo#1',
+    });
+    const roadmap = makeRoadmap([feature]);
+    const adapter = mockAdapter({
+      fetchAllTickets: vi.fn(async () =>
+        Ok([
+          ticket({
+            title: 'Owned Row',
+            status: 'closed',
+            assignee: null,
+            labels: ['harness-managed'],
+          }),
+        ])
+      ),
+    });
+
+    await syncFromExternal(roadmap, adapter, CONFIG);
+
+    expect(feature.status).toBe('done');
+    expect(feature.assignee).toBeNull();
+    expect(assigneeInvariantHolds(feature)).toBe(true);
+    expect(roadmap.assignmentHistory.length).toBeGreaterThan(0);
+  });
+
+  it('still releases a MACHINE claim (pre-existing behaviour preserved)', async () => {
+    const feature = makeFeature({
+      name: 'Owned Row',
+      status: 'in-progress',
+      assignee: 'orchestrator-1234abcd',
+      externalId: 'github:owner/repo#1',
+    });
+    const roadmap = makeRoadmap([feature]);
+    const adapter = mockAdapter({
+      fetchAllTickets: vi.fn(async () =>
+        Ok([ticket({ title: 'Owned Row', status: 'closed', labels: ['harness-managed'] })])
+      ),
+    });
+
+    await syncFromExternal(roadmap, adapter, CONFIG);
+
+    expect(feature.status).toBe('done');
+    expect(assigneeInvariantHolds(feature)).toBe(true);
   });
 });
