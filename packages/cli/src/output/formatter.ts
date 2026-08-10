@@ -34,6 +34,24 @@ interface ValidationIssue {
 }
 
 /**
+ * A check that could not run — its input existed but could not be consumed.
+ *
+ * Distinct from an issue: an issue says something is wrong with the project, an
+ * unavailable check says the report itself is incomplete. Rendering them together
+ * would let a check that abstained read as a check that passed.
+ */
+interface UnavailableCheckSummary {
+  /** The check that abstained. */
+  check: string;
+  /** The input it could not consume, when file-scoped. */
+  file?: string;
+  /** Why it could not run. */
+  reason: string;
+  /** What the operator should do about it (VERBOSE mode only). */
+  suggestion?: string;
+}
+
+/**
  * The result of a validation operation.
  */
 interface ValidationResult {
@@ -41,6 +59,11 @@ interface ValidationResult {
   valid: boolean;
   /** A list of issues found during validation */
   issues: ValidationIssue[];
+  /**
+   * Checks that could not run. Optional: callers that have no notion of
+   * abstention omit it and get byte-identical output to before this field existed.
+   */
+  unavailableChecks?: UnavailableCheckSummary[];
   /** Optional count of modules analyzed, surfaced in JSON output (#1188). */
   modulesAnalyzed?: number;
   /** Optional count of layers configured, surfaced in JSON output (#1188). */
@@ -58,6 +81,20 @@ function appendIssueLines(lines: string[], issue: ValidationIssue, mode: OutputM
   lines.push(`    ${issue.message}`);
   if (issue.suggestion && mode === OutputMode.VERBOSE) {
     lines.push(`    ${chalk.dim('->')} ${issue.suggestion}`);
+  }
+}
+
+/** Append the formatted lines for a single check that could not run. */
+function appendUnavailableCheckLines(
+  lines: string[],
+  entry: UnavailableCheckSummary,
+  mode: OutputModeType
+): void {
+  const label = entry.file ? `${entry.check} (${entry.file})` : entry.check;
+  lines.push(`  ${chalk.yellow('*')} ${chalk.dim(label)}`);
+  lines.push(`    ${entry.reason}`);
+  if (entry.suggestion && mode === OutputMode.VERBOSE) {
+    lines.push(`    ${chalk.dim('->')} ${entry.suggestion}`);
   }
 }
 
@@ -96,14 +133,63 @@ export class OutputFormatter {
       return JSON.stringify(result, null, 2);
     }
 
+    // A run with an unavailable check is neither "passed" nor "failed" — it is
+    // INCOMPLETE, and must never render as either. When the list is absent or
+    // empty (every caller that predates the field), output is unchanged.
+    const unavailable = result.unavailableChecks ?? [];
+
     if (this.mode === OutputMode.QUIET) {
-      if (result.valid) return '';
-      return result.issues.map((i) => `${i.file ?? ''}: ${i.message}`).join('\n');
+      // Prefixed so a script parsing --quiet can tell "could not run" from
+      // "failed" — the same conflation this change removes everywhere else.
+      const abstentionLines = unavailable.map(
+        (u) => `[unavailable] ${u.file ?? u.check}: ${u.reason}`
+      );
+      if (result.valid && abstentionLines.length === 0) return '';
+      return [
+        ...abstentionLines,
+        ...result.issues.map((i) => `${i.file ?? ''}: ${i.message}`),
+      ].join('\n');
     }
 
     const lines: string[] = [];
 
-    if (result.valid) {
+    if (unavailable.length > 0) {
+      const plural = unavailable.length === 1 ? 'check' : 'checks';
+      lines.push(
+        chalk.yellow(`! Validation incomplete (${unavailable.length} ${plural} could not run)`)
+      );
+      lines.push('');
+      lines.push('  Checks that could not run:');
+      for (const entry of unavailable) {
+        appendUnavailableCheckLines(lines, entry, this.mode);
+      }
+      lines.push('');
+      lines.push(
+        chalk.dim('  A check that could not run is not a check that passed — this report is')
+      );
+      lines.push(chalk.dim('  incomplete.'));
+      if (result.issues.length > 0) {
+        // Findings from checks that DID run are still reported in full — but the
+        // headline must match the verdict. Warnings never flip `valid`, so an
+        // advisory-only run alongside an abstention is not a failure and must not
+        // be labelled one; the abstention alone is what makes the run non-green.
+        lines.push('');
+        lines.push(
+          result.valid
+            ? chalk.yellow(`! ${result.issues.length} advisory finding(s) from checks that did run`)
+            : chalk.red(`x Validation failed (${result.issues.length} issues)`)
+        );
+        lines.push('');
+        for (const issue of result.issues) {
+          appendIssueLines(lines, issue, this.mode);
+        }
+      } else if (!result.valid) {
+        // A failing check that pushed no issue (e.g. --agent-configs) still needs
+        // a failure signal; the incomplete headline alone would not carry it.
+        lines.push('');
+        lines.push(chalk.red('x Validation failed'));
+      }
+    } else if (result.valid) {
       lines.push(chalk.green('v validation passed'));
     } else {
       lines.push(chalk.red(`x Validation failed (${result.issues.length} issues)`));

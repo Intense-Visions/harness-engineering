@@ -23,7 +23,7 @@ import { execFileSync } from 'node:child_process';
 import { resolveConfig } from '../config/loader';
 import { OutputFormatter, OutputMode, type OutputModeType } from '../output/formatter';
 import { logger } from '../output/logger';
-import { CLIError, ExitCode } from '../utils/errors';
+import { CLIError, ExitCode, type ExitCodeType } from '../utils/errors';
 import { runAudit as runComponentAnatomyAudit } from '../mcp/tools/audit-anatomy';
 import { runDetectDrift } from '../mcp/tools/detect-drift';
 import { runAuditBrand } from '../mcp/tools/audit-brand';
@@ -56,8 +56,35 @@ interface ValidateOptions {
   severity?: ValidateSeverity;
 }
 
+/**
+ * One check that could not run.
+ *
+ * A check whose input exists but cannot be consumed has ABSTAINED — it neither
+ * passed nor failed, and reporting it as either is a lie. Abstentions are kept in
+ * their own ledger rather than in {@link ValidateResult.issues} for two reasons:
+ * an abstention is a fact about the REPORT's completeness rather than a finding
+ * about the project's health, and `--severity` filters `issues` (then recomputes
+ * `valid` from what survives), so an abstention living there could be filtered
+ * away — reintroducing the very false green this ledger exists to prevent.
+ */
+interface UnavailableCheck {
+  /** The check that abstained. Matches a key of {@link ValidateResult.checks}. */
+  check: string;
+  /** The input the check could not consume, when the check is file-scoped. */
+  file?: string;
+  /** Why it could not run. Carries the underlying error message verbatim. */
+  reason: string;
+  /** What the operator should do about it. */
+  suggestion?: string;
+}
+
 interface ValidateResult {
   valid: boolean;
+  /**
+   * False when at least one check could not run. `valid` alone is not
+   * trustworthy while this is false — the run has an incomplete denominator.
+   */
+  complete: boolean;
   checks: {
     agentsMap: boolean;
     fileStructure: boolean;
@@ -83,6 +110,11 @@ interface ValidateResult {
     message: string;
     suggestion?: string;
   }>;
+  /**
+   * Checks that could not run. Always present; empty on a complete run. Never
+   * touched by `--severity` — an abstention must not be filterable.
+   */
+  unavailableChecks: UnavailableCheck[];
   agentConfigs?: AgentConfigValidation;
 }
 
@@ -103,12 +135,14 @@ export async function runValidate(
 
   const result: ValidateResult = {
     valid: true,
+    complete: true,
     checks: {
       agentsMap: false,
       fileStructure: false,
       knowledgeMap: false,
     },
     issues: [],
+    unavailableChecks: [],
   };
 
   // Check AGENTS.md
@@ -271,12 +305,29 @@ export async function runValidate(
     const committedAggregate = fs.existsSync(aggregatePath)
       ? fs.readFileSync(aggregatePath, 'utf-8')
       : null;
-    const drift = checkRoadmapAggregateDrift({
-      shardDirExists: true,
-      committedAggregate,
-      regeneratedAggregate: regenerated.ok ? regenerated.value : null,
-    });
-    if (drift.applicable && drift.stale) {
+    if (!regenerated.ok) {
+      // The shards could not be regenerated, so there was nothing to compare the
+      // committed aggregate against. checkRoadmapAggregateDrift would return
+      // `applicable: false` here, which is indistinguishable from the monolith
+      // no-op — reporting it as a passed check would claim a freshness comparison
+      // that never happened. The doctor abstains instead, and the comparison is
+      // not even attempted.
+      result.unavailableChecks.push({
+        check: 'roadmapAggregateDrift',
+        file: 'docs/roadmap.d/',
+        reason: `docs/roadmap.d/ could not be regenerated, so aggregate freshness was not compared: ${regenerated.error.message}`,
+        suggestion:
+          'Fix the reported shard under docs/roadmap.d/, then run `harness roadmap regen`.',
+      });
+      // Regeneration succeeded and the shard dir exists, so `applicable` is
+      // necessarily true here — `stale` alone carries the verdict.
+    } else if (
+      checkRoadmapAggregateDrift({
+        shardDirExists: true,
+        committedAggregate,
+        regeneratedAggregate: regenerated.value,
+      }).stale
+    ) {
       result.checks.roadmapAggregateDrift = false;
       result.issues.push({
         check: 'roadmapAggregateDrift',
@@ -293,8 +344,16 @@ export async function runValidate(
   // Roadmap health (regression guard). Read-only diagnostics over docs/roadmap.md:
   // catch-all milestones (error), done-outside-archive, unactionable planned rows,
   // and oversized active milestones (warnings). Skipped silently when no roadmap
-  // file exists (file-less mode or uninitialized projects). Error-severity findings
-  // fail validation; warnings are surfaced but do not flip result.valid.
+  // file exists (file-less mode or uninitialized projects) — that is "not
+  // applicable", not "could not check". Error-severity findings fail validation;
+  // warnings are surfaced but do not flip result.valid.
+  //
+  // When the file EXISTS but the parser rejects it, the check ABSTAINS: it is
+  // recorded in result.unavailableChecks (which forces `complete: false` and a
+  // ZERO_DENOMINATOR exit) rather than silently skipped. Every roadmap-health rule
+  // disappears at once on a parse failure, so a silent skip here is exactly the
+  // false green this ledger exists to prevent — the worse the roadmap, the less it
+  // would have been checked.
   const roadmapPath = path.join(cwd, 'docs', 'roadmap.md');
   if (fs.existsSync(roadmapPath)) {
     const parsed = parseRoadmap(fs.readFileSync(roadmapPath, 'utf-8'));
@@ -314,6 +373,14 @@ export async function runValidate(
           ...(finding.suggestion !== undefined && { suggestion: finding.suggestion }),
         });
       }
+    } else {
+      result.unavailableChecks.push({
+        check: 'roadmapHealth',
+        file: 'docs/roadmap.md',
+        reason: `docs/roadmap.md could not be parsed, so no roadmap health rule ran: ${parsed.error.message}`,
+        suggestion:
+          'Fix the reported section in docs/roadmap.md (or its docs/roadmap.d/ shard) and re-run `harness validate`.',
+      });
     }
   }
 
@@ -494,7 +561,13 @@ export async function runValidate(
     result.valid = filtered.length === 0;
   }
 
-  return Ok(result);
+  // Derived AT the return site, not assigned somewhere above it. Two properties
+  // follow structurally rather than by convention: the `--severity` filter above
+  // provably cannot influence it (it bounds which FINDINGS are reported and must
+  // never hide the fact that a check did not run at all), and any early return
+  // added to this function in future cannot ship a stale `complete: true` over a
+  // populated ledger — it would have to restore the false green deliberately.
+  return Ok({ ...result, complete: result.unavailableChecks.length === 0 });
 }
 
 function resolveValidateMode(globalOpts: Record<string, unknown>): OutputModeType {
@@ -571,7 +644,26 @@ async function runValidateAction(
 
   if (opts.crossCheck) await printCrossCheckWarnings(mode);
   emitValidateOutput(result.value, mode, formatter);
-  process.exit(result.value.valid ? ExitCode.SUCCESS : ExitCode.VALIDATION_FAILED);
+  process.exit(resolveValidateExitCode(result.value));
+}
+
+/**
+ * Map the three possible states of a validation run onto three distinct exit codes:
+ * checked-and-healthy (0), checked-and-unhealthy (1), and could-not-check
+ * (ZERO_DENOMINATOR / 3). With only two codes, "could not check" has to be encoded
+ * as one of the other two — and encoding it as success is the false green this
+ * mapping removes.
+ *
+ * Abstention OUTRANKS failure. Exit 1 carries the implicit claim "here is the
+ * complete list of what is wrong"; that claim is false once a check could not run,
+ * and a caller who fixes every reported finding would still be flying blind on the
+ * abstained one. Both codes are non-zero, so precedence cannot flip any gate from
+ * red to green — it only decides which non-green signal the caller sees, and the
+ * findings that would have produced exit 1 are still printed in full.
+ */
+function resolveValidateExitCode(value: ValidateResult): ExitCodeType {
+  if (!value.complete) return ExitCode.ZERO_DENOMINATOR;
+  return value.valid ? ExitCode.SUCCESS : ExitCode.VALIDATION_FAILED;
 }
 
 function emitValidateOutput(
@@ -584,7 +676,11 @@ function emitValidateOutput(
     console.log(JSON.stringify(value, null, 2));
     return;
   }
-  const output = formatter.formatValidation({ valid: value.valid, issues: value.issues });
+  const output = formatter.formatValidation({
+    valid: value.valid,
+    issues: value.issues,
+    unavailableChecks: value.unavailableChecks,
+  });
   if (output) console.log(output);
   if (value.agentConfigs) printAgentConfigSummary(value.agentConfigs, mode);
 }

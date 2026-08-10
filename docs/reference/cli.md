@@ -124,7 +124,12 @@ harness validate [options]
 --agent-configs         Validate agent configs (CLAUDE.md, hooks, skills) via agnix or built-in fallback rules
 --strict                Treat warnings as errors (applies to --agent-configs)
 --agnix-bin <path>      Override the agnix binary path discovered on PATH
+--severity <level>      Minimum severity that fails the command (error, warning, info)
 ```
+
+**Exit codes:** `0` all applicable checks ran and passed · `1` a check ran and
+failed · `3` a check could not run (the report is incomplete). See
+[Exit Codes](#exit-codes).
 
 **Examples:**
 
@@ -2543,14 +2548,42 @@ The CLI uses the following exit codes:
 0       Success
 1       Validation failed
 2       General error
+3       Zero denominator - the command ran but examined nothing
 ```
+
+Exit code `3` means a check **abstained**: it ran but had nothing to examine, or its
+input existed and could not be consumed. It is distinct from `0` (nothing was
+verified) and from `2` (nothing malfunctioned). A gate that matched, compared, or
+fetched zero items has abstained, not passed, and must never read as green.
+`harness validate`, `harness roadmap sync`, `harness check-docs`,
+`harness check-deployment`, and `harness review-ci` all use it.
+
+For `harness validate` specifically the three codes map to the three possible
+states of a run:
+
+| Code | Meaning                                                                                     |
+| ---- | ------------------------------------------------------------------------------------------- |
+| `0`  | Every applicable check ran and passed.                                                      |
+| `1`  | A check ran and failed.                                                                     |
+| `3`  | A check could not run — the report is incomplete. Listed under "Checks that could not run". |
+
+Abstention outranks failure: a run with both an unavailable check and error findings
+exits `3`, because exit `1` would imply the reported findings are the complete list.
+`--severity` never filters `unavailableChecks`.
+
+In `--json` mode the same information appears as `complete: false` and a populated
+`unavailableChecks` array. **Read `complete` (or the exit code), not `valid`.**
+`valid` reports only on checks that actually ran, so it stays `true` when a check
+abstained — `harness validate --json | jq -e .valid` is not a sufficient gate. The
+trustworthy green is `complete === true && valid === true`, which is exactly what
+exit code `0` means.
 
 Use exit codes in scripts:
 
 ```bash
 harness validate
 if [ $? -ne 0 ]; then
-  echo "Validation failed"
+  echo "Validation did not pass"
   exit 1
 fi
 ```

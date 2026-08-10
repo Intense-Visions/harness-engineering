@@ -491,7 +491,7 @@ Wait for confirmation. The mechanical changes (demote, archive) are safe and aut
 
 #### Phase 4: VALIDATE -- Verify
 
-1. Run `harness validate` and confirm the `roadmapHealth` check passes (no RMH003 errors; RMH001/002/004 warnings cleared or acknowledged).
+1. Run `harness validate` and confirm the `roadmapHealth` check **passed** -- `checks.roadmapHealth === true` in `--json`, not merely "not false" (no RMH003 errors; RMH001/002/004 warnings cleared or acknowledged). If `validate` exits 3 or reports the check under "Checks that could not run", the roadmap could not be parsed and NO health rule ran: fix the reported section and re-run. A check that did not run is not a check that passed.
 2. Summarize:
 
    ```
