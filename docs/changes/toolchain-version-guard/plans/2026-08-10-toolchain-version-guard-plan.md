@@ -41,28 +41,25 @@ make every config-loading command emit a spurious warning. Hard prerequisite.
 
 ---
 
-### T2 — Extract a prefix-free `resolveCommandPath`
+### T2 — A prefix-free `resolveCommandPath` (owned by the guard)
 
-**File:** `packages/cli/src/bin/command-telemetry.ts`
+**File:** `packages/cli/src/utils/version-guard.ts`
 
-Split the existing `resolveCommandName` (lines 77-88):
+The guard needs a command path with no namespace prefix. The existing helper in
+`command-telemetry.ts` returns `cli/`-prefixed names; reusing it directly would
+make `GUARDED_COMMANDS.has(...)` always false — a permanently silent no-op, i.e.
+this change reproducing its own bug class. Caught in soundness review as B1.
 
-```ts
-export function resolveCommandPath(cmd: Command): string; // "validate", "graph.scan"
-function resolveCommandName(cmd: Command): string; // `cli/${resolveCommandPath(cmd)}`
-```
+Originally planned as a refactor extracting the shared traversal out of
+`command-telemetry.ts`. **Changed during execution:** `required-review` failed on
+the first push because touching that file pulled its pre-existing, annotated
+PostHog ingest key into the scanned diff (the `harness-ignore` is honored by the
+security scanner but not by the review-ci heuristic path). Since the refactor
+benefits §5 not at all, the guard now owns a local copy and
+`command-telemetry.ts` is left untouched. A test pins the divergence.
 
-`resolveCommandName` keeps its exact current output, including the empty-string
-case when the path is empty (it must NOT become `cli/`). Telemetry behavior is
-unchanged; this is a pure refactor.
-
-**Why this task exists at all:** the existing helper returns `cli/`-prefixed
-names. Reusing it directly in the guard would make `GUARDED_COMMANDS.has(...)`
-always false — a permanently silent no-op, i.e. this change reproducing its own
-bug class. Caught in soundness review as B1.
-
-**Test:** `packages/cli/tests/bin/command-telemetry.test.ts` — assert
-`resolveCommandPath` returns unprefixed paths and `_resolveCommandName` still
+**Test:** `packages/cli/tests/utils/version-guard-wiring.test.ts` — assert
+`resolveCommandPath` returns unprefixed paths while `_resolveCommandName` still
 returns `cli/`-prefixed ones. (Criterion 7a.)
 
 ---

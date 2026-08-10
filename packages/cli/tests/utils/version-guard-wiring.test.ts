@@ -1,8 +1,12 @@
 import { describe, it, expect } from 'vitest';
 import { Command } from 'commander';
 import { createProgram } from '../../src/index';
-import { GUARDED_COMMANDS, installVersionGuard } from '../../src/utils/version-guard';
-import { resolveCommandPath, _resolveCommandName } from '../../src/bin/command-telemetry';
+import {
+  GUARDED_COMMANDS,
+  installVersionGuard,
+  resolveCommandPath,
+} from '../../src/utils/version-guard';
+import { _resolveCommandName } from '../../src/bin/command-telemetry';
 
 describe('resolveCommandPath', () => {
   function build(): Command {
@@ -35,16 +39,20 @@ describe('resolveCommandPath', () => {
     expect(resolveCommandPath(find(build(), ['graph', 'scan']))).toBe('graph.scan');
   });
 
-  it('leaves telemetry still emitting cli/-prefixed names', () => {
-    expect(_resolveCommandName(find(build(), ['validate']))).toBe('cli/validate');
-    expect(_resolveCommandName(find(build(), ['graph', 'scan']))).toBe('cli/graph.scan');
+  // Pins the intentional divergence: telemetry keeps its own namespace, and if
+  // someone later unifies the two helpers this test says which output is whose.
+  it('diverges from telemetry, which still emits cli/-prefixed names', () => {
+    const validate = find(build(), ['validate']);
+    expect(resolveCommandPath(validate)).toBe('validate');
+    expect(_resolveCommandName(validate)).toBe('cli/validate');
+
+    const scan = find(build(), ['graph', 'scan']);
+    expect(resolveCommandPath(scan)).toBe('graph.scan');
+    expect(_resolveCommandName(scan)).toBe('cli/graph.scan');
   });
 
-  it('returns an empty string for the root program, and telemetry agrees', () => {
-    const program = build();
-    expect(resolveCommandPath(program)).toBe('');
-    // Must stay '' rather than becoming 'cli/'.
-    expect(_resolveCommandName(program)).toBe('');
+  it('returns an empty string for the root program', () => {
+    expect(resolveCommandPath(build())).toBe('');
   });
 });
 

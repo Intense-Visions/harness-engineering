@@ -75,21 +75,6 @@ export function installCommandTelemetry(program: Command, cwd: string): void {
  * Resolve the full dotted command name (e.g. "hooks.init", "graph.scan").
  */
 function resolveCommandName(cmd: Command): string {
-  const path = resolveCommandPath(cmd);
-  return path.length > 0 ? `cli/${path}` : '';
-}
-
-/**
- * Resolve the dotted command path WITHOUT any namespace prefix
- * (e.g. "validate", "graph.scan").
- *
- * Kept separate from {@link resolveCommandName} because the `cli/` prefix is
- * telemetry's own namespace — it distinguishes CLI adoption records from hook
- * records. Other consumers that need to identify a command (such as the
- * toolchain version guard, which matches against a set of bare command names)
- * must not inherit that prefix.
- */
-export function resolveCommandPath(cmd: Command): string {
   const parts: string[] = [];
   let current: Command | null = cmd;
   while (current) {
@@ -99,7 +84,7 @@ export function resolveCommandPath(cmd: Command): string {
     }
     current = current.parent;
   }
-  return parts.join('.');
+  return parts.length > 0 ? `cli/${parts.join('.')}` : '';
 }
 
 /**

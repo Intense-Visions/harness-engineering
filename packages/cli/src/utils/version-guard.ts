@@ -22,7 +22,6 @@ import semver from 'semver';
 import { CLI_VERSION } from '../version';
 import { ExitCode } from './errors';
 import { envEnabled } from './env-flag';
-import { resolveCommandPath } from '../bin/command-telemetry';
 
 /** The published package whose version a workspace pins. */
 const CLI_PACKAGE = '@harness-engineering/cli';
@@ -81,6 +80,34 @@ export interface VersionGuardResult {
   bypassed: boolean;
   /** Empty string when `ok` or `unknown`. */
   message: string;
+}
+
+/**
+ * Resolve a command's dotted path with NO namespace prefix
+ * (e.g. "validate", "graph.scan").
+ *
+ * `command-telemetry.ts` has a near-identical traversal, but it returns a
+ * `cli/`-prefixed name — that prefix is telemetry's own namespace, separating
+ * CLI adoption records from hook records. The guard matches against bare command
+ * names, so inheriting the prefix would make every `GUARDED_COMMANDS.has()` test
+ * false and turn this guard into a permanently silent no-op.
+ *
+ * The two are kept separate rather than unified because collapsing them means
+ * editing telemetry, which drags an unrelated pre-existing security annotation
+ * into this change's review surface. Unifying them is a worthwhile follow-up,
+ * not a prerequisite.
+ */
+export function resolveCommandPath(cmd: Command): string {
+  const parts: string[] = [];
+  let current: Command | null = cmd;
+  while (current) {
+    const name = current.name();
+    if (name && name !== 'harness') {
+      parts.unshift(name);
+    }
+    current = current.parent;
+  }
+  return parts.join('.');
 }
 
 /**

@@ -425,11 +425,17 @@ verbatim would make `GUARDED_COMMANDS.has(...)` always false, and the guard woul
 be a permanent silent no-op — the very failure class this change exists to
 prevent, reproduced inside the fix.
 
-So the traversal is extracted as a prefix-free `resolveCommandPath()` returning
-`validate` / `graph.scan`, and telemetry applies its own `cli/` prefix at its
-call site. The helper is already exported for tests as `_resolveCommandName`
-(`command-telemetry.ts:183-186`), so this is a refactor of an existing seam
-rather than a new one.
+The guard therefore carries its own prefix-free `resolveCommandPath()` returning
+`validate` / `graph.scan`. **The two traversals are deliberately not unified.**
+Collapsing them requires editing `command-telemetry.ts`, and that file holds a
+pre-existing, already-annotated PostHog ingest key which the `review-ci`
+heuristic path flags whenever the file enters a diff (the `harness-ignore`
+suppression is honored by the security scanner but not by that path). Editing it
+would drag an unrelated security finding into this change's review surface for no
+benefit to §5. A test pins the divergence so the duplication is visible and
+intentional rather than accidental; unifying the helpers — and fixing the
+suppression gap that makes unification expensive — is a worthwhile follow-up, not
+a prerequisite.
 
 `GUARDED_COMMANDS` is an exported `ReadonlySet<string>` holding the eight
 **top-level** names from D3, so a test can assert every entry corresponds to a
