@@ -305,25 +305,29 @@ export async function runValidate(
     const committedAggregate = fs.existsSync(aggregatePath)
       ? fs.readFileSync(aggregatePath, 'utf-8')
       : null;
-    const drift = checkRoadmapAggregateDrift({
-      shardDirExists: true,
-      committedAggregate,
-      regeneratedAggregate: regenerated.ok ? regenerated.value : null,
-    });
     if (!regenerated.ok) {
       // The shards could not be regenerated, so there was nothing to compare the
-      // committed aggregate against. checkRoadmapAggregateDrift returns
+      // committed aggregate against. checkRoadmapAggregateDrift would return
       // `applicable: false` here, which is indistinguishable from the monolith
       // no-op — reporting it as a passed check would claim a freshness comparison
-      // that never happened. The doctor abstains instead.
+      // that never happened. The doctor abstains instead, and the comparison is
+      // not even attempted.
       result.unavailableChecks.push({
         check: 'roadmapAggregateDrift',
-        file: 'docs/roadmap.d',
+        file: 'docs/roadmap.d/',
         reason: `docs/roadmap.d/ could not be regenerated, so aggregate freshness was not compared: ${regenerated.error.message}`,
         suggestion:
           'Fix the reported shard under docs/roadmap.d/, then run `harness roadmap regen`.',
       });
-    } else if (drift.applicable && drift.stale) {
+      // Regeneration succeeded and the shard dir exists, so `applicable` is
+      // necessarily true here — `stale` alone carries the verdict.
+    } else if (
+      checkRoadmapAggregateDrift({
+        shardDirExists: true,
+        committedAggregate,
+        regeneratedAggregate: regenerated.value,
+      }).stale
+    ) {
       result.checks.roadmapAggregateDrift = false;
       result.issues.push({
         check: 'roadmapAggregateDrift',
@@ -557,12 +561,13 @@ export async function runValidate(
     result.valid = filtered.length === 0;
   }
 
-  // Derived AFTER the `--severity` filter so the filter provably cannot influence
-  // it. `--severity` bounds which FINDINGS are reported; it must never be able to
-  // hide the fact that a check did not run at all.
-  result.complete = result.unavailableChecks.length === 0;
-
-  return Ok(result);
+  // Derived AT the return site, not assigned somewhere above it. Two properties
+  // follow structurally rather than by convention: the `--severity` filter above
+  // provably cannot influence it (it bounds which FINDINGS are reported and must
+  // never hide the fact that a check did not run at all), and any early return
+  // added to this function in future cannot ship a stale `complete: true` over a
+  // populated ledger — it would have to restore the false green deliberately.
+  return Ok({ ...result, complete: result.unavailableChecks.length === 0 });
 }
 
 function resolveValidateMode(globalOpts: Record<string, unknown>): OutputModeType {

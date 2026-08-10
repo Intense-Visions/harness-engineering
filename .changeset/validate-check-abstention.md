@@ -22,5 +22,11 @@ list. `--severity` never filters the ledger.
 
 Existing behavior is unchanged otherwise: advisory findings such as RMH002 remain
 warnings that do not fail validation, error findings still exit `1`, an absent
-roadmap is still a silent no-op, and output for any run with no unavailable checks is
-byte-identical to before.
+roadmap is still a silent no-op, and **human-readable** output for any run with no
+unavailable checks is byte-identical to before.
+
+The `--json` payload changes additively: every run now carries `complete` and
+`unavailableChecks`. Machine consumers should gate on `complete` (or the exit code)
+rather than `valid` — `valid` reports only on checks that actually ran, so it stays
+`true` when a check abstained. `complete === true && valid === true` is what exit
+code `0` means.

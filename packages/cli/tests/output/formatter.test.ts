@@ -100,6 +100,44 @@ describe('OutputFormatter', () => {
       expect(result).toContain('Missing export');
     });
 
+    it('does not call advisory findings a failure when nothing failed', () => {
+      // Warnings never flip `valid`. Labelling them "Validation failed" just
+      // because a check abstained reports a failure that did not happen.
+      const formatter = new OutputFormatter(OutputMode.TEXT);
+      const result = formatter.formatValidation({
+        valid: true,
+        issues: [{ file: 'docs/roadmap.md', message: 'is "planned" with no spec and no plan' }],
+        unavailableChecks: [ABSTENTION],
+      });
+      expect(result).toContain('Validation incomplete');
+      expect(result).toContain('advisory finding');
+      expect(result).toContain('no spec and no plan');
+      expect(result).not.toContain('Validation failed');
+    });
+
+    it('still signals failure when a failing check pushed no issue', () => {
+      const formatter = new OutputFormatter(OutputMode.TEXT);
+      const result = formatter.formatValidation({
+        valid: false,
+        issues: [],
+        unavailableChecks: [ABSTENTION],
+      });
+      expect(result).toContain('Validation incomplete');
+      expect(result).toContain('Validation failed');
+    });
+
+    it('distinguishes an abstention from a finding in quiet mode', () => {
+      const formatter = new OutputFormatter(OutputMode.QUIET);
+      const result = formatter.formatValidation({
+        valid: false,
+        issues: [{ file: 'src/index.ts', message: 'Missing export' }],
+        unavailableChecks: [ABSTENTION],
+      });
+      const [first, second] = result.split('\n');
+      expect(first).toMatch(/^\[unavailable\] /);
+      expect(second).toBe('src/index.ts: Missing export');
+    });
+
     it('shows the suggestion only in verbose mode', () => {
       const text = new OutputFormatter(OutputMode.TEXT).formatValidation({
         valid: true,

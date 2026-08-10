@@ -2569,8 +2569,14 @@ states of a run:
 
 Abstention outranks failure: a run with both an unavailable check and error findings
 exits `3`, because exit `1` would imply the reported findings are the complete list.
+`--severity` never filters `unavailableChecks`.
+
 In `--json` mode the same information appears as `complete: false` and a populated
-`unavailableChecks` array. `--severity` never filters `unavailableChecks`.
+`unavailableChecks` array. **Read `complete` (or the exit code), not `valid`.**
+`valid` reports only on checks that actually ran, so it stays `true` when a check
+abstained — `harness validate --json | jq -e .valid` is not a sufficient gate. The
+trustworthy green is `complete === true && valid === true`, which is exactly what
+exit code `0` means.
 
 Use exit codes in scripts:
 

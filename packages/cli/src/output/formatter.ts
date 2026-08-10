@@ -139,7 +139,11 @@ export class OutputFormatter {
     const unavailable = result.unavailableChecks ?? [];
 
     if (this.mode === OutputMode.QUIET) {
-      const abstentionLines = unavailable.map((u) => `${u.file ?? ''}: ${u.reason}`);
+      // Prefixed so a script parsing --quiet can tell "could not run" from
+      // "failed" — the same conflation this change removes everywhere else.
+      const abstentionLines = unavailable.map(
+        (u) => `[unavailable] ${u.file ?? u.check}: ${u.reason}`
+      );
       if (result.valid && abstentionLines.length === 0) return '';
       return [
         ...abstentionLines,
@@ -165,12 +169,25 @@ export class OutputFormatter {
       );
       lines.push(chalk.dim('  incomplete.'));
       if (result.issues.length > 0) {
+        // Findings from checks that DID run are still reported in full — but the
+        // headline must match the verdict. Warnings never flip `valid`, so an
+        // advisory-only run alongside an abstention is not a failure and must not
+        // be labelled one; the abstention alone is what makes the run non-green.
         lines.push('');
-        lines.push(chalk.red(`x Validation failed (${result.issues.length} issues)`));
+        lines.push(
+          result.valid
+            ? chalk.yellow(`! ${result.issues.length} advisory finding(s) from checks that did run`)
+            : chalk.red(`x Validation failed (${result.issues.length} issues)`)
+        );
         lines.push('');
         for (const issue of result.issues) {
           appendIssueLines(lines, issue, this.mode);
         }
+      } else if (!result.valid) {
+        // A failing check that pushed no issue (e.g. --agent-configs) still needs
+        // a failure signal; the incomplete headline alone would not carry it.
+        lines.push('');
+        lines.push(chalk.red('x Validation failed'));
       }
     } else if (result.valid) {
       lines.push(chalk.green('v validation passed'));
