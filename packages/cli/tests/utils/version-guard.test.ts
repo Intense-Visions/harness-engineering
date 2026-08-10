@@ -73,6 +73,18 @@ describe('evaluateVersionGuard — unknown never gates', () => {
     expect(() => evaluateVersionGuard('11.1.1', pin('>=11 <10'))).not.toThrow();
     expect(evaluateVersionGuard('11.1.1', pin('>=11 <10')).status).toBe('unknown');
   });
+
+  // The evaluator is exported independently of resolveExpectedVersion, so it
+  // must enforce range validity itself. semver.satisfies swallows a bad range
+  // and returns false, so control would otherwise reach minVersion, which
+  // THROWS on these — inside a preAction hook, bricking every guarded command.
+  it.each(['latest', 'workspace:*', 'file:../cli', 'not a range'])(
+    'reports unknown rather than throwing for the invalid range %s',
+    (range) => {
+      expect(() => evaluateVersionGuard('11.1.1', pin(range))).not.toThrow();
+      expect(evaluateVersionGuard('11.1.1', pin(range)).status).toBe('unknown');
+    }
+  );
 });
 
 describe('evaluateVersionGuard — the severity ladder', () => {
@@ -106,6 +118,28 @@ describe('evaluateVersionGuard — the severity ladder', () => {
   it('warns rather than refuses when the CLI is ahead of the pinned major', () => {
     const result = evaluateVersionGuard('14.0.0', pin('=11.1.1'));
     expect(result.status).toBe('warn');
+    expect(result.majorDelta).toBe(-3);
+  });
+
+  // The property that matters most: the guard must never refuse a CLI it should
+  // have accepted. A false refusal blocks correct work.
+  it.each([
+    ['12.0.0-rc.0', '>=11', 'a prerelease newer than the pin'],
+    ['0.30.0', '^0.41.0', 'a 0.x workspace'],
+    ['12.0.0', '10.x || 11.x', 'an OR-range the CLI is ahead of'],
+    ['11.1.1', '<=11', 'an upper-bounded range'],
+    ['11.0.0', '~11', 'a tilde range'],
+  ])('never refuses %s against %s (%s)', (cliVersion, range) => {
+    expect(evaluateVersionGuard(cliVersion, pin(range)).status).not.toBe('refuse');
+  });
+
+  it('still refuses across an OR-range when genuinely far behind', () => {
+    expect(evaluateVersionGuard('9.0.0', pin('11.x || 12.x')).status).toBe('refuse');
+  });
+
+  it('reports the true distance on the ok path rather than a hardcoded zero', () => {
+    const result = evaluateVersionGuard('14.0.0', pin('>=11'));
+    expect(result.status).toBe('ok');
     expect(result.majorDelta).toBe(-3);
   });
 

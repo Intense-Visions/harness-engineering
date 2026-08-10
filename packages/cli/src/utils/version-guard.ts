@@ -15,7 +15,7 @@
  * reads. Nothing here prints or exits — that is {@link installVersionGuard}'s
  * job, which keeps the decision logic directly unit-testable.
  */
-import { readFileSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import { join, parse as parsePath, resolve } from 'node:path';
 import type { Command } from 'commander';
 import semver from 'semver';
@@ -45,12 +45,20 @@ const UNRESOLVED_CLI_VERSION = '0.0.0';
  * `perf.update` and cannot collide with these top-level entries.
  */
 export const GUARDED_COMMANDS: ReadonlySet<string> = new Set([
-  'check-security',
-  'check-docs',
+  // Every command that emits the `--findings-json` contract. That flag is the
+  // objective definition of "findings-producing" in this repo: it is the machine
+  // -readable output an orchestrator parses and schedules on, which is exactly
+  // what went wrong when a stale scanner produced it.
+  'check-arch',
+  'check-deployment',
   'check-deps',
+  'check-docs',
+  'check-security',
+  'cleanup',
+  'cross-check',
+  // Findings-producing without the contract flag.
   'check-perf',
   'check-harness-strength',
-  'cleanup',
   'validate',
   'review-ci',
 ]);
@@ -118,15 +126,12 @@ export function findProjectRoot(startDir: string): string {
   let dir = resolve(startDir);
   const { root } = parsePath(dir);
   while (dir !== root) {
-    try {
-      readFileSync(join(dir, 'harness.config.json'), 'utf-8');
-      return dir;
-    } catch {
-      // Not here — keep walking.
-    }
+    // existsSync, not readFileSync — this is an existence probe, and reading
+    // then discarding a whole config on every level is pointless work.
+    if (existsSync(join(dir, 'harness.config.json'))) return dir;
     dir = resolve(dir, '..');
   }
-  return startDir;
+  return resolve(startDir);
 }
 
 function readJson(path: string): Record<string, unknown> | undefined {
@@ -155,8 +160,14 @@ function readJson(path: string): Record<string, unknown> | undefined {
 function usableRange(raw: unknown): string | undefined {
   if (typeof raw !== 'string') return undefined;
   const range = raw.trim();
-  if (range.length === 0 || range === '*' || range === 'x') return undefined;
-  if (semver.validRange(range) === null) return undefined;
+  if (range.length === 0) return undefined;
+  const normalized = semver.validRange(range);
+  if (normalized === null) return undefined;
+  // `semver` normalizes every any-version spelling — `*`, `x`, `X`, `||`,
+  // `>=0`, `0.x`, `^0`, `~0` — to the single token `*`. Comparing the
+  // normalized form catches them all; string-matching the raw input would miss
+  // most. An any-version range is not a pin and cannot express a mismatch.
+  if (normalized === '*') return undefined;
   return range;
 }
 
@@ -171,16 +182,23 @@ function usableRange(raw: unknown): string | undefined {
  * writes stripped-key warnings to stderr (the guard must stay silent) and
  * searches from `process.cwd()` rather than the root it is handed.
  *
- * @param projectRoot Directory to resolve relative paths against.
+ * @param projectRoot Directory holding harness.config.json / package.json.
  * @param configPathOverride Value of the global `-c/--config` option, when set,
  *   so the guard reads the same config the command will scan with.
+ * @param cwd Base for resolving `configPathOverride`. It must be the process
+ *   working directory, NOT `projectRoot`: `loadConfig` hands the flag straight
+ *   to `readFileSync`, so `-c ./ci.config.json` is cwd-relative. Resolving it
+ *   against the walked-up root would make the guard read a different file than
+ *   the command — and on the resulting ENOENT it would fall through to
+ *   `unknown`, so passing `-c` would silently *disable* the guard.
  */
 export function resolveExpectedVersion(
   projectRoot: string,
-  configPathOverride?: string
+  configPathOverride?: string,
+  cwd: string = process.cwd()
 ): ExpectedVersion | undefined {
   const configPath = configPathOverride
-    ? resolve(projectRoot, configPathOverride)
+    ? resolve(cwd, configPathOverride)
     : join(projectRoot, 'harness.config.json');
 
   const config = readJson(configPath);
@@ -291,8 +309,31 @@ export function evaluateVersionGuard(
     return unknown;
   }
 
-  if (semver.satisfies(cliVersion, expected.range)) {
-    return { status: 'ok', cliVersion, expected, majorDelta: 0, bypassed: false, message: '' };
+  // Enforce the "always a valid range" invariant HERE, at the public boundary
+  // that documents it, not only inside resolveExpectedVersion. Both functions
+  // are exported, and a caller that builds an ExpectedVersion itself would
+  // otherwise reach semver.minVersion, which THROWS on 'latest' / 'workspace:*'.
+  // semver.satisfies swallows a bad range and returns false, so it is no shield.
+  if (semver.validRange(expected.range) === null) return unknown;
+
+  // includePrerelease so a prerelease CLI newer than the pin is not perpetually
+  // warned at. Without it, satisfies('12.0.0-rc.0', '>=11') is false, and every
+  // RC tester would see a spurious warning on every scan — precisely the
+  // "train everyone to ignore the guard" outcome the silent-when-unknown rule
+  // exists to avoid.
+  if (semver.satisfies(cliVersion, expected.range, { includePrerelease: true })) {
+    const lowerBound = semver.minVersion(expected.range);
+    return {
+      status: 'ok',
+      cliVersion,
+      expected,
+      // Report the true distance, not a hardcoded 0. `doctor` is the named next
+      // consumer, and an advisory claiming "0 majors apart" while the CLI is 3
+      // ahead is the same confidently-wrong output this guard exists to stop.
+      ...(lowerBound ? { majorDelta: lowerBound.major - semver.major(cliVersion) } : {}),
+      bypassed: false,
+      message: '',
+    };
   }
 
   const minimum = semver.minVersion(expected.range);
@@ -336,26 +377,30 @@ export function installVersionGuard(program: Command, cwd: string): void {
   if (typeof program.hook !== 'function') return;
 
   program.hook('preAction', (_thisCommand, actionCommand) => {
-    const commandPath = resolveCommandPath(actionCommand);
-    if (!GUARDED_COMMANDS.has(commandPath)) return;
-
-    let configOverride: string | undefined;
+    let result: VersionGuardResult;
     try {
-      const opts = actionCommand.optsWithGlobals() as { config?: string };
-      configOverride = opts.config;
-    } catch {
-      configOverride = undefined;
-    }
+      const commandPath = resolveCommandPath(actionCommand);
+      if (!GUARDED_COMMANDS.has(commandPath)) return;
 
-    const projectRoot = findProjectRoot(cwd);
-    const result = evaluateVersionGuard(
-      CLI_VERSION,
-      resolveExpectedVersion(projectRoot, configOverride),
-      {
-        bypass: envEnabled(process.env['HARNESS_NO_VERSION_GUARD']),
-        commandPath,
-      }
-    );
+      const opts = actionCommand.optsWithGlobals() as { config?: unknown };
+      // Narrow rather than assert: a subcommand declaring `--config` as a
+      // boolean flag would otherwise reach resolve(root, true) and throw.
+      const configOverride = typeof opts.config === 'string' ? opts.config : undefined;
+
+      const projectRoot = findProjectRoot(cwd);
+      result = evaluateVersionGuard(
+        CLI_VERSION,
+        resolveExpectedVersion(projectRoot, configOverride, cwd),
+        {
+          bypass: envEnabled(process.env['HARNESS_NO_VERSION_GUARD']),
+          commandPath,
+        }
+      );
+    } catch {
+      // A broken guard must never break the CLI. Refusing to scan is a
+      // deliberate act; crashing on the way to deciding is not one.
+      return;
+    }
 
     if (result.status === 'warn') {
       process.stderr.write(result.message);

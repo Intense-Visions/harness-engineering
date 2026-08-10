@@ -83,6 +83,15 @@ other findings; they are routed separately and are explicitly out of scope here.
   `packages/cli/src/utils/node-version.ts` already does.
 - Any auto-remediation (auto-upgrading, re-execing the correct binary). The
   guard reports and refuses; it never rewrites the caller's environment.
+- **The MCP surface.** The guard is a commander `preAction` hook, so it covers
+  CLI invocations only. The MCP tools call the check implementations in-process
+  and do not pass through commander, so a stale `harness-mcp` shim — and the
+  Node-22 bin directory carries one alongside `harness` — reproduces this
+  incident with no mitigation from this change. That is a real remaining gap, and
+  arguably the more likely path for an agent-driven conductor. Gating the
+  findings-producing MCP tool handlers with the same evaluator is the natural
+  follow-up; it is named here so the gap is explicit rather than implied to be
+  covered.
 
 ## Prior art in this codebase
 
@@ -185,8 +194,10 @@ Rationale for the thresholds:
   has already justified, which is falsehood. Noise is a warning; falsehood, at
   sufficient distance, is a refusal.
 
-Comparison is on the **major** component only. This keeps the config pin
-low-maintenance: a repo pinning `>=11` needs no edit across the entire v11 line.
+Range satisfaction is full-precision; only the **severity** decision is
+major-only. This keeps the config pin low-maintenance — a repo pinning `>=11`
+needs no edit across the entire v11 line — while still letting a narrower pin
+like `^11.2.0` produce an honest warning against `11.1.1`.
 
 ### D3 — Which commands does the guard gate?
 
@@ -205,9 +216,17 @@ wrong, and a guard that blocks its own remedy is a trap. An explicit allowlist,
 exported as a single reviewable constant, also means the gated set can be
 asserted in a test rather than inferred.
 
-The gated set is the eight findings-producing commands:
-`check-security`, `check-docs`, `check-deps`, `check-perf`,
-`check-harness-strength`, `cleanup`, `validate`, `review-ci`.
+The gated set is every findings-producing command. The objective membership
+test is the `--findings-json` contract flag — that is the machine-readable output
+an orchestrator parses and schedules on, which is exactly what a stale scanner
+corrupts: `check-arch`, `check-deployment`, `check-deps`, `check-docs`,
+`check-security`, `cleanup`, `cross-check`. Four more produce findings without
+the contract flag: `check-perf`, `check-harness-strength`, `validate`,
+`review-ci`. Eleven in total.
+
+A test derives the `--findings-json` family from source and asserts the set
+covers it, so a new findings producer cannot ship ungated. Membership tests
+alone would only catch renames, not omissions.
 
 Deliberately **not** gated: `doctor`, `update`, `setup`, `init`, `--version`,
 `--help`, and everything else. `doctor` in particular should _report_ the

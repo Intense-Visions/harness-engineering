@@ -33,9 +33,9 @@ while a newer one reports rules the workspace has not adopted yet (noise):
   commands already return when they found _real_ findings)
 - exactly 1 major behind, or unsatisfied at a delta of 0 or less — warn, proceed
 
-Only findings-producing commands are gated: `check-security`, `check-docs`,
-`check-deps`, `check-perf`, `check-harness-strength`, `cleanup`, `validate`, and
-`review-ci`. `doctor`, `update`, `setup`, and `init` are deliberately never
+Only findings-producing commands are gated: `check-arch`, `check-deployment`,
+`check-deps`, `check-docs`, `check-harness-strength`, `check-perf`,
+`check-security`, `cleanup`, `cross-check`, `review-ci`, and `validate`. `doctor`, `update`, `setup`, and `init` are deliberately never
 gated — those are the commands you need when your toolchain is wrong, and a
 guard that blocks its own remedy is a trap.
 

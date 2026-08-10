@@ -83,9 +83,10 @@ Toolchain expectations this workspace declares.
 A stale scanner does not fail — it re-reports findings the workspace has already
 justified and suppressed, so its output is well-formed, confident, and wrong.
 When `cliVersion` is set, the CLI compares its own version against the range
-before running any findings-producing command (`check-security`, `check-docs`,
-`check-deps`, `check-perf`, `check-harness-strength`, `cleanup`, `validate`,
-`review-ci`):
+before running any findings-producing command (`check-arch`,
+`check-deployment`, `check-deps`, `check-docs`, `check-harness-strength`,
+`check-perf`, `check-security`, `cleanup`, `cross-check`, `review-ci`,
+`validate`):
 
 - Range satisfied — silent.
 - Two or more majors below the range minimum — **refuses** and exits `3`
