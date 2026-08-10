@@ -13,15 +13,15 @@
 just inserted is written **without the fields that link it to its own tracking issue**.
 The two faults are opposite ends of the same broken seam, and neither can be fixed alone:
 
-- **#1285 (writes too much):** adding one row rewrites *other* rows, clobbering
+- **#1285 (writes too much):** adding one row rewrites _other_ rows, clobbering
   human-set values with tracker state.
-- **#1286 (writes too little):** the *new* row is serialized truncated — no
+- **#1286 (writes too little):** the _new_ row is serialized truncated — no
   `Assignee` / `Priority` / `External-ID` — so nothing joins it to the issue that was
   just created for it.
 
 They are coupled by a load-bearing accident: **the only reason added rows normally look
 healthy is that the #1285 full sync subsequently stamps `externalId` onto them.** Fixing
-#1285 naively — excluding `add` from external sync — would make #1286 fire on *every*
+#1285 naively — excluding `add` from external sync — would make #1286 fire on _every_
 add, and would also silently drop the auto-creation of the tracking issue, which is
 relied-on behaviour. This spec therefore replaces the full sync on `add` with a
 **row-scoped push**, rather than removing it.
@@ -35,7 +35,7 @@ relied-on behaviour. This spec therefore replaces the full sync on `add` with a
 3. When linking cannot be completed, the caller must be told, not left with a
    silently-unlinked row.
 4. Independently of `add`, the inbound sync mapping must stop treating tracker
-   *absence of opinion* as authoritative truth.
+   _absence of opinion_ as authoritative truth.
 
 ### Non-goals
 
@@ -48,25 +48,25 @@ relied-on behaviour. This spec therefore replaces the full sync on `add` with a
 
 ## Evidence
 
-| Claim | Evidence |
-| --- | --- |
-| `add` falls through to a full bidirectional sync | `packages/cli/src/mcp/tools/roadmap.ts:757-764` — `shouldTriggerExternalSync` excludes `response.isError`, read-only actions, `sync` without `apply`, and `groom`; everything else `return true` |
-| …which calls `fullSync` over every row | `packages/cli/src/mcp/tools/roadmap-auto-sync.ts:62,88`; `packages/core/src/roadmap/sync-engine.ts:368` `fullSync` loads the whole store, pushes, pulls, and writes back every changed row |
-| Empty tracker assignee clobbers a local assignee | `packages/core/src/roadmap/sync-engine.ts:243` — `if (!localMachineClaim && ticketState.assignee !== feature.assignee) feature.assignee = ticketState.assignee;` with no null guard |
-| `backlog` is clobbered by a merely-`OPEN` issue | `sync-engine.ts:259` guards `feature.status === 'blocked' && newStatus === 'planned'` but **not** `backlog`; `packages/core/src/roadmap/status-rank.ts` ranks `backlog: 0` below `planned: 1`, so `isRegression` treats the clobber as a legal promotion and lets it through |
-| This repo resolves every open issue to `planned` by a **direct** key | `harness.config.json` `reverseStatusMap: { open: planned, closed: done }`; `resolveReverseStatus` (`packages/core/src/roadmap/tracker-sync.ts:107-109`) matches the direct key first and never reaches the compound branch |
-| The new row is written with all extended fields null | `packages/cli/src/mcp/tools/roadmap.ts:266-316` — `buildFeatureFromInput` sets `assignee`/`priority`/`externalId`/`updatedAt` to `null`; `handleAdd` persists with no tracker round-trip |
-| …and the serializer then omits the whole triple | `packages/core/src/roadmap/serialize.ts:79-85` — `serializeExtendedLines` returns `[]` when all four are null |
-| That omission is **deliberate and covered**, not a bug | `packages/core/tests/roadmap/serialize-extended.test.ts` — "omits new fields when all are null (legacy output)" plus two `parse → serialize` **byte-identity** round-trip tests (`EXTENDED_FIELDS_MD` contains an all-null backlog row; `VALID_ROADMAP_MD` is all-legacy) |
-| A missing `External-ID` permanently strands the row | merge-triggered auto-done joins rows to closed issues on `External-ID` (`packages/cli/tests/ci/roadmap-auto-done-workflow.test.ts`) |
-| `fullSync` is mutex-serialized by a synchronous swap + `await`, so a second acquirer queues FIFO rather than deadlocking | `sync-engine.ts:368-379,452-454`; `_resetSyncMutex()` exported for tests |
-| `applyRoadmapDiff` is genuinely row-scoped | `packages/core/src/roadmap/store/apply-diff.ts:76-103` — slug-indexed, `patchFeature` per changed row, no-op for unchanged rows |
-| `syncToExternal` mutates features in place and never clones or re-keys them | `sync-engine.ts:164-220`, `resolveExternalId` at `:105,:123` assigns `feature.externalId` directly |
-| The engine's own convention is that a suppressed action must be **reported**, never silently dropped | `sync-engine.ts:90-91` — "Both guards report rather than silently drop: a withheld create lands in `skippedCreates` … never nowhere"; `skippedCreates` / `skippedStateChanges` exist for this |
-| RMH005 (`assignee ≠ null ⟺ in-progress`) is an **error**-severity health rule | `packages/core/src/roadmap/health.ts:81,142`; `assigneeInvariantHolds` at `packages/core/src/roadmap/assignee-lifecycle.ts:52-54` |
-| CLI tests can already spy the auto-sync module namespace | `packages/cli/tests/mcp/tools/roadmap.sharded.test.ts:98`, `roadmap.test.ts:704` — `vi.spyOn(autoSync, 'triggerExternalSync')` works because `roadmap.ts:17` uses a named import |
-| Reuse-over-reimplement is the local convention | `packages/core/src/roadmap/serialize.ts` — `serializeFeature` is "Exported so the shard file format can reuse the exact same row emission (spec: reuse, do not reimplement)" |
-| Strategy grounding | `STRATEGY.md#key-metrics` — *Holiday Confidence*: "if the senior disappears for two weeks, what holds?" A tool that corrupts roadmap rows unattended is a direct hit on that metric; `manage_roadmap` runs unattended inside the `-fleet` family |
+| Claim                                                                                                                    | Evidence                                                                                                                                                                                                                                                                     |
+| ------------------------------------------------------------------------------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `add` falls through to a full bidirectional sync                                                                         | `packages/cli/src/mcp/tools/roadmap.ts:757-764` — `shouldTriggerExternalSync` excludes `response.isError`, read-only actions, `sync` without `apply`, and `groom`; everything else `return true`                                                                             |
+| …which calls `fullSync` over every row                                                                                   | `packages/cli/src/mcp/tools/roadmap-auto-sync.ts:62,88`; `packages/core/src/roadmap/sync-engine.ts:368` `fullSync` loads the whole store, pushes, pulls, and writes back every changed row                                                                                   |
+| Empty tracker assignee clobbers a local assignee                                                                         | `packages/core/src/roadmap/sync-engine.ts:243` — `if (!localMachineClaim && ticketState.assignee !== feature.assignee) feature.assignee = ticketState.assignee;` with no null guard                                                                                          |
+| `backlog` is clobbered by a merely-`OPEN` issue                                                                          | `sync-engine.ts:259` guards `feature.status === 'blocked' && newStatus === 'planned'` but **not** `backlog`; `packages/core/src/roadmap/status-rank.ts` ranks `backlog: 0` below `planned: 1`, so `isRegression` treats the clobber as a legal promotion and lets it through |
+| This repo resolves every open issue to `planned` by a **direct** key                                                     | `harness.config.json` `reverseStatusMap: { open: planned, closed: done }`; `resolveReverseStatus` (`packages/core/src/roadmap/tracker-sync.ts:107-109`) matches the direct key first and never reaches the compound branch                                                   |
+| The new row is written with all extended fields null                                                                     | `packages/cli/src/mcp/tools/roadmap.ts:266-316` — `buildFeatureFromInput` sets `assignee`/`priority`/`externalId`/`updatedAt` to `null`; `handleAdd` persists with no tracker round-trip                                                                                     |
+| …and the serializer then omits the whole triple                                                                          | `packages/core/src/roadmap/serialize.ts:79-85` — `serializeExtendedLines` returns `[]` when all four are null                                                                                                                                                                |
+| That omission is **deliberate and covered**, not a bug                                                                   | `packages/core/tests/roadmap/serialize-extended.test.ts` — "omits new fields when all are null (legacy output)" plus two `parse → serialize` **byte-identity** round-trip tests (`EXTENDED_FIELDS_MD` contains an all-null backlog row; `VALID_ROADMAP_MD` is all-legacy)    |
+| A missing `External-ID` permanently strands the row                                                                      | merge-triggered auto-done joins rows to closed issues on `External-ID` (`packages/cli/tests/ci/roadmap-auto-done-workflow.test.ts`)                                                                                                                                          |
+| `fullSync` is mutex-serialized by a synchronous swap + `await`, so a second acquirer queues FIFO rather than deadlocking | `sync-engine.ts:368-379,452-454`; `_resetSyncMutex()` exported for tests                                                                                                                                                                                                     |
+| `applyRoadmapDiff` is genuinely row-scoped                                                                               | `packages/core/src/roadmap/store/apply-diff.ts:76-103` — slug-indexed, `patchFeature` per changed row, no-op for unchanged rows                                                                                                                                              |
+| `syncToExternal` mutates features in place and never clones or re-keys them                                              | `sync-engine.ts:164-220`, `resolveExternalId` at `:105,:123` assigns `feature.externalId` directly                                                                                                                                                                           |
+| The engine's own convention is that a suppressed action must be **reported**, never silently dropped                     | `sync-engine.ts:90-91` — "Both guards report rather than silently drop: a withheld create lands in `skippedCreates` … never nowhere"; `skippedCreates` / `skippedStateChanges` exist for this                                                                                |
+| RMH005 (`assignee ≠ null ⟺ in-progress`) is an **error**-severity health rule                                            | `packages/core/src/roadmap/health.ts:81,142`; `assigneeInvariantHolds` at `packages/core/src/roadmap/assignee-lifecycle.ts:52-54`                                                                                                                                            |
+| CLI tests can already spy the auto-sync module namespace                                                                 | `packages/cli/tests/mcp/tools/roadmap.sharded.test.ts:98`, `roadmap.test.ts:704` — `vi.spyOn(autoSync, 'triggerExternalSync')` works because `roadmap.ts:17` uses a named import                                                                                             |
+| Reuse-over-reimplement is the local convention                                                                           | `packages/core/src/roadmap/serialize.ts` — `serializeFeature` is "Exported so the shard file format can reuse the exact same row emission (spec: reuse, do not reimplement)"                                                                                                 |
+| Strategy grounding                                                                                                       | `STRATEGY.md#key-metrics` — _Holiday Confidence_: "if the senior disappears for two weeks, what holds?" A tool that corrupts roadmap rows unattended is a direct hit on that metric; `manage_roadmap` runs unattended inside the `-fleet` family                             |
 
 ## Decisions made
 
@@ -75,7 +75,7 @@ relied-on behaviour. This spec therefore replaces the full sync on `add` with a
 `shouldTriggerExternalSync` returns `false` for `add`. **`handleAdd` itself** performs the
 scoped push (see D5 for why the ownership sits there and not in the dispatcher).
 
-*Rationale:* this is the same principle the `groom` exclusion already states in a comment
+_Rationale:_ this is the same principle the `groom` exclusion already states in a comment
 — "a local reorganization … Mirroring it would read [the wrong set of] rows" — applied to
 `add`. Blast radius becomes proportional to the operation.
 
@@ -90,7 +90,7 @@ syncRowToExternal(projectRoot, adapter, config, featureName, options?) => Promis
 ```
 
 - Takes the **same module mutex** as `fullSync`, so a scoped push and a full sync can
-  never interleave their writebacks. *Scope note:* `handleAdd`'s own `persistRoadmap`
+  never interleave their writebacks. _Scope note:_ `handleAdd`'s own `persistRoadmap`
   write happens **outside** the mutex, so a concurrent `fullSync` can still slip between
   the row write and the scoped push. Closing that window would mean holding the lock
   across the whole `add`, which is out of scope. What actually removes the #1286 symptom
@@ -130,7 +130,7 @@ Three coupled changes. All suppressions honour the existing `forceSync` escape h
 "human always wins unless explicitly overridden" is preserved.
 
 **(a) Absent tracker assignee is not an opinion.** A `null` `ticketState.assignee` must not
-clear a non-null local assignee. Tracker→local *assignment* (null → someone) and
+clear a non-null local assignee. Tracker→local _assignment_ (null → someone) and
 reassignment are unaffected, and `forceSync` still clears.
 
 **(b) Guard (a) requires widening the status routing, or it breaks RMH005.** The bare
@@ -147,18 +147,18 @@ lifecycle authority.
 
 **(c) A merely-`OPEN` issue must not overwrite local `backlog` — gated on label
 provenance.** `backlog` and `planned` are both open states; a bare `OPEN` cannot
-distinguish them. But the suppression must fire *only* when the tracker genuinely has no
+distinguish them. But the suppression must fire _only_ when the tracker genuinely has no
 opinion. `resolveReverseStatus` collapses provenance — it returns a bare `FeatureStatus`
 and matches its direct key (`open → planned`) **before** the compound branch, so this
 repo's own config never reaches compound resolution at all. A naive
 `status === 'backlog' && newStatus === 'planned'` guard would therefore also suppress an
-explicit `planned` label, which *is* an opinion.
+explicit `planned` label, which _is_ an opinion.
 
 The guard is instead gated on the **absence of any disambiguating status label** on the
 ticket (`in-progress`, `blocked`, `planned`, `needs-human` — the same set
 `resolveReverseStatus` uses). An explicit `planned` label still promotes a `backlog` row.
 
-*Accepted trade-off:* the pre-existing `blocked` guard on the same line has the identical
+_Accepted trade-off:_ the pre-existing `blocked` guard on the same line has the identical
 provenance blindness. This spec does not change it — altering `blocked`'s behaviour is out
 of scope and would be an unrequested regression risk. The new `backlog` guard is written
 label-aware because that is what its own rationale requires.
@@ -181,7 +181,7 @@ byte-identity round-trips. Emitting the triple unconditionally would break
 roadmap files on the next write, to fix a symptom whose actual cause is that `add` never
 populated `externalId`. D2 makes the stamp deterministic and in-process, and stamping
 `externalId` alone flips `hasExtended`, so all three lines appear — the fields are present
-because they are *real*, not because the serializer pads them.
+because they are _real_, not because the serializer pads them.
 
 ### D5 — `handleAdd` owns the push and the response annotation; a failed link is reported, not swallowed
 
@@ -189,7 +189,7 @@ because they are *real*, not because the serializer pads them.
 instead reports its outcome.
 
 **Ownership sits in `handleAdd`, not the dispatcher.** `handleAdd` already holds the
-roadmap object and knows the feature name, and it must annotate the response *before*
+roadmap object and knows the feature name, and it must annotate the response _before_
 serializing it — if the dispatcher ran the push afterwards it would mutate a
 freshly-loaded copy while the already-serialized response still showed
 `externalId: null`, defeating the observability this decision exists for.
@@ -212,7 +212,7 @@ type RowLinkOutcome =
   id lands in `result.created`) and the dedup path (where it lands in `result.updated`).
 - `not-configured` is the silent, expected case for projects with no tracker.
 - **`no-token` and `failed` are surfaced in the response text and the response is NOT
-  marked `isError`.** The row *was* written and is locally valid; only the tracker link is
+  marked `isError`.** The row _was_ written and is locally valid; only the tracker link is
   missing. Marking it an error would tell callers the add failed, inviting a retry that
   mints a duplicate issue — the exact failure #1286 exists to prevent. Loud-but-not-fatal
   is the correct severity.
@@ -225,13 +225,13 @@ type RowLinkOutcome =
 
 ### Files touched
 
-| File | Change |
-| --- | --- |
-| `packages/types/src/tracker-sync.ts` | add `suppressedInbound` to `SyncResult` |
-| `packages/core/src/roadmap/sync-engine.ts` | add `syncRowToExternal`; guards (a)/(b)/(c)/(d) in `applyTicketToFeature`; populate `suppressedInbound` in `emptySyncResult` |
-| `packages/core/src/roadmap/index.ts` (barrel) | export `syncRowToExternal` |
-| `packages/cli/src/mcp/tools/roadmap-auto-sync.ts` | add `triggerScopedExternalSync` with an adapter-factory seam |
-| `packages/cli/src/mcp/tools/roadmap.ts` | `shouldTriggerExternalSync` returns `false` for `add`; `handleAdd` runs the scoped push and annotates the response |
+| File                                              | Change                                                                                                                       |
+| ------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------- |
+| `packages/types/src/tracker-sync.ts`              | add `suppressedInbound` to `SyncResult`                                                                                      |
+| `packages/core/src/roadmap/sync-engine.ts`        | add `syncRowToExternal`; guards (a)/(b)/(c)/(d) in `applyTicketToFeature`; populate `suppressedInbound` in `emptySyncResult` |
+| `packages/core/src/roadmap/index.ts` (barrel)     | export `syncRowToExternal`                                                                                                   |
+| `packages/cli/src/mcp/tools/roadmap-auto-sync.ts` | add `triggerScopedExternalSync` with an adapter-factory seam                                                                 |
+| `packages/cli/src/mcp/tools/roadmap.ts`           | `shouldTriggerExternalSync` returns `false` for `add`; `handleAdd` runs the scoped push and annotates the response           |
 
 ### The adapter-injection seam (required for testability)
 
@@ -275,22 +275,22 @@ SC1, SC3, SC4, SC5, SC7, SC8, SC9, SC10, SC11, SC12 are provable with a stub
 `TrackerSyncAdapter` and no network. SC2 and SC6 additionally require the
 `deps.makeAdapter` seam above; that is the seam's entire justification.
 
-| # | Criterion (EARS) | Proves |
-| --- | --- | --- |
-| SC1 | When `add` completes successfully, the system shall not call `triggerExternalSync`. | #1285 |
-| SC2 | When a row is added, via the scoped path with a stub tracker that reports (i) an unrelated row's issue as having no assignee while the local row has one, and (ii) an unrelated `backlog` row's issue as bare `OPEN`, the system shall leave both unrelated rows byte-identical on disk. | #1285 end-to-end |
-| SC3 | If a tracker ticket reports no assignee and `forceSync` is not set, then the system shall not clear a non-null local assignee. | #1285 (a) |
-| SC4 | If a tracker ticket is `OPEN` and carries **no** disambiguating status label and `forceSync` is not set, then the system shall not overwrite a local `backlog` status. | #1285 (c) |
-| SC5 | When `forceSync` is set, the system shall still apply both overwrites in SC3 and SC4. | escape hatch intact |
-| SC6 | When `add` runs against a configured stub tracker, the created row shall carry a non-null `External-ID`, and the serialized shard shall contain the `Assignee` / `Priority` / `External-ID` lines. | #1286 |
-| SC7 | When `syncRowToExternal` runs, the adapter shall receive no write call carrying any `externalId` other than the added row's, and at most one `createTicket` call. | #1285 + #1286 |
-| SC8 | If a row's title already matches an existing labelled ticket, then `syncRowToExternal` shall link to it and shall not call `createTicket`. | duplicate-issue safety |
-| SC9 | If the tracker is configured but linking fails, then the `add` response shall report the failure and shall not be marked `isError`. | D5 |
-| SC10 | Existing serializer round-trip and legacy-omission tests shall continue to pass unmodified. | D4 |
-| SC11 | When a ticket is `OPEN` and carries an explicit `planned` label, the system shall promote a local `backlog` row to `planned`. | D3(c) provenance |
-| SC12 | When inbound sync suppresses an assignee clear or a `backlog` overwrite, the system shall record it in `SyncResult.suppressedInbound`. | D3(d) |
-| SC13 | If `fetchAllTickets` fails, then `syncRowToExternal` shall call neither `createTicket` nor `updateTicket` and shall report the error. | D2 fail-closed |
-| SC14 | When inbound sync moves an assigned, non-machine-claimed row away from `in-progress`, the resulting row shall satisfy `assignee ≠ null ⟺ in-progress`. | D3(b) / RMH005 |
+| #    | Criterion (EARS)                                                                                                                                                                                                                                                                         | Proves                 |
+| ---- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------- |
+| SC1  | When `add` completes successfully, the system shall not call `triggerExternalSync`.                                                                                                                                                                                                      | #1285                  |
+| SC2  | When a row is added, via the scoped path with a stub tracker that reports (i) an unrelated row's issue as having no assignee while the local row has one, and (ii) an unrelated `backlog` row's issue as bare `OPEN`, the system shall leave both unrelated rows byte-identical on disk. | #1285 end-to-end       |
+| SC3  | If a tracker ticket reports no assignee and `forceSync` is not set, then the system shall not clear a non-null local assignee.                                                                                                                                                           | #1285 (a)              |
+| SC4  | If a tracker ticket is `OPEN` and carries **no** disambiguating status label and `forceSync` is not set, then the system shall not overwrite a local `backlog` status.                                                                                                                   | #1285 (c)              |
+| SC5  | When `forceSync` is set, the system shall still apply both overwrites in SC3 and SC4.                                                                                                                                                                                                    | escape hatch intact    |
+| SC6  | When `add` runs against a configured stub tracker, the created row shall carry a non-null `External-ID`, and the serialized shard shall contain the `Assignee` / `Priority` / `External-ID` lines.                                                                                       | #1286                  |
+| SC7  | When `syncRowToExternal` runs, the adapter shall receive no write call carrying any `externalId` other than the added row's, and at most one `createTicket` call.                                                                                                                        | #1285 + #1286          |
+| SC8  | If a row's title already matches an existing labelled ticket, then `syncRowToExternal` shall link to it and shall not call `createTicket`.                                                                                                                                               | duplicate-issue safety |
+| SC9  | If the tracker is configured but linking fails, then the `add` response shall report the failure and shall not be marked `isError`.                                                                                                                                                      | D5                     |
+| SC10 | Existing serializer round-trip and legacy-omission tests shall continue to pass unmodified.                                                                                                                                                                                              | D4                     |
+| SC11 | When a ticket is `OPEN` and carries an explicit `planned` label, the system shall promote a local `backlog` row to `planned`.                                                                                                                                                            | D3(c) provenance       |
+| SC12 | When inbound sync suppresses an assignee clear or a `backlog` overwrite, the system shall record it in `SyncResult.suppressedInbound`.                                                                                                                                                   | D3(d)                  |
+| SC13 | If `fetchAllTickets` fails, then `syncRowToExternal` shall call neither `createTicket` nor `updateTicket` and shall report the error.                                                                                                                                                    | D2 fail-closed         |
+| SC14 | When inbound sync moves an assigned, non-machine-claimed row away from `in-progress`, the resulting row shall satisfy `assignee ≠ null ⟺ in-progress`.                                                                                                                                   | D3(b) / RMH005         |
 
 ## Implementation order
 
