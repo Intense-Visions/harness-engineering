@@ -52,6 +52,13 @@ export interface UsageRecord {
   in: number;
   cacheWrite: number;
   cacheRead: number;
+  /**
+   * `main`, a subagent's `attributionAgent`, `unattributed`, or `pre-migration`.
+   * Never empty. See the label vocabulary decision in the spec.
+   */
+  agent: string;
+  /** The dispatch this turn belonged to — one fleet lane. Empty for the main thread. */
+  agentId: string;
 }
 
 export interface ScanInfo {

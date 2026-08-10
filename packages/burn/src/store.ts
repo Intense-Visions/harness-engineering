@@ -188,6 +188,13 @@ export function readRecords(paths: BurnPaths): Map<string, UsageRecord> {
       in: Number(p[4]) || 0,
       cacheWrite: Number(p[5]) || 0,
       cacheRead: Number(p[6]) || 0,
+      // A 7-field row predates attribution: its provenance is unknown, which is
+      // neither `main` (that would overstate the human) nor `unattributed`
+      // (that is defined as SUBAGENT spend, and would fire the degradation
+      // flag on history alone). It stays `pre-migration` until a rescan of the
+      // still-present transcript relabels it.
+      agent: 'pre-migration',
+      agentId: '',
     });
   }
   return records;

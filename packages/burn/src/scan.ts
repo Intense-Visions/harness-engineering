@@ -80,6 +80,9 @@ function toRecord(line: string): { id: string; record: UsageRecord } | null {
       in: Number(usage.input_tokens) || 0,
       cacheWrite: Number(usage.cache_creation_input_tokens) || 0,
       cacheRead: Number(usage.cache_read_input_tokens) || 0,
+      // Placeholder: every turn reads as main until classification lands.
+      agent: 'main',
+      agentId: '',
     },
   };
 }
