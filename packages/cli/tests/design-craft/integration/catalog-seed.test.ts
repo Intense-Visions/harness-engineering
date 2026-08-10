@@ -51,7 +51,7 @@ import { MockLlmProvider } from '../../../src/design-craft/llm/provider.js';
 import { handleDesignCraft } from '../../../src/mcp/tools/design-craft.js';
 
 describe('design-craft Phase 2 catalog seed — patterns', () => {
-  it('SEED_PATTERNS contains the seven Phase 2 patterns in stable order', () => {
+  it('SEED_PATTERNS contains the eight Phase 2 patterns in stable order', () => {
     const ids = SEED_PATTERNS.map((p) => p.id);
     expect(ids).toEqual([
       'pattern-spring-physics',
@@ -61,6 +61,7 @@ describe('design-craft Phase 2 catalog seed — patterns', () => {
       'pattern-fluid-type-scale',
       'pattern-progressive-corner-rounding',
       'pattern-focus-ring-craft',
+      'pattern-editorial-two-column-split',
     ]);
   });
 
@@ -105,6 +106,12 @@ describe('design-craft Phase 2 catalog seed — patterns', () => {
     expect(byId.get('pattern-focus-ring-craft')?.findingTemplate).toMatchObject({
       code: 'CRAFT-P007',
       tier: 'foundational',
+      impact: 'large',
+      phase: 'polish',
+    });
+    expect(byId.get('pattern-editorial-two-column-split')?.findingTemplate).toMatchObject({
+      code: 'CRAFT-P008',
+      tier: 'polish',
       impact: 'large',
       phase: 'polish',
     });

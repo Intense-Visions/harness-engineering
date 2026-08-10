@@ -189,10 +189,10 @@ describe('design-craft MCP handler — POLISH phase wiring', () => {
     // into runPolish), not the ones that emitted findings. Widened across
     // Phase 2 catalog increments to include skeleton-content-matched
     // (P002), stagger-timing (P003), page-transition-crossfade (P004),
-    // fluid-type-scale (P005), progressive-corner-rounding (P006), and
-    // focus-ring-craft (P007); only spring-physics (P001) actually fires
-    // for the cubic-bezier fixture because the prefilter rules out the
-    // others.
+    // fluid-type-scale (P005), progressive-corner-rounding (P006),
+    // focus-ring-craft (P007), and editorial-two-column-split (P008);
+    // only spring-physics (P001) actually fires for the cubic-bezier
+    // fixture because the prefilter rules out the others.
     expect(payload.summary.catalog.patternsApplied).toEqual([
       'pattern-spring-physics',
       'pattern-skeleton-content-matched',
@@ -201,6 +201,7 @@ describe('design-craft MCP handler — POLISH phase wiring', () => {
       'pattern-fluid-type-scale',
       'pattern-progressive-corner-rounding',
       'pattern-focus-ring-craft',
+      'pattern-editorial-two-column-split',
     ]);
 
     fs.rmSync(tmpDir, { recursive: true, force: true });

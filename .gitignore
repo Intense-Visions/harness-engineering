@@ -107,3 +107,6 @@ tmp-plugin-*-agents/
 # Transient per-package vitest report written only under the pre-push gate
 # (HARNESS_PREPUSH=1). Never committed. See scripts/vitest-prepush-reporter.mjs.
 **/.vitest-report.json
+
+# Local orchestrator state backups (timestamped, disposable) — keep out of git + prettier
+**/.harness/state-backup-*/
