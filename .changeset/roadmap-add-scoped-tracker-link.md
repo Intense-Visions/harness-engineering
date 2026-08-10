@@ -1,5 +1,5 @@
 ---
-'@harness-engineering/types': patch
+'@harness-engineering/types': minor
 '@harness-engineering/core': patch
 '@harness-engineering/cli': patch
 ---
@@ -23,6 +23,17 @@ fails it performs no create, because degrading to an empty dedup index would
 mint exactly the duplicate issue this fix prevents. It runs no inbound pull
 and does not stamp `last_synced`: a one-row push is not a reconcile.
 
+It returns the new `RowSyncResult` — a `SyncResult` plus the post-push
+`feature.externalId`. That field, not `created` / `updated`, is what answers
+"is this row linked?": a row that dedup-links to an existing ticket has its id
+stamped and written to disk even when the follow-up patch fails, leaving both
+arrays empty. A writeback failure is reported under the `'*'` envelope, so
+"linked at the tracker but not persisted" stays distinguishable from a
+tracker-side error, and the `add` response can name the orphaned ticket.
+
+**Types is a minor bump, not a patch:** `SyncResult` gained a required member
+(`suppressedInbound`), which is source-breaking for anyone constructing one.
+
 Inbound sync is hardened independently, because `sync --apply` and state
 transitions still run the full reconcile:
 
@@ -40,13 +51,17 @@ transitions still run the full reconcile:
   mapping resolves a bare issue and an explicitly `planned`-labelled one
   identically. An explicit `planned` label still promotes; a `blocked` label
   does not, since a direct `open` key discards its opinion anyway.
-- Both suppressions are reported in the new `SyncResult.suppressedInbound`
-  rather than silently dropped.
+- Both suppressions are reported in the new `SyncResult.suppressedInbound`,
+  which `harness roadmap sync` now surfaces in both its `--json` payload
+  (`skipped.inbound`) and its warn output, rather than silently dropping.
 
 The `add` response gains a `link` key describing the outcome. A missing token
 or a failed link is reported in the response text but does **not** mark the
 response as an error: the row was written and is locally valid, and flagging a
-failure would invite a retry that mints a duplicate issue.
+failure would invite a retry that mints a duplicate issue. The failure message
+names the recovery that works — `sync` with `apply=true`, which links the row
+that already exists — and warns against re-running `add`, which cannot work
+because the row is already persisted and the second add collides on slug.
 
 The roadmap serializer is unchanged. Stamping `externalId` alone flips the
 extended-field predicate, so all three lines appear because the fields are

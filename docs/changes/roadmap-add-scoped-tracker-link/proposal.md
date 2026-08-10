@@ -118,11 +118,23 @@ syncRowToExternal(projectRoot, adapter, config, featureName, options?) => Promis
   one-row push would assert a reconcile that never happened. This is a deliberate
   behaviour change from the `fullSync`-on-`add` status quo.
 
-**`SyncResult` fields meaningful on this path:** `created`, `updated`, `errors`,
-`skippedCreates`, `suppressedInbound` (always empty — no pull runs), and
-`examined.ticketsFetched`. `examined.roadmapRows` is `1` by construction (the projection),
-which differs in meaning from `fullSync`'s whole-roadmap denominator. `planned.*` and
-`dryRun` behave as in `syncToExternal`.
+**Returns `RowSyncResult`** — a `SyncResult` plus `externalId: string | null`, the row's
+`feature.externalId` **after** the push. That field, and not `created` / `updated`, is the
+link answer. `created` and `updated` are BOTH empty on the dedup-link-then-patch-fails
+path — `resolveExternalId` stamps the id and returns `true`, so no create is recorded, and
+the failed `updateTicket` records no update — even though `applyRoadmapDiff` wrote the id
+to disk. A caller classifying on those arrays therefore reports a linked row as unlinked
+and names no orphan.
+
+A **writeback** failure is reported under the `'*'` envelope in `errors` (the convention
+`fullSync` already uses), so the caller can tell "the tracker linked it but disk did not
+record it" from a tracker-side error, which is keyed by feature name or external id.
+
+**Other `SyncResult` fields meaningful on this path:** `errors`, `skippedCreates`,
+`suppressedInbound` (always empty — no pull runs), and `examined.ticketsFetched`.
+`examined.roadmapRows` is `1` by construction (the projection), which differs in meaning
+from `fullSync`'s whole-roadmap denominator. `planned.*` and `dryRun` behave as in
+`syncToExternal`.
 
 ### D3 — harden the inbound mapping in `applyTicketToFeature` (defence in depth)
 
@@ -218,37 +230,51 @@ unaffected.
 
 ```
 type RowLinkOutcome =
-  | { kind: 'not-configured' }                 // no tracker in harness.config.json
-  | { kind: 'no-token' }                       // tracker configured, GITHUB_TOKEN absent
-  | { kind: 'linked'; externalId: string }
-  | { kind: 'failed'; reason: string };
+  | { kind: 'not-configured' }                                  // no tracker in harness.config.json
+  | { kind: 'no-token' }                                        // tracker configured, GITHUB_TOKEN absent
+  | { kind: 'linked'; externalId: string; warning?: string }
+  | { kind: 'failed'; reason: string; externalId?: string };
 ```
 
-- `{ kind: 'linked' }` is derived from **`feature.externalId`** after the push — the only
-  field correct on both the create path (where `resolveExternalId` returns `false` and the
-  id lands in `result.created`) and the dedup path (where it lands in `result.updated`).
+- The outcome is derived from **`RowSyncResult.externalId`** (the post-push
+  `feature.externalId`) plus whether the writeback failed. `created` / `updated` are not
+  usable: on the dedup-link-then-patch-fails path both are empty while the row is linked on
+  disk, so classifying on them reports `failed` — with no orphan named — for a linked row,
+  and `handleAdd` then skips its stamp, publishing `externalId: null` for a row that is
+  linked. The classification is therefore: **externalId + clean writeback → `linked`**
+  (any tracker error becomes a non-fatal `warning`); **externalId + failed writeback →
+  `failed`**, naming the orphan; **no externalId → `failed`**.
 - `not-configured` is the silent, expected case for projects with no tracker.
 - **`no-token` and `failed` are surfaced in the response text and the response is NOT
   marked `isError`.** The row _was_ written and is locally valid; only the tracker link is
   missing. Marking it an error would tell callers the add failed, inviting a retry that
   mints a duplicate issue — the exact failure #1286 exists to prevent. Loud-but-not-fatal
   is the correct severity.
+- **The remediation in the failure message must be one that works.** Re-running `add` is
+  **not** it: `handleAdd` persists the row _before_ the push, so a second `add` pushes a
+  duplicate slug and `applyRoadmapDiff`'s collision guard hard-rejects the whole write —
+  it fails 100% of the time on exactly the path the message is attached to. The message
+  names `manage_roadmap sync` with `apply=true`, which links the row that already exists
+  (and dedups onto the existing ticket rather than minting a second one), and explicitly
+  warns against re-running `add`.
 - **Create-succeeded-but-writeback-failed** is an explicit case, not an accident: it
-  returns `{ kind: 'failed' }` with the orphaned `externalId` named in `reason`, so the
-  operator can repair by hand. A retry of the same `add` is self-healing rather than
-  duplicating, because the dedup index now matches the created ticket's title.
+  returns `{ kind: 'failed' }` with the orphaned `externalId` both named in `reason` and
+  carried structurally, so the message can say "ticket X exists but the row was not linked
+  to it" instead of asserting the row has no `External-ID` unconditionally.
 
 ## Technical design
 
 ### Files touched
 
-| File                                              | Change                                                                                                                       |
-| ------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------- |
-| `packages/types/src/tracker-sync.ts`              | add `suppressedInbound` to `SyncResult`                                                                                      |
-| `packages/core/src/roadmap/sync-engine.ts`        | add `syncRowToExternal`; guards (a)/(b)/(c)/(d) in `applyTicketToFeature`; populate `suppressedInbound` in `emptySyncResult` |
-| `packages/core/src/roadmap/index.ts` (barrel)     | export `syncRowToExternal`                                                                                                   |
-| `packages/cli/src/mcp/tools/roadmap-auto-sync.ts` | add `triggerScopedExternalSync` with an adapter-factory seam                                                                 |
-| `packages/cli/src/mcp/tools/roadmap.ts`           | `shouldTriggerExternalSync` returns `false` for `add`; `handleAdd` runs the scoped push and annotates the response           |
+| File                                               | Change                                                                                                                       |
+| -------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------- |
+| `packages/types/src/tracker-sync.ts`               | add `suppressedInbound` to `SyncResult`; add `RowSyncResult`                                                                 |
+| `packages/types/src/index.ts` (barrel)             | re-export `SuppressedInbound` and `RowSyncResult` alongside their siblings                                                   |
+| `packages/core/src/roadmap/sync-engine.ts`         | add `syncRowToExternal`; guards (a)/(b)/(c)/(d) in `applyTicketToFeature`; populate `suppressedInbound` in `emptySyncResult` |
+| `packages/core/src/roadmap/index.ts` (barrel)      | export `syncRowToExternal`                                                                                                   |
+| `packages/cli/src/mcp/tools/roadmap-auto-sync.ts`  | add `triggerScopedExternalSync` with an adapter-factory seam                                                                 |
+| `packages/cli/src/mcp/tools/roadmap.ts`            | `shouldTriggerExternalSync` returns `false` for `add`; `handleAdd` runs the scoped push and annotates the response           |
+| `packages/cli/src/commands/roadmap/sync-report.ts` | project `suppressedInbound` into `skipped.inbound` and warn on it                                                            |
 
 ### The adapter-injection seam (required for testability)
 
@@ -289,26 +315,33 @@ Production callers omit `deps`. Without this, SC2/SC6/SC8 are not provable.
 ## Success criteria
 
 SC1, SC3, SC4, SC5, SC7, SC8, SC9, SC10, SC11, SC12 are provable with a stub
-`TrackerSyncAdapter` and no network. SC2 and SC6 additionally require the
-`deps.makeAdapter` seam above; that is the seam's entire justification.
+`TrackerSyncAdapter` and no network. SC2, SC6, SC16, SC17 and SC20 additionally require
+the `deps.makeAdapter` seam above; that is the seam's entire justification. SC20 requires
+it to be a **pass-through** spy — a stub that replaces the link entirely proves nothing
+about the wiring between `handleAdd` and the push.
 
-| #    | Criterion (EARS)                                                                                                                                                                                                                                                                         | Proves                 |
-| ---- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------- |
-| SC1  | When `add` completes successfully, the system shall not call `triggerExternalSync`.                                                                                                                                                                                                      | #1285                  |
-| SC2  | When a row is added, via the scoped path with a stub tracker that reports (i) an unrelated row's issue as having no assignee while the local row has one, and (ii) an unrelated `backlog` row's issue as bare `OPEN`, the system shall leave both unrelated rows byte-identical on disk. | #1285 end-to-end       |
-| SC3  | If a tracker ticket reports no assignee and `forceSync` is not set, then the system shall not clear a non-null local assignee.                                                                                                                                                           | #1285 (a)              |
-| SC4  | If a tracker ticket is `OPEN` and does **not** carry the label naming the status it would write and `forceSync` is not set, then the system shall not overwrite a local `backlog` status.                                                                                                | #1285 (c)              |
-| SC5  | When `forceSync` is set, the system shall still apply both overwrites in SC3 and SC4.                                                                                                                                                                                                    | escape hatch intact    |
-| SC6  | When `add` runs against a configured stub tracker, the created row shall carry a non-null `External-ID`, and the serialized shard shall contain the `Assignee` / `Priority` / `External-ID` lines.                                                                                       | #1286                  |
-| SC7  | When `syncRowToExternal` runs, the adapter shall receive no write call carrying any `externalId` other than the added row's, and at most one `createTicket` call.                                                                                                                        | #1285 + #1286          |
-| SC8  | If a row's title already matches an existing labelled ticket, then `syncRowToExternal` shall link to it and shall not call `createTicket`.                                                                                                                                               | duplicate-issue safety |
-| SC9  | If the tracker is configured but linking fails, then the `add` response shall report the failure and shall not be marked `isError`.                                                                                                                                                      | D5                     |
-| SC10 | Existing serializer round-trip and legacy-omission tests shall continue to pass unmodified.                                                                                                                                                                                              | D4                     |
-| SC11 | When a ticket is `OPEN` and carries an explicit `planned` label, the system shall promote a local `backlog` row to `planned`.                                                                                                                                                            | D3(c) provenance       |
-| SC12 | When inbound sync suppresses an assignee clear or a `backlog` overwrite, the system shall record it in `SyncResult.suppressedInbound`.                                                                                                                                                   | D3(d)                  |
-| SC13 | If `fetchAllTickets` fails, then `syncRowToExternal` shall call neither `createTicket` nor `updateTicket` and shall report the error.                                                                                                                                                    | D2 fail-closed         |
-| SC14 | When inbound sync applies a status change to an assigned, non-machine-claimed row, the resulting row shall satisfy `assignee ≠ null ⟺ in-progress`.                                                                                                                                      | D3(b) / RMH005         |
-| SC15 | When the widened `setStatus` routing releases an assignee, `SyncResult.assignmentChanges` shall report `to: null` for that feature — never the intermediate value the assignee block computed.                                                                                           | D3(b) report fidelity  |
+| #    | Criterion (EARS)                                                                                                                                                                                                                                                                         | Proves                     |
+| ---- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------- |
+| SC1  | When `add` completes successfully, the system shall not call `triggerExternalSync`.                                                                                                                                                                                                      | #1285                      |
+| SC2  | When a row is added, via the scoped path with a stub tracker that reports (i) an unrelated row's issue as having no assignee while the local row has one, and (ii) an unrelated `backlog` row's issue as bare `OPEN`, the system shall leave both unrelated rows byte-identical on disk. | #1285 end-to-end           |
+| SC3  | If a tracker ticket reports no assignee and `forceSync` is not set, then the system shall not clear a non-null local assignee.                                                                                                                                                           | #1285 (a)                  |
+| SC4  | If a tracker ticket is `OPEN` and does **not** carry the label naming the status it would write and `forceSync` is not set, then the system shall not overwrite a local `backlog` status.                                                                                                | #1285 (c)                  |
+| SC5  | When `forceSync` is set, the system shall still apply both overwrites in SC3 and SC4.                                                                                                                                                                                                    | escape hatch intact        |
+| SC6  | When `add` runs against a configured stub tracker, the created row shall carry a non-null `External-ID`, and the serialized shard shall contain the `Assignee` / `Priority` / `External-ID` lines.                                                                                       | #1286                      |
+| SC7  | When `syncRowToExternal` runs, the adapter shall receive no write call carrying any `externalId` other than the added row's, and at most one `createTicket` call.                                                                                                                        | #1285 + #1286              |
+| SC8  | If a row's title already matches an existing labelled ticket, then `syncRowToExternal` shall link to it and shall not call `createTicket`.                                                                                                                                               | duplicate-issue safety     |
+| SC9  | If the tracker is configured but linking fails, then the `add` response shall report the failure and shall not be marked `isError`.                                                                                                                                                      | D5                         |
+| SC10 | Existing serializer round-trip and legacy-omission tests shall continue to pass unmodified.                                                                                                                                                                                              | D4                         |
+| SC11 | When a ticket is `OPEN` and carries an explicit `planned` label, the system shall promote a local `backlog` row to `planned`.                                                                                                                                                            | D3(c) provenance           |
+| SC12 | When inbound sync suppresses an assignee clear or a `backlog` overwrite, the system shall record it in `SyncResult.suppressedInbound`.                                                                                                                                                   | D3(d)                      |
+| SC13 | If `fetchAllTickets` fails, then `syncRowToExternal` shall call neither `createTicket` nor `updateTicket` and shall report the error.                                                                                                                                                    | D2 fail-closed             |
+| SC14 | When inbound sync applies a status change to an assigned, non-machine-claimed row, the resulting row shall satisfy `assignee ≠ null ⟺ in-progress`.                                                                                                                                      | D3(b) / RMH005             |
+| SC15 | When the widened `setStatus` routing releases an assignee, `SyncResult.assignmentChanges` shall report `to: null` for that feature — never the intermediate value the assignee block computed.                                                                                           | D3(b) report fidelity      |
+| SC16 | If a row dedup-links to an existing ticket and the follow-up `updateTicket` fails, then the outcome shall be `linked` carrying that `externalId`, and the row on disk shall carry the same `External-ID`.                                                                                | D5 / row-link truth        |
+| SC17 | If the create succeeds but the writeback fails, then the outcome shall be `failed`, shall carry the created `externalId`, and its `reason` shall name it.                                                                                                                                | D5 orphan naming           |
+| SC18 | When linking fails, the `add` response message shall direct the caller to `sync` with `apply=true` and shall not advise re-running `add`.                                                                                                                                                | D5 remediation truth       |
+| SC19 | When inbound sync suppresses a write, `harness roadmap sync` shall report it in `skipped.inbound` and shall warn about it in its prose output.                                                                                                                                           | D3(d) reaches the operator |
+| SC20 | When `add` is exercised through `handleManageRoadmap` with only the tracker adapter injected, both the response body and the row on disk shall carry the same non-null `External-ID`.                                                                                                    | SC6 end-to-end, unmocked   |
 
 ## Implementation order
 
