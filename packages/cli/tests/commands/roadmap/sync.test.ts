@@ -221,6 +221,30 @@ describe('runRoadmapSync() — --no-state-change', () => {
     ]);
     expect(r.report!.guards.syncIssueState).toBe(false);
   });
+
+  it('reports the inbound write it withheld rather than dropping it', async () => {
+    // The tracker reports nobody assigned, which is the DEFAULT state of every
+    // issue, not an instruction to unassign @alice. The guard keeps the local
+    // value — and the operator has to be able to find out that it did.
+    writeShards([feature('Alpha', 'github:o/r#1', { status: 'in-progress', assignee: '@alice' })]);
+    const adapter = spyAdapter([
+      ticket({ assignee: null, labels: ['harness-managed', 'in-progress'] }),
+    ]);
+
+    const r = await runRoadmapSync({ cwd, adapter, config: trackerConfig(), apply: true });
+
+    expect(r.ok).toBe(true);
+    expect(r.report!.skipped.inbound).toEqual([
+      {
+        feature: 'Alpha',
+        field: 'assignee',
+        from: '@alice',
+        to: null,
+        reason: 'tracker-reports-no-assignee',
+      },
+    ]);
+    expect(r.report!.pulled.assignmentChanges).toEqual([]);
+  });
 });
 
 describe('runRoadmapSync() — --no-create', () => {

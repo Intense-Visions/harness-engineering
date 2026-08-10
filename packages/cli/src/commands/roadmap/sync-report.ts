@@ -1,4 +1,4 @@
-import type { SyncResult, ExternalSyncOptions } from '@harness-engineering/core';
+import type { SyncResult, ExternalSyncOptions, SuppressedInbound } from '@harness-engineering/core';
 import { logger } from '../../output/logger';
 
 /**
@@ -38,6 +38,14 @@ export interface RoadmapSyncReport {
   skipped: {
     creates: Array<{ feature: string; milestone: string; reason: string }>;
     stateChanges: Array<{ externalId: string; from: string; to: string }>;
+    /**
+     * Inbound (tracker → roadmap) writes withheld because the tracker had no
+     * opinion. The whole point of collecting these in the engine is that an
+     * operator debugging "why did my GitHub unassign not take effect" is not
+     * met with silence — dropping them here would restore the silence one
+     * layer up.
+     */
+    inbound: SuppressedInbound[];
   };
   /** Per-feature errors (the sync itself never throws). */
   errors: Array<{ featureOrId: string; error: string }>;
@@ -70,6 +78,7 @@ export function buildReport(result: SyncResult, options: ExternalSyncOptions): R
     skipped: {
       creates: result.skippedCreates,
       stateChanges: result.skippedStateChanges,
+      inbound: result.suppressedInbound,
     },
     errors: result.errors.map((e) => ({ featureOrId: e.featureOrId, error: e.error.message })),
   };
@@ -127,7 +136,7 @@ function logChanges(report: RoadmapSyncReport): void {
 
 /** Changes a guard withheld. Warn-level so they are never lost in the noise. */
 function logSuppressions(report: RoadmapSyncReport): void {
-  const { creates, stateChanges } = report.skipped;
+  const { creates, stateChanges, inbound } = report.skipped;
   if (creates.length > 0) {
     logger.warn(
       `Skipped ${creates.length} create(s) (--no-create): ` +
@@ -138,6 +147,16 @@ function logSuppressions(report: RoadmapSyncReport): void {
     logger.warn(
       `Suppressed ${stateChanges.length} issue state change(s) (--no-state-change): ` +
         stateChanges.map((s) => `${s.externalId} ${s.from}→${s.to}`).join(', ')
+    );
+  }
+  if (inbound.length > 0) {
+    // Named per-feature with the reason: "why didn't my GitHub change land?"
+    // must be answerable from this line without reading --json.
+    logger.warn(
+      `Withheld ${inbound.length} inbound write(s) (tracker had no opinion): ` +
+        inbound
+          .map((s) => `${s.feature} ${s.field} ${s.from ?? '—'}→${s.to ?? '—'} (${s.reason})`)
+          .join(', ')
     );
   }
 }
