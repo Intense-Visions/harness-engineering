@@ -760,6 +760,11 @@ function shouldTriggerExternalSync(input: ManageRoadmapInput, response: McpRespo
   // Groom is a local reorganization (demote/archive). Mirroring it would read
   // archived rows leaving the aggregate as deletions; run `sync` explicitly instead.
   if (input.action === 'groom') return false;
+  // `add` writes exactly one row. Mirroring it as a whole-repo reconcile
+  // rewrites OTHER rows with tracker state — the same principle the `groom`
+  // exclusion above already states. handleAdd performs a row-scoped push
+  // instead, so the new row still gets its External-ID.
+  if (input.action === 'add') return false;
   return true;
 }
 
