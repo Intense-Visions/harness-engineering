@@ -1,10 +1,12 @@
 # Plan: Per-subagent token attribution in burn
 
-**Date:** 2026-08-10 | **Spec:** `docs/changes/per-subagent-token-attribution-in-burn/proposal.md` | **Tasks:** 14 | **Time:** ~65 min | **Integration Tier:** medium
+**Date:** 2026-08-10 | **Spec:** `docs/changes/per-subagent-token-attribution-in-burn/proposal.md` | **Tasks:** 14 | **Time:** ~70 min | **Integration Tier:** medium
+
+**Revision 2 (2026-08-10)** — rewritten against the post-soundness-review spec. Six substantive changes: the `pre-migration` label replaces `unattributed` for legacy rows; the upgrade rule keys on `pre-migration`; `readRecords` accepts 7 or 9-or-more fields; `writeRecords` sanitises tab/CR/LF; there is exactly **one** real `fleet-command/SKILL.md` (the other three platform paths are symlinks — revision 1 would have clobbered them); and the `unattributed` row is exempt from the report's top-N cut and unit floor.
 
 ## Goal
 
-`burn` records _whose_ spend each deduped assistant turn was — main thread, a named subagent, or honestly `unattributed` — and reports it by agent, so a fleet run can never be read as free.
+`burn` records _whose_ spend each deduped assistant turn was — the main thread, a named subagent, subagent spend whose identity could not be read, or a legacy row of unknown provenance — and reports it by agent, so a fleet run can never be read as free.
 
 ## Observable Truths (Acceptance Criteria)
 
@@ -14,39 +16,44 @@ Each truth maps to the spec's Success Criteria (SC) and to the task(s) that deli
 2. **(SC2)** When a scan reads subagent spend whose line carries no `attributionAgent`, the system shall store the record with `agent = 'unattributed'` and still count its units. → Task 4
 3. **(SC3)** If a line is not subagent spend, then the system shall not label it `unattributed` — it is labelled `main`. → Task 4
 4. **(SC4)** When a summary is built, the system shall emit an `agents` block in which every current-week record contributes to exactly one label; the published per-label integers sum to `wtd.units` within ±1 unit per label. → Task 6
-5. **(SC5)** When subagent spend exists in the week and none of it carries a readable label, the system shall set `attribution.degraded = true`. → Task 6
-6. **(SC6)** When `harness burn report` runs against a summary containing unattributed units, the system shall print those units as a visible caution line. → Task 8
-7. **(SC7)** When a pre-migration 7-column `usage.tsv` is read, the system shall load every row (none discarded) with `agent = 'unattributed'`, and a subsequent scan of a still-present transcript shall upgrade that row to its real label. → Tasks 2, 5
+5. **(SC5)** When subagent spend exists in the **current week** and none of it carries a readable label, the system shall set `attribution.degraded = true`; if the week's only unlabelled rows are `pre-migration` rows, the system shall **not** set it. → Task 6
+6. **(SC6)** When `harness burn report` runs against a summary containing unattributed units, the system shall print those units as a visible caution line **and** render the `unattributed` row itself, even if that row falls outside the top-N cut or below the unit floor that elide other labels. → Task 8
+7. **(SC7)** When a pre-migration 7-column `usage.tsv` is read, the system shall load every row (none discarded) with `agent = 'pre-migration'`, and a subsequent scan of a still-present transcript shall upgrade that row to its real label. → Tasks 2, 5
 8. **(SC8)** When the fingerprint version is absent or older than 2, the system shall discard all fingerprints and re-read every transcript. → Task 3
 9. **(SC9)** `harness-burn-hud`'s bin still imports nothing from `@harness-engineering/*` — `packages/burn/tests/bin-startup.test.ts` continues to pass. → Task 14 (no task adds a cross-package import to `packages/burn/src/`)
-10. **(SC10)** No occurrence of the claim that subagent tokens "are not observable" remains in any shipped skill body or generated command file: `grep -rn "not observable" agents/skills/*/fleet-command/ .claude-plugin .cursor-plugin .gemini-extension .antigravity-extension` returns nothing. → Tasks 10, 11
+10. **(SC10)** No occurrence of the claim that subagent tokens "are not observable" remains in any shipped skill body or generated command file: `grep -rn "not observable" agents/skills .claude-plugin .cursor-plugin .codex-plugin .gemini-extension .antigravity-extension` returns nothing outside `soundness-review`. → Tasks 10, 11
 11. **(SC11)** When `harness burn report` runs against a summary containing an `agents` block, the system shall print a "by agent" section listing each label with its units and percentage of the week; when the summary carries no `agents` block the system shall print no such section and shall not error. → Task 8
-12. `pnpm --filter @harness-engineering/burn test`, `pnpm --filter @harness-engineering/cli exec vitest run src/commands/burn/`, `pnpm test:platform-parity`, `pnpm --filter @harness-engineering/skills exec vitest run tests/platform-parity.test.ts`, `pnpm generate:plugin:check`, `pnpm format:check`, `pnpm run generate-docs --check` and `harness validate` all pass. → Task 14
+12. **(store reader tolerance)** When `readRecords` reads a row with more than nine fields, the system shall load it and ignore the extra fields; when it reads a row with any count other than exactly 7 or 9-or-more, the system shall discard it. → Task 2
+13. **(store writer safety)** If a label or lane id contains a tab, carriage return or newline, then the system shall not write it verbatim — each such character becomes a single space before serialising. → Task 2
+14. `pnpm --filter @harness-engineering/burn test`, `pnpm --filter @harness-engineering/cli exec vitest run src/commands/burn/`, `pnpm test:platform-parity`, `pnpm --filter @harness-engineering/skills exec vitest run tests/platform-parity.test.ts`, `pnpm generate:plugin:check`, `pnpm format:check`, `pnpm run generate-docs --check` and `harness validate` all pass. → Task 14
 
 ## Evidence (verified against the worktree, 2026-08-10)
 
-| Claim                                                                       | Evidence                                                                                                                                           |
-| --------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `readRecords` discards any row without exactly 7 fields                     | `packages/burn/src/store.ts:183`                                                                                                                   |
-| `writeRecords` emits 7 tab-separated fields                                 | `packages/burn/src/store.ts:196-202`                                                                                                               |
-| `readFingerprints` parses only a `#count` header                            | `packages/burn/src/store.ts:147-163`                                                                                                               |
-| `scan` already drops all fingerprints on a failed integrity gate            | `packages/burn/src/scan.ts:134-138`                                                                                                                |
-| `toRecord` drops every field except `requestId`/`timestamp`/`model`/`usage` | `packages/burn/src/scan.ts:59-85`                                                                                                                  |
-| `parseTranscript` is first-write-wins with no upgrade path                  | `packages/burn/src/scan.ts:96-101`                                                                                                                 |
-| Per-model rollup happens in the `idx === 0` branch of one pass              | `packages/burn/src/summary.ts:124-129`, emitted at `summary.ts:204-219`                                                                            |
-| `modelsSection` tolerates a summary written before per-model rollup         | `packages/cli/src/commands/burn/report.ts:126`, `report.ts:142`                                                                                    |
-| The false claim lives at one line in each of four byte-identical copies     | `agents/skills/{claude-code,cursor,codex,gemini-cli}/fleet-command/SKILL.md:319` (all four md5 `a38841a9aff79b3a8caa0bc03daf75cd`)                 |
-| Generated command files carry the same sentence                             | `.gemini-extension/commands/fleet-command.toml:340`, `.antigravity-extension/commands/fleet-command.toml:340`                                      |
-| Byte-identity of skill copies is enforced by the skills-package parity test | `agents/skills/tests/platform-parity.test.ts` (7881 assertions, currently green)                                                                   |
-| `harness validate` is currently green in this worktree                      | Ran 2026-08-10: `v validation passed`                                                                                                              |
-| `packages/{types,core,cli}/dist` are absent in this worktree                | `pnpm generate:plugin:check` currently fails with `ERR_MODULE_NOT_FOUND` for `@harness-engineering/core/dist/index.mjs` until the CLI chain builds |
+| Claim                                                                       | Evidence                                                                                                                                                                                                                                                      |
+| --------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `readRecords` discards any row without exactly 7 fields                     | `packages/burn/src/store.ts:183`                                                                                                                                                                                                                              |
+| `writeRecords` emits 7 tab-separated fields                                 | `packages/burn/src/store.ts:196-202`                                                                                                                                                                                                                          |
+| `readFingerprints` parses only a `#count` header                            | `packages/burn/src/store.ts:147-163`                                                                                                                                                                                                                          |
+| `scan` already drops all fingerprints on a failed integrity gate            | `packages/burn/src/scan.ts:134-138`                                                                                                                                                                                                                           |
+| `toRecord` drops every field except `requestId`/`timestamp`/`model`/`usage` | `packages/burn/src/scan.ts:59-85`                                                                                                                                                                                                                             |
+| `parseTranscript` is first-write-wins with no upgrade path                  | `packages/burn/src/scan.ts:96-101`                                                                                                                                                                                                                            |
+| Per-model rollup happens in the `idx === 0` branch of one pass              | `packages/burn/src/summary.ts:124-129`, emitted at `summary.ts:204-219`                                                                                                                                                                                       |
+| `modelsSection` tolerates a summary written before per-model rollup         | `packages/cli/src/commands/burn/report.ts:126`, `report.ts:142`                                                                                                                                                                                               |
+| There is exactly ONE real `fleet-command/SKILL.md`                          | `git ls-files -s` reports mode `100644` for `agents/skills/claude-code/fleet-command/SKILL.md` and mode `120000` (symlink) for `agents/skills/{codex,cursor,gemini-cli}/fleet-command`, all three pointing at blob `632e00a7b16bb8cdcdb277d95dff124bd21fada1` |
+| The false claim lives at one line in that one file                          | `agents/skills/claude-code/fleet-command/SKILL.md:319`                                                                                                                                                                                                        |
+| Only two generated command files embed the claim                            | `.gemini-extension/commands/fleet-command.toml:340`, `.antigravity-extension/commands/fleet-command.toml:340`                                                                                                                                                 |
+| `.claude-plugin` / `.cursor-plugin` fleet-command files are stubs           | 40 and 34 lines respectively; frontmatter plus objective only, no rationalizations table. `.codex-plugin` has no `commands/` directory at all                                                                                                                 |
+| The parity test follows symlinks, so one edit satisfies all platforms       | `agents/skills/tests/platform-parity.test.ts:103-104` compares with `readFileSync` (7881 assertions, currently green)                                                                                                                                         |
+| `harness validate` is currently green in this worktree                      | Ran 2026-08-10: `v validation passed`                                                                                                                                                                                                                         |
+| `packages/{types,core,cli}/dist` are absent in this worktree                | `pnpm generate:plugin:check` currently fails with `ERR_MODULE_NOT_FOUND` for `@harness-engineering/core/dist/index.mjs` until the CLI chain builds                                                                                                            |
 
 ## Uncertainties
 
 - **[ASSUMPTION]** `isSidechain`, `agentId` and `attributionAgent` are undocumented Claude Code internals and may be renamed or removed by any release (spec, Assumptions). The two-signal shape assertion in Task 4 and the degradation flag in Task 6 are the mitigations; "attribution stopped working" is an expected failure mode, not a defect in this package.
 - **[ASSUMPTION]** Main-thread lines never carry `attributionAgent` (spec, Assumptions). If this becomes false, Task 4's first classification rule would label main-thread spend as a subagent. Verified on this machine only.
-- **[ASSUMPTION]** Neither new column can contain a tab or newline (spec, Assumptions). The spec explicitly accepts this without sanitising on write. **Risk if wrong:** a row with the wrong field count is discarded by `readRecords`, the record count then disagrees with the `#count` header, and the integrity gate would force a full rescan on every run. No sanitising task is planned, because the spec decided against it; raised in the handoff `concerns` so a human can overrule.
+- **[RESOLVED]** Tab / CR / LF inside a label or lane id. The spec now requires sanitising on write (`store.ts`, "Store" section): each such character becomes a single space. Delivered in Task 2. This closes what an earlier draft of this plan carried as an unmitigated risk.
 - **[ASSUMPTION]** `agentId` is unique per dispatch inside the retained transcript window; a reused id undercounts lanes (spec, Assumptions).
+- **[PLAN DECISION — needs review]** The spec does not state what a **9-or-more-column row with an empty `agent` field** should read as. It cannot stay empty: the "never empty" invariant is load-bearing for grouping. This plan reads it as `pre-migration` (the spec's "provenance unknown" bucket) rather than `unattributed`, because `unattributed` is defined as _subagent_ spend and feeds the degradation flag — defaulting a corrupt row there could raise a false "attribution is broken" alarm. Recorded in the handoff for review.
 - **[DEFERRABLE]** Exact wording and colour of the degraded headline in the report (Task 9 carries a human-verify checkpoint for exactly this).
 - **[DEFERRABLE]** `docs/roadmap.md`, `docs/roadmap.d/per-subagent-token-attribution-in-burn.md` and `docs/ideation/` also contain the phrase "not observable". They are internal roadmap prose quoting the defect, not shipped skill bodies or generated command files, so SC10 does not reach them and no task edits them.
 
@@ -56,12 +63,13 @@ None elicited. This phase was invoked non-interactively by autopilot, so the fou
 
 ## Change Specification (delta)
 
-- **[ADDED]** `UsageRecord.agent` and `UsageRecord.agentId`.
-- **[ADDED]** `AgentBlock` and `AttributionBlock` public types; `Summary.agents` and `Summary.attribution`.
-- **[ADDED]** A "by agent" section and a degraded-attribution headline in `harness burn report`.
-- **[MODIFIED]** `usage.tsv` rows are 9 tab-separated fields; `readRecords` accepts 7 (legacy) or 9.
+- **[ADDED]** `UsageRecord.agent` and `UsageRecord.agentId`. Label vocabulary: `main` | `<attributionAgent>` | `unattributed` | `pre-migration`.
+- **[ADDED]** `AgentBlock` and `AttributionBlock` public types (including `pre_migration_units`); `Summary.agents` and `Summary.attribution`.
+- **[ADDED]** A "by agent" section and a degraded-attribution headline in `harness burn report`, with `unattributed` exempt from the top-N cut and the unit floor.
+- **[ADDED]** Sanitising of `agent` / `agentId` on write: tab, CR and LF each become a single space.
+- **[MODIFIED]** `usage.tsv` rows are 9 tab-separated fields; `readRecords` accepts exactly 7 (legacy → `pre-migration`) or 9-or-more (extras ignored).
 - **[MODIFIED]** `files.tsv` carries a `#version` header line after `#count`; a missing or older version forces a full rescan.
-- **[MODIFIED]** `parseTranscript` dedup gains one exception: `unattributed` is upgraded to a real label, and an upgrade is not counted as an add.
+- **[MODIFIED]** `parseTranscript` dedup gains one exception: a `pre-migration` row is upgraded to any other label, and an upgrade is not counted as an add. Classification never produces `pre-migration` — that label can only come off disk.
 - **[MODIFIED]** The `fleet-command` rationalization row's Reality column — its false premise is replaced, its design conclusion kept.
 - **[REMOVED]** Nothing.
 
@@ -69,7 +77,7 @@ None elicited. This phase was invoked non-interactively by autopilot, so the fou
 
 ```
 MODIFY packages/burn/src/types.ts                      (UsageRecord +2 fields; AgentBlock; AttributionBlock; Summary +2 keys)
-MODIFY packages/burn/src/store.ts                      (9-column write, 7-or-9 read, STORE_VERSION, #version header)
+MODIFY packages/burn/src/store.ts                      (9-column sanitised write, 7-or-9+ read, STORE_VERSION, #version header)
 MODIFY packages/burn/src/scan.ts                       (classification, isSubagentPath, version-triggered rescan, upgrade rule)
 MODIFY packages/burn/src/summary.ts                    (agents + attribution rollup)
 MODIFY packages/burn/src/index.ts                      (export AgentBlock, AttributionBlock)
@@ -81,35 +89,32 @@ CREATE packages/burn/tests/scan-attribution.test.ts    (classification + upgrade
 CREATE packages/burn/tests/summary-attribution.test.ts (agents + attribution rollup)
 MODIFY packages/cli/src/commands/burn/report.ts        (agentsSection + degraded headline)
 MODIFY packages/cli/src/commands/burn/report.test.ts   (by-agent section, guards, caution, headline)
-MODIFY agents/skills/claude-code/fleet-command/SKILL.md
-MODIFY agents/skills/cursor/fleet-command/SKILL.md
-MODIFY agents/skills/codex/fleet-command/SKILL.md
-MODIFY agents/skills/gemini-cli/fleet-command/SKILL.md
-MODIFY .claude-plugin/commands/fleet-command.md        (GENERATED — never hand-edited)
-MODIFY .cursor-plugin/commands/fleet-command.md        (GENERATED — never hand-edited)
-MODIFY .gemini-extension/commands/fleet-command.toml   (GENERATED — never hand-edited)
-MODIFY .antigravity-extension/commands/fleet-command.toml (GENERATED — never hand-edited)
+MODIFY agents/skills/claude-code/fleet-command/SKILL.md   (the ONE real file; the other three platforms are symlinks to this directory — do NOT touch them)
+MODIFY .gemini-extension/commands/fleet-command.toml      (GENERATED — carries the claim at line 340)
+MODIFY .antigravity-extension/commands/fleet-command.toml (GENERATED — carries the claim at line 340)
+TOUCH  .claude-plugin/commands/fleet-command.md           (GENERATED stub — regenerated for consistency; does not carry the claim)
+TOUCH  .cursor-plugin/commands/fleet-command.md           (GENERATED stub — regenerated for consistency; does not carry the claim)
 MODIFY packages/burn/README.md                         (Attribution section)
 CREATE .changeset/burn-subagent-attribution.md
 ```
 
 ## Skeleton
 
-1. Types + store migration (Tasks 1-3, ~12 min)
-2. Classification + upgrade (Tasks 4-5, ~9 min)
-3. Rollup + public surface (Tasks 6-7, ~8 min)
-4. Report surface (Tasks 8-9, ~9 min)
+1. Types + store migration, sanitised write, version header (Tasks 1-3, ~14 min)
+2. Classification + `pre-migration` upgrade (Tasks 4-5, ~10 min)
+3. Rollup + public surface (Tasks 6-7, ~9 min)
+4. Report surface, with `unattributed` never elided (Tasks 8-9, ~10 min)
 5. Prose, manifests, docs, changeset, final gate (Tasks 10-14, ~27 min)
 
-**Estimated total:** 14 tasks, ~65 minutes.
+**Estimated total:** 14 tasks, ~70 minutes.
 
 _Skeleton approved: auto — this phase was invoked non-interactively by autopilot, so the approval gate was taken as granted by the phase authorisation. Flagged in the handoff `concerns`._
 
 ## Repo constraints every task must respect
 
 - **Node 22 only.** Write `PATH="/Users/cwarner/.nvm/versions/node/v22.20.0/bin:/opt/homebrew/bin:$PATH"` inline on every `pnpm` invocation, exactly as each task spells it out. The default Node breaks `better-sqlite3`'s native ABI and fails the pre-push hook intermittently.
-- **`packages/burn/src/**`must not import from`@harness-engineering/\*`.** `packages/burn/tests/bin-startup.test.ts` asserts the bin's import graph; a stray import makes the statusline ~8x more expensive with no visible symptom.
-- **The four `fleet-command/SKILL.md` copies are byte-identical** and `agents/skills/tests/platform-parity.test.ts` enforces it. Edit one, then copy it over the other three.
+- **Nothing under `packages/burn/src/` may import from `@harness-engineering/*`.** `packages/burn/tests/bin-startup.test.ts` asserts the bin's import graph; a stray import makes the statusline ~8x more expensive with no visible symptom.
+- **There is exactly ONE real `fleet-command/SKILL.md`.** `agents/skills/{codex,cursor,gemini-cli}/fleet-command` are **symlinks** to `../claude-code/fleet-command` (git mode `120000`). Edit `agents/skills/claude-code/fleet-command/SKILL.md` and nothing else. Copying a file over a symlink would replace it with a real file and silently break the parity guarantee that `agents/skills/tests/platform-parity.test.ts` exists to hold.
 - **Files under `.claude-plugin/`, `.cursor-plugin/`, `.gemini-extension/`, `.antigravity-extension/` are generated.** Never hand-edit; regenerate with `pnpm generate:plugin:all`, gated by `pnpm generate:plugin:check`.
 - **A changeset is required** for every changed publishable package (`scripts/check-changesets.mjs`).
 - **Shipped skill bodies must never cite internal roadmap, PR or issue numbers.**
@@ -155,7 +160,10 @@ _Four files, but three of the four edits are two lines each: the type change and
      in: number;
      cacheWrite: number;
      cacheRead: number;
-     /** `main`, a subagent's `attributionAgent`, or `unattributed`. Never empty. */
+     /**
+      * `main`, a subagent's `attributionAgent`, `unattributed`, or `pre-migration`.
+      * Never empty. See the label vocabulary decision in the spec.
+      */
      agent: string;
      /** The dispatch this turn belonged to — one fleet lane. Empty for the main thread. */
      agentId: string;
@@ -173,10 +181,12 @@ _Four files, but three of the four edits are two lines each: the type change and
 5. In `packages/burn/src/store.ts`, inside the `readRecords` record literal (after `cacheRead:`), add:
 
    ```ts
-       // A 7-field row predates attribution. It is honestly unattributed until a
-       // rescan of the still-present transcript relabels it — never `main`,
-       // which would understate the lanes and overstate the human.
-       agent: 'unattributed',
+       // A 7-field row predates attribution: its provenance is unknown, which is
+       // neither `main` (that would overstate the human) nor `unattributed`
+       // (that is defined as SUBAGENT spend, and would fire the degradation
+       // flag on history alone). It stays `pre-migration` until a rescan of the
+       // still-present transcript relabels it.
+       agent: 'pre-migration',
        agentId: '',
    ```
 
@@ -192,7 +202,7 @@ _Four files, but three of the four edits are two lines each: the type change and
 
 ---
 
-### Task 2: Store writes 9 columns and reads 7 or 9
+### Task 2: Store writes 9 sanitised columns and reads 7 or 9-or-more
 
 **Depends on:** Task 1 | **Files:** `packages/burn/src/store.ts`, `packages/burn/tests/store-attribution.test.ts`, `packages/burn/tests/concurrency.test.ts` | **Owns:** `packages/burn/src/store.ts`
 
@@ -231,12 +241,15 @@ _Four files, but three of the four edits are two lines each: the type change and
    const LEGACY_ROW = 'legacy\t2026-08-06T00:00:00Z\tclaude-opus-5\t1\t2\t3\t4';
 
    describe('store — 7-to-9 column migration', () => {
-     it('loads a legacy 7-column row as unattributed rather than discarding it', () => {
+     it('loads a legacy 7-column row as pre-migration rather than discarding it', () => {
+       // Not `unattributed`: that label means SUBAGENT spend whose identity could
+       // not be read, and most legacy rows are the main thread. Mislabelling
+       // history would fire the degradation flag on a week that was fine.
        const h = newHud();
        writeFileSync(h.paths.usageTsv, `${LEGACY_ROW}\n`);
        const rec = readRecords(h.paths).get('legacy');
        expect(rec).toBeDefined();
-       expect(rec!.agent).toBe('unattributed');
+       expect(rec!.agent).toBe('pre-migration');
        expect(rec!.agentId).toBe('');
        expect(rec!.out).toBe(1);
      });
@@ -258,7 +271,20 @@ _Four files, but three of the four edits are two lines each: the type change and
        expect(readRecords(h.paths).get('req_1')).toEqual(rec);
      });
 
-     it('still discards a row with any other field count', () => {
+     it('loads a row with MORE than nine fields and ignores the extras', () => {
+       // Forward tolerance: a future column addition must be survivable by a
+       // reader that predates it, the same reversibility the wire contract has.
+       const h = newHud();
+       writeFileSync(
+         h.paths.usageTsv,
+         `${LEGACY_ROW}\tharness-task-executor\tlane-1\tsomething-from-the-future\n`
+       );
+       const rec = readRecords(h.paths).get('legacy')!;
+       expect(rec.agent).toBe('harness-task-executor');
+       expect(rec.agentId).toBe('lane-1');
+     });
+
+     it('still discards a row whose field count is neither 7 nor at least 9', () => {
        const h = newHud();
        writeFileSync(
          h.paths.usageTsv,
@@ -269,10 +295,47 @@ _Four files, but three of the four edits are two lines each: the type change and
 
      it('never loads an empty agent label', () => {
        // The `never empty` invariant is what every consumer groups on; an empty
-       // label would create a fourth, nameless bucket nobody reads.
+       // label would open a nameless bucket nobody reads. A corrupt row falls to
+       // `pre-migration` (provenance unknown), never to `unattributed`, which
+       // would raise a false "attribution is broken" alarm.
        const h = newHud();
        writeFileSync(h.paths.usageTsv, `${LEGACY_ROW}\t\t\n`);
-       expect(readRecords(h.paths).get('legacy')!.agent).toBe('unattributed');
+       expect(readRecords(h.paths).get('legacy')!.agent).toBe('pre-migration');
+     });
+   });
+
+   describe('store — sanitising on write', () => {
+     it('replaces a tab, CR or LF in a label or lane id with a single space', () => {
+       // `usage.tsv` is positional. One stray tab in an undocumented upstream
+       // field would shift every later column and make readRecords discard the
+       // row — a silent, self-inflicted undercount.
+       const h = newHud();
+       writeRecords(
+         h.paths,
+         new Map([
+           [
+             'req_1',
+             {
+               ts: '2026-08-06T00:00:00Z',
+               model: 'claude-opus-5',
+               out: 1,
+               in: 0,
+               cacheWrite: 0,
+               cacheRead: 0,
+               agent: 'evil\tagent\nname\r',
+               agentId: 'lane\t1',
+             },
+           ],
+         ])
+       );
+
+       const row = readFileSync(h.paths.usageTsv, 'utf8').trim();
+       expect(row.split('\n')).toHaveLength(1);
+       expect(row.split('\t')).toHaveLength(9);
+
+       const rec = readRecords(h.paths).get('req_1')!;
+       expect(rec.agent).toBe('evil agent name ');
+       expect(rec.agentId).toBe('lane 1');
      });
    });
    ```
@@ -289,10 +352,12 @@ _Four files, but three of the four edits are two lines each: the type change and
    /**
     * requestId -> record.
     *
-    * A 7-field row predates attribution and is loaded as `unattributed` rather
+    * A 7-field row predates attribution and is loaded as `pre-migration` rather
     * than discarded: discarding would delete the entire pre-migration store.
-    * A 9-field row carries the label and the lane id. Anything else is a torn
-    * write and is still discarded.
+    * Nine or more fields carry the label and the lane id, and anything past the
+    * ninth is ignored — accepting `>= 9` rather than `=== 9` costs nothing today
+    * and makes a future column addition survivable by a reader that predates it.
+    * Any other field count is a torn write and is still discarded.
     */
    export function readRecords(paths: BurnPaths): Map<string, UsageRecord> {
      const records = new Map<string, UsageRecord>();
@@ -301,8 +366,8 @@ _Four files, but three of the four edits are two lines each: the type change and
      for (const line of readFileSync(paths.usageTsv, 'utf8').split('\n')) {
        if (!line) continue;
        const p = line.split('\t');
-       if (p.length !== 7 && p.length !== 9) continue;
-       const agent = p.length === 9 ? p[7]! : '';
+       if (p.length !== 7 && p.length < 9) continue;
+       const agent = p.length >= 9 ? p[7]! : '';
        records.set(p[0]!, {
          ts: p[1]!,
          model: p[2]!,
@@ -310,19 +375,32 @@ _Four files, but three of the four edits are two lines each: the type change and
          in: Number(p[4]) || 0,
          cacheWrite: Number(p[5]) || 0,
          cacheRead: Number(p[6]) || 0,
-         // Never empty: an empty label would open a fourth bucket no consumer reads.
-         agent: agent || 'unattributed',
-         agentId: p.length === 9 ? p[8]! : '',
+         // Never empty. A row of unknown provenance is `pre-migration`, not
+         // `unattributed` — the latter is subagent spend and drives degradation.
+         agent: agent || 'pre-migration',
+         agentId: p.length >= 9 ? p[8]! : '',
        });
      }
      return records;
+   }
+
+   /**
+    * `usage.tsv` is positional and tab-delimited, so a tab or newline inside an
+    * undocumented upstream field would shift every later column and make the row
+    * get discarded on the next read — a silent, self-inflicted undercount.
+    * Observed values are agent slugs and hex ids, so this is expected to be a
+    * no-op; it is here because the cost of being wrong is losing rows and the
+    * cost of the guard is one `replace`.
+    */
+   function tsvSafe(value: string): string {
+     return value.replace(/[\t\r\n]/g, ' ');
    }
 
    export function writeRecords(paths: BurnPaths, records: Map<string, UsageRecord>): void {
      const lines: string[] = [];
      for (const [id, r] of records) {
        lines.push(
-         `${id}\t${r.ts}\t${r.model}\t${r.out}\t${r.in}\t${r.cacheWrite}\t${r.cacheRead}\t${r.agent}\t${r.agentId}\n`
+         `${id}\t${r.ts}\t${r.model}\t${r.out}\t${r.in}\t${r.cacheWrite}\t${r.cacheRead}\t${tsvSafe(r.agent)}\t${tsvSafe(r.agentId)}\n`
        );
      }
      atomicWrite(paths.usageTsv, lines.join(''));
@@ -343,7 +421,7 @@ _Four files, but three of the four edits are two lines each: the type change and
    ```
 
 6. Run: `harness validate`
-7. Commit: `feat(burn): widen usage.tsv to nine columns, reading seven as legacy`
+7. Commit: `feat(burn): widen usage.tsv to nine sanitised columns, reading seven as legacy`
 
 ---
 
@@ -734,7 +812,7 @@ _Four files, but three of the four edits are two lines each: the type change and
 
 ---
 
-### Task 5: Upgrade an unattributed record when a later read finds the label
+### Task 5: Upgrade a pre-migration record when a later read finds the label
 
 **Depends on:** Task 3, Task 4 | **Files:** `packages/burn/src/scan.ts`, `packages/burn/tests/scan-attribution.test.ts` | **Owns:** `packages/burn/src/scan.ts`
 
@@ -742,7 +820,7 @@ _Four files, but three of the four edits are two lines each: the type change and
 
    ```ts
    describe('dedup with upgrade', () => {
-     it('upgrades an unattributed record when a later read finds the label', () => {
+     it('upgrades a pre-migration record when a later read finds the label', () => {
        const h = newHud();
        h.writeSubagentTranscript('agent-d.jsonl', [
          agentLine('req_6', hoursAgo(new Date(), 1), {
@@ -762,7 +840,7 @@ _Four files, but three of the four edits are two lines each: the type change and
              in: 0,
              cacheWrite: 0,
              cacheRead: 0,
-             agent: 'unattributed',
+             agent: 'pre-migration',
              agentId: '',
            },
          ],
@@ -777,11 +855,47 @@ _Four files, but three of the four edits are two lines each: the type change and
        expect(records.get('req_6')!.agentId).toBe('lane-6');
      });
 
-     it('never downgrades a named record back to unattributed', () => {
+     it('upgrades a pre-migration record to unattributed when that is all the line offers', () => {
+       // The rule is `pre-migration -> anything`, not `-> a named agent`. A
+       // legacy row that turns out to be unlabelled subagent spend must reach
+       // the bucket that drives the degradation flag, or a broken transcript
+       // shape would hide behind history.
+       const h = newHud();
+       h.writeSubagentTranscript('agent-g.jsonl', [
+         agentLine('req_9', hoursAgo(new Date(), 1), { isSidechain: true, agentId: 'lane-9' }),
+       ]);
+
+       const records = new Map<string, UsageRecord>([
+         [
+           'req_9',
+           {
+             ts: '2026-08-06T00:00:00Z',
+             model: 'claude-opus-5',
+             out: 1,
+             in: 0,
+             cacheWrite: 0,
+             cacheRead: 0,
+             agent: 'pre-migration',
+             agentId: '',
+           },
+         ],
+       ]);
+
+       parseTranscript(path.join(h.paths.projects, '-proj', SUB, 'agent-g.jsonl'), records);
+       expect(records.get('req_9')!.agent).toBe('unattributed');
+     });
+
+     it('never overwrites an unattributed record — only pre-migration is upgradable', () => {
        // First-write-wins still holds in every direction but the one that heals.
+       // `unattributed` is a CURRENT observation, not a missing one, so it is
+       // not up for revision by a later overlapping transcript.
        const h = newHud();
        h.writeSubagentTranscript('agent-e.jsonl', [
-         agentLine('req_7', hoursAgo(new Date(), 1), { isSidechain: true, agentId: 'lane-7' }),
+         agentLine('req_7', hoursAgo(new Date(), 1), {
+           isSidechain: true,
+           agentId: 'lane-7',
+           attributionAgent: 'harness-task-executor',
+         }),
        ]);
 
        const records = new Map<string, UsageRecord>([
@@ -794,19 +908,19 @@ _Four files, but three of the four edits are two lines each: the type change and
              in: 0,
              cacheWrite: 0,
              cacheRead: 0,
-             agent: 'harness-task-executor',
+             agent: 'unattributed',
              agentId: 'lane-7',
            },
          ],
        ]);
 
        parseTranscript(path.join(h.paths.projects, '-proj', SUB, 'agent-e.jsonl'), records);
-       expect(records.get('req_7')!.agent).toBe('harness-task-executor');
+       expect(records.get('req_7')!.agent).toBe('unattributed');
      });
 
      it('heals a store migrated from the 7-column format on the first rescan', () => {
        // End to end: the migration relabels every row whose transcript is still
-       // on disk, so nobody is pinned to `unattributed` by a release.
+       // on disk, so nobody is pinned to `pre-migration` by a release.
        const h = newHud();
        h.writeConfig({ week_reset: DEFAULT_WEEK });
        h.writeSubagentTranscript('agent-f.jsonl', [
@@ -829,7 +943,7 @@ _Four files, but three of the four edits are two lines each: the type change and
          .filter((l) => l && !l.startsWith('#version\t'));
        writeFileSync(h.paths.filesTsv, `${legacyFingerprints.join('\n')}\n`);
 
-       expect(readRecords(h.paths).get('req_8')!.agent).toBe('unattributed');
+       expect(readRecords(h.paths).get('req_8')!.agent).toBe('pre-migration');
        refresh(h.paths);
        expect(readRecords(h.paths).get('req_8')!.agent).toBe('harness-task-executor');
      });
@@ -850,13 +964,17 @@ _Four files, but three of the four edits are two lines each: the type change and
      if (!parsed) continue;
      const existing = records.get(parsed.id);
      if (existing) {
-       // First write wins, with exactly one exception: a row carrying no
-       // identity is upgraded when a later read finds the real label.
-       // Without it, every row migrated from the 7-column store would stay
-       // `unattributed` forever even though its transcript is still on disk.
-       // An upgrade is not an add — counting it would make the record count
-       // disagree with the store it describes.
-       if (existing.agent === 'unattributed' && parsed.record.agent !== 'unattributed') {
+       // First write wins, with exactly one exception: a row that NEVER carried
+       // a label — a `pre-migration` row read off a 7-column store — is
+       // replaced once a read produces any real label. Without it, every
+       // migrated row would stay `pre-migration` forever even though its
+       // transcript is still on disk. The rule is deliberately narrow:
+       // classification never yields `pre-migration`, so ordinary dedup across
+       // overlapping transcripts keeps first-write-wins untouched, and an
+       // `unattributed` row (a current observation, not a missing one) is never
+       // revised. An upgrade is not an add — counting it would make the record
+       // count disagree with the store it describes.
+       if (existing.agent === 'pre-migration' && parsed.record.agent !== 'pre-migration') {
          records.set(parsed.id, parsed.record);
        }
        continue;
@@ -874,7 +992,7 @@ _Four files, but three of the four edits are two lines each: the type change and
    ```
 
 6. Run: `harness validate`
-7. Commit: `feat(burn): upgrade unattributed records once a rescan finds the label`
+7. Commit: `feat(burn): upgrade pre-migration records once a rescan finds the label`
 
 ---
 
@@ -1012,7 +1130,63 @@ _Four files, but three of the four edits are two lines each: the type change and
        expect(s.agents.main!.pct_of_week).toBeGreaterThan(0);
      });
    });
+
+   describe('summary — pre-migration rows', () => {
+     /** Seed a 7-column store with a current-week row and roll it up without a scan. */
+     function legacyOnly(h: Hud, extraRows: string[] = []): Summary {
+       h.writeConfig({ week_reset: DEFAULT_WEEK });
+       const ts = hoursAgo(new Date(), 1).toISOString();
+       writeFileSync(
+         h.paths.usageTsv,
+         `${[`old1\t${ts}\tclaude-opus-5\t500\t10\t0\t0`, ...extraRows].join('\n')}\n`
+       );
+       return recompute(h.paths);
+     }
+
+     it('files a legacy row under pre-migration, not under main or unattributed', () => {
+       const h = newHud();
+       const s = legacyOnly(h);
+       expect(Object.keys(s.agents)).toEqual(['pre-migration']);
+       expect(s.attribution.pre_migration_units).toBeGreaterThan(0);
+       expect(s.attribution.main_units).toBe(0);
+       expect(s.attribution.unattributed_units).toBe(0);
+     });
+
+     it('does not raise the degradation alarm on history alone', () => {
+       // The whole reason `pre-migration` exists as a separate label: a store
+       // full of legacy rows is not evidence that the transcript shape changed.
+       const h = newHud();
+       expect(legacyOnly(h).attribution.degraded).toBe(false);
+     });
+
+     it('does not let a legacy row suppress a real degradation alarm', () => {
+       // The mirror failure: if `pre-migration` counted as attributed spend,
+       // one legacy row would make `attributed === 0` false and silence the
+       // alarm for a week whose subagent spend really did lose its labels.
+       const h = newHud();
+       const ts = hoursAgo(new Date(), 1).toISOString();
+       const s = legacyOnly(h, [`sub1\t${ts}\tclaude-opus-5\t500\t10\t0\t0\tunattributed\tlane-1`]);
+       expect(s.attribution.attributed_units).toBe(0);
+       expect(s.attribution.degraded).toBe(true);
+     });
+
+     it('counts a lane once even when it appears under two labels', () => {
+       // Possible mid-migration, via the upgrade rule. `attribution.lanes` is a
+       // union across labels, deliberately not the sum of per-label lanes.
+       const h = newHud();
+       const ts = hoursAgo(new Date(), 1).toISOString();
+       const s = legacyOnly(h, [
+         `a\t${ts}\tclaude-opus-5\t100\t0\t0\t0\tharness-task-executor\tlane-1`,
+         `b\t${ts}\tclaude-opus-5\t100\t0\t0\t0\tunattributed\tlane-1`,
+       ]);
+       expect(s.agents['harness-task-executor']!.lanes).toBe(1);
+       expect(s.agents.unattributed!.lanes).toBe(1);
+       expect(s.attribution.lanes).toBe(1);
+     });
+   });
    ```
+
+   Add `writeFileSync` from `node:fs`, `recompute` from `../src/refresh` and `type Summary` from `../src/types` to this file's imports.
 
 2. Run — observe failures:
 
@@ -1039,11 +1213,22 @@ _Four files, but three of the four edits are two lines each: the type change and
      attributed_units: number;
      main_units: number;
      unattributed_units: number;
+     pre_migration_units: number;
+     /**
+      * Distinct non-empty `agentId`s seen in the current week across ALL labels.
+      * A lane that appears under two labels (possible mid-migration, via the
+      * upgrade rule) counts once, so this is not necessarily the sum of the
+      * per-label `AgentBlock.lanes`.
+      */
      lanes: number;
      /**
-      * True when subagent spend was seen this week and NONE of it carried a
-      * readable agent label — the transcript shape changed and attribution is
-      * no longer working. Degraded tooling is a headline, not a footnote.
+      * True when subagent spend was seen in the CURRENT WEEK and none of it
+      * carried a readable agent label — the transcript shape changed and
+      * attribution is no longer working. Degraded tooling is a headline, not a
+      * footnote. `pre-migration` rows are excluded from the test: they are
+      * legacy rows of unknown provenance, not evidence about the current
+      * transcript shape, and letting them fire this flag would raise an alarm
+      * about history on the very first upgraded scan.
       */
      degraded: boolean;
    }
@@ -1065,9 +1250,12 @@ _Four files, but three of the four edits are two lines each: the type change and
 5. Inside the `if (idx === 0)` branch (after the `perModel` update at line 129), add:
 
    ```ts
-   // Defensive: a hand-edited store could carry an empty label, and an
-   // empty label would open a fourth bucket nobody reads.
-   const label = rec.agent || 'unattributed';
+   // Defensive: a hand-edited store could carry an empty label, which would
+   // open a nameless bucket nobody reads. It falls to `pre-migration` (the
+   // provenance-unknown label), never to `unattributed` — the latter drives
+   // the degradation alarm, and a corrupt row is not evidence of a broken
+   // transcript shape. This matches the store reader's own fallback.
+   const label = rec.agent || 'pre-migration';
    const a = perAgent.get(label) ?? { requests: 0, units: 0, lanes: new Set<string>() };
    a.requests += 1;
    a.units += u;
@@ -1093,12 +1281,19 @@ _Four files, but three of the four edits are two lines each: the type change and
 
    const mainUnits = perAgent.get('main')?.units ?? 0;
    const unattributedUnits = perAgent.get('unattributed')?.units ?? 0;
-   // Summed directly rather than subtracted from the week: a float residue
-   // from subtraction would make the `=== 0` degradation test unreliable.
+   const preMigrationUnits = perAgent.get('pre-migration')?.units ?? 0;
+   // Summed directly rather than subtracted from the week: a float residue from
+   // subtraction would make the `=== 0` degradation test unreliable. Note that
+   // `pre-migration` is excluded from BOTH sides — counting it as attributed
+   // would let one legacy row suppress a real degradation alarm.
    let attributedUnits = 0;
    const allLanes = new Set<string>();
    for (const [label, a] of perAgent) {
-     if (label !== 'main' && label !== 'unattributed') attributedUnits += a.units;
+     if (label !== 'main' && label !== 'unattributed' && label !== 'pre-migration') {
+       attributedUnits += a.units;
+     }
+     // Union across labels, so a lane seen under two labels mid-migration
+     // counts once. This is deliberately not the sum of per-label lanes.
      for (const id of a.lanes) allLanes.add(id);
    }
 
@@ -1106,9 +1301,12 @@ _Four files, but three of the four edits are two lines each: the type change and
      attributed_units: Math.round(attributedUnits),
      main_units: Math.round(mainUnits),
      unattributed_units: Math.round(unattributedUnits),
+     pre_migration_units: Math.round(preMigrationUnits),
      lanes: allLanes.size,
-     // Subagent spend was seen and none of it carried a readable label: the
-     // transcript shape changed and attribution has stopped working.
+     // Subagent spend was seen in the current week and none of it carried a
+     // readable label: the transcript shape changed and attribution has stopped
+     // working. Legacy rows cannot raise this alarm — they are not evidence
+     // about the current shape.
      degraded: unattributedUnits > 0 && attributedUnits === 0,
    };
    ```
@@ -1174,6 +1372,7 @@ _Four files, but three of the four edits are two lines each: the type change and
        attributed_units: 18_900_000,
        main_units: 41_200_000,
        unattributed_units: 1_400_000,
+       pre_migration_units: 0,
        lanes: 9,
        degraded: false,
      };
@@ -1198,7 +1397,7 @@ _Four files, but three of the four edits are two lines each: the type change and
        expect(render()).not.toContain('by agent');
      });
 
-     it('omits an agent below the noise floor', () => {
+     it('omits an ordinary agent below the noise floor', () => {
        const out = render({
          agents: { 'claude-tiny-agent': { requests: 1, units: 12, pct_of_week: 0, lanes: 1 } },
        });
@@ -1209,6 +1408,55 @@ _Four files, but three of the four edits are two lines each: the type change and
        // A fleet run must never be readable as free.
        const out = render({ agents, attribution });
        expect(out).toContain('1.4M units of subagent spend could not be attributed');
+     });
+   });
+
+   describe('report — unattributed is never elided', () => {
+     // The two elisions `modelsSection` applies (top-6 slice, 1000-unit floor)
+     // are exactly how a small or low-ranked unattributed bucket would vanish,
+     // which is the "a fleet run reads as free" failure this section exists to
+     // prevent. `pre-migration` is history, not a live signal, so it keeps them.
+     function withUnattributed(units: number, extra: Record<string, unknown> = {}) {
+       return {
+         agents: {
+           ...extra,
+           unattributed: { requests: 1, units, pct_of_week: 0, lanes: 1 },
+         },
+         attribution: {
+           attributed_units: 0,
+           main_units: 0,
+           unattributed_units: units,
+           pre_migration_units: 0,
+           lanes: 1,
+           degraded: false,
+         },
+       };
+     }
+
+     it('renders an unattributed row below the unit floor that hides other labels', () => {
+       const out = render(withUnattributed(12));
+       expect(out).toContain('unattributed');
+       expect(out).toContain('could not be attributed');
+     });
+
+     it('renders an unattributed row ranked below the top-N cut', () => {
+       const ranked = Object.fromEntries(
+         Array.from({ length: 8 }, (_, i) => [
+           `agent-${i}`,
+           { requests: 1, units: 9_000_000 - i, pct_of_week: 10, lanes: 1 },
+         ])
+       );
+       const out = render(withUnattributed(1_400_000, ranked));
+       expect(out).toContain('unattributed');
+       // ...and the ordinary cut still applies to everything else.
+       expect(out).not.toContain('agent-7');
+     });
+
+     it('still applies the cut and the floor to pre-migration', () => {
+       const out = render({
+         agents: { 'pre-migration': { requests: 1, units: 12, pct_of_week: 0, lanes: 0 } },
+       });
+       expect(out).not.toContain('pre-migration');
      });
    });
    ```
@@ -1228,15 +1476,33 @@ _Four files, but three of the four edits are two lines each: the type change and
     * the week — this is where a lane's cost becomes visible.
     *
     * Guarded exactly like `modelsSection`: a summary written before attribution
-    * existed carries no `agents` key and must render without throwing.
+    * existed carries no `agents` key and must render without throwing. It
+    * borrows that function's cosmetics but NOT its two elisions for the
+    * `unattributed` row — see below.
     */
    function agentsSection(s: Summary): string[] {
-     const agents = Object.entries(s.agents ?? {});
-     if (agents.length === 0) return [];
+     const all = Object.entries(s.agents ?? {});
+     if (all.length === 0) return [];
+
+     // `unattributed` is exempt from the top-N cut and the unit floor. Applying
+     // either would let a small — or merely seventh-ranked — unattributed bucket
+     // vanish, which is precisely the "a fleet run reads as free" failure this
+     // section exists to prevent. `pre-migration` takes the ordinary cut and
+     // floor: it is history, not a live signal.
+     const kept = new Set(
+       all
+         .filter(([name]) => name !== 'unattributed')
+         .slice(0, 6)
+         .filter(([, e]) => e.units >= 1000)
+         .map(([name]) => name)
+     );
+     if ((s.agents?.unattributed?.units ?? 0) > 0) kept.add('unattributed');
 
      const out = ['', `  ${chalk.bold('by agent')}`];
-     for (const [name, e] of agents.slice(0, 6)) {
-       if (e.units < 1000) continue;
+     // Iterate `all`, which summary.ts already sorted by units descending, so an
+     // exempt row keeps its true rank rather than being appended at the bottom.
+     for (const [name, e] of all) {
+       if (!kept.has(name)) continue;
        const lanes = e.lanes > 0 ? `, ${e.lanes} lane${e.lanes === 1 ? '' : 's'}` : '';
        out.push(
          `  ${pad(name)}${human(e.units).padStart(8)} ${chalk.dim(
@@ -1292,6 +1558,7 @@ _Four files, but three of the four edits are two lines each: the type change and
            attributed_units: 0,
            main_units: 41_200_000,
            unattributed_units: 1_400_000,
+           pre_migration_units: 0,
            lanes: 3,
            degraded: true,
          },
@@ -1311,6 +1578,7 @@ _Four files, but three of the four edits are two lines each: the type change and
            attributed_units: 5_000_000,
            main_units: 41_200_000,
            unattributed_units: 1_400_000,
+           pre_migration_units: 0,
            lanes: 5,
            degraded: false,
          },
@@ -1369,11 +1637,11 @@ _Four files, but three of the four edits are two lines each: the type change and
 
 ---
 
-### Task 10: Correct the `fleet-command` claim in all four platform copies
+### Task 10: Correct the `fleet-command` claim in the one real skill body
 
-**Depends on:** none | **Files:** `agents/skills/claude-code/fleet-command/SKILL.md`, `agents/skills/cursor/fleet-command/SKILL.md`, `agents/skills/codex/fleet-command/SKILL.md`, `agents/skills/gemini-cli/fleet-command/SKILL.md` | **Category:** integration | **Owns:** `agents/skills/*/fleet-command/**`
+**Depends on:** none | **Files:** `agents/skills/claude-code/fleet-command/SKILL.md` | **Category:** integration | **Owns:** `agents/skills/claude-code/fleet-command/**`
 
-_Four files, one logical edit: the copies are byte-identical by contract, so three of them are produced by copying the first._
+_**One file.** `agents/skills/{codex,cursor,gemini-cli}/fleet-command` are **symlinks** to `../claude-code/fleet-command` (git mode `120000`, all pointing at blob `632e00a7b16bb8cdcdb277d95dff124bd21fada1`). Editing the `claude-code` file is what changes all four platform paths. **Do not copy anything over the symlinks** — that would replace them with real files and silently break the parity guarantee the platform test exists to hold._
 
 1. In `agents/skills/claude-code/fleet-command/SKILL.md` line 319, replace **only the Reality cell** of the rationalization row (the row whose first cell is `"The token budget is the real constraint, so the governor should meter tokens"`). The row becomes:
 
@@ -1383,40 +1651,39 @@ _Four files, one logical edit: the copies are byte-identical by contract, so thr
 
    The rationalization (first cell) is unchanged, and the design conclusion — the budget meters slots, not tokens — is kept. No roadmap, PR or issue number appears in the new text; this body ships to adopter projects.
 
-2. Normalise the table with prettier, so the four copies stay byte-identical after formatting:
+2. Normalise the reformatted table with prettier:
 
    ```
    PATH="/Users/cwarner/.nvm/versions/node/v22.20.0/bin:/opt/homebrew/bin:$PATH" pnpm exec prettier --write agents/skills/claude-code/fleet-command/SKILL.md
    ```
 
-3. Copy the formatted file over the other three platforms:
+3. Confirm nothing turned a symlink into a real file. All three must still report mode `120000`:
 
-   ```bash
-   for p in cursor codex gemini-cli; do
-     cp agents/skills/claude-code/fleet-command/SKILL.md "agents/skills/$p/fleet-command/SKILL.md"
-   done
+   ```
+   git ls-files -s agents/skills/codex/fleet-command agents/skills/cursor/fleet-command agents/skills/gemini-cli/fleet-command
    ```
 
-4. Verify byte-identity and that the false claim is gone from every skill body:
+4. Verify parity still holds (the test reads through the symlinks with `readFileSync`, so one edit satisfies every platform) and that the false claim is gone from every skill body:
 
    ```
    PATH="/Users/cwarner/.nvm/versions/node/v22.20.0/bin:/opt/homebrew/bin:$PATH" pnpm --filter @harness-engineering/skills exec vitest run tests/platform-parity.test.ts
    PATH="/Users/cwarner/.nvm/versions/node/v22.20.0/bin:/opt/homebrew/bin:$PATH" pnpm test:platform-parity
-   grep -rn "not observable" agents/skills/claude-code/fleet-command/ agents/skills/cursor/fleet-command/ agents/skills/codex/fleet-command/ agents/skills/gemini-cli/fleet-command/
+   grep -rn "not observable" agents/skills/claude-code/fleet-command/
    ```
 
    Both suites must pass and the grep must return nothing (exit 1).
 
-5. Run: `harness validate`
-6. Commit: `docs(fleet-command): correct the claim that subagent tokens are unobservable`
+5. Confirm `git status --short` lists exactly one changed path under `agents/skills/` — `agents/skills/claude-code/fleet-command/SKILL.md`. Any other entry means a symlink was clobbered; restore it with `git checkout -- <path>` before continuing.
+6. Run: `harness validate`
+7. Commit: `docs(fleet-command): correct the claim that subagent tokens are unobservable`
 
 ---
 
 ### Task 11: Regenerate the plugin and extension command files
 
-**Depends on:** Task 10 | **Files:** `.claude-plugin/commands/fleet-command.md`, `.cursor-plugin/commands/fleet-command.md`, `.gemini-extension/commands/fleet-command.toml`, `.antigravity-extension/commands/fleet-command.toml` | **Category:** integration
+**Depends on:** Task 10 | **Files:** `.gemini-extension/commands/fleet-command.toml`, `.antigravity-extension/commands/fleet-command.toml`, `.claude-plugin/commands/fleet-command.md`, `.cursor-plugin/commands/fleet-command.md` | **Category:** integration
 
-_These are generated artifacts and must never be hand-edited. The generator drives the built CLI, and this worktree has no `packages/{types,core,cli}/dist`, so the build is a prerequisite — it is one command with no decisions in it, but it takes several minutes on a cold worktree._
+_These are generated artifacts and must never be hand-edited. Only `.gemini-extension` and `.antigravity-extension` actually embed the corrected prose (line 340 in each); the `.claude-plugin` / `.cursor-plugin` files are 40- and 34-line stubs that carry the description and objective but no rationalizations table, and `.codex-plugin` has no `commands/` directory at all. All targets are regenerated together for consistency. The generator drives the built CLI, and this worktree has no `packages/{types,core,cli}/dist`, so the build is a prerequisite — one command with no decisions in it, but several minutes on a cold worktree._
 
 1. Build the CLI and its dependency chain under Node 22:
 
@@ -1431,14 +1698,14 @@ _These are generated artifacts and must never be hand-edited. The generator driv
    PATH="/Users/cwarner/.nvm/versions/node/v22.20.0/bin:/opt/homebrew/bin:$PATH" pnpm generate:plugin:check
    ```
 
-3. Verify the corrected prose reached all four generated files and the false claim is gone:
+3. Verify the corrected prose reached the two files that carry the claim, and that the claim is gone everywhere:
 
    ```
-   grep -rn "not observable" .claude-plugin .cursor-plugin .gemini-extension .antigravity-extension
-   grep -rln "pre-flight reservation" .claude-plugin/commands/fleet-command.md .cursor-plugin/commands/fleet-command.md .gemini-extension/commands/fleet-command.toml .antigravity-extension/commands/fleet-command.toml
+   grep -rn "not observable" .claude-plugin .cursor-plugin .codex-plugin .gemini-extension .antigravity-extension
+   grep -rln "pre-flight reservation" .gemini-extension/commands/fleet-command.toml .antigravity-extension/commands/fleet-command.toml
    ```
 
-   The first grep must return nothing; the second must list all four paths.
+   The first grep must return nothing; the second must list both paths. Do not assert the phrase in the `.claude-plugin` / `.cursor-plugin` stubs — they never contained the claim and will not contain the correction.
 
 4. Run: `harness validate`
 5. Commit: `chore(plugin): regenerate fleet-command manifests`
@@ -1457,28 +1724,44 @@ _These are generated artifacts and must never be hand-edited. The generator driv
    Every deduped turn carries the identity of whoever spent it, so the week can be read
    by agent and not only by model.
 
-   | Label          | What it means                                                                                 |
-   | -------------- | --------------------------------------------------------------------------------------------- |
-   | `main`         | Your own thread. Carries no lane id, so it reports zero lanes.                                |
-   | `<agent type>` | A dispatched subagent, named by its `attributionAgent` (e.g. `harness-task-executor`).        |
-   | `unattributed` | Subagent spend whose identity could not be read. **Counted, never dropped and never `main`.** |
+   | Label           | What it means                                                                                                |
+   | --------------- | ------------------------------------------------------------------------------------------------------------ |
+   | `main`          | Your own thread. Carries no lane id, so it reports zero lanes.                                               |
+   | `<agent type>`  | A dispatched subagent, named by its `attributionAgent` (e.g. `harness-task-executor`).                       |
+   | `unattributed`  | **Subagent** spend whose identity could not be read. Counted, never dropped, never folded into `main`.       |
+   | `pre-migration` | A row written before this feature existed. Provenance unknown; upgraded to a real label on the first rescan. |
 
    `unattributed` is a real bucket, not an error state. A subagent's identity fields are
    undocumented Claude Code internals, so a Claude Code release can stop them being
    readable at any time — and a CLI update must not be able to report a fleet run as free.
-   When subagent spend exists in a week and _none_ of it carries a readable label, the
-   summary sets `attribution.degraded` and the report says so in a headline: "no fleet ran"
-   and "the scanner stopped working" are indistinguishable from the numbers alone.
+   When subagent spend exists in the current week and _none_ of it carries a readable
+   label, the summary sets `attribution.degraded` and the report says so in a headline:
+   "no fleet ran" and "the scanner stopped working" are indistinguishable from the numbers
+   alone. In the report the `unattributed` row is exempt from the top-N cut and the unit
+   floor that elide other labels — a bucket that can vanish cannot do its job.
 
-   A `lane` is one dispatch, counted as a distinct `agentId`. Attribution is
-   **retrospective** — it reads transcripts a subagent has already written — so it can
-   measure spend but can never reserve it before a dispatch happens.
+   `pre-migration` is deliberately its own label rather than a shade of `unattributed`.
+   Most legacy rows are main-thread spend, so calling them unattributed would be a false
+   claim about history _and_ would fire the degradation alarm on the first upgraded scan.
+   They are excluded from the degradation test in both directions: they cannot raise it,
+   and they cannot suppress it.
+
+   A `lane` is one dispatch, counted as a distinct `agentId`. `attribution.lanes` is the
+   union across labels, so a lane seen under two labels mid-migration counts once — it is
+   not the sum of the per-label counts. Attribution is **retrospective**: it reads
+   transcripts a subagent has already written, so it can measure spend but can never
+   reserve it before a dispatch happens.
+
+   A `burn` older than this change reading a 9-column store discards every row. That is
+   accepted rather than mitigated: the integrity gate then re-reads every transcript, and
+   this store is a rolling local cache reconstructible from source, not a system of record.
    ```
 
 2. Add a row to the `## Tests` table (after `budgets & models`):
 
    ```markdown
    | attribution | subagent spend reading as zero, or collapsing into the main thread |
+   | migration | a store widening discarding every legacy row, or pinning it to the wrong label |
    ```
 
 3. Format and verify:
@@ -1489,7 +1772,7 @@ _These are generated artifacts and must never be hand-edited. The generator driv
    ```
 
 4. Run: `harness validate`
-5. Commit: `docs(burn): document the attribution labels and the unattributed bucket`
+5. Commit: `docs(burn): document the attribution labels and the migration behaviour`
 
 ---
 
@@ -1508,14 +1791,20 @@ _These are generated artifacts and must never be hand-edited. The generator driv
    feat(burn): attribute token spend to the subagent that spent it
 
    `UsageRecord` gains `agent` and `agentId`, `usage.tsv` widens from 7 to 9 columns
-   (7-column rows still load, as `unattributed`), and `files.tsv` gains a `#version`
-   header that forces one full rescan on upgrade — after which every row whose
-   transcript is still on disk is relabelled with its real agent.
+   (7-column rows still load, labelled `pre-migration`; the reader also tolerates any
+   future extra columns), and `files.tsv` gains a `#version` header that forces one full
+   rescan on upgrade — after which every row whose transcript is still on disk is
+   relabelled with its real agent.
 
    `Summary` gains additive `agents` and `attribution` blocks, and `harness burn report`
-   gains a "by agent" section. Subagent spend whose identity cannot be read is reported
-   as `unattributed` units, never as zero; when none of a week's subagent spend carries
-   a readable label, the report headlines that attribution is degraded.
+   gains a "by agent" section in which the `unattributed` row is never elided. Subagent
+   spend whose identity cannot be read is reported as `unattributed` units, never as zero;
+   when none of the current week's subagent spend carries a readable label, the report
+   headlines that attribution is degraded.
+
+   Note for downgrades: a `burn` older than this change reading a 9-column store discards
+   every row. The integrity gate then re-reads every transcript, so the loss is bounded to
+   rows whose transcripts have already been pruned.
    ```
 
 2. Verify the gate is satisfied:
@@ -1555,13 +1844,14 @@ _These are generated artifacts and must never be hand-edited. The generator driv
    harness check-deps
    ```
 
-3. Confirm SC10 across every shipped surface at once:
+3. Confirm SC10 across every shipped surface at once, and that no symlink was clobbered:
 
    ```
-   grep -rn "not observable" agents/skills .claude-plugin .cursor-plugin .gemini-extension .antigravity-extension | grep -v soundness-review
+   grep -rn "not observable" agents/skills .claude-plugin .cursor-plugin .codex-plugin .gemini-extension .antigravity-extension | grep -v soundness-review
+   git ls-files -s agents/skills/codex/fleet-command agents/skills/cursor/fleet-command agents/skills/gemini-cli/fleet-command
    ```
 
-   Must return nothing.
+   The grep must return nothing, and all three paths must still report mode `120000`.
 
 4. `[checkpoint:human-verify]` — Run the real report against the developer's live HUD and show the output:
 
@@ -1574,7 +1864,12 @@ _These are generated artifacts and must never be hand-edited. The generator driv
    transcript survives. Show the human:
    - the "by agent" section, with at least one named agent and its lane count;
    - that `week to date` units did not move materially versus the pre-change value;
-   - that the status is not `UNDERCOUNT` (which would mean rows were lost, not relabelled).
+   - that the status is not `UNDERCOUNT` (which would mean rows were lost, not relabelled);
+   - the `pre-migration` figure, if any. A large one means many rows' transcripts have
+     already been pruned — expected and honest, not a defect;
+   - that `ATTRIBUTION IS DEGRADED` did **not** fire. If it did, and named agents are
+     visible in the same report, the degradation test is wrong — most likely
+     `pre-migration` is leaking into the `attributed` sum.
 
    Ask for confirmation before finishing. If units moved or `UNDERCOUNT` appears, stop and
    report — that is the migration losing rows, which is the exact failure the `#version`
@@ -1586,14 +1881,16 @@ _These are generated artifacts and must never be hand-edited. The generator driv
 
 ## Risks
 
-| Risk                                                                                                      | Mitigation                                                                                                                                            |
-| --------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------- |
-| A `\t` or `\n` inside `attributionAgent`/`agentId` produces a wrong-width row that `readRecords` discards | Not mitigated by design (spec assumption). Detected by the existing integrity gate as a count mismatch, which forces a rescan. Raised in the handoff. |
-| The migration rescan loses rows on real data                                                              | Task 14's checkpoint compares week-to-date units before and after and rejects an `UNDERCOUNT` status.                                                 |
-| Prettier reformats the wide `fleet-command` table row differently per copy, breaking byte-identity        | Task 10 formats one copy and then copies the formatted bytes to the other three; both parity suites run before the commit.                            |
-| `pnpm generate:plugin:*` fails in a fresh worktree because `packages/{types,core,cli}/dist` are absent    | Task 11 step 1 builds the CLI dependency chain first. Verified failure mode: `ERR_MODULE_NOT_FOUND` for `@harness-engineering/core/dist/index.mjs`.   |
-| Burn's coverage ratchet (80% across four metrics) trips on new uncovered branches                         | Every new branch has a test; Task 14 runs `test:coverage` explicitly rather than discovering it in CI.                                                |
-| An agent label containing markup or ANSI reaches the report                                               | `pad`/`human` render it as plain text; labels are agent slugs. Not mitigated further — out of the spec's scope.                                       |
+| Risk                                                                                                      | Mitigation                                                                                                                                               |
+| --------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| A `\t` or `\n` inside `attributionAgent`/`agentId` produces a wrong-width row that `readRecords` discards | Mitigated in Task 2: `writeRecords` replaces tab/CR/LF with a single space before serialising, with a test that asserts a one-line, nine-field row.      |
+| The migration rescan loses rows on real data                                                              | Task 14's checkpoint compares week-to-date units before and after and rejects an `UNDERCOUNT` status.                                                    |
+| `pre-migration` leaks into `attributed_units` and silences a real degradation alarm                       | Task 6 sums `attributed` directly over named labels only and carries a dedicated test; Task 14's checkpoint re-checks it against real data.              |
+| A copy or write clobbers one of the three `fleet-command` symlinks, breaking platform parity              | Task 10 edits exactly one file, asserts the three symlinks still report git mode `120000`, and requires `git status` to list a single changed path.      |
+| An older `burn` reads a 9-column store and discards every row                                             | Stated, not mitigated (spec Rollback decision). The integrity gate re-reads every transcript; the store is a rolling local cache, not a record of truth. |
+| `pnpm generate:plugin:*` fails in a fresh worktree because `packages/{types,core,cli}/dist` are absent    | Task 11 step 1 builds the CLI dependency chain first. Verified failure mode: `ERR_MODULE_NOT_FOUND` for `@harness-engineering/core/dist/index.mjs`.      |
+| Burn's coverage ratchet (80% across four metrics) trips on new uncovered branches                         | Every new branch has a test; Task 14 runs `test:coverage` explicitly rather than discovering it in CI.                                                   |
+| An agent label containing markup or ANSI reaches the report                                               | `pad`/`human` render it as plain text; labels are agent slugs. Not mitigated further — out of the spec's scope.                                          |
 
 ## Parallelisation
 
