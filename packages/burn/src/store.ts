@@ -129,11 +129,24 @@ export function withScanLock<T>(
   }
 }
 
+/**
+ * On-disk record format version.
+ *
+ * Bump it whenever the column count changes. A fingerprint written under an
+ * older version asserts "already scanned" over rows that cannot carry the
+ * new columns, which would pin the whole store to its migration default
+ * forever. Dropping those fingerprints makes the migration a stated event
+ * — one full rescan — rather than a silent, permanent mislabelling.
+ */
+export const STORE_VERSION = 2;
+
 export interface Fingerprints {
   /** absolute transcript path -> [mtime seconds, size bytes] */
   fingerprints: Map<string, string>;
   /** Record count asserted by the header, or null when absent. */
   expected: number | null;
+  /** Format version asserted by the header, or null when absent (pre-migration). */
+  version: number | null;
 }
 
 /**
@@ -147,7 +160,8 @@ export interface Fingerprints {
 export function readFingerprints(paths: BurnPaths): Fingerprints {
   const fingerprints = new Map<string, string>();
   let expected: number | null = null;
-  if (!existsSync(paths.filesTsv)) return { fingerprints, expected };
+  let version: number | null = null;
+  if (!existsSync(paths.filesTsv)) return { fingerprints, expected, version };
 
   for (const line of readFileSync(paths.filesTsv, 'utf8').split('\n')) {
     if (!line) continue;
@@ -156,10 +170,15 @@ export function readFingerprints(paths: BurnPaths): Fingerprints {
       if (Number.isFinite(n)) expected = n;
       continue;
     }
+    if (line.startsWith('#version\t')) {
+      const n = Number(line.split('\t')[1]);
+      if (Number.isFinite(n)) version = n;
+      continue;
+    }
     const parts = line.split('\t');
     if (parts.length === 3) fingerprints.set(parts[0]!, `${parts[1]}\t${parts[2]}`);
   }
-  return { fingerprints, expected };
+  return { fingerprints, expected, version };
 }
 
 export function writeFingerprints(
@@ -167,7 +186,9 @@ export function writeFingerprints(
   seen: Map<string, string>,
   recordCount: number
 ): void {
-  const lines = [`#count\t${recordCount}\n`];
+  // Count first: the count/fingerprint pairing is what detects a gutted
+  // store, and `scan.test.ts` pins it to the first line.
+  const lines = [`#count\t${recordCount}\n`, `#version\t${STORE_VERSION}\n`];
   for (const [file, sig] of seen) lines.push(`${file}\t${sig}\n`);
   atomicWrite(paths.filesTsv, lines.join(''));
 }

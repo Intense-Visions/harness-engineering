@@ -5,6 +5,7 @@ import type { BurnPaths } from './config';
 import {
   readFingerprints,
   readRecords,
+  STORE_VERSION,
   withScanLock,
   writeFingerprints,
   writeRecords,
@@ -127,7 +128,7 @@ export function scan(paths: BurnPaths): ScanInfo {
       };
     }
 
-    let { fingerprints, expected } = readFingerprints(paths);
+    let { fingerprints, expected, version } = readFingerprints(paths);
     const records = readRecords(paths);
 
     // Integrity gate. If the store holds materially fewer records than the
@@ -139,6 +140,11 @@ export function scan(paths: BurnPaths): ScanInfo {
       lost = expected - records.size;
       fingerprints = new Map();
     }
+
+    // A store written before the current format cannot be trusted to carry
+    // the columns this code reads, so its fingerprints are dropped the same
+    // way a failed integrity gate drops them: re-read every transcript.
+    if (version === null || version < STORE_VERSION) fingerprints = new Map();
 
     const seen = new Map<string, string>();
     let rescanned = 0;

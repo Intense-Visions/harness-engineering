@@ -11,9 +11,10 @@ import { readFileSync, writeFileSync } from 'node:fs';
 
 import { afterEach, describe, expect, it } from 'vitest';
 
+import { refresh } from '../src/refresh';
 import { readRecords, writeRecords } from '../src/store';
 import type { UsageRecord } from '../src/types';
-import { makeHud, type Hud } from './helpers';
+import { DEFAULT_WEEK, hoursAgo, makeHud, transcriptLine, type Hud } from './helpers';
 
 let hud: Hud | null = null;
 
@@ -125,5 +126,54 @@ describe('store — sanitising on write', () => {
     const rec = readRecords(h.paths).get('req_1')!;
     expect(rec.agent).toBe('evil agent name ');
     expect(rec.agentId).toBe('lane 1');
+  });
+});
+
+describe('store — fingerprint version', () => {
+  function seed(h: Hud): void {
+    h.writeConfig({ week_reset: DEFAULT_WEEK });
+    h.writeTranscript('a.jsonl', [transcriptLine('r1', hoursAgo(new Date(), 1), { out: 100 })]);
+    refresh(h.paths);
+  }
+
+  it('writes the version header after the count header', () => {
+    // Order matters: `scan.test.ts` asserts the FIRST line is the count.
+    const h = newHud();
+    seed(h);
+    const lines = readFileSync(h.paths.filesTsv, 'utf8').split('\n');
+    expect(lines[0]).toBe('#count\t1');
+    expect(lines[1]).toBe('#version\t2');
+  });
+
+  it('re-reads every transcript when the version header is absent', () => {
+    // The pre-migration store has no version line at all. Its fingerprints
+    // describe rows that cannot carry the new columns, so they are dropped
+    // exactly the way a failed integrity gate drops them.
+    const h = newHud();
+    seed(h);
+    const kept = readFileSync(h.paths.filesTsv, 'utf8')
+      .split('\n')
+      .filter((l) => l && !l.startsWith('#version\t'));
+    writeFileSync(h.paths.filesTsv, `${kept.join('\n')}\n`);
+
+    expect(refresh(h.paths).scan.files_rescanned).toBeGreaterThan(0);
+  });
+
+  it('re-reads every transcript when the version header is older than the current format', () => {
+    const h = newHud();
+    seed(h);
+    const patched = readFileSync(h.paths.filesTsv, 'utf8')
+      .split('\n')
+      .filter(Boolean)
+      .map((l) => (l.startsWith('#version\t') ? '#version\t1' : l));
+    writeFileSync(h.paths.filesTsv, `${patched.join('\n')}\n`);
+
+    expect(refresh(h.paths).scan.files_rescanned).toBeGreaterThan(0);
+  });
+
+  it('does not rescan an unchanged transcript once the version is current', () => {
+    const h = newHud();
+    seed(h);
+    expect(refresh(h.paths).scan.files_rescanned).toBe(0);
   });
 });
