@@ -516,3 +516,128 @@ describe('applyTicketToFeature() — RMH005 holds after an inbound move off in-p
     expect(assigneeInvariantHolds(feature)).toBe(true);
   });
 });
+
+/**
+ * This repo's own reverseStatusMap shape: a DIRECT `open` key, which
+ * resolveReverseStatus matches before it ever reaches the compound branch.
+ * A bare OPEN and an explicitly `planned`-labelled OPEN both resolve to
+ * `planned` here — which is exactly why the backlog guard must be gated on
+ * the LABEL, not on the resolved status.
+ */
+const CONFIG_DIRECT_OPEN: TrackerSyncConfig = {
+  ...CONFIG,
+  reverseStatusMap: { ...CONFIG.reverseStatusMap, open: 'planned' },
+};
+
+describe('applyTicketToFeature() — bare OPEN is not an opinion about backlog', () => {
+  function backlogRow() {
+    return makeFeature({
+      name: 'Idea Row',
+      status: 'backlog',
+      assignee: null,
+      externalId: 'github:owner/repo#5',
+    });
+  }
+
+  it('does not overwrite backlog when the ticket carries no status label', async () => {
+    const feature = backlogRow();
+    const roadmap = makeRoadmap([feature]);
+    const adapter = mockAdapter({
+      fetchAllTickets: vi.fn(async () =>
+        Ok([
+          ticket({
+            externalId: 'github:owner/repo#5',
+            title: 'Idea Row',
+            status: 'open',
+            labels: ['harness-managed'],
+          }),
+        ])
+      ),
+    });
+
+    const result = await syncFromExternal(roadmap, adapter, CONFIG_DIRECT_OPEN);
+
+    expect(feature.status).toBe('backlog');
+    expect(result.suppressedInbound).toEqual([
+      {
+        feature: 'Idea Row',
+        field: 'status',
+        from: 'backlog',
+        to: 'planned',
+        reason: 'tracker-open-without-status-label',
+      },
+    ]);
+  });
+
+  it('DOES promote backlog when the ticket carries an explicit planned label', async () => {
+    const feature = backlogRow();
+    const roadmap = makeRoadmap([feature]);
+    const adapter = mockAdapter({
+      fetchAllTickets: vi.fn(async () =>
+        Ok([
+          ticket({
+            externalId: 'github:owner/repo#5',
+            title: 'Idea Row',
+            status: 'open',
+            labels: ['harness-managed', 'planned'],
+          }),
+        ])
+      ),
+    });
+
+    const result = await syncFromExternal(roadmap, adapter, CONFIG_DIRECT_OPEN);
+
+    expect(feature.status).toBe('planned');
+    expect(result.suppressedInbound).toEqual([]);
+  });
+
+  it('still overwrites backlog under forceSync (escape hatch intact)', async () => {
+    const feature = backlogRow();
+    const roadmap = makeRoadmap([feature]);
+    const adapter = mockAdapter({
+      fetchAllTickets: vi.fn(async () =>
+        Ok([
+          ticket({
+            externalId: 'github:owner/repo#5',
+            title: 'Idea Row',
+            status: 'open',
+            labels: ['harness-managed'],
+          }),
+        ])
+      ),
+    });
+
+    const result = await syncFromExternal(roadmap, adapter, CONFIG_DIRECT_OPEN, {
+      forceSync: true,
+    });
+
+    expect(feature.status).toBe('planned');
+    expect(result.suppressedInbound).toEqual([]);
+  });
+
+  it('leaves the pre-existing blocked guard untouched', async () => {
+    const feature = makeFeature({
+      name: 'Idea Row',
+      status: 'blocked',
+      externalId: 'github:owner/repo#5',
+    });
+    const roadmap = makeRoadmap([feature]);
+    const adapter = mockAdapter({
+      fetchAllTickets: vi.fn(async () =>
+        Ok([
+          ticket({
+            externalId: 'github:owner/repo#5',
+            title: 'Idea Row',
+            status: 'open',
+            labels: ['harness-managed'],
+          }),
+        ])
+      ),
+    });
+
+    const result = await syncFromExternal(roadmap, adapter, CONFIG_DIRECT_OPEN);
+
+    expect(feature.status).toBe('blocked');
+    expect(result.suppressedInbound).toEqual([]);
+  });
+});
