@@ -153,15 +153,6 @@ function modelsSection(s: Summary): string[] {
 }
 
 /**
- * Per-agent. The pooled bar cannot tell you that a fleet run, not you, spent
- * the week — this is where a lane's cost becomes visible.
- *
- * Guarded exactly like `modelsSection`: a summary written before attribution
- * existed carries no `agents` key and must render without throwing. It
- * borrows that function's cosmetics but NOT its two elisions for the
- * `unattributed` row — see below.
- */
-/**
  * Which labels earn a line.
  *
  * `unattributed` is exempt from the top-N cut and the unit floor. Applying
@@ -206,6 +197,15 @@ function attributionCaution(s: Summary): string[] {
   return out;
 }
 
+/**
+ * Per-agent. The pooled bar cannot tell you that a fleet run, not you, spent
+ * the week — this is where a lane's cost becomes visible.
+ *
+ * Guarded exactly like `modelsSection`: a summary written before attribution
+ * existed carries no `agents` key and must render without throwing. It
+ * borrows that function's cosmetics but NOT its two elisions for the
+ * `unattributed` row — see `keptAgentLabels`.
+ */
 function agentsSection(s: Summary): string[] {
   const all = Object.entries(s.agents ?? {});
   if (all.length === 0) return [];

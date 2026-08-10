@@ -55,21 +55,6 @@ interface TranscriptLine {
 }
 
 /**
- * Fold one transcript into `records`, keyed by requestId.
- *
- * Transcripts repeat the same usage block ~3x per request, so counting rows
- * instead of request ids inflates every figure by roughly 3.5x. First write
- * wins: a requestId already present is skipped, which also makes the scan
- * idempotent across overlapping files.
- *
- * One exception, and only one: a `pre-migration` row — a row read off a
- * 7-column store, which never carried a label at all — is upgraded to any
- * label a later read produces. Classification never yields `pre-migration`,
- * so this cannot fire between two ordinary reads; it exists so the migration
- * does not pin a row to `pre-migration` forever while its transcript is still
- * on disk. An upgrade is not an add.
- */
-/**
  * Whether a transcript path is a dispatched subagent's.
  *
  * Two independent signals classify subagent spend — this path check and the
@@ -128,6 +113,21 @@ function toRecord(
   };
 }
 
+/**
+ * Fold one transcript into `records`, keyed by requestId.
+ *
+ * Transcripts repeat the same usage block ~3x per request, so counting rows
+ * instead of request ids inflates every figure by roughly 3.5x. First write
+ * wins: a requestId already present is skipped, which also makes the scan
+ * idempotent across overlapping files.
+ *
+ * One exception, and only one: a `pre-migration` row — a row read off a
+ * 7-column store, which never carried a label at all — is upgraded to any
+ * label a later read produces. Classification never yields `pre-migration`,
+ * so this cannot fire between two ordinary reads; it exists so the migration
+ * does not pin a row to `pre-migration` forever while its transcript is still
+ * on disk. An upgrade is not an add.
+ */
 export function parseTranscript(file: string, records: Map<string, UsageRecord>): number {
   let text: string;
   try {
