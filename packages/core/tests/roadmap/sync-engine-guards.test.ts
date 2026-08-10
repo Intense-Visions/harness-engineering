@@ -497,6 +497,97 @@ describe('applyTicketToFeature() — RMH005 holds after an inbound move off in-p
     expect(roadmap.assignmentHistory.length).toBeGreaterThan(0);
   });
 
+  it('amends the reported assignment change to the value that actually landed', async () => {
+    // The assignee block writes '@bob'; setStatus then releases it. Reporting
+    // `to: '@bob'` would put a value in the --json CI artifact that never
+    // existed on disk — the report must describe the FINAL state.
+    const feature = makeFeature({
+      name: 'Owned Row',
+      status: 'in-progress',
+      assignee: '@alice',
+      externalId: 'github:owner/repo#1',
+    });
+    const roadmap = makeRoadmap([feature]);
+    const adapter = mockAdapter({
+      fetchAllTickets: vi.fn(async () =>
+        Ok([
+          ticket({
+            title: 'Owned Row',
+            status: 'closed',
+            assignee: '@bob',
+            labels: ['harness-managed'],
+          }),
+        ])
+      ),
+    });
+
+    const result = await syncFromExternal(roadmap, adapter, CONFIG);
+
+    expect(feature.status).toBe('done');
+    expect(feature.assignee).toBeNull();
+    expect(result.assignmentChanges).toEqual([{ feature: 'Owned Row', from: '@alice', to: null }]);
+  });
+
+  it('reports the release when the tracker asserted no assignee of its own', async () => {
+    // The assignee block suppressed the clear (tracker silence), so there is no
+    // pending entry to amend — the release still has to land in the report.
+    const feature = makeFeature({
+      name: 'Owned Row',
+      status: 'in-progress',
+      assignee: '@alice',
+      externalId: 'github:owner/repo#1',
+    });
+    const roadmap = makeRoadmap([feature]);
+    const adapter = mockAdapter({
+      fetchAllTickets: vi.fn(async () =>
+        Ok([
+          ticket({
+            title: 'Owned Row',
+            status: 'closed',
+            assignee: null,
+            labels: ['harness-managed'],
+          }),
+        ])
+      ),
+    });
+
+    const result = await syncFromExternal(roadmap, adapter, CONFIG);
+
+    expect(feature.assignee).toBeNull();
+    expect(result.assignmentChanges).toEqual([{ feature: 'Owned Row', from: '@alice', to: null }]);
+  });
+
+  it('reports the release on a non-in-progress assigned row (RMH005 repair is never silent)', async () => {
+    // The widened routing does not require the row to have been in-progress, so
+    // a `planned` row carrying an assignee (already an RMH005 violation) is
+    // repaired here. Legitimate — but it must be visible in the report.
+    const feature = makeFeature({
+      name: 'Owned Row',
+      status: 'planned',
+      assignee: '@alice',
+      externalId: 'github:owner/repo#1',
+    });
+    const roadmap = makeRoadmap([feature]);
+    const adapter = mockAdapter({
+      fetchAllTickets: vi.fn(async () =>
+        Ok([
+          ticket({
+            title: 'Owned Row',
+            status: 'closed',
+            assignee: null,
+            labels: ['harness-managed'],
+          }),
+        ])
+      ),
+    });
+
+    const result = await syncFromExternal(roadmap, adapter, CONFIG);
+
+    expect(feature.status).toBe('done');
+    expect(assigneeInvariantHolds(feature)).toBe(true);
+    expect(result.assignmentChanges).toEqual([{ feature: 'Owned Row', from: '@alice', to: null }]);
+  });
+
   it('still releases a MACHINE claim (pre-existing behaviour preserved)', async () => {
     const feature = makeFeature({
       name: 'Owned Row',

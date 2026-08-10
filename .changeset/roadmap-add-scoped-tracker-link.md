@@ -28,9 +28,12 @@ transitions still run the full reconcile:
 
 - An absent tracker assignee no longer clears a local one. An unassigned issue
   is the default state of every issue, not an authoritative empty value.
-- Consequently, any inbound move of an _assigned_ row away from `in-progress`
-  now routes through `setStatus`, so the assignee is released through the
-  lifecycle authority and `assignee ≠ null ⟺ in-progress` still holds.
+- Consequently, any inbound status change on an _assigned_ row now routes
+  through `setStatus`, so the assignee is released through the lifecycle
+  authority and `assignee ≠ null ⟺ in-progress` still holds. This also repairs
+  an already-invalid row (assigned but not `in-progress`), and the release is
+  reported: `assignmentChanges` now describes the assignee that actually landed
+  on disk rather than the intermediate value the pull computed.
 - A merely-`OPEN` issue no longer overwrites a local `backlog` status. The
   guard is gated on the absence of a disambiguating status label rather than
   on the resolved status, because a direct `open → planned` mapping resolves a

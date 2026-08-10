@@ -251,6 +251,16 @@ function applyTicketToFeature(
   // RMH005 violation in reverse — a non-in-progress row still carrying a claim.
   const localMachineClaim = isMachineAssignee(feature.assignee);
 
+  // Held by reference so the status routing below can amend it in place. The
+  // assignee block and the setStatus branch are no longer mutually exclusive
+  // (the routing condition widened from "machine claim" to "any assignee"), so
+  // a reported `to:` can be overwritten by the release that follows it.
+  let reportedAssignmentChange: {
+    feature: string;
+    from: string | null;
+    to: string | null;
+  } | null = null;
+
   // Assignee: external wins — EXCEPT (i) a live machine claim, which is local
   // truth, and (ii) tracker SILENCE. A null external assignee is missing
   // information, not an authoritative empty value: an unassigned issue is the
@@ -268,11 +278,12 @@ function applyTicketToFeature(
         reason: 'tracker-reports-no-assignee',
       });
     } else {
-      result.assignmentChanges.push({
+      reportedAssignmentChange = {
         feature: feature.name,
         from: feature.assignee,
         to: ticketState.assignee,
-      });
+      };
+      result.assignmentChanges.push(reportedAssignmentChange);
       feature.assignee = ticketState.assignee;
     }
   }
@@ -322,7 +333,19 @@ function applyTicketToFeature(
   // post-reconcile value.
   const date = new Date().toISOString().slice(0, 10);
   if (feature.assignee !== null && newStatus !== 'in-progress') {
+    const released = feature.assignee;
     setStatus(roadmap, feature, newStatus, date);
+    // setStatus releases the assignee, discarding whatever the assignee block
+    // just wrote. Reconcile the report with the value that actually landed:
+    // `assignmentChanges` flows unfiltered into the `--json` CI artifact, and a
+    // `to:` naming an assignee that is null on disk is a lie in that artifact.
+    // Amending rather than dropping keeps `from:` — the release is still a
+    // change, and (per RMH005 repair on an already-invalid row) may be the only
+    // record that the row lost its owner at all.
+    if (feature.assignee === null) {
+      if (reportedAssignmentChange) reportedAssignmentChange.to = null;
+      else result.assignmentChanges.push({ feature: feature.name, from: released, to: null });
+    }
     return;
   }
   feature.status = newStatus;

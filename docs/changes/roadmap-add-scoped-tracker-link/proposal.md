@@ -141,9 +141,18 @@ assignee → today the assignee is cleared then status becomes `done`; with guar
 the row would end up **`done` while still assigned**, violating RMH005, which is an
 **error**-severity health rule that fails `harness validate` — on the very rows the guard
 was meant to protect. The routing condition therefore widens from `localMachineClaim` to
-**any non-null assignee**: whenever inbound sync moves an assigned row away from
-`in-progress`, it goes through `setStatus` so the assignee is released through the
-lifecycle authority.
+**any non-null assignee**: on any inbound status change to an assigned row, the write goes
+through `setStatus` so the assignee is released through the lifecycle authority.
+
+The widened condition does **not** require the row to have been `in-progress`, so a
+`planned` row that already carries an assignee — an existing RMH005 violation — is repaired
+here too. That is deliberate. But it must not be silent: because the widened branch now
+**overlaps** the assignee block (under `localMachineClaim` the two were mutually exclusive),
+`setStatus` can discard an assignee the assignee block just wrote. The routing therefore
+reconciles `assignmentChanges` with the value that actually landed — amending the pending
+entry to `to: null`, or pushing `{ from: <released>, to: null }` when the assignee block
+suppressed its own write. `assignmentChanges` flows unfiltered into the `--json` CI
+artifact, so an unreconciled entry would publish an assignee that is null on disk.
 
 **(c) A merely-`OPEN` issue must not overwrite local `backlog` — gated on label
 provenance.** `backlog` and `planned` are both open states; a bare `OPEN` cannot
@@ -290,7 +299,8 @@ SC1, SC3, SC4, SC5, SC7, SC8, SC9, SC10, SC11, SC12 are provable with a stub
 | SC11 | When a ticket is `OPEN` and carries an explicit `planned` label, the system shall promote a local `backlog` row to `planned`.                                                                                                                                                            | D3(c) provenance       |
 | SC12 | When inbound sync suppresses an assignee clear or a `backlog` overwrite, the system shall record it in `SyncResult.suppressedInbound`.                                                                                                                                                   | D3(d)                  |
 | SC13 | If `fetchAllTickets` fails, then `syncRowToExternal` shall call neither `createTicket` nor `updateTicket` and shall report the error.                                                                                                                                                    | D2 fail-closed         |
-| SC14 | When inbound sync moves an assigned, non-machine-claimed row away from `in-progress`, the resulting row shall satisfy `assignee ≠ null ⟺ in-progress`.                                                                                                                                   | D3(b) / RMH005         |
+| SC14 | When inbound sync applies a status change to an assigned, non-machine-claimed row, the resulting row shall satisfy `assignee ≠ null ⟺ in-progress`.                                                                                                                                      | D3(b) / RMH005         |
+| SC15 | When the widened `setStatus` routing releases an assignee, `SyncResult.assignmentChanges` shall report `to: null` for that feature — never the intermediate value the assignee block computed.                                                                                           | D3(b) report fidelity  |
 
 ## Implementation order
 
