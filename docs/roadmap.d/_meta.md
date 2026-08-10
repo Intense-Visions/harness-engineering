@@ -3,7 +3,7 @@ project: "harness-engineering"
 version: 1
 created: "2026-03-21"
 updated: "2026-08-04"
-last_synced: "2026-08-10T02:25:36.836Z"
+last_synced: "2026-08-10T14:01:15.588Z"
 last_manual_edit: "2026-06-27T12:51:51.967Z"
 milestones:
   - "Intake"

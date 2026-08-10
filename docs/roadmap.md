@@ -3,7 +3,7 @@ project: harness-engineering
 version: 1
 created: 2026-03-21
 updated: 2026-08-04
-last_synced: 2026-08-10T02:25:36.836Z
+last_synced: 2026-08-10T14:01:15.588Z
 last_manual_edit: 2026-06-27T12:51:51.967Z
 ---
 
@@ -450,6 +450,61 @@ last_manual_edit: 2026-06-27T12:51:51.967Z
 - **Assignee:** —
 - **Priority:** —
 - **External-ID:** github:Intense-Visions/harness-engineering#1278
+
+### Graph schema introspection tool
+
+- **Status:** planned
+- **Spec:** —
+- **Summary:** Expose a `get_graph_schema`-equivalent MCP tool returning node/edge counts, relationship patterns and per-label property definitions, so an agent can discover the graph's shape before querying it. Harness exposes `query_graph`, `ask_graph`, `get_relationships`, `search_similar`, `compute_blast_radius` and `find_context_for` but nothing that enumerates what node types and edge types exist — `ls packages/cli/src/mcp/tools/ | grep -i schema` returns only the unrelated `interaction-schemas.ts`. An agent must therefore already know the schema to query it, or guess. Adopted from `DeusData/codebase-memory-mcp` (38.3k stars, MIT), whose equivalent tool description reads "Run this first." Cheap, and it raises the usable yield of every other graph tool for agents that did not author them. Feature-level finding — invisible at source level, surfaced only by enumerating that project's 15 MCP tools. Matrix: docs/ideation/external-source-feature-matrix-2026-08-10.md (score 6.00).
+- **Blockers:** —
+- **Plan:** —
+- **Assignee:** —
+- **Priority:** —
+- **External-ID:** github:Intense-Visions/harness-engineering#1280
+
+### Role-lens plan review
+
+- **Status:** planned
+- **Spec:** —
+- **Summary:** Review a *plan* through distinct role lenses before execution, rather than reviewing *code* by persona after it. Harness reviews code by specialist persona (7 review agents) and reviews plans for internal soundness (`harness:soundness-review`, `check_task_independence`, `validate_plan_tasks`) — but never asks "what would a designer / a DevEx engineer / a CEO object to in this plan?" Adopted from `garrytan/gstack` (127.2k stars, MIT), which ships four distinct plan-review lenses: `plan-ceo-review`, `plan-design-review`, `plan-devex-review`, `plan-eng-review`, plus `plan-tune`. The value is catching a plan that is internally coherent but wrong for a stakeholder the author was not thinking about — a failure mode soundness analysis cannot detect by construction. Composes with the existing persona infrastructure (`list_personas`, `run_persona`, `generate_persona_artifacts`) rather than needing new machinery. Feature-level finding: gstack's spine duplicates harness, but its edges do not. Matrix: docs/ideation/external-source-feature-matrix-2026-08-10.md (score 4.00).
+- **Blockers:** —
+- **Plan:** —
+- **Assignee:** —
+- **Priority:** —
+- **External-ID:** github:Intense-Visions/harness-engineering#1281
+
+### Runtime-trace ingestion to validate graph edges
+
+- **Status:** planned
+- **Spec:** —
+- **Summary:** Ingest runtime traces and use them to confirm or refute statically-derived graph edges — a static call/HTTP edge is a hypothesis until observed traffic supports it. Harness ships ten graph ingestors (`CodeIngestor`, `GitIngestor`, `DecisionIngestor`, `KnowledgeIngestor`, `RequirementIngestor`, `DesignIngestor`, `CanaryResultsIngestor`, `BusinessKnowledgeIngestor`, plus `StructuralDriftDetector` and `ContradictionDetector`) and **no runtime-trace ingestor**: grep for `ingest_traces|ingestTrace|HTTP_CALLS|runtime trace` across `packages` returns zero non-dist hits. Adopted from `DeusData/codebase-memory-mcp`'s `ingest_traces` tool ("ingest runtime traces to validate HTTP_CALLS edges"). Strongly on-thesis for constraints-as-code: an edge validated against production traffic is a materially stronger constraint than one inferred from an AST, and an edge the traces contradict is a drift signal nothing currently emits. Existing seam to build on: `CanaryResultsIngestor` already establishes the pattern of folding execution results back into the graph, and the Canary plugin's `canary-instrument` skill already emits OpenTelemetry run artifacts correlating tests to outbound HTTP requests — a plausible first trace source. Matrix: docs/ideation/external-source-feature-matrix-2026-08-10.md (score 3.00).
+- **Blockers:** —
+- **Plan:** —
+- **Assignee:** —
+- **Priority:** —
+- **External-ID:** github:Intense-Visions/harness-engineering#1282
+
+### ADR CRUD as an MCP tool
+
+- **Status:** planned
+- **Spec:** —
+- **Summary:** Expose Architecture Decision Records as a structured MCP tool (create / read / update / list) rather than only as skill-mediated prose. Harness has `harness:adr-fleet` (batch ADR drafting) and `harness:architecture-advisor` (interactive decision surfacing) as skills, and a `DecisionIngestor` that folds ADRs into the knowledge graph — but `ls packages/cli/src/mcp/tools/ | grep -i "adr\|decision"` returns nothing, so no caller can create or amend an ADR programmatically. Adopted from `DeusData/codebase-memory-mcp`'s `manage_adr` tool, which additionally notes a useful concurrency property: query modes do not block behind a same-project reindex while writes remain serialized. Narrow in scope and adjacent to work `adr-fleet` already owns, so the main design question is whether this belongs as its own tool or as an extension of the adr-fleet surface. Matrix: docs/ideation/external-source-feature-matrix-2026-08-10.md (score 3.00).
+- **Blockers:** —
+- **Plan:** —
+- **Assignee:** —
+- **Priority:** —
+- **External-ID:** github:Intense-Visions/harness-engineering#1283
+
+### Multi-language code-graph coverage and published resolution tiers
+
+- **Status:** planned
+- **Spec:** —
+- **Summary:** Widen code-graph language coverage and publish per-language resolution quality, so adopters know what the graph will actually give them. Harness resolves **6** languages — `typescript, javascript, python, go, rust, java` (`packages/core/src/code-nav/types.ts:4`) — and publishes no per-language quality figure. `DeusData/codebase-memory-mcp` (38.3k, MIT) resolves **13** languages with Hybrid LSP semantic type resolution (Python, TS/JS/JSX/TSX, PHP, C#, Go, C, C++, Java, Kotlin, Rust, Perl), parses **158** via vendored tree-sitter grammars, and publishes tiered quality (Excellent / Good / Functional) benchmarked against 64 real repositories with a stated ~95% resolution target on idiomatic code. Consequence today: an adopter on a Kotlin, C#, PHP or Ruby codebase gets a materially thinner graph than a TypeScript adopter, and nothing surfaces that — every downstream capability that reads the graph (impact analysis, blast radius, review scoping, test selection, hotspot detection) silently degrades with it. Directly gates the External adoption flywheel track, since the constraints-as-code thesis can only be tested at scale on codebases the graph can actually read. High effort and deliberately scored as such; the cheap first increment is publishing honest per-language tiers for the 6 already supported. Matrix: docs/ideation/external-source-feature-matrix-2026-08-10.md (score 2.00).
+- **Blockers:** —
+- **Plan:** —
+- **Assignee:** —
+- **Priority:** —
+- **External-ID:** github:Intense-Visions/harness-engineering#1284
 
 ## Fleet Family — Batch Orchestration
 
