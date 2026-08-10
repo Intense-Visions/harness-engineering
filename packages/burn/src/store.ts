@@ -193,16 +193,46 @@ export function writeFingerprints(
   atomicWrite(paths.filesTsv, lines.join(''));
 }
 
+/** A tab-delimited numeric column, defaulting a missing or unparseable one to 0. */
+function num(field: string | undefined): number {
+  return Number(field) || 0;
+}
+
 /**
- * requestId -> record.
+ * One `usage.tsv` row -> a record, or null when the field count is a torn write.
  *
  * A 7-field row predates attribution and is loaded as `pre-migration` rather
  * than discarded: discarding would delete the entire pre-migration store.
  * Nine or more fields carry the label and the lane id, and anything past the
- * ninth is ignored — accepting `>= 9` rather than `=== 9` costs nothing today
- * and makes a future column addition survivable by a reader that predates it.
- * Any other field count is a torn write and is still discarded.
+ * ninth is ignored.
+ *
+ * Exactly 8 fields is rejected on purpose, and that is what bounds the forward
+ * tolerance here. A 7-column row with one trailing tab splits into 8 fields
+ * and is indistinguishable from a genuine 8-column row, so 8 has to stay a
+ * torn-write sentinel. The consequence is worth stating plainly: accepting
+ * `>= 9` means a future addition of TWO OR MORE columns survives a reader that
+ * predates it, but an addition of exactly one does not. A single-column
+ * widening would need its own version bump rather than relying on this.
  */
+function toStoredRecord(p: string[]): UsageRecord | null {
+  const wide = p.length >= 9;
+  if (p.length !== 7 && !wide) return null;
+
+  return {
+    ts: p[1]!,
+    model: p[2]!,
+    out: num(p[3]),
+    in: num(p[4]),
+    cacheWrite: num(p[5]),
+    cacheRead: num(p[6]),
+    // Never empty. A row of unknown provenance is `pre-migration`, not
+    // `unattributed` — the latter is subagent spend and drives degradation.
+    agent: (wide ? p[7]! : '') || 'pre-migration',
+    agentId: wide ? p[8]! : '',
+  };
+}
+
+/** requestId -> record. Rows whose field count is a torn write are discarded. */
 export function readRecords(paths: BurnPaths): Map<string, UsageRecord> {
   const records = new Map<string, UsageRecord>();
   if (!existsSync(paths.usageTsv)) return records;
@@ -210,20 +240,8 @@ export function readRecords(paths: BurnPaths): Map<string, UsageRecord> {
   for (const line of readFileSync(paths.usageTsv, 'utf8').split('\n')) {
     if (!line) continue;
     const p = line.split('\t');
-    if (p.length !== 7 && p.length < 9) continue;
-    const agent = p.length >= 9 ? p[7]! : '';
-    records.set(p[0]!, {
-      ts: p[1]!,
-      model: p[2]!,
-      out: Number(p[3]) || 0,
-      in: Number(p[4]) || 0,
-      cacheWrite: Number(p[5]) || 0,
-      cacheRead: Number(p[6]) || 0,
-      // Never empty. A row of unknown provenance is `pre-migration`, not
-      // `unattributed` — the latter is subagent spend and drives degradation.
-      agent: agent || 'pre-migration',
-      agentId: p.length >= 9 ? p[8]! : '',
-    });
+    const record = toStoredRecord(p);
+    if (record) records.set(p[0]!, record);
   }
   return records;
 }
