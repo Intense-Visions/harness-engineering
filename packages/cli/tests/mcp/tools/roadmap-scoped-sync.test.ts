@@ -110,6 +110,77 @@ describe('manage_roadmap add — response annotation', () => {
     expect(fs.readFileSync(path.join(dir, 'docs', 'roadmap.md'), 'utf-8')).toContain('Billing');
   });
 
+  it('offers the recovery that works, and warns off the one that cannot', async () => {
+    vi.spyOn(autoSync, 'triggerScopedExternalSync').mockResolvedValue({
+      kind: 'failed',
+      reason: 'tracker 503',
+    });
+
+    const res = await handleManageRoadmap({
+      path: dir,
+      action: 'add',
+      feature: 'Billing',
+      milestone: 'MVP Release',
+      status: 'planned',
+      summary: 'Billing system',
+    });
+
+    const { message } = JSON.parse(res.content[0].text);
+    // Re-running add fails 100% of the time on exactly this path: the row is
+    // already persisted, so the second add pushes a duplicate slug and
+    // applyRoadmapDiff rejects the write. Only sync can repair it.
+    expect(message).toMatch(/do not re-run add/i);
+    expect(message).toContain('sync');
+    expect(message).toContain('apply=true');
+    expect(message).not.toMatch(/re-running add is safe/i);
+    // No orphan on this outcome, so the unlinked clause is the true one.
+    expect(message).toContain('no External-ID');
+  });
+
+  it('names the orphaned ticket instead of claiming the row has no External-ID', async () => {
+    vi.spyOn(autoSync, 'triggerScopedExternalSync').mockResolvedValue({
+      kind: 'failed',
+      reason: 'writeback failed (ticket github:owner/repo#42 exists ...)',
+      externalId: 'github:owner/repo#42',
+    });
+
+    const res = await handleManageRoadmap({
+      path: dir,
+      action: 'add',
+      feature: 'Billing',
+      milestone: 'MVP Release',
+      status: 'planned',
+      summary: 'Billing system',
+    });
+
+    const { message } = JSON.parse(res.content[0].text);
+    expect(message).toContain('github:owner/repo#42');
+    expect(message).not.toContain('no External-ID');
+  });
+
+  it('reports a linked-with-warning outcome without calling it a link failure', async () => {
+    vi.spyOn(autoSync, 'triggerScopedExternalSync').mockResolvedValue({
+      kind: 'linked',
+      externalId: 'github:owner/repo#42',
+      warning: 'tracker 500',
+    });
+
+    const res = await handleManageRoadmap({
+      path: dir,
+      action: 'add',
+      feature: 'Billing',
+      milestone: 'MVP Release',
+      status: 'planned',
+      summary: 'Billing system',
+    });
+
+    expect(res.isError).toBeFalsy();
+    const { message, link } = JSON.parse(res.content[0].text);
+    expect(link.kind).toBe('linked');
+    expect(message).toContain('tracker 500');
+    expect(message).not.toMatch(/link failed/i);
+  });
+
   it('reports a missing token loudly but not fatally', async () => {
     vi.spyOn(autoSync, 'triggerScopedExternalSync').mockResolvedValue({ kind: 'no-token' });
 

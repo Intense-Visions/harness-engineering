@@ -293,27 +293,40 @@ function buildFeatureFromInput(input: ManageRoadmapInput) {
  * failed, inviting a retry that mints a duplicate issue. Loud-but-not-fatal
  * is the correct severity.
  */
-function addResponse(roadmap: Roadmap, link: RowLinkOutcome): McpResponse {
+function addResponse(roadmap: Roadmap, link: RowLinkOutcome, deps: RoadmapDeps): McpResponse {
   const body: Record<string, unknown> = { ...roadmap, link };
+  const unlinked =
+    'The row has no External-ID and will not be reconciled by merge-triggered auto-done.';
   if (link.kind === 'no-token') {
-    body.message =
-      'Row added, but the tracker link was skipped: GITHUB_TOKEN not found. ' +
-      'The row has no External-ID and will not be reconciled by merge-triggered auto-done.';
+    body.message = `Row added, but the tracker link was skipped: GITHUB_TOKEN not found. ${unlinked}`;
   } else if (link.kind === 'failed') {
+    // The recovery must be the one that actually works. Re-running `add` CANNOT
+    // work: the row is already persisted, so a second add pushes a duplicate
+    // slug and applyRoadmapDiff's collision guard rejects the whole write.
+    // `sync --apply` links the row that already exists, and title dedup means
+    // it joins the existing ticket rather than minting a second one.
+    const state = link.externalId
+      ? `Ticket ${link.externalId} exists but the row on disk was not linked to it.`
+      : unlinked;
     body.message =
-      `Row added, but the tracker link failed: ${link.reason}. ` +
-      'The row has no External-ID; re-running add is safe (title dedup prevents a duplicate issue).';
+      `Row added, but the tracker link failed: ${link.reason}. ${state} ` +
+      'Do NOT re-run add — the row is already persisted, so a second add is ' +
+      'rejected as a slug collision. Run manage_roadmap sync with apply=true ' +
+      'to link the existing row.';
+  } else if (link.kind === 'linked' && link.warning) {
+    body.message =
+      `Row added and linked to ${link.externalId}, but the tracker reported: ` +
+      `${link.warning}. The link itself is on disk; only the ticket patch failed.`;
   }
-  return {
-    content: [{ type: 'text' as const, text: JSON.stringify(body) }],
-    isError: false,
-  };
+  // Through resultToMcpResponse like every other success path, so the body is
+  // serialized with bigIntSafeReplacer rather than a bare JSON.stringify.
+  return resultToMcpResponse(deps.Ok(body));
 }
 
 async function handleAdd(
   projectPath: string,
   input: ManageRoadmapInput,
-  _deps: RoadmapDeps
+  deps: RoadmapDeps
 ): Promise<McpResponse> {
   const validationError = validateAddFields(input);
   if (validationError) return validationError;
@@ -355,7 +368,7 @@ async function handleAdd(
     );
     if (added) added.externalId = link.externalId;
   }
-  return addResponse(roadmap, link);
+  return addResponse(roadmap, link, deps);
 }
 
 /**
