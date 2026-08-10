@@ -73,6 +73,20 @@ label, the summary sets `attribution.degraded` and the report says so in a headl
 alone. In the report the `unattributed` row is exempt from the top-N cut and the unit
 floor that elide other labels — a bucket that can vanish cannot do its job.
 
+The degradation flag detects labels that went **missing**, not labels that are **wrong**.
+Classification trusts `attributionAgent` unconditionally: a line carrying one is filed under
+that agent whether or not anything else marks it as subagent spend. That holds because
+main-thread turns are not observed to carry the field — they carry `attributionSkill` /
+`attributionPlugin` / `attributionMcpServer` instead — but that is an observation about
+undocumented internals, not a contract. If a Claude Code release began stamping
+`attributionAgent` on main-thread turns, that spend would be silently reattributed: `main`
+would shrink, a lane-less agent bucket would grow, and `attribution.degraded` would stay
+false throughout. This gap is accepted rather than guarded, because requiring a
+corroborating signal before believing a label would suppress real attribution the moment
+either of the other two signals moved — trading a plausible failure for a likelier one. The
+symptom to watch for is a `main` bucket that collapses without a matching rise in lane
+counts.
+
 `pre-migration` is deliberately its own label rather than a shade of `unattributed`.
 Most legacy rows are main-thread spend, so calling them unattributed would be a false
 claim about history _and_ would fire the degradation alarm on the first upgraded scan.
