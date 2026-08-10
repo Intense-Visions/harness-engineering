@@ -87,7 +87,7 @@ export type { ReconcileResult } from './reconcile';
 /**
  * Sync engine for bidirectional sync between roadmap and external trackers.
  */
-export { syncToExternal, syncFromExternal, fullSync } from './sync-engine';
+export { syncToExternal, syncFromExternal, fullSync, syncRowToExternal } from './sync-engine';
 
 /**
  * Pilot scoring algorithm for auto-pick feature selection.

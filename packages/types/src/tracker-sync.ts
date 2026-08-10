@@ -94,6 +94,26 @@ export interface PlannedSyncChanges {
 }
 
 /**
+ * An inbound (tracker → roadmap) write that was computed but deliberately
+ * withheld because the tracker had no opinion to assert. The sync module's
+ * stated convention is that a withheld action lands somewhere, never nowhere
+ * — without this, an operator debugging "why did my GitHub unassign not take
+ * effect" gets silence.
+ */
+export interface SuppressedInbound {
+  /** Roadmap feature name whose local field was kept */
+  feature: string;
+  /** Which local field the inbound write would have touched */
+  field: 'assignee' | 'status';
+  /** Local value that was kept */
+  from: string | null;
+  /** Value the tracker would have written */
+  to: string | null;
+  /** Why the write was withheld */
+  reason: string;
+}
+
+/**
  * Result of a sync operation. Collects successes and errors per-feature.
  */
 export interface SyncResult {
@@ -113,8 +133,31 @@ export interface SyncResult {
   skippedCreates: SkippedCreate[];
   /** Issue state transitions withheld by `syncIssueState: false` */
   skippedStateChanges: SkippedStateChange[];
+  /** Inbound writes withheld because the tracker had no opinion (see applyTicketToFeature) */
+  suppressedInbound: SuppressedInbound[];
   /** What the run actually examined — the denominator behind every count above */
   examined: SyncDenominator;
+}
+
+/**
+ * Result of a **row-scoped** push (one roadmap row), which additionally reports
+ * the field that actually decides whether the row is linked.
+ *
+ * `created` / `updated` cannot answer that question: a row that dedup-links to
+ * an existing ticket has its `externalId` stamped and written to disk even when
+ * the follow-up patch fails, leaving both arrays empty while the row IS linked.
+ * Classifying on those arrays therefore reports "unlinked" for a row that is
+ * linked on disk. `externalId` is the post-push value of `feature.externalId` —
+ * correct on the create path, the dedup path, and the already-linked path alike.
+ *
+ * Distinguishing "the tracker linked it but disk did not record it" from a
+ * tracker-side error: a **writeback** failure is reported under the `'*'`
+ * envelope in {@link SyncResult.errors} (the same convention `fullSync` uses),
+ * while every tracker-side error is keyed by feature name or external id.
+ */
+export interface RowSyncResult extends SyncResult {
+  /** The row's `externalId` after the push, or null when it is still unlinked. */
+  externalId: string | null;
 }
 
 /**

@@ -4,6 +4,7 @@ import type {
   RoadmapFeature,
   FeatureStatus,
   SyncResult,
+  RowSyncResult,
   TrackerSyncConfig,
   ExternalTicketState,
 } from '@harness-engineering/types';
@@ -27,6 +28,7 @@ function emptySyncResult(): SyncResult {
     planned: { creates: [], updates: [], localWrites: [] },
     skippedCreates: [],
     skippedStateChanges: [],
+    suppressedInbound: [],
     examined: { roadmapRows: 0, ticketsFetched: null },
   };
 }
@@ -236,17 +238,41 @@ function applyTicketToFeature(
   // RMH005 violation in reverse — a non-in-progress row still carrying a claim.
   const localMachineClaim = isMachineAssignee(feature.assignee);
 
-  // Assignee: external wins — EXCEPT a live machine claim, which is local
-  // truth. A machine assignee (orchestrator id) is never pushed to the external
-  // assignee field, so inbound state can only ever lag or contradict it; never
-  // let it clobber the running claim (that was the silent-skip bug).
+  // Held by reference so the status routing below can amend it in place. The
+  // assignee block and the setStatus branch are no longer mutually exclusive
+  // (the routing condition widened from "machine claim" to "any assignee"), so
+  // a reported `to:` can be overwritten by the release that follows it.
+  let reportedAssignmentChange: {
+    feature: string;
+    from: string | null;
+    to: string | null;
+  } | null = null;
+
+  // Assignee: external wins — EXCEPT (i) a live machine claim, which is local
+  // truth, and (ii) tracker SILENCE. A null external assignee is missing
+  // information, not an authoritative empty value: an unassigned issue is the
+  // DEFAULT state of every issue, so letting it clear a local assignee means
+  // the tracker's default silently overwrites a human's decision. Assignment
+  // (null → someone) and reassignment are unaffected; forceSync still clears.
   if (!localMachineClaim && ticketState.assignee !== feature.assignee) {
-    result.assignmentChanges.push({
-      feature: feature.name,
-      from: feature.assignee,
-      to: ticketState.assignee,
-    });
-    feature.assignee = ticketState.assignee;
+    const clearsLocalAssignee = ticketState.assignee === null && feature.assignee !== null;
+    if (clearsLocalAssignee && !forceSync) {
+      result.suppressedInbound.push({
+        feature: feature.name,
+        field: 'assignee',
+        from: feature.assignee,
+        to: null,
+        reason: 'tracker-reports-no-assignee',
+      });
+    } else {
+      reportedAssignmentChange = {
+        feature: feature.name,
+        from: feature.assignee,
+        to: ticketState.assignee,
+      };
+      result.assignmentChanges.push(reportedAssignmentChange);
+      feature.assignee = ticketState.assignee;
+    }
   }
 
   // Status: use reverse mapping with label disambiguation
@@ -258,14 +284,61 @@ function applyTicketToFeature(
   // Guard: external "open" → "planned" must not override manually-set "blocked".
   if (!forceSync && feature.status === 'blocked' && newStatus === 'planned') return;
 
-  // When inbound sync moves a machine-claimed row away from in-progress, route
-  // through setStatus() so the assignee auto-clears and an `unassigned` history
-  // entry is recorded — keeping `assignee ≠ null ⟺ in-progress` (RMH005). For a
-  // human/null assignee the bare status write is fine (the assignee block above
-  // already reconciled the assignee from external).
+  // Guard: a merely-OPEN issue is not an opinion about backlog vs planned —
+  // both are open states, and an unlabelled open issue is the default state of
+  // every issue. Gated on the ABSENCE of a label rather than on the resolved
+  // status, because a direct `open → planned` key resolves an explicitly-
+  // labelled `planned` ticket identically to a bare one.
+  //
+  // The escape is specifically the label that would PRODUCE this write. Any
+  // other status label is not evidence for it: under a direct `open` key the
+  // resolved status is `planned` regardless, so a `blocked`-labelled ticket
+  // would otherwise promote a backlog row on the strength of an opinion the
+  // resolver already discarded. An explicit `planned` label IS an opinion for
+  // `planned`, and still promotes.
+  if (
+    !forceSync &&
+    feature.status === 'backlog' &&
+    newStatus === 'planned' &&
+    !ticketState.labels.includes(newStatus)
+  ) {
+    result.suppressedInbound.push({
+      feature: feature.name,
+      field: 'status',
+      from: 'backlog',
+      to: 'planned',
+      reason: 'tracker-open-without-status-label',
+    });
+    return;
+  }
+
+  // When inbound sync moves an ASSIGNED row away from in-progress, route
+  // through setStatus() so the assignee is released through the lifecycle
+  // authority and an `unassigned` history entry is recorded — keeping
+  // `assignee ≠ null ⟺ in-progress` (RMH005, an error-severity health rule).
+  //
+  // The condition is deliberately ANY non-null assignee, not just a machine
+  // claim. The bare status write below used to be safe because the assignee
+  // block above always reconciled the assignee from external first; the
+  // tracker-silence guard removed that precondition, so a human-assigned row
+  // whose ticket closes would otherwise land `done` while still assigned.
+  // `feature.assignee` is read AFTER the assignee block, so this sees the
+  // post-reconcile value.
   const date = new Date().toISOString().slice(0, 10);
-  if (localMachineClaim && newStatus !== 'in-progress') {
+  if (feature.assignee !== null && newStatus !== 'in-progress') {
+    const released = feature.assignee;
     setStatus(roadmap, feature, newStatus, date);
+    // setStatus releases the assignee, discarding whatever the assignee block
+    // just wrote. Reconcile the report with the value that actually landed:
+    // `assignmentChanges` flows unfiltered into the `--json` CI artifact, and a
+    // `to:` naming an assignee that is null on disk is a lie in that artifact.
+    // Amending rather than dropping keeps `from:` — the release is still a
+    // change, and (per RMH005 repair on an already-invalid row) may be the only
+    // record that the row lost its owner at all.
+    if (feature.assignee === null) {
+      if (reportedAssignmentChange) reportedAssignmentChange.to = null;
+      else result.assignmentChanges.push({ feature: feature.name, from: released, to: null });
+    }
     return;
   }
   feature.status = newStatus;
@@ -378,9 +451,12 @@ export async function fullSync(
     releaseMutex = resolve;
   });
 
-  await previousSync;
-
   try {
+    // Inside the try: a rejected predecessor must still reach the `finally`,
+    // or this call's own mutex slot is never released and every subsequent
+    // sync in the process queues behind a promise that never settles.
+    await previousSync;
+
     const store = resolveRoadmapStore({ projectRoot });
     const loaded = await store.load();
     if (!loaded.ok) {
@@ -441,6 +517,7 @@ export async function fullSync(
       },
       skippedCreates: pushResult.skippedCreates,
       skippedStateChanges: pushResult.skippedStateChanges,
+      suppressedInbound: pullResult.suppressedInbound,
       examined: {
         roadmapRows: countRoadmapRows(roadmap),
         // The push-phase fetch is the authoritative denominator: null means the
@@ -448,6 +525,135 @@ export async function fullSync(
         // abstentions from the caller's point of view, and distinguishable.
         ticketsFetched: tickets ? tickets.length : null,
       },
+    };
+  } finally {
+    releaseMutex!();
+  }
+}
+
+/**
+ * Push exactly ONE roadmap row to the tracker. Push-only, dedup-aware,
+ * fail-closed. This is the blast-radius-proportional counterpart to
+ * `fullSync`: an operation that writes one row must not reconcile the repo.
+ *
+ * - Takes the SAME module mutex as `fullSync`, so a scoped push and a full
+ *   sync can never interleave their writebacks.
+ * - Locates the row by case-insensitive name (matching the MCP tool). A match
+ *   count other than exactly 1 is an error in the returned SyncResult and
+ *   performs no writes — it never throws. Refusing an ambiguous name up front
+ *   keeps name identity and `applyRoadmapDiff`'s slug identity from meeting.
+ * - Runs NO inbound pull: nothing external can overwrite any local field here,
+ *   so `suppressedInbound` is always empty on this path.
+ * - Does NOT stamp `last_synced`. A scoped push is not a reconcile, and
+ *   bumping the stamp would assert a whole-roadmap comparison that never
+ *   happened. Deliberate behaviour change from the fullSync-on-add status quo.
+ *
+ * Returns a {@link RowSyncResult}: a `SyncResult` plus the post-push
+ * `feature.externalId`. Callers must classify "is this row linked?" on that
+ * field, NOT on `created` / `updated` — a dedup link whose follow-up patch
+ * fails leaves both arrays empty while the row is linked on disk. A writeback
+ * failure is reported under the `'*'` envelope in `errors`, matching `fullSync`,
+ * so "linked but not persisted" stays distinguishable from a tracker error.
+ *
+ * `examined.roadmapRows` is 1 by construction (the single-row projection),
+ * which differs in meaning from fullSync's whole-roadmap denominator.
+ */
+export async function syncRowToExternal(
+  projectRoot: string,
+  adapter: TrackerSyncAdapter,
+  config: TrackerSyncConfig,
+  featureName: string,
+  options?: ExternalSyncOptions
+): Promise<RowSyncResult> {
+  const previousSync = syncMutex;
+  let releaseMutex: () => void;
+  syncMutex = new Promise<void>((resolve) => {
+    releaseMutex = resolve;
+  });
+
+  const dryRun = options?.dryRun ?? false;
+  const fail = (error: Error): RowSyncResult => ({
+    ...emptySyncResult(),
+    dryRun,
+    externalId: null,
+    errors: [{ featureOrId: featureName, error }],
+  });
+
+  try {
+    // Inside the try: a rejected predecessor must still reach the `finally`,
+    // or this call's own mutex slot is never released and every subsequent
+    // sync in the process queues behind a promise that never settles.
+    await previousSync;
+
+    const store = resolveRoadmapStore({ projectRoot });
+    const loaded = await store.load();
+    if (!loaded.ok) return fail(loaded.error);
+
+    const roadmap = loaded.value;
+    const matches: Array<{
+      milestone: Roadmap['milestones'][number];
+      feature: RoadmapFeature;
+    }> = [];
+    for (const milestone of roadmap.milestones) {
+      for (const feature of milestone.features) {
+        if (feature.name.toLowerCase() === featureName.toLowerCase()) {
+          matches.push({ milestone, feature });
+        }
+      }
+    }
+    if (matches.length === 0) {
+      return fail(new Error(`Feature "${featureName}" not found in roadmap`));
+    }
+    if (matches.length > 1) {
+      return fail(
+        new Error(`Feature name "${featureName}" is ambiguous (${matches.length} matches)`)
+      );
+    }
+
+    const { milestone, feature } = matches[0]!;
+    const before = structuredClone(roadmap);
+
+    // Fetch solely to build the dedup index. FAIL-CLOSED: fullSync degrades to
+    // an empty index when the fetch fails, which for a one-row create would
+    // mint exactly the duplicate issue this function exists to prevent.
+    const fetchResult = await adapter.fetchAllTickets();
+    if (!fetchResult.ok) return fail(fetchResult.error);
+
+    // Single-row projection that SHARES feature object identity with `roadmap`.
+    // syncToExternal mutates features in place, so the externalId it stamps
+    // lands on the real row. Reuse, not reimplementation: create / dedup /
+    // guard / report semantics stay in one place.
+    const projection: Roadmap = {
+      ...roadmap,
+      milestones: [{ ...milestone, features: [feature] }],
+    };
+
+    const pushResult = await syncToExternal(
+      projection,
+      adapter,
+      config,
+      fetchResult.value,
+      options
+    );
+
+    // No `stampLastSynced` here — see the function doc comment.
+    const localWrites = changedFeatureNames(before, roadmap);
+    const persisted = dryRun ? null : await applyRoadmapDiff(store, before, roadmap);
+    // The `'*'` envelope marks a WRITEBACK failure, matching fullSync. Callers
+    // use it to tell "the tracker linked the row but disk did not record it"
+    // (an orphaned ticket) from a tracker-side error, which is keyed by feature
+    // name or external id.
+    const writebackErrors =
+      persisted && !persisted.ok ? [{ featureOrId: '*', error: persisted.error }] : [];
+
+    return {
+      ...pushResult,
+      // The authoritative link answer. `created`/`updated` are both empty on the
+      // dedup-link-then-patch-fails path even though the row IS linked, so a
+      // caller classifying on those arrays reports a linked row as unlinked.
+      externalId: feature.externalId ?? null,
+      errors: [...pushResult.errors, ...writebackErrors],
+      planned: { ...pushResult.planned, localWrites: dryRun ? localWrites : [] },
     };
   } finally {
     releaseMutex!();

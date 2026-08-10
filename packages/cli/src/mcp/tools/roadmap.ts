@@ -14,7 +14,11 @@ import {
 import type { Roadmap, Result } from '@harness-engineering/types';
 import { resultToMcpResponse } from '../utils/result-adapter.js';
 import { sanitizePath } from '../utils/sanitize-path.js';
-import { triggerExternalSync } from './roadmap-auto-sync.js';
+import {
+  triggerExternalSync,
+  triggerScopedExternalSync,
+  type RowLinkOutcome,
+} from './roadmap-auto-sync.js';
 import { handleManageRoadmapFileLess } from './roadmap-file-less.js';
 
 export const manageRoadmapDefinition = {
@@ -278,13 +282,52 @@ function buildFeatureFromInput(input: ManageRoadmapInput) {
   };
 }
 
+/**
+ * Response envelope for `add`. Follows the `claimRefusedResponse` convention:
+ * the roadmap shape is spread and sibling keys are added, so every consumer
+ * reading `.milestones` / `.assignmentHistory` is unaffected.
+ *
+ * `no-token`, `failed`, and a `linked` outcome carrying a warning are all
+ * surfaced in the response text, but the response is NOT marked isError. The
+ * row WAS written and is locally valid; at worst the tracker link is missing.
+ * Marking it an error would tell callers the add failed, inviting a retry that
+ * mints a duplicate issue. Loud-but-not-fatal is the correct severity.
+ */
+function addResponse(roadmap: Roadmap, link: RowLinkOutcome, deps: RoadmapDeps): McpResponse {
+  const body: Record<string, unknown> = { ...roadmap, link };
+  const unlinked =
+    'The row has no External-ID and will not be reconciled by merge-triggered auto-done.';
+  if (link.kind === 'no-token') {
+    body.message = `Row added, but the tracker link was skipped: GITHUB_TOKEN not found. ${unlinked}`;
+  } else if (link.kind === 'failed') {
+    // The recovery must be the one that actually works. Re-running `add` CANNOT
+    // work: the row is already persisted, so a second add pushes a duplicate
+    // slug and applyRoadmapDiff's collision guard rejects the whole write.
+    // `sync --apply` links the row that already exists, and title dedup means
+    // it joins the existing ticket rather than minting a second one.
+    const state = link.externalId
+      ? `Ticket ${link.externalId} exists but the row on disk was not linked to it.`
+      : unlinked;
+    body.message =
+      `Row added, but the tracker link failed: ${link.reason}. ${state} ` +
+      'Do NOT re-run add — the row is already persisted, so a second add is ' +
+      'rejected as a slug collision. Run manage_roadmap sync with apply=true ' +
+      'to link the existing row.';
+  } else if (link.kind === 'linked' && link.warning) {
+    body.message =
+      `Row added and linked to ${link.externalId}, but the tracker reported: ` +
+      `${link.warning}. The link itself is on disk; only the ticket patch failed.`;
+  }
+  // Through resultToMcpResponse like every other success path, so the body is
+  // serialized with bigIntSafeReplacer rather than a bare JSON.stringify.
+  return resultToMcpResponse(deps.Ok(body));
+}
+
 async function handleAdd(
   projectPath: string,
   input: ManageRoadmapInput,
   deps: RoadmapDeps
 ): Promise<McpResponse> {
-  const { Ok } = deps;
-
   const validationError = validateAddFields(input);
   if (validationError) return validationError;
 
@@ -312,7 +355,20 @@ async function handleAdd(
 
   const persisted = await persistRoadmap(projectPath, before, roadmap);
   if (!persisted.ok) return resultToMcpResponse(persisted);
-  return resultToMcpResponse(Ok(roadmap));
+
+  // Row-scoped tracker push. Ownership sits HERE, not in the dispatcher: the
+  // response must be annotated BEFORE it is serialized, or every consumer
+  // sees `externalId: null` on a row that is in fact linked on disk.
+  const link = await triggerScopedExternalSync(projectPath, input.feature!);
+  if (link.kind === 'linked') {
+    // The push mutated its own loaded copy; mirror the stamp onto the object
+    // this response serializes so the response matches disk.
+    const added = milestone.features.find(
+      (f) => f.name.toLowerCase() === input.feature!.toLowerCase()
+    );
+    if (added) added.externalId = link.externalId;
+  }
+  return addResponse(roadmap, link, deps);
 }
 
 /**
@@ -760,6 +816,11 @@ function shouldTriggerExternalSync(input: ManageRoadmapInput, response: McpRespo
   // Groom is a local reorganization (demote/archive). Mirroring it would read
   // archived rows leaving the aggregate as deletions; run `sync` explicitly instead.
   if (input.action === 'groom') return false;
+  // `add` writes exactly one row. Mirroring it as a whole-repo reconcile
+  // rewrites OTHER rows with tracker state — the same principle the `groom`
+  // exclusion above already states. handleAdd performs a row-scoped push
+  // instead, so the new row still gets its External-ID.
+  if (input.action === 'add') return false;
   return true;
 }
 

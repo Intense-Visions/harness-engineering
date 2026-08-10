@@ -718,7 +718,7 @@ describe('manage_roadmap external sync trigger', () => {
     expect(syncSpy).toHaveBeenCalledOnce();
   });
 
-  it('triggers external sync after add action', async () => {
+  it('does NOT trigger the whole-repo external sync after add action', async () => {
     await handleManageRoadmap({
       path: tmpDir,
       action: 'add',
@@ -727,7 +727,9 @@ describe('manage_roadmap external sync trigger', () => {
       status: 'planned',
       summary: 'Test feature',
     });
-    expect(syncSpy).toHaveBeenCalledOnce();
+    // `add` writes one row; mirroring it as a whole-repo reconcile rewrites
+    // OTHER rows with tracker state. The scoped push in handleAdd replaces it.
+    expect(syncSpy).not.toHaveBeenCalled();
   });
 
   it('triggers external sync after remove action', async () => {
