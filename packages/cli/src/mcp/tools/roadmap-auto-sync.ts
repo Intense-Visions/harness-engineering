@@ -106,12 +106,18 @@ export async function triggerExternalSync(projectPath: string): Promise<void> {
 /**
  * Outcome of linking a single roadmap row to its tracker ticket.
  * `not-configured` is the silent, expected case for projects with no tracker.
+ *
+ * `linked` means the row carries its `External-ID` ON DISK. It may still carry
+ * a `warning` — a tracker patch can fail after the link was written, which is
+ * worth reporting but is not a link failure. `failed` means the row is NOT
+ * linked on disk; its `externalId`, when present, names a ticket that exists
+ * but was never joined to the row (an orphan an operator must repair).
  */
 export type RowLinkOutcome =
   | { kind: 'not-configured' }
   | { kind: 'no-token' }
-  | { kind: 'linked'; externalId: string }
-  | { kind: 'failed'; reason: string };
+  | { kind: 'linked'; externalId: string; warning?: string }
+  | { kind: 'failed'; reason: string; externalId?: string };
 
 /**
  * Push ONE roadmap row to the tracker and report the outcome.
@@ -153,25 +159,33 @@ export async function triggerScopedExternalSync(
 
     const result = await syncRowToExternal(projectPath, adapter, trackerConfig, featureName);
 
-    // This is `feature.externalId` after the push, expressed through the
-    // returned SyncResult: on the create path the id lands in `created`
-    // (resolveExternalId returns false, so no update is issued); on the dedup
-    // and already-linked paths it lands in `updated`. No other case exists.
-    const externalId = result.created[0]?.externalId ?? result.updated[0] ?? null;
+    // Classify on the post-push `feature.externalId`, NOT on created/updated:
+    // when a row dedup-links to an existing ticket and the follow-up patch
+    // fails, both arrays are empty even though the id was stamped and written
+    // to disk. Classifying on the arrays would report `failed` — and name no
+    // orphan — for a row that is linked, which is the exact response/disk
+    // divergence this outcome type exists to prevent.
+    const { externalId } = result;
+    const reasons = result.errors.map((e) => e.error.message).join('; ');
+    // `'*'` is the writeback envelope (see syncRowToExternal): it is the only
+    // error that means the row on disk did NOT record the link.
+    const writebackFailed = result.errors.some((e) => e.featureOrId === '*');
 
-    if (result.errors.length > 0) {
-      const reasons = result.errors.map((e) => e.error.message).join('; ');
-      // Create-succeeded-but-writeback-failed is an explicit case, not an
-      // accident: name the orphaned id so an operator can repair by hand. A
-      // retry of the same add is self-healing (the dedup index now matches).
-      const orphan = externalId
-        ? ` (ticket ${externalId} exists but the row was not linked to it)`
-        : '';
-      return { kind: 'failed', reason: `${reasons}${orphan}` };
-    }
     if (!externalId) {
-      return { kind: 'failed', reason: 'tracker returned no external id for the row' };
+      return { kind: 'failed', reason: reasons || 'tracker returned no external id for the row' };
     }
+    if (writebackFailed) {
+      // Linked at the tracker, unlinked on disk. Name the orphaned id so an
+      // operator can repair by hand.
+      return {
+        kind: 'failed',
+        externalId,
+        reason: `${reasons} (ticket ${externalId} exists but the row was not linked to it)`,
+      };
+    }
+    // The row IS linked on disk. A tracker-side error here (e.g. the follow-up
+    // patch failed) is a non-fatal warning, not a link failure.
+    if (reasons) return { kind: 'linked', externalId, warning: reasons };
     return { kind: 'linked', externalId };
   } catch (error) {
     return { kind: 'failed', reason: error instanceof Error ? error.message : String(error) };

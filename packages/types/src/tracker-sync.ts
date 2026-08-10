@@ -140,6 +140,27 @@ export interface SyncResult {
 }
 
 /**
+ * Result of a **row-scoped** push (one roadmap row), which additionally reports
+ * the field that actually decides whether the row is linked.
+ *
+ * `created` / `updated` cannot answer that question: a row that dedup-links to
+ * an existing ticket has its `externalId` stamped and written to disk even when
+ * the follow-up patch fails, leaving both arrays empty while the row IS linked.
+ * Classifying on those arrays therefore reports "unlinked" for a row that is
+ * linked on disk. `externalId` is the post-push value of `feature.externalId` —
+ * correct on the create path, the dedup path, and the already-linked path alike.
+ *
+ * Distinguishing "the tracker linked it but disk did not record it" from a
+ * tracker-side error: a **writeback** failure is reported under the `'*'`
+ * envelope in {@link SyncResult.errors} (the same convention `fullSync` uses),
+ * while every tracker-side error is keyed by feature name or external id.
+ */
+export interface RowSyncResult extends SyncResult {
+  /** The row's `externalId` after the push, or null when it is still unlinked. */
+  externalId: string | null;
+}
+
+/**
  * Configuration for external tracker sync.
  */
 export interface TrackerSyncConfig {

@@ -834,6 +834,18 @@ describe('syncRowToExternal() — scoped push', () => {
   let tmpDir: string;
   let roadmapPath: string;
 
+  /**
+   * A single feature's whole serialized block, from its `###` heading to the
+   * next one. Lets an untouched row be compared exactly rather than by
+   * substring, which is what "byte-identical" actually claims.
+   */
+  function featureBlock(md: string, name: string): string {
+    const start = md.indexOf(`### ${name}\n`);
+    expect(start).toBeGreaterThanOrEqual(0);
+    const next = md.indexOf('\n### ', start + 1);
+    return next === -1 ? md.slice(start) : md.slice(start, next + 1);
+  }
+
   /** Target row plus two unrelated already-linked rows. */
   function threeRowRoadmap() {
     return makeRoadmap([
@@ -861,12 +873,16 @@ describe('syncRowToExternal() — scoped push', () => {
   });
 
   it('writes only the target row: one create, and no write naming another externalId', async () => {
+    const before = fs.readFileSync(roadmapPath, 'utf-8');
     const adapter = mockAdapter();
 
     const result = await syncRowToExternal(tmpDir, adapter, CONFIG, 'Target Row');
 
     expect(adapter.createTicket).toHaveBeenCalledOnce();
     const created = result.created[0]!.externalId;
+    // The create path issues no patch at all, so the loop below is vacuous
+    // unless this holds — assert the count, not just the arguments.
+    expect(adapter.updateTicket).not.toHaveBeenCalled();
     for (const call of (adapter.updateTicket as ReturnType<typeof vi.fn>).mock.calls) {
       expect(call[0]).toBe(created);
     }
@@ -877,8 +893,63 @@ describe('syncRowToExternal() — scoped push', () => {
     // The stamp landed on the real row, not on a throwaway projection.
     const after = fs.readFileSync(roadmapPath, 'utf-8');
     expect(after).toContain(`- **External-ID:** ${created}`);
-    expect(after).toContain('github:owner/repo#7');
-    expect(after).toContain('github:owner/repo#8');
+    // The unrelated rows are compared WHOLE, not by substring: a mangled row
+    // that still happens to mention its external id would pass `toContain`.
+    expect(featureBlock(after, 'Other A')).toBe(featureBlock(before, 'Other A'));
+    expect(featureBlock(after, 'Other B')).toBe(featureBlock(before, 'Other B'));
+  });
+
+  it('reports the post-push externalId even when the follow-up patch fails', async () => {
+    // Dedup link: resolveExternalId stamps the id and returns true, so the row
+    // is written to disk linked — but `created` is empty and, because the patch
+    // errored, so is `updated`. A caller classifying on those arrays would call
+    // this row unlinked. `externalId` is the field that tells the truth.
+    const adapter = mockAdapter({
+      fetchAllTickets: vi.fn(async () =>
+        Ok([
+          ticket({
+            externalId: 'github:owner/repo#42',
+            title: 'Target Row',
+            status: 'open',
+            labels: ['harness-managed'],
+          }),
+        ])
+      ),
+      updateTicket: vi.fn(async () => Err(new Error('tracker 500'))),
+    });
+
+    const result = await syncRowToExternal(tmpDir, adapter, CONFIG, 'Target Row');
+
+    expect(result.created).toEqual([]);
+    expect(result.updated).toEqual([]);
+    expect(result.externalId).toBe('github:owner/repo#42');
+    expect(result.errors).toHaveLength(1);
+    // Not a writeback failure: the row really is linked on disk.
+    expect(result.errors.some((e) => e.featureOrId === '*')).toBe(false);
+    expect(fs.readFileSync(roadmapPath, 'utf-8')).toContain(
+      '- **External-ID:** github:owner/repo#42'
+    );
+  });
+
+  it('reports a writeback failure under the * envelope while still naming the created id', async () => {
+    // Two distinct names that slugify identically: the push succeeds, then
+    // applyRoadmapDiff's collision guard rejects the write. The ticket exists
+    // but the row on disk is NOT linked to it — the orphan case.
+    const roadmap = makeRoadmap([
+      makeFeature({ name: 'Target Row', status: 'planned', externalId: null }),
+      makeFeature({ name: 'Target-Row', status: 'planned', externalId: null }),
+    ]);
+    fs.writeFileSync(roadmapPath, serializeRoadmap(roadmap), 'utf-8');
+    const adapter = mockAdapter();
+
+    const result = await syncRowToExternal(tmpDir, adapter, CONFIG, 'Target Row');
+
+    expect(adapter.createTicket).toHaveBeenCalledOnce();
+    expect(result.externalId).toBe('github:owner/repo#1');
+    const writeback = result.errors.filter((e) => e.featureOrId === '*');
+    expect(writeback).toHaveLength(1);
+    expect(writeback[0]!.error.message).toContain('Slug collision');
+    expect(fs.readFileSync(roadmapPath, 'utf-8')).not.toContain('External-ID');
   });
 
   it('does not stamp last_synced (a scoped push is not a reconcile)', async () => {

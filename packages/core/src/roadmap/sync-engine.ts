@@ -4,6 +4,7 @@ import type {
   RoadmapFeature,
   FeatureStatus,
   SyncResult,
+  RowSyncResult,
   TrackerSyncConfig,
   ExternalTicketState,
 } from '@harness-engineering/types';
@@ -547,6 +548,13 @@ export async function fullSync(
  *   bumping the stamp would assert a whole-roadmap comparison that never
  *   happened. Deliberate behaviour change from the fullSync-on-add status quo.
  *
+ * Returns a {@link RowSyncResult}: a `SyncResult` plus the post-push
+ * `feature.externalId`. Callers must classify "is this row linked?" on that
+ * field, NOT on `created` / `updated` — a dedup link whose follow-up patch
+ * fails leaves both arrays empty while the row is linked on disk. A writeback
+ * failure is reported under the `'*'` envelope in `errors`, matching `fullSync`,
+ * so "linked but not persisted" stays distinguishable from a tracker error.
+ *
  * `examined.roadmapRows` is 1 by construction (the single-row projection),
  * which differs in meaning from fullSync's whole-roadmap denominator.
  */
@@ -556,7 +564,7 @@ export async function syncRowToExternal(
   config: TrackerSyncConfig,
   featureName: string,
   options?: ExternalSyncOptions
-): Promise<SyncResult> {
+): Promise<RowSyncResult> {
   const previousSync = syncMutex;
   let releaseMutex: () => void;
   syncMutex = new Promise<void>((resolve) => {
@@ -564,9 +572,10 @@ export async function syncRowToExternal(
   });
 
   const dryRun = options?.dryRun ?? false;
-  const fail = (error: Error): SyncResult => ({
+  const fail = (error: Error): RowSyncResult => ({
     ...emptySyncResult(),
     dryRun,
+    externalId: null,
     errors: [{ featureOrId: featureName, error }],
   });
 
@@ -630,11 +639,19 @@ export async function syncRowToExternal(
     // No `stampLastSynced` here — see the function doc comment.
     const localWrites = changedFeatureNames(before, roadmap);
     const persisted = dryRun ? null : await applyRoadmapDiff(store, before, roadmap);
+    // The `'*'` envelope marks a WRITEBACK failure, matching fullSync. Callers
+    // use it to tell "the tracker linked the row but disk did not record it"
+    // (an orphaned ticket) from a tracker-side error, which is keyed by feature
+    // name or external id.
     const writebackErrors =
-      persisted && !persisted.ok ? [{ featureOrId: featureName, error: persisted.error }] : [];
+      persisted && !persisted.ok ? [{ featureOrId: '*', error: persisted.error }] : [];
 
     return {
       ...pushResult,
+      // The authoritative link answer. `created`/`updated` are both empty on the
+      // dedup-link-then-patch-fails path even though the row IS linked, so a
+      // caller classifying on those arrays reports a linked row as unlinked.
+      externalId: feature.externalId ?? null,
       errors: [...pushResult.errors, ...writebackErrors],
       planned: { ...pushResult.planned, localWrites: dryRun ? localWrites : [] },
     };
