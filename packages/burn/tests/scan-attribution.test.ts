@@ -96,6 +96,36 @@ describe('classification', () => {
     expect(records.get('req_4')!.agent).toBe('unattributed');
   });
 
+  it('degrades to a missing lane id when agentId is not a string, rather than failing the scan', () => {
+    // These fields are undocumented internals, so a release may change a
+    // field's TYPE as easily as its name. The store writer sanitises this
+    // column with `String.replace`, so an unguarded non-string would throw
+    // out of `writeRecords` and abort every future scan — a permanently
+    // dead HUD, which is strictly worse than the lost row the sanitiser
+    // exists to prevent. The spend must still be counted and labelled.
+    const h = newHud();
+    h.writeConfig({ week_reset: DEFAULT_WEEK });
+    h.writeSubagentTranscript('agent-h.jsonl', [
+      agentLine(
+        'req_10',
+        hoursAgo(new Date(), 1),
+        {
+          isSidechain: true,
+          // Deliberately the wrong type: this is the shape change under test.
+          agentId: 12_345 as unknown as string,
+          attributionAgent: 'harness-task-executor',
+        },
+        { out: 1000 }
+      ),
+    ]);
+
+    expect(() => refresh(h.paths)).not.toThrow();
+    const rec = readRecords(h.paths).get('req_10')!;
+    expect(rec.agent).toBe('harness-task-executor');
+    expect(rec.agentId).toBe('');
+    expect(rec.out).toBe(1000);
+  });
+
   it('classifies an isSidechain line that sits outside a subagents/ directory', () => {
     // Signal two of two: if Claude Code moves the directory, the flag still
     // classifies. Both signals must fail at once before attribution degrades.

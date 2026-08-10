@@ -101,6 +101,13 @@ function toRecord(
   if (!id || !usage || typeof usage !== 'object') return null;
 
   const named = typeof obj.attributionAgent === 'string' ? obj.attributionAgent.trim() : '';
+  // Type-guarded for the same reason `attributionAgent` is. These are
+  // undocumented Claude Code internals, so a release may change the TYPE of a
+  // field as easily as its name — and the store writer sanitises this column
+  // with `String.replace`, which throws on a non-string and aborts the entire
+  // scan. A shape change must degrade to a missing lane id, never to a scan
+  // that cannot complete.
+  const lane = typeof obj.agentId === 'string' ? obj.agentId : '';
   const isSubagent = obj.isSidechain === true || isSubagentFile;
   // A missing label must never collapse into `main` — that would understate
   // the lanes and overstate the human.
@@ -116,7 +123,7 @@ function toRecord(
       cacheWrite: Number(usage.cache_creation_input_tokens) || 0,
       cacheRead: Number(usage.cache_read_input_tokens) || 0,
       agent,
-      agentId: agent === 'main' ? '' : (obj.agentId ?? ''),
+      agentId: agent === 'main' ? '' : lane,
     },
   };
 }
