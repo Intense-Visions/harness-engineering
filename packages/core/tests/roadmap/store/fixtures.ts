@@ -278,9 +278,16 @@ const MIG_FUTURE: RoadmapFeature = feat('Future idea', 'backlog', {
   summary: 'Something for later.',
 });
 
+/** The preamble block `OLD_ROADMAP_MD` carries under its title (#1328). */
+export const MIGRATION_PREAMBLE = [
+  '<!-- Hand-authored preamble: directives and notes to the tooling downstream. -->',
+  'This line and the comment above round-trip verbatim through shard -> regen.',
+].join('\n');
+
 export const MIGRATION_META: RoadmapMeta = {
   frontmatter: META.frontmatter,
   milestones: ['MVP Release', 'v5.0 Hardening', 'Backlog'],
+  preamble: MIGRATION_PREAMBLE,
 };
 
 export const MIGRATION_SHARDS: Shard[] = [
@@ -354,10 +361,13 @@ last_manual_edit: 2026-06-27T11:00:00.000Z
 
 # Roadmap
 
-<!-- Hand-authored monolith with extra prose, to prove SEMANTIC (not byte) equivalence. -->
-This narrative line and the comment above are dropped by the lossy serializer.
+<!-- Hand-authored preamble: directives and notes to the tooling downstream. -->
+This line and the comment above round-trip verbatim through shard -> regen.
 
 ## MVP Release
+
+> Section intro prose, dropped by the lossy serializer — this fixture proves
+> SEMANTIC (not byte) equivalence.
 
 ### Core foundation
 

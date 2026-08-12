@@ -20,6 +20,14 @@ export interface RoadmapMeta {
   /** Milestone names in canonical document order (includes 'Backlog'). */
   milestones: string[];
   /**
+   * The aggregate's preamble (the directive block under `# Roadmap`), carried in
+   * the `_meta.md` body ahead of any `## Assignment History` section. Roadmap-level
+   * and NOT derivable from shards, so — like the assignment history — `_meta.md` is
+   * its only home; without it `shard` → `regen` silently deleted the block (#1328).
+   * Absent means no preamble, and `_meta.md` stays byte-stable with Phase 1.
+   */
+  preamble?: string;
+  /**
    * Roadmap-level assignment audit log, carried in the `_meta.md` body as an
    * optional trailing `## Assignment History` section. Empty or absent means no
    * section is emitted (byte-stable with history-free `_meta.md`). This is the

@@ -19,14 +19,17 @@ describe('findUnpreservedLines (#839 monolith write-preservation guard)', () => 
   });
 
   describe('detects hand-authored content the serializer would drop', () => {
-    it('flags an unmodeled `- **Issue:**` bullet', () => {
-      const lost = findUnpreservedLines(OLD_ROADMAP_MD);
-      // OLD_ROADMAP_MD carries an HTML comment + a narrative prose line.
-      expect(lost.map((l) => l.text)).toContain(
-        '<!-- Hand-authored monolith with extra prose, to prove SEMANTIC (not byte) equivalence. -->'
+    it('flags a milestone-section blockquote but not the preamble above it', () => {
+      const lost = findUnpreservedLines(OLD_ROADMAP_MD).map((l) => l.text);
+      // Prose inside a milestone section is still unmodeled and still lost.
+      expect(lost.filter((t) => t.startsWith('> Section intro prose'))).toHaveLength(1);
+      // The block under the title is the preamble: modeled and re-emitted (#1328),
+      // so flagging it would block a monolith write that loses nothing.
+      expect(lost).not.toContain(
+        '<!-- Hand-authored preamble: directives and notes to the tooling downstream. -->'
       );
-      expect(lost.map((l) => l.text)).toContain(
-        'This narrative line and the comment above are dropped by the lossy serializer.'
+      expect(lost).not.toContain(
+        'This line and the comment above round-trip verbatim through shard -> regen.'
       );
     });
 

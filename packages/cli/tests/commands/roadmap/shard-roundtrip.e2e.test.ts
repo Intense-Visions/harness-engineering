@@ -7,9 +7,14 @@ import { runRoadmapShard } from '../../../src/commands/roadmap/shard';
 import { runRoadmapRegen } from '../../../src/commands/roadmap/regen';
 import { runRoadmapUnshard } from '../../../src/commands/roadmap/unshard';
 
-// Realistic monolith: multiple milestones incl. an EMPTY milestone, a slug
-// collision (`Fix login` / `Fix: login!`), mixed statuses, a populated
-// `## Assignment History`, and 1-2 digit issue refs only.
+// The directive block a real roadmap carries under its title (#1328).
+const PREAMBLE = `<!-- markdownlint-disable-file MD013 -->
+<!-- Machine-managed by harness roadmap tooling: each feature field is a single
+     line by schema contract, so the 80-column rule does not apply. -->`;
+
+// Realistic monolith: a preamble under the title, multiple milestones incl. an
+// EMPTY milestone, a slug collision (`Fix login` / `Fix: login!`), mixed statuses,
+// a populated `## Assignment History`, and 1-2 digit issue refs only.
 const ROADMAP_MD = `---
 project: harness-engineering
 version: 1
@@ -20,6 +25,8 @@ last_manual_edit: 2026-06-27T11:00:00.000Z
 ---
 
 # Roadmap
+
+${PREAMBLE}
 
 ## MVP Release
 
@@ -104,6 +111,16 @@ describe('roadmap shard/regen/unshard end-to-end round-trip', () => {
       // Assignment history survives.
       expect(after.value.assignmentHistory).toHaveLength(2);
     }
+  });
+
+  it('shard then regen keeps the preamble instead of silently deleting it (#1328)', async () => {
+    await runRoadmapShard({ cwd });
+    // It must live in `_meta.md` — the only roadmap-level home a shard dir has.
+    expect(fs.readFileSync(path.join(shardDir, '_meta.md'), 'utf-8')).toContain(PREAMBLE);
+
+    await runRoadmapRegen({ cwd });
+    const regenerated = fs.readFileSync(roadmapPath, 'utf-8');
+    expect(regenerated).toContain(`# Roadmap\n\n${PREAMBLE}\n\n## MVP Release`);
   });
 
   it('regen is deterministic: two consecutive runs are byte-identical', async () => {

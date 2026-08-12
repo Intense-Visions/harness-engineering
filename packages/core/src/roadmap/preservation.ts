@@ -43,8 +43,10 @@ export interface UnpreservedLine {
 /**
  * Return the lines of `markdown` that a `serializeRoadmap` rewrite would silently
  * drop. A line is preservable iff it is frontmatter (regenerated from the model),
- * blank, an H1 title, an H2/H3 heading, an assignment-history table row, or a
- * single-line modeled `- **Key:** …` field. Everything else — multi-line field
+ * part of the preamble (everything before the first `## ` heading, which the model
+ * now carries verbatim — #1328), blank, an H1 title, an H2/H3 heading, an
+ * assignment-history table row, or a single-line modeled `- **Key:** …` field.
+ * Everything else — multi-line field
  * continuations, unmodeled bullets, blockquotes, comments, arbitrary prose — is
  * reported. An empty result means the document round-trips without content loss.
  *
@@ -65,6 +67,8 @@ export function findUnpreservedLines(markdown: string): UnpreservedLine[] {
 
   let inFrontmatter = false;
   let frontmatterDone = false;
+  /** Past the first `## ` heading — before it the lines are the modeled preamble. */
+  let inBody = false;
 
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i]!;
@@ -89,21 +93,33 @@ export function findUnpreservedLines(markdown: string): UnpreservedLine[] {
       frontmatterDone = true;
     }
 
-    if (trimmed === '') continue; // blank lines carry no content
-    if (/^# /.test(text)) continue; // H1 title (serializer canonicalizes it to `# Roadmap`)
-    if (/^## /.test(text)) continue; // milestone / Backlog / Assignment History heading
-    if (/^### /.test(text)) continue; // feature heading (`### x` or `### Feature: x`)
-    if (/^\s*\|.*\|\s*$/.test(text)) continue; // assignment-history table row/header/separator
+    // Preamble region: everything up to the first `## ` heading is captured as
+    // `Roadmap.preamble` and re-emitted verbatim under the title (#1328), so it is
+    // preservable — reporting it would block a write that loses nothing. Past the
+    // first milestone heading the body is unmodeled again and the guard applies.
+    if (!inBody) {
+      if (!/^## /.test(text)) continue;
+      inBody = true;
+    }
 
-    // Single-line modeled field. The value is optional: the serializer emits
-    // `- **Status:** …` etc. unconditionally, so the line survives whether or not
-    // it carries a value. A modeled key with a MULTI-line body still surfaces its
-    // continuation lines here — they fail every pattern above and are reported.
-    const field = text.match(/^- \*\*(.+?):\*\*/);
-    if (field && MODELED_FIELD_KEYS.has(field[1]!)) continue;
-
-    lost.push({ line: i + 1, text });
+    if (!isPreservableBodyLine(text)) lost.push({ line: i + 1, text });
   }
 
   return lost;
+}
+
+/** Does a post-preamble body line survive a `serializeRoadmap` rewrite? */
+function isPreservableBodyLine(text: string): boolean {
+  if (text.trim() === '') return true; // blank lines carry no content
+  if (/^# /.test(text)) return true; // H1 title (serializer canonicalizes it to `# Roadmap`)
+  if (/^## /.test(text)) return true; // milestone / Backlog / Assignment History heading
+  if (/^### /.test(text)) return true; // feature heading (`### x` or `### Feature: x`)
+  if (/^\s*\|.*\|\s*$/.test(text)) return true; // assignment-history table row/header/separator
+
+  // Single-line modeled field. The value is optional: the serializer emits
+  // `- **Status:** …` etc. unconditionally, so the line survives whether or not
+  // it carries a value. A modeled key with a MULTI-line body still surfaces its
+  // continuation lines here — they fail every pattern above and are reported.
+  const field = text.match(/^- \*\*(.+?):\*\*/);
+  return Boolean(field && MODELED_FIELD_KEYS.has(field[1]!));
 }

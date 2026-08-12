@@ -31,6 +31,8 @@ export function parseMeta(md: string): Result<RoadmapMeta> {
   if (!milestones.ok) return Err(milestones.error);
 
   const meta: RoadmapMeta = { frontmatter: frontmatter.value, milestones: milestones.value };
+  const preamble = parsePreamble(body);
+  if (preamble !== '') meta.preamble = preamble;
   return attachAssignmentHistory(meta, body);
 }
 
@@ -95,6 +97,17 @@ function parseMilestones(data: Record<string, unknown>): Result<string[]> {
 }
 
 /**
+ * The aggregate's preamble, carried verbatim in the `_meta.md` body ahead of any
+ * `## Assignment History` section (the only other thing the body ever holds).
+ * A body with no preamble yields '' and no field is attached, so history-free and
+ * preamble-free `_meta.md` files stay byte-identical to Phase 1.
+ */
+function parsePreamble(body: string): string {
+  const history = body.indexOf('## Assignment History');
+  return (history === -1 ? body : body.slice(0, history)).trim();
+}
+
+/**
  * Optional trailing `## Assignment History` body. Reuse the exported roadmap
  * parser; absence yields []. Only attach when records exist so history-free
  * `_meta.md` stays structurally identical (and byte-stable) to Phase 1.
@@ -137,6 +150,12 @@ export function serializeMeta(meta: RoadmapMeta): string {
     }
   }
   lines.push('---');
+  // Optional preamble: a blank line then the verbatim block, emitted BEFORE any
+  // assignment history so `parsePreamble`'s split at the history heading recovers
+  // exactly these bytes.
+  if (meta.preamble) {
+    lines.push('', meta.preamble);
+  }
   // Optional `## Assignment History` body: a blank line then the verbatim
   // serializer output. Empty/absent history emits nothing (byte-stable with
   // history-free `_meta.md`); preserves the single-trailing-newline contract.

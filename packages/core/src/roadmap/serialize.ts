@@ -33,25 +33,16 @@ export function serializeRoadmap(roadmap: Roadmap): string {
   lines.push('');
   lines.push('# Roadmap');
 
-  for (const milestone of roadmap.milestones) {
+  // The directive/notes block under the title is re-emitted verbatim so a
+  // parse → mutate → serialize cycle never silently drops it (#1328) — same
+  // contract as the narrative `### Group:` sections below.
+  if (roadmap.preamble) {
     lines.push('');
-    lines.push(serializeMilestoneHeading(milestone));
-    for (const feature of milestone.features) {
-      lines.push('');
-      lines.push(...serializeFeature(feature));
-    }
-    // Narrative `### Group:` sections are re-emitted verbatim AFTER the strict
-    // features so a parse → mutate → serialize cycle never silently drops them.
-    for (const group of milestone.groups ?? []) {
-      lines.push('');
-      lines.push(`### Group: ${group.name}`);
-      // An empty body emits the heading alone — pushing a blank line plus an empty
-      // string would leave a stray trailing blank line in the file.
-      if (group.body !== '') {
-        lines.push('');
-        lines.push(group.body);
-      }
-    }
+    lines.push(roadmap.preamble);
+  }
+
+  for (const milestone of roadmap.milestones) {
+    lines.push(...serializeMilestoneSection(milestone));
   }
 
   // Assignment history section (omit if empty)
@@ -62,6 +53,28 @@ export function serializeRoadmap(roadmap: Roadmap): string {
 
   lines.push('');
   return lines.join('\n');
+}
+
+/** One milestone: its heading, its strict feature rows, then its narrative groups. */
+function serializeMilestoneSection(milestone: RoadmapMilestone): string[] {
+  const lines: string[] = ['', serializeMilestoneHeading(milestone)];
+  for (const feature of milestone.features) {
+    lines.push('');
+    lines.push(...serializeFeature(feature));
+  }
+  // Narrative `### Group:` sections are re-emitted verbatim AFTER the strict
+  // features so a parse → mutate → serialize cycle never silently drops them.
+  for (const group of milestone.groups ?? []) {
+    lines.push('');
+    lines.push(`### Group: ${group.name}`);
+    // An empty body emits the heading alone — pushing a blank line plus an empty
+    // string would leave a stray trailing blank line in the file.
+    if (group.body !== '') {
+      lines.push('');
+      lines.push(group.body);
+    }
+  }
+  return lines;
 }
 
 function serializeMilestoneHeading(milestone: RoadmapMilestone): string {
