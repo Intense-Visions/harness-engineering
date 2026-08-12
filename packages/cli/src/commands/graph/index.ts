@@ -1,9 +1,12 @@
 import { Command } from 'commander';
+import { formatFindingsContract } from '@harness-engineering/types';
 import { runGraphStatus } from './status.js';
 import { runGraphExport } from './export.js';
 import { createScanCommand } from './scan.js';
 import { createQueryCommand } from './query.js';
 import { createIngestCommand } from './ingest.js';
+import { runGraphIntegrity, printGraphIntegrity } from './integrity.js';
+import { ExitCode } from '../../utils/errors.js';
 import * as path from 'path';
 
 function resolveProjectPath(globalOpts: { config?: string }): string {
@@ -45,6 +48,41 @@ async function runStatusAction(_opts: unknown, cmd: Command): Promise<void> {
   }
 }
 
+/**
+ * Exit policy mirrors `check-docs` (#1146): a run that inspected nothing exits
+ * ZERO_DENOMINATOR so CI can tell "read nothing" from "verified and passed".
+ */
+async function runIntegrityAction(
+  opts: { reportOnly?: boolean; findingsJson?: boolean },
+  cmd: Command
+): Promise<void> {
+  const globalOpts = cmd.optsWithGlobals();
+  let result: Awaited<ReturnType<typeof runGraphIntegrity>>;
+  try {
+    result = await runGraphIntegrity(resolveProjectPath(globalOpts));
+  } catch (err) {
+    console.error('Integrity check failed:', err instanceof Error ? err.message : err);
+    process.exit(ExitCode.ERROR);
+  }
+
+  if (globalOpts.json) {
+    console.log(JSON.stringify(result, null, 2));
+  } else {
+    printGraphIntegrity(result);
+  }
+
+  const report = result.report;
+  if (opts.findingsJson) {
+    console.log(formatFindingsContract(report?.findings.length ?? 0, 'graph-integrity'));
+  }
+
+  // Nothing inspected — neither pass nor failure.
+  if (!report || report.checkedNothing) process.exit(ExitCode.ZERO_DENOMINATOR);
+
+  const hasErrors = report.findings.some((f) => f.severity === 'error');
+  if (hasErrors && !opts.reportOnly) process.exit(ExitCode.VALIDATION_FAILED);
+}
+
 async function runExportAction(opts: { format: string }, cmd: Command): Promise<void> {
   const globalOpts = cmd.optsWithGlobals();
   try {
@@ -64,6 +102,12 @@ async function runExportAction(opts: { format: string }, cmd: Command): Promise<
 export function createGraphCommand(): Command {
   const graph = new Command('graph').description('Knowledge graph management');
   graph.command('status').description('Show graph statistics').action(runStatusAction);
+  graph
+    .command('integrity')
+    .description('Check the graph for content that cannot be trusted')
+    .option('--report-only', 'Exit 0 even when error-severity findings exist')
+    .option('--findings-json', 'Print the machine-readable findings envelope')
+    .action(runIntegrityAction);
   graph
     .command('export')
     .description('Export graph')
@@ -98,3 +142,7 @@ export { runQuery } from './query.js';
  * Ingests external data or events into the knowledge graph.
  */
 export { runIngest } from './ingest.js';
+/**
+ * Checks the persisted graph for connector abstentions and extractor debris.
+ */
+export { runGraphIntegrity, printGraphIntegrity } from './integrity.js';

@@ -1015,6 +1015,15 @@ Ingest data into the knowledge graph
 - `--all` — Run all sources (code, knowledge, git, and configured connectors)
 - `--full` — Force full re-ingestion
 
+### `harness graph integrity`
+
+Check the graph for content that cannot be trusted
+
+**Options:**
+
+- `--report-only` — Exit 0 even when error-severity findings exist
+- `--findings-json` — Print the machine-readable findings envelope
+
 ### `harness graph query <rootNodeId>`
 
 Query the knowledge graph

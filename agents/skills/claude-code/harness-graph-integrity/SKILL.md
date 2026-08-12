@@ -1,0 +1,167 @@
+# Harness Graph Integrity
+
+> `harness graph status` answers "how big is the graph?". It cannot answer "is any of this true?". This skill answers the second question, and reports what it examined so a quiet result can never be mistaken for a clean one.
+
+## When to Use
+
+- Before trusting any graph-derived answer for a decision — impact analysis, traceability, blast radius
+- After a connector is added, re-keyed, or moved into CI, to confirm it is actually ingesting
+- After upgrading the CLI, to catch extractor regressions that silently mint junk nodes
+- On a milestone, as a cheap standing check on graph trustworthiness
+- NOT for graph freshness or staleness (use `harness-dependency-health`)
+- NOT for whether the code compiles, lints, and tests (use `harness-verify`)
+
+## Relationship to Other Skills
+
+| Skill                              | Question it answers                        |
+| ---------------------------------- | ------------------------------------------ |
+| `harness graph status`             | How many nodes and edges exist?            |
+| **harness-graph-integrity** (this) | Can the contents be trusted?               |
+| `harness-dependency-health`        | Is the structure the code implies healthy? |
+
+## Process
+
+### Phase 1: INSPECT
+
+Run the check from the project root:
+
+```bash
+harness graph integrity
+```
+
+Add `--findings-json` when a runner needs the machine-readable count, and
+`--report-only` to see findings without failing the step.
+
+Do not hand-parse `.harness/graph/graph.json` or `sync-metadata.json` yourself.
+Detection lives in the CLI so that it is tested and versioned; this skill
+orchestrates it and interprets the result.
+
+### Phase 2: TRIAGE
+
+Findings come in two families, and they need different responses.
+
+**Connector findings** — the graph is missing data it claims to have.
+
+| Code    | Meaning                                                       |
+| ------- | ------------------------------------------------------------- |
+| GI-C001 | The connector hard-failed but still recorded a sync timestamp |
+| GI-C002 | The connector recorded a sync that added and updated nothing  |
+
+`GI-C001` is almost always a credential or network problem. Read the `evidence`
+line — it carries the connector's own error. Fix the cause, re-run
+`harness graph ingest --source <name>`, then re-run this check. Do not suppress
+it: the timestamp will keep reporting the connector as freshly synced.
+
+`GI-C002` is a warning because it is genuinely ambiguous — a connector with
+nothing new to fetch looks identical to one that did not run. Confirm against
+the source system before dismissing it.
+
+**Node findings** — the graph contains assertions that were never true.
+
+| Code    | Meaning                                                            |
+| ------- | ------------------------------------------------------------------ |
+| GI-N001 | An extractor named a node after a reserved word, not an identifier |
+| GI-N002 | An extracted member list contains keywords or repeats a member     |
+
+These come from a code extractor matching prose. The `evidence` line gives
+`file:line` and the extracted content, so the source is always one click away.
+
+Critically: **a node finding cannot be cleared by re-ingesting.** The node is
+re-derived from unchanged source on every run, so `harness graph ingest --full`
+will faithfully recreate it. The fix belongs in the extractor. Report the
+`file:line` and the extracted content upstream rather than trying to scrub the
+store.
+
+### Phase 3: REPORT
+
+Always lead with the denominators the command prints:
+
+```
+Checked: 6 connector(s), 50 extractor-derived node(s)
+```
+
+Then state the outcome in one of exactly three shapes:
+
+- **Findings** — list them by severity, errors first, each with its evidence.
+- **Clean** — say what was examined: "50 extractor-derived nodes and 6 connectors checked, no untrusted content."
+- **Abstained** — say so plainly: "nothing to inspect." Never render this as a pass.
+
+## Harness Integration
+
+- Backed by `harness graph integrity` (`packages/cli/src/commands/graph/integrity.ts`); detection logic is `packages/graph/src/integrity/GraphIntegrityChecker.ts`.
+- Emits the standard maintenance findings envelope under `--findings-json`, so `harness maintenance run` consumes the count directly instead of recovering it from prose.
+- Exit codes follow the CLI-wide contract:
+  - `0` — inspected something, nothing untrusted found
+  - `1` — error-severity findings (softened to `0` by `--report-only`)
+  - `2` — the command itself failed
+  - `3` — `ZERO_DENOMINATOR`: no graph, or nothing to inspect
+- Reads only. It never edits the graph store, and never rewrites source.
+
+## Success Criteria
+
+- The command ran and its denominators were reported, not just its verdict.
+- Every finding was attributed to a family (connector or node) and given the remediation that family needs.
+- No node finding was "fixed" by re-ingesting — the extractor was named instead.
+- An abstention was reported as an abstention, with the reason it could not inspect anything.
+
+## Gates
+
+- **Graph must exist.** No graph is exit `3`, not a pass. Run `harness graph scan` and re-check.
+- **Zero denominator blocks a green claim.** If `checkedNothing` is true, the skill may not report the graph as trustworthy.
+- **Error-severity findings block.** Do not pass `--report-only` to make a red result green; use it only to survey.
+- **Detection stays in the CLI.** If a new defect class needs catching, add it to `GraphIntegrityChecker` with a test — never as ad-hoc parsing inside this skill.
+
+## Escalation
+
+- **A node finding that the extractor owns** — file upstream with the `file:line` and extracted content from the evidence line. Do not hand-edit `graph.json`; the next ingest overwrites it.
+- **A connector that cannot be fixed locally** (no credentials available in this environment) — report it as a known gap with the connector name and what it was meant to supply, so downstream graph answers are read with that gap in view.
+- **A finding you believe is a false positive** — escalate rather than suppress, with the node's `kind`, `language`, and content. The reserved-word set is deliberately conservative and cross-language; a genuine miss is a bug worth fixing centrally.
+
+## Examples
+
+### A graph whose connectors all silently failed
+
+```bash
+$ harness graph integrity
+Checked: 6 connector(s), 50 extractor-derived node(s)
+
+Graph integrity: 8 error(s), 0 warning(s)
+
+  [ERROR] GI-C001 jira
+    Connector "jira" reports last synced 2026-08-12T00:31:45.448Z but its last run failed
+    and ingested nothing. The timestamp reads as a successful sync.
+    evidence: Missing API key: environment variable "JIRA_API_KEY" is not set
+  ...
+  [ERROR] GI-N001 extracted:enum-constants:bbc78dbb
+    Extracted "or" as a business_term, but that is a reserved word, not an identifier.
+    The extractor almost certainly matched prose.
+    evidence: ts/src/guardian/coverage.ts:1043 - enum or { function, const, if, if, if, return }
+```
+
+Correct report: six connectors are dark and the graph is missing everything they
+were meant to supply; one node is extractor debris from a JSDoc comment at
+`coverage.ts:1043` and will survive any re-ingest.
+
+### A graph with nothing to inspect
+
+```bash
+$ harness graph integrity
+Checked: 0 connector(s), 0 extractor-derived node(s)
+
+ABSTAINED: nothing to inspect - no connectors configured and no extractor-derived
+nodes in the graph. This is not a pass.
+```
+
+Correct report: the check could not verify anything. Exit `3`. Reporting this as
+"integrity OK" is the exact failure the skill exists to prevent.
+
+## Rationalizations to Reject
+
+| Thought                                                   | Reality                                                                                                     |
+| --------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------- |
+| "No findings, so the graph is fine."                      | Check the denominators. Zero inspected is an abstention, not a pass.                                        |
+| "`graph status` already showed the connectors synced."    | That line prints a timestamp for connectors that hard-failed. It is the surface this skill exists to check. |
+| "I'll just re-ingest to clear the bad node."              | It is re-derived from unchanged source every run. Re-ingesting recreates it.                                |
+| "It's only a couple of junk nodes."                       | They are indistinguishable from facts to every downstream consumer of the graph.                            |
+| "The connector has no key here, so the finding is noise." | Then the graph is missing that data. Report the gap; do not let a timestamp imply it is present.            |
+| "I'll add a quick grep in the skill for this new case."   | Detection belongs in `GraphIntegrityChecker` with a test, or it silently rots.                              |
