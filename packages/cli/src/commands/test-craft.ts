@@ -97,7 +97,18 @@ function printResult(
   const { findings, summary } = result;
 
   if (findings.length === 0) {
-    console.log('No test findings.');
+    // An empty result is only a pass when critiques actually ran. Say which
+    // one this is rather than letting an unmeasured run read as a clean one.
+    if (summary.counts.testsExtracted === 0) {
+      console.log('No tests found to critique.');
+    } else if (summary.llmCalls.count === 0) {
+      console.log(
+        `ABSTAINED: ${summary.counts.testsExtracted} test(s) extracted but 0 critiques ran — ` +
+          'this is not a pass. Check the LLM backend configuration.'
+      );
+    } else {
+      console.log('No test findings.');
+    }
   } else {
     const byFile = new Map<string, typeof findings>();
     for (const f of findings) {
@@ -130,4 +141,25 @@ function printResult(
       `paired: ${summary.counts.sourcePaired}, ` +
       `${summary.llmCalls.count} LLM calls, $${summary.llmCalls.costUsd.toFixed(4)}, ${summary.durationMs}ms)`
   );
+
+  // Anything that narrowed coverage gets said out loud — a silently truncated
+  // or partly-failed run otherwise presents as a full one.
+  if (summary.counts.critiqueErrors > 0) {
+    console.log(
+      `WARNING: ${summary.counts.critiqueErrors} critique(s) failed and were discarded; ` +
+        'those (test, rubric) pairs are unmeasured.'
+    );
+  }
+  if (summary.counts.testsTruncated > 0) {
+    console.log(
+      `WARNING: ${summary.counts.testsTruncated} test(s) dropped by --max-tests-per-file; ` +
+        `"${summary.counts.testsExtracted} tests" is a cap, not the population.`
+    );
+  }
+  if (summary.counts.filesScanned > 0 && summary.counts.sourcePaired === 0) {
+    console.log(
+      'NOTE: no test file resolved to a source file, so TEST-R007 ' +
+        '(contract-not-implementation) had no contract to compare against.'
+    );
+  }
 }

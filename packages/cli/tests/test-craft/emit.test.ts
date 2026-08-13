@@ -187,7 +187,7 @@ describe('runTestCraft emitTo (issue #914)', () => {
     fs.mkdirSync(path.dirname(testFile), { recursive: true });
     fs.writeFileSync(testFile, `it('works', () => {});`);
 
-    await runTestCraft({ path: tmpDir });
+    await runTestCraft({ path: tmpDir, __testProvider: new MockLlmProvider() });
     expect(fs.readdirSync(tmpDir)).not.toContain('report.json');
   });
 });

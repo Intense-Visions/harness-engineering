@@ -25,7 +25,7 @@
    - `craft.test.frameworks` — restrict to subset (default: all five)
    - `craft.test.sourcePair` — toggle source-pairing (default true)
 
-2. **Glob test files** under project root: `**/*.{test,spec}.{ts,tsx,js,jsx}` plus pytest naming (`test_*.py` / `*_test.py`). Skip `node_modules`, `dist`, `build`, `coverage`, `__pycache__`, `venv`, `vendor`, dotdirs.
+2. **Glob test files** under project root: `**/*.{test,spec}.{ts,tsx,js,jsx,mjs,cjs,mts,cts}` plus pytest naming (`test_*.py` / `*_test.py`). Skip `node_modules`, `dist`, `build`, `coverage`, `__pycache__`, `venv`, `vendor`, dotdirs. The extension list is defined once in `extract/test-file-exts.ts` and shared by discovery and extraction — a private second copy is what made `*.test.mjs` suites invisible (#1347).
 
 3. **Detect framework per file** via import signatures (order matters; most-specific first):
    - `@playwright/test` → playwright
@@ -87,7 +87,10 @@ Emit `TestCraftOutput`:
     durationMs: number;
     llmCalls: { provider, model, count, costUsd };
     catalog: { rubricsApplied: string[] };
-    counts: { filesScanned, testsExtracted, testsSkippedOrTodo, sourcePaired };
+    // critiqueErrors > 0 or testsTruncated > 0 means the run is partly
+    // unmeasured: findings are a floor, not a total.
+    counts: { filesScanned, testsExtracted, testsSkippedOrTodo, sourcePaired,
+              critiqueErrors, testsTruncated };
     frameworksDetected: Record<TestFramework, number>;
     runId: string;
   }
@@ -208,6 +211,8 @@ TEST-R004 [polish/large/medium] vitest:142
 
 ## Escalation
 
+- **When the run refuses with "cannot run against the in-session provider":** test-craft has no two-step collect/finalize flow, so the in-session provider (which defers every prompt to the calling agent) cannot answer a single rubric. Configure a real backend via `agent.backends` + `HARNESS_CRAFT_LLM`, or set `HARNESS_CRAFT_LLM=mock` for tests. It refuses rather than critiquing nothing and reporting zero findings (#1346).
+- **When the summary reports `critiqueErrors` or `testsTruncated` above zero:** the run is partly unmeasured — findings are a floor, not a total.
 - **When LLM cost is too high:** drop `maxTestsPerFile` (default 20) or scope to specific frameworks with `--frameworks vitest`. Disable source-pairing with `--no-source-pair` to halve prompt size on every test.
 - **When intentionally narrative test names get flagged (e.g., learning tests, examples):** scope via `--files` to exclude. v1.x adds `// test-craft:skip` annotation.
 - **When source-pairing finds the wrong source for ambiguous names:** the LLM gets misleading context for `TEST-R007`. Use `--no-source-pair` to fall back to test-file-only rubrics, or v1.x's `harness.config.json` test→source mapping.

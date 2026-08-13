@@ -9,6 +9,7 @@
 
 import ts from 'typescript';
 import type { ExtractedTest, TestFramework } from '../findings/schema.js';
+import { isTsJsTestFileName } from './test-file-exts.js';
 
 const MAX_BODY_CHARS = 1500;
 
@@ -26,7 +27,10 @@ interface CalleeChain {
 }
 
 export function extractTests(input: ExtractTestsInput): ExtractedTest[] {
-  if (!/\.(?:test|spec)\.(?:tsx?|jsx?)$/i.test(input.file)) return [];
+  // Shared with the discovery walk — see extract/test-file-exts.ts. This gate
+  // used to carry its own regex that omitted .mjs/.cjs, so a file the walker
+  // found (or --files supplied) could still yield zero tests (#1347).
+  if (!isTsJsTestFileName(input.file)) return [];
 
   let sourceFile: ts.SourceFile;
   try {
