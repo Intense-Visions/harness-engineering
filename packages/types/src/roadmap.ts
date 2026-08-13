@@ -107,6 +107,13 @@ export interface RoadmapFrontmatter {
 export interface Roadmap {
   /** Parsed frontmatter */
   frontmatter: RoadmapFrontmatter;
+  /**
+   * Verbatim content between the document title and the first milestone heading —
+   * in practice the roadmap's directive block (`markdownlint-disable-file`, a note
+   * on why the file is formatter-exempt). Absent when there is none, so a
+   * preamble-free roadmap stays byte-identical through parse → serialize (#1328).
+   */
+  preamble?: string;
   /** Milestones in document order (including Backlog) */
   milestones: RoadmapMilestone[];
   /** Assignment history records, in document order */

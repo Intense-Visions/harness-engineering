@@ -20,9 +20,9 @@ import type { Shard, RoadmapMeta } from './roadmap-store';
  * `order` is the feature's index WITHIN its milestone (0,1,2,…). Because the
  * assembler sorts by `order` ascending first and these orders are unique per
  * milestone, the round-trip reproduces document order exactly (status/slug
- * tiebreakers never engage). Frontmatter, milestone order, and assignment
- * history are copied verbatim — no timestamps are bumped — so a strict semantic
- * round-trip holds.
+ * tiebreakers never engage). Frontmatter, milestone order, the preamble, and
+ * assignment history are copied verbatim — no timestamps are bumped — so a strict
+ * semantic round-trip holds.
  */
 export function roadmapToShards(roadmap: Roadmap): { shards: Shard[]; meta: RoadmapMeta } {
   const shards: Shard[] = [];
@@ -44,6 +44,7 @@ export function roadmapToShards(roadmap: Roadmap): { shards: Shard[]; meta: Road
     milestones: roadmap.milestones.map((m) => m.name),
     assignmentHistory: roadmap.assignmentHistory ?? [],
   };
+  if (roadmap.preamble) meta.preamble = roadmap.preamble;
   return { shards, meta };
 }
 

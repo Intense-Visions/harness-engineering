@@ -13,9 +13,16 @@ knowledge entries under [`docs/knowledge/roadmap/`](../knowledge/roadmap/).
 A monolith roadmap is a single `docs/roadmap.md` file that every session edits in
 place — a permanent multi-writer conflict surface (the file had grown past 100 KB).
 Sharding splits it into **one file per row**, `docs/roadmap.d/<slug>.md`, plus a
-`_meta.md` (project frontmatter + the ordered milestone list + an optional
-`## Assignment History`). Two PRs that touch two different rows now touch two
-different files and never conflict.
+`_meta.md` (project frontmatter + the ordered milestone list + the aggregate's
+preamble + an optional `## Assignment History`). Two PRs that touch two different
+rows now touch two different files and never conflict.
+
+The **preamble** is the block between `# Roadmap` and the first `##` heading —
+where a roadmap carries directives such as `<!-- markdownlint-disable-file
+MD013 -->` and notes to the humans downstream. Like the assignment history it is
+roadmap-level and not derivable from a shard, so it lives in `_meta.md` and is
+re-emitted under the title on every regen. Content _after_ the first `##` heading
+is not modeled and is still dropped by a rewrite (see (e) and (f)).
 
 `docs/roadmap.md` does not go away — it becomes a **generated** `merge=ours`
 aggregate, a convenient read-only view regenerated from the shards. The crucial

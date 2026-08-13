@@ -23,11 +23,15 @@ export function assembleRoadmap(shards: Shard[], meta: RoadmapMeta): Roadmap {
   const ordered = orderMilestoneNames(meta, byMilestone);
   const milestones: RoadmapMilestone[] = ordered.map((name) => buildMilestone(name, byMilestone));
 
-  return {
+  const roadmap: Roadmap = {
     frontmatter: meta.frontmatter,
     milestones,
     assignmentHistory: meta.assignmentHistory ?? [],
   };
+  // Roadmap-level and shard-independent, like the assignment history: carried by
+  // `_meta` so regen re-emits it instead of deleting it (#1328).
+  if (meta.preamble) roadmap.preamble = meta.preamble;
+  return roadmap;
 }
 
 /** Group shards by their milestone, preserving first-seen insertion order. */

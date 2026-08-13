@@ -71,11 +71,35 @@ export function parseRoadmap(markdown: string): Result<Roadmap> {
   const historyResult = parseAssignmentHistory(body);
   if (!historyResult.ok) return historyResult;
 
-  return Ok({
+  const roadmap: Roadmap = {
     frontmatter: fmResult.value,
     milestones: milestonesResult.value,
     assignmentHistory: historyResult.value,
-  });
+  };
+  const preamble = parsePreamble(body);
+  if (preamble !== '') roadmap.preamble = preamble;
+  return Ok(roadmap);
+}
+
+/**
+ * The verbatim block between the document title and the first `##` heading.
+ *
+ * This is where a roadmap carries instructions to the tooling and humans
+ * downstream of it — `<!-- markdownlint-disable-file MD013 -->`, a note on why the
+ * file must not be reflowed. It is the only prose region the serializer models, so
+ * `serializeRoadmap` re-emits it under `# Roadmap` and the shard store persists it
+ * in `_meta.md` (#1328). Everything AFTER the first milestone heading remains
+ * unmodeled and lossy by design — {@link findUnpreservedLines} reports it.
+ *
+ * The H1 title line is dropped here because the serializer canonicalizes the
+ * title to `# Roadmap`; content on either side of it is kept, and re-emitted
+ * below the title, so a second parse of the serialized form returns this same
+ * string (idempotence, which the byte-stable regen depends on).
+ */
+function parsePreamble(body: string): string {
+  const firstH2 = body.match(/^## /m);
+  const head = firstH2 ? body.slice(0, firstH2.index) : body;
+  return head.replace(/^# .*$/m, '').trim();
 }
 
 function parseFrontmatter(raw: string): Result<RoadmapFrontmatter> {
