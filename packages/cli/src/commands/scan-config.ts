@@ -95,7 +95,16 @@ function scanSingleFile(
   const injectionFindings = scanForInjection(content);
   const findings = mapInjectionFindings(injectionFindings);
 
-  const secFindings = scanner.scanContent(content, filePath);
+  // `scanFileContent`, not `scanContent`: only the former applies a rule's
+  // `fileGlob`. `scanContent` documents that it fires every active rule
+  // "regardless of filePath", so path-scoped rules matched the wrong files —
+  // SEC-AGT-007 (`**/settings*.json,**/hooks.json`) carries the pattern
+  // /`[^`]+`/ and matched ordinary Markdown inline code, reporting a real
+  // CLAUDE.md's prose as 26 HIGH "shell metacharacters in hook commands".
+  // `packages/orchestrator/src/workspace/config-scanner.ts` already routes
+  // around this for its copy of the workflow; this is the same fix for the CLI.
+  // It takes the content already in hand rather than re-reading from disk.
+  const secFindings = scanner.scanFileContent(content, filePath);
   findings.push(...mapSecurityFindings(secFindings, findings));
 
   if (options.fix) {
