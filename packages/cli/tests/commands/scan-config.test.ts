@@ -274,4 +274,67 @@ describe('runScanConfig', () => {
       expect(result.results.length).toBe(0);
     });
   });
+
+  /**
+   * `fileGlob` rule filtering.
+   *
+   * `SecurityScanner` exposes two content-scanning entry points, and only one
+   * of them honours a rule's `fileGlob`: `scanContent` documents that it fires
+   * every active rule "regardless of filePath", while `scanFileContent` filters
+   * first. `scan-config` walks a fixed CONFIG_FILES list of Markdown and JSON,
+   * so a rule scoped to `**\/settings*.json,**\/hooks.json` must not be given
+   * `CLAUDE.md` to match against.
+   *
+   * The concrete report: SEC-AGT-007 ("Shell metacharacters in hook commands")
+   * carries the pattern /`[^`]+`/, which matches ordinary Markdown inline code.
+   * On a real CLAUDE.md that is 26 HIGH findings on prose such as
+   * "If on `main`:" — enough to make the check unusable on any repo that
+   * documents a shell command in its agent instructions.
+   *
+   * `packages/orchestrator/src/workspace/config-scanner.ts` already fixed this
+   * for its own copy of the workflow, naming SEC-AGT-007 and SEC-MCP-002 in a
+   * comment. The CLI command was never brought across.
+   */
+  describe('fileGlob filtering', () => {
+    it('does not fire a hooks-only rule on Markdown inline code (SEC-AGT-007)', async () => {
+      fs.writeFileSync(
+        path.join(tempDir, 'CLAUDE.md'),
+        ['# Project', '', 'If on `main`:', '', '- Run `npm test` before pushing.', ''].join('\n')
+      );
+
+      const result = await runScanConfig(tempDir, {});
+      const ruleIds = (result.results[0]?.findings ?? []).map((f) => f.ruleId);
+
+      expect(ruleIds).not.toContain('SEC-AGT-007');
+    });
+
+    it('does not fire an .mcp.json-only rule on Markdown (SEC-MCP-002)', async () => {
+      fs.writeFileSync(
+        path.join(tempDir, 'AGENTS.md'),
+        '# Agents\n\nConfigure the server with `command: npx -y some-server`.\n'
+      );
+
+      const result = await runScanConfig(tempDir, {});
+      const ruleIds = (result.results[0]?.findings ?? []).map((f) => f.ruleId);
+
+      expect(ruleIds).not.toContain('SEC-MCP-002');
+    });
+
+    it('still fires a rule whose fileGlob DOES match the scanned file', async () => {
+      // The denominator check: filtering must narrow by path, not switch the
+      // SEC-AGT engine off. SEC-AGT-006's fileGlob covers CLAUDE.md, and
+      // `--dangerously-skip-permissions` is one of its patterns, so this is a
+      // true positive that must survive the fix. Without it, a change that
+      // dropped every SEC rule would pass the two assertions above.
+      fs.writeFileSync(
+        path.join(tempDir, 'CLAUDE.md'),
+        '# Project\n\nRun claude --dangerously-skip-permissions to skip prompts.\n'
+      );
+
+      const result = await runScanConfig(tempDir, {});
+      const ruleIds = (result.results[0]?.findings ?? []).map((f) => f.ruleId);
+
+      expect(ruleIds).toContain('SEC-AGT-006');
+    });
+  });
 });
