@@ -4,6 +4,9 @@ settings:
   autoInstallPeers: true
   excludeLinksFromLockfile: false
 
+neverBuiltDependencies:
+  - cpu-features
+
 overrides:
   hono: '>=4.12.34'
   '@grpc/grpc-js': ^1.14.4
