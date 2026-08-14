@@ -340,10 +340,20 @@ interface MarkdownLink {
 function extractFileLinks(content: string): MarkdownLink[] {
   const links: MarkdownLink[] = [];
   const lines = content.split('\n');
+  let inFencedCodeBlock = false;
 
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i];
     if (!line) continue;
+
+    // Fenced code blocks (``` or ~~~) hold illustrative markdown, not real
+    // references — toggle on the fence line and skip everything inside so a
+    // sample link is never reported as broken drift (issue #1342).
+    if (/^\s*(?:```|~~~)/.test(line)) {
+      inFencedCodeBlock = !inFencedCodeBlock;
+      continue;
+    }
+    if (inFencedCodeBlock) continue;
 
     // Markdown links: [text](path)
     const linkRegex = /\[([^\]]*)\]\(([^)]+)\)/g;
@@ -384,7 +394,7 @@ function slugifyHeading(text: string): string {
     .toLowerCase()
     .replace(/[^\w\s-]/g, '')
     .trim()
-    .replace(/\s+/g, '-');
+    .replace(/\s/g, '-');
 }
 
 async function extractHeadingSlugs(filePath: string): Promise<Set<string>> {
