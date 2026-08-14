@@ -39,10 +39,17 @@ export class SyncManager {
     const { connector, config } = registration;
     const result = await connector.ingest(this.store, config);
 
-    // Update metadata
+    // Update metadata. Only a run that ingested successfully (no errors)
+    // advances the "last synced" clock. A hard failure records its result — so
+    // the errors stay visible — but preserves the previous success timestamp
+    // (empty if the connector never succeeded), because sync-metadata.json is
+    // the one surface a human checks and a fresh timestamp on a failed run reads
+    // as a successful sync (see GraphIntegrityChecker GI-C001).
     const metadata = await this.loadMetadata();
+    const previous = metadata.connectors[connectorName];
+    const succeeded = result.errors.length === 0;
     metadata.connectors[connectorName] = {
-      lastSyncTimestamp: new Date().toISOString(),
+      lastSyncTimestamp: succeeded ? new Date().toISOString() : (previous?.lastSyncTimestamp ?? ''),
       lastResult: result,
     };
     await this.saveMetadata(metadata);
