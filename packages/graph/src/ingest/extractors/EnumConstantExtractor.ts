@@ -462,12 +462,25 @@ export class EnumConstantExtractor implements SignalExtractor {
 
   private collectObjectKeys(lines: string[], startLine: number): string[] {
     const keys: string[] = [];
+    // Only keys at the object's top level are real members. Without tracking
+    // nesting depth, keys inside a nested object/array value (e.g. `A: { b: 1 }`
+    // spread across lines) were collected as false members, and the nested
+    // closing brace ended collection early, dropping every sibling after it.
+    let depth = 0;
     for (let i = startLine; i < lines.length; i++) {
       const line = lines[i]!.trim();
-      if (line.startsWith('}')) break;
       if (line === '' || line.startsWith('//')) continue;
-      const match = line.match(/^(\w+)\s*:/);
-      if (match) keys.push(match[1]!);
+      if (depth === 0) {
+        if (line.startsWith('}')) break;
+        const match = line.match(/^(\w+)\s*:/);
+        if (match) keys.push(match[1]!);
+      }
+      // Update depth after the key check so `A: {` records A, then descends.
+      for (const ch of line) {
+        if (ch === '{' || ch === '[') depth++;
+        else if (ch === '}' || ch === ']') depth--;
+      }
+      if (depth < 0) break;
     }
     return keys;
   }

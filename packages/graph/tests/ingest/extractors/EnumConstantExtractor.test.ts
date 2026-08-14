@@ -82,4 +82,22 @@ describe('EnumConstantExtractor', () => {
 
     expect(records1.map((r) => r.id)).toEqual(records2.map((r) => r.id));
   });
+
+  it('collects only top-level keys of an as-const object with a multi-line nested value', () => {
+    // A nested object value must not leak its keys into the parent member list,
+    // and its closing brace must not end collection early (dropping siblings).
+    const content = [
+      'export const CONFIG = {',
+      '  server: {',
+      '    port: 3000,',
+      '  },',
+      '  debug: false,',
+      '} as const;',
+    ].join('\n');
+    const records = extractor.extract(content, 'config.ts', 'typescript');
+
+    const config = records.find((r) => r.name === 'CONFIG');
+    expect(config).toBeDefined();
+    expect(config!.metadata.members).toEqual(['server', 'debug']);
+  });
 });
