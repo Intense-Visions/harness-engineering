@@ -433,3 +433,86 @@ describe('drift detector — issue #816 regressions', () => {
     expect(apiDrifts.some((d) => d.reference === 'real_export')).toBe(false);
   });
 });
+
+// Regression: github issue #1342 / #1332. The structure-drift link extractor
+// has no fenced-code-block tracking, so links written *inside* ```fences``` as
+// documentation examples are checked for existence and reported as broken.
+// Separately, slugifyHeading() collapses whitespace runs with /\s+/ where
+// GitHub emits one hyphen per space, so a heading like "Tips & Tricks" (whose
+// real GitHub anchor is `tips--tricks`) is reconstructed as `tips-tricks` and a
+// working anchor is flagged. 27/27 false positives were reported on canary.
+describe('drift detector — issue #1342/#1332 regressions', () => {
+  const parser2 = new TypeScriptParser();
+  let projectDir1342: string;
+
+  beforeEach(async () => {
+    projectDir1342 = await mkdtemp(join(tmpdir(), 'drift-1342-'));
+    await mkdir(join(projectDir1342, 'src'), { recursive: true });
+    await mkdir(join(projectDir1342, 'docs'), { recursive: true });
+    await writeFile(
+      join(projectDir1342, 'src', 'index.ts'),
+      'export function realFunction() { return 1; }\n'
+    );
+  });
+
+  afterEach(async () => {
+    await rm(projectDir1342, { recursive: true, force: true });
+  });
+
+  async function structureDriftFor() {
+    const snapshotResult = await buildSnapshot({
+      rootDir: projectDir1342,
+      parser: parser2,
+      analyze: { drift: true },
+      include: ['src/**/*.ts'],
+      docPaths: ['docs/**/*.md'],
+    });
+    expect(snapshotResult.ok).toBe(true);
+    if (!snapshotResult.ok) return [];
+    const result = await detectDocDrift(snapshotResult.value, {
+      checkApiSignatures: false,
+      checkExamples: false,
+      checkStructure: true,
+      docPaths: [],
+      ignorePatterns: [],
+    });
+    expect(result.ok).toBe(true);
+    if (!result.ok) return [];
+    return result.value.drifts.filter((d) => d.type === 'structure');
+  }
+
+  it('does not flag a link written inside a fenced code block', async () => {
+    await writeFile(
+      join(projectDir1342, 'docs', 'guide.md'),
+      [
+        '# Guide',
+        '',
+        'To wire it up, add a link like this:',
+        '',
+        '```markdown',
+        'See [the config](./this-file-does-not-exist.md) for details.',
+        '```',
+        '',
+        'That is only an illustration.',
+      ].join('\n')
+    );
+
+    const structureDrifts = await structureDriftFor();
+    // The link lives inside a ```fence``` — documentation, not a real
+    // reference, and must not be reported as a broken link.
+    expect(structureDrifts).toHaveLength(0);
+  });
+
+  it('reconstructs a "Foo & Bar" heading anchor the way GitHub does', async () => {
+    await writeFile(join(projectDir1342, 'docs', 'index.md'), '[tricks](./page.md#tips--tricks)\n');
+    await writeFile(
+      join(projectDir1342, 'docs', 'page.md'),
+      ['# Page', '', '## Tips & Tricks', '', 'Body.'].join('\n')
+    );
+
+    const structureDrifts = await structureDriftFor();
+    // GitHub renders "## Tips & Tricks" as the anchor `tips--tricks` (one hyphen
+    // per space). The link targets exactly that, so nothing is broken.
+    expect(structureDrifts).toHaveLength(0);
+  });
+});
