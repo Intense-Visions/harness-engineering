@@ -30,7 +30,7 @@ describe('queryGraphDefinition', () => {
 describe('handleQueryGraph — guard paths', () => {
   it('returns an error envelope when the path resolves to the filesystem root', async () => {
     const res = await handleQueryGraph({ path: '/', rootNodeIds: ['n1'] });
-    expect(res.isError).toBe(true);
+    expect('isError' in res && res.isError).toBe(true);
     const text = res.content[0]!.text;
     expect(text).toContain('Error:');
     expect(text).toContain('filesystem root');
@@ -40,7 +40,7 @@ describe('handleQueryGraph — guard paths', () => {
     const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'query-graph-'));
     try {
       const res = await handleQueryGraph({ path: dir, rootNodeIds: ['n1'] });
-      expect(res.isError).toBe(true);
+      expect('isError' in res && res.isError).toBe(true);
       expect(res.content[0]!.text).toContain('No graph found');
     } finally {
       fs.rmSync(dir, { recursive: true, force: true });
