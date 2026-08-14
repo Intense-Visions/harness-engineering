@@ -12,7 +12,13 @@ describe('runMechanicalGate', () => {
   });
 
   afterEach(() => {
-    fs.rmSync(tmpDir, { recursive: true });
+    // Windows: a just-exited `npm` subprocess (spawned by runMechanicalGate via
+    // execSync) can briefly retain handles on files under tmpDir, so a plain
+    // recursive rmSync intermittently throws EBUSY / ENOTEMPTY / EPERM. `force`
+    // + `maxRetries`/`retryDelay` makes Node retry until the OS releases the
+    // handles ("await the settle"), removing the teardown-race nondeterminism.
+    // A no-op on POSIX, where handles are released synchronously on exit.
+    fs.rmSync(tmpDir, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 });
   });
 
   it('should return passed=true with no checks when project type is undetectable', async () => {

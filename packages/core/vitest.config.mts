@@ -13,6 +13,17 @@ export default defineConfig({
     // workers starve those subprocess spawns of CPU, so a 15s default timed out
     // intermittently even on green code. A larger ceiling only tolerates slow /
     // loaded runners — a genuine hang still fails — so it cannot mask a real bug.
+    // Isolate the subprocess-spawning suites' process pool on Windows. Several
+    // core suites (mechanical-gate, baseline-resolver, git-scan, ...) spawn real
+    // `npm`/`git` children via execSync. On win32 those spawns are slow AND, run
+    // concurrently across parallel worker processes under v8 coverage, they
+    // storm Windows process creation and starve each other of CPU — the exact
+    // nondeterminism behind the intermittent gate.test.ts timeouts. Serializing
+    // test FILES on win32 removes the concurrent-spawn storm (each file still
+    // gets its own isolated process) without touching mac/linux parallelism.
+    // This removes the nondeterminism at its source rather than merely widening
+    // a timeout, which the raised ceiling below already showed does not fix it.
+    fileParallelism: process.platform === 'win32' ? false : true,
     testTimeout: 60_000,
     // Same rationale for setup/teardown hooks, which have their own separate
     // budget (vitest default 10s). Several suites do `git init` + commits inside
