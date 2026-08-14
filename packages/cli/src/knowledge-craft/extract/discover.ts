@@ -50,7 +50,9 @@ function walk(dir: string, root: string, out: DiscoveredEntry[], exclude: Set<st
       continue;
     }
     if (!entry.isFile()) continue;
-    if (!entry.name.endsWith('.md')) continue;
+    // Case-insensitive extension gate — mirrors the case-insensitive README
+    // exclusion below so a `NOTES.MD` entry is not silently skipped.
+    if (!entry.name.toLowerCase().endsWith('.md')) continue;
     if (entry.name.toLowerCase() === 'readme.md') continue;
     const rel = path.relative(root, full).replaceAll('\\', '/');
     out.push({ file: full, relative: rel });

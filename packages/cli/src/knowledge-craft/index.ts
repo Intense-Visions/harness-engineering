@@ -34,7 +34,14 @@ const DEFAULT_MAX_FILES = 50;
 export async function runKnowledgeCraft(input: KnowledgeCraftInput): Promise<KnowledgeCraftOutput> {
   const startedAt = Date.now();
   const projectRoot = sanitizePath(input.path);
-  const maxFiles = input.maxFiles ?? DEFAULT_MAX_FILES;
+  // A cap must be a non-negative finite number. A negative value would hit
+  // JS negative-index `slice` semantics and silently drop trailing entries
+  // (e.g. maxFiles=-1 => scans all but the last file); NaN/Infinity are
+  // equally nonsensical. Fall back to the default for any invalid cap.
+  const maxFiles =
+    input.maxFiles !== undefined && Number.isFinite(input.maxFiles) && input.maxFiles >= 0
+      ? input.maxFiles
+      : DEFAULT_MAX_FILES;
   const provider = input.__testProvider ?? getProvider();
   const rubrics = SEED_RUBRICS;
 
