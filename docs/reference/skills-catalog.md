@@ -2,7 +2,7 @@
 
 # Skills Catalog
 
-788 skills. Skills carry two independent tier axes: a **loading tier** (whether a skill registers as a slash command or is discovered on demand) and a **curation tier** (how load-bearing it is). A senior engineer can hold ~12 skills in their head, not hundreds — the curation tier names that short list.
+789 skills. Skills carry two independent tier axes: a **loading tier** (whether a skill registers as a slash command or is discovered on demand) and a **curation tier** (how load-bearing it is). A senior engineer can hold ~12 skills in their head, not hundreds — the curation tier names that short list.
 
 See the [Features Overview](../guides/features-overview.md) for narrative documentation.
 
@@ -200,7 +200,7 @@ Human-judged acceptance sign-off skill — the terminal, human-authority stage o
 - **Cognitive mode:** configuration-interviewer
 - **Depends on:** outcome-eval
 
-## Tier 2 — Maintenance (68 skills)
+## Tier 2 — Maintenance (69 skills)
 
 ### acceptance-eval
 
@@ -510,6 +510,15 @@ Orchestrator composing 4 documentation skills into a sequential pipeline with co
 - **Type:** rigid
 - **Cognitive mode:** constructive-architect
 - **Depends on:** detect-doc-drift, align-documentation, validate-context-engineering, harness-knowledge-mapper
+
+### harness-graph-integrity
+
+Check a knowledge graph for content that cannot be trusted — connectors that stamped a fresh sync timestamp while hard-failing, and extractor-derived nodes minted out of prose rather than code. Orchestrates harness graph integrity; never reimplements detection. Reports denominators, so a run that inspected nothing abstains instead of passing.
+
+- **Triggers:** manual, on_milestone
+- **Platforms:** claude-code, gemini-cli, cursor, codex
+- **Type:** rigid
+- **Cognitive mode:** meticulous-verifier
 
 ### harness-hotspot-detector
 

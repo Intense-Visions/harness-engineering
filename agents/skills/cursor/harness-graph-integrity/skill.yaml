@@ -1,0 +1,63 @@
+name: harness-graph-integrity
+version: '0.1.0'
+description: Check a knowledge graph for content that cannot be trusted — connectors that stamped a fresh sync timestamp while hard-failing, and extractor-derived nodes minted out of prose rather than code. Orchestrates harness graph integrity; never reimplements detection. Reports denominators, so a run that inspected nothing abstains instead of passing.
+stability: draft
+cognitive_mode: meticulous-verifier
+triggers:
+  - manual
+  - on_milestone
+platforms:
+  - claude-code
+  - gemini-cli
+  - cursor
+  - codex
+tools:
+  - Bash
+  - Read
+cli:
+  command: harness graph integrity
+  args:
+    - name: report-only
+      description: Exit 0 even when error-severity findings exist
+      required: false
+    - name: findings-json
+      description: Print the machine-readable findings envelope
+      required: false
+mcp:
+  tool: run_skill
+  input:
+    skill: harness-graph-integrity
+    path: string
+type: rigid
+tier: 2
+phases:
+  - name: inspect
+    description: Run harness graph integrity against the target project
+    required: true
+  - name: triage
+    description: Separate connector abstentions from extractor debris and name what is untrusted
+    required: true
+  - name: report
+    description: Surface findings with denominators and the remediation each class needs
+    required: true
+state:
+  persistent: false
+  files: []
+depends_on: []
+related_skills:
+  - harness-verify
+  - harness-dependency-health
+keywords:
+  - graph
+  - integrity
+  - knowledge-graph
+  - connector
+  - extractor
+  - false-green
+  - abstention
+capabilities:
+  tools:
+    - Bash
+    - Read
+  network: false
+  filesystem: read-write

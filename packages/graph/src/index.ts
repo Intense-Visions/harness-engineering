@@ -35,6 +35,20 @@ export type { CacheableEnvelope } from './store/PackedSummaryCache.js';
 export { resolveGraphDir, localGraphDir, findMainWorktreeRoot } from './store/resolve-graph-dir.js';
 export type { GraphDirMode } from './store/resolve-graph-dir.js';
 
+// Integrity
+export {
+  checkConnectorSync,
+  checkExtractedNodes,
+  checkGraphIntegrity,
+} from './integrity/GraphIntegrityChecker.js';
+export type {
+  IntegrityFinding,
+  IntegrityCode,
+  IntegritySeverity,
+  IntegrityDenominators,
+  GraphIntegrityReport,
+} from './integrity/GraphIntegrityChecker.js';
+
 // Query
 export { ContextQL } from './query/ContextQL.js';
 /** @experimental Projection API — has tests but no external consumers yet. */
