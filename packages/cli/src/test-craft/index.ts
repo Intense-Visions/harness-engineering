@@ -10,10 +10,15 @@ import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { randomUUID } from 'node:crypto';
 import { sanitizePath } from '../mcp/utils/sanitize-path.js';
-import { getProvider, type LlmProvider } from '../shared/craft/llm/provider.js';
+import {
+  getProvider,
+  InSessionLlmProvider,
+  type LlmProvider,
+} from '../shared/craft/llm/provider.js';
 import { detectFramework } from './extract/framework.js';
 import { extractTests } from './extract/tests.js';
 import { extractPythonTests, isPythonTestFile } from './extract/python-tests.js';
+import { isTsJsTestFileName } from './extract/test-file-exts.js';
 import { resolveSourceFile } from './extract/source-pair.js';
 import { SEED_RUBRICS, type TestRubric } from './catalog/rubrics/index.js';
 import { critiqueOne } from './phases/critique.js';
@@ -44,20 +49,32 @@ export interface TestCraftInput {
 
 const DEFAULT_MAX_FILES = 100;
 const DEFAULT_MAX_TESTS_PER_FILE = 20;
-const TEST_FILE_EXTS = [
-  '.test.ts',
-  '.test.tsx',
-  '.test.js',
-  '.test.jsx',
-  '.spec.ts',
-  '.spec.tsx',
-  '.spec.js',
-  '.spec.jsx',
-];
+
+/**
+ * `InSessionLlmProvider.callText` throws `PromptDeferredError` unconditionally
+ * — it queues the prompt for the calling agent rather than answering it. There
+ * is no two-step collect/finalize flow for test-craft yet, so with that
+ * provider every (test, rubric) critique throws and the command reports a
+ * confident `No test findings.` Refuse up front instead, the way naming-craft
+ * already does (issue #1346).
+ */
+function assertProviderCanAnswer(provider: LlmProvider, entryPoint: string): void {
+  if (!(provider instanceof InSessionLlmProvider)) return;
+  throw new Error(
+    `${entryPoint} cannot run against the in-session provider: it defers every ` +
+      'prompt to the calling agent, so no rubric would actually be evaluated ' +
+      'and the run would report zero findings for zero critiques. Configure a ' +
+      'real backend via agent.backends + HARNESS_CRAFT_LLM, or set ' +
+      'HARNESS_CRAFT_LLM=mock for tests.'
+  );
+}
+// Extension list lives in extract/test-file-exts.ts, shared with the extractor.
+// Keeping a private copy here is what let the two drift and produce a
+// `filesScanned: 1 / testsExtracted: 0` run (issue #1347).
 
 /** True when the file name matches a supported test-file naming convention. */
 function isTestFileName(name: string): boolean {
-  return TEST_FILE_EXTS.some((ext) => name.endsWith(ext)) || isPythonTestFile(name);
+  return isTsJsTestFileName(name) || isPythonTestFile(name);
 }
 
 /** Dispatch extraction by language: Python → light-parse, TS/JS → AST. */
@@ -76,6 +93,7 @@ export async function runTestCraft(input: TestCraftInput): Promise<TestCraftOutp
   const maxFiles = input.maxFiles ?? DEFAULT_MAX_FILES;
   const maxTestsPerFile = input.maxTestsPerFile ?? DEFAULT_MAX_TESTS_PER_FILE;
   const provider = input.__testProvider ?? getProvider();
+  assertProviderCanAnswer(provider, 'runTestCraft');
   const rubrics = SEED_RUBRICS;
   const sourcePairEnabled = input.sourcePair !== false;
   const frameworksFilter = input.frameworks !== undefined ? new Set(input.frameworks) : null;
@@ -90,14 +108,17 @@ export async function runTestCraft(input: TestCraftInput): Promise<TestCraftOutp
 
   // Critique loop
   const findings: TestFinding[] = [];
+  let critiqueErrors = 0;
   for (const test of extraction.allTests) {
     const pair = sourcePairEnabled ? (extraction.sourcePairCache.get(test.file) ?? null) : null;
-    findings.push(...(await critiqueTest(test, rubrics, provider, pair)));
+    const result = await critiqueTest(test, rubrics, provider, pair);
+    findings.push(...result.findings);
+    critiqueErrors += result.errors;
   }
 
   const output: TestCraftOutput = {
     findings,
-    summary: buildSummary({ provider, rubrics, files, extraction, startedAt }),
+    summary: buildSummary({ provider, rubrics, files, extraction, startedAt, critiqueErrors }),
   };
 
   await maybeEmitReport(output, input.emitTo, projectRoot);
@@ -111,8 +132,9 @@ function buildSummary(args: {
   files: readonly string[];
   extraction: ExtractionResult;
   startedAt: number;
+  critiqueErrors: number;
 }): TestCraftOutput['summary'] {
-  const { provider, rubrics, files, extraction, startedAt } = args;
+  const { provider, rubrics, files, extraction, startedAt, critiqueErrors } = args;
   const totalCost = sumCosts(provider);
   return {
     phaseRun: ['critique'],
@@ -130,6 +152,8 @@ function buildSummary(args: {
       testsExtracted: extraction.allTests.length,
       testsSkippedOrTodo: extraction.testsSkippedOrTodo,
       sourcePaired: extraction.sourcePairedCount,
+      critiqueErrors,
+      testsTruncated: extraction.testsTruncated,
     },
     frameworksDetected: extraction.frameworksDetected,
     runId: randomUUID(),
@@ -152,6 +176,7 @@ interface ExtractionResult {
   frameworksDetected: Record<TestFramework, number>;
   testsSkippedOrTodo: number;
   sourcePairedCount: number;
+  testsTruncated: number;
   sourcePairCache: Map<string, ReturnType<typeof resolveSourceFile>>;
 }
 
@@ -194,6 +219,7 @@ function extractTestsFromFiles(
   };
   let testsSkippedOrTodo = 0;
   let sourcePairedCount = 0;
+  let testsTruncated = 0;
   const sourcePairCache = new Map<string, ReturnType<typeof resolveSourceFile>>();
 
   for (const file of files) {
@@ -203,8 +229,11 @@ function extractTestsFromFiles(
     if (opts.frameworksFilter !== null && !opts.frameworksFilter.has(framework)) continue;
     frameworksDetected[framework]++;
 
-    // Cap per-file at maxTestsPerFile
-    const capped = extractTestsForFile(file, source, framework).slice(0, opts.maxTestsPerFile);
+    // Cap per-file at maxTestsPerFile, recording what the cap discarded so the
+    // summary cannot present a truncated count as the population (issue #1347).
+    const extracted = extractTestsForFile(file, source, framework);
+    const capped = extracted.slice(0, opts.maxTestsPerFile);
+    testsTruncated += extracted.length - capped.length;
     testsSkippedOrTodo += collectNonTodoTests(capped, allTests);
 
     if (opts.sourcePairEnabled && !sourcePairCache.has(file)) {
@@ -219,18 +248,31 @@ function extractTestsFromFiles(
     frameworksDetected,
     testsSkippedOrTodo,
     sourcePairedCount,
+    testsTruncated,
     sourcePairCache,
   };
 }
 
-/** Critique a single test against every rubric, swallowing per-rubric errors. */
+interface CritiqueTally {
+  findings: TestFinding[];
+  /** Rubrics whose critique threw. Counted, never silently discarded (#1346). */
+  errors: number;
+}
+
+/**
+ * Critique a single test against every rubric. One bad LLM call shouldn't sink
+ * the run, so per-rubric errors are still tolerated — but they are COUNTED and
+ * surfaced in the summary. Discarding them outright made a total failure and a
+ * clean result indistinguishable.
+ */
 async function critiqueTest(
   test: ExtractedTest,
   rubrics: ReadonlyArray<TestRubric>,
   provider: LlmProvider,
   pair: ReturnType<typeof resolveSourceFile> | null
-): Promise<TestFinding[]> {
+): Promise<CritiqueTally> {
   const findings: TestFinding[] = [];
+  let errors = 0;
   for (const rubric of rubrics) {
     try {
       const finding = await critiqueOne({
@@ -241,10 +283,10 @@ async function critiqueTest(
       });
       if (finding !== null) findings.push(finding);
     } catch {
-      /* swallow per-(test, rubric) errors */
+      errors++;
     }
   }
-  return findings;
+  return { findings, errors };
 }
 
 /**
@@ -266,6 +308,7 @@ export async function critiqueTestsInFile(
   if (opts.frameworks !== undefined && !opts.frameworks.includes(framework)) return [];
   const rubrics = opts.rubrics ?? SEED_RUBRICS;
   const provider = opts.provider ?? getProvider();
+  assertProviderCanAnswer(provider, 'critiqueTestsInFile');
   const tests = extractTestsForFile(file, source, framework)
     .filter((t) => !t.todo)
     .slice(0, opts.maxTests ?? DEFAULT_MAX_TESTS_PER_FILE);
@@ -274,7 +317,7 @@ export async function critiqueTestsInFile(
 
   const findings: TestFinding[] = [];
   for (const test of tests) {
-    findings.push(...(await critiqueTest(test, rubrics, provider, pair)));
+    findings.push(...(await critiqueTest(test, rubrics, provider, pair)).findings);
   }
   return findings;
 }

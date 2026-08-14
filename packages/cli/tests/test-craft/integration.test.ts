@@ -7,13 +7,21 @@ import { MockLlmProvider } from '../../src/shared/craft/llm/provider';
 
 describe('runTestCraft (integration)', () => {
   let tmpDir: string;
+  let savedMode: string | undefined;
 
   beforeEach(() => {
     tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'test-craft-int-'));
+    // Without this these cases silently resolved the in-session provider, whose
+    // callText always throws — so every critique failed and the suite asserted
+    // `findings: []` against a run in which no rubric was ever evaluated (#1346).
+    savedMode = process.env.HARNESS_CRAFT_LLM;
+    process.env.HARNESS_CRAFT_LLM = 'mock';
   });
 
   afterEach(() => {
     fs.rmSync(tmpDir, { recursive: true, force: true });
+    if (savedMode === undefined) delete process.env.HARNESS_CRAFT_LLM;
+    else process.env.HARNESS_CRAFT_LLM = savedMode;
   });
 
   function writeFile(rel: string, content: string): void {

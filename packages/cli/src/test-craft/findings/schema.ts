@@ -45,6 +45,17 @@ export interface TestCraftSummary {
     testsExtracted: number;
     testsSkippedOrTodo: number;
     sourcePaired: number;
+    /**
+     * (test, rubric) pairs whose critique threw and was discarded. Non-zero
+     * means the run is partly unmeasured: `findings: []` alongside a non-zero
+     * value here is an abstention, not a clean bill of health (issue #1346).
+     */
+    critiqueErrors: number;
+    /**
+     * Tests dropped because a file exceeded `maxTestsPerFile`. Non-zero means
+     * `testsExtracted` is a cap, not the population (issue #1347).
+     */
+    testsTruncated: number;
   };
   frameworksDetected: Record<TestFramework, number>;
   runId: string;
