@@ -6,9 +6,9 @@ order: 25
 
 ### canary-tdd-verify-wiring
 
-- **Status:** planned
+- **Status:** done
 - **Spec:** docs/changes/canary-tdd-verify-wiring/proposal.md
-- **Summary:** Wire canary into harness-tdd (RED-phase generation) and harness-verify (registry command discovery)
+- **Summary:** DELIVERED (PR #1184, merged). Wire canary into harness-tdd (RED-phase generation) and harness-verify (registry command discovery)
 - **Blockers:** —
 - **Plan:** —
 - **Assignee:** —

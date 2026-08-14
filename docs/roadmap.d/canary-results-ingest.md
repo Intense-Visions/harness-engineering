@@ -6,9 +6,9 @@ order: 25
 
 ### canary-results-ingest
 
-- **Status:** planned
+- **Status:** done
 - **Spec:** docs/changes/canary-results-ingest/proposal.md
-- **Summary:** Consume canary structured test results into graph / outcome-eval / pulse
+- **Summary:** DELIVERED (PR #1190, merged). Consume canary structured test results into graph / outcome-eval / pulse
 - **Blockers:** —
 - **Plan:** —
 - **Assignee:** —
