@@ -174,6 +174,23 @@ describe('MermaidParser', () => {
         expect(result.entities).toHaveLength(0);
       });
     });
+
+    describe('unlabeled edges', () => {
+      it('captures a compact unlabeled edge with no spaces around the arrow', () => {
+        // `A-->B` is valid Mermaid; whitespace around `-->` is optional. It must
+        // yield the same edge as the spaced form.
+        const result = parser.parse('flowchart TD\n  A[Auth]-->B[Home]\n', 'probe.mmd');
+        expect(result.relationships).toContainEqual(
+          expect.objectContaining({ from: 'A', to: 'B' })
+        );
+      });
+
+      it('captures compact and spaced unlabeled edges identically', () => {
+        const compact = parser.parse('flowchart TD\n  A-->B\n', 'c.mmd').relationships;
+        const spaced = parser.parse('flowchart TD\n  A --> B\n', 's.mmd').relationships;
+        expect(compact).toEqual(spaced);
+      });
+    });
   });
 });
 
@@ -279,6 +296,30 @@ describe('PlantUmlParser', () => {
     it('sets metadata.format to plantuml and diagramType to class', () => {
       expect(result.metadata.format).toBe('plantuml');
       expect(result.metadata.diagramType).toBe('class');
+    });
+  });
+
+  describe('arrow direction', () => {
+    it('records a left-pointing arrow (A <-- B) as the edge B -> A', () => {
+      // In PlantUML `ClassA <-- ClassB` means ClassB points to ClassA. Reading
+      // endpoints by textual position alone inverts the edge.
+      const result = parser.parse(
+        '@startuml\nclass ClassA\nclass ClassB\nClassA <-- ClassB\n@enduml',
+        'rev.puml'
+      );
+      expect(result.relationships).toHaveLength(1);
+      expect(result.relationships[0].from).toBe('ClassB');
+      expect(result.relationships[0].to).toBe('ClassA');
+    });
+
+    it('records a right-pointing arrow (A --> B) as the edge A -> B', () => {
+      const result = parser.parse(
+        '@startuml\nclass ClassA\nclass ClassB\nClassA --> ClassB\n@enduml',
+        'fwd.puml'
+      );
+      expect(result.relationships).toHaveLength(1);
+      expect(result.relationships[0].from).toBe('ClassA');
+      expect(result.relationships[0].to).toBe('ClassB');
     });
   });
 

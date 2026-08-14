@@ -127,7 +127,10 @@ function extractUnlabeledEdges(
   labeledEdges: readonly DiagramRelationship[]
 ): DiagramRelationship[] {
   const relationships: DiagramRelationship[] = [];
-  const unlabeledEdgeRegex = /([A-Za-z0-9_]+)\s*--+>?\s+([A-Za-z0-9_]+)/g;
+  // Whitespace around the arrow is optional in Mermaid: `A-->B` is as valid as
+  // `A --> B`. Requiring `\s+` after the arrow silently dropped every compact
+  // unlabeled edge while labeled edges (which don't) survived.
+  const unlabeledEdgeRegex = /([A-Za-z0-9_]+)\s*--+>?\s*([A-Za-z0-9_]+)/g;
 
   let match = unlabeledEdgeRegex.exec(stripped);
   while (match !== null) {
