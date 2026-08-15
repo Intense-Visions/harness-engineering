@@ -68,11 +68,20 @@ function extractComponents(body: string, entities: Map<string, DiagramEntity>): 
 
 /** Parse a single relationship match into a DiagramRelationship. */
 function parseRelationshipMatch(match: RegExpExecArray): DiagramRelationship | null {
-  const from = match[1] ?? '';
-  const to = match[2] ?? '';
-  if (!from || !to) return null;
+  const left = match[1] ?? '';
+  const arrow = match[2] ?? '';
+  const right = match[3] ?? '';
+  if (!left || !right) return null;
 
-  const label = match[3]?.trim();
+  // Arrow direction, not textual order, decides the edge. A left-pointing arrow
+  // (`ClassA <-- ClassB`) means ClassB points to ClassA, so the edge is
+  // ClassB -> ClassA. Reading endpoints by position alone silently inverts
+  // every `<--` / `<-` relationship.
+  const pointsLeft = arrow.startsWith('<');
+  const from = pointsLeft ? right : left;
+  const to = pointsLeft ? left : right;
+
+  const label = match[4]?.trim();
   return { from, to, ...(label ? { label } : {}) };
 }
 
@@ -92,7 +101,7 @@ function collectRelationshipMatches(body: string, regex: RegExp): DiagramRelatio
 function extractRelationships(body: string): DiagramRelationship[] {
   return collectRelationshipMatches(
     body,
-    /(\w+)\s*(?:-->|->|<--|<-|\.\.>|--)\s*(\w+)(?:\s*:\s*(.+))?/g
+    /(\w+)\s*(-->|->|<--|<-|\.\.>|--)\s*(\w+)(?:\s*:\s*(.+))?/g
   );
 }
 
