@@ -1,0 +1,30 @@
+{
+  "issue": 1342,
+  "title": "checkStructureDrift reports working links as drift (slug + nested-fence)",
+  "branch": "fix/drift-working-links",
+  "pipelineStages": [
+    "harness-brainstorming (spec authored non-interactively; autonomous fleet lane, no human interview)",
+    "planning (plan artifact authored)",
+    "tdd (5 failing unit tests authored RED, then implementation to GREEN)",
+    "execution (implementation of slugifyHeading + blankFencedRegions + heading dedup)",
+    "verification (build, typecheck, lint, vitest all green)"
+  ],
+  "specArtifact": "docs/changes/fix-drift-working-links-false-positive/proposal.md",
+  "planArtifact": "docs/changes/fix-drift-working-links-false-positive/plans/plan.md",
+  "targetFile": "packages/core/src/entropy/detectors/drift.ts",
+  "testFile": "packages/core/tests/entropy/detectors/drift.test.ts",
+  "priorArt": "PR #1363 added fence-awareness + '&'-heading handling; preserved (not regressed).",
+  "assumptions": [
+    "A1: Applied the issue's recommended slugifyHeading fix verbatim — drop .trim(), map each whitespace char to one hyphen, replace ASCII \\w with Unicode \\p{L}\\p{N} plus explicit _ and - under the u flag.",
+    "A2: Introduced a single module-private blankFencedRegions(content) helper shared by extractFileLinks and extractHeadingSlugs; a fence CLOSE requires the same fence char with run length >= the opener's and no info string (CommonMark/GFM). Line count is preserved so link/heading line numbers stay accurate.",
+    "A3: Duplicate-heading dedup follows GitHub: the Nth (N>1) occurrence of a base slug anchors at base-{N-1} (second '## Setup' -> '#setup-1').",
+    "A4: Ran the harness-brainstorming/planning stages non-interactively because this lane is an autonomous fleet build with no human available to answer EVALUATE questions; recommended defaults from the issue were taken as the approved design.",
+    "A5: Scoped the change to drift.ts only; Defect 3 in the issue (generate-agent-definitions dead links) is explicitly out of scope per the issue's own suggestion to split it into a separate issue."
+  ],
+  "localChecks": {
+    "build": "pass",
+    "typecheck": "pass",
+    "lint": "pass (0 errors; 1 pre-existing warning in untouched entry-points.test.ts)",
+    "test": "pass (25/25 in drift.test.ts, incl. #492/#816/#1342/#1363 regressions)"
+  }
+}

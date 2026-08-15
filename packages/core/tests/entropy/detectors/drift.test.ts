@@ -515,4 +515,85 @@ describe('drift detector — issue #1342/#1332 regressions', () => {
     // per space). The link targets exactly that, so nothing is broken.
     expect(structureDrifts).toHaveLength(0);
   });
+
+  it('slugs an emoji heading the way GitHub does (keeps the leading hyphen)', async () => {
+    await writeFile(join(projectDir1342, 'docs', 'index.md'), '[usage](./page.md#-usage)\n');
+    await writeFile(
+      join(projectDir1342, 'docs', 'page.md'),
+      ['# Page', '', '## 📖 Usage', '', 'Body.'].join('\n')
+    );
+
+    const structureDrifts = await structureDriftFor();
+    // GitHub keeps the space the emoji left behind: "## 📖 Usage" -> `#-usage`.
+    // Trimming before hyphenating (the old bug) produced `usage` and flagged the
+    // working anchor.
+    expect(structureDrifts).toHaveLength(0);
+  });
+
+  it('slugs an accented heading with full Unicode letters (not ASCII \\w)', async () => {
+    await writeFile(join(projectDir1342, 'docs', 'index.md'), '[cafe](./page.md#café)\n');
+    await writeFile(
+      join(projectDir1342, 'docs', 'page.md'),
+      ['# Page', '', '## Café', '', 'Body.'].join('\n')
+    );
+
+    const structureDrifts = await structureDriftFor();
+    // GitHub keeps "café"; the old ASCII-only `\w` class dropped the é to `caf`.
+    expect(structureDrifts).toHaveLength(0);
+  });
+
+  it('does not expose the inner half of a 4-tick fence wrapping a 3-tick fence', async () => {
+    await writeFile(
+      join(projectDir1342, 'docs', 'guide.md'),
+      [
+        '# Guide',
+        '',
+        'Quoting a whole markdown file, code blocks and all:',
+        '',
+        '````markdown',
+        '# Quoted',
+        '',
+        '```',
+        'See [broken](./nope-does-not-exist.md) inside the quote.',
+        '```',
+        '',
+        'Still inside the quoted file.',
+        '````',
+        '',
+        'Back to real prose.',
+      ].join('\n')
+    );
+
+    const structureDrifts = await structureDriftFor();
+    // The 3-tick fence lives INSIDE a 4-tick fence. A naive open/close toggle
+    // re-opens on the inner fence and exposes the link in the second half.
+    expect(structureDrifts).toHaveLength(0);
+  });
+
+  it('does not treat a heading inside a fenced block as a real anchor', async () => {
+    await writeFile(join(projectDir1342, 'docs', 'index.md'), '[fake](./page.md#fake-heading)\n');
+    await writeFile(
+      join(projectDir1342, 'docs', 'page.md'),
+      ['# Page', '', '```markdown', '# Fake Heading', '```', ''].join('\n')
+    );
+
+    const structureDrifts = await structureDriftFor();
+    // "# Fake Heading" is quoted inside a fence, so it is NOT a real anchor —
+    // the link to `#fake-heading` must be reported broken.
+    expect(structureDrifts).toHaveLength(1);
+    expect(structureDrifts[0]?.context).toBe('link-anchor');
+  });
+
+  it('disambiguates duplicate headings the way GitHub does (setup, setup-1)', async () => {
+    await writeFile(join(projectDir1342, 'docs', 'index.md'), '[second](./page.md#setup-1)\n');
+    await writeFile(
+      join(projectDir1342, 'docs', 'page.md'),
+      ['# Page', '', '## Setup', 'First.', '', '## Setup', 'Second.'].join('\n')
+    );
+
+    const structureDrifts = await structureDriftFor();
+    // GitHub anchors the second "## Setup" at `#setup-1`; today the link is
+    // reported missing because slugs are not disambiguated.
+    expect(structureDrifts).toHaveLength(0);
+  });
 });
