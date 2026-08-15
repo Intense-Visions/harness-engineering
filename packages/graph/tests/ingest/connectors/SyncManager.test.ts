@@ -140,6 +140,47 @@ describe('SyncManager', () => {
     expect(parsed.connectors['disk']).toBeDefined();
   });
 
+  it('syncAll isolates a connector whose ingest throws so remaining connectors still run', async () => {
+    // A connector whose ingest() throws (an *uncaught* exception, e.g. a
+    // network fault or a metadata-write failure) rather than returning an
+    // IngestResult with errors. syncAll must isolate this: the failure is
+    // captured into combined.errors and every remaining connector still runs.
+    const throwing: GraphConnector = {
+      name: 'throwing',
+      source: 'throwing',
+      ingest: async () => {
+        throw new Error('connector boom');
+      },
+    };
+    const good: IngestResult = {
+      nodesAdded: 4,
+      nodesUpdated: 0,
+      edgesAdded: 2,
+      edgesUpdated: 0,
+      errors: [],
+      durationMs: 3,
+    };
+
+    // Register the throwing connector FIRST (Map iteration is insertion order)
+    // so its failure would abort the loop before the good connector runs.
+    manager.registerConnector(throwing, {});
+    manager.registerConnector(makeMockConnector('good', good), {});
+
+    // syncAll must not reject when a connector throws — it isolates the failure.
+    const outcome = await manager.syncAll().then(
+      (result) => ({ ok: true as const, result }),
+      (err: unknown) => ({ ok: false as const, err })
+    );
+
+    expect(outcome.ok).toBe(true);
+    if (!outcome.ok) return;
+    // The second connector still ran despite the first throwing.
+    expect(outcome.result.nodesAdded).toBeGreaterThanOrEqual(4);
+    expect(outcome.result.edgesAdded).toBe(2);
+    // The throwing connector's failure is captured, not fatal.
+    expect(outcome.result.errors.some((e) => e.includes('throwing'))).toBe(true);
+  });
+
   it('invokes KnowledgeLinker after syncAll completes', async () => {
     const result: IngestResult = {
       nodesAdded: 1,

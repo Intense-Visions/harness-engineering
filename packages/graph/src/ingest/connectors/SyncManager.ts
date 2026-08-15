@@ -70,7 +70,19 @@ export class SyncManager {
     };
 
     for (const [name] of this.registrations) {
-      const result = await this.sync(name);
+      // Isolate each connector: a connector whose ingest() (or the per-connector
+      // metadata write) throws an *uncaught* exception must not abort the rest of
+      // the sync. Capture the failure into combined.errors and carry on, so one
+      // broken connector can't silently starve every connector after it.
+      let result: IngestResult;
+      try {
+        result = await this.sync(name);
+      } catch (err) {
+        combined.errors.push(
+          `Connector "${name}" error: ${err instanceof Error ? err.message : String(err)}`
+        );
+        continue;
+      }
       combined.nodesAdded += result.nodesAdded;
       combined.nodesUpdated += result.nodesUpdated;
       combined.edgesAdded += result.edgesAdded;
