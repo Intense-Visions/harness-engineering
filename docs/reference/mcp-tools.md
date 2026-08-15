@@ -951,6 +951,14 @@ Get architecture decay trends over time. Returns stability score history and per
 - `offset` (number, optional) — Number of trend entries to skip (pagination). Default: 0. Trends are sorted by decay magnitude (absolute delta) desc. Ignored when category is set (category filter returns a single entry).
 - `limit` (number, optional) — Max trend entries to return (pagination). Default: 20. Ignored when category is set (category filter returns a single entry).
 
+### `get_graph_schema`
+
+Introspect the SHAPE of the project knowledge graph so an agent can discover it before querying: node-type (label) counts with their observed property keys, edge-type (relationship) counts, and the relationship patterns present (which node types connect to which via which edge types). Read-only.
+
+**Parameters:**
+
+- `path` (string, required) — Path to project root
+
 ### `get_impact`
 
 Analyze the impact of changing a node or file. Returns affected tests, docs, code, and other nodes grouped by type.

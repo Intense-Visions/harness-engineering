@@ -100,6 +100,8 @@ import {
   handleAskGraph,
   computeBlastRadiusDefinition,
   handleComputeBlastRadius,
+  getGraphSchemaDefinition,
+  handleGetGraphSchema,
 } from './tools/graph/index.js';
 import {
   getGraphResource,
@@ -343,6 +345,7 @@ const TOOL_DEFINITIONS: ToolDefinition[] = [
   recommendSkillsDefinition,
   adviseSkillsDefinition,
   computeBlastRadiusDefinition,
+  getGraphSchemaDefinition,
   dispatchSkillsDefinition,
   compactToolDefinition,
   detectConstraintEmergenceDefinition,
@@ -457,6 +460,7 @@ const TOOL_HANDLERS: Record<string, ToolHandler> = {
   recommend_skills: handleRecommendSkills as ToolHandler,
   advise_skills: handleAdviseSkills as ToolHandler,
   compute_blast_radius: handleComputeBlastRadius as ToolHandler,
+  get_graph_schema: handleGetGraphSchema as ToolHandler,
   dispatch_skills: handleDispatchSkills as ToolHandler,
   compact: handleCompact as ToolHandler,
   detect_constraint_emergence: handleDetectConstraintEmergence as ToolHandler,

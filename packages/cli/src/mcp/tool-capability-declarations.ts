@@ -48,6 +48,7 @@ export const TOOL_CAPABILITY_DECLARATIONS: Readonly<Record<string, ToolCapabilit
   search_similar: { scopes: ['read'] },
   find_context_for: { scopes: ['read'] },
   get_relationships: { scopes: ['read'] },
+  get_graph_schema: { scopes: ['read'] },
   get_impact: { scopes: ['read'] },
   get_security_trends: { scopes: ['read'] },
   check_performance: { scopes: ['read'] },
