@@ -1,0 +1,42 @@
+{
+  "issue": 1324,
+  "slug": "audit-exceptions-enforcement",
+  "title": "Enforce auditExceptions with expiry + reconcile gate",
+  "pipeline": {
+    "stages": [
+      {
+        "stage": "brainstorming",
+        "skill": "harness-brainstorming",
+        "artifact": "docs/changes/audit-exceptions-enforcement/proposal.md"
+      },
+      {
+        "stage": "planning",
+        "artifact": "docs/changes/audit-exceptions-enforcement/plans/plan.md"
+      },
+      {
+        "stage": "execution",
+        "artifacts": [
+          "scripts/audit-exceptions.mjs",
+          "tests/scripts/audit-exceptions.test.mjs",
+          ".github/workflows/audit-exceptions.yml",
+          "package.json"
+        ]
+      }
+    ]
+  },
+  "planArtifact": "docs/changes/audit-exceptions-enforcement/plans/plan.md",
+  "localChecks": {
+    "reconcileScript": "node scripts/audit-exceptions.mjs -> exit 0 (5 active advisories, all covered + unexpired)",
+    "unitTests": "node --test tests/scripts/audit-exceptions.test.mjs -> 12/12 pass"
+  },
+  "assumptions": [
+    "auditExceptions entry shape migrated from string to { reason, expires } (reason preserves the prior justification verbatim).",
+    "expires date assigned to all 5 existing entries: 2026-11-15 (~3 months from the 2026-08-15 authoring date) as a reasonable near-future re-evaluation box.",
+    "Missing/invalid/past expires is treated as already-lapsed -> fail closed.",
+    "Reconcile matches advisories on github_advisory_id (GHSA), the register's key.",
+    "Register entries with no matching active advisory warn (stale hygiene) but do not fail.",
+    "expires is inclusive of its whole UTC day (lapses at start of the next day).",
+    "Gate is a standalone root script (scripts/audit-exceptions.mjs) + blocking PR workflow, mirroring check-changesets.mjs convention, not a new CLI command.",
+    "The 5 currently-active advisories map exactly to the 5 pre-existing register entries, so the new gate is green on this PR without adding any new exemptions."
+  ]
+}
