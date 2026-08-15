@@ -11,7 +11,13 @@ export interface DeadExport {
 
 export interface DeadFile {
   path: string;
-  reason: 'NO_IMPORTERS' | 'NOT_ENTRY_POINT' | 'ALL_EXPORTS_DEAD';
+  /**
+   * - `NO_IMPORTERS` — unreachable from entry points; a genuine dead file.
+   * - `UNREFERENCED_ENTRY_POINT` — unreachable, but the path matches a build
+   *   entry-point convention (config file, framework module root). Remediation is
+   *   to declare it in `entropy.entryPoints`, NOT to delete it (issue #1325).
+   */
+  reason: 'NO_IMPORTERS' | 'UNREFERENCED_ENTRY_POINT' | 'NOT_ENTRY_POINT' | 'ALL_EXPORTS_DEAD';
   exportCount: number;
   lineCount: number;
 }

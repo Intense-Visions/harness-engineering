@@ -1,0 +1,43 @@
+{
+  "issue": 1325,
+  "slug": "fix-dead-code-entrypoint-classification",
+  "branch": "fix/dead-code-entrypoints",
+  "title": "classify entry points instead of suggesting deletion",
+  "pipelineStages": [
+    {
+      "stage": "brainstorming",
+      "artifact": "docs/changes/fix-dead-code-entrypoint-classification/proposal.md"
+    },
+    {
+      "stage": "planning",
+      "artifact": "docs/changes/fix-dead-code-entrypoint-classification/plans/2026-08-15-dead-code-entrypoint-plan.md"
+    },
+    {
+      "stage": "execution",
+      "detail": "TDD: type widening, detector classification (isEntryPointConvention), suggestion + safe-fix branching, config seeding; tests-first per fixer",
+      "tests": [
+        "packages/core/tests/entropy/detectors/dead-code.test.ts",
+        "packages/core/tests/entropy/fixers/suggestions.test.ts",
+        "packages/core/tests/entropy/fixers/safe-fixes.test.ts"
+      ]
+    }
+  ],
+  "planArtifact": "docs/changes/fix-dead-code-entrypoint-classification/plans/2026-08-15-dead-code-entrypoint-plan.md",
+  "sourceChanges": [
+    "packages/core/src/entropy/types/dead-code.ts",
+    "packages/core/src/entropy/types/fix.ts",
+    "packages/core/src/entropy/detectors/dead-code.ts",
+    "packages/core/src/entropy/fixers/suggestions.ts",
+    "packages/core/src/entropy/fixers/safe-fixes.ts",
+    "harness.config.json"
+  ],
+  "assumptions": [
+    "'info severity' maps to Suggestion priority 'low' — no info severity enum exists on DeadFile/Suggestion, and adding one would ripple through unrelated consumers (YAGNI).",
+    "Entry-point conventions (v1) = config files matching /\\.config\\.(m|c)?[jt]s$/ plus framework roots basename in {main.ts, main.tsx, main.mts, app.module.ts}. Extensible constant, not exhaustive of every framework.",
+    "Seeding extra entryPoints into harness.config.json is safe: resolveEntryPoints maps explicit entries as literal paths with no on-disk existence gate.",
+    "New DeadFile reason + Suggestion type value is a minor bump for @harness-engineering/core.",
+    "Classification lives in the detector (single source of truth); fixers key off DeadFile.reason and never re-implement path matching. Applied to both the snapshot path (findDeadFiles) and the graph path (classifyUnreachableNode).",
+    "Auto-fix (safe-fixes createDeadFileFixes) is the most dangerous path and must also skip entry points — not only the advisory suggestion fixer."
+  ],
+  "notes": "Lane agent authored the spec/plan artifacts and implemented the recommended fix directly via TDD (dedicated lane agent), rather than delegating to a subagent. All local gates green."
+}

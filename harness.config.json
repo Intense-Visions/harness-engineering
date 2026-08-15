@@ -251,7 +251,11 @@
       "packages/cli/src/bin/harness.ts",
       "packages/eslint-plugin/src/index.ts",
       "packages/linter-gen/src/index.ts",
-      "packages/orchestrator/src/index.ts"
+      "packages/orchestrator/src/index.ts",
+      "packages/dashboard/src/client/main.tsx",
+      "packages/dashboard/vite.config.ts",
+      "packages/burn/tsup.config.ts",
+      "packages/cli/tsup.config.ts"
     ],
     "autoFix": false
   },

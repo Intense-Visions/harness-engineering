@@ -6,8 +6,41 @@ import type {
   SuggestionReport,
 } from '../types';
 
+/**
+ * Build an informational suggestion for an unreferenced build entry point.
+ *
+ * Entry points (config files, framework module roots) are reachable at build/runtime
+ * rather than through static imports, so they look "dead" when absent from
+ * `entropy.entryPoints`. The remediation is to declare them, never to delete them
+ * (issue #1325).
+ */
+function entryPointSuggestion(file: DeadCodeReport['deadFiles'][number]): Suggestion {
+  const name = file.path.split('/').pop();
+  return {
+    type: 'configure-entrypoint',
+    priority: 'low', // info: advisory, never a destructive default
+    source: 'dead-code',
+    relatedIssues: [`unreferenced-entry-point:${file.path}`],
+    title: `Unreferenced entry point: ${name}`,
+    description:
+      `"${name}" looks like a build entry point (config file or framework module root) ` +
+      `but is unreachable from the configured entryPoints. Declare it in ` +
+      `entropy.entryPoints — do not delete it.`,
+    files: [file.path],
+    steps: [
+      `Add "${file.path}" to entropy.entryPoints in harness.config.json`,
+      'Re-run dead-code detection to confirm it is no longer flagged',
+    ],
+    whyManual:
+      'Entry points are reachable at build/runtime, not via static imports; deleting one breaks the build',
+  };
+}
+
 /** Build a suggestion for a single dead file. */
 function deadFileSuggestion(file: DeadCodeReport['deadFiles'][number]): Suggestion {
+  if (file.reason === 'UNREFERENCED_ENTRY_POINT') {
+    return entryPointSuggestion(file);
+  }
   return {
     type: 'delete',
     priority: 'high',
