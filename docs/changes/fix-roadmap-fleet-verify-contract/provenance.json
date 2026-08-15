@@ -1,0 +1,19 @@
+{
+  "slug": "fix-roadmap-fleet-verify-contract",
+  "issues": [1297, 1298],
+  "pipelineStages": ["brainstorming", "planning", "execution", "review"],
+  "planArtifact": "docs/changes/fix-roadmap-fleet-verify-contract/plans/2026-08-15-fix-roadmap-fleet-verify-contract-plan.md",
+  "proposalArtifact": "docs/changes/fix-roadmap-fleet-verify-contract/proposal.md",
+  "primarySurface": "agents/skills/claude-code/roadmap-fleet/SKILL.md",
+  "closingKeyword": "Closes",
+  "closingKeywordRationale": "Both #1297 and #1298 are fully resolved by this single-surface skill-contract change, so the PR uses Closes #1297 and Closes #1298.",
+  "assumptions": [
+    "#1298 resolved via committed provenance file (issue Option 2, human-approved) rather than strengthening the plan-artifact check or verifying session state out-of-band.",
+    "Provenance filename is provenance.json under docs/changes/<slug>/, matching the example the issue and decision cite.",
+    "Scope limited to roadmap-fleet SKILL.md; the similar phrase in cicd-fleet SKILL.md is intentionally left untouched (out of scope for #1297/#1298).",
+    ".harness/.gitignore is left unchanged; session state stays gitignored and the fix routes proof to a committed path instead.",
+    "Generated command mirrors regenerated via `pnpm generate:plugin:all`, never hand-edited."
+  ],
+  "generatedBy": "roadmap-fleet lane (dogfooding the provenance contract added in this change)",
+  "date": "2026-08-15"
+}
