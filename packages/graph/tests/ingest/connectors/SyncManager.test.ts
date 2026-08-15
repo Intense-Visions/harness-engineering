@@ -123,6 +123,29 @@ describe('SyncManager', () => {
     expect(ts <= after).toBe(true);
   });
 
+  it('does not stamp a fresh success timestamp when the sync hard-fails (#1336)', async () => {
+    const failed: IngestResult = {
+      nodesAdded: 0,
+      nodesUpdated: 0,
+      edgesAdded: 0,
+      edgesUpdated: 0,
+      errors: ['GitHub Actions API error: status 500'],
+      durationMs: 3,
+    };
+    manager.registerConnector(makeMockConnector('broken', failed), {});
+
+    await manager.sync('broken');
+
+    const metadata = await manager.getMetadata();
+    const entry = metadata.connectors['broken']!;
+    // The failed run is still recorded so its errors remain visible...
+    expect(entry.lastResult.errors).toHaveLength(1);
+    // ...but the "last synced" clock must NOT advance for a run that errored and
+    // ingested nothing. A never-succeeded connector reads as empty rather than
+    // as freshly synced — otherwise the one surface a human checks lies.
+    expect(entry.lastSyncTimestamp).toBe('');
+  });
+
   it('metadata persists to disk as sync-metadata.json', async () => {
     const result: IngestResult = {
       nodesAdded: 1,
