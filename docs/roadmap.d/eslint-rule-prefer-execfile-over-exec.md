@@ -6,9 +6,9 @@ order: 1
 
 ### ESLint Rule: prefer-execfile-over-exec
 
-- **Status:** planned
+- **Status:** done
 - **Spec:** docs/changes/eslint-prefer-execfile-over-exec/proposal.md
-- **Summary:** New ESLint rule to flag execSync/exec with string commands (shell invocation) and suggest execFileSync/execFile with array args (no shell). Reduces shell injection surface and avoids broken exit code handling with shell redirects. 15+ instances in codebase.
+- **Summary:** DELIVERED (PR #1042, merged). New ESLint rule to flag execSync/exec with string commands (shell invocation) and suggest execFileSync/execFile with array args (no shell). Reduces shell injection surface and avoids broken exit code handling with shell redirects. 15+ instances in codebase.
 - **Blockers:** —
 - **Plan:** —
 - **Assignee:** —

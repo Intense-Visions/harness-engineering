@@ -187,6 +187,28 @@ last_manual_edit: 2026-06-27T12:51:51.967Z
 - **Priority:** P2
 - **External-ID:** github:Intense-Visions/harness-engineering#1005
 
+### canary-results-ingest
+
+- **Status:** done
+- **Spec:** docs/changes/canary-results-ingest/proposal.md
+- **Summary:** DELIVERED (PR #1190, merged). Consume canary structured test results into graph / outcome-eval / pulse
+- **Blockers:** —
+- **Plan:** —
+- **Assignee:** —
+- **Priority:** —
+- **External-ID:** github:Intense-Visions/harness-engineering#1185
+
+### canary-tdd-verify-wiring
+
+- **Status:** done
+- **Spec:** docs/changes/canary-tdd-verify-wiring/proposal.md
+- **Summary:** DELIVERED (PR #1184, merged). Wire canary into harness-tdd (RED-phase generation) and harness-verify (registry command discovery)
+- **Blockers:** —
+- **Plan:** —
+- **Assignee:** —
+- **Priority:** —
+- **External-ID:** github:Intense-Visions/harness-engineering#1181
+
 ### roadmap-thematic-grouping
 
 - **Status:** done
@@ -208,28 +230,6 @@ last_manual_edit: 2026-06-27T12:51:51.967Z
 - **Assignee:** —
 - **Priority:** P2
 - **External-ID:** github:Intense-Visions/harness-engineering#1006
-
-### canary-results-ingest
-
-- **Status:** planned
-- **Spec:** docs/changes/canary-results-ingest/proposal.md
-- **Summary:** Consume canary structured test results into graph / outcome-eval / pulse
-- **Blockers:** —
-- **Plan:** —
-- **Assignee:** —
-- **Priority:** —
-- **External-ID:** github:Intense-Visions/harness-engineering#1185
-
-### canary-tdd-verify-wiring
-
-- **Status:** planned
-- **Spec:** docs/changes/canary-tdd-verify-wiring/proposal.md
-- **Summary:** Wire canary into harness-tdd (RED-phase generation) and harness-verify (registry command discovery)
-- **Blockers:** —
-- **Plan:** —
-- **Assignee:** —
-- **Priority:** —
-- **External-ID:** github:Intense-Visions/harness-engineering#1181
 
 ### Wire suggested MCP servers (incl. harness itself) into the OllamaBackend agent
 
@@ -1002,9 +1002,9 @@ last_manual_edit: 2026-06-27T12:51:51.967Z
 
 ### Add harness mcp list-capabilities CLI for adopter audit
 
-- **Status:** planned
+- **Status:** done
 - **Spec:** [docs/changes/mcp-list-capabilities/proposal.md](../changes/mcp-list-capabilities/proposal.md)
-- **Summary:** MCP server has 101 tool files (`packages/cli/src/mcp/tools/`). Per-tool `trustedOutput` flag exists but per-tool capability declarations don't. Adopters have no easy way to audit what their agent can do via MCP. Add `harness mcp list-capabilities --by-permission` CLI command that surfaces each tool's read/write/exec scope, network access, and trust tag. Source: Pass 6 #3.
+- **Summary:** DELIVERED (PR #1049, merged). MCP server has 101 tool files (`packages/cli/src/mcp/tools/`). Per-tool `trustedOutput` flag exists but per-tool capability declarations don't. Adopters have no easy way to audit what their agent can do via MCP. Add `harness mcp list-capabilities --by-permission` CLI command that surfaces each tool's read/write/exec scope, network access, and trust tag. Source: Pass 6 #3.
 - **Blockers:** —
 - **Plan:** —
 - **Assignee:** —
@@ -1237,9 +1237,9 @@ last_manual_edit: 2026-06-27T12:51:51.967Z
 
 ### Extend enforcement past ship (deployment + operations)
 
-- **Status:** planned
+- **Status:** done
 - **Spec:** docs/changes/enforcing-deploy-gate/proposal.md
-- **Summary:** **Priority: NEXT.** Upgrade `harness-deployment` from Tier-3 advisory to enforcing, and add an operations skill that pulls production signals (incidents, monitoring) back into the knowledge graph. Today the lifecycle stops enforcing the moment code ships; this extends the constraint loop past release. --- _Part of the **Full-lifecycle reach** track (STRATEGY.md v2). Rationale: `docs/knowledge/skills/sdlc-coverage-and-agentic-trajectory.md`._
+- **Summary:** DELIVERED (PR #1193, merged) — Half A. Upgraded `harness-deployment` from Tier-3 advisory to an enforcing pre/post-deploy gate + rollback wiring. Today the lifecycle no longer stops enforcing the moment code ships; this extends the constraint loop past release. Half B — an operations skill that pulls live production signals (incidents, monitoring) back into the knowledge graph — was deferred by owner decision pending real production-signal sources and is split out as a new planned item (Operations enforcement skill). --- _Part of the **Full-lifecycle reach** track (STRATEGY.md v2). Rationale: `docs/knowledge/skills/sdlc-coverage-and-agentic-trajectory.md`._
 - **Blockers:** —
 - **Plan:** —
 - **Assignee:** —
@@ -1267,6 +1267,17 @@ last_manual_edit: 2026-06-27T12:51:51.967Z
 - **Assignee:** —
 - **Priority:** P2
 - **External-ID:** github:Intense-Visions/harness-engineering#714
+
+### Operations enforcement skill (production-signal ingestion)
+
+- **Status:** planned
+- **Spec:** —
+- **Summary:** Split from #712 (Half B). A `harness-operations` skill that pulls live production signals (incidents, monitoring, alerts) back into the knowledge graph, extending the constraint loop past deploy. #712 shipped Half A (enforcing pre/post-deploy gate + rollback wiring, PR #1193); Half B deferred by owner decision pending real production-signal sources. Part of the Full-lifecycle reach track.
+- **Blockers:** —
+- **Plan:** —
+- **Assignee:** —
+- **Priority:** P2
+- **External-ID:** —
 
 ## Craft Pipeline
 
@@ -1485,9 +1496,9 @@ last_manual_edit: 2026-06-27T12:51:51.967Z
 
 ### Semantic-Vocabulary CI Gate
 
-- **Status:** planned
+- **Status:** done
 - **Spec:** docs/changes/semantic-vocabulary-ci-gate/proposal.md
-- **Summary:** Add a harness analog of Spec Kitty's test_no_legacy_terminology architectural test: a CI gate that fails when deprecated or renamed canonical terms reappear in skills/docs, protecting the glossary and naming-craft investment from vocabulary drift over time. Adapted from Spec Kitty's semantic-terminology architectural test. Adoption #8 from docs/research/spec-kitty-comparison-analysis.md [SPECKITTY-8]
+- **Summary:** DELIVERED (PR #1048, merged). Add a harness analog of Spec Kitty's test_no_legacy_terminology architectural test: a CI gate that fails when deprecated or renamed canonical terms reappear in skills/docs, protecting the glossary and naming-craft investment from vocabulary drift over time. Adapted from Spec Kitty's semantic-terminology architectural test. Adoption #8 from docs/research/spec-kitty-comparison-analysis.md [SPECKITTY-8]
 - **Blockers:** —
 - **Plan:** —
 - **Assignee:** —
@@ -1533,9 +1544,9 @@ last_manual_edit: 2026-06-27T12:51:51.967Z
 
 ### ESLint Rule: prefer-execfile-over-exec
 
-- **Status:** planned
+- **Status:** done
 - **Spec:** docs/changes/eslint-prefer-execfile-over-exec/proposal.md
-- **Summary:** New ESLint rule to flag execSync/exec with string commands (shell invocation) and suggest execFileSync/execFile with array args (no shell). Reduces shell injection surface and avoids broken exit code handling with shell redirects. 15+ instances in codebase.
+- **Summary:** DELIVERED (PR #1042, merged). New ESLint rule to flag execSync/exec with string commands (shell invocation) and suggest execFileSync/execFile with array args (no shell). Reduces shell injection surface and avoids broken exit code handling with shell redirects. 15+ instances in codebase.
 - **Blockers:** —
 - **Plan:** —
 - **Assignee:** —
