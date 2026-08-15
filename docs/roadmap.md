@@ -55,6 +55,17 @@ last_manual_edit: 2026-06-27T12:51:51.967Z
 - **Priority:** P3
 - **External-ID:** github:Intense-Visions/harness-engineering#999
 
+### LMLM: pool consumption improvements (make installed models live, task-aware, self-correcting)
+
+- **Status:** done
+- **Spec:** docs/changes/lmlm-pool-consumption/proposal.md
+- **Summary:** DELIVERED (PR #788, merged). The LMLM install side is solid (async install + progress, resumable pulls, restart recovery, lineage scoring — PRs #775, #777), but the consumption side is pull-based and static, so an installed model barely gets used. Five phased improvements: (1) **Freshness loop** — the resolver subscribes to the `local-models:pool` event (today it only polls, `local-model-resolver.ts:260`) and the analysis provider resolves its model lazily instead of freezing at pipeline build (`analysis-provider-factory.ts:147`); (2) **Score-seed** — a new pool entry starts `currentScore: 0`, so the model you explicitly installed sits at the bottom of the score-sorted candidate list until re-rank; seed it from the ranked/interpolated score; (3) **Runtime feedback** — stamp `lastUsedAt` on real inference (LRU eviction currently runs on stale data) + a failure circuit-breaker; (4) **Task-aware selection** — per-profile pool scores (`general`/`coding`/`reasoning`) + a `RoutingUseCase → profile` map so each task gets the best-fit pooled model instead of one top-scored model per backend (advances the Agent Autonomy metric; carries a standalone ADR); (5) **Warming** — warm the selected model into VRAM (`keep_alive`) to avoid first-request cold-start. Additive schema only (`PoolEntry.scoresByProfile`, absolute score on `ModelProposalContent`). Does NOT depend on live-HF candidate discovery — scores the models already in the pool.
+- **Blockers:** —
+- **Plan:** —
+- **Assignee:** —
+- **Priority:** P2
+- **External-ID:** github:Intense-Visions/harness-engineering#1000
+
 ### product-advisor
 
 - **Status:** done
@@ -76,17 +87,6 @@ last_manual_edit: 2026-06-27T12:51:51.967Z
 - **Assignee:** —
 - **Priority:** P2
 - **External-ID:** github:Intense-Visions/harness-engineering#1031
-
-### LMLM: pool consumption improvements (make installed models live, task-aware, self-correcting)
-
-- **Status:** planned
-- **Spec:** docs/changes/lmlm-pool-consumption/proposal.md
-- **Summary:** The LMLM install side is solid (async install + progress, resumable pulls, restart recovery, lineage scoring — PRs #775, #777), but the consumption side is pull-based and static, so an installed model barely gets used. Five phased improvements: (1) **Freshness loop** — the resolver subscribes to the `local-models:pool` event (today it only polls, `local-model-resolver.ts:260`) and the analysis provider resolves its model lazily instead of freezing at pipeline build (`analysis-provider-factory.ts:147`); (2) **Score-seed** — a new pool entry starts `currentScore: 0`, so the model you explicitly installed sits at the bottom of the score-sorted candidate list until re-rank; seed it from the ranked/interpolated score; (3) **Runtime feedback** — stamp `lastUsedAt` on real inference (LRU eviction currently runs on stale data) + a failure circuit-breaker; (4) **Task-aware selection** — per-profile pool scores (`general`/`coding`/`reasoning`) + a `RoutingUseCase → profile` map so each task gets the best-fit pooled model instead of one top-scored model per backend (advances the Agent Autonomy metric; carries a standalone ADR); (5) **Warming** — warm the selected model into VRAM (`keep_alive`) to avoid first-request cold-start. Additive schema only (`PoolEntry.scoresByProfile`, absolute score on `ModelProposalContent`). Does NOT depend on live-HF candidate discovery — scores the models already in the pool.
-- **Blockers:** —
-- **Plan:** —
-- **Assignee:** —
-- **Priority:** P2
-- **External-ID:** github:Intense-Visions/harness-engineering#1000
 
 ### Adaptive Model Routing (AMR)
 
@@ -167,9 +167,9 @@ last_manual_edit: 2026-06-27T12:51:51.967Z
 
 ### design-craft responsive gate
 
-- **Status:** planned
+- **Status:** done
 - **Spec:** docs/changes/design-craft-responsive-gate/proposal.md
-- **Summary:** Responsive Gate for awardBar — a mechanical mobile-defect veto on the award-tier verdict
+- **Summary:** DELIVERED (PR #1149, merged). Responsive Gate for awardBar — a mechanical mobile-defect veto on the award-tier verdict
 - **Blockers:** —
 - **Plan:** —
 - **Assignee:** —
@@ -844,9 +844,9 @@ last_manual_edit: 2026-06-27T12:51:51.967Z
 
 ### Merge fragmented concept clusters in the catalog
 
-- **Status:** planned
+- **Status:** done
 - **Spec:** —
-- **Summary:** Three confirmed/suspected clusters of concept fragmentation in the catalog. CONFIRMED: `harness-i18n` + `harness-i18n-workflow` + `harness-i18n-process` — overlap is admitted in i18n SKILL.md:13-14. SUSPECTED: six `harness-design*` skills (`harness-design`, `harness-design-craft`, `harness-design-mobile`, `harness-design-pipeline`, `harness-design-system`, `harness-design-web`). SUSPECTED: `harness-verify` + `harness-verification` + `harness-integrity`. Audit each cluster and merge to one skill per concept. Source: Pass 4 action 2. AUDIT OUTCOME (see `docs/changes/catalog-cluster-merge-audit/`): no skills merged — all three clusters are well-factored by lifecycle role, cognitive mode, and composition layer. The i18n "CONFIRMED" label is a false positive (SKILL.md:13-14 is disambiguation, not overlap). The only genuine issue is the `verify` vs `verification` naming collision — a discoverability/rename problem, not fragmentation — flagged for human review as a separate non-destructive item. Awaiting human decision to close or reclassify.
+- **Summary:** DELIVERED (PR #1099, merged — audit concluded no merge needed). Three confirmed/suspected clusters of concept fragmentation in the catalog. CONFIRMED: `harness-i18n` + `harness-i18n-workflow` + `harness-i18n-process` — overlap is admitted in i18n SKILL.md:13-14. SUSPECTED: six `harness-design*` skills (`harness-design`, `harness-design-craft`, `harness-design-mobile`, `harness-design-pipeline`, `harness-design-system`, `harness-design-web`). SUSPECTED: `harness-verify` + `harness-verification` + `harness-integrity`. Audit each cluster and merge to one skill per concept. Source: Pass 4 action 2. AUDIT OUTCOME (see `docs/changes/catalog-cluster-merge-audit/`): no skills merged — all three clusters are well-factored by lifecycle role, cognitive mode, and composition layer. The i18n "CONFIRMED" label is a false positive (SKILL.md:13-14 is disambiguation, not overlap). The only genuine issue is the `verify` vs `verification` naming collision — a discoverability/rename problem, not fragmentation — flagged for human review as a separate non-destructive item. Awaiting human decision to close or reclassify.
 - **Blockers:** —
 - **Plan:** See audit — `docs/changes/catalog-cluster-merge-audit/proposal.md`
 - **Assignee:** —
@@ -1158,9 +1158,9 @@ last_manual_edit: 2026-06-27T12:51:51.967Z
 
 ### Honor persona-declared triggers — emit and commit persona CI workflows and scheduled jobs
 
-- **Status:** planned
+- **Status:** done
 - **Spec:** docs/changes/honor-persona-triggers/proposal.md
-- **Summary:** Persona YAMLs (agents/personas/\*.yaml) declare on_pr/on_commit/scheduled(cron) triggers and outputs.ci-workflow: true, and a generator exists (packages/cli/src/persona/generators/ci-workflow.ts), but — verified 2026-06 — NO generated persona workflow is committed and nothing honors the triggers; they are dead declarations. Make them real: run the persona CI-workflow generator and commit the resulting .github/workflows/ so declared triggers actually fire, plus a check that fails when a persona's declared trigger has no committed workflow (drift guard, mirrors generate:plugin:check). First consumer: the new harness-pm persona (#566) auto-runs acceptance-eval on PRs touching docs/changes/\*\* — closing the manual-only gap for the upstream acceptance-criteria gate. Also lights up the currently-dormant declarations on codebase-health-analyst (dependency-health, hotspot-detector, cleanup-dead-code — weekly sweep), performance-guardian (perf), entropy-cleaner (cleanup), graph-maintainer, and security-reviewer (on_pr deep OWASP/threat-model review beyond CI's lightweight security-scan). Today the project's strongest gear is opt-in; this makes it load-bearing without a human remembering to invoke each persona. Recommended priority: P1.
+- **Summary:** DELIVERED (PR #1086, merged). Persona YAMLs (agents/personas/\*.yaml) declare on_pr/on_commit/scheduled(cron) triggers and outputs.ci-workflow: true, and a generator exists (packages/cli/src/persona/generators/ci-workflow.ts), but — verified 2026-06 — NO generated persona workflow is committed and nothing honors the triggers; they are dead declarations. Make them real: run the persona CI-workflow generator and commit the resulting .github/workflows/ so declared triggers actually fire, plus a check that fails when a persona's declared trigger has no committed workflow (drift guard, mirrors generate:plugin:check). First consumer: the new harness-pm persona (#566) auto-runs acceptance-eval on PRs touching docs/changes/\*\* — closing the manual-only gap for the upstream acceptance-criteria gate. Also lights up the currently-dormant declarations on codebase-health-analyst (dependency-health, hotspot-detector, cleanup-dead-code — weekly sweep), performance-guardian (perf), entropy-cleaner (cleanup), graph-maintainer, and security-reviewer (on_pr deep OWASP/threat-model review beyond CI's lightweight security-scan). Today the project's strongest gear is opt-in; this makes it load-bearing without a human remembering to invoke each persona. Recommended priority: P1.
 - **Blockers:** —
 - **Plan:** —
 - **Assignee:** —
