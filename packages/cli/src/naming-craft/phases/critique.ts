@@ -18,6 +18,7 @@ import type {
 } from '../findings/schema.js';
 import type { ExtractedIdentifier } from '../extract/identifiers.js';
 import { derivePriority } from '../findings/derived.js';
+import { extractFencedJsonPayload } from '../../shared/craft/fenced-json.js';
 
 export interface CritiqueInput {
   identifier: ExtractedIdentifier;
@@ -124,8 +125,7 @@ function kindToConventionKey(
 }
 
 function parseFencedJson(raw: string): Record<string, unknown> | null {
-  const match = /```(?:json)?\s*\n?([\s\S]*?)\n?\s*```/.exec(raw);
-  const body = match !== null ? match[1]! : raw;
+  const body = extractFencedJsonPayload(raw);
   if (body.trim() === 'null') return null;
   try {
     // harness-ignore SEC-DES-001: parses LLM model output; typeof check on next line gates shape, downstream callers re-validate fields

@@ -1,0 +1,38 @@
+{
+  "issue": 1369,
+  "slug": "fix-craft-nested-fence-json-parse",
+  "title": "nesting-aware fenced-JSON parse stops dropping craft findings",
+  "branch": "fix/craft-nested-fence-json",
+  "pipelineStages": [
+    "brainstorming: authored docs/changes/fix-craft-nested-fence-json-parse/proposal.md",
+    "planning: authored docs/changes/fix-craft-nested-fence-json-parse/plans/plan.md",
+    "tdd: authored fenced-json.test.ts (10 cases) then extractFencedJsonPayload",
+    "execution: rewired all 10 craft families to the shared util",
+    "validation: turbo build (bundle+DTS typecheck), full cli vitest suite, eslint"
+  ],
+  "planArtifact": "docs/changes/fix-craft-nested-fence-json-parse/plans/plan.md",
+  "sharedUtil": "packages/cli/src/shared/craft/fenced-json.ts",
+  "consumers": [
+    "packages/cli/src/code-craft/phases/critique.ts",
+    "packages/cli/src/docs-craft/phases/critique.ts",
+    "packages/cli/src/spec-craft/phases/critique.ts",
+    "packages/cli/src/copy-craft/phases/critique.ts",
+    "packages/cli/src/naming-craft/phases/critique.ts",
+    "packages/cli/src/test-craft/phases/critique.ts",
+    "packages/cli/src/security-craft/phases/critique.ts",
+    "packages/cli/src/api-craft/phases/critique.ts",
+    "packages/cli/src/cli-ergonomics-craft/phases/critique.ts",
+    "packages/cli/src/knowledge-craft/phases/critique.ts"
+  ],
+  "assumptions": [
+    "Shared util placed in packages/cli/src/shared/craft (internal module), NOT a new @harness-engineering/core export, since all 10 consumers live in packages/cli; core-barrel allowlist untouched.",
+    "Chose a string/escape-aware brace-balanced scan over a greedy last-fence regex because greedy would merge two separate fenced blocks (the failure mode the issue warns about).",
+    "Scoped to the 10 families carrying the lazy regex; design-craft uses a different parse mechanism and was left untouched.",
+    "Ran a faithful brainstorming -> planning -> TDD -> execution -> validation pipeline with committed artifacts; did not invoke the interactive run_skill orchestration to keep this isolated build lane deterministic and non-blocking."
+  ],
+  "localChecks": {
+    "build": "pass (turbo build @harness-engineering/cli, bundle + DTS typecheck)",
+    "test": "pass (full cli vitest suite 6224 tests + 10 new util tests)",
+    "lint": "pass (eslint clean on all changed files)"
+  }
+}

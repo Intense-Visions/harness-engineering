@@ -19,6 +19,7 @@ import type {
   Confidence,
 } from '../findings/schema.js';
 import { derivePriority } from '../../shared/craft/findings/derived.js';
+import { extractFencedJsonPayload } from '../../shared/craft/fenced-json.js';
 
 const CONTEXT_WINDOW_CHARS = 1500;
 
@@ -147,8 +148,7 @@ function expandWindow(
 }
 
 function parseFencedJson(raw: string): Record<string, unknown> | null {
-  const match = /```(?:json)?\s*\n?([\s\S]*?)\n?\s*```/.exec(raw);
-  const body = match !== null ? match[1]! : raw;
+  const body = extractFencedJsonPayload(raw);
   if (body.trim() === 'null') return null;
   try {
     // harness-ignore SEC-DES-001: parses LLM model output; typeof check on next line gates shape, downstream callers re-validate fields
