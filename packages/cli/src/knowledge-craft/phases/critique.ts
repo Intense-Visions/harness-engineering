@@ -40,7 +40,7 @@ export async function critiqueOne(input: CritiqueInput): Promise<KnowledgeFindin
   const impact = parsed.impact as Impact;
   const confidence = parsed.confidence as Confidence;
   if (!isTier(tier) || !isImpact(impact) || !isConfidence(confidence)) return null;
-  if (typeof parsed.message !== 'string' || parsed.message.length === 0) return null;
+  if (typeof parsed.message !== 'string' || parsed.message.trim().length === 0) return null;
 
   return {
     code: rubric.id,
