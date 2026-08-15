@@ -101,6 +101,12 @@ function findFunctionEnd(lines: string[], startIdx: number): number {
         if (foundOpen && depth === 0) {
           return i;
         }
+      } else if (ch === ';' && !foundOpen && depth === 0) {
+        // Expression-bodied arrow / bodyless declaration: the statement ends
+        // before any block opens, so the function ends on this line rather
+        // than running the brace scan into the next function or to EOF
+        // (issue #1329).
+        return i;
       }
     }
   }

@@ -305,3 +305,40 @@ export function fn2(a: number) { return a; }
     expect(result.value.stats.functionsAnalyzed).toBe(2);
   });
 });
+
+// Regression: github issue #1329. findFunctionEnd() only stops when brace
+// depth returns to zero, so an expression-bodied arrow (no `{` block) never
+// "closes" — the scan runs forward into the *next* function's braces (or to
+// EOF when it is the last construct), inflating the measured length and
+// corrupting every downstream complexity metric attributed to that function.
+describe('detectComplexityViolations — issue #1329 (findFunctionEnd runs to EOF)', () => {
+  it('measures an expression-bodied arrow at its true length, not into the next function', async () => {
+    const content = [
+      'export const inc = (n: number): number => n + 1;',
+      '',
+      'export function big(a: number): number {',
+      '  const x1 = a + 1;',
+      '  const x2 = x1 + 1;',
+      '  const x3 = x2 + 1;',
+      '  const x4 = x3 + 1;',
+      '  const x5 = x4 + 1;',
+      '  return x5;',
+      '}',
+      '',
+    ].join('\n');
+    await writeFixture('arrow-eof.ts', content);
+    const snapshot = makeSnapshot([{ name: 'arrow-eof.ts', content }]);
+
+    const config: ComplexityConfig = { thresholds: { functionLength: { warn: 5 } } };
+    const result = await detectComplexityViolations(snapshot, config);
+    expect(isOk(result)).toBe(true);
+    if (!isOk(result)) return;
+
+    // `inc` is a genuine one-line function; it must NOT be reported as a
+    // length violation. At base it spans the whole `big` body (~10 lines).
+    const incLengthViolations = result.value.violations.filter(
+      (v) => v.function === 'inc' && v.metric === 'functionLength'
+    );
+    expect(incLengthViolations).toHaveLength(0);
+  });
+});
