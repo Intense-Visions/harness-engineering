@@ -1,0 +1,72 @@
+{
+  "schemaVersion": 5,
+  "specPath": "docs/changes/uat-user-sign-off-loop/proposal.md",
+  "sessionSlug": "changes--uat-user-sign-off-loop--proposal",
+  "startingCommit": "240d472713a57375029d338a8a6fc911ffff9c4c",
+  "rigorLevel": "thorough",
+  "reviewPlans": false,
+  "currentState": "DONE",
+  "currentPhase": 0,
+  "phases": [
+    {
+      "name": "UAT sign-off dashboard front door",
+      "complexity": "medium",
+      "complexityOverride": null,
+      "planPath": "docs/changes/uat-user-sign-off-loop/plans/2026-08-16-phase-1-signoff-dashboard-front-door-plan.md",
+      "status": "PHASE_COMPLETE"
+    }
+  ],
+  "decisions": [
+    {
+      "state": "ASSESS",
+      "what": "Routed the phase as medium complexity: two Hono routes, one React page, one gather module, plus navigation wiring across four registries (SYSTEM_PAGES, ROLE_LANES, ThreadView, server index).",
+      "why": "Additive surface over an existing record primitive (UatSignoffRecorder) — no new node type, authority, or LLM — but it spans server + client + shared types + config, so not low."
+    },
+    {
+      "state": "APPROVE_PLAN",
+      "what": "Auto-approved the plan (6 tasks, 2 checkpoints, no unresolved concerns).",
+      "why": "Task count < 15, complexity medium with no override, and the one build-time fork (the dashboard layer boundary) was resolved during brainstorming rather than left for planning."
+    },
+    {
+      "state": "BRAINSTORM",
+      "what": "Resolved the proposal's three Open Questions to their recommended defaults: change-level Success-Criteria basis (not engagement/BRD roll-up), an explicit ?slug query param (no picker), and a free-text signer identity.",
+      "why": "Each recommended default keys off an acceptance basis already on disk and already wired to the node; the deferred engagement/BRD roll-up needs change->BRD traceability plumbing that does not exist yet and warrants its own #710-follow-up."
+    },
+    {
+      "state": "EXECUTE",
+      "what": "Reused UatSignoffRecorder verbatim as the sole write path; the POST route records the identical execution_outcome node the uat_signoff MCP tool records.",
+      "why": "Spec Decision 1 — a second record path would fork the acceptance history. A browser sign-off and a CLI sign-off must be the same node."
+    },
+    {
+      "state": "EXECUTE",
+      "what": "Opened the dashboard architecture layer to depend on `intelligence` (harness.config.json allowedDependencies += intelligence; package.json += workspace dep).",
+      "why": "The mandated recorder reuse lives in the intelligence layer, which the dashboard layer did not previously permit. Verified the layer-violations collector skips bare @harness-engineering/* specifiers (external imports resolve to null), so the change is honest declaration, not a new arch-gate regression."
+    },
+    {
+      "state": "EXECUTE",
+      "what": "Kept the acceptance-basis extraction self-contained in gather/signoff.ts (a fenced-code-aware fallback-chain parser) rather than importing outcome-eval's internal section-resolver.",
+      "why": "The resolver is not exported from the intelligence barrel; re-deriving the same Success-Criteria -> User-Visible Behavior -> Overview soft-degrade locally avoids coupling to an internal and keeps the surface's read path independent of the eval contract."
+    },
+    {
+      "state": "EXECUTE",
+      "what": "Enforced the skill's Iron Law at the write boundary: the POST rejects a missing overall verdict, a missing signer, or any item lacking a disposition with a 4xx and records nothing.",
+      "why": "The human is the sole authority; the surface must never infer a verdict. Covering test posts each malformed body and asserts an unchanged graph plus no signoff.md."
+    },
+    {
+      "state": "VERIFY",
+      "what": "Left the sign-off route free of any gate/CI/pipeline import and pinned it with a module-dependency test.",
+      "why": "AC-9 — the record blocks nothing. UAT stays advisory / human-judged, distinct from the blocking, LLM-judged acceptance-eval / outcome-eval contracts."
+    },
+    {
+      "state": "REVIEW",
+      "what": "Tightened the AC-9 dependency test to scan import statements only, after it initially flagged the sibling-contract names in explanatory prose comments.",
+      "why": "The comments legitimately name outcome-eval / acceptance-eval to draw the distinction; the observable guarantee is about imports, not prose."
+    }
+  ],
+  "gates": {
+    "unitTests": "packages/dashboard — 940 passed (132 files), including 9 route + 8 gather + 3 page/roles cases covering all nine acceptance criteria",
+    "typecheck": "PASS — tsc --noEmit across the affected graph",
+    "lint": "PASS — eslint src (dashboard)",
+    "build": "PASS — turbo build (fail-closed arch gate clean; no new layer-violations)"
+  }
+}

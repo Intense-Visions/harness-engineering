@@ -305,6 +305,9 @@ importers:
       '@harness-engineering/graph':
         specifier: workspace:*
         version: link:../graph
+      '@harness-engineering/intelligence':
+        specifier: workspace:*
+        version: link:../intelligence
       '@harness-engineering/orchestrator':
         specifier: workspace:*
         version: link:../orchestrator
@@ -5346,7 +5349,6 @@ packages:
   /cpu-features@0.0.10:
     resolution: {integrity: sha512-9IkYqtX3YHPCzoVg1Py+o9057a3i0fp7S530UWokCSaFVTc7CwXPRiOjRjBQQ18ZCNafx78YfnG+HALxtVmOGA==}
     engines: {node: '>=10.0.0'}
-    requiresBuild: true
     dependencies:
       buildcheck: 0.0.7
       nan: 2.27.0

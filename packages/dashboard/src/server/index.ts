@@ -14,6 +14,7 @@ import { buildCIRouter } from './routes/ci';
 import { buildImpactRouter } from './routes/impact';
 import { buildDecayTrendsRouter } from './routes/decay-trends';
 import { buildTraceabilityRouter } from './routes/traceability';
+import { buildSignoffRouter } from './routes/signoff';
 import { buildSignalsRouter } from './routes/signals';
 import { buildContext, type ServerContext } from './context';
 import { SSEManager } from './sse';
@@ -55,6 +56,7 @@ export function buildApp(ctx: ServerContext): Hono {
   app.route('/api', buildImpactRouter(ctx));
   app.route('/api', buildDecayTrendsRouter(ctx));
   app.route('/api', buildTraceabilityRouter(ctx));
+  app.route('/api', buildSignoffRouter(ctx));
   app.route('/api', buildSignalsRouter(ctx));
 
   // Auth admin routes (/api/v1/auth/*) are owned by the orchestrator and

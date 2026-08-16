@@ -44,7 +44,7 @@
     {
       "name": "dashboard",
       "pattern": "packages/dashboard/src/**",
-      "allowedDependencies": ["types", "core", "graph"]
+      "allowedDependencies": ["types", "core", "graph", "intelligence"]
     },
     {
       "name": "cli",

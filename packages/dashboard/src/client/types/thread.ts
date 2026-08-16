@@ -60,6 +60,8 @@ export const SYSTEM_PAGES = [
   { page: 'impact', label: 'Impact', route: '/s/impact' },
   { page: 'decay', label: 'Decay Trends', route: '/s/decay' },
   { page: 'traceability', label: 'Traceability', route: '/s/traceability' },
+  // Roadmap #710 — UAT sign-off front door (client / pm-ba lanes).
+  { page: 'signoff', label: 'Sign-off', route: '/s/signoff' },
   { page: 'orchestrator', label: 'Orchestrator', route: '/s/orchestrator' },
   // Live work-in-flight kanban — orchestrator/parallel-coordinator state as lanes.
   { page: 'kanban', label: 'Work in Flight', route: '/s/kanban' },

@@ -1,6 +1,6 @@
 ---
 feature: uat-user-sign-off-loop
-status: draft
+status: planned
 tier: medium
 roadmap: github:Intense-Visions/harness-engineering#710
 keywords: uat, sign-off, dashboard, client-lane, acceptance, brd, outcome-edge, full-lifecycle-reach
@@ -8,10 +8,16 @@ keywords: uat, sign-off, dashboard, client-lane, acceptance, brd, outcome-edge, 
 
 # UAT / User Sign-off Loop — Dashboard Front Door (close the outcome edge)
 
-> **STATUS: DRAFT SPEC — autonomously drafted for human review. Not build-ready
-> until a maintainer accepts it.** Authored upstream so a `roadmap-fleet` lane has
-> a grounded, buildable slice to execute. Review the scoping in "Open Questions"
-> before promoting `status: draft → planned`.
+> **STATUS: PLANNED — validated for build.** Soundness-checked via
+> `harness-brainstorming` (2026-08-16): the three Open Questions were resolved to
+> their recommended defaults (change-level Success-Criteria basis; explicit `slug`
+> over a picker; free-text signer) and the one build-time fork surfaced — the
+> `dashboard` layer's `allowedDependencies` did not list `intelligence`, which the
+> mandatory reuse of `UatSignoffRecorder` requires — was resolved by opening that
+> single boundary (cross-package `@harness-engineering/*` imports are external
+> specifiers the layer collector already skips, so no arch-gate regression). The
+> deferred engagement/BRD-level roll-up remains a separate #710-follow-up. Scope
+> below is the authoritative build target.
 
 ## Overview & Goals
 
