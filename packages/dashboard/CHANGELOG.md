@@ -1,5 +1,95 @@
 # @harness-engineering/dashboard
 
+## 0.16.0
+
+### Minor Changes
+
+- 162c761: feat(dashboard): author-intent form on PM/BA roadmap lane (#711)
+
+  Adds a first-class, plain-language "Author intent" panel to the Roadmap page
+  (`/s/roadmap`, the pm-ba lane's landing route), rendered only in the `pm-ba` and
+  `dev` lanes and hidden from the read/progress-oriented `client` lane. It writes a
+  backlog item through the existing `appendToRoadmap` → `POST /api/roadmap/append`
+  path — no chat thread, no slash command, no terminal — reusing the shipped
+  conflict/toast plumbing: on success it clears, confirms with a toast, and the new
+  row surfaces in the existing FeatureTable after the roadmap re-fetch; on a
+  409 conflict it surfaces the existing conflict toast and preserves the entered
+  content for retry. Lanes remain presentation-only (the server AUTHORIZATION SEAM
+  is untouched).
+
+- 1e91c48: feat(dashboard): UAT sign-off front door in the client lane (#710)
+
+  Surfaces the already-shipped UAT sign-off record primitive as a **Sign-off page in
+  the dashboard `client` and `pm-ba` lanes** — the missing browser front door that
+  lets a non-engineer adjudicate shipped work against its intent without opening the
+  CLI. Closes the inception → acceptance circle at the far end of the lifecycle.
+  - `GET /api/signoff/:slug` resolves a change's acceptance basis from its
+    `docs/changes/<slug>/proposal.md` `## Success Criteria`, soft-degrading to
+    `## User-Visible Behavior` then `## Overview` and reporting which section was
+    used; a missing proposal returns `items: []` / `basisSection: null` (never 5xx),
+    and any prior `signoff.md` is surfaced as `existing` so a signed change renders
+    read-only.
+  - `POST /api/signoff` records the human decision through the **exact same
+    `UatSignoffRecorder`** the `uat_signoff` MCP tool uses — one `execution_outcome`
+    node (`metadata.source = 'uat-signoff'`, `result = success` iff `ACCEPTED`) — and
+    writes `docs/changes/<slug>/signoff.md`. It rejects an incomplete decision (no
+    inferred verdict) and blocks nothing: advisory / record-only.
+  - A new `Signoff` React page renders one neutral disposition control per acceptance
+    item, an overall-verdict control, and a signer field; the submit control is gated
+    until every item is ruled, a verdict is chosen, and a signer is entered.
+
+  Reuses the recorder, the `execution_outcome` node shape, and the `client` role
+  model — a new presentation + capture surface, not a new capability, node type,
+  authority, or LLM. UAT stays human-judged and advisory, distinct from the
+  LLM-judged, blocking `acceptance-eval` / `outcome-eval` gates.
+
+  The dashboard architecture layer now permits `@harness-engineering/intelligence`
+  (the recorder's home) as the single build-time consequence of that mandated reuse.
+
+### Patch Changes
+
+- 59ef17a: Update the `tsx` dev dependency to 4.23.11
+
+  Raises the declared `tsx` floor to `^4.23.11` (same major) in the root,
+  `core`, and `dashboard` manifests. `tsx` 4.23.11 depends on `esbuild`
+  `~0.28.0` and resolves the patched `esbuild` 0.28.2, replacing the 0.27.7
+  copy it previously pulled.
+
+  This also corrects the root `auditExceptions` record for
+  `GHSA-g7r4-m6w7-qqqr`, whose stated precondition ("accepted pending a tsx
+  release on esbuild >=0.28.1") had been met upstream and was therefore stale.
+
+  The advisory is **not** cleared by this change and remains accepted. `tsup`
+  8.5.1 — the latest published `tsup` — declares `esbuild` `^0.27.0`, so a
+  vulnerable 0.27.7 copy still resolves via `tsup` and its `bundle-require`
+  dependency. It stays dev-only, Windows-only, and low severity; the real fix
+  is a `tsup` release on `esbuild` >=0.28.1.
+
+  Dev-tooling only — no published runtime dependency or API surface changes.
+
+- Updated dependencies [369839e]
+- Updated dependencies [7d3c06d]
+- Updated dependencies [797a42b]
+- Updated dependencies [7b17174]
+- Updated dependencies [06b5a72]
+- Updated dependencies [80fcdbe]
+- Updated dependencies [48cf10e]
+- Updated dependencies [7127e28]
+- Updated dependencies [56f68f3]
+- Updated dependencies [def9dc6]
+- Updated dependencies [8559d5e]
+- Updated dependencies [c32632c]
+- Updated dependencies [bbd1d37]
+- Updated dependencies [23de83f]
+- Updated dependencies [59ef17a]
+- Updated dependencies [0876aec]
+  - @harness-engineering/graph@0.13.0
+  - @harness-engineering/core@0.42.0
+  - @harness-engineering/orchestrator@0.21.2
+  - @harness-engineering/types@0.29.0
+  - @harness-engineering/intelligence@0.11.3
+  - @harness-engineering/signals@0.3.3
+
 ## 0.15.2
 
 ### Patch Changes

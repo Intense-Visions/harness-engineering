@@ -1,5 +1,363 @@
 # @harness-engineering/cli
 
+## 11.2.0
+
+### Minor Changes
+
+- 48cf10e: feat(graph): add `harness graph integrity` and the harness-graph-integrity skill
+
+  `harness graph status` reports how big the graph is, never whether its contents
+  can be trusted. Two defect classes live in that gap, and both currently read as
+  green:
+  - A connector that never authenticated still reports a fresh
+    `last synced <timestamp>`, because the status reader narrows each connector's
+    `lastResult` to a bare timestamp and discards `errors` and the counts (#1336).
+  - The code extractors mint `business_term` nodes out of prose — the canonical
+    instance being `enum or { function, const, if, if, if, return }` (#1331). Such
+    a node cannot be cleared by re-ingesting; it is re-derived from unchanged
+    source on every run.
+
+  Adds `checkGraphIntegrity` to `@harness-engineering/graph` and a
+  `harness graph integrity` subcommand that surfaces both, plus the
+  `harness-graph-integrity` skill across all four platforms. Following #1146, the
+  report carries its denominators and exits `ZERO_DENOMINATOR` when it inspected
+  nothing, so an abstention can never be read as a pass.
+
+  Additive only: no existing command, output, or exit code changes.
+
+- d3cf719: feat(graph): add get_graph_schema MCP introspection tool
+
+  New read-only MCP tool `get_graph_schema` returns the knowledge graph's SHAPE so an
+  agent can discover it before querying — the missing counterpart to `query_graph`,
+  `ask_graph`, `get_relationships`, `search_similar`, `compute_blast_radius`, and
+  `find_context_for`, all of which require you to already know the schema.
+
+  It aggregates over the already-persisted node/edge records (no new datastore, no
+  scan, no write) and emits a stable JSON shape:
+  `{ nodeTypes: [{ label, count, properties }], edgeTypes: [{ type, count }],
+patterns: [{ from, edge, to, count }], totals: { nodeCount, edgeCount } }` —
+  per-label node counts with their observed property keys, per-type edge counts, and
+  the distinct `(fromLabel, edgeType, toLabel)` relationship patterns present. Wired
+  into the served tool registry with a `read` capability declaration.
+
+- 23de83f: feat(telemetry): add `harness telemetry synthesize` — a unified local telemetry report
+
+  Ships the in-repo slice of #563: a read-only, local, single-project command that
+  COMPOSES the five telemetry surfaces that already accrue — skill adoption
+  (`readAdoptionRecords`/`aggregateBySkill`), Bayesian skill effectiveness
+  (`computeSkillEffectiveness`/`detectFailingSkills`/`detectAbandonedSkills`), usage/cost
+  (the usage aggregator), composite code-health insights (`composeInsights`), and
+  `execution_outcome` graph verdicts — into one report. Markdown by default; `--json`
+  emits a machine-readable `TelemetrySynthesis` object designed so a future dashboard can
+  consume it unchanged.
+
+  It collects nothing new — no hooks, event types, or storage — and is pure composition
+  over existing readers, mirroring the `harness adoption retrospective` precedent.
+  `--skip <section>` omits a source, `--window <days>` bounds the adoption/usage/outcome
+  sources, and `--out <path>` writes to a file (default: stdout). A missing source
+  contributes an explicit "no data" note in a "Sources with no data" footer — never a
+  fabricated zero and never a crash.
+
+  The cross-adopter public dashboard from the shard stays out of scope (it needs a
+  PostHog aggregate + privacy review + hosting decision that do not exist in-repo); this
+  is the buildable, testable per-project data layer that dashboard would render.
+
+  `core` gains a `telemetry-synthesis` module (pure composer + Markdown renderer); the CLI
+  is the composition root, keeping `core` free of any `intelligence`/`graph` dependency.
+
+- 8c96cc5: fix(test-craft): refuse to report zero findings for zero critiques (#1346, #1347)
+
+  `harness test-craft` could not produce a finding under its own default provider,
+  and could not see ESM test suites at all. Both failures printed the same thing:
+  `No test findings.` at exit 0.
+
+  **The critique phase never ran (#1346).** `InSessionLlmProvider.callText` throws
+  `PromptDeferredError` on every call — it queues the prompt for the calling agent
+  rather than answering it — and `critiqueTest` caught every throw in a bare
+  `catch {}`. Every `(test × rubric)` pair failed and was discarded. `test-craft`
+  now refuses that provider up front, the way `naming-craft` already does, and
+  per-rubric failures are counted into `summary.counts.critiqueErrors` instead of
+  being dropped.
+
+  **Discovery was blind to `.mjs` / `.cjs` / `.mts` / `.cts` (#1347).** The
+  extension list lived in two places — the discovery walk and a second regex gate
+  inside `extract/tests.ts` — so the bug had two halves: the walker skipped
+  `*.test.mjs`, and passing one through `--files` cleared the walker only to be
+  dropped by the extractor, reporting `filesScanned: 1` against
+  `testsExtracted: 0`. Both now read from `extract/test-file-exts.ts`.
+
+  Measured on a 53-file ESM repo: `0 findings / 60 tests / 9 files / 0 LLM calls`
+  became `8936 findings / 1117 tests / 53 files / 8936 LLM calls`.
+
+  **Behaviour change:** `runTestCraft` and `critiqueTestsInFile` now throw when
+  handed the in-session provider rather than returning an empty result. Callers
+  relying on the silent-empty return must configure a real backend via
+  `agent.backends` + `HARNESS_CRAFT_LLM`, or set `HARNESS_CRAFT_LLM=mock`.
+
+  `TestCraftSummary.counts` gains `critiqueErrors` and `testsTruncated`. Both are
+  required fields, so code constructing that type (rather than only reading it)
+  needs updating. The CLI now also warns when the per-file cap truncated a file
+  and notes when nothing source-paired, which silently disables `TEST-R007`.
+
+### Patch Changes
+
+- c523902: feat(burn): attribute token spend to the subagent that spent it
+
+  `UsageRecord` gains `agent` and `agentId`, `usage.tsv` widens from 7 to 9 columns
+  (7-column rows still load, labelled `pre-migration`; the reader also tolerates any
+  future extra columns), and `files.tsv` gains a `#version` header that forces one full
+  rescan on upgrade — after which every row whose transcript is still on disk is
+  relabelled with its real agent.
+
+  `Summary` gains additive `agents` and `attribution` blocks, and `harness burn report`
+  gains a "by agent" section in which the `unattributed` row is never elided. Subagent
+  spend whose identity cannot be read is reported as `unattributed` units, never as zero;
+  when none of the current week's subagent spend carries a readable label, the report
+  headlines that attribution is degraded.
+
+  Note for downgrades: a `burn` older than this change reading a 9-column store discards
+  every row. The integrity gate then re-reads every transcript, so the loss is bounded to
+  rows whose transcripts have already been pruned.
+
+- aeb9054: fix(craft): nesting-aware fenced-JSON parse stops dropping findings
+
+  Every craft family's CRITIQUE phase used a lazy fence regex
+  (`/```(?:json)?\s*\n?([\s\S]*?)\n?\s*```/`) to extract the JSON finding from the
+  LLM response. When a finding's `message` value itself contained a ```fence
+(critiques routinely quote code blocks), the lazy match truncated at that inner
+fence,`JSON.parse` threw, and the finding was silently dropped.
+
+  Extraction is now nesting-aware via a single shared util,
+  `extractFencedJsonPayload` (`shared/craft/fenced-json.ts`): it anchors on the
+  opening fence, then runs a string/escape-aware, brace-balanced scan that returns
+  the first complete JSON value. Inner fences inside string values no longer
+  truncate the object, and two separate fenced blocks are never merged. All ten
+  craft families (code / docs / spec / copy / naming / test / security / api /
+  cli-ergonomics / knowledge) now share this util; the duplicated regexes,
+  `FENCED_JSON` consts, and `stripJsonFence` helper are gone.
+
+- ea2d3c6: feat(design-craft): add CRAFT-P008 editorial-two-column-split polish pattern
+
+  Adds a `layout` POLISH pattern to the design-craft catalog, closing one of the
+  documented P008–P015 gaps. `density-rhythm` already detects left-column
+  monotony; this pattern prescribes the two-column heading-rail + body remedy.
+  Additive-only (new catalog entry + `SEED_PATTERNS` registration).
+
+- 8349f45: fix(knowledge-craft): harden discovery and critique-validation edge cases
+
+  Three latent bugs found by the bug-fleet hunt over `packages/cli/src/knowledge-craft/`:
+  - Discovery gated `.md` case-sensitively (`endsWith('.md')`) while the README
+    exclusion right below it was case-insensitive, so a `NOTES.MD` entry was
+    silently skipped. The extension gate is now case-insensitive to match.
+  - `maxFiles` guarded only `null`/`undefined`, so a negative value hit JS
+    negative-index `slice` semantics and silently dropped trailing entries
+    (`maxFiles: -1` scanned all but the last file). A negative / non-finite cap
+    now falls back to the default; `maxFiles: 0` still caps to zero.
+  - The critique parser rejected only truly-empty messages, so a whitespace-only
+    `message` became a finding with an unusable body. It is now trimmed before the
+    non-empty check.
+
+- 56f68f3: Scope `manage_roadmap add` to the row it adds, and link that row to its own
+  tracking issue.
+
+  Adding one roadmap row used to trigger a whole-repository bidirectional
+  reconcile against the tracker, so a local one-row write rewrote _other_ rows
+  with tracker state — and the new row itself was serialized without the
+  `Assignee` / `Priority` / `External-ID` triple, so nothing joined it to the
+  issue that had just been created for it. The two faults were opposite ends of
+  the same seam: added rows only looked healthy because the full sync
+  subsequently stamped `externalId` onto them, so excluding `add` from external
+  sync outright would have made the second fault fire on every add.
+
+  `add` now performs a row-scoped push instead. New core export
+  `syncRowToExternal(projectRoot, adapter, config, featureName, options?)`:
+  push-only, single row, dedup-aware, and fail-closed — if `fetchAllTickets`
+  fails it performs no create, because degrading to an empty dedup index would
+  mint exactly the duplicate issue this fix prevents. It runs no inbound pull
+  and does not stamp `last_synced`: a one-row push is not a reconcile.
+
+  It returns the new `RowSyncResult` — a `SyncResult` plus the post-push
+  `feature.externalId`. That field, not `created` / `updated`, is what answers
+  "is this row linked?": a row that dedup-links to an existing ticket has its id
+  stamped and written to disk even when the follow-up patch fails, leaving both
+  arrays empty. A writeback failure is reported under the `'*'` envelope, so
+  "linked at the tracker but not persisted" stays distinguishable from a
+  tracker-side error, and the `add` response can name the orphaned ticket.
+
+  **Types is a minor bump, not a patch:** `SyncResult` gained a required member
+  (`suppressedInbound`), which is source-breaking for anyone constructing one.
+
+  Inbound sync is hardened independently, because `sync --apply` and state
+  transitions still run the full reconcile:
+  - An absent tracker assignee no longer clears a local one. An unassigned issue
+    is the default state of every issue, not an authoritative empty value.
+  - Consequently, any inbound status change on an _assigned_ row now routes
+    through `setStatus`, so the assignee is released through the lifecycle
+    authority and `assignee ≠ null ⟺ in-progress` still holds. This also repairs
+    an already-invalid row (assigned but not `in-progress`), and the release is
+    reported: `assignmentChanges` now describes the assignee that actually landed
+    on disk rather than the intermediate value the pull computed.
+  - A merely-`OPEN` issue no longer overwrites a local `backlog` status. The
+    guard is gated on the absence of the label naming the status the write would
+    produce, rather than on the resolved status, because a direct open-to-planned
+    mapping resolves a bare issue and an explicitly `planned`-labelled one
+    identically. An explicit `planned` label still promotes; a `blocked` label
+    does not, since a direct `open` key discards its opinion anyway.
+  - Both suppressions are reported in the new `SyncResult.suppressedInbound`,
+    which `harness roadmap sync` now surfaces in both its `--json` payload
+    (`skipped.inbound`) and its warn output, rather than silently dropping.
+
+  The `add` response gains a `link` key describing the outcome. A missing token
+  or a failed link is reported in the response text but does **not** mark the
+  response as an error: the row was written and is locally valid, and flagging a
+  failure would invite a retry that mints a duplicate issue. The failure message
+  names the recovery that works — `sync` with `apply=true`, which links the row
+  that already exists — and warns against re-running `add`, which cannot work
+  because the row is already persisted and the second add collides on slug.
+
+  The roadmap serializer is unchanged. Stamping `externalId` alone flips the
+  extended-field predicate, so all three lines appear because the fields are
+  real — not because the serializer pads them.
+
+  Refs #1285, #1286.
+
+- 7d0f917: fix(scan-config): apply `fileGlob` so path-scoped rules stop matching the wrong files
+
+  `scan-config` called `SecurityScanner.scanContent`, which documents that it
+  evaluates every active rule "regardless of filePath". Path-scoped rules were
+  therefore matched against files their `fileGlob` excludes.
+
+  The visible cost was SEC-AGT-007 ("Shell metacharacters in hook commands"),
+  scoped to `**/settings*.json,**/hooks.json`, whose pattern ``/`[^`]+`/``
+  matches ordinary Markdown inline code. Measured on a real repository, the scan
+  reported **787** findings and exited 2; **758** of them were SEC-AGT-007 (378),
+  SEC-MCP-002 (377) and SEC-MCP-004 (3) firing on `CLAUDE.md` and `AGENTS.md`
+  prose such as ``If on `main`:``. After the fix the same repository reports 29
+  findings — the genuine `INJ-SUS-*` matches — and exits 0.
+
+  The scan now calls `scanFileContent`, which applies the same `fileGlob`
+  filtering as `scanFile` while reusing the content already read from disk.
+  `packages/orchestrator/src/workspace/config-scanner.ts` had already routed
+  around this for its copy of the workflow, naming SEC-AGT-007 and SEC-MCP-002 in
+  a comment; the CLI command was never brought across.
+
+  Rules whose `fileGlob` does match are unaffected — a regression test asserts
+  SEC-AGT-006 still fires on `CLAUDE.md`, so the fix narrows by path rather than
+  switching the security engine off.
+
+- 69903a7: Refuse to run findings-producing commands when the CLI is sharply out of step
+  with the workspace it is scanning.
+
+  A stale scanner does not fail — it emits well-formed, confident, wrong output.
+  In the run that motivated this change, a Node bin directory was prepended to
+  `PATH` to obtain Node 22; that directory also contained a `harness` shim
+  symlinked to an install ten major versions old. Every process spawned under that
+  `PATH` ran the old CLI, which predates the prior-line `harness-ignore`
+  suppression pass and therefore re-reported every already-justified suppression.
+  33 of 36 code-side security findings were phantoms, and the single finding
+  escalated to a human decision gate pointed at a line that was the XSS detection
+  vocabulary registry — annotated as definitional and suppressed.
+
+  A workspace can now declare the CLI line it expects via a new optional
+  `toolchain.cliVersion` key in `harness.config.json` (a semver range, e.g.
+  `">=11"`). The CLI compares its own version against that range, falling back to a
+  `@harness-engineering/cli` range in the project's `package.json`
+  `devDependencies`/`dependencies` when no config pin is set. Non-semver
+  specifiers (`workspace:*`, `file:`, `link:`, `git+`, `*`, `latest`) are ignored
+  rather than coerced, so monorepos do not produce false mismatches.
+
+  The severity ladder is deliberately asymmetric, because staleness is the
+  dangerous direction — an older scanner re-reports resolved findings (falsehood),
+  while a newer one reports rules the workspace has not adopted yet (noise):
+  - range satisfied — silent
+  - 2+ majors behind the range minimum — **refuse**, exit code 3 (`ZERO_DENOMINATOR`
+    — "abstained, not passed"; deliberately not exit 1, which is what these
+    commands already return when they found _real_ findings)
+  - exactly 1 major behind, or unsatisfied at a delta of 0 or less — warn, proceed
+
+  Only findings-producing commands are gated: `check-arch`, `check-deployment`,
+  `check-deps`, `check-docs`, `check-harness-strength`, `check-perf`,
+  `check-security`, `cleanup`, `cross-check`, `review-ci`, and `validate`. `doctor`, `update`, `setup`, and `init` are deliberately never
+  gated — those are the commands you need when your toolchain is wrong, and a
+  guard that blocks its own remedy is a trap.
+
+  When no expected version can be resolved, the guard is silent. Warning there
+  would fire for every project that has not opted in and would train everyone to
+  ignore the output, destroying the signal for the case that matters.
+
+  `HARNESS_NO_VERSION_GUARD=1` downgrades a refusal to a warning. It
+  deliberately does **not** silence the notice: a variable that suppressed the
+  message entirely would be exported once into a shell profile or CI config and
+  would restore the original silent failure permanently. The hatch buys a working
+  command, not a quiet one.
+
+  The refusal message names both versions, the expectation's source, and the
+  resolved path of the binary actually running — that last line is the one that
+  makes a shadowed `PATH` visible, which is what nobody could see when this
+  happened.
+
+  Note the inherent limitation: this guard cannot fire inside a CLI old enough to
+  predate it. It makes the failure class loud going forward; the accompanying
+  `-fleet` family reference documents the `PATH`-shadowing trap for as long as
+  stale binaries remain in circulation.
+
+- a02846c: fix(validate): a check that could not run no longer reports as passed
+
+  `harness validate` printed `validation passed` and exited `0` when `docs/roadmap.md`
+  existed but failed to parse. The `roadmapHealth` check was guarded by `if (parsed.ok)`
+  with no `else`, so on a parse failure every roadmap health rule (RMH001-RMH005) was
+  skipped at once, the parse error was discarded, and the verdict was never touched — a
+  roadmap broken beyond parsing validated clean while a _less_ broken one failed. The
+  aggregate-drift doctor carried the same swallow, reporting a freshness comparison as
+  passed when the shards could not be regenerated at all.
+
+  `harness validate` now has three outcomes instead of two. A check whose input exists
+  but cannot be consumed **abstains**: it is recorded in a new `unavailableChecks`
+  ledger, the result carries `complete: false`, and the command exits `3`
+  (`ZERO_DENOMINATOR` — "the command ran but examined nothing"), printing a
+  `Checks that could not run` section instead of a pass or fail verdict. Abstention
+  outranks failure, because exit `1` implies the reported findings are the complete
+  list. `--severity` never filters the ledger.
+
+  Existing behavior is unchanged otherwise: advisory findings such as RMH002 remain
+  warnings that do not fail validation, error findings still exit `1`, an absent
+  roadmap is still a silent no-op, and **human-readable** output for any run with no
+  unavailable checks is byte-identical to before.
+
+  The `--json` payload changes additively: every run now carries `complete` and
+  `unavailableChecks`. Machine consumers should gate on `complete` (or the exit code)
+  rather than `valid` — `valid` reports only on checks that actually ran, so it stays
+  `true` when a check abstained. `complete === true && valid === true` is what exit
+  code `0` means.
+
+- Updated dependencies [369839e]
+- Updated dependencies [162c761]
+- Updated dependencies [c523902]
+- Updated dependencies [7d3c06d]
+- Updated dependencies [797a42b]
+- Updated dependencies [7b17174]
+- Updated dependencies [06b5a72]
+- Updated dependencies [80fcdbe]
+- Updated dependencies [48cf10e]
+- Updated dependencies [7127e28]
+- Updated dependencies [56f68f3]
+- Updated dependencies [def9dc6]
+- Updated dependencies [8559d5e]
+- Updated dependencies [c32632c]
+- Updated dependencies [bbd1d37]
+- Updated dependencies [23de83f]
+- Updated dependencies [59ef17a]
+- Updated dependencies [1e91c48]
+- Updated dependencies [0876aec]
+  - @harness-engineering/graph@0.13.0
+  - @harness-engineering/dashboard@0.16.0
+  - @harness-engineering/burn@0.2.0
+  - @harness-engineering/core@0.42.0
+  - @harness-engineering/orchestrator@0.21.2
+  - @harness-engineering/types@0.29.0
+  - @harness-engineering/intelligence@0.11.3
+  - @harness-engineering/signals@0.3.3
+
 ## 11.1.1
 
 ### Patch Changes

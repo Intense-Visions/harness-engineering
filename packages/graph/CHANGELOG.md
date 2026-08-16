@@ -1,5 +1,106 @@
 # @harness-engineering/graph
 
+## 0.13.0
+
+### Minor Changes
+
+- 48cf10e: feat(graph): add `harness graph integrity` and the harness-graph-integrity skill
+
+  `harness graph status` reports how big the graph is, never whether its contents
+  can be trusted. Two defect classes live in that gap, and both currently read as
+  green:
+  - A connector that never authenticated still reports a fresh
+    `last synced <timestamp>`, because the status reader narrows each connector's
+    `lastResult` to a bare timestamp and discards `errors` and the counts (#1336).
+  - The code extractors mint `business_term` nodes out of prose — the canonical
+    instance being `enum or { function, const, if, if, if, return }` (#1331). Such
+    a node cannot be cleared by re-ingesting; it is re-derived from unchanged
+    source on every run.
+
+  Adds `checkGraphIntegrity` to `@harness-engineering/graph` and a
+  `harness graph integrity` subcommand that surfaces both, plus the
+  `harness-graph-integrity` skill across all four platforms. Following #1146, the
+  report carries its denominators and exits `ZERO_DENOMINATOR` when it inspected
+  nothing, so an abstention can never be read as a pass.
+
+  Additive only: no existing command, output, or exit code changes.
+
+### Patch Changes
+
+- 369839e: fix(graph): method-level @RequestMapping no longer overwrites Java basePath
+
+  ApiPathExtractor now derives the file-wide Spring basePath only from a
+  class/interface/enum-level `@RequestMapping`, classified by its target declaration
+  rather than the brittle "this line lacks `class`" heuristic. A method-level
+  `@RequestMapping` now contributes the method path (e.g. class `/api` + method `/foo`
+  resolves to `/api/foo`) instead of overwriting basePath, and the class-level
+  annotation is no longer emitted as a spurious endpoint.
+
+- 797a42b: fix(graph): correct two silent edge-extraction defects in the diagram parsers
+
+  Two independent correctness bugs in `packages/graph/src/ingest/parsers/` silently
+  put missing or inverted relationships into the knowledge graph:
+  - **Mermaid compact unlabeled edges were dropped.** `extractUnlabeledEdges`
+    required whitespace after the arrow (`\s+`), so a valid compact edge like
+    `A-->B` matched nothing while the spaced form `A --> B` and labeled edges in
+    the same diagram survived. The arrow's trailing whitespace is now optional, so
+    compact and spaced unlabeled edges extract identically.
+  - **PlantUML left-pointing arrows recorded an inverted edge.** `parseRelationshipMatch`
+    read endpoints by textual position and ignored arrow direction, so
+    `ClassA <-- ClassB` (which means ClassB points to ClassA) was recorded as
+    `ClassA -> ClassB`. The parser now captures the arrow token and emits the edge
+    in the direction the arrow points; right-pointing arrows are unchanged.
+
+  Both are covered by new reproducing tests in `DiagramParser.test.ts`.
+
+- 06b5a72: fix(graph): EnumConstantExtractor no longer mis-reads `as const` / `Object.freeze` objects with nested values
+
+  `collectObjectKeys` matched `^(\w+)\s*:` on every line and broke on the first
+  line starting with `}`, with no brace-depth tracking. A const object whose value
+  spanned multiple lines with a nested object or array — e.g.
+
+  ```ts
+  export const CONFIG = {
+    server: {
+      port: 3000,
+    },
+    debug: false,
+  } as const;
+  ```
+
+  was recorded with members `["server", "port"]`: the nested key `port` leaked in
+  as a false member and the nested closing brace ended collection early, dropping
+  `debug`. The extractor now tracks nesting depth and collects only the object's
+  top-level keys (`["server", "debug"]`). Covered by a new reproducing test.
+
+- c32632c: fix(graph): isolate per-connector failures in `SyncManager.syncAll`
+
+  A connector whose `ingest()` (or its per-connector metadata write) threw an
+  uncaught exception previously rejected the entire `syncAll()` run, silently
+  starving every connector registered after it and skipping the post-sync
+  KnowledgeLinker pass. `syncAll` now wraps each connector in a try/catch,
+  records the failure into the combined result's `errors` array, and continues
+  with the remaining connectors. Public return contract is unchanged.
+
+- bbd1d37: fix(graph): a hard-failed connector sync no longer stamps a fresh "last synced" timestamp (#1336)
+
+  `SyncManager.sync()` wrote `lastSyncTimestamp: new Date().toISOString()` on every
+  run, including runs where `connector.ingest()` returned errors and ingested
+  nothing. `sync-metadata.json` is the one surface a human (and the
+  `harness graph integrity` GI-C001 check) reads for freshness, so a failed sync
+  read as freshly synced.
+
+  Now only a run with no errors advances the timestamp. A hard failure still records
+  its `lastResult` — so the errors stay visible — but preserves the previous
+  successful timestamp, or an empty string if the connector has never succeeded.
+  The failed run is no longer misrepresented as a successful one.
+
+- Updated dependencies [56f68f3]
+- Updated dependencies [def9dc6]
+- Updated dependencies [8559d5e]
+- Updated dependencies [23de83f]
+  - @harness-engineering/types@0.29.0
+
 ## 0.12.2
 
 ### Patch Changes
