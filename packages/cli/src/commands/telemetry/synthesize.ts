@@ -116,6 +116,51 @@ function parseWindow(raw: string | undefined): number | null {
   return Number.isFinite(n) && n > 0 ? n : null;
 }
 
+interface SynthesizeOptions {
+  json?: boolean;
+  out?: string;
+  skip: string[];
+  window?: string;
+}
+
+/** Writes the report to `outPath` (creating parent dirs) and logs a one-line confirmation. */
+function writeReport(cwd: string, outPath: string, output: string): void {
+  const resolved = path.resolve(cwd, outPath);
+  fs.mkdirSync(path.dirname(resolved), { recursive: true });
+  fs.writeFileSync(resolved, output.endsWith('\n') ? output : output + '\n', 'utf-8');
+  logger.info(
+    `Telemetry synthesis written to ${path.relative(cwd, resolved).replaceAll('\\', '/')}`
+  );
+}
+
+/** Reads every source, composes the synthesis, and emits it (stdout or `--out`). */
+async function runSynthesize(opts: SynthesizeOptions): Promise<void> {
+  const cwd = process.cwd();
+  const skip = opts.skip.filter((s) => SKIPPABLE.has(s)) as TelemetrySynthesisSection[];
+  const skipSet = new Set<string>(skip);
+
+  const core = await import('@harness-engineering/core');
+  const intelligence = await import('@harness-engineering/intelligence');
+
+  const synthesis = core.composeSynthesis(
+    {
+      adoptionRecords: core.readAdoptionRecords(cwd),
+      usageRecords: skipSet.has('usage') ? [] : await loadUsageRecords(cwd),
+      insights: await loadInsights(cwd, skipSet.has('insights')),
+      buildEffectiveness: makeEffectivenessBuilder(intelligence),
+      outcomeNodes: skipSet.has('outcomes') ? null : await loadOutcomeNodes(cwd),
+    },
+    { windowDays: parseWindow(opts.window), skip }
+  );
+
+  const output = opts.json
+    ? JSON.stringify(synthesis, null, 2)
+    : core.renderSynthesisMarkdown(synthesis);
+
+  if (opts.out) writeReport(cwd, opts.out, output);
+  else console.log(output);
+}
+
 export function createSynthesizeCommand(): Command {
   return new Command('synthesize')
     .description(
@@ -130,48 +175,5 @@ export function createSynthesizeCommand(): Command {
       [] as string[]
     )
     .option('--window <days>', 'Bound adoption/usage/outcome sources to the trailing N days')
-    .action(async (opts) => {
-      const cwd = process.cwd();
-
-      const skip = (opts.skip as string[]).filter((s) =>
-        SKIPPABLE.has(s)
-      ) as TelemetrySynthesisSection[];
-      const skipSet = new Set<string>(skip);
-      const windowDays = parseWindow(opts.window);
-
-      const core = await import('@harness-engineering/core');
-      const intelligence = await import('@harness-engineering/intelligence');
-      const { composeSynthesis, renderSynthesisMarkdown, readAdoptionRecords } = core;
-
-      const adoptionRecords = readAdoptionRecords(cwd);
-      const usageRecords = skipSet.has('usage') ? [] : await loadUsageRecords(cwd);
-      const insights = await loadInsights(cwd, skipSet.has('insights'));
-      const outcomeNodes = skipSet.has('outcomes') ? null : await loadOutcomeNodes(cwd);
-
-      const synthesis = composeSynthesis(
-        {
-          adoptionRecords,
-          usageRecords,
-          insights,
-          buildEffectiveness: makeEffectivenessBuilder(intelligence),
-          outcomeNodes,
-        },
-        { windowDays, skip }
-      );
-
-      const output = opts.json
-        ? JSON.stringify(synthesis, null, 2)
-        : renderSynthesisMarkdown(synthesis);
-
-      if (opts.out) {
-        const outPath = path.resolve(cwd, opts.out as string);
-        fs.mkdirSync(path.dirname(outPath), { recursive: true });
-        fs.writeFileSync(outPath, output.endsWith('\n') ? output : output + '\n', 'utf-8');
-        const relPath = path.relative(cwd, outPath).replaceAll('\\', '/');
-        logger.info(`Telemetry synthesis written to ${relPath}`);
-        return;
-      }
-
-      console.log(output);
-    });
+    .action((opts: SynthesizeOptions) => runSynthesize(opts));
 }
