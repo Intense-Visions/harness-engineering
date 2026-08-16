@@ -1,5 +1,221 @@
 # Changelog
 
+## 0.42.0
+
+### Minor Changes
+
+- 7d3c06d: fix(entropy): classify unreferenced build entry points instead of suggesting deletion
+
+  The dead-code detector treated every file unreachable from `entropy.entryPoints` as a
+  generic dead file (`reason: 'NO_IMPORTERS'`), so the suggestion fixer emitted a
+  high-priority `delete` recommendation and the auto-fix fixer emitted a `delete-file`
+  fix for build entry points — `*.config.ts`, `src/main.ts(x)`, `app.module.ts` — that
+  are reachable at build/runtime rather than through static imports. Deleting one breaks
+  the build; the correct remediation is to declare it in `entryPoints`.
+
+  `findDeadFiles` (and the graph-based path) now classify an unreachable file whose path
+  matches a build entry-point convention with the new `DeadFile` reason
+  `UNREFERENCED_ENTRY_POINT`. For those files the suggestion fixer emits a new,
+  non-destructive `Suggestion` type `configure-entrypoint` at `low` (info) priority —
+  "declare it in entryPoints" — and the auto-fix fixer never emits a `delete-file` fix.
+  Genuinely orphaned files still get the `delete` suggestion and `delete-file` fix.
+
+  Closes #1325.
+
+- def9dc6: Support thematic grouping / narrative sections in a roadmap milestone.
+
+  An `### H3` whose heading text begins with the literal marker `Group: ` is now parsed as a narrative grouping section rather than a strict feature row: its body is captured verbatim on the new optional `RoadmapMilestone.groups` field (`RoadmapGroup`) and is never feature-validated, so free-form bullets, prose, blockquotes, and links no longer make the whole roadmap fail to parse. `serializeRoadmap` re-emits every group, so the serializer no longer flattens the narrative away.
+
+  The marker is explicit: a plain `### <name>` with no `- **Status:**` bullet still fails to parse, so real work is never silently skipped. A feature that genuinely needs a name starting with `Group: ` is authored as `### Feature: Group: <name>` — the explicit `Feature: ` prefix wins over the group marker, and the serializer emits it automatically for such names, so no tracked row is ever reclassified as narrative. Group names are trimmed (so `Group: Themes` and `Group: Themes   ` are one group), and a bare `### Group: ` with no name is rejected with an error naming the milestone and line rather than emitting a heading that a trim-on-save editor would silently break. Strict roadmaps are unaffected: `groups` is attached only when a milestone actually has one, so their parsed shape is byte-identical to before, and feature validation, `milestone.features`, and sharded mode are unchanged.
+
+  **A grouped roadmap is edited by hand, by convention.** The automated write paths do not maintain group sections. `harness roadmap shard` refuses outright to shard a roadmap that carries groups. The single-file writer (`manage_roadmap` update/promote/sync) will _usually_ refuse too, with a "cannot preserve" error — but that guard is **not group-aware**: it only asks whether the file contains a line the model cannot represent. A prose narrative body trips it; a group body made only of modeled `- **Key:**` bullets does not, so the rewrite proceeds and the group is relocated to after that milestone's features. Nothing is lost in either case, but do not rely on the refusal to protect a group's position. In sharded mode, do not add groups to `docs/roadmap.md` at all — it is a derived aggregate rebuilt from `docs/roadmap.d/` with no preservation guard, so a group added there is dropped on the next `harness roadmap regen`.
+
+- 8559d5e: Preserve the roadmap's preamble — the block between `# Roadmap` and the first
+  milestone heading — through `shard` → `regen`.
+
+  That block is where a roadmap carries instructions to the tooling and humans
+  downstream of it: a `<!-- markdownlint-disable-file MD013 -->` directive that
+  keeps a required docs-lint check green against a schema that mandates one
+  physical line per field, and the note recording why the file is formatter-exempt
+  and must not be reflowed. It entered neither `_meta.md` nor any shard, so `regen`
+  faithfully rebuilt an aggregate the block had never been part of and it was gone
+  — at exit code 0, with nothing warning. The tooling erased the note documenting
+  its own contract, and erased it silently (#1328).
+
+  `Roadmap` gains an optional `preamble`, captured verbatim by `parseRoadmap` and
+  re-emitted by `serializeRoadmap` under the title — the same
+  never-silently-drop-it contract the narrative `### Group:` sections already have.
+  `RoadmapMeta` carries it in the `_meta.md` body ahead of any
+  `## Assignment History` section, because it is roadmap-level and not derivable
+  from shards, exactly like the assignment history. It therefore also survives the
+  `_meta.md` rewrites of `stampLastSynced` and `patchAssignmentHistory`, and the
+  `shard` command's pre-write round-trip assertion now covers it: dropping it is a
+  detected failure that aborts the migration rather than a silent strip.
+
+  The field is attached only when a roadmap actually has a preamble, so a
+  preamble-free roadmap parses to the same shape and serializes to the same bytes
+  as before, and `_meta.md` is byte-identical for every existing shard directory.
+  The H1 title line is not part of the preamble (the serializer still canonicalizes
+  it to `# Roadmap`); content authored above the title is kept and re-emitted below
+  it, so a second parse of the serialized form returns the same string and regen
+  stays byte-stable.
+
+  Scope is deliberately the preamble only. Everything after the first `##` heading
+  — continuation lines of a wrapped field, unmodeled `- **Key:**` bullets,
+  section-intro blockquotes — is still unmodeled and still lost on a rewrite; the
+  `findUnpreservedLines` guard continues to report it and `MonolithStore` continues
+  to refuse those writes. What changes there is that the guard no longer reports
+  preamble lines, which the serializer now keeps: it was blocking single-file
+  roadmap writes over content that is no longer at risk.
+
+- 23de83f: feat(telemetry): add `harness telemetry synthesize` — a unified local telemetry report
+
+  Ships the in-repo slice of #563: a read-only, local, single-project command that
+  COMPOSES the five telemetry surfaces that already accrue — skill adoption
+  (`readAdoptionRecords`/`aggregateBySkill`), Bayesian skill effectiveness
+  (`computeSkillEffectiveness`/`detectFailingSkills`/`detectAbandonedSkills`), usage/cost
+  (the usage aggregator), composite code-health insights (`composeInsights`), and
+  `execution_outcome` graph verdicts — into one report. Markdown by default; `--json`
+  emits a machine-readable `TelemetrySynthesis` object designed so a future dashboard can
+  consume it unchanged.
+
+  It collects nothing new — no hooks, event types, or storage — and is pure composition
+  over existing readers, mirroring the `harness adoption retrospective` precedent.
+  `--skip <section>` omits a source, `--window <days>` bounds the adoption/usage/outcome
+  sources, and `--out <path>` writes to a file (default: stdout). A missing source
+  contributes an explicit "no data" note in a "Sources with no data" footer — never a
+  fabricated zero and never a crash.
+
+  The cross-adopter public dashboard from the shard stays out of scope (it needs a
+  PostHog aggregate + privacy review + hosting decision that do not exist in-repo); this
+  is the buildable, testable per-project data layer that dashboard would render.
+
+  `core` gains a `telemetry-synthesis` module (pure composer + Markdown renderer); the CLI
+  is the composition root, keeping `core` free of any `intelligence`/`graph` dependency.
+
+### Patch Changes
+
+- 7b17174: fix(entropy): correct detector false positives and a corrupt complexity metric
+  - `findFunctionEnd` (complexity detector) no longer runs its brace scan into the
+    next function or to end-of-file for an expression-bodied arrow or a bodyless
+    declaration; the statement now closes on its own line, so function length,
+    cyclomatic complexity, and nesting are attributed correctly (#1329).
+  - The drift detector's structure-link extractor now tracks fenced code blocks
+    (``` and ~~~) and ignores links written inside them, so documentation examples
+    are not reported as broken references (#1342, #1332).
+  - `slugifyHeading` now emits one hyphen per whitespace character (matching
+    GitHub) instead of collapsing runs, so anchors for headings such as
+    "Tips & Tricks" (`tips--tricks`) are validated correctly and no longer flagged.
+
+- 80fcdbe: fix(entropy): drift no longer flags working links (slug + nested-fence)
+
+  `checkStructureDrift` no longer reports working documentation links as drift.
+  `slugifyHeading` now matches GitHub's GFM slugger: it keeps the leading hyphen
+  an emoji leaves behind (`## 📖 Usage` → `#-usage`) and preserves Unicode letters
+  (`## Café` → `#café`) instead of dropping them as ASCII `\w` did. A new
+  nesting-aware fence stripper closes a fence only on a same-character run at least
+  as long as the opener, so a 4-tick fence wrapping a 3-tick block no longer
+  exposes the inner half; it is shared by both link and heading extraction, so a
+  `# Title` quoted inside a fence is no longer treated as a real anchor. Duplicate
+  headings now disambiguate GitHub-style (a second `## Setup` anchors at
+  `#setup-1`). Preserves the earlier fence-awareness and `&`-heading fixes.
+
+- 56f68f3: Scope `manage_roadmap add` to the row it adds, and link that row to its own
+  tracking issue.
+
+  Adding one roadmap row used to trigger a whole-repository bidirectional
+  reconcile against the tracker, so a local one-row write rewrote _other_ rows
+  with tracker state — and the new row itself was serialized without the
+  `Assignee` / `Priority` / `External-ID` triple, so nothing joined it to the
+  issue that had just been created for it. The two faults were opposite ends of
+  the same seam: added rows only looked healthy because the full sync
+  subsequently stamped `externalId` onto them, so excluding `add` from external
+  sync outright would have made the second fault fire on every add.
+
+  `add` now performs a row-scoped push instead. New core export
+  `syncRowToExternal(projectRoot, adapter, config, featureName, options?)`:
+  push-only, single row, dedup-aware, and fail-closed — if `fetchAllTickets`
+  fails it performs no create, because degrading to an empty dedup index would
+  mint exactly the duplicate issue this fix prevents. It runs no inbound pull
+  and does not stamp `last_synced`: a one-row push is not a reconcile.
+
+  It returns the new `RowSyncResult` — a `SyncResult` plus the post-push
+  `feature.externalId`. That field, not `created` / `updated`, is what answers
+  "is this row linked?": a row that dedup-links to an existing ticket has its id
+  stamped and written to disk even when the follow-up patch fails, leaving both
+  arrays empty. A writeback failure is reported under the `'*'` envelope, so
+  "linked at the tracker but not persisted" stays distinguishable from a
+  tracker-side error, and the `add` response can name the orphaned ticket.
+
+  **Types is a minor bump, not a patch:** `SyncResult` gained a required member
+  (`suppressedInbound`), which is source-breaking for anyone constructing one.
+
+  Inbound sync is hardened independently, because `sync --apply` and state
+  transitions still run the full reconcile:
+  - An absent tracker assignee no longer clears a local one. An unassigned issue
+    is the default state of every issue, not an authoritative empty value.
+  - Consequently, any inbound status change on an _assigned_ row now routes
+    through `setStatus`, so the assignee is released through the lifecycle
+    authority and `assignee ≠ null ⟺ in-progress` still holds. This also repairs
+    an already-invalid row (assigned but not `in-progress`), and the release is
+    reported: `assignmentChanges` now describes the assignee that actually landed
+    on disk rather than the intermediate value the pull computed.
+  - A merely-`OPEN` issue no longer overwrites a local `backlog` status. The
+    guard is gated on the absence of the label naming the status the write would
+    produce, rather than on the resolved status, because a direct open-to-planned
+    mapping resolves a bare issue and an explicitly `planned`-labelled one
+    identically. An explicit `planned` label still promotes; a `blocked` label
+    does not, since a direct `open` key discards its opinion anyway.
+  - Both suppressions are reported in the new `SyncResult.suppressedInbound`,
+    which `harness roadmap sync` now surfaces in both its `--json` payload
+    (`skipped.inbound`) and its warn output, rather than silently dropping.
+
+  The `add` response gains a `link` key describing the outcome. A missing token
+  or a failed link is reported in the response text but does **not** mark the
+  response as an error: the row was written and is locally valid, and flagging a
+  failure would invite a retry that mints a duplicate issue. The failure message
+  names the recovery that works — `sync` with `apply=true`, which links the row
+  that already exists — and warns against re-running `add`, which cannot work
+  because the row is already persisted and the second add collides on slug.
+
+  The roadmap serializer is unchanged. Stamping `externalId` alone flips the
+  extended-field predicate, so all three lines appear because the fields are
+  real — not because the serializer pads them.
+
+  Refs #1285, #1286.
+
+- 59ef17a: Update the `tsx` dev dependency to 4.23.11
+
+  Raises the declared `tsx` floor to `^4.23.11` (same major) in the root,
+  `core`, and `dashboard` manifests. `tsx` 4.23.11 depends on `esbuild`
+  `~0.28.0` and resolves the patched `esbuild` 0.28.2, replacing the 0.27.7
+  copy it previously pulled.
+
+  This also corrects the root `auditExceptions` record for
+  `GHSA-g7r4-m6w7-qqqr`, whose stated precondition ("accepted pending a tsx
+  release on esbuild >=0.28.1") had been met upstream and was therefore stale.
+
+  The advisory is **not** cleared by this change and remains accepted. `tsup`
+  8.5.1 — the latest published `tsup` — declares `esbuild` `^0.27.0`, so a
+  vulnerable 0.27.7 copy still resolves via `tsup` and its `bundle-require`
+  dependency. It stays dev-only, Windows-only, and low severity; the real fix
+  is a `tsup` release on `esbuild` >=0.28.1.
+
+  Dev-tooling only — no published runtime dependency or API surface changes.
+
+- Updated dependencies [369839e]
+- Updated dependencies [797a42b]
+- Updated dependencies [06b5a72]
+- Updated dependencies [48cf10e]
+- Updated dependencies [56f68f3]
+- Updated dependencies [def9dc6]
+- Updated dependencies [8559d5e]
+- Updated dependencies [c32632c]
+- Updated dependencies [bbd1d37]
+- Updated dependencies [23de83f]
+  - @harness-engineering/graph@0.13.0
+  - @harness-engineering/types@0.29.0
+
 ## 0.41.1
 
 ### Patch Changes

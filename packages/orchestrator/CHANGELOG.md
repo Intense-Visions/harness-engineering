@@ -1,5 +1,77 @@
 # @harness-engineering/orchestrator
 
+## 0.21.2
+
+### Patch Changes
+
+- 7127e28: Token scope resolution now accounts for the HTTP method on the prefix-map fallback, so a read-only token can no longer perform writes.
+
+  `requiredScopeForRoute` resolves a request's required scope in three ordered steps: the `/api/v1/*` bridge registry, an exact method+path map, then a prefix map. The first two have always pinned a method. The third — the catch-all that every legacy `/api/<name>` route lands on — keyed on path alone, so whatever scope a prefix carried authorized _every_ verb its handler served. `/api/plans` and `/api/sessions` both mapped to `read-status` while serving `POST` (writes a plan file), `PATCH`, and `DELETE` (recursively removes a session directory); `/api/analyze` mapped to `read-status` while serving the `POST` that runs the intelligence pipeline. An operator doing exactly the right thing — issuing a narrowly-scoped `read-status` token to a status dashboard or monitoring probe — was handing that holder write and delete authority.
+
+  Each prefix entry now carries an explicit read scope, used for the safe verbs (`GET`/`HEAD`/`OPTIONS`), and a write scope used for everything else. The split is an allow-list rather than a deny-list of the four common mutating verbs, so a verb the codebase does not serve today — `MOVE`, `PROPPATCH`, `QUERY`, and friends, all of which Node's parser accepts and dispatches — takes the write branch instead of silently inheriting the read scope. Prefixes with no mutating handler (`/api/analyses`, `/api/streams`, `/api/local-model`, `/api/local-models`) declare no write scope at all and default-deny every non-safe verb, so a mutating handler added later stays denied until its entry is updated deliberately. The scope vocabulary is unchanged: mutating entries reuse the existing `trigger-job` scope. Entries that were already write-grade (`/api/interactions`, `/api/maintenance`, `/api/roadmap-actions`, `/api/dispatch-actions`, `/api/chat`, `/api/chat-proxy`) resolve exactly as before.
+
+  Three behavior changes, all deliberate:
+  - A client that performs `POST /api/plans`, any `/api/sessions` mutation, or `POST /api/analyze` while holding **only** `read-status` now receives 403. Re-issue such a token with `trigger-job` (or `admin`).
+  - A non-safe verb against `/api/analyses`, `/api/streams`, `/api/local-model`, or `/api/local-models` now returns 403 rather than falling through to the handler's 404. This applies to `admin` too: the absent write scope short-circuits ahead of the `admin`-satisfies-everything check, which is the correct fail-closed direction for a route with no mutating surface.
+  - The re-key of plan, analyze, and session writes is lateral, not purely a narrowing. A token holding `trigger-job` but **not** `read-status` previously received 403 on those writes and now succeeds — which is what `trigger-job` is for. Reads were not loosened for anyone; a `trigger-job`-only token still receives 403 on `GET /api/sessions`.
+
+  Read paths, the legacy `HARNESS_API_TOKEN` env token, and unauthenticated localhost dev mode are otherwise unaffected.
+
+- 0876aec: Harden outbound webhook delivery against SSRF (CWE-918).
+
+  The private-address guard matched the subscription hostname as a string and
+  never resolved it, so a public hostname whose DNS record pointed at loopback,
+  an RFC-1918 range, or the link-local metadata address passed unchallenged. The
+  delivery `fetch` also followed redirects, letting a receiver that passed the
+  guard walk the request onto a private address on the next hop.
+
+  `guardOutboundHost` now resolves the hostname and refuses the request if any
+  resolved address is private; the existing string check is kept as a cheap
+  pre-filter, and both a resolver error and an empty address list fail closed.
+  Delivery sets `redirect: 'manual'` and records a 3xx as a delivery failure
+  instead of following it.
+
+  The refused-address set is also wider than the old regex: it now covers
+  RFC-6598 CGNAT (`100.64.0.0/10`, which doubles as a Kubernetes pod CIDR and as
+  Alibaba Cloud's metadata endpoint), the RFC-6890 protocol-assignments `/24`
+  (Oracle Cloud's legacy metadata address), the benchmarking block, multicast and
+  reserved space, IPv6 unique-local and link-local, and every IPv6 form that
+  embeds an IPv4 address — v4-mapped in both dotted and hex spelling,
+  v4-compatible, v4-translated, NAT64 `64:ff9b::/96` and 6to4.
+
+  Two behavior changes worth noting:
+  - IPv6-literal webhook URLs are now classified directly instead of being sent
+    through DNS. This fixes a pre-existing hole where `https://[::1]/` was
+    _accepted_ — `URL.hostname` returns IPv6 hosts bracketed, and the old regex
+    had no bracket handling. Legitimate bracketed public IPv6 targets keep working.
+  - A rejected registration returns a generic 422. The specific reason is logged
+    server-side rather than returned, so the response cannot be used to probe
+    which internal hostnames exist.
+
+  Residual: the guard resolves the name, and the connection resolves it again, so
+  a record that changes between the two (DNS rebinding) is not covered. Closing
+  that requires pinning the resolved address at connect time.
+
+- Updated dependencies [369839e]
+- Updated dependencies [7d3c06d]
+- Updated dependencies [797a42b]
+- Updated dependencies [7b17174]
+- Updated dependencies [06b5a72]
+- Updated dependencies [80fcdbe]
+- Updated dependencies [48cf10e]
+- Updated dependencies [56f68f3]
+- Updated dependencies [def9dc6]
+- Updated dependencies [8559d5e]
+- Updated dependencies [c32632c]
+- Updated dependencies [bbd1d37]
+- Updated dependencies [23de83f]
+- Updated dependencies [59ef17a]
+  - @harness-engineering/graph@0.13.0
+  - @harness-engineering/core@0.42.0
+  - @harness-engineering/types@0.29.0
+  - @harness-engineering/intelligence@0.11.3
+  - @harness-engineering/local-models@0.7.5
+
 ## 0.21.1
 
 ### Patch Changes
