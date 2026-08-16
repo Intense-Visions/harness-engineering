@@ -939,3 +939,4 @@
 - [packages/cli/src/mcp/middleware/injection-guard.ts](../../packages/cli/src/mcp/middleware/injection-guard.ts)
 - [packages/cli/src/commands/integrations/dismiss.ts](../../packages/cli/src/commands/integrations/dismiss.ts)
 - [packages/cli/src/mcp/tools/graph/compute-blast-radius.ts](../../packages/cli/src/mcp/tools/graph/compute-blast-radius.ts)
+- [packages/cli/src/mcp/tools/graph/get-graph-schema.ts](../../packages/cli/src/mcp/tools/graph/get-graph-schema.ts)

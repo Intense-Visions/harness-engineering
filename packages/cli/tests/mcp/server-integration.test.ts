@@ -113,7 +113,9 @@ describe('MCP Server Integration', () => {
     expect(names).toContain('api_craft_finalize');
     // docs-publish connector surface
     expect(names).toContain('docs_publish');
-    expect(tools).toHaveLength(105);
+    // graph schema introspection tool (#1280)
+    expect(names).toContain('get_graph_schema');
+    expect(tools).toHaveLength(106);
   });
 
   it('all tool definitions have inputSchema', () => {
