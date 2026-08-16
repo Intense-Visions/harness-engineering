@@ -229,6 +229,11 @@ export type {
 } from './telemetry';
 
 /**
+ * Telemetry-synthesis module — pure composition of the five in-repo telemetry surfaces into one report (#563).
+ */
+export * from './telemetry-synthesis';
+
+/**
  * Skills module — canonical required-section lists for skill validation gates.
  */
 export * from './skills';

@@ -1,6 +1,6 @@
 # Aggregate-Telemetry Synthesis Surface
 
-**Status:** DRAFT — autonomously drafted for human review. Do not implement or merge until a maintainer has scoped and accepted it.
+**Status:** PLANNED — soundness-reviewed via harness-brainstorming (2026-08-16). Scope validated against the five existing readers; one honest-composition refinement applied (headline `healthPassed: boolean | null` replaces `healthScore: number`, because `composeInsights` yields a pass/fail health signal, not a numeric score). Ready for implementation.
 
 **Roadmap item:** #563 · shard `docs/roadmap.d/ship-aggregate-telemetry-synthesis-surface.md` (P1, v5.0 — Telemetry & Effectiveness)
 
