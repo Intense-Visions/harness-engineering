@@ -87,6 +87,30 @@ describe('ApiPathExtractor', () => {
     expect(getUsers!.metadata.framework).toBe('spring');
   });
 
+  it('does not let a method-level @RequestMapping overwrite the class basePath', () => {
+    const content = readFixture('RoutesMethodMapping.java');
+    const records = extractor.extract(content, 'RoutesMethodMapping.java', 'java');
+
+    const names = records.map((r) => r.name);
+
+    // Method-level @RequestMapping("/foo") under class @RequestMapping("/api")
+    // must resolve to /api/foo — not /foo (basePath lost) or /foo/foo (basePath polluted).
+    expect(names).toContain('ANY /api/foo');
+    expect(names).not.toContain('ANY /foo');
+    expect(names).not.toContain('ANY /foo/foo');
+
+    // The sibling @GetMapping must also resolve under the class basePath.
+    expect(names).toContain('GET /api/bar');
+
+    // The class-level @RequestMapping must not be emitted as its own endpoint.
+    expect(names).not.toContain('ANY /api/api');
+
+    const foo = records.find((r) => r.name === 'ANY /api/foo');
+    expect(foo!.metadata.method).toBe('ANY');
+    expect(foo!.metadata.path).toBe('/api/foo');
+    expect(foo!.metadata.framework).toBe('spring');
+  });
+
   it('generates stable IDs', () => {
     const content = readFixture('routes.ts');
     const records1 = extractor.extract(content, 'routes.ts', 'typescript');
