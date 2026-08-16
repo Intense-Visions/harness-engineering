@@ -7,11 +7,13 @@ import { ProgressChart } from '../components/ProgressChart';
 import { DependencyGraph } from '../components/DependencyGraph';
 import { StatsBar } from '../components/roadmap/StatsBar';
 import { FeatureTable } from '../components/roadmap/FeatureTable';
+import { AuthorIntentForm } from '../components/roadmap/AuthorIntentForm';
 import { ClaimConfirmation } from '../components/roadmap/ClaimConfirmation';
 import { AssignmentHistory } from '../components/roadmap/AssignmentHistory';
 import { ConflictToastRegion } from '../components/ConflictToastRegion';
 import { scrollToFeatureRow } from '../utils/scrollToFeatureRow';
 import { fetchWithConflict } from '../utils/fetchWithConflict';
+import { useRole } from '../hooks/useRole';
 import { SSE_ENDPOINT } from '@shared/constants';
 import { isRoadmapData } from '../utils/typeGuards';
 import type {
@@ -310,6 +312,13 @@ const CONFLICT_REFRESH_DEBOUNCE_MS = 500;
 export function Roadmap() {
   const { data, lastUpdated, stale, error } = useSSE(SSE_ENDPOINT, 'overview');
 
+  // Presentation-only lane gating: the author-intent panel is the PM/BA lane's
+  // first-class "state what you want built" surface, also shown to developers.
+  // It is hidden from the read/progress-oriented `client` lane. This is not an
+  // access-control boundary — see the AUTHORIZATION SEAM note in the server.
+  const { role } = useRole();
+  const showAuthorIntent = role === 'pm-ba' || role === 'dev';
+
   // Phase 7 D-P7-E: manual refresh override applied on TRACKER_CONFLICT.
   // Cleared on next SSE lastUpdated tick so live updates resume.
   const [refreshedData, setRefreshedData] = useState<RoadmapData | null>(null);
@@ -369,6 +378,14 @@ export function Roadmap() {
           <StaleIndicator lastUpdated={lastUpdated} stale={stale} error={error} />
         </div>
       </div>
+
+      {showAuthorIntent && (
+        <div className="mb-6">
+          <AuthorIntentForm
+            onCreated={(externalId) => void handleConflictRefresh(externalId ?? '')}
+          />
+        </div>
+      )}
 
       {!data && !error && <p className="text-sm text-gray-500">Connecting to data stream…</p>}
 
