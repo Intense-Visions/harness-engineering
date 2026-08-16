@@ -337,23 +337,55 @@ interface MarkdownLink {
  * Splits `file.md#anchor` into `path = file.md` and `anchor = anchor` so the
  * existence check operates on the file path alone (see github issue #492).
  */
+/**
+ * Blank every line inside a fenced code block, preserving line count so link
+ * and heading line numbers stay accurate. A fence opens on a bare run of 3+
+ * backticks or tildes and closes ONLY on a same-character run at least as long
+ * as the opener with no info string — mirroring CommonMark/GFM. This makes a
+ * 4-tick fence legitimately wrap 3-tick blocks: a naive open/close toggle
+ * re-opens on the inner fence and exposes the second half of a quoted document
+ * (issue #1342). Shared by link extraction and heading-slug extraction so the
+ * two structure-drift passes agree on what is quoted illustration.
+ */
+function blankFencedRegions(content: string): string {
+  const lines = content.split('\n');
+  let fence: { char: string; len: number } | null = null;
+
+  return lines
+    .map((line) => {
+      const match = /^\s*(`{3,}|~{3,})(.*)$/.exec(line);
+      if (fence === null) {
+        if (match) {
+          const run = match[1] as string;
+          fence = { char: run[0] as string, len: run.length };
+          return '';
+        }
+        return line;
+      }
+      // Inside a fence: close only on a bare same-char run >= opener length.
+      if (
+        match &&
+        (match[1] as string)[0] === fence.char &&
+        (match[1] as string).length >= fence.len &&
+        (match[2] as string).trim() === ''
+      ) {
+        fence = null;
+      }
+      return '';
+    })
+    .join('\n');
+}
+
 function extractFileLinks(content: string): MarkdownLink[] {
   const links: MarkdownLink[] = [];
-  const lines = content.split('\n');
-  let inFencedCodeBlock = false;
+  // Fenced code blocks (``` / ~~~, including nested runs) hold illustrative
+  // markdown, not real references — blank them first so a sample link is never
+  // reported as broken drift, while keeping line numbers intact (issue #1342).
+  const lines = blankFencedRegions(content).split('\n');
 
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i];
     if (!line) continue;
-
-    // Fenced code blocks (``` or ~~~) hold illustrative markdown, not real
-    // references — toggle on the fence line and skip everything inside so a
-    // sample link is never reported as broken drift (issue #1342).
-    if (/^\s*(?:```|~~~)/.test(line)) {
-      inFencedCodeBlock = !inFencedCodeBlock;
-      continue;
-    }
-    if (inFencedCodeBlock) continue;
 
     // Markdown links: [text](path)
     const linkRegex = /\[([^\]]*)\]\(([^)]+)\)/g;
@@ -384,16 +416,19 @@ function extractFileLinks(content: string): MarkdownLink[] {
 }
 
 /**
- * GFM-style heading slug: lowercase, spaces → hyphens, drop characters that
- * aren't alphanumeric / hyphens. Mirrors GitHub's behavior well enough for
- * the common case (no full Unicode normalization, but matches typical
- * hand-written anchors).
+ * GFM-style heading slug: lowercase, drop characters that aren't Unicode
+ * letters/numbers, `_`, `-`, or whitespace, then map each whitespace character
+ * to one hyphen. Mirrors GitHub's slugger for typical hand-written anchors:
+ * - No `.trim()` before hyphenating — GitHub keeps the space a stripped emoji
+ *   leaves behind, so `## 📖 Usage` anchors at `#-usage`.
+ * - Unicode `\p{L}\p{N}` instead of ASCII `\w`, so `## Café` keeps `café`.
+ * - One hyphen per whitespace character (not per run), so `## Tips & Tricks`
+ *   (the `&` dropped, two spaces kept) anchors at `#tips--tricks`.
  */
 function slugifyHeading(text: string): string {
   return text
     .toLowerCase()
-    .replace(/[^\w\s-]/g, '')
-    .trim()
+    .replace(/[^\p{L}\p{N}\s_-]/gu, '')
     .replace(/\s/g, '-');
 }
 
@@ -406,11 +441,21 @@ async function extractHeadingSlugs(filePath: string): Promise<Set<string>> {
   } catch {
     return slugs;
   }
+  // Blank fenced regions first so a `# Title` quoted inside a code fence does
+  // not register as a real anchor (issue #1342).
+  const scanned = blankFencedRegions(content);
   const headingRe = /^#{1,6}[ \t]+(.+?)[ \t]*#*\s*$/gm;
+  // GitHub disambiguates repeated headings: the Nth (N>1) occurrence of a base
+  // slug anchors at `base-{N-1}` (second `## Setup` -> `#setup-1`).
+  const seen = new Map<string, number>();
   let m: RegExpExecArray | null;
-  while ((m = headingRe.exec(content)) !== null) {
+  while ((m = headingRe.exec(scanned)) !== null) {
     const heading = m[1];
-    if (heading) slugs.add(slugifyHeading(heading));
+    if (!heading) continue;
+    const base = slugifyHeading(heading);
+    const count = seen.get(base) ?? 0;
+    seen.set(base, count + 1);
+    slugs.add(count === 0 ? base : `${base}-${count}`);
   }
   return slugs;
 }
