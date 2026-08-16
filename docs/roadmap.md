@@ -934,7 +934,7 @@ last_manual_edit: 2026-06-27T12:51:51.967Z
 
 ### Ship aggregate-telemetry synthesis surface
 
-- **Status:** planned
+- **Status:** done
 - **Spec:** docs/changes/aggregate-telemetry-synthesis/proposal.md
 - **Summary:** `packages/cli/src/hooks/telemetry-reporter.js` collects rich payload (skillName, duration, outcome, phasesReached, project, team, os, harnessVersion, installId) and streams to PostHog. **No public surface synthesizes this data back.** `core-library-design/proposal.md:1338` planned "Case studies and testimonials" but never delivered. Adopters cannot validate "is this working for teams like mine?" Ship: (a) public adoption dashboard at a known URL aggregating skillName/outcome/phasesReached across the adopter base (anonymized), (b) `docs/case-studies/` directory with quarterly updates derived from telemetry + opt-in interviews, (c) README "Adopters" section with logo wall and headline stats updated by a `harness telemetry publish` script. For a tool that markets compounding-via-learning, the synthesis loop must close. Source: Pass 7-C.
 - **Blockers:** —
@@ -1215,11 +1215,11 @@ last_manual_edit: 2026-06-27T12:51:51.967Z
 
 ### UAT / user sign-off loop (close the outcome edge)
 
-- **Status:** in-progress
-- **Spec:** docs/changes/uat-user-sign-off-loop/proposal.md
-- **Summary:** **Priority: NOW.** The mirror of `product-advisor` at the far end: validate shipped work against the BRD's open items, client-facing, dashboard-driven. Closes the inception → acceptance circle that is currently open. Distinct from `acceptance-eval` (pre-build spec completeness) and `outcome-eval` (agent-side spec-satisfaction verdict). **This slice** surfaces the shipped sign-off record primitive as a Sign-off page in the dashboard `client`/`pm-ba` lanes (read basis + write via `UatSignoffRecorder` + `signoff.md`); the record primitive already shipped, but the client-facing surface — the real deliverable — is being built now. Engagement/BRD-level roll-up remains a deferred #710-follow-up. --- _Part of the **Full-lifecycle reach** track (STRATEGY.md v2). Rationale: `docs/knowledge/skills/sdlc-coverage-and-agentic-trajectory.md`._
+- **Status:** done
+- **Spec:** —
+- **Summary:** **Priority: NOW.** The mirror of `product-advisor` at the far end: validate shipped work against the BRD's open items, client-facing, dashboard-driven. Closes the inception → acceptance circle that is currently open. Distinct from `acceptance-eval` (pre-build spec completeness) and `outcome-eval` (agent-side spec-satisfaction verdict). --- _Part of the **Full-lifecycle reach** track (STRATEGY.md v2). Rationale: `docs/knowledge/skills/sdlc-coverage-and-agentic-trajectory.md`._
 - **Blockers:** —
-- **Plan:** docs/changes/uat-user-sign-off-loop/plans/2026-08-16-phase-1-signoff-dashboard-front-door-plan.md
+- **Plan:** —
 - **Assignee:** —
 - **Priority:** P0
 - **External-ID:** github:Intense-Visions/harness-engineering#710
