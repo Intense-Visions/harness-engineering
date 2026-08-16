@@ -23,14 +23,21 @@ const DEFAULT_FIX_CONFIG: FixConfig = {
  * Create fixes for dead files
  */
 function createDeadFileFixes(deadCodeReport: DeadCodeReport): Fix[] {
-  return deadCodeReport.deadFiles.map((file) => ({
-    type: 'dead-files' as FixType,
-    file: file.path,
-    description: `Delete dead file (${file.reason}): ${basename(file.path)}`,
-    action: 'delete-file' as const,
-    safe: true,
-    reversible: true,
-  }));
+  return (
+    deadCodeReport.deadFiles
+      // Never auto-delete a build entry point: it is reachable at build/runtime, not
+      // through static imports, so it only looks dead. Remediation is to declare it in
+      // entryPoints, surfaced as an advisory suggestion instead (issue #1325).
+      .filter((file) => file.reason !== 'UNREFERENCED_ENTRY_POINT')
+      .map((file) => ({
+        type: 'dead-files' as FixType,
+        file: file.path,
+        description: `Delete dead file (${file.reason}): ${basename(file.path)}`,
+        action: 'delete-file' as const,
+        safe: true,
+        reversible: true,
+      }))
+  );
 }
 
 /**

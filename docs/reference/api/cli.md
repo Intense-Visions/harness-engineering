@@ -173,6 +173,7 @@
 - [`mcp/tools/graph/compute-blast-radius.ts`](../../../packages/cli/src/mcp/tools/graph/compute-blast-radius.ts)
 - [`mcp/tools/graph/detect-anomalies.ts`](../../../packages/cli/src/mcp/tools/graph/detect-anomalies.ts)
 - [`mcp/tools/graph/find-context-for.ts`](../../../packages/cli/src/mcp/tools/graph/find-context-for.ts)
+- [`mcp/tools/graph/get-graph-schema.ts`](../../../packages/cli/src/mcp/tools/graph/get-graph-schema.ts)
 - [`mcp/tools/graph/get-impact.ts`](../../../packages/cli/src/mcp/tools/graph/get-impact.ts)
 - [`mcp/tools/graph/get-relationships.ts`](../../../packages/cli/src/mcp/tools/graph/get-relationships.ts)
 - [`mcp/tools/graph/index.ts`](../../../packages/cli/src/mcp/tools/graph/index.ts)

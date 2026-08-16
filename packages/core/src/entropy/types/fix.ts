@@ -83,7 +83,10 @@ export interface Suggestion {
     | 'delete'
     | 'update-docs'
     | 'add-export'
-    | 'refactor';
+    | 'refactor'
+    // Non-destructive remediation for an unreferenced build entry point: declare
+    // it in `entropy.entryPoints` rather than delete it (issue #1325).
+    | 'configure-entrypoint';
   priority: 'high' | 'medium' | 'low';
   source: 'drift' | 'dead-code' | 'pattern';
   relatedIssues: string[];

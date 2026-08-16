@@ -74,6 +74,56 @@ describe('generateSuggestions', () => {
     expect(unusedImportSuggestion?.type).toBe('delete');
   });
 
+  it('emits a non-delete configure-entrypoint suggestion for an unreferenced entry point (issue #1325)', () => {
+    const deadCodeReport: DeadCodeReport = {
+      deadFiles: [
+        {
+          path: '/project/vite.config.ts',
+          reason: 'UNREFERENCED_ENTRY_POINT',
+          exportCount: 1,
+          lineCount: 12,
+        },
+        {
+          path: '/project/src/orphan.ts',
+          reason: 'NO_IMPORTERS',
+          exportCount: 1,
+          lineCount: 8,
+        },
+      ],
+      deadExports: [],
+      unusedImports: [],
+      deadInternals: [],
+      stats: {
+        filesAnalyzed: 10,
+        entryPointsUsed: [],
+        totalExports: 20,
+        deadExportCount: 0,
+        totalFiles: 10,
+        deadFileCount: 2,
+        estimatedDeadLines: 20,
+      },
+    };
+
+    const result = generateSuggestions(deadCodeReport);
+
+    const entryPointSuggestion = result.suggestions.find((s) =>
+      s.files.includes('/project/vite.config.ts')
+    );
+    expect(entryPointSuggestion).toBeDefined();
+    expect(entryPointSuggestion?.type).toBe('configure-entrypoint');
+    expect(entryPointSuggestion?.type).not.toBe('delete');
+    expect(entryPointSuggestion?.priority).toBe('low');
+    expect(entryPointSuggestion?.steps.some((s) => /entryPoints/.test(s))).toBe(true);
+    expect(entryPointSuggestion?.steps.some((s) => /^Delete /.test(s))).toBe(false);
+
+    // A genuinely orphaned file still gets a delete suggestion.
+    const orphanSuggestion = result.suggestions.find((s) =>
+      s.files.includes('/project/src/orphan.ts')
+    );
+    expect(orphanSuggestion?.type).toBe('delete');
+    expect(orphanSuggestion?.priority).toBe('high');
+  });
+
   it('should generate suggestions from drift report', () => {
     const driftReport: DriftReport = {
       drifts: [

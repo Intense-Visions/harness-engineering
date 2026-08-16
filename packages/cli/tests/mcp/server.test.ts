@@ -11,9 +11,9 @@ describe('MCP Server', () => {
     expect(server).toBeDefined();
   });
 
-  it('registers all 105 tools', () => {
+  it('registers all 106 tools', () => {
     const tools = getToolDefinitions();
-    expect(tools).toHaveLength(105);
+    expect(tools).toHaveLength(106);
   });
 
   it('registers all 9 resources', () => {
@@ -62,6 +62,12 @@ describe('MCP Server', () => {
   it('registers manage_roadmap tool', () => {
     const names = getToolDefinitions().map((t) => t.name);
     expect(names).toContain('manage_roadmap');
+  });
+
+  it('registers the get_graph_schema introspection tool in the served list', () => {
+    const def = getToolDefinitions().find((t) => t.name === 'get_graph_schema');
+    expect(def).toBeDefined();
+    expect(def!.inputSchema.required).toContain('path');
   });
 
   it('registers harness://state resource', () => {

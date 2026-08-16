@@ -1,0 +1,50 @@
+{
+  "issue": 1280,
+  "title": "Graph schema introspection tool (get_graph_schema)",
+  "externalId": "github:Intense-Visions/harness-engineering#1280",
+  "slug": "graph-schema-introspection",
+  "branch": "feat/graph-schema-introspection",
+  "pipelineStages": [
+    {
+      "stage": "brainstorming",
+      "artifact": "docs/changes/graph-schema-introspection/proposal.md",
+      "summary": "Spec: read-only get_graph_schema MCP tool enumerating node-type counts + property keys, edge-type counts, and relationship patterns from the existing graph store."
+    },
+    {
+      "stage": "planning",
+      "artifact": "docs/changes/graph-schema-introspection/plans/2026-08-15-get-graph-schema-plan.md",
+      "summary": "5-task TDD plan: test-first, implement aggregation, wire registration, docs+changeset, validate."
+    },
+    {
+      "stage": "execution",
+      "artifact": "packages/cli/src/mcp/tools/graph/get-graph-schema.ts",
+      "summary": "TDD implementation + registration in server.ts, index.ts, capability declarations."
+    }
+  ],
+  "planArtifact": "docs/changes/graph-schema-introspection/plans/2026-08-15-get-graph-schema-plan.md",
+  "sourceFiles": [
+    "packages/cli/src/mcp/tools/graph/get-graph-schema.ts",
+    "packages/cli/src/mcp/tools/graph/get-graph-schema.test.ts"
+  ],
+  "registrationSites": [
+    "packages/cli/src/mcp/tools/graph/index.ts",
+    "packages/cli/src/mcp/server.ts (import, TOOL_DEFINITIONS array, TOOL_HANDLERS map)",
+    "packages/cli/src/mcp/tool-capability-declarations.ts (read scope)"
+  ],
+  "localChecks": {
+    "build": "pass (graph + cli, Node 22)",
+    "typecheck": "pass (@harness-engineering/cli)",
+    "test": "pass (26 tests: get-graph-schema.test.ts + server.test.ts + server-integration.test.ts)",
+    "lint": "pass (0 errors)",
+    "docCoverage": "pass (85.0%)",
+    "registered": "confirmed — get_graph_schema present in getToolDefinitions() served list (106 tools) with wired handler"
+  },
+  "assumptions": [
+    "Tool named get_graph_schema to match repo get_*/query_* graph-tool naming.",
+    "'Property definitions' = observed union of property KEYS per label (top-level set GraphNode fields + metadata keys); key names only, since metadata is untyped Record<string,unknown>.",
+    "Owning package for changeset is @harness-engineering/cli; minor bump (new MCP tool = new feature).",
+    "Output shape { nodeTypes:[{label,count,properties}], edgeTypes:[{type,count}], patterns:[{from,edge,to,count}], totals:{nodeCount,edgeCount} }.",
+    "Edges whose endpoints are absent from the node set are grouped under sentinel label 'unknown' so pattern counts reconcile with edgeCount.",
+    "Change-dir slug is graph-schema-introspection (no feat- prefix) to match existing docs/changes/* convention; git branch is feat/graph-schema-introspection."
+  ]
+}

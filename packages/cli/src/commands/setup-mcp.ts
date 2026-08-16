@@ -77,6 +77,7 @@ export const ALL_MCP_TOOLS: string[] = [
   'search_similar',
   'find_context_for',
   'get_relationships',
+  'get_graph_schema',
   'get_impact',
   'ingest_source',
   'generate_agent_definitions',

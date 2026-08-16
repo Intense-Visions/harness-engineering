@@ -236,11 +236,29 @@ export class ApiPathExtractor implements SignalExtractor {
     const springPattern =
       /@(GetMapping|PostMapping|PutMapping|PatchMapping|DeleteMapping|RequestMapping)\s*\(\s*(?:value\s*=\s*)?["']([^"']+)["']/;
 
-    // Base path from @RequestMapping on class
+    // Whether the @RequestMapping at `lineIndex` annotates a type declaration
+    // (class/interface/enum) rather than a method. The annotation sits on its own
+    // line above its target, so scan forward past further annotations, blank lines,
+    // and line comments to the first real declaration line.
+    const targetIsTypeDeclaration = (lineIndex: number): boolean => {
+      for (let j = lineIndex + 1; j < lines.length; j++) {
+        const next = lines[j]!.trim();
+        if (next === '' || next.startsWith('//') || next.startsWith('@')) {
+          continue;
+        }
+        return /\b(class|interface|enum)\b/.test(next);
+      }
+      return false;
+    };
+
+    // Base path comes only from a CLASS/interface/enum-level @RequestMapping.
+    // A method-level @RequestMapping must NOT overwrite the file-wide basePath.
     let basePath = '';
-    for (const line of lines) {
-      const baseMatch = line.match(/@RequestMapping\s*\(\s*(?:value\s*=\s*)?["']([^"']+)["']\s*\)/);
-      if (baseMatch && line.match(/class\s/) === null) {
+    for (let i = 0; i < lines.length; i++) {
+      const baseMatch = lines[i]!.match(
+        /@RequestMapping\s*\(\s*(?:value\s*=\s*)?["']([^"']+)["']\s*\)/
+      );
+      if (baseMatch && targetIsTypeDeclaration(i)) {
         basePath = baseMatch[1]!;
       }
     }
@@ -251,6 +269,11 @@ export class ApiPathExtractor implements SignalExtractor {
       const match = line.match(springPattern);
       if (match) {
         const annotation = match[1]!;
+        // A class-level @RequestMapping is the base path, not an endpoint — skip it
+        // so it is not emitted as a spurious `ANY <basePath><basePath>` record.
+        if (annotation === 'RequestMapping' && targetIsTypeDeclaration(i)) {
+          continue;
+        }
         const routePath = basePath + match[2]!;
         const methodMap: Record<string, string> = {
           GetMapping: 'GET',

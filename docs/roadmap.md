@@ -24,7 +24,7 @@ last_manual_edit: 2026-06-27T12:51:51.967Z
 
 ### LMLM: live-HF candidate discovery (make the autonomous loop live)
 
-- **Status:** planned
+- **Status:** done
 - **Spec:** —
 - **Summary:** Surfaced by the LMLM Phases 4–9 wiring PR. The background scheduler, drift reconciliation, proposal engine, routes/WS/sinks, and dashboard are all wired end-to-end, but the orchestrator seeds `createNativeRecommender` with an **empty candidate set** because the Phase-2 live-HuggingFace→`RankerCandidate` parser was never built. Consequence: the autonomous swap-proposal loop emits **nothing in production** (manual `harness models`, resolver-from-pool, and drift reconciliation all work today). Build the HF model-list → `RankerCandidate[]` parser (repo → sizeB/activeB/quant enumeration) and seed the recommender so `GET /recommendations` and the scheduler produce real proposals. Ref ADR 0059 (candidate-discovery deferral note). This is the single item that turns LMLM autonomy from wired-but-inert to live.
 - **Blockers:** —
@@ -55,6 +55,17 @@ last_manual_edit: 2026-06-27T12:51:51.967Z
 - **Priority:** P3
 - **External-ID:** github:Intense-Visions/harness-engineering#999
 
+### LMLM: pool consumption improvements (make installed models live, task-aware, self-correcting)
+
+- **Status:** done
+- **Spec:** docs/changes/lmlm-pool-consumption/proposal.md
+- **Summary:** DELIVERED (PR #788, merged). The LMLM install side is solid (async install + progress, resumable pulls, restart recovery, lineage scoring — PRs #775, #777), but the consumption side is pull-based and static, so an installed model barely gets used. Five phased improvements: (1) **Freshness loop** — the resolver subscribes to the `local-models:pool` event (today it only polls, `local-model-resolver.ts:260`) and the analysis provider resolves its model lazily instead of freezing at pipeline build (`analysis-provider-factory.ts:147`); (2) **Score-seed** — a new pool entry starts `currentScore: 0`, so the model you explicitly installed sits at the bottom of the score-sorted candidate list until re-rank; seed it from the ranked/interpolated score; (3) **Runtime feedback** — stamp `lastUsedAt` on real inference (LRU eviction currently runs on stale data) + a failure circuit-breaker; (4) **Task-aware selection** — per-profile pool scores (`general`/`coding`/`reasoning`) + a `RoutingUseCase → profile` map so each task gets the best-fit pooled model instead of one top-scored model per backend (advances the Agent Autonomy metric; carries a standalone ADR); (5) **Warming** — warm the selected model into VRAM (`keep_alive`) to avoid first-request cold-start. Additive schema only (`PoolEntry.scoresByProfile`, absolute score on `ModelProposalContent`). Does NOT depend on live-HF candidate discovery — scores the models already in the pool.
+- **Blockers:** —
+- **Plan:** —
+- **Assignee:** —
+- **Priority:** P2
+- **External-ID:** github:Intense-Visions/harness-engineering#1000
+
 ### product-advisor
 
 - **Status:** done
@@ -76,17 +87,6 @@ last_manual_edit: 2026-06-27T12:51:51.967Z
 - **Assignee:** —
 - **Priority:** P2
 - **External-ID:** github:Intense-Visions/harness-engineering#1031
-
-### LMLM: pool consumption improvements (make installed models live, task-aware, self-correcting)
-
-- **Status:** planned
-- **Spec:** docs/changes/lmlm-pool-consumption/proposal.md
-- **Summary:** The LMLM install side is solid (async install + progress, resumable pulls, restart recovery, lineage scoring — PRs #775, #777), but the consumption side is pull-based and static, so an installed model barely gets used. Five phased improvements: (1) **Freshness loop** — the resolver subscribes to the `local-models:pool` event (today it only polls, `local-model-resolver.ts:260`) and the analysis provider resolves its model lazily instead of freezing at pipeline build (`analysis-provider-factory.ts:147`); (2) **Score-seed** — a new pool entry starts `currentScore: 0`, so the model you explicitly installed sits at the bottom of the score-sorted candidate list until re-rank; seed it from the ranked/interpolated score; (3) **Runtime feedback** — stamp `lastUsedAt` on real inference (LRU eviction currently runs on stale data) + a failure circuit-breaker; (4) **Task-aware selection** — per-profile pool scores (`general`/`coding`/`reasoning`) + a `RoutingUseCase → profile` map so each task gets the best-fit pooled model instead of one top-scored model per backend (advances the Agent Autonomy metric; carries a standalone ADR); (5) **Warming** — warm the selected model into VRAM (`keep_alive`) to avoid first-request cold-start. Additive schema only (`PoolEntry.scoresByProfile`, absolute score on `ModelProposalContent`). Does NOT depend on live-HF candidate discovery — scores the models already in the pool.
-- **Blockers:** —
-- **Plan:** —
-- **Assignee:** —
-- **Priority:** P2
-- **External-ID:** github:Intense-Visions/harness-engineering#1000
 
 ### Adaptive Model Routing (AMR)
 
@@ -123,7 +123,7 @@ last_manual_edit: 2026-06-27T12:51:51.967Z
 
 ### Language-aware workspace bootstrap + verify for local dispatch
 
-- **Status:** planned
+- **Status:** done
 - **Spec:** —
 - **Summary:** Local-dispatch workspace setup and the enforced verify gate are JS/pnpm-baked; make both ecosystem-aware so non-JS adopters get a working local dispatch out of the box. Two coupled pieces: (a) **workspace dependency install** — the agent's workspace is a fresh git worktree with no installed deps, so the gate's verify fails environmentally and blocks EVERY dispatch (this looked like a model failure for days; see `local-dispatch-trustworthy-e2e`). It's set via the `hooks.afterCreate` config shell command (already language-agnostic — an adopter can put any install command there), and `feat/default-local-ollama` scaffolds the JS default `pnpm install`. (b) **the verify command** — `defaultLocalVerifyRunner` (`packages/orchestrator/src/orchestrator.ts`) hardcodes `pnpm -w run typecheck/lint/test`; for a Python project it should run `pytest`/`mypy`/`ruff`, for Rust `cargo test`, etc. Build a single ecosystem detector (by lockfile/manifest: `pnpm-lock.yaml`→pnpm, `package-lock.json`→npm, `yarn.lock`→yarn, `requirements.txt`/`pyproject.toml`→pip/poetry, `Cargo.toml`→cargo, `go.mod`→go, `Gemfile`→bundler, `pom.xml`/`build.gradle`→maven/gradle) that feeds BOTH: `harness init` scaffolds a matching `afterCreate` install command AND a matching verify command; a local dispatch **warns loudly when neither is set** (rather than silently passing verify on missing deps); both remain overridable in config. Consider caching installed deps across dispatches (per-dispatch `pnpm install` is ~5s via the pnpm store, but pip/cargo/gradle can be minutes). Keep the harness's language-agnostic, degrade-gracefully posture — never hardcode a package manager in orchestrator code.
 - **Blockers:** —
@@ -167,9 +167,9 @@ last_manual_edit: 2026-06-27T12:51:51.967Z
 
 ### design-craft responsive gate
 
-- **Status:** planned
+- **Status:** done
 - **Spec:** docs/changes/design-craft-responsive-gate/proposal.md
-- **Summary:** Responsive Gate for awardBar — a mechanical mobile-defect veto on the award-tier verdict
+- **Summary:** DELIVERED (PR #1149, merged). Responsive Gate for awardBar — a mechanical mobile-defect veto on the award-tier verdict
 - **Blockers:** —
 - **Plan:** —
 - **Assignee:** —
@@ -178,7 +178,7 @@ last_manual_edit: 2026-06-27T12:51:51.967Z
 
 ### Automate best-model discovery/recommendation for local dispatch
 
-- **Status:** planned
+- **Status:** done
 - **Spec:** —
 - **Summary:** The pool recommender should automate the manual process a human just used to pick a local coding model, and that process taught concrete lessons the frozen ranker misses. When picking a model for agentic dispatch by hand (2026-07-16) the winning process was: (1) query **current** authoritative sources for the best agentic coders — the landscape moves monthly (llama3.3:70b → qwen3-coder:30b / devstral-24b / laguna-xs), so a frozen snapshot goes stale; recency must be a ranking input. (2) Filter by hardware fit (already done). (3) **Rank speed by MoE ACTIVE params, not total size** — this was the key miss: a dense 70B is too slow for a tool-loop (a single call took 4 min) while a 30B **MoE with ~3B active** is fast and usable; the ranker's bandwidth×total-size estimate treats these the same, so it must model compute/latency from active params (MoE-aware). (4) **Require tool-calling** (hard filter — reuse #833's probe). (5) **Weight agentic benchmarks** — SWE-bench Verified (devstral 46.8%, laguna-xs 70.9%) over generic perplexity/chat benchmarks. (6) **Prefer coding/agent-specialized** models (qwen3-coder, Mistral's agent-first devstral) over general chat models for dispatch. Build a discovery step that pulls current candidates (Ollama library + HF + published SWE-bench numbers) with recency weighting, computes the [[local-model-agentic-suitability]] `agenticScore` (tool-calling × MoE-aware latency × agentic benchmark × learned build quality), surfaces the top recommendation for dispatch, and can **auto-pull** it. This makes the pool's suggestions match — or beat — what an expert would pick by hand, instead of recommending a fits-VRAM-but-too-slow dense model. Cross-refs #833 (tool-calling probe), the agentic-suitability item, and the LMLM live-HF candidate-discovery work.
 - **Blockers:** —
@@ -244,7 +244,7 @@ last_manual_edit: 2026-06-27T12:51:51.967Z
 
 ### PR Queue Triage & Merge Assistant Skill
 
-- **Status:** planned
+- **Status:** done
 - **Spec:** —
 - **Summary:** A skill to help teams stay on top of a large PR backlog in busy projects — triage/sort the open-PR list by risk & readiness, surface what needs review vs. what is mergeable, and assist with review and merge to cut the manual sorting effort.
 - **Blockers:** —
@@ -453,7 +453,7 @@ last_manual_edit: 2026-06-27T12:51:51.967Z
 
 ### Graph schema introspection tool
 
-- **Status:** planned
+- **Status:** done
 - **Spec:** —
 - **Summary:** Expose a `get_graph_schema`-equivalent MCP tool returning node/edge counts, relationship patterns and per-label property definitions, so an agent can discover the graph's shape before querying it. Harness exposes `query_graph`, `ask_graph`, `get_relationships`, `search_similar`, `compute_blast_radius` and `find_context_for` but nothing that enumerates what node types and edge types exist — `ls packages/cli/src/mcp/tools/ | grep -i schema` returns only the unrelated `interaction-schemas.ts`. An agent must therefore already know the schema to query it, or guess. Adopted from `DeusData/codebase-memory-mcp` (38.3k stars, MIT), whose equivalent tool description reads "Run this first." Cheap, and it raises the usable yield of every other graph tool for agents that did not author them. Feature-level finding — invisible at source level, surfaced only by enumerating that project's 15 MCP tools. Matrix: docs/ideation/external-source-feature-matrix-2026-08-10.md (score 6.00).
 - **Blockers:** —
@@ -787,7 +787,7 @@ last_manual_edit: 2026-06-27T12:51:51.967Z
 
 ### roadmap-auto-done fallback PAT cannot create PRs (Resource not accessible by integration)
 
-- **Status:** planned
+- **Status:** done
 - **Spec:** —
 - **Summary:** Problem When `.github/workflows/roadmap-auto-done.yml` cannot direct-push the shard flip to `main` (branch protection: "changes must be made through a pull request"), it falls back to opening a self-approved PR. That fallback **fails**: The token used for the fallback lacks `pull-requests: write` (or is the integration `GITHUB_TOKEN`, which is restricted from creating PRs). Result: the merged PR closes the issue, but the roadmap row is left at `planned` while the issue is `CLOSED`, and an orphaned `chore/auto-done-prNNN-*` branch accumulates on the remote. Impact This is **not** specific to one PR — **every** auto-done that cannot direct-push (i.e. whenever branch protection is active on `main`) fails the same way, silently leaving the roadmap inconsistent. It's a gap in the post-ship enforcement path. Observed - PR #779 merged, issue #533 CLOSED/COMPLETED, but shard stayed `planned`. Rescued manually via PR #780 (reused the workflow's own commit `59ccbd430`). - Failing run: roadmap-auto-done for PR 779 (2026-07-09T16:52Z). Fix direction Grant the fallback path a PAT with `pull-requests: write` (the workflow already references `AUTOAPPROVE_PAT` for the self-approval — verify it also has PR-create scope and is passed to the `gh pr create` step), and add a cleanup step for the orphaned `chore/auto-done-*` branches. Consider failing loudly (or emitting a Signal) when the roadmap flip does not land, so the inconsistency is visible rather than silent.
 - **Blockers:** —
@@ -844,9 +844,9 @@ last_manual_edit: 2026-06-27T12:51:51.967Z
 
 ### Merge fragmented concept clusters in the catalog
 
-- **Status:** planned
+- **Status:** done
 - **Spec:** —
-- **Summary:** Three confirmed/suspected clusters of concept fragmentation in the catalog. CONFIRMED: `harness-i18n` + `harness-i18n-workflow` + `harness-i18n-process` — overlap is admitted in i18n SKILL.md:13-14. SUSPECTED: six `harness-design*` skills (`harness-design`, `harness-design-craft`, `harness-design-mobile`, `harness-design-pipeline`, `harness-design-system`, `harness-design-web`). SUSPECTED: `harness-verify` + `harness-verification` + `harness-integrity`. Audit each cluster and merge to one skill per concept. Source: Pass 4 action 2. AUDIT OUTCOME (see `docs/changes/catalog-cluster-merge-audit/`): no skills merged — all three clusters are well-factored by lifecycle role, cognitive mode, and composition layer. The i18n "CONFIRMED" label is a false positive (SKILL.md:13-14 is disambiguation, not overlap). The only genuine issue is the `verify` vs `verification` naming collision — a discoverability/rename problem, not fragmentation — flagged for human review as a separate non-destructive item. Awaiting human decision to close or reclassify.
+- **Summary:** DELIVERED (PR #1099, merged — audit concluded no merge needed). Three confirmed/suspected clusters of concept fragmentation in the catalog. CONFIRMED: `harness-i18n` + `harness-i18n-workflow` + `harness-i18n-process` — overlap is admitted in i18n SKILL.md:13-14. SUSPECTED: six `harness-design*` skills (`harness-design`, `harness-design-craft`, `harness-design-mobile`, `harness-design-pipeline`, `harness-design-system`, `harness-design-web`). SUSPECTED: `harness-verify` + `harness-verification` + `harness-integrity`. Audit each cluster and merge to one skill per concept. Source: Pass 4 action 2. AUDIT OUTCOME (see `docs/changes/catalog-cluster-merge-audit/`): no skills merged — all three clusters are well-factored by lifecycle role, cognitive mode, and composition layer. The i18n "CONFIRMED" label is a false positive (SKILL.md:13-14 is disambiguation, not overlap). The only genuine issue is the `verify` vs `verification` naming collision — a discoverability/rename problem, not fragmentation — flagged for human review as a separate non-destructive item. Awaiting human decision to close or reclassify.
 - **Blockers:** —
 - **Plan:** See audit — `docs/changes/catalog-cluster-merge-audit/proposal.md`
 - **Assignee:** —
@@ -877,7 +877,7 @@ last_manual_edit: 2026-06-27T12:51:51.967Z
 
 ### Tier the catalog with first-class metadata and fix discovery
 
-- **Status:** planned
+- **Status:** done
 - **Spec:** —
 - **Summary:** Catalog has 755 skills with no tier markers in the user-facing surface. Mark Tier-0 (load-bearing gear, ~12 skills: initialize-project, strategy, brainstorming, planning, execution, verification, code-review, tdd, outcome-eval, audit-harness-strength, debugging, compound), Tier-1 (library, on-demand reference), Tier-2 (deprecated/candidate for retire). Surface tier prominently in the dashboard catalog view and the README. Fix the naming inconsistency: rename `initialize-harness-project` skill to `harness-initialize-project` so it sorts with the workflow gear (slash command stays `/harness:initialize-project`). A senior engineer can hold 12 skills in their head; they cannot hold 755. Source: Pass 2 #9, Pass 3 #6, Pass 3 #7.
 - **Blockers:** —
@@ -901,7 +901,7 @@ last_manual_edit: 2026-06-27T12:51:51.967Z
 
 ### Extend skill-effectiveness scorer to skill grain (not just personas)
 
-- **Status:** planned
+- **Status:** done
 - **Spec:** —
 - **Summary:** `packages/intelligence/src/effectiveness/scorer.ts` currently scores personas using graph-attributed `execution_outcome` nodes. Extend the same Bayesian approach to score skills using `.harness/metrics/adoption.jsonl` data (skill+outcome+duration+phasesReached). Identify failing skills and skills abandoned mid-workflow. Feed into `harness:catalog-retrospective`. Closes the gap: the project has 1319 adoption records but no loop that uses them to improve the catalog. Source: Pass 5 #4.
 - **Blockers:** Build harness:catalog-retrospective skill
@@ -923,7 +923,7 @@ last_manual_edit: 2026-06-27T12:51:51.967Z
 
 ### Add Holiday Confidence KPI to STRATEGY.md
 
-- **Status:** planned
+- **Status:** done
 - **Spec:** —
 - **Summary:** `STRATEGY.md:23-29` defines 5 KPIs (Agent Autonomy, Harness Coverage, Context Density, Drift Floor, External Adoption) — all measure inputs to the harness, none measures what the harness is FOR. Add KPI #6: "Holiday Confidence" — % of merged PRs in the last 30 days where (a) multi-persona review fired, (b) outcome-eval passed, (c) no auto-baseline-update occurred, (d) no signal exceeded threshold. The article's binary "if the senior disappears for two weeks, what holds?" made measurable. Source: Pass 1 #9.
 - **Blockers:** Build harness:outcome-eval skill, Ship the 5-signal dashboard panel and signals.md doc
@@ -1070,7 +1070,7 @@ last_manual_edit: 2026-06-27T12:51:51.967Z
 
 ### Ship agent-rehearsal fixtures and harness:rehearse skill
 
-- **Status:** planned
+- **Status:** done
 - **Spec:** —
 - **Summary:** The article's deepest insight: Honnold rehearsed the crux moves on a rope until his body knew them, THEN soloed. The project has no analog. `examples/` (hello-world, multi-tenant-api, slack-echo-bridge, task-api) are showcase scaffolds, not failure-scenario fixtures. Ship `templates/rehearsal-fixtures/` containing deliberately-broken scaffolds across common failure modes (race condition, partial migration, edge-case data corruption, dependency cycle, layer violation, leaked secret). Build `harness:rehearse` skill that runs an agent against a chosen fixture and scores recovery. Used to (a) train agent personas before production trust, (b) regression-test the harness's own gates against known failure shapes, (c) give adopters a way to verify their gates fire before betting the climb on them. Source: Pass 7-A.
 - **Blockers:** —
@@ -1103,7 +1103,7 @@ last_manual_edit: 2026-06-27T12:51:51.967Z
 
 ### Ship golden-build reference-state primitive
 
-- **Status:** planned
+- **Status:** done
 - **Spec:** —
 - **Summary:** The "Anatomy of an AI-Native Org" companion article lists four required gear pieces: "specifications, evaluation suites, golden builds, and agent-review patterns." The project has the first, partial second, fourth — but no golden build primitive. The existing baselines (`coverage-baselines.json`, `benchmark-baselines.json`, arch baselines) are **metric baselines, not build baselines**. A golden build is the canonical known-good reference state (last passing main with a full eval pass) that all proposed changes are validated against — closer to an immutable release-tag concept than a metric snapshot. Ship: (a) `harness golden-build promote` command that snapshots a verified-passing state to `.harness/golden/`, (b) `harness golden-build verify` that compares the working tree against the most recent golden, (c) CI integration that auto-promotes a golden build on every green main merge, (d) `harness golden-build diff` for reviewing what's drifted since the last golden. Closes the gap between "metrics didn't regress" and "the project as a whole is still the project we trust." Source: Pass 8 (Anatomy of AI-Native Org companion article).
 - **Blockers:** Build harness:outcome-eval skill
@@ -1158,9 +1158,9 @@ last_manual_edit: 2026-06-27T12:51:51.967Z
 
 ### Honor persona-declared triggers — emit and commit persona CI workflows and scheduled jobs
 
-- **Status:** planned
+- **Status:** done
 - **Spec:** docs/changes/honor-persona-triggers/proposal.md
-- **Summary:** Persona YAMLs (agents/personas/\*.yaml) declare on_pr/on_commit/scheduled(cron) triggers and outputs.ci-workflow: true, and a generator exists (packages/cli/src/persona/generators/ci-workflow.ts), but — verified 2026-06 — NO generated persona workflow is committed and nothing honors the triggers; they are dead declarations. Make them real: run the persona CI-workflow generator and commit the resulting .github/workflows/ so declared triggers actually fire, plus a check that fails when a persona's declared trigger has no committed workflow (drift guard, mirrors generate:plugin:check). First consumer: the new harness-pm persona (#566) auto-runs acceptance-eval on PRs touching docs/changes/\*\* — closing the manual-only gap for the upstream acceptance-criteria gate. Also lights up the currently-dormant declarations on codebase-health-analyst (dependency-health, hotspot-detector, cleanup-dead-code — weekly sweep), performance-guardian (perf), entropy-cleaner (cleanup), graph-maintainer, and security-reviewer (on_pr deep OWASP/threat-model review beyond CI's lightweight security-scan). Today the project's strongest gear is opt-in; this makes it load-bearing without a human remembering to invoke each persona. Recommended priority: P1.
+- **Summary:** DELIVERED (PR #1086, merged). Persona YAMLs (agents/personas/\*.yaml) declare on_pr/on_commit/scheduled(cron) triggers and outputs.ci-workflow: true, and a generator exists (packages/cli/src/persona/generators/ci-workflow.ts), but — verified 2026-06 — NO generated persona workflow is committed and nothing honors the triggers; they are dead declarations. Make them real: run the persona CI-workflow generator and commit the resulting .github/workflows/ so declared triggers actually fire, plus a check that fails when a persona's declared trigger has no committed workflow (drift guard, mirrors generate:plugin:check). First consumer: the new harness-pm persona (#566) auto-runs acceptance-eval on PRs touching docs/changes/\*\* — closing the manual-only gap for the upstream acceptance-criteria gate. Also lights up the currently-dormant declarations on codebase-health-analyst (dependency-health, hotspot-detector, cleanup-dead-code — weekly sweep), performance-guardian (perf), entropy-cleaner (cleanup), graph-maintainer, and security-reviewer (on_pr deep OWASP/threat-model review beyond CI's lightweight security-scan). Today the project's strongest gear is opt-in; this makes it load-bearing without a human remembering to invoke each persona. Recommended priority: P1.
 - **Blockers:** —
 - **Plan:** —
 - **Assignee:** —
@@ -1227,10 +1227,10 @@ last_manual_edit: 2026-06-27T12:51:51.967Z
 ### Role-shaped dashboard front doors (non-technical lanes)
 
 - **Status:** planned
-- **Spec:** —
+- **Spec:** docs/changes/role-shaped-dashboard-front-doors/proposal.md
 - **Summary:** **Priority: NEXT.** PM/BA and client lanes through the existing dashboard + router + chat: author intent, watch agents, adjudicate at decision points — no terminal. The surfaces exist; they need role-scoped paths. Lever for non-technical access per the Full-lifecycle reach track. --- _Part of the **Full-lifecycle reach** track (STRATEGY.md v2). Rationale: `docs/knowledge/skills/sdlc-coverage-and-agentic-trajectory.md`._
 - **Blockers:** —
-- **Plan:** —
+- **Plan:** docs/changes/role-shaped-dashboard-front-doors/plans/author-intent-form.md
 - **Assignee:** —
 - **Priority:** P1
 - **External-ID:** github:Intense-Visions/harness-engineering#711
@@ -1371,6 +1371,17 @@ last_manual_edit: 2026-06-27T12:51:51.967Z
 - **Priority:** —
 - **External-ID:** github:Intense-Visions/harness-engineering#603
 
+### Orchestrator Gateway Policy Envelope and Subprocess Air-Gap
+
+- **Status:** done
+- **Spec:** —
+- **Summary:** Add a per-call PolicyMetadata envelope (approval mode, sandbox mode, network mode, dangerous-flags, agent family/version) and a zero-import subprocess boundary to the harness orchestrator gateway API (ADR 0011), validated on both ends for safe agent isolation and a full governance audit trail. Complements MCP server version pinning + trust model (#557). Adapted from Spec Kitty's orchestrator-api subprocess air-gap. Adoption #7 from docs/research/spec-kitty-comparison-analysis.md [SPECKITTY-7]
+- **Blockers:** —
+- **Plan:** —
+- **Assignee:** —
+- **Priority:** —
+- **External-ID:** github:Intense-Visions/harness-engineering#604
+
 ### Orchestrator Codex Backend Subprocess Env Air-Gap (follow-up)
 
 - **Status:** planned
@@ -1381,17 +1392,6 @@ last_manual_edit: 2026-06-27T12:51:51.967Z
 - **Assignee:** —
 - **Priority:** —
 - **External-ID:** github:Intense-Visions/harness-engineering#1158
-
-### Orchestrator Gateway Policy Envelope and Subprocess Air-Gap
-
-- **Status:** planned
-- **Spec:** —
-- **Summary:** Add a per-call PolicyMetadata envelope (approval mode, sandbox mode, network mode, dangerous-flags, agent family/version) and a zero-import subprocess boundary to the harness orchestrator gateway API (ADR 0011), validated on both ends for safe agent isolation and a full governance audit trail. Complements MCP server version pinning + trust model (#557). Adapted from Spec Kitty's orchestrator-api subprocess air-gap. Adoption #7 from docs/research/spec-kitty-comparison-analysis.md [SPECKITTY-7]
-- **Blockers:** —
-- **Plan:** —
-- **Assignee:** —
-- **Priority:** —
-- **External-ID:** github:Intense-Visions/harness-engineering#604
 
 ### Standardize Parallel Execution
 
@@ -1430,7 +1430,7 @@ last_manual_edit: 2026-06-27T12:51:51.967Z
 
 ### Skill Regression Evaluator
 
-- **Status:** planned
+- **Status:** done
 - **Spec:** —
 - **Summary:** Golden-fixture evaluation framework for skills: canonical inputs per major skill (brainstorming, planning, spec-craft), semantic scoring @k against golden baselines, token/duration tracking, CI gate on prompt/rule PRs. Adapted from AI-DLC's aidlc-evaluator — the one capability where AWS is categorically ahead. Adoption #1 from docs/research/aidlc-comparison-analysis.md [AIDLC-1]
 - **Blockers:** —
@@ -1643,7 +1643,7 @@ last_manual_edit: 2026-06-27T12:51:51.967Z
 
 ### Speed up the entropy/cleanup maintenance check (~165s sweep long-pole)
 
-- **Status:** planned
+- **Status:** done
 - **Spec:** —
 - **Summary:** Follow-up from the on-demand maintenance pipeline (#687). **Problem:** the `entropy` maintenance task runs `cleanup` (all entropy types), which takes ~165s on this monorepo — the long pole of `harness maintenance run --all`. It fits within the 300s per-check budget but dominates sweep wall-clock. **Proposal:** profile/optimize `cleanup` / entropy detection (incremental scan, caching, or scoping). Pre-existing command perf, not introduced by #687. **Workaround today:** `harness maintenance run --skip entropy`, and it only runs weekly on the cron schedule.
 - **Blockers:** —

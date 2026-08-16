@@ -1,0 +1,38 @@
+{
+  "issue": 1367,
+  "slug": "fix-apipath-java-basepath-scope",
+  "branch": "fix/apipath-java-basepath",
+  "owningPackage": "@harness-engineering/graph",
+  "pipelineStages": [
+    {
+      "stage": "brainstorming",
+      "artifact": "docs/changes/fix-apipath-java-basepath-scope/proposal.md"
+    },
+    {
+      "stage": "planning",
+      "artifact": "docs/changes/fix-apipath-java-basepath-scope/plans/plan.md"
+    },
+    {
+      "stage": "tdd-execution",
+      "artifacts": [
+        "packages/graph/__fixtures__/extractor-project/RoutesMethodMapping.java",
+        "packages/graph/tests/ingest/extractors/ApiPathExtractor.test.ts",
+        "packages/graph/src/ingest/extractors/ApiPathExtractor.ts"
+      ]
+    }
+  ],
+  "planArtifact": "docs/changes/fix-apipath-java-basepath-scope/plans/plan.md",
+  "assumptions": [
+    "Autonomous fleet lane: no human sign-off available; took the issue's recommended fix as default (classify @RequestMapping by its target declaration; only class/interface/enum targets set basePath).",
+    "A class-level @RequestMapping used as basePath is not additionally emitted as an endpoint, preventing a spurious ANY /api/api record.",
+    "Target-declaration detection scans forward past annotations, blank lines, and // line comments to the first real declaration line.",
+    "Preserved the existing Routes.java Spring fixture unchanged; added a new RoutesMethodMapping.java fixture for the method-level regression case.",
+    "Ran brainstorming/plan/TDD stages directly (fast mode) rather than via interactive human gates, since no human is reachable in this lane."
+  ],
+  "localChecks": {
+    "build": "pass",
+    "typecheck": "pass",
+    "test": "pass (968 graph tests, incl. new regression)",
+    "lint": "pass"
+  }
+}

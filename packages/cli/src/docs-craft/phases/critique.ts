@@ -8,6 +8,7 @@ import type { LlmProvider } from '../../shared/craft/llm/provider.js';
 import type { DocsRubric, DocKind } from '../catalog/rubrics/index.js';
 import type { DocsFinding, Tier, Impact, Confidence } from '../findings/schema.js';
 import { derivePriority } from '../../shared/craft/findings/derived.js';
+import { extractFencedJsonPayload } from '../../shared/craft/fenced-json.js';
 
 const MAX_CONTENT_CHARS = 6000;
 
@@ -82,12 +83,6 @@ function buildPrompt(input: CritiqueInput): string {
   ].join('\n');
 }
 
-/** Strip an optional ```json fence, returning the trimmed payload. */
-function stripJsonFence(raw: string): string {
-  const match = /```(?:json)?\s*\n?([\s\S]*?)\n?\s*```/.exec(raw);
-  return (match?.[1] ?? raw).trim();
-}
-
 /** Narrow parsed JSON to a plain object, rejecting null/arrays/primitives. */
 function asJsonObject(parsed: unknown): Record<string, unknown> | null {
   if (parsed === null || typeof parsed !== 'object') return null;
@@ -95,7 +90,7 @@ function asJsonObject(parsed: unknown): Record<string, unknown> | null {
 }
 
 function parseFencedJson(raw: string): Record<string, unknown> | null {
-  const body = stripJsonFence(raw);
+  const body = extractFencedJsonPayload(raw);
   if (body === 'null') return null;
   try {
     // harness-ignore SEC-DES-001: parses LLM model output; asJsonObject gates shape, downstream callers re-validate fields
