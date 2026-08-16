@@ -1,0 +1,43 @@
+name: Audit Exceptions
+
+# Issue #1324 — Enforce the `auditExceptions` register so time-boxed deferrals
+# cannot silently become permanent exemptions.
+#
+# Runs the dependency audit and reconciles every active advisory against the
+# `auditExceptions` register in package.json. FAILS (blocking — no
+# continue-on-error) when an active advisory has no register entry, or when a
+# covering entry has lapsed (past its `expires` date, or missing one). This is
+# the enforcement the register previously lacked: before this job nothing ran
+# `pnpm audit` and nothing read the register.
+
+on:
+  pull_request:
+    branches: [main]
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  audit-exceptions:
+    name: Reconcile audit exceptions
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: pnpm/action-setup@v5
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 22
+          cache: 'pnpm'
+
+      - run: pnpm install --frozen-lockfile
+
+      # Blocking: an uncovered or lapsed advisory fails the PR. The script runs
+      # `pnpm audit --json` itself and exits non-zero on any failure.
+      - name: Reconcile auditExceptions
+        run: node scripts/audit-exceptions.mjs

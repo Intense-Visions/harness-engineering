@@ -45,6 +45,7 @@
     "generate:persona-workflows:check": "node scripts/generate-persona-workflows.mjs --check",
     "changeset": "changeset",
     "check:changesets": "BASE_REF=origin/main node scripts/check-changesets.mjs",
+    "check:audit-exceptions": "node scripts/audit-exceptions.mjs",
     "version": "changeset version && node scripts/sync-plugin-pin.mjs",
     "release": "pnpm build && changeset publish",
     "prepare": "husky"
@@ -109,11 +110,26 @@
     }
   },
   "auditExceptions": {
-    "GHSA-67mh-4wv8-2f99": "esbuild dev-server CORS — dev-only, no network exposure. Blocked by vitepress ^5 pin.",
-    "GHSA-4w7w-66w2-5vf9": "vite .map path traversal — dev-only, no --host usage. Blocked by vitepress ^5 pin.",
-    "GHSA-fx2h-pf6j-xcff": "vite server.fs.deny bypass (HIGH) — app/test copies bumped to >=6.4.3; residual is the vite 5.4.x copy pulled only by vitepress ^5 (no 5.x patch exists). Dev/docs-only, no --host. Real fix is upgrading vitepress off vite 5.",
-    "GHSA-v6wh-96g9-6wx3": "launch-editor NTLM disclosure via vite (HIGH) — same residual as GHSA-fx2h: only the vitepress ^5 vite 5.4.x copy. Dev/docs-only, Windows-only. Real fix is upgrading vitepress off vite 5.",
-    "GHSA-g7r4-m6w7-qqqr": "esbuild dev-server arbitrary file read — tsx moved to 4.23.11, which resolves the patched esbuild 0.28.2; the residual vulnerable 0.27.7 copy is now pulled only by tsup 8.5.1 (and its bundle-require dep), which caps esbuild at ^0.27.0 with no newer tsup published. Still dev-only, Windows-only, low severity. Forcing esbuild >=0.28.1 under tsup would be an out-of-range override of the bundler's own compiler; real fix is a tsup release on esbuild >=0.28.1."
+    "GHSA-67mh-4wv8-2f99": {
+      "reason": "esbuild dev-server CORS — dev-only, no network exposure. Blocked by vitepress ^5 pin.",
+      "expires": "2026-11-15"
+    },
+    "GHSA-4w7w-66w2-5vf9": {
+      "reason": "vite .map path traversal — dev-only, no --host usage. Blocked by vitepress ^5 pin.",
+      "expires": "2026-11-15"
+    },
+    "GHSA-fx2h-pf6j-xcff": {
+      "reason": "vite server.fs.deny bypass (HIGH) — app/test copies bumped to >=6.4.3; residual is the vite 5.4.x copy pulled only by vitepress ^5 (no 5.x patch exists). Dev/docs-only, no --host. Real fix is upgrading vitepress off vite 5.",
+      "expires": "2026-11-15"
+    },
+    "GHSA-v6wh-96g9-6wx3": {
+      "reason": "launch-editor NTLM disclosure via vite (HIGH) — same residual as GHSA-fx2h: only the vitepress ^5 vite 5.4.x copy. Dev/docs-only, Windows-only. Real fix is upgrading vitepress off vite 5.",
+      "expires": "2026-11-15"
+    },
+    "GHSA-g7r4-m6w7-qqqr": {
+      "reason": "esbuild dev-server arbitrary file read — tsx moved to 4.23.11, which resolves the patched esbuild 0.28.2; the residual vulnerable 0.27.7 copy is now pulled only by tsup 8.5.1 (and its bundle-require dep), which caps esbuild at ^0.27.0 with no newer tsup published. Still dev-only, Windows-only, low severity. Forcing esbuild >=0.28.1 under tsup would be an out-of-range override of the bundler's own compiler; real fix is a tsup release on esbuild >=0.28.1.",
+      "expires": "2026-11-15"
+    }
   },
   "engines": {
     "node": ">=22.0.0",
