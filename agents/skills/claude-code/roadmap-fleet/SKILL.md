@@ -29,7 +29,7 @@ Building a backlog through the harness pipeline one item at a time is an attenti
 
 **A PR is "merge-ready" only after independent artifact + all-OS-CI verification. The fleet never auto-merges, and never accepts a subagent's self-report as proof its pipeline ran.**
 
-A subagent that reports "done — pipeline ran, CI green" has told you what it believes, not what is true. The only evidence that the real per-item pipeline ran is the artifact it necessarily leaves behind (a plan directory plus an autopilot-state) and the CI signal on the pushed branch. If either is missing, the item did not run the pipeline as required and is rejected or retried — regardless of how confident the report reads. And landing the batch is the human's call: the fleet stops at a set of verified, reviewable PRs.
+A subagent that reports "done — pipeline ran, CI green" has told you what it believes, not what is true. The only evidence that the real per-item pipeline ran is the artifact it necessarily leaves behind (a plan directory plus a committed pipeline-provenance file) and the CI signal on the pushed branch. If either is missing, the item did not run the pipeline as required and is rejected or retried — regardless of how confident the report reads. And landing the batch is the human's call: the fleet stops at a set of verified, reviewable PRs.
 
 ```
 Phase 1: SELECT --> Phase 2: CONFIRM --> Phase 3: DISPATCH
@@ -93,21 +93,31 @@ Phase 1: SELECT --> Phase 2: CONFIRM --> Phase 3: DISPATCH
 
 4. **Record an "assumptions made" note per item.** Each subagent records the recommended-option defaults it took so the eventual PR carries an assumptions note — batch review is only trustworthy when the reviewer can see what was assumed.
 
-5. **Push-path caveat.** A worktree created under a `.claude/`-nested path breaks the local pre-push `check-docs` gate (it self-excludes and scans zero files). Subagents push via the GitHub API or from a non-`.claude` throwaway worktree. **Never `--no-verify`** — bypassing the gate defeats the verification the fleet depends on.
+5. **Write a committed pipeline-provenance file.** Each lane **MUST** write `docs/changes/<slug>/provenance.json` and commit it onto its branch. This is the verifiable proof the real pipeline ran — it replaces the session state that `.harness/.gitignore` excludes from every branch by construction (and so never survives into a PR). The file records at minimum: the item's **issue number(s)**, the **pipeline stages run** (e.g. `brainstorming`, `autopilot`/`planning`, `execution`, `review`), the **plan-artifact path** under `docs/changes/<slug>/plans/`, and the **assumptions** taken (the recommended-option defaults from item 4). VERIFY checks for this committed file; a branch without it did not run the pipeline.
+
+6. **Reference the issue with the correct closing keyword.** Each lane decides — and states in its PR body — how its PR references the issue it was dispatched for. This is a real decision with a default, not an incidental phrasing:
+   - A PR that **fully resolves** its issue uses `Closes #<N>`, so the merge-triggered reconciler closes the issue and marks the roadmap row done.
+   - A PR that lands only **one slice** of a multi-finding issue uses `Refs #<N>` (which triggers no auto-close) and **flags the issue for manual reconciliation** in REPORT, naming the row that still needs attention.
+
+   Defaulting to `Refs` on a fully-resolving PR silently strands the roadmap row `planned`/`in-progress` forever, because `Refs` fires no closing behavior; defaulting to `Closes` on a partial slice closes an issue that still has open findings. The lane picks deliberately and records which keyword it used (and why, if partial) in its assumptions note and provenance file.
+
+7. **Push-path caveat.** A worktree created under a `.claude/`-nested path breaks the local pre-push `check-docs` gate (it self-excludes and scans zero files). Subagents push via the GitHub API or from a non-`.claude` throwaway worktree. **Never `--no-verify`** — bypassing the gate defeats the verification the fleet depends on.
 
 ### Phase 4: VERIFY — Independent Confirmation, Never Self-Report
 
 1. **Never accept a subagent's self-report as verification.** "The pipeline ran and CI is green" is a claim to be checked, not a result. For each returned branch, the orchestrator independently confirms the evidence itself.
 
-2. **Require the pipeline artifact.** Confirm that both exist on the branch:
+2. **Require the pipeline artifact.** Confirm that both exist **committed on the branch** (so they survive into the PR):
    - A plan artifact under `docs/changes/<slug>/plans/` — the necessary trace of a real brainstorming→autopilot run.
-   - An autopilot-state (session state) for the item.
+   - A committed pipeline-provenance file under `docs/changes/<slug>/` (e.g. `provenance.json`) recording the item's issue number(s), the pipeline stages run, the plan-artifact path, and the assumptions taken. This replaces the old session-state check: session state lives under `.harness/sessions/`, which `.harness/.gitignore` excludes from every branch by construction, so it is absent from every PR and can never be verified — the committed provenance file is the artifact that actually survives to where the orchestrator can check it.
 
-   An item with **no plan artifact did not run the real pipeline** — regardless of what the subagent reported. Reject it (or retry once); it is never marked merge-ready.
+   An item with **no plan artifact or no committed provenance file did not run the real pipeline** — regardless of what the subagent reported. Reject it (or retry once); it is never marked merge-ready.
 
-3. **Require all-OS CI green.** Confirm the pushed branch's CI is green on **all three operating systems** plus the enforce and harness checks (`gh pr checks` / `gh run list`). Green on one OS is not green. A subset-red branch is not merge-ready — it is reported as failed, and the batch continues.
+3. **Check the PR body's issue reference.** Confirm the PR body carries the closing keyword that matches the item's scope (the DISPATCH contract): a fully-resolving item uses `Closes #<N>`; a partial-slice item uses `Refs #<N>` and is flagged for manual reconciliation. A **fully-resolving item whose PR body carries no closing keyword** will strand its roadmap row on merge — flag it for correction before the batch is handed over. This is cheaply detectable from the PR body at verify time.
 
-4. **Classify each returned item** as `verified` (artifact present + all-OS CI green), `rejected` (missing artifact or definitively red), or `retry` (transient, retried at most once). No item reaches REPORT as merge-ready without passing both the artifact and the CI check.
+4. **Require all-OS CI green.** Confirm the pushed branch's CI is green on **all three operating systems** plus the enforce and harness checks (`gh pr checks` / `gh run list`). Green on one OS is not green. A subset-red branch is not merge-ready — it is reported as failed, and the batch continues.
+
+5. **Classify each returned item** as `verified` (plan artifact + committed provenance file present, correct closing keyword, and all-OS CI green), `rejected` (missing artifact/provenance or definitively red), or `retry` (transient, retried at most once). No item reaches REPORT as merge-ready without passing both the artifact and the CI check.
 
 ### Phase 5: REPORT — Batch Summary, Resolved-Issue Closure, Never Merge
 
@@ -137,7 +147,7 @@ Phase 1: SELECT --> Phase 2: CONFIRM --> Phase 3: DISPATCH
 
 ## Success Criteria
 
-- Given a confirmed batch of N candidates, the fleet produces **up to N** PRs, each with a verified plan artifact and green CI across all three OS plus enforce and harness.
+- Given a confirmed batch of N candidates, the fleet produces **up to N** PRs, each with a verified plan artifact, a committed provenance file, a scope-correct closing keyword, and green CI across all three OS plus enforce and harness.
 - There is **exactly one** up-front human decision round; no per-item interactive pauses except a genuinely-new fork parked to its own item.
 - **Every emitted PR carries an "assumptions made" note.**
 - Already-resolved candidates are **closed with resolving-PR citations, not rebuilt**.
@@ -148,7 +158,8 @@ Phase 1: SELECT --> Phase 2: CONFIRM --> Phase 3: DISPATCH
 
 ## Gates
 
-- **No "merge-ready" without a verified plan artifact.** An item lacking `docs/changes/<slug>/plans/` did not run the real pipeline. It is rejected or retried — never reported as merge-ready, no matter what the subagent claimed.
+- **No "merge-ready" without a verified plan artifact and committed provenance file.** An item lacking either `docs/changes/<slug>/plans/` or a committed `docs/changes/<slug>/provenance.json` did not run the real pipeline (the provenance file — not the gitignored session state, which never reaches a branch — is the artifact that survives into the PR). It is rejected or retried — never reported as merge-ready, no matter what the subagent claimed.
+- **No fully-resolving PR without a closing keyword.** A PR that fully resolves its issue but whose body carries no `Closes #<N>` will strand its roadmap row on merge; a partial-slice PR must use `Refs #<N>` and be flagged for manual reconciliation. A mismatch between scope and keyword is a gate finding — correct it before handover.
 - **No "merge-ready" without all-OS CI green.** Green on a subset of operating systems (or with enforce/harness checks red) is not merge-ready. Report it failed; do not ship it.
 - **Never auto-merge.** The fleet stops at reviewable PRs. Merging a feature PR from inside the fleet = gate violation; the human lands the batch.
 - **Never exceed the concurrency governor.** More than ~3 concurrent build agents is the machine-storm zone; do not raise the cap to "go faster."
@@ -166,16 +177,16 @@ Phase 1: SELECT --> Phase 2: CONFIRM --> Phase 3: DISPATCH
 
 ## Rationalizations to Reject
 
-| Rationalization                                                                   | Reality                                                                                                                                                                            |
-| --------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| "The subagent reported its pipeline ran and CI is green, so it did"               | A self-report is a claim, not evidence. Independently confirm the `docs/changes/<slug>/plans/` artifact and autopilot-state exist and CI is green — or the item did not run.       |
-| "CI is green on Linux, ship it"                                                   | Green on one OS is not green. Merge-ready requires all three operating systems plus the enforce and harness checks. A subset-red branch is reported failed, not shipped.           |
-| "This item's fork is small — I'll just guess and keep the batch moving"           | Unforeseen forks **park and report**; they are never silently guessed mid-flight. Guessing buries an unstated assumption in a PR the reviewer cannot see.                          |
-| "I'll hand-implement this one item — it's faster than driving the whole pipeline" | Dogfood the real per-item skills. A hand-built item leaves no plan artifact, fails VERIFY, and breaks the guarantee that every PR ran the audited pipeline.                        |
-| "The batch is verified and ready — I'll merge them to save the human a step"      | Never auto-merge. The fleet stops at reviewable PRs; the human (or `pr-fleet`) lands the batch. Auto-merging removes the one review the whole model is built around.               |
-| "One item's pipeline failed, so the run is a bust — abort the batch"              | Degrade gracefully. Report the failed item and keep the verified ones; one bad item never sinks the batch.                                                                         |
-| "This candidate looks new to me, no need to check merged PRs"                     | Cross-check every candidate against merged/open PRs. An already-resolved item rebuilt from scratch is duplicate work and a conflicting PR; resolved items get closed, not rebuilt. |
-| "Bumping concurrency to six will finish the batch sooner"                         | Beyond ~3 concurrent build agents is the machine-storm zone — compound load produces flaky failures that cost more in re-runs than the extra parallelism saves.                    |
+| Rationalization                                                                   | Reality                                                                                                                                                                                                          |
+| --------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| "The subagent reported its pipeline ran and CI is green, so it did"               | A self-report is a claim, not evidence. Independently confirm the `docs/changes/<slug>/plans/` artifact and the committed `docs/changes/<slug>/provenance.json` exist and CI is green — or the item did not run. |
+| "CI is green on Linux, ship it"                                                   | Green on one OS is not green. Merge-ready requires all three operating systems plus the enforce and harness checks. A subset-red branch is reported failed, not shipped.                                         |
+| "This item's fork is small — I'll just guess and keep the batch moving"           | Unforeseen forks **park and report**; they are never silently guessed mid-flight. Guessing buries an unstated assumption in a PR the reviewer cannot see.                                                        |
+| "I'll hand-implement this one item — it's faster than driving the whole pipeline" | Dogfood the real per-item skills. A hand-built item leaves no plan artifact, fails VERIFY, and breaks the guarantee that every PR ran the audited pipeline.                                                      |
+| "The batch is verified and ready — I'll merge them to save the human a step"      | Never auto-merge. The fleet stops at reviewable PRs; the human (or `pr-fleet`) lands the batch. Auto-merging removes the one review the whole model is built around.                                             |
+| "One item's pipeline failed, so the run is a bust — abort the batch"              | Degrade gracefully. Report the failed item and keep the verified ones; one bad item never sinks the batch.                                                                                                       |
+| "This candidate looks new to me, no need to check merged PRs"                     | Cross-check every candidate against merged/open PRs. An already-resolved item rebuilt from scratch is duplicate work and a conflicting PR; resolved items get closed, not rebuilt.                               |
+| "Bumping concurrency to six will finish the batch sooner"                         | Beyond ~3 concurrent build agents is the machine-storm zone — compound load produces flaky failures that cost more in re-runs than the extra parallelism saves.                                                  |
 
 ## Red Flags
 
@@ -216,9 +227,9 @@ Phase 3: DISPATCH (governor = 2)
     -> parks and reports; the other 3 continue.
 
 Phase 4: VERIFY (independent — no self-report)
-  item A: plan artifact + autopilot-state present, CI green all 3 OS + enforce + harness -> verified
-  item B: plan artifact + autopilot-state present, CI green all 3 OS -> verified
-  item C: NO plan artifact on the branch (self-reported "done") -> REJECTED (hand-built, not piped)
+  item A: plan artifact + provenance.json present, Closes #N in body, CI green all 3 OS + enforce + harness -> verified
+  item B: plan artifact + provenance.json present, Closes #N in body, CI green all 3 OS -> verified
+  item C: NO plan artifact / no provenance.json on the branch (self-reported "done") -> REJECTED (hand-built, not piped)
   item D: parked in DISPATCH -> not verified (fork awaits human)
 
 Phase 5: REPORT
@@ -234,13 +245,17 @@ Phase 5: REPORT
 
 ### Example: Rejecting a hand-built item
 
-A subagent returns a branch and reports "done — implemented the fix, tests pass, CI green." VERIFY looks for `docs/changes/<slug>/plans/` and finds nothing: there is no plan artifact and no autopilot-state. The item was hand-implemented, short-cutting the real pipeline. Per the Iron Law it is **rejected** (retried once, still no artifact → reported as "did not run the pipeline"), never marked merge-ready. The batch's other verified items proceed to REPORT unaffected.
+A subagent returns a branch and reports "done — implemented the fix, tests pass, CI green." VERIFY looks for `docs/changes/<slug>/plans/` and finds nothing: there is no plan artifact and no committed `provenance.json`. The item was hand-implemented, short-cutting the real pipeline. Per the Iron Law it is **rejected** (retried once, still no artifact → reported as "did not run the pipeline"), never marked merge-ready. The batch's other verified items proceed to REPORT unaffected.
 
 ## Test Scenarios
 
 ### Scenario 1: Gate — a self-report accepted as verification
 
-VERIFY receives a subagent claiming "pipeline ran, CI green" but the branch has no `docs/changes/<slug>/plans/` artifact. Expected: the "no merge-ready without a verified plan artifact" Gate halts marking it merge-ready; the item is rejected/retried, not reported as a PR. Accepting the self-report is the failure this scenario guards against.
+VERIFY receives a subagent claiming "pipeline ran, CI green" but the branch has no `docs/changes/<slug>/plans/` artifact and no committed `provenance.json`. Expected: the "no merge-ready without a verified plan artifact and committed provenance file" Gate halts marking it merge-ready; the item is rejected/retried, not reported as a PR. Accepting the self-report is the failure this scenario guards against.
+
+### Scenario 4: Closing-keyword contract — a fully-resolving PR briefed with `Refs`
+
+A lane fully resolves its single-finding issue but its PR body reads `Refs #N`. Expected: VERIFY's PR-body check flags the scope/keyword mismatch — a fully-resolving PR must use `Closes #N` or the merge-triggered reconciler leaves the roadmap row `planned`/`in-progress` forever. The lane corrects the body to `Closes #N` before handover. A partial-slice PR of a multi-finding issue is the mirror case: it correctly keeps `Refs #N` and is flagged for manual reconciliation. Defaulting the keyword by accident — the failure that stranded rows #1208/#1128/#1129/#603 — is what this scenario guards against.
 
 ### Scenario 2: Rationalization — hand-implementing one item
 
