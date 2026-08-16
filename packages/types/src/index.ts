@@ -429,3 +429,18 @@ export type {
 
 // --- Identity ---
 export type { HarnessIdentity, IdentityDomain } from './identity';
+
+// --- Telemetry synthesis (#563) ---
+export { TELEMETRY_SYNTHESIS_SECTIONS } from './telemetry-synthesis';
+export type {
+  TelemetrySynthesisSection,
+  SourceAbsent,
+  SynthesisSection,
+  AdoptionSection,
+  EffectivenessSection,
+  UsageSection,
+  InsightsSection,
+  OutcomeSection,
+  TelemetrySynthesisHeadline,
+  TelemetrySynthesis,
+} from './telemetry-synthesis';

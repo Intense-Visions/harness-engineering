@@ -1805,6 +1805,17 @@ Show current telemetry consent state, install ID, and identity
 
 - `--json` — Output as JSON
 
+### `harness telemetry synthesize`
+
+Compose adoption, effectiveness, usage, insights, and outcome telemetry into one local report
+
+**Options:**
+
+- `--json` — Emit the machine-readable TelemetrySynthesis object instead of Markdown
+- `--out` — Write the report to a file instead of stdout
+- `--skip` — Omit a section (adoption|effectiveness|usage|insights|outcomes); repeatable (default: [])
+- `--window` — Bound adoption/usage/outcome sources to the trailing N days
+
 ### `harness telemetry test`
 
 Send a test event to PostHog and verify connectivity

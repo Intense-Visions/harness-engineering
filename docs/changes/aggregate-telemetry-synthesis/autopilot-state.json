@@ -1,0 +1,68 @@
+{
+  "schemaVersion": 5,
+  "specPath": "docs/changes/aggregate-telemetry-synthesis/proposal.md",
+  "sessionSlug": "changes--aggregate-telemetry-synthesis--proposal",
+  "startingCommit": "de75401e872271af2ade39fa795320e9b709a9fc",
+  "rigorLevel": "thorough",
+  "reviewPlans": false,
+  "currentState": "DONE",
+  "currentPhase": 0,
+  "phases": [
+    {
+      "name": "Aggregate-telemetry synthesis surface (harness telemetry synthesize)",
+      "complexity": "medium",
+      "complexityOverride": null,
+      "planPath": "docs/changes/aggregate-telemetry-synthesis/plans/plan.md",
+      "status": "PHASE_COMPLETE"
+    }
+  ],
+  "decisions": [
+    {
+      "state": "BRAINSTORM",
+      "what": "Validated the draft spec against the five existing readers by source inspection; flipped status DRAFT->PLANNED.",
+      "why": "Every source (readAdoptionRecords/aggregateBySkill, the intelligence skill scorers, the usage aggregator, composeInsights, execution_outcome graph nodes) exists with the signatures the spec assumes. The scope is buildable and testable in-repo; the cross-adopter dashboard is correctly deferred (needs a PostHog aggregate + privacy review + hosting that do not exist here)."
+    },
+    {
+      "state": "BRAINSTORM",
+      "what": "Refined the headline field `healthScore: number` to `healthPassed: boolean | null`.",
+      "why": "composeInsights yields InsightsHealthBlock { passed, signals, summary } — a pass/fail signal, not a numeric score. Decision 6 of the spec forbids fabricating a value; a boolean is the honest projection. No acceptance criterion asserts a numeric health score."
+    },
+    {
+      "state": "PLAN",
+      "what": "Resolved the spec's open layering question: core hosts a PURE composer; the CLI is the composition root.",
+      "why": "Effectiveness lives in @harness-engineering/intelligence and outcomes in @harness-engineering/graph; core must depend on neither. The CLI reads adoption/usage records, builds the effectiveness projection from the intelligence scorers, reads execution_outcome nodes via the graph loader, runs composeInsights, and hands them all to composeSynthesis. This mirrors how adoption.ts imports the scorers at the CLI layer, keeping the existing dependency direction intact."
+    },
+    {
+      "state": "EXECUTE",
+      "what": "Made composeSynthesis pure (all inputs injected, fixed `now` supported) rather than reading files itself.",
+      "why": "Determinism and unit-testability for the present/absent/mixed/windowed cases without touching disk; the CLI owns all IO. Windowing is applied consistently to adoption/usage/outcomes inside the composer, and effectiveness is built from the SAME windowed records so the two never diverge."
+    },
+    {
+      "state": "EXECUTE",
+      "what": "Outcome verdicts are counted from metadata.verdict (SATISFIED/NOT_SATISFIED/INCONCLUSIVE), falling back to metadata.result (success->SATISFIED, failure->NOT_SATISFIED) for nodes without an outcome-eval verdict.",
+      "why": "execution_outcome nodes from outcome-eval carry the 3-valued verdict; connector-only nodes carry just result. Reading both avoids undercounting while staying honest (an empty/absent set yields present:false, never a zero-rate section)."
+    },
+    {
+      "state": "EXECUTE",
+      "what": "Cost is priced through the same loadPricingData + calculateCost path `harness usage` uses; any unknown-pricing record makes the total null.",
+      "why": "AC6 requires no divergence from the usage surface. costMicroUSD is never stored in costs.jsonl — it is derived from model pricing — so the synthesize command must price identically. A null (not zero) total preserves the never-fabricate-a-value rule."
+    },
+    {
+      "state": "VERIFY",
+      "what": "14 core unit tests (compose present/absent/mixed/windowed/skip + render) and 10 CLI integration tests (AC1-AC11 against on-disk fixtures) pass; typecheck clean across types/core/cli.",
+      "why": "Each acceptance criterion has a covering test; the CLI tests exercise the real readers end-to-end rather than mocks. AC10 snapshots .harness/metrics before/after to prove read-only."
+    },
+    {
+      "state": "INTEGRATE",
+      "what": "Regenerated the core barrel (telemetry-synthesis auto-discovered via export *), regenerated reference docs (new CLI surface), and added a minor changeset for types/core/cli.",
+      "why": "Pre-push gates: stale docs/reference/* and a missing changeset both block the push; the barrel picks the new module up through auto-discovery plus a DIR_COMMENTS entry for a clean generated comment."
+    }
+  ],
+  "gates": {
+    "coreUnitTests": "14 passed (tests/telemetry-synthesis/synthesize.test.ts)",
+    "cliIntegrationTests": "10 passed (tests/commands/telemetry-synthesize.test.ts) — AC1-AC11",
+    "typecheck": "PASS — @harness-engineering/types, core, cli (tsc --noEmit, exactOptionalPropertyTypes)",
+    "readOnly": "verified — .harness/metrics snapshot unchanged across a run (AC10)",
+    "costParity": "verified — headline totalCost equals the usage aggregator total over the same fixture (AC6)"
+  }
+}
