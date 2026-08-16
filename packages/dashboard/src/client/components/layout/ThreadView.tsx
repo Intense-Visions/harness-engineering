@@ -13,6 +13,7 @@ import { Graph } from '../../pages/Graph';
 import { Impact } from '../../pages/Impact';
 import { DecayTrends } from '../../pages/DecayTrends';
 import { Traceability } from '../../pages/Traceability';
+import { Signoff } from '../../pages/Signoff';
 import { Orchestrator } from '../../pages/Orchestrator';
 import { Kanban } from '../../pages/Kanban';
 import { Maintenance } from '../../pages/Maintenance';
@@ -39,6 +40,8 @@ const SYSTEM_PAGE_COMPONENTS: Record<string, ComponentType> = {
   impact: Impact,
   decay: DecayTrends,
   traceability: Traceability,
+  // Roadmap #710 — UAT sign-off front door.
+  signoff: Signoff,
   orchestrator: Orchestrator,
   kanban: Kanban,
   maintenance: Maintenance,

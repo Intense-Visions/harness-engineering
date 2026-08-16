@@ -28,6 +28,7 @@
     "@harness-engineering/core": "workspace:*",
     "@harness-engineering/signals": "workspace:*",
     "@harness-engineering/graph": "workspace:*",
+    "@harness-engineering/intelligence": "workspace:*",
     "@harness-engineering/orchestrator": "workspace:*",
     "@harness-engineering/types": "workspace:*",
     "@hono/node-server": "^2.0.4",

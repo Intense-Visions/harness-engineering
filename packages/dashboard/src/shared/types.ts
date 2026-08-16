@@ -404,3 +404,70 @@ export interface ChecksData {
   anomalies: AnomalyResult;
   lastRun: string;
 }
+
+// --- UAT Sign-off (roadmap #710) ---
+// A dashboard presentation + capture surface over the EXISTING sign-off record
+// primitive (UatSignoffRecorder). Human-judged, advisory / record-only — it never
+// gates a merge, ship, or pipeline step. Kept deliberately distinct from
+// acceptance-eval / outcome-eval, which are LLM-judged and blocking.
+
+/** Per-item disposition a human rules during sign-off (mirrors UatItemDisposition). */
+export type SignoffItemDisposition = 'ACCEPT' | 'REJECT' | 'CHANGES_REQUESTED';
+
+/** The single overall human verdict (mirrors UatOverallDecision). */
+export type SignoffDecision = 'ACCEPTED' | 'REJECTED' | 'CHANGES_REQUESTED';
+
+/** Which proposal section the acceptance basis was resolved from (null = none on disk). */
+export type SignoffBasisSection = 'Success Criteria' | 'User-Visible Behavior' | 'Overview';
+
+/** One acceptance item the human rules on during sign-off. */
+export interface SignoffItem {
+  /** Stable id of the acceptance item (e.g. `SC3`); reused verbatim by the recorder. */
+  id: string;
+  /** The disposition the human ruled for this item. */
+  disposition: SignoffItemDisposition;
+  /** Optional free-text note the human attached. */
+  note?: string;
+}
+
+/** A previously recorded sign-off, surfaced so an already-signed change renders read-only. */
+export interface SignoffRecord {
+  slug: string;
+  decision: SignoffDecision;
+  signedOffBy: string;
+  /** ISO timestamp the sign-off was recorded. */
+  signedAt: string;
+  items: SignoffItem[];
+  /** Relative path to the written `docs/changes/<slug>/signoff.md`. */
+  signoffPath: string;
+}
+
+/** The acceptance basis the read route returns for a change. */
+export interface SignoffBasis {
+  slug: string;
+  /** One entry per acceptance criterion (id + text). Empty when no basis is on disk. */
+  items: { id: string; text: string }[];
+  /** Which section the items came from, or null when no proposal / basis exists. */
+  basisSection: SignoffBasisSection | null;
+  /** A prior recorded sign-off, when `signoff.md` already exists. */
+  existing?: SignoffRecord;
+}
+
+/** Request body for `POST /api/signoff`. */
+export interface SignoffRequest {
+  slug: string;
+  decision: SignoffDecision;
+  signedOffBy: string;
+  items: SignoffItem[];
+  /** Success-Criterion ids the sign-off closes (the accepted items). */
+  criteriaRefs?: string[];
+}
+
+/** Response body for `POST /api/signoff` — a record-only confirmation. */
+export interface SignoffResponse {
+  recorded: true;
+  outcomeId: string;
+  result: 'success' | 'failure';
+  /** Relative path to the written `signoff.md`. */
+  signoffPath: string;
+}

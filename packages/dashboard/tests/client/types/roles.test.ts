@@ -47,16 +47,27 @@ describe('role → visible-pages mapping', () => {
 
   it('pm-ba sees the author/watch/adjudicate lane and nothing more', () => {
     const pages = pagesForRole('pm-ba').map((e) => e.page);
-    expect(pages).toEqual(['roadmap', 'kanban', 'orchestrator', 'streams', 'proposals']);
+    expect(pages).toEqual(['roadmap', 'kanban', 'orchestrator', 'streams', 'proposals', 'signoff']);
     // Operator-only surfaces are excluded.
     expect(pages).not.toContain('tokens');
     expect(pages).not.toContain('webhooks');
     expect(pages).not.toContain('local-models');
   });
 
-  it('client sees only the curated pair', () => {
+  it('client sees the curated progress/traceability/sign-off set', () => {
     const pages = pagesForRole('client').map((e) => e.page);
-    expect(pages).toEqual(['roadmap', 'traceability']);
+    expect(pages).toEqual(['roadmap', 'traceability', 'signoff']);
+  });
+
+  // Roadmap #710 — the UAT sign-off front door is reachable from the client and
+  // pm-ba lanes (both adjudicate), routed at /s/signoff.
+  it('client and pm-ba lanes expose the sign-off page at /s/signoff (#710 AC-1)', () => {
+    for (const role of ['client', 'pm-ba'] as const) {
+      const entry = pagesForRole(role).find((e) => e.page === 'signoff');
+      expect(entry, `${role} lane should include signoff`).toBeDefined();
+      expect(entry?.route).toBe('/s/signoff');
+      expect(entry?.label).toBe('Sign-off');
+    }
   });
 
   it('every lane allowlist references pages that exist in the registry', () => {
