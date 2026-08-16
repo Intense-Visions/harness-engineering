@@ -51,6 +51,42 @@ describe('createFixes', () => {
     expect(fixes[0].reversible).toBe(true);
   });
 
+  it('never emits a delete-file fix for an unreferenced entry point, but still deletes genuine dead files (issue #1325)', () => {
+    const deadCodeReport: DeadCodeReport = {
+      deadExports: [],
+      deadFiles: [
+        {
+          path: '/project/vite.config.ts',
+          reason: 'UNREFERENCED_ENTRY_POINT',
+          exportCount: 1,
+          lineCount: 12,
+        },
+        { path: '/project/src/orphan.ts', reason: 'NO_IMPORTERS', exportCount: 1, lineCount: 8 },
+      ],
+      deadInternals: [],
+      unusedImports: [],
+      stats: {
+        filesAnalyzed: 10,
+        entryPointsUsed: [],
+        totalExports: 20,
+        deadExportCount: 0,
+        totalFiles: 10,
+        deadFileCount: 2,
+        estimatedDeadLines: 20,
+      },
+    };
+
+    const fixes = createFixes(deadCodeReport, {
+      fixTypes: ['dead-files'],
+      dryRun: false,
+      createBackup: true,
+    });
+
+    expect(fixes.length).toBe(1);
+    expect(fixes[0].file).toBe('/project/src/orphan.ts');
+    expect(fixes.some((f) => f.file === '/project/vite.config.ts')).toBe(false);
+  });
+
   it('should create fix for unused imports', () => {
     const deadCodeReport: DeadCodeReport = {
       deadExports: [],

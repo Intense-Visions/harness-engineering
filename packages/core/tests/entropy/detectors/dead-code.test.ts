@@ -249,6 +249,49 @@ describe('detectDeadCode with protectedRegions', () => {
   });
 });
 
+describe('detectDeadCode entry-point classification (issue #1325)', () => {
+  const parser = new TypeScriptParser();
+  const fixturesDir = join(__dirname, '../../fixtures/entropy/dead-code-entrypoints');
+  const toPosix = (p: string) => p.replace(/\\/g, '/');
+
+  async function report() {
+    const snapshotResult = await buildSnapshot({
+      rootDir: fixturesDir,
+      parser,
+      analyze: { deadCode: true },
+      include: ['src/**/*.ts'],
+      entryPoints: ['src/index.ts'],
+    });
+    expect(snapshotResult.ok).toBe(true);
+    if (!snapshotResult.ok) throw new Error('snapshot failed');
+    const result = await detectDeadCode(snapshotResult.value);
+    expect(result.ok).toBe(true);
+    if (!result.ok) throw new Error('detect failed');
+    return result.value;
+  }
+
+  it('classifies an unreachable *.config.ts as UNREFERENCED_ENTRY_POINT (not deletable)', async () => {
+    const value = await report();
+    const config = value.deadFiles.find((f) => toPosix(f.path).endsWith('/src/app.config.ts'));
+    expect(config, 'app.config.ts must be flagged as unreachable').toBeDefined();
+    expect(config!.reason).toBe('UNREFERENCED_ENTRY_POINT');
+  });
+
+  it('classifies an unreachable src/main.ts as UNREFERENCED_ENTRY_POINT', async () => {
+    const value = await report();
+    const main = value.deadFiles.find((f) => toPosix(f.path).endsWith('/src/main.ts'));
+    expect(main, 'main.ts must be flagged as unreachable').toBeDefined();
+    expect(main!.reason).toBe('UNREFERENCED_ENTRY_POINT');
+  });
+
+  it('still classifies a genuinely orphaned util as a deletable NO_IMPORTERS dead file', async () => {
+    const value = await report();
+    const orphan = value.deadFiles.find((f) => toPosix(f.path).endsWith('/src/orphan.ts'));
+    expect(orphan, 'orphan.ts must be flagged as unreachable').toBeDefined();
+    expect(orphan!.reason).toBe('NO_IMPORTERS');
+  });
+});
+
 describe('buildReachabilityMap with NodeNext .js import extensions (issue #279)', () => {
   const parser = new TypeScriptParser();
   const fixturesDir = join(__dirname, '../../fixtures/entropy/dead-code-nodenext');

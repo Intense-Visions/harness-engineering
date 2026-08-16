@@ -11,7 +11,48 @@ import type {
 } from '../types';
 import type { ProtectedRegionMap } from '../../annotations';
 import type { AST } from '../../shared/parsers';
-import { dirname, extname, resolve } from 'path';
+import { basename, dirname, extname, resolve } from 'path';
+
+/**
+ * Build entry points are reachable at build/runtime, not through static `import`
+ * edges, so they appear "unreachable" in the import graph when they are not listed
+ * in `entropy.entryPoints`. Deleting one breaks the build; the correct remediation
+ * is to declare it in `entryPoints` (issue #1325). These conventions let the
+ * detector classify such a file as `UNREFERENCED_ENTRY_POINT` instead of a generic
+ * dead file, so the fixers offer "configure entry point" rather than "delete".
+ *
+ * The set is intentionally convention-based (filename/path) and easy to extend; it
+ * is not derived from build-tool configs.
+ */
+
+/** Build-config files: `*.config.ts|mts|cts|js|mjs|cjs` (vite/vitest/tsup/rollup/…). */
+const CONFIG_FILE_RE = /\.config\.(m|c)?[jt]s$/;
+
+/** Framework module roots addressed by tooling, not by a static import. */
+const ENTRY_POINT_BASENAMES = new Set([
+  'main.ts', // Vue / Angular / NestJS root
+  'main.tsx', // React (Vite) root
+  'main.mts',
+  'app.module.ts', // NestJS root module
+]);
+
+/**
+ * True when an unreachable file's path matches a build entry-point convention and
+ * should be declared in `entryPoints` rather than deleted.
+ */
+export function isEntryPointConvention(filePath: string): boolean {
+  const base = basename(filePath);
+  return CONFIG_FILE_RE.test(base) || ENTRY_POINT_BASENAMES.has(base);
+}
+
+/**
+ * Classify an unreachable file's `DeadFile.reason`: an entry-point-convention file
+ * is `UNREFERENCED_ENTRY_POINT` (declare in entryPoints), everything else is a
+ * genuine `NO_IMPORTERS` dead file.
+ */
+function unreachableFileReason(filePath: string): 'NO_IMPORTERS' | 'UNREFERENCED_ENTRY_POINT' {
+  return isEntryPointConvention(filePath) ? 'UNREFERENCED_ENTRY_POINT' : 'NO_IMPORTERS';
+}
 
 /**
  * Module-resolution conventions where the import specifier writes a runtime
@@ -314,7 +355,7 @@ function findDeadFiles(snapshot: CodebaseSnapshot, reachability: Map<string, boo
     if (!isReachable) {
       deadFiles.push({
         path: file.path,
-        reason: 'NO_IMPORTERS',
+        reason: unreachableFileReason(file.path),
         exportCount: file.exports.filter((e) => !e.isReExport).length,
         lineCount: countLinesFromAST(file.ast),
       });
@@ -438,9 +479,10 @@ function classifyUnreachableNode(
   deadExports: DeadExport[]
 ): void {
   if (FILE_TYPES.has(node.type)) {
+    const filePath = node.path || node.id;
     deadFiles.push({
-      path: node.path || node.id,
-      reason: 'NO_IMPORTERS',
+      path: filePath,
+      reason: unreachableFileReason(filePath),
       exportCount: 0,
       lineCount: 0,
     });
