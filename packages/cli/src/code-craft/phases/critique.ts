@@ -16,12 +16,10 @@ import type { LlmProvider } from '../../shared/craft/llm/provider.js';
 import type { CodeRubric } from '../catalog/rubrics/index.js';
 import type { CodeUnit, CodeFinding, Tier, Impact, Confidence } from '../findings/schema.js';
 import { derivePriority } from '../../shared/craft/findings/derived.js';
+import { extractFencedJsonPayload } from '../../shared/craft/fenced-json.js';
 import { unitSource } from '../extract/units.js';
 
 const MAX_UNIT_CHARS = 2500;
-
-/** Fenced-JSON block extractor, hoisted so its quantifiers don't inflate the parser's complexity. */
-const FENCED_JSON = /```(?:json)?\s*\n?([\s\S]*?)\n?\s*```/;
 
 /**
  * Conservative-confidence system prompt. Readability judgments are inherently
@@ -124,8 +122,7 @@ export function buildPrompt(input: BuildPromptInput): string {
 }
 
 function parseFencedJson(raw: string): Record<string, unknown> | null {
-  const match = FENCED_JSON.exec(raw);
-  const body = (match?.[1] ?? raw).trim();
+  const body = extractFencedJsonPayload(raw);
   if (body === 'null') return null;
   try {
     // harness-ignore SEC-DES-001: parses LLM model output; typeof check below gates shape, downstream callers re-validate fields

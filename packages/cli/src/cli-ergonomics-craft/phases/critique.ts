@@ -8,6 +8,7 @@ import type { LlmProvider } from '../../shared/craft/llm/provider.js';
 import type { CliRubric, CommandKind } from '../catalog/rubrics/index.js';
 import type { CliErgonomicsFinding, Tier, Impact, Confidence } from '../findings/schema.js';
 import { derivePriority } from '../../shared/craft/findings/derived.js';
+import { extractFencedJsonPayload } from '../../shared/craft/fenced-json.js';
 
 const MAX_CONTENT_CHARS = 6000;
 
@@ -105,8 +106,7 @@ export function buildPrompt(input: BuildPromptInput): string {
 }
 
 function parseFencedJson(raw: string): Record<string, unknown> | null {
-  const match = /```(?:json)?\s*\n?([\s\S]*?)\n?\s*```/.exec(raw);
-  const body = (match?.[1] ?? raw).trim();
+  const body = extractFencedJsonPayload(raw);
   if (body === 'null') return null;
   return parseJsonObject(body);
 }

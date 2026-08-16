@@ -13,6 +13,7 @@ import type { ParsedSection } from '../extract/sections.js';
 import type { SpecFinding } from '../findings/schema.js';
 import type { Tier, Impact, Confidence } from '../../shared/craft/findings/axes.js';
 import { derivePriority } from '../../shared/craft/findings/derived.js';
+import { extractFencedJsonPayload } from '../../shared/craft/fenced-json.js';
 
 const MAX_BODY_CHARS = 2000;
 
@@ -85,8 +86,7 @@ function buildPrompt(input: CritiqueInput): string {
 }
 
 function parseFencedJson(raw: string): Record<string, unknown> | null {
-  const match = /```(?:json)?\s*\n?([\s\S]*?)\n?\s*```/.exec(raw);
-  const body = match !== null ? match[1]! : raw;
+  const body = extractFencedJsonPayload(raw);
   if (body.trim() === 'null') return null;
   try {
     // harness-ignore SEC-DES-001: parses LLM model output; typeof check on next line gates shape, downstream callers re-validate fields

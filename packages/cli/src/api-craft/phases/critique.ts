@@ -14,11 +14,9 @@ import type { LlmProvider } from '../../shared/craft/llm/provider.js';
 import type { ApiRubric, ApiSurfaceKind } from '../catalog/rubrics/index.js';
 import type { ApiFinding, Tier, Impact, Confidence } from '../findings/schema.js';
 import { derivePriority } from '../../shared/craft/findings/derived.js';
+import { extractFencedJsonPayload } from '../../shared/craft/fenced-json.js';
 
 const MAX_CONTENT_CHARS = 8000;
-
-/** Fenced-JSON block extractor, hoisted so its quantifiers don't inflate the parser's complexity. */
-const FENCED_JSON = /```(?:json)?\s*\n?([\s\S]*?)\n?\s*```/;
 
 export const CRITIQUE_SYSTEM_PROMPT =
   'You are a senior API designer critiquing a single API surface (an OpenAPI/Swagger document ' +
@@ -126,8 +124,7 @@ export function buildPrompt(input: BuildPromptInput): string {
 }
 
 function parseFencedJson(raw: string): Record<string, unknown> | null {
-  const match = FENCED_JSON.exec(raw);
-  const body = (match?.[1] ?? raw).trim();
+  const body = extractFencedJsonPayload(raw);
   if (body === 'null') return null;
   try {
     // harness-ignore SEC-DES-001: parses LLM model output; typeof check below gates shape, downstream callers re-validate fields
