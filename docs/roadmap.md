@@ -717,6 +717,17 @@ last_manual_edit: 2026-06-27T12:51:51.967Z
 - **Priority:** —
 - **External-ID:** github:Intense-Visions/harness-engineering#1226
 
+### Lightweight Nightly Micro-Loop Primitive
+
+- **Status:** backlog
+- **Spec:** —
+- **Summary:** The fleet family is the right tool for a batch of independent findings but the wrong tool for Dex Horthy's team's highest daily-value pattern: fix one thing, open one tiny PR, every night via a cron-triggered "slow loop." Harness's lightest fleet unit (cleanup-fleet) still runs the full five-phase SELECT→CONFIRM→DISPATCH→VERIFY→REPORT apparatus with worktree isolation and a provenance file. harness-maintenance-pipeline is the closest existing piece (report-first, opt-in --fix) but is human-invoked, not a standing cron. Design a genuinely thin primitive — cron trigger + single deterministic check + single small PR, no worktree/provenance ceremony — that sits underneath cleanup-fleet rather than replacing it. Adapted from Dex Horthy/HumanLayer's nightly "slow loop" practice. Adoption #3 from docs/research/dex-horthy-humanlayer-comparison-analysis.md [HORTHY-3]
+- **Blockers:** Design decision: standalone loop primitive vs. a lightweight --micro mode on cleanup-fleet / harness-maintenance-pipeline
+- **Plan:** —
+- **Assignee:** —
+- **Priority:** —
+- **External-ID:** github:Intense-Visions/harness-engineering#1405
+
 ## v5.0 — Enforcement Hardening
 
 ### Audit and cap the pre-commit --skip list
@@ -1548,6 +1559,28 @@ last_manual_edit: 2026-06-27T12:51:51.967Z
 - **Assignee:** —
 - **Priority:** —
 - **External-ID:** github:Intense-Visions/harness-engineering#605
+
+### Mid-Phase Context-Budget Trip Wire
+
+- **Status:** backlog
+- **Spec:** —
+- **Summary:** Fresh-context discipline in autopilot holds only between phases (each state dispatches a new cold subagent via subagent_type) — nothing watches a single long-running harness-task-executor turn or fleet lane for context creep within its own turn. Add a documented context-utilization threshold (a reasonable starting point is HumanLayer's own measured ~40%) that triggers an explicit write-state-and-restart action instead of leaving degradation to whatever the model does near its own context ceiling. Adapted from Dex Horthy/HumanLayer's "smart zone"/"dumb zone" context-engineering practice. Adoption #1 from docs/research/dex-horthy-humanlayer-comparison-analysis.md [HORTHY-1]
+- **Blockers:** —
+- **Plan:** —
+- **Assignee:** —
+- **Priority:** —
+- **External-ID:** github:Intense-Visions/harness-engineering#1403
+
+### SKILL.md Instruction-Density Check
+
+- **Status:** backlog
+- **Spec:** —
+- **Summary:** HumanLayer's own RPI→CRISPY postmortem found their planning prompts exceeded a ~150-200 instruction-follow budget frontier models reliably honor — the specific failure that forced a full workflow rebuild. harness-autopilot and harness-brainstorming SKILL.md bodies run 300-470+ lines each; the progressive-disclosure packing already observed in run_skill output (context-budget levels, partial section loading) is promising evidence this repo doesn't share RPI's failure mode, but it has never been confirmed with a measured instruction count the way HumanLayer did after getting burned. Add an instruction-density estimate per loaded packing level to skill-authoring guidance and/or harness validate. Adapted from HumanLayer's RPI→CRISPY postmortem. Adoption #2 from docs/research/dex-horthy-humanlayer-comparison-analysis.md [HORTHY-2]
+- **Blockers:** —
+- **Plan:** —
+- **Assignee:** —
+- **Priority:** —
+- **External-ID:** github:Intense-Visions/harness-engineering#1404
 
 ## Dashboard & Visualization
 
