@@ -199,49 +199,92 @@ export function buildReachabilityMap(snapshot: CodebaseSnapshot): Map<string, bo
   return reachability;
 }
 
+/** Usage record for one export: its source importers, whether it is re-exported, and whether any test imports it. */
+type ExportUsage = { importers: string[]; isReExported: boolean; importedByTest: boolean };
+
+type ImportEdge = { source: string; specifiers: string[] };
+
+/**
+ * Mark an export live: a test importer flips `importedByTest`, a real source
+ * importer is appended to `importers`.
+ */
+function markExportUsage(usage: ExportUsage, importer: string, fromTest: boolean): void {
+  if (fromTest) {
+    usage.importedByTest = true;
+  } else {
+    usage.importers.push(importer);
+  }
+}
+
+/** Record one import edge against the usage map (resolving specifiers to exports). */
+function recordImportEdge(
+  snapshot: CodebaseSnapshot,
+  fileIndex: Map<string, CodebaseSnapshot['files'][number]>,
+  usageMap: Map<string, ExportUsage>,
+  fromFile: string,
+  imp: ImportEdge,
+  fromTest: boolean
+): void {
+  const resolvedFile = resolveImportToFile(imp.source, fromFile, snapshot, fileIndex);
+  if (!resolvedFile) return;
+
+  const sourceFile = fileIndex.get(resolvedFile);
+  if (!sourceFile) return;
+
+  for (const specifier of imp.specifiers) {
+    const matchingExport = sourceFile.exports.find(
+      (e) => e.name === specifier || (specifier === 'default' && e.type === 'default')
+    );
+    if (!matchingExport) continue;
+
+    const usage = usageMap.get(`${resolvedFile}:${matchingExport.name}`);
+    if (usage) markExportUsage(usage, fromFile, fromTest);
+  }
+}
+
+/**
+ * Record every import edge of a file. `fromTest` marks edges harvested from
+ * test files: a test importer keeps its target export alive but is never itself
+ * a classified source file.
+ */
+function recordImports(
+  snapshot: CodebaseSnapshot,
+  fileIndex: Map<string, CodebaseSnapshot['files'][number]>,
+  usageMap: Map<string, ExportUsage>,
+  fromFile: string,
+  imports: ImportEdge[],
+  fromTest: boolean
+): void {
+  for (const imp of imports) {
+    recordImportEdge(snapshot, fileIndex, usageMap, fromFile, imp, fromTest);
+  }
+}
+
 /**
  * Build a map of export usage across the codebase.
  * Maps each export to the list of files that import it.
  */
-function buildExportUsageMap(
-  snapshot: CodebaseSnapshot
-): Map<string, { importers: string[]; isReExported: boolean }> {
+function buildExportUsageMap(snapshot: CodebaseSnapshot): Map<string, ExportUsage> {
   const fileIndex = buildFileIndex(snapshot);
-  const usageMap = new Map<string, { importers: string[]; isReExported: boolean }>();
+  const usageMap = new Map<string, ExportUsage>();
 
   // Initialize all exports with empty usage
   for (const file of snapshot.files) {
     for (const exp of file.exports) {
       const key = `${file.path}:${exp.name}`;
-      usageMap.set(key, { importers: [], isReExported: exp.isReExport });
+      usageMap.set(key, { importers: [], isReExported: exp.isReExport, importedByTest: false });
     }
   }
 
-  // Track which exports are imported
+  // Track which exports are imported by real source files
   for (const file of snapshot.files) {
-    for (const imp of file.imports) {
-      const resolvedFile = resolveImportToFile(imp.source, file.path, snapshot, fileIndex);
-      if (!resolvedFile) continue;
+    recordImports(snapshot, fileIndex, usageMap, file.path, file.imports, false);
+  }
 
-      // Find the source file to match imports with exports
-      const sourceFile = fileIndex.get(resolvedFile);
-      if (!sourceFile) continue;
-
-      for (const specifier of imp.specifiers) {
-        // Match import specifier to export
-        const matchingExport = sourceFile.exports.find(
-          (e) => e.name === specifier || (specifier === 'default' && e.type === 'default')
-        );
-
-        if (matchingExport) {
-          const key = `${resolvedFile}:${matchingExport.name}`;
-          const usage = usageMap.get(key);
-          if (usage) {
-            usage.importers.push(file.path);
-          }
-        }
-      }
-    }
+  // Track which exports are imported by test files (test-import-blind fix): an
+  // export used only by its test is live, not dead.
+  for (const testFile of snapshot.testImports ?? []) {
+    recordImports(snapshot, fileIndex, usageMap, testFile.path, testFile.imports, true);
   }
 
   return usageMap;
@@ -252,7 +295,7 @@ function buildExportUsageMap(
  */
 function findDeadExports(
   snapshot: CodebaseSnapshot,
-  usageMap: Map<string, { importers: string[]; isReExported: boolean }>,
+  usageMap: Map<string, ExportUsage>,
   reachability: Map<string, boolean>
 ): DeadExport[] {
   const deadExports: DeadExport[] = [];
@@ -267,6 +310,11 @@ function findDeadExports(
 
       const key = `${file.path}:${exp.name}`;
       const usage = usageMap.get(key);
+
+      // An export imported by any test file is live, not dead. Test files are
+      // not classified source files, so a test-only importer keeps the export
+      // alive without ever appearing in `importers` / reachability.
+      if (usage?.importedByTest) continue;
 
       if (!usage || usage.importers.length === 0) {
         // This export has no importers

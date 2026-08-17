@@ -60,8 +60,26 @@ export interface ExportMap {
   byName: Map<string, { file: string; export: Export }[]>;
 }
 
+/**
+ * Import edges harvested from test files (`*.test.ts`, `*.spec.ts`).
+ *
+ * Test files are deliberately excluded from `files` so the classification
+ * detectors (dead-file, pattern, complexity, coupling) never flag test code.
+ * But an export imported *only* by its test is still live — omitting test
+ * imports from the usage graph produced hundreds of dead-export false
+ * positives (the dead-export detector was test-import-blind). The dead-export
+ * detector consults these edges (path + imports only, no exports) so a test
+ * importer marks its target live without ever classifying the test file itself.
+ */
+export interface TestImportSource {
+  path: string;
+  imports: Import[];
+}
+
 export interface CodebaseSnapshot {
   files: SourceFile[];
+  /** Import edges from test files, consumed only by the dead-export detector. */
+  testImports?: TestImportSource[];
   dependencyGraph: DependencyGraph;
   exportMap: ExportMap;
   docs: DocumentationFile[];

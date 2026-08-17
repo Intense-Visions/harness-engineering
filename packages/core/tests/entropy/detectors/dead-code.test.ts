@@ -142,6 +142,48 @@ describe('detectDeadCode', () => {
   });
 });
 
+// Regression: the dead-export detector was test-import-blind. Test files are
+// excluded from `snapshot.files`, so an export imported ONLY by its test had no
+// importers and was wrongly flagged dead (266 false positives in one run; a
+// `--fix` would have deleted live code). buildSnapshot now harvests test-file
+// import edges into `snapshot.testImports`, and the detector treats a
+// test-imported export as live.
+describe('detectDeadCode is not test-import-blind', () => {
+  const parser = new TypeScriptParser();
+  const fixturesDir = join(__dirname, '../../fixtures/entropy/dead-code-test-imports');
+
+  it('does not flag an export imported only by a test file as dead', async () => {
+    const snapshotResult = await buildSnapshot({
+      rootDir: fixturesDir,
+      parser,
+      analyze: { deadCode: true },
+      include: ['src/**/*.ts'],
+      entryPoints: ['src/index.ts'],
+    });
+
+    expect(snapshotResult.ok).toBe(true);
+    if (!snapshotResult.ok) return;
+
+    // The `.spec.ts` importer is excluded from classified files but harvested
+    // as a test-import source.
+    expect(snapshotResult.value.files.some((f) => f.path.includes('commands.spec.ts'))).toBe(false);
+    expect(snapshotResult.value.testImports?.some((t) => t.path.includes('commands.spec.ts'))).toBe(
+      true
+    );
+
+    const result = await detectDeadCode(snapshotResult.value);
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+
+    const deadNames = result.value.deadExports.map((e) => e.name);
+    // runVerify is imported only by commands.spec.ts -> LIVE, not dead.
+    expect(deadNames).not.toContain('runVerify');
+    // Control: deadCommand has no importer at all -> still classified dead,
+    // proving the fix did not blanket-suppress real dead exports.
+    expect(deadNames).toContain('deadCommand');
+  });
+});
+
 describe('detectDeadCode with protectedRegions', () => {
   it('should skip dead exports on protected lines', async () => {
     const snapshot = {
