@@ -15,10 +15,5 @@
  * `@keyframes harness-conflict-pulse` duration and the matching
  * `prefers-reduced-motion` block in
  * `packages/dashboard/src/client/index.css` to match (both currently `2s`).
- * The outline color in `CONFLICT_PULSE_OUTLINE_COLOR` mirrors the CSS
- * `rgb(251 191 36 / 0.9)` and is exported for any future TS-driven inline
- * style or SVG variant that needs to match the CSS rule.
  */
 export const CONFLICT_PULSE_MS = 2000;
-
-export const CONFLICT_PULSE_OUTLINE_COLOR = 'rgb(251 191 36 / 0.9)';

@@ -7,7 +7,7 @@
  */
 
 /** Tailwind class pairs (background + text) per run-attempt phase. */
-export const PHASE_COLORS: Record<string, string> = {
+const PHASE_COLORS: Record<string, string> = {
   PreparingWorkspace: 'bg-yellow-900/50 text-yellow-400',
   BuildingPrompt: 'bg-yellow-900/50 text-yellow-400',
   LaunchingAgent: 'bg-blue-900/50 text-blue-400',
