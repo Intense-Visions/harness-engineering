@@ -116,9 +116,7 @@ describe('handleAdviseSkills', () => {
 
     await handleAdviseSkills({ specPath: 'spec.md' });
 
-    expect(runAdviseSkills).toHaveBeenCalledWith(
-      expect.objectContaining({ cwd: process.cwd() })
-    );
+    expect(runAdviseSkills).toHaveBeenCalledWith(expect.objectContaining({ cwd: process.cwd() }));
   });
 
   it('reports a thrown error as a JSON error payload rather than throwing', async () => {

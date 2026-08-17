@@ -85,7 +85,9 @@ describe('computeOverallSeverity', () => {
   });
 });
 
-function fileResult(overallSeverity: ScanConfigFileResult['overallSeverity']): ScanConfigFileResult {
+function fileResult(
+  overallSeverity: ScanConfigFileResult['overallSeverity']
+): ScanConfigFileResult {
   return { file: 'f.ts', findings: [], overallSeverity };
 }
 
