@@ -15,6 +15,7 @@ FROM base AS deps
 
 # Copy workspace configuration files first for better layer caching
 COPY pnpm-workspace.yaml pnpm-lock.yaml package.json ./
+COPY packages/burn/package.json packages/burn/
 COPY packages/cli/package.json packages/cli/
 COPY packages/core/package.json packages/core/
 COPY packages/dashboard/package.json packages/dashboard/
@@ -22,7 +23,9 @@ COPY packages/eslint-plugin/package.json packages/eslint-plugin/
 COPY packages/graph/package.json packages/graph/
 COPY packages/intelligence/package.json packages/intelligence/
 COPY packages/linter-gen/package.json packages/linter-gen/
+COPY packages/local-models/package.json packages/local-models/
 COPY packages/orchestrator/package.json packages/orchestrator/
+COPY packages/signals/package.json packages/signals/
 COPY packages/types/package.json packages/types/
 COPY docs/package.json docs/
 COPY agents/skills/package.json agents/skills/
