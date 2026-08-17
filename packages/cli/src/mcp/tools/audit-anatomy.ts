@@ -19,10 +19,7 @@
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { sanitizePath } from '../utils/sanitize-path.js';
-import {
-  parseComponentDefinition,
-  parseComponentDefinitionFromSource,
-} from '../../audit/component-anatomy/parsers/ast.js';
+import { parseComponentDefinitionFromSource } from '../../audit/component-anatomy/parsers/ast.js';
 import { resolveComponentType } from '../../audit/component-anatomy/resolvers/component-type.js';
 import { resolveAnatomyRules } from '../../audit/component-anatomy/resolvers/source-of-truth.js';
 import { runConventionRule } from '../../audit/component-anatomy/rules/convention-runner.js';
@@ -200,13 +197,3 @@ export async function handleAuditAnatomy(input: AuditAnatomyInput): Promise<Tool
     };
   }
 }
-
-/**
- * Convenience re-export so the file-walker integration (Phase 2) and
- * harness validate hook (separate task) can read a file from disk
- * without re-implementing the parser entry. Provides a single source
- * of truth for the parse+resolve pipeline.
- */
-export const __internal__ = {
-  parseComponentDefinition,
-};

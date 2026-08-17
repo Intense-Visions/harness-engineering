@@ -1,8 +1,8 @@
 import { z } from 'zod';
 
 export const RiskLevel = z.enum(['low', 'medium', 'high']);
-export const EffortLevel = z.enum(['low', 'medium', 'high']);
-export const ConfidenceLevel = z.enum(['low', 'medium', 'high']);
+const EffortLevel = z.enum(['low', 'medium', 'high']);
+const ConfidenceLevel = z.enum(['low', 'medium', 'high']);
 
 export const InteractionOptionSchema = z.object({
   label: z.string().min(1),
@@ -12,7 +12,7 @@ export const InteractionOptionSchema = z.object({
   effort: EffortLevel.optional(),
 });
 
-export const InteractionQuestionSchema = z.object({
+const InteractionQuestionSchema = z.object({
   text: z.string().min(1),
   options: z.array(InteractionOptionSchema).min(2).max(10).optional(),
   recommendation: z
@@ -61,13 +61,13 @@ export const InteractionConfirmationSchema = z.object({
   risk: RiskLevel.optional(),
 });
 
-export const QualityGateCheckSchema = z.object({
+const QualityGateCheckSchema = z.object({
   name: z.string().min(1),
   passed: z.boolean(),
   detail: z.string().optional(),
 });
 
-export const QualityGateSchema = z.object({
+const QualityGateSchema = z.object({
   checks: z.array(QualityGateCheckSchema).min(1),
   allPassed: z.boolean(),
 });
@@ -82,7 +82,7 @@ export const InteractionTransitionSchema = z.object({
   qualityGate: QualityGateSchema.optional(),
 });
 
-export const BatchDecisionSchema = z.object({
+const BatchDecisionSchema = z.object({
   label: z.string().min(1),
   recommendation: z.string().min(1),
   risk: z.literal('low'),
