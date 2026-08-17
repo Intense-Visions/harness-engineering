@@ -37,3 +37,4 @@ maintenance/
 # security/: track timeline.json (trend ledger), ignore everything else
 security/*
 !security/timeline.json
+metrics/
