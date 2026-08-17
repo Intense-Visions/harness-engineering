@@ -506,6 +506,50 @@ last_manual_edit: 2026-06-27T12:51:51.967Z
 - **Priority:** —
 - **External-ID:** github:Intense-Visions/harness-engineering#1284
 
+### Generate-and-verify skill/MCP-tool reference docs (regenerate-and-gate, not detect-only)
+
+- **Status:** planned
+- **Spec:** —
+- **Summary:** Port dsh's gen-tool-catalog/verify-tool-catalog pattern (deepseek-ai/deepseek-harness docs/tool-catalog.md): boot each shipped skill and MCP tool definition against a real context, extract its live name/description/schema, generate a canonical docs/reference/*.md catalog from that, and add a verify mode that regenerates in CI and fails the build on any diff — the same shape as generate-docs / generate-barrel-exports:check today. Upgrades detect-doc-drift from advisory detection to a hard regenerate+gate loop for the skill/tool catalog specifically, closing the gap where a tool's real schema and its documented schema silently diverge. Reference: reference_deepseek_harness_analysis.md (memory).
+- **Blockers:** —
+- **Plan:** —
+- **Assignee:** —
+- **Priority:** —
+- **External-ID:** github:Intense-Visions/harness-engineering#1401
+
+### Canonical bounded handoff record for fleet workers
+
+- **Status:** planned
+- **Spec:** —
+- **Summary:** Define one shared handoff schema — status, summary, evidence, next_steps, blocker — modeled on dsh's Ralph-loop handoff ("the normalized bounded structured report passed from one continuing Ralph round to the next"). Require every fleet family member (bug-fleet, roadmap-fleet, pr-fleet, cicd-fleet, cleanup-fleet, security-fleet, test-fleet, issue-fleet, adr-fleet) to emit it from each worktree-isolated worker instead of each fleet defining its own ad hoc report shape, so fleet-command can parse any fleet's worker output uniformly instead of special-casing each one. Likely lands as a shared type in @harness-engineering/types plus a validation helper.
+- **Blockers:** —
+- **Plan:** —
+- **Assignee:** —
+- **Priority:** —
+- **External-ID:** github:Intense-Visions/harness-engineering#1396
+
+### Require Service-Definition/Provider/Consumer roles in skill-authoring guidance
+
+- **Status:** planned
+- **Spec:** —
+- **Summary:** dsh's capability-seam model requires every extension point to name a Service Definition, at least one Provider, and at least one Consumer — a capability with only one role filled in is flagged as not actually swappable. Add an equivalent lightweight requirement to harness-skill-authoring: when a new MCP tool or skill capability is proposed, its author states what it defines, who provides it, and who consumes it. Catches half-wired capabilities before they ship as accidental single-implementation lock-in. Likely a new section in agents/skills/claude-code/harness-skill-authoring/SKILL.md plus a checklist item surfaced by create_skill.
+- **Blockers:** —
+- **Plan:** —
+- **Assignee:** —
+- **Priority:** —
+- **External-ID:** github:Intense-Visions/harness-engineering#1397
+
+### Spill-to-disk with a followup-readable locator for large tool output
+
+- **Status:** planned
+- **Spec:** —
+- **Summary:** dsh's spill mechanism writes large tool output past a size threshold to disk and returns a locator the model can read/search later instead of truncating inline. Fleet and autopilot sessions that accumulate large test logs, full diffs, or grep/glob overflow today truncate ad hoc with no recovery path. Add an equivalent spill backend to harness's own long-running session/state handling (packages/core session state, or a new small package) so fleet workers and autopilot can offload large intermediate output and reference it by locator instead of losing it or blowing the context budget.
+- **Blockers:** —
+- **Plan:** —
+- **Assignee:** —
+- **Priority:** —
+- **External-ID:** github:Intense-Visions/harness-engineering#1398
+
 ## Fleet Family — Batch Orchestration
 
 ### issue-fleet — autonomous intake/triage of the open-issue backlog
