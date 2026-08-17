@@ -24,7 +24,7 @@
  * "runtime plumbing" vars a CLI, git, node, and the OS need to function — none
  * are secrets in the credential sense, and withholding them breaks spawning.
  */
-export const SUBPROCESS_ENV_ALLOWLIST: readonly string[] = [
+const SUBPROCESS_ENV_ALLOWLIST: readonly string[] = [
   // OS / shell / user identity
   'PATH',
   'HOME',
@@ -122,7 +122,7 @@ export const SUBPROCESS_ENV_ALLOWLIST: readonly string[] = [
  * the creds the agent needs to reach its model. The win is that non-provider
  * secrets (which match no prefix) are dropped.
  */
-export const SUBPROCESS_ENV_ALLOWED_PREFIXES: readonly string[] = [
+const SUBPROCESS_ENV_ALLOWED_PREFIXES: readonly string[] = [
   'LC_',
   'XDG_',
   'GIT_',
