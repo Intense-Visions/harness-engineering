@@ -106,6 +106,7 @@ function printJsonResult(result: KnowledgePipelineResult): void {
     JSON.stringify(
       {
         verdict: result.verdict,
+        baselineEmpty: result.baselineEmpty,
         driftScore: result.driftScore,
         iterations: result.iterations,
         findings: result.findings,
@@ -145,24 +146,49 @@ function printJsonResult(result: KnowledgePipelineResult): void {
   );
 }
 
+/**
+ * True when this looks like a first run: an empty baseline, or purely-new
+ * findings with nothing stale/drifted/contradicting. Drives the drift-score
+ * label so a ~1.0 score is not misread as "everything drifted" (#1110, #1335).
+ */
+function isFirstRun(result: KnowledgePipelineResult): boolean {
+  const f = result.findings;
+  if (result.baselineEmpty) return true;
+  return f.new > 0 && f.stale === 0 && f.drifted === 0 && f.contradicting === 0;
+}
+
+/** Colorized verdict badge for the summary header. */
+function verdictBadge(verdict: KnowledgePipelineResult['verdict']): string {
+  switch (verdict) {
+    case 'pass':
+      return chalk.green('PASS');
+    case 'warn':
+      return chalk.yellow('WARN');
+    case 'abstain':
+      return chalk.magenta('ABSTAIN');
+    default:
+      return chalk.red('FAIL');
+  }
+}
+
 /** Print the verdict header plus drift / findings / extraction / gaps summary. */
 function printSummary(result: KnowledgePipelineResult): void {
-  const verdictColor =
-    result.verdict === 'pass'
-      ? chalk.green('PASS')
-      : result.verdict === 'warn'
-        ? chalk.yellow('WARN')
-        : chalk.red('FAIL');
-
   console.log('');
-  console.log(`KNOWLEDGE PIPELINE -- Verdict: ${verdictColor}`);
+  console.log(`KNOWLEDGE PIPELINE -- Verdict: ${verdictBadge(result.verdict)}`);
+  if (result.verdict === 'abstain') {
+    // The verdict itself is the abstention; spell out why so a zero-baseline run
+    // is never mistaken for a clean one (#1335).
+    console.log(
+      chalk.magenta(
+        '  Inconclusive — empty baseline (no prior business knowledge). Every entry is new, so there is no denominator to grade health against. Re-run after an initial scan to establish a baseline.'
+      )
+    );
+  }
   console.log('');
   // On a first run every finding is `new` (no prior graph state), which drives
   // the drift score toward 1.00. Label it so the headline is not misread as
-  // "everything drifted" when the verdict beneath it is correctly WARN (#1110).
-  const f = result.findings;
-  const firstRun = f.new > 0 && f.stale === 0 && f.drifted === 0 && f.contradicting === 0;
-  const driftLabel = firstRun ? ' (first run — no prior graph state)' : '';
+  // "everything drifted" when the verdict beneath it abstains / warns (#1110, #1335).
+  const driftLabel = isFirstRun(result) ? ' (first run — no prior graph state)' : '';
   console.log(`  Drift Score: ${result.driftScore.toFixed(2)}${driftLabel}`);
   console.log(
     `  Findings: ${result.findings.new} new, ${result.findings.stale} stale, ${result.findings.drifted} drifted, ${result.findings.contradicting} contradicting`

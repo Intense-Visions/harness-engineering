@@ -483,6 +483,110 @@ Route auth through AuthService.
     });
   });
 
+  // ── #1335 / #1340: abstention, confidence floor, extraction honesty ──────────
+  describe('abstention on empty baseline (#1335)', () => {
+    it('abstains (not warn) when no prior business baseline exists on first run', async () => {
+      // Fresh store: zero business_* nodes. A knowledge doc yields a brand-new
+      // business_rule node, so every fresh entry is `new` and driftScore ~1.0.
+      // The old code reported WARN with 0 stale/drifted/contradicting — which a
+      // reader scans as a healthy repo. A zero denominator is an abstention.
+      const knowledgeDir = path.join(tmpDir, 'docs', 'knowledge', 'payments');
+      await fs.mkdir(knowledgeDir, { recursive: true });
+      await fs.writeFile(
+        path.join(knowledgeDir, 'refund-policy.md'),
+        '---\ntype: business_rule\ndomain: payments\n---\n# Refund Policy\nRefunds within 30 days.'
+      );
+
+      const runner = new KnowledgePipelineRunner(store);
+      const result = await runner.run(makeOptions());
+
+      expect(result.findings.new).toBeGreaterThan(0);
+      expect(result.findings.stale + result.findings.drifted + result.findings.contradicting).toBe(
+        0
+      );
+      expect(result.verdict).toBe('abstain');
+    });
+
+    it('still reports warn (not abstain) when a business baseline already exists', async () => {
+      // A pre-existing business node means the baseline is NOT empty; a fresh
+      // `new` finding on top of it is a genuine warn, not an abstention.
+      store.addNode({
+        id: 'bk:payments:existing',
+        type: 'business_rule',
+        name: 'Existing Rule',
+        metadata: { domain: 'payments', source: 'manual' },
+      });
+      const knowledgeDir = path.join(tmpDir, 'docs', 'knowledge', 'auth');
+      await fs.mkdir(knowledgeDir, { recursive: true });
+      await fs.writeFile(
+        path.join(knowledgeDir, 'session.md'),
+        '---\ntype: business_rule\ndomain: auth\n---\n# Session\nSessions expire after 24h.'
+      );
+
+      const runner = new KnowledgePipelineRunner(store);
+      const result = await runner.run(makeOptions());
+
+      expect(result.findings.new).toBeGreaterThan(0);
+      expect(result.findings.stale + result.findings.drifted + result.findings.contradicting).toBe(
+        0
+      );
+      expect(result.verdict).toBe('warn');
+    });
+  });
+
+  describe('materialization confidence floor (#1335)', () => {
+    it('does not materialize below-floor-confidence entries to tracked docs', async () => {
+      store.addNode({
+        id: 'extracted:auth:low',
+        type: 'business_rule',
+        name: 'Low Confidence Rule',
+        metadata: { domain: 'auth', source: 'extractor', confidence: 0.3 },
+        content: 'Flimsy comment-derived text that is nonetheless long enough to pass hasContent.',
+      });
+      store.addNode({
+        id: 'extracted:auth:high',
+        type: 'business_rule',
+        name: 'High Confidence Rule',
+        metadata: { domain: 'auth', source: 'extractor', confidence: 0.9 },
+        content: 'A solidly extracted rule with real, trustworthy content here.',
+      });
+      await fs.mkdir(path.join(tmpDir, 'docs', 'knowledge', 'auth'), { recursive: true });
+
+      const runner = new KnowledgePipelineRunner(store);
+      const result = await runner.run(makeOptions({ fix: true, maxIterations: 2 }));
+
+      const created = (result.materialization?.created ?? []).map((d) => d.name);
+      expect(created).toContain('High Confidence Rule');
+      expect(created).not.toContain('Low Confidence Rule');
+
+      // The low-confidence entry must never touch the tracked docs tree.
+      const authDocs = await fs.readdir(path.join(tmpDir, 'docs', 'knowledge', 'auth'));
+      expect(authDocs.some((f) => f.includes('low-confidence'))).toBe(false);
+    });
+  });
+
+  describe('extraction count honesty (#1340)', () => {
+    it('reports signals extracted this run, not deduped new-node insertions', async () => {
+      const srcDir = path.join(tmpDir, 'src');
+      await fs.mkdir(srcDir, { recursive: true });
+      await fs.writeFile(
+        path.join(srcDir, 'orders.ts'),
+        'import { z } from "zod";\nexport const OrderSchema = z.object({\n  id: z.string().min(1),\n});\n'
+      );
+
+      const runner = new KnowledgePipelineRunner(store);
+      const first = await runner.run(makeOptions());
+      expect(first.extraction.codeSignals).toBeGreaterThan(0);
+
+      // Second run against the SAME store: nodes already exist so `nodesAdded`
+      // is 0, but the extractors re-wrote the same records to JSONL. The
+      // reported count must reflect what was extracted, not the new-node count —
+      // otherwise "0 code signals" contradicts a non-empty "extracted" gap total.
+      const second = await runner.run(makeOptions());
+      expect(second.extraction.codeSignals).toBe(first.extraction.codeSignals);
+    });
+  });
+
   describe('inferenceOptions plumbing (Phase 4)', () => {
     it('defaults to {} when no inferenceOptions field on options', async () => {
       // Pre-seed graph with one node whose path lands under a non-default top-level dir.

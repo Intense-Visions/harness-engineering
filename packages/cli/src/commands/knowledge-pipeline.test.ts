@@ -55,6 +55,7 @@ const GAP_DOMAINS = ['auth', 'api'] as const;
 function makeResult(overrides: Record<string, unknown> = {}): unknown {
   return {
     verdict: 'pass',
+    baselineEmpty: false,
     driftScore: 1.5,
     iterations: 1,
     findings: { new: 2, stale: 0, drifted: 0, contradicting: 0 },
