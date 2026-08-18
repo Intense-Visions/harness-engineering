@@ -100,4 +100,53 @@ describe('EnumConstantExtractor', () => {
     expect(config).toBeDefined();
     expect(config!.metadata.members).toEqual(['server', 'debug']);
   });
+
+  it('does not treat prose/comment lines that merely contain "enum <word>" as TS enums (#1331)', () => {
+    // A JSDoc line and a TODO comment both contain the substring `enum <word>`
+    // but are ordinary prose, not enum declarations. An unanchored regex would
+    // parse them and emit junk business_term nodes (e.g. `enum or { ... }`).
+    const content = [
+      '/**',
+      ' * a types.ts that also exports an enum or a const map is ordinary',
+      ' */',
+      'function ordinary() {',
+      '  // TODO: replace this enum with a union',
+      '  return 1;',
+      '}',
+      '',
+      'export enum Real {',
+      '  A,',
+      '  B,',
+      '}',
+    ].join('\n');
+    const records = extractor.extract(content, 'prose.ts', 'typescript');
+
+    const names = records.map((r) => r.name);
+    // The real enum is still extracted.
+    expect(names).toContain('Real');
+    // The prose "enum or" and comment "enum with" are NOT extracted.
+    expect(names).not.toContain('or');
+    expect(names).not.toContain('with');
+  });
+
+  it('does not treat prose/comment lines that merely contain "enum <word>" as Java enums (#1331)', () => {
+    const content = [
+      '/**',
+      ' * a Types.java that also exports an enum or a const map is ordinary',
+      ' */',
+      'class Ordinary {',
+      '  // TODO: replace this enum with a union',
+      '  public enum Real {',
+      '    A,',
+      '    B,',
+      '  }',
+      '}',
+    ].join('\n');
+    const records = extractor.extract(content, 'Prose.java', 'java');
+
+    const names = records.map((r) => r.name);
+    expect(names).toContain('Real');
+    expect(names).not.toContain('or');
+    expect(names).not.toContain('with');
+  });
 });

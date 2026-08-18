@@ -93,6 +93,15 @@ jobs:
         if: matrix.os == 'ubuntu-latest'
         run: pnpm run generate-docs --check
 
+      # Regenerate the canonical tool & skill catalog from the live MCP tool
+      # definitions and skill contracts and fail the build if a tool's real
+      # input schema (or a skill's declared contract) has drifted from its
+      # documented schema. Requires the CLI dist built by the earlier
+      # `pnpm build` step.
+      - name: Verify tool & skill catalog is fresh
+        if: matrix.os == 'ubuntu-latest'
+        run: pnpm run generate:tool-catalog:check
+
       - name: Verify plugin artifacts are fresh
         if: matrix.os == 'ubuntu-latest'
         run: pnpm generate:plugin:check

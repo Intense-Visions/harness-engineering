@@ -18,6 +18,12 @@ agents/commands/**
 docs/roadmap.md
 docs/roadmap.d/**
 
+# Generated tool & skill catalog: scripts/generate-tool-catalog.mjs owns the
+# byte-exact format (deep-sorted JSON schemas). Prettier's embedded-JSON array
+# formatting is non-idempotent around its print-width boundary, so it would
+# fight the regenerate-and-gate check forever (see the script's header comment).
+docs/reference/tool-catalog.md
+
 # Generated/local harness state files
 **/.harness/state.*
 .harness/health-snapshot.json

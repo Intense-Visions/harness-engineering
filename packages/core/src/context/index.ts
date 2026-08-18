@@ -25,6 +25,43 @@ export { contextBudget } from './budget';
 export type { TokenBudget, TokenBudgetOverrides } from './budget.types';
 
 /**
+ * Context-surface attribution — classify the always-loaded surface, rank
+ * contributors, and flag over-budget classes via the contextBudget() allocator.
+ */
+export {
+  buildAttributionReport,
+  heuristicTokenCounter,
+  CONTEXT_CLASSES,
+  CLASS_TO_BUDGET_CATEGORY,
+} from './attribution';
+export type {
+  ContextClass,
+  ContextSurfaceEntry,
+  TokenCounter,
+  AttributedContributor,
+  ClassAttribution,
+  CounterMode,
+  AttributionReport,
+  BuildAttributionReportOptions,
+} from './attribution';
+
+/**
+ * Exact token counting via Anthropic's /v1/messages/count_tokens, with a
+ * graceful fallback to the chars/4 heuristic when no API key / offline.
+ */
+export {
+  createAnthropicTokenCounter,
+  resolveTokenCounter,
+  DEFAULT_COUNT_TOKENS_MODEL,
+} from './count-tokens';
+export type {
+  AnthropicTokenCounterOptions,
+  FetchLike,
+  ResolvedCounterMode,
+  ResolvedTokenCounter,
+} from './count-tokens';
+
+/**
  * Section parser for progressive skill content loading.
  */
 export { parseSections, extractLevel } from './section-parser';

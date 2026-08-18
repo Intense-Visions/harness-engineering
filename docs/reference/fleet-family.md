@@ -37,12 +37,24 @@ Phase 1: SELECT --> Phase 2: CONFIRM --> Phase 3: DISPATCH
 - **Execution architecture — pilot-scored selection, subagent worktree fan-out.** Reuse `roadmap-pilot`-style impact scoring to pick and order the batch; execute via worktree-isolated subagents that each run the real per-item pipeline. The `Workflow` primitive is named as a future deterministic/resumable upgrade. The canonical statement is **ADR 0087**.
 - **Input contract — propose-and-confirm once.** The fleet enumerates and cross-checks the queue, then presents one ranked batch (already-resolved/superseded items flagged for closure, forks called out, concurrency proposed). The human approves or trims once; it is autonomous from there.
 
+## The worker handoff record (canonical)
+
+Every member's DISPATCH fans out worktree-isolated **workers** that each complete one item and hand a structured report back to the orchestrator (and, under `fleet-command`, up to the conductor). Historically each member invented its own ad hoc report shape, which forced `fleet-command` to special-case every fleet's worker output. The family standard removes that: **every worker, in every member, emits ONE canonical bounded handoff record**, and the orchestrator (and the conductor) parses any fleet's worker output uniformly.
+
+- **The type is `FleetHandoffRecord`**, exported from `@harness-engineering/types` (`FleetHandoffRecordSchema` is its zod schema). It is the single source of truth for the shape, so it cannot drift between the worker that emits it and the orchestrator that parses it.
+- **Its fields** are a fixed, documented, bounded set: `status` (`done | parked | blocked | failed`), `fleet`, `item`, a one-line `summary`, `evidence[]` (verifiable pointers — a `{ kind, ref, note? }` naming a branch, PR, artifact path, SHA, or CI check, which is exactly what VERIFY re-checks rather than trusting the worker's prose), `next_steps[]`, an optional `blocker`, and an optional envelope version `v`. Domain payloads a member already carries (e.g. `bug-fleet`'s `Candidate`, `ideate-fleet`'s candidate record) live **inside** the record's `summary`/`evidence`/`next_steps` — the envelope wraps them, it does not replace them.
+- **It is bounded.** `.strict()` rejects unknown keys (a member cannot smuggle an ad hoc field back in), required fields are non-empty, and a cross-field invariant requires any non-`done` status to carry a non-empty `blocker` (`FLEET_HANDOFF_BLOCKER_REQUIRED_STATUSES`). A malformed record is **rejected, never silently misread**.
+- **Emitters and consumers.** Each member's worker **emits** the record at the end of DISPATCH. The orchestrator (and `fleet-command`) **consumes** it by validating with `validateFleetHandoffRecord` (non-throwing, returns a discriminated `SCHEMA` / `BLOCKER_REQUIRED` error) or `parseFleetHandoffRecord` (throwing). A worker that cannot produce a well-formed handoff record for its item did not run the family standard.
+
+This record is modeled on a Ralph-loop bounded structured report (the normalized report passed from one continuing round to the next), and mirrors the package's existing `plan-task.ts` / `maintenance-findings.ts` shared-type + validator pattern.
+
 ## Hard invariants (every member)
 
 1. **Dogfood the real per-item skills.** Never hand-implement or short-cut the per-item pipeline — the artifacts it leaves behind are what VERIFY checks for.
 2. **Verify adherence by artifact + all-OS CI green** before any terminal action. For build-shaped members the artifact is a plan directory plus an autopilot-state; for review/land-shaped members it is a recorded review verdict plus the PR's CI signal. Green on one OS is not green. A member that **emits no code and opens no PR** has no CI subject: it records all-OS CI as **not applicable** rather than dropping it silently, and substitutes a second independent check that carries the same evidentiary weight (`ideate-fleet` re-derives every ranking from the artifact's own inputs). Recording the not-applicable is what keeps the invariant honest — a skipped check and an inapplicable one must not look alike.
 3. **A self-report is never verification.** "Pipeline ran, CI green" is a claim the orchestrator independently checks, never accepts.
 4. **Never silently merge or ship unreviewed work.** The fleet's product is a reviewable/authorized batch. `roadmap-fleet` never merges at all; `pr-fleet` lands only what a human authorized up front and verification cleared. No member auto-merges unreviewed work.
+5. **Every worker emits the canonical `FleetHandoffRecord`.** A worker hands back the ONE bounded handoff envelope from `@harness-engineering/types` (see _The worker handoff record (canonical)_ above), never an ad hoc per-member report shape, and the orchestrator validates it with `validateFleetHandoffRecord` before trusting it — so `fleet-command` parses any fleet's worker output uniformly.
 
 ## The concurrency governor (machine-storm cap)
 

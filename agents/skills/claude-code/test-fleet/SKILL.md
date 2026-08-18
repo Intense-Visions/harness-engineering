@@ -102,6 +102,8 @@ The five-phase spine, the concurrency governor, the artifact + all-OS-CI verific
 
 6. **Push-path caveat.** A worktree created under a `.claude/`-nested path breaks the local pre-push `check-docs` gate (it self-excludes and scans zero files). Subagents push via the GitHub API or from a non-`.claude` throwaway worktree. **Never `--no-verify`** — bypassing the gate defeats the verification the fleet depends on.
 
+**Worker handoff — return the canonical `FleetHandoffRecord`.** When a worker finishes its target it hands the orchestrator exactly one `FleetHandoffRecord` (from `@harness-engineering/types`) — the ONE bounded envelope every `-fleet` member emits, so `fleet-command` parses any fleet's worker output uniformly instead of special-casing an ad hoc per-worker report shape. The record carries `status` (`done | parked | blocked | failed`), `fleet`, `item`, a one-line `summary`, an `evidence[]` of verifiable pointers (branch, PR, artifact path, CI check — exactly the references VERIFY re-checks), `next_steps[]`, and, for any non-`done` status, a `blocker`. The orchestrator validates it with `validateFleetHandoffRecord`; a malformed or unknown-keyed record is rejected, never silently misread. See the canonical handoff record in `docs/reference/fleet-family.md`.
+
 ### Phase 4: VERIFY — Independent Confirmation, Never Self-Report
 
 1. **Never accept a subagent's self-report as verification.** "Tests written, coverage up, CI green" is a claim to be checked, not a result. For each returned branch, the orchestrator independently confirms the evidence itself.
