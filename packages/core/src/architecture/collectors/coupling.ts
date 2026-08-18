@@ -3,6 +3,7 @@ import { violationId, constraintRuleId } from './hash';
 import { detectCouplingViolations } from '../../entropy/detectors/coupling';
 import type { CodebaseSnapshot } from '../../entropy/types';
 import { findFiles, relativePosix } from '../../shared/fs-utils';
+import { resolveExcludePatterns } from '../exclude';
 
 function buildCouplingSnapshot(files: string[], rootDir: string): CodebaseSnapshot {
   return {
@@ -65,8 +66,8 @@ export class CouplingCollector implements Collector {
     ];
   }
 
-  async collect(_config: ArchConfig, rootDir: string): Promise<MetricResult[]> {
-    const files = await findFiles('**/*.ts', rootDir);
+  async collect(config: ArchConfig, rootDir: string): Promise<MetricResult[]> {
+    const files = await findFiles('**/*.ts', rootDir, resolveExcludePatterns(config));
     const snapshot = buildCouplingSnapshot(files, rootDir);
 
     const result = await detectCouplingViolations(snapshot);

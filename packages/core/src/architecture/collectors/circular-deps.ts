@@ -3,6 +3,7 @@ import { violationId, constraintRuleId } from './hash';
 import { buildDependencyGraph } from '../../constraints/dependencies';
 import { detectCircularDeps } from '../../constraints/circular-deps';
 import { findFiles, relativePosix } from '../../shared/fs-utils';
+import { resolveExcludePatterns } from '../exclude';
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any -- stub parser; real wiring via graph pipeline
 function makeStubParser(): any {
@@ -48,8 +49,8 @@ export class CircularDepsCollector implements Collector {
     ];
   }
 
-  async collect(_config: ArchConfig, rootDir: string): Promise<MetricResult[]> {
-    const files = await findFiles('**/*.ts', rootDir);
+  async collect(config: ArchConfig, rootDir: string): Promise<MetricResult[]> {
+    const files = await findFiles('**/*.ts', rootDir, resolveExcludePatterns(config));
     const graphResult = await buildDependencyGraph(files, makeStubParser());
 
     if (!graphResult.ok) {

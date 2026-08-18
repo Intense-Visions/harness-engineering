@@ -77,6 +77,7 @@ export type {
 } from './baseline-resolver';
 export { diff } from './diff';
 export { resolveThresholds } from './config';
+export { isExcluded, resolveExcludePatterns } from './exclude';
 
 export { archMatchers, architecture, archModule } from './matchers';
 export type { ArchHandle, ArchitectureOptions } from './matchers';

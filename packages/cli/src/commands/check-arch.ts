@@ -1,4 +1,5 @@
 import { Command } from 'commander';
+import { loadAnalysisExclude } from '../config/analysis-schema.js';
 import type { Result } from '@harness-engineering/core';
 import {
   Ok,
@@ -310,8 +311,16 @@ export async function runCheckArch(
 
   const cwd = options.cwd ?? path.dirname(configPath);
 
-  // Resolve architecture config (defaults if not present)
-  const archConfig: ArchConfig = config.architecture ?? ArchConfigSchema.parse({});
+  // Resolve architecture config (defaults if not present). The project-wide
+  // `analysis.exclude` list is stacked onto the arch-scoped patterns here — in
+  // the CLI, not in core, because the loader lives in this package and core must
+  // not depend on it. Keeps `check-arch` consistent with every other analysis
+  // scanner (entropy, ingest, security, doc-coverage), which already honor it.
+  const baseArchConfig: ArchConfig = config.architecture ?? ArchConfigSchema.parse({});
+  const archConfig: ArchConfig = {
+    ...baseArchConfig,
+    excludePatterns: [...baseArchConfig.excludePatterns, ...loadAnalysisExclude(cwd)],
+  };
 
   if (!archConfig.enabled) {
     return Ok({
