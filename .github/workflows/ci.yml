@@ -131,7 +131,18 @@ jobs:
             coverage-baselines.json
           retention-days: 1
 
-      - run: pnpm test:platform-parity
+      # Run the root-level `tests/` vitest tree on every OS. This covers the
+      # cross-platform parity suite AND any other root-level vitest specs
+      # (e.g. tests/blueprint/**, tests/scripts/*.test.ts) that live outside a
+      # workspace package and are therefore invisible to `turbo run test`.
+      # Without this, a root test that fails to even collect (a missing import)
+      # rots silently — the exact gap that let tests/blueprint/impact-lab.test.ts
+      # reference a non-existent module unnoticed (#1338). The root vitest config
+      # (vitest.config.mts) scopes discovery to `tests/**/*.test.ts`, so the
+      # separate `node --test 'tests/scripts/*.test.mjs'` node:test run above is
+      # untouched (it matches only .mjs).
+      - name: Test root-level tests/ tree (all OSes)
+        run: pnpm test:root
 
       # Dogfood the shipped semantic-vocabulary gate against harness's own config.
       - run: node packages/cli/dist/bin/harness.js check-vocabulary
