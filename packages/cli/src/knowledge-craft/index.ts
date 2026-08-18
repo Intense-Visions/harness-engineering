@@ -17,7 +17,7 @@ import {
 } from '../shared/craft/llm/provider.js';
 import {
   saveRunState,
-  loadRunState,
+  loadRunStateOrThrow,
   deleteRunState,
   pruneOldRuns,
 } from '../shared/craft/runs/store.js';
@@ -275,18 +275,7 @@ export async function finalizeKnowledgeCraft(
 ): Promise<KnowledgeCraftOutput> {
   const startedAt = Date.now();
   const projectRoot = sanitizePath(input.path);
-  const state = loadRunState<KnowledgeRunMeta>(projectRoot, input.runId);
-  if (state === null) {
-    throw new Error(
-      `knowledge-craft: no persisted run found for runId=${input.runId} under ${projectRoot}. ` +
-        'Run collectKnowledgeCraftPrompts first, or ensure the path matches the project root used at collection time.'
-    );
-  }
-  if (state.skill !== 'knowledge-craft') {
-    throw new Error(
-      `knowledge-craft: runId=${input.runId} belongs to skill ${state.skill}, not knowledge-craft.`
-    );
-  }
+  const state = loadRunStateOrThrow<KnowledgeRunMeta>(projectRoot, input.runId, 'knowledge-craft');
 
   const rubricById = new Map(SEED_RUBRICS.map((r) => [r.id, r]));
   const promptById = new Map(state.meta.prompts.map((p) => [p.promptId, p]));

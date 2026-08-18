@@ -15,7 +15,7 @@ import {
 } from '../shared/craft/llm/provider.js';
 import {
   saveRunState,
-  loadRunState,
+  loadRunStateOrThrow,
   deleteRunState,
   pruneOldRuns,
 } from '../shared/craft/runs/store.js';
@@ -266,18 +266,7 @@ export async function collectSpecCraftPrompts(
 export async function finalizeSpecCraft(input: FinalizeSpecCraftInput): Promise<SpecCraftOutput> {
   const startedAt = Date.now();
   const projectRoot = sanitizePath(input.path);
-  const state = loadRunState<SpecRunMeta>(projectRoot, input.runId);
-  if (state === null) {
-    throw new Error(
-      `spec-craft: no persisted run found for runId=${input.runId} under ${projectRoot}. ` +
-        'Run collectSpecCraftPrompts first, or ensure the path matches the project root used at collection time.'
-    );
-  }
-  if (state.skill !== 'spec-craft') {
-    throw new Error(
-      `spec-craft: runId=${input.runId} belongs to skill ${state.skill}, not spec-craft.`
-    );
-  }
+  const state = loadRunStateOrThrow<SpecRunMeta>(projectRoot, input.runId, 'spec-craft');
 
   const rubricById = new Map(SEED_RUBRICS.map((r) => [r.id, r]));
   const promptById = new Map(state.meta.prompts.map((p) => [p.promptId, p]));

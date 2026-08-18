@@ -58,6 +58,29 @@ export function loadRunState<TMeta>(
   }
 }
 
+/**
+ * Load a persisted run-state, throwing a clear, actionable error when it is
+ * missing or belongs to a different craft skill. Shared by the craft finalize
+ * entries so each keeps a single-story body.
+ */
+export function loadRunStateOrThrow<TMeta>(
+  projectRoot: string,
+  runId: string,
+  skill: string
+): CraftRunState<TMeta> {
+  const state = loadRunState<TMeta>(projectRoot, runId);
+  if (state === null) {
+    throw new Error(
+      `${skill}: no persisted run found for runId=${runId} under ${projectRoot}. ` +
+        `Run collect first, or ensure the path matches the project root used at collection time.`
+    );
+  }
+  if (state.skill !== skill) {
+    throw new Error(`${skill}: runId=${runId} belongs to skill ${state.skill}, not ${skill}.`);
+  }
+  return state;
+}
+
 export function deleteRunState(projectRoot: string, runId: string): void {
   const file = runPath(projectRoot, runId);
   try {

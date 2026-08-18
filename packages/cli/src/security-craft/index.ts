@@ -17,7 +17,7 @@ import {
 } from '../shared/craft/llm/provider.js';
 import {
   saveRunState,
-  loadRunState,
+  loadRunStateOrThrow,
   deleteRunState,
   pruneOldRuns,
 } from '../shared/craft/runs/store.js';
@@ -268,18 +268,7 @@ export async function finalizeSecurityCraft(
 ): Promise<SecurityCraftOutput> {
   const startedAt = Date.now();
   const projectRoot = sanitizePath(input.path);
-  const state = loadRunState<SecurityRunMeta>(projectRoot, input.runId);
-  if (state === null) {
-    throw new Error(
-      `security-craft: no persisted run found for runId=${input.runId} under ${projectRoot}. ` +
-        'Run collectSecurityCraftPrompts first, or ensure the path matches the project root used at collection time.'
-    );
-  }
-  if (state.skill !== 'security-craft') {
-    throw new Error(
-      `security-craft: runId=${input.runId} belongs to skill ${state.skill}, not security-craft.`
-    );
-  }
+  const state = loadRunStateOrThrow<SecurityRunMeta>(projectRoot, input.runId, 'security-craft');
 
   const rubricById = new Map(SEED_RUBRICS.map((r) => [r.id, r]));
   const promptById = new Map(state.meta.prompts.map((p) => [p.promptId, p]));
