@@ -17,6 +17,12 @@ import { extractFencedJsonPayload } from '../../shared/craft/fenced-json.js';
 
 const MAX_BODY_CHARS = 2000;
 
+/** Conservative-confidence system prompt for spec-section critique. */
+export const CRITIQUE_SYSTEM_PROMPT =
+  'You are a senior engineer critiquing a single spec section against a single ' +
+  'rubric. Respond ONLY with a fenced JSON block. If the rubric does not apply or ' +
+  'the section is fine, return `null` (literally the word null inside the JSON block).';
+
 export interface CritiqueInput {
   file: string;
   section: ParsedSection;
@@ -24,15 +30,26 @@ export interface CritiqueInput {
   provider: LlmProvider;
 }
 
+/** buildPrompt / parseFindingFromRaw inputs (the LLM-free subset of CritiqueInput). */
+export type BuildPromptInput = Omit<CritiqueInput, 'provider'>;
+
 export async function critiqueOne(input: CritiqueInput): Promise<SpecFinding | null> {
   const { file, section, rubric, provider } = input;
   const prompt = buildPrompt(input);
-  const raw = await provider.callText(prompt, {
-    systemPrompt:
-      'You are a senior engineer critiquing a single spec section against a single ' +
-      'rubric. Respond ONLY with a fenced JSON block. If the rubric does not apply or ' +
-      'the section is fine, return `null` (literally the word null inside the JSON block).',
-  });
+  const raw = await provider.callText(prompt, { systemPrompt: CRITIQUE_SYSTEM_PROMPT });
+  return parseFindingFromRaw(raw, { file, section, rubric });
+}
+
+/**
+ * Parse a raw LLM response (fenced JSON) into a SpecFinding. Pure — no LLM
+ * call — so the in-session two-step flow can reuse it after the calling agent
+ * answers.
+ */
+export function parseFindingFromRaw(
+  raw: string,
+  ctx: { file: string; section: { heading: string; line: number }; rubric: SpecRubric }
+): SpecFinding | null {
+  const { file, section, rubric } = ctx;
   const parsed = parseFencedJson(raw);
   if (parsed === null) return null;
   if (typeof parsed !== 'object') return null;
@@ -60,7 +77,7 @@ export async function critiqueOne(input: CritiqueInput): Promise<SpecFinding | n
   };
 }
 
-function buildPrompt(input: CritiqueInput): string {
+export function buildPrompt(input: BuildPromptInput): string {
   const { file, section, rubric } = input;
   const body =
     section.body.length > MAX_BODY_CHARS

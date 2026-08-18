@@ -12,6 +12,15 @@ import { extractFencedJsonPayload } from '../../shared/craft/fenced-json.js';
 
 const MAX_CONTENT_CHARS = 6000;
 
+/** System prompt for documentation-quality critique. */
+export const CRITIQUE_SYSTEM_PROMPT =
+  'You are a senior technical writer critiquing a single documentation file against a ' +
+  'single craft rubric. You judge the CEILING (does it teach, is the prose alive, do ' +
+  'examples earn their place), not the floor (broken links, missing files) — those are ' +
+  'handled elsewhere. Respond ONLY with a fenced JSON block. If the rubric does not apply ' +
+  'or the doc already clears this bar, return `null` (literally the word null inside the ' +
+  'JSON block).';
+
 export interface CritiqueInput {
   file: string;
   /** Relative path from the project root for the finding's target.relative. */
@@ -22,18 +31,26 @@ export interface CritiqueInput {
   provider: LlmProvider;
 }
 
+/** buildPrompt / parseFindingFromRaw inputs (the LLM-free subset of CritiqueInput). */
+export type BuildPromptInput = Omit<CritiqueInput, 'provider'>;
+
 export async function critiqueOne(input: CritiqueInput): Promise<DocsFinding | null> {
   const { file, relative, kind, rubric, provider } = input;
   const prompt = buildPrompt(input);
-  const raw = await provider.callText(prompt, {
-    systemPrompt:
-      'You are a senior technical writer critiquing a single documentation file against a ' +
-      'single craft rubric. You judge the CEILING (does it teach, is the prose alive, do ' +
-      'examples earn their place), not the floor (broken links, missing files) — those are ' +
-      'handled elsewhere. Respond ONLY with a fenced JSON block. If the rubric does not apply ' +
-      'or the doc already clears this bar, return `null` (literally the word null inside the ' +
-      'JSON block).',
-  });
+  const raw = await provider.callText(prompt, { systemPrompt: CRITIQUE_SYSTEM_PROMPT });
+  return parseFindingFromRaw(raw, { file, relative, kind, rubric });
+}
+
+/**
+ * Parse a raw LLM response (fenced JSON) into a DocsFinding. Pure — no LLM
+ * call — so the in-session two-step flow can reuse it after the calling agent
+ * answers.
+ */
+export function parseFindingFromRaw(
+  raw: string,
+  ctx: { file: string; relative: string; kind: DocKind; rubric: DocsRubric }
+): DocsFinding | null {
+  const { file, relative, kind, rubric } = ctx;
   const parsed = parseFencedJson(raw);
   if (parsed === null) return null;
   if (typeof parsed !== 'object') return null;
@@ -57,7 +74,7 @@ export async function critiqueOne(input: CritiqueInput): Promise<DocsFinding | n
   };
 }
 
-function buildPrompt(input: CritiqueInput): string {
+export function buildPrompt(input: BuildPromptInput): string {
   const { file, relative, kind, content, rubric } = input;
   const body =
     content.length > MAX_CONTENT_CHARS

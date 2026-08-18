@@ -4,7 +4,7 @@
 
 Canonical, regenerated-and-gated reference for every shipped MCP tool and skill. Unlike the summary in [MCP Tools Reference](./mcp-tools.md), this catalog serializes each tool’s **full live input schema** and each skill’s **full declared contract**, so a divergence between a definition’s real schema and its documentation is caught by `pnpm run generate:tool-catalog:check` in CI rather than drifting silently.
 
-## MCP Tools (106)
+## MCP Tools (111)
 
 Every shipped MCP tool, booted live from the built server, with its full input schema. A drift between a tool’s real schema and this catalog fails the build.
 
@@ -1222,7 +1222,7 @@ Simulate cascading failure propagation from a source node using probability-weig
 
 ### `copy_craft`
 
-LLM-judgment critique of prose-in-code across six surfaces: error messages, log lines, CLI output strings, commit subjects, PR descriptions, code comments. Third craft-pipeline ceiling skill; 8 seed rubrics. Graceful degradation when git/gh prereqs absent.
+LLM-judgment critique of prose-in-code across six surfaces: error messages, log lines, CLI output strings, commit subjects, PR descriptions, code comments. Third craft-pipeline ceiling skill; 8 seed rubrics. Graceful degradation when git/gh prereqs absent. In-session mode (default in Claude Code) returns prompts for the calling agent to answer; call copy_craft_finalize with the responses to get findings.
 
 **Input schema:**
 
@@ -1248,12 +1248,24 @@ LLM-judgment critique of prose-in-code across six surfaces: error messages, log 
       "description": "Cap per-file items (default: 20)",
       "type": "number"
     },
+    "mode": {
+      "description": "'in-session' (default): return prompts for the calling agent to answer, then call copy_craft_finalize. 'inline': run end-to-end via the configured provider (HARNESS_CRAFT_LLM).",
+      "enum": [
+        "inline",
+        "in-session"
+      ],
+      "type": "string"
+    },
     "path": {
       "description": "Project root path",
       "type": "string"
     },
     "prLimit": {
       "description": "PR count cap (default: 20)",
+      "type": "number"
+    },
+    "promptBudget": {
+      "description": "Cap prompt count in in-session mode (default: 100)",
       "type": "number"
     },
     "surfaces": {
@@ -1274,6 +1286,52 @@ LLM-judgment critique of prose-in-code across six surfaces: error messages, log 
   },
   "required": [
     "path"
+  ],
+  "type": "object"
+}
+```
+
+### `copy_craft_finalize`
+
+Finalize a copy_craft in-session run by submitting the calling agent's responses to the prompts collected by copy_craft. Returns the standard CopyCraftOutput with findings.
+
+**Input schema:**
+
+```json
+{
+  "properties": {
+    "path": {
+      "description": "Project root path used in the collect call (must match)",
+      "type": "string"
+    },
+    "responses": {
+      "description": "Per-prompt responses. `raw` is the fenced JSON block the calling agent produced.",
+      "items": {
+        "properties": {
+          "promptId": {
+            "type": "string"
+          },
+          "raw": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "promptId",
+          "raw"
+        ],
+        "type": "object"
+      },
+      "type": "array"
+    },
+    "runId": {
+      "description": "runId returned by the copy_craft collect call",
+      "type": "string"
+    }
+  },
+  "required": [
+    "path",
+    "runId",
+    "responses"
   ],
   "type": "object"
 }
@@ -1834,13 +1892,71 @@ LLM-judgment critique of documentation quality — the ceiling counterpart to th
       "description": "Cap doc count (default: 60)",
       "type": "number"
     },
+    "mode": {
+      "description": "'in-session' (default): return prompts for the calling agent to answer, then call docs_craft_finalize. 'inline': run end-to-end via the configured provider (HARNESS_CRAFT_LLM).",
+      "enum": [
+        "inline",
+        "in-session"
+      ],
+      "type": "string"
+    },
     "path": {
       "description": "Project root path",
       "type": "string"
+    },
+    "promptBudget": {
+      "description": "Cap prompt count in in-session mode (default: 100)",
+      "type": "number"
     }
   },
   "required": [
     "path"
+  ],
+  "type": "object"
+}
+```
+
+### `docs_craft_finalize`
+
+Finalize a docs_craft in-session run by submitting the calling agent's responses to the prompts collected by docs_craft. Returns the standard DocsCraftOutput with findings.
+
+**Input schema:**
+
+```json
+{
+  "properties": {
+    "path": {
+      "description": "Project root path used in the collect call (must match)",
+      "type": "string"
+    },
+    "responses": {
+      "description": "Per-prompt responses. `raw` is the fenced JSON block the calling agent produced.",
+      "items": {
+        "properties": {
+          "promptId": {
+            "type": "string"
+          },
+          "raw": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "promptId",
+          "raw"
+        ],
+        "type": "object"
+      },
+      "type": "array"
+    },
+    "runId": {
+      "description": "runId returned by the docs_craft collect call",
+      "type": "string"
+    }
+  },
+  "required": [
+    "path",
+    "runId",
+    "responses"
   ],
   "type": "object"
 }
@@ -2938,7 +3054,7 @@ Composite report combining health, entropy, decay, attention, and impact.
 
 ### `knowledge_craft`
 
-LLM-judgment critique of knowledge-entry quality (docs/knowledge/, excluding decisions/ — that is spec-craft territory). Fifth non-design craft-pipeline ceiling skill; 7 seed rubrics (load-bearing-fact, earns-graph-place, carries-forward-decision, …). Per-file critique. References graph taxonomy (business_fact / business_rule / business_concept / business_decision) inside rubrics without reading the graph. Emits 3-axis findings (tier x impact x confidence per ADR 0019).
+LLM-judgment critique of knowledge-entry quality (docs/knowledge/, excluding decisions/ — that is spec-craft territory). Fifth non-design craft-pipeline ceiling skill; 7 seed rubrics (load-bearing-fact, earns-graph-place, carries-forward-decision, …). Per-file critique. References graph taxonomy (business_fact / business_rule / business_concept / business_decision) inside rubrics without reading the graph. Emits 3-axis findings (tier x impact x confidence per ADR 0019). In-session mode (default in Claude Code) returns prompts for the calling agent to answer; call knowledge_craft_finalize with the responses to get findings.
 
 **Input schema:**
 
@@ -2963,13 +3079,71 @@ LLM-judgment critique of knowledge-entry quality (docs/knowledge/, excluding dec
       "description": "Cap entry count (default: 50)",
       "type": "number"
     },
+    "mode": {
+      "description": "'in-session' (default): return prompts for the calling agent to answer, then call knowledge_craft_finalize. 'inline': run end-to-end via the configured provider (HARNESS_CRAFT_LLM).",
+      "enum": [
+        "inline",
+        "in-session"
+      ],
+      "type": "string"
+    },
     "path": {
       "description": "Project root path",
       "type": "string"
+    },
+    "promptBudget": {
+      "description": "Cap prompt count in in-session mode (default: 100)",
+      "type": "number"
     }
   },
   "required": [
     "path"
+  ],
+  "type": "object"
+}
+```
+
+### `knowledge_craft_finalize`
+
+Finalize a knowledge_craft in-session run by submitting the calling agent's responses to the prompts collected by knowledge_craft. Returns the standard KnowledgeCraftOutput with findings.
+
+**Input schema:**
+
+```json
+{
+  "properties": {
+    "path": {
+      "description": "Project root path used in the collect call (must match)",
+      "type": "string"
+    },
+    "responses": {
+      "description": "Per-prompt responses. `raw` is the fenced JSON block the calling agent produced.",
+      "items": {
+        "properties": {
+          "promptId": {
+            "type": "string"
+          },
+          "raw": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "promptId",
+          "raw"
+        ],
+        "type": "object"
+      },
+      "type": "array"
+    },
+    "runId": {
+      "description": "runId returned by the knowledge_craft collect call",
+      "type": "string"
+    }
+  },
+  "required": [
+    "path",
+    "runId",
+    "responses"
   ],
   "type": "object"
 }
@@ -4310,6 +4484,14 @@ LLM-judgment critique of security posture (TS/JS source). Sixth non-design craft
       "description": "Cap per-file signal critique (default: 10)",
       "type": "number"
     },
+    "mode": {
+      "description": "'in-session' (default): return prompts for the calling agent to answer, then call security_craft_finalize. 'inline': run end-to-end via the configured provider (HARNESS_CRAFT_LLM).",
+      "enum": [
+        "inline",
+        "in-session"
+      ],
+      "type": "string"
+    },
     "packages": {
       "description": "Restrict to specific packages under packages/",
       "items": {
@@ -4320,10 +4502,60 @@ LLM-judgment critique of security posture (TS/JS source). Sixth non-design craft
     "path": {
       "description": "Project root path",
       "type": "string"
+    },
+    "promptBudget": {
+      "description": "Cap prompt count in in-session mode (default: 100)",
+      "type": "number"
     }
   },
   "required": [
     "path"
+  ],
+  "type": "object"
+}
+```
+
+### `security_craft_finalize`
+
+Finalize a security_craft in-session run by submitting the calling agent's responses to the prompts collected by security_craft. Returns the standard SecurityCraftOutput with findings.
+
+**Input schema:**
+
+```json
+{
+  "properties": {
+    "path": {
+      "description": "Project root path used in the collect call (must match)",
+      "type": "string"
+    },
+    "responses": {
+      "description": "Per-prompt responses. `raw` is the fenced JSON block the calling agent produced.",
+      "items": {
+        "properties": {
+          "promptId": {
+            "type": "string"
+          },
+          "raw": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "promptId",
+          "raw"
+        ],
+        "type": "object"
+      },
+      "type": "array"
+    },
+    "runId": {
+      "description": "runId returned by the security_craft collect call",
+      "type": "string"
+    }
+  },
+  "required": [
+    "path",
+    "runId",
+    "responses"
   ],
   "type": "object"
 }
@@ -4352,7 +4584,7 @@ Read STRATEGY.md at the project root and extract pulse-config seed values: produ
 
 ### `spec_craft`
 
-LLM-judgment critique of spec quality (proposals + ADRs). Second craft-pipeline ceiling skill; 7 seed rubrics from the spec-quality canon. Per-section critique with rubric-to-section mapping. Emits 3-axis findings (tier x impact x confidence per ADR 0019).
+LLM-judgment critique of spec quality (proposals + ADRs). Second craft-pipeline ceiling skill; 7 seed rubrics from the spec-quality canon. Per-section critique with rubric-to-section mapping. Emits 3-axis findings (tier x impact x confidence per ADR 0019). In-session mode (default in Claude Code) returns prompts for the calling agent to answer; call spec_craft_finalize with the responses to get findings.
 
 **Input schema:**
 
@@ -4385,9 +4617,21 @@ LLM-judgment critique of spec quality (proposals + ADRs). Second craft-pipeline 
       "description": "Cap per-doc section critique (default: 10)",
       "type": "number"
     },
+    "mode": {
+      "description": "'in-session' (default): return prompts for the calling agent to answer, then call spec_craft_finalize. 'inline': run end-to-end via the configured provider (HARNESS_CRAFT_LLM).",
+      "enum": [
+        "inline",
+        "in-session"
+      ],
+      "type": "string"
+    },
     "path": {
       "description": "Project root path",
       "type": "string"
+    },
+    "promptBudget": {
+      "description": "Cap prompt count in in-session mode (default: 100)",
+      "type": "number"
     },
     "sections": {
       "description": "Restrict to canonical section names (e.g., decisions, scope)",
@@ -4399,6 +4643,52 @@ LLM-judgment critique of spec quality (proposals + ADRs). Second craft-pipeline 
   },
   "required": [
     "path"
+  ],
+  "type": "object"
+}
+```
+
+### `spec_craft_finalize`
+
+Finalize a spec_craft in-session run by submitting the calling agent's responses to the prompts collected by spec_craft. Returns the standard SpecCraftOutput with findings.
+
+**Input schema:**
+
+```json
+{
+  "properties": {
+    "path": {
+      "description": "Project root path used in the collect call (must match)",
+      "type": "string"
+    },
+    "responses": {
+      "description": "Per-prompt responses. `raw` is the fenced JSON block the calling agent produced.",
+      "items": {
+        "properties": {
+          "promptId": {
+            "type": "string"
+          },
+          "raw": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "promptId",
+          "raw"
+        ],
+        "type": "object"
+      },
+      "type": "array"
+    },
+    "runId": {
+      "description": "runId returned by the spec_craft collect call",
+      "type": "string"
+    }
+  },
+  "required": [
+    "path",
+    "runId",
+    "responses"
   ],
   "type": "object"
 }

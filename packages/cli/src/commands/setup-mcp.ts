@@ -148,16 +148,21 @@ export const ALL_MCP_TOOLS: string[] = [
   'naming_craft_finalize',
   // craft-pipeline #6 — spec-craft LLM-judgment ceiling skill
   'spec_craft',
+  'spec_craft_finalize',
   // craft-pipeline #5 — copy-craft LLM-judgment ceiling skill (6 surfaces)
   'copy_craft',
+  'copy_craft_finalize',
   // craft-pipeline #3 — test-craft LLM-judgment ceiling skill (vitest/jest/mocha/playwright/pytest)
   'test_craft',
   // craft-pipeline #9 — knowledge-craft LLM-judgment ceiling skill (docs/knowledge/ entries)
   'knowledge_craft',
+  'knowledge_craft_finalize',
   // craft-pipeline #10 — security-craft LLM-judgment ceiling skill (AST-driven, conservative-confidence)
   'security_craft',
+  'security_craft_finalize',
   // craft-pipeline — docs-craft LLM-judgment ceiling skill (documentation quality)
   'docs_craft',
+  'docs_craft_finalize',
   // craft-pipeline — code-craft LLM-judgment ceiling skill (code readability, per-unit critique)
   'code_craft',
   'code_craft_finalize',

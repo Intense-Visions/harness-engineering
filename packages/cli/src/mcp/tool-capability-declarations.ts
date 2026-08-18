@@ -90,11 +90,16 @@ export const TOOL_CAPABILITY_DECLARATIONS: Readonly<Record<string, ToolCapabilit
   naming_craft: { scopes: ['read'] },
   naming_craft_finalize: { scopes: ['read'] },
   spec_craft: { scopes: ['read'] },
+  spec_craft_finalize: { scopes: ['read'] },
   copy_craft: { scopes: ['read'] },
+  copy_craft_finalize: { scopes: ['read'] },
   test_craft: { scopes: ['read'] }, // emits telemetry only; critique is returned, not persisted
   knowledge_craft: { scopes: ['read'] },
+  knowledge_craft_finalize: { scopes: ['read'] },
   security_craft: { scopes: ['read'] }, // AST critique; "child_process" match was a rubric string
+  security_craft_finalize: { scopes: ['read'] },
   docs_craft: { scopes: ['read'] },
+  docs_craft_finalize: { scopes: ['read'] },
   code_craft: { scopes: ['read'] }, // per-unit AST critique; returns findings, not persisted
   code_craft_finalize: { scopes: ['read'] },
   cli_ergonomics_craft: { scopes: ['read'] },

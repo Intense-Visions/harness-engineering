@@ -204,17 +204,42 @@ import {
   handleNamingCraftFinalize,
 } from './tools/naming-craft.js';
 // craft-pipeline #6: spec-craft LLM-judgment skill (proposals + ADRs, per-section critique).
-import { specCraftDefinition, handleSpecCraft } from './tools/spec-craft.js';
+import {
+  specCraftDefinition,
+  specCraftFinalizeDefinition,
+  handleSpecCraft,
+  handleSpecCraftFinalize,
+} from './tools/spec-craft.js';
 // craft-pipeline #5: copy-craft LLM-judgment skill (errors, logs, CLI output, commits, PRs, comments).
-import { copyCraftDefinition, handleCopyCraft } from './tools/copy-craft.js';
+import {
+  copyCraftDefinition,
+  copyCraftFinalizeDefinition,
+  handleCopyCraft,
+  handleCopyCraftFinalize,
+} from './tools/copy-craft.js';
 // craft-pipeline #3: test-craft LLM-judgment skill (vitest/jest/mocha/playwright/pytest, per-test critique).
 import { testCraftDefinition, handleTestCraft } from './tools/test-craft.js';
 // craft-pipeline #9: knowledge-craft LLM-judgment skill (docs/knowledge/ entries, per-file critique).
-import { knowledgeCraftDefinition, handleKnowledgeCraft } from './tools/knowledge-craft.js';
+import {
+  knowledgeCraftDefinition,
+  knowledgeCraftFinalizeDefinition,
+  handleKnowledgeCraft,
+  handleKnowledgeCraftFinalize,
+} from './tools/knowledge-craft.js';
 // craft-pipeline #10: security-craft LLM-judgment skill (AST-driven signal detection, conservative confidence).
-import { securityCraftDefinition, handleSecurityCraft } from './tools/security-craft.js';
+import {
+  securityCraftDefinition,
+  securityCraftFinalizeDefinition,
+  handleSecurityCraft,
+  handleSecurityCraftFinalize,
+} from './tools/security-craft.js';
 // craft-pipeline: docs-craft LLM-judgment skill (documentation quality, per-file critique).
-import { docsCraftDefinition, handleDocsCraft } from './tools/docs-craft.js';
+import {
+  docsCraftDefinition,
+  docsCraftFinalizeDefinition,
+  handleDocsCraft,
+  handleDocsCraftFinalize,
+} from './tools/docs-craft.js';
 // craft-pipeline: code-craft LLM-judgment skill (code readability, per-unit critique).
 import {
   codeCraftDefinition,
@@ -367,11 +392,16 @@ const TOOL_DEFINITIONS: ToolDefinition[] = [
   namingCraftDefinition,
   namingCraftFinalizeDefinition,
   specCraftDefinition,
+  specCraftFinalizeDefinition,
   copyCraftDefinition,
+  copyCraftFinalizeDefinition,
   testCraftDefinition,
   knowledgeCraftDefinition,
+  knowledgeCraftFinalizeDefinition,
   securityCraftDefinition,
+  securityCraftFinalizeDefinition,
   docsCraftDefinition,
+  docsCraftFinalizeDefinition,
   codeCraftDefinition,
   codeCraftFinalizeDefinition,
   cliErgonomicsCraftDefinition,
@@ -482,11 +512,16 @@ const TOOL_HANDLERS: Record<string, ToolHandler> = {
   naming_craft: handleNamingCraft as unknown as ToolHandler,
   naming_craft_finalize: handleNamingCraftFinalize as unknown as ToolHandler,
   spec_craft: handleSpecCraft as unknown as ToolHandler,
+  spec_craft_finalize: handleSpecCraftFinalize as unknown as ToolHandler,
   copy_craft: handleCopyCraft as unknown as ToolHandler,
+  copy_craft_finalize: handleCopyCraftFinalize as unknown as ToolHandler,
   test_craft: handleTestCraft as unknown as ToolHandler,
   knowledge_craft: handleKnowledgeCraft as unknown as ToolHandler,
+  knowledge_craft_finalize: handleKnowledgeCraftFinalize as unknown as ToolHandler,
   security_craft: handleSecurityCraft as unknown as ToolHandler,
+  security_craft_finalize: handleSecurityCraftFinalize as unknown as ToolHandler,
   docs_craft: handleDocsCraft as unknown as ToolHandler,
+  docs_craft_finalize: handleDocsCraftFinalize as unknown as ToolHandler,
   code_craft: handleCodeCraft as unknown as ToolHandler,
   code_craft_finalize: handleCodeCraftFinalize as unknown as ToolHandler,
   cli_ergonomics_craft: handleCliErgonomicsCraft as unknown as ToolHandler,

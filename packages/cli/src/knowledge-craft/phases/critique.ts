@@ -15,6 +15,12 @@ import { extractFencedJsonPayload } from '../../shared/craft/fenced-json.js';
 
 const MAX_CONTENT_CHARS = 4000;
 
+/** System prompt for knowledge-entry critique. */
+export const CRITIQUE_SYSTEM_PROMPT =
+  'You are a senior engineer + technical writer critiquing a single knowledge entry ' +
+  'against a single rubric. Respond ONLY with a fenced JSON block. If the rubric does ' +
+  'not apply or the entry is fine, return `null` (literally the word null inside the JSON block).';
+
 export interface CritiqueInput {
   file: string;
   /** Relative path from docs/knowledge/ for the finding's target.relative. */
@@ -24,15 +30,26 @@ export interface CritiqueInput {
   provider: LlmProvider;
 }
 
+/** buildPrompt / parseFindingFromRaw inputs (the LLM-free subset of CritiqueInput). */
+export type BuildPromptInput = Omit<CritiqueInput, 'provider'>;
+
 export async function critiqueOne(input: CritiqueInput): Promise<KnowledgeFinding | null> {
   const { file, relative, rubric, provider } = input;
   const prompt = buildPrompt(input);
-  const raw = await provider.callText(prompt, {
-    systemPrompt:
-      'You are a senior engineer + technical writer critiquing a single knowledge entry ' +
-      'against a single rubric. Respond ONLY with a fenced JSON block. If the rubric does ' +
-      'not apply or the entry is fine, return `null` (literally the word null inside the JSON block).',
-  });
+  const raw = await provider.callText(prompt, { systemPrompt: CRITIQUE_SYSTEM_PROMPT });
+  return parseFindingFromRaw(raw, { file, relative, rubric });
+}
+
+/**
+ * Parse a raw LLM response (fenced JSON) into a KnowledgeFinding. Pure — no
+ * LLM call — so the in-session two-step flow can reuse it after the calling
+ * agent answers.
+ */
+export function parseFindingFromRaw(
+  raw: string,
+  ctx: { file: string; relative: string; rubric: KnowledgeRubric }
+): KnowledgeFinding | null {
+  const { file, relative, rubric } = ctx;
   const parsed = parseFencedJson(raw);
   if (parsed === null) return null;
   if (typeof parsed !== 'object') return null;
@@ -56,7 +73,7 @@ export async function critiqueOne(input: CritiqueInput): Promise<KnowledgeFindin
   };
 }
 
-function buildPrompt(input: CritiqueInput): string {
+export function buildPrompt(input: BuildPromptInput): string {
   const { file, relative, content, rubric } = input;
   const body =
     content.length > MAX_CONTENT_CHARS

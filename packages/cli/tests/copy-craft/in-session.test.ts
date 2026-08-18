@@ -1,0 +1,67 @@
+/**
+ * In-session two-step flow for copy-craft (issue #1368 follow-up).
+ *
+ * The inline entry refuses the in-session provider; interactive callers go
+ * through collectCopyCraftPrompts → finalizeCopyCraft, where the calling agent
+ * (Claude Code) is the LLM judge.
+ */
+import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+import * as fs from 'node:fs';
+import * as path from 'node:path';
+import * as os from 'node:os';
+import { runCopyCraft, collectCopyCraftPrompts, finalizeCopyCraft } from '../../src/copy-craft';
+import { InSessionLlmProvider } from '../../src/shared/craft/llm/provider';
+
+describe('copy-craft in-session two-step flow', () => {
+  let tmpDir: string;
+
+  beforeEach(() => {
+    tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'copy-craft-insession-'));
+    const full = path.join(tmpDir, 'src/parse.ts');
+    fs.mkdirSync(path.dirname(full), { recursive: true });
+    fs.writeFileSync(full, 'export function parse() {\n  throw new Error("parse error");\n}\n');
+  });
+
+  afterEach(() => {
+    fs.rmSync(tmpDir, { recursive: true, force: true });
+  });
+
+  it('inline entry throws a loud two-step guard under the in-session provider', async () => {
+    await expect(
+      runCopyCraft({
+        path: tmpDir,
+        surfaces: ['error'],
+        __testProvider: new InSessionLlmProvider(),
+      })
+    ).rejects.toThrow(/two-step flow/);
+  });
+
+  it('collect returns a runId and non-empty prompts', async () => {
+    const collected = await collectCopyCraftPrompts({ path: tmpDir, surfaces: ['error'] });
+    expect(collected.status).toBe('collected');
+    expect(collected.runId).toBeTruthy();
+    expect(collected.pendingPrompts.length).toBeGreaterThan(0);
+  });
+
+  it('round-trips collect → finalize into parsed findings', async () => {
+    const collected = await collectCopyCraftPrompts({ path: tmpDir, surfaces: ['error'] });
+    const responses = collected.pendingPrompts.map((p, i) => ({
+      promptId: p.promptId,
+      raw:
+        i === 0
+          ? '```json\n{"tier":"foundational","impact":"medium","confidence":"high","message":"say what to do"}\n```'
+          : '```json\nnull\n```',
+    }));
+    const out = await finalizeCopyCraft({ path: tmpDir, runId: collected.runId, responses });
+    expect(out.findings.length).toBeGreaterThanOrEqual(1);
+    expect(out.summary.runId).toBe(collected.runId);
+    expect(out.summary.llmCalls.provider).toBe('in-session');
+    expect(out.findings[0]!.target.surface).toBe('error');
+  });
+
+  it('finalize with a missing runId throws a clear error', async () => {
+    await expect(
+      finalizeCopyCraft({ path: tmpDir, runId: 'does-not-exist', responses: [] })
+    ).rejects.toThrow(/no persisted run/);
+  });
+});
