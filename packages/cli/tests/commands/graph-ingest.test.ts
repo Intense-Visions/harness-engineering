@@ -61,6 +61,23 @@ const mockGitIngest = vi.fn().mockResolvedValue({
   durationMs: 80,
 });
 
+const mockDecisionIngest = vi.fn().mockResolvedValue({
+  nodesAdded: 0,
+  nodesUpdated: 0,
+  edgesAdded: 0,
+  edgesUpdated: 0,
+  errors: [],
+  durationMs: 0,
+});
+const mockDecisionIngestArchitecture = vi.fn().mockResolvedValue({
+  nodesAdded: 0,
+  nodesUpdated: 0,
+  edgesAdded: 0,
+  edgesUpdated: 0,
+  errors: [],
+  durationMs: 0,
+});
+
 const mockRequirementIngest = vi.fn().mockResolvedValue({
   nodesAdded: 2,
   nodesUpdated: 0,
@@ -120,6 +137,11 @@ vi.mock('@harness-engineering/graph', () => ({
     ingest = mockBkIngest;
     ingestSolutions = mockBkIngestSolutions;
     ingestStrategy = mockBkIngestStrategy;
+  },
+  DecisionIngestor: class {
+    constructor() {}
+    ingest = mockDecisionIngest;
+    ingestArchitecture = mockDecisionIngestArchitecture;
   },
   GitIngestor: class {
     constructor() {}
@@ -189,7 +211,13 @@ beforeEach(() => {
     errors: [],
     durationMs: 50,
   });
-  for (const m of [mockBkIngest, mockBkIngestSolutions, mockBkIngestStrategy]) {
+  for (const m of [
+    mockBkIngest,
+    mockBkIngestSolutions,
+    mockBkIngestStrategy,
+    mockDecisionIngest,
+    mockDecisionIngestArchitecture,
+  ]) {
     m.mockResolvedValue({
       nodesAdded: 0,
       nodesUpdated: 0,
@@ -281,6 +309,33 @@ describe('runIngest', () => {
         expect.stringMatching(/docs[\\/]solutions$/)
       );
       expect(mockBkIngestStrategy).toHaveBeenCalledWith(expect.stringMatching(/STRATEGY\.md$/));
+    });
+
+    // Regression: github issue #1351. Previously --source knowledge never
+    // constructed DecisionIngestor, so ADRs under docs/knowledge/decisions (which
+    // KnowledgeIngestor explicitly excludes) entered the graph via no ingestor.
+    it('routes decision ADRs through DecisionIngestor (docs/knowledge/decisions + docs/architecture)', async () => {
+      await runIngest('/project', 'knowledge');
+      expect(mockDecisionIngest).toHaveBeenCalledWith(
+        expect.stringMatching(/docs[\\/]knowledge[\\/]decisions$/)
+      );
+      expect(mockDecisionIngestArchitecture).toHaveBeenCalledWith(
+        expect.stringMatching(/docs[\\/]architecture$/)
+      );
+    });
+
+    it('aggregates decision nodes into the knowledge-source total', async () => {
+      mockDecisionIngest.mockResolvedValue({
+        nodesAdded: 4,
+        nodesUpdated: 0,
+        edgesAdded: 0,
+        edgesUpdated: 0,
+        errors: [],
+        durationMs: 5,
+      });
+      const result = await runIngest('/project', 'knowledge');
+      // 3 (KnowledgeIngestor) + 0 (bk) + 4 (decisions) = 7
+      expect(result.nodesAdded).toBe(7);
     });
 
     it('aggregates nodes and errors from KnowledgeIngestor and BusinessKnowledgeIngestor', async () => {

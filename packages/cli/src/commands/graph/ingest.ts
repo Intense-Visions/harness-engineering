@@ -41,6 +41,29 @@ async function ingestBusinessKnowledge(
   );
 }
 
+/**
+ * Route decision ADRs into the graph via DecisionIngestor: YAML-frontmatter
+ * ADRs under docs/knowledge/decisions/ plus architecture-advisor markdown ADRs
+ * under docs/architecture/. Both flow into the same `decision` node type.
+ *
+ * Previously the `--source knowledge` (and `--all`) path ran neither ingestor
+ * for these files: KnowledgeIngestor.ingestAll explicitly excludes
+ * docs/knowledge/**, so ADRs entered the graph via NO ingestor on this command
+ * path. See github issue #1351.
+ */
+async function ingestDecisions(
+  decision: {
+    ingest: (dir: string) => Promise<IngestResult>;
+    ingestArchitecture: (dir: string) => Promise<IngestResult>;
+  },
+  projectPath: string
+): Promise<IngestResult> {
+  return mergeResults(
+    await decision.ingest(path.join(projectPath, 'docs', 'knowledge', 'decisions')),
+    await decision.ingestArchitecture(path.join(projectPath, 'docs', 'architecture'))
+  );
+}
+
 function mergeResults(...results: IngestResult[]): IngestResult {
   return results.reduce(
     (acc, r) => ({
@@ -73,6 +96,7 @@ export async function runIngest(
     TopologicalLinker,
     KnowledgeIngestor,
     BusinessKnowledgeIngestor,
+    DecisionIngestor,
     GitIngestor,
     RequirementIngestor,
     SyncManager,
@@ -96,6 +120,8 @@ export async function runIngest(
     // Follow-up from PR #511: --all now exercises BK paths too.
     const bkInst = new BusinessKnowledgeIngestor(store);
     const bkResult = await ingestBusinessKnowledge(bkInst, projectPath);
+    // Decision ADRs are owned by DecisionIngestor, not KnowledgeIngestor (#1351).
+    const decisionResult = await ingestDecisions(new DecisionIngestor(store), projectPath);
     const reqResult = await new RequirementIngestor(store).ingestSpecs(
       path.join(projectPath, 'docs', 'changes')
     );
@@ -124,6 +150,7 @@ export async function runIngest(
       codeResult,
       knowledgeResult,
       bkResult,
+      decisionResult,
       reqResult,
       gitResult,
       signalsResult,
@@ -147,7 +174,10 @@ export async function runIngest(
       // See github issue #504 Finding 1.
       const knowledge = await new KnowledgeIngestor(store).ingestAll(projectPath);
       const bk = await ingestBusinessKnowledge(new BusinessKnowledgeIngestor(store), projectPath);
-      result = mergeResults(knowledge, bk);
+      // Decision ADRs (docs/knowledge/decisions + docs/architecture) are owned by
+      // DecisionIngestor — KnowledgeIngestor excludes docs/knowledge/** (#1351).
+      const decisions = await ingestDecisions(new DecisionIngestor(store), projectPath);
+      result = mergeResults(knowledge, bk, decisions);
       break;
     }
     case 'git':
