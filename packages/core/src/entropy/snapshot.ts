@@ -12,6 +12,7 @@ import type {
   ExportMap,
   CodeReference,
   CodebaseSnapshot,
+  TestImportSource,
 } from './types';
 import type { AST, Export, LanguageParser } from '../shared/parsers';
 import { getDefaultRegistry } from '../shared/parsers';
@@ -37,6 +38,13 @@ const DEFAULT_INCLUDE_PATTERNS = [
   '**/*.rs',
   '**/*.java',
 ];
+
+/**
+ * Test-file matcher (`foo.test.ts`, `foo.spec.tsx`, …). Test files are kept out
+ * of `snapshot.files` but their import edges are harvested into
+ * `snapshot.testImports` so an export imported only by its test stays live.
+ */
+const TEST_FILE_RE = /\.(test|spec)\.(m|c)?[jt]sx?$/;
 
 /**
  * Extract code blocks from markdown content
@@ -334,16 +342,33 @@ export async function buildSnapshot(
   const includePatterns = config.include || DEFAULT_INCLUDE_PATTERNS;
   const excludePatterns = config.exclude || [...skipDirGlobs(), '**/*.test.ts', '**/*.spec.ts'];
 
-  let sourceFilePaths: string[] = [];
+  const allMatchedPaths: string[] = [];
   for (const pattern of includePatterns) {
     const files = await findFiles(pattern, rootDir);
-    sourceFilePaths.push(...files);
+    allMatchedPaths.push(...files);
   }
 
   // Filter out excluded
-  sourceFilePaths = sourceFilePaths.filter((f) => {
+  const sourceFilePaths = allMatchedPaths.filter((f) => {
     const rel = relativePosix(rootDir, f);
     return !excludePatterns.some((p) => minimatch(rel, p));
+  });
+
+  // Harvest import edges from test files. Test files are intentionally left out
+  // of `sourceFilePaths` (so no detector classifies test code), but an export
+  // imported only by its test is still live — without these edges the
+  // dead-export detector produced hundreds of false positives. Re-include a
+  // path as a test-import source when it is a test file excluded *only* by a
+  // test-file glob (all other excludes — node_modules, dist, … — still apply),
+  // and it is not already a classified source file.
+  const sourceFileSet = new Set(sourceFilePaths);
+  const nonTestExcludes = excludePatterns.filter(
+    (p) => !p.includes('.test.') && !p.includes('.spec.')
+  );
+  const testFilePaths = [...new Set(allMatchedPaths)].filter((f) => {
+    if (sourceFileSet.has(f)) return false;
+    const rel = relativePosix(rootDir, f);
+    return TEST_FILE_RE.test(rel) && !nonTestExcludes.some((p) => minimatch(rel, p));
   });
 
   // Parse source files
@@ -368,6 +393,22 @@ export async function buildSnapshot(
       internalSymbols,
       jsDocComments,
     });
+  }
+
+  // Parse test files for their import edges only (no exports/symbols — test
+  // files are never classified, they only keep their import targets alive).
+  const testImports: TestImportSource[] = [];
+  for (const filePath of testFilePaths) {
+    const fileParser = parserForFile(filePath);
+    if (!fileParser) continue;
+
+    const parseResult = await fileParser.parseFile(filePath);
+    if (!parseResult.ok) continue;
+
+    const importsResult = fileParser.extractImports(parseResult.value);
+    if (!importsResult.ok || importsResult.value.length === 0) continue;
+
+    testImports.push({ path: filePath, imports: importsResult.value });
   }
 
   // Build dependency graph — pass the registry directly so it can dispatch per file
@@ -399,6 +440,7 @@ export async function buildSnapshot(
 
   return Ok({
     files,
+    testImports,
     dependencyGraph,
     exportMap,
     docs,
