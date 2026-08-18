@@ -1,0 +1,51 @@
+{
+  "issue": 1398,
+  "title": "Spill-to-disk with a followup-readable locator for large tool output",
+  "externalId": "github:Intense-Visions/harness-engineering#1398",
+  "slug": "spill-to-disk-locator",
+  "branch": "build/spill-to-disk-1398",
+  "pipelineStages": [
+    {
+      "stage": "brainstorming",
+      "artifact": "docs/changes/spill-to-disk-locator/plans/2026-08-18-spill-to-disk-plan.md",
+      "summary": "Spill-to-disk backend for large tool output: over-threshold output offloaded to the resolved state area under spill/, recovered via a followup-readable locator (readSpill/searchSpill)."
+    },
+    {
+      "stage": "planning",
+      "artifact": "docs/changes/spill-to-disk-locator/plans/2026-08-18-spill-to-disk-plan.md",
+      "summary": "5-task plan: write spill module, barrel export, tests, changeset, validate. Fork C = extend packages/core/src/state (no new package)."
+    },
+    {
+      "stage": "execution",
+      "artifact": "packages/core/src/state/spill.ts",
+      "summary": "spillIfNeeded / readSpill / searchSpill / resolveSpillThreshold in packages/core/src/state/spill.ts; reuses getStateDir for session/stream/legacy resolution; locator format harness-spill:<repo-relative-path>."
+    }
+  ],
+  "planArtifact": "docs/changes/spill-to-disk-locator/plans/2026-08-18-spill-to-disk-plan.md",
+  "sourceFiles": ["packages/core/src/state/spill.ts", "packages/core/src/state/spill.test.ts"],
+  "registrationSites": [
+    "packages/core/src/state/index.ts (spill export block — auto-discovered by generate-core-barrel.mjs via `export * from './state'`)"
+  ],
+  "spillBackend": {
+    "location": "packages/core/src/state/spill.ts:spillIfNeeded",
+    "readPath": "packages/core/src/state/spill.ts:readSpill",
+    "searchPath": "packages/core/src/state/spill.ts:searchSpill",
+    "locatorFormat": "harness-spill:<repo-relative-posix-path> (e.g. harness-spill:.harness/sessions/<session>/spill/<id>.txt)",
+    "spillDir": ".harness/<session|stream|legacy>/spill/ (git-ignored via .harness/.gitignore)",
+    "defaultThresholdBytes": 30000,
+    "thresholdEnv": "HARNESS_SPILL_THRESHOLD_BYTES"
+  },
+  "localChecks": {
+    "build": "pass (pnpm -w build, Node 22)",
+    "typecheck": "pass (@harness-engineering/core)",
+    "test": "pass (14 tests: spill.test.ts)",
+    "lint": "pass (0 errors, 0 warnings on spill.ts)",
+    "barrelFreshness": "pass (generate-core-barrel.mjs --check: up to date)"
+  },
+  "assumptions": [
+    "Fork C: extend packages/core state handling; no new package created.",
+    "30 KB default threshold, overridable via HARNESS_SPILL_THRESHOLD_BYTES env var or the thresholdBytes option.",
+    "Locator is machine-local (same-host session continuity), consistent with the rest of .harness/ state.",
+    "This issue delivers the reusable core backend + locator; wiring specific fleet/autopilot call sites to route output through spillIfNeeded is left to those consumers."
+  ]
+}
