@@ -48,6 +48,10 @@ Auto-generated comprehensive reference for all CLI commands with full option det
 
 Auto-generated reference for all MCP tools exposed by the harness server.
 
+### [Tool & Skill Catalog](./tool-catalog.md)
+
+Canonical, regenerate-and-gated catalog serializing each MCP tool's full live input schema and each skill's full declared contract. Unlike the summary in the MCP Tools Reference, a divergence between a definition's real schema and this catalog fails the build (`pnpm run generate:tool-catalog:check`).
+
 ### [Skills Catalog](./skills-catalog.md)
 
 Complete catalog of all 741 skills across all tiers.

@@ -1,0 +1,30 @@
+{
+  "issue": 1401,
+  "slug": "generate-and-verify-reference-docs",
+  "title": "Generate-and-verify skill/MCP-tool reference docs (regenerate-and-gate, not detect-only)",
+  "pipeline": {
+    "stages": ["brainstorming", "planning", "execution", "review"],
+    "planArtifact": "docs/changes/generate-and-verify-reference-docs/plans/plan.md"
+  },
+  "deliverables": {
+    "generator": "scripts/generate-tool-catalog.mjs",
+    "output": "docs/reference/tool-catalog.md",
+    "commands": {
+      "generate": "pnpm run generate:tool-catalog",
+      "verify": "pnpm run generate:tool-catalog:check"
+    },
+    "ciStep": ".github/workflows/ci.yml (build-and-test → 'Verify tool & skill catalog is fresh', ubuntu-latest)",
+    "prePushGate": ".husky/pre-push (pnpm run generate:tool-catalog:check)",
+    "prettierIgnore": ".prettierignore (docs/reference/tool-catalog.md)",
+    "indexLink": "docs/reference/index.md"
+  },
+  "assumptions": [
+    "Interpreted the gap as full-live-schema fidelity: the existing generate-docs.mjs already emits mcp-tools.md/skills-catalog.md with a --check gate, but only renders a shallow one-line-per-parameter summary, so nested/enum/required/items schema drift is invisible. The new catalog serializes each tool's ENTIRE live inputSchema and each skill's full declared contract to close that gap, rather than duplicating the existing summaries.",
+    "Built a standalone scripts/generate-tool-catalog.mjs with a generate + :check pair (mirroring generate-barrel-exports / generate-barrel-exports:check) instead of folding into generate-docs.mjs, so the new schema-drift gate is a distinct, independently reviewable CI step — matching the dsh gen-tool-catalog/verify-tool-catalog shape named in the issue.",
+    "Emitted the catalog as byte-exact deterministic output (code-point-sorted entries, deep-sorted JSON keys) and added it to .prettierignore rather than running prettier over it: prettier's embedded-JSON array formatting is non-idempotent around its print-width boundary and would make the freshness check flap. This reuses the existing .prettierignore escape hatch (roadmap serializer, empty-changeset marker).",
+    "A skill's 'schema' was taken to be its declared skill.yaml contract (name, tier, catalog_tier, type, cognitive_mode, platforms, triggers, depends_on), since skills carry no JSON input schema; drift in any of these fields now fails the build.",
+    "Wired the verify mode into BOTH CI (required by the issue) and the pre-push reference-docs freshness gate (faithful mirror of the shape the issue points at).",
+    "Linked tool-catalog.md from docs/reference/index.md but did NOT add it to the manually-curated VitePress sidebar in config.mts, matching how the sibling generated pages (mcp-tools.md, skills-catalog.md) are surfaced.",
+    "No @harness-engineering/core export was added, so scripts/generate-core-barrel.mjs allowlist needed no change."
+  ]
+}
