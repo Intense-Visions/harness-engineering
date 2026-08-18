@@ -28,6 +28,8 @@
     "docs:build": "pnpm --filter docs build",
     "docs:preview": "pnpm --filter docs preview",
     "generate-docs": "node scripts/generate-docs.mjs",
+    "generate:tool-catalog": "node scripts/generate-tool-catalog.mjs",
+    "generate:tool-catalog:check": "node scripts/generate-tool-catalog.mjs --check",
     "generate:agent-setup-prompt": "node scripts/generate-agent-setup-prompt.mjs",
     "design:capture": "node scripts/design-capture.mjs",
     "generate-barrel-exports": "node scripts/generate-barrel-exports.mjs",
