@@ -14,3 +14,9 @@ single-implementation lock-in dressed up as an extension point.
   gate, and a matching rationalization in the skill guidance.
 - The `create_skill` scaffold now emits a `## Capability Roles` checklist in the
   generated `SKILL.md`, prompting the author for all three roles.
+- Targeted retrofit: the same `## Capability Roles` block is applied to the existing
+  skills that genuinely define a capability seam — the design verifier interface
+  (`harness-design-pipeline` over `detect-design-drift` / `audit-component-anatomy` /
+  `audit-brand-compliance`), the craft LLM-judgment-critique contract (`craft-fleet`
+  over the eleven `*-craft` skills), and the `-fleet` family spine (`fleet-command`
+  over the fleet members). Non-seam skills are deliberately left untouched.

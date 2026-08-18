@@ -13,6 +13,14 @@
 - NOT for single-pass verification (use `harness check-design` directly)
 - NOT for authoring DESIGN.md or tokens.json (use `harness-design` skill — orchestrator only stubs absent inputs)
 
+## Capability Roles
+
+<!-- Capability seam: this skill participates in a real extension point whose three roles are named and concrete. A seam with only one role filled is accidental single-implementation lock-in. See harness-skill-authoring Phase 1C. -->
+
+- **Defines (Service Definition):** the composed-verifier seam — the `Verifier<F, Cat, Meta>` interface (`packages/cli/src/shared/verifier.ts`) driven generically by `VerifierRegistry` (`packages/cli/src/design-pipeline/registry.ts`). This orchestrator consumes the interface generically and never reimplements a verifier.
+- **Provides (Provider):** `detect-design-drift`, `audit-component-anatomy`, and `audit-brand-compliance` (each satisfies `Verifier<F>`, so a 5th composes with a single `registry.register(...)` call). `harness-design-craft` is dispatched in the FILL phase with a different output shape and is deliberately **not** registered as a verifier.
+- **Consumes (Consumer):** **this skill** — `harness-design-pipeline` (and `harness check-design`) iterate the registry uniformly, so adding a verifier costs zero orchestrator change.
+
 ## Relationship to Sub-Skills
 
 | Skill                   | Pipeline Phase | Role                                                        |

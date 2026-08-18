@@ -21,6 +21,14 @@ The conductor is **Tier 3** of Skills → Pipelines → Fleets → Conductor —
 - NOT for re-verifying every item a member produced — the member already verified them to the family standard, and duplicating that roughly doubles the run's cost for no new evidence
 - NOT for adding a member to the family or changing an existing member's behavior — a fleet that needs a change to be conductable owns that change itself
 
+## Capability Roles
+
+<!-- Capability seam: this skill participates in a real extension point whose three roles are named and concrete. A seam with only one role filled is accidental single-implementation lock-in. See harness-skill-authoring Phase 1C. -->
+
+- **Defines (Service Definition):** the shared `-fleet` handoff contract — the five-phase skeleton, worktree-isolated fan-out, gate-free `--report-only` probe path, and never-silent-merge invariant documented in `docs/reference/fleet-family.md`, being concretized as the `FleetHandoffRecord` by #1414. fleet-command consumes this contract; it does not own it and never modifies a member to make it conductable.
+- **Provides (Provider):** the `-fleet` members — `roadmap-fleet`, `bug-fleet`, `cicd-fleet`, `cleanup-fleet`, `security-fleet`, `issue-fleet`, `pr-fleet`, `test-fleet`, `adr-fleet`, `ideate-fleet`, `craft-fleet` — each emitting the shared handoff shape through its gate-free probe path.
+- **Consumes (Consumer):** **this skill** — fleet-command probes each member through the gate-free path only and verifies every lane from its emitted handoff artifacts, so any new `-fleet` member is conductable with zero conductor change.
+
 ## Flags
 
 | Flag            | Effect                                                                                                                                                                     |
