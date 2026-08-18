@@ -108,3 +108,4 @@ else
 fi
 
 pnpm run generate-docs --check
+pnpm run generate:tool-catalog:check

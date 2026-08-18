@@ -133,6 +133,135 @@ export function createMcpListCapabilitiesCommand(): Command {
     });
 }
 
+/** Default context-window size to budget the surface against (Opus/Sonnet 1M). */
+const DEFAULT_WINDOW_TOKENS = 200_000;
+
+function parsePositiveInt(flag: string, value: string): number {
+  const n = Number.parseInt(value, 10);
+  if (!Number.isFinite(n) || n <= 0) {
+    throw new Error(`Invalid ${flag} "${value}". Expected a positive integer.`);
+  }
+  return n;
+}
+
+interface AttributionReportShape {
+  windowTokens: number;
+  totalTokens: number;
+  counterMode: string;
+  degraded: boolean;
+  byClass: ReadonlyArray<{
+    contextClass: string;
+    tokens: number;
+    count: number;
+    budgetTokens: number;
+    overBudget: boolean;
+  }>;
+  topContributors: ReadonlyArray<{
+    label: string;
+    contextClass: string;
+    tokens: number;
+    degraded: boolean;
+  }>;
+}
+
+/** Render the attribution report as scannable, terminal-friendly text. */
+export function formatContextReport(report: AttributionReportShape, tier: string): string {
+  const lines: string[] = [];
+  lines.push(`# Context-surface attribution (tier: ${tier})`);
+  lines.push(
+    `# window=${report.windowTokens} tokens · counts=${report.counterMode}` +
+      (report.degraded ? ' (some entries fell back to the chars/4 heuristic)' : '')
+  );
+  lines.push('');
+  lines.push('## By class (budget from contextBudget())');
+  for (const c of report.byClass) {
+    const flag = c.overBudget ? '  OVER BUDGET' : '';
+    lines.push(
+      `  ${padEnd(c.contextClass, 14)}  ${padEnd(String(c.tokens), 8)} tok  ` +
+        `budget ${padEnd(String(c.budgetTokens), 8)}  (${c.count} contributors)${flag}`
+    );
+  }
+  lines.push('');
+  lines.push('## Top contributors');
+  for (const c of report.topContributors) {
+    lines.push(
+      `  ${padEnd(String(c.tokens), 8)} tok  ${padEnd(c.contextClass, 14)}  ${c.label}` +
+        (c.degraded ? '  [heuristic]' : '')
+    );
+  }
+  lines.push('');
+  lines.push(`Total: ${report.totalTokens} tokens across the measured surface.`);
+  return lines.join('\n');
+}
+
+/**
+ * `harness mcp context-report [--tier <t>] [--exact] [--window <n>] [--top <n>] [--no-skills] [--json]`
+ *
+ * Reports what the always-loaded context surface costs per turn — MCP tool
+ * schemas (per tier), AGENTS.md, hooks, and the platform skill trees —
+ * classified always-loaded / path-scoped / invoked-only, top contributors
+ * ranked, and over-budget flags derived from the contextBudget() allocator.
+ * Uses exact `/v1/messages/count_tokens` counts with `--exact` (needs
+ * ANTHROPIC_API_KEY); otherwise the chars/4 heuristic. Never hard-fails.
+ */
+export function createMcpContextReportCommand(): Command {
+  return new Command('context-report')
+    .description('Attribute the always-loaded context surface cost per turn, per tier')
+    .option('--tier <core|standard|full>', 'Measure the tool schemas at this tier', parseTier)
+    .option('--exact', 'Use exact /v1/messages/count_tokens counts (needs ANTHROPIC_API_KEY)')
+    .option(
+      '--window <n>',
+      'Context-window size to budget against',
+      (v) => parsePositiveInt('--window', v),
+      DEFAULT_WINDOW_TOKENS
+    )
+    .option(
+      '--top <n>',
+      'How many top contributors to show',
+      (v) => parsePositiveInt('--top', v),
+      10
+    )
+    .option('--no-skills', 'Skip the platform skill trees')
+    .option('--json', 'Emit machine-readable JSON')
+    .action(async function (this: Command) {
+      const opts = this.optsWithGlobals() as {
+        tier?: McpToolTier;
+        exact?: boolean;
+        window: number;
+        top: number;
+        skills?: boolean;
+        json?: boolean;
+      };
+      const tier = opts.tier ?? 'full';
+      const [{ gatherContextSurface }, core] = await Promise.all([
+        import('../mcp/context-surface.js'),
+        import('@harness-engineering/core'),
+      ]);
+
+      const entries = gatherContextSurface(process.cwd(), {
+        tier,
+        includeSkills: opts.skills !== false,
+      });
+
+      const resolved = opts.exact
+        ? core.resolveTokenCounter()
+        : { counter: core.heuristicTokenCounter, mode: 'heuristic' as const };
+
+      const report = await core.buildAttributionReport(entries, {
+        windowTokens: opts.window,
+        counter: resolved.counter,
+        exact: resolved.mode === 'exact',
+        topN: opts.top,
+      });
+
+      if (opts.json) {
+        console.log(JSON.stringify({ tier, ...report }, null, 2));
+        return;
+      }
+      console.log(formatContextReport(report, tier));
+    });
+}
+
 export function createMcpCommand(): Command {
   const command = new Command('mcp')
     .description('Start the MCP (Model Context Protocol) server on stdio')
@@ -173,5 +302,6 @@ export function createMcpCommand(): Command {
     });
 
   command.addCommand(createMcpListCapabilitiesCommand());
+  command.addCommand(createMcpContextReportCommand());
   return command;
 }

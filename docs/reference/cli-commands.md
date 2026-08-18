@@ -1210,6 +1210,19 @@ Show last N persisted runs for a task (from .harness/maintenance/[id]/outputs/)
 
 Start the MCP (Model Context Protocol) server on stdio
 
+### `harness mcp context-report`
+
+Attribute the always-loaded context surface cost per turn, per tier
+
+**Options:**
+
+- `--tier` — Measure the tool schemas at this tier
+- `--exact` — Use exact /v1/messages/count_tokens counts (needs ANTHROPIC_API_KEY)
+- `--window` — Context-window size to budget against (default: 200000)
+- `--top` — How many top contributors to show (default: 10)
+- `--no-skills` — Skip the platform skill trees
+- `--json` — Emit machine-readable JSON
+
 ### `harness mcp list-capabilities`
 
 Audit each MCP tool: read/write/exec scope, network access, and trust tag

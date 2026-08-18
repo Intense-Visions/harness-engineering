@@ -3,7 +3,7 @@
 > Auto-generated reference index linking all source modules in `packages/types/src/`.
 > Created by harness-docs-pipeline FILL phase (2026-05-03).
 
-16 source modules.
+17 source modules.
 
 ## Modules
 
@@ -12,6 +12,7 @@
 - [`ci-notify.ts`](../../../packages/types/src/ci-notify.ts)
 - [`ci.ts`](../../../packages/types/src/ci.ts)
 - [`container.ts`](../../../packages/types/src/container.ts)
+- [`fleet-handoff.ts`](../../../packages/types/src/fleet-handoff.ts) — canonical bounded handoff record every fleet-family worker emits (`FleetHandoffRecord` + `validateFleetHandoffRecord`); fleets should emit this one shape instead of an ad hoc report so fleet-command can parse any fleet's worker output uniformly.
 - [`index.ts`](../../../packages/types/src/index.ts)
 - [`maintenance.ts`](../../../packages/types/src/maintenance.ts)
 - [`orchestrator.ts`](../../../packages/types/src/orchestrator.ts)

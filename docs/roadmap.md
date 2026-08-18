@@ -398,7 +398,7 @@ last_manual_edit: 2026-06-27T12:51:51.967Z
 
 ### Context-surface attribution report with exact token counts
 
-- **Status:** planned
+- **Status:** done
 - **Spec:** —
 - **Summary:** Report what the always-loaded context surface actually costs per turn, classified as always-loaded vs path-scoped vs invoked-only, with top contributors ranked and over-budget flags. Two mechanisms adopted from `poshan0126/dotclaude`'s `/context-budget` skill (849 stars, MIT): the three-way classification taxonomy, and calling Anthropic's `/v1/messages/count_tokens` endpoint for exact tokenizer counts instead of the `chars / 4` heuristic in `estimateTokens()` (packages/core/src/compaction/envelope.ts). Must measure harness's real surface, not a generic `.claude/` tree: the dominant contributors are MCP tool schemas across ~88 tool modules, four platform skill trees, hooks and AGENTS.md — none of which that skill models. Scope honestly against what already exists: `tool-tiers.ts` (core/standard/full allow-lists) already cuts the exposed tool count and Claude Code's own deferred-tool loading already defers schemas, so measure per-tier and expect the remaining win to be smaller than the source's framing implies. Candidate consumer for the currently-dead `contextBudget()` allocator. Serves the Upstream grounding track. Ideation: docs/ideation/external-source-adoption-tria-2026-08-09.md (score 4.50).
 - **Blockers:** —
@@ -508,7 +508,7 @@ last_manual_edit: 2026-06-27T12:51:51.967Z
 
 ### Generate-and-verify skill/MCP-tool reference docs (regenerate-and-gate, not detect-only)
 
-- **Status:** planned
+- **Status:** done
 - **Spec:** —
 - **Summary:** Port dsh's gen-tool-catalog/verify-tool-catalog pattern (deepseek-ai/deepseek-harness docs/tool-catalog.md): boot each shipped skill and MCP tool definition against a real context, extract its live name/description/schema, generate a canonical docs/reference/*.md catalog from that, and add a verify mode that regenerates in CI and fails the build on any diff — the same shape as generate-docs / generate-barrel-exports:check today. Upgrades detect-doc-drift from advisory detection to a hard regenerate+gate loop for the skill/tool catalog specifically, closing the gap where a tool's real schema and its documented schema silently diverge. Reference: reference_deepseek_harness_analysis.md (memory).
 - **Blockers:** —
@@ -519,7 +519,7 @@ last_manual_edit: 2026-06-27T12:51:51.967Z
 
 ### Canonical bounded handoff record for fleet workers
 
-- **Status:** planned
+- **Status:** done
 - **Spec:** —
 - **Summary:** Define one shared handoff schema — status, summary, evidence, next_steps, blocker — modeled on dsh's Ralph-loop handoff ("the normalized bounded structured report passed from one continuing Ralph round to the next"). Require every fleet family member (bug-fleet, roadmap-fleet, pr-fleet, cicd-fleet, cleanup-fleet, security-fleet, test-fleet, issue-fleet, adr-fleet) to emit it from each worktree-isolated worker instead of each fleet defining its own ad hoc report shape, so fleet-command can parse any fleet's worker output uniformly instead of special-casing each one. Likely lands as a shared type in @harness-engineering/types plus a validation helper.
 - **Blockers:** —
