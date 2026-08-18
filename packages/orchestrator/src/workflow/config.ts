@@ -90,9 +90,9 @@ export function crossFieldRoutingIssues(
  * — falling to `routing.default` is their correct behavior. This helper touches
  * only `routing.modes`/`routing.skills`; it never reads `routing.workflowGates`.
  *
- * Exported for unit testing; production callers use `validateWorkflowConfig`.
+ * Internal helper for `validateWorkflowConfig`.
  */
-export function stagedWorkflowRoutingIssues(
+function stagedWorkflowRoutingIssues(
   workflows: readonly StagedWorkflowDecl[],
   routing: RoutingConfig
 ): Array<{ path: string[]; message: string }> {
