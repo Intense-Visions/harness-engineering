@@ -15,13 +15,24 @@ import {
   InSessionLlmProvider,
   type LlmProvider,
 } from '../shared/craft/llm/provider.js';
+import {
+  saveRunState,
+  loadRunState,
+  deleteRunState,
+  pruneOldRuns,
+} from '../shared/craft/runs/store.js';
 import { detectFramework } from './extract/framework.js';
 import { extractTests } from './extract/tests.js';
 import { extractPythonTests, isPythonTestFile } from './extract/python-tests.js';
 import { isTsJsTestFileName } from './extract/test-file-exts.js';
 import { resolveSourceFile } from './extract/source-pair.js';
 import { SEED_RUBRICS, type TestRubric } from './catalog/rubrics/index.js';
-import { critiqueOne } from './phases/critique.js';
+import {
+  critiqueOne,
+  buildPrompt,
+  parseFindingFromRaw,
+  CRITIQUE_SYSTEM_PROMPT,
+} from './phases/critique.js';
 import { emitTestCraftReport } from './emit.js';
 import type {
   TestCraftOutput,
@@ -49,23 +60,67 @@ export interface TestCraftInput {
 
 const DEFAULT_MAX_FILES = 100;
 const DEFAULT_MAX_TESTS_PER_FILE = 20;
+/** Projected-cost guard: max prompts collected before bailing. */
+const DEFAULT_PROMPT_BUDGET = 100;
+
+export interface CollectPromptsOutput {
+  status: 'collected' | 'budget-exceeded';
+  runId: string;
+  pendingPrompts: Array<{
+    promptId: string;
+    systemPrompt: string;
+    userPrompt: string;
+  }>;
+  projection: { promptCount: number; budget: number };
+  /** Populated when status='budget-exceeded'. */
+  hint?: string;
+  /** Persisted to disk under .harness/craft/runs/<runId>.json. */
+  runFile?: string;
+}
+
+export interface FinalizeTestCraftInput {
+  path: string;
+  runId: string;
+  responses: Array<{ promptId: string; raw: string }>;
+}
+
+/** Skill-specific run-state metadata persisted between collect and finalize. */
+interface TestRunMeta {
+  projectRoot: string;
+  startedAt: number;
+  rubricsApplied: string[];
+  filesScanned: number;
+  testsExtracted: number;
+  testsSkippedOrTodo: number;
+  sourcePaired: number;
+  testsTruncated: number;
+  frameworksDetected: Record<TestFramework, number>;
+  /** Pairs every queued prompt to the data needed to build a finding. */
+  prompts: Array<{
+    promptId: string;
+    test: ExtractedTest;
+    rubricId: string;
+  }>;
+}
 
 /**
  * `InSessionLlmProvider.callText` throws `PromptDeferredError` unconditionally
- * — it queues the prompt for the calling agent rather than answering it. There
- * is no two-step collect/finalize flow for test-craft yet, so with that
- * provider every (test, rubric) critique throws and the command reports a
- * confident `No test findings.` Refuse up front instead, the way naming-craft
- * already does (issue #1346).
+ * — it queues the prompt for the calling agent rather than answering it. The
+ * inline path (`runTestCraft` / `critiqueTestsInFile`) cannot drive that
+ * provider: every (test, rubric) critique would throw and the command would
+ * report a confident `No test findings.` for zero critiques. Refuse up front
+ * and point the caller at the two-step in-session flow instead (issue #1346).
  */
 function assertProviderCanAnswer(provider: LlmProvider, entryPoint: string): void {
   if (!(provider instanceof InSessionLlmProvider)) return;
   throw new Error(
     `${entryPoint} cannot run against the in-session provider: it defers every ` +
       'prompt to the calling agent, so no rubric would actually be evaluated ' +
-      'and the run would report zero findings for zero critiques. Configure a ' +
-      'real backend via agent.backends + HARNESS_CRAFT_LLM, or set ' +
-      'HARNESS_CRAFT_LLM=mock for tests.'
+      'and the run would report zero findings for zero critiques. For an ' +
+      'interactive session (Claude Code, where the calling agent is the judge), ' +
+      'use the two-step flow: call collectTestCraftPrompts(...) and then ' +
+      'finalizeTestCraft(...). Otherwise configure a real backend via ' +
+      'agent.backends + HARNESS_CRAFT_LLM, or set HARNESS_CRAFT_LLM=mock for tests.'
   );
 }
 // Extension list lives in extract/test-file-exts.ts, shared with the extractor.
@@ -123,6 +178,168 @@ export async function runTestCraft(input: TestCraftInput): Promise<TestCraftOutp
 
   await maybeEmitReport(output, input.emitTo, projectRoot);
   return output;
+}
+
+/**
+ * Step 1 of the two-step in-session flow. Walks the project, builds one prompt
+ * per (test, rubric) pair — the same pairs `runTestCraft`'s critique loop uses
+ * — persists run-state to disk, and returns the prompts for the calling agent
+ * to answer. No LLM is called, so it runs cleanly in an interactive session
+ * (Claude Code) where the calling agent is the judge.
+ */
+export async function collectTestCraftPrompts(
+  input: TestCraftInput & { promptBudget?: number }
+): Promise<CollectPromptsOutput> {
+  const projectRoot = sanitizePath(input.path);
+  const maxFiles = input.maxFiles ?? DEFAULT_MAX_FILES;
+  const maxTestsPerFile = input.maxTestsPerFile ?? DEFAULT_MAX_TESTS_PER_FILE;
+  const budget = input.promptBudget ?? DEFAULT_PROMPT_BUDGET;
+  const rubrics = SEED_RUBRICS;
+  const sourcePairEnabled = input.sourcePair !== false;
+  const frameworksFilter = input.frameworks !== undefined ? new Set(input.frameworks) : null;
+  const runId = randomUUID();
+
+  const files = collectTestFiles(projectRoot, input.files).slice(0, maxFiles);
+  const extraction = extractTestsFromFiles(files, {
+    frameworksFilter,
+    maxTestsPerFile,
+    sourcePairEnabled,
+  });
+
+  const promptRecords: TestRunMeta['prompts'] = [];
+  const pending: CollectPromptsOutput['pendingPrompts'] = [];
+
+  outer: for (const test of extraction.allTests) {
+    const pair = sourcePairEnabled ? (extraction.sourcePairCache.get(test.file) ?? null) : null;
+    for (const rubric of rubrics) {
+      const promptId = `p${promptRecords.length + 1}`;
+      const userPrompt = buildPrompt({
+        test,
+        rubric,
+        ...(pair !== null ? { sourcePair: pair } : {}),
+      });
+      promptRecords.push({ promptId, test, rubricId: rubric.id });
+      pending.push({ promptId, systemPrompt: CRITIQUE_SYSTEM_PROMPT, userPrompt });
+      if (pending.length > budget) break outer;
+    }
+  }
+
+  if (pending.length > budget) {
+    return {
+      status: 'budget-exceeded',
+      runId,
+      pendingPrompts: [],
+      projection: { promptCount: pending.length, budget },
+      hint:
+        `Projected at least ${pending.length} LLM prompts (budget: ${budget}). ` +
+        'Re-invoke with smaller maxFiles / maxTestsPerFile, or pass promptBudget to raise the ceiling.',
+    };
+  }
+
+  const meta: TestRunMeta = {
+    projectRoot,
+    startedAt: Date.now(),
+    rubricsApplied: rubrics.map((r) => r.id),
+    filesScanned: files.length,
+    testsExtracted: extraction.allTests.length,
+    testsSkippedOrTodo: extraction.testsSkippedOrTodo,
+    sourcePaired: extraction.sourcePairedCount,
+    testsTruncated: extraction.testsTruncated,
+    frameworksDetected: extraction.frameworksDetected,
+    prompts: promptRecords,
+  };
+  pruneOldRuns(projectRoot);
+  const { runFile } = saveRunState<TestRunMeta>(projectRoot, {
+    v: 1,
+    runId,
+    skill: 'test-craft',
+    createdAt: Date.now(),
+    meta,
+  });
+
+  return {
+    status: 'collected',
+    runId,
+    pendingPrompts: pending,
+    projection: { promptCount: pending.length, budget },
+    runFile,
+  };
+}
+
+/**
+ * Step 2 of the two-step in-session flow. Loads run-state, applies the supplied
+ * responses through the same parser the inline path uses, and returns the same
+ * TestCraftOutput shape `runTestCraft` returns. Deletes the run-state file on
+ * success.
+ */
+export async function finalizeTestCraft(input: FinalizeTestCraftInput): Promise<TestCraftOutput> {
+  const startedAt = Date.now();
+  const projectRoot = sanitizePath(input.path);
+  const state = loadRunState<TestRunMeta>(projectRoot, input.runId);
+  if (state === null) {
+    throw new Error(
+      `test-craft: no persisted run found for runId=${input.runId} under ${projectRoot}. ` +
+        'Run collectTestCraftPrompts first, or ensure the path matches the project root used at collection time.'
+    );
+  }
+  if (state.skill !== 'test-craft') {
+    throw new Error(
+      `test-craft: runId=${input.runId} belongs to skill ${state.skill}, not test-craft.`
+    );
+  }
+
+  const findings = parseFinalizeResponses(state.meta, input.responses);
+  deleteRunState(projectRoot, input.runId);
+
+  return {
+    findings,
+    summary: buildFinalizeSummary(state.meta, input.runId, input.responses.length, startedAt),
+  };
+}
+
+/** Parse the calling agent's raw responses into findings via the inline parser. */
+function parseFinalizeResponses(
+  meta: TestRunMeta,
+  responses: FinalizeTestCraftInput['responses']
+): TestFinding[] {
+  const rubricById = new Map(SEED_RUBRICS.map((r) => [r.id, r]));
+  const promptById = new Map(meta.prompts.map((p) => [p.promptId, p]));
+  const findings: TestFinding[] = [];
+  for (const response of responses) {
+    const promptRecord = promptById.get(response.promptId);
+    if (promptRecord === undefined) continue;
+    const rubric = rubricById.get(promptRecord.rubricId);
+    if (rubric === undefined) continue;
+    const finding = parseFindingFromRaw(response.raw, { test: promptRecord.test, rubric });
+    if (finding !== null) findings.push(finding);
+  }
+  return findings;
+}
+
+/** Rebuild the TestCraftOutput summary from persisted run-state (in-session flow). */
+function buildFinalizeSummary(
+  meta: TestRunMeta,
+  runId: string,
+  responseCount: number,
+  startedAt: number
+): TestCraftOutput['summary'] {
+  return {
+    phaseRun: ['critique'],
+    mode: 'fast',
+    durationMs: Date.now() - startedAt,
+    llmCalls: { provider: 'in-session', model: 'host-chat', count: responseCount, costUsd: 0 },
+    catalog: { rubricsApplied: meta.rubricsApplied },
+    counts: {
+      filesScanned: meta.filesScanned,
+      testsExtracted: meta.testsExtracted,
+      testsSkippedOrTodo: meta.testsSkippedOrTodo,
+      sourcePaired: meta.sourcePaired,
+      critiqueErrors: 0,
+      testsTruncated: meta.testsTruncated,
+    },
+    frameworksDetected: meta.frameworksDetected,
+    runId,
+  };
 }
 
 /** Assemble the run summary. Extracted to keep runTestCraft under the complexity floor. */

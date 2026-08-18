@@ -107,15 +107,16 @@ describe('MCP Server Integration', () => {
     expect(names).toContain('plan_parallelization');
     // craft-pipeline — api-craft LLM-judgment ceiling skill (API quality)
     expect(names).toContain('api_craft');
-    // craft-pipeline — in-session finalize tools for the three fixed craft skills
+    // craft-pipeline — in-session finalize tools for the fixed craft skills
     expect(names).toContain('code_craft_finalize');
     expect(names).toContain('cli_ergonomics_craft_finalize');
     expect(names).toContain('api_craft_finalize');
+    expect(names).toContain('test_craft_finalize');
     // docs-publish connector surface
     expect(names).toContain('docs_publish');
     // graph schema introspection tool (#1280)
     expect(names).toContain('get_graph_schema');
-    expect(tools).toHaveLength(107);
+    expect(tools).toHaveLength(108);
   });
 
   it('all tool definitions have inputSchema', () => {

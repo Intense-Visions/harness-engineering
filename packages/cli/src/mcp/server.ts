@@ -209,7 +209,12 @@ import { specCraftDefinition, handleSpecCraft } from './tools/spec-craft.js';
 // craft-pipeline #5: copy-craft LLM-judgment skill (errors, logs, CLI output, commits, PRs, comments).
 import { copyCraftDefinition, handleCopyCraft } from './tools/copy-craft.js';
 // craft-pipeline #3: test-craft LLM-judgment skill (vitest/jest/mocha/playwright/pytest, per-test critique).
-import { testCraftDefinition, handleTestCraft } from './tools/test-craft.js';
+import {
+  testCraftDefinition,
+  testCraftFinalizeDefinition,
+  handleTestCraft,
+  handleTestCraftFinalize,
+} from './tools/test-craft.js';
 // craft-pipeline #9: knowledge-craft LLM-judgment skill (docs/knowledge/ entries, per-file critique).
 import { knowledgeCraftDefinition, handleKnowledgeCraft } from './tools/knowledge-craft.js';
 // craft-pipeline #10: security-craft LLM-judgment skill (AST-driven signal detection, conservative confidence).
@@ -371,6 +376,7 @@ const TOOL_DEFINITIONS: ToolDefinition[] = [
   specCraftDefinition,
   copyCraftDefinition,
   testCraftDefinition,
+  testCraftFinalizeDefinition,
   knowledgeCraftDefinition,
   securityCraftDefinition,
   docsCraftDefinition,
@@ -487,6 +493,7 @@ const TOOL_HANDLERS: Record<string, ToolHandler> = {
   spec_craft: handleSpecCraft as unknown as ToolHandler,
   copy_craft: handleCopyCraft as unknown as ToolHandler,
   test_craft: handleTestCraft as unknown as ToolHandler,
+  test_craft_finalize: handleTestCraftFinalize as unknown as ToolHandler,
   knowledge_craft: handleKnowledgeCraft as unknown as ToolHandler,
   security_craft: handleSecurityCraft as unknown as ToolHandler,
   docs_craft: handleDocsCraft as unknown as ToolHandler,

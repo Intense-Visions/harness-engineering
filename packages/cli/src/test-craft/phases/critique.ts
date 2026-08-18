@@ -2,6 +2,11 @@
  * CRITIQUE phase — invokes the LLM provider per (test, rubric) pair
  * and parses 3-axis findings from the response.
  *
+ * `buildPrompt` and `parseFindingFromRaw` are exported and pure (no LLM call)
+ * so the in-session two-step flow (collectTestCraftPrompts / finalizeTestCraft)
+ * can reuse them: collect builds the prompts, finalize parses the calling
+ * agent's raw responses back into findings.
+ *
  * Source: docs/changes/craft-pipeline/test-craft/proposal.md
  *   (Technical Design → Critique phase).
  */
@@ -14,6 +19,15 @@ import type { SourcePairResult } from '../extract/source-pair.js';
 import { derivePriority } from '../../shared/craft/findings/derived.js';
 import { extractFencedJsonPayload } from '../../shared/craft/fenced-json.js';
 
+/**
+ * System prompt for a single (test, rubric) critique. Exported so the
+ * in-session collect flow queues the same instruction the inline path uses.
+ */
+export const CRITIQUE_SYSTEM_PROMPT =
+  'You are a senior engineer critiquing a single test against a single rubric. ' +
+  'Respond ONLY with a fenced JSON block. If the rubric does not apply or the test ' +
+  'is fine, return `null` (literally the word null inside the JSON block).';
+
 export interface CritiqueInput {
   test: ExtractedTest;
   rubric: TestRubric;
@@ -24,42 +38,17 @@ export interface CritiqueInput {
 export async function critiqueOne(input: CritiqueInput): Promise<TestFinding | null> {
   const { test, rubric, provider } = input;
   const prompt = buildPrompt(input);
-  const raw = await provider.callText(prompt, {
-    systemPrompt:
-      'You are a senior engineer critiquing a single test against a single rubric. ' +
-      'Respond ONLY with a fenced JSON block. If the rubric does not apply or the test ' +
-      'is fine, return `null` (literally the word null inside the JSON block).',
-  });
-  const parsed = parseFencedJson(raw);
-  if (parsed === null) return null;
-  if (typeof parsed !== 'object') return null;
-
-  const tier = parsed.tier as Tier;
-  const impact = parsed.impact as Impact;
-  const confidence = parsed.confidence as Confidence;
-  if (!isTier(tier) || !isImpact(impact) || !isConfidence(confidence)) return null;
-  if (typeof parsed.message !== 'string' || parsed.message.length === 0) return null;
-
-  return {
-    code: rubric.id,
-    phase: 'critique',
-    tier,
-    impact,
-    confidence,
-    target: {
-      file: test.file,
-      line: test.line,
-      testName: test.testName,
-      nesting: test.nesting,
-      framework: test.framework,
-    },
-    message: parsed.message,
-    cite: { rubricId: rubric.id, source: rubric.source },
-    derived: { priority: derivePriority(tier, impact, confidence) },
-  };
+  const raw = await provider.callText(prompt, { systemPrompt: CRITIQUE_SYSTEM_PROMPT });
+  return parseFindingFromRaw(raw, { test, rubric });
 }
 
-function buildPrompt(input: CritiqueInput): string {
+export interface BuildPromptInput {
+  test: ExtractedTest;
+  rubric: TestRubric;
+  sourcePair?: SourcePairResult;
+}
+
+export function buildPrompt(input: BuildPromptInput): string {
   const { test, rubric, sourcePair } = input;
   const nestingStr = test.nesting.length > 0 ? test.nesting.join(' > ') + ' > ' : '';
   const flags: string[] = [];
@@ -94,6 +83,45 @@ function buildPrompt(input: CritiqueInput): string {
   );
 
   return lines.join('\n');
+}
+
+/**
+ * Parse a raw LLM response (fenced JSON) into a TestFinding. Returns null
+ * when the response says null / fails validation. Pure — no LLM call — so
+ * the in-session two-step flow can reuse it after the calling agent answers.
+ */
+export function parseFindingFromRaw(
+  raw: string,
+  ctx: { test: ExtractedTest; rubric: TestRubric }
+): TestFinding | null {
+  const { test, rubric } = ctx;
+  const parsed = parseFencedJson(raw);
+  if (parsed === null) return null;
+  if (typeof parsed !== 'object') return null;
+
+  const tier = parsed.tier as Tier;
+  const impact = parsed.impact as Impact;
+  const confidence = parsed.confidence as Confidence;
+  if (!isTier(tier) || !isImpact(impact) || !isConfidence(confidence)) return null;
+  if (typeof parsed.message !== 'string' || parsed.message.length === 0) return null;
+
+  return {
+    code: rubric.id,
+    phase: 'critique',
+    tier,
+    impact,
+    confidence,
+    target: {
+      file: test.file,
+      line: test.line,
+      testName: test.testName,
+      nesting: test.nesting,
+      framework: test.framework,
+    },
+    message: parsed.message,
+    cite: { rubricId: rubric.id, source: rubric.source },
+    derived: { priority: derivePriority(tier, impact, confidence) },
+  };
 }
 
 function parseFencedJson(raw: string): Record<string, unknown> | null {
