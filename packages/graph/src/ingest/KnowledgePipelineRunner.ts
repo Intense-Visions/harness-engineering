@@ -26,6 +26,7 @@ import {
 import {
   KnowledgeStagingAggregator,
   type GapReport,
+  type GapEntry,
   type StagedEntry,
 } from './KnowledgeStagingAggregator.js';
 import { createExtractionRunner } from './extractors/index.js';
@@ -54,6 +55,17 @@ const SNAPSHOT_NODE_TYPES: readonly NodeType[] = [
   'aesthetic_intent',
   'image_annotation',
 ];
+
+/**
+ * Minimum extraction confidence for a gap entry to be materialized into the
+ * consumer's *tracked* `docs/knowledge/` tree. Entries below this floor (e.g.
+ * comment-derived / low-signal extractions, #1331) are still reported as gaps
+ * but are never written to disk. Conservative by design: only clearly
+ * low-confidence signals are withheld. Human-authored nodes (business knowledge,
+ * decisions, diagrams) carry no `metadata.confidence` and are treated as
+ * trusted, so this floor cannot suppress hand-written knowledge (#1335).
+ */
+const MATERIALIZATION_CONFIDENCE_FLOOR = 0.5;
 
 // ─── Public Types ───────────────────────────────────────────────────────────
 
@@ -136,8 +148,20 @@ export interface ExtractionCounts {
   readonly images: number;
 }
 
+export type KnowledgeVerdict = 'pass' | 'warn' | 'fail' | 'abstain';
+
 export interface KnowledgePipelineResult {
-  readonly verdict: 'pass' | 'warn' | 'fail';
+  /**
+   * Overall health verdict. `abstain` is emitted when the pre-extraction
+   * baseline held no `business_*` nodes: on such a first run every fresh entry
+   * classifies as `new` and the drift score approaches 1.0, so there is no
+   * denominator to judge health against. It is deliberately distinct from
+   * `pass`/`warn` so a reader cannot mistake a zero-baseline run for a clean one
+   * (#1335).
+   */
+  readonly verdict: KnowledgeVerdict;
+  /** True when the pre-extraction baseline held no `business_*` nodes (#1335). */
+  readonly baselineEmpty: boolean;
   readonly driftScore: number;
   readonly iterations: number;
   readonly findings: DriftResult['summary'];
@@ -179,8 +203,11 @@ export class KnowledgePipelineRunner {
     const remediations: string[] = [];
     const ingestErrors: string[] = [];
 
-    // Phase 1: Capture pre-extraction snapshot, then extract
+    // Phase 1: Capture pre-extraction snapshot, then extract. Record whether
+    // the baseline held any prior business_* nodes — an empty baseline makes the
+    // drift verdict an abstention rather than a warn (#1335).
     const preSnapshot = this.buildSnapshot(options.domain);
+    const baselineEmpty = this.isBaselineEmpty(options.domain);
     const extraction = await this.extract(options);
     ingestErrors.push(...extraction.errors);
 
@@ -220,6 +247,7 @@ export class KnowledgePipelineRunner {
 
     return this.buildResult(
       driftResult,
+      baselineEmpty,
       iterations,
       extraction.counts,
       ingestErrors,
@@ -229,6 +257,20 @@ export class KnowledgePipelineRunner {
       coverage,
       materialization
     );
+  }
+
+  /**
+   * True when no `business_*` nodes exist in the store prior to extraction
+   * (respecting the domain filter when set). Signals a zero-denominator "first
+   * run" baseline so the verdict abstains instead of warning (#1335).
+   */
+  private isBaselineEmpty(domain?: string): boolean {
+    for (const type of BUSINESS_NODE_TYPES) {
+      for (const node of this.store.findNodes({ type })) {
+        if (!domain || (node.metadata?.domain as string) === domain) return false;
+      }
+    }
+    return true;
   }
 
   /** Run the remediation convergence loop; returns iteration count and accumulated materialization. */
@@ -286,6 +328,7 @@ export class KnowledgePipelineRunner {
   /** Assemble the final pipeline result. */
   private buildResult(
     driftResult: DriftResult,
+    baselineEmpty: boolean,
     iterations: number,
     extraction: ExtractionCounts,
     errors: readonly string[],
@@ -296,7 +339,8 @@ export class KnowledgePipelineRunner {
     materialization?: MaterializeResult
   ): KnowledgePipelineResult {
     return {
-      verdict: this.computeVerdict(driftResult),
+      verdict: this.computeVerdict(driftResult, baselineEmpty),
+      baselineEmpty,
       driftScore: driftResult.driftScore,
       iterations,
       findings: driftResult.summary,
@@ -409,7 +453,10 @@ export class KnowledgePipelineRunner {
 
     return {
       counts: {
-        codeSignals: extractionResult.nodesAdded,
+        // Report signals actually extracted this run (records written), not
+        // `nodesAdded` (deduped new store insertions) which reads as 0 on a
+        // re-scan even while thousands of records were written (#1340).
+        codeSignals: extractionResult.signalsExtracted,
         diagrams: diagramResult.nodesAdded,
         linkerFacts: linkResult.factsCreated,
         businessKnowledge: bkResult.nodesAdded,
@@ -486,10 +533,14 @@ export class KnowledgePipelineRunner {
       }
     }
 
-    // Materialize docs for undocumented entries (non-CI only)
+    // Materialize docs for undocumented entries (non-CI only). Gate on a
+    // confidence floor so low-confidence / comment-derived signals are reported
+    // as gaps but never written to the consumer's tracked docs tree (#1335).
     if (!options.ci) {
       const allGapEntries = gapReport.domains.flatMap((d) => d.gapEntries);
-      const materializable = allGapEntries.filter((e) => e.hasContent);
+      const materializable = allGapEntries.filter(
+        (e) => e.hasContent && this.entryConfidence(e) >= MATERIALIZATION_CONFIDENCE_FLOOR
+      );
       if (materializable.length > 0) {
         const materializer = new KnowledgeDocMaterializer(this.store, this.inferenceOptions);
         const matResult = await materializer.materialize(materializable, {
@@ -536,6 +587,17 @@ export class KnowledgePipelineRunner {
     }
   }
 
+  /**
+   * Confidence of a gap entry's backing graph node. Extractor / linker nodes
+   * carry an explicit `metadata.confidence` (0.0-1.0); human-authored nodes
+   * carry none and are treated as fully trusted so the floor cannot suppress
+   * hand-written knowledge (#1335).
+   */
+  private entryConfidence(entry: GapEntry): number {
+    const confidence = this.store.getNode(entry.nodeId)?.metadata?.confidence;
+    return typeof confidence === 'number' ? confidence : 1;
+  }
+
   private classifySource(source: string): 'extractor' | 'linker' | 'diagram' {
     if (source === 'linker' || source === 'knowledge-linker') return 'linker';
     if (source === 'diagram') return 'diagram';
@@ -544,12 +606,15 @@ export class KnowledgePipelineRunner {
 
   // ── Verdict ───────────────────────────────────────────────────────────────
 
-  private computeVerdict(driftResult: DriftResult): 'pass' | 'warn' | 'fail' {
+  private computeVerdict(driftResult: DriftResult, baselineEmpty: boolean): KnowledgeVerdict {
     const { summary } = driftResult;
     const unresolved = summary.drifted + summary.stale + summary.contradicting;
 
-    if (unresolved === 0 && summary.new === 0) return 'pass';
-    if (unresolved === 0) return 'warn';
-    return 'fail';
+    if (unresolved > 0) return 'fail';
+    if (summary.new === 0) return 'pass';
+    // Every fresh entry is `new` and nothing is unresolved. With no prior
+    // business baseline there is no denominator to judge health against, so we
+    // abstain rather than emit a WARN that reads as clean (#1335).
+    return baselineEmpty ? 'abstain' : 'warn';
   }
 }

@@ -81,6 +81,7 @@ export { KnowledgePipelineRunner } from './ingest/KnowledgePipelineRunner.js';
 export type {
   KnowledgePipelineOptions,
   KnowledgePipelineResult,
+  KnowledgeVerdict,
   ExtractionCounts,
 } from './ingest/KnowledgePipelineRunner.js';
 
@@ -218,7 +219,12 @@ export {
   ApiPathExtractor,
   detectLanguage,
 } from './ingest/extractors/index.js';
-export type { ExtractionRecord, SignalExtractor, Language } from './ingest/extractors/index.js';
+export type {
+  ExtractionRecord,
+  SignalExtractor,
+  Language,
+  ExtractionRunResult,
+} from './ingest/extractors/index.js';
 
 // Image Analysis
 export { ImageAnalysisExtractor } from './ingest/ImageAnalysisExtractor.js';
