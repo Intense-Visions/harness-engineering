@@ -1,5 +1,200 @@
 # @harness-engineering/cli
 
+## 11.3.0
+
+### Minor Changes
+
+- af18bfc: feat(mcp): add `manage_adr` tool for programmatic ADR CRUD. Exposes Architecture Decision Records (`docs/knowledge/decisions/NNNN-<slug>.md`) as a structured MCP tool with create / read / update / list actions, symmetric to `manage_roadmap`. `create` allocates the next collision-free ADR number (`max(existing)+1`, zero-padded) — the scheme required by the known number-collision defect (#1323) — and writes a well-formed record with Context/Decision/Consequences sections at `status: proposed` by default. `read` resolves by number, slug, or filename; `update` patches frontmatter and body sections without ever reusing a number. Until now ADRs were only reachable through skill-mediated prose (`adr-fleet`, `architecture-advisor`); the tool is now exposed in the `standard` MCP tool tier (alongside `manage_roadmap`) and adopted as the canonical ADR write path in the `adr-fleet` and `architecture-advisor` skills.
+- 2f44277: feat(architecture): honor exclude patterns in the architecture collectors
+
+  `check-arch` measured every `.ts` file the walkers could reach, with no way to
+  scope discovery. Projects that contain source whose SHAPE is imposed by an
+  external runtime — sandboxed dataflow/edge scripts that cannot import shared
+  helpers and must inline everything into a single function — had no way to keep
+  those files out of the complexity aggregate. Because the ratchet compares
+  aggregates, a handful of such files can hold the entire gate red indefinitely,
+  and no amount of good work on the branch can clear it. This is the same defect
+  class as #594 (arch scanning built `dist/`), where discovery scope, not the
+  threshold, was the problem.
+
+  `architecture.excludePatterns` takes minimatch globs matched against the
+  project-relative POSIX path, mirroring `ingest.excludePatterns`. Patterns are
+  ADDITIVE: `DEFAULT_FIND_FILES_IGNORE` and `DEFAULT_SKIP_DIRS` still apply, so
+  setting one pattern never re-enables scanning of `node_modules` or `dist`. The
+  CLI additionally stacks the project-wide `analysis.exclude` list onto the arch
+  config, making `check-arch` consistent with the other analysis scanners that
+  already honor it.
+
+  Wired into the three glob-based collectors (complexity, circular-deps, coupling)
+  and the two directory walkers (module-size, dep-depth). `layer-violations` and
+  `forbidden-imports` route through `validateDependencies` and are unchanged.
+  Defaults to `[]`, so behavior is identical for every existing config.
+
+- 510bdab: feat(context): add context-surface attribution report with exact token counts. Classifies the always-loaded context surface as always-loaded / path-scoped / invoked-only, ranks the top contributors, and derives over-budget flags from the (now live-wired) `contextBudget()` allocator. New core exports: `buildAttributionReport`, `heuristicTokenCounter`, `createAnthropicTokenCounter`, `resolveTokenCounter`, plus the `ContextClass` / `ContextSurfaceEntry` / `AttributionReport` types. Exact token counts come from Anthropic's `/v1/messages/count_tokens` endpoint, degrading gracefully to the `chars / 4` heuristic when no API key / offline / on request failure (never hard-fails). New CLI command `harness mcp context-report [--tier core|standard|full] [--exact] [--window <n>] [--top <n>] [--no-skills] [--json]` measures the harness's real surface (MCP tool schemas per tier, AGENTS.md, hooks, the four platform skill trees). Wires the previously-dead `contextBudget()` allocator into a live, tested code path.
+- b2514d2: feat(cli): make copy/docs/knowledge/security/spec craft skills runnable in an interactive session (#1368)
+
+  The older craft-family inline entries — `runCopyCraft`, `runDocsCraft`,
+  `runKnowledgeCraft`, `runSecurityCraft`, and `runSpecCraft` — wrap every
+  per-(target, rubric) critique in a bare `catch {}`. Under the default
+  in-session provider that swallow ate the `PromptDeferredError` thrown by every
+  `callText`, so the run returned `findings: []` with `llmCalls.count: 0` and no
+  error: a confident "nothing to critique" for a run in which no LLM call ever
+  completed. Each inline entry now refuses the in-session provider up front with a
+  loud, actionable error instead of a hollow empty success.
+
+  Rather than only refusing, these five crafts now support the same two-step
+  collect → finalize handshake that `code-craft`, `api-craft`, `naming-craft`, and
+  `cli-ergonomics-craft` already use, so they run interactively in Claude Code with
+  the calling agent as the LLM judge. Each craft gains a `collect<Craft>Prompts`
+  step (enumerates the identical (target, rubric) pairs the inline critique loop
+  walks, persists run-state to the shared craft runs store, and returns the prompts
+  for the calling agent to answer) and a `finalize<Craft>` step (parses the agent's
+  fenced-JSON responses back into the craft's finding type). Five new MCP tools —
+  `copy_craft_finalize`, `docs_craft_finalize`, `knowledge_craft_finalize`,
+  `security_craft_finalize`, and `spec_craft_finalize` — are registered, and the
+  `*_craft` collect tools default to in-session mode in Claude Code.
+
+- 8a01138: feat(mcp): route large truncated tool output through spill-to-disk with a recoverable locator (#1398)
+
+  Wire the spill-to-disk primitive into the MCP compaction middleware
+  (`wrapWithCompaction`), the single choke point every tool response flows through.
+  When a tool's output is large enough to be lossy-truncated by the truncation
+  pipeline, the full pre-compaction payload is now offloaded to disk via
+  `spillIfNeeded` and a followup-readable `harness-spill:` locator is appended to the
+  compacted result, so fleet workers and autopilot sessions can recover or grep the
+  complete test log / diff / grep overflow on a later turn (`readSpill` /
+  `searchSpill`) instead of losing the truncated tail. Output under the threshold
+  passes through unchanged, lossless-only tools are excluded, and spill fails open —
+  behavior is unchanged when no project root is available.
+
+- 16d1281: feat(test-craft): make `test_craft` runnable in an interactive session (Claude Code, where the calling agent is the LLM judge). Previously `test-craft` had only the inline `runTestCraft` entry point, which loudly refuses the in-session provider (it defers every prompt, so a run would report zero findings for zero critiques), and had no `test_craft_finalize` tool — so it could only run against a real backend. This adds the same two-step collect → finalize handshake that `code_craft`, `api_craft`, `naming_craft`, and `cli_ergonomics_craft` already have: `test_craft` in `in-session` mode (the default in Claude Code) walks the project, builds one prompt per (test, rubric) pair — the same pairs the inline critique loop uses, including source-pairing — persists run-state to the shared craft runs store under a `runId`, and returns the prompts for the calling agent to answer; the new `test_craft_finalize` tool consumes those responses, parses each fenced-JSON block into a `TestFinding` via the same parser the inline path uses, and returns the standard `TestCraftOutput`. The inline path's in-session guard is retained (its message now points at `collectTestCraftPrompts(...)` / `finalizeTestCraft(...)`), and the `critique` phase's `buildPrompt` / `parseFindingFromRaw` / `CRITIQUE_SYSTEM_PROMPT` are exported so collect and finalize reuse them rather than duplicating logic. `Refs #1368` (the interactive follow-up to the guard bug addressed by #1430).
+
+### Patch Changes
+
+- 2b79436: chore(cleanup): remove dead cli/mcp exports. Un-export six intra-file-only schema constants in `interaction-schemas.ts` (`EffortLevel`, `ConfidenceLevel`, `InteractionQuestionSchema`, `QualityGateCheckSchema`, `QualityGateSchema`, `BatchDecisionSchema`) and delete the unused `__internal__` re-export block in `audit-anatomy.ts`. Pure dead-code removal; no behavior change.
+- cdc7f72: fix(adr): add duplicate-`number:` validator for the ADR corpus and grandfather the existing collisions (#1323)
+
+  `harness validate` now scans `docs/knowledge/decisions/*.md` for duplicate
+  `number:` frontmatter values — an ambiguous ADR identity silently breaks
+  citations and any tooling keyed on the number (the DecisionIngestor, spec
+  cross-references). New or changed collisions fail validation; the 10 known
+  pre-existing collisions are grandfathered via
+  `.harness/decisions/number-baseline.json` and surfaced as a single non-fatal
+  warning, so the check adopts without forcing a mass renumber. The corpus is
+  left as-is because bare "ADR NNNN" citations across the repo are ambiguous
+  between the colliding records; the renumber is tracked as a follow-up.
+
+- 9168a32: fix(knowledge): honor configured docsDir/adrDir and route decision ADRs into the graph
+  - #1330: `KnowledgePipelineRunner` no longer hardcodes `docs/knowledge/decisions`,
+    `docs/architecture`, and `docs/knowledge`. It now derives those directories from
+    new `docsDir`/`adrDir` pipeline options (sourced by the CLI from
+    `harness.config.json#docsDir` and `#operationalPolicy.adrDir`), so a project that
+    keeps its ADRs at a configured non-default location is no longer silently invisible
+    (it reported "0 decisions"). Defaults are preserved when config is unset.
+  - #1351: `graph ingest --source knowledge` (and `--all`) now constructs
+    `DecisionIngestor` so ADRs under `docs/knowledge/decisions/*.md` and
+    architecture-advisor ADRs under `docs/architecture/` become `decision` graph nodes.
+    Previously these files entered the graph via no ingestor on this command path, since
+    `KnowledgeIngestor.ingestAll` explicitly excludes `docs/knowledge/**`.
+
+- 6f88aff: fix(knowledge): abstain on empty baseline + confidence floor for `--fix`, and report honest extraction counts (#1335, #1340)
+
+  The knowledge pipeline previously reported a healthy-looking `warn` on a
+  first run where the graph held no prior `business_*` nodes: every fresh entry
+  classified as `new`, the drift score approached 1.0, and the verdict read as
+  `WARN` with `0 stale, 0 drifted, 0 contradicting` — indistinguishable from a
+  clean incremental run. A zero-denominator baseline is now an explicit
+  `abstain` verdict (distinct from `pass`/`warn`/`fail`) threaded from the
+  pre-extraction baseline into `computeVerdict`, and the CLI renders an
+  unambiguous `ABSTAIN` header with a one-line explanation. The result now
+  carries a `baselineEmpty` flag (surfaced in `--json`). (#1335)
+
+  `--fix` materialization into the consumer's tracked `docs/knowledge/` tree is
+  now gated on a named confidence floor (`MATERIALIZATION_CONFIDENCE_FLOOR`,
+  default `0.5`): low-confidence / comment-derived signals are still reported as
+  gaps but no longer written to disk. Human-authored nodes carry no confidence
+  and remain trusted, so the floor cannot suppress hand-written knowledge.
+  (#1335)
+
+  Extraction now reports the number of signals actually extracted this run
+  (`signalsExtracted`) rather than `nodesAdded` (deduped new store insertions),
+  which dropped to 0 on a re-scan even while the extractors wrote thousands of
+  records — producing a "0 code signals" headline that contradicted a non-empty
+  "extracted" gap total. (#1340)
+
+- e981449: fix(naming-craft): reconcile finalize coverage against the collected prompt set (#1339)
+
+  `finalizeNamingCraft` previously accepted a `responses` array covering only a
+  fraction of the prompts the paired collect call produced and still emitted a
+  normal-looking `NamingCraftOutput` whose summary read as a completed critique
+  of the whole scope — a false-green. It now reconciles `responses` against the
+  persisted prompt set: a materially short response set is rejected loudly
+  (mirroring the two-step-flow guard) unless the caller passes `allowPartial:true`.
+  The summary gains an explicit `coverage: { promptsAnswered, promptsTotal }`, and
+  on a partial finalize `filesScanned` narrows to only the files actually
+  critiqued so it never implies reach over unjudged files.
+
+- e79b0bc: fix(cli): stop truncating piped command output at ~8KB
+
+  Commander writes help/version output with `process.stdout.write` and then exits.
+  Writes to a PIPE are asynchronous, so `process.exit()` discarded whatever was
+  still buffered: `harness --help` was cut mid-word at 8164 bytes whenever its
+  output was piped or captured, losing every command from `knowledge-pipeline`
+  onward — including `validate`. Reproducible on macOS, where the pipe drains in
+  smaller chunks than on Linux CI, which is why the repo's own
+  `tests/integration/cli.test.ts > harness --help > outputs help` assertion fails
+  locally while CI stays green.
+
+  Commander's output now goes through a synchronous fd write. The write is looped
+  until the buffer drains, because `writeSync` on a non-blocking pipe returns a
+  SHORT COUNT rather than throwing — a single call reproduces the same truncation
+  it was meant to fix — and retries `EAGAIN` while the reader catches up. Falls
+  back to the stream when the fd is unusable (EPIPE from a closed downstream
+  reader such as `head`, or a non-fd stdout).
+
+- f833d25: feat(skill-authoring): require Service Definition / Provider / Consumer capability roles
+
+  `harness-skill-authoring` now requires every new MCP tool or skill capability to
+  name all three capability-seam roles before it ships: a Service Definition (what it
+  DEFINES), at least one Provider (who PROVIDES it), and at least one Consumer (who
+  CONSUMES it). A capability with only one role filled is accidental
+  single-implementation lock-in dressed up as an extension point.
+  - New `Phase 1C: DECLARE CAPABILITY ROLES` section, a "no half-wired capabilities"
+    gate, and a matching rationalization in the skill guidance.
+  - The `create_skill` scaffold now emits a `## Capability Roles` checklist in the
+    generated `SKILL.md`, prompting the author for all three roles.
+  - Targeted retrofit: the same `## Capability Roles` block is applied to the existing
+    skills that genuinely define a capability seam — the design verifier interface
+    (`harness-design-pipeline` over `detect-design-drift` / `audit-component-anatomy` /
+    `audit-brand-compliance`), the craft LLM-judgment-critique contract (`craft-fleet`
+    over the eleven `*-craft` skills), and the `-fleet` family spine (`fleet-command`
+    over the fleet members). Non-seam skills are deliberately left untouched.
+
+- Updated dependencies [2f44277]
+- Updated dependencies [4cbb45b]
+- Updated dependencies [6c44555]
+- Updated dependencies [52e74ac]
+- Updated dependencies [727edce]
+- Updated dependencies [510bdab]
+- Updated dependencies [3af2880]
+- Updated dependencies [24b314b]
+- Updated dependencies [895cf57]
+- Updated dependencies [2b9f987]
+- Updated dependencies [cdc7f72]
+- Updated dependencies [6ce628c]
+- Updated dependencies [9a71452]
+- Updated dependencies [9168a32]
+- Updated dependencies [523016b]
+- Updated dependencies [6f88aff]
+- Updated dependencies [9834665]
+  - @harness-engineering/core@0.43.0
+  - @harness-engineering/types@0.30.0
+  - @harness-engineering/dashboard@0.16.1
+  - @harness-engineering/orchestrator@0.21.3
+  - @harness-engineering/graph@0.13.1
+  - @harness-engineering/intelligence@0.11.4
+  - @harness-engineering/signals@0.3.4
+
 ## 11.2.0
 
 ### Minor Changes

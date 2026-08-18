@@ -1,5 +1,139 @@
 # Changelog
 
+## 0.43.0
+
+### Minor Changes
+
+- 2f44277: feat(architecture): honor exclude patterns in the architecture collectors
+
+  `check-arch` measured every `.ts` file the walkers could reach, with no way to
+  scope discovery. Projects that contain source whose SHAPE is imposed by an
+  external runtime — sandboxed dataflow/edge scripts that cannot import shared
+  helpers and must inline everything into a single function — had no way to keep
+  those files out of the complexity aggregate. Because the ratchet compares
+  aggregates, a handful of such files can hold the entire gate red indefinitely,
+  and no amount of good work on the branch can clear it. This is the same defect
+  class as #594 (arch scanning built `dist/`), where discovery scope, not the
+  threshold, was the problem.
+
+  `architecture.excludePatterns` takes minimatch globs matched against the
+  project-relative POSIX path, mirroring `ingest.excludePatterns`. Patterns are
+  ADDITIVE: `DEFAULT_FIND_FILES_IGNORE` and `DEFAULT_SKIP_DIRS` still apply, so
+  setting one pattern never re-enables scanning of `node_modules` or `dist`. The
+  CLI additionally stacks the project-wide `analysis.exclude` list onto the arch
+  config, making `check-arch` consistent with the other analysis scanners that
+  already honor it.
+
+  Wired into the three glob-based collectors (complexity, circular-deps, coupling)
+  and the two directory walkers (module-size, dep-depth). `layer-violations` and
+  `forbidden-imports` route through `validateDependencies` and are unchanged.
+  Defaults to `[]`, so behavior is identical for every existing config.
+
+- 510bdab: feat(context): add context-surface attribution report with exact token counts. Classifies the always-loaded context surface as always-loaded / path-scoped / invoked-only, ranks the top contributors, and derives over-budget flags from the (now live-wired) `contextBudget()` allocator. New core exports: `buildAttributionReport`, `heuristicTokenCounter`, `createAnthropicTokenCounter`, `resolveTokenCounter`, plus the `ContextClass` / `ContextSurfaceEntry` / `AttributionReport` types. Exact token counts come from Anthropic's `/v1/messages/count_tokens` endpoint, degrading gracefully to the `chars / 4` heuristic when no API key / offline / on request failure (never hard-fails). New CLI command `harness mcp context-report [--tier core|standard|full] [--exact] [--window <n>] [--top <n>] [--no-skills] [--json]` measures the harness's real surface (MCP tool schemas per tier, AGENTS.md, hooks, the four platform skill trees). Wires the previously-dead `contextBudget()` allocator into a live, tested code path.
+- 24b314b: Implement the blueprint Impact Lab data generator (#1338).
+
+  Adds `packages/core/src/blueprint/impact-lab-generator.ts` exporting
+  `generateImpactData`, which builds the seed "if I change this file, what
+  breaks?" data for a blueprint's Impact Lab. The impact source is injected (an
+  `ImpactAnalyzer` mirroring the `get_impact` MCP grouping of tests / docs / code /
+  other), so the generator stays pure, degrades gracefully to an empty impact set
+  when no graph is available, and classifies + tallies downstream-impacted nodes
+  per category.
+
+  Also wires the root-level `tests/` vitest tree into CI on every OS via a new
+  `test:root` script, so root-level specs (e.g. `tests/blueprint/impact-lab.test.ts`)
+  can no longer reference a missing module and rot unnoticed. The existing
+  `node --test 'tests/scripts/*.test.mjs'` run is unaffected (root vitest discovery
+  is scoped to `tests/**/*.test.ts`).
+
+- 9834665: feat(state): spill-to-disk with a followup-readable locator for large tool output (#1398)
+
+  Add a spill backend to `packages/core` session/state handling. `spillIfNeeded`
+  offloads tool output over a configurable byte threshold (default 30 KB, overridable
+  via the `thresholdBytes` option or `HARNESS_SPILL_THRESHOLD_BYTES`) to a `spill/`
+  subdirectory of the resolved state area and returns a stable, followup-readable
+  locator (`harness-spill:<repo-relative-path>`); output under the threshold passes
+  through inline unchanged. `readSpill` recovers the full content by locator and
+  `searchSpill` greps it line-by-line, so fleet workers and autopilot sessions can
+  offload large test logs, full diffs, or grep/glob overflow and reference them by
+  locator instead of losing the tail or blowing the context budget.
+
+### Patch Changes
+
+- 3af2880: fix(core): count test-file imports in the dead-export detector
+
+  The dead-export detector was test-import-blind: test files (`*.test.ts`,
+  `*.spec.ts`) are excluded from the classification snapshot, so an export
+  imported only by its test had zero importers and was wrongly flagged dead. A
+  single run reported 266 false positives (220 in `packages/cli/src/commands`,
+  e.g. `runVerify` imported by `verify.test.ts`), and `cleanup --fix` would have
+  deleted live code.
+
+  `buildSnapshot` now harvests test-file import edges into a new additive
+  `snapshot.testImports` field (path + imports only — test files are still never
+  classified as dead), and the detector treats an export imported by any test as
+  live. Genuine dead exports are unaffected.
+
+- 895cf57: Remove reference to internal closed issue #839 from the MonolithStore write-refusal error shown to adopters (#1253).
+- 2b9f987: fix(review): honor `harness-ignore` on the heuristic review path (#1302)
+
+  The heuristic review agents re-reported findings that the workspace had already
+  reviewed and justified with a `// harness-ignore SEC-XXX-NNN` annotation. The
+  mechanical `SecurityScanner` path honored the annotation (dropping the finding),
+  but the heuristic fan-out did not — so a suppressed finding silently re-appeared
+  as a live one whenever the file was touched, indistinguishable from a new hit.
+
+  The heuristic security agent now tags each finding with the scanner rule it
+  mirrors (`securityRuleId`), and the VALIDATE chokepoint (`validate-findings.ts`)
+  applies the same suppression as the mechanical path — reusing the scanner's own
+  `parseHarnessIgnore` parser (extracted to a dependency-free `security/harness-ignore`
+  module). A heuristic finding whose file+line carries a matching `harness-ignore`
+  annotation is dropped exactly as the mechanical path drops it; un-annotated
+  findings on other lines are unaffected. Applied once at the shared chokepoint so
+  every heuristic agent flows through it.
+
+- cdc7f72: fix(adr): add duplicate-`number:` validator for the ADR corpus and grandfather the existing collisions (#1323)
+
+  `harness validate` now scans `docs/knowledge/decisions/*.md` for duplicate
+  `number:` frontmatter values — an ambiguous ADR identity silently breaks
+  citations and any tooling keyed on the number (the DecisionIngestor, spec
+  cross-references). New or changed collisions fail validation; the 10 known
+  pre-existing collisions are grandfathered via
+  `.harness/decisions/number-baseline.json` and surfaced as a single non-fatal
+  warning, so the check adopts without forcing a mass renumber. The corpus is
+  left as-is because bare "ADR NNNN" citations across the repo are ambiguous
+  between the colliding records; the renumber is tracked as a follow-up.
+
+- 6ce628c: fix(drift): exclude forward-looking docs/changes from structure drift (#1326)
+
+  `checkStructureDrift` now consults the same `forwardLookingPaths` exclusion that
+  `checkApiSignatureDrift` already honored, so broken-link/broken-anchor structure
+  findings inside forward-looking historical docs (`docs/changes/**`, ADRs,
+  proposals) are suppressed. `docs/changes/**` is the immutable historical record
+  of shipped changes; its dangling links are unactionable by design — "fixing"
+  them edits history — and were the dominant contributor (~223 findings) to
+  documentation-drift counts. A dangling link in a non-forward-looking doc (e.g.
+  `docs/reference/**`) is still flagged.
+
+- 9a71452: fix(roadmap): do not auto-reopen human-closed issues on a planned status (#1327)
+
+  The roadmap→issue sync push (`syncToExternal`) unconditionally set an issue's
+  state to `open` whenever a row's status mapped to an open state, so a `planned`/
+  `in-progress` row whose issue a human (or the auto-done workflow) had already
+  closed was reopened on the next ~5-minute sync — destroying the deliberate
+  close. The push now consults the prefetched ticket state it already holds and
+  suppresses the state patch for that write alone when it would reopen an
+  already-closed issue, reporting the suppressed transition in
+  `skippedStateChanges`. Labels still converge, closing an open issue for a `done`
+  row is unchanged, and the pull phase converges the lagging row to `done`.
+
+- Updated dependencies [4cbb45b]
+- Updated dependencies [9168a32]
+- Updated dependencies [523016b]
+- Updated dependencies [6f88aff]
+  - @harness-engineering/types@0.30.0
+  - @harness-engineering/graph@0.13.1
+
 ## 0.42.0
 
 ### Minor Changes

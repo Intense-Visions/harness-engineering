@@ -1,5 +1,14 @@
 # @harness-engineering/signals
 
+## 0.3.4
+
+### Patch Changes
+
+- Updated dependencies [9168a32]
+- Updated dependencies [523016b]
+- Updated dependencies [6f88aff]
+  - @harness-engineering/graph@0.13.1
+
 ## 0.3.3
 
 ### Patch Changes

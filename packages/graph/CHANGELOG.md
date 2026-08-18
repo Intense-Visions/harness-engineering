@@ -1,5 +1,51 @@
 # @harness-engineering/graph
 
+## 0.13.1
+
+### Patch Changes
+
+- 9168a32: fix(knowledge): honor configured docsDir/adrDir and route decision ADRs into the graph
+  - #1330: `KnowledgePipelineRunner` no longer hardcodes `docs/knowledge/decisions`,
+    `docs/architecture`, and `docs/knowledge`. It now derives those directories from
+    new `docsDir`/`adrDir` pipeline options (sourced by the CLI from
+    `harness.config.json#docsDir` and `#operationalPolicy.adrDir`), so a project that
+    keeps its ADRs at a configured non-default location is no longer silently invisible
+    (it reported "0 decisions"). Defaults are preserved when config is unset.
+  - #1351: `graph ingest --source knowledge` (and `--all`) now constructs
+    `DecisionIngestor` so ADRs under `docs/knowledge/decisions/*.md` and
+    architecture-advisor ADRs under `docs/architecture/` become `decision` graph nodes.
+    Previously these files entered the graph via no ingestor on this command path, since
+    `KnowledgeIngestor.ingestAll` explicitly excludes `docs/knowledge/**`.
+
+- 523016b: Anchor TS/Java enum extractor regexes so prose/comments are no longer parsed as enum business terms (#1331).
+- 6f88aff: fix(knowledge): abstain on empty baseline + confidence floor for `--fix`, and report honest extraction counts (#1335, #1340)
+
+  The knowledge pipeline previously reported a healthy-looking `warn` on a
+  first run where the graph held no prior `business_*` nodes: every fresh entry
+  classified as `new`, the drift score approached 1.0, and the verdict read as
+  `WARN` with `0 stale, 0 drifted, 0 contradicting` — indistinguishable from a
+  clean incremental run. A zero-denominator baseline is now an explicit
+  `abstain` verdict (distinct from `pass`/`warn`/`fail`) threaded from the
+  pre-extraction baseline into `computeVerdict`, and the CLI renders an
+  unambiguous `ABSTAIN` header with a one-line explanation. The result now
+  carries a `baselineEmpty` flag (surfaced in `--json`). (#1335)
+
+  `--fix` materialization into the consumer's tracked `docs/knowledge/` tree is
+  now gated on a named confidence floor (`MATERIALIZATION_CONFIDENCE_FLOOR`,
+  default `0.5`): low-confidence / comment-derived signals are still reported as
+  gaps but no longer written to disk. Human-authored nodes carry no confidence
+  and remain trusted, so the floor cannot suppress hand-written knowledge.
+  (#1335)
+
+  Extraction now reports the number of signals actually extracted this run
+  (`signalsExtracted`) rather than `nodesAdded` (deduped new store insertions),
+  which dropped to 0 on a re-scan even while the extractors wrote thousands of
+  records — producing a "0 code signals" headline that contradicted a non-empty
+  "extracted" gap total. (#1340)
+
+- Updated dependencies [4cbb45b]
+  - @harness-engineering/types@0.30.0
+
 ## 0.13.0
 
 ### Minor Changes
