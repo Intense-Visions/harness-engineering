@@ -154,6 +154,36 @@ function recordSuppressedStateChange(
 }
 
 /**
+ * A status push must never REOPEN an issue that is already closed (#1327).
+ *
+ * A closed issue whose roadmap row still reads planned/in-progress is not a
+ * stale-open to be corrected: the row simply has not caught up to a close a
+ * human (or the auto-done workflow) performed, and that close is authoritative.
+ * Reopening it via `statusMap['planned'] === 'open'` destroys a deliberate
+ * human close — the exact failure #1327 reports. Converging the row TO `done`
+ * is the pull phase's job (`applyTicketToFeature`), not a reopen here.
+ *
+ * Detection uses only the prefetched ticket state the engine already holds — no
+ * extra fetch, no new adapter surface. Returns the open/closed transition this
+ * write WOULD have made (so the caller can suppress the state patch AND report
+ * it in `skippedStateChanges`), or null when the write does not reopen anything.
+ * A missing current state is treated conservatively as "cannot prove a reopen"
+ * and left to the normal path — the guard only fires on a ticket we can SEE is
+ * closed.
+ */
+function detectReopen(
+  feature: RoadmapFeature,
+  config: TrackerSyncConfig,
+  ticketByExternalId: Map<string, ExternalTicketState>
+): { externalId: string; from: string; to: string } | null {
+  const current = ticketByExternalId.get(feature.externalId!);
+  if (!current || current.status !== 'closed') return null;
+  const desired = config.statusMap[feature.status];
+  if (desired === undefined || desired === current.status) return null;
+  return { externalId: feature.externalId!, from: current.status, to: desired };
+}
+
+/**
  * Push planning fields from roadmap to external service.
  * - Features without externalId get a new ticket (externalId stored on feature object)
  * - Features with externalId get updated with current planning fields
@@ -181,7 +211,6 @@ export async function syncToExternal(
   const ticketByExternalId = new Map(
     (prefetchedTickets ?? []).map((t) => [t.externalId, t] as const)
   );
-  const writeOptions: TicketWriteOptions = { syncIssueState: guards.syncIssueState };
 
   for (const milestone of roadmap.milestones) {
     for (const feature of milestone.features) {
@@ -195,8 +224,21 @@ export async function syncToExternal(
       );
       if (!shouldUpdate) continue;
 
+      // Resolve this write's state policy. Two independent reasons suppress the
+      // open/closed patch, each reported rather than silently dropped:
+      //   1. syncIssueState:false globally — the CI-safe mode, off for every row.
+      //   2. this specific write would REOPEN an already-closed issue (#1327) —
+      //      an automated sync must never resurrect a deliberate human close, so
+      //      the state patch is dropped for this row alone. Labels still converge.
+      let writeSyncIssueState = guards.syncIssueState;
       if (!guards.syncIssueState) {
         recordSuppressedStateChange(feature, config, ticketByExternalId, result);
+      } else {
+        const reopen = detectReopen(feature, config, ticketByExternalId);
+        if (reopen) {
+          writeSyncIssueState = false;
+          result.skippedStateChanges.push(reopen);
+        }
       }
 
       if (guards.dryRun) {
@@ -204,6 +246,7 @@ export async function syncToExternal(
         continue;
       }
 
+      const writeOptions: TicketWriteOptions = { syncIssueState: writeSyncIssueState };
       const updateResult = await adapter.updateTicket(
         feature.externalId!,
         feature,

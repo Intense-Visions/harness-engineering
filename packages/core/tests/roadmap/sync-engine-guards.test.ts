@@ -252,6 +252,74 @@ describe('syncToExternal() — syncIssueState: false', () => {
   });
 });
 
+describe('syncToExternal() — never reopens a human-closed issue (#1327)', () => {
+  it('suppresses the state patch for a planned row whose issue is already CLOSED', async () => {
+    // A human closed issue #1 (state_reason=completed). The roadmap row still
+    // reads `planned` because it has not yet caught up to that close. A status
+    // push must NOT reopen the issue — statusMap['planned'] === 'open' would.
+    const roadmap = makeRoadmap([
+      makeFeature({ externalId: 'github:owner/repo#1', status: 'planned' }),
+    ]);
+    const adapter = mockAdapter();
+
+    const result = await syncToExternal(roadmap, adapter, CONFIG, [
+      ticket({ status: 'closed', stateReason: 'completed' }),
+    ]);
+
+    // The write still runs (labels converge) but its state policy is suppressed,
+    // so `updateTicket` omits the open/closed flip — the issue stays closed.
+    const call = vi.mocked(adapter.updateTicket).mock.calls[0]!;
+    expect(call[3]).toEqual({ syncIssueState: false });
+    // ...and the suppressed reopen is reported, never silently dropped.
+    expect(result.skippedStateChanges).toEqual([
+      { externalId: 'github:owner/repo#1', from: 'closed', to: 'open' },
+    ]);
+  });
+
+  it('also suppresses reopen for an in-progress row whose issue is closed', async () => {
+    const roadmap = makeRoadmap([
+      makeFeature({ externalId: 'github:owner/repo#1', status: 'in-progress' }),
+    ]);
+    const adapter = mockAdapter();
+
+    const result = await syncToExternal(roadmap, adapter, CONFIG, [
+      ticket({ status: 'closed', stateReason: 'not_planned' }),
+    ]);
+
+    expect(vi.mocked(adapter.updateTicket).mock.calls[0]![3]).toEqual({ syncIssueState: false });
+    expect(result.skippedStateChanges).toEqual([
+      { externalId: 'github:owner/repo#1', from: 'closed', to: 'open' },
+    ]);
+  });
+
+  it('still CLOSES an open issue when the row is done (the guard is reopen-only)', async () => {
+    const roadmap = makeRoadmap([
+      makeFeature({ externalId: 'github:owner/repo#1', status: 'done' }),
+    ]);
+    const adapter = mockAdapter();
+
+    const result = await syncToExternal(roadmap, adapter, CONFIG, [ticket({ status: 'open' })]);
+
+    // Closing an open issue for a done row is legitimate — state sync passes through.
+    expect(vi.mocked(adapter.updateTicket).mock.calls[0]![3]).toEqual({ syncIssueState: true });
+    expect(result.skippedStateChanges).toEqual([]);
+  });
+
+  it('still patches state normally for a planned row whose issue is OPEN', async () => {
+    // The common case: a genuinely-active planned row that was never closed.
+    // Nothing to suppress — state sync must remain enabled.
+    const roadmap = makeRoadmap([
+      makeFeature({ externalId: 'github:owner/repo#1', status: 'planned' }),
+    ]);
+    const adapter = mockAdapter();
+
+    const result = await syncToExternal(roadmap, adapter, CONFIG, [ticket({ status: 'open' })]);
+
+    expect(vi.mocked(adapter.updateTicket).mock.calls[0]![3]).toEqual({ syncIssueState: true });
+    expect(result.skippedStateChanges).toEqual([]);
+  });
+});
+
 describe('syncToExternal() — denominator', () => {
   it('reports rows compared and tickets fetched', async () => {
     const roadmap = makeRoadmap([
