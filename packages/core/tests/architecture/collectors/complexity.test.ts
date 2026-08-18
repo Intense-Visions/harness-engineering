@@ -171,4 +171,32 @@ describe('ComplexityCollector', () => {
       functionsAnalyzed: 50,
     });
   });
+  it('passes excludePatterns to file discovery', async () => {
+    // The detector is mocked in this suite, so assert the discovery contract:
+    // exclude globs must reach findFiles as extra ignores.
+    const fsUtils = await import('../../../src/shared/fs-utils');
+    const spy = vi.spyOn(fsUtils, 'findFiles').mockResolvedValue([]);
+    mockDetect.mockResolvedValue({
+      ok: true,
+      value: {
+        violations: [],
+        stats: {
+          filesAnalyzed: 0,
+          functionsAnalyzed: 0,
+          violationCount: 0,
+          errorCount: 0,
+          warningCount: 0,
+          infoCount: 0,
+        },
+      },
+    } as any);
+
+    await collector.collect(
+      { ...baseConfig, excludePatterns: ['services/neo/**/*.dag.ts'] },
+      '/project'
+    );
+
+    expect(spy).toHaveBeenCalledWith('**/*.ts', '/project', ['services/neo/**/*.dag.ts']);
+    spy.mockRestore();
+  });
 });

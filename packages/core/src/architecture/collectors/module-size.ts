@@ -4,6 +4,7 @@ import { DEFAULT_SKIP_DIRS } from '@harness-engineering/graph';
 import type { Collector, ArchConfig, MetricResult, Violation, ConstraintRule } from '../types';
 import { violationId, constraintRuleId } from './hash';
 import { relativePosix } from '../../shared/fs-utils';
+import { isExcluded, resolveExcludePatterns } from '../exclude';
 
 interface ModuleStats {
   modulePath: string;
@@ -49,7 +50,12 @@ async function buildModuleStats(
   };
 }
 
-async function scanDir(rootDir: string, dir: string, modules: ModuleStats[]): Promise<void> {
+async function scanDir(
+  rootDir: string,
+  dir: string,
+  modules: ModuleStats[],
+  exclude: readonly string[]
+): Promise<void> {
   let entries;
   try {
     entries = await readdir(dir, { withFileTypes: true });
@@ -68,6 +74,7 @@ async function scanDir(rootDir: string, dir: string, modules: ModuleStats[]): Pr
       continue;
     }
     if (entry.isFile() && isTsSourceFile(entry.name)) {
+      if (isExcluded(fullPath, rootDir, exclude)) continue;
       tsFiles.push(fullPath);
     }
   }
@@ -77,13 +84,16 @@ async function scanDir(rootDir: string, dir: string, modules: ModuleStats[]): Pr
   }
 
   for (const sub of subdirs) {
-    await scanDir(rootDir, sub, modules);
+    await scanDir(rootDir, sub, modules, exclude);
   }
 }
 
-async function discoverModules(rootDir: string): Promise<ModuleStats[]> {
+async function discoverModules(
+  rootDir: string,
+  exclude: readonly string[]
+): Promise<ModuleStats[]> {
   const modules: ModuleStats[] = [];
-  await scanDir(rootDir, rootDir, modules);
+  await scanDir(rootDir, rootDir, modules, exclude);
   return modules;
 }
 
@@ -137,7 +147,7 @@ export class ModuleSizeCollector implements Collector {
   }
 
   async collect(config: ArchConfig, rootDir: string): Promise<MetricResult[]> {
-    const modules = await discoverModules(rootDir);
+    const modules = await discoverModules(rootDir, resolveExcludePatterns(config));
     const { maxLoc, maxFiles } = extractThresholds(config);
 
     return modules.map((mod) => {
