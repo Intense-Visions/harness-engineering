@@ -103,6 +103,14 @@ export const namingCraftFinalizeDefinition = {
           required: ['promptId', 'raw'],
         },
       },
+      allowPartial: {
+        type: 'boolean',
+        description:
+          'Opt into finalizing when fewer prompts were answered than were collected. ' +
+          'Default false: a short response set is rejected instead of emitting a ' +
+          'full-looking critique. When true, the summary carries an explicit `coverage` ' +
+          'and a narrowed `filesScanned` reflecting only what was judged.',
+      },
     },
     required: ['path', 'runId', 'responses'],
   },

@@ -97,12 +97,13 @@ describe('naming-craft in-session flow', () => {
     ).rejects.toThrow(/no persisted run/);
   });
 
-  it('finalize silently skips responses whose promptId is unknown', async () => {
+  it('finalize skips responses whose promptId is unknown (explicit partial)', async () => {
     writeFile('src/x.ts', `export const foo = 1;\n`);
     const collected = await collectNamingCraftPrompts({ path: tmpDir });
     const out = await finalizeNamingCraft({
       path: tmpDir,
       runId: collected.runId,
+      allowPartial: true,
       responses: [
         {
           promptId: 'nonexistent',
@@ -110,6 +111,88 @@ describe('naming-craft in-session flow', () => {
         },
       ],
     });
+    // Unmatched IDs never count toward coverage, so this reads as 0-answered.
     expect(out.findings).toHaveLength(0);
+    expect(out.summary.coverage!.promptsAnswered).toBe(0);
+    expect(out.summary.coverage!.promptsTotal).toBe(collected.pendingPrompts.length);
+  });
+
+  it('finalize REFUSES a materially short response set instead of a full-looking success', async () => {
+    // A file rich enough to collect several prompts.
+    writeFile(
+      'src/orders.ts',
+      `export function processData(orders) { return orders; }\n` +
+        `export const tmp = 1;\n` +
+        `export type Data = { a: number };\n`
+    );
+    const collected = await collectNamingCraftPrompts({ path: tmpDir });
+    expect(collected.pendingPrompts.length).toBeGreaterThan(1);
+
+    // Answer only the first of N collected prompts.
+    const responses = [
+      {
+        promptId: collected.pendingPrompts[0]!.promptId,
+        raw: '```json\n{"tier":"polish","impact":"medium","confidence":"high","message":"vague"}\n```',
+      },
+    ];
+
+    // Default (no allowPartial): must NOT emit a normal-looking output that
+    // overstates coverage — it must throw loudly. (Red at base: the old code
+    // returned a full-looking success with no coverage field.)
+    await expect(
+      finalizeNamingCraft({ path: tmpDir, runId: collected.runId, responses })
+    ).rejects.toThrow(/of \d+ collected|partial|allowPartial/);
+
+    // The run-state must survive the refusal so the caller can retry in full.
+    expect(fs.existsSync(collected.runFile!)).toBe(true);
+  });
+
+  it('finalize with allowPartial surfaces honest coverage and narrowed filesScanned', async () => {
+    writeFile(
+      'src/a.ts',
+      `export function processData(orders) { return orders; }\nexport const tmp = 1;\n`
+    );
+    writeFile('src/b.ts', `export function handleThing(x) { return x; }\n`);
+    const collected = await collectNamingCraftPrompts({ path: tmpDir });
+    expect(collected.pendingPrompts.length).toBeGreaterThan(1);
+
+    // Answer only the first prompt.
+    const responses = [
+      {
+        promptId: collected.pendingPrompts[0]!.promptId,
+        raw: '```json\n{"tier":"polish","impact":"medium","confidence":"high","message":"vague"}\n```',
+      },
+    ];
+
+    const out = await finalizeNamingCraft({
+      path: tmpDir,
+      runId: collected.runId,
+      allowPartial: true,
+      responses,
+    });
+
+    expect(out.summary.coverage).toBeDefined();
+    expect(out.summary.coverage!.promptsAnswered).toBe(1);
+    expect(out.summary.coverage!.promptsTotal).toBe(collected.pendingPrompts.length);
+    expect(out.summary.coverage!.promptsAnswered).toBeLessThan(out.summary.coverage!.promptsTotal);
+    // Only one file was actually critiqued — filesScanned must not imply both.
+    expect(out.summary.filesScanned).toBe(1);
+    expect(fs.existsSync(collected.runFile!)).toBe(false);
+  });
+
+  it('finalize reports full coverage when every collected prompt is answered', async () => {
+    writeFile('src/orders.ts', `export function processData(orders) { return orders; }\n`);
+    const collected = await collectNamingCraftPrompts({ path: tmpDir });
+    const responses = collected.pendingPrompts.map((p) => ({
+      promptId: p.promptId,
+      raw: '```json\nnull\n```',
+    }));
+    const out = await finalizeNamingCraft({
+      path: tmpDir,
+      runId: collected.runId,
+      responses,
+    });
+    expect(out.summary.coverage!.promptsAnswered).toBe(collected.pendingPrompts.length);
+    expect(out.summary.coverage!.promptsAnswered).toBe(out.summary.coverage!.promptsTotal);
   });
 });

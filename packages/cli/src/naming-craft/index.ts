@@ -69,6 +69,15 @@ export interface FinalizeNamingCraftInput {
   path: string;
   runId: string;
   responses: Array<{ promptId: string; raw: string }>;
+  /**
+   * Opt into finalizing when fewer of the collected prompts were answered
+   * than were collected. Without it, a materially short response set is
+   * rejected rather than emitting a full-looking success — mirroring the
+   * two-step-flow guard's "don't silently proceed on partial input"
+   * philosophy. When true, the resulting summary carries an explicit
+   * `coverage` and a narrowed `filesScanned` so the partial reach is honest.
+   */
+  allowPartial?: boolean;
 }
 
 const DEFAULT_MAX_FILES = 100;
@@ -270,10 +279,12 @@ export async function finalizeNamingCraft(
   const rubricById = new Map(SEED_RUBRICS.map((r) => [r.id, r]));
   const promptById = new Map(state.meta.prompts.map((p) => [p.promptId, p]));
   const findings: NamingFinding[] = [];
+  const answeredPromptIds = new Set<string>();
 
   for (const response of input.responses) {
     const promptRecord = promptById.get(response.promptId);
     if (promptRecord === undefined) continue;
+    answeredPromptIds.add(response.promptId);
     const rubric = rubricById.get(promptRecord.rubricId);
     if (rubric === undefined) continue;
     const finding = parseFindingFromRaw(response.raw, {
@@ -283,7 +294,36 @@ export async function finalizeNamingCraft(
     if (finding !== null) findings.push(finding);
   }
 
+  // Reconcile actual reach against the prompt set collected at step 1. Only
+  // prompts we can match to a collected record count as answered — stray or
+  // duplicate IDs never inflate coverage.
+  const promptsTotal = state.meta.prompts.length;
+  const promptsAnswered = answeredPromptIds.size;
+
+  // A materially short response set would otherwise finalize into a
+  // normal-looking NamingCraftOutput whose summary reads as a completed
+  // critique of the whole scope while almost none of it was judged. Refuse
+  // it loudly unless the caller explicitly opted into a partial finalize —
+  // the same stance the inline path takes when handed an in-session provider.
+  if (promptsAnswered < promptsTotal && input.allowPartial !== true) {
+    throw new Error(
+      `naming-craft: finalize received ${promptsAnswered} of ${promptsTotal} collected ` +
+        `prompts for runId=${input.runId}. Finalizing now would report a full-scope ` +
+        'critique while the rest went unjudged. Answer every prompt returned by the ' +
+        'collect call, or pass allowPartial:true to record an explicit partial critique.'
+    );
+  }
+
   deleteRunState(projectRoot, input.runId);
+
+  // On a partial finalize, report only the files actually critiqued so
+  // filesScanned never implies reach over files that were never judged. A
+  // full finalize keeps the collect-time walk count (which also covers files
+  // that were walked but yielded no promptable identifier).
+  const filesScanned =
+    promptsAnswered >= promptsTotal
+      ? (state.meta.filesScanned ?? 0)
+      : new Set([...answeredPromptIds].map((id) => promptById.get(id)!.identifier.file)).size;
 
   return {
     findings,
@@ -299,7 +339,8 @@ export async function finalizeNamingCraft(
       },
       catalog: { rubricsApplied: state.meta.rubricsApplied },
       convention: state.meta.convention,
-      filesScanned: state.meta.filesScanned ?? 0,
+      filesScanned,
+      coverage: { promptsAnswered, promptsTotal },
       runId: input.runId,
     },
   };
