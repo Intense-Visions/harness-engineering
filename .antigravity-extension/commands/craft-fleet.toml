@@ -51,7 +51,6 @@ This skill builds on the shared `-fleet` spine documented in `docs/reference/fle
 - **Provides (Provider):** the eleven craft skills — `naming-craft`, `spec-craft`, `code-craft`, `security-craft`, `test-craft`, `api-craft`, `cli-ergonomics-craft`, `copy-craft`, `docs-craft`, `harness-design-craft`, `knowledge-craft`.
 - **Consumes (Consumer):** **this skill** — craft-fleet composes ranked (scope, domain) targets across all craft providers uniformly through the shared critique/finding shape, then verifies each item by critique provenance. It is itself a `-fleet` member and so is also a Provider to the `fleet-command` conductor.
 
-
 ## Flags
 
 | Flag            | Effect                                                                                                                                                 |

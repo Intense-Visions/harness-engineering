@@ -50,7 +50,6 @@ The conductor is **Tier 3** of Skills → Pipelines → Fleets → Conductor —
 - **Provides (Provider):** the `-fleet` members — `roadmap-fleet`, `bug-fleet`, `cicd-fleet`, `cleanup-fleet`, `security-fleet`, `issue-fleet`, `pr-fleet`, `test-fleet`, `adr-fleet`, `ideate-fleet`, `craft-fleet` — each emitting the shared handoff shape through its gate-free probe path.
 - **Consumes (Consumer):** **this skill** — fleet-command probes each member through the gate-free path only and verifies every lane from its emitted handoff artifacts, so any new `-fleet` member is conductable with zero conductor change.
 
-
 ## Flags
 
 | Flag            | Effect                                                                                                                                                                     |
