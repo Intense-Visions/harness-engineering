@@ -129,6 +129,29 @@ export {
 } from './session-sections';
 
 /**
+ * Spill-to-disk for large tool output — offload over-threshold payloads to the
+ * session/state area and recover them by a followup-readable locator (#1398).
+ */
+export {
+  spillIfNeeded,
+  readSpill,
+  searchSpill,
+  resolveSpillThreshold,
+  SPILL_DIR,
+  SPILL_LOCATOR_SCHEME,
+  SPILL_THRESHOLD_ENV,
+  DEFAULT_SPILL_THRESHOLD_BYTES,
+} from './spill';
+export type {
+  SpillOptions,
+  SpillResult,
+  SpillPassthrough,
+  SpillWritten,
+  SpillSearchMatch,
+  SpillSearchResult,
+} from './spill';
+
+/**
  * Session archival for preserving previous session state.
  */
 export { archiveSession } from './session-archive';
