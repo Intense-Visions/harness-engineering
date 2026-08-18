@@ -1,0 +1,20 @@
+{
+  "issue": 1397,
+  "slug": "skill-authoring-service-roles",
+  "title": "Require Service-Definition/Provider/Consumer roles in skill-authoring guidance",
+  "branch": "build/skill-authoring-roles-1397",
+  "base": "origin/main",
+  "stages": ["brainstorming/plan", "execution", "verification"],
+  "planArtifact": "docs/changes/skill-authoring-service-roles/plans/plan.md",
+  "changes": [
+    "agents/skills/claude-code/harness-skill-authoring/SKILL.md (Phase 1C capability roles section + Gate + rationalization) — cursor/codex/gemini-cli mirror dirs are symlinks to this canonical skill, so all four update together",
+    "packages/cli/src/commands/create-skill.ts (Capability Roles checklist in generated SKILL.md template)",
+    "packages/cli/tests/commands/create-skill.test.ts (assert roles checklist present)"
+  ],
+  "assumptions": [
+    "The 3 platform mirrors (cursor/codex/gemini-cli) have their harness-skill-authoring directory as a SYMLINK to ../claude-code/harness-skill-authoring, so editing the canonical SKILL.md updated all four; git tracks only the canonical path plus the symlink entries.",
+    "Surfacing the checklist 'in the create_skill flow' means adding a Capability Roles section to the SKILL.md template emitted by generateSkillFiles (the code path behind the mcp__harness__create_skill tool), rather than an interactive prompt.",
+    "No @harness-engineering/core export was added, so scripts/generate-core-barrel.mjs allowlist needs no change.",
+    "Pure docs/CLI-template change; changeset added/omitted to match the pre-push changeset gate expectation."
+  ]
+}
