@@ -25,6 +25,11 @@
       "stage": "verification",
       "artifact": "packages/types/tests/fleet-handoff.test.ts",
       "summary": "16 unit tests across schema, validateFleetHandoffRecord, and parseFleetHandoffRecord. All 88 tests in @harness-engineering/types green."
+    },
+    {
+      "stage": "adoption",
+      "artifact": "docs/reference/fleet-family.md",
+      "summary": "Downstream adoption across the fleet family (phase 2, folded into the same PR #1414). Inserted a uniform 'Worker handoff — return the canonical FleetHandoffRecord' paragraph into the DISPATCH phase of all eleven fan-out members (bug-fleet, roadmap-fleet, pr-fleet, cicd-fleet, cleanup-fleet, security-fleet, test-fleet, issue-fleet, adr-fleet, craft-fleet, ideate-fleet), replacing ad hoc per-worker report shapes with the canonical FleetHandoffRecord envelope. Updated fleet-command VERIFY to parse/validate each lane's worker output uniformly via validateFleetHandoffRecord instead of special-casing each member. Codified the record in docs/reference/fleet-family.md as the family standard: a new 'The worker handoff record (canonical)' section plus a fifth Hard Invariant. Adoption is doc/prose-level: a codebase grep found no code that parses fleet worker output today, so there is no shared parser to rewire — the type/validator is already wired and tested from phase 1. Skill mirrors (cursor/codex/gemini-cli) are symlinks and update automatically; plugin manifests + gemini .toml regenerated via pnpm generate:plugin:all and reference docs via pnpm generate-docs. No generated file hand-edited; no gate bypassed."
     }
   ],
   "planArtifact": "docs/changes/canonical-bounded-handoff-record/plans/plan.md",
@@ -45,6 +50,10 @@
     "Modeled the field set exactly on the issue: status, summary, evidence, next_steps, blocker — plus fleet + item provenance fields so fleet-command can attribute a record, and a v envelope-version field mirroring maintenance-findings.ts.",
     "status is an enum done|parked|blocked|failed drawn from the fleet DISPATCH contract (branch returned / parked on unforeseen fork / failed); added 'blocked' for external/environmental obstacles distinct from a decision-fork park.",
     "Bounded is enforced two ways: zod .strict() rejects unknown keys and requires non-empty required fields, and a cross-field invariant rejects any non-done status lacking a blocker.",
-    "SCOPE: shipped only the reusable primitive (type + validator + tests + a reference-doc note). Did NOT retrofit the nine fleet SKILL.md files — that is downstream adoption, explicitly out of scope for this PR."
+    "SCOPE: shipped only the reusable primitive (type + validator + tests + a reference-doc note). Did NOT retrofit the nine fleet SKILL.md files — that is downstream adoption, explicitly out of scope for this PR.",
+    "ADOPTION SCOPE: phase 2 folds the downstream adoption INTO this same PR (#1414 = define + adopt), per the user's request — not a new PR. All eleven fan-out members adopted; none skipped. craft-fleet and ideate-fleet both fan out workers with a per-item return, so both adopted rather than being force-fit-skipped.",
+    "ADOPTION is doc/prose-level, not code: grep found no runtime that parses fleet worker output today (fleet-command and members are skill-prose orchestrators; the only type references are its own module + the types barrel). The type + validateFleetHandoffRecord/parseFleetHandoffRecord helpers were already wired and tested in phase 1, so no new code or test was needed for adoption.",
+    "The canonical FleetHandoffRecord is the worker->orchestrator ENVELOPE; members' existing domain payloads (bug-fleet Candidate, ideate-fleet candidate record) are left intact and live inside the record's summary/evidence/next_steps rather than being deleted.",
+    "CHANGESET: the existing types minor changeset is unchanged. The adoption touches only SKILL.md prose + docs + generated plugin/gemini artifacts (no publishable package source), so no additional changeset bump is warranted; SKILL.md/docs adoption is not a publishable change to a versioned package."
   ]
 }
