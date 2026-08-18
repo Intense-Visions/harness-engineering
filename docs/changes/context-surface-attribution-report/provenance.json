@@ -1,0 +1,28 @@
+{
+  "issue": 1274,
+  "slug": "context-surface-attribution-report",
+  "title": "Context-surface attribution report with exact token counts",
+  "branch": "build/context-attribution-1274",
+  "stagesRun": ["brainstorming", "planning", "execution", "verification", "integration"],
+  "planArtifact": "docs/changes/context-surface-attribution-report/plans/plan.md",
+  "mechanisms": {
+    "threeWayClassification": "packages/core/src/context/attribution.ts — ContextClass = always-loaded | path-scoped | invoked-only",
+    "exactTokenCounts": "packages/core/src/context/count-tokens.ts — /v1/messages/count_tokens with graceful fallback to estimateTokens()",
+    "overBudgetFlags": "derived from contextBudget() allocation per class in buildAttributionReport()"
+  },
+  "forkB": {
+    "decision": "WIRE the previously-dead contextBudget() allocator LIVE (not deprecate).",
+    "liveCaller": "packages/core/src/context/attribution.ts:buildAttributionReport() calls contextBudget(windowTokens, overrides, graphDensity) to allocate the window and derive per-class over-budget flags.",
+    "consumedBy": "packages/cli/src/commands/mcp.ts context-report subcommand → buildAttributionReport",
+    "proof": "grep 'contextBudget(' packages/core/src/context/attribution.ts shows a non-test caller; sibling computeLoadPlan() pattern followed (packages/cli/src/mcp/tools/skill.ts:79)."
+  },
+  "assumptions": [
+    "Class→budget-category mapping is documented and fixed: always-loaded→systemPrompt, path-scoped→projectManifest, invoked-only→interfaces (CLASS_TO_BUDGET_CATEGORY).",
+    "Report core lives in @harness-engineering/core (pure, network-free, testable); the CLI `harness mcp context-report` is a thin gather+render wrapper feeding the REAL surface (MCP tool schemas per tier, AGENTS.md, hooks, four platform skill trees).",
+    "Skill trees are classified invoked-only because Claude Code defers skill bodies; MCP tool schemas + AGENTS.md + hooks are always-loaded.",
+    "Exact counting defaults to the claude-opus-4-8 tokenizer; no ANTHROPIC_API_KEY / offline / non-200 degrades gracefully to the chars/4 heuristic (report marked heuristic|mixed, per-entry degraded flag) and never hard-fails.",
+    "Scope honesty: tool-tiers.ts already trims exposed tools and Claude Code defers schemas, so the report measures per-tier and the remaining win is smaller than the source framing implies.",
+    "context/ is an `export *` auto-discovered dir in scripts/generate-core-barrel.mjs, so new exports flow via context/index.ts with no allowlist edit; verified with generate:barrels --check.",
+    "Default budget window is 200,000 tokens (overridable via --window)."
+  ]
+}
