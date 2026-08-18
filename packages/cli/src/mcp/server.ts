@@ -708,7 +708,7 @@ export function createHarnessServer(projectRoot?: string, toolFilter?: string[])
     projectRoot: resolvedRoot,
     trustedOutputTools,
   });
-  const compactedHandlers = applyCompaction(guardedHandlers);
+  const compactedHandlers = applyCompaction(guardedHandlers, { projectRoot: resolvedRoot });
 
   const server = new Server(
     { name: 'harness-engineering', version: '2.3.1' },

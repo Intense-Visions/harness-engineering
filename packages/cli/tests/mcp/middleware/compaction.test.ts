@@ -1,4 +1,8 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, afterEach } from 'vitest';
+import { mkdtempSync, rmSync, existsSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import { readSpill, searchSpill, SPILL_LOCATOR_SCHEME } from '@harness-engineering/core';
 import { wrapWithCompaction, applyCompaction } from '../../../src/mcp/middleware/compaction';
 
 type ToolResult = { content: Array<{ type: string; text: string }>; isError?: boolean };
@@ -275,5 +279,109 @@ describe('CT08: reduction metrics — real handler simulation', () => {
     const bypassResult = await wrapped({ compact: false, path: '/tmp' });
 
     expect(bypassResult.content[0].text).toBe(rawResult.content[0].text);
+  });
+});
+
+describe('CT-spill: large tool output spills to disk with a followup-readable locator', () => {
+  const tmpRoots: string[] = [];
+
+  afterEach(() => {
+    for (const root of tmpRoots.splice(0)) {
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
+
+  function makeTmpRoot(): string {
+    const root = mkdtempSync(join(tmpdir(), 'harness-spill-mw-'));
+    tmpRoots.push(root);
+    return root;
+  }
+
+  // A long test-log-style payload that both exceeds the truncation budget and,
+  // for spill purposes, exceeds a small explicit spill threshold.
+  const bigLog = Array.from(
+    { length: 4000 },
+    (_, i) => `2026-08-18T00:00:${String(i % 60).padStart(2, '0')} INFO line ${i} value-${i}`
+  ).join('\n');
+  const marker = 'SENTINEL_NEEDLE_9f2ab';
+  const bigLogWithMarker = `${bigLog}\n${marker}\ntail-after-marker`;
+
+  const bigLogHandler = async (): Promise<ToolResult> => ({
+    content: [{ type: 'text', text: bigLogWithMarker }],
+  });
+
+  it('spills over-threshold output and the locator reads back the original content', async () => {
+    const projectRoot = makeTmpRoot();
+    const wrapped = wrapWithCompaction('run_ci_checks', bigLogHandler, {
+      projectRoot,
+      spillThresholdBytes: 1000,
+    });
+
+    const result = await wrapped({});
+    const text = result.content[0].text;
+
+    // Compaction still applied (truncated preview + packed header).
+    expect(text).toMatch(/<!-- packed:/);
+    // Locator substituted into the result so a later turn can recover the tail.
+    expect(text).toContain(SPILL_LOCATOR_SCHEME);
+    const locator = text.match(/harness-spill:[^\s]+/)?.[0];
+    expect(locator).toBeTruthy();
+
+    // The locator reads back the FULL original payload byte-for-byte —
+    // including the marker/tail that truncation dropped from the inline result.
+    const readBack = await readSpill(projectRoot, locator!);
+    expect(readBack.ok).toBe(true);
+    if (readBack.ok) {
+      expect(readBack.value).toBe(bigLogWithMarker);
+      expect(readBack.value).toContain(marker);
+    }
+
+    // Truncation actually happened: the inline result is far shorter than the
+    // full payload now safely recoverable on disk.
+    expect(text.length).toBeLessThan(bigLogWithMarker.length);
+
+    // And the spilled payload is searchable by a later turn without pulling it inline.
+    const search = await searchSpill(projectRoot, locator!, marker);
+    expect(search.ok).toBe(true);
+    if (search.ok) {
+      expect(search.value.matches.length).toBe(1);
+    }
+  });
+
+  it('passes under-threshold output through unchanged — no spill file, no locator', async () => {
+    const projectRoot = makeTmpRoot();
+    const shortText = JSON.stringify({ name: 'harness', ok: true, path: '/src/a.ts' });
+    const handler = async (): Promise<ToolResult> => ({
+      content: [{ type: 'text', text: shortText }],
+    });
+
+    const wrapped = wrapWithCompaction('gather_context', handler, {
+      projectRoot,
+      spillThresholdBytes: 1000,
+    });
+    const result = await wrapped({});
+    const text = result.content[0].text;
+
+    // Normal compaction (header) but NO spill locator appended.
+    expect(text).toMatch(/<!-- packed:/);
+    expect(text).not.toContain(SPILL_LOCATOR_SCHEME);
+    // No spill directory created for under-threshold output.
+    expect(existsSync(join(projectRoot, '.harness'))).toBe(false);
+  });
+
+  it('does not spill when no projectRoot is supplied (backward-compatible)', async () => {
+    const wrapped = wrapWithCompaction('run_ci_checks', bigLogHandler);
+    const result = await wrapped({});
+    expect(result.content[0].text).not.toContain(SPILL_LOCATOR_SCHEME);
+  });
+
+  it('applyCompaction threads projectRoot to every wrapped handler', async () => {
+    const projectRoot = makeTmpRoot();
+    const wrapped = applyCompaction(
+      { run_ci_checks: bigLogHandler },
+      { projectRoot, spillThresholdBytes: 1000 }
+    );
+    const result = await wrapped.run_ci_checks({});
+    expect(result.content[0].text).toContain(SPILL_LOCATOR_SCHEME);
   });
 });
