@@ -149,6 +149,7 @@ export * from './interaction';
 export * from './blueprint/types';
 export { ProjectScanner } from './blueprint/scanner';
 export { BlueprintGenerator } from './blueprint/generator';
+export * from './blueprint/impact-lab-generator';
 
 /**
  * Update checker utilities for checking for new versions of the toolkit.

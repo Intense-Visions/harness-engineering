@@ -23,7 +23,8 @@ import { resolve, join, relative } from 'node:path';
 const ROOT = resolve(import.meta.dirname, '..');
 const CLI_COMMANDS_DIR = join(ROOT, 'packages', 'cli', 'src', 'commands');
 const REGISTRY_PATH = join(ROOT, 'packages', 'cli', 'src', 'commands', '_registry.ts');
-const HEADER = '// AUTO-GENERATED — do not edit. Run `pnpm run generate-barrel-exports` to regenerate.\n';
+const HEADER =
+  '// AUTO-GENERATED — do not edit. Run `pnpm run generate-barrel-exports` to regenerate.\n';
 
 /**
  * Sub-directory files that are registered as top-level CLI commands.
@@ -47,10 +48,17 @@ function extractCommands(filePath, commandsDir) {
     ...content.matchAll(/export\s+const\s+(create\w+Command)\s*=/g),
   ];
   return matches.map((match) => {
-    let importPath = './' + relative(commandsDir, filePath)
-      .replace(/\.ts$/, '')
-      .replace(/\/index$/, '');
-    importPath = importPath.replace(/\\/g, '/');
+    // Normalize path separators to POSIX '/' FIRST, before stripping the
+    // '.ts' / '/index' suffixes — otherwise on Windows `relative()` returns
+    // backslash-separated paths (e.g. `nested\index.ts`) and the forward-slash
+    // `/index$` strip never matches, emitting `./nested/index` instead of
+    // `./nested`. Ordering the replace last (as before) left this Windows-only.
+    const importPath =
+      './' +
+      relative(commandsDir, filePath)
+        .replace(/\\/g, '/')
+        .replace(/\.ts$/, '')
+        .replace(/\/index$/, '');
     return { importPath, functionName: match[1] };
   });
 }
@@ -106,9 +114,7 @@ function generateRegistry(commands) {
     .map((c) => `import { ${c.functionName} } from '${c.importPath}';`)
     .join('\n');
 
-  const registrations = commands
-    .map((c) => `  ${c.functionName},`)
-    .join('\n');
+  const registrations = commands.map((c) => `  ${c.functionName},`).join('\n');
 
   return `${HEADER}
 import type { Command } from 'commander';
