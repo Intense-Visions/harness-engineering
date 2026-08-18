@@ -241,10 +241,31 @@ last_manual_edit: 2026-07-17T00:00:00.000Z
       const store = new MonolithStore({ roadmapPath: ROADMAP_PATH, io });
       const r = await store.patchFeature('a-feature', (f) => ({ ...f, status: 'done' }));
       expect(r.ok).toBe(false);
-      if (!r.ok) expect(r.error.message).toMatch(/#839/);
+      // The refusal names the actionable remedy (shard into docs/roadmap.d/).
+      if (!r.ok) expect(r.error.message).toMatch(/docs\/roadmap\.d/);
       // No write happened; the file is byte-for-byte intact.
       expect(writes).toHaveLength(0);
       expect(files.get(ROADMAP_PATH)).toBe(RICH_ROADMAP_MD);
+    });
+
+    // #1253: the adopter-facing refusal must NOT point at an internal, closed
+    // issue number (#839) in this private repo — an ADOPTER of
+    // @harness-engineering/core cannot read it. The message must keep its
+    // actionable remedies (shard into docs/roadmap.d/, or remove the content)
+    // while dropping the "See issue #839." trailer.
+    it('refusal message carries actionable remedies but no internal issue reference (#1253)', async () => {
+      const { io } = makeIO({ [ROADMAP_PATH]: RICH_ROADMAP_MD });
+      const store = new MonolithStore({ roadmapPath: ROADMAP_PATH, io });
+      const r = await store.patchFeature('a-feature', (f) => ({ ...f, status: 'done' }));
+      expect(r.ok).toBe(false);
+      if (!r.ok) {
+        // No reference to the internal closed issue #839 (the shipped defect).
+        expect(r.error.message).not.toMatch(/#839/);
+        expect(r.error.message).not.toMatch(/See issue/);
+        // Actionable remedies remain intact.
+        expect(r.error.message).toMatch(/docs\/roadmap\.d/);
+        expect(r.error.message).toMatch(/remove the unmodeled content/);
+      }
     });
 
     it('addFeature() returns Err and does not write', async () => {
