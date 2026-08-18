@@ -597,3 +597,114 @@ describe('drift detector — issue #1342/#1332 regressions', () => {
     expect(structureDrifts).toHaveLength(0);
   });
 });
+
+// Regression: github issue #1326. docs/changes/** is the immutable historical
+// record of shipped changes. Its dangling links/anchors are unactionable by
+// design (fixing them edits history), yet checkStructureDrift ignored the
+// forward-looking-paths exclusion that checkApiSignatureDrift already honored,
+// so ~223 structure findings inside docs/changes/** dominated drift output.
+// The fix threads config into checkStructureDrift and skips forward-looking
+// docs — exactly as api-signature drift already does. A dangling link in a
+// NON-forward-looking doc must still be flagged.
+describe('drift detector — issue #1326 structure-drift forward-looking exclusion', () => {
+  const parser3 = new TypeScriptParser();
+  let projectDir1326: string;
+
+  beforeEach(async () => {
+    projectDir1326 = await mkdtemp(join(tmpdir(), 'drift-1326-'));
+    await mkdir(join(projectDir1326, 'src'), { recursive: true });
+    await writeFile(
+      join(projectDir1326, 'src', 'index.ts'),
+      'export function realFunction() { return 1; }\n'
+    );
+  });
+
+  afterEach(async () => {
+    await rm(projectDir1326, { recursive: true, force: true });
+  });
+
+  async function structureDriftFor() {
+    const snapshotResult = await buildSnapshot({
+      rootDir: projectDir1326,
+      parser: parser3,
+      analyze: { drift: true },
+      include: ['src/**/*.ts'],
+      docPaths: ['docs/**/*.md'],
+    });
+    expect(snapshotResult.ok).toBe(true);
+    if (!snapshotResult.ok) return [];
+    const result = await detectDocDrift(snapshotResult.value, {
+      checkApiSignatures: false,
+      checkExamples: false,
+      checkStructure: true,
+      docPaths: [],
+      ignorePatterns: [],
+    });
+    expect(result.ok).toBe(true);
+    if (!result.ok) return [];
+    return result.value.drifts.filter((d) => d.type === 'structure');
+  }
+
+  it('suppresses a broken file link inside docs/changes/**', async () => {
+    await mkdir(join(projectDir1326, 'docs', 'changes', 'my-feature'), { recursive: true });
+    await writeFile(
+      join(projectDir1326, 'docs', 'changes', 'my-feature', 'proposal.md'),
+      '# Proposal\n\nSee [the plan](./plan-that-was-never-written.md) for details.\n'
+    );
+    const structureDrifts = await structureDriftFor();
+    expect(structureDrifts).toHaveLength(0);
+  });
+
+  it('suppresses a broken anchor inside docs/changes/**', async () => {
+    await mkdir(join(projectDir1326, 'docs', 'changes', 'my-feature'), { recursive: true });
+    await writeFile(
+      join(projectDir1326, 'docs', 'changes', 'my-feature', 'plan.md'),
+      ['# Plan', '', '## Phase 1', '', 'Body.'].join('\n')
+    );
+    await writeFile(
+      join(projectDir1326, 'docs', 'changes', 'my-feature', 'proposal.md'),
+      '# Proposal\n\nSee [phase two](./plan.md#phase-2) which was never added.\n'
+    );
+    const structureDrifts = await structureDriftFor();
+    expect(structureDrifts).toHaveLength(0);
+  });
+
+  it('still flags a broken file link in a NON-forward-looking doc (docs/reference/**)', async () => {
+    await mkdir(join(projectDir1326, 'docs', 'reference'), { recursive: true });
+    await writeFile(
+      join(projectDir1326, 'docs', 'reference', 'foo.md'),
+      '# Reference\n\nSee [the API](./missing-api-doc.md) for details.\n'
+    );
+    const structureDrifts = await structureDriftFor();
+    expect(structureDrifts.some((d) => d.reference.includes('missing-api-doc.md'))).toBe(true);
+  });
+
+  it('respects a custom forwardLookingPaths override for structure drift', async () => {
+    await mkdir(join(projectDir1326, 'docs', 'rfcs'), { recursive: true });
+    await writeFile(
+      join(projectDir1326, 'docs', 'rfcs', 'rfc-1.md'),
+      '# RFC\n\nSee [the design](./design-not-yet-written.md).\n'
+    );
+    const snapshotResult = await buildSnapshot({
+      rootDir: projectDir1326,
+      parser: parser3,
+      analyze: { drift: true },
+      include: ['src/**/*.ts'],
+      docPaths: ['docs/**/*.md'],
+    });
+    expect(snapshotResult.ok).toBe(true);
+    if (!snapshotResult.ok) return;
+    const result = await detectDocDrift(snapshotResult.value, {
+      checkApiSignatures: false,
+      checkExamples: false,
+      checkStructure: true,
+      docPaths: [],
+      ignorePatterns: [],
+      forwardLookingPaths: ['docs/rfcs/'],
+    });
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    const structureDrifts = result.value.drifts.filter((d) => d.type === 'structure');
+    expect(structureDrifts).toHaveLength(0);
+  });
+});

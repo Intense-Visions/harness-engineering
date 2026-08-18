@@ -197,10 +197,14 @@ export function findPossibleMatches(
 }
 
 // Default doc-path prefixes that describe intended future code (ADRs,
-// decisions, proposals, and change specs/plans). API-signature drift inside
-// these docs is suppressed — symbols there describe the design, not the
-// current codebase. `docs/changes/` holds proposals and phase plans that by
-// definition describe proposed/illustrative code (github issue #816).
+// decisions, proposals, and change specs/plans). Both API-signature AND
+// structure drift (broken links/anchors) inside these docs are suppressed —
+// their contents describe the design, not the current codebase/tree.
+// `docs/changes/` is the IMMUTABLE historical record of shipped changes
+// (proposals, plans, verification reports): its dangling links are
+// unactionable by design — "fixing" a shipped proposal's link edits history —
+// and were the dominant contributor to drift counts (github issues #816,
+// #1326). Do NOT remove `docs/changes/` here to "clean up" drift output.
 // Override via DriftConfig.forwardLookingPaths.
 const DEFAULT_FORWARD_LOOKING_PATHS = [
   'docs/architecture/',
@@ -468,11 +472,18 @@ async function extractHeadingSlugs(filePath: string): Promise<Set<string>> {
  */
 async function checkStructureDrift(
   snapshot: CodebaseSnapshot,
-  _config: DriftConfig
+  config: DriftConfig
 ): Promise<DocumentationDrift[]> {
   const drifts: DocumentationDrift[] = [];
 
   for (const doc of snapshot.docs) {
+    // Forward-looking docs (ADRs, proposals, and especially the immutable
+    // docs/changes/** historical record) describe the design, not the current
+    // tree. Their dangling links/anchors are unactionable by design — "fixing"
+    // a shipped proposal's link edits history — so suppress structure drift
+    // there exactly as api-signature drift is suppressed (github issue #1326).
+    if (isForwardLookingDoc(doc.path, config.forwardLookingPaths)) continue;
+
     const fileLinks = extractFileLinks(doc.content);
 
     for (const link of fileLinks) {
