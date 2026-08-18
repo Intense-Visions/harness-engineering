@@ -4,7 +4,7 @@
 
 Canonical, regenerated-and-gated reference for every shipped MCP tool and skill. Unlike the summary in [MCP Tools Reference](./mcp-tools.md), this catalog serializes each tool’s **full live input schema** and each skill’s **full declared contract**, so a divergence between a definition’s real schema and its documentation is caught by `pnpm run generate:tool-catalog:check` in CI rather than drifting silently.
 
-## MCP Tools (107)
+## MCP Tools (108)
 
 Every shipped MCP tool, booted live from the built server, with its full input schema. A drift between a tool’s real schema and this catalog fails the build.
 
@@ -4551,7 +4551,7 @@ Generate or regenerate the LLM `llm-summary.md` for an archived session.
 
 ### `test_craft`
 
-LLM-judgment critique of test quality across vitest/jest/mocha/playwright/pytest. Fourth craft-pipeline ceiling skill; 8 seed rubrics. Per-test critique with optional source pairing for contract-vs-implementation rubrics.
+LLM-judgment critique of test quality across vitest/jest/mocha/playwright/pytest. Fourth craft-pipeline ceiling skill; 8 seed rubrics. Per-test critique with optional source pairing for contract-vs-implementation rubrics. In-session mode (default in Claude Code) returns prompts for the calling agent to answer; call test_craft_finalize with the responses to get findings.
 
 **Input schema:**
 
@@ -4559,7 +4559,7 @@ LLM-judgment critique of test quality across vitest/jest/mocha/playwright/pytest
 {
   "properties": {
     "emitTo": {
-      "description": "Write a machine-readable per-test verdict report (JSON) to this path so downstream tooling can consume the findings; relative paths resolve against the project root",
+      "description": "Write a machine-readable per-test verdict report (JSON) to this path so downstream tooling can consume the findings; relative paths resolve against the project root (inline mode only)",
       "type": "string"
     },
     "files": {
@@ -4591,9 +4591,21 @@ LLM-judgment critique of test quality across vitest/jest/mocha/playwright/pytest
       "description": "Cap per-file test critique (default: 20)",
       "type": "number"
     },
+    "mode": {
+      "description": "'in-session' (default): return prompts for the calling agent to answer, then call test_craft_finalize. 'inline': run end-to-end via the configured provider (HARNESS_CRAFT_LLM).",
+      "enum": [
+        "inline",
+        "in-session"
+      ],
+      "type": "string"
+    },
     "path": {
       "description": "Project root path",
       "type": "string"
+    },
+    "promptBudget": {
+      "description": "Cap prompt count in in-session mode (default: 100)",
+      "type": "number"
     },
     "sourcePair": {
       "description": "Resolve source file under test for richer prompt context (default: true)",
@@ -4602,6 +4614,52 @@ LLM-judgment critique of test quality across vitest/jest/mocha/playwright/pytest
   },
   "required": [
     "path"
+  ],
+  "type": "object"
+}
+```
+
+### `test_craft_finalize`
+
+Finalize a test_craft in-session run by submitting the calling agent's responses to the prompts collected by test_craft. Returns the standard TestCraftOutput with findings.
+
+**Input schema:**
+
+```json
+{
+  "properties": {
+    "path": {
+      "description": "Project root path used in the collect call (must match)",
+      "type": "string"
+    },
+    "responses": {
+      "description": "Per-prompt responses. `raw` is the fenced JSON block the calling agent produced.",
+      "items": {
+        "properties": {
+          "promptId": {
+            "type": "string"
+          },
+          "raw": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "promptId",
+          "raw"
+        ],
+        "type": "object"
+      },
+      "type": "array"
+    },
+    "runId": {
+      "description": "runId returned by the test_craft collect call",
+      "type": "string"
+    }
+  },
+  "required": [
+    "path",
+    "runId",
+    "responses"
   ],
   "type": "object"
 }

@@ -1,0 +1,62 @@
+{
+  "issue": 1368,
+  "refs": "Refs #1368 (interactive follow-up; the guard bug itself was addressed by #1430)",
+  "slug": "test-craft-interactive",
+  "title": "test-craft interactive collect/finalize handshake",
+  "branch": "feat/test-craft-interactive",
+  "goal": "Make test-craft runnable in an interactive session (Claude Code, where the calling agent is the LLM judge) by giving it the same two-step collect -> finalize handshake code-craft / api-craft / naming-craft / cli-ergonomics-craft already have. Before this, test-craft only had the inline runTestCraft, which loudly refuses the in-session provider, and had no test_craft_finalize tool.",
+  "pipelineStages": [
+    {
+      "stage": "critique-refactor",
+      "artifact": "packages/cli/src/test-craft/phases/critique.ts",
+      "summary": "Export CRITIQUE_SYSTEM_PROMPT; export pure buildPrompt({test,rubric,sourcePair?}) and parseFindingFromRaw(raw,{test,rubric}); inline critiqueOne now composes both (mirrors code-craft/critique.ts)."
+    },
+    {
+      "stage": "collect",
+      "artifact": "packages/cli/src/test-craft/index.ts:collectTestCraftPrompts",
+      "summary": "Enumerate the same (test, rubric) pairs runTestCraft uses (reusing extractTestsFromFiles + source-pairing), build one prompt per pair, persist run-state to the shared craft runs store under a new runId, return { runId, pendingPrompts, projection, status } with a prompt-count budget guard. No LLM called."
+    },
+    {
+      "stage": "finalize",
+      "artifact": "packages/cli/src/test-craft/index.ts:finalizeTestCraft",
+      "summary": "Load run-state by runId (clear error when missing or skill-mismatched), parse each responses[].raw fenced JSON into a TestFinding via the shared parser, delete run-state, return the same TestCraftOutput shape runTestCraft returns."
+    },
+    {
+      "stage": "mcp",
+      "artifact": "packages/cli/src/mcp/tools/test-craft.ts",
+      "summary": "test_craft becomes the collect handler (in-session default returns prompts + 'call test_craft_finalize'; inline otherwise). New test_craft_finalize handler + definition."
+    }
+  ],
+  "planArtifact": "docs/changes/test-craft-interactive/plans/plan.md",
+  "sourceFiles": [
+    "packages/cli/src/test-craft/phases/critique.ts",
+    "packages/cli/src/test-craft/index.ts",
+    "packages/cli/src/mcp/tools/test-craft.ts",
+    "packages/cli/tests/mcp/tools/test-craft.test.ts"
+  ],
+  "registrationSites": [
+    "packages/cli/src/mcp/server.ts (import block, TOOL_DEFINITIONS array, TOOL_HANDLERS map)",
+    "packages/cli/src/mcp/tool-capability-declarations.ts (test_craft_finalize: read scope)"
+  ],
+  "generatedArtifacts": [
+    "docs/reference/mcp-tools.md (test_craft_finalize entry)",
+    "docs/reference/tool-catalog.md",
+    "plugin artifacts via generate:plugin:all"
+  ],
+  "localChecks": {
+    "build": "pass (pnpm -w build, Node 22)",
+    "typecheck": "pass (@harness-engineering/cli, tsc --noEmit)",
+    "test": "pass (50 tests: test-craft/critique + test-craft/integration + mcp/tools/test-craft + mcp/server + mcp/server-integration)",
+    "toolCatalogCheck": "pass (generate:tool-catalog:check)",
+    "pluginCheck": "pass (generate:plugin:check)",
+    "toolCount": "107 -> 108 (server.test.ts + server-integration.test.ts updated)"
+  },
+  "assumptions": [
+    "The established collect pattern across the four sibling craft skills builds prompts directly via the exported buildPrompt; it does not drive the InSession provider deferred queue. test-craft mirrors that.",
+    "finalizeTestCraft needs only { test, rubric } to rebuild a finding (source-pair is used only at collect-time prompt build), so run-state persists the ExtractedTest + rubricId per prompt.",
+    "critiqueErrors is always 0 in the finalize summary: the calling agent answers every prompt, so there is no per-critique LLM throw to count.",
+    "emitTo is inline-mode only; in-session collect/finalize does not write the machine-readable report.",
+    "Owning package for the changeset is @harness-engineering/cli; minor bump (new MCP tool + new interactive capability).",
+    "Refs #1368 (not Closes): #1368 is the guard bug, already addressed by #1430; this is the interactive follow-up."
+  ]
+}
