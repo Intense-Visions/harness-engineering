@@ -208,6 +208,67 @@ Route all auth through AuthService.
       expect(node!.metadata.source).toBe('architecture');
     });
 
+    // Regression: github issue #1330 — the decisions/architecture/knowledge dirs
+    // were hardcoded to `docs/knowledge/decisions` etc., ignoring the project's
+    // configured `docsDir`/`adrDir`. A project that keeps ADRs at a configured
+    // non-default location reported "0 decisions" (a zero denominator that reads
+    // like a real measurement).
+    it('honors a configured non-default adrDir when locating decision ADRs', async () => {
+      const adrDir = path.join(tmpDir, 'architecture', 'adrs');
+      await fs.mkdir(adrDir, { recursive: true });
+      await fs.writeFile(
+        path.join(adrDir, '0007-custom-location.md'),
+        `---
+number: 0007
+title: Keep ADRs in a configured location
+date: 2026-08-18
+status: accepted
+tier: large
+---
+
+## Decision
+
+ADRs live under a project-configured directory, not the hardcoded default.
+`,
+        'utf-8'
+      );
+
+      const runner = new KnowledgePipelineRunner(store);
+      // adrDir is repo-relative (as sourced from operationalPolicy.adrDir).
+      const result = await runner.run(makeOptions({ adrDir: 'architecture/adrs' }));
+
+      expect(result.extraction.decisions).toBeGreaterThanOrEqual(1);
+      const node = store.getNode('decision:0007-custom-location');
+      expect(node).not.toBeNull();
+      expect(node!.type).toBe('decision');
+    });
+
+    // Companion to #1330: a configured non-default `docsDir` must relocate the
+    // derived architecture/ and knowledge/ subtrees too.
+    it('derives architecture/ and knowledge/ subtrees from a configured docsDir', async () => {
+      const archDir = path.join(tmpDir, 'documentation', 'architecture', 'auth');
+      await fs.mkdir(archDir, { recursive: true });
+      await fs.writeFile(
+        path.join(archDir, 'ADR-002.md'),
+        `# ADR-002: Centralize auth
+
+**Date:** 2026-08-18
+**Status:** Accepted
+
+## Decision
+
+Route auth through AuthService.
+`,
+        'utf-8'
+      );
+
+      const runner = new KnowledgePipelineRunner(store);
+      const result = await runner.run(makeOptions({ docsDir: 'documentation' }));
+
+      expect(result.extraction.decisions).toBeGreaterThanOrEqual(1);
+      expect(store.getNode('decision:architecture:auth:ADR-002')).not.toBeNull();
+    });
+
     it('surfaces BusinessKnowledgeIngestor frontmatter errors on the result', async () => {
       // Schema-invalid solutions doc: missing last_updated (required field).
       const solutionsDir = path.join(tmpDir, 'docs', 'solutions', 'knowledge-track', 'conventions');

@@ -81,6 +81,50 @@ export interface KnowledgePipelineOptions {
    * fixture trees are always excluded regardless of this list (#1111).
    */
   readonly extractionExclude?: readonly string[];
+  /**
+   * Project documentation root, sourced by the CLI from
+   * `harness.config.json#docsDir` (default `./docs`). May be absolute or
+   * repo-relative (resolved against `projectDir`). The `architecture/` and
+   * `knowledge/` subtrees scanned by phase 1 are derived from this directory,
+   * so a project that relocates its docs is no longer silently invisible
+   * (#1330). Defaults to `<projectDir>/docs` when unset.
+   */
+  readonly docsDir?: string;
+  /**
+   * Directory holding decision ADRs, sourced by the CLI from
+   * `harness.config.json#operationalPolicy.adrDir` (default
+   * `docs/knowledge/decisions`). May be absolute or repo-relative (resolved
+   * against `projectDir`). When unset it derives from `docsDir` as
+   * `<docsDir>/knowledge/decisions`, preserving the historical default (#1330).
+   */
+  readonly adrDir?: string;
+}
+
+/**
+ * Resolve the documentation directories scanned by phase 1 from configured
+ * `docsDir` / `adrDir` (both optional, both absolute-or-repo-relative). Keeps
+ * the historical hardcoded defaults (`docs/knowledge/decisions`,
+ * `docs/architecture`, `docs/knowledge`) when config is absent so existing
+ * projects are unaffected (#1330).
+ */
+function resolveDocDirs(options: KnowledgePipelineOptions): {
+  docsDir: string;
+  decisionsDir: string;
+  architectureDir: string;
+  knowledgeDir: string;
+} {
+  const docsDir = options.docsDir
+    ? path.resolve(options.projectDir, options.docsDir)
+    : path.join(options.projectDir, 'docs');
+  const decisionsDir = options.adrDir
+    ? path.resolve(options.projectDir, options.adrDir)
+    : path.join(docsDir, 'knowledge', 'decisions');
+  return {
+    docsDir,
+    decisionsDir,
+    architectureDir: path.join(docsDir, 'architecture'),
+    knowledgeDir: path.join(docsDir, 'knowledge'),
+  };
 }
 
 export interface ExtractionCounts {
@@ -294,8 +338,10 @@ export class KnowledgePipelineRunner {
       imageCount = imageResult.nodesAdded;
     }
 
-    // Business knowledge from docs/knowledge/
-    const knowledgeDir = path.join(options.projectDir, 'docs', 'knowledge');
+    // Documentation directories, derived from configured docsDir/adrDir (#1330).
+    const { decisionsDir, architectureDir, knowledgeDir } = resolveDocDirs(options);
+
+    // Business knowledge from docs/knowledge/ (docsDir-derived)
     const bkIngestor = new BusinessKnowledgeIngestor(this.store);
     let bkResult: IngestResult;
     try {
@@ -337,8 +383,6 @@ export class KnowledgePipelineRunner {
     // PLUS architecture-advisor markdown ADRs from docs/architecture/<topic>/ADR-*.md.
     // Both flow into the same `decision` node type so drift detection +
     // contradiction detection apply uniformly.
-    const decisionsDir = path.join(options.projectDir, 'docs', 'knowledge', 'decisions');
-    const architectureDir = path.join(options.projectDir, 'docs', 'architecture');
     const decisionIngestor = new DecisionIngestor(this.store);
     let decisionResult: IngestResult;
     try {
@@ -405,7 +449,7 @@ export class KnowledgePipelineRunner {
   // ── Phase 3: DETECT ───────────────────────────────────────────────────────
 
   private async detect(options: KnowledgePipelineOptions): Promise<GapReport> {
-    const knowledgeDir = path.join(options.projectDir, 'docs', 'knowledge');
+    const { knowledgeDir } = resolveDocDirs(options);
     const aggregator = new KnowledgeStagingAggregator(options.projectDir, this.inferenceOptions);
     const gapReport = await aggregator.generateGapReport(knowledgeDir, this.store);
     await aggregator.writeGapReport(gapReport);

@@ -45,7 +45,8 @@ function buildPipelineOptions(
   projectDir: string,
   graphDir: string,
   inferenceOptions: Record<string, unknown> | undefined,
-  extractionExclude: readonly string[]
+  extractionExclude: readonly string[],
+  docDirs: { docsDir?: string; adrDir?: string }
 ): Record<string, unknown> {
   const pipelineOpts: Record<string, unknown> = {
     projectDir,
@@ -56,6 +57,10 @@ function buildPipelineOptions(
     analyzeImages: Boolean(opts.analyzeImages),
     ...(inferenceOptions ? { inferenceOptions } : {}),
     ...(extractionExclude.length > 0 ? { extractionExclude } : {}),
+    // Configured documentation directories so phase-1 ingestion honors a
+    // relocated docsDir / adrDir instead of the hardcoded defaults (#1330).
+    ...(docDirs.docsDir ? { docsDir: docDirs.docsDir } : {}),
+    ...(docDirs.adrDir ? { adrDir: docDirs.adrDir } : {}),
   };
 
   // Parse image paths if provided
@@ -308,9 +313,16 @@ export function createKnowledgePipelineCommand(): Command {
         }
 
         const cfgResult = resolveConfig();
-        const cfgKnowledge = cfgResult.ok ? cfgResult.value.knowledge : undefined;
+        const cfg = cfgResult.ok ? cfgResult.value : undefined;
+        const cfgKnowledge = cfg?.knowledge;
         const inferenceOptions = resolveInferenceOptions(cfgKnowledge);
         const extractionExclude = cfgKnowledge?.extractionExclude ?? [];
+        // docsDir has a schema default of './docs'; adrDir is optional under
+        // operationalPolicy (default docs/knowledge/decisions applied downstream).
+        const docDirs = {
+          ...(cfg?.docsDir ? { docsDir: cfg.docsDir } : {}),
+          ...(cfg?.operationalPolicy?.adrDir ? { adrDir: cfg.operationalPolicy.adrDir } : {}),
+        };
 
         // Build pipeline options
         const pipelineOpts = buildPipelineOptions(
@@ -318,7 +330,8 @@ export function createKnowledgePipelineCommand(): Command {
           projectDir,
           graphDir,
           inferenceOptions,
-          extractionExclude
+          extractionExclude,
+          docDirs
         );
 
         // Set up analysis provider for image analysis if requested
