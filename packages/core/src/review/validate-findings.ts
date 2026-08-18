@@ -1,6 +1,7 @@
 import * as path from 'node:path';
 import type { ReviewFinding, GraphAdapter, FindingSeverity } from './types';
 import type { ExclusionSet } from './exclusion-set';
+import { parseHarnessIgnore } from '../security/harness-ignore';
 
 /**
  * Options for the validation phase.
@@ -16,6 +17,16 @@ export interface ValidateFindingsOptions {
   projectRoot: string;
   /** Changed file contents for import-chain heuristic (file path -> content) */
   fileContents?: Map<string, string>;
+  /**
+   * Full (line-aligned) content of each changed file, keyed by the same path the
+   * findings carry. Used to honor `// harness-ignore SEC-XXX-NNN` annotations on
+   * the heuristic path exactly as the mechanical SecurityScanner does (#1302).
+   *
+   * Distinct from {@link fileContents}, which holds per-file *diff hunks* whose
+   * line numbers do not align with a finding's `lineRange`; annotation lookup
+   * needs the true source lines.
+   */
+  changedFileContents?: Map<string, string>;
 }
 
 /**
@@ -129,6 +140,61 @@ function followImportChain(
   return visited;
 }
 
+/**
+ * Resolve a finding's changed-file content across the path forms it may carry
+ * (project-relative as scanned, or absolute). Mirrors the multi-form lookup in
+ * {@link isMechanicallyExcluded} so annotation suppression is not defeated by a
+ * path-shape mismatch.
+ */
+function lookupChangedContent(
+  finding: ReviewFinding,
+  changedFileContents: Map<string, string>,
+  projectRoot: string
+): string | undefined {
+  const direct = changedFileContents.get(finding.file);
+  if (direct !== undefined) return direct;
+
+  const normalized = normalizePath(finding.file, projectRoot);
+  const byNormalized = changedFileContents.get(normalized);
+  if (byNormalized !== undefined) return byNormalized;
+
+  const absolute = path.isAbsolute(finding.file)
+    ? finding.file
+    : path.join(projectRoot, finding.file).replace(/\\/g, '/');
+  return changedFileContents.get(absolute);
+}
+
+/**
+ * True when a heuristic finding's line carries a matching `// harness-ignore
+ * SEC-XXX-NNN` annotation (#1302). The heuristic security agent tags each
+ * finding with the SecurityScanner rule it mirrors (`securityRuleId`); here we
+ * reuse that scanner's own {@link parseHarnessIgnore} so the suppression is
+ * byte-for-byte the mechanical path's — same-line first (trailing-comment
+ * style), then the prior line (the dominant over-the-top convention).
+ *
+ * Findings without a `securityRuleId` (every non-security agent) can never match
+ * a `SEC-` annotation and are left untouched, so this is a no-op for them.
+ */
+function isSuppressedByAnnotation(
+  finding: ReviewFinding,
+  changedFileContents: Map<string, string> | undefined,
+  projectRoot: string
+): boolean {
+  const ruleId = finding.securityRuleId;
+  if (!ruleId || !changedFileContents) return false;
+
+  const content = lookupChangedContent(finding, changedFileContents, projectRoot);
+  if (content === undefined) return false;
+
+  const lines = content.split('\n');
+  const lineNumber = finding.lineRange[0]; // 1-indexed
+  const sameLine = lines[lineNumber - 1];
+  if (sameLine !== undefined && parseHarnessIgnore(sameLine, ruleId)) return true;
+
+  const priorLine = lineNumber >= 2 ? lines[lineNumber - 2] : undefined;
+  return priorLine !== undefined && parseHarnessIgnore(priorLine, ruleId) !== null;
+}
+
 function isMechanicallyExcluded(
   finding: ReviewFinding,
   exclusionSet: ExclusionSet,
@@ -188,8 +254,12 @@ async function processFinding(
   exclusionSet: ExclusionSet,
   graph: GraphAdapter | undefined,
   projectRoot: string,
-  fileContents: Map<string, string> | undefined
+  fileContents: Map<string, string> | undefined,
+  changedFileContents: Map<string, string> | undefined
 ): Promise<ReviewFinding | null> {
+  // #1302: honor `// harness-ignore SEC-XXX-NNN` on the heuristic path, exactly
+  // as the mechanical SecurityScanner path already does.
+  if (isSuppressedByAnnotation(finding, changedFileContents, projectRoot)) return null;
   if (isMechanicallyExcluded(finding, exclusionSet, projectRoot)) return null;
 
   const crossFileRefs = extractCrossFileRefs(finding);
@@ -214,12 +284,19 @@ async function processFinding(
  * 3. Import-chain heuristic (no graph): downgrade findings with unvalidated cross-file claims
  */
 export async function validateFindings(options: ValidateFindingsOptions): Promise<ReviewFinding[]> {
-  const { findings, exclusionSet, graph, projectRoot, fileContents } = options;
+  const { findings, exclusionSet, graph, projectRoot, fileContents, changedFileContents } = options;
 
   const validated: ReviewFinding[] = [];
 
   for (const finding of findings) {
-    const result = await processFinding(finding, exclusionSet, graph, projectRoot, fileContents);
+    const result = await processFinding(
+      finding,
+      exclusionSet,
+      graph,
+      projectRoot,
+      fileContents,
+      changedFileContents
+    );
     if (result !== null) validated.push(result);
   }
 
