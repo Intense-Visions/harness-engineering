@@ -74,6 +74,14 @@ export interface ReviewFinding {
    *   shared confidence rubric (see references/confidence-rubric.md).
    */
   confidence?: 'high' | 'medium' | 'low' | ReviewConfidence;
+  /**
+   * The mechanical SecurityScanner rule this heuristic finding mirrors, e.g.
+   * "SEC-INJ-002" (security domain only). Set by the security agent so the
+   * VALIDATE chokepoint can honor a `// harness-ignore SEC-XXX-NNN` annotation
+   * on the finding's line exactly as the SecurityScanner path does (#1302).
+   * Absent on findings that have no corresponding scanner rule.
+   */
+  securityRuleId?: string;
   /** Specific remediation guidance (security domain only) */
   remediation?: string;
   /** Links to CWE/OWASP reference docs (security domain only) */

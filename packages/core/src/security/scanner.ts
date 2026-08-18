@@ -21,27 +21,11 @@ import { reactRules } from './rules/stack/react';
 import { goRules } from './rules/stack/go';
 import type { SecurityConfig, SecurityFinding, SecurityRule, ScanResult } from './types';
 import { DEFAULT_SECURITY_CONFIG } from './types';
+import { parseHarnessIgnore } from './harness-ignore';
 
-interface SuppressionMatch {
-  ruleId: string;
-  justification: string | null;
-}
-
-// Limitation: only supports line comments (// and #). Block comments (/* */ in
-// CSS/HTML) are not recognized as suppressions. This is acceptable because most
-// security rules target JS/TS/Go/Python files that use line comments.
-export function parseHarnessIgnore(line: string, ruleId: string): SuppressionMatch | null {
-  if (!line.includes('harness-ignore')) return null;
-  if (!line.includes(ruleId)) return null;
-
-  // Match: // harness-ignore SEC-XXX-NNN: justification text
-  // Also: # harness-ignore SEC-XXX-NNN: justification text (for non-JS files)
-  const match = line.match(/(?:\/\/|#)\s*harness-ignore\s+(SEC-[A-Z]+-\d+)(?::\s*(.+))?/);
-  if (match?.[1] !== ruleId) return null;
-
-  const text = match[2]?.trim();
-  return { ruleId, justification: text || null };
-}
+// Re-exported so the existing `security/scanner` import path (and index barrel)
+// stays stable after the parser was extracted to its dependency-free module.
+export { parseHarnessIgnore } from './harness-ignore';
 
 export class SecurityScanner {
   private registry: RuleRegistry;
