@@ -1,0 +1,50 @@
+{
+  "issue": 1396,
+  "title": "Canonical bounded handoff record for fleet workers",
+  "externalId": "github:Intense-Visions/harness-engineering#1396",
+  "slug": "canonical-bounded-handoff-record",
+  "branch": "build/handoff-record-1396",
+  "baseSha": "31b5c85e4f09fd0a56c5489995e32e3aac3fca75",
+  "pipelineStages": [
+    {
+      "stage": "brainstorming",
+      "artifact": "docs/changes/canonical-bounded-handoff-record/plans/plan.md",
+      "summary": "Scoped the reusable primitive: ONE bounded handoff record (status, summary, evidence, next_steps, blocker) modeled on a Ralph-loop bounded structured report, landed in @harness-engineering/types with a zod schema + validation helper, mirroring the existing plan-task.ts / maintenance-findings.ts shared-type + validator pattern. Explicitly deferred retrofitting the nine fleet SKILL.md files (downstream adoption)."
+    },
+    {
+      "stage": "planning",
+      "artifact": "docs/changes/canonical-bounded-handoff-record/plans/plan.md",
+      "summary": "5-task plan: author fleet-handoff.ts (schema + validator + throwing/non-throwing helpers + version/const), export from the types barrel, add unit tests (valid passes; missing field / unknown key / bad status / malformed evidence / non-done-without-blocker rejected), add the module to the types reference index, build + test + gate."
+    },
+    {
+      "stage": "execution",
+      "artifact": "packages/types/src/fleet-handoff.ts",
+      "summary": "TDD-style: FleetHandoffRecordSchema (strict, bounded), FleetHandoffStatusSchema, FleetHandoffEvidenceSchema, validateFleetHandoffRecord (non-throwing discriminated result with SCHEMA / BLOCKER_REQUIRED codes), parseFleetHandoffRecord (throwing), FLEET_HANDOFF_RECORD_VERSION, FLEET_HANDOFF_BLOCKER_REQUIRED_STATUSES. Barrel-exported from src/index.ts."
+    },
+    {
+      "stage": "verification",
+      "artifact": "packages/types/tests/fleet-handoff.test.ts",
+      "summary": "16 unit tests across schema, validateFleetHandoffRecord, and parseFleetHandoffRecord. All 88 tests in @harness-engineering/types green."
+    }
+  ],
+  "planArtifact": "docs/changes/canonical-bounded-handoff-record/plans/plan.md",
+  "sourceFiles": [
+    "packages/types/src/fleet-handoff.ts",
+    "packages/types/tests/fleet-handoff.test.ts"
+  ],
+  "registrationSites": [
+    "packages/types/src/index.ts (Fleet Handoff barrel export block)",
+    "docs/reference/api/types.md (module index + count)"
+  ],
+  "localChecks": {
+    "build": "pass (@harness-engineering/types, Node 22)",
+    "test": "pass (88 tests incl. 16 new fleet-handoff tests)"
+  },
+  "assumptions": [
+    "Landed in @harness-engineering/types (not @harness-engineering/core) per the issue's stated likely home; followed that package's own barrel/export convention (src/index.ts named exports), so scripts/generate-core-barrel.mjs was NOT touched.",
+    "Modeled the field set exactly on the issue: status, summary, evidence, next_steps, blocker — plus fleet + item provenance fields so fleet-command can attribute a record, and a v envelope-version field mirroring maintenance-findings.ts.",
+    "status is an enum done|parked|blocked|failed drawn from the fleet DISPATCH contract (branch returned / parked on unforeseen fork / failed); added 'blocked' for external/environmental obstacles distinct from a decision-fork park.",
+    "Bounded is enforced two ways: zod .strict() rejects unknown keys and requires non-empty required fields, and a cross-field invariant rejects any non-done status lacking a blocker.",
+    "SCOPE: shipped only the reusable primitive (type + validator + tests + a reference-doc note). Did NOT retrofit the nine fleet SKILL.md files — that is downstream adoption, explicitly out of scope for this PR."
+  ]
+}
