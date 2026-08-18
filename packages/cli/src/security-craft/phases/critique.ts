@@ -31,7 +31,7 @@ const CONTEXT_WINDOW_CHARS = 1500;
  * low/medium-confidence findings are de-emphasized in reports, so this
  * keeps the report trustworthy for users.
  */
-const SYSTEM_PROMPT =
+export const CRITIQUE_SYSTEM_PROMPT =
   'You are a senior security engineer critiquing a SINGLE security-relevant code ' +
   'snippet against a SINGLE rubric. Respond ONLY with a fenced JSON block.\n\n' +
   'CONFIDENCE POLICY (critical):\n' +
@@ -52,10 +52,26 @@ export interface CritiqueInput {
   provider: LlmProvider;
 }
 
+/** buildPrompt / parseFindingFromRaw inputs (the LLM-free subset of CritiqueInput). */
+export type BuildPromptInput = Omit<CritiqueInput, 'provider'>;
+
 export async function critiqueOne(input: CritiqueInput): Promise<SecurityFinding | null> {
   const { file, signal, rubric, provider } = input;
   const prompt = buildPrompt(input);
-  const raw = await provider.callText(prompt, { systemPrompt: SYSTEM_PROMPT });
+  const raw = await provider.callText(prompt, { systemPrompt: CRITIQUE_SYSTEM_PROMPT });
+  return parseFindingFromRaw(raw, { file, signal, rubric });
+}
+
+/**
+ * Parse a raw LLM response (fenced JSON) into a SecurityFinding. Pure — no
+ * LLM call — so the in-session two-step flow can reuse it after the calling
+ * agent answers.
+ */
+export function parseFindingFromRaw(
+  raw: string,
+  ctx: { file: string; signal: SecuritySignal; rubric: SecurityRubric }
+): SecurityFinding | null {
+  const { file, signal, rubric } = ctx;
   const parsed = parseFencedJson(raw);
   if (parsed === null) return null;
   if (typeof parsed !== 'object') return null;
@@ -79,7 +95,7 @@ export async function critiqueOne(input: CritiqueInput): Promise<SecurityFinding
   };
 }
 
-function buildPrompt(input: CritiqueInput): string {
+export function buildPrompt(input: BuildPromptInput): string {
   const { file, source, signal, rubric } = input;
   const window = sliceAroundLine(source, signal.line, CONTEXT_WINDOW_CHARS);
   return [

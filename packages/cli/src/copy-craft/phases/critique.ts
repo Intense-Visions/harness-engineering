@@ -16,21 +16,38 @@ import { extractFencedJsonPayload } from '../../shared/craft/fenced-json.js';
 
 const MAX_SNIPPET_CHARS = 1500;
 
+/** System prompt for prose-in-code critique. */
+export const CRITIQUE_SYSTEM_PROMPT =
+  'You are a senior engineer critiquing a single piece of prose-in-code against a ' +
+  'single rubric. Respond ONLY with a fenced JSON block. If the rubric does not apply ' +
+  'or the copy is fine, return `null` (literally the word null inside the JSON block).';
+
 export interface CritiqueInput {
   item: ExtractedCopyItem;
   rubric: CopyRubric;
   provider: LlmProvider;
 }
 
+/** buildPrompt / parseFindingFromRaw inputs (the LLM-free subset of CritiqueInput). */
+export type BuildPromptInput = Omit<CritiqueInput, 'provider'>;
+
 export async function critiqueOne(input: CritiqueInput): Promise<CopyFinding | null> {
   const { item, rubric, provider } = input;
   const prompt = buildPrompt(input);
-  const raw = await provider.callText(prompt, {
-    systemPrompt:
-      'You are a senior engineer critiquing a single piece of prose-in-code against a ' +
-      'single rubric. Respond ONLY with a fenced JSON block. If the rubric does not apply ' +
-      'or the copy is fine, return `null` (literally the word null inside the JSON block).',
-  });
+  const raw = await provider.callText(prompt, { systemPrompt: CRITIQUE_SYSTEM_PROMPT });
+  return parseFindingFromRaw(raw, { item, rubric });
+}
+
+/**
+ * Parse a raw LLM response (fenced JSON) into a CopyFinding. Pure — no LLM
+ * call — so the in-session two-step flow can reuse it after the calling agent
+ * answers.
+ */
+export function parseFindingFromRaw(
+  raw: string,
+  ctx: { item: ExtractedCopyItem; rubric: CopyRubric }
+): CopyFinding | null {
+  const { item, rubric } = ctx;
   const parsed = parseFencedJson(raw);
   if (parsed === null) return null;
   if (typeof parsed !== 'object') return null;
@@ -61,7 +78,7 @@ export async function critiqueOne(input: CritiqueInput): Promise<CopyFinding | n
   };
 }
 
-function buildPrompt(input: CritiqueInput): string {
+export function buildPrompt(input: BuildPromptInput): string {
   const { item, rubric } = input;
   const snippet =
     item.snippet.length > MAX_SNIPPET_CHARS

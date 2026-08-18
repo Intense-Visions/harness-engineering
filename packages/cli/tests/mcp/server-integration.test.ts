@@ -112,11 +112,17 @@ describe('MCP Server Integration', () => {
     expect(names).toContain('cli_ergonomics_craft_finalize');
     expect(names).toContain('api_craft_finalize');
     expect(names).toContain('test_craft_finalize');
+    // craft in-session two-step finalize tools (#1368 follow-up)
+    expect(names).toContain('copy_craft_finalize');
+    expect(names).toContain('docs_craft_finalize');
+    expect(names).toContain('knowledge_craft_finalize');
+    expect(names).toContain('security_craft_finalize');
+    expect(names).toContain('spec_craft_finalize');
     // docs-publish connector surface
     expect(names).toContain('docs_publish');
     // graph schema introspection tool (#1280)
     expect(names).toContain('get_graph_schema');
-    expect(tools).toHaveLength(108);
+    expect(tools).toHaveLength(113);
   });
 
   it('all tool definitions have inputSchema', () => {

@@ -10,18 +10,35 @@ import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { randomUUID } from 'node:crypto';
 import { sanitizePath } from '../mcp/utils/sanitize-path.js';
-import { getProvider, type LlmProvider } from '../shared/craft/llm/provider.js';
+import {
+  getProvider,
+  InSessionLlmProvider,
+  type LlmProvider,
+} from '../shared/craft/llm/provider.js';
+import {
+  saveRunState,
+  loadRunStateOrThrow,
+  deleteRunState,
+  pruneOldRuns,
+} from '../shared/craft/runs/store.js';
 import { extractFromSource } from './extract/source.js';
 import { extractCommits } from './extract/commits.js';
 import { extractPRDescriptions } from './extract/pr-descriptions.js';
 import { SEED_RUBRICS, rubricApplies, type CopyRubric } from './catalog/rubrics/index.js';
-import { critiqueOne } from './phases/critique.js';
+import {
+  critiqueOne,
+  buildPrompt,
+  parseFindingFromRaw,
+  CRITIQUE_SYSTEM_PROMPT,
+} from './phases/critique.js';
 import type {
   CopyCraftOutput,
   CopyFinding,
   CopySurface,
   ExtractedCopyItem,
 } from './findings/schema.js';
+
+export type CopyCraftMode = 'inline' | 'in-session';
 
 export interface CopyCraftInput {
   path: string;
@@ -32,12 +49,53 @@ export interface CopyCraftInput {
   commitsSince?: string;
   prLimit?: number;
   cliOutputPaths?: string[];
+  /** Two-step flow toggle. Defaults follow provider: in-session if env says so, else inline. */
+  mode?: CopyCraftMode;
   /** Test-only LLM provider override. */
   __testProvider?: LlmProvider;
 }
 
 const DEFAULT_MAX_FILES = 100;
 const DEFAULT_MAX_ITEMS_PER_FILE = 20;
+/** Projected-cost guard: max prompts collected before bailing. */
+const DEFAULT_PROMPT_BUDGET = 100;
+
+export interface CollectPromptsOutput {
+  status: 'collected' | 'budget-exceeded';
+  runId: string;
+  pendingPrompts: Array<{
+    promptId: string;
+    systemPrompt: string;
+    userPrompt: string;
+  }>;
+  projection: { promptCount: number; budget: number };
+  /** Populated when status='budget-exceeded'. */
+  hint?: string;
+  /** Persisted to disk under .harness/craft/runs/<runId>.json. */
+  runFile?: string;
+}
+
+export interface FinalizeCopyCraftInput {
+  path: string;
+  runId: string;
+  responses: Array<{ promptId: string; raw: string }>;
+}
+
+/** Skill-specific run-state metadata persisted between collect and finalize. */
+interface CopyRunMeta {
+  projectRoot: string;
+  startedAt: number;
+  rubricsApplied: string[];
+  surfacesScanned: CopySurface[];
+  skippedSurfaces: Array<{ surface: CopySurface; reason: string }>;
+  counts: Record<CopySurface, number>;
+  /** Pairs every queued prompt to the data needed to build a finding. */
+  prompts: Array<{
+    promptId: string;
+    item: ExtractedCopyItem;
+    rubricId: string;
+  }>;
+}
 const SOURCE_EXTENSIONS = ['.ts', '.tsx', '.js', '.jsx'];
 const ALL_SURFACES: CopySurface[] = [
   'error',
@@ -48,13 +106,37 @@ const ALL_SURFACES: CopySurface[] = [
   'comment',
 ];
 
-export async function runCopyCraft(input: CopyCraftInput): Promise<CopyCraftOutput> {
-  const startedAt = Date.now();
-  const projectRoot = sanitizePath(input.path);
+/**
+ * `InSessionLlmProvider.callText` throws `PromptDeferredError` on every call —
+ * it defers the prompt to the calling agent rather than answering it. There is
+ * no two-step collect/finalize flow for this craft, so with that provider every
+ * per-(target, rubric) critique throws and the bare `catch {}` swallows it,
+ * leaving a confident zero-findings run for zero completed critiques. Refuse up
+ * front instead, the way naming-craft and test-craft already do (issue #1368).
+ */
+function assertProviderCanAnswer(provider: LlmProvider, entryPoint: string): void {
+  if (!(provider instanceof InSessionLlmProvider)) return;
+  throw new Error(
+    `${entryPoint} is the inline entry point; the in-session provider requires ` +
+      'the two-step flow. Call collectCopyCraftPrompts(...) and then ' +
+      'finalizeCopyCraft(...), or set HARNESS_CRAFT_LLM=mock for tests.'
+  );
+}
+
+interface GatheredItems {
+  items: ExtractedCopyItem[];
+  skippedSurfaces: Array<{ surface: CopySurface; reason: string }>;
+  surfacesScanned: CopySurface[];
+}
+
+/**
+ * Collect the copy items the critique loop will review, plus the skip/scan
+ * bookkeeping the summary reports. Shared verbatim by the inline entry and the
+ * in-session collect step so both enumerate the identical (item, rubric) pairs.
+ */
+function gatherCopyItems(input: CopyCraftInput, projectRoot: string): GatheredItems {
   const maxFiles = input.maxFiles ?? DEFAULT_MAX_FILES;
   const maxItemsPerFile = input.maxItemsPerFile ?? DEFAULT_MAX_ITEMS_PER_FILE;
-  const provider = input.__testProvider ?? getProvider();
-  const rubrics = SEED_RUBRICS;
   const enabledSurfaces = new Set<CopySurface>(input.surfaces ?? ALL_SURFACES);
 
   const items: ExtractedCopyItem[] = [];
@@ -80,12 +162,24 @@ export async function runCopyCraft(input: CopyCraftInput): Promise<CopyCraftOutp
   // Git-backed surfaces (commit subjects + PR descriptions; shell-out)
   collectGitItems(input, projectRoot, enabledSurfaces, items, skippedSurfaces);
 
-  // Critique loop
-  const findings = await critiqueItems(items, rubrics, provider);
-
   const surfacesScanned = ALL_SURFACES.filter(
     (s) => enabledSurfaces.has(s) && !skippedSurfaces.some((sk) => sk.surface === s)
   );
+  return { items, skippedSurfaces, surfacesScanned };
+}
+
+export async function runCopyCraft(input: CopyCraftInput): Promise<CopyCraftOutput> {
+  const startedAt = Date.now();
+  const projectRoot = sanitizePath(input.path);
+  const provider = input.__testProvider ?? getProvider();
+  assertProviderCanAnswer(provider, 'runCopyCraft');
+  const rubrics = SEED_RUBRICS;
+
+  const { items, skippedSurfaces, surfacesScanned } = gatherCopyItems(input, projectRoot);
+
+  // Critique loop
+  const findings = await critiqueItems(items, rubrics, provider);
+
   const totalCost = sumCosts(provider);
 
   return {
@@ -107,6 +201,125 @@ export async function runCopyCraft(input: CopyCraftInput): Promise<CopyCraftOutp
       counts: tallyCounts(items),
       skippedSurfaces,
       runId: randomUUID(),
+    },
+  };
+}
+
+/**
+ * Step 1 of the two-step in-session flow. Gathers copy items the same way the
+ * inline path does, builds one prompt per (item, rubric) pair, persists
+ * run-state to disk, and returns the prompts for the calling agent to answer.
+ * No LLM is called.
+ */
+export async function collectCopyCraftPrompts(
+  input: CopyCraftInput & { promptBudget?: number }
+): Promise<CollectPromptsOutput> {
+  const projectRoot = sanitizePath(input.path);
+  const budget = input.promptBudget ?? DEFAULT_PROMPT_BUDGET;
+  const runId = randomUUID();
+
+  const { items, skippedSurfaces, surfacesScanned } = gatherCopyItems(input, projectRoot);
+  const promptRecords: CopyRunMeta['prompts'] = [];
+  const pending: CollectPromptsOutput['pendingPrompts'] = [];
+  const rubricsApplied = new Set<string>();
+
+  outer: for (const item of items) {
+    for (const rubric of SEED_RUBRICS) {
+      if (!rubricApplies(rubric, item.surface)) continue;
+      rubricsApplied.add(rubric.id);
+      const promptId = `p${promptRecords.length + 1}`;
+      const userPrompt = buildPrompt({ item, rubric });
+      promptRecords.push({ promptId, item, rubricId: rubric.id });
+      pending.push({ promptId, systemPrompt: CRITIQUE_SYSTEM_PROMPT, userPrompt });
+      if (pending.length > budget) break outer;
+    }
+  }
+
+  if (pending.length > budget) {
+    return {
+      status: 'budget-exceeded',
+      runId,
+      pendingPrompts: [],
+      projection: { promptCount: pending.length, budget },
+      hint:
+        `Projected at least ${pending.length} LLM prompts (budget: ${budget}). ` +
+        'Re-invoke with fewer surfaces / smaller maxFiles / maxItemsPerFile, or pass promptBudget to raise the ceiling.',
+    };
+  }
+
+  const meta: CopyRunMeta = {
+    projectRoot,
+    startedAt: Date.now(),
+    // Every SEED_RUBRIC that could apply to a scanned surface; matches the
+    // inline path's rubrics.map(r => r.id) since the critique loop applies all.
+    rubricsApplied: SEED_RUBRICS.map((r) => r.id),
+    surfacesScanned,
+    skippedSurfaces,
+    counts: tallyCounts(items),
+    prompts: promptRecords,
+  };
+  pruneOldRuns(projectRoot);
+  const { runFile } = saveRunState<CopyRunMeta>(projectRoot, {
+    v: 1,
+    runId,
+    skill: 'copy-craft',
+    createdAt: Date.now(),
+    meta,
+  });
+
+  return {
+    status: 'collected',
+    runId,
+    pendingPrompts: pending,
+    projection: { promptCount: pending.length, budget },
+    runFile,
+  };
+}
+
+/**
+ * Step 2 of the two-step in-session flow. Loads run-state, applies the
+ * supplied responses through the same parser the inline path uses, and
+ * returns the final CopyCraftOutput. Deletes run-state on success.
+ */
+export async function finalizeCopyCraft(input: FinalizeCopyCraftInput): Promise<CopyCraftOutput> {
+  const startedAt = Date.now();
+  const projectRoot = sanitizePath(input.path);
+  const state = loadRunStateOrThrow<CopyRunMeta>(projectRoot, input.runId, 'copy-craft');
+
+  const rubricById = new Map(SEED_RUBRICS.map((r) => [r.id, r]));
+  const promptById = new Map(state.meta.prompts.map((p) => [p.promptId, p]));
+  const findings: CopyFinding[] = [];
+
+  for (const response of input.responses) {
+    const promptRecord = promptById.get(response.promptId);
+    if (promptRecord === undefined) continue;
+    const rubric = rubricById.get(promptRecord.rubricId);
+    if (rubric === undefined) continue;
+    const finding = parseFindingFromRaw(response.raw, { item: promptRecord.item, rubric });
+    if (finding !== null) findings.push(finding);
+  }
+
+  deleteRunState(projectRoot, input.runId);
+
+  return {
+    findings,
+    summary: {
+      phaseRun: ['critique'],
+      mode: 'fast',
+      durationMs: Date.now() - startedAt,
+      llmCalls: {
+        provider: 'in-session',
+        model: 'host-chat',
+        count: input.responses.length,
+        costUsd: 0,
+      },
+      catalog: {
+        rubricsApplied: state.meta.rubricsApplied,
+        surfacesScanned: state.meta.surfacesScanned,
+      },
+      counts: state.meta.counts,
+      skippedSurfaces: state.meta.skippedSurfaces,
+      runId: input.runId,
     },
   };
 }

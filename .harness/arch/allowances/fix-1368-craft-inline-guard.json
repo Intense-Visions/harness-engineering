@@ -1,0 +1,11 @@
+{
+  "reason": "Absorb arch drift introduced by merging origin/main into fix/1368-craft-inline-guard (PR #1430): impact-lab-generator.test.ts complexity and packages/core/src/review line count originate from main; aggregate module-size grew from the union of main's + this PR's new MCP craft_finalize tools.",
+  "categories": {
+    "module-size": 239466
+  },
+  "violationIds": [
+    "b50043a249db0507f9d36669c1ab4c9a117f3ebbf331b87bab4d7275e304b186",
+    "c1cdb540dc52c460ad52ff47ff847985d25c54a8cdfb30ce8b92eed58ca04d06"
+  ],
+  "createdFrom": "d5861545f"
+}
