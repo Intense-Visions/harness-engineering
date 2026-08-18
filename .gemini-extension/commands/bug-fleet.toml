@@ -172,6 +172,8 @@ Candidate {
 }
 ```
 
+**Worker handoff — return the canonical `FleetHandoffRecord`.** When a worker finishes its area it hands the orchestrator exactly one `FleetHandoffRecord` (from `@harness-engineering/types`) — the ONE bounded envelope every `-fleet` member emits, so `fleet-command` parses any fleet's worker output uniformly instead of special-casing an ad hoc per-worker report shape. The record carries `status` (`done | parked | blocked | failed`), `fleet`, `item`, a one-line `summary`, an `evidence[]` of verifiable pointers (branch, PR, artifact path, CI check — exactly the references VERIFY re-checks), `next_steps[]`, and, for any non-`done` status, a `blocker`. The orchestrator validates it with `validateFleetHandoffRecord`; a malformed or unknown-keyed record is rejected, never silently misread. See the canonical handoff record in `docs/reference/fleet-family.md`.
+
 ### Phase 4: VERIFY — Two Independent Proofs, Never Self-Report
 
 1. **Why two artifacts and not one.** The family invariant requires proof the **real per-item pipeline ran**. The Iron Law additionally requires proof the **bug is real**. Neither artifact does both jobs: a hand-written test plus a hand-applied patch would sail through a repro check while proving no pipeline ran, and a genuine pipeline run proves nothing about whether the defect it chased exists. VERIFY therefore checks both, independently, for every item. **Never accept a subagent's self-report** — "reproduced it, fixed it, CI green" is a claim to be checked, not a result.

@@ -430,6 +430,24 @@ export type {
 // --- Identity ---
 export type { HarnessIdentity, IdentityDomain } from './identity';
 
+// --- Fleet Handoff (canonical bounded worker report, #1396) ---
+export {
+  FLEET_HANDOFF_RECORD_VERSION,
+  FLEET_HANDOFF_BLOCKER_REQUIRED_STATUSES,
+  FleetHandoffStatusSchema,
+  FleetHandoffEvidenceSchema,
+  FleetHandoffRecordSchema,
+  validateFleetHandoffRecord,
+  parseFleetHandoffRecord,
+} from './fleet-handoff';
+export type {
+  FleetHandoffStatus,
+  FleetHandoffEvidence,
+  FleetHandoffRecord,
+  FleetHandoffValidationError,
+  FleetHandoffValidationResult,
+} from './fleet-handoff';
+
 // --- Telemetry synthesis (#563) ---
 export { TELEMETRY_SYNTHESIS_SECTIONS } from './telemetry-synthesis';
 export type {
