@@ -52,9 +52,37 @@ the **maximum** existing number + 1, never the count, so a new ADR can never
 re-mint an existing number even across gaps — matching `adr-fleet`'s
 pre-allocation strategy and the directory README's numbering rule.
 
+## Wiring (adoption pass)
+
+The define pass registered `manage_adr` but left it unreachable-by-default and
+without a consumer. This pass closes both gaps in the same PR:
+
+1. **Tool-tier exposure** — `packages/cli/src/mcp/tool-tiers.ts`: added
+   `manage_adr` to `STANDARD_EXTRA` (next to its sibling `manage_roadmap`), so it
+   is exposed in the `standard` tier, not only `full`. A membership assertion was
+   added to `packages/cli/tests/mcp/tool-tiers.test.ts` (the existing tier tests
+   are subset/threshold-based, so no count needed updating).
+
+2. **Skill consumers (prose-level)** — the fleets are prose orchestrators, so
+   adoption is at the skill-instruction level, not code:
+   - `agents/skills/claude-code/adr-fleet/SKILL.md`: DISPATCH now persists each
+     drafted ADR through `mcp__harness__manage_adr` (`action: "create"`) as the
+     canonical write mechanism instead of hand-writing the file; SIGN-OFF flips
+     `proposed → accepted` through `action: "update"`. Harness Integration lists
+     the tool.
+   - `agents/skills/claude-code/harness-architecture-advisor/SKILL.md`: Phase 4
+     (DOCUMENT) points its persist step at `manage_adr` when the harness MCP
+     surface is available, with the portable `<docs>/architecture/...` file path
+     retained as an adopter fallback (degrade-gracefully).
+   - `DecisionIngestor` (`packages/graph/src/ingest/DecisionIngestor.ts`) is a
+     **reader** — it folds existing ADRs into the graph and has no write calls —
+     so it is deliberately **not** rewired to call `manage_adr`.
+
 ## Verification
 
 - `packages/cli/tests/mcp/tools/adr.test.ts` — 16 cases, all green.
 - Registration/count tests updated (106 → 107) and a `manage_adr` registration
   assertion added.
-- `tsc --noEmit` clean; `generate-docs` regenerated `mcp-tools.md`.
+- `tool-tiers.test.ts` — added `manage_adr ∈ STANDARD_TOOL_NAMES` assertion.
+- `tsc --noEmit` clean; `generate-docs` regenerated `mcp-tools.md`;
+  `generate:plugin:all` regenerated the skill command mirrors.

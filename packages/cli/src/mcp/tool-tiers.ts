@@ -50,6 +50,7 @@ const STANDARD_EXTRA: readonly string[] = [
   'ask_graph',
   // Workflow
   'manage_roadmap',
+  'manage_adr',
   'check_phase_gate',
   'gather_context',
   'assess_project',

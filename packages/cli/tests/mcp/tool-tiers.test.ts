@@ -28,6 +28,14 @@ describe('CORE_TOOL_NAMES', () => {
   });
 });
 
+describe('STANDARD_TOOL_NAMES', () => {
+  it('exposes manage_adr alongside its sibling manage_roadmap', () => {
+    const std = new Set(STANDARD_TOOL_NAMES);
+    expect(std.has('manage_roadmap')).toBe(true);
+    expect(std.has('manage_adr')).toBe(true);
+  });
+});
+
 describe('estimateBaselineTokens()', () => {
   it('returns 0 for empty input', () => {
     expect(estimateBaselineTokens([])).toBe(0);
