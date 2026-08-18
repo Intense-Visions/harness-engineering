@@ -79,7 +79,7 @@
     ],
     "skipped": [
       "harness-docs-pipeline (+ its sub-skills) — NON-SEAM: fixed 4-phase orchestrator, does not consume the formal Verifier<F> interface / registry; no swappable-provider extension point",
-      "the 11 -fleet members individually — deferred: FleetHandoffRecord Service Definition is in-flight in #1414; seam declared once at the fleet-command Consumer with members named in-block to avoid contradicting a not-yet-landed record",
+      "the 11 -fleet members individually — deferred: the seam is fully declared once at the fleet-command Consumer (with members named in-block); the concrete FleetHandoffRecord Service Definition landed in #1414 (packages/types/src/fleet-handoff.ts, merged into this branch) and stamping every member is out of scope for this targeted retrofit and would exceed the ~20-skill cap",
       "standalone MCP tool provider/consumer pairs (candidate 4) — subsumed: the concrete MCP contracts here (audit_anatomy/audit_brand/detect_drift/*_craft tools) ARE the verifier and craft seams already retrofitted"
     ],
     "retrofitAssumptions": [

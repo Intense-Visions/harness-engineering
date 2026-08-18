@@ -105,11 +105,13 @@ Three real seams were retrofitted (17 skills total):
   **not** registered as a `Verifier<F>` (different output shape), so it is a craft
   Provider, not a verifier Provider. Its block records both facts.
 - **Only `fleet-command` (the Consumer) was retrofitted for the fleet seam, not the
-  eleven members individually.** The concrete Service Definition (`FleetHandoffRecord`)
-  is still in flight in #1414; stamping every member now risks contradicting a
-  not-yet-landed record, and the seam is fully declared once at the Consumer with
-  the members named in-block. (`craft-fleet` still carries its own block, but for
-  the craft seam it consumes; its role as a fleet Provider is noted there.)
+  eleven members individually.** The seam is fully declared once at the Consumer
+  with the members named in-block. The concrete Service Definition
+  (`FleetHandoffRecord`, `packages/types/src/fleet-handoff.ts`) landed in #1414 and
+  is merged into this branch; `fleet-command`'s block references it directly.
+  Stamping every member is out of scope for this targeted retrofit and would exceed
+  the ~20-skill cap. (`craft-fleet` still carries its own block, but for the craft
+  seam it consumes; its role as a fleet Provider is noted there.)
 - **Candidate 4 (standalone MCP tool provider/consumer pairs) yielded no additional
   seam.** The concrete MCP tool contracts here (`audit_anatomy`, `audit_brand`,
   `detect_drift`, and the `*_craft` tools) ARE the verifier and craft seams already
