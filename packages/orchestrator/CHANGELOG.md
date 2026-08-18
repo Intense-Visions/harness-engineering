@@ -1,5 +1,31 @@
 # @harness-engineering/orchestrator
 
+## 0.21.3
+
+### Patch Changes
+
+- 52e74ac: chore(cleanup): remove dead orchestrator/agent exports. Un-export three intra-file-only symbols (`SUBPROCESS_ENV_ALLOWLIST` and `SUBPROCESS_ENV_ALLOWED_PREFIXES` in `subprocess-env.ts`, `useCaseToProfile` in `local-model-resolver.ts`, and the abstract base class `ServerlessBackend` in `backends/serverless.ts`) and delete the unused `createRuntime` factory in `runtime/index.ts`. Pure dead-code removal; no behavior change.
+- 727edce: chore(cleanup): remove dead orchestrator/workflow export. Un-export the intra-file-only `stagedWorkflowRoutingIssues` helper in `workflow/config.ts` (it is called only by `validateWorkflowConfig` within the same file; its stale "exported for unit testing" note is corrected since no test imports it directly). Pure dead-code removal; no behavior change.
+- Updated dependencies [2f44277]
+- Updated dependencies [4cbb45b]
+- Updated dependencies [510bdab]
+- Updated dependencies [3af2880]
+- Updated dependencies [24b314b]
+- Updated dependencies [895cf57]
+- Updated dependencies [2b9f987]
+- Updated dependencies [cdc7f72]
+- Updated dependencies [6ce628c]
+- Updated dependencies [9a71452]
+- Updated dependencies [9168a32]
+- Updated dependencies [523016b]
+- Updated dependencies [6f88aff]
+- Updated dependencies [9834665]
+  - @harness-engineering/core@0.43.0
+  - @harness-engineering/types@0.30.0
+  - @harness-engineering/graph@0.13.1
+  - @harness-engineering/intelligence@0.11.4
+  - @harness-engineering/local-models@0.7.6
+
 ## 0.21.2
 
 ### Patch Changes
