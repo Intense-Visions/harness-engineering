@@ -281,13 +281,30 @@ discussion.>
 - [ ] <Concrete next step 3> — owner: <who> — by: <when>
 ```
 
-Save the ADR:
+Save the ADR. When the harness MCP surface is available, persist through the
+`mcp__harness__manage_adr` tool rather than hand-writing the file — it is the
+canonical write mechanism for the harness ADR store (`docs/knowledge/decisions/`)
+and allocates a collision-free number automatically:
+
+- **New decision** — `action: "create"` with `title`, and the `context` /
+  `decision` / `consequences` section bodies (map the template's Context,
+  Decision, and Consequences prose into these). The tool mints the next
+  `max+1` number, writes the required frontmatter, and defaults `status` to
+  `proposed`; pass `status: "accepted"` explicitly if the human has already
+  chosen. Keep any Alternatives-Considered and Action-Items detail in the
+  Decision/Consequences bodies, since the store's schema carries the three
+  required sections.
+- **Amending an existing decision** — `action: "update"` with `ref` (the ADR
+  number) and only the fields that change (e.g. `status`), never re-minting a
+  number.
+
+Adopters without the harness MCP tool fall back to writing the record directly:
 
 ```
 <docs>/architecture/<topic>/ADR-<number>.md
 ```
 
-Also link from the project's ADR index if one exists.
+Either way, link from the project's ADR index if one exists.
 
 ## Harness Integration
 

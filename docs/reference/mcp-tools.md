@@ -1219,6 +1219,27 @@ List known state streams with branch associations and last-active timestamps
 
 **CLI equivalent:** [`harness state streams`](cli-commands.md#harness-state-streams)
 
+### `manage_adr`
+
+Manage Architecture Decision Records (ADRs) in docs/knowledge/decisions/: create, read, update, or list decision records. "create" allocates the next collision-free ADR number (max(existing)+1, zero-padded) and writes a well-formed record with Context/Decision/Consequences sections at status "proposed" by default. "read" resolves an ADR by number ("92"/"0092"), slug, or filename. "update" patches frontmatter fields (status, title, tier, source, supersedes) and/or individual body sections without ever reusing a number. "list" returns every record as a number-sorted summary. Structured counterpart to the prose-only adr-fleet / architecture-advisor skill surface.
+
+**Parameters:**
+
+- `path` (string, required) — Path to project root
+- `action` (string, required) — Action to perform
+- `ref` (string, optional) — ADR reference for read/update: an ADR number ("92" or "0092"), a slug, or a filename
+- `title` (string, optional) — ADR title (required for create; optional for update)
+- `status` (string, optional) — ADR status (optional; defaults to "proposed" on create)
+- `tier` (string, optional) — Decision tier: small | medium | large (optional)
+- `source` (string, optional) — Source spec path or session slug that motivated the decision (optional)
+- `supersedes` (string, optional) — Prior ADR number this decision supersedes (optional)
+- `date` (string, optional) — Decision date YYYY-MM-DD (optional; defaults to today on create)
+- `slug` (string, optional) — Explicit filename slug for create (optional; derived from the title if omitted)
+- `context` (string, optional) — Context section body (required for create; replaces the section on update)
+- `decision` (string, optional) — Decision section body (required for create; replaces the section on update)
+- `consequences` (string, optional) — Consequences section body (required for create; replaces the section on update)
+- `body` (string, optional) — For update only: replace the entire markdown body verbatim (mutually exclusive with section edits)
+
 ### `manage_roadmap`
 
 Manage the project roadmap: show, add, update, remove, promote, sync, groom features, or query by filter. Reads and writes the project roadmap (sharded or single-file). The "promote" action transitions an existing row toward planned (backlog→planned) and links its spec atomically — creating a new planned row under the "Intake" lane if the feature does not exist — returning a structured RoadmapPromoteResult envelope. The "groom" action tidies the roadmap: it demotes unactionable planned rows (no spec & no plan) to backlog and archives completed features, returning the list of changes. In sharded mode each done shard is MOVED into the sharded archive `docs/roadmap.d/archive/<slug>.md` (preserving its full content, excluded from the active aggregate); in monolith mode completed features are appended to docs/roadmap-archive.md.
