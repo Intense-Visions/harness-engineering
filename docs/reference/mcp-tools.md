@@ -770,6 +770,7 @@ Finalize a naming_craft in-session run by submitting the calling agent's respons
 - `path` (string, required) — Project root path used in the collect call (must match)
 - `runId` (string, required) — runId returned by the naming_craft collect call
 - `responses` (array, required) — Per-prompt responses. `raw` is the fenced JSON block the calling agent produced.
+- `allowPartial` (boolean, optional) — Opt into finalizing when fewer prompts were answered than were collected. Default false: a short response set is rejected instead of emitting a full-looking critique. When true, the summary carries an explicit `coverage` and a narrowed `filesScanned` reflecting only what was judged.
 
 ### `outcome_eval`
 
@@ -911,7 +912,7 @@ Generate or regenerate the LLM `llm-summary.md` for an archived session.
 
 ### `test_craft`
 
-LLM-judgment critique of test quality across vitest/jest/mocha/playwright/pytest. Fourth craft-pipeline ceiling skill; 8 seed rubrics. Per-test critique with optional source pairing for contract-vs-implementation rubrics.
+LLM-judgment critique of test quality across vitest/jest/mocha/playwright/pytest. Fourth craft-pipeline ceiling skill; 8 seed rubrics. Per-test critique with optional source pairing for contract-vs-implementation rubrics. In-session mode (default in Claude Code) returns prompts for the calling agent to answer; call test_craft_finalize with the responses to get findings.
 
 **Parameters:**
 
@@ -921,7 +922,19 @@ LLM-judgment critique of test quality across vitest/jest/mocha/playwright/pytest
 - `maxFiles` (number, optional) — Cap test file count (default: 100)
 - `maxTestsPerFile` (number, optional) — Cap per-file test critique (default: 20)
 - `sourcePair` (boolean, optional) — Resolve source file under test for richer prompt context (default: true)
-- `emitTo` (string, optional) — Write a machine-readable per-test verdict report (JSON) to this path so downstream tooling can consume the findings; relative paths resolve against the project root
+- `emitTo` (string, optional) — Write a machine-readable per-test verdict report (JSON) to this path so downstream tooling can consume the findings; relative paths resolve against the project root (inline mode only)
+- `mode` (string, optional) — 'in-session' (default): return prompts for the calling agent to answer, then call test_craft_finalize. 'inline': run end-to-end via the configured provider (HARNESS_CRAFT_LLM).
+- `promptBudget` (number, optional) — Cap prompt count in in-session mode (default: 100)
+
+### `test_craft_finalize`
+
+Finalize a test_craft in-session run by submitting the calling agent's responses to the prompts collected by test_craft. Returns the standard TestCraftOutput with findings.
+
+**Parameters:**
+
+- `path` (string, required) — Project root path used in the collect call (must match)
+- `runId` (string, required) — runId returned by the test_craft collect call
+- `responses` (array, required) — Per-prompt responses. `raw` is the fenced JSON block the calling agent produced.
 
 ### `trigger_maintenance_job`
 

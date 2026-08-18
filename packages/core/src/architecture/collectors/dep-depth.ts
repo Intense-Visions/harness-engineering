@@ -4,6 +4,7 @@ import { DEFAULT_SKIP_DIRS } from '@harness-engineering/graph';
 import type { Collector, ArchConfig, MetricResult, Violation, ConstraintRule } from '../types';
 import { violationId, constraintRuleId } from './hash';
 import { relativePosix } from '../../shared/fs-utils';
+import { isExcluded, resolveExcludePatterns } from '../exclude';
 
 /**
  * Extract relative import sources from a TypeScript file using regex.
@@ -38,7 +39,12 @@ function isTsSourceFile(name: string): boolean {
   return !name.endsWith('.test.ts') && !name.endsWith('.test.tsx') && !name.endsWith('.spec.ts');
 }
 
-async function scanDir(d: string, results: string[]): Promise<void> {
+async function scanDir(
+  d: string,
+  results: string[],
+  rootDir: string,
+  exclude: readonly string[]
+): Promise<void> {
   let entries;
   try {
     entries = await readdir(d, { withFileTypes: true });
@@ -49,16 +55,17 @@ async function scanDir(d: string, results: string[]): Promise<void> {
     if (isSkippedEntry(entry.name)) continue;
     const fullPath = join(d, entry.name);
     if (entry.isDirectory()) {
-      await scanDir(fullPath, results);
+      await scanDir(fullPath, results, rootDir, exclude);
     } else if (entry.isFile() && isTsSourceFile(entry.name)) {
+      if (isExcluded(fullPath, rootDir, exclude)) continue;
       results.push(fullPath);
     }
   }
 }
 
-async function collectTsFiles(dir: string): Promise<string[]> {
+async function collectTsFiles(dir: string, exclude: readonly string[]): Promise<string[]> {
   const results: string[] = [];
-  await scanDir(dir, results);
+  await scanDir(dir, results, dir, exclude);
   return results;
 }
 
@@ -136,7 +143,7 @@ export class DepDepthCollector implements Collector {
   }
 
   async collect(config: ArchConfig, rootDir: string): Promise<MetricResult[]> {
-    const allFiles = await collectTsFiles(rootDir);
+    const allFiles = await collectTsFiles(rootDir, resolveExcludePatterns(config));
     const graph = await this.buildImportGraph(allFiles);
     const moduleMap = this.buildModuleMap(allFiles, rootDir);
 

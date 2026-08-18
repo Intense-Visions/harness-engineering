@@ -79,4 +79,15 @@ describe('DepDepthCollector', () => {
     expect(servicesResult!.metadata).toBeDefined();
     expect(typeof servicesResult!.metadata!.longestChain).toBe('number');
   });
+  it('excludes files matching excludePatterns from the import graph', async () => {
+    const excluded: ArchConfig = { ...baseConfig, excludePatterns: ['src/services/**'] };
+    const results = await collector.collect(excluded, tempDir);
+    expect(results.find((r) => r.scope.includes('services'))).toBeUndefined();
+  });
+
+  it('leaves unmatched modules measured', async () => {
+    const excluded: ArchConfig = { ...baseConfig, excludePatterns: ['src/nothing-here/**'] };
+    const results = await collector.collect(excluded, tempDir);
+    expect(results.find((r) => r.scope.includes('services'))).toBeDefined();
+  });
 });

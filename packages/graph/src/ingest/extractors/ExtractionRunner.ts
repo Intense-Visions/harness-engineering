@@ -70,6 +70,18 @@ const EXTRACTOR_EDGE_TYPE: Record<string, EdgeType> = {
 };
 
 /**
+ * Result of an {@link ExtractionRunner} run. Extends {@link IngestResult} with
+ * `signalsExtracted`: the total number of records the extractors wrote to JSONL
+ * this run, independent of graph deduplication. `nodesAdded` counts only *new*
+ * store insertions and drops to 0 on a re-scan where every node already exists,
+ * so it cannot be used as an honest "signals extracted" headline (#1340).
+ */
+export interface ExtractionRunResult extends IngestResult {
+  /** Total extraction records written this run (pre-dedup). */
+  readonly signalsExtracted: number;
+}
+
+/**
  * Orchestrates code signal extraction across a project.
  * Walks files, dispatches to registered extractors, writes JSONL,
  * persists to graph, and handles stale detection.
@@ -91,12 +103,17 @@ export class ExtractionRunner {
    * @param store - GraphStore for node/edge persistence
    * @param outputDir - Directory for JSONL output (e.g. .harness/knowledge/extracted/)
    */
-  async run(projectDir: string, store: GraphStore, outputDir: string): Promise<IngestResult> {
+  async run(
+    projectDir: string,
+    store: GraphStore,
+    outputDir: string
+  ): Promise<ExtractionRunResult> {
     const start = Date.now();
     const errors: string[] = [];
     let nodesAdded = 0;
     let nodesUpdated = 0;
     let edgesAdded = 0;
+    let signalsExtracted = 0;
 
     // Ensure output directory exists
     await fs.mkdir(outputDir, { recursive: true });
@@ -148,6 +165,10 @@ export class ExtractionRunner {
       // Write JSONL
       await this.writeJsonl(records, outputDir, extractorName);
 
+      // Every record written to JSONL is a signal extracted this run, whether
+      // or not it results in a new store node (#1340).
+      signalsExtracted += records.length;
+
       // Persist to graph
       for (const record of records) {
         allCurrentIds.add(record.id);
@@ -169,6 +190,7 @@ export class ExtractionRunner {
       edgesUpdated: 0,
       errors,
       durationMs: Date.now() - start,
+      signalsExtracted,
     };
   }
 

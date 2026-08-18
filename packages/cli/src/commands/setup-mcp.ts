@@ -155,6 +155,7 @@ export const ALL_MCP_TOOLS: string[] = [
   'copy_craft_finalize',
   // craft-pipeline #3 — test-craft LLM-judgment ceiling skill (vitest/jest/mocha/playwright/pytest)
   'test_craft',
+  'test_craft_finalize',
   // craft-pipeline #9 — knowledge-craft LLM-judgment ceiling skill (docs/knowledge/ entries)
   'knowledge_craft',
   'knowledge_craft_finalize',

@@ -4,6 +4,7 @@ export {
   detectLanguage,
   DEFAULT_EXTRACTION_EXCLUDE,
 } from './ExtractionRunner.js';
+export type { ExtractionRunResult } from './ExtractionRunner.js';
 export { TestDescriptionExtractor } from './TestDescriptionExtractor.js';
 export { EnumConstantExtractor } from './EnumConstantExtractor.js';
 export { ValidationRuleExtractor } from './ValidationRuleExtractor.js';

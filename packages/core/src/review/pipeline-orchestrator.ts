@@ -327,12 +327,24 @@ export async function runReviewPipeline(
     fileContents.set(file, content);
   }
 
+  // Full, line-aligned content of the changed files (as the agents scanned them),
+  // so VALIDATE can honor `// harness-ignore SEC-XXX-NNN` annotations on the
+  // heuristic path (#1302). diff.fileDiffs holds hunks, whose line numbers do not
+  // align with a finding's lineRange — hence a separate map.
+  const changedFileContents = new Map<string, string>();
+  for (const bundle of contextBundles) {
+    for (const cf of bundle.changedFiles) {
+      changedFileContents.set(cf.path, cf.content);
+    }
+  }
+
   const validatedFindings = await validateFindings({
     findings: rawFindings,
     exclusionSet,
     ...(graph != null ? { graph } : {}),
     projectRoot,
     fileContents,
+    changedFileContents,
   });
 
   // --- Phase 5.5: TRUST SCORING ---

@@ -8,6 +8,7 @@
  * orchestration.
  */
 
+import { writeSync } from 'node:fs';
 import { Command } from 'commander';
 import { CLI_VERSION } from './version';
 import { commandCreators } from './commands/_registry';
@@ -23,8 +24,49 @@ import { installVersionGuard } from './utils/version-guard';
  *
  * @returns A Commander instance with all subcommands registered.
  */
+/**
+ * Write synchronously to a file descriptor so the bytes land before a
+ * subsequent process.exit(), falling back to the stream when the fd is
+ * unavailable (EPIPE from a closed downstream reader, or a non-fd stdout such
+ * as a captured stream in tests).
+ */
+function writeSyncOrFallback(fd: number, str: string, stream: NodeJS.WriteStream): void {
+  const buf = Buffer.from(str, 'utf-8');
+  let offset = 0;
+  try {
+    // writeSync on a NON-BLOCKING pipe returns a short count instead of
+    // throwing, so a single call silently drops everything past the first
+    // chunk (~8KB). Loop until the buffer is drained; retry EAGAIN, which the
+    // fd reports when the reader has not yet consumed the previous chunk.
+    while (offset < buf.length) {
+      try {
+        offset += writeSync(fd, buf, offset, buf.length - offset);
+      } catch (error) {
+        if ((error as NodeJS.ErrnoException).code === 'EAGAIN') continue;
+        throw error;
+      }
+    }
+  } catch {
+    // fd unusable (EPIPE from a closed downstream reader, or a non-fd stdout):
+    // fall back to the stream for whatever has not been written yet.
+    stream.write(buf.subarray(offset).toString('utf-8'));
+  }
+}
+
 export function createProgram(): Command {
   const program = new Command();
+
+  // Commander writes help/version with process.stdout.write and then exits.
+  // Writes to a PIPE are asynchronous, so process.exit() discards whatever is
+  // still buffered — `harness --help` truncated mid-word at ~8KB whenever its
+  // output was piped or captured (visible on macOS, where the pipe drains in
+  // smaller chunks than on Linux CI). Writing synchronously to the fd makes the
+  // output immune to the exit race. Falls back to the stream if the fd write
+  // fails (fd closed, EPIPE from a downstream `head`, non-fd stdout).
+  program.configureOutput({
+    writeOut: (str) => writeSyncOrFallback(1, str, process.stdout),
+    writeErr: (str) => writeSyncOrFallback(2, str, process.stderr),
+  });
 
   program
     .name('harness')

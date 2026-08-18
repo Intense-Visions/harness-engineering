@@ -9,6 +9,7 @@ import {
   validateKnowledgeMap,
   validatePulseConfig,
   validateSolutionsDir,
+  validateDecisionNumbers,
   validateStrategy,
   validateRoadmapMode,
   parseRoadmap,
@@ -97,6 +98,7 @@ interface ValidateResult {
     roadmapHealth?: boolean;
     mergeDriver?: boolean;
     roadmapAggregateDrift?: boolean;
+    decisionNumbers?: boolean;
     componentAnatomy?: boolean;
     driftDetection?: boolean;
     brandCompliance?: boolean;
@@ -235,6 +237,63 @@ export async function runValidate(
       { file: 'docs/solutions', message: solutionsResult.error.message },
     ]) {
       result.issues.push({ check: 'solutionsDir', file: issue.file, message: issue.message });
+    }
+  }
+
+  // ADR number-collision doctor. Scans docs/knowledge/decisions/*.md for duplicate
+  // `number:` values — an ambiguous ADR identity breaks citations and any tool keyed
+  // on the number (the DecisionIngestor, spec cross-refs). NEW/changed collisions are
+  // hard errors; collisions grandfathered in .harness/decisions/number-baseline.json
+  // are surfaced as a single non-fatal warning so the standing debt (GH #1323) stays
+  // visible without turning CI red. Skipped silently when no decisions corpus exists.
+  const decisionResult = await validateDecisionNumbers(cwd);
+  if (decisionResult.ok) {
+    result.checks.decisionNumbers = true;
+    const { grandfathered } = decisionResult.value;
+    if (grandfathered.length > 0) {
+      result.issues.push({
+        check: 'decisionNumbers',
+        file: 'docs/knowledge/decisions/',
+        ruleId: 'ADR-NUM-DUP',
+        severity: 'warning',
+        message: `${grandfathered.length} grandfathered ADR number collision(s) (GH #1323): ${grandfathered
+          .map((c) => `${c.number} [${c.files.join(', ')}]`)
+          .join('; ')}`,
+        suggestion:
+          'Pre-existing debt tracked for follow-up renumbering. New collisions fail; existing ones are grandfathered in .harness/decisions/number-baseline.json.',
+      });
+    }
+  } else {
+    result.valid = false;
+    result.checks.decisionNumbers = false;
+    const detail = decisionResult.error.details as {
+      validation?: { newCollisions?: Array<{ number: string; files: string[] }> };
+    };
+    const newCollisions = detail.validation?.newCollisions ?? [];
+    if (newCollisions.length > 0) {
+      for (const c of newCollisions) {
+        result.issues.push({
+          check: 'decisionNumbers',
+          file: 'docs/knowledge/decisions/',
+          ruleId: 'ADR-NUM-DUP',
+          severity: 'error',
+          message: `Duplicate ADR number ${c.number} shared by: ${c.files.join(', ')}`,
+          ...(decisionResult.error.suggestions?.[0] !== undefined && {
+            suggestion: decisionResult.error.suggestions[0],
+          }),
+        });
+      }
+    } else {
+      result.issues.push({
+        check: 'decisionNumbers',
+        file: 'docs/knowledge/decisions/',
+        ruleId: 'ADR-NUM-DUP',
+        severity: 'error',
+        message: decisionResult.error.message,
+        ...(decisionResult.error.suggestions?.[0] !== undefined && {
+          suggestion: decisionResult.error.suggestions[0],
+        }),
+      });
     }
   }
 

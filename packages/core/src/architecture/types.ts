@@ -98,6 +98,24 @@ export const ArchConfigSchema = z.object({
   thresholds: ThresholdConfigSchema.default({}),
   modules: z.record(z.string(), ThresholdConfigSchema).default({}),
   /**
+   * Glob patterns (minimatch syntax) excluded from architecture analysis,
+   * matched against the project-relative POSIX-style path.
+   *
+   * ADDITIVE: stacked on top of each collector's built-in scoping
+   * (`DEFAULT_FIND_FILES_IGNORE` for glob-based collectors, `DEFAULT_SKIP_DIRS`
+   * for the directory walkers), so setting a pattern never re-enables scanning
+   * of `node_modules`, `dist`, or the rest of the default skip set. The CLI
+   * additionally stacks the project-wide `analysis.exclude` list on top.
+   *
+   * Use for source whose SHAPE is imposed by an external runtime rather than
+   * chosen by the author — e.g. sandboxed dataflow/edge scripts that cannot
+   * import shared helpers and must therefore inline everything into one
+   * function. Measuring those against a complexity threshold reports the
+   * runtime's constraint, not a maintainability signal. Mirrors
+   * `ingest.excludePatterns`.
+   */
+  excludePatterns: z.array(z.string().min(1)).default([]),
+  /**
    * Fraction (0–1) by which an aggregate metric may exceed its baseline
    * before it counts as a regression. Absorbs the small, monotonic drift a
    * branch inherits when it merges `main` (e.g. total complexity 283→284,

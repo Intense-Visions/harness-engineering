@@ -46,8 +46,18 @@ export interface NamingCraftSummary {
    * Count of source files walked/read. Zero means nothing analyzable was
    * found — e.g. a non-TS/JS (Python, Go, …) project — which the diagnostic
    * surfaces so an empty result isn't mistaken for a clean bill of health.
+   * On a partial in-session finalize this narrows to the files actually
+   * critiqued, so it never implies reach over files that went unjudged.
    */
   filesScanned: number;
+  /**
+   * Prompt-level reach of a two-step in-session finalize:
+   * `promptsAnswered` of `promptsTotal` collected prompts were judged.
+   * Absent on the inline path (which judges everything in one pass); when
+   * present and `promptsAnswered < promptsTotal` the critique is explicitly
+   * partial and the summary must not be read as full coverage.
+   */
+  coverage?: { promptsAnswered: number; promptsTotal: number };
   runId: string;
 }
 

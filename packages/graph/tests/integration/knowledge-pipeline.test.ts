@@ -430,7 +430,9 @@ describe('Knowledge Pipeline (integration)', () => {
       expect(result.extraction.businessKnowledge).toBeGreaterThan(0);
       expect(result.gaps.domains.length).toBeGreaterThan(0);
       expect(result.verdict).toBeDefined();
-      expect(['pass', 'warn', 'fail']).toContain(result.verdict);
+      // Fresh store: no prior business baseline, so a first run of pure-new
+      // findings abstains rather than warns (#1335).
+      expect(['pass', 'warn', 'fail', 'abstain']).toContain(result.verdict);
     });
 
     it('fix mode converges on empty project', async () => {

@@ -87,4 +87,24 @@ describe('ModuleSizeCollector', () => {
     expect(servicesResult!.violations.length).toBeGreaterThan(0);
     expect(servicesResult!.violations[0]!.id).toMatch(/^[a-f0-9]{64}$/);
   });
+  it('excludes files matching excludePatterns from module discovery', async () => {
+    const excluded: ArchConfig = { ...baseConfig, excludePatterns: ['src/services/**'] };
+    const results = await collector.collect(excluded, tempDir);
+    expect(results.find((r) => r.scope.includes('services'))).toBeUndefined();
+    expect(results.find((r) => r.scope.includes('api'))).toBeDefined();
+  });
+
+  it('drops a module-size violation once its files are excluded', async () => {
+    const thresholds = { 'module-size': { maxLoc: 2, maxFiles: 1 } } as ArchConfig['thresholds'];
+    const measured = await collector.collect({ ...baseConfig, thresholds }, tempDir);
+    expect(measured.find((r) => r.scope.includes('services'))!.violations.length).toBeGreaterThan(
+      0
+    );
+
+    const excluded = await collector.collect(
+      { ...baseConfig, thresholds, excludePatterns: ['src/services/**'] },
+      tempDir
+    );
+    expect(excluded.flatMap((r) => r.violations)).toHaveLength(0);
+  });
 });

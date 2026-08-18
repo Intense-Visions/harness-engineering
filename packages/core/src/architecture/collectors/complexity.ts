@@ -3,6 +3,7 @@ import { violationId, constraintRuleId } from './hash';
 import { detectComplexityViolations } from '../../entropy/detectors/complexity';
 import type { CodebaseSnapshot } from '../../entropy/types';
 import { findFiles, relativePosix } from '../../shared/fs-utils';
+import { resolveExcludePatterns } from '../exclude';
 
 function buildSnapshot(files: string[], rootDir: string): CodebaseSnapshot {
   return {
@@ -73,10 +74,10 @@ export class ComplexityCollector implements Collector {
     ];
   }
 
-  async collect(_config: ArchConfig, rootDir: string): Promise<MetricResult[]> {
-    const files = await findFiles('**/*.ts', rootDir);
+  async collect(config: ArchConfig, rootDir: string): Promise<MetricResult[]> {
+    const files = await findFiles('**/*.ts', rootDir, resolveExcludePatterns(config));
     const snapshot = buildSnapshot(files, rootDir);
-    const maxComplexity = resolveMaxComplexity(_config);
+    const maxComplexity = resolveMaxComplexity(config);
     const complexityConfig = {
       thresholds: {
         cyclomaticComplexity: { error: maxComplexity, warn: Math.floor(maxComplexity * 0.7) },
