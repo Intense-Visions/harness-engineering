@@ -734,6 +734,7 @@ Finalize a naming_craft in-session run by submitting the calling agent's respons
 - `path` (string, required) — Project root path used in the collect call (must match)
 - `runId` (string, required) — runId returned by the naming_craft collect call
 - `responses` (array, required) — Per-prompt responses. `raw` is the fenced JSON block the calling agent produced.
+- `allowPartial` (boolean, optional) — Opt into finalizing when fewer prompts were answered than were collected. Default false: a short response set is rejected instead of emitting a full-looking critique. When true, the summary carries an explicit `coverage` and a narrowed `filesScanned` reflecting only what was judged.
 
 ### `outcome_eval`
 

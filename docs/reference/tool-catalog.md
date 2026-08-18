@@ -3426,6 +3426,10 @@ Finalize a naming_craft in-session run by submitting the calling agent's respons
 ```json
 {
   "properties": {
+    "allowPartial": {
+      "description": "Opt into finalizing when fewer prompts were answered than were collected. Default false: a short response set is rejected instead of emitting a full-looking critique. When true, the summary carries an explicit `coverage` and a narrowed `filesScanned` reflecting only what was judged.",
+      "type": "boolean"
+    },
     "path": {
       "description": "Project root path used in the collect call (must match)",
       "type": "string"
