@@ -15,6 +15,14 @@
 - NOT for graph-membership checks (no graph reads at runtime — references the taxonomy in rubric prompts)
 - NOT for source-code comment critique (use `code-craft` or `docs-craft`)
 
+## Capability Roles
+
+<!-- Capability seam: this skill participates in a real extension point whose three roles are named and concrete. A seam with only one role filled is accidental single-implementation lock-in. See harness-skill-authoring Phase 1C. -->
+
+- **Defines (Service Definition):** the shared craft critique contract (`packages/cli/src/shared/craft/`) — `LlmProvider` + finding/axes schema + run store — shared across all `*-craft` skills. This skill implements, and does not own, that contract.
+- **Provides (Provider):** **this skill** — a knowledge-artifact critique implemented over the shared contract (`packages/cli/src/knowledge-craft/`).
+- **Consumes (Consumer):** `craft-fleet` (the craft-pipeline elevation sweep) and the `harness` natural-language router, which invoke every `*-craft` provider uniformly through the shared critique/finding shape
+
 ## Process
 
 ### Phase 1: DISCOVER — Find knowledge entries

@@ -13,6 +13,14 @@
 - NOT for aesthetic critique (use harness-design-craft)
 - NOT for fixing drift — this skill detects only; the matching fixer (align-design-system) is a separate sub-project
 
+## Capability Roles
+
+<!-- Capability seam: this skill participates in a real extension point whose three roles are named and concrete. A seam with only one role filled is accidental single-implementation lock-in. See harness-skill-authoring Phase 1C. -->
+
+- **Defines (Service Definition):** the shared `Verifier<F, Cat, Meta>` interface (`packages/cli/src/shared/verifier.ts`) it conforms to, alongside `audit-component-anatomy` and `audit-brand-compliance`.
+- **Provides (Provider):** **this skill** — emits `DetectDriftOutput = Verifier<DriftFinding>` (`packages/cli/src/drift/index.ts`).
+- **Consumes (Consumer):** `harness-design-pipeline` / `harness check-design`, which compose it generically via `VerifierRegistry`.
+
 ## Process
 
 ### Phase 1: SCAN — Load resolvers + walk files

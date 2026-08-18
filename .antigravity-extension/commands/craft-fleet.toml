@@ -43,6 +43,14 @@ This skill builds on the shared `-fleet` spine documented in `docs/reference/fle
 - NOT for applying a security fix — a `security-craft` finding is never elevated by this fleet, and a genuine vulnerability is routed privately to the human rather than patched
 - NOT for converging one target to clean — iterating a single module until it is good is a **pipeline**, not a fleet (which fans out across many independent targets into many outcomes)
 
+## Capability Roles
+
+<!-- Capability seam: this skill participates in a real extension point whose three roles are named and concrete. A seam with only one role filled is accidental single-implementation lock-in. See harness-skill-authoring Phase 1C. -->
+
+- **Defines (Service Definition):** the shared LLM-judgment-critique contract in `packages/cli/src/shared/craft/` — the `LlmProvider` interface (`llm/provider.ts` / `llm/contracts.ts`) plus the shared finding/axes schema (`findings/axes.ts`) and run store (`runs/store.ts`) — that every `*-craft` skill's critique phase conforms to. craft-fleet consumes this contract; it does not own it.
+- **Provides (Provider):** the eleven craft skills — `naming-craft`, `spec-craft`, `code-craft`, `security-craft`, `test-craft`, `api-craft`, `cli-ergonomics-craft`, `copy-craft`, `docs-craft`, `harness-design-craft`, `knowledge-craft`.
+- **Consumes (Consumer):** **this skill** — craft-fleet composes ranked (scope, domain) targets across all craft providers uniformly through the shared critique/finding shape, then verifies each item by critique provenance. It is itself a `-fleet` member and so is also a Provider to the `fleet-command` conductor.
+
 ## Flags
 
 | Flag            | Effect                                                                                                                                                 |

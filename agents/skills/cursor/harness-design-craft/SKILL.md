@@ -16,6 +16,14 @@
 - NOT for accessibility (use harness-accessibility)
 - NOT for code generation from scratch (use v0 / bolt.new / Lovable — different tool class)
 
+## Capability Roles
+
+<!-- Capability seam: this skill participates in a real extension point whose three roles are named and concrete. A seam with only one role filled is accidental single-implementation lock-in. See harness-skill-authoring Phase 1C. -->
+
+- **Defines (Service Definition):** the shared craft critique contract (`packages/cli/src/shared/craft/`) — `LlmProvider` + finding/axes schema + run store — shared across all `*-craft` skills. This skill implements, and does not own, that contract.
+- **Provides (Provider):** **this skill** — a design ceiling critique/polish/benchmark implemented over the shared contract (`packages/cli/src/design-craft/`).
+- **Consumes (Consumer):** `craft-fleet` (the craft-pipeline elevation sweep) and the `harness` natural-language router, which invoke every `*-craft` provider uniformly through the shared critique/finding shape. It is also dispatched by `harness-design-pipeline` in the FILL phase; note it is **not** a formal `Verifier<F>` provider — its output shape differs, so it is dispatched rather than registered in the verifier seam
+
 ## Process
 
 ### Argument Resolution

@@ -14,6 +14,14 @@
 - NOT for aesthetic critique or polish suggestions (use harness-design-craft)
 - NOT for declared-anti-pattern enforcement (use harness-design)
 
+## Capability Roles
+
+<!-- Capability seam: this skill participates in a real extension point whose three roles are named and concrete. A seam with only one role filled is accidental single-implementation lock-in. See harness-skill-authoring Phase 1C. -->
+
+- **Defines (Service Definition):** the shared `Verifier<F, Cat, Meta>` interface (`packages/cli/src/shared/verifier.ts`) it conforms to, alongside `detect-design-drift` and `audit-brand-compliance`.
+- **Provides (Provider):** **this skill** — emits `AuditAnatomyOutput = Verifier<AnatomyFinding>` (`packages/cli/src/mcp/tools/audit-anatomy.ts`).
+- **Consumes (Consumer):** `harness-design-pipeline` / `harness check-design`, which compose it generically via `VerifierRegistry`.
+
 ## Process
 
 ### Phase 1: SCAN — Identify component types and run audits

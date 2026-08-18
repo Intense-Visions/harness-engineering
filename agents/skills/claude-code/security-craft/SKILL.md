@@ -16,6 +16,14 @@
 - NOT for autofix / security rewriting (this is judgment-only; v1.x may add `align-security` with aggressive safeguards)
 - NOT for test files (v1 excludes — test security has a different shape; v1.x with dedicated rubrics)
 
+## Capability Roles
+
+<!-- Capability seam: this skill participates in a real extension point whose three roles are named and concrete. A seam with only one role filled is accidental single-implementation lock-in. See harness-skill-authoring Phase 1C. -->
+
+- **Defines (Service Definition):** the shared craft critique contract (`packages/cli/src/shared/craft/`) — `LlmProvider` + finding/axes schema + run store — shared across all `*-craft` skills. This skill implements, and does not own, that contract.
+- **Provides (Provider):** **this skill** — a security-posture critique implemented over the shared contract (`packages/cli/src/security-craft/`).
+- **Consumes (Consumer):** `craft-fleet` (the craft-pipeline elevation sweep) and the `harness` natural-language router, which invoke every `*-craft` provider uniformly through the shared critique/finding shape
+
 ## Process
 
 ### Phase 1: DISCOVER — Find source files
