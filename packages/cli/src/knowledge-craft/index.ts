@@ -10,7 +10,11 @@ import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { randomUUID } from 'node:crypto';
 import { sanitizePath } from '../mcp/utils/sanitize-path.js';
-import { getProvider, type LlmProvider } from '../shared/craft/llm/provider.js';
+import {
+  getProvider,
+  InSessionLlmProvider,
+  type LlmProvider,
+} from '../shared/craft/llm/provider.js';
 import {
   discoverKnowledgeEntries,
   KNOWLEDGE_ROOT,
@@ -31,6 +35,25 @@ export interface KnowledgeCraftInput {
 
 const DEFAULT_MAX_FILES = 50;
 
+/**
+ * `InSessionLlmProvider.callText` throws `PromptDeferredError` on every call —
+ * it defers the prompt to the calling agent rather than answering it. There is
+ * no two-step collect/finalize flow for this craft, so with that provider every
+ * per-(target, rubric) critique throws and the bare `catch {}` swallows it,
+ * leaving a confident zero-findings run for zero completed critiques. Refuse up
+ * front instead, the way naming-craft and test-craft already do (issue #1368).
+ */
+function assertProviderCanAnswer(provider: LlmProvider, entryPoint: string): void {
+  if (!(provider instanceof InSessionLlmProvider)) return;
+  throw new Error(
+    `${entryPoint} cannot run against the in-session provider: it defers every ` +
+      'prompt to the calling agent, so no rubric would actually be evaluated ' +
+      'and the run would report zero findings for zero critiques. Configure a ' +
+      'real backend via agent.backends + HARNESS_CRAFT_LLM, or set ' +
+      'HARNESS_CRAFT_LLM=mock for tests.'
+  );
+}
+
 export async function runKnowledgeCraft(input: KnowledgeCraftInput): Promise<KnowledgeCraftOutput> {
   const startedAt = Date.now();
   const projectRoot = sanitizePath(input.path);
@@ -43,6 +66,7 @@ export async function runKnowledgeCraft(input: KnowledgeCraftInput): Promise<Kno
       ? input.maxFiles
       : DEFAULT_MAX_FILES;
   const provider = input.__testProvider ?? getProvider();
+  assertProviderCanAnswer(provider, 'runKnowledgeCraft');
   const rubrics = SEED_RUBRICS;
 
   const entries = collectEntries(projectRoot, input).slice(0, maxFiles);

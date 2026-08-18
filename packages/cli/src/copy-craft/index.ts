@@ -10,7 +10,11 @@ import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { randomUUID } from 'node:crypto';
 import { sanitizePath } from '../mcp/utils/sanitize-path.js';
-import { getProvider, type LlmProvider } from '../shared/craft/llm/provider.js';
+import {
+  getProvider,
+  InSessionLlmProvider,
+  type LlmProvider,
+} from '../shared/craft/llm/provider.js';
 import { extractFromSource } from './extract/source.js';
 import { extractCommits } from './extract/commits.js';
 import { extractPRDescriptions } from './extract/pr-descriptions.js';
@@ -48,12 +52,32 @@ const ALL_SURFACES: CopySurface[] = [
   'comment',
 ];
 
+/**
+ * `InSessionLlmProvider.callText` throws `PromptDeferredError` on every call —
+ * it defers the prompt to the calling agent rather than answering it. There is
+ * no two-step collect/finalize flow for this craft, so with that provider every
+ * per-(target, rubric) critique throws and the bare `catch {}` swallows it,
+ * leaving a confident zero-findings run for zero completed critiques. Refuse up
+ * front instead, the way naming-craft and test-craft already do (issue #1368).
+ */
+function assertProviderCanAnswer(provider: LlmProvider, entryPoint: string): void {
+  if (!(provider instanceof InSessionLlmProvider)) return;
+  throw new Error(
+    `${entryPoint} cannot run against the in-session provider: it defers every ` +
+      'prompt to the calling agent, so no rubric would actually be evaluated ' +
+      'and the run would report zero findings for zero critiques. Configure a ' +
+      'real backend via agent.backends + HARNESS_CRAFT_LLM, or set ' +
+      'HARNESS_CRAFT_LLM=mock for tests.'
+  );
+}
+
 export async function runCopyCraft(input: CopyCraftInput): Promise<CopyCraftOutput> {
   const startedAt = Date.now();
   const projectRoot = sanitizePath(input.path);
   const maxFiles = input.maxFiles ?? DEFAULT_MAX_FILES;
   const maxItemsPerFile = input.maxItemsPerFile ?? DEFAULT_MAX_ITEMS_PER_FILE;
   const provider = input.__testProvider ?? getProvider();
+  assertProviderCanAnswer(provider, 'runCopyCraft');
   const rubrics = SEED_RUBRICS;
   const enabledSurfaces = new Set<CopySurface>(input.surfaces ?? ALL_SURFACES);
 
