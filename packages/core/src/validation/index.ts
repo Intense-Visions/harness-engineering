@@ -90,3 +90,11 @@ export type {
  * generated roadmap aggregate (enforced by the repo guard test).
  */
 export { findRoadmapReadSourceViolations, ROADMAP_READ_ALLOWLIST } from './roadmap-read-source';
+
+/**
+ * ADR number-collision validation — scans `docs/knowledge/decisions/*.md` for
+ * duplicate `number:` values, grandfathering pre-existing collisions via
+ * `.harness/decisions/number-baseline.json` so only NEW collisions fail.
+ */
+export { validateDecisionNumbers } from './decisions';
+export type { DecisionNumbersValidation, DecisionNumberCollision } from './decisions';

@@ -1,0 +1,72 @@
+{
+  "version": 1,
+  "note": "Grandfathered pre-existing ADR number collisions (GH #1323). New/changed collisions still fail `harness validate`. Renumber tracked as a follow-up; not force-migrated because bare \"ADR NNNN\" citations across the repo are ambiguous between the colliding records.",
+  "grandfathered": [
+    {
+      "number": "0011",
+      "files": [
+        "0011-operator-actions-as-auto-approved-proposals.md",
+        "0011-orchestrator-gateway-api-contract.md"
+      ]
+    },
+    {
+      "number": "0013",
+      "files": [
+        "0013-dispatch-isolation-tier.md",
+        "0013-hermes-phase-1-session-memory-architecture.md",
+        "0013-notification-sink-interface.md"
+      ]
+    },
+    {
+      "number": "0014",
+      "files": ["0014-cost-ceiling-policy.md", "0014-doctor-live-state-checks.md"]
+    },
+    {
+      "number": "0037",
+      "files": [
+        "0037-graph-as-cross-skill-signal-contract.md",
+        "0037-single-ci-generator.md",
+        "0037-tiered-confidence-to-authority.md"
+      ]
+    },
+    {
+      "number": "0039",
+      "files": [
+        "0039-optional-gracefully-degrading-cross-ecosystem-adapter.md",
+        "0039-self-audit-skills-mechanically-enforced.md"
+      ]
+    },
+    {
+      "number": "0048",
+      "files": [
+        "0048-acceptance-eval-ts-derived-authority-pre-execution-gate.md",
+        "0048-event-log-authoritative-snapshot-derived.md"
+      ]
+    },
+    {
+      "number": "0049",
+      "files": [
+        "0049-guarded-lane-state-machine.md",
+        "0049-single-maintenance-executor-run-mode.md"
+      ]
+    },
+    {
+      "number": "0050",
+      "files": [
+        "0050-report-first-on-demand-maintenance.md",
+        "0050-roadmap-read-source-invariant.md"
+      ]
+    },
+    {
+      "number": "0073",
+      "files": ["0073-backend-mcp-client.md", "0073-setup-steps-generated-from-descriptor.md"]
+    },
+    {
+      "number": "0086",
+      "files": [
+        "0086-canary-results-acquired-from-documented-artifact.md",
+        "0086-enforcing-deploy-gate-exit-contract-and-rollback-seam.md"
+      ]
+    }
+  ]
+}
