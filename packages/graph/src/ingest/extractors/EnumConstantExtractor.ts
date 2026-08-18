@@ -4,7 +4,7 @@ import type { ExtractionRecord, Language, SignalExtractor } from './types.js';
 // Detection patterns are hoisted to module scope so their literal braces
 // (e.g. `\{`) and optional groups don't confuse the brace-counting / decision
 // counting complexity detector that scans the bodies of the loops below.
-const TS_ENUM_RE = /(?:export\s+)?enum\s+(\w+)/;
+const TS_ENUM_RE = /^\s*(?:export\s+)?(?:declare\s+)?(?:const\s+)?enum\s+(\w+)/;
 const TS_AS_CONST_RE = /(?:export\s+)?const\s+(\w+)\s*=\s*\{/;
 const TS_UNION_RE =
   /(?:export\s+)?type\s+(\w+)\s*=\s*(['"`][\w]+['"`](?:\s*\|\s*['"`][\w]+['"`])+)/;
@@ -20,7 +20,7 @@ const GO_IOTA_RE = /^(\w+)\s+(\w+)\s*=\s*iota/;
 const GO_TYPED_RE = /^(\w+)\s+(\w+)\s*=\s*"[^"]*"/;
 const GO_BARE_RE = /^(\w+)\s*$/;
 const RUST_ENUM_RE = /^(?:pub\s+)?enum\s+(\w+)/;
-const JAVA_ENUM_RE = /(?:public\s+|private\s+|protected\s+)?enum\s+(\w+)/;
+const JAVA_ENUM_RE = /^\s*(?:public\s+|private\s+|protected\s+)?enum\s+(\w+)/;
 
 interface GoConstLine {
   name: string;
