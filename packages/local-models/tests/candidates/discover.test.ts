@@ -133,13 +133,52 @@ describe('discoverCandidates', () => {
   });
 });
 
+/** HF `/api/models` accepts only these `sort` values; anything else is a 400. */
+const HF_VALID_SORTS = new Set([
+  'downloads',
+  'likes',
+  'lastModified',
+  'createdAt',
+  'trendingScore',
+  'author',
+  'id',
+]);
+
 describe('discoverCandidates wide-net (SC1)', () => {
+  it('sends an HF-valid `sort` for the trending arm — regression for `trending` → 400 (must be `trendingScore`)', async () => {
+    // Fake mirrors HF: an unrecognised `sort` is a 400, not an empty result.
+    const sortsSeen: string[] = [];
+    const client = {
+      async listModels(o: { author?: string; sort?: string }) {
+        const sort = o.sort ?? 'downloads';
+        sortsSeen.push(sort);
+        if (!HF_VALID_SORTS.has(sort)) {
+          throw new Error(`HuggingFace request returned 400: Invalid sort parameter: ${sort}`);
+        }
+        return sort === 'trendingScore'
+          ? [{ id: 'Qwen/Qwen3.6-27B-GGUF', tags: ['gguf'] } as HuggingFaceModel]
+          : [{ id: 'Qwen/Qwen3-32B-GGUF', tags: ['gguf'] } as HuggingFaceModel];
+      },
+      async getModel(id: string) {
+        return detail(id, ['Q4_K_M']);
+      },
+    };
+    const res = await discoverCandidates({ orgs: ['Qwen'], curation: WIDE_CURATION, client });
+    const ids = res.candidates.map((c) => c.hfRepoId);
+    // The trending arm actually resolved (its model reached the pool) — proves a valid HF sort was sent.
+    expect(ids).toContain('Qwen/Qwen3.6-27B-GGUF');
+    // No trending-fallback warning, because the trending call did not 400.
+    expect(res.warnings.some((w) => /trending.*fall/i.test(w))).toBe(false);
+    // Every sort put on the wire is one HF accepts.
+    expect(sortsSeen.every((s) => HF_VALID_SORTS.has(s))).toBe(true);
+  });
+
   it('SC1: includes a NEW model returned only under `trending` (absent from `downloads`)', async () => {
     const { client } = sortAwareClient(
       {
         Qwen: {
           downloads: [{ id: 'Qwen/Qwen3-32B-GGUF', tags: ['gguf'] } as HuggingFaceModel],
-          trending: [{ id: 'Qwen/Qwen3.6-27B-GGUF', tags: ['gguf'] } as HuggingFaceModel],
+          trendingScore: [{ id: 'Qwen/Qwen3.6-27B-GGUF', tags: ['gguf'] } as HuggingFaceModel],
         },
       },
       {
@@ -159,7 +198,7 @@ describe('discoverCandidates wide-net (SC1)', () => {
       {
         Qwen: {
           downloads: [shared, { id: 'Qwen/Qwen3.6-27B-GGUF', tags: ['gguf'] } as HuggingFaceModel],
-          trending: [shared], // overlaps downloads → must dedupe, not double
+          trendingScore: [shared], // overlaps downloads → must dedupe, not double
         },
       },
       {
@@ -172,7 +211,7 @@ describe('discoverCandidates wide-net (SC1)', () => {
     const sharedFetches = calls.get.filter((id) => id === 'Qwen/Qwen3-32B-GGUF');
     expect(sharedFetches).toHaveLength(1);
     // both sorts were queried
-    expect(calls.list.map((c) => c.sort).sort()).toEqual(['downloads', 'trending']);
+    expect(calls.list.map((c) => c.sort).sort()).toEqual(['downloads', 'trendingScore']);
   });
 
   it('SC2: never inspects more than perOrgLimit distinct repos', async () => {
@@ -195,11 +234,11 @@ describe('discoverCandidates wide-net (SC1)', () => {
       {
         Qwen: {
           downloads: [{ id: 'Qwen/Qwen3-32B-GGUF', tags: ['gguf'] } as HuggingFaceModel],
-          trending: [],
+          trendingScore: [],
         },
       },
       { 'Qwen/Qwen3-32B-GGUF': detail('Qwen/Qwen3-32B-GGUF', ['Q4_K_M']) },
-      { throwOnSort: 'trending' }
+      { throwOnSort: 'trendingScore' }
     );
     const res = await discoverCandidates({ orgs: ['Qwen'], curation: WIDE_CURATION, client });
     expect(res.candidates.map((c) => c.hfRepoId)).toContain('Qwen/Qwen3-32B-GGUF'); // downloads survived

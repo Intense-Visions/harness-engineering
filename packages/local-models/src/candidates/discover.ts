@@ -94,10 +94,16 @@ interface DiscoverContext {
 
 type HfModel = Awaited<ReturnType<Pick<HuggingFaceClient, 'listModels'>['listModels']>>[number];
 
-/** One `listModels` call for a given sort. Returns `null` on failure (caller decides fail-soft policy). */
+/**
+ * One `listModels` call for a given sort. Returns `null` on failure (caller decides fail-soft policy).
+ *
+ * NOTE: HF `/api/models` spells the trending-popularity sort `trendingScore` — passing `trending`
+ * is a 400 (`Invalid sort parameter`). This value goes straight onto the wire, so it must be the
+ * exact HF spelling, not a friendly label.
+ */
 async function listSort(
   org: string,
-  sort: 'downloads' | 'trending',
+  sort: 'downloads' | 'trendingScore',
   ctx: DiscoverContext
 ): Promise<HfModel[] | null> {
   try {
@@ -105,7 +111,7 @@ async function listSort(
   } catch (err) {
     // Base (downloads) failure keeps the original org-skip wording; trending failure is a fallback warning.
     const message =
-      sort === 'trending'
+      sort === 'trendingScore'
         ? `HF trending list failed for ${org} (falling back to downloads): ${messageOf(err)}`
         : `HF list failed for ${org}: ${messageOf(err)}`;
     ctx.warn(message, err);
@@ -135,7 +141,7 @@ async function discoverOrg(org: string, ctx: DiscoverContext): Promise<void> {
   if (downloads === null) return;
 
   // New/hot models (trending). Graceful (D2): a trending failure falls back to downloads only.
-  const trending = (await listSort(org, 'trending', ctx)) ?? [];
+  const trending = (await listSort(org, 'trendingScore', ctx)) ?? [];
 
   for (const model of mergeCapped(trending, downloads, ctx.limit)) {
     if (ctx.opts.signal?.aborted) break;
