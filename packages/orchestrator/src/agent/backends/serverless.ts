@@ -36,7 +36,7 @@ export interface ServerlessHandle {
  * the session lifecycle, handle tracking, and protocol parsing are
  * shared.
  */
-export abstract class ServerlessBackend implements AgentBackend {
+abstract class ServerlessBackend implements AgentBackend {
   abstract readonly name: string;
   protected handles = new Map<string, ServerlessHandle>();
 

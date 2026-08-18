@@ -15,7 +15,7 @@ import { poolStateToCandidates } from '@harness-engineering/local-models';
  * — see the task-aware-selection ADR. Extend here as more signal is available
  * (e.g. cognitiveMode on `skill`/`mode`).
  */
-export function useCaseToProfile(useCase: RoutingUseCase): RankProfile {
+function useCaseToProfile(useCase: RoutingUseCase): RankProfile {
   switch (useCase.kind) {
     case 'tier':
       return useCase.tier === 'diagnostic' ? 'reasoning' : 'coding';
