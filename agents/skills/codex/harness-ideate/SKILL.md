@@ -98,19 +98,49 @@ Idea 3: [Premise].
   for this objection to NOT hold: [...].
 ```
 
-After all N critiques are presented, ask the user:
+After all N critiques are presented, prompt the user. The prompt MUST make three
+things explicit that earlier wording left implicit: every objection is _already_
+recorded as standing, a rebuttal is written **by the user and never by the
+agent**, and a rebuttal changes no score and no rank. Use this wording:
 
 ```
-Which objections do you want to answer (vs. accept as a downside)?
-Options:
-  - all   — I'll address every objection
-  - none  — accept all critiques as known downsides
-  - <list of numbers, e.g., "1, 3, 7">
+All N objections are on the record as standing. Leaving them there is the
+normal outcome, not a concession — an accepted downside is a real signal.
+
+If you want to rebut any, name the numbers and I'll ask you for a sentence or
+two on each. Rebuttals sit beside the idea in the artifact; they do not change
+any score or the ranking.
+
+  just say "go"     leave every objection standing
+  1, 4, 7           you write a rebuttal for those three
+  every one         you write a rebuttal for all N
 ```
 
-For each idea the user elects to answer, ask: `For idea N, what makes the objection wrong or addressable?` Capture the user's one-paragraph answer. If the user cannot answer convincingly, leave the objection standing (this is a signal — it lowers the idea's ranking).
+**Never label the choices `all` / `none`.** Those two words collide with how
+people naturally phrase the default: "they're all fine", "all good", "all are
+good as is" all mean _leave them standing_ — the exact opposite of a literal
+`all`. The collision has misfired in practice. Offer the wording above instead.
 
-Critique answers do NOT change the impact/confidence/effort scores from Phase 2. They feed into the rationale shown alongside each ranked idea in Phase 5.
+**Disambiguation rule.** Any reply that praises the candidates, or declines to
+change them, means _leave standing_ — never N rebuttals. Read the interpretation
+back in one line ("Reading that as: all objections stand") and continue without
+a second round trip. Only a reply that clearly asks to rebut, or names numbers,
+enters the rebuttal loop.
+
+For each idea the user elects to rebut, ask: `For idea N, what makes the
+objection wrong or addressable?` Capture the answer **in the user's own words**.
+If they cannot answer convincingly, leave the objection standing.
+
+**The agent never authors a rebuttal.** A rebuttal is the user's judgment
+entering the record. An agent-written one recorded in that slot is a fabricated
+human input, and attributing it to an "analyst" or "reviewer" does not fix
+that — it disguises it. If the user does not answer, the objection stands. The
+agent may of course surface evidence bearing on an objection in conversation;
+it may not write that evidence into the rebuttal field.
+
+Rebuttals do NOT change the impact/confidence/effort scores from Phase 2, and so
+cannot change rank order — scores are the only ranking input. They feed the
+rationale shown alongside each ranked idea in Phase 5.
 
 ---
 
@@ -207,7 +237,7 @@ Sort by final score descending. Stable on ties (preserve generation order so the
 - Exactly one artifact is written per run, at `docs/ideation/<slug>-<YYYY-MM-DD>.md`. No spec, plan, ADR, or code is produced.
 - The artifact contains exactly the number of candidates the user requested (after clamping to `[5, 25]`).
 - Every candidate has all 7 fields populated (premise, persona, complexity, key_risk, impact, confidence, effort).
-- Each candidate has a strongest-objection paragraph; objections the user elected to answer have a rebuttal paragraph.
+- Each candidate has a strongest-objection paragraph; objections the user elected to rebut carry a rebuttal paragraph **in the user's own words**. A rebuttal the agent wrote is a failed run, not a satisfied criterion.
 - Ranking is by `(impact × confidence) ÷ effort` with the 1/2/3 mapping. Strategy-alignment bonus is applied only when STRATEGY.md is present AND the absolute base-score delta is ≤ 0.05.
 - When `STRATEGY.md` is absent or invalid, the skill completes without error and the artifact's frontmatter records `strategy_grounded: false`.
 - The output filename collision rule (6-char hex suffix on same-day re-run for the same focus) produces a stable, deterministic suffix from `sha1(focus + iso_timestamp)`.
@@ -217,13 +247,13 @@ Sort by final score descending. Stable on ties (preserve generation order so the
 
 These are common rationalizations that sound reasonable but lead to incorrect results. When you catch yourself thinking any of these, stop and follow the documented process instead.
 
-| Rationalization                                                                                            | Why It Is Wrong                                                                                                                                                                                                                |
-| ---------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ----------- | -------------------------------------------------------------------------------------------------------------------------------------- |
-| "The top-ranked idea is clearly the winner — I'll write its spec while I'm here."                          | Iron Law: exactly ONE ranked artifact per run, and NEVER a spec, plan, ADR, or code. Producing a spec is `harness-brainstorming`'s job; ideate's output is an INPUT to it, not a substitute.                                   |
-| "Idea 3's objection is weak — I'll skip its critique paragraph to move faster."                            | Every candidate needs its single strongest-objection paragraph. An idea whose objection goes unstated ranks as if it had none, which silently inflates it above ideas whose risks were honestly surfaced.                      |
-| "These ideas are all roughly medium on impact, confidence, and effort — I'll score them all medium."       | Undifferentiated scores make the `(impact × confidence) ÷ effort` ranking uninformative. Slow down and re-estimate the extremes; push for the highest-impact and highest-confidence outliers rather than defaulting to medium. |
-| "Idea 1 aligns with a track, so I'll add the +0.75 bonus even though it already beats Idea 2 comfortably." | The strategy-alignment bonus is bounded: it applies ONLY when `                                                                                                                                                                | Δbase_score | ≤ 0.05`. Outside that tie window the base score wins and the bonus is recorded for transparency but must never reorder a clear winner. |
-| "STRATEGY.md is present but invalid — I'll fix it so grounding works."                                     | Ideate READS STRATEGY.md; it never modifies it. On present-but-invalid, print the error verbatim, continue with `strategy_grounded: false`, and route the user to `/harness:strategy`. Repair is not this skill's job.         |
+| Rationalization                                                                                            | Why It Is Wrong                                                                                                                                                                                                                                   |
+| ---------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------- | -------------------------------------------------------------------------------------------------------------------------------------- |
+| "The top-ranked idea is clearly the winner — I'll write its spec while I'm here."                          | Iron Law: exactly ONE ranked artifact per run, and NEVER a spec, plan, ADR, or code. Producing a spec is `harness-brainstorming`'s job; ideate's output is an INPUT to it, not a substitute.                                                      |
+| "Idea 3's objection is weak — I'll skip its critique paragraph to move faster."                            | Every candidate needs its single strongest-objection paragraph. Objections do not move rank — scores do — so a missing critique does not change the order; it removes the risk information the reader needs to judge the order. That is the harm. |
+| "These ideas are all roughly medium on impact, confidence, and effort — I'll score them all medium."       | Undifferentiated scores make the `(impact × confidence) ÷ effort` ranking uninformative. Slow down and re-estimate the extremes; push for the highest-impact and highest-confidence outliers rather than defaulting to medium.                    |
+| "Idea 1 aligns with a track, so I'll add the +0.75 bonus even though it already beats Idea 2 comfortably." | The strategy-alignment bonus is bounded: it applies ONLY when `                                                                                                                                                                                   | Δbase_score | ≤ 0.05`. Outside that tie window the base score wins and the bonus is recorded for transparency but must never reorder a clear winner. |
+| "STRATEGY.md is present but invalid — I'll fix it so grounding works."                                     | Ideate READS STRATEGY.md; it never modifies it. On present-but-invalid, print the error verbatim, continue with `strategy_grounded: false`, and route the user to `/harness:strategy`. Repair is not this skill's job.                            |
 
 ## Examples
 
@@ -281,6 +311,9 @@ Phase 5:
 - **Never derive a spec from ideate's artifact automatically.** Brainstorming is human-confirmed; ideate's output is an INPUT to brainstorming, not a replacement.
 - **Never produce 0 ideas.** Clamping enforces `N ≥ 5`. If the model would generate near-duplicates to reach N, prefer fewer-but-distinct over more-but-redundant — re-prompt within the skill to diversify.
 - **The strategy-alignment tiebreaker is bounded.** Maximum bonus is `+0.75` (`0.5 + 0.25`) and only applies when `|Δbase_score| ≤ 0.05`. The bonus must NEVER override a clear base-score winner.
+- **The agent NEVER authors a rebuttal.** The Phase 3 rebuttal field holds the user's judgment. Writing one on their behalf — under any label, including "analyst rebuttal" — records a fabricated human input. An unanswered objection stands; that is a valid, informative outcome, not a gap to fill.
+- **Never offer the Phase 3 choices as bare `all` / `none`.** Those labels invert the most common natural phrasing of the default ("all good", "all are good as is"), and the collision has misfired in practice. Use the wording in Phase 3, and resolve any praise-or-decline reply as _leave standing_ with the interpretation stated back in one line.
+- **Objections never change rank.** Rank is `(impact × confidence) ÷ effort` plus the bounded tiebreaker, and nothing else. Any statement that an unanswered or missing objection raises or lowers an idea's position is wrong — do not add one.
 
 ## Escalation
 
