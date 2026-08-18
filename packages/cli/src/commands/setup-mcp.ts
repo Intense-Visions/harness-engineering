@@ -89,6 +89,7 @@ export const ALL_MCP_TOOLS: string[] = [
   'get_critical_paths',
   'list_streams',
   'manage_roadmap',
+  'manage_adr',
   'emit_interaction',
   'run_code_review',
   'gather_context',

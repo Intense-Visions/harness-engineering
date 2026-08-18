@@ -85,6 +85,14 @@ ${description}
 - [Describe when this skill should be invoked]
 - [Describe the trigger conditions]
 
+## Capability Roles
+
+<!-- A new MCP tool or skill capability is an extension point. A seam is only real when all three roles are filled; a capability with only one role filled is accidental single-implementation lock-in. Name all three before shipping. See harness-skill-authoring Phase 1C. -->
+
+- **Defines (Service Definition):** [What contract does this capability define — the interface, tool schema, or skill boundary, independent of any one implementation?]
+- **Provides (Provider):** [Who implements it? Name at least one concrete Provider.]
+- **Consumes (Consumer):** [Who calls it via the Service Definition? Name at least one Consumer.]
+
 ## Context Assembly
 
 ### Reads

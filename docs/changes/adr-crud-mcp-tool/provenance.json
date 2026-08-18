@@ -1,0 +1,55 @@
+{
+  "issue": 1283,
+  "title": "ADR CRUD as an MCP tool",
+  "slug": "adr-crud-mcp-tool",
+  "baseRef": "f7f6010d7727a9611fff4bc0a16ab9fe35ac63ac",
+  "branch": "build/adr-mcp-tool-1283",
+  "forkDecision": {
+    "id": "Fork A",
+    "decision": "Standalone MCP tool `manage_adr`, symmetric to `manage_roadmap`, with actions create/read/update/list. Not folded into the adr-fleet skill surface. Shape and registration modeled on packages/cli/src/mcp/tools/roadmap.ts.",
+    "answeredBy": "human (pre-answered in lane brief)"
+  },
+  "stages": [
+    {
+      "stage": "brainstorming/investigation",
+      "outcome": "Located ADR store (docs/knowledge/decisions/NNNN-slug.md), DecisionIngestor frontmatter format, manage_roadmap registration pattern (3 sites), reference-docs generation seam, and the #1323 number-collision defect."
+    },
+    {
+      "stage": "planning",
+      "artifact": "docs/changes/adr-crud-mcp-tool/plans/plan.md"
+    },
+    {
+      "stage": "execution",
+      "outcome": "Added adr-store.ts (list/read/create/update + collision-safe allocateNextNumber), adr.ts MCP tool (manage_adr), registered in server.ts + tool-capability-declarations.ts, regenerated reference docs."
+    },
+    {
+      "stage": "verification",
+      "outcome": "16 unit tests in adr.test.ts all pass; server/server-integration/tool-tiers/capabilities suites green after 106->107 count bump; tsc --noEmit clean; eslint clean on src."
+    },
+    {
+      "stage": "wiring",
+      "outcome": "Closed the two adoption gaps in the same PR. (1) Exposure: added manage_adr to STANDARD_EXTRA in tool-tiers.ts (next to manage_roadmap) so it appears in the standard tier, not only full; added a STANDARD_TOOL_NAMES membership assertion in tool-tiers.test.ts. (2) Consumer: wired manage_adr as the canonical ADR write path in adr-fleet/SKILL.md (DISPATCH create, SIGN-OFF update) and harness-architecture-advisor/SKILL.md (Phase 4 DOCUMENT, harness-available path + portable fallback). Adoption is prose-level because the fleets are prose orchestrators. DecisionIngestor confirmed reader-only (no write calls) and deliberately not rewired. Regenerated plugin command mirrors + reference docs.",
+      "assumptions": [
+        "Adoption is skill-prose-level, not code: adr-fleet and architecture-advisor are prose orchestrators with no code write path of their own, so the tool is wired in as their documented create/update mechanism.",
+        "architecture-advisor is adopter-portable, so manage_adr is presented as the canonical persist path when the harness MCP surface is available, with the existing <docs>/architecture/<topic>/ADR-<number>.md file path retained as a degrade-gracefully fallback rather than removed.",
+        "The tier tests are subset/threshold-based (no hard-coded standard-tier count), so exposing manage_adr required adding a membership assertion, not editing a count."
+      ]
+    }
+  ],
+  "planArtifact": "docs/changes/adr-crud-mcp-tool/plans/plan.md",
+  "crossRefs": {
+    "toolModule": "packages/cli/src/mcp/tools/adr.ts",
+    "storeModule": "packages/cli/src/mcp/tools/adr-store.ts",
+    "registration": "packages/cli/src/mcp/server.ts (import + TOOL_DEFINITIONS + TOOL_HANDLERS); packages/cli/src/mcp/tool-capability-declarations.ts",
+    "referenceDocs": "docs/reference/mcp-tools.md (### `manage_adr`)"
+  },
+  "assumptions": [
+    "Fork A (standalone manage_adr tool) as pre-answered in the lane brief.",
+    "ADR store lives in the CLI package, not @harness-engineering/core: the CRUD surface is consumed only by the MCP tool (unlike the shared roadmap store), so no core export / core-barrel allowlist change is added.",
+    "create() allocates max(existing number)+1 zero-padded (not count+1) — the collision-free scheme required by #1323 and used by adr-fleet.",
+    "ADRs are stored in docs/knowledge/decisions/ (per #1323 note and the directory README), NOT docs/adr/ or docs/decisions/.",
+    "create() defaults status to 'proposed' and date to today, matching the never-auto-accept convention; explicit values override.",
+    "manage_adr declares 'write' scope and is NOT a network tool (local filesystem only).",
+    "The tool reuses DecisionIngestor's frontmatter format rather than importing its private parser (graph-package-internal, no create/allocate surface)."
+  ]
+}

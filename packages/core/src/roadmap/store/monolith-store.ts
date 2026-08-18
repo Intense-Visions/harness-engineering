@@ -191,7 +191,7 @@ export class MonolithStore implements RoadmapStore {
               `single-file writer cannot preserve and would silently drop ` +
               `(e.g. line ${first.line}: "${first.text}"). ` +
               `Shard the roadmap into docs/roadmap.d/ for surgical per-row writes, ` +
-              `or remove the unmodeled content, then retry. See issue #839.`
+              `or remove the unmodeled content, then retry.`
           )
         );
       }

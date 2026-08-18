@@ -4,7 +4,7 @@
 
 Canonical, regenerated-and-gated reference for every shipped MCP tool and skill. Unlike the summary in [MCP Tools Reference](./mcp-tools.md), this catalog serializes each tool’s **full live input schema** and each skill’s **full declared contract**, so a divergence between a definition’s real schema and its documentation is caught by `pnpm run generate:tool-catalog:check` in CI rather than drifting silently.
 
-## MCP Tools (111)
+## MCP Tools (112)
 
 Every shipped MCP tool, booted live from the built server, with its full input schema. A drift between a tool’s real schema and this catalog fails the build.
 
@@ -3192,6 +3192,92 @@ List known state streams with branch associations and last-active timestamps
   },
   "required": [
     "path"
+  ],
+  "type": "object"
+}
+```
+
+### `manage_adr`
+
+Manage Architecture Decision Records (ADRs) in docs/knowledge/decisions/: create, read, update, or list decision records. "create" allocates the next collision-free ADR number (max(existing)+1, zero-padded) and writes a well-formed record with Context/Decision/Consequences sections at status "proposed" by default. "read" resolves an ADR by number ("92"/"0092"), slug, or filename. "update" patches frontmatter fields (status, title, tier, source, supersedes) and/or individual body sections without ever reusing a number. "list" returns every record as a number-sorted summary. Structured counterpart to the prose-only adr-fleet / architecture-advisor skill surface.
+
+**Input schema:**
+
+```json
+{
+  "properties": {
+    "action": {
+      "description": "Action to perform",
+      "enum": [
+        "create",
+        "read",
+        "update",
+        "list"
+      ],
+      "type": "string"
+    },
+    "body": {
+      "description": "For update only: replace the entire markdown body verbatim (mutually exclusive with section edits)",
+      "type": "string"
+    },
+    "consequences": {
+      "description": "Consequences section body (required for create; replaces the section on update)",
+      "type": "string"
+    },
+    "context": {
+      "description": "Context section body (required for create; replaces the section on update)",
+      "type": "string"
+    },
+    "date": {
+      "description": "Decision date YYYY-MM-DD (optional; defaults to today on create)",
+      "type": "string"
+    },
+    "decision": {
+      "description": "Decision section body (required for create; replaces the section on update)",
+      "type": "string"
+    },
+    "path": {
+      "description": "Path to project root",
+      "type": "string"
+    },
+    "ref": {
+      "description": "ADR reference for read/update: an ADR number (\"92\" or \"0092\"), a slug, or a filename",
+      "type": "string"
+    },
+    "slug": {
+      "description": "Explicit filename slug for create (optional; derived from the title if omitted)",
+      "type": "string"
+    },
+    "source": {
+      "description": "Source spec path or session slug that motivated the decision (optional)",
+      "type": "string"
+    },
+    "status": {
+      "description": "ADR status (optional; defaults to \"proposed\" on create)",
+      "enum": [
+        "proposed",
+        "accepted",
+        "superseded",
+        "deprecated"
+      ],
+      "type": "string"
+    },
+    "supersedes": {
+      "description": "Prior ADR number this decision supersedes (optional)",
+      "type": "string"
+    },
+    "tier": {
+      "description": "Decision tier: small | medium | large (optional)",
+      "type": "string"
+    },
+    "title": {
+      "description": "ADR title (required for create; optional for update)",
+      "type": "string"
+    }
+  },
+  "required": [
+    "path",
+    "action"
   ],
   "type": "object"
 }

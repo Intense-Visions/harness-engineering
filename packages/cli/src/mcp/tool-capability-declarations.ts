@@ -115,6 +115,7 @@ export const TOOL_CAPABILITY_DECLARATIONS: Readonly<Record<string, ToolCapabilit
   init_project: { scopes: ['write'] }, // scaffolds project + persistToolingConfig
   generate_persona_artifacts: { scopes: ['write'] }, // generateAgentsMd / CIWorkflow / Runtime
   manage_state: { scopes: ['write'] }, // event-sourced state persistence
+  manage_adr: { scopes: ['write'] }, // create/update ADR files under docs/knowledge/decisions/ (local FS only)
   create_skill: { scopes: ['write'] }, // generateSkillFiles
   generate_slash_commands: { scopes: ['write'] }, // writes command files (has dryRun preview)
   ingest_source: { scopes: ['write'] }, // fs.mkdir + graph ingest/write

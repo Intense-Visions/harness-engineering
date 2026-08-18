@@ -15,6 +15,14 @@
 - NOT for semantic-token-alias enforcement (overlaps with detect-design-drift T001 — design after both have shipped)
 - NOT for brand-rule authoring (use `harness-design` skill to draft DESIGN.md sections)
 
+## Capability Roles
+
+<!-- Capability seam: this skill participates in a real extension point whose three roles are named and concrete. A seam with only one role filled is accidental single-implementation lock-in. See harness-skill-authoring Phase 1C. -->
+
+- **Defines (Service Definition):** the shared `Verifier<F, Cat, Meta>` interface (`packages/cli/src/shared/verifier.ts`); this was the 4th verifier whose addition triggered extraction of the interface.
+- **Provides (Provider):** **this skill** — emits `AuditBrandOutput = Verifier<BrandFinding>` (`packages/cli/src/brand/index.ts`).
+- **Consumes (Consumer):** `harness-design-pipeline` / `harness check-design`, which compose it generically via `VerifierRegistry`.
+
 ## Process
 
 ### Phase 1: LOAD — Parse the two input sources

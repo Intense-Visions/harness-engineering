@@ -108,6 +108,23 @@ describe('create-skill command', () => {
       expect(content).toContain('| Rationalization | Reality |');
     });
 
+    it('surfaces the Service Definition / Provider / Consumer capability-roles checklist', () => {
+      const result = generateSkillFiles({
+        name: 'seam-skill',
+        description: 'A skill that adds an extension point',
+        outputDir: tmpDir,
+      });
+
+      const content = fs.readFileSync(result.skillMdPath, 'utf-8');
+
+      // The three capability roles must be prompted so a half-wired capability
+      // (single-implementation lock-in) is caught before it ships.
+      expect(content).toContain('## Capability Roles');
+      expect(content).toContain('Defines (Service Definition)');
+      expect(content).toContain('Provides (Provider)');
+      expect(content).toContain('Consumes (Consumer)');
+    });
+
     it('does not overwrite existing skill directory', () => {
       // Create the skill directory first
       const skillDir = path.join(tmpDir, 'existing-skill');

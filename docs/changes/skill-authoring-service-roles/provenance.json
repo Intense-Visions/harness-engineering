@@ -1,0 +1,97 @@
+{
+  "issue": 1397,
+  "slug": "skill-authoring-service-roles",
+  "title": "Require Service-Definition/Provider/Consumer roles in skill-authoring guidance",
+  "branch": "build/skill-authoring-roles-1397",
+  "base": "origin/main",
+  "stages": ["brainstorming/plan", "execution", "verification", "retrofit"],
+  "planArtifact": "docs/changes/skill-authoring-service-roles/plans/plan.md",
+  "changes": [
+    "agents/skills/claude-code/harness-skill-authoring/SKILL.md (Phase 1C capability roles section + Gate + rationalization) — cursor/codex/gemini-cli mirror dirs are symlinks to this canonical skill, so all four update together",
+    "packages/cli/src/commands/create-skill.ts (Capability Roles checklist in generated SKILL.md template)",
+    "packages/cli/tests/commands/create-skill.test.ts (assert roles checklist present)"
+  ],
+  "retrofit": {
+    "stage": "retrofit",
+    "description": "Targeted retrofit of the create_skill-scaffold '## Capability Roles' block (Defines/Provides/Consumes) onto the existing skills that genuinely define a capability seam. Not a blanket retrofit — 17 skills across 3 real seams.",
+    "seams": [
+      {
+        "name": "Design verifier interface",
+        "serviceDefinition": "Verifier<F, Cat, Meta> (packages/cli/src/shared/verifier.ts) composed via VerifierRegistry (packages/cli/src/design-pipeline/registry.ts)",
+        "consumer": ["harness-design-pipeline"],
+        "providers": ["detect-design-drift", "audit-component-anatomy", "audit-brand-compliance"]
+      },
+      {
+        "name": "Craft LLM-judgment-critique",
+        "serviceDefinition": "shared craft critique contract in packages/cli/src/shared/craft/ (LlmProvider + finding/axes schema + run store)",
+        "consumer": ["craft-fleet"],
+        "providers": [
+          "naming-craft",
+          "spec-craft",
+          "code-craft",
+          "security-craft",
+          "test-craft",
+          "api-craft",
+          "cli-ergonomics-craft",
+          "copy-craft",
+          "docs-craft",
+          "harness-design-craft",
+          "knowledge-craft"
+        ]
+      },
+      {
+        "name": "Fleet family spine",
+        "serviceDefinition": "shared -fleet handoff contract (docs/reference/fleet-family.md; concretized as FleetHandoffRecord by #1414)",
+        "consumer": ["fleet-command"],
+        "providers": [
+          "roadmap-fleet",
+          "bug-fleet",
+          "cicd-fleet",
+          "cleanup-fleet",
+          "security-fleet",
+          "issue-fleet",
+          "pr-fleet",
+          "test-fleet",
+          "adr-fleet",
+          "ideate-fleet",
+          "craft-fleet"
+        ]
+      }
+    ],
+    "retrofittedSkills": [
+      "harness-design-pipeline",
+      "detect-design-drift",
+      "audit-component-anatomy",
+      "audit-brand-compliance",
+      "craft-fleet",
+      "naming-craft",
+      "spec-craft",
+      "code-craft",
+      "security-craft",
+      "test-craft",
+      "api-craft",
+      "cli-ergonomics-craft",
+      "copy-craft",
+      "docs-craft",
+      "harness-design-craft",
+      "knowledge-craft",
+      "fleet-command"
+    ],
+    "skipped": [
+      "harness-docs-pipeline (+ its sub-skills) — NON-SEAM: fixed 4-phase orchestrator, does not consume the formal Verifier<F> interface / registry; no swappable-provider extension point",
+      "the 11 -fleet members individually — deferred: the seam is fully declared once at the fleet-command Consumer (with members named in-block); the concrete FleetHandoffRecord Service Definition landed in #1414 (packages/types/src/fleet-handoff.ts, merged into this branch) and stamping every member is out of scope for this targeted retrofit and would exceed the ~20-skill cap",
+      "standalone MCP tool provider/consumer pairs (candidate 4) — subsumed: the concrete MCP contracts here (audit_anatomy/audit_brand/detect_drift/*_craft tools) ARE the verifier and craft seams already retrofitted"
+    ],
+    "retrofitAssumptions": [
+      "harness-design-craft is a craft Provider, NOT a formal Verifier<F> provider (different output shape; dispatched in design-pipeline FILL phase, not registered) — placed in the craft seam.",
+      "Mirror handling is per-skill: craft-fleet and fleet-command have symlinked mirrors (edit claude-code updates all four); the other 15 skills have byte-identical copy mirrors and were re-synced to cursor/codex/gemini-cli byte-identically after the claude-code edit.",
+      "Pure docs/SKILL.md change (no publishable-package source touched by the retrofit itself); the existing @harness-engineering/cli changeset already covers this PR."
+    ]
+  },
+  "assumptions": [
+    "The 3 platform mirrors (cursor/codex/gemini-cli) have their harness-skill-authoring directory as a SYMLINK to ../claude-code/harness-skill-authoring, so editing the canonical SKILL.md updated all four; git tracks only the canonical path plus the symlink entries.",
+    "Surfacing the checklist 'in the create_skill flow' means adding a Capability Roles section to the SKILL.md template emitted by generateSkillFiles (the code path behind the mcp__harness__create_skill tool), rather than an interactive prompt.",
+    "No @harness-engineering/core export was added, so scripts/generate-core-barrel.mjs allowlist needs no change.",
+    "Pure docs/CLI-template change; changeset added/omitted to match the pre-push changeset gate expectation."
+  ]
+}

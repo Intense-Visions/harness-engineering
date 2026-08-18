@@ -121,7 +121,7 @@ describe('MCP Server Integration', () => {
     expect(names).toContain('docs_publish');
     // graph schema introspection tool (#1280)
     expect(names).toContain('get_graph_schema');
-    expect(tools).toHaveLength(111);
+    expect(tools).toHaveLength(112);
   });
 
   it('all tool definitions have inputSchema', () => {

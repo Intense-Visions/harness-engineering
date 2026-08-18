@@ -486,7 +486,7 @@ last_manual_edit: 2026-06-27T12:51:51.967Z
 
 ### ADR CRUD as an MCP tool
 
-- **Status:** planned
+- **Status:** done
 - **Spec:** —
 - **Summary:** Expose Architecture Decision Records as a structured MCP tool (create / read / update / list) rather than only as skill-mediated prose. Harness has `harness:adr-fleet` (batch ADR drafting) and `harness:architecture-advisor` (interactive decision surfacing) as skills, and a `DecisionIngestor` that folds ADRs into the knowledge graph — but `ls packages/cli/src/mcp/tools/ | grep -i "adr\|decision"` returns nothing, so no caller can create or amend an ADR programmatically. Adopted from `DeusData/codebase-memory-mcp`'s `manage_adr` tool, which additionally notes a useful concurrency property: query modes do not block behind a same-project reindex while writes remain serialized. Narrow in scope and adjacent to work `adr-fleet` already owns, so the main design question is whether this belongs as its own tool or as an extension of the adr-fleet surface. Matrix: docs/ideation/external-source-feature-matrix-2026-08-10.md (score 3.00).
 - **Blockers:** —
@@ -530,7 +530,7 @@ last_manual_edit: 2026-06-27T12:51:51.967Z
 
 ### Require Service-Definition/Provider/Consumer roles in skill-authoring guidance
 
-- **Status:** planned
+- **Status:** done
 - **Spec:** —
 - **Summary:** dsh's capability-seam model requires every extension point to name a Service Definition, at least one Provider, and at least one Consumer — a capability with only one role filled in is flagged as not actually swappable. Add an equivalent lightweight requirement to harness-skill-authoring: when a new MCP tool or skill capability is proposed, its author states what it defines, who provides it, and who consumes it. Catches half-wired capabilities before they ship as accidental single-implementation lock-in. Likely a new section in agents/skills/claude-code/harness-skill-authoring/SKILL.md plus a checklist item surfaced by create_skill.
 - **Blockers:** —

@@ -119,6 +119,7 @@ import {
   handleGetSecurityTrends,
 } from './tools/security.js';
 import { manageRoadmapDefinition, handleManageRoadmap } from './tools/roadmap.js';
+import { manageAdrDefinition, handleManageAdr } from './tools/adr.js';
 import { emitInteractionDefinition, handleEmitInteraction } from './tools/interaction.js';
 import { runCodeReviewDefinition, handleRunCodeReview } from './tools/review-pipeline.js';
 import { gatherContextDefinition, handleGatherContext } from './tools/gather-context.js';
@@ -344,6 +345,7 @@ const TOOL_DEFINITIONS: ToolDefinition[] = [
   getCriticalPathsDefinition,
   listStreamsDefinition,
   manageRoadmapDefinition,
+  manageAdrDefinition,
   emitInteractionDefinition,
   runCodeReviewDefinition,
   gatherContextDefinition,
@@ -464,6 +466,7 @@ const TOOL_HANDLERS: Record<string, ToolHandler> = {
   get_critical_paths: handleGetCriticalPaths as ToolHandler,
   list_streams: handleListStreams as ToolHandler,
   manage_roadmap: handleManageRoadmap as unknown as ToolHandler,
+  manage_adr: handleManageAdr as unknown as ToolHandler,
   emit_interaction: handleEmitInteraction as unknown as ToolHandler,
   run_code_review: handleRunCodeReview as ToolHandler,
   gather_context: handleGatherContext as ToolHandler,
@@ -743,7 +746,7 @@ export function createHarnessServer(projectRoot?: string, toolFilter?: string[])
     projectRoot: resolvedRoot,
     trustedOutputTools,
   });
-  const compactedHandlers = applyCompaction(guardedHandlers);
+  const compactedHandlers = applyCompaction(guardedHandlers, { projectRoot: resolvedRoot });
 
   const server = new Server(
     { name: 'harness-engineering', version: '2.3.1' },
