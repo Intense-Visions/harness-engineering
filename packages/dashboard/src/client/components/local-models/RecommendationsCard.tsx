@@ -432,7 +432,7 @@ export function RecommendationsCard({
           <ul className="space-y-2">
             {recs.map((r) => (
               <RecommendationRow
-                key={r.hfRepoId}
+                key={`${r.hfRepoId}@${r.quant}`}
                 rec={r}
                 installed={installedRepos.has(r.hfRepoId)}
                 progress={installProgress?.[r.hfRepoId]}

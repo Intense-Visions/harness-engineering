@@ -694,6 +694,8 @@ function RingSoma({
         cy={cy}
         r={r + 2.5}
         fill={color}
+        // Seed the animated `r`/opacity so framer never writes `r="undefined"` on the first frame.
+        initial={{ opacity: 0, r: r + 1 }}
         animate={{
           opacity: [0, jitter(0.07, 0.03), 0],
           r: [r + 1, r + jitter(4, 1), r + 1],
@@ -705,6 +707,7 @@ function RingSoma({
         cy={cy}
         r={r}
         fill={color}
+        initial={{ opacity: 0.2, r: r * 0.9 }}
         animate={{
           opacity: [0.2, 0.65, 0.2],
           r: [r * 0.9, r * jitter(1.06, 0.06), r * 0.9],
@@ -779,6 +782,7 @@ function HeartbeatPulse({ primary, accent }: { primary: string; accent: string }
         fill="none"
         stroke={primary}
         strokeWidth="0.8"
+        initial={{ r: 4, opacity: 0, strokeWidth: 0.6 }}
         animate={{
           r: [4, 18, 26],
           opacity: [0, 0.2, 0],
@@ -798,6 +802,7 @@ function HeartbeatPulse({ primary, accent }: { primary: string; accent: string }
         fill="none"
         stroke={accent}
         strokeWidth="0.5"
+        initial={{ r: 5, opacity: 0, strokeWidth: 0.4 }}
         animate={{
           r: [5, 15, 22],
           opacity: [0, 0.12, 0],
@@ -926,6 +931,7 @@ function NeuralMembrane({
       {tier === 'full' && (
         <motion.path
           d={haloVariants[0]}
+          initial={{ d: haloVariants[0]! }}
           animate={{ d: haloVariants }}
           transition={{
             duration: haloDur,
@@ -944,6 +950,7 @@ function NeuralMembrane({
       {tier !== 'compact' && (
         <motion.path
           d={outerVariants[0]}
+          initial={{ d: outerVariants[0]! }}
           animate={{ d: outerVariants }}
           transition={{
             duration: outerDur,
@@ -961,6 +968,7 @@ function NeuralMembrane({
 
       <motion.path
         d={innerVariants[0]}
+        initial={{ d: innerVariants[0]! }}
         animate={{ d: innerVariants }}
         transition={{
           duration: innerDur,
@@ -1338,6 +1346,8 @@ function DividingCells({
             cx={c.x}
             cy={c.y}
             r={c.r}
+            // Seed the animated geometry so the 100ms mitosis restart never writes cx/cy/r="undefined".
+            initial={{ cx: c.x, cy: c.y, r: c.r }}
             animate={{ cx: c.x, cy: c.y, r: c.r }}
             transition={{ duration: 0.25, ease: 'easeOut' }}
             fill={color}
@@ -1830,6 +1840,7 @@ export function NeuralOrganism({
                 fill="none"
                 stroke={agedPalette.primary}
                 strokeWidth="0.3"
+                initial={{ r: 10, opacity: 0, strokeWidth: 0.2 }}
                 animate={{
                   r: [10, 14, 10],
                   opacity: [0, 0.12, 0],
@@ -1844,6 +1855,7 @@ export function NeuralOrganism({
                 fill="none"
                 stroke={agedPalette.accent}
                 strokeWidth="0.2"
+                initial={{ r: 17, opacity: 0, strokeWidth: 0.15 }}
                 animate={{
                   r: [17, 22, 17],
                   opacity: [0, 0.08, 0],

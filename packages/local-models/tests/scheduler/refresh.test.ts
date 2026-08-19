@@ -146,6 +146,11 @@ describe('runRefreshTick (reconcile → rescore → diff → emit)', () => {
     expect(pool.snapshot().entries.find((e) => e.ollamaName === 'old:8b')?.currentScore).toBe(62);
     // (d) metrics
     expect(result.candidatesEvaluated).toBe(2);
+    // (d1) the evaluated candidates are surfaced by identity (`hfRepoId@quant`), in ranked order
+    expect(result.evaluatedCandidates).toEqual([
+      'Qwen/Qwen3-32B-GGUF@Q4_K_M',
+      'Qwen/Qwen3-8B-GGUF@Q4_K_M',
+    ]);
     expect(result.reconciledRemoved).toEqual([]);
     expect(result.errors).toEqual([]);
   });
@@ -357,6 +362,7 @@ function deferred<T>(): { promise: Promise<T>; resolve: (v: T) => void } {
 function emptyTick(): TickResult {
   return {
     candidatesEvaluated: 0,
+    evaluatedCandidates: [],
     proposalsEmitted: 0,
     reconciledRemoved: [],
     snapshotLoaded: true,
@@ -391,6 +397,7 @@ describe('RefreshScheduler (timer, jitter, overlap guard, O1 logging)', () => {
 
     const tr: TickResult = {
       candidatesEvaluated: 3,
+      evaluatedCandidates: [],
       proposalsEmitted: 1,
       reconciledRemoved: [],
       snapshotLoaded: true,
@@ -409,6 +416,7 @@ describe('RefreshScheduler (timer, jitter, overlap guard, O1 logging)', () => {
     const scheduler = new RefreshScheduler({
       runTick: async () => ({
         candidatesEvaluated: 5,
+        evaluatedCandidates: ['Qwen/Qwen3-32B-GGUF@Q4_K_M', 'Qwen/Qwen3-8B-GGUF@Q4_K_M'],
         proposalsEmitted: 2,
         reconciledRemoved: ['x'],
         snapshotLoaded: true,
@@ -437,12 +445,15 @@ describe('RefreshScheduler (timer, jitter, overlap guard, O1 logging)', () => {
       'completed',
       'durationMs',
       'candidatesEvaluated',
+      'candidates',
       'proposalsEmitted',
       'errors',
     ]) {
       expect(ctx).toHaveProperty(k);
     }
     expect(ctx.candidatesEvaluated).toBe(5);
+    // the O1 line names WHICH candidates were evaluated, not just the count
+    expect(ctx.candidates).toEqual(['Qwen/Qwen3-32B-GGUF@Q4_K_M', 'Qwen/Qwen3-8B-GGUF@Q4_K_M']);
     expect(ctx.proposalsEmitted).toBe(2);
     expect(ctx.durationMs).toBe(10);
   });

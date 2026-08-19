@@ -132,6 +132,12 @@ export interface HarnessFitProbeDeps {
 export interface TickResult {
   /** Number of ranked candidates the recommender evaluated. */
   candidatesEvaluated: number;
+  /**
+   * Identifiers (`hfRepoId@quant`) of the candidates evaluated this tick, in
+   * ranked order. Surfaced in the O1 log so operators can see *which* models a
+   * tick considered, not just how many. Empty on a degraded/hard-failure tick.
+   */
+  evaluatedCandidates: string[];
   /** Number of proposals emitted this tick. */
   proposalsEmitted: number;
   /** `ollamaName`s pruned by drift reconciliation (D12/F10). */
@@ -201,6 +207,7 @@ export async function runRefreshTick(deps: RefreshTickDeps): Promise<TickResult>
 
   return {
     candidatesEvaluated: ranked.length,
+    evaluatedCandidates: ranked.map(candidateId),
     proposalsEmitted,
     reconciledRemoved,
     snapshotLoaded,
@@ -210,10 +217,16 @@ export async function runRefreshTick(deps: RefreshTickDeps): Promise<TickResult>
   };
 }
 
+/** Stable per-candidate identifier for logging: `hfRepoId@quant` (e.g. `Qwen/Qwen3-32B-GGUF@Q4_K_M`). */
+function candidateId(m: RecommendResult['ranked'][number]): string {
+  return `${m.hfRepoId}@${m.quant}`;
+}
+
 /** A tick that produced no trustworthy ranking (O4 hard failure). */
 function hardFailureTick(errors: string[]): TickResult {
   return {
     candidatesEvaluated: 0,
+    evaluatedCandidates: [],
     proposalsEmitted: 0,
     reconciledRemoved: [],
     snapshotLoaded: false,
@@ -534,6 +547,7 @@ export class RefreshScheduler {
       .catch(
         (err): TickResult => ({
           candidatesEvaluated: 0,
+          evaluatedCandidates: [],
           proposalsEmitted: 0,
           reconciledRemoved: [],
           snapshotLoaded: false,
@@ -561,6 +575,7 @@ export class RefreshScheduler {
       completed,
       durationMs: completed - started,
       candidatesEvaluated: result.candidatesEvaluated,
+      candidates: result.evaluatedCandidates,
       proposalsEmitted: result.proposalsEmitted,
       errors: result.errors,
     });
