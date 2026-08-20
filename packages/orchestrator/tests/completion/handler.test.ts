@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import * as path from 'node:path';
 
 // ---------------------------------------------------------------------------
 // Module mocks. The handler under test collaborates with three modules whose
@@ -371,7 +372,7 @@ describe('outcome recording', () => {
 
     expect(h.graphStore!.save).toHaveBeenCalledTimes(1);
     // graphDir is workspace.root/../graph
-    expect(h.graphStore!.save).toHaveBeenCalledWith('/tmp/ws/graph');
+    expect(h.graphStore!.save).toHaveBeenCalledWith(path.join('/tmp/ws', 'graph'));
   });
 
   it('warns but does not throw when recordOutcome throws', async () => {
