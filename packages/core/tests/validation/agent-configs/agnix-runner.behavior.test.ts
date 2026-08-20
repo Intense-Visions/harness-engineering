@@ -1,5 +1,6 @@
 import { EventEmitter } from 'node:events';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+const describeUnix = process.platform === 'win32' ? describe.skip : describe;
 
 // Mock node:fs so resolveAgnixBinary/lookupOnPath discovery is deterministic.
 vi.mock('node:fs', () => ({
@@ -79,7 +80,7 @@ describe('isAgnixDisabled', () => {
   });
 });
 
-describe('resolveAgnixBinary', () => {
+describeUnix('resolveAgnixBinary', () => {
   const originalBin = process.env[HARNESS_AGNIX_BIN];
   const originalPath = process.env.PATH;
   const originalPathCap = process.env.Path;
