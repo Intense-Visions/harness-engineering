@@ -3,11 +3,7 @@ import {
   checkConfigPattern,
   detectPatternViolations,
 } from '../../../src/entropy/detectors/patterns';
-import type {
-  ConfigPattern,
-  SourceFile,
-  CodebaseSnapshot,
-} from '../../../src/entropy/types';
+import type { ConfigPattern, SourceFile, CodebaseSnapshot } from '../../../src/entropy/types';
 
 /**
  * Behavior tests for the per-rule checkers routed through `checkConfigPattern`
@@ -57,7 +53,9 @@ describe('checkConfigPattern — glob gating', () => {
 describe('checkMustExport', () => {
   it('flags each missing required export with a default message', () => {
     const p = pattern({ type: 'must-export', names: ['foo', 'bar'] });
-    const f = file({ exports: [{ name: 'foo', type: 'named', location: loc(1), isReExport: false }] });
+    const f = file({
+      exports: [{ name: 'foo', type: 'named', location: loc(1), isReExport: false }],
+    });
     const matches = checkConfigPattern(p, f, '/project');
     expect(matches).toHaveLength(1);
     expect(matches[0].message).toContain('bar');
@@ -67,7 +65,9 @@ describe('checkMustExport', () => {
 
   it('produces no matches when all required exports are present', () => {
     const p = pattern({ type: 'must-export', names: ['foo'] });
-    const f = file({ exports: [{ name: 'foo', type: 'named', location: loc(3), isReExport: false }] });
+    const f = file({
+      exports: [{ name: 'foo', type: 'named', location: loc(3), isReExport: false }],
+    });
     expect(checkConfigPattern(p, f, '/project')).toEqual([]);
   });
 
@@ -82,7 +82,9 @@ describe('checkMustExport', () => {
 describe('checkNoExport', () => {
   it('flags a forbidden export at its own source line', () => {
     const p = pattern({ type: 'no-export', names: ['secret'] });
-    const f = file({ exports: [{ name: 'secret', type: 'named', location: loc(9), isReExport: false }] });
+    const f = file({
+      exports: [{ name: 'secret', type: 'named', location: loc(9), isReExport: false }],
+    });
     const matches = checkConfigPattern(p, f, '/project');
     expect(matches).toHaveLength(1);
     expect(matches[0].line).toBe(9);
@@ -91,7 +93,9 @@ describe('checkNoExport', () => {
 
   it('produces no matches when the forbidden export is absent', () => {
     const p = pattern({ type: 'no-export', names: ['secret'] });
-    const f = file({ exports: [{ name: 'ok', type: 'named', location: loc(1), isReExport: false }] });
+    const f = file({
+      exports: [{ name: 'ok', type: 'named', location: loc(1), isReExport: false }],
+    });
     expect(checkConfigPattern(p, f, '/project')).toEqual([]);
   });
 });
@@ -108,7 +112,9 @@ describe('checkMustImport', () => {
   it('accepts an import matched by suffix (endsWith)', () => {
     const p = pattern({ type: 'must-import', from: 'shared/result' });
     const f = file({
-      imports: [{ source: '../../shared/result', specifiers: ['Ok'], location: loc(2), kind: 'value' }],
+      imports: [
+        { source: '../../shared/result', specifiers: ['Ok'], location: loc(2), kind: 'value' },
+      ],
     });
     expect(checkConfigPattern(p, f, '/project')).toEqual([]);
   });
@@ -117,7 +123,9 @@ describe('checkMustImport', () => {
 describe('checkNaming', () => {
   it('flags an export that violates the convention and describes the convention', () => {
     const p = pattern({ type: 'naming', match: '^[A-Z]', convention: 'PascalCase' });
-    const f = file({ exports: [{ name: 'lowerName', type: 'named', location: loc(4), isReExport: false }] });
+    const f = file({
+      exports: [{ name: 'lowerName', type: 'named', location: loc(4), isReExport: false }],
+    });
     const matches = checkConfigPattern(p, f, '/project');
     expect(matches).toHaveLength(1);
     expect(matches[0].message).toContain('PascalCase');
@@ -127,13 +135,17 @@ describe('checkNaming', () => {
 
   it('passes an export that satisfies the convention', () => {
     const p = pattern({ type: 'naming', match: '^[A-Z]', convention: 'PascalCase' });
-    const f = file({ exports: [{ name: 'GoodName', type: 'named', location: loc(1), isReExport: false }] });
+    const f = file({
+      exports: [{ name: 'GoodName', type: 'named', location: loc(1), isReExport: false }],
+    });
     expect(checkConfigPattern(p, f, '/project')).toEqual([]);
   });
 
   it('falls back to the raw convention name when no description exists', () => {
     const p = pattern({ type: 'naming', match: '^[A-Z]', convention: 'weirdConvention' });
-    const f = file({ exports: [{ name: 'bad', type: 'named', location: loc(1), isReExport: false }] });
+    const f = file({
+      exports: [{ name: 'bad', type: 'named', location: loc(1), isReExport: false }],
+    });
     const matches = checkConfigPattern(p, f, '/project');
     expect(matches[0].suggestion).toContain('weirdConvention');
   });
@@ -142,7 +154,10 @@ describe('checkNaming', () => {
 describe('checkRequireJsdoc', () => {
   it('flags a file that has exports but no JSDoc comments', () => {
     const p = pattern({ type: 'require-jsdoc' });
-    const f = file({ exports: [{ name: 'foo', type: 'named', location: loc(1), isReExport: false }], jsDocComments: [] });
+    const f = file({
+      exports: [{ name: 'foo', type: 'named', location: loc(1), isReExport: false }],
+      jsDocComments: [],
+    });
     const matches = checkConfigPattern(p, f, '/project');
     expect(matches).toHaveLength(1);
     expect(matches[0].message).toContain('JSDoc');
@@ -152,7 +167,9 @@ describe('checkRequireJsdoc', () => {
     const p = pattern({ type: 'require-jsdoc' });
     const f = file({
       exports: [{ name: 'foo', type: 'named', location: loc(1), isReExport: false }],
-      jsDocComments: [{ text: '/** doc */', location: loc(1) }] as unknown as SourceFile['jsDocComments'],
+      jsDocComments: [
+        { text: '/** doc */', location: loc(1) },
+      ] as unknown as SourceFile['jsDocComments'],
     });
     expect(checkConfigPattern(p, f, '/project')).toEqual([]);
   });
@@ -167,7 +184,9 @@ describe('checkRequireJsdoc', () => {
 describe('checkMaxLines', () => {
   it('is a no-op that never flags (line count unavailable)', () => {
     const p = pattern({ type: 'max-lines', count: 1 } as unknown as ConfigPattern['rule']);
-    const f = file({ exports: [{ name: 'a', type: 'named', location: loc(1), isReExport: false }] });
+    const f = file({
+      exports: [{ name: 'a', type: 'named', location: loc(1), isReExport: false }],
+    });
     expect(checkConfigPattern(p, f, '/project')).toEqual([]);
   });
 });
