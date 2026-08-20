@@ -81,9 +81,7 @@ describe('WorkspaceHooks', () => {
 
   describe('executeHook — working directory', () => {
     it('runs the command with cwd set to the provided directory', async () => {
-      const hooks = new WorkspaceHooks(
-        makeConfig({ afterCreate: 'printf hi > created.txt' })
-      );
+      const hooks = new WorkspaceHooks(makeConfig({ afterCreate: 'printf hi > created.txt' }));
       const result = await hooks.executeHook('afterCreate', tmpDir);
       expect(result.ok).toBe(true);
       const written = path.join(tmpDir, 'created.txt');
@@ -115,7 +113,10 @@ describe('WorkspaceHooks', () => {
       expect(result.ok).toBe(true);
       const dump = fs.readFileSync(path.join(tmpDir, 'env.txt'), 'utf8');
       const keys = new Set(
-        dump.split('\n').map((line) => line.split('=')[0]).filter(Boolean)
+        dump
+          .split('\n')
+          .map((line) => line.split('=')[0])
+          .filter(Boolean)
       );
       // Non-sensitive var survives.
       expect(keys.has('HARNESS_HOOK_TEST_PLAIN')).toBe(true);
@@ -131,9 +132,7 @@ describe('WorkspaceHooks', () => {
 
   describe('executeHook — timeout', () => {
     it('resolves Err with a timeout message and kills a long-running command', async () => {
-      const hooks = new WorkspaceHooks(
-        makeConfig({ beforeRemove: 'sleep 5', timeoutMs: 150 })
-      );
+      const hooks = new WorkspaceHooks(makeConfig({ beforeRemove: 'sleep 5', timeoutMs: 150 }));
       const start = Date.now();
       const result = await hooks.executeHook('beforeRemove', tmpDir);
       const elapsed = Date.now() - start;
