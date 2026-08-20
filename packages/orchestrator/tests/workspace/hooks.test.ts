@@ -24,7 +24,9 @@ function makeConfig(overrides: Partial<HooksConfig> = {}): HooksConfig {
   };
 }
 
-describe('WorkspaceHooks', () => {
+const describeUnix = process.platform === 'win32' ? describe.skip : describe;
+
+describeUnix('WorkspaceHooks', () => {
   let tmpDir: string;
 
   beforeEach(() => {
