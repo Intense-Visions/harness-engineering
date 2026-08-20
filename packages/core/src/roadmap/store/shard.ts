@@ -2,20 +2,10 @@ import matter from 'gray-matter';
 import type { Result } from '@harness-engineering/types';
 import { Ok, Err } from '@harness-engineering/types';
 import { parseFeatureBlock } from '../parse';
+import { parseFeatureHeading } from '../heading';
 import { serializeFeature } from '../serialize';
 import { quoteYamlScalar } from './yaml-scalar';
 import type { Shard } from './roadmap-store';
-
-/**
- * Reads the feature name back out of the row heading emitted by `serializeFeature`.
- *
- * This is an INDEPENDENT copy of the heading grammar in `../parse` (`h3Pattern`), so
- * the two must agree on the `Feature: ` escape: `serializeFeature` prefixes any name
- * beginning with `Feature: ` or `Group: ` with `Feature: `, and stripping it here is
- * what makes the shard round-trip name-preserving. `groups-write-paths.test.ts` pins
- * this seam with byte-stable round-trips over marker-prefixed names.
- */
-const H3_NAME = /^###\s+(?:Feature:\s+)?(.+)$/m;
 
 /** Validated shard frontmatter fields (slug/milestone/order). */
 interface ShardFrontmatter {
@@ -74,11 +64,16 @@ export function parseShard(md: string): Result<Shard> {
   if (!frontmatterResult.ok) return frontmatterResult;
   const { slug, milestone, order } = frontmatterResult.value;
 
-  const nameMatch = content.match(H3_NAME);
-  if (!nameMatch) {
+  // Reads the feature name back out of the row heading emitted by
+  // `serializeFeature`, via the shared grammar in `../heading`. The emitter escapes
+  // any name beginning with `Feature: ` or `Group: ` with `Feature: `, and stripping
+  // it here is what makes the shard round-trip name-preserving.
+  // `groups-write-paths.test.ts` pins this seam with byte-stable round-trips.
+  const heading = parseFeatureHeading(content);
+  if (!heading) {
     return Err(new Error(`Shard "${slug}" is missing its "### <name>" heading`));
   }
-  const name = nameMatch[1]!.trim();
+  const name = heading.name.trim();
 
   const featureResult = parseFeatureBlock(name, content);
   if (!featureResult.ok) return featureResult;

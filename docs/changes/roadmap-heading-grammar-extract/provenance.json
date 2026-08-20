@@ -1,0 +1,13 @@
+{
+  "issues": [1261],
+  "stages": ["brainstorming", "planning", "execution", "review"],
+  "planArtifact": "docs/changes/roadmap-heading-grammar-extract/plans/plan.md",
+  "closingKeyword": "Closes #1261",
+  "assumptions": [
+    "lenient \\s+ read, one-space emit (human-confirmed)",
+    "parse.ts's h3Pattern is WIDENED (not narrowed) to accept \\s+, matching shard.ts; this is Postel's law and does not narrow what parse.ts accepts today",
+    "GROUP_PREFIX and FEATURE_PREFIX move to heading.ts as the grammar's source of truth; no external module imports them (only parse.ts defined, serialize.ts consumed), so no core barrel change is needed",
+    "heading.ts stays internal to the roadmap module (relative-import only), so scripts/generate-core-barrel.mjs needs no allowlist edit",
+    "existing regression guards serialize-groups.test.ts and groups-write-paths.test.ts are kept unchanged as the seam's pins"
+  ]
+}
