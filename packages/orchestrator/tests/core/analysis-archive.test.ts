@@ -159,9 +159,9 @@ describe('AnalysisArchive.list', () => {
 describe('AnalysisArchive path-safety', () => {
   it('throws on a save whose issueId escapes the archive directory', async () => {
     const archive = new AnalysisArchive(dir);
-    await expect(
-      archive.save(makeRecord({ issueId: '../escape' })),
-    ).rejects.toThrow('Invalid issueId');
+    await expect(archive.save(makeRecord({ issueId: '../escape' }))).rejects.toThrow(
+      'Invalid issueId'
+    );
   });
 
   it('returns null on a get whose issueId escapes the archive directory', async () => {
