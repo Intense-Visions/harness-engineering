@@ -68,18 +68,14 @@ describe('DockerRuntime.execInContainer (behavior characterization)', () => {
       makeChild({ lines: ['first line\nsecond line\nthird line\n'], exitEventCode: 0 })
     );
 
-    const { yielded, returned } = await drain(
-      runtime.execInContainer(HANDLE, ['echo', 'hi'])
-    );
+    const { yielded, returned } = await drain(runtime.execInContainer(HANDLE, ['echo', 'hi']));
 
     expect(yielded).toEqual(['first line', 'second line', 'third line']);
     expect(returned).toBe(0);
   });
 
   it('returns a non-zero exit code surfaced by the exit event', async () => {
-    vi.mocked(spawn).mockReturnValue(
-      makeChild({ lines: ['boom\n'], exitEventCode: 2 })
-    );
+    vi.mocked(spawn).mockReturnValue(makeChild({ lines: ['boom\n'], exitEventCode: 2 }));
 
     const { yielded, returned } = await drain(runtime.execInContainer(HANDLE, ['false']));
 
@@ -88,9 +84,7 @@ describe('DockerRuntime.execInContainer (behavior characterization)', () => {
   });
 
   it('coerces a null exit-event code to 1 (current AS-IS fallback)', async () => {
-    vi.mocked(spawn).mockReturnValue(
-      makeChild({ lines: [], exitEventCode: null })
-    );
+    vi.mocked(spawn).mockReturnValue(makeChild({ lines: [], exitEventCode: null }));
 
     const { yielded, returned } = await drain(runtime.execInContainer(HANDLE, ['noop']));
 
@@ -165,9 +159,7 @@ describe('DockerRuntime.execInContainer (behavior characterization)', () => {
       cb(new Error('container already started'));
       return {} as any;
     });
-    vi.mocked(spawn).mockReturnValue(
-      makeChild({ lines: ['still ran\n'], exitEventCode: 0 })
-    );
+    vi.mocked(spawn).mockReturnValue(makeChild({ lines: ['still ran\n'], exitEventCode: 0 }));
 
     const { yielded, returned } = await drain(runtime.execInContainer(HANDLE, ['echo', 'x']));
 
