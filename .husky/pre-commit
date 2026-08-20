@@ -81,6 +81,29 @@ done
 set +f
 IFS=$old_ifs
 
+# Accurate diagnosis for the unbuilt-CLI case (#1421). A fresh worktree/clone has no
+# built CLI: packages/cli/dist is gitignored (.gitignore) and `pnpm install` alone
+# never produces it, so the `node .../harness.js` gate below would die with
+# MODULE_NOT_FOUND. That is a "could not run" abstention — zero checks executed — NOT a
+# check that ran and regressed. The failure branch further down attributes any non-zero
+# exit to an arch regression and offers the baseline-accepting remedy; following that
+# advice for a missing build silently rewrites committed thresholds for reasons
+# unrelated to the change. So assert the entrypoint exists FIRST and, if it does not,
+# fail with a distinct, actionable message that never offers the baseline remedy. This
+# message is deliberately kept textually disjoint from the arch-baseline advice below.
+if [ ! -f packages/cli/dist/bin/harness.js ]; then
+  echo "✗ Commit blocked: the harness CLI is not built." >&2
+  echo "" >&2
+  echo "  packages/cli/dist/bin/harness.js is missing. A fresh worktree or clone has no" >&2
+  echo "  built CLI (packages/cli/dist is gitignored; 'pnpm install' does not build it)." >&2
+  echo "  Build the CLI from the repo root, then re-commit:" >&2
+  echo "" >&2
+  echo "    pnpm build" >&2
+  echo "" >&2
+  echo "  No checks ran, so nothing was evaluated — this is not a check regression." >&2
+  exit 1
+fi
+
 if ! node packages/cli/dist/bin/harness.js ci check --skip "$SKIP" >/tmp/harness-pre-commit.log 2>&1; then
   cat /tmp/harness-pre-commit.log
   echo ""

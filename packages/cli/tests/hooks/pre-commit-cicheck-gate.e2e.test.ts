@@ -93,6 +93,16 @@ beforeEach(() => {
   fs.writeFileSync(hookPath, buildGateHook(repoRoot));
   fs.chmodSync(hookPath, 0o755);
 
+  // The hook now fails fast when the built CLI entrypoint is absent (#1421), a guard
+  // that runs BEFORE the stubbed `ci check` producer. This e2e is about the gate's
+  // pipe/redirect STRUCTURE, not the unbuilt-CLI diagnosis, so provision a stub
+  // entrypoint in the temp repo to satisfy that precondition and let the stubbed
+  // producer run. (The unbuilt-CLI guard itself is covered by
+  // pre-commit-unbuilt-cli-gate.e2e.test.ts.)
+  const cliEntry = path.join(cwd, 'packages', 'cli', 'dist', 'bin', 'harness.js');
+  fs.mkdirSync(path.dirname(cliEntry), { recursive: true });
+  fs.writeFileSync(cliEntry, '// stub entrypoint — presence satisfies the built-CLI guard\n');
+
   // Baseline commit created with the hook bypassed (env unset → stub exits 0, so
   // the gate passes anyway, but --no-verify keeps the baseline independent of it).
   fs.writeFileSync(path.join(cwd, 'README.md'), '# scratch\n');
