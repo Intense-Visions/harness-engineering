@@ -57,11 +57,13 @@ async function startWith(spawnImpl: typeof import('node:child_process').spawn, c
   return { b, start };
 }
 
-const oneShotOk = (stdout: string): Handler => (child) => {
-  if (stdout) child.stdout.write(stdout);
-  child.exitCode = 0;
-  child.emit('close', 0);
-};
+const oneShotOk =
+  (stdout: string): Handler =>
+  (child) => {
+    if (stdout) child.stdout.write(stdout);
+    child.exitCode = 0;
+    child.emit('close', 0);
+  };
 
 // --- construction ---------------------------------------------------------
 
@@ -256,7 +258,11 @@ describe('OciServerlessBackend — runTurn event streaming', () => {
     const { b, start } = await startWith(impl);
     if (!start.ok) return;
     const { events, result } = await drain(
-      b.runTurn(start.value, { sessionId: start.value.sessionId, prompt: 'x', isContinuation: false })
+      b.runTurn(start.value, {
+        sessionId: start.value.sessionId,
+        prompt: 'x',
+        isContinuation: false,
+      })
     );
     expect((events as Array<{ type: string }>).map((e) => e.type)).toEqual(['text', 'error']);
     const r = result as { success: boolean; error?: string };
@@ -277,7 +283,11 @@ describe('OciServerlessBackend — runTurn event streaming', () => {
     const { b, start } = await startWith(impl);
     if (!start.ok) return;
     const { result } = await drain(
-      b.runTurn(start.value, { sessionId: start.value.sessionId, prompt: 'x', isContinuation: false })
+      b.runTurn(start.value, {
+        sessionId: start.value.sessionId,
+        prompt: 'x',
+        isContinuation: false,
+      })
     );
     const r = result as { success: boolean; error?: string };
     expect(r.success).toBe(false);
@@ -301,7 +311,11 @@ describe('OciServerlessBackend — runTurn event streaming', () => {
     const { b, start } = await startWith(impl);
     if (!start.ok) return;
     const { events, result } = await drain(
-      b.runTurn(start.value, { sessionId: start.value.sessionId, prompt: 'x', isContinuation: false })
+      b.runTurn(start.value, {
+        sessionId: start.value.sessionId,
+        prompt: 'x',
+        isContinuation: false,
+      })
     );
     expect((events as Array<{ type: string }>).map((e) => e.type)).toEqual(['kept']);
     expect((result as { success: boolean }).success).toBe(true);
@@ -322,7 +336,11 @@ describe('OciServerlessBackend — runTurn event streaming', () => {
     const { b, start } = await startWith(impl);
     if (!start.ok) return;
     const { events, result } = await drain(
-      b.runTurn(start.value, { sessionId: start.value.sessionId, prompt: 'x', isContinuation: false })
+      b.runTurn(start.value, {
+        sessionId: start.value.sessionId,
+        prompt: 'x',
+        isContinuation: false,
+      })
     );
     const ev = (events as Array<{ subtype?: string; usage?: unknown }>)[0];
     expect(ev?.subtype).toBe('call');
@@ -348,7 +366,11 @@ describe('OciServerlessBackend — runTurn event streaming', () => {
     const { b, start } = await startWith(impl);
     if (!start.ok) return;
     const { events } = await drain(
-      b.runTurn(start.value, { sessionId: start.value.sessionId, prompt: 'x', isContinuation: false })
+      b.runTurn(start.value, {
+        sessionId: start.value.sessionId,
+        prompt: 'x',
+        isContinuation: false,
+      })
     );
     expect((events as Array<{ type: string }>).map((e) => e.type)).toEqual(['a', 'b', 'c']);
   });
@@ -384,7 +406,11 @@ describe('OciServerlessBackend — runTurn stdin failure', () => {
     expect(start.ok).toBe(true);
     if (!start.ok) return;
     const { events, result } = await drain(
-      b.runTurn(start.value, { sessionId: start.value.sessionId, prompt: 'x', isContinuation: false })
+      b.runTurn(start.value, {
+        sessionId: start.value.sessionId,
+        prompt: 'x',
+        isContinuation: false,
+      })
     );
     expect(events).toHaveLength(0);
     const r = result as { success: boolean; error?: string };
@@ -414,7 +440,11 @@ describe('OciServerlessBackend — runTurn timeout', () => {
     const start = await b.startSession({ workspacePath: '/tmp', permissionMode: 'full' });
     if (!start.ok) return;
     const { result } = await drain(
-      b.runTurn(start.value, { sessionId: start.value.sessionId, prompt: 'x', isContinuation: false })
+      b.runTurn(start.value, {
+        sessionId: start.value.sessionId,
+        prompt: 'x',
+        isContinuation: false,
+      })
     );
     expect(killed).toHaveLength(1);
     expect(killed[0]?.kill).toHaveBeenCalledWith('SIGTERM');
