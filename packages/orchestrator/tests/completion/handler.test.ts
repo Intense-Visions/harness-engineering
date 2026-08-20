@@ -194,7 +194,12 @@ describe('CompletionHandler.handleWorkerExit', () => {
 
     await handler.handleWorkerExit('id-1', 'normal', null, undefined, vi.fn());
 
-    expect(h.recorder.finishRecording).toHaveBeenCalledWith('id-1', 1, 'normal', expect.any(Object));
+    expect(h.recorder.finishRecording).toHaveBeenCalledWith(
+      'id-1',
+      1,
+      'normal',
+      expect.any(Object)
+    );
   });
 
   it('does not call finishRecording when there is no running entry', async () => {
@@ -563,7 +568,11 @@ describe('session highlights', () => {
       token: 'tok-abc',
       config: { owner: 'o', repo: 'r' },
     });
-    expect(renderPRCommentMock).toHaveBeenCalledWith({ turns: 5 }, [{ kind: 'edit', text: 'x' }], 'orch-123');
+    expect(renderPRCommentMock).toHaveBeenCalledWith(
+      { turns: 5 },
+      [{ kind: 'edit', text: 'x' }],
+      'orch-123'
+    );
     expect(addCommentMock).toHaveBeenCalledWith('GH-9', 'rendered-comment');
     expect(h.recorder.markHighlightsPosted).toHaveBeenCalledWith('id-1');
   });
