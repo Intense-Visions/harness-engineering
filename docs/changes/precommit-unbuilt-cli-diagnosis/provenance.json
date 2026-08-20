@@ -1,0 +1,12 @@
+{
+  "issues": [1421],
+  "stages": ["brainstorming", "planning", "execution", "review"],
+  "planArtifact": "docs/changes/precommit-unbuilt-cli-diagnosis/plans/plan.md",
+  "closingKeyword": "Closes #1421",
+  "assumptions": [
+    "Adopted issue Option 1 (assert the CLI entrypoint exists before invoking it) as the smallest change that resolves the dangerous-advice problem; did not implement Option 2 (a dedicated infrastructure exit code from `ci check`) or Option 3 (surfacing an executed-check count), which are larger, separable changes not required to close the reported bug.",
+    "The guard's file-existence check (`[ ! -f packages/cli/dist/bin/harness.js ]`) covers the reported reproduction (the entrypoint itself is absent in a fresh worktree/clone). A dist/ that exists but fails to load from a corrupt build is out of scope for this fix.",
+    "Worded the new accurate message to avoid the literal `--update-baseline` token and the 'architecture baseline change' phrasing, both to keep the accurate message textually disjoint from the dangerous advice and to avoid adding a new match for the STRENGTH-002 auto-baseline auditor's failure-branch regex.",
+    "Updated the sibling #726 fail-closed e2e (pre-commit-cicheck-gate.e2e.test.ts) to provision a stub built-CLI entrypoint in its temp repo, since the new guard runs before the stubbed producer and would otherwise mask it."
+  ]
+}
