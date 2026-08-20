@@ -30,7 +30,12 @@ interface Harness {
   tick: ReturnType<typeof vi.fn>;
   save: ReturnType<typeof vi.fn>;
   list: ReturnType<typeof vi.fn>;
-  logger: { info: ReturnType<typeof vi.fn>; warn: ReturnType<typeof vi.fn>; error: ReturnType<typeof vi.fn>; debug: ReturnType<typeof vi.fn> };
+  logger: {
+    info: ReturnType<typeof vi.fn>;
+    warn: ReturnType<typeof vi.fn>;
+    error: ReturnType<typeof vi.fn>;
+    debug: ReturnType<typeof vi.fn>;
+  };
   pipeline: FakePipeline;
   graphLoad: ReturnType<typeof vi.fn>;
   enrichedSpecsByIssue: Map<string, EnrichedSpec>;
@@ -147,7 +152,9 @@ describe('IntelligencePipelineRunner.run — candidate analysis via injected pip
     expect(h.pipeline.preprocessIssue).toHaveBeenCalledTimes(1);
     expect(result.enrichedSpecs.get('ISSUE-1')).toBe(enriched);
     expect(result.complexityScores.get('ISSUE-1')).toBe(score);
-    expect(result.concernSignals.get('ISSUE-1')).toEqual([{ name: 'base-signal', reason: 'because' }]);
+    expect(result.concernSignals.get('ISSUE-1')).toEqual([
+      { name: 'base-signal', reason: 'because' },
+    ]);
     // Spec is also written back into the shared cross-tick cache.
     expect(h.enrichedSpecsByIssue.get('ISSUE-1')).toBe(enriched);
     // PESL ran on the freshly enriched candidate.
