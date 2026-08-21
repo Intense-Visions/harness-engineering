@@ -105,7 +105,15 @@ function checkRateLimit(req: http.IncomingMessage, res: http.ServerResponse): bo
   if (bucket.count > RATE_LIMIT) {
     const retryAfter = Math.ceil((bucket.resetAt - now) / 1000);
     res.writeHead(429, { 'Content-Type': 'application/json', 'Retry-After': String(retryAfter) });
-    res.end(JSON.stringify({ error: 'Too Many Requests' }));
+    res.end(
+      JSON.stringify({
+        error: {
+          code: 'rate_limited',
+          message: 'Rate limit exceeded',
+          retryAfterSeconds: retryAfter,
+        },
+      })
+    );
     return false;
   }
   return true;

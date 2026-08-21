@@ -479,6 +479,61 @@ describe('OrchestratorServer — bind failures and ephemeral ports', () => {
     }
   });
 
+  it('returns an actionable 429 body with a machine code and retry budget when rate limited', async () => {
+    // Enable localhost rate limiting for this test (normally exempt). RATE_LIMIT
+    // defaults to 100 req/window, so request 101 from this IP trips the limiter.
+    vi.stubEnv('HARNESS_RATE_LIMIT_LOCALHOST', '1');
+    const server = new OrchestratorServer(mockOrchestrator, 0);
+    await server.start();
+
+    type RlResponse = {
+      statusCode: number | undefined;
+      retryAfter: string | undefined;
+      body: unknown;
+    };
+    const getOnce = (): Promise<RlResponse> =>
+      new Promise((resolve) => {
+        // A non-state route: the state endpoints are exempt from rate limiting.
+        http.get(`http://127.0.0.1:${server.boundPort}/unknown`, (res) => {
+          let data = '';
+          res.on('data', (chunk) => (data += chunk));
+          res.on('end', () =>
+            resolve({
+              statusCode: res.statusCode,
+              retryAfter: res.headers['retry-after'],
+              body: data ? JSON.parse(data) : undefined,
+            })
+          );
+        });
+      });
+
+    let limited: RlResponse | undefined;
+    for (let i = 0; i < 130 && !limited; i++) {
+      const r = await getOnce();
+      if (r.statusCode === 429) limited = r;
+    }
+
+    try {
+      expect(limited).toBeDefined();
+      const r = limited as RlResponse;
+      expect(r.statusCode).toBe(429);
+      // Retry-After header must still be present (not removed by the body change).
+      expect(r.retryAfter).toBeDefined();
+      expect(Number(r.retryAfter)).toBeGreaterThan(0);
+      // Body must be an actionable envelope a consumer can branch on.
+      const body = r.body as {
+        error?: { code?: string; message?: string; retryAfterSeconds?: unknown };
+      };
+      expect(body.error?.code).toBe('rate_limited');
+      expect(typeof body.error?.message).toBe('string');
+      expect(typeof body.error?.retryAfterSeconds).toBe('number');
+      expect(body.error?.retryAfterSeconds as number).toBeGreaterThan(0);
+    } finally {
+      server.stop();
+      vi.unstubAllEnvs();
+    }
+  });
+
   it('rejects instead of hanging when the port is already in use', async () => {
     const first = new OrchestratorServer(mockOrchestrator, 0);
     await first.start();
