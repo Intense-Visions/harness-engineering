@@ -1,5 +1,16 @@
 # @harness-engineering/cli
 
+## 11.3.1
+
+### Patch Changes
+
+- Updated dependencies [c81c872]
+- Updated dependencies [44ad077]
+- Updated dependencies [fed338f]
+  - @harness-engineering/orchestrator@0.21.4
+  - @harness-engineering/dashboard@0.16.2
+  - @harness-engineering/core@0.43.1
+
 ## 11.3.0
 
 ### Minor Changes
