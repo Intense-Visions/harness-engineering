@@ -1,0 +1,12 @@
+{
+  "issues": [1456],
+  "stages": ["brainstorming", "planning", "execution", "review"],
+  "planArtifact": "docs/changes/rate-limit-429-actionable-body/plans/plan.md",
+  "closingKeyword": "Closes #1456",
+  "assumptions": [
+    "No pre-existing nested error-envelope convention exists in http.ts (other errors use flat { error: '<string>' }); the actionable { error: { code, message, retryAfterSeconds } } shape from the issue is introduced for the 429 branch only.",
+    "The change is scoped to the rate-limit 429 branch; other error responses (404/401/insufficient-scope) are intentionally left unchanged to avoid touching unrelated observable contracts.",
+    "The existing Retry-After header is preserved; retryAfterSeconds is added to the body as an additive field, not a replacement.",
+    "code value is 'rate_limited' and message is 'Rate limit exceeded' exactly as specified in the issue's target shape."
+  ]
+}
