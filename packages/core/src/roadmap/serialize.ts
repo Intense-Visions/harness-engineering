@@ -4,9 +4,9 @@ import type {
   RoadmapFeature,
   AssignmentRecord,
 } from '@harness-engineering/types';
-// The marker prefixes live in `./parse`, the reader that defines them, so the
-// emitter cannot drift from it. See GROUP_PREFIX's doc comment there.
-import { GROUP_PREFIX, FEATURE_PREFIX } from './parse';
+// The H3 heading emitter lives in `./heading`, the single source of truth shared
+// with both readers, so the emitter cannot drift from them (#1261).
+import { serializeFeatureHeading } from './heading';
 
 const EM_DASH = '\u2014';
 
@@ -105,28 +105,6 @@ function serializeExtendedLines(feature: RoadmapFeature): string[] {
     lines.push(`- **Updated-At:** ${feature.updatedAt}`);
   }
   return lines;
-}
-
-/**
- * Emit a feature's H3 heading. Normally the bare `### <name>` form, but a name that
- * begins with either marker prefix MUST be escaped with an explicit `### Feature: `
- * prefix. The two readers of an H3 heading differ in what they would otherwise do:
- *
- *  - `Feature: x` — BOTH readers strip a leading `Feature: `, so in either format the
- *    row would be read back as plain `x`: silently renamed, and in the shard format
- *    re-slugged with it.
- *  - `Group: x` — only `parseRoadmap`'s `h3Pattern` treats this as a narrative group
- *    (silently dropping the tracked row). The shard format's `H3_NAME` has no
- *    `Group: ` handling at all and would round-trip it unescaped; it is escaped
- *    anyway so one emitter serves both formats and the shard reader needs no
- *    knowledge of the group marker.
- *
- * Escaping both keeps serialize → parse an identity for every feature name.
- */
-function serializeFeatureHeading(name: string): string {
-  return name.startsWith(GROUP_PREFIX) || name.startsWith(FEATURE_PREFIX)
-    ? `### ${FEATURE_PREFIX}${name}`
-    : `### ${name}`;
 }
 
 /**

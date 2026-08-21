@@ -10,6 +10,10 @@ import type {
   Result,
 } from '@harness-engineering/types';
 import { Ok, Err } from '@harness-engineering/types';
+// The H3 feature-heading grammar (both marker prefixes and the reader) lives in
+// `./heading`, the single source of truth shared with the emitter and the shard
+// reader, so no copy can drift and silently reclassify a tracked row (#1261).
+import { GROUP_PREFIX, matchFeatureHeadings } from './heading';
 
 const VALID_STATUSES: ReadonlySet<string> = new Set([
   'backlog',
@@ -21,31 +25,6 @@ const VALID_STATUSES: ReadonlySet<string> = new Set([
 ]);
 
 const EM_DASH = '\u2014';
-
-/**
- * Heading-text prefix that marks an H3 as a narrative group rather than a feature.
- *
- * This module is the SOURCE OF TRUTH for both marker prefixes: `serialize.ts`
- * imports them so the emitter cannot drift from the reader (a divergence would
- * silently reclassify or rename tracked rows).
- *
- * Two copies of the grammar are NOT shared, both as regex literals: `h3Pattern`
- * below, and `H3_NAME` in `./store/shard.ts`, which reads the same headings back for
- * the shard format. Sharing them is a worthwhile follow-up (`shard.ts` already
- * imports `parseFeatureBlock` from this module, so nothing structural prevents it).
- * Until then the seams are pinned by byte-stable round-trips over the shared
- * `MARKER_NAMES` list: `serialize-groups.test.ts` for this reader,
- * `groups-write-paths.test.ts` for the shard reader.
- */
-export const GROUP_PREFIX = 'Group: ';
-
-/**
- * Heading-text prefix that explicitly marks an H3 as a feature. It takes
- * precedence over {@link GROUP_PREFIX}, so `### Feature: Group: x` is a feature
- * named `Group: x`. Also the escape the serializer emits for any name that begins
- * with either prefix.
- */
-export const FEATURE_PREFIX = 'Feature: ';
 
 const VALID_PRIORITIES: ReadonlySet<string> = new Set(['P0', 'P1', 'P2', 'P3']);
 
@@ -210,25 +189,10 @@ function parseMilestoneSections(
 ): Result<MilestoneSections> {
   const features: RoadmapFeature[] = [];
   const groups: RoadmapGroup[] = [];
-  // Split on H3 headings — accept both "### Feature: X" and "### X". The
-  // `Feature: ` prefix is captured (not discarded) so the group test below can be
-  // restricted to headings that did NOT carry it.
-  const h3Pattern = /^### (Feature: )?(.+)$/gm;
-  const h3Matches: Array<{
-    name: string;
-    explicitFeature: boolean;
-    startIndex: number;
-    fullMatch: string;
-  }> = [];
-  let match: RegExpExecArray | null;
-  while ((match = h3Pattern.exec(sectionBody)) !== null) {
-    h3Matches.push({
-      name: match[2]!,
-      explicitFeature: match[1] !== undefined,
-      startIndex: match.index,
-      fullMatch: match[0],
-    });
-  }
+  // Split on H3 headings via the shared grammar — it accepts both "### Feature: X"
+  // and "### X" and reports whether the `Feature: ` escape was present, so the
+  // group test below can be restricted to headings that did NOT carry it.
+  const h3Matches = matchFeatureHeadings(sectionBody);
 
   for (let i = 0; i < h3Matches.length; i++) {
     const h3 = h3Matches[i]!;
