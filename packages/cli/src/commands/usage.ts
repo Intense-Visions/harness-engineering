@@ -1,4 +1,4 @@
-import { Command } from 'commander';
+import { Command, Option } from 'commander';
 import type { UsageRecord } from '@harness-engineering/types';
 import { logger } from '../output/logger';
 
@@ -134,10 +134,24 @@ function registerDailyCommand(usage: Command): void {
   usage
     .command('daily')
     .description('Show per-day token usage and cost')
-    .option('--days <n>', 'Number of days to show (default: 7, max: 90)', '7')
+    // Canonical flag — spelled the same as `sessions --limit` so the surface is guessable.
+    .option('--limit <n>', 'Number of days to show (default: 7, max: 90)', '7')
+    // Hidden, deprecated alias of `--limit`. Kept working for backward compatibility
+    // (`usage` is a published contract); hidden from --help and emits a stderr notice.
+    .addOption(new Option('--days <n>', 'Deprecated alias of --limit').hideHelp())
     .action(async (opts, cmd) => {
       const globalOpts = cmd.optsWithGlobals();
-      const days = Math.min(Math.max(parseInt(opts.days, 10) || 7, 1), 90);
+      // `--days` is a deprecated alias for `--limit`; both select the first N day rows.
+      // `--limit` wins when explicitly provided, otherwise fall back to `--days`, then default.
+      const daysProvided = opts.days !== undefined;
+      if (daysProvided) {
+        console.error(
+          'warning: `usage daily --days <n>` is deprecated; use `--limit <n>` instead.'
+        );
+      }
+      const limitExplicit = cmd.getOptionValueSource('limit') === 'cli';
+      const rawLimit = limitExplicit ? opts.limit : daysProvided ? opts.days : opts.limit;
+      const days = Math.min(Math.max(parseInt(rawLimit, 10) || 7, 1), 90);
       const cwd = process.cwd();
 
       const { records, pricingData } = await loadAndPriceRecords(

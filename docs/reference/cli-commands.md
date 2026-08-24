@@ -1843,7 +1843,8 @@ Show per-day token usage and cost
 
 **Options:**
 
-- `--days` — Number of days to show (default: 7, max: 90) (default: "7")
+- `--limit` — Number of days to show (default: 7, max: 90) (default: "7")
+- `--days` — Deprecated alias of --limit
 
 ### `harness usage latest`
 
