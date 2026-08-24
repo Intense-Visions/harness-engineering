@@ -1,0 +1,13 @@
+{
+  "issues": [1455],
+  "stages": ["brainstorming", "planning", "execution", "review"],
+  "planArtifact": "docs/changes/usage-flag-grammar-unify/plans/plan.md",
+  "closingKeyword": "Closes #1455",
+  "assumptions": [
+    "non-breaking: --limit canonical, --days hidden deprecated alias, no subcommand renames (human-confirmed)",
+    "daily --days <n> is a row-count (aggregateByDay(...).slice(0, n)), not a calendar time-window, so it is semantically identical to sessions --limit <n> — verified by reading usage.ts before unifying",
+    "deprecation notice is written to stderr (console.error, no chalk error icon) so it never corrupts --json stdout",
+    "--limit wins over --days when both are explicitly supplied; otherwise the canonical --limit default (7) applies",
+    "subcommand-grammar inconsistency (daily/latest adjectives vs sessions/session nouns) is a breaking change, deliberately deferred as a follow-up"
+  ]
+}

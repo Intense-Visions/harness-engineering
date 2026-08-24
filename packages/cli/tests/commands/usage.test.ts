@@ -384,6 +384,88 @@ describe('harness usage', () => {
     });
   });
 
+  describe('daily flag grammar (--limit canonical, --days deprecated alias)', () => {
+    it('daily --limit <n> and daily --days <n> produce the same result', async () => {
+      const programLimit = createProgram();
+      await programLimit.parseAsync([
+        'node',
+        'harness',
+        'usage',
+        'daily',
+        '--limit',
+        '1',
+        '--json',
+      ]);
+      const limitJson = logOutput.find((line) => line.trimStart().startsWith('['));
+      const limitOutput = JSON.parse(limitJson ?? logOutput.join(''));
+
+      logOutput = [];
+
+      const programDays = createProgram();
+      await programDays.parseAsync(['node', 'harness', 'usage', 'daily', '--days', '1', '--json']);
+      const daysJson = logOutput.find((line) => line.trimStart().startsWith('['));
+      const daysOutput = JSON.parse(daysJson ?? logOutput.join(''));
+
+      expect(daysOutput).toEqual(limitOutput);
+      expect(daysOutput).toHaveLength(1);
+    });
+
+    it('daily accepts --limit (canonical) to limit rows', async () => {
+      const program = createProgram();
+      await program.parseAsync(['node', 'harness', 'usage', 'daily', '--limit', '1', '--json']);
+
+      const jsonLine = logOutput.find((line) => line.trimStart().startsWith('['));
+      const output = JSON.parse(jsonLine ?? logOutput.join(''));
+      expect(output).toHaveLength(1);
+    });
+
+    it('daily --days still works as a deprecated alias', async () => {
+      const program = createProgram();
+      await program.parseAsync(['node', 'harness', 'usage', 'daily', '--days', '2', '--json']);
+
+      const jsonLine = logOutput.find((line) => line.trimStart().startsWith('['));
+      const output = JSON.parse(jsonLine ?? logOutput.join(''));
+      expect(output).toHaveLength(2);
+    });
+
+    it('daily --days prints a deprecation notice to stderr pointing at --limit', async () => {
+      const errOutput: string[] = [];
+      const errSpy = vi
+        .spyOn(console, 'error')
+        .mockImplementation((...args) => errOutput.push(args.join(' ')));
+
+      const program = createProgram();
+      await program.parseAsync(['node', 'harness', 'usage', 'daily', '--days', '1', '--json']);
+
+      const allErr = errOutput.join('\n');
+      expect(allErr).toContain('deprecated');
+      expect(allErr).toContain('--limit');
+      errSpy.mockRestore();
+    });
+
+    it('daily --limit does not print a deprecation notice', async () => {
+      const errOutput: string[] = [];
+      const errSpy = vi
+        .spyOn(console, 'error')
+        .mockImplementation((...args) => errOutput.push(args.join(' ')));
+
+      const program = createProgram();
+      await program.parseAsync(['node', 'harness', 'usage', 'daily', '--limit', '1', '--json']);
+
+      expect(errOutput.join('\n')).not.toContain('deprecated');
+      errSpy.mockRestore();
+    });
+
+    it('--days is hidden from daily --help while --limit is documented', () => {
+      const usageCmd = createUsageCommand();
+      const daily = usageCmd.commands.find((c) => c.name() === 'daily');
+      expect(daily).toBeDefined();
+      const help = daily!.helpInformation();
+      expect(help).toContain('--limit');
+      expect(help).not.toContain('--days');
+    });
+  });
+
   describe('sessions (text output)', () => {
     it('renders a table with header and rows', async () => {
       const loggerOutput: string[] = [];
