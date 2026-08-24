@@ -1,0 +1,14 @@
+{
+  "issues": [1479],
+  "stages": ["brainstorming", "planning", "execution", "review"],
+  "planArtifact": "docs/changes/1479-dead-export-public-api-blind-spot/plans/plan.md",
+  "assumptions": [
+    "Adopted the recommended default: flag an export that is re-exported through the package barrel / public surface but has zero real (non-test) importers across the workspace after re-export following, as a distinct advisory finding class PUBLIC_API_UNUSED (wire-or-deprecate, never delete). Barrel re-export is treated as NOT-a-use; usage attribution follows re-export chains so a real consumer importing via the barrel keeps the origin export live.",
+    "Provided two explicit opt-outs: a @public / @publicApi JSDoc annotation on the export, and a DeadCodeConfig.publicApiAllowlist (matches export name, <file>:<name>, or a file-path substring).",
+    "Preserved PR #1409 (test-import counting) exactly: an export imported by any test stays live and is never flagged PUBLIC_API_UNUSED (conservative: a test-only-imported public export is not flagged even though it has zero non-test callers).",
+    "Enabled comment capture (comment: true) in the shared TypeScript parser so the snapshot's previously-dead extractJSDocComments actually populates, which the @public opt-out consumes; full core suite (4410 tests) stayed green.",
+    "Surfaced the finding on the production graph path too: detectDeadCode merges snapshot-derived PUBLIC_API_UNUSED findings into the coarse, file-level graph report (guarded for empty snapshots), since the graph path cannot attribute per-symbol public-API usage.",
+    "Limitations documented for advisory v1: renamed (export { a as b }) and star (export *) re-exports are not followed to the origin symbol and are simply not treated as public surface, yielding no false positives; auto-fixers remain restricted to NO_IMPORTERS so the advisory class is never auto-deleted."
+  ],
+  "closingKeyword": "Closes #1479"
+}

@@ -29,6 +29,15 @@ export interface DeadCodeConfig {
   includeInternals: boolean;
   ignorePatterns: string[];
   treatDynamicImportsAs: 'used' | 'unknown';
+  /**
+   * Opt-out list for the advisory `PUBLIC_API_UNUSED` finding (issue #1479):
+   * intentionally-public-for-adopters exports that should not be flagged even
+   * with zero workspace callers. Each entry matches a finding when it equals the
+   * export name, equals `<file>:<name>`, or is a substring of the export's file
+   * path. Prefer a `@public` / `@publicApi` annotation on the export for
+   * co-located intent; use this list for coarse path-level exemptions.
+   */
+  publicApiAllowlist?: string[];
 }
 
 export interface EntropyConfig {
