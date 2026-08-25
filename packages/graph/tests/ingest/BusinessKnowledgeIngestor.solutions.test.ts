@@ -57,6 +57,35 @@ describe('BusinessKnowledgeIngestor.ingestSolutions', () => {
     expect(result.errors.some((e) => e.includes('crlf-pattern.md'))).toBe(false);
   });
 
+  // Quoted scalars are valid YAML, and the form
+  // `docs/solutions/assets/resolution-template.md` prescribes — yet every
+  // fixture above happens to use bare scalars, so nothing exercised the
+  // quote-stripping path and the parser silently rejected the documented form.
+  it('parses quoted scalars, including a quoted last_updated', async () => {
+    const result = await ingestor.ingestSolutions(FIXTURES);
+    const all = store.findNodes({});
+    const quoted = all.find((n) => n.path?.includes('quoted-scalars.md'));
+    expect(
+      result.errors.find((e) => e.includes('quoted-scalars.md')),
+      'a quoted date is valid YAML and must not be reported as malformed'
+    ).toBeUndefined();
+    expect(quoted).toBeDefined();
+  });
+
+  it('strips the quotes rather than keeping them in node data', async () => {
+    // Stripping has to reach the values themselves: a node whose domain is
+    // `'cli'` (quotes included) does not match a query for `cli`, so a
+    // half-fixed parser would satisfy the test above while leaving the node
+    // unfindable.
+    await ingestor.ingestSolutions(FIXTURES);
+    const quoted = store.findNodes({}).find((n) => n.path?.includes('quoted-scalars.md'));
+    expect(quoted?.metadata?.domain).toBe('cli');
+    expect(quoted?.metadata?.problem_type).toBe('pattern');
+    expect(quoted?.metadata?.last_updated).toBe('2026-05-06');
+    expect(quoted?.metadata?.tags).toEqual(['quoting', 'yaml']);
+    expect(quoted?.id).toBe('bk:solutions:cli:quoted-scalars');
+  });
+
   it('surfaces files lacking frontmatter as errors', async () => {
     const result = await ingestor.ingestSolutions(FIXTURES);
     const noFmError = result.errors.find((e) => e.includes('no-frontmatter.md'));
