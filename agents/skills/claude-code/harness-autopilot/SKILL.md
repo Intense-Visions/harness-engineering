@@ -22,6 +22,72 @@
 
 **Iron Law:** Autopilot delegates, never reimplements. If writing plan/execute/verify/review logic, STOP — delegate via `subagent_type`. Always use dedicated persona agents, never general-purpose agents.
 
+### Lifecycle skill hooks (project-declared) — `skillHooks`
+
+A project may attach **additional skills, commands, and prompts** at lifecycle points of any hook-supporting skill via the top-level `skillHooks` block in `harness.config.json`. This is the general framework; autopilot is its flagship consumer (the review case below is the primary worked example). Resolution/normalization is shared in `@harness-engineering/core` (`resolveSkillHooks` + the hook input-context helpers) so every hook-supporting skill honors the same contract.
+
+```jsonc
+// harness.config.json
+{
+  "skillHooks": {
+    "harness-autopilot": {
+      "before:EXECUTE": [
+        "preflight-skill", // bare string = a `skill` hook (shorthand)
+        { "type": "command", "run": "pnpm lint", "blocking": true },
+        {
+          "type": "prompt",
+          "text": "Prefer existing helpers in packages/core/util over new ones.",
+        },
+      ],
+      "after:REVIEW": [{ "type": "skill", "skill": "canary-cassandra", "blocking": true }],
+      "after:FINAL_REVIEW": ["canary-cassandra"],
+      "on:failure": [{ "type": "command", "run": "scripts/notify.sh" }],
+    },
+  },
+}
+```
+
+**Autopilot's hookable event vocabulary.** Autopilot fires `before:<STATE>` and `after:<STATE>` for `PLAN`, `EXECUTE`, `VERIFY`, `INTEGRATE`, `REVIEW`, and `FINAL_REVIEW`, plus `on:failure` at its failure path (see EXECUTE recovery and the review hard-halt). Event keys follow the grammar `^(before|after|on):[A-Za-z0-9_-]+$`.
+
+**Three hook kinds.** Each array entry is a bare skill-name string (shorthand for a `skill` hook) or one of three discriminated objects. All object kinds accept `"enabled": false` to park a hook without deleting it (a disabled hook is skipped — never a hard halt):
+
+- **`skill`** — `{ "type": "skill", "skill": "<name>", "blocking"?: bool }`. Dispatch that skill as an additional subagent (the LLM path). Its brief MUST include the same context the built-in persona/reviewer gets (see Hook context).
+- **`prompt`** — `{ "type": "prompt", "text": "<text>" }`. Mechanically APPEND `text` to that phase's persona-agent prompt/context. Purely declarative — runs no process, has no pass/fail, always non-blocking. (Static text in v1; `{{token}}` templating is RESERVED v2.)
+- **`command`** — `{ "type": "command", "run": "<shell>", "blocking"?: bool }`. Mechanically RUN the command at the hook point via the harness command-runner (honoring cwd), capturing exit code + stdout/stderr into the phase record. Deterministic, no LLM.
+
+**Blocking & hard-halt policy (per kind).**
+
+- **`skill`** — an unresolvable/undispatchable skill (typo, not installed) is a **HARD HALT**, not a silent skip and not an overridable finding: record it in `.harness/failures.md`, set the stage status to failed, and stop (resumable once config is fixed). Findings block per the default-blocking policy (review/verify events default `blocking:true`, else `false`; a per-entry `blocking` overrides).
+- **`command`** — distinguish two failure modes: **(a)** the command CANNOT be spawned (binary missing / spawn error) = **HARD HALT**, same class as an unresolvable skill; **(b)** the command RAN and exited non-zero = a normal **finding**, blocking per the default-policy/override (NOT a hard halt).
+- **`prompt`** — never blocks and never halts (it is only text; an empty `text` is a config-validation error).
+
+**Hook context (input contract).** When autopilot fires a hook it threads the invocation context, assembled once by the shared module:
+
+| Env var (for `command`)  | Meaning                                  |
+| ------------------------ | ---------------------------------------- |
+| `HARNESS_HOOK_EVENT`     | the event key, e.g. `after:REVIEW`       |
+| `HARNESS_HOOK_SKILL`     | the host skill, e.g. `harness-autopilot` |
+| `HARNESS_PHASE`          | the current phase/state, when known      |
+| `HARNESS_PROJECT_ROOT`   | absolute project root                    |
+| `HARNESS_SESSION_DIR`    | the session directory, when known        |
+| `HARNESS_CHANGED_FILES`  | newline-separated list of changed files  |
+| `HARNESS_PLAN_PATH`      | the active plan path, when known         |
+| `HARNESS_FAILURE_REASON` | set only on `on:failure`                 |
+
+- **`command`** hooks receive this context as those env vars AND the same context as a JSON object on **stdin** for structured consumers. Absent values are UNSET env keys (no empty-string placeholders). Conditional/glob scoping is achievable today by a command self-gating on `$HARNESS_CHANGED_FILES` (a dedicated conditional-glob field is RESERVED v2).
+- **`skill`** hooks receive the same context (event, session dir, changed files, plan path) in the subagent brief, reusing whatever context the built-in `harness-code-reviewer` dispatch already threads.
+- **`prompt`** hooks are the static text, appended verbatim.
+
+**Generic dispatch pattern (one pattern, every event).** At each hookable point, resolve and run the project's hooks:
+
+1. `hooks = resolveSkillHooks(config, "harness-autopilot", "<before|after|on>:<STATE>")` (empty ⇒ no-op; absent/empty config preserves today's exact behavior — no regression).
+2. For each hook in order, by kind: **`prompt`** → append `text` to this phase's persona prompt; **`command`** → run via the command-runner with the hook env + JSON stdin (cannot-spawn ⇒ hard halt; ran-and-non-zero ⇒ finding); **`skill`** → dispatch as an additional subagent with a brief carrying the hook context.
+3. Merge `command`/`skill` findings into this phase's aggregation, honoring each hook's `blocking`.
+
+**Extension contract — how a skill becomes hook-supporting.** (1) Declare its event vocabulary in its own SKILL.md; (2) at each lifecycle point call `resolveSkillHooks(config, "<this-skill>", "<event>")`; (3) honor the blocking + hard-halt rules and pass the hook input-context. `harness-autopilot` and `harness-code-review` are the wired reference consumers; remaining skills (brainstorming, fleets, ...) follow as a follow-up.
+
+**RESERVED (v2).** Per-iteration granularity (`after:EXECUTE:task`, `after:dispatch:item` — a phase-level hook fires once per phase, not per item), a `"*"` wildcard outer key ("hooks for every skill"), and `{{token}}` prompt templating.
+
 ## Rigor Levels
 
 Set at INIT (`--fast` / `--thorough`); persists for session. Default: `standard`.
@@ -108,6 +174,8 @@ On return: read `planPath` from `{sessionDir}/handoff.json`. Complexity override
 
 ### EXECUTE
 
+**Pre-dispatch: `before:EXECUTE` hooks.** Resolve `resolveSkillHooks(config, "harness-autopilot", "before:EXECUTE")` and run each hook in order by kind (see Lifecycle skill hooks): a `prompt` hook appends its text to the task-executor brief; a `command` hook runs via the command-runner with the hook env + JSON stdin (cannot-spawn ⇒ hard halt to `.harness/failures.md`; ran-and-non-zero ⇒ a finding, blocking per its policy — surface it before dispatching); a `skill` hook runs as a pre-flight subagent. This is the non-review generality proof: hooks fire at a non-review phase too. Empty/absent ⇒ no-op.
+
 **Pre-dispatch: plan parallelization (standard automatic parallelism).** Before dispatching tasks, decide the safe parallel structure. This is orchestration, not reimplementation — autopilot chooses HOW to dispatch; the persona agents still do the work.
 
 1. Collect the phase's tasks with their `files`, `dependsOn`, and `owns` (from the plan's task headers — `owns` comes from the optional `**Owns:**` line). Call the `plan_parallelization` MCP tool:
@@ -153,7 +221,7 @@ prompt: "Phase {N}: {name}. Plan: {planPath}. Session: {sessionSlug}. Rigor: {ri
 - Attempt 1: read error, apply obvious fix, re-dispatch for failed task.
 - Attempt 2: expand context — read related files, check `learnings.md`, re-dispatch.
 - Attempt 3: full context — test output, imports, plan instructions, re-dispatch.
-- Budget exhausted: recovery commit (`[autopilot][recovery]` prefix in message), record in `.harness/failures.md`. Ask: "fix manually and continue / revise plan / stop."
+- Budget exhausted: recovery commit (`[autopilot][recovery]` prefix in message), record in `.harness/failures.md`. **Fire `on:failure` hooks** — `resolveSkillHooks(config, "harness-autopilot", "on:failure")` — passing the hook context with `HARNESS_FAILURE_REASON` set to the failure summary (a `command` hook e.g. `scripts/notify.sh` is the natural use; these are advisory and never block the failure path). Then ask: "fix manually and continue / revise plan / stop." The same `on:failure` fan-out runs whenever autopilot writes a hard-halt/failure to `.harness/failures.md` (e.g. an unresolvable review hook).
 
 ---
 
@@ -199,7 +267,16 @@ subagent_type: "harness-code-reviewer"
 prompt: "Phase {N}: {name}. Session: {sessionSlug}. Follow harness-code-review. Report findings (critical / important / suggestion)."
 ```
 
-Persist findings to `{sessionDir}/phase-{N}-review.json`. No blocking → PHASE_COMPLETE. Blocking → ask "fix / override / stop." `fix`: re-enter EXECUTE. `override`: record decision in `decisions[]` → PHASE_COMPLETE.
+**Then run each project-declared `after:REVIEW` hook.** Resolve `resolveSkillHooks(config, "harness-autopilot", "after:REVIEW")` (from `skillHooks` in `harness.config.json`, default none). Run each hook in order by kind (see Lifecycle skill hooks): a `skill` hook is dispatched as an extra reviewer, a `command` hook runs via the command-runner, a `prompt` hook appends its text to the review brief. For a `skill` hook:
+
+```
+subagent_type: "<hook skill name>"
+prompt: "Phase {N}: {name}. Session: {sessionSlug}. Domain review. Context: {hook context}. Report findings (critical / important / suggestion)."
+```
+
+If a hooked skill cannot be dispatched (typo / not installed), or a `command` hook cannot be spawned (missing binary), do **not** skip it silently and do **not** offer it as an overridable finding: record it in `.harness/failures.md`, set the review status to failed, and halt REVIEW with "cannot verify" — a **hard halt** (see Lifecycle skill hooks, above). (A `command` that RAN and exited non-zero is instead a normal finding, blocking per policy — not a hard halt.) Persist each hook's findings under a per-hook key in `{sessionDir}/phase-{N}-review.json` so provenance survives, and merge them into the same blocking/non-blocking aggregation as the baseline reviewer.
+
+Persist findings to `{sessionDir}/phase-{N}-review.json`. No blocking (across baseline + additional reviewers) → PHASE_COMPLETE. Blocking → ask "fix / override / stop." `fix`: re-enter EXECUTE. `override`: record decision in `decisions[]` → PHASE_COMPLETE.
 
 ---
 
@@ -224,7 +301,13 @@ Persist findings to `{sessionDir}/phase-{N}-review.json`. No blocking → PHASE_
    subagent_type: "harness-code-reviewer"
    prompt: "Final cross-phase review. Diff: git diff {startingCommit}..HEAD. Session: {sessionSlug}. Prior findings: {collected}. Focus on cross-phase coherence: naming, duplicated utilities, architectural drift. Report findings (critical / important / suggestion)."
    ```
-4. No blocking: store in `finalReview.findings`, set `"passed"` → OUTCOME_EVAL.
+   Then run **each project-declared `after:FINAL_REVIEW` hook** — `resolveSkillHooks(config, "harness-autopilot", "after:FINAL_REVIEW")` (from `skillHooks`, default none) — over the same cross-phase diff. Run each by kind; a `skill` hook is dispatched as an extra reviewer:
+   ```
+   subagent_type: "<hook skill name>"
+   prompt: "Final cross-phase domain review. Diff: git diff {startingCommit}..HEAD. Session: {sessionSlug}. Context: {hook context}. Report findings (critical / important / suggestion)."
+   ```
+   An unresolvable hooked skill (or an un-spawnable `command` hook) is a FINAL_REVIEW failure, not a skip, and not an overridable finding — record it in `.harness/failures.md`, set the final-review status to failed, and hard-halt with "cannot verify" rather than reporting a green final review that silently dropped a configured hook. (A `command` that ran and exited non-zero is a normal blocking finding, not a hard halt.) Hook findings merge into the same `finalReview.findings` aggregation.
+4. No blocking (across baseline + additional reviewers): store in `finalReview.findings`, set `"passed"` → OUTCOME_EVAL.
 5. Blocking: ask "fix / override / stop."
    - `fix`: increment `finalReview.retryCount` (max 3). Dispatch harness-task-executor: "Fix these blocking findings: {findings with file, line, title}. Session: {sessionSlug}. Commit each fix atomically." Run `harness validate`. Re-run FINAL_REVIEW from step 1. If retryCount > 3: stop, record in `.harness/failures.md`.
    - `override`: record rationale in `decisions[]`. Set `"overridden"` → OUTCOME_EVAL.
@@ -281,7 +364,7 @@ The blocking post-execution **spec-satisfaction gate** — the harness's ship ga
 4. **EXECUTE** — Dispatch harness-task-executor with plan path, handle checkpoints and retries (max 3).
 5. **VERIFY** — Dispatch harness-verifier, confirm code correctness and wiring.
 6. **INTEGRATE** — Resolve integration tier, dispatch harness-integration, verify system wiring, knowledge materialization, and documentation per tier.
-7. **REVIEW** — Dispatch harness-code-reviewer, fix blocking findings.
+7. **REVIEW** — Dispatch harness-code-reviewer plus any project-declared `skillHooks["harness-autopilot"]["after:REVIEW"]` hooks, fix blocking findings.
 8. **PHASE_COMPLETE** — Summarize (including integration report), sync roadmap, loop to ASSESS for next phase or proceed to FINAL_REVIEW.
 9. **FINAL_REVIEW → OUTCOME_EVAL → DONE** — Cross-phase review, then the blocking spec-satisfaction gate (halt on a high-confidence NOT_SATISFIED), offer PR creation, write final handoff.
 

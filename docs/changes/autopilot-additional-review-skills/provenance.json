@@ -1,0 +1,52 @@
+{
+  "issues": [1481],
+  "title": "harness-autopilot: let projects declare additional domain-specific review skills",
+  "externalId": "github:Intense-Visions/harness-engineering#1481",
+  "slug": "autopilot-additional-review-skills",
+  "branch": "feat/1481-autopilot-additional-review-skills",
+  "stages": ["brainstorming", "planning", "execution", "review"],
+  "pipelineStages": [
+    {
+      "stage": "brainstorming",
+      "artifact": "docs/changes/autopilot-additional-review-skills/proposal.md",
+      "summary": "Spec: optional review.additionalSkills[] config seam; extra reviewers run at BOTH REVIEW and FINAL_REVIEW alongside the mandatory harness-code-reviewer; empty/absent = no regression; unresolvable skill = failure not skip."
+    },
+    {
+      "stage": "planning",
+      "artifact": "docs/changes/autopilot-additional-review-skills/plans/2026-08-24-additional-review-skills-plan.md",
+      "summary": "4-task TDD plan: schema field (test-first), SKILL.md wiring (prose-contract test-first), docs, validate."
+    },
+    {
+      "stage": "execution",
+      "artifact": "packages/cli/src/config/schema.ts",
+      "summary": "TDD implementation: additionalSkills added to ReviewConfigSchema + autopilot SKILL.md wired at REVIEW and FINAL_REVIEW + configuration.md updated."
+    },
+    {
+      "stage": "review",
+      "artifact": "docs/changes/autopilot-additional-review-skills/provenance.json",
+      "summary": "Self-review + code-review pass; schema + prose-contract tests green; no regression to single-reviewer path."
+    }
+  ],
+  "planArtifact": "docs/changes/autopilot-additional-review-skills/plans/2026-08-24-additional-review-skills-plan.md",
+  "sourceFiles": [
+    "packages/cli/src/config/schema.ts",
+    "agents/skills/claude-code/harness-autopilot/SKILL.md",
+    "docs/reference/configuration.md",
+    "packages/cli/tests/config/review-additional-skills-schema.test.ts",
+    "packages/cli/tests/integration/autopilot-additional-review-skills.test.ts"
+  ],
+  "assumptions": [
+    "GENERALIZED: the one-off review.additionalSkills field is removed and superseded by a general cross-skill skillHooks framework (shape = top-level map keyed by skill-name -> event-string -> hook-entry[]); the review case is now skillHooks[\"harness-autopilot\"][\"after:REVIEW\"] + [\"after:FINAL_REVIEW\"]",
+    "shared resolver in @harness-engineering/core (packages/core/src/hooks/skill-lifecycle.ts): resolveSkillHooks(config, skillName, event) -> NormalizedHook[]; defaultBlocking(event) = true at review/verify events else false, per-entry blocking overrides",
+    "hook entry is a bare skill-name string OR a discriminated union on type: skill (subagent dispatch), prompt (mechanically append text to the persona prompt; never blocks), command (mechanically run a shell command via the command-runner; deterministic, no LLM)",
+    "event-key grammar = ^(before|after|on):[A-Za-z0-9_-]+$ — before:/after:<phase>, before:run/after:run (covers single-shot phase-less skills), and on:<event> lifecycle hooks (on:failure proven in autopilot)",
+    "hook input-context contract centralized in core (hook-context.ts): command hooks get HARNESS_* env vars + JSON stdin (absent values unset, not empty); skill hooks get the same context in the subagent brief; prompt is static text; on:failure sets HARNESS_FAILURE_REASON",
+    "enabled toggle (default true) on all three object kinds parks a hook without deleting it — a disabled hook is skipped, never a hard halt",
+    "hard-halt policy: unresolvable/undispatchable skill = hard halt (false-green protection, recorded in .harness/failures.md, not overridable); command that cannot be spawned = hard halt; command that ran and exited non-zero = a normal blocking finding; prompt never blocks/halts",
+    "empty/absent skillHooks preserves today's exact single-reviewer behavior — no regression",
+    "proven on autopilot at 2 states (after:REVIEW + after:FINAL_REVIEW migrated, before:EXECUTE for non-review generality) across all three kinds, plus on:failure; harness-code-review is the second consumer (after:mechanical), resolver-level proof",
+    "RESERVED v2 (documented, not implemented): per-iteration granularity (after:EXECUTE:task, after:dispatch:item), a \"*\" wildcard outer key, and {{token}} prompt templating; conditional scoping is achievable today by a command self-gating on $HARNESS_CHANGED_FILES",
+    "autopilot/code-review are prose-driven skills, so dispatch wiring lives in their SKILL.md; the schema + resolver + context helpers are the TypeScript code surface"
+  ],
+  "closingKeyword": "Closes #1481"
+}

@@ -228,6 +228,12 @@ When no session is available, skip silently. Evidence checking enhances but does
 
 **Exit:** If harness validate, typecheck, or tests fail, report in Strengths/Issues/Assessment format and stop. Lint warnings and security findings do not stop the pipeline -- recorded for exclusion only.
 
+#### Lifecycle skill hooks — `after:mechanical`
+
+This skill is a hook-supporting consumer of the cross-skill `skillHooks` framework (defined in `@harness-engineering/core`, `resolveSkillHooks`; see harness-autopilot's "Lifecycle skill hooks" section for the full contract). Its declared hookable event is **`after:mechanical`**: additional project-declared checks that run once the mechanical exclusion boundary is established, before the AI fan-out.
+
+Resolve `resolveSkillHooks(config, "harness-code-review", "after:mechanical")` from `skillHooks` in `harness.config.json` (default none ⇒ no-op, no regression). Run each hook in order by kind: a `command` hook runs via the command-runner with the hook env/stdin context (cannot-spawn ⇒ hard halt; ran-and-non-zero ⇒ a finding); a `prompt` hook appends its text to the review context; a `skill` hook runs as an extra reviewer with the same mechanical context. An unresolvable hooked skill is a hard halt (recorded, never a silent skip), matching the framework's false-green protection. Hook findings merge into the same exclusion/aggregation as the built-in mechanical checks. Additional lifecycle events (`before:run` / `after:run`, `on:failure`) follow the same grammar when this skill opts in at those points.
+
 ---
 
 ### Phase 3: CONTEXT

@@ -240,6 +240,11 @@ export * from './telemetry-synthesis';
 export * from './skills';
 
 /**
+ * Cross-skill lifecycle hooks — resolve/normalize project-declared `skillHooks` and build the hook input-context contract (env/stdin/brief).
+ */
+export * from './hooks';
+
+/**
  * Accessibility module.
  */
 export * from './accessibility';

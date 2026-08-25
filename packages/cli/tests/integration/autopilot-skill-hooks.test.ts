@@ -1,0 +1,135 @@
+// packages/cli/tests/integration/autopilot-skill-hooks.test.ts
+//
+// #1481 (generalized) — the narrow `review.additionalSkills` seam became the
+// general cross-skill `skillHooks` lifecycle-hook framework. harness-autopilot
+// is the flagship consumer. autopilot + harness-code-review are prose-driven,
+// so the contract lives in their SKILL.md. Assertions are loose on wording but
+// strict on: the general framework is documented, the three hook kinds exist,
+// the review case is wired at after:REVIEW + after:FINAL_REVIEW, a non-review
+// event (before:EXECUTE) is wired, on:failure is wired, an unresolvable hook is
+// a hard halt (not a silent skip), and the second consumer declares a hook.
+import { describe, it, expect } from 'vitest';
+import * as path from 'path';
+import * as fs from 'fs';
+
+const REPO_ROOT = path.resolve(__dirname, '..', '..', '..', '..');
+const AUTOPILOT_SKILL_MD = path.join(
+  REPO_ROOT,
+  'agents',
+  'skills',
+  'claude-code',
+  'harness-autopilot',
+  'SKILL.md'
+);
+const CODE_REVIEW_SKILL_MD = path.join(
+  REPO_ROOT,
+  'agents',
+  'skills',
+  'claude-code',
+  'harness-code-review',
+  'SKILL.md'
+);
+
+/** Extract from a `### <heading>` (heading given verbatim) to the next `###`/`##`/`---`. */
+function extractSection(md: string, headingStartsWith: string): string {
+  const lines = md.split('\n');
+  const start = lines.findIndex(
+    (l) => l.startsWith('### ') && l.slice(4).startsWith(headingStartsWith)
+  );
+  if (start === -1) throw new Error(`Section starting "${headingStartsWith}" not found`);
+  let end = lines.length;
+  for (let i = start + 1; i < lines.length; i++) {
+    if (lines[i].startsWith('### ') || lines[i].startsWith('## ') || lines[i] === '---') {
+      end = i;
+      break;
+    }
+  }
+  return lines.slice(start, end).join('\n');
+}
+
+describe('harness-autopilot documents the general skillHooks framework (#1481)', () => {
+  const md = fs.readFileSync(AUTOPILOT_SKILL_MD, 'utf-8');
+
+  it('names the general skillHooks config surface, not the removed review.additionalSkills', () => {
+    expect(md).toMatch(/skillHooks/);
+    expect(md).not.toMatch(/review\.additionalSkills/);
+  });
+
+  it('documents the three hook kinds (skill / prompt / command)', () => {
+    const section = extractSection(md, 'Lifecycle skill hooks');
+    expect(section).toMatch(/`skill`/);
+    expect(section).toMatch(/`prompt`/);
+    expect(section).toMatch(/`command`/);
+  });
+
+  it('documents the enabled toggle and the hook input-context contract', () => {
+    const section = extractSection(md, 'Lifecycle skill hooks');
+    expect(section).toMatch(/enabled/);
+    expect(section).toMatch(/HARNESS_HOOK_EVENT/);
+    expect(section).toMatch(/HARNESS_CHANGED_FILES/);
+    expect(section).toMatch(/stdin/i);
+  });
+
+  it('documents the command hard-halt vs finding distinction', () => {
+    const section = extractSection(md, 'Lifecycle skill hooks');
+    expect(section).toMatch(/cannot be spawned/i);
+    expect(section).toMatch(/exited non-zero/i);
+    expect(section).toMatch(/hard halt/i);
+  });
+
+  it('documents the generic dispatch pattern and the extension contract', () => {
+    const section = extractSection(md, 'Lifecycle skill hooks');
+    expect(section).toMatch(/resolveSkillHooks/);
+    expect(section).toMatch(/hook-supporting/i);
+  });
+
+  it('documents the reserved v2 extension points', () => {
+    const section = extractSection(md, 'Lifecycle skill hooks');
+    expect(section).toMatch(/RESERVED/);
+    expect(section).toMatch(/wildcard|\*/);
+    expect(section).toMatch(/per-item|per-iteration|dispatch:item|EXECUTE:task/i);
+  });
+
+  it('REVIEW runs after:REVIEW hooks, keeps the baseline reviewer, and hard-halts on an unresolvable hook', () => {
+    const review = extractSection(md, 'REVIEW');
+    expect(review).toMatch(/after:REVIEW/);
+    expect(review).toMatch(/harness-code-reviewer/);
+    expect(review).toMatch(/cannot verify|hard halt|failure, not a (silent )?skip/i);
+  });
+
+  it('FINAL_REVIEW runs after:FINAL_REVIEW hooks and hard-halts on an unresolvable hook', () => {
+    const finalReview = extractSection(md, 'FINAL_REVIEW');
+    expect(finalReview).toMatch(/after:FINAL_REVIEW/);
+    expect(finalReview).toMatch(/harness-code-reviewer/);
+    expect(finalReview).toMatch(/cannot verify|hard halt|failure, not a (silent )?skip/i);
+  });
+
+  it('EXECUTE wires before:EXECUTE hooks (non-review generality proof)', () => {
+    const execute = extractSection(md, 'EXECUTE');
+    expect(execute).toMatch(/before:EXECUTE/);
+    expect(execute).toMatch(/resolveSkillHooks/);
+  });
+
+  it('wires on:failure at the failure path with HARNESS_FAILURE_REASON', () => {
+    expect(md).toMatch(/on:failure/);
+    expect(md).toMatch(/HARNESS_FAILURE_REASON/);
+  });
+
+  it('documents the unresolvable-hook failure as a hard halt recorded in failures.md', () => {
+    expect(md).toMatch(/hard halt|not an? overridable/i);
+    expect(md).toMatch(/failures\.md/);
+  });
+});
+
+describe('harness-code-review is a second skillHooks consumer (not autopilot-locked)', () => {
+  const md = fs.readFileSync(CODE_REVIEW_SKILL_MD, 'utf-8');
+
+  it('declares the after:mechanical hookable event and resolves hooks', () => {
+    expect(md).toMatch(/after:mechanical/);
+    expect(md).toMatch(/resolveSkillHooks\(config, "harness-code-review", "after:mechanical"\)/);
+  });
+
+  it('honors the framework hard-halt protection', () => {
+    expect(md).toMatch(/hard halt/i);
+  });
+});
