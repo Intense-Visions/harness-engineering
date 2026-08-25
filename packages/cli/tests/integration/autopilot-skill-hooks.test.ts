@@ -126,6 +126,28 @@ describe('harness-autopilot documents the general skillHooks framework (#1481)',
     // Additive (alongside, not replacing) and canary-absent = no regression.
     expect(vocab).toMatch(/alongside `harness-code-reviewer`/);
     expect(vocab).toMatch(/no regression/);
+    // Forward-wired: a not-installed harness-default detector is a GRACEFUL SKIP,
+    // never a hard halt (canary 5.12.0 ships none of the four).
+    expect(vocab).toMatch(/forward-wired/i);
+    expect(vocab).toMatch(/5\.12\.0/);
+    expect(vocab).toMatch(/graceful skip|never a hard halt|SKIPPED, never a hard halt/i);
+    // The resolver takes an availability set so only installed detectors wire.
+    expect(vocab).toMatch(/availableSkills/);
+    // The hard-halt is reserved for USER-declared unresolvable hooks.
+    expect(vocab).toMatch(/USER-declared unresolvable hook still HARD-HALTS/i);
+  });
+
+  it('reserves the hard-halt for user-declared hooks, not harness-default canary detectors', () => {
+    // REVIEW: a user-declared unresolvable hook hard-halts; a not-installed
+    // canary default is filtered out (graceful skip), not a hard halt.
+    const review = extractSection(md, 'REVIEW');
+    expect(review).toMatch(/user-declared/i);
+    expect(review).toMatch(/harness-default canary detector.*not installed/i);
+    expect(review).toMatch(/never a hard halt/i);
+    // FINAL_REVIEW carries the same distinction.
+    const finalReview = extractSection(md, 'FINAL_REVIEW');
+    expect(finalReview).toMatch(/user-declared/i);
+    expect(finalReview).toMatch(/forward-wired|graceful skip|never a FINAL_REVIEW failure/i);
   });
 
   it('wires on:failure at the failure path with HARNESS_FAILURE_REASON', () => {

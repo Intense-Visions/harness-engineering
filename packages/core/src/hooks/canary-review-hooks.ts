@@ -10,16 +10,26 @@
 // test detectors ALONGSIDE (never replacing) `harness-code-reviewer`, reusing the
 // exact `skillHooks` dispatch/context machinery — no per-project config required.
 //
-// This is a NARROWER default than the general `skillHooks` mechanism: it is an
-// additional default layer that fires only when canary is detected. A project's
-// explicit `skillHooks` config still applies on top (see
-// `resolveReviewHooksWithCanary`).
+// FORWARD-WIRED / GRACEFUL-SKIP CONTRACT (the crux, do not regress):
+//   The four detectors are harness-OPTIMISTIC defaults. They are NOT guaranteed
+//   to be installed — as of canary 5.12.0 the plugin ships NONE of them (its
+//   review-adjacent skills are `canary-test-reviewer`, `canary-pr-guardian`,
+//   `canary-ci-ready`, `canary-critical-areas`, ...). So a canary default whose
+//   skill is not installed is SILENTLY SKIPPED (reported in the denominator),
+//   NEVER a hard halt. Each detector auto-lights-up if/when canary ships it.
+//   This is the opposite of a USER-declared `skillHooks` entry: a user's typo
+//   MUST hard-halt (false-green protection). The distinction is drawn HERE by
+//   resolve-and-filter — a canary default is only emitted when its skill is
+//   reported available; the consuming skill therefore never has to hard-halt on
+//   a canary default (it filtered out the missing ones already), while it keeps
+//   hard-halting on unresolvable USER hooks from `resolveSkillHooks`.
 //
-// Like `skill-lifecycle.ts`, this module is PURE and IO-free: it resolves and
-// normalizes hooks only. Canary-presence detection is the caller's job (the
-// consuming skill probes canary and passes the boolean in). Dispatch, the
-// hard-halt/blocking policy, and the "report the denominator" reporting all live
-// in the consuming skill — exactly as they do for configured `skillHooks`.
+// Availability is supplied BY THE CALLER (the consuming skill knows its installed
+// skill catalog). This keeps the module PURE and IO-free, exactly like
+// `skill-lifecycle.ts` — presence AND availability are inputs, not probes. When
+// availability is unknown (undefined), a detector is treated as NOT installed and
+// skipped: the safe default is "wire nothing extra", never "wire an optimistic
+// default that then hard-halts".
 
 import { defaultBlocking, resolveSkillHooks } from './skill-lifecycle';
 import type { NormalizedHook, SkillHookEntry, SkillHooksConfigHolder } from './skill-lifecycle';
@@ -35,9 +45,9 @@ import type { NormalizedHook, SkillHookEntry, SkillHooksConfigHolder } from './s
  *                         the archetypal review-stage check).
  * - `canary-cassandra`  — vacuous tests: assertions that cannot fail.
  *
- * These are the SPECIFIC deterministic detectors — distinct from the
- * general-purpose `canary-review-test` (brittleness / anti-patterns) that
- * structurally cannot find a self-comparing assertion or an order-dependent pass.
+ * These are the SPECIFIC deterministic detectors named by issue #1482. They are
+ * FORWARD-WIRED: canary 5.12.0 ships none of them, so today they all skip; each
+ * activates automatically once canary ships it and it reports as installed.
  */
 export const CANARY_REVIEW_DETECTORS = [
   'canary-savant',
@@ -49,19 +59,49 @@ export const CANARY_REVIEW_DETECTORS = [
 /**
  * The autopilot events at which canary detectors auto-wire. Exactly the two
  * review moments — REVIEW (per-phase) and FINAL_REVIEW (cross-phase). Both
- * tokenize to a `review` moment, so {@link defaultBlocking} makes the detector
- * hooks blocking, matching the built-in review gate.
+ * tokenize to a `review` moment, so {@link defaultBlocking} makes the wired
+ * detector hooks blocking, matching the built-in review gate.
  */
 export const CANARY_REVIEW_EVENTS = ['after:REVIEW', 'after:FINAL_REVIEW'] as const;
 
 /** The host skill canary detectors attach to. */
 export const CANARY_REVIEW_HOST_SKILL = 'harness-autopilot';
 
+/**
+ * How a caller reports which skills are installed/dispatchable. A set or array of
+ * skill names, or a predicate. `undefined` means "availability unknown" — every
+ * detector is then treated as NOT installed (skipped), never optimistically wired.
+ */
+export type SkillAvailability =
+  | ReadonlySet<string>
+  | readonly string[]
+  | ((skill: string) => boolean);
+
+/**
+ * The outcome of resolving canary's default detectors at a review event: which
+ * are WIRED (installed → ready to dispatch as blocking hooks), which are SKIPPED
+ * (not installed → forward-wired, no hard halt), and the full EXPECTED set (the
+ * denominator the consuming skill reports, e.g. "2/4 detectors ran, 2 skipped:
+ * not installed").
+ */
+export interface CanaryReviewDetectorPlan {
+  wired: NormalizedHook[];
+  skipped: string[];
+  expected: readonly string[];
+}
+
 function isCanaryReviewEvent(event: string): boolean {
-  // Event strings are matched case-sensitively against the canonical keys; a
-  // caller passing e.g. `after:review` gets no detectors. Callers use the
-  // uppercase keys documented in harness-autopilot/SKILL.md.
+  // Matched case-sensitively against the canonical uppercase keys documented in
+  // harness-autopilot/SKILL.md.
   return (CANARY_REVIEW_EVENTS as readonly string[]).includes(event);
+}
+
+/** Normalize the three availability shapes into a single predicate. */
+function toAvailabilityPredicate(avail: SkillAvailability | undefined): (skill: string) => boolean {
+  if (avail === undefined) return () => false;
+  if (typeof avail === 'function') return avail;
+  const set = avail instanceof Set ? avail : new Set(avail);
+  return (skill) => set.has(skill);
 }
 
 /**
@@ -70,9 +110,9 @@ function isCanaryReviewEvent(event: string): boolean {
  * post-`enabled`-filter set `resolveSkillHooks` returns): a project that parks a
  * detector via `{ type: "skill", skill: "canary-cassandra", enabled: false }` has
  * expressed an explicit opt-out, so the canary default for that name must be
- * dropped rather than silently re-injected as a blocking hook. Honors the
- * `enabled: false` "park a hook without running it" contract for the auto-wired
- * defaults too. Bare strings and `{ type: "skill" }` objects both name a skill.
+ * dropped rather than silently re-injected. Honors the `enabled: false` "park a
+ * hook without running it" contract for the auto-wired defaults too. Bare strings
+ * and `{ type: "skill" }` objects both name a skill.
  */
 function declaredSkillNames(
   config: SkillHooksConfigHolder | null | undefined,
@@ -93,38 +133,72 @@ function declaredSkillNames(
 }
 
 /**
- * The canary detector hooks that auto-wire at `event` when canary is present.
+ * Plan canary's default detectors at `event`, given canary presence and which
+ * skills are installed. Partitions {@link CANARY_REVIEW_DETECTORS} into `wired`
+ * (installed → blocking `skill` hooks) and `skipped` (not installed → dropped
+ * without a hard halt), and reports the `expected` denominator.
  *
- * - `canaryPresent === false` ⇒ `[]` (canary absent = today's exact behavior).
- * - `event` is not a canary review event ⇒ `[]` (detectors wire only at
- *   REVIEW / FINAL_REVIEW; every other phase boundary is untouched).
- * - otherwise ⇒ one `skill` hook per {@link CANARY_REVIEW_DETECTORS}, in order,
- *   blocking per {@link defaultBlocking} (true at both review events).
- *
- * These are emitted as ordinary {@link NormalizedHook}s so the consuming skill
- * dispatches them through the same path — and enforces the same hard-halt on an
- * undispatchable detector — as any configured `skill` hook.
+ * - `canaryPresent === false` ⇒ empty plan (canary absent = today's behavior).
+ * - `event` not a canary review event ⇒ empty plan (detectors wire ONLY at
+ *   REVIEW / FINAL_REVIEW).
+ * - otherwise ⇒ every detector reported available is wired; the rest are skipped.
  */
-export function resolveCanaryReviewHooks(canaryPresent: boolean, event: string): NormalizedHook[] {
-  if (!canaryPresent) return [];
-  if (!isCanaryReviewEvent(event)) return [];
+export function planCanaryReviewDetectors(
+  canaryPresent: boolean,
+  event: string,
+  availableSkills?: SkillAvailability
+): CanaryReviewDetectorPlan {
+  if (!canaryPresent || !isCanaryReviewEvent(event)) {
+    return { wired: [], skipped: [], expected: [] };
+  }
   const blocking = defaultBlocking(event);
-  return CANARY_REVIEW_DETECTORS.map((skill) => ({ type: 'skill', skill, blocking }));
+  const isInstalled = toAvailabilityPredicate(availableSkills);
+  const wired: NormalizedHook[] = [];
+  const skipped: string[] = [];
+  for (const skill of CANARY_REVIEW_DETECTORS) {
+    if (isInstalled(skill)) {
+      wired.push({ type: 'skill', skill, blocking });
+    } else {
+      skipped.push(skill);
+    }
+  }
+  return { wired, skipped, expected: CANARY_REVIEW_DETECTORS };
+}
+
+/**
+ * The canary detector hooks that auto-wire at `event` when canary is present AND
+ * the detector's skill is installed. A convenience over
+ * {@link planCanaryReviewDetectors} that returns just the dispatchable `wired`
+ * hooks. Not-installed detectors are silently skipped (see the module contract);
+ * use {@link planCanaryReviewDetectors} when you also need the skipped list for
+ * the denominator report.
+ */
+export function resolveCanaryReviewHooks(
+  canaryPresent: boolean,
+  event: string,
+  availableSkills?: SkillAvailability
+): NormalizedHook[] {
+  return planCanaryReviewDetectors(canaryPresent, event, availableSkills).wired;
 }
 
 /**
  * The EFFECTIVE review hooks for `skillName` at `event`: the project's configured
- * `skillHooks` (via {@link resolveSkillHooks}) FOLLOWED BY the canary detector
- * defaults ({@link resolveCanaryReviewHooks}) when canary is present.
+ * `skillHooks` (via {@link resolveSkillHooks}) FOLLOWED BY the INSTALLED canary
+ * detector defaults ({@link planCanaryReviewDetectors}) when canary is present.
  *
- * Ordering: configured hooks first (a project's explicit intent leads), canary
- * defaults appended. A canary default whose detector name is ALREADY DECLARED at
- * this event is dropped — the project's explicit entry wins. This is deduped
+ * Ordering: configured hooks first (a project's explicit intent leads), installed
+ * canary defaults appended. A canary default whose detector name is ALREADY
+ * DECLARED at this event is dropped — the project's explicit entry wins. Dedup is
  * against the RAW declared names (including `enabled: false` entries), so a
  * project can override a detector's `blocking` by re-declaring it, OR park it
  * entirely with `enabled: false`; either way the auto-wired default never
  * re-appears. Configured non-`skill` hooks (`prompt`/`command`) and non-detector
  * `skill` hooks are always preserved.
+ *
+ * A canary default whose skill is NOT installed is never emitted here (it is
+ * skipped, not hard-halted). This is what makes the feature forward-wired and
+ * keeps hard-halt semantics exclusive to unresolvable USER-declared hooks (which
+ * flow through `resolveSkillHooks` unchanged).
  *
  * When canary is absent this returns exactly `resolveSkillHooks(...)` — so a
  * project without canary sees no behavioral change (no regression).
@@ -133,7 +207,7 @@ export function resolveReviewHooksWithCanary(
   config: SkillHooksConfigHolder | null | undefined,
   skillName: string,
   event: string,
-  opts: { canaryPresent: boolean }
+  opts: { canaryPresent: boolean; availableSkills?: SkillAvailability }
 ): NormalizedHook[] {
   const configured = resolveSkillHooks(config, skillName, event);
 
@@ -141,12 +215,10 @@ export function resolveReviewHooksWithCanary(
   // skill or a non-review event never gains canary detectors.
   if (skillName !== CANARY_REVIEW_HOST_SKILL) return configured;
 
-  const canaryDefaults = resolveCanaryReviewHooks(opts.canaryPresent, event);
-  if (canaryDefaults.length === 0) return configured;
+  const { wired } = planCanaryReviewDetectors(opts.canaryPresent, event, opts.availableSkills);
+  if (wired.length === 0) return configured;
 
   const declared = declaredSkillNames(config, skillName, event);
-  const additions = canaryDefaults.filter(
-    (hook) => hook.type === 'skill' && !declared.has(hook.skill)
-  );
+  const additions = wired.filter((hook) => hook.type === 'skill' && !declared.has(hook.skill));
   return [...configured, ...additions];
 }

@@ -118,10 +118,17 @@ merge-ready PR closing #1482.
 - Canary detectors run **additively** at REVIEW / FINAL_REVIEW; findings feed
   the same review aggregation as `harness-code-reviewer` (per-skill key in
   `phase-{N}-review.json`).
-- Canary present + a named detector cannot be dispatched ⇒ HARD HALT
-  (false-green protection) — the same class the `skillHooks` resolver already
-  enforces for an unresolvable skill hook. The consuming SKILL.md owns the halt;
-  the resolver just emits the hooks.
+- **Forward-wired / graceful-skip (VERIFY correction).** The four detectors are
+  harness-OPTIMISTIC defaults; canary 5.12.0 ships none of them. They are
+  resolve-and-filtered by availability, so a detector whose skill is not
+  installed is **skipped** (recorded in the denominator), **never a hard halt**.
+  Each auto-activates once canary ships it. Today, in a canary-present project,
+  all four skip and REVIEW proceeds normally.
+- **Hard halt reserved for USER-declared hooks.** An unresolvable skill a project
+  explicitly declares in `skillHooks` (a typo) still hard-halts — false-green
+  protection. The distinction is drawn by resolve-and-filter: canary defaults are
+  filtered to installed before dispatch; user hooks flow through unfiltered.
 - Canary absent ⇒ today's exact behavior, no regression.
 - A project's explicit `skillHooks` still applies on top; canary auto-wiring is
-  an additional default when canary is present.
+  an additional default when canary is present; a detector a project declares is
+  not double-dispatched, and `enabled:false` parks it.

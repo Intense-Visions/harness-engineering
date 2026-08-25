@@ -6,9 +6,11 @@
     "auto-wire canary deterministic detectors at REVIEW+FINAL_REVIEW when canary detected, reusing skillHooks dispatch",
     "wired detectors: canary-savant, canary-blackhawk, canary-katana, canary-cassandra",
     "canary presence = canary_probe MCP tool status 'available' (existing detection, reused)",
-    "canary-absent = no regression",
-    "undispatchable detector when canary present = hard halt",
-    "a project's explicit skillHooks still applies on top; canary auto-wiring is an additional default; a detector a project already declares explicitly is not double-dispatched"
+    "detectors are FORWARD-WIRED harness defaults: resolve-and-filtered by availability; a not-installed detector is a graceful skip (recorded in the denominator), NEVER a hard halt",
+    "canary 5.12.0 ships NONE of the four detectors, so today all four skip and REVIEW proceeds normally on the baseline reviewer; each auto-activates when canary ships it",
+    "hard halt (false-green protection) is reserved for USER-declared unresolvable skillHooks entries only",
+    "canary-absent = no regression (returns resolveSkillHooks verbatim)",
+    "a project's explicit skillHooks still applies on top; a detector a project already declares explicitly is not double-dispatched, and enabled:false parks it"
   ],
   "closingKeyword": "Closes #1482"
 }
