@@ -150,6 +150,56 @@ export function capabilityDriftErrors(
   return errors;
 }
 
+/**
+ * A skill's capability-seam roles (#1425) — the Service Definition it names, the
+ * Provider(s) that implement it, and the Consumer(s) that depend on it. Optional:
+ * a skill declares this only when it defines a real extension point. The single-role
+ * detector below flags a declaration that fills only one of the three roles
+ * (accidental single-implementation lock-in). Field names mirror the
+ * harness-skill-authoring Phase 1C prose (Service Definition / Provider / Consumer).
+ */
+export const SkillCapabilityRolesSchema = z.object({
+  definition: z.string().default(''),
+  providers: z.array(z.string()).default([]),
+  consumers: z.array(z.string()).default([]),
+});
+export type SkillCapabilityRoles = z.infer<typeof SkillCapabilityRolesSchema>;
+
+/**
+ * Single-role detector (#1425). Given a declared capabilityRoles, return one message
+ * per problem (empty when the seam is adequately wired). A role is "filled" when the
+ * Service Definition is a non-empty string and each of providers/consumers holds at
+ * least one non-empty entry. Zero filled roles is a malformed declaration; exactly one
+ * filled role is the single-role red flag — a capability swappable in name only. Two or
+ * three filled roles pass (a partially wired seam is work-in-progress, not lock-in).
+ * The caller only invokes this when the field is present, so absence abstains upstream.
+ */
+export function capabilityRoleErrors(roles: SkillCapabilityRoles): string[] {
+  const hasDefinition = roles.definition.trim().length > 0;
+  const hasProviders = roles.providers.some((p) => p.trim().length > 0);
+  const hasConsumers = roles.consumers.some((c) => c.trim().length > 0);
+  const filled: string[] = [];
+  if (hasDefinition) filled.push('definition');
+  if (hasProviders) filled.push('providers');
+  if (hasConsumers) filled.push('consumers');
+
+  if (filled.length === 0) {
+    return [
+      'capabilityRoles is declared but names no role — give it a Service Definition, at least one Provider, and at least one Consumer, or drop the field',
+    ];
+  }
+  if (filled.length === 1) {
+    const present = filled[0];
+    const missing = (['definition', 'providers', 'consumers'] as const).filter(
+      (r) => r !== present
+    );
+    return [
+      `capabilityRoles declares only the "${present}" role; a capability with one role filled is accidental single-implementation lock-in, not a real seam — name the missing "${missing[0]}" and "${missing[1]}" roles or drop the field`,
+    ];
+  }
+  return [];
+}
+
 export const SkillAddressSchema = z.object({
   signal: z.string(),
   hard: z.boolean().optional(),
@@ -209,6 +259,7 @@ export const SkillMetadataSchema = z
     addresses: z.array(SkillAddressSchema).default([]),
     context_budget: SkillContextBudgetSchema.optional(),
     capabilities: SkillCapabilitiesSchema.optional(),
+    capabilityRoles: SkillCapabilityRolesSchema.optional(),
   })
   .superRefine((data, ctx) => {
     if (data.type === 'knowledge') {

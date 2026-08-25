@@ -103,6 +103,88 @@ describe('skill validate — knowledge skill sections', () => {
   });
 });
 
+// #1425: the single-role capability-seam detector runs inside `validateSkillEntry`.
+// A declared `capabilityRoles` with only one role filled fails; two-role or omitted
+// declarations pass (existing skills that omit the field are unaffected).
+describe('skill validate — capabilityRoles single-role detector (#1425)', () => {
+  function writeKnowledgeSkill(
+    tmpDir: string,
+    name: string,
+    capabilityRolesYaml: string[]
+  ): string {
+    const skillDir = path.join(tmpDir, name);
+    fs.mkdirSync(skillDir);
+    fs.writeFileSync(
+      path.join(skillDir, 'skill.yaml'),
+      [
+        `name: ${name}`,
+        "version: '1.0.0'",
+        'description: A capability-seam skill',
+        'type: knowledge',
+        'cognitive_mode: advisory-guide',
+        'triggers: [manual]',
+        'platforms: [claude-code]',
+        'tools: []',
+        'state: { persistent: false, files: [] }',
+        'depends_on: []',
+        ...capabilityRolesYaml,
+      ].join('\n')
+    );
+    fs.writeFileSync(
+      path.join(skillDir, 'SKILL.md'),
+      `# ${name}\n\n## Instructions\n\nDo the thing.`
+    );
+    return skillDir;
+  }
+
+  it('fails a skill declaring only one role', async () => {
+    const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'skill-validate-roles-'));
+    writeKnowledgeSkill(tmpDir, 'single-role-skill', [
+      'capabilityRoles:',
+      '  definition: the backend contract',
+      '  providers: []',
+      '  consumers: []',
+    ]);
+
+    const errors: string[] = [];
+    const { validateSkillEntry } = await import('../../../src/commands/skill/validate.js');
+    validateSkillEntry('single-role-skill', tmpDir, errors);
+    expect(errors.some((e) => e.includes('single-implementation lock-in'))).toBe(true);
+    expect(errors.some((e) => e.includes('single-role-skill/skill.yaml'))).toBe(true);
+
+    fs.rmSync(tmpDir, { recursive: true });
+  });
+
+  it('passes a skill declaring two roles', async () => {
+    const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'skill-validate-roles-'));
+    writeKnowledgeSkill(tmpDir, 'two-role-skill', [
+      'capabilityRoles:',
+      '  definition: the backend contract',
+      '  providers: [ollama-backend]',
+      '  consumers: []',
+    ]);
+
+    const errors: string[] = [];
+    const { validateSkillEntry } = await import('../../../src/commands/skill/validate.js');
+    validateSkillEntry('two-role-skill', tmpDir, errors);
+    expect(errors).toEqual([]);
+
+    fs.rmSync(tmpDir, { recursive: true });
+  });
+
+  it('passes a skill that omits capabilityRoles (abstention)', async () => {
+    const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'skill-validate-roles-'));
+    writeKnowledgeSkill(tmpDir, 'no-roles-skill', []);
+
+    const errors: string[] = [];
+    const { validateSkillEntry } = await import('../../../src/commands/skill/validate.js');
+    validateSkillEntry('no-roles-skill', tmpDir, errors);
+    expect(errors).toEqual([]);
+
+    fs.rmSync(tmpDir, { recursive: true });
+  });
+});
+
 // Regression for #1011: `harness skill validate` scanned the installed CLI
 // bundle, not the working tree — so a skill authored in a checkout was never
 // examined and the validator's silence read as approval. It also ignored the
