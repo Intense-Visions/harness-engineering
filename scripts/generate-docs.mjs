@@ -490,13 +490,13 @@ function generateSkillsCatalog() {
   const lines = [
     HEADER,
     '# Skills Catalog\n\n',
-    `${skills.length} skills. Skills carry two independent tier axes: a **loading tier** `,
+    'Skills carry two independent tier axes: a **loading tier** ',
     '(whether a skill registers as a slash command or is discovered on demand) and a ',
     '**curation tier** (how load-bearing it is). A senior engineer can hold ~12 skills in ',
     'their head, not hundreds — the curation tier names that short list.\n\n',
     'See the [Features Overview](../guides/features-overview.md) for narrative documentation.\n\n',
     '## Load-Bearing Gear (Tier-0)\n\n',
-    `The ${loadBearing.length} skills that carry the core workflow. Learn these first; `,
+    'The skills that carry the core workflow. Learn these first; ',
     'everything else is a library you reach for on demand.\n\n',
   ];
 
@@ -519,7 +519,7 @@ function generateSkillsCatalog() {
   lines.push('Tier 3 skills are discoverable via the `search_skills` MCP tool.\n\n');
 
   for (const [_tierNum, tier] of Object.entries(tiers)) {
-    lines.push(`## ${tier.label} (${tier.skills.length} skills)\n\n`);
+    lines.push(`## ${tier.label}\n\n`);
 
     for (const skill of tier.skills) {
       lines.push(renderSkillEntry(skill));

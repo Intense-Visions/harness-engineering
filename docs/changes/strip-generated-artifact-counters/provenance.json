@@ -1,0 +1,13 @@
+{
+  "issues": [1235],
+  "stages": ["brainstorming", "planning", "execution", "review"],
+  "planArtifact": "docs/changes/strip-generated-artifact-counters/plans/2026-08-25-strip-counters-plan.md",
+  "assumptions": [
+    "removed embedded global counters from skills-catalog + plugin manifests + roadmap aggregate generators",
+    "counts moved off the committed artifact / not reintroduced",
+    "residual alphabetical-adjacency collisions acceptable v1; per-entry sharding deferred",
+    "merge-driver + sharding-alone ruled out per issue"
+  ],
+  "closingKeyword": "Closes #1235",
+  "notes": "Verified the only generated committed artifact carrying derived global counters is docs/reference/skills-catalog.md (3 spots in generateSkillsCatalog). Plugin command manifests and docs/roadmap.md aggregate were inspected and carry no derived count prose, so there was no counter to strip there; their residual conflict shape is alphabetical insertion, accepted for v1."
+}
