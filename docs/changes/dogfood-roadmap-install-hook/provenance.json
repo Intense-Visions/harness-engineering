@@ -1,0 +1,10 @@
+{
+  "issues": [1079],
+  "stages": ["brainstorming", "planning", "execution", "review"],
+  "planArtifact": "docs/changes/dogfood-roadmap-install-hook/plans/plan.md",
+  "assumptions": [
+    "used local-bin --command not npx default",
+    "sequenced #1079 before #1235 per default"
+  ],
+  "closingKeyword": "Closes #1079"
+}
