@@ -51,6 +51,14 @@ describe('resolveContextBudgetThresholds', () => {
     expect(t.warnAt).toBe(80_000);
     expect(t.tripAt).toBe(80_000);
   });
+
+  it('clamps the default tripAt up when an override warnAt exceeds it', () => {
+    // warnAt raised above the default tripAt (100_000) with no tripAt override
+    // collapses the warn band rather than inverting the anchors.
+    const t = resolveContextBudgetThresholds(200_000, { warnAt: 120_000 });
+    expect(t.warnAt).toBe(120_000);
+    expect(t.tripAt).toBe(120_000);
+  });
 });
 
 describe('evaluateContextBudget', () => {
