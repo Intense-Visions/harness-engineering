@@ -264,6 +264,7 @@ metadata: # Provenance and authorship metadata
    - **State what NOT to do.** Prohibitions prevent common mistakes: "Do not proceed to Phase 3 if validation fails."
    - **For rigid skills:** Add an Iron Law at the top — the one inviolable principle. Then define phases with mandatory ordering and explicit gates between them.
    - **For flexible skills:** Describe the recommended flow but acknowledge that adaptation is expected. Focus on outcomes rather than exact commands.
+   - **Watch instruction density per packing level.** HumanLayer's RPI→CRISPY postmortem found that a prompt exceeding a ~150-200 instruction-follow budget was the specific failure that forced a workflow rebuild. Because `run_skill` loads a skill progressively (cumulative packing levels 1-5 by H2 section), what matters is the instruction count at each _loaded_ level, not the whole-file line count. Density is estimated as imperative instructions = numbered steps + imperative-verb bullets + `MUST`/`SHALL`/`REQUIRED` directives (code blocks and prose excluded). `harness validate` surfaces an advisory (non-blocking) warning when a level exceeds the budget (default 175, configurable via `skills.instructionBudget`). If a level trips it, push lower-priority directives into a deeper section (higher packing level) or a `references/` file so the early levels stay lean.
 
 4. **Write `## Harness Integration`.** List every harness CLI command the skill uses, with a brief description of when to use it. This section connects the skill to the harness toolchain.
 
@@ -310,6 +311,8 @@ metadata: # Provenance and authorship metadata
    - Missing `type` field in `skill.yaml`
 
 3. **Test by running the skill:** `harness skill run <name>`. Verify it loads correctly and the process instructions make sense in context.
+
+4. **Run `harness validate`.** Among its checks is an advisory SKILL.md instruction-density estimate (see Phase 4 step 3). It never blocks, but a `SKILL-DENSITY` warning naming a level over the ~150-200 budget is a signal to redistribute directives across packing levels before the skill ships.
 
 ### Phase 5B: TDD FOR SKILLS — Test Before Signing Off
 

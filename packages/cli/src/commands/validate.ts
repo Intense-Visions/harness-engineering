@@ -28,6 +28,7 @@ import { CLIError, ExitCode, type ExitCodeType } from '../utils/errors';
 import { runAudit as runComponentAnatomyAudit } from '../mcp/tools/audit-anatomy';
 import { runDetectDrift } from '../mcp/tools/detect-drift';
 import { runAuditBrand } from '../mcp/tools/audit-brand';
+import { runInstructionDensityAudit } from '../mcp/tools/instruction-density';
 
 type ValidateSeverity = 'error' | 'warning' | 'info';
 
@@ -102,6 +103,7 @@ interface ValidateResult {
     componentAnatomy?: boolean;
     driftDetection?: boolean;
     brandCompliance?: boolean;
+    instructionDensity?: boolean;
   };
   issues: Array<{
     check: string;
@@ -578,6 +580,44 @@ export async function runValidate(
         message: `Brand compliance audit skipped: ${(err as Error).message}`,
       });
     }
+  }
+
+  // SKILL.md instruction-density check (ADVISORY — never blocks). Measures the
+  // imperative-instruction count at each context-budget packing level for every
+  // SKILL.md in the project and warns when a loaded level exceeds the budget
+  // HumanLayer's RPI→CRISPY postmortem identified (~150-200; default 175). This
+  // repo's own autopilot/brainstorming skills are large by design, so the check
+  // is deliberately warning-severity: it is surfaced but never flips
+  // result.valid, and `harness validate` still exits 0. Overridable via
+  // `skills.instructionBudget`. Additive/colocated (overlap note: lane #1425).
+  try {
+    const densityResult = await runInstructionDensityAudit({
+      path: cwd,
+      ...(typeof config.skills?.instructionBudget === 'number' && {
+        budget: config.skills.instructionBudget,
+      }),
+    });
+    result.checks.instructionDensity = true;
+    for (const finding of densityResult.findings) {
+      result.issues.push({
+        check: 'instructionDensity',
+        file: finding.file,
+        ruleId: 'SKILL-DENSITY',
+        severity: 'warning',
+        message: finding.message,
+        suggestion:
+          'Advisory only. Move lower-priority directives into a deeper packing level (H2 section) or a references/ file so each loaded level stays under the instruction-follow budget.',
+      });
+    }
+  } catch (err) {
+    // A density-audit failure must never sink the whole validate — degrade
+    // gracefully with a single warning so the rest of the checks still report.
+    result.checks.instructionDensity = false;
+    result.issues.push({
+      check: 'instructionDensity',
+      severity: 'warning',
+      message: `Instruction-density check skipped: ${(err as Error).message}`,
+    });
   }
 
   // Opt-in agent config validation (agnix binary preferred, TS fallback otherwise)

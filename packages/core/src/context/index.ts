@@ -65,6 +65,18 @@ export type {
  * Section parser for progressive skill content loading.
  */
 export { parseSections, extractLevel } from './section-parser';
+
+/**
+ * Instruction-density estimation — imperative-instruction count per SKILL.md
+ * packing level, validating the progressive-disclosure mitigation against the
+ * HumanLayer instruction-follow budget ([HORTHY-2]).
+ */
+export {
+  countImperativeInstructions,
+  analyzeSkillInstructionDensity,
+  DEFAULT_INSTRUCTION_BUDGET,
+} from './instruction-density';
+export type { LevelInstructionDensity, SkillInstructionDensityReport } from './instruction-density';
 export type { ParsedSection } from './section-parser';
 
 /**
