@@ -1,0 +1,9 @@
+{
+  "reason": "Pre-existing complexity drift in packages/core/src/entropy/detectors/dead-code.ts from #1479 (merged to main via #1486) with a stale arch baseline; not touched by this PR (skillHooks). This PR's new packages/core/src/hooks module is under all thresholds.",
+  "categories": {},
+  "violationIds": [
+    "5eb9ad00065bccb18ec98eae32bd9252d9814b526529e32c2808259749741717",
+    "69602cec80ab7d45298ed857709ad036edc7710d4066025fa50489780f2de871"
+  ],
+  "createdFrom": "7998a74d3"
+}

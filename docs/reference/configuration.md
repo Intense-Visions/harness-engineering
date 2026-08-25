@@ -526,6 +526,11 @@ Configures internationalization management including locale settings, translatio
 
 Configures code review orchestration, including which AI models to use at different tiers.
 
+> **Extra domain-specific reviewers** are no longer configured here. The old
+> `review.additionalSkills` field was generalized into the top-level
+> [`skillHooks`](#skillhooks) framework — declare extra reviewers as
+> `skillHooks["harness-autopilot"]["after:REVIEW"]` (and `"after:FINAL_REVIEW"`).
+
 ### ReviewConfig Object
 
 | Field         | Type              | Required | Description                            |
@@ -553,6 +558,115 @@ Configures code review orchestration, including which AI models to use at differ
   }
 }
 ```
+
+## `skillHooks`
+
+- **Type:** `SkillHooksConfig`
+- **Required:** No
+
+Cross-skill **lifecycle hooks**: a project attaches additional skills, commands,
+and prompts at lifecycle points of any hook-supporting orchestrator skill.
+Resolution and normalization are shared in `@harness-engineering/core`
+(`resolveSkillHooks`) so every consuming skill honors the same contract. This is
+the generalization of the former `review.additionalSkills` field — the review
+case is now `skillHooks["harness-autopilot"]["after:REVIEW"]`.
+
+```jsonc
+{
+  "skillHooks": {
+    "harness-autopilot": {
+      "before:EXECUTE": [
+        "preflight-skill", // bare string = a `skill` hook (shorthand)
+        { "type": "command", "run": "pnpm lint", "blocking": true },
+        {
+          "type": "prompt",
+          "text": "Prefer existing helpers in packages/core/util over new ones.",
+        },
+      ],
+      "after:REVIEW": [{ "type": "skill", "skill": "canary-cassandra", "blocking": true }],
+      "after:FINAL_REVIEW": ["canary-cassandra"],
+      "on:failure": [{ "type": "command", "run": "scripts/notify.sh" }],
+    },
+    "harness-code-review": { "after:mechanical": ["extra-domain-check"] },
+  },
+}
+```
+
+### Structure
+
+- **Outer key** — the hook-supporting skill's name. Each skill declares its own
+  hookable event vocabulary in its SKILL.md; there is no universal phase enum,
+  so hooks are keyed by skill name. (A `"*"` wildcard outer key meaning "hooks
+  for every skill" is RESERVED for v2.)
+- **Inner key** — an event string. Grammar: `^(before|after|on):[A-Za-z0-9_-]+$`.
+  - `before:<phase>` / `after:<phase>` — phase-boundary hooks (multi-phase skills).
+  - `before:run` / `after:run` — the whole invocation, so single-shot
+    (phase-less) skills are hookable too.
+  - `on:<event>` — cross-cutting lifecycle events: `on:failure`, `on:park`,
+    `on:checkpoint`, `on:retry`, …
+  - RESERVED (v2): per-iteration granularity (`after:EXECUTE:task`,
+    `after:dispatch:item`).
+- **Value** — an ordered array of hook entries.
+
+### Hook entry kinds
+
+Each array entry is a bare skill-name string (shorthand for a `skill` hook) or
+one of three discriminated objects. Every object kind accepts `"enabled": false`
+to park a hook without deleting it (a disabled hook is skipped — never a hard halt):
+
+| Kind      | Shape                                                   | Effect                                                                                                                       |
+| --------- | ------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------- |
+| `skill`   | `{ "type": "skill", "skill", "blocking"?, "enabled"? }` | Dispatch the skill as an additional subagent (LLM path).                                                                     |
+| `prompt`  | `{ "type": "prompt", "text", "enabled"? }`              | Mechanically append `text` to that phase's persona prompt. Never blocks. (Static in v1; `{{token}}` templating RESERVED v2.) |
+| `command` | `{ "type": "command", "run", "blocking"?, "enabled"? }` | Mechanically run the shell command via the command-runner (honoring cwd), no LLM.                                            |
+
+### Blocking & hard-halt policy
+
+- **Default blocking** — for `skill` and `command` hooks, when `blocking` is
+  unset it defaults to `true` at review/verify events and `false` elsewhere; a
+  per-entry `blocking` always overrides. `prompt` hooks never block.
+- **`skill`** — an unresolvable/undispatchable skill is a **hard halt** (config
+  error; recorded in `.harness/failures.md`; never a silent skip, never routed
+  through the fix/override/stop ask).
+- **`command`** — two failure modes: a command that **cannot be spawned**
+  (missing binary / spawn error) is a **hard halt** (same class as an
+  unresolvable skill); a command that **ran and exited non-zero** is a normal
+  **finding**, blocking per policy — not a hard halt.
+- **`prompt`** — never blocks and never halts.
+
+### Hook context (input contract)
+
+When a hook fires, the host skill threads the invocation context.
+
+- **`command`** hooks receive it as environment variables **and** the same
+  context as a JSON object on **stdin**. Absent values are unset env keys (no
+  empty-string placeholders):
+
+  | Env var                  | Meaning                                  |
+  | ------------------------ | ---------------------------------------- |
+  | `HARNESS_HOOK_EVENT`     | the event key, e.g. `after:REVIEW`       |
+  | `HARNESS_HOOK_SKILL`     | the host skill, e.g. `harness-autopilot` |
+  | `HARNESS_PHASE`          | the current phase/state, when known      |
+  | `HARNESS_PROJECT_ROOT`   | absolute project root                    |
+  | `HARNESS_SESSION_DIR`    | the session directory, when known        |
+  | `HARNESS_CHANGED_FILES`  | newline-separated list of changed files  |
+  | `HARNESS_PLAN_PATH`      | the active plan path, when known         |
+  | `HARNESS_FAILURE_REASON` | set only on `on:failure`                 |
+
+  Conditional/glob scoping is achievable today by a command self-gating on
+  `$HARNESS_CHANGED_FILES` (a dedicated conditional-glob field is RESERVED v2).
+
+- **`skill`** hooks receive the same context (event, session dir, changed files,
+  plan path) in the subagent brief, so a hooked reviewer is not blind.
+- **`prompt`** hooks are the static text, appended verbatim.
+
+### Reference consumers
+
+`harness-autopilot` (events: `before:/after:` for `PLAN`/`EXECUTE`/`VERIFY`/
+`INTEGRATE`/`REVIEW`/`FINAL_REVIEW`, plus `on:failure`) and `harness-code-review`
+(`after:mechanical`) are the wired consumers. A skill becomes hook-supporting by
+declaring its event vocabulary in its SKILL.md, calling `resolveSkillHooks`, and
+honoring the blocking + hard-halt rules; remaining skills follow as a follow-up.
 
 ## `integrations`
 

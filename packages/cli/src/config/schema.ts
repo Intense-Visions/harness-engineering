@@ -921,6 +921,103 @@ export const OperationalPolicyConfigSchema = z
   })
   .passthrough();
 
+/**
+ * A single `skillHooks` entry: a bare skill-name string (shorthand for a
+ * `skill` hook) or one of three discriminated object kinds.
+ *
+ * - `skill`   — dispatch that skill as an additional subagent (LLM path).
+ * - `prompt`  — mechanically APPEND `text` to that phase's persona prompt (a
+ *               purely declarative context nudge; runs no process, never blocks).
+ * - `command` — mechanically RUN `run` at the hook point via the command-runner
+ *               (deterministic, no LLM); a non-zero exit is a finding.
+ *
+ * Every object kind may set `enabled: false` to park the hook without deleting
+ * it (a disabled hook is skipped, never a hard halt).
+ */
+export const SkillHookEntrySchema = z.union([
+  z.string().min(1),
+  z.discriminatedUnion('type', [
+    z.object({
+      type: z.literal('skill'),
+      /** Skill name to dispatch as an additional subagent. */
+      skill: z.string().min(1),
+      /** Override the default-blocking policy for this hook's findings. */
+      blocking: z.boolean().optional(),
+      /** Skip this hook without deleting it (default true). */
+      enabled: z.boolean().optional(),
+    }),
+    z.object({
+      type: z.literal('prompt'),
+      /** Text appended to the phase's persona prompt/context. Never blocks. */
+      text: z.string().min(1),
+      /** Skip this hook without deleting it (default true). */
+      enabled: z.boolean().optional(),
+    }),
+    z.object({
+      type: z.literal('command'),
+      /** Shell command run at the hook point (honoring cwd). */
+      run: z.string().min(1),
+      /** Override the default-blocking policy for a non-zero exit. */
+      blocking: z.boolean().optional(),
+      /** Skip this hook without deleting it (default true). */
+      enabled: z.boolean().optional(),
+    }),
+  ]),
+]);
+
+/** Event-key grammar: `before:<name>`, `after:<name>`, or `on:<name>`. */
+const SKILL_HOOK_EVENT_KEY_RE = /^(before|after|on):[A-Za-z0-9_-]+$/;
+
+/**
+ * Top-level cross-skill lifecycle hooks. A project attaches ADDITIONAL skills,
+ * commands, or prompts at lifecycle points of ANY hook-supporting orchestrator
+ * skill:
+ *
+ * ```jsonc
+ * "skillHooks": {
+ *   "harness-autopilot": {
+ *     "before:EXECUTE": ["preflight-skill", { "type": "command", "run": "pnpm lint" }],
+ *     "after:REVIEW":   [{ "type": "skill", "skill": "canary-cassandra", "blocking": true }],
+ *     "on:failure":     [{ "type": "command", "run": "scripts/notify.sh" }]
+ *   },
+ *   "harness-code-review": { "after:mechanical": ["extra-domain-check"] }
+ * }
+ * ```
+ *
+ * - Outer key = the hook-supporting skill's name (each skill declares its own
+ *   hookable event vocabulary in its SKILL.md — there is no universal enum).
+ * - Inner key = an event string. Grammar: `^(before|after|on):[A-Za-z0-9_-]+$`
+ *   — `before:/after:<phase>` for phase boundaries, `before:run`/`after:run`
+ *   for the whole invocation (so single-shot skills are hookable), and
+ *   `on:<event>` for cross-cutting moments (`on:failure`, `on:park`, ...).
+ * - Value = an ordered array of {@link SkillHookEntrySchema} entries.
+ *
+ * Resolution/normalization is shared in `@harness-engineering/core`
+ * (`resolveSkillHooks`). Absent/empty preserves today's behavior. An
+ * unresolvable skill (or an un-spawnable command) is a HARD HALT, not a silent
+ * skip — the false-green protection the review/verify gates exist to provide.
+ *
+ * RESERVED (v2): per-iteration granularity (`after:EXECUTE:task`,
+ * `after:dispatch:item`), a `"*"` wildcard outer key ("hooks for every skill"),
+ * and `{{token}}` prompt templating.
+ */
+export const SkillHooksConfigSchema = z
+  .record(z.string().min(1), z.record(z.string(), z.array(SkillHookEntrySchema)))
+  .default({})
+  .superRefine((hooks, ctx) => {
+    for (const [skillName, events] of Object.entries(hooks)) {
+      for (const eventKey of Object.keys(events)) {
+        if (!SKILL_HOOK_EVENT_KEY_RE.test(eventKey)) {
+          ctx.addIssue({
+            code: z.ZodIssueCode.custom,
+            path: [skillName, eventKey],
+            message: `Invalid skillHooks event key "${eventKey}". Use "<before|after|on>:<event>", e.g. "after:REVIEW", "before:EXECUTE", "before:run", or "on:failure".`,
+          });
+        }
+      }
+    }
+  });
+
 export const HarnessConfigSchema = z.object({
   /** Configuration schema version */
   version: z.literal(1),
@@ -997,6 +1094,12 @@ export const HarnessConfigSchema = z.object({
   i18n: I18nConfigSchema.optional(),
   /** Code review settings */
   review: ReviewConfigSchema.optional(),
+  /**
+   * Cross-skill lifecycle hooks — project-declared additional skills, commands,
+   * and prompts attached at lifecycle points of any hook-supporting skill.
+   * See {@link SkillHooksConfigSchema}. Absent/empty preserves default behavior.
+   */
+  skillHooks: SkillHooksConfigSchema.optional(),
   /** MCP peer integration enablement and dismissal */
   integrations: IntegrationsConfigSchema.optional(),
   /** General architectural enforcement settings */
@@ -1154,6 +1257,16 @@ export type Layer = z.infer<typeof LayerSchema>;
  * Type for review-specific configuration.
  */
 export type ReviewConfig = z.infer<typeof ReviewConfigSchema>;
+
+/**
+ * Type for a single cross-skill lifecycle hook entry.
+ */
+export type SkillHookEntry = z.infer<typeof SkillHookEntrySchema>;
+
+/**
+ * Type for the top-level `skillHooks` cross-skill lifecycle hook map.
+ */
+export type SkillHooksConfig = z.infer<typeof SkillHooksConfigSchema>;
 
 /**
  * Type for AI model tier configuration.

@@ -160,6 +160,8 @@ const DIR_COMMENTS = {
   'telemetry-synthesis':
     'Telemetry-synthesis module — pure composition of the five in-repo telemetry surfaces into one report (#563).',
   skills: 'Skills module — canonical required-section lists for skill validation gates.',
+  hooks:
+    'Cross-skill lifecycle hooks — resolve/normalize project-declared `skillHooks` and build the hook input-context contract (env/stdin/brief).',
 };
 
 // ---------------------------------------------------------------------------
