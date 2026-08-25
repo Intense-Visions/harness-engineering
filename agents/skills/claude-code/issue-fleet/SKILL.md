@@ -107,7 +107,7 @@ The five-phase spine, the concurrency governor, the independent-verification dis
 
 ### Phase 4: VERIFY — Independent Re-Derivation, Never Self-Report
 
-1. **Never accept a subagent's self-report as verification.** "This is a duplicate, these are the right labels" is a claim to be checked, not a result. For every proposed mutation, the orchestrator independently re-derives it from the issue's own signals.
+1. **Never accept a subagent's self-report as verification.** "This is a duplicate, these are the right labels" is a claim to be checked, not a result. For every proposed mutation, the orchestrator independently re-derives it from the issue's own signals. This member produces **no code, no PR, and no CI conclusion**, so both the family's all-OS-CI half and the spine's **base-freshness clause** (`docs/reference/fleet-family.md` § _Base freshness_) are **not-applicable** here — recorded as such per invariant 2's honesty rule, never confused with a passed check: with no verdict derived from a CI conclusion, there is no stale-green to guard against.
 
 2. **Re-derive every label and route.** Confirm each proposed label is supported by a signal in the issue and drawn from the existing vocabulary; confirm each route matches the issue's shape. A label with no supporting signal, or a route with no basis, is **rejected and reported**, not applied.
 

@@ -1,0 +1,14 @@
+{
+  "issues": [1294],
+  "stages": ["brainstorming", "planning", "execution", "review"],
+  "planArtifact": "docs/changes/fleet-base-freshness/plans/plan.md",
+  "assumptions": [
+    "base-freshness clause added to fleet-family.md spine + member VERIFY sections",
+    "stale-base green downgrades to 'degraded', not verified",
+    "strict=false is the GitHub default that collapses the two meanings",
+    "shipped a mechanical helper: classifyBaseFreshness in @harness-engineering/core (packages/core/src/ci/base-freshness.ts), exported via ci/index.ts; ci is an export* auto-discovered barrel dir so no generate-core-barrel.mjs allowlist edit was needed",
+    "pr-fleet (the only member that merges) carries the concrete form: a fourth mechanical VERIFY condition plus SELECT reading required_status_checks.strict and labelling provisional through CONFIRM; the other CI-producing members carry a concise reference to the spine clause",
+    "ideate-fleet and issue-fleet record base-freshness as not-applicable (they derive no verdict from a CI conclusion); fleet-command inherits lane verdicts and surfaces a stale-base lane as degraded"
+  ],
+  "closingKeyword": "Closes #1294"
+}

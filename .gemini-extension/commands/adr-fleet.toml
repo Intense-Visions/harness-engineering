@@ -139,7 +139,7 @@ The five-phase spine, the concurrency governor, the artifact + all-OS-CI verific
 
    A branch with **no drafted ADR, a malformed one, or one already flipped to `accepted`** did not run the real pipeline as required — regardless of what the subagent reported. Reject it (or retry once); it is never carried into sign-off as-is.
 
-3. **Require all-OS CI green.** Confirm the pushed branch's CI is green on **all three operating systems** plus the enforce and harness checks (`gh pr checks` / `gh run list`). Green on one OS is not green. A subset-red branch is not sign-off-ready — it is reported as failed, and the batch continues.
+3. **Require all-OS CI green.** Confirm the pushed branch's CI is green on **all three operating systems** plus the enforce and harness checks (`gh pr checks` / `gh run list`). Green on one OS is not green. A subset-red branch is not sign-off-ready — it is reported as failed, and the batch continues. **Base freshness (spine clause):** all-OS green is trusted as `verified` only when it ran against **current `main`** — the branch is up to date with `main`, or branch protection enforces strict / up-to-date-before-merge. Green gathered against a base that `main` has since moved past is **stale**: downgrade the item to **`degraded`**, not verified, and report the stale tested base SHA vs current `main`. See `docs/reference/fleet-family.md` § _Base freshness_ (`classifyBaseFreshness`).
 
 4. **Classify each returned decision** as `verified` (well-formed `proposed` ADR present + all-OS CI green), `rejected` (missing/malformed draft or definitively red), or `retry` (transient, retried at most once). No decision reaches the sign-off pass without passing both the artifact and the CI check.
 

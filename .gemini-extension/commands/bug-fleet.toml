@@ -184,7 +184,7 @@ Candidate {
    - The result must be an **assertion failure**. A compile, import, or module-resolution error means the test depends on the fix rather than reproducing the defect — the item is **rejected, not verified**. This distinction is the single most-cheated step in the whole pipeline: a test that cannot even load at the base SHA is red for the wrong reason and proves nothing about the defect.
    - Confirm the same test **passes on the branch**.
    - Confirm the **rest of the suite stayed green** on the branch.
-   - Confirm **CI is green on all three operating systems** plus the enforce and harness checks. Green on one OS is not green.
+   - Confirm **CI is green on all three operating systems** plus the enforce and harness checks. Green on one OS is not green. **Base freshness (spine clause):** all-OS green is trusted as `verified-fix` only when it ran against **current `main`** — the branch is up to date with `main`, or branch protection enforces strict / up-to-date-before-merge. Green gathered against a base that `main` has since moved past is **stale**: downgrade the item to **`degraded`**, not verified, and report the stale tested base SHA vs current `main`. See `docs/reference/fleet-family.md` § _Base freshness_ (`classifyBaseFreshness`).
    - **File-only items are verified the same way** against their test-only `repro/<slug>` branch — the reproduction branch every filed item carries: red, by assertion, at the pinned base, with no fix present.
 
 4. **Assign exactly one verdict per item:**

@@ -123,7 +123,7 @@ The five-phase spine, the concurrency governor, the artifact + all-OS-CI verific
 
    An item with **no plan artifact did not run the real pipeline** — regardless of what the subagent reported. Reject it (or retry once); it is never marked merge-ready.
 
-3. **Require all-OS CI green.** Confirm the pushed branch's CI is green on **all** operating systems plus the enforce and harness checks (`gh pr checks` / `gh run list`). Green on one OS is not green. A subset-red branch is not merge-ready — it is reported as failed, and the batch continues.
+3. **Require all-OS CI green.** Confirm the pushed branch's CI is green on **all** operating systems plus the enforce and harness checks (`gh pr checks` / `gh run list`). Green on one OS is not green. A subset-red branch is not merge-ready — it is reported as failed, and the batch continues. **Base freshness (spine clause):** all-OS green is trusted as `verified` only when it ran against **current `main`** — the branch is up to date with `main`, or branch protection enforces strict / up-to-date-before-merge. Green gathered against a base that `main` has since moved past is **stale**: downgrade the item to **`degraded`**, not verified, and report the stale tested base SHA vs current `main`. See `docs/reference/fleet-family.md` § _Base freshness_ (`classifyBaseFreshness`).
 
 4. **For a deflake, require _deterministic_ green.** A single rerun-green is the flake's own signature, not proof of a fix. Confirm the previously-flaky test now passes across **repeated** runs (the branch's CI re-runs, or a repeated-run job) before marking the deflake merge-ready. One green run does not clear a flake.
 
