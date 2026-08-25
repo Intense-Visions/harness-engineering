@@ -6,7 +6,17 @@ export interface DeadExport {
   line: number;
   type: 'function' | 'class' | 'variable' | 'type' | 'interface' | 'enum';
   isDefault: boolean;
-  reason: 'NO_IMPORTERS' | 'IMPORTERS_ALSO_DEAD';
+  /**
+   * - `NO_IMPORTERS` — a non-public export nothing imports; safe to delete.
+   * - `IMPORTERS_ALSO_DEAD` — imported only by other dead/unreachable code.
+   * - `PUBLIC_API_UNUSED` — an export re-exported through the package barrel /
+   *   public surface with zero real (non-test) importers across the workspace
+   *   after re-export following (issue #1479). Advisory only: deletion is a
+   *   breaking change for adopters, so the recommendation is *wire or deprecate*,
+   *   never *remove*. Suppress an intentionally-public export with a
+   *   `@public` / `@publicApi` annotation or `DeadCodeConfig.publicApiAllowlist`.
+   */
+  reason: 'NO_IMPORTERS' | 'IMPORTERS_ALSO_DEAD' | 'PUBLIC_API_UNUSED';
 }
 
 export interface DeadFile {

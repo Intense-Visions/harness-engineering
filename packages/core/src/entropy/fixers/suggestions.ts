@@ -56,6 +56,25 @@ function deadFileSuggestion(file: DeadCodeReport['deadFiles'][number]): Suggesti
 
 /** Build a suggestion for a single dead export. */
 function deadExportSuggestion(exp: DeadCodeReport['deadExports'][number]): Suggestion {
+  // A public-surface export with no workspace callers is a breaking change to
+  // delete (adopters import it), so the advisory recommendation is wire or
+  // deprecate — never remove (issue #1479).
+  if (exp.reason === 'PUBLIC_API_UNUSED') {
+    return {
+      type: 'refactor',
+      priority: 'low',
+      source: 'dead-code',
+      relatedIssues: [`public-api-unused:${exp.file}:${exp.name}`],
+      title: `Uninvoked public API: ${exp.name}`,
+      description: `The public export "${exp.name}" is re-exported through the package barrel but has no non-test callers across the workspace. It may be dead public logic. Do NOT delete it blindly (a breaking change for adopters) — wire it into a real caller, deprecate it, or mark it intentional with a @public annotation.`,
+      files: [exp.file],
+      steps: [
+        `Confirm no adopter relies on "${exp.name}"`,
+        `Wire "${exp.name}" into a real caller, deprecate it, or annotate it @public`,
+      ],
+      whyManual: 'Public-surface export; removal is a breaking change for external consumers',
+    };
+  }
   return {
     type: 'refactor',
     priority: 'medium',

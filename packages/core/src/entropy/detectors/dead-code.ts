@@ -199,6 +199,45 @@ export function buildReachabilityMap(snapshot: CodebaseSnapshot): Map<string, bo
   return reachability;
 }
 
+/**
+ * Follow a re-export chain to the defining export.
+ *
+ * A barrel `export { X } from './origin'` records an `Export` with `isReExport:
+ * true` and `source: './origin'` but no import edge, so usage attribution that
+ * stops at the barrel credits `barrel:X` instead of the symbol that actually
+ * defines `X`. Following the chain (cycle-guarded) lets a consumer importing `X`
+ * through the barrel keep the origin export live, and lets the detector treat the
+ * barrel re-export itself as NOT-a-use (issue #1479).
+ *
+ * Renamed re-exports (`export { a as b } from './x'`) lose the local name during
+ * parsing, so the chain stops when the same name is absent in the target — no
+ * over-crediting, just a conservative miss.
+ */
+function resolveReExportTarget(
+  snapshot: CodebaseSnapshot,
+  fileIndex: Map<string, CodebaseSnapshot['files'][number]>,
+  file: string,
+  exportName: string,
+  seen: Set<string>
+): { file: string; name: string } {
+  const key = `${file}:${exportName}`;
+  if (seen.has(key)) return { file, name: exportName };
+  seen.add(key);
+
+  const sourceFile = fileIndex.get(file);
+  if (!sourceFile) return { file, name: exportName };
+
+  const exp = sourceFile.exports.find(
+    (e) => e.name === exportName || (exportName === 'default' && e.type === 'default')
+  );
+  if (!exp || !exp.isReExport || !exp.source) return { file, name: exportName };
+
+  const target = resolveImportToFile(exp.source, file, snapshot, fileIndex);
+  if (!target) return { file, name: exportName };
+
+  return resolveReExportTarget(snapshot, fileIndex, target, exp.name, seen);
+}
+
 /** Usage record for one export: its source importers, whether it is re-exported, and whether any test imports it. */
 type ExportUsage = { importers: string[]; isReExported: boolean; importedByTest: boolean };
 
@@ -237,7 +276,16 @@ function recordImportEdge(
     );
     if (!matchingExport) continue;
 
-    const usage = usageMap.get(`${resolvedFile}:${matchingExport.name}`);
+    // Follow re-export chains so an import through a barrel credits the symbol
+    // that actually defines the export, not the barrel's forwarding entry.
+    const target = resolveReExportTarget(
+      snapshot,
+      fileIndex,
+      resolvedFile,
+      matchingExport.name,
+      new Set()
+    );
+    const usage = usageMap.get(`${target.file}:${target.name}`);
     if (usage) markExportUsage(usage, fromFile, fromTest);
   }
 }
@@ -291,6 +339,78 @@ function buildExportUsageMap(snapshot: CodebaseSnapshot): Map<string, ExportUsag
 }
 
 /**
+ * Build the set of `<file>:<name>` keys that form the package's public surface:
+ * every export reachable by following a barrel `isReExport` entry to the symbol
+ * that defines it. A public-surface export legitimately has zero internal callers
+ * by design, so it is classified `PUBLIC_API_UNUSED` (advisory) rather than
+ * `NO_IMPORTERS` (deletable) when uninvoked (issue #1479).
+ */
+function buildPublicSurface(snapshot: CodebaseSnapshot): Set<string> {
+  const fileIndex = buildFileIndex(snapshot);
+  const surface = new Set<string>();
+
+  for (const file of snapshot.files) {
+    for (const exp of file.exports) {
+      if (!exp.isReExport || !exp.source) continue;
+      const target = resolveReExportTarget(snapshot, fileIndex, file.path, exp.name, new Set());
+      // A re-export that resolves back to itself (unresolved / renamed / cyclic)
+      // names no defining symbol and is not treated as public surface.
+      if (target.file === file.path) continue;
+      surface.add(`${target.file}:${target.name}`);
+    }
+  }
+
+  return surface;
+}
+
+/** Read the configured public-API allowlist from the (possibly boolean) dead-code config. */
+function publicApiAllowlist(snapshot: CodebaseSnapshot): string[] {
+  const deadCode = snapshot.config?.analyze?.deadCode;
+  if (deadCode && typeof deadCode === 'object' && Array.isArray(deadCode.publicApiAllowlist)) {
+    return deadCode.publicApiAllowlist;
+  }
+  return [];
+}
+
+const PUBLIC_ANNOTATION_RE = /@public(Api)?\b/i;
+
+/**
+ * True when an intentionally-public export is exempt from the `PUBLIC_API_UNUSED`
+ * finding: a `@public` / `@publicApi` annotation in the nearest preceding JSDoc
+ * block, or a match in the configured allowlist (`<name>`, `<file>:<name>`, or a
+ * file-path substring).
+ */
+function isPublicApiExempt(
+  file: CodebaseSnapshot['files'][number],
+  exp: CodebaseSnapshot['files'][number]['exports'][number],
+  allowlist: string[]
+): boolean {
+  const key = `${file.path}:${exp.name}`;
+  if (
+    allowlist.some(
+      (entry) =>
+        entry === exp.name || entry === key || (entry.length > 0 && file.path.includes(entry))
+    )
+  ) {
+    return true;
+  }
+
+  // Nearest JSDoc block that starts above the export declaration.
+  const exportLine = exp.location.line;
+  let nearest: { line: number; content: string } | undefined;
+  for (const doc of file.jsDocComments) {
+    if (doc.line < exportLine && (!nearest || doc.line > nearest.line)) {
+      nearest = doc;
+    }
+  }
+  if (nearest && exportLine - nearest.line <= 15 && PUBLIC_ANNOTATION_RE.test(nearest.content)) {
+    return true;
+  }
+
+  return false;
+}
+
+/**
  * Find exports that are never imported anywhere.
  */
 function findDeadExports(
@@ -299,6 +419,8 @@ function findDeadExports(
   reachability: Map<string, boolean>
 ): DeadExport[] {
   const deadExports: DeadExport[] = [];
+  const publicSurface = buildPublicSurface(snapshot);
+  const allowlist = publicApiAllowlist(snapshot);
 
   for (const file of snapshot.files) {
     // Skip entry points - their exports are considered "used" by definition
@@ -313,11 +435,27 @@ function findDeadExports(
 
       // An export imported by any test file is live, not dead. Test files are
       // not classified source files, so a test-only importer keeps the export
-      // alive without ever appearing in `importers` / reachability.
+      // alive without ever appearing in `importers` / reachability. This also
+      // preserves the #1409 guarantee for public-surface exports: a test-only
+      // importer is never flagged PUBLIC_API_UNUSED.
       if (usage?.importedByTest) continue;
 
       if (!usage || usage.importers.length === 0) {
-        // This export has no importers
+        // No real importers. A public-surface export is exported-but-uninvoked
+        // public API (advisory, wire-or-deprecate) unless explicitly exempted;
+        // everything else is a deletable NO_IMPORTERS dead export.
+        if (publicSurface.has(key)) {
+          if (isPublicApiExempt(file, exp, allowlist)) continue;
+          deadExports.push({
+            file: file.path,
+            name: exp.name,
+            line: exp.location.line,
+            type: 'variable',
+            isDefault: exp.type === 'default',
+            reason: 'PUBLIC_API_UNUSED',
+          });
+          continue;
+        }
         deadExports.push({
           file: file.path,
           name: exp.name,
@@ -655,13 +793,52 @@ function filterProtectedFindings(
   };
 }
 
+/**
+ * Compute only the advisory `PUBLIC_API_UNUSED` findings from the AST-accurate
+ * snapshot (issue #1479). The production graph path is coarse (file-level,
+ * regex-ingested) and cannot attribute per-symbol public-API usage, so these
+ * findings are merged into the graph-derived report from the snapshot instead.
+ */
+function findUninvokedPublicExports(snapshot: CodebaseSnapshot): DeadExport[] {
+  const usageMap = buildExportUsageMap(snapshot);
+  const reachability = buildReachabilityMap(snapshot);
+  return findDeadExports(snapshot, usageMap, reachability).filter(
+    (e) => e.reason === 'PUBLIC_API_UNUSED'
+  );
+}
+
+/**
+ * Merge snapshot-derived `PUBLIC_API_UNUSED` findings into a graph-derived report
+ * (deduped by `<file>:<name>`) so `detect_entropy` surfaces exported-but-uninvoked
+ * public API even on the graph path. No-op when the snapshot has no source files.
+ */
+function mergeUninvokedPublicExports(
+  report: DeadCodeReport,
+  snapshot: CodebaseSnapshot
+): DeadCodeReport {
+  if (!snapshot.files || snapshot.files.length === 0) return report;
+
+  const existing = new Set(report.deadExports.map((e) => `${e.file}:${e.name}`));
+  const additions = findUninvokedPublicExports(snapshot).filter(
+    (e) => !existing.has(`${e.file}:${e.name}`)
+  );
+  if (additions.length === 0) return report;
+
+  const deadExports = [...report.deadExports, ...additions];
+  return {
+    ...report,
+    deadExports,
+    stats: { ...report.stats, deadExportCount: deadExports.length },
+  };
+}
+
 export async function detectDeadCode(
   snapshot: CodebaseSnapshot,
   graphDeadCodeData?: GraphDeadCodeData,
   protectedRegions?: ProtectedRegionMap
 ): Promise<Result<DeadCodeReport, EntropyError>> {
   let report = graphDeadCodeData
-    ? buildReportFromGraph(graphDeadCodeData)
+    ? mergeUninvokedPublicExports(buildReportFromGraph(graphDeadCodeData), snapshot)
     : buildReportFromSnapshot(snapshot);
 
   if (protectedRegions) {

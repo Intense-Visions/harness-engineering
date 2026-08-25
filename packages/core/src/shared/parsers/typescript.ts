@@ -131,6 +131,10 @@ export class TypeScriptParser implements LanguageParser {
       const ast = parse(contentResult.value, {
         loc: true,
         range: true,
+        // Capture leading/standalone comments so downstream analysis (JSDoc
+        // extraction, the `@public` opt-out for issue #1479) can read them; the
+        // snapshot's extractJSDocComments consumes `program.comments`.
+        comment: true,
         jsx: path.endsWith('.tsx'),
         errorOnUnknownASTType: false,
       });
