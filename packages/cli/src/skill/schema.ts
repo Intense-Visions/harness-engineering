@@ -259,7 +259,14 @@ export const SkillMetadataSchema = z
     addresses: z.array(SkillAddressSchema).default([]),
     context_budget: SkillContextBudgetSchema.optional(),
     capabilities: SkillCapabilitiesSchema.optional(),
-    capabilityRoles: SkillCapabilityRolesSchema.optional(),
+    // A bare `capabilityRoles:` key (no value) parses to null in YAML; treat that
+    // as an empty declaration ({}) so it routes through the friendly single-role
+    // detector ("names no role") rather than failing with an opaque zod
+    // invalid_type. An omitted key stays undefined and abstains as before.
+    capabilityRoles: z.preprocess(
+      (v) => (v === null ? {} : v),
+      SkillCapabilityRolesSchema.optional()
+    ),
   })
   .superRefine((data, ctx) => {
     if (data.type === 'knowledge') {

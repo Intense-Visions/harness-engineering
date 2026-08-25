@@ -187,6 +187,19 @@ describe('capabilityRoleErrors (#1425)', () => {
     expect(errors).toHaveLength(1);
     expect(errors[0]).toContain('names no role');
   });
+
+  it('demotes to the single-role red flag when whitespace-only entries leave one real role', () => {
+    // Only `consumers` carries a real value; definition + providers are whitespace.
+    const errors = capabilityRoleErrors({
+      definition: '  ',
+      providers: ['   '],
+      consumers: ['orchestrator'],
+    });
+    expect(errors).toHaveLength(1);
+    expect(errors[0]).toContain('only the "consumers" role');
+    expect(errors[0]).toContain('"definition"');
+    expect(errors[0]).toContain('"providers"');
+  });
 });
 
 describe('SkillMetadataSchema — capabilityRoles field (#1425)', () => {
@@ -217,5 +230,14 @@ describe('SkillMetadataSchema — capabilityRoles field (#1425)', () => {
   it('leaves capabilityRoles optional (omission parses)', () => {
     const result = SkillMetadataSchema.parse(validBase);
     expect(result.capabilityRoles).toBeUndefined();
+  });
+
+  it('normalizes a bare `capabilityRoles:` (null) to an empty declaration so the detector runs', () => {
+    // A bare YAML key parses to null; it must route through the friendly detector
+    // rather than a hard zod invalid_type failure.
+    const result = SkillMetadataSchema.parse({ ...validBase, capabilityRoles: null });
+    expect(result.capabilityRoles).toEqual({ definition: '', providers: [], consumers: [] });
+    expect(capabilityRoleErrors(result.capabilityRoles!)).toHaveLength(1);
+    expect(capabilityRoleErrors(result.capabilityRoles!)[0]).toContain('names no role');
   });
 });
