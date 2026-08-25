@@ -10,7 +10,9 @@ import {
 import {
   SkillMetadataSchema,
   capabilityDriftErrors,
+  capabilityRoleErrors,
   type SkillCapabilities,
+  type SkillCapabilityRoles,
 } from '../../skill/schema';
 import { logger } from '../../output/logger';
 import { ExitCode } from '../../utils/errors';
@@ -97,6 +99,23 @@ function validateCapabilities(
   }
 }
 
+/**
+ * Enforce the single-role capability-seam detector (#1425). Optional field: when a
+ * skill declares `capabilityRoles`, a declaration that fills only one of the three
+ * roles (or none) is flagged as accidental single-implementation lock-in. Skills that
+ * omit the field abstain — no finding — so the ~789 existing skills are unaffected.
+ */
+function validateCapabilityRoles(
+  name: string,
+  meta: { capabilityRoles?: SkillCapabilityRoles | undefined },
+  errors: string[]
+): void {
+  if (!meta.capabilityRoles) return;
+  for (const err of capabilityRoleErrors(meta.capabilityRoles)) {
+    errors.push(`${name}/skill.yaml: ${err}`);
+  }
+}
+
 export function validateSkillEntry(name: string, skillsDir: string, errors: string[]): boolean {
   const skillDir = path.join(skillsDir, name);
   const yamlPath = path.join(skillDir, 'skill.yaml');
@@ -115,6 +134,7 @@ export function validateSkillEntry(name: string, skillsDir: string, errors: stri
     }
     validateSkillMd(name, path.join(skillDir, 'SKILL.md'), result.data.type, errors);
     validateCapabilities(name, result.data, errors);
+    validateCapabilityRoles(name, result.data, errors);
     return true;
   } catch (e) {
     errors.push(`${name}: parse error — ${e instanceof Error ? e.message : String(e)}`);

@@ -1,0 +1,12 @@
+{
+  "issues": [1425],
+  "stages": ["brainstorming", "planning", "execution", "review"],
+  "planArtifact": "docs/changes/capability-roles-detector/plans/plan.md",
+  "assumptions": [
+    "optional capabilityRoles field in skill.yaml frontmatter",
+    "single-role detector in harness validate flags declared-but-single-role only",
+    "optional = no forced retrofit of existing skills",
+    "additive validate-check registration (overlap w/ #1404)"
+  ],
+  "closingKeyword": "Closes #1425"
+}
