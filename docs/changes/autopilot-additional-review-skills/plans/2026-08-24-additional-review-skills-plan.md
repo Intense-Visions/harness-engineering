@@ -1,5 +1,12 @@
 # Plan: autopilot project-declared additional review skills
 
+> **Superseded (2026-08-25, PR #1485).** This plan targets the narrow
+> `review.additionalSkills` field, which was generalized into the top-level
+> `skillHooks` framework and removed before merge. The steps below are
+> **historical**; the shipped seam lives in `@harness-engineering/core`
+> (`resolveSkillHooks`) with `harness-autopilot` + `harness-code-review` as the
+> wired consumers. See the proposal's "Superseded" banner for details.
+
 **Date:** 2026-08-24 | **Spec:** docs/changes/autopilot-additional-review-skills/proposal.md | **Tasks:** 4 | **Time:** ~30 min | **Integration Tier:** low
 
 ## Goal

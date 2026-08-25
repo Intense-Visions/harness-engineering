@@ -119,6 +119,24 @@ describe('harness-autopilot documents the general skillHooks framework (#1481)',
     expect(md).toMatch(/hard halt|not an? overridable/i);
     expect(md).toMatch(/failures\.md/);
   });
+
+  // Guards against the vocabulary overpromising which events actually fire: a
+  // hook configured at an unwired event is a silent no-op, so the documented
+  // "wired today" set must equal the concrete resolveSkillHooks(...) call sites.
+  it('wires exactly the four events it advertises as wired (no silent-no-op overpromise)', () => {
+    const WIRED = ['before:EXECUTE', 'after:REVIEW', 'after:FINAL_REVIEW', 'on:failure'];
+    // Concrete call sites in the prose, ignoring the generic <...:<STATE>> placeholder.
+    const callSites = new Set(
+      [...md.matchAll(/resolveSkillHooks\(config,\s*"harness-autopilot",\s*"([^"]+)"\)/g)]
+        .map((m) => m[1])
+        .filter((e) => /^(before|after|on):[A-Za-z0-9_-]+$/.test(e))
+    );
+    expect([...callSites].sort()).toEqual([...WIRED].sort());
+    // The vocabulary must flag the rest as not-yet-wired rather than claim they fire.
+    const vocab = extractSection(md, 'Lifecycle skill hooks');
+    expect(vocab).toMatch(/not yet wired|no-op/i);
+    for (const e of WIRED) expect(vocab).toContain(e);
+  });
 });
 
 describe('harness-code-review is a second skillHooks consumer (not autopilot-locked)', () => {

@@ -68,7 +68,7 @@ A project may attach **additional skills, commands, and prompts** at lifecycle p
 }
 ```
 
-**Autopilot's hookable event vocabulary.** Autopilot fires `before:<STATE>` and `after:<STATE>` for `PLAN`, `EXECUTE`, `VERIFY`, `INTEGRATE`, `REVIEW`, and `FINAL_REVIEW`, plus `on:failure` at its failure path (see EXECUTE recovery and the review hard-halt). Event keys follow the grammar `^(before|after|on):[A-Za-z0-9_-]+$`.
+**Autopilot's hookable event vocabulary.** Event keys follow the grammar `^(before|after|on):[A-Za-z0-9_-]+$`. Autopilot's phase states are `PLAN`, `EXECUTE`, `VERIFY`, `INTEGRATE`, `REVIEW`, and `FINAL_REVIEW`. Hooks are **wired today at exactly four points**: `before:EXECUTE`, `after:REVIEW`, `after:FINAL_REVIEW`, and `on:failure` (at the failure path — see EXECUTE recovery and the review hard-halt). The remaining phase boundaries (`before:PLAN`/`after:PLAN`, `after:EXECUTE`, `before:VERIFY`/`after:VERIFY`, `before:INTEGRATE`/`after:INTEGRATE`, `before:REVIEW`) share the same grammar and resolver but are **not yet wired** — a hook configured at an unwired event is a **no-op** (silently skipped, not hard-halted) until that boundary is wired, which is a documented follow-up. Configure only the four wired events for guaranteed firing; the hard-halt false-green protection applies at those wired points.
 
 **Three hook kinds.** Each array entry is a bare skill-name string (shorthand for a `skill` hook) or one of three discriminated objects. All object kinds accept `"enabled": false` to park a hook without deleting it (a disabled hook is skipped — never a hard halt):
 

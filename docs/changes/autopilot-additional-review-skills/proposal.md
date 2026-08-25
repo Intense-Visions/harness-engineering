@@ -7,6 +7,16 @@ external-id: github:Intense-Visions/harness-engineering#1481
 keywords: autopilot, review, final-review, config, review.additionalSkills, domain-reviewer
 ---
 
+> **Superseded (2026-08-25, PR #1485).** Before merge, the narrow
+> `review.additionalSkills` seam described below was **generalized** into the
+> top-level `skillHooks` cross-skill lifecycle-hook framework, and the
+> `review.additionalSkills` field was **removed** (it never shipped). The
+> acceptance criteria that reference `review.additionalSkills` are **historical**
+> and no longer parse — the equivalent config is now
+> `skillHooks["harness-autopilot"]["after:REVIEW"]` and `["after:FINAL_REVIEW"]`.
+> For the shipped design see `docs/reference/configuration.md` (the `skillHooks`
+> section) and the `skill-lifecycle-hooks` changeset.
+
 ## Overview
 
 `harness-autopilot`'s `REVIEW` and `FINAL_REVIEW` states hardcode a single

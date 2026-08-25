@@ -44,10 +44,10 @@ describe('resolveSkillHooks — normalization', () => {
     ]);
   });
 
-  it('normalizes a typeless {skill} object as a skill hook (legacy shorthand)', () => {
+  it('applies the default-blocking policy to an explicit skill entry with no blocking field', () => {
     const config: SkillHooksConfigHolder = {
       skillHooks: {
-        'harness-autopilot': { 'after:REVIEW': [{ skill: 'canary-cassandra' }] },
+        'harness-autopilot': { 'after:REVIEW': [{ type: 'skill', skill: 'canary-cassandra' }] },
       },
     };
     expect(resolveSkillHooks(config, 'harness-autopilot', 'after:REVIEW')).toEqual([
@@ -118,6 +118,17 @@ describe('resolveSkillHooks — default-blocking policy', () => {
     expect(defaultBlocking('on:failure')).toBe(false);
     expect(defaultBlocking('after:mechanical')).toBe(false);
     expect(defaultBlocking('after:run')).toBe(false);
+  });
+
+  it('matches whole tokens, so review/verify substrings do not misfire', () => {
+    // "preview" contains "review", "reverify"/"unverified" contain "verify" —
+    // a substring test would wrongly default these to blocking.
+    expect(defaultBlocking('after:preview')).toBe(false);
+    expect(defaultBlocking('before:reverify')).toBe(false);
+    expect(defaultBlocking('on:unverified')).toBe(false);
+    // …while a genuine segmented review/verify phase still blocks.
+    expect(defaultBlocking('after:FINAL_REVIEW')).toBe(true);
+    expect(defaultBlocking('before:pre-verify')).toBe(true);
   });
 });
 

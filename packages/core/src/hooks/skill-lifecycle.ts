@@ -42,8 +42,10 @@
  * A single configured hook entry, as it appears in `harness.config.json`.
  *
  * A bare string is shorthand for a `skill` entry. Object entries are
- * discriminated on `type`; a typeless object carrying a `skill` field is
- * tolerated as legacy shorthand and normalized to a `skill` entry.
+ * discriminated on `type` — this is the single source of truth shared with the
+ * CLI's `SkillHookEntrySchema` (a `z.discriminatedUnion('type', …)`), so an
+ * object entry MUST carry `type`. (`review.additionalSkills` never shipped, so
+ * there is no typeless legacy shorthand to tolerate.)
  *
  * Every OBJECT entry may carry `enabled` (default `true`). A `enabled: false`
  * entry is skipped entirely at resolution — a project can park a hook without
@@ -53,9 +55,7 @@ export type SkillHookEntry =
   | string
   | { type: 'skill'; skill: string; blocking?: boolean; enabled?: boolean }
   | { type: 'prompt'; text: string; enabled?: boolean }
-  | { type: 'command'; run: string; blocking?: boolean; enabled?: boolean }
-  /** Legacy / typeless shorthand — normalized to a `skill` entry. */
-  | { skill: string; blocking?: boolean; enabled?: boolean };
+  | { type: 'command'; run: string; blocking?: boolean; enabled?: boolean };
 
 /** Per-skill map of event string -> ordered hook entries. */
 export type SkillHooksForSkill = Record<string, SkillHookEntry[]>;
@@ -95,10 +95,16 @@ export const SKILL_HOOK_EVENT_KEY_RE = /^(before|after|on):[A-Za-z0-9_-]+$/;
  * problem should block, matching the built-in review/verify gates); every other
  * event defaults to `blocking: false` (advisory). A per-entry `blocking` always
  * overrides this. `prompt` hooks ignore blocking entirely (they never block).
+ *
+ * The state is tokenized on `_`, `-`, and whitespace and matched WHOLE-token, so
+ * a segmented phase like `FINAL_REVIEW` still matches on its `REVIEW` token while
+ * an unrelated phase like `preview` (or `reverify` / `unverified`) does NOT — a
+ * substring test would misfire on those and silently make an advisory hook block.
  */
 export function defaultBlocking(event: string): boolean {
   const state = event.includes(':') ? event.slice(event.indexOf(':') + 1) : event;
-  return /review|verify/i.test(state);
+  const tokens = state.split(/[_\-\s]+/);
+  return tokens.some((token) => /^(review|verify)$/i.test(token));
 }
 
 /** Resolve a hook's blocking flag: the per-entry override, else the event policy. */
@@ -130,8 +136,7 @@ function normalizeEntry(entry: SkillHookEntry, event: string): NormalizedHook {
     return { type: 'command', run: obj.run as string, blocking: resolveBlocking(obj, event) };
   }
 
-  // Explicit `skill`, OR a typeless object carrying `skill` (legacy shorthand):
-  // default `type: "skill"` when a `skill` field is present.
+  // Explicit `skill` entry (`type: "skill"`) — the only remaining object kind.
   return { type: 'skill', skill: obj.skill as string, blocking: resolveBlocking(obj, event) };
 }
 
