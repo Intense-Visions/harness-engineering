@@ -110,6 +110,46 @@ describe('harness-autopilot documents the general skillHooks framework (#1481)',
     expect(execute).toMatch(/resolveSkillHooks/);
   });
 
+  it('auto-wires canary deterministic detectors at REVIEW/FINAL_REVIEW when canary is present (#1482)', () => {
+    const vocab = extractSection(md, 'Lifecycle skill hooks');
+    // Uses the merged resolver at the review events and names all four detectors.
+    expect(vocab).toMatch(/resolveReviewHooksWithCanary/);
+    expect(vocab).toMatch(/canary_probe/);
+    for (const detector of [
+      'canary-savant',
+      'canary-blackhawk',
+      'canary-katana',
+      'canary-cassandra',
+    ]) {
+      expect(vocab).toContain(detector);
+    }
+    // Additive (alongside, not replacing) and canary-absent = no regression.
+    expect(vocab).toMatch(/alongside `harness-code-reviewer`/);
+    expect(vocab).toMatch(/no regression/);
+    // Forward-wired: a not-installed harness-default detector is a GRACEFUL SKIP,
+    // never a hard halt (canary 5.12.0 ships none of the four).
+    expect(vocab).toMatch(/forward-wired/i);
+    expect(vocab).toMatch(/5\.12\.0/);
+    expect(vocab).toMatch(/graceful skip|never a hard halt|SKIPPED, never a hard halt/i);
+    // The resolver takes an availability set so only installed detectors wire.
+    expect(vocab).toMatch(/availableSkills/);
+    // The hard-halt is reserved for USER-declared unresolvable hooks.
+    expect(vocab).toMatch(/USER-declared unresolvable hook still HARD-HALTS/i);
+  });
+
+  it('reserves the hard-halt for user-declared hooks, not harness-default canary detectors', () => {
+    // REVIEW: a user-declared unresolvable hook hard-halts; a not-installed
+    // canary default is filtered out (graceful skip), not a hard halt.
+    const review = extractSection(md, 'REVIEW');
+    expect(review).toMatch(/user-declared/i);
+    expect(review).toMatch(/harness-default canary detector.*not installed/i);
+    expect(review).toMatch(/never a hard halt/i);
+    // FINAL_REVIEW carries the same distinction.
+    const finalReview = extractSection(md, 'FINAL_REVIEW');
+    expect(finalReview).toMatch(/user-declared/i);
+    expect(finalReview).toMatch(/forward-wired|graceful skip|never a FINAL_REVIEW failure/i);
+  });
+
   it('wires on:failure at the failure path with HARNESS_FAILURE_REASON', () => {
     expect(md).toMatch(/on:failure/);
     expect(md).toMatch(/HARNESS_FAILURE_REASON/);
@@ -126,8 +166,16 @@ describe('harness-autopilot documents the general skillHooks framework (#1481)',
   it('wires exactly the four events it advertises as wired (no silent-no-op overpromise)', () => {
     const WIRED = ['before:EXECUTE', 'after:REVIEW', 'after:FINAL_REVIEW', 'on:failure'];
     // Concrete call sites in the prose, ignoring the generic <...:<STATE>> placeholder.
+    // The review events (after:REVIEW / after:FINAL_REVIEW) resolve through
+    // resolveReviewHooksWithCanary (which layers canary's deterministic detectors
+    // on top of the configured skillHooks, #1482); the non-review events resolve
+    // through the bare resolveSkillHooks. Both are concrete wiring call sites.
     const callSites = new Set(
-      [...md.matchAll(/resolveSkillHooks\(config,\s*"harness-autopilot",\s*"([^"]+)"\)/g)]
+      [
+        ...md.matchAll(
+          /(?:resolveSkillHooks|resolveReviewHooksWithCanary)\(config,\s*"harness-autopilot",\s*"([^"]+)"[,)]/g
+        ),
+      ]
         .map((m) => m[1])
         .filter((e) => /^(before|after|on):[A-Za-z0-9_-]+$/.test(e))
     );
