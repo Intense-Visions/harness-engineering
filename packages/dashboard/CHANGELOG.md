@@ -1,5 +1,27 @@
 # @harness-engineering/dashboard
 
+## 0.16.2
+
+### Patch Changes
+
+- 44ad077: Fix two client rendering defects on the Local Models page.
+  - `RecommendationsCard` keyed recommendation rows by `hfRepoId` alone, which collides when the same repo is recommended at multiple quants (Q4/Q5/Q6/Q8) — React logged "two children with the same key". Rows are now keyed by `hfRepoId@quant`.
+  - `NeuralOrganism` (the animated background) rendered `motion.circle`/`motion.path` elements that animate `cx`/`cy`/`r`/`d` without an `initial` prop, so framer-motion wrote `undefined` to those SVG attributes for one frame (`Invalid value for <circle> attribute r="undefined"`, `Problem parsing d="undefined"`). Each animated geometry attribute is now seeded in `initial` with its own first keyframe (no visual change).
+
+- Updated dependencies [c81c872]
+- Updated dependencies [9629e01]
+- Updated dependencies [483791e]
+- Updated dependencies [936c76b]
+- Updated dependencies [fed338f]
+- Updated dependencies [9223f18]
+- Updated dependencies [847cced]
+- Updated dependencies [0dda585]
+  - @harness-engineering/orchestrator@0.21.4
+  - @harness-engineering/core@0.44.0
+  - @harness-engineering/intelligence@0.12.0
+  - @harness-engineering/graph@0.13.2
+  - @harness-engineering/signals@0.3.5
+
 ## 0.16.1
 
 ### Patch Changes

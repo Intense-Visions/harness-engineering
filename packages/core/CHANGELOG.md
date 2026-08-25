@@ -1,5 +1,79 @@
 # Changelog
 
+## 0.44.0
+
+### Minor Changes
+
+- 9629e01: Auto-wire canary's deterministic test detectors at autopilot `REVIEW` /
+  `FINAL_REVIEW`. When canary is present (detected via the existing `canary_probe`
+  tool), autopilot runs canary's specific deterministic detectors — `canary-savant`
+  (order dependence / shared-state leakage), `canary-blackhawk` (temporal
+  dependence), `canary-katana` (tests deleted or newly skipped), and
+  `canary-cassandra` (vacuous tests) — **alongside** `harness-code-reviewer`,
+  reusing the merged `skillHooks` dispatch path.
+
+  The detectors are **forward-wired** harness defaults: they are resolve-and-filtered
+  by availability, so a detector whose skill is not installed is **gracefully
+  skipped** (recorded in the denominator), **never a hard halt**. Each detector
+  auto-activates if/when canary ships it. As of canary 5.12.0 the plugin ships none
+  of the four, so today they all skip and REVIEW proceeds normally. The hard-halt
+  (false-green protection) stays reserved for **user-declared** unresolvable
+  `skillHooks` entries — a user's typo still fails loudly.
+
+  New pure resolvers in `@harness-engineering/core`: `planCanaryReviewDetectors`
+  (returns `{ wired, skipped, expected }`), `resolveCanaryReviewHooks`, and
+  `resolveReviewHooksWithCanary` (layers installed canary defaults on top of a
+  project's configured `skillHooks`, deduping any detector the project already
+  declares, incl. `enabled:false` opt-out), plus the `SkillAvailability` type and
+  `CANARY_REVIEW_DETECTORS`/`CANARY_REVIEW_EVENTS`. Canary absent = today's exact
+  behavior, no regression. Zero per-project config. Closes #1482 on the harness
+  side (detectors are forward-wired pending canary shipping them upstream).
+
+- 9223f18: Add an advisory SKILL.md instruction-density check to `harness validate`.
+
+  HumanLayer's RPI→CRISPY postmortem identified a ~150-200 instruction-follow budget as the
+  ceiling that, once exceeded, forced a full workflow rebuild. `harness validate` now
+  estimates the imperative-instruction count (numbered steps + imperative-verb bullets +
+  `MUST`/`SHALL`/`REQUIRED` directives) at each context-budget packing level `run_skill`
+  loads, and surfaces a non-blocking `SKILL-DENSITY` warning when a loaded level exceeds the
+  budget (default 175, configurable via `skills.instructionBudget`). Because progressive
+  disclosure is the mitigation being validated, density is measured per cumulative packing
+  level rather than over the whole file. The check is advisory only — it never fails the
+  gate. `harness-skill-authoring` gains a matching guidance note.
+
+  New core exports: `countImperativeInstructions`, `analyzeSkillInstructionDensity`,
+  `DEFAULT_INSTRUCTION_BUDGET`.
+
+- 847cced: Add a general cross-skill lifecycle-hook framework: a new top-level `skillHooks`
+  block in `harness.config.json` lets a project attach additional **skills**,
+  **commands**, and **prompts** at lifecycle points of any hook-supporting
+  orchestrator skill. Hooks are keyed by skill name and an event string
+  (`before:/after:<phase>`, `before:run`/`after:run`, or `on:<event>` such as
+  `on:failure`). Entries are a bare skill-name string or a discriminated
+  `{type: "skill" | "prompt" | "command"}` object, each with an optional `enabled`
+  toggle; `command`/`skill` hooks receive an env + stdin (or subagent-brief) input
+  context. Resolution/normalization is shared in `@harness-engineering/core`
+  (`resolveSkillHooks` + hook-context helpers). An unresolvable skill or
+  un-spawnable command is a hard halt (false-green protection), never a silent
+  skip. `harness-autopilot` (review + non-review + `on:failure`) and
+  `harness-code-review` (`after:mechanical`) are the wired reference consumers.
+
+  This **supersedes** the unreleased `review.additionalSkills` field, which is
+  removed — express it as `skillHooks["harness-autopilot"]["after:REVIEW"]` and
+  `["after:FINAL_REVIEW"]`. Closes #1481.
+
+### Patch Changes
+
+- 483791e: entropy dead-export detector: close the blind spot for exported-but-unused public API (#1479). Usage attribution now follows re-export chains, so a symbol re-exported through the package barrel with zero real (non-test) workspace callers is surfaced as a distinct advisory finding class `PUBLIC_API_UNUSED` (recommendation: wire or deprecate, never delete) instead of hiding behind the barrel forwarding. Opt out with a `@public` / `@publicApi` annotation on the export or a `deadCode.publicApiAllowlist` entry. Preserves the #1409 test-import behavior; auto-fixers still act only on `NO_IMPORTERS`. The TypeScript parser now captures comments so JSDoc-based annotations are available to the detector.
+- fed338f: Extract `roadmap/heading.ts` as the single source of truth for the H3 feature-heading grammar.
+
+  The grammar — "an H3 heading, optionally escaped with a `Feature: ` prefix" — was encoded three times (`parse.ts`'s `h3Pattern`, `store/shard.ts`'s `H3_NAME`, and `serialize.ts`'s `serializeFeatureHeading`) with nothing keeping them in sync. The copies had already diverged on whitespace: the monolith reader required exactly one space while the shard reader accepted `\s+`, so a heading like `###  Feature:  x` read fine through the shard path but was silently dropped by the monolith path.
+
+  All three now route through `roadmap/heading.ts`, and the whitespace question is settled deliberately in one place: **lenient read (`\s+`), one-space emit**. The monolith reader is widened (Postel's law — it now accepts everything the shard reader did) and the emitter still emits exactly one space, so `serialize → parse` is an identity. No behavior change for any already-canonical roadmap; the only observable difference is that the monolith reader now also accepts the lenient hand-edited form the shard reader always accepted.
+
+- Updated dependencies [0dda585]
+  - @harness-engineering/graph@0.13.2
+
 ## 0.43.0
 
 ### Minor Changes
