@@ -13,12 +13,19 @@ import type { LlmCallCost } from './contracts';
 // We drive the adapter through a hand-built fake that satisfies the internal
 // `AnalyzeFn` shape (an object exposing an `analyze` method).
 
+interface AnalyzeImage {
+  base64?: string;
+  url?: string;
+  mediaType?: 'image/png' | 'image/jpeg' | 'image/webp';
+}
+
 interface AnalyzeRequest {
   prompt: string;
   systemPrompt?: string;
   responseSchema: z.ZodType;
   model?: string;
   maxTokens?: number;
+  images?: AnalyzeImage[];
 }
 
 interface AnalyzeResponse {
@@ -201,17 +208,96 @@ describe('AnalysisProviderAdapter cost recording', () => {
 });
 
 describe('AnalysisProviderAdapter.callVision', () => {
-  it('throws with the provider id since vision is not wired', async () => {
+  it('sends the image as base64 from an imageBuffer and returns the raw envelope', async () => {
+    const raw = '```json\n{"philosophicalCoherence":{"score":90}}\n```';
+    const { fake, analyze } = makeFakeInner(makeResponse({ result: { raw } }));
+    const adapter = new AnalysisProviderAdapter({
+      providerId: 'anthropic',
+      model: 'test-model',
+      inner: fake as never,
+      supportsVision: true,
+    });
+
+    const buffer = Buffer.from('PNGDATA');
+    const out = await adapter.callVision('judge the rendered page', {
+      imageBuffer: buffer,
+      mediaType: 'image/png',
+    });
+
+    expect(out).toBe(raw);
+    const req = analyze.mock.calls[0]![0];
+    expect(req.prompt).toBe('judge the rendered page');
+    expect(req.images).toEqual([{ base64: buffer.toString('base64'), mediaType: 'image/png' }]);
+    // The raw-envelope system instruction is still applied on the vision path.
+    expect(req.systemPrompt).toContain(RAW_INSTRUCTIONS);
+  });
+
+  it('passes an imageUrl straight through when no buffer is supplied', async () => {
+    const { fake, analyze } = makeFakeInner(makeResponse());
+    const adapter = new AnalysisProviderAdapter({
+      providerId: 'anthropic',
+      model: 'test-model',
+      inner: fake as never,
+      supportsVision: true,
+    });
+
+    await adapter.callVision('p', { imageUrl: 'https://example.com/shot.png' });
+
+    expect(analyze.mock.calls[0]![0].images).toEqual([{ url: 'https://example.com/shot.png' }]);
+  });
+
+  it('records a cost entry for the vision call', async () => {
+    const { fake } = makeFakeInner(
+      makeResponse({ tokenUsage: { inputTokens: 5, outputTokens: 8, totalTokens: 13 } })
+    );
+    const adapter = new AnalysisProviderAdapter({
+      providerId: 'anthropic',
+      model: 'test-model',
+      inner: fake as never,
+      supportsVision: true,
+    });
+
+    await adapter.callVision('p', { imageBuffer: Buffer.from('x') });
+
+    expect(adapter.getCosts()).toEqual([
+      {
+        provider: 'anthropic',
+        model: 'model-from-response',
+        inputTokens: 5,
+        outputTokens: 8,
+        costUsd: 0,
+      },
+    ]);
+  });
+
+  it('throws when the VisionInput has neither a buffer nor a URL', async () => {
     const { fake } = makeFakeInner(makeResponse());
     const adapter = new AnalysisProviderAdapter({
-      providerId: 'claude-cli',
+      providerId: 'anthropic',
+      model: 'test-model',
+      inner: fake as never,
+      supportsVision: true,
+    });
+
+    await expect(adapter.callVision('p', {})).rejects.toThrow(
+      /requires a VisionInput with either imageBuffer or imageUrl/
+    );
+  });
+
+  it('refuses vision (does not call the backend) when the provider is not vision-capable', async () => {
+    // supportsVision defaults to false — the openai-compatible path today.
+    const { fake, analyze } = makeFakeInner(makeResponse());
+    const adapter = new AnalysisProviderAdapter({
+      providerId: 'openai-compatible',
       model: 'test-model',
       inner: fake as never,
     });
 
-    await expect(adapter.callVision('p', { imageUrl: 'x' })).rejects.toThrow(
-      /claude-cli adapter does not implement callVision/
+    await expect(adapter.callVision('p', { imageBuffer: Buffer.from('x') })).rejects.toThrow(
+      /"openai-compatible".*not vision-capable/
     );
+    // Critically: it must NOT forward to a backend that would drop the image.
+    expect(analyze).not.toHaveBeenCalled();
   });
 });
 
