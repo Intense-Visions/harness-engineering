@@ -156,6 +156,67 @@ describe('AnthropicAnalysisProvider', () => {
     });
   });
 
+  describe('vision / image content', () => {
+    it('sends a plain string user prompt when no images are supplied', async () => {
+      mockCreate.mockResolvedValueOnce(makeToolUseResponse({ summary: 'ok', score: 1 }));
+
+      await provider.analyze({ prompt: 'text only', responseSchema: testSchema });
+
+      const call = mockCreate.mock.calls[0][0];
+      expect(call.messages).toEqual([{ role: 'user', content: 'text only' }]);
+    });
+
+    it('builds an image block (base64) ahead of the text prompt', async () => {
+      mockCreate.mockResolvedValueOnce(makeToolUseResponse({ summary: 'ok', score: 1 }));
+
+      await provider.analyze({
+        prompt: 'judge the rendered page',
+        responseSchema: testSchema,
+        images: [{ base64: 'QUJD', mediaType: 'image/png' }],
+      });
+
+      const call = mockCreate.mock.calls[0][0];
+      expect(call.messages).toEqual([
+        {
+          role: 'user',
+          content: [
+            { type: 'image', source: { type: 'base64', media_type: 'image/png', data: 'QUJD' } },
+            { type: 'text', text: 'judge the rendered page' },
+          ],
+        },
+      ]);
+    });
+
+    it('defaults mediaType to image/png when omitted', async () => {
+      mockCreate.mockResolvedValueOnce(makeToolUseResponse({ summary: 'ok', score: 1 }));
+
+      await provider.analyze({
+        prompt: 'p',
+        responseSchema: testSchema,
+        images: [{ base64: 'QUJD' }],
+      });
+
+      const call = mockCreate.mock.calls[0][0];
+      expect(call.messages[0].content[0].source.media_type).toBe('image/png');
+    });
+
+    it('builds a URL image source when a url is supplied', async () => {
+      mockCreate.mockResolvedValueOnce(makeToolUseResponse({ summary: 'ok', score: 1 }));
+
+      await provider.analyze({
+        prompt: 'p',
+        responseSchema: testSchema,
+        images: [{ url: 'https://example.com/shot.png' }],
+      });
+
+      const call = mockCreate.mock.calls[0][0];
+      expect(call.messages[0].content[0]).toEqual({
+        type: 'image',
+        source: { type: 'url', url: 'https://example.com/shot.png' },
+      });
+    });
+  });
+
   describe('error handling', () => {
     it('throws when response has no tool_use block', async () => {
       mockCreate.mockResolvedValueOnce({

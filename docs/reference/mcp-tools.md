@@ -604,7 +604,7 @@ Run the harness-design-craft skill: CRITIQUE / POLISH / BENCHMARK phases over a 
 **Parameters:**
 
 - `path` (string, required) — Project root path
-- `mode` (string, optional) — fast (code-only LLM critique) or deep (vision critique of rendered screenshots — requires `captures`).
+- `mode` (string, optional) — fast (code-only LLM judgment) or deep (vision judgment of rendered screenshots — requires `captures`). Deep mode applies to BOTH critique and benchmark; only deep-mode benchmark can clear the award bar, since innovation/coherence/surface cannot be honestly scored from source code.
 - `phases` (array, optional) — Subset of phases to run. Defaults to all three.
 - `files` (array, optional) — Optional file scoping. Each entry is a path relative to project root.
 - `autoCapture` (string, optional) — Deep-mode capture behavior when no `captures` are supplied. "skip" never runs the capture command; "prompt"/"auto" run `captureCommand` when one is configured.
