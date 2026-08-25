@@ -88,6 +88,14 @@ A project may attach **additional skills, commands, and prompts** at lifecycle p
 
 **RESERVED (v2).** Per-iteration granularity (`after:EXECUTE:task`, `after:dispatch:item` — a phase-level hook fires once per phase, not per item), a `"*"` wildcard outer key ("hooks for every skill"), and `{{token}}` prompt templating.
 
+**Canary detectors auto-wire at REVIEW / FINAL_REVIEW (default, zero-config).** When canary is present, autopilot's two review moments run canary's **deterministic test detectors** — `canary-savant` (test order-dependence / shared-state leakage), `canary-blackhawk` (temporal dependence: wall-clock, timezone, DST, Feb 29), `canary-katana` (tests deleted or newly skipped by the change), and `canary-cassandra` (vacuous tests / assertions that cannot fail) — **alongside `harness-code-reviewer`, never replacing it**. These are the SPECIFIC detectors (distinct from the general-purpose `canary-review-test`, which finds brittleness/anti-patterns but structurally cannot find a self-comparing assertion or an order-dependent pass). This is an **additional default layer**, not new config: it fires only when canary is detected, reusing the exact `skillHooks` dispatch/context path.
+
+- **Detect canary once per review.** Call the `canary_probe` MCP tool; `status: "available"` ⇒ canary present. `degraded`/absent ⇒ canary absent, and the effective hooks are exactly today's configured `skillHooks` (no regression).
+- **Resolve effective review hooks via the merged resolver.** Instead of the bare `resolveSkillHooks` at `after:REVIEW` / `after:FINAL_REVIEW`, autopilot uses `resolveReviewHooksWithCanary(config, "harness-autopilot", "<after:REVIEW|after:FINAL_REVIEW>", { canaryPresent })` (from `@harness-engineering/core`). It returns the project's configured hooks FIRST, then appends the canary detectors, dropping any detector the project already declares explicitly (the explicit entry wins — no double dispatch). The detectors are ordinary blocking `skill` hooks, dispatched and aggregated through the **same** path as any configured hook.
+- **Undispatchable detector when canary is present ⇒ HARD HALT.** A named detector that cannot be dispatched is the same false-green class as an unresolvable configured `skill` hook: record it in `.harness/failures.md`, set the review status to failed, and halt with "cannot verify" — never report green having silently dropped a detector.
+- **Report the denominator.** State how many detectors ran of how many were expected (e.g. "canary detectors: 4/4 ran"), so a partial run is never presented as a full one.
+- Detectors wire **only** at `after:REVIEW` and `after:FINAL_REVIEW`; no other phase boundary gains them.
+
 ## Rigor Levels
 
 Set at INIT (`--fast` / `--thorough`); persists for session. Default: `standard`.
@@ -267,14 +275,14 @@ subagent_type: "harness-code-reviewer"
 prompt: "Phase {N}: {name}. Session: {sessionSlug}. Follow harness-code-review. Report findings (critical / important / suggestion)."
 ```
 
-**Then run each project-declared `after:REVIEW` hook.** Resolve `resolveSkillHooks(config, "harness-autopilot", "after:REVIEW")` (from `skillHooks` in `harness.config.json`, default none). Run each hook in order by kind (see Lifecycle skill hooks): a `skill` hook is dispatched as an extra reviewer, a `command` hook runs via the command-runner, a `prompt` hook appends its text to the review brief. For a `skill` hook:
+**Then run each effective `after:REVIEW` hook.** Probe canary once (`canary_probe`; `status: "available"` ⇒ present) and resolve `resolveReviewHooksWithCanary(config, "harness-autopilot", "after:REVIEW", { canaryPresent })` (from `@harness-engineering/core`). This returns the project's configured `skillHooks` (default none) followed by canary's deterministic detectors when canary is present — see "Canary detectors auto-wire" under Lifecycle skill hooks. When canary is absent it returns exactly the configured hooks (no regression). Run each hook in order by kind (see Lifecycle skill hooks): a `skill` hook is dispatched as an extra reviewer, a `command` hook runs via the command-runner, a `prompt` hook appends its text to the review brief. For a `skill` hook:
 
 ```
 subagent_type: "<hook skill name>"
 prompt: "Phase {N}: {name}. Session: {sessionSlug}. Domain review. Context: {hook context}. Report findings (critical / important / suggestion)."
 ```
 
-If a hooked skill cannot be dispatched (typo / not installed), or a `command` hook cannot be spawned (missing binary), do **not** skip it silently and do **not** offer it as an overridable finding: record it in `.harness/failures.md`, set the review status to failed, and halt REVIEW with "cannot verify" — a **hard halt** (see Lifecycle skill hooks, above). (A `command` that RAN and exited non-zero is instead a normal finding, blocking per policy — not a hard halt.) Persist each hook's findings under a per-hook key in `{sessionDir}/phase-{N}-review.json` so provenance survives, and merge them into the same blocking/non-blocking aggregation as the baseline reviewer.
+If a hooked skill cannot be dispatched (typo / not installed / a canary detector unresolvable while canary is present), or a `command` hook cannot be spawned (missing binary), do **not** skip it silently and do **not** offer it as an overridable finding: record it in `.harness/failures.md`, set the review status to failed, and halt REVIEW with "cannot verify" — a **hard halt** (see Lifecycle skill hooks, above). (A `command` that RAN and exited non-zero is instead a normal finding, blocking per policy — not a hard halt.) Persist each hook's findings under a per-hook key in `{sessionDir}/phase-{N}-review.json` so provenance survives, and merge them into the same blocking/non-blocking aggregation as the baseline reviewer. Report the detector denominator (how many hooks ran of how many were expected) so a partial run is never presented as complete.
 
 Persist findings to `{sessionDir}/phase-{N}-review.json`. No blocking (across baseline + additional reviewers) → PHASE_COMPLETE. Blocking → ask "fix / override / stop." `fix`: re-enter EXECUTE. `override`: record decision in `decisions[]` → PHASE_COMPLETE.
 
@@ -301,12 +309,12 @@ Persist findings to `{sessionDir}/phase-{N}-review.json`. No blocking (across ba
    subagent_type: "harness-code-reviewer"
    prompt: "Final cross-phase review. Diff: git diff {startingCommit}..HEAD. Session: {sessionSlug}. Prior findings: {collected}. Focus on cross-phase coherence: naming, duplicated utilities, architectural drift. Report findings (critical / important / suggestion)."
    ```
-   Then run **each project-declared `after:FINAL_REVIEW` hook** — `resolveSkillHooks(config, "harness-autopilot", "after:FINAL_REVIEW")` (from `skillHooks`, default none) — over the same cross-phase diff. Run each by kind; a `skill` hook is dispatched as an extra reviewer:
+   Then run **each effective `after:FINAL_REVIEW` hook** — `resolveReviewHooksWithCanary(config, "harness-autopilot", "after:FINAL_REVIEW", { canaryPresent })` (configured `skillHooks` plus canary's deterministic detectors when canary is present; exactly the configured hooks when absent) — over the same cross-phase diff. Run each by kind; a `skill` hook is dispatched as an extra reviewer:
    ```
    subagent_type: "<hook skill name>"
    prompt: "Final cross-phase domain review. Diff: git diff {startingCommit}..HEAD. Session: {sessionSlug}. Context: {hook context}. Report findings (critical / important / suggestion)."
    ```
-   An unresolvable hooked skill (or an un-spawnable `command` hook) is a FINAL_REVIEW failure, not a skip, and not an overridable finding — record it in `.harness/failures.md`, set the final-review status to failed, and hard-halt with "cannot verify" rather than reporting a green final review that silently dropped a configured hook. (A `command` that ran and exited non-zero is a normal blocking finding, not a hard halt.) Hook findings merge into the same `finalReview.findings` aggregation.
+   An unresolvable hooked skill (a typo, a not-installed skill, or a canary detector unresolvable while canary is present) or an un-spawnable `command` hook is a FINAL_REVIEW failure, not a skip, and not an overridable finding — record it in `.harness/failures.md`, set the final-review status to failed, and hard-halt with "cannot verify" rather than reporting a green final review that silently dropped a configured hook. (A `command` that ran and exited non-zero is a normal blocking finding, not a hard halt.) Hook findings merge into the same `finalReview.findings` aggregation; report the detector denominator so a partial run is never presented as complete.
 4. No blocking (across baseline + additional reviewers): store in `finalReview.findings`, set `"passed"` → OUTCOME_EVAL.
 5. Blocking: ask "fix / override / stop."
    - `fix`: increment `finalReview.retryCount` (max 3). Dispatch harness-task-executor: "Fix these blocking findings: {findings with file, line, title}. Session: {sessionSlug}. Commit each fix atomically." Run `harness validate`. Re-run FINAL_REVIEW from step 1. If retryCount > 3: stop, record in `.harness/failures.md`.
@@ -364,7 +372,7 @@ The blocking post-execution **spec-satisfaction gate** — the harness's ship ga
 4. **EXECUTE** — Dispatch harness-task-executor with plan path, handle checkpoints and retries (max 3).
 5. **VERIFY** — Dispatch harness-verifier, confirm code correctness and wiring.
 6. **INTEGRATE** — Resolve integration tier, dispatch harness-integration, verify system wiring, knowledge materialization, and documentation per tier.
-7. **REVIEW** — Dispatch harness-code-reviewer plus any project-declared `skillHooks["harness-autopilot"]["after:REVIEW"]` hooks, fix blocking findings.
+7. **REVIEW** — Dispatch harness-code-reviewer plus the effective `after:REVIEW` hooks (`resolveReviewHooksWithCanary`: project `skillHooks` plus canary's deterministic detectors when canary is present), fix blocking findings.
 8. **PHASE_COMPLETE** — Summarize (including integration report), sync roadmap, loop to ASSESS for next phase or proceed to FINAL_REVIEW.
 9. **FINAL_REVIEW → OUTCOME_EVAL → DONE** — Cross-phase review, then the blocking spec-satisfaction gate (halt on a high-confidence NOT_SATISFIED), offer PR creation, write final handoff.
 

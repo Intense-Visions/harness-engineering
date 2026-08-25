@@ -1,0 +1,14 @@
+{
+  "issues": [1482],
+  "stages": ["brainstorming", "planning", "execution", "review"],
+  "planArtifact": "docs/changes/canary-review-detectors/plans/2026-08-25-canary-review-detectors-plan.md",
+  "assumptions": [
+    "auto-wire canary deterministic detectors at REVIEW+FINAL_REVIEW when canary detected, reusing skillHooks dispatch",
+    "wired detectors: canary-savant, canary-blackhawk, canary-katana, canary-cassandra",
+    "canary presence = canary_probe MCP tool status 'available' (existing detection, reused)",
+    "canary-absent = no regression",
+    "undispatchable detector when canary present = hard halt",
+    "a project's explicit skillHooks still applies on top; canary auto-wiring is an additional default; a detector a project already declares explicitly is not double-dispatched"
+  ],
+  "closingKeyword": "Closes #1482"
+}
