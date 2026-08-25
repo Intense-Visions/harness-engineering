@@ -1,12 +1,12 @@
 {
   "version": 1,
-  "promotedAt": "2026-08-18T20:39:17.298Z",
-  "commit": "5b488f9",
+  "promotedAt": "2026-08-25T22:04:47.685Z",
+  "commit": "6dfa67e",
   "branch": "main",
   "files": [
     {
       "path": ".harness/arch/baselines.json",
-      "sha256": "10c925167eb757c3c37e20762ad0af889fb5faa67f3ae35391264380c2eb6011"
+      "sha256": "5211be799ec534f2deddda888df96bbfd26eff55fb085576507f68d5290ab2c9"
     },
     {
       "path": "benchmark-baselines.json",
@@ -14,7 +14,7 @@
     },
     {
       "path": "coverage-baselines.json",
-      "sha256": "939920ed4a6dfe23ee615e8ba2d1b1b7163df00fa6473b0a233c7a8200ac95e3"
+      "sha256": "78cce0d542e222e96de7dca6748591fb6979f7d33dc9fff62e5d97013edee72c"
     },
     {
       "path": "harness.config.json",
