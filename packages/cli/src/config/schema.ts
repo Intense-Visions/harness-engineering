@@ -1125,6 +1125,14 @@ export const HarnessConfigSchema = z.object({
       neverSuggest: z.array(z.string()).default([]),
       /** Override the tier of specific skills (e.g., promote a Tier 3 skill to Tier 2) */
       tierOverrides: z.record(z.string(), z.number().int().min(1).max(3)).default({}),
+      /**
+       * Advisory imperative-instruction budget per SKILL.md packing level
+       * (`harness validate`). A level whose instruction count exceeds this is
+       * surfaced as a non-blocking warning. Defaults to
+       * `DEFAULT_INSTRUCTION_BUDGET` (175, the midpoint of HumanLayer's
+       * ~150-200 instruction-follow ceiling) when omitted.
+       */
+      instructionBudget: z.number().int().positive().optional(),
     })
     .optional(),
   /** Spec-to-implementation traceability check settings */

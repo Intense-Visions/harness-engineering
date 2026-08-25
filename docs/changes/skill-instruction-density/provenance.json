@@ -1,0 +1,13 @@
+{
+  "issues": [1404],
+  "stages": ["brainstorming", "planning", "execution", "review"],
+  "planArtifact": "docs/changes/skill-instruction-density/plans/plan.md",
+  "assumptions": [
+    "heuristic imperative-instruction count per packing level (numbered steps + imperative bullets + MUST/SHALL)",
+    "advisory non-blocking in harness validate",
+    "warn threshold ~150-200 (document exact default)",
+    "also added skill-authoring guidance note",
+    "additive validate registration (overlap w/ #1425)"
+  ],
+  "closingKeyword": "Closes #1404"
+}
