@@ -516,6 +516,35 @@ function parseStrategyMarkdown(raw: string): {
   return { frontmatter, sections };
 }
 
+/**
+ * Strip one layer of matching surrounding quotes from a YAML scalar.
+ *
+ * Required because this is a hand-rolled parser rather than a YAML one, and a
+ * quoted scalar is not just valid YAML — it is the form
+ * `docs/solutions/assets/resolution-template.md` prescribes. Without this,
+ * `last_updated: '2026-05-06'` reaches the schema as `'2026-05-06'` WITH its
+ * quotes, fails the `ISO_DATE` regex, and the whole document is rejected as
+ * malformed.
+ *
+ * That made the two readers of the same corpus disagree: `validate`
+ * (`packages/core/src/validation/solutions.ts`) parses with `gray-matter`, which
+ * unquotes, so a quoted date passed there and failed here. Every fixture in
+ * `tests/fixtures/solutions/` happened to use bare scalars, so nothing caught it.
+ *
+ * Deliberately NOT switching this to `gray-matter`: a real YAML parser resolves
+ * a bare `2026-05-06` to a `Date`, which `z.string()` then rejects — so it would
+ * fix the quoted form by breaking the bare one that every existing doc and
+ * fixture uses. Unquoting here is additive: both forms parse.
+ */
+function unquoteScalar(value: string): string {
+  const trimmed = value.trim();
+  if (trimmed.length < 2) return trimmed;
+  const first = trimmed[0]!;
+  const last = trimmed[trimmed.length - 1]!;
+  const quoted = (first === "'" && last === "'") || (first === '"' && last === '"');
+  return quoted ? trimmed.slice(1, -1) : trimmed;
+}
+
 function parseSolutionFrontmatter(
   raw: string
 ): { frontmatter: Record<string, unknown>; body: string } | null {
@@ -533,9 +562,12 @@ function parseSolutionFrontmatter(
       frontmatter[key] = value
         .slice(1, -1)
         .split(',')
-        .map((s) => s.trim());
+        // Items are unquoted too: `tags: ['a', 'b']` is as valid as `[a, b]`,
+        // and a tag of `'a'` does not match a query for `a`.
+        .map((s) => unquoteScalar(s))
+        .filter((s) => s !== '');
     } else {
-      frontmatter[key] = value;
+      frontmatter[key] = unquoteScalar(value);
     }
   }
   return { frontmatter, body };

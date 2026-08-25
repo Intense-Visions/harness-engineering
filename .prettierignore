@@ -57,3 +57,10 @@ packages/core/tests/fixtures/code-nav/syntax-error.ts
 
 # Local orchestrator state backups (disposable)
 **/.harness/state-backup-*/
+
+# Solution-doc parser fixtures: the frontmatter IS the test input. Prettier
+# normalises double-quoted YAML scalars to single quotes, which silently deletes
+# the double-quote coverage in BusinessKnowledgeIngestor.solutions.test.ts — and
+# would be free to rewrite crlf-pattern.md's line endings, the whole point of
+# that fixture. Same reasoning as agents/commands/** above.
+packages/graph/tests/fixtures/solutions/**
