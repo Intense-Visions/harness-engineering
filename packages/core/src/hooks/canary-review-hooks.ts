@@ -22,7 +22,7 @@
 // in the consuming skill — exactly as they do for configured `skillHooks`.
 
 import { defaultBlocking, resolveSkillHooks } from './skill-lifecycle';
-import type { NormalizedHook, SkillHooksConfigHolder } from './skill-lifecycle';
+import type { NormalizedHook, SkillHookEntry, SkillHooksConfigHolder } from './skill-lifecycle';
 
 /**
  * Canary's DETERMINISTIC test detectors, in dispatch order. Each finds a
@@ -58,7 +58,38 @@ export const CANARY_REVIEW_EVENTS = ['after:REVIEW', 'after:FINAL_REVIEW'] as co
 export const CANARY_REVIEW_HOST_SKILL = 'harness-autopilot';
 
 function isCanaryReviewEvent(event: string): boolean {
+  // Event strings are matched case-sensitively against the canonical keys; a
+  // caller passing e.g. `after:review` gets no detectors. Callers use the
+  // uppercase keys documented in harness-autopilot/SKILL.md.
   return (CANARY_REVIEW_EVENTS as readonly string[]).includes(event);
+}
+
+/**
+ * Skill names a project DECLARES at `skillName`/`event`, including entries parked
+ * with `enabled: false`. This is deliberately the RAW declared set (not the
+ * post-`enabled`-filter set `resolveSkillHooks` returns): a project that parks a
+ * detector via `{ type: "skill", skill: "canary-cassandra", enabled: false }` has
+ * expressed an explicit opt-out, so the canary default for that name must be
+ * dropped rather than silently re-injected as a blocking hook. Honors the
+ * `enabled: false` "park a hook without running it" contract for the auto-wired
+ * defaults too. Bare strings and `{ type: "skill" }` objects both name a skill.
+ */
+function declaredSkillNames(
+  config: SkillHooksConfigHolder | null | undefined,
+  skillName: string,
+  event: string
+): Set<string> {
+  const entries = config?.skillHooks?.[skillName]?.[event];
+  const names = new Set<string>();
+  if (!Array.isArray(entries)) return names;
+  for (const entry of entries as SkillHookEntry[]) {
+    if (typeof entry === 'string') {
+      names.add(entry);
+    } else if (entry.type === 'skill' && typeof entry.skill === 'string') {
+      names.add(entry.skill);
+    }
+  }
+  return names;
 }
 
 /**
@@ -87,11 +118,13 @@ export function resolveCanaryReviewHooks(canaryPresent: boolean, event: string):
  * defaults ({@link resolveCanaryReviewHooks}) when canary is present.
  *
  * Ordering: configured hooks first (a project's explicit intent leads), canary
- * defaults appended. A canary default whose detector name is ALREADY declared as
- * a configured `skill` hook at this event is dropped — the project's explicit
- * entry (which may carry its own `blocking`/`enabled`) wins, and the detector is
- * never dispatched twice. Configured non-`skill` hooks (`prompt`/`command`) and
- * non-detector `skill` hooks are always preserved.
+ * defaults appended. A canary default whose detector name is ALREADY DECLARED at
+ * this event is dropped — the project's explicit entry wins. This is deduped
+ * against the RAW declared names (including `enabled: false` entries), so a
+ * project can override a detector's `blocking` by re-declaring it, OR park it
+ * entirely with `enabled: false`; either way the auto-wired default never
+ * re-appears. Configured non-`skill` hooks (`prompt`/`command`) and non-detector
+ * `skill` hooks are always preserved.
  *
  * When canary is absent this returns exactly `resolveSkillHooks(...)` — so a
  * project without canary sees no behavioral change (no regression).
@@ -111,11 +144,9 @@ export function resolveReviewHooksWithCanary(
   const canaryDefaults = resolveCanaryReviewHooks(opts.canaryPresent, event);
   if (canaryDefaults.length === 0) return configured;
 
-  const configuredSkillNames = new Set(
-    configured.filter((hook) => hook.type === 'skill').map((hook) => hook.skill)
-  );
+  const declared = declaredSkillNames(config, skillName, event);
   const additions = canaryDefaults.filter(
-    (hook) => hook.type === 'skill' && !configuredSkillNames.has(hook.skill)
+    (hook) => hook.type === 'skill' && !declared.has(hook.skill)
   );
   return [...configured, ...additions];
 }

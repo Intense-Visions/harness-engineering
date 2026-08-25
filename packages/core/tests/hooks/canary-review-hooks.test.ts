@@ -100,6 +100,72 @@ describe('resolveReviewHooksWithCanary', () => {
     ]);
   });
 
+  it('honors an enabled:false detector as an opt-out (parked, not re-injected)', () => {
+    // The documented `enabled:false` contract parks a hook without running it.
+    // The auto-wired default must respect that: canary-cassandra must NOT reappear.
+    const config: SkillHooksConfigHolder = {
+      skillHooks: {
+        'harness-autopilot': {
+          'after:REVIEW': [{ type: 'skill', skill: 'canary-cassandra', enabled: false }],
+        },
+      },
+    };
+    const hooks = resolveReviewHooksWithCanary(config, 'harness-autopilot', 'after:REVIEW', {
+      canaryPresent: true,
+    });
+    expect(hooks.some((h) => h.type === 'skill' && h.skill === 'canary-cassandra')).toBe(false);
+    // The other three detectors still auto-wire.
+    expect(hooks.map((h) => h.type === 'skill' && h.skill)).toEqual([
+      'canary-savant',
+      'canary-blackhawk',
+      'canary-katana',
+    ]);
+  });
+
+  it('dedups against a bare-string detector declaration through the merged layer', () => {
+    const config: SkillHooksConfigHolder = {
+      skillHooks: { 'harness-autopilot': { 'after:REVIEW': ['canary-katana'] } },
+    };
+    const hooks = resolveReviewHooksWithCanary(config, 'harness-autopilot', 'after:REVIEW', {
+      canaryPresent: true,
+    });
+    const katana = hooks.filter((h) => h.type === 'skill' && h.skill === 'canary-katana');
+    // The bare string normalizes to blocking:true at a review event; the canary
+    // default for the same name is dropped, so katana appears exactly once.
+    expect(katana).toEqual([{ type: 'skill', skill: 'canary-katana', blocking: true }]);
+    expect(hooks.map((h) => h.type === 'skill' && h.skill)).toEqual([
+      'canary-katana',
+      'canary-savant',
+      'canary-blackhawk',
+      'canary-cassandra',
+    ]);
+  });
+
+  it('dedups a detector declared in a non-first position (position-independent merge)', () => {
+    const config: SkillHooksConfigHolder = {
+      skillHooks: {
+        'harness-autopilot': {
+          'after:REVIEW': [
+            { type: 'skill', skill: 'my-domain-reviewer', blocking: true },
+            { type: 'skill', skill: 'canary-blackhawk', blocking: false },
+          ],
+        },
+      },
+    };
+    const hooks = resolveReviewHooksWithCanary(config, 'harness-autopilot', 'after:REVIEW', {
+      canaryPresent: true,
+    });
+    const blackhawk = hooks.filter((h) => h.type === 'skill' && h.skill === 'canary-blackhawk');
+    expect(blackhawk).toEqual([{ type: 'skill', skill: 'canary-blackhawk', blocking: false }]);
+    expect(hooks.map((h) => h.type === 'skill' && h.skill)).toEqual([
+      'my-domain-reviewer',
+      'canary-blackhawk',
+      'canary-savant',
+      'canary-katana',
+      'canary-cassandra',
+    ]);
+  });
+
   it('preserves configured prompt/command hooks and appends detectors', () => {
     const config: SkillHooksConfigHolder = {
       skillHooks: {
