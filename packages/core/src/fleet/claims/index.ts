@@ -74,3 +74,6 @@ function toMs(t: Date | string): number | null {
   const ms = t instanceof Date ? t.getTime() : Date.parse(t);
   return Number.isNaN(ms) ? null : ms;
 }
+
+// SELECT-phase composition helpers (Phase 2) — pure, offline.
+export * from './select';
