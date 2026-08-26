@@ -190,6 +190,42 @@ describe('two-runner simulation — SC3: the PR is the durable claim', () => {
   });
 });
 
+describe('two-runner simulation — SC2: a lapsed heartbeat becomes reclaimable', () => {
+  it('runner B reclaims an item after runner A stops heartbeating (lease lapses)', () => {
+    const store = new FakeClaimStore();
+    const item = '#1494';
+
+    // Runner A claims and heartbeats a couple of times (a live-but-slow build).
+    store.claim(item, mkClaim('rf-A', item, '2026-08-26T14:00:00Z'), '2026-08-26T14:00:00Z');
+    store.heartbeat(item, 'rf-A', '2026-08-26T14:04:00Z');
+    store.heartbeat(item, 'rf-A', '2026-08-26T14:08:00Z');
+
+    // While A is heartbeating, B's SELECT sees a LIVE lease → drops the item.
+    const tLive = '2026-08-26T14:09:00Z';
+    expect(classifyClaim(store.contextFor(item), { now: tLive, myRunId: 'rf-B' })).toEqual({
+      item,
+      drop: true,
+      reason: 'claimed-elsewhere',
+    });
+    expect(store.liveClaimRunIds(item, tLive)).toEqual(['rf-A']);
+
+    // A then CRASHES — no further heartbeat, no release. The lease lapses at
+    // last updated_at (14:08:00) + 720s = 14:20:00.
+    const tLapsed = '2026-08-26T14:20:01Z'; // one second past the lease
+    expect(store.liveClaimRunIds(item, tLapsed)).toEqual([]); // self-healed
+
+    // Runner B's next SELECT now sees the stale lease → KEEPS (reclaimable),
+    // then reclaims by appending its own fresh claim.
+    const reclaimDecision = classifyClaim(store.contextFor(item), {
+      now: tLapsed,
+      myRunId: 'rf-B',
+    });
+    expect(reclaimDecision.drop).toBe(false);
+    store.claim(item, mkClaim('rf-B', item, tLapsed), tLapsed);
+    expect(store.liveClaimRunIds(item, tLapsed)).toEqual(['rf-B']);
+  });
+});
+
 describe('two-runner simulation — SC4: graceful degradation when gh is absent', () => {
   it('falls back to open-PR-cross-check-only, never throws', () => {
     const store = new FakeClaimStore();
