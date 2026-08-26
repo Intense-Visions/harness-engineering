@@ -1052,8 +1052,10 @@ export const HarnessConfigSchema = z.object({
   /** Project template settings (used by 'harness init') */
   template: z
     .object({
-      /** Complexity level of the template (JS/TS only) */
-      level: z.enum(['basic', 'intermediate', 'load-bearing-minimum', 'advanced']).optional(),
+      /** Complexity level of the template (JS/TS only). `minimal` is the ADR 0101 floor. */
+      level: z
+        .enum(['minimal', 'basic', 'intermediate', 'load-bearing-minimum', 'advanced'])
+        .optional(),
       /** Target language */
       language: z.enum(['typescript', 'python', 'go', 'rust', 'java']).optional(),
       /** Primary technology framework */
