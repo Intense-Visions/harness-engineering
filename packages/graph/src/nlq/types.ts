@@ -50,9 +50,10 @@ export interface StaleNodeSummary {
 }
 
 /**
- * Result of a `staleness` intent query: the flagged nodes plus how many carried an
- * evaluated staleness marker (so an empty result can distinguish "none stale" from
- * "never evaluated").
+ * Result of a `staleness` intent query: the flagged nodes plus the total number of
+ * knowledge nodes (learning + execution_outcome) considered — the denominator, so an
+ * empty `stale` list on a populated graph reads as "nothing stale" rather than
+ * "nothing to inspect".
  */
 export interface StalenessQueryResult {
   readonly stale: readonly StaleNodeSummary[];

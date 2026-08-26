@@ -115,7 +115,7 @@ const INTENT_SIGNALS: Readonly<Record<Intent, SignalSet>> = {
       /\bstale\b/,
       /\boutdated\b/,
       /re-?verif/,
-      /which.*learnings?/,
+      /which.*learnings?.*(stale|outdated|re-?verif)/,
       /learnings?.*(stale|outdated|re-?verif)/,
       /code\s+changed/,
     ],

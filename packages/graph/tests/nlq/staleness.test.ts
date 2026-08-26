@@ -85,6 +85,8 @@ describe('NLQ staleness intent', () => {
     expect(result.intent).toBe('staleness');
     const data = result.data as StalenessQueryResult;
     expect(data.stale).toHaveLength(1);
+    // evaluated is the denominator: both learning nodes were inspected.
+    expect(data.evaluated).toBe(2);
     expect(data.stale[0]!.nodeId).toBe('learning:stale');
     expect(result.summary).toContain('learning:stale');
     expect(result.summary).not.toContain('learning:fresh');

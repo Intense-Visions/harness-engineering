@@ -212,7 +212,7 @@ function executeStaleness(store: GraphStore): StalenessQueryResult {
   let evaluated = 0;
   for (const type of STALENESS_NODE_TYPES) {
     for (const node of store.findNodes({ type })) {
-      if (node.staleness) evaluated++;
+      evaluated++;
       if (node.staleness?.isStale) {
         stale.push({
           nodeId: node.id,
