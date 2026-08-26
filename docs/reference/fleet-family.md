@@ -92,7 +92,7 @@ Cap concurrent subagents at **2 (default), max ~3**. Beyond roughly three concur
 
 ## Cross-run claim lease (ID-based members)
 
-The concurrency governor above bounds a single _invocation_. It says nothing about a **second run on another clone** enumerating the same backlog at the same time — the family's one un-covered collision. The **cross-run claim lease** closes exactly the `SELECT → PR-open` window for the ID-based members (`roadmap-fleet`, `issue-fleet`, `pr-fleet`), whose items already carry a GitHub-native id at SELECT. It is **advisory** — best-effort backlog auto-partitioning, never an exactly-once mutex; that trade-off (soft reservation over a true-CAS git-ref lock) is deliberate and is recorded in the family claim-lease ADR (**ADR 0104**).
+The concurrency governor above bounds a single _invocation_. It says nothing about a **second run on another clone** enumerating the same backlog at the same time — the family's one un-covered collision. The **cross-run claim lease** closes exactly the `SELECT → PR-open` window for the ID-based members (`roadmap-fleet`, `issue-fleet`, `pr-fleet`), whose items already carry a GitHub-native id at SELECT. It is **advisory** — best-effort backlog auto-partitioning, never an exactly-once mutex; that trade-off (soft reservation over a true-CAS git-ref lock) is deliberate and is recorded in the family claim-lease ADR (**ADR 0105**).
 
 **The claim record.** A claim is one GitHub issue/PR comment: an HTML marker line `<!-- harness-fleet-claim -->` followed by a fenced JSON block carrying `{ v, owner, runId, fleet, item, claimedAt, leaseSeconds }`. The shape is the `FleetClaim` type in `@harness-engineering/types`; the pure render/parse/TTL primitives — `buildClaimBody`, `parseClaimComment`, `isLeaseLive`, plus `CLAIM_LABEL` (`fleet:claimed`), `DEFAULT_LEASE_SECONDS` (720), `HEARTBEAT_SECONDS` (240) — live in `@harness-engineering/core` (`fleet/claims`). All `gh` I/O stays in the member's orchestration layer; the core module is pure and offline.
 
@@ -179,4 +179,4 @@ The authority model behind those five — coordinator plus global governor, neve
 - **ADR 0090** — The `adr-fleet` decide-stage batch-sign-off-gate model.
 - **ADR 0091** — The `fleet-command` conductor-tier authority model (coordinator + global governor above the members).
 - **ADR 0103** — Item-type routing for build-shaped members (`roadmap-fleet`, `security-fleet` route bug/spec-ready/feature items to `debugging` / `autopilot` / `brainstorming`→`autopilot`).
-- **ADR 0104** — Cross-run advisory work-claim lease for the ID-based members (soft-reservation GitHub-backed lease bridging the `SELECT → PR-open` window; why not an exactly-once CAS lock).
+- **ADR 0105** — Cross-run advisory work-claim lease for the ID-based members (soft-reservation GitHub-backed lease bridging the `SELECT → PR-open` window; why not an exactly-once CAS lock).
