@@ -38,11 +38,13 @@ Building a backlog through the harness pipeline one item at a time is an attenti
 
 ## Flags
 
-| Flag            | Effect                                                                                  |
-| --------------- | --------------------------------------------------------------------------------------- |
-| `--concurrency` | Cap concurrent build subagents (default 2, max recommended 3 — the machine-storm limit) |
-| `--report-only` | Enumerate, score, and present the ranked batch; do not dispatch, verify, or report PRs  |
-| `--dry-run`     | Run SELECT and CONFIRM only; stop before fan-out                                        |
+| Flag              | Effect                                                                                                                |
+| ----------------- | --------------------------------------------------------------------------------------------------------------------- |
+| `--concurrency`   | Cap concurrent build subagents (default 2, max recommended 3 — the machine-storm limit)                               |
+| `--report-only`   | Enumerate, score, and present the ranked batch; do not dispatch, verify, or report PRs                                |
+| `--dry-run`       | Run SELECT and CONFIRM only; stop before fan-out                                                                      |
+| `--lease-seconds` | Override the cross-run claim-lease TTL (default 720s); see §Cross-run claim lease in `docs/reference/fleet-family.md` |
+| `--no-claim`      | Disable the cross-run claim lease entirely — fall back to open-PR-cross-check-only coordination                       |
 
 ## Process
 
@@ -69,15 +71,28 @@ Phase 1: SELECT --> Phase 2: CONFIRM --> Phase 3: DISPATCH
 
 ### Phase 1: SELECT — Enumerate, Cross-Check, Score
 
-1. **Enumerate candidates from both sources.** Open external issues via `gh` (`gh issue list --state open`) and unblocked roadmap items via `manage_roadmap` (planned/unblocked shards only — never items already `in-progress` under another owner). Missing `gh` auth or a missing roadmap degrades to whichever source is available; record which source was unavailable rather than aborting.
+1. **Enumerate candidates from both sources.** Open external issues via `gh` (`gh issue list --state open`) and unblocked roadmap items via `manage_roadmap` (planned/unblocked shards only — never items already `in-progress` under another owner). Missing `gh` auth or a missing roadmap degrades to whichever source is available; record which source was unavailable rather than aborting. Additionally fetch items carrying the `fleet:claimed` label and their claim comments — this piggybacks the same enumeration (no extra `gh pr list`) and feeds the cross-run claim-lease drop in the next step (see the **§Cross-run claim lease** section of `docs/reference/fleet-family.md`).
 
-2. **Cross-check each candidate against merged and open PRs.** For every candidate, search merged PRs (`gh pr list --state merged --search`) and open PRs for one that already resolves it. A candidate whose work already merged is **already-resolved** — mark it for closure, not rebuild. A candidate with an open PR in flight is **in-progress elsewhere** — drop it from the batch.
+2. **Cross-check each candidate against merged and open PRs.** For every candidate, search merged PRs (`gh pr list --state merged --search`) and open PRs for one that already resolves it. A candidate whose work already merged is **already-resolved** — mark it for closure, not rebuild. A candidate with an open PR in flight is **in-progress elsewhere** — drop it from the batch. A candidate carrying a **live claim lease written by another run** is **claimed-elsewhere** — drop it as a soft reservation; a **stale** lease is ignored and the item stays claimable. Staleness and the lease record are defined once in the **§Cross-run claim lease** section of `docs/reference/fleet-family.md` — do not restate it here. If `gh` auth is absent, skip the claim-label scan and **degrade to the open-PR cross-check only** (log the degradation; never abort).
 
 3. **Score and order via `roadmap-pilot` impact scoring.** Do not rank ad-hoc. Reuse `harness-roadmap-pilot`'s impact scoring so selection is principled and reproducible; order the batch highest-impact first.
 
 4. **Detect decision forks up front.** For each candidate, scan its issue/spec text for genuine ambiguity that a builder would otherwise have to guess (e.g. "store as UTC or local?", "extend the existing table or add a new one?"). These _known_ forks are surfaced in CONFIRM. Do not attempt to answer them here.
 
-5. **Build the `Candidate` record** for each survivor:
+5. **Classify each candidate's route (item-type routing).** Attach the pipeline route the item's
+   **type** needs, per the canonical rubric in `docs/reference/fleet-family.md` (§Item-type routing,
+   ADR 0103). Apply the precedence — **metadata first, rubric fallback, first match wins**:
+   1. **Explicit metadata** — a GH issue label (`bug`/`defect` → `bug`; `feature`/`enhancement` →
+      `feature`) or the roadmap shard's kind/type field.
+   2. **Spec presence** — the item already links an approved spec (roadmap `spec:` non-null or a
+      `proposal.md`) → `spec-ready`.
+   3. **Rubric fallback** — apply `harness-router`'s scope rubric by judgment over the item text:
+      diagnostic signals (broken, slow, failing, regression, error, crash) → `bug`; construction
+      signals (build, add, design, new) → `feature`; genuine ambiguity → `feature` (the safe
+      default). Record which rule fired as `routeSignal`. Do not guess a `bug` route on ambiguity —
+      brainstorming can still decide an item needs no design, but debugging cannot invent one.
+
+6. **Build the `Candidate` record** for each survivor:
 
    ```
    Candidate {
@@ -85,10 +100,12 @@ Phase 1: SELECT --> Phase 2: CONFIRM --> Phase 3: DISPATCH
      id,                // issue ref or shard id
      title,
      score,             // roadmap-pilot impact score
-     crossCheck,        // "novel" | "already-resolved" | "in-progress-elsewhere"
+     crossCheck,        // "novel" | "already-resolved" | "in-progress-elsewhere" | "claimed-elsewhere"
      resolvingPr,       // set when crossCheck = already-resolved
      alreadyResolved,   // boolean, flags for closure not rebuild
      forks,             // detected known decision forks (may be empty)
+     route,             // "bug" | "spec-ready" | "feature" (item-type routing, §fleet-family)
+     routeSignal,       // which precedence rule fired: "label" | "spec-present" | "rubric"
    }
    ```
 
@@ -96,6 +113,7 @@ Phase 1: SELECT --> Phase 2: CONFIRM --> Phase 3: DISPATCH
 
 1. **Present the ranked batch in one round.** This is the **only guaranteed human touchpoint before PR review** — everything downstream runs autonomously. Present, together, in a single surface:
    - The ranked candidates (highest-impact first) with scores.
+   - Each item's **routing decision** — `bug` → `harness-debugging`, `spec-ready` → `harness-autopilot`, or `feature` → `harness-brainstorming`→`harness-autopilot` (with the `routeSignal` that chose it) — presented as an **overridable** decision. The human may re-route any item before fan-out; a corrected route is recorded like any answered fork and fed into that item's DISPATCH brief. This is the single point at which a misclassification is caught before it wastes a lane.
    - Already-resolved items **flagged for closure** with their resolving PR — the human confirms closing, the fleet never rebuilds them.
    - Every detected known decision fork as a **multiple-choice question** with a recommended default.
    - The **proposed concurrency** (default 2, capped at ~3).
@@ -106,7 +124,12 @@ Phase 1: SELECT --> Phase 2: CONFIRM --> Phase 3: DISPATCH
 
 ### Phase 3: DISPATCH — Worktree Fan-Out With a Concurrency Governor
 
-1. **One worktree-isolated subagent per confirmed item.** Each subagent is briefed to run the **real** per-item pipeline for its one item: `harness-brainstorming` then `harness-autopilot` in autonomous mode. It does not hand-implement, and it does not skip the pipeline — the artifacts the pipeline leaves behind are what VERIFY checks for. Feed the item's answered forks from CONFIRM into the brief so the builder never re-asks a settled question.
+1. **One worktree-isolated subagent per confirmed item, briefed to run the item's _routed_ pipeline.** Each subagent runs the **real** per-item pipeline its confirmed `route` selects (§Item-type routing in `docs/reference/fleet-family.md`), never a hardcoded chain:
+   - `route = bug` → `harness-debugging` (investigate → fix → a reproducing test that fails before the fix and passes after).
+   - `route = spec-ready` → `harness-autopilot` directly against the linked spec (brainstorming is skipped — the design is already settled).
+   - `route = feature` → `harness-brainstorming` then `harness-autopilot` in autonomous mode.
+
+   It does not hand-implement, and it does not skip the pipeline — the artifacts the routed pipeline leaves behind are what VERIFY checks for. Feed the item's answered forks **and its confirmed route** from CONFIRM into the brief so the builder never re-asks a settled question and never second-guesses the route.
 
 2. **Cap concurrency at the governor (default 2, max ~3).** This is the machine-storm limit: beyond roughly three concurrent build agents the compound load produces flaky failures that are indistinguishable from real ones. Never exceed the confirmed concurrency to "go faster" — a stormed batch is slower once you account for re-runs.
 
@@ -114,7 +137,7 @@ Phase 1: SELECT --> Phase 2: CONFIRM --> Phase 3: DISPATCH
 
 4. **Record an "assumptions made" note per item.** Each subagent records the recommended-option defaults it took so the eventual PR carries an assumptions note — batch review is only trustworthy when the reviewer can see what was assumed.
 
-5. **Write a committed pipeline-provenance file.** Each lane **MUST** write `docs/changes/<slug>/provenance.json` and commit it onto its branch. This is the verifiable proof the real pipeline ran — it replaces the session state that `.harness/.gitignore` excludes from every branch by construction (and so never survives into a PR). The file records at minimum: the item's **issue number(s)**, the **pipeline stages run** (e.g. `brainstorming`, `autopilot`/`planning`, `execution`, `review`), the **plan-artifact path** under `docs/changes/<slug>/plans/`, and the **assumptions** taken (the recommended-option defaults from item 4). VERIFY checks for this committed file; a branch without it did not run the pipeline.
+5. **Write a committed pipeline-provenance file.** Each lane **MUST** write `docs/changes/<slug>/provenance.json` and commit it onto its branch. This is the verifiable proof the real pipeline ran — it replaces the session state that `.harness/.gitignore` excludes from every branch by construction (and so never survives into a PR). The file records at minimum: the item's **issue number(s)**, the confirmed **route** (`bug` / `spec-ready` / `feature`), the **pipeline stages run** — which reflect the route (`[debugging]` for a bug; `[autopilot, …]` for spec-ready; `[brainstorming, autopilot, …]` for a feature) — and the **assumptions** taken (the recommended-option defaults from item 4). A feature or spec-ready lane also records the **plan-artifact path** under `docs/changes/<slug>/plans/`; a bug lane records the **reproducing-test path** instead (a debugging run leaves no `plans/` directory). VERIFY checks for this committed file and the route-appropriate artifact; a branch without them did not run the pipeline.
 
 6. **Reference the issue with the correct closing keyword.** Each lane decides — and states in its PR body — how its PR references the issue it was dispatched for. This is a real decision with a default, not an incidental phrasing:
    - A PR that **fully resolves** its issue uses `Closes #<N>`, so the merge-triggered reconciler closes the issue and marks the roadmap row done.
@@ -126,21 +149,36 @@ Phase 1: SELECT --> Phase 2: CONFIRM --> Phase 3: DISPATCH
 
 **Worker handoff — return the canonical `FleetHandoffRecord`.** When a worker finishes its item it hands the orchestrator exactly one `FleetHandoffRecord` (from `@harness-engineering/types`) — the ONE bounded envelope every `-fleet` member emits, so `fleet-command` parses any fleet's worker output uniformly instead of special-casing an ad hoc per-worker report shape. The record carries `status` (`done | parked | blocked | failed`), `fleet`, `item`, a one-line `summary`, an `evidence[]` of verifiable pointers (branch, PR, artifact path, CI check — exactly the references VERIFY re-checks), `next_steps[]`, and, for any non-`done` status, a `blocker`. The orchestrator validates it with `validateFleetHandoffRecord`; a malformed or unknown-keyed record is rejected, never silently misread. See the canonical handoff record in `docs/reference/fleet-family.md`.
 
+**Claim the item before building — cross-run claim lease (CLAIM → HEARTBEAT → RELEASE).** On entering DISPATCH for an item, the orchestrator takes the item's cross-run claim so a concurrent run on another clone auto-partitions around it: add the `fleet:claimed` label and post the claim comment, then **re-read** — if a competing live claim appeared since SELECT, **yield this item** (soft reservation) and continue the batch. While the worker builds, the orchestrator **heartbeats** the claim (edits the comment every `HEARTBEAT_SECONDS`) so a live-but-slow item is not mistaken for a dead one. On PR-open it **releases** the label — the open PR is now the durable claim (VERIFY's existing open-PR handling backstops it). A parked or failed item with no PR also releases the label so it is not stranded. Under `--no-claim` this whole step is skipped. The record format, TTL/staleness semantics, and the reclaim tiebreak are stated once in the **§Cross-run claim lease** section of `docs/reference/fleet-family.md` — this member references them, it does not restate them.
+
 ### Phase 4: VERIFY — Independent Confirmation, Never Self-Report
 
 1. **Never accept a subagent's self-report as verification.** "The pipeline ran and CI is green" is a claim to be checked, not a result. For each returned branch, the orchestrator independently confirms the evidence itself.
 
-2. **Require the pipeline artifact.** Confirm that both exist **committed on the branch** (so they survive into the PR):
-   - A plan artifact under `docs/changes/<slug>/plans/` — the necessary trace of a real brainstorming→autopilot run.
-   - A committed pipeline-provenance file under `docs/changes/<slug>/` (e.g. `provenance.json`) recording the item's issue number(s), the pipeline stages run, the plan-artifact path, and the assumptions taken. This replaces the old session-state check: session state lives under `.harness/sessions/`, which `.harness/.gitignore` excludes from every branch by construction, so it is absent from every PR and can never be verified — the committed provenance file is the artifact that actually survives to where the orchestrator can check it.
+2. **Require the pipeline artifact — matched to the item's route.** Confirm the committed
+   pipeline-provenance file exists **and** the artifact the route implies, both **committed on the
+   branch** (so they survive into the PR). The provenance file replaces the old session-state check:
+   session state lives under `.harness/sessions/`, which `.harness/.gitignore` excludes from every
+   branch by construction, so it is absent from every PR and can never be verified — the committed
+   provenance file is the artifact that actually survives to where the orchestrator can check it.
+   - Always: a committed `provenance.json` under `docs/changes/<slug>/` recording the issue
+     number(s), the confirmed **route**, the pipeline stages run, and the assumptions taken.
+   - `route = feature` or `spec-ready` — a plan artifact under `docs/changes/<slug>/plans/` (the
+     trace of a real autopilot run); the `stages` include `autopilot` (and `brainstorming` for a
+     feature).
+   - `route = bug` — a committed **reproducing test** (fails before the fix, passes after) and
+     `stages=[debugging]`; there is **no** `plans/` directory for a debugging run, so its absence is
+     not a defect. Do not reject a debug-routed item for lacking a plan artifact.
 
-   An item with **no plan artifact or no committed provenance file did not run the real pipeline** — regardless of what the subagent reported. Reject it (or retry once); it is never marked merge-ready.
+   An item **missing its committed provenance file, or missing the artifact its route requires, did
+   not run the real pipeline** — regardless of what the subagent reported. Reject it (or retry
+   once); it is never marked merge-ready.
 
 3. **Check the PR body's issue reference.** Confirm the PR body carries the closing keyword that matches the item's scope (the DISPATCH contract): a fully-resolving item uses `Closes #<N>`; a partial-slice item uses `Refs #<N>` and is flagged for manual reconciliation. A **fully-resolving item whose PR body carries no closing keyword** will strand its roadmap row on merge — flag it for correction before the batch is handed over. This is cheaply detectable from the PR body at verify time.
 
 4. **Require all-OS CI green.** Confirm the pushed branch's CI is green on **all three operating systems** plus the enforce and harness checks (`gh pr checks` / `gh run list`). Green on one OS is not green. A subset-red branch is not merge-ready — it is reported as failed, and the batch continues.
 
-5. **Classify each returned item** as `verified` (plan artifact + committed provenance file present, correct closing keyword, and all-OS CI green), `rejected` (missing artifact/provenance or definitively red), or `retry` (transient, retried at most once). No item reaches REPORT as merge-ready without passing both the artifact and the CI check.
+5. **Classify each returned item** as `verified` (the route-appropriate artifact from item 2 + committed provenance file present, correct closing keyword, and all-OS CI green), `rejected` (missing the route's artifact/provenance or definitively red), or `retry` (transient, retried at most once). No item reaches REPORT as merge-ready without passing both the artifact and the CI check.
 
 ### Phase 5: REPORT — Batch Summary, Resolved-Issue Closure, Never Merge
 
@@ -163,14 +201,17 @@ Phase 1: SELECT --> Phase 2: CONFIRM --> Phase 3: DISPATCH
 - **`harness-roadmap-pilot`** — Composed in SELECT for principled impact scoring and ordering of the batch.
 - **`manage_roadmap`** — Enumerate unblocked roadmap shards (SELECT) and reconcile status after the batch.
 - **`gh`** — Enumerate open issues, cross-check merged/open PRs (SELECT), read `gh pr checks` (VERIFY), and close already-resolved issues with resolving-PR citations (REPORT).
-- **`run_skill` / `harness skill run`** — Each build subagent invokes the real `harness-brainstorming` then `harness-autopilot` for its one item (DISPATCH).
+- **`run_skill` / `harness skill run`** — Each build subagent invokes the **routed** real pipeline for its one item (DISPATCH): `harness-debugging` for a `bug`, `harness-autopilot` for a `spec-ready` item, or `harness-brainstorming` then `harness-autopilot` for a `feature`.
+- **`harness-debugging`** — The per-item pipeline for `bug`-routed items (see §Item-type routing / ADR 0103): investigate → fix → a reproducing test that fails before and passes after. A bug is diagnosed by the skill built for it rather than forced through the design-first path.
 - **`harness-autopilot`'s code-review phase** — The per-item quality gate inside each subagent's pipeline; the fleet does not re-implement review.
 - **`harness skill validate roadmap-fleet`** — The authoring-time gate for this skill's own structure and schema.
-- **`docs/reference/fleet-family.md`** — The shared `-fleet` spine this skill builds on (the five-phase skeleton, the concurrency governor, the artifact + all-OS-CI verification discipline, the worktree fan-out, and the never-silent-merge invariant), stated once for the family.
+- **`docs/reference/fleet-family.md`** — The shared `-fleet` spine this skill builds on (the five-phase skeleton, the **§Item-type routing** rubric this skill applies, the concurrency governor, the artifact + all-OS-CI verification discipline, the worktree fan-out, and the never-silent-merge invariant), stated once for the family.
+- **§Cross-run claim lease (`docs/reference/fleet-family.md`) + `@harness-engineering/core` (`fleet/claims`)** — The canonical cross-run coordination mechanism this member consumes in SELECT (drop live-leased items) and DISPATCH (CLAIM → HEARTBEAT → RELEASE); the pure `buildClaimBody`/`parseClaimComment`/`isLeaseLive` primitives and `classifyClaim`/`selectUnclaimed` helpers live in core, all `gh` I/O in this skill layer.
 
 ## Success Criteria
 
-- Given a confirmed batch of N candidates, the fleet produces **up to N** PRs, each with a verified plan artifact, a committed provenance file, a scope-correct closing keyword, and green CI across all three OS plus enforce and harness.
+- Given a confirmed batch of N candidates, the fleet produces **up to N** PRs, each with the route-appropriate verified artifact (plan artifact for feature/spec-ready, reproducing test for bug), a committed provenance file, a scope-correct closing keyword, and green CI across all three OS plus enforce and harness.
+- **Every item is routed by type** (§Item-type routing / ADR 0103): a `bug`-labeled or diagnostic item runs `harness-debugging`, a spec-carrying item runs `harness-autopilot` directly, and a new-feature/ambiguous item runs `harness-brainstorming`→`harness-autopilot`. The route is shown and is human-overridable in CONFIRM.
 - There is **exactly one** up-front human decision round; no per-item interactive pauses except a genuinely-new fork parked to its own item.
 - **Every emitted PR carries an "assumptions made" note.**
 - Already-resolved candidates are **closed with resolving-PR citations, not rebuilt**.
