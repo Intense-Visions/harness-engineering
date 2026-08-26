@@ -149,7 +149,7 @@ Phase 1: SELECT --> Phase 2: CONFIRM --> Phase 3: DISPATCH
 
 ## Success Criteria
 
-- Given a confirmed batch of N candidates, the fleet produces **up to N** PRs, each with a verified plan artifact, a committed provenance file, a scope-correct closing keyword, and green CI across all three OS plus enforce and harness.
+- Given a confirmed batch of N candidates, the fleet produces **up to N** PRs, each with a verified plan artifact, a committed provenance file, a scope-correct closing keyword, and green CI across all target operating systems plus the project's required checks.
 - There is **exactly one** up-front human decision round; no per-item interactive pauses except a genuinely-new fork parked to its own item.
 - **Every emitted PR carries an "assumptions made" note.**
 - Already-resolved candidates are **closed with resolving-PR citations, not rebuilt**.

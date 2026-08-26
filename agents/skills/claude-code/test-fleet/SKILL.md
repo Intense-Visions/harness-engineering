@@ -143,7 +143,7 @@ The five-phase spine, the concurrency governor, the artifact + all-OS-CI verific
 
 ## Success Criteria
 
-- Given a confirmed batch of N coverage targets, the fleet produces **up to N** test PRs (some grouped), each with added behavior-asserting tests, an improved coverage delta, and green CI across all three OS plus enforce and harness.
+- Given a confirmed batch of N coverage targets, the fleet produces **up to N** test PRs (some grouped), each with added behavior-asserting tests, an improved coverage delta, and green CI across all target operating systems plus the project's required checks.
 - There is **exactly one** up-front human decision round; no per-target interactive pauses except a genuinely-new fork parked to its own target.
 - **Every emitted PR carries an "assumptions made" note and its coverage delta.**
 - Coverage-theater tests (assertion-free, import-only) are **rejected** — a "covered" target must gain a behavior-asserting test.

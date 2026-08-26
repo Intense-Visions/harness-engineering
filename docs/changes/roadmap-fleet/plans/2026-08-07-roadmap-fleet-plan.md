@@ -119,7 +119,7 @@ Add `### Phase 3: DISPATCH`. Prose: for each confirmed item spawn a worktree-iso
 
 **Depends on:** Task 5 · **Files:** `agents/skills/claude-code/roadmap-fleet/SKILL.md`
 
-Add `### Phase 4: VERIFY`. Prose: for each returned branch, independently confirm (never by subagent self-report) that the plan artifact `docs/changes/<slug>/plans/` and an autopilot-state exist, and that CI is green on all three OS plus the project's required checks. An item lacking a plan artifact did not run the real pipeline → reject or retry. This encodes the "verify adherence by artifact" hard invariant (Decision 5).
+Add `### Phase 4: VERIFY`. Prose: for each returned branch, independently confirm (never by subagent self-report) that the plan artifact `docs/changes/<slug>/plans/` and an autopilot-state exist, and that CI is green on all three OS plus the enforce and harness checks. An item lacking a plan artifact did not run the real pipeline → reject or retry. This encodes the "verify adherence by artifact" hard invariant (Decision 5).
 
 **Acceptance:** Phase 4 requires both the `plans/` artifact and autopilot-state, all-three-OS + enforce + harness CI, and explicitly forbids self-report.
 

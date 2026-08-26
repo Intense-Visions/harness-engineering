@@ -204,7 +204,7 @@ Candidate {
 - **`harness-tdd`** — The real skill that authors each reproducing test in REPRODUCE; its session artifacts are half the evidence VERIFY requires.
 - **`harness-debugging`** — The real per-item fix pipeline DISPATCH runs for `bounded-safe` items only; its session artifacts complete the provenance for fix items.
 - **`harness-verify`** — Independent confirmation support in VERIFY when re-running the transplanted test and the branch suite.
-- **`gh`** — Tracker cross-check (DISPATCH), CI reads across all three OS (VERIFY), and fix-PR / issue creation (FILE-AND-REPORT).
+- **`gh`** — Tracker cross-check (DISPATCH), CI reads across all target operating systems (VERIFY), and fix-PR / issue creation (FILE-AND-REPORT).
 - **`harness skill validate bug-fleet`** — The authoring-time gate for this skill's own structure and schema.
 - **`docs/reference/fleet-family.md`** — The shared `-fleet` spine this skill builds on (the five-phase skeleton, the concurrency governor, the artifact + all-OS-CI verification discipline, the worktree fan-out and its push caveat, and the never-silent-merge invariant), stated once for the family.
 
@@ -213,7 +213,7 @@ Candidate {
 - Given a confirmed batch of N risk-ranked areas, the fleet produces a tiered batch of **verified** items — fix PRs and filed issues — where **every** item carries a deterministic reproducing failing test.
 - **Every verified item carries pipeline-provenance artifacts** under `.harness/sessions/<slug>/` (`harness-tdd`, plus `harness-debugging` for fix items); an item with no provenance is rejected as not having run the real pipeline.
 - **No item is filed or PR'd without repro evidence.** A candidate that cannot be reproduced deterministically within the confirmed attempt budget is discarded and reported as discarded, never filed.
-- Every fix PR's reproducing test is independently confirmed to fail with an **assertion failure at the pinned base SHA** — a compile or resolution failure is a rejection, not a pass — and to pass on the branch, with the rest of the suite green and CI green across all three OS plus enforce and harness.
+- Every fix PR's reproducing test is independently confirmed to fail with an **assertion failure at the pinned base SHA** — a compile or resolution failure is a rejection, not a pass — and to pass on the branch, with the rest of the suite green and CI green across all target operating systems plus the project's required checks.
 - Every filed issue **links and quotes a test-only `repro/<slug>` branch** whose test is independently confirmed red, by assertion, at the pinned base SHA.
 - There is **exactly one** up-front human decision round; no per-area interactive pauses except a genuinely-unforeseen fork parked to its own area.
 - **Every emitted PR and issue carries an "assumptions made" note** (ranking basis, hunt scope, refutation calls, fix-class call).

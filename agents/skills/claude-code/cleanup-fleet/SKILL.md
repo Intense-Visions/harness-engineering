@@ -156,7 +156,7 @@ Phase 1: SELECT --> Phase 2: CONFIRM --> Phase 3: DISPATCH
 
 ## Success Criteria
 
-- Given a confirmed batch of N remediation targets, the fleet produces **up to N** cleanup PRs, each with a verified convergence record (re-scan clean) and green CI across all three OS plus enforce and harness.
+- Given a confirmed batch of N remediation targets, the fleet produces **up to N** cleanup PRs, each with a verified convergence record (re-scan clean) and green CI across all target operating systems plus the project's required checks.
 - There is **exactly one** up-front human decision round; no per-target interactive pauses except a genuinely-risky remediation parked to its own target.
 - **Every emitted PR carries an "assumptions made" note** (ranking basis, remediation scope, safe-vs-risky calls).
 - Risky structural remediations are **parked and reported, never auto-applied**.

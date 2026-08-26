@@ -154,7 +154,7 @@ The five-phase spine, the concurrency governor, the artifact + all-OS-CI verific
 
 ## Success Criteria
 
-- Given a confirmed batch of N pending decisions, the fleet produces **up to N** drafted ADRs, each with a well-formed `proposed` record (required frontmatter + Context/Decision/Consequences, a unique sequential number) and green CI across all three OS plus enforce and harness.
+- Given a confirmed batch of N pending decisions, the fleet produces **up to N** drafted ADRs, each with a well-formed `proposed` record (required frontmatter + Context/Decision/Consequences, a unique sequential number) and green CI across all target operating systems plus the project's required checks.
 - There is **exactly one** up-front human decision round (CONFIRM) plus one terminal sign-off pass; no per-decision interactive pauses except a genuinely-new question parked to its own decision.
 - The fleet **never** flips an ADR to `accepted` without an explicit human sign-off, and **never** auto-accepts a draft.
 - Every drafted ADR was produced by the real `harness-architecture-advisor` pipeline — never hand-written to skip the advisor, and never marked verified on a subagent self-report.

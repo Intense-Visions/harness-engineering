@@ -24,7 +24,7 @@ Phases:
 - select: Enumerate red CI/CD runs and flaky-test signals via gh, classify each into the red-cause taxonomy (real-failure / flake / infra-config / already-green / needs-design), cross-check for already-green/superseded runs, and order remediable candidates by impact via roadmap-pilot scoring
 - confirm: Present the triaged queue in one round — remediable items with their cause buckets, already-green items flagged for closure, needs-design items flagged to park, decision forks as questions, proposed concurrency — for a single up-front human approval
 - dispatch: Fan out worktree-isolated subagents, each running the real harness-debugging (heal/deflake) or harness-workflow-audit (infra/config) pipeline for one item, capped at the concurrency governor; an un-deflakable flake or unforeseen fork parks and reports rather than hiding the failure
-- verify: Independently confirm each returned branch has a plan artifact plus autopilot-state and is CI-green across all OS plus enforce and harness — with deterministic repeated-run green for deflakes — never by subagent self-report
+- verify: Independently confirm each returned branch has a plan artifact plus autopilot-state and is CI-green across all target operating systems plus the project's required checks — with deterministic repeated-run green for deflakes — never by subagent self-report
 - report: Emit a one-row-per-item batch summary with remediation-actions notes for bulk human review, close already-green/superseded runs citing the resolving run/PR, and never merge
   </objective>
 

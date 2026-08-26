@@ -156,7 +156,7 @@ The five-phase spine, the concurrency governor, the artifact + all-OS-CI verific
 
 ## Success Criteria
 
-- Given a confirmed batch of N remediable items, the fleet produces **up to N** remediation PRs, each with a verified plan artifact and green CI across all OS plus enforce and harness.
+- Given a confirmed batch of N remediable items, the fleet produces **up to N** remediation PRs, each with a verified plan artifact and green CI across all target operating systems plus the project's required checks.
 - There is **exactly one** up-front human decision round; no per-item interactive pauses except a genuinely-new fork or an un-deflakable flake parked to its own item.
 - **Every remediation PR carries a remediation-actions / assumptions-made note.**
 - **Every deflake is verified by deterministic green** (repeated-run stability), never a single rerun-green.

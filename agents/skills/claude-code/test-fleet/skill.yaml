@@ -48,7 +48,7 @@ phases:
     description: Fan out worktree-isolated subagents, each running the real tdd then test-craft authoring flow for one target, never coverage-theater and never editing code under test, capped at the concurrency governor
     required: true
   - name: verify
-    description: Independently confirm each returned branch adds behavior-asserting test files, improves the target's coverage (test-advisor re-audit), and is CI-green across all OS plus enforce and harness — never by subagent self-report
+    description: Independently confirm each returned branch adds behavior-asserting test files, improves the target's coverage (test-advisor re-audit), and is CI-green across all target operating systems plus the project's required checks — never by subagent self-report
     required: true
   - name: report
     description: Emit a one-row-per-target batch summary with coverage deltas and assumptions notes for bulk human review, annotate already-covered targets, never merge

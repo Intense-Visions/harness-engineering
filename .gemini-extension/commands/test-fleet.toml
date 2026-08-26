@@ -13,7 +13,7 @@ Phases:
 - select: Enumerate coverage gaps by composing test-advisor's coverage audit plus uncovered critical paths, cross-check against in-flight/merged coverage, score and order targets by criticality times coverage-deficit via roadmap-pilot impact scoring
 - confirm: Present the ranked target batch in one round — already-covered/in-flight targets flagged for drop, decision forks as questions, proposed PR grouping and concurrency — for a single up-front human approval
 - dispatch: Fan out worktree-isolated subagents, each running the real tdd then test-craft authoring flow for one target, never coverage-theater and never editing code under test, capped at the concurrency governor
-- verify: Independently confirm each returned branch adds behavior-asserting test files, improves the target's coverage (test-advisor re-audit), and is CI-green across all OS plus enforce and harness — never by subagent self-report
+- verify: Independently confirm each returned branch adds behavior-asserting test files, improves the target's coverage (test-advisor re-audit), and is CI-green across all target operating systems plus the project's required checks — never by subagent self-report
 - report: Emit a one-row-per-target batch summary with coverage deltas and assumptions notes for bulk human review, annotate already-covered targets, never merge
 </objective>
 
@@ -164,7 +164,7 @@ The five-phase spine, the concurrency governor, the artifact + all-OS-CI verific
 
 ## Success Criteria
 
-- Given a confirmed batch of N coverage targets, the fleet produces **up to N** test PRs (some grouped), each with added behavior-asserting tests, an improved coverage delta, and green CI across all three OS plus enforce and harness.
+- Given a confirmed batch of N coverage targets, the fleet produces **up to N** test PRs (some grouped), each with added behavior-asserting tests, an improved coverage delta, and green CI across all target operating systems plus the project's required checks.
 - There is **exactly one** up-front human decision round; no per-target interactive pauses except a genuinely-new fork parked to its own target.
 - **Every emitted PR carries an "assumptions made" note and its coverage delta.**
 - Coverage-theater tests (assertion-free, import-only) are **rejected** — a "covered" target must gain a behavior-asserting test.
@@ -336,7 +336,7 @@ phases:
     description: Fan out worktree-isolated subagents, each running the real tdd then test-craft authoring flow for one target, never coverage-theater and never editing code under test, capped at the concurrency governor
     required: true
   - name: verify
-    description: Independently confirm each returned branch adds behavior-asserting test files, improves the target's coverage (test-advisor re-audit), and is CI-green across all OS plus enforce and harness — never by subagent self-report
+    description: Independently confirm each returned branch adds behavior-asserting test files, improves the target's coverage (test-advisor re-audit), and is CI-green across all target operating systems plus the project's required checks — never by subagent self-report
     required: true
   - name: report
     description: Emit a one-row-per-target batch summary with coverage deltas and assumptions notes for bulk human review, annotate already-covered targets, never merge

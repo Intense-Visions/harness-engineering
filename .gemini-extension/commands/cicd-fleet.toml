@@ -13,7 +13,7 @@ Phases:
 - select: Enumerate red CI/CD runs and flaky-test signals via gh, classify each into the red-cause taxonomy (real-failure / flake / infra-config / already-green / needs-design), cross-check for already-green/superseded runs, and order remediable candidates by impact via roadmap-pilot scoring
 - confirm: Present the triaged queue in one round — remediable items with their cause buckets, already-green items flagged for closure, needs-design items flagged to park, decision forks as questions, proposed concurrency — for a single up-front human approval
 - dispatch: Fan out worktree-isolated subagents, each running the real harness-debugging (heal/deflake) or harness-workflow-audit (infra/config) pipeline for one item, capped at the concurrency governor; an un-deflakable flake or unforeseen fork parks and reports rather than hiding the failure
-- verify: Independently confirm each returned branch has a plan artifact plus autopilot-state and is CI-green across all OS plus enforce and harness — with deterministic repeated-run green for deflakes — never by subagent self-report
+- verify: Independently confirm each returned branch has a plan artifact plus autopilot-state and is CI-green across all target operating systems plus the project's required checks — with deterministic repeated-run green for deflakes — never by subagent self-report
 - report: Emit a one-row-per-item batch summary with remediation-actions notes for bulk human review, close already-green/superseded runs citing the resolving run/PR, and never merge
 </objective>
 
@@ -177,7 +177,7 @@ The five-phase spine, the concurrency governor, the artifact + all-OS-CI verific
 
 ## Success Criteria
 
-- Given a confirmed batch of N remediable items, the fleet produces **up to N** remediation PRs, each with a verified plan artifact and green CI across all OS plus enforce and harness.
+- Given a confirmed batch of N remediable items, the fleet produces **up to N** remediation PRs, each with a verified plan artifact and green CI across all target operating systems plus the project's required checks.
 - There is **exactly one** up-front human decision round; no per-item interactive pauses except a genuinely-new fork or an un-deflakable flake parked to its own item.
 - **Every remediation PR carries a remediation-actions / assumptions-made note.**
 - **Every deflake is verified by deterministic green** (repeated-run stability), never a single rerun-green.
@@ -356,7 +356,7 @@ phases:
     description: Fan out worktree-isolated subagents, each running the real harness-debugging (heal/deflake) or harness-workflow-audit (infra/config) pipeline for one item, capped at the concurrency governor; an un-deflakable flake or unforeseen fork parks and reports rather than hiding the failure
     required: true
   - name: verify
-    description: Independently confirm each returned branch has a plan artifact plus autopilot-state and is CI-green across all OS plus enforce and harness — with deterministic repeated-run green for deflakes — never by subagent self-report
+    description: Independently confirm each returned branch has a plan artifact plus autopilot-state and is CI-green across all target operating systems plus the project's required checks — with deterministic repeated-run green for deflakes — never by subagent self-report
     required: true
   - name: report
     description: Emit a one-row-per-item batch summary with remediation-actions notes for bulk human review, close already-green/superseded runs citing the resolving run/PR, and never merge

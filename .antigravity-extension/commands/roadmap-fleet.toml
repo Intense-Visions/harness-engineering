@@ -13,7 +13,7 @@ Phases:
 - select: Enumerate candidates (open issues + unblocked roadmap shards), cross-check against merged/open PRs, score and order via roadmap-pilot impact scoring
 - confirm: Present the ranked batch in one round — resolved items flagged for closure, decision forks as questions, proposed concurrency — for a single up-front human approval
 - dispatch: Fan out worktree-isolated subagents, each running the real brainstorming then autopilot pipeline for one item (writing a committed provenance file and using the scope-correct closing keyword — Closes for full resolution, Refs for a slice), capped at the concurrency governor
-- verify: Independently confirm each returned branch has a plan artifact plus a committed provenance file, a scope-correct closing keyword in the PR body, and is CI-green across all OS plus enforce and harness — never by subagent self-report
+- verify: Independently confirm each returned branch has a plan artifact plus a committed provenance file, a scope-correct closing keyword in the PR body, and is CI-green across all target operating systems plus the project's required checks — never by subagent self-report
 - report: Emit a one-row-per-item batch summary with assumptions notes for bulk human review, close already-resolved issues citing the resolving PR, never merge
 </objective>
 
@@ -170,7 +170,7 @@ Phase 1: SELECT --> Phase 2: CONFIRM --> Phase 3: DISPATCH
 
 ## Success Criteria
 
-- Given a confirmed batch of N candidates, the fleet produces **up to N** PRs, each with a verified plan artifact, a committed provenance file, a scope-correct closing keyword, and green CI across all three OS plus enforce and harness.
+- Given a confirmed batch of N candidates, the fleet produces **up to N** PRs, each with a verified plan artifact, a committed provenance file, a scope-correct closing keyword, and green CI across all target operating systems plus the project's required checks.
 - There is **exactly one** up-front human decision round; no per-item interactive pauses except a genuinely-new fork parked to its own item.
 - **Every emitted PR carries an "assumptions made" note.**
 - Already-resolved candidates are **closed with resolving-PR citations, not rebuilt**.
@@ -340,7 +340,7 @@ phases:
     description: Fan out worktree-isolated subagents, each running the real brainstorming then autopilot pipeline for one item (writing a committed provenance file and using the scope-correct closing keyword — Closes for full resolution, Refs for a slice), capped at the concurrency governor
     required: true
   - name: verify
-    description: Independently confirm each returned branch has a plan artifact plus a committed provenance file, a scope-correct closing keyword in the PR body, and is CI-green across all OS plus enforce and harness — never by subagent self-report
+    description: Independently confirm each returned branch has a plan artifact plus a committed provenance file, a scope-correct closing keyword in the PR body, and is CI-green across all target operating systems plus the project's required checks — never by subagent self-report
     required: true
   - name: report
     description: Emit a one-row-per-item batch summary with assumptions notes for bulk human review, close already-resolved issues citing the resolving PR, never merge
