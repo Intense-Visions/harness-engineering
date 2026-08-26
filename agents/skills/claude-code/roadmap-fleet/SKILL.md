@@ -48,9 +48,9 @@ Phase 1: SELECT --> Phase 2: CONFIRM --> Phase 3: DISPATCH
 
 ### Phase 1: SELECT — Enumerate, Cross-Check, Score
 
-1. **Enumerate candidates from both sources.** Open external issues via `gh` (`gh issue list --state open`) and unblocked roadmap items via `manage_roadmap` (planned/unblocked shards only — never items already `in-progress` under another owner). Missing `gh` auth or a missing roadmap degrades to whichever source is available; record which source was unavailable rather than aborting.
+1. **Enumerate candidates from both sources.** Open external issues via `gh` (`gh issue list --state open`) and unblocked roadmap items via `manage_roadmap` (planned/unblocked shards only — never items already `in-progress` under another owner). Missing `gh` auth or a missing roadmap degrades to whichever source is available; record which source was unavailable rather than aborting. Additionally fetch items carrying the `fleet:claimed` label and their claim comments — this piggybacks the same enumeration (no extra `gh pr list`) and feeds the cross-run claim-lease drop in the next step (see the **§Cross-run claim lease** section of `docs/reference/fleet-family.md`).
 
-2. **Cross-check each candidate against merged and open PRs.** For every candidate, search merged PRs (`gh pr list --state merged --search`) and open PRs for one that already resolves it. A candidate whose work already merged is **already-resolved** — mark it for closure, not rebuild. A candidate with an open PR in flight is **in-progress elsewhere** — drop it from the batch.
+2. **Cross-check each candidate against merged and open PRs.** For every candidate, search merged PRs (`gh pr list --state merged --search`) and open PRs for one that already resolves it. A candidate whose work already merged is **already-resolved** — mark it for closure, not rebuild. A candidate with an open PR in flight is **in-progress elsewhere** — drop it from the batch. A candidate carrying a **live claim lease written by another run** is **claimed-elsewhere** — drop it as a soft reservation; a **stale** lease is ignored and the item stays claimable. Staleness and the lease record are defined once in the **§Cross-run claim lease** section of `docs/reference/fleet-family.md` — do not restate it here. If `gh` auth is absent, skip the claim-label scan and **degrade to the open-PR cross-check only** (log the degradation; never abort).
 
 3. **Score and order via `roadmap-pilot` impact scoring.** Do not rank ad-hoc. Reuse `harness-roadmap-pilot`'s impact scoring so selection is principled and reproducible; order the batch highest-impact first.
 
@@ -77,7 +77,7 @@ Phase 1: SELECT --> Phase 2: CONFIRM --> Phase 3: DISPATCH
      id,                // issue ref or shard id
      title,
      score,             // roadmap-pilot impact score
-     crossCheck,        // "novel" | "already-resolved" | "in-progress-elsewhere"
+     crossCheck,        // "novel" | "already-resolved" | "in-progress-elsewhere" | "claimed-elsewhere"
      resolvingPr,       // set when crossCheck = already-resolved
      alreadyResolved,   // boolean, flags for closure not rebuild
      forks,             // detected known decision forks (may be empty)
