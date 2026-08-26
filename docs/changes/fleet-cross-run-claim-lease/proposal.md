@@ -52,13 +52,18 @@ keywords:
 
 A claim is published as a single GitHub issue/PR comment containing an HTML marker plus a fenced JSON payload, so it is both human-readable and unambiguously machine-parseable:
 
-````
-<!-- harness-fleet-claim -->
 ```json
-{ "v": 1, "owner": "chadjw", "runId": "rf-1a2b3c", "fleet": "roadmap-fleet",
-  "item": "#1490", "claimedAt": "2026-08-26T14:20:00Z", "leaseSeconds": 720 }
-````
-
+// posted as a GitHub issue/PR comment, prefixed by an HTML marker line:
+//   <!-- harness-fleet-claim -->
+{
+  "v": 1,
+  "owner": "chadjw",
+  "runId": "rf-1a2b3c",
+  "fleet": "roadmap-fleet",
+  "item": "#1490",
+  "claimedAt": "2026-08-26T14:20:00Z",
+  "leaseSeconds": 720
+}
 ```
 
 The HTML marker `harness-fleet-claim` lets SELECT locate the claim comment unambiguously. `claimedAt` is written by the claiming machine but is **advisory only**: staleness is computed by the reader from the comment's GitHub-server `updated_at` (`updated_at + leaseSeconds < now` ⇒ stale), so a skewed writer clock can neither prematurely expire nor over-trust a claim.
@@ -69,13 +74,13 @@ The HTML marker `harness-fleet-claim` lets SELECT locate the claim comment unamb
 
 A new **pure, offline** core module `packages/core/src/fleet/claims/` (no network — GitHub I/O stays in the skill layer, matching the repo's injected-IO discipline) exports:
 
-| Export                                             | Responsibility                                                                    |
-| -------------------------------------------------- | --------------------------------------------------------------------------------- |
-| `buildClaimBody(input: FleetClaim): string`        | Render the marker + fenced JSON.                                                  |
-| `parseClaimComment(body: string): FleetClaim \| null` | Tolerant parse; returns `null` on a foreign/malformed comment (never throws).     |
-| `isLeaseLive(claim, serverUpdatedAt, now): boolean`| TTL check off the **server** timestamp, not `claimedAt`.                           |
-| `CLAIM_LABEL = 'fleet:claimed'`                     | The SELECT-filter label.                                                          |
-| `DEFAULT_LEASE_SECONDS = 720`, `HEARTBEAT_SECONDS = 240` | Defaults (see below).                                                        |
+| Export                                                   | Responsibility                                                                |
+| -------------------------------------------------------- | ----------------------------------------------------------------------------- |
+| `buildClaimBody(input: FleetClaim): string`              | Render the marker + fenced JSON.                                              |
+| `parseClaimComment(body: string): FleetClaim \| null`    | Tolerant parse; returns `null` on a foreign/malformed comment (never throws). |
+| `isLeaseLive(claim, serverUpdatedAt, now): boolean`      | TTL check off the **server** timestamp, not `claimedAt`.                      |
+| `CLAIM_LABEL = 'fleet:claimed'`                          | The SELECT-filter label.                                                      |
+| `DEFAULT_LEASE_SECONDS = 720`, `HEARTBEAT_SECONDS = 240` | Defaults (see below).                                                         |
 
 The module is added to the curated barrel allowlist in `scripts/generate-core-barrel.mjs` (a new export is a silent no-op otherwise).
 
@@ -114,7 +119,7 @@ not stranded; the outcome is reported and the item is reclaimable next run.
 
 ### Reclaim tiebreak
 
-Reclaiming a stale lease posts a *fresh* claim comment (append-only). If two runs reclaim simultaneously, the earliest GitHub-server-stamped comment wins; the later run detects a competing live claim it did not write (runId mismatch) on its first heartbeat re-read and yields the item. Residual double-work is bounded to that reclaim race — by design never worse than today's uncoordinated behavior.
+Reclaiming a stale lease posts a _fresh_ claim comment (append-only). If two runs reclaim simultaneously, the earliest GitHub-server-stamped comment wins; the later run detects a competing live claim it did not write (runId mismatch) on its first heartbeat re-read and yields the item. Residual double-work is bounded to that reclaim race — by design never worse than today's uncoordinated behavior.
 
 ### GitHub API budget
 
@@ -122,11 +127,12 @@ The claim-scan **piggybacks** on the issue/PR enumeration SELECT already perform
 
 ### `fleet-command` interaction
 
-The conductor already enforces a global slot budget *within one invocation*. Cross-invocation coordination is entirely emergent from the per-item claims the members take: two conductors run by two people auto-partition the backlog through the same lease mechanism. The conductor's only change is passing `--lease-seconds` / `--no-claim` through to lanes; claims remain owned by the members.
+The conductor already enforces a global slot budget _within one invocation_. Cross-invocation coordination is entirely emergent from the per-item claims the members take: two conductors run by two people auto-partition the backlog through the same lease mechanism. The conductor's only change is passing `--lease-seconds` / `--no-claim` through to lanes; claims remain owned by the members.
 
 ## Integration Points
 
 **Entry Points.**
+
 - No new CLI command and no new MCP tool.
 - New pure core module `@harness-engineering/core` → `fleet/claims`.
 - New `FleetClaim` type in `@harness-engineering/types`.
@@ -134,38 +140,60 @@ The conductor already enforces a global slot budget *within one invocation*. Cro
 - New fleet flags: `--lease-seconds <n>` and `--no-claim` on the ID-based members and passed through by `fleet-command`.
 
 **Registrations Required.**
+
 - Core barrel: add `fleet/claims` to the allowlist in `scripts/generate-core-barrel.mjs` (a new export is otherwise a silent no-op).
 - Types barrel: export `FleetClaim` from `packages/types/src/index.ts`.
 - The `fleet:claimed` GitHub label is auto-created idempotently on first claim (`gh label create ... || true`); no manual repo setup.
 - Each ID-based member SKILL.md (`roadmap-fleet`, `issue-fleet`, `pr-fleet`) references the new spine section. Platform mirror copies are symlinks and update automatically; the Gemini `.toml` regenerates via pre-commit.
 
 **Documentation Updates.**
+
 - `docs/reference/fleet-family.md` — new "Cross-run claim lease" section (the canonical statement).
 - The three ID-based members' SELECT/DISPATCH steps — reference the spine, do not restate it.
 - AGENTS.md — if it summarizes fleet coordination, add a one-line pointer.
 
 **Architectural Decisions.**
+
 - **Cross-run advisory work-claim leases for the `-fleet` family** rises to a standalone family ADR (next available number, ~`0103`, pending renumber against latest main). It warrants an ADR because it is a family-wide contract every ID-based member consumes and every future member must honor — the same standing as ADR 0088 (front-load model). The ADR also records the deliberate choice of soft reservation over a true-CAS git-ref lock (D3), so the "why not exactly-once" reasoning is durable.
 
 **Knowledge Impact.**
-- Concepts: *advisory lease*, *claim comment*, *lease TTL / heartbeat*, *reclaim race*, *server-clock staleness*.
+
+- Concepts: _advisory lease_, _claim comment_, _lease TTL / heartbeat_, _reclaim race_, _server-clock staleness_.
 - Relationships: `fleet-member —claims→ work-item`; `open-PR —is-durable-claim-for→ work-item`; `lease —bridges→ (SELECT → PR-open) window`.
 
 ## Success Criteria
 
 Phrased for observable, testable verification (EARS where behavioral):
 
-- **SC1 — no double-build under concurrency.** When two runs SELECT the same backlog concurrently, then each item is claimed by at most one run before PR-open. *Verify:* integration test with two simulated orchestrators against a fixture repo (mocked `gh`); assert each item's live claim comment carries exactly one `runId`.
-- **SC2 — stale claims self-heal.** When a claim holder stops heartbeating, then the item becomes reclaimable after ≤ `leaseSeconds`. *Verify:* unit test on `isLeaseLive` + an integration test that drops the heartbeat and asserts reclaim.
-- **SC3 — PR is the durable claim.** When an item's PR is opened, then its `fleet:claimed` label is removed and subsequent SELECTs drop the item via the open-PR path, not the lease path. *Verify:* integration assertion on label state + drop classification.
-- **SC4 — graceful degradation.** If `gh` auth is absent, then the fleet proceeds with open-PR-cross-check-only and logs the degradation, and shall not abort. *Verify:* run with `gh` unauthenticated; assert completion + log line.
-- **SC5 — clock-skew safety.** Staleness is computed from the GitHub server `updated_at`, so a claim written by a clock-skewed machine is neither prematurely expired nor over-trusted. *Verify:* unit test feeding a skewed `claimedAt` against a fixed server `updated_at`.
-- **SC6 — parse round-trip and tolerance.** `parseClaimComment(buildClaimBody(x))` deep-equals `x`, and `parseClaimComment` returns `null` on a malformed or foreign comment. *Verify:* unit.
+- **SC1 — no double-build under concurrency.** When two runs SELECT the same backlog concurrently, then each item is claimed by at most one run before PR-open. _Verify:_ integration test with two simulated orchestrators against a fixture repo (mocked `gh`); assert each item's live claim comment carries exactly one `runId`.
+- **SC2 — stale claims self-heal.** When a claim holder stops heartbeating, then the item becomes reclaimable after ≤ `leaseSeconds`. _Verify:_ unit test on `isLeaseLive` + an integration test that drops the heartbeat and asserts reclaim.
+- **SC3 — PR is the durable claim.** When an item's PR is opened, then its `fleet:claimed` label is removed and subsequent SELECTs drop the item via the open-PR path, not the lease path. _Verify:_ integration assertion on label state + drop classification.
+- **SC4 — graceful degradation.** If `gh` auth is absent, then the fleet proceeds with open-PR-cross-check-only and logs the degradation, and shall not abort. _Verify:_ run with `gh` unauthenticated; assert completion + log line.
+- **SC5 — clock-skew safety.** Staleness is computed from the GitHub server `updated_at`, so a claim written by a clock-skewed machine is neither prematurely expired nor over-trusted. _Verify:_ unit test feeding a skewed `claimedAt` against a fixed server `updated_at`.
+- **SC6 — parse round-trip and tolerance.** `parseClaimComment(buildClaimBody(x))` deep-equals `x`, and `parseClaimComment` returns `null` on a malformed or foreign comment. _Verify:_ unit.
 
 ## Implementation Order
 
-1. **Core primitive.** `FleetClaim` type + the pure `fleet/claims` module (`buildClaimBody` / `parseClaimComment` / `isLeaseLive` / constants) + unit tests (SC2, SC5, SC6) + both barrel exports. No network. Independently shippable.
-2. **Spine + reference member.** Add the "Cross-run claim lease" section to `fleet-family.md`; wire the full SELECT → CLAIM → HEARTBEAT → RELEASE lifecycle and the `gh`-degradation path into `roadmap-fleet` as the reference implementation; the two-runner integration test (SC1, SC3, SC4).
-3. **Roll to the remaining ID-based members.** `issue-fleet` and `pr-fleet` reference the spine section; add `--lease-seconds` / `--no-claim` to each.
-4. **ADR + conductor + docs.** Write the family ADR (~0103); add `fleet-command` flag pass-through; update AGENTS.md.
-```
+### Phase 1: Core primitive
+
+<!-- complexity: low -->
+
+`FleetClaim` type + the pure `fleet/claims` module (`buildClaimBody` / `parseClaimComment` / `isLeaseLive` / constants) + unit tests (SC2, SC5, SC6) + both barrel exports (types index + core-barrel allowlist). No network. Independently shippable.
+
+### Phase 2: Spine + reference member
+
+<!-- complexity: medium -->
+
+Add the "Cross-run claim lease" section to `docs/reference/fleet-family.md`; wire the full SELECT → CLAIM → HEARTBEAT → RELEASE lifecycle and the `gh`-degradation path into `roadmap-fleet` as the reference implementation; add the two-runner integration test (SC1, SC3, SC4).
+
+### Phase 3: Roll to the remaining ID-based members
+
+<!-- complexity: low -->
+
+`issue-fleet` and `pr-fleet` reference the spine section rather than restating it; add the `--lease-seconds` / `--no-claim` flags to each member.
+
+### Phase 4: ADR + conductor + docs
+
+<!-- complexity: low -->
+
+Write the family ADR (next available number, ~0103); add `fleet-command` flag pass-through for `--lease-seconds` / `--no-claim`; update AGENTS.md if it summarizes fleet coordination.
