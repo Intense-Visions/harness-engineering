@@ -368,6 +368,7 @@ Initialize a new harness-engineering project
 - `-n, --name` — Project name
 - `-l, --level` — Adoption level (basic, intermediate, load-bearing-minimum, advanced) (default: "load-bearing-minimum")
 - `-t, --template` — Specific template name (e.g. orchestrator)
+- `--tier` — Adoption tier (ADR 0101): minimal (the 5-item Minimum Viable Harness floor), basic, intermediate, load-bearing-minimum, advanced
 - `--framework` — Framework overlay (nextjs)
 - `--language` — Target language (typescript, python, go, rust, java)
 - `-f, --force` — Overwrite existing files

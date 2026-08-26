@@ -1,4 +1,4 @@
-import { Command } from 'commander';
+import { Command, type OptionValues } from 'commander';
 import chalk from 'chalk';
 import * as fs from 'fs';
 import * as path from 'path';
@@ -18,6 +18,15 @@ import { resolveTemplatesDir } from '../utils/paths';
 import { setupMcp } from './setup-mcp';
 import { generateCIConfig } from './ci/init';
 import { configureMergeOursDriver } from '../git/merge-driver-setup';
+import { runMinimalInit, printMinimalInitSuccess } from './init-minimal';
+
+/**
+ * Tiers reachable via `--tier` (ADR 0101). `minimal` is the new load-bearing
+ * floor mapped to the field's 5-item Minimum Viable Harness; every other tier
+ * delegates to the existing adoption-level scaffold so the ladder's upgrade
+ * wording ("`harness init --tier intermediate`") resolves to a real command.
+ */
+const TIER_LEVELS = ['minimal', 'basic', 'intermediate', 'load-bearing-minimum', 'advanced'];
 
 interface InitOptions {
   cwd?: string;
@@ -270,6 +279,32 @@ function printInitSuccess(filesCreated: string[], mcpConfigured: string[]): void
   console.log('');
 }
 
+/**
+ * The `--tier minimal` fast path (ADR 0101): scaffold exactly the 5 Minimum
+ * Viable Harness artifacts and print the ordered upgrade path. STRATEGY.md,
+ * framework selection, design system, and MCP integration are deferred (not
+ * skipped) — the upgrade path sequences them — so this path deliberately does
+ * NOT run setupMcp.
+ */
+async function runMinimalInitAction(opts: InitOptions & { quiet?: boolean }): Promise<void> {
+  const result = await runMinimalInit({
+    ...(opts.cwd !== undefined && { cwd: opts.cwd }),
+    ...(opts.name !== undefined && { name: opts.name }),
+    ...(opts.force !== undefined && { force: opts.force }),
+  });
+
+  if (!result.ok) {
+    logger.error(result.error.message);
+    process.exit(result.error.exitCode);
+  }
+
+  if (!opts.quiet) {
+    printMinimalInitSuccess(result.value);
+  }
+
+  process.exit(ExitCode.SUCCESS);
+}
+
 async function runInitAction(opts: InitOptions & { quiet?: boolean }): Promise<void> {
   const result = await runInit(opts);
 
@@ -288,8 +323,36 @@ async function runInitAction(opts: InitOptions & { quiet?: boolean }): Promise<v
   process.exit(ExitCode.SUCCESS);
 }
 
+/**
+ * Dispatch an `init` invocation. `--tier minimal` is the ADR 0101 fast path;
+ * every other tier delegates to the existing adoption-level scaffold (mapped
+ * through `level`, with `--template` and `--tier` taking precedence).
+ */
+async function dispatchInit(opts: OptionValues, globalOpts: OptionValues): Promise<void> {
+  const tier: string | undefined = opts.tier;
+  if (tier !== undefined && !TIER_LEVELS.includes(tier)) {
+    logger.error(`Invalid --tier: ${tier}. Must be one of: ${TIER_LEVELS.join(', ')}`);
+    process.exit(ExitCode.ERROR);
+  }
+
+  const common = {
+    name: opts.name,
+    framework: opts.framework,
+    language: opts.language,
+    force: opts.force,
+    quiet: globalOpts.quiet,
+  };
+
+  if (tier === 'minimal') {
+    await runMinimalInitAction(common);
+    return;
+  }
+
+  await runInitAction({ ...common, level: opts.template ?? tier ?? opts.level });
+}
+
 export function createInitCommand(): Command {
-  const command = new Command('init')
+  return new Command('init')
     .description('Initialize a new harness-engineering project')
     .option('-n, --name <name>', 'Project name')
     .option(
@@ -298,21 +361,15 @@ export function createInitCommand(): Command {
       'load-bearing-minimum'
     )
     .option('-t, --template <template>', 'Specific template name (e.g. orchestrator)')
+    .option(
+      '--tier <tier>',
+      'Adoption tier (ADR 0101): minimal (the 5-item Minimum Viable Harness floor), basic, intermediate, load-bearing-minimum, advanced'
+    )
     .option('--framework <framework>', 'Framework overlay (nextjs)')
     .option('--language <language>', 'Target language (typescript, python, go, rust, java)')
     .option('-f, --force', 'Overwrite existing files')
     .option('-y, --yes', 'Use defaults without prompting')
     .action(async (opts, cmd) => {
-      const globalOpts = cmd.optsWithGlobals();
-      await runInitAction({
-        name: opts.name,
-        level: opts.template ?? opts.level,
-        framework: opts.framework,
-        language: opts.language,
-        force: opts.force,
-        quiet: globalOpts.quiet,
-      });
+      await dispatchInit(opts, cmd.optsWithGlobals());
     });
-
-  return command;
 }
