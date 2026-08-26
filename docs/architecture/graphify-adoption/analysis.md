@@ -4,15 +4,15 @@
 
 ## The two things are not the same category
 
-| | **Graphify** | **`@harness-engineering/graph`** |
-| --- | --- | --- |
-| Shape | Standalone **CLI + MCP server** (Python) that emits artifacts | Embedded **TS library** (`v0.13.1`), consumed in-process |
-| Primary job | "Query your codebase instead of grepping" — a code+docs **concept graph** for an AI assistant | **Substrate** for the whole harness analytical surface |
-| Output | `graph.json` / `graph.html` / `GRAPH_REPORT.md` in `graphify-out/` | Live TS objects: `GraphStore`, `ContextQL`, `Assembler`, adapters |
-| Consumers | The human + the AI assistant, via CLI/MCP | **91 non-test source files across 7 packages** (`cli` 50, `intelligence` 14, `core` 12, `orchestrator`/`dashboard` 5 each, `signals` 3) |
-| Model scope | Code + docs concepts | Code **+** ADR/decision/learning/failure, VCS, observability, design tokens, business knowledge, requirements/traceability, execution outcomes — **37 node types, 29 edge types** (`packages/graph/README.md`) |
-| Embeddings | **Deliberately none** ("not a vector index") | `VectorStore` + `FusionLayer` hybrid keyword+semantic search |
-| License / tier | OSS (Apache-2.0/MIT dual) + proprietary **enterprise cloud** ("always-on layer", app.graphify.com) | Ours (MIT), fully owned |
+|                | **Graphify**                                                                                       | **`@harness-engineering/graph`**                                                                                                                                                                               |
+| -------------- | -------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Shape          | Standalone **CLI + MCP server** (Python) that emits artifacts                                      | Embedded **TS library** (`v0.13.1`), consumed in-process                                                                                                                                                       |
+| Primary job    | "Query your codebase instead of grepping" — a code+docs **concept graph** for an AI assistant      | **Substrate** for the whole harness analytical surface                                                                                                                                                         |
+| Output         | `graph.json` / `graph.html` / `GRAPH_REPORT.md` in `graphify-out/`                                 | Live TS objects: `GraphStore`, `ContextQL`, `Assembler`, adapters                                                                                                                                              |
+| Consumers      | The human + the AI assistant, via CLI/MCP                                                          | **91 non-test source files across 7 packages** (`cli` 50, `intelligence` 14, `core` 12, `orchestrator`/`dashboard` 5 each, `signals` 3)                                                                        |
+| Model scope    | Code + docs concepts                                                                               | Code **+** ADR/decision/learning/failure, VCS, observability, design tokens, business knowledge, requirements/traceability, execution outcomes — **37 node types, 29 edge types** (`packages/graph/README.md`) |
+| Embeddings     | **Deliberately none** ("not a vector index")                                                       | `VectorStore` + `FusionLayer` hybrid keyword+semantic search                                                                                                                                                   |
+| License / tier | OSS (Apache-2.0/MIT dual) + proprietary **enterprise cloud** ("always-on layer", app.graphify.com) | Ours (MIT), fully owned                                                                                                                                                                                        |
 
 The core insight: **Graphify's value is the code-graph slice. Our graph's value is everything the code-graph feeds** — the ~15 adapters that turn the graph into harness analyses. Graphify has no equivalent of those, no TS API, and a different product goal.
 
@@ -28,10 +28,10 @@ The core insight: **Graphify's value is the code-graph slice. Our graph's value 
 
 ## What OUR graph does STRONGER (verified)
 
-1. **Unified cross-domain model.** 37 node types spanning knowledge, VCS, observability, **design tokens, business knowledge, requirements/traceability, execution outcomes** (`packages/graph/README.md`). Graphify is code+docs only. This model is *the* thing the harness is built on.
+1. **Unified cross-domain model.** 37 node types spanning knowledge, VCS, observability, **design tokens, business knowledge, requirements/traceability, execution outcomes** (`packages/graph/README.md`). Graphify is code+docs only. This model is _the_ thing the harness is built on.
 2. **The analysis adapter layer.** `GraphEntropyAdapter`, `GraphConstraintAdapter`, `GraphComplexityAdapter`, `GraphCouplingAdapter`, `GraphAnomalyAdapter`, `CascadeSimulator` (`compute_blast_radius`), `TaskIndependenceAnalyzer`, `ConflictPredictor`, `queryTraceability`, `GraphFeedbackAdapter`. **None of this exists in Graphify.** These power `detect_entropy`, `enforce-architecture`, `check_traceability`, impact analysis, etc.
 3. **Token-budget-aware context Assembly.** `Assembler` does phase-aware context selection under token budgets with coverage reports — purpose-built for feeding agents. Graphify returns scoped subgraphs, not budgeted context.
-4. **Hybrid semantic search.** `FusionLayer` blends keyword + embedding similarity. Graphify deliberately refuses embeddings — a strength for pure-deterministic tracing, a weakness for "find me something *like* this."
+4. **Hybrid semantic search.** `FusionLayer` blends keyword + embedding similarity. Graphify deliberately refuses embeddings — a strength for pure-deterministic tracing, a weakness for "find me something _like_ this."
 5. **In-process TS API.** 91 importers call it as a library. Graphify's only integration surfaces are CLI stdout and an MCP server — neither is an in-process API.
 6. **Full ownership.** No external tool version-coupling, no enterprise-tier gating risk, no Python runtime in the harness.
 
@@ -51,7 +51,7 @@ The core insight: **Graphify's value is the code-graph slice. Our graph's value 
 
 A second exhaustive sweep confirmed Graphify is broader than a code-map. The complete surface:
 
-- **It is also an agent-memory / RAG competitor.** Benchmarked on LOCOMO (recall@10 0.497, QA 45.3%) and **LongMemEval-S (76% QA, "tied with dense RAG")** with 0 LLM credits for graph build. It positions the graph as the thing an assistant queries *instead of* embeddings-RAG. Relevant to due-diligence: competitive, not dominant, on memory QA — reinforces "don't replace, it's not strictly better."
+- **It is also an agent-memory / RAG competitor.** Benchmarked on LOCOMO (recall@10 0.497, QA 45.3%) and **LongMemEval-S (76% QA, "tied with dense RAG")** with 0 LLM credits for graph build. It positions the graph as the thing an assistant queries _instead of_ embeddings-RAG. Relevant to due-diligence: competitive, not dominant, on memory QA — reinforces "don't replace, it's not strictly better."
 - **PR-review intelligence.** `graphify prs --triage` (AI-ranked review queue), `--conflicts` (merge-order risk via **shared communities**), `--worktrees` (branch→PR map), `prs <n>` (graph impact of a PR); MCP tools `list_prs`/`get_pr_impact`/`triage_prs`. Overlaps our own PR/impact surface (see Convergent overlaps).
 - **9-backend semantic extraction** (Gemini/Claude/claude-cli/OpenAI/DeepSeek/Kimi/Azure/Bedrock/Ollama) for the docs/media pass; code is always AST-only/local.
 - **Graph-interop hub.** Exports: `graph.html`, `GRAPH_REPORT.md`, `graph.json`, SVG, **GraphML (Gephi/yEd)**, **Cypher for Neo4j/FalkorDB (+ direct push)**, **Obsidian vault**, agent-crawlable **wiki**, **Mermaid call-flow HTML**.
@@ -67,13 +67,13 @@ A second exhaustive sweep confirmed Graphify is broader than a code-map. The com
 
 Not gaps — flagged so we don't "adopt" what we already have, differently framed:
 
-| Graphify feature | Our equivalent | Note |
-| --- | --- | --- |
-| `prs --conflicts` (merge risk via shared community) | `ConflictPredictor` + `TaskIndependenceAnalyzer` (co-change) | Different signal; ours is co-change-based |
-| `get_pr_impact` | `CascadeSimulator` / `compute_blast_radius`, `get_impact` | Ours is probability-weighted BFS |
-| `save-result`/`reflect` → LESSONS | `learning`/`failure`/`execution_outcome` nodes + skill-effectiveness baselines | Convergent validation; **the "code changed — re-verify" staleness flag is the one sharp idea worth stealing** |
-| MCP `query_graph`/`shortest_path` | `ask_graph`/`query_graph` MCP tools + NLQ | We already expose via the harness MCP surface |
-| `depends_on` package graph | `supply-chain-audit`, `dependency-health` | Different lens; not a model gap |
+| Graphify feature                                    | Our equivalent                                                                 | Note                                                                                                          |
+| --------------------------------------------------- | ------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------- |
+| `prs --conflicts` (merge risk via shared community) | `ConflictPredictor` + `TaskIndependenceAnalyzer` (co-change)                   | Different signal; ours is co-change-based                                                                     |
+| `get_pr_impact`                                     | `CascadeSimulator` / `compute_blast_radius`, `get_impact`                      | Ours is probability-weighted BFS                                                                              |
+| `save-result`/`reflect` → LESSONS                   | `learning`/`failure`/`execution_outcome` nodes + skill-effectiveness baselines | Convergent validation; **the "code changed — re-verify" staleness flag is the one sharp idea worth stealing** |
+| MCP `query_graph`/`shortest_path`                   | `ask_graph`/`query_graph` MCP tools + NLQ                                      | We already expose via the harness MCP surface                                                                 |
+| `depends_on` package graph                          | `supply-chain-audit`, `dependency-health`                                      | Different lens; not a model gap                                                                               |
 
 ## Consumption path if we ever depended on Graphify
 

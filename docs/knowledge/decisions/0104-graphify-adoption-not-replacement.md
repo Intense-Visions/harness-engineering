@@ -1,5 +1,5 @@
 ---
-number: "0104"
+number: '0104'
 title: Do not replace @harness-engineering/graph with Graphify; port select capabilities instead
 date: 2026-08-26
 status: accepted
@@ -34,7 +34,7 @@ The Graphify **polyglot sidecar** (ingest its `graph.json` for 37-language tree-
 ## Alternatives considered
 
 - **Option B — polyglot sidecar (`GraphifyIngestor`):** buys multi-language AST fidelity cheaply, our graph stays the substrate. Rejected as the standing decision because it adds a Python runtime and a brittle dependency on an undocumented, fast-moving external schema for a gain (AST breadth) that is not today's pain. Kept as a documented future option, not a commitment.
-- **Option C — wholesale replacement (the question asked):** rejected as a category error. It would delete the cross-domain model and adapter layer the harness is built on, break 91 importers across 7 packages, forfeit our semantic `FusionLayer`, and create an existential dependency on an external startup's OSS tier with a proprietary upsell. Graphify is a graph *generator + query server*, not a substitute for our graph *library + analysis platform*.
+- **Option C — wholesale replacement (the question asked):** rejected as a category error. It would delete the cross-domain model and adapter layer the harness is built on, break 91 importers across 7 packages, forfeit our semantic `FusionLayer`, and create an existential dependency on an external startup's OSS tier with a proprietary upsell. Graphify is a graph _generator + query server_, not a substitute for our graph _library + analysis platform_.
 
 ## Consequences
 
@@ -47,8 +47,8 @@ The Graphify **polyglot sidecar** (ingest its `graph.json` for 37-language tree-
 
 ### Negative
 
-- We forgo Graphify's 37-language tree-sitter fidelity for now; our `CodeIngestor` stays regex-based beyond TS/JS. — *Mitigation:* the sidecar (Option B) remains available if a real polyglot need emerges; revisit then.
-- Porting community detection (Leiden) and the exporter is net-new engineering. — *Mitigation:* sequence provenance first (highest leverage, smallest surface); defer viz/community as separate items.
+- We forgo Graphify's 37-language tree-sitter fidelity for now; our `CodeIngestor` stays regex-based beyond TS/JS. — _Mitigation:_ the sidecar (Option B) remains available if a real polyglot need emerges; revisit then.
+- Porting community detection (Leiden) and the exporter is net-new engineering. — _Mitigation:_ sequence provenance first (highest leverage, smallest surface); defer viz/community as separate items.
 
 ### Neutral
 
