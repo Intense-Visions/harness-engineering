@@ -75,5 +75,38 @@ function toMs(t: Date | string): number | null {
   return Number.isNaN(ms) ? null : ms;
 }
 
+/** One competing claim comment: its parsed payload + the GitHub-server stamp. */
+export interface CompetingClaim {
+  claim: FleetClaim;
+  serverUpdatedAt: Date | string;
+}
+
+/**
+ * Reclaim-race ARBITER. Claims are append-only, so two runs that reclaim a
+ * stale lease near-simultaneously both leave a live comment; this decides which
+ * one OWNS the item. Per the spine tiebreak, the EARLIEST GitHub-server stamp
+ * wins. Because both racers run the same pure function over the same comment
+ * set, they independently agree on the winner: the winner keeps heartbeating,
+ * and the loser — seeing a competing live claim whose `runId` is not its own —
+ * YIELDS the item (soft reservation). This is what bounds SC1's residual race
+ * to the sub-second reclaim window rather than a full duplicate build.
+ *
+ * Ties on the server stamp (second-granularity collisions) fall back to
+ * lexicographic `runId` for a TOTAL, deterministic order, so both racers still
+ * agree. A comment with an unparseable stamp sorts last (least trusted). Pure,
+ * non-throwing; returns `null` for an empty set.
+ */
+export function resolveClaimWinner(entries: CompetingClaim[]): FleetClaim | null {
+  let best: { claim: FleetClaim; key: number } | null = null;
+  for (const e of entries) {
+    const ms = toMs(e.serverUpdatedAt);
+    const key = ms === null ? Number.POSITIVE_INFINITY : ms;
+    if (best === null || key < best.key || (key === best.key && e.claim.runId < best.claim.runId)) {
+      best = { claim: e.claim, key };
+    }
+  }
+  return best?.claim ?? null;
+}
+
 // SELECT-phase composition helpers (Phase 2) — pure, offline.
 export * from './select';

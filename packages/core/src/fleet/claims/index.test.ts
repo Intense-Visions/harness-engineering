@@ -4,6 +4,7 @@ import {
   buildClaimBody,
   parseClaimComment,
   isLeaseLive,
+  resolveClaimWinner,
   CLAIM_LABEL,
   CLAIM_MARKER,
   DEFAULT_LEASE_SECONDS,
@@ -102,5 +103,60 @@ describe('isLeaseLive — clock-skew safety (SC5)', () => {
     expect(isLeaseLive(skewed, '2026-08-26T14:20:00Z', '2026-08-26T14:20:10Z')).toBe(true);
     // server long ago, now well past lease → stale despite future claimedAt
     expect(isLeaseLive(skewed, '2026-08-26T14:20:00Z', '2026-08-26T15:20:00Z')).toBe(false);
+  });
+});
+
+describe('resolveClaimWinner — reclaim-race tiebreak (SC1)', () => {
+  const a: FleetClaim = { ...claim, runId: 'rf-A' };
+  const b: FleetClaim = { ...claim, runId: 'rf-B' };
+
+  it('returns null for no competing claims', () => {
+    expect(resolveClaimWinner([])).toBeNull();
+  });
+
+  it('the EARLIEST server-stamped comment wins (not write order)', () => {
+    // B is passed FIRST but A is stamped earlier → A wins.
+    const winner = resolveClaimWinner([
+      { claim: b, serverUpdatedAt: '2026-08-26T14:00:02Z' },
+      { claim: a, serverUpdatedAt: '2026-08-26T14:00:01Z' },
+    ]);
+    expect(winner?.runId).toBe('rf-A');
+  });
+
+  it('is symmetric — whichever run is stamped earliest wins', () => {
+    // Same racers, B now stamped earlier → B wins. Proves it is timestamp-
+    // driven, not runId- or order-driven.
+    const winner = resolveClaimWinner([
+      { claim: a, serverUpdatedAt: '2026-08-26T14:00:05Z' },
+      { claim: b, serverUpdatedAt: '2026-08-26T14:00:01Z' },
+    ]);
+    expect(winner?.runId).toBe('rf-B');
+  });
+
+  it('breaks an exact-stamp tie deterministically by lexicographic runId', () => {
+    // Both runs agree on the SAME winner even at identical second-granularity
+    // stamps — a total order so the race cannot deadlock or split-brain.
+    const at = '2026-08-26T14:00:01Z';
+    expect(
+      resolveClaimWinner([
+        { claim: b, serverUpdatedAt: at },
+        { claim: a, serverUpdatedAt: at },
+      ])?.runId
+    ).toBe('rf-A');
+    // order of inputs must not change the verdict
+    expect(
+      resolveClaimWinner([
+        { claim: a, serverUpdatedAt: at },
+        { claim: b, serverUpdatedAt: at },
+      ])?.runId
+    ).toBe('rf-A');
+  });
+
+  it('sorts an unparseable stamp last (a parseable competitor wins)', () => {
+    const winner = resolveClaimWinner([
+      { claim: a, serverUpdatedAt: 'not-a-date' },
+      { claim: b, serverUpdatedAt: '2026-08-26T14:00:09Z' },
+    ]);
+    expect(winner?.runId).toBe('rf-B');
   });
 });

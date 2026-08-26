@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { FLEET_CLAIM_VERSION, type FleetClaim } from '@harness-engineering/types';
-import { buildClaimBody, parseClaimComment, isLeaseLive } from './index';
+import { buildClaimBody, parseClaimComment, isLeaseLive, resolveClaimWinner } from './index';
 import { classifyClaim, type ItemClaimContext } from './select';
 
 // --- In-memory fake GitHub claim store (offline stand-in for the gh layer) ---
@@ -115,6 +115,57 @@ describe('two-runner simulation — SC1: no double-build under concurrency', () 
 
     // Invariant: exactly ONE runId holds a live claim (never both).
     expect(store.liveClaimRunIds(item, tB)).toEqual(['rf-A']);
+  });
+});
+
+describe('two-runner simulation — SC1: concurrent CLAIM race resolves via the tiebreak', () => {
+  // The concurrency-CRITICAL path: neither runner has claimed at SELECT, so
+  // BOTH pass SELECT, THEN both CLAIM. Exactly one must end up owning the item —
+  // and it must be because of the reclaim tiebreak, NOT because the loser never
+  // wrote (the shallow-test failure mode this replaces).
+  it('both pass SELECT unclaimed, both CLAIM, exactly one wins and the loser YIELDS', () => {
+    const store = new FakeClaimStore();
+    const item = '#1490';
+
+    // 1. Both runners SELECT at the same instant — NOTHING is claimed yet, so
+    //    both keep the item and proceed to DISPATCH.
+    const tSelect = '2026-08-26T14:00:00Z';
+    const aSees = classifyClaim(store.contextFor(item), { now: tSelect, myRunId: 'rf-A' });
+    const bSees = classifyClaim(store.contextFor(item), { now: tSelect, myRunId: 'rf-B' });
+    expect(aSees.drop).toBe(false);
+    expect(bSees.drop).toBe(false);
+
+    // 2. Both CLAIM near-simultaneously (append-only). A's comment server-stamps
+    //    a hair earlier than B's — the residual reclaim race.
+    const tA = '2026-08-26T14:00:01Z';
+    const tB = '2026-08-26T14:00:02Z';
+    store.claim(item, mkClaim('rf-A', item, tA), tA);
+    store.claim(item, mkClaim('rf-B', item, tB), tB);
+
+    // Both runners PHYSICALLY wrote a live claim comment — the loser did NOT
+    // "never write". Any invariant below is earned by the tiebreak, not by
+    // construction.
+    expect(store.liveClaimRunIds(item, tB).sort()).toEqual(['rf-A', 'rf-B']);
+
+    // 3. On its first heartbeat re-read each runner runs the SAME pure arbiter
+    //    over the SAME comment set: the earliest server stamp (A) wins.
+    const winner = resolveClaimWinner(store.liveClaimEntries(item, tB));
+    expect(winner?.runId).toBe('rf-A');
+
+    // 4. The loser B detects a competing live claim whose runId is not its own
+    //    → YIELDS. The winner A does not.
+    const bYields = winner!.runId !== 'rf-B';
+    const aYields = winner!.runId !== 'rf-A';
+    expect(bYields).toBe(true);
+    expect(aYields).toBe(false);
+
+    // 5. B yields ⇒ stops heartbeating; A keeps heartbeating. After B's lease
+    //    lapses, exactly ONE runId holds a live claim — resolved by the
+    //    tiebreak, not because B never wrote.
+    const tAfter = '2026-08-26T14:13:00Z'; // > tB + 720s (B stale), A renewed
+    store.heartbeat(item, 'rf-A', '2026-08-26T14:12:30Z');
+    expect(store.liveClaimRunIds(item, tAfter)).toEqual(['rf-A']);
+    expect(resolveClaimWinner(store.liveClaimEntries(item, tAfter))?.runId).toBe('rf-A');
   });
 });
 
