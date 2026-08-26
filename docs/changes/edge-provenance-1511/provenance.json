@@ -11,6 +11,8 @@
     "resolver-derived edges are INFERRED: imports (target file id resolved via resolveImportPath), calls (regex name-matching heuristic), and TopologicalLinker module contains (grouped from directory structure)",
     "AMBIGUOUS is defined, exported, and schema-accepted as the reserved value for an origin that can be neither AST-explicit nor resolver-derived; no current ingest site emits it, so it is not hard-coded anywhere",
     "no GraphStore or Serializer changes are required — both round-trip whole edge objects, so provenance flows into existing adapters automatically",
-    "scope kept to the graph package per ADR 0104's 'highest-leverage, smallest-surface' framing; adapters consume the field without modification"
+    "consumer surface wired: the get_relationships MCP tool (packages/cli/src/mcp/tools/graph/get-relationships.ts) now READS edge.provenance and surfaces it — per-edge provenance passes through in detailed mode, and both summary and detailed modes include a derived provenanceBreakdown ({ EXTRACTED, INFERRED, AMBIGUOUS } counts)",
+    "the provenanceBreakdown key is omitted gracefully when no edge carries provenance, so legacy graphs ingested before this field stay back-compatible",
+    "scope kept minimal per ADR 0104's 'highest-leverage, smallest-surface' framing; one real consumer proves end-to-end reachability, remaining adapters consume the field without modification"
   ]
 }

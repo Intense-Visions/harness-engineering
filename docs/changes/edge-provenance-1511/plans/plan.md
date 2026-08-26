@@ -55,7 +55,21 @@ an edge, so none is hard-coded, but the value is reserved and validated.
 - `graph` typecheck: clean.
 - CLI built before commit (pre-commit architecture hook runs against dist).
 
+## Consumer (reviewer follow-up)
+
+Set-and-serialize is not enough — the field must be read end-to-end. Wired one
+real consumer: the `get_relationships` MCP tool
+(`packages/cli/src/mcp/tools/graph/get-relationships.ts`) now reads
+`edge.provenance`. Detailed mode passes per-edge `provenance` through, and both
+summary and detailed modes include a derived `provenanceBreakdown`
+(`{ EXTRACTED, INFERRED, AMBIGUOUS }` counts). The breakdown is omitted when no
+edge carries provenance, keeping legacy graphs back-compatible. A reachability
+test (`packages/cli/tests/mcp/tools/graph.test.ts`) drives the tool and asserts
+an `INFERRED` import edge and an `EXTRACTED` contains edge are reported as such,
+plus a back-compat test that the breakdown is absent for provenance-less graphs.
+
 ## Review
 
 Surface is additive and optional; existing edges without `provenance` still
 validate and round-trip. No behavioral change to traversal, pruning, or scoring.
+The consumer is additive to the MCP tool's response shape.

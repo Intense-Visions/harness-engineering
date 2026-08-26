@@ -425,6 +425,86 @@ describe('handleGetRelationships', () => {
     expect(data.pagination.limit).toBe(1);
     expect(data.pagination.hasMore).toBe(true);
   });
+
+  it('surfaces edge provenance (INFERRED/EXTRACTED) end-to-end', async () => {
+    const { GraphStore } = await import('@harness-engineering/graph');
+    const store = new GraphStore();
+    store.addNode({
+      id: 'file:src/a.ts',
+      type: 'file',
+      name: 'a.ts',
+      path: 'src/a.ts',
+      metadata: {},
+    });
+    store.addNode({
+      id: 'file:src/b.ts',
+      type: 'file',
+      name: 'b.ts',
+      path: 'src/b.ts',
+      metadata: {},
+    });
+    store.addNode({ id: 'fn:go', type: 'function', name: 'go', path: 'src/a.ts', metadata: {} });
+    // AST-explicit structural edge → EXTRACTED; resolver-derived import → INFERRED.
+    store.addEdge({
+      from: 'file:src/a.ts',
+      to: 'fn:go',
+      type: 'contains',
+      provenance: 'EXTRACTED',
+    });
+    store.addEdge({
+      from: 'file:src/a.ts',
+      to: 'file:src/b.ts',
+      type: 'imports',
+      provenance: 'INFERRED',
+    });
+    await store.save(path.join(tmpDir, '.harness', 'graph'));
+
+    const result = await handleGetRelationships({
+      path: tmpDir,
+      nodeId: 'file:src/a.ts',
+      direction: 'outbound',
+    });
+
+    expect(result.isError).toBeUndefined();
+    const data = parseResult(result);
+
+    // Per-edge provenance is read through to the output.
+    const importEdge = data.edges.find(
+      (e: { to: string; type: string }) => e.to === 'file:src/b.ts' && e.type === 'imports'
+    );
+    expect(importEdge.provenance).toBe('INFERRED');
+    const containsEdge = data.edges.find(
+      (e: { to: string; type: string }) => e.to === 'fn:go' && e.type === 'contains'
+    );
+    expect(containsEdge.provenance).toBe('EXTRACTED');
+
+    // Aggregate breakdown is derived by reading the field.
+    expect(data.provenanceBreakdown).toEqual({ EXTRACTED: 1, INFERRED: 1 });
+
+    // Summary mode reports the same breakdown.
+    const summary = parseResult(
+      await handleGetRelationships({
+        path: tmpDir,
+        nodeId: 'file:src/a.ts',
+        direction: 'outbound',
+        mode: 'summary',
+      })
+    );
+    expect(summary.provenanceBreakdown).toEqual({ EXTRACTED: 1, INFERRED: 1 });
+  });
+
+  it('omits provenanceBreakdown when edges carry no provenance (back-compat)', async () => {
+    // createTestGraph adds edges without a provenance field (legacy graph).
+    await createTestGraph(tmpDir);
+    const data = parseResult(
+      await handleGetRelationships({
+        path: tmpDir,
+        nodeId: 'file:src/index.ts',
+        direction: 'outbound',
+      })
+    );
+    expect(data.provenanceBreakdown).toBeUndefined();
+  });
 });
 
 // ── handleGetImpact ─────────────────────────────────────────────────
