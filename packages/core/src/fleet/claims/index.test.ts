@@ -3,6 +3,7 @@ import { FLEET_CLAIM_VERSION, type FleetClaim } from '@harness-engineering/types
 import {
   buildClaimBody,
   parseClaimComment,
+  isLeaseLive,
   CLAIM_LABEL,
   CLAIM_MARKER,
   DEFAULT_LEASE_SECONDS,
@@ -71,5 +72,35 @@ describe('parseClaimComment — tolerance (SC6)', () => {
   it('never throws on empty or non-json bodies', () => {
     expect(parseClaimComment('')).toBeNull();
     expect(parseClaimComment(CLAIM_MARKER)).toBeNull();
+  });
+});
+
+describe('isLeaseLive — TTL off server updated_at (SC2)', () => {
+  const server = '2026-08-26T14:20:00Z'; // serverUpdatedAt
+  it('is live while server + leaseSeconds > now', () => {
+    // 720s lease; now = +600s → still live
+    expect(isLeaseLive(claim, server, '2026-08-26T14:30:00Z')).toBe(true);
+  });
+  it('is dead once server + leaseSeconds < now', () => {
+    // now = +800s (> 720s) → stale
+    expect(isLeaseLive(claim, server, '2026-08-26T14:33:20Z')).toBe(false);
+  });
+  it('accepts Date instances as well as ISO strings', () => {
+    expect(isLeaseLive(claim, new Date(server), new Date('2026-08-26T14:30:00Z'))).toBe(true);
+  });
+  it('returns false for an unparseable timestamp', () => {
+    expect(isLeaseLive(claim, 'not-a-date', '2026-08-26T14:30:00Z')).toBe(false);
+  });
+});
+
+describe('isLeaseLive — clock-skew safety (SC5)', () => {
+  it('follows serverUpdatedAt and ignores a wildly skewed claimedAt', () => {
+    // claimedAt is a YEAR in the future (skewed writer clock); the decision
+    // must depend ONLY on serverUpdatedAt + now.
+    const skewed = { ...claim, claimedAt: '2027-08-26T14:20:00Z' };
+    // server just now, now = +10s → live regardless of the future claimedAt
+    expect(isLeaseLive(skewed, '2026-08-26T14:20:00Z', '2026-08-26T14:20:10Z')).toBe(true);
+    // server long ago, now well past lease → stale despite future claimedAt
+    expect(isLeaseLive(skewed, '2026-08-26T14:20:00Z', '2026-08-26T15:20:00Z')).toBe(false);
   });
 });

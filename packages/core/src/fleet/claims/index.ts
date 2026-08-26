@@ -50,3 +50,26 @@ export function parseClaimComment(body: string): FleetClaim | null {
   const parsed = FleetClaimSchema.safeParse(raw);
   return parsed.success ? parsed.data : null;
 }
+
+/**
+ * Is the lease still live? Staleness is computed from the GitHub SERVER
+ * timestamp (`serverUpdatedAt`), NEVER `claim.claimedAt`, so a claim written
+ * by a clock-skewed machine can neither prematurely expire nor over-trust.
+ * Live iff `serverUpdatedAt + leaseSeconds > now`. An unparseable timestamp
+ * is treated as not-live (fail safe → reclaimable).
+ */
+export function isLeaseLive(
+  claim: FleetClaim,
+  serverUpdatedAt: Date | string,
+  now: Date | string
+): boolean {
+  const updatedMs = toMs(serverUpdatedAt);
+  const nowMs = toMs(now);
+  if (updatedMs === null || nowMs === null) return false;
+  return updatedMs + claim.leaseSeconds * 1000 > nowMs;
+}
+
+function toMs(t: Date | string): number | null {
+  const ms = t instanceof Date ? t.getTime() : Date.parse(t);
+  return Number.isNaN(ms) ? null : ms;
+}
