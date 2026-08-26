@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest';
 import { FLEET_CLAIM_VERSION, type FleetClaim } from '@harness-engineering/types';
 import {
   buildClaimBody,
+  parseClaimComment,
   CLAIM_LABEL,
   CLAIM_MARKER,
   DEFAULT_LEASE_SECONDS,
@@ -38,5 +39,37 @@ describe('buildClaimBody', () => {
     const body = buildClaimBody(claim);
     const json = /```json\n([\s\S]*?)\n```/.exec(body)![1];
     expect(JSON.parse(json)).toEqual(claim);
+  });
+});
+
+describe('parseClaimComment — round-trip (SC6)', () => {
+  it('deep-equals the original claim through build → parse', () => {
+    expect(parseClaimComment(buildClaimBody(claim))).toEqual(claim);
+  });
+
+  it('parses a claim embedded in surrounding prose', () => {
+    const body = `Heads up team, claiming this now.\n\n${buildClaimBody(claim)}\n\nCheers.`;
+    expect(parseClaimComment(body)).toEqual(claim);
+  });
+});
+
+describe('parseClaimComment — tolerance (SC6)', () => {
+  it('returns null for a foreign comment (no marker)', () => {
+    expect(parseClaimComment('just a normal PR comment')).toBeNull();
+  });
+
+  it('returns null for a marked comment with malformed json', () => {
+    const body = `${CLAIM_MARKER}\n\n\`\`\`json\n{ not: valid json,,, }\n\`\`\`\n`;
+    expect(parseClaimComment(body)).toBeNull();
+  });
+
+  it('returns null for a marked comment whose json fails the schema', () => {
+    const body = `${CLAIM_MARKER}\n\n\`\`\`json\n${JSON.stringify({ owner: 'x' })}\n\`\`\`\n`;
+    expect(parseClaimComment(body)).toBeNull();
+  });
+
+  it('never throws on empty or non-json bodies', () => {
+    expect(parseClaimComment('')).toBeNull();
+    expect(parseClaimComment(CLAIM_MARKER)).toBeNull();
   });
 });

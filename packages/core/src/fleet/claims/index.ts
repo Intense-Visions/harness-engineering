@@ -7,7 +7,7 @@
 // strings/dates, matching the repo's injected-IO discipline. All GitHub I/O
 // lives in the skill/orchestration layer that CALLS these.
 
-import { type FleetClaim } from '@harness-engineering/types';
+import { FleetClaimSchema, type FleetClaim } from '@harness-engineering/types';
 
 /** The GitHub label a claimed item carries; the cheap one-call SELECT filter. */
 export const CLAIM_LABEL = 'fleet:claimed';
@@ -28,4 +28,25 @@ export const CLAIM_MARKER = '<!-- harness-fleet-claim -->';
  */
 export function buildClaimBody(input: FleetClaim): string {
   return `${CLAIM_MARKER}\n\n\`\`\`json\n${JSON.stringify(input, null, 2)}\n\`\`\`\n`;
+}
+
+/**
+ * Tolerantly parse a GitHub comment body into a {@link FleetClaim}. Returns
+ * `null` — never throws — for a foreign comment (missing marker), a marked
+ * comment with malformed JSON, or a marked comment whose payload fails the
+ * schema.
+ */
+export function parseClaimComment(body: string): FleetClaim | null {
+  if (typeof body !== 'string' || !body.includes(CLAIM_MARKER)) return null;
+  const afterMarker = body.slice(body.indexOf(CLAIM_MARKER) + CLAIM_MARKER.length);
+  const fence = /```json\s*\n([\s\S]*?)\n```/.exec(afterMarker);
+  if (!fence) return null;
+  let raw: unknown;
+  try {
+    raw = JSON.parse(fence[1]);
+  } catch {
+    return null;
+  }
+  const parsed = FleetClaimSchema.safeParse(raw);
+  return parsed.success ? parsed.data : null;
 }
