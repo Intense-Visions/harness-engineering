@@ -17,11 +17,13 @@ Clearing the open-PR queue is the mirror-image slog of building a backlog. Every
 
 ## Flags
 
-| Flag            | Effect                                                                                        |
-| --------------- | --------------------------------------------------------------------------------------------- |
-| `--concurrency` | Cap concurrent review-assist subagents (default 2, max recommended 3 — the machine-storm cap) |
-| `--report-only` | Enumerate and triage the queue and present the ranked batch; do not dispatch, verify, or land |
-| `--dry-run`     | Run SELECT and CONFIRM only; stop before fan-out and landing                                  |
+| Flag              | Effect                                                                                                                |
+| ----------------- | --------------------------------------------------------------------------------------------------------------------- |
+| `--concurrency`   | Cap concurrent review-assist subagents (default 2, max recommended 3 — the machine-storm cap)                         |
+| `--report-only`   | Enumerate and triage the queue and present the ranked batch; do not dispatch, verify, or land                         |
+| `--dry-run`       | Run SELECT and CONFIRM only; stop before fan-out and landing                                                          |
+| `--lease-seconds` | Override the cross-run claim-lease TTL (default 720s); see §Cross-run claim lease in `docs/reference/fleet-family.md` |
+| `--no-claim`      | Disable the cross-run claim lease entirely — pr-fleet then has no cross-run review-assist dedup (today's behavior)    |
 
 ## Process
 
@@ -110,6 +112,8 @@ The five-phase spine, the concurrency governor, the artifact + all-OS-CI verific
 
 **Worker handoff — return the canonical `FleetHandoffRecord`.** When a worker finishes its PR it hands the orchestrator exactly one `FleetHandoffRecord` (from `@harness-engineering/types`) — the ONE bounded envelope every `-fleet` member emits, so `fleet-command` parses any fleet's worker output uniformly instead of special-casing an ad hoc per-worker report shape. The record carries `status` (`done | parked | blocked | failed`), `fleet`, `item`, a one-line `summary`, an `evidence[]` of verifiable pointers (branch, PR, artifact path, CI check — exactly the references VERIFY re-checks), `next_steps[]`, and, for any non-`done` status, a `blocker`. The orchestrator validates it with `validateFleetHandoffRecord`; a malformed or unknown-keyed record is rejected, never silently misread. See the canonical handoff record in `docs/reference/fleet-family.md`.
 
+**Claim the PR before review-assisting — cross-run claim lease (CLAIM → HEARTBEAT → RELEASE).** The item here **is** an open PR, so the spine's "open PR is the durable claim" rule is degenerate — the duplication this claim guards is the **review-assist worktree work** (running `harness-code-review` + pushing mechanical fixes + re-running CI), not the merge (atomic in GitHub). On entering DISPATCH for a PR that needs assist/heal, the orchestrator posts the claim **on the PR itself** (add the `fleet:claimed` label + the claim comment), then **re-reads** — if a competing live claim appeared since SELECT, **yield this PR** (soft reservation) and continue the batch. While the subagent review-assists, the orchestrator **heartbeats** the claim every `HEARTBEAT_SECONDS` so a live-but-slow assist is not mistaken for a dead one. Because the durable-claim backstop cannot be the release trigger, the claim **releases on the review-assist terminal outcome — landed, parked, superseded/closed, or reported not-land-ready** — removing the `fleet:claimed` label (the comment stays as an audit trail). `land-ready` PRs that skip assist take and release the claim trivially. Under `--no-claim` this step is skipped. The record format, TTL/staleness semantics, and the reclaim tiebreak are stated once in the **§Cross-run claim lease** section of `docs/reference/fleet-family.md` — this member references them, it does not restate them.
+
 ### Phase 4: VERIFY — Independent Land-Readiness Confirmation, Never Self-Report
 
 1. **Never accept a subagent's self-report as verification.** "Reviewed, CI green, ready to merge" is a claim to be checked, not a result. For each PR proposed to land, the orchestrator independently confirms the evidence itself.
@@ -124,7 +128,7 @@ The five-phase spine, the concurrency governor, the artifact + all-OS-CI verific
 
 ### Phase 5: LAND + REPORT — Human-Authorized Landing, Superseded Closure, Never Silent-Merge
 
-1. **Land only the approved + verified PRs.** Merge each PR that is both human-approved (CONFIRM) and independently verified (VERIFY), via `gh pr merge` using the repo's configured merge method and honoring branch protection. Land nothing else. If branch protection blocks a merge (e.g. a required human review is still missing), report it as not-landed with the reason — never route around protection.
+1. **Land only the approved + verified PRs.** Merge each PR that is both human-approved (CONFIRM) and independently verified (VERIFY), via `gh pr merge` using the repo's configured merge method and honoring branch protection. Land nothing else. If branch protection blocks a merge (e.g. a required human review is still missing), report it as not-landed with the reason — never route around protection. As each PR reaches its terminal outcome (landed, parked, reported not-land-ready, or closed as superseded), **release its cross-run claim** — remove the `fleet:claimed` label, leaving the claim comment as an audit trail (see §Cross-run claim lease).
 
 2. **Emit a one-row-per-PR batch summary** for the human:
 
@@ -146,6 +150,7 @@ The five-phase spine, the concurrency governor, the artifact + all-OS-CI verific
 - **`harness-code-review`** — The real per-PR review pipeline each assist subagent runs in DISPATCH; the fleet composes it and never reimplements review.
 - **`gh`** — Enumerate open PRs and read CI/review/mergeability signals (SELECT/VERIFY), push assist commits, land approved+verified PRs (`gh pr merge`), and close superseded PRs with citations (LAND).
 - **`docs/reference/fleet-family.md`** — The shared `-fleet` spine this skill builds on (five-phase skeleton, governor, verification discipline, worktree fan-out, never-silent-merge).
+- **§Cross-run claim lease (`docs/reference/fleet-family.md`) + `@harness-engineering/core` (`fleet/claims`)** — The canonical cross-run coordination mechanism this member consumes in SELECT (drop live-leased PRs) and DISPATCH (CLAIM → HEARTBEAT → RELEASE on the PR itself, released at the review-assist terminal outcome — the claim guards the review-assist work, not the atomic merge); the pure primitives live in core, all `gh` I/O in this (agent-executed) skill layer.
 - **`harness skill validate pr-fleet`** — The authoring-time gate for this skill's own structure and schema.
 
 ## Success Criteria
