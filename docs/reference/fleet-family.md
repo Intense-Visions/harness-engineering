@@ -37,6 +37,36 @@ Phase 1: SELECT --> Phase 2: CONFIRM --> Phase 3: DISPATCH
 - **Execution architecture — pilot-scored selection, subagent worktree fan-out.** Reuse `roadmap-pilot`-style impact scoring to pick and order the batch; execute via worktree-isolated subagents that each run the real per-item pipeline. The `Workflow` primitive is named as a future deterministic/resumable upgrade. The canonical statement is **ADR 0087**.
 - **Input contract — propose-and-confirm once.** The fleet enumerates and cross-checks the queue, then presents one ranked batch (already-resolved/superseded items flagged for closure, forks called out, concurrency proposed). The human approves or trims once; it is autonomous from there.
 
+## Item-type routing (build-shaped members)
+
+A build-shaped member (one whose per-item pipeline authors and lands a change — `roadmap-fleet`, `security-fleet`) must route each item to the pipeline its **type** needs, not force every item through one hardcoded chain. A bug does not need a spec, it needs a diagnosis; forcing it through the design-first pipeline gives it ceremony it does not need and then stalls in `harness-autopilot`, which has no `## Implementation Order` to parse. The canonical statement of this routing policy is **ADR 0103** — members reference it rather than restate it.
+
+**Three routes.** The classifier maps each item to exactly one:
+
+| Route          | Item is…                                                          | Pipeline DISPATCH runs                        |
+| -------------- | ----------------------------------------------------------------- | --------------------------------------------- |
+| **bug**        | something broken with a known / investigable root cause (diagnostic) | `harness-debugging`                        |
+| **spec-ready** | already carrying an approved spec (design is settled)             | `harness-autopilot`                           |
+| **feature**    | a new capability needing design, or genuinely ambiguous          | `harness-brainstorming → harness-autopilot`   |
+
+The other two `harness-router` scopes (`quick-fix → tdd`, `guided-change → planning`) are **not** part of the fleet map: they presuppose an interactive human loop the autonomous members do not have.
+
+**Classification — metadata first, rubric fallback (first match wins):**
+
+1. **Explicit metadata** — a GH issue label (`bug`/`defect` → bug; `feature`/`enhancement` → feature) or a roadmap shard's kind/type field.
+2. **Spec presence** — an approved spec already linked (roadmap `spec:` non-null or a `proposal.md`) → **spec-ready**; brainstorming would re-litigate a settled decision.
+3. **Rubric fallback** — apply `harness-router`'s scope rubric by judgment over the item text: diagnostic signals (broken, slow, failing, regression, error, crash) → **bug**; construction signals (build, add, design, new, support for) → **feature**; genuine ambiguity → **feature** (the safe default — brainstorming can still decide an item needs no design, whereas debugging cannot invent one).
+
+**Placement on the spine.** Classify at **SELECT** (attach the `route` and the `routeSignal` that fired to each item record); surface it in the **CONFIRM** batch as an **overridable** decision (a new fork class — the human may re-route any item before fan-out); execute the routed pipeline in **DISPATCH**; and check **route-dependent** artifacts in **VERIFY**:
+
+| Route          | VERIFY artifact                                                                                                    |
+| -------------- | ----------------------------------------------------------------------------------------------------------------- |
+| bug            | committed `provenance.json` with `stages=[debugging]` **and** a committed reproducing test (fails-before/passes-after) — **not** a `plans/` directory |
+| spec-ready     | a `plans/` directory + `provenance.json` whose `stages` include `autopilot`                                        |
+| feature        | a `plans/` directory + `provenance.json` whose `stages` include `brainstorming`, `autopilot`                       |
+
+A route-blind VERIFY that always demanded a `plans/` directory would reject every correctly-debugged item; making it route-aware is what keeps the "no artifact ⇒ hand-patch ⇒ reject" invariant honest across all three routes.
+
 ## The worker handoff record (canonical)
 
 Every member's DISPATCH fans out worktree-isolated **workers** that each complete one item and hand a structured report back to the orchestrator (and, under `fleet-command`, up to the conductor). Historically each member invented its own ad hoc report shape, which forced `fleet-command` to special-case every fleet's worker output. The family standard removes that: **every worker, in every member, emits ONE canonical bounded handoff record**, and the orchestrator (and the conductor) parses any fleet's worker output uniformly.
@@ -91,11 +121,11 @@ The spine above is shared. Each member's own `SKILL.md` defines:
 | `ideate-fleet`   | ideate | strategy themes / opportunity areas             | `harness-ideate`                                                                          | curated ranked shortlist (files nothing)    |
 | `issue-fleet`    | intake | open-issue backlog                              | triage / dedup / cross-check                                                              | ranked, deduped, resolved-closed queue      |
 | `adr-fleet`      | decide | pending architectural decisions                 | `architecture-advisor`                                                                    | batch ADR sign-off                          |
-| `roadmap-fleet`  | build  | backlog (issues + roadmap shards)               | `brainstorming` → `autopilot`                                                             | REPORT (merge-ready PRs; never merges)      |
+| `roadmap-fleet`  | build  | backlog (issues + roadmap shards)               | routed per §Item-type routing (`debugging` · `autopilot` · `brainstorming`→`autopilot`)   | REPORT (merge-ready PRs; never merges)      |
 | `pr-fleet`       | land   | open-PR queue                                   | `code-review` (review-assist)                                                             | LAND (human-authorized) + REPORT            |
 | `cicd-fleet`     | —      | CI/CD-red / flaky-test runs                     | deflake / heal                                                                            | REPORT                                      |
 | `test-fleet`     | —      | test-coverage gaps                              | `test-advisor` → `tdd` / `test-craft`                                                     | test PRs                                    |
-| `security-fleet` | —      | evidence-gated security findings + supply chain | `security-scan` / `supply-chain-audit` / `security-craft` → `brainstorming` → `autopilot` | fix PRs + filed evidence packets            |
+| `security-fleet` | —      | evidence-gated security findings + supply chain | `security-scan` / `supply-chain-audit` / `security-craft` → FIX tier routed per §Item-type routing (`debugging` · `brainstorming`→`autopilot`) | fix PRs + filed evidence packets            |
 | `cleanup-fleet`  | —      | entropy / hotspot backlog                       | `codebase-cleanup` (per-target)                                                           | remediation PRs                             |
 | `bug-fleet`      | —      | latent-defect risk (standing code)              | review machinery → `tdd` (repro) → `debugging` (fix)                                      | tiered: fix PRs + filed issues              |
 | `craft-fleet`    | —      | craft-skill findings (LLM-judgment quality)     | eleven `-craft` skills (critique) → `refactoring` (elevation)                             | tiered: elevation PRs + filed roadmap items |
@@ -125,3 +155,4 @@ The authority model behind those five — coordinator plus global governor, neve
 - **ADR 0089** — The `pr-fleet` land-stage human-merge-gate model.
 - **ADR 0090** — The `adr-fleet` decide-stage batch-sign-off-gate model.
 - **ADR 0091** — The `fleet-command` conductor-tier authority model (coordinator + global governor above the members).
+- **ADR 0103** — Item-type routing for build-shaped members (`roadmap-fleet`, `security-fleet` route bug/spec-ready/feature items to `debugging` / `autopilot` / `brainstorming`→`autopilot`).
