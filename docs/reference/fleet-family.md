@@ -43,11 +43,11 @@ A build-shaped member (one whose per-item pipeline authors and lands a change �
 
 **Three routes.** The classifier maps each item to exactly one:
 
-| Route          | Item is…                                                          | Pipeline DISPATCH runs                        |
-| -------------- | ----------------------------------------------------------------- | --------------------------------------------- |
-| **bug**        | something broken with a known / investigable root cause (diagnostic) | `harness-debugging`                        |
-| **spec-ready** | already carrying an approved spec (design is settled)             | `harness-autopilot`                           |
-| **feature**    | a new capability needing design, or genuinely ambiguous          | `harness-brainstorming → harness-autopilot`   |
+| Route          | Item is…                                                             | Pipeline DISPATCH runs                      |
+| -------------- | -------------------------------------------------------------------- | ------------------------------------------- |
+| **bug**        | something broken with a known / investigable root cause (diagnostic) | `harness-debugging`                         |
+| **spec-ready** | already carrying an approved spec (design is settled)                | `harness-autopilot`                         |
+| **feature**    | a new capability needing design, or genuinely ambiguous              | `harness-brainstorming → harness-autopilot` |
 
 The other two `harness-router` scopes (`quick-fix → tdd`, `guided-change → planning`) are **not** part of the fleet map: they presuppose an interactive human loop the autonomous members do not have.
 
@@ -59,11 +59,11 @@ The other two `harness-router` scopes (`quick-fix → tdd`, `guided-change → p
 
 **Placement on the spine.** Classify at **SELECT** (attach the `route` and the `routeSignal` that fired to each item record); surface it in the **CONFIRM** batch as an **overridable** decision (a new fork class — the human may re-route any item before fan-out); execute the routed pipeline in **DISPATCH**; and check **route-dependent** artifacts in **VERIFY**:
 
-| Route          | VERIFY artifact                                                                                                    |
-| -------------- | ----------------------------------------------------------------------------------------------------------------- |
-| bug            | committed `provenance.json` with `stages=[debugging]` **and** a committed reproducing test (fails-before/passes-after) — **not** a `plans/` directory |
-| spec-ready     | a `plans/` directory + `provenance.json` whose `stages` include `autopilot`                                        |
-| feature        | a `plans/` directory + `provenance.json` whose `stages` include `brainstorming`, `autopilot`                       |
+| Route      | VERIFY artifact                                                                                                                                       |
+| ---------- | ----------------------------------------------------------------------------------------------------------------------------------------------------- |
+| bug        | committed `provenance.json` with `stages=[debugging]` **and** a committed reproducing test (fails-before/passes-after) — **not** a `plans/` directory |
+| spec-ready | a `plans/` directory + `provenance.json` whose `stages` include `autopilot`                                                                           |
+| feature    | a `plans/` directory + `provenance.json` whose `stages` include `brainstorming`, `autopilot`                                                          |
 
 A route-blind VERIFY that always demanded a `plans/` directory would reject every correctly-debugged item; making it route-aware is what keeps the "no artifact ⇒ hand-patch ⇒ reject" invariant honest across all three routes.
 
@@ -116,19 +116,19 @@ The spine above is shared. Each member's own `SKILL.md` defines:
 
 ## Members
 
-| Member           | Stage  | Queue                                           | Per-item pipeline                                                                         | Terminal act                                |
-| ---------------- | ------ | ----------------------------------------------- | ----------------------------------------------------------------------------------------- | ------------------------------------------- |
-| `ideate-fleet`   | ideate | strategy themes / opportunity areas             | `harness-ideate`                                                                          | curated ranked shortlist (files nothing)    |
-| `issue-fleet`    | intake | open-issue backlog                              | triage / dedup / cross-check                                                              | ranked, deduped, resolved-closed queue      |
-| `adr-fleet`      | decide | pending architectural decisions                 | `architecture-advisor`                                                                    | batch ADR sign-off                          |
-| `roadmap-fleet`  | build  | backlog (issues + roadmap shards)               | routed per §Item-type routing (`debugging` · `autopilot` · `brainstorming`→`autopilot`)   | REPORT (merge-ready PRs; never merges)      |
-| `pr-fleet`       | land   | open-PR queue                                   | `code-review` (review-assist)                                                             | LAND (human-authorized) + REPORT            |
-| `cicd-fleet`     | —      | CI/CD-red / flaky-test runs                     | deflake / heal                                                                            | REPORT                                      |
-| `test-fleet`     | —      | test-coverage gaps                              | `test-advisor` → `tdd` / `test-craft`                                                     | test PRs                                    |
+| Member           | Stage  | Queue                                           | Per-item pipeline                                                                                                                              | Terminal act                                |
+| ---------------- | ------ | ----------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------- |
+| `ideate-fleet`   | ideate | strategy themes / opportunity areas             | `harness-ideate`                                                                                                                               | curated ranked shortlist (files nothing)    |
+| `issue-fleet`    | intake | open-issue backlog                              | triage / dedup / cross-check                                                                                                                   | ranked, deduped, resolved-closed queue      |
+| `adr-fleet`      | decide | pending architectural decisions                 | `architecture-advisor`                                                                                                                         | batch ADR sign-off                          |
+| `roadmap-fleet`  | build  | backlog (issues + roadmap shards)               | routed per §Item-type routing (`debugging` · `autopilot` · `brainstorming`→`autopilot`)                                                        | REPORT (merge-ready PRs; never merges)      |
+| `pr-fleet`       | land   | open-PR queue                                   | `code-review` (review-assist)                                                                                                                  | LAND (human-authorized) + REPORT            |
+| `cicd-fleet`     | —      | CI/CD-red / flaky-test runs                     | deflake / heal                                                                                                                                 | REPORT                                      |
+| `test-fleet`     | —      | test-coverage gaps                              | `test-advisor` → `tdd` / `test-craft`                                                                                                          | test PRs                                    |
 | `security-fleet` | —      | evidence-gated security findings + supply chain | `security-scan` / `supply-chain-audit` / `security-craft` → FIX tier routed per §Item-type routing (`debugging` · `brainstorming`→`autopilot`) | fix PRs + filed evidence packets            |
-| `cleanup-fleet`  | —      | entropy / hotspot backlog                       | `codebase-cleanup` (per-target)                                                           | remediation PRs                             |
-| `bug-fleet`      | —      | latent-defect risk (standing code)              | review machinery → `tdd` (repro) → `debugging` (fix)                                      | tiered: fix PRs + filed issues              |
-| `craft-fleet`    | —      | craft-skill findings (LLM-judgment quality)     | eleven `-craft` skills (critique) → `refactoring` (elevation)                             | tiered: elevation PRs + filed roadmap items |
+| `cleanup-fleet`  | —      | entropy / hotspot backlog                       | `codebase-cleanup` (per-target)                                                                                                                | remediation PRs                             |
+| `bug-fleet`      | —      | latent-defect risk (standing code)              | review machinery → `tdd` (repro) → `debugging` (fix)                                                                                           | tiered: fix PRs + filed issues              |
+| `craft-fleet`    | —      | craft-skill findings (LLM-judgment quality)     | eleven `-craft` skills (critique) → `refactoring` (elevation)                                                                                  | tiered: elevation PRs + filed roadmap items |
 
 ## The conductor tier
 
