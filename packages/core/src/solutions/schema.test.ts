@@ -24,6 +24,25 @@ describe('SolutionDocFrontmatterSchema', () => {
     expect(SolutionDocFrontmatterSchema.parse(valid)).toEqual(valid);
   });
 
+  it('accepts frontmatter without the optional enforces field (fill-forward)', () => {
+    const parsed = SolutionDocFrontmatterSchema.parse(validBug);
+    expect(parsed).not.toHaveProperty('enforces');
+  });
+
+  it('accepts frontmatter with an enforces provenance list (ADR 0100)', () => {
+    const withEnforces = {
+      ...validBug,
+      enforces: ['STRENGTH-002', 'arch:no-cross-package-import'],
+    };
+    expect(SolutionDocFrontmatterSchema.parse(withEnforces)).toEqual(withEnforces);
+  });
+
+  it('rejects a non-string-array enforces field', () => {
+    expect(() =>
+      SolutionDocFrontmatterSchema.parse({ ...validBug, enforces: 'STRENGTH-002' })
+    ).toThrow();
+  });
+
   it('rejects unknown category', () => {
     expect(() =>
       SolutionDocFrontmatterSchema.parse({ ...validBug, category: 'unicorn-bugs' })

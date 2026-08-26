@@ -34,4 +34,11 @@ export interface SolutionDocFrontmatter {
   last_updated: string; // ISO date YYYY-MM-DD
   track: SolutionTrack;
   category: SolutionCategory;
+  /**
+   * Optional rule-to-failure provenance (ADR 0100). Rule identifiers this
+   * solution produced or hardened — e.g. `STRENGTH-002`, `arch:no-cross-package-import`.
+   * Additive and advisory: absent on legacy docs, populated fill-forward by
+   * `harness-compound` when a fix lands an enforcement change. Never gates.
+   */
+  enforces?: string[] | undefined;
 }
