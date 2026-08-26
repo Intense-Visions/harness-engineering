@@ -90,6 +90,29 @@ This record is modeled on a Ralph-loop bounded structured report (the normalized
 
 Cap concurrent subagents at **2 (default), max ~3**. Beyond roughly three concurrent build/assist agents the compound load produces flaky failures indistinguishable from real ones; a stormed batch is slower once re-runs are counted. Never raise the cap to "go faster."
 
+## Cross-run claim lease (ID-based members)
+
+The concurrency governor above bounds a single _invocation_. It says nothing about a **second run on another clone** enumerating the same backlog at the same time — the family's one un-covered collision. The **cross-run claim lease** closes exactly the `SELECT → PR-open` window for the ID-based members (`roadmap-fleet`, `issue-fleet`, `pr-fleet`), whose items already carry a GitHub-native id at SELECT. It is **advisory** — best-effort backlog auto-partitioning, never an exactly-once mutex; that trade-off (soft reservation over a true-CAS git-ref lock) is deliberate and is recorded in the family claim-lease ADR authored in Phase 4.
+
+**The claim record.** A claim is one GitHub issue/PR comment: an HTML marker line `<!-- harness-fleet-claim -->` followed by a fenced JSON block carrying `{ v, owner, runId, fleet, item, claimedAt, leaseSeconds }`. The shape is the `FleetClaim` type in `@harness-engineering/types`; the pure render/parse/TTL primitives — `buildClaimBody`, `parseClaimComment`, `isLeaseLive`, plus `CLAIM_LABEL` (`fleet:claimed`), `DEFAULT_LEASE_SECONDS` (720), `HEARTBEAT_SECONDS` (240) — live in `@harness-engineering/core` (`fleet/claims`). All `gh` I/O stays in the member's orchestration layer; the core module is pure and offline.
+
+**Lifecycle — SELECT → CLAIM → HEARTBEAT → RELEASE.**
+
+| Step      | What the member does                                                                                                                                                                                                                                                                                                                              |
+| --------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| SELECT    | Enumerate candidates as today, plus fetch `--label fleet:claimed` items and their claim comments (piggybacks the existing enumeration — no extra `gh pr list`). Drop an item with an **open PR** (`in-progress-elsewhere`, the existing drop) **or** a **live lease written by another run** (`claimed-elsewhere`). A **stale** lease is ignored. |
+| CLAIM     | On entering DISPATCH for an item, add the `fleet:claimed` label and post the claim comment. Re-read first: if a competing live claim appeared since SELECT, **yield the item** (soft reservation — skip and move on).                                                                                                                             |
+| HEARTBEAT | While the worker builds, edit the claim comment every `HEARTBEAT_SECONDS`, bumping the server `updated_at` and extending the lease.                                                                                                                                                                                                               |
+| RELEASE   | On PR-open, remove the `fleet:claimed` label (the comment stays as an audit trail). The **open PR is now the durable claim** and backstops the item via the existing open-PR drop.                                                                                                                                                                |
+
+**Staleness = the server clock, not the writer's.** A lease is live while `serverUpdatedAt + leaseSeconds > now`, computed from the GitHub-server `updated_at` of the claim comment — never the writer-stamped `claimedAt`. This defeats cross-machine clock skew and lets a crashed run's lease self-heal: no heartbeat ⇒ the lease lapses at `updated_at + leaseSeconds` ⇒ the next run's SELECT reclaims it. A terminal non-`done` outcome with no PR also releases the label so the item is not stranded.
+
+**Soft reservation, not a mutex.** Contention skips and moves on rather than blocking — concurrency becomes backlog auto-partitioning (the front-load / park-and-continue model, ADR 0088). **Reclaim tiebreak:** reclaiming a stale lease appends a _fresh_ claim comment; if two runs reclaim at once the earliest server-stamped comment wins, and the loser detects a competing live claim (runId mismatch) on its first heartbeat re-read and yields. Residual double-work is bounded to that sub-second race — by design never worse than today's uncoordinated behavior.
+
+**Graceful degradation.** If `gh` auth is absent the member cannot scan the claim label; it **degrades to the open-PR cross-check only** and logs the degradation — it never aborts (matching each member's existing "missing `gh` auth degrades to the available source" posture). An escape hatch `--no-claim` disables the mechanism entirely; `--lease-seconds <n>` overrides the TTL.
+
+Each ID-based member's `SKILL.md` **references this section** from its SELECT and DISPATCH steps rather than restating the mechanism.
+
 ## The worktree push-path caveat
 
 A worktree created under a `.claude/`-nested path breaks the local pre-push `check-docs` gate (it self-excludes and scans zero files). Subagents push via the GitHub API or from a non-`.claude` throwaway worktree. **Never `--no-verify`** — bypassing the gate defeats the verification the fleet depends on.
