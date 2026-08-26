@@ -309,7 +309,7 @@ npx prettier --check "$F"
    1. **Pipeline artifact** — a plan directory under `docs/changes/<slug>/plans/` and an autopilot-state exist on the branch.
    2. **Evidence cleared** — the original evidence **no longer reproduces**: the sink is unreachable / the advisory is clear / the boundary control is present. This is the security analogue of a coverage delta.
    3. **No new finding** — a re-scan of the branch is **not worse than the base**. A fix that clears its own evidence but introduces a new weakness is **rejected, not reported as merge-ready**.
-   4. **All-OS CI green** — all operating systems plus the enforce and harness checks, with the **full** test suite passing. Green on one OS is not green.
+   4. **All-OS CI green** — all operating systems plus the project's required checks, with the **full** test suite passing. Green on one OS is not green.
 
    Then the FILE-tier verification: the issue exists, carries a **named evidence class with its trace**, and is not a duplicate of an existing open item. Close with the classification: `verified` / `rejected` / `retry` (at most one retry).
 

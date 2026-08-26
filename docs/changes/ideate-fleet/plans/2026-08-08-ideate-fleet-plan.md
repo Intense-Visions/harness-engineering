@@ -217,4 +217,4 @@ At least eight rationalizations, the strongest being "these ideas are good, file
 1. `git push -u origin feat/ideate-fleet` — the full `.husky/pre-push` gate must pass. **Never `--no-verify`.** If it blocks, fix the cause.
 2. Revert any hook-auto-mutated baselines (`coverage-baselines.json`, `benchmark-baselines.json`, `packages/cli/.harness/arch/baselines.json`) with `git checkout --` so they do not pollute the PR.
 3. Open the PR against `main` with an **"Assumptions made"** section listing every `[ASSUMPTION]` and `[DECISION]` above, and referencing the tracking issue with `Refs` (not `Closes`).
-4. **Do not merge.** Confirm CI is green across all three operating systems before handing back.
+4. **Do not merge.** Confirm CI is green across all target operating systems before handing back.

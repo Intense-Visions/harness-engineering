@@ -117,7 +117,7 @@ Mirrors the spec's 4-phase Implementation Order, bracketed by foundation and reg
 
 **Depends on:** Task 6 | **Files:** `agents/skills/claude-code/adr-fleet/SKILL.md`
 
-1. Write `### Phase 4: VERIFY` prose: for each returned drafted ADR, independently confirm — never by subagent self-report — that a well-formed ADR file exists on the branch (required frontmatter with a unique sequential number and `status: proposed`, plus `## Context` / `## Decision` / `## Consequences`), and that the pushed branch's CI is green on all three OS plus the enforce and harness checks. A missing/malformed draft means the advisor pipeline did not run as required → reject or retry (at most once), never sign-off-ready. Classify each as `sign-off-ready` / `not-ready` / `retry`.
+1. Write `### Phase 4: VERIFY` prose: for each returned drafted ADR, independently confirm — never by subagent self-report — that a well-formed ADR file exists on the branch (required frontmatter with a unique sequential number and `status: proposed`, plus `## Context` / `## Decision` / `## Consequences`), and that the pushed branch's CI is green on all three OS plus the project's required checks. A missing/malformed draft means the advisor pipeline did not run as required → reject or retry (at most once), never sign-off-ready. Classify each as `sign-off-ready` / `not-ready` / `retry`.
 2. **Acceptance gate:** `harness skill validate adr-fleet` shows the VERIFY phase present; prose states independent artifact check (frontmatter + sections + `status: proposed`) + all-OS CI, and the never-self-report rule. No internal numbers.
 3. Commit: `feat(adr-fleet): Phase 4 VERIFY`
 
