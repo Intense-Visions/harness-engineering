@@ -14,6 +14,13 @@ import {
   AgentError,
   McpServerSpec,
 } from '@harness-engineering/types';
+import type {
+  PolicyMetadata,
+  PolicySandboxMode,
+  PolicyNetworkMode,
+} from '@harness-engineering/types';
+import { buildSubprocessEnv } from '../subprocess-env.js';
+import type { PolicyAuditSink } from './claude.js';
 
 /**
  * Extract the assistant's final text from a parsed codex `--json` line, across
@@ -103,6 +110,35 @@ export interface CodexBackendOptions {
    * navigate. Absent/empty ⇒ codex runs with only its built-in tools.
    */
   mcpServers?: McpServerSpec[];
+  /**
+   * Process-isolation posture recorded in the governance audit envelope. DERIVED
+   * by the orchestrator from the dispatch's sandbox policy (a docker wrap ⇒
+   * `'docker'`). Describes the isolation AROUND the subprocess, not codex's own
+   * `--sandbox workspace-write` file guard. Default `'none'`.
+   */
+  sandboxMode?: PolicySandboxMode;
+  /** Network egress posture recorded in the audit envelope. Default `'unrestricted'`. */
+  networkMode?: PolicyNetworkMode;
+  /** Best-effort codex CLI version stamped into the audit envelope. Default `'unknown'`. */
+  agentVersion?: string;
+  /**
+   * Governance audit sink invoked once per spawn with the resolved
+   * {@link PolicyMetadata} plus the NAMES (never values) of parent-env vars
+   * withheld by the subprocess air-gap. The orchestrator wires this to
+   * `.harness/audit.log`. Best-effort: a sink fault never blocks the spawn.
+   */
+  policyAudit?: PolicyAuditSink;
+  /**
+   * Extra exact env var names to forward through the subprocess air-gap, merged
+   * with the built-in allowlist (see subprocess-env.ts). For a flow that needs a
+   * var the conservative default withholds.
+   */
+  subprocessEnvAllow?: readonly string[];
+  /**
+   * Env the air-gap filters (defaults to `process.env`). Injected in tests to
+   * prove filtering without depending on the ambient process environment.
+   */
+  envSource?: NodeJS.ProcessEnv;
 }
 
 const DEFAULT_TIMEOUT_MS = 30 * 60_000;
@@ -150,6 +186,12 @@ export class CodexBackend implements AgentBackend {
   private timeoutMs: number;
   private mcpServers: McpServerSpec[];
   private reasoningEffort?: 'none' | 'low' | 'medium' | 'high';
+  private sandboxMode: PolicySandboxMode;
+  private networkMode: PolicyNetworkMode;
+  private agentVersion: string;
+  private policyAudit?: PolicyAuditSink;
+  private subprocessEnvAllow?: readonly string[];
+  private envSource: NodeJS.ProcessEnv;
   /**
    * Live codex subprocess per active session, so {@link stopSession} can kill it
    * when the workflow aborts a stage (its wall-clock deadline). Without this, the
@@ -170,6 +212,12 @@ export class CodexBackend implements AgentBackend {
     this.timeoutMs = options.timeoutMs ?? DEFAULT_TIMEOUT_MS;
     this.mcpServers = options.mcpServers ?? [];
     if (options.reasoningEffort !== undefined) this.reasoningEffort = options.reasoningEffort;
+    this.sandboxMode = options.sandboxMode ?? 'none';
+    this.networkMode = options.networkMode ?? 'unrestricted';
+    this.agentVersion = options.agentVersion ?? 'unknown';
+    if (options.policyAudit) this.policyAudit = options.policyAudit;
+    if (options.subprocessEnvAllow) this.subprocessEnvAllow = options.subprocessEnvAllow;
+    this.envSource = options.envSource ?? process.env;
   }
 
   private resolveModel(): string | undefined {
@@ -236,9 +284,45 @@ export class CodexBackend implements AgentBackend {
       params.prompt,
     ];
 
+    // Subprocess air-gap: hand codex an ALLOWLISTED env instead of the full parent
+    // `process.env`, so unrelated host secrets never leak into the spawned CLI.
+    // Provider creds / HARNESS_* / runtime plumbing still pass through — see
+    // subprocess-env.ts. Stripping is unconditional; the audit sink is optional.
+    // Mirrors the claude backend (claude.ts) — closes the codex leak (#1158).
+    const { env, stripped, enforced } = buildSubprocessEnv(
+      this.envSource,
+      this.subprocessEnvAllow ? { extraAllow: this.subprocessEnvAllow } : {}
+    );
+
+    // Stamp the per-call policy envelope into the governance audit trail. `codex
+    // exec` runs approval-free (`approval: never`) under `--sandbox workspace-write`,
+    // so both are recorded as the governance-relevant flags. Best-effort: never let
+    // an audit fault block the spawn.
+    if (this.policyAudit) {
+      const policy: PolicyMetadata = {
+        approvalMode: 'bypass',
+        sandboxMode: this.sandboxMode,
+        networkMode: this.networkMode,
+        dangerousFlags: ['--sandbox=workspace-write'],
+        agentFamily: 'codex',
+        agentVersion: this.agentVersion,
+      };
+      try {
+        this.policyAudit({
+          sessionId: session.sessionId,
+          workspacePath: session.workspacePath,
+          policy,
+          strippedEnvKeys: stripped,
+          enforced,
+        });
+      } catch {
+        // Audit is advisory; a sink fault must not stop the agent.
+      }
+    }
+
     const child = spawn(this.command, args, {
       cwd: session.workspacePath,
-      env: process.env,
+      env,
       // stdin from /dev/null: codex exec otherwise blocks reading additional input.
       stdio: ['ignore', 'pipe', 'pipe'],
       // Own process GROUP (POSIX) so a kill can take down codex AND any grandchild
