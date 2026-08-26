@@ -63,6 +63,40 @@ describe('classifyClaim — precedence', () => {
   });
 });
 
+describe('classifyClaim — pr-fleet safe usage (hasOpenPr contract)', () => {
+  // Every pr-fleet item IS itself an open PR. The contract is that hasOpenPr
+  // means "a DISTINCT open PR resolves this item" — so pr-fleet passes false
+  // and its candidates must NOT be dropped as in-progress-elsewhere.
+  it('does NOT drop a pr-fleet item (its own PR, hasOpenPr:false, no lease)', () => {
+    const prItem = ctx({ item: '#2001', hasOpenPr: false, claimComment: null });
+    expect(classifyClaim(prItem, { now: NOW, myRunId: 'pf-AAA' })).toEqual({
+      item: '#2001',
+      drop: false,
+      reason: null,
+    });
+  });
+
+  it('keeps an entire pr-fleet batch (all its own PRs, hasOpenPr:false)', () => {
+    const batch = [
+      ctx({ item: '#2001', hasOpenPr: false, claimComment: null }),
+      ctx({ item: '#2002', hasOpenPr: false, claimComment: null }),
+      ctx({ item: '#2003', hasOpenPr: false, claimComment: null }),
+    ];
+    const kept = selectUnclaimed(batch, { now: NOW, myRunId: 'pf-AAA' }).map((i) => i.item);
+    expect(kept).toEqual(['#2001', '#2002', '#2003']); // none dropped
+  });
+
+  it('still drops a pr-fleet item another run holds a LIVE lease on (lease path)', () => {
+    // pr-fleet dedup rides the lease path, never the open-PR path.
+    const leased = ctx({ item: '#2004', hasOpenPr: false });
+    expect(classifyClaim(leased, { now: NOW, myRunId: 'pf-BBB' })).toEqual({
+      item: '#2004',
+      drop: true,
+      reason: 'claimed-elsewhere',
+    });
+  });
+});
+
 describe('classifyClaim — degradation (SC4)', () => {
   it('ignores the lease path when the claim-scan is unavailable', () => {
     // live lease present, but scan unavailable → only the open-PR path is consulted

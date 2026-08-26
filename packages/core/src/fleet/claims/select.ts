@@ -20,7 +20,16 @@ export type DropClassification = 'in-progress-elsewhere' | 'claimed-elsewhere';
 export interface ItemClaimContext {
   /** Item identifier (issue/PR number, e.g. '#1490'). */
   item: string;
-  /** True if the existing merged/open-PR cross-check found an open PR. */
+  /**
+   * True iff a **DISTINCT** open PR already resolves this candidate — the
+   * durable "in-progress-elsewhere" drop (D6 / SC3). This is NOT "is this item
+   * itself a PR".
+   *
+   * ⚠️ pr-fleet contract: every pr-fleet item IS itself an open PR, so pr-fleet
+   * MUST pass `hasOpenPr: false` (the PR being landed is not a distinct PR that
+   * resolves it). Setting it true would drop the entire pr-fleet batch as
+   * "in-progress-elsewhere". pr-fleet dedups via the lease path only.
+   */
   hasOpenPr: boolean;
   /**
    * The `fleet:claimed` claim comment body + its GitHub-server `updated_at`,
@@ -56,6 +65,10 @@ export interface ItemDecision {
  *      reservation). A stale lease, our own claim, a foreign/unparseable
  *      comment, or (SC4) an unavailable claim-scan are all ignored → keep.
  * Pure and non-throwing.
+ *
+ * ⚠️ `ctx.hasOpenPr` means "a DISTINCT open PR resolves this item", not "this
+ * item is a PR". pr-fleet (whose items ARE open PRs) MUST pass `false` or it
+ * drops its own batch — see {@link ItemClaimContext.hasOpenPr}.
  */
 export function classifyClaim(ctx: ItemClaimContext, opts: SelectOptions): ItemDecision {
   if (ctx.hasOpenPr) {
