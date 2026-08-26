@@ -4,6 +4,7 @@ export type {
   GraphEdge,
   NodeType,
   EdgeType,
+  StalenessInfo,
   SourceLocation,
   ContextQLParams,
   ContextQLResult,

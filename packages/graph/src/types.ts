@@ -114,6 +114,28 @@ export interface SourceLocation {
   readonly endColumn?: number;
 }
 
+// --- Staleness ---
+
+/**
+ * Deletion-based staleness marker for knowledge nodes (learning / execution_outcome).
+ *
+ * Trips when a source file the node cites no longer exists on disk — a ported slice
+ * of Graphify's reflection loop (ADR 0104). Computed by
+ * `flagStaleLearningNodes` in @harness-engineering/core (which reuses the existing
+ * `detectStaleLearnings` path) and surfaced through NLQ. Move/rename detection is a
+ * deliberate non-goal here; only deletion is detected.
+ */
+export interface StalenessInfo {
+  /** True when at least one cited source file is missing. */
+  readonly isStale: boolean;
+  /** Why the node is stale. Only deletion is detected in this slice. */
+  readonly reason: 'referenced-file-missing';
+  /** The cited file references that no longer exist on disk. */
+  readonly missingReferences: readonly string[];
+  /** ISO timestamp of when staleness was last computed. */
+  readonly detectedAt: string;
+}
+
 // --- Graph Node ---
 
 export interface GraphNode {
@@ -127,6 +149,12 @@ export interface GraphNode {
   readonly metadata: Record<string, unknown>;
   readonly embedding?: readonly number[];
   readonly lastModified?: string; // ISO timestamp
+  /**
+   * Deletion-based staleness marker. Present only on knowledge nodes that have been
+   * evaluated (learning / execution_outcome); absent on everything else and on
+   * graphs written before this field existed (back-compat).
+   */
+  readonly staleness?: StalenessInfo;
 }
 
 // --- Graph Edge ---
@@ -253,6 +281,14 @@ export const GraphNodeSchema = z.object({
   metadata: z.record(z.unknown()),
   embedding: z.array(z.number()).optional(),
   lastModified: z.string().optional(),
+  staleness: z
+    .object({
+      isStale: z.boolean(),
+      reason: z.literal('referenced-file-missing'),
+      missingReferences: z.array(z.string()),
+      detectedAt: z.string(),
+    })
+    .optional(),
 });
 
 export const GraphEdgeSchema = z.object({

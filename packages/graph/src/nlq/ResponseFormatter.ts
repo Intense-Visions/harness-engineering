@@ -1,4 +1,4 @@
-import type { Intent, ResolvedEntity } from './types.js';
+import type { Intent, ResolvedEntity, StalenessQueryResult } from './types.js';
 
 /**
  * Template-based response formatter that generates human-readable summaries
@@ -38,9 +38,30 @@ export class ResponseFormatter {
         return this.formatExplain(entityName, entities, data);
       case 'anomaly':
         return this.formatAnomaly(data);
+      case 'staleness':
+        return this.formatStaleness(data);
       default:
         return `Processed results for "${entityName}".`;
     }
+  }
+
+  private formatStaleness(data: unknown): string {
+    const d = data as Partial<StalenessQueryResult> | null;
+    const stale = Array.isArray(d?.stale) ? d.stale : [];
+
+    if (stale.length === 0) {
+      return 'Found 0 stale learnings — no learning cites a deleted source file.';
+    }
+
+    const top = stale
+      .slice(0, 3)
+      .map((s) => {
+        const refs = s.missingReferences.slice(0, 2).join(', ');
+        return refs ? `${s.nodeId} (missing: ${refs})` : s.nodeId;
+      })
+      .join('; ');
+
+    return `Found ${this.p(stale.length, 'stale learning', 'stale learnings')} whose cited source files no longer exist — re-verify: ${top}.`;
   }
 
   private formatImpact(entityName: string, data: unknown): string {

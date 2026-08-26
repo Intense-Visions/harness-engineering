@@ -1,0 +1,14 @@
+{
+  "issues": [1514],
+  "stages": ["brainstorming", "planning", "execution", "review"],
+  "planArtifact": "docs/changes/learning-staleness-1514/plans/plan.md",
+  "closingKeyword": "Closes #1514",
+  "assumptions": [
+    "reused detectStaleLearnings; deletion-based only; move/rename detection deferred",
+    "Architecture: @harness-engineering/core depends on graph (not the reverse), so the staleness computation stays in core and the node data field + NLQ surface live in graph; core imports graph to stamp the flag.",
+    "Node surface: added an optional StalenessInfo field `staleness` to GraphNode + GraphNodeSchema in packages/graph/src/types.ts (back-compat, .optional()); nodes serialize the extra field via the existing NDJSON serializer.",
+    "NLQ surface: added a new `staleness` intent to packages/graph/src/nlq (IntentClassifier signals + executeStaleness in index.ts + ResponseFormatter), so `askGraph(store, \"which learnings are stale?\")` reports learning/execution_outcome nodes whose staleness.isStale is true.",
+    "Stamping: core/src/state/graph-staleness.ts flagStaleLearningNodes(store, projectPath) runs detectStaleLearnings, unions its missing references, and stamps staleness onto learning + execution_outcome nodes referencing a missing file (via extractFileReferences, the same primitive detectStaleLearnings uses); wired into the real `harness graph scan` flow (packages/cli/src/commands/graph/scan.ts).",
+    "Integration test drives the outer NLQ surface: ingest a learning citing a deleted file, run flagStaleLearningNodes, then askGraph and assert the stale learning surfaces end-to-end."
+  ]
+}

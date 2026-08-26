@@ -108,6 +108,18 @@ const INTENT_SIGNALS: Readonly<Record<Intent, SignalSet>> = {
       /hotspot/,
     ],
   },
+  staleness: {
+    keywords: ['stale', 'staleness', 'outdated', 'reverify'],
+    questionWords: ['which', 'what'],
+    verbPatterns: [
+      /\bstale\b/,
+      /\boutdated\b/,
+      /re-?verif/,
+      /which.*learnings?/,
+      /learnings?.*(stale|outdated|re-?verif)/,
+      /code\s+changed/,
+    ],
+  },
 } as const;
 
 /**

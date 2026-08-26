@@ -67,6 +67,12 @@ export { detectStaleLearnings } from './learnings-staleness';
 export type { StalenessReport, StalenessEntry } from './learnings-staleness';
 
 /**
+ * Bridges deletion-based learning staleness onto knowledge-graph nodes (#1514).
+ */
+export { flagStaleLearningNodes } from './graph-staleness';
+export type { GraphStalenessResult, FlagStaleLearningNodesOptions } from './graph-staleness';
+
+/**
  * Failure tracking, loading, and archival.
  */
 export { clearFailuresCache, appendFailure, loadFailures, archiveFailures } from './failures';

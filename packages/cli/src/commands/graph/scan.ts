@@ -28,6 +28,11 @@ export async function runScan(
   const knowledgeIngestor = new KnowledgeIngestor(store);
   await knowledgeIngestor.ingestAll(projectPath);
 
+  // Flag deletion-based staleness on learning / execution_outcome nodes so NLQ can
+  // surface learnings whose cited source files no longer exist (#1514, ADR 0104).
+  const { flagStaleLearningNodes } = await import('@harness-engineering/core');
+  await flagStaleLearningNodes(store, projectPath);
+
   // Requirement ingestion (spec traceability)
   const specsDir = path.join(projectPath, 'docs', 'changes');
   await new RequirementIngestor(store).ingestSpecs(specsDir);

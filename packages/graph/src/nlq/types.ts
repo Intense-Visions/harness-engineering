@@ -1,10 +1,17 @@
-import type { GraphNode } from '../types.js';
+import type { GraphNode, NodeType } from '../types.js';
 
 /**
  * All supported intent categories for natural language graph queries.
  * Runtime-accessible array mirroring NODE_TYPES / EDGE_TYPES pattern.
  */
-export const INTENTS = ['impact', 'find', 'relationships', 'explain', 'anomaly'] as const;
+export const INTENTS = [
+  'impact',
+  'find',
+  'relationships',
+  'explain',
+  'anomaly',
+  'staleness',
+] as const;
 
 /**
  * Intent categories for natural language graph queries.
@@ -29,6 +36,27 @@ export interface ResolvedEntity {
   readonly node: GraphNode;
   readonly confidence: number; // 0-1
   readonly method: 'exact' | 'fusion' | 'path'; // which cascade step matched
+}
+
+/**
+ * One stale knowledge node in a `staleness` query result.
+ */
+export interface StaleNodeSummary {
+  readonly nodeId: string;
+  readonly type: NodeType;
+  readonly name: string;
+  readonly missingReferences: readonly string[];
+  readonly detectedAt: string;
+}
+
+/**
+ * Result of a `staleness` intent query: the flagged nodes plus how many carried an
+ * evaluated staleness marker (so an empty result can distinguish "none stale" from
+ * "never evaluated").
+ */
+export interface StalenessQueryResult {
+  readonly stale: readonly StaleNodeSummary[];
+  readonly evaluated: number;
 }
 
 /**
