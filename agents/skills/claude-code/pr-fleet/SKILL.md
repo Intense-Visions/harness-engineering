@@ -50,7 +50,7 @@ The five-phase spine, the concurrency governor, the artifact + all-OS-CI verific
 
 ### Phase 1: SELECT — Enumerate, Triage, Cross-Check, Order
 
-1. **Enumerate the open-PR queue.** List open PRs via `gh pr list --state open`. Missing `gh` auth degrades to reporting the gap rather than aborting — with no queue access there is nothing to land.
+1. **Enumerate the open-PR queue.** List open PRs via `gh pr list --state open`. Missing `gh` auth degrades to reporting the gap rather than aborting — with no queue access there is nothing to land. Additionally fetch PRs carrying the `fleet:claimed` label and their claim comments (piggybacks the same enumeration). A PR carrying a **live claim lease written by another run** — meaning another run is already review-assisting it — is dropped as **claimed-elsewhere** (a soft reservation); a **stale** lease is ignored and the PR stays landable. The claim record, staleness (server `updated_at`), and reclaim tiebreak are defined once in the **§Cross-run claim lease** section of `docs/reference/fleet-family.md` — do not restate them here. **Degradation note:** because every pr-fleet item is itself an open PR, the spine's "open PR is the durable claim" backstop does not distinguish concurrent runs; if the `fleet:claimed` scan is unavailable (or under `--no-claim`), pr-fleet has **no** cross-run review-assist dedup and behaves as today — log the degradation, never abort.
 
 2. **Triage each PR into the land-readiness taxonomy.** Compute each PR's bucket from `gh pr view` / `gh pr checks` mergeability, CI, and review signals:
    - **land-ready** — CI green on all OS, review clean/approved, mergeable, no conflicts.
@@ -74,6 +74,7 @@ The five-phase spine, the concurrency governor, the artifact + all-OS-CI verific
      title,
      author,
      bucket,            // "land-ready" | "needs-review-assist" | "needs-heal" | "blocked" | "superseded" | "stale"
+     claimedElsewhere,  // true when another run holds a live claim lease on this PR (§Cross-run claim lease); dropped from the batch
      ciStatus,          // per-OS CI signal
      reviewVerdict,     // present | absent | findings-open
      mergeable,         // boolean (no conflicts, base current)
