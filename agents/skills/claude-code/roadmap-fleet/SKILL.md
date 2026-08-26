@@ -17,11 +17,13 @@ Building a backlog through the harness pipeline one item at a time is an attenti
 
 ## Flags
 
-| Flag            | Effect                                                                                  |
-| --------------- | --------------------------------------------------------------------------------------- |
-| `--concurrency` | Cap concurrent build subagents (default 2, max recommended 3 — the machine-storm limit) |
-| `--report-only` | Enumerate, score, and present the ranked batch; do not dispatch, verify, or report PRs  |
-| `--dry-run`     | Run SELECT and CONFIRM only; stop before fan-out                                        |
+| Flag              | Effect                                                                                                                |
+| ----------------- | --------------------------------------------------------------------------------------------------------------------- |
+| `--concurrency`   | Cap concurrent build subagents (default 2, max recommended 3 — the machine-storm limit)                               |
+| `--report-only`   | Enumerate, score, and present the ranked batch; do not dispatch, verify, or report PRs                                |
+| `--dry-run`       | Run SELECT and CONFIRM only; stop before fan-out                                                                      |
+| `--lease-seconds` | Override the cross-run claim-lease TTL (default 720s); see §Cross-run claim lease in `docs/reference/fleet-family.md` |
+| `--no-claim`      | Disable the cross-run claim lease entirely — fall back to open-PR-cross-check-only coordination                       |
 
 ## Process
 
@@ -126,6 +128,8 @@ Phase 1: SELECT --> Phase 2: CONFIRM --> Phase 3: DISPATCH
 
 **Worker handoff — return the canonical `FleetHandoffRecord`.** When a worker finishes its item it hands the orchestrator exactly one `FleetHandoffRecord` (from `@harness-engineering/types`) — the ONE bounded envelope every `-fleet` member emits, so `fleet-command` parses any fleet's worker output uniformly instead of special-casing an ad hoc per-worker report shape. The record carries `status` (`done | parked | blocked | failed`), `fleet`, `item`, a one-line `summary`, an `evidence[]` of verifiable pointers (branch, PR, artifact path, CI check — exactly the references VERIFY re-checks), `next_steps[]`, and, for any non-`done` status, a `blocker`. The orchestrator validates it with `validateFleetHandoffRecord`; a malformed or unknown-keyed record is rejected, never silently misread. See the canonical handoff record in `docs/reference/fleet-family.md`.
 
+**Claim the item before building — cross-run claim lease (CLAIM → HEARTBEAT → RELEASE).** On entering DISPATCH for an item, the orchestrator takes the item's cross-run claim so a concurrent run on another clone auto-partitions around it: add the `fleet:claimed` label and post the claim comment, then **re-read** — if a competing live claim appeared since SELECT, **yield this item** (soft reservation) and continue the batch. While the worker builds, the orchestrator **heartbeats** the claim (edits the comment every `HEARTBEAT_SECONDS`) so a live-but-slow item is not mistaken for a dead one. On PR-open it **releases** the label — the open PR is now the durable claim (VERIFY's existing open-PR handling backstops it). A parked or failed item with no PR also releases the label so it is not stranded. Under `--no-claim` this whole step is skipped. The record format, TTL/staleness semantics, and the reclaim tiebreak are stated once in the **§Cross-run claim lease** section of `docs/reference/fleet-family.md` — this member references them, it does not restate them.
+
 ### Phase 4: VERIFY — Independent Confirmation, Never Self-Report
 
 1. **Never accept a subagent's self-report as verification.** "The pipeline ran and CI is green" is a claim to be checked, not a result. For each returned branch, the orchestrator independently confirms the evidence itself.
@@ -181,6 +185,7 @@ Phase 1: SELECT --> Phase 2: CONFIRM --> Phase 3: DISPATCH
 - **`harness-autopilot`'s code-review phase** — The per-item quality gate inside each subagent's pipeline; the fleet does not re-implement review.
 - **`harness skill validate roadmap-fleet`** — The authoring-time gate for this skill's own structure and schema.
 - **`docs/reference/fleet-family.md`** — The shared `-fleet` spine this skill builds on (the five-phase skeleton, the **§Item-type routing** rubric this skill applies, the concurrency governor, the artifact + all-OS-CI verification discipline, the worktree fan-out, and the never-silent-merge invariant), stated once for the family.
+- **§Cross-run claim lease (`docs/reference/fleet-family.md`) + `@harness-engineering/core` (`fleet/claims`)** — The canonical cross-run coordination mechanism this member consumes in SELECT (drop live-leased items) and DISPATCH (CLAIM → HEARTBEAT → RELEASE); the pure `buildClaimBody`/`parseClaimComment`/`isLeaseLive` primitives and `classifyClaim`/`selectUnclaimed` helpers live in core, all `gh` I/O in this skill layer.
 
 ## Success Criteria
 
