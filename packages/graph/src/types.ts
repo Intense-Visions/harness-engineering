@@ -100,6 +100,25 @@ export const EDGE_TYPES = [
 
 export type EdgeType = (typeof EDGE_TYPES)[number];
 
+// --- Edge Provenance ---
+
+/**
+ * How an edge's existence was determined at ingest time. Lets downstream
+ * adapters distinguish relationships read directly from source
+ * (`EXTRACTED`) from those derived by a resolver/heuristic (`INFERRED`),
+ * or those whose origin cannot be established (`AMBIGUOUS`).
+ */
+export const EDGE_PROVENANCES = ['EXTRACTED', 'INFERRED', 'AMBIGUOUS'] as const;
+
+/**
+ * - `EXTRACTED` — read directly from the source (AST-explicit): the edge
+ *   corresponds to a construct that literally appears in the code.
+ * - `INFERRED` — derived by a resolver or heuristic (e.g. import-path
+ *   resolution, regex name matching, directory-structure grouping).
+ * - `AMBIGUOUS` — origin cannot be determined as either of the above.
+ */
+export type EdgeProvenance = (typeof EDGE_PROVENANCES)[number];
+
 // --- Observability types (for noise pruning) ---
 
 export const OBSERVABILITY_TYPES: ReadonlySet<NodeType> = new Set(['span', 'metric', 'log']);
@@ -136,6 +155,7 @@ export interface GraphEdge {
   readonly to: string;
   readonly type: EdgeType;
   readonly confidence?: number; // 0-1, for Fusion Layer edges
+  readonly provenance?: EdgeProvenance; // how the edge was determined at ingest time
   readonly metadata?: Record<string, unknown>;
 }
 
@@ -260,5 +280,6 @@ export const GraphEdgeSchema = z.object({
   to: z.string(),
   type: z.enum(EDGE_TYPES),
   confidence: z.number().min(0).max(1).optional(),
+  provenance: z.enum(EDGE_PROVENANCES).optional(),
   metadata: z.record(z.unknown()).optional(),
 });

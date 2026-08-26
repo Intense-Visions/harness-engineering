@@ -501,7 +501,7 @@ export class CodeIngestor {
           parameterCount: this.countParameters(line),
         },
       },
-      edge: { from: fileId, to: id, type: 'contains' },
+      edge: { from: fileId, to: id, type: 'contains', provenance: 'EXTRACTED' },
     });
     if (!ctx.insideClass) {
       ctx.className = null;
@@ -541,7 +541,7 @@ export class CodeIngestor {
         location: { fileId, startLine: i + 1, endLine },
         metadata: { exported },
       },
-      edge: { from: fileId, to: id, type: 'contains' },
+      edge: { from: fileId, to: id, type: 'contains', provenance: 'EXTRACTED' },
     });
     ctx.className = name;
     ctx.classId = id;
@@ -580,7 +580,7 @@ export class CodeIngestor {
         location: { fileId, startLine: i + 1, endLine },
         metadata: { exported },
       },
-      edge: { from: fileId, to: id, type: 'contains' },
+      edge: { from: fileId, to: id, type: 'contains', provenance: 'EXTRACTED' },
     });
     ctx.className = null;
     ctx.classId = null;
@@ -683,7 +683,7 @@ export class CodeIngestor {
           parameterCount: this.countParameters(line),
         },
       },
-      edge: { from: classId, to: id, type: 'contains' },
+      edge: { from: classId, to: id, type: 'contains', provenance: 'EXTRACTED' },
     });
     return true;
   }
@@ -715,7 +715,7 @@ export class CodeIngestor {
         location: { fileId, startLine: i + 1, endLine: i + 1 },
         metadata: { exported },
       },
-      edge: { from: fileId, to: id, type: 'contains' },
+      edge: { from: fileId, to: id, type: 'contains', provenance: 'EXTRACTED' },
     });
   }
 
@@ -817,6 +817,8 @@ export class CodeIngestor {
           from: callerFileId,
           to: targetFileId,
           type: 'calls',
+          // Regex name-matching heuristic, not AST resolution.
+          provenance: 'INFERRED',
           metadata: { confidence: 'regex' },
         });
       }
@@ -846,6 +848,9 @@ export class CodeIngestor {
           from: fileId,
           to: targetId,
           type: 'imports',
+          // Import statement is AST-explicit, but the target file id comes
+          // from resolveImportPath — a resolver-derived link.
+          provenance: 'INFERRED',
           metadata: { importType: isTypeOnly ? 'type-only' : 'static' },
         });
       }
@@ -1057,6 +1062,8 @@ export class CodeIngestor {
         to: fileNodeId,
         type: 'verified_by',
         confidence: 1.0,
+        // Explicit @req annotation present in the source.
+        provenance: 'EXTRACTED',
         metadata: {
           method: 'annotation',
           tag: `@req ${featureName}#${reqIndex}`,

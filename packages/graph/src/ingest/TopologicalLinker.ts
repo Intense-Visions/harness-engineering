@@ -49,6 +49,9 @@ export class TopologicalLinker {
           from: moduleId,
           to: fileId,
           type: 'contains',
+          // Module membership is derived from directory structure, not from
+          // any construct in the source.
+          provenance: 'INFERRED',
         });
         edgesAdded++;
       }
