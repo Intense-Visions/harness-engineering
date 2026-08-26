@@ -40,10 +40,11 @@ export function parseClaimComment(body: string): FleetClaim | null {
   if (typeof body !== 'string' || !body.includes(CLAIM_MARKER)) return null;
   const afterMarker = body.slice(body.indexOf(CLAIM_MARKER) + CLAIM_MARKER.length);
   const fence = /```json\s*\n([\s\S]*?)\n```/.exec(afterMarker);
-  if (!fence) return null;
+  const payload = fence?.[1];
+  if (payload === undefined) return null;
   let raw: unknown;
   try {
-    raw = JSON.parse(fence[1]);
+    raw = JSON.parse(payload);
   } catch {
     return null;
   }

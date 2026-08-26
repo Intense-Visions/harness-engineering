@@ -38,7 +38,7 @@ describe('buildClaimBody', () => {
 
   it('embeds the exact claim payload as parseable json', () => {
     const body = buildClaimBody(claim);
-    const json = /```json\n([\s\S]*?)\n```/.exec(body)![1];
+    const json = /```json\n([\s\S]*?)\n```/.exec(body)![1]!;
     expect(JSON.parse(json)).toEqual(claim);
   });
 });
