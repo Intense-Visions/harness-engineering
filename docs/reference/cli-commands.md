@@ -214,6 +214,19 @@ LLM-judgment critique of code quality / readability — the ceiling counterpart 
 - `--max-files` — Cap source-file count (default: 100)
 - `--max-units-per-file` — Cap per-file unit critique (default: 20)
 
+### `harness context-report`
+
+Attribute the always-loaded context surface cost per turn, per tier
+
+**Options:**
+
+- `--tier` — Measure the tool schemas at this tier
+- `--exact` — Use exact /v1/messages/count_tokens counts (needs ANTHROPIC_API_KEY)
+- `--window` — Context-window size to budget against (default: 200000)
+- `--top` — How many top contributors to show (default: 10)
+- `--no-skills` — Skip the platform skill trees
+- `--json` — Emit machine-readable JSON
+
 ### `harness copy-craft`
 
 LLM-judgment critique of prose-in-code across six surfaces: error messages, log lines, CLI output, commit subjects, PR descriptions, code comments. Third craft-pipeline ceiling skill. Graceful degradation when git/gh prereqs absent.
@@ -1620,6 +1633,14 @@ Dry-run a routing decision without dispatching (Spec B F7)
 - `--complexity` — Synthetic complexity (trivial|simple|moderate|complex) — dry-run only
 - `--risk` — Synthetic risk band (low|high) — dry-run only
 - `--json` — Emit JSON to stdout instead of human-readable text
+
+## Rules Commands
+
+Enforced-rule introspection commands
+
+### `harness rules provenance`
+
+Advisory report joining enforced rules to the incidents that motivated them (ADR 0100); never blocks
 
 ## Skill Commands
 

@@ -21,7 +21,7 @@
 export interface RuleProvenanceInput {
   id: string;
   /** Solution slug or issue ref this rule was born from. Absent = unexplained. */
-  origin?: string;
+  origin?: string | undefined;
 }
 
 /** The solution side of the join: a solution slug and the rule ids it enforces. */

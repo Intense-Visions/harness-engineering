@@ -59,6 +59,7 @@ import { createLearningsCommand } from './learnings';
 import { createLinterCommand } from './linter';
 import { createMaintenanceCommand } from './maintenance';
 import { createMcpCommand } from './mcp';
+import { createMcpContextReportCommand } from './mcp';
 import { createMcpGuardCommand } from './mcp-guard';
 import { createMcpListCapabilitiesCommand } from './mcp';
 import { createMigrateCommand } from './migrate';
@@ -80,6 +81,7 @@ import { createReviewCiCommand } from './review-ci';
 import { createRoadmapCommand } from './roadmap';
 import { createRollbackCommand } from './rollback';
 import { createRoutingCommand } from './routing';
+import { createRulesCommand } from './rules';
 import { createScanConfigCommand } from './scan-config';
 import { createSearchCommand } from './search';
 import { createSecurityCraftCommand } from './security-craft';
@@ -167,6 +169,7 @@ export const commandCreators: Array<() => Command> = [
   createLinterCommand,
   createMaintenanceCommand,
   createMcpCommand,
+  createMcpContextReportCommand,
   createMcpGuardCommand,
   createMcpListCapabilitiesCommand,
   createMigrateCommand,
@@ -188,6 +191,7 @@ export const commandCreators: Array<() => Command> = [
   createRoadmapCommand,
   createRollbackCommand,
   createRoutingCommand,
+  createRulesCommand,
   createScanConfigCommand,
   createSearchCommand,
   createSecurityCraftCommand,
