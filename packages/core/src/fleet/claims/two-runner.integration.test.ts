@@ -4,13 +4,22 @@ import { buildClaimBody, parseClaimComment, isLeaseLive } from './index';
 import { classifyClaim, type ItemClaimContext } from './select';
 
 // --- In-memory fake GitHub claim store (offline stand-in for the gh layer) ---
-// Models exactly the surface the skill's SELECT/CLAIM/HEARTBEAT/RELEASE touch:
-// the `fleet:claimed` label, the (single, latest) claim comment with a
-// server-stamped updated_at, and open-PR state.
+// Models the surface the skill's SELECT/CLAIM/HEARTBEAT/RELEASE touch: the
+// `fleet:claimed` label, the claim COMMENTS (append-only — CLAIM/reclaim posts
+// a fresh comment, never overwrites; heartbeat edits an existing one so the
+// SERVER bumps its updated_at), and open-PR state.
+//
+// Append-only is load-bearing: it lets two runs that reclaim near-simultaneously
+// BOTH leave a live comment, so the reclaim tiebreak (earliest server stamp
+// wins) can be validated rather than assumed away by last-writer-wins replace.
+interface ClaimComment {
+  runId: string;
+  body: string;
+  serverUpdatedAt: string; // GitHub-server updated_at of this claim comment
+}
 interface ItemState {
   labeled: boolean;
-  commentBody: string | null;
-  serverUpdatedAt: string | null; // GitHub-server updated_at of the claim comment
+  comments: ClaimComment[]; // append-only audit trail
   openPr: boolean;
 }
 class FakeClaimStore {
@@ -18,48 +27,65 @@ class FakeClaimStore {
   private state(item: string): ItemState {
     let s = this.items.get(item);
     if (!s) {
-      s = { labeled: false, commentBody: null, serverUpdatedAt: null, openPr: false };
+      s = { labeled: false, comments: [], openPr: false };
       this.items.set(item, s);
     }
     return s;
   }
-  /** CLAIM / reclaim: add label + post (or replace) the claim comment. */
+  /** CLAIM / reclaim: add label + APPEND a fresh claim comment (never replace). */
   claim(item: string, claim: FleetClaim, serverNow: string) {
     const s = this.state(item);
     s.labeled = true;
-    s.commentBody = buildClaimBody(claim);
-    s.serverUpdatedAt = serverNow;
+    s.comments.push({
+      runId: claim.runId,
+      body: buildClaimBody(claim),
+      serverUpdatedAt: serverNow,
+    });
   }
-  /** HEARTBEAT: edit the comment → the SERVER bumps updated_at. */
-  heartbeat(item: string, serverNow: string) {
-    this.state(item).serverUpdatedAt = serverNow;
+  /** HEARTBEAT: edit THIS run's latest comment → the SERVER bumps its updated_at. */
+  heartbeat(item: string, runId: string, serverNow: string) {
+    const mine = this.state(item).comments.filter((c) => c.runId === runId);
+    const latest = mine[mine.length - 1];
+    if (latest) latest.serverUpdatedAt = serverNow;
   }
-  /** RELEASE: remove the label (comment stays as audit trail). */
+  /** RELEASE: remove the label (comments stay as an audit trail). */
   releaseLabel(item: string) {
     this.state(item).labeled = false;
   }
   openPullRequest(item: string) {
     this.state(item).openPr = true;
   }
-  /** What SELECT reads back for one item. */
+  /**
+   * What SELECT reads back for one item: the LATEST claim comment by server
+   * stamp (the reader's single-comment view of an append-only history).
+   */
   contextFor(item: string): ItemClaimContext {
     const s = this.state(item);
+    const latest = [...s.comments].sort((a, b) =>
+      a.serverUpdatedAt < b.serverUpdatedAt ? -1 : a.serverUpdatedAt > b.serverUpdatedAt ? 1 : 0
+    )[s.comments.length - 1];
     return {
       item,
       hasOpenPr: s.openPr,
-      claimComment:
-        s.commentBody && s.serverUpdatedAt
-          ? { body: s.commentBody, serverUpdatedAt: s.serverUpdatedAt }
-          : null,
+      claimComment: latest ? { body: latest.body, serverUpdatedAt: latest.serverUpdatedAt } : null,
     };
   }
-  /** How many DISTINCT runs currently hold a LIVE lease on this item. */
-  liveClaimRunIds(item: string, now: string): string[] {
+  /** Every LIVE claim comment on this item (append-only ⇒ may be more than one). */
+  liveClaimEntries(item: string, now: string): { claim: FleetClaim; serverUpdatedAt: string }[] {
     const s = this.state(item);
-    if (!s.labeled || !s.commentBody || !s.serverUpdatedAt) return [];
-    const parsed = parseClaimComment(s.commentBody);
-    if (!parsed || !isLeaseLive(parsed, s.serverUpdatedAt, now)) return [];
-    return [parsed.runId];
+    if (!s.labeled) return [];
+    const out: { claim: FleetClaim; serverUpdatedAt: string }[] = [];
+    for (const c of s.comments) {
+      const parsed = parseClaimComment(c.body);
+      if (parsed && isLeaseLive(parsed, c.serverUpdatedAt, now)) {
+        out.push({ claim: parsed, serverUpdatedAt: c.serverUpdatedAt });
+      }
+    }
+    return out;
+  }
+  /** The DISTINCT runIds currently holding a LIVE lease on this item. */
+  liveClaimRunIds(item: string, now: string): string[] {
+    return [...new Set(this.liveClaimEntries(item, now).map((e) => e.claim.runId))];
   }
 }
 
