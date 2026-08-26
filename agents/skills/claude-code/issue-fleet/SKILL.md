@@ -50,7 +50,7 @@ The five-phase spine, the concurrency governor, the independent-verification dis
 
 ### Phase 1: SELECT — Enumerate, Triage, Snapshot, Detect Forks
 
-1. **Enumerate the open-issue backlog.** List open issues via `gh issue list --state open`. Missing `gh` auth degrades to reporting the gap rather than aborting — with no queue there is nothing to triage.
+1. **Enumerate the open-issue backlog.** List open issues via `gh issue list --state open`. Missing `gh` auth degrades to reporting the gap rather than aborting — with no queue there is nothing to triage. Additionally fetch issues carrying the `fleet:claimed` label and their claim comments — this piggybacks the same enumeration (no extra `gh` call). An issue carrying a **live claim lease written by another run** is dropped as **claimed-elsewhere** (a soft reservation — another run is already triaging it); a **stale** lease is ignored and the issue stays triageable. The claim record, staleness (server `updated_at`), and reclaim tiebreak are defined once in the **§Cross-run claim lease** section of `docs/reference/fleet-family.md` — do not restate them here. If the `fleet:claimed` scan is unavailable, **degrade to triaging without the cross-run drop** and log the degradation (issue-fleet already stops when `gh` auth is wholly absent — there is then no queue to triage).
 
 2. **Triage each issue on the four axes** from its own signals (title, body, existing labels, linked refs):
    - **label** — assign the project's existing type/area labels (e.g. `bug`, `enhancement`/`feature`, `documentation`, `question`) from the issue's content. Never invent a new label.
@@ -71,6 +71,7 @@ The five-phase spine, the concurrency governor, the independent-verification dis
      signals,           // extracted title/body/labels/linked-refs
      labels,            // proposed type/area labels (from existing vocabulary)
      dedup,             // "novel" | "duplicate-of"
+     claimedElsewhere,  // true when another run holds a live claim lease (§Cross-run claim lease); dropped from triage
      canonicalRef,      // set when dedup = duplicate-of (issue/PR citation)
      route,             // downstream fleet: adr | roadmap | pr | cicd | test | cleanup
      score,             // roadmap-pilot impact score (for ranking)
