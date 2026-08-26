@@ -1,0 +1,15 @@
+{
+  "issues": [1512],
+  "stages": ["brainstorming", "planning", "execution", "review"],
+  "planArtifact": "docs/changes/community-detection-1512/plans/plan.md",
+  "closingKeyword": "Closes #1512",
+  "assumptions": [
+    "Louvain only, behind a pluggable CommunityDetector interface; Leiden deferred to a follow-up (settled in the fleet CONFIRM round).",
+    "Graph treated as undirected for modularity; parallel/anti-parallel edges between the same pair sum their weights.",
+    "Edge weight = confidence when present, else 1.",
+    "Node community label is an optional, additive GraphNode.community?: number (plus zod schema); back-compat, absent until a detection pass runs.",
+    "Detection is deterministic: fixed node order + ascending-community-id tie-break; optional seed applies a seeded Fisher-Yates permutation of processing order.",
+    "Community ids canonicalized to [0, communityCount) by first appearance.",
+    "Wired into the real `graph scan` build path (after ingest/link, before save) so labels persist through the Serializer; scan output now reports community count."
+  ]
+}

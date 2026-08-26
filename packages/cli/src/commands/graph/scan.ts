@@ -2,9 +2,12 @@ import { Command } from 'commander';
 import * as path from 'path';
 import { loadIngestOptions } from './ingest-options.js';
 
-export async function runScan(
-  projectPath: string
-): Promise<{ nodeCount: number; edgeCount: number; durationMs: number }> {
+export async function runScan(projectPath: string): Promise<{
+  nodeCount: number;
+  edgeCount: number;
+  communityCount: number;
+  durationMs: number;
+}> {
   const {
     GraphStore,
     CodeIngestor,
@@ -12,6 +15,7 @@ export async function runScan(
     KnowledgeIngestor,
     GitIngestor,
     RequirementIngestor,
+    detectCommunities,
   } = await import('@harness-engineering/graph');
   const store = new GraphStore();
   const start = Date.now();
@@ -43,11 +47,22 @@ export async function runScan(
     /* not a git repo -- skip */
   }
 
+  // Community detection: label each node with the subsystem it belongs to
+  // (Louvain modularity maximization). Runs over the fully-built graph so the
+  // partition reflects every ingested relationship, and must precede `save` so
+  // the `community` labels persist onto nodes through the Serializer.
+  const community = detectCommunities(store);
+
   // Save graph
   const graphDir = path.join(projectPath, '.harness', 'graph');
   await store.save(graphDir);
 
-  return { nodeCount: store.nodeCount, edgeCount: store.edgeCount, durationMs: Date.now() - start };
+  return {
+    nodeCount: store.nodeCount,
+    edgeCount: store.edgeCount,
+    communityCount: community.communityCount,
+    durationMs: Date.now() - start,
+  };
 }
 
 export function createScanCommand(): Command {
@@ -63,7 +78,8 @@ export function createScanCommand(): Command {
           console.log(JSON.stringify(result));
         } else {
           console.log(
-            `Graph built: ${result.nodeCount} nodes, ${result.edgeCount} edges (${result.durationMs}ms)`
+            `Graph built: ${result.nodeCount} nodes, ${result.edgeCount} edges, ` +
+              `${result.communityCount} communities (${result.durationMs}ms)`
           );
         }
       } catch (err) {
