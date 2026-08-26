@@ -70,13 +70,24 @@ Read `docs/solutions/references/schema.yaml` for the authoritative track/categor
    last_updated: '<YYYY-MM-DD, today>'
    track: <bug-track | knowledge-track>
    category: <from Phase 2>
+   # Optional (ADR 0100) — include ONLY if this fix landed or hardened an
+   # enforced rule; omit the key entirely otherwise (fill-forward).
+   # enforces: [STRENGTH-002]
    ---
    ```
 
-3. Replace the `# <Title>` placeholder with a concise problem statement.
-4. For `bug-track`: fill `## Problem`, `## Root cause`, `## Solution`, `## Prevention`. Delete the knowledge-track sections (`## Context`, `## Guidance`, `## Applicability`).
-5. For `knowledge-track`: fill `## Context`, `## Guidance`, `## Applicability`. Delete the bug-track sections.
-6. Cite commit SHAs and `file:line` where helpful.
+3. **Rule-to-failure provenance (ADR 0100 — optional, never blocks).** If, and only if, the fix in this post-mortem _produced or hardened an enforced rule_ — a `STRENGTH-*` rule under `packages/core/src/harness-strength/rules/`, or an analogous rule descriptor such as an `arch:` / `sec:` constraint — add an `enforces:` list to the frontmatter naming those rule id(s):
+
+   ```yaml
+   enforces: [STRENGTH-002]
+   ```
+
+   This is the reciprocal of each rule's `origin` field; together they let `harness rules provenance` answer "why does this rule exist?" mechanically and detect dead rules. It is **advisory and optional** — if the fix landed no enforcement change, omit the key entirely (legacy docs stay valid; the field is fill-forward). Never block capture on it, and do not invent rule ids — cite only ids you can point to in the diff.
+
+4. Replace the `# <Title>` placeholder with a concise problem statement.
+5. For `bug-track`: fill `## Problem`, `## Root cause`, `## Solution`, `## Prevention`. Delete the knowledge-track sections (`## Context`, `## Guidance`, `## Applicability`).
+6. For `knowledge-track`: fill `## Context`, `## Guidance`, `## Applicability`. Delete the bug-track sections.
+7. Cite commit SHAs and `file:line` where helpful.
 
 ---
 

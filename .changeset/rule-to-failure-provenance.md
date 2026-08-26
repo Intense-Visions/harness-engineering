@@ -20,3 +20,7 @@ document and rule stays valid with no provenance (fill-forward).
   unexplained constraints (enforced rules with no origin) and candidate dead rules (a rule
   whose origin resolves to no known solution, or a solution enforcing a STRENGTH id absent
   from the registry). Never exits non-zero on findings; supports `--json`.
+- Producer wiring (ADR 0100 Action Item #4): the `harness-compound` capture phase (Phase 4
+  ASSEMBLE, all platform mirrors) now captures the optional `enforces:` list when a fix
+  produced or hardened an enforced rule — advisory, fill-forward, never blocks capture. The
+  resolution template and human schema mirror document the field.

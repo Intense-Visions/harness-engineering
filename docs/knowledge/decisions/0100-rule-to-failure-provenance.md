@@ -97,7 +97,7 @@ surfaces in the reporter. Authority stays where it is.
 
 ## Action Items
 
-- [ ] Add optional `enforces: string[]` to the solution frontmatter Zod schema — owner: TBD
-- [ ] Add optional `origin` to `StrengthRule` + sidecar map for baseline rules — owner: TBD
-- [ ] Ship `harness rules provenance` reverse-index reporter (unexplained + dead-rule flags) — owner: TBD
-- [ ] Update `harness-compound` capture phase to prompt for `enforces:` when a fix lands a rule — owner: TBD
+- [x] Add optional `enforces: string[]` to the solution frontmatter Zod schema — shipped (PR #1505)
+- [x] Add optional `origin` to `StrengthRule` — shipped (PR #1505). Sidecar map for baseline-JSON rules deferred (the reporter joins the typed registry today).
+- [x] Ship `harness rules provenance` reverse-index reporter (unexplained + dead-rule flags) — shipped (PR #1505)
+- [x] Update `harness-compound` capture phase to prompt for `enforces:` when a fix lands a rule — shipped (PR #1505); Phase 4 ASSEMBLE of `harness-compound` SKILL.md now captures the optional `enforces:` list, advisory + fill-forward

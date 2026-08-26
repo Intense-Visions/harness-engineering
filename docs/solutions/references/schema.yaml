@@ -9,11 +9,20 @@ required:
   - last_updated
   - track
   - category
+optional:
+  - enforces
 fields:
   module: { type: string, description: "Affected package or area, e.g. 'orchestrator'" }
   tags: { type: 'array<string>', description: "Free-form keywords" }
   problem_type: { type: string, description: "Short noun phrase, e.g. 'race-condition'" }
   last_updated: { type: string, format: 'YYYY-MM-DD' }
+  enforces:
+    type: 'array<string>'
+    optional: true
+    description: >-
+      Rule-to-failure provenance (ADR 0100). Rule ids this fix produced or
+      hardened, e.g. 'STRENGTH-002'. Optional + fill-forward; omit when the fix
+      landed no enforcement change. Joined by `harness rules provenance`.
   track:
     type: enum
     values: [bug-track, knowledge-track]

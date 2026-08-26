@@ -43,6 +43,21 @@ describe('validateSolutionsDir', () => {
     expect(r.ok).toBe(true);
   });
 
+  it('accepts a solution doc carrying rule-to-failure provenance enforces (ADR 0100)', async () => {
+    // The compound capture phase writes an optional `enforces:` list when a fix
+    // hardened an enforced rule; the writer/validator must round-trip it.
+    const withEnforces = validFm.replace(
+      'category: integration-issues\n',
+      "category: integration-issues\nenforces: ['STRENGTH-002', 'arch:no-cross-package-import']\n"
+    );
+    const dir = await makeProject({
+      'docs/solutions/bug-track/integration-issues/enforces.md': withEnforces,
+    });
+    const r = await validateSolutionsDir(dir);
+    expect(r.ok).toBe(true);
+    if (r.ok) expect(r.value.filesChecked).toBe(1);
+  });
+
   it('rejects unknown category', async () => {
     // A bad-category file inside a known track/category dir is validated
     // (frontmatter category mismatches schema).
