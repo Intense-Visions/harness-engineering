@@ -59,6 +59,7 @@ import { createLearningsCommand } from './learnings';
 import { createLinterCommand } from './linter';
 import { createMaintenanceCommand } from './maintenance';
 import { createMcpCommand } from './mcp';
+import { createMcpContextReportCommand } from './mcp';
 import { createMcpGuardCommand } from './mcp-guard';
 import { createMcpListCapabilitiesCommand } from './mcp';
 import { createMigrateCommand } from './migrate';
@@ -167,6 +168,7 @@ export const commandCreators: Array<() => Command> = [
   createLinterCommand,
   createMaintenanceCommand,
   createMcpCommand,
+  createMcpContextReportCommand,
   createMcpGuardCommand,
   createMcpListCapabilitiesCommand,
   createMigrateCommand,
