@@ -1,4 +1,11 @@
-import type { GraphNode, GraphEdge, NodeType, EdgeType } from '../types.js';
+import type {
+  GraphNode,
+  GraphEdge,
+  NodeType,
+  EdgeType,
+  ShortestPathOptions,
+  ShortestPathResult,
+} from '../types.js';
 import { saveGraph, loadGraph } from './Serializer.js';
 
 export interface NodeQuery {
@@ -189,6 +196,115 @@ export class GraphStore {
       if (node) results.push(node);
     }
     return results;
+  }
+
+  // --- Shortest Path ---
+
+  /**
+   * Find the shortest (fewest-hops) path between two nodes using
+   * breadth-first search over an unweighted graph.
+   *
+   * @param fromId - Source node ID.
+   * @param toId - Target node ID.
+   * @param options - Traversal options; `direction` defaults to `'both'`.
+   * @returns An ordered {@link ShortestPathResult}, or `null` when either
+   *   endpoint is absent or no path connects them.
+   */
+  shortestPath(
+    fromId: string,
+    toId: string,
+    options: ShortestPathOptions = {}
+  ): ShortestPathResult | null {
+    const direction = options.direction ?? 'both';
+
+    const source = this.nodeMap.get(fromId);
+    const target = this.nodeMap.get(toId);
+    if (!source || !target) return null;
+
+    if (fromId === toId) {
+      return { nodes: [{ ...source }], edges: [], length: 0 };
+    }
+
+    const cameBy = this.bfsParents(fromId, toId, direction);
+    if (!cameBy) return null;
+
+    return this.reconstructPath(fromId, toId, cameBy);
+  }
+
+  /**
+   * BFS from `fromId`, recording for each visited node the edge that first
+   * reached it. Stops as soon as `toId` is dequeued. Returns the parent map, or
+   * `null` if the target was never reached.
+   */
+  private bfsParents(
+    fromId: string,
+    toId: string,
+    direction: ShortestPathOptions['direction']
+  ): Map<string, GraphEdge> | null {
+    const cameBy = new Map<string, GraphEdge>();
+    const visited = new Set<string>([fromId]);
+    const queue: string[] = [fromId];
+    let head = 0;
+
+    while (head < queue.length) {
+      const currentId = queue[head++]!;
+      if (currentId === toId) return cameBy;
+
+      for (const { neighborId, edge } of this.adjacentEdges(currentId, direction)) {
+        if (visited.has(neighborId)) continue;
+        visited.add(neighborId);
+        cameBy.set(neighborId, edge);
+        queue.push(neighborId);
+      }
+    }
+
+    return null;
+  }
+
+  /** Neighboring (edge, node) pairs for a node in the requested direction(s). */
+  private adjacentEdges(
+    nodeId: string,
+    direction: ShortestPathOptions['direction']
+  ): Array<{ neighborId: string; edge: GraphEdge }> {
+    const result: Array<{ neighborId: string; edge: GraphEdge }> = [];
+    if (direction === 'outbound' || direction === 'both') {
+      for (const edge of this.edgesByFrom.get(nodeId) ?? []) {
+        result.push({ neighborId: edge.to, edge });
+      }
+    }
+    if (direction === 'inbound' || direction === 'both') {
+      for (const edge of this.edgesByTo.get(nodeId) ?? []) {
+        result.push({ neighborId: edge.from, edge });
+      }
+    }
+    return result;
+  }
+
+  /** Walk the parent map back from target to source, then reverse. */
+  private reconstructPath(
+    fromId: string,
+    toId: string,
+    cameBy: Map<string, GraphEdge>
+  ): ShortestPathResult {
+    const nodeIds: string[] = [];
+    const edges: GraphEdge[] = [];
+
+    let currentId = toId;
+    while (currentId !== fromId) {
+      nodeIds.push(currentId);
+      const edge = cameBy.get(currentId)!;
+      edges.push({ ...edge });
+      // The reaching edge connects current to its predecessor; the predecessor
+      // is whichever endpoint is not the current node (handles both directions).
+      currentId = edge.from === currentId ? edge.to : edge.from;
+    }
+    nodeIds.push(fromId);
+
+    nodeIds.reverse();
+    edges.reverse();
+
+    const nodes = nodeIds.map((id) => ({ ...this.nodeMap.get(id)! }));
+    return { nodes, edges, length: edges.length };
   }
 
   // --- Counts ---

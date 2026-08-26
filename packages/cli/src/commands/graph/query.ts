@@ -5,6 +5,8 @@ import type {
   ContextQLParams,
   NodeType,
   EdgeType,
+  ShortestPathResult,
+  ShortestPathDirection,
 } from '@harness-engineering/graph';
 
 export async function runQuery(
@@ -73,5 +75,82 @@ export function createQueryCommand(): Command {
     .option('--bidirectional', 'Traverse both directions')
     .action(async (rootNodeId, opts, cmd) => {
       await runQueryAction(rootNodeId, opts, cmd.optsWithGlobals());
+    });
+}
+
+const SHORTEST_PATH_DIRECTIONS: readonly ShortestPathDirection[] = ['outbound', 'inbound', 'both'];
+
+export async function runShortestPath(
+  projectPath: string,
+  fromId: string,
+  toId: string,
+  opts: { direction?: ShortestPathDirection }
+): Promise<ShortestPathResult | null> {
+  const { GraphStore, ContextQL, resolveGraphDir } = await import('@harness-engineering/graph');
+  const store = new GraphStore();
+  const graphDir = resolveGraphDir(projectPath);
+  const loaded = await store.load(graphDir);
+  if (!loaded) throw new Error('No graph found. Run `harness graph scan` first.');
+
+  const cql = new ContextQL(store);
+  return cql.shortestPath(fromId, toId, {
+    direction: opts.direction ?? 'both',
+  });
+}
+
+function printShortestPath(result: ShortestPathResult | null, fromId: string, toId: string): void {
+  if (result === null) {
+    console.log(`No path found between ${fromId} and ${toId}.`);
+    return;
+  }
+  if (result.length === 0) {
+    console.log(`${fromId} and ${toId} are the same node.`);
+    return;
+  }
+  console.log(`Shortest path: ${result.length} hop${result.length === 1 ? '' : 's'}`);
+  console.log(`  ${result.nodes.map((n) => n.id).join(' -> ')}`);
+}
+
+function parseDirection(raw: string | undefined): ShortestPathDirection {
+  if (raw === undefined) return 'both';
+  if ((SHORTEST_PATH_DIRECTIONS as readonly string[]).includes(raw)) {
+    return raw as ShortestPathDirection;
+  }
+  throw new Error(
+    `Invalid --direction "${raw}". Expected one of: ${SHORTEST_PATH_DIRECTIONS.join(', ')}.`
+  );
+}
+
+async function runShortestPathAction(
+  fromId: string,
+  toId: string,
+  opts: { direction?: string },
+  globalOpts: { config?: string; json?: boolean }
+): Promise<void> {
+  const projectPath = path.resolve(globalOpts.config ? path.dirname(globalOpts.config) : '.');
+  try {
+    const direction = parseDirection(opts.direction);
+    const result = await runShortestPath(projectPath, fromId, toId, { direction });
+    if (globalOpts.json) {
+      console.log(JSON.stringify(result, null, 2));
+    } else {
+      printShortestPath(result, fromId, toId);
+    }
+    // Exit non-zero when no path connects the pair so scripts can branch on it.
+    if (result === null) process.exit(1);
+  } catch (err) {
+    console.error('Path query failed:', err instanceof Error ? err.message : err);
+    process.exit(2);
+  }
+}
+
+export function createPathCommand(): Command {
+  return new Command('path')
+    .description('Find the shortest path between two nodes')
+    .argument('<sourceNodeId>', 'Source node ID')
+    .argument('<targetNodeId>', 'Target node ID')
+    .option('--direction <direction>', 'Traversal direction: outbound, inbound, or both', 'both')
+    .action(async (sourceNodeId, targetNodeId, opts, cmd) => {
+      await runShortestPathAction(sourceNodeId, targetNodeId, opts, cmd.optsWithGlobals());
     });
 }

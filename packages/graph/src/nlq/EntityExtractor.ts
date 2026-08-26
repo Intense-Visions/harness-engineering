@@ -67,6 +67,16 @@ const INTENT_KEYWORDS: ReadonlySet<string> = new Set([
   'hotspot',
   'hotspots',
   'suspicious',
+  // shortestPath
+  'path',
+  'shortest',
+  'route',
+  'between',
+  'reach',
+  'reaches',
+  'connection',
+  'hop',
+  'hops',
 ]);
 
 /**

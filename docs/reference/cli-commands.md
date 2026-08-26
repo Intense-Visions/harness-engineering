@@ -1025,6 +1025,19 @@ Check the graph for content that cannot be trusted
 - `--report-only` — Exit 0 even when error-severity findings exist
 - `--findings-json` — Print the machine-readable findings envelope
 
+### `harness graph path <sourceNodeId> <targetNodeId>`
+
+Find the shortest path between two nodes
+
+**Arguments:**
+
+- `sourceNodeId` (required) — Source node ID
+- `targetNodeId` (required) — Target node ID
+
+**Options:**
+
+- `--direction` — Traversal direction: outbound, inbound, or both (default: "both")
+
 ### `harness graph query <rootNodeId>`
 
 Query the knowledge graph
