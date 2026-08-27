@@ -13,7 +13,12 @@
 // an explicitly-configured budget changes behavior.
 
 import { assertLeafWithinBudget } from '@harness-engineering/core';
-import type { Issue, WorkflowConfig } from '@harness-engineering/types';
+import type {
+  Issue,
+  LeafContextEstimate,
+  LeafContextSource,
+  WorkflowConfig,
+} from '@harness-engineering/types';
 
 /** Rough tokens-per-character ratio for an offline, dependency-free estimate. */
 const CHARS_PER_TOKEN = 4;
@@ -33,6 +38,34 @@ export function estimateIssueContextTokens(issue: Issue): number {
 }
 
 /**
+ * SF5.1 (#1524) — build a leaf's context estimate, attributing served-
+ * comprehension token counts into `sources`.
+ *
+ * The estimate is a deliberate FLOOR: `estimateIssueContextTokens` (the always-in-
+ * memory title+description surface) PLUS one `LeafContextSource` per served
+ * comprehension unit (its `tokens` is the served, `renderServedUnit`-based
+ * estimate produced by `resolveLeafPrewarm`). Because a served unit is the compact
+ * comprehension form — not the raw module source — attributing served tokens
+ * yields a LOWER `estimatedTokens` than counting the raw source for the same
+ * modules would. With no served units the estimate is byte-identical to the prior
+ * floor-only behavior (`sources: []`, `estimatedTokens === estimateIssueContextTokens`).
+ *
+ * Pure and IO-free — no LLM, no credential, no disk.
+ */
+export function buildLeafContextEstimate(
+  issue: Issue,
+  servedSources: LeafContextSource[] = []
+): LeafContextEstimate {
+  const floor = estimateIssueContextTokens(issue);
+  const servedTokens = servedSources.reduce((sum, s) => sum + s.tokens, 0);
+  return {
+    item: issue.identifier,
+    estimatedTokens: floor + servedTokens,
+    sources: servedSources,
+  };
+}
+
+/**
  * The live budget consult. When `config.agent.contextBudget.maxTokens` is set,
  * estimate the issue-leaf's context load and delegate to the core
  * `assertLeafWithinBudget` primitive, which THROWS a `ContextBudgetExceededError`
@@ -44,14 +77,21 @@ export function estimateIssueContextTokens(issue: Issue): number {
  * loud error effect, and skips dispatching that leaf — so an over-budget leaf
  * fails visibly and never spends.
  */
-export function assertIssueWithinContextBudget(config: WorkflowConfig, issue: Issue): void {
+export function assertIssueWithinContextBudget(
+  config: WorkflowConfig,
+  issue: Issue,
+  prewarm?: { sources: LeafContextSource[] }
+): void {
   const budget = config.agent.contextBudget;
   if (!budget || !(typeof budget.maxTokens === 'number') || !(budget.maxTokens > 0)) {
     return; // unconfigured ⇒ unlimited, no enforcement (byte-identical default)
   }
-  const estimatedTokens = estimateIssueContextTokens(issue);
-  assertLeafWithinBudget(
-    { item: issue.identifier, estimatedTokens, sources: [] },
-    { maxTokens: budget.maxTokens }
-  );
+  // SF5.2 (#1524/SC1): consult with the comprehension-LOWERED estimate. When the
+  // leaf's pre-warmed served units are supplied, their (compact) tokens are
+  // attributed into `sources`, so a leaf that would be over budget on raw source
+  // can be within budget once served units replace it — and on an overage the
+  // thrown verdict's `topSources` names the served units. With no prewarm the
+  // estimate is the floor-only default (byte-identical to the pre-#1524 behavior).
+  const estimate = buildLeafContextEstimate(issue, prewarm?.sources ?? []);
+  assertLeafWithinBudget(estimate, { maxTokens: budget.maxTokens });
 }
