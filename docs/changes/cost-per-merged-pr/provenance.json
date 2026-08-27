@@ -1,0 +1,36 @@
+{
+  "issue": 1522,
+  "issues": [1522],
+  "slug": "cost-per-merged-pr",
+  "title": "Join burn's token attribution to shipped outcomes — cost per merged PR",
+  "branch": "build/cost-per-merged-pr-1522",
+  "stages": ["brainstorming", "planning", "execution", "verification", "integration"],
+  "plan_path": "docs/changes/cost-per-merged-pr/plans/2026-08-26-cost-per-merged-pr-plan.md",
+  "planArtifact": "docs/changes/cost-per-merged-pr/plans/2026-08-26-cost-per-merged-pr-plan.md",
+  "proposalArtifact": "docs/changes/cost-per-merged-pr/proposal.md",
+  "closing_keyword": "Closes #1522",
+  "closingKeyword": "Closes #1522",
+  "sourceFiles": [
+    "packages/burn/src/provenance.ts",
+    "packages/burn/src/pr-linkage.ts",
+    "packages/burn/src/cost-per-pr.ts",
+    "packages/burn/src/cost-metrics.ts",
+    "packages/cli/src/commands/burn/per-pr.ts"
+  ],
+  "registrationSites": [
+    "packages/burn/src/index.ts (barrel exports — hand-maintained, no generate-core-barrel edit)",
+    "packages/cli/src/commands/burn/index.ts (per-pr subcommand registered on the burn group)"
+  ],
+  "assumptions": [
+    "Reporting unit is raw tokens (tokens_in/tokens_out/cache_read); a $ figure is derived ONLY via an optional cost_price_table in burn config, default OFF, with no hardcoded Anthropic pricing — kept portable across adopters and models (confirmed decision 1).",
+    "Reuses burn's existing transcript scan + store (readRecords, no re-ingest), the lane provenance files under docs/changes/*/provenance.json, and gh issue->merged-PR linkage; missing linkage or fields degrade to 'unattributed' (never 0/free), matching #1270's discipline (confirmed decision 2).",
+    "burn agentId (lane) and provenance have no shared key in existing data, so per-lane PR attribution is exact only once a provenance writer stamps the new optional laneId; all current files therefore report lanes as unattributed while still feeding the fleet/skill denominators. Forward-compatible degrade.",
+    "The join is denominator-explicit: cost_per_merged_pr and cost_per_dispatched_lane are emitted side by side with a denominator_note; no bare cost_per_pr field hides which denominator was used.",
+    "cost_per_* scalar uses burn's existing units() weighting; raw tokens_* fields are kept primary and unweighted for scan-verifiability.",
+    "gh linkage is injectable (runGh) and degrades to unlinked when gh is missing/offline; no test hits real gh, so CI is deterministic.",
+    "Fleet success-rate denominator is out of scope (blocked dependency extend-adoption-jsonl-with-failure-reason-categorization); cost/PR divides by merged PRs and labels the shortfall in denominator_note.",
+    "New metrics artifact lives at repo-local .harness/metrics/cost-per-pr.json (alongside adoption.jsonl), NOT the per-machine HUD state dir."
+  ],
+  "generatedBy": "roadmap-fleet build lane (harness-brainstorming -> autopilot pipeline, dogfooded)",
+  "date": "2026-08-26"
+}

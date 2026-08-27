@@ -42,6 +42,20 @@ export interface BurnConfig {
   baseline_weeks: number;
   stale_after_minutes: number;
   calibration?: Calibration;
+  /**
+   * Optional per-model price table (USD per token) for the cost-per-PR report.
+   * Absent by default: the report keeps raw tokens as the source-of-truth
+   * metric and derives a `$` figure ONLY when an adopter supplies this. There
+   * is deliberately no hardcoded Anthropic pricing — the portable number is
+   * tokens, priced per adopter's own model mix. See `cost-per-pr.ts`.
+   */
+  cost_price_table?: Record<string, { in: number; out: number; cache_read: number }>;
+  /**
+   * Optional per-skill expected cost/PR bands for the regression check — the
+   * cost analogue of a performance budget. A skill whose window cost/PR leaves
+   * its band is flagged (advisory). Absent by default (no bands enforced).
+   */
+  cost_bands?: Record<string, { min?: number; max: number }>;
 }
 
 /** One deduped assistant turn, keyed by `requestId` in the store. */

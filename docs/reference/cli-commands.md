@@ -845,6 +845,17 @@ Wire the burn HUD statusline and hooks into ~/.claude/settings.json
 
 - `--dry-run` — show what would change without writing
 
+### `harness burn per-pr`
+
+Cost per merged PR: join burn token attribution to shipped PRs
+
+**Options:**
+
+- `--since` — only count records at/after this ISO instant
+- `--until` — only count records at/before this ISO instant
+- `--json` — emit the raw cost report as JSON
+- `--write` — persist the report to .harness/metrics/cost-per-pr.json
+
 ### `harness burn report`
 
 Rescan and print the full burn report (default)
