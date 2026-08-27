@@ -15,7 +15,12 @@ import type {
 } from '@harness-engineering/types';
 import { RoutingError } from '@harness-engineering/types';
 import type { Issue, IssueTrackerClient } from '@harness-engineering/core';
-import { writeTaint, SecurityScanner } from '@harness-engineering/core';
+import {
+  writeTaint,
+  SecurityScanner,
+  applyResourceBudgets,
+  sharedRateBudget,
+} from '@harness-engineering/core';
 import { hasIntroducedSecurityDefect, outcomeVerdictToQualityFail } from './agent/quality-verdict';
 import {
   IntelligencePipeline,
@@ -1027,6 +1032,13 @@ export class Orchestrator extends EventEmitter {
     this.acceptanceRunner = overrides?.acceptanceRunner ?? defaultLocalAcceptanceRunner;
     this.state = createEmptyState(config);
     this.logger = new StructuredLogger();
+
+    // #1532: apply the operator's per-resource fan-out budgets onto the
+    // process-wide shared budget that the GitHub HTTP layer (and any other
+    // fan-out fetcher) consults. This is the consumer wiring for
+    // `agent.resourceBudgets` — the config key becomes live rate-limiting +
+    // shared backoff for external API fan-out, alongside the slot governor.
+    applyResourceBudgets(sharedRateBudget, config.agent.resourceBudgets);
 
     // Spec 2 / Task 9: Apply legacy → modern config migration eagerly so
     // every downstream code path observes a uniform `agent.backends` +

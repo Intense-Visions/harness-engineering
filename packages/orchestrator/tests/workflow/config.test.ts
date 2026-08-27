@@ -268,3 +268,41 @@ describe('validateWorkflowConfig — declarative workflows (D7/D13)', () => {
     }
   });
 });
+
+describe('validateWorkflowConfig — resourceBudgets (#1532)', () => {
+  it('ships a sane default resourceBudgets map (github.core + github.search)', () => {
+    const cfg = getDefaultConfig();
+    expect(cfg.agent.resourceBudgets).toEqual({
+      'github.core': { limit: 80, windowMs: 60_000 },
+      'github.search': { limit: 10, windowMs: 60_000 },
+    });
+  });
+
+  it('accepts a well-formed resourceBudgets map', () => {
+    const cfg = getDefaultConfig();
+    (cfg.agent as Record<string, unknown>).resourceBudgets = {
+      'github.commits': { limit: 30, windowMs: 60_000 },
+    };
+    const result = validateWorkflowConfig(cfg);
+    expect(result.ok).toBe(true);
+  });
+
+  it('accepts config with resourceBudgets absent (unchanged behavior)', () => {
+    const cfg = getDefaultConfig();
+    delete (cfg.agent as Record<string, unknown>).resourceBudgets;
+    const result = validateWorkflowConfig(cfg);
+    expect(result.ok).toBe(true);
+  });
+
+  it('rejects a malformed resourceBudgets entry rather than silently dropping it', () => {
+    const cfg = getDefaultConfig();
+    (cfg.agent as Record<string, unknown>).resourceBudgets = {
+      'github.core': { limit: -1, windowMs: 60_000 },
+    };
+    const result = validateWorkflowConfig(cfg);
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.error.message).toMatch(/resourceBudgets/i);
+    }
+  });
+});

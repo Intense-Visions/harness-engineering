@@ -1,0 +1,33 @@
+{
+  "issue": 1532,
+  "slug": "rate-limit-aware-fanout",
+  "title": "Rate-limit-aware fan-out — per-resource API budgets, shared backoff, fail-on-truncation",
+  "branch": "build/rate-limit-aware-fanout-1532",
+  "closing_keyword": "Refs #1532",
+  "stages": ["brainstorming", "planning", "execution", "verification", "integration"],
+  "plan_path": "docs/changes/rate-limit-aware-fanout/plans/plan.md",
+  "stagesRun": ["brainstorming", "planning", "execution", "verification", "integration"],
+  "planArtifact": "docs/changes/rate-limit-aware-fanout/plans/plan.md",
+  "mechanisms": {
+    "perResourceBudget": "packages/core/src/fleet/rate-budget/budget.ts — RateBudget.delayFor/acquire (rolling-window request cap per resource key) + sharedRateBudget singleton",
+    "sharedBackoff": "packages/core/src/fleet/rate-budget/budget.ts — RateBudget.penalize records a cooldown on the SHARED budget; every GitHubHttp sharing the budget observes it",
+    "failOnTruncation": "packages/core/src/fleet/rate-budget/errors.ts — ThrottledFetchError / TruncatedFetchError; thrown from GitHubHttp.fetchWithRetry (terminal 403/429) and GitHubHttp.paginate (short page + Link rel=next)",
+    "config": "AgentConfig.resourceBudgets (packages/types/src/orchestrator.ts) → validated in packages/orchestrator/src/workflow/config.ts → defaulted in getDefaultConfig()"
+  },
+  "wiring": {
+    "liveFetchCallSite": "packages/core/src/roadmap/tracker/adapters/github-http.ts — GitHubHttp.request() awaits budget.acquire(resource) before every fetch; fetchWithRetry() penalizes the shared budget on 403/429 and throws ThrottledFetchError on terminal throttle; paginate() throws TruncatedFetchError on a truncated walk.",
+    "liveConsumer": "packages/core/src/roadmap/tracker/adapters/github-issues.ts:102 (new GitHubHttp(opts)) — GitHubIssuesTracker.fetchAll/fetchById/etc. call this.http.paginate(...)/this.http.request(...), which now consult the budget and fail-the-leaf on throttle/truncation.",
+    "configKey": "agent.resourceBudgets",
+    "configConsumer": "packages/orchestrator/src/orchestrator.ts constructor calls applyResourceBudgets(sharedRateBudget, config.agent.resourceBudgets) — the config key becomes live rate-limiting for the shared budget GitHubHttp uses."
+  },
+  "assumptions": [
+    "Scope is the smallest coherent slice (operator decision 3): the per-resource budget primitive + shared backoff + fail-on-truncation wired into the real GitHubHttp fetch path. Closing keyword is 'Refs #1532' (not Closes) — broader per-API coverage is a deferred slice.",
+    "The shared budget is PROCESS-WIDE (a module singleton). It governs the in-process Promise.all/concurrency fan-out that produced the measured failure (a 10-way fan-out on the commits API). Cross-process coordination across separate leaf PROCESSES (a persisted/file-backed cooldown) is a deferred slice, noted for the human to plan.",
+    "Fail-the-leaf (operator decision 1) is realized as thrown typed errors. Every GitHubHttp consumer (github-issues.ts) already wraps calls in try/catch → Err(...), so a throttle/truncation becomes an Err rather than a silent short list; no consumer returns partial data.",
+    "Truncation detection in the generic array paginate() uses the GitHub `Link: rel=\"next\"` header: a page shorter than perPage that STILL advertises a next page is a server truncation and fails. GitHub search's `incomplete_results` field is a distinct object shape not walked by this array-paginate; it is covered by the ThrottledFetchError path when throttled and left to a future search-specific slice otherwise.",
+    "ResourceBudgetConfig is defined canonically in @harness-engineering/types (mirrored onto AgentConfig) and re-exported by core's fleet/rate-budget so the primitive and its config surface cannot drift.",
+    "The new core exports flow to the barrel automatically: fleet/ is an `export *`-discovered module, so `export * from './fleet'` in the generated src/index.ts already re-exports rate-budget — generate:barrels --check is clean with no allowlist edit to scripts/generate-core-barrel.mjs.",
+    "Default budgets are conservative (github.core 80/min, github.search 10/min matching GitHub's documented code-search cap). Adopters override via agent.resourceBudgets.",
+    "Coordination with sibling PRs #1524/#1525: this change is additive and localized to the external-fetch concern (new fleet/rate-budget module + GitHubHttp + AgentConfig field + one orchestrator constructor line). It does NOT touch concurrency.ts / state-machine.ts / budget-governor.ts, so it should merge independently of #1524 (context-budget) and #1525 (budget-governor); no merge-order dependency identified."
+  ]
+}
