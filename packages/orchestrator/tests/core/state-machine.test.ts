@@ -1345,3 +1345,95 @@ describe('applyEvent - tick - per-leaf context budget (#1524)', () => {
     ).toHaveLength(0);
   });
 });
+
+// --- SF5.2 (#1524): the LIVE dispatch consult threads served-comprehension -----
+// attribution supplied on the tick event (produced in production by the
+// orchestrator's pre-warm pass). This exercises the ACTUAL production path
+// (applyEvent → dispatchEligibleIssue → assertIssueWithinContextBudget), not the
+// governor primitive in isolation.
+describe('applyEvent - tick - served-comprehension attribution wired into the live consult', () => {
+  // A leaf whose title+description FLOOR is small (within any real budget); its
+  // real context cost is the injected comprehension block, modeled by the
+  // prewarmSources the orchestrator computes before the tick.
+  const leaf = () =>
+    makeIssue({
+      id: 'seed',
+      identifier: 'SEED-1',
+      priority: 1,
+      labels: ['scope:quick-fix'],
+      title: 'x'.repeat(40), // floor = 10 tokens
+    });
+
+  const tickWith = (
+    candidates: Issue[],
+    prewarmSources?: Map<string, { label: string; tokens: number }[]>
+  ): OrchestratorEvent => ({
+    type: 'tick',
+    candidates,
+    runningStates: new Map(),
+    nowMs: 1706745600000,
+    ...(prewarmSources !== undefined && { prewarmSources }),
+  });
+
+  it('a leaf OVER budget on RAW attribution is WITHIN budget once SERVED units are attributed through the live consult', () => {
+    const config = makeConfig({
+      // floor(10) + served(120) = 130 <= 200, but floor(10) + raw(4000) = 4010 > 200.
+      agent: { ...makeConfig().agent, contextBudget: { maxTokens: 200 } },
+    });
+
+    // Raw-magnitude attribution blows the budget → no dispatch, loud error.
+    const rawState = createEmptyState(config);
+    const raw = applyEvent(
+      rawState,
+      tickWith([leaf()], new Map([['seed', [{ label: 'packages/core/src', tokens: 4000 }]]])),
+      config
+    );
+    expect(raw.effects.filter((e) => e.type === 'claim')).toHaveLength(0);
+    const rawErrors = raw.effects.filter(
+      (e) => e.type === 'emitLog' && (e as { level: string }).level === 'error'
+    );
+    expect(rawErrors).toHaveLength(1);
+    expect((rawErrors[0] as { message: string }).message).toContain('SEED-1');
+
+    // Served (compact) attribution for the SAME leaf keeps it within budget →
+    // it dispatches with no budget error.
+    const servedState = createEmptyState(config);
+    const served = applyEvent(
+      servedState,
+      tickWith([leaf()], new Map([['seed', [{ label: 'packages/core/src', tokens: 120 }]]])),
+      config
+    );
+    expect(served.effects.filter((e) => e.type === 'claim')).toHaveLength(1);
+    expect(
+      served.effects.filter(
+        (e) => e.type === 'emitLog' && (e as { level: string }).level === 'error'
+      )
+    ).toHaveLength(0);
+    expect(served.nextState.claimed.has('seed')).toBe(true);
+  });
+
+  it('a NO-UNITS leaf (no prewarmSources) is BYTE-IDENTICAL to the #1524 floor-only consult', () => {
+    // floor for a 40-char title = 10 tokens; a budget of 5 rejects on the floor
+    // ALONE — proving the consult falls back to the pure floor when no served
+    // attribution is supplied (identical to the pre-SF5.2 behavior).
+    const config = makeConfig({
+      agent: { ...makeConfig().agent, contextBudget: { maxTokens: 5 } },
+    });
+    const state = createEmptyState(config);
+    const { effects, nextState } = applyEvent(state, tickWith([leaf()]), config);
+
+    expect(effects.filter((e) => e.type === 'claim')).toHaveLength(0);
+    const errs = effects.filter(
+      (e) => e.type === 'emitLog' && (e as { level: string }).level === 'error'
+    );
+    expect(errs).toHaveLength(1);
+    expect(nextState.claimed.has('seed')).toBe(true);
+
+    // And with a budget ABOVE the floor and no prewarm, it dispatches unchanged.
+    const genConfig = makeConfig({
+      agent: { ...makeConfig().agent, contextBudget: { maxTokens: 1_000 } },
+    });
+    const gen = applyEvent(createEmptyState(genConfig), tickWith([leaf()]), genConfig);
+    expect(gen.effects.filter((e) => e.type === 'claim')).toHaveLength(1);
+  });
+});

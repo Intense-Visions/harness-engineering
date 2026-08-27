@@ -1,9 +1,12 @@
+import { existsSync } from 'node:fs';
+import { join } from 'node:path';
 import type {
   AgentBackend,
   AgentEvent,
   BackendDef,
   CapabilityTier,
   Issue,
+  LeafContextSource,
   RoutingDecision,
   RoutingRequest,
   RoutingUseCase,
@@ -15,7 +18,7 @@ import { AgentRunner } from '../agent/runner.js';
 import { isLocalExecutionBackend } from '../agent/backend-factory.js';
 import type { OrchestratorBackendFactory } from '../agent/orchestrator-backend-factory.js';
 import { selectStagePromptTemplate } from './local-stage-prompt.js';
-import { resolveLeafPrewarm } from './comprehension-prewarm.js';
+import { resolveLeafPrewarm, type LeafPrewarmResult } from './comprehension-prewarm.js';
 import {
   ComprehensionStore,
   createNodeComprehensionIO,
@@ -331,6 +334,30 @@ export function deriveVerifyCommands(workspacePath: string): string[] {
 }
 
 /**
+ * Shared best-effort pre-warm resolution for a leaf, rooted at `root` (a leaf
+ * workspace at render time, or the project root at the dispatch consult). Returns
+ * the rendered block (for prompt injection) and its per-source served-token
+ * attribution (for the context-budget consult). Never throws, never calls an LLM.
+ *
+ * FIX E.1 — cheap early-out: when the project has no `.harness/comprehension` tree
+ * there is nothing to serve, so skip the store/reader + disk enumeration entirely
+ * (a single `existsSync` per call instead of per-module reads).
+ */
+async function resolveLeafPrewarmBestEffort(
+  issue: Issue,
+  root: string
+): Promise<LeafPrewarmResult> {
+  try {
+    if (!existsSync(join(root, '.harness', 'comprehension'))) return { block: '', sources: [] };
+    const store = new ComprehensionStore({ io: createNodeComprehensionIO() });
+    const reader = createNodeModuleSourceReader(root);
+    return await resolveLeafPrewarm(issue, { projectRoot: root, store, reader });
+  } catch {
+    return { block: '', sources: [] };
+  }
+}
+
+/**
  * D6 push-primary — resolve the pre-warmed comprehension block for a leaf at
  * dispatch. Best-effort: serves only fresh units for the issue-referenced seed
  * modules through the canonical LLM-free serve gate, and returns `''` on ANY
@@ -341,14 +368,22 @@ export async function resolveStagePrewarmBlock(
   issue: Issue,
   workspacePath: string
 ): Promise<string> {
-  try {
-    const store = new ComprehensionStore({ io: createNodeComprehensionIO() });
-    const reader = createNodeModuleSourceReader(workspacePath);
-    const result = await resolveLeafPrewarm(issue, { projectRoot: workspacePath, store, reader });
-    return result.block;
-  } catch {
-    return '';
-  }
+  return (await resolveLeafPrewarmBestEffort(issue, workspacePath)).block;
+}
+
+/**
+ * SF5.2 (#1524) — resolve a leaf's SERVED-comprehension token attribution for the
+ * LIVE context-budget consult. Rooted at the PROJECT ROOT (a leaf workspace is a
+ * checkout of the same commit, so served units + freshness match what the stage
+ * prompt later injects). Returns `[]` on any failure or when nothing is fresh — the
+ * consult then uses the floor-only estimate (byte-identical). Served tokens only
+ * ADD to the floor, so this never under-counts.
+ */
+export async function resolveLeafPrewarmSources(
+  issue: Issue,
+  projectRoot: string
+): Promise<LeafContextSource[]> {
+  return (await resolveLeafPrewarmBestEffort(issue, projectRoot)).sources;
 }
 
 /** Build the engine's `renderStagePrompt` seam over a pure renderer + issue. */

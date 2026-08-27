@@ -12,6 +12,7 @@ import type {
   StageRun,
   WorkflowExecutionPlan,
   IntelligenceConfig,
+  LeafContextSource,
 } from '@harness-engineering/types';
 import { RoutingError } from '@harness-engineering/types';
 import type { Issue, IssueTrackerClient } from '@harness-engineering/core';
@@ -134,7 +135,11 @@ import {
   type UnstickAdvice,
 } from './workflow/unstick-advisory';
 import { workflowFor } from './workflow/workflow-for';
-import { buildWorkflowContext, documentStagePath } from './workflow/orchestrator-context';
+import {
+  buildWorkflowContext,
+  documentStagePath,
+  resolveLeafPrewarmSources,
+} from './workflow/orchestrator-context';
 import { executeWorkflow } from './workflow/execute-workflow';
 import { buildRoutingUseCase } from './agent/use-case-builder';
 import { applyAnalysisEnv } from './agent/analysis-env';
@@ -1885,6 +1890,28 @@ export class Orchestrator extends EventEmitter {
     }
   }
 
+  /**
+   * SF5.2 (#1524) — resolve each leaf's served-comprehension attribution for the
+   * live context-budget consult. Returns `undefined` (tick carries no
+   * `prewarmSources`, byte-identical) unless a positive `agent.contextBudget` is
+   * configured — the consult is a no-op without a budget, so no disk I/O is spent.
+   * Each candidate resolves best-effort against the PROJECT ROOT's committed tree
+   * (cheap-early-out when absent); a leaf with nothing fresh is omitted so the
+   * reducer uses its floor-only estimate.
+   */
+  private async resolvePrewarmSources(
+    candidates: Issue[]
+  ): Promise<Map<string, LeafContextSource[]> | undefined> {
+    const maxTokens = this.config.agent.contextBudget?.maxTokens;
+    if (typeof maxTokens !== 'number' || !(maxTokens > 0)) return undefined;
+    const map = new Map<string, LeafContextSource[]>();
+    for (const issue of candidates) {
+      const sources = await resolveLeafPrewarmSources(issue, this.projectRoot);
+      if (sources.length > 0) map.set(issue.id, sources);
+    }
+    return map;
+  }
+
   public async asyncTick(): Promise<void> {
     // Ensure ClaimManager is initialized (no-op if start() already ran)
     await this.ensureClaimManager();
@@ -1943,6 +1970,11 @@ export class Orchestrator extends EventEmitter {
       personaRecommendations,
     } = pipelineResult ?? {};
 
+    // 3b. SF5.2 (#1524) — pre-warm each candidate's served-comprehension attribution
+    // for the LIVE per-leaf context-budget consult (gated on a configured budget;
+    // byte-identical + zero extra I/O otherwise).
+    const prewarmSources = await this.resolvePrewarmSources(candidates);
+
     // 4. Dispatch tick event to state machine
     const selfAssignee = await this.orchestratorIdPromise;
     const tickEvent: OrchestratorEvent = {
@@ -1956,6 +1988,7 @@ export class Orchestrator extends EventEmitter {
       ...(complexityScores !== undefined && { complexityScores }),
       ...(simulationResults !== undefined && { simulationResults }),
       ...(personaRecommendations !== undefined && { personaRecommendations }),
+      ...(prewarmSources !== undefined && { prewarmSources }),
     };
 
     let { nextState, effects } = applyEvent(this.state, tickEvent, this.config);

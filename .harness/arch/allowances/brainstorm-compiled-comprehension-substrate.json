@@ -1,7 +1,8 @@
 {
-  "reason": "Phase-4 comprehension: exactOptionalPropertyTypes typecheck fixes; also covers pre-existing graph/bench drift",
+  "reason": "Phase-5 comprehension substrate + review fixes (SF5.2 live budget consult, lazy MCP provider, --stage prettier, hook skip posture): accepts the branch's module-size aggregate growth and pre-existing graph/bench drift. baselines.json stays byte-identical.",
   "categories": {
     "complexity": 334,
+    "module-size": 249363,
     "dependency-depth": 616
   },
   "violationIds": [
@@ -11,5 +12,5 @@
     "a69cfd2cd82525ac974800a92c87ddc6f51befc4b2b4b7704254c831bddc41b1",
     "c60eea17a4add0848bb1b29da4779a5a9882da2f7f6c4a36f60076046da5acd1"
   ],
-  "createdFrom": "d34632484"
+  "createdFrom": "0d5142925"
 }

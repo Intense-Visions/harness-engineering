@@ -29,7 +29,7 @@ raw source as the fallback for the region actually under edit.
 ### Goals
 
 1. Cut per-leaf context replay by serving small compiled units in place of raw
-   source for the modules a leaf must *understand* but not *edit*.
+   source for the modules a leaf must _understand_ but not _edit_.
 2. Keep the substrate correct: a source-hash-stale unit is **never served
    silently** — staleness is caught by hash comparison, not by trust.
 3. Recompile incrementally — cost proportional to diff size, not repo size.
@@ -38,8 +38,8 @@ raw source as the fallback for the region actually under edit.
 
 ### Non-goals
 
-- Replacing the knowledge graph. Comprehension is a distinct *working substrate*
-  served as primary context; the graph remains a *reference* agents may consult.
+- Replacing the knowledge graph. Comprehension is a distinct _working substrate_
+  served as primary context; the graph remains a _reference_ agents may consult.
 - Comprehending non-source assets (configs, docs, binaries).
 - Cross-repository comprehension.
 - A bespoke interactive "author the summary in chat" flow — one programmatic
@@ -60,16 +60,16 @@ stops being re-purchased per run."
 
 ## Decisions made
 
-| # | Decision | Rationale |
-|---|----------|-----------|
-| D1 | **Hybrid compiler.** Static AST extraction produces interface contracts + dependency slices (exact, always fresh, ~free); a backend-routed LLM produces summary + invariants (semantic, hard-cached, hash-gated). | The four unit kinds split cleanly along cost/exactness lines, and keeping the cheap half free is what makes "recompile cost ∝ diff size" achievable. |
-| D2 | **Committed, sharded, markdown.** Units live at `.harness/comprehension/<module-path>/_module.md`, git-committed via a `.gitignore` un-ignore (precedent: `!**/.harness/security/timeline.json`). | Only a committed artifact satisfies "versioned alongside the code" — a checkout of a commit gets matching comprehension; a fresh worktree needs no LLM warm-up. Markdown+frontmatter gives clean line-level diffs on prose (a JSON shard would collapse a summary to one escaped line). Configurable to `cache` (gitignored) for adopters who prefer it. |
-| D3 | **Module = source directory.** The shard tree mirrors the source tree; the public surface is anchored on the language's barrel (`index.ts` / `__init__.py` / `mod.rs` / package exports), degrading to all top-level definitions. | Directories are the universal unit devs navigate and how cohesion clusters. The graph already models directory-as-module (`TopologicalLinker.ts:41` creates `module` nodes; `Assembler.ts:179,265` consumes them for density/ranking) — comprehension **reuses that same directory granularity** but adds a *committed, per-module comprehension artifact* the graph does not have. The overlap is intentional: comprehension does not replace the graph's module nodes, it enriches the same boundary with a served-as-primary summary/contract/invariant/slice unit. |
-| D4 | **Full pipeline.** CLI + pre-push **static-only** recompile-and-stage + non-blocking CI backstop + `gather_context` serving + orchestrator dispatch pre-warm + leaf-demand recompilation + #1524 budget wiring. | The value compounds only when the substrate is actually served and kept fresh end-to-end. Pre-push stays static-only so no LLM ever sits on the `git push` critical path (§ Technical design → Execution across contexts). |
-| D5 | **Core stays IO/provider-injected.** Compiler orchestration, store, provenance, and invalidation live in `@harness-engineering/core` with `extractStatic` and `generateSemantic` **injected**; the CLI/MCP layer wires the concrete graph AST extractor and the concrete `AnalysisProvider`. | Sidesteps the core→graph layering question, keeps core pure and unit-testable, and mirrors the roadmap store's IO-injection discipline. |
-| D6 | **Serve pull-primary + push-prewarm.** `gather_context` returns fresh units as the *primary* context block (graph/source fallback); the orchestrator additionally pre-warms the leaf's blast-radius modules into the stage prompt. | Pull matches today's `local-stage-prompt.ts` architecture (the leaf already calls `gather_context`); push guarantees the substrate is actually primary without hard-coupling the compiler to dispatch. |
-| D7 | **Serve-time hash gate is the sole correctness authority — and it is LLM-free.** Every serve path recomputes the module's `sourceHash` and refuses to serve on mismatch. | "Stale is worse than no summary." Correctness must not depend on any credential, so it can hold in CI and for adopters with no model configured. |
-| D8 | **Add a `claude`-CLI fallback to the MCP-side analysis-provider resolver**, and route comprehension through it. The unified env-precedence chain is **Anthropic key → local `/v1` → `claude`-CLI subscription → null** — `claude`-CLI is appended *after* the existing steps so it only fills the previously-`null` gap; every environment that resolves a provider today resolves the *same* provider after the change. | Today the MCP resolver (`resolveAnalysisProvider`, used by `acceptance_eval`/`outcome_eval`) is Anthropic-key-or-local only — a Claude subscription user with no `ANTHROPIC_API_KEY` and no local endpoint gets an inert/advisory verdict even though a usable `claude`-CLI backend exists. Note the orchestrator's `buildAnalysisProvider` is a *type-dispatched* selector (picks one backend by `def.type`, with a key→CLI fallback only inside the `anthropic` case), **not** a precedence chain — so this is a strictly-additive extension of the MCP env-precedence resolver, not a merge of the two shapes. Appending `claude`-CLI last preserves fully-local-first behavior ([[fully-local-cannot-be-autopilot]]) and makes comprehension's "no API token" real for subscription adopters. This change is separable and lands as its own commit + ADR (N-1). |
+| #   | Decision                                                                                                                                                                                                                                                                                                                                                                                                                 | Rationale                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           |
+| --- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| D1  | **Hybrid compiler.** Static AST extraction produces interface contracts + dependency slices (exact, always fresh, ~free); a backend-routed LLM produces summary + invariants (semantic, hard-cached, hash-gated).                                                                                                                                                                                                        | The four unit kinds split cleanly along cost/exactness lines, and keeping the cheap half free is what makes "recompile cost ∝ diff size" achievable.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                |
+| D2  | **Committed, sharded, markdown.** Units live at `.harness/comprehension/<module-path>/_module.md`, git-committed via a `.gitignore` un-ignore (precedent: `!**/.harness/security/timeline.json`).                                                                                                                                                                                                                        | Only a committed artifact satisfies "versioned alongside the code" — a checkout of a commit gets matching comprehension; a fresh worktree needs no LLM warm-up. Markdown+frontmatter gives clean line-level diffs on prose (a JSON shard would collapse a summary to one escaped line). Configurable to `cache` (gitignored) for adopters who prefer it.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            |
+| D3  | **Module = source directory.** The shard tree mirrors the source tree; the public surface is anchored on the language's barrel (`index.ts` / `__init__.py` / `mod.rs` / package exports), degrading to all top-level definitions.                                                                                                                                                                                        | Directories are the universal unit devs navigate and how cohesion clusters. The graph already models directory-as-module (`TopologicalLinker.ts:41` creates `module` nodes; `Assembler.ts:179,265` consumes them for density/ranking) — comprehension **reuses that same directory granularity** but adds a _committed, per-module comprehension artifact_ the graph does not have. The overlap is intentional: comprehension does not replace the graph's module nodes, it enriches the same boundary with a served-as-primary summary/contract/invariant/slice unit.                                                                                                                                                                                                                                                                                              |
+| D4  | **Full pipeline.** CLI + pre-push **static-only** recompile-and-stage + non-blocking CI backstop + `gather_context` serving + orchestrator dispatch pre-warm + leaf-demand recompilation + #1524 budget wiring.                                                                                                                                                                                                          | The value compounds only when the substrate is actually served and kept fresh end-to-end. Pre-push stays static-only so no LLM ever sits on the `git push` critical path (§ Technical design → Execution across contexts).                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          |
+| D5  | **Core stays IO/provider-injected.** Compiler orchestration, store, provenance, and invalidation live in `@harness-engineering/core` with `extractStatic` and `generateSemantic` **injected**; the CLI/MCP layer wires the concrete graph AST extractor and the concrete `AnalysisProvider`.                                                                                                                             | Sidesteps the core→graph layering question, keeps core pure and unit-testable, and mirrors the roadmap store's IO-injection discipline.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             |
+| D6  | **Serve pull-primary + push-prewarm.** `gather_context` returns fresh units as the _primary_ context block (graph/source fallback); the orchestrator additionally pre-warms the leaf's blast-radius modules into the stage prompt.                                                                                                                                                                                       | Pull matches today's `local-stage-prompt.ts` architecture (the leaf already calls `gather_context`); push guarantees the substrate is actually primary without hard-coupling the compiler to dispatch.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              |
+| D7  | **Serve-time hash gate is the sole correctness authority — and it is LLM-free.** Every serve path recomputes the module's `sourceHash` and refuses to serve on mismatch.                                                                                                                                                                                                                                                 | "Stale is worse than no summary." Correctness must not depend on any credential, so it can hold in CI and for adopters with no model configured.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    |
+| D8  | **Add a `claude`-CLI fallback to the MCP-side analysis-provider resolver**, and route comprehension through it. The unified env-precedence chain is **Anthropic key → local `/v1` → `claude`-CLI subscription → null** — `claude`-CLI is appended _after_ the existing steps so it only fills the previously-`null` gap; every environment that resolves a provider today resolves the _same_ provider after the change. | Today the MCP resolver (`resolveAnalysisProvider`, used by `acceptance_eval`/`outcome_eval`) is Anthropic-key-or-local only — a Claude subscription user with no `ANTHROPIC_API_KEY` and no local endpoint gets an inert/advisory verdict even though a usable `claude`-CLI backend exists. Note the orchestrator's `buildAnalysisProvider` is a _type-dispatched_ selector (picks one backend by `def.type`, with a key→CLI fallback only inside the `anthropic` case), **not** a precedence chain — so this is a strictly-additive extension of the MCP env-precedence resolver, not a merge of the two shapes. Appending `claude`-CLI last preserves fully-local-first behavior ([[fully-local-cannot-be-autopilot]]) and makes comprehension's "no API token" real for subscription adopters. This change is separable and lands as its own commit + ADR (N-1). |
 
 ---
 
@@ -136,10 +136,10 @@ members: [parse.ts, serialize.ts, heading.ts, ...]
 mechanism `acceptance_eval` and `outcome_eval` use.
 
 - **Structured output:** a Zod `responseSchema` for `{ summary: string,
-  invariants: string[] }`, validated at the seam (authority-in-TS pattern — the
+invariants: string[] }`, validated at the seam (authority-in-TS pattern — the
   unit shape is never trusted raw from the model).
-- **Input bounding (primary efficiency lever):** the prompt is fed the *static
-  interface contract + dependency slice + a bounded source digest*, **not** the
+- **Input bounding (primary efficiency lever):** the prompt is fed the _static
+  interface contract + dependency slice + a bounded source digest_, **not** the
   full raw source. The static half feeds the semantic half, so input tokens are
   bounded by the module's public surface, not its size — recompile cost per
   module stays bounded regardless of file length.
@@ -163,24 +163,24 @@ mechanism `acceptance_eval` and `outcome_eval` use.
 
 One mechanism covers every context:
 
-| Context | Semantic generation | Notes |
-|---------|---------------------|-------|
-| **Pre-push hook** | **Static-only — never calls an LLM** | Recomputes static units + `sourceHash` and stages them (free, fast, cannot stall `git push`); semantic is deferred |
-| Explicit `harness comprehend` | Whatever resolves (key/local/subscription) | Dev-initiated; where the semantic half is actually (re)generated |
-| CI | Static/hash verification only by default | Optional token-gated refresh job, opt-in |
-| **Interactive Claude Code** (`get_comprehension` force-recompile) | `ClaudeCliAnalysisProvider` (nested `claude --print --json-schema`) | **No API key** (subscription auth); returns `usage` for budgeting; fires only on a hash-miss |
+| Context                                                           | Semantic generation                                                 | Notes                                                                                                              |
+| ----------------------------------------------------------------- | ------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------ |
+| **Pre-push hook**                                                 | **Static-only — never calls an LLM**                                | Recomputes static units + `sourceHash` and stages them (free, fast, cannot stall `git push`); semantic is deferred |
+| Explicit `harness comprehend`                                     | Whatever resolves (key/local/subscription)                          | Dev-initiated; where the semantic half is actually (re)generated                                                   |
+| CI                                                                | Static/hash verification only by default                            | Optional token-gated refresh job, opt-in                                                                           |
+| **Interactive Claude Code** (`get_comprehension` force-recompile) | `ClaudeCliAnalysisProvider` (nested `claude --print --json-schema`) | **No API key** (subscription auth); returns `usage` for budgeting; fires only on a hash-miss                       |
 
 **Why pre-push is static-only:** running an LLM inside `git push` would put a
 same-pool, potentially slow/hung nested `claude --print` on the push critical path
 (cf. the pre-push gate gauntlet + stage-deadline history). Static extraction is
-free and fast, so pre-push keeps the *static* half fresh with the source change
+free and fast, so pre-push keeps the _static_ half fresh with the source change
 and stages it; the semantic half is (re)generated out-of-band by an explicit
 `harness comprehend`, a leaf-demand recompilation, or the opt-in CI refresh. Until
 then the unit's `semantic: absent`/source-stale state simply serves the static
 half — correctness is preserved either way.
 
 **Interactive-session caveat (designed for):** nested `claude --print` calls draw
-on the *same subscription / rate-limit pool* as the live session, so the
+on the _same subscription / rate-limit pool_ as the live session, so the
 interactive path is cost-disciplined by construction — cheap model tier,
 diff-scoped, bounded concurrency, per-run budget, and a **reentrancy guard** (a
 comprehend subprocess must not itself trigger comprehension). Leaf-demand
@@ -211,10 +211,19 @@ equals the recompiled set — the tested contract behind "cost ∝ diff size".
   `@harness-engineering/types`. The compiled substrate is what makes leaves fit
   under the per-leaf budget #1524 enforces: this feature's phase-5 wiring
   populates the estimate's per-source token counts from served comprehension
-  units and lowers the estimate versus raw source. **This wiring cannot land
-  until #1524 merges** (the type is on `feat/context-replay-budget-per-leaf-1524`,
-  not yet on `main`); until then phases 1–4 stand alone and the budget
-  integration is deferred, not blocking.
+  units and lowers the estimate versus raw source. The wiring is **live in the
+  production dispatch consult**: the orchestrator resolves each candidate leaf's
+  served-comprehension attribution before the tick (gated on a configured
+  `agent.contextBudget`, cheap-early-out when no `.harness/comprehension` tree
+  exists) and threads it, per issue, onto the tick event; the pure dispatch
+  reducer passes that attribution into `assertIssueWithinContextBudget` so an
+  over-budget-on-raw leaf is measured against the compact served units it will
+  actually receive. Because served tokens only ADD to the floor, the attribution
+  can never under-count and wrongly pass an over-budget leaf; a leaf with no fresh
+  units falls back to the floor-only estimate (byte-identical to #1524). **This
+  wiring cannot land until #1524 merges** (the type is on
+  `feat/context-replay-budget-per-leaf-1524`, not yet on `main`); until then
+  phases 1–4 stand alone and the budget integration is deferred, not blocking.
 
 ### The serve-time hash gate (correctness spine)
 
@@ -230,14 +239,14 @@ gate performs only directory enumeration, hashing, and comparison, so it require
 interactive runs.
 
 Two orthogonal freshness concepts, deliberately named apart to avoid confusion:
-*source-stale* (hash mismatch — the whole unit is untrustworthy, gate refuses it)
+_source-stale_ (hash mismatch — the whole unit is untrustworthy, gate refuses it)
 versus `semantic: absent` (a hash-fresh unit whose semantic half was never
 generated — the gate serves its static sections).
 
 ### Truth vs freshness: the semantic half is advisory
 
-The hash gate guarantees a served unit *matches its source*, not that its prose is
-*correct*: the summary and invariants are LLM-generated, and the Zod schema
+The hash gate guarantees a served unit _matches its source_, not that its prose is
+_correct_: the summary and invariants are LLM-generated, and the Zod schema
 validates their shape, not their truth. A hash-fresh but subtly-wrong summary
 would be served with full trust and committed for future agents. This is bounded
 by design, not left implicit:
@@ -247,20 +256,21 @@ by design, not left implicit:
   structural facts.
 - **Summary + invariants are framed as advisory** in the served rendering (a leaf
   treats them as orientation, and always reads raw source for the region it
-  edits — the summary is never the substrate for a *change*, only for
-  *understanding* the surrounding blast radius).
+  edits — the summary is never the substrate for a _change_, only for
+  _understanding_ the surrounding blast radius).
 - **Committed semantic prose is reviewable.** Because units are committed markdown
   (D2), a wrong summary shows up in a diff and can be corrected like any other
   doc; `storage: "cache"` adopters regenerate rather than review.
 
-The correctness *invariant* remains hash-based and LLM-free (D7); semantic
-*accuracy* is an advisory-quality property, explicitly not part of the gate.
+The correctness _invariant_ remains hash-based and LLM-free (D7); semantic
+_accuracy_ is an advisory-quality property, explicitly not part of the gate.
 
 ---
 
 ## Integration Points
 
 ### Entry Points
+
 - `harness comprehend [--changed | --all | --check | --stats]` CLI command.
 - `get_comprehension` MCP tool (leaf-demand recompilation).
 - New `comprehension` constituent in the `gather_context` MCP tool.
@@ -270,6 +280,7 @@ The correctness *invariant* remains hash-based and LLM-free (D7); semantic
   `compileModule`, unit types).
 
 ### Registrations Required
+
 - Core barrel allowlist entry in `scripts/generate-core-barrel.mjs` (new exports
   are a silent no-op without it).
 - MCP tool registration for `get_comprehension` and the `gather_context`
@@ -280,6 +291,7 @@ The correctness *invariant* remains hash-based and LLM-free (D7); semantic
 - `harness.config.json` schema addition (see Config surface).
 
 ### Documentation Updates
+
 - AGENTS.md — the comprehension substrate and the no-credential invariant.
 - CLI reference regeneration (`pnpm run generate-docs`) for `harness comprehend`.
 - Config docs for the new `comprehension` block.
@@ -287,6 +299,7 @@ The correctness *invariant* remains hash-based and LLM-free (D7); semantic
   to the knowledge graph.
 
 ### Architectural Decisions (ADRs)
+
 - **D2 — Comprehension as a committed, git-versioned substrate distinct from the
   knowledge graph.** Warrants an ADR: it establishes a new committed-artifact
   location, an un-ignore, and versioning semantics.
@@ -298,9 +311,10 @@ The correctness *invariant* remains hash-based and LLM-free (D7); semantic
   it must not depend on a credential.
 
 ### Knowledge Impact
-New concepts to enter the graph: *comprehension unit*, *source-hash provenance*,
-*static-feeds-semantic compilation*, *degradation ladder (full → static-only →
-source-fallback)*.
+
+New concepts to enter the graph: _comprehension unit_, _source-hash provenance_,
+_static-feeds-semantic compilation_, _degradation ladder (full → static-only →
+source-fallback)_.
 
 ---
 
@@ -315,7 +329,7 @@ Each is observable and testable.
    `outcome_eval` pass rate over the same corpus (the with-substrate run's pass
    rate is ≥ the baseline's). Baseline = the same corpus with the `comprehension`
    constituent disabled. Reported by the dogfood measurement + `harness comprehend
-   --stats`. (The 25% target is a floor to make the criterion binary; the
+--stats`. (The 25% target is a floor to make the criterion binary; the
    theoretical ceiling is far higher given the 298:1 replay ratio.)
 2. **No silent staleness (issue AC2).** Given a unit whose stored `sourceHash` ≠
    current source, no serve path returns the unit; it returns source fallback +
@@ -339,18 +353,18 @@ Each is observable and testable.
 
 1. **Core compiler + store** (IO/provider-injected): unit model, markdown +
    frontmatter (de)serialization, `sourceHash`, `extractStatic` interface,
-   `ComprehensionStore`. Pure, fully unit-tested, no LLM. *(SC: foundation.)*
+   `ComprehensionStore`. Pure, fully unit-tested, no LLM. _(SC: foundation.)_
 2. **Serve-time hash gate + `gather_context` constituent** — the correctness
-   spine, LLM-free. *(SC2, SC4.)*
+   spine, LLM-free. _(SC2, SC4.)_
 3. **Append `claude`-CLI to the analysis-provider resolver (own commit + ADR) +
    wire `generateSemantic`** — static-feeds-semantic input bounding, budget via
-   `tokenUsage`. *(SC5, D8, N-1.)*
+   `tokenUsage`. _(SC5, D8, N-1.)_
 4. **Invalidation + CLI** — `deriveChangedSurface` → changed modules;
-   `harness comprehend` incl. `--check`/`--stats`. *(SC3, SC6.)*
+   `harness comprehend` incl. `--check`/`--stats`. _(SC3, SC6.)_
 5. **Full pipeline** — pre-push **static-only** recompile-and-stage, non-blocking
    CI backstop, orchestrator dispatch pre-warm, `get_comprehension` leaf-demand
-   tool, and (once #1524 has merged) budget wiring. *(SC1, D4, D6.)*
-6. **Docs, ADRs, config schema, dogfood measurement.** *(SC1 report.)*
+   tool, and (once #1524 has merged) budget wiring. _(SC1, D4, D6.)_
+6. **Docs, ADRs, config schema, dogfood measurement.** _(SC1 report.)_
 
 Phases 1–2 deliver a correct, LLM-free vertical slice; phases 3+ layer enrichment
 and reach on top without weakening the correctness guarantee.
@@ -362,13 +376,13 @@ and reach on top without weakening the correctness guarantee.
 ```jsonc
 {
   "comprehension": {
-    "storage": "committed",      // "committed" (default) | "cache" (gitignored)
-    "semantic": true,             // false ⇒ static-only, never calls an LLM
-    "model": null,                // override; default is a cheap/fast tier
-    "maxTokensPerRun": 200000,    // per-run budget; fail-loud when exhausted
-    "concurrency": 4,             // bounded semantic-generation concurrency
-    "ci": "verify"                // "verify" (static/hash, non-blocking) | "refresh" (opt-in, token-gated) | "off"
-  }
+    "storage": "committed", // "committed" (default) | "cache" (gitignored)
+    "semantic": true, // false ⇒ static-only, never calls an LLM
+    "model": null, // override; default is a cheap/fast tier
+    "maxTokensPerRun": 200000, // per-run budget; fail-loud when exhausted
+    "concurrency": 4, // bounded semantic-generation concurrency
+    "ci": "verify", // "verify" (static/hash, non-blocking) | "refresh" (opt-in, token-gated) | "off"
+  },
 }
 ```
 
@@ -379,11 +393,11 @@ zero configuration and never requires a credential in its default posture.
 
 ## Risks & mitigations
 
-| Risk | Mitigation |
-|------|------------|
-| LLM summary quality/drift causes committed-file churn | Regenerate only on `sourceHash` change (fresh units never re-run); `disableThinking` + low `maxTokens` for output stability. |
-| One-time backfill cost across all packages | Diff-scoped after backfill; backfill is a bounded, opt-in `--all` run; static floor is free. |
-| `extractStatic` language coverage gaps | Semantic-only units for unsupported languages (never faked static sections); adapters added incrementally. |
-| Nested `claude` calls burn interactive rate limit | Cheap tier + diff-scoped + bounded concurrency + per-run budget + reentrancy guard. |
-| Committed generated files add review noise | `storage: "cache"` opt-out; units are small and tree-local. |
-| Adding `claude`-CLI to the resolver changes eval-tool behavior | The `claude`-CLI step is appended **last** in the precedence chain (after Anthropic key and local `/v1`), so every environment that resolves a provider today resolves the *same* one after the change — `claude`-CLI only fills the previously-`null` gap. Fully-local-first is preserved. Covered by an ADR + a test asserting each existing environment's resolution is unchanged. Lands as its own commit (N-1). |
+| Risk                                                           | Mitigation                                                                                                                                                                                                                                                                                                                                                                                                           |
+| -------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| LLM summary quality/drift causes committed-file churn          | Regenerate only on `sourceHash` change (fresh units never re-run); `disableThinking` + low `maxTokens` for output stability.                                                                                                                                                                                                                                                                                         |
+| One-time backfill cost across all packages                     | Diff-scoped after backfill; backfill is a bounded, opt-in `--all` run; static floor is free.                                                                                                                                                                                                                                                                                                                         |
+| `extractStatic` language coverage gaps                         | Semantic-only units for unsupported languages (never faked static sections); adapters added incrementally.                                                                                                                                                                                                                                                                                                           |
+| Nested `claude` calls burn interactive rate limit              | Cheap tier + diff-scoped + bounded concurrency + per-run budget + reentrancy guard.                                                                                                                                                                                                                                                                                                                                  |
+| Committed generated files add review noise                     | `storage: "cache"` opt-out; units are small and tree-local.                                                                                                                                                                                                                                                                                                                                                          |
+| Adding `claude`-CLI to the resolver changes eval-tool behavior | The `claude`-CLI step is appended **last** in the precedence chain (after Anthropic key and local `/v1`), so every environment that resolves a provider today resolves the _same_ one after the change — `claude`-CLI only fills the previously-`null` gap. Fully-local-first is preserved. Covered by an ADR + a test asserting each existing environment's resolution is unchanged. Lands as its own commit (N-1). |

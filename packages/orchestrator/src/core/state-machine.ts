@@ -393,13 +393,17 @@ function dispatchEligibleIssue(
   config: WorkflowConfig,
   effects: SideEffect[]
 ): void {
-  // Per-leaf context-replay budget (#1524): the live enforcement caller. When a
-  // budget is configured and this leaf's estimated context load exceeds it, the
-  // core consult helper throws — we FAIL LOUD (a visible error effect) and skip
-  // dispatch so the over-budget leaf never spends. Unconfigured ⇒ the guard is a
-  // no-op and this whole block is transparent (byte-identical default).
+  // Per-leaf context-replay budget (#1524): the live enforcement caller. A
+  // configured budget that this leaf's estimate exceeds makes the consult throw —
+  // we FAIL LOUD (error effect) and skip dispatch so the over-budget leaf never
+  // spends; unconfigured ⇒ no-op (byte-identical default). SF5.2: the leaf's
+  // pre-warmed served attribution (carried off-reducer on the tick) is threaded in
+  // so the estimate reflects the COMPACT served units it receives, not raw source;
+  // no attribution ⇒ floor-only (byte-identical). Served tokens only ADD to the
+  // floor, so this never under-counts and wrongly passes an over-budget leaf.
   try {
-    assertIssueWithinContextBudget(config, issue);
+    const served = event.prewarmSources?.get(issue.id);
+    assertIssueWithinContextBudget(config, issue, served?.length ? { sources: served } : undefined);
   } catch (err) {
     if (err instanceof ContextBudgetExceededError) {
       next.claimed.add(issue.id);
