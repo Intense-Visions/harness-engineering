@@ -165,6 +165,35 @@ describe('comprehend end-to-end (real node adapters, token-free)', () => {
     expect(stats.savedPct).toBeGreaterThan(0);
   });
 
+  // C1 — two consecutive `--all` runs over an UNCHANGED source tree must produce
+  // BYTE-IDENTICAL unit files. Before the fix, `compiledAt: now()` moved on every
+  // run and rewrote the committed unit, churning git on every no-op compile.
+  it('C1: repeated --all over unchanged source is byte-identical and skips-fresh (zero churn)', async () => {
+    const runAll = () =>
+      runComprehend({
+        mode: 'all',
+        projectRoot,
+        store,
+        reader,
+        makeExtractStatic: (module) => createStaticExtractor({ projectRoot, module }),
+        listModules: () => enumerateModules(projectRoot),
+        env: {},
+      });
+    const unitPath = path.join(projectRoot, '.harness', 'comprehension', 'pkg', 'm', '_module.md');
+
+    const first = await runAll();
+    expect(first.compiled).toContain('pkg/m');
+    const bytesAfterFirst = await fsp.readFile(unitPath); // Buffer
+
+    const second = await runAll();
+    // The second run recompiles NOTHING — every module reports skipped-fresh.
+    expect(second.compiled).toEqual([]);
+    expect(second.fresh).toContain('pkg/m');
+    const bytesAfterSecond = await fsp.readFile(unitPath);
+
+    expect(bytesAfterSecond.equals(bytesAfterFirst)).toBe(true); // BYTE-identical
+  });
+
   it('SC3: the recompiled set equals the changed-module set (not the repo)', async () => {
     // Two modules exist; a "changed" run scoped to only pkg/m must recompile only it.
     await fsp.mkdir(path.join(projectRoot, 'pkg', 'other'), { recursive: true });

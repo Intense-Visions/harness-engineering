@@ -9,10 +9,16 @@
  * credential, no LLM).
  */
 
-import { compileModule, serveGate, renderServedUnit } from '@harness-engineering/core';
+import {
+  compileModule,
+  serveGate,
+  renderServedUnit,
+  computeSourceHash,
+} from '@harness-engineering/core';
 import type {
   ComprehensionSourceFile,
   ComprehensionListing,
+  ComprehensionProvenance,
   ComprehensionUnit,
   ExtractStatic,
   GenerateSemantic,
@@ -27,6 +33,12 @@ export interface ComprehendModuleReader {
 
 export interface ComprehendUnitStore {
   write(unit: ComprehensionUnit): Promise<Result<void>>;
+  /**
+   * Read the committed unit for a module, or `Err` when absent/unreadable. Used
+   * by the C1 freshness gate to skip recompiling an already-fresh unit — an
+   * `Err` (not-found) simply means "compile it".
+   */
+  read(module: string): Promise<Result<ComprehensionUnit>>;
 }
 
 export interface ComprehendRunOptions {
@@ -55,6 +67,13 @@ export interface ComprehendRunResult {
   semanticPresent: number;
   semanticAbsent: number;
   skipped: string[];
+  /**
+   * C1: modules skipped because their committed unit is already source-fresh (and
+   * semantically sufficient for this run) — neither recompiled nor re-written, so
+   * no git churn and no provider cost. Distinct from `skipped` (missing source /
+   * write failure), which is a degraded outcome.
+   */
+  fresh: string[];
   reentrancyRefused?: boolean;
 }
 
@@ -84,14 +103,47 @@ export async function mapWithConcurrency<T, R>(
 /** Per-module compile outcome, aggregated in input order after the pool drains. */
 type ModuleOutcome =
   | { kind: 'compiled'; module: string; semantic: 'present' | 'absent' }
+  | { kind: 'fresh'; module: string }
   | { kind: 'skipped'; module: string };
+
+/**
+ * C1 — is the committed unit already fresh enough to skip a recompile? Fresh iff
+ * its `sourceHash` matches the just-computed one AND it is semantically
+ * sufficient for this run: a static-only run (no `generateSemantic`) needs no
+ * semantic, and a semantic run is satisfied only when the unit already has
+ * `semantic:present` (a `semantic:absent` unit must recompile to add it).
+ */
+function isReusableFresh(
+  prior: ComprehensionProvenance | undefined,
+  currentHash: string,
+  runAddsSemantic: boolean
+): boolean {
+  if (!prior || prior.sourceHash !== currentHash) return false;
+  return !runAddsSemantic || prior.semantic === 'present';
+}
 
 async function compileOne(module: string, opts: ComprehendRunOptions): Promise<ModuleOutcome> {
   const sourceFiles = await opts.reader.readModuleSource(module);
   if (!sourceFiles) return { kind: 'skipped', module };
+
+  // C1 — "fresh units never re-run". Compute the current hash from EXACTLY the
+  // files the compile would use (the canonical reader's output), so the freshness
+  // check can never diverge from the compile-time hash. When the committed unit is
+  // already fresh, skip entirely — no recompile, no write, no provider call, no
+  // git churn (spec proposal.md:384).
+  const currentHash = computeSourceHash(sourceFiles);
+  const existing = await opts.store.read(module);
+  const prior = existing.ok ? existing.value.provenance : undefined;
+  if (isReusableFresh(prior, currentHash, Boolean(opts.generateSemantic))) {
+    return { kind: 'fresh', module };
+  }
+
   const unit = await compileModule(module, sourceFiles, {
     extractStatic: opts.makeExtractStatic(module),
     ...(opts.generateSemantic ? { generateSemantic: opts.generateSemantic } : {}),
+    // Preserve the prior `compiledAt` when the source is unchanged (a semantic
+    // upgrade): the timestamp moves only when the sourceHash moves.
+    ...(prior ? { prior: { sourceHash: prior.sourceHash, compiledAt: prior.compiledAt } } : {}),
   });
   const written = await opts.store.write(unit);
   if (!written.ok) {
@@ -114,6 +166,7 @@ export async function runComprehend(opts: ComprehendRunOptions): Promise<Compreh
     semanticPresent: 0,
     semanticAbsent: 0,
     skipped: [],
+    fresh: [],
   };
 
   if (isComprehensionReentrant(env)) {
@@ -135,6 +188,10 @@ export async function runComprehend(opts: ComprehendRunOptions): Promise<Compreh
   for (const o of outcomes) {
     if (o.kind === 'skipped') {
       base.skipped.push(o.module);
+      continue;
+    }
+    if (o.kind === 'fresh') {
+      base.fresh.push(o.module);
       continue;
     }
     base.compiled.push(o.module);

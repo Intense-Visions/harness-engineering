@@ -111,6 +111,28 @@ describe('compileModule', () => {
     const unit = await compileModule('mod', dup, { extractStatic, now });
     expect(unit.provenance.members).toEqual(['y.ts']);
   });
+
+  // C1 — compiledAt changes ONLY when sourceHash changes. When a prior unit's
+  // sourceHash matches the freshly-computed one (e.g. a semantic upgrade that
+  // does not touch the source), the prior compiledAt is REUSED, so a recompile
+  // of unchanged source never produces git churn from a moving timestamp.
+  it('reuses prior compiledAt when the sourceHash is unchanged (C1 determinism)', async () => {
+    const prior = { sourceHash: computeSourceHash(files), compiledAt: '2020-01-01T00:00:00.000Z' };
+    const laterNow = () => new Date('2099-12-31T23:59:59.000Z');
+    const unit = await compileModule('src', files, { extractStatic, now: laterNow, prior });
+    expect(unit.provenance.sourceHash).toBe(prior.sourceHash);
+    expect(unit.provenance.compiledAt).toBe('2020-01-01T00:00:00.000Z'); // prior preserved
+  });
+
+  it('stamps a fresh compiledAt when the sourceHash differs from prior (C1)', async () => {
+    const prior = {
+      sourceHash: 'a-stale-hash-that-does-not-match',
+      compiledAt: '2020-01-01T00:00:00.000Z',
+    };
+    const unit = await compileModule('src', files, { extractStatic, now, prior });
+    expect(unit.provenance.sourceHash).not.toBe(prior.sourceHash);
+    expect(unit.provenance.compiledAt).toBe('2026-08-27T12:00:00.000Z'); // fresh now
+  });
 });
 
 // FIX 1 — the single-source-of-truth invariant, end to end. The reader is the

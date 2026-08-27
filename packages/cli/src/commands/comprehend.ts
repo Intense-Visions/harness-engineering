@@ -88,6 +88,7 @@ async function runCompileMode(
     maxTokensPerRun: cconf.maxTokensPerRun,
     ...(cconf.model ? { model: cconf.model } : {}),
   });
+
   const changedModules =
     mode === 'changed' ? filesToModules(deriveChangedSurface(projectRoot).files) : undefined;
 
@@ -110,6 +111,7 @@ async function runCompileMode(
   logger.success(
     `Compiled ${result.compiled.length} module(s): ` +
       `${result.semanticPresent} semantic, ${result.semanticAbsent} static-only` +
+      (result.fresh.length > 0 ? `, ${result.fresh.length} fresh (skipped)` : '') +
       (result.skipped.length > 0 ? `, ${result.skipped.length} skipped` : '') +
       '.'
   );

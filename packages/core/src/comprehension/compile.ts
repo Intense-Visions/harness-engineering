@@ -9,6 +9,15 @@ export interface CompileOptions {
   generateSemantic?: GenerateSemantic;
   /** Injected clock for deterministic `compiledAt` (defaults to real now). */
   now?: () => Date;
+  /**
+   * C1 — prior unit provenance (sourceHash + compiledAt) to reuse the timestamp
+   * from when the freshly-computed `sourceHash` is unchanged. `compiledAt` must
+   * move ONLY when `sourceHash` moves; otherwise a recompile of unchanged source
+   * (e.g. a semantic upgrade) would rewrite the committed unit with a new
+   * timestamp and churn git on every run. Passed by value so `compileModule`
+   * stays pure (no fs read in core).
+   */
+  prior?: { sourceHash: string; compiledAt: string };
 }
 
 /**
@@ -72,13 +81,18 @@ export async function compileModule(
     }
   }
 
-  const now = (opts.now ?? (() => new Date()))();
+  // C1: reuse the prior timestamp when the source is unchanged, so `compiledAt`
+  // moves only when `sourceHash` moves (no churn on a no-op / semantic-upgrade).
+  const compiledAt =
+    opts.prior && opts.prior.sourceHash === sourceHash
+      ? opts.prior.compiledAt
+      : (opts.now ?? (() => new Date()))().toISOString();
   return {
     provenance: {
       schemaVersion: SCHEMA_VERSION,
       module: module.replaceAll('\\', '/'),
       sourceHash,
-      compiledAt: now.toISOString(),
+      compiledAt,
       compiler: { static: COMPILER_VERSION.static, semantic: COMPILER_VERSION.semantic },
       model,
       semantic,

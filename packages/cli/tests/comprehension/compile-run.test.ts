@@ -1,5 +1,5 @@
-import { describe, it, expect, afterEach } from 'vitest';
-import { Ok } from '@harness-engineering/core';
+import { describe, it, expect, afterEach, vi } from 'vitest';
+import { Ok, Err } from '@harness-engineering/core';
 import type {
   ComprehensionUnit,
   ComprehensionSourceFile,
@@ -20,12 +20,22 @@ function fakeReader(map: Record<string, ComprehensionSourceFile[] | null>) {
   };
 }
 
-function fakeStore() {
+function fakeStore(seed: ComprehensionUnit[] = []) {
   const writes: ComprehensionUnit[] = [];
+  // Latest-committed unit per module, so a second run can read what the first
+  // wrote (mirrors ComprehensionStore.read: Err when the unit is absent).
+  const committed = new Map<string, ComprehensionUnit>();
+  for (const u of seed) committed.set(u.provenance.module, u);
   return {
     writes,
+    committed,
+    read: async (module: string) => {
+      const u = committed.get(module);
+      return u ? Ok(u) : Err(new Error(`not found: ${module}`));
+    },
     write: async (unit: ComprehensionUnit) => {
       writes.push(unit);
+      committed.set(unit.provenance.module, unit);
       return Ok(undefined);
     },
   };
@@ -197,6 +207,114 @@ describe('runComprehend — changed/all compile + write', () => {
     });
     expect(peak).toBeLessThanOrEqual(2);
     expect(store.writes).toHaveLength(5);
+  });
+
+  // C1 — "fresh units never re-run": a second compile over unchanged source must
+  // NOT rewrite the unit and must NOT re-invoke the provider.
+  it('C1: skips a source-fresh module — no re-write, no provider call on the second run', async () => {
+    const store = fakeStore();
+    const reader = fakeReader({ 'pkg/a': SRC });
+    const generateSemantic = vi.fn<GenerateSemantic>(async () => ({
+      summary: 'a summary',
+      invariants: ['inv1'],
+      model: 'stub-model',
+    }));
+    const run = () =>
+      runComprehend({
+        mode: 'changed',
+        projectRoot: '/repo',
+        reader,
+        store,
+        makeExtractStatic: noopExtract,
+        generateSemantic,
+        changedModules: ['pkg/a'],
+        env: {},
+      });
+    const first = await run();
+    expect(first.compiled).toEqual(['pkg/a']);
+    expect(store.writes).toHaveLength(1);
+    expect(generateSemantic).toHaveBeenCalledTimes(1);
+
+    const second = await run();
+    expect(second.fresh).toEqual(['pkg/a']); // reported skipped-fresh
+    expect(second.compiled).toEqual([]); // not recompiled
+    expect(store.writes).toHaveLength(1); // NO second write
+    expect(generateSemantic).toHaveBeenCalledTimes(1); // NO second provider call
+  });
+
+  it('C1: a source-fresh static-only run skips without a re-write', async () => {
+    const store = fakeStore();
+    const reader = fakeReader({ 'pkg/a': SRC });
+    const run = () =>
+      runComprehend({
+        mode: 'all',
+        projectRoot: '/repo',
+        reader,
+        store,
+        makeExtractStatic: noopExtract,
+        listModules: async () => ['pkg/a'],
+        env: {},
+      });
+    await run();
+    expect(store.writes).toHaveLength(1);
+    const second = await run();
+    expect(second.fresh).toEqual(['pkg/a']);
+    expect(store.writes).toHaveLength(1);
+  });
+
+  it('C1: recompiles when the source hash changed (fresh gate does not block real edits)', async () => {
+    const store = fakeStore();
+    const reader = fakeReader({ 'pkg/a': SRC });
+    const opts = {
+      mode: 'all' as const,
+      projectRoot: '/repo',
+      reader,
+      store,
+      makeExtractStatic: noopExtract,
+      listModules: async () => ['pkg/a'],
+      env: {},
+    };
+    await runComprehend(opts);
+    // Mutate the source → hash diverges from the committed unit.
+    reader.readModuleSource = async () => [{ path: 'a.ts', content: 'export const a = 999;\n' }];
+    const second = await runComprehend(opts);
+    expect(second.compiled).toEqual(['pkg/a']);
+    expect(second.fresh).toEqual([]);
+    expect(store.writes).toHaveLength(2);
+  });
+
+  it('C1: upgrades a semantic:absent unit to present when the run adds semantic (same hash)', async () => {
+    const store = fakeStore();
+    const reader = fakeReader({ 'pkg/a': SRC });
+    // First: static-only → semantic absent.
+    await runComprehend({
+      mode: 'all',
+      projectRoot: '/repo',
+      reader,
+      store,
+      makeExtractStatic: noopExtract,
+      listModules: async () => ['pkg/a'],
+      env: {},
+    });
+    expect(store.writes[0].provenance.semantic).toBe('absent');
+    const priorCompiledAt = store.writes[0].provenance.compiledAt;
+    // Second: same source, now WITH a provider → must recompile to add semantic.
+    const generateSemantic: GenerateSemantic = async () => ({ summary: 's', invariants: [] });
+    const second = await runComprehend({
+      mode: 'all',
+      projectRoot: '/repo',
+      reader,
+      store,
+      makeExtractStatic: noopExtract,
+      generateSemantic,
+      listModules: async () => ['pkg/a'],
+      env: {},
+    });
+    expect(second.compiled).toEqual(['pkg/a']);
+    expect(store.writes).toHaveLength(2);
+    expect(store.writes[1].provenance.semantic).toBe('present');
+    // C1 belt: hash unchanged ⇒ compiledAt preserved across the upgrade.
+    expect(store.writes[1].provenance.compiledAt).toBe(priorCompiledAt);
   });
 
   it('skips a module whose source reader returns null (no throw)', async () => {
