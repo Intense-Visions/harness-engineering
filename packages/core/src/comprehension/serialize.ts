@@ -115,7 +115,7 @@ function sectionList(content: string, heading: string): string[] {
 function sectionFenced(content: string, heading: string): string {
   const body = sectionText(content, heading);
   const m = body.match(/^```[^\n]*\n([\s\S]*?)\n?```$/);
-  return (m ? m[1] : body).trim();
+  return (m?.[1] ?? body).trim();
 }
 
 /**
