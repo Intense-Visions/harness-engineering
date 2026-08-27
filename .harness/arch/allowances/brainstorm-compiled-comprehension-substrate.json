@@ -1,13 +1,14 @@
 {
-  "reason": "Phase-4 comprehension (config schema + reader); also covers pre-existing graph/bench drift",
+  "reason": "Phase-4 comprehension (runComprehend driver); also covers pre-existing graph/bench drift",
   "categories": {
-    "complexity": 333
+    "complexity": 334
   },
   "violationIds": [
+    "44fc8db829ab587b8bc6a92fc411b1e49a1dca20499f272d0310bcdbe3c68c81",
     "717acff600db9428ddeace1963f9e2526f9a5c5902143bfa3a1ee31405c6421d",
     "a15d07ac8860ed03115a9c7dcaf4af35dd1ac3ae8fa62be7bef1189e9724965b",
     "a69cfd2cd82525ac974800a92c87ddc6f51befc4b2b4b7704254c831bddc41b1",
     "c60eea17a4add0848bb1b29da4779a5a9882da2f7f6c4a36f60076046da5acd1"
   ],
-  "createdFrom": "54a3319a2"
+  "createdFrom": "5179c11ca"
 }
