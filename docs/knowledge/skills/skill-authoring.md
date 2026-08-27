@@ -52,7 +52,7 @@ Every skill consists of two files: a `SKILL.md` instruction document and a `skil
 
 - **Tier 1 (workflow)** -- core development loop skills (brainstorming, planning, execution, verification, review)
 - **Tier 2 (maintenance)** -- operational skills (cleanup, refactoring, dependency health, release readiness)
-- **Tier 3 (domain)** -- specialized domain skills (security scan, architecture advisor, Capillary integrations)
+- **Tier 3 (domain)** -- specialized domain skills (security scan, architecture advisor, third-party platform integrations)
 
 ## Rigid vs Flexible
 
