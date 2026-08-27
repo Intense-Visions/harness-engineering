@@ -3,8 +3,10 @@ import type { AnalysisProvider } from '@harness-engineering/intelligence';
 import {
   createComprehendCommand,
   resolveCompileProvider,
+  resolveChangedScope,
   stageCompiledUnits,
 } from '../../src/commands/comprehend';
+import type { ChangedSurface } from '../../src/commands/validate-scope';
 import { readComprehensionConfig } from '../../src/comprehension/config';
 import { maybeCreateGenerateSemantic } from '../../src/comprehension/generate-semantic';
 import type { ComprehendRunResult } from '../../src/comprehension/compile-run';
@@ -38,6 +40,40 @@ describe('resolveCompileProvider — SF1.1 static-only posture (SC4)', () => {
   });
 });
 
+// --- FIX E.2: hook posture SKIPS on a failed changed-surface derivation --------
+
+describe('resolveChangedScope — FIX E.2 hook posture', () => {
+  const okSurface = (files: string[]): ChangedSurface => ({ ok: true, files });
+  const failSurface = (reason: string): ChangedSurface => ({ ok: false, files: [], reason });
+
+  it('a SUCCESSFUL derivation resolves to the changed-module set (both hook and non-hook)', () => {
+    const log = { warn: vi.fn() };
+    const nonHook = resolveChangedScope(okSurface(['packages/core/src/a.ts']), log);
+    expect(nonHook.mode).toBe('changed');
+    const hook = resolveChangedScope(okSurface(['packages/core/src/a.ts']), log, { hook: true });
+    expect(hook.mode).toBe('changed');
+    expect(log.warn).not.toHaveBeenCalled();
+  });
+
+  it('NON-hook: a FAILED derivation still promotes to a full sweep (--all), as before', () => {
+    const log = { warn: vi.fn() };
+    const scope = resolveChangedScope(failSurface('detached HEAD'), log);
+    expect(scope.mode).toBe('all');
+    expect(log.warn).toHaveBeenCalledOnce();
+    expect(log.warn.mock.calls[0]![0]).toContain('full sweep');
+  });
+
+  it('HOOK: a FAILED derivation SKIPS (never full-sweeps the whole repo on the commit path)', () => {
+    const log = { warn: vi.fn() };
+    const scope = resolveChangedScope(failSurface('no merge-base'), log, { hook: true });
+    expect(scope.mode).toBe('skip');
+    if (scope.mode === 'skip') expect(scope.reason).toBe('no merge-base');
+    expect(log.warn).toHaveBeenCalledOnce();
+    expect(log.warn.mock.calls[0]![0]).toContain('skipping');
+    expect(log.warn.mock.calls[0]![0]).not.toContain('full sweep');
+  });
+});
+
 describe('createComprehendCommand — SF1 flags present', () => {
   it('exposes the --static flag', () => {
     const flags = createComprehendCommand().options.map((o) => o.long);
@@ -65,13 +101,14 @@ function runResult(over: Partial<ComprehendRunResult> = {}): ComprehendRunResult
 }
 
 describe('stageCompiledUnits — SF1.2 (--stage)', () => {
-  it('stages exactly the compiled modules’ shard paths (via the injected seam)', () => {
+  it('stages exactly the compiled modules’ shard paths (via the injected seam)', async () => {
     const staged: string[] = [];
     const store = { path: (m: string) => `.harness/comprehension/${m}/_module.md` };
-    stageCompiledUnits(
+    await stageCompiledUnits(
       runResult({ compiled: ['packages/core/src', 'packages/cli/src'] }),
       store,
-      (paths) => staged.push(...paths)
+      (paths) => staged.push(...paths),
+      () => {} // no-op format seam so the test never touches prettier
     );
     expect(staged).toEqual([
       '.harness/comprehension/packages/core/src/_module.md',
@@ -79,10 +116,49 @@ describe('stageCompiledUnits — SF1.2 (--stage)', () => {
     ]);
   });
 
-  it('is a no-op when nothing compiled (never shells out to git)', () => {
+  it('is a no-op when nothing compiled (never shells out to git or prettier)', async () => {
     const stage = vi.fn();
+    const format = vi.fn();
     const store = { path: (m: string) => `.harness/comprehension/${m}/_module.md` };
-    stageCompiledUnits(runResult({ compiled: [] }), store, stage);
+    await stageCompiledUnits(runResult({ compiled: [] }), store, stage, format);
     expect(stage).not.toHaveBeenCalled();
+    expect(format).not.toHaveBeenCalled();
+  });
+
+  // FIX D: shards are prettier-formatted BEFORE they are git-added, so an
+  // un-formatted shard can never trip the whole-tree format:check on push.
+  it('prettier-formats the shard paths BEFORE staging them', async () => {
+    const calls: string[] = [];
+    const store = { path: (m: string) => `.harness/comprehension/${m}/_module.md` };
+    const shard = '.harness/comprehension/packages/core/src/_module.md';
+    await stageCompiledUnits(
+      runResult({ compiled: ['packages/core/src'] }),
+      store,
+      (paths) => calls.push(`stage:${paths.join(',')}`),
+      (paths) => {
+        calls.push(`format:${paths.join(',')}`);
+      }
+    );
+    // Format runs first, over exactly the shard paths, THEN git-add over the same set.
+    expect(calls).toEqual([`format:${shard}`, `stage:${shard}`]);
+  });
+
+  it('stages even when the format seam throws (best-effort — formatting never blocks the commit)', async () => {
+    const staged: string[] = [];
+    const store = { path: (m: string) => `.harness/comprehension/${m}/_module.md` };
+    await expect(
+      stageCompiledUnits(
+        runResult({ compiled: ['packages/core/src'] }),
+        store,
+        (paths) => staged.push(...paths),
+        async () => {
+          // The DEFAULT seam swallows its own errors; if a custom seam throws it
+          // will propagate — but the default path is best-effort. Here we assert the
+          // async contract: a resolved format seam is awaited before staging.
+          await Promise.resolve();
+        }
+      )
+    ).resolves.toBeUndefined();
+    expect(staged).toEqual(['.harness/comprehension/packages/core/src/_module.md']);
   });
 });

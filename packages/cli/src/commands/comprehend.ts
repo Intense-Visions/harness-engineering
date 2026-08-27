@@ -52,10 +52,10 @@ export function resolveMode(flags: ComprehendFlags): ComprehendMode {
 }
 
 /** Resolved compile scope: the effective run mode + optional changed-module set. */
-export interface CompileScope {
-  mode: 'changed' | 'all';
-  changedModules?: string[];
-}
+export type CompileScope =
+  | { mode: 'changed'; changedModules?: string[] }
+  | { mode: 'all' }
+  | { mode: 'skip'; reason: string };
 
 /**
  * S1: resolve the `--changed` compile scope from the git-derived surface.
@@ -64,16 +64,33 @@ export interface CompileScope {
  * nothing changed). When derivation FAILS (`ok:false` — detached HEAD, no
  * merge-base, git error) `deriveChangedSurface` returns an empty file list, which
  * would silently compile NOTHING — a false "everything is fresh" that skips real
- * work. Its own contract promises callers fall back to a full sweep, so we warn
- * loudly and promote the run to `--all` rather than a silent no-op.
+ * work.
+ *
+ * FIX E.2 — the failure posture depends on WHO invoked us:
+ *  - Non-hook `--changed` (a human/CI running `harness comprehend --changed`):
+ *    keep the existing behavior — warn loudly and promote to a full sweep (`--all`)
+ *    rather than a silent no-op, so an explicit run still does real work.
+ *  - Hook posture (`--hook`, an OPT-IN pre-commit step): SKIP instead of full-sweep.
+ *    A commit on a detached HEAD (or any merge-base failure) must NEVER surprise the
+ *    committer by recompiling the WHOLE repo on the commit path; skipping keeps the
+ *    opt-in hook unobtrusive and non-blocking.
  */
 export function resolveChangedScope(
   surface: ChangedSurface,
-  log: { warn: (m: string) => void }
+  log: { warn: (m: string) => void },
+  opts: { hook?: boolean } = {}
 ): CompileScope {
   if (surface.ok) return { mode: 'changed', changedModules: filesToModules(surface.files) };
+  const reason = surface.reason ?? 'git error';
+  if (opts.hook) {
+    log.warn(
+      `comprehend: could not derive the changed surface (${reason}); ` +
+        'skipping the pre-commit recompile (the hook never full-sweeps).'
+    );
+    return { mode: 'skip', reason };
+  }
   log.warn(
-    `comprehend: could not derive the changed surface (${surface.reason ?? 'git error'}); ` +
+    `comprehend: could not derive the changed surface (${reason}); ` +
       'falling back to a full sweep (--all).'
   );
   return { mode: 'all' };
@@ -107,19 +124,55 @@ function defaultStagePaths(paths: string[]): void {
 }
 
 /**
+ * FIX D — default `--stage` FORMAT seam: prettier-format the shard files in place
+ * (respecting the repo's prettier config) BEFORE they are git-added. The pre-commit
+ * `--stage` step runs AFTER lint-staged, so a freshly-written `_module.md` shard
+ * would otherwise be committed UN-formatted and later trip the whole-tree
+ * `format:check` on push (a known repo hazard). Formatting the shards here keeps
+ * them clean without adding `.harness/comprehension` to `.prettierignore`.
+ *
+ * Best-effort per file and overall: prettier may be absent (adopter without it) or a
+ * shard may be unreadable — either way we swallow and fall through to git-add, so a
+ * recompile+stage never blocks a commit.
+ */
+async function defaultFormatPaths(paths: string[]): Promise<void> {
+  try {
+    const prettier = await import('prettier');
+    const fs = await import('node:fs/promises');
+    for (const p of paths) {
+      try {
+        const src = await fs.readFile(p, 'utf8');
+        const config = await prettier.resolveConfig(p);
+        const formatted = await prettier.format(src, { ...config, filepath: p });
+        if (formatted !== src) await fs.writeFile(p, formatted);
+      } catch {
+        /* per-file best-effort — an unformattable/unreadable shard is left as-is */
+      }
+    }
+  } catch {
+    /* prettier unavailable ⇒ skip formatting entirely (never block the commit) */
+  }
+}
+
+/**
  * SF1.2 — `--stage`: git-add the compiled units' shard paths so a static-only
  * pre-commit recompile lands the refreshed `_module.md` shards IN the same commit
  * as the source change. Stages EXACTLY the compiled modules' shards (`store.path`)
- * and is a no-op when nothing compiled (never shells out). The git call is behind
- * an injectable seam so tests never touch git.
+ * and is a no-op when nothing compiled (never shells out). FIX D: the shards are
+ * prettier-formatted (in place) BEFORE the git-add so they cannot trip the
+ * whole-tree `format:check`. Both the format and git calls are behind injectable
+ * seams so tests never touch prettier or git.
  */
-export function stageCompiledUnits(
+export async function stageCompiledUnits(
   result: Pick<ComprehendRunResult, 'compiled'>,
   store: { path: (module: string) => string },
-  stage: (paths: string[]) => void = defaultStagePaths
-): void {
+  stage: (paths: string[]) => void = defaultStagePaths,
+  format: (paths: string[]) => void | Promise<void> = defaultFormatPaths
+): Promise<void> {
   if (result.compiled.length === 0) return;
-  stage(result.compiled.map((module) => store.path(module)));
+  const paths = result.compiled.map((module) => store.path(module));
+  await format(paths); // FIX D: prettier the shards BEFORE they are staged
+  stage(paths);
 }
 
 /** Load the resolved HarnessConfig, or undefined when none resolves (best-effort). */
@@ -162,9 +215,23 @@ async function runCompileMode(
   store: ComprehensionStore,
   reader: ReturnType<typeof createNodeModuleSourceReader>,
   config: HarnessConfig | undefined,
-  opts: { staticOnly?: boolean; stage?: boolean } = {}
+  opts: { staticOnly?: boolean; stage?: boolean; hook?: boolean } = {}
 ): Promise<void> {
   const cconf = readComprehensionConfig(config);
+
+  const scope =
+    mode === 'changed'
+      ? resolveChangedScope(deriveChangedSurface(projectRoot), logger, { hook: opts.hook ?? false })
+      : { mode: 'all' as const };
+
+  // FIX E.2: a hook-posture run whose changed-surface derivation failed SKIPS
+  // (never a whole-repo full sweep on the commit path). Return before resolving a
+  // provider or compiling anything.
+  if (scope.mode === 'skip') {
+    logger.info('comprehend: nothing to recompile (changed-surface derivation skipped).');
+    process.exit(ExitCode.SUCCESS);
+  }
+
   // SC4: static-only (`--static`) or semantic-disabled ⇒ no provider is resolved
   // — no credential, no LLM on the push/CI path.
   const provider = await resolveCompileProvider(cconf, opts.staticOnly ?? false);
@@ -173,11 +240,6 @@ async function runCompileMode(
     ...(cconf.model ? { model: cconf.model } : {}),
   });
 
-  const scope =
-    mode === 'changed'
-      ? resolveChangedScope(deriveChangedSurface(projectRoot), logger)
-      : { mode: 'all' as const };
-
   const result = await runComprehend({
     mode: scope.mode,
     projectRoot,
@@ -185,7 +247,9 @@ async function runCompileMode(
     reader,
     makeExtractStatic: (module) => createStaticExtractor({ projectRoot, module }),
     ...(generateSemantic ? { generateSemantic } : {}),
-    ...(scope.changedModules ? { changedModules: scope.changedModules } : {}),
+    ...(scope.mode === 'changed' && scope.changedModules
+      ? { changedModules: scope.changedModules }
+      : {}),
     listModules: () => enumerateModules(projectRoot),
     concurrency: cconf.concurrency,
   });
@@ -195,8 +259,9 @@ async function runCompileMode(
     process.exit(ExitCode.SUCCESS);
   }
   // Pre-commit posture: stage the refreshed shards so they land in the SAME
-  // commit as the source change (no-op when nothing compiled).
-  if (opts.stage) stageCompiledUnits(result, store);
+  // commit as the source change (no-op when nothing compiled). Prettier-formats
+  // the shards before git-add (FIX D) so they never trip the whole-tree format:check.
+  if (opts.stage) await stageCompiledUnits(result, store);
   logger.success(
     `Compiled ${result.compiled.length} module(s): ` +
       `${result.semanticPresent} semantic, ${result.semanticAbsent} static-only` +
