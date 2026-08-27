@@ -19,6 +19,7 @@
     "typecheck": "turbo run typecheck",
     "clean": "turbo run clean && node scripts/clean.mjs node_modules",
     "bench": "turbo run bench",
+    "bench:graph-tokens": "node packages/cli/dist/bin/harness.js graph bench",
     "test:platform-parity": "vitest run tests/platform-parity.test.ts",
     "test:root": "vitest run",
     "orchestrator": "node packages/cli/dist/bin/harness.js orchestrator run",

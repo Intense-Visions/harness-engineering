@@ -1,0 +1,45 @@
+{
+  "issue": 1271,
+  "slug": "graph-token-savings-benchmark",
+  "plan_path": "docs/changes/graph-token-savings-benchmark/plans/plan.md",
+  "spec_path": "docs/changes/graph-token-savings-benchmark/proposal.md",
+  "closing_keyword": "Refs #1271",
+  "stages": [
+    {
+      "stage": "brainstorming",
+      "skill": "harness-brainstorming",
+      "artifact": "docs/changes/graph-token-savings-benchmark/proposal.md",
+      "summary": "Spec for a reproducible graph token-savings benchmark; confirmed decisions folded in (honest arXiv target, two objective axes, naive baseline = fs search + full reads, real handlers on the graph side, wired via CLI + npm)."
+    },
+    {
+      "stage": "planning",
+      "skill": "harness-planning",
+      "artifact": "docs/changes/graph-token-savings-benchmark/plans/plan.md",
+      "summary": "Four-phase plan: bench core + tests, wiring, measure + publish, gates."
+    },
+    {
+      "stage": "execution",
+      "skill": "harness-execution",
+      "artifact": "packages/cli/src/commands/graph/bench.ts",
+      "summary": "runGraphBench invokes the real graph tool handlers vs a filesystem naive baseline; registered as `harness graph bench` + `pnpm run bench:graph-tokens`; behavior tests in bench.test.ts."
+    },
+    {
+      "stage": "publish",
+      "skill": "harness-integration",
+      "artifact": "docs/benchmarks/graph-token-savings/REPRODUCING.md",
+      "summary": "Published methodology (REPRODUCING.md), the measured number (RESULTS.md), and the machine-readable result (results/latest.json)."
+    },
+    {
+      "stage": "verification",
+      "skill": "harness-verify",
+      "artifact": "docs/benchmarks/graph-token-savings/results/latest.json",
+      "summary": "WIRED: `harness graph bench` runs end-to-end on this repo and writes latest.json; all-OS CI."
+    }
+  ],
+  "assumptions": [
+    "Token cost is proxied by chars/4 (core estimateTokens); absolute tokens are approximate but the ratio between strategies is the reported result.",
+    "The naive baseline reads whole files because a graph-less agent cannot scope within a file; this understates naive cost, so the reported savings is a conservative lower bound.",
+    "Anchors derived from graph degree represent real developer questions ('what depends on this heavily-used module?'); fixed intent/question lists cover the task-context families.",
+    "Answer quality (the comparator's 83% axis) and a multi-repo corpus comparison are deferred slices, so the issue is referenced (Refs #1271), not closed."
+  ]
+}

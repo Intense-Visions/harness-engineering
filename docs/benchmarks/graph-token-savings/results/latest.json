@@ -1,0 +1,517 @@
+{
+  "ok": true,
+  "projectPath": "/Users/cwarner/Projects/iv/harness-engineering/.claude/worktrees/agent-aee3e5ce9742d718f",
+  "generatedAt": "2026-08-27T02:54:09.810Z",
+  "comparator": {
+    "source": "arXiv preprint 2603.27277 (codebase-memory-mcp)",
+    "tokenSavings": 10,
+    "toolCallSavings": 2.1,
+    "answerQuality": 0.83,
+    "note": "The honest comparator across 31 real repos — NOT the 99.2% README figure from 5 hand-picked queries. Answer quality is not measured here (deferred slice, Refs #1271)."
+  },
+  "scenarios": [
+    {
+      "id": "impact:packages/graph/tests/ingest/CodeIngestor.test.ts",
+      "family": "impact",
+      "anchor": "packages/graph/tests/ingest/CodeIngestor.test.ts",
+      "graph": {
+        "tokens": 137,
+        "toolCalls": 1,
+        "bytes": 546
+      },
+      "naive": {
+        "tokens": 0,
+        "toolCalls": 1,
+        "bytes": 0
+      }
+    },
+    {
+      "id": "impact:packages/graph/tests/ingest/DiagramParser.test.ts",
+      "family": "impact",
+      "anchor": "packages/graph/tests/ingest/DiagramParser.test.ts",
+      "graph": {
+        "tokens": 138,
+        "toolCalls": 1,
+        "bytes": 550
+      },
+      "naive": {
+        "tokens": 0,
+        "toolCalls": 1,
+        "bytes": 0
+      }
+    },
+    {
+      "id": "impact:packages/core/tests/code-nav/unfold.test.ts",
+      "family": "impact",
+      "anchor": "packages/core/tests/code-nav/unfold.test.ts",
+      "graph": {
+        "tokens": 128,
+        "toolCalls": 1,
+        "bytes": 509
+      },
+      "naive": {
+        "tokens": 0,
+        "toolCalls": 1,
+        "bytes": 0
+      }
+    },
+    {
+      "id": "impact:packages/cli/src/design-craft/findings/schema.ts",
+      "family": "impact",
+      "anchor": "packages/cli/src/design-craft/findings/schema.ts",
+      "graph": {
+        "tokens": 129,
+        "toolCalls": 1,
+        "bytes": 513
+      },
+      "naive": {
+        "tokens": 913219,
+        "toolCalls": 508,
+        "bytes": 3660302
+      }
+    },
+    {
+      "id": "impact:packages/graph/tests/ingest/CodeIngestor.multi-lang.test.ts",
+      "family": "impact",
+      "anchor": "packages/graph/tests/ingest/CodeIngestor.multi-lang.test.ts",
+      "graph": {
+        "tokens": 141,
+        "toolCalls": 1,
+        "bytes": 563
+      },
+      "naive": {
+        "tokens": 0,
+        "toolCalls": 1,
+        "bytes": 0
+      }
+    },
+    {
+      "id": "blast-radius:packages/graph/tests/ingest/CodeIngestor.test.ts",
+      "family": "blast-radius",
+      "anchor": "packages/graph/tests/ingest/CodeIngestor.test.ts",
+      "graph": {
+        "tokens": 1519,
+        "toolCalls": 1,
+        "bytes": 6076
+      },
+      "naive": {
+        "tokens": 0,
+        "toolCalls": 1,
+        "bytes": 0
+      }
+    },
+    {
+      "id": "blast-radius:packages/graph/tests/ingest/DiagramParser.test.ts",
+      "family": "blast-radius",
+      "anchor": "packages/graph/tests/ingest/DiagramParser.test.ts",
+      "graph": {
+        "tokens": 1686,
+        "toolCalls": 1,
+        "bytes": 6742
+      },
+      "naive": {
+        "tokens": 0,
+        "toolCalls": 1,
+        "bytes": 0
+      }
+    },
+    {
+      "id": "blast-radius:packages/core/tests/code-nav/unfold.test.ts",
+      "family": "blast-radius",
+      "anchor": "packages/core/tests/code-nav/unfold.test.ts",
+      "graph": {
+        "tokens": 1343,
+        "toolCalls": 1,
+        "bytes": 5372
+      },
+      "naive": {
+        "tokens": 0,
+        "toolCalls": 1,
+        "bytes": 0
+      }
+    },
+    {
+      "id": "blast-radius:packages/cli/src/design-craft/findings/schema.ts",
+      "family": "blast-radius",
+      "anchor": "packages/cli/src/design-craft/findings/schema.ts",
+      "graph": {
+        "tokens": 1093,
+        "toolCalls": 1,
+        "bytes": 4369
+      },
+      "naive": {
+        "tokens": 913219,
+        "toolCalls": 508,
+        "bytes": 3660302
+      }
+    },
+    {
+      "id": "blast-radius:packages/graph/tests/ingest/CodeIngestor.multi-lang.test.ts",
+      "family": "blast-radius",
+      "anchor": "packages/graph/tests/ingest/CodeIngestor.multi-lang.test.ts",
+      "graph": {
+        "tokens": 1556,
+        "toolCalls": 1,
+        "bytes": 6221
+      },
+      "naive": {
+        "tokens": 0,
+        "toolCalls": 1,
+        "bytes": 0
+      }
+    },
+    {
+      "id": "dependencies:packages/orchestrator/src/orchestrator.ts",
+      "family": "dependencies",
+      "anchor": "packages/orchestrator/src/orchestrator.ts",
+      "graph": {
+        "tokens": 67,
+        "toolCalls": 1,
+        "bytes": 268
+      },
+      "naive": {
+        "tokens": 224714,
+        "toolCalls": 73,
+        "bytes": 900864
+      }
+    },
+    {
+      "id": "dependencies:packages/orchestrator/src/agent/backends/ollama.ts",
+      "family": "dependencies",
+      "anchor": "packages/orchestrator/src/agent/backends/ollama.ts",
+      "graph": {
+        "tokens": 67,
+        "toolCalls": 1,
+        "bytes": 265
+      },
+      "naive": {
+        "tokens": 14830,
+        "toolCalls": 1,
+        "bytes": 59481
+      }
+    },
+    {
+      "id": "dependencies:packages/orchestrator/src/orchestrator.local-gate.test.ts",
+      "family": "dependencies",
+      "anchor": "packages/orchestrator/src/orchestrator.local-gate.test.ts",
+      "graph": {
+        "tokens": 63,
+        "toolCalls": 1,
+        "bytes": 252
+      },
+      "naive": {
+        "tokens": 83920,
+        "toolCalls": 6,
+        "bytes": 336706
+      }
+    },
+    {
+      "id": "dependencies:packages/cli/src/commands/migrate.ts",
+      "family": "dependencies",
+      "anchor": "packages/cli/src/commands/migrate.ts",
+      "graph": {
+        "tokens": 63,
+        "toolCalls": 1,
+        "bytes": 251
+      },
+      "naive": {
+        "tokens": 8166,
+        "toolCalls": 5,
+        "bytes": 32681
+      }
+    },
+    {
+      "id": "dependencies:packages/dashboard/src/client/components/chat/NeuralOrganism.tsx",
+      "family": "dependencies",
+      "anchor": "packages/dashboard/src/client/components/chat/NeuralOrganism.tsx",
+      "graph": {
+        "tokens": 62,
+        "toolCalls": 1,
+        "bytes": 245
+      },
+      "naive": {
+        "tokens": 15598,
+        "toolCalls": 1,
+        "bytes": 63272
+      }
+    },
+    {
+      "id": "outline:packages/orchestrator/src/orchestrator.ts",
+      "family": "outline",
+      "anchor": "packages/orchestrator/src/orchestrator.ts",
+      "graph": {
+        "tokens": 2978,
+        "toolCalls": 1,
+        "bytes": 12924
+      },
+      "naive": {
+        "tokens": 61163,
+        "toolCalls": 2,
+        "bytes": 245357
+      }
+    },
+    {
+      "id": "outline:packages/orchestrator/src/orchestrator.local-gate.test.ts",
+      "family": "outline",
+      "anchor": "packages/orchestrator/src/orchestrator.local-gate.test.ts",
+      "graph": {
+        "tokens": 549,
+        "toolCalls": 1,
+        "bytes": 2385
+      },
+      "naive": {
+        "tokens": 19614,
+        "toolCalls": 2,
+        "bytes": 78773
+      }
+    },
+    {
+      "id": "outline:packages/orchestrator/src/workflow/execute-workflow.test.ts",
+      "family": "outline",
+      "anchor": "packages/orchestrator/src/workflow/execute-workflow.test.ts",
+      "graph": {
+        "tokens": 92,
+        "toolCalls": 1,
+        "bytes": 389
+      },
+      "naive": {
+        "tokens": 17031,
+        "toolCalls": 2,
+        "bytes": 68245
+      }
+    },
+    {
+      "id": "outline:packages/dashboard/src/client/components/chat/NeuralOrganism.tsx",
+      "family": "outline",
+      "anchor": "packages/dashboard/src/client/components/chat/NeuralOrganism.tsx",
+      "graph": {
+        "tokens": 1464,
+        "toolCalls": 1,
+        "bytes": 6453
+      },
+      "naive": {
+        "tokens": 15598,
+        "toolCalls": 2,
+        "bytes": 63272
+      }
+    },
+    {
+      "id": "outline:packages/orchestrator/src/agent/backends/ollama.ts",
+      "family": "outline",
+      "anchor": "packages/orchestrator/src/agent/backends/ollama.ts",
+      "graph": {
+        "tokens": 1189,
+        "toolCalls": 1,
+        "bytes": 5260
+      },
+      "naive": {
+        "tokens": 14830,
+        "toolCalls": 2,
+        "bytes": 59481
+      }
+    },
+    {
+      "id": "find-context:add a new CLI subcommand to the graph command group",
+      "family": "find-context",
+      "anchor": "add a new CLI subcommand to the graph command group",
+      "graph": {
+        "tokens": 20004,
+        "toolCalls": 1,
+        "bytes": 80015
+      },
+      "naive": {
+        "tokens": 19553,
+        "toolCalls": 6,
+        "bytes": 78414
+      }
+    },
+    {
+      "id": "find-context:handle the case where the knowledge graph has not been built yet",
+      "family": "find-context",
+      "anchor": "handle the case where the knowledge graph has not been built yet",
+      "graph": {
+        "tokens": 24584,
+        "toolCalls": 1,
+        "bytes": 98337
+      },
+      "naive": {
+        "tokens": 14081,
+        "toolCalls": 6,
+        "bytes": 56407
+      }
+    },
+    {
+      "id": "find-context:compute the blast radius of a source file",
+      "family": "find-context",
+      "anchor": "compute the blast radius of a source file",
+      "graph": {
+        "tokens": 29335,
+        "toolCalls": 1,
+        "bytes": 117339
+      },
+      "naive": {
+        "tokens": 19376,
+        "toolCalls": 6,
+        "bytes": 77595
+      }
+    },
+    {
+      "id": "ask:What loads the knowledge graph store from disk?",
+      "family": "ask",
+      "anchor": "What loads the knowledge graph store from disk?",
+      "graph": {
+        "tokens": 102,
+        "toolCalls": 1,
+        "bytes": 405
+      },
+      "naive": {
+        "tokens": 11571,
+        "toolCalls": 6,
+        "bytes": 46334
+      }
+    },
+    {
+      "id": "ask:How does the graph compute the impact of changing a file?",
+      "family": "ask",
+      "anchor": "How does the graph compute the impact of changing a file?",
+      "graph": {
+        "tokens": 2546,
+        "toolCalls": 1,
+        "bytes": 10186
+      },
+      "naive": {
+        "tokens": 20296,
+        "toolCalls": 6,
+        "bytes": 81290
+      }
+    },
+    {
+      "id": "ask:Where are graph MCP tool handlers registered?",
+      "family": "ask",
+      "anchor": "Where are graph MCP tool handlers registered?",
+      "graph": {
+        "tokens": 2447,
+        "toolCalls": 1,
+        "bytes": 9785
+      },
+      "naive": {
+        "tokens": 88572,
+        "toolCalls": 6,
+        "bytes": 355111
+      }
+    }
+  ],
+  "families": [
+    {
+      "family": "impact",
+      "scenarios": 5,
+      "graph": {
+        "tokens": 673,
+        "toolCalls": 5,
+        "bytes": 2681
+      },
+      "naive": {
+        "tokens": 913219,
+        "toolCalls": 512,
+        "bytes": 3660302
+      },
+      "tokenSavings": 1356.94,
+      "toolCallSavings": 102.4
+    },
+    {
+      "family": "blast-radius",
+      "scenarios": 5,
+      "graph": {
+        "tokens": 7197,
+        "toolCalls": 5,
+        "bytes": 28780
+      },
+      "naive": {
+        "tokens": 913219,
+        "toolCalls": 512,
+        "bytes": 3660302
+      },
+      "tokenSavings": 126.89,
+      "toolCallSavings": 102.4
+    },
+    {
+      "family": "dependencies",
+      "scenarios": 5,
+      "graph": {
+        "tokens": 322,
+        "toolCalls": 5,
+        "bytes": 1281
+      },
+      "naive": {
+        "tokens": 347228,
+        "toolCalls": 86,
+        "bytes": 1393004
+      },
+      "tokenSavings": 1078.35,
+      "toolCallSavings": 17.2
+    },
+    {
+      "family": "outline",
+      "scenarios": 5,
+      "graph": {
+        "tokens": 6272,
+        "toolCalls": 5,
+        "bytes": 27411
+      },
+      "naive": {
+        "tokens": 128236,
+        "toolCalls": 10,
+        "bytes": 515128
+      },
+      "tokenSavings": 20.45,
+      "toolCallSavings": 2
+    },
+    {
+      "family": "find-context",
+      "scenarios": 3,
+      "graph": {
+        "tokens": 73923,
+        "toolCalls": 3,
+        "bytes": 295691
+      },
+      "naive": {
+        "tokens": 53010,
+        "toolCalls": 18,
+        "bytes": 212416
+      },
+      "tokenSavings": 0.72,
+      "toolCallSavings": 6
+    },
+    {
+      "family": "ask",
+      "scenarios": 3,
+      "graph": {
+        "tokens": 5095,
+        "toolCalls": 3,
+        "bytes": 20376
+      },
+      "naive": {
+        "tokens": 120439,
+        "toolCalls": 18,
+        "bytes": 482735
+      },
+      "tokenSavings": 23.64,
+      "toolCallSavings": 6
+    }
+  ],
+  "overall": {
+    "scenarios": 26,
+    "graph": {
+      "tokens": 93482,
+      "toolCalls": 26,
+      "bytes": 376220
+    },
+    "naive": {
+      "tokens": 2475351,
+      "toolCalls": 1156,
+      "bytes": 9923887
+    },
+    "tokenSavings": 26.48,
+    "toolCallSavings": 44.46
+  }
+}
