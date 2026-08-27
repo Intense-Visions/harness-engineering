@@ -6,6 +6,7 @@ export type {
   BurnStatus,
   Calibration,
   Confidence,
+  CostBlock,
   ModelBlock,
   ScanInfo,
   SessionBlock,
@@ -38,7 +39,7 @@ export { readProvenance } from './provenance';
 export type { ProvenanceEntry } from './provenance';
 export { defaultGhRunner, linkPrs } from './pr-linkage';
 export type { GhRunner, LinkOptions, LinkResult } from './pr-linkage';
-export { buildCostReport, checkCostBands } from './cost-per-pr';
+export { buildCostReport, checkCostBands, priceRecord } from './cost-per-pr';
 export type {
   BuildCostReportInput,
   CostBand,

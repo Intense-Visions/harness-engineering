@@ -193,6 +193,24 @@ export interface SessionBlock {
   pct_used?: number;
 }
 
+/**
+ * Current-week spend reconciled to dollars through the configured
+ * {@link BurnConfig.cost_price_table}. Present on the summary ONLY when a price
+ * table is configured — tokens are the source of truth and the `$` figure is
+ * derived, so an adopter with no table sees no dollar figure at all (the
+ * summary is byte-identical to the pre-pricing shape). `models_priced` vs
+ * `models_total` keeps the figure honest: a table missing a model this week
+ * yields an undercount, surfaced rather than silently hidden.
+ */
+export interface CostBlock {
+  /** Reconciled current-week spend in USD (sum of per-record price-table cost). */
+  usd_wtd: number;
+  /** Distinct current-week models that had a price-table entry. */
+  models_priced: number;
+  /** Distinct current-week models seen this week (priced + unpriced). */
+  models_total: number;
+}
+
 export interface Summary {
   generated_at: string;
   scan: ScanInfo;
@@ -233,5 +251,11 @@ export interface Summary {
   skills: Record<string, SkillBlock>;
   attribution: AttributionBlock;
   session: SessionBlock;
+  /**
+   * Current-week spend reconciled to dollars via {@link BurnConfig.cost_price_table}.
+   * Present ONLY when a price table is configured; omitted otherwise so the
+   * summary stays byte-identical for adopters who price nothing.
+   */
+  cost?: CostBlock;
   status: BurnStatus;
 }

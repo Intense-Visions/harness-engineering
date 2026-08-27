@@ -132,6 +132,91 @@ describe('runBudgetCheck (WIRED: DISPATCH callable → core primitive)', () => {
   });
 });
 
+/** Capture every console.log line from a real run (json or human). */
+function runCapture(
+  sum: Summary | null,
+  opts: Parameters<typeof runBudgetCheck>[0],
+  json: boolean
+): { code: number; lines: string[] } {
+  const stateDir = mkdtempSync(path.join(tmpdir(), 'burn-state-'));
+  mkdirSync(stateDir, { recursive: true });
+  if (sum) writeFileSync(path.join(stateDir, 'summary.json'), JSON.stringify(sum));
+  const prev = process.env.CLAUDE_HUD_STATE;
+  process.env.CLAUDE_HUD_STATE = stateDir;
+  const lines: string[] = [];
+  const spy = vi.spyOn(console, 'log').mockImplementation((m: unknown) => {
+    lines.push(String(m));
+  });
+  try {
+    const code = runBudgetCheck({ ...opts, noRefresh: true, json });
+    return { code, lines };
+  } finally {
+    spy.mockRestore();
+    if (prev === undefined) delete process.env.CLAUDE_HUD_STATE;
+    else process.env.CLAUDE_HUD_STATE = prev;
+  }
+}
+
+/** A summary whose current-week spend has been reconciled to dollars (#1522 table). */
+function summaryWithCost(usdWtd = 25.0, modelsPriced = 1, modelsTotal = 1): Summary {
+  return summary({
+    cost: { usd_wtd: usdWtd, models_priced: modelsPriced, models_total: modelsTotal },
+  });
+}
+
+describe('dollar-cost overlay (Refs #1525: budget signal → price-table reconciliation → $)', () => {
+  it('emits a cost overlay in JSON when the summary carries a reconciled figure', () => {
+    // wtd.units = 500M, usd_wtd = 25 ⇒ $/unit = 5e-8. Envelope 1B ⇒ within,
+    // remaining 500M units ⇒ $25.00; envelope 1B units ⇒ $50.00.
+    const { lines } = runCapture(summaryWithCost(), { envelope: '1B' }, true);
+    const parsed = JSON.parse(lines[0] ?? '{}') as SpendEnvelopeVerdict & {
+      cost?: {
+        spent_usd: number;
+        remaining_usd: number | null;
+        envelope_usd: number | null;
+        per_unit_usd: number;
+      };
+    };
+    expect(parsed.status).toBe('within');
+    expect(parsed.cost).toBeDefined();
+    expect(parsed.cost!.spent_usd).toBeCloseTo(25.0, 9);
+    expect(parsed.cost!.per_unit_usd).toBeCloseTo(5e-8, 15);
+    expect(parsed.cost!.remaining_usd).toBeCloseTo(25.0, 6);
+    expect(parsed.cost!.envelope_usd).toBeCloseTo(50.0, 6);
+  });
+
+  it('renders a $ figure on the human line when configured', () => {
+    const { lines } = runCapture(summaryWithCost(), { envelope: '1B' }, false);
+    expect(lines[0]).toContain('$25.00 spent');
+    expect(lines[0]).toContain('remaining');
+  });
+
+  it('is byte-identical (no cost key, no $) when the summary carries no reconciled figure', () => {
+    const jsonRun = runCapture(summary(), { envelope: '1B' }, true);
+    const parsed = JSON.parse(jsonRun.lines[0] ?? '{}') as Record<string, unknown>;
+    expect('cost' in parsed).toBe(false);
+
+    const humanRun = runCapture(summary(), { envelope: '1B' }, false);
+    expect(humanRun.lines[0]).not.toContain('$');
+  });
+
+  it('flags partial pricing when a current-week model was unpriced', () => {
+    const { lines } = runCapture(summaryWithCost(25.0, 1, 2), { envelope: '1B' }, false);
+    expect(lines[0]).toContain('partial: 1/2 models priced');
+  });
+
+  it('omits remaining/envelope $ when unconfigured but still reports spent $', () => {
+    const { lines } = runCapture(summaryWithCost(), {}, true);
+    const parsed = JSON.parse(lines[0] ?? '{}') as SpendEnvelopeVerdict & {
+      cost?: { spent_usd: number; remaining_usd: number | null; envelope_usd: number | null };
+    };
+    expect(parsed.status).toBe('unconfigured');
+    expect(parsed.cost!.spent_usd).toBeCloseTo(25.0, 9);
+    expect(parsed.cost!.remaining_usd).toBeNull();
+    expect(parsed.cost!.envelope_usd).toBeNull();
+  });
+});
+
 describe('envelopeFromOptions', () => {
   it('returns undefined (no-op) with no --envelope', () => {
     expect(envelopeFromOptions({})).toBeUndefined();

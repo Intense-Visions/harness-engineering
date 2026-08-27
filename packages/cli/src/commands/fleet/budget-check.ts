@@ -71,6 +71,73 @@ export function envelopeFromOptions(opts: BudgetCheckOptions): SpendEnvelope | u
   return envelope;
 }
 
+/**
+ * The dollar-cost overlay for the budget signal (Refs #1525). Derived from the
+ * burn summary's {@link Summary.cost} block — itself reconciled from #1522's
+ * `cost_price_table` — so tokens stay the source of truth and the `$` figure is
+ * purely derived. Absent whenever no price table is configured (no-op).
+ */
+export interface BudgetCostOverlay {
+  /** Accrued current-week spend in USD (from the summary's reconciled figure). */
+  spent_usd: number;
+  /** Remaining headroom in USD; `null` unless the verdict is `within`. */
+  remaining_usd: number | null;
+  /** The envelope in USD; `null` when unconfigured (no envelope to convert). */
+  envelope_usd: number | null;
+  /** Observed `$`/unit rate (`usd_wtd / wtd.units`, `0` when no units yet). */
+  per_unit_usd: number;
+  /** Distinct current-week models that had a price-table entry. */
+  models_priced: number;
+  /** Distinct current-week models seen (priced + unpriced). */
+  models_total: number;
+}
+
+/**
+ * Build the dollar-cost overlay from the burn summary and the units-based verdict.
+ * Returns `null` when the summary carries no `cost` block (no price table
+ * configured) — the caller then emits the bare, byte-identical verdict.
+ *
+ * The envelope is denominated in burn units, so remaining/envelope dollars are
+ * derived from the week's own observed `$`/unit rate (`usd_wtd / wtd.units`) —
+ * the faithful, model-mix-aware conversion, guarded against a zero-unit week.
+ */
+export function costOverlayFromSummary(
+  summary: Summary | null,
+  verdict: SpendEnvelopeVerdict
+): BudgetCostOverlay | null {
+  const cost = summary?.cost;
+  if (!cost) return null;
+  const wtdUnits = summary?.wtd?.units ?? 0;
+  const perUnit = wtdUnits > 0 ? cost.usd_wtd / wtdUnits : 0;
+  const envelopeTokens = verdict.status === 'unconfigured' ? null : verdict.envelopeTokens;
+  const remainingUsd = verdict.status === 'within' ? verdict.remainingTokens * perUnit : null;
+  return {
+    spent_usd: cost.usd_wtd,
+    remaining_usd: remainingUsd,
+    envelope_usd: envelopeTokens === null ? null : envelopeTokens * perUnit,
+    per_unit_usd: perUnit,
+    models_priced: cost.models_priced,
+    models_total: cost.models_total,
+  };
+}
+
+/** The dim `$` suffix appended to the human verdict line when an overlay exists. */
+function renderCostSuffix(overlay: BudgetCostOverlay): string {
+  const parts = [`~$${overlay.spent_usd.toFixed(2)} spent`];
+  if (overlay.remaining_usd !== null && overlay.envelope_usd !== null) {
+    parts.push(
+      `~$${overlay.remaining_usd.toFixed(2)} of ~$${overlay.envelope_usd.toFixed(2)} remaining`
+    );
+  } else if (overlay.envelope_usd !== null) {
+    parts.push(`envelope ~$${overlay.envelope_usd.toFixed(2)}`);
+  }
+  let suffix = ` ${chalk.cyan(`(${parts.join(', ')})`)}`;
+  if (overlay.models_priced < overlay.models_total) {
+    suffix += chalk.dim(` partial: ${overlay.models_priced}/${overlay.models_total} models priced`);
+  }
+  return suffix;
+}
+
 function renderHuman(verdict: SpendEnvelopeVerdict): string {
   switch (verdict.status) {
     case 'unconfigured':
@@ -113,10 +180,14 @@ export function runBudgetCheck(opts: BudgetCheckOptions): number {
 
   const verdict = evaluateSpendEnvelope(observed, envelope, fleetKey);
 
+  // Reconcile accrued token spend to dollars when the adopter configured a price
+  // table (Refs #1525); byte-identical output when they did not.
+  const overlay = costOverlayFromSummary(summary, verdict);
+
   if (opts.json) {
-    console.log(JSON.stringify(verdict));
+    console.log(JSON.stringify(overlay ? { ...verdict, cost: overlay } : verdict));
   } else {
-    console.log(renderHuman(verdict));
+    console.log(renderHuman(verdict) + (overlay ? renderCostSuffix(overlay) : ''));
   }
 
   return verdict.status === 'exhausted' ? BUDGET_EXHAUSTED_EXIT_CODE : 0;
@@ -126,7 +197,8 @@ export function createBudgetCheckCommand(): Command {
   return new Command('budget-check')
     .description(
       'Consult the fleet spend envelope at DISPATCH (#1600): compare burn-observed spend ' +
-        'against the envelope and report within | exhausted | unconfigured'
+        'against the envelope and report within | exhausted | unconfigured. When a burn ' +
+        'cost_price_table is configured, also surfaces the spend/remaining in dollars (Refs #1525).'
     )
     .option(
       '--envelope <units>',
