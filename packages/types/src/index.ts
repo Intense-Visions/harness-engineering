@@ -456,6 +456,24 @@ export type {
 export { FLEET_CLAIM_VERSION, FleetClaimSchema } from './fleet-claim';
 export type { FleetClaim } from './fleet-claim';
 
+// --- Fleet Context Budget (per-leaf context-replay budget, context-replay-budget-per-leaf, #1524) ---
+export {
+  FLEET_CONTEXT_BUDGET_VERSION,
+  LeafContextSourceSchema,
+  LeafContextEstimateSchema,
+  ContextBudgetSchema,
+  LeafContextSpendSchema,
+  validateLeafContextEstimate,
+  safeParseLeafContextEstimate,
+} from './fleet-context-budget';
+export type {
+  LeafContextSource,
+  LeafContextEstimate,
+  ContextBudget,
+  LeafContextSpend,
+  LeafBudgetVerdict,
+} from './fleet-context-budget';
+
 // --- Telemetry synthesis (#563) ---
 export { TELEMETRY_SYNTHESIS_SECTIONS } from './telemetry-synthesis';
 export type {

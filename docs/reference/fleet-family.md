@@ -134,6 +134,26 @@ The concurrency governor above bounds a single _invocation_. It says nothing abo
 
 Each ID-based member's `SKILL.md` **references this section** from its SELECT and DISPATCH steps rather than restating the mechanism.
 
+## The per-leaf context-replay budget
+
+The concurrency governor caps _how many_ leaves run at once; it says nothing about _how much context each leaf loads_. Measured local usage is overwhelmingly context **replay**, not generation — cache-read to output runs ≈ **298 : 1** (issue #1524). Because a fresh leaf's assembled context is re-read on every turn, the dominant cost term is `context_size × turns`, and **fan-out width multiplies it**: a fleet that fans out N leaves at an unbounded per-leaf context size multiplies the dominant cost term N times over. Efficiency work aimed at output tokens addresses ~0.3% of spend; the lever that matters is the per-leaf context load. This is the family's control for that lever, complementing context-surface-attribution (#1274, the always-loaded _static_ surface) by governing the _dynamic_ replay volume that dwarfs it.
+
+**The contract — a hard ceiling, enforced fail-loud at DISPATCH.** Each leaf carries a **declared/estimated context load**; DISPATCH checks it against a per-leaf **budget** _before fanning the leaf out_. A leaf whose estimate exceeds the budget is **rejected visibly at dispatch time with a clear reason** — it never silently spends past the ceiling. This is the entire primitive: the budget is on the **assembled context size** (the number fan-out multiplies), not on cumulative replay.
+
+**The primitives** are pure and offline (no fs, no network, no token-counting library — the caller supplies the estimate, the primitive decides), living in `@harness-engineering/core` (`fleet/context-budget`), with their shapes in `@harness-engineering/types` (`fleet-context-budget.ts`) — the same split as the claim lease:
+
+| Symbol                                         | Role                                                                                                                                                            |
+| ---------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `DEFAULT_LEAF_CONTEXT_BUDGET_TOKENS` (200 000) | Sane default ceiling (~a full large context window); overridable via fleet config.                                                                              |
+| `resolveContextBudget(override?)`              | Resolve the effective budget; a non-positive override is **rejected**, never silently disabling the ceiling.                                                    |
+| `enforceLeafContextBudget(estimate, budget)`   | The enforcement primitive → a discriminated `LeafBudgetVerdict`. Boundary (`estimate == budget`) is **in** budget.                                              |
+| `formatBudgetFailure(verdict)`                 | The loud, human-readable rejection a member surfaces at DISPATCH (names item, estimate, budget, overage, top contributors).                                     |
+| `summarizeLeafSpend(estimate, budget, spend?)` | Build the per-leaf `LeafContextSpend` record recorded in the **lane provenance** so batch review sees each leaf's declared budget and whether it was in budget. |
+
+**Provenance.** The per-leaf budget verdict (`budgetTokens`, `estimatedTokens`, `withinBudget`) is recorded in the lane provenance file. The measured post-hoc `cacheReadTokens` field is defined but filled only once the live-measurement wiring lands (the burn package already attributes cache-read per-lane via `agentId`).
+
+**Deferred slices (tracked under #1524).** Batching queue items per leaf to amortise the load, routing leaf context through `code_outline` / `code_unfold` / `find_context_for` by default, and wiring the measured cache-read into provenance are follow-ups; this section states the **enforcement core** — the declared budget and the fail-loud-at-dispatch guarantee. A build-shaped member references this section from its DISPATCH step rather than restating the mechanism.
+
 ## The worktree push-path caveat
 
 A worktree created under a `.claude/`-nested path breaks the local pre-push `check-docs` gate (it self-excludes and scans zero files). Subagents push via the GitHub API or from a non-`.claude` throwaway worktree. **Never `--no-verify`** — bypassing the gate defeats the verification the fleet depends on.

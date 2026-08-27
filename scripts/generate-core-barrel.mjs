@@ -147,7 +147,7 @@ const DIR_COMMENTS = {
   review: 'Review pipeline module for automated code review workflows.',
   roadmap: 'Roadmap module for parsing, serializing, and syncing project roadmaps.',
   fleet:
-    'Fleet coordination module — pure cross-run work-claim lease primitives (build/parse/server-clock TTL) for the -fleet family.',
+    'Fleet coordination module — pure cross-run work-claim lease primitives (build/parse/server-clock TTL) and per-leaf context-replay budget enforcement (resolve/enforce/format) for the -fleet family.',
   rollback: 'Rollback module — post-ship revert-readiness classification (pure, IO-injected).',
   interaction: 'Interaction module for managing agent-to-human interactions.',
   blueprint: 'Blueprint module for scanning projects and generating codebase blueprints.',
