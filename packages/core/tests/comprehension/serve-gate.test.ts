@@ -52,6 +52,14 @@ describe('serveGate (serve-time hash gate, D7/SC2)', () => {
     expect(v.serve).toBe(false);
   });
 
+  // FIX 4 — closes the 4-case matrix at the gate: a removed file (reader returns
+  // a strict SUBSET) is a membership delta and must refuse as source-stale.
+  it('refuses on a membership delta (removed file → reader returns a subset)', async () => {
+    const removed = [FILES[0]]; // b.ts deleted from the directory
+    const v = await serveGate(unit(computeSourceHash(FILES)), reader(removed));
+    expect(v).toEqual({ serve: false, reason: 'source-stale', module: 'pkg/mod', recompile: true });
+  });
+
   it('refuses when the module directory is absent (null enumeration)', async () => {
     const v = await serveGate(unit(computeSourceHash(FILES)), reader(null));
     expect(v.serve).toBe(false);
