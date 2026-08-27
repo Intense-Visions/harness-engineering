@@ -2,6 +2,23 @@ import * as fsp from 'node:fs/promises';
 import * as path from 'node:path';
 import type { ComprehensionIO } from './store';
 import { UNIT_FILE } from './store';
+import type { ModuleSourceReader } from './serve-gate';
+import type { SourceFile } from './types';
+
+/** Default source-file extensions the module-source reader enumerates. */
+const DEFAULT_SOURCE_EXTENSIONS = [
+  '.ts',
+  '.tsx',
+  '.js',
+  '.jsx',
+  '.mjs',
+  '.cjs',
+  '.py',
+  '.rs',
+  '.go',
+  '.java',
+  '.rb',
+];
 
 /**
  * Node-fs `ComprehensionIO` — the only node:fs binding for the comprehension
@@ -34,6 +51,39 @@ export function createNodeComprehensionIO(): ComprehensionIO {
       }
       await walk(root);
       return out;
+    },
+  };
+}
+
+/**
+ * Node-fs `ModuleSourceReader` — the CANONICAL module-directory enumeration used
+ * by the serve-time gate (and, in a later phase, the compiler, so the recomputed
+ * hash matches the compiled one — single source of truth). Enumerates the module
+ * directory's DIRECT source files (non-recursive: a nested directory is its own
+ * module, D3), keys each `SourceFile.path` by its module-relative posix basename,
+ * and returns `null` when the directory is absent (a deleted module → source-stale
+ * at the gate). No LLM, no credential.
+ */
+export function createNodeModuleSourceReader(
+  projectRoot: string,
+  options: { extensions?: string[] } = {}
+): ModuleSourceReader {
+  const exts = new Set(options.extensions ?? DEFAULT_SOURCE_EXTENSIONS);
+  return {
+    readModuleSource: async (module) => {
+      const dir = path.join(projectRoot, module);
+      let entries: import('node:fs').Dirent[];
+      try {
+        entries = await fsp.readdir(dir, { withFileTypes: true });
+      } catch {
+        return null; // absent/deleted module dir ⇒ source-stale at the gate
+      }
+      const files: SourceFile[] = [];
+      for (const e of entries) {
+        if (!e.isFile() || !exts.has(path.extname(e.name))) continue;
+        files.push({ path: e.name, content: await fsp.readFile(path.join(dir, e.name), 'utf-8') });
+      }
+      return files;
     },
   };
 }
