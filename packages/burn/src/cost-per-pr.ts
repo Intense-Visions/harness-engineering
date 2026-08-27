@@ -145,14 +145,25 @@ function laneToMergedPrs(
   return byLane;
 }
 
+/**
+ * USD cost of a single usage record under a price table. Returns `0` for a model
+ * with no table entry — the single multiply-add reused by the cost-per-PR report
+ * and the burn summary's dollar-cost reconciliation so the token→USD arithmetic
+ * lives in exactly one place. Tokens remain the source of truth; this is derived.
+ */
+export function priceRecord(rec: UsageRecord, table: PriceTable): number {
+  const price = table[rec.model];
+  if (!price) return 0;
+  return rec.in * price.in + rec.out * price.out + rec.cacheRead * price.cache_read;
+}
+
 function priceRecords(records: UsageRecord[], table: PriceTable): { usd: number; priced: number } {
   let usd = 0;
   const models = new Set<string>();
   for (const rec of records) {
-    const price = table[rec.model];
-    if (!price) continue;
+    if (!table[rec.model]) continue;
     models.add(rec.model);
-    usd += rec.in * price.in + rec.out * price.out + rec.cacheRead * price.cache_read;
+    usd += priceRecord(rec, table);
   }
   return { usd, priced: models.size };
 }

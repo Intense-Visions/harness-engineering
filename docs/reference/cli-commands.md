@@ -988,7 +988,7 @@ Fleet-family dispatch callables (spend-envelope budget consult, #1600)
 
 ### `harness fleet budget-check`
 
-Consult the fleet spend envelope at DISPATCH (#1600): compare burn-observed spend against the envelope and report within | exhausted | unconfigured
+Consult the fleet spend envelope at DISPATCH (#1600): compare burn-observed spend against the envelope and report within | exhausted | unconfigured. When a burn cost_price_table is configured, also surfaces the spend/remaining in dollars (Refs #1525).
 
 **Options:**
 
