@@ -402,6 +402,22 @@ The blocking post-execution **spec-satisfaction gate** — the harness's ship ga
 8. **PHASE_COMPLETE** — Summarize (including integration report), sync roadmap, loop to ASSESS for next phase or proceed to FINAL_REVIEW.
 9. **FINAL_REVIEW → OUTCOME_EVAL → DONE** — Cross-phase review, then the blocking spec-satisfaction gate (halt on a high-confidence NOT_SATISFIED), offer PR creation, write final handoff.
 
+### Context-Budget Trip Wire
+
+Autopilot keeps context fresh **between** phases — every state dispatches a distinct cold subagent — but a single long-running turn (one `harness-task-executor` grinding through a large phase, or a fleet lane building an item end-to-end) can accrue context creep **within its own turn** and silently degrade into the "dumb zone". A **token-anchored, window-keyed trip wire** watches that intra-turn budget. Use `evaluateContextBudget(usedTokens, window)` from `@harness-engineering/core` as the classifier — it returns `ok | warn | trip`.
+
+- **Two-stage policy.** `warn` ⇒ tell the running agent to **converge** the current unit of work and **flush state to disk** (`state.json` / `handoff.json`). `trip` ⇒ **checkpoint-and-restart**: stop the turn and re-dispatch into a **cold subagent** seeded with the **distilled** state file (summarized, not raw-truncated — a raw tail loses the middle, per _Lost in the Middle_). This mirrors autopilot's between-phase cold dispatch; the trip is the intra-turn complement.
+- **Window-keyed anchors** (absolute resident tokens, not a flat percentage — 40% of 1M ≈ 400K is deep in the dumb zone):
+
+  | Window class                   | Soft-warn (converge + flush) | Hard trip (checkpoint-and-restart) |
+  | ------------------------------ | ---------------------------- | ---------------------------------- |
+  | `1m` (≥ 900K, `[1m]` variants) | **250K**                     | **350K**                           |
+  | `200k` (≥ 150K, Sonnet/Opus)   | **80K**                      | **100K**                           |
+  | `local` (≤ 128K, Qwen / local) | **~30%** (`round(0.30×win)`) | **~37.5%** (`round(0.375×win)`)    |
+
+- **Measurement rules.** Classify on **TOTAL RESIDENT tokens** = input + output + tool results (tool output — file reads, CI logs, diffs — is the dominant, fastest-growing contributor). Prefer the model's **real cumulative usage counter** over tokenizer estimation; fall back to a `chars/4` estimate only when usage is not surfaced. Utilization percentages are display-only — the trip fires on the absolute token count.
+- **Wiring onto recovery machinery.** A `trip` maps onto the existing EXECUTE retry path: write the recovery commit (`[autopilot][recovery]` prefix) capturing the distilled state, then cold re-dispatch the phase's subagent against that checkpoint rather than pushing the exhausted turn further.
+
 ---
 
 ## Harness Integration

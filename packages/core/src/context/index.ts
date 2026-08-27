@@ -80,6 +80,23 @@ export type { LevelInstructionDensity, SkillInstructionDensityReport } from './i
 export type { ParsedSection } from './section-parser';
 
 /**
+ * Mid-phase context-budget trip wire — classifies a turn's resident-token count
+ * as ok | warn | trip against absolute, window-keyed anchors, the intra-turn
+ * complement to autopilot's between-phase cold dispatch ([HORTHY-1]).
+ */
+export {
+  resolveContextBudgetThresholds,
+  evaluateContextBudget,
+  EFFECTIVE_WINDOW_RATIO,
+} from './context-budget-trip-wire';
+export type {
+  ContextBudgetVerdict,
+  ContextWindowBand,
+  ContextBudgetThresholds,
+  ContextBudgetEvaluation,
+} from './context-budget-trip-wire';
+
+/**
  * Progressive skill loading with token budget management.
  */
 export { computeLoadPlan, DEFAULT_LOADER_CONFIG } from './progressive-loader';

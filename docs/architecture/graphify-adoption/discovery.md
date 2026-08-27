@@ -7,12 +7,12 @@
 ## Prompt (verbatim)
 
 > Analyze the following project for adoption. Analyze what it does stronger, weaker, what should be adopted, what should be ignored. Also determine if it should be used wholesale as a replacement for the graph package.
-> https://github.com/Graphify-Labs/graphify  https://graphify.net
+> https://github.com/Graphify-Labs/graphify https://graphify.net
 
 ## Discovery answers
 
 1. **Primary motivation** — Due diligence. Graphify is popular (~108k stars, YC S26). Leadership wants a defensible written verdict on adopt / replace before committing either way.
-2. **Language / architecture constraint** — Polyglot is acceptable. A Python Graphify sidecar that emits `graph.json` for a TS adapter to ingest is on the table **if** the capability gain justifies the operational cost. (It is not a hard "must stay pure-TS in-process" constraint — but see the 91-importer footprint below, which still governs the *core* path.)
+2. **Language / architecture constraint** — Polyglot is acceptable. A Python Graphify sidecar that emits `graph.json` for a TS adapter to ingest is on the table **if** the capability gain justifies the operational cost. (It is not a hard "must stay pure-TS in-process" constraint — but see the 91-importer footprint below, which still governs the _core_ path.)
 3. **Deliverable** — Full ADR via `manage_adr`, plus analysis + proposal docs on an isolated worktree branch.
 
 ## Success in 6 months
