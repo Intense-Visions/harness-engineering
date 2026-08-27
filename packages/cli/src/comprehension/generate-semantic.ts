@@ -25,7 +25,13 @@
 //     is already set on entry, the adapter refuses to recurse.
 
 import { z } from 'zod';
-import type { SourceFile } from '@harness-engineering/core';
+import type {
+  SourceFile,
+  SemanticInput,
+  SemanticGeneration,
+  GenerateSemantic,
+} from '@harness-engineering/core';
+import type { AnalysisProvider } from '@harness-engineering/intelligence';
 
 /** Authority-in-TS: the unit shape is validated here, never trusted raw. */
 export const semanticResponseSchema = z
@@ -37,6 +43,16 @@ export type SemanticResult = z.infer<typeof semanticResponseSchema>;
 export const DEFAULT_DIGEST_CHAR_BUDGET = 12_000;
 /** Default tight output cap (cost lever) for the semantic call. */
 export const DEFAULT_MAX_OUTPUT_TOKENS = 700;
+/**
+ * Default model tier: a cheap/fast Haiku-class id (cost lever). Overridable per
+ * call via {@link GenerateSemanticOptions.model}; phase-4 config
+ * (`comprehension.model`) wires the real per-provider value. Deliberately a cheap
+ * tier — comprehension summaries are a high-volume, low-stakes call, so we never
+ * default to an expensive model.
+ */
+export const DEFAULT_SEMANTIC_MODEL = 'claude-3-5-haiku-latest';
+/** Env flag marking an active comprehension pass (reentrancy guard). */
+export const REENTRANCY_ENV = 'HARNESS_COMPREHENSION_ACTIVE';
 
 const TRUNCATION_MARKER = '\n… [source truncated for comprehension digest]';
 
@@ -87,4 +103,102 @@ export function buildSemanticPrompt(
     `## Dependency Slice\n${input.dependencySlice}`,
     `## Source (bounded digest)\n${boundSourceDigest(input.sourceFiles, digestBudget)}`,
   ].join('\n\n');
+}
+
+/** Loud channel for degradation warnings (defaults to `console`). */
+interface Logger {
+  warn: (message: string) => void;
+}
+
+export interface GenerateSemanticOptions {
+  /** Model override; defaults to {@link DEFAULT_SEMANTIC_MODEL} (cheap tier). */
+  model?: string;
+  /** Tight per-call output cap (cost lever); defaults to {@link DEFAULT_MAX_OUTPUT_TOKENS}. */
+  maxOutputTokens?: number;
+  /** Per-run token budget enforced from the RETURNED tokenUsage; default Infinity. */
+  maxTokensPerRun?: number;
+  /** Input-bounding budget for the source digest; default {@link DEFAULT_DIGEST_CHAR_BUDGET}. */
+  digestCharBudget?: number;
+  /** Loud channel for budget/validation/failure warnings; defaults to console. */
+  logger?: Logger;
+}
+
+/**
+ * Build the concrete `GenerateSemantic` seam over an `AnalysisProvider`.
+ *
+ * The returned function is STATEFUL across module calls within one run: it shares
+ * a token budget (enforced from the RETURNED `tokenUsage.totalTokens`) and a
+ * once-only budget-exhausted warning. It NEVER throws for a merely-missing/failed
+ * provider or a malformed response — it returns `null` so the compiler leaves the
+ * unit `semantic: absent` (static-only), never partial, never malformed.
+ *
+ * Cost levers on every call: `disableThinking: true`, a tight `maxTokens`, a
+ * bounded prompt (interface contract + dependency slice + bounded source digest),
+ * and a cheap-tier default model. A reentrancy guard sets
+ * `HARNESS_COMPREHENSION_ACTIVE` for the duration of the (inherited-env) child
+ * subprocess and refuses to recurse if it is already set on entry.
+ */
+export function createGenerateSemantic(
+  provider: AnalysisProvider,
+  opts: GenerateSemanticOptions = {}
+): GenerateSemantic {
+  const maxOutputTokens = opts.maxOutputTokens ?? DEFAULT_MAX_OUTPUT_TOKENS;
+  const budget = opts.maxTokensPerRun ?? Infinity;
+  const model = opts.model ?? DEFAULT_SEMANTIC_MODEL;
+  const log: Logger = opts.logger ?? console;
+  let spent = 0;
+  let budgetWarned = false;
+
+  return async (input: SemanticInput): Promise<SemanticGeneration | null> => {
+    // Reentrancy guard: a comprehend-triggered nested `claude` must not recurse.
+    if (process.env[REENTRANCY_ENV]) return null;
+
+    if (spent >= budget) {
+      if (!budgetWarned) {
+        log.warn(
+          `comprehension: per-run token budget (${budget}) exhausted; remaining modules left semantic:absent`
+        );
+        budgetWarned = true;
+      }
+      return null;
+    }
+
+    const prev = process.env[REENTRANCY_ENV];
+    process.env[REENTRANCY_ENV] = '1';
+    try {
+      const res = await provider.analyze<unknown>({
+        prompt: buildSemanticPrompt(input, opts.digestCharBudget),
+        responseSchema: semanticResponseSchema,
+        disableThinking: true,
+        maxTokens: maxOutputTokens,
+        model,
+      });
+      // Charge the budget from the RETURNED usage (fail-loud on the NEXT call).
+      spent += res.tokenUsage?.totalTokens ?? 0;
+
+      // Authority-in-TS: re-validate the raw result at the seam.
+      const parsed = semanticResponseSchema.safeParse(res.result);
+      if (!parsed.success) {
+        log.warn(
+          `comprehension: semantic output for ${input.module} failed schema validation; left semantic:absent`
+        );
+        return null;
+      }
+      return {
+        summary: parsed.data.summary,
+        invariants: parsed.data.invariants,
+        model: res.model ?? null,
+      };
+    } catch (err) {
+      log.warn(
+        `comprehension: semantic generation for ${input.module} failed (${
+          err instanceof Error ? err.message : String(err)
+        }); left semantic:absent`
+      );
+      return null;
+    } finally {
+      if (prev === undefined) delete process.env[REENTRANCY_ENV];
+      else process.env[REENTRANCY_ENV] = prev;
+    }
+  };
 }
