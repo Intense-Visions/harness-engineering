@@ -108,6 +108,18 @@ const INTENT_SIGNALS: Readonly<Record<Intent, SignalSet>> = {
       /hotspot/,
     ],
   },
+  staleness: {
+    keywords: ['stale', 'staleness', 'outdated', 'reverify'],
+    questionWords: ['which', 'what'],
+    verbPatterns: [
+      /\bstale\b/,
+      /\boutdated\b/,
+      /re-?verif/,
+      /which.*learnings?.*(stale|outdated|re-?verif)/,
+      /learnings?.*(stale|outdated|re-?verif)/,
+      /code\s+changed/,
+    ],
+  },
   shortestPath: {
     keywords: ['path', 'shortest', 'route', 'between', 'reach', 'reaches', 'connection', 'hops'],
     questionWords: ['how'],

@@ -1,5 +1,12 @@
 import type { GraphStore } from '../store/GraphStore.js';
-import type { AskGraphResult, Intent, ResolvedEntity } from './types.js';
+import type { NodeType } from '../types.js';
+import type {
+  AskGraphResult,
+  Intent,
+  ResolvedEntity,
+  StaleNodeSummary,
+  StalenessQueryResult,
+} from './types.js';
 import { IntentClassifier } from './IntentClassifier.js';
 import { EntityExtractor } from './EntityExtractor.js';
 import { EntityResolver } from './EntityResolver.js';
@@ -11,7 +18,14 @@ import { GraphAnomalyAdapter } from '../entropy/GraphAnomalyAdapter.js';
 import { CascadeSimulator } from '../blast-radius/index.js';
 
 export { INTENTS } from './types.js';
-export type { Intent, ClassificationResult, ResolvedEntity, AskGraphResult } from './types.js';
+export type {
+  Intent,
+  ClassificationResult,
+  ResolvedEntity,
+  AskGraphResult,
+  StaleNodeSummary,
+  StalenessQueryResult,
+} from './types.js';
 export { IntentClassifier } from './IntentClassifier.js';
 export { EntityExtractor } from './EntityExtractor.js';
 export { EntityResolver } from './EntityResolver.js';
@@ -203,10 +217,41 @@ function executeOperation(
     case 'anomaly':
       return new GraphAnomalyAdapter(store).detect();
 
+    case 'staleness':
+      return executeStaleness(store);
+
     case 'shortestPath':
       return cql.shortestPath(entities[0]!.nodeId, entities[1]!.nodeId);
 
     default:
       return null;
   }
+}
+
+/** Node types that carry a deletion-based staleness marker (learning / execution_outcome). */
+const STALENESS_NODE_TYPES: readonly NodeType[] = ['learning', 'execution_outcome'];
+
+/**
+ * Collect knowledge nodes that have been flagged stale (a cited source file no longer
+ * exists). Reads the `staleness` marker stamped by
+ * `flagStaleLearningNodes` in @harness-engineering/core. Not entity-required.
+ */
+function executeStaleness(store: GraphStore): StalenessQueryResult {
+  const stale: StaleNodeSummary[] = [];
+  let evaluated = 0;
+  for (const type of STALENESS_NODE_TYPES) {
+    for (const node of store.findNodes({ type })) {
+      evaluated++;
+      if (node.staleness?.isStale) {
+        stale.push({
+          nodeId: node.id,
+          type: node.type,
+          name: node.name,
+          missingReferences: node.staleness.missingReferences,
+          detectedAt: node.staleness.detectedAt,
+        });
+      }
+    }
+  }
+  return { stale, evaluated };
 }

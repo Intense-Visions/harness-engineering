@@ -1,4 +1,4 @@
-import type { GraphNode } from '../types.js';
+import type { GraphNode, NodeType } from '../types.js';
 
 /**
  * All supported intent categories for natural language graph queries.
@@ -10,6 +10,7 @@ export const INTENTS = [
   'relationships',
   'explain',
   'anomaly',
+  'staleness',
   'shortestPath',
 ] as const;
 
@@ -36,6 +37,28 @@ export interface ResolvedEntity {
   readonly node: GraphNode;
   readonly confidence: number; // 0-1
   readonly method: 'exact' | 'fusion' | 'path'; // which cascade step matched
+}
+
+/**
+ * One stale knowledge node in a `staleness` query result.
+ */
+export interface StaleNodeSummary {
+  readonly nodeId: string;
+  readonly type: NodeType;
+  readonly name: string;
+  readonly missingReferences: readonly string[];
+  readonly detectedAt: string;
+}
+
+/**
+ * Result of a `staleness` intent query: the flagged nodes plus the total number of
+ * knowledge nodes (learning + execution_outcome) considered — the denominator, so an
+ * empty `stale` list on a populated graph reads as "nothing stale" rather than
+ * "nothing to inspect".
+ */
+export interface StalenessQueryResult {
+  readonly stale: readonly StaleNodeSummary[];
+  readonly evaluated: number;
 }
 
 /**
