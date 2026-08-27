@@ -214,6 +214,17 @@ LLM-judgment critique of code quality / readability — the ceiling counterpart 
 - `--max-files` — Cap source-file count (default: 100)
 - `--max-units-per-file` — Cap per-file unit critique (default: 20)
 
+### `harness comprehend`
+
+Compile and maintain the per-module comprehension substrate
+
+**Options:**
+
+- `--changed` — Recompile only modules owning changed files (default)
+- `--all` — Recompile every module (backfill)
+- `--check` — Token-free: report source-stale units, exit non-zero if any
+- `--stats` — Report served-vs-raw token savings (token-free)
+
 ### `harness context-report`
 
 Attribute the always-loaded context surface cost per turn, per tier
