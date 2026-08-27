@@ -54,6 +54,10 @@ describe('ensureHarnessGitignore', () => {
     expect(content).toContain('webhook-queue.sqlite-wal');
     expect(content).toContain('webhook-queue.sqlite-shm');
     expect(content).toContain('maintenance/');
+    // Runtime-artifact ignores that leaked into working trees before being added here.
+    expect(content).toContain('craft/');
+    expect(content).toContain('spill/');
+    expect(content).toContain('tokens.json*');
   });
 
   // Issue #360: custom entries added by users must survive MCP restarts.
@@ -106,6 +110,18 @@ describe('ensureHarnessGitignore', () => {
     expect(lines).not.toContain('security/');
     expect(lines).toContain('security/*');
     expect(lines).toContain('!security/timeline.json');
+  });
+
+  // Runtime-artifact ignores that leaked into working trees (craft-run records,
+  // spill/overflow artifacts, and tokens.json variants like tokens.json.disabled)
+  // before being added to the surface.
+  it('ignores craft/ run records, spill/ artifacts, and all tokens.json* variants', () => {
+    ensureHarnessGitignore(tmpDir);
+    const content = fs.readFileSync(path.join(tmpDir, '.harness', '.gitignore'), 'utf-8');
+    const lines = content.split(/\r?\n/);
+    expect(lines).toContain('craft/');
+    expect(lines).toContain('spill/');
+    expect(lines).toContain('tokens.json*');
   });
 });
 

@@ -84,6 +84,8 @@ metrics/
 .install-id
 telemetry.json
 .telemetry-notice-shown
+# tokens.json*: generated gateway-token store (and disabled/backup variants)
+tokens.json*
 
 # Phase 3 webhook delivery queue — SQLite runtime DB (and WAL/SHM sidecars)
 webhook-queue.sqlite
@@ -91,6 +93,10 @@ webhook-queue.sqlite-wal
 webhook-queue.sqlite-shm
 # Maintenance task run history (regenerated each tick)
 maintenance/
+# craft/: generated craft-run records
+craft/
+# spill/: generated overflow/spill artifacts
+spill/
 
 # security/: track timeline.json (trend ledger), ignore everything else
 security/*
