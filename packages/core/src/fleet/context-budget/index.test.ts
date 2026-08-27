@@ -13,6 +13,8 @@ import {
   summarizeLeafSpend,
   assertLeafWithinBudget,
   ContextBudgetExceededError,
+  evaluateSessionContextBudget,
+  DEFAULT_SESSION_BUDGET_HINT,
 } from './index';
 
 const estimate = (over: Partial<LeafContextEstimate> = {}): LeafContextEstimate => ({
@@ -150,6 +152,52 @@ describe('summarizeLeafSpend', () => {
   it('includes measured cacheReadTokens when supplied, omits it otherwise', () => {
     expect(summarizeLeafSpend(estimate(), budget).cacheReadTokens).toBeUndefined();
     expect(summarizeLeafSpend(estimate(), budget, 44_800_000).cacheReadTokens).toBe(44_800_000);
+  });
+});
+
+describe('evaluateSessionContextBudget (manual-session WARN, shared comparison)', () => {
+  const budget = { maxTokens: 200_000 };
+
+  it('is ok (no notice) within budget, boundary included', () => {
+    const within = evaluateSessionContextBudget('code_search', 199_999, budget);
+    expect(within.ok).toBe(true);
+    expect(within.overageTokens).toBe(0);
+    expect(within.notice).toBe('');
+
+    const boundary = evaluateSessionContextBudget('code_search', 200_000, budget);
+    expect(boundary.ok).toBe(true);
+    expect(boundary.notice).toBe('');
+  });
+
+  it('warns over budget with a loud steer notice and exact overage', () => {
+    const signal = evaluateSessionContextBudget('code_search', 250_000, budget);
+    expect(signal.ok).toBe(false);
+    expect(signal.overageTokens).toBe(50_000);
+    expect(signal.item).toBe('code_search');
+    expect(signal.notice).toContain('[harness context-budget]');
+    expect(signal.notice).toContain('code_search');
+    expect(signal.notice).toContain('50,000');
+    expect(signal.notice).toContain(DEFAULT_SESSION_BUDGET_HINT);
+  });
+
+  it('accepts a custom steer hint', () => {
+    const signal = evaluateSessionContextBudget('read_file', 250_000, budget, {
+      hint: 'Use code_unfold instead.',
+    });
+    expect(signal.notice).toContain('Use code_unfold instead.');
+    expect(signal.notice).not.toContain(DEFAULT_SESSION_BUDGET_HINT);
+  });
+
+  it('shares the over/under decision with enforceLeafContextBudget (never diverges)', () => {
+    for (const tokens of [1, 199_999, 200_000, 200_001, 500_000]) {
+      const session = evaluateSessionContextBudget('t', tokens, budget);
+      const leaf = enforceLeafContextBudget(
+        { item: 't', estimatedTokens: tokens, sources: [] },
+        budget
+      );
+      expect(session.ok).toBe(leaf.ok);
+      if (!leaf.ok) expect(session.overageTokens).toBe(leaf.overageTokens);
+    }
   });
 });
 

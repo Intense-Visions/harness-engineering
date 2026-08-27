@@ -1174,6 +1174,27 @@ export const HarnessConfigSchema = z.object({
   /** How often (in ms) to check for CLI updates */
   updateCheckInterval: z.number().int().min(0).optional(),
   /**
+   * Harness MCP server settings for manual AI sessions (Claude Code / Cursor /
+   * Codex / Gemini running against the harness MCP server).
+   */
+  mcp: z
+    .object({
+      /**
+       * Per-response context-replay budget (#1594) — the manual-session
+       * counterpart to the orchestrator's per-leaf budget (#1524). When set,
+       * a tool response whose estimated token load exceeds `maxTokens` gets a
+       * loud steer notice appended pointing the session at graph-scoped
+       * retrieval. Absent ⇒ no enforcement (byte-identical default).
+       */
+      contextBudget: z
+        .object({
+          /** Maximum estimated tokens per MCP tool response before warning. */
+          maxTokens: z.number().int().positive(),
+        })
+        .optional(),
+    })
+    .optional(),
+  /**
    * Toolchain expectations this workspace declares.
    *
    * Distinct from the top-level `version` (the config schema version) and from
