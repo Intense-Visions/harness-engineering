@@ -53,7 +53,7 @@ describe('createNodeComprehensionIO', () => {
     await store.write(unit('x/y/z'));
     const r = await store.list();
     expect(r.ok).toBe(true);
-    if (r.ok) expect(r.value.map((u) => u.provenance.module).sort()).toEqual(['a', 'x/y/z']);
+    if (r.ok) expect(r.value.units.map((u) => u.provenance.module).sort()).toEqual(['a', 'x/y/z']);
   });
 
   it('listUnitPaths returns empty for an absent root (no throw)', async () => {

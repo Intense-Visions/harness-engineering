@@ -21,7 +21,7 @@ export { COMPILER_VERSION, SCHEMA_VERSION, DEFAULT_SOURCE_EXTENSIONS } from './t
 export { computeSourceHash } from './source-hash';
 export { parseUnit, serializeUnit } from './serialize';
 export { ComprehensionStore, UNIT_FILE, COMPREHENSION_ROOT } from './store';
-export type { ComprehensionIO } from './store';
+export type { ComprehensionIO, SkippedUnit, ComprehensionListing } from './store';
 export { createNodeComprehensionIO } from './node-io';
 export { compileModule } from './compile';
 export type { CompileOptions } from './compile';

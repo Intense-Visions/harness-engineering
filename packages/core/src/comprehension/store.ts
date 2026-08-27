@@ -6,6 +6,24 @@ import { parseUnit, serializeUnit } from './serialize';
 /** Filename of a per-module comprehension unit. */
 export const UNIT_FILE = '_module.md';
 
+/**
+ * A committed unit that could not be read or parsed during `list()`. Surfaced —
+ * never swallowed — so one hand-edited/merge-artifact/newer-schema file degrades
+ * observably instead of blanking the whole substrate.
+ */
+export interface SkippedUnit {
+  /** On-disk `/`-normalized path of the offending `_module.md`. */
+  path: string;
+  /** Why it was skipped (read error or parse/validation message). */
+  reason: string;
+}
+
+/** Result of `list()`: the parseable units plus any skipped (reported) ones. */
+export interface ComprehensionListing {
+  units: ComprehensionUnit[];
+  skipped: SkippedUnit[];
+}
+
 /** Default committed root for the comprehension shard tree. */
 export const COMPREHENSION_ROOT = '.harness/comprehension';
 
@@ -113,7 +131,15 @@ export class ComprehensionStore {
     return Ok(undefined);
   }
 
-  async list(): Promise<Result<ComprehensionUnit[]>> {
+  /**
+   * List every committed unit under `root`. SKIP-AND-REPORT (not fail-fast): a
+   * single unreadable/unparseable/newer-schema `_module.md` is collected into
+   * `skipped` with a reason instead of failing the whole tree — one bad file must
+   * never silently blank the entire primary substrate. The outer `Result` is
+   * `Err` only when enumeration itself (`listUnitPaths`) fails; per-unit failures
+   * degrade observably via `skipped`.
+   */
+  async list(): Promise<Result<ComprehensionListing>> {
     let paths: string[];
     try {
       paths = await this.io.listUnitPaths(this.root);
@@ -125,17 +151,22 @@ export class ComprehensionStore {
       );
     }
     const units: ComprehensionUnit[] = [];
+    const skipped: SkippedUnit[] = [];
     for (const p of [...paths].sort()) {
       let content: string;
       try {
         content = await this.io.readFile(p);
       } catch (err) {
-        return Err(new Error(`Failed to read comprehension unit ${p}: ${(err as Error).message}`));
+        skipped.push({ path: p, reason: `read failed: ${(err as Error).message}` });
+        continue;
       }
       const parsed = parseUnit(content);
-      if (!parsed.ok) return parsed;
+      if (!parsed.ok) {
+        skipped.push({ path: p, reason: parsed.error.message });
+        continue;
+      }
       units.push(parsed.value);
     }
-    return Ok(units);
+    return Ok({ units, skipped });
   }
 }

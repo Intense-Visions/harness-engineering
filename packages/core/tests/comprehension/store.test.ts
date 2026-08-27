@@ -78,7 +78,50 @@ describe('ComprehensionStore', () => {
     await store.write(unit('a'));
     const r = await store.list();
     expect(r.ok).toBe(true);
-    if (r.ok) expect(r.value.map((u) => u.provenance.module)).toEqual(['a', 'z/deep/nested']);
+    if (r.ok) {
+      expect(r.value.units.map((u) => u.provenance.module)).toEqual(['a', 'z/deep/nested']);
+      expect(r.value.skipped).toEqual([]);
+    }
+  });
+
+  // FIX 2 — a single malformed/newer-schema unit must NOT blank the whole tree.
+  describe('list() skip-and-report (no total blackout)', () => {
+    it('returns the good units and reports the malformed one', async () => {
+      const { io } = makeIO();
+      const store = new ComprehensionStore({ io });
+      await store.write(unit('good/one'));
+      await store.write(unit('good/two'));
+      // hand-edit a third unit into the tree with unparseable frontmatter.
+      await io.writeFile(
+        `${COMPREHENSION_ROOT}/bad/mod/${UNIT_FILE}`,
+        '---\nmodule: "bad/mod"\n# missing sourceHash / semantic\n---\nbody\n'
+      );
+      const r = await store.list();
+      expect(r.ok).toBe(true);
+      if (r.ok) {
+        expect(r.value.units.map((u) => u.provenance.module)).toEqual(['good/one', 'good/two']);
+        expect(r.value.skipped).toHaveLength(1);
+        expect(r.value.skipped[0].path).toBe(`${COMPREHENSION_ROOT}/bad/mod/${UNIT_FILE}`);
+        expect(r.value.skipped[0].reason).toMatch(/sourceHash|semantic|schemaVersion/);
+      }
+    });
+
+    it('reports a unit whose schemaVersion is newer than we understand', async () => {
+      const { io } = makeIO();
+      const store = new ComprehensionStore({ io });
+      await store.write(unit('good'));
+      await io.writeFile(
+        `${COMPREHENSION_ROOT}/future/mod/${UNIT_FILE}`,
+        '---\nmodule: "future/mod"\nschemaVersion: 999\nsourceHash: "abc"\nsemantic: absent\n---\n'
+      );
+      const r = await store.list();
+      expect(r.ok).toBe(true);
+      if (r.ok) {
+        expect(r.value.units.map((u) => u.provenance.module)).toEqual(['good']);
+        expect(r.value.skipped).toHaveLength(1);
+        expect(r.value.skipped[0].reason).toMatch(/unsupported schemaVersion/);
+      }
+    });
   });
 
   // F3 — module path must not escape the comprehension root.

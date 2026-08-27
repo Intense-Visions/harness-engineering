@@ -359,13 +359,16 @@ export async function handleGatherContext(input: {
         });
         const listed = await store.list();
         if (!listed.ok) return null;
+        // FIX 2: skip-and-report — one malformed unit must not blank the whole
+        // primary substrate; surface it instead of silently dropping everything.
+        const { units, skipped } = listed.value;
         const reader = core.createNodeModuleSourceReader(projectPath);
         const tokenBudget = input.tokenBudget ?? 4000;
         const charBudget = tokenBudget * 4;
         const served: Array<{ module: string; markdown: string }> = [];
         const stale: Array<{ module: string; recompile: true }> = [];
         let totalChars = 0;
-        for (const unit of listed.value) {
+        for (const unit of units) {
           const verdict = await core.serveGate(unit, reader);
           if (!verdict.serve) {
             stale.push({ module: verdict.module, recompile: true });
@@ -379,7 +382,8 @@ export async function handleGatherContext(input: {
         return {
           served,
           stale,
-          unitsAvailable: listed.value.length,
+          malformed: skipped,
+          unitsAvailable: units.length,
           unitsServed: served.length,
           tokenBudget,
         };
@@ -429,10 +433,20 @@ export async function handleGatherContext(input: {
   const comprehensionRaw = extract(comprehensionResult, 'comprehension') as {
     served: Array<{ module: string; markdown: string }>;
     stale: Array<{ module: string; recompile: true }>;
+    malformed: Array<{ path: string; reason: string }>;
     unitsAvailable: number;
     unitsServed: number;
     tokenBudget: number;
   } | null;
+
+  // FIX 2: make degradation OBSERVABLE — a malformed/newer-schema committed unit
+  // was skipped (not fatal), so surface each into meta.errors instead of letting
+  // it vanish silently.
+  if (comprehensionRaw) {
+    for (const m of comprehensionRaw.malformed) {
+      errors.push(`comprehension: skipped malformed unit ${m.path}: ${m.reason}`);
+    }
+  }
 
   // Unwrap Result types from core functions
   const state =
@@ -519,6 +533,7 @@ export async function handleGatherContext(input: {
             unitsAvailable: comprehensionRaw.unitsAvailable,
             unitsServed: comprehensionRaw.unitsServed,
             staleDropped: comprehensionRaw.stale.length,
+            malformedDropped: comprehensionRaw.malformed.length,
             recompile: comprehensionRaw.stale.map((s) => s.module),
           }
         : comprehensionRaw;

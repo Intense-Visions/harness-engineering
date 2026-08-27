@@ -135,4 +135,61 @@ describe('gather_context comprehension constituent (SC2, SC4)', () => {
     expect(parsed.comprehension.unitsAvailable).toBe(0);
     expect(parsed.meta.errors).toEqual([]);
   });
+
+  // FIX 2 — a single malformed committed unit must NOT blank the whole substrate.
+  it('serves the good units and surfaces a malformed one (no total blackout)', async () => {
+    const filesA = { 'a.ts': 'export const a = 1;' };
+    const filesB = { 'b.ts': 'export const b = 2;' };
+    await writeModule('pkg/a', filesA);
+    await writeModule('pkg/b', filesB);
+    await seed(
+      'pkg/a',
+      filesA,
+      computeSourceHash((await createNodeModuleSourceReader(root).readModuleSource('pkg/a'))!)
+    );
+    await seed(
+      'pkg/b',
+      filesB,
+      computeSourceHash((await createNodeModuleSourceReader(root).readModuleSource('pkg/b'))!)
+    );
+    // Drop a hand-broken unit straight into the tree (missing sourceHash).
+    const badDir = path.join(root, '.harness', 'comprehension', 'pkg', 'bad');
+    await fsp.mkdir(badDir, { recursive: true });
+    await fsp.writeFile(
+      path.join(badDir, '_module.md'),
+      '---\nmodule: "pkg/bad"\nschemaVersion: 1\nsemantic: absent\n---\nbroken\n'
+    );
+
+    const res = await handleGatherContext({
+      path: root,
+      intent: 'x',
+      include: ['comprehension'],
+      mode: 'detailed',
+    });
+    const parsed = JSON.parse(res.content[0].text);
+    const servedModules = parsed.comprehension.served.map((s: { module: string }) => s.module);
+    expect(servedModules).toContain('pkg/a');
+    expect(servedModules).toContain('pkg/b'); // no blackout — both good units served
+    expect(parsed.comprehension.malformed).toHaveLength(1);
+    expect(parsed.comprehension.malformed[0].path).toContain('pkg/bad');
+    // degradation is observable in meta.errors
+    expect(parsed.meta.errors.some((e: string) => e.includes('pkg/bad'))).toBe(true);
+  });
+
+  it('summary mode reports malformedDropped count', async () => {
+    const files = { 'a.ts': 'export const a = 1;' };
+    await writeModule('m', files);
+    await seed(
+      'm',
+      files,
+      computeSourceHash((await createNodeModuleSourceReader(root).readModuleSource('m'))!)
+    );
+    const badDir = path.join(root, '.harness', 'comprehension', 'bad');
+    await fsp.mkdir(badDir, { recursive: true });
+    await fsp.writeFile(path.join(badDir, '_module.md'), '---\nmodule: "bad"\n---\nx\n');
+    const res = await handleGatherContext({ path: root, intent: 'x', include: ['comprehension'] });
+    const parsed = JSON.parse(res.content[0].text);
+    expect(parsed.comprehension.unitsServed).toBe(1);
+    expect(parsed.comprehension.malformedDropped).toBe(1);
+  });
 });
