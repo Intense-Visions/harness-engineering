@@ -1018,6 +1018,24 @@ export const SkillHooksConfigSchema = z
     }
   });
 
+/**
+ * Compiled-comprehension substrate settings. Minimal surface this phase — the
+ * full documented config surface lands in phase 6. `storage` selects the
+ * committed shard tree (default) vs a git-ignored cache; `semantic` gates the
+ * advisory LLM half (false ⇒ static-only, no credential); `model` overrides the
+ * semantic-tier model; `maxTokensPerRun` is the per-run token budget;
+ * `concurrency` bounds parallel module compiles; `ci` selects the CI behavior.
+ */
+export const ComprehensionConfigSchema = z.object({
+  storage: z.enum(['committed', 'cache']).default('committed'),
+  semantic: z.boolean().default(true),
+  model: z.string().nullable().default(null),
+  maxTokensPerRun: z.number().int().positive().default(200_000),
+  concurrency: z.number().int().positive().default(4),
+  ci: z.enum(['verify', 'refresh', 'off']).default('verify'),
+});
+export type ComprehensionConfig = z.infer<typeof ComprehensionConfigSchema>;
+
 export const HarnessConfigSchema = z.object({
   /** Configuration schema version */
   version: z.literal(1),
@@ -1049,6 +1067,8 @@ export const HarnessConfigSchema = z.object({
   security: SecurityConfigSchema.optional(),
   /** Performance and complexity budget settings */
   performance: PerformanceConfigSchema.optional(),
+  /** Compiled-comprehension substrate settings (see docs — phase 6). */
+  comprehension: ComprehensionConfigSchema.optional(),
   /** Project template settings (used by 'harness init') */
   template: z
     .object({

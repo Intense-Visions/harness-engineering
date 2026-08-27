@@ -1,5 +1,5 @@
 {
-  "reason": "Phase-4 comprehension (enumerateModules --all walk); also covers pre-existing graph/bench drift",
+  "reason": "Phase-4 comprehension (config schema + reader); also covers pre-existing graph/bench drift",
   "categories": {
     "complexity": 333
   },
@@ -9,5 +9,5 @@
     "a69cfd2cd82525ac974800a92c87ddc6f51befc4b2b4b7704254c831bddc41b1",
     "c60eea17a4add0848bb1b29da4779a5a9882da2f7f6c4a36f60076046da5acd1"
   ],
-  "createdFrom": "004f11612"
+  "createdFrom": "54a3319a2"
 }
