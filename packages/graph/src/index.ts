@@ -81,6 +81,19 @@ export { RequirementIngestor } from './ingest/RequirementIngestor.js';
 export { inferDomain, DEFAULT_PATTERNS, DEFAULT_BLOCKLIST } from './ingest/domain-inference.js';
 export type { DomainInferenceOptions } from './ingest/domain-inference.js';
 
+// Community Detection
+export { LouvainDetector } from './community/LouvainDetector.js';
+export { detectCommunities, buildCommunityInput } from './community/detectCommunities.js';
+export type { DetectCommunitiesOptions } from './community/detectCommunities.js';
+export type {
+  CommunityDetector,
+  CommunityDetectorOptions,
+  CommunityDetectionResult,
+  CommunityGraphInput,
+  CommunityEdgeInput,
+  CommunityAssignment,
+} from './community/CommunityDetector.js';
+
 // Knowledge Pipeline
 export { KnowledgePipelineRunner } from './ingest/KnowledgePipelineRunner.js';
 export type {

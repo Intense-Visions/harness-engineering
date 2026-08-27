@@ -146,6 +146,13 @@ export interface GraphNode {
   readonly metadata: Record<string, unknown>;
   readonly embedding?: readonly number[];
   readonly lastModified?: string; // ISO timestamp
+  /**
+   * Community / subsystem id assigned by a community-detection pass
+   * (see {@link CommunityDetector}). Optional and additive: absent until a
+   * detection pass labels the node, so existing readers and serialized graphs
+   * are unaffected. Ids are canonical in `[0, communityCount)`.
+   */
+  readonly community?: number;
 }
 
 // --- Graph Edge ---
@@ -300,6 +307,7 @@ export const GraphNodeSchema = z.object({
   metadata: z.record(z.unknown()),
   embedding: z.array(z.number()).optional(),
   lastModified: z.string().optional(),
+  community: z.number().int().nonnegative().optional(),
 });
 
 export const GraphEdgeSchema = z.object({
