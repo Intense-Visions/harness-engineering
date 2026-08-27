@@ -4,6 +4,7 @@ export type {
   GraphEdge,
   NodeType,
   EdgeType,
+  EdgeProvenance,
   SourceLocation,
   ContextQLParams,
   ContextQLResult,
@@ -16,6 +17,7 @@ export type {
 export {
   NODE_TYPES,
   EDGE_TYPES,
+  EDGE_PROVENANCES,
   OBSERVABILITY_TYPES,
   CURRENT_SCHEMA_VERSION,
   NODE_STABILITY,

@@ -3,6 +3,25 @@ import { loadGraphStore } from '../../utils/graph-loader.js';
 import { sanitizePath } from '../../utils/sanitize-path.js';
 import { graphNotFoundError } from './shared.js';
 
+/**
+ * Summarize edge provenance (EXTRACTED vs INFERRED vs AMBIGUOUS) for a set of
+ * edges by reading the optional `provenance` field set at ingest time. Lets a
+ * caller tell relationships read directly from source (AST-explicit) apart from
+ * resolver/heuristic-derived ones. Returns undefined when no edge carries
+ * provenance — older graphs ingested before provenance existed simply omit the
+ * field, so the breakdown is dropped gracefully (back-compat).
+ */
+function summarizeProvenance(
+  edges: readonly { provenance?: string }[]
+): Record<string, number> | undefined {
+  const breakdown: Record<string, number> = {};
+  for (const edge of edges) {
+    if (!edge.provenance) continue;
+    breakdown[edge.provenance] = (breakdown[edge.provenance] ?? 0) + 1;
+  }
+  return Object.keys(breakdown).length > 0 ? breakdown : undefined;
+}
+
 export const getRelationshipsDefinition = {
   name: 'get_relationships',
   description:
@@ -91,6 +110,7 @@ export async function handleGetRelationships(input: {
               totalNeighbors: filteredNodes.length - 1,
               neighborsByType,
               totalEdges: filteredEdges.length,
+              provenanceBreakdown: summarizeProvenance(filteredEdges),
               stats: result.stats,
             }),
           },
@@ -122,6 +142,7 @@ export async function handleGetRelationships(input: {
               )
             ),
             edges: paged.items,
+            provenanceBreakdown: summarizeProvenance(paged.items),
             stats: result.stats,
             pagination: paged.pagination,
           }),
