@@ -1051,6 +1051,8 @@ Measure token + tool-call savings of graph-scoped retrieval vs naive file reads
 - `--json` — Emit the full machine-readable result as JSON
 - `--out` — Write the machine-readable result JSON to a file
 - `--top` — Anchors per structural family (default: "5")
+- `--judge` — Grade the answer-quality axis with an LLM judge (retrieval sufficiency; advisory). Requires ANTHROPIC_API_KEY or HARNESS_ANALYSIS_BASE_URL; degrades to INCONCLUSIVE if neither is set.
+- `--judge-model` — Model override for the answer-quality judge
 
 ### `harness graph export`
 

@@ -1,0 +1,53 @@
+{
+  "issue": 1271,
+  "title": "Answer-quality axis for the graph token-savings benchmark",
+  "item": "#1271-judge",
+  "fleet": "roadmap-fleet",
+  "closing_keyword": "Refs #1271",
+  "plan_path": "docs/changes/graph-bench-answer-quality/plans/plan.md",
+  "proposal_path": "docs/changes/graph-bench-answer-quality/proposal.md",
+  "stages": [
+    {
+      "stage": "brainstorming",
+      "output": "docs/changes/graph-bench-answer-quality/proposal.md",
+      "summary": "Framed the deferred answer-quality axis: an LLM judge grades retrieval sufficiency per strategy, reusing the shared eval/judge plumbing, advisory + honest-degrade."
+    },
+    {
+      "stage": "planning",
+      "output": "docs/changes/graph-bench-answer-quality/plans/plan.md",
+      "summary": "Task breakdown T1 judge module, T2 wire into runGraphBench, T3 output+CLI flag, T4 tests, T5 docs+reference regen, T6 provenance+gates."
+    },
+    {
+      "stage": "execution",
+      "summary": "Added packages/cli/src/commands/graph/bench-judge.ts (BenchJudge over AnalysisProvider via resolveBenchJudge); wired answerQuality axis + per-scenario quality + query into runGraphBench/formatBenchReport; added --judge/--judge-model flags; fixed pre-existing global --json shadowing.",
+      "files": [
+        "packages/cli/src/commands/graph/bench-judge.ts",
+        "packages/cli/src/commands/graph/bench.ts",
+        "packages/cli/src/commands/graph/bench.test.ts",
+        "packages/cli/src/commands/graph/bench-judge.test.ts",
+        "docs/benchmarks/graph-token-savings/RESULTS.md",
+        "docs/benchmarks/graph-token-savings/REPRODUCING.md",
+        "docs/benchmarks/graph-token-savings/results/latest.json",
+        "docs/reference/cli-commands.md"
+      ]
+    },
+    {
+      "stage": "verification",
+      "summary": "16 bench/bench-judge tests pass; cli typecheck clean; live WIRED trace: `harness graph bench --judge` with a local /v1 judge produced status=measured with per-scenario quality (graph 100% / naive 0% sufficient); with no provider produced status=inconclusive and ok=true (benchmark still succeeded).",
+      "evidence": [
+        "vitest: 16 passed (bench.test.ts + bench-judge.test.ts)",
+        "live measured: answerQuality.status=measured, graph.sufficientRate=1, naive.sufficientRate=0",
+        "live degrade: answerQuality.status=inconclusive, ok=true"
+      ]
+    }
+  ],
+  "assumptions": [
+    "Reused the existing shared eval judge seam (resolveAnalysisProvider + AnalysisProvider.analyze) rather than adding a bespoke judge or new provider/key plumbing, per confirmed decision #1.",
+    "The answer-quality axis is opt-in via --judge (off by default) so the default run stays deterministic for CI; a live judge is never invoked in CI. Tests inject a mock judge to exercise the measured path.",
+    "Judged payloads are truncated to a documented 12000-char budget (naive payloads can be ~900k tokens); the budget is surfaced in the result note so the judgment is honest about what it saw.",
+    "Structural families (impact/blast-radius/dependencies/outline) get a deterministic synthesized query string (stored on each scenario) since their anchor is a file path, not a natural-language question; find-context/ask anchors are used verbatim.",
+    "results/latest.json was patched additively with the answerQuality block a default (no --judge) run emits, to keep the published schema consistent without re-running the full ~51k-node repo benchmark.",
+    "Fixed a pre-existing bug where the program-global --json option shadowed `graph bench --json` (verified present on origin/main); the --out path was already unaffected.",
+    "Multi-repo answer-quality corpus remains deferred (Refs #1271)."
+  ]
+}
