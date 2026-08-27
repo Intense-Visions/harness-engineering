@@ -8,6 +8,23 @@
  * static-degraded (semantic-only) unit rather than a faked one.
  */
 
+import * as path from 'node:path';
+import { TypeScriptParser } from '@harness-engineering/core';
+import type {
+  ExtractStatic,
+  ComprehensionSourceFile,
+  StaticExtraction,
+} from '@harness-engineering/core';
+
+const BARREL_BASENAMES = new Set([
+  'index.ts',
+  'index.tsx',
+  'index.js',
+  'index.jsx',
+  'index.mjs',
+  'index.cjs',
+]);
+
 /** The extensions the AST static extractor can parse (TS/JS family). */
 export const STATIC_SUPPORTED_EXTENSIONS = ['.ts', '.tsx', '.js', '.jsx', '.mjs', '.cjs'] as const;
 
@@ -66,4 +83,78 @@ export function renderDependencySlice(
     lines.push(`import ${binding}from '${source}'`);
   }
   return lines.join('\n');
+}
+
+/** Minimal structural view of a parsed member's static surface. */
+interface MemberSurface {
+  exports: Array<{ name: string }>;
+  imports: Array<{ source: string; specifiers?: string[]; default?: string; namespace?: string }>;
+}
+
+/**
+ * Parse one module member with core's AST parser and pull its exports/imports.
+ * Returns `null` for an unparseable member (degrade, never fake). `wantExports`
+ * is false for non-surface files so only the barrel/union surface contributes
+ * the public interface, while every member still contributes imports-out.
+ */
+async function parseMember(
+  parser: TypeScriptParser,
+  abs: string,
+  wantExports: boolean
+): Promise<MemberSurface | null> {
+  const ast = await parser.parseFile(abs);
+  if (!ast.ok) return null;
+  const surface: MemberSurface = { exports: [], imports: [] };
+  if (wantExports) {
+    const ex = parser.extractExports(ast.value);
+    if (ex.ok) surface.exports = ex.value.map((e) => ({ name: e.name }));
+  }
+  const im = parser.extractImports(ast.value);
+  if (im.ok) {
+    surface.imports = im.value.map((i) => ({
+      source: i.source,
+      specifiers: i.specifiers,
+      default: i.default,
+      namespace: i.namespace,
+    }));
+  }
+  return surface;
+}
+
+/**
+ * Concrete, language-aware `ExtractStatic` (D1/D5). Module-bound: reconstructs
+ * each canonical member's absolute path (`projectRoot/module/basename`) and
+ * parses it with core's AST `TypeScriptParser`. The public surface is
+ * barrel-anchored on `index.*` when present, else the union of all members'
+ * top-level exports. Unsupported languages yield EMPTY static sections
+ * (semantic-only), never faked. Non-recursive by construction: it visits only
+ * the passed `sourceFiles` (the canonical D3 member set).
+ */
+export function createStaticExtractor(opts: {
+  projectRoot: string;
+  module: string;
+}): ExtractStatic {
+  const parser = new TypeScriptParser();
+  return async (sourceFiles: ComprehensionSourceFile[]): Promise<StaticExtraction> => {
+    const supported = sourceFiles.filter((f) => isStaticSupported(path.extname(f.path)));
+    if (supported.length === 0) return { interfaceContract: '', dependencySlice: '' };
+
+    const barrel = supported.find((f) => BARREL_BASENAMES.has(f.path));
+    const surfaceFiles = new Set(barrel ? [barrel] : supported);
+
+    const exports: Array<{ name: string }> = [];
+    const imports: MemberSurface['imports'] = [];
+    for (const f of supported) {
+      const abs = path.join(opts.projectRoot, opts.module, f.path);
+      const surface = await parseMember(parser, abs, surfaceFiles.has(f));
+      if (!surface) continue; // unparseable member: skip (degrade), never fake
+      exports.push(...surface.exports);
+      imports.push(...surface.imports);
+    }
+
+    return {
+      interfaceContract: renderInterfaceContract(exports),
+      dependencySlice: renderDependencySlice(imports),
+    };
+  };
 }
