@@ -212,6 +212,62 @@ For Jenkins, CircleCI, Azure Pipelines, or any other platform:
 
 The shell script handles installation, running checks, and interpreting exit codes.
 
+## Scoping `harness validate` to the changed surface
+
+`harness validate` runs a set of project checks. Most are fixed-scope and cheap
+(AGENTS.md, roadmap health, ADR numbers, STRATEGY.md, pulse), but the design
+audits — detect-drift and audit-brand — walk the **whole** source tree on every
+run. On a large repo, re-walking the full tree for a one-file change is the
+dominant cost.
+
+Affected-only mode derives the changed surface from git and hands just those files
+to the walkers:
+
+```bash
+# Scope the design walkers to files changed vs the merge-base with the default branch
+harness validate --changed          # (--affected is an alias)
+
+# Scope to files changed since an explicit ref
+harness validate --since origin/main
+
+# Override the branch used for the merge-base (default: main)
+harness validate --changed --default-branch develop
+```
+
+The changed surface is the union of files that differ from the base ref (staged,
+unstaged, and committed-on-branch) plus untracked files, narrowed to the source
+extensions and exclude globs a full sweep would scan — so a scoped run is always a
+**subset** of a full run (it never reports a finding a full sweep would not). Every
+affected run prints what it scoped:
+
+```
+Scope: affected — 12 changed file(s) vs <base-sha>. Scoped checks: driftDetection,
+brandCompliance. Fixed-scope checks (roadmap, ADR, AGENTS.md, STRATEGY.md, pulse)
+always ran. Unchanged files were NOT re-validated — run a full `harness validate`
+before merge/release.
+```
+
+If the changed surface cannot be derived (not a git repo, unknown ref), the run
+**falls back to a full sweep** and reports why — it never validates an empty
+surface.
+
+### Staleness contract — when a full sweep is still required
+
+Affected-only mode is **opt-in** and intended for the interactive/agent inner loop.
+Because it only re-validates files in the changed surface, a finding whose input
+file is unchanged since the base ref is **not** re-checked. Reserve the full sweep
+(bare `harness validate`, with no `--changed`/`--since`) for:
+
+- **pre-merge** gates (a PR's merge result must be validated in full),
+- **scheduled** runs (nightly/weekly drift catches), and
+- **release** readiness.
+
+Bare `harness validate` is unchanged and remains the default, so existing adopters
+and CI pipelines keep full-sweep semantics with no migration.
+
+> **Telemetry:** scoped-vs-full invocations are recorded (the `variant` field on
+> the `cli/validate` adoption record) so the split is measurable after adoption.
+
 ## Customizing Checks
 
 ### Skipping Checks

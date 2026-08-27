@@ -35,6 +35,7 @@ function findProjectRoot(cwd: string): string {
 }
 
 let commandName = '';
+let commandVariant: string | undefined;
 let startTime = 0;
 let recorded = false;
 
@@ -57,6 +58,7 @@ export function installCommandTelemetry(program: Command, cwd: string): void {
   //   actionCommand = command being executed (the actual subcommand)
   program.hook('preAction', (_thisCommand, actionCommand) => {
     commandName = resolveCommandName(actionCommand);
+    commandVariant = resolveCommandVariant(commandName, actionCommand);
     startTime = Date.now();
   });
 
@@ -67,8 +69,31 @@ export function installCommandTelemetry(program: Command, cwd: string): void {
 
     const duration = Date.now() - startTime;
     const outcome = code === 0 ? 'completed' : 'failed';
-    writeCommandRecordSync(projectRoot, commandName, duration, outcome);
+    writeCommandRecordSync(projectRoot, commandName, duration, outcome, commandVariant);
   });
+}
+
+/**
+ * Resolve an optional variant tag for the record. Currently only `cli/validate`
+ * carries one — 'affected' when the run scoped the design audits to the changed
+ * surface (`--changed`/`--affected`/`--since`), 'full' otherwise. This keeps the
+ * primary `skill: 'cli/validate'` key stable (so existing telemetry continuity and
+ * the version-guard's bare-command matching are unaffected) while making the
+ * scoped-vs-full split measurable — the hot-path (68% of CLI calls) metric GH #1523
+ * exists to move. Undefined for every other command, so no record grows a field it
+ * has no use for.
+ */
+function resolveCommandVariant(name: string, cmd: Command): string | undefined {
+  if (name !== 'cli/validate') return undefined;
+  let opts: Record<string, unknown>;
+  try {
+    opts = typeof cmd.opts === 'function' ? cmd.opts() : {};
+  } catch {
+    return undefined;
+  }
+  const affected =
+    opts.changed === true || opts.affected === true || typeof opts.since === 'string';
+  return affected ? 'affected' : 'full';
 }
 
 /**
@@ -95,7 +120,8 @@ function writeCommandRecordSync(
   cwd: string,
   command: string,
   duration: number,
-  outcome: string
+  outcome: string,
+  variant?: string
 ): void {
   try {
     const metricsDir = join(cwd, '.harness', 'metrics');
@@ -108,6 +134,9 @@ function writeCommandRecordSync(
       duration,
       outcome,
       phasesReached: [] as string[],
+      // Additive: only present when the command reports a variant (today, validate's
+      // scoped-vs-full split). Records without it are unchanged.
+      ...(variant !== undefined && { variant }),
     };
 
     const adoptionFile = join(metricsDir, 'adoption.jsonl');
@@ -176,6 +205,7 @@ export function truncateAdoptionFile(cwd: string): void {
 /** Reset module state between tests. */
 export function _resetForTest(): void {
   commandName = '';
+  commandVariant = undefined;
   startTime = 0;
   recorded = false;
 }

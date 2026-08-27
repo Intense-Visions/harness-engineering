@@ -718,6 +718,10 @@ Run all validation checks
 - `--cross-check` — Run cross-artifact consistency validation
 - `--agent-configs` — Validate agent configs (CLAUDE.md, hooks, skills) via agnix or built-in fallback rules
 - `--strict` — Treat warnings as errors (applies to --agent-configs)
+- `--changed` — Scope the file-walking design audits to the changed surface derived from git (vs the merge-base with the default branch). Opt-in; the full sweep is the default. Reserve the full sweep for pre-merge and scheduled runs.
+- `--affected` — Alias for --changed
+- `--since` — Scope the changed surface to files that differ from the given ref (implies --changed)
+- `--default-branch` — Branch to compute the changed-surface merge-base against (default: main)
 - `--agnix-bin` — Override the agnix binary path discovered on PATH
 - `--severity` — Minimum severity that fails the command; when set, findings below it are excluded from the report and never fail the gate (error, warning, info)
 

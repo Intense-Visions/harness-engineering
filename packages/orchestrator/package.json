@@ -21,7 +21,7 @@
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage",
     "clean": "node ../../scripts/clean.mjs dist",
-    "validate": "harness validate",
+    "validate": "harness validate --changed",
     "check-deps": "harness check-deps",
     "check-docs": "harness check-docs",
     "openapi:generate": "tsx src/gateway/openapi/generate.ts ../../docs/api/openapi.yaml"
