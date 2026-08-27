@@ -14,6 +14,7 @@ import {
   serveGate,
   renderServedUnit,
   computeSourceHash,
+  estimateTokens,
 } from '@harness-engineering/core';
 import type {
   ComprehensionSourceFile,
@@ -260,11 +261,6 @@ export interface ComprehendStatsResult {
   savedPct: number;
   /** Number of fresh (serveable) units counted. */
   units: number;
-}
-
-/** Self-contained, approximate token estimate (~4 chars/token). No telemetry. */
-function estimateTokens(text: string): number {
-  return Math.ceil(text.length / 4);
 }
 
 /**

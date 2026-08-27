@@ -12,16 +12,13 @@
 // a no-op, so dispatch behaves exactly as it did before this field existed. Only
 // an explicitly-configured budget changes behavior.
 
-import { assertLeafWithinBudget } from '@harness-engineering/core';
+import { assertLeafWithinBudget, CHARS_PER_TOKEN } from '@harness-engineering/core';
 import type {
   Issue,
   LeafContextEstimate,
   LeafContextSource,
   WorkflowConfig,
 } from '@harness-engineering/types';
-
-/** Rough tokens-per-character ratio for an offline, dependency-free estimate. */
-const CHARS_PER_TOKEN = 4;
 
 /**
  * Estimate the in-memory context load (in tokens) a leaf will assemble for an

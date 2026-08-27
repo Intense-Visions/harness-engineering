@@ -1,4 +1,4 @@
-import { paginate } from '@harness-engineering/core';
+import { paginate, CHARS_PER_TOKEN } from '@harness-engineering/core';
 import { sanitizePath } from '../utils/sanitize-path.js';
 
 interface GraphContextBlock {
@@ -125,7 +125,8 @@ export const gatherContextDefinition = {
       },
       tokenBudget: {
         type: 'number',
-        description: 'Approximate token budget for graph context (default 4000)',
+        description:
+          'Approximate token budget for graph context AND the primary comprehension block (default 4000)',
       },
       include: {
         type: 'array',
@@ -272,7 +273,7 @@ export async function handleGatherContext(input: {
         const fusion = new FusionLayer(store);
         const cql = new ContextQL(store);
         const tokenBudget = input.tokenBudget ?? 4000;
-        const charBudget = tokenBudget * 4;
+        const charBudget = tokenBudget * CHARS_PER_TOKEN;
         const searchResults = fusion.search(input.intent, 10);
         if (searchResults.length === 0) return { context: [], tokenBudget };
         const contextBlocks: Array<{
@@ -364,7 +365,7 @@ export async function handleGatherContext(input: {
         const { units, skipped } = listed.value;
         const reader = core.createNodeModuleSourceReader(projectPath);
         const tokenBudget = input.tokenBudget ?? 4000;
-        const charBudget = tokenBudget * 4;
+        const charBudget = tokenBudget * CHARS_PER_TOKEN;
         const served: Array<{ module: string; markdown: string }> = [];
         const stale: Array<{ module: string; recompile: true }> = [];
         let totalChars = 0;

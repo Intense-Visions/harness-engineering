@@ -17,6 +17,7 @@
 import {
   serveGate,
   renderServedUnit,
+  CHARS_PER_TOKEN,
   type ComprehensionUnit,
   type ComprehensionSourceFile,
   type Result,
@@ -43,9 +44,6 @@ export interface LeafPrewarmResult {
   /** One entry per served unit ({label: module, tokens: served estimate}). */
   sources: LeafContextSource[];
 }
-
-/** Chars-per-token floor matching the rest of the substrate's token estimates. */
-const CHARS_PER_TOKEN = 4;
 
 /** Extract path-like tokens (segments joined by `/`) from free text. */
 function extractPathTokens(text: string): string[] {

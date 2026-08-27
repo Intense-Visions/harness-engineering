@@ -38,10 +38,20 @@ export interface PackedEnvelope {
 }
 
 /**
- * Estimates token count using the chars/4 heuristic from the spec.
+ * The single chars-per-token ratio for the offline, dependency-free `chars/N`
+ * token heuristic used across the substrate (comprehension serve budgets, leaf
+ * context-budget estimates, pre-warm attribution). Centralized so every site
+ * shares one value; consumers should prefer {@link estimateTokens} over dividing
+ * by this directly, and multiply by it when converting a token budget to chars.
+ */
+export const CHARS_PER_TOKEN = 4;
+
+/**
+ * Estimates token count using the chars/{@link CHARS_PER_TOKEN} heuristic from the
+ * spec.
  */
 export function estimateTokens(content: string): number {
-  return Math.ceil(content.length / 4);
+  return Math.ceil(content.length / CHARS_PER_TOKEN);
 }
 
 /**

@@ -10,7 +10,7 @@ export { TruncationStrategy, DEFAULT_TOKEN_BUDGET } from './strategies/truncatio
 export { CompactionPipeline } from './pipeline';
 
 export type { PackedEnvelope } from './envelope';
-export { serializeEnvelope, estimateTokens } from './envelope';
+export { serializeEnvelope, estimateTokens, CHARS_PER_TOKEN } from './envelope';
 
 export type { PaginationMeta, PaginatedSlice } from './pagination';
 export { paginate } from './pagination';
