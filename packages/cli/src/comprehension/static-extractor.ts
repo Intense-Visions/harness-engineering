@@ -111,11 +111,13 @@ async function parseMember(
   }
   const im = parser.extractImports(ast.value);
   if (im.ok) {
+    // Conditional keys (exactOptionalPropertyTypes): never assign an explicit
+    // `undefined` to an optional field.
     surface.imports = im.value.map((i) => ({
       source: i.source,
       specifiers: i.specifiers,
-      default: i.default,
-      namespace: i.namespace,
+      ...(i.default !== undefined ? { default: i.default } : {}),
+      ...(i.namespace !== undefined ? { namespace: i.namespace } : {}),
     }));
   }
   return surface;

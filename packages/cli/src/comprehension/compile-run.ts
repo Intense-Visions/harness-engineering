@@ -74,7 +74,7 @@ export async function mapWithConcurrency<T, R>(
     for (;;) {
       const i = cursor++;
       if (i >= items.length) return;
-      results[i] = await fn(items[i], i);
+      results[i] = await fn(items[i] as T, i);
     }
   };
   await Promise.all(Array.from({ length: workers }, run));
