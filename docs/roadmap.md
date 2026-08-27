@@ -2360,7 +2360,7 @@ last_manual_edit: 2026-06-27T12:51:51.967Z
 
 ### ContextQL shortest-path query primitive
 
-- **Status:** planned
+- **Status:** done
 - **Spec:** docs/knowledge/decisions/0104-graphify-adoption-not-replacement.md
 - **Summary:** Add `shortestPath(a, b)` between two arbitrary nodes to ContextQL, surfaced via NLQ + a CLI verb. Complements the existing explain/impact/relationships intents. Ported from Graphify (ADR 0104 Option A).
 - **Blockers:** —
