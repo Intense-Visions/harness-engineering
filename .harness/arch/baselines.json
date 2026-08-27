@@ -1,7 +1,7 @@
 {
   "version": 1,
-  "updatedAt": "2026-08-27T12:43:37.357Z",
-  "updatedFrom": "4d47ac8",
+  "updatedAt": "2026-08-27T13:11:42.228Z",
+  "updatedFrom": "5d04232",
   "metrics": {
     "circular-deps": {
       "value": 0,
@@ -12,7 +12,7 @@
       "violationIds": []
     },
     "complexity": {
-      "value": 325,
+      "value": 327,
       "violationIds": [
         "007f01231e26e527dfaa5a251c21e9a18b0abc300ad8d49258b910f878f23cdf",
         "015dadca6008b916e11c3fc7d66f1420c0baa06f714552b7ad770d761fd7ec25",
@@ -66,6 +66,7 @@
         "215ed5e80ae0ab4438251538ec6fcbcc71f19cc3fcfc53804fc4507e15c847e1",
         "2302d80ea0de2543d82814caf85dfc3f4b9e4a32e874ded0d2eb36c91d7cfe25",
         "24752a84e07b7b993692b5513d80270bdf104202e30065749b2c4d75bdcc9caa",
+        "24c6911efd4e5e31d15fe803ca37600f73aad95f882d94dcc631b358784d9626",
         "269037d16185d4c275018b12c1e5f3a420575f9e151fc2569811bc1bc9455f71",
         "26b2c3caf823e700670704a250295ae449e065b5841b286164880a117ac3a820",
         "27e0247906a3868a73d40c411c3ab8227d2354b8a9717080773b2a33f6a4a69a",
@@ -293,6 +294,7 @@
         "e812aa294c74fc00fcab9f1525de471bee72eb20ff883fba9330108de9b07eb6",
         "e8336f0060e2551956311841b9897b9ae378ded90a6a7dfc2f5f1409ce7988ba",
         "e84de391a2b2623d88b8f55d04857432c4f67bb5e9d0941909261bad38dc9d9b",
+        "e8e6133aeb686f644e10745ffa014ed5180f8c82998e408fac9c66d3b4618d69",
         "ea6dc64e52946b38e7510122953ddc8e067749b824c3aa716461830987d59151",
         "ea966f0575878f24f88975b09dfe0442008012b8fe8ec645ac01bacd3c460699",
         "eb69a513fe3cc051595464bfe76190bf8de87d5fba3887f4aaff21a671604a5b",
@@ -335,7 +337,7 @@
       "violationIds": []
     },
     "module-size": {
-      "value": 246056,
+      "value": 246353,
       "violationIds": [
         "14c3c7cf4350a3212158ff69554ef83629eb26d75ffaf4d24bbded2841aa58ad",
         "4d6965066aaca1a3553a39fac1fb531ec9ecb47395a5a4420adbd066d367c3b6",
@@ -353,7 +355,7 @@
       ]
     },
     "dependency-depth": {
-      "value": 607,
+      "value": 609,
       "violationIds": []
     }
   }
