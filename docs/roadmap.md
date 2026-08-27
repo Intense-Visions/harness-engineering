@@ -890,6 +890,28 @@ last_manual_edit: 2026-06-27T12:51:51.967Z
 - **Priority:** P3
 - **External-ID:** github:Intense-Visions/harness-engineering#1640
 
+### Item-response model — joint task-difficulty and agent-ability estimation
+
+- **Status:** planned
+- **Spec:** —
+- **Summary:** Psychometrics solved a problem routing now has: you cannot grade test-takers without knowing question difficulty, or calibrate questions without knowing taker ability — item response theory estimates both jointly on one latent scale from outcome data alone, yielding per-(taker, item) success probabilities. Routing today uses folklore equivalents: model tiers assumed ordered, task difficulty guessed from labels, success rates confounded by who attempted what (a model that only gets hard tasks looks bad). Fit an IRT model over the outcome history: tasks as items (difficulty, discrimination), agent/model configurations as takers (ability), outcomes as responses — producing calibrated success probabilities per (configuration, task) pair on a common scale. The consequences are immediately load-bearing: routing sends work where predicted success crosses threshold at least cost; the difficulty scale prices tasks for decomposition (an item too hard for every configuration must be split); ability drift over model updates is measurable on a stable scale (feeding the sentinel); and the confounding that poisons naive success rates is handled by construction, because difficulty and ability are estimated jointly. Guard: refit cadence and identifiability checks (sparse response matrices need anchoring items) are part of the deliverable, not an afterthought.
+- **Blockers:** —
+- **Plan:** —
+- **Assignee:** —
+- **Priority:** P2
+- **External-ID:** github:Intense-Visions/harness-engineering#1657
+
+### Crisis standards — pre-authorized degraded operating modes under overload
+
+- **Status:** planned
+- **Spec:** —
+- **Summary:** Emergency medicine plans for overload before it happens: crisis standards of care are pre-declared, pre-authorized reduced standards — what care changes, at what trigger, authorized by whom, returning to normal how — because deciding standards during the surge produces ad-hoc collapse, inequity, and cover-up. Pipelines under overload today degrade implicitly: cavitation detection (filed) will *observe* gates silently going soft, but nothing *designs* what should happen instead. Declare the degraded modes in advance: for each overload class (review saturation, compute exhaustion, incident surge, rate-limit famine), a pre-authorized mode stating exactly which standards relax (batch sizes up, sampling fractions down, low-tier auto-approval widens), which never relax (security gates, guarded actions, protected paths — the inviolable floor), entry triggers tied to measured signals, exit criteria, and the audit trail every mode transition writes. The moral core imported from medicine: degradation happens either way under sufficient load — the choice is between a designed, bounded, auditable reduction and a silent, unbounded one. Crisis standards convert the cavitation alarm from 'quality is collapsing somewhere' into 'engage mode B, which we agreed to in daylight.'
+- **Blockers:** —
+- **Plan:** —
+- **Assignee:** —
+- **Priority:** P2
+- **External-ID:** github:Intense-Visions/harness-engineering#1654
+
 ## v5.0 — Enforcement Hardening
 
 ### Audit and cap the pre-commit --skip list
@@ -1199,6 +1221,39 @@ last_manual_edit: 2026-06-27T12:51:51.967Z
 - **Assignee:** —
 - **Priority:** P1
 - **External-ID:** github:Intense-Visions/harness-engineering#1639
+
+### Precedent — stare decisis for recurring judgment calls
+
+- **Status:** planned
+- **Spec:** —
+- **Summary:** Courts achieve consistency at scale without re-litigating every question through stare decisis: adjudicated decisions bind materially similar future cases, distinguished only when facts genuinely differ, and overruled only deliberately at a higher standard. Agent pipelines re-litigate constantly — the same judgment call (is this dependency acceptable, does this pattern violate the boundary, is this test flaky-or-broken) is re-decided from scratch by every agent that meets it, with drift between decisions as pure noise. Build the precedent system: when a judgment call is adjudicated (by a human, a panel, or an uncontested gate verdict of declared precedential weight), it becomes a citable precedent — facts, question, holding, rationale; future agents facing a materially similar question retrieve and follow it, citing it in their justification, or explicitly distinguish it stating which material facts differ. Overruling is a first-class deliberate act at a higher review standard, never silent divergence. Distinct from the rejection ledger (dead ideas) and compiled knowledge (facts): precedent binds *decisions*. The measurable win is consistency: the same question answered the same way everywhere, with drift visible as distinguish/overrule events instead of silent noise.
+- **Blockers:** —
+- **Plan:** —
+- **Assignee:** —
+- **Priority:** P2
+- **External-ID:** github:Intense-Visions/harness-engineering#1660
+
+### Standards of review — calibrated deference for second-level checks
+
+- **Status:** planned
+- **Spec:** —
+- **Summary:** Appellate courts do not re-try every case: they apply declared standards of review — questions of law are reviewed de novo (no deference), findings of fact for clear error (high deference), discretionary calls for abuse of discretion (highest deference) — because full re-derivation of everything is unaffordable and, worse, substitutes the reviewer's noise for the original's diligence. Second-level checks in the pipeline (re-review, verification of verification, human spot-checks, appeal of gate verdicts) currently have no deference theory: every re-examination is implicitly de novo, which is expensive, or implicitly rubber-stamp, which is worthless — and nothing declares which. Import the doctrine: classify what a second-level check is examining (rule application, factual finding from evidence, discretionary judgment), assign each class a declared standard of review, and have the reviewing layer apply that standard explicitly — re-derive rule applications from scratch, disturb factual findings only on clear error shown from the record, and disturb discretionary calls only for abuse (consideration of forbidden factors, failure to consider required ones). Burden of proof travels with it: the challenger of a standing verdict bears the burden, to a declared standard. The payoff is review economics: deference concentrated where re-derivation adds nothing, full rigor where it adds everything.
+- **Blockers:** —
+- **Plan:** —
+- **Assignee:** —
+- **Priority:** P3
+- **External-ID:** github:Intense-Visions/harness-engineering#1663
+
+### Back-translation — independent spec re-derivation from the finished implementation
+
+- **Status:** planned
+- **Spec:** —
+- **Summary:** Translation quality control has a mechanism verification lacks: back-translation — an independent translator, blind to the source, translates the target text back, and diffing the back-translation against the original source exposes meaning drift that forward-checking misses, because the forward checker reads the target through the source's frame. The analog: after implementation, an independent agent — blind to the spec and to the author's context — derives from the finished artifact alone what it believes the spec must have been (behavior, constraints honored, edge cases handled, apparent intent), and that derived spec is diffed against the actual one. Divergences are precise findings: intent present in the spec but absent from the derived version was not implemented (or not legibly); behavior in the derived version absent from the spec is unrequested scope or an accident; constraints missing from the derivation were not made structural. This catches what tests and forward review structurally miss — tests check what the author thought to check, forward review reads the code through the spec's frame — and it doubles as a legibility gate: an implementation from which competent blind re-derivation cannot recover the intent will also defeat every future maintainer. Deference note: it is expensive, so tier policy reserves it for high-stakes work, per the standards-of-review economics.
+- **Blockers:** —
+- **Plan:** —
+- **Assignee:** —
+- **Priority:** P2
+- **External-ID:** github:Intense-Visions/harness-engineering#1662
 
 ## v5.0 — Catalog Rationalization
 
@@ -1677,6 +1732,28 @@ last_manual_edit: 2026-06-27T12:51:51.967Z
 - **Priority:** P2
 - **External-ID:** github:Intense-Visions/harness-engineering#1643
 
+### Double-entry work ledger — claims that must balance against verification
+
+- **Status:** planned
+- **Spec:** —
+- **Summary:** Double-entry bookkeeping survived five centuries because it makes a whole class of error and fraud structurally visible: every transaction posts to two accounts, the books must balance, and an unbalanced ledger is itself the alarm — you do not need to find the specific lie to know one exists. Work reporting here is single-entry: agents claim outcomes (task done, tests passing, finding fixed) and the claim IS the record, so an unverified or false claim is indistinguishable from a true one until something downstream breaks. Build the double-entry analog: every claim posts as a debit that must be balanced by a credit from an independent source — a claim of 'tests pass' balances against a gate-run record; 'finding fixed' against a re-detection miss; 'PR merged' against the merge event; 'value delivered' against the realization account. A trial-balance job continuously reconciles: unbalanced claims (asserted but never verified) age visibly, and the unbalanced-claims report is the system's standing honesty audit. This is cheaper than universal re-verification because it is bookkeeping, not re-execution — the credit entries are records the pipeline already produces; the discipline is refusing to let claims exist without them.
+- **Blockers:** —
+- **Plan:** —
+- **Assignee:** —
+- **Priority:** P2
+- **External-ID:** github:Intense-Visions/harness-engineering#1655
+
+### Number-needed-to-run — clinical effectiveness accounting for gates
+
+- **Status:** planned
+- **Spec:** —
+- **Summary:** Clinical medicine reports treatment value as number-needed-to-treat: how many patients must receive the treatment to prevent one adverse outcome — the honest denominator that separates a drug that works from one that is merely prescribed, and its sibling number-needed-to-harm prices the side effects. Gates deserve the same accounting: number-needed-to-run — how many executions of this gate to prevent one escaped defect — computed from catch records and escape estimates, alongside number-needed-to-harm — how many executions per false positive that costs rework or blocks good work. Together with per-run cost they yield cost-per-defect-prevented, the single number that makes the gate stack's composition an economic decision instead of an accumulation: a gate with NNR 10,000 and heavy per-run cost is a candidate for demotion to sampling or removal regardless of how reasonable it sounds, and one with NNR 30 is cheap insurance even if noisy. This composes the existing measurement primitives (kill rates from mutation testing, escape estimates from capture-recapture, FP rates from calibration) into the clinician's decision format — treat, sample, or discontinue — applied per gate per task class, with the honesty rule that insufficient data reports as such rather than as effectiveness.
+- **Blockers:** —
+- **Plan:** —
+- **Assignee:** —
+- **Priority:** P3
+- **External-ID:** github:Intense-Visions/harness-engineering#1659
+
 ## v5.0 — Trust & Security Model
 
 ### Move sentinel-pre/post to standard hook profile
@@ -1832,6 +1909,28 @@ last_manual_edit: 2026-06-27T12:51:51.967Z
 - **Assignee:** —
 - **Priority:** P2
 - **External-ID:** github:Intense-Visions/harness-engineering#1650
+
+### Statistical audit sampling — assurance at a declared confidence, not census re-verification
+
+- **Status:** planned
+- **Spec:** —
+- **Summary:** Auditors certify billion-dollar ledgers without checking every transaction: statistical sampling theory tells them how many items to examine, selected how, to assert with declared confidence that material misstatement is below a threshold — and discovered errors trigger defined escalation (widen the sample, then census the stratum). Verification at scale needs the same discipline and currently improvises it: passport spot-checks, fleet-output reviews, and inbound audits all sample, but with ad-hoc fractions and no confidence statement, so nobody can say what assurance was actually purchased. Import the machinery: stratified sampling plans over populations of agent work (strata by risk tier, task class, author trust), sample sizes computed from declared confidence and tolerable error rates, attribute-sampling evaluation with the standard escalation ladder on discovered deviations, and an assurance statement attached to every sampled verification — 'examined n of N, stratified thus; with 95% confidence the deviation rate is below x%.' The statement is the product: it converts 'we checked some' into a quantified, comparable, and auditable claim, and it composes with everything that samples — passports, drills, inbound triage, fleet verification — replacing their ad-hoc fractions with computed ones.
+- **Blockers:** —
+- **Plan:** —
+- **Assignee:** —
+- **Priority:** P2
+- **External-ID:** github:Intense-Visions/harness-engineering#1664
+
+### Separation of duties — structurally enforced role independence
+
+- **Status:** planned
+- **Spec:** —
+- **Summary:** Internal-controls doctrine holds that no single actor may author, verify, and approve the same transaction — not because actors are presumed dishonest, but because the structure makes both error and manipulation require collusion, which is detectable, instead of requiring only one compromised context, which is not. Agent pipelines routinely violate this by convenience: the context that authored a change also writes its tests, summarizes it for review, and sometimes judges it — one poisoned or self-deceived context controls the whole chain, and every self-assessment inherits the author's blind spots. Enforce separation structurally: declare the duty classes (author, verifier, approver, auditor) and the incompatibility matrix; the runtime enforces that the verifying context shares no session lineage, working state, or model-conversation history with the authoring context (fresh derivation from artifacts only); and approval contexts are likewise independent of both. This is the institutional generalization of details already scattered across items (fresh-context outcrossing, independent co-signers, germline inheritance): one declared matrix, enforced at spawn/dispatch, instead of per-feature improvisation. Exceptions are policy-declared (low tiers may self-verify), never silent.
+- **Blockers:** —
+- **Plan:** —
+- **Assignee:** —
+- **Priority:** P3
+- **External-ID:** github:Intense-Visions/harness-engineering#1661
 
 ## v5.0 — Article-Framing Docs & Personas
 
@@ -2402,6 +2501,17 @@ last_manual_edit: 2026-06-27T12:51:51.967Z
 - **Priority:** P3
 - **External-ID:** github:Intense-Visions/harness-engineering#1632
 
+### Commons governance — Ostrom principles for shared surfaces
+
+- **Status:** planned
+- **Spec:** —
+- **Summary:** Shared code surfaces — core libraries, schemas, build infrastructure, the knowledge store — are a commons: many consumers, distributed maintenance, and degradation dynamics (tragedy of the commons) that central ownership does not scale to and pure openness does not survive. Elinor Ostrom's Nobel-winning fieldwork distilled eight design principles from commons that survived centuries without central authority, and they map cleanly: clearly defined boundaries (which surfaces are commons, who are their appropriators — derivable from the dependency graph); congruence between rules and local conditions (per-surface rules, not global policy); collective-choice arrangements (consumers of a surface participate in changing its rules); monitoring by accountable monitors (usage and degradation telemetry visible to the appropriators themselves); graduated sanctions (first violation warns, repetition escalates — never first-strike severity); cheap conflict-resolution mechanisms; recognized rights to organize; and nested enterprises for commons-of-commons. The build is a governance layer over surfaces the coordination items already identify: declare the commons, derive the appropriator sets, attach per-surface rulebooks with graduated enforcement, and route rule changes through the consumers. The measurable claim, testable via the realization/telemetry machinery: governed commons degrade slower than ungoverned ones at equal load.
+- **Blockers:** —
+- **Plan:** —
+- **Assignee:** —
+- **Priority:** P3
+- **External-ID:** github:Intense-Visions/harness-engineering#1653
+
 ## Planning & Process
 
 ### Init design + roadmap polish follow-ups
@@ -2568,6 +2678,28 @@ last_manual_edit: 2026-06-27T12:51:51.967Z
 - **Assignee:** —
 - **Priority:** P3
 - **External-ID:** github:Intense-Visions/harness-engineering#1614
+
+### Mission-command briefback — the delegation echo-check before work begins
+
+- **Status:** planned
+- **Spec:** —
+- **Summary:** Mission command (Auftragstaktik) is two centuries of refined doctrine for exactly this problem: delegating to autonomous units under uncertainty via intent plus constraints, with freedom in execution. Its sharpest importable mechanism is the briefback: before any resources move, the subordinate restates the mission — intent, constraints, success criteria, their planned approach — in their own words, and the commander corrects divergence on the spot. The agent analog is nearly free and attacks the largest quality tax (misread intent) from the opposite side as spec-side redundancy sizing: before executing, the agent re-derives the intent from the spec in its own words — what it believes it must achieve, must not break, and how it will know it succeeded — and that briefback is diffed against the issuing intent (mechanically, and by the issuer for high-tier work). Divergence caught at briefback costs one round-trip; the same divergence caught at review costs the whole execution. The briefback artifact also persists as the interpretation-of-record, so a later dispute over what was meant has evidence on both sides.
+- **Blockers:** —
+- **Plan:** —
+- **Assignee:** —
+- **Priority:** P1
+- **External-ID:** github:Intense-Visions/harness-engineering#1658
+
+### Economic injury thresholds — intervene on entropy only past the computed break-even
+
+- **Status:** planned
+- **Spec:** —
+- **Summary:** Integrated pest management replaced calendar spraying with a computed decision rule: the economic injury level is the pest density at which crop damage exceeds intervention cost, and you treat only when monitoring shows the action threshold approaching it — spraying below the threshold costs more than it saves, and prophylactic spraying breeds resistance. Entropy management here is calendar spraying: cleanup fleets and refactoring sweeps run on cadence or intuition, sometimes below the damage threshold (net-negative churn that consumes review attention and destabilizes surfaces for marginal gain) and sometimes far above it (debt serviced long after it started compounding into incident risk). Compute the thresholds: per entropy class (dead code, drift, coupling growth, idiom infestation), estimate the damage function — measured cost the entropy actually imposes (rework attributable, comprehension tax from telemetry, defect correlation) — against the intervention cost (fleet spend, review load, destabilization risk), and derive the action threshold at which intervention breaks even. Monitoring (the detectors already exist) then triggers intervention at the threshold, not the calendar. The IPM resistance warning transfers too: repeated identical interventions select for what they miss — rotate cleanup strategies deliberately.
+- **Blockers:** —
+- **Plan:** —
+- **Assignee:** —
+- **Priority:** P3
+- **External-ID:** github:Intense-Visions/harness-engineering#1656
 
 ## Dashboard & Visualization
 
