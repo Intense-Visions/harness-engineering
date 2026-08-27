@@ -1,0 +1,64 @@
+{
+  "issue": 1523,
+  "title": "Scope `harness validate` to the changed surface",
+  "externalId": "github:Intense-Visions/harness-engineering#1523",
+  "slug": "scope-validate-changed-surface",
+  "branch": "feat/scope-validate-changed-surface",
+  "closing_keyword": "Closes #1523",
+  "stages": ["brainstorming", "planning", "execution", "review"],
+  "pipelineStages": [
+    {
+      "stage": "brainstorming",
+      "artifact": "docs/changes/scope-validate-changed-surface/proposal.md",
+      "summary": "Spec: opt-in --changed/--affected/--since mode scoping the design walkers (detect-drift, audit-brand) to the git-derived changed surface, narrowed to the design surface so scoped ⊆ full; full sweep stays the default; includes the required call-site audit."
+    },
+    {
+      "stage": "planning",
+      "artifact": "docs/changes/scope-validate-changed-surface/plans/2026-08-26-scope-validate-changed-surface-plan.md",
+      "summary": "6-task TDD plan: surface-derivation module, runValidate wiring, telemetry variant, call-site rewiring, docs+reference+changeset, verify."
+    },
+    {
+      "stage": "execution",
+      "artifact": "packages/cli/src/commands/validate-scope.ts",
+      "summary": "TDD implementation: deriveChangedSurface + filterToDesignSurface + SCOPED_WALKERS; wired into runValidate with flags, scope reporting, and full-sweep fallback; telemetry variant; orchestrator validate script rewired."
+    },
+    {
+      "stage": "review",
+      "artifact": "packages/cli/tests/commands/validate-scope.test.ts",
+      "summary": "Behavior + parity tests (39 across 3 files) plus end-to-end binary verification confirming scoped ⊆ full (0 affected findings absent from full; 28 vs 328 design findings)."
+    }
+  ],
+  "plan_path": "docs/changes/scope-validate-changed-surface/plans/2026-08-26-scope-validate-changed-surface-plan.md",
+  "planArtifact": "docs/changes/scope-validate-changed-surface/plans/2026-08-26-scope-validate-changed-surface-plan.md",
+  "sourceFiles": [
+    "packages/cli/src/commands/validate-scope.ts",
+    "packages/cli/src/commands/validate.ts",
+    "packages/cli/src/bin/command-telemetry.ts",
+    "packages/orchestrator/package.json"
+  ],
+  "testFiles": [
+    "packages/cli/tests/commands/validate-scope.test.ts",
+    "packages/cli/tests/commands/validate.changed.test.ts",
+    "packages/cli/tests/bin/command-telemetry.test.ts"
+  ],
+  "docs": ["docs/guides/ci-cd-validation.md", "docs/reference/cli-commands.md"],
+  "localChecks": {
+    "build": "pass (@harness-engineering/cli, Node 22)",
+    "typecheck": "pass (tsc --noEmit packages/cli)",
+    "test": "pass (39 tests: validate-scope + validate.changed + command-telemetry)",
+    "lint": "pass (src files; test files are not type-linted in this repo)",
+    "e2e": "pass — built binary: affected scope prints, scoped ⊆ full verified (0 affected design findings absent from full; 28 affected vs 328 full over 125 changed design files), full-sweep fallback on unknown ref"
+  },
+  "assumptions": [
+    "Default behavior is opt-in: bare `harness validate` keeps the full sweep; `--changed`/`--affected` are new opt-in flags (non-breaking for adopters and pre-merge/scheduled/release gates).",
+    "The changed surface is diffed against the merge-base with the default branch (default 'main', overridable via --default-branch), or an explicit --since <ref>; the surface unions tracked diffs + untracked files, filtered to files still on disk.",
+    "The design surface is narrowed to source extensions + skip-dirs + analysis.exclude ∪ design.exclude so a scoped run is a strict subset of a full run (scoped ⊆ full), satisfying the 'affected and full agree' criterion.",
+    "component-anatomy is deliberately NOT scoped: validate calls it with no file list in both modes (a no-op today), so scoping it would activate it only in affected mode and report findings a full sweep does not — breaking parity. Only detect-drift and audit-brand are scoped.",
+    "Call-site rewiring: the orchestrator package `validate` dev-loop script is rewired to `harness validate --changed` (the one direct per-change dev-loop call site).",
+    "Call-site left full — pre-commit/pre-push: they run `harness ci check`, whose validate step (core runValidateCheck) validates AGENTS.md only and does NOT walk the design surface, so there is nothing hot to scope there.",
+    "Call-site left full — the 3 persona CI workflows (persona-architecture-enforcer/documentation-maintainer/task-executor): they are GENERATED files (from agents/personas/*.yaml), run `harness validate` advisory/non-blocking once per PR (low frequency), and rewiring would require changing the persona-workflow generator + its drift guard for negligible benefit.",
+    "Telemetry: scoped-vs-full is recorded as an additive `variant` field on the `cli/validate` adoption record; the primary `skill: 'cli/validate'` key is unchanged so existing telemetry continuity and the version-guard bare-command matching are unaffected.",
+    "Turbo/task-cache integration is out of scope: `harness validate` is an in-process check runner, not a turbo task graph; the leverage is scoping the file walkers.",
+    "Changeset: @harness-engineering/cli minor (new feature flags), @harness-engineering/orchestrator patch (dev-script rewire)."
+  ]
+}

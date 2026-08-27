@@ -114,6 +114,29 @@ describe('command-telemetry', () => {
       expect(JSON.parse(lines[1]!).skill).toBe('cli/cleanup');
     });
 
+    it('omits the variant field when no variant is given', () => {
+      const projectDir = path.join(TEST_ROOT, 'no-variant');
+      fs.mkdirSync(projectDir, { recursive: true });
+
+      _writeCommandRecordSync(projectDir, 'cli/validate', 100, 'completed');
+
+      const adoptionFile = path.join(projectDir, '.harness', 'metrics', 'adoption.jsonl');
+      const record = JSON.parse(fs.readFileSync(adoptionFile, 'utf-8').trim());
+      expect(record).not.toHaveProperty('variant');
+    });
+
+    it('records the scoped-vs-full variant for validate (GH #1523)', () => {
+      const projectDir = path.join(TEST_ROOT, 'variant');
+      fs.mkdirSync(projectDir, { recursive: true });
+
+      _writeCommandRecordSync(projectDir, 'cli/validate', 100, 'completed', 'affected');
+
+      const adoptionFile = path.join(projectDir, '.harness', 'metrics', 'adoption.jsonl');
+      const record = JSON.parse(fs.readFileSync(adoptionFile, 'utf-8').trim());
+      expect(record.skill).toBe('cli/validate');
+      expect(record.variant).toBe('affected');
+    });
+
     it('silently handles write errors', () => {
       // Pass a path that can't be created (file as directory)
       const blockingFile = path.join(TEST_ROOT, 'blocking');

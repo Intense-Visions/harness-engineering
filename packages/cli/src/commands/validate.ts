@@ -29,6 +29,7 @@ import { runAudit as runComponentAnatomyAudit } from '../mcp/tools/audit-anatomy
 import { runDetectDrift } from '../mcp/tools/detect-drift';
 import { runAuditBrand } from '../mcp/tools/audit-brand';
 import { runInstructionDensityAudit } from '../mcp/tools/instruction-density';
+import { deriveChangedSurface, filterToDesignSurface, SCOPED_WALKERS } from './validate-scope';
 
 type ValidateSeverity = 'error' | 'warning' | 'info';
 
@@ -56,6 +57,43 @@ interface ValidateOptions {
    * error-level) and on error-severity findings, while warnings never fail.
    */
   severity?: ValidateSeverity;
+  /**
+   * Scope the file-walking design audits (detect-drift, component-anatomy,
+   * brand-compliance) to the changed surface derived from git instead of walking
+   * the whole project. OPT-IN: when false/omitted, every walker runs over the full
+   * tree (unchanged default). See {@link deriveChangedSurface}. The `--affected`
+   * flag is an alias for this. Reserve the full sweep for pre-merge/scheduled runs.
+   */
+  changed?: boolean;
+  /**
+   * Base ref for the changed-surface diff (implies {@link changed}). When omitted,
+   * the surface is diffed against the merge-base with {@link defaultBranch}.
+   */
+  since?: string;
+  /** Default branch used for the merge-base when `since` is omitted. Defaults to `main`. */
+  defaultBranch?: string;
+}
+
+/**
+ * How the run scoped the file-walking design audits. Recorded on every
+ * {@link ValidateResult} so a scoped run is auditable — the "emit what was skipped
+ * and why" contract — and so scoped-vs-full invocations are measurable downstream.
+ */
+interface ValidateScope {
+  /** 'affected' when the walkers were git-scoped; 'full' when they walked the whole tree. */
+  mode: 'affected' | 'full';
+  /** The base ref the changed surface was diffed against (affected mode only). */
+  ref?: string;
+  /** Number of changed files handed to the scoped walkers (affected mode only). */
+  changedFileCount?: number;
+  /** The checks that were scoped to the changed surface (affected mode only). */
+  scopedChecks?: string[];
+  /**
+   * Present when `--affected`/`--since` was requested but the surface could not be
+   * derived, so the run FELL BACK to a full sweep rather than validate an empty
+   * surface. Carries the git reason. `mode` is 'full' in this case.
+   */
+  fallbackReason?: string;
 }
 
 /**
@@ -120,6 +158,11 @@ interface ValidateResult {
    */
   unavailableChecks: UnavailableCheck[];
   agentConfigs?: AgentConfigValidation;
+  /**
+   * How the file-walking audits were scoped this run. Always present: 'full' for a
+   * bare sweep, 'affected' for a git-scoped run. Makes scoped-vs-full runs auditable.
+   */
+  scope: ValidateScope;
 }
 
 export async function runValidate(
@@ -147,7 +190,37 @@ export async function runValidate(
     },
     issues: [],
     unavailableChecks: [],
+    scope: { mode: 'full' },
   };
+
+  // Derive the changed surface up front when affected mode is requested. The
+  // file-walking design audits below are handed this explicit list instead of
+  // walking the whole tree. If git derivation fails, fall back to a full sweep
+  // (scopedFiles stays undefined) with a recorded reason — never validate an empty
+  // surface, which would be a false green. Fixed-scope checks always run either way.
+  let scopedFiles: string[] | undefined;
+  if (options.changed === true || options.since !== undefined) {
+    const surface = deriveChangedSurface(cwd, {
+      ...(options.since !== undefined && { since: options.since }),
+      ...(options.defaultBranch !== undefined && { defaultBranch: options.defaultBranch }),
+    });
+    if (surface.ok) {
+      // Narrow the raw git surface to the files a full design sweep would actually
+      // scan, so the scoped run stays a subset of the full run (scoped ⊆ full).
+      scopedFiles = filterToDesignSurface(cwd, surface.files);
+      result.scope = {
+        mode: 'affected',
+        ...(surface.ref !== undefined && { ref: surface.ref }),
+        changedFileCount: scopedFiles.length,
+        scopedChecks: [...SCOPED_WALKERS],
+      };
+    } else {
+      result.scope = {
+        mode: 'full',
+        ...(surface.reason !== undefined && { fallbackReason: surface.reason }),
+      };
+    }
+  }
 
   // Check AGENTS.md
   const agentsMapPath = path.resolve(cwd, config.agentsMapPath);
@@ -458,6 +531,10 @@ export async function runValidate(
         | 'strict'
         | 'standard'
         | 'permissive';
+      // NOTE: component-anatomy is intentionally NOT scoped. It is called with no
+      // `files` list in both modes (a no-op in validate today), so passing the
+      // changed surface here would activate it in affected mode only and report
+      // findings a full sweep does not — breaking scoped ⊆ full parity.
       const auditOutput = await runComponentAnatomyAudit({
         path: cwd,
         mode: 'fast',
@@ -512,6 +589,7 @@ export async function runValidate(
         path: cwd,
         mode: 'fast',
         designStrictness: strictness,
+        ...(scopedFiles !== undefined && { files: scopedFiles }),
       });
       result.checks.driftDetection = true;
       for (const finding of driftOutput.findings) {
@@ -556,6 +634,7 @@ export async function runValidate(
         path: cwd,
         mode: 'fast',
         designStrictness: strictness,
+        ...(scopedFiles !== undefined && { files: scopedFiles }),
       });
       result.checks.brandCompliance = true;
       for (const finding of brandOutput.findings) {
@@ -701,6 +780,21 @@ export function createValidateCommand(): Command {
       'Validate agent configs (CLAUDE.md, hooks, skills) via agnix or built-in fallback rules'
     )
     .option('--strict', 'Treat warnings as errors (applies to --agent-configs)')
+    .option(
+      '--changed',
+      'Scope the file-walking design audits to the changed surface derived from git ' +
+        '(vs the merge-base with the default branch). Opt-in; the full sweep is the default. ' +
+        'Reserve the full sweep for pre-merge and scheduled runs.'
+    )
+    .option('--affected', 'Alias for --changed')
+    .option(
+      '--since <ref>',
+      'Scope the changed surface to files that differ from the given ref (implies --changed)'
+    )
+    .option(
+      '--default-branch <name>',
+      'Branch to compute the changed-surface merge-base against (default: main)'
+    )
     .option('--agnix-bin <path>', 'Override the agnix binary path discovered on PATH')
     .option(
       '--severity <level>',
@@ -731,6 +825,9 @@ async function runValidateAction(
     quiet: globalOpts.quiet === true,
     agentConfigs: opts.agentConfigs === true,
     strict: opts.strict === true,
+    changed: opts.changed === true || opts.affected === true,
+    ...(typeof opts.since === 'string' && { since: opts.since }),
+    ...(typeof opts.defaultBranch === 'string' && { defaultBranch: opts.defaultBranch }),
     ...(typeof opts.agnixBin === 'string' && { agnixBin: opts.agnixBin }),
     ...(typeof opts.severity === 'string' && { severity: opts.severity as ValidateSeverity }),
   });
@@ -781,7 +878,32 @@ function emitValidateOutput(
     unavailableChecks: value.unavailableChecks,
   });
   if (output) console.log(output);
+  printScopeSummary(value.scope, mode);
   if (value.agentConfigs) printAgentConfigSummary(value.agentConfigs, mode);
+}
+
+/**
+ * Surface how the file-walking audits were scoped — the "emit what was skipped and
+ * why" contract. Silent for the default full sweep in quiet mode; always names the
+ * staleness caveat in affected mode so a scoped green is never mistaken for a
+ * pre-merge-complete green.
+ */
+function printScopeSummary(scope: ValidateScope, mode: OutputModeType): void {
+  if (mode === OutputMode.QUIET) return;
+  if (scope.fallbackReason) {
+    console.log(
+      `\nScope: full sweep (requested affected mode fell back — ${scope.fallbackReason}).`
+    );
+    return;
+  }
+  if (scope.mode === 'full') return;
+  const ref = scope.ref ? ` vs ${scope.ref}` : '';
+  console.log(
+    `\nScope: affected — ${scope.changedFileCount ?? 0} changed file(s)${ref}. ` +
+      `Scoped checks: ${(scope.scopedChecks ?? []).join(', ')}. ` +
+      'Fixed-scope checks (roadmap, ADR, AGENTS.md, STRATEGY.md, pulse) always ran. ' +
+      'Unchanged files were NOT re-validated — run a full `harness validate` before merge/release.'
+  );
 }
 
 function printAgentConfigSummary(cfg: AgentConfigValidation, mode: OutputModeType): void {
