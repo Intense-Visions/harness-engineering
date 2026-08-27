@@ -80,6 +80,30 @@ describe('validateWorkflowConfig — per-leaf context budget (#1524)', () => {
   });
 });
 
+describe('validateWorkflowConfig — leaf retrieval mode (#1524 deferred slice)', () => {
+  it('accepts a config with no agent.retrievalMode (graph-scoped default)', () => {
+    const cfg = getDefaultConfig();
+    expect((cfg.agent as Record<string, unknown>).retrievalMode).toBeUndefined();
+    expect(validateWorkflowConfig(cfg).ok).toBe(true);
+  });
+
+  it('accepts the explicit raw opt-out and the explicit graph-scoped value', () => {
+    for (const mode of ['raw', 'graph-scoped'] as const) {
+      const cfg = getDefaultConfig();
+      (cfg.agent as Record<string, unknown>).retrievalMode = mode;
+      expect(validateWorkflowConfig(cfg).ok).toBe(true);
+    }
+  });
+
+  it('rejects an unknown retrievalMode (typo guard)', () => {
+    const cfg = getDefaultConfig();
+    (cfg.agent as Record<string, unknown>).retrievalMode = 'graphscoped';
+    const result = validateWorkflowConfig(cfg);
+    expect(result.ok).toBe(false);
+    if (!result.ok) expect(result.error.message).toMatch(/agent\.retrievalMode/);
+  });
+});
+
 describe('validateWorkflowConfig — backend requirement (Spec 2 SC15)', () => {
   it('rejects a config with neither agent.backend nor agent.backends set', () => {
     const cfg = getDefaultConfig();

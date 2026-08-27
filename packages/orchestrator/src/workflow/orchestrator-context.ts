@@ -4,6 +4,7 @@ import type {
   BackendDef,
   CapabilityTier,
   Issue,
+  RetrievalMode,
   RoutingDecision,
   RoutingRequest,
   RoutingUseCase,
@@ -11,6 +12,7 @@ import type {
   TurnResult,
   WorkflowExecutionPlan,
 } from '@harness-engineering/types';
+import { DEFAULT_RETRIEVAL_MODE } from '@harness-engineering/types';
 import { AgentRunner } from '../agent/runner.js';
 import { isLocalExecutionBackend } from '../agent/backend-factory.js';
 import type { OrchestratorBackendFactory } from '../agent/orchestrator-backend-factory.js';
@@ -83,6 +85,13 @@ export interface BuildWorkflowContextDeps {
   backends?: Record<string, BackendDef>;
   /** D12 override; absent ⇒ engine default DEFAULT_STAGE_DEADLINE_MS. */
   stageDeadlineMs?: number;
+  /**
+   * `this.config.agent.retrievalMode` (#1524 deferred slice). Drives the
+   * graph-scoped context-assembly directive in each dispatched-leaf stage prompt.
+   * ABSENT ⇒ {@link DEFAULT_RETRIEVAL_MODE} (`'graph-scoped'`) — graph-scoped
+   * retrieval is the default; `'raw'` is the explicit byte-identical opt-out.
+   */
+  retrievalMode?: RetrievalMode;
   /**
    * On a staged RE-dispatch after a gate block, the prior attempt's gate/verify
    * reason (the `tsc`/lint/test failure). The single-agent path threads this into
@@ -329,6 +338,7 @@ function renderStagePromptFactory(
   promptRenderer: PromptRenderer,
   issue: Issue,
   workspacePath: string,
+  retrievalMode: RetrievalMode,
   priorGateFailure?: string
 ): NonNullable<WorkflowEngineContext['renderStagePrompt']> {
   return async (step, index, priorOutputs, isLocalBackend) => {
@@ -370,6 +380,10 @@ function renderStagePromptFactory(
         documentPath,
         // Non-empty ⇒ REVIEW stage: run review/check tools, commit no report file.
         reviewStage,
+        // #1524 deferred slice: 'graph-scoped' (default) renders the graph-scoped
+        // context-assembly directive into the leaf prompt; 'raw' omits it so the
+        // prompt is byte-identical to the pre-slice template (explicit opt-out).
+        retrievalMode,
         priorEntries,
       }
     );
@@ -456,6 +470,8 @@ export function buildWorkflowContext(deps: BuildWorkflowContextDeps): WorkflowEn
       promptRenderer,
       issue,
       workspacePath,
+      // #1524: graph-scoped is the default; only an explicit 'raw' opts out.
+      deps.retrievalMode ?? DEFAULT_RETRIEVAL_MODE,
       deps.priorGateFailure
     ),
     persistStageDocument: persistStageDocumentFactory(workspacePath, issue, logger),

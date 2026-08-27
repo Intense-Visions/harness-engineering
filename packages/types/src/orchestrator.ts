@@ -1137,7 +1137,40 @@ export interface AgentConfig {
    * (the #1525 global spend envelope); a leaf must pass BOTH gates.
    */
   contextBudget?: AgentContextBudgetConfig;
+  /**
+   * How a dispatched leaf/agent should assemble its working context (#1524
+   * deferred slice). Controls the retrieval directive rendered into every
+   * dispatched-leaf stage prompt:
+   *
+   * - `'graph-scoped'` (**the default** when unset) — the leaf is instructed to
+   *   assemble context graph-scoped FIRST via `code_outline` / `code_unfold` /
+   *   `find_context_for`, reading raw whole-file source ONLY for the specific
+   *   region it is about to edit. This attacks the dominant context-replay cost
+   *   term (the assembled context size that fleet fan-out multiplies) without
+   *   losing correctness — the edit region still gets full source.
+   * - `'raw'` — the explicit opt-out. The graph-scoped directive is omitted, so
+   *   the leaf prompt is **byte-identical** to the pre-#1524 dispatch prompt and
+   *   the leaf falls back to raw file reads.
+   *
+   * Independent of {@link contextBudget}: graph-scoped assembly is the default
+   * regardless of whether a per-leaf budget is configured.
+   */
+  retrievalMode?: RetrievalMode;
 }
+
+/**
+ * The context-assembly strategy for a dispatched leaf (#1524 deferred slice).
+ * `'graph-scoped'` is the safe, cost-reducing default; `'raw'` is the explicit
+ * byte-identical opt-out to whole-file reads. See {@link AgentConfig.retrievalMode}.
+ */
+export type RetrievalMode = 'graph-scoped' | 'raw';
+
+/**
+ * The default context-assembly strategy when {@link AgentConfig.retrievalMode}
+ * is unset: graph-scoped retrieval, applied at dispatch. Making graph-scoped the
+ * default (rather than raw whole-file reads) is the point of the #1524 slice.
+ */
+export const DEFAULT_RETRIEVAL_MODE: RetrievalMode = 'graph-scoped';
 
 /**
  * Spend-envelope configuration for unattended dispatch (#1525).
