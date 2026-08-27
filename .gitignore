@@ -66,6 +66,13 @@ temp/
 # security/: track timeline.json (trend ledger), ignore everything else
 **/.harness/security/*
 !**/.harness/security/timeline.json
+# comprehension/: committed, git-versioned substrate (D2 / ADR 0107). Units are
+# tracked so a checkout of a commit gets matching comprehension and a fresh
+# worktree needs no LLM warm-up. Mirrors the security-timeline un-ignore so the
+# subtree stays committed even if a broader .harness/ ignore is introduced.
+# (Adopters preferring a disposable cache set comprehension.storage: "cache".)
+!**/.harness/comprehension/
+!**/.harness/comprehension/**
 # compound-skill per-category locks (auto-cleanup on process exit)
 **/.harness/locks/
 # Phase 1 auth runtime artifacts — NEVER commit hashed token DB or audit log
