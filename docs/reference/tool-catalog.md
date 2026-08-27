@@ -2542,7 +2542,7 @@ Assemble all working context an agent needs in a single call: state, learnings, 
       "type": "string"
     },
     "tokenBudget": {
-      "description": "Approximate token budget for graph context (default 4000)",
+      "description": "Approximate token budget for graph context AND the primary comprehension block (default 4000)",
       "type": "number"
     }
   },
