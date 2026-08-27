@@ -9,7 +9,8 @@
 export type {
   ComprehensionUnit,
   ComprehensionProvenance,
-  SourceFile,
+  // Aliased to avoid a core-barrel name collision with `entropy`'s `SourceFile`.
+  SourceFile as ComprehensionSourceFile,
   StaticExtraction,
   SemanticGeneration,
   SemanticInput,
