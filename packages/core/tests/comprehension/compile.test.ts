@@ -26,7 +26,7 @@ describe('compileModule', () => {
     expect(unit.interfaceContract).toBe('export const a: number');
     expect(unit.dependencySlice).toBe('imports: none');
     expect(unit.provenance.sourceHash).toBe(computeSourceHash(files));
-    expect(unit.provenance.members).toEqual(['a.ts', 'b.ts']); // sorted basenames
+    expect(unit.provenance.members).toEqual(['src/a.ts', 'src/b.ts']); // sorted relative paths (F6)
     expect(unit.provenance.compiler).toEqual(COMPILER_VERSION);
     expect(unit.provenance.compiledAt).toBe('2026-08-27T12:00:00.000Z');
   });
@@ -67,5 +67,34 @@ describe('compileModule', () => {
         dependencySlice: 'imports: none',
       })
     );
+  });
+
+  // F5 — empty module rejected at compile time (consistent with parseProvenance).
+  it('rejects an empty module', async () => {
+    await expect(compileModule('', files, { extractStatic, now })).rejects.toThrow(/module/);
+  });
+
+  it('rejects a whitespace-only module', async () => {
+    await expect(compileModule('   ', files, { extractStatic, now })).rejects.toThrow(/module/);
+  });
+
+  // F6 — members keyed by relative path, so same-basename files in different
+  // subdirs are both reported (was silently deduped by basename).
+  it('reports same-basename files in different subdirs (keyed by relative path)', async () => {
+    const collided: SourceFile[] = [
+      { path: 'a/index.ts', content: 'export const a = 1;' },
+      { path: 'b/index.ts', content: 'export const b = 2;' },
+    ];
+    const unit = await compileModule('mod', collided, { extractStatic, now });
+    expect(unit.provenance.members).toEqual(['a/index.ts', 'b/index.ts']);
+  });
+
+  it('de-duplicates identical relative paths and normalizes backslashes', async () => {
+    const dup: SourceFile[] = [
+      { path: 'x\\y.ts', content: 'a' },
+      { path: 'x/y.ts', content: 'a' },
+    ];
+    const unit = await compileModule('mod', dup, { extractStatic, now });
+    expect(unit.provenance.members).toEqual(['x/y.ts']);
   });
 });

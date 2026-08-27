@@ -29,7 +29,11 @@ export interface ComprehensionProvenance {
   model: string | null;
   /** Whether the semantic half is present. `absent` ⇒ static-only unit. */
   semantic: 'present' | 'absent';
-  /** Sorted member-file basenames enumerated at compile time. */
+  /**
+   * Sorted, de-duplicated member-file paths (repo/module-relative, posix)
+   * enumerated at compile time. Keyed by full relative path — not basename — so
+   * same-named files in different subdirs are each represented.
+   */
   members: string[];
 }
 

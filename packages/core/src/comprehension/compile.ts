@@ -11,13 +11,15 @@ export interface CompileOptions {
   now?: () => Date;
 }
 
-/** Sorted, de-duplicated member basenames (matches the frontmatter contract). */
-function memberBasenames(sourceFiles: SourceFile[]): string[] {
-  const bases = sourceFiles.map((f) => {
-    const norm = f.path.replaceAll('\\', '/');
-    return norm.slice(norm.lastIndexOf('/') + 1);
-  });
-  return [...new Set(bases)].sort();
+/**
+ * Sorted, de-duplicated member paths (matches the frontmatter contract). Keyed
+ * by full relative path — NOT basename (F6) — so two `index.ts` in different
+ * subdirs are both reported instead of one silently masking the other. Mirrors
+ * `computeSourceHash`, which already keys on the full path.
+ */
+function memberPaths(sourceFiles: SourceFile[]): string[] {
+  const paths = sourceFiles.map((f) => f.path.replaceAll('\\', '/'));
+  return [...new Set(paths)].sort();
 }
 
 /**
@@ -33,8 +35,13 @@ export async function compileModule(
   sourceFiles: SourceFile[],
   opts: CompileOptions
 ): Promise<ComprehensionUnit> {
+  // F5: reject an empty/whitespace module at compile time, consistent with
+  // parseProvenance rejecting an empty module on the read path.
+  if (module.trim().length === 0) {
+    throw new Error('compileModule: module must be a non-empty path');
+  }
   const sourceHash = computeSourceHash(sourceFiles);
-  const members = memberBasenames(sourceFiles);
+  const members = memberPaths(sourceFiles);
   const { interfaceContract, dependencySlice } = await opts.extractStatic(sourceFiles);
 
   let summary = '';
