@@ -61,6 +61,23 @@ Path to the documentation directory used by doc validation and generation tools.
 
 How often (in milliseconds) to check for CLI updates. Omit or set to `0` to disable update checks.
 
+### `mcp`
+
+- **Type:** `object`
+- **Required:** No
+
+Harness MCP server settings for manual AI sessions (Claude Code / Cursor / Codex / Gemini running against the harness MCP server).
+
+- `contextBudget.maxTokens` (`number`, positive integer) — the per-response context-replay budget. The manual-session counterpart to the orchestrator's per-leaf budget (`agent.contextBudget`, issue #1524). When set, any MCP tool response whose estimated token load exceeds `maxTokens` gets a loud steer notice appended pointing the session at graph-scoped retrieval (`code_outline` / `code_unfold` / `find_context_for`) instead of raw file reads. The check WARNs, it never blocks. Omit to disable — with no budget configured, MCP behavior is byte-identical to before this field existed.
+
+```json
+{
+  "mcp": {
+    "contextBudget": { "maxTokens": 200000 }
+  }
+}
+```
+
 ### `toolchain`
 
 - **Type:** `object`

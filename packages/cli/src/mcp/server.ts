@@ -10,6 +10,7 @@ import { resolveProjectConfig } from './utils/config-resolver.js';
 import { ensureHarnessGitignore } from '../templates/post-write.js';
 import { applyInjectionGuard } from './middleware/injection-guard.js';
 import { applyCompaction } from './middleware/compaction.js';
+import { applyContextBudget } from './middleware/context-budget.js';
 import { validateToolDefinition, handleValidateProject } from './tools/validate.js';
 import { checkDependenciesDefinition, handleCheckDependencies } from './tools/architecture.js';
 import { checkDocsDefinition, handleCheckDocs } from './tools/docs.js';
@@ -640,6 +641,28 @@ export function getResourceDefinitions(): typeof RESOURCE_DEFINITIONS {
   return RESOURCE_DEFINITIONS;
 }
 
+/**
+ * Resolve the manual-session context-replay budget (#1594) from
+ * `mcp.contextBudget.maxTokens` in the project's harness config. Returns
+ * `undefined` when unset (or non-positive) so the middleware stays a
+ * byte-identical no-op. Config read failure is non-fatal (undefined).
+ */
+function readMcpContextBudget(resolvedRoot: string): number | undefined {
+  try {
+    const configResult = resolveProjectConfig(resolvedRoot);
+    if (configResult.ok) {
+      const mcp = configResult.value.mcp as { contextBudget?: { maxTokens?: unknown } } | undefined;
+      const raw = mcp?.contextBudget?.maxTokens;
+      if (typeof raw === 'number' && Number.isInteger(raw) && raw > 0) {
+        return raw;
+      }
+    }
+  } catch {
+    // Config read failure is non-fatal — an unreadable budget means no enforcement.
+  }
+  return undefined;
+}
+
 function readConfigInterval(resolvedRoot: string): number | undefined {
   try {
     const configResult = resolveProjectConfig(resolvedRoot);
@@ -754,6 +777,12 @@ export function createHarnessServer(projectRoot?: string, toolFilter?: string[])
     trustedOutputTools,
   });
   const compactedHandlers = applyCompaction(guardedHandlers, { projectRoot: resolvedRoot });
+  // Manual-session context-replay budget (#1594): applied AFTER compaction so the
+  // check measures the post-compaction size the session actually pays for. No-op
+  // (handlers unwrapped, byte-identical) when `mcp.contextBudget.maxTokens` is unset.
+  const budgetedHandlers = applyContextBudget(compactedHandlers, {
+    maxTokens: readMcpContextBudget(resolvedRoot),
+  });
 
   const server = new Server(
     { name: 'harness-engineering', version: '2.3.1' },
@@ -767,7 +796,7 @@ export function createHarnessServer(projectRoot?: string, toolFilter?: string[])
     CallToolRequestSchema,
     async (request) =>
       dispatchTool(
-        compactedHandlers,
+        budgetedHandlers,
         request.params.name,
         request.params.arguments,
         resolvedRoot,

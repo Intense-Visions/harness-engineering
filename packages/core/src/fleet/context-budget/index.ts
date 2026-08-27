@@ -140,6 +140,79 @@ export function assertLeafWithinBudget(estimate: LeafContextEstimate, budget: Co
 }
 
 /**
+ * The non-throwing, surface-neutral outcome of a manual-session budget check.
+ *
+ * Manual AI sessions (a human running Claude Code / Cursor / Codex / Gemini
+ * against the harness MCP server) WARN rather than reject-at-dispatch: a human
+ * mid-session must not be hard-failed the way an orchestrator leaf is skipped.
+ * `notice` is the empty string when within budget and a loud, session-oriented
+ * steer when over.
+ */
+export interface SessionBudgetSignal {
+  /** True when the session's assembled load is within budget (boundary is in-budget). */
+  ok: boolean;
+  /** The item measured (for the MCP path this is the tool name). */
+  item: string;
+  /** The measured/estimated assembled context load in tokens. */
+  estimatedTokens: number;
+  /** The declared budget ceiling in tokens. */
+  budgetTokens: number;
+  /** Tokens over budget (0 when within budget). */
+  overageTokens: number;
+  /** Loud, session-oriented steer when over budget; empty string when within. */
+  notice: string;
+}
+
+/** Default steer appended to an over-budget manual-session notice. */
+export const DEFAULT_SESSION_BUDGET_HINT =
+  'Prefer graph-scoped retrieval (code_outline / code_unfold / find_context_for) ' +
+  'over raw file reads to stay within the declared context budget.';
+
+/**
+ * Evaluate a manual AI session's assembled context load against a declared budget.
+ *
+ * This is the manual-session counterpart to the orchestrator dispatch governor.
+ * It DELEGATES the over/under decision to {@link enforceLeafContextBudget} — the
+ * SAME comparison primitive orchestrator dispatch uses — so the two surfaces can
+ * never diverge on what "over budget" means (ONE shared budget implementation).
+ * The difference is authority and presentation, not the arithmetic: a manual
+ * session WARNs (returns a non-throwing {@link SessionBudgetSignal} carrying a
+ * steer notice) rather than throwing {@link ContextBudgetExceededError} the way a
+ * dispatch governor rejects a leaf.
+ */
+export function evaluateSessionContextBudget(
+  item: string,
+  estimatedTokens: number,
+  budget: ContextBudget,
+  options?: { hint?: string }
+): SessionBudgetSignal {
+  const verdict = enforceLeafContextBudget({ item, estimatedTokens, sources: [] }, budget);
+  if (verdict.ok) {
+    return {
+      ok: true,
+      item,
+      estimatedTokens: verdict.estimatedTokens,
+      budgetTokens: verdict.budgetTokens,
+      overageTokens: 0,
+      notice: '',
+    };
+  }
+  const hint = options?.hint ?? DEFAULT_SESSION_BUDGET_HINT;
+  const notice =
+    `[harness context-budget] ${item} response is ~${withSep(verdict.estimatedTokens)} tokens, ` +
+    `over the declared ${withSep(verdict.budgetTokens)}-token budget by ` +
+    `${withSep(verdict.overageTokens)}. ${hint}`;
+  return {
+    ok: false,
+    item,
+    estimatedTokens: verdict.estimatedTokens,
+    budgetTokens: verdict.budgetTokens,
+    overageTokens: verdict.overageTokens,
+    notice,
+  };
+}
+
+/**
  * Build the per-leaf {@link LeafContextSpend} record recorded in the lane
  * provenance file. `withinBudget` is derived from the same comparison the
  * enforcement primitive uses (`estimatedTokens <= budget.maxTokens`), so the
