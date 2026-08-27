@@ -122,9 +122,12 @@ export function boundSourceDigest(
   for (const f of files) {
     const block = `// ${f.path}\n${f.content}\n`;
     if (out.length + block.length > budget) {
-      return (
-        (out + block).slice(0, Math.max(0, budget - TRUNCATION_MARKER.length)) + TRUNCATION_MARKER
-      );
+      // When the budget cannot even fit the marker, appending it would breach the
+      // contract (return.length <= budget) — hard-cap to `budget` chars, no marker.
+      if (budget <= TRUNCATION_MARKER.length) {
+        return (out + block).slice(0, Math.max(0, budget));
+      }
+      return (out + block).slice(0, budget - TRUNCATION_MARKER.length) + TRUNCATION_MARKER;
     }
     out += block;
   }

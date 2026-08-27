@@ -125,6 +125,20 @@ describe('boundSourceDigest — input bounded by budget, not module size', () =>
     expect(out.length).toBeLessThanOrEqual(budget);
     expect(out).toContain('[source truncated for comprehension digest]');
   });
+
+  it('honors a tiny budget smaller than the truncation marker (never exceeds budget)', () => {
+    const files: SourceFile[] = [{ path: 'a.ts', content: 'x'.repeat(1_000) }];
+    // A budget smaller than the marker would, unguarded, return the marker alone
+    // and BREACH the budget. The output must still fit within the budget.
+    const tiny = 10;
+    const out = boundSourceDigest(files, tiny);
+    expect(out.length).toBeLessThanOrEqual(tiny);
+  });
+
+  it('honors a zero budget (returns empty, never the marker)', () => {
+    const files: SourceFile[] = [{ path: 'a.ts', content: 'x'.repeat(1_000) }];
+    expect(boundSourceDigest(files, 0)).toBe('');
+  });
 });
 
 describe('buildSemanticPrompt — static-feeds-semantic, bounded', () => {
