@@ -12,5 +12,5 @@ order: 119
 - **Blockers:** Depends on `denominator-declaration-in-metric-outputs` and `stability-gate-on-ranked-outputs` for the measurement floor
 - **Plan:** —
 - **Assignee:** —
-- **Priority:** P2
+- **Priority:** P3
 - **External-ID:** github:Intense-Visions/harness-engineering#1551
