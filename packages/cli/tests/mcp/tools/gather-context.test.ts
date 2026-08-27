@@ -37,6 +37,7 @@ describe('gather_context tool', () => {
         'sessions',
         'events',
         'businessKnowledge',
+        'comprehension',
       ]);
     });
 

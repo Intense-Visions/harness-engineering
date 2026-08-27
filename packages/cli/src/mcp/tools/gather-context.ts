@@ -104,7 +104,8 @@ type IncludeKey =
   | 'validation'
   | 'sessions'
   | 'events'
-  | 'businessKnowledge';
+  | 'businessKnowledge'
+  | 'comprehension';
 
 export const gatherContextDefinition = {
   name: 'gather_context',
@@ -139,6 +140,7 @@ export const gatherContextDefinition = {
             'sessions',
             'events',
             'businessKnowledge',
+            'comprehension',
           ],
         },
         description: 'Which constituents to include (default: all)',
@@ -223,7 +225,15 @@ export async function handleGatherContext(input: {
   }
 
   const includeSet = new Set<IncludeKey>(
-    input.include ?? ['state', 'learnings', 'handoff', 'graph', 'validation', 'businessKnowledge']
+    input.include ?? [
+      'state',
+      'learnings',
+      'handoff',
+      'graph',
+      'validation',
+      'businessKnowledge',
+      'comprehension',
+    ]
   );
 
   const errors: string[] = [];
