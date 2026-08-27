@@ -1145,6 +1145,17 @@ last_manual_edit: 2026-06-27T12:51:51.967Z
 - **Priority:** P3
 - **External-ID:** github:Intense-Visions/harness-engineering#1613
 
+### Portfolio-diverse verification — correlation-aware panel construction
+
+- **Status:** planned
+- **Spec:** —
+- **Summary:** N-version verification buys safety only if the versions fail independently, and agents sharing a model family, prompt lineage, or training distribution have correlated failure modes — three verifiers that share a blind spot are one verifier at three times the price. Portfolio theory solved exactly this: expected return per unit risk is optimized not by picking the best assets but by picking assets whose risks don't co-move. Measure the failure-correlation matrix empirically: across model/prompt/temperature/tooling variants, on a shared corpus of known-answer cases (the drills and mutation-testing items generate exactly this corpus), record which variants miss the same defects. Then construct verification panels on the efficient frontier — maximum expected detection per token, accounting for correlation — instead of by redundancy count. The practical consequences are concrete: a cheaper, weaker verifier with uncorrelated blind spots can beat a second copy of the strong one; panel composition becomes a portfolio-rebalancing problem as the correlation matrix drifts (model updates change it — the sentinel item detects when to re-measure); and the redundancy dial stops assuming independence it never verified.
+- **Blockers:** —
+- **Plan:** —
+- **Assignee:** —
+- **Priority:** P3
+- **External-ID:** github:Intense-Visions/harness-engineering#1631
+
 ## v5.0 — Catalog Rationalization
 
 ### Change init skill default recommendation away from "basic"
@@ -1522,6 +1533,28 @@ last_manual_edit: 2026-06-27T12:51:51.967Z
 - **Assignee:** —
 - **Priority:** P2
 - **External-ID:** github:Intense-Visions/harness-engineering#1611
+
+### Basal token metabolism — separating maintenance burn from productive spend
+
+- **Status:** planned
+- **Spec:** —
+- **Summary:** Bioenergetics separates basal metabolic rate — the energy an organism burns just existing — from activity. Token accounting today has no such split: re-verification of unchanged state, CI re-runs, context re-serialization, graph refresh, idle-loop polling, and re-derivation of already-known facts are booked identically to new productive work, so the system's maintenance burn is invisible and therefore unmanaged. Classify all token spend into basal (spend that produces no new artifact, decision, or verified fact) vs. anabolic (spend that does), per workflow class, from existing telemetry. Two payoffs: first, the basal share is the single accountability metric for the whole compression family — layout, compaction, dictionaries, and progressive encoding all succeed exactly insofar as basal share falls while output holds; second, basal decomposition ranks the waste (which maintenance loop burns most), turning 'we spend too many tokens' into a ranked fix list. Biology also warns what to expect: basal share grows with organism size, so the metric matters more at fleet scale than at single-agent scale — and a fleet whose basal share grows superlinearly with its size has a design problem no per-agent optimization will fix.
+- **Blockers:** —
+- **Plan:** —
+- **Assignee:** —
+- **Priority:** P3
+- **External-ID:** github:Intense-Visions/harness-engineering#1628
+
+### Failure magnitude-frequency scaling — Gutenberg-Richter monitoring on the incident stream
+
+- **Status:** planned
+- **Spec:** —
+- **Summary:** Seismology's Gutenberg-Richter law: earthquake magnitudes follow a power law, so the ratio of small to large events (the b-value) is measurable from the frequent small ones — and the fitted distribution prices the rare large one you haven't had yet. The near-miss ledger records events; this fits the distribution over them. Define a failure-magnitude scale from measurable consequences (blast radius reached, rework hours, rollback depth, users/surfaces affected), fit the magnitude-frequency distribution over the incident + near-miss stream, and monitor two quantities: the implied rate of large events (your many small incidents statistically price your rare big one — a forecast, not a vibe) and shifts in the b-value over time, which in some seismic regimes precede large events and here would mean the generating process is changing shape (small failures becoming relatively rarer while the tail fattens is a warning, not a win). Honesty guards built in: power-law fitting on small samples is notoriously abusable, so the fit uses the standard rigorous estimators, reports uncertainty, tests against alternative distributions, and publishes 'no stable fit' as a first-class outcome.
+- **Blockers:** —
+- **Plan:** —
+- **Assignee:** —
+- **Priority:** P3
+- **External-ID:** github:Intense-Visions/harness-engineering#1629
 
 ## v5.0 — Trust & Security Model
 
@@ -2182,6 +2215,50 @@ last_manual_edit: 2026-06-27T12:51:51.967Z
 - **Priority:** P3
 - **External-ID:** github:Intense-Visions/harness-engineering#1619
 
+### Stability-ordered context layout — cache-aware delta encoding for every request
+
+- **Status:** planned
+- **Spec:** —
+- **Summary:** Prompt caching is delta encoding against a shared prefix, but nothing in the field designs for it — context is assembled in whatever order the assembler finds convenient, so one volatile line early in the prompt invalidates the cache for everything after it. Borrow the storage-engine discipline that made column stores win: layout determined by change pattern, not by logical grouping. Arrange every assembled context in strictly descending stability order — immutable knowledge and tool schemas first, slow-moving conventions next, session state after, per-turn state last — so the cacheable prefix is maximal by construction, and represent recurring artifacts as content-addressed baselines plus deltas rather than re-serialized wholes. The win compounds on every request forever, costs nothing at runtime, and is measurable to the token: cache-hit fraction per workflow class before and after. This is the rare optimization that is nearly free, provably correct (layout does not change content), and applies to every context the system ever assembles — the highest ROI-per-effort item in the compression family, and the substrate the rest of the family builds on.
+- **Blockers:** —
+- **Plan:** —
+- **Assignee:** —
+- **Priority:** P1
+- **External-ID:** github:Intense-Visions/harness-engineering#1634
+
+### Rate-distortion context compaction — compression with a measured distortion metric
+
+- **Status:** planned
+- **Spec:** —
+- **Summary:** Context compaction today is lossy compression with no distortion metric: summarization drops information by vibes, and the loss is discovered downstream as rework, wrong turns, and re-derivation. Rate-distortion theory says the problem is only well-posed once distortion is defined — then there is a frontier, and operating away from it is pure waste. Define distortion empirically and task-conditioned: ablate information classes from context on replayed runs (prior tool results, resolved decisions, code excerpts, conversational history, constraints) and measure which classes' removal raises error/rework rates for which task classes. The result is a distortion model: this task class is insensitive to conversational history but highly sensitive to stated constraints; that one is the reverse. Then compact to the frontier — aggressive summarization along measured-insensitive dimensions, verbatim preservation along sensitive ones — instead of uniform summarization that simultaneously over-compresses the load-bearing content and under-compresses the filler. Every long-running agent system has this problem; none has the distortion measurement. The ablation harness is the deliverable that makes the difference between a summarization heuristic and a compression discipline.
+- **Blockers:** —
+- **Plan:** —
+- **Assignee:** —
+- **Priority:** P2
+- **External-ID:** github:Intense-Visions/harness-engineering#1633
+
+### Trained context dictionaries — a verified codebook for recurring knowledge
+
+- **Status:** planned
+- **Spec:** —
+- **Summary:** Zstd's largest wins on small documents come from pre-trained dictionaries: learn the corpus's recurring substrings once, then encode every new document against the dictionary. The context analog: a large fraction of every prompt is recurring knowledge — conventions, schemas, standard instructions, architectural facts — re-sent verbatim thousands of times. Train a dictionary over the corpus of past assembled contexts: bind stable, high-frequency knowledge to short handles in a controlled vocabulary, send the handle, and expand on demand only when the consumer actually needs the full text. Linguistics arrives at the same design independently — every co-located team develops jargon precisely because it compresses communication — with the known failure mode that jargon drifts. So the codebook is governed: every term is bound to a verified definition with a version, expansion is deterministic, and a term whose definition changes bumps its version so no consumer silently holds a stale meaning. Measurement decides membership: a term enters the dictionary when its (frequency x length) crosses the amortization threshold and leaves when usage decays — the dictionary is trained and re-trained, not curated by hand.
+- **Blockers:** —
+- **Plan:** —
+- **Assignee:** —
+- **Priority:** P3
+- **External-ID:** github:Intense-Visions/harness-engineering#1635
+
+### Progressive context encoding — coarse-to-fine loading driven by attention
+
+- **Status:** planned
+- **Spec:** —
+- **Summary:** Progressive JPEG sends the image coarse-to-fine so a consumer can stop when it has enough. Context is served the opposite way: full resolution up front, on the guess that the agent might need any of it — and most of those tokens are never read. Serve context progressively: the first layer is low-resolution (file outlines, signatures, decision summaries, digest-level telemetry), and the agent requests refinement only where its attention actually lands — unfold this function, expand that decision's full rationale, show the verbatim diff. The mechanics largely exist (outline/unfold tooling); what's missing is making progressive the default contract for every context class and — the more valuable half — instrumenting the refinement-request stream. That log is a direct measurement of which context earns its tokens: refinement frequency per context class is exactly the demand signal that rate-distortion compaction needs as a prior and the trained dictionary needs for membership scoring. One design guard: refinement round-trips add latency, so the policy must batch predictable refinements (prefetch what this task class historically refines) rather than paying a round-trip per unfold.
+- **Blockers:** —
+- **Plan:** —
+- **Assignee:** —
+- **Priority:** P3
+- **External-ID:** github:Intense-Visions/harness-engineering#1632
+
 ## Planning & Process
 
 ### Init design + roadmap polish follow-ups
@@ -2547,6 +2624,17 @@ last_manual_edit: 2026-06-27T12:51:51.967Z
 ## v1.0 Distribution
 
 ## v2.0 Knowledge Graph & Personas
+
+### MDL knowledge pruning — description length as the knowledge store's fitness function
+
+- **Status:** planned
+- **Spec:** —
+- **Summary:** Minimum Description Length: the best model of a corpus is the one that most compresses it — a knowledge entry is only knowledge if the cost of storing and shipping it is less than the cost of the errors and re-derivations it prevents. Knowledge stores today have no fitness function, so they only grow: every session adds learnings, none are scored, and the store's marginal entry eventually costs more context than it saves. Apply MDL as the standing objective: for each entry, measure description cost (tokens shipped per inclusion x inclusion frequency) against compression value (measured reduction in re-derivation, wrong turns, and rework in runs where the entry was present vs. matched runs where it wasn't — the same matched-comparison machinery as the skill P&L). Entries that don't compress experience are pruned or merged; overlapping entries whose union compresses better than their sum are consolidated. This is the objective function the entire knowledge layer currently lacks, and it is the principled version of what curation does by hand: keep what pays rent, in its shortest sufficient form. 'Insufficient evidence' is a first-class verdict — pruning requires measured worthlessness, never measurement absence.
+- **Blockers:** —
+- **Plan:** —
+- **Assignee:** —
+- **Priority:** P2
+- **External-ID:** github:Intense-Visions/harness-engineering#1630
 
 ## v2.0 Advanced Features
 
