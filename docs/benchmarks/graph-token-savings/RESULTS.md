@@ -40,9 +40,15 @@ number is trustworthy rather than flattering:
    counts, top-risk items, node/edge summaries. The naive side reads whole files. So part of the
    gap is that the graph returns a _scoped answer_ while naive returns _raw content_. Whether the
    scoped summary actually suffices to answer the question is the **answer-quality axis (the
-   comparator's "83%")**, which is **not measured here** — it needs an LLM judge and is a deferred
-   slice (`Refs #1271`). Treat the token ratio as "cost to retrieve a scoped answer", not "cost to
-   retrieve an equally-complete answer".
+   comparator's "83%")**. That axis is now **measurable, opt-in and advisory**: pass `--judge`
+   and an LLM judge grades whether each strategy's retrieved payload is _sufficient_ to answer the
+   query (`answerQuality` in the JSON result; per-scenario `quality` grades). It reuses the shared
+   harness eval/judge plumbing (`resolveAnalysisProvider` → Anthropic key or `HARNESS_ANALYSIS_BASE_URL`),
+   and **degrades honestly**: with no judge configured it reports `status: "inconclusive"` rather
+   than fabricating a score, and it _never_ fails the benchmark — the token/tool-call axes stand
+   regardless. The headline numbers above are token/tool-call only (run without `--judge`); treat
+   the token ratio as "cost to retrieve a scoped answer", not "cost to retrieve an equally-complete
+   answer". A published multi-repo answer-quality number remains a deferred slice (`Refs #1271`).
 
 2. **`find-context` is a loss (0.72×) — reported, not hidden.** `find_context_for` expands a 2-hop
    subgraph (nodes + edges as JSON) around each search hit, which is more verbose than reading the
@@ -71,6 +77,7 @@ number is trustworthy rather than flattering:
 On the two objective axes this benchmark measures — retrieval tokens and tool calls — graph-scoped
 retrieval on this repo comfortably beats the honest comparator target, driven by the structural
 families (`impact`, `dependencies`, `blast-radius`). The result is bounded by two honest facts: the
-answer-quality axis is unmeasured, and `find-context` loses. The detailed-mode blowup is filed as a
+headline is token/tool-call only (the answer-quality axis is opt-in via `--judge` and advisory, not
+folded into the headline number), and `find-context` loses. The detailed-mode blowup is filed as a
 roadmap input. This is the first published token number for the harness code graph; the methodology
 is re-runnable so the number can be kept current and extended to the deferred axes.

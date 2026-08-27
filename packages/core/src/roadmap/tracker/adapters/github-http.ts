@@ -163,6 +163,63 @@ export class GitHubHttp {
     }
     return { items, lastEtag, status };
   }
+
+  /**
+   * Walk all pages of a GitHub **Search** API query (`/search/*`), which — unlike
+   * the list endpoints `paginate()` handles — returns an envelope
+   * `{ total_count, incomplete_results, items }` rather than a bare array.
+   *
+   * Fail-the-leaf on server truncation (#1532, search slice): the Search API sets
+   * `incomplete_results: true` when a query timed out or was truncated
+   * server-side. Reading `items` as if it were the complete set is the same
+   * silent under-fetch that `paginate()` guards against for rel="next" — so a
+   * page reporting `incomplete_results: true` throws `TruncatedFetchError`
+   * instead of returning the partial `items`.
+   *
+   * Distinct from paginate's truncation signal: for Search, a `Link: rel="next"`
+   * header is *ordinary* paging (the result set spans multiple pages), NOT
+   * truncation — `incomplete_results` is the truncation signal. So rel="next" is
+   * followed here rather than treated as a failure.
+   *
+   * Byte-identical when `incomplete_results` is `false` or absent: the `=== true`
+   * guard is false, nothing throws, and accumulation proceeds unchanged.
+   */
+  async search<T>(
+    buildUrl: (page: number) => string,
+    perPage = 100,
+    extraHeaders?: Record<string, string>
+  ): Promise<{ items: T[]; totalCount: number }> {
+    const items: T[] = [];
+    let page = 1;
+    let totalCount = 0;
+    for (;;) {
+      const init: RequestInit & { extraHeaders?: Record<string, string> } = { method: 'GET' };
+      if (extraHeaders) init.extraHeaders = extraHeaders;
+      const url = buildUrl(page);
+      const res = await this.request(url, init);
+      if (!res.ok) {
+        throw new Error(`GitHub ${res.status}: ${await res.text()}`);
+      }
+      const body = (await res.json()) as {
+        total_count?: number;
+        incomplete_results?: boolean;
+        items?: T[];
+      };
+      // Server-truncated search: fail the leaf (#1532) rather than return a
+      // partial `items` array a caller could mistake for the complete set.
+      if (body.incomplete_results === true) {
+        throw new TruncatedFetchError(this.resource, url);
+      }
+      const pageItems = body.items ?? [];
+      items.push(...pageItems);
+      totalCount = body.total_count ?? totalCount;
+      // A full page implies more may exist; Search paginates via rel="next".
+      if (pageItems.length < perPage) break;
+      if (!hasNextLink(res.headers.get('Link'))) break;
+      page++;
+    }
+    return { items, totalCount };
+  }
 }
 
 /**

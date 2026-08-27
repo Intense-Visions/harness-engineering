@@ -12,5 +12,5 @@ order: 132
 - **Blockers:** Depends on `intent-as-the-unit-of-record`
 - **Plan:** —
 - **Assignee:** —
-- **Priority:** P2
+- **Priority:** P3
 - **External-ID:** github:Intense-Visions/harness-engineering#1564

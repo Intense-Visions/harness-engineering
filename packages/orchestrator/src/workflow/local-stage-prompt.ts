@@ -5,7 +5,7 @@ import { STAGE_PROMPT_TEMPLATE } from './stage-prompt-template.js';
  *
  * Mirrors {@link STAGE_PROMPT_TEMPLATE}'s variable set (`stageNumber`,
  * `identifier`, `title`, `description`, `skill`, `cognitiveMode`, `produces`,
- * `priorEntries`) plus the LOCAL-only `verifyCommands` (the ecosystem-aware
+ * `priorEntries`, `retrievalMode`) plus the LOCAL-only `verifyCommands` (the ecosystem-aware
  * self-verify command list) and the optional `documentPath` / `reviewStage` flags
  * — LiquidJS `strictVariables` is on, so
  * it MUST reference no variable the shared `renderStagePrompt` renderer does not
@@ -20,7 +20,10 @@ import { STAGE_PROMPT_TEMPLATE } from './stage-prompt-template.js';
  * from the default template so prior-artifact injection is treated as DATA, not
  * as instructions that could override the prompt.
  */
-export const LOCAL_STAGE_PROMPT_TEMPLATE = `You are an autonomous agent executing stage {{ stageNumber }} of a multi-stage workflow for the work item below, working exactly as a real harness session would. In addition to bash/read/write/grep/find you have the FULL harness MCP toolset (tools are namespaced \`harness__*\` — e.g. \`harness__manage_roadmap\`, \`harness__code_search\`, \`harness__ask_graph\`, \`harness__gather_context\`, \`harness__review_changes\`, \`harness__run_code_review\`, \`harness__run_ci_checks\`, \`harness__outcome_eval\`, \`harness__spec_craft\`, and \`harness__edit_file\` for surgical file edits). USE them when the skill calls for them (register the spec/plan on the roadmap with \`harness__manage_roadmap\`, pull context with \`harness__code_search\`/\`harness__ask_graph\`, review the diff with \`harness__run_code_review\`, change existing files with \`harness__edit_file\`), instead of approximating with bash. When \`harness__gather_context\` returns comprehension units, comprehension units are your primary understanding — read raw source only for your edit region. Do this stage's work to completion and PRODUCE its output ({{ produces }}) — do not stop after merely reading the skill's instructions, and do not skip ahead to a later stage's job.
+export const LOCAL_STAGE_PROMPT_TEMPLATE = `You are an autonomous agent executing stage {{ stageNumber }} of a multi-stage workflow for the work item below, working exactly as a real harness session would. In addition to bash/read/write/grep/find you have the FULL harness MCP toolset (tools are namespaced \`harness__*\` — e.g. \`harness__manage_roadmap\`, \`harness__code_search\`, \`harness__ask_graph\`, \`harness__gather_context\`, \`harness__review_changes\`, \`harness__run_code_review\`, \`harness__run_ci_checks\`, \`harness__outcome_eval\`, \`harness__spec_craft\`, and \`harness__edit_file\` for surgical file edits). USE them when the skill calls for them (register the spec/plan on the roadmap with \`harness__manage_roadmap\`, pull context with \`harness__code_search\`/\`harness__ask_graph\`, review the diff with \`harness__run_code_review\`, change existing files with \`harness__edit_file\`), instead of approximating with bash. When \`harness__gather_context\` returns comprehension units, comprehension units are your primary understanding — read raw source only for your edit region. Do this stage's work to completion and PRODUCE its output ({{ produces }}) — do not stop after merely reading the skill's instructions, and do not skip ahead to a later stage's job.{% if retrievalMode == 'graph-scoped' %}
+
+## Assemble context graph-scoped by default
+To understand existing code, retrieve it GRAPH-SCOPED first: use \`harness__code_outline\` / \`harness__code_unfold\` / \`harness__find_context_for\` (and \`harness__gather_context\`) to pull just the definitions, call sites, and neighbourhood you need. Read raw whole-file source ONLY for the specific region you are about to edit — never load whole files wholesale for background. This keeps the assembled per-leaf context small (the cost term fleet fan-out multiplies) without losing full source for the code you change.{% endif %}
 
 ## Work item ({{ identifier }})
 {{ title }}

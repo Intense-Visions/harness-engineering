@@ -18,9 +18,23 @@ Two **objective, deterministic** axes are measured:
   strategy puts into the model's context to answer a question.
 - **Tool calls** — how many discrete retrieval calls each strategy makes.
 
-Answer quality — the comparator's third axis ("83%") — is **not** measured here. Grading whether
-each strategy's payload actually answers the question requires an LLM judge and is non-deterministic;
-it is a deferred slice (see [Deferred slices](#deferred-slices)).
+Answer quality — the comparator's third axis ("83%") — is an **opt-in, advisory** third axis. It is
+not part of the headline (which stays deterministic) and is off by default. Pass `--judge` and an LLM
+judge grades whether each strategy's retrieved payload is _sufficient_ to answer the query:
+
+```bash
+# needs a judge provider: ANTHROPIC_API_KEY, or a local /v1 via HARNESS_ANALYSIS_BASE_URL
+harness graph bench --judge --json
+```
+
+The result gains an `answerQuality` block (`status: skipped | inconclusive | measured`, plus per-
+strategy sufficiency counts) and each scenario gains a `quality` grade + the exact `query` the judge
+was asked. It **reuses the shared harness eval/judge plumbing** (`resolveAnalysisProvider`, the same
+resolver `outcome_eval` / `acceptance_eval` use) and **degrades honestly**: with no judge configured
+it reports `status: "inconclusive"` rather than fabricating a score, and it never fails the benchmark
+— the token/tool-call axes stand regardless. Because it is opt-in and non-deterministic it is
+excluded from CI runs (the default no-`--judge` path is byte-stable). A published multi-repo answer-
+quality number is still deferred (see [Deferred slices](#deferred-slices)).
 
 ## The honest target
 
@@ -80,8 +94,9 @@ that is the surface an agent actually surfaces into context (counts + top-risk i
 subgraph. Detailed mode on hub nodes is unbounded (see the detailed-mode finding in
 [`RESULTS.md`](./RESULTS.md)); it is deliberately excluded from the headline and documented as a
 finding rather than silently measured. The consequence — the graph returns a scoped summary while
-the naive side returns full content — is exactly why the **answer-quality axis is deferred**: the
-token ratio is "cost to retrieve a scoped answer", and whether that answer suffices is unmeasured.
+the naive side returns full content — is exactly what the **answer-quality axis** exists to check:
+the token ratio is "cost to retrieve a scoped answer", and whether that scoped answer actually
+suffices is what the opt-in `--judge` axis grades (advisory; see above).
 
 ### Fairness rules
 
@@ -102,9 +117,26 @@ token ratio is "cost to retrieve a scoped answer", and whether that answer suffi
 
 Reported per-family and overall.
 
+### Answer-quality fields (`--judge` only)
+
+When `--judge` is passed the machine-readable result carries:
+
+- `answerQuality.status` — `skipped` (no `--judge`), `inconclusive` (requested but no judge
+  provider reachable), or `measured`.
+- `answerQuality.graph` / `.naive` — per-strategy `{ sufficient, insufficient, inconclusive, total,
+sufficientRate }`. `sufficientRate = sufficient / (sufficient + insufficient)`, or `null` when
+  nothing was decidable (never a fabricated score).
+- each `scenarios[].quality.graph` / `.naive` — `{ sufficient: boolean | null, confidence,
+rationale }`, and `scenarios[].query` — the exact question the judge was asked.
+
+The axis is **advisory**: it never changes `ok` and never fails the benchmark.
+
 ## Deferred slices (`Refs #1271`)
 
-- **Answer-quality axis (the "83%").** Needs an LLM judge grading each payload against the question.
+- **Answer-quality axis (the "83%").** The mechanism now ships as an opt-in, advisory `--judge`
+  flag (an LLM judge grades retrieval sufficiency per payload; see [What this measures](#what-this-measures)).
+  Still deferred: a _published_ multi-repo answer-quality number (this runs on one repo at a time and
+  requires a judge provider, so the axis is not folded into the deterministic headline).
 - **Multi-repo corpus.** The comparator spans 31 repos; this harness runs on one repo at a time.
   Broadening to a corpus (loop the two steps over N cloned repos, aggregate) is additive.
 - **Head-to-head against the competitors' own harnesses.** This measures harness vs a naive

@@ -12,5 +12,5 @@ order: 117
 - **Blockers:** Depends on `concurrent-change-coordination-at-scale` and `semantic-duplicate-detection-at-backlog-scale`
 - **Plan:** —
 - **Assignee:** —
-- **Priority:** P2
+- **Priority:** P3
 - **External-ID:** github:Intense-Visions/harness-engineering#1549

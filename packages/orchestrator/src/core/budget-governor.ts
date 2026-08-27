@@ -1,3 +1,7 @@
+import {
+  isGlobalEnvelopeExhausted as coreIsGlobalEnvelopeExhausted,
+  isFleetAllocationExhausted as coreIsFleetAllocationExhausted,
+} from '@harness-engineering/core';
 import type {
   AgentBudgetConfig,
   BudgetEnvelopeStatus,
@@ -148,7 +152,13 @@ export function isGlobalEnvelopeExhausted(
   config: AgentBudgetConfig,
   nowMs: number
 ): boolean {
-  return effectiveSpend(state, config, nowMs).global >= config.envelopeTokens;
+  // Delegate the spend-vs-envelope comparison to the ONE shared primitive in
+  // @harness-engineering/core (fleet/spend-budget) — the same fact the
+  // fleet-command dispatch path consults via `harness fleet budget-check` (#1600).
+  return coreIsGlobalEnvelopeExhausted(
+    effectiveSpend(state, config, nowMs).global,
+    config.envelopeTokens
+  );
 }
 
 /**
@@ -165,9 +175,11 @@ export function isFleetAllocationExhausted(
   nowMs: number
 ): boolean {
   if (!fleetKey) return false;
-  const allocation = config.perFleet?.[fleetKey];
-  if (allocation === undefined) return false;
-  return (effectiveSpend(state, config, nowMs).perFleet[fleetKey] ?? 0) >= allocation;
+  // Same shared primitive as the global check and the fleet-command path (#1600).
+  return coreIsFleetAllocationExhausted(
+    effectiveSpend(state, config, nowMs).perFleet[fleetKey] ?? 0,
+    config.perFleet?.[fleetKey]
+  );
 }
 
 /**

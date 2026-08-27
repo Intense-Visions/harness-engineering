@@ -278,6 +278,45 @@ describe('GitHubHttp — rate-limit budget wiring (#1532)', () => {
     const out = await http(fetchFn).paginate<{ id: number }>(buildUrl, 2);
     expect(out.items).toEqual([{ id: 1 }]);
   });
+
+  it('search throws TruncatedFetchError when incomplete_results is true', async () => {
+    const { fetchFn } = queuedFetch([
+      res(200, { total_count: 5, incomplete_results: true, items: [{ id: 1 }] }),
+    ]);
+    // A server-truncated search must fail the leaf, NOT return the partial items.
+    await expect(http(fetchFn).search(buildUrl, 2)).rejects.toBeInstanceOf(TruncatedFetchError);
+  });
+
+  it('search returns items (no throw) when incomplete_results is false', async () => {
+    const { fetchFn } = queuedFetch([
+      res(200, { total_count: 2, incomplete_results: false, items: [{ id: 1 }] }),
+    ]);
+    const out = await http(fetchFn).search<{ id: number }>(buildUrl, 2);
+    expect(out.items).toEqual([{ id: 1 }]);
+    expect(out.totalCount).toBe(2);
+  });
+
+  it('search behaves identically when incomplete_results is absent (byte-identical to false)', async () => {
+    const { fetchFn } = queuedFetch([res(200, { total_count: 1, items: [{ id: 7 }] })]);
+    const out = await http(fetchFn).search<{ id: number }>(buildUrl, 2);
+    expect(out.items).toEqual([{ id: 7 }]);
+    expect(out.totalCount).toBe(1);
+  });
+
+  it('search follows rel="next" pagination (rel=next is paging, not truncation)', async () => {
+    const { fetchFn, count } = queuedFetch([
+      res(
+        200,
+        { total_count: 3, incomplete_results: false, items: [{ id: 1 }, { id: 2 }] },
+        { Link: '<https://api.github.com/search/issues?page=2>; rel="next"' }
+      ),
+      res(200, { total_count: 3, incomplete_results: false, items: [{ id: 3 }] }),
+    ]);
+    // perPage 2: page 1 is full AND advertises rel="next" → fetch page 2.
+    const out = await http(fetchFn).search<{ id: number }>(buildUrl, 2);
+    expect(out.items).toEqual([{ id: 1 }, { id: 2 }, { id: 3 }]);
+    expect(count()).toBe(2);
+  });
 });
 
 describe('re-exported External-ID helpers', () => {

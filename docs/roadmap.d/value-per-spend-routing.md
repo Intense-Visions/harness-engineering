@@ -12,5 +12,5 @@ order: 110
 - **Blockers:** Depends on `cost-per-merged-pr-attribution` and `intent-as-the-unit-of-record`
 - **Plan:** —
 - **Assignee:** —
-- **Priority:** P3
+- **Priority:** P2
 - **External-ID:** github:Intense-Visions/harness-engineering#1542

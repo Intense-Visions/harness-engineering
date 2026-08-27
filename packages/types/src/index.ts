@@ -203,10 +203,15 @@ export type {
   RoutingBudgetStatus,
   RoutingEscalationUnit,
   RoutingStatus,
+  // --- #1524 deferred slice: graph-scoped leaf-context assembly ---
+  RetrievalMode,
 } from './orchestrator';
 
 // --- AMR Phase 4: routing error (value/class export, D10) ---
 export { RoutingError } from './orchestrator';
+
+// --- #1524 deferred slice: default retrieval mode (value export) ---
+export { DEFAULT_RETRIEVAL_MODE } from './orchestrator';
 
 // --- Container & Secrets ---
 export type {
@@ -477,6 +482,14 @@ export type {
   LeafContextSpend,
   LeafBudgetVerdict,
 } from './fleet-context-budget';
+
+// --- Fleet Spend Budget (shared spend envelope, orchestrator + fleet-command, #1600) ---
+export {
+  FLEET_SPEND_BUDGET_VERSION,
+  SpendEnvelopeSchema,
+  validateSpendEnvelope,
+} from './fleet-spend-budget';
+export type { SpendEnvelope, ObservedSpend, SpendEnvelopeVerdict } from './fleet-spend-budget';
 
 // --- Telemetry synthesis (#563) ---
 export { TELEMETRY_SYNTHESIS_SECTIONS } from './telemetry-synthesis';

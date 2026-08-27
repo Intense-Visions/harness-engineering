@@ -1,6 +1,7 @@
 import { mkdirSync } from 'node:fs';
 
 import type { BurnPaths } from './config';
+import { priceRecord } from './cost-per-pr';
 import { atomicWrite } from './store';
 import { readRecords } from './store';
 import type {
@@ -11,6 +12,7 @@ import type {
   BurnStatus,
   Calibration,
   Confidence,
+  CostBlock,
   ModelBlock,
   ScanInfo,
   SessionBlock,
@@ -111,6 +113,14 @@ export function buildSummary(
   let sessionUnits = 0;
   let sessionRequests = 0;
 
+  // Dollar-cost reconciliation (Refs #1525): tokens stay the source of truth; a
+  // `$` figure is derived for the current week ONLY when a price table is
+  // configured, reusing #1522's `priceRecord` so the token→USD arithmetic lives
+  // in exactly one place. Absent table ⇒ no accumulation, no `cost` block.
+  const priceTable = cfg.cost_price_table;
+  let usdWtd = 0;
+  const pricedModels = new Set<string>();
+
   for (const rec of records.values()) {
     if (!rec.ts) continue;
     const t = Date.parse(rec.ts);
@@ -131,6 +141,11 @@ export function buildSummary(
       m.requests += 1;
       m.units += u;
       perModel.set(rec.model, m);
+
+      if (priceTable) {
+        usdWtd += priceRecord(rec, priceTable);
+        if (priceTable[rec.model]) pricedModels.add(rec.model);
+      }
 
       // Defensive: a hand-edited store could carry an empty label, which would
       // open a nameless bucket nobody reads. It falls to `pre-migration` (the
@@ -353,6 +368,12 @@ export function buildSummary(
     if (b) perWeekBack[String(i)] = Math.round(b.units);
   }
 
+  // Attach the derived dollar-cost block ONLY when a price table is configured,
+  // so the summary is byte-identical for adopters who price nothing.
+  const cost: CostBlock | undefined = priceTable
+    ? { usd_wtd: usdWtd, models_priced: pricedModels.size, models_total: perModel.size }
+    : undefined;
+
   return {
     generated_at: isoUtc(now),
     scan: scanInfo,
@@ -387,6 +408,7 @@ export function buildSummary(
     skills,
     attribution,
     session,
+    ...(cost ? { cost } : {}),
     status,
   };
 }

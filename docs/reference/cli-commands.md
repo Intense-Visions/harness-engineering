@@ -996,6 +996,22 @@ Verify a page actually renders (the only authority on render correctness)
 
 - `--url` — Rendered URL (http(s) or file://) to assert against
 
+## Fleet Commands
+
+Fleet-family dispatch callables (spend-envelope budget consult, #1600)
+
+### `harness fleet budget-check`
+
+Consult the fleet spend envelope at DISPATCH (#1600): compare burn-observed spend against the envelope and report within | exhausted | unconfigured. When a burn cost_price_table is configured, also surfaces the spend/remaining in dollars (Refs #1525).
+
+**Options:**
+
+- `--envelope` — global spend envelope for the period, in burn units (250M, 1.2B)
+- `--fleet` — fleet key (matches burn's invoking-skill, e.g. roadmap-fleet)
+- `--fleet-envelope` — per-fleet sub-allocation for --fleet, in burn units
+- `--json` — emit the verdict as JSON
+- `--no-refresh` — use the cached burn summary without rescanning
+
 ## Gateway Commands
 
 Gateway API administration
@@ -1049,6 +1065,8 @@ Measure token + tool-call savings of graph-scoped retrieval vs naive file reads
 - `--json` — Emit the full machine-readable result as JSON
 - `--out` — Write the machine-readable result JSON to a file
 - `--top` — Anchors per structural family (default: "5")
+- `--judge` — Grade the answer-quality axis with an LLM judge (retrieval sufficiency; advisory). Requires ANTHROPIC_API_KEY or HARNESS_ANALYSIS_BASE_URL; degrades to INCONCLUSIVE if neither is set.
+- `--judge-model` — Model override for the answer-quality judge
 
 ### `harness graph export`
 

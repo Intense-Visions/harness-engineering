@@ -1,0 +1,25 @@
+{
+  "issue": 1525,
+  "slug": "dollar-cost-budget-burn",
+  "stages": ["brainstorming", "autopilot/planning", "execution", "verification", "review"],
+  "plan_path": "docs/changes/dollar-cost-budget-burn/plans/plan.md",
+  "proposal_path": "docs/changes/dollar-cost-budget-burn/proposal.md",
+  "closing_keyword": "Refs #1525",
+  "reused_price_table": "#1522 (PR #1582, docs/changes/cost-per-merged-pr) — burn config `cost_price_table` (Record<model,{in,out,cache_read}> USD/token), `PriceTable` type, and the `priceRecords` formula in packages/burn/src/cost-per-pr.ts. No second pricing mechanism introduced.",
+  "shared_arithmetic": "Extracted `priceRecord(rec, table)` in packages/burn/src/cost-per-pr.ts; both `priceRecords` (cost-per-PR report) and `buildSummary` (dollar reconciliation) route through it.",
+  "reconciliation_site": "packages/burn/src/summary.ts buildSummary — current-week fold accumulates USD via priceRecord only when cfg.cost_price_table is set; attaches optional Summary.cost { usd_wtd, models_priced, models_total }.",
+  "surface_site": "packages/cli/src/commands/fleet/budget-check.ts — costOverlayFromSummary derives BudgetCostOverlay (spent/remaining/envelope $ via the observed $/unit rate) from summary.cost; runBudgetCheck emits `{ ...verdict, cost }` (JSON) and appends the `$` suffix (human). Byte-identical when summary.cost is absent.",
+  "wired_trace": "harness fleet budget-check output -> costOverlayFromSummary -> summary.cost -> buildSummary priceRecord reconciliation over cost_price_table -> $ figure",
+  "tests": [
+    "packages/burn/tests/summary-cost.test.ts — cost block present when table configured (reconciled USD), absent when not (byte-identical), models_priced<models_total on unpriced model",
+    "packages/cli/src/commands/fleet/budget-check.test.ts — JSON cost overlay present + derived remaining/envelope $, byte-identical no-op without a cost block, partial-pricing note, unconfigured still reports spent $",
+    "packages/burn/tests/cost-per-pr.test.ts — existing pricing tests still green (priceRecord refactor behavior-preserving)"
+  ],
+  "assumptions": [
+    "The budget envelope is denominated in burn UNITS; remaining/envelope dollars are derived from the week's own observed $/unit rate (usd_wtd / wtd.units), guarded against a zero-unit week. This is a model-mix-aware conversion, not a second price lookup.",
+    "The shared SpendEnvelopeVerdict shape in @harness-engineering/types stays unit-agnostic (it is also consumed by the orchestrator budget-governor); the $ overlay is a CLI-surface concern attached as a sibling `cost` key, not baked into the verdict.",
+    "The $ figure is derived ONLY when an adopter configures cost_price_table; there is no bundled Anthropic/provider pricing, keeping the primary number portable across model mixes. Default off / no-op.",
+    "Scope is the burn/fleet output only. The orchestrator engine budget-governor.ts (raw-token denominated, no summary) is out of scope. Cron scheduler (#1405) and dashboard-UI remain deferred slices of #1525 — closing keyword is `Refs #1525`, not `Closes`.",
+    "Summary.cost is additive/optional; existing summary consumers (statusline, hooks) ignore it and are byte-identical when no table is configured."
+  ]
+}

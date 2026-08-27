@@ -12,5 +12,5 @@ order: 112
 - **Blockers:** —
 - **Plan:** —
 - **Assignee:** —
-- **Priority:** P2
+- **Priority:** P3
 - **External-ID:** github:Intense-Visions/harness-engineering#1544

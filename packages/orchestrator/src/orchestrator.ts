@@ -2662,6 +2662,13 @@ export class Orchestrator extends EventEmitter {
           ...(workflowMatch.stageDeadlineMs !== undefined
             ? { stageDeadlineMs: workflowMatch.stageDeadlineMs }
             : {}),
+          // #1524 deferred slice: thread the adopter's retrieval mode so each
+          // dispatched-leaf stage prompt assembles context graph-scoped by default
+          // (raw whole-file reads only for the edit region). Absent ⇒ graph-scoped
+          // default; `agent.retrievalMode: 'raw'` is the explicit opt-out.
+          ...(this.config.agent.retrievalMode !== undefined
+            ? { retrievalMode: this.config.agent.retrievalMode }
+            : {}),
           // On a staged retry after a gate block, thread the prior gate/verify
           // reason into the per-stage prompts. The single-agent path does this at
           // orchestrator.ts:2597, but the staged path renders fresh stage prompts

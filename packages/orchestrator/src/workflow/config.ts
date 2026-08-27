@@ -36,6 +36,14 @@ const AgentContextBudgetSchema = z
   .strict();
 
 /**
+ * Context-assembly strategy for a dispatched leaf (#1524 deferred slice).
+ * Validated when `agent.retrievalMode` is present so a typo (e.g. `graphscoped`)
+ * is rejected at config-load rather than silently falling through to the default.
+ * Absent ⇒ the graph-scoped default (see `DEFAULT_RETRIEVAL_MODE`).
+ */
+const RetrievalModeSchema = z.enum(['graph-scoped', 'raw']);
+
+/**
  * Per-resource fan-out budget (#1532). A malformed entry is rejected at
  * config-load rather than silently dropped (the AMR trap), so an operator who
  * fat-fingers a budget learns at startup, not by silently losing rate-limiting.
@@ -311,6 +319,18 @@ export function validateWorkflowConfig(
     const parsed = AgentContextBudgetSchema.safeParse(agent.contextBudget);
     if (!parsed.success) {
       return Err(new Error(`agent.contextBudget: ${parsed.error.message}`));
+    }
+  }
+
+  // Graph-scoped leaf-context assembly (#1524 deferred slice): validate
+  // `agent.retrievalMode` when present so a typo'd mode is rejected at
+  // config-load, not silently coerced to the default. Absent ⇒ graph-scoped
+  // default (the leaf prompt assembles context via code_outline/code_unfold/
+  // find_context_for; raw reads only for the edit region).
+  if (agent.retrievalMode !== undefined) {
+    const parsed = RetrievalModeSchema.safeParse(agent.retrievalMode);
+    if (!parsed.success) {
+      return Err(new Error(`agent.retrievalMode: ${parsed.error.message}`));
     }
   }
 

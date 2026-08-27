@@ -40,6 +40,7 @@ import { createDocsCraftCommand } from './docs-craft';
 import { createDocsPublishCommand } from './docs-publish';
 import { createDoctorCommand } from './doctor';
 import { createFixDriftCommand } from './fix-drift';
+import { createFleetCommand } from './fleet';
 import { createGatewayCommand } from './gateway';
 import { createGenerateAgentDefinitionsCommand } from './generate-agent-definitions';
 import { createGenerateCommand } from './generate';
@@ -151,6 +152,7 @@ export const commandCreators: Array<() => Command> = [
   createDocsPublishCommand,
   createDoctorCommand,
   createFixDriftCommand,
+  createFleetCommand,
   createGatewayCommand,
   createGenerateAgentDefinitionsCommand,
   createGenerateCommand,

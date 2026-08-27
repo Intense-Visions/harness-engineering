@@ -52,6 +52,17 @@ units = output×5 + input×1 + cache_write×1.25 + cache_read×0.1
 Cache reads dominate raw token counts but are nearly free, which is why raw tokens are a
 misleading headline and this weighting exists.
 
+### Dollars are derived, never the source of truth
+
+Units are portable across model mixes and are the metric everything is enforced in. A
+**dollar** figure is derived _only_ when an adopter configures a `cost_price_table` (per-model
+USD per token — the same table the cost-per-PR report uses; there is no bundled provider
+pricing). When set, `buildSummary` reconciles the current week's spend to USD via `priceRecord`
+and attaches a `cost` block (`usd_wtd`, `models_priced`, `models_total`) to the summary — omitted
+entirely otherwise, so the summary stays byte-identical for adopters who price nothing. That
+block is what lets `harness fleet budget-check` render the spend envelope in `$` alongside units
+(Refs #1525). `models_priced < models_total` marks an undercount when a model has no table entry.
+
 ## Attribution
 
 Every deduped turn carries the identity of whoever spent it, so the week can be read

@@ -22,6 +22,7 @@ const RENDER_BAG = {
   documentPath: '',
   reviewStage: '',
   comprehensionPrewarm: '',
+  retrievalMode: 'graph-scoped' as 'graph-scoped' | 'raw',
   priorEntries: [] as Array<{ name: string; output: string }>,
   verifyCommands: [
     'pnpm --filter <changed-package-name> typecheck',
@@ -115,6 +116,49 @@ describe('stage-prompt templates thread comprehensionPrewarm (SF4.2, D6 push-pri
       comprehensionPrewarm: '',
     });
     expect(withEmpty).not.toContain('Pre-warmed comprehension');
+  });
+});
+
+/**
+ * #1524 deferred slice: graph-scoped leaf-context assembly is the DEFAULT, with a
+ * `retrievalMode: 'raw'` byte-identical opt-out. The directive is config-driven at
+ * the one place a dispatched leaf's prompt is built, so a reviewer can trace the
+ * live path: `agent.retrievalMode` → `buildWorkflowContext` → `renderStagePrompt`
+ * → this template variable → the leaf prompt.
+ */
+describe('stage-prompt retrieval directive (#1524 — graph-scoped default / raw opt-out)', () => {
+  const renderer = new PromptRenderer();
+  const GRAPH_MARKER = 'Assemble context graph-scoped by default';
+
+  it('BOTH templates gate the directive on the retrievalMode variable', () => {
+    for (const tpl of [STAGE_PROMPT_TEMPLATE, LOCAL_STAGE_PROMPT_TEMPLATE]) {
+      expect(tpl).toContain("{% if retrievalMode == 'graph-scoped' %}");
+      expect(tpl).toContain('find_context_for');
+    }
+  });
+
+  it('DEFAULT (graph-scoped) renders the graph-scoped directive naming the retrieval tools', async () => {
+    for (const tpl of [STAGE_PROMPT_TEMPLATE, LOCAL_STAGE_PROMPT_TEMPLATE]) {
+      const out = await renderer.render(tpl, { ...RENDER_BAG, retrievalMode: 'graph-scoped' });
+      expect(out).toContain(GRAPH_MARKER);
+      expect(out).toContain('code_outline');
+      expect(out).toContain('code_unfold');
+      expect(out).toContain('find_context_for');
+      // Correctness is preserved: the edit region still gets full raw source.
+      expect(out).toMatch(/raw whole-file source ONLY for the specific region/);
+    }
+  });
+
+  it('OPT-OUT (raw) omits the directive — byte-identical to rendering with the directive stripped', async () => {
+    for (const tpl of [STAGE_PROMPT_TEMPLATE, LOCAL_STAGE_PROMPT_TEMPLATE]) {
+      const raw = await renderer.render(tpl, { ...RENDER_BAG, retrievalMode: 'raw' });
+      expect(raw).not.toContain(GRAPH_MARKER);
+      // The raw render equals the graph-scoped render with the directive block removed,
+      // proving the opt-out changes ONLY the directive and nothing else.
+      const graph = await renderer.render(tpl, { ...RENDER_BAG, retrievalMode: 'graph-scoped' });
+      const stripped = graph.replace(new RegExp(`\\n\\n## ${GRAPH_MARKER}[\\s\\S]*?change\\.`), '');
+      expect(raw).toBe(stripped);
+    }
   });
 });
 

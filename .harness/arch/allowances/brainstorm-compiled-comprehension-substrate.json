@@ -1,16 +1,17 @@
 {
-  "reason": "compiled-comprehension-substrate #1558 feature footprint",
+  "reason": "merge main into compiled-comprehension-substrate #1558",
   "categories": {
-    "complexity": 334,
-    "module-size": 249391,
-    "dependency-depth": 616
+    "complexity": 335,
+    "module-size": 250439,
+    "dependency-depth": 617
   },
   "violationIds": [
     "44fc8db829ab587b8bc6a92fc411b1e49a1dca20499f272d0310bcdbe3c68c81",
+    "4585d7c519ca2ebc1b54dd925f1672e999fcb142bad9b54dbe96e6b60dad62de",
     "717acff600db9428ddeace1963f9e2526f9a5c5902143bfa3a1ee31405c6421d",
     "a15d07ac8860ed03115a9c7dcaf4af35dd1ac3ae8fa62be7bef1189e9724965b",
     "a69cfd2cd82525ac974800a92c87ddc6f51befc4b2b4b7704254c831bddc41b1",
     "c60eea17a4add0848bb1b29da4779a5a9882da2f7f6c4a36f60076046da5acd1"
   ],
-  "createdFrom": "32ec95a10"
+  "createdFrom": "37bdaf5d3"
 }
