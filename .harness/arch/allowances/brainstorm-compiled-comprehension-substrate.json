@@ -1,7 +1,7 @@
 {
   "reason": "F1 fix: fence-aware comprehension body parser + F2 schemaVersion validation add necessary branches (splitSections/sectionFenced/parseProvenance); +4 total complexity is intentional for silent round-trip corruption fix",
   "categories": {
-    "complexity": 329
+    "complexity": 333
   },
   "violationIds": [
     "717acff600db9428ddeace1963f9e2526f9a5c5902143bfa3a1ee31405c6421d",
@@ -9,5 +9,5 @@
     "a69cfd2cd82525ac974800a92c87ddc6f51befc4b2b4b7704254c831bddc41b1",
     "c60eea17a4add0848bb1b29da4779a5a9882da2f7f6c4a36f60076046da5acd1"
   ],
-  "createdFrom": "17e9aa81e"
+  "createdFrom": "510f1fec4"
 }
