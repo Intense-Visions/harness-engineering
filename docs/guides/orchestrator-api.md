@@ -512,6 +512,76 @@ Setting a token limit to `0` disables that check.
 
 ---
 
+## Budget Governor
+
+The budget governor makes unattended (168-hour) operation safe to enable by enforcing a **spend envelope per period**. Where the rate limiter throttles the _pace_ of requests within a minute, the governor caps the _total_ spend over a day or week and stops dispatching new lanes once the envelope is reached. It lives in `packages/orchestrator/src/core/budget-governor.ts` and is consulted on the real dispatch path (`applyEvent` → the tick dispatch loop, alongside `canDispatch`) before any lane is started.
+
+### Clean-stop semantics
+
+When the period envelope is spent, the governor refuses to dispatch a **new** lane at the next lane boundary. Lanes already in flight are never interrupted — dispatch stops cleanly, never mid-write. Because accounting is denominated in **total tokens** (input + output), the same unit the orchestrator already accrues in `tokenTotals`, envelope accounting reconciles with burn attribution without a separate cost model.
+
+- **Global envelope exhausted** → the whole dispatch loop stops for every fleet (the clean, whole-run stop).
+- **A single fleet's sub-allocation exhausted** → only that fleet's lanes are skipped; sibling fleets sharing the envelope keep dispatching, so two fleets respect their split under contention.
+
+### Configuration
+
+The governor is configured under `agent.budget` in the orchestrator workflow config (the same `agent` section that holds `maxConcurrentAgents` and the rate limits). Omitting `agent.budget` leaves the governor **off** — dispatch is unbounded, the pre-governor behaviour.
+
+```typescript
+interface AgentBudgetConfig {
+  /** Accounting period. The envelope resets at the start of each new window. */
+  period: 'day' | 'week';
+  /** Global spend envelope for the period, in total tokens. */
+  envelopeTokens: number;
+  /** Optional per-fleet sub-allocations (fleet key → token cap). */
+  perFleet?: Record<string, number>;
+  /** Issue-label prefix used to attribute a lane to a fleet (default `fleet:`). */
+  fleetLabelPrefix?: string;
+}
+```
+
+```json
+{
+  "agent": {
+    "maxConcurrentAgents": 2,
+    "budget": {
+      "period": "week",
+      "envelopeTokens": 5000000,
+      "perFleet": { "roadmap": 2000000, "bug": 1000000 }
+    }
+  }
+}
+```
+
+A lane is attributed to a fleet via its issue label: an issue labelled `fleet:roadmap` counts against the `roadmap` sub-allocation (and the global envelope). Lanes without a fleet label count only against the global envelope. `envelopeTokens` and every per-fleet cap must be positive integers — a zero cap would stall all dispatch, so to turn the governor off you omit `agent.budget` entirely rather than setting a zero.
+
+### Remaining-budget signal
+
+The orchestrator snapshot (`GET /api/state`, the TUI, and the dashboard) exposes a `budget` field with the operator-visible remaining-budget signal, or `null` when the governor is off:
+
+```typescript
+interface BudgetEnvelopeStatus {
+  period: 'day' | 'week';
+  periodStartMs: number;
+  periodEndMs: number;
+  envelopeTokens: number;
+  spentTokens: number;
+  remainingTokens: number;
+  exhausted: boolean; // true once no new lane will be dispatched
+  perFleet: {
+    fleet: string;
+    allocatedTokens: number;
+    spentTokens: number;
+    remainingTokens: number;
+    exhausted: boolean;
+  }[];
+}
+```
+
+An elapsed window is reported as a fresh, fully-remaining period, matching the reset the next spend will apply.
+
+---
+
 ## Maintenance Scheduler
 
 The maintenance scheduler evaluates cron schedules on an interval timer, performs leader election via the claim manager, and invokes task execution for due tasks.

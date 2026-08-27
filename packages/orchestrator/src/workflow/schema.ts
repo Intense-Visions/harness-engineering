@@ -7,6 +7,7 @@ import type {
   RoadmapConfig,
   RoadmapAutoTriageConfig,
   McpServerSpec,
+  AgentBudgetConfig,
 } from '@harness-engineering/types';
 
 /**
@@ -347,6 +348,26 @@ const _roadmapGuard = (r: RoadmapConfig): z.infer<typeof RoadmapConfigSchema> =>
 const _autoTriageGuard = (t: RoadmapAutoTriageConfig): z.infer<typeof RoadmapAutoTriageSchema> => t;
 void _roadmapGuard;
 void _autoTriageGuard;
+
+/**
+ * #1525 unattended-dispatch spend envelope. `.strict()` so a typo'd field fails
+ * at config-load rather than silently disabling the governor (the AMR trap).
+ * `envelopeTokens` and every per-fleet allocation must be positive integers —
+ * a zero or negative cap would stop all dispatch, which is a misconfiguration,
+ * not a valid "off" switch (omit `budget` entirely to turn the governor off).
+ */
+export const AgentBudgetSchema = z
+  .object({
+    period: z.enum(['day', 'week']),
+    envelopeTokens: z.number().int().positive(),
+    perFleet: z.record(z.string().min(1), z.number().int().positive()).optional(),
+    fleetLabelPrefix: z.string().min(1).optional(),
+  })
+  .strict();
+
+// Drift guard: schema output must be assignable to the canonical type.
+const _budgetGuard = (b: AgentBudgetConfig): z.infer<typeof AgentBudgetSchema> => b;
+void _budgetGuard;
 
 /**
  * split-routing D7: Zod schema for a workflow STEP (a stage in a declared

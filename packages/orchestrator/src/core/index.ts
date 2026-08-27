@@ -1,6 +1,20 @@
 export { calculateRetryDelay } from './retry';
 export { sortCandidates, isEligible, selectCandidates } from './candidate-selection';
 export { getAvailableSlots, getPerStateCount, canDispatch } from './concurrency';
+export type { DispatchBudgetOptions } from './concurrency';
+export {
+  createBudgetState,
+  cloneBudgetState,
+  rollBudgetPeriod,
+  recordBudgetSpend,
+  canAffordDispatch,
+  isGlobalEnvelopeExhausted,
+  isFleetAllocationExhausted,
+  getBudgetStatus,
+  fleetKeyForIssue,
+  periodLengthMs,
+} from './budget-governor';
+export type { BudgetState } from './budget-governor';
 export { reconcile } from './reconciliation';
 export { detectScopeTier, routeIssue, artifactPresenceFromIssue } from './model-router';
 export type { ArtifactPresence } from './model-router';

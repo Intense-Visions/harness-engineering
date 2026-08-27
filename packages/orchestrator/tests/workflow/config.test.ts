@@ -1,6 +1,53 @@
 import { describe, it, expect } from 'vitest';
 import { validateWorkflowConfig, getDefaultConfig } from '../../src/workflow/config.js';
 
+describe('validateWorkflowConfig — #1525 budget governor', () => {
+  it('accepts a valid day/week envelope with per-fleet allocations', () => {
+    const cfg = getDefaultConfig();
+    (cfg.agent as Record<string, unknown>).budget = {
+      period: 'week',
+      envelopeTokens: 5_000_000,
+      perFleet: { roadmap: 2_000_000, bug: 1_000_000 },
+    };
+    const result = validateWorkflowConfig(cfg);
+    expect(result.ok).toBe(true);
+  });
+
+  it('leaves the governor off when no budget is configured', () => {
+    const cfg = getDefaultConfig();
+    expect((cfg.agent as Record<string, unknown>).budget).toBeUndefined();
+    expect(validateWorkflowConfig(cfg).ok).toBe(true);
+  });
+
+  it('rejects a non-positive envelope (a zero cap would stall all dispatch)', () => {
+    const cfg = getDefaultConfig();
+    (cfg.agent as Record<string, unknown>).budget = { period: 'day', envelopeTokens: 0 };
+    const result = validateWorkflowConfig(cfg);
+    expect(result.ok).toBe(false);
+    if (!result.ok) expect(result.error.message).toMatch(/agent\.budget/);
+  });
+
+  it('rejects an unknown period', () => {
+    const cfg = getDefaultConfig();
+    (cfg.agent as Record<string, unknown>).budget = { period: 'month', envelopeTokens: 100 };
+    const result = validateWorkflowConfig(cfg);
+    expect(result.ok).toBe(false);
+    if (!result.ok) expect(result.error.message).toMatch(/agent\.budget/);
+  });
+
+  it('rejects a typo’d field (strict schema, not silently dropped)', () => {
+    const cfg = getDefaultConfig();
+    (cfg.agent as Record<string, unknown>).budget = {
+      period: 'day',
+      envelopeTokens: 100,
+      envelopTokens: 999, // typo
+    };
+    const result = validateWorkflowConfig(cfg);
+    expect(result.ok).toBe(false);
+    if (!result.ok) expect(result.error.message).toMatch(/agent\.budget/);
+  });
+});
+
 describe('validateWorkflowConfig — backend requirement (Spec 2 SC15)', () => {
   it('rejects a config with neither agent.backend nor agent.backends set', () => {
     const cfg = getDefaultConfig();

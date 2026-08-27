@@ -1099,6 +1099,76 @@ export interface AgentConfig {
   container?: ContainerConfig;
   /** Secret injection configuration */
   secrets?: SecretConfig;
+  /**
+   * Unattended-dispatch spend envelope (#1525). When set, the orchestrator
+   * refuses to dispatch a NEW lane once the period's token envelope is spent —
+   * lanes already in flight run to completion, so dispatch stops cleanly at a
+   * lane boundary, never mid-write. Unset ⇒ the governor is off (unbounded,
+   * the pre-#1525 behaviour). See {@link AgentBudgetConfig}.
+   */
+  budget?: AgentBudgetConfig;
+}
+
+/**
+ * Spend-envelope configuration for unattended dispatch (#1525).
+ *
+ * The envelope is denominated in **total tokens** (input + output), the same
+ * unit the orchestrator already accrues in `tokenTotals`, so envelope
+ * accounting reconciles with burn attribution without a separate cost model.
+ * A `week` period is aligned to a rolling window anchored at first spend.
+ */
+export interface AgentBudgetConfig {
+  /** Accounting period. Envelope resets at the start of each new window. */
+  period: 'day' | 'week';
+  /** Global spend envelope for the period, in total tokens. */
+  envelopeTokens: number;
+  /**
+   * Optional per-fleet sub-allocations (fleet key → token cap). A fleet whose
+   * sub-allocation is spent stops dispatching even while the global envelope has
+   * room, so two fleets sharing one envelope respect their split under
+   * contention. Fleets absent from this map are bounded only by the global
+   * envelope.
+   */
+  perFleet?: Record<string, number>;
+  /**
+   * Issue-label prefix used to attribute a lane to a fleet for per-fleet
+   * accounting. An issue labelled `fleet:roadmap` is attributed to fleet
+   * `roadmap`. Defaults to `fleet:`.
+   */
+  fleetLabelPrefix?: string;
+}
+
+/**
+ * Per-fleet slice of a {@link BudgetEnvelopeStatus}.
+ */
+export interface FleetBudgetStatus {
+  /** Fleet key (the label suffix after {@link AgentBudgetConfig.fleetLabelPrefix}). */
+  fleet: string;
+  allocatedTokens: number;
+  spentTokens: number;
+  remainingTokens: number;
+  /** True once `spentTokens >= allocatedTokens` — this fleet stops dispatching. */
+  exhausted: boolean;
+}
+
+/**
+ * Operator-visible remaining-budget signal for the unattended-dispatch governor
+ * (#1525). Surfaced in the orchestrator snapshot (CLI + dashboard) so an
+ * operator can see how much of the period envelope is left before enabling
+ * unattended operation.
+ */
+export interface BudgetEnvelopeStatus {
+  period: 'day' | 'week';
+  /** Epoch-ms start of the active window. */
+  periodStartMs: number;
+  /** Epoch-ms end of the active window (`periodStartMs + period length`). */
+  periodEndMs: number;
+  envelopeTokens: number;
+  spentTokens: number;
+  remainingTokens: number;
+  /** True once `spentTokens >= envelopeTokens` — no new lane will be dispatched. */
+  exhausted: boolean;
+  perFleet: FleetBudgetStatus[];
 }
 
 /**
