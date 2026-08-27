@@ -59,6 +59,15 @@ export interface UsageRecord {
   agent: string;
   /** The dispatch this turn belonged to — one fleet lane. Empty for the main thread. */
   agentId: string;
+  /**
+   * The invoking SKILL that spawned this turn, from `attributionSkill` (e.g.
+   * `harness:autopilot`). This is the cut `/usage` groups by; the `agent`
+   * column above is the orthogonal agent-TYPE cut. Never empty:
+   * `unattributed-skill` when a turn carries no readable skill, `pre-migration`
+   * for rows that predate skill tracking. See the reconciliation decision in
+   * the README.
+   */
+  invokingSkill: string;
 }
 
 export interface ScanInfo {
@@ -115,6 +124,25 @@ export interface AgentBlock {
    * Distinct non-empty `agentId`s seen this week under this label. `main`
    * records carry an empty `agentId`, so the empty id is excluded from the
    * count and `main` honestly reports 0.
+   */
+  lanes: number;
+}
+
+/**
+ * Where the week's units went, by invoking SKILL — the cut `/usage` shows.
+ *
+ * Same shape as `AgentBlock` on purpose: the two are orthogonal cuts of the
+ * same spend (skill vs agent type), so an existing consumer reads one without
+ * learning a second idiom, and the two views reconcile against a shared total.
+ */
+export interface SkillBlock {
+  requests: number;
+  units: number;
+  pct_of_week: number;
+  /**
+   * Distinct non-empty `agentId`s this skill dispatched this week. A turn that
+   * carries no lane id (the main thread) contributes 0, so a skill made up
+   * entirely of main-thread turns honestly reports 0 lanes.
    */
   lanes: number;
 }
@@ -183,6 +211,12 @@ export interface Summary {
   models: Record<string, ModelBlock>;
   models_exhausted: string[];
   agents: Record<string, AgentBlock>;
+  /**
+   * The same week's spend cut by invoking skill instead of agent type — the
+   * grouping `/usage` uses. Partitions the week identically to `agents`; the
+   * two are reconcilable views of one total, not a second number.
+   */
+  skills: Record<string, SkillBlock>;
   attribution: AttributionBlock;
   session: SessionBlock;
   status: BurnStatus;

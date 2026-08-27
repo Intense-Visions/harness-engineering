@@ -140,6 +140,67 @@ describe('classification', () => {
   });
 });
 
+describe('invoking-skill classification', () => {
+  it('reads the invoking skill from attributionSkill, the cut /usage groups by', () => {
+    const h = newHud();
+    h.writeSubagentTranscript('agent-s.jsonl', [
+      agentLine('req_s1', hoursAgo(new Date(), 1), {
+        isSidechain: true,
+        agentId: 'lane-s1',
+        attributionAgent: 'harness-task-executor',
+        attributionSkill: 'harness:autopilot',
+      }),
+    ]);
+
+    const records = new Map<string, UsageRecord>();
+    parseTranscript(path.join(h.paths.projects, '-proj', SUB, 'agent-s.jsonl'), records);
+    const rec = records.get('req_s1')!;
+    // Orthogonal cuts: the agent TYPE and the invoking SKILL of one turn.
+    expect(rec.agent).toBe('harness-task-executor');
+    expect(rec.invokingSkill).toBe('harness:autopilot');
+  });
+
+  it('files a turn with no readable skill under unattributed-skill, never dropping it', () => {
+    // Same discipline `unattributed` gives the agent cut: a turn whose skill
+    // cannot be read is grouped honestly, never fabricated and never dropped.
+    const h = newHud();
+    h.writeSubagentTranscript('agent-s2.jsonl', [
+      agentLine(
+        'req_s2',
+        hoursAgo(new Date(), 1),
+        { isSidechain: true, agentId: 'lane-s2', attributionAgent: 'harness-task-executor' },
+        { out: 1000 }
+      ),
+    ]);
+
+    const records = new Map<string, UsageRecord>();
+    parseTranscript(path.join(h.paths.projects, '-proj', SUB, 'agent-s2.jsonl'), records);
+    const rec = records.get('req_s2')!;
+    expect(rec.invokingSkill).toBe('unattributed-skill');
+    expect(rec.out).toBe(1000);
+  });
+
+  it('degrades to unattributed-skill when attributionSkill is not a string, without aborting the scan', () => {
+    // These are undocumented internals; a release may change a field's TYPE as
+    // easily as its name. A non-string must never reach the store writer's
+    // `String.replace` and abort every future scan.
+    const h = newHud();
+    h.writeConfig({ week_reset: DEFAULT_WEEK });
+    h.writeSubagentTranscript('agent-s3.jsonl', [
+      agentLine('req_s3', hoursAgo(new Date(), 1), {
+        isSidechain: true,
+        agentId: 'lane-s3',
+        attributionAgent: 'harness-task-executor',
+        // Deliberately the wrong type: the shape change under test.
+        attributionSkill: 12_345 as unknown as string,
+      }),
+    ]);
+
+    expect(() => refresh(h.paths)).not.toThrow();
+    expect(readRecords(h.paths).get('req_s3')!.invokingSkill).toBe('unattributed-skill');
+  });
+});
+
 describe('dedup with upgrade', () => {
   it('upgrades a pre-migration record when a later read finds the label', () => {
     const h = newHud();
@@ -163,6 +224,7 @@ describe('dedup with upgrade', () => {
           cacheRead: 0,
           agent: 'pre-migration',
           agentId: '',
+          invokingSkill: 'pre-migration',
         },
       ],
     ]);
@@ -198,6 +260,7 @@ describe('dedup with upgrade', () => {
           cacheRead: 0,
           agent: 'pre-migration',
           agentId: '',
+          invokingSkill: 'pre-migration',
         },
       ],
     ]);
@@ -231,6 +294,7 @@ describe('dedup with upgrade', () => {
           cacheRead: 0,
           agent: 'unattributed',
           agentId: 'lane-7',
+          invokingSkill: 'unattributed-skill',
         },
       ],
     ]);

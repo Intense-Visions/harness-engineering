@@ -47,7 +47,7 @@ it('leaves a consistent store after six concurrent scans', async () => {
     .filter((l) => l.trim());
   expect(rows).toHaveLength(200);
   for (const row of rows) {
-    expect(row.split('\t')).toHaveLength(9); // no partial rows
+    expect(row.split('\t')).toHaveLength(10); // no partial rows
   }
 
   const header = readFileSync(hud.paths.filesTsv, 'utf8').split('\n')[0];

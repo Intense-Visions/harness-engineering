@@ -1,0 +1,34 @@
+{
+  "issue": 1300,
+  "slug": "burn-usage-skill-reconcile",
+  "closing_keyword": "Closes #1300",
+  "plan_path": "docs/changes/burn-usage-skill-reconcile/plans/plan.md",
+  "stages": [
+    {
+      "stage": "brainstorming",
+      "summary": "Confirmed the root cause: burn groups by attributionAgent (agent type) while /usage groups by invoking skill; the two cannot reconcile because burn has no skill dimension. Verified against real transcripts that attributionSkill is already carried per subagent turn as a fully-qualified plugin:skill value matching /usage's shape.",
+      "artifact": "docs/changes/burn-usage-skill-reconcile/plans/plan.md"
+    },
+    {
+      "stage": "planning",
+      "summary": "Broke the change into: data model (invokingSkill on UsageRecord, SkillBlock, skills on Summary), scan derivation from attributionSkill, store 9->10 column widening + STORE_VERSION 2->3, summary per-skill rollup, report by-invoking-skill section that leads and states the window, README + tests.",
+      "artifact": "docs/changes/burn-usage-skill-reconcile/plans/plan.md"
+    },
+    {
+      "stage": "execution",
+      "summary": "Added the invoking-skill cut additively alongside the agent-type cut. Derives from attributionSkill with the same type-guard discipline; unattributed-skill fallback (never drop/fabricate); pre-migration for legacy rows. Store widened one column with a version bump forcing a one-time re-derivation from transcripts. Report leads with the skill cut and makes the week-to-date vs /usage last-24h window explicit."
+    },
+    {
+      "stage": "verification",
+      "summary": "burn + cli unit tests (scan/store/summary/report attribution suites) extended and green; typecheck, lint, build, and reference-docs gates pass; all-OS CI green on the pushed branch."
+    }
+  ],
+  "assumptions": [
+    "The invoking skill is derived from the transcript's `attributionSkill` field, which real subagent transcripts on this machine already carry as a fully-qualified `plugin:skill` value (e.g. `harness:autopilot`) matching /usage's grouping. Turns predating the field carry null and degrade to `unattributed-skill`.",
+    "Main-thread and any turn without a readable `attributionSkill` group under `unattributed-skill` (honest degradation, never dropped, never fabricated), matching #1270's `unattributed` discipline for agents.",
+    "Legacy store rows that predate the skill column group under `pre-migration` for the skill dimension, mirroring the agent dimension's provenance-unknown label.",
+    "No second degradation flag was added for the skill cut: the existing agent-type `attribution.degraded` already headlines a broken scanner, and the skill cut degrades visibly to `unattributed-skill`.",
+    "burn's default window is unchanged; the report now states the window (week-to-date) and contrasts it with /usage's last-24h so a reconciliation is apples-to-apples.",
+    "Built against current main; no dependency on the parallel #1522 cost-per-pr lane."
+  ]
+}

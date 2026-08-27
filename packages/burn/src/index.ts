@@ -9,6 +9,7 @@ export type {
   ModelBlock,
   ScanInfo,
   SessionBlock,
+  SkillBlock,
   Summary,
   UsageRecord,
   WeekReset,

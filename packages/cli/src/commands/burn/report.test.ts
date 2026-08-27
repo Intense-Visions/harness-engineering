@@ -294,6 +294,64 @@ describe('report — by agent', () => {
   });
 });
 
+describe('report — by invoking skill', () => {
+  const skills = {
+    'unattributed-skill': { requests: 100, units: 41_200_000, pct_of_week: 58, lanes: 0 },
+    'harness:autopilot': { requests: 60, units: 18_900_000, pct_of_week: 27, lanes: 6 },
+  };
+
+  it('lists the week by invoking skill, the cut /usage groups by', () => {
+    const out = render({ skills });
+    expect(out).toContain('by invoking skill');
+    expect(out).toContain('the cut /usage shows');
+    expect(out).toContain('harness:autopilot');
+    expect(out).toContain('18.9M');
+    expect(out).toContain('27% of week, 6 lanes');
+  });
+
+  it('states its window so a /usage comparison is like-for-like', () => {
+    // The two tools measure different spans (burn week-to-date, /usage last-24h),
+    // so the window is stated to keep a mismatch reading as a different question.
+    const out = render({ skills });
+    expect(out).toContain('week-to-date');
+    expect(out).toContain('/usage last-24h');
+  });
+
+  it('leads with the skill cut, before the agent-type cut', () => {
+    const agents = {
+      'harness-task-executor': { requests: 60, units: 18_900_000, pct_of_week: 27, lanes: 6 },
+    };
+    const out = render({ skills, agents });
+    expect(out.indexOf('by invoking skill')).toBeGreaterThanOrEqual(0);
+    expect(out.indexOf('by invoking skill')).toBeLessThan(out.indexOf('by agent'));
+  });
+
+  it('reads a summary written before the skill cut existed without a section or a throw', () => {
+    expect(() => render()).not.toThrow();
+    expect(render()).not.toContain('by invoking skill');
+  });
+
+  it('never elides the unattributed-skill bucket', () => {
+    // Same protection the agent cut gives `unattributed`: a bucket that can
+    // silently vanish cannot account for spend. Rank it below the cut and drop
+    // it below the floor and it must still render.
+    const ranked = Object.fromEntries(
+      Array.from({ length: 8 }, (_, i) => [
+        `skill-${i}`,
+        { requests: 1, units: 9_000_000 - i, pct_of_week: 10, lanes: 1 },
+      ])
+    );
+    const out = render({
+      skills: {
+        ...ranked,
+        'unattributed-skill': { requests: 1, units: 12, pct_of_week: 0, lanes: 0 },
+      },
+    });
+    expect(out).toContain('unattributed-skill');
+    expect(out).not.toContain('skill-7');
+  });
+});
+
 describe('report — unattributed is never elided', () => {
   // The two elisions `modelsSection` applies (top-6 slice, 1000-unit floor)
   // are exactly how a small or low-ranked unattributed bucket would vanish,

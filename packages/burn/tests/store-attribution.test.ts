@@ -30,7 +30,7 @@ afterEach(() => {
 
 const LEGACY_ROW = 'legacy\t2026-08-06T00:00:00Z\tclaude-opus-5\t1\t2\t3\t4';
 
-describe('store — 7-to-9 column migration', () => {
+describe('store — 7-to-10 column migration', () => {
   it('loads a legacy 7-column row as pre-migration rather than discarding it', () => {
     // Not `unattributed`: that label means SUBAGENT spend whose identity could
     // not be read, and most legacy rows are the main thread. Mislabelling
@@ -41,10 +41,13 @@ describe('store — 7-to-9 column migration', () => {
     expect(rec).toBeDefined();
     expect(rec!.agent).toBe('pre-migration');
     expect(rec!.agentId).toBe('');
+    // The skill column is absent from a legacy row, so its skill is unknown
+    // provenance too — `pre-migration`, mirroring the agent fallback.
+    expect(rec!.invokingSkill).toBe('pre-migration');
     expect(rec!.out).toBe(1);
   });
 
-  it('round-trips a 9-column row through write and read', () => {
+  it('round-trips a 10-column row through write and read', () => {
     const h = newHud();
     const rec: UsageRecord = {
       ts: '2026-08-06T00:00:00Z',
@@ -55,23 +58,38 @@ describe('store — 7-to-9 column migration', () => {
       cacheRead: 4,
       agent: 'harness-task-executor',
       agentId: 'a6bbff57161b6ebb2',
+      invokingSkill: 'harness:autopilot',
     };
     writeRecords(h.paths, new Map([['req_1', rec]]));
-    expect(readFileSync(h.paths.usageTsv, 'utf8').trim().split('\t')).toHaveLength(9);
+    expect(readFileSync(h.paths.usageTsv, 'utf8').trim().split('\t')).toHaveLength(10);
     expect(readRecords(h.paths).get('req_1')).toEqual(rec);
   });
 
-  it('loads a row with MORE than nine fields and ignores the extras', () => {
+  it('reads a 9-column row from the previous format, filing its absent skill as pre-migration', () => {
+    // A store written before the skill column existed still parses: its agent
+    // and lane are read, and the missing skill falls to `pre-migration` (a
+    // pre-skill-tracking row), never to `unattributed-skill`. The accompanying
+    // STORE_VERSION bump then re-derives it from the transcript on the next scan.
+    const h = newHud();
+    writeFileSync(h.paths.usageTsv, `${LEGACY_ROW}\tharness-task-executor\tlane-1\n`);
+    const rec = readRecords(h.paths).get('legacy')!;
+    expect(rec.agent).toBe('harness-task-executor');
+    expect(rec.agentId).toBe('lane-1');
+    expect(rec.invokingSkill).toBe('pre-migration');
+  });
+
+  it('loads a row with MORE than ten fields and ignores the extras', () => {
     // Forward tolerance: a future column addition must be survivable by a
     // reader that predates it, the same reversibility the wire contract has.
     const h = newHud();
     writeFileSync(
       h.paths.usageTsv,
-      `${LEGACY_ROW}\tharness-task-executor\tlane-1\tsomething-from-the-future\n`
+      `${LEGACY_ROW}\tharness-task-executor\tlane-1\tharness:autopilot\tsomething-from-the-future\n`
     );
     const rec = readRecords(h.paths).get('legacy')!;
     expect(rec.agent).toBe('harness-task-executor');
     expect(rec.agentId).toBe('lane-1');
+    expect(rec.invokingSkill).toBe('harness:autopilot');
   });
 
   it('still discards a row whose field count is neither 7 nor at least 9', () => {
@@ -114,6 +132,7 @@ describe('store — sanitising on write', () => {
             cacheRead: 0,
             agent: 'evil\tagent\nname\r',
             agentId: 'lane\t1',
+            invokingSkill: 'evil\tskill\nname\r',
           },
         ],
       ])
@@ -121,11 +140,12 @@ describe('store — sanitising on write', () => {
 
     const row = readFileSync(h.paths.usageTsv, 'utf8').trim();
     expect(row.split('\n')).toHaveLength(1);
-    expect(row.split('\t')).toHaveLength(9);
+    expect(row.split('\t')).toHaveLength(10);
 
     const rec = readRecords(h.paths).get('req_1')!;
     expect(rec.agent).toBe('evil agent name ');
     expect(rec.agentId).toBe('lane 1');
+    expect(rec.invokingSkill).toBe('evil skill name ');
   });
 });
 
@@ -142,7 +162,7 @@ describe('store — fingerprint version', () => {
     seed(h);
     const lines = readFileSync(h.paths.filesTsv, 'utf8').split('\n');
     expect(lines[0]).toBe('#count\t1');
-    expect(lines[1]).toBe('#version\t2');
+    expect(lines[1]).toBe('#version\t3');
   });
 
   it('re-reads every transcript when the version header is absent', () => {

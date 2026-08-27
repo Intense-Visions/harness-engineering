@@ -103,6 +103,38 @@ A `burn` older than this change reading a 9-column store discards every row. Tha
 accepted rather than mitigated: the integrity gate then re-reads every transcript, and
 this store is a rolling local cache reconstructible from source, not a system of record.
 
+### By invoking skill — reconciling with `/usage`
+
+The table above cuts the week by agent **type** (`attributionAgent`). Claude Code's own
+`/usage` cuts the _same_ spend by the **skill** that spawned the subagent — it shows a
+`harness:roadmap-fleet` row where the agent cut shows `general-purpose` and named harness
+agents. Both are honest; they are different questions, so cross-checking one against the
+other makes a correct number look broken. burn therefore carries **both** cuts.
+
+Every turn also records `invokingSkill`, derived from the transcript's `attributionSkill`
+(already carried per subagent turn, already a fully-qualified `plugin:skill` value like
+`harness:autopilot` — the exact shape `/usage` reports). The report leads with this cut,
+under `by invoking skill`, because it is the one that reconciles against `/usage`.
+
+| Skill label          | What it means                                                                                                                                |
+| -------------------- | -------------------------------------------------------------------------------------------------------------------------------------------- |
+| `<plugin:skill>`     | The skill that spawned the turn, e.g. `harness:autopilot`. Reconciles directly with a `/usage` row.                                          |
+| `unattributed-skill` | A turn carrying no readable skill (main-thread work, or a subagent whose skill could not be read). Counted, never dropped, never fabricated. |
+| `pre-migration`      | A row written before this column existed; provenance unknown, re-derived on the first rescan.                                                |
+
+The skill cut partitions the week identically to the agent cut — both sum to the same
+weekly total — which is what makes the two views reconcile rather than compete. It has no
+separate degradation flag: the agent-type `attribution.degraded` already headlines a
+broken scanner, and a missing skill degrades visibly to `unattributed-skill`.
+
+**The windows still differ.** `/usage` reports the last 24h; burn reports week-to-date.
+The report states its window next to the skill cut so a mismatch reads as "a different
+span", not "a wrong number". Reconcile like for like; the default window is unchanged.
+
+The store widened from nine to ten columns to carry `invokingSkill`, with a `STORE_VERSION`
+bump that forces one full rescan so existing rows are re-derived from the transcripts
+still on disk rather than pinned to `pre-migration`.
+
 ## Design rules
 
 These come from the "check the denominator" habit: a green readout must never be

@@ -43,6 +43,8 @@ interface TranscriptLine {
   agentId?: string;
   /** The agent TYPE, e.g. `harness-task-executor`. */
   attributionAgent?: string;
+  /** The invoking SKILL, e.g. `harness:autopilot` — the cut `/usage` groups by. */
+  attributionSkill?: string;
   message?: {
     model?: string;
     usage?: {
@@ -98,6 +100,17 @@ function toRecord(
   // the lanes and overstate the human.
   const agent = named !== '' ? named : isSubagent ? 'unattributed' : 'main';
 
+  // The invoking-skill cut, orthogonal to the agent-type cut above. Same
+  // type-guard as `attributionAgent`/`agentId`: these are undocumented Claude
+  // Code internals, so a release may change a field's TYPE as easily as its
+  // name, and the store writer sanitises this column with `String.replace`,
+  // which throws on a non-string and aborts the whole scan. A shape change
+  // must degrade to an unattributed skill, never to a dead HUD. A turn with no
+  // readable skill is grouped honestly rather than dropped — the same
+  // discipline `unattributed` gives the agent cut.
+  const skillNamed = typeof obj.attributionSkill === 'string' ? obj.attributionSkill.trim() : '';
+  const invokingSkill = skillNamed !== '' ? skillNamed : 'unattributed-skill';
+
   return {
     id,
     record: {
@@ -109,6 +122,7 @@ function toRecord(
       cacheRead: Number(usage.cache_read_input_tokens) || 0,
       agent,
       agentId: agent === 'main' ? '' : lane,
+      invokingSkill,
     },
   };
 }
