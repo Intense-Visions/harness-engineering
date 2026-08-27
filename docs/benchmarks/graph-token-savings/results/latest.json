@@ -513,5 +513,10 @@
     },
     "tokenSavings": 26.48,
     "toolCallSavings": 44.46
+  },
+  "answerQuality": {
+    "status": "skipped",
+    "advisory": true,
+    "note": "Answer-quality axis not run (pass --judge to grade retrieval sufficiency with an LLM judge). The comparator reports 83% on this axis; the objective axes here stand alone."
   }
 }
