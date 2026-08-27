@@ -477,6 +477,38 @@ risk warrants it (announce-and-proceed).
 - **Serial is still the safe default:** fewer than `minWaveSize` (default 3) independent
   tasks, a declined `confirm`, or no graph + no confirmation all fall back to sequential.
 
+### Compiled comprehension substrate
+
+The **comprehension substrate** is a persistent, per-module understanding layer —
+summary, invariants, interface contract, and dependency slice, one committed
+markdown unit per source directory — served to agents as their **primary** context
+so understanding stops being re-derived from raw source on every run. It attacks the
+dominant cost term in agent operation (context replay, not generation).
+
+- **What it is:** compiled once, recompiled only for the modules whose source
+  changed (the git diff is the invalidation signal), versioned alongside the code.
+  Units are markdown + YAML frontmatter under `.harness/comprehension/`, mirroring
+  the source tree. The static half (contract + slice) is AST-exact; the semantic
+  half (summary + invariants) is LLM-generated and treated as **advisory** — a leaf
+  always reads raw source for the region it actually edits.
+- **Usage:** `harness comprehend` maintains the substrate. `--changed` (default)
+  recompiles only modules owning changed files; `--all` backfills; `--check` is a
+  token-free freshness backstop (exits non-zero on any source-stale unit);
+  `--stats` reports served-vs-raw token savings; `--static` forces the static-only,
+  credential-free posture.
+- **The no-credential invariant:** correctness, `git push`, and CI **never** require
+  an LLM or an API token. A serve-time source-hash gate re-enumerates each module's
+  membership, recomputes a SHA-256, and refuses to serve any source-stale unit —
+  doing only enumeration + hashing + comparison, so it holds in CI and for adopters
+  with no model configured. Only the advisory semantic half calls a backend; when no
+  provider resolves, units are emitted static-only and everything still passes.
+- **How it is served:** units are returned as the primary context block by the
+  `gather_context` MCP tool's `comprehension` constituent and by the
+  `get_comprehension` tool (leaf-demand recompilation), with the graph/raw source as
+  fallback. Configured via the `comprehension` block in `harness.config.json`.
+- **Concepts:** `docs/knowledge/comprehension/comprehension-substrate.md`; ADRs
+  0106 (`claude`-CLI resolver fallback), 0107 (committed substrate), 0108 (hash gate).
+
 ### Result<T, E> Pattern
 
 We use a Result type (similar to Rust) for explicit error handling:

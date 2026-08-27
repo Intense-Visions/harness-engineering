@@ -442,6 +442,51 @@ Additional properties are allowed and passed through to performance analyzers.
 }
 ```
 
+## `comprehension`
+
+- **Type:** `ComprehensionConfig`
+- **Required:** No
+
+Configures the **compiled comprehension substrate** — the per-module understanding
+layer (summary, invariants, interface contract, dependency slice) compiled by
+`harness comprehend`, served to agents as primary context via `gather_context` /
+`get_comprehension`, and kept correct by a serve-time source-hash gate. Every knob
+defaults to a sane, adopter-safe value; the substrate delivers value with zero
+configuration and **never requires a credential in its default posture** —
+correctness, `git push`, and CI run with no LLM and no API token.
+
+### ComprehensionConfig Object
+
+| Field             | Type                             | Default       | Description                                                                                                                                                                                                                                                         |
+| ----------------- | -------------------------------- | ------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `storage`         | `"committed" \| "cache"`         | `"committed"` | Where units live. `committed` writes git-tracked units under `.harness/comprehension/` (versioned alongside the code); `cache` writes disposable, git-ignored units.                                                                                                |
+| `semantic`        | `boolean`                        | `true`        | Whether to generate the advisory LLM half (summary + invariants). `false` ⇒ **static-only**, never resolves a provider or calls an LLM.                                                                                                                             |
+| `model`           | `string \| null`                 | `null`        | Override the semantic-tier model. `null` uses the default cheap/fast tier (comprehension summarizes, it does not reason).                                                                                                                                           |
+| `maxTokensPerRun` | `number` (positive int)          | `200000`      | Per-run semantic token budget. When exhausted the run fails loud; remaining modules are left `semantic: absent`, never silently partial.                                                                                                                            |
+| `concurrency`     | `number` (positive int)          | `4`           | Bounded concurrency for semantic generation.                                                                                                                                                                                                                        |
+| `ci`              | `"verify" \| "refresh" \| "off"` | `"verify"`    | CI behavior. `verify` runs the token-free static/hash freshness backstop (non-blocking); `refresh` is an opt-in, token-gated regeneration job; `off` disables the CI step.                                                                                          |
+| `hook`            | `boolean`                        | `false`       | Opt-in git pre-commit hook. When `true`, a config-gated, **static-only, non-blocking** step runs `harness comprehend --changed --static --stage` so a source change lands with its refreshed unit in the same commit. Never calls an LLM and never blocks a commit. |
+
+### Example
+
+```json
+{
+  "comprehension": {
+    "storage": "committed",
+    "semantic": true,
+    "model": null,
+    "maxTokensPerRun": 200000,
+    "concurrency": 4,
+    "ci": "verify",
+    "hook": false
+  }
+}
+```
+
+For a static-only, credential-free posture (no LLM ever), set `"semantic": false`.
+See the [comprehension substrate knowledge doc](../knowledge/comprehension/comprehension-substrate.md)
+and ADRs 0106–0108 for the design.
+
 ## `design`
 
 - **Type:** `DesignConfig`
