@@ -48,6 +48,38 @@ describe('validateWorkflowConfig — #1525 budget governor', () => {
   });
 });
 
+describe('validateWorkflowConfig — per-leaf context budget (#1524)', () => {
+  it('accepts a config with no agent.contextBudget (unlimited default)', () => {
+    const cfg = getDefaultConfig();
+    expect(validateWorkflowConfig(cfg).ok).toBe(true);
+  });
+
+  it('accepts a well-formed agent.contextBudget', () => {
+    const cfg = getDefaultConfig();
+    (cfg.agent as Record<string, unknown>).contextBudget = {
+      maxTokens: 200_000,
+      perFleet: { 'roadmap-fleet': 150_000 },
+    };
+    expect(validateWorkflowConfig(cfg).ok).toBe(true);
+  });
+
+  it('rejects a non-positive maxTokens', () => {
+    const cfg = getDefaultConfig();
+    (cfg.agent as Record<string, unknown>).contextBudget = { maxTokens: 0 };
+    const result = validateWorkflowConfig(cfg);
+    expect(result.ok).toBe(false);
+    if (!result.ok) expect(result.error.message).toMatch(/agent\.contextBudget/);
+  });
+
+  it('rejects an unknown key (typo guard)', () => {
+    const cfg = getDefaultConfig();
+    (cfg.agent as Record<string, unknown>).contextBudget = { maxTokens: 1000, maxToken: 5 };
+    const result = validateWorkflowConfig(cfg);
+    expect(result.ok).toBe(false);
+    if (!result.ok) expect(result.error.message).toMatch(/agent\.contextBudget/);
+  });
+});
+
 describe('validateWorkflowConfig — backend requirement (Spec 2 SC15)', () => {
   it('rejects a config with neither agent.backend nor agent.backends set', () => {
     const cfg = getDefaultConfig();

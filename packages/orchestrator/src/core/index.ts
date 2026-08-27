@@ -15,6 +15,10 @@ export {
   periodLengthMs,
 } from './budget-governor';
 export type { BudgetState } from './budget-governor';
+export {
+  estimateIssueContextTokens,
+  assertIssueWithinContextBudget,
+} from './context-budget-governor';
 export { reconcile } from './reconciliation';
 export { detectScopeTier, routeIssue, artifactPresenceFromIssue } from './model-router';
 export type { ArtifactPresence } from './model-router';

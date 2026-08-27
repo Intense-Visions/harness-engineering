@@ -1276,3 +1276,72 @@ describe('applyEvent - claim_rejected', () => {
     expect(result2.nextState.claimRejections).toBe(2);
   });
 });
+
+describe('applyEvent - tick - per-leaf context budget (#1524)', () => {
+  const bigIssue = () =>
+    makeIssue({
+      id: 'big',
+      identifier: 'BIG-1',
+      priority: 1,
+      labels: ['scope:quick-fix'],
+      description: 'x'.repeat(4_000), // ~1000 estimated tokens
+    });
+
+  const tick = (candidates: Issue[]): OrchestratorEvent => ({
+    type: 'tick',
+    candidates,
+    runningStates: new Map(),
+    nowMs: 1706745600000,
+  });
+
+  it('is BYTE-IDENTICAL when no budget is configured: the leaf still dispatches', () => {
+    const config = makeConfig(); // no agent.contextBudget
+    const state = createEmptyState(config);
+    const { nextState, effects } = applyEvent(state, tick([bigIssue()]), config);
+
+    // Dispatched as normal (a claim effect), no budget error emitted.
+    expect(effects.filter((e) => e.type === 'claim')).toHaveLength(1);
+    expect(
+      effects.filter((e) => e.type === 'emitLog' && (e as { level: string }).level === 'error')
+    ).toHaveLength(0);
+    expect(nextState.claimed.has('big')).toBe(true);
+  });
+
+  it('FAILS LOUD and skips dispatch when the leaf exceeds a configured budget', () => {
+    const config = makeConfig({
+      agent: { ...makeConfig().agent, contextBudget: { maxTokens: 10 } },
+    });
+    const state = createEmptyState(config);
+    const { nextState, effects } = applyEvent(state, tick([bigIssue()]), config);
+
+    // No dispatch/claim for the over-budget leaf.
+    expect(effects.filter((e) => e.type === 'claim')).toHaveLength(0);
+    expect(effects.filter((e) => e.type === 'dispatch')).toHaveLength(0);
+
+    // A loud error effect naming the leaf and the overage.
+    const budgetErrors = effects.filter(
+      (e) => e.type === 'emitLog' && (e as { level: string }).level === 'error'
+    );
+    expect(budgetErrors).toHaveLength(1);
+    const err = budgetErrors[0] as { message: string; context?: Record<string, unknown> };
+    expect(err.message).toContain('BIG-1');
+    expect(err.message).toContain('rejected at dispatch');
+    expect(err.context?.budgetTokens).toBe(10);
+
+    // The leaf is claimed (skipped) so it is not re-selected into a hot loop.
+    expect(nextState.claimed.has('big')).toBe(true);
+  });
+
+  it('dispatches an under-budget leaf normally when a generous budget is configured', () => {
+    const config = makeConfig({
+      agent: { ...makeConfig().agent, contextBudget: { maxTokens: 1_000_000 } },
+    });
+    const state = createEmptyState(config);
+    const { effects } = applyEvent(state, tick([bigIssue()]), config);
+
+    expect(effects.filter((e) => e.type === 'claim')).toHaveLength(1);
+    expect(
+      effects.filter((e) => e.type === 'emitLog' && (e as { level: string }).level === 'error')
+    ).toHaveLength(0);
+  });
+});
