@@ -1022,6 +1022,16 @@ Verify the working tree against the most recent golden; exits non-zero on drift
 
 Knowledge graph management
 
+### `harness graph bench`
+
+Measure token + tool-call savings of graph-scoped retrieval vs naive file reads
+
+**Options:**
+
+- `--json` — Emit the full machine-readable result as JSON
+- `--out` — Write the machine-readable result JSON to a file
+- `--top` — Anchors per structural family (default: "5")
+
 ### `harness graph export`
 
 Export graph

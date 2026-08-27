@@ -5,6 +5,7 @@ import { runGraphExport } from './export.js';
 import { createScanCommand } from './scan.js';
 import { createQueryCommand, createPathCommand } from './query.js';
 import { createIngestCommand } from './ingest.js';
+import { createBenchCommand } from './bench.js';
 import { runGraphIntegrity, printGraphIntegrity } from './integrity.js';
 import { ExitCode } from '../../utils/errors.js';
 import * as path from 'path';
@@ -120,6 +121,7 @@ export function createGraphCommand(): Command {
   graph.addCommand(createQueryCommand());
   graph.addCommand(createPathCommand());
   graph.addCommand(createIngestCommand());
+  graph.addCommand(createBenchCommand());
   return graph;
 }
 
