@@ -11,6 +11,26 @@ const H_INTERFACE = '## Interface Contract';
 const H_DEPS = '## Dependency Slice';
 
 /**
+ * The full set of section headings we own. Section-boundary detection matches
+ * ONLY these headings (at top level, outside fences), so a `## Heading` line
+ * inside LLM-authored prose survives a round-trip instead of being mistaken for
+ * a new section (F1c).
+ */
+const SECTION_HEADINGS = ['Summary', 'Invariants', 'Interface Contract', 'Dependency Slice'];
+
+/**
+ * Choose a fence length that cannot be closed early by content: one backtick
+ * longer than the longest backtick run appearing anywhere in `content` (min 3).
+ * Lets a static section carry embedded ``` fences (including longer/nested runs)
+ * without truncation (F1b).
+ */
+function fenceFor(content: string): string {
+  let longest = 0;
+  for (const m of content.matchAll(/`+/g)) longest = Math.max(longest, m[0].length);
+  return '`'.repeat(Math.max(3, longest + 1));
+}
+
+/**
  * Serialize a `ComprehensionUnit` to markdown + hand-emitted YAML frontmatter.
  * Frontmatter is emitted in fixed key order for byte-determinism (mirrors
  * `serializeShard`; `matter.stringify` key ordering/quoting is not stable).
@@ -39,11 +59,19 @@ export function serializeUnit(unit: ComprehensionUnit): string {
   if (p.semantic === 'present') {
     body.push(H_SUMMARY, '', unit.summary.trim(), '');
     body.push(H_INVARIANTS, '');
-    for (const inv of unit.invariants) body.push(`- ${inv}`);
+    // F4: empty invariants are intentionally dropped, never emitted as bare `- `.
+    for (const inv of unit.invariants) {
+      if (inv.trim().length === 0) continue;
+      body.push(`- ${inv}`);
+    }
     body.push('');
   }
-  body.push(H_INTERFACE, '', '```ts', unit.interfaceContract.trim(), '```', '');
-  body.push(H_DEPS, '', '```', unit.dependencySlice.trim(), '```', '');
+  const ifc = unit.interfaceContract.trim();
+  const ifFence = fenceFor(ifc);
+  body.push(H_INTERFACE, '', `${ifFence}ts`, ifc, ifFence, '');
+  const dep = unit.dependencySlice.trim();
+  const depFence = fenceFor(dep);
+  body.push(H_DEPS, '', depFence, dep, depFence, '');
   return [...fm, ...body].join('\n').replace(/\n+$/, '\n');
 }
 
@@ -56,12 +84,42 @@ function scalarString(value: unknown): string {
   return '';
 }
 
+/**
+ * F2: validate the on-disk `schemaVersion` instead of blindly stamping the
+ * current one. Absent/non-integer ⇒ malformed; greater than what we understand
+ * ⇒ unsupported. Returns the accepted (typed) version.
+ */
+function parseSchemaVersion(raw: unknown, module: string): Result<typeof SCHEMA_VERSION> {
+  if (typeof raw !== 'number' || !Number.isInteger(raw) || raw < 1) {
+    return Err(new Error(`Comprehension "${module}" missing or invalid schemaVersion`));
+  }
+  if (raw > SCHEMA_VERSION) {
+    return Err(
+      new Error(
+        `Comprehension "${module}" has unsupported schemaVersion ${raw} (max ${SCHEMA_VERSION})`
+      )
+    );
+  }
+  return Ok(SCHEMA_VERSION);
+}
+
+/** Coerce the `compiler` sub-map, defaulting missing/typed-wrong halves to ''. */
+function parseCompiler(raw: unknown): { static: string; semantic: string } {
+  const c = (raw ?? {}) as Record<string, unknown>;
+  return {
+    static: typeof c.static === 'string' ? c.static : '',
+    semantic: typeof c.semantic === 'string' ? c.semantic : '',
+  };
+}
+
 /** Validate + coerce provenance from parsed frontmatter. */
 function parseProvenance(data: Record<string, unknown>): Result<ComprehensionProvenance> {
   const module = data.module;
   if (typeof module !== 'string' || module.length === 0) {
     return Err(new Error('Comprehension frontmatter missing required field: module'));
   }
+  const version = parseSchemaVersion(data.schemaVersion, module);
+  if (!version.ok) return version;
   const sourceHash = data.sourceHash;
   if (typeof sourceHash !== 'string' || sourceHash.length === 0) {
     return Err(new Error(`Comprehension "${module}" missing required field: sourceHash`));
@@ -72,16 +130,12 @@ function parseProvenance(data: Record<string, unknown>): Result<ComprehensionPro
       new Error(`Comprehension "${module}" has invalid semantic: "${scalarString(semantic)}"`)
     );
   }
-  const compilerRaw = (data.compiler ?? {}) as Record<string, unknown>;
-  const compiler = {
-    static: typeof compilerRaw.static === 'string' ? compilerRaw.static : '',
-    semantic: typeof compilerRaw.semantic === 'string' ? compilerRaw.semantic : '',
-  };
+  const compiler = parseCompiler(data.compiler);
   const model = data.model === null || data.model === undefined ? null : scalarString(data.model);
   const members = Array.isArray(data.members) ? data.members.map((m) => scalarString(m)) : [];
   const compiledAt = typeof data.compiledAt === 'string' ? data.compiledAt : '';
   return Ok({
-    schemaVersion: SCHEMA_VERSION,
+    schemaVersion: version.value,
     module,
     sourceHash,
     compiledAt,
@@ -92,30 +146,69 @@ function parseProvenance(data: Record<string, unknown>): Result<ComprehensionPro
   });
 }
 
-/** Extract the trimmed body text under a `## <heading>` up to the next `## `. */
-function sectionText(content: string, heading: string): string {
-  const lines = content.split('\n');
-  const start = lines.findIndex((l) => l.trim() === `## ${heading}`);
-  if (start === -1) return '';
-  const rest = lines.slice(start + 1);
-  const end = rest.findIndex((l) => l.startsWith('## '));
-  return (end === -1 ? rest : rest.slice(0, end)).join('\n').trim();
+/**
+ * Split the body into per-section line arrays, fence-aware (F1a). A `## ` line
+ * is a section boundary ONLY when it names one of our own headings AND we are at
+ * top level (outside a fenced block) — so `## ` lines and fences embedded in any
+ * section (prose or code) can't truncate it or leak into the next section.
+ * A fence opens on a line that starts with a run of >=3 backticks and closes on
+ * a later backtick-only line whose run is at least as long (standard markdown).
+ */
+function splitSections(content: string): Map<string, string[]> {
+  const sections = new Map<string, string[]>();
+  let current: string | null = null;
+  let fence: string | null = null;
+  for (const line of content.split('\n')) {
+    if (fence === null) {
+      const trimmed = line.trim();
+      if (trimmed.startsWith('## ')) {
+        const name = trimmed.slice(3).trim();
+        if (SECTION_HEADINGS.includes(name)) {
+          current = name;
+          if (!sections.has(name)) sections.set(name, []);
+          continue;
+        }
+      }
+      const open = /^(`{3,})/.exec(line)?.[1];
+      if (open) fence = open;
+    } else {
+      const close = /^(`{3,})\s*$/.exec(line)?.[1];
+      if (close && close.length >= fence.length) fence = null;
+    }
+    if (current !== null) sections.get(current)!.push(line);
+  }
+  return sections;
 }
 
-/** Extract `- ` bullet items under a heading. */
-function sectionList(content: string, heading: string): string[] {
-  return sectionText(content, heading)
-    .split('\n')
+/** Trimmed body text of a section. */
+function sectionText(sections: Map<string, string[]>, heading: string): string {
+  return (sections.get(heading) ?? []).join('\n').trim();
+}
+
+/** Non-empty `- ` bullet items of a section (empty bullets dropped — F4). */
+function sectionList(sections: Map<string, string[]>, heading: string): string[] {
+  return (sections.get(heading) ?? [])
     .map((l) => l.trim())
     .filter((l) => l.startsWith('- '))
-    .map((l) => l.slice(2).trim());
+    .map((l) => l.slice(2).trim())
+    .filter((l) => l.length > 0);
 }
 
-/** Extract the inner text of a single fenced block under a heading. */
-function sectionFenced(content: string, heading: string): string {
-  const body = sectionText(content, heading);
-  const m = body.match(/^```[^\n]*\n([\s\S]*?)\n?```$/);
-  return (m?.[1] ?? body).trim();
+/**
+ * Inner text of the (single) fenced block in a section (F1b). A serialized
+ * static section is exactly `<fence>\n<content>\n<fence>` after trimming, so the
+ * opening fence is the first line and the matching close is the last — a
+ * dynamic fence length guarantees no embedded run collides with it. Falls back
+ * to the raw section text when no wrapping fence is present.
+ */
+function sectionFenced(sections: Map<string, string[]>, heading: string): string {
+  const text = sectionText(sections, heading);
+  const lines = text.split('\n');
+  const open = /^(`{3,})/.exec(lines[0] ?? '')?.[1];
+  const last = lines.length - 1;
+  const close = /^(`{3,})\s*$/.exec(lines[last] ?? '')?.[1];
+  const closes = open !== undefined && close !== undefined && close.length >= open.length;
+  return closes && last > 0 ? lines.slice(1, last).join('\n') : text;
 }
 
 /**
@@ -136,12 +229,13 @@ export function parseUnit(md: string): Result<ComprehensionUnit> {
   }
   const prov = parseProvenance(data);
   if (!prov.ok) return prov;
+  const sections = splitSections(content);
   const isPresent = prov.value.semantic === 'present';
   return Ok({
     provenance: prov.value,
-    summary: isPresent ? sectionText(content, 'Summary') : '',
-    invariants: isPresent ? sectionList(content, 'Invariants') : [],
-    interfaceContract: sectionFenced(content, 'Interface Contract'),
-    dependencySlice: sectionFenced(content, 'Dependency Slice'),
+    summary: isPresent ? sectionText(sections, 'Summary') : '',
+    invariants: isPresent ? sectionList(sections, 'Invariants') : [],
+    interfaceContract: sectionFenced(sections, 'Interface Contract'),
+    dependencySlice: sectionFenced(sections, 'Dependency Slice'),
   });
 }

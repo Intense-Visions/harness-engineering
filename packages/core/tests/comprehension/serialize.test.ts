@@ -69,3 +69,96 @@ describe('comprehension serialize/parse', () => {
     expect(parseUnit(bad).ok).toBe(false);
   });
 });
+
+// F1 — fence-aware section parsing + dynamic fence length + leading `## ` in prose.
+describe('comprehension serialize/parse — F1 round-trip robustness', () => {
+  function withBodies(bodies: Partial<ComprehensionUnit>): ComprehensionUnit {
+    return { ...present(), ...bodies };
+  }
+  function roundTrip(u: ComprehensionUnit): ComprehensionUnit {
+    const parsed = parseUnit(serializeUnit(u));
+    expect(parsed.ok).toBe(true);
+    if (!parsed.ok) throw parsed.error;
+    return parsed.value;
+  }
+
+  it('recovers a `## Heading` line embedded in the summary', () => {
+    const summary = 'Intro paragraph.\n\n## A Markdown Heading\n\nMore prose after it.';
+    const r = roundTrip(withBodies({ summary }));
+    expect(r.summary).toBe(summary);
+  });
+
+  it('recovers a fenced code block embedded in the summary', () => {
+    const summary = 'Uses code:\n\n```ts\nconst x = 1;\n```\n\nDone.';
+    const r = roundTrip(withBodies({ summary }));
+    expect(r.summary).toBe(summary);
+  });
+
+  it('recovers a `## Heading` embedded in an invariant', () => {
+    const r = roundTrip(withBodies({ invariants: ['plain one', '## looks like a heading'] }));
+    expect(r.invariants).toEqual(['plain one', '## looks like a heading']);
+  });
+
+  it('recovers a `## Heading` inside a fenced static section (interfaceContract)', () => {
+    const interfaceContract = '// docs:\n## Not a section boundary\nexport const y: number';
+    const r = roundTrip(withBodies({ interfaceContract }));
+    expect(r.interfaceContract).toBe(interfaceContract);
+  });
+
+  it('recovers a code fence inside a fenced static section via dynamic fence length', () => {
+    const dependencySlice = 'example usage:\n```ts\nimport { z } from "z";\n```\nend';
+    const r = roundTrip(withBodies({ dependencySlice }));
+    expect(r.dependencySlice).toBe(dependencySlice);
+  });
+
+  it('recovers a nested/longer backtick run inside a fenced static section', () => {
+    const interfaceContract = 'nested markdown:\n````md\n```ts\ninner\n```\n````\ntail';
+    const r = roundTrip(withBodies({ interfaceContract }));
+    expect(r.interfaceContract).toBe(interfaceContract);
+  });
+
+  it('stays idempotent when sections contain headings and fences', () => {
+    const u = withBodies({
+      summary: '## Heading\n\n```ts\ncode\n```',
+      interfaceContract: '```ts\nnested\n```\nafter',
+      dependencySlice: '## Deps\n````\n```\ninner\n```\n````',
+    });
+    const md = serializeUnit(u);
+    const parsed = parseUnit(md);
+    expect(parsed.ok).toBe(true);
+    if (parsed.ok) expect(serializeUnit(parsed.value)).toBe(md);
+  });
+});
+
+// F2 — schemaVersion is read and validated, not blindly stamped.
+describe('comprehension parse — F2 schemaVersion validation', () => {
+  it('rejects a frontmatter missing schemaVersion', () => {
+    const bad = serializeUnit(present()).replace(/schemaVersion: \d+\n/, '');
+    expect(parseUnit(bad).ok).toBe(false);
+  });
+
+  it('rejects an unknown future schemaVersion', () => {
+    const bad = serializeUnit(present()).replace(/schemaVersion: \d+/, 'schemaVersion: 999');
+    const r = parseUnit(bad);
+    expect(r.ok).toBe(false);
+    if (!r.ok) expect(r.error.message).toMatch(/schemaVersion/);
+  });
+
+  it('accepts the current schemaVersion', () => {
+    const r = parseUnit(serializeUnit(present()));
+    expect(r.ok).toBe(true);
+    if (r.ok) expect(r.value.provenance.schemaVersion).toBe(SCHEMA_VERSION);
+  });
+});
+
+// F4 — empty invariants are intentionally dropped, not emitted as bare `- `.
+describe('comprehension serialize — F4 empty invariant normalization', () => {
+  it('skips empty invariants on serialize and round-trips the filtered list', () => {
+    const u = { ...present(), invariants: ['keep me', '', '   ', 'and me'] };
+    const md = serializeUnit(u);
+    expect(md).not.toMatch(/^- *$/m);
+    const parsed = parseUnit(md);
+    expect(parsed.ok).toBe(true);
+    if (parsed.ok) expect(parsed.value.invariants).toEqual(['keep me', 'and me']);
+  });
+});
