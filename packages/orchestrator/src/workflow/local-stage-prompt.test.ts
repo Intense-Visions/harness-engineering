@@ -65,6 +65,12 @@ describe('LOCAL_STAGE_PROMPT_TEMPLATE', () => {
     expect(LOCAL_STAGE_PROMPT_TEMPLATE).toMatch(/esbuild.*strips types|ALWAYS run typecheck/);
     expect(LOCAL_STAGE_PROMPT_TEMPLATE).toMatch(/count|inventory/);
   });
+
+  it('frames comprehension units as the agent primary understanding', () => {
+    expect(LOCAL_STAGE_PROMPT_TEMPLATE).toContain(
+      'comprehension units are your primary understanding'
+    );
+  });
 });
 
 describe('stage-prompt templates thread the produces variable (SC5)', () => {
