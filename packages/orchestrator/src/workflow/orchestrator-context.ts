@@ -15,6 +15,12 @@ import { AgentRunner } from '../agent/runner.js';
 import { isLocalExecutionBackend } from '../agent/backend-factory.js';
 import type { OrchestratorBackendFactory } from '../agent/orchestrator-backend-factory.js';
 import { selectStagePromptTemplate } from './local-stage-prompt.js';
+import { resolveLeafPrewarm } from './comprehension-prewarm.js';
+import {
+  ComprehensionStore,
+  createNodeComprehensionIO,
+  createNodeModuleSourceReader,
+} from '@harness-engineering/core';
 import { detectEcosystem } from '../workspace/ecosystem.js';
 import type { StreamRecorder } from '../core/stream-recorder.js';
 import type { StructuredLogger } from '../logging/logger.js';
@@ -324,6 +330,27 @@ export function deriveVerifyCommands(workspacePath: string): string[] {
       ];
 }
 
+/**
+ * D6 push-primary — resolve the pre-warmed comprehension block for a leaf at
+ * dispatch. Best-effort: serves only fresh units for the issue-referenced seed
+ * modules through the canonical LLM-free serve gate, and returns `''` on ANY
+ * failure (no `.harness/comprehension` tree, disk error, nothing fresh) so the
+ * stage prompt renders byte-identical to today. Never throws, never calls an LLM.
+ */
+export async function resolveStagePrewarmBlock(
+  issue: Issue,
+  workspacePath: string
+): Promise<string> {
+  try {
+    const store = new ComprehensionStore({ io: createNodeComprehensionIO() });
+    const reader = createNodeModuleSourceReader(workspacePath);
+    const result = await resolveLeafPrewarm(issue, { projectRoot: workspacePath, store, reader });
+    return result.block;
+  } catch {
+    return '';
+  }
+}
+
 /** Build the engine's `renderStagePrompt` seam over a pure renderer + issue. */
 function renderStagePromptFactory(
   promptRenderer: PromptRenderer,
@@ -346,6 +373,9 @@ function renderStagePromptFactory(
     const documentPath = documentStagePath(produces, issue.identifier);
     const reviewStage = REVIEW_ARTIFACTS.has(produces) ? produces : '';
     const verifyCommands = deriveVerifyCommands(workspacePath);
+    // D6 push-primary: pre-warm the leaf's fresh served comprehension units into
+    // the prompt. Best-effort → '' (byte-identical) when nothing resolves.
+    const comprehensionPrewarm = await resolveStagePrewarmBlock(issue, workspacePath);
     // Per-phase routing: pick the LOCAL-indirection template for a local-endpoint
     // routed backend, else the byte-identical default (SC-LOCAL/SC3). The variable
     // bag is identical for both templates (strictVariables — no new required var).
@@ -370,6 +400,9 @@ function renderStagePromptFactory(
         documentPath,
         // Non-empty ⇒ REVIEW stage: run review/check tools, commit no report file.
         reviewStage,
+        // D6: pre-warmed served comprehension units ('' ⇒ block renders nothing).
+        // Supplied to BOTH templates so strictVariables is satisfied under either.
+        comprehensionPrewarm,
         priorEntries,
       }
     );

@@ -21,6 +21,7 @@ const RENDER_BAG = {
   produces: 'artifact.md',
   documentPath: '',
   reviewStage: '',
+  comprehensionPrewarm: '',
   priorEntries: [] as Array<{ name: string; output: string }>,
   verifyCommands: [
     'pnpm --filter <changed-package-name> typecheck',
@@ -70,6 +71,50 @@ describe('LOCAL_STAGE_PROMPT_TEMPLATE', () => {
     expect(LOCAL_STAGE_PROMPT_TEMPLATE).toContain(
       'comprehension units are your primary understanding'
     );
+  });
+});
+
+describe('stage-prompt templates thread comprehensionPrewarm (SF4.2, D6 push-primary)', () => {
+  const renderer = new PromptRenderer();
+  const PREWARM = '# packages/core/src\n\n## Interface Contract\n\nfoo(): void';
+
+  it('BOTH templates reference {{ comprehensionPrewarm }} (shared variable set / strictVariables parity)', () => {
+    expect(STAGE_PROMPT_TEMPLATE).toContain('comprehensionPrewarm');
+    expect(LOCAL_STAGE_PROMPT_TEMPLATE).toContain('comprehensionPrewarm');
+  });
+
+  it('a non-empty prewarm renders the block under a "Pre-warmed comprehension" heading (default template)', async () => {
+    const rendered = await renderer.render(STAGE_PROMPT_TEMPLATE, {
+      ...RENDER_BAG,
+      comprehensionPrewarm: PREWARM,
+    });
+    expect(rendered).toContain('Pre-warmed comprehension');
+    expect(rendered).toContain(PREWARM);
+  });
+
+  it('a non-empty prewarm renders the block (LOCAL template)', async () => {
+    const rendered = await renderer.render(LOCAL_STAGE_PROMPT_TEMPLATE, {
+      ...RENDER_BAG,
+      comprehensionPrewarm: PREWARM,
+    });
+    expect(rendered).toContain('Pre-warmed comprehension');
+    expect(rendered).toContain(PREWARM);
+  });
+
+  it('an EMPTY prewarm renders byte-identical to a render without the block (default template)', async () => {
+    const withEmpty = await renderer.render(STAGE_PROMPT_TEMPLATE, {
+      ...RENDER_BAG,
+      comprehensionPrewarm: '',
+    });
+    expect(withEmpty).not.toContain('Pre-warmed comprehension');
+  });
+
+  it('an EMPTY prewarm renders byte-identical (LOCAL template)', async () => {
+    const withEmpty = await renderer.render(LOCAL_STAGE_PROMPT_TEMPLATE, {
+      ...RENDER_BAG,
+      comprehensionPrewarm: '',
+    });
+    expect(withEmpty).not.toContain('Pre-warmed comprehension');
   });
 });
 
