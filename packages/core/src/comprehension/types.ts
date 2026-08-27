@@ -53,9 +53,12 @@ export interface ComprehensionProvenance {
   /** Whether the semantic half is present. `absent` ⇒ static-only unit. */
   semantic: 'present' | 'absent';
   /**
-   * Sorted, de-duplicated member-file paths (repo/module-relative, posix)
-   * enumerated at compile time. Keyed by full relative path — not basename — so
-   * same-named files in different subdirs are each represented.
+   * Sorted, de-duplicated member-file BASENAMES (posix) of the module's DIRECT
+   * source files, enumerated at compile time. Keyed by basename — matching the
+   * canonical reader `createNodeModuleSourceReader` — because a module is ONE
+   * directory (D3): subdirectories are their own modules, so same-basename files
+   * never coexist in one module. This alignment is what lets the serve-time hash
+   * (recomputed from the same reader) match the compile-time hash.
    */
   members: string[];
 }

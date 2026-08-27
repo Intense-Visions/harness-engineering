@@ -1,12 +1,21 @@
-import { describe, it, expect, vi } from 'vitest';
+import { describe, it, expect, vi, afterEach } from 'vitest';
+import * as fsp from 'node:fs/promises';
+import * as os from 'node:os';
+import * as path from 'node:path';
 import { compileModule } from '../../src/comprehension/compile';
 import { computeSourceHash } from '../../src/comprehension/source-hash';
+import { serveGate } from '../../src/comprehension/serve-gate';
+import { createNodeModuleSourceReader } from '../../src/comprehension/node-io';
+import { ComprehensionStore } from '../../src/comprehension/store';
+import { createNodeComprehensionIO } from '../../src/comprehension/node-io';
 import type { SourceFile, ExtractStatic, GenerateSemantic } from '../../src/comprehension/types';
 import { COMPILER_VERSION } from '../../src/comprehension/types';
 
+// Basename-keyed DIRECT files — exactly what `createNodeModuleSourceReader`
+// produces for one module directory (D3). The compiler must consume this shape.
 const files: SourceFile[] = [
-  { path: 'src/b.ts', content: 'export const b = 2;' },
-  { path: 'src/a.ts', content: 'export const a = 1;' },
+  { path: 'b.ts', content: 'export const b = 2;' },
+  { path: 'a.ts', content: 'export const a = 1;' },
 ];
 
 const extractStatic: ExtractStatic = () => ({
@@ -26,7 +35,7 @@ describe('compileModule', () => {
     expect(unit.interfaceContract).toBe('export const a: number');
     expect(unit.dependencySlice).toBe('imports: none');
     expect(unit.provenance.sourceHash).toBe(computeSourceHash(files));
-    expect(unit.provenance.members).toEqual(['src/a.ts', 'src/b.ts']); // sorted relative paths (F6)
+    expect(unit.provenance.members).toEqual(['a.ts', 'b.ts']); // sorted basenames (D3)
     expect(unit.provenance.compiler).toEqual(COMPILER_VERSION);
     expect(unit.provenance.compiledAt).toBe('2026-08-27T12:00:00.000Z');
   });
@@ -78,23 +87,118 @@ describe('compileModule', () => {
     await expect(compileModule('   ', files, { extractStatic, now })).rejects.toThrow(/module/);
   });
 
-  // F6 — members keyed by relative path, so same-basename files in different
-  // subdirs are both reported (was silently deduped by basename).
-  it('reports same-basename files in different subdirs (keyed by relative path)', async () => {
-    const collided: SourceFile[] = [
-      { path: 'a/index.ts', content: 'export const a = 1;' },
-      { path: 'b/index.ts', content: 'export const b = 2;' },
+  // D3 — members are BASENAMES of one directory's DIRECT files. A directory
+  // prefix on an input collapses to the reader's basename (self-enforcing
+  // alignment with createNodeModuleSourceReader). NOTE: the removed F6 test
+  // ("same-basename files across subdirs in one module") asserted an IMPOSSIBLE
+  // state under D3 — a/index.ts and b/index.ts are SEPARATE modules — and its
+  // full-relative-path members could never match the basename-keyed reader,
+  // making every unit perpetually source-stale.
+  it('keys members by basename (directory prefix collapses to reader basename)', async () => {
+    const prefixed: SourceFile[] = [
+      { path: 'mod/foo.ts', content: 'export const a = 1;' },
+      { path: 'mod/bar.ts', content: 'export const b = 2;' },
     ];
-    const unit = await compileModule('mod', collided, { extractStatic, now });
-    expect(unit.provenance.members).toEqual(['a/index.ts', 'b/index.ts']);
+    const unit = await compileModule('mod', prefixed, { extractStatic, now });
+    expect(unit.provenance.members).toEqual(['bar.ts', 'foo.ts']);
   });
 
-  it('de-duplicates identical relative paths and normalizes backslashes', async () => {
+  it('de-duplicates identical basenames and normalizes backslashes', async () => {
     const dup: SourceFile[] = [
       { path: 'x\\y.ts', content: 'a' },
-      { path: 'x/y.ts', content: 'a' },
+      { path: 'y.ts', content: 'a' },
     ];
     const unit = await compileModule('mod', dup, { extractStatic, now });
-    expect(unit.provenance.members).toEqual(['x/y.ts']);
+    expect(unit.provenance.members).toEqual(['y.ts']);
+  });
+});
+
+// FIX 1 — the single-source-of-truth invariant, end to end. The reader is the
+// CANONICAL enumeration; the compiler consumes exactly what it produces; the
+// serve gate re-enumerates with the SAME reader and recomputes the hash. If the
+// compile-time and serve-time enumerations ever diverged, serve would be false
+// forever. This test pins hash EQUALITY across the real compile→store→serve path.
+describe('compile → serve hash equality (single source of truth)', () => {
+  let root = '';
+  afterEach(async () => {
+    if (root) await fsp.rm(root, { recursive: true, force: true });
+    root = '';
+  });
+
+  async function writeSource(module: string, srcFiles: Record<string, string>): Promise<void> {
+    const dir = path.join(root, module);
+    await fsp.mkdir(dir, { recursive: true });
+    for (const [name, content] of Object.entries(srcFiles)) {
+      await fsp.writeFile(path.join(dir, name), content);
+    }
+  }
+
+  it('serves a freshly compiled unit (compile-time hash === serve-time hash)', async () => {
+    root = await fsp.mkdtemp(path.join(os.tmpdir(), 'compile-serve-'));
+    const module = 'pkg/mod';
+    await writeSource(module, {
+      'a.ts': 'export const a = 1;',
+      'b.ts': 'export const b = 2;',
+      'README.md': 'ignored non-source',
+    });
+    const reader = createNodeModuleSourceReader(root);
+
+    // Enumerate via the CANONICAL reader, then compile exactly that.
+    const enumerated = await reader.readModuleSource(module);
+    expect(enumerated).not.toBeNull();
+    const compiled = await compileModule(module, enumerated!, { extractStatic, now });
+    expect(compiled.provenance.members).toEqual(['a.ts', 'b.ts']);
+
+    const store = new ComprehensionStore({
+      root: `${root.replaceAll('\\', '/')}/.harness/comprehension`,
+      io: createNodeComprehensionIO(),
+    });
+    expect((await store.write(compiled)).ok).toBe(true);
+
+    // Serve gate re-enumerates with the SAME reader → must serve.
+    const verdict = await serveGate(compiled, reader);
+    expect(verdict.serve).toBe(true);
+  });
+
+  it('refuses (source-stale) after a content change', async () => {
+    root = await fsp.mkdtemp(path.join(os.tmpdir(), 'compile-serve-'));
+    const module = 'm';
+    await writeSource(module, { 'a.ts': 'export const a = 1;' });
+    const reader = createNodeModuleSourceReader(root);
+    const compiled = await compileModule(module, (await reader.readModuleSource(module))!, {
+      extractStatic,
+      now,
+    });
+    await fsp.writeFile(path.join(root, module, 'a.ts'), 'export const a = 999;');
+    const verdict = await serveGate(compiled, reader);
+    expect(verdict).toEqual({ serve: false, reason: 'source-stale', module, recompile: true });
+  });
+
+  it('refuses (source-stale) after adding a file (membership delta)', async () => {
+    root = await fsp.mkdtemp(path.join(os.tmpdir(), 'compile-serve-'));
+    const module = 'm';
+    await writeSource(module, { 'a.ts': 'export const a = 1;' });
+    const reader = createNodeModuleSourceReader(root);
+    const compiled = await compileModule(module, (await reader.readModuleSource(module))!, {
+      extractStatic,
+      now,
+    });
+    await fsp.writeFile(path.join(root, module, 'b.ts'), 'export const b = 2;');
+    const verdict = await serveGate(compiled, reader);
+    expect(verdict.serve).toBe(false);
+  });
+
+  it('refuses (source-stale) after removing a file (membership delta)', async () => {
+    root = await fsp.mkdtemp(path.join(os.tmpdir(), 'compile-serve-'));
+    const module = 'm';
+    await writeSource(module, { 'a.ts': 'export const a = 1;', 'b.ts': 'export const b = 2;' });
+    const reader = createNodeModuleSourceReader(root);
+    const compiled = await compileModule(module, (await reader.readModuleSource(module))!, {
+      extractStatic,
+      now,
+    });
+    await fsp.rm(path.join(root, module, 'b.ts'));
+    const verdict = await serveGate(compiled, reader);
+    expect(verdict.serve).toBe(false);
   });
 });

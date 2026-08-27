@@ -12,14 +12,22 @@ export interface CompileOptions {
 }
 
 /**
- * Sorted, de-duplicated member paths (matches the frontmatter contract). Keyed
- * by full relative path — NOT basename (F6) — so two `index.ts` in different
- * subdirs are both reported instead of one silently masking the other. Mirrors
- * `computeSourceHash`, which already keys on the full path.
+ * Sorted, de-duplicated member BASENAMES (matches the frontmatter contract and,
+ * critically, the canonical reader `createNodeModuleSourceReader`). Under D3 a
+ * module is ONE directory's DIRECT files (subdirectories are their OWN modules),
+ * so the reader keys each `SourceFile.path` by its posix basename — the compiler
+ * MUST key members identically or the serve-time hash recomputed from the same
+ * reader could never match this compile-time one, leaving every unit perpetually
+ * source-stale. Basename is derived posix-safely (no node:path — this stays pure)
+ * so a stray directory-prefixed input still collapses to the reader's basename.
  */
 function memberPaths(sourceFiles: SourceFile[]): string[] {
-  const paths = sourceFiles.map((f) => f.path.replaceAll('\\', '/'));
-  return [...new Set(paths)].sort();
+  const basenames = sourceFiles.map((f) => {
+    const posix = f.path.replaceAll('\\', '/');
+    const slash = posix.lastIndexOf('/');
+    return slash === -1 ? posix : posix.slice(slash + 1);
+  });
+  return [...new Set(basenames)].sort();
 }
 
 /**
