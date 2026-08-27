@@ -1,5 +1,6 @@
 import { describe, it, expect, afterEach } from 'vitest';
-import type { SourceFile, SemanticInput } from '@harness-engineering/core';
+import type { SourceFile, SemanticInput, StaticExtraction } from '@harness-engineering/core';
+import { compileModule } from '@harness-engineering/core';
 import type {
   AnalysisProvider,
   AnalysisRequest,
@@ -10,6 +11,7 @@ import {
   boundSourceDigest,
   buildSemanticPrompt,
   createGenerateSemantic,
+  maybeCreateGenerateSemantic,
   DEFAULT_DIGEST_CHAR_BUDGET,
   DEFAULT_MAX_OUTPUT_TOKENS,
   DEFAULT_SEMANTIC_MODEL,
@@ -228,5 +230,53 @@ describe('createGenerateSemantic — provider call, cost levers, validation', ()
     expect(provider.envDuringCall[0]).toBe('1');
     // ...and it is restored (unset) afterward.
     expect(process.env[REENTRANCY_ENV]).toBeUndefined();
+  });
+});
+
+describe('maybeCreateGenerateSemantic + compileModule wire-through (SC5 / SC4)', () => {
+  const stubStatic = (): StaticExtraction => ({
+    interfaceContract: 'export function f(): void',
+    dependencySlice: 'imports: ./x',
+  });
+  const sourceFiles: SourceFile[] = [{ path: 'a.ts', content: 'export const a = 1;' }];
+
+  it('returns undefined when the resolver yielded null (SC4 — caller omits the seam → static-only)', () => {
+    expect(maybeCreateGenerateSemantic(null)).toBeUndefined();
+  });
+
+  it('returns a function when a provider is supplied', () => {
+    const provider = new StubProvider([ok({ summary: 's', invariants: [] })]);
+    expect(typeof maybeCreateGenerateSemantic(provider)).toBe('function');
+  });
+
+  it('SC5: compileModule with the adapter emits a semantic:present unit', async () => {
+    const provider = new StubProvider([
+      ok({ summary: 'compiles a module', invariants: ['static always runs'] }, 20, 'model-z'),
+    ]);
+    const unit = await compileModule('pkg/mod', sourceFiles, {
+      extractStatic: stubStatic,
+      generateSemantic: createGenerateSemantic(provider),
+    });
+    expect(unit.provenance.semantic).toBe('present');
+    expect(unit.summary).toBe('compiles a module');
+    expect(unit.invariants).toEqual(['static always runs']);
+    expect(unit.provenance.model).toBe('model-z');
+    expect(provider.requests.length).toBe(1);
+  });
+
+  it('SC4: compileModule with NO generateSemantic emits a static-only semantic:absent unit, no provider interaction', async () => {
+    const provider = new StubProvider([]); // must never be called
+    const gen = maybeCreateGenerateSemantic(null); // resolver → null path
+    const unit = await compileModule('pkg/mod', sourceFiles, {
+      extractStatic: stubStatic,
+      ...(gen ? { generateSemantic: gen } : {}),
+    });
+    expect(unit.provenance.semantic).toBe('absent');
+    expect(unit.summary).toBe('');
+    expect(unit.invariants).toHaveLength(0);
+    expect(unit.provenance.model).toBeNull();
+    expect(provider.requests.length).toBe(0);
+    // interface contract (static half) is still present.
+    expect(unit.interfaceContract).toContain('export function f');
   });
 });

@@ -202,3 +202,18 @@ export function createGenerateSemantic(
     }
   };
 }
+
+/**
+ * Graceful-degradation factory (SC4/SC5). Returns `undefined` when no provider
+ * resolved (the D8 resolver returned `null`, e.g. no credential + no local
+ * endpoint + no `claude`) so the caller simply OMITS `generateSemantic` from
+ * `compileModule` → the unit is emitted static-only (`semantic: absent`), with
+ * zero LLM calls and no credential. Otherwise it builds the concrete adapter.
+ * Never throws for a missing provider.
+ */
+export function maybeCreateGenerateSemantic(
+  provider: AnalysisProvider | null,
+  opts: GenerateSemanticOptions = {}
+): GenerateSemantic | undefined {
+  return provider ? createGenerateSemantic(provider, opts) : undefined;
+}
