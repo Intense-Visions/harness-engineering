@@ -694,7 +694,7 @@ Assemble all working context an agent needs in a single call: state, learnings, 
 - `path` (string, required) — Path to project root
 - `intent` (string, required) — What the agent is about to do (used for graph context search)
 - `skill` (string, optional) — Current skill name (filters learnings by skill)
-- `tokenBudget` (number, optional) — Approximate token budget for graph context (default 4000)
+- `tokenBudget` (number, optional) — Approximate token budget for graph context AND the primary comprehension block (default 4000)
 - `include` (array, optional) — Which constituents to include (default: all)
 - `includeEvents` (boolean, optional) — Include recent events timeline. Default: true when session is provided, false otherwise. Can also be controlled via include array.
 - `mode` (string, optional) — Response density. Default: summary
