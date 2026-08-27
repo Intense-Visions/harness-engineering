@@ -1,5 +1,8 @@
 import { describe, it, expect, afterEach } from 'vitest';
-import { resolveAnalysisProvider } from '../../../src/mcp/utils/analysis-provider.js';
+import {
+  resolveAnalysisProvider,
+  isClaudeCliAvailable,
+} from '../../../src/mcp/utils/analysis-provider.js';
 
 /**
  * The eval MCP tools (acceptance_eval / outcome_eval) were Anthropic-only, so a
@@ -31,9 +34,14 @@ describe('resolveAnalysisProvider — provider selection precedence', () => {
     }
   });
 
-  it('returns null (degrade) when neither a cloud key nor a local endpoint is configured', async () => {
+  it('returns null (degrade) when neither a cloud key nor a local endpoint is configured (and no claude on PATH)', async () => {
     clear();
-    expect(await resolveAnalysisProvider()).toBeNull();
+    // Inject claude-unavailable so this pins the fully-empty environment
+    // deterministically regardless of whether the host has `claude` installed
+    // (D8 appended a claude-CLI step; absent all three signals it is still null).
+    expect(
+      await resolveAnalysisProvider(undefined, { isClaudeCliAvailable: () => false })
+    ).toBeNull();
   });
 
   it('uses the Anthropic provider when ANTHROPIC_API_KEY is set', async () => {
@@ -61,6 +69,77 @@ describe('resolveAnalysisProvider — provider selection precedence', () => {
   it('treats a blank/whitespace local endpoint as unset (degrade, never throws)', async () => {
     clear();
     process.env.HARNESS_ANALYSIS_BASE_URL = '   ';
-    expect(await resolveAnalysisProvider()).toBeNull();
+    // claude-unavailable injected so the whitespace-endpoint degrade is pinned to
+    // null independent of the host having `claude` installed.
+    expect(
+      await resolveAnalysisProvider(undefined, { isClaudeCliAvailable: () => false })
+    ).toBeNull();
+  });
+
+  // --- D8: append-last claude-CLI fallback -------------------------------------
+
+  it('falls back to ClaudeCliAnalysisProvider when neither key nor base-url is set but claude is on PATH', async () => {
+    clear();
+    expect(
+      providerName(await resolveAnalysisProvider(undefined, { isClaudeCliAvailable: () => true }))
+    ).toBe('ClaudeCliAnalysisProvider');
+  });
+
+  it('returns null when nothing is configured and claude is NOT on PATH', async () => {
+    clear();
+    expect(
+      await resolveAnalysisProvider(undefined, { isClaudeCliAvailable: () => false })
+    ).toBeNull();
+  });
+
+  it('still prefers Anthropic / local over claude-CLI (append-last, unchanged precedence)', async () => {
+    clear();
+    process.env.ANTHROPIC_API_KEY = 'sk-ant-test';
+    expect(
+      providerName(await resolveAnalysisProvider(undefined, { isClaudeCliAvailable: () => true }))
+    ).toBe('AnthropicAnalysisProvider');
+    delete process.env.ANTHROPIC_API_KEY;
+    process.env.HARNESS_ANALYSIS_BASE_URL = 'http://127.0.0.1:11434/v1';
+    expect(
+      providerName(await resolveAnalysisProvider(undefined, { isClaudeCliAvailable: () => true }))
+    ).toBe('OpenAICompatibleAnalysisProvider');
+  });
+});
+
+describe('isClaudeCliAvailable — injectable, Windows-safe PATH scan', () => {
+  it('detects claude on a POSIX PATH dir', () => {
+    expect(
+      isClaudeCliAvailable({
+        env: { PATH: '/opt/bin:/usr/bin' },
+        fileExists: (p) => p === '/usr/bin/claude',
+      })
+    ).toBe(true);
+  });
+
+  it('is false when PATH is empty or claude is absent', () => {
+    expect(isClaudeCliAvailable({ env: {}, fileExists: () => false })).toBe(false);
+    expect(isClaudeCliAvailable({ env: { PATH: '/opt/bin' }, fileExists: () => false })).toBe(
+      false
+    );
+  });
+
+  it('resolves a Windows PATHEXT variant', () => {
+    expect(
+      isClaudeCliAvailable({
+        platform: 'win32',
+        env: { Path: 'C:\\bin', PATHEXT: '.COM;.EXE;.CMD' },
+        fileExists: (p) => p === 'C:\\bin\\claude.CMD',
+      })
+    ).toBe(true);
+  });
+
+  it('splits PATH with the platform-correct delimiter (win32 uses ";")', () => {
+    expect(
+      isClaudeCliAvailable({
+        platform: 'win32',
+        env: { Path: 'C:\\a;C:\\b', PATHEXT: '.EXE' },
+        fileExists: (p) => p === 'C:\\b\\claude.EXE',
+      })
+    ).toBe(true);
   });
 });

@@ -11,6 +11,18 @@
 // MCP server it injects into local backends (it already knows the reasoner's
 // endpoint + model), so the fully-local path lights up without config-file
 // archaeology. Absent both signals, behaviour is byte-identical to before.
+//
+// D8 (ADR 0106): a `claude`-CLI subscription step is APPENDED LAST to the
+// precedence chain — Anthropic key → local `/v1` → `claude`-CLI → null. It is
+// strictly additive: every environment that resolved a provider before resolves
+// the SAME one now. The only newly-covered environment is "no key + no local
+// endpoint + `claude` on PATH", which previously degraded to null and now gets a
+// real ClaudeCliAnalysisProvider (subscription auth, no API key). This closes
+// SC5's subscription gap for `acceptance_eval`/`outcome_eval` and comprehension's
+// `generateSemantic`.
+
+import { existsSync } from 'node:fs';
+import path from 'node:path';
 
 type Intelligence = Record<string, unknown>;
 type ProviderCtor<O> = new (opts: O) => unknown;
@@ -47,15 +59,80 @@ function makeLocalProvider(intelligence: Intelligence, model?: string): unknown 
 }
 
 /**
- * Resolve a real `AnalysisProvider` (`.analyze<T>()`) for the eval tools.
- * Precedence: cloud key (Anthropic) → local `/v1` endpoint → null (the caller
- * degrades to an advisory verdict; never throws). `model` overrides
- * `HARNESS_ANALYSIS_MODEL` / the Anthropic `defaultModel` when provided.
+ * Options for {@link isClaudeCliAvailable}. All injectable so the PATH scan is
+ * fully deterministic in tests (never depends on the host actually having
+ * `claude` installed, its real `PATH`, or the host OS).
  */
-export async function resolveAnalysisProvider(model?: string): Promise<unknown> {
+export interface ClaudeCliDetectOpts {
+  /** Environment to scan (defaults to `process.env`). */
+  env?: NodeJS.ProcessEnv;
+  /** Existence probe (defaults to `node:fs` `existsSync`). */
+  fileExists?: (p: string) => boolean;
+  /** Host platform (defaults to `process.platform`) — selects delimiter + PATHEXT. */
+  platform?: NodeJS.Platform;
+}
+
+/**
+ * True when a `claude` executable is resolvable on PATH. Windows-safe: on win32
+ * it splits PATH with `;` and tries each `PATHEXT` extension (`.CMD`/`.EXE`/…);
+ * on POSIX it splits with `:` and probes the bare `claude`. Injectable
+ * (`env`/`fileExists`/`platform`) so tests are deterministic on any host.
+ */
+export function isClaudeCliAvailable(opts: ClaudeCliDetectOpts = {}): boolean {
+  const env = opts.env ?? process.env;
+  const exists = opts.fileExists ?? existsSync;
+  const platform = opts.platform ?? process.platform;
+  const isWin = platform === 'win32';
+  const p = isWin ? path.win32 : path.posix;
+  const pathVar = env.PATH ?? env.Path ?? '';
+  if (!pathVar.trim()) return false;
+  const exts = isWin ? (env.PATHEXT ?? '.COM;.EXE;.BAT;.CMD').split(';').filter(Boolean) : [''];
+  for (const dir of pathVar.split(p.delimiter)) {
+    if (!dir) continue;
+    for (const ext of exts) {
+      if (exists(p.join(dir, `claude${ext}`))) return true;
+    }
+  }
+  return false;
+}
+
+/**
+ * claude-CLI provider (subscription auth, no API key) when `claude` is on PATH,
+ * else null. Mirrors {@link makeAnthropicProvider}/{@link makeLocalProvider}.
+ */
+function makeClaudeCliProvider(
+  intelligence: Intelligence,
+  model: string | undefined,
+  available: boolean
+): unknown {
+  if (!available) return null;
+  const Provider = intelligence.ClaudeCliAnalysisProvider as
+    | ProviderCtor<{ defaultModel?: string }>
+    | undefined;
+  if (typeof Provider !== 'function') return null;
+  return new Provider(model !== undefined ? { defaultModel: model } : {});
+}
+
+/**
+ * Resolve a real `AnalysisProvider` (`.analyze<T>()`) for the eval tools and
+ * comprehension. Precedence: cloud key (Anthropic) → local `/v1` endpoint →
+ * `claude`-CLI subscription (D8, appended LAST) → null (the caller degrades to
+ * an advisory/static-only path; never throws). `model` overrides
+ * `HARNESS_ANALYSIS_MODEL` / the provider `defaultModel` when provided.
+ * `opts.isClaudeCliAvailable` is injectable for deterministic tests.
+ */
+export async function resolveAnalysisProvider(
+  model?: string,
+  opts: { isClaudeCliAvailable?: () => boolean } = {}
+): Promise<unknown> {
   try {
     const intelligence = (await import('@harness-engineering/intelligence')) as Intelligence;
-    return makeAnthropicProvider(intelligence, model) ?? makeLocalProvider(intelligence, model);
+    const claudeAvailable = (opts.isClaudeCliAvailable ?? (() => isClaudeCliAvailable()))();
+    return (
+      makeAnthropicProvider(intelligence, model) ??
+      makeLocalProvider(intelligence, model) ??
+      makeClaudeCliProvider(intelligence, model, claudeAvailable)
+    );
   } catch {
     return null;
   }
