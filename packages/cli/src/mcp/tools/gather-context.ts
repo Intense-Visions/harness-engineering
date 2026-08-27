@@ -350,6 +350,42 @@ export async function handleGatherContext(input: {
       })()
     : Promise.resolve(null);
 
+  const comprehensionPromise = includeSet.has('comprehension')
+    ? (async () => {
+        const core = await import('@harness-engineering/core');
+        const store = new core.ComprehensionStore({
+          root: `${projectPath.replaceAll('\\', '/')}/${core.COMPREHENSION_ROOT}`,
+          io: core.createNodeComprehensionIO(),
+        });
+        const listed = await store.list();
+        if (!listed.ok) return null;
+        const reader = core.createNodeModuleSourceReader(projectPath);
+        const tokenBudget = input.tokenBudget ?? 4000;
+        const charBudget = tokenBudget * 4;
+        const served: Array<{ module: string; markdown: string }> = [];
+        const stale: Array<{ module: string; recompile: true }> = [];
+        let totalChars = 0;
+        for (const unit of listed.value) {
+          const verdict = await core.serveGate(unit, reader);
+          if (!verdict.serve) {
+            stale.push({ module: verdict.module, recompile: true });
+            continue;
+          }
+          const markdown = core.renderServedUnit(verdict.unit);
+          if (totalChars + markdown.length > charBudget && served.length > 0) continue;
+          served.push({ module: unit.provenance.module, markdown });
+          totalChars += markdown.length;
+        }
+        return {
+          served,
+          stale,
+          unitsAvailable: listed.value.length,
+          unitsServed: served.length,
+          tokenBudget,
+        };
+      })()
+    : Promise.resolve(null);
+
   // Execute all in parallel
   const [
     stateResult,
@@ -360,6 +396,7 @@ export async function handleGatherContext(input: {
     sessionsResult,
     eventsResult,
     businessKnowledgeResult,
+    comprehensionResult,
   ] = await Promise.allSettled([
     statePromise,
     learningsPromise,
@@ -369,6 +406,7 @@ export async function handleGatherContext(input: {
     sessionsPromise,
     eventsPromise,
     businessKnowledgePromise,
+    comprehensionPromise,
   ]);
 
   // Extract results, recording errors
@@ -388,6 +426,13 @@ export async function handleGatherContext(input: {
   const sessionsRaw = extract(sessionsResult, 'sessions');
   const eventsTimeline = extract(eventsResult, 'events');
   const businessKnowledgeRaw = extract(businessKnowledgeResult, 'businessKnowledge');
+  const comprehensionRaw = extract(comprehensionResult, 'comprehension') as {
+    served: Array<{ module: string; markdown: string }>;
+    stale: Array<{ module: string; recompile: true }>;
+    unitsAvailable: number;
+    unitsServed: number;
+    tokenBudget: number;
+  } | null;
 
   // Unwrap Result types from core functions
   const state =
@@ -466,6 +511,17 @@ export async function handleGatherContext(input: {
           }
         : graphContext;
   const outputValidation = validation ?? null;
+  const outputComprehension =
+    comprehensionRaw == null
+      ? null
+      : mode === 'summary'
+        ? {
+            unitsAvailable: comprehensionRaw.unitsAvailable,
+            unitsServed: comprehensionRaw.unitsServed,
+            staleDropped: comprehensionRaw.stale.length,
+            recompile: comprehensionRaw.stale.map((s) => s.module),
+          }
+        : comprehensionRaw;
 
   const output = {
     state: outputState,
@@ -476,6 +532,7 @@ export async function handleGatherContext(input: {
     sessionSections: sessionSections ?? null,
     events: eventsTimeline || null,
     businessKnowledge: businessKnowledgeRaw ?? null,
+    comprehension: outputComprehension,
     meta: {
       assembledIn,
       graphAvailable: graphContext !== null,
