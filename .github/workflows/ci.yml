@@ -147,6 +147,18 @@ jobs:
       # Dogfood the shipped semantic-vocabulary gate against harness's own config.
       - run: node packages/cli/dist/bin/harness.js check-vocabulary
 
+      # ADVISORY (non-blocking): comprehension freshness backstop (phase 5, SF2).
+      # Catches a commit that bypassed the opt-in pre-commit hook by leaving a
+      # source-stale comprehension unit. `comprehend --check` is TOKEN-FREE (no
+      # provider, no LLM, no credential — SC2/SC4): it recomputes each unit's
+      # source hash via the serve gate and reports the stale ones. `continue-on-
+      # error: true` makes a stale unit annotate the run but NEVER red the build
+      # (spec default: verify mode is non-blocking). The opt-in token-gated
+      # `refresh` mode is deferred to a follow-up.
+      - name: Comprehension freshness (advisory)
+        continue-on-error: true
+        run: node packages/cli/dist/bin/harness.js comprehend --check
+
       # The operational-drift check is diff-based, so it needs the PR base commit
       # reachable. The build-and-test checkout above is shallow (fetch-depth 1),
       # so fetch the base branch to make origin/<base_ref> resolvable — the same
