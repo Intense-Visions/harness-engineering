@@ -1,0 +1,17 @@
+{
+  "issue": 1600,
+  "slug": "fleet-command-spend-envelope",
+  "stages": ["brainstorming", "autopilot/planning", "execution", "review"],
+  "plan_path": "docs/changes/fleet-command-spend-envelope/plans/plan.md",
+  "proposal_path": "docs/changes/fleet-command-spend-envelope/proposal.md",
+  "closing_keyword": "Closes #1600",
+  "shared_primitive": "@harness-engineering/core fleet/spend-budget (evaluateSpendEnvelope / isGlobalEnvelopeExhausted / isFleetAllocationExhausted)",
+  "dispatch_consult_call_site": "harness fleet budget-check (packages/cli/src/commands/fleet/budget-check.ts) — referenced by the fleet-family.md DISPATCH contract and fleet-command SKILL.md DISPATCH step 8",
+  "config_key": "agent.budget shape reused via --envelope / --period / --fleet / --fleet-envelope flags (SpendEnvelope: envelopeTokens + perFleet)",
+  "assumptions": [
+    "The fleet path denominates its envelope in burn UNITS (burn's portable, price-weighted spend metric), because that is the unit burn attributes per-fleet; the core primitive is unit-agnostic and the orchestrator continues to use raw tokens. Stated at each call site rather than silently mixed.",
+    "The fleet key for per-fleet attribution on the fleet path is the invoking SKILL name (burn's `skills` block, tried bare and as `harness:<name>`), not the orchestrator's `fleet:` issue label — the two paths attribute by different natural keys.",
+    "budget-check reads observed spend from burn's existing summary (#1270) and refreshes it by default; a failed rescan falls through to the cached summary rather than faking a green.",
+    "Exit code 10 encodes EXHAUSTED (distinct from generic 1/2 errors) so a fleet skill/agent can branch; within/unconfigured exit 0."
+  ]
+}

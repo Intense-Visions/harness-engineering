@@ -982,6 +982,22 @@ Verify a page actually renders (the only authority on render correctness)
 
 - `--url` — Rendered URL (http(s) or file://) to assert against
 
+## Fleet Commands
+
+Fleet-family dispatch callables (spend-envelope budget consult, #1600)
+
+### `harness fleet budget-check`
+
+Consult the fleet spend envelope at DISPATCH (#1600): compare burn-observed spend against the envelope and report within | exhausted | unconfigured
+
+**Options:**
+
+- `--envelope` — global spend envelope for the period, in burn units (250M, 1.2B)
+- `--fleet` — fleet key (matches burn's invoking-skill, e.g. roadmap-fleet)
+- `--fleet-envelope` — per-fleet sub-allocation for --fleet, in burn units
+- `--json` — emit the verdict as JSON
+- `--no-refresh` — use the cached burn summary without rescanning
+
 ## Gateway Commands
 
 Gateway API administration

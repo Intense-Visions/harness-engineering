@@ -478,6 +478,14 @@ export type {
   LeafBudgetVerdict,
 } from './fleet-context-budget';
 
+// --- Fleet Spend Budget (shared spend envelope, orchestrator + fleet-command, #1600) ---
+export {
+  FLEET_SPEND_BUDGET_VERSION,
+  SpendEnvelopeSchema,
+  validateSpendEnvelope,
+} from './fleet-spend-budget';
+export type { SpendEnvelope, ObservedSpend, SpendEnvelopeVerdict } from './fleet-spend-budget';
+
 // --- Telemetry synthesis (#563) ---
 export { TELEMETRY_SYNTHESIS_SECTIONS } from './telemetry-synthesis';
 export type {
