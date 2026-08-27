@@ -60,7 +60,28 @@ Route: **feature** (brainstorming → autopilot). Stages: brainstorming, autopil
   `assumptions[]`).
 - Rebuild CLI, run full typecheck/lint/test, open PR against `main`.
 
+### T6 — Wire a LIVE enforcement caller (operator-directed follow-up)
+
+The core primitive must not be set-but-never-read. Give it a real caller in the
+executable dispatch path, config-gated and byte-identical by default.
+
+- core: add `assertLeafWithinBudget(estimate, budget)` (throws
+  `ContextBudgetExceededError` when over) — the fail-loud consult helper.
+- types: `AgentContextBudgetConfig` + optional `agent.contextBudget` on `AgentConfig`.
+- orchestrator: `core/context-budget-governor.ts` — `estimateIssueContextTokens`
+  (deterministic `(title+description).length/4`, no I/O) + `assertIssueWithinContextBudget`
+  (no-op when unconfigured). Wire into `dispatchEligibleIssue` (`core/state-machine.ts`)
+  before claim: catch the throw → emit loud `emitLog` error effect + skip dispatch.
+- config: validate `agent.contextBudget` in `validateWorkflowConfig`.
+- docs: `fleet-family.md` names the consult helper, the live call site, and the config key.
+- tests: governor (estimate/no-op/throw), state-machine (over-budget emits error + no
+  claim; unconfigured dispatches — byte-identical), config validation.
+- **Checkpoint:** governor + state-machine + config + core suites green; all-OS CI green.
+
 ## Verification
 
 - Unit tests prove fail-loud (over-budget) and silent-never (boundary/within).
+- The live caller (state-machine dispatch loop) emits a loud error + skips an
+  over-budget leaf, and is byte-identical when unconfigured (pre-existing dispatch
+  tests unchanged).
 - All-OS CI green on the PR.
