@@ -542,12 +542,14 @@ export async function handleGatherContext(input: {
     state: outputState,
     learnings: outputLearnings,
     handoff: outputHandoff,
+    // FIX 5: comprehension is the PRIMARY understanding block (spec D6/Serving),
+    // so it is serialized BEFORE graphContext to match the contract's primacy.
+    comprehension: outputComprehension,
     graphContext: outputGraphContext,
     validation: outputValidation,
     sessionSections: sessionSections ?? null,
     events: eventsTimeline || null,
     businessKnowledge: businessKnowledgeRaw ?? null,
-    comprehension: outputComprehension,
     meta: {
       assembledIn,
       graphAvailable: graphContext !== null,
