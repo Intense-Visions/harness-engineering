@@ -12,6 +12,8 @@ import {
   buildSemanticPrompt,
   createGenerateSemantic,
   maybeCreateGenerateSemantic,
+  isComprehensionReentrant,
+  withComprehensionActive,
   DEFAULT_DIGEST_CHAR_BUDGET,
   DEFAULT_MAX_OUTPUT_TOKENS,
   DEFAULT_SEMANTIC_MODEL,
@@ -32,6 +34,28 @@ class StubProvider implements AnalysisProvider {
     const next = this.queue.shift();
     if (next instanceof Error) throw next;
     if (!next) throw new Error('StubProvider: no more canned responses');
+    return next as AnalysisResponse<T>;
+  }
+}
+
+/**
+ * Like {@link StubProvider} but each `analyze` yields (awaits a microtask) before
+ * resolving, so concurrent sibling calls all interleave their awaits before any
+ * resolves — the schedule under which a per-call env-var reentrancy flag would
+ * silently drop siblings.
+ */
+class DelayingProvider implements AnalysisProvider {
+  public requests: AnalysisRequest[] = [];
+  private queue: Array<AnalysisResponse<unknown> | Error>;
+  constructor(responses: Array<AnalysisResponse<unknown> | Error>) {
+    this.queue = [...responses];
+  }
+  async analyze<T>(request: AnalysisRequest): Promise<AnalysisResponse<T>> {
+    this.requests.push(request);
+    await new Promise((r) => setTimeout(r, 0));
+    const next = this.queue.shift();
+    if (next instanceof Error) throw next;
+    if (!next) throw new Error('DelayingProvider: no more canned responses');
     return next as AnalysisResponse<T>;
   }
 }
@@ -213,22 +237,62 @@ describe('createGenerateSemantic — provider call, cost levers, validation', ()
     expect(warn.n).toBe(1);
   });
 
-  it('reentrancy guard: refuses to recurse when HARNESS_COMPREHENSION_ACTIVE is already set', async () => {
-    process.env[REENTRANCY_ENV] = '1';
-    const provider = new StubProvider([ok({ summary: 's', invariants: [] })]);
+  it('concurrency-safe: N concurrent sibling calls under withComprehensionActive ALL reach the provider (zero silent drops)', async () => {
+    delete process.env[REENTRANCY_ENV];
+    const N = 4;
+    // A provider that yields (awaits a microtask) so all N calls interleave their
+    // awaits BEFORE any resolves — the exact schedule that the old per-call
+    // env-var flag turned into ~3/4 silent semantic:absent drops.
+    const provider = new DelayingProvider(
+      Array.from({ length: N }, (_, i) => ok({ summary: `s${i}`, invariants: [] }))
+    );
     const gen = createGenerateSemantic(provider);
-    expect(await gen(INPUT)).toBeNull();
-    expect(provider.requests.length).toBe(0);
+    const results = await withComprehensionActive(() =>
+      Promise.all(Array.from({ length: N }, () => gen(INPUT)))
+    );
+    // Every sibling produced a real unit — nothing degraded to null.
+    expect(results.every((r) => r !== null)).toBe(true);
+    // Every sibling actually called the provider — N calls, no short-circuit.
+    expect(provider.requests.length).toBe(N);
   });
 
-  it('reentrancy guard: sets the flag for the child during analyze, restores it after', async () => {
+  it('run-boundary guard: isComprehensionReentrant is true only when the env flag is preset (a nested child)', () => {
     delete process.env[REENTRANCY_ENV];
-    const provider = new StubProvider([ok({ summary: 's', invariants: [] })]);
-    const gen = createGenerateSemantic(provider);
-    await gen(INPUT);
-    // The stub observed the flag set to '1' during the awaited analyze call...
-    expect(provider.envDuringCall[0]).toBe('1');
-    // ...and it is restored (unset) afterward.
+    expect(isComprehensionReentrant()).toBe(false);
+    process.env[REENTRANCY_ENV] = '1';
+    expect(isComprehensionReentrant()).toBe(true);
+    // Honors an injected env too (child-process spawn shape).
+    expect(isComprehensionReentrant({})).toBe(false);
+    expect(isComprehensionReentrant({ [REENTRANCY_ENV]: '1' })).toBe(true);
+  });
+
+  it('run-boundary guard: withComprehensionActive sets the flag for the whole run and restores prev after', async () => {
+    delete process.env[REENTRANCY_ENV];
+    let flagDuring: string | undefined;
+    const ret = await withComprehensionActive(async () => {
+      flagDuring = process.env[REENTRANCY_ENV];
+      return 'done';
+    });
+    expect(ret).toBe('done');
+    expect(flagDuring).toBe('1');
+    // Restored to the (unset) previous value after the run.
+    expect(process.env[REENTRANCY_ENV]).toBeUndefined();
+
+    // Restores a PRE-EXISTING value rather than deleting it.
+    process.env[REENTRANCY_ENV] = 'preset';
+    await withComprehensionActive(async () => {
+      expect(process.env[REENTRANCY_ENV]).toBe('1');
+    });
+    expect(process.env[REENTRANCY_ENV]).toBe('preset');
+  });
+
+  it('run-boundary guard: withComprehensionActive restores the flag even when fn throws', async () => {
+    delete process.env[REENTRANCY_ENV];
+    await expect(
+      withComprehensionActive(async () => {
+        throw new Error('boom');
+      })
+    ).rejects.toThrow('boom');
     expect(process.env[REENTRANCY_ENV]).toBeUndefined();
   });
 });
