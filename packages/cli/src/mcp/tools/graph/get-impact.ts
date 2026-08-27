@@ -1,6 +1,7 @@
+import { boundItems } from '@harness-engineering/core';
 import { loadGraphStore } from '../../utils/graph-loader.js';
 import { sanitizePath } from '../../utils/sanitize-path.js';
-import { graphNotFoundError } from './shared.js';
+import { graphNotFoundError, resolveDetailCeiling } from './shared.js';
 
 export const getImpactDefinition = {
   name: 'get_impact',
@@ -145,15 +146,53 @@ export async function handleGetImpact(input: {
       };
     }
 
+    // Detailed mode: bound both the impacted-node set and the edge list so a
+    // hub (high-degree) node cannot return an unbounded payload (issue #1591).
+    const ceiling = resolveDetailCeiling(projectPath);
+
+    // Flatten nodes in priority order (tests → docs → code → other), bound the
+    // combined set to the ceiling, then regroup the retained nodes.
+    const flatNodes = [
+      ...(groups['tests'] as Array<{ type: string }>),
+      ...(groups['docs'] as Array<{ type: string }>),
+      ...(groups['code'] as Array<{ type: string }>),
+      ...(groups['other'] as Array<{ type: string }>),
+    ];
+    const boundedNodes = boundItems(flatNodes, ceiling);
+    const groupOf = (t: string): keyof typeof groups =>
+      testTypes.has(t) ? 'tests' : docTypes.has(t) ? 'docs' : codeTypes.has(t) ? 'code' : 'other';
+    const boundedGroups: Record<string, unknown[]> = { tests: [], docs: [], code: [], other: [] };
+    for (const node of boundedNodes.items) {
+      boundedGroups[groupOf(node.type)]!.push(node);
+    }
+
+    const boundedEdges = boundItems(result.edges, ceiling);
+    const truncated = boundedNodes.truncated || boundedEdges.truncated;
+
     return {
       content: [
         {
           type: 'text' as const,
           text: JSON.stringify({
             targetNodeId,
-            impact: groups,
+            impact: boundedGroups,
             stats: result.stats,
-            edges: result.edges,
+            edges: boundedEdges.items,
+            truncated,
+            ...(truncated && {
+              continuation: {
+                maxItems: ceiling,
+                nodes: {
+                  returned: boundedNodes.returned,
+                  totalAvailable: boundedNodes.totalAvailable,
+                },
+                edges: {
+                  returned: boundedEdges.returned,
+                  totalAvailable: boundedEdges.totalAvailable,
+                },
+                hint: 'Result truncated to the detailed-mode item ceiling. Use mode:"summary" for counts, or narrow the anchor node. Configure via graph.detailedMode.maxItems.',
+              },
+            }),
           }),
         },
       ],

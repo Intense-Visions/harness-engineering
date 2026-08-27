@@ -1217,6 +1217,19 @@ export const HarnessConfigSchema = z.object({
     .object({
       /** Per-connector configuration (keyed by connector name: jira, slack, ci, confluence, figma, miro) */
       connectors: z.record(z.string(), z.record(z.string(), z.unknown())).default({}),
+      /**
+       * Detailed-mode response bounds for graph retrieval tools (get_impact,
+       * query_graph, compute_blast_radius). Caps the number of items returned
+       * per array so a detailed call on a hub (high-degree) node cannot dump an
+       * unbounded payload (issue #1591). Omitted → the tools use
+       * `DEFAULT_GRAPH_DETAIL_CEILING` from `@harness-engineering/core`.
+       */
+      detailedMode: z
+        .object({
+          /** Max items returned per array in a detailed-mode response. */
+          maxItems: z.number().int().positive().optional(),
+        })
+        .optional(),
     })
     .optional(),
   /**

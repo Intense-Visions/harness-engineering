@@ -1,0 +1,64 @@
+{
+  "issue": 1591,
+  "slug": "bound-detailed-graph-output",
+  "fleet": "roadmap-fleet",
+  "pipeline": ["brainstorming", "autopilot"],
+  "stages": [
+    {
+      "stage": "explore",
+      "skill": "harness-brainstorming",
+      "artifacts": [
+        "read get-impact.ts, query-graph.ts, compute-blast-radius.ts, pagination.ts, config schema, benchmark RESULTS.md"
+      ]
+    },
+    {
+      "stage": "evaluate",
+      "skill": "harness-brainstorming",
+      "artifacts": [
+        "confirmed decisions folded from fleet task (count-based ceiling, fail-soft, config-driven, bound all three)"
+      ]
+    },
+    {
+      "stage": "prioritize",
+      "skill": "harness-brainstorming",
+      "artifacts": ["chose count-based item ceiling over token/byte meter"]
+    },
+    {
+      "stage": "validate",
+      "skill": "harness-brainstorming",
+      "artifacts": ["docs/changes/bound-detailed-graph-output/proposal.md"]
+    },
+    {
+      "stage": "plan",
+      "skill": "harness-autopilot",
+      "artifacts": ["docs/changes/bound-detailed-graph-output/plans/plan.md"]
+    },
+    {
+      "stage": "execute",
+      "skill": "harness-autopilot",
+      "artifacts": [
+        "packages/core/src/compaction/detail-ceiling.ts",
+        "packages/cli/src/mcp/tools/graph/get-impact.ts",
+        "packages/cli/src/mcp/tools/graph/query-graph.ts",
+        "packages/cli/src/mcp/tools/graph/compute-blast-radius.ts",
+        "packages/cli/src/config/schema.ts"
+      ]
+    },
+    {
+      "stage": "verify",
+      "skill": "harness-autopilot",
+      "artifacts": [
+        "packages/cli/src/mcp/tools/graph/detail-ceiling.behavior.test.ts",
+        "packages/core/src/compaction/detail-ceiling.test.ts"
+      ]
+    }
+  ],
+  "plan_path": "docs/changes/bound-detailed-graph-output/plans/plan.md",
+  "closing_keyword": "Closes #1591",
+  "assumptions": [
+    "Count-based ceiling (200 items/array) is an acceptable proxy for the token ceiling; a byte/token meter is rejected because it would require materializing the payload we are avoiding.",
+    "Fail-open on config read error (apply the default ceiling) is safer than failing the tool call.",
+    "query_graph's existing node offset/limit pagination is retained; only its unbounded edges array needed bounding.",
+    "Default ceiling of 200 derived from benchmark: ~125 tokens/item keeps a detailed response near ~25k tokens vs the ~293M unbounded worst case."
+  ]
+}
