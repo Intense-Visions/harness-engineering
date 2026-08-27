@@ -18,7 +18,7 @@ Phases:
 - select: Enumerate the open-PR queue, triage each PR into the land-readiness taxonomy, cross-check for superseded/already-resolved PRs, and order landable candidates by land-priority
 - confirm: Present the triaged queue in one round — superseded items flagged for closure, decision forks as questions, proposed concurrency — for a single up-front human approval that carries the per-PR merge authorization
 - dispatch: Fan out worktree-isolated subagents that each run the real code-review pipeline for one PR, push fix commits for mechanical findings, and re-run CI — never merging, never fabricating approval — capped at the concurrency governor
-- verify: Independently confirm each PR proposed to land is CI-green across all OS plus enforce and harness, carries a review verdict, and is mergeable — never by subagent self-report
+- verify: Independently confirm each PR proposed to land is CI-green across all target operating systems plus the project's required checks, carries a review verdict, and is mergeable — never by subagent self-report
 - land: Merge only the PRs that are both human-approved in confirm and independently verified, honoring branch protection; emit a one-row-per-PR batch summary and close superseded PRs citing the superseding PR; never merge unapproved or unverified work
   </objective>
 

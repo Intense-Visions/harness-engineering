@@ -13,7 +13,7 @@ Phases:
 - select: Enumerate the entropy/hotspot backlog by composing hotspot-detector, cleanup-dead-code, dependency-health, detect_entropy and a churn pass into remediation targets, cross-check against merged/open PRs, classify safe vs risky, and score by composite churn x structural-risk x finding-density
 - confirm: Present the ranked target batch in one round — already-cleaned targets flagged for drop, safe/risky classifications confirmed, risky targets flagged as will-park, proposed concurrency — for a single up-front human approval
 - dispatch: Fan out worktree-isolated subagents, each running the real harness-codebase-cleanup --fix for one target, capped at the concurrency governor; a target needing a risky structural change parks and reports
-- verify: Independently confirm each returned branch converged (opening findings resolved and a fresh re-scan clean) and is CI-green across all OS plus enforce and harness — never by subagent self-report
+- verify: Independently confirm each returned branch converged (opening findings resolved and a fresh re-scan clean) and is CI-green across all target operating systems plus the project's required checks — never by subagent self-report
 - report: Emit a one-row-per-target batch summary with findings-resolved counts, assumptions notes, and parked risky remediations for bulk human review, annotate already-cleaned targets citing the resolving PR, never merge
 </objective>
 
@@ -143,7 +143,7 @@ Phase 1: SELECT --> Phase 2: CONFIRM --> Phase 3: DISPATCH
 
    A branch whose re-scan **still reports findings did not converge** — regardless of what the subagent reported. Reject it (or retry once); it is never marked merge-ready.
 
-3. **Require all-OS CI green.** Confirm the pushed branch's CI is green on **all three operating systems** plus the enforce and harness checks (`gh pr checks` / `gh run list`). Green on one OS is not green. A subset-red branch is not merge-ready — it is reported as failed, and the batch continues.
+3. **Require all-OS CI green.** Confirm the pushed branch's CI is green on **all target operating systems** plus the project's required checks (`gh pr checks` / `gh run list`). Green on one OS is not green. A subset-red branch is not merge-ready — it is reported as failed, and the batch continues. **Base freshness (spine clause):** all-OS green is trusted as `verified` only when it ran against **current `main`** — the branch is up to date with `main`, or branch protection enforces strict / up-to-date-before-merge. Green gathered against a base that `main` has since moved past is **stale**: downgrade the item to **`degraded`**, not verified, and report the stale tested base SHA vs current `main`. See `docs/reference/fleet-family.md` § _Base freshness_ (`classifyBaseFreshness`).
 
 4. **Classify each returned target** as `verified` (converged + all-OS CI green), `rejected` (did not converge or definitively red), or `retry` (transient, retried at most once). No target reaches REPORT as merge-ready without passing both the convergence and the CI check.
 
@@ -177,7 +177,7 @@ Phase 1: SELECT --> Phase 2: CONFIRM --> Phase 3: DISPATCH
 
 ## Success Criteria
 
-- Given a confirmed batch of N remediation targets, the fleet produces **up to N** cleanup PRs, each with a verified convergence record (re-scan clean) and green CI across all three OS plus enforce and harness.
+- Given a confirmed batch of N remediation targets, the fleet produces **up to N** cleanup PRs, each with a verified convergence record (re-scan clean) and green CI across all target operating systems plus the project's required checks.
 - There is **exactly one** up-front human decision round; no per-target interactive pauses except a genuinely-risky remediation parked to its own target.
 - **Every emitted PR carries an "assumptions made" note** (ranking basis, remediation scope, safe-vs-risky calls).
 - Risky structural remediations are **parked and reported, never auto-applied**.
@@ -352,7 +352,7 @@ phases:
     description: Fan out worktree-isolated subagents, each running the real harness-codebase-cleanup --fix for one target, capped at the concurrency governor; a target needing a risky structural change parks and reports
     required: true
   - name: verify
-    description: Independently confirm each returned branch converged (opening findings resolved and a fresh re-scan clean) and is CI-green across all OS plus enforce and harness — never by subagent self-report
+    description: Independently confirm each returned branch converged (opening findings resolved and a fresh re-scan clean) and is CI-green across all target operating systems plus the project's required checks — never by subagent self-report
     required: true
   - name: report
     description: Emit a one-row-per-target batch summary with findings-resolved counts, assumptions notes, and parked risky remediations for bulk human review, annotate already-cleaned targets citing the resolving PR, never merge

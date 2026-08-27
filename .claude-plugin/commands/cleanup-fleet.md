@@ -24,7 +24,7 @@ Phases:
 - select: Enumerate the entropy/hotspot backlog by composing hotspot-detector, cleanup-dead-code, dependency-health, detect_entropy and a churn pass into remediation targets, cross-check against merged/open PRs, classify safe vs risky, and score by composite churn x structural-risk x finding-density
 - confirm: Present the ranked target batch in one round — already-cleaned targets flagged for drop, safe/risky classifications confirmed, risky targets flagged as will-park, proposed concurrency — for a single up-front human approval
 - dispatch: Fan out worktree-isolated subagents, each running the real harness-codebase-cleanup --fix for one target, capped at the concurrency governor; a target needing a risky structural change parks and reports
-- verify: Independently confirm each returned branch converged (opening findings resolved and a fresh re-scan clean) and is CI-green across all OS plus enforce and harness — never by subagent self-report
+- verify: Independently confirm each returned branch converged (opening findings resolved and a fresh re-scan clean) and is CI-green across all target operating systems plus the project's required checks — never by subagent self-report
 - report: Emit a one-row-per-target batch summary with findings-resolved counts, assumptions notes, and parked risky remediations for bulk human review, annotate already-cleaned targets citing the resolving PR, never merge
   </objective>
 

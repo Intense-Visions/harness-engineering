@@ -48,7 +48,7 @@ phases:
     description: Fan out worktree-isolated subagents, each running the real architecture-advisor pipeline for one decision and drafting docs/knowledge/decisions/NNNN-slug.md at status proposed, capped at the concurrency governor
     required: true
   - name: verify
-    description: Independently confirm each returned branch has a well-formed drafted ADR (required frontmatter, unique sequential number, status proposed, Context/Decision/Consequences) and is CI-green across all OS plus enforce and harness — never by subagent self-report
+    description: Independently confirm each returned branch has a well-formed drafted ADR (required frontmatter, unique sequential number, status proposed, Context/Decision/Consequences) and is CI-green across all target operating systems plus the project's required checks — never by subagent self-report
     required: true
   - name: signoff
     description: Present every verified drafted ADR in one batch pass; flip status proposed to accepted only for ADRs the human explicitly accepts; emit a one-row-per-decision summary and close already-decided candidates citing the existing ADR; never auto-accept

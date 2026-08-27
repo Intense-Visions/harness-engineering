@@ -112,7 +112,7 @@ The five-phase spine, the concurrency governor, the artifact + all-OS-CI verific
 
 3. **Require an improved coverage delta.** Re-audit the target's coverage (via `harness-test-advisor`) and confirm it **improved**. A branch whose coverage did not move — or moved only through assertion-free tests — is coverage theater, not coverage. Reject it.
 
-4. **Require all-OS CI green.** Confirm the pushed branch's CI is green on **all three operating systems** plus the enforce and harness checks, and that the **full test suite** (not just the new tests) still passes — the new tests must pass everywhere and break nothing existing. Green on one OS is not green. A subset-red branch is reported failed, and the batch continues.
+4. **Require all-OS CI green.** Confirm the pushed branch's CI is green on **all target operating systems** plus the project's required checks, and that the **full test suite** (not just the new tests) still passes — the new tests must pass everywhere and break nothing existing. Green on one OS is not green. A subset-red branch is reported failed, and the batch continues. **Base freshness (spine clause):** all-OS green is trusted as `verified` only when it ran against **current `main`** — the branch is up to date with `main`, or branch protection enforces strict / up-to-date-before-merge. Green gathered against a base that `main` has since moved past is **stale**: downgrade the item to **`degraded`**, not verified, and report the stale tested base SHA vs current `main`. See `docs/reference/fleet-family.md` § _Base freshness_ (`classifyBaseFreshness`).
 
 5. **Classify each returned target** as `verified` (added behavior-asserting tests + improved coverage delta + all-OS CI green), `rejected` (no added test, coverage theater, or definitively red), or `retry` (transient, retried at most once). No target reaches REPORT as merge-ready without passing all three checks.
 
@@ -143,7 +143,7 @@ The five-phase spine, the concurrency governor, the artifact + all-OS-CI verific
 
 ## Success Criteria
 
-- Given a confirmed batch of N coverage targets, the fleet produces **up to N** test PRs (some grouped), each with added behavior-asserting tests, an improved coverage delta, and green CI across all three OS plus enforce and harness.
+- Given a confirmed batch of N coverage targets, the fleet produces **up to N** test PRs (some grouped), each with added behavior-asserting tests, an improved coverage delta, and green CI across all target operating systems plus the project's required checks.
 - There is **exactly one** up-front human decision round; no per-target interactive pauses except a genuinely-new fork parked to its own target.
 - **Every emitted PR carries an "assumptions made" note and its coverage delta.**
 - Coverage-theater tests (assertion-free, import-only) are **rejected** — a "covered" target must gain a behavior-asserting test.

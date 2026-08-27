@@ -81,10 +81,31 @@ This record is modeled on a Ralph-loop bounded structured report (the normalized
 ## Hard invariants (every member)
 
 1. **Dogfood the real per-item skills.** Never hand-implement or short-cut the per-item pipeline — the artifacts it leaves behind are what VERIFY checks for.
-2. **Verify adherence by artifact + all-OS CI green** before any terminal action. For build-shaped members the artifact is a plan directory plus an autopilot-state; for review/land-shaped members it is a recorded review verdict plus the PR's CI signal. Green on one OS is not green. A member that **emits no code and opens no PR** has no CI subject: it records all-OS CI as **not applicable** rather than dropping it silently, and substitutes a second independent check that carries the same evidentiary weight (`ideate-fleet` re-derives every ranking from the artifact's own inputs). Recording the not-applicable is what keeps the invariant honest — a skipped check and an inapplicable one must not look alike.
+2. **Verify adherence by artifact + all-OS CI green** before any terminal action. For build-shaped members the artifact is a plan directory plus an autopilot-state; for review/land-shaped members it is a recorded review verdict plus the PR's CI signal. Green on one OS is not green. **Green against a stale base is not verified either** — a CI conclusion is evidence only about the base it ran against; see _Base freshness_ below. A member that **emits no code and opens no PR** has no CI subject: it records all-OS CI as **not applicable** rather than dropping it silently, and substitutes a second independent check that carries the same evidentiary weight (`ideate-fleet` re-derives every ranking from the artifact's own inputs). Recording the not-applicable is what keeps the invariant honest — a skipped check and an inapplicable one must not look alike.
 3. **A self-report is never verification.** "Pipeline ran, CI green" is a claim the orchestrator independently checks, never accepts.
 4. **Never silently merge or ship unreviewed work.** The fleet's product is a reviewable/authorized batch. `roadmap-fleet` never merges at all; `pr-fleet` lands only what a human authorized up front and verification cleared. No member auto-merges unreviewed work.
 5. **Every worker emits the canonical `FleetHandoffRecord`.** A worker hands back the ONE bounded handoff envelope from `@harness-engineering/types` (see _The worker handoff record (canonical)_ above), never an ad hoc per-member report shape, and the orchestrator validates it with `validateFleetHandoffRecord` before trusting it — so `fleet-command` parses any fleet's worker output uniformly.
+
+## Base freshness (a CI conclusion is evidence only about the base it ran against)
+
+Invariant 2 requires all-OS CI green. That is necessary but not sufficient, because a CI conclusion carries a hidden coordinate the members historically dropped: **_when_ was it gathered, and against which base?** A PR whose green CI never once ran against the base it is about to merge into satisfies every other condition the spine states — and can still break the default branch the moment it lands. This is not hypothetical: it put a cross-client tenancy hole into a downstream repo's `main` during a `pr-fleet` run, where two individually-correct PRs were never executed together until both were already merged.
+
+```
+CI is green   ≠   this change is safe on today's main
+```
+
+The two readings of "green" collapse into one precisely when GitHub's `required_status_checks.strict` is `false` — **the default, not an exotic setting**. With `strict: false`, GitHub reports `mergeStateStatus: CLEAN` for a branch hours behind its base, so the field most likely to be read as "safe to merge" is silent on exactly this. And "a self-report is never verification" does not save a member here: the orchestrator _did_ independently gather the CI conclusion via `gh` — the evidence was real, independently gathered, and stale.
+
+**The clause.** A green CI conclusion counts as **verified** / merge-ready only when it ran against the **current** base:
+
+- the branch is rebased onto (or already up to date with) current `main` — the base the CI ran against has **not** moved since; **or**
+- branch protection enforces **strict / up-to-date-before-merge** (`required_status_checks.strict === true`), so GitHub itself refuses to land a branch behind its base.
+
+Otherwise — the base moved past the tested SHA since the green was gathered — the conclusion is **stale**, and the item's verdict is **downgraded to `degraded`, not trusted as verified**. The report names the **stale tested base SHA vs current `main`** so the human authorizing the batch sees that "green" is qualified. A degraded item is refreshed (rebase/merge-forward and re-run) before it can authorize an irreversible act; it is never silently promoted to verified.
+
+**Where it binds.** `pr-fleet` is the only member that merges, so it is the only place the gap is _directly_ exploitable — there it is a fourth mechanical VERIFY condition alongside CI / verdict / mergeability, and SELECT reads `required_status_checks.strict` and labels every candidate's CI **provisional** through CONFIRM when it is `false`. But **every member that reports "verified" from a CI conclusion inherits the reasoning error**, and `fleet-command`'s CI trust gate consumes those verdicts to judge a whole run — so the clause lives here in the spine and each member references it in its Phase 4 VERIFY. Members that emit no code and derive no verdict from a CI conclusion (`ideate-fleet`, `issue-fleet`) record it **not-applicable**, the same honesty invariant 2 already demands.
+
+**Mechanically checkable.** `classifyBaseFreshness` (exported from `@harness-engineering/core`) turns the tested base SHA, current base tip, whether the base advanced since the test, and whether strict protection is enforced into a `{ trust: 'verified' | 'degraded', fresh, reason }` verdict — so the clause is enforceable in code, not only prose. The caller derives its inputs from `gh pr view --json` + `gh api` / branch protection.
 
 ## The concurrency governor (machine-storm cap)
 

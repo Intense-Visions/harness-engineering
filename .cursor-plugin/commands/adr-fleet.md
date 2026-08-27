@@ -18,7 +18,7 @@ Phases:
 - select: Enumerate the pending-decision queue (undocumented decision points, decision-blocked work, parked forks), cross-check against existing ADRs, score and order via roadmap-pilot impact scoring, and pre-allocate a contiguous block of ADR numbers
 - confirm: Present the ranked batch in one round — already-decided points flagged for closure, each decision's key trade-off question as a fork, proposed concurrency — for a single up-front human approval
 - dispatch: Fan out worktree-isolated subagents, each running the real architecture-advisor pipeline for one decision and drafting docs/knowledge/decisions/NNNN-slug.md at status proposed, capped at the concurrency governor
-- verify: Independently confirm each returned branch has a well-formed drafted ADR (required frontmatter, unique sequential number, status proposed, Context/Decision/Consequences) and is CI-green across all OS plus enforce and harness — never by subagent self-report
+- verify: Independently confirm each returned branch has a well-formed drafted ADR (required frontmatter, unique sequential number, status proposed, Context/Decision/Consequences) and is CI-green across all target operating systems plus the project's required checks — never by subagent self-report
 - signoff: Present every verified drafted ADR in one batch pass; flip status proposed to accepted only for ADRs the human explicitly accepts; emit a one-row-per-decision summary and close already-decided candidates citing the existing ADR; never auto-accept
   </objective>
 

@@ -163,7 +163,7 @@ Candidate {
    - The result must be an **assertion failure**. A compile, import, or module-resolution error means the test depends on the fix rather than reproducing the defect — the item is **rejected, not verified**. This distinction is the single most-cheated step in the whole pipeline: a test that cannot even load at the base SHA is red for the wrong reason and proves nothing about the defect.
    - Confirm the same test **passes on the branch**.
    - Confirm the **rest of the suite stayed green** on the branch.
-   - Confirm **CI is green on all three operating systems** plus the enforce and harness checks. Green on one OS is not green.
+   - Confirm **CI is green on all target operating systems** plus the project's required checks. Green on one OS is not green. **Base freshness (spine clause):** all-OS green is trusted as `verified-fix` only when it ran against **current `main`** — the branch is up to date with `main`, or branch protection enforces strict / up-to-date-before-merge. Green gathered against a base that `main` has since moved past is **stale**: downgrade the item to **`degraded`**, not verified, and report the stale tested base SHA vs current `main`. See `docs/reference/fleet-family.md` § _Base freshness_ (`classifyBaseFreshness`).
    - **File-only items are verified the same way** against their test-only `repro/<slug>` branch — the reproduction branch every filed item carries: red, by assertion, at the pinned base, with no fix present.
 
 4. **Assign exactly one verdict per item:**
@@ -204,7 +204,7 @@ Candidate {
 - **`harness-tdd`** — The real skill that authors each reproducing test in REPRODUCE; its session artifacts are half the evidence VERIFY requires.
 - **`harness-debugging`** — The real per-item fix pipeline DISPATCH runs for `bounded-safe` items only; its session artifacts complete the provenance for fix items.
 - **`harness-verify`** — Independent confirmation support in VERIFY when re-running the transplanted test and the branch suite.
-- **`gh`** — Tracker cross-check (DISPATCH), CI reads across all three OS (VERIFY), and fix-PR / issue creation (FILE-AND-REPORT).
+- **`gh`** — Tracker cross-check (DISPATCH), CI reads across all target operating systems (VERIFY), and fix-PR / issue creation (FILE-AND-REPORT).
 - **`harness skill validate bug-fleet`** — The authoring-time gate for this skill's own structure and schema.
 - **`docs/reference/fleet-family.md`** — The shared `-fleet` spine this skill builds on (the five-phase skeleton, the concurrency governor, the artifact + all-OS-CI verification discipline, the worktree fan-out and its push caveat, and the never-silent-merge invariant), stated once for the family.
 
@@ -213,7 +213,7 @@ Candidate {
 - Given a confirmed batch of N risk-ranked areas, the fleet produces a tiered batch of **verified** items — fix PRs and filed issues — where **every** item carries a deterministic reproducing failing test.
 - **Every verified item carries pipeline-provenance artifacts** under `.harness/sessions/<slug>/` (`harness-tdd`, plus `harness-debugging` for fix items); an item with no provenance is rejected as not having run the real pipeline.
 - **No item is filed or PR'd without repro evidence.** A candidate that cannot be reproduced deterministically within the confirmed attempt budget is discarded and reported as discarded, never filed.
-- Every fix PR's reproducing test is independently confirmed to fail with an **assertion failure at the pinned base SHA** — a compile or resolution failure is a rejection, not a pass — and to pass on the branch, with the rest of the suite green and CI green across all three OS plus enforce and harness.
+- Every fix PR's reproducing test is independently confirmed to fail with an **assertion failure at the pinned base SHA** — a compile or resolution failure is a rejection, not a pass — and to pass on the branch, with the rest of the suite green and CI green across all target operating systems plus the project's required checks.
 - Every filed issue **links and quotes a test-only `repro/<slug>` branch** whose test is independently confirmed red, by assertion, at the pinned base SHA.
 - There is **exactly one** up-front human decision round; no per-area interactive pauses except a genuinely-unforeseen fork parked to its own area.
 - **Every emitted PR and issue carries an "assumptions made" note** (ranking basis, hunt scope, refutation calls, fix-class call).

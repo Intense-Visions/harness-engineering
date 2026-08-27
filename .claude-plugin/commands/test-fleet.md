@@ -24,7 +24,7 @@ Phases:
 - select: Enumerate coverage gaps by composing test-advisor's coverage audit plus uncovered critical paths, cross-check against in-flight/merged coverage, score and order targets by criticality times coverage-deficit via roadmap-pilot impact scoring
 - confirm: Present the ranked target batch in one round — already-covered/in-flight targets flagged for drop, decision forks as questions, proposed PR grouping and concurrency — for a single up-front human approval
 - dispatch: Fan out worktree-isolated subagents, each running the real tdd then test-craft authoring flow for one target, never coverage-theater and never editing code under test, capped at the concurrency governor
-- verify: Independently confirm each returned branch adds behavior-asserting test files, improves the target's coverage (test-advisor re-audit), and is CI-green across all OS plus enforce and harness — never by subagent self-report
+- verify: Independently confirm each returned branch adds behavior-asserting test files, improves the target's coverage (test-advisor re-audit), and is CI-green across all target operating systems plus the project's required checks — never by subagent self-report
 - report: Emit a one-row-per-target batch summary with coverage deltas and assumptions notes for bulk human review, annotate already-covered targets, never merge
   </objective>
 
