@@ -237,6 +237,49 @@ describe('createGenerateSemantic — provider call, cost levers, validation', ()
     expect(warn.n).toBe(1);
   });
 
+  it('per-run budget converges even when the provider omits tokenUsage (pessimistic floor + one-time warn)', async () => {
+    // Provider reports NO usage (totalTokens 0) — the naive `spent += 0` would
+    // never advance and the budget would be silently unenforceable.
+    const noUsage = (summary: string): AnalysisResponse<unknown> => ({
+      result: { summary, invariants: [] },
+      tokenUsage: { inputTokens: 0, outputTokens: 0, totalTokens: 0 },
+      model: 'x',
+      latencyMs: 1,
+    });
+    const provider = new StubProvider([noUsage('s1'), noUsage('s2')]);
+    const warnings: string[] = [];
+    // Budget == one call's pessimistic floor (the request maxTokens) → the first
+    // call charges the floor and exhausts the budget for the second.
+    const gen = createGenerateSemantic(provider, {
+      maxTokensPerRun: DEFAULT_MAX_OUTPUT_TOKENS,
+      logger: { warn: (m) => warnings.push(m) },
+    });
+    expect(await gen(INPUT)).not.toBeNull();
+    expect(provider.requests.length).toBe(1);
+    // Budget now exhausted by the floor charge → second call short-circuits.
+    expect(await gen(INPUT)).toBeNull();
+    expect(provider.requests.length).toBe(1);
+    // Warned ONCE about the missing usage, and once about the exhausted budget.
+    expect(warnings.filter((m) => /usage/i.test(m)).length).toBe(1);
+    expect(warnings.filter((m) => /exhausted/i.test(m)).length).toBe(1);
+  });
+
+  it('missing-usage warn fires only once across multiple usage-less calls', async () => {
+    const noUsage = (summary: string): AnalysisResponse<unknown> => ({
+      result: { summary, invariants: [] },
+      tokenUsage: { inputTokens: 0, outputTokens: 0, totalTokens: 0 },
+      model: 'x',
+      latencyMs: 1,
+    });
+    const provider = new StubProvider([noUsage('a'), noUsage('b'), noUsage('c')]);
+    const warnings: string[] = [];
+    const gen = createGenerateSemantic(provider, { logger: { warn: (m) => warnings.push(m) } });
+    await gen(INPUT);
+    await gen(INPUT);
+    await gen(INPUT);
+    expect(warnings.filter((m) => /usage/i.test(m)).length).toBe(1);
+  });
+
   it('concurrency-safe: N concurrent sibling calls under withComprehensionActive ALL reach the provider (zero silent drops)', async () => {
     delete process.env[REENTRANCY_ENV];
     const N = 4;

@@ -18,8 +18,10 @@
 //   - Cost levers: each analyze() requests disableThinking + a tight maxTokens;
 //     the model is overridable (defaults to the provider's own default — a cheap
 //     tier; config wiring is phase 4).
-//   - Per-run budget: enforced from the RETURNED tokenUsage; fail-loud when
-//     exhausted (remaining modules left semantic:absent, never silently partial).
+//   - Per-run budget: enforced from the RETURNED tokenUsage; when a provider
+//     omits usage, a pessimistic floor (the request maxTokens) is charged so the
+//     budget still converges (fail-loud when exhausted — remaining modules left
+//     semantic:absent, never silently partial).
 //   - Reentrancy guard (RUN-boundary, not per-call): the Phase-4 driver wraps the
 //     WHOLE comprehension run in `withComprehensionActive`, which sets
 //     HARNESS_COMPREHENSION_ACTIVE for the run's duration. Any nested `claude`
@@ -191,6 +193,7 @@ export function createGenerateSemantic(
   const log: Logger = opts.logger ?? console;
   let spent = 0;
   let budgetWarned = false;
+  let usageMissingWarned = false;
 
   return async (input: SemanticInput): Promise<SemanticGeneration | null> => {
     // NB: the reentrancy guard is a RUN-boundary concern (withComprehensionActive /
@@ -215,7 +218,22 @@ export function createGenerateSemantic(
         model,
       });
       // Charge the budget from the RETURNED usage (fail-loud on the NEXT call).
-      spent += res.tokenUsage?.totalTokens ?? 0;
+      // When the provider omits usage (absent/zero), `spent += 0` would never
+      // advance and maxTokensPerRun would be silently unenforceable — charge a
+      // pessimistic floor (the request's maxTokens) so the budget still converges,
+      // and warn ONCE that usage was missing.
+      const reported = res.tokenUsage?.totalTokens ?? 0;
+      if (reported > 0) {
+        spent += reported;
+      } else {
+        if (!usageMissingWarned) {
+          log.warn(
+            `comprehension: provider returned no tokenUsage; charging a pessimistic floor of ${maxOutputTokens} tokens/call so the per-run budget still converges`
+          );
+          usageMissingWarned = true;
+        }
+        spent += maxOutputTokens;
+      }
 
       // Authority-in-TS: re-validate the raw result at the seam.
       const parsed = semanticResponseSchema.safeParse(res.result);
