@@ -80,4 +80,48 @@ describe('ComprehensionStore', () => {
     expect(r.ok).toBe(true);
     if (r.ok) expect(r.value.map((u) => u.provenance.module)).toEqual(['a', 'z/deep/nested']);
   });
+
+  // F3 — module path must not escape the comprehension root.
+  describe('F3 path-traversal + newline guards', () => {
+    const badModules = [
+      '../../etc',
+      'a/../../b',
+      '..',
+      '/abs/path',
+      '//unc/share',
+      'C:/windows',
+      'C:\\windows',
+      'a\\b',
+      'has\nnewline',
+    ];
+    for (const m of badModules) {
+      it(`write() rejects unsafe module ${JSON.stringify(m)} without touching IO`, async () => {
+        const { io, files } = makeIO();
+        const store = new ComprehensionStore({ io });
+        const r = await store.write(unit(m));
+        expect(r.ok).toBe(false);
+        expect(files.size).toBe(0);
+      });
+      it(`read() rejects unsafe module ${JSON.stringify(m)}`, async () => {
+        const store = new ComprehensionStore({ io: makeIO().io });
+        expect((await store.read(m)).ok).toBe(false);
+      });
+    }
+
+    it('write() rejects a newline inside a member basename', async () => {
+      const { io, files } = makeIO();
+      const store = new ComprehensionStore({ io });
+      const u = unit('safe/module');
+      u.provenance.members = ['ok.ts', 'evil\n- injected'];
+      const r = await store.write(u);
+      expect(r.ok).toBe(false);
+      expect(files.size).toBe(0);
+    });
+
+    it('write() still accepts a normal nested module', async () => {
+      const { io } = makeIO();
+      const store = new ComprehensionStore({ io });
+      expect((await store.write(unit('packages/core/src/comprehension'))).ok).toBe(true);
+    });
+  });
 });

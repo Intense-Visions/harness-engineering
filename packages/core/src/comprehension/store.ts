@@ -27,6 +27,43 @@ function joinPosix(...parts: string[]): string {
 }
 
 /**
+ * F3: reject a module path that could escape `COMPREHENSION_ROOT`. The module is
+ * a repo-relative, posix-separated directory; anything that a filesystem could
+ * resolve outside the root — `..` segments, an absolute/UNC leading slash, a
+ * Windows drive prefix, or a backslash separator — is rejected before any IO.
+ * A newline is also rejected: it would corrupt the hand-emitted frontmatter.
+ */
+function validateModule(module: string): Result<void> {
+  if (module.length === 0) return Err(new Error('Comprehension module must be non-empty'));
+  if (/[\n\r]/.test(module)) {
+    return Err(new Error(`Comprehension module contains a newline: ${JSON.stringify(module)}`));
+  }
+  if (module.includes('\\')) {
+    return Err(new Error(`Comprehension module contains a backslash: ${JSON.stringify(module)}`));
+  }
+  if (module.startsWith('/')) {
+    return Err(new Error(`Comprehension module must be relative, got absolute: "${module}"`));
+  }
+  if (/^[a-zA-Z]:/.test(module)) {
+    return Err(new Error(`Comprehension module has a drive prefix: "${module}"`));
+  }
+  if (module.split('/').some((seg) => seg === '..')) {
+    return Err(new Error(`Comprehension module escapes the root via "..": "${module}"`));
+  }
+  return Ok(undefined);
+}
+
+/** F3: a member basename with a newline would corrupt the members frontmatter. */
+function validateMembers(members: string[]): Result<void> {
+  for (const m of members) {
+    if (/[\n\r]/.test(m)) {
+      return Err(new Error(`Comprehension member contains a newline: ${JSON.stringify(m)}`));
+    }
+  }
+  return Ok(undefined);
+}
+
+/**
  * Tree-mirrored comprehension store: one `_module.md` per module directory under
  * `root`. Mirrors `ShardStore`'s IO-injected discipline (D5) — all fs access is
  * via the injected `ComprehensionIO`; the store itself is pure and testable.
@@ -46,6 +83,8 @@ export class ComprehensionStore {
   }
 
   async read(module: string): Promise<Result<ComprehensionUnit>> {
+    const valid = validateModule(module);
+    if (!valid.ok) return valid;
     let content: string;
     try {
       content = await this.io.readFile(this.path(module));
@@ -58,6 +97,10 @@ export class ComprehensionStore {
   }
 
   async write(unit: ComprehensionUnit): Promise<Result<void>> {
+    const validModule = validateModule(unit.provenance.module);
+    if (!validModule.ok) return validModule;
+    const validMembers = validateMembers(unit.provenance.members);
+    if (!validMembers.ok) return validMembers;
     try {
       await this.io.writeFile(this.path(unit.provenance.module), serializeUnit(unit));
     } catch (err) {
