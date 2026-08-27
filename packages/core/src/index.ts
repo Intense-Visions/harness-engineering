@@ -134,7 +134,7 @@ export * from './review';
 export * from './roadmap';
 
 /**
- * Fleet coordination module — pure cross-run work-claim lease primitives (build/parse/server-clock TTL) and per-leaf context-replay budget enforcement (resolve/enforce/format) for the -fleet family.
+ * Fleet coordination module — pure cross-run work-claim lease primitives (build/parse/server-clock TTL), per-leaf context-replay budget enforcement (resolve/enforce/format), and the shared spend-envelope decision primitive consulted by both the orchestrator loop and the fleet-command dispatch path, for the -fleet family.
  */
 export * from './fleet';
 
