@@ -36,9 +36,9 @@
     "statements": 90.07
   },
   "packages/types": {
-    "lines": 80.12,
+    "lines": 81.21,
     "branches": 96.61,
     "functions": 100,
-    "statements": 81.32
+    "statements": 82.28
   }
 }
