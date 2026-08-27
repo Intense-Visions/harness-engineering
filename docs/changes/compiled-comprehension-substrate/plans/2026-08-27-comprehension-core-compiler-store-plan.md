@@ -9,29 +9,29 @@ Deliver the pure, IO/provider-injected core of the comprehension substrate — t
 ## Scope boundary (what this phase is NOT)
 
 - No LLM calls, no `AnalysisProvider`, no `claude`-CLI. `generateSemantic` exists only as an injected type + a test double.
-- No git / `deriveChangedSurface` / invalidation. No `harness comprehend` CLI. No `gather_context` / MCP wiring. No serve-time gate consumer (the gate *logic* — hash recompute + compare — lands in Phase 2; this phase only ships the `computeSourceHash` primitive it will use).
+- No git / `deriveChangedSurface` / invalidation. No `harness comprehend` CLI. No `gather_context` / MCP wiring. No serve-time gate consumer (the gate _logic_ — hash recompute + compare — lands in Phase 2; this phase only ships the `computeSourceHash` primitive it will use).
 - No `.gitignore` un-ignore, no config schema, no ADRs, no docs. Those are Phases 2–6.
 
 ## Success criteria this phase enables
 
 - **SC4 (no-credential invariant):** `compileModule` with no `generateSemantic` (or one that returns `null`) produces a valid static-only unit (`semantic: absent`) with **zero** credential/LLM access.
-- **SC2 (no silent staleness) foundation:** `computeSourceHash` folds directory *membership* into the digest so an added/removed file changes the hash — the primitive Phase 2's serve-time gate compares against.
+- **SC2 (no silent staleness) foundation:** `computeSourceHash` folds directory _membership_ into the digest so an added/removed file changes the hash — the primitive Phase 2's serve-time gate compares against.
 - Foundation for **all** other SCs (the store + unit model + compiler seam).
 
 ## Skills (from `SKILLS.md` — Reference tier only; no Apply-tier matches)
 
 - `ts-testing-types` — every TDD task (store/compiler/serialize/hash unit tests).
 - `ts-type-guards` — frontmatter/unit parsing guards (Task 3).
-- `ts-zod-integration` — *not this phase* (semantic `responseSchema` is Phase 3).
+- `ts-zod-integration` — _not this phase_ (semantic `responseSchema` is Phase 3).
 
 ## Observable Truths (Acceptance Criteria)
 
-1. `computeSourceHash(files)` returns a 64-char lowercase hex SHA-256; it is order-independent (same set in any order ⇒ same hash), changes when any member file's **content** changes, and changes when a file is **added or removed** from the set (membership folded in). (EARS — Event-driven: *When a file is added to or removed from the module directory, the system shall produce a different `sourceHash`.*)
+1. `computeSourceHash(files)` returns a 64-char lowercase hex SHA-256; it is order-independent (same set in any order ⇒ same hash), changes when any member file's **content** changes, and changes when a file is **added or removed** from the set (membership folded in). (EARS — Event-driven: _When a file is added to or removed from the module directory, the system shall produce a different `sourceHash`._)
 2. `serializeUnit` → `parseUnit` round-trips: `serializeUnit(parseUnit(serializeUnit(u))) === serializeUnit(u)` for a canonical unit, preserving all provenance fields and all populated body sections.
 3. A `semantic: absent` unit serializes with **no** `## Summary` / `## Invariants` sections and parses back with `summary === ''` and `invariants === []`.
 4. `ComprehensionStore.path(module)` yields `.harness/comprehension/<module>/_module.md` with posix (`/`) separators on every OS; `write(unit)` then `read(unit.provenance.module)` returns a unit whose `serializeUnit` output is byte-equal to the written one.
 5. `ComprehensionStore.list()` returns every unit under the root regardless of tree depth, sorted by path.
-6. `compileModule(module, files, { extractStatic })` (no `generateSemantic`) returns `semantic: 'absent'`, `model: null`, populated `interfaceContract`/`dependencySlice` from the injected extractor, a computed `sourceHash`, and sorted `members` — with the extractor being the only injected call and no LLM/credential touched. (EARS — Unwanted: *If no semantic generator resolves, then the system shall not call an LLM and shall emit a static-only unit.*)
+6. `compileModule(module, files, { extractStatic })` (no `generateSemantic`) returns `semantic: 'absent'`, `model: null`, populated `interfaceContract`/`dependencySlice` from the injected extractor, a computed `sourceHash`, and sorted `members` — with the extractor being the only injected call and no LLM/credential touched. (EARS — Unwanted: _If no semantic generator resolves, then the system shall not call an LLM and shall emit a static-only unit._)
 7. `compileModule(..., { extractStatic, generateSemantic })` where the double returns a result yields `semantic: 'present'` with the double's `summary`, `invariants`, and resolved `model`; a `generateSemantic` returning `null` yields the same static-only unit as (6).
 8. `createNodeComprehensionIO()` round-trips a unit through a real temp directory: `writeFile` creates missing parent dirs, and `listUnitPaths` finds nested `_module.md` files and returns `/`-normalized paths.
 9. After `pnpm run generate:barrels`, the new `comprehension` exports (`ComprehensionStore`, `compileModule`, `computeSourceHash`, unit types) are importable from `@harness-engineering/core`, and `node scripts/generate-core-barrel.mjs --check` passes.
@@ -40,7 +40,7 @@ Deliver the pure, IO/provider-injected core of the comprehension substrate — t
 ## Uncertainties
 
 - [ASSUMPTION] Reusing the exported `quoteYamlScalar` from `packages/core/src/roadmap/store/yaml-scalar.ts` is acceptable cross-module coupling within core (DRY over duplication). If a reviewer prefers isolation, copy the 4-line helper into `comprehension/` instead — Task 3 is the only affected task.
-- [ASSUMPTION] A **new** `ComprehensionIO` interface (not the roadmap `ShardIO`) is the right seam, because the comprehension store is a *tree* (recursive unit discovery) whereas `ShardIO.listDir` is single-level. `ComprehensionIO.listUnitPaths(root)` pushes the recursion into the adapter, keeping the store pure. (Spec says "injected `ShardIO` (node-io.ts pattern)" — read as *the pattern*, not the literal type.)
+- [ASSUMPTION] A **new** `ComprehensionIO` interface (not the roadmap `ShardIO`) is the right seam, because the comprehension store is a _tree_ (recursive unit discovery) whereas `ShardIO.listDir` is single-level. `ComprehensionIO.listUnitPaths(root)` pushes the recursion into the adapter, keeping the store pure. (Spec says "injected `ShardIO` (node-io.ts pattern)" — read as _the pattern_, not the literal type.)
 - [ASSUMPTION] `members` are stored as sorted **basenames** (matches the spec's frontmatter example `members: [parse.ts, serialize.ts, ...]`); `computeSourceHash` uses the full `SourceFile.path` for membership so nested paths still disambiguate.
 - [DEFERRABLE] Exact rendered shape of `interfaceContract` / `dependencySlice` markdown — this phase treats them as opaque strings supplied by the injected extractor; the concrete AST renderer is Phase 3+.
 - [DEFERRABLE] Byte-exactness of the serialized frontmatter beyond round-trip idempotence (e.g. key ordering vs. any future tool) — the hand-emitted fixed-order frontmatter mirrors `serializeShard`'s determinism contract.
@@ -251,8 +251,14 @@ describe('computeSourceHash', () => {
   });
 
   it('distinguishes a content moved between files (length-prefixed boundaries)', () => {
-    const a = [{ path: 'x.ts', content: 'ab' }, { path: 'y.ts', content: 'c' }];
-    const b = [{ path: 'x.ts', content: 'a' }, { path: 'y.ts', content: 'bc' }];
+    const a = [
+      { path: 'x.ts', content: 'ab' },
+      { path: 'y.ts', content: 'c' },
+    ];
+    const b = [
+      { path: 'x.ts', content: 'a' },
+      { path: 'y.ts', content: 'bc' },
+    ];
     expect(computeSourceHash(a)).not.toBe(computeSourceHash(b));
   });
 });
@@ -279,9 +285,7 @@ import type { SourceFile } from './types';
  * cannot collide).
  */
 export function computeSourceHash(sourceFiles: SourceFile[]): string {
-  const sorted = [...sourceFiles].sort((a, b) =>
-    a.path < b.path ? -1 : a.path > b.path ? 1 : 0
-  );
+  const sorted = [...sourceFiles].sort((a, b) => (a.path < b.path ? -1 : a.path > b.path ? 1 : 0));
   const h = crypto.createHash('sha256');
   for (const f of sorted) {
     h.update(String(f.path.length));
@@ -389,7 +393,7 @@ describe('comprehension serialize/parse', () => {
 2. Run — observe failure: `pnpm --filter @harness-engineering/core exec vitest run tests/comprehension/serialize.test.ts`
 3. Create `packages/core/src/comprehension/serialize.ts`:
 
-```ts
+````ts
 import matter from 'gray-matter';
 import type { Result } from '@harness-engineering/types';
 import { Ok, Err } from '@harness-engineering/types';
@@ -513,9 +517,7 @@ export function parseUnit(md: string): Result<ComprehensionUnit> {
     data = parsed.data as Record<string, unknown>;
     content = parsed.content;
   } catch (err) {
-    return Err(
-      new Error(`Comprehension frontmatter is not valid YAML: ${(err as Error).message}`)
-    );
+    return Err(new Error(`Comprehension frontmatter is not valid YAML: ${(err as Error).message}`));
   }
   const prov = parseProvenance(data);
   if (!prov.ok) return prov;
@@ -528,7 +530,7 @@ export function parseUnit(md: string): Result<ComprehensionUnit> {
     dependencySlice: sectionFenced(content, 'Dependency Slice'),
   });
 }
-```
+````
 
 4. Run — observe pass: `pnpm --filter @harness-engineering/core exec vitest run tests/comprehension/serialize.test.ts`
 5. Run: `harness validate`
@@ -660,10 +662,7 @@ export interface ComprehensionIO {
 }
 
 function joinPosix(...parts: string[]): string {
-  return parts
-    .join('/')
-    .replaceAll('\\', '/')
-    .replace(/\/+/g, '/');
+  return parts.join('/').replaceAll('\\', '/').replace(/\/+/g, '/');
 }
 
 /**
@@ -716,7 +715,9 @@ export class ComprehensionStore {
       paths = await this.io.listUnitPaths(this.root);
     } catch (err) {
       return Err(
-        new Error(`Failed to list comprehension units under ${this.root}: ${(err as Error).message}`)
+        new Error(
+          `Failed to list comprehension units under ${this.root}: ${(err as Error).message}`
+        )
       );
     }
     const units: ComprehensionUnit[] = [];
@@ -1111,15 +1112,15 @@ The generator auto-discovers any `src/` dir with an `index.ts`, but a `DIR_COMME
 
 ## Validation traceability
 
-| Observable truth | Delivered by |
-|---|---|
-| 1 (hash membership/content) | Task 2 |
-| 2, 3 (round-trip, absent sections) | Task 3 |
-| 4, 5 (store path/round-trip/list) | Task 4 |
-| 6, 7 (compile static-only/full, SC4) | Task 6 |
-| 8 (node adapter tmpdir) | Task 5 |
-| 9 (barrel exports) | Task 8 |
-| 10 (typecheck + suite + validate) | Tasks 1–8 (final in Task 8) |
+| Observable truth                     | Delivered by                |
+| ------------------------------------ | --------------------------- |
+| 1 (hash membership/content)          | Task 2                      |
+| 2, 3 (round-trip, absent sections)   | Task 3                      |
+| 4, 5 (store path/round-trip/list)    | Task 4                      |
+| 6, 7 (compile static-only/full, SC4) | Task 6                      |
+| 8 (node adapter tmpdir)              | Task 5                      |
+| 9 (barrel exports)                   | Task 8                      |
+| 10 (typecheck + suite + validate)    | Tasks 1–8 (final in Task 8) |
 
 ## Notes for the executor
 
