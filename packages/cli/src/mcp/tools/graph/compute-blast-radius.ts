@@ -1,6 +1,7 @@
+import { boundItems } from '@harness-engineering/core';
 import { loadGraphStore } from '../../utils/graph-loader.js';
 import { sanitizePath } from '../../utils/sanitize-path.js';
-import { graphNotFoundError } from './shared.js';
+import { graphNotFoundError, resolveDetailCeiling } from './shared.js';
 
 export const computeBlastRadiusDefinition = {
   name: 'compute_blast_radius',
@@ -112,6 +113,20 @@ export async function handleComputeBlastRadius(input: {
     });
 
     if (input.mode === 'detailed') {
+      // Bound the cascade payload so a hub (high-degree) node cannot return an
+      // unbounded flat summary or layer node list (issue #1591). Each array is
+      // capped to the detailed-mode ceiling; the per-layer categoryBreakdown is
+      // preserved as the true full-layer summary.
+      const ceiling = resolveDetailCeiling(projectPath);
+      const boundedFlat = boundItems(result.flatSummary, ceiling);
+      let layerNodesTruncated = false;
+      const boundedLayers = result.layers.map((layer) => {
+        const boundedNodes = boundItems(layer.nodes, ceiling);
+        if (boundedNodes.truncated) layerNodesTruncated = true;
+        return { ...layer, nodes: boundedNodes.items };
+      });
+      const truncated = boundedFlat.truncated || layerNodesTruncated || result.summary.truncated;
+
       return {
         content: [
           {
@@ -120,9 +135,20 @@ export async function handleComputeBlastRadius(input: {
               mode: 'detailed',
               sourceNodeId: result.sourceNodeId,
               sourceName: result.sourceName,
-              layers: result.layers,
-              flatSummary: result.flatSummary,
+              layers: boundedLayers,
+              flatSummary: boundedFlat.items,
               summary: result.summary,
+              truncated,
+              ...((boundedFlat.truncated || layerNodesTruncated) && {
+                continuation: {
+                  maxItems: ceiling,
+                  flatSummary: {
+                    returned: boundedFlat.returned,
+                    totalAvailable: boundedFlat.totalAvailable,
+                  },
+                  hint: 'Cascade truncated to the detailed-mode item ceiling. Use mode:"compact" for the top risks, or raise probabilityFloor to shrink the cascade. Configure via graph.detailedMode.maxItems.',
+                },
+              }),
             }),
           },
         ],

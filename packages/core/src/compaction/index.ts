@@ -14,3 +14,6 @@ export { serializeEnvelope, estimateTokens } from './envelope';
 
 export type { PaginationMeta, PaginatedSlice } from './pagination';
 export { paginate } from './pagination';
+
+export type { BoundedItems } from './detail-ceiling';
+export { boundItems, DEFAULT_GRAPH_DETAIL_CEILING } from './detail-ceiling';

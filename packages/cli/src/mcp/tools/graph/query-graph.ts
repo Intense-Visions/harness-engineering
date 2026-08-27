@@ -1,7 +1,7 @@
-import { paginate } from '@harness-engineering/core';
+import { boundItems, paginate } from '@harness-engineering/core';
 import { loadGraphStore } from '../../utils/graph-loader.js';
 import { sanitizePath } from '../../utils/sanitize-path.js';
-import { graphNotFoundError } from './shared.js';
+import { graphNotFoundError, resolveDetailCeiling } from './shared.js';
 
 export const queryGraphDefinition = {
   name: 'query_graph',
@@ -158,11 +158,29 @@ export async function handleQueryGraph(input: {
       (e: { from: string; to: string }) => pagedNodeIds.has(e.from) || pagedNodeIds.has(e.to)
     );
 
+    // A hub node on the page can carry an unbounded number of incident edges;
+    // bound the edge array to the detailed-mode ceiling (issue #1591). Node
+    // pagination already bounds the node array via offset/limit.
+    const ceiling = resolveDetailCeiling(projectPath);
+    const boundedEdges = boundItems(filteredEdges, ceiling);
+    const truncated = paged.pagination.hasMore || boundedEdges.truncated;
+
     const response = {
       nodes: paged.items,
-      edges: filteredEdges,
+      edges: boundedEdges.items,
       stats: result.stats,
       pagination: paged.pagination,
+      truncated,
+      ...(boundedEdges.truncated && {
+        continuation: {
+          maxItems: ceiling,
+          edges: {
+            returned: boundedEdges.returned,
+            totalAvailable: boundedEdges.totalAvailable,
+          },
+          hint: 'Edges truncated to the detailed-mode item ceiling. Page nodes via offset/limit or use mode:"summary". Configure via graph.detailedMode.maxItems.',
+        },
+      }),
     };
     return { content: [{ type: 'text' as const, text: JSON.stringify(response) }] };
   } catch (error) {
