@@ -1,5 +1,6 @@
 import type { OrchestratorState } from '../types/internal';
 import type { WorkflowConfig } from '@harness-engineering/types';
+import { createBudgetState } from './budget-governor';
 
 const RATE_LIMIT_DEFAULTS = {
   globalCooldownMs: 60000,
@@ -49,5 +50,8 @@ export function createEmptyState(config: WorkflowConfig): OrchestratorState {
       tokensLimit: null,
     },
     claimRejections: 0,
+    // #1525: arm the spend-envelope accumulator only when a budget is configured;
+    // otherwise the governor is off and dispatch is unbounded (pre-#1525 behaviour).
+    budget: config.agent.budget ? createBudgetState(Date.now()) : null,
   };
 }

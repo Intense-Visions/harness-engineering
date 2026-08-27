@@ -14,7 +14,14 @@ import type {
   TickEvent,
 } from '../types/events';
 import { selectCandidates } from './candidate-selection';
-import { canDispatch } from './concurrency';
+import { canDispatch, type DispatchBudgetOptions } from './concurrency';
+import {
+  cloneBudgetState,
+  fleetKeyForIssue,
+  recordBudgetSpend,
+  isGlobalEnvelopeExhausted,
+  isFleetAllocationExhausted,
+} from './budget-governor';
 import { reconcile } from './reconciliation';
 import { calculateRetryDelay } from './retry';
 import { detectScopeTier, routeIssue, artifactPresenceFromIssue } from './model-router';
@@ -34,6 +41,24 @@ export interface ApplyEventResult {
 }
 
 /**
+ * Build the #1525 budget-governor inputs for a dispatch decision, or `undefined`
+ * when the governor is off. Attributes the candidate lane to its fleet (issue
+ * label) so `canDispatch` can honour the per-fleet sub-allocation.
+ */
+function dispatchBudgetOptions(
+  config: WorkflowConfig,
+  issue: Issue
+): DispatchBudgetOptions | undefined {
+  const budgetConfig = config.agent.budget;
+  if (!budgetConfig) return undefined;
+  return {
+    config: budgetConfig,
+    fleetKey: fleetKeyForIssue(issue, budgetConfig),
+    nowMs: Date.now(),
+  };
+}
+
+/**
  * Clone the state for immutable transitions.
  * Maps and Sets are shallow-cloned; entries within them are not deeply copied
  * since we only add/remove entries, not mutate them in place.
@@ -50,6 +75,7 @@ function cloneState(state: OrchestratorState): OrchestratorState {
     completed: new Map(state.completed),
     tokenTotals: { ...state.tokenTotals },
     rateLimits: { ...state.rateLimits },
+    budget: state.budget ? cloneBudgetState(state.budget) : null,
   };
 }
 
@@ -422,9 +448,25 @@ function handleTick(
 
   const escalationConfig = resolveEscalationConfig(config);
 
+  const budgetConfig = config.agent.budget;
   for (const issue of eligible) {
+    // #1525: consult the spend-envelope governor BEFORE dispatching this lane.
+    // Global exhaustion stops the whole loop cleanly (no lane started mid-write);
+    // a single fleet's sub-allocation exhaustion skips only that fleet's lanes so
+    // sibling fleets keep dispatching under a shared envelope.
+    if (next.budget && budgetConfig) {
+      const now = Date.now();
+      if (isGlobalEnvelopeExhausted(next.budget, budgetConfig, now)) {
+        break;
+      }
+      const fleetKey = fleetKeyForIssue(issue, budgetConfig);
+      if (isFleetAllocationExhausted(next.budget, budgetConfig, fleetKey, now)) {
+        continue;
+      }
+    }
+
     if (!canDispatch(next, issue.state, config.agent.maxConcurrentAgentsByState)) {
-      break; // No more slots available
+      break; // No more slots available (concurrency or rate limit)
     }
 
     const peslAbort = tryPeslAbort(issue, event);
@@ -569,7 +611,8 @@ function accrueUsage(
   session: LiveSession,
   issueId: string,
   usage: NonNullable<AgentEvent['usage']>,
-  effects: SideEffect[]
+  effects: SideEffect[],
+  config: WorkflowConfig
 ): void {
   session.inputTokens += usage.inputTokens;
   session.outputTokens += usage.outputTokens;
@@ -587,13 +630,25 @@ function accrueUsage(
   next.recentInputTokens = next.recentInputTokens.filter((t) => now - t.timestamp < 60000);
   next.recentOutputTokens = next.recentOutputTokens.filter((t) => now - t.timestamp < 60000);
 
+  // #1525: accrue the same token spend against the dispatch spend-envelope so a
+  // later dispatch is refused once the period is exhausted. Attribute to the
+  // lane's fleet (issue label) for per-fleet sub-allocation. No-op when the
+  // governor is off (`budget === null`).
+  const budgetConfig = config.agent.budget;
+  if (next.budget && budgetConfig) {
+    const issue = next.running.get(issueId)?.issue;
+    const fleetKey = issue ? fleetKeyForIssue(issue, budgetConfig) : null;
+    next.budget = recordBudgetSpend(next.budget, budgetConfig, fleetKey, usage.totalTokens, now);
+  }
+
   effects.push({ type: 'updateTokens', issueId, usage });
 }
 
 function handleAgentUpdate(
   state: OrchestratorState,
   issueId: string,
-  event: AgentEvent
+  event: AgentEvent,
+  config: WorkflowConfig
 ): ApplyEventResult {
   const next = cloneState(state);
   const effects: SideEffect[] = [];
@@ -616,7 +671,7 @@ function handleAgentUpdate(
   const entry = next.running.get(issueId);
   if (entry && entry.session) {
     const { session: updatedSession, nextPhase } = deriveSessionPatch(entry.session, event);
-    if (event.usage) accrueUsage(next, updatedSession, issueId, event.usage, effects);
+    if (event.usage) accrueUsage(next, updatedSession, issueId, event.usage, effects, config);
     next.running.set(issueId, {
       ...entry,
       phase: nextPhase ?? entry.phase,
@@ -673,7 +728,14 @@ function handleRetryFired(
   }
 
   // Check slots
-  if (!canDispatch(next, issue.state, config.agent.maxConcurrentAgentsByState)) {
+  if (
+    !canDispatch(
+      next,
+      issue.state,
+      config.agent.maxConcurrentAgentsByState,
+      dispatchBudgetOptions(config, issue)
+    )
+  ) {
     // Requeue with incremented attempt
     const nextAttempt = retryEntry.attempt + 1;
     const maxRetries = config.agent.maxRetries ?? 5;
@@ -819,7 +881,7 @@ export function applyEvent(
         config
       );
     case 'agent_update':
-      return handleAgentUpdate(state, event.issueId, event.event);
+      return handleAgentUpdate(state, event.issueId, event.event, config);
     case 'retry_fired':
       return handleRetryFired(
         state,

@@ -141,6 +141,10 @@ export type {
   WorkspaceConfig,
   HooksConfig,
   AgentConfig,
+  // --- #1525: unattended-dispatch budget governor ---
+  AgentBudgetConfig,
+  BudgetEnvelopeStatus,
+  FleetBudgetStatus,
   ServerConfig,
   WorkflowConfig,
   RoadmapConfig,

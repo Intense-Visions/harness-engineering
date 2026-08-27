@@ -1,0 +1,31 @@
+{
+  "issue": 1525,
+  "slug": "unattended-budget-governor",
+  "title": "Budget governor for unattended dispatch",
+  "stages": ["brainstorming", "planning", "execution", "verification", "integration"],
+  "plan_path": "docs/changes/unattended-budget-governor/plans/plan.md",
+  "closing_keyword": "Refs #1525",
+  "wiring": {
+    "live_dispatch_call_site": "packages/orchestrator/src/core/state-machine.ts — handleTick() tick dispatch loop calls isGlobalEnvelopeExhausted()/isFleetAllocationExhausted() before dispatching each eligible lane; the retry dispatch path calls canDispatch(..., dispatchBudgetOptions(issue)) in packages/orchestrator/src/core/concurrency.ts.",
+    "accrual": "packages/orchestrator/src/core/state-machine.ts — accrueUsage() calls recordBudgetSpend(state.budget, config.agent.budget, fleetKey, usage.totalTokens).",
+    "config_keys": [
+      "agent.budget.period",
+      "agent.budget.envelopeTokens",
+      "agent.budget.perFleet",
+      "agent.budget.fleetLabelPrefix"
+    ],
+    "remaining_budget_signal": "Orchestrator.getSnapshot().budget (BudgetEnvelopeStatus) — surfaced via GET /api/state, TUI, dashboard.",
+    "governor_primitive": "packages/orchestrator/src/core/budget-governor.ts"
+  },
+  "assumptions": [
+    "Envelope is denominated in total tokens (input + output), the unit already accrued in OrchestratorState.tokenTotals, so envelope accounting reconciles with burn attribution without introducing a separate token->dollar cost model (that reconciliation to cost-per-merged-pr is a deferred follow-up).",
+    "Envelope model = per-period global spend envelope + per-fleet sub-allocation. Global exhaustion stops the whole tick dispatch loop cleanly at a lane boundary; a single fleet's sub-allocation exhaustion skips only that fleet's lanes so sibling fleets sharing the envelope keep dispatching under contention. A lane already in flight is never interrupted (never mid-write).",
+    "A lane is attributed to a fleet via an issue label matching agent.budget.fleetLabelPrefix (default 'fleet:'), e.g. 'fleet:roadmap' -> fleet 'roadmap'. Lanes without a fleet label count only against the global envelope. The orchestrator core has no first-class per-issue fleet field, so the label is the attribution seam.",
+    "The governor is OFF when agent.budget is absent (unbounded dispatch, pre-#1525 behaviour). envelopeTokens and every per-fleet cap must be positive integers; a zero cap would stall all dispatch, so 'off' is expressed by omitting agent.budget rather than a zero.",
+    "The period window is a rolling window anchored at the first spend (or state creation); a fully-elapsed window resets spend to zero on the next spend or read. Not calendar-aligned to midnight/Monday.",
+    "Config lives in the orchestrator WorkflowConfig 'agent' section (alongside maxConcurrentAgents and the rate limits), not the top-level harness.config.json 'agent' (executor/timeout/skills), which is a different schema.",
+    "Refs #1525 (not Closes): the thin cron scheduler primitive (#1405), dollar-cost burn reconciliation, and dashboard UI rendering of the budget snapshot field are deferred follow-ups. The governor primitive + envelope enforcement + per-fleet allocation + remaining-budget signal (the safe-to-enable core) are delivered.",
+    "New exports live in @harness-engineering/orchestrator (core/index.ts), not @harness-engineering/core, so scripts/generate-core-barrel.mjs is not involved.",
+    "Shared-file coordination with sibling lanes #1524 / #1532: changes to concurrency.ts (added optional DispatchBudgetOptions param, backward-compatible) and state-machine.ts (added governor checks before the existing canDispatch call) are additive; the pre-existing canDispatch(state, issueState, byState) signature still works with the budget argument omitted."
+  ]
+}

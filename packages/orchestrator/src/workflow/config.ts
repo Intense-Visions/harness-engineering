@@ -15,6 +15,7 @@ import {
   RoutingConfigSchema,
   StagedWorkflowDeclSchema,
   RoadmapConfigSchema,
+  AgentBudgetSchema,
 } from './schema.js';
 
 const REQUIRED_SECTIONS = ['tracker', 'polling', 'workspace', 'hooks', 'agent', 'server'] as const;
@@ -223,6 +224,14 @@ export function validateWorkflowConfig(
     agent.backends !== undefined && typeof agent.backends === 'object' && agent.backends !== null;
   if (!hasLegacyBackend && !hasModernBackends) {
     return Err(new Error('Config must define agent.backend or agent.backends.'));
+  }
+
+  // #1525: validate the unattended-dispatch spend envelope when present. Absent ⇒
+  // governor off (unchanged). A malformed field is rejected at config-load (the
+  // strict schema) rather than silently disabling the budget (the AMR trap).
+  if (agent.budget !== undefined) {
+    const parsed = AgentBudgetSchema.safeParse(agent.budget);
+    if (!parsed.success) return Err(new Error(`agent.budget: ${parsed.error.message}`));
   }
 
   // Modern path: validate the new shape via Phase 0's Zod schemas + the

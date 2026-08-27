@@ -1,4 +1,18 @@
+import type { AgentBudgetConfig } from '@harness-engineering/types';
 import type { OrchestratorState, RunningEntry } from '../types/internal';
+import { canAffordDispatch } from './budget-governor';
+
+/**
+ * Budget-governor inputs threaded into {@link canDispatch} (#1525). Absent ⇒ the
+ * governor is off and dispatch is bounded only by concurrency/rate limits (the
+ * pre-#1525 behaviour).
+ */
+export interface DispatchBudgetOptions {
+  config: AgentBudgetConfig;
+  /** Fleet the candidate lane belongs to, for per-fleet sub-allocation. */
+  fleetKey: string | null;
+  nowMs: number;
+}
 
 /**
  * Get the number of available global concurrency slots.
@@ -26,8 +40,21 @@ export function getPerStateCount(running: ReadonlyMap<string, RunningEntry>): Ma
 export function canDispatch(
   state: OrchestratorState,
   issueState: string,
-  maxConcurrentAgentsByState: Record<string, number>
+  maxConcurrentAgentsByState: Record<string, number>,
+  budget?: DispatchBudgetOptions
 ): boolean {
+  // #1525: spend-envelope check. Refuse a NEW lane once the period envelope (or
+  // this fleet's sub-allocation) is spent. Lanes already in `running` are never
+  // touched, so dispatch stops cleanly at a lane boundary — never mid-write.
+  // Off (`state.budget === null` or no `budget` opts) ⇒ unbounded, pre-#1525.
+  if (
+    state.budget &&
+    budget &&
+    !canAffordDispatch(state.budget, budget.config, budget.fleetKey, budget.nowMs)
+  ) {
+    return false;
+  }
+
   // Global cooldown check
   if (state.globalCooldownUntilMs && Date.now() < state.globalCooldownUntilMs) {
     return false;

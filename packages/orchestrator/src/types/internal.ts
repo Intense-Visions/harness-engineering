@@ -1,4 +1,5 @@
 import type { Issue, WorkflowExecutionPlan, StageRun } from '@harness-engineering/types';
+import type { BudgetState } from '../core/budget-governor';
 
 /**
  * Run attempt lifecycle phases (internal to orchestrator).
@@ -131,4 +132,10 @@ export interface OrchestratorState {
   rateLimits: RateLimitSnapshot;
   /** Running count of claim rejections (another orchestrator won the race). */
   claimRejections: number;
+  /**
+   * Unattended-dispatch spend envelope accumulator (#1525), or `null` when no
+   * `agent.budget` is configured (governor off — unbounded dispatch). When
+   * present, `canDispatch` refuses a NEW lane once the period envelope is spent.
+   */
+  budget: BudgetState | null;
 }

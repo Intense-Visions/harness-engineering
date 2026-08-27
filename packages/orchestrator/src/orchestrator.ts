@@ -33,6 +33,7 @@ import type { OrchestratorState, LiveSession, RunningEntry } from './types/inter
 import type { OrchestratorEvent, SideEffect } from './types/events';
 import { applyEvent } from './core/state-machine';
 import { createEmptyState } from './core/state-helpers';
+import { getBudgetStatus } from './core/budget-governor';
 import { detectStalledIssues } from './core/stall-detector';
 import { AnalysisArchive } from './core/analysis-archive';
 import { IntelligencePipelineRunner } from './intelligence/pipeline-runner';
@@ -5032,6 +5033,12 @@ export class Orchestrator extends EventEmitter {
       maxOutputTokensPerMinute: this.state.maxOutputTokensPerMinute,
       claimRejections: this.state.claimRejections,
       tickActivity: this.tickActivity,
+      // #1525: operator-visible remaining-budget signal. `null` when the
+      // unattended-dispatch governor is off (no `agent.budget` configured).
+      budget:
+        this.state.budget && this.config.agent.budget
+          ? getBudgetStatus(this.state.budget, this.config.agent.budget, now)
+          : null,
     };
   }
 
