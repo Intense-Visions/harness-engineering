@@ -56,6 +56,8 @@ export const TOOL_CAPABILITY_DECLARATIONS: Readonly<Record<string, ToolCapabilit
   get_critical_paths: { scopes: ['read'] },
   list_streams: { scopes: ['read'] },
   gather_context: { scopes: ['read'] },
+  // serve is read; a source-stale/forceRecompile serve writes the refreshed unit.
+  get_comprehension: { scopes: ['read', 'write'] },
   canary_probe: { scopes: ['read'] },
   canary_recommend_framework: { scopes: ['read'] },
   canary_run_history: { scopes: ['read'] },
