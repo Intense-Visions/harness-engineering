@@ -172,6 +172,44 @@ describe('serveOrRecompile — SF3.1 (D6 leaf-demand serve/recompile)', () => {
     );
     expect(out.status).toBe('unavailable');
   });
+
+  // --- FIX C: the semantic provider is resolved LAZILY (recompile branch only) --
+  it('(f) a FRESH serve does NOT resolve the semantic provider (lazy provider)', async () => {
+    const store = fakeStore({ [module]: freshUnit(module, source) });
+    const resolveGenerateSemantic = vi.fn(async () => undefined);
+    const out = await serveOrRecompile(
+      module,
+      false,
+      deps({
+        store,
+        reader: fakeReader({ [module]: source }),
+        resolveGenerateSemantic,
+      })
+    );
+    expect(out.status).toBe('served');
+    if (out.status === 'served') expect(out.recompiled).toBe(false);
+    // The pure fresh serve never touches the provider resolver (no config load /
+    // PATH scan on the hot serve path).
+    expect(resolveGenerateSemantic).not.toHaveBeenCalled();
+  });
+
+  it('(g) a RECOMPILE resolves the semantic provider exactly once (lazy provider)', async () => {
+    const store = fakeStore(); // no unit ⇒ recompile path
+    const resolveGenerateSemantic = vi.fn(async () => undefined);
+    const out = await serveOrRecompile(
+      module,
+      false,
+      deps({
+        store,
+        reader: fakeReader({ [module]: source }),
+        makeExtractStatic: () => () => staticExtraction,
+        resolveGenerateSemantic,
+      })
+    );
+    expect(out.status).toBe('served');
+    if (out.status === 'served') expect(out.recompiled).toBe(true);
+    expect(resolveGenerateSemantic).toHaveBeenCalledOnce();
+  });
 });
 
 describe('get_comprehension MCP envelope', () => {

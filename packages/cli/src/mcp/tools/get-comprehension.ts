@@ -69,7 +69,20 @@ export interface ServeOrRecompileDeps {
   store: GetComprehensionStore;
   reader: GetComprehensionReader;
   makeExtractStatic: (module: string) => ExtractStatic;
+  /**
+   * An already-resolved semantic seam. Prefer `resolveGenerateSemantic` for the
+   * production path so provider resolution stays LAZY; this eager field remains for
+   * callers/tests that inject a ready seam directly. When both are present the eager
+   * value wins (no resolution needed).
+   */
   generateSemantic?: GenerateSemantic;
+  /**
+   * FIX C — LAZY semantic-provider seam: resolved ONLY on the recompile branch, so a
+   * pure fresh serve never loads config or scans PATH for a provider. Returns the
+   * `GenerateSemantic` (or `undefined` for a static-only recompile). Absent ⇒ no
+   * semantic seam is resolved at all.
+   */
+  resolveGenerateSemantic?: () => Promise<GenerateSemantic | undefined>;
   projectRoot: string;
   concurrency?: number;
   env?: NodeJS.ProcessEnv;
@@ -87,13 +100,20 @@ async function recompileAndServe(
   force: boolean,
   deps: ServeOrRecompileDeps
 ): Promise<GetComprehensionOutcome> {
+  // FIX C — resolve the semantic seam lazily, HERE on the recompile branch only.
+  // An eagerly-injected `generateSemantic` wins; otherwise invoke the lazy resolver
+  // (which loads config + may resolve a provider). A fresh serve never reaches this
+  // code, so it never pays that cost.
+  const generateSemantic =
+    deps.generateSemantic ??
+    (deps.resolveGenerateSemantic ? await deps.resolveGenerateSemantic() : undefined);
   const result = await runComprehend({
     mode: 'changed',
     projectRoot: deps.projectRoot,
     store: deps.store,
     reader: deps.reader,
     makeExtractStatic: deps.makeExtractStatic,
-    ...(deps.generateSemantic ? { generateSemantic: deps.generateSemantic } : {}),
+    ...(generateSemantic ? { generateSemantic } : {}),
     changedModules: [module],
     concurrency: deps.concurrency ?? 1,
     ...(deps.env ? { env: deps.env } : {}),
@@ -148,24 +168,31 @@ export async function serveOrRecompile(
  * when `comprehension.semantic` is enabled; a missing provider degrades to
  * static-only (never throws).
  */
-async function resolveDefaultDeps(projectRoot: string): Promise<ServeOrRecompileDeps> {
+function resolveDefaultDeps(projectRoot: string): ServeOrRecompileDeps {
   const resolved = resolveConfig();
   const config = resolved.ok ? resolved.value : undefined;
   const cconf = readComprehensionConfig(config);
-  const provider = cconf.semantic
-    ? ((await resolveAnalysisProvider(cconf.model ?? undefined).catch(
-        () => null
-      )) as AnalysisProvider | null)
-    : null;
-  const generateSemantic = maybeCreateGenerateSemantic(provider, {
-    maxTokensPerRun: cconf.maxTokensPerRun,
-    ...(cconf.model ? { model: cconf.model } : {}),
-  });
+  // FIX C — DEFER the provider (config-driven resolver + PATH scan) behind a lazy
+  // thunk. `serveOrRecompile` invokes it ONLY on the recompile branch, so a pure
+  // fresh serve resolves no provider at all. A recompile demand is explicit, so it
+  // MAY resolve a provider when `comprehension.semantic` is enabled; a missing
+  // provider degrades to static-only (never throws).
+  const resolveGenerateSemantic = async (): Promise<GenerateSemantic | undefined> => {
+    const provider = cconf.semantic
+      ? ((await resolveAnalysisProvider(cconf.model ?? undefined).catch(
+          () => null
+        )) as AnalysisProvider | null)
+      : null;
+    return maybeCreateGenerateSemantic(provider, {
+      maxTokensPerRun: cconf.maxTokensPerRun,
+      ...(cconf.model ? { model: cconf.model } : {}),
+    });
+  };
   return {
     store: new ComprehensionStore({ io: createNodeComprehensionIO() }),
     reader: createNodeModuleSourceReader(projectRoot),
     makeExtractStatic: (module: string) => createStaticExtractor({ projectRoot, module }),
-    ...(generateSemantic ? { generateSemantic } : {}),
+    resolveGenerateSemantic,
     projectRoot,
     concurrency: cconf.concurrency,
   };
@@ -190,7 +217,7 @@ export async function handleGetComprehension(
       return textEnvelope('Error: "module" is required', true);
     }
     const projectRoot = sanitizePath(input.path);
-    const resolvedDeps = deps ?? (await resolveDefaultDeps(projectRoot));
+    const resolvedDeps = deps ?? resolveDefaultDeps(projectRoot);
     const outcome = await serveOrRecompile(
       input.module,
       input.forceRecompile ?? false,
