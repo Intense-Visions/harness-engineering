@@ -19,3 +19,8 @@ pre-merge/scheduled/release gates. Every affected run prints what it scoped and 
 staleness caveat, and the scoped-vs-full split is recorded on the `cli/validate`
 adoption record (`variant` field). The orchestrator package's `validate` dev-loop
 script is rewired to `--changed`.
+
+The same affected-mode is exposed to skills/agents through the MCP `validate_project`
+tool via an opt-in `scope: "affected" | "full"` / `changed` / `since` param — it
+delegates to the same `runValidate` (validate-scope is shared, not forked), and the
+default path stays byte-identical.

@@ -34,14 +34,21 @@
     "packages/cli/src/commands/validate-scope.ts",
     "packages/cli/src/commands/validate.ts",
     "packages/cli/src/bin/command-telemetry.ts",
+    "packages/cli/src/mcp/tools/validate.ts",
     "packages/orchestrator/package.json"
   ],
   "testFiles": [
     "packages/cli/tests/commands/validate-scope.test.ts",
     "packages/cli/tests/commands/validate.changed.test.ts",
-    "packages/cli/tests/bin/command-telemetry.test.ts"
+    "packages/cli/tests/bin/command-telemetry.test.ts",
+    "packages/cli/tests/mcp/tools/validate.test.ts"
   ],
-  "docs": ["docs/guides/ci-cd-validation.md", "docs/reference/cli-commands.md"],
+  "docs": [
+    "docs/guides/ci-cd-validation.md",
+    "docs/reference/cli-commands.md",
+    "docs/reference/mcp-tools.md",
+    "docs/reference/tool-catalog.md"
+  ],
   "localChecks": {
     "build": "pass (@harness-engineering/cli, Node 22)",
     "typecheck": "pass (tsc --noEmit packages/cli)",
@@ -59,6 +66,9 @@
     "Call-site left full — the 3 persona CI workflows (persona-architecture-enforcer/documentation-maintainer/task-executor): they are GENERATED files (from agents/personas/*.yaml), run `harness validate` advisory/non-blocking once per PR (low frequency), and rewiring would require changing the persona-workflow generator + its drift guard for negligible benefit.",
     "Telemetry: scoped-vs-full is recorded as an additive `variant` field on the `cli/validate` adoption record; the primary `skill: 'cli/validate'` key is unchanged so existing telemetry continuity and the version-guard bare-command matching are unaffected.",
     "Turbo/task-cache integration is out of scope: `harness validate` is an in-process check runner, not a turbo task graph; the leverage is scoping the file walkers.",
-    "Changeset: @harness-engineering/cli minor (new feature flags), @harness-engineering/orchestrator patch (dev-script rewire)."
+    "MCP-consumer wiring: skills/agents validate through the MCP tool surface, so the affected-mode capability is exposed on `validate_project` (`packages/cli/src/mcp/tools/validate.ts`) via a new opt-in `scope: 'affected'|'full'` / `changed` / `since` / `defaultBranch` param. Affected mode delegates to the SAME `runValidate` the CLI uses (dynamic import, mirroring cross-check.ts) so validate-scope is shared, not forked; the default (omitted) path is byte-identical to the prior thin `{valid,checks,errors}` reimplementation. Verified end-to-end: full path has no `scope` block; affected path returns the scoped ValidateResult (127 changed design files -> 28 findings, scoped ⊆ full).",
+    "`validate_cross_check` (`packages/cli/src/mcp/tools/cross-check.ts`) is deliberately NOT given affected-mode: it validates spec->plan->impl coverage and staleness, not a design-file walk, so validate-scope's changed-CODE-surface derivation does not apply — scoping it to changed code files would wrongly skip linkage checks for specs whose impl files were untouched.",
+    "No new core export was needed (runValidate lives in @harness-engineering/cli, not core), so scripts/generate-core-barrel.mjs was untouched.",
+    "Changeset: @harness-engineering/cli minor (new feature flags + MCP affected-mode param), @harness-engineering/orchestrator patch (dev-script rewire)."
   ]
 }

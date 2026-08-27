@@ -4,17 +4,49 @@ import { sanitizePath } from '../utils/sanitize-path.js';
 
 export const validateToolDefinition = {
   name: 'validate_project',
-  description: 'Run all validation checks on a harness engineering project',
+  description:
+    'Run all validation checks on a harness engineering project. Pass `changed: true` ' +
+    '(or `scope: "affected"`, or a `since` ref) to run the full harness validate with its ' +
+    'file-walking design audits scoped to the git-derived changed surface instead of the ' +
+    'whole tree — the same affected-mode the CLI exposes, for skills/agents that validate ' +
+    'via MCP. Default (omitted) is unchanged.',
   inputSchema: {
     type: 'object' as const,
     properties: {
       path: { type: 'string', description: 'Path to project root directory' },
+      scope: {
+        type: 'string',
+        enum: ['affected', 'full'],
+        description:
+          "'affected' scopes the design walkers to the changed surface derived from git; " +
+          "'full' (default) walks the whole tree. Equivalent to `changed`.",
+      },
+      changed: {
+        type: 'boolean',
+        description:
+          'Alias for `scope: "affected"` — scope the design walkers to the changed surface.',
+      },
+      since: {
+        type: 'string',
+        description:
+          'Scope the changed surface to files that differ from this ref (implies affected mode).',
+      },
+      defaultBranch: {
+        type: 'string',
+        description: 'Branch to compute the changed-surface merge-base against (default: main).',
+      },
     },
     required: ['path'],
   },
 };
 
-export async function handleValidateProject(input: { path: string }) {
+export async function handleValidateProject(input: {
+  path: string;
+  scope?: 'affected' | 'full';
+  changed?: boolean;
+  since?: string;
+  defaultBranch?: string;
+}) {
   let projectPath: string;
   try {
     projectPath = sanitizePath(input.path);
@@ -29,6 +61,34 @@ export async function handleValidateProject(input: { path: string }) {
       isError: true,
     };
   }
+
+  // Affected mode: delegate to the SAME `runValidate` the CLI uses so the
+  // changed-surface scoping (validate-scope) is shared, not forked. This runs the
+  // full harness validate with its design walkers scoped to the git-derived changed
+  // surface (scoped ⊆ full). Opt-in only — when no scope/changed/since is passed the
+  // thin default path below runs unchanged, so existing MCP callers are byte-identical.
+  const affected =
+    input.changed === true || input.scope === 'affected' || typeof input.since === 'string';
+  if (affected) {
+    // Dynamic import mirrors cross-check.ts and avoids a static commands↔mcp cycle.
+    const { runValidate } = await import('../../commands/validate.js');
+    const result = await runValidate({
+      cwd: projectPath,
+      changed: true,
+      ...(typeof input.since === 'string' && { since: input.since }),
+      ...(typeof input.defaultBranch === 'string' && { defaultBranch: input.defaultBranch }),
+    });
+    if (!result.ok) {
+      return {
+        content: [{ type: 'text' as const, text: `Error: ${result.error.message}` }],
+        isError: true,
+      };
+    }
+    return {
+      content: [{ type: 'text' as const, text: JSON.stringify(result.value) }],
+    };
+  }
+
   const errors: string[] = [];
   const checks: {
     config: 'pass' | 'fail';

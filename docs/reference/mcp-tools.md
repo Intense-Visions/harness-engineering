@@ -102,11 +102,15 @@ Validate a harness-linter.yml configuration file
 
 ### `validate_project`
 
-Run all validation checks on a harness engineering project
+Run all validation checks on a harness engineering project. Pass `changed: true` (or `scope: "affected"`, or a `since` ref) to run the full harness validate with its file-walking design audits scoped to the git-derived changed surface instead of the whole tree — the same affected-mode the CLI exposes, for skills/agents that validate via MCP. Default (omitted) is unchanged.
 
 **Parameters:**
 
 - `path` (string, required) — Path to project root directory
+- `scope` (string, optional) — 'affected' scopes the design walkers to the changed surface derived from git; 'full' (default) walks the whole tree. Equivalent to `changed`.
+- `changed` (boolean, optional) — Alias for `scope: "affected"` — scope the design walkers to the changed surface.
+- `since` (string, optional) — Scope the changed surface to files that differ from this ref (implies affected mode).
+- `defaultBranch` (string, optional) — Branch to compute the changed-surface merge-base against (default: main).
 
 **CLI equivalent:** [`harness validate`](cli-commands.md#harness-validate)
 
