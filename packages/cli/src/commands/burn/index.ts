@@ -4,6 +4,7 @@ import { Command } from 'commander';
 import { createBudgetCommand } from './budget';
 import { createCalibrateCommand } from './calibrate';
 import { createInstallCommand } from './install';
+import { createPerPrCommand } from './per-pr';
 import { createReportCommand, printReport } from './report';
 import { createResetDayCommand } from './reset-day';
 import { createWeeksCommand } from './weeks';
@@ -29,6 +30,7 @@ export function createBurnCommand(): Command {
     });
 
   command.addCommand(createReportCommand());
+  command.addCommand(createPerPrCommand());
   command.addCommand(createWeeksCommand());
   command.addCommand(createBudgetCommand());
   command.addCommand(createCalibrateCommand());

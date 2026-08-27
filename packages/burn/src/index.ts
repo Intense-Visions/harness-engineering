@@ -32,3 +32,20 @@ export { gitSegment } from './git';
 
 export { escalation, sessionBrief } from './hooks';
 export type { EscalationOutput, NotifyState, SessionBriefOutput } from './hooks';
+
+export { readProvenance } from './provenance';
+export type { ProvenanceEntry } from './provenance';
+export { defaultGhRunner, linkPrs } from './pr-linkage';
+export type { GhRunner, LinkOptions, LinkResult } from './pr-linkage';
+export { buildCostReport, checkCostBands } from './cost-per-pr';
+export type {
+  BuildCostReportInput,
+  CostBand,
+  CostBandFinding,
+  CostReport,
+  LaneCost,
+  PriceTable,
+  SkillCost,
+  TokenTotals,
+} from './cost-per-pr';
+export { costMetricsPath, writeCostReport } from './cost-metrics';
