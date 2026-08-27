@@ -318,3 +318,109 @@ export async function runBenchmark(args: BenchmarkArgs): Promise<BenchmarkScore[
   }
   return scores;
 }
+
+/** A rendered page/component screenshot to benchmark in deep (vision) mode. */
+export interface VisionBenchmarkTarget {
+  file: string;
+  component: string;
+  /** See {@link BenchmarkTarget.componentType} — selects the exemplar cohort. */
+  componentType?: string;
+  /** Path to the rendered screenshot (PNG / JPEG / WebP). */
+  image: string;
+}
+
+export interface VisionBenchmarkArgs {
+  targets: VisionBenchmarkTarget[];
+  exemplars: ExemplarDefinition[];
+  provider: LlmProvider;
+  awardBar?: Partial<AwardBarConfig>;
+  responsive?: BenchmarkArgs['responsive'];
+}
+
+function readImage(imagePath: string): {
+  imageBuffer: Buffer;
+  mediaType: 'image/png' | 'image/jpeg' | 'image/webp';
+} {
+  const resolved = path.isAbsolute(imagePath) ? imagePath : path.resolve(process.cwd(), imagePath);
+  const imageBuffer = fs.readFileSync(resolved);
+  const ext = path.extname(resolved).toLowerCase();
+  const mediaType =
+    ext === '.jpg' || ext === '.jpeg' ? 'image/jpeg' : ext === '.webp' ? 'image/webp' : 'image/png';
+  return { imageBuffer, mediaType };
+}
+
+function formatVisionPrompt(
+  target: VisionBenchmarkTarget,
+  exemplars: ExemplarDefinition[]
+): string {
+  const exemplarSummaries = exemplars
+    .map((e) =>
+      [
+        `--- Exemplar: ${e.name} (${e.id}) ---`,
+        `URL: ${e.url}`,
+        `Component type: ${e.componentType}`,
+        `Why exemplar:`,
+        e.whyExemplar,
+        `Critique notes:`,
+        e.critique,
+        `Reference radar (0–100):`,
+        `  philosophicalCoherence: ${e.radarReference.philosophicalCoherence}`,
+        `  hierarchy:              ${e.radarReference.hierarchy}`,
+        `  craftExecution:         ${e.radarReference.craftExecution}`,
+        `  function:               ${e.radarReference.function}`,
+        `  innovation:             ${e.radarReference.innovation}`,
+      ].join('\n')
+    )
+    .join('\n\n');
+
+  return [
+    `Score ${target.component} (${target.file}) against the following exemplar(s) using the 5-dimension radar.`,
+    '',
+    exemplarSummaries,
+    '',
+    'The target is the RENDERED page attached as an image — judge the visual',
+    'result you can see (composition, hierarchy, surface, typography, motion',
+    'cues), NOT source code. Dimensions like innovation and philosophical',
+    'coherence can only be honestly judged from the rendered page; score from',
+    'what is shown.',
+    '',
+    'Score the target 0–100 on each dimension, with per-dimension',
+    'confidence (high|medium|low) and a one-sentence note. Also emit a',
+    'short `gaps` array — narrative observations of where the target falls',
+    'short of the cited exemplar(s). Do NOT compute an overall score —',
+    'the phase computes it from your dimension scores.',
+    '',
+    'Respond with a single fenced ```json``` block:',
+    '{',
+    '  "philosophicalCoherence": { "score": 0-100, "confidence": "high|medium|low", "notes": "..." },',
+    '  "hierarchy":              { "score": 0-100, "confidence": "high|medium|low", "notes": "..." },',
+    '  "craftExecution":         { "score": 0-100, "confidence": "high|medium|low", "notes": "..." },',
+    '  "function":               { "score": 0-100, "confidence": "high|medium|low", "notes": "..." },',
+    '  "innovation":             { "score": 0-100, "confidence": "high|medium|low", "notes": "..." },',
+    '  "gaps": ["...", "..."]',
+    '}',
+  ].join('\n');
+}
+
+/**
+ * Run the BENCHMARK phase in deep (vision) mode over rendered screenshots.
+ * Mirrors {@link runBenchmark} but judges the *rendered page* via the
+ * provider's vision channel — the difference that lets the exemplar-relative
+ * award bar actually clear, since innovation / coherence / surface cannot be
+ * honestly scored from source code alone. Targets with no matching exemplar
+ * are skipped (BENCHMARK is opt-in per component type).
+ */
+export async function runVisionBenchmark(args: VisionBenchmarkArgs): Promise<BenchmarkScore[]> {
+  const scores: BenchmarkScore[] = [];
+  for (const target of args.targets) {
+    const matched = selectExemplarsFor(target, args.exemplars);
+    if (matched.length === 0) continue;
+    const image = readImage(target.image);
+    const prompt = formatVisionPrompt(target, matched);
+    const raw = await args.provider.callVision(prompt, image);
+    const parsed = parseBenchmarkResponse(raw);
+    if (parsed === null) continue;
+    scores.push(buildScore(target, matched, parsed, args.awardBar, args.responsive));
+  }
+  return scores;
+}

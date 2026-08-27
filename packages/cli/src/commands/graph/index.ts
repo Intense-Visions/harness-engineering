@@ -3,7 +3,7 @@ import { formatFindingsContract } from '@harness-engineering/types';
 import { runGraphStatus } from './status.js';
 import { runGraphExport } from './export.js';
 import { createScanCommand } from './scan.js';
-import { createQueryCommand } from './query.js';
+import { createQueryCommand, createPathCommand } from './query.js';
 import { createIngestCommand } from './ingest.js';
 import { runGraphIntegrity, printGraphIntegrity } from './integrity.js';
 import { ExitCode } from '../../utils/errors.js';
@@ -118,6 +118,7 @@ export function createGraphCommand(): Command {
   // forms remain only as hidden deprecated aliases (see deprecated-aliases.ts).
   graph.addCommand(createScanCommand());
   graph.addCommand(createQueryCommand());
+  graph.addCommand(createPathCommand());
   graph.addCommand(createIngestCommand());
   return graph;
 }
@@ -137,7 +138,7 @@ export { runScan } from './scan.js';
 /**
  * Executes a query against the knowledge graph.
  */
-export { runQuery } from './query.js';
+export { runQuery, runShortestPath } from './query.js';
 /**
  * Ingests external data or events into the knowledge graph.
  */

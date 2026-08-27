@@ -205,7 +205,10 @@ function createOllamaBackend(
   });
 }
 
-function createCodexBackend(def: BackendDefOf<'codex'>): AgentBackend {
+function createCodexBackend(
+  def: BackendDefOf<'codex'>,
+  options: CreateBackendOptions
+): AgentBackend {
   const isArray = Array.isArray(def.model);
   return new CodexBackend({
     ...(typeof def.model === 'string' ? { model: def.model } : {}),
@@ -215,6 +218,10 @@ function createCodexBackend(def: BackendDefOf<'codex'>): AgentBackend {
     ...(def.timeoutMs !== undefined ? { timeoutMs: def.timeoutMs } : {}),
     ...(def.reasoningEffort !== undefined ? { reasoningEffort: def.reasoningEffort } : {}),
     ...(def.mcpServers !== undefined ? { mcpServers: def.mcpServers } : {}),
+    ...(options.sandboxMode ? { sandboxMode: options.sandboxMode } : {}),
+    ...(options.networkMode ? { networkMode: options.networkMode } : {}),
+    ...(options.policyAudit ? { policyAudit: options.policyAudit } : {}),
+    ...(options.subprocessEnvAllow ? { subprocessEnvAllow: options.subprocessEnvAllow } : {}),
   });
 }
 
@@ -275,7 +282,7 @@ export function createBackend(def: BackendDef, options: CreateBackendOptions = {
     case 'ollama':
       return createOllamaBackend(def, options);
     case 'codex':
-      return createCodexBackend(def);
+      return createCodexBackend(def, options);
     case 'ssh':
       return createSshBackend(def);
     case 'serverless':

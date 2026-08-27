@@ -86,6 +86,8 @@ The five-phase spine, the concurrency governor, the artifact + all-OS-CI verific
 
 4. **Tier each survivor by the bounded-fix test.** **FIX** = the remedy is safe, bounded, and mechanically verifiable: a dependency bump within a compatible range, an input-validation or output-encoding patch at identified call sites, removal of a hardcoded credential from source. **FILE** = the remedy is risky or structural: an authentication/authorization model change, a trust-boundary redesign, a cryptographic scheme replacement, or any remedy whose blast radius crosses module boundaries or changes a security contract. The tier is decided **here** and confirmed in CONFIRM — it is **never chosen mid-flight**, because a tier chosen while already editing code is a tier chosen by sunk cost.
 
+   **Route each FIX-tier survivor by item type** (§Item-type routing in `docs/reference/fleet-family.md`, ADR 0103), so a bounded vulnerability is diagnosed by the skill built for it rather than forced through the design-first pipeline. The bounded-fix test that made it FIX already means the structural, design-requiring remedies are **FILE**, not FIX — so a FIX-tier item is `route = bug` when it has a known, mechanically-verifiable remedy (a dependency bump, a validation/encoding patch at identified sinks, a credential removal — the common case), and `route = feature` only when the fix is bounded yet still carries a genuine design decision a builder would otherwise guess. FILE-tier items open no branch and are **not** routed. Record `routeSignal` (which signal chose the route).
+
 5. **Score and order by severity × evidence strength × exposure.** Do not rank ad-hoc, and do not rank by scanner severity alone. Reuse `harness-roadmap-pilot`-style impact scoring with the graph supplying the exposure term. The worked comparison that makes this concrete: a **high**-severity advisory on an unreached dev-only dependency ranks **below** a **moderate** reachable injection sink at a public entry point — because severity describes the weakness in the abstract, while evidence strength and exposure describe what it means here.
 
 6. **Build the `SecurityFinding` record** for each survivor, and detect known decision forks without answering them:
@@ -103,6 +105,8 @@ The five-phase spine, the concurrency governor, the artifact + all-OS-CI verific
      exposure,         // graph-derived exposure weight
      score,            // severity x evidence strength x exposure
      tier,             // "fix" | "file"
+     route,            // FIX tier only: "bug" | "feature" (item-type routing, §fleet-family / ADR 0103)
+     routeSignal,      // which signal chose the route
      crossCheck,       // "novel" | "already-fixed" | "duplicate-issue" | "in-progress-elsewhere"
      locations,
      forks,            // detected known decision forks, surfaced in CONFIRM (may be empty)
@@ -114,7 +118,7 @@ The five-phase spine, the concurrency governor, the artifact + all-OS-CI verific
 ### Phase 2: CONFIRM — The Single Up-Front Human Gate `[checkpoint:human-verify]`
 
 1. **Present the ranked finding batch in one round.** This is the **only guaranteed human touchpoint before review** — everything downstream runs autonomously. Present, together, in a single surface:
-   - The ranked findings (highest score first), each with its **evidence class**, its concrete evidence trace, its score, and its **proposed tier**.
+   - The ranked findings (highest score first), each with its **evidence class**, its concrete evidence trace, its score, its **proposed tier**, and — for FIX-tier findings — the **routed fix pipeline** (`bug` → `harness-debugging`, `feature` → `harness-brainstorming`→`harness-autopilot`), presented as an **overridable** decision alongside the tier. Re-routing a FIX item is recorded like the re-tier below and fed into its DISPATCH brief.
    - The **aggregate evidence-gate discard count** — how many candidates the gate absorbed and why in summary. The reader needs to see the noise that did not reach them; that is what makes the short list credible.
    - Duplicates and already-remediated findings **flagged for drop or closure**, each with the citation (the resolving PR, the existing issue) — never re-filed.
    - Every detected known decision fork as a **multiple-choice question** with a recommended default (e.g. "the version that clears this advisory is outside the compatible range — accept a major bump as a bounded fix, or file it as structural?").
@@ -132,7 +136,7 @@ The five-phase spine, the concurrency governor, the artifact + all-OS-CI verific
 
    (a) **Re-confirm the evidence reproduces in its own worktree before changing anything** — inherited evidence is not evidence, and a finding that will not reproduce is a false positive to be **dropped and reported**, never fixed on faith.
 
-   (b) Run the **real** `harness-brainstorming` → `harness-autopilot` build pipeline to author the fix — this is the family's dogfooding invariant and it is what leaves the plan directory plus autopilot-state that VERIFY checks for.
+   (b) Run the item's **routed** real fix pipeline (§Item-type routing, ADR 0103) to author the fix — this is the family's dogfooding invariant, and the routed pipeline is what leaves the artifact VERIFY checks for. `route = bug` (the common FIX case — a known, bounded remedy) runs `harness-debugging` (investigate → fix), leaving a `stages=[debugging]` provenance rather than a plan directory. `route = feature` (a bounded fix that still carries a genuine design decision) runs `harness-brainstorming` → `harness-autopilot`, leaving the plan directory plus autopilot-state. Either way the fix is authored through a real pipeline, never hand-patched.
 
    (c) Where the finding is code-side, add a **regression test that fails before the fix and passes after** — the security analogue of a behavior-asserting test, and the only proof the vulnerability is closed rather than merely unscanned.
 
@@ -156,7 +160,7 @@ The five-phase spine, the concurrency governor, the artifact + all-OS-CI verific
 
 1. **Never accept a subagent's self-report as verification.** "Fixed, scanner is clean, CI green" is a claim to be checked, not a result. For each returned FIX-tier branch the orchestrator independently confirms all four checks below; failing any one of them is a rejection, not a discount.
 
-2. **Pipeline artifact.** Confirm a plan directory under `docs/changes/<slug>/plans/` and an autopilot-state exist on the branch. A branch with no artifact **did not run the real pipeline** — it is a hand-patch, regardless of what the report says, and hand-patched security fixes are exactly the scanner-silencing edits this fleet exists to prevent.
+2. **Pipeline artifact — matched to the FIX item's route.** Confirm the artifact the route implies exists **committed on the branch**: for `route = feature`, a plan directory under `docs/changes/<slug>/plans/` plus autopilot-state; for `route = bug`, a `stages=[debugging]` provenance and the reproducing test from step (c) — a debugging run leaves **no** `plans/` directory, so its absence is not a defect and a bug-routed item is never rejected for lacking one. A branch with **neither** its route's artifact **nor** any pipeline trace **did not run the real pipeline** — it is a hand-patch, regardless of what the report says, and hand-patched security fixes are exactly the scanner-silencing edits this fleet exists to prevent.
 
 3. **Evidence cleared.** Confirm the **original evidence no longer reproduces** on the branch: the sink is unreachable, the advisory is clear, the boundary control is present, or the credential literal is gone from tracked source **and** rotation is recorded as still outstanding (removing a secret from source does not un-leak it, so an unrotated credential is half-closed, not cleared) — whichever class the finding carried. This is the security analogue of a coverage delta, and it is the check that distinguishes a fix from a mute. Re-run the evidence, do not re-read the report.
 
@@ -195,10 +199,11 @@ The five-phase spine, the concurrency governor, the artifact + all-OS-CI verific
 - **`security-craft`** — The LLM-judgment trust-boundary and least-authority critique that supplies the code-side findings a mechanical scanner cannot see.
 - **`harness-security-review`** — Supplies the OWASP/CWE finding taxonomy in SELECT, and is run by each FIX-tier subagent over its **own diff** in DISPATCH before pushing.
 - **`harness-roadmap-pilot`** — Its impact scoring is reused in SELECT to order findings by severity × evidence strength × exposure.
-- **`harness-brainstorming` → `harness-autopilot`** — The real per-item build pipeline each FIX-tier subagent runs; it is also the source of the plan-directory and autopilot-state artifact VERIFY requires.
+- **`harness-brainstorming` → `harness-autopilot`** — The real fix pipeline a **`feature`-routed** FIX-tier subagent runs (a bounded fix that still carries a genuine design decision); it is the source of the plan-directory and autopilot-state artifact VERIFY requires for that route.
+- **`harness-debugging`** — The real fix pipeline a **`bug`-routed** FIX-tier subagent runs (the common case: a bounded vulnerability with a known, mechanically-verifiable remedy). Per §Item-type routing (ADR 0103) it is chosen in SELECT, confirmed/overridable in CONFIRM, and leaves a `stages=[debugging]` provenance plus the reproducing test in place of a plan directory.
 - **The knowledge graph** — Supplies the exposure weighting (entry points, trust boundaries, critical paths) that turns a flat finding list into a risk-ranked queue.
 - **`gh`** — Cross-check in-flight security PRs and open security issues (SELECT), read `gh pr checks` for all-OS CI (VERIFY), and open fix PRs and file evidence packets (REPORT).
-- **`docs/reference/fleet-family.md`** — The shared `-fleet` spine this skill builds on (five-phase skeleton, concurrency governor, artifact + all-OS-CI verification discipline, worktree fan-out, never-silent-merge).
+- **`docs/reference/fleet-family.md`** — The shared `-fleet` spine this skill builds on (five-phase skeleton, the **§Item-type routing** rubric the FIX tier applies, concurrency governor, artifact + all-OS-CI verification discipline, worktree fan-out, never-silent-merge).
 - **`harness skill validate security-fleet`** — The authoring-time gate for this skill's own structure and schema.
 
 ## Success Criteria
@@ -208,6 +213,7 @@ The five-phase spine, the concurrency governor, the artifact + all-OS-CI verific
 - There is **exactly one** up-front human decision round; no per-item interactive pauses except a genuinely-new fork or a mid-flight re-tier parked to its own item.
 - **No structural remedy is applied autonomously** — an auth-model or trust-boundary change is filed with evidence, never patched inside the sweep.
 - **Every FIX-tier PR carries an "assumptions made" note** and, where the finding is code-side, a regression test that fails before the fix.
+- **Every FIX-tier item is routed by type** (§Item-type routing / ADR 0103): a bounded vulnerability with a known remedy runs `harness-debugging` (verified on `stages=[debugging]` provenance + the reproducing test, not a plan directory), and a bounded fix carrying a genuine design decision runs `harness-brainstorming`→`harness-autopilot`. The route is shown and is human-overridable in CONFIRM.
 - **No secret value appears** in any PR description, issue body, report row, or commit message — secrets are reported by location and type only, with rotation named as a human action.
 - **No finding is closed by suppression** — an ignore rule, advisory mute, or scanner exclusion added to clear an item is rejected.
 - Duplicates and already-remediated findings are **dropped or closed with a citation**, never re-filed or re-fixed.

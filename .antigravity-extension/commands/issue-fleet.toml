@@ -38,11 +38,13 @@ An open-issue backlog is the raw, unsorted mouth of the SDLC pipeline. Before an
 
 ## Flags
 
-| Flag            | Effect                                                                                             |
-| --------------- | -------------------------------------------------------------------------------------------------- |
-| `--concurrency` | Cap concurrent triage subagents (default 2, max recommended 3 — the machine-storm cap)             |
-| `--report-only` | Enumerate and triage the backlog and present the ranked queue; do not label, close, or emit routes |
-| `--dry-run`     | Run SELECT and CONFIRM only; stop before fan-out and any mutation                                  |
+| Flag              | Effect                                                                                                                |
+| ----------------- | --------------------------------------------------------------------------------------------------------------------- |
+| `--concurrency`   | Cap concurrent triage subagents (default 2, max recommended 3 — the machine-storm cap)                                |
+| `--report-only`   | Enumerate and triage the backlog and present the ranked queue; do not label, close, or emit routes                    |
+| `--dry-run`       | Run SELECT and CONFIRM only; stop before fan-out and any mutation                                                     |
+| `--lease-seconds` | Override the cross-run claim-lease TTL (default 720s); see §Cross-run claim lease in `docs/reference/fleet-family.md` |
+| `--no-claim`      | Disable the cross-run claim lease entirely — fall back to today's no-cross-run-coordination triage                    |
 
 ## Process
 
@@ -71,7 +73,7 @@ The five-phase spine, the concurrency governor, the independent-verification dis
 
 ### Phase 1: SELECT — Enumerate, Triage, Snapshot, Detect Forks
 
-1. **Enumerate the open-issue backlog.** List open issues via `gh issue list --state open`. Missing `gh` auth degrades to reporting the gap rather than aborting — with no queue there is nothing to triage.
+1. **Enumerate the open-issue backlog.** List open issues via `gh issue list --state open`. Missing `gh` auth degrades to reporting the gap rather than aborting — with no queue there is nothing to triage. Additionally fetch issues carrying the `fleet:claimed` label and their claim comments — this piggybacks the same enumeration (no extra `gh` call). An issue carrying a **live claim lease written by another run** is dropped as **claimed-elsewhere** (a soft reservation — another run is already triaging it); a **stale** lease is ignored and the issue stays triageable. The claim record, staleness (server `updated_at`), and reclaim tiebreak are defined once in the **§Cross-run claim lease** section of `docs/reference/fleet-family.md` — do not restate them here. If the `fleet:claimed` scan is unavailable, **degrade to triaging without the cross-run drop** and log the degradation (issue-fleet already stops when `gh` auth is wholly absent — there is then no queue to triage).
 
 2. **Triage each issue on the four axes** from its own signals (title, body, existing labels, linked refs):
    - **label** — assign the project's existing type/area labels (e.g. `bug`, `enhancement`/`feature`, `documentation`, `question`) from the issue's content. Never invent a new label.
@@ -92,6 +94,7 @@ The five-phase spine, the concurrency governor, the independent-verification dis
      signals,           // extracted title/body/labels/linked-refs
      labels,            // proposed type/area labels (from existing vocabulary)
      dedup,             // "novel" | "duplicate-of"
+     claimedElsewhere,  // true when another run holds a live claim lease (§Cross-run claim lease); dropped from triage
      canonicalRef,      // set when dedup = duplicate-of (issue/PR citation)
      route,             // downstream fleet: adr | roadmap | pr | cicd | test | cleanup
      score,             // roadmap-pilot impact score (for ranking)
@@ -126,6 +129,8 @@ The five-phase spine, the concurrency governor, the independent-verification dis
 
 **Worker handoff — return the canonical `FleetHandoffRecord`.** When a worker finishes its queue slice it hands the orchestrator exactly one `FleetHandoffRecord` (from `@harness-engineering/types`) — the ONE bounded envelope every `-fleet` member emits, so `fleet-command` parses any fleet's worker output uniformly instead of special-casing an ad hoc per-worker report shape. The record carries `status` (`done | parked | blocked | failed`), `fleet`, `item`, a one-line `summary`, an `evidence[]` of verifiable pointers (branch, PR, artifact path, CI check — exactly the references VERIFY re-checks), `next_steps[]`, and, for any non-`done` status, a `blocker`. The orchestrator validates it with `validateFleetHandoffRecord`; a malformed or unknown-keyed record is rejected, never silently misread. See the canonical handoff record in `docs/reference/fleet-family.md`.
 
+**Claim the issue before triaging — cross-run claim lease (CLAIM → HEARTBEAT → RELEASE).** On entering DISPATCH for an issue, the orchestrator takes the issue's cross-run claim so a concurrent run on another clone auto-partitions around it: add the `fleet:claimed` label and post the claim comment on the issue, then **re-read** — if a competing live claim appeared since SELECT, **yield this issue** (soft reservation) and continue the batch. While the slice triages, the orchestrator **heartbeats** the claim (edits the comment every `HEARTBEAT_SECONDS`) so a long-running slice is not mistaken for a dead one; because triage typically completes in seconds the heartbeat rarely fires, but it is kept for parity and for a slice that parks. **issue-fleet opens no PR, so the spine's `RELEASE on PR-open` does not apply: the claim releases when the issue reaches its terminal triage outcome** — its verified mutations are applied in HANDOFF (labels/route recorded, or the duplicate closed), or it parks/fails. This is the spine's "a terminal non-`done` outcome with no PR also releases the label" rule, which for issue-fleet is the primary release path. On release the `fleet:claimed` label is removed; the claim comment stays as an audit trail. Under `--no-claim` this whole step is skipped. The record format, TTL/staleness semantics, and the reclaim tiebreak are stated once in the **§Cross-run claim lease** section of `docs/reference/fleet-family.md` — this member references them, it does not restate them.
+
 ### Phase 4: VERIFY — Independent Re-Derivation, Never Self-Report
 
 1. **Never accept a subagent's self-report as verification.** "This is a duplicate, these are the right labels" is a claim to be checked, not a result. For every proposed mutation, the orchestrator independently re-derives it from the issue's own signals. This member produces **no code, no PR, and no CI conclusion**, so both the family's all-OS-CI half and the spine's **base-freshness clause** (`docs/reference/fleet-family.md` § _Base freshness_) are **not-applicable** here — recorded as such per invariant 2's honesty rule, never confused with a passed check: with no verdict derived from a CI conclusion, there is no stale-green to guard against.
@@ -142,7 +147,7 @@ The five-phase spine, the concurrency governor, the independent-verification dis
 
 1. **Apply the verified non-destructive mutations.** Apply the re-derived labels and record the routes via `gh`. These proceed autonomously — they are reversible and were grounded in VERIFY.
 
-2. **Close only the authorized + verified duplicates.** Close each issue that is both human-authorized (CONFIRM) and independently confirmed a genuine duplicate (VERIFY), with a comment **citing the canonical issue/PR**. Close nothing else — never a bare close, never a re-triage-from-scratch.
+2. **Close only the authorized + verified duplicates.** Close each issue that is both human-authorized (CONFIRM) and independently confirmed a genuine duplicate (VERIFY), with a comment **citing the canonical issue/PR**. Close nothing else — never a bare close, never a re-triage-from-scratch. As each issue reaches its terminal outcome here (mutations applied, or closed as a duplicate), **release its cross-run claim** — remove the `fleet:claimed` label, leaving the claim comment as an audit trail (see §Cross-run claim lease); a parked/failed issue releases the label too, so nothing is stranded.
 
 3. **Emit the terminal artifact: the clean, ranked, deduped, routed queue**, grouped by downstream fleet — the contract the next fleet in the conveyor reads. Alongside it, emit a one-row-per-issue batch summary for the human:
 
@@ -162,6 +167,7 @@ The five-phase spine, the concurrency governor, the independent-verification dis
 - **`gh`** — Enumerate open issues and read their signals (SELECT), apply labels and record routes (HANDOFF), and close confirmed-duplicate issues with citations (HANDOFF/REPORT).
 - **The downstream fleets** — `adr-fleet`, `roadmap-fleet`, `pr-fleet`, `cicd-fleet`, `test-fleet`, `cleanup-fleet` — consume the routed queue issue-fleet emits; issue-fleet routes to them and never does their work.
 - **`docs/reference/fleet-family.md`** — The shared `-fleet` spine this skill builds on (five-phase skeleton, governor, verification discipline, worktree fan-out, never-silent invariant); issue-fleet is listed there as the intake member.
+- **§Cross-run claim lease (`docs/reference/fleet-family.md`) + `@harness-engineering/core` (`fleet/claims`)** — The canonical cross-run coordination mechanism this member consumes in SELECT (drop live-leased issues) and DISPATCH (CLAIM → HEARTBEAT → RELEASE, released at the triage terminal outcome since issue-fleet opens no PR); the pure `buildClaimBody`/`parseClaimComment`/`isLeaseLive` primitives live in core, all `gh` I/O in this (agent-executed) skill layer.
 - **`harness skill validate issue-fleet`** — The authoring-time gate for this skill's own structure and schema.
 
 ## Success Criteria

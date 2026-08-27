@@ -214,6 +214,19 @@ LLM-judgment critique of code quality / readability — the ceiling counterpart 
 - `--max-files` — Cap source-file count (default: 100)
 - `--max-units-per-file` — Cap per-file unit critique (default: 20)
 
+### `harness context-report`
+
+Attribute the always-loaded context surface cost per turn, per tier
+
+**Options:**
+
+- `--tier` — Measure the tool schemas at this tier
+- `--exact` — Use exact /v1/messages/count_tokens counts (needs ANTHROPIC_API_KEY)
+- `--window` — Context-window size to budget against (default: 200000)
+- `--top` — How many top contributors to show (default: 10)
+- `--no-skills` — Skip the platform skill trees
+- `--json` — Emit machine-readable JSON
+
 ### `harness copy-craft`
 
 LLM-judgment critique of prose-in-code across six surfaces: error messages, log lines, CLI output, commit subjects, PR descriptions, code comments. Third craft-pipeline ceiling skill. Graceful degradation when git/gh prereqs absent.
@@ -368,6 +381,7 @@ Initialize a new harness-engineering project
 - `-n, --name` — Project name
 - `-l, --level` — Adoption level (basic, intermediate, load-bearing-minimum, advanced) (default: "load-bearing-minimum")
 - `-t, --template` — Specific template name (e.g. orchestrator)
+- `--tier` — Adoption tier (ADR 0101): minimal (the 5-item Minimum Viable Harness floor), basic, intermediate, load-bearing-minimum, advanced
 - `--framework` — Framework overlay (nextjs)
 - `--language` — Target language (typescript, python, go, rust, java)
 - `-f, --force` — Overwrite existing files
@@ -1023,6 +1037,19 @@ Check the graph for content that cannot be trusted
 
 - `--report-only` — Exit 0 even when error-severity findings exist
 - `--findings-json` — Print the machine-readable findings envelope
+
+### `harness graph path <sourceNodeId> <targetNodeId>`
+
+Find the shortest path between two nodes
+
+**Arguments:**
+
+- `sourceNodeId` (required) — Source node ID
+- `targetNodeId` (required) — Target node ID
+
+**Options:**
+
+- `--direction` — Traversal direction: outbound, inbound, or both (default: "both")
 
 ### `harness graph query <rootNodeId>`
 

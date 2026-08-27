@@ -182,6 +182,42 @@ describe('askGraph (integration)', () => {
     expect(data).toHaveProperty('tests');
   });
 
+  it('handles shortestPath intent end-to-end', async () => {
+    // UserService --calls--> AuthService --calls--> hashPassword
+    const result = await askGraph(store, 'shortest path from UserService to hashPassword');
+    expect(result.intent).toBe('shortestPath');
+    expect(result.intentConfidence).toBeGreaterThan(0.3);
+    expect(result.entities.length).toBeGreaterThanOrEqual(2);
+
+    const data = result.data as { nodes: Array<{ id: string }>; length: number } | null;
+    expect(data).not.toBeNull();
+    expect(data!.length).toBe(2);
+    expect(data!.nodes.map((n) => n.id)).toEqual([
+      'class:UserService',
+      'class:AuthService',
+      'fn:hashPassword',
+    ]);
+    expect(result.summary).toContain('Shortest path');
+  });
+
+  it('reports no path for an unreachable shortestPath pair (outbound direction)', async () => {
+    // middleware imports AuthService, but hashPassword has no outbound route to
+    // middleware — the undirected default connects them, so assert via the
+    // primitive directly to pin the unreachable branch.
+    const { ContextQL } = await import('../../src/query/ContextQL.js');
+    const cql = new ContextQL(store);
+    expect(
+      cql.shortestPath('fn:hashPassword', 'file:middleware.ts', { direction: 'outbound' })
+    ).toBeNull();
+  });
+
+  it('asks for two endpoints when only one entity is named', async () => {
+    const result = await askGraph(store, 'shortest path from AuthService');
+    expect(result.intent).toBe('shortestPath');
+    expect(result.data).toBeNull();
+    expect(result.summary).toContain('two endpoints');
+  });
+
   it('always returns a valid AskGraphResult shape', async () => {
     const questions = [
       'what breaks if I change AuthService?',

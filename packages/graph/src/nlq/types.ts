@@ -4,7 +4,14 @@ import type { GraphNode } from '../types.js';
  * All supported intent categories for natural language graph queries.
  * Runtime-accessible array mirroring NODE_TYPES / EDGE_TYPES pattern.
  */
-export const INTENTS = ['impact', 'find', 'relationships', 'explain', 'anomaly'] as const;
+export const INTENTS = [
+  'impact',
+  'find',
+  'relationships',
+  'explain',
+  'anomaly',
+  'shortestPath',
+] as const;
 
 /**
  * Intent categories for natural language graph queries.

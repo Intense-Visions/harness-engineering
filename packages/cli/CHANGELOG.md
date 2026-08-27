@@ -1,5 +1,95 @@
 # @harness-engineering/cli
 
+## 12.0.0
+
+### Minor Changes
+
+- 7a8848d: Enforce capability-seam roles with a structured field + single-role detector (#1425).
+
+  Adds an optional `capabilityRoles` field to `skill.yaml` frontmatter —
+  `{ definition: string; providers: string[]; consumers: string[] }` — so a skill can
+  promote its Service-Definition / Provider / Consumer roles from prose (shipped in
+  #1418) to machine-checkable data. A new detector in `harness skill validate` flags any
+  skill whose `capabilityRoles` is _declared_ but fills only ONE of the three roles (or
+  none) — accidental single-implementation lock-in dressed up as an extension point.
+
+  The field is optional: skills that omit it abstain (no finding), so the ~789 existing
+  skills are unaffected — no forced retrofit. Two or three filled roles pass; the
+  mechanical floor fires only on the unambiguous single-role red flag and the empty
+  declaration. Field names mirror the `harness-skill-authoring` Phase 1C prose. The core
+  detection is a pure exported `capabilityRoleErrors()` colocated with the existing
+  capability-envelope checker.
+
+- 936c76b: Give design-craft BENCHMARK a real vision channel so the award bar is reachable.
+
+  BENCHMARK previously scored source **code** (`callText`), and `callVision` threw on
+  every provider with no image support in `@harness-engineering/intelligence` — so
+  `innovation` / `philosophicalCoherence` / surface could never be honestly judged and the
+  award verdict was structurally never `cleared`.
+  - `@harness-engineering/intelligence`: `AnalysisRequest.images` + Anthropic image content
+    blocks; `claude-cli` image support via the `--input-format stream-json` transport.
+  - `@harness-engineering/cli`: real `AnalysisProviderAdapter.callVision` gated by a
+    `supportsVision` capability flag (a non-vision backend throws instead of silently
+    scoring a blank page); `runVisionBenchmark` scores the rendered screenshot; the
+    `design_craft` tool routes deep-mode benchmark to it and requires a capture per
+    page-scoped target.
+
+  Validated end-to-end against the real local `claude` CLI: the model reads images,
+  discriminates a strong page from a flat one, and a full-page strong capture clears all
+  five dimensions.
+
+- 9223f18: Add an advisory SKILL.md instruction-density check to `harness validate`.
+
+  HumanLayer's RPI→CRISPY postmortem identified a ~150-200 instruction-follow budget as the
+  ceiling that, once exceeded, forced a full workflow rebuild. `harness validate` now
+  estimates the imperative-instruction count (numbered steps + imperative-verb bullets +
+  `MUST`/`SHALL`/`REQUIRED` directives) at each context-budget packing level `run_skill`
+  loads, and surfaces a non-blocking `SKILL-DENSITY` warning when a loaded level exceeds the
+  budget (default 175, configurable via `skills.instructionBudget`). Because progressive
+  disclosure is the mitigation being validated, density is measured per cumulative packing
+  level rather than over the whole file. The check is advisory only — it never fails the
+  gate. `harness-skill-authoring` gains a matching guidance note.
+
+  New core exports: `countImperativeInstructions`, `analyzeSkillInstructionDensity`,
+  `DEFAULT_INSTRUCTION_BUDGET`.
+
+- 847cced: Add a general cross-skill lifecycle-hook framework: a new top-level `skillHooks`
+  block in `harness.config.json` lets a project attach additional **skills**,
+  **commands**, and **prompts** at lifecycle points of any hook-supporting
+  orchestrator skill. Hooks are keyed by skill name and an event string
+  (`before:/after:<phase>`, `before:run`/`after:run`, or `on:<event>` such as
+  `on:failure`). Entries are a bare skill-name string or a discriminated
+  `{type: "skill" | "prompt" | "command"}` object, each with an optional `enabled`
+  toggle; `command`/`skill` hooks receive an env + stdin (or subagent-brief) input
+  context. Resolution/normalization is shared in `@harness-engineering/core`
+  (`resolveSkillHooks` + hook-context helpers). An unresolvable skill or
+  un-spawnable command is a hard halt (false-green protection), never a silent
+  skip. `harness-autopilot` (review + non-review + `on:failure`) and
+  `harness-code-review` (`after:mechanical`) are the wired reference consumers.
+
+  This **supersedes** the unreleased `review.additionalSkills` field, which is
+  removed — express it as `skillHooks["harness-autopilot"]["after:REVIEW"]` and
+  `["after:FINAL_REVIEW"]`. Closes #1481.
+
+### Patch Changes
+
+- 00a4fe4: usage daily: accept `--limit <n>` as the canonical "how many rows" flag (matching `usage sessions --limit`). `--days <n>` keeps working as a hidden, deprecated alias that prints a one-line deprecation notice to stderr. Non-breaking; no subcommands renamed.
+- Updated dependencies [c81c872]
+- Updated dependencies [9629e01]
+- Updated dependencies [44ad077]
+- Updated dependencies [483791e]
+- Updated dependencies [936c76b]
+- Updated dependencies [fed338f]
+- Updated dependencies [9223f18]
+- Updated dependencies [847cced]
+- Updated dependencies [0dda585]
+  - @harness-engineering/orchestrator@0.21.4
+  - @harness-engineering/core@0.44.0
+  - @harness-engineering/dashboard@0.16.2
+  - @harness-engineering/intelligence@0.12.0
+  - @harness-engineering/graph@0.13.2
+  - @harness-engineering/signals@0.3.5
+
 ## 11.3.0
 
 ### Minor Changes

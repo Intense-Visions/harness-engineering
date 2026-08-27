@@ -1,9 +1,10 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+import { Command } from 'commander';
 import * as fs from 'node:fs/promises';
 import * as path from 'node:path';
 import * as os from 'node:os';
 import { runScan } from '../../src/commands/graph/scan';
-import { runQuery } from '../../src/commands/graph/query';
+import { runQuery, runShortestPath } from '../../src/commands/graph/query';
 import { runGraphStatus } from '../../src/commands/graph/status';
 import { runGraphExport } from '../../src/commands/graph/export';
 import { createScanCommand } from '../../src/commands/graph/scan';
@@ -77,6 +78,80 @@ describe('graph commands', () => {
       const emptyDir = path.join(tmpDir, 'empty');
       await fs.mkdir(emptyDir, { recursive: true });
       await expect(runQuery(emptyDir, 'file:foo.ts', {})).rejects.toThrow('No graph found');
+    });
+  });
+
+  describe('runShortestPath', () => {
+    it('returns a zero-length path for the same node', async () => {
+      await runScan(tmpDir);
+      const result = await runShortestPath(tmpDir, 'file:src/index.ts', 'file:src/index.ts', {});
+      expect(result).not.toBeNull();
+      expect(result!.length).toBe(0);
+      expect(result!.nodes.map((n) => n.id)).toEqual(['file:src/index.ts']);
+    });
+
+    it('returns null for an unreachable pair', async () => {
+      await runScan(tmpDir);
+      const result = await runShortestPath(
+        tmpDir,
+        'file:src/index.ts',
+        'file:does-not-exist.ts',
+        {}
+      );
+      expect(result).toBeNull();
+    });
+
+    it('returns error when no graph exists', async () => {
+      const emptyDir = path.join(tmpDir, 'empty');
+      await fs.mkdir(emptyDir, { recursive: true });
+      await expect(runShortestPath(emptyDir, 'file:a.ts', 'file:b.ts', {})).rejects.toThrow(
+        'No graph found'
+      );
+    });
+
+    // WIRED end-to-end: drive the verb through the real Commander tree
+    // (root program -> `graph` group -> `path`), not the exported action, to
+    // prove the subcommand is registered and dispatches into the primitive.
+    it('is reachable through the graph command parser and prints a real path', async () => {
+      await runScan(tmpDir);
+
+      // Discover a genuinely connected pair from the scanned graph so the
+      // assertion does not hard-code the ingestor's id scheme.
+      const { GraphStore, resolveGraphDir } = await import('@harness-engineering/graph');
+      const store = new GraphStore();
+      await store.load(resolveGraphDir(tmpDir));
+      const edge = store
+        .findNodes({})
+        .flatMap((n) => store.getEdges({ from: n.id }))
+        .find((e) => e.from !== e.to);
+      expect(edge).toBeDefined();
+
+      const logs: string[] = [];
+      const originalLog = console.log;
+      console.log = (...args: unknown[]): void => {
+        logs.push(args.join(' '));
+      };
+      try {
+        const program = new Command('harness').option('-c, --config <path>');
+        program.addCommand(createGraphCommand());
+        await program.parseAsync(
+          [
+            '--config',
+            path.join(tmpDir, 'harness.config.json'),
+            'graph',
+            'path',
+            edge!.from,
+            edge!.to,
+          ],
+          { from: 'user' }
+        );
+      } finally {
+        console.log = originalLog;
+      }
+
+      const output = logs.join('\n');
+      expect(output).toContain('Shortest path');
+      expect(output).toContain(`${edge!.from} -> ${edge!.to}`);
     });
   });
 
@@ -180,6 +255,12 @@ describe('graph commands', () => {
       expect(subcommands).toContain('scan');
       expect(subcommands).toContain('query');
       expect(subcommands).toContain('ingest');
+    });
+
+    it('exposes path as a graph subcommand', () => {
+      const cmd = createGraphCommand();
+      const subcommands = cmd.commands.map((c) => c.name());
+      expect(subcommands).toContain('path');
     });
   });
 });

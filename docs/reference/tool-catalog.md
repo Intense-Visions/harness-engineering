@@ -1504,7 +1504,7 @@ Run the harness-design-craft skill: CRITIQUE / POLISH / BENCHMARK phases over a 
       "type": "array"
     },
     "mode": {
-      "description": "fast (code-only LLM critique) or deep (vision critique of rendered screenshots — requires `captures`).",
+      "description": "fast (code-only LLM judgment) or deep (vision judgment of rendered screenshots — requires `captures`). Deep mode applies to BOTH critique and benchmark; only deep-mode benchmark can clear the award bar, since innovation/coherence/surface cannot be honestly scored from source code.",
       "enum": [
         "fast",
         "deep"

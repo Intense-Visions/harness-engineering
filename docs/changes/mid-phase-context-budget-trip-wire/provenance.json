@@ -1,0 +1,12 @@
+{
+  "issues": [1403],
+  "stages": ["brainstorming", "planning", "execution", "review"],
+  "planArtifact": "docs/changes/mid-phase-context-budget-trip-wire/plans/plan.md",
+  "assumptions": [
+    "token-anchored window-keyed threshold (NOT flat 40%): 200K→warn80K/trip100K, 1M→warn250K/trip300-400K, ≤128K→warn~30%/trip35-40%",
+    "measured on total resident tokens (input+output+tool) via real usage counter, effective window ≈0.6× nominal",
+    "two-stage: soft-warn=flush state, hard-trip=checkpoint-and-restart into cold subagent with summarized state",
+    "researched vs Chroma/NoLiMa/RULER/Lost-in-the-Middle/Anthropic/Horthy"
+  ],
+  "closingKeyword": "Closes #1403"
+}

@@ -42,8 +42,11 @@ import { runCritique, runVisionCritique } from '../../design-craft/phases/critiq
 import type { CritiqueTarget, VisionCritiqueTarget } from '../../design-craft/phases/critique.js';
 import { runPolish } from '../../design-craft/phases/polish.js';
 import type { PolishTarget } from '../../design-craft/phases/polish.js';
-import { runBenchmark } from '../../design-craft/phases/benchmark.js';
-import type { BenchmarkTarget } from '../../design-craft/phases/benchmark.js';
+import { runBenchmark, runVisionBenchmark } from '../../design-craft/phases/benchmark.js';
+import type {
+  BenchmarkTarget,
+  VisionBenchmarkTarget,
+} from '../../design-craft/phases/benchmark.js';
 import type { AwardBarConfig } from '../../design-craft/phases/award-bar.js';
 import type { ResponsiveMetrics, ResponsiveGateConfig } from '../../responsive/index.js';
 import { DEFAULT_RESPONSIVE_GATE_CONFIG } from '../../responsive/index.js';
@@ -169,8 +172,10 @@ export const designCraftToolDefinition = {
         type: 'string',
         enum: ['fast', 'deep'],
         description:
-          'fast (code-only LLM critique) or deep (vision critique of rendered screenshots — ' +
-          'requires `captures`).',
+          'fast (code-only LLM judgment) or deep (vision judgment of rendered screenshots — ' +
+          'requires `captures`). Deep mode applies to BOTH critique and benchmark; only deep-mode ' +
+          'benchmark can clear the award bar, since innovation/coherence/surface cannot be honestly ' +
+          'scored from source code.',
       },
       phases: {
         type: 'array',
@@ -434,6 +439,37 @@ function buildBenchmarkTargets(
 }
 
 /**
+ * Pair each benchmark target with its rendered screenshot for deep-mode
+ * scoring, matching a capture to a target by `file`. Returns the vision
+ * targets that have a capture plus the `file`s of any target that has none —
+ * the caller turns a non-empty `missing` list into a hard error, mirroring
+ * the deep-mode critique gate (a page-scoped award verdict must never be
+ * certified from source code alone).
+ */
+function pairBenchmarkCaptures(
+  targets: BenchmarkTarget[],
+  captures: VisionCritiqueTarget[]
+): { vision: VisionBenchmarkTarget[]; missing: string[] } {
+  const imageByFile = new Map(captures.map((c) => [c.file, c.image]));
+  const vision: VisionBenchmarkTarget[] = [];
+  const missing: string[] = [];
+  for (const t of targets) {
+    const image = imageByFile.get(t.file);
+    if (image === undefined) {
+      missing.push(t.file);
+      continue;
+    }
+    vision.push({
+      file: t.file,
+      component: t.component,
+      image,
+      ...(t.componentType !== undefined ? { componentType: t.componentType } : {}),
+    });
+  }
+  return { vision, missing };
+}
+
+/**
  * Aggregate llmCalls summary from the provider. Mock provider tracks
  * its own cost ledger; real providers will surface this through their own
  * cost adapter.
@@ -538,7 +574,10 @@ async function runPipeline(
   // explicitly (`captures`) or produced by a caller-configured `captureCommand`.
   const autoCapture: AutoCapture = input.autoCapture ?? 'prompt';
   let captures = input.captures ?? [];
-  const needsCaptures = mode === 'deep' && phases.includes('critique') && captures.length === 0;
+  const needsCaptures =
+    mode === 'deep' &&
+    (phases.includes('critique') || phases.includes('benchmark')) &&
+    captures.length === 0;
 
   if (needsCaptures && input.captureCommand && autoCapture !== 'skip') {
     const captured = runCaptureCommand(input.captureCommand, input.files ?? [], input.__runCapture);
@@ -606,13 +645,38 @@ async function runPipeline(
     const exemplars = [...SEED_EXEMPLARS];
     const awardBar = input.awardBar ?? readAwardBarConfig(input.path);
     const responsive = resolveResponsiveArgs(input);
-    const benchmarkScores = await runBenchmark({
-      targets: benchmarkTargets,
-      exemplars,
-      provider,
-      ...(awardBar !== undefined ? { awardBar } : {}),
-      ...(responsive !== undefined ? { responsive } : {}),
-    });
+    // Deep mode → vision benchmark over the rendered captures (the only path
+    // whose exemplar-relative award bar can actually clear, since innovation /
+    // coherence / surface cannot be honestly scored from source). Fast mode →
+    // the code-only benchmark, which by design never certifies award tier.
+    let benchmarkScores: BenchmarkScore[];
+    if (mode === 'deep') {
+      const { vision, missing } = pairBenchmarkCaptures(benchmarkTargets, captures);
+      if (missing.length > 0) {
+        return Err({
+          message:
+            'design-craft deep mode benchmarks rendered screenshots — every benchmark target ' +
+            'needs a matching capture (by "file"). Missing captures for: ' +
+            missing.join(', ') +
+            '. Supply "captures"/"captureCommand" for these files or use mode: "fast".',
+        });
+      }
+      benchmarkScores = await runVisionBenchmark({
+        targets: vision,
+        exemplars,
+        provider,
+        ...(awardBar !== undefined ? { awardBar } : {}),
+        ...(responsive !== undefined ? { responsive } : {}),
+      });
+    } else {
+      benchmarkScores = await runBenchmark({
+        targets: benchmarkTargets,
+        exemplars,
+        provider,
+        ...(awardBar !== undefined ? { awardBar } : {}),
+        ...(responsive !== undefined ? { responsive } : {}),
+      });
+    }
     scores.push(...benchmarkScores);
     exemplarsCited = Array.from(new Set(benchmarkScores.flatMap((s) => s.exemplars)));
     if (recordMeasurement) {

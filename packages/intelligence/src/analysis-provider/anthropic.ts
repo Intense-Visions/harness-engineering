@@ -47,6 +47,25 @@ export class AnthropicAnalysisProvider implements AnalysisProvider {
       'You MUST respond by calling the "structured_output" tool with your result. Do not return plain text.'
     );
 
+    // When images are supplied, the user turn becomes a content-block array:
+    // the image block(s) first, then the text prompt. Without images we send
+    // the prompt as a plain string (unchanged from the text-only path).
+    const userContent: Anthropic.Messages.MessageParam['content'] =
+      request.images && request.images.length > 0
+        ? [
+            ...request.images.map(
+              (img): Anthropic.Messages.ImageBlockParam => ({
+                type: 'image',
+                source:
+                  img.base64 !== undefined
+                    ? { type: 'base64', media_type: img.mediaType ?? 'image/png', data: img.base64 }
+                    : { type: 'url', url: img.url ?? '' },
+              })
+            ),
+            { type: 'text', text: request.prompt },
+          ]
+        : request.prompt;
+
     const startMs = performance.now();
 
     const response = await this.client.messages.create({
@@ -55,7 +74,7 @@ export class AnthropicAnalysisProvider implements AnalysisProvider {
       system: systemParts.join('\n\n'),
       tools: [tool],
       tool_choice: { type: 'tool', name: 'structured_output' },
-      messages: [{ role: 'user', content: request.prompt }],
+      messages: [{ role: 'user', content: userContent }],
     });
 
     const latencyMs = Math.round(performance.now() - startMs);

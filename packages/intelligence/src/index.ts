@@ -44,6 +44,7 @@ export type {
   AnalysisRequest,
   AnalysisResponse,
   AnalysisProvider,
+  AnalysisImage,
 } from './analysis-provider/interface.js';
 export { AnthropicAnalysisProvider } from './analysis-provider/anthropic.js';
 export { OpenAICompatibleAnalysisProvider } from './analysis-provider/openai-compatible.js';

@@ -2,13 +2,13 @@
 
 # Skills Catalog
 
-789 skills. Skills carry two independent tier axes: a **loading tier** (whether a skill registers as a slash command or is discovered on demand) and a **curation tier** (how load-bearing it is). A senior engineer can hold ~12 skills in their head, not hundreds — the curation tier names that short list.
+Skills carry two independent tier axes: a **loading tier** (whether a skill registers as a slash command or is discovered on demand) and a **curation tier** (how load-bearing it is). A senior engineer can hold ~12 skills in their head, not hundreds — the curation tier names that short list.
 
 See the [Features Overview](../guides/features-overview.md) for narrative documentation.
 
 ## Load-Bearing Gear (Tier-0)
 
-The 12 skills that carry the core workflow. Learn these first; everything else is a library you reach for on demand.
+The skills that carry the core workflow. Learn these first; everything else is a library you reach for on demand.
 
 - **harness-autopilot** — Autonomous phase execution loop — chains planning, execution, verification, and review, pausing only at human decision points
 - **harness-brainstorming** — Structured ideation and exploration with harness methodology
@@ -27,7 +27,7 @@ The 12 skills that carry the core workflow. Learn these first; everything else i
 
 Tier 1 and 2 skills are registered as slash commands. Tier 3 skills are discoverable via the `search_skills` MCP tool.
 
-## Tier 1 — Workflow (17 skills)
+## Tier 1 — Workflow
 
 ### add-harness-component
 
@@ -200,7 +200,7 @@ Human-judged acceptance sign-off skill — the terminal, human-authority stage o
 - **Cognitive mode:** configuration-interviewer
 - **Depends on:** outcome-eval
 
-## Tier 2 — Maintenance (69 skills)
+## Tier 2 — Maintenance
 
 ### acceptance-eval
 
@@ -867,7 +867,7 @@ Autonomous test-coverage backlog sweep — enumerate under-covered areas and unc
 - **Cognitive mode:** systematic-orchestrator
 - **Depends on:** harness-test-advisor, harness-tdd, test-craft, harness-roadmap-pilot
 
-## Tier 3 — Domain (703 skills)
+## Tier 3 — Domain
 
 ### a11y-aria-patterns
 
