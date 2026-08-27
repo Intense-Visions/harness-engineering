@@ -25,8 +25,11 @@
 //     is already set on entry, the adapter refuses to recurse.
 
 import { z } from 'zod';
+// NB: the core barrel exports the graph-analysis `SourceFile` under the plain
+// name and the comprehension `{ path, content }` source-file under the alias
+// `ComprehensionSourceFile` (to avoid the name collision) — use the alias here.
 import type {
-  SourceFile,
+  ComprehensionSourceFile,
   SemanticInput,
   SemanticGeneration,
   GenerateSemantic,
@@ -63,7 +66,7 @@ const TRUNCATION_MARKER = '\n… [source truncated for comprehension digest]';
  * (leaving room for the marker) and the truncation marker is appended.
  */
 export function boundSourceDigest(
-  files: SourceFile[],
+  files: ComprehensionSourceFile[],
   budget = DEFAULT_DIGEST_CHAR_BUDGET
 ): string {
   let out = '';
@@ -84,7 +87,7 @@ export interface SemanticPromptInput {
   module: string;
   interfaceContract: string;
   dependencySlice: string;
-  sourceFiles: SourceFile[];
+  sourceFiles: ComprehensionSourceFile[];
 }
 
 /**
