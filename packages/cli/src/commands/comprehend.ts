@@ -1,3 +1,4 @@
+import { spawnSync } from 'node:child_process';
 import { Command } from 'commander';
 import {
   ComprehensionStore,
@@ -16,6 +17,7 @@ import {
   runComprehend,
   runComprehendCheck,
   runComprehendStats,
+  type ComprehendRunResult,
 } from '../comprehension/compile-run';
 import { resolveAnalysisProvider } from '../mcp/utils/analysis-provider';
 import { deriveChangedSurface, type ChangedSurface } from './validate-scope';
@@ -87,6 +89,31 @@ export async function resolveCompileProvider(
 ): Promise<AnalysisProvider | null> {
   if (staticOnly || !cconf.semantic) return null;
   return resolveProvider(cconf.model ?? undefined);
+}
+
+/**
+ * Default `--stage` seam: `git add` the given unit shard paths. Passes EXPLICIT
+ * posix paths (never a glob) so it is Windows-safe and cannot expand against the
+ * cwd. Best-effort — a git failure is swallowed by the caller's non-blocking hook.
+ */
+function defaultStagePaths(paths: string[]): void {
+  spawnSync('git', ['add', '--', ...paths], { stdio: 'ignore' });
+}
+
+/**
+ * SF1.2 — `--stage`: git-add the compiled units' shard paths so a static-only
+ * pre-commit recompile lands the refreshed `_module.md` shards IN the same commit
+ * as the source change. Stages EXACTLY the compiled modules' shards (`store.path`)
+ * and is a no-op when nothing compiled (never shells out). The git call is behind
+ * an injectable seam so tests never touch git.
+ */
+export function stageCompiledUnits(
+  result: Pick<ComprehendRunResult, 'compiled'>,
+  store: { path: (module: string) => string },
+  stage: (paths: string[]) => void = defaultStagePaths
+): void {
+  if (result.compiled.length === 0) return;
+  stage(result.compiled.map((module) => store.path(module)));
 }
 
 /** Load the resolved HarnessConfig, or undefined when none resolves (best-effort). */
@@ -161,6 +188,9 @@ async function runCompileMode(
     logger.warn('comprehend: a comprehension run is already active — refusing to re-enter.');
     process.exit(ExitCode.SUCCESS);
   }
+  // Pre-commit posture: stage the refreshed shards so they land in the SAME
+  // commit as the source change (no-op when nothing compiled).
+  if (opts.stage) stageCompiledUnits(result, store);
   logger.success(
     `Compiled ${result.compiled.length} module(s): ` +
       `${result.semanticPresent} semantic, ${result.semanticAbsent} static-only` +
