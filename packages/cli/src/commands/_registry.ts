@@ -81,6 +81,7 @@ import { createReviewCiCommand } from './review-ci';
 import { createRoadmapCommand } from './roadmap';
 import { createRollbackCommand } from './rollback';
 import { createRoutingCommand } from './routing';
+import { createRulesCommand } from './rules';
 import { createScanConfigCommand } from './scan-config';
 import { createSearchCommand } from './search';
 import { createSecurityCraftCommand } from './security-craft';
@@ -190,6 +191,7 @@ export const commandCreators: Array<() => Command> = [
   createRoadmapCommand,
   createRollbackCommand,
   createRoutingCommand,
+  createRulesCommand,
   createScanConfigCommand,
   createSearchCommand,
   createSecurityCraftCommand,

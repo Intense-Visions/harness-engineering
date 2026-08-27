@@ -5,6 +5,9 @@ problem_type: <short-noun-phrase>
 last_updated: 'YYYY-MM-DD'
 track: <bug-track | knowledge-track>
 category: <category-from-schema.yaml>
+# Optional (ADR 0100). Include ONLY if this fix produced or hardened an enforced
+# rule; omit the key otherwise (fill-forward). Reciprocal of each rule's `origin`.
+# enforces: [STRENGTH-002]
 ---
 
 # <Title — concise problem statement>

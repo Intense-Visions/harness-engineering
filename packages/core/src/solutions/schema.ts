@@ -44,6 +44,10 @@ const BaseFrontmatter = z.object({
   tags: z.array(z.string()),
   problem_type: z.string().min(1),
   last_updated: z.string().regex(ISO_DATE, 'last_updated must be ISO date YYYY-MM-DD'),
+  // Optional rule-to-failure provenance (ADR 0100). Additive + advisory: legacy
+  // docs omit it and stay valid (fill-forward). Lists rule ids this solution
+  // produced or hardened; joined against rule `origin` by `harness rules provenance`.
+  enforces: z.array(z.string()).optional(),
 });
 
 export const SolutionDocFrontmatterSchema = z.discriminatedUnion('track', [

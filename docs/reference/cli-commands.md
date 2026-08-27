@@ -1648,6 +1648,14 @@ Dry-run a routing decision without dispatching (Spec B F7)
 - `--risk` — Synthetic risk band (low|high) — dry-run only
 - `--json` — Emit JSON to stdout instead of human-readable text
 
+## Rules Commands
+
+Enforced-rule introspection commands
+
+### `harness rules provenance`
+
+Advisory report joining enforced rules to the incidents that motivated them (ADR 0100); never blocks
+
 ## Skill Commands
 
 Skill management commands

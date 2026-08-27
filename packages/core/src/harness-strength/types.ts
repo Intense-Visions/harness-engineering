@@ -117,6 +117,14 @@ export interface StrengthRule {
   id: string;
   gearPiece: string;
   defaultSeverity: Severity;
+  /**
+   * Optional rule-to-failure provenance (ADR 0100) — the reciprocal of a
+   * solution's `enforces:`. Points back to the incident this rule was born from:
+   * a `harness-compound` solution slug or an issue reference (e.g.
+   * `worktree-race-cas-plumbing-recovery` or `#1469`). Advisory metadata only;
+   * a missing `origin` never blocks — it surfaces in `harness rules provenance`.
+   */
+  origin?: string;
   appliesIn(mode: Mode): boolean;
   /**
    * Optional. Returns false when the rule's required input is absent, so the

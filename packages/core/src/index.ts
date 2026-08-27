@@ -315,6 +315,11 @@ export type { OwnershipConflict, OwnershipOverlap } from './parallelization/owne
 export * from './proposals';
 
 /**
+ * Provenance module.
+ */
+export * from './provenance';
+
+/**
  * Pulse module.
  */
 export * from './pulse';
