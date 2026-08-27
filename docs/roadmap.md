@@ -912,6 +912,39 @@ last_manual_edit: 2026-06-27T12:51:51.967Z
 - **Priority:** P2
 - **External-ID:** github:Intense-Visions/harness-engineering#1654
 
+### Bullwhip dampening — end-demand visibility across pipeline stages
+
+- **Status:** planned
+- **Spec:** —
+- **Summary:** Supply chains discovered that order variance amplifies upstream: each stage orders based on the noisy orders of the stage below, adding its own safety stock and batching, so a small ripple in end demand becomes a whip at the far end — and the fix is structural, not behavioral: share the end-demand signal with every stage instead of letting each stage see only its neighbor. Multi-stage orchestration has the same topology: intent → decomposition → dispatch → verification → landing, each stage sizing its work and buffers from the stage adjacent to it. A burst of intents becomes over-decomposition, which becomes over-dispatch, which floods verification, which batches landings — amplified variance at every hop, visible in telemetry as oscillating load that no single stage caused. Import the fix: every stage reads the true end-demand signal (the intent arrival rate and its forecast) directly, sizes its buffers against that instead of against its upstream neighbor's bursts, and batching policies are set globally rather than per-stage. The measurable claim: variance amplification ratio per stage (output variance / input variance), currently unmeasured, drops toward 1 when stages share the demand signal.
+- **Blockers:** —
+- **Plan:** —
+- **Assignee:** —
+- **Priority:** P3
+- **External-ID:** github:Intense-Visions/harness-engineering#1666
+
+### Kelly staking — bet-sizing token budgets by edge and ruin avoidance
+
+- **Status:** planned
+- **Spec:** —
+- **Summary:** Gambling mathematics solved optimal bet sizing under uncertainty: the Kelly criterion stakes a fraction of bankroll proportional to your edge (probability-weighted payoff vs. cost), maximizing long-run growth while making ruin probability-zero — over-betting a finite bankroll is ruinous even with positive edge, and under-betting forfeits compounding. Token budgets are a bankroll and intents are bets: each has a success probability (the IRT model supplies it, calibrated), a payoff (value-per-spend supplies the valuation), and a stake (the token budget allocated). Today stakes are sized by task-shape convention, which commits both Kelly sins — big speculative bets that can exhaust a period's budget on low-probability work, and timid stakes on high-edge work that leave growth unrealized. Build the staking layer: per intent, compute the Kelly fraction from calibrated success probability and expected payoff; stake fractional Kelly (half-Kelly is the practitioner standard — full Kelly assumes your probabilities are exact, and ours carry uncertainty); enforce the ruin constraint at the portfolio level (total staked never exceeds the declared bankroll fraction); and log realized outcomes back to sharpen the edge estimates. The discipline's deepest import is the ruin asymmetry: a budget that hits zero mid-period stops all compounding, so survival dominates any single bet's optimality.
+- **Blockers:** —
+- **Plan:** —
+- **Assignee:** —
+- **Priority:** P2
+- **External-ID:** github:Intense-Visions/harness-engineering#1668
+
+### Incident command structure — scalable surge organization with span-of-control limits
+
+- **Status:** planned
+- **Spec:** —
+- **Summary:** Emergency management's incident command system (ICS) is the field-proven answer to a coordination problem fleets hit in surges: how to organize a response whose size is unknowable in advance. Its load-bearing rules transfer directly: modular organization that expands and contracts with the incident (roles are activated only when their function is needed, and every function not delegated remains with the incident commander); strict span of control (no supervisor coordinates more than ~5-7 direct reports — when exceeded, insert a layer, when under-used, collapse it); unified command when multiple jurisdictions share an incident; and common terminology so mutual aid works without translation. Surge response today (incident swarms, big remediations, fleet-command waves) improvises its structure per event: coordinator overload is discovered rather than prevented, and two fleets converging on one incident have no unified-command protocol. Encode ICS: surge responses instantiate the modular structure automatically — a commander context, sections activated on demand (investigation, remediation, verification, communication), span-of-control enforced by inserting/collapsing coordination layers as the response scales, unified command negotiated when responses collide, and the after-action review as a standard artifact. This composes with crisis standards (which govern what standards apply under load) by governing who coordinates whom while it happens.
+- **Blockers:** —
+- **Plan:** —
+- **Assignee:** —
+- **Priority:** P3
+- **External-ID:** github:Intense-Visions/harness-engineering#1667
+
 ## v5.0 — Enforcement Hardening
 
 ### Audit and cap the pre-commit --skip list
@@ -1254,6 +1287,17 @@ last_manual_edit: 2026-06-27T12:51:51.967Z
 - **Assignee:** —
 - **Priority:** P2
 - **External-ID:** github:Intense-Visions/harness-engineering#1662
+
+### Taguchi loss — continuous quality loss instead of binary gate verdicts
+
+- **Status:** planned
+- **Spec:** —
+- **Summary:** Taguchi's insight overturned pass/fail quality control: loss is continuous — quadratic in the distance from target — not a step function at the spec limit, so two parts both 'in spec' can carry very different real losses, and a gate that only says pass/fail destroys exactly the information needed to improve. The gate stack is step functions all the way down: coverage ≥ threshold, complexity ≤ limit, latency ≤ budget — each verdict discarding the distance-to-target that predicts future failures. Keep the binary verdicts for admission (they are cheap to reason about) but record the continuous loss underneath: every thresholded gate also emits its measured distance from target, a per-gate loss function (quadratic default, calibrated where outcome data supports it) converts distances into comparable loss units, and the accumulated loss per change/surface/period becomes a leading indicator the step functions cannot see — a codebase drifting toward its limits shows rising loss while every gate still passes. This is the measurement substrate several filed items quietly want: cavitation detection gains a graded signal instead of pass-rate cliffs, NNR gains severity weighting, and threshold tuning becomes an optimization over a loss surface instead of folklore.
+- **Blockers:** —
+- **Plan:** —
+- **Assignee:** —
+- **Priority:** P3
+- **External-ID:** github:Intense-Visions/harness-engineering#1673
 
 ## v5.0 — Catalog Rationalization
 
@@ -1754,6 +1798,17 @@ last_manual_edit: 2026-06-27T12:51:51.967Z
 - **Priority:** P3
 - **External-ID:** github:Intense-Visions/harness-engineering#1659
 
+### Normal-accidents audit — interactive complexity × tight coupling of the orchestration system itself
+
+- **Status:** planned
+- **Spec:** —
+- **Summary:** Perrow's Normal Accidents gives a two-axis diagnosis of when systems produce accidents no component failure explains: interactive complexity (components interact in unplanned, unexpected ways) crossed with tight coupling (failures propagate faster than intervention) — systems in the high/high quadrant have 'normal' accidents, meaning structurally inevitable, and the mitigation is moving on the axes, not adding components (each added safety device raises interactive complexity and can worsen the quadrant). The dependency-percolation item audits the *code*; nothing audits the *orchestration system itself* — and this roadmap has spent six rounds adding interacting components to it: governors reading detectors feeding admission control gating fleets writing markers consumed by governors. That is interactive complexity by construction, and pieces of it are tightly coupled (synchronous gate chains, shared budget pools). Build the audit: map the orchestration system's own interaction graph (which mechanisms read/write which signals and stores), score interaction unexpectedness (interactions present in telemetry but absent from design docs are the dangerous kind), measure coupling tightness (propagation speed vs. intervention latency per path), place the system on the Perrow quadrant, and — the actionable half — rank the specific decoupling moves (async boundaries, buffers, circuit breakers between mechanisms) that shift it leftward. The uncomfortable, honest purpose: this roadmap is its own biggest source of the risk this item measures.
+- **Blockers:** —
+- **Plan:** —
+- **Assignee:** —
+- **Priority:** P3
+- **External-ID:** github:Intense-Visions/harness-engineering#1669
+
 ## v5.0 — Trust & Security Model
 
 ### Move sentinel-pre/post to standard hook profile
@@ -1931,6 +1986,17 @@ last_manual_edit: 2026-06-27T12:51:51.967Z
 - **Assignee:** —
 - **Priority:** P3
 - **External-ID:** github:Intense-Visions/harness-engineering#1661
+
+### Safety cases — structured, evidence-linked arguments for unattended operation
+
+- **Status:** planned
+- **Spec:** —
+- **Summary:** Nuclear, rail, and defense do not authorize hazardous operation on checklists or vibes: they require a safety case — a structured argument, in goal-structuring notation, that the system is acceptably safe for a declared operation in a declared context, with every claim decomposed into sub-claims and every leaf resting on cited evidence, reviewed as an artifact and re-validated when its context or evidence changes. 'Can this fleet run unattended overnight?' is exactly such an authorization, and today it is answered by accumulated gut feel over scattered mechanisms. Build the safety-case artifact: top-level claim (this fleet, this scope, unattended, acceptable residual risk), argument structure decomposing it (contracts enforced → evidence: contract tests; irreversible actions guarded → evidence: threshold-auth adversarial suite; oversight not aliased → evidence: Nyquist verdict; budget bounded → evidence: governor records), with every leaf linked live to the actual test/telemetry artifact rather than to prose. Live linkage is the teeth: when cited evidence goes stale or red, the case degrades visibly and the authorization it supports is flagged for review. The safety case becomes the reviewable, versionable answer to the only question that gates the whole unattended program: why do we believe this is safe?
+- **Blockers:** —
+- **Plan:** —
+- **Assignee:** —
+- **Priority:** P2
+- **External-ID:** github:Intense-Visions/harness-engineering#1674
 
 ## v5.0 — Article-Framing Docs & Personas
 
@@ -2512,6 +2578,28 @@ last_manual_edit: 2026-06-27T12:51:51.967Z
 - **Priority:** P3
 - **External-ID:** github:Intense-Visions/harness-engineering#1653
 
+### Sterile cockpit — interruption governance during critical phases
+
+- **Status:** planned
+- **Spec:** —
+- **Summary:** Aviation's sterile cockpit rule is blunt and effective: below 10,000 feet — the phases where errors are least recoverable — no non-essential communication reaches the flight crew, by regulation, because interruption during critical operations is a documented killer and 'just one quick question' is how it arrives. Agent pipelines have critical phases with the same signature — landing sequences, release cuts, incident response, migration cutovers, threshold-authorized irreversible actions — and no interruption discipline: mid-phase, an agent or operator context can receive new intents, digest pings, comment notifications, and re-prioritization signals, each a context-switch exactly where state is least recoverable. Declare the sterile phases: operations classed as critical carry an interruption policy — non-essential signals are deferred and queued (not dropped), essential interrupts are a declared short list (abort signals, safety alarms), and the policy binds both agent contexts (the orchestrator withholds new work and messages) and human channels (digests batch, notifications hold) for the phase's bounded duration. The discipline is cheap because phases are short and defined; the payoff is concentrated exactly where errors cost the most — and the deferred-signal queue means nothing is lost, only sequenced.
+- **Blockers:** —
+- **Plan:** —
+- **Assignee:** —
+- **Priority:** P3
+- **External-ID:** github:Intense-Visions/harness-engineering#1672
+
+### SMED changeover reduction — externalizing agent setup time
+
+- **Status:** planned
+- **Spec:** —
+- **Summary:** Lean manufacturing's SMED (single-minute exchange of die) cut changeover times from hours to minutes with one analytical move: classify every setup step as internal (machine must be stopped) or external (can be done while the previous job still runs), then relentlessly convert internal to external and streamline what remains. Agent task changeover has the same anatomy and no such discipline: between tasks, an agent context is 'stopped' while it loads repo state, reads context, warms caches, re-derives orientation — all booked as task time but actually changeover, and much of it externalizable: the next task is usually known (the queue is visible), so its context assembly, artifact prefetch, baseline checkout, and even briefback drafting can run during the current task's execution — external setup by construction. Import the method: instrument changeover time per task transition (first-token-of-productive-work minus task start), classify the setup steps internal vs. external, build the prefetch pipeline that performs external setup concurrently with the running task (speculative where the queue is probabilistic, and reusing the speculative-execution machinery's isolation), and streamline the irreducibly-internal remainder. The measured target is the manufacturing one: changeover time driven toward single-digit percent of task time, which at fleet scale compounds into whole extra agents' worth of throughput from the same spend.
+- **Blockers:** —
+- **Plan:** —
+- **Assignee:** —
+- **Priority:** P3
+- **External-ID:** github:Intense-Visions/harness-engineering#1671
+
 ## Planning & Process
 
 ### Init design + roadmap polish follow-ups
@@ -2700,6 +2788,17 @@ last_manual_edit: 2026-06-27T12:51:51.967Z
 - **Assignee:** —
 - **Priority:** P3
 - **External-ID:** github:Intense-Visions/harness-engineering#1656
+
+### Reference-class forecasting — outside-view priors for cost and duration
+
+- **Status:** planned
+- **Spec:** —
+- **Summary:** Forecasting science's most replicated finding is that inside-view estimates — built from the work's imagined steps — are systematically optimistic, and the fix is the outside view: place the item in a reference class of completed similar items and take the class's actual outcome distribution as the prior, adjusting only for documented differences. This is mandated practice in public megaproject budgeting for a reason: it is the only estimation method that prices the unknown unknowns, because the reference class already paid for them. The pipeline has what human estimators never had — a complete, honest record of every past item's true cost and duration in telemetry — and still forecasts from the inside view (task-shape conventions, or the filed complexity-based risk forecast, which is inside-view too). Build the outside view: reference-class construction by similarity over intent features (task class, surface, size signals, historical difficulty from the IRT scale), the class's realized distribution (not point estimate — the spread is the information) as the forecast prior, inside-view adjustment bounded and logged, and calibration tracked per class with the forecast-vs-actual loop feeding class refinement. Where the two views disagree sharply, that disagreement is itself a review flag: the plan believes something the history contradicts.
+- **Blockers:** —
+- **Plan:** —
+- **Assignee:** —
+- **Priority:** P3
+- **External-ID:** github:Intense-Visions/harness-engineering#1670
 
 ## Dashboard & Visualization
 
