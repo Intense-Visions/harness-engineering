@@ -57,14 +57,25 @@ describe('handleAcceptanceEval input contract', () => {
 
 describe('handleAcceptanceEval degrade-safe behaviour', () => {
   const savedKey = process.env.ANTHROPIC_API_KEY;
+  const savedPath = process.env.PATH;
+  const savedPathWin = process.env.Path;
 
   beforeEach(() => {
     delete process.env.ANTHROPIC_API_KEY;
+    // D8 appended a claude-CLI fallback that scans PATH; neutralize it so this
+    // degrade test is deterministic regardless of whether the host has `claude`
+    // installed (the "no provider configured" premise now also means no claude).
+    delete process.env.PATH;
+    delete process.env.Path;
   });
 
   afterEach(() => {
     if (savedKey === undefined) delete process.env.ANTHROPIC_API_KEY;
     else process.env.ANTHROPIC_API_KEY = savedKey;
+    if (savedPath === undefined) delete process.env.PATH;
+    else process.env.PATH = savedPath;
+    if (savedPathWin === undefined) delete process.env.Path;
+    else process.env.Path = savedPathWin;
   });
 
   it('returns an advisory INCONCLUSIVE verdict when no provider is configured', async () => {
