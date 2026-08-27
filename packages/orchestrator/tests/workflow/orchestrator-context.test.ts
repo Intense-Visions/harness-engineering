@@ -433,6 +433,46 @@ describe('renderStagePrompt — prior gate-failure re-prompt (staged convergence
   });
 });
 
+describe('renderStagePrompt — graph-scoped leaf-context assembly (#1524 deferred slice)', () => {
+  const priorOutputs: Record<string, string> = {};
+  const GRAPH_MARKER = 'Assemble context graph-scoped by default';
+
+  it('DEFAULT (no agent.retrievalMode) renders the graph-scoped directive naming the retrieval tools', async () => {
+    // The live seam: buildWorkflowContext with NO retrievalMode dep must resolve to
+    // DEFAULT_RETRIEVAL_MODE ('graph-scoped') and thread it into the rendered leaf
+    // prompt — proving the field is READ, not set-but-never-read.
+    const ctx = buildWorkflowContext(baseDeps());
+    const prompt = await ctx.renderStagePrompt!(step, 0, priorOutputs, true);
+    expect(prompt).not.toContain('[object Promise]');
+    expect(prompt).toContain(GRAPH_MARKER);
+    expect(prompt).toContain('code_outline');
+    expect(prompt).toContain('code_unfold');
+    expect(prompt).toContain('find_context_for');
+    // Correctness preserved: full raw source is still reserved for the edit region.
+    expect(prompt).toMatch(/raw whole-file source ONLY for the specific region/);
+  });
+
+  it("OPT-OUT (agent.retrievalMode: 'raw') omits the directive from the leaf prompt", async () => {
+    const ctx = buildWorkflowContext(baseDeps({ retrievalMode: 'raw' }));
+    const prompt = await ctx.renderStagePrompt!(step, 0, priorOutputs, true);
+    expect(prompt).not.toContain('[object Promise]');
+    expect(prompt).not.toContain(GRAPH_MARKER);
+    expect(prompt).not.toContain('find_context_for');
+  });
+
+  it("explicit 'graph-scoped' matches the default (the default IS graph-scoped)", async () => {
+    const def = await buildWorkflowContext(baseDeps()).renderStagePrompt!(
+      step,
+      0,
+      priorOutputs,
+      true
+    );
+    const explicit = await buildWorkflowContext(baseDeps({ retrievalMode: 'graph-scoped' }))
+      .renderStagePrompt!(step, 0, priorOutputs, true);
+    expect(explicit).toBe(def);
+  });
+});
+
 describe('renderStagePrompt — document stages produce committed artifacts (true autopilot)', () => {
   const priorOutputs: Record<string, string> = {};
 

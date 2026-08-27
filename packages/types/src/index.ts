@@ -203,10 +203,15 @@ export type {
   RoutingBudgetStatus,
   RoutingEscalationUnit,
   RoutingStatus,
+  // --- #1524 deferred slice: graph-scoped leaf-context assembly ---
+  RetrievalMode,
 } from './orchestrator';
 
 // --- AMR Phase 4: routing error (value/class export, D10) ---
 export { RoutingError } from './orchestrator';
+
+// --- #1524 deferred slice: default retrieval mode (value export) ---
+export { DEFAULT_RETRIEVAL_MODE } from './orchestrator';
 
 // --- Container & Secrets ---
 export type {

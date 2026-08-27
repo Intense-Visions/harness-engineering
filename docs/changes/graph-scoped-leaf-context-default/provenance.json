@@ -1,0 +1,31 @@
+{
+  "issue": 1524,
+  "slug": "graph-scoped-leaf-context-default",
+  "title": "Assemble a dispatched leaf's context graph-scoped by default (#1524 deferred slice)",
+  "route": "feature",
+  "stages": ["brainstorming", "autopilot"],
+  "plan_path": "docs/changes/graph-scoped-leaf-context-default/plans/plan.md",
+  "spec_path": "docs/changes/graph-scoped-leaf-context-default/proposal.md",
+  "closing_keyword": "Refs #1524",
+  "wiring": {
+    "live_path": "agent.retrievalMode (config) → buildWorkflowContext (packages/orchestrator/src/orchestrator.ts dispatch call) → renderStagePromptFactory (packages/orchestrator/src/workflow/orchestrator-context.ts) → STAGE_PROMPT_TEMPLATE / LOCAL_STAGE_PROMPT_TEMPLATE (retrievalMode variable) → the dispatched leaf's prompt",
+    "config_key": "agent.retrievalMode: 'graph-scoped' | 'raw' in harness.orchestrator.md (validated by validateWorkflowConfig; absent ⇒ DEFAULT_RETRIEVAL_MODE = 'graph-scoped')",
+    "default_graph_scoped": "Both stage-prompt templates carry a {% if retrievalMode == 'graph-scoped' %} directive instructing retrieval via code_outline / code_unfold / find_context_for first, raw whole-file source ONLY for the region under edit.",
+    "byte_identical_opt_out": "agent.retrievalMode: 'raw' omits the directive; a test strips the directive block from the graph-scoped render and asserts equality with the raw render for both templates.",
+    "reuses_existing_handlers": "Directive points at the existing code_outline/code_unfold (packages/cli/src/mcp/tools/code-nav.ts) and find_context_for (packages/cli/src/mcp/tools/graph/find-context-for.ts) tools — no retrieval reimplemented."
+  },
+  "tests": [
+    "packages/orchestrator/src/workflow/local-stage-prompt.test.ts — default renders graph-scoped directive (all 3 tools + edit-region wording) for both templates; raw omits it and is byte-identical to the directive-stripped graph-scoped render",
+    "packages/orchestrator/tests/workflow/config.test.ts — accepts absent/raw/graph-scoped; rejects a typo'd retrievalMode with an agent.retrievalMode error"
+  ],
+  "assumptions": [
+    "The dispatched-leaf context-assembly path is agent-prompt-driven (raw whole-file reads happen via the CLIENT's built-in file tools, which harness code cannot intercept; gather_context is already graph-based and reads no source). Per the item's fork-4 guidance this is the prompt/contract branch — but the prompt is BUILT BY CODE at one seam (renderStagePromptFactory), so the change is genuinely WIRED and testable rather than pure prompt guidance. That code seam is the wiring point.",
+    "Made graph-scoped the DEFAULT (DEFAULT_RETRIEVAL_MODE = 'graph-scoped') and raw the explicit byte-identical opt-out (agent.retrievalMode: 'raw'), matching the item's decisions #1 and #2. Correctness is preserved in the default: the directive reserves full raw source for the region under edit.",
+    "Applied the directive to BOTH stage-prompt templates (default/cloud STAGE_PROMPT_TEMPLATE and LOCAL_STAGE_PROMPT_TEMPLATE), because the expensive fleet leaves ride the cloud (Claude subagent) path as well as the local coder path.",
+    "Reused the existing code_outline/code_unfold/find_context_for tools by NAME in the directive rather than reimplementing retrieval (item decision #1).",
+    "Kept 'Refs #1524' (not 'Closes'): the sibling deferred slices — batching queue items per leaf, wiring the measured cache-read into lane provenance (LeafContextSpend.cacheReadTokens), and the A/B-on-a-fixture-fleet acceptance run — remain follow-ups.",
+    "Did NOT edit the single-agent fallback template in harness.orchestrator.local.md: it is a secondary path (units that do not match a staged workflow), has an 80-line rendered-body budget enforced by local-template-lint.test.ts, and must stay byte-identical across two copies. The staged stage-prompt templates are the real dispatched-leaf seam and are fully covered.",
+    "The canonical contract is stated once in docs/reference/fleet-family.md (context-budget section, new 'graph-scoped leaf-context assembly' paragraph); no per-fleet SKILL.md edit was needed, so no 4-platform-mirror change.",
+    "The lane was hand-driven faithfully (investigate seam → proposal → plan → implement → verify → review) after a thorough seam investigation established there is no central raw-read function to intercept; artifacts mirror the brainstorming→autopilot stage outputs."
+  ]
+}
