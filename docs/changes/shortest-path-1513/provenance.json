@@ -1,0 +1,15 @@
+{
+  "issues": [1513],
+  "stages": ["brainstorming", "planning", "execution", "review"],
+  "planArtifact": "docs/changes/shortest-path-1513/plans/plan.md",
+  "closingKeyword": "Closes #1513",
+  "assumptions": [
+    "BFS unweighted shortest path (fewest hops) — edges carry no cost/weight field; edge.confidence is a retrieval score, not a traversal cost, so Dijkstra would be a semantic invention and is deferred.",
+    "Traversal is undirected by default (direction: 'both') because 'shortest path between two arbitrary nodes' is a connectivity question; direction is configurable ('outbound' | 'inbound' | 'both').",
+    "Returns the first shortest path found when several of equal length exist (BFS discovery order).",
+    "Unreachable pair, or an endpoint absent from the graph, returns null; same-node returns a zero-length path containing just that node.",
+    "Core BFS lives on GraphStore (owns the adjacency indexes); ContextQL.shortestPath is a thin delegate providing the named ContextQL query-primitive surface.",
+    "The NLQ intent is automatically surfaced through the existing ask_graph MCP tool, so no new MCP tool was added; a dedicated CLI verb ('harness graph path') is added as required.",
+    "WIRED entry points: (1) CLI verb 'harness graph path <sourceNodeId> <targetNodeId>' registered via createPathCommand() in packages/cli/src/commands/graph/index.ts (graph.addCommand); a parser-driven test in packages/cli/tests/commands/graph.test.ts drives it through the real Commander tree against a scanned graph and asserts a real path prints. (2) NLQ intent name 'shortestPath' classified by IntentClassifier, dispatched in nlq/index.ts executeOperation (case 'shortestPath' -> ContextQL.shortestPath), formatted by ResponseFormatter.formatShortestPath; an askGraph e2e test drives the NL string 'shortest path from UserService to hashPassword' and asserts the real 2-hop path. Also surfaced through the ask_graph MCP tool (which calls askGraph)."
+  ]
+}

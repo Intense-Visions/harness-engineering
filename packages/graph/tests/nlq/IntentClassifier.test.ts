@@ -162,4 +162,23 @@ describe('IntentClassifier', () => {
       expect(result.intent).toBe('explain');
     });
   });
+
+  describe('shortestPath intent', () => {
+    const questions = [
+      'shortest path from UserService to Database',
+      'what is the path between AuthMiddleware and Logger',
+      'how are UserService and Database connected?',
+      'find a route from LoginController to SessionStore',
+      'shortest path between fn:main and fn:hash',
+    ];
+
+    it.each(questions)('classifies "%s" as shortestPath', (q) => {
+      expectIntent(classifier.classify(q), 'shortestPath');
+    });
+
+    it('prefers shortestPath over relationships for "path from X to Y"', () => {
+      const result = classifier.classify('shortest path from UserService to Database');
+      expect(result.intent).toBe('shortestPath');
+    });
+  });
 });

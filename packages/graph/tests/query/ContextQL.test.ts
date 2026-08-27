@@ -175,4 +175,20 @@ describe('ContextQL', () => {
     expect(result.edges).toHaveLength(0);
     expect(result.stats.totalReturned).toBe(0);
   });
+
+  describe('shortestPath', () => {
+    it('delegates to the store and returns an ordered path', () => {
+      // fn:main --calls--> fn:hash exists in the fixture graph.
+      const result = cql.shortestPath('fn:main', 'fn:hash');
+      expect(result).not.toBeNull();
+      expect(result!.nodes.map((n) => n.id)).toEqual(['fn:main', 'fn:hash']);
+      expect(result!.length).toBe(1);
+    });
+
+    it('returns null for an unreachable pair', () => {
+      // span:req1 --executed_by--> fn:main only; nothing reaches fn:hash
+      // from span:req1 in the outbound direction.
+      expect(cql.shortestPath('fn:hash', 'span:req1', { direction: 'outbound' })).toBeNull();
+    });
+  });
 });

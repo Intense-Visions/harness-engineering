@@ -182,6 +182,33 @@ export interface ContextQLResult {
   };
 }
 
+// --- Shortest Path ---
+
+/** Direction of traversal when searching for a shortest path. */
+export type ShortestPathDirection = 'outbound' | 'inbound' | 'both';
+
+export interface ShortestPathOptions {
+  /**
+   * Which edge directions to follow. Defaults to `'both'` (undirected
+   * reachability) because "the shortest path between two arbitrary nodes" is a
+   * connectivity question, not a directed-flow question.
+   */
+  readonly direction?: ShortestPathDirection;
+}
+
+/**
+ * A shortest (fewest-hops) path between two nodes.
+ *
+ * `nodes` is ordered from source to target; `edges` are the connecting edges in
+ * the same order (`edges.length === nodes.length - 1`). `length` is the number
+ * of hops. A same-node path has `length === 0`, a single node, and no edges.
+ */
+export interface ShortestPathResult {
+  readonly nodes: readonly GraphNode[];
+  readonly edges: readonly GraphEdge[];
+  readonly length: number;
+}
+
 // --- Projection ---
 
 export interface ProjectionSpec {
