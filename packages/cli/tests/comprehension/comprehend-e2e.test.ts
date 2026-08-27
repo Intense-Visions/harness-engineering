@@ -1,5 +1,10 @@
-import { describe, it, expect } from 'vitest';
-import { createComprehendCommand, resolveMode } from '../../src/commands/comprehend';
+import { describe, it, expect, vi } from 'vitest';
+import {
+  createComprehendCommand,
+  resolveMode,
+  resolveChangedScope,
+} from '../../src/commands/comprehend';
+import type { ChangedSurface } from '../../src/commands/validate-scope';
 
 describe('createComprehendCommand', () => {
   it('returns a Command named "comprehend" with the four mode flags', () => {
@@ -22,6 +27,28 @@ describe('resolveMode — flag precedence', () => {
     expect(resolveMode({ check: true, stats: true, all: true })).toBe('check');
     expect(resolveMode({ stats: true, all: true })).toBe('stats');
     expect(resolveMode({ all: true })).toBe('all');
+  });
+});
+
+describe('resolveChangedScope — S1 git-failure fallback', () => {
+  it('maps a derived surface to the changed-module set (mode: changed)', () => {
+    const warn = vi.fn();
+    const surface: ChangedSurface = { ok: true, ref: 'abc', files: ['packages/core/src/a.ts'] };
+    const scope = resolveChangedScope(surface, { warn });
+    expect(scope.mode).toBe('changed');
+    expect(scope.changedModules).toBeDefined();
+    expect(warn).not.toHaveBeenCalled();
+  });
+
+  it('falls back to a full sweep (--all) and warns when derivation fails (ok:false)', () => {
+    const warn = vi.fn();
+    const surface: ChangedSurface = { ok: false, files: [], reason: 'no merge-base' };
+    const scope = resolveChangedScope(surface, { warn });
+    expect(scope.mode).toBe('all');
+    expect(scope.changedModules).toBeUndefined();
+    expect(warn).toHaveBeenCalledTimes(1);
+    expect(warn.mock.calls[0][0]).toMatch(/full sweep/);
+    expect(warn.mock.calls[0][0]).toMatch(/no merge-base/);
   });
 });
 

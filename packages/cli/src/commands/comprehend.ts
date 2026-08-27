@@ -17,7 +17,7 @@ import {
   runComprehendStats,
 } from '../comprehension/compile-run';
 import { resolveAnalysisProvider } from '../mcp/utils/analysis-provider';
-import { deriveChangedSurface } from './validate-scope';
+import { deriveChangedSurface, type ChangedSurface } from './validate-scope';
 import { logger } from '../output/logger';
 import { ExitCode } from '../utils/errors';
 
@@ -36,6 +36,34 @@ export function resolveMode(flags: ComprehendFlags): ComprehendMode {
   if (flags.stats) return 'stats';
   if (flags.all) return 'all';
   return 'changed';
+}
+
+/** Resolved compile scope: the effective run mode + optional changed-module set. */
+export interface CompileScope {
+  mode: 'changed' | 'all';
+  changedModules?: string[];
+}
+
+/**
+ * S1: resolve the `--changed` compile scope from the git-derived surface.
+ *
+ * When derivation SUCCEEDS, scope is the changed-module set (possibly empty —
+ * nothing changed). When derivation FAILS (`ok:false` — detached HEAD, no
+ * merge-base, git error) `deriveChangedSurface` returns an empty file list, which
+ * would silently compile NOTHING — a false "everything is fresh" that skips real
+ * work. Its own contract promises callers fall back to a full sweep, so we warn
+ * loudly and promote the run to `--all` rather than a silent no-op.
+ */
+export function resolveChangedScope(
+  surface: ChangedSurface,
+  log: { warn: (m: string) => void }
+): CompileScope {
+  if (surface.ok) return { mode: 'changed', changedModules: filesToModules(surface.files) };
+  log.warn(
+    `comprehend: could not derive the changed surface (${surface.reason ?? 'git error'}); ` +
+      'falling back to a full sweep (--all).'
+  );
+  return { mode: 'all' };
 }
 
 /** Load the resolved HarnessConfig, or undefined when none resolves (best-effort). */
@@ -89,17 +117,19 @@ async function runCompileMode(
     ...(cconf.model ? { model: cconf.model } : {}),
   });
 
-  const changedModules =
-    mode === 'changed' ? filesToModules(deriveChangedSurface(projectRoot).files) : undefined;
+  const scope =
+    mode === 'changed'
+      ? resolveChangedScope(deriveChangedSurface(projectRoot), logger)
+      : { mode: 'all' as const };
 
   const result = await runComprehend({
-    mode,
+    mode: scope.mode,
     projectRoot,
     store,
     reader,
     makeExtractStatic: (module) => createStaticExtractor({ projectRoot, module }),
     ...(generateSemantic ? { generateSemantic } : {}),
-    ...(changedModules ? { changedModules } : {}),
+    ...(scope.changedModules ? { changedModules: scope.changedModules } : {}),
     listModules: () => enumerateModules(projectRoot),
     concurrency: cconf.concurrency,
   });
