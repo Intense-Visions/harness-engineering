@@ -1,5 +1,11 @@
 import { describe, it, expect } from 'vitest';
-import { ContextBudgetExceededError } from '@harness-engineering/core';
+import {
+  ContextBudgetExceededError,
+  renderServedUnit,
+  computeSourceHash,
+  type ComprehensionUnit,
+  type ComprehensionSourceFile,
+} from '@harness-engineering/core';
 import type { Issue, LeafContextSource, WorkflowConfig } from '@harness-engineering/types';
 import { getDefaultConfig } from '../workflow/config';
 import {
@@ -106,10 +112,61 @@ describe('buildLeafContextEstimate — SF5.1 served-unit attribution (#1524)', (
     expect(est.estimatedTokens).toBe(160);
   });
 
-  it('a served (compact) estimate is LOWER than the raw-source equivalent for the same modules', () => {
+  it('a served (compact) estimate is LOWER than the raw-source equivalent — token counts DERIVED from a real unit + its raw source', () => {
+    // FIX B (de-tautologize): instead of comparing two hand-picked constants
+    // through the same adder (which only proves monotonic addition), derive the
+    // served count from an ACTUAL `renderServedUnit` output and the raw count from
+    // the ACTUAL raw source the unit summarizes. This asserts the REAL compaction
+    // property that underpins SC1: a served unit is cheaper than its raw source.
+    const module = 'packages/core/src';
+    // A verbose raw source: several files with long bodies (what a leaf would load
+    // WITHOUT comprehension).
+    const rawSource: ComprehensionSourceFile[] = [
+      {
+        path: 'a.ts',
+        content:
+          'export function alpha(input: string): string {\n' +
+          '  // '.repeat(1) +
+          'x'.repeat(1200) +
+          '\n  return input;\n}\n',
+      },
+      {
+        path: 'b.ts',
+        content: 'export class Beta {\n' + '  method() {\n    ' + 'y'.repeat(1200) + '\n  }\n}\n',
+      },
+    ];
+    // The compiled unit: a compact interface contract + dependency slice (what the
+    // leaf loads WITH comprehension) — no verbose bodies.
+    const unit: ComprehensionUnit = {
+      provenance: {
+        schemaVersion: 1,
+        module,
+        sourceHash: computeSourceHash(rawSource),
+        compiledAt: '2026-08-27T00:00:00.000Z',
+        compiler: { static: '1.0.0', semantic: '1.0.0' },
+        model: null,
+        semantic: 'absent',
+        members: rawSource.map((f) => f.path),
+      },
+      summary: '',
+      invariants: [],
+      interfaceContract: 'export function alpha(input: string): string;\nexport class Beta;',
+      dependencySlice: 'a.ts, b.ts',
+    };
+
+    const CHARS_PER_TOKEN = 4;
+    const servedTokens = Math.ceil(renderServedUnit(unit).length / CHARS_PER_TOKEN);
+    const rawTokens = Math.ceil(
+      rawSource.reduce((n, f) => n + f.content.length, 0) / CHARS_PER_TOKEN
+    );
+
+    // The load-bearing real property: the served unit is genuinely smaller than
+    // the raw source it stands in for (not two arbitrary constants).
+    expect(servedTokens).toBeLessThan(rawTokens);
+
     const leaf = issue({ title: 'x'.repeat(40) });
-    const served = buildLeafContextEstimate(leaf, [src('packages/core/src', 120)]);
-    const raw = buildLeafContextEstimate(leaf, [src('packages/core/src', 4000)]);
+    const served = buildLeafContextEstimate(leaf, [src(module, servedTokens)]);
+    const raw = buildLeafContextEstimate(leaf, [src(module, rawTokens)]);
     expect(served.estimatedTokens).toBeLessThan(raw.estimatedTokens);
   });
 
