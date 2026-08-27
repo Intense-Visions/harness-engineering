@@ -92,6 +92,14 @@ function buildCreateMeta(feature: NewFeatureInput): BodyMeta {
 
 export class GitHubIssuesTrackerAdapter implements RoadmapTrackerClient {
   private readonly http: GitHubHttp;
+  /**
+   * Dedicated client for the GitHub **Search** API, budgeted under the
+   * `github.search` resource family (measured cap: 10 req/min — much tighter
+   * than `github.core`'s 80, per #1532). Separate from `this.http` so search
+   * fan-out self-paces against its own budget and shares backoff only with
+   * sibling search leaves.
+   */
+  private readonly searchHttp: GitHubHttp;
   private readonly owner: string;
   private readonly repo: string;
   private readonly cache: ETagStore;
@@ -100,6 +108,7 @@ export class GitHubIssuesTrackerAdapter implements RoadmapTrackerClient {
 
   constructor(opts: GitHubIssuesTrackerOptions) {
     this.http = new GitHubHttp(opts);
+    this.searchHttp = new GitHubHttp({ ...opts, resource: 'github.search' });
     const [owner, repo] = opts.repo.split('/');
     if (!owner || !repo) throw new Error(`Invalid repo "${opts.repo}", expected "owner/repo"`);
     this.owner = owner;
@@ -203,6 +212,46 @@ export class GitHubIssuesTrackerAdapter implements RoadmapTrackerClient {
     const all = await this.fetchAll();
     if (!all.ok) return all;
     return Ok(all.value.features.filter((f) => statuses.includes(f.status)));
+  }
+
+  /**
+   * Free-text search over harness-managed issues in the configured repo via the
+   * GitHub Search API (`/search/issues`).
+   *
+   * The query is always scoped to the adapter's own `owner/repo` (appending
+   * `repo:owner/repo`), consistent with the confused-deputy guard on
+   * fetchById/update — the adapter never searches a repo it is not configured to
+   * manage.
+   *
+   * Fail-loud on truncation (#1532, search slice): the Search API sets
+   * `incomplete_results: true` when a query is truncated/timed-out server-side.
+   * `searchHttp.search()` throws `TruncatedFetchError` in that case, which this
+   * method's try/catch surfaces as `Err(...)` — a truncated search FAILS the
+   * operation rather than returning a silently-short feature list.
+   */
+  async searchFeatures(query: string): Promise<Result<TrackedFeature[], Error>> {
+    try {
+      // Scope every query to the configured repo. `q` is encoded once via
+      // URLSearchParams; the Search API reads a single space-joined `q` term.
+      const scopedQuery = `${query} repo:${this.owner}/${this.repo}`.trim();
+      const buildUrl = (page: number) => {
+        const params = new URLSearchParams({
+          q: scopedQuery,
+          per_page: '100',
+          page: String(page),
+        });
+        return `${this.searchHttp.apiBase}/search/issues?${params.toString()}`;
+      };
+
+      const { items } = await this.searchHttp.search<RawIssue>(buildUrl, 100);
+      // /search/issues returns PRs too; drop them, matching fetchAll.
+      const issues = items.filter((i) => !i.pull_request);
+      const features = issues.map((i) => this.mapIssue(i, new Map()));
+      features.sort((a, b) => a.createdAt.localeCompare(b.createdAt));
+      return Ok(features);
+    } catch (err) {
+      return Err(err instanceof Error ? err : new Error(String(err)));
+    }
   }
 
   // --- Writes ---

@@ -1,0 +1,29 @@
+{
+  "issue": 1532,
+  "slug": "search-incomplete-results-failloud",
+  "title": "GitHub Search incomplete_results truncation → fail-loud",
+  "parent_pr": 1589,
+  "closing_keyword": "Refs #1532",
+  "plan_path": "docs/changes/search-incomplete-results-failloud/plans/plan.md",
+  "proposal_path": "docs/changes/search-incomplete-results-failloud/proposal.md",
+  "stages": ["brainstorming", "planning", "execution", "verification", "review"],
+  "wired_call_site": "GitHubIssuesTrackerAdapter.searchFeatures() -> GitHubHttp.search() (resource 'github.search') -> incomplete_results===true -> throw TruncatedFetchError -> Err",
+  "reused_error_type": "TruncatedFetchError (packages/core/src/fleet/rate-budget/errors.ts, landed in #1589)",
+  "changed_files": [
+    "packages/core/src/roadmap/tracker/adapters/github-http.ts",
+    "packages/core/src/roadmap/tracker/adapters/github-issues.ts",
+    "packages/core/src/roadmap/tracker/adapters/github-http.test.ts",
+    "packages/core/tests/roadmap/tracker/adapters/github-issues.test.ts"
+  ],
+  "tests": [
+    "github-http.test.ts: search throws TruncatedFetchError on incomplete_results:true; returns items on false; identical when absent; follows rel=next paging",
+    "github-issues.test.ts: searchFeatures returns Err on truncation; maps features + scopes q to repo on happy path; drops PRs"
+  ],
+  "assumptions": [
+    "No live GitHub Search API call site existed pre-change; 'github.search' was only a per-resource budget key. This slice adds the canonical search plumbing with the incomplete_results check baked in, wired into a real reachable adapter capability (searchFeatures).",
+    "For the Search API, a 'Link: rel=next' header is ordinary pagination (not truncation); 'incomplete_results:true' is the sole server-truncation signal — so rel=next is followed, incomplete_results throws.",
+    "Truncation is surfaced through the adapter's existing Result/try-catch convention as Err (fail-loud without partial data), mirroring how paginate-truncation reaches fetchAll callers as Err.",
+    "Search traffic is budgeted under 'github.search' (10 req/min per #1532 measurement) via a dedicated GitHubHttp instance, distinct from the 'github.core' list/CRUD client.",
+    "Deferred siblings of #1532 remain out of scope: cross-process/cross-run cooldown sharing and broader per-API truncation coverage."
+  ]
+}

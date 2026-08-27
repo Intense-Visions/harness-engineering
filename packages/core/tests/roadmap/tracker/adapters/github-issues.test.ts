@@ -795,3 +795,59 @@ describe('GitHubIssuesTrackerAdapter — update', () => {
     expect((fetchFn as unknown as { mock?: { calls: unknown[] } }).mock?.calls.length ?? 0).toBe(0);
   });
 });
+
+describe('GitHubIssuesTrackerAdapter — searchFeatures (incomplete_results fail-loud)', () => {
+  it('returns Err when the Search API reports incomplete_results: true', async () => {
+    // A server-truncated search must NOT be surfaced as a (silently short)
+    // feature list — it fails the operation (#1532 search slice).
+    const fetchFn = mockFetchSequence({
+      status: 200,
+      body: { total_count: 42, incomplete_results: true, items: [rawIssue({ number: 1 })] },
+    });
+    const adapter = new GitHubIssuesTrackerAdapter({ token: 'tok', repo: 'o/r', fetchFn });
+    const r = await adapter.searchFeatures('label:harness-managed bug');
+    expect(r.ok).toBe(false);
+    if (!r.ok) expect(r.error.name).toBe('TruncatedFetchError');
+  });
+
+  it('returns mapped features on a complete result and scopes the query to the repo', async () => {
+    const fetchFn = mockFetchSequence({
+      status: 200,
+      body: {
+        total_count: 2,
+        incomplete_results: false,
+        items: [rawIssue({ number: 1, title: 'F1' }), rawIssue({ number: 2, title: 'F2' })],
+      },
+    });
+    const adapter = new GitHubIssuesTrackerAdapter({ token: 'tok', repo: 'o/r', fetchFn });
+    const r = await adapter.searchFeatures('bug');
+    expect(r.ok).toBe(true);
+    if (r.ok) {
+      expect(r.value).toHaveLength(2);
+      expect(r.value[0]!.externalId).toBe('github:o/r#1');
+    }
+    // The issued request must hit /search/issues with the repo appended to `q`.
+    const calls = (fetchFn as unknown as { mock: { calls: [string, RequestInit][] } }).mock.calls;
+    const url = calls[0]![0];
+    expect(url).toContain('/search/issues?');
+    expect(decodeURIComponent(url)).toContain('repo:o/r');
+  });
+
+  it('drops pull requests from search results (matching fetchAll)', async () => {
+    const fetchFn = mockFetchSequence({
+      status: 200,
+      body: {
+        total_count: 2,
+        incomplete_results: false,
+        items: [rawIssue({ number: 1 }), rawIssue({ number: 2, pull_request: { url: 'x' } })],
+      },
+    });
+    const adapter = new GitHubIssuesTrackerAdapter({ token: 'tok', repo: 'o/r', fetchFn });
+    const r = await adapter.searchFeatures('bug');
+    expect(r.ok).toBe(true);
+    if (r.ok) {
+      expect(r.value).toHaveLength(1);
+      expect(r.value[0]!.externalId).toBe('github:o/r#1');
+    }
+  });
+});
