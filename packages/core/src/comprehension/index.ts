@@ -25,3 +25,7 @@ export type { ComprehensionIO } from './store';
 export { createNodeComprehensionIO } from './node-io';
 export { compileModule } from './compile';
 export type { CompileOptions } from './compile';
+export { serveGate } from './serve-gate';
+export type { ServeVerdict, ModuleSourceReader } from './serve-gate';
+export { createNodeModuleSourceReader } from './node-io';
+export { renderServedUnit } from './render';
