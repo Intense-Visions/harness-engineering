@@ -145,6 +145,8 @@ export type {
   AgentBudgetConfig,
   BudgetEnvelopeStatus,
   FleetBudgetStatus,
+  // --- #1524: per-leaf context-replay budget ---
+  AgentContextBudgetConfig,
   ServerConfig,
   WorkflowConfig,
   RoadmapConfig,

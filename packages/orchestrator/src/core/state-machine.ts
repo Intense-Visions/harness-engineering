@@ -13,6 +13,7 @@ import type {
   ClaimEffect,
   TickEvent,
 } from '../types/events';
+import { ContextBudgetExceededError } from '@harness-engineering/core';
 import { selectCandidates } from './candidate-selection';
 import { canDispatch, type DispatchBudgetOptions } from './concurrency';
 import {
@@ -22,6 +23,7 @@ import {
   isGlobalEnvelopeExhausted,
   isFleetAllocationExhausted,
 } from './budget-governor';
+import { assertIssueWithinContextBudget } from './context-budget-governor';
 import { reconcile } from './reconciliation';
 import { calculateRetryDelay } from './retry';
 import { detectScopeTier, routeIssue, artifactPresenceFromIssue } from './model-router';
@@ -391,6 +393,33 @@ function dispatchEligibleIssue(
   config: WorkflowConfig,
   effects: SideEffect[]
 ): void {
+  // Per-leaf context-replay budget (#1524): the live enforcement caller. When a
+  // budget is configured and this leaf's estimated context load exceeds it, the
+  // core consult helper throws — we FAIL LOUD (a visible error effect) and skip
+  // dispatch so the over-budget leaf never spends. Unconfigured ⇒ the guard is a
+  // no-op and this whole block is transparent (byte-identical default).
+  try {
+    assertIssueWithinContextBudget(config, issue);
+  } catch (err) {
+    if (err instanceof ContextBudgetExceededError) {
+      next.claimed.add(issue.id);
+      effects.push({
+        type: 'emitLog',
+        level: 'error',
+        message: err.message,
+        context: {
+          issueId: issue.id,
+          identifier: issue.identifier,
+          estimatedTokens: err.verdict.estimatedTokens,
+          budgetTokens: err.verdict.budgetTokens,
+          overageTokens: err.verdict.overageTokens,
+        },
+      });
+      return;
+    }
+    throw err;
+  }
+
   const scopeTier = detectScopeTier(issue, artifactPresenceFromIssue(issue));
   const { signals, suggestedPersona } = gatherSignalsAndPersona(issue, event);
   const decision = routeIssue(scopeTier, signals, escalationConfig);

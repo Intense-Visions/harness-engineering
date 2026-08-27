@@ -11,6 +11,8 @@ import {
   enforceLeafContextBudget,
   formatBudgetFailure,
   summarizeLeafSpend,
+  assertLeafWithinBudget,
+  ContextBudgetExceededError,
 } from './index';
 
 const estimate = (over: Partial<LeafContextEstimate> = {}): LeafContextEstimate => ({
@@ -80,6 +82,35 @@ describe('enforceLeafContextBudget', () => {
       expect(v.topSources.map((s) => s.label)).toEqual(['huge.ts', 'mid.ts', 'tiny.ts']);
       expect(v.reason).toContain('huge.ts');
     }
+  });
+});
+
+describe('assertLeafWithinBudget (fail-loud consult helper)', () => {
+  const budget = { maxTokens: 200_000 };
+
+  it('returns void (no throw) when the leaf is within budget', () => {
+    expect(() =>
+      assertLeafWithinBudget(estimate({ estimatedTokens: 120_000 }), budget)
+    ).not.toThrow();
+    expect(() =>
+      assertLeafWithinBudget(estimate({ estimatedTokens: 200_000 }), budget)
+    ).not.toThrow();
+  });
+
+  it('THROWS ContextBudgetExceededError carrying the losing verdict when over budget', () => {
+    let caught: unknown;
+    try {
+      assertLeafWithinBudget(estimate({ estimatedTokens: 250_000 }), budget);
+    } catch (e) {
+      caught = e;
+    }
+    expect(caught).toBeInstanceOf(ContextBudgetExceededError);
+    const err = caught as ContextBudgetExceededError;
+    expect(err.message).toContain('#1524');
+    expect(err.message).toContain('rejected at dispatch');
+    expect(err.verdict.ok).toBe(false);
+    expect(err.verdict.overageTokens).toBe(50_000);
+    expect(err.verdict.budgetTokens).toBe(200_000);
   });
 });
 

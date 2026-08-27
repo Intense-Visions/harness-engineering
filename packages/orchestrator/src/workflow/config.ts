@@ -23,6 +23,19 @@ const REQUIRED_SECTIONS = ['tracker', 'polling', 'workspace', 'hooks', 'agent', 
 const BackendsMapSchema = z.record(z.string(), BackendDefSchema);
 
 /**
+ * Per-leaf context-replay budget config (#1524). Validated when
+ * `agent.contextBudget` is present so a typo'd field is rejected at config-load
+ * rather than silently dropped. Absent ⇒ unlimited (no enforcement). `.strict()`
+ * rejects unknown keys.
+ */
+const AgentContextBudgetSchema = z
+  .object({
+    maxTokens: z.number().int().positive(),
+    perFleet: z.record(z.string(), z.number().int().positive()).optional(),
+  })
+  .strict();
+
+/**
  * Cross-field check: every value in `routing` must reference a key in
  * `backends`. Mirrors the Phase 1 standalone helper but returns a flat
  * array of issues for synchronous consumption inside
@@ -269,6 +282,16 @@ export function validateWorkflowConfig(
       }
       // Spec B Phase 2 / S3: non-blocking warnings.
       warnings.push(...routingWarnings(routingData, options.knownSkillNames ?? []));
+    }
+  }
+
+  // Per-leaf context-replay budget (#1524): validate `agent.contextBudget` when
+  // present so a malformed/typo'd field is rejected at config-load, not silently
+  // dropped (the AMR trap). Absent ⇒ unchanged (no enforcement; byte-identical).
+  if (agent.contextBudget !== undefined) {
+    const parsed = AgentContextBudgetSchema.safeParse(agent.contextBudget);
+    if (!parsed.success) {
+      return Err(new Error(`agent.contextBudget: ${parsed.error.message}`));
     }
   }
 

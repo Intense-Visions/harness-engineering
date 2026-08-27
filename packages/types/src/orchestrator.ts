@@ -1107,6 +1107,16 @@ export interface AgentConfig {
    * the pre-#1525 behaviour). See {@link AgentBudgetConfig}.
    */
   budget?: AgentBudgetConfig;
+  /**
+   * Per-leaf context-replay budget (#1524). When set, the dispatch governor
+   * consults it BEFORE dispatching each leaf/agent: a leaf whose estimated
+   * context load exceeds the ceiling fails LOUDLY (a visible error, no dispatch)
+   * instead of silently spending. **Absent ⇒ unlimited** — no enforcement, and
+   * dispatch behavior is byte-identical to before this field existed. Only an
+   * explicitly-configured budget changes behavior. Independent of {@link budget}
+   * (the #1525 global spend envelope); a leaf must pass BOTH gates.
+   */
+  contextBudget?: AgentContextBudgetConfig;
 }
 
 /**
@@ -1169,6 +1179,26 @@ export interface BudgetEnvelopeStatus {
   /** True once `spentTokens >= envelopeTokens` — no new lane will be dispatched. */
   exhausted: boolean;
   perFleet: FleetBudgetStatus[];
+}
+
+/**
+ * Adopter configuration for the per-leaf context-replay budget (#1524). Exposed
+ * on {@link AgentConfig} so a project can cap the assembled per-leaf context size
+ * — the term fleet fan-out width multiplies — from `harness.orchestrator.md`.
+ */
+export interface AgentContextBudgetConfig {
+  /**
+   * Hard per-leaf ceiling in tokens. A leaf whose estimated context load exceeds
+   * this fails loudly at dispatch. Must be a positive number when set.
+   */
+  maxTokens: number;
+  /**
+   * Optional per-fleet ceiling overrides keyed by fleet name (e.g.
+   * `'roadmap-fleet'`). A fleet's consult helper resolves its effective budget as
+   * `perFleet[fleet] ?? maxTokens`; the orchestrator issue-dispatch governor uses
+   * `maxTokens`.
+   */
+  perFleet?: Record<string, number>;
 }
 
 /**

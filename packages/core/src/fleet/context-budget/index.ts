@@ -110,6 +110,36 @@ export function formatBudgetFailure(verdict: LeafBudgetVerdict): string {
 }
 
 /**
+ * The loud, throwable failure a dispatch caller raises when a leaf is over
+ * budget. Carries the losing {@link LeafBudgetVerdict} so a catch site can log
+ * the exact numbers (item, estimate, budget, overage, top contributors) rather
+ * than re-deriving them from the message. `message` is the verdict's `reason`.
+ */
+export class ContextBudgetExceededError extends Error {
+  /** The over-budget verdict that triggered the failure. */
+  readonly verdict: Extract<LeafBudgetVerdict, { ok: false }>;
+  constructor(verdict: Extract<LeafBudgetVerdict, { ok: false }>) {
+    super(verdict.reason);
+    this.name = 'ContextBudgetExceededError';
+    this.verdict = verdict;
+  }
+}
+
+/**
+ * Fail-loud consult helper — the concrete call a dispatch/governor site makes to
+ * ENFORCE the budget before fanning out a leaf. Runs {@link enforceLeafContextBudget};
+ * on an over-budget verdict it THROWS a {@link ContextBudgetExceededError} (so the
+ * over-budget leaf can never be silently dispatched), and returns `void` when the
+ * leaf is within budget. This is the primitive fleet-family.md's DISPATCH contract
+ * points at (`assertLeafWithinBudget(...)`) and that the orchestrator's dispatch
+ * governor calls at its live enforcement site.
+ */
+export function assertLeafWithinBudget(estimate: LeafContextEstimate, budget: ContextBudget): void {
+  const verdict = enforceLeafContextBudget(estimate, budget);
+  if (!verdict.ok) throw new ContextBudgetExceededError(verdict);
+}
+
+/**
  * Build the per-leaf {@link LeafContextSpend} record recorded in the lane
  * provenance file. `withinBudget` is derived from the same comparison the
  * enforcement primitive uses (`estimatedTokens <= budget.maxTokens`), so the
