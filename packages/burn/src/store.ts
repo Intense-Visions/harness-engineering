@@ -138,7 +138,7 @@ export function withScanLock<T>(
  * forever. Dropping those fingerprints makes the migration a stated event
  * — one full rescan — rather than a silent, permanent mislabelling.
  */
-export const STORE_VERSION = 2;
+export const STORE_VERSION = 3;
 
 export interface Fingerprints {
   /** absolute transcript path -> [mtime seconds, size bytes] */
@@ -203,16 +203,18 @@ function num(field: string | undefined): number {
  *
  * A 7-field row predates attribution and is loaded as `pre-migration` rather
  * than discarded: discarding would delete the entire pre-migration store.
- * Nine or more fields carry the label and the lane id, and anything past the
- * ninth is ignored.
+ * Nine or more fields carry the agent label and the lane id; a tenth carries
+ * the invoking skill. Anything past the tenth is ignored.
  *
  * Exactly 8 fields is rejected on purpose, and that is what bounds the forward
  * tolerance here. A 7-column row with one trailing tab splits into 8 fields
  * and is indistinguishable from a genuine 8-column row, so 8 has to stay a
- * torn-write sentinel. The consequence is worth stating plainly: accepting
- * `>= 9` means a future addition of TWO OR MORE columns survives a reader that
- * predates it, but an addition of exactly one does not. A single-column
- * widening would need its own version bump rather than relying on this.
+ * torn-write sentinel. Accepting `>= 9` is what lets THIS reader still parse a
+ * 9-column store written before the skill column existed: its agent/lane are
+ * read and the absent skill falls to `pre-migration`. The `STORE_VERSION` bump
+ * that accompanies the widening then forces a one-time full rescan, so those
+ * 9-column rows are re-derived from the transcripts still on disk rather than
+ * being pinned to `pre-migration` forever.
  */
 function toStoredRecord(p: string[]): UsageRecord | null {
   const wide = p.length >= 9;
@@ -229,6 +231,11 @@ function toStoredRecord(p: string[]): UsageRecord | null {
     // `unattributed` — the latter is subagent spend and drives degradation.
     agent: (wide ? p[7]! : '') || 'pre-migration',
     agentId: wide ? p[8]! : '',
+    // The tenth column, added after the agent/lane pair. A wide row that lacks
+    // it is a pre-skill-tracking row, so its skill is unknown provenance —
+    // `pre-migration`, mirroring the agent fallback above — never
+    // `unattributed-skill`, which is a live "we looked and found none" reading.
+    invokingSkill: (wide ? (p[9] ?? '') : '') || 'pre-migration',
   };
 }
 
@@ -262,7 +269,7 @@ export function writeRecords(paths: BurnPaths, records: Map<string, UsageRecord>
   const lines: string[] = [];
   for (const [id, r] of records) {
     lines.push(
-      `${id}\t${r.ts}\t${r.model}\t${r.out}\t${r.in}\t${r.cacheWrite}\t${r.cacheRead}\t${tsvSafe(r.agent)}\t${tsvSafe(r.agentId)}\n`
+      `${id}\t${r.ts}\t${r.model}\t${r.out}\t${r.in}\t${r.cacheWrite}\t${r.cacheRead}\t${tsvSafe(r.agent)}\t${tsvSafe(r.agentId)}\t${tsvSafe(r.invokingSkill)}\n`
     );
   }
   atomicWrite(paths.usageTsv, lines.join(''));

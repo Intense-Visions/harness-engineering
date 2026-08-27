@@ -129,6 +129,88 @@ describe('summary — agents block', () => {
   });
 });
 
+describe('summary — skills block', () => {
+  it('partitions the week by invoking skill, the cut /usage groups by', () => {
+    // The skill cut and the agent cut are orthogonal views of ONE week total,
+    // so both must sum to the week within a unit of per-label rounding — that
+    // shared total is what makes the two views reconcile against /usage.
+    const h = newHud();
+    const now = new Date();
+    h.writeConfig({ week_reset: DEFAULT_WEEK });
+    h.writeTranscript('main.jsonl', [transcriptLine('m1', hoursAgo(now, 1), { out: 333 })]);
+    h.writeSubagentTranscript('agent-a.jsonl', [
+      agentLine(
+        's1',
+        hoursAgo(now, 1),
+        {
+          isSidechain: true,
+          agentId: 'lane-1',
+          attributionAgent: 'harness-task-executor',
+          attributionSkill: 'harness:autopilot',
+        },
+        { out: 777 }
+      ),
+      agentLine(
+        's2',
+        hoursAgo(now, 1),
+        {
+          isSidechain: true,
+          agentId: 'lane-2',
+          attributionAgent: 'harness-planner',
+          attributionSkill: 'harness:autopilot',
+        },
+        { out: 111 }
+      ),
+    ]);
+
+    const s = refresh(h.paths);
+    // Two subagent turns under one skill, plus the main-thread turn which has
+    // no readable skill and lands in the honest fallback bucket.
+    expect(Object.keys(s.skills).sort()).toEqual(['harness:autopilot', 'unattributed-skill']);
+    // Both subagent turns share one skill but ran as two distinct lanes.
+    expect(s.skills['harness:autopilot']!.lanes).toBe(2);
+    expect(s.skills['harness:autopilot']!.requests).toBe(2);
+    // main carries no lane id, so its skill bucket honestly reports 0 lanes.
+    expect(s.skills['unattributed-skill']!.lanes).toBe(0);
+
+    const labels = Object.keys(s.skills);
+    const summed = labels.reduce((acc, k) => acc + s.skills[k]!.units, 0);
+    expect(Math.abs(summed - s.wtd.units)).toBeLessThanOrEqual(labels.length);
+  });
+
+  it('keeps the unattributed-skill bucket rather than folding it into a real skill', () => {
+    // A subagent whose skill could not be read must not be silently attributed
+    // to a skill that did run — that would be the fleet-reads-as-free failure
+    // in the skill dimension.
+    const h = newHud();
+    const now = new Date();
+    h.writeConfig({ week_reset: DEFAULT_WEEK });
+    h.writeSubagentTranscript('agent-a.jsonl', [
+      agentLine(
+        's1',
+        hoursAgo(now, 1),
+        {
+          isSidechain: true,
+          agentId: 'lane-1',
+          attributionAgent: 'harness-task-executor',
+          attributionSkill: 'harness:autopilot',
+        },
+        { out: 500 }
+      ),
+      agentLine(
+        's2',
+        hoursAgo(now, 1),
+        { isSidechain: true, agentId: 'lane-2', attributionAgent: 'harness-task-executor' },
+        { out: 500 }
+      ),
+    ]);
+
+    const s = refresh(h.paths);
+    expect(s.skills['unattributed-skill']!.units).toBeGreaterThan(0);
+    expect(s.skills['harness:autopilot']!.units).toBeGreaterThan(0);
+  });
+});
+
 describe('summary — pre-migration rows', () => {
   /** Seed a 7-column store with a current-week row and roll it up without a scan. */
   function legacyOnly(h: Hud, extraRows: string[] = []): Summary {

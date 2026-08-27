@@ -118,6 +118,7 @@ describe('transcript parsing', () => {
       cacheRead: 0,
       agent: 'main',
       agentId: '',
+      invokingSkill: 'unattributed-skill',
     });
   });
 

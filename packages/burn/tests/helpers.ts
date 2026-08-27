@@ -134,7 +134,12 @@ export function utcIsoWeekday(d: Date): number {
 export function agentLine(
   requestId: string,
   when: Date,
-  fields: { isSidechain?: boolean; agentId?: string; attributionAgent?: string },
+  fields: {
+    isSidechain?: boolean;
+    agentId?: string;
+    attributionAgent?: string;
+    attributionSkill?: string;
+  },
   opts: { model?: string; out?: number; in?: number; cw?: number; cr?: number } = {}
 ): string {
   const base = JSON.parse(transcriptLine(requestId, when, opts)) as Record<string, unknown>;

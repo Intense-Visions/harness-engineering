@@ -14,6 +14,7 @@ import type {
   ModelBlock,
   ScanInfo,
   SessionBlock,
+  SkillBlock,
   Summary,
 } from './types';
 import { units } from './units';
@@ -106,6 +107,7 @@ export function buildSummary(
   const buckets = new Map<number, { requests: number; out: number; units: number }>();
   const perModel = new Map<string, { requests: number; units: number }>();
   const perAgent = new Map<string, { requests: number; units: number; lanes: Set<string> }>();
+  const perSkill = new Map<string, { requests: number; units: number; lanes: Set<string> }>();
   let sessionUnits = 0;
   let sessionRequests = 0;
 
@@ -142,6 +144,16 @@ export function buildSummary(
       // `main` carries an empty agentId, so it counts zero lanes.
       if (rec.agentId) a.lanes.add(rec.agentId);
       perAgent.set(label, a);
+
+      // The orthogonal skill cut, folded up the same way so the two views
+      // reconcile against one shared week total. An empty column falls to
+      // `pre-migration` for the same reason the agent label does.
+      const skill = rec.invokingSkill || 'pre-migration';
+      const sk = perSkill.get(skill) ?? { requests: 0, units: 0, lanes: new Set<string>() };
+      sk.requests += 1;
+      sk.units += u;
+      if (rec.agentId) sk.lanes.add(rec.agentId);
+      perSkill.set(skill, sk);
     }
     if (t >= sessionCut) {
       sessionUnits += u;
@@ -243,6 +255,18 @@ export function buildSummary(
       units: Math.round(a.units),
       pct_of_week: cur.units ? roundTo((100 * a.units) / cur.units, 1) : 0,
       lanes: a.lanes.size,
+    };
+  }
+
+  // ---- per-skill. The cut `/usage` groups by; same shape as `agents`, sorted
+  // by units descending so the report can lead with it without re-sorting.
+  const skills: Record<string, SkillBlock> = {};
+  for (const [label, sk] of [...perSkill.entries()].sort((x, y) => y[1].units - x[1].units)) {
+    skills[label] = {
+      requests: sk.requests,
+      units: Math.round(sk.units),
+      pct_of_week: cur.units ? roundTo((100 * sk.units) / cur.units, 1) : 0,
+      lanes: sk.lanes.size,
     };
   }
 
@@ -360,6 +384,7 @@ export function buildSummary(
     models,
     models_exhausted: exhausted,
     agents,
+    skills,
     attribution,
     session,
     status,

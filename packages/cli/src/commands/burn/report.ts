@@ -4,6 +4,7 @@ import {
   refresh,
   resolvePaths,
   type AgentBlock,
+  type SkillBlock,
   type Summary,
 } from '@harness-engineering/burn';
 import chalk from 'chalk';
@@ -198,6 +199,61 @@ function attributionCaution(s: Summary): string[] {
 }
 
 /**
+ * Which skill labels earn a line.
+ *
+ * `unattributed-skill` is exempt from the top-N cut and the unit floor for the
+ * same reason `unattributed` is in the agent cut: a bucket that can silently
+ * vanish cannot be trusted to account for spend. `pre-migration` takes the
+ * ordinary cut and floor — it is history, not a live signal.
+ */
+function keptSkillLabels(s: Summary, all: [string, SkillBlock][]): Set<string> {
+  const kept = new Set(
+    all
+      .filter(([name]) => name !== 'unattributed-skill')
+      .slice(0, 6)
+      .filter(([, e]) => e.units >= 1000)
+      .map(([name]) => name)
+  );
+  if ((s.skills?.['unattributed-skill']?.units ?? 0) > 0) kept.add('unattributed-skill');
+  return kept;
+}
+
+/**
+ * Per invoking skill — the cut `/usage` groups by, so this is the section to
+ * hold next to a `/usage` reading. It LEADS the two attribution cuts on
+ * purpose: `/usage` shows `harness:roadmap-fleet` as a first-class row, and a
+ * reader reconciling the two needs the comparable cut first.
+ *
+ * The header states the window because the two tools measure different spans —
+ * burn is week-to-date, `/usage` is the last 24h — so a mismatch reads as "a
+ * different question", not "one of these numbers is wrong". Guarded like
+ * `agentsSection`: a summary written before this feature carries no `skills`
+ * key and must render without throwing.
+ */
+function skillsSection(s: Summary): string[] {
+  const all = Object.entries(s.skills ?? {});
+  if (all.length === 0) return [];
+
+  const kept = keptSkillLabels(s, all);
+
+  const out = [
+    '',
+    `  ${chalk.bold('by invoking skill')} ${chalk.dim('— the cut /usage shows')}`,
+    chalk.dim('  window: week-to-date (this section) vs /usage last-24h — reconcile like for like'),
+  ];
+  for (const [name, e] of all) {
+    if (!kept.has(name)) continue;
+    const lanes = e.lanes > 0 ? `, ${e.lanes} lane${e.lanes === 1 ? '' : 's'}` : '';
+    out.push(
+      `  ${pad(name)}${human(e.units).padStart(8)} ${chalk.dim(
+        `(${Math.round(e.pct_of_week)}% of week${lanes})`
+      )}`
+    );
+  }
+  return out;
+}
+
+/**
  * Per-agent. The pooled bar cannot tell you that a fleet run, not you, spent
  * the week — this is where a lane's cost becomes visible.
  *
@@ -212,7 +268,10 @@ function agentsSection(s: Summary): string[] {
 
   const kept = keptAgentLabels(s, all);
 
-  const out = ['', `  ${chalk.bold('by agent')}`];
+  const out = [
+    '',
+    `  ${chalk.bold('by agent')} ${chalk.dim('— agent-TYPE cut, a different question from /usage')}`,
+  ];
   // Iterate `all`, which summary.ts already sorted by units descending, so an
   // exempt row keeps its true rank rather than being appended at the bottom.
   for (const [name, e] of all) {
@@ -305,6 +364,7 @@ export function renderReport(s: Summary): string[] {
     ...spendSection(s),
     ...budgetSection(s, tz),
     ...modelsSection(s),
+    ...skillsSection(s),
     ...agentsSection(s),
     ...sessionSection(s),
     ...calibrationSection(s),
