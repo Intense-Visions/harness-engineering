@@ -448,6 +448,10 @@ export type {
   FleetHandoffValidationResult,
 } from './fleet-handoff';
 
+// --- Fleet Claim (cross-run advisory work-claim lease, fleet-cross-run-claim-lease) ---
+export { FLEET_CLAIM_VERSION, FleetClaimSchema } from './fleet-claim';
+export type { FleetClaim } from './fleet-claim';
+
 // --- Telemetry synthesis (#563) ---
 export { TELEMETRY_SYNTHESIS_SECTIONS } from './telemetry-synthesis';
 export type {

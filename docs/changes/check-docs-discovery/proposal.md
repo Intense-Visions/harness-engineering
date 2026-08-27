@@ -1,7 +1,7 @@
 # Proposal: Fix `check-docs` / `cleanup` file-discovery blind spots
 
 - Status: accepted (spec-first, autonomous fix)
-- Tracking: fixes #1146 (reported by external user bstevenski-capillary)
+- Tracking: fixes #1146 (reported by an external adopter)
 - Scope: `@harness-engineering/core` discovery + coverage math, `@harness-engineering/cli` `check-docs` command
 
 ## Problem

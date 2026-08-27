@@ -214,6 +214,19 @@ LLM-judgment critique of code quality / readability — the ceiling counterpart 
 - `--max-files` — Cap source-file count (default: 100)
 - `--max-units-per-file` — Cap per-file unit critique (default: 20)
 
+### `harness context-report`
+
+Attribute the always-loaded context surface cost per turn, per tier
+
+**Options:**
+
+- `--tier` — Measure the tool schemas at this tier
+- `--exact` — Use exact /v1/messages/count_tokens counts (needs ANTHROPIC_API_KEY)
+- `--window` — Context-window size to budget against (default: 200000)
+- `--top` — How many top contributors to show (default: 10)
+- `--no-skills` — Skip the platform skill trees
+- `--json` — Emit machine-readable JSON
+
 ### `harness copy-craft`
 
 LLM-judgment critique of prose-in-code across six surfaces: error messages, log lines, CLI output, commit subjects, PR descriptions, code comments. Third craft-pipeline ceiling skill. Graceful degradation when git/gh prereqs absent.

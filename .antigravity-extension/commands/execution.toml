@@ -210,7 +210,14 @@ For each task, starting from current position:
    }
    ```
 
-7. **Handle checkpoints** per the checkpoint protocol below.
+7. **Check the context budget (mid-turn trip wire).** After each task, evaluate this turn's resident tokens with `evaluateContextBudget(usedTokens, window)` from `@harness-engineering/core` (classify on TOTAL resident tokens = input + output + tool results; prefer the model's real cumulative usage counter, fall back to `chars/4`). Act on the verdict:
+   - **`ok`** — proceed to the next task normally.
+   - **`warn`** — converge: finish the unit cleanly, then flush `state.json` / `handoff.json` to disk before continuing. Do not start large new tool-output-heavy work without flushing first.
+   - **`trip`** — STOP. Do not push a task-executor past a `trip`. Write a **distilled** handoff (summarized state and next-step, not a raw-truncated tail — a raw tail drops the middle, per _Lost in the Middle_) and hand off for **cold re-dispatch** into a fresh subagent seeded with that distilled state.
+
+   Anchors are window-keyed (absolute resident tokens): `1m` window warn 250K / trip 350K; `200k` window warn 80K / trip 100K; `local` (≤128K) warn ~30% / trip ~37.5%. Utilization is display-only; the trip fires on the absolute token count.
+
+8. **Handle checkpoints** per the checkpoint protocol below.
 
 ---
 
