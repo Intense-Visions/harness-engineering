@@ -868,6 +868,28 @@ last_manual_edit: 2026-06-27T12:51:51.967Z
 - **Priority:** P3
 - **External-ID:** github:Intense-Visions/harness-engineering#1622
 
+### Speculative merge queue with batch bisection
+
+- **Status:** planned
+- **Spec:** —
+- **Summary:** Every high-throughput engineering organisation lands changes through an optimistic merge queue — changes are tested in speculative batches against the projected future state of the trunk, batches that pass land atomically, and failures bisect to the culprit — because serial land-and-verify caps landing throughput at (verification latency × queue depth) and pre-merge-only testing admits semantic conflicts between concurrently-green changes. Everything in the fleet family assumes landings scale; nothing on the roadmap provides the landing mechanism. Build or integrate the queue: speculative batching (test change-sets against trunk + everything queued ahead), batch bisection on failure (log-time culprit isolation), priority lanes honoring the admission controller's declared allocation, and hooks so the harness's own verdict machinery is the queue's gate rather than a second CI system. Prefer integrating the platform-native queue where one exists and wrapping it with harness verdicts; build the speculative layer only where the platform lacks it. This is the most glaring field-standard-elsewhere gap on the roadmap: the 1000x items raise how much can be produced; this is what lets it land.
+- **Blockers:** —
+- **Plan:** —
+- **Assignee:** —
+- **Priority:** P1
+- **External-ID:** github:Intense-Visions/harness-engineering#1647
+
+### Continuous corpus-accumulating fuzzing fleet
+
+- **Status:** planned
+- **Spec:** —
+- **Summary:** Mutation testing (filed) checks whether the gates catch seeded defects; nothing continuously hunts real defects in the product code with the one background technique that has decades of industrial proof: coverage-guided fuzzing with a persistent, growing corpus. The model is well established — harnessable entry points get fuzz targets, a background fleet runs them continuously within a compute budget, the corpus accumulates as an asset (every interesting input found makes all future fuzzing better), crashes/violations are deduplicated, minimized, and filed with reproducers. The fleet-family framing fits exactly: a standing background fleet, budget-governed, whose findings enter the normal intake queue as issues with reproducing tests attached (the bug-fleet's no-reproduction-no-bug rule satisfied by construction — a fuzz finding IS a reproducer). Agent leverage is the new part: agents write and maintain the fuzz targets — historically the adoption bottleneck — by identifying harnessable surfaces (parsers, deserializers, state machines, public APIs with structured input) and generating targets from type signatures, which is precisely the mechanical-authoring work agents do well.
+- **Blockers:** —
+- **Plan:** —
+- **Assignee:** —
+- **Priority:** P3
+- **External-ID:** github:Intense-Visions/harness-engineering#1640
+
 ## v5.0 — Enforcement Hardening
 
 ### Audit and cap the pre-commit --skip list
@@ -1155,6 +1177,28 @@ last_manual_edit: 2026-06-27T12:51:51.967Z
 - **Assignee:** —
 - **Priority:** P3
 - **External-ID:** github:Intense-Visions/harness-engineering#1631
+
+### Semantic canonicalization — an entropy floor for generated artifacts
+
+- **Status:** planned
+- **Spec:** —
+- **Summary:** Formatters ended formatting debates by making one canonical form mechanical; generated code re-opens the entropy at a deeper level — equivalent logic arrives in gratuitously different shapes (member ordering, import structure, naming patterns, error-handling idioms, test scaffolding), and every downstream system pays for the variance. Push canonicalization one level past formatting: define canonical forms for the semantic-shape choices that don't carry meaning (declaration ordering rules, structural idioms, naming patterns per construct class), enforce them mechanically at generation time and in the gate stack, and let every downstream consumer collect the dividend — diffs shrink to intent, clone detection sharpens (idiom epidemiology depends on it), context dictionaries train better, dedup and caching improve, and review attention lands on meaning instead of shape. Compression theory 101: canonicalize before you compress — variance that carries no information is pure cost everywhere it flows. Scope honestly: only choices that are semantically free get canonicalized; anything where shape carries meaning stays untouched, and the rule catalog is versioned so canon changes are migrations, not churn.
+- **Blockers:** —
+- **Plan:** —
+- **Assignee:** —
+- **Priority:** P3
+- **External-ID:** github:Intense-Visions/harness-engineering#1646
+
+### Content-addressed gate memoization — an action cache for verdicts
+
+- **Status:** planned
+- **Spec:** —
+- **Summary:** Build systems solved redundant computation a decade ago with the content-addressed action cache: key every action by the hash of its inputs, and identical inputs return the cached result without re-execution. Verification here re-runs constantly on unchanged inputs — the same file tree re-scanned, the same diff re-judged after a rebase that changed nothing it touches, the same test subset re-executed across pipeline stages and fleet members. Apply the pattern to the gate stack: key each gate execution by (content hash of its true input closure × gate version × configuration), store verdicts in a shared cache, and return memoized verdicts on hit. The input-closure discipline is the hard part and the point: a gate must declare what it actually reads (files, config, environment, model version), because an underdeclared closure returns stale verdicts — so closures are audited by recording real access during execution and failing on undeclared reads. Judges are memoizable too (same diff + same judge version + same rubric ⇒ same verdict is exactly the determinism the calibration items want). Compute and token savings compound with fleet scale, since fleets re-verify overlapping state by construction.
+- **Blockers:** —
+- **Plan:** —
+- **Assignee:** —
+- **Priority:** P1
+- **External-ID:** github:Intense-Visions/harness-engineering#1639
 
 ## v5.0 — Catalog Rationalization
 
@@ -1556,6 +1600,83 @@ last_manual_edit: 2026-06-27T12:51:51.967Z
 - **Priority:** P3
 - **External-ID:** github:Intense-Visions/harness-engineering#1629
 
+### Goodhart sentinel — proxy-vs-ground-truth integrity for the whole metric estate
+
+- **Status:** planned
+- **Spec:** —
+- **Summary:** Every metric on this roadmap is a proxy, and Goodhart's law says each will decay once optimized against: pass rates drift up while escaped-defect estimates hold flat, coverage rises while mutation scores fall, rework 'improves' because rework got reclassified. Nothing anywhere — here or in the field — monitors proxy-vs-ground-truth divergence systematically. Build the sentinel: a registry pairing each operational proxy with its ground-truth counterpart (gate pass rate ↔ capture-recapture escape estimate; coverage ↔ mutation score; judge verdicts ↔ realized outcomes; velocity ↔ strategy displacement), computing divergence trends, and alarming when a proxy improves while its ground truth doesn't. This is the meta-instrument that protects every other instrument: without it, the measurement edifice self-corrupts on the schedule at which agents learn to optimize the proxies.
+- **Blockers:** —
+- **Plan:** —
+- **Assignee:** —
+- **Priority:** P1
+- **External-ID:** github:Intense-Visions/harness-engineering#1642
+
+### Metrology discipline — calibration chains and golden references for every instrument
+
+- **Status:** planned
+- **Spec:** —
+- **Summary:** Physical science never trusts an instrument that is not traceable to a reference standard on a recalibration schedule; this roadmap has been adding instruments for rounds with no golden references, no traceability, no recalibration cadence. Build the metrology layer: every measurement instrument (detectors, judges, estimators, scores) registers a golden-reference fixture set with known answers, a measured accuracy against it, a recalibration schedule, and a traceability record (which reference version validated which instrument version). An instrument whose calibration is expired or failing is marked untrusted and its outputs carry that flag downstream — an uncalibrated number renders with its status, never as bare truth. This is what makes the Goodhart sentinel enforceable and what keeps instrument drift (model updates change judge behavior; codebase drift changes detector baselines) from silently corrupting every downstream decision.
+- **Blockers:** —
+- **Plan:** —
+- **Assignee:** —
+- **Priority:** P2
+- **External-ID:** github:Intense-Visions/harness-engineering#1645
+
+### Strategy realization accounting — did the shipped portfolio move the declared strategy?
+
+- **Status:** planned
+- **Spec:** —
+- **Summary:** Everything on the roadmap measures whether work is done well; nothing measures whether the portfolio of shipped work moved the declared strategy. At high throughput the characteristic failure is not bad work but orthogonal work — a fleet velocity-optimizing into directions nobody chose. Build the accounting: every merged item traces to a strategy track (the linkage already exists at ideation time and is discarded at merge time — keep it); per track, aggregate shipped effort and cost; and compare against the strategy's own declared success measures, reporting realized displacement per track per window. The alarms are the point: a track consuming effort with no measurable displacement (busy-but-stuck), and shipped effort concentrating in work traceable to no track at all (velocity without direction). This closes the loop that value-per-spend routing opens: routing prices work going in; realization accounting audits what came out.
+- **Blockers:** —
+- **Plan:** —
+- **Assignee:** —
+- **Priority:** P2
+- **External-ID:** github:Intense-Visions/harness-engineering#1649
+
+### The autonomy ratio — a published self-hosting benchmark
+
+- **Status:** planned
+- **Spec:** —
+- **Summary:** Compilers proved themselves by self-hosting; no agent-orchestration project publishes the equivalent number. Define and publish the autonomy ratio: the fraction of this project's own development shipped through its own unattended pipeline, with declared denominators and the same measurement rigor the roadmap demands elsewhere (stability across windows, no cherry-picked numerator, human-touch minutes counted honestly — a one-line human fix reclassifies the item). Break it down by lifecycle stage (ideation, spec, build, verify, land) so the number is diagnostic, not just promotional: the stages where the ratio is lowest are, by construction, the next automation targets — the benchmark and the backlog-prioritizer are the same artifact. Publish it in the repo and keep it current mechanically; a stale or hand-edited number is worse than none. It is nearly free (the telemetry exists), uniquely credible (measured on the measurer), and the single most persuasive adoption artifact the project can produce.
+- **Blockers:** —
+- **Plan:** —
+- **Assignee:** —
+- **Priority:** P2
+- **External-ID:** github:Intense-Visions/harness-engineering#1638
+
+### Desire-path mining — systematic bypass patterns as design signals
+
+- **Status:** planned
+- **Spec:** —
+- **Summary:** Urban planners read the dirt paths worn across lawns as design information: the paved path is wrong, and the desire path is the requirement. Process telemetry contains the same signal and nobody mines it: gates that are systematically overridden, fields always filled with boilerplate, steps always skipped via the same workaround, flags that every invocation sets, sequences users always reorder. Each is a vote against the designed path by someone who had a job to do. Build the miner: detect recurring bypass patterns in telemetry (override clusters, boilerplate detection on required inputs, flag-usage distributions, workaround sequences), rank by frequency × effort-expended-to-bypass, and emit them as design findings — candidate process changes — rather than compliance violations. The framing inversion is the feature: the same data that a compliance lens reads as 'users misbehaving' is, read correctly, the cheapest requirements-gathering instrument the project has. A bypass that survives investigation becomes a roadmap item to pave it; one that reveals genuine risk becomes a targeted enforcement fix with the evidence attached.
+- **Blockers:** —
+- **Plan:** —
+- **Assignee:** —
+- **Priority:** P3
+- **External-ID:** github:Intense-Visions/harness-engineering#1641
+
+### Standards interop — OpenTelemetry GenAI semantics and emerging agent protocols
+
+- **Status:** planned
+- **Spec:** —
+- **Summary:** The telemetry estate is proprietary by accident rather than by decision, and the field is converging on standards: OpenTelemetry's GenAI semantic conventions for model/agent spans (tokens, model IDs, tool calls, costs) and emerging agent-interop protocols for cross-system agent communication. Every proprietary format is a standing tax — adopters cannot point their existing observability stack (the collectors, dashboards, and alerting they already run) at harness telemetry, and the federation/passport items will need wire formats that other systems speak. The work: map the internal telemetry envelope onto OTel GenAI semconv and emit it natively (OTLP export alongside the internal store, not a lossy bridge bolted on later); adopt standard span semantics for agent runs, tool calls, and gate executions; and track the agent-interop protocol space deliberately — a periodic assessment with adopt/wrap/ignore verdicts per standard — so the passport and federation wire formats align with whatever the ecosystem converges on rather than fighting it. Interop is an adoption feature: telemetry that lands in the adopter's existing dashboards on day one removes a whole integration project from the adoption cost.
+- **Blockers:** —
+- **Plan:** —
+- **Assignee:** —
+- **Priority:** P3
+- **External-ID:** github:Intense-Visions/harness-engineering#1648
+
+### SRE discipline on the harness itself — published SLOs, error budgets, alarm rationalization
+
+- **Status:** planned
+- **Spec:** —
+- **Summary:** The harness asks adopters to trust it as infrastructure but does not hold itself to infrastructure discipline. Two imports from operations practice, both field-standard elsewhere and absent here. First, SLOs and error budgets on the harness's own service surfaces: dispatch latency, verdict turnaround, gate false-positive rate, pipeline availability — declared targets, measured continuously, with error budgets that gate the harness's own release cadence (a budget-exhausted month means stabilization work, mechanically, not by mood). Second, alarm rationalization from the process industries (the EEMUA-style discipline): the roadmap just minted dozens of new alarms with no alerts-per-operator-hour budget, and alarm flooding is the best-documented way to make every alarm worthless. Rationalize: a standing alarm budget per operator per period, every alarm classed by required response and priority-distribution rules enforced (mostly-low-priority by construction), a periodic review that demotes or merges alarms nobody acts on, and a flood breaker that summarizes rather than streams when the rate exceeds human processing. The two compose: SLOs make the harness's reliability legible; rationalization keeps its signaling channel worth listening to as the instrument count grows.
+- **Blockers:** —
+- **Plan:** —
+- **Assignee:** —
+- **Priority:** P2
+- **External-ID:** github:Intense-Visions/harness-engineering#1643
+
 ## v5.0 — Trust & Security Model
 
 ### Move sentinel-pre/post to standard hook profile
@@ -1700,6 +1821,17 @@ last_manual_edit: 2026-06-27T12:51:51.967Z
 - **Assignee:** —
 - **Priority:** P1
 - **External-ID:** github:Intense-Visions/harness-engineering#1624
+
+### Threshold authorization — m-of-n co-signing for irreversible actions
+
+- **Status:** planned
+- **Spec:** —
+- **Summary:** No single agent, however confident, should be able to execute an irreversible or externally-visible action alone. Cryptography's threshold signatures give the pattern: an action in the guarded class (force-push, release publish, data deletion, external communication, production config change) requires m-of-n co-signatures from independently-contexted agents — each co-signer re-derives the justification from the action's evidence packet in a fresh context, without sight of the requester's reasoning, and signs only if the action is justified de novo. This is authority control, distinct from n-version quality voting: the co-signers are not checking whether work is good but whether this specific irreversible step is warranted. Human policy stays supreme — the guarded-action list and thresholds are policy-level declarations, humans can be required as signers for designated classes, and every co-signing event is logged to the attestation trail. The defense is against single-context failure: one poisoned, confused, or manipulated agent cannot alone cause the class of harm that cannot be undone.
+- **Blockers:** —
+- **Plan:** —
+- **Assignee:** —
+- **Priority:** P2
+- **External-ID:** github:Intense-Visions/harness-engineering#1650
 
 ## v5.0 — Article-Framing Docs & Personas
 
@@ -1957,6 +2089,17 @@ last_manual_edit: 2026-06-27T12:51:51.967Z
 - **Assignee:** —
 - **Priority:** —
 - **External-ID:** github:Intense-Visions/harness-engineering#1470
+
+### Metric-gated progressive delivery — automated canary rollout as the shipping gate
+
+- **Status:** planned
+- **Spec:** —
+- **Summary:** The roadmap's production story is reactive: closed-loop remediation responds to signals after full exposure. The field-standard preventive half is progressive delivery — every change reaches a small exposure slice first, promotion to wider exposure is gated on measured health metrics against the baseline, and regression triggers automatic halt and rollback with the evidence attached. Integrate it as the terminal pipeline stage: rollout policies per deployable (slice sequence, promotion metrics, guardrail thresholds, bake times), automated promotion/halt decisions from the same telemetry discipline the rest of the roadmap builds, and the halt evidence packet flowing back into the pipeline as a first-class failure (feeding remediation, the near-miss ledger, and failure-magnitude accounting). Prefer integrating the established rollout controllers where the adopter's platform has one, with the harness supplying policy, verdicts, and evidence handling rather than reinventing traffic shaping. Unattended landing at scale is only defensible when exposure is also incremental — this is the item that makes 'agents ship to production' a bounded-blast-radius claim instead of a hope.
+- **Blockers:** —
+- **Plan:** —
+- **Assignee:** —
+- **Priority:** P3
+- **External-ID:** github:Intense-Visions/harness-engineering#1644
 
 ### Derive candidate work from production signal, not only from human specification
 
