@@ -11,6 +11,7 @@ describe('readComprehensionConfig', () => {
       maxTokensPerRun: 200000,
       concurrency: 4,
       ci: 'verify',
+      hook: false,
     });
   });
 
@@ -23,6 +24,7 @@ describe('readComprehensionConfig', () => {
       maxTokensPerRun: 200000,
       concurrency: 2,
       ci: 'verify',
+      hook: false,
     });
   });
 

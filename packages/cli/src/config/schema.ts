@@ -1033,6 +1033,14 @@ export const ComprehensionConfigSchema = z.object({
   maxTokensPerRun: z.number().int().positive().default(200_000),
   concurrency: z.number().int().positive().default(4),
   ci: z.enum(['verify', 'refresh', 'off']).default('verify'),
+  /**
+   * Opt-in git pre-commit hook (default OFF). When true, a config-gated,
+   * static-only, NON-BLOCKING pre-commit step runs `harness comprehend --changed
+   * --static --stage` so a source change lands with its refreshed comprehension
+   * shard in the SAME commit. Never resolves a provider / calls an LLM (the
+   * `--static` posture) and never blocks a commit if recompile fails.
+   */
+  hook: z.boolean().default(false),
 });
 export type ComprehensionConfig = z.infer<typeof ComprehensionConfigSchema>;
 

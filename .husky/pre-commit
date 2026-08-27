@@ -119,6 +119,18 @@ fi
 cat /tmp/harness-pre-commit.log
 npx lint-staged
 
+# Comprehension substrate: OPT-IN static-only recompile + stage (phase 5, D4).
+# Keeps the per-module comprehension shard fresh WITH the source change — the
+# refreshed `.harness/comprehension/**/_module.md` is git-added so it lands in the
+# SAME commit. STATIC-ONLY (`--static`): never resolves a provider or calls an LLM
+# on the commit path (SC4). OPT-IN + self-gating: the CLI no-ops (exit 0) unless
+# `comprehension.hook: true` is set (the `--hook` flag defers the gate to the CLI,
+# so this step stays dumb + POSIX-simple). NON-BLOCKING: a recompile failure must
+# NEVER block a commit, so the whole step is guarded with `|| true`.
+if node packages/cli/dist/bin/harness.js comprehend --changed --static --stage --hook; then :; else
+  echo "pre-commit: comprehension static recompile skipped (non-fatal)." >&2
+fi
+
 # Auto-regenerate plugin artifacts if any generator input is staged.
 # lint-staged runs Prettier on SKILL.md, which can leave the rendered
 # .{claude-plugin,cursor-plugin,gemini-extension,codex-plugin}/ files

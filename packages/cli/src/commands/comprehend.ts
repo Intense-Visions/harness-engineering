@@ -9,6 +9,7 @@ import type { AnalysisProvider } from '@harness-engineering/intelligence';
 import { resolveConfig } from '../config/loader';
 import type { HarnessConfig } from '../config/schema';
 import { readComprehensionConfig } from '../comprehension/config';
+import { shouldRunComprehendHook } from '../comprehension/hook';
 import type { ComprehensionConfig } from '../config/schema';
 import { createStaticExtractor } from '../comprehension/static-extractor';
 import { filesToModules, enumerateModules } from '../comprehension/invalidation';
@@ -35,6 +36,11 @@ interface ComprehendFlags {
   static?: boolean;
   /** git-add the compiled unit shards after a run (pre-commit posture). */
   stage?: boolean;
+  /**
+   * Pre-commit-hook posture: no-op (exit 0) unless the opt-in
+   * `comprehension.hook` gate is enabled. Keeps the shell hook dumb.
+   */
+  hook?: boolean;
 }
 
 /** Resolve the run mode from the boolean flags: check > stats > all > changed. */
@@ -204,10 +210,17 @@ async function runCompileMode(
 async function runComprehendAction(
   mode: ComprehendMode,
   globalConfig?: string,
-  opts: { staticOnly?: boolean; stage?: boolean } = {}
+  opts: { staticOnly?: boolean; stage?: boolean; hook?: boolean } = {}
 ): Promise<void> {
   const projectRoot = process.cwd();
   const config = loadHarnessConfig(globalConfig);
+
+  // Pre-commit-hook posture: no-op unless the opt-in gate is enabled, so the
+  // shell hook can invoke unconditionally and the CLI owns the gating.
+  if (opts.hook && !shouldRunComprehendHook(config)) {
+    process.exit(ExitCode.SUCCESS);
+  }
+
   const store = new ComprehensionStore({ io: createNodeComprehensionIO() });
   const reader = createNodeModuleSourceReader(projectRoot);
 
@@ -237,12 +250,14 @@ export function createComprehendCommand(): Command {
       'Static-only: never resolve a provider or call an LLM (pre-commit/CI posture)'
     )
     .option('--stage', 'git-add the compiled unit shards after a run (pre-commit posture)')
+    .option('--hook', 'Pre-commit-hook posture: no-op unless comprehension.hook is enabled')
     .action(async (opts: ComprehendFlags, cmd: Command) => {
       const mode = resolveMode(opts);
       const globalOpts = cmd.optsWithGlobals() as { config?: string };
       await runComprehendAction(mode, globalOpts.config, {
         staticOnly: opts.static ?? false,
         stage: opts.stage ?? false,
+        hook: opts.hook ?? false,
       });
     });
 }
