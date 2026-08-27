@@ -12,5 +12,5 @@ order: 128
 - **Blockers:** Depends on `emit-provenance-trailer-from-agent-commits`
 - **Plan:** —
 - **Assignee:** —
-- **Priority:** P2
+- **Priority:** P1
 - **External-ID:** github:Intense-Visions/harness-engineering#1560

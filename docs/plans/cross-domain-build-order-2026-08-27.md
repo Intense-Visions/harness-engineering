@@ -72,7 +72,7 @@ The instruments that keep every later proxy honest. Protect the metric estate be
 | Near-miss ledger + leading indicators             | #1565 |
 | Basal token metabolism                            | #1628 |
 
-## Wave 3 — Control plane (18)
+## Wave 3 — Control plane (19)
 
 Governors, admission, and flow control. Parallel track with Wave 4.
 
@@ -81,7 +81,7 @@ governor #1537 · rate-limit fan-out governor #1532 · context-replay budget #15
 Flow models & controllers: queueing model #1555 · scalability-law fit #1552 · AIMD concurrency
 #1606 · feedback control for governors #1567 · Nyquist oversight bound #1618 · bullwhip dampening
 #1666 · drum-buffer-rope #1676 · cavitation detection #1611 · crisis standards / degraded modes #1654.
-Economics: value-per-spend routing #1542 · capacity shadow pricing #1569 · Kelly staking #1668 ·
+Economics: value-per-spend routing #1542 · capacity shadow pricing #1569 · bandit allocation #1557 · Kelly staking #1668 ·
 newsvendor provisioning #1679.
 
 ## Wave 4 — Safe autonomy (13)
