@@ -8,6 +8,7 @@ import type { AnalysisProvider } from '@harness-engineering/intelligence';
 import { resolveConfig } from '../config/loader';
 import type { HarnessConfig } from '../config/schema';
 import { readComprehensionConfig } from '../comprehension/config';
+import type { ComprehensionConfig } from '../config/schema';
 import { createStaticExtractor } from '../comprehension/static-extractor';
 import { filesToModules, enumerateModules } from '../comprehension/invalidation';
 import { maybeCreateGenerateSemantic } from '../comprehension/generate-semantic';
@@ -28,6 +29,10 @@ interface ComprehendFlags {
   all?: boolean;
   check?: boolean;
   stats?: boolean;
+  /** SC4 — force static-only: never resolve a provider or call an LLM. */
+  static?: boolean;
+  /** git-add the compiled unit shards after a run (pre-commit posture). */
+  stage?: boolean;
 }
 
 /** Resolve the run mode from the boolean flags: check > stats > all > changed. */
@@ -64,6 +69,24 @@ export function resolveChangedScope(
       'falling back to a full sweep (--all).'
   );
   return { mode: 'all' };
+}
+
+/**
+ * SC4 — resolve the semantic provider for a compile run, or `null` for a
+ * static-only run. A run is static-only when `--static` is set (the pre-commit /
+ * CI posture) OR when `comprehension.semantic` is disabled; in BOTH cases the
+ * provider resolver is NEVER invoked — no credential, no LLM on that path. The
+ * resolver is injected (default: the real `resolveAnalysisProvider`) so the
+ * decision is unit-testable with a spy that must stay uncalled under `--static`.
+ */
+export async function resolveCompileProvider(
+  cconf: ComprehensionConfig,
+  staticOnly: boolean,
+  resolveProvider: (model?: string) => Promise<AnalysisProvider | null> = (model) =>
+    resolveAnalysisProvider(model) as Promise<AnalysisProvider | null>
+): Promise<AnalysisProvider | null> {
+  if (staticOnly || !cconf.semantic) return null;
+  return resolveProvider(cconf.model ?? undefined);
 }
 
 /** Load the resolved HarnessConfig, or undefined when none resolves (best-effort). */
@@ -105,13 +128,13 @@ async function runCompileMode(
   projectRoot: string,
   store: ComprehensionStore,
   reader: ReturnType<typeof createNodeModuleSourceReader>,
-  config: HarnessConfig | undefined
+  config: HarnessConfig | undefined,
+  opts: { staticOnly?: boolean; stage?: boolean } = {}
 ): Promise<void> {
   const cconf = readComprehensionConfig(config);
-  // SC4: only resolve a provider when semantic is enabled; else static-only.
-  const provider = cconf.semantic
-    ? ((await resolveAnalysisProvider(cconf.model ?? undefined)) as AnalysisProvider | null)
-    : null;
+  // SC4: static-only (`--static`) or semantic-disabled ⇒ no provider is resolved
+  // — no credential, no LLM on the push/CI path.
+  const provider = await resolveCompileProvider(cconf, opts.staticOnly ?? false);
   const generateSemantic = maybeCreateGenerateSemantic(provider, {
     maxTokensPerRun: cconf.maxTokensPerRun,
     ...(cconf.model ? { model: cconf.model } : {}),
@@ -148,7 +171,11 @@ async function runCompileMode(
   process.exit(ExitCode.SUCCESS);
 }
 
-async function runComprehendAction(mode: ComprehendMode, globalConfig?: string): Promise<void> {
+async function runComprehendAction(
+  mode: ComprehendMode,
+  globalConfig?: string,
+  opts: { staticOnly?: boolean; stage?: boolean } = {}
+): Promise<void> {
   const projectRoot = process.cwd();
   const config = loadHarnessConfig(globalConfig);
   const store = new ComprehensionStore({ io: createNodeComprehensionIO() });
@@ -156,7 +183,7 @@ async function runComprehendAction(mode: ComprehendMode, globalConfig?: string):
 
   if (mode === 'check') return runCheckMode(store, reader);
   if (mode === 'stats') return runStatsMode(store, reader);
-  return runCompileMode(mode, projectRoot, store, reader, config);
+  return runCompileMode(mode, projectRoot, store, reader, config, opts);
 }
 
 /**
@@ -175,9 +202,17 @@ export function createComprehendCommand(): Command {
     .option('--all', 'Recompile every module (backfill)')
     .option('--check', 'Token-free: report source-stale units, exit non-zero if any')
     .option('--stats', 'Report served-vs-raw token savings (token-free)')
+    .option(
+      '--static',
+      'Static-only: never resolve a provider or call an LLM (pre-commit/CI posture)'
+    )
+    .option('--stage', 'git-add the compiled unit shards after a run (pre-commit posture)')
     .action(async (opts: ComprehendFlags, cmd: Command) => {
       const mode = resolveMode(opts);
       const globalOpts = cmd.optsWithGlobals() as { config?: string };
-      await runComprehendAction(mode, globalOpts.config);
+      await runComprehendAction(mode, globalOpts.config, {
+        staticOnly: opts.static ?? false,
+        stage: opts.stage ?? false,
+      });
     });
 }
