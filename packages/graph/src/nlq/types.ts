@@ -11,6 +11,7 @@ export const INTENTS = [
   'explain',
   'anomaly',
   'staleness',
+  'shortestPath',
 ] as const;
 
 /**

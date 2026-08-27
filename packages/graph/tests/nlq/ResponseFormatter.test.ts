@@ -186,4 +186,31 @@ describe('ResponseFormatter', () => {
       expect(result).toBe('Changing **A** affects 1 code file, 0 tests, and 0 docs.');
     });
   });
+
+  describe('shortestPath intent', () => {
+    it('formats a found path with the node trail', () => {
+      const result = formatter.format('shortestPath', [makeEntity('A'), makeEntity('B')], {
+        nodes: [{ id: 'node-A' }, { id: 'mid' }, { id: 'node-B' }],
+        edges: [{}, {}],
+        length: 2,
+      });
+      expect(result).toContain('Shortest path from **A** to **B**');
+      expect(result).toContain('2 hops');
+      expect(result).toContain('node-A → mid → node-B');
+    });
+
+    it('reports no path when the primitive returns null', () => {
+      const result = formatter.format('shortestPath', [makeEntity('A'), makeEntity('B')], null);
+      expect(result).toBe('No path found between **A** and **B**.');
+    });
+
+    it('recognizes a same-node zero-length path', () => {
+      const result = formatter.format('shortestPath', [makeEntity('A'), makeEntity('A')], {
+        nodes: [{ id: 'node-A' }],
+        edges: [],
+        length: 0,
+      });
+      expect(result).toContain('same node');
+    });
+  });
 });

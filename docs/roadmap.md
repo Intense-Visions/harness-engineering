@@ -2087,8 +2087,8 @@ last_manual_edit: 2026-06-27T12:51:51.967Z
 
 ### Mid-Phase Context-Budget Trip Wire
 
-- **Status:** backlog
-- **Spec:** —
+- **Status:** done
+- **Spec:** docs/changes/mid-phase-context-budget-trip-wire/proposal.md
 - **Summary:** Fresh-context discipline in autopilot holds only between phases (each state dispatches a new cold subagent via subagent_type) — nothing watches a single long-running harness-task-executor turn or fleet lane for context creep within its own turn. Add a documented context-utilization threshold (a reasonable starting point is HumanLayer's own measured ~40%) that triggers an explicit write-state-and-restart action instead of leaving degradation to whatever the model does near its own context ceiling. Adapted from Dex Horthy/HumanLayer's "smart zone"/"dumb zone" context-engineering practice. Adoption #1 from docs/research/dex-horthy-humanlayer-comparison-analysis.md [HORTHY-1]
 - **Blockers:** —
 - **Plan:** —
@@ -2338,7 +2338,7 @@ last_manual_edit: 2026-06-27T12:51:51.967Z
 
 ### Graph edge provenance enum (EXTRACTED / INFERRED / AMBIGUOUS)
 
-- **Status:** planned
+- **Status:** done
 - **Spec:** docs/knowledge/decisions/0104-graphify-adoption-not-replacement.md
 - **Summary:** Add a first-class provenance enum on graph edges alongside the existing `confidence` float (`packages/graph/src/types.ts`), set at ingest time in CodeIngestor/TopologicalLinker (AST-explicit → EXTRACTED, resolver-derived → INFERRED). Lets every adapter distinguish read-directly from inferred. Highest-leverage, smallest-surface item of the Graphify Option-A port (ADR 0104).
 - **Blockers:** —
@@ -2360,7 +2360,7 @@ last_manual_edit: 2026-06-27T12:51:51.967Z
 
 ### ContextQL shortest-path query primitive
 
-- **Status:** planned
+- **Status:** done
 - **Spec:** docs/knowledge/decisions/0104-graphify-adoption-not-replacement.md
 - **Summary:** Add `shortestPath(a, b)` between two arbitrary nodes to ContextQL, surfaced via NLQ + a CLI verb. Complements the existing explain/impact/relationships intents. Ported from Graphify (ADR 0104 Option A).
 - **Blockers:** —

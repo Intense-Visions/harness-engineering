@@ -120,6 +120,19 @@ const INTENT_SIGNALS: Readonly<Record<Intent, SignalSet>> = {
       /code\s+changed/,
     ],
   },
+  shortestPath: {
+    keywords: ['path', 'shortest', 'route', 'between', 'reach', 'reaches', 'connection', 'hops'],
+    questionWords: ['how'],
+    verbPatterns: [
+      /shortest\s+path/,
+      /path\s+(from|between|to)/,
+      /route\s+(from|between)/,
+      /(from|between)\s+\S+\s+(to|and)\s+\S+/,
+      /how\s+(are|is|do|does)\s+.*(connect|relat|link|reach)/,
+      /how\s+to\s+(get|reach)/,
+      /connect(ion|ed|s)?\s+between/,
+    ],
+  },
 } as const;
 
 /**

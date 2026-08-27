@@ -34,6 +34,9 @@ export { ResponseFormatter } from './ResponseFormatter.js';
 /** Intents that require at least one resolved entity to produce meaningful results. */
 const ENTITY_REQUIRED_INTENTS = new Set(['impact', 'relationships', 'explain']);
 
+/** Intents that require two resolved entities (a source and a target). */
+const TWO_ENTITY_INTENTS = new Set(['shortestPath']);
+
 /**
  * Ask a natural language question about the codebase knowledge graph.
  *
@@ -66,13 +69,32 @@ function lowConfidenceResult(intent: Intent, confidence: number): AskGraphResult
   };
 }
 
-function noEntityResult(intent: Intent, confidence: number): AskGraphResult {
+function noEntityResult(
+  intent: Intent,
+  confidence: number,
+  entities: readonly ResolvedEntity[] = []
+): AskGraphResult {
   return {
     intent,
     intentConfidence: confidence,
-    entities: [],
+    entities,
     summary:
       'Could not find any matching nodes in the graph for your query. Try using exact class names, function names, or file paths.',
+    data: null,
+  };
+}
+
+function twoEntityResult(
+  intent: Intent,
+  confidence: number,
+  entities: readonly ResolvedEntity[]
+): AskGraphResult {
+  return {
+    intent,
+    intentConfidence: confidence,
+    entities,
+    summary:
+      'A shortest-path query needs two endpoints. Name both a source and a target, e.g. "shortest path from UserService to Database".',
     data: null,
   };
 }
@@ -90,6 +112,10 @@ export async function askGraph(store: GraphStore, question: string): Promise<Ask
 
   if (ENTITY_REQUIRED_INTENTS.has(classification.intent) && entities.length === 0) {
     return noEntityResult(classification.intent, classification.confidence);
+  }
+
+  if (TWO_ENTITY_INTENTS.has(classification.intent) && entities.length < 2) {
+    return twoEntityResult(classification.intent, classification.confidence, entities);
   }
 
   let data: unknown;
@@ -193,6 +219,9 @@ function executeOperation(
 
     case 'staleness':
       return executeStaleness(store);
+
+    case 'shortestPath':
+      return cql.shortestPath(entities[0]!.nodeId, entities[1]!.nodeId);
 
     default:
       return null;

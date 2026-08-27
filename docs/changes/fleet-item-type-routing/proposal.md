@@ -74,11 +74,11 @@ taxonomy beyond what the router already carries.
 
 **Routing targets and route-dependent VERIFY artifact:**
 
-| Route          | Pipeline                                       | VERIFY requires                                                                                                  |
-| -------------- | ---------------------------------------------- | --------------------------------------------------------------------------------------------------------------- |
-| **bug**        | `harness-debugging`                            | committed `provenance.json` with `stages=[debugging]` **and** a committed reproducing test (fails-before / passes-after) — **not** a `plans/` directory |
-| **spec-ready** | `harness-autopilot`                            | `plans/` directory + `provenance.json` with `stages` including `autopilot` (no `brainstorming` stage required)   |
-| **feature**    | `harness-brainstorming → harness-autopilot`    | `plans/` directory + `provenance.json` with `stages` including `brainstorming`, `autopilot` — _unchanged from today_ |
+| Route          | Pipeline                                    | VERIFY requires                                                                                                                                         |
+| -------------- | ------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **bug**        | `harness-debugging`                         | committed `provenance.json` with `stages=[debugging]` **and** a committed reproducing test (fails-before / passes-after) — **not** a `plans/` directory |
+| **spec-ready** | `harness-autopilot`                         | `plans/` directory + `provenance.json` with `stages` including `autopilot` (no `brainstorming` stage required)                                          |
+| **feature**    | `harness-brainstorming → harness-autopilot` | `plans/` directory + `provenance.json` with `stages` including `brainstorming`, `autopilot` — _unchanged from today_                                    |
 
 The debug-route artifact requirement mirrors `bug-fleet`'s existing proof-of-fix model (a reproducing
 test that fails before and passes after — `bug-fleet/SKILL.md`), because a debugging run leaves no
@@ -89,6 +89,7 @@ lacking a brainstorming artifact.
 ### Per-file edits
 
 **`docs/reference/fleet-family.md`**
+
 - Add a `## Item-type routing (build-shaped members)` section after "Shared design decisions",
   stating the rubric, the precedence, the spine placement, the route-dependent VERIFY artifact, and
   naming ADR 0103 as the canonical decision. Members reference it, they do not restate it.
@@ -97,6 +98,7 @@ lacking a brainstorming artifact.
 - Add ADR 0103 to the References list.
 
 **`agents/skills/claude-code/roadmap-fleet/SKILL.md`**
+
 - **SELECT** — add a classification step that attaches a `route` and a `routeSignal` (which
   precedence rule fired) to each `Candidate`; extend the `Candidate` record (`:59-72`) with those
   two fields.
@@ -112,6 +114,7 @@ lacking a brainstorming artifact.
   bullet).
 
 **`agents/skills/claude-code/security-fleet/SKILL.md`**
+
 - **SELECT** — classify each FIX-tier finding by route (a bounded vuln with a known remedy → bug;
   a fix requiring design → feature; a structural remedy already re-tiers to FILE and is unaffected).
 - **DISPATCH** — FIX step (b) (`:114`) runs the routed fix pipeline instead of always

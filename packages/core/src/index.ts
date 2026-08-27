@@ -134,6 +134,11 @@ export * from './review';
 export * from './roadmap';
 
 /**
+ * Fleet coordination module — pure cross-run work-claim lease primitives (build/parse/server-clock TTL) for the -fleet family.
+ */
+export * from './fleet';
+
+/**
  * Rollback module — post-ship revert-readiness classification (pure, IO-injected).
  */
 export * from './rollback';

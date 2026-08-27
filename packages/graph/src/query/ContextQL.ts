@@ -1,5 +1,12 @@
 import type { GraphStore } from '../store/GraphStore.js';
-import type { GraphNode, GraphEdge, ContextQLParams, ContextQLResult } from '../types.js';
+import type {
+  GraphNode,
+  GraphEdge,
+  ContextQLParams,
+  ContextQLResult,
+  ShortestPathOptions,
+  ShortestPathResult,
+} from '../types.js';
 import { OBSERVABILITY_TYPES } from '../types.js';
 
 type QueueEntry = { id: string; depth: number };
@@ -120,6 +127,25 @@ export class ContextQL {
         depthReached: state.depthReached,
       },
     };
+  }
+
+  /**
+   * Find the shortest (fewest-hops) path between two nodes.
+   *
+   * The ContextQL query-primitive surface for shortest-path queries; delegates
+   * to {@link GraphStore.shortestPath} (which owns the adjacency indexes).
+   *
+   * @param fromId - Source node ID.
+   * @param toId - Target node ID.
+   * @param options - Traversal options; `direction` defaults to `'both'`.
+   * @returns An ordered path, or `null` when the pair is unreachable.
+   */
+  shortestPath(
+    fromId: string,
+    toId: string,
+    options: ShortestPathOptions = {}
+  ): ShortestPathResult | null {
+    return this.store.shortestPath(fromId, toId, options);
   }
 
   private seedRootNodes(
