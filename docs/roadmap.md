@@ -550,6 +550,17 @@ last_manual_edit: 2026-06-27T12:51:51.967Z
 - **Priority:** —
 - **External-ID:** github:Intense-Visions/harness-engineering#1398
 
+### Rejection ledger — durable negative knowledge that stops re-proposal
+
+- **Status:** planned
+- **Spec:** —
+- **Summary:** Decision records capture what was chosen; nothing captures what was refuted and why, so generators re-propose dead ideas at exactly the rate they generate. At high generation rates the dominant ideation waste is re-derivation of already-refuted approaches — each round of ideation, brainstorming, or inbound triage re-litigates proposals that died months ago, and the refutation is buried in a closed PR thread nobody will find. Build the rejection ledger: a first-class store of refuted approaches, each entry carrying the approach's semantic fingerprint, the refutation (the specific reason it fails), the premises the refutation depends on, and provenance. Ideation and intake query it by semantic match before proposing; a hit surfaces the prior refutation instead of re-exploring. Critically, refutations expire: each entry's premises are linked to detectable conditions (a dependency version, a constraint, a scale threshold), and when a premise no longer holds the entry is flagged for re-evaluation rather than silently blocking a now-viable idea — negative knowledge decays like any other and must be tended, not hoarded.
+- **Blockers:** —
+- **Plan:** —
+- **Assignee:** —
+- **Priority:** P3
+- **External-ID:** github:Intense-Visions/harness-engineering#1620
+
 ## Fleet Family — Batch Orchestration
 
 ### issue-fleet — autonomous intake/triage of the open-issue backlog
@@ -824,6 +835,39 @@ last_manual_edit: 2026-06-27T12:51:51.967Z
 - **Priority:** P3
 - **External-ID:** github:Intense-Visions/harness-engineering#1569
 
+### The Nyquist bound on human oversight — attention aliasing detection
+
+- **Status:** planned
+- **Spec:** —
+- **Summary:** Sampling theory: to reconstruct a signal you must sample at more than twice its highest frequency, and undersampling doesn't merely miss detail — it aliases, producing false slow trends that look like calm. Human oversight of an agent fleet is a sampling process: if the system's state can change materially in hours (an agent can introduce a regression class, shift an interface, drift a convention) and humans review daily, oversight is aliased — the dashboard shows a smooth trend that is an artifact of the sampling rate, and the humans' situational picture is provably unreconstructable from their observations. Make this a law the governors obey: measure the frequency content of consequential change (how fast each class of state actually moves), derive the minimum attention sampling rate per surface, compare against the declared human attention budget, and when the budget cannot meet the bound, the governor must lower the change frequency — batching, freezing surfaces, or reducing concurrency — rather than letting oversight silently become fictional. This converts 'humans can't keep up' from a vibe into a computed inequality with a forced resolution, and it composes with every governor already on the roadmap: they get a principled setpoint instead of a policy guess.
+- **Blockers:** —
+- **Plan:** —
+- **Assignee:** —
+- **Priority:** P2
+- **External-ID:** github:Intense-Visions/harness-engineering#1618
+
+### AIMD congestion control for fleet concurrency
+
+- **Status:** planned
+- **Spec:** —
+- **Summary:** The internet's congestion control discovers available capacity with no global knowledge: additive increase while the path is clean, multiplicative decrease on loss, and the equilibrium is both efficient and fair across flows. Fleet concurrency today is a static cap — wrong in both directions, idle when capacity is free and thrashing when it isn't. Replace it with AIMD per lane: each fleet lane probes upward (+1 agent per clean interval) and backs off multiplicatively on a 'loss' signal — merge conflict, CI queue saturation, provider rate-limit, verification-latency blowup, or a cavitation/turbulence warning from the sibling detectors. This is the online controller that complements the offline model: the scalability-law fit describes the capacity curve, AIMD finds the operating point without needing the model to be right, and disagreement between them is itself a signal. Fairness falls out for free: multiple lanes AIMD-sharing one capacity pool converge toward equal shares without central arbitration, and weighted variants implement the admission controller's declared priorities. Guard the known failure mode: loss signals must be debounced and classified (a flaky CI failure is not congestion), or the controller oscillates on noise.
+- **Blockers:** —
+- **Plan:** —
+- **Assignee:** —
+- **Priority:** P3
+- **External-ID:** github:Intense-Visions/harness-engineering#1606
+
+### Speculative pipeline execution — branch prediction on human decisions
+
+- **Status:** planned
+- **Spec:** —
+- **Summary:** CPUs are fast because branch predictors exploit the predictability of code: predict the branch, execute speculatively, squash cheaply on mispredict — and misprediction is safe because speculation never retires architectural state. Human decision points in the pipeline (approvals, batch confirmations, priority picks) are the stalls of this system, and they are predictable: the typicality work already implies most approvals are foregone conclusions. Build the speculative executor: predict the human's decision per decision-class from history, begin the next pipeline stage speculatively in isolation (worktree/sandbox — speculation never retires: no push, no merge, no external effect), and on the actual decision either commit the pre-built work (latency hidden) or squash it (bounded waste). Track prediction accuracy per decision-class as a first-class metric with two payoffs: latency hiding where predictions are good, and — the more interesting one — an evidence-based promotion path: a decision class predicted correctly at 99%+ over a large sample is a documented candidate for policy-level auto-approval, converting 'can we automate this gate?' from argument into measurement. Budget-bound the speculation (it consumes real compute) and never speculate past irreversible or externally-visible actions.
+- **Blockers:** —
+- **Plan:** —
+- **Assignee:** —
+- **Priority:** P3
+- **External-ID:** github:Intense-Visions/harness-engineering#1622
+
 ## v5.0 — Enforcement Hardening
 
 ### Audit and cap the pre-commit --skip list
@@ -1068,6 +1112,39 @@ last_manual_edit: 2026-06-27T12:51:51.967Z
 - **Priority:** P2
 - **External-ID:** github:Intense-Visions/harness-engineering#1563
 
+### Known-answer drills — seeded defects through the whole pipeline including humans
+
+- **Status:** planned
+- **Spec:** —
+- **Summary:** Mutation testing (already on the roadmap) measures whether the mechanical gates catch synthetic defects. Capture-recapture estimates how many real defects escape. Neither measures the live end-to-end detection rate of the full pipeline — machine gates plus human reviewers — which is the quantity that actually governs what ships. Run known-answer drills: periodically inject a realistic seeded defect into a controlled change (clearly manifested but not labeled), let the normal pipeline process it, and measure where (or whether) it is caught. This is the known-answer audit from measurement science and the fire-drill from safety engineering: the human link is the only unmeasured detector in the chain and the one automation complacency degrades fastest. Governance is the design core, not an afterthought: drills are announced-in-aggregate (everyone knows drills exist; no one knows which change), never punitive by policy, capped in frequency, hard-blocked from ever reaching a release branch (the drill harness owns the revert), and results are reported as system detection rates, never individual scores.
+- **Blockers:** —
+- **Plan:** —
+- **Assignee:** —
+- **Priority:** P3
+- **External-ID:** github:Intense-Visions/harness-engineering#1616
+
+### Idiom contagion — epidemiology for code patterns (R0, tracing, ring vaccination)
+
+- **Status:** planned
+- **Spec:** —
+- **Summary:** Agents write code by copying the surrounding codebase: the codebase is the few-shot prompt for its own future, so every idiom in it has a reproduction number. Define and measure R0 per idiom — the average number of new sites an existing site spawns per window — from clone/similarity detection joined with commit provenance (which files were in context when the new site was written gives the transmission path: contact tracing). The epidemiological threshold does real work here: if a bad idiom's R0 > 1, fixing instances is mathematically futile — the fix rate must exceed the spawn rate forever. The correct intervention is ring vaccination: identify the high-centrality exemplar files agents most often read and copy from, fix the idiom there first, and quarantine the pattern at the source with a generated lint rule so new transmission stops. Symmetrically, R0 measurement identifies which *good* idioms spread on their own and which need seeding. Nobody treats exemplar health as the dominant quality lever; at generation scale it provably is, because the marginal author is a copier by construction.
+- **Blockers:** —
+- **Plan:** —
+- **Assignee:** —
+- **Priority:** P2
+- **External-ID:** github:Intense-Visions/harness-engineering#1612
+
+### Immune detector dynamics — negative selection, clonal expansion, memory cells
+
+- **Status:** planned
+- **Spec:** —
+- **Summary:** Rule-based gates catch anticipated failures; the immune system's architecture catches unanticipated ones, and its three mechanisms transfer cleanly. Negative selection: train detectors on 'self' — the empirical distribution of normal changes for this codebase (diff shapes, idiom profiles, dependency-touch patterns, timing) — and flag non-self for scrutiny, catching the novel anomaly no rule anticipated (the typicality work is the seed of this; this generalizes it into a managed detector population). Clonal expansion: when a detector's flag is confirmed real by downstream review, spawn variants of that detector (perturbed thresholds, adjacent features) so detection capacity concentrates where threats actually are. Memory cells: after any confirmed incident, distill a cheap, fast, specific detector for that failure class and retain it permanently — the second occurrence of anything should be caught at a fraction of the first's cost. The near-miss ledger records events; this is the complementary machinery that *evolves the detector fleet* in response to them, with population management (birth from confirmations, death from sustained false-positive rates) so the fleet tracks the threat landscape instead of the threat landscape's history.
+- **Blockers:** —
+- **Plan:** —
+- **Assignee:** —
+- **Priority:** P3
+- **External-ID:** github:Intense-Visions/harness-engineering#1613
+
 ## v5.0 — Catalog Rationalization
 
 ### Change init skill default recommendation away from "basic"
@@ -1157,6 +1234,17 @@ last_manual_edit: 2026-06-27T12:51:51.967Z
 - **Assignee:** —
 - **Priority:** P1
 - **External-ID:** github:Intense-Visions/harness-engineering#549
+
+### Skill P&L — measured realized value per skill and gate
+
+- **Status:** planned
+- **Spec:** —
+- **Summary:** The catalog is curated by opinion: skills and gates enter by being written and leave rarely, and nothing measures whether an entry earns its context cost. Give every catalog entry a P&L: invocations, downstream outcome deltas (did runs that used it succeed/land/avoid rework at a different rate than matched runs that didn't), and cost (tokens, latency, human interruptions). Rank the catalog by realized value; flag entries whose measured value is indistinguishable from zero for deprecation review; and let dispatch/recommendation weight by the ledger instead of by description quality. Attribution is the hard part and must be honest: most invocations are confounded, so the ledger reports effect estimates with uncertainty (matched comparison or the observational-causal toolkit), and 'insufficient evidence' is a first-class verdict — an entry is deprecated for measured worthlessness, never for measurement absence. This is the economics layer on top of catalog metadata tiering: metadata says what an entry claims to be; the ledger says what it demonstrably does.
+- **Blockers:** —
+- **Plan:** —
+- **Assignee:** —
+- **Priority:** P3
+- **External-ID:** github:Intense-Visions/harness-engineering#1621
 
 ## v5.0 — Telemetry & Effectiveness
 
@@ -1380,6 +1468,61 @@ last_manual_edit: 2026-06-27T12:51:51.967Z
 - **Priority:** P3
 - **External-ID:** github:Intense-Visions/harness-engineering#1566
 
+### Counterfactual shadow trial — try-before-you-trust evaluation mode
+
+- **Status:** planned
+- **Spec:** —
+- **Summary:** Every tool in this space asks for trust up front and pays back evidence later: a prospect must adopt before any evidence about their own repository exists, and failed adoption leaves no trace. Invert that. A sealed shadow mode points the harness at a candidate repository, watches the team's real ticket flow for a bounded window, and silently does the same work in a sandbox — full pipeline, all gates — while shipping nothing. The output is an evidence pack: for each ticket the team closed, the verified PR the harness would have opened, with diff, gate verdicts, wall-clock and token cost, side by side with what the humans shipped. This is the pre-adoption sibling of `controlled-experiment-harness-for-its-own-effect` (which measures effect after adoption and cannot help someone deciding). It converts the adoption decision from a leap of faith into an experiment report, and it is a go-to-market capability rather than a post-adoption one — its value is concentrated entirely in the evaluation window.
+- **Blockers:** —
+- **Plan:** —
+- **Assignee:** —
+- **Priority:** P2
+- **External-ID:** github:Intense-Visions/harness-engineering#1607
+
+### Model-update regression sentinel — supplier change-control for the underlying model
+
+- **Status:** planned
+- **Spec:** —
+- **Summary:** The underlying model is the harness's most load-bearing dependency and the only one with no change control: versions update silently, behavior shifts (tool-call fidelity, verdict distributions, latency, cost, refusal patterns), and every installation discovers the shift through a broken workflow. Treat the model as a vendored dependency. Maintain a pinned sentinel suite of representative tasks (tool-loop execution, judge verdicts on fixed cases, structured-output conformance, latency/cost probes); re-run it whenever the resolved model version changes (and on schedule as a canary against unannounced changes); diff the results against the pinned baseline; and produce the changelog the supplier didn't write. Material drift gates routing — the router holds or falls back until a human reviews the drift report. Distinct from `bandit-allocation-with-sequential-stopping` (allocation among models) and `judge-calibration-against-realized-outcomes` (judge quality): this is upstream change detection. Every firing is a trust event: the harness noticed the model changed before the team did.
+- **Blockers:** —
+- **Plan:** —
+- **Assignee:** —
+- **Priority:** P1
+- **External-ID:** github:Intense-Visions/harness-engineering#1617
+
+### Adoption-funnel telemetry — instrument the on-ramp itself
+
+- **Status:** planned
+- **Spec:** —
+- **Summary:** The minimal init tier built a fast on-ramp; nothing measures it. Adopter ramp is a funnel like any product funnel — install → first init → first gate run → first verified PR → steady state — and today every stall is invisible: which gate, which config step, which permission prompt loses people is unknown, so onboarding improves by anecdote. Instrument the funnel: local-first telemetry (opt-in, anonymized, aggregate) records per-stage timestamps and stall points; time-to-first-verified-PR becomes the on-ramp's north-star metric; and per-gate/per-config stall distributions feed directly back into init-tier design the way the rest of the system already improves from its own evidence. The self-referential payoff: the harness applies its own telemetry discipline to its own adoption, which is also a credibility statement to adopters — measured, denominated, stability-checked funnel metrics in the project's own dashboard.
+- **Blockers:** —
+- **Plan:** —
+- **Assignee:** —
+- **Priority:** P3
+- **External-ID:** github:Intense-Visions/harness-engineering#1604
+
+### A Reynolds number for development flow — predicting the laminar–turbulent transition
+
+- **Status:** planned
+- **Spec:** —
+- **Summary:** Fluid flow transitions from laminar to turbulent when one dimensionless ratio — inertia over viscosity — crosses a critical value; the transition is sharp, and operating near it is the danger zone. Development flow has the same phenomenology: below some load, merges flow orderly; above it, conflict cascades, rework eddies, and revert chains appear abruptly. Define the analog: Re = (change velocity × coupling density) / verification viscosity, where all three inputs are already measurable — merge rate, import-graph density over the touched surface, and gate latency/depth. Turbulence has observable proxies too: conflict rate, rework rate, revert chains, re-review loops. The deliverable is not the metaphor but the fitted threshold: compute Re continuously per repo/surface, fit the critical value empirically from observed turbulence onsets across telemetry history, and expose distance-to-transition as a first-class signal the concurrency governors consume — raise viscosity (batching, gating) or reduce coupling before the transition, not after. Guard against the known failure mode of composite indices: Re is only kept if it predicts turbulence onset out-of-sample better than its strongest single component.
+- **Blockers:** —
+- **Plan:** —
+- **Assignee:** —
+- **Priority:** P3
+- **External-ID:** github:Intense-Visions/harness-engineering#1610
+
+### Cavitation detection — load-conditioned gate-quality collapse warnings
+
+- **Status:** planned
+- **Spec:** —
+- **Summary:** A pump pushed past capacity cavitates: local pressure drops below vapor pressure, voids form, and the damage appears later and elsewhere. A review pipeline pushed past attention capacity does the same — quality voids form while every gate still 'runs' and still reports green: approval latency collapses toward zero, pass rates spike, comment depth and finding density drop, overrides rise. The voids collapse later as incidents, far from where they formed. The detector is cheap and specific: condition gate-quality metrics on throughput, and alarm on the cavitation signature — quality metrics degrading as a function of load, per gate, per reviewer-class, per window. This differs from unconditioned control charts: a gate can look stable on average while cavitating at every load peak, and the load-conditioned view exposes exactly the failure mode that unattended scale produces. The output is an early-warning signal wired to admission control: when a gate cavitates, the correct response is to shed or defer load at admission, not to add more verification downstream of a gate that has stopped resisting.
+- **Blockers:** —
+- **Plan:** —
+- **Assignee:** —
+- **Priority:** P2
+- **External-ID:** github:Intense-Visions/harness-engineering#1611
+
 ## v5.0 — Trust & Security Model
 
 ### Move sentinel-pre/post to standard hook profile
@@ -1513,6 +1656,17 @@ last_manual_edit: 2026-06-27T12:51:51.967Z
 - **Assignee:** —
 - **Priority:** P1
 - **External-ID:** github:Intense-Visions/harness-engineering#1559
+
+### Verification passports — portable, replayable attestation across boundaries
+
+- **Status:** planned
+- **Spec:** —
+- **Summary:** Verification evidence today dies at the repository boundary: when a change crosses repos or organisations, the receiver re-verifies from zero because nothing trustworthy travels with it. Build the passport: a signed, content-addressed bundle that accompanies a change — tests executed and their results, coverage and mutation scores, gate verdicts with versions of the gates that produced them, provenance chain from intent to diff — structured so a receiver can (a) verify the signature chain cheaply, (b) spot-check by replaying a random subset rather than re-running everything, and (c) price the residual risk of not re-running the rest. This extends `transparency-log-for-attestation` (local, append-only) into portability, and composes with knowledge federation into machine-to-machine intake lanes between installations. It is the one feature class with true network effects: each new adopter makes every existing adopter's inbound cheaper. Zero-knowledge-style claims (prove 'coverage ≥ X' without revealing sources) are a follow-on, not v1.
+- **Blockers:** —
+- **Plan:** —
+- **Assignee:** —
+- **Priority:** P1
+- **External-ID:** github:Intense-Visions/harness-engineering#1624
 
 ## v5.0 — Article-Framing Docs & Personas
 
@@ -1984,6 +2138,50 @@ last_manual_edit: 2026-06-27T12:51:51.967Z
 - **Priority:** P2
 - **External-ID:** github:Intense-Visions/harness-engineering#1562
 
+### Interface futures — forward contracts on shared interfaces
+
+- **Status:** planned
+- **Spec:** —
+- **Summary:** Concurrent-change machinery on the roadmap detects collisions after they form; nothing prevents the most expensive class — many in-flight changes building against an interface one of them is about to change. Borrow the forward contract: an agent (or human) intending to change a shared interface declares the future shape first — a signed, versioned declaration of the post-change contract with an intended landing window. Other agents building in the overlap window resolve the interface through the declaration and build against the announced future shape; the coordination layer sequences landings so the interface change lands first and dependents land behind it, already conformant. Declarations are binding-by-default with an explicit abort path (an aborted future notifies every dependent build). This is the constructive complement to collision detection: coordination by declared intent instead of by crash. Scope guard: v1 covers typed, statically-resolvable interfaces (exported signatures, schemas, API contracts), not behavioral semantics.
+- **Blockers:** —
+- **Plan:** —
+- **Assignee:** —
+- **Priority:** P3
+- **External-ID:** github:Intense-Visions/harness-engineering#1615
+
+### Stigmergic coordination — environment-mediated fleet coordination with evaporating markers
+
+- **Status:** planned
+- **Spec:** —
+- **Summary:** Every fleet today coordinates through a central orchestrator, which is precisely the serial fraction the scalability-law work will measure and indict. Colonies solved coordination without a coordinator: individuals modify the environment (pheromone deposits) and read it back, evaporation provides automatic staleness, and thresholds turn local concentrations into collective behavior (quorum sensing). Build the analog: agents deposit typed, TTL-decaying markers on the code graph — 'verified 2h ago', 'under construction', 'failing here', 'convention drift observed', 'hot' — and other agents route by reading local marker gradients instead of asking the orchestrator. Quorum rules turn concentrations into collective transitions with no global census: N distinct failure markers in one region within a window triggers swarm-to-investigate; construction-marker density above threshold triggers avoidance or queueing; verification markers suppress redundant re-checking. The orchestrator remains for admission, budget, and human gates — stigmergy replaces the coordination chatter, not the governance. This is the only architectural path on the table where coordination capacity scales with the environment rather than with a coordinator, and evaporation gives it the property central state never has: stale information deletes itself.
+- **Blockers:** —
+- **Plan:** —
+- **Assignee:** —
+- **Priority:** P2
+- **External-ID:** github:Intense-Visions/harness-engineering#1623
+
+### Agent apoptosis and lineage hygiene — programmed death and the germline barrier
+
+- **Status:** planned
+- **Spec:** —
+- **Summary:** Biology maintains multicellular integrity with two mechanisms this field lacks. First, apoptosis: a cell detecting internal damage self-destructs cleanly rather than persisting as a mutation risk — whereas every agent framework tries to *recover* a degraded agent, which is how plausible-but-wrong output ships. Give agents a self-termination contract: continuously self-check context-integrity signatures (contradiction density, instruction drift from the pinned intent, tool-result/claim divergence, poisoned-input markers), and on breach, die cleanly — checkpoint provenance, discard working state, respawn from the last verified checkpoint. Death is cheap; corrupted continuation is not. Second, the germline/soma barrier (Weismann): somatic mutations never reach offspring. Episodic working state — session context, scratch conclusions, unverified beliefs — must never inherit across agent generations; only compiled, verified knowledge crosses into a spawned agent's inheritance. Add a Hayflick limit: a hard replication-depth cap on agent-spawns-agent chains, after which lineage state must pass through a germline reset (re-derivation from verified knowledge only). Together these bound error accumulation in exactly the two channels it compounds through: within a long-lived agent, and across a lineage of them.
+- **Blockers:** —
+- **Plan:** —
+- **Assignee:** —
+- **Priority:** P3
+- **External-ID:** github:Intense-Visions/harness-engineering#1605
+
+### Outcrossing against Muller's ratchet — periodic independent re-derivation in long chains
+
+- **Status:** planned
+- **Spec:** —
+- **Summary:** Population genetics: an asexual lineage accumulates deleterious mutations irreversibly (Muller's ratchet) because without recombination there is no mechanism to reassemble a less-loaded genome; sex persists largely because outcrossing purges load. An agent iterating on its own output for forty turns is an asexual lineage — every misconception it forms is inherited by every subsequent turn, and self-review cannot purge what the self believes. The n-version work already on the roadmap votes between independent versions at the end; this is different machinery for a different moment: purge error *during* the run. At fixed intervals in any long self-iterating chain, inject an outcross — an independent re-derivation of the current subproblem from the spec, in a fresh context that has never seen the working copy — and reconcile by recombination at module boundaries (take the outcross's version of components where it diverges and its version passes stricter checks), not winner-take-all. The interval is tunable by measured drift: chains whose self-consistency metrics degrade faster outcross more often. The cost is one extra derivation per interval; the benefit, if the biology transfers, is that error load stops being monotonic in chain length — which is currently the binding constraint on how long a chain can safely run unattended.
+- **Blockers:** —
+- **Plan:** —
+- **Assignee:** —
+- **Priority:** P3
+- **External-ID:** github:Intense-Visions/harness-engineering#1619
+
 ## Planning & Process
 
 ### Init design + roadmap polish follow-ups
@@ -2139,6 +2337,17 @@ last_manual_edit: 2026-06-27T12:51:51.967Z
 - **Assignee:** —
 - **Priority:** P3
 - **External-ID:** github:Intense-Visions/harness-engineering#1568
+
+### Coding theory for delegated intent — sized redundancy in specs
+
+- **Status:** planned
+- **Spec:** —
+- **Summary:** Human → spec → agent is a noisy channel, and Shannon's result is that reliable transmission below capacity is achievable with coding — structured redundancy sized to the channel's measured noise. Spec redundancy today (acceptance criteria, examples, counter-examples) is folklore-sized: house style decides how many examples a spec gets, not measurement. Instead: use rework attribution (misread-intent rework, already instrumented by the rework-rate work) to measure the delegation channel's error rate per ambiguity class, then size the error-correcting content like parity bits — this class of spec needs three counter-examples and a worked example to hit the target delegation error rate; that class needs none and the extra prose is pure cost. Two testable claims fall out: (1) there is a computable minimum spec redundancy for a target error rate per ambiguity class, and (2) most specs are simultaneously too long in prose (which carries little error-correction) and too short in counter-examples (which carry most of it). The deliverable is a spec-authoring advisor that prescribes redundancy by measured class, plus the measurement loop that keeps the prescription calibrated as models and domains shift.
+- **Blockers:** —
+- **Plan:** —
+- **Assignee:** —
+- **Priority:** P3
+- **External-ID:** github:Intense-Visions/harness-engineering#1614
 
 ## Dashboard & Visualization
 
@@ -2322,6 +2531,17 @@ last_manual_edit: 2026-06-27T12:51:51.967Z
 - **Priority:** —
 - **External-ID:** github:Intense-Visions/harness-engineering#88
 
+### Federated gate-calibration baselines across installations
+
+- **Status:** planned
+- **Spec:** —
+- **Summary:** A gate audited only against itself cannot detect its own decay: `audit-strength` scores a project's setup, but the verdict is self-referential — nothing tells an adopter that their review gate approving 99.2% of changes is two sigma looser than the fleet-wide distribution. Build privacy-preserving federation of gate-outcome statistics: each installation contributes anonymized distributions (pass rates, override rates, latency, finding density per gate type), and every installation can compare its own gates against the fleet baseline. "Your review gate approves 99.2%; the fleet median for this gate class is 91% — likely theatre" is a norm-referenced diagnosis no amount of local telemetry can produce. Aggregation must be privacy-preserving (no code, no identities, coarse buckets, minimum-cohort suppression). This is the calibration counterpart of `cross-project-knowledge-federation`, which federates knowledge; nothing today federates instrument calibration.
+- **Blockers:** —
+- **Plan:** —
+- **Assignee:** —
+- **Priority:** P3
+- **External-ID:** github:Intense-Visions/harness-engineering#1609
+
 ## v1.0 Foundation
 
 ## v1.0 Distribution
@@ -2390,6 +2610,17 @@ last_manual_edit: 2026-06-27T12:51:51.967Z
 - **Assignee:** —
 - **Priority:** —
 - **External-ID:** github:Intense-Visions/harness-engineering#1515
+
+### Percolation margin — the global structural safety threshold of the dependency graph
+
+- **Status:** planned
+- **Spec:** —
+- **Summary:** Percolation theory has a sharp result: on a graph, below a critical connectivity a failure stays in a small component; above it, a giant connected component exists and one failure can reach most of the system — and the transition is abrupt, not gradual. Blast-radius analysis (existing) is per-change; percolation is the *global* complement: how close is the dependency graph, as a whole, to the threshold where any single defect percolates? Compute bond percolation on the import/dependency graph (edges weighted by coupling strength and failure-transmission likelihood), report the distance-to-threshold as a standing safety margin, and — the actionable half — rank the specific edges whose removal most increases the margin (high-betweenness bridges between clusters). Refactoring stops being taste: 'these three edges keep us subcritical' is a targeting statement with a number attached, and the margin trend over time is an early-warning indicator that coupling growth is approaching the cliff — which matters at generation scale because agents add edges faster than humans ever did, and a sharp-threshold property is exactly the kind of thing that goes unnoticed until it is crossed.
+- **Blockers:** —
+- **Plan:** —
+- **Assignee:** —
+- **Priority:** P3
+- **External-ID:** github:Intense-Visions/harness-engineering#1608
 
 ## v3.0 Viral Flywheel
 
