@@ -216,3 +216,85 @@ describe('runComprehend — changed/all compile + write', () => {
     expect(store.writes).toHaveLength(1);
   });
 });
+
+// --- Task 7: --check (token-free freshness) + --stats (savings) -------------
+
+import { computeSourceHash } from '@harness-engineering/core';
+import type { ComprehensionListing } from '@harness-engineering/core';
+import { runComprehendCheck, runComprehendStats } from '../../src/comprehension/compile-run';
+
+function unitFor(module: string, source: ComprehensionSourceFile[]): ComprehensionUnit {
+  return {
+    provenance: {
+      schemaVersion: 1,
+      module,
+      sourceHash: computeSourceHash(source),
+      compiledAt: '2026-08-27T00:00:00.000Z',
+      compiler: { static: '1.0.0', semantic: '1.0.0' },
+      model: null,
+      semantic: 'absent',
+      members: source.map((f) => f.path).sort(),
+    },
+    summary: '',
+    invariants: [],
+    interfaceContract: 'export foo\nexport bar',
+    dependencySlice: "import { x } from 'y'",
+  };
+}
+
+function fakeListStore(listing: ComprehensionListing) {
+  return { list: async () => Ok(listing) };
+}
+
+describe('runComprehendCheck — token-free freshness', () => {
+  it('reports no stale units when every committed unit hash-matches the reader', async () => {
+    const unit = unitFor('pkg/a', SRC);
+    const store = fakeListStore({ units: [unit], skipped: [] });
+    const reader = fakeReader({ 'pkg/a': SRC });
+    const result = await runComprehendCheck({ store, reader });
+    expect(result.stale).toEqual([]);
+    expect(result.skipped).toEqual([]);
+    expect(result.ok).toBe(true);
+  });
+
+  it('flags a source-changed unit and a deleted-directory unit as stale (ok:false)', async () => {
+    const changed = unitFor('pkg/a', SRC);
+    const gone = unitFor('pkg/gone', SRC);
+    const store = fakeListStore({ units: [changed, gone], skipped: [] });
+    const reader = fakeReader({
+      'pkg/a': [{ path: 'a.ts', content: 'export const a = 999;\n' }], // content differs
+      'pkg/gone': null, // deleted dir
+    });
+    const result = await runComprehendCheck({ store, reader });
+    expect(result.stale).toContain('pkg/a');
+    expect(result.stale).toContain('pkg/gone');
+    expect(result.ok).toBe(false);
+  });
+
+  it('surfaces store.list() skipped units in the result', async () => {
+    const store = fakeListStore({
+      units: [],
+      skipped: [{ path: '.harness/comprehension/pkg/x/_module.md', reason: 'parse failed' }],
+    });
+    const reader = fakeReader({});
+    const result = await runComprehendCheck({ store, reader });
+    expect(result.skipped).toHaveLength(1);
+    expect(result.skipped[0].reason).toContain('parse failed');
+  });
+});
+
+describe('runComprehendStats — savings metric (SC6)', () => {
+  it('reports raw vs served token estimates with a positive saved delta', async () => {
+    const bigSource: ComprehensionSourceFile[] = [
+      { path: 'a.ts', content: 'export const a = 1;\n'.repeat(200) },
+    ];
+    const unit = unitFor('pkg/a', bigSource);
+    const store = fakeListStore({ units: [unit], skipped: [] });
+    const reader = fakeReader({ 'pkg/a': bigSource });
+    const result = await runComprehendStats({ store, reader });
+    expect(result.rawTokens).toBeGreaterThan(result.servedTokens);
+    expect(result.savedTokens).toBe(result.rawTokens - result.servedTokens);
+    expect(result.savedPct).toBeGreaterThan(0);
+    expect(result.units).toBe(1);
+  });
+});

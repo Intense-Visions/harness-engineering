@@ -9,13 +9,15 @@
  * credential, no LLM).
  */
 
-import { compileModule } from '@harness-engineering/core';
+import { compileModule, serveGate, renderServedUnit } from '@harness-engineering/core';
 import type {
   ComprehensionSourceFile,
+  ComprehensionListing,
   ComprehensionUnit,
   ExtractStatic,
   GenerateSemantic,
   Result,
+  SkippedUnit,
 } from '@harness-engineering/core';
 import { withComprehensionActive, isComprehensionReentrant } from './generate-semantic';
 
@@ -140,4 +142,93 @@ export async function runComprehend(opts: ComprehendRunOptions): Promise<Compreh
     else base.semanticAbsent++;
   }
   return base;
+}
+
+// --- --check (token-free freshness) + --stats (savings, SC6) ---------------
+
+export interface ComprehendListStore {
+  list(): Promise<Result<ComprehensionListing>>;
+}
+
+export interface ComprehendCheckResult {
+  /** Modules whose committed unit is source-stale (recompile needed). */
+  stale: string[];
+  /** Units store.list() could not read/parse (surfaced, not silently dropped). */
+  skipped: SkippedUnit[];
+  /** True iff no unit is source-stale. */
+  ok: boolean;
+}
+
+/**
+ * `--check`: the token-free CI backstop. Recomputes each committed unit's
+ * `sourceHash` via the canonical reader (reusing core `serveGate`), reports every
+ * source-stale unit plus any unreadable/unparseable `skipped` unit, NEVER calls
+ * an LLM and NEVER writes. `ok` is false when any unit is source-stale — the
+ * caller exits non-zero. When `store.list()` itself fails, the run is reported
+ * `ok:false` with the enumeration error surfaced as a skipped entry.
+ */
+export async function runComprehendCheck(opts: {
+  store: ComprehendListStore;
+  reader: ComprehendModuleReader;
+}): Promise<ComprehendCheckResult> {
+  const listing = await opts.store.list();
+  if (!listing.ok) {
+    return {
+      stale: [],
+      skipped: [{ path: '<listing>', reason: listing.error.message }],
+      ok: false,
+    };
+  }
+  const stale: string[] = [];
+  for (const unit of listing.value.units) {
+    const verdict = await serveGate(unit, opts.reader);
+    if (!verdict.serve) stale.push(verdict.module);
+  }
+  return { stale, skipped: listing.value.skipped, ok: stale.length === 0 };
+}
+
+export interface ComprehendStatsResult {
+  rawTokens: number;
+  servedTokens: number;
+  savedTokens: number;
+  /** Percentage saved vs raw (0 when raw is 0). */
+  savedPct: number;
+  /** Number of fresh (serveable) units counted. */
+  units: number;
+}
+
+/** Self-contained, approximate token estimate (~4 chars/token). No telemetry. */
+function estimateTokens(text: string): number {
+  return Math.ceil(text.length / 4);
+}
+
+/**
+ * `--stats`: report the served-unit token estimate vs the raw-source token
+ * estimate and the saved delta/percent across fresh units. Token-free: it reads
+ * only committed units and current source via the canonical reader, and renders
+ * the served form with `renderServedUnit`. Only fresh (serveable) units count —
+ * a stale unit's served form would not be what a consumer receives.
+ */
+export async function runComprehendStats(opts: {
+  store: ComprehendListStore;
+  reader: ComprehendModuleReader;
+}): Promise<ComprehendStatsResult> {
+  const listing = await opts.store.list();
+  let rawTokens = 0;
+  let servedTokens = 0;
+  let units = 0;
+  if (listing.ok) {
+    for (const unit of listing.value.units) {
+      const verdict = await serveGate(unit, opts.reader);
+      if (!verdict.serve) continue;
+      const source = await opts.reader.readModuleSource(unit.provenance.module);
+      if (!source) continue;
+      rawTokens += estimateTokens(source.map((f) => f.content).join('\n'));
+      servedTokens += estimateTokens(renderServedUnit(unit));
+      units++;
+    }
+  }
+  const savedTokens = rawTokens - servedTokens;
+  const savedPct = rawTokens > 0 ? (savedTokens / rawTokens) * 100 : 0;
+  return { rawTokens, servedTokens, savedTokens, savedPct, units };
 }
