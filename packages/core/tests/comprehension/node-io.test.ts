@@ -7,7 +7,11 @@ import { createNodeModuleSourceReader } from '../../src/comprehension/node-io';
 import { computeSourceHash } from '../../src/comprehension/source-hash';
 import { ComprehensionStore } from '../../src/comprehension/store';
 import type { ComprehensionUnit } from '../../src/comprehension/types';
-import { SCHEMA_VERSION, COMPILER_VERSION } from '../../src/comprehension/types';
+import {
+  SCHEMA_VERSION,
+  COMPILER_VERSION,
+  DEFAULT_SOURCE_EXTENSIONS,
+} from '../../src/comprehension/types';
 
 let root = '';
 afterEach(async () => {
@@ -75,6 +79,24 @@ describe('createNodeModuleSourceReader (canonical enumeration)', () => {
   it('returns null for an absent module directory', async () => {
     root = await fsp.mkdtemp(path.join(os.tmpdir(), 'comprehension-src-'));
     expect(await createNodeModuleSourceReader(root).readModuleSource('nope/gone')).toBeNull();
+  });
+
+  // FIX 3 — the shared DEFAULT_SOURCE_EXTENSIONS constant IS the membership
+  // boundary; the reader enumerates exactly the extensions it declares.
+  it('membership boundary = DEFAULT_SOURCE_EXTENSIONS (in ⇒ enumerated, out ⇒ skipped)', async () => {
+    root = await fsp.mkdtemp(path.join(os.tmpdir(), 'comprehension-src-'));
+    const mod = path.join(root, 'mod');
+    await fsp.mkdir(mod, { recursive: true });
+    // one file per shared extension + a non-source file that must be skipped.
+    for (const ext of DEFAULT_SOURCE_EXTENSIONS) {
+      await fsp.writeFile(path.join(mod, `f${ext}`), `// ${ext}`);
+    }
+    await fsp.writeFile(path.join(mod, 'notes.md'), 'ignored');
+    await fsp.writeFile(path.join(mod, 'data.json'), '{}');
+    const files = await createNodeModuleSourceReader(root).readModuleSource('mod');
+    expect(files?.map((f) => f.path).sort()).toEqual(
+      [...DEFAULT_SOURCE_EXTENSIONS].map((e) => `f${e}`).sort()
+    );
   });
 
   it('does not recurse into nested sub-directories (module = directory, D3)', async () => {

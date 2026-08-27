@@ -13,6 +13,29 @@ export const SCHEMA_VERSION = 1 as const;
 /** Compiler component versions, stamped into provenance. */
 export const COMPILER_VERSION = { static: '1.0.0', semantic: '1.0.0' } as const;
 
+/**
+ * THE module-membership boundary (D3/D7). A directory's DIRECT files with one of
+ * these extensions ARE the module's source — the set the reader enumerates and
+ * the compiler compiles must be IDENTICAL, or the recomputed serve-time hash can
+ * never match the compile-time one (every unit would read source-stale forever).
+ * This single constant is that shared boundary: `createNodeModuleSourceReader`
+ * (the canonical enumeration) and the compiler both key off it. Change it in one
+ * place only.
+ */
+export const DEFAULT_SOURCE_EXTENSIONS: readonly string[] = [
+  '.ts',
+  '.tsx',
+  '.js',
+  '.jsx',
+  '.mjs',
+  '.cjs',
+  '.py',
+  '.rs',
+  '.go',
+  '.java',
+  '.rb',
+];
+
 /** On-disk provenance frontmatter for a comprehension unit. */
 export interface ComprehensionProvenance {
   /** Schema version of the unit format. */

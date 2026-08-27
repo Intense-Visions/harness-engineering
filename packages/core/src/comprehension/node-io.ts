@@ -4,21 +4,7 @@ import type { ComprehensionIO } from './store';
 import { UNIT_FILE } from './store';
 import type { ModuleSourceReader } from './serve-gate';
 import type { SourceFile } from './types';
-
-/** Default source-file extensions the module-source reader enumerates. */
-const DEFAULT_SOURCE_EXTENSIONS = [
-  '.ts',
-  '.tsx',
-  '.js',
-  '.jsx',
-  '.mjs',
-  '.cjs',
-  '.py',
-  '.rs',
-  '.go',
-  '.java',
-  '.rb',
-];
+import { DEFAULT_SOURCE_EXTENSIONS } from './types';
 
 /**
  * Node-fs `ComprehensionIO` — the only node:fs binding for the comprehension

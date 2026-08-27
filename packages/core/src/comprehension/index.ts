@@ -17,7 +17,7 @@ export type {
   ExtractStatic,
   GenerateSemantic,
 } from './types';
-export { COMPILER_VERSION, SCHEMA_VERSION } from './types';
+export { COMPILER_VERSION, SCHEMA_VERSION, DEFAULT_SOURCE_EXTENSIONS } from './types';
 export { computeSourceHash } from './source-hash';
 export { parseUnit, serializeUnit } from './serialize';
 export { ComprehensionStore, UNIT_FILE, COMPREHENSION_ROOT } from './store';
