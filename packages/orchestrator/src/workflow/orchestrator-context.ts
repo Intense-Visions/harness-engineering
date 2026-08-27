@@ -21,6 +21,7 @@ import { selectStagePromptTemplate } from './local-stage-prompt.js';
 import { resolveLeafPrewarm, type LeafPrewarmResult } from './comprehension-prewarm.js';
 import {
   ComprehensionStore,
+  COMPREHENSION_ROOT,
   createNodeComprehensionIO,
   createNodeModuleSourceReader,
 } from '@harness-engineering/core';
@@ -349,7 +350,14 @@ async function resolveLeafPrewarmBestEffort(
 ): Promise<LeafPrewarmResult> {
   try {
     if (!existsSync(join(root, '.harness', 'comprehension'))) return { block: '', sources: [] };
-    const store = new ComprehensionStore({ io: createNodeComprehensionIO() });
+    // FIX 1 — root the store ABSOLUTELY at the SAME `root` the reader + existsSync
+    // guard use. The relative default resolves against process.cwd(), so store +
+    // reader would diverge whenever cwd != root, silently degrading the pre-warm to
+    // an empty block. Canonical pattern: gather-context.ts.
+    const store = new ComprehensionStore({
+      root: `${root.replaceAll('\\', '/')}/${COMPREHENSION_ROOT}`,
+      io: createNodeComprehensionIO(),
+    });
     const reader = createNodeModuleSourceReader(root);
     return await resolveLeafPrewarm(issue, { projectRoot: root, store, reader });
   } catch {

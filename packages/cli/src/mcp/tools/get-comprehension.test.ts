@@ -1,7 +1,13 @@
-import { describe, it, expect, vi } from 'vitest';
+import { describe, it, expect, vi, afterEach } from 'vitest';
+import * as fs from 'node:fs';
+import * as os from 'node:os';
+import * as nodePath from 'node:path';
 import {
   computeSourceHash,
   renderServedUnit,
+  ComprehensionStore,
+  createNodeComprehensionIO,
+  createNodeModuleSourceReader,
   Ok,
   Err,
   type ComprehensionUnit,
@@ -241,5 +247,78 @@ describe('get_comprehension MCP envelope', () => {
     expect(payload.served).toBe(true);
     expect(payload.recompiled).toBe(false);
     expect(payload.unit).toBe(renderServedUnit(store.map.get(module)!));
+  });
+});
+
+/**
+ * FIX 1 seam — store-root vs reader-root divergence under cwd != project root.
+ *
+ * Exercises the REAL disk-backed deps (no injected mocks) via the default deps
+ * path, with `process.cwd()` deliberately DIFFERENT from the project root. Before
+ * the fix the store defaulted to `COMPREHENSION_ROOT` resolved against cwd while
+ * the reader was rooted at the project root, so a committed fresh unit was NOT
+ * found — the serve silently fell through to a recompile (or blanked). After the
+ * fix the store is rooted absolutely at the project root, so the committed unit is
+ * found and served directly (`recompiled: false`).
+ */
+describe('handleGetComprehension — cwd != project root seam (FIX 1)', () => {
+  const originalCwd = process.cwd();
+  afterEach(() => process.chdir(originalCwd));
+
+  it('serves the committed unit from an ABSOLUTE project root even when cwd differs', async () => {
+    // A real project tree with a real source file + a real committed unit.
+    const projectRoot = fs.mkdtempSync(nodePath.join(os.tmpdir(), 'comp-seam-cli-'));
+    const cwdElsewhere = fs.mkdtempSync(nodePath.join(os.tmpdir(), 'comp-seam-cwd-'));
+    const module = 'src/widget';
+    fs.mkdirSync(nodePath.join(projectRoot, module), { recursive: true });
+    fs.writeFileSync(
+      nodePath.join(projectRoot, module, 'widget.ts'),
+      'export const widget = () => 42;\n',
+      'utf-8'
+    );
+
+    // Compile a fresh unit through the SAME canonical reader the serve gate uses,
+    // then commit it via the REAL node store rooted ABSOLUTELY at the project root.
+    const reader = createNodeModuleSourceReader(projectRoot);
+    const source = (await reader.readModuleSource(module))!;
+    const store = new ComprehensionStore({
+      root: `${projectRoot.replaceAll('\\', '/')}/.harness/comprehension`,
+      io: createNodeComprehensionIO(),
+    });
+    const unit: ComprehensionUnit = {
+      provenance: {
+        schemaVersion: 1,
+        module,
+        sourceHash: computeSourceHash(source),
+        compiledAt: '2026-08-27T00:00:00.000Z',
+        compiler: { static: '1.0.0', semantic: '1.0.0' },
+        model: null,
+        semantic: 'absent',
+        members: source.map((f) => f.path),
+      },
+      summary: 'the committed widget summary',
+      invariants: [],
+      interfaceContract: 'export const widget: () => number',
+      dependencySlice: 'imports: none',
+    };
+    expect((await store.write(unit)).ok).toBe(true);
+
+    // The bug's trigger: run with cwd pointed AWAY from the project root.
+    process.chdir(cwdElsewhere);
+    expect(process.cwd()).not.toBe(projectRoot);
+
+    // No injected deps → the handler resolves the REAL disk-backed default deps.
+    const res = await handleGetComprehension({ path: projectRoot, module });
+    expect(res.isError).toBeFalsy();
+    const payload = JSON.parse(res.content[0]!.text) as {
+      served: boolean;
+      recompiled: boolean;
+      unit: string;
+    };
+    // Served directly from the committed unit — NOT recompiled (which is what the
+    // divergent store root would have forced by never finding the committed unit).
+    expect(payload.served).toBe(true);
+    expect(payload.recompiled).toBe(false);
+    expect(payload.unit).toContain('export const widget: () => number');
   });
 });

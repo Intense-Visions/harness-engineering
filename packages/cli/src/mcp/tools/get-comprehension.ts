@@ -13,6 +13,7 @@
 
 import {
   ComprehensionStore,
+  COMPREHENSION_ROOT,
   createNodeComprehensionIO,
   createNodeModuleSourceReader,
   serveGate,
@@ -189,7 +190,14 @@ function resolveDefaultDeps(projectRoot: string): ServeOrRecompileDeps {
     });
   };
   return {
-    store: new ComprehensionStore({ io: createNodeComprehensionIO() }),
+    // FIX 1 — root the store ABSOLUTELY at the project root (matching the reader
+    // rooted at `projectRoot`). The relative default resolves against process.cwd(),
+    // so store + reader would diverge whenever cwd != projectRoot, silently blanking
+    // committed units. Canonical pattern: gather-context.ts.
+    store: new ComprehensionStore({
+      root: `${projectRoot.replaceAll('\\', '/')}/${COMPREHENSION_ROOT}`,
+      io: createNodeComprehensionIO(),
+    }),
     reader: createNodeModuleSourceReader(projectRoot),
     makeExtractStatic: (module: string) => createStaticExtractor({ projectRoot, module }),
     resolveGenerateSemantic,

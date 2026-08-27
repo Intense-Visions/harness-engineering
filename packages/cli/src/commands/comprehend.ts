@@ -2,6 +2,7 @@ import { spawnSync } from 'node:child_process';
 import { Command } from 'commander';
 import {
   ComprehensionStore,
+  COMPREHENSION_ROOT,
   createNodeComprehensionIO,
   createNodeModuleSourceReader,
 } from '@harness-engineering/core';
@@ -286,7 +287,13 @@ async function runComprehendAction(
     process.exit(ExitCode.SUCCESS);
   }
 
-  const store = new ComprehensionStore({ io: createNodeComprehensionIO() });
+  // FIX 1 — root the store ABSOLUTELY at the project root (matching the reader).
+  // Here projectRoot === process.cwd() so the relative default is coincidentally
+  // safe, but make store + reader agreement explicit (canonical: gather-context.ts).
+  const store = new ComprehensionStore({
+    root: `${projectRoot.replaceAll('\\', '/')}/${COMPREHENSION_ROOT}`,
+    io: createNodeComprehensionIO(),
+  });
   const reader = createNodeModuleSourceReader(projectRoot);
 
   if (mode === 'check') return runCheckMode(store, reader);
