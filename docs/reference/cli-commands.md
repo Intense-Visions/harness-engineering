@@ -224,6 +224,9 @@ Compile and maintain the per-module comprehension substrate
 - `--all` — Recompile every module (backfill)
 - `--check` — Token-free: report source-stale units, exit non-zero if any
 - `--stats` — Report served-vs-raw token savings (token-free)
+- `--static` — Static-only: never resolve a provider or call an LLM (pre-commit/CI posture)
+- `--stage` — git-add the compiled unit shards after a run (pre-commit posture)
+- `--hook` — Pre-commit-hook posture: no-op unless comprehension.hook is enabled
 
 ### `harness context-report`
 

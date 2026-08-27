@@ -1005,6 +1005,16 @@ Find relevant context for a given intent by searching the graph and expanding ar
 - `intent` (string, required) — Description of what context is needed for
 - `tokenBudget` (number, optional) — Approximate token budget for results (default 4000)
 
+### `get_comprehension`
+
+Serve a module's compiled comprehension unit (compact, primary understanding). Returns the served unit via the LLM-free serve gate; on a source-stale unit or with forceRecompile it recompiles ONLY that module and returns the fresh unit. Prefer this over reading raw source for a module you did not edit.
+
+**Parameters:**
+
+- `path` (string, required) — Path to project root
+- `module` (string, required) — Module directory (repo-relative, e.g. "packages/core/src") to serve
+- `forceRecompile` (boolean, optional) — Recompile the module even when its committed unit is already source-fresh
+
 ### `get_critical_paths`
 
 List performance-critical functions from @perf-critical annotations and graph inference
