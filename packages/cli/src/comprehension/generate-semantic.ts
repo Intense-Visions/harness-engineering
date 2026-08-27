@@ -44,10 +44,17 @@ import type {
 } from '@harness-engineering/core';
 import type { AnalysisProvider } from '@harness-engineering/intelligence';
 
-/** Authority-in-TS: the unit shape is validated here, never trusted raw. */
+/**
+ * Authority-in-TS: the unit shape is validated here, never trusted raw. Tolerant
+ * of extra keys — real LLMs sprinkle stray fields, and a `.strict()` schema would
+ * reject an otherwise-valid `{ summary, invariants }` and degrade the module to
+ * `semantic: absent`. `.strip()` (Zod's default object behavior, made explicit)
+ * ignores unknown keys while still enforcing `summary: string` +
+ * `invariants: string[]`, keeping authority in TS.
+ */
 export const semanticResponseSchema = z
   .object({ summary: z.string(), invariants: z.array(z.string()) })
-  .strict();
+  .strip();
 export type SemanticResult = z.infer<typeof semanticResponseSchema>;
 
 /** Default character budget for the bounded source digest (input-bounding lever). */

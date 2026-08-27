@@ -92,10 +92,10 @@ describe('semanticResponseSchema — authority-in-TS at the seam', () => {
     expect(() => semanticResponseSchema.parse({ summary: 's', invariants: [1, 2] })).toThrow();
   });
 
-  it('rejects extra keys (strict)', () => {
-    expect(() =>
-      semanticResponseSchema.parse({ summary: 's', invariants: [], extra: true })
-    ).toThrow();
+  it('tolerant of extra keys: strips unknown fields but still validates the two required ones', () => {
+    expect(
+      semanticResponseSchema.parse({ summary: 's', invariants: ['a'], extra: true, junk: 42 })
+    ).toEqual({ summary: 's', invariants: ['a'] });
   });
 });
 
@@ -204,6 +204,18 @@ describe('createGenerateSemantic — provider call, cost levers, validation', ()
     const out = await gen(INPUT);
     expect(out).toBeNull();
     expect(warn.n).toBe(1);
+  });
+
+  it('tolerant of LLM extra keys: a response with stray keys still yields a valid unit', async () => {
+    const provider = new StubProvider([
+      ok({ summary: 'does X', invariants: ['keeps Y'], confidence: 0.9, notes: 'stray' }),
+    ]);
+    const warn = { n: 0 };
+    const gen = createGenerateSemantic(provider, { logger: { warn: () => warn.n++ } });
+    const out = await gen(INPUT);
+    expect(out).toEqual({ summary: 'does X', invariants: ['keeps Y'], model: 'x' });
+    // No degradation warning — the extra keys were stripped, not rejected.
+    expect(warn.n).toBe(0);
   });
 
   it('provider throw → null (never aborts the run), logs once', async () => {
