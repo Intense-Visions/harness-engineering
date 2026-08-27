@@ -1,7 +1,8 @@
 {
   "reason": "Phase-4 comprehension: exactOptionalPropertyTypes typecheck fixes; also covers pre-existing graph/bench drift",
   "categories": {
-    "complexity": 334
+    "complexity": 334,
+    "dependency-depth": 616
   },
   "violationIds": [
     "44fc8db829ab587b8bc6a92fc411b1e49a1dca20499f272d0310bcdbe3c68c81",
@@ -10,5 +11,5 @@
     "a69cfd2cd82525ac974800a92c87ddc6f51befc4b2b4b7704254c831bddc41b1",
     "c60eea17a4add0848bb1b29da4779a5a9882da2f7f6c4a36f60076046da5acd1"
   ],
-  "createdFrom": "3fc3bd6da"
+  "createdFrom": "d34632484"
 }

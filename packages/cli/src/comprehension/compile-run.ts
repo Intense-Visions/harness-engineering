@@ -56,6 +56,14 @@ export interface ComprehendRunOptions {
   listModules?: () => Promise<string[]>;
   /** Bounded module concurrency (default 4). */
   concurrency?: number;
+  /**
+   * Bypass the C1 skip-if-fresh gate and recompile even an already-fresh unit.
+   * Default false (skip-if-fresh preserved — no churn on the push/CI/serve path).
+   * Set ONLY for an explicit leaf demand (`get_comprehension` forceRecompile),
+   * where a recompile is requested, not incidental. A force-recompile of
+   * unchanged source still preserves `compiledAt` (identical hash ⇒ no git churn).
+   */
+  force?: boolean;
   /** Injected env for the reentrancy guard (defaults to process.env). */
   env?: NodeJS.ProcessEnv;
   logger?: { warn: (m: string) => void };
@@ -134,7 +142,7 @@ async function compileOne(module: string, opts: ComprehendRunOptions): Promise<M
   const currentHash = computeSourceHash(sourceFiles);
   const existing = await opts.store.read(module);
   const prior = existing.ok ? existing.value.provenance : undefined;
-  if (isReusableFresh(prior, currentHash, Boolean(opts.generateSemantic))) {
+  if (!opts.force && isReusableFresh(prior, currentHash, Boolean(opts.generateSemantic))) {
     return { kind: 'fresh', module };
   }
 
