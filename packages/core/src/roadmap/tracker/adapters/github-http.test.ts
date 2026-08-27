@@ -1,5 +1,11 @@
 import { describe, it, expect, vi, afterEach } from 'vitest';
 import { GitHubHttp, parseExternalId, buildExternalId } from './github-http';
+import {
+  RateBudget,
+  sharedRateBudget,
+  ThrottledFetchError,
+  TruncatedFetchError,
+} from '../../../fleet/rate-budget';
 
 const TOKEN = 'ghp_test_token';
 
@@ -33,6 +39,9 @@ function http(fetchFn: typeof fetch, extra?: Partial<ConstructorParameters<typeo
 afterEach(() => {
   vi.useRealTimers();
   vi.restoreAllMocks();
+  // The default budget is the process-wide singleton; clear it so a penalize()
+  // in one test cannot leak a cooldown into the next.
+  sharedRateBudget.reset();
 });
 
 describe('GitHubHttp — construction & headers', () => {
@@ -215,6 +224,59 @@ describe('GitHubHttp — paginate()', () => {
   it('throws a descriptive error on a non-ok, non-304 response', async () => {
     const { fetchFn } = queuedFetch([res(422, { message: 'Unprocessable' })]);
     await expect(http(fetchFn).paginate(buildUrl, 100)).rejects.toThrow(/GitHub 422/);
+  });
+});
+
+describe('GitHubHttp — rate-limit budget wiring (#1532)', () => {
+  const url = 'https://api.github.com/x';
+  const buildUrl = (page: number) => `https://api.github.com/items?page=${page}`;
+
+  it('acquires the shared budget before fetching (a cooldown defers the fetch)', async () => {
+    vi.useFakeTimers();
+    const budget = new RateBudget();
+    budget.penalize('github.core', 5000);
+    const { fetchFn, count } = queuedFetch([res(200, { ok: true })]);
+    const client = http(fetchFn, { budget });
+
+    const p = client.request(url, { method: 'GET' });
+    // The request suspends inside budget.acquire() — no fetch until the cooldown clears.
+    expect(count()).toBe(0);
+
+    await vi.runAllTimersAsync();
+    const r = await p;
+    expect(r.status).toBe(200);
+    expect(count()).toBe(1);
+  });
+
+  it('throws ThrottledFetchError on terminal throttle AND penalizes the shared budget', async () => {
+    const budget = new RateBudget();
+    const before = Date.now();
+    const { fetchFn } = queuedFetch([res(429, { rate: 'limited' }, { 'Retry-After': '3' })]);
+    // maxRetries: 0 → single attempt, no retry sleep; 429 is terminal.
+    const client = http(fetchFn, { budget, resource: 'github.search', maxRetries: 0 });
+
+    await expect(client.request(url, { method: 'GET' })).rejects.toBeInstanceOf(
+      ThrottledFetchError
+    );
+    // The 429 recorded a shared cooldown a sibling leaf on this resource observes.
+    expect(budget.delayFor('github.search', before)).toBeGreaterThan(0);
+  });
+
+  it('paginate throws TruncatedFetchError when a short page still advertises rel="next"', async () => {
+    const { fetchFn } = queuedFetch([
+      res(200, [{ id: 1 }], {
+        ETag: '"p1"',
+        Link: '<https://api.github.com/items?page=2>; rel="next"',
+      }),
+    ]);
+    // Short page (1 < perPage 2) but a next page exists → server truncated → fail.
+    await expect(http(fetchFn).paginate(buildUrl, 2)).rejects.toBeInstanceOf(TruncatedFetchError);
+  });
+
+  it('paginate does NOT throw on a genuinely-final short page (no next link)', async () => {
+    const { fetchFn } = queuedFetch([res(200, [{ id: 1 }], { ETag: '"p1"' })]);
+    const out = await http(fetchFn).paginate<{ id: number }>(buildUrl, 2);
+    expect(out.items).toEqual([{ id: 1 }]);
   });
 });
 

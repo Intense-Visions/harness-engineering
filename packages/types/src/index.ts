@@ -147,6 +147,8 @@ export type {
   FleetBudgetStatus,
   // --- #1524: per-leaf context-replay budget ---
   AgentContextBudgetConfig,
+  // --- #1532: per-resource fan-out rate-limit budgets ---
+  ResourceBudgetConfig,
   ServerConfig,
   WorkflowConfig,
   RoadmapConfig,

@@ -36,6 +36,17 @@ const AgentContextBudgetSchema = z
   .strict();
 
 /**
+ * Per-resource fan-out budget (#1532). A malformed entry is rejected at
+ * config-load rather than silently dropped (the AMR trap), so an operator who
+ * fat-fingers a budget learns at startup, not by silently losing rate-limiting.
+ */
+const ResourceBudgetSchema = z.object({
+  limit: z.number().positive(),
+  windowMs: z.number().positive(),
+});
+const ResourceBudgetsMapSchema = z.record(z.string(), ResourceBudgetSchema);
+
+/**
  * Cross-field check: every value in `routing` must reference a key in
  * `backends`. Mirrors the Phase 1 standalone helper but returns a flat
  * array of issues for synchronous consumption inside
@@ -247,6 +258,14 @@ export function validateWorkflowConfig(
     if (!parsed.success) return Err(new Error(`agent.budget: ${parsed.error.message}`));
   }
 
+  // #1532: validate the optional per-resource fan-out budgets. Absent ⇒ unchanged.
+  if (agent.resourceBudgets !== undefined) {
+    const parsed = ResourceBudgetsMapSchema.safeParse(agent.resourceBudgets);
+    if (!parsed.success) {
+      return Err(new Error(`agent.resourceBudgets: ${parsed.error.message}`));
+    }
+  }
+
   // Modern path: validate the new shape via Phase 0's Zod schemas + the
   // cross-field validator. The legacy path remains hand-rolled until
   // autopilot Phase 4+ retires the legacy schema entirely.
@@ -354,6 +373,13 @@ export function getDefaultConfig(): WorkflowConfig {
     agent: {
       backend: 'mock',
       maxConcurrentAgents: 1,
+      // #1532: sane default external-API budgets. GitHub code search is capped
+      // at 10 req/min; the core REST API is far higher but trips secondary
+      // limits under parallelism, so a conservative per-minute cap paces fan-out.
+      resourceBudgets: {
+        'github.core': { limit: 80, windowMs: 60_000 },
+        'github.search': { limit: 10, windowMs: 60_000 },
+      },
       maxTurns: 10,
       maxRetryBackoffMs: 5000,
       maxRetries: 5,

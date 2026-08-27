@@ -1027,6 +1027,19 @@ export type RoutingUseCase =
 /**
  * Configuration for the agent runner.
  */
+/**
+ * Budget for a single external resource that a fan-out's leaves consume
+ * (e.g. `github.core`, `github.search`). Governs external API fan-out
+ * ALONGSIDE the slot/agent concurrency limits — see #1532. Consumed by the
+ * `RateBudget` primitive in `@harness-engineering/core` (`fleet/rate-budget`).
+ */
+export interface ResourceBudgetConfig {
+  /** Max requests permitted per rolling window for this resource. Must be > 0. */
+  limit: number;
+  /** Rolling window length in ms (e.g. 60_000 for a per-minute cap). Must be > 0. */
+  windowMs: number;
+}
+
 export interface AgentConfig {
   /** Global cooldown in milliseconds after a rate limit hit */
   globalCooldownMs?: number;
@@ -1048,6 +1061,13 @@ export interface AgentConfig {
   apiKey?: string;
   /** Global limit on concurrent agents */
   maxConcurrentAgents: number;
+  /**
+   * Per-external-resource fan-out budgets, keyed by resource name
+   * (e.g. `github.core`, `github.search`). Governs external API fan-out
+   * ALONGSIDE the slot/agent concurrency limits (#1532). Applied to the shared
+   * `RateBudget` at orchestrator startup via `applyResourceBudgets`.
+   */
+  resourceBudgets?: Record<string, ResourceBudgetConfig>;
   /** Maximum turns allowed per session */
   maxTurns: number;
   /** Maximum backoff for retries */

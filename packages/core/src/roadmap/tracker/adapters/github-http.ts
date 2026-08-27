@@ -8,12 +8,27 @@
  * (out of scope; would touch a green file). Future cleanup may
  * consolidate (decision D-P2-C).
  */
+import {
+  RateBudget,
+  sharedRateBudget,
+  ThrottledFetchError,
+  TruncatedFetchError,
+} from '../../../fleet/rate-budget';
+
 export interface GitHubHttpOptions {
   token: string;
   fetchFn?: typeof fetch;
   apiBase?: string;
   maxRetries?: number;
   baseDelayMs?: number;
+  /**
+   * Shared per-resource fan-out budget (#1532). Every request `acquire`s a slot
+   * before it fetches, and a 403/429 `penalize`s the SHARED budget so sibling
+   * leaves back off together. Defaults to the process-wide `sharedRateBudget`.
+   */
+  budget?: RateBudget;
+  /** Budget resource key for this client (e.g. `github.core`, `github.search`). */
+  resource?: string;
 }
 
 const DEFAULTS = { maxRetries: 5, baseDelayMs: 1000 };
@@ -23,6 +38,8 @@ export class GitHubHttp {
   private readonly fetchFn: typeof fetch;
   readonly apiBase: string;
   private readonly retryOpts: { maxRetries: number; baseDelayMs: number };
+  private readonly budget: RateBudget;
+  private readonly resource: string;
 
   constructor(opts: GitHubHttpOptions) {
     this.token = opts.token;
@@ -32,6 +49,8 @@ export class GitHubHttp {
       maxRetries: opts.maxRetries ?? DEFAULTS.maxRetries,
       baseDelayMs: opts.baseDelayMs ?? DEFAULTS.baseDelayMs,
     };
+    this.budget = opts.budget ?? sharedRateBudget;
+    this.resource = opts.resource ?? 'github.core';
   }
 
   headers(extra?: Record<string, string>): Record<string, string> {
@@ -59,10 +78,13 @@ export class GitHubHttp {
   private async fetchWithRetry(url: string, init: RequestInit): Promise<Response> {
     let last: Response | undefined;
     for (let attempt = 0; attempt <= this.retryOpts.maxRetries; attempt++) {
+      // Consult the shared per-resource budget BEFORE every attempt so a fan-out
+      // paces itself proactively (and observes any cooldown a sibling installed).
+      await this.budget.acquire(this.resource);
       const res = await this.fetchFn(url, init);
       if (res.status !== 403 && res.status !== 429 && res.status < 500) return res;
       last = res;
-      if (attempt === this.retryOpts.maxRetries) break;
+      const isThrottle = res.status === 403 || res.status === 429;
       const retryAfter = res.headers.get('Retry-After');
       let delayMs: number;
       if (retryAfter) {
@@ -71,7 +93,18 @@ export class GitHubHttp {
       } else {
         delayMs = this.retryOpts.baseDelayMs * Math.pow(2, attempt) + Math.random() * 500;
       }
+      // Shared backoff: record the cooldown on the SHARED budget so every leaf on
+      // this resource — not just this one — waits it out (what actually clears a
+      // secondary rate limit).
+      if (isThrottle) this.budget.penalize(this.resource, delayMs);
+      if (attempt === this.retryOpts.maxRetries) break;
       await new Promise((r) => setTimeout(r, delayMs));
+    }
+    // Fail-the-leaf (#1532): a fetch that is still throttled after the retry
+    // budget must NOT be returned as if it were data — a caller could mistake the
+    // 403/429 body for "zero results". Throw so the leaf fails loudly.
+    if (last && (last.status === 403 || last.status === 429)) {
+      throw new ThrottledFetchError(this.resource, last.status);
     }
     return last!;
   }
@@ -116,11 +149,29 @@ export class GitHubHttp {
       items.push(...data);
       lastEtag = etag;
       status = res.status;
-      if (data.length < perPage) break;
+      if (data.length < perPage) {
+        // A short page normally means "genuinely done". But if the server ALSO
+        // advertises a next page (`Link: …; rel="next"`), the page was
+        // truncated and stopping here would silently under-fetch. Fail the leaf
+        // (#1532) rather than return an incomplete list.
+        if (hasNextLink(res.headers.get('Link'))) {
+          throw new TruncatedFetchError(this.resource, buildUrl(page));
+        }
+        break;
+      }
       page++;
     }
     return { items, lastEtag, status };
   }
+}
+
+/**
+ * True when a GitHub `Link` header advertises a `rel="next"` page. Used to
+ * distinguish a genuinely-final short page from a server-truncated one.
+ */
+function hasNextLink(link: string | null): boolean {
+  if (!link) return false;
+  return /;\s*rel="next"/.test(link);
 }
 
 // External-ID parse/build come from the one canonical module (../../external-id);
