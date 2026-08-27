@@ -9,8 +9,8 @@ order: 146
 - **Status:** planned
 - **Spec:** —
 - **Summary:** Physical science never trusts an instrument that is not traceable to a reference standard on a recalibration schedule; this roadmap has been adding instruments for rounds with no golden references, no traceability, no recalibration cadence. Build the metrology layer: every measurement instrument (detectors, judges, estimators, scores) registers a golden-reference fixture set with known answers, a measured accuracy against it, a recalibration schedule, and a traceability record (which reference version validated which instrument version). An instrument whose calibration is expired or failing is marked untrusted and its outputs carry that flag downstream — an uncalibrated number renders with its status, never as bare truth. This is what makes the Goodhart sentinel enforceable and what keeps instrument drift (model updates change judge behavior; codebase drift changes detector baselines) from silently corrupting every downstream decision.
-- **Blockers:** —
+- **Blockers:** Depends on `goodhart-sentinel-metric-integrity`, `known-answer-pipeline-drills`, and `model-update-regression-sentinel`
 - **Plan:** —
 - **Assignee:** —
-- **Priority:** P2
+- **Priority:** P0
 - **External-ID:** github:Intense-Visions/harness-engineering#1645

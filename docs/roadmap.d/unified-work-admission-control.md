@@ -12,5 +12,5 @@ order: 116
 - **Blockers:** Depends on `team-level-capacity-governor` and `inbound-contribution-triage-at-scale`
 - **Plan:** —
 - **Assignee:** —
-- **Priority:** P1
+- **Priority:** P2
 - **External-ID:** github:Intense-Visions/harness-engineering#1548

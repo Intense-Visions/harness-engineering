@@ -12,5 +12,5 @@ order: 134
 - **Blockers:** Depends on `denominator-declaration-in-metric-outputs`
 - **Plan:** —
 - **Assignee:** —
-- **Priority:** P3
+- **Priority:** P1
 - **External-ID:** github:Intense-Visions/harness-engineering#1566

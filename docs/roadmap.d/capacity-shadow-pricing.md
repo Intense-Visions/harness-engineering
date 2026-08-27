@@ -12,5 +12,5 @@ order: 137
 - **Blockers:** Depends on `unified-work-admission-control` and `value-per-spend-routing`
 - **Plan:** —
 - **Assignee:** —
-- **Priority:** P3
+- **Priority:** P2
 - **External-ID:** github:Intense-Visions/harness-engineering#1569

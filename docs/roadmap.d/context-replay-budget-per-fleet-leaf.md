@@ -12,5 +12,5 @@ order: 92
 - **Blockers:** Depends on cost-per-merged-pr-attribution for a before/after signal
 - **Plan:** —
 - **Assignee:** —
-- **Priority:** P1
+- **Priority:** P2
 - **External-ID:** github:Intense-Visions/harness-engineering#1524
