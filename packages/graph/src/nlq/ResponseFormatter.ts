@@ -20,7 +20,9 @@ export class ResponseFormatter {
     data: unknown,
     query?: string
   ): string {
-    if (data === null || data === undefined) {
+    // For shortestPath a null result is a meaningful answer (unreachable), so
+    // let its own formatter phrase it rather than the generic guard below.
+    if ((data === null || data === undefined) && intent !== 'shortestPath') {
       return 'No results found.';
     }
 
@@ -38,9 +40,32 @@ export class ResponseFormatter {
         return this.formatExplain(entityName, entities, data);
       case 'anomaly':
         return this.formatAnomaly(data);
+      case 'shortestPath':
+        return this.formatShortestPath(entities, data);
       default:
         return `Processed results for "${entityName}".`;
     }
+  }
+
+  private formatShortestPath(entities: readonly ResolvedEntity[], data: unknown): string {
+    const source = (entities[0] as ResolvedEntity | undefined)?.raw ?? 'the source';
+    const target = (entities[1] as ResolvedEntity | undefined)?.raw ?? 'the target';
+
+    // Unreachable pairs return null from the primitive.
+    if (data === null || data === undefined) {
+      return `No path found between **${source}** and **${target}**.`;
+    }
+
+    const d = data as { length?: number; nodes?: Array<{ id?: string }> };
+    const length = typeof d.length === 'number' ? d.length : 0;
+    const nodes = Array.isArray(d.nodes) ? d.nodes : [];
+
+    if (length === 0) {
+      return `**${source}** and **${target}** are the same node.`;
+    }
+
+    const trail = nodes.map((n) => n.id ?? '?').join(' → ');
+    return `Shortest path from **${source}** to **${target}**: ${this.p(length, 'hop')} (${trail}).`;
   }
 
   private formatImpact(entityName: string, data: unknown): string {

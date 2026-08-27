@@ -100,6 +100,25 @@ export const EDGE_TYPES = [
 
 export type EdgeType = (typeof EDGE_TYPES)[number];
 
+// --- Edge Provenance ---
+
+/**
+ * How an edge's existence was determined at ingest time. Lets downstream
+ * adapters distinguish relationships read directly from source
+ * (`EXTRACTED`) from those derived by a resolver/heuristic (`INFERRED`),
+ * or those whose origin cannot be established (`AMBIGUOUS`).
+ */
+export const EDGE_PROVENANCES = ['EXTRACTED', 'INFERRED', 'AMBIGUOUS'] as const;
+
+/**
+ * - `EXTRACTED` — read directly from the source (AST-explicit): the edge
+ *   corresponds to a construct that literally appears in the code.
+ * - `INFERRED` — derived by a resolver or heuristic (e.g. import-path
+ *   resolution, regex name matching, directory-structure grouping).
+ * - `AMBIGUOUS` — origin cannot be determined as either of the above.
+ */
+export type EdgeProvenance = (typeof EDGE_PROVENANCES)[number];
+
 // --- Observability types (for noise pruning) ---
 
 export const OBSERVABILITY_TYPES: ReadonlySet<NodeType> = new Set(['span', 'metric', 'log']);
@@ -127,6 +146,13 @@ export interface GraphNode {
   readonly metadata: Record<string, unknown>;
   readonly embedding?: readonly number[];
   readonly lastModified?: string; // ISO timestamp
+  /**
+   * Community / subsystem id assigned by a community-detection pass
+   * (see {@link CommunityDetector}). Optional and additive: absent until a
+   * detection pass labels the node, so existing readers and serialized graphs
+   * are unaffected. Ids are canonical in `[0, communityCount)`.
+   */
+  readonly community?: number;
 }
 
 // --- Graph Edge ---
@@ -136,6 +162,7 @@ export interface GraphEdge {
   readonly to: string;
   readonly type: EdgeType;
   readonly confidence?: number; // 0-1, for Fusion Layer edges
+  readonly provenance?: EdgeProvenance; // how the edge was determined at ingest time
   readonly metadata?: Record<string, unknown>;
 }
 
@@ -160,6 +187,33 @@ export interface ContextQLResult {
     readonly pruned: number;
     readonly depthReached: number;
   };
+}
+
+// --- Shortest Path ---
+
+/** Direction of traversal when searching for a shortest path. */
+export type ShortestPathDirection = 'outbound' | 'inbound' | 'both';
+
+export interface ShortestPathOptions {
+  /**
+   * Which edge directions to follow. Defaults to `'both'` (undirected
+   * reachability) because "the shortest path between two arbitrary nodes" is a
+   * connectivity question, not a directed-flow question.
+   */
+  readonly direction?: ShortestPathDirection;
+}
+
+/**
+ * A shortest (fewest-hops) path between two nodes.
+ *
+ * `nodes` is ordered from source to target; `edges` are the connecting edges in
+ * the same order (`edges.length === nodes.length - 1`). `length` is the number
+ * of hops. A same-node path has `length === 0`, a single node, and no edges.
+ */
+export interface ShortestPathResult {
+  readonly nodes: readonly GraphNode[];
+  readonly edges: readonly GraphEdge[];
+  readonly length: number;
 }
 
 // --- Projection ---
@@ -253,6 +307,7 @@ export const GraphNodeSchema = z.object({
   metadata: z.record(z.unknown()),
   embedding: z.array(z.number()).optional(),
   lastModified: z.string().optional(),
+  community: z.number().int().nonnegative().optional(),
 });
 
 export const GraphEdgeSchema = z.object({
@@ -260,5 +315,6 @@ export const GraphEdgeSchema = z.object({
   to: z.string(),
   type: z.enum(EDGE_TYPES),
   confidence: z.number().min(0).max(1).optional(),
+  provenance: z.enum(EDGE_PROVENANCES).optional(),
   metadata: z.record(z.unknown()).optional(),
 });

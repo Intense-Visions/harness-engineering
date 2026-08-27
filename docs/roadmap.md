@@ -442,9 +442,9 @@ last_manual_edit: 2026-06-27T12:51:51.967Z
 
 ### Wire or deprecate the dead contextBudget allocator
 
-- **Status:** planned
+- **Status:** done
 - **Spec:** —
-- **Summary:** `contextBudget()` in `packages/core/src/context/budget.ts` is exported from `@harness-engineering/core` and has **zero non-test callers** — verified by grep across packages excluding dist and tests. It allocates a token budget across six categories (systemPrompt, projectManifest, taskSpec, activeCode, interfaces, reserve) with graph-density weighting, which is genuinely useful logic that nothing invokes. Its sibling `computeLoadPlan()` in the same directory IS wired, via `packages/cli/src/mcp/tools/skill.ts:79`, so the dead one is easy to miss. Two acceptable outcomes: wire it into the Context-surface attribution report (which needs exactly this kind of allocator), or deprecate it on the normal cycle. Deletion is a breaking change for any adopter importing it — it appears in the package's public `.d.ts` — so it cannot simply be removed. Secondary finding worth a look: harness's own dead-export detection and `harness:entropy-cleaner` exist to catch precisely this and did not, so the detector may have a blind spot for exported-but-unused public API. Ideation: docs/ideation/external-source-adoption-tria-2026-08-09.md (score 3.00).
+- **Summary:** `contextBudget()` in `packages/core/src/context/budget.ts` is exported from `@harness-engineering/core` and has **zero non-test callers** — verified by grep across packages excluding dist and tests. It allocates a token budget across six categories (systemPrompt, projectManifest, taskSpec, activeCode, interfaces, reserve) with graph-density weighting, which is genuinely useful logic that nothing invokes. Its sibling `computeLoadPlan()` in the same directory IS wired, via `packages/cli/src/mcp/tools/skill.ts:79`, so the dead one is easy to miss. Two acceptable outcomes: wire it into the Context-surface attribution report (which needs exactly this kind of allocator), or deprecate it on the normal cycle. Deletion is a breaking change for any adopter importing it — it appears in the package's public `.d.ts` — so it cannot simply be removed. Secondary finding worth a look: harness's own dead-export detection and `harness:entropy-cleaner` exist to catch precisely this and did not, so the detector may have a blind spot for exported-but-unused public API. Ideation: docs/ideation/external-source-adoption-tria-2026-08-09.md (score 3.00). **Reconciled (done):** option A shipped — `contextBudget()` is now imported into the context-surface attribution report (`packages/core/src/context/attribution.ts:17`) and its allocation drives the report's by-class budget and over-budget flags, surfaced in the CLI at `packages/cli/src/commands/mcp.ts` (`## By class (budget from contextBudget())`). The allocator now has a real non-test caller. Shipped by PR #1274 / commit `510bdab1e` (`feat(context): context-surface attribution report with exact token counts`).
 - **Blockers:** —
 - **Plan:** —
 - **Assignee:** —
@@ -728,6 +728,102 @@ last_manual_edit: 2026-06-27T12:51:51.967Z
 - **Priority:** —
 - **External-ID:** github:Intense-Visions/harness-engineering#1405
 
+### fleet-item-type-routing — build-shaped fleets route by item type (bug vs feature)
+
+- **Status:** planned
+- **Spec:** docs/changes/fleet-item-type-routing/proposal.md
+- **Summary:** The build-shaped `-fleet` members (`roadmap-fleet`, `security-fleet`) forced every item through the design-first pipeline `harness-brainstorming → harness-autopilot`, so a bug tracked as a backlog/roadmap item got design ceremony it did not need and then stalled in autopilot for lack of an Implementation Order. This item makes those members classify each item by type and route it: `bug` → `harness-debugging`, approved-spec → `harness-autopilot`, new-feature/ambiguous → `harness-brainstorming → harness-autopilot`. The rubric is stated once in `docs/reference/fleet-family.md` (§Item-type routing, ADR 0103) and referenced by both fleets; classification happens at SELECT (metadata-first, router-rubric fallback), is human-overridable at CONFIRM, and VERIFY checks route-appropriate artifacts. `bug-fleet` / `cicd-fleet` already route to debugging and are unchanged.
+- **Blockers:** —
+- **Plan:** —
+
+### Budget governor for unattended dispatch
+
+- **Status:** planned
+- **Spec:** —
+- **Summary:** Measured operator behaviour contradicts the assumption that fleets already run unattended: of 1,866 commits in 90 days, **24 landed at a weekend — 1.3%** — and the hour histogram peaks 10:00–16:00 and collapses after 18:00. All of the observed 57x-median throughput is produced inside a normal work week, ~50 hours of 168 available, because fleets are operator-dispatched rather than scheduled. Naive scheduling is unaffordable: that operator was already at ~78% of a weekly usage budget, so 168-hour operation needs ~3.4x the quota. Build the governor that makes unattended operation safe to enable — a spend envelope per period, dispatch that stops cleanly at the envelope rather than mid-lane, per-fleet allocation, and a visible remaining-budget signal. Resolves half the open design blocker on `lightweight-nightly-micro-loop-primitive` (#1405): the thin cron primitive is the *what*, this is the *how much*.
+- **Blockers:** Depends on cost-per-merged-pr-attribution
+- **Plan:** —
+- **Assignee:** —
+- **Priority:** P1
+- **External-ID:** github:Intense-Visions/harness-engineering#1525
+
+### Declare an unattended-safe contract per fleet member
+
+- **Status:** planned
+- **Spec:** —
+- **Summary:** `fleet-command` already distinguishes a member's **gate-free path** — it probes each installed fleet's queue depth "through its own gate-free report-only path rather than reimplementing its selection, and never through a gated dry-run path." That concept exists for *probing* only. Dispatch then runs the real member skill, and every member's SELECT→CONFIRM→DISPATCH→VERIFY→REPORT loop includes a human CONFIRM, so a scheduled fleet still serialises on a person regardless of budget or quota. Any unattended-operation plan is therefore incoherent until each member declares which of its stages are safe to run without a human, and what the fallback is when an unattended run reaches a gate. Build: a per-member contract naming its gate-free stages, its mandatory-human stages, and a defined park-and-report behaviour at the boundary — so a scheduled run either completes or parks cleanly with a queued decision, never blocks holding resources. Prerequisite for `budget-governor-for-unattended-dispatch`, which assumes unattended dispatch is possible.
+- **Blockers:** —
+- **Plan:** —
+- **Assignee:** —
+- **Priority:** P1
+- **External-ID:** github:Intense-Visions/harness-engineering#1533
+
+### Govern aggregate capacity across operators, not just per operator
+
+- **Status:** planned
+- **Spec:** —
+- **Summary:** Every governor in the fleet family is scoped to one operator's run — slot budgets per workflow, a global leaf pool per invocation, and (proposed) a spend envelope per period. None of them see a second operator. The arithmetic that breaks first is aggregate: a ten-person team operating at the level a single operator already sustains would produce more merged changes than the entire 1,957-repository organisation measured here produces today, against a release pipeline that in one observed consumer had converted 1,132 merged pull requests into zero tagged releases. Individual capability is not the constraint at that point — downstream absorption is. Build: a shared capacity ledger across operators covering token spend, concurrent lanes, and per-surface change rate, with backpressure derived from downstream signals (release throughput, review queue depth, integration failures) rather than from upstream willingness. A team that can generate more change than it can absorb needs the governor at the team boundary.
+- **Blockers:** Depends on `budget-governor-for-unattended-dispatch` and `merged-but-unreleased-inventory-metric` for its inputs
+- **Plan:** —
+- **Assignee:** —
+- **Priority:** P2
+- **External-ID:** github:Intense-Visions/harness-engineering#1537
+
+### Maintainer-side intake: triage a flood the project did not author
+
+- **Status:** planned
+- **Spec:** —
+- **Summary:** Every fleet is producer-side. `issue-fleet` triages "the open-issue backlog" and `pr-fleet` lands "the open-PR queue" — both assume the project authored the work and that the queue is finite and ours. A large open-source project inverts this: openclaw/openclaw carries 81,403 forks, 5,726 open issues and 2,191 open pull requests, taking in roughly 131 new issues and merging 313 pull requests **per day**. At that shape the scarce resource is maintainer attention, and the harness's entire value proposition — produce more — is the opposite of what is needed. Build the receiving function: continuous intake that classifies, deduplicates, ranks and routes inbound issues and pull requests against declared project scope; auto-closes out-of-scope and stale items under stated policy; and presents maintainers with batched decisions rather than an unordered stream. Same fan-out machinery, inverted objective. Without it the harness is unusable by exactly the projects with the most volume to manage.
+- **Blockers:** —
+- **Plan:** —
+- **Assignee:** —
+- **Priority:** P2
+- **External-ID:** github:Intense-Visions/harness-engineering#1544
+
+### Semantic duplicate detection across a very large backlog
+
+- **Status:** planned
+- **Spec:** —
+- **Summary:** `issue-fleet` deduplicates as part of triage, but pairwise comparison against a backlog of a few hundred items is a different problem from a backlog of thousands with thousands more arriving monthly. openclaw/openclaw holds 5,726 open issues against roughly 3,927 created in 30 days: at that ratio duplicates are the dominant class, the same defect is reported in a dozen phrasings, and textual similarity is too blunt to separate "same bug" from "same area." Build: an embedding-backed index over open and recently-closed items so intake matching is sub-linear rather than pairwise; canonical-issue election with duplicates linked rather than silently closed; and a confidence threshold below which the pair is surfaced for a human instead of merged. Note the failure mode that makes this dangerous to automate carelessly — a wrongly-merged duplicate silently discards a distinct report, and the reporter has no recourse.
+- **Blockers:** —
+- **Plan:** —
+- **Assignee:** —
+- **Priority:** P2
+- **External-ID:** github:Intense-Visions/harness-engineering#1547
+
+### One arbiter over authored and received work
+
+- **Status:** planned
+- **Spec:** —
+- **Summary:** The two governors on this roadmap contend for the same resources and cannot see each other. `team-level-capacity-governor` allocates token spend, concurrent lanes and per-surface change rate to internal production; `inbound-contribution-triage-at-scale` allocates maintainer attention and review queue depth to external contributions. **Both claim review queue depth and lane capacity.** A project doing both at scale — internal fleets generating change while thousands of forks submit it — will have producer-side dispatch starve adjudication of external work, or the reverse, with no policy expressing which should win. Build a single admission controller over one shared capacity ledger: a declared allocation between authored and received work (an explicit fraction of review attention, compute and merge slots, not an emergent one), backpressure that throttles internal dispatch when the inbound queue ages past threshold, and one ranked queue in which a user-reported defect and a roadmap item are comparable rather than living in separate systems. The allocation is a stated organisational decision; the controller's job is to enforce it and report when it is being violated.
+- **Blockers:** Depends on `team-level-capacity-governor` and `inbound-contribution-triage-at-scale`
+- **Plan:** —
+- **Assignee:** —
+- **Priority:** P1
+- **External-ID:** github:Intense-Visions/harness-engineering#1548
+
+### Governors need control theory, not thresholds
+
+- **Status:** planned
+- **Spec:** —
+- **Summary:** Every governor on this roadmap — spend envelopes, admission control, backpressure from queue depth — is currently specified as a threshold: cross the line, throttle; fall below, resume. Threshold controllers oscillate, and coupled threshold controllers oscillate together: internal dispatch throttles on review-queue depth, the queue drains, dispatch resumes, the queue refills, in a limit cycle that wastes capacity at both extremes and thrashes every human watching the dashboard. Control theory solved this: setpoint tracking with proportional response (throttle *in proportion to* deviation, not all-or-nothing), damping against the known delay between actuation and effect (a lane dispatched now hits the review queue much later — delayed feedback is the classic oscillation driver), anti-windup on the integral term so a long saturation does not overshoot on recovery, and explicit oscillation detection that flags a governor fighting itself or another governor. Build it once as a shared controller primitive the governors instantiate, with `queueing-model-for-pipeline-capacity` supplying the plant model and setpoints. The queueing item says where the system should sit; this one is the actuator that holds it there without ringing.
+- **Blockers:** Depends on `queueing-model-for-pipeline-capacity`
+- **Plan:** —
+- **Assignee:** —
+- **Priority:** P3
+- **External-ID:** github:Intense-Visions/harness-engineering#1567
+
+### Shadow prices on shared capacity instead of static quotas
+
+- **Status:** planned
+- **Spec:** —
+- **Summary:** `unified-work-admission-control` enforces a declared allocation between competing consumers of review attention, compute and merge slots. Static allocations have a known failure mode at scale: they are wrong most of the time, because demand shifts faster than anyone re-declares quotas, and the cost of misallocation is invisible — nobody sees the high-value work queued behind a reserved-but-idle share. The economic instrument is the shadow price: let each capacity pool carry a price that rises with contention, let intents carry budgets derived from their expected value (`value-per-spend-routing` supplies the valuation), and let dispatch order fall out of willingness-to-pay rather than static rank. Large schedulers converged on this shape for the same reason markets exist — prices aggregate dispersed information about scarcity that no central declaration keeps current. Scope guard stated plainly: this is priority arbitration *inside* declared bounds, not a replacement for them — safety gates, trust tiers and the human-attention floor for inbound work are never priced, and the admission controller's declared allocation remains the outer constraint the market clears within.
+- **Blockers:** Depends on `unified-work-admission-control` and `value-per-spend-routing`
+- **Plan:** —
+- **Assignee:** —
+- **Priority:** P3
+- **External-ID:** github:Intense-Visions/harness-engineering#1569
+
 ## v5.0 — Enforcement Hardening
 
 ### Audit and cap the pre-commit --skip list
@@ -800,7 +896,7 @@ last_manual_edit: 2026-06-27T12:51:51.967Z
 
 - **Status:** planned
 - **Spec:** —
-- **Summary:** Follow-ups deferred from #541 (shipped in PR #623). None block the shipped gate; all are documented in `docs/changes/required-review-ci/proposal.md`. Deferred items - **Promote the gate to a required check (SC8):** apply `templates/ci/required-review.ruleset.json` via `gh api repos/{owner}/{repo}/rulesets` once the non-blocking dogfood run proves stable, and flip the dogfood workflow off `continue-on-error`. - **Live runner verification in CI:** `cursor` (CLI absent locally), `gemini` (auth-blocked locally; superseded by antigravity but the id is retained), and `local` single-pass (needs a running openai-compatible endpoint). Mark each `supported: true` only after a real in-CI/endpoint run confirms its verdict envelope. - **Full-agentic `local` spike (1b):** determine whether a local model can drive the multi-persona tool-use/subagent pipeline; ships only on a 'go'. - **`--comment` PR posting:** currently a documented non-failing stub in `harness review-ci`; wire real PR-review posting (and re-add `pull-requests: write` to the template workflow) when implemented. - **antigravity CI secret:** `GEMINI_API_KEY` is a best-guess pending CI verification (`runner-presets.ts`). Refs: #541, PR #623.
+- **Summary:** Follow-ups deferred from #541 (shipped in PR #623). None block the shipped gate; all are documented in `docs/changes/required-review-ci/proposal.md`. Deferred items - **Promote the gate to a required check (SC8):** apply `templates/ci/required-review.ruleset.json` via `gh api repos/{owner}/{repo}/rulesets` once the non-blocking dogfood run proves stable, and flip the dogfood workflow off `continue-on-error`. - **Live runner verification in CI:** `cursor` (CLI absent locally), `gemini` (auth-blocked locally; superseded by antigravity but the id is retained), and `local` single-pass (needs a running openai-compatible endpoint). Mark each `supported: true` only after a real in-CI/endpoint run confirms its verdict envelope. - **Full-agentic `local` spike (1b):** determine whether a local model can drive the multi-persona tool-use/subagent pipeline; ships only on a 'go'. - **`--comment` PR posting (DONE):** shipped — no longer a stub. `defaultPostReview` in `packages/cli/src/commands/review-ci.ts:304-314` shells out to a real `gh pr comment --body-file -` (verdict piped via stdin), deliberately a comment rather than a `--request-changes` review so it works for self-authored PRs and CI bots. Shipped by PR #674 (`feat(cli): wire review-ci --comment PR poster`). - **antigravity CI secret:** `GEMINI_API_KEY` is a best-guess pending CI verification (`runner-presets.ts`). Refs: #541, PR #623, PR #674. **Reconciliation (partial):** the `--comment` slice above is DONE; the remaining sub-items — promote-to-required (SC8, flip `pr-advisory-checks.yml` off `continue-on-error`), live cursor/gemini/local-runner in-CI verification, the full-agentic `local` spike, and the antigravity secret — are ops/human decisions and remain **not-done / human-gated**, so this item's overall Status stays `planned`.
 - **Blockers:** —
 - **Plan:** —
 - **Assignee:** —
@@ -861,6 +957,116 @@ last_manual_edit: 2026-06-27T12:51:51.967Z
 - **Assignee:** —
 - **Priority:** —
 - **External-ID:** github:Intense-Visions/harness-engineering#1469
+
+### Risk-tier the review gate instead of reviewing uniformly
+
+- **Status:** planned
+- **Spec:** —
+- **Summary:** Measured on a dogfood consumer: of 3,252 non-merge commits in 90 days, **110 respond to review feedback — 3.4%**. One reviewer gave 314 reviews in the same window, 89% of them to two authors. Uniform human review of every pull request therefore changes something roughly once in thirty, while consuming the scarcest resource in the system — and review, not authoring, is the ceiling once throughput rises (nine engineers at 150 PRs/quarter implies ~1,000 reviews/quarter for whoever holds it). The 3.4% figure understates somewhat, since an agent may fold feedback in before committing, but the direction is unambiguous. Build: a declared risk tier per path — PHI and money paths, migrations, public API surface, security gates — where human review is mandatory, and agent review on the same gates elsewhere. Pairs with `pre-merge-brief` as the human-facing summary on the tiers that keep eyes.
+- **Blockers:** —
+- **Plan:** —
+- **Assignee:** —
+- **Priority:** P2
+- **External-ID:** github:Intense-Visions/harness-engineering#1527
+
+### Never emit a ranked list without a stability check
+
+- **Status:** planned
+- **Spec:** —
+- **Summary:** A contributor-scoring exercise across 69 people and two adjacent 45-day windows produced a Spearman rank correlation of **0.62 overall, near zero in the middle band, with a mean movement of 12–15 places**. Individual position was not reproducible; only broad tier membership was. The same exercise also produced an invalid band analysis on the first pass — bands defined by the *mean* of two measurements force those measurements to anti-correlate within band, yielding impossible negative correlations. Both failure modes apply to every ranked output the harness emits: hotspots, risk areas, craft targets, critical paths, skill recommendations. Build: any ordered output computes over two windows, reports the correlation, and **degrades to tiers when correlation is low** rather than presenting a spurious order; bands are always defined on one window and validated against the other, never on the average. Turns a methodological trap into a mechanical guard.
+- **Blockers:** —
+- **Plan:** —
+- **Assignee:** —
+- **Priority:** P2
+- **External-ID:** github:Intense-Visions/harness-engineering#1529
+
+### Metrics must declare their denominator
+
+- **Status:** planned
+- **Spec:** —
+- **Summary:** A 90-day measurement of 1,957 repositories produced five wrong figures, and every one was a denominator rather than a numerator error: nominal team size used for effective FTE (8 people versus 5.8 effective, and a first pass mis-stated it as 1.3); a 479-member access-control roster treated as engineering headcount; all-time contributor counts used for per-developer rates, overstating a comparison base ~8x; a documentation CMS emitting one commit per page edit inflating an org commit total by 26%; and a scored population selected by the metric carrying the heaviest weight, a closed loop that hid heavy reviewers entirely. Numerators were cross-validated to 0.24% against git; divisors were never checked once. Build: metric outputs carry `{value, numerator, denominator, population_definition}` and a scalar with no stated population fails the emit. Cheap, mechanical, and it catches the error class that silently survives every other check.
+- **Blockers:** —
+- **Plan:** —
+- **Assignee:** —
+- **Priority:** P2
+- **External-ID:** github:Intense-Visions/harness-engineering#1530
+
+### Move human control from per-change review to declared policy
+
+- **Status:** planned
+- **Spec:** —
+- **Summary:** Per-change human oversight has an arithmetic ceiling. At the throughput a single operator already sustains, skimming every pull request at five minutes each consumes over three hours a day before any work happens; at twice that rate it exceeds a working day. Every review-side item on this roadmap — `risk-tiered-review-gate`, `pre-merge-brief` — reduces the volume a human reads, but the model stays "a person looks at changes." The next model is "a person declares constraints and the machine proves conformance": acceptance criteria, invariants, forbidden transitions and risk classifications authored once per surface, enforced on every change, with human attention spent on *changing the policy* rather than on reading diffs. Build: a declarative policy surface per repository, versioned and reviewable like code; mechanical conformance checks bound to it; and an escalation path that surfaces only changes the policy cannot adjudicate. Prerequisite for any operating point where nobody can read the day's output.
+- **Blockers:** —
+- **Plan:** —
+- **Assignee:** —
+- **Priority:** P2
+- **External-ID:** github:Intense-Visions/harness-engineering#1534
+
+### Verification whose cost does not scale with change rate
+
+- **Status:** planned
+- **Spec:** —
+- **Summary:** Measured on a dogfood consumer, the merge gate runs a median of **21.4 minutes**. At an operator's current rate that is tolerable; at double it, the same gate implies well over a dozen gate-hours of compute per person per day. Parallelism hides the latency but not the cost, and the cost is paid per change — so test-suite execution as the primary correctness mechanism becomes the binding constraint on throughput long before authoring does. Build the complement: correctness established by construction rather than by running everything. Stronger types and exhaustiveness at boundaries, contracts and invariants on the paths that matter, property-based and specification-derived tests replacing hand-enumerated cases, and a tiered gate where the cheap conformance layer runs on every change and full execution runs once per merge train. The goal is a verification cost curve that flattens as change volume rises, instead of tracking it linearly.
+- **Blockers:** Pairs with `policy-level-human-control` — the policy surface is what the conformance layer checks against
+- **Plan:** —
+- **Assignee:** —
+- **Priority:** P2
+- **External-ID:** github:Intense-Visions/harness-engineering#1535
+
+### Make architectural intent executable, not documentary
+
+- **Status:** planned
+- **Spec:** —
+- **Summary:** Architectural intent lives in ADRs, `AGENTS.md`, layer and boundary config, and the knowledge graph — partly enforced (`forbiddenImports`, layer checks, design-token drift) and largely documentary. A codebase absorbing an order of magnitude more change per week accumulates drift proportionally faster, and prose intent that an agent may or may not consult is not a constraint. Measured on one dogfood consumer, the architecture baseline file itself churned nearly five thousand lines in 90 days: drift is already being *recorded* rather than *prevented*. Build: every architectural decision that can be expressed as a machine-checkable constraint is emitted as one when the ADR lands, bound to the surfaces it governs, and enforced on every change; decisions that cannot be mechanised are labelled as advisory so the distinction is explicit rather than assumed. This is the difference between a codebase that stays coherent at high change velocity and one that becomes the brownfield the greenfield advantage was measured against.
+- **Blockers:** —
+- **Plan:** —
+- **Assignee:** —
+- **Priority:** P3
+- **External-ID:** github:Intense-Visions/harness-engineering#1543
+
+### Establish safety on untrusted changes before spending human attention
+
+- **Status:** planned
+- **Spec:** —
+- **Summary:** At high inbound volume a maintainer cannot afford to be the first reader. Measured on openclaw/openclaw, roughly 350 pull requests arrive daily and **1,274 were closed unmerged in 30 days — about 12% rejected** — so a material share of maintainer attention is spent discovering that a change should not land. The harness already owns the review machinery (`harness-code-reviewer`, the adversarial and security reviewers, `outcome-eval`); none of it is pointed at inbound work from outside the project. Build: a pre-review pass that runs before a human looks — scope conformance against declared project boundaries, duplicate-of-existing-PR detection, test and gate conformance, security review of the diff, and a machine verdict with cited evidence attached to the pull request. Success is measured as maintainer decisions avoided, not reviews produced. Pairs with `contributor-trust-tiering`, which decides how much verification an untrusted change earns.
+- **Blockers:** —
+- **Plan:** —
+- **Assignee:** —
+- **Priority:** P2
+- **External-ID:** github:Intense-Visions/harness-engineering#1546
+
+### Prove the gates catch anything: inject faults and measure escape rate
+
+- **Status:** planned
+- **Spec:** —
+- **Summary:** The entire trust model rests on gates — coverage floors, review agents, security scans, conformance checks — and nothing measures whether the gates *work*. A 96% CI pass rate is equally consistent with "changes are good" and "gates are blind." Mutation testing answers this for test suites; apply it to the whole gate stack: periodically inject known-bad changes — a subtle logic inversion, a leaked secret pattern, a removed permission check, an invariant violation — through the same pipeline real changes take, in a marked-and-quarantined mode that can never merge, and report gate escape rate per fault class. This is the immune-system principle: a defence that never sees an attack atrophies undetected. Output: "the review stage catches 9 of 10 injected logic faults but 2 of 10 permission-check removals" — which redirects gate investment from vibes to measurement, and gives `machine-pre-review-for-untrusted-changes` a calibrated confidence number instead of an asserted one. Design constraint stated up front: injected faults are cryptographically marked, quarantined at dispatch, and excluded from every throughput metric, so the instrument cannot contaminate the thing it measures.
+- **Blockers:** —
+- **Plan:** —
+- **Assignee:** —
+- **Priority:** P2
+- **External-ID:** github:Intense-Visions/harness-engineering#1554
+
+### Route changes by how unusual they are
+
+- **Status:** planned
+- **Spec:** —
+- **Summary:** Every gate treats every change as equally novel, which at high volume wastes verification depth on the thousandth routine change and under-spends it on the first weird one. Immune systems solve this with negative selection: learn the shape of "self," escalate what does not match. Build the software version: an inexpensive typicality model over the change stream — surfaces touched together, diff shape, size distribution, dependency deltas, authoring pattern — scoring each change against the repository's own history, with atypical changes routed to deeper verification tiers (more reviewers, full gate, human eyes) and typical ones to the cheap path. This is the dial that lets `verification-by-construction`'s tiered gate allocate its budget by information content rather than uniformly. Two constraints from the failure modes: novelty selects verification depth, never rejection (an unusual change is often the most valuable one); and the model must be periodically re-fit as the codebase's "self" legitimately drifts, or yesterday's architecture migration becomes permanently suspicious.
+- **Blockers:** —
+- **Plan:** —
+- **Assignee:** —
+- **Priority:** P2
+- **External-ID:** github:Intense-Visions/harness-engineering#1561
+
+### Reliability as a purchasable quantity: N-version generation with voting
+
+- **Status:** planned
+- **Spec:** —
+- **Summary:** Information theory's oldest trade: reliability over a noisy channel is purchasable with redundancy, at a known rate cost. Agent generation is the noisy channel; today the harness sends every change through it once and spends the redundancy budget on *checking*. For the highest-consequence changes, spend it on *generation* instead: k independent implementations of the same intent (different models, seeds, or decomposition angles — diversity is the load-bearing property), behavioral cross-checking of the candidates against each other and the acceptance criteria, and either majority agreement or divergence escalated to a human with the disagreement itself as the evidence. Divergence is the free gift: where independent implementations disagree is precisely where the specification was ambiguous, caught *before* merge rather than in production. Build as a per-risk-tier dial bound to `risk-tiered-review-gate`'s path classification — k=1 for routine surfaces, k=3+ on the paths where being wrong is expensive — with the cost curve reported per tier so the reliability/spend trade is an explicit decision. Orchestration patterns for this exist in the workflow layer; this item makes it a declared, budgeted gate policy rather than an ad-hoc pattern.
+- **Blockers:** —
+- **Plan:** —
+- **Assignee:** —
+- **Priority:** P2
+- **External-ID:** github:Intense-Visions/harness-engineering#1563
 
 ## v5.0 — Catalog Rationalization
 
@@ -1031,6 +1237,149 @@ last_manual_edit: 2026-06-27T12:51:51.967Z
 - **Priority:** —
 - **External-ID:** github:Intense-Visions/harness-engineering#1471
 
+### Join burn's token attribution to shipped outcomes — cost per merged PR
+
+- **Status:** planned
+- **Spec:** —
+- **Summary:** `per-subagent-token-attribution-in-burn` (#1270, done) established per-subagent and per-fleet-lane token attribution from the transcript scan. Nothing joins that spend to an outcome, so the harness cannot answer the only question that governs whether the autonomous tier scales: **what does one merged pull request cost?** Evidence from a 90-day measurement across a 1,957-repository organisation: one operator at 22.1 merged PRs per weekday was running at ~78% of a weekly usage budget, so replicating that operating pattern across nine engineers is a procurement problem before it is a tooling one — and the arithmetic was invisible until computed by hand. Build: attribute each fleet lane's token spend to the PR (or PRs) it produced, via the existing lane provenance file plus branch/PR linkage, and emit `{tokens_in, tokens_out, cache_read, prs_merged, cost_per_pr}` per lane and per skill. Enables cost regressions to be caught like performance regressions, and makes every efficiency item below measurable rather than argued. Note the denominator trap this item must avoid: dividing spend by *merged* PRs ignores lanes that produced nothing, so the figure is only honest once fleet failure categorisation lands.
+- **Blockers:** Needs fleet success rate as a denominator — `extend-adoption-jsonl-with-failure-reason-categorization` is blocked, so cost-per-PR would currently divide by completed lanes only and understate true cost per shipped unit
+- **Plan:** —
+- **Assignee:** —
+- **Priority:** P1
+- **External-ID:** github:Intense-Visions/harness-engineering#1522
+
+### Scope `harness validate` to the changed surface — 68% of all invocations
+
+- **Status:** planned
+- **Spec:** —
+- **Summary:** Adoption telemetry from a dogfood consumer (`.harness/metrics/adoption.jsonl`, 3,090 records) shows `cli/validate` accounts for **2,097 invocations — 68% of every harness CLI call**, with `cli/check-deps` second at 441 (14%). Two commands are 82% of all usage; nothing else exceeds 65 calls. No `--changed`, `--since`, `--scope`, `--affected` or `--incremental` flag exists in `package.json` or `harness.config.json`, so the hot path appears to re-validate the full surface every time — while the same repo's `.turbo/cache` holds 12,234 entries at 1.6 GB, meaning the underlying task work is already memoised and `validate` is likely not riding it. Build: an affected-only mode that derives the changed surface from git and delegates to the existing cache, with the full sweep reserved for pre-merge and scheduled runs. This is the single highest-leverage latency and cost fix available, because it multiplies against the most-called command in the tool.
+- **Blockers:** —
+- **Plan:** —
+- **Assignee:** —
+- **Priority:** P1
+- **External-ID:** github:Intense-Visions/harness-engineering#1523
+
+### Enforce a context-replay budget per fleet leaf
+
+- **Status:** planned
+- **Spec:** —
+- **Summary:** Measured local usage across 698 sessions and 321,281 messages: output 120,970,128 tokens against **cache-read 35,989,246,864 — a 298:1 ratio**. Cache creation to cache read is 1:27, so caching itself is healthy; the volume is the problem. The workload is overwhelmingly context *replay*, not generation, which means efficiency work targeted at output tokens addresses 0.3% of spend. Every fresh fleet leaf pays a new context load, so fan-out width multiplies the dominant cost term. Build: a declared context budget per leaf, enforced at dispatch and failing loudly rather than silently spending; batching of queue items per leaf to amortise the load; and routing leaves through `code_outline` / `code_unfold` / `find_context_for` instead of raw file reads. Complements `context-surface-attribution-report-with-exact-token-counts` (#1274), which measures the always-loaded static surface — this item governs the dynamic replay volume that dwarfs it.
+- **Blockers:** Depends on cost-per-merged-pr-attribution for a before/after signal
+- **Plan:** —
+- **Assignee:** —
+- **Priority:** P1
+- **External-ID:** github:Intense-Visions/harness-engineering#1524
+
+### Track merged-but-unreleased inventory as a first-class metric
+
+- **Status:** planned
+- **Spec:** —
+- **Summary:** A dogfood consumer with **1,132 merged pull requests has 0 GitHub releases and 0 tags**, alongside **138 pending changesets** — every one an unshipped unit of declared change. The release pipeline is configured and active (`release.yml`, plus several per-target deploy workflows) and 30 deployments exist across preview and production environments, so this is not a broken pipeline but an unmeasured one: merge throughput rose without release throughput following, and nothing in the harness noticed. Merged is not shipped, and a throughput claim built on merge counts is inflated by exactly this gap. Build: pending-changeset count and age, merged-but-unreleased PR count, and time-from-merge-to-release as tracked signals per surface, with a threshold that warns when inventory outgrows release cadence. Cheap to compute, and it converts a silent accumulation into a visible one.
+- **Blockers:** —
+- **Plan:** —
+- **Assignee:** —
+- **Priority:** P1
+- **External-ID:** github:Intense-Visions/harness-engineering#1526
+
+### Instrument rework rate per surface
+
+- **Status:** planned
+- **Spec:** —
+- **Summary:** On a dogfood consumer, **215 of 1,411 distinct issue references appear in more than one commit — 15.2%**. Some of that is legitimately multi-part work; the remainder is rework, and rework at the autonomous tier is waste that scales directly with the token budget rather than with headcount. Today nothing distinguishes "this issue took four PRs because it was large" from "this issue took four PRs because the first three were wrong," so the harness cannot tell an operator that a surface is churning. Build: per-surface rework rate from issue-to-PR fan-out plus superseded/closed-unmerged PRs, separated from planned multi-part delivery by roadmap linkage, and surfaced next to throughput so the two are never read apart. Prerequisite for claiming any efficiency win: a 10x throughput gain with a 15% rework rate is a 10x waste gain too.
+- **Blockers:** —
+- **Plan:** —
+- **Assignee:** —
+- **Priority:** P2
+- **External-ID:** github:Intense-Visions/harness-engineering#1528
+
+### Route by value per unit spend, not cost per change
+
+- **Status:** planned
+- **Spec:** —
+- **Summary:** `cost-per-merged-pr-attribution` makes spend visible per change, and `adaptive-model-routing` picks the cheapest capable backend for a given task. Neither asks whether the work was worth doing. Once compute is a material line item rather than a personal quota, the governing question stops being "what did this change cost" and becomes "what did this outcome return" — and the harness needs the ability to decline work whose expected value does not justify its spend. Build on `outcome-eval`, which already gates spec satisfaction: attribute spend to *intents* and join it to realised outcome signal, expose expected-value estimates at selection time so `roadmap-pilot` and the fleet SELECT phases can rank on return rather than effort, and make declining an item on economic grounds a first-class, logged decision. The failure mode this prevents is specific and cheap to fall into: driving cost per change down while raising total spend on work nobody needed.
+- **Blockers:** Depends on `cost-per-merged-pr-attribution` and `intent-as-the-unit-of-record`
+- **Plan:** —
+- **Assignee:** —
+- **Priority:** P3
+- **External-ID:** github:Intense-Visions/harness-engineering#1542
+
+### Let the harness run a controlled experiment on its own effect
+
+- **Status:** planned
+- **Spec:** —
+- **Summary:** Every effectiveness claim the harness can make today is observational, and observational claims about engineering process are close to unfalsifiable. A 90-day measurement across 1,957 repositories produced a defensible 6x throughput-per-effective-head figure and could not establish that the harness caused any of it — the inflection coincided with other changes, the high-output cohort self-selected, failed adoption leaves no trace, and no counterfactual exists. That is a structural limit of observation, not a gap in rigour, and it will not close with more telemetry. Build the experiment instead: surface-level assignment (a declared set of repositories or work-streams runs with a capability enabled, a matched set runs without), pre-registered outcome measures so the metric cannot be chosen after the result, a stability requirement across at least two windows before a verdict, and refusal to report an effect when assignment was not held. Applies to any capability — a fleet, a gate tier, model routing, an enablement cohort. Nothing else on this roadmap can distinguish "the harness works" from "the people who adopt the harness were already fast," and that distinction is the whole adoption argument.
+- **Blockers:** Depends on `denominator-declaration-in-metric-outputs` and `stability-gate-on-ranked-outputs` for the measurement floor
+- **Plan:** —
+- **Assignee:** —
+- **Priority:** P2
+- **External-ID:** github:Intense-Visions/harness-engineering#1551
+
+### Estimate the defects you did not find
+
+- **Status:** planned
+- **Spec:** —
+- **Summary:** Every quality figure the harness reports counts *found* problems — review findings, gate failures, reverts — and says nothing about what remains, which is the number that actually governs release confidence. Ecology solved this a century ago: capture-recapture. Mark what one observer finds, see how much a second independent observer's findings overlap, and the overlap estimates the total population including the unseen remainder. The harness already runs multiple independent reviewers (code, security, adversarial, races, typescript-strict) over the same diff; their findings are captures. Build: per-review Lincoln-Petersen (or multi-list log-linear) estimation over the independent reviewers' finding sets, reported as "found 7, overlap pattern implies ~11, estimated 4 latent" — per surface and per release. Two disciplines fall out for free: reviewers must stay genuinely independent (shared context inflates overlap and *understates* latent defects — a measurable bias, so measure it), and a rising latent estimate on a surface is an early-warning signal no counting metric can produce. Nobody in this product category reports what they did not find.
+- **Blockers:** —
+- **Plan:** —
+- **Assignee:** —
+- **Priority:** P2
+- **External-ID:** github:Intense-Visions/harness-engineering#1553
+
+### Run the delivery pipeline as a queueing system with a utilisation target
+
+- **Status:** planned
+- **Spec:** —
+- **Summary:** The pipeline is a queueing network — intake, decomposition, execution, verification, review, merge, release — and queueing theory makes hard, non-obvious predictions about it. Kingman's formula: wait time explodes non-linearly as any stage's utilisation approaches 100%, multiplied by variance in arrival and service times. The practical consequences run against engineering intuition: a review stage at 95% utilisation is not efficient, it is a latency bomb; large batch-size variance (one-line fixes mixed with thousand-line features in the same queue) inflates everyone's wait; and adding capacity at a non-bottleneck stage does nothing. Measured evidence already on hand: a consumer whose merge stage ran fine while its release stage sat at zero throughput accumulated 138 units of unshipped inventory — a classic unbalanced-line failure. Build: model each stage with arrival rate, service time and its variance from telemetry the harness already has; report utilisation and predicted-vs-observed wait per stage; flag any stage above a declared utilisation target (queueing practice says ~80%); and size batches to cut service-time variance. This reframes `team-level-capacity-governor` from a static allocator into a control loop with a law behind it.
+- **Blockers:** —
+- **Plan:** —
+- **Assignee:** —
+- **Priority:** P2
+- **External-ID:** github:Intense-Visions/harness-engineering#1555
+
+### Explore/exploit allocation for routing decisions, with early stopping
+
+- **Status:** planned
+- **Spec:** —
+- **Summary:** The harness makes the same routing decisions thousands of times — which model tier for this task class, which reviewer configuration, which decomposition strategy — and currently either fixes them by config or (in `adaptive-model-routing`) escalates on failure. Fixed policies pay a hidden price: they never learn whether the cheaper option became good enough, and the volume that makes agentic systems expensive is exactly the volume that makes learning cheap. Build the two standard instruments. First, bandit allocation (Thompson sampling) over repeated routing decisions: mostly exploit the best-known arm, always spend a small declared fraction exploring alternatives, converge automatically as evidence accumulates — bounded regret instead of permanent guessing. Second, sequential testing (SPRT-style) for the one-shot questions `controlled-experiment-harness-for-its-own-effect` asks: instead of fixing a sample size up front, stop the moment the evidence crosses a declared threshold — typically halving the cost of an answer at the same error rates. Both must respect the existing floor: explored arms still pass every gate; exploration varies *cost*, never *safety*. Together they make the harness the first tool in this category whose routing decisions provably improve with use.
+- **Blockers:** Depends on `cost-per-merged-pr-attribution` for the reward signal
+- **Plan:** —
+- **Assignee:** —
+- **Priority:** P3
+- **External-ID:** github:Intense-Visions/harness-engineering#1557
+
+### Measure whether reviewer confidence means anything
+
+- **Status:** planned
+- **Spec:** —
+- **Summary:** Review agents emit verdicts with confidence (CONFIRMED/PLAUSIBLE, severity ranks, pass/fail), and every downstream decision — merge, escalate, quarantine — treats those labels as meaningful. Nothing checks them against reality. Metrology's answer is calibration: join each verdict to its realized outcome (did the flagged defect surface? did the passed change later revert or cause an incident?) and produce per-judge reliability curves and Brier scores. A judge whose "90% confident" findings are real 60% of the time is systematically mispricing risk, and every gate threshold tuned against it is wrong. Build: outcome joins via the provenance chain (`emit-provenance-trailer-from-agent-commits` supplies the key), per-reviewer and per-fault-class calibration tracking, recalibrated thresholds served back to the gate stack, and drift alerts when a model or prompt change silently shifts a judge's calibration. Complements `mutation-testing-the-gate-stack` (which measures detection against *known* faults) and `capture-recapture-defect-estimation` (which estimates the unseen population): this one measures whether the confidence attached to any verdict is worth the electrons it is written with.
+- **Blockers:** Depends on `emit-provenance-trailer-from-agent-commits`
+- **Plan:** —
+- **Assignee:** —
+- **Priority:** P2
+- **External-ID:** github:Intense-Visions/harness-engineering#1560
+
+### A near-miss ledger: leading indicators before the incident
+
+- **Status:** planned
+- **Spec:** —
+- **Summary:** Safety engineering's core empirical result is that serious incidents sit atop a much larger, observable base of near-misses, and that the *ratio* moves before the incident rate does. The harness generates near-misses constantly and discards them: a gate catch is a defect that almost merged; a revert is a defect that almost shipped; a flake that passed on retry is a verification hole; an injected fault that escaped one gate but not the next (`mutation-testing-the-gate-stack`) is a measured hole. Build: a unified near-miss ledger with a small taxonomy (caught-at-gate, caught-at-review, reverted-post-merge, escaped-to-production), per-surface ratios tracked over time, and statistical process control on the series — Shewhart/EWMA control charts so alerts fire on special-cause variation rather than on noise, which is the century-old answer to the alert fatigue every other metrics item on this roadmap will otherwise produce. The payoff is the one thing lagging metrics cannot give: a surface whose near-miss ratio is deteriorating is announcing its next incident while there is still time to spend verification budget on it.
+- **Blockers:** —
+- **Plan:** —
+- **Assignee:** —
+- **Priority:** P2
+- **External-ID:** github:Intense-Visions/harness-engineering#1565
+
+### Causal answers when you cannot randomize
+
+- **Status:** planned
+- **Spec:** —
+- **Summary:** `controlled-experiment-harness-for-its-own-effect` covers the cases where assignment can be held. Most real adoption questions are not those cases: teams adopt when they choose, rollouts are staggered by readiness, and nobody will randomize a production org to settle a tooling debate. Econometrics spent fifty years on exactly this: difference-in-differences (adopters vs non-adopters, before vs after, so secular trends cancel), synthetic control (a weighted composite of non-adopting repositories that tracked the adopter's pre-adoption trajectory becomes its counterfactual), and event-study designs around staggered rollouts. A 90-day measurement across a 1,957-repository organisation produced a defensible throughput effect and could not distinguish tool causation from cohort self-selection — precisely the gap these methods close, and the same repository population is the donor pool synthetic control needs. Build: the estimators packaged over telemetry the harness already collects, pre-registered outcome definitions shared with the experiment harness, and mandatory reporting of the identifying assumption alongside every estimate — a DiD that hides its parallel-trends assumption is marketing, not measurement.
+- **Blockers:** Depends on `denominator-declaration-in-metric-outputs`
+- **Plan:** —
+- **Assignee:** —
+- **Priority:** P3
+- **External-ID:** github:Intense-Visions/harness-engineering#1566
+
 ## v5.0 — Trust & Security Model
 
 ### Move sentinel-pre/post to standard hook profile
@@ -1109,6 +1458,61 @@ last_manual_edit: 2026-06-27T12:51:51.967Z
 - **Assignee:** —
 - **Priority:** —
 - **External-ID:** github:Intense-Visions/harness-engineering#1059
+
+### Emit a machine-readable provenance trailer from agent-authored commits
+
+- **Status:** planned
+- **Spec:** —
+- **Summary:** Harness-authored work is statistically invisible. Measured across two orgs: a personal org carries **69 AI co-author trailers in 6,570 commits (1%)**, and a dogfood product repo **974 in 4,618 (21%)** — while its highest-volume author shows **5 trailers across 3,988 commits**, because the fleet path emits nothing. Consequences compound: org-wide AI-adoption reporting undercounts by roughly 5x and cannot distinguish the autonomous tier from interactive assistance (the distinction that explains an 18x throughput gap); cost attribution has no key to join spend to authorship; and in a regulated codebase there is no record of which agent, skill and version produced a change touching a gated path. Build: a distinct trailer — `Harness-Run: <skill>@<version>` plus lane and agent id — emitted by the fleet path rather than co-opting `Co-authored-by`, so tier detection is mechanical and the trailer doubles as the accountability record. Foundation for `cost-per-merged-pr-attribution` and for human-in-the-loop attestation on gated paths.
+- **Blockers:** —
+- **Plan:** —
+- **Assignee:** —
+- **Priority:** P1
+- **External-ID:** github:Intense-Visions/harness-engineering#1531
+
+### Select gates by contributor trust tier
+
+- **Status:** planned
+- **Spec:** —
+- **Summary:** Harness gates are uniform per repository: the same checks run for a maintainer and for a first-time contributor from one of tens of thousands of forks. That is simultaneously too strict and too weak — it wastes compute on trusted changes and applies code-authored-by-strangers to the same pipeline that holds secrets. It also collides with a structural platform gate: fork pull requests require human approval before workflows run, and on a measured dogfood consumer **47 of 100 workflow runs never reached a verdict** (33 awaiting approval, 14 cancelled), which is finished work parked behind a person. Build: declared trust tiers (maintainer, returning contributor, first-time, automated) with a gate profile per tier — secret-free sandboxed verification for untrusted changes, full pipeline for trusted ones, and an explicit promotion path as a contributor's history accumulates. Related but distinct from `risk-tiered-review-gate`, which tiers by *what the change touches*; this tiers by *who wrote it*, and both dimensions are needed.
+- **Blockers:** —
+- **Plan:** —
+- **Assignee:** —
+- **Priority:** P2
+- **External-ID:** github:Intense-Visions/harness-engineering#1545
+
+### Provenance across the trust boundary
+
+- **Status:** planned
+- **Spec:** —
+- **Summary:** `emit-provenance-trailer-from-agent-commits` makes internally produced agent work self-declaring. External contributors do not run the harness, so inbound work carries whatever provenance its author chose — usually none. As agent-assisted contribution becomes common, a project receiving hundreds of pull requests a day cannot distinguish a reviewed human change from unreviewed machine output, and the tier distinction that governs internal gate selection is unavailable at exactly the boundary where trust matters most. Build both halves: a declared, verifiable provenance convention contributors can opt into (and that `contributor-trust-tiering` can reward with lighter gates and faster CI), plus heuristic detection for undeclared agent authorship used only to *select verification depth*, never to reject a contribution or judge a contributor. State that constraint in the design: a false positive that gates a change harder is acceptable, and one that closes a change is not.
+- **Blockers:** Depends on `emit-provenance-trailer-from-agent-commits` and `contributor-trust-tiering`
+- **Plan:** —
+- **Assignee:** —
+- **Priority:** P2
+- **External-ID:** github:Intense-Visions/harness-engineering#1550
+
+### Make the attestation chain tamper-evident, not just recorded
+
+- **Status:** planned
+- **Spec:** —
+- **Summary:** `emit-provenance-trailer-from-agent-commits` records who and what produced a change; a trailer in a commit message is mutable history — rebases rewrite it, and a compromised pipeline can forge it. The supply-chain world already built the answer: append-only transparency logs (Merkle-tree backed, the certificate-transparency / sigstore pattern), where each entry is provably included and the log is provably append-only, so tampering is detectable by anyone with the log head. Build: every gate verdict, policy version, attestation and dispatch decision appended to a per-project transparency log; inclusion proofs attached to releases; and a verifier any auditor can run offline. This is the difference between "our records say the security gate passed" and "here is a proof the security gate verdict existed before the release and has not been altered" — the standard regulated industries already accept for artifact signing, applied to the process itself. Turns the compliance story from trust-us into check-it-yourself, which is the only version that survives an audit run by a skeptic.
+- **Blockers:** Depends on `emit-provenance-trailer-from-agent-commits`
+- **Plan:** —
+- **Assignee:** —
+- **Priority:** P3
+- **External-ID:** github:Intense-Visions/harness-engineering#1556
+
+### Inbound text is attacker input to the triage agents
+
+- **Status:** planned
+- **Spec:** —
+- **Summary:** The maintainer-side items (`inbound-contribution-triage-at-scale`, `machine-pre-review-for-untrusted-changes`, `semantic-duplicate-detection-at-backlog-scale`) all point LLM agents at text authored by strangers — issue bodies, PR descriptions, commit messages, diffs. At the volumes that motivate those items (a measured large open project takes in ~131 issues per day), that is a continuous stream of attacker-controllable instructions flowing into autonomous systems that hold labels, close/merge authority, and CI dispatch. Prompt injection here is not hypothetical; it is the expected steady state. Build the hardening as a property of the intake pipeline, not of individual prompts: strict instruction/data separation so inbound text is never interpolated into an agent's directive channel; capability-stripped triage agents that can *propose* but not execute closes, merges, or dispatches; canary tokens in agent context whose exfiltration marks a compromised run; injection-attempt detection that routes the item to a quarantine queue with the evidence attached; and red-team fixtures in CI so regressions in any of this fail the build. Also covers the slower attack: outcome-learning loops (`bandit-allocation-with-sequential-stopping`, `contributor-trust-tiering` promotion) must treat inbound-influenced outcomes as poisonable training signal and cap their learning rate from untrusted sources.
+- **Blockers:** —
+- **Plan:** —
+- **Assignee:** —
+- **Priority:** P1
+- **External-ID:** github:Intense-Visions/harness-engineering#1559
 
 ## v5.0 — Article-Framing Docs & Personas
 
@@ -1358,7 +1762,7 @@ last_manual_edit: 2026-06-27T12:51:51.967Z
 
 ### Minimum-Viable-Harness init tier
 
-- **Status:** planned
+- **Status:** done
 - **Spec:** docs/knowledge/decisions/0101-minimum-viable-harness-init-tier.md
 - **Summary:** Formalize a `minimal` tier as the documented floor of the existing init adoption ladder ("basic → intermediate → load-bearing-minimum → advanced"), mapped one-to-one to the field's 5-item Minimum Viable Harness (OpenAI; Augment Code). Motivation: `harness-initialize-project` front-loads a 10–20 min STRATEGY.md interview + framework confirmation (~10 options) + design-system before any guardrail lands, so time-to-first-guardrail is high — friction precisely where the field has standardized on a fast, minimal on-ramp, and it matters more for us because our skills are adopter-portable. **Scope if pursued:** (1) Define the `minimal` tier contract in the init adoption-level model = exactly these 5 artifacts and nothing else: a short generated `AGENTS.md` via the existing `generateAgentsMap()`; one runnable local check (a single `harness verify`-style command wired in); one fail-closed `check-arch` rule with baseline seeded; one pre-commit (or pre-push) verification hook running that check; one permission boundary (`block-no-verify` or equivalent single guarded action). (2) Wire `harness init --tier minimal` to scaffold exactly those 5 and print an explicit, ordered upgrade path ("run `/harness:strategy` … then `harness init --tier intermediate` to add …") — STRATEGY/framework/design-system/telemetry/Tier-0 MCP integrations are **deferred, not skipped**. (3) Add a "start minimal" fast-path branch in `harness-initialize-project` Phase 1 (`agents/skills/claude-code/harness-initialize-project/SKILL.md`). (4) Verify re-running init at a higher tier is additive over a `minimal` install (no clobber). **Acceptance:** `--tier minimal` produces those 5 artifacts and only those; the printed upgrade path lands you at `intermediate` additively; existing full-flow init behavior unchanged (minimal is opt-in via `--tier`). **Dependencies:** none. **Source analysis:** docs/architecture/harness-ecosystem-pattern-adoption/analysis.md.
 - **Blockers:** —
@@ -1366,6 +1770,28 @@ last_manual_edit: 2026-06-27T12:51:51.967Z
 - **Assignee:** —
 - **Priority:** —
 - **External-ID:** github:Intense-Visions/harness-engineering#1470
+
+### Derive candidate work from production signal, not only from human specification
+
+- **Status:** planned
+- **Spec:** —
+- **Summary:** Human specification supply is the absolute ceiling on autonomous throughput. `unattended-work-decomposition` removes the human from *breaking down* work; nobody has removed them from *originating* it, and no person authors hundreds of units of intent per day. Beyond some rate the organisation stops being engineers implementing decisions and becomes a loop that senses and responds — so candidate work must be derivable from evidence: error and incident streams, performance regressions, usage and abandonment patterns, dependency and security advisories, support themes. `operations-enforcement-skill-production-signal-ingestion` covers *ingesting* production signal into the knowledge graph; this item covers turning ingested signal into ranked, specified candidate work with provenance back to the observation that motivated it. Build with a hard constraint: derived intent enters the same ranked queue and the same human confirmation path as authored intent, never a privileged one. A system that can both invent and execute its own work without a gate is not a productivity tool.
+- **Blockers:** Depends on `operations-enforcement-skill-production-signal-ingestion`
+- **Plan:** —
+- **Assignee:** —
+- **Priority:** P3
+- **External-ID:** github:Intense-Visions/harness-engineering#1540
+
+### Closed-loop detect, revert, repair on production regression
+
+- **Status:** planned
+- **Spec:** —
+- **Summary:** At low change rates a regression can wait for a human to notice. At high rates the window between shipping a fault and shipping a hundred more changes on top of it collapses, and the cost of unwinding grows with every subsequent merge — so mean time to detect becomes the dominant risk term, not defect rate. The pieces exist separately: `harness-deployment` enforces pre/post-deploy gates with rollback wiring (#712, delivered), `harness-rollback` exists as a skill, and canary tooling watches suites. Nothing closes the loop autonomously. Build: production signal bound to the change that introduced it via provenance, automatic revert of the identified change under declared conditions, a repair lane dispatched with the failure evidence attached, and a hard rule that autonomous revert is always permitted while autonomous *repair* requires the same gates as any other change. Measured on a dogfood consumer, reverts run at 0.15% of commits — low, but with no external users the sample contains no true production regressions at all, so this capability is unvalidated rather than unnecessary.
+- **Blockers:** Depends on `emit-provenance-trailer-from-agent-commits` for change attribution
+- **Plan:** —
+- **Assignee:** —
+- **Priority:** P3
+- **External-ID:** github:Intense-Visions/harness-engineering#1541
 
 ## Craft Pipeline
 
@@ -1492,6 +1918,72 @@ last_manual_edit: 2026-06-27T12:51:51.967Z
 - **Priority:** —
 - **External-ID:** github:Intense-Visions/harness-engineering#746
 
+### Make fan-out rate-limit aware, not just slot aware
+
+- **Status:** planned
+- **Spec:** —
+- **Summary:** Fleet concurrency is governed by compute slots (`min(16, CPUs - 2)` per workflow, with `fleet-command` holding each lane to a share of a global pool) but not by the API budgets the leaves actually consume. Measured during a 90-day org analysis: GitHub **code search is capped at 10 requests per minute**, and secondary rate limits fired repeatedly under modest parallelism — 10-way fan-out on the commits API produced silent under-fetching that returned wrong answers rather than errors (287 of 430 repositories read as zero). A slot-governed fleet whose leaves are API-bound will therefore degrade into throttling and, worse, into quietly incomplete results. Build: per-resource budgets alongside slot budgets, backoff shared across a fleet rather than per-leaf, and a hard rule that a truncated or throttled fetch fails the leaf instead of returning partial data. Pairs with `standardize-parallel-execution`; the failure mode is correctness, not just speed.
+- **Blockers:** —
+- **Plan:** —
+- **Assignee:** —
+- **Priority:** P2
+- **External-ID:** github:Intense-Visions/harness-engineering#1532
+
+### Semantic conflict detection and region leases for high-concurrency change
+
+- **Status:** planned
+- **Spec:** —
+- **Summary:** Fleet isolation today is per-lane worktrees plus textual merge, which is sufficient while concurrent lanes rarely touch the same code. At high change rates collision becomes the normal case rather than the exception — a ten-operator team at the top regime considered here implies thousands of merges per day against a substrate that serialises them. Textual non-conflict is also not semantic safety: two lanes can merge cleanly and jointly break an invariant neither violated alone. Build on the primitives that already exist (`predict_conflicts`, `compute_blast_radius`): advisory **leases** over code regions so lanes are dispatched to avoid collision rather than resolving it afterwards, semantic conflict checks over the union of concurrent changes rather than pairwise diffs, and change composition into verified batches so merge throughput is not one-at-a-time. Correctness, not speed, is the reason: the failure mode is a clean merge that is jointly wrong.
+- **Blockers:** —
+- **Plan:** —
+- **Assignee:** —
+- **Priority:** P3
+- **External-ID:** github:Intense-Visions/harness-engineering#1539
+
+### Treat in-flight internal lanes and inbound contributions as one index
+
+- **Status:** planned
+- **Spec:** —
+- **Summary:** `concurrent-change-coordination-at-scale` proposes region leases so internal lanes avoid collision. External contributors cannot participate in that protocol and should not have to — which produces two failures that only appear when both directions run at volume. First, **wasted contribution**: an internal lane rewrites a region an external pull request targets, and the contributor's work is invalidated by velocity they could not observe. On a project taking in hundreds of pull requests a day, that is a goodwill cost, not just a rework cost. Second, **duplicated effort**: an internal fleet generates a fix while a contributor submits the same fix, and neither queue knows about the other. Build: one index spanning in-flight internal lanes, the internal ranked queue and the inbound contribution queue; collision warnings surfaced to contributors *early* (ideally at issue-claim time, before they write anything); and duplicate detection that matches an inbound pull request against internal work-in-progress, not only against other inbound items.
+- **Blockers:** Depends on `concurrent-change-coordination-at-scale` and `semantic-duplicate-detection-at-backlog-scale`
+- **Plan:** —
+- **Assignee:** —
+- **Priority:** P2
+- **External-ID:** github:Intense-Visions/harness-engineering#1549
+
+### Fit a scalability law to fleet concurrency instead of guessing a cap
+
+- **Status:** planned
+- **Spec:** —
+- **Summary:** Fleet width is set by a static heuristic — slots derived from CPU count, a global pool shared across lanes. But parallel systems do not scale linearly: throughput follows the Universal Scalability Law, where contention (queueing on shared resources: merge serialisation, rate-limited APIs, the shared review stage) and coherency (cost of keeping workers consistent: rebases, conflict resolution, lease negotiation) first flatten and then *reverse* the throughput curve. Somewhere there is a width at which adding a lane reduces total output, and today nobody knows where it is. Build: instrument per-lane throughput at varying widths, fit the two USL coefficients per repository from observed data, and set dispatch width from the fitted optimum rather than from CPU count — re-fitting as the repo, gates and team change. The coherency coefficient is the diagnostic gold: a rising β says the constraint is rebase/conflict cost, which no amount of added width fixes and which points investment at `concurrent-change-coordination-at-scale` instead.
+- **Blockers:** —
+- **Plan:** —
+- **Assignee:** —
+- **Priority:** P2
+- **External-ID:** github:Intense-Visions/harness-engineering#1552
+
+### Compile comprehension once; stop re-deriving it per leaf
+
+- **Status:** planned
+- **Spec:** —
+- **Summary:** The dominant cost term in measured agent operation is context replay, not generation: one operator's local usage shows **cache-read tokens at 298x output tokens** across 698 sessions. What that volume buys, over and over, is the same thing — an agent re-reading source to re-derive an understanding some previous agent already held and discarded. The knowledge graph exists but is a *reference* agents may consult; source files remain the working substrate. Build the compiler analogy properly: a persistent, incrementally-maintained comprehension layer — per-module summaries, interface contracts, invariants, dependency slices — recompiled only for surfaces whose source changed (the git diff is the invalidation signal), versioned alongside the code, and served to fleet leaves as their *primary* context with raw source as the fallback for the region under edit. Correctness requirement stated up front: a stale summary is worse than no summary, so every served unit carries its source-hash provenance and the leaf can demand recompilation. This attacks the largest single line item in the token economics, and it compounds — every other item on this roadmap gets cheaper when comprehension stops being re-purchased per run.
+- **Blockers:** —
+- **Plan:** —
+- **Assignee:** —
+- **Priority:** P1
+- **External-ID:** github:Intense-Visions/harness-engineering#1558
+
+### Model-check the fleet lifecycle before running it unattended
+
+- **Status:** planned
+- **Spec:** —
+- **Summary:** The orchestration layer is becoming a distributed protocol: lanes with worktree isolation, region leases (`concurrent-change-coordination-at-scale`), budget stops mid-run (`budget-governor-for-unattended-dispatch`), park-and-report at human gates (`unattended-safe-contract-per-fleet-member`), admission arbitration (`unified-work-admission-control`). Protocols of this shape fail in interleavings no test suite explores: a lane parked at a gate holding a lease while the budget governor halts the lane that would release it; two fleets deadlocked on each other's regions; work lost when a stop lands between VERIFY and REPORT. Testing samples interleavings; model checking enumerates them. Build: a formal model (TLA+ or equivalent) of the lifecycle state machine — lanes, leases, budgets, gates, queues — checked for deadlock-freedom, no-lost-work, and bounded-park invariants, kept in the repository and re-checked in CI when the protocol changes. The model is small; the property it buys is exactly the one unattended operation stakes everything on: the system either finishes or parks cleanly, in *every* interleaving, not just the ones a test happened to produce.
+- **Blockers:** —
+- **Plan:** —
+- **Assignee:** —
+- **Priority:** P2
+- **External-ID:** github:Intense-Visions/harness-engineering#1562
+
 ## Planning & Process
 
 ### Init design + roadmap polish follow-ups
@@ -1595,8 +2087,8 @@ last_manual_edit: 2026-06-27T12:51:51.967Z
 
 ### Mid-Phase Context-Budget Trip Wire
 
-- **Status:** backlog
-- **Spec:** —
+- **Status:** done
+- **Spec:** docs/changes/mid-phase-context-budget-trip-wire/proposal.md
 - **Summary:** Fresh-context discipline in autopilot holds only between phases (each state dispatches a new cold subagent via subagent_type) — nothing watches a single long-running harness-task-executor turn or fleet lane for context creep within its own turn. Add a documented context-utilization threshold (a reasonable starting point is HumanLayer's own measured ~40%) that triggers an explicit write-state-and-restart action instead of leaving degradation to whatever the model does near its own context ceiling. Adapted from Dex Horthy/HumanLayer's "smart zone"/"dumb zone" context-engineering practice. Adoption #1 from docs/research/dex-horthy-humanlayer-comparison-analysis.md [HORTHY-1]
 - **Blockers:** —
 - **Plan:** —
@@ -1614,6 +2106,39 @@ last_manual_edit: 2026-06-27T12:51:51.967Z
 - **Assignee:** —
 - **Priority:** —
 - **External-ID:** github:Intense-Visions/harness-engineering#1404
+
+### Trustworthy spec-to-task decomposition without a human picking
+
+- **Status:** planned
+- **Spec:** —
+- **Summary:** Fleets consume a queue of independent, well-scoped items. Today a human produces that queue — `roadmap-pilot` selects, `harness-planner` breaks a spec into tasks, and a person confirms both. That is affordable while an operator dispatches a few fleet runs a day. It is the binding constraint at any operating point where the queue must be refilled faster than a person can groom it: measured on one dogfood consumer, issues were created faster than they were closed (587 against 464 over 90 days), but a newly onboarded repository starts with no ranked queue at all and the fleets idle. Build: decomposition that can run unattended with a confidence signal — spec or issue in, independently-verifiable tasks out, each with acceptance criteria and a declared blast radius — plus a quality gate that parks low-confidence decompositions for human attention rather than dispatching them. The measure of success is queue depth sustained without a human in the loop, not decomposition speed.
+- **Blockers:** Depends on `unattended-safe-contract-per-fleet-member`
+- **Plan:** —
+- **Assignee:** —
+- **Priority:** P2
+- **External-ID:** github:Intense-Visions/harness-engineering#1536
+
+### Make intent, not the diff, the unit of record
+
+- **Status:** planned
+- **Spec:** —
+- **Summary:** Every tracking, review, provenance and metric surface in the harness is keyed to the change: a commit, a pull request, a lane. That holds while a human could in principle read the change. At the upper end of the throughput regimes this roadmap contemplates — hundreds of merged changes per person per weekday — no human names, reads, or recalls an individual diff, and pull-request counts stop discriminating between operators entirely because the whole population converges. The artifact of record has to move up a level: a durable, addressable **intent** carrying its acceptance criteria, its blast radius, its conformance evidence and its outcome, with the diffs that satisfied it as an implementation detail beneath. Build: intent as a first-class entity linked to specs, tasks, changes and production outcomes; provenance and cost attributed to intents rather than commits; and review, roadmap and telemetry surfaces re-keyed onto it. Without this, every measurement surface degrades to noise exactly when volume makes measurement matter most.
+- **Blockers:** —
+- **Plan:** —
+- **Assignee:** —
+- **Priority:** P3
+- **External-ID:** github:Intense-Visions/harness-engineering#1538
+
+### Keep the human able to intervene: drills against automation complacency
+
+- **Status:** planned
+- **Spec:** —
+- **Summary:** Bainbridge's ironies of automation, forty years old and repeatedly fatal in aviation: the better the automation, the less practice the human gets, and the *worse* they perform in exactly the rare moments that need them. This roadmap concentrates that risk deliberately — policy-level control, unattended dispatch, closed-loop remediation all move humans from doing to supervising, and a supervisor who has not touched the manual path in six months cannot competently override a gate, resolve a novel conflict, or steer an incident. Aviation's answer is not less automation; it is mandatory proficiency: recurrent hand-flying, simulator drills, checklists rehearsed before they are needed. Build the harness equivalent: scheduled game-days that exercise the manual paths (gate override with justification, manual revert and repair, fleet-stop and state recovery) against `mutation-testing-the-gate-stack`'s injected scenarios in a quarantined environment; proficiency tracked per operator per path the way attestation authority is tracked; and — the enforcement with teeth — attestation authority on high-risk tiers *decays* without recent proficiency, so the signature on a gated change always comes from someone who could still do the job by hand.
+- **Blockers:** —
+- **Plan:** —
+- **Assignee:** —
+- **Priority:** P3
+- **External-ID:** github:Intense-Visions/harness-engineering#1568
 
 ## Dashboard & Visualization
 
@@ -1638,6 +2163,17 @@ last_manual_edit: 2026-06-27T12:51:51.967Z
 - **Assignee:** —
 - **Priority:** —
 - **External-ID:** github:Intense-Visions/harness-engineering#197
+
+### Keep humans able to model the system at machine change rates
+
+- **Status:** planned
+- **Spec:** —
+- **Summary:** Ashby's law, applied honestly: a controller must carry as much variety as the system it controls. Humans steering by policy (`policy-level-human-control`) can only steer what they can still mentally model, and at hundreds of changes a week no per-change surface — not even a good pre-merge brief — maintains that model; it degrades one PR at a time until the human is signing attestations about a system they no longer understand. That degradation is silent, and it is the failure mode automation research has documented for forty years. Build the counter-instrument: periodic system-level narratives generated from the intent and provenance layers — what changed *architecturally* this week, which invariants were touched, where entropy and churn concentrated, what the fleets decided autonomously and why, what diverged from the operator's stated expectations — at the abstraction level a human actually reasons at, with drill-down to evidence. Add the measurement that makes it honest: track comprehension debt explicitly (surfaces no human has attested understanding of within N weeks) the way coverage tracks untested code. The per-PR accountability brief answers "should this merge"; this answers "do I still understand the thing I am responsible for."
+- **Blockers:** Depends on `intent-as-the-unit-of-record`
+- **Plan:** —
+- **Assignee:** —
+- **Priority:** P2
+- **External-ID:** github:Intense-Visions/harness-engineering#1564
 
 ## Maintenance: Lint & Deps
 
@@ -1799,6 +2335,61 @@ last_manual_edit: 2026-06-27T12:51:51.967Z
 ## Hermes Adoption
 
 ## v3.0 Graph Intelligence
+
+### Graph edge provenance enum (EXTRACTED / INFERRED / AMBIGUOUS)
+
+- **Status:** done
+- **Spec:** docs/knowledge/decisions/0104-graphify-adoption-not-replacement.md
+- **Summary:** Add a first-class provenance enum on graph edges alongside the existing `confidence` float (`packages/graph/src/types.ts`), set at ingest time in CodeIngestor/TopologicalLinker (AST-explicit → EXTRACTED, resolver-derived → INFERRED). Lets every adapter distinguish read-directly from inferred. Highest-leverage, smallest-surface item of the Graphify Option-A port (ADR 0104).
+- **Blockers:** —
+- **Plan:** —
+- **Assignee:** —
+- **Priority:** P1
+- **External-ID:** github:Intense-Visions/harness-engineering#1511
+
+### Graph community detection (Leiden / Louvain)
+
+- **Status:** done
+- **Spec:** docs/knowledge/decisions/0104-graphify-adoption-not-replacement.md
+- **Summary:** Add a real community-detection pass over GraphStore with labeled subsystems exposed on nodes. Today only `clusterBySource` grouping exists (`packages/graph/src/ingest/KnowledgeLinker.ts:163`). Ported from Graphify (ADR 0104 Option A).
+- **Blockers:** —
+- **Plan:** —
+- **Assignee:** —
+- **Priority:** —
+- **External-ID:** github:Intense-Visions/harness-engineering#1512
+
+### ContextQL shortest-path query primitive
+
+- **Status:** done
+- **Spec:** docs/knowledge/decisions/0104-graphify-adoption-not-replacement.md
+- **Summary:** Add `shortestPath(a, b)` between two arbitrary nodes to ContextQL, surfaced via NLQ + a CLI verb. Complements the existing explain/impact/relationships intents. Ported from Graphify (ADR 0104 Option A).
+- **Blockers:** —
+- **Plan:** —
+- **Assignee:** —
+- **Priority:** —
+- **External-ID:** github:Intense-Visions/harness-engineering#1513
+
+### "Code changed — re-verify" staleness flag on learnings
+
+- **Status:** planned
+- **Spec:** docs/knowledge/decisions/0104-graphify-adoption-not-replacement.md
+- **Summary:** Add a staleness flag to learning/execution_outcome nodes that trips when the cited source moved, surfaced in NLQ. Ported from Graphify's reflection loop — the sharpest idea from their work-memory system (ADR 0104 Option A).
+- **Blockers:** —
+- **Plan:** —
+- **Assignee:** —
+- **Priority:** —
+- **External-ID:** github:Intense-Visions/harness-engineering#1514
+
+### [Spike] Graphify polyglot sidecar (GraphifyIngestor)
+
+- **Status:** backlog
+- **Spec:** docs/knowledge/decisions/0104-graphify-adoption-not-replacement.md
+- **Summary:** SPIKE — optional GraphifyIngestor that reads Graphify's `graph.json` to enrich our code-graph with 37-language tree-sitter AST fidelity. Gated on a DEMONSTRATED polyglot fidelity gap; NOT a committed dependency (Python runtime + undocumented schema). ADR 0104 Option B, explicitly out-of-scope as a commitment.
+- **Blockers:** —
+- **Plan:** —
+- **Assignee:** —
+- **Priority:** —
+- **External-ID:** github:Intense-Visions/harness-engineering#1515
 
 ## v3.0 Viral Flywheel
 

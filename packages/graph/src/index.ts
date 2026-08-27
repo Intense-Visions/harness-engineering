@@ -4,9 +4,13 @@ export type {
   GraphEdge,
   NodeType,
   EdgeType,
+  EdgeProvenance,
   SourceLocation,
   ContextQLParams,
   ContextQLResult,
+  ShortestPathResult,
+  ShortestPathOptions,
+  ShortestPathDirection,
   ProjectionSpec,
   IngestResult,
   GraphMetadata,
@@ -16,6 +20,7 @@ export type {
 export {
   NODE_TYPES,
   EDGE_TYPES,
+  EDGE_PROVENANCES,
   OBSERVABILITY_TYPES,
   CURRENT_SCHEMA_VERSION,
   NODE_STABILITY,
@@ -75,6 +80,19 @@ export { DecisionIngestor } from './ingest/DecisionIngestor.js';
 export { RequirementIngestor } from './ingest/RequirementIngestor.js';
 export { inferDomain, DEFAULT_PATTERNS, DEFAULT_BLOCKLIST } from './ingest/domain-inference.js';
 export type { DomainInferenceOptions } from './ingest/domain-inference.js';
+
+// Community Detection
+export { LouvainDetector } from './community/LouvainDetector.js';
+export { detectCommunities, buildCommunityInput } from './community/detectCommunities.js';
+export type { DetectCommunitiesOptions } from './community/detectCommunities.js';
+export type {
+  CommunityDetector,
+  CommunityDetectorOptions,
+  CommunityDetectionResult,
+  CommunityGraphInput,
+  CommunityEdgeInput,
+  CommunityAssignment,
+} from './community/CommunityDetector.js';
 
 // Knowledge Pipeline
 export { KnowledgePipelineRunner } from './ingest/KnowledgePipelineRunner.js';
