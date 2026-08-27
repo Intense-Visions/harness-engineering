@@ -945,6 +945,28 @@ last_manual_edit: 2026-06-27T12:51:51.967Z
 - **Priority:** P3
 - **External-ID:** github:Intense-Visions/harness-engineering#1667
 
+### Drum-buffer-rope — subordinating work release to the constraint
+
+- **Status:** planned
+- **Spec:** —
+- **Summary:** Theory of Constraints scheduling rests on one observation with teeth: a system produces at the pace of its constraint, so releasing work faster than the constraint's pace creates only queues, and an hour lost at the constraint is an hour lost forever while an hour lost elsewhere is a mirage. Drum-buffer-rope operationalizes it — the drum is the constraint's schedule, the buffer is protective work-in-progress placed only in front of the constraint, and the rope ties upstream release to the drum's pace so nothing enters faster than the bottleneck can consume. The pipeline's constraint is usually known (review attention or verification compute) yet release is governed by demand at the front door: intents decompose and dispatch at arrival rate, queueing at the constraint as aging inventory. Implement the mechanism over instruments already filed: the queueing model and capacity governor identify the constraint and its pace (the drum); admission control's release rate ties to it (the rope); buffers concentrate before the constraint only, sized by buffer-management (penetration alarms — how deep into the protective buffer has consumption reached — as the operational signal); and everything non-constraint deliberately idles rather than producing queue. The cultural import is the hard part encoded as policy: utilization of non-constraints is explicitly not a goal, and the telemetry stops rewarding it.
+- **Blockers:** —
+- **Plan:** —
+- **Assignee:** —
+- **Priority:** P3
+- **External-ID:** github:Intense-Visions/harness-engineering#1676
+
+### Newsvendor provisioning — critical-fractile sizing for advance capacity commitments
+
+- **Status:** planned
+- **Spec:** —
+- **Summary:** Inventory theory's newsvendor model solves one-shot provisioning under demand uncertainty exactly: given a demand distribution, an overage cost (provisioned but unused) and an underage cost (demand unmet), the optimal commitment is the critical fractile — provision to the demand quantile equal to underage/(underage+overage) — not the mean, not the max, and never a round number chosen in a meeting. The pipeline makes newsvendor decisions constantly without the arithmetic: reserving compute/quota windows for overnight fleets, pre-warming worktrees and caches, sizing standing verifier pools, pre-purchasing rate-limit headroom — each committed before demand is known, each with asymmetric regret (an idle reservation costs its price; an exhausted one stalls the constraint and, per drum-buffer-rope, that hour is lost forever). Implement the calculator where these commitments are made: demand distributions from the same telemetry reference-class forecasting builds on, explicit overage/underage cost declarations per commitment class (underage at the constraint priced by lost drum-hours), the critical-fractile computation replacing convention, and realized-demand feedback sharpening the distributions. The signature output is legible asymmetry: when stockout at the bottleneck is 10× the cost of idle reserve, the right answer is provisioning at the 91st percentile, and the calculator says so with the arithmetic shown.
+- **Blockers:** —
+- **Plan:** —
+- **Assignee:** —
+- **Priority:** P3
+- **External-ID:** github:Intense-Visions/harness-engineering#1679
+
 ## v5.0 — Enforcement Hardening
 
 ### Audit and cap the pre-commit --skip list
@@ -1298,6 +1320,17 @@ last_manual_edit: 2026-06-27T12:51:51.967Z
 - **Assignee:** —
 - **Priority:** P3
 - **External-ID:** github:Intense-Visions/harness-engineering#1673
+
+### Toulmin justifications — machine-checkable argument structure for verdicts
+
+- **Status:** planned
+- **Spec:** —
+- **Summary:** Argumentation theory's Toulmin model decomposes any practical argument into checkable parts: the claim, the grounds (evidence it rests on), the warrant (why these grounds license this claim), the qualifier (strength and conditions), and the rebuttal (what would defeat it). Agent verdicts today are prose justifications — plausible-sounding, structurally unexaminable, and uniform in confidence regardless of evidence. Require verdict-bearing outputs (review findings, gate judgments, co-sign decisions, escalations) to carry Toulmin structure: grounds must reference real artifacts (the double-entry ledger's credit discipline applied to arguments — a ground with no artifact link is an unbalanced claim), warrants must cite a rule, precedent, or calibrated judgment class, qualifiers must be explicit ('holds unless the config overrides X'), and the rebuttal field states what evidence would flip the verdict. The structure is what downstream machinery needs and prose denies: co-signers check arguments part-by-part instead of re-deriving; standards-of-review deference attaches to specific parts (facts get clear-error, warrants get de novo); the stated rebuttal is a test specification — often mechanically checkable now; and judge calibration localizes failures to bad grounds versus bad warrants, which have different fixes.
+- **Blockers:** —
+- **Plan:** —
+- **Assignee:** —
+- **Priority:** P3
+- **External-ID:** github:Intense-Visions/harness-engineering#1681
 
 ## v5.0 — Catalog Rationalization
 
@@ -1808,6 +1841,28 @@ last_manual_edit: 2026-06-27T12:51:51.967Z
 - **Assignee:** —
 - **Priority:** P3
 - **External-ID:** github:Intense-Visions/harness-engineering#1669
+
+### Kalman fusion — one state estimate from many noisy quality signals
+
+- **Status:** planned
+- **Spec:** —
+- **Summary:** The roadmap now ships dozens of noisy, partial, differently-lagged signals about the same underlying states — pipeline health, codebase quality, fleet capacity — and every consumer (governors, dashboards, alarms) reads raw individual signals, each too noisy to act on alone and jointly inconsistent. Estimation theory solved this: the Kalman filter fuses noisy measurements with a process model into the optimal state estimate with an explicit uncertainty band, via the predict-update cycle — predict how the state should have evolved, correct by each measurement weighted by its measured reliability. Build the fusion layer: declared state variables (per-surface quality, per-stage capacity, per-gate effectiveness), process models (how each drifts between measurements), measurement models per signal (what each instrument observes, with noise estimated from the metrology calibration data), and the filter producing fused estimates with covariance. Consumers then act on one coherent estimate with an honest error bar instead of whipsawing between contradictory raw signals. Distinct from SPC (detects shifts in one series) and the Goodhart sentinel (cross-checks proxies against truth): this is the state estimator that turns the instrument estate into a single legible picture — and its innovation sequence (measurement-vs-prediction surprise) is itself a cheap anomaly signal.
+- **Blockers:** —
+- **Plan:** —
+- **Assignee:** —
+- **Priority:** P3
+- **External-ID:** github:Intense-Visions/harness-engineering#1677
+
+### Moral hazard — measuring whether safety nets erode upstream care
+
+- **Status:** planned
+- **Spec:** —
+- **Summary:** Insurance economics names the effect every layered-defense system suffers and none measures: protection changes behavior — the insured take more risk because the net exists. Applied here: as review gates strengthen, do authors (human and agent) test less? As auto-remediation expands, does deploy care decline? As the merge queue catches semantic conflicts, does pre-merge diligence atrophy? The defense-in-depth roadmap assumes layers add; moral hazard says layers partially cannibalize, and the difference between gross and net protection is currently invisible. Instrument it: natural experiments already exist in the telemetry (gates strengthen at known dates, protections roll out per-repo — difference-in-differences on upstream care metrics: author-run test rates, pre-submit fix rates, spec thoroughness, time-in-verification before submission), with the causal toolkit supplying the estimators. Where hazard is measured real, the insurance industry's mechanisms transfer: deductibles (the author bears a first-loss cost when the net catches their preventable failure — e.g., authoring the regression test), experience rating (already filed as trust tiering — its premiums should reflect caught-preventable rates), and coverage exclusions (classes the net deliberately does not catch, published, so upstream care remains rational). The honest possibility this item must allow: measured hazard may be near zero for agents — that finding is equally valuable, because it licenses aggressive netting.
+- **Blockers:** —
+- **Plan:** —
+- **Assignee:** —
+- **Priority:** P3
+- **External-ID:** github:Intense-Visions/harness-engineering#1678
 
 ## v5.0 — Trust & Security Model
 
@@ -3009,6 +3064,17 @@ last_manual_edit: 2026-06-27T12:51:51.967Z
 - **Assignee:** —
 - **Priority:** P2
 - **External-ID:** github:Intense-Visions/harness-engineering#1630
+
+### Spaced repetition — expanding-interval re-verification for standing knowledge
+
+- **Status:** planned
+- **Spec:** —
+- **Summary:** Learning science's most robust result is the spacing effect, and its scheduling algorithms (Leitner boxes through SM-2) share one shape: re-test at expanding intervals while an item keeps passing, contract sharply on failure — maximum assurance per test administered. Standing knowledge here — compiled facts, calibration baselines, safety-case evidence, precedents, canonical assumptions — is re-verified on either fixed cadences (wasteful for stable items, too slow for volatile ones) or never. Import the scheduler: every re-verifiable item carries a verification interval that expands on each pass (stable knowledge earns infrequent checks) and collapses on failure or on premise-change signals (an item that failed re-verification, or whose linked premises shifted, returns to the short-interval box), with per-class interval policies and a global re-verification budget the scheduler optimizes within. This is the missing scheduling discipline behind several shipped items — metrology recalibration cadences, safety-case evidence currency, rejection-ledger premise checks, knowledge-store staleness — replacing their per-item fixed cadences with one budget-aware scheduler that spends verification where instability has been demonstrated. The measurable claim: at equal verification spend, spaced scheduling holds a lower stale-knowledge rate than fixed cadence.
+- **Blockers:** —
+- **Plan:** —
+- **Assignee:** —
+- **Priority:** P3
+- **External-ID:** github:Intense-Visions/harness-engineering#1680
 
 ## v2.0 Advanced Features
 
