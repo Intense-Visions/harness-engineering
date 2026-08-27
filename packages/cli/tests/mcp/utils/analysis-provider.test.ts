@@ -110,6 +110,11 @@ describe('isClaudeCliAvailable — injectable, Windows-safe PATH scan', () => {
   it('detects claude on a POSIX PATH dir', () => {
     expect(
       isClaudeCliAvailable({
+        // Pin the platform so the POSIX `:`-delimiter + bare-`claude` semantics are
+        // exercised regardless of the HOST OS — on a win32 CI runner the default
+        // `process.platform` would split on `;` and probe PATHEXT variants, missing
+        // the bare `/usr/bin/claude` and failing spuriously.
+        platform: 'linux',
         env: { PATH: '/opt/bin:/usr/bin' },
         fileExists: (p) => p === '/usr/bin/claude',
       })
