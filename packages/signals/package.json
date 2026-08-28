@@ -1,6 +1,6 @@
 {
   "name": "@harness-engineering/signals",
-  "version": "0.3.5",
+  "version": "0.3.6",
   "license": "MIT",
   "description": "Curated repo-health signals (gatherSignals + registry) as a shared leaf package",
   "main": "./dist/index.js",

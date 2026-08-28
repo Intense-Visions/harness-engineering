@@ -1,5 +1,211 @@
 # @harness-engineering/cli
 
+## 12.1.0
+
+### Minor Changes
+
+- 9f53c25: Bound detailed-mode output of the graph retrieval MCP tools on hub (high-degree) nodes (issue #1591). The token-savings benchmark (#1271) found `get_impact` / `query_graph` / `compute_blast_radius` detailed-mode payloads on hub nodes were unbounded — serializing to ~293M / ~4.47M tokens and able to overflow an agent's context. Each detailed-mode response array is now capped by a configurable item ceiling (`graph.detailedMode.maxItems`, default `DEFAULT_GRAPH_DETAIL_CEILING = 200`). When output is truncated the response fails soft with `truncated: true` plus a `continuation` signal (naming the ceiling, totals available, and how to page or scope down) instead of silently returning a giant payload. Small nodes below the ceiling are unchanged. Adds the `boundItems` helper to `@harness-engineering/core`.
+- 43212b3: Add an invoking-skill attribution cut to burn so its breakdown reconciles with Claude
+  Code's `/usage`. burn previously grouped subagent spend only by agent TYPE
+  (`attributionAgent`), while `/usage` groups the same spend by the SKILL that spawned it
+  (`harness:roadmap-fleet`, `harness:autopilot`, …), so the two views could never
+  reconcile — `/usage` showed rows burn had no equivalent for. Each turn now also records
+  `invokingSkill` (derived from the transcript's `attributionSkill`, already a
+  fully-qualified `plugin:skill` value), the summary carries a `skills` block alongside
+  `agents`, and `harness burn report` leads with a `by invoking skill` section that states
+  its window (week-to-date vs `/usage`'s last-24h) so a mismatch reads as a different
+  question, not a wrong number. Both cuts coexist and partition the same weekly total. A
+  turn with no readable skill is grouped honestly as `unattributed-skill` (never dropped,
+  never fabricated); legacy rows are `pre-migration`. The `usage.tsv` store widened from
+  nine to ten columns with a `STORE_VERSION` bump that forces one re-derivation from
+  transcripts on disk. burn's default window is unchanged.
+- 427dfb4: Add the compiled comprehension substrate (#1558): a persistent, incrementally
+  recompiled per-module comprehension layer (LLM summary + invariants, static
+  interface contract + dependency slice) served to agents as primary context.
+  - `@harness-engineering/core`: the pure, IO/provider-injected compiler + store —
+    `compileModule`, `ComprehensionStore`, `computeSourceHash` (membership-folded
+    full SHA-256), markdown+frontmatter (de)serialization, the LLM-free serve-time
+    hash gate (`serveGate`), and the `createNodeModuleSourceReader` canonical
+    enumeration.
+  - `@harness-engineering/cli`: the `harness comprehend` command
+    (`--changed`/`--all`/`--check`/`--stats`), the `get_comprehension` MCP tool, the
+    default-on `comprehension` constituent in `gather_context`, the static extractor
+    and semantic-generation adapter, and a `claude`-CLI fallback appended to the
+    analysis-provider resolver (ADR 0106 — strictly additive; also repairs
+    `acceptance_eval`/`outcome_eval` for subscription users).
+  - `@harness-engineering/orchestrator`: dispatch-time pre-warm of a leaf's
+    blast-radius comprehension units and served-unit attribution into the
+    per-leaf context budget (#1524).
+
+  Correctness never requires a credential: the serve-time hash gate, `--check`, and
+  `--stats` are LLM-free, and semantic generation degrades to static-only when no
+  provider resolves.
+
+- 18d3572: Join burn's per-lane/per-skill token attribution to shipped PRs — cost per merged PR (#1522). New `harness burn per-pr` reuses burn's existing transcript scan (per `agentId` lane and `agent` skill from #1270), reads the lane provenance files under `docs/changes/*/provenance.json`, and resolves each issue to its merged PR(s) via `gh`, then emits `{tokens_in, tokens_out, cache_read, prs_merged, cost_per_pr}` per lane and per skill into `.harness/metrics/cost-per-pr.json`. Both denominators — `cost_per_merged_pr` and `cost_per_dispatched_lane` — are carried side by side with a `denominator_note`, so the figure is never a silent success-only number. Raw tokens are the source-of-truth metric; a `$` figure is derived only when an adopter supplies an optional `cost_price_table` (default off, no hardcoded pricing). A `cost_bands` config enables a per-skill cost-regression check, the cost analogue of a performance budget. Missing linkage degrades to `unattributed` (never 0/free), matching #1270's discipline.
+- ba9877f: Surface a dollar-cost figure on the budget/burn output (Refs #1525). When an adopter configures a burn `cost_price_table` (the per-model USD-per-token table #1522 already established), `buildSummary` now reconciles the current week's accrued token spend to USD and attaches an optional `cost` block (`usd_wtd`, `models_priced`, `models_total`) to the summary, and `harness fleet budget-check` renders/emits the spend, remaining, and envelope in `$` alongside the existing burn-units verdict (remaining/envelope derived from the week's observed `$`/unit rate). Tokens remain the source of truth; the `$` figure is derived only when a price table is configured — with no table the summary and command output are byte-identical. The token→USD arithmetic is reused via a single exported `priceRecord` helper (no second pricing mechanism), and there is no bundled provider pricing, keeping the primary number portable across model mixes. The cron scheduler (#1405) and dashboard-UI slices of #1525 remain deferred.
+- d64e63b: Spend-govern the skill/fleet-command dispatch path, not just the orchestrator engine
+  (#1600). #1525's per-period token spend envelope previously enforced only inside the
+  orchestrator engine's `state-machine.ts` dispatch loop; skill-driven fleet fan-out
+  (`/harness:roadmap-fleet`, `fleet-command`) was bounded by a leaf-SLOT cap only, never a
+  spend cap, so a single coordinated run could burn unbounded tokens.
+
+  The spend-vs-envelope comparison is now a shared, pure primitive in
+  `@harness-engineering/core` (`fleet/spend-budget`: `isGlobalEnvelopeExhausted`,
+  `isFleetAllocationExhausted`, `evaluateSpendEnvelope`), with its shapes in
+  `@harness-engineering/types` (`fleet-spend-budget.ts`) — mirroring how the per-leaf
+  context budget spans both paths. The orchestrator's `budget-governor` delegates its
+  exhaustion predicates to it, and a new concrete callable, `harness fleet budget-check`,
+  is the DISPATCH-time consult the fleet-family / `fleet-command` contract invokes before
+  scheduling each lane: it reads observed spend from burn's existing per-fleet/per-lane
+  attribution (#1270) and reports `within | exhausted | unconfigured` (exit `10` on
+  exhausted), stopping clean at a lane boundary when the envelope is spent. No-op and
+  byte-identical when unconfigured.
+
+- 2537989: Add the answer-quality axis to `harness graph bench` (deferred slice of #1271). The
+  benchmark measured two objective axes — retrieval tokens and tool calls — but the
+  comparator's third axis, **answer quality** (whether the retrieved payload actually
+  suffices to answer the query), was deferred. It now ships as an opt-in `--judge` flag:
+  an LLM judge grades each strategy's payload for retrieval sufficiency, reusing the shared
+  harness eval/judge plumbing (`resolveAnalysisProvider` → Anthropic key or a local `/v1`
+  endpoint, the same resolver `outcome_eval`/`acceptance_eval` use) rather than a bespoke
+  judge.
+
+  The axis is **advisory and degrades honestly**: with no judge provider configured it
+  reports `answerQuality.status: "inconclusive"` instead of fabricating a score, and it
+  never fails the benchmark — the token/tool-call axes stand regardless. Off by default
+  (`status: "skipped"`), so the deterministic headline and CI runs are unchanged. The JSON
+  result gains an `answerQuality` block (per-strategy sufficiency counts) and each scenario
+  gains a `quality` grade plus the exact `query` the judge was asked; `harness graph bench
+--judge --json` lets a reviewer trace bench → judge → score. Also fixes a pre-existing bug
+  where the program-global `--json` option shadowed `graph bench --json`. `Refs #1271`.
+
+- 127531a: Add Louvain community detection over the knowledge graph. A new pluggable `CommunityDetector` interface with a self-contained `LouvainDetector` implementation partitions the graph into communities by maximizing modularity (undirected, confidence-weighted), and `detectCommunities` labels each node with its community id via a new optional, back-compatible `GraphNode.community` field. The pass is wired into `graph scan` (after ingest/link, before save) so labels persist through the Serializer and the scan output reports the community count. Detection is deterministic given a seed/tie-break order. Leiden is deferred behind the same interface as a follow-up.
+- bcd6047: Add an optional `provenance` enum (`EXTRACTED | INFERRED | AMBIGUOUS`) on `GraphEdge`, set at ingest time so downstream adapters can distinguish relationships read directly from source from resolver/heuristic-derived ones. `CodeIngestor` stamps AST-explicit `contains` edges and the `@req`-annotation `verified_by` edge as `EXTRACTED`, and resolver-derived `imports`/`calls` edges as `INFERRED`; `TopologicalLinker` stamps directory-grouped module `contains` edges as `INFERRED`. The field is optional and back-compatible — existing edges without provenance still validate and round-trip through the store and NDJSON serializer.
+
+  The `get_relationships` MCP tool now consumes the field: it passes per-edge `provenance` through in detailed mode and adds a derived `provenanceBreakdown` (counts of `EXTRACTED`/`INFERRED`/`AMBIGUOUS`) to both summary and detailed responses, omitted gracefully for legacy graphs whose edges carry no provenance.
+
+- b23c933: Add a `shortestPath(a, b)` query primitive to ContextQL. `GraphStore.shortestPath`
+  performs an unweighted BFS between two arbitrary nodes and returns the ordered
+  node/edge path (or `null` when unreachable); `ContextQL.shortestPath` exposes it
+  as a query-primitive surface. The NLQ layer gains a `shortestPath` intent
+  (source + target extraction, surfaced through `ask_graph`), and the CLI gains a
+  `harness graph path <sourceNodeId> <targetNodeId>` verb with a `--direction`
+  option. Traces to ADR 0104 (Option-A capability port).
+- af249d0: Add a reproducible graph token-savings benchmark (`harness graph bench` / `pnpm run bench:graph-tokens`, issue #1271). It measures two objective, deterministic axes — retrieval tokens and tool calls — for graph-scoped retrieval (the real shipped `get_impact` / `compute_blast_radius` / `query_graph` / `code_outline` / `find_context_for` / `ask_graph` handlers, in their context-scoping density modes) versus a naive filesystem search + full-file-read baseline, on the project's own graph. On this repo it measures 26.5× fewer tokens and 44.5× fewer tool calls overall (find-context is an honestly-reported 0.72× loss; detailed-mode payloads on hub nodes are a documented worst-case finding). The methodology and recorded number are published under `docs/benchmarks/graph-token-savings/`. Answer quality (the comparator's 83% axis) and a multi-repo corpus are documented as deferred slices.
+- 406ef87: Add `harness init --tier minimal` (ADR 0101): a load-bearing floor below the existing adoption ladder mapped one-to-one to the field's 5-item Minimum Viable Harness. It scaffolds exactly five artifacts — a generated `AGENTS.md` repo guide, a `harness.config.json` wiring `harness check-arch` as the runnable local check, a seeded `.harness/arch/baselines.json` making one hard architectural rule (a cyclomatic-complexity cap of 15) fail-closed, a git pre-commit verification loop that runs the check, and the `block-no-verify` permission boundary — then prints an explicit, ordered upgrade path to the fuller tiers. STRATEGY.md, framework selection, design system, and MCP integration are deferred (not skipped); re-running init at a higher tier is additive over a `minimal` install. Degrades gracefully outside a git repo. `--tier` also accepts `basic`/`intermediate`/`load-bearing-minimum`/`advanced`, delegating to the existing level scaffold.
+- 33acf07: Extend the context-replay budget (#1524) onto the harness MCP server path so it
+  reaches manual AI sessions, not just orchestrator dispatch (#1594). Manual
+  sessions (Claude Code / Cursor / Codex / Gemini running against the harness MCP
+  server) are where the cache-read replay cost that motivated the budget actually
+  lives, and until now the budget missed them entirely.
+  - `@harness-engineering/core` (`fleet/context-budget`): `evaluateSessionContextBudget`
+    and the `SessionBudgetSignal` shape. It **delegates the over/under decision to the
+    existing `enforceLeafContextBudget`** — ONE shared budget implementation for
+    orchestrator dispatch and manual sessions — but manual sessions WARN (return a
+    non-throwing signal carrying a steer notice) rather than reject-at-dispatch.
+  - `@harness-engineering/cli`: new MCP middleware `applyContextBudget` /
+    `wrapWithContextBudget`, wired into `createHarnessServer` after compaction. When
+    `mcp.contextBudget.maxTokens` is configured, an over-budget tool response gets a
+    loud steer notice appended pointing the session at graph-scoped retrieval
+    (`code_outline` / `code_unfold` / `find_context_for`). **Absent ⇒ handlers are
+    returned unwrapped** — MCP behavior is byte-identical when unconfigured.
+
+- 97c3b03: Rule-to-failure provenance linking (ADR 0100) — link every enforced constraint to the
+  incident that motivated it.
+
+  Additive, optional, and advisory by design: nothing gates on it, and every existing
+  document and rule stays valid with no provenance (fill-forward).
+  - `@harness-engineering/types` + `@harness-engineering/core`: optional `enforces?: string[]`
+    on the solution-doc frontmatter (`SolutionDocFrontmatter` / `SolutionDocFrontmatterSchema`)
+    — the rule ids a `harness-compound` solution produced or hardened.
+  - `@harness-engineering/core`: optional `origin?: string` on the `StrengthRule` type (the
+    reciprocal back-pointer to a solution slug or issue ref), plus a new `provenance` module
+    (`buildProvenanceReport`, `collectSolutionEnforcements`) that joins the two sides.
+  - `@harness-engineering/cli`: `harness rules provenance` — an advisory reporter that flags
+    unexplained constraints (enforced rules with no origin) and candidate dead rules (a rule
+    whose origin resolves to no known solution, or a solution enforcing a STRENGTH id absent
+    from the registry). Never exits non-zero on findings; supports `--json`.
+  - Producer wiring (ADR 0100 Action Item #4): the `harness-compound` capture phase (Phase 4
+    ASSEMBLE, all platform mirrors) now captures the optional `enforces:` list when a fix
+    produced or hardened an enforced rule — advisory, fill-forward, never blocks capture. The
+    resolution template and human schema mirror document the field.
+
+- 315fe34: feat(validate): scope `harness validate` to the changed surface (`--changed`/`--affected`/`--since`)
+
+  Adds an opt-in affected-only mode to `harness validate`. The design audits
+  (detect-drift, audit-brand) walk the whole source tree on every run, which is the
+  dominant cost of the most-invoked CLI command (adoption telemetry: `cli/validate` =
+  68% of all harness CLI calls). `--changed` (alias `--affected`) derives the changed
+  surface from git — the merge-base with the default branch, or an explicit
+  `--since <ref>` — and hands just those files to the walkers. The surface is narrowed
+  to the source extensions and exclude globs a full sweep would scan, so a scoped run is
+  always a subset of a full run (it never reports a finding a full sweep would not). If
+  the surface cannot be derived, the run falls back to a full sweep and reports why.
+  Bare `harness validate` is unchanged (full sweep) — non-breaking for adopters and
+  pre-merge/scheduled/release gates. Every affected run prints what it scoped and the
+  staleness caveat, and the scoped-vs-full split is recorded on the `cli/validate`
+  adoption record (`variant` field). The orchestrator package's `validate` dev-loop
+  script is rewired to `--changed`.
+
+  The same affected-mode is exposed to skills/agents through the MCP `validate_project`
+  tool via an opt-in `scope: "affected" | "full"` / `changed` / `since` param — it
+  delegates to the same `runValidate` (validate-scope is shared, not forked), and the
+  default path stays byte-identical.
+
+### Patch Changes
+
+- 4eb2da5: feat(fleet): cross-run advisory work-claim lease for the ID-based members
+
+  Adds a GitHub-backed advisory work-claim lease so two people running an ID-based
+  fleet (`roadmap-fleet`, `issue-fleet`, `pr-fleet`) on different clones auto-partition
+  the backlog instead of duplicating work. New `FleetClaim` type in
+  `@harness-engineering/types` and a pure, offline `fleet/claims` module in
+  `@harness-engineering/core` (`buildClaimBody` / `parseClaimComment` / `isLeaseLive` /
+  `resolveClaimWinner` / `classifyClaim` / `selectUnclaimed` + constants). Soft
+  reservation with a TTL+heartbeat lease measured off the GitHub server clock; the open
+  PR is the durable claim. The `cli` bump is an incidental command-registry regeneration.
+
+- 1c2fafb: feat(graph): deletion-based staleness flag on learning/execution_outcome nodes, surfaced in NLQ
+
+  Ports the deletion slice of Graphify's reflection loop (ADR 0104). Graph nodes now
+  carry an optional `StalenessInfo` marker (back-compat) that trips when a cited source
+  file no longer exists, a new NLQ `staleness` intent lists stale learnings, and
+  `flagStaleLearningNodes` (core) reuses `detectStaleLearnings` to stamp the marker
+  during `harness graph scan`. Move/rename detection is deferred.
+
+- da198b4: Ignore three generated `.harness/` runtime artifacts that were leaking into working trees, for this repo and for adopters: `craft/` (generated craft-run records), `spill/` (generated overflow/spill artifacts), and all `tokens.json*` variants (widened from `tokens.json` so siblings like `tokens.json.disabled` are ignored too). The adopter-facing generator (`packages/cli/src/templates/post-write.ts`) adds these to its canonical `.harness/.gitignore` set, so existing adopter installs get the new lines appended on the next `harness init` / `init_project` run.
+- Updated dependencies [9f53c25]
+- Updated dependencies [43212b3]
+- Updated dependencies [ab1c981]
+- Updated dependencies [1a40ca1]
+- Updated dependencies [427dfb4]
+- Updated dependencies [6ba006f]
+- Updated dependencies [18d3572]
+- Updated dependencies [ba9877f]
+- Updated dependencies [b29d033]
+- Updated dependencies [d64e63b]
+- Updated dependencies [4eb2da5]
+- Updated dependencies [127531a]
+- Updated dependencies [bcd6047]
+- Updated dependencies [1c2fafb]
+- Updated dependencies [eafbd15]
+- Updated dependencies [b23c933]
+- Updated dependencies [33acf07]
+- Updated dependencies [8cf33f6]
+- Updated dependencies [32a104c]
+- Updated dependencies [97c3b03]
+- Updated dependencies [315fe34]
+- Updated dependencies [37b1be7]
+- Updated dependencies [3646500]
+  - @harness-engineering/core@0.45.0
+  - @harness-engineering/burn@0.3.0
+  - @harness-engineering/intelligence@0.12.1
+  - @harness-engineering/orchestrator@0.22.0
+  - @harness-engineering/types@0.31.0
+  - @harness-engineering/graph@0.14.0
+  - @harness-engineering/dashboard@0.16.3
+  - @harness-engineering/signals@0.3.6
+
 ## 12.0.0
 
 ### Minor Changes

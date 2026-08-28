@@ -1,5 +1,41 @@
 # @harness-engineering/graph
 
+## 0.14.0
+
+### Minor Changes
+
+- 127531a: Add Louvain community detection over the knowledge graph. A new pluggable `CommunityDetector` interface with a self-contained `LouvainDetector` implementation partitions the graph into communities by maximizing modularity (undirected, confidence-weighted), and `detectCommunities` labels each node with its community id via a new optional, back-compatible `GraphNode.community` field. The pass is wired into `graph scan` (after ingest/link, before save) so labels persist through the Serializer and the scan output reports the community count. Detection is deterministic given a seed/tie-break order. Leiden is deferred behind the same interface as a follow-up.
+- bcd6047: Add an optional `provenance` enum (`EXTRACTED | INFERRED | AMBIGUOUS`) on `GraphEdge`, set at ingest time so downstream adapters can distinguish relationships read directly from source from resolver/heuristic-derived ones. `CodeIngestor` stamps AST-explicit `contains` edges and the `@req`-annotation `verified_by` edge as `EXTRACTED`, and resolver-derived `imports`/`calls` edges as `INFERRED`; `TopologicalLinker` stamps directory-grouped module `contains` edges as `INFERRED`. The field is optional and back-compatible — existing edges without provenance still validate and round-trip through the store and NDJSON serializer.
+
+  The `get_relationships` MCP tool now consumes the field: it passes per-edge `provenance` through in detailed mode and adds a derived `provenanceBreakdown` (counts of `EXTRACTED`/`INFERRED`/`AMBIGUOUS`) to both summary and detailed responses, omitted gracefully for legacy graphs whose edges carry no provenance.
+
+- 1c2fafb: feat(graph): deletion-based staleness flag on learning/execution_outcome nodes, surfaced in NLQ
+
+  Ports the deletion slice of Graphify's reflection loop (ADR 0104). Graph nodes now
+  carry an optional `StalenessInfo` marker (back-compat) that trips when a cited source
+  file no longer exists, a new NLQ `staleness` intent lists stale learnings, and
+  `flagStaleLearningNodes` (core) reuses `detectStaleLearnings` to stamp the marker
+  during `harness graph scan`. Move/rename detection is deferred.
+
+- b23c933: Add a `shortestPath(a, b)` query primitive to ContextQL. `GraphStore.shortestPath`
+  performs an unweighted BFS between two arbitrary nodes and returns the ordered
+  node/edge path (or `null` when unreachable); `ContextQL.shortestPath` exposes it
+  as a query-primitive surface. The NLQ layer gains a `shortestPath` intent
+  (source + target extraction, surfaced through `ask_graph`), and the CLI gains a
+  `harness graph path <sourceNodeId> <targetNodeId>` verb with a `--direction`
+  option. Traces to ADR 0104 (Option-A capability port).
+
+### Patch Changes
+
+- Updated dependencies [6ba006f]
+- Updated dependencies [d64e63b]
+- Updated dependencies [4eb2da5]
+- Updated dependencies [eafbd15]
+- Updated dependencies [32a104c]
+- Updated dependencies [97c3b03]
+- Updated dependencies [3646500]
+  - @harness-engineering/types@0.31.0
+
 ## 0.13.2
 
 ### Patch Changes

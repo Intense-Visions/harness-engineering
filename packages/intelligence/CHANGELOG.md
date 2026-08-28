@@ -1,5 +1,29 @@
 # @harness-engineering/intelligence
 
+## 0.12.1
+
+### Patch Changes
+
+- ab1c981: ClaudeCliAnalysisProvider now recovers from chatty structured-output replies: it
+  salvages an embedded JSON object from a prose `result`, and on a schema mismatch
+  re-prompts the model once with its own rejected output demanding only JSON. This
+  fixes a ~20% semantic-generation miss observed on the `claude`-CLI subscription
+  path and benefits every AnalysisProvider consumer (acceptance_eval, outcome_eval,
+  comprehension).
+- Updated dependencies [6ba006f]
+- Updated dependencies [d64e63b]
+- Updated dependencies [4eb2da5]
+- Updated dependencies [127531a]
+- Updated dependencies [bcd6047]
+- Updated dependencies [1c2fafb]
+- Updated dependencies [eafbd15]
+- Updated dependencies [b23c933]
+- Updated dependencies [32a104c]
+- Updated dependencies [97c3b03]
+- Updated dependencies [3646500]
+  - @harness-engineering/types@0.31.0
+  - @harness-engineering/graph@0.14.0
+
 ## 0.12.0
 
 ### Minor Changes

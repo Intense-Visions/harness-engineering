@@ -1,5 +1,172 @@
 # Changelog
 
+## 0.45.0
+
+### Minor Changes
+
+- 9f53c25: Bound detailed-mode output of the graph retrieval MCP tools on hub (high-degree) nodes (issue #1591). The token-savings benchmark (#1271) found `get_impact` / `query_graph` / `compute_blast_radius` detailed-mode payloads on hub nodes were unbounded — serializing to ~293M / ~4.47M tokens and able to overflow an agent's context. Each detailed-mode response array is now capped by a configurable item ceiling (`graph.detailedMode.maxItems`, default `DEFAULT_GRAPH_DETAIL_CEILING = 200`). When output is truncated the response fails soft with `truncated: true` plus a `continuation` signal (naming the ceiling, totals available, and how to page or scope down) instead of silently returning a giant payload. Small nodes below the ceiling are unchanged. Adds the `boundItems` helper to `@harness-engineering/core`.
+- 427dfb4: Add the compiled comprehension substrate (#1558): a persistent, incrementally
+  recompiled per-module comprehension layer (LLM summary + invariants, static
+  interface contract + dependency slice) served to agents as primary context.
+  - `@harness-engineering/core`: the pure, IO/provider-injected compiler + store —
+    `compileModule`, `ComprehensionStore`, `computeSourceHash` (membership-folded
+    full SHA-256), markdown+frontmatter (de)serialization, the LLM-free serve-time
+    hash gate (`serveGate`), and the `createNodeModuleSourceReader` canonical
+    enumeration.
+  - `@harness-engineering/cli`: the `harness comprehend` command
+    (`--changed`/`--all`/`--check`/`--stats`), the `get_comprehension` MCP tool, the
+    default-on `comprehension` constituent in `gather_context`, the static extractor
+    and semantic-generation adapter, and a `claude`-CLI fallback appended to the
+    analysis-provider resolver (ADR 0106 — strictly additive; also repairs
+    `acceptance_eval`/`outcome_eval` for subscription users).
+  - `@harness-engineering/orchestrator`: dispatch-time pre-warm of a leaf's
+    blast-radius comprehension units and served-unit attribution into the
+    per-leaf context budget (#1524).
+
+  Correctness never requires a credential: the serve-time hash gate, `--check`, and
+  `--stats` are LLM-free, and semantic generation degrades to static-only when no
+  provider resolves.
+
+- 6ba006f: Add the per-leaf context-replay budget enforcement primitive for the -fleet
+  family (#1524), with a live enforcement caller in the orchestrator dispatch
+  governor. A leaf's estimated context load is checked against a budget at
+  dispatch and fails loudly when over rather than silently spending.
+  - `@harness-engineering/core` (`fleet/context-budget`): `DEFAULT_LEAF_CONTEXT_BUDGET_TOKENS`
+    (200000), `resolveContextBudget`, `enforceLeafContextBudget`, `formatBudgetFailure`,
+    `summarizeLeafSpend`, and the fail-loud consult helper `assertLeafWithinBudget`
+    (throws `ContextBudgetExceededError` when over budget). Pure and offline.
+  - `@harness-engineering/types`: `LeafContextEstimate` / `ContextBudget` /
+    `LeafContextSpend` / `LeafBudgetVerdict` shapes, plus `AgentContextBudgetConfig`
+    and the optional `agent.contextBudget` field on `AgentConfig`.
+  - `@harness-engineering/orchestrator`: `assertIssueWithinContextBudget` consulted
+    in the state machine's dispatch loop before each leaf is claimed; over-budget
+    leaves emit a loud error effect and are skipped. Configured via
+    `agent.contextBudget = { maxTokens, perFleet? }`. **Absent ⇒ unlimited** —
+    dispatch behavior is byte-identical when unconfigured.
+
+- b29d033: fleet: add a base-freshness clause to the `-fleet` verification discipline (#1294). A green CI conclusion counts as `verified`/merge-ready only when it ran against current `main` (branch up to date, or branch protection enforces strict/up-to-date-before-merge); green gathered against a base that `main` has since moved past is stale and downgrades the item to `degraded`, reported with the stale tested base SHA vs current `main`. Stated once in the `docs/reference/fleet-family.md` spine and referenced in every member's VERIFY. Adds the mechanical `classifyBaseFreshness` helper to `@harness-engineering/core` so the clause is checkable in code, not only prose. Portability fix: the `-fleet` skill prose no longer hardcodes this repo's CI shape — "all three operating systems" is now "all target operating systems" and "the enforce and harness checks" is now "the project's required checks", so the shipped skills stay adopter-portable across differing CI matrices and check names.
+- d64e63b: Spend-govern the skill/fleet-command dispatch path, not just the orchestrator engine
+  (#1600). #1525's per-period token spend envelope previously enforced only inside the
+  orchestrator engine's `state-machine.ts` dispatch loop; skill-driven fleet fan-out
+  (`/harness:roadmap-fleet`, `fleet-command`) was bounded by a leaf-SLOT cap only, never a
+  spend cap, so a single coordinated run could burn unbounded tokens.
+
+  The spend-vs-envelope comparison is now a shared, pure primitive in
+  `@harness-engineering/core` (`fleet/spend-budget`: `isGlobalEnvelopeExhausted`,
+  `isFleetAllocationExhausted`, `evaluateSpendEnvelope`), with its shapes in
+  `@harness-engineering/types` (`fleet-spend-budget.ts`) — mirroring how the per-leaf
+  context budget spans both paths. The orchestrator's `budget-governor` delegates its
+  exhaustion predicates to it, and a new concrete callable, `harness fleet budget-check`,
+  is the DISPATCH-time consult the fleet-family / `fleet-command` contract invokes before
+  scheduling each lane: it reads observed spend from burn's existing per-fleet/per-lane
+  attribution (#1270) and reports `within | exhausted | unconfigured` (exit `10` on
+  exhausted), stopping clean at a lane boundary when the envelope is spent. No-op and
+  byte-identical when unconfigured.
+
+- 4eb2da5: feat(fleet): cross-run advisory work-claim lease for the ID-based members
+
+  Adds a GitHub-backed advisory work-claim lease so two people running an ID-based
+  fleet (`roadmap-fleet`, `issue-fleet`, `pr-fleet`) on different clones auto-partition
+  the backlog instead of duplicating work. New `FleetClaim` type in
+  `@harness-engineering/types` and a pure, offline `fleet/claims` module in
+  `@harness-engineering/core` (`buildClaimBody` / `parseClaimComment` / `isLeaseLive` /
+  `resolveClaimWinner` / `classifyClaim` / `selectUnclaimed` + constants). Soft
+  reservation with a TTL+heartbeat lease measured off the GitHub server clock; the open
+  PR is the durable claim. The `cli` bump is an incidental command-registry regeneration.
+
+- 1c2fafb: feat(graph): deletion-based staleness flag on learning/execution_outcome nodes, surfaced in NLQ
+
+  Ports the deletion slice of Graphify's reflection loop (ADR 0104). Graph nodes now
+  carry an optional `StalenessInfo` marker (back-compat) that trips when a cited source
+  file no longer exists, a new NLQ `staleness` intent lists stale learnings, and
+  `flagStaleLearningNodes` (core) reuses `detectStaleLearnings` to stamp the marker
+  during `harness graph scan`. Move/rename detection is deferred.
+
+- 33acf07: Extend the context-replay budget (#1524) onto the harness MCP server path so it
+  reaches manual AI sessions, not just orchestrator dispatch (#1594). Manual
+  sessions (Claude Code / Cursor / Codex / Gemini running against the harness MCP
+  server) are where the cache-read replay cost that motivated the budget actually
+  lives, and until now the budget missed them entirely.
+  - `@harness-engineering/core` (`fleet/context-budget`): `evaluateSessionContextBudget`
+    and the `SessionBudgetSignal` shape. It **delegates the over/under decision to the
+    existing `enforceLeafContextBudget`** — ONE shared budget implementation for
+    orchestrator dispatch and manual sessions — but manual sessions WARN (return a
+    non-throwing signal carrying a steer notice) rather than reject-at-dispatch.
+  - `@harness-engineering/cli`: new MCP middleware `applyContextBudget` /
+    `wrapWithContextBudget`, wired into `createHarnessServer` after compaction. When
+    `mcp.contextBudget.maxTokens` is configured, an over-budget tool response gets a
+    loud steer notice appended pointing the session at graph-scoped retrieval
+    (`code_outline` / `code_unfold` / `find_context_for`). **Absent ⇒ handlers are
+    returned unwrapped** — MCP behavior is byte-identical when unconfigured.
+
+- 8cf33f6: Add a mid-phase context-budget trip wire (`evaluateContextBudget`).
+
+  Autopilot keeps context fresh _between_ phases (each state dispatches a cold subagent),
+  but nothing watched a single long-running turn for context creep _within_ its own turn.
+  This adds a pure, deterministic helper — `evaluateContextBudget(usedTokens, window)` plus
+  `resolveContextBudgetThresholds(window)` and `EFFECTIVE_WINDOW_RATIO` — that classifies a
+  turn's total resident-token count (input + output + tool results) as `ok | warn | trip`
+  against token-anchored, window-keyed thresholds (`1m` warn 250K/trip 350K; `200k` warn
+  80K/trip 100K; `local` warn ~30%/trip ~37.5%) rather than a naive flat percentage. The
+  autopilot, harness-execution, and skill-authoring skills document the two-stage discipline
+  (soft-warn ⇒ converge + flush state; hard-trip ⇒ checkpoint-and-restart into a cold
+  subagent seeded with a distilled state file). Threshold policy grounded in Chroma Context
+  Rot, NoLiMa, RULER, Lost-in-the-Middle, Anthropic Effective Context Engineering, and
+  Horthy/Pragmatic Engineer. Closes #1403.
+
+- 32a104c: Rate-limit-aware fan-out (#1532): add a per-resource API budget primitive
+  (`RateBudget` + `sharedRateBudget` in `@harness-engineering/core` `fleet/rate-budget`)
+  with shared cross-leaf backoff and typed `ThrottledFetchError` / `TruncatedFetchError`.
+  The GitHub HTTP layer (`GitHubHttp`) now acquires the shared budget before every
+  fetch, penalizes it on 403/429, and FAILS the leaf on a terminal throttle or a
+  server-truncated page instead of returning partial/silent-zero data. Adopters tune
+  budgets via the new `AgentConfig.resourceBudgets` config key (defaulted in
+  `getDefaultConfig`, applied to the shared budget at orchestrator startup).
+- 97c3b03: Rule-to-failure provenance linking (ADR 0100) — link every enforced constraint to the
+  incident that motivated it.
+
+  Additive, optional, and advisory by design: nothing gates on it, and every existing
+  document and rule stays valid with no provenance (fill-forward).
+  - `@harness-engineering/types` + `@harness-engineering/core`: optional `enforces?: string[]`
+    on the solution-doc frontmatter (`SolutionDocFrontmatter` / `SolutionDocFrontmatterSchema`)
+    — the rule ids a `harness-compound` solution produced or hardened.
+  - `@harness-engineering/core`: optional `origin?: string` on the `StrengthRule` type (the
+    reciprocal back-pointer to a solution slug or issue ref), plus a new `provenance` module
+    (`buildProvenanceReport`, `collectSolutionEnforcements`) that joins the two sides.
+  - `@harness-engineering/cli`: `harness rules provenance` — an advisory reporter that flags
+    unexplained constraints (enforced rules with no origin) and candidate dead rules (a rule
+    whose origin resolves to no known solution, or a solution enforcing a STRENGTH id absent
+    from the registry). Never exits non-zero on findings; supports `--json`.
+  - Producer wiring (ADR 0100 Action Item #4): the `harness-compound` capture phase (Phase 4
+    ASSEMBLE, all platform mirrors) now captures the optional `enforces:` list when a fix
+    produced or hardened an enforced rule — advisory, fill-forward, never blocks capture. The
+    resolution template and human schema mirror document the field.
+
+- 37b1be7: Fail loud on GitHub Search API truncation (Refs #1532). `GitHubHttp` gains a
+  budget-aware `search()` method that throws the existing `TruncatedFetchError`
+  when a search response reports `incomplete_results: true`, instead of returning
+  the partial `items` as if complete — the search-API counterpart to the
+  paginate-truncation guard landed in #1589. `GitHubIssuesTrackerAdapter.searchFeatures()`
+  wires this into a real, `github.search`-budgeted call site: a truncated search
+  is surfaced as `Err`, never a silently-short feature list. Byte-identical when
+  `incomplete_results` is `false` or absent.
+
+### Patch Changes
+
+- Updated dependencies [6ba006f]
+- Updated dependencies [d64e63b]
+- Updated dependencies [4eb2da5]
+- Updated dependencies [127531a]
+- Updated dependencies [bcd6047]
+- Updated dependencies [1c2fafb]
+- Updated dependencies [eafbd15]
+- Updated dependencies [b23c933]
+- Updated dependencies [32a104c]
+- Updated dependencies [97c3b03]
+- Updated dependencies [3646500]
+  - @harness-engineering/types@0.31.0
+  - @harness-engineering/graph@0.14.0
+
 ## 0.44.0
 
 ### Minor Changes
