@@ -6,6 +6,7 @@ export {
   STALENESS_WARNING_DAYS,
 } from './cache';
 export { calculateCost, calculateCacheSavings } from './calculator';
+export { cheapestModelByCost } from './select';
 export type {
   PricingDataset,
   PricingCacheFile,
