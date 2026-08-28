@@ -150,9 +150,6 @@ async function compileOne(module: string, opts: ComprehendRunOptions): Promise<M
   const unit = await compileModule(module, sourceFiles, {
     extractStatic: opts.makeExtractStatic(module),
     ...(opts.generateSemantic ? { generateSemantic: opts.generateSemantic } : {}),
-    // Preserve the prior `compiledAt` when the source is unchanged (a semantic
-    // upgrade): the timestamp moves only when the sourceHash moves.
-    ...(prior ? { prior: { sourceHash: prior.sourceHash, compiledAt: prior.compiledAt } } : {}),
   });
   const written = await opts.store.write(unit);
   if (!written.ok) {

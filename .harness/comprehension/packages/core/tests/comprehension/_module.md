@@ -1,11 +1,11 @@
 ---
 schemaVersion: 1
 module: 'packages/core/tests/comprehension'
-sourceHash: '601c047e59b020f427ef523e5fee4f4c2f0384dce0ee348436af0ed167cf758f'
-compiledAt: '2026-08-28T01:22:10.774Z'
+sourceHash: 'efbdd681cd37ef40f3caacff79366307b71ecc93e95df56878b6d2f981d82a6c'
+compiledAt: '2026-08-28T14:18:24.558Z'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
-model: 'claude-haiku-4-5-20251001'
-semantic: present
+model: null
+semantic: absent
 members:
   [
     'compile.test.ts',
@@ -17,19 +17,6 @@ members:
     'store.test.ts',
   ]
 ---
-
-## Summary
-
-The `packages/core/tests/comprehension` suite validates the module comprehension compilation and serving pipeline. Tests cover two core flows: (1) compiling source files into versioned ComprehensionUnit metadata, optionally augmenting with LLM-generated semantic content; (2) persisting and reading units via Node.js I/O. The critical test—"compile → serve hash equality (FIX 1)"—pins the single source of truth: the canonical file reader's enumeration must produce identical hashes at compile and serve time, or the unit is permanently un-served. Serve-gate detects source staleness via membership and content changes.
-
-## Invariants
-
-- FIX 1 (Single Source of Truth): Compile-time hash ≡ serve-time hash via the same canonical reader. Divergence makes the unit permanently un-served.
-- D3 (Basename Keying): Members enumerated by basename only, collapsing directory prefixes to align with createNodeModuleSourceReader output. No full paths.
-- C1 (Deterministic Timestamps): compiledAt reused when sourceHash unchanged; fresh compilation of unmodified source never changes the timestamp, avoiding git churn.
-- Static Feeds Semantic: Static extraction results (interfaceContract, dependencySlice) provided as inputs to GenerateSemantic, allowing LLM to reason about module shape.
-- Source Staleness Detection: Serve-gate rejects units when source content, membership, or hash diverges; returns reason='source-stale' and recompile flag.
-- Schema/Compiler Versioning: Units include schemaVersion and compiler fields for forward/backward compatibility across version upgrades.
 
 ## Interface Contract
 

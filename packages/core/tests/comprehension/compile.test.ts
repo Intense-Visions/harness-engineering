@@ -4,6 +4,7 @@ import * as os from 'node:os';
 import * as path from 'node:path';
 import { compileModule } from '../../src/comprehension/compile';
 import { computeSourceHash } from '../../src/comprehension/source-hash';
+import { serializeUnit } from '../../src/comprehension/serialize';
 import { serveGate } from '../../src/comprehension/serve-gate';
 import { createNodeModuleSourceReader } from '../../src/comprehension/node-io';
 import { ComprehensionStore } from '../../src/comprehension/store';
@@ -23,11 +24,9 @@ const extractStatic: ExtractStatic = () => ({
   dependencySlice: 'imports: none',
 });
 
-const now = () => new Date('2026-08-27T12:00:00.000Z');
-
 describe('compileModule', () => {
   it('static-only (no generateSemantic): semantic absent, no LLM (SC4)', async () => {
-    const unit = await compileModule('src', files, { extractStatic, now });
+    const unit = await compileModule('src', files, { extractStatic });
     expect(unit.provenance.semantic).toBe('absent');
     expect(unit.provenance.model).toBeNull();
     expect(unit.summary).toBe('');
@@ -37,12 +36,12 @@ describe('compileModule', () => {
     expect(unit.provenance.sourceHash).toBe(computeSourceHash(files));
     expect(unit.provenance.members).toEqual(['a.ts', 'b.ts']); // sorted basenames (D3)
     expect(unit.provenance.compiler).toEqual(COMPILER_VERSION);
-    expect(unit.provenance.compiledAt).toBe('2026-08-27T12:00:00.000Z');
+    expect(unit.provenance.compiledAt).toBeUndefined(); // ADR 0109: no wall-clock
   });
 
   it('always calls extractStatic; never calls a provider when none given', async () => {
     const spy = vi.fn(extractStatic);
-    await compileModule('src', files, { extractStatic: spy, now });
+    await compileModule('src', files, { extractStatic: spy });
     expect(spy).toHaveBeenCalledOnce();
   });
 
@@ -52,7 +51,7 @@ describe('compileModule', () => {
       invariants: ['inv1'],
       model: 'claude-haiku',
     });
-    const unit = await compileModule('src', files, { extractStatic, generateSemantic: gen, now });
+    const unit = await compileModule('src', files, { extractStatic, generateSemantic: gen });
     expect(unit.provenance.semantic).toBe('present');
     expect(unit.provenance.model).toBe('claude-haiku');
     expect(unit.summary).toBe('does things');
@@ -61,14 +60,14 @@ describe('compileModule', () => {
 
   it('generateSemantic returning null ⇒ static-only (no-credential path)', async () => {
     const gen: GenerateSemantic = () => null;
-    const unit = await compileModule('src', files, { extractStatic, generateSemantic: gen, now });
+    const unit = await compileModule('src', files, { extractStatic, generateSemantic: gen });
     expect(unit.provenance.semantic).toBe('absent');
     expect(unit.provenance.model).toBeNull();
   });
 
   it('feeds the static half into the semantic input (static-feeds-semantic)', async () => {
     const gen = vi.fn<GenerateSemantic>(() => null);
-    await compileModule('src', files, { extractStatic, generateSemantic: gen, now });
+    await compileModule('src', files, { extractStatic, generateSemantic: gen });
     expect(gen).toHaveBeenCalledWith(
       expect.objectContaining({
         module: 'src',
@@ -80,11 +79,11 @@ describe('compileModule', () => {
 
   // F5 — empty module rejected at compile time (consistent with parseProvenance).
   it('rejects an empty module', async () => {
-    await expect(compileModule('', files, { extractStatic, now })).rejects.toThrow(/module/);
+    await expect(compileModule('', files, { extractStatic })).rejects.toThrow(/module/);
   });
 
   it('rejects a whitespace-only module', async () => {
-    await expect(compileModule('   ', files, { extractStatic, now })).rejects.toThrow(/module/);
+    await expect(compileModule('   ', files, { extractStatic })).rejects.toThrow(/module/);
   });
 
   // D3 — members are BASENAMES of one directory's DIRECT files. A directory
@@ -99,7 +98,7 @@ describe('compileModule', () => {
       { path: 'mod/foo.ts', content: 'export const a = 1;' },
       { path: 'mod/bar.ts', content: 'export const b = 2;' },
     ];
-    const unit = await compileModule('mod', prefixed, { extractStatic, now });
+    const unit = await compileModule('mod', prefixed, { extractStatic });
     expect(unit.provenance.members).toEqual(['bar.ts', 'foo.ts']);
   });
 
@@ -108,30 +107,25 @@ describe('compileModule', () => {
       { path: 'x\\y.ts', content: 'a' },
       { path: 'y.ts', content: 'a' },
     ];
-    const unit = await compileModule('mod', dup, { extractStatic, now });
+    const unit = await compileModule('mod', dup, { extractStatic });
     expect(unit.provenance.members).toEqual(['y.ts']);
   });
 
-  // C1 — compiledAt changes ONLY when sourceHash changes. When a prior unit's
-  // sourceHash matches the freshly-computed one (e.g. a semantic upgrade that
-  // does not touch the source), the prior compiledAt is REUSED, so a recompile
-  // of unchanged source never produces git churn from a moving timestamp.
-  it('reuses prior compiledAt when the sourceHash is unchanged (C1 determinism)', async () => {
-    const prior = { sourceHash: computeSourceHash(files), compiledAt: '2020-01-01T00:00:00.000Z' };
-    const laterNow = () => new Date('2099-12-31T23:59:59.000Z');
-    const unit = await compileModule('src', files, { extractStatic, now: laterNow, prior });
-    expect(unit.provenance.sourceHash).toBe(prior.sourceHash);
-    expect(unit.provenance.compiledAt).toBe('2020-01-01T00:00:00.000Z'); // prior preserved
+  // ADR 0109 — byte-stable shards. A unit carries NO wall-clock, so two compiles
+  // of the SAME source (at different times / on different branches) are
+  // byte-identical and never collide in a merge. This replaces the old C1
+  // "reuse-prior-timestamp" determinism, which only suppressed no-op churn but
+  // still let two branches making the same change diverge on `compiledAt`.
+  it('never stamps compiledAt (no wall-clock in the shard)', async () => {
+    const unit = await compileModule('src', files, { extractStatic });
+    expect(unit.provenance.compiledAt).toBeUndefined();
   });
 
-  it('stamps a fresh compiledAt when the sourceHash differs from prior (C1)', async () => {
-    const prior = {
-      sourceHash: 'a-stale-hash-that-does-not-match',
-      compiledAt: '2020-01-01T00:00:00.000Z',
-    };
-    const unit = await compileModule('src', files, { extractStatic, now, prior });
-    expect(unit.provenance.sourceHash).not.toBe(prior.sourceHash);
-    expect(unit.provenance.compiledAt).toBe('2026-08-27T12:00:00.000Z'); // fresh now
+  it('is byte-stable across recompiles of identical source', async () => {
+    const a = await compileModule('src', files, { extractStatic });
+    const b = await compileModule('src', files, { extractStatic });
+    expect(a.provenance.sourceHash).toBe(computeSourceHash(files));
+    expect(serializeUnit(a)).toBe(serializeUnit(b));
   });
 });
 
@@ -168,7 +162,7 @@ describe('compile → serve hash equality (single source of truth)', () => {
     // Enumerate via the CANONICAL reader, then compile exactly that.
     const enumerated = await reader.readModuleSource(module);
     expect(enumerated).not.toBeNull();
-    const compiled = await compileModule(module, enumerated!, { extractStatic, now });
+    const compiled = await compileModule(module, enumerated!, { extractStatic });
     expect(compiled.provenance.members).toEqual(['a.ts', 'b.ts']);
 
     const store = new ComprehensionStore({
@@ -189,7 +183,6 @@ describe('compile → serve hash equality (single source of truth)', () => {
     const reader = createNodeModuleSourceReader(root);
     const compiled = await compileModule(module, (await reader.readModuleSource(module))!, {
       extractStatic,
-      now,
     });
     await fsp.writeFile(path.join(root, module, 'a.ts'), 'export const a = 999;');
     const verdict = await serveGate(compiled, reader);
@@ -203,7 +196,6 @@ describe('compile → serve hash equality (single source of truth)', () => {
     const reader = createNodeModuleSourceReader(root);
     const compiled = await compileModule(module, (await reader.readModuleSource(module))!, {
       extractStatic,
-      now,
     });
     await fsp.writeFile(path.join(root, module, 'b.ts'), 'export const b = 2;');
     const verdict = await serveGate(compiled, reader);
@@ -217,7 +209,6 @@ describe('compile → serve hash equality (single source of truth)', () => {
     const reader = createNodeModuleSourceReader(root);
     const compiled = await compileModule(module, (await reader.readModuleSource(module))!, {
       extractStatic,
-      now,
     });
     await fsp.rm(path.join(root, module, 'b.ts'));
     const verdict = await serveGate(compiled, reader);
