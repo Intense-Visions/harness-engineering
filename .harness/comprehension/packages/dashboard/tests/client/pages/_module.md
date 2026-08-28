@@ -4,8 +4,8 @@ module: 'packages/dashboard/tests/client/pages'
 sourceHash: 'd13a07738102d9f431cb0d80567275a5be60e44182a116a570fd24103e64dcc2'
 compiledAt: '2026-08-28T01:22:11.523Z'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
-model: null
-semantic: absent
+model: 'claude-haiku-4-5-20251001'
+semantic: present
 members:
   [
     'Adoption.test.tsx',
@@ -34,6 +34,25 @@ members:
     'Webhooks.test.tsx',
   ]
 ---
+
+## Summary
+
+The `packages/dashboard/tests/client/pages` module contains 24 test files (~4120 lines) covering 19 dashboard page components. Tests are acceptance-level, verifying that each page correctly fetches data from specific API endpoints, transforms and formats it, renders it with proper styling/sorting, and handles user interactions. Tests use global `fetch()` mocking to intercept API calls deterministically, mock orchestrator/SSE hooks to simulate real-time state, and verify data contract compliance, formatting invariants (duration thresholds, percentage rounding, date truncation), and sorting/ordering (by dependency count, delta magnitude, z-score). Error paths test HTTP non-2xx responses and empty/missing states. Pages tested include Adoption, Attention, Impact, Kanban, Orchestrator, Roadmap, Graph, Tokens, Routing, Signals, and others.
+
+## Invariants
+
+- API Response Shapes — Each page consumes a specific API endpoint and expects a fixed TypeScript-typed response shape (e.g., AdoptionSnapshot, OrchestratorSnapshot, AnomalyData). Non-matching shapes cause rendering failures.
+- Duration Formatting Thresholds — Milliseconds <1000ms → '500ms'; <60000ms → '1.5s'; ≥60000ms → '1.5m'. Crossing these boundaries changes units; formatter must match exactly.
+- Success Rate Color Thresholds — ≥0.8 → emerald-400; ≥0.5 → yellow-400; <0.5 → red-400. UI styling depends on these ranges; off-by-one boundary breaks visual hierarchy.
+- Timestamp Truncation — ISO timestamps (e.g., 2026-06-15T12:34:56Z) are truncated to date portion (2026-06-15) for display. Re-renders must apply this consistently.
+- Descending Sort Orders — Pages re-sort received data: Adoption by skill name, Impact articulation points by dependentCount DESC, Impact outliers by zScore DESC, Graph node types by count DESC, Decay Trends categories by |delta| DESC. Missing sort reorders rows unexpectedly.
+- Direction Arrow Mapping — Decay/impact direction encoded as: improving→↓, declining→↑, stable→→. Symbol must map exactly; wrong arrows confuse risk interpretation.
+- HTTP Error Display — Non-2xx fetch responses show 'HTTP {status}' in UI. Pages must expose status code; hiding it breaks observability.
+- Empty State Messages — Specific strings shown when data is absent (e.g., 'No adoption data yet...'). Text changes break user workflows; pages assume exact strings in tests.
+- Mock Hook Contracts — useOrchestratorSocket returns stable {snapshot, interactions, connected, ...} object with methods like removeInteraction(). Interface drift breaks pages.
+- Fetch Router Isolation — Tests install custom fetch routers that route by (url, method) pair and return mutable state. Component behavior depends on re-fetch after mutations (POST then GET). Omitting re-fetch shows stale state.
+- Virtuoso Mocking Pattern — Some pages use react-virtuoso for large lists. Tests mock it to render all items (avoiding jsdom viewport issues); if Virtuoso behavior changes, mock must update or tests go blind.
+- Category Name Formatting — Hyphenated category IDs are title-cased for display (circular-deps→Circular Deps). Formatter must handle hyphens; breaking it shows raw IDs.
 
 ## Interface Contract
 

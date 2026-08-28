@@ -4,8 +4,8 @@ module: 'packages/dashboard/tests/client/components/threads'
 sourceHash: '64bbdf8b808a4871708893b64ff4d4e54aa2d21c632ae3214f5d546e8061bd0f'
 compiledAt: '2026-08-28T01:22:11.441Z'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
-model: null
-semantic: absent
+model: 'claude-haiku-4-5-20251001'
+semantic: present
 members:
   [
     'AgentThreadView.test.tsx',
@@ -14,6 +14,20 @@ members:
     'ChatThreadView.test.tsx',
   ]
 ---
+
+## Summary
+
+This test module validates AgentThreadView's orchestration layer—block merging, view routing, and stats derivation—without testing leaf components or network I/O. The suite uses sophisticated mocking that strips animation frames from framer-motion, stubs heavy UI components (NeuralOrganism, MessageStream), and mocks socket/stream-replay hooks via a hoisted mutable holder to avoid TDZ issues. Tests are organized into three concerns: header rendering & view routing (empty/loading/content states), block merge sequencing (recorded history + live events), and stats derivation (live session preference + manifest PR linking). Fixtures are derived constants, not magic numbers, so assertions track fixture contracts.
+
+## Invariants
+
+- Block merge order is load-bearing: recorded history always comes first, followed by live events. Breaking this violates replay chronology.
+- Single message per render: merged blocks form exactly one assistant message. Multiple messages or scattered blocks indicate routing failure.
+- Streaming state couples to thread status: active threads stream, completed threads don't. Decoupling breaks UX continuity signals.
+- Empty-state cascade is ordered: loading state > empty (running/completed) > content. Skipping the cascade renders stale content over load spinners.
+- Stats preference is strict: live session > recorded history > manifest fallback. Inverted preference hides live progress until manifest loads.
+- Store reset is required between tests: resetStore() in beforeEach prevents thread/message/panelState leaks. Omitting it causes flakes.
+- Hoisted hookState prevents TDZ race: vi.mock factories read per-test hook returns via hookState, not direct module scope. Direct reads cause stale closure bugs.
 
 ## Interface Contract
 

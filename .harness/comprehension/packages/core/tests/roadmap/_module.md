@@ -4,8 +4,8 @@ module: 'packages/core/tests/roadmap'
 sourceHash: 'f18ce5fbcd17d41db0f2c600a36004a284825f6b702c4ed048edce6a5c9ffdb6'
 compiledAt: '2026-08-28T01:22:11.057Z'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
-model: null
-semantic: absent
+model: 'claude-haiku-4-5-20251001'
+semantic: present
 members:
   [
     'assignee-lifecycle.test.ts',
@@ -40,6 +40,20 @@ members:
     'tracker-sync.test.ts',
   ]
 ---
+
+## Summary
+
+`packages/core/tests/roadmap` is a comprehensive fixture and test suite for the roadmap subsystem, which manages feature planning, assignment tracking, and synchronization with external trackers (GitHub Issues). The module exports test fixtures (markdown and parsed roadmap objects in various states) and test suites exercising assignee lifecycle (claiming, releasing, status-driven semantics), repo derivation from git remotes, parse/serialize round-trips, tracker sync, pilot scoring, health checks, and store operations (sharding, migration, regeneration). The suite acts as the behavioral contract for roadmap integrity across the entire pipeline—from user edits in markdown, through orchestrator mutations, to external sync and back.
+
+## Invariants
+
+- Assignee ⟺ in-progress: A feature has a non-null assignee if and only if its status is in-progress. Violations indicate either the pilot bug (human assigned to a non-in-progress row) or an orphan (in-progress with no owner).
+- First-claim-wins (S4-003): An orchestrator cannot steal an active claim from a different owner. Claim operations on a feature already assigned to a peer are idempotent no-ops.
+- Status-exit clears assignee (S4-001): Moving a feature away from in-progress automatically unassigns it and logs the release action. Prevents stale assignment metadata.
+- Machine assignee format: Assignee strings matching orchestrator-<id> or <hostname>-<hash> are machine-generated; human handles (@user, user@domain) are never auto-cleared by status changes.
+- Config derivation hierarchy: Explicit harness.config.json settings win over git remote derivation; only when repo is missing do loaders fall back to origin URL parsing.
+- Semantic round-trip (store/migration): A parsed roadmap must serialize and re-parse to an equivalent structure. Lossy serialization (e.g., dropping prose comments) breaks this contract.
+- External ID Single-Shard: Each feature's externalId (GitHub issue number) is canonical per shard. Drift in External-ID causes a feature to become invisible to the pilot and remain open despite resolution.
 
 ## Interface Contract
 

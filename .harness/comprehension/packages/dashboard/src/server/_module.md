@@ -4,8 +4,8 @@ module: 'packages/dashboard/src/server'
 sourceHash: '44937ef2e3716c42f80fb802aa309216facef921d3f04b7ae3cca6b7aedc0d5c'
 compiledAt: '2026-08-28T01:22:11.363Z'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
-model: null
-semantic: absent
+model: 'claude-haiku-4-5-20251001'
+semantic: present
 members:
   [
     'cache.ts',
@@ -18,6 +18,23 @@ members:
     'sse.ts',
   ]
 ---
+
+## Summary
+
+The dashboard server module is a Hono-based HTTP server that serves the dashboard client, exposes 13+ API routes for workspace insights (overview, roadmap, health, graph, security, perf, arch, etc.), and manages SSE polling to push live telemetry to browsers. It uses two-tier caching (DataCache for short-lived endpoints, GatherCache for expensive operations run once per startup), proxies orchestrator traffic (HTTP + WebSocket), and resolves user identity via a GitHub API waterfall. Routes are built from a shared ServerContext dependency container; the SSE loop lazily evaluates expensive gatherers once, then replays cached results to all clients.
+
+## Invariants
+
+- Lazy expensive-gatherer evaluation: security/perf/arch/anomalies only run on first SSE tick; subsequent ticks replay cached results to all clients (including late-connects).
+- Orchestrator proxy middleware must register before API routes so /api/v1/_, /api/state/_, /ws forward to orchestrator rather than returning 404.
+- Roadmap path duality (invariant R): roadmapPath is display/watch/lock-key only; roadmap content is read/written via resolveRoadmapStore(), not the display path.
+- Single writer to tokens.json: dashboard does NOT expose token CRUD; orchestrator is the sole writer to avoid unauthenticated-CRUD findings.
+- Role preference (HARNESS_DASHBOARD_ROLE) is presentation-only for UI lane selection, not a security boundary; real per-role enforcement deferred to orchestrator proxy seam.
+- CORS allow-list dynamically includes localhost + bind host; client port configurable via env.
+- SSEManager lifecycle: polling loop starts on first connection, stops when last disconnects; timer and results shared across all connected clients.
+- Identity cache uses single shared promise: concurrent resolveIdentity() calls don't spawn redundant GitHub API/CLI calls.
+- Bad port validation: dashboard pre-validates bind port and orchestrator proxy port against WHATWG bad-ports list; 502 errors surface root cause for diagnostics.
+- Route factory pattern: all route builders accept ServerContext, check DataCache, gather on miss, return Hono routers; no cross-route state.
 
 ## Interface Contract
 

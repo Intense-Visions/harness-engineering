@@ -4,11 +4,28 @@ module: 'packages/dashboard/src/client/components/layout'
 sourceHash: '108bd33a23f096efc054d55da06588fa491d9e0444ef160a8fbef35bf137e470'
 compiledAt: '2026-08-28T01:22:11.217Z'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
-model: null
-semantic: absent
+model: 'claude-haiku-4-5-20251001'
+semantic: present
 members:
   ['ChatLayout.tsx', 'ContextPanel.tsx', 'EmptyState.tsx', 'ThreadSidebar.tsx', 'ThreadView.tsx']
 ---
+
+## Summary
+
+The `layout` module is the three-column orchestrator for the dashboard: left sidebar (thread/system navigation), center main content area, and right context panel. It synchronizes WebSocket events from the orchestrator into React state, persists per-thread panel state (todos, artifacts, context sources, agent stats), and gates panel visibility based on route type (thread vs. system). ChatLayout sets up the grid and syncs agent events via useOrchestratorSocket() hooks, passing them to children through AgentEventsContext. ContextPanel conditionally renders a 320px right sidebar when content is present, sourced from ThreadStore's panelState. Panel state lives in ThreadStore keyed by activeThreadId and survives navigation—the layout reads but never writes. EmptyState is the landing page UI. ThreadSidebar handles role-filtered navigation between threads and system pages.
+
+## Invariants
+
+- System routes (/s/\*) always have null panelState — right panel never renders
+- Panel state lives in ThreadStore keyed by activeThreadId, not in ChatLayout — survives navigation by being store-sourced
+- AgentEventsContext.Provider wraps the content area and delivers socket.agentEvents to children — all agent subscriptions depend on this context
+- ContextPanel renders only when hasContent(state) is true — visibility strictly gated by presence of todos, artifacts, stats, or sources
+- Panel state is null-checked to EMPTY_STATE before use — component never crashes on undefined activeThreadId
+- Navigation sets isNavigating flag for 800ms to drive progress bar animation — flag lifecycle is load-bearing for visual continuity
+- useOrchestratorSocket() and sync hooks must re-subscribe on location changes — stale subscriptions cause missed events in thread context
+- Role-based page filtering uses pagesForRole() — if ROLE_LANES or DASHBOARD_ROLES changes, sidebar routes silently break
+- Mouse tracking onMouseMove feeds AuraBackground — removal breaks visual effect but not structure
+- activeThreadId from ThreadStore determines panel lookup — stale activeThreadId after deletion causes null panelState reads
 
 ## Interface Contract
 

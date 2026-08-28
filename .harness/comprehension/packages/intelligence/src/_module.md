@@ -4,10 +4,31 @@ module: 'packages/intelligence/src'
 sourceHash: '67b62a912e77e067587ab782ab1142910f95324b946ce1f4b9f046b782a288c5'
 compiledAt: '2026-08-28T01:22:11.817Z'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
-model: null
-semantic: absent
+model: 'claude-haiku-4-5-20251001'
+semantic: present
 members: ['adapter.ts', 'index.ts', 'pipeline.ts', 'types.ts']
 ---
+
+## Summary
+
+**packages/intelligence/src** is a multi-layered analysis pipeline that scores and gates work items for autonomous execution. It composes five decision layers—SEL (spec enrichment), CML (complexity modeling), PESL (pre-execution simulation), Outcome-Eval (post-execution verdict), and Acceptance-Eval (criteria measurability)—to produce routing verdicts and concern signals. The module also implements adoption-aware persona routing, skill-regression detection via golden fixtures, and autonomous brainstorm/go-no-go logic for the roadmap orchestrator.
+
+**Core components:** Analysis Providers (abstracted LLM backends); SEL (semantic annotation + graph validation); CML (structural/semantic/historical scoring); PESL (graph checks + LLM simulation); Outcome-Eval & Acceptance-Eval (pre/post-execution verdicts); Skill-Regression (Bayesian fixture evaluation); Specialization & Effectiveness (expertise tracking + persona routing); Triage & Auto-Brainstorm (autonomous gating and fork generation); Guardian (advisory diff-coverage); UAT Sign-off (human-authority acceptance).
+
+**Key contract:** `IntelligencePipeline` orchestrates SEL→CML→signals with tier-based behavior (autoExecute skips LLM; signalGated runs full pipe).
+
+## Invariants
+
+- Tier-gated execution: autoExecute skips LLM, alwaysHuman runs SEL only, signalGated runs full pipeline (SEL→CML→signals). Violating this breaks cost and routing logic.
+- Authority is pure and phase-aware: deriveRequiredTier, deriveAuthority, deriveAcceptanceAuthority, deriveRegressionAuthority are pure functions keyed off phase + concern signals. Mutating to stateful logic breaks reproducibility.
+- Specialization profiles refresh on startup and post-analysis pass via refreshProfiles(). Stale profiles cause wrong persona routing.
+- Guardian analysis is advisory-only (never blocking). Records from .harness/analyses/ feed signal derivation; making them gating changes the trust model.
+- Outcome connector is the sole ingestion path for post-execution state via ExecutionOutcomeConnector.ingest(). Bypassing it orphans execution data.
+- Skill-regression uses golden fixtures as source-of-truth with idempotent parse/serialize contracts; fuzzy weighting prevents brittleness. Mutating fixture parsing breaks all baseline comparisons.
+- Concern signals flow from complexity scores to verdicts via scoreToConcernSignals(). Changing signal shapes without updating consumers (triage, blast-radius veto, ratchet) breaks autonomous gates.
+- Multiple issue adapters (Jira, GitHub, Linear, manual) converge to RawWorkItem schema. Schema drift breaks adapter bridges.
+- UAT is human-authority only (no LLM verdict). Adding LLM judgment violates the acceptance contract where humans are the authoritative judge.
+- Analysis providers implement a stable AnalysisRequest/Response interface; implementations (Anthropic, OpenAI-compatible, Claude CLI) are swappable. Breaking the interface breaks all consumers.
 
 ## Interface Contract
 

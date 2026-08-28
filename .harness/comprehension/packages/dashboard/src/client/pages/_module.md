@@ -4,8 +4,8 @@ module: 'packages/dashboard/src/client/pages'
 sourceHash: '394f78bd14328c937e4b185b8ad368fa7a391c5a5cf024d6a6e4febfdfc96f32'
 compiledAt: '2026-08-28T01:22:11.365Z'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
-model: null
-semantic: absent
+model: 'claude-haiku-4-5-20251001'
+semantic: present
 members:
   [
     'Adoption.tsx',
@@ -30,6 +30,29 @@ members:
     'Webhooks.tsx',
   ]
 ---
+
+## Summary
+
+The `packages/dashboard/src/client/pages` module is a collection of 20 full-page React components that render domain-specific dashboards for the harness orchestration platform. Each page is a thin facade that composes task-specific hooks, stores, and child components to display telemetry, status, or control surfaces for different operational concerns.
+
+**Architecture pattern:** Pages fetch or subscribe to data via custom hooks (useSignals, useMaintenanceData, useOrchestratorSocket) or direct API calls, then render that data through a hierarchy of domain-specific subcomponents. Navigation actions (e.g., "Fix It" buttons, roadmap claims) create chat threads via useThreadStore and navigate to them—pages act as entry points to task workflows, not workflows themselves.
+
+**Data flow:** Adoption, Tokens, and Signals use direct fetch + local useState. Roadmap, Health, and Orchestrator use SSE (useSSE) for live updates. Maintenance and Attention listen to WebSocket events. All follow a consistent load/error/data→render pattern with collapsible sections and drill-down UI.
+
+**Key concerns:** Pages handle real-time connection state (Orchestrator, Maintenance), SSE event ordering (Roadmap conflict toast), and type discrimination (Health's polymorphic section rendering via typeGuards). The Orchestrator page is the most complex, rendering hierarchical agent/workflow status with dynamic phase badges and local-model banners. Tokens manages secure credential display (show-once pattern). Roadmap handles multi-milestone filtering, dependency graphs, and manual claims with conflict resolution.
+
+## Invariants
+
+- Single-export per file: Each .tsx exports exactly one React component named `export function <PageName>()`. No re-exports or subcomponent exports from pages.
+- useThreadStore navigation: All action buttons (Fix, Claim, Analyze, etc.) create a chat thread via `useThreadStore.getState().createThread('chat', {...})` and navigate to `/t/${thread.id}`. This is the sole navigation pattern; no <Link> elements.
+- State consistency via typeGuards: Pages receiving polymorphic data (Health, Traceability) discriminate sections via `isHealthData()`, `isSecurityData()`, etc. Rendering wrong section type without guard is silent no-op, not error—no defensive checks downstream.
+- Async data → state → render: All pages follow load→setData→render. fetch() or hook returns are wrapped in try/catch with setError. No chained async calls without explicit error branches per call.
+- No local state mutation beyond hooks: Page local state is useState/useCallback only. Derived state uses useMemo. Side effects are in useEffect or hook internals, never inline in render.
+- Empty/loading/error states are disjoint: Render trees check `loading && !snapshot` (not just `loading`) to avoid showing stale data during refetch. Error state persists until next successful load.
+- SSE/WebSocket pages log connection state: Orchestrator, Maintenance, Attention expose `connected` or `reconnecting` status in UI (visual dot badge). Absence of this indicator = data freshness not guaranteed.
+- Roadmap conflict toast bridges tabs: Roadmap wraps fetch in `fetchWithConflict()` which surfaces POST 409s to a `<ConflictToastRegion>`. No other pages retry conflicts—Roadmap is exception because concurrent claim/author edits are expected.
+- No side effects in the page component render: Fetch calls and subscriptions are in useEffect hooks or custom hooks only. Router navigation (useNavigate) is in click handlers, never in render.
+- Shared type discrimination: Pages importing `@shared/types` (AdoptionSnapshot, HealthData, etc.) are loosely-typed on the wire. Validation happens at the boundary (API response cast or hook return), not per-render. Malformed data silently renders empty or drops fields—no runtime type errors.
 
 ## Interface Contract
 

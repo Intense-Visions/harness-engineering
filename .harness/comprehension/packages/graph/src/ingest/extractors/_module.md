@@ -4,8 +4,8 @@ module: 'packages/graph/src/ingest/extractors'
 sourceHash: 'f7ffec6c01c846c118c942e4b28fd489a26818519e3b4ea9ef5262a7c1f984fc'
 compiledAt: '2026-08-28T01:22:11.624Z'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
-model: null
-semantic: absent
+model: 'claude-haiku-4-5-20251001'
+semantic: present
 members:
   [
     'ApiPathExtractor.ts',
@@ -17,6 +17,21 @@ members:
     'types.ts',
   ]
 ---
+
+## Summary
+
+The `packages/graph/src/ingest/extractors` module is a multi-language code signal extraction system that parses source files to identify semantic patterns (API routes, enums, constants, tests, validation rules) for the knowledge graph. Each extractor uses language-aware regex patterns to find framework-specific syntax (Express routes, FastAPI decorators, Spring annotations, etc.) and emit ExtractionRecords with unique hash-based IDs, confidence scores, and metadata. The ExtractionRunner orchestrates these extractors across six languages (TypeScript, JavaScript, Python, Go, Rust, Java) and persists results to GraphStore as semantic nodes in the dependency graph.
+
+## Invariants
+
+- ID uniqueness via hash: Each extraction record's ID combines filePath + pattern (hashed) to enable safe deduplication across runs
+- Language dispatch consistency: extract() switch statement must include all entries in supportedExtensions array; missing cases silently return []
+- Supported extensions must reflect dispatch logic: Each language case in switch must have corresponding extension in supportedExtensions; mismatch drops records for that language
+- Confidence scoring is ordinal: High scores (0.9) indicate framework-specific patterns; low scores (0.6) indicate fallback heuristics; downstreams filter by confidence threshold
+- Line numbers are 1-indexed: Off-by-one errors break source mapping and make results unusable for code navigation
+- NodeType values integrate with GraphStore schema: Must emit only valid nodeType values (e.g., business_process, literal, constant) or cause ingestion failures
+- Framework metadata must be deterministic: metadata.framework field (e.g., 'express', 'spring') must match actual detected pattern, not assumed; used for filtering and downstream linking
+- Pattern regexes are immutable module-scope: Prevents recompilation per-line and avoids complexity drift in loop bodies (required for complexity detector compliance)
 
 ## Interface Contract
 

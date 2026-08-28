@@ -4,8 +4,8 @@ module: 'packages/intelligence/src/triage'
 sourceHash: '1b9a81c8c3c1debcebe9b21a14fc123883e811c821f776ee0ce98754e89bca22'
 compiledAt: '2026-08-28T01:22:11.913Z'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
-model: null
-semantic: absent
+model: 'claude-haiku-4-5-20251001'
+semantic: present
 members:
   [
     'entities.test.ts',
@@ -28,6 +28,19 @@ members:
     'types.ts',
   ]
 ---
+
+## Summary
+
+`packages/intelligence/src/triage` is the decision layer for roadmap auto-triage—it determines whether a work item should auto-execute, be held for human review, or escalate. The module composes pure decision functions: entity extraction (pulls symbol/path names from item prose via 4 regex patterns, returns explicit empty array for unstructured text), go/no-go gating (partitions items into approved/held based on human flag + auto-executable category check), and supporting triage primitives (ranking, precedent aggregation, scoping probes, ratcheted stages, retrospective comparison, record-keeping).
+
+## Invariants
+
+- Entity extraction is naive by design—only 4 signal shapes (backticked, path, CamelCase, dotted), no NLQ fallback. Empty result is load-bearing; weak extraction collapses the scope lever.
+- No item dispatches without human go—resolveGoNoGo requires explicit human approval AND auto-executable category. Both gates must pass; neither is optional.
+- Category gate precedes approval gate—'not-auto-executable' surfaces before 'awaiting-human-go', telling operators why an approved item still can't run.
+- Stages 1–2 use uniform auth; stages 3–4 refuse all—stage only rides on approved items; it never relaxes the human-go requirement or allows deferred stages to auto-dispatch.
+- Entity extraction is layer-pure—zero dependencies on graph/core; resolution against the graph is the scope lever's job in Phase 1, not the extractor's.
+- Tests are P1 contract, not buried—entities.test.ts ships with the extractor because weak extraction is a failure mode of the whole triage system.
 
 ## Interface Contract
 

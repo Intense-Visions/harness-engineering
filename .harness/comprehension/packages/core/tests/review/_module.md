@@ -4,8 +4,8 @@ module: 'packages/core/tests/review'
 sourceHash: '1d9c9a7acca9371f2ad9e5a193ac62f06dc71b4511c0742e3e502338e6f12783'
 compiledAt: '2026-08-28T01:22:10.967Z'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
-model: null
-semantic: absent
+model: 'claude-haiku-4-5-20251001'
+semantic: present
 members:
   [
     'change-type.test.ts',
@@ -34,6 +34,23 @@ members:
     'validate-findings.test.ts',
   ]
 ---
+
+## Summary
+
+**packages/core/tests/review** tests the code-review orchestration pipeline that classifies code changes, gathers domain-specific context into 5 parallel review tracks (architecture, security, bug, compliance, learnings), runs mechanical checks, dispatches to parallel domain agents, validates findings against evidence and integrity rules, and enforces eligibility gates. The flow: classify change → scope context into 5 bundles → mechanical checks → fan-out to agents → gates (eligibility/evidence/integrity) → dedup → trust score. The 20+ test files cover change classification (commit prefixes vs. diff heuristics), context bundling with fallback import resolution (NodeNext .js→.ts, Babel .js→.jsx), parallel agent dispatch, PR state filtering (closed/merged/draft/trivial/prior-review), evidence citation matching, and finding integrity (evidence must align with claimed vulnerability class—mismatches downgrade severity rather than drop findings).
+
+## Invariants
+
+- 5-domain bundle invariant: scopeContext() ALWAYS produces exactly 5 ContextBundle instances (architecture, bug, compliance, learnings, security); caller code assumes this count
+- Changed files in all bundles: every domain bundle includes all changed files with reason='changed'; omitting breaks context for that domain
+- Convention file routing: convention files (CLAUDE.md, AGENTS.md) route ONLY to compliance bundle; missing from compliance causes context gap
+- Change type consistency: all bundles within a scope operation share the same changeType (from commit message or diff heuristics); inconsistency breaks depth tuning
+- Import resolution fallbacks: without graph, resolver must try NodeNext (.js→.ts) and Babel (.js→.jsx) variants; omitting either breaks cross-platform context
+- Evidence-class consistency: security findings (with CWE/OWASP tags) must cite security-relevant evidence (SQL queries, injection patterns); violations are downgraded not dropped, preserving violation record
+- Eligibility gates are sequential: closed/merged PRs, drafts (CI mode), doc-only changes, prior-review matches must all populate skipReason; no short-circuit paths
+- Evidence line-range matching: finding at [40, 45] only matches evidence citing a line within 40–45; off-by-one or missing lines fail coverage and flag uncited
+- Parallel dispatch per domain: fan-out agents must run concurrently, not sequentially; timing gates verify all domains complete in parallel
+- Finding domain consistency: every finding in an AgentReviewResult must have domain equal to result's domain; mismatch indicates orchestration error
 
 ## Interface Contract
 

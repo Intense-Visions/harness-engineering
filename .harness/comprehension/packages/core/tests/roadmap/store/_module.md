@@ -4,8 +4,8 @@ module: 'packages/core/tests/roadmap/store'
 sourceHash: 'b2d0118b500ace5c3a479ab804a9326ce2cd806358f31675e971a58f2a7f239b'
 compiledAt: '2026-08-28T01:22:10.984Z'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
-model: null
-semantic: absent
+model: 'claude-haiku-4-5-20251001'
+semantic: present
 members:
   [
     'apply-diff.test.ts',
@@ -27,6 +27,22 @@ members:
     'shard.test.ts',
   ]
 ---
+
+## Summary
+
+**`packages/core/tests/roadmap/store`** is the comprehensive test suite and fixture library for the roadmap storage layer, validating both monolithic and sharded storage modes across 17 test files. It ensures safe mutation semantics, archive lifecycle management, and data integrity throughout the roadmap store abstraction.
+
+Key responsibilities: fixture provisioning (standardized roadmaps/shards in multiple formats), atomic mutation validation (add/patch/remove with all-or-nothing semantics), archive/restore lifecycle with active-read exclusion, storage mode abstraction (monolith vs shard), and round-trip preservation of metadata and assignment history.
+
+## Invariants
+
+- Slug collision detection (F4): applyRoadmapDiff must reject two features that slugify identically before executing any mutations; fail-closed to prevent silent slug→feature index collapse
+- Silent milestone-move prevention (F5): features cannot simultaneously change body AND move milestones via patchFeature (which preserves recorded milestone/order); must fail to prevent silent move loss
+- Archive exclusion from active reads: readShardDir and regenerate must exclude archive/ subdirectory; shallow listDir behavior (immediate children only) ensures archive appears as directory entry, never exposing nested .md files to active aggregates
+- Byte-perfect round-trips: archive→restore cycles must preserve shard bytes exactly; no normalization or mutation between move and restoration
+- Idempotency per slug: archive/restore operations silently skip missing slugs rather than error; multiple invocations of same slug list have no side effects
+- Fail-closed mutation: applyRoadmapDiff validates all changes before executing any mutations; first error stops processing and leaves store unmodified
+- Shallow directory semantics: entire archive strategy depends on fsp.readdir behavior; nested paths like archive/slug.md appear as single 'archive' entry in parent listing, not as .md files
 
 ## Interface Contract
 
