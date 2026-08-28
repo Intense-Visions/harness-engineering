@@ -4,8 +4,8 @@ module: 'packages/core/src/architecture'
 sourceHash: 'a8106663c2a8d312b22ed60343e8049f64434c69c32a7f3dc0a7ccc454081ca1'
 compiledAt: '2026-08-28T01:22:10.317Z'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
-model: null
-semantic: absent
+model: 'claude-haiku-4-5-20251001'
+semantic: present
 members:
   [
     'baseline-manager.ts',
@@ -30,6 +30,21 @@ members:
     'violation-history.ts',
   ]
 ---
+
+## Summary
+
+The `packages/core/src/architecture` module is the architectural governance layer for the monorepo. It detects, tracks, and gates regressions across multiple dimensions — circular dependencies, layer violations, coupling, complexity, module size, and dependency depth. The system captures snapshots of architectural metrics via collectors, stores them in a baseline file, and gates PRs against deltas from main. A key innovation is the **per-PR allowance pattern**: intentional regressions are explicitly acknowledged in unique per-PR files rather than rewriting the shared baseline on branches, eliminating the merge-conflict cascade. The module also includes a prediction engine that forecasts architectural drift and suggests emergent constraints based on historical trends and spec impact analysis.
+
+## Invariants
+
+- Single-writer snapshot: baselines.json is the authoritative snapshot and is only advanced by the post-merge refresh job on main, never rewritten on feature branches
+- Base-ref resolution in PR context: When gating a PR, the baseline is read from origin/main (the merge target), not the working-tree, so the gate is a true delta and the branch's baselines.json never needs to change
+- Per-PR allowances for intentional regressions: Feature branches acknowledge intentional regressions via unique per-PR allowance files (.harness/arch/allowances/\*.json), never by touching the shared snapshot
+- Metrics are set-based, deterministically serialized: Violation IDs within each category are treated as an unordered set; they are deduplicated, sorted, and stored so an unchanged set always produces byte-identical output
+- Volatile stamps preserved on no-op: When metric values don't change, updatedAt and updatedFrom are preserved rather than bumped, so PRs that don't move any metric produce no diff in baselines.json
+- Fail-open on infrastructure gaps: Git read-only operations (fetching base ref, branch detection) always fall back to working-tree behavior if they fail, rather than raising a false gate failure
+- Atomic writes with temp + rename: Baseline saves use a temporary file and atomic rename to prevent corruption if the process crashes mid-write
+- Allowances and baselines are independent files: Allowances are never folded into the snapshot; they are acknowledged in CI and discarded, while the snapshot advances only through refresh jobs
 
 ## Interface Contract
 

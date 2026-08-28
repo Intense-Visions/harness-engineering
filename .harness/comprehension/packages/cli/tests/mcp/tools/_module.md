@@ -4,8 +4,8 @@ module: 'packages/cli/tests/mcp/tools'
 sourceHash: '71bfd5a42ae3888feb5f595c2ac75fd338401ae5f3aae4c0820dbcc935483d90'
 compiledAt: '2026-08-28T01:22:10.260Z'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
-model: null
-semantic: absent
+model: 'claude-haiku-4-5-20251001'
+semantic: present
 members:
   [
     'acceptance-eval.test.ts',
@@ -86,6 +86,19 @@ members:
     'workflow-e2e.test.ts',
   ]
 ---
+
+## Summary
+
+`packages/cli/tests/mcp/tools` is the test suite for MCP (Model Context Protocol) tool implementations across the harness engineering system. It validates ~40+ tools including acceptance evaluation, ADR/roadmap management, code/docs/knowledge/API/test/security craft workflows, code navigation, graph queries, reviews, and skill dispatching. Each test module validates tool contracts (definition shape, input requirements, output structure), degraded-mode behavior (e.g., no LLM provider), and business logic invariants specific to the tool's domain. The suite uses isolated temporary directories per test and provides snapshot utilities (`writeShardedProject`, `snapshotShardDir`) for validating sharded project state mutations.
+
+## Invariants
+
+- ADR collision safety: ADR number allocation uses max(existing) + 1, not count-based, to tolerate gaps and duplicates—count-based schemes collide when renumbering mid-sequence.
+- Authority is computed, never LLM-read: Acceptance eval verdicts derive authority deterministically from measurability + confidence via TS logic; the LLM must never set it.
+- Degrade-safe on missing provider: When no LLM provider is configured, tools return advisory/INCONCLUSIVE verdicts (not errors), making them safe for CI/scripting contexts.
+- Sharded project serialization: Roadmap and project data flow through sharded format (roadmapToShards, serializeShard); snapshots validate shard identity across mutations.
+- Cross-platform path invariants: Path headers and file assertions must normalize separators (POSIX even on win32 from glob lib) for tests to pass cross-OS.
+- Tool definition shape is non-negotiable: All tools must expose a Definition object with name, inputSchema.required, inputSchema.properties; callers depend on this contract for dynamic invocation and validation.
 
 ## Interface Contract
 

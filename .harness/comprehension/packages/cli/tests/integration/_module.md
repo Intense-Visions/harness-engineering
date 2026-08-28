@@ -4,8 +4,8 @@ module: 'packages/cli/tests/integration'
 sourceHash: '321784670b20084cd2bf6374446c8574beac9e2f0e7cb718925f659eaa5211df'
 compiledAt: '2026-08-28T01:22:09.733Z'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
-model: null
-semantic: absent
+model: 'claude-haiku-4-5-20251001'
+semantic: present
 members:
   [
     'autopilot-skill-hooks.test.ts',
@@ -21,6 +21,20 @@ members:
     'tier0-catalog-consistency.test.ts',
   ]
 ---
+
+## Summary
+
+This module tests the harness CLI end-to-end and validates the skillHooks cross-skill lifecycle framework. It spawns the built CLI binary as a subprocess and uses temporary directories for isolation. The skillHooks tests rigorously verify that SKILL.md prose documentation matches concrete hook call sites in code, enforcing the distinction between hard-halt failures (user-declared hooks) and graceful skips (harness-default canary detectors that aren't installed).
+
+## Invariants
+
+- Subprocess cold-start latency: CLI tests spawn dist/bin/harness.js via spawnSync, inheriting package-level testTimeout. Builds must be fresh; stale dist causes MODULE_NOT_FOUND.
+- Hook documentation ↔ call-site sync: skillHooks tests extract SKILL.md sections and verify wiring matches concrete resolveSkillHooks() call sites. Overpromise (claiming undeclared events fire) breaks tests.
+- Hard-halt vs. graceful-skip distinction: User-declared unresolvable hooks hard-halt with failures.md record. Harness-default canary detectors gracefully skip if not installed (never hard-halt).
+- Four wired events only: skillHooks resolve at before:EXECUTE, after:REVIEW, after:FINAL_REVIEW, on:failure. Other events are no-op; claiming they wire is a test failure.
+- Skill-agnostic framework proof: skillHooks is not autopilot-locked; code-review declares after:mechanical as a second consumer.
+- Windows file-lock cleanup: Temp directory cleanup catches exceptions; rmSync with {recursive: true, force: true} and try/catch handles lock delays.
+- Canary forward-wiring with availability filtering: resolveReviewHooksWithCanary takes an availableSkills set; only installed detectors wire. Tests verify all four canary detectors are named and availability pattern is documented.
 
 ## Interface Contract
 

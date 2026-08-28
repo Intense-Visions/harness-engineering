@@ -4,8 +4,8 @@ module: 'packages/cli/tests/skill'
 sourceHash: '45eebeca6f88bd127c49f81764570932ba8013ec9145c075606b632264cc892b'
 compiledAt: '2026-08-28T01:22:10.163Z'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
-model: null
-semantic: absent
+model: 'claude-haiku-4-5-20251001'
+semantic: present
 members:
   [
     'capabilities.test.ts',
@@ -33,6 +33,23 @@ members:
     'stack-profile.test.ts',
   ]
 ---
+
+## Summary
+
+**packages/cli/tests/skill** validates the skill recommendation and dispatch system that routes users to relevant harness skills based on codebase state, change signals, and health metrics. It tests capability schema derivation and drift detection, complexity assessment (file count and signal-based review depth), health snapshot caching, skill indexing with keywords/stack signals/roles, and the scoring/recommendation engine that matches skills to active signals. All paths feed into `dispatchSkillsFromGit`, which emits a deterministic, urgency-ordered recommendation list with triggering rationale.
+
+## Invariants
+
+- Capability derivation is deterministic — given a tool list, deriveCapabilities() always produces the same filesystem/network envelope; Write/Edit/Bash → read-write; WebFetch/WebSearch → network=true
+- Drift detection is mandatory — declared capabilities must match derived envelope, errors surface with field-level precision
+- Capability roles enforce 2–3 completion — all three roles (definition/providers/consumers) OR exactly two (work-in-progress) valid; single-role or zero-role errors with named fields
+- Whitespace normalization — whitespace-only capabilityRoles entries treated as unfilled, allowing correct role counting
+- Complexity evaluation follows fixed rules — fileCount ≥ 3 → thorough; fileCount ≤ 1 → fast unless newDir/newDep; testOnly/docsOnly → fast
+- Hard signals trigger critical immediately — active signals (circular-deps, layer-violations, etc.) matching hard addresses emit critical-urgency recommendations with score 1.0
+- Health snapshot freshness gates caching — stale snapshots recaptured; dispatch only scores against fresh health state
+- Skill dispatch is reproducible — identical repo state + commit + changed files + health metrics produce same recommendation order and rationale
+- Tier-1 skills seed recommendations — brainstorming, planning, execution, autopilot, tdd, debugging, refactoring receive preferential scoring
+- Score composition is stable — keyword (0.30), stack (0.15), recency (0.10), health (0.20) weights don't shift mid-run; tier-1 boost applied consistently
 
 ## Interface Contract
 

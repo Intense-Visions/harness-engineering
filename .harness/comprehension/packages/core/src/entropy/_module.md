@@ -4,11 +4,26 @@ module: 'packages/core/src/entropy'
 sourceHash: 'a1db79d89d050afd9be3d91cc218d917f220fc9b01272fed7ce4b1dc7ebe8493'
 compiledAt: '2026-08-28T01:22:10.350Z'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
-model: null
-semantic: absent
+model: 'claude-haiku-4-5-20251001'
+semantic: present
 members:
   ['analyzer.ts', 'entry-points.test.ts', 'entry-points.ts', 'index.ts', 'snapshot.ts', 'types.ts']
 ---
+
+## Summary
+
+`packages/core/src/entropy` is a codebase health analyzer that detects six categories of degradation: documentation drift, dead code (exports/files/imports), pattern violations, complexity hotspots, coupling issues, and size budget overruns. The core class is `EntropyAnalyzer`, which orchestrates independent detector functions and produces a unified report. It builds a snapshot of your codebase (AST-based exports, imports, symbols, docs) and runs configurable detectors against it. Key design: detectors can accept optional graph data (from `@harness-engineering/graph`) to replace or augment snapshot analysis, and errors from individual detectors don't fail the whole run—they're accumulated in the report. Analysis is modular (each detector is independent), typed with a `Result<T, E>` pattern, and supports protected regions to exclude certain code from dead-code analysis.
+
+## Invariants
+
+- Snapshot must exist before detectors run — detectDrift(), detectDeadCode(), and detectPatterns() call ensureSnapshot() internally; calling them before analyze() or buildSnapshot() will trigger a blocking build.
+- Graph data is optional but targeted — graphOptions provides domain-specific data (drift edges, reachable nodes, hotspots, fan-in/out) to individual detectors; snapshot-building is skipped entirely if graph data covers all requested analyzers, so graph integration is an optimization path, not a fallback.
+- Parser selection is per-file, not global — When config.parser is omitted, the snapshot builder dispatches to the default multi-language registry per source file; explicitly passing a parser forces single-language semantics.
+- Detectors run independently and errors accumulate — Individual detector failures don't halt the pipeline; errors are pushed to analysisErrors[] and the report continues with partial data (e.g., drift may fail but dead-code runs anyway).
+- Report structure is sparse — Optional report fields (report.drift, report.deadCode, etc.) are only added to the report if the corresponding analyzer ran and succeeded; downstream code must check for field existence.
+- Protected regions exclude findings from dead-code — config.protectedRegions must be parsed and passed to detectDeadCode(); code marked as protected won't appear in dead-export or dead-import reports.
+- Suggestions require specific report data — getSuggestions() expects deadCode, drift, and patterns reports to exist; returns empty suggestions if the report is missing or was never built.
+- Summary statistics are calculated, not aggregated from external sources — Issue counts, error/warning counts, and fixable counts are derived from violation arrays in individual reports, not stored separately.
 
 ## Interface Contract
 
