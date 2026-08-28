@@ -4,8 +4,8 @@ module: 'packages/core/src/state'
 sourceHash: '2168a5c54d93a801e2a44d3c293f9b7b0c76a9955565f6677ae690ae0ac09ef8'
 compiledAt: '2026-08-28T01:22:10.671Z'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
-model: null
-semantic: absent
+model: 'claude-haiku-4-5-20251001'
+semantic: present
 members:
   [
     'constants.ts',
@@ -33,6 +33,23 @@ members:
     'types.ts',
   ]
 ---
+
+## Summary
+
+The `packages/core/src/state` module manages all persistent state and session continuity for harness automation. It orchestrates stateful artifacts across multiple concerns: learning persistence (dedup via content hashing, staleness detection, lifecycle), failure tracking, session handoffs (JSON checkpoints for workflow transfer), per-branch streams, session summaries, and large-content overflow via spill-to-disk. The module also bridges learning staleness onto the knowledge graph and provides append-only event sourcing with snapshots for audit trails. Interaction points lean on file-based locking for concurrent access and mtime-based caching to avoid re-parsing on every read.
+
+## Invariants
+
+- File-based locking with exponential backoff — concurrent writes to learnings acquire a .lock file with O_EXCL; contention retries at [50ms, 100ms, 200ms] before failing.
+- Mtime-based cache invalidation — learnings and failures cache on modification time; must clear cache entries when files are written/moved, else stale data is served.
+- Atomic handoff writes — handoff.json uses temp-file-rename pattern (write to .tmp, then rename) to prevent corruption on crash mid-write.
+- Content hash determinism — learning deduplication relies on stable hash computation; hash index must be rebuilt self-healingly if corrupted.
+- Deletion-based staleness only — learnings are flagged stale only when cited files are deleted; move/rename is a non-goal per ADR 0104.
+- Graph node staleness isolation — only 'learning' and 'execution_outcome' node types carry the staleness marker; nodes without missing references are left untouched (back-compat).
+- Spill threshold boundaries — large content over the threshold (default 30KB, env-configurable) is written to .harness/.../spill/ with a stable locator; subsequent reads must traverse both inline and spill store.
+- Stream isolation per branch — each git branch gets a scoped state directory under streams; stream index tracks active stream and metadata.
+- Session-scoped state — state can be project-level or session-specific; resolvers accept optional session parameter to route to correct directory.
+- Append-only event log is authoritative — event sourcing log + snapshots together form the source of truth for audit trails; snapshots are optimizations, not primary.
 
 ## Interface Contract
 

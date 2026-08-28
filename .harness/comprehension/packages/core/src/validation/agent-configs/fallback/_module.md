@@ -4,8 +4,8 @@ module: 'packages/core/src/validation/agent-configs/fallback'
 sourceHash: '159361a8604f8f0983e1f2bdafdfe98204b277c9d5bc8083d155fcb57ec8e46d'
 compiledAt: '2026-08-28T01:22:10.698Z'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
-model: null
-semantic: absent
+model: 'claude-haiku-4-5-20251001'
+semantic: present
 members:
   [
     'index.ts',
@@ -25,6 +25,23 @@ members:
     'shared.ts',
   ]
 ---
+
+## Summary
+
+The fallback module is a concurrent validation hub that runs ten independent rule suites against a project's agent configuration files (agent definitions, AGENTS.md, skills, hooks, etc.). It parallelizes rule execution and aggregates findings into a deterministically sorted list keyed by (file, line, ruleId). Core contract: `runFallbackRules(cwd)` → `Promise<AgentConfigFinding[]>`. Each rule suite is independent, scans for relevant files, and returns typed findings with severity, message, and suggestion.
+
+## Invariants
+
+- Concurrent rule independence: each rule suite operates on disjoint file sets with no cross-rule dependencies
+- Deterministic sorting: findings sorted by (file lexicographic → line numeric → ruleId lexicographic)
+- Agent file discovery: agents/\*_/_.md only, explicitly excluding skills/, README.md, SKILL.md, AGENTS.md, CLAUDE.md
+- Frontmatter required: every agent definition must have YAML frontmatter with at least name and description fields
+- Name-to-filename consistency: agent name should match basename; mismatch triggers a warning, not error
+- Description routing threshold: description ≥20 characters minimum to win routing; shorter is flagged AC-012 warning
+- AGENTS.md reuses validateAgentsMap: structural validation delegates to core validator for consistency
+- Skip-safe on absence: missing config files return [] and do not error; validation only runs when files exist
+- Agnix tool slugs curated: .agnix.toml target and tools entries must match known slug names
+- Uniform finding shape: all findings carry file, ruleId, severity, message, suggestion, and optional line
 
 ## Interface Contract
 

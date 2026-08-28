@@ -4,8 +4,8 @@ module: 'packages/core/tests/architecture/collectors'
 sourceHash: '97f9208b9059f449afcad6bcbfdc89da97c23ba315f1f7b28a84ce04c9f935f5'
 compiledAt: '2026-08-28T01:22:10.724Z'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
-model: null
-semantic: absent
+model: 'claude-haiku-4-5-20251001'
+semantic: present
 members:
   [
     'circular-deps.test.ts',
@@ -21,6 +21,21 @@ members:
     'module-size.test.ts',
   ]
 ---
+
+## Summary
+
+This test suite validates architecture collectors—pluggable violation detectors that scan a codebase for structural problems (circular dependencies, complexity, coupling, layer violations, forbidden imports, module size, dependency depth). Each collector implements a `collect(config, projectPath)` async method that orchestrates detection and normalizes results via a uniform `Collector` interface. Collectors wrap lower-level detectors (e.g., `detectCircularDeps`, `detectComplexityViolations`), transform domain-specific violations into shared `MetricResult` objects with stable violation IDs, filter severity (keeps `error`/`warning`, drops `info`), and include category metadata and analysis stats. The tests mock the underlying detection layer and verify correct categorization, stable hashing, severity mapping, and metadata threading.
+
+## Invariants
+
+- Violation IDs are deterministic (same input → same 64-char hex sha256); ID computation includes category, scope, and violation detail
+- Each collector returns exactly one MetricResult in an array, containing violations array, value (count), metadata object, and scope
+- Only error and warning severity violations surface; info-severity is silently excluded (enforced by Violation type)
+- Violation file paths are relative to project root, not absolute paths
+- Each collector has an immutable category string (circular-deps, complexity, coupling, etc.) used in ID hashing and result categorization
+- excludePatterns from config must propagate to findFiles() during file discovery; collectors pass them through to the detection layer
+- Metadata varies by collector (e.g., largestCycle/cycleCount for circular-deps; filesAnalyzed/functionsAnalyzed for complexity)
+- Detection layer contract is replaceable via mocks; collectors assume Result&lt;T&gt; envelope shape with ok/value fields
 
 ## Interface Contract
 
