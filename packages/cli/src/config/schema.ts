@@ -1049,6 +1049,12 @@ export const HarnessConfigSchema = z.object({
   version: z.literal(1),
   /** Human-readable name of the project */
   name: z.string().optional(),
+  /**
+   * Human-readable one-line description of the project. Descriptive metadata
+   * harness does not consume — declared so the shared loader recognizes it as a
+   * legitimate top-level key rather than stripping it with a warning (#862).
+   */
+  description: z.string().optional(),
   /** Root directory of the project, relative to the config file */
   rootDir: z.string().default('.'),
   /** Layered architecture definitions */
@@ -1102,6 +1108,30 @@ export const HarnessConfigSchema = z.object({
         })
         .optional(),
     })
+    .optional(),
+  /**
+   * Declarative tech-stack metadata for the workspace. A plural, root-level
+   * superset of the singular `template.language` / `template.framework` /
+   * `template.tooling.*` fields — several projects (and co-tenant tools)
+   * independently hoist stack/tooling info to the config root in this shape.
+   * Harness does not consume it; the known facets are typed for editor help and
+   * `.passthrough()` keeps forward-compat extras (e.g. `orms`, `clouds`) from
+   * tripping the stripped-key warning (#862).
+   */
+  stack: z
+    .object({
+      /** Programming languages in use, e.g. `["typescript"]`. */
+      languages: z.array(z.string()).optional(),
+      /** Application/UI frameworks, e.g. `["expo", "react-native", "nextjs"]`. */
+      frameworks: z.array(z.string()).optional(),
+      /** Build/bundler tooling, e.g. `["turborepo", "metro", "webpack"]`. */
+      buildTools: z.array(z.string()).optional(),
+      /** Test runners, e.g. `["jest", "vitest"]`. */
+      testRunners: z.array(z.string()).optional(),
+      /** Primary package manager, e.g. `"pnpm"`. */
+      packageManager: z.string().optional(),
+    })
+    .passthrough()
     .optional(),
   /** Phase gate and readiness check configuration */
   phaseGates: PhaseGatesConfigSchema.optional(),

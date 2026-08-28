@@ -30,6 +30,40 @@ Schema version number. Must be `1`.
 
 Human-readable project name used in logs and reports.
 
+### `description`
+
+- **Type:** `string`
+- **Required:** No
+
+Human-readable one-line description of the project. Descriptive metadata only — harness does not consume it. Declared so the shared config loader treats it as a legitimate top-level key rather than stripping it with an "ignored unknown key" warning.
+
+### `stack`
+
+- **Type:** `object`
+- **Required:** No
+
+Declarative tech-stack metadata for the workspace — a plural, root-level superset of the singular `template.language` / `template.framework` / `template.tooling.*` fields. Harness does not consume it; it is recognized so it is not stripped with a warning, and unknown facets are preserved (the object is passthrough).
+
+| Field            | Type       | Description                                            |
+| ---------------- | ---------- | ------------------------------------------------------ |
+| `languages`      | `string[]` | Programming languages, e.g. `["typescript"]`           |
+| `frameworks`     | `string[]` | Application/UI frameworks, e.g. `["expo", "nextjs"]`   |
+| `buildTools`     | `string[]` | Build/bundler tooling, e.g. `["turborepo", "webpack"]` |
+| `testRunners`    | `string[]` | Test runners, e.g. `["jest", "vitest"]`                |
+| `packageManager` | `string`   | Primary package manager, e.g. `"pnpm"`                 |
+
+```json
+{
+  "stack": {
+    "languages": ["typescript"],
+    "frameworks": ["expo", "react-native", "nextjs", "nativewind"],
+    "buildTools": ["turborepo", "metro", "webpack"],
+    "testRunners": ["jest", "vitest"],
+    "packageManager": "pnpm"
+  }
+}
+```
+
 ### `rootDir`
 
 - **Type:** `string`

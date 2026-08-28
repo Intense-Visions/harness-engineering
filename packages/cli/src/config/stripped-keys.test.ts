@@ -76,6 +76,32 @@ describe('collectStrippedKeys — schema-aware dropped-key detection', () => {
     expect(collectStrippedKeys(HarnessConfigSchema, raw)).toEqual([{ path: 'frobnicate' }]);
   });
 
+  // Recurring adopter pattern: descriptive project metadata declared at the
+  // config root — a human `description` and a plural `stack` block. Multiple
+  // projects (including co-tenants) independently hoist stack/tooling metadata
+  // to the root, so these are now first-class optional keys and must not strip.
+  it('does NOT report top-level description and stack (adopter metadata)', () => {
+    const raw = {
+      version: 1,
+      description: 'A mobile + web monorepo',
+      stack: {
+        languages: ['typescript'],
+        frameworks: ['expo', 'react-native', 'nextjs', 'nativewind'],
+        buildTools: ['turborepo', 'metro', 'webpack'],
+        testRunners: ['jest', 'vitest'],
+        packageManager: 'pnpm',
+      },
+    };
+    expect(collectStrippedKeys(HarnessConfigSchema, raw)).toEqual([]);
+  });
+
+  it('does NOT report forward-compat extras inside stack (passthrough)', () => {
+    // `stack` is descriptive metadata harness does not consume; adopters may add
+    // their own facets (orms, clouds, …) without tripping the strip warning.
+    const raw = { version: 1, stack: { languages: ['go'], orms: ['gorm'] } };
+    expect(collectStrippedKeys(HarnessConfigSchema, raw)).toEqual([]);
+  });
+
   it('still reports a "canary" key that is mis-nested, not a root co-tenant namespace', () => {
     // Only the ROOT is co-tenant space; `canary` under a known section is a real
     // strip (and exactly the kind of mis-nesting the warning exists to catch).
@@ -93,6 +119,25 @@ describe('collectStrippedKeys — schema-aware dropped-key detection', () => {
     expect(lines[0]).toBe(
       "⚠ harness.config.json: ignored unknown key 'securty' (did you mean 'security'?)"
     );
+  });
+});
+
+describe('HarnessConfigSchema — description + stack metadata (adopter root keys)', () => {
+  it('parses and preserves top-level description and a plural stack block', () => {
+    const parsed = HarnessConfigSchema.parse({
+      version: 1,
+      description: 'A mobile + web monorepo',
+      stack: {
+        languages: ['typescript'],
+        frameworks: ['expo', 'react-native'],
+        buildTools: ['turborepo'],
+        testRunners: ['jest', 'vitest'],
+        packageManager: 'pnpm',
+      },
+    });
+    expect(parsed.description).toBe('A mobile + web monorepo');
+    expect(parsed.stack?.packageManager).toBe('pnpm');
+    expect(parsed.stack?.frameworks).toEqual(['expo', 'react-native']);
   });
 });
 
