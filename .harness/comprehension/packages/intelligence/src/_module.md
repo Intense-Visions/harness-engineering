@@ -1,0 +1,283 @@
+---
+schemaVersion: 1
+module: 'packages/intelligence/src'
+sourceHash: '67b62a912e77e067587ab782ab1142910f95324b946ce1f4b9f046b782a288c5'
+compiledAt: '2026-08-28T01:22:11.817Z'
+compiler: { static: '1.0.0', semantic: '1.0.0' }
+model: 'claude-haiku-4-5-20251001'
+semantic: present
+members: ['adapter.ts', 'index.ts', 'pipeline.ts', 'types.ts']
+---
+
+## Summary
+
+**packages/intelligence/src** is a multi-layered analysis pipeline that scores and gates work items for autonomous execution. It composes five decision layers—SEL (spec enrichment), CML (complexity modeling), PESL (pre-execution simulation), Outcome-Eval (post-execution verdict), and Acceptance-Eval (criteria measurability)—to produce routing verdicts and concern signals. The module also implements adoption-aware persona routing, skill-regression detection via golden fixtures, and autonomous brainstorm/go-no-go logic for the roadmap orchestrator.
+
+**Core components:** Analysis Providers (abstracted LLM backends); SEL (semantic annotation + graph validation); CML (structural/semantic/historical scoring); PESL (graph checks + LLM simulation); Outcome-Eval & Acceptance-Eval (pre/post-execution verdicts); Skill-Regression (Bayesian fixture evaluation); Specialization & Effectiveness (expertise tracking + persona routing); Triage & Auto-Brainstorm (autonomous gating and fork generation); Guardian (advisory diff-coverage); UAT Sign-off (human-authority acceptance).
+
+**Key contract:** `IntelligencePipeline` orchestrates SEL→CML→signals with tier-based behavior (autoExecute skips LLM; signalGated runs full pipe).
+
+## Invariants
+
+- Tier-gated execution: autoExecute skips LLM, alwaysHuman runs SEL only, signalGated runs full pipeline (SEL→CML→signals). Violating this breaks cost and routing logic.
+- Authority is pure and phase-aware: deriveRequiredTier, deriveAuthority, deriveAcceptanceAuthority, deriveRegressionAuthority are pure functions keyed off phase + concern signals. Mutating to stateful logic breaks reproducibility.
+- Specialization profiles refresh on startup and post-analysis pass via refreshProfiles(). Stale profiles cause wrong persona routing.
+- Guardian analysis is advisory-only (never blocking). Records from .harness/analyses/ feed signal derivation; making them gating changes the trust model.
+- Outcome connector is the sole ingestion path for post-execution state via ExecutionOutcomeConnector.ingest(). Bypassing it orphans execution data.
+- Skill-regression uses golden fixtures as source-of-truth with idempotent parse/serialize contracts; fuzzy weighting prevents brittleness. Mutating fixture parsing breaks all baseline comparisons.
+- Concern signals flow from complexity scores to verdicts via scoreToConcernSignals(). Changing signal shapes without updating consumers (triage, blast-radius veto, ratchet) breaks autonomous gates.
+- Multiple issue adapters (Jira, GitHub, Linear, manual) converge to RawWorkItem schema. Schema drift breaks adapter bridges.
+- UAT is human-authority only (no LLM verdict). Adding LLM judgment violates the acceptance contract where humans are the authoritative judge.
+- Analysis providers implement a stable AnalysisRequest/Response interface; implementations (Anthropic, OpenAI-compatible, Claude CLI) are swappable. Breaking the interface breaks all consumers.
+
+## Interface Contract
+
+```ts
+export ACCEPTANCE_EVAL_SYSTEM_PROMPT
+export AUTO_EXECUTE_CATEGORIES
+export AbandonedSkill
+export AcceptanceEvalInput
+export AcceptanceEvaluator
+export AcceptanceEvaluatorOptions
+export AcceptanceVerdict
+export AffectedSystem
+export AnalysisImage
+export AnalysisProvider
+export AnalysisRequest
+export AnalysisResponse
+export AnthropicAnalysisProvider
+export ApprovedCandidate
+export Authority
+export BLAST_TOLERANCE_ABS
+export BLAST_TOLERANCE_FACTOR
+export BlastRadius
+export BlindSpot
+export BrainstormInput
+export BrainstormOutcome
+export CanaryAdapter
+export CanaryDegradeReason
+export CanaryExec
+export CanaryFinding
+export CanaryFrameworkInfo
+export CanaryProbe
+export CanaryReader
+export CanaryRunOutcome
+export CanaryRunRecord
+export CanaryTestResult
+export ClassifyInput
+export ClaudeCliAnalysisProvider
+export ComplexityScore
+export ComplexitySignals
+export Confidence
+export CriterionJudgment
+export DEFAULT_DEGRADE_AT_PCT
+export DEFAULT_RATCHET_CONFIG
+export DEFAULT_RETROSPECTIVE_CONFIG
+export DEPTH_BY_LEVEL
+export DepthBudget
+export EnrichedSpec
+export EscalationCategory
+export ExecutionOutcome
+export ExecutionOutcomeConnector
+export ExpertiseLevel
+export FailingSkill
+export Finding
+export Fork
+export ForkConfidence
+export ForkDecision
+export ForkGenerator
+export FrameworkRecommendation
+export GUARDIAN_ANALYSIS_SCHEMA
+export GUARDIAN_ANALYSIS_VERSION
+export GitHubIssue
+export GoNoGoCandidate
+export GoNoGoDecision
+export GoNoGoHoldReason
+export GoldenBaseline
+export GraphScope
+export GraphValidator
+export GuardianAnalysis
+export GuardianFileCoverage
+export GuardianSeverity
+export GuardianVerdict
+export HaltReason
+export HeldCandidate
+export HoldReason
+export IntelligencePipeline
+export JiraIssue
+export JudgedAgainst
+export LEVEL_RANK
+export LeverResult
+export LinearIssue
+export LlmAcceptanceVerdict
+export LlmVerdict
+export ManualInput
+export Measurability
+export OUTCOME_EVAL_SYSTEM_PROMPT
+export OpenAICompatibleAnalysisProvider
+export OpenDecision
+export OutcomeEvalInput
+export OutcomeEvaluator
+export OutcomeEvaluatorOptions
+export OutcomeIngestResult
+export OutcomeVerdict
+export PersonaEffectivenessScore
+export PersonaRecommendation
+export PeslSimulator
+export Phase
+export PrecedentLookup
+export PrecedentRate
+export PreprocessResult
+export ProbeConfig
+export ProbeDeps
+export ProbeInput
+export ProbeLevers
+export ProfileStore
+export RANK_TIER
+export RankableCandidate
+export RatchetConfig
+export RatchetOutcome
+export RatchetStage
+export RawWorkItem
+export RegressionAuthority
+export RegressionConfidence
+export RegressionVerdictKind
+export ResolvedEntity
+export ResolvedSection
+export RetrospectiveComparison
+export RetrospectiveConfig
+export RubricCriterion
+export SENSITIVE_BLAST_THRESHOLD
+export SKILL_REGRESSION_SYSTEM_PROMPT
+export STATIC_WEIGHTS
+export ScopeEstimate
+export SimulationResult
+export SkillEffectivenessScore
+export SkillRegressionEvaluator
+export SkillRegressionEvaluatorOptions
+export SkillRegressionFixture
+export SkillRegressionInput
+export SkillRegressionJudgeResponse
+export SkillRegressionVerdict
+export SpecDraft
+export SpecializationEntry
+export SpecializationProfile
+export SpecializationScore
+export StagedGoNoGoCandidate
+export StaticVerdict
+export TIER_RANK
+export TaskType
+export TemporalConfig
+export TiebreakResult
+export TriageOutcome
+export TriagePrediction
+export TriageRecord
+export TriageVerdict
+export UAT_SIGNOFF_SOURCE
+export UatItemDisposition
+export UatOverallDecision
+export UatSignoffInput
+export UatSignoffItem
+export UatSignoffRecorder
+export V1Stage
+export V1_MAX_STAGE
+export Verdict
+export WeightedRecommendation
+export acceptanceVerdictSchema
+export aggregateAtK
+export aggregatePrecedent
+export applyBudgetClamp
+export baseTier
+export blastRadiusVeto
+export buildAcceptanceUserPrompt
+export buildSkillRegressionUserPrompt
+export buildSpecializationProfile
+export buildUserPrompt
+export canaryRunRecordSchema
+export canaryTestResultSchema
+export classify
+export compareToPrediction
+export computeBaselineScore
+export computeExpertiseLevel
+export computeHistoricalComplexity
+export computePersonaEffectiveness
+export computeSemanticComplexity
+export computeSkillEffectiveness
+export computeSpecialization
+export computeStructuralComplexity
+export createCanaryAdapter
+export criterionJudgmentSchema
+export decayWeight
+export depthForLevel
+export deriveAcceptanceAuthority
+export deriveAuthority
+export deriveRegressionAuthority
+export deriveRegressionVerdict
+export deriveRequiredTier
+export detectAbandonedSkills
+export detectBlindSpots
+export detectFailingSkills
+export dispatchableShapeKey
+export enrich
+export extractEntities
+export findingSchema
+export fixtureSchema
+export githubToRawWorkItem
+export guardianAnalysisSchema
+export guardianFileLines
+export guardianFlags
+export jiraToRawWorkItem
+export judgeResponseSchema
+export linearToRawWorkItem
+export llmTiebreak
+export loadProfiles
+export manualToRawWorkItem
+export parseFixture
+export pilotScore
+export precedentLookupFromRecords
+export rankTriageCandidates
+export readGuardianAnalyses
+export recommendPersona
+export refreshProfiles
+export regressionFloor
+export resolveGoNoGo
+export resolveGoNoGoStaged
+export resolveSection
+export resolveStage
+export resolveTestCommand
+export runAutoBrainstorm
+export runGraphOnlyChecks
+export runLlmSimulation
+export runScopingProbe
+export runStaticPass
+export saveProfiles
+export scoreCML
+export scoreToConcernSignals
+export serializeFixture
+export serializeSignals
+export shapeKey
+export summarizeGuardian
+export temporalSuccessRate
+export toRawWorkItem
+export toUatExecutionOutcome
+export verdictSchema
+export weightedRecommendPersona
+export weightedScore
+```
+
+## Dependency Slice
+
+```
+import { toRawWorkItem } from './adapter.js'
+import { AnalysisProvider } from './analysis-provider/interface.js'
+import { scoreCML } from './cml/scorer.js'
+import { scoreToConcernSignals } from './cml/signals.js'
+import { ExecutionOutcomeConnector, OutcomeIngestResult } from './outcome/connector.js'
+import { ExecutionOutcome } from './outcome/types.js'
+import { PeslSimulator } from './pesl/simulator.js'
+import { enrich } from './sel/enricher.js'
+import { GraphValidator } from './sel/graph-validator.js'
+import { ComplexityScore, EnrichedSpec, RawWorkItem, SimulationResult } from './types.js'
+import { GraphStore } from '@harness-engineering/graph'
+import { ConcernSignal, EscalationConfig, Issue, ScopeTier } from '@harness-engineering/types'
+```

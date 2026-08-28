@@ -64,3 +64,11 @@ packages/core/tests/fixtures/code-nav/syntax-error.ts
 # would be free to rewrite crlf-pattern.md's line endings, the whole point of
 # that fixture. Same reasoning as agents/commands/** above.
 packages/graph/tests/fixtures/solutions/**
+
+# Compiled-comprehension substrate: generated `_module.md` shards emitted by
+# `harness comprehend` with deterministic double-quoted YAML frontmatter
+# (quoteYamlScalar). Prettier would flip those to single quotes, colliding with
+# lint-staged's stash/restore on bulk `comprehend --all` runs and leaving a few
+# shards dribbling modified after every commit (see #1697). The shards are
+# already deterministic, so keep prettier out of them entirely.
+.harness/comprehension/**
