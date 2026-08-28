@@ -4,8 +4,8 @@ module: 'packages/burn/src'
 sourceHash: '7cb81e7d62c032ecf166a9c901586e79f6721884339a404300d45786b626f601'
 compiledAt: '2026-08-28T01:22:08.701Z'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
-model: null
-semantic: absent
+model: 'claude-haiku-4-5-20251001'
+semantic: present
 members:
   [
     'config.ts',
@@ -27,6 +27,25 @@ members:
     'window.ts',
   ]
 ---
+
+## Summary
+
+The `burn` package tracks API token usage across Claude Code fleet runs, projects spend against budgets, and links cost to shipped work (merged PRs). It replaces a Python HUD with a Node implementation using fault-tolerant atomic writes, cross-process locking, and timezone-aware week arithmetic. The module exports snake_cased JSON shapes for backward compatibility and maintains two orthogonal spend views (by skill, by agent type) that reconcile to a single total.
+
+## Invariants
+
+- Atomic writes (temp→rename) prevent data loss on concurrent or crashed writes
+- Cross-process lock via atomic mkdir + staleness reclaim prevents concurrent scan races
+- Config parse failures silently fall back to defaults; a broken config cannot crash the HUD
+- Store version compatibility must be checked before upgrade to prevent silent corruption
+- Week reset timezone arithmetic must exactly match /usage; weekday 0=Mon..6=Sun
+- Non-skill labels (main, unattributed, pre-migration) are never cost-per-PR candidates
+- Cost attribution keys on laneId match in both fleet record and provenance entry
+- Price lookup defaults to 0 USD for missing models; incomplete pricing is surfaced
+- Projection escalation is confidence-weighted; low-confidence forecasts cap at OK status
+- Degradation flag fires only on current-week unattributed subagent spend
+- Window bounds accept NaN for unbounded (no limit) time windows
+- LinkResult.ok=false means gh CLI failed; entry treated as unlinked, not zero-PRs
 
 ## Interface Contract
 

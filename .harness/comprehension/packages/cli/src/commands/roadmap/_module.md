@@ -4,8 +4,8 @@ module: 'packages/cli/src/commands/roadmap'
 sourceHash: '3d1a7e1f54afcff89ad9cab4a0f497809c89cd3fa2790f0475ded502310395d3'
 compiledAt: '2026-08-28T01:22:08.931Z'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
-model: null
-semantic: absent
+model: 'claude-haiku-4-5-20251001'
+semantic: present
 members:
   [
     'index.ts',
@@ -34,6 +34,21 @@ members:
     'unshard.ts',
   ]
 ---
+
+## Summary
+
+The `roadmap` command module is a CLI facade aggregating nine subcommands for managing sharded project roadmaps (stored as `docs/roadmap.d/*.md` with a generated aggregate `docs/roadmap.md`). Core responsibilities: hook installation (idempotent pre-commit auto-regen with adopter-code preservation), sharding/unsharding, sync & reconciliation with external trackers (GitHub, Linear, etc.), triage & approval workflows (brainstorm/intelligence evaluation), migration with locking, and metadata management. Integrates deeply with core roadmap store, sync adapters, brainstorm/triage intelligence, and orchestrator ranking.
+
+## Invariants
+
+- Idempotent hook merge — managed block (HOOK_BLOCK_BEGIN/END delimiters) can be re-merged with identical or new regen commands without clobbering adopter steps; adopter content must precede managed block
+- Guarded regeneration — hook fires only when a shard file (docs/roadmap.d/\*) is staged, verified by grep -qE '^docs/roadmap\.d/' on git index; non-shard commits skip regen
+- Fail-closed hook — if regen fails, hook exits 1 and blocks commit; aggregate is re-staged after successful regen
+- Graceful sharding degradation — hook installation silently skips for non-sharded projects unless --force passed (pre-provision mode)
+- Mechanism auto-detection — installer detects husky (.husky/pre-commit) before raw .git/hooks/pre-commit; respects explicit --mechanism override
+- Semantic round-trip validation — sync and regen operations validate parsed-then-serialized roadmap matches original to prevent lossy transformations
+- External ID fidelity — tracker sync requires stable externalId mapping; open issues without shards remain invisible; reconciliation uses External-ID drift detection
+- Single canonical aggregate — docs/roadmap.md is source of truth for display/export; shards are derivable, aggregate is not (single enumeration+hash is load-bearing)
 
 ## Interface Contract
 
