@@ -62,13 +62,15 @@ export const DEFAULT_DIGEST_CHAR_BUDGET = 12_000;
 /** Default tight output cap (cost lever) for the semantic call. */
 export const DEFAULT_MAX_OUTPUT_TOKENS = 700;
 /**
- * Default model tier: a cheap/fast Haiku-class id (cost lever). Overridable per
- * call via {@link GenerateSemanticOptions.model}; phase-4 config
- * (`comprehension.model`) wires the real per-provider value. Deliberately a cheap
- * tier — comprehension summaries are a high-volume, low-stakes call, so we never
- * default to an expensive model.
+ * Default model tier: the current cheap/fast Haiku alias (cost lever). Overridable
+ * per call via {@link GenerateSemanticOptions.model} / `comprehension.model` in
+ * config. Deliberately a cheap tier — comprehension summaries are a high-volume,
+ * low-stakes call, so we never default to an expensive model. Uses the bare,
+ * non-dated alias so it auto-tracks the latest Haiku snapshot (do NOT pin a dated
+ * id or a retired `-latest` string — `claude-3-5-haiku-latest` reached end-of-life
+ * 2026-02-19 and spammed deprecation warnings).
  */
-export const DEFAULT_SEMANTIC_MODEL = 'claude-3-5-haiku-latest';
+export const DEFAULT_SEMANTIC_MODEL = 'claude-haiku-4-5';
 /** Env flag marking an active comprehension pass (reentrancy guard). */
 export const REENTRANCY_ENV = 'HARNESS_COMPREHENSION_ACTIVE';
 

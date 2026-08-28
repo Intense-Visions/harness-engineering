@@ -31,7 +31,7 @@ Add a `comprehension` block to `harness.config.json`:
   "comprehension": {
     "storage": "committed", // "committed" (versioned with code) | "cache" (gitignored, rebuilt locally)
     "semantic": true, // false ⇒ static-only, never calls an LLM
-    "model": "<a model your provider supports>", // the built-in default may not resolve on every subscription — set it explicitly
+    "model": "claude-haiku-4-5", // built-in default (current cheap/fast Haiku); override only if your provider serves a different id
     "maxTokensPerRun": 200000, // per-run token budget; fail-loud when exhausted
     "concurrency": 4, // bounded parallel module compiles
     "ci": "verify", // "verify" (token-free --check, non-blocking) | "off"
@@ -40,10 +40,11 @@ Add a `comprehension` block to `harness.config.json`:
 }
 ```
 
-> **Set `model` explicitly.** The built-in default is a cheap tier that resolves
-> on some providers but not all subscriptions. If a semantic run reports
-> `0 semantic`, this is almost always why — check the `harness comprehend` stderr
-> for a model/provider error and pick a model your provider actually serves.
+> **Model default.** The built-in default is `claude-haiku-4-5` (the current cheap,
+> fast Haiku alias — it auto-tracks the latest snapshot). Override `comprehension.model`
+> only if your provider serves a different id. If a semantic run reports `0 semantic`,
+> check the `harness comprehend` stderr for a model/provider error and pick a model
+> your provider actually serves.
 
 ## 2. Populate
 
