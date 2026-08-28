@@ -23,6 +23,11 @@ vi.mock('node:child_process', () => ({
 }));
 
 import { ClaudeCliAnalysisProvider } from '../../src/analysis-provider/claude-cli.js';
+import {
+  extractEmbeddedJson,
+  coerceStructuredContent,
+  buildCorrectionPrompt,
+} from '../../src/analysis-provider/structured-output.js';
 
 const testSchema = z.object({
   summary: z.string(),
@@ -343,5 +348,91 @@ describe('ClaudeCliAnalysisProvider', () => {
         provider.analyze({ prompt: 'test', responseSchema: testSchema })
       ).rejects.toThrow();
     });
+  });
+
+  describe('mechanical structured-output recovery', () => {
+    // Emit per-spawn (not pre-scheduled) so sequential attempts each get their
+    // stdout AFTER the provider attaches listeners to that specific spawn.
+    function queueChild(stdout: string, exitCode = 0): void {
+      mockSpawn.mockImplementationOnce(() => {
+        const child = makeFakeChild();
+        setTimeout(() => {
+          if (stdout) child.stdout.emit('data', Buffer.from(stdout));
+          child.emit('exit', exitCode);
+        }, 0);
+        return child;
+      });
+    }
+
+    it('salvages an embedded JSON object from a chatty prose result (no retry)', async () => {
+      queueChild(
+        JSON.stringify({
+          result: `Sure! Here is the analysis:\n${JSON.stringify({ summary: 'ok', score: 0.5 })}\nHope that helps!`,
+          usage: { input_tokens: 10, output_tokens: 5 },
+        })
+      );
+      const res = await provider.analyze({ prompt: 'x', responseSchema: testSchema });
+      expect(res.result).toEqual({ summary: 'ok', score: 0.5 });
+      expect(mockSpawn).toHaveBeenCalledTimes(1); // salvaged without a retry
+    });
+
+    it('shows the model its blunder and recovers on a corrective retry', async () => {
+      // Attempt 1: the real failure — narration, no structured_output, no embedded JSON.
+      queueChild(
+        JSON.stringify({
+          result: "I've already called the StructuredOutput tool in my response above.",
+          usage: { input_tokens: 100, output_tokens: 20 },
+        })
+      );
+      // Attempt 2: a proper structured object.
+      queueChild(
+        JSON.stringify({
+          structured_output: { summary: 'recovered', score: 0.9 },
+          usage: { input_tokens: 120, output_tokens: 30 },
+        })
+      );
+
+      const res = await provider.analyze({ prompt: 'summarize', responseSchema: testSchema });
+
+      expect(res.result).toEqual({ summary: 'recovered', score: 0.9 });
+      expect(mockSpawn).toHaveBeenCalledTimes(2); // one corrective retry
+      // usage is summed across both attempts
+      expect(res.tokenUsage.totalTokens).toBe(100 + 20 + 120 + 30);
+      // the retry prompt showed the model its own rejected output
+      const retryArgs = mockSpawn.mock.calls[1]![1] as string[];
+      const retryPrompt = retryArgs[retryArgs.indexOf('-p') + 1]!;
+      expect(retryPrompt).toContain('YOUR PREVIOUS REPLY WAS REJECTED');
+      expect(retryPrompt).toContain('StructuredOutput tool');
+    });
+
+    it('throws after one corrective retry still fails (bounded, never loops)', async () => {
+      queueChild(JSON.stringify({ result: 'nope, prose again' }));
+      queueChild(JSON.stringify({ result: 'still just prose' }));
+      await expect(provider.analyze({ prompt: 'x', responseSchema: testSchema })).rejects.toThrow(
+        /after one corrective retry/
+      );
+      expect(mockSpawn).toHaveBeenCalledTimes(2); // exactly one retry, then give up
+    });
+  });
+});
+
+describe('claude-cli structured-output helpers (pure)', () => {
+  it('extractEmbeddedJson salvages a balanced object, ignoring braces inside strings', () => {
+    expect(extractEmbeddedJson('prefix {"a":"}{","b":1} suffix')).toEqual({ a: '}{', b: 1 });
+  });
+  it('extractEmbeddedJson returns undefined when no parseable object exists', () => {
+    expect(extractEmbeddedJson('just prose, no json here')).toBeUndefined();
+  });
+  it('coerceStructuredContent prefers structured_output, then salvages, then returns raw prose', () => {
+    expect(coerceStructuredContent({ structured_output: { a: 1 }, result: 'x' })).toEqual({ a: 1 });
+    expect(coerceStructuredContent({ result: 'noise {"a":2} tail' })).toEqual({ a: 2 });
+    expect(coerceStructuredContent({ result: 'pure prose' })).toBe('pure prose');
+  });
+  it('buildCorrectionPrompt shows the bad output and demands only JSON', () => {
+    const p = buildCorrectionPrompt('BASE', 'I narrated instead', '{"schema":true}');
+    expect(p).toContain('BASE');
+    expect(p).toContain('REJECTED');
+    expect(p).toContain('I narrated instead');
+    expect(p).toContain('{"schema":true}');
   });
 });

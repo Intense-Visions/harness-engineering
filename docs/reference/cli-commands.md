@@ -214,6 +214,20 @@ LLM-judgment critique of code quality / readability — the ceiling counterpart 
 - `--max-files` — Cap source-file count (default: 100)
 - `--max-units-per-file` — Cap per-file unit critique (default: 20)
 
+### `harness comprehend`
+
+Compile and maintain the per-module comprehension substrate
+
+**Options:**
+
+- `--changed` — Recompile only modules owning changed files (default)
+- `--all` — Recompile every module (backfill)
+- `--check` — Token-free: report source-stale units, exit non-zero if any
+- `--stats` — Report served-vs-raw token savings (token-free)
+- `--static` — Static-only: never resolve a provider or call an LLM (pre-commit/CI posture)
+- `--stage` — git-add the compiled unit shards after a run (pre-commit posture)
+- `--hook` — Pre-commit-hook posture: no-op unless comprehension.hook is enabled
+
 ### `harness context-report`
 
 Attribute the always-loaded context surface cost per turn, per tier

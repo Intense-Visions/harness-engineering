@@ -30,6 +30,7 @@ import { createCleanupSessionsCommand } from './cleanup-sessions';
 import { createCliErgonomicsCraftCommand } from './cli-ergonomics-craft';
 import { createCodeCraftCommand } from './code-craft';
 import { createCompoundCommand } from './compound';
+import { createComprehendCommand } from './comprehend';
 import { createCopyCraftCommand } from './copy-craft';
 import { createCreateSkillCommand } from './create-skill';
 import { createCrossCheckCommand } from './cross-check';
@@ -141,6 +142,7 @@ export const commandCreators: Array<() => Command> = [
   createCliErgonomicsCraftCommand,
   createCodeCraftCommand,
   createCompoundCommand,
+  createComprehendCommand,
   createCopyCraftCommand,
   createCreateSkillCommand,
   createCrossCheckCommand,

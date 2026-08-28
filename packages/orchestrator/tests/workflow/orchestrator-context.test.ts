@@ -8,7 +8,14 @@ import type {
   RoutingRequest,
   RoutingDecision,
 } from '@harness-engineering/types';
-import { buildWorkflowContext } from '../../src/workflow/orchestrator-context.js';
+import { mkdtempSync, mkdirSync, rmSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import {
+  buildWorkflowContext,
+  resolveLeafPrewarmSources,
+  resolveStagePrewarmBlock,
+} from '../../src/workflow/orchestrator-context.js';
 import {
   runStageSession,
   stageAttemptKey,
@@ -491,5 +498,34 @@ describe('renderStagePrompt — document stages produce committed artifacts (tru
     const prompt = await ctx.renderStagePrompt!(implStep, 2, priorOutputs, true);
     expect(prompt).toContain('self-verify');
     expect(prompt).not.toContain('produces a DOCUMENT');
+  });
+});
+
+// --- SF5.2 (#1524) + FIX E.1: leaf pre-warm resolution is best-effort ---------
+describe('resolveLeafPrewarmSources / resolveStagePrewarmBlock — best-effort + early-out', () => {
+  it('FIX E.1: returns EMPTY (no served attribution / empty block) when the project has no .harness/comprehension tree', async () => {
+    const root = mkdtempSync(join(tmpdir(), 'prewarm-none-'));
+    try {
+      const issue = makeIssue({ description: 'touches packages/core/src/foo.ts' });
+      // No `.harness/comprehension` dir ⇒ cheap early-out ⇒ empty result. Since the
+      // consult only ADDS served tokens, an empty attribution ⇒ floor-only estimate
+      // (byte-identical to the pre-SF5.2 behavior).
+      expect(await resolveLeafPrewarmSources(issue, root)).toEqual([]);
+      expect(await resolveStagePrewarmBlock(issue, root)).toBe('');
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
+
+  it('returns EMPTY when a comprehension tree exists but no seed unit is fresh (never throws)', async () => {
+    const root = mkdtempSync(join(tmpdir(), 'prewarm-empty-'));
+    try {
+      mkdirSync(join(root, '.harness', 'comprehension'), { recursive: true });
+      const issue = makeIssue({ description: 'touches packages/core/src/foo.ts' });
+      // Tree present but no committed units for the seed module ⇒ nothing to serve.
+      expect(await resolveLeafPrewarmSources(issue, root)).toEqual([]);
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
   });
 });

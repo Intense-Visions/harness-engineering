@@ -124,6 +124,7 @@ import { manageAdrDefinition, handleManageAdr } from './tools/adr.js';
 import { emitInteractionDefinition, handleEmitInteraction } from './tools/interaction.js';
 import { runCodeReviewDefinition, handleRunCodeReview } from './tools/review-pipeline.js';
 import { gatherContextDefinition, handleGatherContext } from './tools/gather-context.js';
+import { getComprehensionDefinition, handleGetComprehension } from './tools/get-comprehension.js';
 import { assessProjectDefinition, handleAssessProject } from './tools/assess-project.js';
 import {
   canaryProbeDefinition,
@@ -355,6 +356,7 @@ const TOOL_DEFINITIONS: ToolDefinition[] = [
   emitInteractionDefinition,
   runCodeReviewDefinition,
   gatherContextDefinition,
+  getComprehensionDefinition,
   assessProjectDefinition,
   canaryProbeDefinition,
   canaryRecommendFrameworkDefinition,
@@ -477,6 +479,7 @@ const TOOL_HANDLERS: Record<string, ToolHandler> = {
   emit_interaction: handleEmitInteraction as unknown as ToolHandler,
   run_code_review: handleRunCodeReview as ToolHandler,
   gather_context: handleGatherContext as ToolHandler,
+  get_comprehension: handleGetComprehension as ToolHandler,
   assess_project: handleAssessProject as ToolHandler,
   canary_probe: handleCanaryProbe as ToolHandler,
   canary_recommend_framework: handleCanaryRecommendFramework as ToolHandler,

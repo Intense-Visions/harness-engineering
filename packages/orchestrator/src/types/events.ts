@@ -1,4 +1,10 @@
-import type { Issue, AgentEvent, TokenUsage, ConcernSignal } from '@harness-engineering/types';
+import type {
+  Issue,
+  AgentEvent,
+  TokenUsage,
+  ConcernSignal,
+  LeafContextSource,
+} from '@harness-engineering/types';
 import type {
   EnrichedSpec,
   ComplexityScore,
@@ -34,6 +40,16 @@ export interface TickEvent {
   simulationResults?: Map<string, SimulationResult>;
   /** Pre-computed persona recommendations from specialization scorer (issueId -> recommendations) */
   personaRecommendations?: Map<string, WeightedRecommendation[]>;
+  /**
+   * SF5.2 (#1524) — pre-computed served-comprehension attribution per leaf
+   * (issueId → the compact served units the orchestrator will pre-warm into the
+   * leaf's prompt). Threaded into the LIVE per-leaf context-budget consult so a
+   * leaf that would blow its budget on raw source is measured against the compact
+   * served units it actually receives. Computed OUTSIDE the pure reducer (disk I/O)
+   * exactly like `enrichedSpecs`/`complexityScores`. Absent ⇒ the consult falls
+   * back to the floor-only estimate (byte-identical to the pre-SF5.2 behavior).
+   */
+  prewarmSources?: Map<string, LeafContextSource[]>;
   /** Identity of this orchestrator. Items assigned to a different value are
    *  filtered out of dispatch by `selectCandidates`. Omit for back-compat
    *  (preserves today's permissive behavior). */

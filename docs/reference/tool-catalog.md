@@ -4,7 +4,7 @@
 
 Canonical, regenerated-and-gated reference for every shipped MCP tool and skill. Unlike the summary in [MCP Tools Reference](./mcp-tools.md), this catalog serializes each tool’s **full live input schema** and each skill’s **full declared contract**, so a divergence between a definition’s real schema and its documentation is caught by `pnpm run generate:tool-catalog:check` in CI rather than drifting silently.
 
-## MCP Tools (113)
+## MCP Tools (114)
 
 Every shipped MCP tool, booted live from the built server, with its full input schema. A drift between a tool’s real schema and this catalog fails the build.
 
@@ -2485,7 +2485,8 @@ Assemble all working context an agent needs in a single call: state, learnings, 
           "validation",
           "sessions",
           "events",
-          "businessKnowledge"
+          "businessKnowledge",
+          "comprehension"
         ],
         "type": "string"
       },
@@ -2541,7 +2542,7 @@ Assemble all working context an agent needs in a single call: state, learnings, 
       "type": "string"
     },
     "tokenBudget": {
-      "description": "Approximate token budget for graph context (default 4000)",
+      "description": "Approximate token budget for graph context AND the primary comprehension block (default 4000)",
       "type": "number"
     }
   },
@@ -2694,6 +2695,36 @@ Generate native slash commands for Claude Code and Gemini CLI from harness skill
       "type": "string"
     }
   },
+  "type": "object"
+}
+```
+
+### `get_comprehension`
+
+Serve a module's compiled comprehension unit (compact, primary understanding). Returns the served unit via the LLM-free serve gate; on a source-stale unit or with forceRecompile it recompiles ONLY that module and returns the fresh unit. Prefer this over reading raw source for a module you did not edit.
+
+**Input schema:**
+
+```json
+{
+  "properties": {
+    "forceRecompile": {
+      "description": "Recompile the module even when its committed unit is already source-fresh",
+      "type": "boolean"
+    },
+    "module": {
+      "description": "Module directory (repo-relative, e.g. \"packages/core/src\") to serve",
+      "type": "string"
+    },
+    "path": {
+      "description": "Path to project root",
+      "type": "string"
+    }
+  },
+  "required": [
+    "path",
+    "module"
+  ],
   "type": "object"
 }
 ```

@@ -134,6 +134,11 @@ export * from './review';
 export * from './roadmap';
 
 /**
+ * Comprehension module — per-module compiled comprehension units (unit model, source-hash provenance, markdown store, IO/provider-injected compiler).
+ */
+export * from './comprehension';
+
+/**
  * Fleet coordination module — pure cross-run work-claim lease primitives (build/parse/server-clock TTL), per-leaf context-replay budget enforcement (resolve/enforce/format), and the shared spend-envelope decision primitive consulted by both the orchestrator loop and the fleet-command dispatch path, for the -fleet family.
  */
 export * from './fleet';

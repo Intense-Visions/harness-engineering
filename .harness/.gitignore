@@ -44,3 +44,8 @@ tokens.json*
 security/*
 !security/timeline.json
 metrics/
+# comprehension/: committed, git-versioned substrate (D2 / ADR 0107) — tracked,
+# never ignored. Un-ignore mirrors the security-timeline precedent so units stay
+# committed even if a broader ignore lands. (storage: "cache" adopters opt out.)
+!comprehension/
+!comprehension/**

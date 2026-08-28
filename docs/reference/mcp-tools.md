@@ -694,7 +694,7 @@ Assemble all working context an agent needs in a single call: state, learnings, 
 - `path` (string, required) — Path to project root
 - `intent` (string, required) — What the agent is about to do (used for graph context search)
 - `skill` (string, optional) — Current skill name (filters learnings by skill)
-- `tokenBudget` (number, optional) — Approximate token budget for graph context (default 4000)
+- `tokenBudget` (number, optional) — Approximate token budget for graph context AND the primary comprehension block (default 4000)
 - `include` (array, optional) — Which constituents to include (default: all)
 - `includeEvents` (boolean, optional) — Include recent events timeline. Default: true when session is provided, false otherwise. Can also be controlled via include array.
 - `mode` (string, optional) — Response density. Default: summary
@@ -1004,6 +1004,16 @@ Find relevant context for a given intent by searching the graph and expanding ar
 - `path` (string, required) — Path to project root
 - `intent` (string, required) — Description of what context is needed for
 - `tokenBudget` (number, optional) — Approximate token budget for results (default 4000)
+
+### `get_comprehension`
+
+Serve a module's compiled comprehension unit (compact, primary understanding). Returns the served unit via the LLM-free serve gate; on a source-stale unit or with forceRecompile it recompiles ONLY that module and returns the fresh unit. Prefer this over reading raw source for a module you did not edit.
+
+**Parameters:**
+
+- `path` (string, required) — Path to project root
+- `module` (string, required) — Module directory (repo-relative, e.g. "packages/core/src") to serve
+- `forceRecompile` (boolean, optional) — Recompile the module even when its committed unit is already source-fresh
 
 ### `get_critical_paths`
 

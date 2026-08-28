@@ -6,6 +6,7 @@ import type {
   AnalysisImage,
 } from './interface.js';
 import { zodToJsonSchema } from './schema.js';
+import { coerceStructuredContent, buildCorrectionPrompt } from './structured-output.js';
 
 export interface ClaudeCliProviderOptions {
   /** Path to the claude binary (default: 'claude') */
@@ -38,28 +39,54 @@ export class ClaudeCliAnalysisProvider implements AnalysisProvider {
   async analyze<T>(request: AnalysisRequest): Promise<AnalysisResponse<T>> {
     const model = request.model ?? this.defaultModel;
     const jsonSchema = zodToJsonSchema(request.responseSchema);
+    const schemaJson = JSON.stringify({ type: 'object', ...jsonSchema });
 
-    const prompt = request.systemPrompt
+    const basePrompt = request.systemPrompt
       ? `${request.systemPrompt}\n\n${request.prompt}`
       : request.prompt;
 
     const hasImages = (request.images?.length ?? 0) > 0;
     const startMs = performance.now();
-    const result = hasImages
-      ? await this.runClaudeVision(prompt, request.images!, jsonSchema, model)
-      : await this.runClaude(this.buildTextArgs(prompt, jsonSchema, model));
+
+    // Usage accrues across attempts so the corrective retry's cost is charged too.
+    let inputTokens = 0;
+    let outputTokens = 0;
+    let lastModel: string | undefined;
+
+    const runOnce = async (prompt: string): Promise<unknown> => {
+      const raw = hasImages
+        ? await this.runClaudeVision(prompt, request.images!, jsonSchema, model)
+        : await this.runClaude(this.buildTextArgs(prompt, jsonSchema, model));
+      inputTokens += raw.usage?.input_tokens ?? 0;
+      outputTokens += raw.usage?.output_tokens ?? 0;
+      lastModel = raw.model;
+      return raw.content;
+    };
+
+    // Attempt 1. A THROWN runClaude (genuine spawn / non-zero exit / non-JSON
+    // stdout) propagates as a real failure. A merely schema-mismatching reply —
+    // the CLI narrated instead of emitting the object — is the recoverable case:
+    // the mechanical schema check below fails and we fire ONE corrective retry.
+    let content = await runOnce(basePrompt);
+    let parsed = request.responseSchema.safeParse(content);
+
+    if (!parsed.success) {
+      const badOutput = typeof content === 'string' ? content : JSON.stringify(content);
+      content = await runOnce(buildCorrectionPrompt(basePrompt, badOutput, schemaJson));
+      parsed = request.responseSchema.safeParse(content);
+      if (!parsed.success) {
+        throw new Error(
+          `Claude CLI output did not match the required schema after one corrective retry: ${parsed.error.message}`
+        );
+      }
+    }
+
     const latencyMs = Math.round(performance.now() - startMs);
 
-    const parsed = request.responseSchema.parse(result.content) as T;
-
     return {
-      result: parsed,
-      tokenUsage: {
-        inputTokens: result.usage?.input_tokens ?? 0,
-        outputTokens: result.usage?.output_tokens ?? 0,
-        totalTokens: (result.usage?.input_tokens ?? 0) + (result.usage?.output_tokens ?? 0),
-      },
-      model: result.model ?? model ?? 'claude',
+      result: parsed.data as T,
+      tokenUsage: { inputTokens, outputTokens, totalTokens: inputTokens + outputTokens },
+      model: lastModel ?? model ?? 'claude',
       latencyMs,
     };
   }
@@ -164,18 +191,19 @@ export class ClaudeCliAnalysisProvider implements AnalysisProvider {
         }
 
         try {
-          const parsed = JSON.parse(stdout);
+          const parsed = JSON.parse(stdout) as Record<string, unknown>;
           // Claude Code CLI 2.1.x with --output-format json --json-schema returns
           // { type: 'result', result: '<natural-language summary string>',
           //   structured_output: { ...schema-conforming object... }, usage, model, ... }.
-          // Older CLI versions put the schema-conforming response in `result`
-          // (sometimes JSON-encoded as a string). Prefer structured_output, then
-          // fall back to result, then to the raw envelope.
-          const content = parsed.structured_output ?? parsed.result ?? parsed;
+          // coerceStructuredContent prefers structured_output, tolerates a JSON-or-
+          // prose `result`, salvages embedded JSON, and — crucially — NEVER throws on
+          // a chatty reply: it returns the raw prose so analyze() runs its mechanical
+          // schema check and fires one corrective retry instead of hard-failing here.
+          const usage = parsed.usage as { input_tokens: number; output_tokens: number } | undefined;
           resolve({
-            content: typeof content === 'string' ? JSON.parse(content) : content,
-            usage: parsed.usage,
-            model: parsed.model,
+            content: coerceStructuredContent(parsed),
+            ...(usage ? { usage } : {}),
+            ...(typeof parsed.model === 'string' ? { model: parsed.model } : {}),
           });
         } catch (err) {
           const stdoutSnippet = stdout.slice(0, 500);
@@ -252,8 +280,7 @@ export class ClaudeCliAnalysisProvider implements AnalysisProvider {
           return;
         }
         try {
-          const raw = resultEvent.structured_output ?? resultEvent.result;
-          const content = typeof raw === 'string' ? JSON.parse(raw) : raw;
+          const content = coerceStructuredContent(resultEvent);
           const usage = resultEvent.usage as
             | { input_tokens: number; output_tokens: number }
             | undefined;

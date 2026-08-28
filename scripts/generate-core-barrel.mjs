@@ -146,6 +146,8 @@ const DIR_COMMENTS = {
   ci: 'CI module for integrating with continuous integration systems.',
   review: 'Review pipeline module for automated code review workflows.',
   roadmap: 'Roadmap module for parsing, serializing, and syncing project roadmaps.',
+  comprehension:
+    'Comprehension module — per-module compiled comprehension units (unit model, source-hash provenance, markdown store, IO/provider-injected compiler).',
   fleet:
     'Fleet coordination module — pure cross-run work-claim lease primitives (build/parse/server-clock TTL), per-leaf context-replay budget enforcement (resolve/enforce/format), and the shared spend-envelope decision primitive consulted by both the orchestrator loop and the fleet-command dispatch path, for the -fleet family.',
   rollback: 'Rollback module — post-ship revert-readiness classification (pure, IO-injected).',

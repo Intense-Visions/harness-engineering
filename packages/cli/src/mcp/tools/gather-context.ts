@@ -1,4 +1,4 @@
-import { paginate } from '@harness-engineering/core';
+import { paginate, CHARS_PER_TOKEN } from '@harness-engineering/core';
 import { sanitizePath } from '../utils/sanitize-path.js';
 
 interface GraphContextBlock {
@@ -104,7 +104,8 @@ type IncludeKey =
   | 'validation'
   | 'sessions'
   | 'events'
-  | 'businessKnowledge';
+  | 'businessKnowledge'
+  | 'comprehension';
 
 export const gatherContextDefinition = {
   name: 'gather_context',
@@ -124,7 +125,8 @@ export const gatherContextDefinition = {
       },
       tokenBudget: {
         type: 'number',
-        description: 'Approximate token budget for graph context (default 4000)',
+        description:
+          'Approximate token budget for graph context AND the primary comprehension block (default 4000)',
       },
       include: {
         type: 'array',
@@ -139,6 +141,7 @@ export const gatherContextDefinition = {
             'sessions',
             'events',
             'businessKnowledge',
+            'comprehension',
           ],
         },
         description: 'Which constituents to include (default: all)',
@@ -223,7 +226,15 @@ export async function handleGatherContext(input: {
   }
 
   const includeSet = new Set<IncludeKey>(
-    input.include ?? ['state', 'learnings', 'handoff', 'graph', 'validation', 'businessKnowledge']
+    input.include ?? [
+      'state',
+      'learnings',
+      'handoff',
+      'graph',
+      'validation',
+      'businessKnowledge',
+      'comprehension',
+    ]
   );
 
   const errors: string[] = [];
@@ -262,7 +273,7 @@ export async function handleGatherContext(input: {
         const fusion = new FusionLayer(store);
         const cql = new ContextQL(store);
         const tokenBudget = input.tokenBudget ?? 4000;
-        const charBudget = tokenBudget * 4;
+        const charBudget = tokenBudget * CHARS_PER_TOKEN;
         const searchResults = fusion.search(input.intent, 10);
         if (searchResults.length === 0) return { context: [], tokenBudget };
         const contextBlocks: Array<{
@@ -340,6 +351,46 @@ export async function handleGatherContext(input: {
       })()
     : Promise.resolve(null);
 
+  const comprehensionPromise = includeSet.has('comprehension')
+    ? (async () => {
+        const core = await import('@harness-engineering/core');
+        const store = new core.ComprehensionStore({
+          root: `${projectPath.replaceAll('\\', '/')}/${core.COMPREHENSION_ROOT}`,
+          io: core.createNodeComprehensionIO(),
+        });
+        const listed = await store.list();
+        if (!listed.ok) return null;
+        // FIX 2: skip-and-report — one malformed unit must not blank the whole
+        // primary substrate; surface it instead of silently dropping everything.
+        const { units, skipped } = listed.value;
+        const reader = core.createNodeModuleSourceReader(projectPath);
+        const tokenBudget = input.tokenBudget ?? 4000;
+        const charBudget = tokenBudget * CHARS_PER_TOKEN;
+        const served: Array<{ module: string; markdown: string }> = [];
+        const stale: Array<{ module: string; recompile: true }> = [];
+        let totalChars = 0;
+        for (const unit of units) {
+          const verdict = await core.serveGate(unit, reader);
+          if (!verdict.serve) {
+            stale.push({ module: verdict.module, recompile: true });
+            continue;
+          }
+          const markdown = core.renderServedUnit(verdict.unit);
+          if (totalChars + markdown.length > charBudget && served.length > 0) continue;
+          served.push({ module: unit.provenance.module, markdown });
+          totalChars += markdown.length;
+        }
+        return {
+          served,
+          stale,
+          malformed: skipped,
+          unitsAvailable: units.length,
+          unitsServed: served.length,
+          tokenBudget,
+        };
+      })()
+    : Promise.resolve(null);
+
   // Execute all in parallel
   const [
     stateResult,
@@ -350,6 +401,7 @@ export async function handleGatherContext(input: {
     sessionsResult,
     eventsResult,
     businessKnowledgeResult,
+    comprehensionResult,
   ] = await Promise.allSettled([
     statePromise,
     learningsPromise,
@@ -359,6 +411,7 @@ export async function handleGatherContext(input: {
     sessionsPromise,
     eventsPromise,
     businessKnowledgePromise,
+    comprehensionPromise,
   ]);
 
   // Extract results, recording errors
@@ -378,6 +431,23 @@ export async function handleGatherContext(input: {
   const sessionsRaw = extract(sessionsResult, 'sessions');
   const eventsTimeline = extract(eventsResult, 'events');
   const businessKnowledgeRaw = extract(businessKnowledgeResult, 'businessKnowledge');
+  const comprehensionRaw = extract(comprehensionResult, 'comprehension') as {
+    served: Array<{ module: string; markdown: string }>;
+    stale: Array<{ module: string; recompile: true }>;
+    malformed: Array<{ path: string; reason: string }>;
+    unitsAvailable: number;
+    unitsServed: number;
+    tokenBudget: number;
+  } | null;
+
+  // FIX 2: make degradation OBSERVABLE — a malformed/newer-schema committed unit
+  // was skipped (not fatal), so surface each into meta.errors instead of letting
+  // it vanish silently.
+  if (comprehensionRaw) {
+    for (const m of comprehensionRaw.malformed) {
+      errors.push(`comprehension: skipped malformed unit ${m.path}: ${m.reason}`);
+    }
+  }
 
   // Unwrap Result types from core functions
   const state =
@@ -456,11 +526,26 @@ export async function handleGatherContext(input: {
           }
         : graphContext;
   const outputValidation = validation ?? null;
+  const outputComprehension =
+    comprehensionRaw == null
+      ? null
+      : mode === 'summary'
+        ? {
+            unitsAvailable: comprehensionRaw.unitsAvailable,
+            unitsServed: comprehensionRaw.unitsServed,
+            staleDropped: comprehensionRaw.stale.length,
+            malformedDropped: comprehensionRaw.malformed.length,
+            recompile: comprehensionRaw.stale.map((s) => s.module),
+          }
+        : comprehensionRaw;
 
   const output = {
     state: outputState,
     learnings: outputLearnings,
     handoff: outputHandoff,
+    // FIX 5: comprehension is the PRIMARY understanding block (spec D6/Serving),
+    // so it is serialized BEFORE graphContext to match the contract's primacy.
+    comprehension: outputComprehension,
     graphContext: outputGraphContext,
     validation: outputValidation,
     sessionSections: sessionSections ?? null,

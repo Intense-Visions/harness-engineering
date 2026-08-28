@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest';
 import {
   serializeEnvelope,
   estimateTokens,
+  CHARS_PER_TOKEN,
   type PackedEnvelope,
 } from '../../src/compaction/envelope';
 
@@ -29,6 +30,14 @@ describe('estimateTokens', () => {
 
   it('returns 0 for empty string', () => {
     expect(estimateTokens('')).toBe(0);
+  });
+
+  it('is the single centralized chars/token ratio the heuristic divides by', () => {
+    // FIX 2 — one exported constant, shared by every chars↔token site (comprehension
+    // serve budgets, leaf context-budget estimates, pre-warm attribution). Behavior
+    // is unchanged: the historical value is 4.
+    expect(CHARS_PER_TOKEN).toBe(4);
+    expect(estimateTokens('a'.repeat(CHARS_PER_TOKEN))).toBe(1);
   });
 });
 
