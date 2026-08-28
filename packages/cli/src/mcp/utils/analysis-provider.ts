@@ -121,6 +121,29 @@ function makeClaudeCliProvider(
  * `HARNESS_ANALYSIS_MODEL` / the provider `defaultModel` when provided.
  * `opts.isClaudeCliAvailable` is injectable for deterministic tests.
  */
+/** Which provider `resolveAnalysisProvider` will construct for the current env. */
+export type ProviderKind = 'anthropic' | 'local' | 'claude-cli' | null;
+
+/**
+ * Report the provider `resolveAnalysisProvider` would resolve for the current
+ * environment, WITHOUT constructing it. MUST mirror the precedence in
+ * `resolveAnalysisProvider` (Anthropic key → local `/v1` → `claude`-CLI → null);
+ * the `providerKind matches resolveAnalysisProvider precedence` test guards them
+ * against drift. Callers use this to pick a provider-appropriate default model:
+ * a Claude-family provider (`anthropic`/`claude-cli`) wants a cheap Claude id,
+ * whereas a `local` OpenAI-compatible endpoint must use ITS OWN configured model
+ * (`HARNESS_ANALYSIS_MODEL`) — forcing a Claude id onto it fails.
+ */
+export function resolveProviderKind(
+  opts: { isClaudeCliAvailable?: () => boolean; env?: NodeJS.ProcessEnv } = {}
+): ProviderKind {
+  const env = opts.env ?? process.env;
+  if (env.ANTHROPIC_API_KEY) return 'anthropic';
+  if (env.HARNESS_ANALYSIS_BASE_URL?.trim()) return 'local';
+  const claudeAvailable = (opts.isClaudeCliAvailable ?? (() => isClaudeCliAvailable()))();
+  return claudeAvailable ? 'claude-cli' : null;
+}
+
 export async function resolveAnalysisProvider(
   model?: string,
   opts: { isClaudeCliAvailable?: () => boolean } = {}

@@ -41,10 +41,18 @@ Add a `comprehension` block to `harness.config.json`:
 ```
 
 > **Model default.** The built-in default is `claude-haiku-4-5` (the current cheap,
-> fast Haiku alias — it auto-tracks the latest snapshot). Override `comprehension.model`
-> only if your provider serves a different id. If a semantic run reports `0 semantic`,
-> check the `harness comprehend` stderr for a model/provider error and pick a model
-> your provider actually serves.
+> fast Haiku alias — it auto-tracks the latest snapshot). It applies **only to
+> Claude-family providers** (Anthropic key / `claude`-CLI subscription). If a
+> semantic run reports `0 semantic`, check the `harness comprehend` stderr for a
+> model/provider error and pick a model your provider actually serves.
+>
+> **Non-Claude providers (OpenAI-compatible / Ollama / local `/v1`).** Point the
+> semantic generator at your endpoint with `HARNESS_ANALYSIS_BASE_URL` (+ optional
+> `HARNESS_ANALYSIS_API_KEY`) and set the model **either** via `HARNESS_ANALYSIS_MODEL`
+> **or** `comprehension.model`. The Claude default is **never** forced onto a
+> non-Claude endpoint — when you don't set `comprehension.model`, the endpoint's own
+> configured model (`HARNESS_ANALYSIS_MODEL`) is used. Setting `comprehension.model`
+> works for any provider and is the most explicit, drift-free choice.
 
 ## 2. Populate
 

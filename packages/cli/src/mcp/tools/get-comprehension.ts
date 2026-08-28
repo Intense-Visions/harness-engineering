@@ -27,10 +27,13 @@ import {
 import type { AnalysisProvider } from '@harness-engineering/intelligence';
 import { runComprehend } from '../../comprehension/compile-run';
 import { createStaticExtractor } from '../../comprehension/static-extractor';
-import { maybeCreateGenerateSemantic } from '../../comprehension/generate-semantic';
+import {
+  maybeCreateGenerateSemantic,
+  defaultSemanticModel,
+} from '../../comprehension/generate-semantic';
 import { readComprehensionConfig } from '../../comprehension/config';
 import { resolveConfig } from '../../config/loader';
-import { resolveAnalysisProvider } from '../utils/analysis-provider';
+import { resolveAnalysisProvider, resolveProviderKind } from '../utils/analysis-provider';
 import { sanitizePath } from '../utils/sanitize-path.js';
 
 export const getComprehensionDefinition = {
@@ -184,9 +187,12 @@ function resolveDefaultDeps(projectRoot: string): ServeOrRecompileDeps {
           () => null
         )) as AnalysisProvider | null)
       : null;
+    // Provider-aware default: explicit config model wins; else Claude-family gets
+    // the cheap Claude id and a local/OpenAI endpoint uses its own configured model.
+    const semanticModel = cconf.model ?? defaultSemanticModel(resolveProviderKind());
     return maybeCreateGenerateSemantic(provider, {
       maxTokensPerRun: cconf.maxTokensPerRun,
-      ...(cconf.model ? { model: cconf.model } : {}),
+      ...(semanticModel ? { model: semanticModel } : {}),
     });
   };
   return {

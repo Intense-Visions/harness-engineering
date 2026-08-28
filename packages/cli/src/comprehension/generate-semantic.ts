@@ -43,6 +43,7 @@ import type {
   GenerateSemantic,
 } from '@harness-engineering/core';
 import type { AnalysisProvider } from '@harness-engineering/intelligence';
+import type { ProviderKind } from '../mcp/utils/analysis-provider';
 
 /**
  * Authority-in-TS: the unit shape is validated here, never trusted raw. Tolerant
@@ -71,6 +72,18 @@ export const DEFAULT_MAX_OUTPUT_TOKENS = 700;
  * 2026-02-19 and spammed deprecation warnings).
  */
 export const DEFAULT_SEMANTIC_MODEL = 'claude-haiku-4-5';
+
+/**
+ * The default semantic model for a resolved provider kind. Claude-family providers
+ * (`anthropic`/`claude-cli`) get the cheap Claude alias; a `local` OpenAI-compatible
+ * endpoint (or no provider) gets `undefined` so it uses ITS OWN configured model
+ * (`HARNESS_ANALYSIS_MODEL`) rather than a Claude id it cannot serve. An explicit
+ * `comprehension.model` in config always takes precedence over this — the only
+ * hardcoded model id lives here, contained to the one path where it is correct.
+ */
+export function defaultSemanticModel(kind: ProviderKind): string | undefined {
+  return kind === 'anthropic' || kind === 'claude-cli' ? DEFAULT_SEMANTIC_MODEL : undefined;
+}
 /** Env flag marking an active comprehension pass (reentrancy guard). */
 export const REENTRANCY_ENV = 'HARNESS_COMPREHENSION_ACTIVE';
 
@@ -201,7 +214,13 @@ export function createGenerateSemantic(
 ): GenerateSemantic {
   const maxOutputTokens = opts.maxOutputTokens ?? DEFAULT_MAX_OUTPUT_TOKENS;
   const budget = opts.maxTokensPerRun ?? Infinity;
-  const model = opts.model ?? DEFAULT_SEMANTIC_MODEL;
+  // Provider-neutral: DO NOT force a model here. When `opts.model` is undefined
+  // the request omits `model` and the provider uses its OWN configured default
+  // (e.g. an OpenAI-compatible endpoint's `HARNESS_ANALYSIS_MODEL`) — forcing a
+  // Claude id like DEFAULT_SEMANTIC_MODEL onto a non-Claude provider fails. The
+  // caller picks the cheap Claude default only for Claude-family providers via
+  // {@link defaultSemanticModel}.
+  const model = opts.model;
   const log: Logger = opts.logger ?? console;
   let spent = 0;
   let budgetWarned = false;
@@ -227,7 +246,8 @@ export function createGenerateSemantic(
         responseSchema: semanticResponseSchema,
         disableThinking: true,
         maxTokens: maxOutputTokens,
-        model,
+        // Omit when undefined so the provider falls back to its own default model.
+        ...(model ? { model } : {}),
       });
       // Charge the budget from the RETURNED usage (fail-loud on the NEXT call).
       // When the provider omits usage (absent/zero), `spent += 0` would never

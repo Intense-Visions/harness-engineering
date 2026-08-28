@@ -2,6 +2,7 @@ import { describe, it, expect, afterEach } from 'vitest';
 import {
   resolveAnalysisProvider,
   isClaudeCliAvailable,
+  resolveProviderKind,
 } from '../../../src/mcp/utils/analysis-provider.js';
 
 /**
@@ -146,5 +147,33 @@ describe('isClaudeCliAvailable — injectable, Windows-safe PATH scan', () => {
         fileExists: (p) => p === 'C:\\b\\claude.EXE',
       })
     ).toBe(true);
+  });
+});
+
+describe('resolveProviderKind — mirrors resolveAnalysisProvider precedence', () => {
+  it('anthropic when ANTHROPIC_API_KEY is set (wins over local + claude-cli)', () => {
+    expect(
+      resolveProviderKind({
+        env: { ANTHROPIC_API_KEY: 'k', HARNESS_ANALYSIS_BASE_URL: 'http://x' },
+        isClaudeCliAvailable: () => true,
+      })
+    ).toBe('anthropic');
+  });
+
+  it('local when a base URL is set and no key (wins over claude-cli)', () => {
+    expect(
+      resolveProviderKind({
+        env: { HARNESS_ANALYSIS_BASE_URL: 'http://x' },
+        isClaudeCliAvailable: () => true,
+      })
+    ).toBe('local');
+  });
+
+  it('claude-cli when neither key nor base URL but claude is on PATH', () => {
+    expect(resolveProviderKind({ env: {}, isClaudeCliAvailable: () => true })).toBe('claude-cli');
+  });
+
+  it('null when nothing resolves', () => {
+    expect(resolveProviderKind({ env: {}, isClaudeCliAvailable: () => false })).toBeNull();
   });
 });
