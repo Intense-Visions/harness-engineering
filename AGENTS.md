@@ -506,6 +506,9 @@ dominant cost term in agent operation (context replay, not generation).
   `gather_context` MCP tool's `comprehension` constituent and by the
   `get_comprehension` tool (leaf-demand recompilation), with the graph/raw source as
   fallback. Configured via the `comprehension` block in `harness.config.json`.
+- **Populate & maintain:** see the operator runbook
+  `docs/guides/comprehension-substrate.md` (configure a model, backfill, keep fresh).
+  The substrate is inert until populated.
 - **Concepts:** `docs/knowledge/comprehension/comprehension-substrate.md`; ADRs
   0106 (`claude`-CLI resolver fallback), 0107 (committed substrate), 0108 (hash gate).
 
