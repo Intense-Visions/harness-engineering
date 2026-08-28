@@ -115,7 +115,7 @@ describe('gather_context comprehension constituent (SC2, SC4)', () => {
     }
   });
 
-  it('summary mode returns counts, not full markdown', async () => {
+  it('summary mode inlines the served units (primary payload) plus counts', async () => {
     const files = { 'a.ts': 'export const a = 1;' };
     await writeModule('m', files);
     await seed(
@@ -123,10 +123,14 @@ describe('gather_context comprehension constituent (SC2, SC4)', () => {
       files,
       computeSourceHash((await createNodeModuleSourceReader(root).readModuleSource('m'))!)
     );
+    // Default mode is 'summary'. Comprehension is the PRIMARY, already-compact payload,
+    // so summary mode must INLINE the served units (not collapse to counts) — otherwise
+    // a caller gets "1 served" and must round-trip to get_comprehension / raw source.
     const res = await handleGatherContext({ path: root, intent: 'x', include: ['comprehension'] });
     const parsed = JSON.parse(res.content[0].text);
     expect(parsed.comprehension).toHaveProperty('unitsServed', 1);
-    expect(parsed.comprehension).not.toHaveProperty('served');
+    expect(parsed.comprehension.served.map((s: { module: string }) => s.module)).toContain('m');
+    expect(parsed.comprehension.served[0].markdown).toContain('m'); // real content, not just a count
   });
 
   it('is gracefully absent when .harness/comprehension/ does not exist', async () => {

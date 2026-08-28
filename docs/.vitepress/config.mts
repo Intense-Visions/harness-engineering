@@ -34,7 +34,8 @@ export default defineConfig({
           items: [
             { text: 'Overview', link: '/guides/' },
             { text: 'Getting Started', link: '/guides/getting-started' },
-            { text: 'Best Practices', link: '/guides/best-practices' }
+            { text: 'Best Practices', link: '/guides/best-practices' },
+            { text: 'Comprehension Substrate', link: '/guides/comprehension-substrate' }
           ]
         }
       ],

@@ -531,6 +531,13 @@ export async function handleGatherContext(input: {
       ? null
       : mode === 'summary'
         ? {
+            // Comprehension is the PRIMARY understanding payload and is ALREADY
+            // compact (packed to `tokenBudget`), so — unlike graph blocks — summary
+            // mode INLINES the served units rather than collapsing them to counts.
+            // Collapsing here would force every caller to a second get_comprehension
+            // round-trip (or a raw-source fallback), defeating the pull-primary path.
+            // Only the noise (stale/malformed detail) is summarized to counts.
+            served: comprehensionRaw.served,
             unitsAvailable: comprehensionRaw.unitsAvailable,
             unitsServed: comprehensionRaw.unitsServed,
             staleDropped: comprehensionRaw.stale.length,
