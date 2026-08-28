@@ -17,6 +17,7 @@ import {
   DEFAULT_DIGEST_CHAR_BUDGET,
   DEFAULT_MAX_OUTPUT_TOKENS,
   DEFAULT_SEMANTIC_MODEL,
+  defaultSemanticModel,
   REENTRANCY_ENV,
 } from '../../src/comprehension/generate-semantic.js';
 
@@ -194,14 +195,23 @@ describe('createGenerateSemantic — provider call, cost levers, validation', ()
     expect(req.prompt).toContain('CONTRACT_MARKER');
   });
 
-  it('defaults to a cheap-tier model, overridable via opts.model', async () => {
+  it('omits model when none given (provider uses its own default), and honors opts.model', async () => {
+    // Provider-neutral: no forced Claude id — a non-Claude provider must be free to
+    // use its own configured model (HARNESS_ANALYSIS_MODEL) rather than have one imposed.
     const p1 = new StubProvider([ok({ summary: 's', invariants: [] })]);
     await createGenerateSemantic(p1)(INPUT);
-    expect(p1.requests[0].model).toBe(DEFAULT_SEMANTIC_MODEL);
+    expect(p1.requests[0].model).toBeUndefined();
 
     const p2 = new StubProvider([ok({ summary: 's', invariants: [] })]);
     await createGenerateSemantic(p2, { model: 'custom-model' })(INPUT);
     expect(p2.requests[0].model).toBe('custom-model');
+  });
+
+  it('defaultSemanticModel: cheap Claude id for Claude-family, undefined otherwise', () => {
+    expect(defaultSemanticModel('anthropic')).toBe(DEFAULT_SEMANTIC_MODEL);
+    expect(defaultSemanticModel('claude-cli')).toBe(DEFAULT_SEMANTIC_MODEL);
+    expect(defaultSemanticModel('local')).toBeUndefined(); // non-Claude → provider's own model
+    expect(defaultSemanticModel(null)).toBeUndefined();
   });
 
   it('malformed provider output → null (authority-in-TS), does not throw, logs once', async () => {
