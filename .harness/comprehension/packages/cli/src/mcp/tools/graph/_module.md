@@ -4,8 +4,8 @@ module: 'packages/cli/src/mcp/tools/graph'
 sourceHash: '0f22f4a8c97feecbe72f4a8a9fcebb860f85f886d81e710f35b82698837a6800'
 compiledAt: '2026-08-28T01:22:09.293Z'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
-model: null
-semantic: absent
+model: 'claude-haiku-4-5-20251001'
+semantic: present
 members:
   [
     'ask-graph.ts',
@@ -26,6 +26,20 @@ members:
     'shared.ts',
   ]
 ---
+
+## Summary
+
+The `graph` tools module provides MCP handlers for querying and analyzing a codebase's knowledge graph. It exposes 10 graph operations (ask, impact, blast-radius, anomalies, relationships, etc.) and their schema definitions, routing natural language questions and structured queries to the `@harness-engineering/graph` backend. The module is a thin dispatcher: each handler validates input, loads a cached GraphStore, delegates to a graph utility (CascadeSimulator, askGraph, etc.), and serializes results to JSON. Path inputs are sanitized; missing graphs return a standardized error. The module is graph-agnostic — it doesn't construct or interpret the graph, only gate access and enforce output bounds.
+
+## Invariants
+
+- All handlers load-then-guard: Every handler calls loadGraphStore(sanitizePath(input.path)) and returns graphNotFoundError() if null. Graph absence must never proceed to a cascade or query.
+- Detailed mode is bounded: When mode==='detailed', output arrays (nodes, edges, cascade layers) are capped to graph.detailedMode.maxItems from config via resolveDetailCeiling(). Hub nodes (high-degree) cannot return unbounded payloads (issue #1591).
+- Truncation signals are explicit: When output is truncated, handlers emit truncated: true + a continuation object with hints (reason, ceiling, item counts). Callers must check truncation before interpreting results as complete.
+- Dual node resolution (computeBlastRadius): Accepts either file path or nodeId, but not both; file paths are resolved to file nodes before simulation. Validation prevents missing node gracefully.
+- Probability/depth bounds are enforced: probabilityFloor ∈ (0, 1), maxDepth ∈ [1, 100]. Out-of-range inputs reject before simulation.
+- Error handling is consistent: Try-catch wraps all async work; errors return { isError: true, content: [...] } with plain-text message. No exceptions escape.
+- Response format is uniform: All handlers return { content: [{ type: 'text', text: JSON.stringify(...) }] }, making output serializable and machine-parseable by MCP clients.
 
 ## Interface Contract
 

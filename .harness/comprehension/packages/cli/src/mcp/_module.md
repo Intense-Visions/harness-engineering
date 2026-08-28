@@ -4,8 +4,8 @@ module: 'packages/cli/src/mcp'
 sourceHash: 'c4d7b75873738f99fd075974e03e96a4fea54172fdb3ca82a37d26a3552dc821'
 compiledAt: '2026-08-28T01:22:09.249Z'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
-model: null
-semantic: absent
+model: 'claude-haiku-4-5-20251001'
+semantic: present
 members:
   [
     'context-surface.ts',
@@ -18,6 +18,20 @@ members:
     'utils.ts',
   ]
 ---
+
+## Summary
+
+`packages/cli/src/mcp` is the MCP server gateway exposing ~100+ harness tools (crafting, graph queries, project analysis, skills management, CI checks) via the Model Context Protocol. It maintains a registry wiring tool names → definitions → handlers, applies a three-stage middleware pipeline (injection guard → compaction → context budget), and tracks context surface (always-loaded tool schemas + invoked-only skill trees) for token attribution. Core responsibilities: bootstrap the MCP StdioServerTransport, dispatch tools by name, measure real agent costs, serve MCP resources (project knowledge, state, rules, graph), and adapt handler results to MCP format.
+
+## Invariants
+
+- Tool dispatcher is authoritative: every tool name in a handler invocation must exist in getToolDefinitions() with a registered handler; mismatches break routing.
+- Middleware order is strict: injection guard → compaction → context budget; guard runs first for security, budget runs last to measure actual tokens.
+- Tool tier hierarchy is subset-enforced: core ⊂ standard ⊂ full; tier filtering in gatherContextSurface() must respect subset relationships or attribution breaks.
+- MCP response contract is binding: all tool handlers return a result that resultToMcpResponse() must adapt to MCP schema; unadaptable types break the protocol.
+- Resource loaders must succeed before use: resolveProjectConfig() must resolve before resource handlers run; missing project root breaks skills/rules/learnings/business-knowledge access.
+- Skill platform symmetry: four dirs (claude-code, codex, cursor, gemini-cli) under agents/skills/ must have parallel structure; asymmetry silently drops platform-specific skill trees.
+- Context surface classification is deterministic: tool schemas are always-loaded, skill bodies are invoked-only, AGENTS.md/hooks are always-loaded when present; misclassification corrupts cost attribution.
 
 ## Interface Contract
 

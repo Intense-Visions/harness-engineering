@@ -4,8 +4,8 @@ module: 'packages/cli/tests/commands'
 sourceHash: 'd39621308277361d62c3f578cf02c9bbc45dbe47a9ad874637901aba33027452'
 compiledAt: '2026-08-28T01:22:10.098Z'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
-model: null
-semantic: absent
+model: 'claude-haiku-4-5-20251001'
+semantic: present
 members:
   [
     'add-extra.test.ts',
@@ -130,6 +130,21 @@ members:
     'validate.test.ts',
   ]
 ---
+
+## Summary
+
+The `packages/cli/tests/commands` module is a comprehensive test suite for ~70+ CLI command implementations. It validates command interfaces (creation, option parsing), file I/O (artifact creation/deletion), validation logic (rejects invalid inputs and duplicates), and output modes (JSON, Markdown, stdout/file). Tests are hermetic using isolated temp directories, mock external dependencies, and clean up after themselves. Each test file focuses on a command domain (add, adopt, audit, check-\*, graph, hooks, install, maintenance, skills, state, validate, etc.) and exercises both happy paths and error cases.
+
+## Invariants
+
+- All command runners return Result&lt;T, E&gt; with a nullable .ok boolean; callers must check .ok before accessing .value or .error
+- Each test creates a unique tempDir via mkdtempSync(path.join(os.tmpdir(), 'harness-\*-')) in beforeEach() and destroys it with rmSync(..., { recursive: true, force: true }) in afterEach()—no test pollution across runs
+- Component creation requires a valid harness.config.json in the working directory; missing or malformed config fails gracefully
+- Names are rejected for: special characters, empty string, leading digits, path-traversal attempts (../); accepted names use kebab-case or underscores for certain types
+- Adding an already-existing component (module, doc, skill, persona) fails with error message containing 'already exists'; this is not idempotent
+- External I/O (npm registry, adoption records, MCP servers) is mocked; only file-system I/O to tempDir is real
+- Commands support --json for machine parsing, --no-write to emit Markdown to stdout, and --out &lt;file&gt; to write Markdown; each mode is independently tested
+- Tests use if (!result.ok) return; after asserting .ok === true, relying on TypeScript narrowing to safely dereference .value
 
 ## Interface Contract
 

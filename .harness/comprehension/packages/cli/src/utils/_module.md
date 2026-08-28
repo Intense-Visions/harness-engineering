@@ -4,8 +4,8 @@ module: 'packages/cli/src/utils'
 sourceHash: 'e66cece86d5e273c931ed94a40b9b60df27560b32c289b95b7e0dd29c1c135ac'
 compiledAt: '2026-08-28T01:22:09.518Z'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
-model: null
-semantic: absent
+model: 'claude-haiku-4-5-20251001'
+semantic: present
 members:
   [
     'concurrency.ts',
@@ -21,6 +21,20 @@ members:
     'version-guard.ts',
   ]
 ---
+
+## Summary
+
+`packages/cli/src/utils` is a foundational support library providing error handling (semantic exit codes), directory discovery and path resolution (walking up to locate `agents/`, `personas/`, `skills/`), concurrency control, file discovery with shared ignore patterns, Node version validation, one-time setup tracking via marker file in `~/.harness/`, and degrade-safe guardian diff-coverage context loading. It bridges framework-level and project-level concerns, distinguishing harness bundled resources from adopter project resources.
+
+## Invariants
+
+- Project vs. harness distinction via null return — resolveProjectSkillsDir() and resolveProjectPersonasDir() return null (not fallback to bundled), preventing adopter projects from accidentally writing to the harness's own bundled skill/persona directories.
+- Dual-path fallback for bundled resources — Path resolvers first walk up from \_\_dirname (dev/monorepo), then fall back to dist/ bundled paths (production). This dual-path is required for both monorepo dev and npm-installed harness to work.
+- Marker files distinguish framework dirs from code — findUpFrom() uses marker files (e.g., base/template.json for templates/, personas subdir for agents/) to disambiguate actual framework directories from same-named code directories.
+- Exit codes are semantic and must be distinct — ExitCode.VALIDATION_FAILED (1), ERROR (2), and ZERO_DENOMINATOR (3) are consumed by gates and CI to distinguish validation issues from runtime errors from 'examined nothing' abstentions.
+- Guardian coverage is degrade-safe — loadGuardianCoverage() never throws; missing intelligence package or archives return undefined. Commands that call it must handle undefined and degrade gracefully.
+- Concurrency errors don't sink the batch — mapWithConcurrency() places per-task errors in the results array rather than rejecting wholesale, so maintenance sweeps complete even if some items fail.
+- First-run setup is CI-aware and idempotent — markSetupComplete() is safe to call repeatedly; printFirstRunWelcome() skips in CI, when --quiet is set, or if marker file exists.
 
 ## Interface Contract
 
