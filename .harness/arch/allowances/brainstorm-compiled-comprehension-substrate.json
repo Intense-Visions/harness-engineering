@@ -1,17 +1,19 @@
 {
-  "reason": "merge main into compiled-comprehension-substrate #1558",
+  "reason": "claude-cli chatty-reply recovery + structured-output helpers #1558",
   "categories": {
-    "complexity": 335,
-    "module-size": 250439,
+    "complexity": 337,
+    "module-size": 250553,
     "dependency-depth": 617
   },
   "violationIds": [
+    "08e26ed2a558127bfe6e26cc8ab5ef2e86655e8b56714e470d661e3759cf7796",
     "44fc8db829ab587b8bc6a92fc411b1e49a1dca20499f272d0310bcdbe3c68c81",
     "4585d7c519ca2ebc1b54dd925f1672e999fcb142bad9b54dbe96e6b60dad62de",
     "717acff600db9428ddeace1963f9e2526f9a5c5902143bfa3a1ee31405c6421d",
+    "7dffbba228b183427daa0d9a479bc41a36d4c4268cfd454532f76d952c7bd1ec",
     "a15d07ac8860ed03115a9c7dcaf4af35dd1ac3ae8fa62be7bef1189e9724965b",
     "a69cfd2cd82525ac974800a92c87ddc6f51befc4b2b4b7704254c831bddc41b1",
     "c60eea17a4add0848bb1b29da4779a5a9882da2f7f6c4a36f60076046da5acd1"
   ],
-  "createdFrom": "37bdaf5d3"
+  "createdFrom": "2bbfff668"
 }
