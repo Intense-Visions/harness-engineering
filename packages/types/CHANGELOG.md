@@ -1,5 +1,100 @@
 # @harness-engineering/types
 
+## 0.31.0
+
+### Minor Changes
+
+- 6ba006f: Add the per-leaf context-replay budget enforcement primitive for the -fleet
+  family (#1524), with a live enforcement caller in the orchestrator dispatch
+  governor. A leaf's estimated context load is checked against a budget at
+  dispatch and fails loudly when over rather than silently spending.
+  - `@harness-engineering/core` (`fleet/context-budget`): `DEFAULT_LEAF_CONTEXT_BUDGET_TOKENS`
+    (200000), `resolveContextBudget`, `enforceLeafContextBudget`, `formatBudgetFailure`,
+    `summarizeLeafSpend`, and the fail-loud consult helper `assertLeafWithinBudget`
+    (throws `ContextBudgetExceededError` when over budget). Pure and offline.
+  - `@harness-engineering/types`: `LeafContextEstimate` / `ContextBudget` /
+    `LeafContextSpend` / `LeafBudgetVerdict` shapes, plus `AgentContextBudgetConfig`
+    and the optional `agent.contextBudget` field on `AgentConfig`.
+  - `@harness-engineering/orchestrator`: `assertIssueWithinContextBudget` consulted
+    in the state machine's dispatch loop before each leaf is claimed; over-budget
+    leaves emit a loud error effect and are skipped. Configured via
+    `agent.contextBudget = { maxTokens, perFleet? }`. **Absent ⇒ unlimited** —
+    dispatch behavior is byte-identical when unconfigured.
+
+- d64e63b: Spend-govern the skill/fleet-command dispatch path, not just the orchestrator engine
+  (#1600). #1525's per-period token spend envelope previously enforced only inside the
+  orchestrator engine's `state-machine.ts` dispatch loop; skill-driven fleet fan-out
+  (`/harness:roadmap-fleet`, `fleet-command`) was bounded by a leaf-SLOT cap only, never a
+  spend cap, so a single coordinated run could burn unbounded tokens.
+
+  The spend-vs-envelope comparison is now a shared, pure primitive in
+  `@harness-engineering/core` (`fleet/spend-budget`: `isGlobalEnvelopeExhausted`,
+  `isFleetAllocationExhausted`, `evaluateSpendEnvelope`), with its shapes in
+  `@harness-engineering/types` (`fleet-spend-budget.ts`) — mirroring how the per-leaf
+  context budget spans both paths. The orchestrator's `budget-governor` delegates its
+  exhaustion predicates to it, and a new concrete callable, `harness fleet budget-check`,
+  is the DISPATCH-time consult the fleet-family / `fleet-command` contract invokes before
+  scheduling each lane: it reads observed spend from burn's existing per-fleet/per-lane
+  attribution (#1270) and reports `within | exhausted | unconfigured` (exit `10` on
+  exhausted), stopping clean at a lane boundary when the envelope is spent. No-op and
+  byte-identical when unconfigured.
+
+- 4eb2da5: feat(fleet): cross-run advisory work-claim lease for the ID-based members
+
+  Adds a GitHub-backed advisory work-claim lease so two people running an ID-based
+  fleet (`roadmap-fleet`, `issue-fleet`, `pr-fleet`) on different clones auto-partition
+  the backlog instead of duplicating work. New `FleetClaim` type in
+  `@harness-engineering/types` and a pure, offline `fleet/claims` module in
+  `@harness-engineering/core` (`buildClaimBody` / `parseClaimComment` / `isLeaseLive` /
+  `resolveClaimWinner` / `classifyClaim` / `selectUnclaimed` + constants). Soft
+  reservation with a TTL+heartbeat lease measured off the GitHub server clock; the open
+  PR is the durable claim. The `cli` bump is an incidental command-registry regeneration.
+
+- eafbd15: fleet: assemble a dispatched leaf's context graph-scoped by default (#1524 deferred slice)
+
+  Every dispatched-leaf stage prompt now carries a directive to retrieve existing
+  code via `code_outline` / `code_unfold` / `find_context_for` first and read raw
+  whole-file source only for the region under edit — attacking the dominant
+  context-replay cost term (the assembled context size fleet fan-out multiplies)
+  without losing correctness. Graph-scoped is the default (`DEFAULT_RETRIEVAL_MODE`);
+  `agent.retrievalMode: 'raw'` is the explicit, byte-identical opt-out. Refs #1524.
+
+- 32a104c: Rate-limit-aware fan-out (#1532): add a per-resource API budget primitive
+  (`RateBudget` + `sharedRateBudget` in `@harness-engineering/core` `fleet/rate-budget`)
+  with shared cross-leaf backoff and typed `ThrottledFetchError` / `TruncatedFetchError`.
+  The GitHub HTTP layer (`GitHubHttp`) now acquires the shared budget before every
+  fetch, penalizes it on 403/429, and FAILS the leaf on a terminal throttle or a
+  server-truncated page instead of returning partial/silent-zero data. Adopters tune
+  budgets via the new `AgentConfig.resourceBudgets` config key (defaulted in
+  `getDefaultConfig`, applied to the shared budget at orchestrator startup).
+- 97c3b03: Rule-to-failure provenance linking (ADR 0100) — link every enforced constraint to the
+  incident that motivated it.
+
+  Additive, optional, and advisory by design: nothing gates on it, and every existing
+  document and rule stays valid with no provenance (fill-forward).
+  - `@harness-engineering/types` + `@harness-engineering/core`: optional `enforces?: string[]`
+    on the solution-doc frontmatter (`SolutionDocFrontmatter` / `SolutionDocFrontmatterSchema`)
+    — the rule ids a `harness-compound` solution produced or hardened.
+  - `@harness-engineering/core`: optional `origin?: string` on the `StrengthRule` type (the
+    reciprocal back-pointer to a solution slug or issue ref), plus a new `provenance` module
+    (`buildProvenanceReport`, `collectSolutionEnforcements`) that joins the two sides.
+  - `@harness-engineering/cli`: `harness rules provenance` — an advisory reporter that flags
+    unexplained constraints (enforced rules with no origin) and candidate dead rules (a rule
+    whose origin resolves to no known solution, or a solution enforcing a STRENGTH id absent
+    from the registry). Never exits non-zero on findings; supports `--json`.
+  - Producer wiring (ADR 0100 Action Item #4): the `harness-compound` capture phase (Phase 4
+    ASSEMBLE, all platform mirrors) now captures the optional `enforces:` list when a fix
+    produced or hardened an enforced rule — advisory, fill-forward, never blocks capture. The
+    resolution template and human schema mirror document the field.
+
+- 3646500: Add a budget governor for unattended dispatch (#1525). A per-period spend
+  envelope (`agent.budget`) is enforced on the real dispatch path: global envelope
+  exhaustion stops dispatch cleanly at a lane boundary (in-flight lanes are never
+  interrupted), and per-fleet sub-allocations let fleets sharing an envelope
+  respect their split under contention. The remaining-budget signal is exposed via
+  the orchestrator snapshot (`getSnapshot().budget`). The governor is off when
+  `agent.budget` is not configured.
+
 ## 0.30.0
 
 ### Minor Changes

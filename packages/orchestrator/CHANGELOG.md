@@ -1,5 +1,140 @@
 # @harness-engineering/orchestrator
 
+## 0.22.0
+
+### Minor Changes
+
+- 427dfb4: Add the compiled comprehension substrate (#1558): a persistent, incrementally
+  recompiled per-module comprehension layer (LLM summary + invariants, static
+  interface contract + dependency slice) served to agents as primary context.
+  - `@harness-engineering/core`: the pure, IO/provider-injected compiler + store —
+    `compileModule`, `ComprehensionStore`, `computeSourceHash` (membership-folded
+    full SHA-256), markdown+frontmatter (de)serialization, the LLM-free serve-time
+    hash gate (`serveGate`), and the `createNodeModuleSourceReader` canonical
+    enumeration.
+  - `@harness-engineering/cli`: the `harness comprehend` command
+    (`--changed`/`--all`/`--check`/`--stats`), the `get_comprehension` MCP tool, the
+    default-on `comprehension` constituent in `gather_context`, the static extractor
+    and semantic-generation adapter, and a `claude`-CLI fallback appended to the
+    analysis-provider resolver (ADR 0106 — strictly additive; also repairs
+    `acceptance_eval`/`outcome_eval` for subscription users).
+  - `@harness-engineering/orchestrator`: dispatch-time pre-warm of a leaf's
+    blast-radius comprehension units and served-unit attribution into the
+    per-leaf context budget (#1524).
+
+  Correctness never requires a credential: the serve-time hash gate, `--check`, and
+  `--stats` are LLM-free, and semantic generation degrades to static-only when no
+  provider resolves.
+
+- 6ba006f: Add the per-leaf context-replay budget enforcement primitive for the -fleet
+  family (#1524), with a live enforcement caller in the orchestrator dispatch
+  governor. A leaf's estimated context load is checked against a budget at
+  dispatch and fails loudly when over rather than silently spending.
+  - `@harness-engineering/core` (`fleet/context-budget`): `DEFAULT_LEAF_CONTEXT_BUDGET_TOKENS`
+    (200000), `resolveContextBudget`, `enforceLeafContextBudget`, `formatBudgetFailure`,
+    `summarizeLeafSpend`, and the fail-loud consult helper `assertLeafWithinBudget`
+    (throws `ContextBudgetExceededError` when over budget). Pure and offline.
+  - `@harness-engineering/types`: `LeafContextEstimate` / `ContextBudget` /
+    `LeafContextSpend` / `LeafBudgetVerdict` shapes, plus `AgentContextBudgetConfig`
+    and the optional `agent.contextBudget` field on `AgentConfig`.
+  - `@harness-engineering/orchestrator`: `assertIssueWithinContextBudget` consulted
+    in the state machine's dispatch loop before each leaf is claimed; over-budget
+    leaves emit a loud error effect and are skipped. Configured via
+    `agent.contextBudget = { maxTokens, perFleet? }`. **Absent ⇒ unlimited** —
+    dispatch behavior is byte-identical when unconfigured.
+
+- eafbd15: fleet: assemble a dispatched leaf's context graph-scoped by default (#1524 deferred slice)
+
+  Every dispatched-leaf stage prompt now carries a directive to retrieve existing
+  code via `code_outline` / `code_unfold` / `find_context_for` first and read raw
+  whole-file source only for the region under edit — attacking the dominant
+  context-replay cost term (the assembled context size fleet fan-out multiplies)
+  without losing correctness. Graph-scoped is the default (`DEFAULT_RETRIEVAL_MODE`);
+  `agent.retrievalMode: 'raw'` is the explicit, byte-identical opt-out. Refs #1524.
+
+- 32a104c: Rate-limit-aware fan-out (#1532): add a per-resource API budget primitive
+  (`RateBudget` + `sharedRateBudget` in `@harness-engineering/core` `fleet/rate-budget`)
+  with shared cross-leaf backoff and typed `ThrottledFetchError` / `TruncatedFetchError`.
+  The GitHub HTTP layer (`GitHubHttp`) now acquires the shared budget before every
+  fetch, penalizes it on 403/429, and FAILS the leaf on a terminal throttle or a
+  server-truncated page instead of returning partial/silent-zero data. Adopters tune
+  budgets via the new `AgentConfig.resourceBudgets` config key (defaulted in
+  `getDefaultConfig`, applied to the shared budget at orchestrator startup).
+- 3646500: Add a budget governor for unattended dispatch (#1525). A per-period spend
+  envelope (`agent.budget`) is enforced on the real dispatch path: global envelope
+  exhaustion stops dispatch cleanly at a lane boundary (in-flight lanes are never
+  interrupted), and per-fleet sub-allocations let fleets sharing an envelope
+  respect their split under contention. The remaining-budget signal is exposed via
+  the orchestrator snapshot (`getSnapshot().budget`). The governor is off when
+  `agent.budget` is not configured.
+
+### Patch Changes
+
+- 1a40ca1: Port the subprocess-env air-gap to the Codex backend. `CodexBackend` previously spawned `codex exec` with `env: process.env`, leaking every host secret the orchestrator held into the subprocess. It now builds an allowlisted env via `buildSubprocessEnv` (mirroring the Claude backend) and stamps the resolved policy envelope plus the names of withheld env vars into the optional governance audit sink.
+- d64e63b: Spend-govern the skill/fleet-command dispatch path, not just the orchestrator engine
+  (#1600). #1525's per-period token spend envelope previously enforced only inside the
+  orchestrator engine's `state-machine.ts` dispatch loop; skill-driven fleet fan-out
+  (`/harness:roadmap-fleet`, `fleet-command`) was bounded by a leaf-SLOT cap only, never a
+  spend cap, so a single coordinated run could burn unbounded tokens.
+
+  The spend-vs-envelope comparison is now a shared, pure primitive in
+  `@harness-engineering/core` (`fleet/spend-budget`: `isGlobalEnvelopeExhausted`,
+  `isFleetAllocationExhausted`, `evaluateSpendEnvelope`), with its shapes in
+  `@harness-engineering/types` (`fleet-spend-budget.ts`) — mirroring how the per-leaf
+  context budget spans both paths. The orchestrator's `budget-governor` delegates its
+  exhaustion predicates to it, and a new concrete callable, `harness fleet budget-check`,
+  is the DISPATCH-time consult the fleet-family / `fleet-command` contract invokes before
+  scheduling each lane: it reads observed spend from burn's existing per-fleet/per-lane
+  attribution (#1270) and reports `within | exhausted | unconfigured` (exit `10` on
+  exhausted), stopping clean at a lane boundary when the envelope is spent. No-op and
+  byte-identical when unconfigured.
+
+- 315fe34: feat(validate): scope `harness validate` to the changed surface (`--changed`/`--affected`/`--since`)
+
+  Adds an opt-in affected-only mode to `harness validate`. The design audits
+  (detect-drift, audit-brand) walk the whole source tree on every run, which is the
+  dominant cost of the most-invoked CLI command (adoption telemetry: `cli/validate` =
+  68% of all harness CLI calls). `--changed` (alias `--affected`) derives the changed
+  surface from git — the merge-base with the default branch, or an explicit
+  `--since <ref>` — and hands just those files to the walkers. The surface is narrowed
+  to the source extensions and exclude globs a full sweep would scan, so a scoped run is
+  always a subset of a full run (it never reports a finding a full sweep would not). If
+  the surface cannot be derived, the run falls back to a full sweep and reports why.
+  Bare `harness validate` is unchanged (full sweep) — non-breaking for adopters and
+  pre-merge/scheduled/release gates. Every affected run prints what it scoped and the
+  staleness caveat, and the scoped-vs-full split is recorded on the `cli/validate`
+  adoption record (`variant` field). The orchestrator package's `validate` dev-loop
+  script is rewired to `--changed`.
+
+  The same affected-mode is exposed to skills/agents through the MCP `validate_project`
+  tool via an opt-in `scope: "affected" | "full"` / `changed` / `since` param — it
+  delegates to the same `runValidate` (validate-scope is shared, not forked), and the
+  default path stays byte-identical.
+
+- Updated dependencies [9f53c25]
+- Updated dependencies [ab1c981]
+- Updated dependencies [427dfb4]
+- Updated dependencies [6ba006f]
+- Updated dependencies [b29d033]
+- Updated dependencies [d64e63b]
+- Updated dependencies [4eb2da5]
+- Updated dependencies [127531a]
+- Updated dependencies [bcd6047]
+- Updated dependencies [1c2fafb]
+- Updated dependencies [eafbd15]
+- Updated dependencies [b23c933]
+- Updated dependencies [33acf07]
+- Updated dependencies [8cf33f6]
+- Updated dependencies [32a104c]
+- Updated dependencies [97c3b03]
+- Updated dependencies [37b1be7]
+- Updated dependencies [3646500]
+  - @harness-engineering/core@0.45.0
+  - @harness-engineering/intelligence@0.12.1
+  - @harness-engineering/types@0.31.0
+  - @harness-engineering/graph@0.14.0
+  - @harness-engineering/local-models@0.7.8
+
 ## 0.21.4
 
 ### Patch Changes

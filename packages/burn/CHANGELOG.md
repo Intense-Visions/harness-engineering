@@ -1,5 +1,26 @@
 # @harness-engineering/burn
 
+## 0.3.0
+
+### Minor Changes
+
+- 43212b3: Add an invoking-skill attribution cut to burn so its breakdown reconciles with Claude
+  Code's `/usage`. burn previously grouped subagent spend only by agent TYPE
+  (`attributionAgent`), while `/usage` groups the same spend by the SKILL that spawned it
+  (`harness:roadmap-fleet`, `harness:autopilot`, …), so the two views could never
+  reconcile — `/usage` showed rows burn had no equivalent for. Each turn now also records
+  `invokingSkill` (derived from the transcript's `attributionSkill`, already a
+  fully-qualified `plugin:skill` value), the summary carries a `skills` block alongside
+  `agents`, and `harness burn report` leads with a `by invoking skill` section that states
+  its window (week-to-date vs `/usage`'s last-24h) so a mismatch reads as a different
+  question, not a wrong number. Both cuts coexist and partition the same weekly total. A
+  turn with no readable skill is grouped honestly as `unattributed-skill` (never dropped,
+  never fabricated); legacy rows are `pre-migration`. The `usage.tsv` store widened from
+  nine to ten columns with a `STORE_VERSION` bump that forces one re-derivation from
+  transcripts on disk. burn's default window is unchanged.
+- 18d3572: Join burn's per-lane/per-skill token attribution to shipped PRs — cost per merged PR (#1522). New `harness burn per-pr` reuses burn's existing transcript scan (per `agentId` lane and `agent` skill from #1270), reads the lane provenance files under `docs/changes/*/provenance.json`, and resolves each issue to its merged PR(s) via `gh`, then emits `{tokens_in, tokens_out, cache_read, prs_merged, cost_per_pr}` per lane and per skill into `.harness/metrics/cost-per-pr.json`. Both denominators — `cost_per_merged_pr` and `cost_per_dispatched_lane` — are carried side by side with a `denominator_note`, so the figure is never a silent success-only number. Raw tokens are the source-of-truth metric; a `$` figure is derived only when an adopter supplies an optional `cost_price_table` (default off, no hardcoded pricing). A `cost_bands` config enables a per-skill cost-regression check, the cost analogue of a performance budget. Missing linkage degrades to `unattributed` (never 0/free), matching #1270's discipline.
+- ba9877f: Surface a dollar-cost figure on the budget/burn output (Refs #1525). When an adopter configures a burn `cost_price_table` (the per-model USD-per-token table #1522 already established), `buildSummary` now reconciles the current week's accrued token spend to USD and attaches an optional `cost` block (`usd_wtd`, `models_priced`, `models_total`) to the summary, and `harness fleet budget-check` renders/emits the spend, remaining, and envelope in `$` alongside the existing burn-units verdict (remaining/envelope derived from the week's observed `$`/unit rate). Tokens remain the source of truth; the `$` figure is derived only when a price table is configured — with no table the summary and command output are byte-identical. The token→USD arithmetic is reused via a single exported `priceRecord` helper (no second pricing mechanism), and there is no bundled provider pricing, keeping the primary number portable across model mixes. The cron scheduler (#1405) and dashboard-UI slices of #1525 remain deferred.
+
 ## 0.2.0
 
 ### Minor Changes
