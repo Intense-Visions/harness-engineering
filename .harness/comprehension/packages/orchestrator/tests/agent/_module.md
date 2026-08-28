@@ -1,28 +1,27 @@
 ---
 schemaVersion: 1
-module: 'packages/orchestrator/tests/agent'
-sourceHash: '0715cb199e7b2cde8a10485747aa58ef8739308b09c8742edd36123f5a07d4ea'
-compiledAt: '2026-08-28T01:22:12.522Z'
-compiler: { static: '1.0.0', semantic: '1.0.0' }
-model: null
-semantic: absent
-members:
-  [
-    'analysis-env.test.ts',
-    'analysis-provider-factory.test.ts',
-    'backend-factory.test.ts',
-    'backend-router-chain-walk.test.ts',
-    'backend-router.test.ts',
-    'config-migration.test.ts',
-    'local-model-resolver.test.ts',
-    'multi-backend-dispatch.test.ts',
-    'multi-resolver-independence.test.ts',
-    'orchestrator-backend-factory.test.ts',
-    'runner.test.ts',
-    'triage-skill-mapping.test.ts',
-    'use-case-construction.test.ts',
-  ]
+module: "packages/orchestrator/tests/agent"
+sourceHash: "0715cb199e7b2cde8a10485747aa58ef8739308b09c8742edd36123f5a07d4ea"
+compiledAt: "2026-08-28T01:22:12.522Z"
+compiler: { static: "1.0.0", semantic: "1.0.0" }
+model: "claude-haiku-4-5-20251001"
+semantic: present
+members: ["analysis-env.test.ts", "analysis-provider-factory.test.ts", "backend-factory.test.ts", "backend-router-chain-walk.test.ts", "backend-router.test.ts", "config-migration.test.ts", "local-model-resolver.test.ts", "multi-backend-dispatch.test.ts", "multi-resolver-independence.test.ts", "orchestrator-backend-factory.test.ts", "runner.test.ts", "triage-skill-mapping.test.ts", "use-case-construction.test.ts"]
 ---
+
+## Summary
+
+packages/orchestrator/tests/agent validates the agent subsystem's analysis backbone—how the orchestrator derives and provisions evaluation providers (judges) that validate the coder's work. It covers two critical wiring points: (1) Analysis Environment derives HARNESS_ANALYSIS_* env vars from the thinking-mode backend for eval MCP tools, preferring an explicit SEL (judge) backend when configured, and never overriding operator-provided values. (2) Analysis Provider Factory translates BackendDef config to AnalysisProvider instances, handling resolver snapshot tracking so getModel() reflects live pool state, and validating unavailable resolvers with detailed diagnostic output for operator triage.
+
+## Invariants
+
+- Analysis derives from thinking-mode backend, not the coder backend—eval judges use the reasoner (strong model), not the fast coder.
+- SEL (judge) layer takes priority over thinking backend—routing.intelligence.sel is the preferred judge if declared; falls back to thinking mode.
+- Operator-pinned values are never overridden—if process.env.HARNESS_ANALYSIS_* is explicit or intelligence.models.{sel} is set, factory respects it; applyAnalysisEnv returns null rather than clobbering.
+- getModel() is live unless pinned—resolver snapshot churn updates the provider's model reference without rebuild, unless an operator pinned a layer model.
+- Local backends require an available resolver; cloud backends do not—unavailable local resolver nulls the provider and warns with diagnostic lists. Cloud backends (anthropic, openai) always build.
+- First model in array or scalar model is the selected one—model resolution follows deterministic priority: first in prefer-list or the single scalar.
+- Unavailable resolver warnings include diagnostic lists—P3-IMP-1 contract ensures operators can triage without grepping logs; msg includes Configured and Detected model arrays + endpoint.
 
 ## Interface Contract
 

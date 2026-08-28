@@ -1,31 +1,27 @@
 ---
 schemaVersion: 1
-module: 'packages/orchestrator/src/agent/backends'
-sourceHash: '3766dca9e6f6eaf8eb24afd277a738ed6f0ddb6c9c1985cc61ca67fed1dcb694'
-compiledAt: '2026-08-28T01:22:12.177Z'
-compiler: { static: '1.0.0', semantic: '1.0.0' }
-model: null
-semantic: absent
-members:
-  [
-    'anthropic.ts',
-    'claude.policy-envelope.test.ts',
-    'claude.ts',
-    'codex-agent-message.test.ts',
-    'codex.policy-envelope.test.ts',
-    'codex.test.ts',
-    'codex.ts',
-    'container.ts',
-    'gemini.ts',
-    'local.ts',
-    'mock.ts',
-    'ollama.ts',
-    'openai.ts',
-    'pi.ts',
-    'serverless.ts',
-    'ssh.ts',
-  ]
+module: "packages/orchestrator/src/agent/backends"
+sourceHash: "3766dca9e6f6eaf8eb24afd277a738ed6f0ddb6c9c1985cc61ca67fed1dcb694"
+compiledAt: "2026-08-28T01:22:12.177Z"
+compiler: { static: "1.0.0", semantic: "1.0.0" }
+model: "claude-haiku-4-5-20251001"
+semantic: present
+members: ["anthropic.ts", "claude.policy-envelope.test.ts", "claude.ts", "codex-agent-message.test.ts", "codex.policy-envelope.test.ts", "codex.test.ts", "codex.ts", "container.ts", "gemini.ts", "local.ts", "mock.ts", "ollama.ts", "openai.ts", "pi.ts", "serverless.ts", "ssh.ts"]
 ---
+
+## Summary
+
+This module provides a polymorphic backend layer for running agents across 11+ execution environments (Anthropic, Claude CLI, Codex, Gemini, Ollama, OpenAI, Pi, SSH, Container, OCI Serverless, Mock). Each backend implements a common `AgentBackend` interface with lifecycle methods: `startSession()`, `runTurn()` (async generator streaming events), and `stopSession()`. Backends translate provider-specific protocols (REST APIs, CLI spawns, MCP servers) into a normalized shape. The module includes governance plumbing to audit policy enforcement at spawn time, normalize token usage and cache metrics across providers, and parse subscription-limit notifications with fallback semantics.
+
+## Invariants
+
+- Backend contract is symmetric: all implementations must expose startSession | runTurn | stopSession | healthCheck; callers dispatch polymorphically by backendName.
+- Session identity is immutable: sessionId, backendName, startedAt, and workspacePath are set once and never mutated; all downstream usage tracking keys off sessionId.
+- Token usage must surface on yielded events: TurnResult.usage alone is dropped by async-generator consumers; usage must be yielded as a separate { type: 'usage', usage: {...} } event so the orchestrator advances rate-limit windows.
+- Policy audit stamps at spawn time before execution: PolicyAuditRecord is handed to the sink synchronously before subprocess runs; it records metadata and stripped env key names only (never values), so no secrets leak into audit logs even on failure.
+- Provider credentials are NOT stripped from env: ANTHROPIC_API_KEY, OPENAI_API_KEY etc. always pass to subprocess; only user-app secrets (DATABASE_URL, custom tokens) are withheld and named in the audit record.
+- Subscription-limit detection has fallback semantics: PRIMARY_LIMIT_RE is strict (captures reset time + timezone); looksLikeUnparsedLimit() catches format drift; fallback resolution returns { resolved: 'fallback', resetsAtMs: now + 1h } when timezone parse fails, and callers must surface the distinction.
+- Cache metrics are provider-agnostic: AnthropicCacheAdapter, GeminiCacheAdapter, and OpenAICacheAdapter normalize to common { cacheCreationTokens, cacheReadTokens } on TurnResult.usage.
 
 ## Interface Contract
 

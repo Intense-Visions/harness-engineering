@@ -1,44 +1,27 @@
 ---
 schemaVersion: 1
-module: 'packages/orchestrator/tests/core'
-sourceHash: 'a1f06a6a058c708937e730ec4c164e6fa6538bab87ab91757d7c18150a34b91a'
-compiledAt: '2026-08-28T01:22:12.707Z'
-compiler: { static: '1.0.0', semantic: '1.0.0' }
-model: null
-semantic: absent
-members:
-  [
-    'analysis-archive.test.ts',
-    'analysis-comment.test.ts',
-    'auto-publish.test.ts',
-    'budget-governor.behavior.test.ts',
-    'budget-governor.wired.test.ts',
-    'candidate-selection.test.ts',
-    'circuit-breaker.test.ts',
-    'claim-manager.test.ts',
-    'concurrency.test.ts',
-    'heartbeat.test.ts',
-    'highlight-extractor.test.ts',
-    'interaction-queue.test.ts',
-    'lane-effect-persistence.test.ts',
-    'lane-persistence.test.ts',
-    'lane-readback.test.ts',
-    'model-router.test.ts',
-    'orchestrator-identity.test.ts',
-    'published-index.test.ts',
-    'rate-limit.test.ts',
-    'rate-limiter.test.ts',
-    'reconciliation.test.ts',
-    'retry.test.ts',
-    'stale-claim.test.ts',
-    'stall-detector.test.ts',
-    'startup-reconciliation.test.ts',
-    'state-machine.test.ts',
-    'stream-recorder.test.ts',
-    'tick-jitter.test.ts',
-    'triage-router.test.ts',
-  ]
+module: "packages/orchestrator/tests/core"
+sourceHash: "a1f06a6a058c708937e730ec4c164e6fa6538bab87ab91757d7c18150a34b91a"
+compiledAt: "2026-08-28T01:22:12.707Z"
+compiler: { static: "1.0.0", semantic: "1.0.0" }
+model: "claude-haiku-4-5-20251001"
+semantic: present
+members: ["analysis-archive.test.ts", "analysis-comment.test.ts", "auto-publish.test.ts", "budget-governor.behavior.test.ts", "budget-governor.wired.test.ts", "candidate-selection.test.ts", "circuit-breaker.test.ts", "claim-manager.test.ts", "concurrency.test.ts", "heartbeat.test.ts", "highlight-extractor.test.ts", "interaction-queue.test.ts", "lane-effect-persistence.test.ts", "lane-persistence.test.ts", "lane-readback.test.ts", "model-router.test.ts", "orchestrator-identity.test.ts", "published-index.test.ts", "rate-limit.test.ts", "rate-limiter.test.ts", "reconciliation.test.ts", "retry.test.ts", "stale-claim.test.ts", "stall-detector.test.ts", "startup-reconciliation.test.ts", "state-machine.test.ts", "stream-recorder.test.ts", "tick-jitter.test.ts", "triage-router.test.ts"]
 ---
+
+## Summary
+
+This test suite validates the orchestrator's core data-flow infrastructure: analysis persistence, publication tracking, and comment rendering. Three main test files cover AnalysisArchive (file-based storage for enriched issue analysis with round-trip fidelity and path-safety), AnalysisComment (markdown rendering with embedded discriminator JSON for auto-publish deduplication), and auto-publish flow (integration of config discovery, published-index tracking, and comment persistence). The module sits at the data model layer and does not test dispatch logic, gating, or backend invocation.
+
+## Invariants
+
+- AnalysisRecord shape is load-bearing — issueId (primary key), identifier, spec, score, simulation, analyzedAt, externalId must all round-trip faithfully through JSON serialization.
+- Path safety gates — issueIds must not escape the archive directory; get() returns null on escape attempts, save() throws.
+- Latest-wins overwrite — duplicate issueId entries keep only the most recent record; list/get operations never surface stale versions.
+- Null normalization — missing or deleted externalId fields always normalize to null (not undefined), so legacy records merge correctly with new schema.
+- Directory auto-creation — archive directory is created on first save() even if nested; doesn't pre-require setup.
+- Graceful rendering with partial data — renderAnalysisComment() handles null score, null spec, and null simulation without breaking; comment still embeds discriminator JSON.
+- Published-index deduplication — loadPublishedIndex() + savePublishedIndex() gate repeated publication of the same record by externalId.
 
 ## Interface Contract
 

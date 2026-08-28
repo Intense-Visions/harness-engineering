@@ -1,46 +1,28 @@
 ---
 schemaVersion: 1
-module: 'packages/orchestrator/src/workflow'
-sourceHash: '1e7638227307b0dd3d2a4428783f98d94f9f20558aeb542a8c8449d107331fdc'
-compiledAt: '2026-08-28T01:22:12.582Z'
-compiler: { static: '1.0.0', semantic: '1.0.0' }
-model: null
-semantic: absent
-members:
-  [
-    'comprehension-prewarm.test.ts',
-    'comprehension-prewarm.ts',
-    'config.staged-routing.test.ts',
-    'config.ts',
-    'doc-coverage-gate.test.ts',
-    'doc-coverage-gate.ts',
-    'execute-workflow.4b.test.ts',
-    'execute-workflow.staged-integration.test.ts',
-    'execute-workflow.test.ts',
-    'execute-workflow.ts',
-    'gate-feedback.test.ts',
-    'gate-feedback.ts',
-    'loader.ts',
-    'local-stage-prompt.test.ts',
-    'local-stage-prompt.ts',
-    'orchestrator-context.prewarm-seam.test.ts',
-    'orchestrator-context.ts',
-    'peer-unload.test.ts',
-    'peer-unload.ts',
-    'persist-stage-document.test.ts',
-    'schema.acceptance.test.ts',
-    'schema.amr-config.test.ts',
-    'schema.expects.test.ts',
-    'schema.roadmap-triage.test.ts',
-    'schema.ts',
-    'skill-catalog.ts',
-    'stage-backend-routing.test.ts',
-    'stage-prompt-template.ts',
-    'unstick-advisory.test.ts',
-    'unstick-advisory.ts',
-    'workflow-for.ts',
-  ]
+module: "packages/orchestrator/src/workflow"
+sourceHash: "1e7638227307b0dd3d2a4428783f98d94f9f20558aeb542a8c8449d107331fdc"
+compiledAt: "2026-08-28T01:22:12.582Z"
+compiler: { static: "1.0.0", semantic: "1.0.0" }
+model: "claude-haiku-4-5-20251001"
+semantic: present
+members: ["comprehension-prewarm.test.ts", "comprehension-prewarm.ts", "config.staged-routing.test.ts", "config.ts", "doc-coverage-gate.test.ts", "doc-coverage-gate.ts", "execute-workflow.4b.test.ts", "execute-workflow.staged-integration.test.ts", "execute-workflow.test.ts", "execute-workflow.ts", "gate-feedback.test.ts", "gate-feedback.ts", "loader.ts", "local-stage-prompt.test.ts", "local-stage-prompt.ts", "orchestrator-context.prewarm-seam.test.ts", "orchestrator-context.ts", "peer-unload.test.ts", "peer-unload.ts", "persist-stage-document.test.ts", "schema.acceptance.test.ts", "schema.amr-config.test.ts", "schema.expects.test.ts", "schema.roadmap-triage.test.ts", "schema.ts", "skill-catalog.ts", "stage-backend-routing.test.ts", "stage-prompt-template.ts", "unstick-advisory.test.ts", "unstick-advisory.ts", "workflow-for.ts"]
 ---
+
+## Summary
+
+The workflow module orchestrates multi-stage task execution with pluggable backends, pre-warmed comprehension context, and gate-based quality enforcement. It routes each stage to a backend (local coder, reasoning model, or adaptive choice) based on cognitive mode, validates configuration (especially backend routing and doc coverage), and handles retries with tier escalation when stages fail. Pre-warming injects issue-referenced module summaries into dispatch without calling an LLM—degrading gracefully when comprehension units are missing or stale. Documentation gates block merge until edited files are linked from docs. The module is the glue between task definition, LLM backends, and enforcement rules.
+
+## Invariants
+
+- Pre-warming is LLM-free and always safe — seed modules come from issue title/description/spec paths plus direct graph deps; only fresh units (source-hash verified) are served via serveGate; any store/read/serve failure silently returns an empty block; the stage prompt renders byte-identical to today.
+- Backend routing is per-stage, not per-workflow — each stage's cognitiveMode maps to routing.modes[X] in harness.config.json; design phases route to reasoning backends, execution phases to non-thinking coders; validation fails fast if a stage declares an unmapped mode.
+- Staged workflows retry with tier escalation, not replay — nextTier() moves from low→medium→high confidence on gate failure; each retry lives under a new attempt key; only the failed tier retries with stronger heuristics.
+- Comprehension units are source-hash verified — a unit is served only if its stored source hash matches the live source; stale or missing sources produce an empty block, never a mismatch hallucination.
+- Documentation gate is link-based and pre-push fresh — a file counts documented only if docs/ markdown links its basename (JSDoc doesn't count); pre-push blocks if reference docs are stale.
+- Gate feedback is distilled for reuse — distillGateFailure + truncateGateOutput extract actionable summaries; raw LLM output is capped and passed forward to the next retry, preventing context bloat.
+- Skill catalog is discovered at runtime, not hardcoded — enables portable features across adopters (one harness, many repos).
+- Peer unload coordination prevents cascade — resolvePeerUnloadTarget detects live peers on the same issue; avoids redundant dispatch and cross-run conflicts.
 
 ## Interface Contract
 

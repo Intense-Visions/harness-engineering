@@ -1,34 +1,30 @@
 ---
 schemaVersion: 1
-module: 'packages/orchestrator/src/maintenance'
-sourceHash: '824a7cfb079ef959470d21f58690d43cd7081456adb605778abd24aa8beb241b'
-compiledAt: '2026-08-28T01:22:12.324Z'
-compiler: { static: '1.0.0', semantic: '1.0.0' }
-model: null
-semantic: absent
-members:
-  [
-    'agent-dispatcher.test.ts',
-    'agent-dispatcher.ts',
-    'check-runner.ts',
-    'check-script-runner.ts',
-    'context-resolver.ts',
-    'cron-matcher.ts',
-    'custom-task-validator.ts',
-    'index.ts',
-    'leader-elector.ts',
-    'output-store.ts',
-    'overdue.ts',
-    'pr-manager.ts',
-    'reporter.ts',
-    'scheduler.ts',
-    'sync-main.ts',
-    'task-registry.ts',
-    'task-runner.ts',
-    'triage-task.ts',
-    'types.ts',
-  ]
+module: "packages/orchestrator/src/maintenance"
+sourceHash: "824a7cfb079ef959470d21f58690d43cd7081456adb605778abd24aa8beb241b"
+compiledAt: "2026-08-28T01:22:12.324Z"
+compiler: { static: "1.0.0", semantic: "1.0.0" }
+model: "claude-haiku-4-5-20251001"
+semantic: present
+members: ["agent-dispatcher.test.ts", "agent-dispatcher.ts", "check-runner.ts", "check-script-runner.ts", "context-resolver.ts", "cron-matcher.ts", "custom-task-validator.ts", "index.ts", "leader-elector.ts", "output-store.ts", "overdue.ts", "pr-manager.ts", "reporter.ts", "scheduler.ts", "sync-main.ts", "task-registry.ts", "task-runner.ts", "triage-task.ts", "types.ts"]
 ---
+
+## Summary
+
+The maintenance module (`packages/orchestrator/src/maintenance`) is a scheduled maintenance orchestrator that runs periodic automated tasks to keep the codebase healthy. It combines cron-based scheduling with leader election, four execution strategies (mechanical-ai, pure-ai, report-only, housekeeping), 24 built-in tasks (architecture checks, security, docs, entropy, dead code, etc.), and branch/PR lifecycle management. Custom tasks extend the system via config with arbitrary check scripts, inlined skill context, upstream output injection, and retention policies. TaskRunner executes tasks by type without throwing errors, capturing all outcomes in RunResult. Findings are parsed from machine-readable contracts with regex fallback. Only the elected leader runs scheduled tasks; single-process deployments always grant leadership via SingleProcessLeaderElector.
+
+## Invariants
+
+- Leader election is exclusive — only the elected leader runs scheduled tasks; single-process deployments always grant leadership
+- Tasks never throw — all errors (check failure, agent crash, git conflict) are captured in RunResult with appropriate status
+- Mechanical-AI dispatches only on findings — a clean check (zero issues) skips agent dispatch entirely
+- Execution windows prevent re-runs — lastRunMinute tracking prevents the same task firing twice within one minute
+- Check execution failure is distinct from check findings — executionFailed: true maps to status: 'failure', never masking as a successful 0-finding run
+- PR creation requires task.branch — report-only and housekeeping tasks have branch: null and never create PRs
+- Branch rebasing is conflict-aware — on rebase failure, the branch is recreated from base rather than abandoned
+- Findings parsing follows a cascade — machine-readable contract JSON (findingsSource: 'contract') wins on both clean and non-zero exits; regex parse is fallback for legacy checks (#691)
+- Task config merges in order — built-in tasks are seeded, then overridden by config.tasks.<id>.*, then custom tasks appended; enabled: false filters tasks out
+- Custom tasks are opt-in phases — checkScript, inlineSkills, contextFrom, outputRetention are populated only for isCustom: true; built-ins leave these unset
 
 ## Interface Contract
 

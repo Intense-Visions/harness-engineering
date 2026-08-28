@@ -1,27 +1,28 @@
 ---
 schemaVersion: 1
-module: 'packages/orchestrator/src/server'
-sourceHash: '493c06f719c9cff84611dd48da0a8800e467bcfb869976f4ca502edfb3e6a1fc'
-compiledAt: '2026-08-28T01:22:12.354Z'
-compiler: { static: '1.0.0', semantic: '1.0.0' }
-model: null
-semantic: absent
-members:
-  [
-    'dispatch-audit-status.test.ts',
-    'http-v1-aliases.test.ts',
-    'http.test.ts',
-    'http.ts',
-    'plan-watcher.ts',
-    'scope-method-enforcement.test.ts',
-    'static.ts',
-    'utils.ts',
-    'v1-bridge-routes.test.ts',
-    'v1-bridge-routes.ts',
-    'webhooks-integration.test.ts',
-    'websocket.ts',
-  ]
+module: "packages/orchestrator/src/server"
+sourceHash: "493c06f719c9cff84611dd48da0a8800e467bcfb869976f4ca502edfb3e6a1fc"
+compiledAt: "2026-08-28T01:22:12.354Z"
+compiler: { static: "1.0.0", semantic: "1.0.0" }
+model: "claude-haiku-4-5-20251001"
+semantic: present
+members: ["dispatch-audit-status.test.ts", "http-v1-aliases.test.ts", "http.test.ts", "http.ts", "plan-watcher.ts", "scope-method-enforcement.test.ts", "static.ts", "utils.ts", "v1-bridge-routes.test.ts", "v1-bridge-routes.ts", "webhooks-integration.test.ts", "websocket.ts"]
 ---
+
+## Summary
+
+The module is an HTTP request router and WebSocket broadcaster that gates API access via token + scope checking, dispatches requests to ~20 domain handlers, audits wire-final response status, and fans out state/agent events to dashboards in real time. It abstracts optional features (intelligence pipeline, webhooks, local-model pool) as closures so they can be hot-swapped; gracefully degrades missing features to 503. A v1-bridge layer aliases deprecated `/api/*` paths to `/api/v1/*` with Deprecation headers.
+
+## Invariants
+
+- Route handlers return boolean synchronously; async work (auth, I/O) happens inside handler closure, not in dispatch loop
+- Audit logging fires on response finish (res.on('finish')) to capture wire-final status code, not intermediate or default values
+- V1_BRIDGE_ROUTES is the single source of truth for method/pattern/scope; prevents drift between dispatchAuthedRequest and requiredScopeForRoute
+- Closure-captured accessors (getBackendRouter, getRefreshScheduler, etc.) are called on every request to allow hot-swapping deps without restart
+- WebSocket topic names match the event keys orchestrator emits (state_change, agent_event, local-models:proposal, local-models:pool, etc.)
+- Auth resolution must return early on 401/403; dispatchAuthedRequest guards all downstream work with token truthiness check
+- Localhost IPs (127.0.0.1, ::1) skip rate checks by default; state endpoint exempt from rate limiting entirely
+- Routes check truthiness of optional deps and return 503 or false early to avoid null-pointer dereferences
 
 ## Interface Contract
 
