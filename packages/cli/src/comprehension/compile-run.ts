@@ -61,8 +61,9 @@ export interface ComprehendRunOptions {
    * Bypass the C1 skip-if-fresh gate and recompile even an already-fresh unit.
    * Default false (skip-if-fresh preserved — no churn on the push/CI/serve path).
    * Set ONLY for an explicit leaf demand (`get_comprehension` forceRecompile),
-   * where a recompile is requested, not incidental. A force-recompile of
-   * unchanged source still preserves `compiledAt` (identical hash ⇒ no git churn).
+   * where a recompile is requested, not incidental. A force-recompile of unchanged
+   * source is byte-stable (ADR 0109 — no wall-clock in the shard, so identical
+   * source ⇒ identical bytes ⇒ no git churn).
    */
   force?: boolean;
   /** Injected env for the reentrancy guard (defaults to process.env). */

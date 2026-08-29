@@ -1,8 +1,7 @@
 ---
 schemaVersion: 1
 module: 'packages/core/tests/comprehension'
-sourceHash: 'efbdd681cd37ef40f3caacff79366307b71ecc93e95df56878b6d2f981d82a6c'
-compiledAt: '2026-08-28T14:18:24.558Z'
+sourceHash: '6241ac2d637152f7acf49b994f81c10ab6a3b6dc53903bad5b006861c678725b'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent

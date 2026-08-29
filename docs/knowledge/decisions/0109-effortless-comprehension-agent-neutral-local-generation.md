@@ -107,17 +107,24 @@ only _blocks a downgrade_, it never _generates_.
 Two mechanical properties shrink the collision surface to nothing that needs a
 human:
 
-- **Byte-stable output.** A shard must be a pure function of its module's source
-  at a hash — no wall-clock. `compiledAt` is dropped from the committed surface
-  (git history already records _when_ a shard landed; `sourceHash` records _what_
-  it was compiled from). Two PRs that make the _same_ change then produce
-  _byte-identical_ shards and never conflict. (This directly removes the observed
-  failure where two branches building an identical change differed only by a
-  wall-clock `compiledAt`.)
-- **Merge driver.** `.gitattributes` maps `**/_module.md` to a `comprehension`
-  merge driver that resolves any residual conflict by **regenerating from the
-  merged source** rather than hand-merging — sound because the shard is 100%
-  derived. Developers never resolve a comprehension merge marker.
+- **Byte-stable output.** A shard's STATIC surface must be a pure function of its
+  module's source at a hash — no wall-clock. `compiledAt` is dropped from the
+  committed surface (git history already records _when_ a shard landed; `sourceHash`
+  records _what_ it was compiled from). Two PRs that make the _same_ change then
+  produce _byte-identical static_ shards and never conflict. (This directly removes
+  the observed failure where two branches building an identical change differed only
+  by a wall-clock `compiledAt`.) NOTE: the `semantic: present` half (summary +
+  invariants) is agent-authored prose and is NOT deterministic — two branches
+  summarizing the same source can still differ, so semantic-present collisions are
+  handled by the merge driver below, not by byte-stability.
+- **Merge driver.** `.gitattributes` maps `.harness/comprehension/**/_module.md` to
+  a `comprehension` merge driver that resolves a conflict by **keeping the ours
+  shard when it is source-fresh** (preserving its semantic) and otherwise
+  recompiling the static half from the current working-tree source — sound because
+  the shard is 100% derived. It reads the working-tree (typically pre-merge ours)
+  source and defers any residual source-staleness to `comprehend --check`, rather
+  than claiming to regenerate from a fully-merged tree at merge time. Developers
+  never resolve a comprehension merge marker.
 
 Crucially, comprehension conflicts are a **strict subset** of conflicts that
 already exist: two PRs collide on a shard only if they edit the same module's
