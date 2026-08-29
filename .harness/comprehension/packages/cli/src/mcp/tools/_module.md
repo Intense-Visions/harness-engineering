@@ -1,112 +1,28 @@
 ---
 schemaVersion: 1
-module: 'packages/cli/src/mcp/tools'
-sourceHash: '73fcf26cdcc998e4102cd71d020a9415755a3f388e0566902a29eddf4ff996f7'
-compiledAt: '2026-08-29T15:51:34.963Z'
-compiler: { static: '1.0.0', semantic: '1.0.0' }
-model: null
-semantic: absent
-members:
-  [
-    'acceptance-eval.ts',
-    'adr-store.ts',
-    'adr.ts',
-    'advise-skills.test.ts',
-    'advise-skills.ts',
-    'agent-definitions.ts',
-    'agent.ts',
-    'align-design-system.ts',
-    'api-craft.ts',
-    'architecture.ts',
-    'assess-project.ts',
-    'audit-anatomy.ts',
-    'audit-brand.ts',
-    'blueprint.test.ts',
-    'blueprint.ts',
-    'canary.test.ts',
-    'canary.ts',
-    'ci.ts',
-    'cli-ergonomics-craft.ts',
-    'code-craft.ts',
-    'code-nav.ts',
-    'compact.ts',
-    'compound.test.ts',
-    'compound.ts',
-    'conflict-prediction.ts',
-    'constraint-emergence.ts',
-    'copy-craft.ts',
-    'cross-check.test.ts',
-    'cross-check.ts',
-    'decay-trends.ts',
-    'design-craft.ts',
-    'design-pipeline.ts',
-    'detect-drift.ts',
-    'dispatch-skills.ts',
-    'docs-craft.ts',
-    'docs-publish.ts',
-    'docs.ts',
-    'edit-file.test.ts',
-    'edit-file.ts',
-    'entropy.ts',
-    'event-emitter.ts',
-    'feedback.ts',
-    'gateway-tools.test.ts',
-    'gateway-tools.ts',
-    'gather-context.ts',
-    'generate-slash-commands.ts',
-    'get-comprehension.test.ts',
-    'get-comprehension.ts',
-    'hermes-tools.test.ts',
-    'init.ts',
-    'insights-summary.ts',
-    'instruction-density.test.ts',
-    'instruction-density.ts',
-    'interaction-renderer.test.ts',
-    'interaction-renderer.ts',
-    'interaction-schemas.ts',
-    'interaction.ts',
-    'knowledge-craft.ts',
-    'linter.ts',
-    'naming-craft.ts',
-    'outcome-eval.ts',
-    'parallelization.test.ts',
-    'parallelization.ts',
-    'performance.ts',
-    'persona.ts',
-    'phase-gate.ts',
-    'predict-failures.ts',
-    'pulse.test.ts',
-    'pulse.ts',
-    'put-comprehension.ts',
-    'recommend-skills.ts',
-    'review-changes.ts',
-    'review-pipeline.ts',
-    'roadmap-auto-sync.ts',
-    'roadmap-file-less.ts',
-    'roadmap.ts',
-    'search-sessions.ts',
-    'search-skills.ts',
-    'security-craft.ts',
-    'security.ts',
-    'skill-proposal.ts',
-    'skill-telemetry.ts',
-    'skill.ts',
-    'spec-craft.ts',
-    'stale-constraints.ts',
-    'state.ts',
-    'strategy.test.ts',
-    'strategy.ts',
-    'summarize-session.ts',
-    'task-independence.ts',
-    'test-craft.ts',
-    'traceability.ts',
-    'uat-signoff.test.ts',
-    'uat-signoff.ts',
-    'validate.ts',
-    'webhook-tools.test.ts',
-    'webhook-tools.ts',
-  ]
+module: "packages/cli/src/mcp/tools"
+sourceHash: "73fcf26cdcc998e4102cd71d020a9415755a3f388e0566902a29eddf4ff996f7"
+compiledAt: "2026-08-29T15:51:34.963Z"
+compiler: { static: "1.0.0", semantic: "1.0.0" }
+model: "claude-haiku-4-5-20251001"
+semantic: present
+members: ["acceptance-eval.ts", "adr-store.ts", "adr.ts", "advise-skills.test.ts", "advise-skills.ts", "agent-definitions.ts", "agent.ts", "align-design-system.ts", "api-craft.ts", "architecture.ts", "assess-project.ts", "audit-anatomy.ts", "audit-brand.ts", "blueprint.test.ts", "blueprint.ts", "canary.test.ts", "canary.ts", "ci.ts", "cli-ergonomics-craft.ts", "code-craft.ts", "code-nav.ts", "compact.ts", "compound.test.ts", "compound.ts", "conflict-prediction.ts", "constraint-emergence.ts", "copy-craft.ts", "cross-check.test.ts", "cross-check.ts", "decay-trends.ts", "design-craft.ts", "design-pipeline.ts", "detect-drift.ts", "dispatch-skills.ts", "docs-craft.ts", "docs-publish.ts", "docs.ts", "edit-file.test.ts", "edit-file.ts", "entropy.ts", "event-emitter.ts", "feedback.ts", "gateway-tools.test.ts", "gateway-tools.ts", "gather-context.ts", "generate-slash-commands.ts", "get-comprehension.test.ts", "get-comprehension.ts", "hermes-tools.test.ts", "init.ts", "insights-summary.ts", "instruction-density.test.ts", "instruction-density.ts", "interaction-renderer.test.ts", "interaction-renderer.ts", "interaction-schemas.ts", "interaction.ts", "knowledge-craft.ts", "linter.ts", "naming-craft.ts", "outcome-eval.ts", "parallelization.test.ts", "parallelization.ts", "performance.ts", "persona.ts", "phase-gate.ts", "predict-failures.ts", "pulse.test.ts", "pulse.ts", "put-comprehension.ts", "recommend-skills.ts", "review-changes.ts", "review-pipeline.ts", "roadmap-auto-sync.ts", "roadmap-file-less.ts", "roadmap.ts", "search-sessions.ts", "search-skills.ts", "security-craft.ts", "security.ts", "skill-proposal.ts", "skill-telemetry.ts", "skill.ts", "spec-craft.ts", "stale-constraints.ts", "state.ts", "strategy.test.ts", "strategy.ts", "summarize-session.ts", "task-independence.ts", "test-craft.ts", "traceability.ts", "uat-signoff.test.ts", "uat-signoff.ts", "validate.ts", "webhook-tools.test.ts", "webhook-tools.ts"]
 ---
+
+## Summary
+
+**`packages/cli/src/mcp/tools`** is the MCP tool implementation layer exposing ~60 harness capabilities (comprehension, roadmap, code review, design audit, testing) to LLM agents. Each tool is a domain-specific module pair: a schema definition and async handler. Tools are registered in server.ts, wrapped in middleware (injection guard, compaction, context budget), and dispatched over MCP. All current tools return trusted internal content and declare their privilege scopes (read/write/exec/network) via TOOL_CAPABILITY_DECLARATIONS for adopter audits.
+
+## Invariants
+
+- Tool definition files must export *Definition + handle* in sync — missing/renamed handlers silently break tool dispatch
+- All handlers return { content: [...], isError?: boolean } — throwing breaks error handling in dispatchTool
+- Middleware ordering is load-bearing: injection guard → compaction → context budget (budget applied after compaction to measure actual cost)
+- Tools must be listed in both TOOL_DEFINITIONS array and TOOL_HANDLERS map or they are advertised-but-uncallable or callable-but-undiscoverable
+- TOOL_CAPABILITY_DECLARATIONS is the authority for tool privileges — tools with write/exec/network must have matching entries or audits report them as read-only
+- trustedOutput: true skips injection guard output scanning — tools proxying untrusted external content must omit this flag
+- Input validation is the handler's responsibility — no runtime schema validation gate before handler dispatch
+- ToolDefinition.inputSchema must be valid JSON Schema — invalid schema breaks MCP client discoverability and type inference
 
 ## Interface Contract
 
