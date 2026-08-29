@@ -1030,6 +1030,15 @@ export const ComprehensionConfigSchema = z.object({
   storage: z.enum(['committed', 'cache']).default('committed'),
   semantic: z.boolean().default(true),
   model: z.string().nullable().default(null),
+  /**
+   * ADR 0109 slice 3 — a config-declared OpenAI-compatible analysis endpoint that
+   * powers the semantic backstop PROVIDER-NEUTRALLY: any vendor (Cursor/Codex/
+   * Gemini/a local model) can serve semantic through its own gateway, declared
+   * here rather than requiring an Anthropic key or the orchestrator-injected
+   * `HARNESS_ANALYSIS_*` env. Absent ⇒ env fallback ⇒ static-only (graceful).
+   */
+  analysisBaseUrl: z.string().optional(),
+  analysisApiKey: z.string().optional(),
   maxTokensPerRun: z.number().int().positive().default(200_000),
   concurrency: z.number().int().positive().default(4),
   ci: z.enum(['verify', 'refresh', 'off']).default('verify'),

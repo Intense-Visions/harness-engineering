@@ -111,8 +111,14 @@ export function resolveChangedScope(
 export async function resolveCompileProvider(
   cconf: ComprehensionConfig,
   staticOnly: boolean,
+  // ADR 0109 slice 3 — the default resolver threads a config-declared
+  // OpenAI-compatible endpoint so the backstop is provider-neutral (any vendor via
+  // its gateway) without an Anthropic key or orchestrator env. Env stays the
+  // fallback inside `resolveAnalysisProvider`.
   resolveProvider: (model?: string) => Promise<AnalysisProvider | null> = (model) =>
-    resolveAnalysisProvider(model) as Promise<AnalysisProvider | null>
+    resolveAnalysisProvider(model, {
+      endpoint: { baseUrl: cconf.analysisBaseUrl, apiKey: cconf.analysisApiKey },
+    }) as Promise<AnalysisProvider | null>
 ): Promise<AnalysisProvider | null> {
   if (staticOnly || !cconf.semantic) return null;
   return resolveProvider(cconf.model ?? undefined);
