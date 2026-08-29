@@ -1,35 +1,26 @@
 ---
 schemaVersion: 1
-module: 'packages/core/tests/comprehension'
-sourceHash: '601c047e59b020f427ef523e5fee4f4c2f0384dce0ee348436af0ed167cf758f'
-compiledAt: '2026-08-28T01:22:10.774Z'
-compiler: { static: '1.0.0', semantic: '1.0.0' }
-model: 'claude-haiku-4-5-20251001'
+module: "packages/core/tests/comprehension"
+sourceHash: "6241ac2d637152f7acf49b994f81c10ab6a3b6dc53903bad5b006861c678725b"
+compiler: { static: "1.0.0", semantic: "1.0.0" }
+model: "claude-haiku-4-5-20251001"
 semantic: present
-members:
-  [
-    'compile.test.ts',
-    'node-io.test.ts',
-    'render.test.ts',
-    'serialize.test.ts',
-    'serve-gate.test.ts',
-    'source-hash.test.ts',
-    'store.test.ts',
-  ]
+members: ["compile.test.ts", "node-io.test.ts", "render.test.ts", "serialize.test.ts", "serve-gate.test.ts", "source-hash.test.ts", "store.test.ts"]
 ---
 
 ## Summary
 
-The `packages/core/tests/comprehension` suite validates the module comprehension compilation and serving pipeline. Tests cover two core flows: (1) compiling source files into versioned ComprehensionUnit metadata, optionally augmenting with LLM-generated semantic content; (2) persisting and reading units via Node.js I/O. The critical test—"compile → serve hash equality (FIX 1)"—pins the single source of truth: the canonical file reader's enumeration must produce identical hashes at compile and serve time, or the unit is permanently un-served. Serve-gate detects source staleness via membership and content changes.
+`packages/core/tests/comprehension` validates the byte-stable shard compilation pipeline (ADR 0109)—converting source files into semantic-aware comprehension units (summaries + invariants) that serve as static markdown without re-LLM-ing at runtime. Tests three flows: static-only (extractStatic callback, no LLM), full semantic (generateSemantic produces summary/invariants/model, with static input), and compile→store→serve round-trip (canonical reader enumerates files, compiler hashes, serve gate re-enumerates with same reader to verify freshness). Concentrates on byte-stability (identical source = identical serialized output, no timestamps), hash consistency, file membership tracking by basename, and edge-case rejection (empty modules, divergent enumerations).
 
 ## Invariants
 
-- FIX 1 (Single Source of Truth): Compile-time hash ≡ serve-time hash via the same canonical reader. Divergence makes the unit permanently un-served.
-- D3 (Basename Keying): Members enumerated by basename only, collapsing directory prefixes to align with createNodeModuleSourceReader output. No full paths.
-- C1 (Deterministic Timestamps): compiledAt reused when sourceHash unchanged; fresh compilation of unmodified source never changes the timestamp, avoiding git churn.
-- Static Feeds Semantic: Static extraction results (interfaceContract, dependencySlice) provided as inputs to GenerateSemantic, allowing LLM to reason about module shape.
-- Source Staleness Detection: Serve-gate rejects units when source content, membership, or hash diverges; returns reason='source-stale' and recompile flag.
-- Schema/Compiler Versioning: Units include schemaVersion and compiler fields for forward/backward compatibility across version upgrades.
+- D3 — Basename-keyed members: Module members MUST be sorted basename strings that match the file reader's direct enumeration; directory prefixes collapse to basenames.
+- Single source of truth (FIX 1): createNodeModuleSourceReader is canonical; serve gate re-enumerates with the same reader and recomputes hash. Compile-time and serve-time hashes MUST be equal or the unit is permanently source-stale.
+- Byte-stability (ADR 0109): No wall-clock timestamps in provenance.compiledAt; identical source at different times produces byte-identical serialized output to prevent merge conflicts.
+- Static-feeds-semantic: generateSemantic input includes interfaceContract and dependencySlice from extractStatic; the LLM callback is context-aware.
+- Source staleness detection: File additions, removals, or content changes trigger source-stale via hash mismatch; members list tracks membership delta.
+- Empty module rejection (F5): Whitespace-only or empty module names throw at compile time.
+- Provenance model consistency: If semantic='present', model is non-null; if semantic='absent', model=null.
 
 ## Interface Contract
 
