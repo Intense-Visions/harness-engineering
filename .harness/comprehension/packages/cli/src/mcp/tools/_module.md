@@ -1,128 +1,28 @@
 ---
 schemaVersion: 1
-module: 'packages/cli/src/mcp/tools'
-sourceHash: '20d67dff292d5c1ee4b6b7a340752267a898e853a0680656a56c1043323cf24f'
-compiledAt: '2026-08-28T01:22:09.553Z'
-compiler: { static: '1.0.0', semantic: '1.0.0' }
-model: 'claude-haiku-4-5-20251001'
+module: "packages/cli/src/mcp/tools"
+sourceHash: "73fcf26cdcc998e4102cd71d020a9415755a3f388e0566902a29eddf4ff996f7"
+compiledAt: "2026-08-29T15:51:34.963Z"
+compiler: { static: "1.0.0", semantic: "1.0.0" }
+model: "claude-haiku-4-5-20251001"
 semantic: present
-members:
-  [
-    'acceptance-eval.ts',
-    'adr-store.ts',
-    'adr.ts',
-    'advise-skills.test.ts',
-    'advise-skills.ts',
-    'agent-definitions.ts',
-    'agent.ts',
-    'align-design-system.ts',
-    'api-craft.ts',
-    'architecture.ts',
-    'assess-project.ts',
-    'audit-anatomy.ts',
-    'audit-brand.ts',
-    'blueprint.test.ts',
-    'blueprint.ts',
-    'canary.test.ts',
-    'canary.ts',
-    'ci.ts',
-    'cli-ergonomics-craft.ts',
-    'code-craft.ts',
-    'code-nav.ts',
-    'compact.ts',
-    'compound.test.ts',
-    'compound.ts',
-    'conflict-prediction.ts',
-    'constraint-emergence.ts',
-    'copy-craft.ts',
-    'cross-check.test.ts',
-    'cross-check.ts',
-    'decay-trends.ts',
-    'design-craft.ts',
-    'design-pipeline.ts',
-    'detect-drift.ts',
-    'dispatch-skills.ts',
-    'docs-craft.ts',
-    'docs-publish.ts',
-    'docs.ts',
-    'edit-file.test.ts',
-    'edit-file.ts',
-    'entropy.ts',
-    'event-emitter.ts',
-    'feedback.ts',
-    'gateway-tools.test.ts',
-    'gateway-tools.ts',
-    'gather-context.ts',
-    'generate-slash-commands.ts',
-    'get-comprehension.test.ts',
-    'get-comprehension.ts',
-    'hermes-tools.test.ts',
-    'init.ts',
-    'insights-summary.ts',
-    'instruction-density.test.ts',
-    'instruction-density.ts',
-    'interaction-renderer.test.ts',
-    'interaction-renderer.ts',
-    'interaction-schemas.ts',
-    'interaction.ts',
-    'knowledge-craft.ts',
-    'linter.ts',
-    'naming-craft.ts',
-    'outcome-eval.ts',
-    'parallelization.test.ts',
-    'parallelization.ts',
-    'performance.ts',
-    'persona.ts',
-    'phase-gate.ts',
-    'predict-failures.ts',
-    'pulse.test.ts',
-    'pulse.ts',
-    'recommend-skills.ts',
-    'review-changes.ts',
-    'review-pipeline.ts',
-    'roadmap-auto-sync.ts',
-    'roadmap-file-less.ts',
-    'roadmap.ts',
-    'search-sessions.ts',
-    'search-skills.ts',
-    'security-craft.ts',
-    'security.ts',
-    'skill-proposal.ts',
-    'skill-telemetry.ts',
-    'skill.ts',
-    'spec-craft.ts',
-    'stale-constraints.ts',
-    'state.ts',
-    'strategy.test.ts',
-    'strategy.ts',
-    'summarize-session.ts',
-    'task-independence.ts',
-    'test-craft.ts',
-    'traceability.ts',
-    'uat-signoff.test.ts',
-    'uat-signoff.ts',
-    'validate.ts',
-    'webhook-tools.test.ts',
-    'webhook-tools.ts',
-  ]
+members: ["acceptance-eval.ts", "adr-store.ts", "adr.ts", "advise-skills.test.ts", "advise-skills.ts", "agent-definitions.ts", "agent.ts", "align-design-system.ts", "api-craft.ts", "architecture.ts", "assess-project.ts", "audit-anatomy.ts", "audit-brand.ts", "blueprint.test.ts", "blueprint.ts", "canary.test.ts", "canary.ts", "ci.ts", "cli-ergonomics-craft.ts", "code-craft.ts", "code-nav.ts", "compact.ts", "compound.test.ts", "compound.ts", "conflict-prediction.ts", "constraint-emergence.ts", "copy-craft.ts", "cross-check.test.ts", "cross-check.ts", "decay-trends.ts", "design-craft.ts", "design-pipeline.ts", "detect-drift.ts", "dispatch-skills.ts", "docs-craft.ts", "docs-publish.ts", "docs.ts", "edit-file.test.ts", "edit-file.ts", "entropy.ts", "event-emitter.ts", "feedback.ts", "gateway-tools.test.ts", "gateway-tools.ts", "gather-context.ts", "generate-slash-commands.ts", "get-comprehension.test.ts", "get-comprehension.ts", "hermes-tools.test.ts", "init.ts", "insights-summary.ts", "instruction-density.test.ts", "instruction-density.ts", "interaction-renderer.test.ts", "interaction-renderer.ts", "interaction-schemas.ts", "interaction.ts", "knowledge-craft.ts", "linter.ts", "naming-craft.ts", "outcome-eval.ts", "parallelization.test.ts", "parallelization.ts", "performance.ts", "persona.ts", "phase-gate.ts", "predict-failures.ts", "pulse.test.ts", "pulse.ts", "put-comprehension.ts", "recommend-skills.ts", "review-changes.ts", "review-pipeline.ts", "roadmap-auto-sync.ts", "roadmap-file-less.ts", "roadmap.ts", "search-sessions.ts", "search-skills.ts", "security-craft.ts", "security.ts", "skill-proposal.ts", "skill-telemetry.ts", "skill.ts", "spec-craft.ts", "stale-constraints.ts", "state.ts", "strategy.test.ts", "strategy.ts", "summarize-session.ts", "task-independence.ts", "test-craft.ts", "traceability.ts", "uat-signoff.test.ts", "uat-signoff.ts", "validate.ts", "webhook-tools.test.ts", "webhook-tools.ts"]
 ---
 
 ## Summary
 
-MCP tools module exports 300+ tool definitions (craft workflows, validation gates, roadmap/ADR stores, skill dispatch, persona execution, code analysis) that wire the harness orchestration pipeline. Core pattern: each craft system is three-stage (collect → run → finalize), provider resolution is centralized (cloud/local/degraded), acceptance authority is TS-derived, ADRs live in a canonical tree with strict frontmatter, BigInt IDs survive the MCP wire via safe serialization, skill routing is item-type aware, and graph writes use CAS semantics to survive concurrent runs.
+**`packages/cli/src/mcp/tools`** is the MCP tool implementation layer exposing ~60 harness capabilities (comprehension, roadmap, code review, design audit, testing) to LLM agents. Each tool is a domain-specific module pair: a schema definition and async handler. Tools are registered in server.ts, wrapped in middleware (injection guard, compaction, context budget), and dispatched over MCP. All current tools return trusted internal content and declare their privilege scopes (read/write/exec/network) via TOOL_CAPABILITY_DECLARATIONS for adopter audits.
 
 ## Invariants
 
-- Craft workflows must preserve three-stage gating (collect → run → finalize); breaking sequence or mutating context mid-stage corrupts handoff
-- Provider resolution is centralized in utils/analysis-provider; Anthropic/local/degraded modes must stay in lockstep across acceptance_eval and outcome_eval
-- Acceptance authority is TS-derived (high-confidence NOT_MEASURABLE blocks; others advisory); LLM verdicts must never be trusted directly
-- ADRs use canonical YAML frontmatter and live in docs/knowledge/decisions/NNNN-\*.md; non-conforming markdown in that tree silently skipped
-- MCP responses serializing graph nodes must use bigIntSafeReplacer to preserve precision; omitting it loses BigInt IDs in JSON round-trips
-- Skill dispatch routing is item-type aware per fleet-family rubric (bug→debugging, feature→autopilot); scope mismatches poison dispatch silently
-- Persona runners and skill executors assume fresh git state; orchestrator serializes execution to prevent HEAD/staging thrash
-- Graph writes use CAS semantics for roadmap/ADR sync to survive concurrent fleet runs; bypassing CAS breaks integrity under parallelism
-- Comprehension memoization uses source-hash-based invalidation (not timestamps); hash collisions cause stale artifacts to be silently served
-- Pre-execution gates are composable but unordered; gate sequencing lives in orchestrator, not individual tools; gates emit verdicts and let orchestrator compose them
+- Tool definition files must export *Definition + handle* in sync — missing/renamed handlers silently break tool dispatch
+- All handlers return { content: [...], isError?: boolean } — throwing breaks error handling in dispatchTool
+- Middleware ordering is load-bearing: injection guard → compaction → context budget (budget applied after compaction to measure actual cost)
+- Tools must be listed in both TOOL_DEFINITIONS array and TOOL_HANDLERS map or they are advertised-but-uncallable or callable-but-undiscoverable
+- TOOL_CAPABILITY_DECLARATIONS is the authority for tool privileges — tools with write/exec/network must have matching entries or audits report them as read-only
+- trustedOutput: true skips injection guard output scanning — tools proxying untrusted external content must omit this flag
+- Input validation is the handler's responsibility — no runtime schema validation gate before handler dispatch
+- ToolDefinition.inputSchema must be valid JSON Schema — invalid schema breaks MCP client discoverability and type inference
 
 ## Interface Contract
 
@@ -170,6 +70,9 @@ export InteractionTransitionSchema
 export InteractionTypeSchema
 export KnowledgeCraftInput
 export KnowledgeCraftOutput
+export MAX_INVARIANTS
+export MAX_INVARIANT_CHARS
+export MAX_SUMMARY_CHARS
 export NamingCraftInput
 export NamingCraftOutput
 export RiskLevel
@@ -191,6 +94,7 @@ export analyzeDiffDefinition
 export apiCraftDefinition
 export apiCraftFinalizeDefinition
 export assessProjectDefinition
+export attachSemantic
 export auditAnatomyDefinition
 export auditBrandDefinition
 export autoSyncRoadmap
@@ -337,6 +241,7 @@ export handleOutcomeEval
 export handlePlanParallelization
 export handlePredictConflicts
 export handlePredictFailures
+export handlePutComprehension
 export handleReadStrategy
 export handleRecommendSkills
 export handleReleaseCompoundLock
@@ -388,6 +293,7 @@ export parseToolResponse
 export planParallelizationDefinition
 export predictConflictsDefinition
 export predictFailuresDefinition
+export putComprehensionDefinition
 export readAdr
 export readStrategyDefinition
 export recommendSkillsDefinition
@@ -475,7 +381,7 @@ import from '../../commands/validate-cross-check.js'
 import from '../../commands/validate.js'
 import { runComprehend } from '../../comprehension/compile-run'
 import { readComprehensionConfig } from '../../comprehension/config'
-import { maybeCreateGenerateSemantic } from '../../comprehension/generate-semantic'
+import { defaultSemanticModel, maybeCreateGenerateSemantic, semanticResponseSchema } from '../../comprehension/generate-semantic'
 import { createStaticExtractor } from '../../comprehension/static-extractor'
 import { loadAnalysisExclude } from '../../config/analysis-schema.js'
 import { resolveConfig } from '../../config/loader'
@@ -528,7 +434,7 @@ import from '../resources/business-knowledge.js'
 import { CORE_TOOL_NAMES, STANDARD_TOOL_NAMES } from '../tool-tiers'
 import { ToolDefinition } from '../tool-types.js'
 import { McpContentItem, McpResponse, mcpError } from '../utils.js'
-import { resolveAnalysisProvider } from '../utils/analysis-provider'
+import { resolveAnalysisProvider, resolveProviderKind } from '../utils/analysis-provider'
 import { resolveAnalysisProvider } from '../utils/analysis-provider.js'
 import { resolveProjectConfig } from '../utils/config-resolver.js'
 import from '../utils/glob-helper.js'

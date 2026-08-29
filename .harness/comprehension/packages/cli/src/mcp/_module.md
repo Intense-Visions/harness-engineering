@@ -1,37 +1,25 @@
 ---
 schemaVersion: 1
-module: 'packages/cli/src/mcp'
-sourceHash: 'c4d7b75873738f99fd075974e03e96a4fea54172fdb3ca82a37d26a3552dc821'
-compiledAt: '2026-08-28T01:22:09.249Z'
-compiler: { static: '1.0.0', semantic: '1.0.0' }
-model: 'claude-haiku-4-5-20251001'
+module: "packages/cli/src/mcp"
+sourceHash: "d6216fc4ab82f5b1acb0f58158219d1cba7a5351cffde7b0e77d9139e9675ddd"
+compiledAt: "2026-08-29T14:14:27.819Z"
+compiler: { static: "1.0.0", semantic: "1.0.0" }
+model: "claude-haiku-4-5-20251001"
 semantic: present
-members:
-  [
-    'context-surface.ts',
-    'index.ts',
-    'server.ts',
-    'tool-capabilities.ts',
-    'tool-capability-declarations.ts',
-    'tool-tiers.ts',
-    'tool-types.ts',
-    'utils.ts',
-  ]
+members: ["context-surface.ts", "index.ts", "server.ts", "tool-capabilities.ts", "tool-capability-declarations.ts", "tool-tiers.ts", "tool-types.ts", "utils.ts"]
 ---
 
 ## Summary
 
-`packages/cli/src/mcp` is the MCP server gateway exposing ~100+ harness tools (crafting, graph queries, project analysis, skills management, CI checks) via the Model Context Protocol. It maintains a registry wiring tool names → definitions → handlers, applies a three-stage middleware pipeline (injection guard → compaction → context budget), and tracks context surface (always-loaded tool schemas + invoked-only skill trees) for token attribution. Core responsibilities: bootstrap the MCP StdioServerTransport, dispatch tools by name, measure real agent costs, serve MCP resources (project knowledge, state, rules, graph), and adapt handler results to MCP format.
+The MCP module (`packages/cli/src/mcp`) is the harness's Model Context Protocol server and tool registry. It exposes the harness's full capability surface to Claude and other agents via MCP: ~150+ tools organized into functional domains (design, testing, security, architecture, docs, etc.), plus read-only resources (project config, skill catalog, roadmap, graph entities). The server handles tool dispatch, applies middleware (injection guards, context budgeting, compaction), and measures the harness's always-loaded context surface (tool schemas by tier, AGENTS.md, hooks). Tools are registered via a central `getToolDefinitions()` registry; each tool pairs a schema definition with a handler. Resources are best-effort file-based views of project state that degrade gracefully on read failures.
 
 ## Invariants
 
-- Tool dispatcher is authoritative: every tool name in a handler invocation must exist in getToolDefinitions() with a registered handler; mismatches break routing.
-- Middleware order is strict: injection guard → compaction → context budget; guard runs first for security, budget runs last to measure actual tokens.
-- Tool tier hierarchy is subset-enforced: core ⊂ standard ⊂ full; tier filtering in gatherContextSurface() must respect subset relationships or attribution breaks.
-- MCP response contract is binding: all tool handlers return a result that resultToMcpResponse() must adapt to MCP schema; unadaptable types break the protocol.
-- Resource loaders must succeed before use: resolveProjectConfig() must resolve before resource handlers run; missing project root breaks skills/rules/learnings/business-knowledge access.
-- Skill platform symmetry: four dirs (claude-code, codex, cursor, gemini-cli) under agents/skills/ must have parallel structure; asymmetry silently drops platform-specific skill trees.
-- Context surface classification is deterministic: tool schemas are always-loaded, skill bodies are invoked-only, AGENTS.md/hooks are always-loaded when present; misclassification corrupts cost attribution.
+- Tool tier membership is fixed and context-sized: tools are partitioned into `core`, `standard`, and `full` tiers; tier-aware context-surface measurement is the authoritative cost model for schema bytes. Tool names must appear in exactly one of `CORE_TOOL_NAMES`, `STANDARD_TOOL_NAMES` or neither.
+- Tool definition ↔ handler pairs must stay in sync: each tool in `getToolDefinitions()` must have a matching handler (registered in `CallToolRequest` dispatch) with compatible input schema; missing or mismatched handlers cause silent failures at runtime.
+- MCP resources degrade gracefully: file reads for AGENTS.md, hooks, skill trees use try-catch and return null on failure; resource gathering is best-effort and never blocks server startup.
+- Middleware ordering is load-bearing: injection-guard runs first (rejects unsafe patterns), then compaction (shrinks responses), then context-budget (enforces token limits); reordering changes security or budget semantics.
+- Project config resolution is mandatory before tool dispatch: `resolveProjectConfig` must succeed for tools to access harness state (roadmap, ADRs, rules); tools without config context fail gracefully.
 
 ## Interface Contract
 
@@ -114,6 +102,7 @@ import { generatePersonaArtifactsDefinition, handleGeneratePersonaArtifacts, han
 import { checkPhaseGateDefinition, handleCheckPhaseGate } from './tools/phase-gate.js'
 import { handlePredictFailures, predictFailuresDefinition } from './tools/predict-failures.js'
 import { handleSeedPulseFromStrategy, handleWritePulseConfig, seedPulseFromStrategyDefinition, writePulseConfigDefinition } from './tools/pulse.js'
+import { handlePutComprehension, putComprehensionDefinition } from './tools/put-comprehension.js'
 import { handleRecommendSkills, recommendSkillsDefinition } from './tools/recommend-skills.js'
 import { handleReviewChanges, reviewChangesDefinition } from './tools/review-changes.js'
 import { handleRunCodeReview, runCodeReviewDefinition } from './tools/review-pipeline.js'

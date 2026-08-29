@@ -1,8 +1,7 @@
 ---
 schemaVersion: 1
 module: "packages/cli/src/commands"
-sourceHash: "9eff1a1adc9fd27fd43a89e9e35dcd6bc79f7eaf86968e79aee5f98af8754fec"
-compiledAt: "2026-08-29T15:45:18.828Z"
+sourceHash: "1a9bc5a5f20f70711819784cb4a2e0bd2a1069f38db346fbc52e54382ea41f02"
 compiler: { static: "1.0.0", semantic: "1.0.0" }
 model: "claude-haiku-4-5-20251001"
 semantic: present
@@ -11,20 +10,16 @@ members: ["_registry.ts", "add.ts", "adoption.ts", "advise-skills.test.ts", "adv
 
 ## Summary
 
-The `packages/cli/src/commands` module houses ~90 CLI subcommands for the Harness Engineering toolkit, organized by functional domain (checks, validation, craft pipelines, setup). It uses a factory pattern where each command file exports `createXXXCommand()` returning a Commander.js instance, plus `runXXX()` implementing logic. A centralized `_registry.ts` auto-collects all creators (regenerated via `pnpm run generate-barrel-exports`), and `index.ts:createProgram()` dynamically registers them. Commands range 150–750+ lines; most follow a template: resolve config (with sensible defaults), parse options, invoke core logic, emit JSON or human-readable output via `Result<T, CLIError>`. Heavy lifting is delegated to `@harness-engineering/core` (arch, config), `@harness-engineering/orchestrator` (agents, tasks), and domain packages.
+The commands module is the CLI's central command registry and factory. It exports ~100 command creators (each returning a `Command` object from commander.js) spanning the full harness toolkit: architectural checks, skill management, crafting workflows (design, code, docs, spec, test, security), deployment gates, orchestration, and maintenance. The module acts as a barrel that re-exports each command from its own file, bundled via an auto-generated registry (`_registry.ts`). Each command creator imports and wires up domain logic from specialized packages (e.g., `runCodeCraft` from `../code-craft/`, `runCheckArch` from `@harness-engineering/core`). The module also exports ~50 utility functions and types used across commands: diff builders, result aggregators, config loaders, and schemas.
 
 ## Invariants
 
-- Auto-generation contract: _registry.ts regenerates from createXXXCommand() exports; new commands need barrel script run or remain unregistered.
-- Factory pattern: Every command exports createXXXCommand() returning a Command instance; no ad-hoc registration.
-- Commander.js API consistency: All commands use the same fluent API style; mixing breaks consistency.
-- Global option passthrough: Commands access global flags via optsWithGlobals(), not opts(), or globals are ignored.
-- Config optionality: Commands must handle explicit --config paths AND automatic discovery; degrade gracefully to schema defaults (greenfield repos work).
-- Result<T, CLIError> discipline: All error paths return Err(); exceptions are bugs, not graceful failures.
-- Audit trails for mutations: Commands mutating state (baselines, allowances) must log decisions with reason and commit hash to .harness/audit.log.
-- Exit code consistency: All commands use ExitCode enum; codes must be deterministic and match documented values (0=SUCCESS, 1=ERROR, 5=VALIDATION_FAILED).
-- JSON output determinism: With --json, output is fully machine-parseable; no colors or logging noise on stdout.
-- Version guard: The main program installs a version guard that blocks execution if CLI version diverges sharply from workspace; commands cannot bypass this.
+- Registry auto-generation contract: _registry.ts is auto-generated; changes flow FROM individual command files, not TO this barrel. Editing directly will be overwritten on next `pnpm run generate-barrel-exports`.
+- File-to-export correspondence: Every command creator exported must have a corresponding file in the commands directory with the same functional name (e.g., `createAddCommand` ↔ `./add.ts`). Missing or orphaned files break the registry.
+- Command creator naming invariant: All command factories follow the pattern `createXyzCommand(): Command`. Deviations break commander registration.
+- Barrel isolation: This module re-exports only command creators and utilities; business logic lives in domain packages (`@harness-engineering/core`, `@harness-engineering/orchestrator`). Violation creates circular dependencies or duplicated state.
+- Orchestrator/core version lock: Commands depend on specific shapes from `@harness-engineering/core` and `@harness-engineering/orchestrator` (e.g., `ComprehendRunResult`, `RunRecord`). Breaking changes break command implementations; verified by `pnpm run typecheck`.
+- Configuration loader assumption: Commands assume `resolveConfig()` succeeds or degrades gracefully. Some commands allow operation without config; others fail hard. This contract is implicit and scattered across 100 files.
 
 ## Interface Contract
 

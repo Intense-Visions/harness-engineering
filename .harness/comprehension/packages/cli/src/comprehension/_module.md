@@ -1,8 +1,7 @@
 ---
 schemaVersion: 1
 module: "packages/cli/src/comprehension"
-sourceHash: "cf05534cfdd4e4cf662fde11c08132d7bd12097b33fabf44db929c5314fd0f6c"
-compiledAt: "2026-08-29T15:45:18.532Z"
+sourceHash: "a7347e7649abec4ba2e0974c2ea5d55de8b489daf9aea5497b17e128c1a8a8bc"
 compiler: { static: "1.0.0", semantic: "1.0.0" }
 model: "claude-haiku-4-5-20251001"
 semantic: present
@@ -11,18 +10,17 @@ members: ["compile-run.ts", "config.ts", "generate-semantic.ts", "hook.ts", "inv
 
 ## Summary
 
-The comprehension module (`packages/cli/src/comprehension`) is the CLI driver for semantic code indexing. It compiles TypeScript modules into "comprehension units" (static interface + optional LLM-generated summaries) and stores them, providing both compilation (`runComprehend`), CI verification (`runComprehendCheck`), and token-savings reporting (`runComprehendStats`). It operates with reentrancy guards, bounded concurrency (default 4 workers), and a freshness gate that skips recompiling modules whose committed units are source-fresh and semantically sufficient. When no semantic generator is provided, units are static-only; otherwise, semantic presence is a distinct gate. The module achieves ~96% token savings via compression of served units compared to raw source.
+`packages/cli/src/comprehension` is the CLI-side driver for compiled-comprehension unit compilation, freshness verification, and statistics reporting. It orchestrates three main flows: (1) `runComprehend` compiles modules (changed or all) with optional semantic enrichment via a shared LLM budget, writing fresh units to a store and skipping already-fresh units to avoid git churn; (2) `runComprehendCheck` is a token-free CI gate that recomputes sourceHash for every committed unit without touching an LLM; (3) `runComprehendStats` reports raw vs. served token estimates and savings. All runs are gated by reentrancy control to prevent nested executions. Modules compile under bounded concurrency with a per-run token budget shared across the pool. Without a `generateSemantic` provider, units degrade to static-only (SC4).
 
 ## Invariants
 
-- Source hash must be computed from exactly the files the reader returns; freshness check and compile-time hash must never diverge
-- Timestamp (compiledAt) moves only when sourceHash moves; semantic upgrades preserve the prior timestamp to avoid git churn
-- C1 skip gate: a module is skipped iff its committed unit is source-fresh AND semantically sufficient (static run needs no semantic; semantic run requires semantic:present)
-- Static–semantic duality: static-only run satisfied by any unit; semantic run requires semantic:present (semantic:absent units must recompile)
-- Reentrancy mutual exclusion: if a run is already active (detected via env flag), new run refuses immediately with reentrancyRefused:true
-- Concurrency ceiling: peak in-flight compilations never exceed configured limit via fixed worker pool
-- runComprehendCheck is token-free: never calls LLM, never writes, exits non-zero iff any unit is source-stale
-- Token savings reported only for fresh units that pass serveGate; stale units' served form is not what consumers receive
+- Freshness compute is canonical: sourceHash derived from exactly the files the compile would read (the canonical reader's output), so the freshness gate never diverges from actual compile-time hash.
+- Fresh units never re-run: When a committed unit's sourceHash matches and is semantically sufficient for the run, skip the entire compile/write cycle—no provider cost, no git churn.
+- Reentrancy is atomic: A run in progress refuses any new entry; no nested comprehension runs are possible.
+- Token budget is shared: The per-run LLM budget lives in the generateSemantic closure and is spent across all concurrent module compiles.
+- Static-only is safe fallback: Without a semantic provider, units emit semantic:absent and remain usable downstream; degradation is graceful.
+- CI check is LLM-free: runComprehendCheck never calls an analysis provider, making it cheap and safe as a CI gate.
+- Order preservation: mapWithConcurrency preserves input module order in results despite bounded concurrent processing.
 
 ## Interface Contract
 

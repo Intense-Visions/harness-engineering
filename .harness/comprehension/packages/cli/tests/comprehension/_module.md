@@ -1,8 +1,7 @@
 ---
 schemaVersion: 1
 module: "packages/cli/tests/comprehension"
-sourceHash: "3e5fe197935b0dac11ccb333833074de46219619c68517b20a879279aed77342"
-compiledAt: "2026-08-29T15:45:18.555Z"
+sourceHash: "322ee37b461748bb6286b47033ef0af1f7ee88660246da3c3b3f1215e718fc27"
 compiler: { static: "1.0.0", semantic: "1.0.0" }
 model: "claude-haiku-4-5-20251001"
 semantic: present
@@ -11,20 +10,18 @@ members: ["compile-run.test.ts", "comprehend-e2e.test.ts", "comprehend-flags.tes
 
 ## Summary
 
-The `packages/cli/tests/comprehension` module tests a three-path semantic-comprehension pipeline: static extraction (AST-driven interface + dependencies, always runs), optional semantic synthesis (provider-based summaries with concurrency/budget bounds), and CI regression detection (git-based freshness). Tests enforce source-hash caching (C1), changed-module precision (SC3), static-by-default (SC4), provider-neutral semantics (SC5), token budgeting (SC6), and reentrancy guards to prevent nested LLM calls from collapsing results.
+The `packages/cli/tests/comprehension` module validates the semantic-comprehension compiler pipeline—static code analysis (interfaces, dependencies) plus optional LLM summarization. Five core test suites: compile-run (units write to store, provider optionality), generate-semantic (LLM interaction & reentrancy), regression (semantic state tracking across refs), invalidation (file→module mapping for --changed/--all modes), and CLI integration (command modes, precedence, e2e). Complementary tests cover pre-commit hook gating (static-only, opt-in), config schema, and static extraction. Tests use fake stores/readers/providers throughout for hermetic isolation.
 
 ## Invariants
 
-- C1: Source-hash freshness gate prevents re-work and provider re-invocation; semantic:absent→present upgrades preserve compiledAt timestamp when hash unchanged
-- SC3: Changed-module precision maps files to owning dirs, normalizes to posix, deduplicates, excludes root files and non-source extensions
-- SC4: Static-only by default when no semantic provider supplied; pre-commit hook always passes --static regardless of config
-- SC5: Provider-neutral semantic; model optional (undefined defers to provider), response validation is schema-based, extra keys stripped not rejected, malformed→null without throw
-- SC6: Token savings metric caps prompt input by configurable char budget; over-budget input truncated with marker [source truncated for comprehension digest]
-- Concurrency bounding enforced per-run; peak in-flight never exceeds configured limit; concurrent siblings under withComprehensionActive all reach provider with zero silent drops
-- Reentrancy refusal: pre-set flag causes runComprehend to refuse compilation and return reentrancyRefused:true; flag scoped to run duration and restored after (even on throw)
-- Regression detection: present→absent is flagged as regression; absent→present/deleted/new modules are not; missing refs return null (not empty map) to distinguish unresolved from empty
-- Source reader resiliency: null return (directory deleted) is silently skipped with no throw; only modules with available source are compiled and written
-- Static extraction determinism: interface exports sorted (uppercase first), deduplicated by name; dependency slice groups by source sorted, one per source; empty surfaces are empty strings; barrel-anchored extraction unions only re-exports from index.ts
+- C1 — Fresh units never re-run: unchanged source must not rewrite units or re-invoke the provider; hash mismatch or semantic-upgrade (absent→present, same hash) does trigger recompile
+- SC3 — Changed mode precision: --changed compiles exactly the changed-module set (files → owning directories); git failure falls back to --all with warning
+- SC4 — Static-only by design: pre-commit hook always runs --static regardless of config; semantic is opt-in via explicit generateSemantic argument
+- ADR 0109 — Byte-stable provenance: semantic-only upgrades never write compiledAt wall-clock; static provenance immutable across semantic tiers
+- Concurrency bounded: peak in-flight async operations ≤ concurrency parameter (provider calls, static extraction, writes)
+- Reentrancy guarded: env flag (REENTRANCY_ENV) set during run; nested calls refuse to compile; flag restored after run even on error
+- Source reader nullability: modules returning null (deleted directories) skipped with no error; not written, not recompiled
+- --check token-free: freshness verification compares committed hashes vs live readers; no LLM call, no cost beyond I/O
 
 ## Interface Contract
 
