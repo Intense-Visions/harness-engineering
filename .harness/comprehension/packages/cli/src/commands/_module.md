@@ -1,132 +1,27 @@
 ---
 schemaVersion: 1
-module: 'packages/cli/src/commands'
-sourceHash: 'a51d004cb6d9cad28c4b0030ca86d6a2e1a22f248bda4cf9048e23b2679914a1'
-compiledAt: '2026-08-28T01:22:09.214Z'
-compiler: { static: '1.0.0', semantic: '1.0.0' }
-model: 'claude-haiku-4-5-20251001'
+module: "packages/cli/src/commands"
+sourceHash: "ceba605c588ec3cfed691f43a99d9e44ed0cd2e6ea5801e20d130eb4ff79531c"
+compiledAt: "2026-08-29T14:17:15.264Z"
+compiler: { static: "1.0.0", semantic: "1.0.0" }
+model: "claude-haiku-4-5-20251001"
 semantic: present
-members:
-  [
-    '_registry.ts',
-    'add.ts',
-    'adoption.ts',
-    'advise-skills.test.ts',
-    'advise-skills.ts',
-    'align-design-system.ts',
-    'api-craft.ts',
-    'audit-protected.ts',
-    'backfill-skill-provenance.ts',
-    'blueprint.ts',
-    'check-arch.ts',
-    'check-deployment.ts',
-    'check-deps.ts',
-    'check-design.ts',
-    'check-docs.ts',
-    'check-harness-strength.ts',
-    'check-operational-drift.test.ts',
-    'check-operational-drift.ts',
-    'check-perf.ts',
-    'check-phase-gate.ts',
-    'check-security.ts',
-    'check-vocabulary.ts',
-    'cleanup-sessions.ts',
-    'cleanup.ts',
-    'cli-ergonomics-craft.ts',
-    'code-craft.ts',
-    'comprehend.ts',
-    'copy-craft.ts',
-    'create-skill.ts',
-    'cross-check.ts',
-    'dashboard.ts',
-    'design-pipeline.ts',
-    'docs-craft.ts',
-    'doctor.ts',
-    'fix-drift.ts',
-    'generate-agent-definitions.ts',
-    'generate-slash-commands.ts',
-    'generate.ts',
-    'holiday-confidence.ts',
-    'impact-preview.ts',
-    'init-minimal.ts',
-    'init.ts',
-    'insights.ts',
-    'install-constraints.ts',
-    'install.ts',
-    'knowledge-craft.ts',
-    'knowledge-pipeline.test.ts',
-    'knowledge-pipeline.ts',
-    'maintenance-config.test.ts',
-    'maintenance-config.ts',
-    'maintenance-run.ts',
-    'maintenance.ts',
-    'mcp-guard.ts',
-    'mcp.ts',
-    'migrate-backends.ts',
-    'migrate.ts',
-    'models.ts',
-    'naming-craft.ts',
-    'operational-drift.test.ts',
-    'operational-drift.ts',
-    'orchestrator-black-box.test.ts',
-    'orchestrator-black-box.ts',
-    'orchestrator.ts',
-    'outcome-eval-ci.ts',
-    'perf.ts',
-    'pre-merge-brief.ts',
-    'predict.ts',
-    'proposals.ts',
-    'publish-analyses.ts',
-    'recommend.ts',
-    'rehearse.ts',
-    'review-ci-local-adapter.ts',
-    'review-ci.ts',
-    'rollback.ts',
-    'scan-config.ts',
-    'search.ts',
-    'security-craft.ts',
-    'setup-mcp.ts',
-    'setup-types.ts',
-    'setup.ts',
-    'share.ts',
-    'skill-regression.test.ts',
-    'skill-regression.ts',
-    'snapshot.ts',
-    'spec-craft.ts',
-    'stale-constraints.ts',
-    'sync-analyses.ts',
-    'sync-main.ts',
-    'taint.ts',
-    'telemetry-wizard.ts',
-    'test-craft.ts',
-    'traceability.ts',
-    'uninstall-constraints.ts',
-    'uninstall.ts',
-    'update.ts',
-    'usage.ts',
-    'validate-cross-check.ts',
-    'validate-scope.ts',
-    'validate.ts',
-    'verify.test.ts',
-    'verify.ts',
-  ]
+members: ["_registry.ts", "add.ts", "adoption.ts", "advise-skills.test.ts", "advise-skills.ts", "align-design-system.ts", "api-craft.ts", "audit-protected.ts", "backfill-skill-provenance.ts", "blueprint.ts", "check-arch.ts", "check-deployment.ts", "check-deps.ts", "check-design.ts", "check-docs.ts", "check-harness-strength.ts", "check-operational-drift.test.ts", "check-operational-drift.ts", "check-perf.ts", "check-phase-gate.ts", "check-security.ts", "check-vocabulary.ts", "cleanup-sessions.ts", "cleanup.ts", "cli-ergonomics-craft.ts", "code-craft.ts", "comprehend.ts", "copy-craft.ts", "create-skill.ts", "cross-check.ts", "dashboard.ts", "design-pipeline.ts", "docs-craft.ts", "doctor.ts", "fix-drift.ts", "generate-agent-definitions.ts", "generate-slash-commands.ts", "generate.ts", "holiday-confidence.ts", "impact-preview.ts", "init-minimal.ts", "init.ts", "insights.ts", "install-constraints.ts", "install.ts", "knowledge-craft.ts", "knowledge-pipeline.test.ts", "knowledge-pipeline.ts", "maintenance-config.test.ts", "maintenance-config.ts", "maintenance-run.ts", "maintenance.ts", "mcp-guard.ts", "mcp.ts", "migrate-backends.ts", "migrate.ts", "models.ts", "naming-craft.ts", "operational-drift.test.ts", "operational-drift.ts", "orchestrator-black-box.test.ts", "orchestrator-black-box.ts", "orchestrator.ts", "outcome-eval-ci.ts", "perf.ts", "pre-merge-brief.ts", "predict.ts", "proposals.ts", "publish-analyses.ts", "recommend.ts", "rehearse.ts", "review-ci-local-adapter.ts", "review-ci.ts", "rollback.ts", "scan-config.ts", "search.ts", "security-craft.ts", "setup-mcp.ts", "setup-types.ts", "setup.ts", "share.ts", "skill-regression.test.ts", "skill-regression.ts", "snapshot.ts", "spec-craft.ts", "stale-constraints.ts", "sync-analyses.ts", "sync-main.ts", "taint.ts", "telemetry-wizard.ts", "test-craft.ts", "traceability.ts", "uninstall-constraints.ts", "uninstall.ts", "update.ts", "usage.ts", "validate-cross-check.ts", "validate-scope.ts", "validate.ts", "verify.test.ts", "verify.ts"]
 ---
 
 ## Summary
 
-The `packages/cli/src/commands` module (~210 files, 100+ commands) implements a factory + registry pattern for dynamic CLI command discovery. Each command exports a `createXXXCommand()` function returning a Commander.js Command instance; the auto-generated `_registry.ts` aggregates all factories for dynamic registration in the main program. Commands span three tiers: Check commands (validate project aspects with structured violations), Craft commands (LLM-driven artifact generators integrating MCP tool providers), and Orchestration commands (multi-agent workflows). All follow a `Result<T, CLIError>` discipline—returning typed errors with exit codes, never throwing. Subdirectory-based commands (fleet/, roadmap/, ci/) compose subcommands under a parent namespace. Integration points include the config system (schema validation, YAML loading), output formatting (JSON/table renderers), skill registry (install, recommend), graph systems (query, analyze), and MCP tool capabilities (permission-tier filtering).
+**`packages/cli/src/commands`** is the command registry and implementation layer for the harness CLI. It contains ~92 command files, each implementing a feature area (checks, design/code/docs crafting, skills management, graph operations, maintenance, roadmap, CI/CD gates, etc.). Commands are registered through an auto-generated barrel export (`_registry.ts`) that collects all `createXCommand()` factories, which the CLI bootstrapping code then passes to Commander.js. The module is heavily cross-dependent: most commands load project config via `resolveConfig()`, format output through a unified `OutputFormatter`, and wrap results in a standardized `Result<T, E>` type. Commands delegate domain logic to sibling packages (@harness-engineering/core, /orchestrator, /intelligence, /graph) while owning the CLI interface and option parsing.
 
 ## Invariants
 
-- Auto-generation contract: \_registry.ts is auto-generated; new commands require createXXXCommand() factory pattern and regeneration via `pnpm run generate-barrel-exports` before discovery
-- Result type discipline: all command runners return Result<T, CLIError> (never throw); CLIError must carry appropriate ExitCode for CLI exit accuracy
-- Commander.js structure: each command returns configured Command instance; subcommands attach via .addCommand(); options registered before action handler
-- Centralized config resolution: commands access project config via loadConfig() or resolveConfig(); defaults to harness.config.json with CLI/env override support
-- Dynamic MCP tool loading: craft commands resolve analysis providers (OpenAI/Ollama/Claude) at runtime; tool capabilities filtered by permission tier (TIER_0 for CI, TIER_1/TIER_2 interactive)
-- Output consistency: all commands log via logger and format via OutputFormatter (JSON/table/plain modes) for uniform parseability and styling
-- Compound command composition: subdirectory commands (fleet/, roadmap/) are compound—export single factory wiring subcommands; only parent registered to registry, not individual subcommand creators
-- Error audit trail: --allow-regress and --update-baseline commands write to .harness/audit.log for durable decision tracking; logging failures are best-effort (never block user action)
-- Gate and check independence: check commands (check-arch, check-security, check-docs) are independently testable and runnable; depend only on config and source files, not orchestrator state, enabling cheap CI execution
+- Auto-generated registry: _registry.ts is regenerated by `pnpm run generate-barrel-exports`; manual edits are overwritten. The `commandCreators` array is the single source of truth for CLI command registration.
+- Command factory contract: Every command file must export exactly one factory function named `createXCommand()` that returns a `Command` object. The factory name is used to auto-populate the registry.
+- Config resolution pattern: Commands that need project config follow `resolveConfig(configPath?)` → `Result<HarnessConfig, CLIError>`. Commands must handle the error case (typically log + exit), never assume config is present.
+- Result type wrapping: Success/error returns use `Result<T, E>` from @harness-engineering/core. Exit codes are normalized via `ExitCode` enum; commands must not use arbitrary process.exit() codes.
+- Unified output: All user-facing output goes through `logger` (from `../output/logger`) or `OutputFormatter` (from `../output/formatter`). Direct console.log() breaks formatting contracts.
+- Git and environment assumptions: Commands that reason about branches/commits assume either a git repo or CI environment variables (GITHUB_HEAD_REF, CI_COMMIT_REF_NAME, etc.) as fallback; they must handle detached HEAD gracefully.
+- Subcommands and compound commands: Commands can register subcommands or be composed into compound workflows (e.g., `fleet`, `orchestrator`, `maintenance`), but the outer factory still returns a single `Command` tree.
 
 ## Interface Contract
 
@@ -401,7 +296,7 @@ import { CliErgonomicsCraftInput, CliErgonomicsCraftOutput, runCliErgonomicsCraf
 import { CodeCraftInput, CodeCraftOutput, runCodeCraft } from '../code-craft/index.js'
 import { ComprehendRunResult, runComprehend, runComprehendCheck, runComprehendStats } from '../comprehension/compile-run'
 import { readComprehensionConfig } from '../comprehension/config'
-import { maybeCreateGenerateSemantic } from '../comprehension/generate-semantic'
+import { defaultSemanticModel, maybeCreateGenerateSemantic } from '../comprehension/generate-semantic'
 import { shouldRunComprehendHook } from '../comprehension/hook'
 import { enumerateModules, filesToModules } from '../comprehension/invalidation'
 import { createStaticExtractor } from '../comprehension/static-extractor'
@@ -431,7 +326,7 @@ import { runDesignCraft } from '../mcp/tools/design-craft'
 import { runDetectDrift } from '../mcp/tools/detect-drift'
 import { handleGetImpact } from '../mcp/tools/graph/index'
 import { runInstructionDensityAudit } from '../mcp/tools/instruction-density'
-import { resolveAnalysisProvider } from '../mcp/utils/analysis-provider'
+import { resolveAnalysisProvider, resolveProviderKind } from '../mcp/utils/analysis-provider'
 import { loadGraphStore } from '../mcp/utils/graph-loader'
 import { IdentifierKind, NamingCraftInput, NamingCraftOutput, runNamingCraft } from '../naming-craft/index.js'
 import { OutputFormatter, OutputMode, OutputModeType } from '../output/formatter'

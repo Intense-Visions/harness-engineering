@@ -800,6 +800,18 @@ Plan safe parallel execution for a set of plan tasks. Builds a task DAG from dep
 - `depth` (number, optional) — Conflict expansion depth (0=file-only, 1=default)
 - `minWaveSize` (number, optional) — Minimum independent tasks in a wave to justify parallel dispatch. Default 3.
 
+### `put_comprehension`
+
+Attach agent-authored semantic understanding (a concise summary + load-bearing invariants) onto a module's already-compiled, source-fresh comprehension unit, then re-serve the enriched unit. Use this after get_comprehension reports `semanticNeeded: true` for a module you understand — it enriches the substrate on your own session's auth (no API token, no provider). Refuses when the unit is missing or source-stale (recompile via get_comprehension first).
+
+**Parameters:**
+
+- `path` (string, required) — Path to project root
+- `module` (string, required) — Module directory (repo-relative, e.g. "packages/core/src/pricing")
+- `summary` (string, required) — Concise prose summary of the module's purpose and behavior
+- `invariants` (array, required) — Load-bearing invariants a maintainer must not break (may be empty)
+- `model` (string, optional) — Optional provenance label for who authored the semantic (e.g. the agent/model id); recorded as-is, never resolved
+
 ### `read_strategy`
 
 Read and parse STRATEGY.md at the project root. Returns { present, valid, doc?, error? } where doc is the parsed StrategyDoc when present and valid. Combines validate_strategy + parseStrategyDoc + asStrategyDoc in one call.
