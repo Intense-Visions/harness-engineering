@@ -95,7 +95,14 @@ export interface ServeOrRecompileDeps {
 
 /** Outcome of a serve-or-recompile request. Never a throw. */
 export type GetComprehensionOutcome =
-  | { status: 'served'; module: string; recompiled: boolean; rendered: string }
+  | {
+      status: 'served';
+      module: string;
+      recompiled: boolean;
+      rendered: string;
+      /** ADR 0109: 'absent' ⇒ static-only; the caller may enrich via put_comprehension. */
+      semantic: 'present' | 'absent';
+    }
   | { status: 'unavailable'; module: string; reason: string }
   | { status: 'reentrant'; module: string };
 
@@ -134,7 +141,13 @@ async function recompileAndServe(
   if (!verdict.serve) {
     return { status: 'unavailable', module, reason: 'unit remained source-stale after recompile' };
   }
-  return { status: 'served', module, recompiled: true, rendered: renderServedUnit(verdict.unit) };
+  return {
+    status: 'served',
+    module,
+    recompiled: true,
+    rendered: renderServedUnit(verdict.unit),
+    semantic: verdict.unit.provenance.semantic,
+  };
 }
 
 /**
@@ -157,6 +170,7 @@ export async function serveOrRecompile(
           module,
           recompiled: false,
           rendered: renderServedUnit(verdict.unit),
+          semantic: verdict.unit.provenance.semantic,
         };
       }
       // source-stale ⇒ fall through to recompile that one module
@@ -260,6 +274,8 @@ export async function handleGetComprehension(
         module: outcome.module,
         served: true,
         recompiled: outcome.recompiled,
+        // ADR 0109: signal the agent to enrich a static-only unit via put_comprehension.
+        semanticNeeded: outcome.semantic === 'absent',
         unit: outcome.rendered,
       })
     );

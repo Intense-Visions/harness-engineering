@@ -1,8 +1,7 @@
 ---
 schemaVersion: 1
 module: "packages/cli/tests/comprehension"
-sourceHash: "0c3cb5408e7c72d3789dd87f19d877c4c4a0102aeabc2fa0308b6eaf7cbbdaa5"
-compiledAt: "2026-08-29T15:27:03.411Z"
+sourceHash: "49fbefbff68d617a902d51a347bd280c30700c5f5779594c2a7e175c2f82134e"
 compiler: { static: "1.0.0", semantic: "1.0.0" }
 model: "claude-haiku-4-5-20251001"
 semantic: present
@@ -11,20 +10,18 @@ members: ["compile-run.test.ts", "comprehend-e2e.test.ts", "comprehend-flags.tes
 
 ## Summary
 
-The `packages/cli/tests/comprehension` module tests the committed semantic comprehension pipeline — an effortless system that extracts static code information (interfaces, dependencies) and optionally generates LLM-powered semantic summaries. The test suite validates three phases: (1) Compilation with source-hash freshness detection and concurrency bounding (changed vs. all modes); (2) Configuration ensuring config-declared endpoints don't get mismatched models; (3) Semantic generation with reentrancy barriers and schema validation. The pipeline stays fresh in PRs via static-only pre-commit hooks (zero CI tokens), with CI verification and merge drivers wiring provider-neutral endpoints. Nine test files cover compile-run, config, semantic generation, flags, invalidation, static extraction, hooks, and e2e scenarios.
+`packages/cli/tests/comprehension` validates the module compilation and semantic documentation pipeline. The test suite covers three main flows: (1) `runComprehend`—compiles source modules to comprehension units with static extraction + optional semantic generation, supporting both `--changed` (diff-targeted) and `--all` (full enumeration) modes with concurrency bounding and reentrancy protection; (2) `runComprehendCheck`—token-free freshness verification that compares committed unit hashes against live source without provider invocation, gating CI regression detection; (3) `runComprehendStats`—reports raw vs served token compression metrics. Tests use injectable fakes (fakeReader, fakeStore) to isolate logic and track provider invocations, writes, and concurrency peaks.
 
 ## Invariants
 
-- C1 (Fresh units never re-run): Unchanged source must skip recompile, never re-invoke the LLM provider, and never rewrite the unit. Source hash is the gate.
-- SC3 (Changed mode precision): --changed recompiles exactly the changed-module set, no more, no fewer.
-- SC4 (Static-only defaults): Without a generateSemantic function, units are semantic: absent — zero provider interaction.
-- Reentrancy flag lifecycle: Set during run, restored after (prevents nested LLM calls via env var).
-- Concurrency boundary: Peak in-flight tasks ≤ configured limit; preserves input order.
-- Semantic upgrade invariant: When upgrading semantic: absent → present with unchanged source hash, compiledAt is preserved (C1 belt).
-- Config/model coupling (ADR 0109 slice 3): Config-declared analysisBaseUrl overrides provider-based model selection; cannot force claude-haiku onto a vendor endpoint.
-- Hook is static-only (SF1.3): Pre-commit hook always passes --static regardless of comprehension.semantic config; opt-in via hook: true + storage: committed.
-- Null source skips gracefully: Module with null reader result is skipped (no throw), reported in result.skipped.
-- Check/stats are token-free: runComprehendCheck and runComprehendStats operate on committed units without provider calls.
+- C1 – Fresh unit caching: Second runComprehend over unchanged source must skip provider invocation and avoid rewrite. Hash divergence immediately unblocks recompile. Core mechanism for ~90% token savings.
+- Byte-stable semantic upgrade: Upgrading semantic:absent → semantic:present (same source, now with provider) must recompile but preserve sourceHash and static provenance unchanged—no compiledAt written (ADR 0109).
+- Reentrancy refusal: Engine refuses to run if REENTRANCY_ENV flag is set. Flag is set during run and restored after, preventing re-entry during provider calls.
+- Concurrency bounding: mapWithConcurrency and module-parallel compilation must never exceed specified limit (concurrency: N).
+- Graceful missing-module handling: Modules with null source reader results are silently skipped, not errored.
+- Mode semantics: --changed recompiles only named changed modules; --all recompiles every enumerated module.
+- Provider toggle: Presence of generateSemantic function determines semantic:absent (token-free, no provider) vs semantic:present (provider invoked).
+- Token-free check gate: runComprehendCheck compares hashes without provider interaction—gates CI regression detection and merge-time verification.
 
 ## Interface Contract
 

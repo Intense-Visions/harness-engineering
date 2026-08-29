@@ -1,30 +1,31 @@
 ---
 schemaVersion: 1
 module: "packages/cli/src/mcp/tools"
-sourceHash: "d71e99e2a738f223c6f1db62d3d333c683872952ac8d41203324dfcb86d75907"
-compiledAt: "2026-08-29T15:27:04.026Z"
+sourceHash: "8bf328a2311348a36dfe4c755cb3ea5c83d7361b1675dd39c14ac60d11b6c487"
 compiler: { static: "1.0.0", semantic: "1.0.0" }
 model: "claude-haiku-4-5-20251001"
 semantic: present
-members: ["acceptance-eval.ts", "adr-store.ts", "adr.ts", "advise-skills.test.ts", "advise-skills.ts", "agent-definitions.ts", "agent.ts", "align-design-system.ts", "api-craft.ts", "architecture.ts", "assess-project.ts", "audit-anatomy.ts", "audit-brand.ts", "blueprint.test.ts", "blueprint.ts", "canary.test.ts", "canary.ts", "ci.ts", "cli-ergonomics-craft.ts", "code-craft.ts", "code-nav.ts", "compact.ts", "compound.test.ts", "compound.ts", "conflict-prediction.ts", "constraint-emergence.ts", "copy-craft.ts", "cross-check.test.ts", "cross-check.ts", "decay-trends.ts", "design-craft.ts", "design-pipeline.ts", "detect-drift.ts", "dispatch-skills.ts", "docs-craft.ts", "docs-publish.ts", "docs.ts", "edit-file.test.ts", "edit-file.ts", "entropy.ts", "event-emitter.ts", "feedback.ts", "gateway-tools.test.ts", "gateway-tools.ts", "gather-context.ts", "generate-slash-commands.ts", "get-comprehension.test.ts", "get-comprehension.ts", "hermes-tools.test.ts", "init.ts", "insights-summary.ts", "instruction-density.test.ts", "instruction-density.ts", "interaction-renderer.test.ts", "interaction-renderer.ts", "interaction-schemas.ts", "interaction.ts", "knowledge-craft.ts", "linter.ts", "naming-craft.ts", "outcome-eval.ts", "parallelization.test.ts", "parallelization.ts", "performance.ts", "persona.ts", "phase-gate.ts", "predict-failures.ts", "pulse.test.ts", "pulse.ts", "recommend-skills.ts", "review-changes.ts", "review-pipeline.ts", "roadmap-auto-sync.ts", "roadmap-file-less.ts", "roadmap.ts", "search-sessions.ts", "search-skills.ts", "security-craft.ts", "security.ts", "skill-proposal.ts", "skill-telemetry.ts", "skill.ts", "spec-craft.ts", "stale-constraints.ts", "state.ts", "strategy.test.ts", "strategy.ts", "summarize-session.ts", "task-independence.ts", "test-craft.ts", "traceability.ts", "uat-signoff.test.ts", "uat-signoff.ts", "validate.ts", "webhook-tools.test.ts", "webhook-tools.ts"]
+members: ["acceptance-eval.ts", "adr-store.ts", "adr.ts", "advise-skills.test.ts", "advise-skills.ts", "agent-definitions.ts", "agent.ts", "align-design-system.ts", "api-craft.ts", "architecture.ts", "assess-project.ts", "audit-anatomy.ts", "audit-brand.ts", "blueprint.test.ts", "blueprint.ts", "canary.test.ts", "canary.ts", "ci.ts", "cli-ergonomics-craft.ts", "code-craft.ts", "code-nav.ts", "compact.ts", "compound.test.ts", "compound.ts", "conflict-prediction.ts", "constraint-emergence.ts", "copy-craft.ts", "cross-check.test.ts", "cross-check.ts", "decay-trends.ts", "design-craft.ts", "design-pipeline.ts", "detect-drift.ts", "dispatch-skills.ts", "docs-craft.ts", "docs-publish.ts", "docs.ts", "edit-file.test.ts", "edit-file.ts", "entropy.ts", "event-emitter.ts", "feedback.ts", "gateway-tools.test.ts", "gateway-tools.ts", "gather-context.ts", "generate-slash-commands.ts", "get-comprehension.test.ts", "get-comprehension.ts", "hermes-tools.test.ts", "init.ts", "insights-summary.ts", "instruction-density.test.ts", "instruction-density.ts", "interaction-renderer.test.ts", "interaction-renderer.ts", "interaction-schemas.ts", "interaction.ts", "knowledge-craft.ts", "linter.ts", "naming-craft.ts", "outcome-eval.ts", "parallelization.test.ts", "parallelization.ts", "performance.ts", "persona.ts", "phase-gate.ts", "predict-failures.ts", "pulse.test.ts", "pulse.ts", "put-comprehension.ts", "recommend-skills.ts", "review-changes.ts", "review-pipeline.ts", "roadmap-auto-sync.ts", "roadmap-file-less.ts", "roadmap.ts", "search-sessions.ts", "search-skills.ts", "security-craft.ts", "security.ts", "skill-proposal.ts", "skill-telemetry.ts", "skill.ts", "spec-craft.ts", "stale-constraints.ts", "state.ts", "strategy.test.ts", "strategy.ts", "summarize-session.ts", "task-independence.ts", "test-craft.ts", "traceability.ts", "uat-signoff.test.ts", "uat-signoff.ts", "validate.ts", "webhook-tools.test.ts", "webhook-tools.ts"]
 ---
 
 ## Summary
 
-`packages/cli/src/mcp/tools` is a 100+ tool registry that exposes harness operations to orchestrator agents via MCP. Tools are organized as name-matched pairs (definition + handler), assembled into a registry with middleware (injection guard → compaction → context budget), and tagged with authoritative capability declarations (scopes: read/write/exec; network flag). The module covers analysis, creation, mutation, subprocess execution, LLM-driven crafting, and evaluation domains.
+packages/cli/src/mcp/tools is a ~100-file comprehensive MCP tool implementation layer for the harness engineering platform. Each file exports a tool definition (with inputSchema), a handler function, and supporting types. Tools are grouped by domain (design-craft, spec-craft, code-craft, comprehension, roadmap management, graph queries, etc.) and registered in server.ts with middleware (injection guard → compaction → context budget). Recent additions include ADR 0109 tools (get/put_comprehension) for provider-neutral, agent-authored semantic understanding write-back. All tools return internal project content, validate inputs before computing, and never throw—every failure wraps in `{ content: [...], isError: true }` envelopes. Capability declarations (tool-capability-declarations.js) tie each tool to declared scopes; missing declarations fall back to name heuristics. The put_comprehension tool enforces source-fresh static units via serveGate, validates semantic payloads against zod schema before disk writes, and rejects owned heading markers to prevent serialization corruption.
 
 ## Invariants
 
-- Handler registry keys must match tool definitions exactly by name for dispatch to work.
-- Capability declarations are exhaustive and compiled into shipped artifacts; runtime reads declarations, never scans source.
-- All tools marked trustedOutput: true skip output injection scanning; external tools must omit the flag to enable scanning.
-- ToolDefinition lives in tool-types.ts to avoid circular dependency between tool files and server.ts.
-- Middleware order (injection guard → compaction → context budget) is load-bearing because budget must measure post-compaction size.
-- Resource URIs require matching handler entries; a missing handler throws at read time.
-- Session update notification runs once via sessionChecked flag to prevent duplicate appends.
-- Tool filter is applied to both definitions and handlers together; mismatches create dispatch errors.
-- MCP context budget is resolved at startup and never re-read; runtime config changes are ignored.
-- trustedOutput flag gates injection scanning for all handlers; flipping it affects security posture across all callers.
+- Handler registry match: every tool definition in TOOL_DEFINITIONS must have a corresponding handler in TOOL_HANDLERS with exact snake_case name key; definition names must be tool-unique and map precisely.
+- Middleware order is strict: injection-guard → compaction → context-budget. Output must pass all layers in order for consistency.
+- No-throw contract: tool handlers never throw. All errors wrap in `{ content: [...], isError: true }` envelopes matching get_comprehension/put_comprehension pattern.
+- Capability declaration binding: TOOL_CAPABILITY_DECLARATIONS keys must match definition.name exactly for capability to merge; missing declarations fall back to name heuristic in tool-capabilities.ts.
+- Semantic schema authority: put_comprehension validates `semanticResponseSchema` before any disk write; agent-supplied payloads must pass zod validation or return invalid status—never written malformed.
+- Source-fresh gate: put_comprehension refuses stale units (serveGate verdict); semantic attaches only to source-fresh static units, forcing recompile via get_comprehension for stale units.
+- Owned heading prohibition: put_comprehension rejects payloads with top-level section headings (##) to prevent serialization corruption on round-trip; agents must not supply these in summary/invariants.
+- Provider-neutral comprehension: get_comprehension defers semantic provider resolution lazily (only on recompile branch), so fresh serves never load config; put_comprehension never resolves a provider (write-back only).
+- Reentrancy guard: get_comprehension respects `withComprehensionActive` guard from canonical driver; reentrant calls return `{ status: 'reentrant' }` not errors.
+- Definition completeness: every exported tool symbol (XXXDefinition, handleXXX, XXXInput/Output) must appear in both its file AND server.ts registry; missing registrations cause silent tool omission from MCP listing.
+- trustedOutput marking: all harness MCP tools return internal project content marked `trustedOutput: true`; external-proxying tools must omit this flag (defaults to untrusted). Injection guard skips scanning trusted output.
+- Handler input validation: tool handlers must validate input shape before any computation (typeof checks, Array.isArray); malformed inputs return `isError: true`, never throw.
 
 ## Interface Contract
 
@@ -72,6 +73,9 @@ export InteractionTransitionSchema
 export InteractionTypeSchema
 export KnowledgeCraftInput
 export KnowledgeCraftOutput
+export MAX_INVARIANTS
+export MAX_INVARIANT_CHARS
+export MAX_SUMMARY_CHARS
 export NamingCraftInput
 export NamingCraftOutput
 export RiskLevel
@@ -93,6 +97,7 @@ export analyzeDiffDefinition
 export apiCraftDefinition
 export apiCraftFinalizeDefinition
 export assessProjectDefinition
+export attachSemantic
 export auditAnatomyDefinition
 export auditBrandDefinition
 export autoSyncRoadmap
@@ -239,6 +244,7 @@ export handleOutcomeEval
 export handlePlanParallelization
 export handlePredictConflicts
 export handlePredictFailures
+export handlePutComprehension
 export handleReadStrategy
 export handleRecommendSkills
 export handleReleaseCompoundLock
@@ -290,6 +296,7 @@ export parseToolResponse
 export planParallelizationDefinition
 export predictConflictsDefinition
 export predictFailuresDefinition
+export putComprehensionDefinition
 export readAdr
 export readStrategyDefinition
 export recommendSkillsDefinition
@@ -377,7 +384,7 @@ import from '../../commands/validate-cross-check.js'
 import from '../../commands/validate.js'
 import { runComprehend } from '../../comprehension/compile-run'
 import { comprehensionEndpoint, readComprehensionConfig, selectSemanticModel } from '../../comprehension/config'
-import { maybeCreateGenerateSemantic } from '../../comprehension/generate-semantic'
+import { maybeCreateGenerateSemantic, semanticResponseSchema } from '../../comprehension/generate-semantic'
 import { createStaticExtractor } from '../../comprehension/static-extractor'
 import { loadAnalysisExclude } from '../../config/analysis-schema.js'
 import { resolveConfig } from '../../config/loader'

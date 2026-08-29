@@ -1,8 +1,7 @@
 ---
 schemaVersion: 1
 module: "packages/cli/src/commands"
-sourceHash: "ffd035a4d8abbdf9bbbc25a887c896aeefb2152d7d9f8feced4ef6b0557d9009"
-compiledAt: "2026-08-29T15:27:04.073Z"
+sourceHash: "971453cc12129c4ad06c746bf699fe513e467119b72d964f4b06b06add856bca"
 compiler: { static: "1.0.0", semantic: "1.0.0" }
 model: "claude-haiku-4-5-20251001"
 semantic: present
@@ -11,19 +10,20 @@ members: ["_registry.ts", "add.ts", "adoption.ts", "advise-skills.test.ts", "adv
 
 ## Summary
 
-The CLI's command dispatch and orchestration layer housing 70+ command factories that wire harness infrastructure (orchestrator, MCP, crafters, validators) into user-facing commands. A central auto-generated registry imports all `createXCommand` factories; each command implements a domain task and uses standardized `Result<T, CLIError>` error handling. Configuration is loaded once via `resolveConfig()` and threaded through; exit codes are normalized via `deriveExitCode()`.
+**`packages/cli/src/commands`** is the central command dispatcher for the Harness CLI. It aggregates ~70 command creators from individual command files into a single registry (`commandCreators`), which the main program uses to register all available commands. The module acts as both a facade for command execution and a collection of orchestration utilities spanning infrastructure checks (arch, deps, security, perf), LLM-driven workflows (design, docs, spec, code, test crafting), deployment and rollback, skill management, and maintenance automation. Each command typically follows a pattern: a dedicated file exports a `createXCommand()` function that returns a Commander.js `Command`, and a `runX()` implementation that handles the actual logic. Nearly all commands integrate with either the orchestrator (for LLM agent dispatch), a specialized subsystem (graph store, security scanner, comprehension engine), or a configuration-driven check system (baseline validation, drift detection).
 
 ## Invariants
 
-- Registry is auto-generated via `pnpm run generate-barrel-exports` from scripts/generate-core-barrel.mjs allowlist — editing _registry.ts directly will be overwritten; new commands must be added to source files first
-- All commands are factory functions (`createXCommand(): Command`) and must be imported into commandCreators array, which is the single source of truth for CLI surface
-- Configuration is loaded once at startup via resolveConfig() and shared across commands; reloading mid-session causes stale-state bugs
-- All runX() functions return Result<Output, CLIError> with exit code baked in; never throw bare errors, wrap in CLIError with proper exit code
-- Pre-push gate order is load-bearing: format:check → coverage-ratchet → reference-docs → flaky-retry; gate failures require caller to re-run, not retry within command
-- Hook membership and skill exports are dual-source-of-truth: must update both profiles.ts AND plugin-config.mjs or plugin platform mirrors (symlinks) will desync
-- Graph and MCP provider calls must validate node type compatibility and resolve analysis provider at runtime via resolveAnalysisProvider(); provider-agnostic tools use it, graph-touching commands validate it
-- Comprehension endpoint must be threaded into model selection (ADR 0109) via readComprehensionConfig() → comprehensionEndpoint; missing this routes to wrong backend for semantic validation
-- Command creators use consistent patterns: standardized option parsing via Commander.js, normalized exit codes, integration with orchestrator for agent dispatch, and shared report builders for multi-stage output
+- commandCreators array is the single source of truth — used by createProgram() to auto-register all commands; driven by pnpm run generate-barrel-exports
+- Each command file exports createXCommand(): Command following Commander.js pattern; factory must not throw synchronously or import side-effects that fail on load
+- _registry.ts is auto-generated — manual edits overwritten on regeneration; do not commit hand-edits or skip the allowlist in scripts/generate-core-barrel.mjs
+- Output goes through OutputFormatter — logger and OutputFormatter are centralized; commands must not write to stdout/stderr directly (breaks machine parsing)
+- All errors must pass through CLIError with exit codes set — exit code signals CI/automation; codes are load-bearing for gate logic
+- Path resolution is centralized — use resolveSkillsDir(), resolvePersonasDir() etc. instead of hardcoding; layout changes flow through one place
+- Config validation happens early — resolveConfig() and specialized loaders must not fail silently; errors surface before expensive operations
+- Telemetry is opt-in and centralized — ensureTelemetryConfigured() is the source; commands do not emit telemetry directly
+- CI mode gates override local mode — check functions have CI-specific variants (runOutcomeEvalCi vs local eval); gate logic varies by mode
+- Orchestrator is the primary coordination point — most non-trivial commands dispatch agents via Orchestrator; local execution is rare and requires explicit backend resolution
 
 ## Interface Contract
 
