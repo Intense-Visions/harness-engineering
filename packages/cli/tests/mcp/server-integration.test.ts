@@ -124,7 +124,9 @@ describe('MCP Server Integration', () => {
     expect(names).toContain('get_graph_schema');
     // comprehension serve/recompile tool (phase 5, SF3)
     expect(names).toContain('get_comprehension');
-    expect(tools).toHaveLength(114);
+    // comprehension agent-neutral semantic write-back (ADR 0109, slice 2)
+    expect(names).toContain('put_comprehension');
+    expect(tools).toHaveLength(115);
   });
 
   it('all tool definitions have inputSchema', () => {

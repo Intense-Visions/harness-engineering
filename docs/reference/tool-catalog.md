@@ -4,7 +4,7 @@
 
 Canonical, regenerated-and-gated reference for every shipped MCP tool and skill. Unlike the summary in [MCP Tools Reference](./mcp-tools.md), this catalog serializes each tool’s **full live input schema** and each skill’s **full declared contract**, so a divergence between a definition’s real schema and its documentation is caught by `pnpm run generate:tool-catalog:check` in CI rather than drifting silently.
 
-## MCP Tools (114)
+## MCP Tools (115)
 
 Every shipped MCP tool, booted live from the built server, with its full input schema. A drift between a tool’s real schema and this catalog fails the build.
 
@@ -3881,6 +3881,49 @@ Predict which architectural constraints will break and when, based on decay tren
   },
   "required": [
     "path"
+  ],
+  "type": "object"
+}
+```
+
+### `put_comprehension`
+
+Attach agent-authored semantic understanding (a concise summary + load-bearing invariants) onto a module's already-compiled, source-fresh comprehension unit, then re-serve the enriched unit. Use this after get_comprehension reports `semanticNeeded: true` for a module you understand — it enriches the substrate on your own session's auth (no API token, no provider). Refuses when the unit is missing or source-stale (recompile via get_comprehension first).
+
+**Input schema:**
+
+```json
+{
+  "properties": {
+    "invariants": {
+      "description": "Load-bearing invariants a maintainer must not break (may be empty)",
+      "items": {
+        "type": "string"
+      },
+      "type": "array"
+    },
+    "model": {
+      "description": "Optional provenance label for who authored the semantic (e.g. the agent/model id); recorded as-is, never resolved",
+      "type": "string"
+    },
+    "module": {
+      "description": "Module directory (repo-relative, e.g. \"packages/core/src/pricing\")",
+      "type": "string"
+    },
+    "path": {
+      "description": "Path to project root",
+      "type": "string"
+    },
+    "summary": {
+      "description": "Concise prose summary of the module's purpose and behavior",
+      "type": "string"
+    }
+  },
+  "required": [
+    "path",
+    "module",
+    "summary",
+    "invariants"
   ],
   "type": "object"
 }
