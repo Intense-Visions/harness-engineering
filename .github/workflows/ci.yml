@@ -177,7 +177,7 @@ jobs:
       # promote to blocking (drop `continue-on-error`) once the effortless generation
       # paths (ADR 0109 slices 2-3) are in wide use.
       - name: Comprehension semantic-regression gate (advisory)
-        if: github.event_name == 'pull_request'
+        if: github.event_name == 'pull_request' && matrix.os == 'ubuntu-latest'
         continue-on-error: true
         run: node packages/cli/dist/bin/harness.js comprehend --check --since origin/${{ github.event.pull_request.base.ref }}
 

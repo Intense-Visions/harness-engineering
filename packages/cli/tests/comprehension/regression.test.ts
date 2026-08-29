@@ -85,9 +85,28 @@ describe('readSemanticMapAtRef', () => {
       showAtRef: (_ref, path) => shards[path] ?? null,
     };
     const map = readSemanticMapAtRef('origin/main', deps);
-    expect(map.get('pkg/a')).toBe('present');
-    expect(map.get('pkg/b')).toBe('absent');
-    expect(map.has('pkg/junk')).toBe(false); // unparseable skipped
-    expect(map.size).toBe(2);
+    expect(map).not.toBeNull();
+    expect(map!.get('pkg/a')).toBe('present');
+    expect(map!.get('pkg/b')).toBe('absent');
+    expect(map!.has('pkg/junk')).toBe(false); // unparseable skipped
+    expect(map!.size).toBe(2);
+  });
+
+  it('returns null (NOT an empty map) when the ref cannot be resolved — no false green', () => {
+    const deps: RefReadDeps = {
+      listShardsAtRef: () => null, // unfetched / bad ref / git error
+      showAtRef: () => null,
+    };
+    expect(readSemanticMapAtRef('origin/main', deps)).toBeNull();
+  });
+
+  it('returns an empty map (NOT null) when the ref resolves but has no shards', () => {
+    const deps: RefReadDeps = {
+      listShardsAtRef: () => [],
+      showAtRef: () => null,
+    };
+    const map = readSemanticMapAtRef('origin/main', deps);
+    expect(map).not.toBeNull();
+    expect(map!.size).toBe(0);
   });
 });

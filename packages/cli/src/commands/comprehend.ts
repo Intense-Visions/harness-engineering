@@ -15,7 +15,6 @@ import {
   detectSemanticRegressions,
   readSemanticMapAtRef,
   defaultRefReadDeps,
-  type SemanticState,
 } from '../comprehension/regression';
 import type { ComprehensionConfig } from '../config/schema';
 import { createStaticExtractor } from '../comprehension/static-extractor';
@@ -212,30 +211,38 @@ async function runCheckMode(
     logger.success('All comprehension units are source-fresh.');
   }
 
-  // ADR 0109 slice 4 — token-free semantic-regression gate vs a base ref.
+  // ADR 0109 slice 4 — token-free semantic-regression gate vs a base ref. Base and
+  // head are read the SAME way (committed shards via git + lenient frontmatter
+  // parse), so a shard cannot be counted as "present" on one side and dropped on
+  // the other. An unreadable ref fails LOUD — never a silent pass with a success line.
   let regressed: string[] = [];
+  let refUnreadable = false;
   if (opts.since) {
-    const listing = await store.list();
-    const head = new Map<string, SemanticState>();
-    if (listing.ok) {
-      for (const unit of listing.value.units) {
-        head.set(unit.provenance.module, unit.provenance.semantic);
-      }
-    }
-    const base = readSemanticMapAtRef(opts.since, defaultRefReadDeps(opts.projectRoot));
-    regressed = detectSemanticRegressions(base, head);
-    if (regressed.length > 0) {
+    const deps = defaultRefReadDeps(opts.projectRoot);
+    const base = readSemanticMapAtRef(opts.since, deps);
+    const head = readSemanticMapAtRef('HEAD', deps);
+    if (base === null || head === null) {
+      refUnreadable = true;
+      const which = base === null ? `base ref '${opts.since}'` : "'HEAD'";
       logger.error(
-        `${regressed.length} module(s) regressed semantic present→absent vs ${opts.since}: ` +
-          `${regressed.join(', ')}. Regenerate locally (put_comprehension in-session, or a ` +
-          `provider-backed 'harness comprehend --changed') and push.`
+        `Could not read ${which} for the semantic-regression check (unfetched / bad ref / ` +
+          `git error). Refusing to report a pass — fetch the ref and re-run.`
       );
     } else {
-      logger.success(`No semantic regressions vs ${opts.since}.`);
+      regressed = detectSemanticRegressions(base, head);
+      if (regressed.length > 0) {
+        logger.error(
+          `${regressed.length} module(s) regressed semantic present→absent vs ${opts.since}: ` +
+            `${regressed.join(', ')}. Regenerate locally (put_comprehension in-session, or a ` +
+            `provider-backed 'harness comprehend --changed') and push.`
+        );
+      } else {
+        logger.success(`No semantic regressions vs ${opts.since}.`);
+      }
     }
   }
 
-  const ok = result.ok && regressed.length === 0;
+  const ok = result.ok && regressed.length === 0 && !refUnreadable;
   process.exit(ok ? ExitCode.SUCCESS : ExitCode.VALIDATION_FAILED);
 }
 

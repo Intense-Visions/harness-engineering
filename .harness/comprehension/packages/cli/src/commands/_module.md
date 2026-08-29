@@ -1,8 +1,8 @@
 ---
 schemaVersion: 1
 module: 'packages/cli/src/commands'
-sourceHash: 'afd4e895768c1a53048475bd9c5e24ca0a8b0b5cdd0da5a977680fbac3c0fbe7'
-compiledAt: '2026-08-29T14:29:19.124Z'
+sourceHash: '9eff1a1adc9fd27fd43a89e9e35dcd6bc79f7eaf86968e79aee5f98af8754fec'
+compiledAt: '2026-08-29T15:45:18.828Z'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
@@ -388,7 +388,7 @@ import { readComprehensionConfig } from '../comprehension/config'
 import { defaultSemanticModel, maybeCreateGenerateSemantic } from '../comprehension/generate-semantic'
 import { shouldRunComprehendHook } from '../comprehension/hook'
 import { enumerateModules, filesToModules } from '../comprehension/invalidation'
-import { SemanticState, defaultRefReadDeps, detectSemanticRegressions, readSemanticMapAtRef } from '../comprehension/regression'
+import { defaultRefReadDeps, detectSemanticRegressions, readSemanticMapAtRef } from '../comprehension/regression'
 import { createStaticExtractor } from '../comprehension/static-extractor'
 import { loadAnalysisExclude, loadDesignExclude } from '../config/analysis-schema.js'
 import { findConfigFile, loadConfig, resolveConfig } from '../config/loader'

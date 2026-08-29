@@ -14,6 +14,7 @@
  */
 
 import { spawnSync } from 'node:child_process';
+import { COMPREHENSION_ROOT } from '@harness-engineering/core';
 
 export type SemanticState = 'present' | 'absent';
 
@@ -56,16 +57,31 @@ export function parseModuleSemantic(
 
 /** Git seams so ref reading is injectable (disk-/git-free in tests). */
 export interface RefReadDeps {
-  /** Repo-relative shard paths tracked at `ref` (the `_module.md` files). */
-  listShardsAtRef(ref: string): string[];
+  /**
+   * Repo-relative shard paths tracked at `ref`, or `null` when the ref itself
+   * could not be resolved (unfetched, bad ref, git error). `null` is DISTINCT
+   * from an empty array (ref resolved, no shards) so the caller can fail loud on
+   * an unreadable base instead of silently passing (a false green).
+   */
+  listShardsAtRef(ref: string): string[] | null;
   /** Contents of `path` at `ref`, or null when the path did not exist there. */
   showAtRef(ref: string, path: string): string | null;
 }
 
-/** Build the `module → semantic` map from every committed shard at `ref`. */
-export function readSemanticMapAtRef(ref: string, deps: RefReadDeps): Map<string, SemanticState> {
+/**
+ * Build the `module → semantic` map from every committed shard at `ref`. Returns
+ * `null` when the ref could not be resolved (propagating `listShardsAtRef`'s
+ * failure signal) so the caller distinguishes "base has no regressions" from
+ * "base could not be read" — the latter must never be reported as a pass.
+ */
+export function readSemanticMapAtRef(
+  ref: string,
+  deps: RefReadDeps
+): Map<string, SemanticState> | null {
+  const shards = deps.listShardsAtRef(ref);
+  if (shards === null) return null;
   const map = new Map<string, SemanticState>();
-  for (const path of deps.listShardsAtRef(ref)) {
+  for (const path of shards) {
     const md = deps.showAtRef(ref, path);
     if (md === null) continue;
     const parsed = parseModuleSemantic(md);
@@ -75,18 +91,20 @@ export function readSemanticMapAtRef(ref: string, deps: RefReadDeps): Map<string
 }
 
 /** Default git seams over a working directory (spawnSync, never throws). */
-export function defaultRefReadDeps(cwd: string, root = '.harness/comprehension'): RefReadDeps {
+export function defaultRefReadDeps(cwd: string, root = COMPREHENSION_ROOT): RefReadDeps {
   return {
-    listShardsAtRef(ref: string): string[] {
+    listShardsAtRef(ref: string): string[] | null {
       const res = spawnSync('git', ['ls-tree', '-r', '--name-only', ref, '--', root], {
         cwd,
         encoding: 'utf8',
       });
-      if (res.status !== 0 || typeof res.stdout !== 'string') return [];
+      // Non-zero ⇒ the ref could not be resolved: signal FAILURE (null), never an
+      // empty list, so an unfetched/bad base ref cannot masquerade as "no shards".
+      if (res.status !== 0 || typeof res.stdout !== 'string') return null;
       return res.stdout
         .split('\n')
         .map((l) => l.trim())
-        .filter((l) => l.endsWith('/_module.md') || l.endsWith('_module.md'));
+        .filter((l) => l.endsWith('/_module.md'));
     },
     showAtRef(ref: string, path: string): string | null {
       const res = spawnSync('git', ['show', `${ref}:${path}`], { cwd, encoding: 'utf8' });
