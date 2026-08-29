@@ -9,22 +9,23 @@ import {
 import type { AnalysisProvider } from '@harness-engineering/intelligence';
 import { resolveConfig } from '../config/loader';
 import type { HarnessConfig } from '../config/schema';
-import { readComprehensionConfig } from '../comprehension/config';
+import {
+  readComprehensionConfig,
+  comprehensionEndpoint,
+  selectSemanticModel,
+} from '../comprehension/config';
 import { shouldRunComprehendHook } from '../comprehension/hook';
 import type { ComprehensionConfig } from '../config/schema';
 import { createStaticExtractor } from '../comprehension/static-extractor';
 import { filesToModules, enumerateModules } from '../comprehension/invalidation';
-import {
-  maybeCreateGenerateSemantic,
-  defaultSemanticModel,
-} from '../comprehension/generate-semantic';
+import { maybeCreateGenerateSemantic } from '../comprehension/generate-semantic';
 import {
   runComprehend,
   runComprehendCheck,
   runComprehendStats,
   type ComprehendRunResult,
 } from '../comprehension/compile-run';
-import { resolveAnalysisProvider, resolveProviderKind } from '../mcp/utils/analysis-provider';
+import { resolveAnalysisProvider } from '../mcp/utils/analysis-provider';
 import { deriveChangedSurface, type ChangedSurface } from './validate-scope';
 import { logger } from '../output/logger';
 import { ExitCode } from '../utils/errors';
@@ -117,7 +118,7 @@ export async function resolveCompileProvider(
   // fallback inside `resolveAnalysisProvider`.
   resolveProvider: (model?: string) => Promise<AnalysisProvider | null> = (model) =>
     resolveAnalysisProvider(model, {
-      endpoint: { baseUrl: cconf.analysisBaseUrl, apiKey: cconf.analysisApiKey },
+      endpoint: comprehensionEndpoint(cconf),
     }) as Promise<AnalysisProvider | null>
 ): Promise<AnalysisProvider | null> {
   if (staticOnly || !cconf.semantic) return null;
@@ -245,10 +246,10 @@ async function runCompileMode(
   // SC4: static-only (`--static`) or semantic-disabled ⇒ no provider is resolved
   // — no credential, no LLM on the push/CI path.
   const provider = await resolveCompileProvider(cconf, opts.staticOnly ?? false);
-  // Provider-aware model: an explicit config model wins for any provider; otherwise
-  // Claude-family providers get the cheap Claude default and a local/OpenAI-compatible
-  // endpoint gets undefined (so it uses its own HARNESS_ANALYSIS_MODEL, not a Claude id).
-  const semanticModel = cconf.model ?? defaultSemanticModel(resolveProviderKind());
+  // Provider-aware model via the shared helper — resolved from the SAME config
+  // endpoint the provider was constructed with, so the model and provider decisions
+  // cannot diverge (ADR 0109 slice 3 fix).
+  const semanticModel = selectSemanticModel(cconf);
   const generateSemantic = maybeCreateGenerateSemantic(provider, {
     maxTokensPerRun: cconf.maxTokensPerRun,
     ...(semanticModel ? { model: semanticModel } : {}),

@@ -1,6 +1,16 @@
 import { describe, it, expect } from 'vitest';
-import { readComprehensionConfig } from '../../src/comprehension/config';
-import { HarnessConfigSchema, type HarnessConfig } from '../../src/config/schema';
+import {
+  readComprehensionConfig,
+  comprehensionEndpoint,
+  selectSemanticModel,
+} from '../../src/comprehension/config';
+import {
+  HarnessConfigSchema,
+  ComprehensionConfigSchema,
+  type HarnessConfig,
+} from '../../src/config/schema';
+
+const cfg = (over: Record<string, unknown> = {}) => ComprehensionConfigSchema.parse(over);
 
 describe('readComprehensionConfig', () => {
   it('returns all defaults when the block is absent', () => {
@@ -48,5 +58,51 @@ describe('ComprehensionConfigSchema wired into HarnessConfigSchema', () => {
       comprehension: { storage: 'nope' },
     });
     expect(parsed.success).toBe(false);
+  });
+});
+
+describe('comprehensionEndpoint', () => {
+  it('reflects analysisBaseUrl and is empty when unset', () => {
+    expect(comprehensionEndpoint(cfg({ analysisBaseUrl: 'http://vendor/v1' }))).toEqual({
+      baseUrl: 'http://vendor/v1',
+    });
+    expect(comprehensionEndpoint(cfg({}))).toEqual({});
+  });
+});
+
+describe('selectSemanticModel (ADR 0109 slice 3 — model/provider decisions cannot diverge)', () => {
+  // The regression this pins: a config-declared endpoint must NOT get a Claude
+  // model id forced onto it just because `claude` is on PATH. Before the fix, the
+  // model was chosen from `resolveProviderKind()` WITHOUT the endpoint, so it
+  // returned 'claude-cli' → 'claude-haiku-4-5' → the vendor gateway rejected it and
+  // comprehension silently produced zero semantic units.
+  it('returns undefined for a config endpoint even with claude on PATH (the bug)', () => {
+    expect(
+      selectSemanticModel(cfg({ analysisBaseUrl: 'http://vendor/v1' }), {
+        isClaudeCliAvailable: () => true,
+        env: {},
+      })
+    ).toBeUndefined();
+  });
+
+  it('returns the Claude default when no endpoint and claude is on PATH', () => {
+    expect(selectSemanticModel(cfg({}), { isClaudeCliAvailable: () => true, env: {} })).toBe(
+      'claude-haiku-4-5'
+    );
+  });
+
+  it('an explicit config model wins over any provider', () => {
+    expect(
+      selectSemanticModel(cfg({ model: 'my-model', analysisBaseUrl: 'http://vendor/v1' }), {
+        isClaudeCliAvailable: () => true,
+        env: {},
+      })
+    ).toBe('my-model');
+  });
+
+  it('returns undefined when nothing resolves (degrade to static-only)', () => {
+    expect(
+      selectSemanticModel(cfg({}), { isClaudeCliAvailable: () => false, env: {} })
+    ).toBeUndefined();
   });
 });

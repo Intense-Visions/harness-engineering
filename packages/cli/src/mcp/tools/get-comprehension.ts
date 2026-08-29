@@ -27,13 +27,14 @@ import {
 import type { AnalysisProvider } from '@harness-engineering/intelligence';
 import { runComprehend } from '../../comprehension/compile-run';
 import { createStaticExtractor } from '../../comprehension/static-extractor';
+import { maybeCreateGenerateSemantic } from '../../comprehension/generate-semantic';
 import {
-  maybeCreateGenerateSemantic,
-  defaultSemanticModel,
-} from '../../comprehension/generate-semantic';
-import { readComprehensionConfig } from '../../comprehension/config';
+  readComprehensionConfig,
+  comprehensionEndpoint,
+  selectSemanticModel,
+} from '../../comprehension/config';
 import { resolveConfig } from '../../config/loader';
-import { resolveAnalysisProvider, resolveProviderKind } from '../utils/analysis-provider';
+import { resolveAnalysisProvider } from '../utils/analysis-provider';
 import { sanitizePath } from '../utils/sanitize-path.js';
 
 export const getComprehensionDefinition = {
@@ -183,13 +184,15 @@ function resolveDefaultDeps(projectRoot: string): ServeOrRecompileDeps {
   // provider degrades to static-only (never throws).
   const resolveGenerateSemantic = async (): Promise<GenerateSemantic | undefined> => {
     const provider = cconf.semantic
-      ? ((await resolveAnalysisProvider(cconf.model ?? undefined).catch(
-          () => null
-        )) as AnalysisProvider | null)
+      ? ((await resolveAnalysisProvider(cconf.model ?? undefined, {
+          endpoint: comprehensionEndpoint(cconf),
+        }).catch(() => null)) as AnalysisProvider | null)
       : null;
-    // Provider-aware default: explicit config model wins; else Claude-family gets
-    // the cheap Claude id and a local/OpenAI endpoint uses its own configured model.
-    const semanticModel = cconf.model ?? defaultSemanticModel(resolveProviderKind());
+    // Provider-aware default via the shared helper — resolved from the SAME config
+    // endpoint used to construct the provider, so the model and provider decisions
+    // cannot diverge (ADR 0109 slice 3 fix; this recompile path now honors the
+    // config endpoint too — previously it was Anthropic/env-only).
+    const semanticModel = selectSemanticModel(cconf);
     return maybeCreateGenerateSemantic(provider, {
       maxTokensPerRun: cconf.maxTokensPerRun,
       ...(semanticModel ? { model: semanticModel } : {}),

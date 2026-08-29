@@ -1036,9 +1036,12 @@ export const ComprehensionConfigSchema = z.object({
    * Gemini/a local model) can serve semantic through its own gateway, declared
    * here rather than requiring an Anthropic key or the orchestrator-injected
    * `HARNESS_ANALYSIS_*` env. Absent ⇒ env fallback ⇒ static-only (graceful).
+   *
+   * SECURITY: only a non-secret base URL lives in config. The API key is
+   * intentionally NOT a config field (config is normally committed) — provide it
+   * via the `HARNESS_ANALYSIS_API_KEY` env var, which `makeLocalProvider` reads.
    */
   analysisBaseUrl: z.string().optional(),
-  analysisApiKey: z.string().optional(),
   maxTokensPerRun: z.number().int().positive().default(200_000),
   concurrency: z.number().int().positive().default(4),
   ci: z.enum(['verify', 'refresh', 'off']).default('verify'),

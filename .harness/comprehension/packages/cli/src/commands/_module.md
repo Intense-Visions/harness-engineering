@@ -1,8 +1,8 @@
 ---
 schemaVersion: 1
 module: 'packages/cli/src/commands'
-sourceHash: '961a23166293bfdf294487e2b2ebf636baa8c64337f5dbe7175b8eed6980867d'
-compiledAt: '2026-08-29T14:44:50.212Z'
+sourceHash: 'ffd035a4d8abbdf9bbbc25a887c896aeefb2152d7d9f8feced4ef6b0557d9009'
+compiledAt: '2026-08-29T15:27:04.073Z'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
@@ -384,8 +384,8 @@ import { BrandFinding } from '../brand/findings/finding'
 import { CliErgonomicsCraftInput, CliErgonomicsCraftOutput, runCliErgonomicsCraft } from '../cli-ergonomics-craft/index.js'
 import { CodeCraftInput, CodeCraftOutput, runCodeCraft } from '../code-craft/index.js'
 import { ComprehendRunResult, runComprehend, runComprehendCheck, runComprehendStats } from '../comprehension/compile-run'
-import { readComprehensionConfig } from '../comprehension/config'
-import { defaultSemanticModel, maybeCreateGenerateSemantic } from '../comprehension/generate-semantic'
+import { comprehensionEndpoint, readComprehensionConfig, selectSemanticModel } from '../comprehension/config'
+import { maybeCreateGenerateSemantic } from '../comprehension/generate-semantic'
 import { shouldRunComprehendHook } from '../comprehension/hook'
 import { enumerateModules, filesToModules } from '../comprehension/invalidation'
 import { createStaticExtractor } from '../comprehension/static-extractor'
@@ -415,7 +415,7 @@ import { runDesignCraft } from '../mcp/tools/design-craft'
 import { runDetectDrift } from '../mcp/tools/detect-drift'
 import { handleGetImpact } from '../mcp/tools/graph/index'
 import { runInstructionDensityAudit } from '../mcp/tools/instruction-density'
-import { resolveAnalysisProvider, resolveProviderKind } from '../mcp/utils/analysis-provider'
+import { resolveAnalysisProvider } from '../mcp/utils/analysis-provider'
 import { loadGraphStore } from '../mcp/utils/graph-loader'
 import { IdentifierKind, NamingCraftInput, NamingCraftOutput, runNamingCraft } from '../naming-craft/index.js'
 import { OutputFormatter, OutputMode, OutputModeType } from '../output/formatter'
