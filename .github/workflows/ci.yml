@@ -159,19 +159,6 @@ jobs:
         continue-on-error: true
         run: node packages/cli/dist/bin/harness.js comprehend --check
 
-      # ADVISORY (non-blocking): ADR 0109 slice 4 — token-free semantic-regression
-      # gate. Fails when a PR downgrades any module's unit `semantic: present →
-      # absent` vs the base ref (frontmatter reads only — no provider, no LLM, no
-      # credential). A red result means "regenerate locally and push" (in-session
-      # via put_comprehension, or a provider-backed `comprehend --changed`), NEVER
-      # "CI needs a key" — so it stays adopter-safe. Advisory on first landing per
-      # repo convention; promote to blocking (drop `continue-on-error`) once the
-      # effortless generation paths (ADR 0109 slices 2-3) are in wide use.
-      - name: Comprehension semantic-regression gate (advisory)
-        if: github.event_name == 'pull_request'
-        continue-on-error: true
-        run: node packages/cli/dist/bin/harness.js comprehend --check --since origin/${{ github.event.pull_request.base.ref }}
-
       # The operational-drift check is diff-based, so it needs the PR base commit
       # reachable. The build-and-test checkout above is shallow (fetch-depth 1),
       # so fetch the base branch to make origin/<base_ref> resolvable — the same
@@ -179,6 +166,20 @@ jobs:
       - name: Fetch PR base for operational-drift diff
         if: github.event_name == 'pull_request'
         run: git fetch origin ${{ github.event.pull_request.base.ref }}
+
+      # ADVISORY (non-blocking): ADR 0109 slice 4 — token-free semantic-regression
+      # gate. Fails when a PR downgrades any module's unit `semantic: present →
+      # absent` vs the base ref (frontmatter reads only — no provider, no LLM, no
+      # credential). A red result means "regenerate locally and push" (in-session
+      # via put_comprehension, or a provider-backed `comprehend --changed`), NEVER
+      # "CI needs a key" — so it stays adopter-safe. Runs AFTER the base fetch above
+      # so origin/<base_ref> resolves. Advisory on first landing per repo convention;
+      # promote to blocking (drop `continue-on-error`) once the effortless generation
+      # paths (ADR 0109 slices 2-3) are in wide use.
+      - name: Comprehension semantic-regression gate (advisory)
+        if: github.event_name == 'pull_request'
+        continue-on-error: true
+        run: node packages/cli/dist/bin/harness.js comprehend --check --since origin/${{ github.event.pull_request.base.ref }}
 
       # ADVISORY (non-blocking): dogfood check-operational-drift on the PR diff.
       # Surfaces gate-softening operational changes (hook profiles, harness.config
