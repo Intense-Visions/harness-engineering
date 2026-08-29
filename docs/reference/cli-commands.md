@@ -230,7 +230,7 @@ Compile and maintain the per-module comprehension substrate
 
 ### `harness comprehension-merge-driver <base> <ours> <theirs> <path>`
 
-Internal git merge driver for comprehension \_module.md shards (regenerate-on-conflict)
+[internal, git-invoked] Merge driver for comprehension \_module.md shards (keep-ours-if-fresh, else static recompile)
 
 **Arguments:**
 
