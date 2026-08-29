@@ -1,117 +1,31 @@
 ---
 schemaVersion: 1
-module: 'packages/cli/src/commands'
-sourceHash: 'de560c17f86fe6da951d3f63d6d56d67e7ae3214619b6bb25b37124907f30908'
-compiledAt: '2026-08-29T15:37:24.533Z'
-compiler: { static: '1.0.0', semantic: '1.0.0' }
-model: null
-semantic: absent
-members:
-  [
-    '_registry.ts',
-    'add.ts',
-    'adoption.ts',
-    'advise-skills.test.ts',
-    'advise-skills.ts',
-    'align-design-system.ts',
-    'api-craft.ts',
-    'audit-protected.ts',
-    'backfill-skill-provenance.ts',
-    'blueprint.ts',
-    'check-arch.ts',
-    'check-deployment.ts',
-    'check-deps.ts',
-    'check-design.ts',
-    'check-docs.ts',
-    'check-harness-strength.ts',
-    'check-operational-drift.test.ts',
-    'check-operational-drift.ts',
-    'check-perf.ts',
-    'check-phase-gate.ts',
-    'check-security.ts',
-    'check-vocabulary.ts',
-    'cleanup-sessions.ts',
-    'cleanup.ts',
-    'cli-ergonomics-craft.ts',
-    'code-craft.ts',
-    'comprehend.ts',
-    'comprehension-merge-driver.ts',
-    'copy-craft.ts',
-    'create-skill.ts',
-    'cross-check.ts',
-    'dashboard.ts',
-    'design-pipeline.ts',
-    'docs-craft.ts',
-    'doctor.ts',
-    'fix-drift.ts',
-    'generate-agent-definitions.ts',
-    'generate-slash-commands.ts',
-    'generate.ts',
-    'holiday-confidence.ts',
-    'impact-preview.ts',
-    'init-minimal.ts',
-    'init.ts',
-    'insights.ts',
-    'install-constraints.ts',
-    'install.ts',
-    'knowledge-craft.ts',
-    'knowledge-pipeline.test.ts',
-    'knowledge-pipeline.ts',
-    'maintenance-config.test.ts',
-    'maintenance-config.ts',
-    'maintenance-run.ts',
-    'maintenance.ts',
-    'mcp-guard.ts',
-    'mcp.ts',
-    'migrate-backends.ts',
-    'migrate.ts',
-    'models.ts',
-    'naming-craft.ts',
-    'operational-drift.test.ts',
-    'operational-drift.ts',
-    'orchestrator-black-box.test.ts',
-    'orchestrator-black-box.ts',
-    'orchestrator.ts',
-    'outcome-eval-ci.ts',
-    'perf.ts',
-    'pre-merge-brief.ts',
-    'predict.ts',
-    'proposals.ts',
-    'publish-analyses.ts',
-    'recommend.ts',
-    'rehearse.ts',
-    'review-ci-local-adapter.ts',
-    'review-ci.ts',
-    'rollback.ts',
-    'scan-config.ts',
-    'search.ts',
-    'security-craft.ts',
-    'setup-mcp.ts',
-    'setup-types.ts',
-    'setup.ts',
-    'share.ts',
-    'skill-regression.test.ts',
-    'skill-regression.ts',
-    'snapshot.ts',
-    'spec-craft.ts',
-    'stale-constraints.ts',
-    'sync-analyses.ts',
-    'sync-main.ts',
-    'taint.ts',
-    'telemetry-wizard.ts',
-    'test-craft.ts',
-    'traceability.ts',
-    'uninstall-constraints.ts',
-    'uninstall.ts',
-    'update.ts',
-    'usage.ts',
-    'validate-cross-check.ts',
-    'validate-scope.ts',
-    'validate.ts',
-    'verify.test.ts',
-    'verify.ts',
-  ]
+module: "packages/cli/src/commands"
+sourceHash: "de560c17f86fe6da951d3f63d6d56d67e7ae3214619b6bb25b37124907f30908"
+compiledAt: "2026-08-29T15:37:24.533Z"
+compiler: { static: "1.0.0", semantic: "1.0.0" }
+model: "claude-haiku-4-5-20251001"
+semantic: present
+members: ["_registry.ts", "add.ts", "adoption.ts", "advise-skills.test.ts", "advise-skills.ts", "align-design-system.ts", "api-craft.ts", "audit-protected.ts", "backfill-skill-provenance.ts", "blueprint.ts", "check-arch.ts", "check-deployment.ts", "check-deps.ts", "check-design.ts", "check-docs.ts", "check-harness-strength.ts", "check-operational-drift.test.ts", "check-operational-drift.ts", "check-perf.ts", "check-phase-gate.ts", "check-security.ts", "check-vocabulary.ts", "cleanup-sessions.ts", "cleanup.ts", "cli-ergonomics-craft.ts", "code-craft.ts", "comprehend.ts", "comprehension-merge-driver.ts", "copy-craft.ts", "create-skill.ts", "cross-check.ts", "dashboard.ts", "design-pipeline.ts", "docs-craft.ts", "doctor.ts", "fix-drift.ts", "generate-agent-definitions.ts", "generate-slash-commands.ts", "generate.ts", "holiday-confidence.ts", "impact-preview.ts", "init-minimal.ts", "init.ts", "insights.ts", "install-constraints.ts", "install.ts", "knowledge-craft.ts", "knowledge-pipeline.test.ts", "knowledge-pipeline.ts", "maintenance-config.test.ts", "maintenance-config.ts", "maintenance-run.ts", "maintenance.ts", "mcp-guard.ts", "mcp.ts", "migrate-backends.ts", "migrate.ts", "models.ts", "naming-craft.ts", "operational-drift.test.ts", "operational-drift.ts", "orchestrator-black-box.test.ts", "orchestrator-black-box.ts", "orchestrator.ts", "outcome-eval-ci.ts", "perf.ts", "pre-merge-brief.ts", "predict.ts", "proposals.ts", "publish-analyses.ts", "recommend.ts", "rehearse.ts", "review-ci-local-adapter.ts", "review-ci.ts", "rollback.ts", "scan-config.ts", "search.ts", "security-craft.ts", "setup-mcp.ts", "setup-types.ts", "setup.ts", "share.ts", "skill-regression.test.ts", "skill-regression.ts", "snapshot.ts", "spec-craft.ts", "stale-constraints.ts", "sync-analyses.ts", "sync-main.ts", "taint.ts", "telemetry-wizard.ts", "test-craft.ts", "traceability.ts", "uninstall-constraints.ts", "uninstall.ts", "update.ts", "usage.ts", "validate-cross-check.ts", "validate-scope.ts", "validate.ts", "verify.test.ts", "verify.ts"]
 ---
+
+## Summary
+
+The commands module (~94 commands) implements a factory-pattern CLI using Commander.js, auto-generated via _registry.ts. Commands span setup, validation gates, LLM-driven quality crafts, analysis/reporting, fleet management, integrations, and recovery—all tightly coupled to centralized config, output formatting, and the orchestrator dispatch system.
+
+## Invariants
+
+- Barrel generation: _registry.ts auto-generated via pnpm run generate-barrel-exports; all new commands require createXxxCommand() export
+- Command creator contract: each command exports createXxxCommand(): Command, registered automatically via commandCreators array
+- Config schema authority: HarnessConfig from ../config/schema is single source of truth; all commands resolve via loadConfig() or resolveConfig()
+- Error handling uniformity: all commands return Result<T, CLIError> with explicit exit codes matching ExitCode enum
+- Skill registry atomicity: install/uninstall/update flows depend on atomic lockfile operations (readLockfile/writeLockfile); concurrent mutations break
+- Analysis backend pluggability: check commands must resolve via resolveAnalysisProvider() and respect ALLOWED_COGNITIVE_MODES
+- Orchestrator as central dispatch: fleet/maintenance/proposals commands depend on Orchestrator/AgentDispatcher/TaskDefinition contracts
+- Output formatter uniformity: all commands use OutputFormatter with consistent modes (--json, --verbose, --quiet)
+- Path resolution as discovery: skill/template/persona location depend on resolve*Dir() functions; broken paths silently disable subsystems
+- Merge driver early setup: comprehensionMergeDriver and mergeOursDriver must precede git operations to avoid state corruption
+- Telemetry as global state: ensureTelemetryConfigured() is global configuration; missing setup silently disables analytics
 
 ## Interface Contract
 
