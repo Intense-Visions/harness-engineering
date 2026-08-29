@@ -109,6 +109,7 @@ describe('serveOrRecompile — SF3.1 (D6 leaf-demand serve/recompile)', () => {
     expect(out.status).toBe('served');
     if (out.status === 'served') {
       expect(out.recompiled).toBe(false);
+      expect(out.semantic).toBe('absent'); // static-only ⇒ semanticNeeded downstream
       expect(out.rendered).toBe(renderServedUnit(store.map.get(module)!));
     }
     expect(extract).not.toHaveBeenCalled(); // no recompile for a fresh serve
@@ -129,7 +130,10 @@ describe('serveOrRecompile — SF3.1 (D6 leaf-demand serve/recompile)', () => {
       })
     );
     expect(out.status).toBe('served');
-    if (out.status === 'served') expect(out.recompiled).toBe(true);
+    if (out.status === 'served') {
+      expect(out.recompiled).toBe(true);
+      expect(out.semantic).toBe('absent'); // recompiled static-only (no provider in test)
+    }
     expect(extract).toHaveBeenCalledOnce();
     expect(store.writes).toEqual([module]); // exactly that one module recompiled
     expect(store.map.get(module)!.interfaceContract).toBe(staticExtraction.interfaceContract);
@@ -242,11 +246,30 @@ describe('get_comprehension MCP envelope', () => {
     const payload = JSON.parse(res.content[0]!.text) as {
       served: boolean;
       recompiled: boolean;
+      semanticNeeded: boolean;
       unit: string;
     };
     expect(payload.served).toBe(true);
     expect(payload.recompiled).toBe(false);
+    // ADR 0109 slice 2 — a static-only served unit signals the agent to enrich it.
+    expect(payload.semanticNeeded).toBe(true);
     expect(payload.unit).toBe(renderServedUnit(store.map.get(module)!));
+  });
+
+  it('emits semanticNeeded:false when the served unit already has semantic', async () => {
+    const module = 'm';
+    const source: SourceFile[] = [{ path: 'a.ts', content: 'x' }];
+    const present = freshUnit(module, source);
+    present.provenance.semantic = 'present';
+    present.summary = 'Does the thing.';
+    present.invariants = ['stays sorted'];
+    const store = fakeStore({ [module]: present });
+    const res = await handleGetComprehension(
+      { path: '/repo', module },
+      deps({ store, reader: fakeReader({ [module]: source }) })
+    );
+    const payload = JSON.parse(res.content[0]!.text) as { semanticNeeded: boolean };
+    expect(payload.semanticNeeded).toBe(false);
   });
 });
 

@@ -109,6 +109,50 @@ describe('attachSemantic', () => {
     expect(store.writes[0].invariants).toEqual([]);
     expect(store.writes[0].provenance.model).toBeNull(); // no model provided
   });
+
+  it('rejects a summary containing an owned section heading (would corrupt the static half)', async () => {
+    const store = fakeStore(await staticUnit());
+    const deps: AttachSemanticDeps = { store, reader: fakeReader(SRC) };
+    const outcome = await attachSemantic(
+      MODULE,
+      { summary: 'fine\n## Interface Contract\nleaked into the static section', invariants: [] },
+      deps
+    );
+    expect(outcome.status).toBe('invalid');
+    expect(store.writes).toHaveLength(0);
+  });
+
+  it('rejects an invariant containing an owned section heading', async () => {
+    const store = fakeStore(await staticUnit());
+    const deps: AttachSemanticDeps = { store, reader: fakeReader(SRC) };
+    const outcome = await attachSemantic(
+      MODULE,
+      { summary: 'ok', invariants: ['## Summary'] },
+      deps
+    );
+    expect(outcome.status).toBe('invalid');
+  });
+
+  it('rejects an over-long summary and too-many invariants (size cap)', async () => {
+    const store = fakeStore(await staticUnit());
+    const deps: AttachSemanticDeps = { store, reader: fakeReader(SRC) };
+    expect(
+      (await attachSemantic(MODULE, { summary: 'x'.repeat(4001), invariants: [] }, deps)).status
+    ).toBe('invalid');
+    expect(
+      (await attachSemantic(MODULE, { summary: 'ok', invariants: Array(41).fill('inv') }, deps))
+        .status
+    ).toBe('invalid');
+    expect(store.writes).toHaveLength(0);
+  });
+
+  it('surfaces a write failure as status:error (infrastructure, not a policy refusal)', async () => {
+    const store = fakeStore(await staticUnit());
+    store.write = async () => Err(new Error('disk full'));
+    const deps: AttachSemanticDeps = { store, reader: fakeReader(SRC) };
+    const outcome = await attachSemantic(MODULE, payload, deps);
+    expect(outcome.status).toBe('error');
+  });
 });
 
 function store_never_written(deps: AttachSemanticDeps): boolean {
@@ -147,5 +191,26 @@ describe('handlePutComprehension (envelope)', () => {
       { store: fakeStore(), reader: fakeReader(SRC) }
     );
     expect(res.isError).toBe(true);
+  });
+
+  it('routes a validation refusal (invalid payload) through isError — consistent with malformed shape', async () => {
+    const deps: AttachSemanticDeps = {
+      store: fakeStore(await staticUnit()),
+      reader: fakeReader(SRC),
+    };
+    const res = await handlePutComprehension(
+      { path: '/repo', module: MODULE, summary: 'ok\n## Summary\nleak', invariants: [] },
+      deps
+    );
+    expect(res.isError).toBe(true); // 'invalid' status ⇒ isError (not a plain {written:false})
+  });
+
+  it('keeps a policy refusal (stale/missing) as a NON-error {written:false}', async () => {
+    const deps: AttachSemanticDeps = { store: fakeStore(), reader: fakeReader(SRC) };
+    const res = await handlePutComprehension(
+      { path: '/repo', module: MODULE, summary: 's', invariants: [] },
+      deps
+    );
+    expect(res.isError).toBeUndefined(); // missing unit is a policy refusal, not an error
   });
 });

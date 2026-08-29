@@ -1,8 +1,8 @@
 ---
 schemaVersion: 1
 module: 'packages/cli/src/mcp/tools'
-sourceHash: 'f7b15500f7be244dc265e5579207de9dc285a07b8870678c4fdc3b8e40ed3e4c'
-compiledAt: '2026-08-29T14:14:28.136Z'
+sourceHash: '73fcf26cdcc998e4102cd71d020a9415755a3f388e0566902a29eddf4ff996f7'
+compiledAt: '2026-08-29T15:51:34.963Z'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
@@ -154,6 +154,9 @@ export InteractionTransitionSchema
 export InteractionTypeSchema
 export KnowledgeCraftInput
 export KnowledgeCraftOutput
+export MAX_INVARIANTS
+export MAX_INVARIANT_CHARS
+export MAX_SUMMARY_CHARS
 export NamingCraftInput
 export NamingCraftOutput
 export RiskLevel

@@ -94,10 +94,27 @@ export interface SemanticPayload {
   model?: string;
 }
 
-/** Outcome of an attach request. Never a throw. */
+/** Caps on the write-back size (the compiler path bounds output tokens; enforce a
+ * comparable ceiling here so a write-back cannot bloat the served substrate). */
+export const MAX_SUMMARY_CHARS = 4000;
+export const MAX_INVARIANTS = 40;
+export const MAX_INVARIANT_CHARS = 600;
+
+/** A top-level owned section heading in agent prose would corrupt the static half
+ * on round-trip (the serializer's `splitSections` treats these as boundaries). */
+const OWNED_HEADING = /^\s*##\s+(Summary|Invariants|Interface Contract|Dependency Slice)\s*$/m;
+
+/**
+ * Outcome of an attach request. Never a throw. `invalid` (malformed payload) and
+ * `error` (infrastructure, e.g. a failed write) are CLIENT/SYSTEM errors surfaced
+ * as `isError` envelopes; `unavailable` (no unit) and `stale` are policy refusals
+ * surfaced as normal `{ written: false }` results — so an agent can branch on
+ * "retry after fixing input / infra" vs "recompile first".
+ */
 export type PutComprehensionOutcome =
   | { status: 'written'; module: string; rendered: string }
   | { status: 'invalid'; module: string; reason: string }
+  | { status: 'error'; module: string; reason: string }
   | { status: 'unavailable'; module: string; reason: string }
   | { status: 'stale'; module: string; reason: string };
 
@@ -124,6 +141,31 @@ export async function attachSemantic(
   }
   if (parsed.data.summary.trim().length === 0) {
     return { status: 'invalid', module, reason: 'summary must be non-empty' };
+  }
+  if (
+    OWNED_HEADING.test(parsed.data.summary) ||
+    parsed.data.invariants.some((i) => OWNED_HEADING.test(i))
+  ) {
+    return {
+      status: 'invalid',
+      module,
+      reason:
+        'summary/invariants must not contain a top-level owned section heading ' +
+        '(## Summary / ## Invariants / ## Interface Contract / ## Dependency Slice)',
+    };
+  }
+  if (parsed.data.summary.length > MAX_SUMMARY_CHARS) {
+    return { status: 'invalid', module, reason: `summary exceeds ${MAX_SUMMARY_CHARS} chars` };
+  }
+  if (
+    parsed.data.invariants.length > MAX_INVARIANTS ||
+    parsed.data.invariants.some((i) => i.length > MAX_INVARIANT_CHARS)
+  ) {
+    return {
+      status: 'invalid',
+      module,
+      reason: `too many invariants (max ${MAX_INVARIANTS}) or an invariant exceeds ${MAX_INVARIANT_CHARS} chars`,
+    };
   }
 
   const existing = await deps.store.read(module);
@@ -160,9 +202,14 @@ export async function attachSemantic(
     invariants: parsed.data.invariants,
   };
 
+  // TOCTOU note: source could change between the serve-gate check above and this
+  // write. The written unit would then carry a pre-change `sourceHash` and the NEXT
+  // serve gate would refuse it (source-stale) forcing a recompile — self-healing,
+  // not a correctness hole, so no lock is needed here.
   const written = await deps.store.write(updated);
   if (!written.ok) {
-    return { status: 'unavailable', module, reason: written.error.message };
+    // Infrastructure failure (distinct from a policy refusal) ⇒ surfaced as isError.
+    return { status: 'error', module, reason: `write failed: ${written.error.message}` };
   }
   return { status: 'written', module, rendered: renderServedUnit(updated) };
 }
@@ -223,6 +270,16 @@ export async function handlePutComprehension(
         })
       );
     }
+    // Malformed payload or infrastructure failure ⇒ isError (consistent shape for
+    // every shape/system error, regardless of where in the pipeline it was caught).
+    if (outcome.status === 'invalid' || outcome.status === 'error') {
+      return textEnvelope(
+        JSON.stringify({ module: outcome.module, written: false, reason: outcome.reason }),
+        true
+      );
+    }
+    // Policy refusal (no unit / source-stale) ⇒ a normal result the agent handles
+    // by recompiling first, not an error.
     return textEnvelope(
       JSON.stringify({ module: outcome.module, written: false, reason: outcome.reason })
     );
