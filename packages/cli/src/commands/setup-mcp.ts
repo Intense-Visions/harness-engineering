@@ -94,6 +94,7 @@ export const ALL_MCP_TOOLS: string[] = [
   'run_code_review',
   'gather_context',
   'get_comprehension',
+  'put_comprehension',
   'assess_project',
   'canary_probe',
   'canary_recommend_framework',

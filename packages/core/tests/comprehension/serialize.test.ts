@@ -32,6 +32,14 @@ function absent(): ComprehensionUnit {
   };
 }
 
+/** A freshly-compiled unit as ADR 0109 emits it: NO wall-clock `compiledAt`. */
+function freshNoCompiledAt(): ComprehensionUnit {
+  const u = absent();
+  const prov = { ...u.provenance };
+  delete prov.compiledAt;
+  return { ...u, provenance: prov };
+}
+
 describe('comprehension serialize/parse', () => {
   it('round-trips a present (full) unit idempotently', () => {
     const md = serializeUnit(present());
@@ -44,6 +52,17 @@ describe('comprehension serialize/parse', () => {
     const parsed = parseUnit(serializeUnit(present()));
     expect(parsed.ok).toBe(true);
     if (parsed.ok) expect(parsed.value.provenance).toEqual(present().provenance);
+  });
+
+  it('a fresh (no compiledAt) unit round-trips byte-stably and stays compiledAt-free (ADR 0109)', () => {
+    const md = serializeUnit(freshNoCompiledAt());
+    expect(md).not.toContain('compiledAt'); // no wall-clock emitted
+    const parsed = parseUnit(md);
+    expect(parsed.ok).toBe(true);
+    if (parsed.ok) {
+      expect(parsed.value.provenance.compiledAt).toBeUndefined();
+      expect(serializeUnit(parsed.value)).toBe(md); // byte-identical round-trip
+    }
   });
 
   it('absent unit omits Summary/Invariants sections and parses empty', () => {

@@ -45,7 +45,13 @@ export interface ComprehensionProvenance {
   /** Full SHA-256 over directory membership + sorted member-file contents. */
   sourceHash: string;
   /** ISO-8601 timestamp of compilation. */
-  compiledAt: string;
+  /**
+   * ADR 0109: OPTIONAL and omitted from freshly compiled shards. A unit is a pure
+   * function of its source at `sourceHash`, so no wall-clock is written (git
+   * history records when a shard landed). Retained only to parse legacy shards
+   * that still carry it; migrates away lazily on the next recompile.
+   */
+  compiledAt?: string;
   /** Compiler component versions. */
   compiler: { static: string; semantic: string };
   /** Resolved model id for the semantic half, or null when static-only. */

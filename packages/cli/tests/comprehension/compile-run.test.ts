@@ -297,7 +297,7 @@ describe('runComprehend — changed/all compile + write', () => {
       env: {},
     });
     expect(store.writes[0].provenance.semantic).toBe('absent');
-    const priorCompiledAt = store.writes[0].provenance.compiledAt;
+    const priorHash = store.writes[0].provenance.sourceHash;
     // Second: same source, now WITH a provider → must recompile to add semantic.
     const generateSemantic: GenerateSemantic = async () => ({ summary: 's', invariants: [] });
     const second = await runComprehend({
@@ -313,8 +313,11 @@ describe('runComprehend — changed/all compile + write', () => {
     expect(second.compiled).toEqual(['pkg/a']);
     expect(store.writes).toHaveLength(2);
     expect(store.writes[1].provenance.semantic).toBe('present');
-    // C1 belt: hash unchanged ⇒ compiledAt preserved across the upgrade.
-    expect(store.writes[1].provenance.compiledAt).toBe(priorCompiledAt);
+    // ADR 0109: the source hash is unchanged across a pure semantic upgrade, and
+    // no wall-clock is written — static provenance is byte-stable, so a semantic
+    // upgrade never churns anything but the semantic sections themselves.
+    expect(store.writes[1].provenance.sourceHash).toBe(priorHash);
+    expect(store.writes[1].provenance.compiledAt).toBeUndefined();
   });
 
   it('skips a module whose source reader returns null (no throw)', async () => {

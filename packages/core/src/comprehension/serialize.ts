@@ -45,7 +45,9 @@ export function serializeUnit(unit: ComprehensionUnit): string {
     `schemaVersion: ${p.schemaVersion}`,
     `module: ${quoteYamlScalar(p.module)}`,
     `sourceHash: ${quoteYamlScalar(p.sourceHash)}`,
-    `compiledAt: ${quoteYamlScalar(p.compiledAt)}`,
+    // ADR 0109: `compiledAt` is emitted only for legacy units that still carry it
+    // (freshly compiled shards omit it — byte-stability, no wall-clock).
+    ...(p.compiledAt ? [`compiledAt: ${quoteYamlScalar(p.compiledAt)}`] : []),
     `compiler: { static: ${quoteYamlScalar(p.compiler.static)}, semantic: ${quoteYamlScalar(
       p.compiler.semantic
     )} }`,
@@ -133,12 +135,15 @@ function parseProvenance(data: Record<string, unknown>): Result<ComprehensionPro
   const compiler = parseCompiler(data.compiler);
   const model = data.model === null || data.model === undefined ? null : scalarString(data.model);
   const members = Array.isArray(data.members) ? data.members.map((m) => scalarString(m)) : [];
-  const compiledAt = typeof data.compiledAt === 'string' ? data.compiledAt : '';
+  // ADR 0109: preserve a legacy `compiledAt` if present so an untouched shard
+  // round-trips unchanged; omit it entirely otherwise (freshly compiled units).
+  const compiledAt =
+    typeof data.compiledAt === 'string' && data.compiledAt.length > 0 ? data.compiledAt : undefined;
   return Ok({
     schemaVersion: version.value,
     module,
     sourceHash,
-    compiledAt,
+    ...(compiledAt ? { compiledAt } : {}),
     compiler,
     model,
     semantic,

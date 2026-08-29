@@ -1,40 +1,29 @@
 ---
 schemaVersion: 1
-module: 'packages/cli/src/comprehension'
-sourceHash: 'e8b873afc38d8bc429180aea76c4b64deff63aa0858c19ea6d18559c5fc89627'
-compiledAt: '2026-08-28T01:22:08.918Z'
-compiler: { static: '1.0.0', semantic: '1.0.0' }
-model: 'claude-haiku-4-5-20251001'
+module: "packages/cli/src/comprehension"
+sourceHash: "054ffb9086e25314437eb7ccdb901a3958c1e3253c1e52eb6ab9763d03b708df"
+compiler: { static: "1.0.0", semantic: "1.0.0" }
+model: "claude-haiku-4-5-20251001"
 semantic: present
-members:
-  [
-    'compile-run.ts',
-    'config.ts',
-    'generate-semantic.ts',
-    'hook.ts',
-    'invalidation.ts',
-    'static-extractor.ts',
-  ]
+members: ["compile-run.ts", "config.ts", "generate-semantic.ts", "hook.ts", "invalidation.ts", "static-extractor.ts"]
 ---
 
 ## Summary
 
-`packages/cli/src/comprehension` is the compiled-comprehension substrate for the harness — a modular system that generates static and semantic summaries of code modules for LLM-free serving or rich analysis. Given a set of modules (changed files or all), it compiles each under bounded concurrency. Each compile produces a `ComprehensionUnit` with static metadata (interface contract, dependency slice via AST parsing) and optional semantic content (LLM-generated summary + invariants). The **C1 freshness gate** skips recompile if the module's source hash matches the committed unit AND semantic requirements are satisfied—eliminating churn on push/CI/serve paths. Architecture is strictly IO-injected for testability; the static extractor parses TypeScript/JavaScript AST; the semantic half is an LLM adapter with tight cost controls (bounded prompt, cheap default model, per-run token budget, `disableThinking`). Authority-in-TS: provider output is re-validated against Zod schema at the seam; failures degrade to `semantic:absent`, never partial. Reentrancy is a run-boundary concern via env flag—nested `claude` children are refused, but in-process concurrent siblings within the run proceed. Hook (pre-commit, opt-in, static-only) and check/stats (token-free CI backstop) complete the tooling.
+packages/cli/src/comprehension is the CLI-side driver for compiled module comprehension—extracting static interface contracts and optionally generating semantic summaries with language-model analysis. It implements phases 3–5 of the comprehension substrate: semantic generation, static extraction, and pre-commit hook gating.
+
+The module comprises five focused pieces: compile-run.ts orchestrates compilation of a module set with bounded concurrency, a shared per-run token budget, and optional LLM semantics, implementing a C1 freshness gate to skip recompiling already-fresh units. generate-semantic.ts adapts an AnalysisProvider into a bounded semantic seam with per-run budgets and strict Zod validation. static-extractor.ts parses TS/JS modules to extract interface contracts and dependencies, anchoring the public surface to index.* when present. invalidation.ts maps changed files to module directories and enumerates all modules. config.ts and hook.ts provide safe-default configuration and a pre-commit gate.
 
 ## Invariants
 
-- Freshness is canonical: sourceHash computed from EXACTLY the files the canonical reader returns — divergence between freshness check and compile is fatal
-- C1 semantic sufficiency: A unit is reusable only if hash matches AND (run is static-only OR unit has semantic:present). A semantic:absent unit must recompile to add semantic
-- Timestamp preservation on upgrade: When source unchanged (hash collision), compiledAt carries forward from prior unit — never moves unless sourceHash moves
-- Authority-in-TS at the seam: Provider output re-validated against semanticResponseSchema at CLI→provider boundary; Zod parsing failure → null + log, never corrupts unit
-- Per-run budget is shared state: Token spend across all modules enforced from RETURNED tokenUsage.totalTokens; when provider omits usage, pessimistic floor (maxOutputTokens per call) charged so budget converges
-- Reentrancy is run-boundary, not per-call: withComprehensionActive sets HARNESS_COMPREHENSION_ACTIVE for whole run's duration; per-module seam never checks/sets/clears. Concurrent siblings proceed; cross-process nesting refused
-- Input bounded by static surface, not module size: Prompt = interface contract + dependency slice + bounded digest (12K chars default). Digest truncation hard-capped; marker appended only if it fits budget
-- Graceful degradation non-negotiable: parse failure, provider miss, budget exhausted, write error → module degraded to lower tier, never partial, never fake, never fatal
-- Force-recompile preserves identity: force:true bypasses C1 gate but still preserves compiledAt on hash collision — no git churn on semantic upgrades of unchanged source
-- Order preserved despite parallelism: mapWithConcurrency maintains input order in results despite bounded worker pool; aggregation reflects input sequence
-- Static extraction non-recursive: Only visits passed sourceFiles (canonical D3 member set); interface barrel-anchored on index.\*, else union of all exports; empty input → empty contract
-- Hook runs static-only on commit path: --static flag bypasses provider resolution; pre-commit substrate never LLM-backed, so commits never require credentials or API calls
+- Fresh units never re-run (C1 gate): a committed unit is reusable when sourceHash matches current hash AND it is semantically sufficient for the run (no semantic added if present, static-only runs need no semantic). Skip entirely—no recompile, write, provider call, or git churn.
+- Reentrancy guard is RUN-boundary, not per-module: HARNESS_COMPREHENSION_ACTIVE env var marks the whole run duration and blocks cross-process nesting, but in-process concurrent siblings proceed normally. Never consulted per-module, so concurrency:4 works.
+- Input is bounded by static surface + budget digest, never by module size: the semantic prompt is always interface + dependencies + ≤12,000-char source digest, making cost proportional to semantic significance, not file count.
+- Authority-in-TS: validate all LLM output at the seam: responses are re-validated against semanticResponseSchema (Zod, .strip() tolerant of extra keys); malformed output returns null and logs a warning, leaving the unit semantic:absent, never partial.
+- Failure mode is graceful degradation to semantic:absent: missing provider, failed parse, exhausted budget, network error—all return null or omit generateSemantic, never throw or corrupt the unit. Static half always completes.
+- Static extraction is deterministic (dedup + sort) and never fabricates: exports and imports are sorted, de-duplicated, and accumulated from parsed members. Unparseable members are skipped (degrade), empty surfaces render as ''.
+- Public surface is barrel-anchored: when index.* exists, ONLY its exports define the interface; otherwise the union of all members' top-level exports. Prevents accidental re-exports of internals.
+- Token budget is enforced from RETURNED usage, fail-loud on the next call: when a provider omits usage, charge a pessimistic floor (maxOutputTokens) so budget converges. Exhaustion is warned once; remaining modules left semantic:absent.
 
 ## Interface Contract
 
@@ -48,6 +37,7 @@ export boundSourceDigest
 export buildSemanticPrompt
 export createGenerateSemantic
 export createStaticExtractor
+export defaultSemanticModel
 export enumerateModules
 export filesToModules
 export isComprehensionReentrant
@@ -69,6 +59,7 @@ export withComprehensionActive
 
 ```
 import { ComprehensionConfig, ComprehensionConfigSchema, HarnessConfig } from '../config/schema'
+import { ProviderKind } from '../mcp/utils/analysis-provider'
 import { readComprehensionConfig } from './config'
 import { isComprehensionReentrant, withComprehensionActive } from './generate-semantic'
 import { ComprehensionListing, ComprehensionProvenance, ComprehensionSourceFile, ComprehensionUnit, DEFAULT_SOURCE_EXTENSIONS, ExtractStatic, GenerateSemantic, Result, SemanticGeneration, SemanticInput, SkippedUnit, StaticExtraction, TypeScriptParser, compileModule, computeSourceHash, estimateTokens, renderServedUnit, serveGate } from '@harness-engineering/core'

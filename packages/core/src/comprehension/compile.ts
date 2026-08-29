@@ -7,17 +7,6 @@ export interface CompileOptions {
   extractStatic: ExtractStatic;
   /** Optional — the advisory semantic half. Absent/null ⇒ static-only (SC4). */
   generateSemantic?: GenerateSemantic;
-  /** Injected clock for deterministic `compiledAt` (defaults to real now). */
-  now?: () => Date;
-  /**
-   * C1 — prior unit provenance (sourceHash + compiledAt) to reuse the timestamp
-   * from when the freshly-computed `sourceHash` is unchanged. `compiledAt` must
-   * move ONLY when `sourceHash` moves; otherwise a recompile of unchanged source
-   * (e.g. a semantic upgrade) would rewrite the committed unit with a new
-   * timestamp and churn git on every run. Passed by value so `compileModule`
-   * stays pure (no fs read in core).
-   */
-  prior?: { sourceHash: string; compiledAt: string };
 }
 
 /**
@@ -81,18 +70,16 @@ export async function compileModule(
     }
   }
 
-  // C1: reuse the prior timestamp when the source is unchanged, so `compiledAt`
-  // moves only when `sourceHash` moves (no churn on a no-op / semantic-upgrade).
-  const compiledAt =
-    opts.prior && opts.prior.sourceHash === sourceHash
-      ? opts.prior.compiledAt
-      : (opts.now ?? (() => new Date()))().toISOString();
+  // ADR 0109: no wall-clock in the committed shard. A unit is a pure function of
+  // its source at `sourceHash`, so the emitted bytes are stable across branches
+  // and clocks — two PRs making the same change produce byte-identical shards and
+  // never collide. git history records WHEN a shard landed; the hash records WHAT
+  // it was compiled from. `compiledAt` is therefore no longer emitted.
   return {
     provenance: {
       schemaVersion: SCHEMA_VERSION,
       module: module.replaceAll('\\', '/'),
       sourceHash,
-      compiledAt,
       compiler: { static: COMPILER_VERSION.static, semantic: COMPILER_VERSION.semantic },
       model,
       semantic,
