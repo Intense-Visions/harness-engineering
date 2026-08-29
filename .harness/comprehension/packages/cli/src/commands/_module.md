@@ -1,11 +1,11 @@
 ---
 schemaVersion: 1
 module: 'packages/cli/src/commands'
-sourceHash: 'a51d004cb6d9cad28c4b0030ca86d6a2e1a22f248bda4cf9048e23b2679914a1'
-compiledAt: '2026-08-28T01:22:09.214Z'
+sourceHash: 'baae100fe3f275afbc8713263de76d8c3a40d69e54b877aeaf09d1c1db623712'
+compiledAt: '2026-08-29T14:36:51.956Z'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
-model: 'claude-haiku-4-5-20251001'
-semantic: present
+model: null
+semantic: absent
 members:
   [
     '_registry.ts',
@@ -35,6 +35,7 @@ members:
     'cli-ergonomics-craft.ts',
     'code-craft.ts',
     'comprehend.ts',
+    'comprehension-merge-driver.ts',
     'copy-craft.ts',
     'create-skill.ts',
     'cross-check.ts',
@@ -112,22 +113,6 @@ members:
   ]
 ---
 
-## Summary
-
-The `packages/cli/src/commands` module (~210 files, 100+ commands) implements a factory + registry pattern for dynamic CLI command discovery. Each command exports a `createXXXCommand()` function returning a Commander.js Command instance; the auto-generated `_registry.ts` aggregates all factories for dynamic registration in the main program. Commands span three tiers: Check commands (validate project aspects with structured violations), Craft commands (LLM-driven artifact generators integrating MCP tool providers), and Orchestration commands (multi-agent workflows). All follow a `Result<T, CLIError>` discipline—returning typed errors with exit codes, never throwing. Subdirectory-based commands (fleet/, roadmap/, ci/) compose subcommands under a parent namespace. Integration points include the config system (schema validation, YAML loading), output formatting (JSON/table renderers), skill registry (install, recommend), graph systems (query, analyze), and MCP tool capabilities (permission-tier filtering).
-
-## Invariants
-
-- Auto-generation contract: \_registry.ts is auto-generated; new commands require createXXXCommand() factory pattern and regeneration via `pnpm run generate-barrel-exports` before discovery
-- Result type discipline: all command runners return Result<T, CLIError> (never throw); CLIError must carry appropriate ExitCode for CLI exit accuracy
-- Commander.js structure: each command returns configured Command instance; subcommands attach via .addCommand(); options registered before action handler
-- Centralized config resolution: commands access project config via loadConfig() or resolveConfig(); defaults to harness.config.json with CLI/env override support
-- Dynamic MCP tool loading: craft commands resolve analysis providers (OpenAI/Ollama/Claude) at runtime; tool capabilities filtered by permission tier (TIER_0 for CI, TIER_1/TIER_2 interactive)
-- Output consistency: all commands log via logger and format via OutputFormatter (JSON/table/plain modes) for uniform parseability and styling
-- Compound command composition: subdirectory commands (fleet/, roadmap/) are compound—export single factory wiring subcommands; only parent registered to registry, not individual subcommand creators
-- Error audit trail: --allow-regress and --update-baseline commands write to .harness/audit.log for durable decision tracking; logging failures are best-effort (never block user action)
-- Gate and check independence: check commands (check-arch, check-security, check-docs) are independently testable and runnable; depend only on config and source files, not orchestrator state, enabling cheap CI execution
-
 ## Interface Contract
 
 ```ts
@@ -193,6 +178,7 @@ export createCliErgonomicsCraftCommand
 export createCodeCraftCommand
 export createCommandExecutor
 export createComprehendCommand
+export createComprehensionMergeDriverCommand
 export createCopyCraftCommand
 export createCreateSkillCommand
 export createCrossCheckCommand
@@ -401,7 +387,7 @@ import { CliErgonomicsCraftInput, CliErgonomicsCraftOutput, runCliErgonomicsCraf
 import { CodeCraftInput, CodeCraftOutput, runCodeCraft } from '../code-craft/index.js'
 import { ComprehendRunResult, runComprehend, runComprehendCheck, runComprehendStats } from '../comprehension/compile-run'
 import { readComprehensionConfig } from '../comprehension/config'
-import { maybeCreateGenerateSemantic } from '../comprehension/generate-semantic'
+import { defaultSemanticModel, maybeCreateGenerateSemantic } from '../comprehension/generate-semantic'
 import { shouldRunComprehendHook } from '../comprehension/hook'
 import { enumerateModules, filesToModules } from '../comprehension/invalidation'
 import { createStaticExtractor } from '../comprehension/static-extractor'
@@ -414,7 +400,8 @@ import { DesignPipelineContext, DesignPipelineInput, runDesignPipeline } from '.
 import { DocsCraftInput, DocsCraftOutput, runDocsCraft } from '../docs-craft/index.js'
 import { DriftFinding } from '../drift/findings/finding'
 import { DriftStrictness } from '../drift/findings/finding.js'
-import { configureMergeOursDriver } from '../git/merge-driver-setup'
+import { runComprehensionMergeDriver } from '../git/comprehension-merge-driver'
+import { configureComprehensionMergeDriver, configureMergeOursDriver } from '../git/merge-driver-setup'
 import { HookProfile } from '../hooks/profiles'
 import { readIntegrationsConfig, readMcpConfig, writeMcpEntry, writeOpencodeMcpEntry } from '../integrations/config'
 import { reconcileIntegrations } from '../integrations/reconcile'
@@ -431,7 +418,7 @@ import { runDesignCraft } from '../mcp/tools/design-craft'
 import { runDetectDrift } from '../mcp/tools/detect-drift'
 import { handleGetImpact } from '../mcp/tools/graph/index'
 import { runInstructionDensityAudit } from '../mcp/tools/instruction-density'
-import { resolveAnalysisProvider } from '../mcp/utils/analysis-provider'
+import { resolveAnalysisProvider, resolveProviderKind } from '../mcp/utils/analysis-provider'
 import { loadGraphStore } from '../mcp/utils/graph-loader'
 import { IdentifierKind, NamingCraftInput, NamingCraftOutput, runNamingCraft } from '../naming-craft/index.js'
 import { OutputFormatter, OutputMode, OutputModeType } from '../output/formatter'
@@ -515,6 +502,7 @@ import { createCliErgonomicsCraftCommand } from './cli-ergonomics-craft'
 import { createCodeCraftCommand } from './code-craft'
 import { createCompoundCommand } from './compound'
 import { createComprehendCommand } from './comprehend'
+import { createComprehensionMergeDriverCommand } from './comprehension-merge-driver'
 import { createCopyCraftCommand } from './copy-craft'
 import { createCreateSkillCommand } from './create-skill'
 import { createCrossCheckCommand } from './cross-check'

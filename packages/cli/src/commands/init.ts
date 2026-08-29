@@ -17,7 +17,10 @@ import { CLIError, ExitCode } from '../utils/errors';
 import { resolveTemplatesDir } from '../utils/paths';
 import { setupMcp } from './setup-mcp';
 import { generateCIConfig } from './ci/init';
-import { configureMergeOursDriver } from '../git/merge-driver-setup';
+import {
+  configureMergeOursDriver,
+  configureComprehensionMergeDriver,
+} from '../git/merge-driver-setup';
 import { runMinimalInit, printMinimalInitSuccess } from './init-minimal';
 
 /**
@@ -220,6 +223,14 @@ async function scaffoldProject(
   const mergeDriver = await configureMergeOursDriver(cwd);
   if (mergeDriver.warning) {
     logger.warn(mergeDriver.warning);
+  }
+
+  // Configure the `comprehension` merge driver (ADR 0109 slice 5) so shard
+  // conflicts (merge=comprehension) auto-resolve by regenerating from source.
+  // Non-fatal: warns and continues if git is unavailable or cwd is not a repo.
+  const comprehensionMergeDriver = await configureComprehensionMergeDriver(cwd);
+  if (comprehensionMergeDriver.warning) {
+    logger.warn(comprehensionMergeDriver.warning);
   }
 
   return Ok({
