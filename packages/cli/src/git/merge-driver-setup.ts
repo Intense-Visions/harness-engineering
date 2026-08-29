@@ -58,11 +58,14 @@ export const COMPREHENSION_MERGE_DRIVER_COMMAND = 'harness comprehension-merge-d
  * Configure the `comprehension` merge driver for this clone (ADR 0109 slice 5) so
  * that the `_module.md merge=comprehension` `.gitattributes` entry takes effect.
  *
- * The driver resolves a shard conflict by REGENERATING the shard from the merged
- * working-tree source — sound because a comprehension unit is a pure function of
- * its source (ADR 0108/0109), so it never needs a hand-merge. Combined with the
- * byte-stable shards of slice 1 (same source ⇒ identical shard ⇒ no conflict), the
- * developer never resolves a comprehension merge marker.
+ * The driver resolves a shard conflict by KEEPING the ours shard when it is
+ * source-fresh (preserving its semantic content) and otherwise recompiling the
+ * static half from the current working-tree source — sound because a comprehension
+ * unit is a pure function of its source (ADR 0108/0109), so it never needs a
+ * hand-merge. It reads the working-tree (typically pre-merge ours) source and
+ * defers any residual source-staleness to `comprehend --check`; it does not claim
+ * to regenerate from a fully-merged tree at merge time. Combined with byte-stable
+ * shards (slice 1), the developer never resolves a comprehension merge marker.
  *
  * Never throws: if git is unavailable or `cwd` is not a git repo, resolves with
  * `{ configured: false, warning }` so `harness init` can warn and continue.

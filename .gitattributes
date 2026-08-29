@@ -30,9 +30,12 @@ benchmark-baselines.json merge=ours
 docs/roadmap.md merge=ours
 
 # Comprehension shards (ADR 0108/0109) are a pure function of their module's
-# source, so a conflict is resolved by REGENERATING from the merged source, never
-# a hand-merge. Byte-stable shards (slice 1) already make same-change recompiles
-# conflict-free; this driver auto-resolves the same-module residuals. One-time
+# source. The driver keeps the ours shard when it is source-fresh (preserving
+# semantic) and otherwise recompiles the static half from the working-tree source;
+# residual source-staleness is reconciled by `comprehend --check` / the pre-commit
+# hook, not at merge time. Byte-stable shards (slice 1) make same-change recompiles
+# conflict-free; this driver auto-resolves same-module residuals. Requires the
+# `harness` CLI on PATH (git falls back to a text merge otherwise). One-time
 # per-clone setup (run by `harness init`):
 #   git config merge.comprehension.driver 'harness comprehension-merge-driver %O %A %B %P'
 .harness/comprehension/**/_module.md merge=comprehension

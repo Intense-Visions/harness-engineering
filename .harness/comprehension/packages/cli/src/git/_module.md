@@ -1,8 +1,8 @@
 ---
 schemaVersion: 1
 module: 'packages/cli/src/git'
-sourceHash: '6559025c784e40efbab98d40e21f544e903a204f73fdf2ebd9add4d987ca5fa6'
-compiledAt: '2026-08-29T14:36:51.682Z'
+sourceHash: '367eae2528d88eedcdd43def664d3acfebc061f75afe71fb854dc95647634cbb'
+compiledAt: '2026-08-29T15:37:24.197Z'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
@@ -31,7 +31,7 @@ export runComprehensionMergeDriver
 ```
 import { MergeDriverIO, moduleFromShardPath, runComprehensionMergeDriver } from './comprehension-merge-driver'
 import { COMPREHENSION_MERGE_DRIVER_COMMAND, configureComprehensionMergeDriver, configureMergeOursDriver } from './merge-driver-setup'
-import { COMPREHENSION_ROOT, ComprehensionSourceFile, ExtractStatic, compileModule, serializeUnit } from '@harness-engineering/core'
+import { COMPREHENSION_ROOT, ComprehensionSourceFile, ExtractStatic, GenerateSemantic, compileModule, parseUnit, serializeUnit, serveGate } from '@harness-engineering/core'
 import { spawnSync } from 'node:child_process'
 import { describe, expect, it } from 'vitest'
 ```
