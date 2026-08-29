@@ -11,6 +11,12 @@ import { resolveConfig } from '../config/loader';
 import type { HarnessConfig } from '../config/schema';
 import { readComprehensionConfig } from '../comprehension/config';
 import { shouldRunComprehendHook } from '../comprehension/hook';
+import {
+  detectSemanticRegressions,
+  readSemanticMapAtRef,
+  defaultRefReadDeps,
+  type SemanticState,
+} from '../comprehension/regression';
 import type { ComprehensionConfig } from '../config/schema';
 import { createStaticExtractor } from '../comprehension/static-extractor';
 import { filesToModules, enumerateModules } from '../comprehension/invalidation';
@@ -36,6 +42,12 @@ interface ComprehendFlags {
   all?: boolean;
   check?: boolean;
   stats?: boolean;
+  /**
+   * With `--check`: also fail when any module regressed `semantic: present →
+   * absent` versus this git ref (ADR 0109 slice 4). Token-free — frontmatter reads
+   * only. A red result means "regenerate locally and push," never "CI needs a key".
+   */
+  since?: string;
   /** SC4 — force static-only: never resolve a provider or call an LLM. */
   static?: boolean;
   /** git-add the compiled unit shards after a run (pre-commit posture). */
@@ -187,7 +199,8 @@ function loadHarnessConfig(configPath?: string): HarnessConfig | undefined {
 
 async function runCheckMode(
   store: ComprehensionStore,
-  reader: ReturnType<typeof createNodeModuleSourceReader>
+  reader: ReturnType<typeof createNodeModuleSourceReader>,
+  opts: { projectRoot: string; since?: string } = { projectRoot: process.cwd() }
 ): Promise<void> {
   const result = await runComprehendCheck({ store, reader });
   for (const s of result.skipped) {
@@ -198,7 +211,32 @@ async function runCheckMode(
   } else {
     logger.success('All comprehension units are source-fresh.');
   }
-  process.exit(result.ok ? ExitCode.SUCCESS : ExitCode.VALIDATION_FAILED);
+
+  // ADR 0109 slice 4 — token-free semantic-regression gate vs a base ref.
+  let regressed: string[] = [];
+  if (opts.since) {
+    const listing = await store.list();
+    const head = new Map<string, SemanticState>();
+    if (listing.ok) {
+      for (const unit of listing.value.units) {
+        head.set(unit.provenance.module, unit.provenance.semantic);
+      }
+    }
+    const base = readSemanticMapAtRef(opts.since, defaultRefReadDeps(opts.projectRoot));
+    regressed = detectSemanticRegressions(base, head);
+    if (regressed.length > 0) {
+      logger.error(
+        `${regressed.length} module(s) regressed semantic present→absent vs ${opts.since}: ` +
+          `${regressed.join(', ')}. Regenerate locally (put_comprehension in-session, or a ` +
+          `provider-backed 'harness comprehend --changed') and push.`
+      );
+    } else {
+      logger.success(`No semantic regressions vs ${opts.since}.`);
+    }
+  }
+
+  const ok = result.ok && regressed.length === 0;
+  process.exit(ok ? ExitCode.SUCCESS : ExitCode.VALIDATION_FAILED);
 }
 
 async function runStatsMode(
@@ -283,7 +321,7 @@ async function runCompileMode(
 async function runComprehendAction(
   mode: ComprehendMode,
   globalConfig?: string,
-  opts: { staticOnly?: boolean; stage?: boolean; hook?: boolean } = {}
+  opts: { staticOnly?: boolean; stage?: boolean; hook?: boolean; since?: string } = {}
 ): Promise<void> {
   const projectRoot = process.cwd();
   const config = loadHarnessConfig(globalConfig);
@@ -303,7 +341,11 @@ async function runComprehendAction(
   });
   const reader = createNodeModuleSourceReader(projectRoot);
 
-  if (mode === 'check') return runCheckMode(store, reader);
+  if (mode === 'check')
+    return runCheckMode(store, reader, {
+      projectRoot,
+      ...(opts.since ? { since: opts.since } : {}),
+    });
   if (mode === 'stats') return runStatsMode(store, reader);
   return runCompileMode(mode, projectRoot, store, reader, config, opts);
 }
@@ -323,6 +365,10 @@ export function createComprehendCommand(): Command {
     .option('--changed', 'Recompile only modules owning changed files (default)')
     .option('--all', 'Recompile every module (backfill)')
     .option('--check', 'Token-free: report source-stale units, exit non-zero if any')
+    .option(
+      '--since <ref>',
+      'With --check: also fail on any module that regressed semantic present→absent vs this git ref (token-free)'
+    )
     .option('--stats', 'Report served-vs-raw token savings (token-free)')
     .option(
       '--static',
@@ -337,6 +383,7 @@ export function createComprehendCommand(): Command {
         staticOnly: opts.static ?? false,
         stage: opts.stage ?? false,
         hook: opts.hook ?? false,
+        ...(opts.since ? { since: opts.since } : {}),
       });
     });
 }
