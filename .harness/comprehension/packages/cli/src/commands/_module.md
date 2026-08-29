@@ -1,116 +1,29 @@
 ---
 schemaVersion: 1
-module: 'packages/cli/src/commands'
-sourceHash: 'ffd035a4d8abbdf9bbbc25a887c896aeefb2152d7d9f8feced4ef6b0557d9009'
-compiledAt: '2026-08-29T15:27:04.073Z'
-compiler: { static: '1.0.0', semantic: '1.0.0' }
-model: null
-semantic: absent
-members:
-  [
-    '_registry.ts',
-    'add.ts',
-    'adoption.ts',
-    'advise-skills.test.ts',
-    'advise-skills.ts',
-    'align-design-system.ts',
-    'api-craft.ts',
-    'audit-protected.ts',
-    'backfill-skill-provenance.ts',
-    'blueprint.ts',
-    'check-arch.ts',
-    'check-deployment.ts',
-    'check-deps.ts',
-    'check-design.ts',
-    'check-docs.ts',
-    'check-harness-strength.ts',
-    'check-operational-drift.test.ts',
-    'check-operational-drift.ts',
-    'check-perf.ts',
-    'check-phase-gate.ts',
-    'check-security.ts',
-    'check-vocabulary.ts',
-    'cleanup-sessions.ts',
-    'cleanup.ts',
-    'cli-ergonomics-craft.ts',
-    'code-craft.ts',
-    'comprehend.ts',
-    'copy-craft.ts',
-    'create-skill.ts',
-    'cross-check.ts',
-    'dashboard.ts',
-    'design-pipeline.ts',
-    'docs-craft.ts',
-    'doctor.ts',
-    'fix-drift.ts',
-    'generate-agent-definitions.ts',
-    'generate-slash-commands.ts',
-    'generate.ts',
-    'holiday-confidence.ts',
-    'impact-preview.ts',
-    'init-minimal.ts',
-    'init.ts',
-    'insights.ts',
-    'install-constraints.ts',
-    'install.ts',
-    'knowledge-craft.ts',
-    'knowledge-pipeline.test.ts',
-    'knowledge-pipeline.ts',
-    'maintenance-config.test.ts',
-    'maintenance-config.ts',
-    'maintenance-run.ts',
-    'maintenance.ts',
-    'mcp-guard.ts',
-    'mcp.ts',
-    'migrate-backends.ts',
-    'migrate.ts',
-    'models.ts',
-    'naming-craft.ts',
-    'operational-drift.test.ts',
-    'operational-drift.ts',
-    'orchestrator-black-box.test.ts',
-    'orchestrator-black-box.ts',
-    'orchestrator.ts',
-    'outcome-eval-ci.ts',
-    'perf.ts',
-    'pre-merge-brief.ts',
-    'predict.ts',
-    'proposals.ts',
-    'publish-analyses.ts',
-    'recommend.ts',
-    'rehearse.ts',
-    'review-ci-local-adapter.ts',
-    'review-ci.ts',
-    'rollback.ts',
-    'scan-config.ts',
-    'search.ts',
-    'security-craft.ts',
-    'setup-mcp.ts',
-    'setup-types.ts',
-    'setup.ts',
-    'share.ts',
-    'skill-regression.test.ts',
-    'skill-regression.ts',
-    'snapshot.ts',
-    'spec-craft.ts',
-    'stale-constraints.ts',
-    'sync-analyses.ts',
-    'sync-main.ts',
-    'taint.ts',
-    'telemetry-wizard.ts',
-    'test-craft.ts',
-    'traceability.ts',
-    'uninstall-constraints.ts',
-    'uninstall.ts',
-    'update.ts',
-    'usage.ts',
-    'validate-cross-check.ts',
-    'validate-scope.ts',
-    'validate.ts',
-    'verify.test.ts',
-    'verify.ts',
-  ]
+module: "packages/cli/src/commands"
+sourceHash: "ffd035a4d8abbdf9bbbc25a887c896aeefb2152d7d9f8feced4ef6b0557d9009"
+compiledAt: "2026-08-29T15:27:04.073Z"
+compiler: { static: "1.0.0", semantic: "1.0.0" }
+model: "claude-haiku-4-5-20251001"
+semantic: present
+members: ["_registry.ts", "add.ts", "adoption.ts", "advise-skills.test.ts", "advise-skills.ts", "align-design-system.ts", "api-craft.ts", "audit-protected.ts", "backfill-skill-provenance.ts", "blueprint.ts", "check-arch.ts", "check-deployment.ts", "check-deps.ts", "check-design.ts", "check-docs.ts", "check-harness-strength.ts", "check-operational-drift.test.ts", "check-operational-drift.ts", "check-perf.ts", "check-phase-gate.ts", "check-security.ts", "check-vocabulary.ts", "cleanup-sessions.ts", "cleanup.ts", "cli-ergonomics-craft.ts", "code-craft.ts", "comprehend.ts", "copy-craft.ts", "create-skill.ts", "cross-check.ts", "dashboard.ts", "design-pipeline.ts", "docs-craft.ts", "doctor.ts", "fix-drift.ts", "generate-agent-definitions.ts", "generate-slash-commands.ts", "generate.ts", "holiday-confidence.ts", "impact-preview.ts", "init-minimal.ts", "init.ts", "insights.ts", "install-constraints.ts", "install.ts", "knowledge-craft.ts", "knowledge-pipeline.test.ts", "knowledge-pipeline.ts", "maintenance-config.test.ts", "maintenance-config.ts", "maintenance-run.ts", "maintenance.ts", "mcp-guard.ts", "mcp.ts", "migrate-backends.ts", "migrate.ts", "models.ts", "naming-craft.ts", "operational-drift.test.ts", "operational-drift.ts", "orchestrator-black-box.test.ts", "orchestrator-black-box.ts", "orchestrator.ts", "outcome-eval-ci.ts", "perf.ts", "pre-merge-brief.ts", "predict.ts", "proposals.ts", "publish-analyses.ts", "recommend.ts", "rehearse.ts", "review-ci-local-adapter.ts", "review-ci.ts", "rollback.ts", "scan-config.ts", "search.ts", "security-craft.ts", "setup-mcp.ts", "setup-types.ts", "setup.ts", "share.ts", "skill-regression.test.ts", "skill-regression.ts", "snapshot.ts", "spec-craft.ts", "stale-constraints.ts", "sync-analyses.ts", "sync-main.ts", "taint.ts", "telemetry-wizard.ts", "test-craft.ts", "traceability.ts", "uninstall-constraints.ts", "uninstall.ts", "update.ts", "usage.ts", "validate-cross-check.ts", "validate-scope.ts", "validate.ts", "verify.test.ts", "verify.ts"]
 ---
+
+## Summary
+
+The CLI's command dispatch and orchestration layer housing 70+ command factories that wire harness infrastructure (orchestrator, MCP, crafters, validators) into user-facing commands. A central auto-generated registry imports all `createXCommand` factories; each command implements a domain task and uses standardized `Result<T, CLIError>` error handling. Configuration is loaded once via `resolveConfig()` and threaded through; exit codes are normalized via `deriveExitCode()`.
+
+## Invariants
+
+- Registry is auto-generated via `pnpm run generate-barrel-exports` from scripts/generate-core-barrel.mjs allowlist — editing _registry.ts directly will be overwritten; new commands must be added to source files first
+- All commands are factory functions (`createXCommand(): Command`) and must be imported into commandCreators array, which is the single source of truth for CLI surface
+- Configuration is loaded once at startup via resolveConfig() and shared across commands; reloading mid-session causes stale-state bugs
+- All runX() functions return Result<Output, CLIError> with exit code baked in; never throw bare errors, wrap in CLIError with proper exit code
+- Pre-push gate order is load-bearing: format:check → coverage-ratchet → reference-docs → flaky-retry; gate failures require caller to re-run, not retry within command
+- Hook membership and skill exports are dual-source-of-truth: must update both profiles.ts AND plugin-config.mjs or plugin platform mirrors (symlinks) will desync
+- Graph and MCP provider calls must validate node type compatibility and resolve analysis provider at runtime via resolveAnalysisProvider(); provider-agnostic tools use it, graph-touching commands validate it
+- Comprehension endpoint must be threaded into model selection (ADR 0109) via readComprehensionConfig() → comprehensionEndpoint; missing this routes to wrong backend for semantic validation
+- Command creators use consistent patterns: standardized option parsing via Commander.js, normalized exit codes, integration with orchestrator for agent dispatch, and shared report builders for multi-stage output
 
 ## Interface Contract
 
