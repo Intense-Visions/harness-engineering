@@ -7,7 +7,10 @@ import {
   ReadResourceRequestSchema,
 } from '@modelcontextprotocol/sdk/types.js';
 import { resolveProjectConfig } from './utils/config-resolver.js';
-import { ensureHarnessGitignore } from '../templates/post-write.js';
+import {
+  ensureHarnessGitignore,
+  ensureComprehensionSearchIgnore,
+} from '../templates/post-write.js';
 import { applyInjectionGuard } from './middleware/injection-guard.js';
 import { applyCompaction } from './middleware/compaction.js';
 import { applyContextBudget } from './middleware/context-budget.js';
@@ -769,6 +772,9 @@ export function createHarnessServer(projectRoot?: string, toolFilter?: string[])
 
   // Ensure .harness/.gitignore exists for existing projects (not just new ones)
   ensureHarnessGitignore(resolvedRoot);
+  // Ensure the repo-root `.ignore` hides committed comprehension units from raw
+  // text search for existing projects too (issue #1692).
+  ensureComprehensionSearchIgnore(resolvedRoot);
 
   const { definitions, handlers } = buildFilteredTools(toolFilter);
 

@@ -7,6 +7,7 @@ import {
   persistToolingConfig,
   appendFrameworkAgents,
   ensureHarnessGitignore,
+  ensureComprehensionSearchIgnore,
 } from '../../templates/post-write.js';
 import type { TemplateMetadata } from '../../templates/schema.js';
 
@@ -130,6 +131,7 @@ function scaffoldMcp(
     persistToolingConfig(safePath, resolveResult.value, i.framework);
     appendFrameworkAgents(safePath, i.framework, language);
     ensureHarnessGitignore(safePath);
+    ensureComprehensionSearchIgnore(safePath);
   }
 
   if (writeResult.ok && writeResult.value.skippedConfigs.length > 0) {
