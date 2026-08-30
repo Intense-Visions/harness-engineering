@@ -2,10 +2,21 @@
 number: 0098
 title: The worktree isolation boundary vs user-global state
 date: 2026-08-18
-status: proposed
+status: accepted
 tier: medium
 source: 'design routing of bug-backlog issue #1299'
 ---
+
+> **Implemented (#1299).** The chosen per-lane override is **`CLAUDE_CONFIG_DIR`** — Claude
+> Code's own config-dir relocation var, honored natively by Claude Code and now by the
+> harness's own user-global writers (`packages/burn/src/config.ts` `resolvePaths()` derives
+> its HUD store from `CLAUDE_CONFIG_DIR` before `$HOME/.claude`). The pure primitive lives in
+> `@harness-engineering/core` (`fleet/lane-state-isolation.ts`: `buildLaneStateEnvOverride` /
+> `applyLaneStateEnv`, sandbox under the worktree's gitignored `.harness/lane-state/`); the
+> orchestrator subprocess air-gap applies it via `buildSubprocessEnv({ laneStateScope })`, and
+> the `ClaudeBackend` threads it in (opt-in via `laneStateIsolation` / the
+> `HARNESS_LANE_STATE_ISOLATION` flag, OFF by default so a normal single-run agent keeps its
+> real login/credentials). `docs/reference/fleet-family.md` states the contract.
 
 ## Context
 

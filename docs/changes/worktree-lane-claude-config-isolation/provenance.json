@@ -1,0 +1,7 @@
+{
+  "issues": [1299],
+  "route": "bug",
+  "stages": ["debugging"],
+  "assumptions": ["F1=b per-lane CLAUDE_CONFIG_DIR/HOME override"],
+  "reproducingTest": "packages/burn/tests/lane-isolation.test.ts"
+}

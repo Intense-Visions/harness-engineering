@@ -19,6 +19,8 @@
 // This mirrors the `analysis-env.ts` pattern (pure functions over env) and is
 // reused by any backend that spawns an agent CLI.
 
+import { buildLaneStateEnvOverride } from '@harness-engineering/core';
+
 /**
  * Exact env var names always forwarded to an agent subprocess. These are the
  * "runtime plumbing" vars a CLI, git, node, and the OS need to function — none
@@ -168,6 +170,21 @@ export const SUBPROCESS_ENV_ALLOW_VAR = 'HARNESS_SUBPROCESS_ENV_ALLOW';
  */
 export const SUBPROCESS_ENV_PASSTHROUGH_VAR = 'HARNESS_SUBPROCESS_ENV_UNSAFE_PASSTHROUGH';
 
+/**
+ * Opt-in flag for per-lane user-global state isolation. When truthy, a backend
+ * that spawns an agent in a worktree redirects that subprocess's `~/.claude`
+ * into a per-lane sandbox (see {@link BuildSubprocessEnvOptions.laneStateScope}).
+ * Default (unset) leaves `~/.claude` pointing at the operator's real store so a
+ * normal single-run agent keeps its login/credentials; a fleet fan-out parent
+ * turns it on so lanes cannot write through the worktree boundary (#1299).
+ */
+export const LANE_STATE_ISOLATION_VAR = 'HARNESS_LANE_STATE_ISOLATION';
+
+/** Is the {@link LANE_STATE_ISOLATION_VAR} opt-in flag truthy in `source`? */
+export function isLaneStateIsolationEnabled(source: NodeJS.ProcessEnv = process.env): boolean {
+  return isTruthyFlag(source[LANE_STATE_ISOLATION_VAR]);
+}
+
 export interface BuildSubprocessEnvOptions {
   /** Extra exact var names to allow (merged with the built-in allowlist). */
   extraAllow?: readonly string[];
@@ -177,6 +194,16 @@ export interface BuildSubprocessEnvOptions {
    * {@link SUBPROCESS_ENV_PASSTHROUGH_VAR} in `source`.
    */
   passthrough?: boolean;
+  /**
+   * When set, redirect the subprocess's user-global (`~/.claude`) state into a
+   * per-lane sandbox under this worktree path by overriding `CLAUDE_CONFIG_DIR`
+   * in the built env. This extends a fleet lane's git-worktree isolation to
+   * cover user-global state, so a lane's execution/verification cannot write
+   * through to the operator's real `~/.claude` store (issue #1299 / ADR 0098).
+   * The override is applied AFTER stripping and WINS over any inherited
+   * `CLAUDE_CONFIG_DIR`, so each lane always gets its own sandbox.
+   */
+  laneStateScope?: string;
 }
 
 export interface SubprocessEnvResult {
@@ -257,6 +284,15 @@ export function buildSubprocessEnv(
     if (!allowed) {
       stripped.push(key);
     }
+  }
+
+  // Per-lane user-global state isolation: redirect `~/.claude` into the lane's
+  // worktree sandbox. Applied AFTER the allowlist loop and unconditionally
+  // overriding any inherited/passed-through `CLAUDE_CONFIG_DIR`, so each lane
+  // always gets its OWN sandbox — the config-dir override cannot be defeated by
+  // a value the parent process happened to carry (issue #1299 / ADR 0098).
+  if (options.laneStateScope) {
+    Object.assign(env, buildLaneStateEnvOverride(options.laneStateScope));
   }
 
   stripped.sort();
