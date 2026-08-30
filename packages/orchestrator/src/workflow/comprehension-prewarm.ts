@@ -32,9 +32,25 @@ export interface LeafPrewarmDeps {
   /**
    * Optional direct-dep enrichment. Present only when a graph is available at
    * dispatch; absent ⇒ the seed is the issue-referenced modules alone (SC3
-   * graceful degradation).
+   * graceful degradation). Returns the modules a seed module DEPENDS ON.
    */
   resolveDirectDeps?: (module: string) => string[];
+  /**
+   * #1690 — optional 1-hop BLAST-RADIUS enrichment. Returns the DIRECT importers
+   * (dependents) of a seed module — the code that would break if the leaf
+   * changes — the mirror of `resolveDirectDeps`. Present only when a graph is
+   * available at dispatch; absent ⇒ no blast-radius enrichment (SC3 graceful
+   * degradation). Bounded by `enrichmentTokenBudget` (F3=a: 1-hop, capped).
+   */
+  resolveBlastRadius?: (module: string) => string[];
+  /**
+   * #1690 — cap (in tokens) on the CUMULATIVE served size of the ENRICHMENT
+   * (non-seed) units. Seed modules are always served regardless of this cap;
+   * only dep/blast-radius enrichment is bounded, so a hub (high fan-in) leaf
+   * cannot balloon the prompt. Absent (or non-positive) ⇒ unbounded, which
+   * preserves the pre-#1690 `resolveDirectDeps` back-compat behavior.
+   */
+  enrichmentTokenBudget?: number;
 }
 
 /** The rendered pre-warm block + its per-source token breakdown. */
@@ -96,30 +112,75 @@ async function serveFresh(
   }
 }
 
+/** Served-token estimate for a rendered unit (same basis as `sources`). */
+function unitTokens(rendered: string): number {
+  return Math.ceil(rendered.length / CHARS_PER_TOKEN);
+}
+
 /**
- * Resolve a leaf's pre-warm block from its issue-referenced (and optionally
- * dep-enriched) modules. Serves only fresh units; returns an empty block when
- * none are available. Best-effort — never throws, never calls an LLM.
+ * Derive the ENRICHMENT module set for a seed: the union of each seed module's
+ * direct dependencies (`resolveDirectDeps`) and its 1-hop importers /
+ * blast radius (`resolveBlastRadius`), with the seed modules themselves removed
+ * (they are served as the primary phase). Deterministically de-duplicated and
+ * sorted so the token-budget cap admits a stable prefix. Empty when neither
+ * resolver is supplied (SC3 graceful degradation).
+ */
+function deriveEnrichmentModules(seed: string[], deps: LeafPrewarmDeps): string[] {
+  if (!deps.resolveDirectDeps && !deps.resolveBlastRadius) return [];
+  const seedSet = new Set(seed);
+  const enrichment = new Set<string>();
+  for (const module of seed) {
+    for (const dep of deps.resolveDirectDeps?.(module) ?? []) {
+      if (!seedSet.has(dep)) enrichment.add(dep);
+    }
+    for (const importer of deps.resolveBlastRadius?.(module) ?? []) {
+      if (!seedSet.has(importer)) enrichment.add(importer);
+    }
+  }
+  return [...enrichment].sort();
+}
+
+/**
+ * Resolve a leaf's pre-warm block from its issue-referenced seed modules, plus
+ * an optional 1-hop enrichment (direct deps and/or blast-radius importers). The
+ * seed is always served (primary); the enrichment is served in a deterministic
+ * order and BOUNDED by `enrichmentTokenBudget` (#1690, F3=a — 1-hop, capped) so
+ * a hub leaf cannot balloon the prompt. Serves only fresh units; returns an
+ * empty block when none are available. Best-effort — never throws, never calls
+ * an LLM.
  */
 export async function resolveLeafPrewarm(
   issue: Issue,
   deps: LeafPrewarmDeps
 ): Promise<LeafPrewarmResult> {
   const seed = deriveSeedModules(issue);
-  const modules = deps.resolveDirectDeps
-    ? [...new Set(seed.flatMap((m) => [m, ...deps.resolveDirectDeps!(m)]))]
-    : seed;
 
   const rendered: string[] = [];
   const sources: LeafContextSource[] = [];
-  for (const module of modules) {
+
+  // Phase 1 — seed (primary): always served, never subject to the cap.
+  for (const module of seed) {
     const served = await serveFresh(module, deps);
     if (!served) continue;
     rendered.push(served.rendered);
-    sources.push({
-      label: served.module,
-      tokens: Math.ceil(served.rendered.length / CHARS_PER_TOKEN),
-    });
+    sources.push({ label: served.module, tokens: unitTokens(served.rendered) });
+  }
+
+  // Phase 2 — enrichment (deps ∪ blast radius): bounded by the token budget.
+  // A non-positive/absent budget means unbounded (back-compat). Once a fresh
+  // unit would push the cumulative enrichment tokens over the cap it is skipped
+  // and traversal stops, so the admitted set is a stable, deterministic prefix.
+  const budget = deps.enrichmentTokenBudget;
+  const capped = typeof budget === 'number' && budget > 0;
+  let enrichmentTokens = 0;
+  for (const module of deriveEnrichmentModules(seed, deps)) {
+    const served = await serveFresh(module, deps);
+    if (!served) continue;
+    const tokens = unitTokens(served.rendered);
+    if (capped && enrichmentTokens + tokens > budget) break;
+    enrichmentTokens += tokens;
+    rendered.push(served.rendered);
+    sources.push({ label: served.module, tokens });
   }
 
   if (rendered.length === 0) return { block: '', sources: [] };

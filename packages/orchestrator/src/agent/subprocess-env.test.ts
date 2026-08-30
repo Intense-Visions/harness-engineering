@@ -1,7 +1,11 @@
+import path from 'node:path';
+
 import { describe, it, expect } from 'vitest';
 import {
   buildSubprocessEnv,
   isEnvKeyAllowed,
+  isLaneStateIsolationEnabled,
+  LANE_STATE_ISOLATION_VAR,
   SUBPROCESS_ENV_ALLOW_VAR,
   SUBPROCESS_ENV_PASSTHROUGH_VAR,
 } from './subprocess-env';
@@ -150,5 +154,42 @@ describe('buildSubprocessEnv (subprocess air-gap)', () => {
     expect(isEnvKeyAllowed('ComSpec', extra)).toBe(true);
     // A case-insensitive extraAllow name resolves regardless of OS casing.
     expect(isEnvKeyAllowed('My_Custom', new Set(['MY_CUSTOM']))).toBe(true);
+  });
+});
+
+describe('per-lane state isolation (#1299 / ADR 0098)', () => {
+  const worktree = path.join(path.sep, 'tmp', 'wt', 'lane-7');
+  const laneConfigDir = path.join(worktree, '.harness', 'lane-state', '.claude');
+
+  it('leaves CLAUDE_CONFIG_DIR untouched when no laneStateScope is given', () => {
+    const { env } = buildSubprocessEnv({
+      HOME: '/home/agent',
+      CLAUDE_CONFIG_DIR: '/home/agent/.claude',
+    });
+    // Default single-run behavior: the agent keeps its real config/credentials.
+    expect(env.CLAUDE_CONFIG_DIR).toBe('/home/agent/.claude');
+  });
+
+  it('redirects CLAUDE_CONFIG_DIR into the lane sandbox when laneStateScope is set', () => {
+    const { env } = buildSubprocessEnv(
+      { HOME: '/home/agent', CLAUDE_CONFIG_DIR: '/home/agent/.claude' },
+      { laneStateScope: worktree }
+    );
+    expect(env.CLAUDE_CONFIG_DIR).toBe(laneConfigDir);
+    expect(env.CLAUDE_CONFIG_DIR?.startsWith(worktree)).toBe(true);
+    // HOME and other allowlisted vars still pass through unchanged.
+    expect(env.HOME).toBe('/home/agent');
+  });
+
+  it('lane override wins even when CLAUDE_CONFIG_DIR was not present in the source', () => {
+    const { env } = buildSubprocessEnv({ HOME: '/home/agent' }, { laneStateScope: worktree });
+    expect(env.CLAUDE_CONFIG_DIR).toBe(laneConfigDir);
+  });
+
+  it('reads the opt-in flag from the env source', () => {
+    expect(isLaneStateIsolationEnabled({})).toBe(false);
+    expect(isLaneStateIsolationEnabled({ [LANE_STATE_ISOLATION_VAR]: '1' })).toBe(true);
+    expect(isLaneStateIsolationEnabled({ [LANE_STATE_ISOLATION_VAR]: 'true' })).toBe(true);
+    expect(isLaneStateIsolationEnabled({ [LANE_STATE_ISOLATION_VAR]: 'off' })).toBe(false);
   });
 });

@@ -1,11 +1,10 @@
 ---
 schemaVersion: 1
 module: 'packages/burn/tests'
-sourceHash: 'e4bb840f6cade708ebc7d59761300cc6baf4760193b25351a260e75e703d90bb'
-compiledAt: '2026-08-28T01:22:08.700Z'
+sourceHash: '2ccdcad3ef4e4fb09de88e0303160aad953f74f5105facf2a7f83d74bd7e685a'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
-model: 'claude-haiku-4-5-20251001'
-semantic: present
+model: null
+semantic: absent
 members:
   [
     'bin-startup.test.ts',
@@ -16,6 +15,7 @@ members:
     'cost-per-pr.test.ts',
     'helpers.ts',
     'hooks.test.ts',
+    'lane-isolation.test.ts',
     'pr-linkage.test.ts',
     'provenance.test.ts',
     'robustness.test.ts',
@@ -28,19 +28,6 @@ members:
     'summary-rollup.test.ts',
   ]
 ---
-
-## Summary
-
-packages/burn/tests is the test suite for the burn HUD, a token-cost and budget-management tool that tracks LLM spend across a week, forecasts remaining capacity, and escalates alarms. The tests verify four critical concerns: (1) binary performance—the harness-burn-hud CLI must stay fast (< 8× bare node startup) by bundling all dependencies; (2) budget and escalation logic—spend is fact (escalates immediately), forecasts are evidence (gain confidence over the week), with early-week alerts suppressing noise while still catching real overspend; (3) calibration lifecycle—calibrations expire and lose validity; (4) concurrent store safety—atomic writes and process-level locking prevent corruption when multiple agents update the spend record simultaneously. The suite uses makeHud() to set up isolated temporary filesystems, then drives the binary and library functions through realistic scenarios.
-
-## Invariants
-
-- No harness imports in binary — any @harness-engineering/\* import triggers a startup regression that breaks the statusline UX silently
-- Noise suppression is asymmetric — early-week spend < 15% of week should never escalate; but spending 100% of budget early still escalates immediately (incurred spend is a fact)
-- Forecast shrinkage toward baseline — when confidence is low, pulled forecast sits between linear extrapolation and prior-week median to avoid chasing spurious trends
-- Per-model limits are hard constraints — a model can exhaust while pooled budget looks safe; exhaustion escalates independently
-- Calibration validity gates reporting — expired calibrations must flag explicitly; fresh ones report days-until-expiry
-- Atomic writes under concurrency — locking via withScanLock ensures transcript appends and store updates don't corrupt across parallel agent runs
 
 ## Interface Contract
 

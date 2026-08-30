@@ -1,25 +1,116 @@
 ---
 schemaVersion: 1
-module: "packages/cli/src/commands"
-sourceHash: "3d8534a32fc022e0b33aa4f92053d2683ca6a1104fe8f0e3e9ec40a42baf6b55"
-compiler: { static: "1.0.0", semantic: "1.0.0" }
-model: "claude-haiku-4-5-20251001"
-semantic: present
-members: ["_registry.ts", "add.ts", "adoption.ts", "advise-skills.test.ts", "advise-skills.ts", "align-design-system.ts", "api-craft.ts", "audit-protected.ts", "backfill-skill-provenance.ts", "blueprint.ts", "check-arch.ts", "check-deployment.ts", "check-deps.ts", "check-design.ts", "check-docs.ts", "check-harness-strength.ts", "check-operational-drift.test.ts", "check-operational-drift.ts", "check-perf.ts", "check-phase-gate.ts", "check-security.ts", "check-vocabulary.ts", "cleanup-sessions.ts", "cleanup.ts", "cli-ergonomics-craft.ts", "code-craft.ts", "comprehend.ts", "comprehension-merge-driver.ts", "copy-craft.ts", "create-skill.ts", "cross-check.ts", "dashboard.ts", "design-pipeline.ts", "docs-craft.ts", "doctor.ts", "fix-drift.ts", "generate-agent-definitions.ts", "generate-slash-commands.ts", "generate.ts", "holiday-confidence.ts", "impact-preview.ts", "init-minimal.ts", "init.ts", "insights.ts", "install-constraints.ts", "install.ts", "knowledge-craft.ts", "knowledge-pipeline.test.ts", "knowledge-pipeline.ts", "maintenance-config.test.ts", "maintenance-config.ts", "maintenance-run.ts", "maintenance.ts", "mcp-guard.ts", "mcp.ts", "migrate-backends.ts", "migrate.ts", "models.ts", "naming-craft.ts", "operational-drift.test.ts", "operational-drift.ts", "orchestrator-black-box.test.ts", "orchestrator-black-box.ts", "orchestrator.ts", "outcome-eval-ci.ts", "perf.ts", "pre-merge-brief.ts", "predict.ts", "proposals.ts", "publish-analyses.ts", "recommend.ts", "rehearse.ts", "review-ci-local-adapter.ts", "review-ci.ts", "rollback.ts", "scan-config.ts", "search.ts", "security-craft.ts", "setup-mcp.ts", "setup-types.ts", "setup.ts", "share.ts", "skill-regression.test.ts", "skill-regression.ts", "snapshot.ts", "spec-craft.ts", "stale-constraints.ts", "sync-analyses.ts", "sync-main.ts", "taint.ts", "telemetry-wizard.ts", "test-craft.ts", "traceability.ts", "uninstall-constraints.ts", "uninstall.ts", "update.ts", "usage.ts", "validate-cross-check.ts", "validate-scope.ts", "validate.ts", "verify.test.ts", "verify.ts"]
+module: 'packages/cli/src/commands'
+sourceHash: '597af1fbcaf40c7fddb631734274b8e1152c553926181b61074ab87408df1e67'
+compiler: { static: '1.0.0', semantic: '1.0.0' }
+model: null
+semantic: absent
+members:
+  [
+    '_registry.ts',
+    'add.ts',
+    'adoption.ts',
+    'advise-skills.test.ts',
+    'advise-skills.ts',
+    'align-design-system.ts',
+    'api-craft.ts',
+    'audit-protected.ts',
+    'backfill-skill-provenance.ts',
+    'blueprint.ts',
+    'check-arch.ts',
+    'check-deployment.ts',
+    'check-deps.ts',
+    'check-design.ts',
+    'check-docs.ts',
+    'check-harness-strength.ts',
+    'check-operational-drift.test.ts',
+    'check-operational-drift.ts',
+    'check-perf.ts',
+    'check-phase-gate.ts',
+    'check-security.ts',
+    'check-vocabulary.ts',
+    'cleanup-sessions.ts',
+    'cleanup.ts',
+    'cli-ergonomics-craft.ts',
+    'code-craft.ts',
+    'comprehend.ts',
+    'comprehension-merge-driver.ts',
+    'copy-craft.ts',
+    'create-skill.ts',
+    'cross-check.ts',
+    'dashboard.ts',
+    'design-pipeline.ts',
+    'docs-craft.ts',
+    'doctor.ts',
+    'fix-drift.ts',
+    'generate-agent-definitions.ts',
+    'generate-slash-commands.ts',
+    'generate.ts',
+    'holiday-confidence.ts',
+    'impact-preview.ts',
+    'init-minimal.ts',
+    'init.ts',
+    'insights.ts',
+    'install-constraints.ts',
+    'install.ts',
+    'knowledge-craft.ts',
+    'knowledge-pipeline.test.ts',
+    'knowledge-pipeline.ts',
+    'maintenance-config.test.ts',
+    'maintenance-config.ts',
+    'maintenance-run.ts',
+    'maintenance.ts',
+    'mcp-guard.ts',
+    'mcp.ts',
+    'migrate-backends.ts',
+    'migrate.ts',
+    'models.ts',
+    'naming-craft.ts',
+    'operational-drift.test.ts',
+    'operational-drift.ts',
+    'orchestrator-black-box.test.ts',
+    'orchestrator-black-box.ts',
+    'orchestrator.ts',
+    'outcome-eval-ci.ts',
+    'perf.ts',
+    'pre-merge-brief.ts',
+    'predict.ts',
+    'proposals.ts',
+    'publish-analyses.ts',
+    'recommend.ts',
+    'rehearse.ts',
+    'review-ci-local-adapter.ts',
+    'review-ci.ts',
+    'rollback.ts',
+    'scan-config.ts',
+    'search.ts',
+    'security-craft.ts',
+    'setup-mcp.ts',
+    'setup-types.ts',
+    'setup.ts',
+    'share.ts',
+    'skill-regression.test.ts',
+    'skill-regression.ts',
+    'snapshot.ts',
+    'spec-craft.ts',
+    'stale-constraints.ts',
+    'sync-analyses.ts',
+    'sync-main.ts',
+    'taint.ts',
+    'telemetry-wizard.ts',
+    'test-craft.ts',
+    'traceability.ts',
+    'uninstall-constraints.ts',
+    'uninstall.ts',
+    'update.ts',
+    'usage.ts',
+    'validate-cross-check.ts',
+    'validate-scope.ts',
+    'validate.ts',
+    'verify.test.ts',
+    'verify.ts',
+  ]
 ---
-
-## Summary
-
-`packages/cli/src/commands` is the command factory and registry for the harness CLI. It exports ~90 command creators and auto-generates a single `commandCreators` array that allows registration of all commands without manual wiring. Each command is defined in its own file and re-exported here; the module serves as the primary discovery point for the CLI's command surface. Commands span operational checks (arch, perf, security, docs), AI-driven crafting tools (code, spec, test, design), infrastructure management (roadmap, orchestrator, deployment), and ecosystem tooling (skill management, MCP setup, graph operations).
-
-## Invariants
-
-- Auto-generated barrel — commandCreators and the complete export list are regenerated via pnpm run generate-barrel-exports; hand-edits are clobbered. Never modify _registry.ts directly.
-- Alphabetical order — commandCreators array must remain alphabetically sorted by command name; sorting breakage causes discoverability issues.
-- Factory function contract — Every createCommand function must return a Command (from commander.js); the array assumes this shape for uniform CLI registration.
-- Single source of truth per command — Each command has one file (add.ts, check-arch.ts, etc.). New commands require both a source file AND an export here to appear in the registry.
-- No orphaned imports — If a command file is deleted, its export must also be removed from _registry.ts. The generate-barrel-exports script is the only safe way to reconcile.
-- Command registration is declarative — The CLI iterates commandCreators to register each command. The array is the registration mechanism.
 
 ## Interface Contract
 
@@ -168,6 +259,7 @@ export findAllInstalls
 export findOutcomeVerdict
 export formatCapabilitiesByPermission
 export formatCapabilitiesTable
+export formatCompiledUnits
 export formatContextReport
 export gatherGuardianSafe
 export gatherSignalsSafe

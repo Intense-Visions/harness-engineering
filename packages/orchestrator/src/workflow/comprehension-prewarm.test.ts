@@ -190,4 +190,89 @@ describe('resolveLeafPrewarm — SF4.1', () => {
     expect(res.sources.map((s) => s.label).sort()).toEqual([dep, module].sort());
     expect(resolveDirectDeps).toHaveBeenCalled();
   });
+
+  // #1690 — 1-hop blast-radius enrichment (F3=a), bounded by a token budget.
+  it('(SC1) enriches with 1-hop importers (blast radius) alongside the seed', async () => {
+    const importer = 'packages/cli/src';
+    const resolveBlastRadius = vi.fn((m: string) => (m === module ? [importer] : []));
+    const res = await resolveLeafPrewarm(
+      issue({ title: `edit ${module}/a.ts` }),
+      deps({
+        store: fakeStore({
+          [module]: freshUnit(module, source),
+          [importer]: freshUnit(importer, source),
+        }),
+        reader: fakeReader({ [module]: source, [importer]: source }),
+        resolveBlastRadius,
+      })
+    );
+    expect(res.sources.map((s) => s.label).sort()).toEqual([importer, module].sort());
+    expect(res.block).toContain(`contract for ${importer}`);
+    expect(resolveBlastRadius).toHaveBeenCalledWith(module);
+  });
+
+  it('(SC1) unions direct deps AND blast-radius importers, de-duping the seed', async () => {
+    const dep = 'packages/types/src';
+    const importer = 'packages/cli/src';
+    const res = await resolveLeafPrewarm(
+      issue({ title: `edit ${module}/a.ts` }),
+      deps({
+        store: fakeStore({
+          [module]: freshUnit(module, source),
+          [dep]: freshUnit(dep, source),
+          [importer]: freshUnit(importer, source),
+        }),
+        reader: fakeReader({ [module]: source, [dep]: source, [importer]: source }),
+        // A resolver that also echoes the seed must NOT duplicate it.
+        resolveDirectDeps: (m) => (m === module ? [dep, module] : []),
+        resolveBlastRadius: (m) => (m === module ? [importer] : []),
+      })
+    );
+    expect(res.sources.map((s) => s.label).sort()).toEqual([dep, importer, module].sort());
+    // Seed served exactly once even though a resolver echoed it.
+    expect(res.sources.filter((s) => s.label === module)).toHaveLength(1);
+  });
+
+  it('(SC2) caps enrichment by token budget while ALWAYS serving the seed', async () => {
+    // Two importers; the budget only admits the first (alphabetically ordered).
+    const impA = 'aaa/importer';
+    const impB = 'zzz/importer';
+    const oneUnitTokens = Math.ceil(renderServedUnit(freshUnit(impA, source)).length / 4);
+    const res = await resolveLeafPrewarm(
+      issue({ title: `edit ${module}/a.ts` }),
+      deps({
+        store: fakeStore({
+          [module]: freshUnit(module, source),
+          [impA]: freshUnit(impA, source),
+          [impB]: freshUnit(impB, source),
+        }),
+        reader: fakeReader({ [module]: source, [impA]: source, [impB]: source }),
+        resolveBlastRadius: (m) => (m === module ? [impA, impB] : []),
+        // Budget fits exactly ONE enrichment unit.
+        enrichmentTokenBudget: oneUnitTokens,
+      })
+    );
+    const labels = res.sources.map((s) => s.label);
+    expect(labels).toContain(module); // seed always served
+    expect(labels).toContain(impA); // first enrichment unit admitted
+    expect(labels).not.toContain(impB); // second exceeds the cap → excluded
+  });
+
+  it('(SC2) an unset budget leaves enrichment unbounded (back-compat)', async () => {
+    const impA = 'aaa/importer';
+    const impB = 'zzz/importer';
+    const res = await resolveLeafPrewarm(
+      issue({ title: `edit ${module}/a.ts` }),
+      deps({
+        store: fakeStore({
+          [module]: freshUnit(module, source),
+          [impA]: freshUnit(impA, source),
+          [impB]: freshUnit(impB, source),
+        }),
+        reader: fakeReader({ [module]: source, [impA]: source, [impB]: source }),
+        resolveBlastRadius: (m) => (m === module ? [impA, impB] : []),
+      })
+    );
+    expect(res.sources.map((s) => s.label).sort()).toEqual([impA, impB, module].sort());
+  });
 });

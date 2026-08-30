@@ -1,13 +1,14 @@
 ---
 schemaVersion: 1
 module: 'packages/cli/tests/mcp/tools'
-sourceHash: '5c367705e0e9675b9d7e4df46b982e50ba7452cfaaf60aa3c6b36bd0d5625c8f'
+sourceHash: '4b9e554eea9073c533c0e2342db1b08ea838d18352bc11f633a02372caa703d5'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
 members:
   [
     'acceptance-eval.test.ts',
+    'adr-worktree.test.ts',
     'adr.test.ts',
     'agent.test.ts',
     'api-craft.test.ts',
@@ -103,7 +104,7 @@ import { computeLoadPlan } from '../../../../core/src/context/progressive-loader
 import { extractLevel } from '../../../../core/src/context/section-parser'
 import { acceptanceEvalDefinition, handleAcceptanceEval, resolveTestContent } from '../../../src/mcp/tools/acceptance-eval.js'
 import { handleManageAdr, manageAdrDefinition } from '../../../src/mcp/tools/adr'
-import { allocateNextNumber, listAdrs } from '../../../src/mcp/tools/adr-store'
+import { allocateNextNumber, listAdrs, resolveWorktreeRoot } from '../../../src/mcp/tools/adr-store'
 import { addComponentDefinition, handleAddComponent, handleRunAgentTask, runAgentTaskDefinition } from '../../../src/mcp/tools/agent'
 import { apiCraftDefinition, apiCraftFinalizeDefinition, handleApiCraft, handleApiCraftFinalize } from '../../../src/mcp/tools/api-craft'
 import { checkDependenciesDefinition } from '../../../src/mcp/tools/architecture'
@@ -180,6 +181,7 @@ import { deriveAcceptanceAuthority } from '@harness-engineering/intelligence'
 import { Err, Ok, Result } from '@harness-engineering/types'
 import * as fs from 'fs'
 import * as fs from 'fs/promises'
+import { execFileSync } from 'node:child_process'
 import * as fs, { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import * as fsp from 'node:fs/promises'
 import * as os, { tmpdir } from 'node:os'
