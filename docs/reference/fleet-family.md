@@ -181,6 +181,18 @@ The concurrency governor caps _how many_ leaves run at once and the per-leaf con
 
 **Provenance.** The envelope in force and the per-lane spend consulted are recorded in the run's assumptions-made / budget-accounting note, alongside the slot allocation (`--concurrency`) the lane was dispatched with.
 
+## The lane isolation boundary (repo _and_ user-global state)
+
+The fan-out gives each lane its own **git worktree** so lanes cannot collide, and it is that isolation guarantee which lets a fleet run N lanes concurrently _without reasoning about interference between them_. But a git worktree isolates exactly **one** thing: the repository working tree. It does **not** isolate the process's `$HOME`, its XDG dirs, or `~/.claude/`. A lane whose feature — or whose **verification run** — exercises a code path that writes **user-global state** writes straight through the worktree boundary to the operator's real, live state. (This is not hypothetical: a `roadmap-fleet` lane's `burn` verification once rewrote the operator's live `~/.claude/hud/state/summary.json`; see #1299.)
+
+**Lane isolation therefore covers repo _and_ user-global state — the worktree alone is not the boundary.** A lane is isolated only when neither its execution nor its verification can reach the operator's real `~/.claude`. The worktree covers the repo; a **per-lane config-dir env override covers everything the worktree does not**, and the two together are "lane isolation."
+
+- **Mechanism — a per-lane `CLAUDE_CONFIG_DIR`.** For the duration of a lane, redirect `~/.claude` into a sandbox under the lane's own worktree by setting `CLAUDE_CONFIG_DIR` in the environment the lane and its child processes inherit (`@harness-engineering/core`'s `buildLaneStateEnvOverride(worktreePath)` computes the value; the sandbox lives under the worktree's gitignored `.harness/lane-state/`). One generic override isolates **every** writer that honors it at once, rather than teaching each user-global writer about workspaces one at a time. Claude Code honors `CLAUDE_CONFIG_DIR` natively; the harness's own state-writers honor it too (e.g. `burn`'s `resolvePaths()` derives its HUD store from `CLAUDE_CONFIG_DIR` before falling back to `$HOME/.claude`).
+- **The override must be in force for VERIFY as well as DISPATCH.** The incident's write came from a _verification_ run — the phase that exercises the built code against real writers is exactly where the boundary must hold.
+- **A user-global writer that hardcodes `homedir()` instead of reading the override escapes the sandbox silently.** Closing the hole fully means holding writers to honoring `CLAUDE_CONFIG_DIR`; any writer that ignores it is a latent leak.
+
+The canonical statement is **ADR 0098** — members reference it rather than restate it.
+
 ## The worktree push-path caveat
 
 A worktree created under a `.claude/`-nested path breaks the local pre-push `check-docs` gate (it self-excludes and scans zero files). Subagents push via the GitHub API or from a non-`.claude` throwaway worktree. **Never `--no-verify`** — bypassing the gate defeats the verification the fleet depends on.
@@ -246,5 +258,6 @@ The authority model behind those five — coordinator plus global governor, neve
 - **ADR 0089** — The `pr-fleet` land-stage human-merge-gate model.
 - **ADR 0090** — The `adr-fleet` decide-stage batch-sign-off-gate model.
 - **ADR 0091** — The `fleet-command` conductor-tier authority model (coordinator + global governor above the members).
+- **ADR 0098** — The lane isolation boundary extends beyond the git worktree to user-global state, via a per-lane `CLAUDE_CONFIG_DIR` config-dir override.
 - **ADR 0103** — Item-type routing for build-shaped members (`roadmap-fleet`, `security-fleet` route bug/spec-ready/feature items to `debugging` / `autopilot` / `brainstorming`→`autopilot`).
 - **ADR 0105** — Cross-run advisory work-claim lease for the ID-based members (soft-reservation GitHub-backed lease bridging the `SELECT → PR-open` window; why not an exactly-once CAS lock).
