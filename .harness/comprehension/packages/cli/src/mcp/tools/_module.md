@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'packages/cli/src/mcp/tools'
-sourceHash: '54a94145e1c813d3ca8073864fda3c44e23ee35de4dfb6a65f178cd6dd0ff76a'
+sourceHash: '77cc870f1850898a92cade68a77279a0060c4c7cc1e59d13d276435c5d589f66'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
@@ -507,7 +507,7 @@ import { recommend } from '../../skill/recommendation-engine.js'
 import { loadOrGenerateProfile } from '../../skill/stack-profile.js'
 import { CollectPromptsOutput, FinalizeSpecCraftInput, SpecCraftInput, SpecCraftMode, SpecCraftOutput, collectSpecCraftPrompts, finalizeSpecCraft, runSpecCraft } from '../../spec-craft/index.js'
 import from '../../templates/engine.js'
-import { appendFrameworkAgents, ensureHarnessGitignore, persistToolingConfig } from '../../templates/post-write.js'
+import { appendFrameworkAgents, ensureComprehensionSearchIgnore, ensureHarnessGitignore, persistToolingConfig } from '../../templates/post-write.js'
 import { TemplateMetadata } from '../../templates/schema.js'
 import { CollectPromptsOutput, FinalizeTestCraftInput, TestCraftInput, TestCraftOutput, collectTestCraftPrompts, finalizeTestCraft, runTestCraft } from '../../test-craft/index.js'
 import { envEnabled } from '../../utils/env-flag.js'

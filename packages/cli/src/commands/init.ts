@@ -10,6 +10,7 @@ import {
   persistToolingConfig,
   appendFrameworkAgents,
   ensureHarnessGitignore,
+  ensureComprehensionSearchIgnore,
   applyEcosystemAfterCreate,
 } from '../templates/post-write';
 import { logger } from '../output/logger';
@@ -191,6 +192,7 @@ async function scaffoldProject(
   persistToolingConfig(cwd, resolveResult.value, options.framework);
   appendFrameworkAgents(cwd, options.framework, language);
   ensureHarnessGitignore(cwd);
+  ensureComprehensionSearchIgnore(cwd);
 
   const eco = applyEcosystemAfterCreate(cwd, writeResult.value.written);
   if (eco.rewritten) {

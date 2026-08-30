@@ -1,0 +1,12 @@
+{
+  "issues": [1692],
+  "route": "bug",
+  "stages": ["debugging"],
+  "assumptions": [
+    "The fix must keep committed comprehension units TRACKED in git (the LLM-free serve-time hash gate reads them), so a `.gitignore` approach is out; `.ignore` (honored by ripgrep/fd/ag even for tracked files) is the search-layer mechanism the issue recommends.",
+    "A repo-root `.ignore` with `.harness/comprehension/` is the least-invasive fix: git, prettier, eslint, and vitest ignore `.ignore`, so only raw code-search tools are affected. Harness's own graph-scoped tools never ingest `.harness/`, so they are unaffected.",
+    "Wiring `ensureComprehensionSearchIgnore` into the same seams as `ensureHarnessGitignore` (CLI init, MCP init_project, and MCP server startup for existing projects) makes the fix portable to every adopter without touching the comprehension write/format path that sibling #1697 (PR #1720) changed, avoiding a same-region merge conflict.",
+    "The committed repo-root `.ignore` in this PR fixes THIS repo immediately (it will not re-run init); the wiring covers all future adopters."
+  ],
+  "reproducingTest": "packages/cli/tests/templates/post-write.test.ts"
+}

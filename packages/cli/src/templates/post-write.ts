@@ -1,6 +1,7 @@
 import * as fs from 'fs';
 import * as path from 'path';
 import { detectEcosystem, type Ecosystem } from '@harness-engineering/orchestrator';
+import { COMPREHENSION_ROOT } from '@harness-engineering/core';
 import type { ResolvedTemplate } from './engine.js';
 import { appendFrameworkSection } from './agents-append.js';
 
@@ -119,6 +120,55 @@ security/*
   if (missing.length > 0) {
     const prefix = existing.endsWith('\n') ? '' : '\n';
     fs.appendFileSync(gitignorePath, prefix + missing.join('\n') + '\n');
+  }
+}
+
+/** Marker line prefixed to the harness-managed block in the repo-root `.ignore`. */
+const SEARCH_IGNORE_MARKER = '# harness: committed compiled-comprehension units';
+
+/** The single ignore pattern that excludes the committed comprehension shard tree. */
+const COMPREHENSION_SEARCH_IGNORE_PATTERN = `${COMPREHENSION_ROOT}/`;
+
+/**
+ * Ensure a repo-root `.ignore` excludes the committed compiled-comprehension shard
+ * tree (`.harness/comprehension/`) from raw text/file search (issue #1692).
+ *
+ * The units are TRACKED on purpose (the LLM-free serve-time hash gate needs them
+ * committed), but that makes them show up in `rg` / `grep -r` / editor code search,
+ * doubling hits on any symbol that appears in both the source and its unit's
+ * summary/interface-contract — ironic for a context-reduction feature. Ripgrep,
+ * `fd`, and `ag` all honor a `.ignore` file and skip its patterns EVEN for tracked
+ * files, so a `.harness/comprehension/` entry there hides the units from raw search
+ * WITHOUT untracking them from git. Harness's own graph-scoped tools never ingest
+ * `.harness/`, so they are unaffected.
+ *
+ * `.ignore` (not `.gitignore`) is deliberate: `.gitignore` would untrack the units
+ * and break the serve-time gate. `.ignore` is a search-layer concern only.
+ *
+ * Never throws — a read/write failure degrades to a no-op so scaffolding never fails
+ * on this advisory step. Preserves user customizations: creates the file when absent,
+ * otherwise appends the pattern only when it is not already present.
+ */
+export function ensureComprehensionSearchIgnore(targetDir: string): void {
+  try {
+    const ignorePath = path.join(targetDir, '.ignore');
+    const block = `${SEARCH_IGNORE_MARKER}\n${COMPREHENSION_SEARCH_IGNORE_PATTERN}\n`;
+
+    if (!fs.existsSync(ignorePath)) {
+      fs.writeFileSync(ignorePath, block);
+      return;
+    }
+
+    const existing = fs.readFileSync(ignorePath, 'utf8');
+    const present = existing
+      .split('\n')
+      .some((l) => l.trim() === COMPREHENSION_SEARCH_IGNORE_PATTERN);
+    if (present) return;
+
+    const prefix = existing.length === 0 || existing.endsWith('\n') ? '' : '\n';
+    fs.appendFileSync(ignorePath, prefix + block);
+  } catch {
+    // Advisory step — a read/write/permission failure must never fail scaffolding.
   }
 }
 

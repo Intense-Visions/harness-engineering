@@ -1,7 +1,22 @@
 import * as fs from 'fs';
 import * as os from 'os';
 import * as path from 'path';
-import { ensureHarnessGitignore, applyEcosystemAfterCreate } from '../../src/templates/post-write';
+import { spawnSync } from 'node:child_process';
+import {
+  ensureHarnessGitignore,
+  ensureComprehensionSearchIgnore,
+  applyEcosystemAfterCreate,
+} from '../../src/templates/post-write';
+import { COMPREHENSION_ROOT } from '@harness-engineering/core';
+
+/** Whether `rg` (ripgrep) is on PATH — the true-repro assertions need it. */
+function ripgrepAvailable(): boolean {
+  try {
+    return spawnSync('rg', ['--version'], { stdio: 'ignore' }).status === 0;
+  } catch {
+    return false;
+  }
+}
 
 describe('ensureHarnessGitignore', () => {
   let tmpDir: string;
@@ -122,6 +137,113 @@ describe('ensureHarnessGitignore', () => {
     expect(lines).toContain('craft/');
     expect(lines).toContain('spill/');
     expect(lines).toContain('tokens.json*');
+  });
+});
+
+// Issue #1692: committed compiled-comprehension units are TRACKED (so the LLM-free
+// serve-time hash gate can read them) but that makes them pollute raw text search —
+// `rg <symbol>` doubles hits across the source AND the unit's summary. A repo-root
+// `.ignore` excludes the shard tree from ripgrep/fd/ag WITHOUT untracking it.
+describe('ensureComprehensionSearchIgnore (issue #1692)', () => {
+  let tmpDir: string;
+  const pattern = `${COMPREHENSION_ROOT}/`;
+
+  beforeEach(() => {
+    tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'harness-search-ignore-'));
+  });
+
+  afterEach(() => {
+    fs.rmSync(tmpDir, { recursive: true, force: true });
+  });
+
+  /** Lay down a source file + a committed comprehension unit that share a symbol. */
+  function seedRepoWithSharedSymbol(symbol: string): { src: string; unit: string } {
+    const src = path.join(tmpDir, 'src', 'widget.ts');
+    fs.mkdirSync(path.dirname(src), { recursive: true });
+    fs.writeFileSync(src, `export function ${symbol}() {\n  return 42;\n}\n`);
+
+    const unit = path.join(tmpDir, COMPREHENSION_ROOT, 'src', '_module.md');
+    fs.mkdirSync(path.dirname(unit), { recursive: true });
+    fs.writeFileSync(unit, `# src\n\nInterface contract: \`${symbol}\` returns a widget.\n`);
+    return { src, unit };
+  }
+
+  it('creates a repo-root .ignore excluding the comprehension shard tree', () => {
+    ensureComprehensionSearchIgnore(tmpDir);
+    const ignorePath = path.join(tmpDir, '.ignore');
+    expect(fs.existsSync(ignorePath)).toBe(true);
+    const lines = fs.readFileSync(ignorePath, 'utf8').split(/\r?\n/);
+    expect(lines).toContain(pattern);
+  });
+
+  // The core reproduction. The units live under a HIDDEN dir (`.harness/`), which
+  // ripgrep skips by default — but the tracked tree is still reached by `grep -r`,
+  // by editor / GitHub code search, and by `rg --hidden`, all of which descend into
+  // tracked dotfiles. `rg --hidden` is the faithful stand-in here: a shared symbol
+  // matches BOTH files before the fix (pollution) and ONLY the source after it,
+  // because `.ignore` filters the tree even when the hidden-file filter is disabled.
+  // The unit stays on disk (still committable for the serve-time hash gate).
+  (ripgrepAvailable() ? it : it.skip)(
+    'hides committed units from ripgrep (--hidden) while keeping them on disk',
+    () => {
+      const symbol = 'assembleWidgetZZ';
+      const { unit } = seedRepoWithSharedSymbol(symbol);
+
+      const rgFiles = (): string[] => {
+        const res = spawnSync('rg', ['--hidden', '-l', symbol, '.'], {
+          cwd: tmpDir,
+          encoding: 'utf8',
+        });
+        return (res.stdout ?? '')
+          .split(/\r?\n/)
+          .map((l) => l.replace(/^\.[/\\]/, '').replaceAll('\\', '/'))
+          .filter(Boolean)
+          .sort();
+      };
+
+      // Before the fix: the tracked unit pollutes raw search (both files match).
+      const before = rgFiles();
+      expect(before).toContain(`${COMPREHENSION_ROOT}/src/_module.md`);
+      expect(before).toContain('src/widget.ts');
+
+      ensureComprehensionSearchIgnore(tmpDir);
+
+      // After the fix: only the real source matches; the unit is filtered out.
+      const after = rgFiles();
+      expect(after).toContain('src/widget.ts');
+      expect(after).not.toContain(`${COMPREHENSION_ROOT}/src/_module.md`);
+
+      // The unit is untouched on disk — the fix is search-layer only, never `.gitignore`.
+      expect(fs.existsSync(unit)).toBe(true);
+    }
+  );
+
+  it('does not untrack units via .gitignore (search-layer only)', () => {
+    ensureComprehensionSearchIgnore(tmpDir);
+    // No root .gitignore is created, and no .harness/.gitignore entry for the tree.
+    expect(fs.existsSync(path.join(tmpDir, '.gitignore'))).toBe(false);
+  });
+
+  it('appends to an existing .ignore, preserving custom entries, without duplicating', () => {
+    const ignorePath = path.join(tmpDir, '.ignore');
+    fs.writeFileSync(ignorePath, 'dist/\nmy-scratch-notes/\n');
+
+    ensureComprehensionSearchIgnore(tmpDir);
+    ensureComprehensionSearchIgnore(tmpDir); // idempotent — second call is a no-op
+
+    const lines = fs.readFileSync(ignorePath, 'utf8').split(/\r?\n/);
+    expect(lines).toContain('dist/');
+    expect(lines).toContain('my-scratch-notes/');
+    expect(lines.filter((l) => l === pattern)).toHaveLength(1);
+  });
+
+  it('is a no-op when the pattern is already present', () => {
+    const ignorePath = path.join(tmpDir, '.ignore');
+    fs.writeFileSync(ignorePath, `${pattern}\n`);
+    const before = fs.readFileSync(ignorePath, 'utf8');
+
+    ensureComprehensionSearchIgnore(tmpDir);
+    expect(fs.readFileSync(ignorePath, 'utf8')).toBe(before);
   });
 });
 

@@ -1,25 +1,22 @@
 ---
 schemaVersion: 1
-module: "packages/cli/src/mcp"
-sourceHash: "d6216fc4ab82f5b1acb0f58158219d1cba7a5351cffde7b0e77d9139e9675ddd"
-compiledAt: "2026-08-29T14:14:27.819Z"
-compiler: { static: "1.0.0", semantic: "1.0.0" }
-model: "claude-haiku-4-5-20251001"
-semantic: present
-members: ["context-surface.ts", "index.ts", "server.ts", "tool-capabilities.ts", "tool-capability-declarations.ts", "tool-tiers.ts", "tool-types.ts", "utils.ts"]
+module: 'packages/cli/src/mcp'
+sourceHash: '83f436e5244c88a373814eb39452ca6183816470b27a6a165689f978e7b86755'
+compiler: { static: '1.0.0', semantic: '1.0.0' }
+model: null
+semantic: absent
+members:
+  [
+    'context-surface.ts',
+    'index.ts',
+    'server.ts',
+    'tool-capabilities.ts',
+    'tool-capability-declarations.ts',
+    'tool-tiers.ts',
+    'tool-types.ts',
+    'utils.ts',
+  ]
 ---
-
-## Summary
-
-The MCP module (`packages/cli/src/mcp`) is the harness's Model Context Protocol server and tool registry. It exposes the harness's full capability surface to Claude and other agents via MCP: ~150+ tools organized into functional domains (design, testing, security, architecture, docs, etc.), plus read-only resources (project config, skill catalog, roadmap, graph entities). The server handles tool dispatch, applies middleware (injection guards, context budgeting, compaction), and measures the harness's always-loaded context surface (tool schemas by tier, AGENTS.md, hooks). Tools are registered via a central `getToolDefinitions()` registry; each tool pairs a schema definition with a handler. Resources are best-effort file-based views of project state that degrade gracefully on read failures.
-
-## Invariants
-
-- Tool tier membership is fixed and context-sized: tools are partitioned into `core`, `standard`, and `full` tiers; tier-aware context-surface measurement is the authoritative cost model for schema bytes. Tool names must appear in exactly one of `CORE_TOOL_NAMES`, `STANDARD_TOOL_NAMES` or neither.
-- Tool definition ↔ handler pairs must stay in sync: each tool in `getToolDefinitions()` must have a matching handler (registered in `CallToolRequest` dispatch) with compatible input schema; missing or mismatched handlers cause silent failures at runtime.
-- MCP resources degrade gracefully: file reads for AGENTS.md, hooks, skill trees use try-catch and return null on failure; resource gathering is best-effort and never blocks server startup.
-- Middleware ordering is load-bearing: injection-guard runs first (rejects unsafe patterns), then compaction (shrinks responses), then context-budget (enforces token limits); reordering changes security or budget semantics.
-- Project config resolution is mandatory before tool dispatch: `resolveProjectConfig` must succeed for tools to access harness state (roadmap, ADRs, rules); tools without config context fail gracefully.
 
 ## Interface Contract
 
@@ -34,7 +31,7 @@ export startServer
 ## Dependency Slice
 
 ```
-import { ensureHarnessGitignore } from '../templates/post-write.js'
+import { ensureComprehensionSearchIgnore, ensureHarnessGitignore } from '../templates/post-write.js'
 import from '../version.js'
 import { getToolDefinitions } from './index.js'
 import { applyCompaction } from './middleware/compaction.js'

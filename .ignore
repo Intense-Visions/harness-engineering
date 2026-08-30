@@ -1,0 +1,9 @@
+# harness: committed compiled-comprehension units
+# Committed compiled-comprehension shards under .harness/comprehension/ are TRACKED
+# on purpose (the LLM-free serve-time hash gate reads them from git), but that makes
+# them pollute raw text search — `rg <symbol>` / `grep -r` / editor code search would
+# otherwise double every hit across the source AND its unit summary. ripgrep, fd, and
+# ag honor this `.ignore` file and skip these patterns even for tracked files, hiding
+# the units from raw search WITHOUT untracking them from git (issue #1692). Delete the
+# line below if you deliberately want raw search to include the comprehension units.
+.harness/comprehension/
