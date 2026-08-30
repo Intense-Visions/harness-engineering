@@ -30,6 +30,48 @@ function isCodeFile(path: string): boolean {
 }
 
 /**
+ * True when `path` is itself a test file — carries a `.test.` / `.spec.` /
+ * `_test.` / `_spec.` infix (language-agnostic: `.test.ts`, `_test.py`,
+ * `_test.go`, `.spec.tsx`, …). These are the files that *provide* coverage, so
+ * their presence in a diff means the change is accompanied by tests.
+ */
+function isTestFile(path: string): boolean {
+  return /(?:\.|_)(?:test|spec)\.[^./]+$/i.test(path);
+}
+
+/**
+ * True when `path` is test-support scaffolding rather than a unit of production
+ * code — it lives under a `test/` / `tests/` / `__tests__/` / `__mocks__/` /
+ * `fixtures/` tree, is a `*-testkit.*` module, or is a `conftest.py`. Asking a
+ * test kit to have its own test is a category error, so these must not land in
+ * the "source files without tests" list (regression class fixed in canary#565).
+ */
+function isTestSupportFile(path: string): boolean {
+  const p = path.toLowerCase();
+  return (
+    /(?:^|\/)(?:tests?|__tests__|__mocks__|fixtures?)\//.test(p) ||
+    /-testkit\.[^./]+$/.test(p) ||
+    /(?:^|\/)conftest\.py$/.test(p)
+  );
+}
+
+/** Non-code suffixes / lockfiles that are never "source files requiring tests". */
+const NON_SOURCE_EXTENSIONS = ['.md', '.markdown', '.txt', '.json', '.yaml', '.yml', '.lock'];
+const LOCKFILE_BASENAMES = new Set(['package-lock.json', 'pnpm-lock.yaml', 'yarn.lock']);
+
+/**
+ * True when `path` is not source code that could carry tests — documentation,
+ * config, or a lockfile. A `CHANGELOG.md` must not reach the source classifier
+ * (it is not testable and also should not attract a file-size complaint).
+ */
+function isNonSourceFile(path: string): boolean {
+  const p = path.toLowerCase();
+  const base = p.split('/').pop() ?? p;
+  if (LOCKFILE_BASENAMES.has(base)) return true;
+  return NON_SOURCE_EXTENSIONS.some((ext) => p.endsWith(ext));
+}
+
+/**
  * Returns true when the lines preceding index i contain a zero-guard.
  */
 function hasPrecedingZeroCheck(lines: string[], i: number): boolean {
@@ -137,12 +179,20 @@ function detectEmptyCatch(bundle: ContextBundle): ReviewFinding[] {
  */
 function detectMissingTests(bundle: ContextBundle): ReviewFinding[] {
   const findings: ReviewFinding[] = [];
-  const hasTestFiles = bundle.contextFiles.some((f) => f.reason === 'test');
+  // Credit test files present in the DIFF itself, not only those pulled in as
+  // context. A PR whose purpose is adding tests carries them in `changedFiles`;
+  // the old code only inspected `contextFiles`, so it asserted "no test files
+  // found" about a diff that contained several — inverting its own signal.
+  const hasTestContext = bundle.contextFiles.some((f) => f.reason === 'test');
+  const diffContainsTests = bundle.changedFiles.some((f) => isTestFile(f.path));
+  const hasTestFiles = hasTestContext || diffContainsTests;
 
   if (!hasTestFiles) {
-    // Check if any changed files are source files (not test files themselves)
+    // A "source file requiring a test" is code that is not itself a test, not
+    // test-support scaffolding (test kits, fixtures, conftest), and not a
+    // non-code file (docs/config/lockfiles like CHANGELOG.md).
     const sourceFiles = bundle.changedFiles.filter(
-      (f) => !f.path.match(/\.(test|spec)\.(ts|tsx|js|jsx)$/)
+      (f) => !isTestFile(f.path) && !isTestSupportFile(f.path) && !isNonSourceFile(f.path)
     );
     if (sourceFiles.length > 0) {
       const firstFile = sourceFiles[0]!;

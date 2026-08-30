@@ -1,11 +1,10 @@
 ---
 schemaVersion: 1
 module: 'packages/core/src/review/agents'
-sourceHash: 'bc85129887729a61c41a9b0672d7aa4a005af9a8844be1ccee93e7d29b6e4b02'
-compiledAt: '2026-08-28T01:22:10.482Z'
+sourceHash: 'aa81ed678f95be59e8cfac51653a9c2b6d35c6286bd672d7b6d7ff4317166fb1'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
-model: 'claude-haiku-4-5-20251001'
-semantic: present
+model: null
+semantic: absent
 members:
   [
     'adversarial-agent.ts',
@@ -19,21 +18,6 @@ members:
     'typescript-strict-agent.ts',
   ]
 ---
-
-## Summary
-
-`packages/core/src/review/agents` is the pluggable review agent framework. It exports 8 domain-specific agents (Adversarial, Architecture, Bug Detection, Compliance, Frontend Races, Learnings, Security, TypeScript Strict), each as a descriptor + runner function pair. Agents scan changed files for anti-patterns using regex/heuristics or parse external context (e.g., check-deps output), then emit structured `ReviewFinding` objects keyed by file/line/category. Findings flow through dedup and synthesis logic downstream; the coordinator composes agents to handle different code dimensions in parallel, with optional depth-gating (e.g., cascade detection on Deep tier only).
-
-## Invariants
-
-- Finding IDs are deterministic and unique via makeFindingId(agentName, file, line, category) — collisions suppress duplicates; non-determinism breaks idempotency
-- Each agent exports both *\_DESCRIPTOR and run*Agent() — descriptor declares domain/tier/UI; runner executes detection logic; mismatch breaks routing
-- Findings must populate domain, severity, and validatedBy fields — review system keys on domain for filtering, severity gates PR comments, validatedBy signals confidence; omission breaks downstream synthesis
-- Confidence scores affect severity mapping (agent-local contract) — e.g., adversarial maps ≥75 → 'important', <75 → 'suggestion'
-- Architecture agent silently skips layer violations if harness-check-deps-output is absent from contextFiles — caller must inject check-deps result before dispatch
-- File base-name normalization is required for circular-import detection — relative imports stripped of ./ and ../ prefixes, paths matched by base name; mismatch causes false negatives
-- runCascades option gates Promise-constructor detection for depth-aware review — Standard-depth reviews must pass { runCascades: false } to skip expensive check; omission defaults to true (suitable for Deep/Max)
-- Findings are immutable post-emission — agents return findings once; edits must happen in coordinator, not agent
 
 ## Interface Contract
 
