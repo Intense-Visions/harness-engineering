@@ -21,12 +21,21 @@ import { isLocalExecutionBackend } from '../agent/backend-factory.js';
 import type { OrchestratorBackendFactory } from '../agent/orchestrator-backend-factory.js';
 import { selectStagePromptTemplate } from './local-stage-prompt.js';
 import { resolveLeafPrewarm, type LeafPrewarmResult } from './comprehension-prewarm.js';
+import { createGraphBlastRadiusResolver } from './comprehension-blast-radius.js';
 import {
   ComprehensionStore,
   COMPREHENSION_ROOT,
   createNodeComprehensionIO,
   createNodeModuleSourceReader,
 } from '@harness-engineering/core';
+
+/**
+ * #1690 — default token cap on the dispatch pre-warm's 1-hop blast-radius
+ * enrichment (F3=a). Seed (issue-referenced) units are always served; only the
+ * importer/dep enrichment is bounded by this budget, so a hub (high fan-in) leaf
+ * serves fewer importer units rather than ballooning the prompt.
+ */
+export const DEFAULT_BLAST_RADIUS_TOKEN_BUDGET = 4000;
 import { detectEcosystem } from '../workspace/ecosystem.js';
 import type { StreamRecorder } from '../core/stream-recorder.js';
 import type { StructuredLogger } from '../logging/logger.js';
@@ -368,9 +377,41 @@ async function resolveLeafPrewarmBestEffort(
       io: createNodeComprehensionIO(),
     });
     const reader = createNodeModuleSourceReader(root);
-    return await resolveLeafPrewarm(issue, { projectRoot: root, store, reader });
+    // #1690 — best-effort 1-hop blast-radius enrichment. When a dependency graph
+    // is present, enrich the seed with its DIRECT importers (dependents) under a
+    // token budget cap (F3=a). No graph ⇒ resolver omitted ⇒ seed-only pre-warm
+    // (byte-identical to the pre-#1690 behavior, SC3).
+    const resolveBlastRadius = await loadBlastRadiusResolver(root);
+    return await resolveLeafPrewarm(issue, {
+      projectRoot: root,
+      store,
+      reader,
+      ...(resolveBlastRadius && {
+        resolveBlastRadius,
+        enrichmentTokenBudget: DEFAULT_BLAST_RADIUS_TOKEN_BUDGET,
+      }),
+    });
   } catch {
     return { block: '', sources: [] };
+  }
+}
+
+/**
+ * #1690 — best-effort load the dependency graph and build the 1-hop blast-radius
+ * resolver rooted at `root`. Returns `undefined` when no graph is persisted or
+ * the load fails, so the pre-warm degrades to the seed-only block. Never throws.
+ */
+async function loadBlastRadiusResolver(
+  root: string
+): Promise<((module: string) => string[]) | undefined> {
+  try {
+    const { GraphStore, resolveGraphDir } = await import('@harness-engineering/graph');
+    const store = new GraphStore();
+    const loaded = await store.load(resolveGraphDir(root));
+    if (!loaded) return undefined;
+    return createGraphBlastRadiusResolver(store);
+  } catch {
+    return undefined;
   }
 }
 
