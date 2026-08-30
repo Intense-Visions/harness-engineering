@@ -56,10 +56,13 @@ afterEach(() => {
 
 describe('manage_adr git-worktree awareness (#1507)', () => {
   it('resolveWorktreeRoot resolves the worktree top-level from its cwd, not the server root', () => {
-    // realpathSync normalizes macOS /var -> /private/var symlinks.
+    // realpathSync.native canonicalizes both macOS /var -> /private/var symlinks
+    // AND Windows 8.3 short names (RUNNER~1) -> long names (runneradmin), which
+    // `git rev-parse --show-toplevel` emits but os.tmpdir()/mkdtemp does not.
+    const canon = (p: string): string => fs.realpathSync.native(p);
     const resolved = resolveWorktreeRoot(worktree, mainRepo);
-    expect(fs.realpathSync(resolved)).toBe(fs.realpathSync(worktree));
-    expect(fs.realpathSync(resolved)).not.toBe(fs.realpathSync(mainRepo));
+    expect(canon(resolved)).toBe(canon(worktree));
+    expect(canon(resolved)).not.toBe(canon(mainRepo));
   });
 
   it('writes a created ADR into the active worktree, not the server projectRoot', async () => {
