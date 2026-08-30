@@ -1,0 +1,24 @@
+{
+  "issues": [1690],
+  "route": "feature",
+  "stages": ["brainstorming", "autopilot"],
+  "assumptions": ["F3=a 1-hop importers under a capped token budget"],
+  "planArtifact": "docs/changes/comprehension-blast-radius-prewarm/plans/plan.md",
+  "slug": "comprehension-blast-radius-prewarm",
+  "title": "Comprehension: full blast-radius prewarm enrichment (orchestrator)",
+  "branch": "roadmap-fleet/1690-comprehension-blast-radius-prewarm",
+  "mechanisms": {
+    "coreEnrichmentSeam": "packages/orchestrator/src/workflow/comprehension-prewarm.ts — LeafPrewarmDeps gains resolveBlastRadius + enrichmentTokenBudget; resolveLeafPrewarm serves seed (always) then a token-budget-bounded enrichment (deps ∪ 1-hop importers).",
+    "graphResolver": "packages/orchestrator/src/workflow/comprehension-blast-radius.ts — createGraphBlastRadiusResolver(store) maps a module dir → its 1-hop importer module dirs via inbound `imports` edges (never transitive, never throws).",
+    "dispatchWiring": "packages/orchestrator/src/workflow/orchestrator-context.ts — resolveLeafPrewarmBestEffort best-effort loads the GraphStore (resolveGraphDir) and passes resolveBlastRadius + DEFAULT_BLAST_RADIUS_TOKEN_BUDGET (4000) into resolveLeafPrewarm; no graph ⇒ omitted ⇒ byte-identical seed-only pre-warm."
+  },
+  "forkF3": {
+    "decision": "(a) prewarm DIRECT (1-hop) importers under a capped token budget — NOT the full transitive closure.",
+    "proof": "createGraphBlastRadiusResolver reads only inbound 1-hop `imports` edges; comprehension-blast-radius.test.ts asserts a 2-hop importer is excluded; enrichmentTokenBudget caps cumulative enrichment tokens while the seed is always served."
+  },
+  "tests": [
+    "packages/orchestrator/src/workflow/comprehension-prewarm.test.ts — SC1 (blast-radius importers served), SC2 (token-budget cap; seed always served; unbounded back-compat), dedup vs seed.",
+    "packages/orchestrator/src/workflow/comprehension-blast-radius.test.ts — SC4 (1-hop importer resolution; excludes transitive), empty/unknown/hostile-store degrade to [].",
+    "packages/orchestrator/src/workflow/orchestrator-context.blast-radius-seam.test.ts — WIRED: real on-disk graph enriches resolveStagePrewarmBlock; no graph ⇒ seed-only (SC3)."
+  ]
+}
