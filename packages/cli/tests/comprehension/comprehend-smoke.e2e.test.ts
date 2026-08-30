@@ -117,6 +117,52 @@ describe.skipIf(!HAS_BIN)('harness comprehend — E2E smoke (static, no LLM)', (
   });
 });
 
+// --- #1697: `comprehend --all` lands already-prettier-formatted shards ---------
+// A bulk (`--all`, non-`--stage`) run must apply the SAME write-time prettier
+// formatting the `--stage`/hook path applies, so shards land prettier-stable and
+// don't "dribble" against an adopter's own prettier-on-markdown lint-staged /
+// pre-commit — which reflows the serializer's double-quoted YAML frontmatter to
+// single quotes (repo `singleQuote: true`) and trips the whole-tree `format:check`.
+describe.skipIf(!HAS_BIN)('harness comprehend --all — write-time shard formatting (#1697)', () => {
+  let proj: string;
+
+  beforeAll(() => {
+    proj = mkdtempSync(path.join(tmpdir(), 'comprehend-fmt-'));
+    mkdirSync(path.join(proj, 'math'), { recursive: true });
+    writeFileSync(
+      path.join(proj, 'math', 'add.ts'),
+      `/** Adds two numbers. */\nexport function add(a: number, b: number): number {\n  return a + b;\n}\n`
+    );
+    writeFileSync(path.join(proj, 'math', 'index.ts'), `export { add } from './add';\n`);
+    // A realistic adopter: prettier-on-markdown (singleQuote) with NO `.prettierignore`
+    // entry for the comprehension substrate — exactly who this bug bites.
+    writeFileSync(
+      path.join(proj, '.prettierrc.json'),
+      JSON.stringify({ singleQuote: true }, null, 2)
+    );
+  });
+
+  afterAll(() => {
+    if (proj) rmSync(proj, { recursive: true, force: true });
+  });
+
+  it('a shard written via the bulk --all path is already prettier-stable (no format:check drift)', async () => {
+    const r = comprehend(proj, ['--all', '--static']);
+    expect(r.status).toBe(0);
+
+    const unitPath = path.join(proj, UNIT);
+    const onDisk = readFileSync(unitPath, 'utf8');
+
+    // `format:check` equivalent: re-running prettier over the freshly-written shard
+    // must be a NO-OP. Before the fix the shard carried double-quoted YAML frontmatter
+    // that prettier (singleQuote) reflows → a guaranteed diff → dribble on every commit.
+    const prettier = await import('prettier');
+    const config = await prettier.resolveConfig(unitPath);
+    const formatted = await prettier.format(onDisk, { ...config, filepath: unitPath });
+    expect(formatted).toBe(onDisk);
+  });
+});
+
 // Deterministic SEMANTIC E2E — fake the LLM at the REAL boundary. We drop a fake
 // `claude` on PATH that emits a canned structured_output envelope, so the FULL
 // pipeline runs for real (D8 resolver → ClaudeCliAnalysisProvider spawn → parse →
