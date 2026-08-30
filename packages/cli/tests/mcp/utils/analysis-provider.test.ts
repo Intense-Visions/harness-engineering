@@ -60,6 +60,30 @@ describe('resolveAnalysisProvider — provider selection precedence', () => {
     expect(providerName(await resolveAnalysisProvider())).toBe('OpenAICompatibleAnalysisProvider');
   });
 
+  it('uses a config-declared endpoint (ADR 0109 slice 3) when the env base-url is unset', async () => {
+    clear();
+    expect(
+      providerName(
+        await resolveAnalysisProvider(undefined, {
+          isClaudeCliAvailable: () => false,
+          endpoint: { baseUrl: 'http://127.0.0.1:1234/v1', apiKey: 'vendor-key' },
+        })
+      )
+    ).toBe('OpenAICompatibleAnalysisProvider');
+  });
+
+  it('prefers Anthropic over a config-declared endpoint (unchanged precedence)', async () => {
+    clear();
+    process.env.ANTHROPIC_API_KEY = 'sk-ant-test';
+    expect(
+      providerName(
+        await resolveAnalysisProvider(undefined, {
+          endpoint: { baseUrl: 'http://127.0.0.1:1234/v1' },
+        })
+      )
+    ).toBe('AnthropicAnalysisProvider');
+  });
+
   it('prefers Anthropic over the local endpoint when both are configured (backward compatible)', async () => {
     clear();
     process.env.ANTHROPIC_API_KEY = 'sk-ant-test';
@@ -164,6 +188,16 @@ describe('resolveProviderKind — mirrors resolveAnalysisProvider precedence', (
     expect(
       resolveProviderKind({
         env: { HARNESS_ANALYSIS_BASE_URL: 'http://x' },
+        isClaudeCliAvailable: () => true,
+      })
+    ).toBe('local');
+  });
+
+  it('local when a config-declared endpoint is present even with an empty env (slice 3)', () => {
+    expect(
+      resolveProviderKind({
+        env: {},
+        endpoint: { baseUrl: 'http://vendor-gateway/v1' },
         isClaudeCliAvailable: () => true,
       })
     ).toBe('local');

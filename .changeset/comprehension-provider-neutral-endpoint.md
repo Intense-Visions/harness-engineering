@@ -1,0 +1,5 @@
+---
+'@harness-engineering/cli': minor
+---
+
+comprehension: make the semantic backstop provider-neutral (ADR 0109, slice 3). A new optional `comprehension.analysisBaseUrl` lets a project point the backstop at ANY vendor's OpenAI-compatible gateway (Cursor / Codex / Gemini / a local model) — no Anthropic key and no orchestrator-injected `HARNESS_ANALYSIS_*` env required. The API key stays env-only (`HARNESS_ANALYSIS_API_KEY`) so a secret never lands in committed config. Provider _construction_ and semantic-_model_ selection now both derive from the same config endpoint via a single `selectSemanticModel` helper, so they cannot diverge — fixing a defect where a config endpoint with `claude` on PATH forced a Claude model id onto the vendor gateway and silently produced zero semantic units. The `get_comprehension` recompile path honors the config endpoint too. Precedence is unchanged and backward compatible (Anthropic key → endpoint (config ∥ env) → claude-CLI → null; env remains the fallback), degrading to static-only when nothing resolves.

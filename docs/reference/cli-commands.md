@@ -223,6 +223,7 @@ Compile and maintain the per-module comprehension substrate
 - `--changed` — Recompile only modules owning changed files (default)
 - `--all` — Recompile every module (backfill)
 - `--check` — Token-free: report source-stale units, exit non-zero if any
+- `--since` — With --check: also fail on any module that regressed semantic present→absent vs this git ref (token-free)
 - `--stats` — Report served-vs-raw token savings (token-free)
 - `--static` — Static-only: never resolve a provider or call an LLM (pre-commit/CI posture)
 - `--stage` — git-add the compiled unit shards after a run (pre-commit posture)

@@ -1,27 +1,25 @@
 ---
 schemaVersion: 1
-module: 'packages/cli/tests/mcp/utils'
-sourceHash: '6c8bfc0b9d1f7dc81c7fbfbdfeea68fbae706516db3656573b892844536e463a'
-compiledAt: '2026-08-28T01:22:09.796Z'
-compiler: { static: '1.0.0', semantic: '1.0.0' }
-model: 'claude-haiku-4-5-20251001'
+module: "packages/cli/tests/mcp/utils"
+sourceHash: "6af7727c721df8fd719eec57bb2572eb09b031ec57b0b68a0d5a6b11670bb124"
+compiledAt: "2026-08-29T14:44:49.939Z"
+compiler: { static: "1.0.0", semantic: "1.0.0" }
+model: "claude-haiku-4-5-20251001"
 semantic: present
-members:
-  ['analysis-provider.test.ts', 'glob-helper.test.ts', 'graph-loader.test.ts', 'paths.test.ts']
+members: ["analysis-provider.test.ts", "glob-helper.test.ts", "graph-loader.test.ts", "paths.test.ts"]
 ---
 
 ## Summary
 
-This test suite pins the contract for three core MCP utility subsystems. **Analysis Provider Selection** tests a cascading fallback for resolving which LLM backend serves eval verdicts (Anthropic API key → local OpenAI-compatible endpoint → claude-CLI → null), with strict precedence and graceful degradation on whitespace-only config. **File Globbing** tests recursive source-file discovery with platform-safe defaults, excluding noise directories (node_modules, dist, .git, .next, .nuxt, **pycache**, fixtures) and test files by default while supporting multi-language patterns. **Graph Store Caching** tests lazy initialization and mtime-aware caching of the dependency graph per projectRoot, where cache invalidation is mtime-driven and even failed loads are cached to avoid repeated errors.
+This module tests utilities for resolving analysis backends, globbing source files, loading graph stores, and path handling. The main suites validate provider selection precedence (Anthropic → local OpenAI-compatible → claude-CLI → null), platform-aware PATH scanning for CLI detection, and safe multi-language file discovery with sensible exclusions (build artifacts, test files). The tests emphasize graceful degradation, deterministic precedence, and injectable mocking for cross-platform reproducibility.
 
 ## Invariants
 
-- Provider precedence is strict: Anthropic API key > local endpoint > claude-CLI > null; Anthropic always preferred when both key and local endpoint exist
-- Whitespace-only config values degrade safely—treated as unset, never throw or crash resolution
-- PATH scanning is platform-aware: POSIX uses ':' delimiter, Windows uses ';' with PATHEXT variants; mismatches cause silent false negatives on cross-platform CI
-- globFiles excludes are absolute: node_modules, .git, dist, .next, .nuxt, **pycache**, fixtures always skipped; test files (_.test._) excluded by default
-- Graph store cache is per-projectRoot; mtime invalidation is the sole signal for reload; missing/failed loads remain cached until mtime changes
-- Injectable dependencies throughout (provider resolution, PATH detection, graph stat) allow deterministic testing via mocks
+- Provider precedence is strict: ANTHROPIC_API_KEY > HARNESS_ANALYSIS_BASE_URL > config-declared endpoint > claude-CLI > null; Anthropic always wins when set (backward compatible).
+- Whitespace-only env vars degrade gracefully—HARNESS_ANALYSIS_BASE_URL='   ' is treated as unset, never throws, retries lower precedence.
+- Platform-aware PATH scan is deterministic and injectable: delimiter (:/:;), PATHEXT, and Path/PATH case-folding pinned by tests, not runtime. Allows OS-independent test execution.
+- glob-helper excludes are exhaustive and unconditional: node_modules, dist, .git, .next, .nuxt, __pycache__, *.test.* files always skipped unless custom patterns override. Nonexistent paths return [], not error.
+- Config-declared endpoint (ADR 0109 slice 3) bypasses claude-CLI fallback, centralizing provider selection in harness config.
 
 ## Interface Contract
 
@@ -32,7 +30,7 @@ This test suite pins the contract for three core MCP utility subsystems. **Analy
 ## Dependency Slice
 
 ```
-import { isClaudeCliAvailable, resolveAnalysisProvider } from '../../../src/mcp/utils/analysis-provider.js'
+import { isClaudeCliAvailable, resolveAnalysisProvider, resolveProviderKind } from '../../../src/mcp/utils/analysis-provider.js'
 import { globFiles } from '../../../src/mcp/utils/glob-helper'
 import { clearGraphStoreCache, loadGraphStore } from '../../../src/mcp/utils/graph-loader.js'
 import from '../../../src/utils/paths.js'
