@@ -177,6 +177,29 @@ async function defaultFormatPaths(paths: string[]): Promise<void> {
 }
 
 /**
+ * FIX #1697 — prettier-format the freshly-written shards for a compile run
+ * REGARDLESS of the `--stage` path. Write-time formatting used to live ONLY inside
+ * `stageCompiledUnits` (the pre-commit `--stage`/hook posture), so a bulk
+ * `harness comprehend --all` (or any non-stage run) followed by a manual
+ * `git add` + commit landed RAW, double-quoted shards that an adopter's own
+ * prettier-on-markdown lint-staged step then reflows at commit time — producing
+ * the "dribble" (a rotating handful of shards left modified-but-uncommitted after
+ * every commit) and a whole-tree `format:check` risk on push. Applying the same
+ * format step here makes shard formatting PATH-INDEPENDENT: every freshly-compiled
+ * shard lands already prettier-stable no matter how it was produced. No-op when
+ * nothing compiled; best-effort (the `format` seam swallows its own errors, so a
+ * missing prettier or an unreadable shard never blocks the run).
+ */
+export async function formatCompiledUnits(
+  result: Pick<ComprehendRunResult, 'compiled'>,
+  store: { path: (module: string) => string },
+  format: (paths: string[]) => void | Promise<void> = defaultFormatPaths
+): Promise<void> {
+  if (result.compiled.length === 0) return;
+  await format(result.compiled.map((module) => store.path(module)));
+}
+
+/**
  * SF1.2 — `--stage`: git-add the compiled units' shard paths so a static-only
  * pre-commit recompile lands the refreshed `_module.md` shards IN the same commit
  * as the source change. Stages EXACTLY the compiled modules' shards (`store.path`)
@@ -192,9 +215,8 @@ export async function stageCompiledUnits(
   format: (paths: string[]) => void | Promise<void> = defaultFormatPaths
 ): Promise<void> {
   if (result.compiled.length === 0) return;
-  const paths = result.compiled.map((module) => store.path(module));
-  await format(paths); // FIX D: prettier the shards BEFORE they are staged
-  stage(paths);
+  await formatCompiledUnits(result, store, format); // FIX D: prettier the shards BEFORE staging
+  stage(result.compiled.map((module) => store.path(module)));
 }
 
 /** Load the resolved HarnessConfig, or undefined when none resolves (best-effort). */
@@ -321,7 +343,13 @@ async function runCompileMode(
   // Pre-commit posture: stage the refreshed shards so they land in the SAME
   // commit as the source change (no-op when nothing compiled). Prettier-formats
   // the shards before git-add (FIX D) so they never trip the whole-tree format:check.
+  // FIX #1697: on every OTHER path (bulk `--all`, plain `--changed`, no `--stage`)
+  // still prettier-format the freshly-written shards so a later manual `git add` +
+  // commit lands them already-formatted — otherwise an adopter's prettier-on-markdown
+  // lint-staged reflows the double-quoted frontmatter at commit time (dribble +
+  // format:check risk). `stageCompiledUnits` already formats, so don't double up.
   if (opts.stage) await stageCompiledUnits(result, store);
+  else await formatCompiledUnits(result, store);
   logger.success(
     `Compiled ${result.compiled.length} module(s): ` +
       `${result.semanticPresent} semantic, ${result.semanticAbsent} static-only` +
