@@ -5,6 +5,7 @@ import {
   resolveCompileProvider,
   resolveChangedScope,
   stageCompiledUnits,
+  formatCompiledUnits,
 } from '../../src/commands/comprehend';
 import type { ChangedSurface } from '../../src/commands/validate-scope';
 import { readComprehensionConfig } from '../../src/comprehension/config';
@@ -160,5 +161,30 @@ describe('stageCompiledUnits — SF1.2 (--stage)', () => {
       )
     ).resolves.toBeUndefined();
     expect(staged).toEqual(['.harness/comprehension/packages/core/src/_module.md']);
+  });
+});
+
+// --- #1697: formatCompiledUnits — write-time formatting on EVERY compile path ---
+
+describe('formatCompiledUnits — #1697 (path-independent shard formatting)', () => {
+  it('formats EXACTLY the compiled modules’ shard paths (via the injected seam)', async () => {
+    const formatted: string[] = [];
+    const store = { path: (m: string) => `.harness/comprehension/${m}/_module.md` };
+    await formatCompiledUnits(
+      runResult({ compiled: ['packages/core/src', 'packages/cli/src'] }),
+      store,
+      (paths) => formatted.push(...paths)
+    );
+    expect(formatted).toEqual([
+      '.harness/comprehension/packages/core/src/_module.md',
+      '.harness/comprehension/packages/cli/src/_module.md',
+    ]);
+  });
+
+  it('is a no-op when nothing compiled (never touches prettier)', async () => {
+    const format = vi.fn();
+    const store = { path: (m: string) => `.harness/comprehension/${m}/_module.md` };
+    await formatCompiledUnits(runResult({ compiled: [] }), store, format);
+    expect(format).not.toHaveBeenCalled();
   });
 });

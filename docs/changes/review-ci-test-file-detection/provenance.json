@@ -1,0 +1,13 @@
+{
+  "issues": [1501],
+  "route": "bug",
+  "stages": ["debugging"],
+  "assumptions": [
+    "The 'No test files found' finding originates in detectMissingTests() in packages/core/src/review/agents/bug-agent.ts, which review-ci's floor-only path invokes.",
+    "Crediting a test file is path-based: a diff entry whose path carries a .test./.spec./_test./_spec. infix counts as accompanying tests, regardless of the ContextFile.reason value (the review-ci path lists diff files with reason 'changed', not 'test').",
+    "Test-support scaffolding (files under test/ tests/ __tests__/ __mocks__/ fixtures/, *-testkit.*, conftest.py) is non-source and must not be asked to have its own test (matches canary#565).",
+    "Non-code files (.md/.markdown/.txt/.json/.yaml/.yml/.lock and lockfiles) are never source requiring tests, so CHANGELOG.md must not reach the source classifier.",
+    "Scope limited to the primary defect that inverts the signal (defects 1-3 in the issue). The 'abstain instead of assert absence' vocabulary change and the separate mismatched-title/rationale finding are out of scope for this fix; the reporter offered to split the latter into its own issue."
+  ],
+  "reproducingTest": "packages/core/tests/review/agents/bug-agent.test.ts"
+}

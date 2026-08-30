@@ -25,9 +25,18 @@ export interface BurnPaths {
 
 export function resolvePaths(env: NodeJS.ProcessEnv = process.env): BurnPaths {
   const home = env.HOME || homedir();
-  const hud = env.CLAUDE_HUD_HOME || path.join(home, '.claude', 'hud');
+  // The `~/.claude` base honors `CLAUDE_CONFIG_DIR` (Claude Code's own config-dir
+  // relocation var) before falling back to `$HOME/.claude`. This is what lets a
+  // `-fleet` build lane redirect the HUD store into its per-lane worktree sandbox
+  // instead of the operator's real, live store: the lane sets a per-lane
+  // `CLAUDE_CONFIG_DIR` and every HUD path below derives from it. Without this,
+  // burn keyed off `$HOME` alone and a lane's verification run wrote straight
+  // through the worktree isolation boundary to `~/.claude/hud/` (issue #1299 /
+  // ADR 0098). The explicit `CLAUDE_HUD_*` vars still win over the derived base.
+  const claudeDir = env.CLAUDE_CONFIG_DIR || path.join(home, '.claude');
+  const hud = env.CLAUDE_HUD_HOME || path.join(claudeDir, 'hud');
   const state = env.CLAUDE_HUD_STATE || path.join(hud, 'state');
-  const projects = env.CLAUDE_HUD_PROJECTS || path.join(home, '.claude', 'projects');
+  const projects = env.CLAUDE_HUD_PROJECTS || path.join(claudeDir, 'projects');
   return {
     hud,
     state,

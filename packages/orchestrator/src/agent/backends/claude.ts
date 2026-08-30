@@ -19,7 +19,7 @@ import type {
   PolicyNetworkMode,
 } from '@harness-engineering/types';
 import type { CacheMetricsRecorder } from '@harness-engineering/core';
-import { buildSubprocessEnv } from '../subprocess-env.js';
+import { buildSubprocessEnv, isLaneStateIsolationEnabled } from '../subprocess-env.js';
 
 /**
  * Governance record handed to a {@link ClaudeBackendOptions.policyAudit} sink at
@@ -441,6 +441,15 @@ export interface ClaudeBackendOptions {
   subprocessEnvAllow?: readonly string[];
   /** Test seam: override the env source read for the allowlist. Defaults to `process.env`. */
   envSource?: NodeJS.ProcessEnv;
+  /**
+   * Per-lane user-global state isolation. When true, and the session runs in a
+   * worktree (`workspacePath` set), the spawned agent's `~/.claude` is redirected
+   * into a per-lane sandbox under the worktree so it cannot write through the
+   * isolation boundary to the operator's real store (issue #1299 / ADR 0098).
+   * Defaults to the {@link LANE_STATE_ISOLATION_VAR} flag in `envSource`; OFF by
+   * default so a normal single-run agent keeps its real login/credentials.
+   */
+  laneStateIsolation?: boolean;
 }
 
 export class ClaudeBackend implements AgentBackend {
@@ -453,6 +462,7 @@ export class ClaudeBackend implements AgentBackend {
   private policyAudit?: PolicyAuditSink;
   private subprocessEnvAllow?: readonly string[];
   private envSource: NodeJS.ProcessEnv;
+  private laneStateIsolation: boolean;
 
   constructor(command = 'claude', options: ClaudeBackendOptions = {}) {
     this.command = options.command ?? command;
@@ -463,6 +473,8 @@ export class ClaudeBackend implements AgentBackend {
     if (options.policyAudit) this.policyAudit = options.policyAudit;
     if (options.subprocessEnvAllow) this.subprocessEnvAllow = options.subprocessEnvAllow;
     this.envSource = options.envSource ?? process.env;
+    this.laneStateIsolation =
+      options.laneStateIsolation ?? isLaneStateIsolationEnabled(this.envSource);
   }
 
   async startSession(params: SessionStartParams): Promise<Result<AgentSession, AgentError>> {
@@ -500,10 +512,12 @@ export class ClaudeBackend implements AgentBackend {
     // parent `process.env`, so unrelated host secrets never leak into the spawned
     // CLI. Provider creds / HARNESS_* / runtime plumbing still pass through — see
     // subprocess-env.ts. Stripping is unconditional; the audit sink is optional.
-    const { env, stripped, enforced } = buildSubprocessEnv(
-      this.envSource,
-      this.subprocessEnvAllow ? { extraAllow: this.subprocessEnvAllow } : {}
-    );
+    const laneStateScope =
+      this.laneStateIsolation && session.workspacePath ? session.workspacePath : undefined;
+    const { env, stripped, enforced } = buildSubprocessEnv(this.envSource, {
+      ...(this.subprocessEnvAllow ? { extraAllow: this.subprocessEnvAllow } : {}),
+      ...(laneStateScope ? { laneStateScope } : {}),
+    });
 
     // Stamp the per-call policy envelope into the governance audit trail. The
     // permission-mode flag below is a permission-bypassing ("dangerous") flag,

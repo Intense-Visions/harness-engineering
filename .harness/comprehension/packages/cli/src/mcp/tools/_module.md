@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'packages/cli/src/mcp/tools'
-sourceHash: '0ad5616716cf45dd20d666a7574c164fb78a89cbb101d48b2d4e40b793d5dc8d'
+sourceHash: '77cc870f1850898a92cade68a77279a0060c4c7cc1e59d13d276435c5d589f66'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
@@ -388,6 +388,7 @@ export renderTransition
 export requestPeerReviewDefinition
 export resolveLintCommand
 export resolveTestContent
+export resolveWorktreeRoot
 export reviewChangesDefinition
 export runAgentTaskDefinition
 export runAlignDesignSystem
@@ -525,7 +526,7 @@ import { loadGraphStore } from '../utils/graph-loader.js'
 import { McpToolResponse, bigIntSafeReplacer, resultToMcpResponse } from '../utils/result-adapter.js'
 import { sanitizePath } from '../utils/sanitize-path.js'
 import { sortFindingsBySeverity } from '../utils/severity.js'
-import { AdrStoreError, CreateAdrInput, UpdateAdrInput, createAdr, listAdrs, readAdr, updateAdr } from './adr-store.js'
+import { AdrStoreError, CreateAdrInput, UpdateAdrInput, createAdr, listAdrs, readAdr, resolveWorktreeRoot, updateAdr } from './adr-store.js'
 import { adviseSkillsDefinition, handleAdviseSkills } from './advise-skills.js'
 import from './architecture.js'
 import { generateBlueprintDefinition, handleGenerateBlueprint } from './blueprint.js'

@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'packages/cli/src/commands'
-sourceHash: '0e07d967fb2bc640bf8a2e2f4c1884a78fa8dbfebf75865a13e307d9e00b72db'
+sourceHash: '7f5b40c1c39dce2ef8ad046c329c079894153bbddffa2f4aebfecaae589ebae4'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
@@ -259,6 +259,7 @@ export findAllInstalls
 export findOutcomeVerdict
 export formatCapabilitiesByPermission
 export formatCapabilitiesTable
+export formatCompiledUnits
 export formatContextReport
 export gatherGuardianSafe
 export gatherSignalsSafe

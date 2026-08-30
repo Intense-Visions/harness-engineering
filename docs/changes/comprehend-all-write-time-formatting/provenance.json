@@ -1,0 +1,16 @@
+{
+  "issues": [1697],
+  "route": "bug",
+  "stages": ["debugging"],
+  "assumptions": [
+    "Adopted proposed fix Option 1 (extend write-time prettier formatting to the --all / non-stage compile paths) as the minimal root-cause fix; Option 2 (prettier-stable serializer) is left as an optional belt-and-suspenders follow-up.",
+    "Freshness is determined by sourceHash (leniently parsed), not shard bytes, so reformatting a shard's YAML quotes does not make a subsequent run report it stale — the byte-identical no-churn invariant (C1) still holds.",
+    "stageCompiledUnits keeps formatting internally (FIX D); runCompileMode formats via formatCompiledUnits ONLY on the non-stage branch to avoid double-formatting.",
+    "Change scoped strictly to the write/format path (comprehend.ts); serve-time text-search code left untouched to avoid a same-region conflict with sibling issue #1692.",
+    "Formatting stays best-effort: a missing prettier or an unreadable shard is swallowed and never blocks a run (adopter without prettier is unaffected)."
+  ],
+  "reproducingTest": "packages/cli/tests/comprehension/comprehend-smoke.e2e.test.ts",
+  "reproducingTestCase": "harness comprehend --all — write-time shard formatting (#1697) > a shard written via the bulk --all path is already prettier-stable (no format:check drift)",
+  "rootCause": "The write-time prettier format() step was wired only into stageCompiledUnits (the --stage/hook path). A bulk `harness comprehend --all` (non-stage) followed by a manual git add + commit wrote raw, double-quoted YAML frontmatter shards that an adopter's prettier-on-markdown lint-staged step then reflowed at commit time (singleQuote), causing the lint-staged stash/restore dribble and a whole-tree format:check risk.",
+  "fix": "Extracted formatCompiledUnits() and invoked it on the non-stage compile branch in runCompileMode, making shard formatting path-independent so every freshly-compiled shard lands already prettier-stable."
+}

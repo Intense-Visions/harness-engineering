@@ -1,0 +1,7 @@
+{
+  "issues": [1507],
+  "route": "bug",
+  "stages": ["debugging"],
+  "assumptions": ["F2=a resolve worktree via git rev-parse --show-toplevel from cwd"],
+  "reproducingTest": "packages/cli/tests/mcp/tools/adr-worktree.test.ts"
+}
