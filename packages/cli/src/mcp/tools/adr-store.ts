@@ -1,3 +1,4 @@
+import { execSync } from 'node:child_process';
 import * as fs from 'fs';
 import * as path from 'path';
 
@@ -62,6 +63,34 @@ export class AdrStoreError extends Error {
 /** Absolute path to the decisions directory under `projectRoot`. */
 export function decisionsDirFor(projectRoot: string): string {
   return path.join(projectRoot, DECISIONS_DIR);
+}
+
+/**
+ * Resolve the ADR root to the active git worktree.
+ *
+ * `manage_adr` is invoked from whatever checkout the caller is working in, which
+ * — under `git worktree` — is NOT necessarily the MCP server's launch root
+ * (`fallbackRoot`, threaded in as the `path` argument). Writing ADRs to the
+ * server root pollutes the wrong checkout and mints collision-free numbers
+ * against a store the worktree branch can't see (#1507).
+ *
+ * We resolve the enclosing worktree top-level via `git rev-parse
+ * --show-toplevel` from the caller's `cwd`. When `cwd` is inside a git worktree
+ * we target that worktree; otherwise (not a git repo, or git unavailable) we
+ * fall back to the caller-supplied root, so non-git usage is unaffected.
+ */
+export function resolveWorktreeRoot(cwd: string, fallbackRoot: string): string {
+  try {
+    const top = execSync('git rev-parse --show-toplevel', {
+      cwd,
+      encoding: 'utf-8',
+      stdio: ['pipe', 'pipe', 'pipe'],
+    }).trim();
+    if (top.length > 0) return path.resolve(top);
+  } catch {
+    // Not inside a git worktree (or git unavailable) — keep the supplied root.
+  }
+  return fallbackRoot;
 }
 
 /**
