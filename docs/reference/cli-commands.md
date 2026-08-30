@@ -229,6 +229,17 @@ Compile and maintain the per-module comprehension substrate
 - `--stage` — git-add the compiled unit shards after a run (pre-commit posture)
 - `--hook` — Pre-commit-hook posture: no-op unless comprehension.hook is enabled
 
+### `harness comprehension-merge-driver <base> <ours> <theirs> <path>`
+
+[internal, git-invoked] Merge driver for comprehension \_module.md shards (keep-ours-if-fresh, else static recompile)
+
+**Arguments:**
+
+- `base` (required) — git %O — common-ancestor temp path (unused)
+- `ours` (required) — git %A — ours temp path; the resolved shard is written here
+- `theirs` (required) — git %B — other-side temp path (unused)
+- `path` (required) — git %P — the shard pathname being merged
+
 ### `harness context-report`
 
 Attribute the always-loaded context surface cost per turn, per tier

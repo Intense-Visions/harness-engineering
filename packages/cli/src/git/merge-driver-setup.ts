@@ -50,3 +50,40 @@ export async function configureMergeOursDriver(
     };
   }
 }
+
+/** The git merge-driver command for `merge=comprehension` `.gitattributes` entries. */
+export const COMPREHENSION_MERGE_DRIVER_COMMAND = 'harness comprehension-merge-driver %O %A %B %P';
+
+/**
+ * Configure the `comprehension` merge driver for this clone (ADR 0109 slice 5) so
+ * that the `_module.md merge=comprehension` `.gitattributes` entry takes effect.
+ *
+ * The driver resolves a shard conflict by KEEPING the ours shard when it is
+ * source-fresh (preserving its semantic content) and otherwise recompiling the
+ * static half from the current working-tree source — sound because a comprehension
+ * unit is a pure function of its source (ADR 0108/0109), so it never needs a
+ * hand-merge. It reads the working-tree (typically pre-merge ours) source and
+ * defers any residual source-staleness to `comprehend --check`; it does not claim
+ * to regenerate from a fully-merged tree at merge time. Combined with byte-stable
+ * shards (slice 1), the developer never resolves a comprehension merge marker.
+ *
+ * Never throws: if git is unavailable or `cwd` is not a git repo, resolves with
+ * `{ configured: false, warning }` so `harness init` can warn and continue.
+ */
+export async function configureComprehensionMergeDriver(
+  cwd: string,
+  runner: GitRunner = defaultGitRunner(cwd)
+): Promise<MergeDriverSetupResult> {
+  try {
+    runner(['config', 'merge.comprehension.driver', COMPREHENSION_MERGE_DRIVER_COMMAND]);
+    return { configured: true };
+  } catch {
+    return {
+      configured: false,
+      warning:
+        'Could not configure git merge.comprehension.driver (git unavailable or not a repo). ' +
+        'Comprehension shard conflicts (merge=comprehension) will fall back to a plain text ' +
+        `merge until you run: git config merge.comprehension.driver '${COMPREHENSION_MERGE_DRIVER_COMMAND}'`,
+    };
+  }
+}

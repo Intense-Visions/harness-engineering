@@ -1,27 +1,25 @@
 ---
 schemaVersion: 1
 module: "packages/cli/src/commands"
-sourceHash: "03287fd543f10327c0a4e17edb8d8f09efd0cb04a89639e7cec8475a3eb4502f"
+sourceHash: "3d8534a32fc022e0b33aa4f92053d2683ca6a1104fe8f0e3e9ec40a42baf6b55"
 compiler: { static: "1.0.0", semantic: "1.0.0" }
 model: "claude-haiku-4-5-20251001"
 semantic: present
-members: ["_registry.ts", "add.ts", "adoption.ts", "advise-skills.test.ts", "advise-skills.ts", "align-design-system.ts", "api-craft.ts", "audit-protected.ts", "backfill-skill-provenance.ts", "blueprint.ts", "check-arch.ts", "check-deployment.ts", "check-deps.ts", "check-design.ts", "check-docs.ts", "check-harness-strength.ts", "check-operational-drift.test.ts", "check-operational-drift.ts", "check-perf.ts", "check-phase-gate.ts", "check-security.ts", "check-vocabulary.ts", "cleanup-sessions.ts", "cleanup.ts", "cli-ergonomics-craft.ts", "code-craft.ts", "comprehend.ts", "copy-craft.ts", "create-skill.ts", "cross-check.ts", "dashboard.ts", "design-pipeline.ts", "docs-craft.ts", "doctor.ts", "fix-drift.ts", "generate-agent-definitions.ts", "generate-slash-commands.ts", "generate.ts", "holiday-confidence.ts", "impact-preview.ts", "init-minimal.ts", "init.ts", "insights.ts", "install-constraints.ts", "install.ts", "knowledge-craft.ts", "knowledge-pipeline.test.ts", "knowledge-pipeline.ts", "maintenance-config.test.ts", "maintenance-config.ts", "maintenance-run.ts", "maintenance.ts", "mcp-guard.ts", "mcp.ts", "migrate-backends.ts", "migrate.ts", "models.ts", "naming-craft.ts", "operational-drift.test.ts", "operational-drift.ts", "orchestrator-black-box.test.ts", "orchestrator-black-box.ts", "orchestrator.ts", "outcome-eval-ci.ts", "perf.ts", "pre-merge-brief.ts", "predict.ts", "proposals.ts", "publish-analyses.ts", "recommend.ts", "rehearse.ts", "review-ci-local-adapter.ts", "review-ci.ts", "rollback.ts", "scan-config.ts", "search.ts", "security-craft.ts", "setup-mcp.ts", "setup-types.ts", "setup.ts", "share.ts", "skill-regression.test.ts", "skill-regression.ts", "snapshot.ts", "spec-craft.ts", "stale-constraints.ts", "sync-analyses.ts", "sync-main.ts", "taint.ts", "telemetry-wizard.ts", "test-craft.ts", "traceability.ts", "uninstall-constraints.ts", "uninstall.ts", "update.ts", "usage.ts", "validate-cross-check.ts", "validate-scope.ts", "validate.ts", "verify.test.ts", "verify.ts"]
+members: ["_registry.ts", "add.ts", "adoption.ts", "advise-skills.test.ts", "advise-skills.ts", "align-design-system.ts", "api-craft.ts", "audit-protected.ts", "backfill-skill-provenance.ts", "blueprint.ts", "check-arch.ts", "check-deployment.ts", "check-deps.ts", "check-design.ts", "check-docs.ts", "check-harness-strength.ts", "check-operational-drift.test.ts", "check-operational-drift.ts", "check-perf.ts", "check-phase-gate.ts", "check-security.ts", "check-vocabulary.ts", "cleanup-sessions.ts", "cleanup.ts", "cli-ergonomics-craft.ts", "code-craft.ts", "comprehend.ts", "comprehension-merge-driver.ts", "copy-craft.ts", "create-skill.ts", "cross-check.ts", "dashboard.ts", "design-pipeline.ts", "docs-craft.ts", "doctor.ts", "fix-drift.ts", "generate-agent-definitions.ts", "generate-slash-commands.ts", "generate.ts", "holiday-confidence.ts", "impact-preview.ts", "init-minimal.ts", "init.ts", "insights.ts", "install-constraints.ts", "install.ts", "knowledge-craft.ts", "knowledge-pipeline.test.ts", "knowledge-pipeline.ts", "maintenance-config.test.ts", "maintenance-config.ts", "maintenance-run.ts", "maintenance.ts", "mcp-guard.ts", "mcp.ts", "migrate-backends.ts", "migrate.ts", "models.ts", "naming-craft.ts", "operational-drift.test.ts", "operational-drift.ts", "orchestrator-black-box.test.ts", "orchestrator-black-box.ts", "orchestrator.ts", "outcome-eval-ci.ts", "perf.ts", "pre-merge-brief.ts", "predict.ts", "proposals.ts", "publish-analyses.ts", "recommend.ts", "rehearse.ts", "review-ci-local-adapter.ts", "review-ci.ts", "rollback.ts", "scan-config.ts", "search.ts", "security-craft.ts", "setup-mcp.ts", "setup-types.ts", "setup.ts", "share.ts", "skill-regression.test.ts", "skill-regression.ts", "snapshot.ts", "spec-craft.ts", "stale-constraints.ts", "sync-analyses.ts", "sync-main.ts", "taint.ts", "telemetry-wizard.ts", "test-craft.ts", "traceability.ts", "uninstall-constraints.ts", "uninstall.ts", "update.ts", "usage.ts", "validate-cross-check.ts", "validate-scope.ts", "validate.ts", "verify.test.ts", "verify.ts"]
 ---
 
 ## Summary
 
-`packages/cli/src/commands` is the command orchestration layer of the Harness Engineering CLI—a sprawling (~100 command) developer platform for architecture validation, code quality analysis, skill/plugin ecosystem management, and automated workflows. Each command file implements a specific domain (e.g., `check-arch.ts` validates module dependencies, `spec-craft.ts` orchestrates specification generation, `orchestrator.ts` drives multi-phase automation pipelines). The module glues together validation gates (check-*, deploy checks), code-transformation pipelines (craft-*, pipeline-* commands), skill lifecycle management (install/uninstall/update), graph-based knowledge operations, CI/CD integration (outcome-eval-ci, review-ci), and orchestrator-driven work via fleets and multi-agent dispatch. A barrel-export registry (`_registry.ts`) auto-generates the command creator array consumed by the root program builder, decoupling command registration from manual imports.
+`packages/cli/src/commands` is the command factory and registry for the harness CLI. It exports ~90 command creators and auto-generates a single `commandCreators` array that allows registration of all commands without manual wiring. Each command is defined in its own file and re-exported here; the module serves as the primary discovery point for the CLI's command surface. Commands span operational checks (arch, perf, security, docs), AI-driven crafting tools (code, spec, test, design), infrastructure management (roadmap, orchestrator, deployment), and ecosystem tooling (skill management, MCP setup, graph operations).
 
 ## Invariants
 
-- Barrel registry sync: The auto-generated `commandCreators` array in `_registry.ts` must match actual command implementations; `pnpm run generate-barrel-exports` regenerates it—stale registry causes silent command drops.
-- Configuration validity before execution: Commands load config via `resolveConfig()` or domain-specific loaders (e.g., `readComprehensionConfig()`); config errors must fail fast with actionable messages, not propagate silent defaults.
-- Exit code consistency: Commands must use the canonical `ExitCode` enum (from `../utils/errors`) and `deriveExitCode()` for compound results; unhandled exit code divergence breaks CI gate contracts.
-- Async operation completion: All async operations (spawns, file I/O, orchestrator dispatch) must be awaited; fire-and-forget async calls in command handlers cause premature exit or partial work.
-- Path safety for file ops: All user-provided names/paths must be validated (e.g., `NAME_PATTERN` regex in `add.ts`) to prevent traversal attacks; fs operations must use `path.join()` and never interpolate user input into glob patterns.
-- Command-to-backend wiring: Commands that delegate to orchestrator-driven agents (fleet, maintenance, orchestrator) must pass resolved backend configs and validate agent availability; missing backend resolution silently downgrades to defaults or fails opaquely.
-- Error boundary at CLI top level: The CLI root must catch all command errors and render via `handleError()` before exit; commands should throw `CLIError` with exit codes, not raw Error objects.
-- Graph/MCP lazy-load on demand: Graph store and MCP tool registries are expensive; commands must conditionally load them only when used (e.g., graph commands check `loadGraphStore()` once, then cache).
+- Auto-generated barrel — commandCreators and the complete export list are regenerated via pnpm run generate-barrel-exports; hand-edits are clobbered. Never modify _registry.ts directly.
+- Alphabetical order — commandCreators array must remain alphabetically sorted by command name; sorting breakage causes discoverability issues.
+- Factory function contract — Every createCommand function must return a Command (from commander.js); the array assumes this shape for uniform CLI registration.
+- Single source of truth per command — Each command has one file (add.ts, check-arch.ts, etc.). New commands require both a source file AND an export here to appear in the registry.
+- No orphaned imports — If a command file is deleted, its export must also be removed from _registry.ts. The generate-barrel-exports script is the only safe way to reconcile.
+- Command registration is declarative — The CLI iterates commandCreators to register each command. The array is the registration mechanism.
 
 ## Interface Contract
 
@@ -88,6 +86,7 @@ export createCliErgonomicsCraftCommand
 export createCodeCraftCommand
 export createCommandExecutor
 export createComprehendCommand
+export createComprehensionMergeDriverCommand
 export createCopyCraftCommand
 export createCreateSkillCommand
 export createCrossCheckCommand
@@ -310,7 +309,8 @@ import { DesignPipelineContext, DesignPipelineInput, runDesignPipeline } from '.
 import { DocsCraftInput, DocsCraftOutput, runDocsCraft } from '../docs-craft/index.js'
 import { DriftFinding } from '../drift/findings/finding'
 import { DriftStrictness } from '../drift/findings/finding.js'
-import { configureMergeOursDriver } from '../git/merge-driver-setup'
+import { runComprehensionMergeDriver } from '../git/comprehension-merge-driver'
+import { configureComprehensionMergeDriver, configureMergeOursDriver } from '../git/merge-driver-setup'
 import { HookProfile } from '../hooks/profiles'
 import { readIntegrationsConfig, readMcpConfig, writeMcpEntry, writeOpencodeMcpEntry } from '../integrations/config'
 import { reconcileIntegrations } from '../integrations/reconcile'
@@ -411,6 +411,7 @@ import { createCliErgonomicsCraftCommand } from './cli-ergonomics-craft'
 import { createCodeCraftCommand } from './code-craft'
 import { createCompoundCommand } from './compound'
 import { createComprehendCommand } from './comprehend'
+import { createComprehensionMergeDriverCommand } from './comprehension-merge-driver'
 import { createCopyCraftCommand } from './copy-craft'
 import { createCreateSkillCommand } from './create-skill'
 import { createCrossCheckCommand } from './cross-check'

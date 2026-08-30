@@ -1,0 +1,5 @@
+---
+'@harness-engineering/cli': minor
+---
+
+comprehension: add the `comprehension` git merge driver (ADR 0109, slice 5). Comprehension `_module.md` shards are a pure function of their module's source, so a conflict never needs a hand-merge. The driver **keeps the ours shard when it is source-fresh** (preserving its semantic content, byte-stable) and otherwise **recompiles the static half from the current working-tree source** as a fallback — strictly better than a plain `merge=ours` (which could keep a stale shard) or an always-static recompile (which would drop semantic). It reads the working-tree source (typically pre-merge ours under git's `ort` strategy) and defers any residual source-staleness to `comprehend --check` / the pre-commit hook; it does not claim to regenerate from a fully-merged tree at merge time. `harness init` configures `merge.comprehension.driver`, a `.gitattributes` entry maps `.harness/comprehension/**/_module.md` to it, and the driver is always non-blocking (any fallback keeps ours and exits 0). Requires the `harness` CLI on PATH — git falls back to a normal text merge otherwise.
