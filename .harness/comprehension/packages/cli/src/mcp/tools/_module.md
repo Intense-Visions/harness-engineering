@@ -1,8 +1,7 @@
 ---
 schemaVersion: 1
 module: "packages/cli/src/mcp/tools"
-sourceHash: "73fcf26cdcc998e4102cd71d020a9415755a3f388e0566902a29eddf4ff996f7"
-compiledAt: "2026-08-29T15:51:34.963Z"
+sourceHash: "8bf328a2311348a36dfe4c755cb3ea5c83d7361b1675dd39c14ac60d11b6c487"
 compiler: { static: "1.0.0", semantic: "1.0.0" }
 model: "claude-haiku-4-5-20251001"
 semantic: present
@@ -11,18 +10,22 @@ members: ["acceptance-eval.ts", "adr-store.ts", "adr.ts", "advise-skills.test.ts
 
 ## Summary
 
-**`packages/cli/src/mcp/tools`** is the MCP tool implementation layer exposing ~60 harness capabilities (comprehension, roadmap, code review, design audit, testing) to LLM agents. Each tool is a domain-specific module pair: a schema definition and async handler. Tools are registered in server.ts, wrapped in middleware (injection guard, compaction, context budget), and dispatched over MCP. All current tools return trusted internal content and declare their privilege scopes (read/write/exec/network) via TOOL_CAPABILITY_DECLARATIONS for adopter audits.
+packages/cli/src/mcp/tools is a ~100-file comprehensive MCP tool implementation layer for the harness engineering platform. Each file exports a tool definition (with inputSchema), a handler function, and supporting types. Tools are grouped by domain (design-craft, spec-craft, code-craft, comprehension, roadmap management, graph queries, etc.) and registered in server.ts with middleware (injection guard → compaction → context budget). Recent additions include ADR 0109 tools (get/put_comprehension) for provider-neutral, agent-authored semantic understanding write-back. All tools return internal project content, validate inputs before computing, and never throw—every failure wraps in `{ content: [...], isError: true }` envelopes. Capability declarations (tool-capability-declarations.js) tie each tool to declared scopes; missing declarations fall back to name heuristics. The put_comprehension tool enforces source-fresh static units via serveGate, validates semantic payloads against zod schema before disk writes, and rejects owned heading markers to prevent serialization corruption.
 
 ## Invariants
 
-- Tool definition files must export *Definition + handle* in sync — missing/renamed handlers silently break tool dispatch
-- All handlers return { content: [...], isError?: boolean } — throwing breaks error handling in dispatchTool
-- Middleware ordering is load-bearing: injection guard → compaction → context budget (budget applied after compaction to measure actual cost)
-- Tools must be listed in both TOOL_DEFINITIONS array and TOOL_HANDLERS map or they are advertised-but-uncallable or callable-but-undiscoverable
-- TOOL_CAPABILITY_DECLARATIONS is the authority for tool privileges — tools with write/exec/network must have matching entries or audits report them as read-only
-- trustedOutput: true skips injection guard output scanning — tools proxying untrusted external content must omit this flag
-- Input validation is the handler's responsibility — no runtime schema validation gate before handler dispatch
-- ToolDefinition.inputSchema must be valid JSON Schema — invalid schema breaks MCP client discoverability and type inference
+- Handler registry match: every tool definition in TOOL_DEFINITIONS must have a corresponding handler in TOOL_HANDLERS with exact snake_case name key; definition names must be tool-unique and map precisely.
+- Middleware order is strict: injection-guard → compaction → context-budget. Output must pass all layers in order for consistency.
+- No-throw contract: tool handlers never throw. All errors wrap in `{ content: [...], isError: true }` envelopes matching get_comprehension/put_comprehension pattern.
+- Capability declaration binding: TOOL_CAPABILITY_DECLARATIONS keys must match definition.name exactly for capability to merge; missing declarations fall back to name heuristic in tool-capabilities.ts.
+- Semantic schema authority: put_comprehension validates `semanticResponseSchema` before any disk write; agent-supplied payloads must pass zod validation or return invalid status—never written malformed.
+- Source-fresh gate: put_comprehension refuses stale units (serveGate verdict); semantic attaches only to source-fresh static units, forcing recompile via get_comprehension for stale units.
+- Owned heading prohibition: put_comprehension rejects payloads with top-level section headings (##) to prevent serialization corruption on round-trip; agents must not supply these in summary/invariants.
+- Provider-neutral comprehension: get_comprehension defers semantic provider resolution lazily (only on recompile branch), so fresh serves never load config; put_comprehension never resolves a provider (write-back only).
+- Reentrancy guard: get_comprehension respects `withComprehensionActive` guard from canonical driver; reentrant calls return `{ status: 'reentrant' }` not errors.
+- Definition completeness: every exported tool symbol (XXXDefinition, handleXXX, XXXInput/Output) must appear in both its file AND server.ts registry; missing registrations cause silent tool omission from MCP listing.
+- trustedOutput marking: all harness MCP tools return internal project content marked `trustedOutput: true`; external-proxying tools must omit this flag (defaults to untrusted). Injection guard skips scanning trusted output.
+- Handler input validation: tool handlers must validate input shape before any computation (typeof checks, Array.isArray); malformed inputs return `isError: true`, never throw.
 
 ## Interface Contract
 
@@ -380,8 +383,8 @@ import { generateSlashCommands } from '../../commands/generate-slash-commands.js
 import from '../../commands/validate-cross-check.js'
 import from '../../commands/validate.js'
 import { runComprehend } from '../../comprehension/compile-run'
-import { readComprehensionConfig } from '../../comprehension/config'
-import { defaultSemanticModel, maybeCreateGenerateSemantic, semanticResponseSchema } from '../../comprehension/generate-semantic'
+import { comprehensionEndpoint, readComprehensionConfig, selectSemanticModel } from '../../comprehension/config'
+import { maybeCreateGenerateSemantic, semanticResponseSchema } from '../../comprehension/generate-semantic'
 import { createStaticExtractor } from '../../comprehension/static-extractor'
 import { loadAnalysisExclude } from '../../config/analysis-schema.js'
 import { resolveConfig } from '../../config/loader'
@@ -434,7 +437,7 @@ import from '../resources/business-knowledge.js'
 import { CORE_TOOL_NAMES, STANDARD_TOOL_NAMES } from '../tool-tiers'
 import { ToolDefinition } from '../tool-types.js'
 import { McpContentItem, McpResponse, mcpError } from '../utils.js'
-import { resolveAnalysisProvider, resolveProviderKind } from '../utils/analysis-provider'
+import { resolveAnalysisProvider } from '../utils/analysis-provider'
 import { resolveAnalysisProvider } from '../utils/analysis-provider.js'
 import { resolveProjectConfig } from '../utils/config-resolver.js'
 import from '../utils/glob-helper.js'

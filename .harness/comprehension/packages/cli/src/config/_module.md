@@ -1,45 +1,30 @@
 ---
 schemaVersion: 1
-module: 'packages/cli/src/config'
-sourceHash: '954cfc56f4da26408893b1d3a3f8306ba0228817810741885a74753b21a28b7f'
-compiledAt: '2026-08-28T11:59:59.007Z'
-compiler: { static: '1.0.0', semantic: '1.0.0' }
-model: 'claude-haiku-4-5-20251001'
+module: "packages/cli/src/config"
+sourceHash: "61d7c773f670d879172ce9c4d851bffeb59382aefd0a1e70c2394b3cf5769921"
+compiledAt: "2026-08-29T15:27:03.357Z"
+compiler: { static: "1.0.0", semantic: "1.0.0" }
+model: "claude-haiku-4-5-20251001"
 semantic: present
-members:
-  [
-    'analysis-schema.ts',
-    'ingest-schema.ts',
-    'loader.ts',
-    'schema.amr.test.ts',
-    'schema.ts',
-    'stripped-keys.test.ts',
-    'stripped-keys.ts',
-  ]
+members: ["analysis-schema.ts", "ingest-schema.ts", "loader.ts", "schema.amr.test.ts", "schema.ts", "stripped-keys.test.ts", "stripped-keys.ts"]
 ---
 
 ## Summary
 
-The `packages/cli/src/config` module provides the unified configuration system for the Harness CLI. It defines, loads, validates, and normalizes `harness.config.json` across ~50 subsystems (design, security, performance, agents, roadmap, comprehension, etc.).
+`packages/cli/src/config` provides schema validation and loading for `harness.config.json`. It defines the project-wide configuration shape (via Zod schemas), loads and validates the file from disk, and exposes helper functions to extract specific config blocks without importing the full schema.
 
-**Core components:**
+The module emphasizes **graceful degradation**: when config is missing or malformed, loaders return sensible defaults so harness commands keep working. Unknown or mis-nested keys are silently dropped by Zod but warned about non-fatally to stderr—this prevents silent no-ops from plausible-but-wrong configs.
 
-- **schema.ts**: Exhaustive Zod schemas with baked-in defaults that serve as the single source of truth.
-- **loader.ts**: File discovery (tree walk), JSON parsing, validation with detailed errors, and non-fatal warnings for mis-nested keys.
-- **analysis-schema.ts / ingest-schema.ts / ingest-schema.ts**: Lightweight subset loaders so hot-path commands can load just their specific excludes without pulling transitive dependencies (core, orchestrator).
-- **stripped-keys.ts**: Walks schema + raw JSON to detect silently-dropped keys (typos, mis-nestings), respects `.passthrough()` sections, suggests near-typos via edit distance.
-
-The module gracefully degrades when config is missing or invalid, allowing commands to work on unconfigured projects with sane built-ins.
+Several config blocks (`analysis.exclude`, `design.exclude`, `deps.exclude`, `ingest.*`) are kept in isolated schemas so hot paths can load them without dragging in the full HarnessConfigSchema and its transitive imports. All glob patterns use minimatch syntax and compose cleanly (e.g., `analysis.exclude` + `design.exclude` stack).
 
 ## Invariants
 
-- Schema is canonical for defaults — every .default() is THE source of truth; consumers call SomeSchema.parse({}) rather than re-declaring fallbacks to prevent drift.
-- Graceful degradation — missing/malformed config does NOT crash analysis commands; loadAnalysisExclude/loadDesignExclude/loadDepsExclude all return [] on any error.
-- Transitive import isolation — analysis/ingest/design loaders in separate files so consumers don't drag in @harness-engineering/core or orchestrator schemas (critical for test mocking).
-- Co-tenant namespace protection — reserved keys (canary, x-\*) at root level are NEVER reported as stripped; they belong to sibling tools. Deeper nesting is still harness.
-- Passthrough sections are respected — security/performance/operationalPolicy use .passthrough() to allow extension keys; unknown keys silently kept, never warned.
-- Stripped-key detection is best-effort — walk failures catch/swallow so config loading never breaks due to diagnostics; warnings go to stderr, stdout stays clean.
-- Zod union branches walked in definition order — first match determines reported path; AMR config (schema.amr.test.ts) validates AgentConfigSchema accepts backend capabilities + routing from orchestrator (load-bearing CLI coupling).
+- Best-effort, never-fail loading: findConfigFile() walks up the directory tree; loadConfig() returns sensible defaults on any I/O or parse error. Commands must work on projects that have not run `harness init`.
+- Non-fatal dropped-key warnings: Unknown schema keys trigger stderr warnings but never fail the load (resolveConfig() returns Ok). This catches typos without breaking.
+- Hot-path schemas isolated from transitive deps: AnalysisConfigSchema, IngestConfigSchema, DepsConfigSchema live in their own files (*-schema.ts) so ingest/scan/check-deps commands can load them without importing @harness-engineering/core or other full-schema dependencies.
+- Glob pattern composition: analysis.exclude is project-wide and stacks *on top of* each scanner's own excludes (e.g., entropy.excludePatterns, design.exclude). Each path segment uses minimatch syntax.
+- Gitignore respect by default: ingest.respectGitignore defaults true; .gitignore lines are parsed as additional exclude patterns for code ingestion.
+- Backend schema interop: AgentConfigSchema must accept orchestrator's BackendDefSchema + RoutingConfigSchema (capabilities, routing.policy) for AMR config-file support (guarded by schema.amr.test.ts).
 
 ## Interface Contract
 

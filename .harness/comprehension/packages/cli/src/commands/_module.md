@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: "packages/cli/src/commands"
-sourceHash: "1a9bc5a5f20f70711819784cb4a2e0bd2a1069f38db346fbc52e54382ea41f02"
+sourceHash: "03287fd543f10327c0a4e17edb8d8f09efd0cb04a89639e7cec8475a3eb4502f"
 compiler: { static: "1.0.0", semantic: "1.0.0" }
 model: "claude-haiku-4-5-20251001"
 semantic: present
@@ -10,16 +10,18 @@ members: ["_registry.ts", "add.ts", "adoption.ts", "advise-skills.test.ts", "adv
 
 ## Summary
 
-The commands module is the CLI's central command registry and factory. It exports ~100 command creators (each returning a `Command` object from commander.js) spanning the full harness toolkit: architectural checks, skill management, crafting workflows (design, code, docs, spec, test, security), deployment gates, orchestration, and maintenance. The module acts as a barrel that re-exports each command from its own file, bundled via an auto-generated registry (`_registry.ts`). Each command creator imports and wires up domain logic from specialized packages (e.g., `runCodeCraft` from `../code-craft/`, `runCheckArch` from `@harness-engineering/core`). The module also exports ~50 utility functions and types used across commands: diff builders, result aggregators, config loaders, and schemas.
+`packages/cli/src/commands` is the command orchestration layer of the Harness Engineering CLI—a sprawling (~100 command) developer platform for architecture validation, code quality analysis, skill/plugin ecosystem management, and automated workflows. Each command file implements a specific domain (e.g., `check-arch.ts` validates module dependencies, `spec-craft.ts` orchestrates specification generation, `orchestrator.ts` drives multi-phase automation pipelines). The module glues together validation gates (check-*, deploy checks), code-transformation pipelines (craft-*, pipeline-* commands), skill lifecycle management (install/uninstall/update), graph-based knowledge operations, CI/CD integration (outcome-eval-ci, review-ci), and orchestrator-driven work via fleets and multi-agent dispatch. A barrel-export registry (`_registry.ts`) auto-generates the command creator array consumed by the root program builder, decoupling command registration from manual imports.
 
 ## Invariants
 
-- Registry auto-generation contract: _registry.ts is auto-generated; changes flow FROM individual command files, not TO this barrel. Editing directly will be overwritten on next `pnpm run generate-barrel-exports`.
-- File-to-export correspondence: Every command creator exported must have a corresponding file in the commands directory with the same functional name (e.g., `createAddCommand` ↔ `./add.ts`). Missing or orphaned files break the registry.
-- Command creator naming invariant: All command factories follow the pattern `createXyzCommand(): Command`. Deviations break commander registration.
-- Barrel isolation: This module re-exports only command creators and utilities; business logic lives in domain packages (`@harness-engineering/core`, `@harness-engineering/orchestrator`). Violation creates circular dependencies or duplicated state.
-- Orchestrator/core version lock: Commands depend on specific shapes from `@harness-engineering/core` and `@harness-engineering/orchestrator` (e.g., `ComprehendRunResult`, `RunRecord`). Breaking changes break command implementations; verified by `pnpm run typecheck`.
-- Configuration loader assumption: Commands assume `resolveConfig()` succeeds or degrades gracefully. Some commands allow operation without config; others fail hard. This contract is implicit and scattered across 100 files.
+- Barrel registry sync: The auto-generated `commandCreators` array in `_registry.ts` must match actual command implementations; `pnpm run generate-barrel-exports` regenerates it—stale registry causes silent command drops.
+- Configuration validity before execution: Commands load config via `resolveConfig()` or domain-specific loaders (e.g., `readComprehensionConfig()`); config errors must fail fast with actionable messages, not propagate silent defaults.
+- Exit code consistency: Commands must use the canonical `ExitCode` enum (from `../utils/errors`) and `deriveExitCode()` for compound results; unhandled exit code divergence breaks CI gate contracts.
+- Async operation completion: All async operations (spawns, file I/O, orchestrator dispatch) must be awaited; fire-and-forget async calls in command handlers cause premature exit or partial work.
+- Path safety for file ops: All user-provided names/paths must be validated (e.g., `NAME_PATTERN` regex in `add.ts`) to prevent traversal attacks; fs operations must use `path.join()` and never interpolate user input into glob patterns.
+- Command-to-backend wiring: Commands that delegate to orchestrator-driven agents (fleet, maintenance, orchestrator) must pass resolved backend configs and validate agent availability; missing backend resolution silently downgrades to defaults or fails opaquely.
+- Error boundary at CLI top level: The CLI root must catch all command errors and render via `handleError()` before exit; commands should throw `CLIError` with exit codes, not raw Error objects.
+- Graph/MCP lazy-load on demand: Graph store and MCP tool registries are expensive; commands must conditionally load them only when used (e.g., graph commands check `loadGraphStore()` once, then cache).
 
 ## Interface Contract
 
@@ -293,8 +295,8 @@ import { BrandFinding } from '../brand/findings/finding'
 import { CliErgonomicsCraftInput, CliErgonomicsCraftOutput, runCliErgonomicsCraft } from '../cli-ergonomics-craft/index.js'
 import { CodeCraftInput, CodeCraftOutput, runCodeCraft } from '../code-craft/index.js'
 import { ComprehendRunResult, runComprehend, runComprehendCheck, runComprehendStats } from '../comprehension/compile-run'
-import { readComprehensionConfig } from '../comprehension/config'
-import { defaultSemanticModel, maybeCreateGenerateSemantic } from '../comprehension/generate-semantic'
+import { comprehensionEndpoint, readComprehensionConfig, selectSemanticModel } from '../comprehension/config'
+import { maybeCreateGenerateSemantic } from '../comprehension/generate-semantic'
 import { shouldRunComprehendHook } from '../comprehension/hook'
 import { enumerateModules, filesToModules } from '../comprehension/invalidation'
 import { defaultRefReadDeps, detectSemanticRegressions, readSemanticMapAtRef } from '../comprehension/regression'
@@ -325,7 +327,7 @@ import { runDesignCraft } from '../mcp/tools/design-craft'
 import { runDetectDrift } from '../mcp/tools/detect-drift'
 import { handleGetImpact } from '../mcp/tools/graph/index'
 import { runInstructionDensityAudit } from '../mcp/tools/instruction-density'
-import { resolveAnalysisProvider, resolveProviderKind } from '../mcp/utils/analysis-provider'
+import { resolveAnalysisProvider } from '../mcp/utils/analysis-provider'
 import { loadGraphStore } from '../mcp/utils/graph-loader'
 import { IdentifierKind, NamingCraftInput, NamingCraftOutput, runNamingCraft } from '../naming-craft/index.js'
 import { OutputFormatter, OutputMode, OutputModeType } from '../output/formatter'

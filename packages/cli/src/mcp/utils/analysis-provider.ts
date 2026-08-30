@@ -43,8 +43,16 @@ function makeAnthropicProvider(intelligence: Intelligence, model?: string): unkn
  * null. `HARNESS_ANALYSIS_MODEL` names the judge (overridden by `model`);
  * `HARNESS_ANALYSIS_API_KEY` defaults to `ollama`.
  */
-function makeLocalProvider(intelligence: Intelligence, model?: string): unknown {
-  const baseUrl = process.env.HARNESS_ANALYSIS_BASE_URL?.trim();
+function makeLocalProvider(
+  intelligence: Intelligence,
+  model?: string,
+  override?: AnalysisEndpoint
+): unknown {
+  // A config-declared endpoint (ADR 0109 slice 3) wins over the orchestrator-
+  // injected env, so an adopter can point the comprehension backstop at ANY
+  // vendor's OpenAI-compatible gateway (Cursor/Codex/Gemini/local model) without
+  // an Anthropic key or env archaeology. Env remains the fallback (unchanged).
+  const baseUrl = override?.baseUrl?.trim() || process.env.HARNESS_ANALYSIS_BASE_URL?.trim();
   if (!baseUrl) return null;
   const Provider = intelligence.OpenAICompatibleAnalysisProvider as
     | ProviderCtor<{ apiKey: string; baseUrl: string; defaultModel?: string }>
@@ -52,7 +60,7 @@ function makeLocalProvider(intelligence: Intelligence, model?: string): unknown 
   if (typeof Provider !== 'function') return null;
   const resolvedModel = model ?? process.env.HARNESS_ANALYSIS_MODEL?.trim();
   return new Provider({
-    apiKey: process.env.HARNESS_ANALYSIS_API_KEY?.trim() || 'ollama',
+    apiKey: override?.apiKey?.trim() || process.env.HARNESS_ANALYSIS_API_KEY?.trim() || 'ollama',
     baseUrl,
     ...(resolvedModel ? { defaultModel: resolvedModel } : {}),
   });
@@ -125,6 +133,18 @@ function makeClaudeCliProvider(
 export type ProviderKind = 'anthropic' | 'local' | 'claude-cli' | null;
 
 /**
+ * A config-declared OpenAI-compatible analysis endpoint (ADR 0109 slice 3). This
+ * is the provider-NEUTRAL escape hatch: any vendor (Cursor/Codex/Gemini/a local
+ * model) can power the comprehension backstop through its own gateway, declared in
+ * `comprehension` config rather than requiring an Anthropic key or the
+ * orchestrator-injected `HARNESS_ANALYSIS_*` env. When absent, env is the fallback.
+ */
+export interface AnalysisEndpoint {
+  baseUrl?: string | undefined;
+  apiKey?: string | undefined;
+}
+
+/**
  * Report the provider `resolveAnalysisProvider` would resolve for the current
  * environment, WITHOUT constructing it. MUST mirror the precedence in
  * `resolveAnalysisProvider` (Anthropic key → local `/v1` → `claude`-CLI → null);
@@ -135,25 +155,30 @@ export type ProviderKind = 'anthropic' | 'local' | 'claude-cli' | null;
  * (`HARNESS_ANALYSIS_MODEL`) — forcing a Claude id onto it fails.
  */
 export function resolveProviderKind(
-  opts: { isClaudeCliAvailable?: () => boolean; env?: NodeJS.ProcessEnv } = {}
+  opts: {
+    isClaudeCliAvailable?: () => boolean;
+    env?: NodeJS.ProcessEnv;
+    endpoint?: AnalysisEndpoint;
+  } = {}
 ): ProviderKind {
   const env = opts.env ?? process.env;
   if (env.ANTHROPIC_API_KEY) return 'anthropic';
-  if (env.HARNESS_ANALYSIS_BASE_URL?.trim()) return 'local';
+  // A config-declared endpoint counts as `local` even when the env is unset.
+  if (opts.endpoint?.baseUrl?.trim() || env.HARNESS_ANALYSIS_BASE_URL?.trim()) return 'local';
   const claudeAvailable = (opts.isClaudeCliAvailable ?? (() => isClaudeCliAvailable()))();
   return claudeAvailable ? 'claude-cli' : null;
 }
 
 export async function resolveAnalysisProvider(
   model?: string,
-  opts: { isClaudeCliAvailable?: () => boolean } = {}
+  opts: { isClaudeCliAvailable?: () => boolean; endpoint?: AnalysisEndpoint } = {}
 ): Promise<unknown> {
   try {
     const intelligence = (await import('@harness-engineering/intelligence')) as Intelligence;
     const claudeAvailable = (opts.isClaudeCliAvailable ?? (() => isClaudeCliAvailable()))();
     return (
       makeAnthropicProvider(intelligence, model) ??
-      makeLocalProvider(intelligence, model) ??
+      makeLocalProvider(intelligence, model, opts.endpoint) ??
       makeClaudeCliProvider(intelligence, model, claudeAvailable)
     );
   } catch {
