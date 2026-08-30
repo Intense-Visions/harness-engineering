@@ -1,31 +1,111 @@
 ---
 schemaVersion: 1
-module: "packages/cli/src/mcp/tools"
-sourceHash: "8bf328a2311348a36dfe4c755cb3ea5c83d7361b1675dd39c14ac60d11b6c487"
-compiler: { static: "1.0.0", semantic: "1.0.0" }
-model: "claude-haiku-4-5-20251001"
-semantic: present
-members: ["acceptance-eval.ts", "adr-store.ts", "adr.ts", "advise-skills.test.ts", "advise-skills.ts", "agent-definitions.ts", "agent.ts", "align-design-system.ts", "api-craft.ts", "architecture.ts", "assess-project.ts", "audit-anatomy.ts", "audit-brand.ts", "blueprint.test.ts", "blueprint.ts", "canary.test.ts", "canary.ts", "ci.ts", "cli-ergonomics-craft.ts", "code-craft.ts", "code-nav.ts", "compact.ts", "compound.test.ts", "compound.ts", "conflict-prediction.ts", "constraint-emergence.ts", "copy-craft.ts", "cross-check.test.ts", "cross-check.ts", "decay-trends.ts", "design-craft.ts", "design-pipeline.ts", "detect-drift.ts", "dispatch-skills.ts", "docs-craft.ts", "docs-publish.ts", "docs.ts", "edit-file.test.ts", "edit-file.ts", "entropy.ts", "event-emitter.ts", "feedback.ts", "gateway-tools.test.ts", "gateway-tools.ts", "gather-context.ts", "generate-slash-commands.ts", "get-comprehension.test.ts", "get-comprehension.ts", "hermes-tools.test.ts", "init.ts", "insights-summary.ts", "instruction-density.test.ts", "instruction-density.ts", "interaction-renderer.test.ts", "interaction-renderer.ts", "interaction-schemas.ts", "interaction.ts", "knowledge-craft.ts", "linter.ts", "naming-craft.ts", "outcome-eval.ts", "parallelization.test.ts", "parallelization.ts", "performance.ts", "persona.ts", "phase-gate.ts", "predict-failures.ts", "pulse.test.ts", "pulse.ts", "put-comprehension.ts", "recommend-skills.ts", "review-changes.ts", "review-pipeline.ts", "roadmap-auto-sync.ts", "roadmap-file-less.ts", "roadmap.ts", "search-sessions.ts", "search-skills.ts", "security-craft.ts", "security.ts", "skill-proposal.ts", "skill-telemetry.ts", "skill.ts", "spec-craft.ts", "stale-constraints.ts", "state.ts", "strategy.test.ts", "strategy.ts", "summarize-session.ts", "task-independence.ts", "test-craft.ts", "traceability.ts", "uat-signoff.test.ts", "uat-signoff.ts", "validate.ts", "webhook-tools.test.ts", "webhook-tools.ts"]
+module: 'packages/cli/src/mcp/tools'
+sourceHash: '54a94145e1c813d3ca8073864fda3c44e23ee35de4dfb6a65f178cd6dd0ff76a'
+compiler: { static: '1.0.0', semantic: '1.0.0' }
+model: null
+semantic: absent
+members:
+  [
+    'acceptance-eval.ts',
+    'adr-store.ts',
+    'adr.ts',
+    'advise-skills.test.ts',
+    'advise-skills.ts',
+    'agent-definitions.ts',
+    'agent.ts',
+    'align-design-system.ts',
+    'api-craft.ts',
+    'architecture.ts',
+    'assess-project.ts',
+    'audit-anatomy.ts',
+    'audit-brand.ts',
+    'blueprint.test.ts',
+    'blueprint.ts',
+    'canary.test.ts',
+    'canary.ts',
+    'ci.ts',
+    'cli-ergonomics-craft.ts',
+    'code-craft.ts',
+    'code-nav.ts',
+    'compact.ts',
+    'compound.test.ts',
+    'compound.ts',
+    'conflict-prediction.ts',
+    'constraint-emergence.ts',
+    'copy-craft.ts',
+    'cross-check.test.ts',
+    'cross-check.ts',
+    'decay-trends.ts',
+    'design-craft.ts',
+    'design-pipeline.ts',
+    'detect-drift.ts',
+    'dispatch-skills.ts',
+    'docs-craft.ts',
+    'docs-publish.ts',
+    'docs.ts',
+    'edit-file.test.ts',
+    'edit-file.ts',
+    'entropy.ts',
+    'event-emitter.ts',
+    'feedback.ts',
+    'gateway-tools.test.ts',
+    'gateway-tools.ts',
+    'gather-context.ts',
+    'generate-slash-commands.ts',
+    'get-comprehension.test.ts',
+    'get-comprehension.ts',
+    'hermes-tools.test.ts',
+    'init.ts',
+    'insights-summary.ts',
+    'instruction-density.test.ts',
+    'instruction-density.ts',
+    'interaction-renderer.test.ts',
+    'interaction-renderer.ts',
+    'interaction-schemas.ts',
+    'interaction.ts',
+    'knowledge-craft.ts',
+    'linter.ts',
+    'naming-craft.ts',
+    'outcome-eval.ts',
+    'parallelization.test.ts',
+    'parallelization.ts',
+    'performance.ts',
+    'persona.ts',
+    'phase-gate.ts',
+    'predict-failures.ts',
+    'pulse.test.ts',
+    'pulse.ts',
+    'put-comprehension.ts',
+    'recommend-skills.ts',
+    'review-changes.ts',
+    'review-pipeline.ts',
+    'roadmap-auto-sync.ts',
+    'roadmap-file-less.ts',
+    'roadmap.ts',
+    'search-sessions.ts',
+    'search-skills.ts',
+    'security-craft.ts',
+    'security.ts',
+    'skill-proposal.ts',
+    'skill-telemetry.ts',
+    'skill.ts',
+    'spec-craft.ts',
+    'stale-constraints.ts',
+    'state.ts',
+    'strategy.test.ts',
+    'strategy.ts',
+    'summarize-session.ts',
+    'task-independence.ts',
+    'test-craft.ts',
+    'traceability.ts',
+    'uat-signoff.test.ts',
+    'uat-signoff.ts',
+    'validate.ts',
+    'webhook-tools.test.ts',
+    'webhook-tools.ts',
+  ]
 ---
-
-## Summary
-
-packages/cli/src/mcp/tools is a ~100-file comprehensive MCP tool implementation layer for the harness engineering platform. Each file exports a tool definition (with inputSchema), a handler function, and supporting types. Tools are grouped by domain (design-craft, spec-craft, code-craft, comprehension, roadmap management, graph queries, etc.) and registered in server.ts with middleware (injection guard → compaction → context budget). Recent additions include ADR 0109 tools (get/put_comprehension) for provider-neutral, agent-authored semantic understanding write-back. All tools return internal project content, validate inputs before computing, and never throw—every failure wraps in `{ content: [...], isError: true }` envelopes. Capability declarations (tool-capability-declarations.js) tie each tool to declared scopes; missing declarations fall back to name heuristics. The put_comprehension tool enforces source-fresh static units via serveGate, validates semantic payloads against zod schema before disk writes, and rejects owned heading markers to prevent serialization corruption.
-
-## Invariants
-
-- Handler registry match: every tool definition in TOOL_DEFINITIONS must have a corresponding handler in TOOL_HANDLERS with exact snake_case name key; definition names must be tool-unique and map precisely.
-- Middleware order is strict: injection-guard → compaction → context-budget. Output must pass all layers in order for consistency.
-- No-throw contract: tool handlers never throw. All errors wrap in `{ content: [...], isError: true }` envelopes matching get_comprehension/put_comprehension pattern.
-- Capability declaration binding: TOOL_CAPABILITY_DECLARATIONS keys must match definition.name exactly for capability to merge; missing declarations fall back to name heuristic in tool-capabilities.ts.
-- Semantic schema authority: put_comprehension validates `semanticResponseSchema` before any disk write; agent-supplied payloads must pass zod validation or return invalid status—never written malformed.
-- Source-fresh gate: put_comprehension refuses stale units (serveGate verdict); semantic attaches only to source-fresh static units, forcing recompile via get_comprehension for stale units.
-- Owned heading prohibition: put_comprehension rejects payloads with top-level section headings (##) to prevent serialization corruption on round-trip; agents must not supply these in summary/invariants.
-- Provider-neutral comprehension: get_comprehension defers semantic provider resolution lazily (only on recompile branch), so fresh serves never load config; put_comprehension never resolves a provider (write-back only).
-- Reentrancy guard: get_comprehension respects `withComprehensionActive` guard from canonical driver; reentrant calls return `{ status: 'reentrant' }` not errors.
-- Definition completeness: every exported tool symbol (XXXDefinition, handleXXX, XXXInput/Output) must appear in both its file AND server.ts registry; missing registrations cause silent tool omission from MCP listing.
-- trustedOutput marking: all harness MCP tools return internal project content marked `trustedOutput: true`; external-proxying tools must omit this flag (defaults to untrusted). Injection guard skips scanning trusted output.
-- Handler input validation: tool handlers must validate input shape before any computation (typeof checks, Array.isArray); malformed inputs return `isError: true`, never throw.
 
 ## Interface Contract
 
@@ -308,6 +388,7 @@ export renderTransition
 export requestPeerReviewDefinition
 export resolveLintCommand
 export resolveTestContent
+export resolveWorktreeRoot
 export reviewChangesDefinition
 export runAgentTaskDefinition
 export runAlignDesignSystem
@@ -445,7 +526,7 @@ import { loadGraphStore } from '../utils/graph-loader.js'
 import { McpToolResponse, bigIntSafeReplacer, resultToMcpResponse } from '../utils/result-adapter.js'
 import { sanitizePath } from '../utils/sanitize-path.js'
 import { sortFindingsBySeverity } from '../utils/severity.js'
-import { AdrStoreError, CreateAdrInput, UpdateAdrInput, createAdr, listAdrs, readAdr, updateAdr } from './adr-store.js'
+import { AdrStoreError, CreateAdrInput, UpdateAdrInput, createAdr, listAdrs, readAdr, resolveWorktreeRoot, updateAdr } from './adr-store.js'
 import { adviseSkillsDefinition, handleAdviseSkills } from './advise-skills.js'
 import from './architecture.js'
 import { generateBlueprintDefinition, handleGenerateBlueprint } from './blueprint.js'
