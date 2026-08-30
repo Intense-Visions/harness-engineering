@@ -1,29 +1,27 @@
 ---
 schemaVersion: 1
 module: "packages/cli/src/comprehension"
-sourceHash: "1dba4a527ebb783f384aa1666e6da3e6165201dae3e36f511bcc80b8fc9b0ebe"
+sourceHash: "bf0adc5c4ccf414a9df9ca3efbb3dc4aa395e9f1ccdf067cfae19f3547a2995d"
 compiler: { static: "1.0.0", semantic: "1.0.0" }
 model: "claude-haiku-4-5-20251001"
 semantic: present
-members: ["compile-run.ts", "config.ts", "generate-semantic.ts", "hook.ts", "invalidation.ts", "static-extractor.ts"]
+members: ["compile-run.ts", "config.ts", "generate-semantic.ts", "hook.ts", "invalidation.ts", "regression.ts", "static-extractor.ts"]
 ---
 
 ## Summary
 
-The `packages/cli/src/comprehension` module orchestrates compiled module comprehension—extracting static interface contracts and optionally generating semantic summaries via LLM analysis. It comprises five pieces: `compile-run.ts` drives compilation with a C1 freshness gate and bounded concurrency; `generate-semantic.ts` adapts an LLM provider with strict validation and per-run budgets; `static-extractor.ts` parses TypeScript/JavaScript exports/imports via AST; `invalidation.ts` maps diffs to modules; `config.ts` + `hook.ts` provide safe defaults and pre-commit gating. The system enforces run-boundary reentrancy guards, input bounding (interface + dependencies + 12k-char digest), per-run token budgets, and provider-neutral model routing.
+packages/cli/src/comprehension orchestrates TypeScript module semantic documentation via bounded-concurrency compilation. Its core is the freshness-gate pattern (C1): when a module's source hash matches its committed unit and semantic completeness is satisfied, it skips compilation—no recompile, no provider call, no git churn. Runs are reentrancy-guarded (env-based), support dual modes ('changed' for diff-scoped PRs, 'all' for full enumeration), and provide static-only or LLM-semantic workflows. Compilation happens under a bounded worker pool; CI gates offer token-free freshness verification (--check) and token-savings reporting (--stats).
 
 ## Invariants
 
-- C1 Freshness Gate: isReusableFresh() requires both source hash equality AND semantic sufficiency; a semantic:absent unit must recompile in semantic runs; skip-if-fresh saves provider cost and git churn.
-- RUN-Boundary Reentrancy: withComprehensionActive() wraps the entire run and sets HARNESS_COMPREHENSION_ACTIVE; only cross-process nesting is guarded, not in-process concurrency—concurrency:4 proceeds normally.
-- Authority-in-TS: Semantic responses re-validated against semanticResponseSchema (Zod, .strip()); malformed output returns null, never partial or corrupt.
-- Input Bounded by Static Surface: Semantic prompt is interface + dependencies + ≤12k-char source digest; input tokens bounded by public surface, not raw module size.
-- Per-Run Token Budget (Fail-Loud): Enforced from returned tokenUsage.totalTokens; when provider omits usage, charge pessimistic floor (maxOutputTokens) so budget converges; exhaustion leaves remaining modules semantic:absent.
-- Provider-Neutral Model Routing: selectSemanticModel() resolves model using same endpoint as provider; Claude-family gets claude-haiku-4-5, OpenAI-compatible gets undefined (provider's own default).
-- Static-Only Pre-Commit Hook: Hook always passes --static, bypassing provider and credential entirely (SC4).
-- Module Membership (D3): Directory is a module iff direct children include ≥1 supported-extension file (non-recursive); root-level files excluded.
-- Graceful Degradation to Static: Missing provider, failed parse, exhausted budget, network errors—all return null or omit generateSemantic; static half always completes, never throws.
-- IO-Injected & Testable: ComprehendModuleReader and ComprehendUnitStore abstractions enable unit testing with in-memory fakes, no disk access.
+- Freshness hash is canonical: sourceHash in C1 checks must come from exact files the reader returns, never diverging from compile-time hash
+- Reentrancy is enforceable: withComprehensionActive + env check must prevent overlapping runs; reentrant entry aborts with reentrancyRefused:true
+- Token budget is shared per-run: semantic generator closure holds the budget; all module compilations in one run draw from same pool
+- Force-recompile is byte-stable: no wall-clock or randomness in output; identical source always produces identical bytes (ADR 0109)
+- Fresh modules never re-write: C1-skipped modules produce no write; they appear only in 'fresh' list, not 'compiled' or 'skipped'
+- CI check never calls LLM: runComprehendCheck is token-free; it uses reader+serveGate to report stale units and exits non-zero iff any stale
+- Stats count only fresh units: token estimates include only modules passing serveGate; stale units excluded from savings calculations
+- Static-only runs need no semantic: without generateSemantic, units compile to semantic:absent; C1 allows reuse in subsequent static-only runs
 
 ## Interface Contract
 
@@ -38,14 +36,18 @@ export buildSemanticPrompt
 export comprehensionEndpoint
 export createGenerateSemantic
 export createStaticExtractor
+export defaultRefReadDeps
 export defaultSemanticModel
+export detectSemanticRegressions
 export enumerateModules
 export filesToModules
 export isComprehensionReentrant
 export isStaticSupported
 export mapWithConcurrency
 export maybeCreateGenerateSemantic
+export parseModuleSemantic
 export readComprehensionConfig
+export readSemanticMapAtRef
 export renderDependencySlice
 export renderInterfaceContract
 export runComprehend
@@ -64,8 +66,9 @@ import { ComprehensionConfig, ComprehensionConfigSchema, HarnessConfig } from '.
 import { AnalysisEndpoint, ProviderKind, resolveProviderKind } from '../mcp/utils/analysis-provider'
 import { readComprehensionConfig } from './config'
 import { defaultSemanticModel, isComprehensionReentrant, withComprehensionActive } from './generate-semantic'
-import { ComprehensionListing, ComprehensionProvenance, ComprehensionSourceFile, ComprehensionUnit, DEFAULT_SOURCE_EXTENSIONS, ExtractStatic, GenerateSemantic, Result, SemanticGeneration, SemanticInput, SkippedUnit, StaticExtraction, TypeScriptParser, compileModule, computeSourceHash, estimateTokens, renderServedUnit, serveGate } from '@harness-engineering/core'
+import { COMPREHENSION_ROOT, ComprehensionListing, ComprehensionProvenance, ComprehensionSourceFile, ComprehensionUnit, DEFAULT_SOURCE_EXTENSIONS, ExtractStatic, GenerateSemantic, Result, SemanticGeneration, SemanticInput, SkippedUnit, StaticExtraction, TypeScriptParser, compileModule, computeSourceHash, estimateTokens, renderServedUnit, serveGate } from '@harness-engineering/core'
 import { AnalysisProvider } from '@harness-engineering/intelligence'
+import { spawnSync } from 'node:child_process'
 import * as fsp from 'node:fs/promises'
 import * as path from 'node:path'
 import { z } from 'zod'

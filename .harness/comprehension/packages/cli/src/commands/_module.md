@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: "packages/cli/src/commands"
-sourceHash: "971453cc12129c4ad06c746bf699fe513e467119b72d964f4b06b06add856bca"
+sourceHash: "03287fd543f10327c0a4e17edb8d8f09efd0cb04a89639e7cec8475a3eb4502f"
 compiler: { static: "1.0.0", semantic: "1.0.0" }
 model: "claude-haiku-4-5-20251001"
 semantic: present
@@ -10,20 +10,18 @@ members: ["_registry.ts", "add.ts", "adoption.ts", "advise-skills.test.ts", "adv
 
 ## Summary
 
-**`packages/cli/src/commands`** is the central command dispatcher for the Harness CLI. It aggregates ~70 command creators from individual command files into a single registry (`commandCreators`), which the main program uses to register all available commands. The module acts as both a facade for command execution and a collection of orchestration utilities spanning infrastructure checks (arch, deps, security, perf), LLM-driven workflows (design, docs, spec, code, test crafting), deployment and rollback, skill management, and maintenance automation. Each command typically follows a pattern: a dedicated file exports a `createXCommand()` function that returns a Commander.js `Command`, and a `runX()` implementation that handles the actual logic. Nearly all commands integrate with either the orchestrator (for LLM agent dispatch), a specialized subsystem (graph store, security scanner, comprehension engine), or a configuration-driven check system (baseline validation, drift detection).
+`packages/cli/src/commands` is the command orchestration layer of the Harness Engineering CLI—a sprawling (~100 command) developer platform for architecture validation, code quality analysis, skill/plugin ecosystem management, and automated workflows. Each command file implements a specific domain (e.g., `check-arch.ts` validates module dependencies, `spec-craft.ts` orchestrates specification generation, `orchestrator.ts` drives multi-phase automation pipelines). The module glues together validation gates (check-*, deploy checks), code-transformation pipelines (craft-*, pipeline-* commands), skill lifecycle management (install/uninstall/update), graph-based knowledge operations, CI/CD integration (outcome-eval-ci, review-ci), and orchestrator-driven work via fleets and multi-agent dispatch. A barrel-export registry (`_registry.ts`) auto-generates the command creator array consumed by the root program builder, decoupling command registration from manual imports.
 
 ## Invariants
 
-- commandCreators array is the single source of truth — used by createProgram() to auto-register all commands; driven by pnpm run generate-barrel-exports
-- Each command file exports createXCommand(): Command following Commander.js pattern; factory must not throw synchronously or import side-effects that fail on load
-- _registry.ts is auto-generated — manual edits overwritten on regeneration; do not commit hand-edits or skip the allowlist in scripts/generate-core-barrel.mjs
-- Output goes through OutputFormatter — logger and OutputFormatter are centralized; commands must not write to stdout/stderr directly (breaks machine parsing)
-- All errors must pass through CLIError with exit codes set — exit code signals CI/automation; codes are load-bearing for gate logic
-- Path resolution is centralized — use resolveSkillsDir(), resolvePersonasDir() etc. instead of hardcoding; layout changes flow through one place
-- Config validation happens early — resolveConfig() and specialized loaders must not fail silently; errors surface before expensive operations
-- Telemetry is opt-in and centralized — ensureTelemetryConfigured() is the source; commands do not emit telemetry directly
-- CI mode gates override local mode — check functions have CI-specific variants (runOutcomeEvalCi vs local eval); gate logic varies by mode
-- Orchestrator is the primary coordination point — most non-trivial commands dispatch agents via Orchestrator; local execution is rare and requires explicit backend resolution
+- Barrel registry sync: The auto-generated `commandCreators` array in `_registry.ts` must match actual command implementations; `pnpm run generate-barrel-exports` regenerates it—stale registry causes silent command drops.
+- Configuration validity before execution: Commands load config via `resolveConfig()` or domain-specific loaders (e.g., `readComprehensionConfig()`); config errors must fail fast with actionable messages, not propagate silent defaults.
+- Exit code consistency: Commands must use the canonical `ExitCode` enum (from `../utils/errors`) and `deriveExitCode()` for compound results; unhandled exit code divergence breaks CI gate contracts.
+- Async operation completion: All async operations (spawns, file I/O, orchestrator dispatch) must be awaited; fire-and-forget async calls in command handlers cause premature exit or partial work.
+- Path safety for file ops: All user-provided names/paths must be validated (e.g., `NAME_PATTERN` regex in `add.ts`) to prevent traversal attacks; fs operations must use `path.join()` and never interpolate user input into glob patterns.
+- Command-to-backend wiring: Commands that delegate to orchestrator-driven agents (fleet, maintenance, orchestrator) must pass resolved backend configs and validate agent availability; missing backend resolution silently downgrades to defaults or fails opaquely.
+- Error boundary at CLI top level: The CLI root must catch all command errors and render via `handleError()` before exit; commands should throw `CLIError` with exit codes, not raw Error objects.
+- Graph/MCP lazy-load on demand: Graph store and MCP tool registries are expensive; commands must conditionally load them only when used (e.g., graph commands check `loadGraphStore()` once, then cache).
 
 ## Interface Contract
 
@@ -301,6 +299,7 @@ import { comprehensionEndpoint, readComprehensionConfig, selectSemanticModel } f
 import { maybeCreateGenerateSemantic } from '../comprehension/generate-semantic'
 import { shouldRunComprehendHook } from '../comprehension/hook'
 import { enumerateModules, filesToModules } from '../comprehension/invalidation'
+import { defaultRefReadDeps, detectSemanticRegressions, readSemanticMapAtRef } from '../comprehension/regression'
 import { createStaticExtractor } from '../comprehension/static-extractor'
 import { loadAnalysisExclude, loadDesignExclude } from '../config/analysis-schema.js'
 import { findConfigFile, loadConfig, resolveConfig } from '../config/loader'
