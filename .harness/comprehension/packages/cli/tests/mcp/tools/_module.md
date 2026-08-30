@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'packages/cli/tests/mcp/tools'
-sourceHash: 'cb12347bd3b1558999bc6c9fab99af54bfaf0cf376cde7538c4a7ef66f98791e'
+sourceHash: '4b9e554eea9073c533c0e2342db1b08ea838d18352bc11f633a02372caa703d5'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
@@ -49,6 +49,7 @@ members:
     'naming-craft.test.ts',
     'outcome-eval.test.ts',
     'pagination-integration.test.ts',
+    'performance.test.ts',
     'persona-handlers.test.ts',
     'persona.security.test.ts',
     'persona.test.ts',
@@ -135,6 +136,7 @@ import { handleKnowledgeCraft, handleKnowledgeCraftFinalize, knowledgeCraftDefin
 import { generateLinterDefinition, handleGenerateLinter, handleValidateLinterConfig, validateLinterConfigDefinition } from '../../../src/mcp/tools/linter'
 import { handleNamingCraft, handleNamingCraftFinalize, namingCraftDefinition, namingCraftFinalizeDefinition } from '../../../src/mcp/tools/naming-craft'
 import { handleOutcomeEval, outcomeEvalDefinition } from '../../../src/mcp/tools/outcome-eval.js'
+import { checkPerformanceDefinition, getCriticalPathsDefinition, getPerfBaselinesDefinition, handleCheckPerformance, handleGetCriticalPaths, handleGetPerfBaselines, handleUpdatePerfBaselines, updatePerfBaselinesDefinition } from '../../../src/mcp/tools/performance'
 import { generatePersonaArtifactsDefinition, handleGeneratePersonaArtifacts, handleListPersonas, handleRunPersona, listPersonasDefinition, runPersonaDefinition } from '../../../src/mcp/tools/persona'
 import { checkPhaseGateDefinition } from '../../../src/mcp/tools/phase-gate'
 import { handlePredictFailures, predictFailuresDefinition } from '../../../src/mcp/tools/predict-failures.js'
@@ -180,10 +182,10 @@ import { Err, Ok, Result } from '@harness-engineering/types'
 import * as fs from 'fs'
 import * as fs from 'fs/promises'
 import { execFileSync } from 'node:child_process'
-import * as fs from 'node:fs'
+import * as fs, { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import * as fsp from 'node:fs/promises'
-import * as os from 'node:os'
-import * as path from 'node:path'
+import * as os, { tmpdir } from 'node:os'
+import * as path, { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import * as os, { tmpdir } from 'os'
 import * as path, { join, resolve } from 'path'
