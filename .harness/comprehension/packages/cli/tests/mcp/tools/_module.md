@@ -1,13 +1,14 @@
 ---
 schemaVersion: 1
 module: 'packages/cli/tests/mcp/tools'
-sourceHash: '5c367705e0e9675b9d7e4df46b982e50ba7452cfaaf60aa3c6b36bd0d5625c8f'
+sourceHash: 'cb12347bd3b1558999bc6c9fab99af54bfaf0cf376cde7538c4a7ef66f98791e'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
 members:
   [
     'acceptance-eval.test.ts',
+    'adr-worktree.test.ts',
     'adr.test.ts',
     'agent.test.ts',
     'api-craft.test.ts',
@@ -48,7 +49,6 @@ members:
     'naming-craft.test.ts',
     'outcome-eval.test.ts',
     'pagination-integration.test.ts',
-    'performance.test.ts',
     'persona-handlers.test.ts',
     'persona.security.test.ts',
     'persona.test.ts',
@@ -103,7 +103,7 @@ import { computeLoadPlan } from '../../../../core/src/context/progressive-loader
 import { extractLevel } from '../../../../core/src/context/section-parser'
 import { acceptanceEvalDefinition, handleAcceptanceEval, resolveTestContent } from '../../../src/mcp/tools/acceptance-eval.js'
 import { handleManageAdr, manageAdrDefinition } from '../../../src/mcp/tools/adr'
-import { allocateNextNumber, listAdrs } from '../../../src/mcp/tools/adr-store'
+import { allocateNextNumber, listAdrs, resolveWorktreeRoot } from '../../../src/mcp/tools/adr-store'
 import { addComponentDefinition, handleAddComponent, handleRunAgentTask, runAgentTaskDefinition } from '../../../src/mcp/tools/agent'
 import { apiCraftDefinition, apiCraftFinalizeDefinition, handleApiCraft, handleApiCraftFinalize } from '../../../src/mcp/tools/api-craft'
 import { checkDependenciesDefinition } from '../../../src/mcp/tools/architecture'
@@ -135,7 +135,6 @@ import { handleKnowledgeCraft, handleKnowledgeCraftFinalize, knowledgeCraftDefin
 import { generateLinterDefinition, handleGenerateLinter, handleValidateLinterConfig, validateLinterConfigDefinition } from '../../../src/mcp/tools/linter'
 import { handleNamingCraft, handleNamingCraftFinalize, namingCraftDefinition, namingCraftFinalizeDefinition } from '../../../src/mcp/tools/naming-craft'
 import { handleOutcomeEval, outcomeEvalDefinition } from '../../../src/mcp/tools/outcome-eval.js'
-import { checkPerformanceDefinition, getCriticalPathsDefinition, getPerfBaselinesDefinition, handleCheckPerformance, handleGetCriticalPaths, handleGetPerfBaselines, handleUpdatePerfBaselines, updatePerfBaselinesDefinition } from '../../../src/mcp/tools/performance'
 import { generatePersonaArtifactsDefinition, handleGeneratePersonaArtifacts, handleListPersonas, handleRunPersona, listPersonasDefinition, runPersonaDefinition } from '../../../src/mcp/tools/persona'
 import { checkPhaseGateDefinition } from '../../../src/mcp/tools/phase-gate'
 import { handlePredictFailures, predictFailuresDefinition } from '../../../src/mcp/tools/predict-failures.js'
@@ -180,10 +179,11 @@ import { deriveAcceptanceAuthority } from '@harness-engineering/intelligence'
 import { Err, Ok, Result } from '@harness-engineering/types'
 import * as fs from 'fs'
 import * as fs from 'fs/promises'
-import * as fs, { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
+import { execFileSync } from 'node:child_process'
+import * as fs from 'node:fs'
 import * as fsp from 'node:fs/promises'
-import * as os, { tmpdir } from 'node:os'
-import * as path, { join } from 'node:path'
+import * as os from 'node:os'
+import * as path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import * as os, { tmpdir } from 'os'
 import * as path, { join, resolve } from 'path'

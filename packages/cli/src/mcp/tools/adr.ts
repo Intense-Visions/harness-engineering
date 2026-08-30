@@ -7,6 +7,7 @@ import {
   createAdr,
   listAdrs,
   readAdr,
+  resolveWorktreeRoot,
   updateAdr,
   type CreateAdrInput,
   type UpdateAdrInput,
@@ -181,8 +182,14 @@ function handleUpdate(projectPath: string, input: ManageAdrInput): McpResponse {
   return resultToMcpResponse(Ok(updateAdr(projectPath, input.ref, patch)));
 }
 
-export async function handleManageAdr(input: ManageAdrInput): Promise<McpResponse> {
-  const projectPath = sanitizePath(input.path);
+export async function handleManageAdr(
+  input: ManageAdrInput,
+  cwd: string = process.cwd()
+): Promise<McpResponse> {
+  // Prefer the active git worktree resolved from the caller's cwd over the
+  // server-threaded `path` (the launch root), so ADRs authored inside a
+  // `git worktree` land in that worktree rather than the wrong checkout (#1507).
+  const projectPath = resolveWorktreeRoot(cwd, sanitizePath(input.path));
   try {
     switch (input.action) {
       case 'create':
