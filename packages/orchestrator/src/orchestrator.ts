@@ -2979,6 +2979,25 @@ export class Orchestrator extends EventEmitter {
     const abortController = new AbortController();
     this.abortControllers.set(issue.id, { controller: abortController, pid: null });
 
+    // bug-fleet (orchestrator-runloop-A): identity guard against stale-abort
+    // cross-attempt contamination. `stopIssue()` aborts THIS task's
+    // `abortController` but does not touch `state.running` or
+    // `abortControllers` — a stall-triggered stop only signals; the running
+    // entry is cleared by the state machine's own effects, and this task
+    // only notices the abort on its NEXT generator step (which may be
+    // arbitrarily far away for a real backend). If a retry redispatches the
+    // SAME `issue.id` before this (now-stale) task notices, a NEWER
+    // `runAgentInBackgroundTask` call overwrites this entry in
+    // `abortControllers` (and `state.running`) for the new attempt. Without
+    // this guard, the stale task's post-loop `state.running.has(issue.id)`
+    // check — and the unconditional `finally` cleanup below — cannot tell
+    // "my own entry is still there" from "a newer attempt's entry is
+    // there", so it fires a bogus `emitWorkerExit('Stopped by
+    // reconciliation')` against the live newer attempt and evicts the newer
+    // attempt's tracked controller/pid out from under it.
+    const isCurrentAttempt = (): boolean =>
+      this.abortControllers.get(issue.id)?.controller === abortController;
+
     (async () => {
       try {
         this.logger.info(`Calling runner.runSession for ${issue.identifier}`);
@@ -3010,10 +3029,13 @@ export class Orchestrator extends EventEmitter {
           );
         }
         if (abortController.signal.aborted) {
-          // Only emit worker exit if the issue is still tracked in state.
+          // Only emit worker exit if this is still the CURRENT attempt for
+          // this issue.id AND the issue is still tracked in state.
           // stall_detected already processes the state transition and effects —
-          // firing emitWorkerExit again would cause double-escalation.
-          if (this.state.running.has(issue.id)) {
+          // firing emitWorkerExit again would cause double-escalation. A stale
+          // (superseded) attempt must never fire it against a newer attempt's
+          // live running entry — see isCurrentAttempt() above.
+          if (isCurrentAttempt() && this.state.running.has(issue.id)) {
             await this.emitWorkerExit(issue.id, 'error', attempt, 'Stopped by reconciliation');
           }
         } else {
@@ -3028,9 +3050,17 @@ export class Orchestrator extends EventEmitter {
             `afterRun hook failed for ${issue.identifier}: ${afterRunResult.error.message}`
           );
         }
-        await this.emitWorkerExit(issue.id, 'error', attempt, String(error));
+        // A stale (superseded) attempt's own failure is moot once a newer
+        // attempt owns issue.id — see isCurrentAttempt() above.
+        if (isCurrentAttempt()) {
+          await this.emitWorkerExit(issue.id, 'error', attempt, String(error));
+        }
       } finally {
-        this.abortControllers.delete(issue.id);
+        // Only remove the tracking entry if it is still THIS task's own —
+        // never evict a newer attempt's live controller/pid out from under it.
+        if (isCurrentAttempt()) {
+          this.abortControllers.delete(issue.id);
+        }
       }
     })().catch((err) => {
       this.logger.error('Fatal error in background task', { error: String(err) });
