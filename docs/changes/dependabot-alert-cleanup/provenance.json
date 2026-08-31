@@ -1,0 +1,15 @@
+{
+  "issues": [],
+  "route": "chore",
+  "stages": ["dependency-hygiene"],
+  "item": "dependabot-cleanup",
+  "assumptions": [
+    "The authoritative pnpm for this repo is 8.15.4: CI uses `pnpm/action-setup@v5` with no `version:` input, which resolves the `packageManager: pnpm@8.15.4` field, and CI installs with `pnpm install --frozen-lockfile`.",
+    "pnpm 8.15.4 reads `pnpm.overrides` from the root package.json but does NOT read `overrides` from pnpm-workspace.yaml (workspace-file overrides are a pnpm 9+ feature). This was verified empirically: moving the overrides to pnpm-workspace.yaml and regenerating the lockfile with genuine pnpm 8.15.4 dropped the entire `overrides:` block and reintroduced vulnerable/unpinned transitive versions (e.g. undici 8.5.0, vite 5.x). Therefore the overrides were NOT migrated to pnpm-workspace.yaml; doing so would silently un-pin every security override under CI. The operator's local 'pnpm field no longer read' warning comes from a homebrew pnpm 11.21.0 masquerading as 8.15.4 via corepack, which is not what CI runs.",
+    "examples/slack-echo-bridge is `private: true`, v0.0.0, never published, and carries its own npm package-lock.json outside the pnpm workspace; npm `overrides` there are purely to satisfy Dependabot and cannot affect any shipped artifact.",
+    "The 5 workspace (pnpm-lock.yaml) alerts are all dev/build-tooling transitives. The only patched vite line for the `<= 6.4.2` range is 6.4.3 (no backported 5.x patch exists), so clearing vitepress 1.6.4's transitive vite 5.4.21 requires forcing it onto vite 6.4.3 — a transitive-major dev bump. This was verified safe by a successful `pnpm docs:build` (vitepress renders on vite 6.4.3) and a full `pnpm build` (22/22 packages) + `pnpm typecheck`.",
+    "Forcing esbuild globally to >=0.28.1 broke the vitepress docs build (esbuild 0.28.2 destructuring-transform failure against vitepress's legacy browser target), so esbuild is NOT overridden globally. Instead a scoped `esbuild@0.27: >=0.28.1` override targets only the tsup/bundle-require copy (0.27.7 -> 0.28.2); tsup builds pass. Forcing vite to 6.4.3 also pulls vitepress's own esbuild from 0.21.5 up to 0.25.12 (via vite 6), which clears the esbuild <=0.24.2 advisory as a side effect.",
+    "The 5 GHSAs previously carried in the root `auditExceptions` register (GHSA-67mh, GHSA-4w7w, GHSA-fx2h, GHSA-v6wh, GHSA-g7r4) are now genuinely resolved in the lockfile, so `pnpm audit` reports zero advisories and those register entries are stale; they were removed (scripts/audit-exceptions.mjs then reports '0 active advisories, 0 register entries — OK')."
+  ],
+  "outcome": "All 17 open Dependabot alerts are fixed in the committed lockfiles (12 in examples/slack-echo-bridge/package-lock.json, 5 in pnpm-lock.yaml). Alerts auto-close on merge to the default branch."
+}

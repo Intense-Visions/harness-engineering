@@ -18,6 +18,10 @@
   "dependencies": {
     "@slack/web-api": "^7.0.0"
   },
+  "overrides": {
+    "axios": ">=1.18.0",
+    "postcss": ">=8.5.23"
+  },
   "devDependencies": {
     "@types/node": "^22.0.0",
     "tsx": "^4.0.0",
