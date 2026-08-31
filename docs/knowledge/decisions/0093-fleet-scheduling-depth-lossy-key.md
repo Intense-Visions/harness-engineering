@@ -2,10 +2,17 @@
 number: 0093
 title: Fleet scheduling depth is a lossy key
 date: 2026-08-18
-status: proposed
+status: accepted
 tier: medium
 source: 'design routing of bug-backlog issues #1305, #1319, #1312'
 ---
+
+> **Amended 2026-08-31 (decision-blocked issue #1313, folded per `fleet-command` Wave 3 CONFIRM fork F1).**
+> Decision item 4 and the accompanying Context/Consequences notes were added to model
+> the third member class — depth **knowable only by paying for the work** (e.g.
+> `craft-fleet`) — by extending the probe contract's `fidelity` dimension with a
+> `sampled` value. The ADR is accepted at the same time (`proposed` → `accepted`) on the
+> human's explicit F1 answer.
 
 ## Context
 
@@ -43,6 +50,15 @@ unknown is protected from shedding (#1305), and any member whose findings replic
 its way to the front of the honest queue (#1319). Left alone, the scheduler selects hardest for
 exactly the members it should scrutinize most: the expensive, the dark, and the duplicative.
 
+**A third member class exists between "cheaply exact" and "legitimately unknown" (#1313).**
+`craft-fleet`'s queue **is** the expensive work — eleven LLM critique sweeps over ~5,000 files —
+and its human gate needs verbatim findings that cannot exist until SELECT has already run. So its
+depth is neither cheaply probeable **nor** genuinely unknowable: it is **knowable only by paying
+for (a slice of) the work**. Under the plain contract below it has only two bad options — report
+`unknown` (and, pre-amendment, be protected; post-amendment, be shed-first despite having real,
+estimable work) or run the entire sweep just to answer the probe. Neither is right: a member whose
+depth is measurable by sampling should neither hide as dark nor pay full price to be counted.
+
 ## Decision
 
 The fleet family adopts a **depth-reporting contract** that makes depth a comparable key and
@@ -67,6 +83,23 @@ removes the incentives above. Depth stops being "whatever a member happens to co
    runs only on an **explicit human call** at CONFIRM, never by silently surviving the shed. Dark
    is the weakest position, not the safest.
 
+4. **The probe contract carries a `fidelity` dimension; a pay-to-know member reports
+   `fidelity: sampled` (#1313).** The gate-free probe returns `{ceiling, plannedBatchSize,
+fidelity}`, where `fidelity` is `exact` for a member that can enumerate its distinct fixes
+   cheaply and **`sampled`** for the third class — a member whose depth is knowable only by paying
+   for the work (e.g. `craft-fleet`). A `sampled` member probes a **bounded slice**, extrapolates a
+   `plannedBatchSize` (still collapsed by fix-identity per item 2), and marks the estimate
+   `sampled`. Crucially, **a `sampled` report is a conforming report, not `unknown`**: it
+   participates in scheduling and is **sheddable by its extrapolated depth** like any honest number,
+   so the expensive member is neither protected-by-darkness (#1305) nor forced to run its whole
+   sweep to be counted — it pays for a slice, not the batch. The `sampled` label travels with the
+   number so the conductor and the human can see that the depth is an extrapolation rather than an
+   exact count and weigh a shed/keep decision accordingly. Reporting `unknown` when a member could
+   have sampled is itself non-conforming and is treated as shed-first per item 3; sampling is the
+   honest floor for a measurable-by-sampling member. (This subsumes #1313's "sampled probe" option;
+   its "authorize by participation" and "opt-in only" alternatives are considered and rejected
+   below.)
+
 The contract is enforced where it is cheap to check: `--report-only` conformance is a member-level
 test, and the conductor treats a missing or non-conforming report as unknown → shed-first rather
 than as an unprobeable exception to route around.
@@ -84,6 +117,13 @@ than as an unprobeable exception to route around.
   understates genuine work, so the (items / distinct-fixes) pair is retained where the raw count
   still informs. Shed-first-on-unknown means a member whose probe regresses to non-conforming is
   dropped rather than run — loud and safe, but it can shed a member that would have had real work.
+- **On the `sampled` fidelity class (#1313):** the third class costs a bounded slice of its own
+  expensive work to answer the probe (real, but far below running the full sweep), and its
+  `plannedBatchSize` is an extrapolation — an over- or under-estimate can misorder a shed/keep
+  decision at the margin. The `sampled` label is what keeps that honest: the conductor and human
+  treat a sampled depth as an estimate, not a census, and the member is still fully sheddable, so
+  the failure mode is a bounded mis-ranking rather than the permanent protection the plain contract
+  produced.
 - **Reversibility:** high — the shed order, the collapse rule, and the report shape are
   scheduling policy expressed in skill prose plus a per-member flag and test. Tightening the
   collapse, changing the pair format, or re-tuning the shed threshold is a prose-and-test change,
@@ -106,11 +146,21 @@ than as an unprobeable exception to route around.
   it re-centralizes knowledge each member holds best (its own fix-identity), and drifts silently
   the moment a member changes. The contract lives with the member and is enforced by the member's
   own test.
+- **Authorize the pay-to-know member by participation, not magnitude (#1313 option 2).** Rejected —
+  authorizing `craft-fleet` at CONFIRM purely because it opted in, without any depth number, re-creates
+  a member the scheduler cannot compare or shed against honest numbers — the same darkness this ADR
+  removes, merely relabelled "participating."
+- **Make the pay-to-know member opt-in only and never auto-schedule it (#1313 option 3).** Rejected —
+  it permanently exempts the single most expensive member from the scheduling discipline the rest of
+  the family lives under; a bounded `sampled` probe gives the conductor a comparable number at a
+  bounded cost, which is strictly better than exempting the member from measurement.
 
 ## References
 
 - Resolves: #1305 (unknown is a protected status), #1319 (replicated findings inflate depth),
-  #1312 (`--report-only` gate-free probe contract unspecified; ideate-fleet unprobeable).
+  #1312 (`--report-only` gate-free probe contract unspecified; ideate-fleet unprobeable),
+  #1313 (craft-fleet is an unmodeled member class — depth knowable only by paying for the work;
+  folded via the `fidelity: sampled` extension in Decision item 4).
 - Refines: [`0091-fleet-command-conductor-tier-authority-model.md`](0091-fleet-command-conductor-tier-authority-model.md) — the global leaf-slot budget, the shed order, and the gate-free probing rule (property 4) this contract makes honest.
 - Companion: [`0088-front-load-park-unforeseen-interaction-model.md`](0088-front-load-park-unforeseen-interaction-model.md) — the CONFIRM round where an unmeasured member is scheduled only on an explicit human call.
 - Family overview: `docs/reference/fleet-family.md` (the `-fleet` spine, gate-free probing, and the conductor tier).
