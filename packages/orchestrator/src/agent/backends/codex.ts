@@ -1,6 +1,6 @@
-import { spawn, type ChildProcess } from 'node:child_process';
-import * as readline from 'node:readline';
-import { randomUUID } from 'node:crypto';
+import { spawn, type ChildProcess } from "node:child_process";
+import * as readline from "node:readline";
+import { randomUUID } from "node:crypto";
 import {
   AgentBackend,
   SessionStartParams,
@@ -13,14 +13,27 @@ import {
   Err,
   AgentError,
   McpServerSpec,
-} from '@harness-engineering/types';
+} from "@harness-engineering/types";
 import type {
   PolicyMetadata,
   PolicySandboxMode,
   PolicyNetworkMode,
-} from '@harness-engineering/types';
-import { buildSubprocessEnv } from '../subprocess-env.js';
-import type { PolicyAuditSink } from './claude.js';
+} from "@harness-engineering/types";
+import { buildSubprocessEnv } from "../subprocess-env.js";
+import type { PolicyAuditSink } from "./claude.js";
+
+/** Guard: returns the value only when it is a non-empty, non-blank string, else `undefined`. */
+function nonEmptyString(v: unknown): string | undefined {
+  return typeof v === "string" && v.trim() !== "" ? v : undefined;
+}
+
+/** Pull agent_message text out of a single node (`{type:'agent_message', message|text}`). */
+function agentMessageNodeText(node: unknown): string | undefined {
+  if (typeof node !== "object" || node === null) return undefined;
+  const n = node as Record<string, unknown>;
+  if (n.type !== "agent_message") return undefined;
+  return nonEmptyString(n.message) ?? nonEmptyString(n.text);
+}
 
 /**
  * Extract the assistant's final text from a parsed codex `--json` line, across
@@ -35,25 +48,15 @@ import type { PolicyAuditSink } from './claude.js';
  * backend re-emits as a `result` event so the workflow stage runner captures it
  * (`run.output`) and can persist a design stage's proposal/plan artifact.
  */
-function nonEmptyString(v: unknown): string | undefined {
-  return typeof v === 'string' && v.trim() !== '' ? v : undefined;
-}
-
-/** Pull agent_message text out of a single node (`{type:'agent_message', message|text}`). */
-function agentMessageNodeText(node: unknown): string | undefined {
-  if (typeof node !== 'object' || node === null) return undefined;
-  const n = node as Record<string, unknown>;
-  if (n.type !== 'agent_message') return undefined;
-  return nonEmptyString(n.message) ?? nonEmptyString(n.text);
-}
-
 export function extractCodexAgentMessage(parsed: unknown): string | undefined {
-  if (typeof parsed !== 'object' || parsed === null) return undefined;
+  if (typeof parsed !== "object" || parsed === null) return undefined;
   const rec = parsed as Record<string, unknown>;
   // The agent_message node lives at `msg` (nested form), `item` (item.* form), or
   // is the record itself (flat form) — the same shape check handles all three.
   return (
-    agentMessageNodeText(rec.msg) ?? agentMessageNodeText(rec.item) ?? agentMessageNodeText(rec)
+    agentMessageNodeText(rec.msg) ??
+    agentMessageNodeText(rec.item) ??
+    agentMessageNodeText(rec)
   );
 }
 
@@ -83,7 +86,7 @@ export interface CodexBackendOptions {
   /** Prefer-fallback resolver (array-model configs). Takes precedence over `model`. */
   getModel?: (() => string | null) | undefined;
   /** Local model provider Codex uses via `--oss --local-provider`. Default `'ollama'`. */
-  localProvider?: 'ollama' | 'lmstudio';
+  localProvider?: "ollama" | "lmstudio";
   /** Hard wall-clock cap per session in ms. Default 30min (codex sessions run long). */
   timeoutMs?: number;
   /**
@@ -99,7 +102,7 @@ export interface CodexBackendOptions {
    * turn (0 tokens, 0 turns). Note codex's DEFAULT (effort omitted) still sends a
    * reasoning request, so `'none'` — not omission — is the fix for such models.
    */
-  reasoningEffort?: 'none' | 'low' | 'medium' | 'high';
+  reasoningEffort?: "none" | "low" | "medium" | "high";
   /**
    * MCP servers to expose to the codex-driven model, injected per-invocation via
    * `-c mcp_servers.<name>.…` overrides (NOT written to the user's global
@@ -153,16 +156,19 @@ const MCP_STARTUP_TIMEOUT_SEC = 60;
  * `enabled_tools` (codex's per-server allowlist). Server names are dot-sanitized so
  * the dotted-path parser keys them correctly.
  */
-export function buildMcpConfigArgs(servers: readonly McpServerSpec[]): string[] {
+export function buildMcpConfigArgs(
+  servers: readonly McpServerSpec[],
+): string[] {
   const args: string[] = [];
   const push = (key: string, value: string): void => {
-    args.push('-c', `${key}=${value}`);
+    args.push("-c", `${key}=${value}`);
   };
   for (const spec of servers) {
-    const name = spec.name.replace(/\./g, '_');
+    const name = spec.name.replace(/\./g, "_");
     const base = `mcp_servers.${name}`;
     push(`${base}.command`, JSON.stringify(spec.command));
-    if (spec.args !== undefined) push(`${base}.args`, JSON.stringify(spec.args));
+    if (spec.args !== undefined)
+      push(`${base}.args`, JSON.stringify(spec.args));
     if (spec.cwd !== undefined) push(`${base}.cwd`, JSON.stringify(spec.cwd));
     if (spec.env !== undefined) {
       for (const [k, v] of Object.entries(spec.env)) {
@@ -178,14 +184,14 @@ export function buildMcpConfigArgs(servers: readonly McpServerSpec[]): string[] 
 }
 
 export class CodexBackend implements AgentBackend {
-  readonly name = 'codex';
+  readonly name = "codex";
   private command: string;
   private model?: string;
   private getModel?: () => string | null;
-  private localProvider: 'ollama' | 'lmstudio';
+  private localProvider: "ollama" | "lmstudio";
   private timeoutMs: number;
   private mcpServers: McpServerSpec[];
-  private reasoningEffort?: 'none' | 'low' | 'medium' | 'high';
+  private reasoningEffort?: "none" | "low" | "medium" | "high";
   private sandboxMode: PolicySandboxMode;
   private networkMode: PolicyNetworkMode;
   private agentVersion: string;
@@ -205,18 +211,20 @@ export class CodexBackend implements AgentBackend {
   >();
 
   constructor(options: CodexBackendOptions = {}) {
-    this.command = options.command ?? 'codex';
+    this.command = options.command ?? "codex";
     if (options.model !== undefined) this.model = options.model;
     if (options.getModel !== undefined) this.getModel = options.getModel;
-    this.localProvider = options.localProvider ?? 'ollama';
+    this.localProvider = options.localProvider ?? "ollama";
     this.timeoutMs = options.timeoutMs ?? DEFAULT_TIMEOUT_MS;
     this.mcpServers = options.mcpServers ?? [];
-    if (options.reasoningEffort !== undefined) this.reasoningEffort = options.reasoningEffort;
-    this.sandboxMode = options.sandboxMode ?? 'none';
-    this.networkMode = options.networkMode ?? 'unrestricted';
-    this.agentVersion = options.agentVersion ?? 'unknown';
+    if (options.reasoningEffort !== undefined)
+      this.reasoningEffort = options.reasoningEffort;
+    this.sandboxMode = options.sandboxMode ?? "none";
+    this.networkMode = options.networkMode ?? "unrestricted";
+    this.agentVersion = options.agentVersion ?? "unknown";
     if (options.policyAudit) this.policyAudit = options.policyAudit;
-    if (options.subprocessEnvAllow) this.subprocessEnvAllow = options.subprocessEnvAllow;
+    if (options.subprocessEnvAllow)
+      this.subprocessEnvAllow = options.subprocessEnvAllow;
     this.envSource = options.envSource ?? process.env;
   }
 
@@ -224,7 +232,9 @@ export class CodexBackend implements AgentBackend {
     return this.getModel?.() ?? this.model ?? undefined;
   }
 
-  async startSession(params: SessionStartParams): Promise<Result<AgentSession, AgentError>> {
+  async startSession(
+    params: SessionStartParams,
+  ): Promise<Result<AgentSession, AgentError>> {
     return Ok({
       sessionId: randomUUID(),
       workspacePath: params.workspacePath,
@@ -235,26 +245,26 @@ export class CodexBackend implements AgentBackend {
 
   async *runTurn(
     session: AgentSession,
-    params: TurnParams
+    params: TurnParams,
   ): AsyncGenerator<AgentEvent, TurnResult, void> {
     const model = this.resolveModel();
     if (model === undefined) {
       return {
         success: false,
         sessionId: session.sessionId,
-        error: 'CodexBackend: no model configured/resolved',
+        error: "CodexBackend: no model configured/resolved",
         usage: { inputTokens: 0, outputTokens: 0, totalTokens: 0 },
       };
     }
 
     const args = [
-      'exec',
-      '--oss',
-      '--local-provider',
+      "exec",
+      "--oss",
+      "--local-provider",
       this.localProvider,
-      '-m',
+      "-m",
       model,
-      '-C',
+      "-C",
       session.workspacePath,
       // `workspace-write` (not the full `--dangerously-bypass-approvals-and-sandbox`):
       // exec mode already runs approval-free (`approval: never`), and workspace-write
@@ -263,24 +273,24 @@ export class CodexBackend implements AgentBackend {
       // `write_stdin failed: stdin is closed for this session`. Reads are unrestricted
       // (the pnpm store resolves); writes are confined to the worktree — appropriate
       // since the orchestrator already dispatches codex into an isolated worktree.
-      '--sandbox',
-      'workspace-write',
+      "--sandbox",
+      "workspace-write",
       // Disable codex's multi-agent/subagent dispatch: it is native (GPT-5) only and
       // fails with `unsupported call: multi_agent_v1` when driving a LOCAL model, which
       // derails the run. The harness lifecycle rides on the ORCHESTRATOR's stage
       // sequencing instead, with codex executing each skill as a single agent.
-      '--disable',
-      'multi_agent',
+      "--disable",
+      "multi_agent",
       // Reasoning effort for the driven model (coder ⇒ 'low'): spend the budget on
       // edits + gate iteration, not a long deliberation. Omitted ⇒ codex default.
       ...(this.reasoningEffort !== undefined
-        ? ['-c', `model_reasoning_effort="${this.reasoningEffort}"`]
+        ? ["-c", `model_reasoning_effort="${this.reasoningEffort}"`]
         : []),
       // Inject MCP servers (context7 for live docs, curated harness-mcp read tools)
       // per-invocation so the codex-driven local model gets the same tool surface the
       // ollama path curates — WITHOUT mutating the user's global ~/.codex/config.toml.
       ...buildMcpConfigArgs(this.mcpServers),
-      '--json',
+      "--json",
       params.prompt,
     ];
 
@@ -291,7 +301,7 @@ export class CodexBackend implements AgentBackend {
     // Mirrors the claude backend (claude.ts) — closes the codex leak (#1158).
     const { env, stripped, enforced } = buildSubprocessEnv(
       this.envSource,
-      this.subprocessEnvAllow ? { extraAllow: this.subprocessEnvAllow } : {}
+      this.subprocessEnvAllow ? { extraAllow: this.subprocessEnvAllow } : {},
     );
 
     // Stamp the per-call policy envelope into the governance audit trail. `codex
@@ -300,11 +310,11 @@ export class CodexBackend implements AgentBackend {
     // an audit fault block the spawn.
     if (this.policyAudit) {
       const policy: PolicyMetadata = {
-        approvalMode: 'bypass',
+        approvalMode: "bypass",
         sandboxMode: this.sandboxMode,
         networkMode: this.networkMode,
-        dangerousFlags: ['--sandbox=workspace-write'],
-        agentFamily: 'codex',
+        dangerousFlags: ["--sandbox=workspace-write"],
+        agentFamily: "codex",
         agentVersion: this.agentVersion,
       };
       try {
@@ -324,12 +334,12 @@ export class CodexBackend implements AgentBackend {
       cwd: session.workspacePath,
       env,
       // stdin from /dev/null: codex exec otherwise blocks reading additional input.
-      stdio: ['ignore', 'pipe', 'pipe'],
+      stdio: ["ignore", "pipe", "pipe"],
       // Own process GROUP (POSIX) so a kill can take down codex AND any grandchild
       // it spawned. Without this, killing only the direct child leaves a grandchild
       // holding the stdout pipe open, and draining hangs past the stage deadline —
       // see killTree.
-      detached: process.platform !== 'win32',
+      detached: process.platform !== "win32",
     });
 
     let timedOut = false;
@@ -341,28 +351,34 @@ export class CodexBackend implements AgentBackend {
     // abort) can terminate it — see activeChildren.
     this.activeChildren.set(session.sessionId, { child, killTimer });
 
-    let spawnError = '';
-    child.on('error', (err) => {
+    let spawnError = "";
+    child.on("error", (err) => {
       spawnError = err.message;
     });
 
-    const rl = readline.createInterface({ input: child.stdout, terminal: false });
-    const errRl = readline.createInterface({ input: child.stderr, terminal: false });
-    errRl.on('line', (line) => {
+    const rl = readline.createInterface({
+      input: child.stdout,
+      terminal: false,
+    });
+    const errRl = readline.createInterface({
+      input: child.stderr,
+      terminal: false,
+    });
+    errRl.on("line", (line) => {
       if (line.trim()) console.error(`[codex stderr] ${line}`);
     });
 
     let exitCode: number | null = null;
     const exited = new Promise<void>((resolve) => {
-      child.on('exit', (code) => {
+      child.on("exit", (code) => {
         exitCode = code;
         resolve();
       });
     });
 
     yield {
-      type: 'status',
-      subtype: 'codex_start',
+      type: "status",
+      subtype: "codex_start",
       timestamp: new Date().toISOString(),
       sessionId: session.sessionId,
       content: `codex exec (${this.localProvider}:${model})`,
@@ -374,30 +390,34 @@ export class CodexBackend implements AgentBackend {
     // output) so we can emit it below as a `result` event — the status events are
     // truncated to 2000 chars and never captured as `run.output`, which is why a
     // design stage's generated proposal/plan was produced but never persisted.
-    let lastAgentMessage = '';
+    let lastAgentMessage = "";
     for await (const line of rl) {
       const trimmed = line.trim();
       if (!trimmed) continue;
-      let subtype = 'codex_output';
+      let subtype = "codex_output";
       let content = trimmed;
       try {
-        const ev = JSON.parse(trimmed) as { type?: unknown; msg?: { type?: unknown } };
-        const t = typeof ev.type === 'string' ? ev.type : undefined;
+        const ev = JSON.parse(trimmed) as {
+          type?: unknown;
+          msg?: { type?: unknown };
+        };
+        const t = typeof ev.type === "string" ? ev.type : undefined;
         const mt =
           ev.msg &&
-          typeof ev.msg === 'object' &&
-          typeof (ev.msg as { type?: unknown }).type === 'string'
+          typeof ev.msg === "object" &&
+          typeof (ev.msg as { type?: unknown }).type === "string"
             ? (ev.msg as { type: string }).type
             : undefined;
-        subtype = mt ?? t ?? 'codex_event';
-        content = trimmed.length > 2000 ? `${trimmed.slice(0, 2000)}…` : trimmed;
+        subtype = mt ?? t ?? "codex_event";
+        content =
+          trimmed.length > 2000 ? `${trimmed.slice(0, 2000)}…` : trimmed;
         const agentText = extractCodexAgentMessage(ev);
         if (agentText !== undefined) lastAgentMessage = agentText;
       } catch {
         // non-JSON line — pass through as raw output
       }
       yield {
-        type: 'status',
+        type: "status",
         subtype: `codex:${subtype}`,
         timestamp: new Date().toISOString(),
         sessionId: session.sessionId,
@@ -410,9 +430,9 @@ export class CodexBackend implements AgentBackend {
     // (spec/plan) produces content that is never persisted to its documentPath
     // nor threaded to the next stage. Best-effort: only when the model actually
     // produced a final message; a tool-only or empty run yields nothing here.
-    if (lastAgentMessage.trim() !== '') {
+    if (lastAgentMessage.trim() !== "") {
       yield {
-        type: 'result',
+        type: "result",
         timestamp: new Date().toISOString(),
         sessionId: session.sessionId,
         content: lastAgentMessage,
@@ -425,7 +445,7 @@ export class CodexBackend implements AgentBackend {
     // path clears it in stopSession instead).
     this.activeChildren.delete(session.sessionId);
 
-    if (spawnError !== '') {
+    if (spawnError !== "") {
       return {
         success: false,
         sessionId: session.sessionId,
@@ -444,7 +464,9 @@ export class CodexBackend implements AgentBackend {
     return {
       success: exitCode === 0,
       sessionId: session.sessionId,
-      ...(exitCode === 0 ? {} : { error: `codex exec exited with code ${exitCode}` }),
+      ...(exitCode === 0
+        ? {}
+        : { error: `codex exec exited with code ${exitCode}` }),
       usage: { inputTokens: 0, outputTokens: 0, totalTokens: 0 },
     };
   }
@@ -476,16 +498,16 @@ export class CodexBackend implements AgentBackend {
   private killTree(child: ChildProcess): void {
     if (child.exitCode !== null || child.signalCode !== null) return;
     const pid = child.pid;
-    if (pid !== undefined && process.platform !== 'win32') {
+    if (pid !== undefined && process.platform !== "win32") {
       try {
-        process.kill(-pid, 'SIGKILL');
+        process.kill(-pid, "SIGKILL");
         return;
       } catch {
         // Group gone or never grouped — fall through to a direct child kill.
       }
     }
     try {
-      child.kill('SIGKILL');
+      child.kill("SIGKILL");
     } catch {
       // Already exited — nothing to terminate.
     }
@@ -493,18 +515,24 @@ export class CodexBackend implements AgentBackend {
 
   async healthCheck(): Promise<Result<void, AgentError>> {
     return new Promise((resolve) => {
-      const child = spawn(this.command, ['--version'], { stdio: 'ignore' });
-      child.on('error', () =>
+      const child = spawn(this.command, ["--version"], { stdio: "ignore" });
+      child.on("error", () =>
         resolve(
-          Err({ category: 'agent_not_found', message: `codex CLI '${this.command}' not found` })
-        )
+          Err({
+            category: "agent_not_found",
+            message: `codex CLI '${this.command}' not found`,
+          }),
+        ),
       );
-      child.on('exit', (code) =>
+      child.on("exit", (code) =>
         resolve(
           code === 0
             ? Ok(undefined)
-            : Err({ category: 'agent_not_found', message: `codex --version exited ${code}` })
-        )
+            : Err({
+                category: "agent_not_found",
+                message: `codex --version exited ${code}`,
+              }),
+        ),
       );
     });
   }
