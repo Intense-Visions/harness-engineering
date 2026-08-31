@@ -1,0 +1,10 @@
+{
+  "type": "result",
+  "result": "done",
+  "structured_output": {
+    "summary": "FAKE_SUMMARY: adds two numbers; pure and total.",
+    "invariants": ["add(a,b) returns a+b", "no side effects"]
+  },
+  "usage": { "input_tokens": 10, "output_tokens": 5 },
+  "model": "fake-claude"
+}

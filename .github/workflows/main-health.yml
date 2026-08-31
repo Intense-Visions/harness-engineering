@@ -69,3 +69,54 @@ jobs:
           MAIN_HEALTH_BRANCH: main
           MAIN_HEALTH_THRESHOLD: ${{ inputs.threshold || '2' }}
         run: node scripts/main-health-check.mjs
+
+  # Nightly gated Tier B E2E lane (ADR 0111 / #1691). SEPARATE from the
+  # dependency-free watcher above (which must never be taken down by an install).
+  # Runs ONLY on the daily `schedule` or a manual dispatch — never on the
+  # per-CI-completion `workflow_run` trigger — so live cost/nondeterminism stays
+  # out of the PR path. Tier B is a no-op without a provider credential and never
+  # reds the run; the value is the gate ACTUALLY running, so we first assert the
+  # gate is reachable (a silently-skipped suite must not read as a pass).
+  e2e-nightly:
+    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: pnpm/action-setup@v5
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 22
+          cache: 'pnpm'
+
+      - run: pnpm install --frozen-lockfile
+
+      # Build the CLI the Tier A/C/B suites drive as a subprocess.
+      - run: pnpm --filter @harness-engineering/cli... build
+
+      # Gate-reachability assertion (ADR 0111 mitigation): prove the Tier B suite
+      # is DISCOVERABLE and its gate flips ON under HARNESS_E2E_LIVE=1 — i.e. it is
+      # not skipped-by-default forever. Fails loudly if the wiring rots.
+      - name: Assert Tier B gate is reachable
+        run: |
+          set -euo pipefail
+          test -f packages/cli/dist/bin/harness.js
+          # The Tier B suite exists and is wired to the shared HARNESS_E2E_LIVE gate.
+          grep -rq "skipTierB" packages/cli/tests/e2e/
+          grep -rq "HARNESS_E2E_LIVE" packages/cli/tests/e2e/support/tiers.ts
+          echo "Tier B suite present and HARNESS_E2E_LIVE gate wired."
+
+      # Run the gated live suite. Degradation-safe: with no provider credential it
+      # produces a valid static unit and passes; with one it exercises the real
+      # provider path. `continue-on-error` keeps a live-provider hiccup from
+      # reding the nightly heartbeat — the assertion above is the hard gate.
+      - name: Tier B live E2E
+        continue-on-error: true
+        env:
+          HARNESS_E2E_LIVE: '1'
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          HARNESS_ANALYSIS_BASE_URL: ${{ secrets.HARNESS_ANALYSIS_BASE_URL }}
+          HARNESS_ANALYSIS_API_KEY: ${{ secrets.HARNESS_ANALYSIS_API_KEY }}
+          HARNESS_ANALYSIS_MODEL: ${{ secrets.HARNESS_ANALYSIS_MODEL }}
+        run: pnpm --filter @harness-engineering/cli exec vitest run tests/e2e

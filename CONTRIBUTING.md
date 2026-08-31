@@ -142,6 +142,16 @@ pnpm test:coverage       # Run with coverage
 pnpm test:watch          # Watch mode
 ```
 
+**End-to-end tests.** New user-facing flows should ship real-boundary E2E
+coverage by default — see [How to add an E2E test](docs/guides/e2e-testing.md)
+for the tiered framework (Tier A/C run per-PR, Tier B nightly), the shared
+helpers, and the captured-fixture convention.
+
+```bash
+pnpm test:e2e            # Tier A/C (deterministic, per-PR)
+pnpm test:e2e:live       # Tier B (gated live; HARNESS_E2E_LIVE=1)
+```
+
 ---
 
 ## Documentation
