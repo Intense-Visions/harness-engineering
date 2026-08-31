@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'packages/cli/src/commands'
-sourceHash: '55d788e8c725b075da5f532d4c1c5cac9610e0b0e9827f7e42c6b87db7b58af5'
+sourceHash: '83ab5bf754b0b781ae36018ccb842297fc6122a808dfbc183966c349e34af2a3'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
@@ -306,6 +306,7 @@ export resolveMode
 export resolveSelection
 export resolveSkillSources
 export resolveSpecPath
+export resolveStaticOnlyPosture
 export runAdd
 export runAdviseSkills
 export runAuditProtected
@@ -386,11 +387,13 @@ import { BrandFinding } from '../brand/findings/finding'
 import { CliErgonomicsCraftInput, CliErgonomicsCraftOutput, runCliErgonomicsCraft } from '../cli-ergonomics-craft/index.js'
 import { CodeCraftInput, CodeCraftOutput, runCodeCraft } from '../code-craft/index.js'
 import { ComprehendRunResult, runComprehend, runComprehendCheck, runComprehendStats } from '../comprehension/compile-run'
-import { comprehensionCli, comprehensionEndpoint, readComprehensionConfig, selectSemanticModel } from '../comprehension/config'
+import { comprehensionCli, comprehensionEndpoint, readComprehensionConfig, resolveComprehensionCiMode, selectSemanticModel } from '../comprehension/config'
 import { maybeCreateGenerateSemantic } from '../comprehension/generate-semantic'
 import { shouldRunComprehendHook } from '../comprehension/hook'
 import { enumerateModules, filesToModules } from '../comprehension/invalidation'
-import { defaultRefReadDeps, detectSemanticRegressions, readSemanticMapAtRef } from '../comprehension/regression'
+import { committedSemanticAllowed } from '../comprehension/policy'
+import { RefreshJobGateReason, explainInactiveRefreshGate, resolveRefreshJobGate } from '../comprehension/refresh-gate'
+import { RegressionContext, defaultRefReadDeps, detectCommittedSemanticOnBranch, detectSemanticRegressions, readSemanticMapAtRef } from '../comprehension/regression'
 import { createStaticExtractor } from '../comprehension/static-extractor'
 import { loadAnalysisExclude, loadDesignExclude } from '../config/analysis-schema.js'
 import { findConfigFile, loadConfig, resolveConfig } from '../config/loader'

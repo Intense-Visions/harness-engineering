@@ -214,3 +214,54 @@ describe('handlePutComprehension (envelope)', () => {
     expect(res.isError).toBeUndefined(); // missing unit is a policy refusal, not an error
   });
 });
+
+// --- ADR 0110 §1: single-writer — the PR path DEFERS committed semantic --------
+
+describe('attachSemantic — ADR 0110 §1 single-writer policy', () => {
+  it('DEFERS (never writes) when committed semantic is not allowed (the PR path)', async () => {
+    const unit = await staticUnit();
+    const store = fakeStore(unit);
+    const deps: AttachSemanticDeps = {
+      store,
+      reader: fakeReader(SRC),
+      committedSemanticAllowed: () => false, // off the main-pass
+    };
+
+    const outcome = await attachSemantic(MODULE, payload, deps);
+
+    expect(outcome.status).toBe('deferred');
+    expect(store.writes).toHaveLength(0); // nothing committed on a branch
+    if (outcome.status === 'deferred') expect(outcome.reason).toMatch(/single-writer|main/i);
+  });
+
+  it('still WRITES when the policy allows it (the main-pass)', async () => {
+    const unit = await staticUnit();
+    const store = fakeStore(unit);
+    const deps: AttachSemanticDeps = {
+      store,
+      reader: fakeReader(SRC),
+      committedSemanticAllowed: () => true, // on `main`
+    };
+
+    const outcome = await attachSemantic(MODULE, payload, deps);
+
+    expect(outcome.status).toBe('written');
+    expect(store.writes).toHaveLength(1);
+  });
+
+  it('is a NON-error {written:false, deferred:true} envelope through the handler', async () => {
+    const unit = await staticUnit();
+    const deps: AttachSemanticDeps = {
+      store: fakeStore(unit),
+      reader: fakeReader(SRC),
+      committedSemanticAllowed: () => false,
+    };
+    const res = await handlePutComprehension(
+      { path: '/repo', module: MODULE, summary: payload.summary, invariants: payload.invariants },
+      deps
+    );
+    expect(res.isError).toBeUndefined();
+    const body = JSON.parse(res.content[0].text);
+    expect(body).toMatchObject({ module: MODULE, written: false, deferred: true });
+  });
+});

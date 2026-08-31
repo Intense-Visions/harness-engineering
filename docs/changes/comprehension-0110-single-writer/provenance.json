@@ -1,0 +1,19 @@
+{
+  "issue": 1713,
+  "issues": [1713],
+  "route": "spec-ready",
+  "spec": "docs/knowledge/decisions/0110-single-writer-semantic-comprehension.md",
+  "stages": ["autopilot", "planning", "execution", "verification"],
+  "planArtifact": "docs/changes/comprehension-0110-single-writer/plans/plan.md",
+  "assumptions": [
+    "Static-only enforcement MECHANISM = option (a) branch-based suppression (not option (b) cache overlay): storage:cache path-routing is unimplemented today — every shard under .harness/comprehension/** is force-tracked by .gitignore — so the minimal correct rule is 'no committed semantic unless provably the single writer (main)'.",
+    "Single-writer predicate lives in a new pure module comprehension/policy.ts; committedSemanticAllowed() = isMainPassContext = HARNESS_COMPREHENSION_MAIN_PASS=1 OR GITHUB_REF==refs/heads/main OR resolved branch=='main'. Unknown branch (detached HEAD / no-git) defaults to NOT-main-pass (conservative, conflict-avoiding).",
+    "Enforcement wired into ALL THREE committed-semantic write paths, not just the two named in the ADR: comprehend --changed/--all (compileComprehension force-static off main-pass), put_comprehension (attachSemantic returns a NON-error 'deferred' result), AND get_comprehension recompile-on-miss (provider resolved only on the main-pass) — the last was discovered during investigation as a third path that writes committed semantic on a branch.",
+    "comprehension.ci seam CONSUMED in `comprehend --check`: off=disable gate, verify=default token-free gate, refresh=verify + provider-backed main-pass regeneration guarded by main-pass policy AND provider availability (degrades to no-op token-free when no provider). #1689's keyed runner plugs into runRefreshMainPass. Default stays 'verify' (token-free) per maintainer-local provider choice.",
+    "Regression gate reframe via a --context <pr|main> flag; DEFAULT is 'main' (strict, backward-compatible) so CI must pass --context pr explicitly on the PR step. 'pr' returns [] for present→absent (kills the per-PR false positive); added detectCommittedSemanticOnBranch as an advisory PR-path policy companion (flags disallowed committed-semantic ADDITIONS).",
+    "CI: PR step now `--context pr`; NEW post-merge main-guard step (push to main) runs `--check --since HEAD^ --context main` with `git fetch --deepen 1`. Both advisory (continue-on-error) per repo first-landing convention.",
+    "E2E faked-LLM semantic tests set HARNESS_COMPREHENSION_MAIN_PASS=1 (semantic generation is now a main-pass operation); added an end-to-end test proving PR-path suppression even with a provider on PATH.",
+    "Provider question (§3) is settled maintainer-local by ADR 0110 and the brief — no keyed CI runner added (that is #1689, out of scope)."
+  ],
+  "closingKeyword": "Closes #1713"
+}

@@ -21,6 +21,24 @@ export function readComprehensionConfig(config?: HarnessConfig | null): Comprehe
   return ComprehensionConfigSchema.parse(config?.comprehension ?? {});
 }
 
+/** The CI behavior of the comprehension gate (ADR 0110 §2). */
+export type ComprehensionCiMode = ComprehensionConfig['ci'];
+
+/**
+ * Read the (previously dormant) `comprehension.ci` seam (ADR 0110 §2). Now
+ * CONSUMED by `comprehend --check`:
+ *  - `'verify'` (default) — run the token-free freshness + regression gate.
+ *  - `'off'` — disable the gate entirely (exit 0), for adopters who opt out.
+ *  - `'refresh'` — run the gate, then attempt the provider-backed **main-pass**
+ *    (regenerate + commit semantic) when a provider is available and this is the
+ *    main-pass context. With the default maintainer-local provider (ADR 0110 §3)
+ *    CI has no credential, so `refresh` degrades gracefully to `verify`; the
+ *    opt-in token-gated runner (#1689) plugs its provider into exactly this seam.
+ */
+export function resolveComprehensionCiMode(config?: HarnessConfig | null): ComprehensionCiMode {
+  return readComprehensionConfig(config).ci;
+}
+
 /**
  * The config-declared OpenAI-compatible analysis endpoint (ADR 0109 slice 3). Only
  * the non-secret base URL comes from config; the API key stays env-only

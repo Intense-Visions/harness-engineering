@@ -223,7 +223,9 @@ Compile and maintain the per-module comprehension substrate
 - `--changed` — Recompile only modules owning changed files (default)
 - `--all` — Recompile every module (backfill)
 - `--check` — Token-free: report source-stale units, exit non-zero if any
+- `--refresh` — Opt-in token-gated CI refresh (#1689): on the single-writer main-pass with a provider credential and comprehension.ci:refresh, regenerate+stage committed semantic; a clean no-op otherwise
 - `--since` — With --check: also fail on any module that regressed semantic present→absent vs this git ref (token-free)
+- `--context` — With --check --since: which path to guard (ADR 0110 §4). "main" (default): present→absent is a regression. "pr": the static-only PR path, present→absent is expected and never flagged.
 - `--stats` — Report served-vs-raw token savings (token-free)
 - `--static` — Static-only: never resolve a provider or call an LLM (pre-commit/CI posture)
 - `--stage` — git-add the compiled unit shards after a run (pre-commit posture)
