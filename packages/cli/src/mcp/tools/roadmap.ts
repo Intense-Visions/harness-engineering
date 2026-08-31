@@ -825,7 +825,25 @@ function shouldTriggerExternalSync(input: ManageRoadmapInput, response: McpRespo
 }
 
 export async function handleManageRoadmap(input: ManageRoadmapInput): Promise<McpResponse> {
-  const projectPathPre = sanitizePath(input.path);
+  // `sanitizePath` throws synchronously on a missing/non-string `path` (e.g.
+  // `path.resolve(undefined)`). Every other validation failure in this file
+  // resolves to a graceful `{ isError: true }` McpResponse rather than
+  // rejecting the returned promise — this guard keeps that contract for a
+  // bad `path` too, instead of leaking an unhandled rejection to the caller.
+  let projectPathPre: string;
+  try {
+    projectPathPre = sanitizePath(input.path);
+  } catch (error) {
+    return {
+      content: [
+        {
+          type: 'text' as const,
+          text: `Error: ${error instanceof Error ? error.message : String(error)}`,
+        },
+      ],
+      isError: true,
+    };
+  }
 
   // Phase 4 / S1: dispatch on roadmap mode.
   // Note: `sanitizePath(input.path)` runs upstream of the file-less guard,

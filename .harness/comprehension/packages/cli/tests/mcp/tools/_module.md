@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'packages/cli/tests/mcp/tools'
-sourceHash: '61767a78a75882f0b893698f56ad25dff4aceefbddef1b3cfbb8878a27b67710'
+sourceHash: 'f4effe056631f1c5879430fe383f824e2bf7f8a86c37e4a0a53fba88081d26d3'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
@@ -62,6 +62,7 @@ members:
     'roadmap-auto-sync.test.ts',
     'roadmap-groom-sharded.test.ts',
     'roadmap-groom.test.ts',
+    'roadmap-missing-path.test.ts',
     'roadmap-scoped-sync.test.ts',
     'roadmap.file-backed-regression.test.ts',
     'roadmap.file-less-stub.test.ts',
