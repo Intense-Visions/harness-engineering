@@ -19,13 +19,17 @@ export function findConfigFile(startDir: string = process.cwd()): Result<string,
   let currentDir = path.resolve(startDir);
   const root = path.parse(currentDir).root;
 
-  while (currentDir !== root) {
+  // Inclusive of the root itself: `currentDir === root` still runs one more
+  // check-then-break rather than exiting the loop before checking it, so a
+  // harness.config.json placed directly at the filesystem root is found.
+  for (;;) {
     for (const filename of CONFIG_FILENAMES) {
       const configPath = path.join(currentDir, filename);
       if (fs.existsSync(configPath)) {
         return Ok(configPath);
       }
     }
+    if (currentDir === root) break;
     currentDir = path.dirname(currentDir);
   }
 
