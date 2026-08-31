@@ -167,19 +167,34 @@ jobs:
         if: github.event_name == 'pull_request'
         run: git fetch origin ${{ github.event.pull_request.base.ref }}
 
-      # ADVISORY (non-blocking): ADR 0109 slice 4 — token-free semantic-regression
-      # gate. Fails when a PR downgrades any module's unit `semantic: present →
-      # absent` vs the base ref (frontmatter reads only — no provider, no LLM, no
-      # credential). A red result means "regenerate locally and push" (in-session
-      # via put_comprehension, or a provider-backed `comprehend --changed`), NEVER
-      # "CI needs a key" — so it stays adopter-safe. Runs AFTER the base fetch above
-      # so origin/<base_ref> resolves. Advisory on first landing per repo convention;
-      # promote to blocking (drop `continue-on-error`) once the effortless generation
-      # paths (ADR 0109 slices 2-3) are in wide use.
-      - name: Comprehension semantic-regression gate (advisory)
+      # ADVISORY (non-blocking): ADR 0109 slice 4 / ADR 0110 §4 — token-free
+      # semantic gate on the PR path, run with `--context pr`. Under single-writer
+      # (ADR 0110) PRs are STATIC-ONLY: every touched module legitimately goes
+      # `semantic: present → absent` because semantic is deferred to the `main`
+      # main-pass. So on a PR that flip is EXPECTED and NOT a regression — the old
+      # unqualified gate false-positived on every PR. In `pr` context the gate
+      # instead advisory-warns on any committed-semantic ADDITION (which a
+      # static-only PR should not carry) and never reds on the expected downgrade.
+      # Still token-free (frontmatter reads only — no provider/LLM/credential).
+      # Runs AFTER the base fetch above so origin/<base_ref> resolves.
+      - name: Comprehension semantic gate — PR path (advisory)
         if: github.event_name == 'pull_request' && matrix.os == 'ubuntu-latest'
         continue-on-error: true
-        run: node packages/cli/dist/bin/harness.js comprehend --check --since origin/${{ github.event.pull_request.base.ref }}
+        run: node packages/cli/dist/bin/harness.js comprehend --check --since origin/${{ github.event.pull_request.base.ref }} --context pr
+
+      # ADVISORY (non-blocking): ADR 0110 §4 — the reframed regression gate's real
+      # job GUARDS `main`. After a merge, did the single-writer main-pass LOSE
+      # semantic `main` previously had? `--context main` treats `present → absent`
+      # as a real regression here (the opposite of the PR path). Compares the new
+      # `main` tip against its previous commit (HEAD^); `--deepen 1` makes HEAD^
+      # reachable under the shallow checkout. Token-free; advisory on first landing.
+      - name: Fetch previous main commit for the post-merge guard
+        if: github.ref == 'refs/heads/main' && github.event_name == 'push' && matrix.os == 'ubuntu-latest'
+        run: git fetch --deepen 1
+      - name: Comprehension semantic gate — main guard (advisory)
+        if: github.ref == 'refs/heads/main' && github.event_name == 'push' && matrix.os == 'ubuntu-latest'
+        continue-on-error: true
+        run: node packages/cli/dist/bin/harness.js comprehend --check --since HEAD^ --context main
 
       # ADVISORY (non-blocking): dogfood check-operational-drift on the PR diff.
       # Surfaces gate-softening operational changes (hook profiles, harness.config

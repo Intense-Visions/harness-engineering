@@ -219,9 +219,12 @@ process.stdout.write(JSON.stringify(chatty ? prose : good));
   });
 
   // Env that steers the D8 resolver onto the claude-CLI path and finds our fake:
-  // no Anthropic key, no local endpoint, fake `claude` first on PATH.
+  // no Anthropic key, no local endpoint, fake `claude` first on PATH. ADR 0110:
+  // semantic generation is now a MAIN-PASS operation (single writer), so these
+  // "with-LLM" tests run in a main-pass context via HARNESS_COMPREHENSION_MAIN_PASS
+  // — exactly the maintainer-local `harness comprehend --all` on `main` they model.
   function fakeEnv(extra: NodeJS.ProcessEnv = {}): NodeJS.ProcessEnv {
-    const e = { ...process.env, ...extra };
+    const e = { ...process.env, HARNESS_COMPREHENSION_MAIN_PASS: '1', ...extra };
     delete e.ANTHROPIC_API_KEY;
     delete e.HARNESS_ANALYSIS_BASE_URL;
     e.PATH = `${binDir}${path.delimiter}${process.env.PATH ?? ''}`;
@@ -241,6 +244,37 @@ process.stdout.write(JSON.stringify(chatty ? prose : good));
     expect(unit).toContain('add(a,b) returns a+b');
     // The freshly compiled semantic unit still serves (hash equality holds).
     expect(comprehend(proj, ['--check'], fakeEnv()).status).toBe(0);
+  });
+
+  // ADR 0110 §1 — the PR path is static-only END-TO-END: even with a working
+  // (faked) provider on PATH, a run OFF the main-pass must NOT write committed
+  // semantic. The single writer is `main`; a branch stays byte-stable static.
+  it('SUPPRESSES semantic off the main-pass (PR path stays static-only) even with a provider available', () => {
+    const fresh = scaffold();
+    try {
+      // fakeEnv() but WITHOUT any main-pass signal ⇒ off the main-pass (a branch/PR).
+      // Strip every branch-signaling env var so the context is deterministically NOT
+      // `main` regardless of where the test runs (a scaffold dir is not a git repo,
+      // so branch resolution otherwise falls back to whatever CI env leaks in).
+      const e = fakeEnv();
+      delete e.HARNESS_COMPREHENSION_MAIN_PASS;
+      delete e.GITHUB_REF;
+      delete e.GITHUB_HEAD_REF;
+      delete e.HARNESS_BRANCH;
+      delete e.CI_COMMIT_REF_NAME;
+      delete e.BUILDKITE_BRANCH;
+      const r = comprehend(fresh, ['--all'], e);
+      expect(r.status).toBe(0);
+      // No semantic written; the deferral is announced.
+      expect(r.stdout).toMatch(/static-only/);
+      expect(r.stdout).toMatch(/deferred to the `main`/);
+      expect(r.stdout).not.toMatch(/1 semantic/);
+      const unit = readFileSync(path.join(fresh, UNIT), 'utf8');
+      expect(unit).toContain('semantic: absent');
+      expect(unit).not.toContain('FAKE_SUMMARY');
+    } finally {
+      rmSync(fresh, { recursive: true, force: true });
+    }
   });
 
   it('recovers end-to-end from a chatty first reply (the live bug, now guarded)', () => {

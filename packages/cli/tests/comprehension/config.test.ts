@@ -3,6 +3,7 @@ import {
   readComprehensionConfig,
   comprehensionEndpoint,
   selectSemanticModel,
+  resolveComprehensionCiMode,
 } from '../../src/comprehension/config';
 import {
   HarnessConfigSchema,
@@ -58,6 +59,25 @@ describe('ComprehensionConfigSchema wired into HarnessConfigSchema', () => {
       comprehension: { storage: 'nope' },
     });
     expect(parsed.success).toBe(false);
+  });
+});
+
+describe('resolveComprehensionCiMode (ADR 0110 §2 — the seam is now CONSUMED)', () => {
+  it("defaults to 'verify' (token-free gate) when unset", () => {
+    expect(resolveComprehensionCiMode(undefined)).toBe('verify');
+    expect(resolveComprehensionCiMode(null)).toBe('verify');
+  });
+
+  it("reads 'off' from config (gate disabled)", () => {
+    expect(resolveComprehensionCiMode({ comprehension: { ci: 'off' } } as HarnessConfig)).toBe(
+      'off'
+    );
+  });
+
+  it("reads 'refresh' from config (main-pass seam)", () => {
+    expect(resolveComprehensionCiMode({ comprehension: { ci: 'refresh' } } as HarnessConfig)).toBe(
+      'refresh'
+    );
   });
 });
 

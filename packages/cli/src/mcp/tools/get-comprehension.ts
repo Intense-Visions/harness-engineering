@@ -33,6 +33,7 @@ import {
   comprehensionEndpoint,
   selectSemanticModel,
 } from '../../comprehension/config';
+import { committedSemanticAllowed } from '../../comprehension/policy';
 import { resolveConfig } from '../../config/loader';
 import { resolveAnalysisProvider } from '../utils/analysis-provider';
 import { sanitizePath } from '../utils/sanitize-path.js';
@@ -186,6 +187,13 @@ export async function serveOrRecompile(
  * demand is explicit, so — unlike the push/CI path — it MAY resolve a provider
  * when `comprehension.semantic` is enabled; a missing provider degrades to
  * static-only (never throws).
+ *
+ * ADR 0110 §1 — but a recompile WRITES a committed shard, so on the PR path
+ * (off the `main` main-pass) it must NOT write semantic: single writer is `main`.
+ * The provider is therefore gated by `committedSemanticAllowed()` too — on a
+ * branch a recompile-on-miss serves the byte-stable STATIC unit (still useful,
+ * ~free; semantic lands later on `main`), never a non-deterministic semantic
+ * shard that would conflict on the merge button.
  */
 function resolveDefaultDeps(projectRoot: string): ServeOrRecompileDeps {
   const resolved = resolveConfig();
@@ -195,13 +203,15 @@ function resolveDefaultDeps(projectRoot: string): ServeOrRecompileDeps {
   // thunk. `serveOrRecompile` invokes it ONLY on the recompile branch, so a pure
   // fresh serve resolves no provider at all. A recompile demand is explicit, so it
   // MAY resolve a provider when `comprehension.semantic` is enabled; a missing
-  // provider degrades to static-only (never throws).
+  // provider degrades to static-only (never throws). ADR 0110 §1: also require the
+  // main-pass — off it, no provider is resolved and the recompile stays static-only.
   const resolveGenerateSemantic = async (): Promise<GenerateSemantic | undefined> => {
-    const provider = cconf.semantic
-      ? ((await resolveAnalysisProvider(cconf.model ?? undefined, {
-          endpoint: comprehensionEndpoint(cconf),
-        }).catch(() => null)) as AnalysisProvider | null)
-      : null;
+    const provider =
+      cconf.semantic && committedSemanticAllowed()
+        ? ((await resolveAnalysisProvider(cconf.model ?? undefined, {
+            endpoint: comprehensionEndpoint(cconf),
+          }).catch(() => null)) as AnalysisProvider | null)
+        : null;
     // Provider-aware default via the shared helper — resolved from the SAME config
     // endpoint used to construct the provider, so the model and provider decisions
     // cannot diverge (ADR 0109 slice 3 fix; this recompile path now honors the

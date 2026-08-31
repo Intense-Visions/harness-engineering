@@ -13,12 +13,16 @@ import {
   readComprehensionConfig,
   comprehensionEndpoint,
   selectSemanticModel,
+  resolveComprehensionCiMode,
 } from '../comprehension/config';
 import { shouldRunComprehendHook } from '../comprehension/hook';
+import { committedSemanticAllowed } from '../comprehension/policy';
 import {
   detectSemanticRegressions,
+  detectCommittedSemanticOnBranch,
   readSemanticMapAtRef,
   defaultRefReadDeps,
+  type RegressionContext,
 } from '../comprehension/regression';
 import type { ComprehensionConfig } from '../config/schema';
 import { createStaticExtractor } from '../comprehension/static-extractor';
@@ -48,6 +52,12 @@ interface ComprehendFlags {
    * only. A red result means "regenerate locally and push," never "CI needs a key".
    */
   since?: string;
+  /**
+   * ADR 0110 §4 — which path the `--since` regression gate guards. `'main'`
+   * (default, post-merge): `present → absent` is a real regression. `'pr'` (the
+   * static-only PR path): `present → absent` is EXPECTED, never flagged.
+   */
+  context?: RegressionContext;
   /** SC4 — force static-only: never resolve a provider or call an LLM. */
   static?: boolean;
   /** git-add the compiled unit shards after a run (pre-commit posture). */
@@ -228,8 +238,20 @@ function loadHarnessConfig(configPath?: string): HarnessConfig | undefined {
 async function runCheckMode(
   store: ComprehensionStore,
   reader: ReturnType<typeof createNodeModuleSourceReader>,
-  opts: { projectRoot: string; since?: string } = { projectRoot: process.cwd() }
+  opts: {
+    projectRoot: string;
+    since?: string;
+    context?: RegressionContext;
+    config?: HarnessConfig | undefined;
+  } = { projectRoot: process.cwd() }
 ): Promise<void> {
+  // ADR 0110 §2 — consume the (previously dormant) `comprehension.ci` seam.
+  const ciMode = resolveComprehensionCiMode(opts.config);
+  if (ciMode === 'off') {
+    logger.info('comprehension.ci: off — the comprehension gate is disabled (ADR 0110 §2).');
+    process.exit(ExitCode.SUCCESS);
+  }
+
   const result = await runComprehendCheck({ store, reader });
   for (const s of result.skipped) {
     logger.warn(`skipped ${s.path}: ${s.reason}`);
@@ -240,10 +262,19 @@ async function runCheckMode(
     logger.success('All comprehension units are source-fresh.');
   }
 
-  // ADR 0109 slice 4 — token-free semantic-regression gate vs a base ref. Base and
-  // head are read the SAME way (committed shards via git + lenient frontmatter
-  // parse), so a shard cannot be counted as "present" on one side and dropped on
-  // the other. An unreadable ref fails LOUD — never a silent pass with a success line.
+  // ADR 0109 slice 4 / ADR 0110 §4 — token-free semantic-regression gate vs a base
+  // ref. Base and head are read the SAME way (committed shards via git + lenient
+  // frontmatter parse), so a shard cannot be counted as "present" on one side and
+  // dropped on the other. An unreadable ref fails LOUD — never a silent pass.
+  //
+  // The `context` reframes WHAT is a regression (ADR 0110 §4):
+  //  - `'main'` (default, post-merge): `present → absent` means `main` LOST
+  //    semantic — a real regression the single-writer main-pass must never produce.
+  //  - `'pr'` (the static-only PR path): `present → absent` is EXPECTED (semantic
+  //    deferred to `main`) and NEVER a regression — killing the per-PR false
+  //    positive. Instead we advisory-warn on any committed-semantic ADDITION, which
+  //    a static-only PR should not carry (single-writer, ADR 0110 §1).
+  const context: RegressionContext = opts.context ?? 'main';
   let regressed: string[] = [];
   let refUnreadable = false;
   if (opts.since) {
@@ -258,17 +289,36 @@ async function runCheckMode(
           `git error). Refusing to report a pass — fetch the ref and re-run.`
       );
     } else {
-      regressed = detectSemanticRegressions(base, head);
-      if (regressed.length > 0) {
+      regressed = detectSemanticRegressions(base, head, context);
+      if (context === 'pr') {
+        const committed = detectCommittedSemanticOnBranch(base, head);
+        if (committed.length > 0) {
+          logger.warn(
+            `${committed.length} module(s) COMMITTED semantic on a branch vs ${opts.since}: ` +
+              `${committed.join(', ')}. Under single-writer (ADR 0110 §1) PRs are static-only — ` +
+              `semantic belongs to the \`main\` main-pass. This is advisory (not a failure).`
+          );
+        }
+        logger.success(
+          `Static-only PR path: \`present → absent\` is expected (semantic deferred to \`main\`, ` +
+            `ADR 0110 §4) — no semantic regression flagged.`
+        );
+      } else if (regressed.length > 0) {
         logger.error(
-          `${regressed.length} module(s) regressed semantic present→absent vs ${opts.since}: ` +
-            `${regressed.join(', ')}. Regenerate locally (put_comprehension in-session, or a ` +
-            `provider-backed 'harness comprehend --changed') and push.`
+          `${regressed.length} module(s) regressed semantic present→absent on \`main\` vs ` +
+            `${opts.since}: ${regressed.join(', ')}. The single-writer main-pass must never lose ` +
+            `semantic — regenerate (provider-backed 'harness comprehend --all') and commit to main.`
         );
       } else {
-        logger.success(`No semantic regressions vs ${opts.since}.`);
+        logger.success(`No semantic regressions on \`main\` vs ${opts.since}.`);
       }
     }
+  }
+
+  // ADR 0110 §2 — refresh main-pass seam (best-effort; never changes the verdict).
+  if (ciMode === 'refresh') {
+    const cconf = readComprehensionConfig(opts.config);
+    await runRefreshMainPass(opts.projectRoot, store, reader, cconf, opts.since);
   }
 
   const ok = result.ok && regressed.length === 0 && !refUnreadable;
@@ -287,32 +337,70 @@ async function runStatsMode(
   process.exit(ExitCode.SUCCESS);
 }
 
-async function runCompileMode(
+/**
+ * ADR 0110 §1 — resolve whether THIS compile run may write COMMITTED semantic.
+ * A run is static-only when `--static` / `semantic:false` (the existing SC4
+ * posture) OR when this is NOT the main-pass (the PR path): on a feature branch,
+ * semantic is deferred to the `main` main-pass, so the provider is never resolved
+ * and only the deterministic static skeleton is (re)written — the byte-stable half
+ * that cannot conflict. Returns the effective static-only flag plus whether the
+ * downgrade was policy-driven (so the caller can explain it once). Pure.
+ */
+export function resolveStaticOnlyPosture(
+  cconf: ComprehensionConfig,
+  requestedStatic: boolean,
+  isMainPass: boolean
+): { staticOnly: boolean; deferredToMain: boolean } {
+  if (requestedStatic || !cconf.semantic) return { staticOnly: true, deferredToMain: false };
+  // Semantic WOULD be generated, but the single-writer policy suppresses committed
+  // semantic off the main-pass ⇒ force static-only and flag the deferral.
+  if (!isMainPass) return { staticOnly: true, deferredToMain: true };
+  return { staticOnly: false, deferredToMain: false };
+}
+
+/**
+ * Core compile: apply the single-writer static-only policy, resolve the provider,
+ * run the compiler, optionally stage/format, and RETURN the result (never exits).
+ * Shared by the `--changed`/`--all` command path and the `ci: refresh` main-pass
+ * seam. Returns null when nothing ran (hook-skip / re-entrancy refused). The
+ * main-pass decision is injectable (`opts.isMainPass`) so the refresh seam and
+ * tests can drive it without env/git.
+ */
+async function compileComprehension(
   mode: 'changed' | 'all',
   projectRoot: string,
   store: ComprehensionStore,
   reader: ReturnType<typeof createNodeModuleSourceReader>,
-  config: HarnessConfig | undefined,
-  opts: { staticOnly?: boolean; stage?: boolean; hook?: boolean } = {}
-): Promise<void> {
-  const cconf = readComprehensionConfig(config);
-
+  cconf: ComprehensionConfig,
+  opts: { staticOnly?: boolean; stage?: boolean; hook?: boolean; isMainPass?: boolean } = {}
+): Promise<ComprehendRunResult | null> {
   const scope =
     mode === 'changed'
       ? resolveChangedScope(deriveChangedSurface(projectRoot), logger, { hook: opts.hook ?? false })
       : { mode: 'all' as const };
 
   // FIX E.2: a hook-posture run whose changed-surface derivation failed SKIPS
-  // (never a whole-repo full sweep on the commit path). Return before resolving a
-  // provider or compiling anything.
+  // (never a whole-repo full sweep on the commit path).
   if (scope.mode === 'skip') {
     logger.info('comprehend: nothing to recompile (changed-surface derivation skipped).');
-    process.exit(ExitCode.SUCCESS);
+    return null;
   }
 
-  // SC4: static-only (`--static`) or semantic-disabled ⇒ no provider is resolved
-  // — no credential, no LLM on the push/CI path.
-  const provider = await resolveCompileProvider(cconf, opts.staticOnly ?? false);
+  // ADR 0110 §1 — committed semantic only on the main-pass. Off it (the PR path),
+  // force static-only regardless of provider availability so a branch never writes
+  // committed (non-deterministic) semantic that would conflict on the merge button.
+  const isMainPass = opts.isMainPass ?? committedSemanticAllowed();
+  const posture = resolveStaticOnlyPosture(cconf, opts.staticOnly ?? false, isMainPass);
+  if (posture.deferredToMain) {
+    logger.info(
+      'comprehend: PR path is static-only — committed semantic is deferred to the `main` ' +
+        'main-pass (single writer, ADR 0110 §1). Writing the byte-stable static skeleton only.'
+    );
+  }
+
+  // SC4: static-only (`--static`), semantic-disabled, or off the main-pass ⇒ no
+  // provider is resolved — no credential, no LLM on the push/CI/PR path.
+  const provider = await resolveCompileProvider(cconf, posture.staticOnly);
   // Provider-aware model via the shared helper — resolved from the SAME config
   // endpoint the provider was constructed with, so the model and provider decisions
   // cannot diverge (ADR 0109 slice 3 fix).
@@ -338,7 +426,7 @@ async function runCompileMode(
 
   if (result.reentrancyRefused) {
     logger.warn('comprehend: a comprehension run is already active — refusing to re-enter.');
-    process.exit(ExitCode.SUCCESS);
+    return null;
   }
   // Pre-commit posture: stage the refreshed shards so they land in the SAME
   // commit as the source change (no-op when nothing compiled). Prettier-formats
@@ -350,6 +438,22 @@ async function runCompileMode(
   // format:check risk). `stageCompiledUnits` already formats, so don't double up.
   if (opts.stage) await stageCompiledUnits(result, store);
   else await formatCompiledUnits(result, store);
+  return result;
+}
+
+async function runCompileMode(
+  mode: 'changed' | 'all',
+  projectRoot: string,
+  store: ComprehensionStore,
+  reader: ReturnType<typeof createNodeModuleSourceReader>,
+  config: HarnessConfig | undefined,
+  opts: { staticOnly?: boolean; stage?: boolean; hook?: boolean } = {}
+): Promise<void> {
+  const cconf = readComprehensionConfig(config);
+  const result = await compileComprehension(mode, projectRoot, store, reader, cconf, opts);
+  if (result === null) {
+    process.exit(ExitCode.SUCCESS);
+  }
   logger.success(
     `Compiled ${result.compiled.length} module(s): ` +
       `${result.semanticPresent} semantic, ${result.semanticAbsent} static-only` +
@@ -360,10 +464,70 @@ async function runCompileMode(
   process.exit(ExitCode.SUCCESS);
 }
 
+/**
+ * ADR 0110 §2 — the `comprehension.ci: refresh` main-pass seam. When `refresh` is
+ * configured, after the token-free verify gate we ATTEMPT the provider-backed
+ * regeneration + commit of semantic. Guarded so it stays adopter-safe:
+ *  - Only on the main-pass context (committed semantic belongs to `main`). Off it,
+ *    skip — a PR must never commit semantic.
+ *  - Only when a provider actually resolves. With the default maintainer-local
+ *    provider (ADR 0110 §3) CI has no credential, so this degrades gracefully to a
+ *    no-op and the maintainer's local `comprehend --all` remains the writer.
+ * Provider-neutral (never forces a Claude model — reuses `resolveCompileProvider`).
+ * The opt-in token-gated runner (#1689) plugs its provider into exactly this path.
+ * Best-effort: never changes the gate's exit code (regeneration is remediation,
+ * not a pass/fail signal). Returns the number of modules recompiled (0 when the
+ * seam no-ops), so the caller can report it.
+ */
+async function runRefreshMainPass(
+  projectRoot: string,
+  store: ComprehensionStore,
+  reader: ReturnType<typeof createNodeModuleSourceReader>,
+  cconf: ComprehensionConfig,
+  since?: string
+): Promise<number> {
+  if (!committedSemanticAllowed()) {
+    logger.warn(
+      'comprehension.ci: refresh requested off the main-pass — committed semantic is written ' +
+        'only on `main` (single writer, ADR 0110). Skipping the refresh regeneration.'
+    );
+    return 0;
+  }
+  // Probe for a provider first (never forcing a model): no provider ⇒ token-free
+  // context ⇒ defer to the maintainer-local main pass rather than fail.
+  const provider = await resolveCompileProvider(cconf, false);
+  if (!provider) {
+    logger.info(
+      'comprehension.ci: refresh is configured, but no analysis provider is available in this ' +
+        'context (CI stays token-free). Deferring semantic to the maintainer-local `harness ' +
+        'comprehend --all` main pass (ADR 0110 §3); configure #1689 to automate it.'
+    );
+    return 0;
+  }
+  // A base ref ⇒ refresh only the changed surface; otherwise a full sweep.
+  const mode: 'changed' | 'all' = since ? 'changed' : 'all';
+  const result = await compileComprehension(mode, projectRoot, store, reader, cconf, {
+    stage: true,
+    isMainPass: true,
+  });
+  if (result === null) return 0;
+  logger.success(
+    `comprehension.ci: refresh regenerated ${result.compiled.length} module(s) ` +
+      `(${result.semanticPresent} semantic) on the main-pass — commit the staged shards.`
+  );
+  return result.compiled.length;
+}
+
 async function runComprehendAction(
   mode: ComprehendMode,
   globalConfig?: string,
-  opts: { staticOnly?: boolean; stage?: boolean; hook?: boolean; since?: string } = {}
+  opts: {
+    staticOnly?: boolean;
+    stage?: boolean;
+    hook?: boolean;
+    since?: string;
+    context?: RegressionContext;
+  } = {}
 ): Promise<void> {
   const projectRoot = process.cwd();
   const config = loadHarnessConfig(globalConfig);
@@ -386,7 +550,9 @@ async function runComprehendAction(
   if (mode === 'check')
     return runCheckMode(store, reader, {
       projectRoot,
+      config,
       ...(opts.since ? { since: opts.since } : {}),
+      ...(opts.context ? { context: opts.context } : {}),
     });
   if (mode === 'stats') return runStatsMode(store, reader);
   return runCompileMode(mode, projectRoot, store, reader, config, opts);
@@ -411,6 +577,10 @@ export function createComprehendCommand(): Command {
       '--since <ref>',
       'With --check: also fail on any module that regressed semantic present→absent vs this git ref (token-free)'
     )
+    .option(
+      '--context <pr|main>',
+      'With --check --since: which path to guard (ADR 0110 §4). "main" (default): present→absent is a regression. "pr": the static-only PR path, present→absent is expected and never flagged.'
+    )
     .option('--stats', 'Report served-vs-raw token savings (token-free)')
     .option(
       '--static',
@@ -421,11 +591,16 @@ export function createComprehendCommand(): Command {
     .action(async (opts: ComprehendFlags, cmd: Command) => {
       const mode = resolveMode(opts);
       const globalOpts = cmd.optsWithGlobals() as { config?: string };
+      // Validate --context to the two supported values; anything else falls back
+      // to the strict `main` default rather than silently mis-guarding.
+      const context: RegressionContext | undefined =
+        opts.context === 'pr' || opts.context === 'main' ? opts.context : undefined;
       await runComprehendAction(mode, globalOpts.config, {
         staticOnly: opts.static ?? false,
         stage: opts.stage ?? false,
         hook: opts.hook ?? false,
         ...(opts.since ? { since: opts.since } : {}),
+        ...(context ? { context } : {}),
       });
     });
 }

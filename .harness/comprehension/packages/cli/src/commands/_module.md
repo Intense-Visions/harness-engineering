@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'packages/cli/src/commands'
-sourceHash: '7f5b40c1c39dce2ef8ad046c329c079894153bbddffa2f4aebfecaae589ebae4'
+sourceHash: '931d4598bfdd7d2608971a440a1680e47f42ad694de730c8d381712b0c81e848'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
@@ -306,6 +306,7 @@ export resolveMode
 export resolveSelection
 export resolveSkillSources
 export resolveSpecPath
+export resolveStaticOnlyPosture
 export runAdd
 export runAdviseSkills
 export runAuditProtected
@@ -386,11 +387,12 @@ import { BrandFinding } from '../brand/findings/finding'
 import { CliErgonomicsCraftInput, CliErgonomicsCraftOutput, runCliErgonomicsCraft } from '../cli-ergonomics-craft/index.js'
 import { CodeCraftInput, CodeCraftOutput, runCodeCraft } from '../code-craft/index.js'
 import { ComprehendRunResult, runComprehend, runComprehendCheck, runComprehendStats } from '../comprehension/compile-run'
-import { comprehensionEndpoint, readComprehensionConfig, selectSemanticModel } from '../comprehension/config'
+import { comprehensionEndpoint, readComprehensionConfig, resolveComprehensionCiMode, selectSemanticModel } from '../comprehension/config'
 import { maybeCreateGenerateSemantic } from '../comprehension/generate-semantic'
 import { shouldRunComprehendHook } from '../comprehension/hook'
 import { enumerateModules, filesToModules } from '../comprehension/invalidation'
-import { defaultRefReadDeps, detectSemanticRegressions, readSemanticMapAtRef } from '../comprehension/regression'
+import { committedSemanticAllowed } from '../comprehension/policy'
+import { RegressionContext, defaultRefReadDeps, detectCommittedSemanticOnBranch, detectSemanticRegressions, readSemanticMapAtRef } from '../comprehension/regression'
 import { createStaticExtractor } from '../comprehension/static-extractor'
 import { loadAnalysisExclude, loadDesignExclude } from '../config/analysis-schema.js'
 import { findConfigFile, loadConfig, resolveConfig } from '../config/loader'
