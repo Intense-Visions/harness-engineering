@@ -10,6 +10,7 @@ import {
   type GraphFilterResult,
   type GraphCoverageReport,
 } from '../../src/context/Assembler.js';
+import { stabilityTierForNode, auditLayout } from '../../src/context/StabilityLayout.js';
 
 const FIXTURE_DIR = path.resolve(__dirname, '../../__fixtures__/sample-project');
 
@@ -173,5 +174,33 @@ describe('Assembler', () => {
 
     // documented + undocumented should equal totalCodeNodes
     expect(report.documented.length + report.undocumented.length).toBe(report.totalCodeNodes);
+  });
+
+  // Test 11: assembleContext returns stability-ordered nodes with no volatile-first violations
+  it('assembleContext returns a stability-ordered layout', () => {
+    const result = assembler.assembleContext('authentication');
+    expect(result.stabilityOrdered).toBe(true);
+    expect(result.workflowClass).toBe('authentication');
+
+    // Nodes are non-increasing in stability (no node precedes a more-stable node).
+    const tiers = result.nodes.map(stabilityTierForNode);
+    for (let i = 1; i < tiers.length; i++) {
+      expect(tiers[i]!).toBeGreaterThanOrEqual(tiers[i - 1]!);
+    }
+    expect(auditLayout(result.nodes)).toEqual([]);
+
+    // The layout view covers exactly the returned nodes, most-stable first.
+    const layoutNodeCount = result.layout.reduce((sum, s) => sum + s.nodeIds.length, 0);
+    expect(layoutNodeCount).toBe(result.nodes.length);
+    const layoutTiers = result.layout.map((s) => s.tier);
+    expect([...layoutTiers]).toEqual([...layoutTiers].sort((a, b) => a - b));
+  });
+
+  // Test 12: workflowClass defaults to intent and is overridable
+  it('assembleContext workflowClass defaults to intent and is overridable', () => {
+    expect(assembler.assembleContext('auth').workflowClass).toBe('auth');
+    expect(assembler.assembleContext('auth', 4000, 'debug-session').workflowClass).toBe(
+      'debug-session'
+    );
   });
 });
