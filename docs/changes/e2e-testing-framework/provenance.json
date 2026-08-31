@@ -1,0 +1,56 @@
+{
+  "issue": 1691,
+  "title": "Establish a project-wide end-to-end (E2E) testing framework",
+  "slug": "e2e-testing-framework",
+  "route": "feature",
+  "baseRef": "c13a57c762ca0dbe1c229fdfe117ee1bc3acb45c",
+  "branch": "feat/e2e-framework-1691",
+  "decisionOfRecord": "docs/knowledge/decisions/0111-project-wide-e2e-testing-framework.md",
+  "closingKeyword": "Refs #1691 (first slice — remaining per-flow work named in the proposal)",
+  "scopeDecision": "The framework substantially ALREADY EXISTS in an ad-hoc, undocumented, un-unified form (comprehend-smoke.e2e.test.ts is a de-facto Tier A+B+C; ~14 *.e2e.test.ts files; OS matrix in ci.yml; daily cron in main-health.yml; canary integration). This slice FORMALIZES and UNIFIES it per accepted ADR 0111 — it does NOT build a greenfield system. The `.harness/e2e/run-e2e.sh` referenced in the ticket does NOT exist (gitignored autopilot scratch); the AMR e2e work is a vitest HTTP round-trip test, not a shell harness. The Playwright-vs-vitest fork was already decided by ADR 0111 (vitest+canary; Playwright scoped to dashboard only) — resolved, not parked.",
+  "stages": [
+    {
+      "stage": "brainstorming",
+      "outcome": "Inventoried existing e2e infra before designing. Found the framework substantially exists: the flagship comprehend-smoke.e2e.test.ts already implements all three proposed tiers (real built-binary subprocess = Tier C; faked-claude-on-PATH replay of the exact #1558 narration bug = Tier A deterministic; HARNESS_E2E_LIVE gated = Tier B), plus ~14 ad-hoc *.e2e.test.ts files, the ci.yml OS matrix, and a daily cron in main-health.yml. Also found an ALREADY-ACCEPTED ADR 0111 (source: decision-blocked issue #1691) that is the architecture decision of record, resolving the Playwright-vs-vitest fork. Scoped the build to the genuinely-missing pieces ADR 0111 names: shared helper, unified skipIf gate, on-disk fixture convention, nightly Tier B lane, and a how-to doc.",
+      "artifact": "docs/changes/e2e-testing-framework/proposal.md"
+    },
+    {
+      "stage": "planning",
+      "artifact": "docs/changes/e2e-testing-framework/plans/plan.md"
+    },
+    {
+      "stage": "execution",
+      "outcome": "Added the shared E2E support module (packages/cli/tests/e2e/support/: harness-cli runHarness win32-safe spawner, temp-project scaffold+git, fake-provider withFakeClaude/fakeProviderEnv, fixtures loadClaudeEnvelope, tiers unified skipIf gates, index barrel). Added the repo-root fixtures/claude-cli/ convention (structured-output + chatty-narration envelopes seeded from #1558, README). Added two canonical exemplars: cli-smoke.e2e.test.ts (Tier C) and comprehend-boundary.e2e.test.ts (Tier A faked-boundary replay of #1558 + Tier B gated stub). Wrote docs/guides/e2e-testing.md and linked it from CONTRIBUTING. Added root test:e2e / test:e2e:live scripts and a separate nightly e2e job in main-health.yml with a gate-reachability assertion."
+    },
+    {
+      "stage": "verification",
+      "outcome": "cli package vitest: the two new e2e files pass (3 pass, 1 Tier B skipped by default; Tier B passes degradation-safe under HARNESS_E2E_LIVE=1). Full cli suite + lint + typecheck + format:check run before push; all-OS CI is the authoritative gate (see PR).",
+      "assumptions": [
+        "The shared helper is co-located in packages/cli/tests/e2e/support (where the first exemplar flow lives) and authored package-neutral (no cli src import). Promotion to a shared cross-package home is deferred to the slice that first needs a second package to import it — ADR 0111 rejects a dedicated @harness-engineering/e2e package as premature.",
+        "Tier B is degradation-safe: with no provider credential `comprehend --all` produces a valid static (semantic: absent) unit and exits 0, so the nightly lane passes whether or not a live provider resolves; the gate-reachability assertion in main-health.yml is the hard guard against the suite silently never running.",
+        "No changeset is REQUIRED (only tests/fixtures/docs/workflow changed — all SKIP_FILE per scripts/check-changesets.mjs); an empty changeset is added as explicit no-release acknowledgement.",
+        "This is a FIRST SLICE (Refs #1691): it establishes and proves the framework on one flow. 'Every major user-facing flow has an E2E test' is ongoing per-flow work named in the proposal (migrate the remaining ad-hoc e2e files onto the helpers; add orchestrator-dispatch and MCP-round-trip Tier A coverage)."
+      ]
+    },
+    {
+      "stage": "wiring",
+      "outcome": "The framework is reachable end-to-end: the exemplars import the shared support barrel and drive the REAL built dist/bin/harness.js as a subprocess; the fixtures load from the repo-root convention; test:e2e/test:e2e:live run the suite; the nightly main-health.yml e2e-nightly job builds the CLI, asserts the Tier B gate is reachable, and runs the gated live suite. CONTRIBUTING points contributors at the how-to guide so Tier A/C become the default."
+    }
+  ],
+  "planArtifact": "docs/changes/e2e-testing-framework/plans/plan.md",
+  "crossRefs": {
+    "supportModule": "packages/cli/tests/e2e/support/{harness-cli,temp-project,fake-provider,fixtures,tiers,index}.ts",
+    "exemplars": "packages/cli/tests/e2e/cli-smoke.e2e.test.ts; packages/cli/tests/e2e/comprehend-boundary.e2e.test.ts",
+    "fixtures": "fixtures/claude-cli/{structured-output.json,chatty-narration.json,README.md}",
+    "doc": "docs/guides/e2e-testing.md; CONTRIBUTING.md (Testing section)",
+    "scripts": "package.json (test:e2e, test:e2e:live)",
+    "nightlyLane": ".github/workflows/main-health.yml (e2e-nightly job)",
+    "adr": "docs/knowledge/decisions/0111-project-wide-e2e-testing-framework.md"
+  },
+  "assumptions": [
+    "ADR 0111 (accepted) is the decision of record for #1691; brainstorming consumed it rather than re-deciding — the Playwright-vs-vitest fork is resolved, not parked.",
+    "The framework substantially pre-exists ad-hoc; this slice formalizes/unifies/documents it and fills the named infra gaps rather than building greenfield.",
+    "The `.harness/e2e/run-e2e.sh` in the ticket does not exist in-tree (gitignored autopilot scratch); nothing there to unify.",
+    "Delivered as Refs #1691 (first slice); per-flow E2E adoption across every major flow is ongoing follow-up work named in the proposal."
+  ]
+}

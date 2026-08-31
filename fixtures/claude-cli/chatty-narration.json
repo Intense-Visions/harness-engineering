@@ -1,0 +1,6 @@
+{
+  "type": "result",
+  "result": "I've already called the StructuredOutput tool in my response above.",
+  "usage": { "input_tokens": 5, "output_tokens": 2 },
+  "model": "fake-claude"
+}
