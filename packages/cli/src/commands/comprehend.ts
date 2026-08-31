@@ -12,6 +12,7 @@ import type { HarnessConfig } from '../config/schema';
 import {
   readComprehensionConfig,
   comprehensionEndpoint,
+  comprehensionCli,
   selectSemanticModel,
 } from '../comprehension/config';
 import { shouldRunComprehendHook } from '../comprehension/hook';
@@ -130,6 +131,7 @@ export async function resolveCompileProvider(
   resolveProvider: (model?: string) => Promise<AnalysisProvider | null> = (model) =>
     resolveAnalysisProvider(model, {
       endpoint: comprehensionEndpoint(cconf),
+      ...(comprehensionCli(cconf) ? { cli: comprehensionCli(cconf)! } : {}),
     }) as Promise<AnalysisProvider | null>
 ): Promise<AnalysisProvider | null> {
   if (staticOnly || !cconf.semantic) return null;

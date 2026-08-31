@@ -9,7 +9,11 @@ import {
   type ComprehensionConfig,
   type HarnessConfig,
 } from '../config/schema';
-import { resolveProviderKind, type AnalysisEndpoint } from '../mcp/utils/analysis-provider';
+import {
+  resolveProviderKind,
+  type AnalysisEndpoint,
+  type AnalysisCliConfig,
+} from '../mcp/utils/analysis-provider';
 import { defaultSemanticModel } from './generate-semantic';
 
 /** Resolve the comprehension config, defaulting every field when absent. */
@@ -27,6 +31,24 @@ export function comprehensionEndpoint(cconf: ComprehensionConfig): AnalysisEndpo
 }
 
 /**
+ * The config-declared bare subscription CLI (#1710), or undefined when unset. This
+ * is the provider-NEUTRAL escape hatch for a non-Claude agent with no API key and
+ * no `/v1` endpoint: `resolveAnalysisProvider` inserts it in precedence BEFORE the
+ * Claude CLI when its `command` is on PATH. No secret lives here — the CLI
+ * authenticates itself.
+ */
+export function comprehensionCli(cconf: ComprehensionConfig): AnalysisCliConfig | undefined {
+  if (!cconf.analysisCli) return undefined;
+  const { vendor, command, model, custom } = cconf.analysisCli;
+  return {
+    vendor,
+    command,
+    ...(model !== undefined && { model }),
+    ...(custom !== undefined && { custom }),
+  };
+}
+
+/**
  * Single source of truth for the semantic model a comprehension run should request
  * (ADR 0109 slice 3 fix). An explicit `comprehension.model` wins for any provider;
  * otherwise the model defaults from the PROVIDER KIND resolved with the SAME
@@ -37,10 +59,19 @@ export function comprehensionEndpoint(cconf: ComprehensionConfig): AnalysisEndpo
  */
 export function selectSemanticModel(
   cconf: ComprehensionConfig,
-  opts: { isClaudeCliAvailable?: () => boolean; env?: NodeJS.ProcessEnv } = {}
+  opts: {
+    isClaudeCliAvailable?: () => boolean;
+    isGenericCliAvailable?: (command: string) => boolean;
+    env?: NodeJS.ProcessEnv;
+  } = {}
 ): string | undefined {
   if (cconf.model) return cconf.model;
+  const cli = comprehensionCli(cconf);
   return defaultSemanticModel(
-    resolveProviderKind({ endpoint: comprehensionEndpoint(cconf), ...opts })
+    resolveProviderKind({
+      endpoint: comprehensionEndpoint(cconf),
+      ...(cli ? { cli } : {}),
+      ...opts,
+    })
   );
 }

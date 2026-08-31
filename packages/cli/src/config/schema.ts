@@ -1042,6 +1042,40 @@ export const ComprehensionConfigSchema = z.object({
    * via the `HARNESS_ANALYSIS_API_KEY` env var, which `makeLocalProvider` reads.
    */
   analysisBaseUrl: z.string().optional(),
+  /**
+   * ADR 0109 slice 3 follow-up (#1710) — a config-declared **bare subscription
+   * CLI** that powers the semantic backstop for a non-Claude agent (codex-CLI,
+   * gemini-CLI, …) that has NO API key and NO OpenAI-compatible `/v1` endpoint.
+   * The generic CLI provider is inserted in precedence BEFORE the Claude CLI when
+   * its `command` is on PATH — never forcing a Claude model/flag onto another
+   * vendor. `vendor` picks a built-in arg dialect (`codex`/`gemini`) or `custom`;
+   * a `custom` block declares the argv template + output parse. Absent ⇒ unchanged
+   * precedence (Anthropic key → `/v1` → Claude CLI → static-only).
+   *
+   * SECURITY: like `analysisBaseUrl`, this is non-secret only — a subscription CLI
+   * authenticates itself, so no key ever lives in config.
+   */
+  analysisCli: z
+    .object({
+      /** Built-in dialect (`codex`/`gemini`) or `custom` (declare `custom` below). */
+      vendor: z.enum(['codex', 'gemini', 'custom']).default('custom'),
+      /** The vendor CLI binary (name or absolute path) — detected on PATH. */
+      command: z.string(),
+      /** Model requested when a call names none (optional; never a Claude id for another vendor). */
+      model: z.string().optional(),
+      /** Custom dialect — REQUIRED when `vendor === 'custom'`. */
+      custom: z
+        .object({
+          /** argv tokens; `{{prompt}}`/`{{schema}}`/`{{model}}` are substituted per call. */
+          args: z.array(z.string()),
+          /** Where the prompt goes: `arg` (substitute `{{prompt}}`) or `stdin`. Default `arg`. */
+          promptVia: z.enum(['arg', 'stdin']).default('arg'),
+          /** Parse mode: `text` (salvage embedded JSON, default) or `json` (whole-stdout envelope). */
+          parse: z.enum(['text', 'json']).default('text'),
+        })
+        .optional(),
+    })
+    .optional(),
   maxTokensPerRun: z.number().int().positive().default(200_000),
   concurrency: z.number().int().positive().default(4),
   ci: z.enum(['verify', 'refresh', 'off']).default('verify'),

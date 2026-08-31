@@ -1,0 +1,57 @@
+{
+  "issue": 1710,
+  "title": "comprehension: bare subscription-CLI analysis providers (codex/gemini)",
+  "slug": "generic-cli-analysis-provider",
+  "route": "feature",
+  "baseRef": "7c1eb45b4e6c7096e2f0da8e367070805b270ee6",
+  "branch": "build/generic-cli-analysis-provider-1710",
+  "forkDecision": {
+    "id": "Fork A",
+    "decision": "A single GenericCliAnalysisProvider with a pluggable arg-template + output-parser, NOT N bespoke per-vendor adapters. codex/gemini become built-in preset dialects; an unlisted CLI is wired via a `custom` placeholder template with no code change.",
+    "answeredBy": "human (pre-answered in lane brief)"
+  },
+  "stages": [
+    {
+      "stage": "brainstorming",
+      "outcome": "Located the analysis-provider seam (interface.ts, claude-cli.ts, openai-compatible.ts, structured-output.ts), the shared resolver (mcp/utils/analysis-provider.ts: precedence Anthropic key -> /v1 -> claude-CLI -> null, plus resolveProviderKind + isClaudeCliAvailable PATH scan), and the comprehension config seam (ComprehensionConfigSchema.analysisBaseUrl, comprehension/config.ts comprehensionEndpoint/selectSemanticModel, comprehend.ts resolveCompileProvider, generate-semantic.ts defaultSemanticModel). Locked the interface: inject argTemplate + outputParser; reuse the Claude CLI provider's schema-check -> one corrective retry recovery and the structured-output salvage helpers."
+    },
+    {
+      "stage": "planning",
+      "artifact": "docs/changes/generic-cli-analysis-provider/plans/plan.md"
+    },
+    {
+      "stage": "execution",
+      "outcome": "Added GenericCliAnalysisProvider (generic-cli.ts) with codex/gemini/custom templates, textSalvage + jsonEnvelope parsers, and a createCliAnalysisProvider factory; exported from the intelligence index. Generalized isClaudeCliAvailable -> isCliAvailable(command); added makeGenericCliProvider and threaded an AnalysisCliConfig through resolveAnalysisProvider + resolveProviderKind, inserted BEFORE claude-CLI. Added the comprehension.analysisCli config block, comprehensionCli() reader, and wiring into selectSemanticModel + resolveCompileProvider."
+    },
+    {
+      "stage": "verification",
+      "outcome": "24 provider unit tests (mocked spawn / fixture stdout for codex+gemini arg dialects, custom placeholder + stdin, text-salvage + json-envelope parsers, corrective-retry recovery, exit/spawn/parse error paths) + 20 resolver/config tests (generic-cli precedence before claude, after anthropic/local; isCliAvailable POSIX/win32/abs-path; comprehensionCli + model neutrality) all green. intelligence + cli: turbo build, tsc --noEmit, eslint clean; full comprehension + mcp suites (1187 pass). LIVE codex/gemini CLIs NOT exercised (unavailable in this environment) — deferred, per the PR Verification limits.",
+      "assumptions": [
+        "The codex/gemini built-in arg dialects (codex `exec`+`-m`+positional prompt; gemini `-p`+`-m`) are BEST-EFFORT / ASSUMED and unverified against the real CLIs — the schema instruction is folded into the prompt because bare subscription CLIs have no `--json-schema` flag, and stdout is parsed by salvaging embedded JSON. An adopter overrides any of this via the `custom` vendor once the real dialect is confirmed."
+      ]
+    },
+    {
+      "stage": "wiring",
+      "outcome": "The generic provider is reachable end-to-end: comprehend.ts resolveCompileProvider -> resolveAnalysisProvider(cli: comprehensionCli(cconf)); selectSemanticModel resolves `generic-cli` kind -> undefined model (never a Claude id). Config-declared, PATH-detected, precedence-inserted before claude-CLI. No consumer forces a Claude flag onto another vendor."
+    }
+  ],
+  "planArtifact": "docs/changes/generic-cli-analysis-provider/plans/plan.md",
+  "crossRefs": {
+    "provider": "packages/intelligence/src/analysis-provider/generic-cli.ts",
+    "providerExport": "packages/intelligence/src/index.ts",
+    "resolver": "packages/cli/src/mcp/utils/analysis-provider.ts (isCliAvailable, makeGenericCliProvider, resolveAnalysisProvider, resolveProviderKind)",
+    "configSchema": "packages/cli/src/config/schema.ts (ComprehensionConfigSchema.analysisCli)",
+    "configReader": "packages/cli/src/comprehension/config.ts (comprehensionCli, selectSemanticModel)",
+    "consumer": "packages/cli/src/commands/comprehend.ts (resolveCompileProvider)",
+    "tests": "packages/intelligence/tests/analysis-provider/generic-cli.test.ts; packages/cli/tests/mcp/utils/analysis-provider.test.ts; packages/cli/tests/comprehension/config.test.ts"
+  },
+  "assumptions": [
+    "Fork A (single GenericCliAnalysisProvider with pluggable template+parser) as pre-answered in the lane brief.",
+    "The real codex/gemini CLIs are NOT installed in this environment, so live end-to-end integration is intentionally NOT exercised — the honest outcome is 'unit-tested with mocked CLI I/O, live integration deferred'. This is the stated reason #1710 was split out of slice 3.",
+    "The built-in codex/gemini arg dialects and output-parse are best-effort assumptions documented in the source; the `custom` vendor + placeholder template is the escape hatch for the real dialects once confirmed.",
+    "The provider lives in @harness-engineering/intelligence next to the other analysis providers; the CLI resolver imports it lazily (same pattern as the existing providers) and maps JSON config -> provider via the createCliAnalysisProvider factory so no functions live in config.",
+    "Config is non-secret only (a subscription CLI authenticates itself) — no API key is ever a config field, mirroring analysisBaseUrl.",
+    "Precedence inserts the generic CLI strictly BEFORE claude-CLI and strictly AFTER Anthropic key and the /v1 endpoint, so every previously-resolving environment resolves the SAME provider; the only newly-covered case is 'CLI configured + on PATH'.",
+    "A `generic-cli` provider is never handed a Claude model id (defaultSemanticModel returns undefined for it), keeping the backstop provider-neutral."
+  ]
+}
