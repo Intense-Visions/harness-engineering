@@ -206,8 +206,7 @@ export const ALL_MCP_TOOLS: string[] = [
 export async function runCursorToolPicker(): Promise<string[]> {
   try {
     const selected = await clack.multiselect({
-      message:
-        'Select tools to register for Cursor (25 recommended; Cursor supports ~40 across all servers)',
+      message: `Select tools to register for Cursor (${CURSOR_CURATED_TOOLS.length} recommended; Cursor supports ~40 across all servers)`,
       options: ALL_MCP_TOOLS.map((tool) => {
         const opt: { value: string; label: string; hint?: string } = { value: tool, label: tool };
         if (CURSOR_CURATED_TOOLS.includes(tool)) opt.hint = 'recommended';
