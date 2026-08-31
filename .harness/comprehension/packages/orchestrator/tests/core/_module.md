@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'packages/orchestrator/tests/core'
-sourceHash: '23cb6ee3b93ff54bc3442f8561e92c13d475cf878307b9685aaab01f241297b4'
+sourceHash: '5eb4620f8a999bc6168d66797ff3021932a5b261a7db86fcc3775aa7410c09fc'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
@@ -32,6 +32,7 @@ members:
     'stale-claim.test.ts',
     'stall-detector.test.ts',
     'startup-reconciliation.test.ts',
+    'state-machine.diagnostic-stall-budget.test.ts',
     'state-machine.prune-completed.test.ts',
     'state-machine.test.ts',
     'stream-recorder.test.ts',
@@ -72,7 +73,7 @@ import { applyEvent } from '../../src/core/state-machine'
 import { StreamRecorder } from '../../src/core/stream-recorder'
 import { extractTitlePrefix, triageIssue } from '../../src/core/triage-router'
 import { Orchestrator } from '../../src/orchestrator'
-import { ClaimEffect, DispatchEffect, EscalateEffect, OrchestratorEvent, SideEffect } from '../../src/types/events'
+import { ClaimEffect, DispatchEffect, EscalateEffect, OrchestratorEvent, ScheduleRetryEffect, SideEffect } from '../../src/types/events'
 import { LiveSession, OrchestratorState, RunningEntry } from '../../src/types/internal'
 import { WorkspaceManager } from '../../src/workspace/manager'
 import { noopExecFile } from '../helpers/noop-exec-file'
