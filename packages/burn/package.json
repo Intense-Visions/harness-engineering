@@ -1,6 +1,6 @@
 {
   "name": "@harness-engineering/burn",
-  "version": "0.3.0",
+  "version": "0.3.1",
   "license": "MIT",
   "description": "Claude Code usage-burn HUD: transcript scanner, week-anchored rollup, and a dependency-free statusline renderer",
   "main": "./dist/index.js",

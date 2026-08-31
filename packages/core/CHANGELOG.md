@@ -1,5 +1,19 @@
 # Changelog
 
+## 0.46.0
+
+### Minor Changes
+
+- ec12a15: comprehension: a shard's STATIC surface is now byte-stable (ADR 0109). A compiled unit no longer carries a wall-clock `compiledAt` — the static half is a pure function of its source at `sourceHash`, so two branches that make the same change produce byte-identical static `_module.md` shards and do not collide on the static surface. (The `semantic: present` half is agent-authored prose and remains non-deterministic; those collisions are handled by the comprehension merge driver, not by byte-stability.) `compiledAt` becomes optional and is preserved only when reading a legacy shard that still carries it (it migrates away on the next recompile).
+
+### Patch Changes
+
+- 44d58bf: review-ci: fix "No test files found" false finding on diffs that add or modify test files (#1501). The bug-detection agent now credits `*.test.*` / `*.spec.*` / `*_test.*` files present in the diff itself — not only those pulled in as review context — so a PR whose purpose is adding tests is no longer told it has none. The source classifier that lists "files without tests" now also excludes test-support scaffolding (anything under `test/` / `tests/` / `__tests__/` / `__mocks__/` / `fixtures/`, `*-testkit.*`, `conftest.py`) and non-code files (`.md`, `.json`, lockfiles, etc.), so a `CHANGELOG.md` no longer reaches the classifier or attracts a file-size complaint.
+- f516731: fleet: extend a build lane's isolation boundary beyond the git worktree to user-global `~/.claude` state via a per-lane `CLAUDE_CONFIG_DIR` config-dir override (#1299, ADR 0098).
+  - `@harness-engineering/core` adds a pure primitive `fleet/lane-state-isolation.ts` (`buildLaneStateEnvOverride` / `applyLaneStateEnv` / `resolveLaneClaudeConfigDir`) that redirects `~/.claude` into a sandbox under the worktree's gitignored `.harness/lane-state/`.
+  - `@harness-engineering/burn` `resolvePaths()` now derives the HUD store base from `CLAUDE_CONFIG_DIR` before falling back to `$HOME/.claude`, so a lane's HUD verification writes land in its sandbox instead of the operator's real store. Explicit `CLAUDE_HUD_*` overrides still win.
+  - `@harness-engineering/orchestrator` `buildSubprocessEnv` gains a `laneStateScope` option applying the override; `ClaudeBackend` threads it in, opt-in via `laneStateIsolation` / the `HARNESS_LANE_STATE_ISOLATION` flag (off by default so a normal single-run agent keeps its real login/credentials).
+
 ## 0.45.0
 
 ### Minor Changes

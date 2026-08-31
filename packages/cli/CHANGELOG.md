@@ -1,5 +1,171 @@
 # @harness-engineering/cli
 
+## 12.2.0
+
+### Minor Changes
+
+- f7d9659: feat(comprehension): opt-in token-gated CI semantic refresh — the automated
+  alternative provider (ADR 0116 §3, `Closes #1689`). Stacks on the single-writer
+  core (#1713): where the default is a maintainer running `harness comprehend --all`
+  locally, this adds the automated equivalent for teams that want CI to keep the
+  committed semantic substrate fresh on a keyed runner.
+  - **`comprehend --refresh`** — a new run mode and the authoritative in-CLI gate. It
+    performs the single-writer main-pass (regenerate + stage committed semantic) ONLY
+    when all three signals hold: `comprehension.ci: refresh` is configured, this is
+    the `main` main-pass, and a provider credential resolves. A new pure
+    `comprehension/refresh-gate.ts` (`resolveRefreshJobGate`) makes the decision and
+    reports the first missing prerequisite. Provider-neutral — the credential is
+    whatever `resolveAnalysisProvider` resolves (Anthropic key, a config-declared
+    OpenAI-compatible endpoint, or the claude CLI), never a forced Claude model.
+  - **Off by default.** Every inactive branch is a clean no-op (exit 0) — a default
+    adopter (`ci: verify`, no secret) sees zero new behavior and CI stays token-free
+    (the ADR-0109 invariant). `ci: refresh` set but no credential degrades to a
+    token-free no-op with an actionable `::warning::`, never a red merge.
+  - **New CI job `comprehension-refresh`** — runs POST-MERGE on `main` only (never in
+    a PR context), gated behind a repo variable `HARNESS_COMPREHENSION_CI_REFRESH`
+    plus the in-CLI gate, and commits the refreshed `.harness/comprehension/**` shards
+    via the github-actions[bot] with `[skip ci]`. Loop-safe by construction (skip-ci
+    and idempotent regeneration).
+
+- e610043: feat(comprehension): single-writer semantic — `main` is the only writer of the
+  semantic half (ADR 0116). Ends the shard-conflict treadmill where concurrent PRs
+  touching the same module conflicted on non-deterministic LLM-authored semantic
+  prose (byte-stability only dedupes the STATIC skeleton; the merge driver only runs
+  on local merges, so the GitHub merge button still conflicted).
+
+  Three coupled changes (`Closes #1713`):
+  1. **PR path is static-only.** A new `comprehension/policy.ts` single-writer
+     predicate suppresses committed semantic off the `main` main-pass across every
+     write path: `comprehend --changed/--all` forces static-only on a branch,
+     `put_comprehension` returns a non-error `deferred` result, and
+     `get_comprehension`'s recompile-on-miss resolves a provider only on the
+     main-pass. Off the main-pass a branch writes only the byte-stable static
+     skeleton (still serves warm, ~free) — it can never conflict on the merge button.
+  2. **Wire the dormant `comprehension.ci: refresh` seam.** `comprehend --check` now
+     consumes `comprehension.ci`: `off` disables the gate, `verify` (default) is the
+     token-free freshness + regression gate, `refresh` runs the provider-backed
+     main-pass regeneration (guarded by the main-pass policy + provider availability;
+     degrades to a token-free no-op when no provider — the maintainer-local default).
+     Provider-neutral; the opt-in keyed CI runner (#1689) plugs into the same seam.
+  3. **Reframe the slice-4 regression gate to guard `main`.** A new `--context
+<pr|main>` selects the question: on a PR `present → absent` is EXPECTED (static
+     only) and never flagged (killing the per-PR false positive); on `main` it is a
+     real regression (the single-writer pass must never lose semantic). CI runs the
+     PR step with `--context pr` and adds a post-merge `main`-guard step.
+
+  CI stays token-free (the ADR 0109 invariant is preserved).
+
+- f1897dd: comprehension: add a token-free semantic-regression gate (ADR 0109, slice 4). `harness comprehend --check --since <ref>` now additionally fails when any module's unit regressed `semantic: present → absent` versus that git ref — a frontmatter-only comparison with no provider, no LLM, and no credential. Base and head are read the same way (committed shards via git + a lenient frontmatter parse), so a shard cannot be counted present on one side and dropped on the other; an unreadable/unfetched ref fails LOUD rather than silently passing with a success message. This lets CI enforce that ordinary edits don't silently strip the committed semantic substrate, while the fix always lives on the developer's own session/subscription (never a CI API token). Wired into CI as an advisory PR gate (promotable to blocking).
+
+  Known gap (by design): the gate detects in-place `present → absent` downgrades of a module that exists on both sides. A shard **deletion** or a **module rename** that drops semantic is not flagged (the module is treated as removed, not regressed). Cross-checking deleted shards against still-present source paths is a possible future extension.
+
+- b45d5dc: comprehension: add the `comprehension` git merge driver (ADR 0109, slice 5). Comprehension `_module.md` shards are a pure function of their module's source, so a conflict never needs a hand-merge. The driver **keeps the ours shard when it is source-fresh** (preserving its semantic content, byte-stable) and otherwise **recompiles the static half from the current working-tree source** as a fallback — strictly better than a plain `merge=ours` (which could keep a stale shard) or an always-static recompile (which would drop semantic). It reads the working-tree source (typically pre-merge ours under git's `ort` strategy) and defers any residual source-staleness to `comprehend --check` / the pre-commit hook; it does not claim to regenerate from a fully-merged tree at merge time. `harness init` configures `merge.comprehension.driver`, a `.gitattributes` entry maps `.harness/comprehension/**/_module.md` to it, and the driver is always non-blocking (any fallback keeps ours and exits 0). Requires the `harness` CLI on PATH — git falls back to a normal text merge otherwise.
+- 8a7087c: comprehension: make the semantic backstop provider-neutral (ADR 0109, slice 3). A new optional `comprehension.analysisBaseUrl` lets a project point the backstop at ANY vendor's OpenAI-compatible gateway (Cursor / Codex / Gemini / a local model) — no Anthropic key and no orchestrator-injected `HARNESS_ANALYSIS_*` env required. The API key stays env-only (`HARNESS_ANALYSIS_API_KEY`) so a secret never lands in committed config. Provider _construction_ and semantic-_model_ selection now both derive from the same config endpoint via a single `selectSemanticModel` helper, so they cannot diverge — fixing a defect where a config endpoint with `claude` on PATH forced a Claude model id onto the vendor gateway and silently produced zero semantic units. The `get_comprehension` recompile path honors the config endpoint too. Precedence is unchanged and backward compatible (Anthropic key → endpoint (config ∥ env) → claude-CLI → null; env remains the fallback), degrading to static-only when nothing resolves.
+- 6a56215: Recognize top-level `description` and `stack` keys in `harness.config.json`. Both are descriptive project metadata harness does not consume, but adopters (and co-tenant tools) commonly declare them at the config root — a human `description` and a plural `stack` block (`languages`, `frameworks`, `buildTools`, `testRunners`, `packageManager`). Previously the schema-strip loader dropped them with `⚠ ignored unknown key` warnings (#862), where the obvious way to silence the warning is to delete real metadata. They are now first-class optional keys: `stack` is a typed superset of the singular `template.language` / `template.framework` / `template.tooling.*` fields and is `.passthrough()` so forward-compat facets (e.g. `orms`, `clouds`) are preserved rather than warned.
+- 07a57a1: feat(comprehension): provider-neutral bare subscription-CLI analysis backstop
+  (codex/gemini) via a `GenericCliAnalysisProvider` (#1710, ADR 0109 slice 3 follow-up).
+
+  The comprehension semantic backstop could reach a non-Claude agent only through an
+  OpenAI-compatible `/v1` gateway (`comprehension.analysisBaseUrl`). A **bare
+  subscription CLI** — codex-CLI / gemini-CLI with no API key and no `/v1` endpoint —
+  was unreachable: `ClaudeCliAnalysisProvider`'s flags (`--print --output-format json
+--json-schema`) are Claude-specific.
+
+  New `GenericCliAnalysisProvider` (intelligence) takes a pluggable **arg template**
+  (how the prompt/schema/model are passed) and **output parser** (how the vendor's
+  stdout maps to the analysis result), so one extensible implementation covers every
+  vendor CLI instead of N bespoke adapters. Built-in `codex`/`gemini` dialects and a
+  `custom` placeholder template (`{{prompt}}`/`{{schema}}`/`{{model}}`, arg or stdin)
+  are exposed via `createCliAnalysisProvider`. It reuses the same mechanical
+  "schema-check → one corrective retry" recovery as the Claude CLI provider and salvages
+  embedded JSON from prose (bare CLIs have no `--json-schema` flag).
+
+  Resolver + detection: a config-declared `comprehension.analysisCli` block is detected
+  on PATH and inserted in precedence **before** the Claude CLI (Anthropic key → `/v1`
+  endpoint → generic subscription CLI → Claude CLI → static-only). Provider-neutral: a
+  generic-CLI provider is never handed a Claude model id.
+
+  Verification limit: the real codex/gemini CLIs are not available in CI, so this ships
+  **unit-tested with mocked CLI I/O only**; live end-to-end integration against a real
+  vendor CLI is deferred to a maintainer with those CLIs installed.
+
+- fc690ae: comprehension: add the `put_comprehension` MCP tool (ADR 0109, slice 2) — the agent-neutral semantic write-back seam. An agent already working a module attaches the semantic understanding it authored (`{ summary, invariants }`) onto that module's source-fresh static unit, on its own session's auth (no API token, no provider resolution). Validated in TS against the same `semanticResponseSchema` the provider path uses; refuses to enrich a missing or source-stale unit. `get_comprehension` now returns `semanticNeeded: true` when it serves a static-only unit, signaling the caller to enrich it. The write-back rejects a summary/invariant containing a top-level owned section heading (which would corrupt the static half on round-trip) and caps the payload size; malformed-payload and write-failure outcomes surface as `isError` envelopes while policy refusals (missing/stale unit) remain non-error `{ written: false }` results.
+
+### Patch Changes
+
+- 7406249: fix(cli): findConfigFile now checks the filesystem root itself, so a harness.config.json placed directly at the filesystem root is found instead of skipped by the exclusive `while (currentDir !== root)` loop bound.
+- ebef43a: fix(cli): the Cursor tool-picker prompt now derives the recommended-tool count from `CURSOR_CURATED_TOOLS.length` instead of a hardcoded "25", so the message no longer under-reports the 26 pre-selected tools.
+- 842cfbe: fix(cli): `manage_roadmap` (handleManageRoadmap) now returns its graceful `{ isError: true }` McpResponse when `path` is missing/non-string, instead of letting `sanitizePath` throw synchronously and reject the returned promise with an unhandled rejection.
+- 183d9d2: fix(cli): drop the redundant optional `@harness-engineering/intelligence`
+  peerDependency. It was listed as BOTH a normal `dependency` and an optional
+  `peerDependency` (workspace:\*), and Changesets majors any package whose
+  peerDependency takes a ≥minor bump — so `intelligence`'s routine 0.12→0.13
+  minor cascaded a phantom `cli` **major** (13.0.0) on release despite no
+  breaking change in cli. `intelligence` remains a normal dependency, so cli's
+  runtime is unchanged; this only removes the vestigial peer entry and lets cli
+  release as the minor it actually is (12.2.0).
+- 909d042: fix(comprehend): apply write-time prettier formatting on the `--all` / non-`--stage`
+  compile paths, not just the pre-commit `--stage`/hook path. A bulk
+  `harness comprehend --all` (or any non-stage run) followed by a manual `git add` +
+  commit previously wrote raw, double-quoted YAML frontmatter shards that an adopter's
+  own prettier-on-markdown lint-staged step then reflowed at commit time — causing the
+  lint-staged stash/restore "dribble" and a whole-tree `format:check` risk. Shard
+  formatting is now path-independent: every freshly-compiled shard lands
+  already-prettier-stable. Best-effort (a missing prettier never blocks a run).
+- ec12a15: comprehension: a shard's STATIC surface is now byte-stable (ADR 0109). A compiled unit no longer carries a wall-clock `compiledAt` — the static half is a pure function of its source at `sourceHash`, so two branches that make the same change produce byte-identical static `_module.md` shards and do not collide on the static surface. (The `semantic: present` half is agent-authored prose and remains non-deterministic; those collisions are handled by the comprehension merge driver, not by byte-stability.) `compiledAt` becomes optional and is preserved only when reading a legacy shard that still carries it (it migrates away on the next recompile).
+- dac9068: Comprehension's default semantic model is now `claude-haiku-4-5` (the current
+  cheap/fast Haiku alias) instead of the retired `claude-3-5-haiku-latest`, which
+  reached end-of-life 2026-02-19 and emitted deprecation warnings on every semantic
+  generation. Uses the bare non-dated alias so it auto-tracks the latest Haiku
+  snapshot; override via `comprehension.model` for other providers.
+- e1f9cf1: Comprehension semantic generation is now provider-aware and no longer forces a
+  Claude model id onto non-Claude providers. The cheap Claude default
+  (`claude-haiku-4-5`) applies only to Claude-family providers (Anthropic key /
+  `claude`-CLI); a local OpenAI-compatible endpoint uses its own configured model
+  (`HARNESS_ANALYSIS_MODEL`) instead of having a Claude id imposed on it (which
+  previously overrode `HARNESS_ANALYSIS_MODEL` and degraded those runs to
+  static-only). An explicit `comprehension.model` still wins for any provider. Adds
+  `resolveProviderKind` (single source of the provider precedence) and
+  `defaultSemanticModel(kind)`; the only hardcoded model id is now contained to the
+  one path where it is correct, reducing the drift surface.
+- e587b54: comprehension: committed compiled-comprehension units no longer pollute raw text search (issue #1692). Committed `_module.md` shards under `.harness/comprehension/` are TRACKED so the LLM-free serve-time hash gate can read them, but that made them show up in `rg` / `grep -r` / editor code search, doubling hits on any symbol that appears in both the source and its unit summary. A repo-root `.ignore` entry (`.harness/comprehension/`) now excludes the shard tree from ripgrep/fd/ag — which honor `.ignore` even for tracked files — WITHOUT untracking the units from git. `harness init` (CLI and MCP `init_project`) and MCP server startup now ensure this entry for new and existing projects via `ensureComprehensionSearchIgnore`. Adopters preferring `storage: "cache"` (gitignored) already sidestep the issue entirely.
+- 963422f: docs(comprehension): record the single-writer decision as ADR 0116 and correct
+  dangling `ADR 0110` references. The decision shipped in #1728/#1729 was drafted
+  as "ADR 0110", but number 0110 was concurrently taken on `main` by an unrelated
+  adr-fleet decision (`0110-skill-run-execution-vs-separate-dispatcher`) and the
+  single-writer ADR file was never committed. This adds the real
+  `0116-single-writer-semantic-comprehension.md` and updates every `ADR 0110`
+  reference in the comprehension source, tests, plan/provenance artifacts, and
+  changesets to `ADR 0116` (including one `comprehension.ci: off` log line).
+  No behavior change.
+- 1fbb9d1: `gather_context` summary mode (the default) now inlines the served comprehension
+  units instead of collapsing them to counts. Previously a default call returned
+  "N units served" with no content, forcing a second `get_comprehension` round-trip
+  or a raw-source fallback — defeating the pull-primary path. Comprehension is the
+  primary, already-budget-bounded payload, so summary mode serves the units inline
+  and only summarizes the stale/malformed noise to counts.
+- abe82d2: `manage_adr` is now git-worktree-aware (#1507). It resolves the ADR root from
+  the caller's working directory via `git rev-parse --show-toplevel` instead of
+  writing to the MCP server's launch root, so ADRs authored inside a `git
+worktree` land in that worktree (and mint collision-free numbers against its
+  store) rather than polluting the wrong checkout. Falls back to the supplied
+  project path when the cwd is not inside a git repository.
+- Updated dependencies [6dddc01]
+- Updated dependencies [2eb9058]
+- Updated dependencies [a62b452]
+- Updated dependencies [cc41531]
+- Updated dependencies [6ee4878]
+- Updated dependencies [8ba0cf5]
+- Updated dependencies [ec12a15]
+- Updated dependencies [07a57a1]
+- Updated dependencies [44d58bf]
+- Updated dependencies [f516731]
+  - @harness-engineering/orchestrator@0.23.0
+  - @harness-engineering/core@0.46.0
+  - @harness-engineering/intelligence@0.13.0
+  - @harness-engineering/burn@0.3.1
+  - @harness-engineering/dashboard@0.16.4
+
 ## 12.1.0
 
 ### Minor Changes
