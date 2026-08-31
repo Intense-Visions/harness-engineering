@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'packages/cli/src/comprehension'
-sourceHash: '8f6c66e0b7ca936151d3e6ef555f60d5ef43f05a07c2810228e0ba9ece952c82'
+sourceHash: '2ca4d75e5b86c11e7a4df3645f2e33884cc0107ceb8f39b21acef833e885cad1'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
@@ -31,6 +31,7 @@ export STATIC_SUPPORTED_EXTENSIONS
 export boundSourceDigest
 export buildSemanticPrompt
 export committedSemanticAllowed
+export comprehensionCli
 export comprehensionEndpoint
 export createGenerateSemantic
 export createStaticExtractor
@@ -67,7 +68,7 @@ export withComprehensionActive
 
 ```
 import { ComprehensionConfig, ComprehensionConfigSchema, HarnessConfig } from '../config/schema'
-import { AnalysisEndpoint, ProviderKind, resolveProviderKind } from '../mcp/utils/analysis-provider'
+import { AnalysisCliConfig, AnalysisEndpoint, ProviderKind, resolveProviderKind } from '../mcp/utils/analysis-provider'
 import { readComprehensionConfig } from './config'
 import { defaultSemanticModel, isComprehensionReentrant, withComprehensionActive } from './generate-semantic'
 import { COMPREHENSION_ROOT, ComprehensionListing, ComprehensionProvenance, ComprehensionSourceFile, ComprehensionUnit, DEFAULT_SOURCE_EXTENSIONS, ExtractStatic, GenerateSemantic, Result, SemanticGeneration, SemanticInput, SkippedUnit, StaticExtraction, TypeScriptParser, compileModule, computeSourceHash, estimateTokens, renderServedUnit, serveGate } from '@harness-engineering/core'

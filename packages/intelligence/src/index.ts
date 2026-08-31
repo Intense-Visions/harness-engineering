@@ -49,6 +49,26 @@ export type {
 export { AnthropicAnalysisProvider } from './analysis-provider/anthropic.js';
 export { OpenAICompatibleAnalysisProvider } from './analysis-provider/openai-compatible.js';
 export { ClaudeCliAnalysisProvider } from './analysis-provider/claude-cli.js';
+export {
+  GenericCliAnalysisProvider,
+  createCliAnalysisProvider,
+  buildCustomCliTemplate,
+  codexCliTemplate,
+  geminiCliTemplate,
+  textSalvageParser,
+  jsonEnvelopeParser,
+} from './analysis-provider/generic-cli.js';
+export type {
+  GenericCliProviderOptions,
+  GenericCliArgContext,
+  GenericCliArgTemplate,
+  GenericCliInvocation,
+  GenericCliParseResult,
+  GenericCliOutputParser,
+  CliVendor,
+  CustomCliTemplateOptions,
+  CreateCliAnalysisProviderOptions,
+} from './analysis-provider/generic-cli.js';
 
 // SEL — Spec Enrichment Layer
 export { enrich } from './sel/enricher.js';

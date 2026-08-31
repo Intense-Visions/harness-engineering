@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'packages/cli/tests/comprehension'
-sourceHash: '47c1d239bd50f7fe4ffe0cc57f80775d64d8350811496303dbdd7bc15ff02ebf'
+sourceHash: '5e56f145a5dccebc2cfb14e48da735767c7154abb5a1ad310ddbb08a984ece26'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
@@ -34,7 +34,7 @@ members:
 import { createComprehendCommand, formatCompiledUnits, resolveChangedScope, resolveCompileProvider, resolveMode, resolveStaticOnlyPosture, stageCompiledUnits } from '../../src/commands/comprehend'
 import { ChangedSurface } from '../../src/commands/validate-scope'
 import { ComprehendRunResult, mapWithConcurrency, runComprehend, runComprehendCheck, runComprehendStats } from '../../src/comprehension/compile-run'
-import { comprehensionEndpoint, readComprehensionConfig, resolveComprehensionCiMode, selectSemanticModel } from '../../src/comprehension/config'
+import { comprehensionCli, comprehensionEndpoint, readComprehensionConfig, resolveComprehensionCiMode, selectSemanticModel } from '../../src/comprehension/config'
 import { REENTRANCY_ENV, isComprehensionReentrant, maybeCreateGenerateSemantic } from '../../src/comprehension/generate-semantic'
 import { DEFAULT_DIGEST_CHAR_BUDGET, DEFAULT_MAX_OUTPUT_TOKENS, DEFAULT_SEMANTIC_MODEL, REENTRANCY_ENV, boundSourceDigest, buildSemanticPrompt, createGenerateSemantic, defaultSemanticModel, isComprehensionReentrant, maybeCreateGenerateSemantic, semanticResponseSchema, withComprehensionActive } from '../../src/comprehension/generate-semantic.js'
 import { shouldRunComprehendHook } from '../../src/comprehension/hook'

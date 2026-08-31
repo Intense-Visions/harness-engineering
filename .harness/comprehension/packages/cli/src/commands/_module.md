@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'packages/cli/src/commands'
-sourceHash: '24d13397fb338f8542cd526c4c240a4c16ba8a1ac88c99604dcb653f67a4d2cb'
+sourceHash: '83ab5bf754b0b781ae36018ccb842297fc6122a808dfbc183966c349e34af2a3'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
@@ -387,7 +387,7 @@ import { BrandFinding } from '../brand/findings/finding'
 import { CliErgonomicsCraftInput, CliErgonomicsCraftOutput, runCliErgonomicsCraft } from '../cli-ergonomics-craft/index.js'
 import { CodeCraftInput, CodeCraftOutput, runCodeCraft } from '../code-craft/index.js'
 import { ComprehendRunResult, runComprehend, runComprehendCheck, runComprehendStats } from '../comprehension/compile-run'
-import { comprehensionEndpoint, readComprehensionConfig, resolveComprehensionCiMode, selectSemanticModel } from '../comprehension/config'
+import { comprehensionCli, comprehensionEndpoint, readComprehensionConfig, resolveComprehensionCiMode, selectSemanticModel } from '../comprehension/config'
 import { maybeCreateGenerateSemantic } from '../comprehension/generate-semantic'
 import { shouldRunComprehendHook } from '../comprehension/hook'
 import { enumerateModules, filesToModules } from '../comprehension/invalidation'

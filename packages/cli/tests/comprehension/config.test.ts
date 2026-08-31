@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest';
 import {
   readComprehensionConfig,
   comprehensionEndpoint,
+  comprehensionCli,
   selectSemanticModel,
   resolveComprehensionCiMode,
 } from '../../src/comprehension/config';
@@ -87,6 +88,70 @@ describe('comprehensionEndpoint', () => {
       baseUrl: 'http://vendor/v1',
     });
     expect(comprehensionEndpoint(cfg({}))).toEqual({});
+  });
+});
+
+describe('comprehensionCli (#1710 — bare subscription CLI)', () => {
+  it('is undefined when no analysisCli block is set', () => {
+    expect(comprehensionCli(cfg({}))).toBeUndefined();
+  });
+
+  it('reflects a codex vendor block', () => {
+    expect(comprehensionCli(cfg({ analysisCli: { vendor: 'codex', command: 'codex' } }))).toEqual({
+      vendor: 'codex',
+      command: 'codex',
+    });
+  });
+
+  it('carries model + custom template for a custom vendor', () => {
+    expect(
+      comprehensionCli(
+        cfg({
+          analysisCli: {
+            vendor: 'custom',
+            command: 'myagent',
+            model: 'm1',
+            custom: { args: ['run', '{{prompt}}'], promptVia: 'stdin', parse: 'json' },
+          },
+        })
+      )
+    ).toEqual({
+      vendor: 'custom',
+      command: 'myagent',
+      model: 'm1',
+      custom: { args: ['run', '{{prompt}}'], promptVia: 'stdin', parse: 'json' },
+    });
+  });
+
+  it('the schema rejects an analysisCli block missing a command', () => {
+    expect(
+      HarnessConfigSchema.safeParse({
+        version: 1,
+        comprehension: { analysisCli: { vendor: 'codex' } },
+      }).success
+    ).toBe(false);
+  });
+});
+
+describe('selectSemanticModel — generic CLI is provider-neutral (#1710)', () => {
+  it('returns undefined for a configured CLI on PATH (never a Claude id), even with claude on PATH', () => {
+    expect(
+      selectSemanticModel(cfg({ analysisCli: { vendor: 'codex', command: 'codex' } }), {
+        isGenericCliAvailable: () => true,
+        isClaudeCliAvailable: () => true,
+        env: {},
+      })
+    ).toBeUndefined();
+  });
+
+  it('falls through to the Claude default when the configured CLI is NOT on PATH', () => {
+    expect(
+      selectSemanticModel(cfg({ analysisCli: { vendor: 'codex', command: 'codex' } }), {
+        isGenericCliAvailable: () => false,
+        isClaudeCliAvailable: () => true,
+        env: {},
+      })
+    ).toBe('claude-haiku-4-5');
   });
 });
 

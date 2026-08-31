@@ -2,7 +2,9 @@ import { describe, it, expect, afterEach } from 'vitest';
 import {
   resolveAnalysisProvider,
   isClaudeCliAvailable,
+  isCliAvailable,
   resolveProviderKind,
+  type AnalysisCliConfig,
 } from '../../../src/mcp/utils/analysis-provider.js';
 
 /**
@@ -128,6 +130,204 @@ describe('resolveAnalysisProvider — provider selection precedence', () => {
     expect(
       providerName(await resolveAnalysisProvider(undefined, { isClaudeCliAvailable: () => true }))
     ).toBe('OpenAICompatibleAnalysisProvider');
+  });
+});
+
+// --- #1710: generic subscription-CLI provider (codex/gemini/custom) -----------
+
+describe('resolveAnalysisProvider — generic subscription CLI (#1710)', () => {
+  const saved = Object.fromEntries(ENV_KEYS.map((k) => [k, process.env[k]]));
+  const clear = () => ENV_KEYS.forEach((k) => delete process.env[k]);
+  const codexCli: AnalysisCliConfig = { vendor: 'codex', command: 'codex' };
+
+  afterEach(() => {
+    for (const k of ENV_KEYS) {
+      const v = saved[k];
+      if (v === undefined) delete process.env[k];
+      else process.env[k] = v;
+    }
+  });
+
+  it('resolves GenericCliAnalysisProvider when a CLI is configured and on PATH (no key, no endpoint)', async () => {
+    clear();
+    expect(
+      providerName(
+        await resolveAnalysisProvider(undefined, {
+          cli: codexCli,
+          isGenericCliAvailable: () => true,
+          isClaudeCliAvailable: () => true, // claude also present — generic must win
+        })
+      )
+    ).toBe('GenericCliAnalysisProvider');
+  });
+
+  it('inserts the generic CLI BEFORE claude-CLI in precedence', async () => {
+    clear();
+    // Configured codex on PATH AND claude on PATH → codex wins.
+    expect(
+      providerName(
+        await resolveAnalysisProvider(undefined, {
+          cli: codexCli,
+          isGenericCliAvailable: () => true,
+          isClaudeCliAvailable: () => true,
+        })
+      )
+    ).toBe('GenericCliAnalysisProvider');
+    // Configured codex NOT on PATH but claude is → falls through to claude-CLI.
+    expect(
+      providerName(
+        await resolveAnalysisProvider(undefined, {
+          cli: codexCli,
+          isGenericCliAvailable: () => false,
+          isClaudeCliAvailable: () => true,
+        })
+      )
+    ).toBe('ClaudeCliAnalysisProvider');
+  });
+
+  it('still prefers Anthropic and a local endpoint over the generic CLI (append-after)', async () => {
+    clear();
+    process.env.ANTHROPIC_API_KEY = 'sk-ant-test';
+    expect(
+      providerName(
+        await resolveAnalysisProvider(undefined, {
+          cli: codexCli,
+          isGenericCliAvailable: () => true,
+        })
+      )
+    ).toBe('AnthropicAnalysisProvider');
+    delete process.env.ANTHROPIC_API_KEY;
+    process.env.HARNESS_ANALYSIS_BASE_URL = 'http://127.0.0.1:11434/v1';
+    expect(
+      providerName(
+        await resolveAnalysisProvider(undefined, {
+          cli: codexCli,
+          isGenericCliAvailable: () => true,
+        })
+      )
+    ).toBe('OpenAICompatibleAnalysisProvider');
+  });
+
+  it('degrades to null when a CLI is configured but NOT on PATH and nothing else resolves', async () => {
+    clear();
+    expect(
+      await resolveAnalysisProvider(undefined, {
+        cli: codexCli,
+        isGenericCliAvailable: () => false,
+        isClaudeCliAvailable: () => false,
+      })
+    ).toBeNull();
+  });
+
+  it('builds a custom-vendor provider from a template spec', async () => {
+    clear();
+    const custom: AnalysisCliConfig = {
+      vendor: 'custom',
+      command: 'myagent',
+      custom: { args: ['run', '{{prompt}}'], parse: 'text' },
+    };
+    expect(
+      providerName(
+        await resolveAnalysisProvider(undefined, {
+          cli: custom,
+          isGenericCliAvailable: () => true,
+          isClaudeCliAvailable: () => false,
+        })
+      )
+    ).toBe('GenericCliAnalysisProvider');
+  });
+});
+
+describe('resolveProviderKind — generic-cli precedence (#1710)', () => {
+  const codexCli: AnalysisCliConfig = { vendor: 'codex', command: 'codex' };
+
+  it('generic-cli when configured + on PATH, over claude-cli', () => {
+    expect(
+      resolveProviderKind({
+        env: {},
+        cli: codexCli,
+        isGenericCliAvailable: () => true,
+        isClaudeCliAvailable: () => true,
+      })
+    ).toBe('generic-cli');
+  });
+
+  it('falls through to claude-cli when the generic CLI is not on PATH', () => {
+    expect(
+      resolveProviderKind({
+        env: {},
+        cli: codexCli,
+        isGenericCliAvailable: () => false,
+        isClaudeCliAvailable: () => true,
+      })
+    ).toBe('claude-cli');
+  });
+
+  it('anthropic and local still win over generic-cli', () => {
+    expect(
+      resolveProviderKind({
+        env: { ANTHROPIC_API_KEY: 'k' },
+        cli: codexCli,
+        isGenericCliAvailable: () => true,
+      })
+    ).toBe('anthropic');
+    expect(
+      resolveProviderKind({
+        env: { HARNESS_ANALYSIS_BASE_URL: 'http://x' },
+        cli: codexCli,
+        isGenericCliAvailable: () => true,
+      })
+    ).toBe('local');
+  });
+
+  it('null when a CLI is configured but not on PATH and nothing else resolves', () => {
+    expect(
+      resolveProviderKind({
+        env: {},
+        cli: codexCli,
+        isGenericCliAvailable: () => false,
+        isClaudeCliAvailable: () => false,
+      })
+    ).toBeNull();
+  });
+});
+
+describe('isCliAvailable — generalized, injectable, Windows-safe PATH scan', () => {
+  it('detects an arbitrary command (codex) on a POSIX PATH dir', () => {
+    expect(
+      isCliAvailable('codex', {
+        platform: 'linux',
+        env: { PATH: '/opt/bin:/usr/bin' },
+        fileExists: (p) => p === '/usr/bin/codex',
+      })
+    ).toBe(true);
+  });
+
+  it('resolves a Windows PATHEXT variant for a bare command name', () => {
+    expect(
+      isCliAvailable('gemini', {
+        platform: 'win32',
+        env: { Path: 'C:\\bin', PATHEXT: '.COM;.EXE;.CMD' },
+        fileExists: (p) => p === 'C:\\bin\\gemini.CMD',
+      })
+    ).toBe(true);
+  });
+
+  it('probes an absolute/relative path directly, not against PATH', () => {
+    expect(
+      isCliAvailable('/usr/local/bin/codex', {
+        platform: 'linux',
+        env: { PATH: '/nowhere' },
+        fileExists: (p) => p === '/usr/local/bin/codex',
+      })
+    ).toBe(true);
+  });
+
+  it('is false for an empty command or when the binary is absent', () => {
+    expect(isCliAvailable('', { fileExists: () => true })).toBe(false);
+    expect(isCliAvailable('codex', { env: { PATH: '/opt/bin' }, fileExists: () => false })).toBe(
+      false
+    );
   });
 });
 
