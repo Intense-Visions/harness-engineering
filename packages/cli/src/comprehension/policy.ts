@@ -1,5 +1,5 @@
 /**
- * ADR 0110 — single-writer semantic comprehension policy.
+ * ADR 0116 — single-writer semantic comprehension policy.
  *
  * `main` is the ONLY writer of the SEMANTIC half of a comprehension unit. PRs
  * carry only the deterministic STATIC skeleton (byte-stable ⇒ they never
@@ -10,13 +10,13 @@
  * This module is the pure, injectable decision seam: "may THIS invocation write
  * _committed_ semantic?" The answer is yes only during the **main-pass** — a
  * maintainer running `harness comprehend --all` on `main` (the chosen
- * maintainer-local provider, ADR 0110 §3), a post-merge main job, or the opt-in
+ * maintainer-local provider, ADR 0116 §3), a post-merge main job, or the opt-in
  * token-gated `comprehension.ci: refresh` runner (#1689) that supplies its own
  * credential. Everywhere else — the pre-commit hook, in-session
  * `put_comprehension`, a developer's `comprehend --changed` on a feature branch —
  * committed semantic is suppressed (the PR path stays static-only).
  *
- * Enforcement is BRANCH-based (option (a) of ADR 0110 §1): the `storage: cache`
+ * Enforcement is BRANCH-based (option (a) of ADR 0116 §1): the `storage: cache`
  * overlay of option (b) is not path-routed today (every shard under
  * `.harness/comprehension/**` is force-tracked by `.gitignore`), so the minimal
  * correct rule is "don't write committed semantic unless we can PROVE we are the
@@ -61,12 +61,12 @@ export function resolveComprehensionBranch(
 
 /**
  * Is THIS invocation the main-pass — the single authorized writer of committed
- * semantic (ADR 0110)? True when:
+ * semantic (ADR 0116)? True when:
  *  - the explicit override `HARNESS_COMPREHENSION_MAIN_PASS=1` is set (the seam a
  *    post-merge main job or the #1689 keyed runner flips — detached HEAD on `main`
  *    makes branch resolution unreliable there), OR
  *  - `GITHUB_REF` is `refs/heads/main` (a CI push to main, detached HEAD), OR
- *  - the resolved branch IS `main` (the maintainer-local main-pass, ADR 0110 §3).
+ *  - the resolved branch IS `main` (the maintainer-local main-pass, ADR 0116 §3).
  *
  * Everything else — every feature branch, every PR build, an unknown branch — is
  * the PR path: NOT the main-pass, so committed semantic is suppressed.

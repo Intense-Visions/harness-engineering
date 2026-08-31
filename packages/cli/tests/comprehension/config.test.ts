@@ -63,7 +63,7 @@ describe('ComprehensionConfigSchema wired into HarnessConfigSchema', () => {
   });
 });
 
-describe('resolveComprehensionCiMode (ADR 0110 §2 — the seam is now CONSUMED)', () => {
+describe('resolveComprehensionCiMode (ADR 0116 §2 — the seam is now CONSUMED)', () => {
   it("defaults to 'verify' (token-free gate) when unset", () => {
     expect(resolveComprehensionCiMode(undefined)).toBe('verify');
     expect(resolveComprehensionCiMode(null)).toBe('verify');

@@ -215,9 +215,9 @@ describe('handlePutComprehension (envelope)', () => {
   });
 });
 
-// --- ADR 0110 §1: single-writer — the PR path DEFERS committed semantic --------
+// --- ADR 0116 §1: single-writer — the PR path DEFERS committed semantic --------
 
-describe('attachSemantic — ADR 0110 §1 single-writer policy', () => {
+describe('attachSemantic — ADR 0116 §1 single-writer policy', () => {
   it('DEFERS (never writes) when committed semantic is not allowed (the PR path)', async () => {
     const unit = await staticUnit();
     const store = fakeStore(unit);

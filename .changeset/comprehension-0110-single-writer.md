@@ -3,7 +3,7 @@
 ---
 
 feat(comprehension): single-writer semantic — `main` is the only writer of the
-semantic half (ADR 0110). Ends the shard-conflict treadmill where concurrent PRs
+semantic half (ADR 0116). Ends the shard-conflict treadmill where concurrent PRs
 touching the same module conflicted on non-deterministic LLM-authored semantic
 prose (byte-stability only dedupes the STATIC skeleton; the merge driver only runs
 on local merges, so the GitHub merge button still conflicted).
