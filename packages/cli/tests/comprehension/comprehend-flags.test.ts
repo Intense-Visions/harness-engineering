@@ -2,8 +2,10 @@ import { describe, it, expect, vi } from 'vitest';
 import type { AnalysisProvider } from '@harness-engineering/intelligence';
 import {
   createComprehendCommand,
+  resolveMode,
   resolveCompileProvider,
   resolveChangedScope,
+  resolveStaticOnlyPosture,
   stageCompiledUnits,
   formatCompiledUnits,
 } from '../../src/commands/comprehend';
@@ -84,6 +86,74 @@ describe('createComprehendCommand — SF1 flags present', () => {
   it('exposes the --stage flag', () => {
     const flags = createComprehendCommand().options.map((o) => o.long);
     expect(flags).toContain('--stage');
+  });
+
+  // ADR 0110 §4 — the reframed regression gate takes a --context.
+  it('exposes the --context flag', () => {
+    const flags = createComprehendCommand().options.map((o) => o.long);
+    expect(flags).toContain('--context');
+  });
+
+  // #1689 / ADR 0110 §3 — the opt-in token-gated CI refresh entrypoint.
+  it('exposes the --refresh flag', () => {
+    const flags = createComprehendCommand().options.map((o) => o.long);
+    expect(flags).toContain('--refresh');
+  });
+});
+
+// #1689 — resolveMode routes --refresh (highest precedence, a distinct CI op).
+describe('resolveMode — #1689 refresh precedence', () => {
+  it('maps --refresh to the refresh mode', () => {
+    expect(resolveMode({ refresh: true })).toBe('refresh');
+  });
+
+  it('refresh wins over check/stats/all when several flags are set', () => {
+    expect(resolveMode({ refresh: true, check: true, stats: true, all: true })).toBe('refresh');
+  });
+
+  it('the existing precedence is unchanged when --refresh is absent (check > stats > all > changed)', () => {
+    expect(resolveMode({ check: true, stats: true, all: true })).toBe('check');
+    expect(resolveMode({ stats: true, all: true })).toBe('stats');
+    expect(resolveMode({ all: true })).toBe('all');
+    expect(resolveMode({})).toBe('changed');
+  });
+});
+
+// --- ADR 0110 §1: single-writer static-only posture on the PR path -------------
+
+describe('resolveStaticOnlyPosture — ADR 0110 §1 (single writer)', () => {
+  const cconf = readComprehensionConfig({ comprehension: { semantic: true } });
+
+  it('forces static-only OFF the main-pass (the PR path) and flags the deferral', () => {
+    const posture = resolveStaticOnlyPosture(
+      cconf,
+      /* requestedStatic */ false,
+      /* isMainPass */ false
+    );
+    expect(posture).toEqual({ staticOnly: true, deferredToMain: true });
+  });
+
+  it('permits semantic ON the main-pass (single writer = main)', () => {
+    const posture = resolveStaticOnlyPosture(cconf, false, /* isMainPass */ true);
+    expect(posture).toEqual({ staticOnly: false, deferredToMain: false });
+  });
+
+  it('an explicit --static stays static-only WITHOUT the policy-deferral flag', () => {
+    // requestedStatic wins first ⇒ deferredToMain is false (not a policy downgrade).
+    const posture = resolveStaticOnlyPosture(
+      cconf,
+      /* requestedStatic */ true,
+      /* isMainPass */ true
+    );
+    expect(posture).toEqual({ staticOnly: true, deferredToMain: false });
+  });
+
+  it('semantic:false is static-only regardless of main-pass, without the deferral flag', () => {
+    const off = readComprehensionConfig({ comprehension: { semantic: false } });
+    expect(resolveStaticOnlyPosture(off, false, true)).toEqual({
+      staticOnly: true,
+      deferredToMain: false,
+    });
   });
 });
 

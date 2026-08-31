@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'packages/cli/src/mcp/tools'
-sourceHash: '77cc870f1850898a92cade68a77279a0060c4c7cc1e59d13d276435c5d589f66'
+sourceHash: '7f1c3e9490dcdd6604ced9d1b1f67636f972f2b36857fb96179420fd08d003c9'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
@@ -466,6 +466,7 @@ import from '../../commands/validate.js'
 import { runComprehend } from '../../comprehension/compile-run'
 import { comprehensionEndpoint, readComprehensionConfig, selectSemanticModel } from '../../comprehension/config'
 import { maybeCreateGenerateSemantic, semanticResponseSchema } from '../../comprehension/generate-semantic'
+import { committedSemanticAllowed } from '../../comprehension/policy'
 import { createStaticExtractor } from '../../comprehension/static-extractor'
 import { loadAnalysisExclude } from '../../config/analysis-schema.js'
 import { resolveConfig } from '../../config/loader'

@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import {
   detectSemanticRegressions,
+  detectCommittedSemanticOnBranch,
   parseModuleSemantic,
   readSemanticMapAtRef,
   type SemanticState,
@@ -50,6 +51,65 @@ describe('detectSemanticRegressions', () => {
       ['pkg/a', 'absent'],
     ]);
     expect(detectSemanticRegressions(base, head)).toEqual(['pkg/a', 'pkg/z']);
+  });
+
+  // ADR 0110 §4 — the `context` reframe.
+  it("defaults to 'main' context (strict present → absent = regression)", () => {
+    const base = m([['pkg/a', 'present']]);
+    const head = m([['pkg/a', 'absent']]);
+    // No context arg ⇒ 'main' ⇒ same as an explicit 'main'.
+    expect(detectSemanticRegressions(base, head)).toEqual(
+      detectSemanticRegressions(base, head, 'main')
+    );
+    expect(detectSemanticRegressions(base, head, 'main')).toEqual(['pkg/a']);
+  });
+
+  it("in 'pr' context, present → absent is EXPECTED and never flagged (kills the per-PR false positive)", () => {
+    const base = m([
+      ['pkg/a', 'present'],
+      ['pkg/z', 'present'],
+    ]);
+    const head = m([
+      ['pkg/a', 'absent'],
+      ['pkg/z', 'absent'],
+    ]);
+    // Every touched module goes present → absent on the static-only PR path.
+    expect(detectSemanticRegressions(base, head, 'pr')).toEqual([]);
+  });
+});
+
+describe('detectCommittedSemanticOnBranch (ADR 0110 §1 PR-path policy)', () => {
+  it('flags a module that ADDED committed semantic on a branch (absent/missing → present)', () => {
+    const base = m([['pkg/a', 'absent']]);
+    const head = m([['pkg/a', 'present']]);
+    expect(detectCommittedSemanticOnBranch(base, head)).toEqual(['pkg/a']);
+  });
+
+  it('flags a brand-new module that arrives WITH committed semantic', () => {
+    const base = m<[string, SemanticState][]>([]);
+    const head = m([['pkg/new', 'present']]);
+    expect(detectCommittedSemanticOnBranch(base, head)).toEqual(['pkg/new']);
+  });
+
+  it('does NOT flag semantic inherited unchanged from main (present → present)', () => {
+    const base = m([['pkg/a', 'present']]);
+    const head = m([['pkg/a', 'present']]);
+    expect(detectCommittedSemanticOnBranch(base, head)).toEqual([]);
+  });
+
+  it('does NOT flag the expected static-only downgrade (present → absent)', () => {
+    const base = m([['pkg/a', 'present']]);
+    const head = m([['pkg/a', 'absent']]);
+    expect(detectCommittedSemanticOnBranch(base, head)).toEqual([]);
+  });
+
+  it('returns sorted results', () => {
+    const base = m<[string, SemanticState][]>([]);
+    const head = m([
+      ['pkg/z', 'present'],
+      ['pkg/a', 'present'],
+    ]);
+    expect(detectCommittedSemanticOnBranch(base, head)).toEqual(['pkg/a', 'pkg/z']);
   });
 });
 

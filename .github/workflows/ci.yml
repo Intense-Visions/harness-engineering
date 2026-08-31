@@ -167,19 +167,34 @@ jobs:
         if: github.event_name == 'pull_request'
         run: git fetch origin ${{ github.event.pull_request.base.ref }}
 
-      # ADVISORY (non-blocking): ADR 0109 slice 4 — token-free semantic-regression
-      # gate. Fails when a PR downgrades any module's unit `semantic: present →
-      # absent` vs the base ref (frontmatter reads only — no provider, no LLM, no
-      # credential). A red result means "regenerate locally and push" (in-session
-      # via put_comprehension, or a provider-backed `comprehend --changed`), NEVER
-      # "CI needs a key" — so it stays adopter-safe. Runs AFTER the base fetch above
-      # so origin/<base_ref> resolves. Advisory on first landing per repo convention;
-      # promote to blocking (drop `continue-on-error`) once the effortless generation
-      # paths (ADR 0109 slices 2-3) are in wide use.
-      - name: Comprehension semantic-regression gate (advisory)
+      # ADVISORY (non-blocking): ADR 0109 slice 4 / ADR 0110 §4 — token-free
+      # semantic gate on the PR path, run with `--context pr`. Under single-writer
+      # (ADR 0110) PRs are STATIC-ONLY: every touched module legitimately goes
+      # `semantic: present → absent` because semantic is deferred to the `main`
+      # main-pass. So on a PR that flip is EXPECTED and NOT a regression — the old
+      # unqualified gate false-positived on every PR. In `pr` context the gate
+      # instead advisory-warns on any committed-semantic ADDITION (which a
+      # static-only PR should not carry) and never reds on the expected downgrade.
+      # Still token-free (frontmatter reads only — no provider/LLM/credential).
+      # Runs AFTER the base fetch above so origin/<base_ref> resolves.
+      - name: Comprehension semantic gate — PR path (advisory)
         if: github.event_name == 'pull_request' && matrix.os == 'ubuntu-latest'
         continue-on-error: true
-        run: node packages/cli/dist/bin/harness.js comprehend --check --since origin/${{ github.event.pull_request.base.ref }}
+        run: node packages/cli/dist/bin/harness.js comprehend --check --since origin/${{ github.event.pull_request.base.ref }} --context pr
+
+      # ADVISORY (non-blocking): ADR 0110 §4 — the reframed regression gate's real
+      # job GUARDS `main`. After a merge, did the single-writer main-pass LOSE
+      # semantic `main` previously had? `--context main` treats `present → absent`
+      # as a real regression here (the opposite of the PR path). Compares the new
+      # `main` tip against its previous commit (HEAD^); `--deepen 1` makes HEAD^
+      # reachable under the shallow checkout. Token-free; advisory on first landing.
+      - name: Fetch previous main commit for the post-merge guard
+        if: github.ref == 'refs/heads/main' && github.event_name == 'push' && matrix.os == 'ubuntu-latest'
+        run: git fetch --deepen 1
+      - name: Comprehension semantic gate — main guard (advisory)
+        if: github.ref == 'refs/heads/main' && github.event_name == 'push' && matrix.os == 'ubuntu-latest'
+        continue-on-error: true
+        run: node packages/cli/dist/bin/harness.js comprehend --check --since HEAD^ --context main
 
       # ADVISORY (non-blocking): dogfood check-operational-drift on the PR diff.
       # Surfaces gate-softening operational changes (hook profiles, harness.config
@@ -343,3 +358,122 @@ jobs:
           HUSKY: '0'
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           AUTOAPPROVE_PAT: ${{ secrets.BASELINE_AUTOAPPROVE_PAT }}
+
+  # ADR 0110 §3 / #1689 — OPT-IN, token-gated CI semantic refresh (the automated
+  # ALTERNATIVE to the default maintainer-local provider). `main` is the single
+  # writer of the semantic half, so this runs POST-MERGE on `main` ONLY (never in a
+  # PR context — a PR must stay static-only, or it re-creates the very conflict the
+  # single-writer design eliminates). It performs the provider-backed main-pass and
+  # commits the refreshed semantic units via the github-actions[bot].
+  #
+  # OFF BY DEFAULT — TWO switches must both be set, so a default adopter sees ZERO
+  # new behavior and CI stays token-free (the ADR-0109 invariant):
+  #   1. the repo VARIABLE `HARNESS_COMPREHENSION_CI_REFRESH == 'true'` — the
+  #      workflow-level opt-in. GitHub `if:` cannot read the repo's harness.config or
+  #      a secret, so a cheap variable is the only way to keep the whole job INERT
+  #      (never scheduled, zero CI minutes) for the default adopter.
+  #   2. `comprehension.ci: refresh` in harness.config + an LLM credential SECRET —
+  #      the AUTHORITATIVE in-CLI gate (`comprehend --refresh`). Even if the variable
+  #      is set, a missing config value / credential degrades to a token-free no-op
+  #      (an actionable ::warning::) — it never reds the merge. Provider-neutral: the
+  #      credential is any of ANTHROPIC_API_KEY, or HARNESS_ANALYSIS_BASE_URL (+
+  #      optional HARNESS_ANALYSIS_API_KEY) for any OpenAI-compatible vendor.
+  comprehension-refresh:
+    if: >-
+      github.ref == 'refs/heads/main' && github.event_name == 'push' &&
+      vars.HARNESS_COMPREHENSION_CI_REFRESH == 'true'
+    needs: build-and-test
+    runs-on: ubuntu-latest
+    permissions:
+      # `contents: write` for the direct bot push of the refreshed shards;
+      # `pull-requests: write` for the PR fallback when branch protection blocks
+      # a direct push to main (same posture as refresh-baselines).
+      contents: write
+      pull-requests: write
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          # Full history so the bot push / PR fallback has a usable main base.
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - uses: pnpm/action-setup@v5
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 22
+          cache: 'pnpm'
+
+      - run: pnpm install --frozen-lockfile
+
+      - name: Restore Turbo cache
+        uses: actions/cache@v4
+        with:
+          path: .turbo
+          key: turbo-${{ runner.os }}-${{ hashFiles('pnpm-lock.yaml') }}-${{ github.sha }}
+          restore-keys: |
+            turbo-${{ runner.os }}-${{ hashFiles('pnpm-lock.yaml') }}-
+
+      - run: pnpm build
+
+      # The single-writer main-pass. `--refresh` is the authoritative gate: it acts
+      # ONLY when `comprehension.ci: refresh` is configured AND a provider credential
+      # resolves; otherwise it is a clean no-op (exit 0). HARNESS_COMPREHENSION_MAIN_PASS
+      # asserts the main-pass context (the checkout is a detached HEAD at the merged
+      # SHA, where branch resolution is unreliable). All credential envs are passed
+      # through empty-when-unset — the CLI picks whichever vendor resolves.
+      - name: Comprehension semantic refresh (opt-in, token-gated)
+        env:
+          HARNESS_COMPREHENSION_MAIN_PASS: '1'
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          HARNESS_ANALYSIS_BASE_URL: ${{ secrets.HARNESS_ANALYSIS_BASE_URL }}
+          HARNESS_ANALYSIS_API_KEY: ${{ secrets.HARNESS_ANALYSIS_API_KEY }}
+          HARNESS_ANALYSIS_MODEL: ${{ secrets.HARNESS_ANALYSIS_MODEL }}
+        run: node packages/cli/dist/bin/harness.js comprehend --refresh
+
+      # Commit the refreshed semantic shards via the bot. Loop-safe by construction:
+      #   - `[skip ci]` on the commit prevents this push from starting a new CI run;
+      #   - regeneration is IDEMPOTENT — once semantic is fresh, the next run finds
+      #     nothing stale and stages nothing, so `git diff --cached --quiet` short-
+      #     circuits to a no-op even if [skip ci] were ever missed. Both guards hold.
+      # Scoped strictly to `.harness/comprehension/**` so the bot can only ever touch
+      # the substrate it regenerated. Direct push first; PR fallback (for review by a
+      # human — no auto-approve) when branch protection blocks the direct push.
+      - name: Commit refreshed semantic shards
+        env:
+          HUSKY: '0'
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          SUBSTRATE=".harness/comprehension"
+          git add "$SUBSTRATE"
+          if git diff --cached --quiet; then
+            echo "No semantic refresh to commit (all units already source-fresh)."
+            exit 0
+          fi
+          git commit -m "chore(comprehension): CI semantic refresh [skip ci]"
+          OURS=$(git rev-parse HEAD)
+          if git push 2>&1; then
+            exit 0
+          fi
+          echo "Direct push blocked by branch protection. Opening a PR instead."
+          git fetch origin main
+          BRANCH="chore/comprehension-refresh-$(date +%s)"
+          git checkout -B "$BRANCH" origin/main
+          # Re-apply the freshly regenerated shards on top of the latest main. The
+          # substrate is regenerated wholesale, so "ours" is always the correct
+          # resolution and this re-apply cannot conflict.
+          git checkout "$OURS" -- "$SUBSTRATE"
+          git add "$SUBSTRATE"
+          if git diff --cached --quiet; then
+            echo "Latest main already carries this refresh; nothing to PR."
+            exit 0
+          fi
+          git commit -m "chore(comprehension): CI semantic refresh [skip ci]"
+          git push -u origin "$BRANCH"
+          gh pr create \
+            --title "chore(comprehension): CI semantic refresh" \
+            --body "Automated single-writer semantic refresh (ADR 0110 §3 / #1689). Opened because a direct push to main is blocked by branch protection. Review and merge to land the refreshed comprehension substrate." \
+            --base main \
+            --head "$BRANCH"
