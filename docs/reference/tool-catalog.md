@@ -5378,7 +5378,7 @@ Write a StrategyDoc to STRATEGY.md at the project root. Validates against Strate
 }
 ```
 
-## Skills (789)
+## Skills (790)
 
 Every shipped skill contract, read live from its `skill.yaml`. A drift between a skill’s real declared contract and this catalog fails the build.
 
@@ -10743,6 +10743,36 @@ LLM-judgment critique of documentation quality — the ceiling counterpart to th
     "on_pr",
     "on_new_feature",
     "on_doc_check"
+  ],
+  "type": "rigid"
+}
+```
+
+### docs-fleet
+
+Autonomous documentation-drift remediation sweep — enumerate the doc-drift/undocumented backlog by composing the existing documentation-floor detectors, rank the areas by staleness value, confirm the batch once, fan out worktree-isolated subagents that each run the real per-area harness-docs-pipeline to convergence, independently verify each result by a clean doc re-scan and all-OS CI, and hand back a batch of scoped doc-fix PRs for one bulk human review. Never auto-merges.
+
+**Contract:**
+
+```json
+{
+  "catalogTier": 1,
+  "cognitiveMode": "systematic-orchestrator",
+  "dependsOn": [
+    "detect-doc-drift",
+    "harness-docs-pipeline",
+    "harness-roadmap-pilot"
+  ],
+  "name": "docs-fleet",
+  "platforms": [
+    "claude-code",
+    "codex",
+    "cursor",
+    "gemini-cli"
+  ],
+  "tier": 2,
+  "triggers": [
+    "manual"
   ],
   "type": "rigid"
 }
