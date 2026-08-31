@@ -22,6 +22,19 @@ import type {
 import { buildSubprocessEnv } from '../subprocess-env.js';
 import type { PolicyAuditSink } from './claude.js';
 
+/** Guard: returns the value only when it is a non-empty, non-blank string, else `undefined`. */
+function nonEmptyString(v: unknown): string | undefined {
+  return typeof v === 'string' && v.trim() !== '' ? v : undefined;
+}
+
+/** Pull agent_message text out of a single node (`{type:'agent_message', message|text}`). */
+function agentMessageNodeText(node: unknown): string | undefined {
+  if (typeof node !== 'object' || node === null) return undefined;
+  const n = node as Record<string, unknown>;
+  if (n.type !== 'agent_message') return undefined;
+  return nonEmptyString(n.message) ?? nonEmptyString(n.text);
+}
+
 /**
  * Extract the assistant's final text from a parsed codex `--json` line, across
  * protocol versions. Codex surfaces the model's final message as an
@@ -35,18 +48,6 @@ import type { PolicyAuditSink } from './claude.js';
  * backend re-emits as a `result` event so the workflow stage runner captures it
  * (`run.output`) and can persist a design stage's proposal/plan artifact.
  */
-function nonEmptyString(v: unknown): string | undefined {
-  return typeof v === 'string' && v.trim() !== '' ? v : undefined;
-}
-
-/** Pull agent_message text out of a single node (`{type:'agent_message', message|text}`). */
-function agentMessageNodeText(node: unknown): string | undefined {
-  if (typeof node !== 'object' || node === null) return undefined;
-  const n = node as Record<string, unknown>;
-  if (n.type !== 'agent_message') return undefined;
-  return nonEmptyString(n.message) ?? nonEmptyString(n.text);
-}
-
 export function extractCodexAgentMessage(parsed: unknown): string | undefined {
   if (typeof parsed !== 'object' || parsed === null) return undefined;
   const rec = parsed as Record<string, unknown>;
@@ -346,8 +347,14 @@ export class CodexBackend implements AgentBackend {
       spawnError = err.message;
     });
 
-    const rl = readline.createInterface({ input: child.stdout, terminal: false });
-    const errRl = readline.createInterface({ input: child.stderr, terminal: false });
+    const rl = readline.createInterface({
+      input: child.stdout,
+      terminal: false,
+    });
+    const errRl = readline.createInterface({
+      input: child.stderr,
+      terminal: false,
+    });
     errRl.on('line', (line) => {
       if (line.trim()) console.error(`[codex stderr] ${line}`);
     });
@@ -381,7 +388,10 @@ export class CodexBackend implements AgentBackend {
       let subtype = 'codex_output';
       let content = trimmed;
       try {
-        const ev = JSON.parse(trimmed) as { type?: unknown; msg?: { type?: unknown } };
+        const ev = JSON.parse(trimmed) as {
+          type?: unknown;
+          msg?: { type?: unknown };
+        };
         const t = typeof ev.type === 'string' ? ev.type : undefined;
         const mt =
           ev.msg &&
@@ -496,14 +506,20 @@ export class CodexBackend implements AgentBackend {
       const child = spawn(this.command, ['--version'], { stdio: 'ignore' });
       child.on('error', () =>
         resolve(
-          Err({ category: 'agent_not_found', message: `codex CLI '${this.command}' not found` })
+          Err({
+            category: 'agent_not_found',
+            message: `codex CLI '${this.command}' not found`,
+          })
         )
       );
       child.on('exit', (code) =>
         resolve(
           code === 0
             ? Ok(undefined)
-            : Err({ category: 'agent_not_found', message: `codex --version exited ${code}` })
+            : Err({
+                category: 'agent_not_found',
+                message: `codex --version exited ${code}`,
+              })
         )
       );
     });
