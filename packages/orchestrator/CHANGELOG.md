@@ -1,5 +1,33 @@
 # @harness-engineering/orchestrator
 
+## 0.23.0
+
+### Minor Changes
+
+- 8ba0cf5: comprehension: the orchestrator dispatch pre-warm now enriches a leaf with its 1-hop blast radius (#1690). When a dependency graph is present, `resolveLeafPrewarm` serves the committed comprehension units of the seed module's DIRECT importers (the code that depends on the leaf) in addition to the issue-referenced seed, bounded by a token budget cap (`DEFAULT_BLAST_RADIUS_TOKEN_BUDGET`, 4000). The seed is always served; only the importer/dep enrichment is capped, so a hub (high fan-in) leaf serves fewer importer units rather than ballooning the prompt. It is 1-hop only (never the transitive closure), best-effort (a missing/empty/stale graph degrades to the byte-identical seed-only pre-warm), and never calls an LLM.
+
+### Patch Changes
+
+- 6dddc01: fix(orchestrator): honor `diagnosticRetryBudget` on stall and slot-wait retries. `handleStallDetected` and the slot-unavailable requeue branch of `handleRetryFired` now apply a diagnostic issue's tighter `diagnosticRetryBudget` — the same contract `handleWorkerExit` already enforces on a failed run — so a diagnostic issue that stalls or waits for a slot escalates on schedule instead of quietly inheriting the general `maxRetries` budget.
+- 2eb9058: fix(orchestrator): `pruneCompleted` no longer evicts entries still inside the completion grace period. Over-threshold pruning now skips any `completed` entry younger than `pollIntervalMs * COMPLETED_GRACE_MULTIPLIER` (the same window `reconcileCompletedAndClaimed` uses), so a just-finished issue can't be dropped from `completed` in the tick it finished and re-dispatched on the next tick.
+- a62b452: fix(orchestrator): guard `runAgentInBackgroundTask` against stale-abort cross-attempt contamination. An aborted, superseded attempt for an `issue.id` no longer fires `emitWorkerExit('Stopped by reconciliation')` against — nor evicts the tracked controller/pid of — a newer attempt that has since re-taken the same `issue.id`. The post-loop and `finally` cleanups now gate on an `isCurrentAttempt()` identity check.
+- cc41531: fix(orchestrator): clean up the worktree on a fail-closed routing terminal. `finalizeRoutingTerminal` now calls `cleanWorkspaceWithGuard` for the attempt, so a deterministic `PrivacyNoMatch` / budget-exhausted terminal no longer leaks the git worktree that `ensureWorkspace` already created before `route()` threw — matching every other terminal completion path.
+- 6ee4878: docs(codex-backend): attach the three-shape `agent_message` protocol JSDoc to `extractCodexAgentMessage`
+
+  The block documenting the nested/item/flat `agent_message` extraction contract sat above the trivial `nonEmptyString` guard instead of above the exported `extractCodexAgentMessage` it describes, so IDE hover attached it to the wrong function and the real extractor was undocumented. Comment relocation only — no runtime or type change. (craft-fleet COPY-R008)
+
+- f516731: fleet: extend a build lane's isolation boundary beyond the git worktree to user-global `~/.claude` state via a per-lane `CLAUDE_CONFIG_DIR` config-dir override (#1299, ADR 0098).
+  - `@harness-engineering/core` adds a pure primitive `fleet/lane-state-isolation.ts` (`buildLaneStateEnvOverride` / `applyLaneStateEnv` / `resolveLaneClaudeConfigDir`) that redirects `~/.claude` into a sandbox under the worktree's gitignored `.harness/lane-state/`.
+  - `@harness-engineering/burn` `resolvePaths()` now derives the HUD store base from `CLAUDE_CONFIG_DIR` before falling back to `$HOME/.claude`, so a lane's HUD verification writes land in its sandbox instead of the operator's real store. Explicit `CLAUDE_HUD_*` overrides still win.
+  - `@harness-engineering/orchestrator` `buildSubprocessEnv` gains a `laneStateScope` option applying the override; `ClaudeBackend` threads it in, opt-in via `laneStateIsolation` / the `HARNESS_LANE_STATE_ISOLATION` flag (off by default so a normal single-run agent keeps its real login/credentials).
+
+- Updated dependencies [ec12a15]
+- Updated dependencies [07a57a1]
+- Updated dependencies [44d58bf]
+- Updated dependencies [f516731]
+  - @harness-engineering/core@0.46.0
+  - @harness-engineering/intelligence@0.13.0
+
 ## 0.22.0
 
 ### Minor Changes
