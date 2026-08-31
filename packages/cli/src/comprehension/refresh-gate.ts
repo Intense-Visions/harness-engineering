@@ -1,8 +1,8 @@
 /**
- * ADR 0110 §3 (alternative provider) / #1689 — the opt-in, token-gated CI
+ * ADR 0116 §3 (alternative provider) / #1689 — the opt-in, token-gated CI
  * **refresh** gate.
  *
- * ADR 0110 makes `main` the single writer of the SEMANTIC half and chooses the
+ * ADR 0116 makes `main` the single writer of the SEMANTIC half and chooses the
  * MAINTAINER-LOCAL provider as the default (§3): a human periodically runs
  * `harness comprehend --all` and commits the semantic pass. #1689 is the recorded
  * ALTERNATIVE provider — an automated, keyed CI runner that performs the same
@@ -85,12 +85,12 @@ export function explainInactiveRefreshGate(reason: RefreshJobGateReason): string
     case 'not-enabled':
       return (
         "comprehension.ci is not 'refresh' — the opt-in automated CI refresh is OFF " +
-        '(default). Set `comprehension.ci: refresh` to enable it (ADR 0110 §3 / #1689). No-op.'
+        '(default). Set `comprehension.ci: refresh` to enable it (ADR 0116 §3 / #1689). No-op.'
       );
     case 'not-main-pass':
       return (
         'comprehension.ci: refresh requested off the main-pass — committed semantic is ' +
-        'written only on `main` (single writer, ADR 0110). This runner must be the ' +
+        'written only on `main` (single writer, ADR 0116). This runner must be the ' +
         'post-merge `main` job (HARNESS_COMPREHENSION_MAIN_PASS=1). No-op.'
       );
     case 'no-credential':

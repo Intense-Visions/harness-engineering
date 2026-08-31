@@ -3,7 +3,7 @@
 ---
 
 feat(comprehension): opt-in token-gated CI semantic refresh — the automated
-alternative provider (ADR 0110 §3, `Closes #1689`). Stacks on the single-writer
+alternative provider (ADR 0116 §3, `Closes #1689`). Stacks on the single-writer
 core (#1713): where the default is a maintainer running `harness comprehend --all`
 locally, this adds the automated equivalent for teams that want CI to keep the
 committed semantic substrate fresh on a keyed runner.

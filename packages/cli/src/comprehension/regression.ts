@@ -1,5 +1,5 @@
 /**
- * ADR 0109 slice 4 / ADR 0110 §4 — token-free semantic-regression detection.
+ * ADR 0109 slice 4 / ADR 0116 §4 — token-free semantic-regression detection.
  *
  * The committed comprehension substrate is only worth keeping if `main` cannot
  * silently strip a module's expensively-authored semantic understanding down to
@@ -7,7 +7,7 @@
  * reads — no LLM, no provider, no token: did a module's unit flip
  * `semantic: present → absent`?
  *
- * ADR 0110 reframes WHERE that question is a regression. Under single-writer,
+ * ADR 0116 reframes WHERE that question is a regression. Under single-writer,
  * PRs are STATIC-ONLY: every touched module legitimately goes `present` (base) →
  * `absent` (PR), because semantic is deferred to the `main` main-pass. So on a
  * PR that flip is EXPECTED and NOT a regression — flagging it would false-positive
@@ -22,7 +22,7 @@ import { COMPREHENSION_ROOT } from '@harness-engineering/core';
 export type SemanticState = 'present' | 'absent';
 
 /**
- * Which path the check runs on (ADR 0110 §4):
+ * Which path the check runs on (ADR 0116 §4):
  *  - `'main'`: post-merge guard — `present → absent` means `main` lost semantic
  *    (a real regression the single-writer main-pass must never produce).
  *  - `'pr'`: the static-only PR path — `present → absent` is EXPECTED and never a
@@ -39,14 +39,14 @@ export type RegressionContext = 'main' | 'pr';
  * from `base`) is never a regression. Result is sorted for stable reporting.
  *
  * `context: 'pr'` — always `[]`: on the static-only PR path `present → absent` is
- * the designed outcome (semantic lands on `main`, ADR 0110), not a regression.
+ * the designed outcome (semantic lands on `main`, ADR 0116), not a regression.
  */
 export function detectSemanticRegressions(
   base: Map<string, SemanticState>,
   head: Map<string, SemanticState>,
   context: RegressionContext = 'main'
 ): string[] {
-  // ADR 0110 §4: on a PR the present→absent downgrade is EXPECTED, not a
+  // ADR 0116 §4: on a PR the present→absent downgrade is EXPECTED, not a
   // regression. The gate guards `main`, so a PR run flags nothing here.
   if (context === 'pr') return [];
   const regressed: string[] = [];
@@ -59,7 +59,7 @@ export function detectSemanticRegressions(
 }
 
 /**
- * ADR 0110 §1 policy companion (PR path): modules where `head` COMMITTED semantic
+ * ADR 0116 §1 policy companion (PR path): modules where `head` COMMITTED semantic
  * that `base` did not already carry (`base` absent/missing → `head` present).
  * Under single-writer, PRs must be static-only — committed semantic belongs to
  * the `main` main-pass, so a semantic ADDITION on a branch violates policy. This

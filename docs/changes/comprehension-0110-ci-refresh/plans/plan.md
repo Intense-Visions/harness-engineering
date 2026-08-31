@@ -2,15 +2,15 @@
 
 Issue: Intense-Visions/harness-engineering#1689
 Slug: `comprehension-0110-ci-refresh`
-Route: **spec-ready** (design settled in ADR 0110 §3 + §Implementation-slices #2) →
+Route: **spec-ready** (design settled in ADR 0116 §3 + §Implementation-slices #2) →
 run harness-autopilot against the ADR.
-Spec: `docs/knowledge/decisions/0110-single-writer-semantic-comprehension.md`
+Spec: `docs/knowledge/decisions/0116-single-writer-semantic-comprehension.md`
 Stacks on: #1713 (`feat/comprehension-0110-single-writer-1713`) — the single-writer
 core. This PR's base is that branch (GitHub auto-retargets to `main` when #1713 lands).
 
-## Problem (ADR 0110 §3)
+## Problem (ADR 0116 §3)
 
-ADR 0110 makes `main` the single writer of the SEMANTIC half and chooses the
+ADR 0116 makes `main` the single writer of the SEMANTIC half and chooses the
 **maintainer-local** provider as the DEFAULT (§3): a human periodically runs
 `harness comprehend --all` and commits the semantic pass. §3 records the
 **alternative provider** — a scheduled/keyed CI runner — as the opt-in this issue

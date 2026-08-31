@@ -53,7 +53,7 @@ interface ComprehendFlags {
   check?: boolean;
   stats?: boolean;
   /**
-   * #1689 / ADR 0110 §3 — the opt-in token-gated CI **refresh** entrypoint. On the
+   * #1689 / ADR 0116 §3 — the opt-in token-gated CI **refresh** entrypoint. On the
    * single-writer main-pass with a provider credential AND `comprehension.ci:
    * refresh` configured, regenerate + stage committed semantic (the automated
    * equivalent of the maintainer-local `comprehend --all`). A clean no-op (exit 0)
@@ -67,7 +67,7 @@ interface ComprehendFlags {
    */
   since?: string;
   /**
-   * ADR 0110 §4 — which path the `--since` regression gate guards. `'main'`
+   * ADR 0116 §4 — which path the `--since` regression gate guards. `'main'`
    * (default, post-merge): `present → absent` is a real regression. `'pr'` (the
    * static-only PR path): `present → absent` is EXPECTED, never flagged.
    */
@@ -261,10 +261,10 @@ async function runCheckMode(
     config?: HarnessConfig | undefined;
   } = { projectRoot: process.cwd() }
 ): Promise<void> {
-  // ADR 0110 §2 — consume the (previously dormant) `comprehension.ci` seam.
+  // ADR 0116 §2 — consume the (previously dormant) `comprehension.ci` seam.
   const ciMode = resolveComprehensionCiMode(opts.config);
   if (ciMode === 'off') {
-    logger.info('comprehension.ci: off — the comprehension gate is disabled (ADR 0110 §2).');
+    logger.info('comprehension.ci: off — the comprehension gate is disabled (ADR 0116 §2).');
     process.exit(ExitCode.SUCCESS);
   }
 
@@ -278,18 +278,18 @@ async function runCheckMode(
     logger.success('All comprehension units are source-fresh.');
   }
 
-  // ADR 0109 slice 4 / ADR 0110 §4 — token-free semantic-regression gate vs a base
+  // ADR 0109 slice 4 / ADR 0116 §4 — token-free semantic-regression gate vs a base
   // ref. Base and head are read the SAME way (committed shards via git + lenient
   // frontmatter parse), so a shard cannot be counted as "present" on one side and
   // dropped on the other. An unreadable ref fails LOUD — never a silent pass.
   //
-  // The `context` reframes WHAT is a regression (ADR 0110 §4):
+  // The `context` reframes WHAT is a regression (ADR 0116 §4):
   //  - `'main'` (default, post-merge): `present → absent` means `main` LOST
   //    semantic — a real regression the single-writer main-pass must never produce.
   //  - `'pr'` (the static-only PR path): `present → absent` is EXPECTED (semantic
   //    deferred to `main`) and NEVER a regression — killing the per-PR false
   //    positive. Instead we advisory-warn on any committed-semantic ADDITION, which
-  //    a static-only PR should not carry (single-writer, ADR 0110 §1).
+  //    a static-only PR should not carry (single-writer, ADR 0116 §1).
   const context: RegressionContext = opts.context ?? 'main';
   let regressed: string[] = [];
   let refUnreadable = false;
@@ -311,13 +311,13 @@ async function runCheckMode(
         if (committed.length > 0) {
           logger.warn(
             `${committed.length} module(s) COMMITTED semantic on a branch vs ${opts.since}: ` +
-              `${committed.join(', ')}. Under single-writer (ADR 0110 §1) PRs are static-only — ` +
+              `${committed.join(', ')}. Under single-writer (ADR 0116 §1) PRs are static-only — ` +
               `semantic belongs to the \`main\` main-pass. This is advisory (not a failure).`
           );
         }
         logger.success(
           `Static-only PR path: \`present → absent\` is expected (semantic deferred to \`main\`, ` +
-            `ADR 0110 §4) — no semantic regression flagged.`
+            `ADR 0116 §4) — no semantic regression flagged.`
         );
       } else if (regressed.length > 0) {
         logger.error(
@@ -331,7 +331,7 @@ async function runCheckMode(
     }
   }
 
-  // ADR 0110 §2 — refresh main-pass seam (best-effort; never changes the verdict).
+  // ADR 0116 §2 — refresh main-pass seam (best-effort; never changes the verdict).
   if (ciMode === 'refresh') {
     const cconf = readComprehensionConfig(opts.config);
     await runRefreshMainPass(opts.projectRoot, store, reader, cconf, opts.since);
@@ -354,7 +354,7 @@ async function runStatsMode(
 }
 
 /**
- * ADR 0110 §1 — resolve whether THIS compile run may write COMMITTED semantic.
+ * ADR 0116 §1 — resolve whether THIS compile run may write COMMITTED semantic.
  * A run is static-only when `--static` / `semantic:false` (the existing SC4
  * posture) OR when this is NOT the main-pass (the PR path): on a feature branch,
  * semantic is deferred to the `main` main-pass, so the provider is never resolved
@@ -414,7 +414,7 @@ async function compileComprehension(
     return null;
   }
 
-  // ADR 0110 §1 — committed semantic only on the main-pass. Off it (the PR path),
+  // ADR 0116 §1 — committed semantic only on the main-pass. Off it (the PR path),
   // force static-only regardless of provider availability so a branch never writes
   // committed (non-deterministic) semantic that would conflict on the merge button.
   const isMainPass = opts.isMainPass ?? committedSemanticAllowed();
@@ -422,7 +422,7 @@ async function compileComprehension(
   if (posture.deferredToMain) {
     logger.info(
       'comprehend: PR path is static-only — committed semantic is deferred to the `main` ' +
-        'main-pass (single writer, ADR 0110 §1). Writing the byte-stable static skeleton only.'
+        'main-pass (single writer, ADR 0116 §1). Writing the byte-stable static skeleton only.'
     );
   }
 
@@ -499,13 +499,13 @@ async function runCompileMode(
 }
 
 /**
- * ADR 0110 §2 — the `comprehension.ci: refresh` main-pass seam. When `refresh` is
+ * ADR 0116 §2 — the `comprehension.ci: refresh` main-pass seam. When `refresh` is
  * configured, after the token-free verify gate we ATTEMPT the provider-backed
  * regeneration + commit of semantic. Guarded so it stays adopter-safe:
  *  - Only on the main-pass context (committed semantic belongs to `main`). Off it,
  *    skip — a PR must never commit semantic.
  *  - Only when a provider actually resolves. With the default maintainer-local
- *    provider (ADR 0110 §3) CI has no credential, so this degrades gracefully to a
+ *    provider (ADR 0116 §3) CI has no credential, so this degrades gracefully to a
  *    no-op and the maintainer's local `comprehend --all` remains the writer.
  * Provider-neutral (never forces a Claude model — reuses `resolveCompileProvider`).
  * The opt-in token-gated runner (#1689) plugs its provider into exactly this path.
@@ -523,7 +523,7 @@ async function runRefreshMainPass(
   if (!committedSemanticAllowed()) {
     logger.warn(
       'comprehension.ci: refresh requested off the main-pass — committed semantic is written ' +
-        'only on `main` (single writer, ADR 0110). Skipping the refresh regeneration.'
+        'only on `main` (single writer, ADR 0116). Skipping the refresh regeneration.'
     );
     return 0;
   }
@@ -534,7 +534,7 @@ async function runRefreshMainPass(
     logger.info(
       'comprehension.ci: refresh is configured, but no analysis provider is available in this ' +
         'context (CI stays token-free). Deferring semantic to the maintainer-local `harness ' +
-        'comprehend --all` main pass (ADR 0110 §3); configure #1689 to automate it.'
+        'comprehend --all` main pass (ADR 0116 §3); configure #1689 to automate it.'
     );
     return 0;
   }
@@ -565,7 +565,7 @@ function emitGithubAnnotation(level: 'warning' | 'notice', message: string): voi
 }
 
 /**
- * #1689 / ADR 0110 §3 — the opt-in token-gated CI **refresh** entrypoint
+ * #1689 / ADR 0116 §3 — the opt-in token-gated CI **refresh** entrypoint
  * (`comprehend --refresh`). This is the automated ALTERNATIVE to the default
  * maintainer-local provider: the post-merge `main` CI job invokes it to perform
  * the single-writer main-pass and commit the refreshed semantic units via a bot.
@@ -709,7 +709,7 @@ export function createComprehendCommand(): Command {
     )
     .option(
       '--context <pr|main>',
-      'With --check --since: which path to guard (ADR 0110 §4). "main" (default): present→absent is a regression. "pr": the static-only PR path, present→absent is expected and never flagged.'
+      'With --check --since: which path to guard (ADR 0116 §4). "main" (default): present→absent is a regression. "pr": the static-only PR path, present→absent is expected and never flagged.'
     )
     .option('--stats', 'Report served-vs-raw token savings (token-free)')
     .option(

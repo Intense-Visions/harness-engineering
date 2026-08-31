@@ -5,7 +5,7 @@ import {
   type RefreshJobGateReason,
 } from '../../src/comprehension/refresh-gate';
 
-// #1689 / ADR 0110 §3 — the opt-in token-gated CI refresh gate. Three orthogonal
+// #1689 / ADR 0116 §3 — the opt-in token-gated CI refresh gate. Three orthogonal
 // signals AND-ed cheapest-first; the reported reason is the FIRST missing one.
 
 describe('resolveRefreshJobGate — #1689 opt-in token gate', () => {

@@ -53,7 +53,7 @@ describe('detectSemanticRegressions', () => {
     expect(detectSemanticRegressions(base, head)).toEqual(['pkg/a', 'pkg/z']);
   });
 
-  // ADR 0110 §4 — the `context` reframe.
+  // ADR 0116 §4 — the `context` reframe.
   it("defaults to 'main' context (strict present → absent = regression)", () => {
     const base = m([['pkg/a', 'present']]);
     const head = m([['pkg/a', 'absent']]);
@@ -78,7 +78,7 @@ describe('detectSemanticRegressions', () => {
   });
 });
 
-describe('detectCommittedSemanticOnBranch (ADR 0110 §1 PR-path policy)', () => {
+describe('detectCommittedSemanticOnBranch (ADR 0116 §1 PR-path policy)', () => {
   it('flags a module that ADDED committed semantic on a branch (absent/missing → present)', () => {
     const base = m([['pkg/a', 'absent']]);
     const head = m([['pkg/a', 'present']]);

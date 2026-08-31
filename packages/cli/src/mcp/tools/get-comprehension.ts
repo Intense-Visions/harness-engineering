@@ -188,7 +188,7 @@ export async function serveOrRecompile(
  * when `comprehension.semantic` is enabled; a missing provider degrades to
  * static-only (never throws).
  *
- * ADR 0110 §1 — but a recompile WRITES a committed shard, so on the PR path
+ * ADR 0116 §1 — but a recompile WRITES a committed shard, so on the PR path
  * (off the `main` main-pass) it must NOT write semantic: single writer is `main`.
  * The provider is therefore gated by `committedSemanticAllowed()` too — on a
  * branch a recompile-on-miss serves the byte-stable STATIC unit (still useful,
@@ -203,7 +203,7 @@ function resolveDefaultDeps(projectRoot: string): ServeOrRecompileDeps {
   // thunk. `serveOrRecompile` invokes it ONLY on the recompile branch, so a pure
   // fresh serve resolves no provider at all. A recompile demand is explicit, so it
   // MAY resolve a provider when `comprehension.semantic` is enabled; a missing
-  // provider degrades to static-only (never throws). ADR 0110 §1: also require the
+  // provider degrades to static-only (never throws). ADR 0116 §1: also require the
   // main-pass — off it, no provider is resolved and the recompile stays static-only.
   const resolveGenerateSemantic = async (): Promise<GenerateSemantic | undefined> => {
     const provider =

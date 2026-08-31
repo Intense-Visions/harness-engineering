@@ -219,7 +219,7 @@ process.stdout.write(JSON.stringify(chatty ? prose : good));
   });
 
   // Env that steers the D8 resolver onto the claude-CLI path and finds our fake:
-  // no Anthropic key, no local endpoint, fake `claude` first on PATH. ADR 0110:
+  // no Anthropic key, no local endpoint, fake `claude` first on PATH. ADR 0116:
   // semantic generation is now a MAIN-PASS operation (single writer), so these
   // "with-LLM" tests run in a main-pass context via HARNESS_COMPREHENSION_MAIN_PASS
   // — exactly the maintainer-local `harness comprehend --all` on `main` they model.
@@ -246,7 +246,7 @@ process.stdout.write(JSON.stringify(chatty ? prose : good));
     expect(comprehend(proj, ['--check'], fakeEnv()).status).toBe(0);
   });
 
-  // ADR 0110 §1 — the PR path is static-only END-TO-END: even with a working
+  // ADR 0116 §1 — the PR path is static-only END-TO-END: even with a working
   // (faked) provider on PATH, a run OFF the main-pass must NOT write committed
   // semantic. The single writer is `main`; a branch stays byte-stable static.
   it('SUPPRESSES semantic off the main-pass (PR path stays static-only) even with a provider available', () => {
@@ -331,7 +331,7 @@ describe.skipIf(!HAS_BIN || !process.env.HARNESS_E2E_LIVE)(
   }
 );
 
-// --- #1689 / ADR 0110 §3 — the opt-in token-gated CI `--refresh` entrypoint -----
+// --- #1689 / ADR 0116 §3 — the opt-in token-gated CI `--refresh` entrypoint -----
 // End-to-end over the REAL built binary: the automated alternative provider that
 // the post-merge `main` CI job invokes. It must be OFF by default (no config / no
 // credential ⇒ clean no-op, exit 0, never reds a merge) and only regenerate on the

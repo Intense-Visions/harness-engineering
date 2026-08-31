@@ -2,7 +2,7 @@
   "issue": 1713,
   "issues": [1713],
   "route": "spec-ready",
-  "spec": "docs/knowledge/decisions/0110-single-writer-semantic-comprehension.md",
+  "spec": "docs/knowledge/decisions/0116-single-writer-semantic-comprehension.md",
   "stages": ["autopilot", "planning", "execution", "verification"],
   "planArtifact": "docs/changes/comprehension-0110-single-writer/plans/plan.md",
   "assumptions": [
@@ -13,7 +13,7 @@
     "Regression gate reframe via a --context <pr|main> flag; DEFAULT is 'main' (strict, backward-compatible) so CI must pass --context pr explicitly on the PR step. 'pr' returns [] for present→absent (kills the per-PR false positive); added detectCommittedSemanticOnBranch as an advisory PR-path policy companion (flags disallowed committed-semantic ADDITIONS).",
     "CI: PR step now `--context pr`; NEW post-merge main-guard step (push to main) runs `--check --since HEAD^ --context main` with `git fetch --deepen 1`. Both advisory (continue-on-error) per repo first-landing convention.",
     "E2E faked-LLM semantic tests set HARNESS_COMPREHENSION_MAIN_PASS=1 (semantic generation is now a main-pass operation); added an end-to-end test proving PR-path suppression even with a provider on PATH.",
-    "Provider question (§3) is settled maintainer-local by ADR 0110 and the brief — no keyed CI runner added (that is #1689, out of scope)."
+    "Provider question (§3) is settled maintainer-local by ADR 0116 and the brief — no keyed CI runner added (that is #1689, out of scope)."
   ],
   "closingKeyword": "Closes #1713"
 }

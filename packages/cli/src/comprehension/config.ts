@@ -21,17 +21,17 @@ export function readComprehensionConfig(config?: HarnessConfig | null): Comprehe
   return ComprehensionConfigSchema.parse(config?.comprehension ?? {});
 }
 
-/** The CI behavior of the comprehension gate (ADR 0110 §2). */
+/** The CI behavior of the comprehension gate (ADR 0116 §2). */
 export type ComprehensionCiMode = ComprehensionConfig['ci'];
 
 /**
- * Read the (previously dormant) `comprehension.ci` seam (ADR 0110 §2). Now
+ * Read the (previously dormant) `comprehension.ci` seam (ADR 0116 §2). Now
  * CONSUMED by `comprehend --check`:
  *  - `'verify'` (default) — run the token-free freshness + regression gate.
  *  - `'off'` — disable the gate entirely (exit 0), for adopters who opt out.
  *  - `'refresh'` — run the gate, then attempt the provider-backed **main-pass**
  *    (regenerate + commit semantic) when a provider is available and this is the
- *    main-pass context. With the default maintainer-local provider (ADR 0110 §3)
+ *    main-pass context. With the default maintainer-local provider (ADR 0116 §3)
  *    CI has no credential, so `refresh` degrades gracefully to `verify`; the
  *    opt-in token-gated runner (#1689) plugs its provider into exactly this seam.
  */

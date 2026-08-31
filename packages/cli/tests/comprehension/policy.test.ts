@@ -34,7 +34,7 @@ describe('resolveComprehensionBranch', () => {
   });
 });
 
-describe('isMainPassContext (ADR 0110 single-writer)', () => {
+describe('isMainPassContext (ADR 0116 single-writer)', () => {
   it('is TRUE on the main branch (maintainer-local main pass)', () => {
     expect(isMainPassContext({ branch: 'main', env: {} as NodeJS.ProcessEnv })).toBe(true);
   });

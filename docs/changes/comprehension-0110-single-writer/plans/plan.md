@@ -2,11 +2,11 @@
 
 Issue: Intense-Visions/harness-engineering#1713
 Slug: `comprehension-0110-single-writer`
-Route: **spec-ready** (design settled in ADR 0110) → run harness-autopilot against
+Route: **spec-ready** (design settled in ADR 0116) → run harness-autopilot against
 the ADR.
-Spec: `docs/knowledge/decisions/0110-single-writer-semantic-comprehension.md`
+Spec: `docs/knowledge/decisions/0116-single-writer-semantic-comprehension.md`
 
-## Problem (ADR 0110)
+## Problem (ADR 0116)
 
 Committed **semantic** shards (LLM-authored summary + invariants) are
 non-deterministic prose, so two concurrent PRs touching the same module conflict.
@@ -18,12 +18,12 @@ of a non-deterministic artifact.**
 Decision: **`main` is the single writer of the SEMANTIC half.** PRs carry only the
 byte-stable STATIC skeleton (they never conflict). Semantic is (re)generated once,
 off the PR path, where there is no concurrency. Provider for the main pass is
-**maintainer-local** (ADR 0110 §3, chosen) — CI stays token-free; the keyed CI
+**maintainer-local** (ADR 0116 §3, chosen) — CI stays token-free; the keyed CI
 runner is a separate opt-in (#1689) that plugs into the same seam.
 
 ## Design — three coupled changes
 
-### 1. Enforce static-only on the PR path (ADR 0110 §1)
+### 1. Enforce static-only on the PR path (ADR 0116 §1)
 
 New pure policy module `packages/cli/src/comprehension/policy.ts`:
 
@@ -53,7 +53,7 @@ the single writer (`main`)." Wired into every committed-semantic write path:
   resolved only on the main-pass, so a branch recompile serves the byte-stable
   static unit (still useful, ~free), never a committed semantic shard.
 
-### 2. Wire the dormant `comprehension.ci: refresh` seam (ADR 0110 §2)
+### 2. Wire the dormant `comprehension.ci: refresh` seam (ADR 0116 §2)
 
 `resolveComprehensionCiMode(config)` reads the previously-unconsumed enum. Consumed
 in `comprehend --check` (the CI-facing gate):
@@ -67,7 +67,7 @@ in `comprehend --check` (the CI-facing gate):
   #1689 keyed runner plugs its provider into exactly this seam. Provider-neutral —
   reuses `resolveCompileProvider` (never forces a Claude model, ADR 0106/0109).
 
-### 3. Reframe the slice-4 regression gate to guard `main` (ADR 0110 §4)
+### 3. Reframe the slice-4 regression gate to guard `main` (ADR 0116 §4)
 
 `detectSemanticRegressions(base, head, context)` gains a `context`:
 
