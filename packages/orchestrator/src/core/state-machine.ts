@@ -769,6 +769,8 @@ function handleRetryFired(
     return { nextState: next, effects };
   }
 
+  const escalationConfig = resolveEscalationConfig(config);
+
   // Check slots
   if (
     !canDispatch(
@@ -778,17 +780,27 @@ function handleRetryFired(
       dispatchBudgetOptions(config, issue)
     )
   ) {
-    // Requeue with incremented attempt
+    // Requeue with incremented attempt. Diagnostic issues get their tighter
+    // diagnosticRetryBudget here too -- same contract handleWorkerExit already
+    // enforces on a failed run -- so a diagnostic issue stuck waiting for a
+    // slot escalates on schedule instead of quietly inheriting the general
+    // maxRetries budget.
     const nextAttempt = retryEntry.attempt + 1;
     const maxRetries = config.agent.maxRetries ?? 5;
+    const scopeLabel = issue.labels.find((l) => l.startsWith('scope:'));
+    const isDiagnostic = scopeLabel === 'scope:diagnostic';
+    const retryBudget = isDiagnostic ? escalationConfig.diagnosticRetryBudget : maxRetries;
+    const budgetLabel = isDiagnostic
+      ? `diagnostic exceeded retry budget (${escalationConfig.diagnosticRetryBudget}) while waiting for slots`
+      : `max retries (${maxRetries}) while waiting for slots`;
 
     if (
       checkRetryBudget(
         nextAttempt,
-        maxRetries,
+        retryBudget,
         issueId,
         retryEntry.identifier,
-        `max retries (${maxRetries}) while waiting for slots`,
+        budgetLabel,
         effects,
         {
           issueTitle: issue.title,
@@ -813,7 +825,6 @@ function handleRetryFired(
   }
 
   // Re-route through model router to preserve backend assignment
-  const escalationConfig = resolveEscalationConfig(config);
   const scopeTier = detectScopeTier(issue, artifactPresenceFromIssue(issue));
   const signals = [...(concernSignals?.get(issue.id) ?? [])];
   const decision = routeIssue(scopeTier, signals, escalationConfig);
@@ -858,20 +869,24 @@ function handleStallDetected(
   const maxRetries = config.agent.maxRetries ?? 5;
   const identifier = entryIdentifier(entry, issueId);
 
+  // Diagnostic issues get their tighter diagnosticRetryBudget here too -- the
+  // same contract handleWorkerExit already enforces on a failed run -- so a
+  // diagnostic issue that stalls escalates on schedule instead of quietly
+  // inheriting the general maxRetries budget.
+  const escalationConfig = resolveEscalationConfig(config);
+  const scopeLabel = entry?.issue.labels.find((l) => l.startsWith('scope:'));
+  const isDiagnostic = scopeLabel === 'scope:diagnostic';
+  const retryBudget = isDiagnostic ? escalationConfig.diagnosticRetryBudget : maxRetries;
+  const budgetLabel = isDiagnostic
+    ? `diagnostic exceeded retry budget (${escalationConfig.diagnosticRetryBudget}) after stall`
+    : `max retries (${maxRetries}) after stall`;
+
   const stallExtras: EscalateExtras = {};
   if (entry?.issue.title) stallExtras.issueTitle = entry.issue.title;
   if (entry?.issue.description) stallExtras.issueDescription = entry.issue.description;
 
   if (
-    checkRetryBudget(
-      attempt,
-      maxRetries,
-      issueId,
-      identifier,
-      `max retries (${maxRetries}) after stall`,
-      effects,
-      stallExtras
-    )
+    checkRetryBudget(attempt, retryBudget, issueId, identifier, budgetLabel, effects, stallExtras)
   ) {
     return { nextState: next, effects };
   }
