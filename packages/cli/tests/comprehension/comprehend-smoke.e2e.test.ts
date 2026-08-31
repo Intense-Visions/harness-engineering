@@ -330,3 +330,197 @@ describe.skipIf(!HAS_BIN || !process.env.HARNESS_E2E_LIVE)(
     });
   }
 );
+
+// --- #1689 / ADR 0110 §3 — the opt-in token-gated CI `--refresh` entrypoint -----
+// End-to-end over the REAL built binary: the automated alternative provider that
+// the post-merge `main` CI job invokes. It must be OFF by default (no config / no
+// credential ⇒ clean no-op, exit 0, never reds a merge) and only regenerate on the
+// single-writer main-pass with a credential AND `comprehension.ci: refresh`.
+// POSIX-only for the with-provider leg (a fake `claude` on PATH), matching the
+// faked-LLM block above.
+const POSIX_REFRESH = process.platform !== 'win32';
+
+describe.skipIf(!HAS_BIN)('harness comprehend --refresh — E2E opt-in gate (#1689)', () => {
+  function scaffoldRefresh(ci?: 'verify' | 'refresh' | 'off'): string {
+    const dir = mkdtempSync(path.join(tmpdir(), 'comprehend-refresh-'));
+    mkdirSync(path.join(dir, 'math'), { recursive: true });
+    writeFileSync(
+      path.join(dir, 'math', 'add.ts'),
+      `/** Adds two numbers. */\nexport function add(a: number, b: number): number {\n  return a + b;\n}\n`
+    );
+    writeFileSync(path.join(dir, 'math', 'index.ts'), `export { add } from './add';\n`);
+    if (ci) {
+      writeFileSync(
+        path.join(dir, 'harness.config.json'),
+        JSON.stringify({ version: 1, comprehension: { ci } }, null, 2)
+      );
+    }
+    return dir;
+  }
+
+  // An env with NO provider resolvable: strip every credential signal AND point PATH
+  // at an empty dir so `claude` is not discoverable. process.execPath is absolute,
+  // so the spawned CLI still runs; the inactive-gate path never shells out to git.
+  function noProviderEnv(extra: NodeJS.ProcessEnv = {}): NodeJS.ProcessEnv {
+    const empty = mkdtempSync(path.join(tmpdir(), 'empty-path-'));
+    const e = { ...process.env, ...extra };
+    delete e.ANTHROPIC_API_KEY;
+    delete e.HARNESS_ANALYSIS_BASE_URL;
+    delete e.HARNESS_ANALYSIS_API_KEY;
+    e.PATH = empty;
+    e.Path = empty;
+    return e;
+  }
+
+  it('OFF by default: ci:verify ⇒ --refresh is a clean no-op that writes no semantic (exit 0)', () => {
+    const proj = scaffoldRefresh('verify');
+    try {
+      const r = comprehend(
+        proj,
+        ['--refresh'],
+        noProviderEnv({ HARNESS_COMPREHENSION_MAIN_PASS: '1' })
+      );
+      expect(r.status).toBe(0);
+      expect(r.stdout + r.stderr).toMatch(/not 'refresh'|OFF \(default\)/);
+      // No shard written at all — the gate short-circuited before any compile.
+      expect(existsSync(path.join(proj, UNIT))).toBe(false);
+    } finally {
+      rmSync(proj, { recursive: true, force: true });
+    }
+  });
+
+  it('no config block ⇒ still OFF by default (defaults to verify)', () => {
+    const proj = scaffoldRefresh(undefined);
+    try {
+      const r = comprehend(
+        proj,
+        ['--refresh'],
+        noProviderEnv({ HARNESS_COMPREHENSION_MAIN_PASS: '1' })
+      );
+      expect(r.status).toBe(0);
+      expect(existsSync(path.join(proj, UNIT))).toBe(false);
+    } finally {
+      rmSync(proj, { recursive: true, force: true });
+    }
+  });
+
+  it('ci:refresh + main-pass but NO credential ⇒ actionable no-op, exit 0, token-free', () => {
+    const proj = scaffoldRefresh('refresh');
+    try {
+      const r = comprehend(
+        proj,
+        ['--refresh'],
+        noProviderEnv({ HARNESS_COMPREHENSION_MAIN_PASS: '1' })
+      );
+      expect(r.status).toBe(0);
+      // The actionable message names the provider-neutral secrets to set.
+      expect(r.stdout + r.stderr).toMatch(/no analysis provider credential/i);
+      expect(r.stdout + r.stderr).toMatch(/ANTHROPIC_API_KEY|HARNESS_ANALYSIS_BASE_URL/);
+      // Nothing regenerated: CI stayed token-free.
+      expect(existsSync(path.join(proj, UNIT))).toBe(false);
+    } finally {
+      rmSync(proj, { recursive: true, force: true });
+    }
+  });
+
+  it('ci:refresh but OFF the main-pass ⇒ no-op (semantic belongs to main)', () => {
+    const proj = scaffoldRefresh('refresh');
+    try {
+      // No main-pass signal at all ⇒ branch/PR context ⇒ inactive.
+      const e = noProviderEnv();
+      delete e.HARNESS_COMPREHENSION_MAIN_PASS;
+      delete e.GITHUB_REF;
+      delete e.GITHUB_HEAD_REF;
+      delete e.HARNESS_BRANCH;
+      delete e.CI_COMMIT_REF_NAME;
+      delete e.BUILDKITE_BRANCH;
+      const r = comprehend(proj, ['--refresh'], e);
+      expect(r.status).toBe(0);
+      expect(r.stdout + r.stderr).toMatch(/off the main-pass|belongs to|single writer/i);
+      expect(existsSync(path.join(proj, UNIT))).toBe(false);
+    } finally {
+      rmSync(proj, { recursive: true, force: true });
+    }
+  });
+});
+
+describe.skipIf(!HAS_BIN || !POSIX_REFRESH)(
+  'harness comprehend --refresh — active path with a faked provider (#1689)',
+  () => {
+    let binDir: string;
+
+    function writeFakeClaude(dir: string): void {
+      const script = `#!/usr/bin/env node
+const good = { type: 'result', result: 'done', structured_output: { summary: 'FAKE_SUMMARY: adds two numbers; pure and total.', invariants: ['add(a,b) returns a+b'] }, usage: { input_tokens: 10, output_tokens: 5 }, model: 'fake-claude' };
+process.stdout.write(JSON.stringify(good));
+`;
+      writeFileSync(path.join(dir, 'claude'), script, { mode: 0o755 });
+    }
+
+    beforeAll(() => {
+      binDir = mkdtempSync(path.join(tmpdir(), 'fake-bin-refresh-'));
+      writeFakeClaude(binDir);
+    });
+
+    afterAll(() => {
+      if (binDir) rmSync(binDir, { recursive: true, force: true });
+    });
+
+    function scaffoldRefresh(): string {
+      const dir = mkdtempSync(path.join(tmpdir(), 'comprehend-refresh-live-'));
+      mkdirSync(path.join(dir, 'math'), { recursive: true });
+      writeFileSync(
+        path.join(dir, 'math', 'add.ts'),
+        `/** Adds two numbers. */\nexport function add(a: number, b: number): number {\n  return a + b;\n}\n`
+      );
+      writeFileSync(path.join(dir, 'math', 'index.ts'), `export { add } from './add';\n`);
+      writeFileSync(
+        path.join(dir, 'harness.config.json'),
+        JSON.stringify({ version: 1, comprehension: { ci: 'refresh' } }, null, 2)
+      );
+      return dir;
+    }
+
+    // Steer the resolver onto the claude-CLI path (no key, fake `claude` first on
+    // PATH) AND assert the single-writer main-pass context. This models the #1689
+    // CI job: HARNESS_COMPREHENSION_MAIN_PASS=1 + a credential + ci:refresh.
+    function activeEnv(): NodeJS.ProcessEnv {
+      const e = { ...process.env, HARNESS_COMPREHENSION_MAIN_PASS: '1' };
+      delete e.ANTHROPIC_API_KEY;
+      delete e.HARNESS_ANALYSIS_BASE_URL;
+      e.PATH = `${binDir}${path.delimiter}${process.env.PATH ?? ''}`;
+      return e;
+    }
+
+    it('ACTIVE: regenerates + reports the refreshed semantic units on the main-pass', () => {
+      const proj = scaffoldRefresh();
+      try {
+        const r = comprehend(proj, ['--refresh'], activeEnv());
+        expect(r.status).toBe(0);
+        expect(r.stdout).toMatch(/regenerated 1 module\(s\)/);
+        expect(r.stdout).toMatch(/1 semantic/);
+        const unit = readFileSync(path.join(proj, UNIT), 'utf8');
+        expect(unit).toContain('semantic: present');
+        expect(unit).toContain('FAKE_SUMMARY');
+        // The freshly written semantic unit serves (hash equality holds).
+        expect(comprehend(proj, ['--check'], activeEnv()).status).toBe(0);
+      } finally {
+        rmSync(proj, { recursive: true, force: true });
+      }
+    });
+
+    it('idempotent: a second --refresh finds everything fresh and stages nothing (loop-safe)', () => {
+      const proj = scaffoldRefresh();
+      try {
+        expect(comprehend(proj, ['--refresh'], activeEnv()).status).toBe(0);
+        const second = comprehend(proj, ['--refresh'], activeEnv());
+        expect(second.status).toBe(0);
+        // Nothing to regenerate ⇒ no shards staged ⇒ the bot commit is a no-op ⇒
+        // no CI loop even without [skip ci].
+        expect(second.stdout).toMatch(/already source-fresh|nothing to regenerate/i);
+      } finally {
+        rmSync(proj, { recursive: true, force: true });
+      }
+    });
+  }
+);
