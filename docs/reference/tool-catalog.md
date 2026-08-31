@@ -5378,7 +5378,7 @@ Write a StrategyDoc to STRATEGY.md at the project root. Validates against Strate
 }
 ```
 
-## Skills (790)
+## Skills (791)
 
 Every shipped skill contract, read live from its `skill.yaml`. A drift between a skill’s real declared contract and this catalog fails the build.
 
