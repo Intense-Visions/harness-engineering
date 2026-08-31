@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'packages/orchestrator/src/agent/backends'
-sourceHash: '2bc26b4ebac60fa269b5094e0be042bca76fb5781cc7a1adf0d217fad813434b'
+sourceHash: '2b78b1655f2f872a15fdaf2767bab71aaf756dee86aa81339d86052d8044dfb2'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
