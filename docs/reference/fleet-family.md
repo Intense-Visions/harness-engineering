@@ -10,7 +10,7 @@ A `-fleet` is **distinct from a convergence _pipeline_** (`docs-pipeline`, `code
 
 ## The conveyor
 
-`ideate-fleet` (ideate) → `issue-fleet` (intake) → `adr-fleet` (decide) → `roadmap-fleet` (build) → `pr-fleet` (land); `cicd-fleet`, `test-fleet`, `security-fleet`, `cleanup-fleet`, `bug-fleet`, and `craft-fleet` work quality queues alongside. Each member owns one stage's queue and terminal act; the spine below is common to all.
+`ideate-fleet` (ideate) → `issue-fleet` (intake) → `adr-fleet` (decide) → `roadmap-fleet` (build) → `pr-fleet` (land); `cicd-fleet`, `test-fleet`, `security-fleet`, `cleanup-fleet`, `bug-fleet`, `craft-fleet`, and `perf-fleet` work quality queues alongside. Each member owns one stage's queue and terminal act; the spine below is common to all.
 
 ## The shared five-phase spine
 
@@ -232,6 +232,7 @@ The spine above is shared. Each member's own `SKILL.md` defines:
 | `cleanup-fleet`  | —      | entropy / hotspot backlog                       | `codebase-cleanup` (per-target)                                                                                                                | remediation PRs                             |
 | `bug-fleet`      | —      | latent-defect risk (standing code)              | review machinery → `tdd` (repro) → `debugging` (fix)                                                                                           | tiered: fix PRs + filed issues              |
 | `craft-fleet`    | —      | craft-skill findings (LLM-judgment quality)     | eleven `-craft` skills (critique) → `refactoring` (elevation)                                                                                  | tiered: elevation PRs + filed roadmap items |
+| `perf-fleet`     | —      | measured perf-budget violations + regressions   | `perf` (measure before/after) → `debugging` / `refactoring` (fix)                                                                              | tiered: fix PRs + filed redesign issues     |
 
 ## The conductor tier
 

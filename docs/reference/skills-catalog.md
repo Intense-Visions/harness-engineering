@@ -778,6 +778,16 @@ LLM-judgment skill that produces a structured, confidence-rated verdict on wheth
 - **Type:** rigid
 - **Cognitive mode:** constructive-architect
 
+### perf-fleet
+
+Autonomous performance-budget/regression remediation sweep — enumerate the perf-budget-violation and runtime-regression backlog by composing the existing perf detectors (check_performance, harness-perf, benchmark baselines), fold it into independent remediation targets, rank them by severity value, confirm the batch once, fan out worktree-isolated subagents that each run the real per-target measure-remediate-remeasure pipeline gated by a measured before/after, independently verify each result by a re-measurement that proves the budget is met plus updated baselines plus all-OS CI, and hand back a tiered batch of perf-fix PRs and filed redesign issues for one bulk human review. No measured before/after, no fix. Never auto-merges and never rebaselines a regression away.
+
+- **Triggers:** manual
+- **Platforms:** claude-code, codex, cursor, gemini-cli
+- **Type:** rigid
+- **Cognitive mode:** systematic-orchestrator
+- **Depends on:** harness-perf, harness-debugging, harness-refactoring, harness-roadmap-pilot
+
 ### pr-fleet
 
 Autonomous PR-queue land orchestrator — triage the open-PR queue, fan out worktree-isolated review-assist subagents that run the real code-review pipeline, independently verify each PR by all-OS CI and review verdict, and land exactly the PRs a human authorized up front. Never silently auto-merges unreviewed work.

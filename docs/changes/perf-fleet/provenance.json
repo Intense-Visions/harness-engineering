@@ -1,0 +1,43 @@
+{
+  "issue": 1233,
+  "slug": "perf-fleet",
+  "title": "perf-fleet — fan out performance-budget/regression remediation",
+  "route": "feature",
+  "branch": "perf-fleet/1233-perf-fleet",
+  "base": "origin/main",
+  "stages": ["brainstorming", "autopilot", "verification"],
+  "planArtifact": "docs/changes/perf-fleet/plans/plan.md",
+  "proposalArtifact": "docs/changes/perf-fleet/proposal.md",
+  "closing_keyword": "Closes #1233",
+  "changes": [
+    "agents/skills/claude-code/perf-fleet/SKILL.md (new -fleet member; five-phase measured perf-budget/regression remediation sweep modeled on docs-fleet + bug-fleet + the shared spine; Boundary section scoping it against cleanup-fleet and cicd-fleet via the measurement bar)",
+    "agents/skills/claude-code/perf-fleet/skill.yaml (rigid tier-2 orchestrator contract; depends_on harness-perf / harness-debugging / harness-refactoring / harness-roadmap-pilot; five required phases; addresses perf-regression + high-complexity signals)",
+    "agents/skills/{cursor,codex,gemini-cli}/perf-fleet (platform mirror SYMLINKS to ../claude-code/perf-fleet — not hand-forked)",
+    "docs/reference/fleet-family.md (registered perf-fleet in the Members table and the quality-queue conveyor sentence)",
+    "docs/reference/skills-catalog.md + docs/reference/tool-catalog.md (regenerated via generate-docs / generate:tool-catalog)",
+    ".claude-plugin/commands/perf-fleet.md, .cursor-plugin/commands/perf-fleet.md, .gemini-extension/commands/perf-fleet.toml, .antigravity-extension/commands/perf-fleet.toml (regenerated slash commands, all platforms via generate:plugin:all)",
+    ".changeset/perf-fleet.md (empty no-release changeset — no publishable packages/<pkg>/src touched)"
+  ],
+  "adr": {
+    "warranted": false,
+    "rationale": "perf-fleet introduces no new family-level decision; it references the existing family ADRs (0087 subagent worktree fan-out, 0088 front-load / park-unforeseen, 0105 claim-lease). Like the other quality-queue members (cleanup-fleet, docs-fleet, bug-fleet, craft-fleet) it ships as a member with a proposal + plan and adds no ADR. The one genuine member-scoped decision — tiered remediate-vs-file — is resolved in proposal.md by precedent (bug-fleet's tiered fix-PRs + filed-issues), not a family ADR."
+  },
+  "parkedForks": [
+    {
+      "fork": "Auto-remediate perf fixes vs only file regressions as issues (the candidate park named in the lane brief): does perf-fleet apply fixes and open PRs, or only detect-and-file?",
+      "resolution": "Resolved to TIERED (not parked) with a defensible default by precedent: auto-remediate the SAFE class (a bounded local optimization that provably meets the budget without changing public API or observable behaviour) into merge-ready fix PRs, and FILE the RISKY class (large/architectural redesign, correctness-sensitive hot-path change, public-API/behaviour change) as issues carrying the measured before-state as evidence. This mirrors bug-fleet exactly (fix PRs for the bounded, filed issues for the risky) and craft-fleet (elevation PRs + filed roadmap items). The tiered boundary is also surfaced as an overridable CONFIRM classification, so the human can re-route any target before fan-out.",
+      "recommendedDefault": "tiered — auto-remediate safe class into fix PRs, file risky class as issues (chosen)"
+    }
+  ],
+  "assumptions": [
+    "perf-fleet is a quality-queue member (off the core intake->decide->build->land spine) modeled on docs-fleet's clean five-phase SKILL layout and bug-fleet's measured-bar + tiered-terminal shape.",
+    "The per-item pipeline is a FIXED measure->remediate->re-measure loop (harness-perf establishes the before, harness-debugging fixes a runtime regression / harness-refactoring brings a structural budget breach under threshold, harness-perf re-measures the after), gated by a measured before/after. ADR 0103 item-type routing is N/A: there is one per-target pipeline whose fix-driver is selected by the violation's cause (runtime regression -> debugging; structural/complexity breach -> refactoring), not a bug/spec-ready/feature router. This mirrors bug-fleet, which also uses a fixed pipeline rather than ADR 0103 routing.",
+    "The measured before/after bar is the perf analog of bug-fleet's reproduction bar: no target is remediated without a re-measurement against UNMODIFIED baselines proving the budget is met. A 'fix' that edits .harness/perf/baselines.json to match slower numbers, or relaxes a Tier threshold, is a goalpost move and fails VERIFY by design — the harness-perf rationalization elevated to an Iron Law.",
+    "perf-fleet composes the existing perf skills/tools (check_performance, harness check-perf, get_perf_baselines, get_critical_paths, update_perf_baselines, harness-perf) for detection and measurement; it reimplements no perf measurement. Baselines are persisted only via update_perf_baselines, never hand-edited.",
+    "A hot path carries no GitHub-native id at SELECT, so perf-fleet uses only the claim-lease's open-PR cross-check degradation (spine § Cross-run claim lease), not the full label+comment lease reserved for the ID-based members.",
+    "Platform mirrors are symlinks to the canonical claude-code skill dir; editing SKILL.md/skill.yaml updates all four, and the gemini/antigravity .toml + per-platform slash commands regenerate via the generators/pre-commit — mirrors are never hand-forked.",
+    "No @harness-engineering/<pkg>/src or package.json is touched (pure skill + generated-docs change), so an empty changeset is the correct honest no-release acknowledgement per scripts/check-changesets.mjs; it does not bump or release any package.",
+    "The deliverable is authored markdown/yaml (skill contract), not executable orchestrator code — consistent with every existing -fleet member; the spine's Workflow primitive is the named future deterministic upgrade, out of scope for this slice.",
+    "Registered perf-fleet in docs/reference/fleet-family.md (Members table + quality-queue sentence) for member-registry completeness; a low-risk row addition that may lightly conflict with the concurrent docs-fleet lane and heals additively."
+  ]
+}

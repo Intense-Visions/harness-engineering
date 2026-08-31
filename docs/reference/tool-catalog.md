@@ -5378,7 +5378,7 @@ Write a StrategyDoc to STRATEGY.md at the project root. Validates against Strate
 }
 ```
 
-## Skills (789)
+## Skills (790)
 
 Every shipped skill contract, read live from its `skill.yaml`. A drift between a skill’s real declared contract and this catalog fails the build.
 
@@ -19010,6 +19010,37 @@ Event loop architecture — task queues, microtask queue, rendering steps, task 
     "manual"
   ],
   "type": "knowledge"
+}
+```
+
+### perf-fleet
+
+Autonomous performance-budget/regression remediation sweep — enumerate the perf-budget-violation and runtime-regression backlog by composing the existing perf detectors (check_performance, harness-perf, benchmark baselines), fold it into independent remediation targets, rank them by severity value, confirm the batch once, fan out worktree-isolated subagents that each run the real per-target measure-remediate-remeasure pipeline gated by a measured before/after, independently verify each result by a re-measurement that proves the budget is met plus updated baselines plus all-OS CI, and hand back a tiered batch of perf-fix PRs and filed redesign issues for one bulk human review. No measured before/after, no fix. Never auto-merges and never rebaselines a regression away.
+
+**Contract:**
+
+```json
+{
+  "catalogTier": 1,
+  "cognitiveMode": "systematic-orchestrator",
+  "dependsOn": [
+    "harness-perf",
+    "harness-debugging",
+    "harness-refactoring",
+    "harness-roadmap-pilot"
+  ],
+  "name": "perf-fleet",
+  "platforms": [
+    "claude-code",
+    "codex",
+    "cursor",
+    "gemini-cli"
+  ],
+  "tier": 2,
+  "triggers": [
+    "manual"
+  ],
+  "type": "rigid"
 }
 ```
 
