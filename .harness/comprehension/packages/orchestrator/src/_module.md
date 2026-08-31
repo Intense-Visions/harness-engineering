@@ -1,28 +1,25 @@
 ---
 schemaVersion: 1
-module: "packages/orchestrator/src"
-sourceHash: "903aa6526bcb7d4c4d0c87303ec5a6dc7a02955615004017f26238cecb3b4e31"
-compiledAt: "2026-08-28T01:22:12.124Z"
-compiler: { static: "1.0.0", semantic: "1.0.0" }
-model: "claude-haiku-4-5-20251001"
-semantic: present
-members: ["index.ts", "local-template-lint.test.ts", "orchestrator.default-verify-runner.test.ts", "orchestrator.dispatch-wiring.test.ts", "orchestrator.local-gate.test.ts", "orchestrator.quality-verdict.test.ts", "orchestrator.retrospective.test.ts", "orchestrator.routing-ingestion.test.ts", "orchestrator.template-resolution.test.ts", "orchestrator.ts"]
+module: 'packages/orchestrator/src'
+sourceHash: '4d45c181ed0b5db223a30e15e58d1e99907292d8d44de380af87ec0631e9906e'
+compiler: { static: '1.0.0', semantic: '1.0.0' }
+model: null
+semantic: absent
+members:
+  [
+    'index.ts',
+    'local-template-lint.test.ts',
+    'orchestrator.default-verify-runner.test.ts',
+    'orchestrator.dispatch-wiring.test.ts',
+    'orchestrator.local-gate.test.ts',
+    'orchestrator.quality-verdict.test.ts',
+    'orchestrator.retrospective.test.ts',
+    'orchestrator.routing-ingestion.test.ts',
+    'orchestrator.stale-abort-race.test.ts',
+    'orchestrator.template-resolution.test.ts',
+    'orchestrator.ts',
+  ]
 ---
-
-## Summary
-
-**packages/orchestrator/src** is the core orchestration engine for dispatching AI agents to issues. It's structured around three primary flows: (1) Issue → Agent Dispatch: accepts issues from trackers (GitHub/Roadmap/Linear), optionally runs auto-triage and brainstorming, marks eligible items for dispatch, and routes to appropriate backends (Claude/local Ollama) via adaptive routing. (2) Maintenance Pipeline: cron-driven and on-demand task scheduling for checks and agent-fixable issues, with shared infrastructure (backend resolution, check execution, result classification) between cron and CLI so they never drift. (3) Session & State Lifecycle: tracks dispatch through workflow stages, records outcomes for precedent lookup, archives sessions with search indexing and optional LLM summarization, and manages proposals, webhooks, and notifications. The package re-exports carefully scoped surfaces so consumers (CLI, tests, dashboards) can compose orchestration logic without reaching into internals.
-
-## Invariants
-
-- Single source of truth for backend resolution: makeBackendResolver is THE implementation for both cron orchestrator and CLI; the two must never diverge.
-- Ecosystem detection is canonical: detectEcosystem / detectEcosystemFromFiles maps lockfiles → install/verify commands; consumed by enforcement gates and harness init scaffolding.
-- Workflow stages are composable predicates: workflowFor (>=2-stage predicate) + buildWorkflowContext (composition root) enable staged dispatch without internal path creep.
-- Maintenance dispatch is shared: createAgentDispatcher builds the identical real dispatcher for both cron and CLI --fix paths; graceful degradation when backends missing, not stubbing.
-- Check execution is deterministic across boundaries: runHarnessCheck + timeout/buffer constants used by both cron and CLI; a single spawn/parse/fail classification implementation.
-- Outcomes record precedent: Triage verdicts stored; precedentLookupFromStored aggregates base rates for gate cold-start → unknown before outcomes accrue.
-- Probe workspaces are throwaway: HarnessFitProbeRunner runs in isolated workspaces, judged by acceptance commands; no state leakage to the real workspace.
-- Webhook & token persistence is durable: SQLite-backed WebhookQueue and TokenStore; consumers can open them directly without orchestrator running (CLI deliveries, gateway token).
 
 ## Interface Contract
 
