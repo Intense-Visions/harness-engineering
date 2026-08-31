@@ -221,4 +221,19 @@ describe('PrivacyNoMatch fail-closed is TERMINAL, not a retry loop (review block
     expect(snap.running.find(([id]) => id === ISSUE.id)).toBeUndefined();
     expect(snap.claimed).not.toContain(ISSUE.id);
   });
+
+  it('does NOT leak the worktree ensureWorkspace already created before the fail-closed route() throw', async () => {
+    const { orch } = await dispatchWithPrivacyNoMatch();
+    // `dispatchIssue` calls `ensureWorkspace(issue.identifier)` — which really
+    // creates a `git worktree add` on disk — BEFORE `adaptiveRouter.route()` is
+    // called. When route() fail-closes, `handleRoutingFailure` routes to
+    // `finalizeRoutingTerminal`, which deletes `running`/`claimed` and persists
+    // the terminal lane but never cleans up the worktree that was already
+    // created for this dispatch — unlike every other terminal completion path
+    // (`settleWorkflowTerminal` explicitly calls `cleanWorkspaceWithGuard`).
+    const wsPath = (
+      orch as unknown as { workspace: { resolvePath: (id: string) => string } }
+    ).workspace.resolvePath(ISSUE.identifier);
+    expect(fs.existsSync(wsPath)).toBe(false);
+  });
 });

@@ -3981,12 +3981,24 @@ export class Orchestrator extends EventEmitter {
    * (`persistLaneSafe` never throws). No transport/escalation outcome is recorded —
    * that stays the sole job of the single `routing:no-tier-match` escalation already
    * queued by `escalateRoutingToHuman`.
+   *
+   * bug-fleet orchestrator-runloop-B: `route()` throws AFTER `dispatchIssue`
+   * already ran `ensureWorkspace` (step 1) — the worktree for this attempt exists
+   * on disk by the time this fail-closed path fires. Every OTHER terminal
+   * completion path cleans it up (`settleWorkflowTerminal` calls
+   * `cleanWorkspaceWithGuard`; a normal `worker_exit` emits the `cleanWorkspace`
+   * effect) — this one didn't, leaking a git worktree per deterministic
+   * privacy-no-match/budget-exhausted terminal. `cleanWorkspaceWithGuard` is
+   * itself safe to call here: no branch was ever pushed (the agent never
+   * started), so it falls straight through to `removeWorkspace`.
    */
   private async finalizeRoutingTerminal(issueId: string): Promise<void> {
+    const identifier = this.state.running.get(issueId)?.identifier ?? issueId;
     this.state.running.delete(issueId);
     this.state.claimed.delete(issueId);
     // abandon → canceled (terminal). Best-effort; never blocks or throws.
     await this.persistLaneSafe(issueId, 'abandon');
+    await this.cleanWorkspaceWithGuard(identifier, issueId);
     this.emit('state_change', this.getSnapshot());
   }
 
