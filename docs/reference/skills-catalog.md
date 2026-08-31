@@ -378,6 +378,16 @@ LLM-judgment critique of documentation quality — the ceiling counterpart to th
 - **Cognitive mode:** constructive-architect
 - **Depends on:** harness-docs-pipeline, harness-design-craft
 
+### docs-fleet
+
+Autonomous documentation-drift remediation sweep — enumerate the doc-drift/undocumented backlog by composing the existing documentation-floor detectors, rank the areas by staleness value, confirm the batch once, fan out worktree-isolated subagents that each run the real per-area harness-docs-pipeline to convergence, independently verify each result by a clean doc re-scan and all-OS CI, and hand back a batch of scoped doc-fix PRs for one bulk human review. Never auto-merges.
+
+- **Triggers:** manual
+- **Platforms:** claude-code, codex, cursor, gemini-cli
+- **Type:** rigid
+- **Cognitive mode:** systematic-orchestrator
+- **Depends on:** detect-doc-drift, harness-docs-pipeline, harness-roadmap-pilot
+
 ### enforce-architecture
 
 Validate architectural layer boundaries, detect violations, and auto-fix import ordering and forbidden import replacement

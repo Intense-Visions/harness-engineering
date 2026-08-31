@@ -1,0 +1,38 @@
+{
+  "issue": 1230,
+  "slug": "docs-fleet",
+  "title": "docs-fleet — fan out doc-drift remediation across the codebase",
+  "route": "feature",
+  "branch": "docs-fleet/1230-docs-fleet",
+  "base": "origin/main",
+  "stages": ["brainstorming", "autopilot", "verification"],
+  "planArtifact": "docs/changes/docs-fleet/plans/plan.md",
+  "proposalArtifact": "docs/changes/docs-fleet/proposal.md",
+  "changes": [
+    "agents/skills/claude-code/docs-fleet/SKILL.md (new -fleet member; five-phase documentation-drift remediation sweep modeled on cleanup-fleet + the shared spine; Boundary section scoping it against cleanup-fleet and craft-fleet)",
+    "agents/skills/claude-code/docs-fleet/skill.yaml (rigid tier-2 orchestrator contract; depends_on detect-doc-drift / harness-docs-pipeline / harness-roadmap-pilot; five required phases; addresses doc-gaps+drift signals)",
+    "agents/skills/{cursor,codex,gemini-cli}/docs-fleet (platform mirror SYMLINKS to ../claude-code/docs-fleet — not hand-forked)",
+    "docs/reference/skills-catalog.md + docs/reference/tool-catalog.md (regenerated via generate-docs / generate:tool-catalog)",
+    ".claude-plugin/commands/docs-fleet.md, .cursor-plugin/commands/docs-fleet.md, .gemini-extension/commands/docs-fleet.toml, .antigravity-extension/commands/docs-fleet.toml (regenerated slash commands, all platforms via generate:plugin:all)",
+    ".changeset/docs-fleet.md (empty no-release changeset — no publishable packages/<pkg>/src touched)"
+  ],
+  "adr": {
+    "warranted": false,
+    "rationale": "docs-fleet introduces no new family-level decision; it references the existing family ADRs (0087 fan-out, 0088 front-load/park, 0105 claim-lease). Like the other quality-queue members (cleanup-fleet, test-fleet, craft-fleet) it ships as a member with a proposal + plan and adds no ADR. The one genuine decision — standalone vs fold — is member-scoped and resolved in proposal.md, not a family ADR."
+  },
+  "parkedForks": [
+    {
+      "fork": "Fold-vs-standalone (roadmap shard #1230 deferred blocker): fold doc-drift into cleanup-fleet and doc-quality into craft-fleet, vs ship docs-fleet as a standalone member.",
+      "resolution": "Resolved to STANDALONE per the parent roadmap-fleet directive and argued in proposal.md (disjoint queues; floor-vs-ceiling is the family's own line; conveyor symmetry). Recorded here rather than parked because the directive settled the default; the SKILL.md Boundary section + scope-creep Rationalization enforce the non-overlap in practice.",
+      "recommendedDefault": "standalone member (chosen)"
+    }
+  ],
+  "assumptions": [
+    "The parent roadmap-fleet lane directive resolves the roadmap shard's deferred fold-vs-standalone blocker in favour of a standalone member; proposal.md argues why standalone (not fold) is correct.",
+    "docs-fleet is a quality-queue member (off the core spine) modeled on cleanup-fleet — a single-pipeline convergence-remediation fan-out — so item-type routing (ADR 0103) is N/A: there is exactly one per-area pipeline (harness-docs-pipeline --fix), not a bug/spec-ready/feature router.",
+    "A doc area carries no GitHub-native id at SELECT, so docs-fleet uses only the claim-lease's open-PR-cross-check degradation (spine § Cross-run claim lease), not the full label+comment lease reserved for the ID-based members.",
+    "Platform mirrors are symlinks to the canonical claude-code skill dir; editing SKILL.md/skill.yaml updates all four, and the gemini/antigravity .toml + per-platform slash commands regenerate via the generators/pre-commit — mirrors are never hand-forked.",
+    "No @harness-engineering/<pkg>/src or package.json is touched (pure skill + generated-docs change), so an empty changeset is the correct honest no-release acknowledgement per scripts/check-changesets.mjs; it does not bump or release any package.",
+    "The deliverable is authored markdown/yaml (skill contract), not executable orchestrator code — consistent with every existing -fleet member; the spine's Workflow primitive is the named future deterministic upgrade, out of scope for this slice."
+  ]
+}
