@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'packages/cli/tests/comprehension'
-sourceHash: '36a5d7b391ead300120d30474be167cabbacc6d02b1023e87b1c7456f330e5fc'
+sourceHash: '47c1d239bd50f7fe4ffe0cc57f80775d64d8350811496303dbdd7bc15ff02ebf'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
@@ -16,6 +16,7 @@ members:
     'hook.test.ts',
     'invalidation.test.ts',
     'policy.test.ts',
+    'refresh-gate.test.ts',
     'regression.test.ts',
     'static-extractor.test.ts',
   ]
@@ -39,6 +40,7 @@ import { DEFAULT_DIGEST_CHAR_BUDGET, DEFAULT_MAX_OUTPUT_TOKENS, DEFAULT_SEMANTIC
 import { shouldRunComprehendHook } from '../../src/comprehension/hook'
 import { enumerateModules, filesToModules } from '../../src/comprehension/invalidation'
 import { MAIN_BRANCH, committedSemanticAllowed, isMainPassContext, resolveComprehensionBranch } from '../../src/comprehension/policy'
+import { RefreshJobGateReason, explainInactiveRefreshGate, resolveRefreshJobGate } from '../../src/comprehension/refresh-gate'
 import { RefReadDeps, SemanticState, detectCommittedSemanticOnBranch, detectSemanticRegressions, parseModuleSemantic, readSemanticMapAtRef } from '../../src/comprehension/regression'
 import { createStaticExtractor, isStaticSupported, renderDependencySlice, renderInterfaceContract } from '../../src/comprehension/static-extractor'
 import { ComprehensionConfigSchema, HarnessConfig, HarnessConfigSchema } from '../../src/config/schema'

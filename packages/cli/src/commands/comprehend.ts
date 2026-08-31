@@ -18,6 +18,11 @@ import {
 import { shouldRunComprehendHook } from '../comprehension/hook';
 import { committedSemanticAllowed } from '../comprehension/policy';
 import {
+  resolveRefreshJobGate,
+  explainInactiveRefreshGate,
+  type RefreshJobGateReason,
+} from '../comprehension/refresh-gate';
+import {
   detectSemanticRegressions,
   detectCommittedSemanticOnBranch,
   readSemanticMapAtRef,
@@ -39,13 +44,21 @@ import { deriveChangedSurface, type ChangedSurface } from './validate-scope';
 import { logger } from '../output/logger';
 import { ExitCode } from '../utils/errors';
 
-export type ComprehendMode = 'changed' | 'all' | 'check' | 'stats';
+export type ComprehendMode = 'changed' | 'all' | 'check' | 'stats' | 'refresh';
 
 interface ComprehendFlags {
   changed?: boolean;
   all?: boolean;
   check?: boolean;
   stats?: boolean;
+  /**
+   * #1689 / ADR 0110 §3 — the opt-in token-gated CI **refresh** entrypoint. On the
+   * single-writer main-pass with a provider credential AND `comprehension.ci:
+   * refresh` configured, regenerate + stage committed semantic (the automated
+   * equivalent of the maintainer-local `comprehend --all`). A clean no-op (exit 0)
+   * on every other configuration — off by default, never reds a merge.
+   */
+  refresh?: boolean;
   /**
    * With `--check`: also fail when any module regressed `semantic: present →
    * absent` versus this git ref (ADR 0109 slice 4). Token-free — frontmatter reads
@@ -69,8 +82,9 @@ interface ComprehendFlags {
   hook?: boolean;
 }
 
-/** Resolve the run mode from the boolean flags: check > stats > all > changed. */
+/** Resolve the run mode from the boolean flags: refresh > check > stats > all > changed. */
 export function resolveMode(flags: ComprehendFlags): ComprehendMode {
+  if (flags.refresh) return 'refresh';
   if (flags.check) return 'check';
   if (flags.stats) return 'stats';
   if (flags.all) return 'all';
@@ -372,7 +386,19 @@ async function compileComprehension(
   store: ComprehensionStore,
   reader: ReturnType<typeof createNodeModuleSourceReader>,
   cconf: ComprehensionConfig,
-  opts: { staticOnly?: boolean; stage?: boolean; hook?: boolean; isMainPass?: boolean } = {}
+  opts: {
+    staticOnly?: boolean;
+    stage?: boolean;
+    hook?: boolean;
+    isMainPass?: boolean;
+    /**
+     * A pre-resolved provider to REUSE (the `--refresh` seam already probed one to
+     * gate on credential presence). Honoured only when the run is NOT static-only —
+     * an explicit `--static` / `semantic:false` posture always wins and stays
+     * provider-free. Omit to resolve lazily via `resolveCompileProvider`.
+     */
+    provider?: AnalysisProvider | null;
+  } = {}
 ): Promise<ComprehendRunResult | null> {
   const scope =
     mode === 'changed'
@@ -399,8 +425,14 @@ async function compileComprehension(
   }
 
   // SC4: static-only (`--static`), semantic-disabled, or off the main-pass ⇒ no
-  // provider is resolved — no credential, no LLM on the push/CI/PR path.
-  const provider = await resolveCompileProvider(cconf, posture.staticOnly);
+  // provider is resolved — no credential, no LLM on the push/CI/PR path. When the
+  // caller already probed a provider (the `--refresh` gate) reuse it rather than
+  // resolve twice, but never when the posture is static-only (that must stay
+  // provider-free regardless of what was passed).
+  const provider =
+    opts.provider !== undefined && !posture.staticOnly
+      ? opts.provider
+      : await resolveCompileProvider(cconf, posture.staticOnly);
   // Provider-aware model via the shared helper — resolved from the SAME config
   // endpoint the provider was constructed with, so the model and provider decisions
   // cannot diverge (ADR 0109 slice 3 fix).
@@ -518,6 +550,97 @@ async function runRefreshMainPass(
   return result.compiled.length;
 }
 
+/**
+ * Emit a GitHub Actions workflow annotation (`::warning::` / `::notice::`) so an
+ * operator sees the refresh outcome on the run summary, not just buried in the log.
+ * A NO-OP outside Actions (guarded by `GITHUB_ACTIONS`) so local `comprehend
+ * --refresh` output stays clean. Best-effort formatting only — never throws.
+ */
+function emitGithubAnnotation(level: 'warning' | 'notice', message: string): void {
+  if (process.env.GITHUB_ACTIONS !== 'true') return;
+  // Newlines break the single-line annotation grammar; collapse to spaces.
+  process.stdout.write(`::${level}::${message.replace(/\s*\n\s*/g, ' ')}\n`);
+}
+
+/**
+ * #1689 / ADR 0110 §3 — the opt-in token-gated CI **refresh** entrypoint
+ * (`comprehend --refresh`). This is the automated ALTERNATIVE to the default
+ * maintainer-local provider: the post-merge `main` CI job invokes it to perform
+ * the single-writer main-pass and commit the refreshed semantic units via a bot.
+ *
+ * OFF BY DEFAULT and provider-neutral. It runs only when ALL THREE gate signals
+ * hold (see {@link ../comprehension/refresh-gate!resolveRefreshJobGate}):
+ *  - `comprehension.ci: refresh` is configured (the opt-in switch),
+ *  - this is the single-writer main-pass (committed semantic belongs to `main`),
+ *  - a provider credential resolves (Anthropic key / config endpoint / claude CLI).
+ *
+ * Every inactive branch is a CLEAN no-op (exit 0) — the refresh is remediation,
+ * never a pass/fail signal, so a default adopter (or one who forgot the secret)
+ * never reds a merge. The credential-absent case is surfaced as an ACTIONABLE
+ * `::warning::` so the misconfiguration is visible without failing the build. When
+ * active, it recompiles the STALE surface with `--all` (a full sweep — post-merge
+ * `main` has no meaningful merge-base diff; `runComprehend` skips already-fresh
+ * modules, so only genuinely stale units cost tokens, bounded by
+ * `comprehension.maxTokensPerRun`) and STAGES the shards for the workflow to commit.
+ */
+async function runRefreshMode(
+  projectRoot: string,
+  store: ComprehensionStore,
+  reader: ReturnType<typeof createNodeModuleSourceReader>,
+  config: HarnessConfig | undefined
+): Promise<void> {
+  const cconf = readComprehensionConfig(config);
+  const ciMode = resolveComprehensionCiMode(config);
+  const isMainPass = committedSemanticAllowed();
+
+  // The token gate: probe for a provider WITHOUT forcing a model (provider-neutral).
+  // A null provider ⇒ no credential in this context ⇒ the gate degrades to a no-op.
+  const provider = await resolveCompileProvider(cconf, false);
+
+  const gate = resolveRefreshJobGate({
+    ciMode,
+    isMainPass,
+    credentialPresent: provider !== null,
+  });
+
+  if (!gate.active) {
+    const reason: RefreshJobGateReason = gate.reason;
+    const explanation = explainInactiveRefreshGate(reason);
+    logger.info(explanation);
+    // Only the misconfiguration (opted in but no secret) is worth a loud, actionable
+    // annotation; `not-enabled` (default adopter) and `not-main-pass` (a branch)
+    // are expected quiet no-ops.
+    if (reason === 'no-credential') emitGithubAnnotation('warning', explanation);
+    process.exit(ExitCode.SUCCESS);
+  }
+
+  // Active: run the single-writer main-pass and stage the refreshed shards. Reuse
+  // the SAME provider already resolved above (isMainPass:true is authoritative here
+  // — the gate proved it — so compileComprehension will not re-derive it).
+  const result = await compileComprehension('all', projectRoot, store, reader, cconf, {
+    stage: true,
+    isMainPass: true,
+    provider,
+  });
+
+  if (result === null || result.compiled.length === 0) {
+    const msg =
+      'comprehension.ci: refresh ran on the main-pass — all committed semantic is already ' +
+      'source-fresh, nothing to regenerate. No shards staged.';
+    logger.success(msg);
+    emitGithubAnnotation('notice', msg);
+    process.exit(ExitCode.SUCCESS);
+  }
+
+  const msg =
+    `comprehension.ci: refresh regenerated ${result.compiled.length} module(s) ` +
+    `(${result.semanticPresent} semantic) on the main-pass — the staged shards are ready ` +
+    'for the bot commit.';
+  logger.success(msg);
+  emitGithubAnnotation('notice', msg);
+  process.exit(ExitCode.SUCCESS);
+}
+
 async function runComprehendAction(
   mode: ComprehendMode,
   globalConfig?: string,
@@ -555,6 +678,7 @@ async function runComprehendAction(
       ...(opts.context ? { context: opts.context } : {}),
     });
   if (mode === 'stats') return runStatsMode(store, reader);
+  if (mode === 'refresh') return runRefreshMode(projectRoot, store, reader, config);
   return runCompileMode(mode, projectRoot, store, reader, config, opts);
 }
 
@@ -573,6 +697,10 @@ export function createComprehendCommand(): Command {
     .option('--changed', 'Recompile only modules owning changed files (default)')
     .option('--all', 'Recompile every module (backfill)')
     .option('--check', 'Token-free: report source-stale units, exit non-zero if any')
+    .option(
+      '--refresh',
+      'Opt-in token-gated CI refresh (#1689): on the single-writer main-pass with a provider credential and comprehension.ci:refresh, regenerate+stage committed semantic; a clean no-op otherwise'
+    )
     .option(
       '--since <ref>',
       'With --check: also fail on any module that regressed semantic present→absent vs this git ref (token-free)'

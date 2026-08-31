@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'packages/cli/src/comprehension'
-sourceHash: '582fb72701bef0ef59297c8d9c6b26b48fd1d97abacbafe9d723ff7a1b8ff989'
+sourceHash: '8f6c66e0b7ca936151d3e6ef555f60d5ef43f05a07c2810228e0ba9ece952c82'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
@@ -13,6 +13,7 @@ members:
     'hook.ts',
     'invalidation.ts',
     'policy.ts',
+    'refresh-gate.ts',
     'regression.ts',
     'static-extractor.ts',
   ]
@@ -38,6 +39,7 @@ export defaultSemanticModel
 export detectCommittedSemanticOnBranch
 export detectSemanticRegressions
 export enumerateModules
+export explainInactiveRefreshGate
 export filesToModules
 export isComprehensionReentrant
 export isMainPassContext
@@ -51,6 +53,7 @@ export renderDependencySlice
 export renderInterfaceContract
 export resolveComprehensionBranch
 export resolveComprehensionCiMode
+export resolveRefreshJobGate
 export runComprehend
 export runComprehendCheck
 export runComprehendStats

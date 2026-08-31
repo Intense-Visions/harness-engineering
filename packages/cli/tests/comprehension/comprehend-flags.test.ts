@@ -2,6 +2,7 @@ import { describe, it, expect, vi } from 'vitest';
 import type { AnalysisProvider } from '@harness-engineering/intelligence';
 import {
   createComprehendCommand,
+  resolveMode,
   resolveCompileProvider,
   resolveChangedScope,
   resolveStaticOnlyPosture,
@@ -91,6 +92,30 @@ describe('createComprehendCommand — SF1 flags present', () => {
   it('exposes the --context flag', () => {
     const flags = createComprehendCommand().options.map((o) => o.long);
     expect(flags).toContain('--context');
+  });
+
+  // #1689 / ADR 0110 §3 — the opt-in token-gated CI refresh entrypoint.
+  it('exposes the --refresh flag', () => {
+    const flags = createComprehendCommand().options.map((o) => o.long);
+    expect(flags).toContain('--refresh');
+  });
+});
+
+// #1689 — resolveMode routes --refresh (highest precedence, a distinct CI op).
+describe('resolveMode — #1689 refresh precedence', () => {
+  it('maps --refresh to the refresh mode', () => {
+    expect(resolveMode({ refresh: true })).toBe('refresh');
+  });
+
+  it('refresh wins over check/stats/all when several flags are set', () => {
+    expect(resolveMode({ refresh: true, check: true, stats: true, all: true })).toBe('refresh');
+  });
+
+  it('the existing precedence is unchanged when --refresh is absent (check > stats > all > changed)', () => {
+    expect(resolveMode({ check: true, stats: true, all: true })).toBe('check');
+    expect(resolveMode({ stats: true, all: true })).toBe('stats');
+    expect(resolveMode({ all: true })).toBe('all');
+    expect(resolveMode({})).toBe('changed');
   });
 });
 

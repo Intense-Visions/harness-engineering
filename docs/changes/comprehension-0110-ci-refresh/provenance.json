@@ -1,0 +1,23 @@
+{
+  "issue": 1689,
+  "issues": [1689],
+  "route": "spec-ready",
+  "spec": "docs/knowledge/decisions/0110-single-writer-semantic-comprehension.md",
+  "stacksOn": 1713,
+  "baseBranch": "feat/comprehension-0110-single-writer-1713",
+  "stages": ["autopilot", "planning", "execution", "verification"],
+  "planArtifact": "docs/changes/comprehension-0110-ci-refresh/plans/plan.md",
+  "assumptions": [
+    "SCOPE: #1713 already built the CODE seam (policy.ts committedSemanticAllowed / HARNESS_COMPREHENSION_MAIN_PASS, the comprehension.ci consumer, and runRefreshMainPass provider-backed regeneration). #1689 adds (a) an authoritative in-CLI gate + dedicated entrypoint `comprehend --refresh`, and (b) the post-merge CI job that supplies a credential and bot-commits the refreshed units. It builds ON #1713's seam, does not fork or duplicate it.",
+    "GATE = a new pure module comprehension/refresh-gate.ts: resolveRefreshJobGate({ciMode,isMainPass,credentialPresent}) AND-s the three opt-in signals cheapest-first; reason is the FIRST missing prerequisite (not-enabled > not-main-pass > no-credential). Off-by-default is STRUCTURAL — the only active branch requires ciMode==='refresh'.",
+    "ENTRYPOINT = a new `comprehend --refresh` mode (resolveMode precedence refresh > check > stats > all > changed). runRefreshMode probes a provider WITHOUT forcing a model (provider-neutral token gate), calls the gate, and on active runs compileComprehension('all',{stage:true,isMainPass:true}) reusing the probed provider. Added an optional `provider` param to compileComprehension to avoid a double resolve; it is honoured only when NOT static-only (an explicit --static/semantic:false always wins and stays provider-free).",
+    "CREDENTIAL-ABSENT DECISION (the ADR's open question): `ci: refresh` set but no secret => DEGRADE to a token-free NO-OP (exit 0) with an ACTIONABLE ::warning:: GitHub annotation naming the provider-neutral secrets (ANTHROPIC_API_KEY, or HARNESS_ANALYSIS_BASE_URL/_API_KEY for any OpenAI-compatible vendor). NOT a hard error — a hard error would red EVERY merge for a misconfigured adopter; off-by-default safety and the ADR-0109 token-free invariant both demand a clean no-op.",
+    "OFF-BY-DEFAULT MECHANISM = TWO switches. (1) repo VARIABLE HARNESS_COMPREHENSION_CI_REFRESH=='true' gates the WHOLE job in `if:` so the job is INERT (never scheduled, zero CI minutes) for the default adopter — GitHub `if:` cannot read harness.config or a secret, so a cheap variable is the only zero-cost workflow-level switch. (2) comprehension.ci: refresh in config + credential secret = the AUTHORITATIVE in-CLI gate (belt-and-suspenders: variable set but config/secret missing => token-free no-op). Recorded as a deliberate, necessary dual-signal, not a dual-source-of-truth bug.",
+    "RUNS ON main POST-MERGE ONLY: job `if: github.ref=='refs/heads/main' && github.event_name=='push'`, needs: build-and-test (only refresh a green main). HARNESS_COMPREHENSION_MAIN_PASS=1 asserts the main-pass context under the detached-HEAD merged-SHA checkout. NEVER runs in a PR context (guarded by the push+ref condition) — a PR must stay static-only per ADR 0110 §1.",
+    "BOT IDENTITY = github-actions[bot] (github-actions[bot]@users.noreply.github.com), mirroring the existing refresh-baselines job. Commits scoped strictly to .harness/comprehension/** with message 'chore(comprehension): CI semantic refresh [skip ci]'. Direct push first; PR fallback for HUMAN review (no auto-approve, unlike refresh-baselines) when branch protection blocks the push — semantic prose refresh warrants a look, and adopter branch-protection varies.",
+    "LOOP-GUARD = belt-and-suspenders: (1) [skip ci] on the bot commit prevents the push from starting a new CI run; (2) idempotent regeneration — once semantic is source-fresh, the next --refresh stages nothing and `git diff --cached --quiet` short-circuits to a no-op even if [skip ci] were ever missed (e.g. a squash-merge of the PR-fallback branch). The e2e 'idempotent' test proves (2).",
+    "REFRESH USES --all NOT --changed: a post-merge main checkout has no meaningful merge-base diff (deriveChangedSurface would be empty). runComprehend skips already-fresh modules, so --all only regenerates genuinely stale units, bounded by comprehension.maxTokensPerRun.",
+    "STACKED PR: branched off origin/feat/comprehension-0110-single-writer-1713 (NOT main); PR base = that branch so the diff shows only #1689's addition. GitHub auto-retargets to main when #1713 merges."
+  ],
+  "closingKeyword": "Closes #1689"
+}
