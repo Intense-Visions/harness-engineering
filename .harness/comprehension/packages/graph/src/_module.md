@@ -1,30 +1,12 @@
 ---
 schemaVersion: 1
 module: 'packages/graph/src'
-sourceHash: '4b25943f8f03b54a4d33d6d022320dc9ac9678c32a77ba7df7c5a92dea35c820'
-compiledAt: '2026-08-28T01:22:11.570Z'
+sourceHash: 'c78af69f3ecf03e0241095ab55f7e68bd9de3e592c89381900f5c5290fcac32b'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
-model: 'claude-haiku-4-5-20251001'
-semantic: present
+model: null
+semantic: absent
 members: ['index.ts', 'types.ts']
 ---
-
-## Summary
-
-@harness-engineering/graph is a multi-modal knowledge graph system that extracts, stores, and analyzes semantic relationships across code, documentation, design, business logic, and observability. It consists of five layers: (1) **Store** — in-memory DAG with indices by node/edge, composite edge keys (from\0to\0type), and BFS traversal; (2) **Ingest** — multi-pathway extraction (CodeIngestor for 7 languages, diagram/business/decision/design/canary parsers) orchestrated by KnowledgePipelineRunner in a 4-phase convergence loop; (3) **Query** — ContextQL DSL, Assembler with FusionLayer hybrid search, shortest-path and traceability; (4) **Analysis** — domain adapters (complexity, anomalies, constraints, coupling, blast-radius simulation); (5) **NLQ** — natural-language intent classification routing to structured graph operations. Powers context assembly, impact analysis, and anomaly detection across the harness.
-
-## Invariants
-
-- All node/edge accesses return shallow copies; mutations merge into existing entries rather than replace, preserving external references.
-- Composite edge keys (from\0to\0type) enforce uniqueness; duplicates update metadata in-place without incrementing edge count.
-- NODE_TYPES, EDGE_TYPES, EDGE_PROVENANCES are const literal arrays; adding a type requires updating both the array and all discriminated-union branches.
-- Edge provenance (EXTRACTED/INFERRED/AMBIGUOUS) is immutable and gates downstream adapter confidence; heuristic edges are distinguishable from AST facts.
-- Knowledge snapshot baseline captured pre-ingest is load-bearing for phase 2 drift detection; reconcile phase compares pre/post extraction snapshots.
-- Skip-dirs and exclude patterns resolved once at ingest start; no dynamic rescanning after ingest begins.
-- Materialization confidence floor (0.5) gates knowledge document writes; entries below floor are reported as gaps but never written to disk; human-authored nodes bypass floor.
-- Graph integrity checks include denominators; zero findings with zero denominators means examined-nothing (abstention), never a pass.
-- Staleness detection is deletion-based only (StalenessInfo.isStale); move/rename detection is non-goal.
-- POISONED_KEYS filter (**proto**, constructor, prototype) in safeMerge prevents prototype-pollution during node merges.
 
 ## Interface Contract
 
@@ -41,6 +23,8 @@ export Assembler
 export BusinessKnowledgeIngestor
 export CIConnector
 export CURRENT_SCHEMA_VERSION
+export CacheEfficiencyMeter
+export CacheEfficiencySummary
 export CacheableEnvelope
 export CanaryResultsIngestor
 export CanaryRunRecordInput
@@ -177,6 +161,8 @@ export KnowledgeSnapshotEntry
 export KnowledgeStagingAggregator
 export KnowledgeVerdict
 export Language
+export LayoutSection
+export LayoutViolation
 export LinkResult
 export LoadGraphResult
 export LoadMetadataResult
@@ -196,12 +182,14 @@ export OverlapDetail
 export PackedSummaryCache
 export PairResult
 export PlantUmlParser
+export PrefixStabilityReport
 export ProbabilityStrategy
 export ProjectionSpec
 export RequirementCoverage
 export RequirementIngestor
 export ResolvedEntity
 export ResponseFormatter
+export STABILITY_TIER_LABELS
 export ShortestPathDirection
 export ShortestPathOptions
 export ShortestPathResult
@@ -209,6 +197,7 @@ export SignalExtractor
 export SkippedEntry
 export SlackConnector
 export SourceLocation
+export StabilityTier
 export StagedEntry
 export StalenessInfo
 export StatisticalOutlier
@@ -227,6 +216,7 @@ export ValidationRuleExtractor
 export VectorSearchResult
 export VectorStore
 export askGraph
+export auditLayout
 export buildCommunityInput
 export checkConnectorSync
 export checkExtractedNodes
@@ -243,12 +233,15 @@ export loadGraph
 export loadGraphMetadata
 export localGraphDir
 export normalizeIntent
+export orderByStability
 export project
 export queryTraceability
 export resolveGraphDir
 export resolveSkipDirs
 export saveGraph
 export skipDirGlobs
+export stabilityTierForNode
+export toLayoutSections
 ```
 
 ## Dependency Slice

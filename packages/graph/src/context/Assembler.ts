@@ -3,6 +3,23 @@ import type { VectorStore } from '../store/VectorStore.js';
 import type { GraphNode, GraphEdge, NodeType } from '../types.js';
 import { ContextQL } from '../query/ContextQL.js';
 import { FusionLayer } from '../search/FusionLayer.js';
+import { orderByStability, toLayoutSections, type LayoutSection } from './StabilityLayout.js';
+
+export {
+  StabilityTier,
+  STABILITY_TIER_LABELS,
+  stabilityTierForNode,
+  orderByStability,
+  auditLayout,
+  toLayoutSections,
+  CacheEfficiencyMeter,
+} from './StabilityLayout.js';
+export type {
+  LayoutViolation,
+  LayoutSection,
+  PrefixStabilityReport,
+  CacheEfficiencySummary,
+} from './StabilityLayout.js';
 
 export interface AssembledContext {
   readonly nodes: readonly GraphNode[];
@@ -10,6 +27,15 @@ export interface AssembledContext {
   readonly tokenEstimate: number;
   readonly intent: string;
   readonly truncated: boolean;
+  /**
+   * Workflow class this context was assembled for. Defaults to `intent`.
+   * Used to bucket cache-hit measurements (see {@link CacheEfficiencyMeter}).
+   */
+  readonly workflowClass: string;
+  /** Whether `nodes` were reordered into descending stability order. */
+  readonly stabilityOrdered: boolean;
+  /** `nodes` grouped by stability tier, most-stable first (for inspection). */
+  readonly layout: readonly LayoutSection[];
 }
 
 export interface GraphBudget {
@@ -79,30 +105,57 @@ export class Assembler {
   /**
    * Assemble context relevant to an intent string within a token budget.
    */
-  assembleContext(intent: string, tokenBudget = 4000): AssembledContext {
+  assembleContext(
+    intent: string,
+    tokenBudget = 4000,
+    workflowClass: string = intent
+  ): AssembledContext {
     const fusion = this.getFusionLayer();
     const topResults = fusion.search(intent, 10);
 
     if (topResults.length === 0) {
-      return { nodes: [], edges: [], tokenEstimate: 0, intent, truncated: false };
+      return {
+        nodes: [],
+        edges: [],
+        tokenEstimate: 0,
+        intent,
+        truncated: false,
+        workflowClass,
+        stabilityOrdered: true,
+        layout: [],
+      };
     }
 
     const { nodeMap, collectedEdges, nodeScores } = this.expandSearchResults(topResults);
 
-    // Sort nodes by score (highest first) for truncation
+    // Sort nodes by score (highest first) so truncation keeps the most relevant.
     const sortedNodes = Array.from(nodeMap.values()).sort((a, b) => {
       return (nodeScores.get(b.id) ?? 0) - (nodeScores.get(a.id) ?? 0);
     });
 
     const { keptNodes, tokenEstimate, truncated } = this.truncateToFit(sortedNodes, tokenBudget);
 
+    // Layout pass: relevance selects WHICH nodes; stability decides their ORDER.
+    // Reordering the kept set is content-neutral (a permutation) and makes the
+    // cacheable prefix maximal by construction.
+    const orderedNodes = orderByStability(keptNodes);
+
     // Filter edges to only include those between kept nodes
-    const keptNodeIds = new Set(keptNodes.map((n) => n.id));
+    const keptNodeIds = new Set(orderedNodes.map((n) => n.id));
     const keptEdges = collectedEdges.filter(
       (e) => keptNodeIds.has(e.from) && keptNodeIds.has(e.to)
     );
 
-    return { nodes: keptNodes, edges: keptEdges, tokenEstimate, intent, truncated };
+    return {
+      nodes: orderedNodes,
+      edges: keptEdges,
+      tokenEstimate,
+      intent,
+      truncated,
+      workflowClass,
+      stabilityOrdered: true,
+      layout: toLayoutSections(orderedNodes),
+    };
   }
 
   private expandSearchResults(topResults: Array<{ nodeId: string; score: number }>): {
