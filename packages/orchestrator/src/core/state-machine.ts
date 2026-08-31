@@ -259,20 +259,6 @@ function resolveBackend(action: string, hasLocalBackend: boolean): 'local' | 'pr
 }
 
 /**
- * Prune completed entries that no longer have pending retries, running
- * tasks, or active claims. Only runs when the set exceeds the threshold.
- */
-function pruneCompleted(next: OrchestratorState): void {
-  if (next.completed.size <= COMPLETED_PRUNE_THRESHOLD) return;
-  for (const [id] of next.completed) {
-    const hasPending = next.retryAttempts.has(id) || next.running.has(id) || next.claimed.has(id);
-    if (!hasPending) {
-      next.completed.delete(id);
-    }
-  }
-}
-
-/**
  * Default grace period multiplier applied to pollIntervalMs.
  * A completed issue must be older than `pollIntervalMs * GRACE_MULTIPLIER`
  * before it can be released from `completed` when it reappears in active
@@ -280,6 +266,29 @@ function pruneCompleted(next: OrchestratorState): void {
  * after completion when the tracker write-back may not have persisted.
  */
 const COMPLETED_GRACE_MULTIPLIER = 2;
+
+/**
+ * Prune completed entries that no longer have pending retries, running
+ * tasks, or active claims. Only runs when the set exceeds the threshold.
+ *
+ * Entries younger than the same grace period `reconcileCompletedAndClaimed`
+ * uses are never pruned, even once the set is over threshold: without this
+ * age check, a just-finished issue (well inside its grace window) could be
+ * evicted from `completed` in the same tick it finished, silently dropping
+ * the "already finished in this orchestrator process" guard `isEligible`
+ * relies on and reopening it to duplicate dispatch on the very next tick.
+ */
+function pruneCompleted(next: OrchestratorState, nowMs: number): void {
+  if (next.completed.size <= COMPLETED_PRUNE_THRESHOLD) return;
+  const minAgeMs = next.pollIntervalMs * COMPLETED_GRACE_MULTIPLIER;
+  for (const [id, completedAtMs] of next.completed) {
+    if (nowMs - completedAtMs < minAgeMs) continue;
+    const hasPending = next.retryAttempts.has(id) || next.running.has(id) || next.claimed.has(id);
+    if (!hasPending) {
+      next.completed.delete(id);
+    }
+  }
+}
 
 /**
  * Reconcile the `completed` set against current active candidates.
@@ -512,7 +521,7 @@ function handleTick(
     dispatchEligibleIssue(next, issue, event, escalationConfig, config, effects);
   }
 
-  pruneCompleted(next);
+  pruneCompleted(next, nowMs);
 
   return { nextState: next, effects };
 }
