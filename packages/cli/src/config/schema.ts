@@ -1,5 +1,9 @@
 import { z } from 'zod';
-import { ArchConfigSchema, GoldenConfigSchema } from '@harness-engineering/core';
+import {
+  ArchConfigSchema,
+  GoldenConfigSchema,
+  PatternConfigSchema,
+} from '@harness-engineering/core';
 import { skipDirGlobs } from '@harness-engineering/graph';
 import { BackendDefSchema, RoutingConfigSchema } from '@harness-engineering/orchestrator';
 import { IngestConfigSchema } from './ingest-schema.js';
@@ -102,6 +106,13 @@ export const EntropyConfigSchema = z.object({
   autoFix: z.boolean().default(false),
   /** Documentation-drift detection tuning (scope/disable individual checks) */
   drift: DriftConfigSchema.optional(),
+  /**
+   * Pattern-rule set for the `harness cleanup -t patterns` check. When omitted
+   * (or given zero rules), the patterns check has nothing to evaluate and
+   * `harness cleanup -t patterns` fails loudly rather than reporting a false
+   * pass over zero rules (issue #1760).
+   */
+  patterns: PatternConfigSchema.optional(),
 });
 
 /**

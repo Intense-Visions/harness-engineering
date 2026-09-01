@@ -2,6 +2,7 @@
 import type { AST, Import, Export } from '../../shared/parsers';
 import type { DependencyGraph } from '../../constraints/types';
 import type { EntropyConfig } from './config';
+import type { PathAlias } from '../path-aliases';
 
 export interface InternalSymbol {
   name: string;
@@ -87,5 +88,11 @@ export interface CodebaseSnapshot {
   entryPoints: string[];
   rootDir: string;
   config: EntropyConfig;
+  /**
+   * Normalized tsconfig `paths` aliases used to resolve non-relative alias
+   * imports (e.g. `@lib/*`) during reachability/usage analysis. Empty when the
+   * project has no tsconfig `paths` (issue #1759).
+   */
+  pathAliases?: PathAlias[];
   buildTime: number;
 }

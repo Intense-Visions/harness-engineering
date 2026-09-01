@@ -1,0 +1,14 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "CommonJS",
+    "moduleResolution": "Node",
+    "strict": true,
+    "baseUrl": ".",
+    // Path alias: any import of `@lib/x` resolves to `src/lib/x`.
+    "paths": {
+      "@lib/*": ["src/lib/*"]
+    }
+  },
+  "include": ["src"]
+}

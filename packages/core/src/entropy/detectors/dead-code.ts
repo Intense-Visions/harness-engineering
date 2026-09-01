@@ -11,6 +11,7 @@ import type {
 } from '../types';
 import type { ProtectedRegionMap } from '../../annotations';
 import type { AST } from '../../shared/parsers';
+import { resolveAliasCandidates } from '../path-aliases';
 import { basename, dirname, extname, resolve } from 'path';
 
 /**
@@ -86,12 +87,65 @@ function buildFileIndex(
 }
 
 /**
- * Resolve import source to absolute path.
+ * Resolve an already-absolute candidate base path to an on-disk source file,
+ * applying the same extension/index conventions used for both relative and
+ * tsconfig-alias imports.
  *
  * Handles NodeNext / "Bundler" module resolution where TS source imports with
  * `.js` extensions even though the file on disk is `.ts` (issue #279). When the
- * import specifier ends in a JS-style extension, strip and try TS equivalents
- * (and directory-with-index) before falling back to the literal path.
+ * candidate ends in a JS-style extension, strip and try TS equivalents (and
+ * directory-with-index) before falling back to the literal path.
+ */
+/** First path in `candidates` that exists on disk, else null. */
+function firstExisting(candidates: string[], hasFile: (p: string) => boolean): string | null {
+  for (const candidate of candidates) {
+    if (hasFile(candidate)) return candidate;
+  }
+  return null;
+}
+
+/** Candidate paths for a JS-style import extension that maps to a TS source or directory index. */
+function jsExtCandidates(resolved: string, sourceExt: string): string[] {
+  const fallbacks = JS_EXT_FALLBACKS[sourceExt];
+  if (!fallbacks) return [];
+  const base = resolved.slice(0, -sourceExt.length);
+  // Direct source-extension swaps, then directory-with-index (`./folder/index.js`
+  // → `./folder/index.ts`, `./folder.js` → `./folder/index.ts`).
+  return [
+    ...fallbacks.map((ext) => base + ext),
+    ...['.ts', '.tsx', '.jsx'].map((ext) => resolve(base, 'index' + ext)),
+  ];
+}
+
+/** Candidate paths for an extensionless import: bare TS files, then directory index. */
+function extensionlessCandidates(resolved: string): string[] {
+  return [
+    ...['.ts', '.tsx'].map((ext) => resolved + ext),
+    ...['.ts', '.tsx'].map((ext) => resolve(resolved, 'index' + ext)),
+  ];
+}
+
+function resolveCandidatePath(resolved: string, hasFile: (p: string) => boolean): string | null {
+  const sourceExt = extname(resolved);
+
+  const jsExt = firstExisting(jsExtCandidates(resolved, sourceExt), hasFile);
+  if (jsExt) return jsExt;
+
+  if (hasFile(resolved)) return resolved;
+
+  if (!sourceExt) return firstExisting(extensionlessCandidates(resolved), hasFile);
+
+  return null;
+}
+
+/**
+ * Resolve import source to absolute path.
+ *
+ * Relative specifiers resolve against the importing file's directory. Non-relative
+ * specifiers are matched against the project's tsconfig `paths` aliases (e.g.
+ * `@lib/*` → `src/lib/*`); without this a file reached only through an alias
+ * import was falsely reported dead (issue #1759). Anything that matches no alias
+ * is treated as an external package.
  */
 function resolveImportToFile(
   importSource: string,
@@ -99,48 +153,25 @@ function resolveImportToFile(
   snapshot: CodebaseSnapshot,
   fileIndex?: Map<string, CodebaseSnapshot['files'][number]>
 ): string | null {
-  if (!importSource.startsWith('.')) {
-    return null; // External package
-  }
-
   const hasFile = fileIndex
     ? (p: string) => fileIndex.has(p)
     : (p: string) => snapshot.files.some((f) => f.path === p);
 
-  const fromDir = dirname(fromFile);
-  const resolved = resolve(fromDir, importSource);
-  const sourceExt = extname(resolved);
-  const fallbacks = JS_EXT_FALLBACKS[sourceExt];
+  if (importSource.startsWith('.')) {
+    const resolved = resolve(dirname(fromFile), importSource);
+    return resolveCandidatePath(resolved, hasFile);
+  }
 
-  if (fallbacks) {
-    const base = resolved.slice(0, -sourceExt.length);
-    for (const ext of fallbacks) {
-      const candidate = base + ext;
-      if (hasFile(candidate)) return candidate;
-    }
-    // Directory-with-index: `./folder/index.js` may map to `./folder/index.ts`,
-    // and `./folder.js` may map to a directory `./folder/index.ts` in some setups.
-    for (const indexExt of ['.ts', '.tsx', '.jsx']) {
-      const indexPath = resolve(base, 'index' + indexExt);
-      if (hasFile(indexPath)) return indexPath;
+  // Non-relative: try tsconfig `paths` aliases before giving up as external.
+  const aliases = snapshot.pathAliases;
+  if (aliases && aliases.length > 0) {
+    for (const candidate of resolveAliasCandidates(importSource, aliases)) {
+      const match = resolveCandidatePath(candidate, hasFile);
+      if (match) return match;
     }
   }
 
-  if (hasFile(resolved)) return resolved;
-
-  // Extensionless import: try common TS extensions, then directory index.
-  if (!sourceExt) {
-    for (const ext of ['.ts', '.tsx']) {
-      const candidate = resolved + ext;
-      if (hasFile(candidate)) return candidate;
-    }
-    for (const indexExt of ['.ts', '.tsx']) {
-      const indexPath = resolve(resolved, 'index' + indexExt);
-      if (hasFile(indexPath)) return indexPath;
-    }
-  }
-
-  return null;
+  return null; // External package
 }
 
 function enqueueResolved(
