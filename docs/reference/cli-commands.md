@@ -555,6 +555,14 @@ Recommend skills based on codebase health analysis
 - `--no-cache` — Force fresh health snapshot
 - `--top` — Max recommendations (default 5) (default: "5")
 
+### `harness refinement-demand`
+
+Report refinement frequency per progressive-context class (demand signal)
+
+**Options:**
+
+- `--json` — Emit machine-readable JSON
+
 ### `harness review-ci`
 
 Run the tiered code-review gate (floor + optional LLM runner) for CI

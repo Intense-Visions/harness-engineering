@@ -60,6 +60,53 @@ describe('assembleCandidateReport', () => {
     expect(out).toContain('12 commits in 7d');
   });
 
+  it('carries the stability report line when a hotspot gate result is supplied', () => {
+    const out = assembleCandidateReport({
+      undocumentedFixes: [],
+      hotspotCandidates: hotspots,
+      isoWeek: { year: 2026, week: 18 },
+      lookback: '7d',
+      hotspotStability: {
+        correlation: 0.91,
+        stable: true,
+        presentation: 'ordered',
+        correlationThreshold: 0.7,
+        sampleSize: 5,
+        windows: { primary: 'most recent 7d', secondary: 'preceding 7d' },
+      },
+    });
+    expect(out).toContain('Ranking stability: stable');
+    expect(out).toContain('ρ=0.91');
+    expect(out).toContain('most recent 7d vs preceding 7d');
+  });
+
+  it('groups hotspots by tier when the ranking is unstable', () => {
+    const out = assembleCandidateReport({
+      undocumentedFixes: [],
+      hotspotCandidates: [
+        { path: 'a.ts', churn: 10 },
+        { path: 'b.ts', churn: 5 },
+      ],
+      isoWeek: { year: 2026, week: 18 },
+      lookback: '7d',
+      hotspotStability: {
+        correlation: 0.1,
+        stable: false,
+        presentation: 'tiered',
+        correlationThreshold: 0.7,
+        sampleSize: 2,
+        windows: { primary: 'most recent 7d', secondary: 'preceding 7d' },
+      },
+      hotspotTiers: [
+        { tier: 1, items: [{ path: 'a.ts', churn: 10 }] },
+        { tier: 2, items: [{ path: 'b.ts', churn: 5 }] },
+      ],
+    });
+    expect(out).toContain('Ranking stability: unstable');
+    expect(out).toContain('### Tier 1');
+    expect(out).toContain('### Tier 2');
+  });
+
   it('writes empty sections when no candidates', () => {
     const out = assembleCandidateReport({
       undocumentedFixes: [],

@@ -335,6 +335,11 @@ export * from './provenance';
 export * from './pulse';
 
 /**
+ * Ranking module.
+ */
+export * from './ranking';
+
+/**
  * Rehearsal module.
  */
 export * from './rehearsal';
