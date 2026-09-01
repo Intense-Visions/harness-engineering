@@ -32,6 +32,7 @@ import { createCodeCraftCommand } from './code-craft';
 import { createCompoundCommand } from './compound';
 import { createComprehendCommand } from './comprehend';
 import { createComprehensionMergeDriverCommand } from './comprehension-merge-driver';
+import { createContextDictionaryCommand } from './context-dictionary';
 import { createCopyCraftCommand } from './copy-craft';
 import { createCreateSkillCommand } from './create-skill';
 import { createCrossCheckCommand } from './cross-check';
@@ -145,6 +146,7 @@ export const commandCreators: Array<() => Command> = [
   createCompoundCommand,
   createComprehendCommand,
   createComprehensionMergeDriverCommand,
+  createContextDictionaryCommand,
   createCopyCraftCommand,
   createCreateSkillCommand,
   createCrossCheckCommand,

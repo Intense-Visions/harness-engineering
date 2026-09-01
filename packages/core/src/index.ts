@@ -265,6 +265,11 @@ export * from './accessibility';
 export * from './deployment';
 
 /**
+ * Trained context dictionaries module (#1635).
+ */
+export * from './dictionary';
+
+/**
  * Golden module.
  */
 export * from './golden';

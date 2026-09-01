@@ -973,6 +973,19 @@ Scan recent fixes and hotspots for undocumented learnings; write candidate promp
 - `--output-path` — Override output file path (default: docs/solutions/.candidates/{YYYY-WW}.md)
 - `--solutions-dir` — Solutions directory to cross-reference (default: "docs/solutions")
 
+## Context-dictionary Commands
+
+Train a governed, versioned codebook of recurring knowledge over the comprehension corpus (report-only, #1635)
+
+### `harness context-dictionary report`
+
+Mine recurring spans, score membership, and report the trained codebook
+
+**Options:**
+
+- `--json` — Emit machine-readable JSON
+- `--write` — Persist the trained codebook to .harness/dictionary/codebook.json
+
 ## Docs-publish Commands
 
 Publish docs to a configured provider (draft-first)

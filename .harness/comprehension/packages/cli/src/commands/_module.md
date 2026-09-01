@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'packages/cli/src/commands'
-sourceHash: '71dd88f109469e45383b954fb6e9c0b83bd6733d781f66d16d7eb977b59945bd'
+sourceHash: 'c4491e951ef16fd983eaf7dd2c325f7261f4fd7be3765384847ffddbeb1325ce'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
@@ -510,6 +510,7 @@ import { createCodeCraftCommand } from './code-craft'
 import { createCompoundCommand } from './compound'
 import { createComprehendCommand } from './comprehend'
 import { createComprehensionMergeDriverCommand } from './comprehension-merge-driver'
+import { createContextDictionaryCommand } from './context-dictionary'
 import { createCopyCraftCommand } from './copy-craft'
 import { createCreateSkillCommand } from './create-skill'
 import { createCrossCheckCommand } from './cross-check'
