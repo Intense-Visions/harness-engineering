@@ -151,6 +151,36 @@ export interface ConstraintPackCompliance {
 }
 
 /**
+ * Outcome of a single check's cache lookup during a memoized CI run
+ * (content-addressed gate memoization, issue #1639).
+ */
+export interface VerdictCacheEntry {
+  /** The check this lookup was for. */
+  check: CICheckName;
+  /** Whether the check's verdict was served from cache (`hit`) or computed (`miss`). */
+  outcome: 'hit' | 'miss';
+  /** The content-addressed cache key the check hashed to (sha256 hex). */
+  key: string;
+}
+
+/**
+ * Hit/miss telemetry for a memoized CI run (content-addressed gate memoization,
+ * issue #1639). Present on a {@link CICheckReport} only when the verdict cache
+ * is opted in; absent otherwise so the default report shape stays byte-identical.
+ * Emission only — never influences any check's status or the run exit code.
+ */
+export interface VerdictCacheStats {
+  /** Whether the verdict cache was enabled for this run (always true when present). */
+  enabled: boolean;
+  /** Number of checks whose verdict was served from cache. */
+  hits: number;
+  /** Number of checks that were computed and recorded. */
+  misses: number;
+  /** Per-check lookup outcomes, in the order the checks resolved. */
+  entries: VerdictCacheEntry[];
+}
+
+/**
  * Final report for a CI run.
  */
 export interface CICheckReport {
@@ -176,6 +206,13 @@ export interface CICheckReport {
    * Absent when every configured name resolved.
    */
   unknownConstraintPacks?: string[];
+  /**
+   * Content-addressed verdict-cache hit/miss telemetry (issue #1639). Present
+   * only when the verdict cache is opted in; absent for the default (cache-off)
+   * path so the serialized report shape is byte-identical to before. Emission
+   * only — never affects `exitCode` or any check's `status`.
+   */
+  cacheStats?: VerdictCacheStats;
 }
 
 /**

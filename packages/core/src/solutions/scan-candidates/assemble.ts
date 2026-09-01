@@ -2,6 +2,7 @@ import type { ScannedCommit } from './git-scan';
 import type { Hotspot } from './hotspot';
 import type { IsoWeek } from './iso-week';
 import { formatIsoWeek } from './iso-week';
+import type { StabilityReport, RankTier } from '../../ranking';
 
 // Order matters: security ahead of database biases ambiguous co-occurrences
 // (e.g. "deadlock" in a security context) toward the more critical category.
@@ -37,39 +38,88 @@ export interface AssembleInput {
   hotspotCandidates: Hotspot[];
   isoWeek: IsoWeek;
   lookback: string;
+  /**
+   * Stability report from the two-window hotspot gate. When present, the
+   * emitted ranking carries its rank correlation and both window definitions.
+   */
+  hotspotStability?: StabilityReport | undefined;
+  /**
+   * Tier bands for the hotspot ranking, present only when the ranking degraded
+   * to tiers (unstable). When present, hotspots are grouped by tier rather than
+   * presented as a precise order.
+   */
+  hotspotTiers?: RankTier<Hotspot>[] | undefined;
+}
+
+function stabilityLine(report: StabilityReport): string {
+  const rho = report.correlation.toFixed(2);
+  const mode =
+    report.presentation === 'ordered'
+      ? 'stable — presented as an order'
+      : 'unstable — degraded to tiers';
+  return (
+    `_Ranking stability: ${mode}. Spearman ρ=${rho} over ${report.sampleSize} file(s) shared by ` +
+    `${report.windows.primary} vs ${report.windows.secondary} (threshold ${report.correlationThreshold.toFixed(2)})._`
+  );
+}
+
+function hotspotBullet(h: Hotspot, lookback: string, lines: string[]): void {
+  lines.push(
+    `- File \`${h.path}\` has ${h.churn} commits in ${lookback}; no docs/solutions/ entry`
+  );
+  lines.push('  - Suggested category: knowledge-track/architecture-patterns');
+  lines.push(`  - Run: \`/harness:compound "${h.path} pattern"\``);
+}
+
+function renderUndocumentedFixes(input: AssembleInput, lines: string[]): void {
+  lines.push(`## Undocumented fixes (from \`git log\` past ${input.lookback})`, '');
+  if (input.undocumentedFixes.length === 0) {
+    lines.push('_(none this week)_', '');
+    return;
+  }
+  for (const c of input.undocumentedFixes) {
+    const d = descriptor(c.subject);
+    const cat = suggestCategory(c.subject);
+    lines.push(
+      `- **${c.subject}** (commit ${c.sha.slice(0, 7)}, ${c.filesChanged} file(s), ${c.branchIterations} related commits)`
+    );
+    lines.push(`  - Suggested category: ${cat}`);
+    lines.push(`  - Run: \`/harness:compound "${d}"\``);
+  }
+  lines.push('');
+}
+
+function renderTiers(tiers: readonly RankTier<Hotspot>[], lookback: string, lines: string[]): void {
+  // Unstable ranking: present tiers, not a spurious order.
+  for (const tier of tiers) {
+    if (tier.items.length === 0) continue;
+    lines.push(`### Tier ${tier.tier}`, '');
+    for (const h of tier.items) hotspotBullet(h, lookback, lines);
+    lines.push('');
+  }
+}
+
+function renderPatternCandidates(input: AssembleInput, lines: string[]): void {
+  lines.push('## Pattern candidates (from churn + hotspot analysis)', '');
+  if (input.hotspotStability) {
+    lines.push(stabilityLine(input.hotspotStability), '');
+  }
+  const tiered = input.hotspotTiers && input.hotspotTiers.length > 0;
+  if (input.hotspotCandidates.length === 0) {
+    lines.push('_(none this week)_', '');
+  } else if (tiered) {
+    renderTiers(input.hotspotTiers!, input.lookback, lines);
+  } else {
+    for (const h of input.hotspotCandidates) hotspotBullet(h, input.lookback, lines);
+    lines.push('');
+  }
 }
 
 export function assembleCandidateReport(input: AssembleInput): string {
   const week = formatIsoWeek(input.isoWeek);
   const lines: string[] = [];
   lines.push(`# Compound candidates — week ${week}`, '');
-  lines.push(`## Undocumented fixes (from \`git log\` past ${input.lookback})`, '');
-  if (input.undocumentedFixes.length === 0) {
-    lines.push('_(none this week)_', '');
-  } else {
-    for (const c of input.undocumentedFixes) {
-      const d = descriptor(c.subject);
-      const cat = suggestCategory(c.subject);
-      lines.push(
-        `- **${c.subject}** (commit ${c.sha.slice(0, 7)}, ${c.filesChanged} file(s), ${c.branchIterations} related commits)`
-      );
-      lines.push(`  - Suggested category: ${cat}`);
-      lines.push(`  - Run: \`/harness:compound "${d}"\``);
-    }
-    lines.push('');
-  }
-  lines.push('## Pattern candidates (from churn + hotspot analysis)', '');
-  if (input.hotspotCandidates.length === 0) {
-    lines.push('_(none this week)_', '');
-  } else {
-    for (const h of input.hotspotCandidates) {
-      lines.push(
-        `- File \`${h.path}\` has ${h.churn} commits in ${input.lookback}; no docs/solutions/ entry`
-      );
-      lines.push('  - Suggested category: knowledge-track/architecture-patterns');
-      lines.push(`  - Run: \`/harness:compound "${h.path} pattern"\``);
-    }
-    lines.push('');
-  }
+  renderUndocumentedFixes(input, lines);
+  renderPatternCandidates(input, lines);
   return lines.join('\n');
 }

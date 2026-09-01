@@ -990,6 +990,36 @@ Scan recent fixes and hotspots for undocumented learnings; write candidate promp
 - `--output-path` — Override output file path (default: docs/solutions/.candidates/{YYYY-WW}.md)
 - `--solutions-dir` — Solutions directory to cross-reference (default: "docs/solutions")
 
+## Context-dictionary Commands
+
+Train a governed, versioned codebook of recurring knowledge over the comprehension corpus (report-only, #1635)
+
+### `harness context-dictionary report`
+
+Mine recurring spans, score membership, and report the trained codebook
+
+**Options:**
+
+- `--json` — Emit machine-readable JSON
+- `--write` — Persist the trained codebook to .harness/dictionary/codebook.json
+## Distortion Commands
+
+Rate-distortion context compaction — report-only ablation harness (#1633)
+
+### `harness distortion fit`
+
+Fit a distortion model from recorded ablation-replay observations (report-only)
+
+**Options:**
+
+- `--input` — Observations JSONL (default: .harness/metrics/ablation-replays.jsonl)
+- `--out` — Write the model JSON to this path (default: .harness/metrics/distortion-model.json)
+- `--markdown` — Also write the Markdown report to this path
+- `--version-tag` — Model version to stamp (default: 1.0.0)
+- `--threshold` — Noise threshold for the rework delta (default: 0.5)
+- `--prior` — Fold the #1632 refinement-demand log in as an advisory prior
+- `--no-write` — Print the model instead of writing files
+
 ## Docs-publish Commands
 
 Publish docs to a configured provider (draft-first)
@@ -1253,6 +1283,20 @@ Reconcile configured MCP servers against the catalog (report-only by default)
 - `--apply` — Apply changes (prompts per group in an interactive terminal)
 - `--yes` — Apply changes without prompting (for scripts/CI)
 
+## Knowledge Commands
+
+Knowledge store fitness commands
+
+### `harness knowledge mdl`
+
+Score the knowledge store by Minimum Description Length — description cost vs measured compression value — and report reversible prune/merge recommendations (report-only)
+
+**Options:**
+
+- `--path` — Project root path (default: ".")
+- `--stream` — Target a specific stream
+- `--telemetry` — JSON file with { inclusions: InclusionEvent[], outcomes: RunOutcome[] } linking entries to run outcomes
+
 ## Learnings Commands
 
 Learnings management commands
@@ -1396,11 +1440,21 @@ Copy agent.backends (and routing) from harness.orchestrator.md into harness.conf
 
 ## Models Commands
 
-Inspect and manage local LLM backends. Ships `probe`, model-proposal review (proposals/approve/reject), and `refresh` (force a scheduler tick).
+Inspect and manage local LLM backends. Ships `probe`, model-proposal review (proposals/approve/reject), `refresh` (force a scheduler tick), and `drift` (model-update regression sentinel).
 
 ### `harness models approve <id>`
 
 Approve a model proposal (drives the installer + pool update). Requires the orchestrator to be running and HARNESS_ADMIN_TOKEN.
+
+### `harness models drift`
+
+Detect when the configured model identity (agent.backends[*].model) changes vs the last-seen value and record a sentinel event. Detect + report only. Reads the global --config / --json flags.
+
+**Options:**
+
+- `--history` — Print the append-only sentinel changelog and exit.
+- `--check` — Exit non-zero on unacknowledged material drift (no record written).
+- `--ack` — Acknowledge the current model identity, re-pinning the baseline (append-only).
 
 ### `harness models probe`
 

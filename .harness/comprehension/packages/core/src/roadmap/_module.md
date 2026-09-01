@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'packages/core/src/roadmap'
-sourceHash: '57cf13fb3e3e88a5da946d41ee94da82490edcdad43bf6be882d554d26cbf366'
+sourceHash: 'bd2857a9a116227e1acf98f7888236b5ed209bd2e7a0a213b2f7b46568facdd7'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
@@ -13,6 +13,7 @@ members:
     'heading.ts',
     'health.ts',
     'index.ts',
+    'list-field.ts',
     'load-mode.test.ts',
     'load-mode.ts',
     'load-tracker-client-config.ts',
@@ -130,6 +131,7 @@ import * as eventSourcing from '../state/event-sourcing'
 import { assigneeInvariantHolds, isMachineAssignee, setStatus } from './assignee-lifecycle'
 import { deriveRepoFromGitRemote } from './derive-repo'
 import { GROUP_PREFIX, matchFeatureHeadings, serializeFeatureHeading } from './heading'
+import { decodeListField, encodeListField } from './list-field'
 import { detectRoadmapStorageMode } from './load-mode'
 import { RoadmapMode, RoadmapModeConfig, getRoadmapMode } from './mode'
 import { scoreRoadmapCandidatesFileLess } from './pilot-scoring-file-less'

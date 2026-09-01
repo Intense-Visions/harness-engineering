@@ -50,6 +50,8 @@ export type {
   CICheckResult,
   CICheckSummary,
   CICheckReport,
+  VerdictCacheEntry,
+  VerdictCacheStats,
   CIFailOnSeverity,
   CICheckOptions,
   CIPlatform,

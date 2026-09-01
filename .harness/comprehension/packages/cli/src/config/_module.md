@@ -1,20 +1,11 @@
 ---
 schemaVersion: 1
-module: 'packages/cli/src/config'
-sourceHash: '327270f2eb2f072903591437f208b3d95246d7428e57ce1c3e1baa772e974a4c'
-compiler: { static: '1.0.0', semantic: '1.0.0' }
+module: "packages/cli/src/config"
+sourceHash: "ecbb6da964bc2ed54f0614dd8a512abd6292c6c5c07e8269fe288e5458245926"
+compiler: { static: "1.0.0", semantic: "1.0.0" }
 model: null
 semantic: absent
-members:
-  [
-    'analysis-schema.ts',
-    'ingest-schema.ts',
-    'loader.ts',
-    'schema.amr.test.ts',
-    'schema.ts',
-    'stripped-keys.test.ts',
-    'stripped-keys.ts',
-  ]
+members: ["analysis-schema.ts", "ingest-schema.ts", "loader.ts", "schema.amr.test.ts", "schema.ts", "stripped-keys.test.ts", "stripped-keys.ts"]
 ---
 
 ## Interface Contract
@@ -93,7 +84,7 @@ import { IngestConfigSchema } from './ingest-schema.js'
 import { loadConfig } from './loader'
 import { AgentConfigSchema, HarnessConfig, HarnessConfigSchema } from './schema'
 import { collectStrippedKeys, formatStrippedKeyWarnings } from './stripped-keys'
-import { ArchConfigSchema, Err, GoldenConfigSchema, Ok, Result } from '@harness-engineering/core'
+import { ArchConfigSchema, Err, GoldenConfigSchema, Ok, PatternConfigSchema, Result } from '@harness-engineering/core'
 import { skipDirGlobs } from '@harness-engineering/graph'
 import { BackendDefSchema, RoutingConfigSchema } from '@harness-engineering/orchestrator'
 import * as fs from 'fs'

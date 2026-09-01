@@ -159,6 +159,8 @@ const DIR_COMMENTS = {
   usage: 'Usage module for aggregating token usage and cost data.',
   adoption: 'Adoption telemetry module for tracking and aggregating skill invocations.',
   compaction: 'Compaction module for reducing MCP tool response token consumption.',
+  'rate-distortion':
+    'Rate-distortion context compaction — report-only ablation harness that replays runs with an information class ablated and fits a task-conditioned distortion model (sensitivity matrix) from the measured error/rework delta. The reusable measurement substrate for MDL pruning (#1630); does not wire the live compaction dial (#1633).',
   caching: 'Caching module — stability classification and cache-aware utilities.',
   telemetry: 'Telemetry module for consent resolution and install identity.',
   'telemetry-synthesis':

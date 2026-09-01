@@ -1,0 +1,12 @@
+{
+  "issue": [1630],
+  "route": "feature",
+  "stages": ["brainstorming", "autopilot"],
+  "planArtifact": "docs/changes/mdl-knowledge-pruning-1630/plans/2026-08-31-phase1-mdl-scorer-and-recommendations.md",
+  "closingKeyword": "Refs",
+  "assumptions": [
+    "Scope limited to a report-only MDL scorer + prune/merge recommendations per orchestrator default; executing the pruning/merging deferred to a follow-up slice",
+    "Matched-comparison measurement built self-contained for this slice (does NOT depend on the concurrently-built #1633 ablation harness); consolidation onto #1633 + skill-P&L machinery (#1621) is a deferred follow-up",
+    "MDL: description cost (tokens x inclusion frequency) vs compression value (reduced re-derivation/rework in present-vs-matched-absent runs)"
+  ]
+}
