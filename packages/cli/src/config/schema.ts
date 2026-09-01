@@ -1138,6 +1138,28 @@ export const HarnessConfigSchema = z.object({
   security: SecurityConfigSchema.optional(),
   /** Performance and complexity budget settings */
   performance: PerformanceConfigSchema.optional(),
+  /**
+   * Content-addressed gate memoization (issue #1639) — an action cache for CI
+   * check verdicts. Opt-in, default OFF: a check whose input closure hashes
+   * unchanged returns its stored verdict instead of recomputing. Correct-by-
+   * construction (a changed input ⇒ a different hash ⇒ a miss, never a stale
+   * hit). `.passthrough()` keeps the section forward-compatible for the deferred
+   * remote/shared backend.
+   */
+  cache: z
+    .object({
+      verdicts: z
+        .object({
+          /** Master switch. Default false — the cache is a pure no-op unless enabled. */
+          enabled: z.boolean().default(false),
+          /** Local directory for cached entries (relative to project root). */
+          dir: z.string().default('.harness/cache/verdicts'),
+        })
+        .passthrough()
+        .optional(),
+    })
+    .passthrough()
+    .optional(),
   /** Compiled-comprehension substrate settings (see docs — phase 6). */
   comprehension: ComprehensionConfigSchema.optional(),
   /** Project template settings (used by 'harness init') */
