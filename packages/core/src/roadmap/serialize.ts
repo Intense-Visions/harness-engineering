@@ -11,6 +11,10 @@ import { serializeFeatureHeading } from './heading';
 // shared with the parser, so a multi-line summary survives the line-oriented
 // grammar's parse → serialize round-trip intact (#1756).
 import { encodeSummaryField } from './summary-field';
+// The list-field escape codec lives in `./list-field`, the single source of truth
+// for the reversible comma escaping shared by the `Blockers` / `Plan` bullets
+// (see that module for the grammar rationale, #1757).
+import { encodeListField } from './list-field';
 
 const EM_DASH = '\u2014';
 
@@ -90,7 +94,7 @@ function orDash(value: string | null | undefined): string {
 }
 
 function listOrDash(items: string[]): string {
-  return items.length > 0 ? items.join(', ') : EM_DASH;
+  return encodeListField(items) ?? EM_DASH;
 }
 
 function serializeExtendedLines(feature: RoadmapFeature): string[] {

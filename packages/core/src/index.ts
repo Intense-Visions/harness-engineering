@@ -310,6 +310,11 @@ export * from './locks';
 export * from './metabolism';
 
 /**
+ * Model-sentinel module.
+ */
+export * from './model-sentinel';
+
+/**
  * Notifications module.
  */
 export * from './notifications';

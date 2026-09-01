@@ -1405,11 +1405,21 @@ Copy agent.backends (and routing) from harness.orchestrator.md into harness.conf
 
 ## Models Commands
 
-Inspect and manage local LLM backends. Ships `probe`, model-proposal review (proposals/approve/reject), and `refresh` (force a scheduler tick).
+Inspect and manage local LLM backends. Ships `probe`, model-proposal review (proposals/approve/reject), `refresh` (force a scheduler tick), and `drift` (model-update regression sentinel).
 
 ### `harness models approve <id>`
 
 Approve a model proposal (drives the installer + pool update). Requires the orchestrator to be running and HARNESS_ADMIN_TOKEN.
+
+### `harness models drift`
+
+Detect when the configured model identity (agent.backends[*].model) changes vs the last-seen value and record a sentinel event. Detect + report only. Reads the global --config / --json flags.
+
+**Options:**
+
+- `--history` — Print the append-only sentinel changelog and exit.
+- `--check` — Exit non-zero on unacknowledged material drift (no record written).
+- `--ack` — Acknowledge the current model identity, re-pinning the baseline (append-only).
 
 ### `harness models probe`
 
