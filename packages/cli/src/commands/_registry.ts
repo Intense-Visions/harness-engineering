@@ -32,11 +32,13 @@ import { createCodeCraftCommand } from './code-craft';
 import { createCompoundCommand } from './compound';
 import { createComprehendCommand } from './comprehend';
 import { createComprehensionMergeDriverCommand } from './comprehension-merge-driver';
+import { createContextDictionaryCommand } from './context-dictionary';
 import { createCopyCraftCommand } from './copy-craft';
 import { createCreateSkillCommand } from './create-skill';
 import { createCrossCheckCommand } from './cross-check';
 import { createDashboardCommand } from './dashboard';
 import { createDesignPipelineCommand } from './design-pipeline';
+import { createDistortionCommand } from './distortion';
 import { createDocsCraftCommand } from './docs-craft';
 import { createDocsPublishCommand } from './docs-publish';
 import { createDoctorCommand } from './doctor';
@@ -147,11 +149,13 @@ export const commandCreators: Array<() => Command> = [
   createCompoundCommand,
   createComprehendCommand,
   createComprehensionMergeDriverCommand,
+  createContextDictionaryCommand,
   createCopyCraftCommand,
   createCreateSkillCommand,
   createCrossCheckCommand,
   createDashboardCommand,
   createDesignPipelineCommand,
+  createDistortionCommand,
   createDocsCraftCommand,
   createDocsPublishCommand,
   createDoctorCommand,

@@ -116,6 +116,12 @@ function printCheckReport(report: CICheckReport): void {
     }
   }
   printConstraintPacks(report);
+  if (report.cacheStats) {
+    const { hits, misses } = report.cacheStats;
+    logger.dim(
+      `Verdict cache: ${hits} hit${hits === 1 ? '' : 's'}, ${misses} miss${misses === 1 ? '' : 'es'}`
+    );
+  }
   console.log('');
   if (report.exitCode === 0) {
     logger.success(`All checks passed (${report.summary.passed}/${report.summary.total})`);

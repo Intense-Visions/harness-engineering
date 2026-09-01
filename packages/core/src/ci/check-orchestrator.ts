@@ -34,6 +34,16 @@ import { SECURITY_SCAN_GLOB } from '../security/scan-targets';
 import { TypeScriptParser } from '../shared/parsers';
 import { ArchConfigSchema, runAll as runArchCollectors } from '../architecture';
 import { GraphStore, queryTraceability, resolveGraphDir } from '@harness-engineering/graph';
+import {
+  parseVerdictCacheConfig,
+  VerdictCache,
+  VerdictCacheStatsCollector,
+  computeConfigHash,
+  computeProjectInputHash,
+  computeVerdictKey,
+  GATE_VERSIONS,
+  MEMOIZABLE_CHECKS,
+} from './verdict-cache';
 
 export interface RunCIChecksInput {
   projectRoot: string;
@@ -679,13 +689,60 @@ function attachConstraintPackResults(
 }
 
 /**
+ * The content-addressed memoization context for a run: the shared verdict cache,
+ * the per-run input + config hashes every check's key is derived from, and the
+ * hit/miss stats collector. Present only when the verdict cache is opted in
+ * (issue #1639); when absent, checks run unmemoized exactly as before.
+ */
+interface MemoContext {
+  cache: VerdictCache;
+  stats: VerdictCacheStatsCollector;
+  inputHash: string;
+  configHash: string;
+}
+
+/**
+ * Run one check through the verdict cache when a memoization context is present:
+ * a cache hit returns the stored verdict without recomputing; a miss runs the
+ * check and records the result. Without a context this is exactly
+ * `runSingleCheck`. Skipped checks never reach here.
+ */
+async function runSingleCheckMaybeCached(
+  name: CICheckName,
+  projectRoot: string,
+  config: Record<string, unknown>,
+  memo: MemoContext | undefined
+): Promise<CICheckResult> {
+  // Bypass the cache entirely (and leave it out of the stats) for a check whose
+  // input closure the source-tree hash does not fully cover — memoizing it could
+  // return a stale hit. Such checks always run.
+  if (!memo || !MEMOIZABLE_CHECKS.has(name)) return runSingleCheck(name, projectRoot, config);
+  const key = computeVerdictKey({
+    check: name,
+    gateVersion: GATE_VERSIONS[name],
+    configHash: memo.configHash,
+    inputHash: memo.inputHash,
+  });
+  const hit = memo.cache.get(key);
+  if (hit) {
+    memo.stats.record(name, 'hit', key);
+    return hit;
+  }
+  const result = await runSingleCheck(name, projectRoot, config);
+  memo.cache.set(key, result);
+  memo.stats.record(name, 'miss', key);
+  return result;
+}
+
+/**
  * Run every check (validate first, the rest in parallel), honoring the skip
  * set. Extracted so the top-level orchestrator stays small.
  */
 async function runAllChecks(
   projectRoot: string,
   config: Record<string, unknown>,
-  skippedSet: Set<CICheckName>
+  skippedSet: Set<CICheckName>,
+  memo: MemoContext | undefined
 ): Promise<CICheckResult[]> {
   const checks: CICheckResult[] = [];
 
@@ -693,7 +750,7 @@ async function runAllChecks(
   if (skippedSet.has('validate')) {
     checks.push({ name: 'validate', status: 'skip', issues: [], durationMs: 0 });
   } else {
-    checks.push(await runSingleCheck('validate', projectRoot, config));
+    checks.push(await runSingleCheckMaybeCached('validate', projectRoot, config, memo));
   }
 
   // Phase 2: all remaining checks in parallel
@@ -702,12 +759,41 @@ async function runAllChecks(
       if (skippedSet.has(name)) {
         return { name, status: 'skip' as const, issues: [] as CICheckIssue[], durationMs: 0 };
       }
-      return runSingleCheck(name, projectRoot, config);
+      return runSingleCheckMaybeCached(name, projectRoot, config, memo);
     })
   );
   checks.push(...phase2Results);
 
   return checks;
+}
+
+/**
+ * Build the content-addressed memoization context for a run (issue #1639), or
+ * `undefined` when the verdict cache is not opted in. When present, it carries
+ * one input hash over the project's source/config/docs closure and one config
+ * hash, from which every check derives its cache key. When absent, checks run
+ * exactly as before (byte-identical report, no `cacheStats`).
+ */
+async function buildMemoContext(
+  projectRoot: string,
+  config: Record<string, unknown>,
+  effectiveConfig: Record<string, unknown>
+): Promise<MemoContext | undefined> {
+  const cacheConfig = parseVerdictCacheConfig(config, projectRoot);
+  if (!cacheConfig.enabled) return undefined;
+  const inputHash = await computeProjectInputHash(
+    projectRoot,
+    cacheConfig.dir,
+    // Use the effective (pack-overlaid) config the checks actually run on, so the
+    // closure excludes match what the scanners see.
+    analysisExclude(effectiveConfig)
+  );
+  return {
+    cache: new VerdictCache(cacheConfig),
+    stats: new VerdictCacheStatsCollector(),
+    inputHash,
+    configHash: computeConfigHash(effectiveConfig),
+  };
 }
 
 export async function runCIChecks(input: RunCIChecksInput): Promise<Result<CICheckReport, Error>> {
@@ -723,7 +809,10 @@ export async function runCIChecks(input: RunCIChecksInput): Promise<Result<CIChe
     );
     const effectiveConfig = applyConstraintPackOverlay(config, resolvedPacks);
 
-    const checks = await runAllChecks(projectRoot, effectiveConfig, new Set(skip));
+    // Content-addressed verdict memoization (issue #1639), opt-in / default OFF.
+    const memo = await buildMemoContext(projectRoot, config, effectiveConfig);
+
+    const checks = await runAllChecks(projectRoot, effectiveConfig, new Set(skip), memo);
 
     const summary = buildSummary(checks);
     const exitCode = determineExitCode(summary, failOn);
@@ -738,6 +827,12 @@ export async function runCIChecks(input: RunCIChecksInput): Promise<Result<CIChe
     };
 
     attachConstraintPackResults(report, resolvedPacks, checks, stage);
+
+    // Attach hit/miss telemetry only when the cache ran, so the default path's
+    // report shape is unchanged. Emission only — never alters `exitCode`.
+    if (memo) {
+      report.cacheStats = memo.stats.toStats();
+    }
 
     return Ok(report);
   } catch (error) {

@@ -18,6 +18,10 @@ import { GROUP_PREFIX, matchFeatureHeadings } from './heading';
 // shared with the serializer, so the continuation of a multi-line summary is
 // restored on read rather than silently dropped by the line grammar (#1756).
 import { decodeSummaryField } from './summary-field';
+// The list-field escape codec lives in `./list-field`, the single source of truth
+// for the reversible comma escaping shared by the `Blockers` / `Plan` bullets
+// (see that module for the grammar rationale, #1757).
+import { decodeListField } from './list-field';
 
 const VALID_STATUSES: ReadonlySet<string> = new Set([
   'backlog',
@@ -260,7 +264,7 @@ function parseListField(fieldMap: Map<string, string>, ...keys: string[]): strin
     }
   }
   if (raw === EM_DASH || raw === 'none') return [];
-  return raw.split(',').map((s) => s.trim());
+  return decodeListField(raw);
 }
 
 /** Validate and return the status field, or an Err if invalid. */

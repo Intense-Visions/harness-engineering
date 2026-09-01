@@ -1,0 +1,10 @@
+{
+  "reason": "Pre-existing metabolism complexity warnings (packages/core/src/metabolism/{report,adapter}.ts) landed via #1628/#1765 without a baseline update; not introduced by the trained-context-dictionaries change, whose own modules are under threshold.",
+  "categories": {},
+  "violationIds": [
+    "746f2580c73490d2a69f4b5967cfa3527401ea8ecc27fae0a9bfd4898ba76d8c",
+    "9b6e6ca5cb568d3408af642b7100f3259e94d47ef7b42a02b66cfeb0587cb9b2",
+    "e5ffc5fa84742381e8fe1025a28615e6b0499271e7647dc81d0cf49a236e7d8a"
+  ],
+  "createdFrom": "9f5c3c6e7"
+}

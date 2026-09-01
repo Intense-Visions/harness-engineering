@@ -1,0 +1,11 @@
+{
+  "issue": [1635],
+  "route": "feature",
+  "stages": ["brainstorming", "autopilot"],
+  "planArtifact": "docs/changes/trained-context-dictionaries-1635/plans/2026-08-31-phase1-trainer-codebook-membership.md",
+  "closingKeyword": "Refs",
+  "assumptions": [
+    "Scope limited to trainer + membership scorer + governed codebook (report-only) per human CONFIRM; wiring handle-substitution into the serving/assembly path deferred to a follow-up slice",
+    "Membership = (frequency x length) over the assembled-context corpus vs an amortization threshold; codebook is governed with versioned, verified definitions and deterministic expansion"
+  ]
+}
