@@ -63,7 +63,7 @@ export const BACKEND_EFFICIENCY: Readonly<Record<SpeedBackend, number>> = {
  * floor and use `hardware.bandwidthGbps` directly (the detector already biases
  * conservatively for unmapped CPUs).
  */
-export const CPU_BANDWIDTH_FLOOR_GBPS = 60;
+const CPU_BANDWIDTH_FLOOR_GBPS = 60;
 
 /** Partial-offload share above which we drop confidence to `'low'`. */
 const LOW_CONFIDENCE_OFFLOAD_THRESHOLD = 0.5;

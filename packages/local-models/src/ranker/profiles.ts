@@ -21,11 +21,6 @@
 export const RANK_PROFILES = ['general', 'coding', 'reasoning'] as const;
 export type RankProfile = (typeof RANK_PROFILES)[number];
 
-/** Narrow an arbitrary string to a {@link RankProfile}. */
-export function isRankProfile(value: string): value is RankProfile {
-  return (RANK_PROFILES as readonly string[]).includes(value);
-}
-
 /**
  * Classify a benchmark slug into the specialized profile it measures, or `null`
  * when it's a general-knowledge benchmark (or unrecognized). Matching is
