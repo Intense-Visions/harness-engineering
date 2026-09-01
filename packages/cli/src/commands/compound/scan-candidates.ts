@@ -3,7 +3,7 @@ import { dirname, join, resolve } from 'node:path';
 import { Command } from 'commander';
 import {
   gitScan,
-  computeHotspots,
+  computeStableHotspots,
   crossReferenceUndocumentedFixes,
   assembleCandidateReport,
   isoWeek,
@@ -39,11 +39,18 @@ export async function runCompoundScanCandidatesCommand(
   const lookback = opts.lookback ?? DEFAULT_LOOKBACK;
 
   let undocumented: Awaited<ReturnType<typeof gitScan>>;
-  let hotspots: Awaited<ReturnType<typeof computeHotspots>>;
+  let stableHotspots: Awaited<ReturnType<typeof computeStableHotspots>>;
   try {
     const fixes = await gitScan({ since: lookback, cwd });
     undocumented = await crossReferenceUndocumentedFixes(fixes, opts.solutionsDir);
-    hotspots = await computeHotspots({ since: lookback, cwd, threshold: HOTSPOT_THRESHOLD });
+    // Gate the hotspot ranking over two adjacent `lookback`-length windows: the
+    // emitted list carries its rank correlation and degrades to tiers when the
+    // churn ordering is not reproducible across windows.
+    stableHotspots = await computeStableHotspots({
+      cwd,
+      threshold: HOTSPOT_THRESHOLD,
+      window: lookback,
+    });
   } catch (err) {
     return emit(
       { status: 'failure', reason: err instanceof Error ? err.message : String(err), lookback },
@@ -51,12 +58,17 @@ export async function runCompoundScanCandidatesCommand(
     );
   }
 
+  // When stable the primary-window order is presented; when unstable the tiers
+  // carry the same items grouped by churn band.
+  const hotspots = stableHotspots.ordered ?? (stableHotspots.tiers ?? []).flatMap((t) => t.items);
   const week = isoWeek(new Date());
   const report = assembleCandidateReport({
     undocumentedFixes: undocumented,
     hotspotCandidates: hotspots,
     isoWeek: week,
     lookback,
+    hotspotStability: stableHotspots.report,
+    hotspotTiers: stableHotspots.tiers ?? undefined,
   });
 
   const outputPath =

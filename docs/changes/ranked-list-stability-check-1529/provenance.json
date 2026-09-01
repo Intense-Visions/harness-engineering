@@ -1,0 +1,20 @@
+{
+  "issue": [1529],
+  "route": "feature",
+  "stages": ["brainstorming", "autopilot"],
+  "specArtifact": "docs/changes/ranked-list-stability-check-1529/proposal.md",
+  "planArtifact": "docs/changes/ranked-list-stability-check-1529/plans/plan.md",
+  "closingKeyword": "Refs",
+  "coveredEmitters": ["hotspots (harness compound scan-candidates)"],
+  "uncoveredEmitters": [
+    "critical paths (packages/core/src/performance/critical-path.ts)",
+    "craft-fleet / audit target ranking",
+    "skill recommendations (packages/cli/src/skill/recommendation-engine.ts)",
+    "graph anomaly / hotspot adapters (packages/graph/src/entropy)"
+  ],
+  "assumptions": [
+    "Stability = rank-order robustness under small score perturbation and/or near-tie flagging within epsilon, measured here as tie-corrected Spearman rank correlation across two adjacent equal-length windows",
+    "Wired into the shared ranked-list emitter (hotspots); other emitters named above are uncovered in this slice and remain follow-ups that adopt the shared gate",
+    "Bands are always defined on one window (assignTiers takes a single window's ordered items) and validated against the other (validateBands); the mean-of-two-windows banding bug is impossible by construction"
+  ]
+}

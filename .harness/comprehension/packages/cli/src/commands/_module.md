@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: "packages/cli/src/commands"
-sourceHash: "8d0da9a4cd39e1591e0a356966b6df1d557c35f34fccbca38b29255276bbd4e4"
+sourceHash: "f46accb1c72bfd42debbf72984f8f3d38e3715fffc7593b75be380438890e192"
 compiler: { static: "1.0.0", semantic: "1.0.0" }
 model: null
 semantic: absent
@@ -434,7 +434,6 @@ import { createInstallCommand, resolveCommunityBase } from './install'
 import { createInstallConstraintsCommand } from './install-constraints'
 import { createIntegrationsCommand } from './integrations'
 import { readConfiguredServers } from './integrations/sync'
-import { createKnowledgeCommand } from './knowledge'
 import { createKnowledgeCraftCommand } from './knowledge-craft'
 import { createKnowledgePipelineCommand } from './knowledge-pipeline'
 import { createLearningsCommand } from './learnings'
