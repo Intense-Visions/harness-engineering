@@ -1,11 +1,11 @@
 ---
 schemaVersion: 1
 module: "packages/cli/src/commands"
-sourceHash: "95c62eb25b214f9d9169fd80f264a4cebf7bc4edf4f5f3070be294ec40385701"
+sourceHash: "eafe7ac99cf7f9115df17af84046eeaf6d228197c2f9777ce9c9fb659d61e0a1"
 compiler: { static: "1.0.0", semantic: "1.0.0" }
 model: null
 semantic: absent
-members: ["_registry.ts", "add.ts", "adoption.ts", "advise-skills.test.ts", "advise-skills.ts", "align-design-system.ts", "api-craft.ts", "audit-protected.ts", "backfill-skill-provenance.ts", "blueprint.ts", "check-arch.ts", "check-deployment.ts", "check-deps.ts", "check-design.ts", "check-docs.ts", "check-harness-strength.ts", "check-operational-drift.test.ts", "check-operational-drift.ts", "check-perf.ts", "check-phase-gate.ts", "check-security.ts", "check-vocabulary.ts", "cleanup-sessions.ts", "cleanup.ts", "cli-ergonomics-craft.ts", "code-craft.ts", "comprehend.ts", "comprehension-merge-driver.ts", "copy-craft.ts", "create-skill.ts", "cross-check.ts", "dashboard.ts", "design-pipeline.ts", "distortion.ts", "docs-craft.ts", "doctor.ts", "fix-drift.ts", "generate-agent-definitions.ts", "generate-slash-commands.ts", "generate.ts", "holiday-confidence.ts", "impact-preview.ts", "init-minimal.ts", "init.ts", "insights.ts", "install-constraints.ts", "install.ts", "knowledge-craft.ts", "knowledge-pipeline.test.ts", "knowledge-pipeline.ts", "maintenance-config.test.ts", "maintenance-config.ts", "maintenance-run.ts", "maintenance.ts", "mcp-guard.ts", "mcp.ts", "migrate-backends.ts", "migrate.ts", "models.ts", "naming-craft.ts", "operational-drift.test.ts", "operational-drift.ts", "orchestrator-black-box.test.ts", "orchestrator-black-box.ts", "orchestrator.ts", "outcome-eval-ci.ts", "perf.ts", "pre-merge-brief.ts", "predict.ts", "proposals.ts", "publish-analyses.ts", "recommend.ts", "rehearse.ts", "review-ci-local-adapter.ts", "review-ci.ts", "rollback.ts", "scan-config.ts", "search.ts", "security-craft.ts", "setup-mcp.ts", "setup-types.ts", "setup.ts", "share.ts", "skill-regression.test.ts", "skill-regression.ts", "snapshot.ts", "spec-craft.ts", "stale-constraints.ts", "sync-analyses.ts", "sync-main.ts", "taint.ts", "telemetry-wizard.ts", "test-craft.ts", "traceability.ts", "uninstall-constraints.ts", "uninstall.ts", "update.ts", "usage.ts", "validate-cross-check.ts", "validate-scope.ts", "validate.ts", "verify.test.ts", "verify.ts"]
+members: ["_registry.ts", "add.ts", "adoption.ts", "advise-skills.test.ts", "advise-skills.ts", "align-design-system.ts", "api-craft.ts", "audit-protected.ts", "backfill-skill-provenance.ts", "blueprint.ts", "check-arch.ts", "check-deployment.ts", "check-deps.ts", "check-design.ts", "check-docs.ts", "check-harness-strength.ts", "check-operational-drift.test.ts", "check-operational-drift.ts", "check-perf.ts", "check-phase-gate.ts", "check-security.ts", "check-vocabulary.ts", "cleanup-sessions.ts", "cleanup.ts", "cli-ergonomics-craft.ts", "code-craft.ts", "comprehend.ts", "comprehension-merge-driver.ts", "copy-craft.ts", "create-skill.ts", "cross-check.ts", "dashboard.ts", "design-pipeline.ts", "docs-craft.ts", "doctor.ts", "fix-drift.ts", "generate-agent-definitions.ts", "generate-slash-commands.ts", "generate.ts", "holiday-confidence.ts", "impact-preview.ts", "init-minimal.ts", "init.ts", "insights.ts", "install-constraints.ts", "install.ts", "knowledge-craft.ts", "knowledge-pipeline.test.ts", "knowledge-pipeline.ts", "maintenance-config.test.ts", "maintenance-config.ts", "maintenance-run.ts", "maintenance.ts", "mcp-guard.ts", "mcp.ts", "migrate-backends.ts", "migrate.ts", "models.ts", "naming-craft.ts", "operational-drift.test.ts", "operational-drift.ts", "orchestrator-black-box.test.ts", "orchestrator-black-box.ts", "orchestrator.ts", "outcome-eval-ci.ts", "perf.ts", "pre-merge-brief.ts", "predict.ts", "proposals.ts", "publish-analyses.ts", "recommend.ts", "rehearse.ts", "review-ci-local-adapter.ts", "review-ci.ts", "rollback.ts", "scan-config.ts", "search.ts", "security-craft.ts", "setup-mcp.ts", "setup-types.ts", "setup.ts", "share.ts", "skill-regression.test.ts", "skill-regression.ts", "snapshot.ts", "spec-craft.ts", "stale-constraints.ts", "sync-analyses.ts", "sync-main.ts", "taint.ts", "telemetry-wizard.ts", "test-craft.ts", "traceability.ts", "uninstall-constraints.ts", "uninstall.ts", "update.ts", "usage.ts", "validate-cross-check.ts", "validate-scope.ts", "validate.ts", "verify.test.ts", "verify.ts"]
 ---
 
 ## Interface Contract
@@ -79,7 +79,6 @@ export createCreateSkillCommand
 export createCrossCheckCommand
 export createDashboardCommand
 export createDesignPipelineCommand
-export createDistortionCommand
 export createDocsCraftCommand
 export createDoctorCommand
 export createFixDispatcher
@@ -407,12 +406,12 @@ import { createCodeCraftCommand } from './code-craft'
 import { createCompoundCommand } from './compound'
 import { createComprehendCommand } from './comprehend'
 import { createComprehensionMergeDriverCommand } from './comprehension-merge-driver'
+import { createContextDictionaryCommand } from './context-dictionary'
 import { createCopyCraftCommand } from './copy-craft'
 import { createCreateSkillCommand } from './create-skill'
 import { createCrossCheckCommand } from './cross-check'
 import { createDashboardCommand } from './dashboard'
 import { createDesignPipelineCommand } from './design-pipeline'
-import { createDistortionCommand } from './distortion'
 import { createDocsCraftCommand } from './docs-craft'
 import { createDocsPublishCommand } from './docs-publish'
 import { createDoctorCommand } from './doctor'
@@ -443,7 +442,7 @@ import { createLinterCommand } from './linter'
 import { createMaintenanceCommand } from './maintenance'
 import { loadAgentBackends, loadMaintenanceConfig, mergeResolvedTasks } from './maintenance-config'
 import { runMaintenanceRun } from './maintenance-run'
-import { createMcpCommand, createMcpContextReportCommand, createMcpListCapabilitiesCommand, createMcpRefinementDemandCommand } from './mcp'
+import { createMcpCommand, createMcpContextReportCommand, createMcpListCapabilitiesCommand } from './mcp'
 import { createMcpGuardCommand } from './mcp-guard'
 import { createMigrateCommand, detectLegacyArtifacts } from './migrate'
 import { createBackendsSubcommand } from './migrate-backends'

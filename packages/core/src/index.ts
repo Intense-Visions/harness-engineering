@@ -270,6 +270,11 @@ export * from './accessibility';
 export * from './deployment';
 
 /**
+ * Dictionary module.
+ */
+export * from './dictionary';
+
+/**
  * Gate-loss module.
  */
 export * from './gate-loss';
