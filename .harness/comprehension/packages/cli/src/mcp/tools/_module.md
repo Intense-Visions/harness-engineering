@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'packages/cli/src/mcp/tools'
-sourceHash: 'a0065595035f830e59b66e0522f6c9cd14baf4421533556791aa13a65378f7e8'
+sourceHash: 'f0a5501c39996cf06f614bbf82fe3151a8f66b5d65f800f2eb8860ffde1de839'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
@@ -78,6 +78,7 @@ members:
     'pulse.ts',
     'put-comprehension.ts',
     'recommend-skills.ts',
+    'refinement-telemetry.ts',
     'review-changes.ts',
     'review-pipeline.ts',
     'roadmap-auto-sync.ts',
@@ -158,6 +159,7 @@ export MAX_INVARIANT_CHARS
 export MAX_SUMMARY_CHARS
 export NamingCraftInput
 export NamingCraftOutput
+export REFINEMENT_EVENTS_FILE
 export RiskLevel
 export SKILL_EVENTS_FILE
 export SecurityCraftInput
@@ -378,8 +380,10 @@ export predictConflictsDefinition
 export predictFailuresDefinition
 export putComprehensionDefinition
 export readAdr
+export readRefinementDemand
 export readStrategyDefinition
 export recommendSkillsDefinition
+export recordRefinement
 export releaseCompoundLockDefinition
 export renderBatch
 export renderConfirmation
@@ -550,6 +554,7 @@ import { EmitInteractionInputSchema, InteractionBatch, InteractionBatchSchema, I
 import { handlePlanParallelization, planParallelizationDefinition } from './parallelization'
 import from './performance.js'
 import { handleSeedPulseFromStrategy, handleWritePulseConfig, seedPulseFromStrategyDefinition, writePulseConfigDefinition } from './pulse'
+import { recordRefinement } from './refinement-telemetry.js'
 import from './review-pipeline.js'
 import { RowLinkOutcome, autoSyncRoadmap, triggerExternalSync, triggerScopedExternalSync } from './roadmap-auto-sync.js'
 import { handleManageRoadmapFileLess } from './roadmap-file-less.js'
@@ -560,7 +565,7 @@ import { handleSummarizeSession, summarizeSessionDefinition } from './summarize-
 import { handleUatSignoff, uatSignoffDefinition } from './uat-signoff.js'
 import from './validate.js'
 import { handleSubscribeWebhook, subscribeWebhookDefinition } from './webhook-tools'
-import { CHARS_PER_TOKEN, COMPREHENSION_ROOT, CompactionPipeline, ComprehensionSourceFile, ComprehensionStore, ComprehensionUnit, ConflictError, DEFAULT_INSTRUCTION_BUDGET, DriftConfig, Err, ExtractStatic, FeaturePatch, GenerateSemantic, LevelInstructionDensity, NewFeatureInput, Ok, PackedEnvelope, Result, RoadmapPromoteCoreResult, RoadmapTrackerClient, SourceFile, StaticExtraction, StructuralStrategy, TrackedFeature, TrackerSyncAdapter, TruncationStrategy, analyzeSkillInstructionDensity, applyRoadmapDiff, archiveDoneShardsForProject, computeLoadPlan, computeSourceHash, createNodeComprehensionIO, createNodeModuleSourceReader, createTrackerClient, decidePromotionForRow, detectRoadmapStorageMode, estimateTokens, extractLevel, loadProjectRoadmapMode, loadTrackerClientConfigFromProject, loadTrackerSyncConfig, paginate, renderServedUnit, resolveRoadmapStore, roadmapSourceExists, serializeEnvelope, serveGate, slugifyFeatureName } from '@harness-engineering/core'
+import { CHARS_PER_TOKEN, COMPREHENSION_ROOT, CompactionPipeline, ComprehensionSourceFile, ComprehensionStore, ComprehensionUnit, ConflictError, DEFAULT_INSTRUCTION_BUDGET, DriftConfig, Err, ExtractStatic, FeaturePatch, GenerateSemantic, LevelInstructionDensity, NewFeatureInput, Ok, PackedEnvelope, RefinementContextClass, RefinementDemandReport, RefinementOperation, RefinementRequest, Result, RoadmapPromoteCoreResult, RoadmapTrackerClient, SourceFile, StaticExtraction, StructuralStrategy, TrackedFeature, TrackerSyncAdapter, TruncationStrategy, aggregateDemand, analyzeSkillInstructionDensity, applyRoadmapDiff, archiveDoneShardsForProject, classifyRefinement, computeLoadPlan, computeSourceHash, createNodeComprehensionIO, createNodeModuleSourceReader, createTrackerClient, decidePromotionForRow, detectRoadmapStorageMode, estimateTokens, extractLevel, loadProjectRoadmapMode, loadTrackerClientConfigFromProject, loadTrackerSyncConfig, paginate, renderServedUnit, resolveRoadmapStore, roadmapSourceExists, serializeEnvelope, serveGate, slugifyFeatureName } from '@harness-engineering/core'
 import { skipDirGlobs } from '@harness-engineering/graph'
 import { AnalysisProvider, CanaryAdapter, CanaryFrameworkInfo, GuardianAnalysis, createCanaryAdapter, readGuardianAnalyses, resolveTestCommand } from '@harness-engineering/intelligence'
 import from '@harness-engineering/linter-gen'
@@ -574,7 +579,7 @@ import from 'fs/promises'
 import from 'glob'
 import { execSync } from 'node:child_process'
 import * as crypto, { randomUUID } from 'node:crypto'
-import * as fs, { appendFileSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs'
+import * as fs, { appendFileSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import * as fs, { mkdir, readFile } from 'node:fs/promises'
 import * as os, { tmpdir } from 'node:os'
 import * as nodePath, * as path, path, { join } from 'node:path'

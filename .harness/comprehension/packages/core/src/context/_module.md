@@ -1,11 +1,10 @@
 ---
 schemaVersion: 1
 module: 'packages/core/src/context'
-sourceHash: '75abce14352a9f350df3cf828e1c9109cfea740b19c6c3b6deb210af9ca5da89'
-compiledAt: '2026-08-28T01:22:10.371Z'
+sourceHash: '0c7f206b64d9c19e93bfdcdd3304f099ca2ff105248660b1228729346bb1f2f8'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
-model: 'claude-haiku-4-5-20251001'
-semantic: present
+model: null
+semantic: absent
 members:
   [
     'agents-map.ts',
@@ -22,25 +21,11 @@ members:
     'instruction-density.ts',
     'knowledge-map.ts',
     'progressive-loader.ts',
+    'refinement-demand.ts',
     'section-parser.ts',
     'types.ts',
   ]
 ---
-
-## Summary
-
-`packages/core/src/context` is a token-and-context-budgeting subsystem for AI agent context consumption. It allocates the nominal context window into six categories (systemPrompt 15%, projectManifest 5%, taskSpec 20%, activeCode 40%, interfaces 10%, reserve 10%) and flags contributors that exceed their share. It classifies context surfaces into three classes—always-loaded (fixed per-turn tax), path-scoped (loaded by working-set path), invoked-only (loaded on-demand)—ranks contributors by token cost, and supports exact counting via Anthropic's API with graceful fallback to a chars÷4 heuristic. It validates AGENTS.md for required sections and link integrity, parses SKILL.md into four progressive-loading levels for deferred content, measures imperative-instruction density against the HumanLayer budget, and monitors resident token consumption within a turn against research-backed trip wires (warn/trip thresholds are window-class-anchored, not percentages).
-
-## Invariants
-
-- Token budget ratios are normalized—allocation functions normalize and enforce minimums to guarantee six categories always sum to 100% of allocable window
-- Context class ↔ budget category mapping is fixed 1:1—always-loaded→systemPrompt, path-scoped→projectManifest, invoked-only→interfaces; changing this mapping breaks the entire attribution model
-- Section-level classification is exhaustive and stable—SECTION_LEVEL_MAP defines every known H2 heading's progressive-disclosure tier (1–4) and defaults to 3; tier cumulation is strict (level-N includes all N−1 content)
-- Window band boundaries are absolute token anchors, never percentages—fixed thresholds (1M: warn 250K/trip 350K; 200K: warn 80K/trip 100K) because % thresholds produce degradation on large windows
-- EFFECTIVE_WINDOW_RATIO = 0.6—usable context is ~60% of nominal window per RULER research; trip wires and utilization calculations depend on this constant
-- Attribution never hard-fails—buildAttributionReport catches token-counter exceptions per entry and falls back to heuristic; report marks degradation but never throws
-- REQUIRED_SECTIONS in AGENTS.md is non-negotiable—validateAgentsMap rejects any validation if a required section is missing; this is load-bearing for agent-capability discovery
-- Trip verdicts are keyed to resident token count, not utilization—evaluateContextBudget returns trip when usedTokens ≥ tripAt (absolute), never when a percentage crosses a threshold
 
 ## Interface Contract
 
@@ -57,6 +42,7 @@ export BuildAttributionReportOptions
 export CLASS_TO_BUDGET_CATEGORY
 export CONTEXT_CLASSES
 export ClassAttribution
+export ClassDemand
 export ContextBudgetEvaluation
 export ContextBudgetThresholds
 export ContextBudgetVerdict
@@ -79,8 +65,14 @@ export GraphCoverageData
 export IntegrityReport
 export LevelInstructionDensity
 export LoaderConfig
+export OPERATION_CONTEXT_CLASS
 export ParsedSection
+export REFINEMENT_CONTEXT_CLASSES
 export REQUIRED_SECTIONS
+export RefinementContextClass
+export RefinementDemandReport
+export RefinementOperation
+export RefinementRequest
 export ResolvedCounterMode
 export ResolvedTokenCounter
 export SkillInstructionDensityReport
@@ -89,9 +81,11 @@ export TokenBudget
 export TokenBudgetOverrides
 export TokenCounter
 export WorkflowPhase
+export aggregateDemand
 export analyzeSkillInstructionDensity
 export buildAttributionReport
 export checkDocCoverage
+export classifyRefinement
 export computeLoadPlan
 export contextBudget
 export contextFilter
