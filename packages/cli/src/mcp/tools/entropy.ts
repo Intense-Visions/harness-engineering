@@ -1,5 +1,5 @@
 import { Ok } from '@harness-engineering/core';
-import type { DriftConfig } from '@harness-engineering/core';
+import type { DriftConfig, PatternConfig } from '@harness-engineering/core';
 import { skipDirGlobs } from '@harness-engineering/graph';
 import { resultToMcpResponse } from '../utils/result-adapter.js';
 import { sanitizePath } from '../utils/sanitize-path.js';
@@ -171,6 +171,38 @@ export async function handleDetectEntropy(input: {
     const driftConfig = entropy?.drift as Partial<DriftConfig> | undefined;
     const driftEnabled = typeFilter === 'all' || typeFilter === 'drift';
 
+    // Pattern rules come from `entropy.patterns` in harness.config.json. The
+    // previous implementation passed `patterns` as a bare boolean, which the
+    // EntropyAnalyzer coerces into an empty rule set (`{ patterns: [] }`). That
+    // evaluated ZERO rules yet reported zero violations / passRate 1 — a pass
+    // indistinguishable from a real pattern check that actually found nothing.
+    // This is the same empty-ruleset false-pass fixed on the CLI path in #1760
+    // (PR #1791). Read the configured rules instead, and refuse to green-tick a
+    // patterns check that has nothing to evaluate (#1792).
+    const patternsRequested = typeFilter === 'all' || typeFilter === 'patterns';
+    const patternConfig = entropy?.patterns as PatternConfig | undefined;
+    const configuredRuleCount =
+      (patternConfig?.patterns?.length ?? 0) + (patternConfig?.customPatterns?.length ?? 0);
+    const hasPatternRules = configuredRuleCount > 0;
+
+    // Fail loudly when patterns is the explicitly requested check but no rules
+    // are configured — an empty rule set cannot honestly report a pass (#1792).
+    if (typeFilter === 'patterns' && !hasPatternRules) {
+      return {
+        content: [
+          {
+            type: 'text' as const,
+            text:
+              'No pattern rules are configured, so detect_entropy(type: "patterns") has nothing ' +
+              'to evaluate. Add rules under `entropy.patterns` in harness.config.json, or request ' +
+              'a different check (type: "drift" | "dead-code"). Refusing to report a pass over ' +
+              'zero rules.',
+          },
+        ],
+        isError: true,
+      };
+    }
+
     // Project-wide analysis.exclude globs apply on top of the entropy-specific
     // excludes (or the built-in defaults when no entropy block is configured).
     const analysisExclude = loadAnalysisExclude(projectPath);
@@ -187,7 +219,10 @@ export async function handleDetectEntropy(input: {
       analyze: {
         drift: driftEnabled ? (driftConfig ?? true) : false,
         deadCode: typeFilter === 'all' || typeFilter === 'dead-code',
-        patterns: typeFilter === 'all' || typeFilter === 'patterns',
+        // Only run the pattern analyzer when real rules exist; a bare boolean
+        // becomes an empty rule set that misrepresents "checked" as "passed"
+        // (#1792). For `all`, patterns are simply skipped when unconfigured.
+        patterns: patternsRequested && hasPatternRules && patternConfig ? patternConfig : false,
       },
     });
 
