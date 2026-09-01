@@ -1,0 +1,12 @@
+{
+  "issue": [1761],
+  "route": "bug",
+  "stages": ["debugging"],
+  "reproducingTest": "packages/core/src/harness-strength/partial-coverage-score.1761.test.ts",
+  "closingKeyword": "Closes",
+  "assumptions": [
+    "Adopted the issue's smallest suggested fix (#1): scale the reported score by audit coverage (evaluable/applicable) rather than the exit-code or glyph changes (#2/#3).",
+    "Coverage scaling is linear and rounded: score = round(findingsScore * evaluable/applicable). 2 of 7 clean => 29; every pattern abstaining => 0; full coverage is the identity so a complete clean audit still earns 100.",
+    "Tier continues to key off the findings-only score (not the coverage-scaled score), so the coverage penalty on the number stays orthogonal to the incomplete/at-risk/theatre tier that #1013 introduced. A vacuous denominator (applicable<=0) passes the raw score through to avoid divide-by-zero."
+  ]
+}

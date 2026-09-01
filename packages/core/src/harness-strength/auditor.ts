@@ -1,7 +1,7 @@
 import { Ok, Err, type Result } from '../shared/result';
 import { buildProjectContext, resolveMode, type ModeOptions } from './context';
 import { ALL_RULES } from './rules/index';
-import { rollupScore } from './scoring';
+import { rollupScore, scoreWithCoverage } from './scoring';
 import type {
   AuditResult,
   ProjectContext,
@@ -26,6 +26,13 @@ export type AuditOptions = ModeOptions;
  * weakness as a pass (success criterion #7). They are instead surfaced in
  * `summary.skipped` and, when they leave coverage partial, cap the tier at
  * `incomplete` so a partial audit never reads as a full `solid` pass (#1013).
+ *
+ * The reported `score` is additionally scaled by coverage
+ * (`evaluable / applicable`) so partial coverage moves the headline number
+ * itself, not just the tier and coverage line (#1761): an audit that evaluated
+ * only 2 of 7 patterns cleanly scores ~29, and one where every pattern abstains
+ * scores 0 — full coverage remains the identity, so a complete clean audit
+ * still earns 100.
  */
 export class HarnessStrengthAuditor {
   audit(root: string, opts: AuditOptions = {}): Result<AuditResult, Error> {
@@ -64,11 +71,17 @@ export class HarnessStrengthAuditor {
         for (const f of raw) findings.push({ ...f, severity });
       }
 
-      const { score, tier: scoredTier } = rollupScore(findings);
+      const { score: findingsScore, tier: scoredTier } = rollupScore(findings);
+      // Scale the findings score by coverage so partial coverage cannot report a
+      // bare 100 (#1761). #1013 added `incomplete` and a coverage line AROUND an
+      // unchanged number; the number itself still read 100 when most patterns
+      // abstained. `evaluable / applicable` is the coverage term: 2 of 7 clean is
+      // ~29, all-abstain is 0, and full coverage is the identity (100 stays 100).
+      const score = scoreWithCoverage(findingsScore, evaluable.length, applicable.length);
       // Withhold `solid` when coverage is partial: a clean score across only
-      // some of the applicable patterns is `incomplete`, not `solid` (#1013).
-      // Weaker tiers (`at-risk`/`theatre`) already signal detected problems and
-      // are left as-is.
+      // some of the applicable patterns is `incomplete`, not `solid` (#1013). The
+      // tier keys off the findings score (not the coverage-scaled one) so this
+      // orthogonal coverage caveat stays distinct from a detected weakness.
       const tier: Tier = scoredTier === 'solid' && skipped.length > 0 ? 'incomplete' : scoredTier;
 
       const summary = {
