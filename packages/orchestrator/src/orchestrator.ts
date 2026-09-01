@@ -156,6 +156,7 @@ import { wireTelemetryFanout } from './gateway/telemetry/fanout';
 import { SinkRegistry } from './notifications/registry';
 import { wireNotificationSinks } from './notifications/events';
 import { CacheMetricsRecorder, OTLPExporter } from '@harness-engineering/core';
+import { VERSION as HARNESS_VERSION, type ProvenanceTrailerInput } from '@harness-engineering/core';
 import { StructuredLogger } from './logging/logger';
 import { scanWorkspaceConfig } from './workspace/config-scanner';
 import { InteractionQueue } from './core/interaction-queue';
@@ -4112,6 +4113,9 @@ export class Orchestrator extends EventEmitter {
       const ship = await this.workspace.shipWorkspace(shipIdentifier, {
         ...this.buildShipPr(issue),
         workspacePath,
+        // #1531 — stamp the autonomous commit + PR body with a machine-readable
+        // provenance trailer so this tier is mechanically countable and auditable.
+        provenance: this.buildShipProvenance(issue, lastBackendName, lastDef),
       });
       if (!ship.ok) {
         await this.handleStagedGateFailure(
@@ -4184,6 +4188,40 @@ export class Orchestrator extends EventEmitter {
    * a real number the trailer is omitted so the PR does not close an unrelated
    * issue. Pure; no side effects.
    */
+  /**
+   * #1531 — build the machine-readable provenance trailer input for an autonomous
+   * ship. Sourced entirely from live run context: the harness version as the
+   * skill version, the flight-recorder run id, the executing backend's model + name,
+   * and the work unit as the lane. Every optional field degrades to omission when
+   * its context is absent — {@link appendProvenanceTrailer} tolerates that — so this
+   * never throws. The `skill` is `orchestrator` (the autonomous ship path identity),
+   * distinguishing the autonomous tier from interactive assistance.
+   */
+  private buildShipProvenance(
+    issue: Issue,
+    backendName: string | undefined,
+    backendDef: import('@harness-engineering/types').BackendDef | undefined
+  ): ProvenanceTrailerInput {
+    // `model` is absent on some backend variants (e.g. mock) — narrow before reading.
+    const rawModel =
+      backendDef !== undefined && 'model' in backendDef ? backendDef.model : undefined;
+    const model = Array.isArray(rawModel)
+      ? rawModel.filter((m): m is string => typeof m === 'string').join(',')
+      : typeof rawModel === 'string'
+        ? rawModel
+        : undefined;
+    const input: ProvenanceTrailerInput = {
+      skill: 'orchestrator',
+      skillVersion: HARNESS_VERSION,
+      runId: this.flightRunId,
+    };
+    if (model !== undefined && model !== '') input.model = model;
+    if (backendName !== undefined && backendName !== '') input.agent = backendName;
+    const lane = issue.identifier;
+    if (lane !== undefined && lane !== '') input.lane = lane;
+    return input;
+  }
+
   private buildShipPr(issue: Issue): { title: string; body: string } {
     const title = issue.title?.trim() || issue.identifier;
     // Parse a trailing `#<digits>` off the external tracker id, if present.

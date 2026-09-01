@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'packages/orchestrator/src'
-sourceHash: '890ba227809ca2e0b68fb25e0d76353c84e7436b6ffa31351bc03384692466c7'
+sourceHash: 'fe26846001c876f35aa425fac3ec741cade6d4281792d7d01a8a28a61787fcf1'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
@@ -280,7 +280,7 @@ import { scanWorkspaceConfig } from './workspace/config-scanner'
 import { detectEcosystem } from './workspace/ecosystem'
 import { WorkspaceHooks } from './workspace/hooks'
 import { WorkspaceManager } from './workspace/manager'
-import { CacheMetricsRecorder, GitHubIssuesSyncAdapter, Issue, IssueTrackerClient, OTLPExporter, SecurityScanner, TrackerClientConfig, applyResourceBudgets, createModelProposal, createTrackerClient, eventSourcing, listProposals, loadTrackerSyncConfig, sharedRateBudget, updateProposal, writeTaint } from '@harness-engineering/core'
+import { CacheMetricsRecorder, GitHubIssuesSyncAdapter, HARNESS_VERSION, Issue, IssueTrackerClient, OTLPExporter, ProvenanceTrailerInput, SecurityScanner, TrackerClientConfig, applyResourceBudgets, createModelProposal, createTrackerClient, eventSourcing, listProposals, loadTrackerSyncConfig, sharedRateBudget, updateProposal, writeTaint } from '@harness-engineering/core'
 import { GraphStore } from '@harness-engineering/graph'
 import { AnalysisProvider, EnrichedSpec, IntelligencePipeline, OpenAICompatibleAnalysisProvider, OutcomeEvaluator, TriagePrediction } from '@harness-engineering/intelligence'
 import { DEFAULT_HARNESS_FIT_TASKS, DedupPair, DedupPairs, DiscoverCandidatesOptions, DiscoverCandidatesResult, FrozenCandidate, HardwareDetector, HardwareProfile, HarnessFitCacheFileStore, HarnessFitProbeDeps, HarnessFitProbeTask, InstallAdapter, OllamaInstallAdapter, PoolManager, PoolStateProvider, PoolStateStore, RankerCandidate, RefreshScheduler, SchedulerTimerHandle, createBuildQualityReRanker, createNativeRecommender, curationFromCandidates, loadFrozenCandidates, probeToolCalling, runRefreshTick, selectCandidates } from '@harness-engineering/local-models'

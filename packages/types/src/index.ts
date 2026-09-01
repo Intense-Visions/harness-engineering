@@ -45,6 +45,8 @@ export type {
   CICheckName,
   CICheckStatus,
   CICheckIssue,
+  GateBound,
+  GateMeasurement,
   CICheckResult,
   CICheckSummary,
   CICheckReport,
