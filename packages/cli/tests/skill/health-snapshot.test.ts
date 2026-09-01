@@ -45,6 +45,7 @@ function makeSnapshot(overrides: Partial<HealthSnapshot> = {}): HealthSnapshot {
       testCoverage: null,
       anomalyOutlierCount: 0,
       articulationPointCount: 0,
+      reworkRate: { maxUnplannedReworkRate: 0, reworkSurfaceCount: 0 },
     },
     signals: [],
     ...overrides,

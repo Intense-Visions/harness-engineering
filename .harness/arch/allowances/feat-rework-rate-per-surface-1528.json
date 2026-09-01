@@ -1,0 +1,14 @@
+{
+  "reason": "Adds report-only rework-rate module (#1528): a new packages/core/src/rework module plus health-snapshot wiring legitimately raises aggregate cyclomatic complexity by ~5. computeRework itself was refactored to stay under the per-function threshold (summarizeSurface extracted). No per-function threshold breaches introduced by this change.",
+  "categories": {
+    "complexity": 349
+  },
+  "violationIds": [
+    "72951ebfde05ccca20c508249487d2b30f01417e1ab0f6234dc821be44168bf2",
+    "746f2580c73490d2a69f4b5967cfa3527401ea8ecc27fae0a9bfd4898ba76d8c",
+    "923cb2028213cbe08f9b9d99057a3a9fb5cebef83ea6846aca76d7fb5031f0b7",
+    "9b6e6ca5cb568d3408af642b7100f3259e94d47ef7b42a02b66cfeb0587cb9b2",
+    "e5ffc5fa84742381e8fe1025a28615e6b0499271e7647dc81d0cf49a236e7d8a"
+  ],
+  "createdFrom": "9f5c3c6e7"
+}

@@ -555,6 +555,14 @@ Recommend skills based on codebase health analysis
 - `--no-cache` — Force fresh health snapshot
 - `--top` — Max recommendations (default 5) (default: "5")
 
+### `harness refinement-demand`
+
+Report refinement frequency per progressive-context class (demand signal)
+
+**Options:**
+
+- `--json` — Emit machine-readable JSON
+
 ### `harness review-ci`
 
 Run the tiered code-review gate (floor + optional LLM runner) for CI
@@ -566,6 +574,17 @@ Run the tiered code-review gate (floor + optional LLM runner) for CI
 - `--diff` — git range (default: origin/<base>...HEAD)
 - `--comment` — post the verdict as a comment on the current branch's PR via gh
 - `--out` — write the verdict JSON artifact to a file (use the global --json to stream it to stdout instead)
+
+### `harness rework`
+
+Report per-surface rework rate from git history (planned vs unplanned; report-only)
+
+**Options:**
+
+- `--since` — Lookback window (e.g. 24h, 7d, 4w, 3mo). (default: "30d")
+- `--min-commits` — Exclude surfaces with fewer than n commits in the window. (default: "2")
+- `--top` — Cap the ranked rows printed (JSON is never truncated).
+- `--json` — Emit the machine-readable ReworkReport as JSON.
 
 ### `harness scan-config`
 

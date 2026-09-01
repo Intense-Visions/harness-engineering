@@ -45,6 +45,9 @@ export const SIGNAL_REGISTRY = [
   { name: 'perf-regression', check: 'perf', category: 'performance' },
   { name: 'anomaly-outlier', check: null, category: null },
   { name: 'articulation-point', check: null, category: null },
+  // Report-only rework metric (#1528). check: null keeps it from ever flipping a
+  // `passed` flag; category: null keeps it out of parallel-safety grouping.
+  { name: 'rework-hotspot', check: null, category: null },
 ] as const satisfies ReadonlyArray<{
   name: string;
   check: CheckKey | null;

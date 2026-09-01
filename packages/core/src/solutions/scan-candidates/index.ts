@@ -1,7 +1,9 @@
 export { isoWeek, formatIsoWeek } from './iso-week';
 export type { IsoWeek } from './iso-week';
-export { gitScan } from './git-scan';
+export { gitScan, normalizeSince } from './git-scan';
 export type { ScannedCommit, GitScanOptions } from './git-scan';
+export { readRawCommits } from './read-commits';
+export type { RawCommit, ReadCommitsOptions } from './read-commits';
 export { computeHotspots } from './hotspot';
 // Re-export hotspot types under a `Scan*`-prefixed name to avoid collision with
 // the existing `Hotspot` type from `./blueprint/types` at the top-level core

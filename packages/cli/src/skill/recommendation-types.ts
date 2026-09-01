@@ -33,7 +33,7 @@ export const DOMAIN_SIGNALS = [
  * HealthSnapshot.signals, and Recommendation.triggeredBy.
  *
  * The health portion is single-sourced from core's `HEALTH_SIGNAL_NAMES` (SC4);
- * the cli-local change/domain signals follow. Order: 12 health, 4 change, 12 domain.
+ * the cli-local change/domain signals follow. Order: 13 health, 4 change, 12 domain.
  */
 export const HEALTH_SIGNALS = [
   ...HEALTH_SIGNAL_NAMES,

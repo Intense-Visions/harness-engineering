@@ -6,6 +6,7 @@ import {
   HEALTH_SIGNAL_NAMES,
   reconcilePassed,
 } from './index';
+import type { SignalName } from './index';
 
 describe('SIGNAL_REGISTRY', () => {
   it('declares the real signal vocabulary with check mappings', () => {
@@ -23,6 +24,7 @@ describe('SIGNAL_REGISTRY', () => {
         'layer-violations',
         'low-coverage',
         'perf-regression',
+        'rework-hotspot',
         'security-findings',
       ].sort()
     );
@@ -37,8 +39,14 @@ describe('SIGNAL_REGISTRY', () => {
         'high-complexity',
         'high-coupling',
         'low-coverage',
+        'rework-hotspot',
       ].sort()
     );
+  });
+
+  it('registers rework-hotspot as a metrics-only, uncategorized signal (report-only)', () => {
+    const entry = SIGNAL_REGISTRY.find((s) => s.name === 'rework-hotspot');
+    expect(entry).toEqual({ name: 'rework-hotspot', check: null, category: null });
   });
 });
 
@@ -100,7 +108,12 @@ describe('SIGNAL_CATEGORY_MAP (derived, SC4 — single-sources parallel-safety c
   });
 
   it('excludes every uncategorized (category: null) signal — metrics-only stay null', () => {
-    for (const name of ['high-complexity', 'anomaly-outlier', 'articulation-point']) {
+    for (const name of [
+      'high-complexity',
+      'anomaly-outlier',
+      'articulation-point',
+      'rework-hotspot',
+    ]) {
       expect(SIGNAL_CATEGORY_MAP).not.toHaveProperty(name);
     }
   });
@@ -114,7 +127,7 @@ describe('SIGNAL_CATEGORY_MAP (derived, SC4 — single-sources parallel-safety c
 });
 
 describe('HEALTH_SIGNAL_NAMES (derived, SC4 — single source for cli HEALTH_SIGNALS)', () => {
-  it('lists all 12 registry signal names in registry order', () => {
+  it('lists all registry signal names in registry order', () => {
     expect([...HEALTH_SIGNAL_NAMES]).toEqual([
       'circular-deps',
       'layer-violations',
@@ -128,7 +141,15 @@ describe('HEALTH_SIGNAL_NAMES (derived, SC4 — single source for cli HEALTH_SIG
       'perf-regression',
       'anomaly-outlier',
       'articulation-point',
+      'rework-hotspot',
     ]);
+  });
+
+  it('includes rework-hotspot in HEALTH_SIGNAL_NAMES', () => {
+    expect(HEALTH_SIGNAL_NAMES).toContain('rework-hotspot');
+    // Type-level: SignalName accepts the new literal.
+    const name: SignalName = 'rework-hotspot';
+    expect(name).toBe('rework-hotspot');
   });
 
   it('is exactly the registry name list (no drift between the two)', () => {
