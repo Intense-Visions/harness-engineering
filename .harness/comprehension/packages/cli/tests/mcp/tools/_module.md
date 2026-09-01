@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'packages/cli/tests/mcp/tools'
-sourceHash: 'b258fb855a32ff2019f63014dbf1f7f39804f5264447f0e800cf705a828ba4d5'
+sourceHash: '0f47fcc8d4da413ace144b32d4afd5220c0672725f27002c713ca6da45cba193'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
@@ -29,6 +29,7 @@ members:
     'docs-craft.test.ts',
     'docs.test.ts',
     'entropy-config-threading.test.ts',
+    'entropy-patterns-empty-ruleset.test.ts',
     'entropy.test.ts',
     'event-emitter.test.ts',
     'events-jsonl-retired.guard.test.ts',
