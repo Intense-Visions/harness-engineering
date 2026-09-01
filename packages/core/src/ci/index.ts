@@ -8,3 +8,16 @@ export type {
   BaseFreshnessVerdict,
   BaseFreshnessTrust,
 } from './base-freshness';
+export {
+  parseVerdictCacheConfig,
+  VerdictCache,
+  VerdictCacheStatsCollector,
+  computeConfigHash,
+  computeProjectInputHash,
+  computeVerdictKey,
+  shouldCacheResult,
+  GATE_VERSIONS,
+  MEMOIZABLE_CHECKS,
+  DEFAULT_VERDICT_CACHE_DIR,
+} from './verdict-cache';
+export type { VerdictCacheConfig } from './verdict-cache';

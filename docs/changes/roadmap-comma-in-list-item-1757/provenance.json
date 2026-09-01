@@ -1,0 +1,10 @@
+{
+  "issue": [1757],
+  "route": "bug",
+  "stages": ["debugging"],
+  "reproducingTest": "packages/core/tests/roadmap/serialize-list-field-comma.test.ts",
+  "closingKeyword": "Closes",
+  "assumptions": [
+    "Scoped to blockedBy/plan comma-in-item; builds on the #1756 codec already on main"
+  ]
+}

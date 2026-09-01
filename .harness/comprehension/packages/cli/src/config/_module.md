@@ -1,20 +1,11 @@
 ---
 schemaVersion: 1
-module: 'packages/cli/src/config'
-sourceHash: 'f6a4b3c00fe4f25546ac2ce7f25589aaf6a6a8526b709e6624baeeba5e69f3ca'
-compiler: { static: '1.0.0', semantic: '1.0.0' }
+module: "packages/cli/src/config"
+sourceHash: "ecbb6da964bc2ed54f0614dd8a512abd6292c6c5c07e8269fe288e5458245926"
+compiler: { static: "1.0.0", semantic: "1.0.0" }
 model: null
 semantic: absent
-members:
-  [
-    'analysis-schema.ts',
-    'ingest-schema.ts',
-    'loader.ts',
-    'schema.amr.test.ts',
-    'schema.ts',
-    'stripped-keys.test.ts',
-    'stripped-keys.ts',
-  ]
+members: ["analysis-schema.ts", "ingest-schema.ts", "loader.ts", "schema.amr.test.ts", "schema.ts", "stripped-keys.test.ts", "stripped-keys.ts"]
 ---
 
 ## Interface Contract
@@ -60,6 +51,7 @@ export OperationalPolicyConfigSchema
 export PerformanceConfigSchema
 export PhaseGateMappingSchema
 export PhaseGatesConfigSchema
+export ReleaseInventoryConfigSchema
 export ReviewConfigSchema
 export RoadmapAutoTriageConfigSchema
 export RoadmapConfigSchema

@@ -667,6 +667,25 @@ export const RollbackConfigSchema = z.object({
 });
 
 /**
+ * Schema for the merged-but-unreleased inventory metric (`harness
+ * release-inventory`, issue #1526). Report-only thresholds that warn when
+ * inventory (pending changesets + unreleased commits) outgrows release cadence.
+ * Every field is optional and falls back to the engine's built-in defaults.
+ */
+export const ReleaseInventoryConfigSchema = z.object({
+  /** Whether the metric is surfaced (advisory; default true). */
+  enabled: z.boolean().optional(),
+  /** Git tag glob that defines a release boundary (the denominator). Default `v*`. */
+  tagPattern: z.string().optional(),
+  /** Warn when pending changesets exceed this. Default 20. */
+  maxPendingChangesets: z.number().int().nonnegative().optional(),
+  /** Warn when the oldest unreleased change is older than this many days. Default 30. */
+  maxAgeDays: z.number().int().nonnegative().optional(),
+  /** Warn when unreleased merge commits exceed this. Default 50. */
+  maxUnreleasedMerges: z.number().int().nonnegative().optional(),
+});
+
+/**
  * Schema for knowledge-pipeline domain inference configuration.
  *
  * Both fields *extend* the built-in defaults shipped by
@@ -1138,6 +1157,28 @@ export const HarnessConfigSchema = z.object({
   security: SecurityConfigSchema.optional(),
   /** Performance and complexity budget settings */
   performance: PerformanceConfigSchema.optional(),
+  /**
+   * Content-addressed gate memoization (issue #1639) — an action cache for CI
+   * check verdicts. Opt-in, default OFF: a check whose input closure hashes
+   * unchanged returns its stored verdict instead of recomputing. Correct-by-
+   * construction (a changed input ⇒ a different hash ⇒ a miss, never a stale
+   * hit). `.passthrough()` keeps the section forward-compatible for the deferred
+   * remote/shared backend.
+   */
+  cache: z
+    .object({
+      verdicts: z
+        .object({
+          /** Master switch. Default false — the cache is a pure no-op unless enabled. */
+          enabled: z.boolean().default(false),
+          /** Local directory for cached entries (relative to project root). */
+          dir: z.string().default('.harness/cache/verdicts'),
+        })
+        .passthrough()
+        .optional(),
+    })
+    .passthrough()
+    .optional(),
   /** Compiled-comprehension substrate settings (see docs — phase 6). */
   comprehension: ComprehensionConfigSchema.optional(),
   /** Project template settings (used by 'harness init') */
@@ -1273,6 +1314,8 @@ export const HarnessConfigSchema = z.object({
   rollback: RollbackConfigSchema.optional(),
   /** Enforcing pre/post-deploy gate settings (`harness check-deployment`). */
   deployment: DeploymentGateConfigSchema.optional(),
+  /** Merged-but-unreleased inventory metric settings (`harness release-inventory`). */
+  releaseInventory: ReleaseInventoryConfigSchema.optional(),
   /** Knowledge-pipeline domain-inference settings */
   knowledge: KnowledgeConfigSchema.optional(),
   /** Adoption telemetry settings */
