@@ -1,0 +1,13 @@
+{
+  "issue": [1634],
+  "route": "feature",
+  "stages": ["brainstorming", "autopilot"],
+  "planArtifact": "docs/changes/stability-ordered-context-layout-1634/plans/plan.md",
+  "closingKeyword": "Refs",
+  "assumptions": [
+    "Scope limited to layout reorder + cache-hit metric per human CONFIRM; content-addressed delta encoding of recurring artifacts deferred to a follow-up slice",
+    "Stability tiers: immutable/tool-schemas > conventions > session state > per-turn state",
+    "Relevance ranking still selects WHICH nodes are included and the token budget is unchanged; only serialization order changes, so the layout pass is content-neutral (a permutation of the selected set)",
+    "Unknown/unclassified node types default to the VOLATILE tier (fail safe: never placed ahead of known-stable content)"
+  ]
+}
