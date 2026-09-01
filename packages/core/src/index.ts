@@ -295,6 +295,11 @@ export * from './insights';
 export * from './locks';
 
 /**
+ * Metabolism module.
+ */
+export * from './metabolism';
+
+/**
  * Notifications module.
  */
 export * from './notifications';

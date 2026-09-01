@@ -4,8 +4,9 @@ import { Command } from 'commander';
 import { createBudgetCommand } from './budget';
 import { createCalibrateCommand } from './calibrate';
 import { createInstallCommand } from './install';
+import { createMetabolismCommand } from './metabolism';
 import { createPerPrCommand } from './per-pr';
-import { createReportCommand, printReport } from './report';
+import { createReportCommand, printFullReport } from './report';
 import { createResetDayCommand } from './reset-day';
 import { createWeeksCommand } from './weeks';
 
@@ -24,12 +25,13 @@ import { createWeeksCommand } from './weeks';
 export function createBurnCommand(): Command {
   const command = new Command('burn')
     .description('Claude Code usage burn: pace, budget, calibration')
-    .action(() => {
+    .action(async () => {
       // Bare `harness burn` is the report, matching the old `claude-burn`.
-      process.exitCode = printReport();
+      process.exitCode = await printFullReport();
     });
 
   command.addCommand(createReportCommand());
+  command.addCommand(createMetabolismCommand());
   command.addCommand(createPerPrCommand());
   command.addCommand(createWeeksCommand());
   command.addCommand(createBudgetCommand());

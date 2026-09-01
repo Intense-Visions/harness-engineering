@@ -877,6 +877,14 @@ Wire the burn HUD statusline and hooks into ~/.claude/settings.json
 
 - `--dry-run` — show what would change without writing
 
+### `harness burn metabolism`
+
+Classify token spend into basal (maintenance) vs anabolic (productive) and rank maintenance waste
+
+**Options:**
+
+- `--json` — Emit machine-readable JSON
+
 ### `harness burn per-pr`
 
 Cost per merged PR: join burn token attribution to shipped PRs
