@@ -1,0 +1,14 @@
+{
+  "issue": [1639],
+  "route": "feature",
+  "stages": ["brainstorming", "autopilot"],
+  "planArtifact": "docs/changes/content-addressed-gate-memoization-1639/plans/plan-content-addressed-gate-memoization.md",
+  "closingKeyword": "Refs",
+  "closingKeywordReason": "First correct-by-construction slice: opt-in local content-addressed verdict cache with hit/miss telemetry. Deferred remainder tracked on #1639 — per-gate input-closure declaration + runtime access-recorder/closure audit (over-approximated here instead), shareable/distributed cache backend, per-gate-class savings telemetry into basal-metabolism, and the `harness cache stats`/`explain` CLI surface.",
+  "assumptions": [
+    "Opt-in local content-addressed verdict cache; changed input => different hash => miss (no stale hits); remote/distributed backend deferred",
+    "Input closure is an honest over-approximation (whole tracked source/config/docs tree) shared across checks; may over-miss but never returns a stale hit",
+    "A check that threw an internal error is never cached (transient-error guard)",
+    "cacheStats is emission-only telemetry and never influences exitCode or any check status; absent on the default cache-off path for byte-stable reports"
+  ]
+}
