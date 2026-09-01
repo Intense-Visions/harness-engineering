@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest';
 import * as path from 'node:path';
 import { WorkspaceManager } from './manager';
 import type { WorkspaceConfig } from '@harness-engineering/types';
+import { parseProvenanceTrailer } from '@harness-engineering/core';
 
 /**
  * staged-verify-gate-convergence D4 — `WorkspaceManager.shipWorkspace` turns a
@@ -190,6 +191,60 @@ describe('WorkspaceManager.shipWorkspace (D4)', () => {
     expect(result.ok).toBe(false);
     if (result.ok) return;
     expect(result.error).toBeInstanceOf(Error);
+  });
+
+  // #1531 — machine-readable provenance trailer on the autonomous ship path.
+  it('stamps a parseable provenance trailer onto the commit AND the PR body when provenance is supplied', async () => {
+    const wm = new ShipStubWM(config());
+    const result = await wm.shipWorkspace('ISS-1', {
+      title: 'feat: do the thing',
+      body: 'PR body prose.',
+      provenance: {
+        skill: 'orchestrator',
+        skillVersion: '9.9.9',
+        runId: 'run-xyz',
+        model: 'claude-opus-4-8',
+        lane: 'ISS-1',
+        agent: 'anthropic',
+      },
+    });
+    expect(result.ok).toBe(true);
+
+    // The commit message carries the trailer.
+    const commit = wm.gitCalls.find((c) => c[0] === 'commit');
+    const commitMsg = commit?.[2] ?? '';
+    const commitTrailer = parseProvenanceTrailer(commitMsg);
+    expect(commitTrailer).toMatchObject({
+      skill: 'orchestrator',
+      skillVersion: '9.9.9',
+      runId: 'run-xyz',
+      model: 'claude-opus-4-8',
+    });
+    expect(commitMsg.startsWith('feat: do the thing')).toBe(true);
+
+    // The PR body ALSO carries it — so the record survives the repo's squash-merge.
+    const pr = wm.ghCalls.find((c) => c[0] === 'pr' && c[1] === 'create');
+    const bodyIdx = (pr ?? []).indexOf('--body');
+    const prBody = bodyIdx >= 0 ? pr![bodyIdx + 1]! : '';
+    expect(parseProvenanceTrailer(prBody)).toMatchObject({
+      skill: 'orchestrator',
+      runId: 'run-xyz',
+    });
+    expect(prBody.startsWith('PR body prose.')).toBe(true);
+  });
+
+  it('leaves the commit + PR body byte-identical when no provenance is supplied (interactive/third-party unaffected)', async () => {
+    const wm = new ShipStubWM(config());
+    const result = await wm.shipWorkspace('ISS-1', { title: 'plain title', body: 'plain body' });
+    expect(result.ok).toBe(true);
+
+    const commit = wm.gitCalls.find((c) => c[0] === 'commit');
+    expect(commit?.[2]).toBe('plain title');
+    expect(parseProvenanceTrailer(commit?.[2] ?? '')).toBeNull();
+
+    const pr = wm.ghCalls.find((c) => c[0] === 'pr' && c[1] === 'create');
+    const bodyIdx = (pr ?? []).indexOf('--body');
+    expect(pr?.[bodyIdx + 1]).toBe('plain body');
   });
 });
 
