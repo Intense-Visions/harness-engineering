@@ -123,9 +123,52 @@ describe('cleanup command', () => {
       expect(result.ok).toBe(true);
     });
 
-    it('filters by patterns type', async () => {
+    // Regression (#1760): `-t patterns` with no configured pattern rules used
+    // to evaluate a hardcoded empty rule set and report "Entropy issues: 0"
+    // (exit 0) — a false pass indistinguishable from a real check that found
+    // nothing. It must now fail loudly instead of green-ticking zero rules.
+    it('fails loudly when patterns check has no configured rules (#1760)', async () => {
+      const result = await runCleanup({ cwd: '/tmp/test', type: 'patterns' });
+      expect(result.ok).toBe(false);
+      if (!result.ok) {
+        expect(result.error.message).toMatch(/no pattern rules/i);
+        // Non-success exit code so a real pattern check that found nothing
+        // stays distinguishable from "checked zero rules".
+        expect(result.error.exitCode).not.toBe(0);
+      }
+      // The empty-rule analyzer must never run for an explicit patterns check.
+      expect(capturedConfigs).toHaveLength(0);
+    });
+
+    // Complement to the regression: when real rules ARE configured, the
+    // patterns check wires them into the analyzer and runs normally (#1760).
+    it('evaluates configured pattern rules when present (#1760)', async () => {
+      const rule = {
+        name: 'no-default-export',
+        description: 'Barrels must use named exports',
+        severity: 'error' as const,
+        files: ['src/**/*.ts'],
+        rule: { type: 'no-export' as const, names: ['default'] },
+      };
+      vi.mocked(resolveConfig).mockReturnValueOnce({
+        ok: true,
+        value: {
+          version: 1,
+          rootDir: '.',
+          docsDir: './docs',
+          entropy: { excludePatterns: [], patterns: { patterns: [rule] } },
+        },
+      } as never);
+
       const result = await runCleanup({ cwd: '/tmp/test', type: 'patterns' });
       expect(result.ok).toBe(true);
+      expect(capturedConfigs).toHaveLength(1);
+      const config = capturedConfigs[0] as {
+        analyze: { patterns: { patterns: unknown[] } | false };
+      };
+      // The configured rule is threaded through, not a hardcoded empty set.
+      expect(config.analyze.patterns).not.toBe(false);
+      expect((config.analyze.patterns as { patterns: unknown[] }).patterns).toHaveLength(1);
     });
 
     it('returns error when config loading fails', async () => {

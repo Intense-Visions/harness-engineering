@@ -7,6 +7,10 @@ import type {
 // The H3 heading emitter lives in `./heading`, the single source of truth shared
 // with both readers, so the emitter cannot drift from them (#1261).
 import { serializeFeatureHeading } from './heading';
+// The summary escape codec lives in `./summary-field`, the single source of truth
+// shared with the parser, so a multi-line summary survives the line-oriented
+// grammar's parse → serialize round-trip intact (#1756).
+import { encodeSummaryField } from './summary-field';
 
 const EM_DASH = '\u2014';
 
@@ -119,7 +123,7 @@ export function serializeFeature(feature: RoadmapFeature): string[] {
     '',
     `- **Status:** ${feature.status}`,
     `- **Spec:** ${orDash(feature.spec)}`,
-    `- **Summary:** ${feature.summary}`,
+    `- **Summary:** ${encodeSummaryField(feature.summary)}`,
     `- **Blockers:** ${listOrDash(feature.blockedBy)}`,
     `- **Plan:** ${listOrDash(feature.plans)}`,
     ...serializeExtendedLines(feature),

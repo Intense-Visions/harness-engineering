@@ -56,6 +56,10 @@ Canonical, regenerate-and-gated catalog serializing each MCP tool's full live in
 
 Complete catalog of all 741 skills across all tiers.
 
+### [Provenance Commit Trailer](./provenance-trailer.md)
+
+The governed, machine-readable `Harness-*` git commit trailer emitted by the autonomous ship path — its schema, parse contract, and squash-merge survival.
+
 ### [Source Map](./source-map.md)
 
 Comprehensive source file index for navigating the codebase.

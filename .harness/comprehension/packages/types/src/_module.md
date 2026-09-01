@@ -1,27 +1,48 @@
 ---
 schemaVersion: 1
-module: "packages/types/src"
-sourceHash: "40e99c06a9d72fcef8f2f2f4d9b27c62a9228c52be5dc6689087fc43786e2531"
-compiledAt: "2026-08-28T01:22:12.863Z"
-compiler: { static: "1.0.0", semantic: "1.0.0" }
-model: "claude-haiku-4-5-20251001"
-semantic: present
-members: ["adoption.ts", "auth.ts", "caching.ts", "ci-notify.ts", "ci.ts", "container.ts", "fleet-claim.ts", "fleet-context-budget.ts", "fleet-handoff.ts", "fleet-spend-budget.ts", "identity.ts", "index.ts", "local-models.ts", "maintenance-findings.ts", "maintenance.ts", "notifications.ts", "orchestrator.ts", "plan-task.ts", "policy.ts", "proposals.ts", "pulse.ts", "result.ts", "roadmap.ts", "session-state.ts", "sessions.ts", "skill.ts", "solutions.ts", "strategy.ts", "telemetry-synthesis.ts", "telemetry.ts", "tracker-sync.ts", "usage.ts", "webhooks.ts", "workflow.ts"]
+module: 'packages/types/src'
+sourceHash: 'ffa98379041177e00032317e142b3aa7c06c2c3a8b6ee6ace6b5f21f83ef7c00'
+compiler: { static: '1.0.0', semantic: '1.0.0' }
+model: null
+semantic: absent
+members:
+  [
+    'adoption.ts',
+    'auth.ts',
+    'caching.ts',
+    'ci-notify.ts',
+    'ci.ts',
+    'container.ts',
+    'fleet-claim.ts',
+    'fleet-context-budget.ts',
+    'fleet-handoff.ts',
+    'fleet-spend-budget.ts',
+    'identity.ts',
+    'index.ts',
+    'local-models.ts',
+    'maintenance-findings.ts',
+    'maintenance.ts',
+    'notifications.ts',
+    'orchestrator.ts',
+    'plan-task.ts',
+    'policy.ts',
+    'proposals.ts',
+    'pulse.ts',
+    'result.ts',
+    'roadmap.ts',
+    'session-state.ts',
+    'sessions.ts',
+    'skill.ts',
+    'solutions.ts',
+    'strategy.ts',
+    'telemetry-synthesis.ts',
+    'telemetry.ts',
+    'tracker-sync.ts',
+    'usage.ts',
+    'webhooks.ts',
+    'workflow.ts',
+  ]
 ---
-
-## Summary
-
-packages/types/src is the type contract layer for the orchestrator system, providing TypeScript interfaces and Zod schemas across ~20 domain modules. It spans skill adoption tracking, authentication/tokens, CI check reporting, constraint pack compliance, fleet orchestration, proposal workflows, routing decisions, notifications, sessions, telemetry synthesis, roadmap config, and backend capability tiers. The package is a schema-authority boundary: every exported type with a *Schema suffix backs both compile-time checking and runtime validation via Zod. Most modules are self-contained (adoption, auth, caching, container), but interconnect via orchestrator primitives (CapabilityTier, ComplexityVerdict, TokenUsage, RoutingDecision/Risk).
-
-## Invariants
-
-- FailureCategory is a closed, mutually-exclusive taxonomy of 7 categories (prerequisite-missing, gate-rejected, user-cancelled, timeout, dependency-failure, agent-error, inconclusive); the FAILURE_CATEGORIES constant must stay in sync with both the type union and the adoption-tracker hook's derivation table.
-- Zod schemas are the runtime source of truth—any *Schema suffix type governs parsing and validation; changing a schema's shape invalidates persisted records (adoption.jsonl, tokens.json, fleet claims) without migration.
-- TokenScope is version-pinned in packages/types/src/auth/scopes.ts and mirrored in packages/orchestrator/src/auth/scopes.ts; any addition/removal must be ADR-gated to avoid breaking deployed tokens.
-- AuthToken secrets are hashed, never persisted raw—only hashedSecret lives on disk; raw secrets are shown once at creation and AuthTokenPublic omits the hash entirely.
-- StabilityTier partitions caching strategy into three semantically-distinct, mutually-exclusive tiers (static, session, ephemeral) that determine TTL behavior and cache reuse decisions.
-- ConstraintPackComplianceStatus must maintain its trichotomy: 'compliant' (no violations), 'non-compliant' (blocking), 'n/a' (not applicable/skipped)—CI gate logic depends on this invariant.
-- Adoption.jsonl records grow additively and the failureCategory field is optional; parsers must handle missing values gracefully to support records written before the field existed.
 
 ## Interface Contract
 
@@ -119,6 +140,8 @@ export FleetHandoffStatus
 export FleetHandoffStatusSchema
 export FleetHandoffValidationError
 export FleetHandoffValidationResult
+export GateBound
+export GateMeasurement
 export GatewayEvent
 export GatewayEventSchema
 export GeminiBackendDef

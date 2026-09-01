@@ -63,6 +63,43 @@ export const GUARDED_COMMANDS: ReadonlySet<string> = new Set([
   'review-ci',
 ]);
 
+/**
+ * The MCP tools whose output is a findings list a human or an orchestrator acts
+ * on. These are the in-process twins of {@link GUARDED_COMMANDS}: an MCP client
+ * calls the same check implementations the guarded CLI commands wrap, but the
+ * commander `preAction` hook that installs the CLI guard never runs on the MCP
+ * surface (it is a separate entry point — `bin/harness-mcp` → a request handler,
+ * not a commander action). So a stale `harness-mcp` shim reproduces the original
+ * version-skew incident unmitigated (#1301). This set lets the MCP server apply
+ * the SAME decision logic ({@link evaluateVersionGuard}) at its own entry point.
+ *
+ * Each entry maps to its guarded CLI twin so the two lists cannot silently
+ * diverge on what "findings-producing" means:
+ *   run_security_scan   → check-security
+ *   check_docs          → check-docs
+ *   check_dependencies  → check-deps
+ *   check_performance   → check-perf
+ *   validate_project    → validate
+ *   run_ci_checks       → review-ci
+ *   validate_cross_check→ cross-check
+ *   detect_entropy      → cleanup
+ *
+ * Kept in this module — the shared home of the guard's decision logic — rather
+ * than in the MCP layer, so both surfaces read the same definition of what is
+ * gated. Non-findings tools (context/graph/state/craft) are never gated: a guard
+ * that blocked them would block the very tools a session needs to recover.
+ */
+export const GUARDED_MCP_TOOLS: ReadonlySet<string> = new Set([
+  'run_security_scan',
+  'check_docs',
+  'check_dependencies',
+  'check_performance',
+  'validate_project',
+  'run_ci_checks',
+  'validate_cross_check',
+  'detect_entropy',
+]);
+
 export type VersionGuardStatus = 'ok' | 'unknown' | 'warn' | 'refuse';
 export type ExpectedVersionSource = 'config' | 'dependency';
 

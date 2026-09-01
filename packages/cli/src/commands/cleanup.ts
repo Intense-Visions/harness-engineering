@@ -1,7 +1,7 @@
 // packages/cli/src/commands/cleanup.ts
 import { Command } from 'commander';
 import * as path from 'path';
-import type { Result, EntropyConfig, DriftConfig } from '@harness-engineering/core';
+import type { Result, EntropyConfig, DriftConfig, PatternConfig } from '@harness-engineering/core';
 import { Ok, Err, EntropyAnalyzer } from '@harness-engineering/core';
 import { formatFindingsContract } from '@harness-engineering/types';
 import { resolveConfig } from '../config/loader';
@@ -60,6 +60,32 @@ export async function runCleanup(
   // docPaths / ignorePatterns / checkApiSignatures etc. are honored (issue #723).
   const driftEnabled = type === 'all' || type === 'drift';
   const driftConfig = config.entropy?.drift as Partial<DriftConfig> | undefined;
+
+  // Pattern rules come from `entropy.patterns` in harness.config.json. The
+  // previous implementation hardcoded an empty rule set (`{ patterns: [] }`),
+  // so `harness cleanup -t patterns` evaluated zero rules yet still reported
+  // "Entropy issues: 0" and exited 0 — a pass indistinguishable from a real
+  // check that found nothing (#1760). Read the configured rules instead, and
+  // refuse to green-tick a patterns check that has nothing to evaluate.
+  const patternsRequested = type === 'all' || type === 'patterns';
+  const patternConfig = config.entropy?.patterns as PatternConfig | undefined;
+  const configuredRuleCount =
+    (patternConfig?.patterns?.length ?? 0) + (patternConfig?.customPatterns?.length ?? 0);
+  const hasPatternRules = configuredRuleCount > 0;
+
+  // Fail loudly when patterns is the explicitly requested check but no rules
+  // are configured — an empty rule set cannot honestly report a pass (#1760).
+  if (type === 'patterns' && !hasPatternRules) {
+    return Err(
+      new CLIError(
+        'No pattern rules are configured, so `harness cleanup -t patterns` has nothing to ' +
+          'evaluate. Add rules under `entropy.patterns` in harness.config.json, or run a ' +
+          'different check (`-t drift`, `-t dead-code`). Refusing to report a pass over zero rules.',
+        ExitCode.VALIDATION_FAILED
+      )
+    );
+  }
+
   const entropyConfig: EntropyConfig = {
     rootDir,
     ...(config.entropy?.entryPoints && { entryPoints: config.entropy.entryPoints }),
@@ -67,7 +93,9 @@ export async function runCleanup(
     analyze: {
       drift: driftEnabled ? (driftConfig ?? true) : false,
       deadCode: type === 'all' || type === 'dead-code',
-      patterns: type === 'all' || type === 'patterns' ? { patterns: [] } : false,
+      // Only run the pattern analyzer when real rules exist; an empty rule set
+      // is a no-op that misrepresents "checked" as "passed" (#1760).
+      patterns: patternsRequested && hasPatternRules && patternConfig ? patternConfig : false,
     },
     exclude: config.entropy?.excludePatterns ?? ['**/node_modules/**', '**/*.test.ts'],
   };
