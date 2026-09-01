@@ -1348,6 +1348,14 @@ Check every MCP/npx package in .mcp.json against OSV.dev advisories
 - `--json` — Emit machine-readable JSON
 - `--path` — Project root path (default: ".")
 
+## Metabolism Commands
+
+Classify token spend into basal (maintenance) vs anabolic (productive) and rank maintenance waste
+
+### `harness metabolism report`
+
+Classify token spend into basal vs anabolic and rank maintenance waste
+
 ## Migrate Commands
 
 Migrate legacy harness artifact locations to current layout
