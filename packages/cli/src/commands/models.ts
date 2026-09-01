@@ -11,7 +11,18 @@
 import { Command } from 'commander';
 import { resolve } from 'node:path';
 import { defaultFetchModels } from '@harness-engineering/orchestrator';
-import { listProposals, type ListProposalsOptions, type Proposal } from '@harness-engineering/core';
+import {
+  listProposals,
+  type ListProposalsOptions,
+  type Proposal,
+  evaluateModelSentinel,
+  acknowledgeModelDrift,
+  hasUnacknowledgedMaterialDrift,
+  readSentinelHistory,
+  type RawBackendsMap,
+  type SentinelRecord,
+  type ModelDriftResult,
+} from '@harness-engineering/core';
 import { logger } from '../output/logger';
 import { ExitCode } from '../utils/errors';
 import { resolveConfig } from '../config/loader';
@@ -446,14 +457,164 @@ function addRefreshCommand(cmd: Command): void {
     .action(refreshAction);
 }
 
+// ── Model-update regression sentinel (#1617) ───────────────────────────────
+//
+// `harness models drift` treats the underlying model as a vendored dependency:
+// it snapshots the configured model identity (agent.backends[*].model), detects
+// a change vs the last-seen value, and appends a sentinel record to
+// `.harness/model-sentinel/history.jsonl`. Detect + report only — the pinned
+// behaviour-envelope suite and the routing hold gate are deferred.
+
+interface DriftOptions {
+  config?: string;
+  json?: boolean;
+  history?: boolean;
+  check?: boolean;
+  ack?: string | boolean;
+}
+
+/** Resolve `agent.backends` from harness.config.json (or an error result). */
+function resolveBackends(
+  configPath?: string
+): { ok: true; backends: RawBackendsMap | undefined } | { ok: false; error: string } {
+  const resolved = resolveConfig(configPath);
+  if (!resolved.ok) {
+    return { ok: false, error: `Could not load harness.config.json: ${resolved.error.message}` };
+  }
+  return { ok: true, backends: resolved.value.agent?.backends as RawBackendsMap | undefined };
+}
+
+/** Render a drift result as a human-readable changelog block. */
+function formatDrift(drift: ModelDriftResult): string {
+  const lines: string[] = [];
+  if (drift.kind === 'initial') {
+    lines.push('model-sentinel: baseline recorded (first run — no prior snapshot).');
+  } else if (drift.kind === 'unchanged') {
+    lines.push(`model-sentinel: no drift (digest ${drift.currentDigest}).`);
+  } else {
+    const tag = drift.severity === 'material' ? 'MATERIAL DRIFT' : 'benign drift';
+    lines.push(
+      `model-sentinel: ${tag} — ${drift.previousDigest ?? '(none)'} → ${drift.currentDigest}`
+    );
+    for (const d of drift.deltas) {
+      if (d.status === 'added') lines.push(`  + ${d.backend}: added [${d.after.join(', ')}]`);
+      else if (d.status === 'removed')
+        lines.push(`  - ${d.backend}: removed [${d.before.join(', ')}]`);
+      else lines.push(`  ~ ${d.backend}: [${d.before.join(', ')}] → [${d.after.join(', ')}]`);
+    }
+    if (drift.severity === 'material') {
+      lines.push('  outputs may shift — review, then run `harness models drift --ack` to re-pin.');
+    }
+  }
+  return lines.join('\n');
+}
+
+/** Render the append-only history as a changelog. */
+function formatHistory(records: readonly SentinelRecord[]): string {
+  if (records.length === 0) return 'model-sentinel: no history recorded yet.';
+  return records
+    .map((r) => {
+      const kind = r.acknowledged ? 'ack' : r.drift.kind;
+      const sev = r.drift.severity !== 'none' ? ` [${r.drift.severity}]` : '';
+      const note = r.note ? ` — ${r.note}` : '';
+      return `${r.observedAt}  ${kind}${sev}  digest=${r.snapshot.digest}${note}`;
+    })
+    .join('\n');
+}
+
+/** --history: print the append-only changelog. */
+function driftHistoryMode(root: string, json: boolean): number {
+  const records = readSentinelHistory(root);
+  if (json) console.log(JSON.stringify(records, null, 2));
+  else logger.info(formatHistory(records));
+  return ExitCode.SUCCESS;
+}
+
+/** --ack: append an acknowledgement re-pinning the current snapshot. */
+function driftAckMode(
+  root: string,
+  backends: RawBackendsMap | undefined,
+  ack: string | boolean,
+  json: boolean
+): number {
+  const note = typeof ack === 'string' ? ack : undefined;
+  const record = acknowledgeModelDrift(root, backends, note);
+  if (json) console.log(JSON.stringify(record, null, 2));
+  else
+    logger.info(
+      `model-sentinel: acknowledged — baseline re-pinned (digest ${record.snapshot.digest}).`
+    );
+  return ExitCode.SUCCESS;
+}
+
+/** --check: report last recorded state without appending; non-zero on open drift. */
+function driftCheckMode(root: string, json: boolean): number {
+  const open = hasUnacknowledgedMaterialDrift(readSentinelHistory(root));
+  if (json) console.log(JSON.stringify({ unacknowledgedMaterialDrift: open }, null, 2));
+  else
+    logger.info(
+      open
+        ? 'model-sentinel: unacknowledged material drift — run `harness models drift` to inspect, then `--ack`.'
+        : 'model-sentinel: no unacknowledged material drift.'
+    );
+  return open ? ExitCode.ERROR : ExitCode.SUCCESS;
+}
+
+/** Run the drift command; returns an exit code. Extracted for testability. */
+export async function runModelsDrift(opts: DriftOptions): Promise<number> {
+  const resolved = resolveBackends(opts.config);
+  if (!resolved.ok) {
+    logger.error(resolved.error);
+    return ExitCode.ERROR;
+  }
+  const root = projectRoot();
+  const json = opts.json === true;
+
+  if (opts.history) return driftHistoryMode(root, json);
+  if (opts.ack !== undefined && opts.ack !== false) {
+    return driftAckMode(root, resolved.backends, opts.ack, json);
+  }
+  if (opts.check) return driftCheckMode(root, json);
+
+  // Default: run one sentinel cycle (snapshot → detect → record-on-change).
+  const result = evaluateModelSentinel(root, resolved.backends);
+  if (json) console.log(JSON.stringify(result, null, 2));
+  else logger.info(formatDrift(result.drift));
+  return ExitCode.SUCCESS;
+}
+
+function addDriftCommand(cmd: Command): void {
+  cmd
+    .command('drift')
+    .description(
+      'Detect when the configured model identity (agent.backends[*].model) changes vs the last-seen value and record a sentinel event. Detect + report only. Reads the global --config / --json flags.'
+    )
+    .option('--history', 'Print the append-only sentinel changelog and exit.', false)
+    .option('--check', 'Exit non-zero on unacknowledged material drift (no record written).', false)
+    .option(
+      '--ack [note]',
+      'Acknowledge the current model identity, re-pinning the baseline (append-only).'
+    )
+    .action(async (options: Omit<DriftOptions, 'config' | 'json'>, command: Command) => {
+      // `--config` and `--json` are global root options; merge them in.
+      const globals = command.optsWithGlobals() as { config?: string; json?: boolean };
+      process.exitCode = await runModelsDrift({
+        ...options,
+        ...(globals.config !== undefined ? { config: globals.config } : {}),
+        ...(globals.json !== undefined ? { json: globals.json } : {}),
+      });
+    });
+}
+
 export function createModelsCommand(): Command {
   const cmd = new Command('models').description(
-    'Inspect and manage local LLM backends. Ships `probe`, model-proposal review (proposals/approve/reject), and `refresh` (force a scheduler tick).'
+    'Inspect and manage local LLM backends. Ships `probe`, model-proposal review (proposals/approve/reject), `refresh` (force a scheduler tick), and `drift` (model-update regression sentinel).'
   );
   addProbeCommand(cmd);
   addProposalsCommand(cmd);
   addRejectCommand(cmd);
   addApproveCommand(cmd);
   addRefreshCommand(cmd);
+  addDriftCommand(cmd);
   return cmd;
 }

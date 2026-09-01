@@ -1,0 +1,19 @@
+{
+  "issue": [1617],
+  "route": "feature",
+  "stages": ["brainstorming", "autopilot"],
+  "planArtifact": "docs/changes/model-update-regression-sentinel-1617/plans/plan.md",
+  "closingKeyword": "Refs",
+  "closingKeywordReason": "Recommended-default scope (detect + append-only report only) is fully implemented: model-identity snapshot from agent.backends, drift detection vs last-seen, append-only .harness/model-sentinel/history.jsonl, and `harness models drift` (--history/--check/--ack). The issue's full deliverable (pinned sentinel suite with behaviour envelopes, scheduled canary via maintenance pipeline, and the routing hold gate) is deliberately deferred and flagged as remainder, so Refs (not Closes).",
+  "mechanisms": {
+    "modelIdentitySource": "packages/core/src/model-sentinel/snapshot.ts — snapshotModelIdentities(agent.backends) normalises each def's type + model (string|string[]) into a deterministic ModelSnapshot with an FNV-1a digest; same backends map that BackendRouter and `harness models probe` consume.",
+    "driftDetection": "packages/core/src/model-sentinel/drift.ts — detectModelDrift(previous, current) pure diff → per-backend deltas + kind (initial|unchanged|changed) + severity (none|benign|material).",
+    "appendOnlyStore": "packages/core/src/model-sentinel/store.ts — .harness/model-sentinel/history.jsonl, append-only (mirrors adoption/reader.ts); acknowledgement appends a record, never rewrites.",
+    "cliSurface": "packages/cli/src/commands/models.ts — `harness models drift` (--json/--history/--check/--ack) via runModelsDrift()."
+  },
+  "assumptions": [
+    "Detect model-id/version change vs last-seen + emit a sentinel record/report; detect-and-report only, no auto heavy-eval.",
+    "Model identity = configured agent.backends[*].model (deterministic, offline-testable); server-side silent swaps behind a fixed id are deferred.",
+    "Core detection stays pure/network-free with fs behind the store module; CLI reads config via existing resolveConfig."
+  ]
+}
