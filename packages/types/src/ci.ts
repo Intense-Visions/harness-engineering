@@ -38,6 +38,43 @@ export interface CICheckIssue {
 }
 
 /**
+ * Which side of `target` a thresholded gate's passing region is on
+ * (Taguchi continuous-loss, issue #1673):
+ * - `upper` — the target is a ceiling; `measured` must stay `<= target`
+ *   (complexity, latency, size, cost).
+ * - `lower` — the target is a floor; `measured` must stay `>= target`
+ *   (coverage, pass-rate, score).
+ */
+export type GateBound = 'upper' | 'lower';
+
+/**
+ * The continuous measurement underneath a binary gate verdict — the leading
+ * indicator the pass/fail decision discards (issue #1673). A gate that thresholds
+ * a numeric metric emits one of these ALONGSIDE its verdict so "passed barely"
+ * and "passed comfortably" are distinguishable. Recording it is emission only and
+ * never changes the gate's admission decision.
+ *
+ * The derived quadratic loss is computed downstream (core `gate-loss`); this
+ * envelope carries only the raw facts a consumer needs to reconstruct it.
+ */
+export interface GateMeasurement {
+  /**
+   * Stable identifier of the gate/metric this measurement is for, e.g.
+   * `traceability.coverage:auth` or `perf.complexity`. Used to bucket accumulated
+   * loss per gate.
+   */
+  gate: string;
+  /** The continuous value the gate compared against its threshold. */
+  measured: number;
+  /** The threshold/limit the gate compared `measured` against. */
+  target: number;
+  /** Whether `target` is an upper limit or a lower floor. */
+  bound: GateBound;
+  /** Optional unit label for display (e.g. `'%'`, `'ms'`). */
+  unit?: string;
+}
+
+/**
  * Result of a single CI check execution.
  */
 export interface CICheckResult {
@@ -49,6 +86,14 @@ export interface CICheckResult {
   issues: CICheckIssue[];
   /** Execution time in milliseconds */
   durationMs: number;
+  /**
+   * Continuous distance-to-threshold measurements this check took, emitted
+   * alongside the binary `status` (Taguchi continuous-loss, issue #1673). Present
+   * only for thresholded checks that expose a numeric metric and its target;
+   * absent for checks with no meaningful continuous measurement. Emission only —
+   * these never influence `status`.
+   */
+  measurements?: GateMeasurement[];
 }
 
 /**
