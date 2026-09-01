@@ -1,0 +1,12 @@
+{
+  "issue": [1756],
+  "route": "bug",
+  "stages": ["debugging"],
+  "reproducingTest": "packages/core/tests/roadmap/serialize-summary-multiline.test.ts",
+  "closingKeyword": "Closes",
+  "assumptions": [
+    "Scoped to multi-line-summary truncation; sibling comma-split bug #1757 left out of scope",
+    "Fix is a reversible single-line escape codec (backslash/newline/carriage-return) applied only to the Summary free-text field in the shared serializeFeature/parseFeatureBlock seam, so the monolith roadmap.md, shard store, and comprehension shards all keep byte-stable round-trips; the line-oriented grammar and the comma-list grammar are untouched",
+    "Backward-compatible: plain single-line summaries contain none of the escaped characters, so encode/decode are identities on all existing roadmap content (verified: no tracked Summary bullet contains a backslash)"
+  ]
+}
