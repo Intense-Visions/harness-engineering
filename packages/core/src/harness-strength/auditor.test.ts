@@ -28,7 +28,9 @@ describe('HarnessStrengthAuditor.audit', () => {
     const v = result.value;
     expect(v.mode).toBe('adopter');
     expect(v.findings).toEqual([]);
-    expect(v.score).toBe(100);
+    // Zero coverage: nothing could be evaluated, so the coverage-scaled score is
+    // 0 — "we could not audit anything" must not read as 100/100 (#1761).
+    expect(v.score).toBe(0);
     // Bare dir: every rule's required input is absent => none evaluable. A clean
     // score across ZERO evaluated patterns must not read as a full `solid` pass.
     expect(v.tier).toBe('incomplete');
@@ -120,8 +122,11 @@ npx lint-staged
         'STRENGTH-005',
       ]);
 
-      // Score: 100 - (error 14 + warning 6 + error 14 + warning 6) = 60 => at-risk
-      expect(v.score).toBe(60);
+      // Findings score: 100 - (error 14 + warning 6 + error 14 + warning 6) = 60.
+      // Scaled by coverage (5 of 7 evaluable): round(60 * 5/7) = 43 (#1761). The
+      // tier still keys off the findings score (60 => at-risk), so the coverage
+      // penalty on the number stays orthogonal to the detected-weakness tier.
+      expect(v.score).toBe(43);
       expect(v.tier).toBe('at-risk');
 
       // Evaluable on this fixture: 001 (hookFiles present), 002, 003 (preCommit),
@@ -244,7 +249,9 @@ describe('HarnessStrengthAuditor clean harness (passing gate path)', () => {
       if (!isOk(result)) return;
       const v = result.value;
       expect(v.findings).toEqual([]);
-      expect(v.score).toBe(100);
+      // Clean but partial: 2 of 7 patterns evaluable => round(100 * 2/7) = 29,
+      // not 100 (#1761). The tier is `incomplete`; the number now agrees.
+      expect(v.score).toBe(29);
       expect(v.summary.errors).toBe(0);
       expect(v.summary.warnings).toBe(0);
       // Config present => STRENGTH-004/005 evaluable and pass; the hook-,
