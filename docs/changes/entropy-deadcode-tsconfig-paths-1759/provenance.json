@@ -1,0 +1,14 @@
+{
+  "issue": [1759],
+  "route": "bug",
+  "stages": ["debugging"],
+  "reproducingTest": "packages/core/tests/entropy/detectors/dead-code-path-alias.test.ts",
+  "closingKeyword": "Closes",
+  "assumptions": [
+    "Root cause: resolveImportToFile() in packages/core/src/entropy/detectors/dead-code.ts returned null for any non-relative specifier, so tsconfig `paths` alias imports (e.g. `@lib/*`) never resolved and their target files were reported as dead.",
+    "Fix reads tsconfig `paths` + `baseUrl` at snapshot-build time (new packages/core/src/entropy/path-aliases.ts) and threads the normalized alias table onto CodebaseSnapshot.pathAliases; resolveImportToFile now resolves alias specifiers through the same extension/index logic used for relative imports.",
+    "tsconfig reader is JSONC-tolerant (strips comments + trailing commas) and follows a bounded relative `extends` chain; bare-package `extends` (e.g. @tsconfig/*) is not resolved (documented limitation).",
+    "paths targets resolve against baseUrl when set (relative to the config declaring it), else against the directory of the config that declared `paths` (TS 5+ baseUrl-optional semantics).",
+    "Verified end-to-end via the real `harness cleanup -t dead-code` CLI on the issue's minimal repro: 2 false positives before, 0 after."
+  ]
+}

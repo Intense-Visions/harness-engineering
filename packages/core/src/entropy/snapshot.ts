@@ -23,6 +23,7 @@ import { buildDependencyGraph } from '../constraints/dependencies';
 import { resolve } from 'path';
 import { minimatch } from 'minimatch';
 import { resolveEntryPoints } from './entry-points';
+import { loadPathAliases } from './path-aliases';
 
 export { resolveEntryPoints };
 
@@ -436,6 +437,10 @@ export async function buildSnapshot(
   const exportMap = buildExportMap(files);
   const codeReferences = extractAllCodeReferences(docs);
 
+  // Load tsconfig `paths` aliases so imports like `@lib/*` resolve to on-disk
+  // files during reachability/usage analysis (issue #1759). Empty when absent.
+  const pathAliases = await loadPathAliases(rootDir);
+
   const buildTime = Date.now() - startTime;
 
   return Ok({
@@ -448,6 +453,7 @@ export async function buildSnapshot(
     entryPoints: entryPointsResult.value,
     rootDir,
     config,
+    pathAliases,
     buildTime,
   });
 }
