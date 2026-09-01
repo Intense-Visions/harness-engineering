@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'packages/cli/src/mcp'
-sourceHash: '83f436e5244c88a373814eb39452ca6183816470b27a6a165689f978e7b86755'
+sourceHash: '7d8e13f6e8230c09fe322a96dd4f97ed79bc81b49e1e8345357333152618ba07'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
@@ -37,6 +37,7 @@ import { getToolDefinitions } from './index.js'
 import { applyCompaction } from './middleware/compaction.js'
 import { applyContextBudget } from './middleware/context-budget.js'
 import { applyInjectionGuard } from './middleware/injection-guard.js'
+import { applyVersionGuard } from './middleware/version-guard.js'
 import { getBusinessKnowledgeResource } from './resources/business-knowledge.js'
 import { getEntitiesResource, getGraphResource, getRelationshipsResource } from './resources/graph.js'
 import { getLearningsResource } from './resources/learnings.js'
