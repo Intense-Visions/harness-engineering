@@ -584,6 +584,17 @@ Run the tiered code-review gate (floor + optional LLM runner) for CI
 - `--comment` — post the verdict as a comment on the current branch's PR via gh
 - `--out` — write the verdict JSON artifact to a file (use the global --json to stream it to stdout instead)
 
+### `harness rework`
+
+Report per-surface rework rate from git history (planned vs unplanned; report-only)
+
+**Options:**
+
+- `--since` — Lookback window (e.g. 24h, 7d, 4w, 3mo). (default: "30d")
+- `--min-commits` — Exclude surfaces with fewer than n commits in the window. (default: "2")
+- `--top` — Cap the ranked rows printed (JSON is never truncated).
+- `--json` — Emit the machine-readable ReworkReport as JSON.
+
 ### `harness scan-config`
 
 Scan CLAUDE.md, AGENTS.md, .gemini/settings.json, and skill.yaml for prompt injection patterns

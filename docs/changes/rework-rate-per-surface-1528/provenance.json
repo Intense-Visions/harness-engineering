@@ -1,0 +1,15 @@
+{
+  "issue": [1528],
+  "route": "feature",
+  "stages": ["brainstorming", "autopilot"],
+  "planArtifact": "docs/changes/rework-rate-per-surface-1528/plans/2026-08-31-rework-rate-per-surface-plan.md",
+  "closingKeyword": "Refs",
+  "closingRationale": "The recommended-default scope is fully implemented: per-surface rework rate derived from local git history (fix/revert follow-up re-touching an already-changed surface within the window), planned-vs-unplanned split via roadmap-linked issue references, a ranked `harness rework` report plus machine-readable --json, and a rework-hotspot signal + reworkRate metric block in the health snapshot. The issue's fuller Deliverables list also names superseded/closed-unmerged-PR fan-out via the GitHub API, which is deferred (spec Non-Goal). Using Refs (not Closes) and flagging that remainder rather than over-claiming.",
+  "assumptions": [
+    "Rework rate per surface derived from git history (fix/revert follow-up commits re-editing a surface already changed earlier in the lookback window); report + machine-readable output only; reuses existing churn/hotspot machinery (scan-candidates git walker + normalizeSince, no second git walker introduced).",
+    "Surface = file path (module/area rollup deferred).",
+    "Planned vs unplanned split by roadmap linkage: a rework commit is planned when its issue references intersect the roadmap-shard External-ID issue set (continued multi-part delivery), else unplanned. Core stays roadmap-agnostic via an injected plannedIssues Set; the CLI resolves it from roadmap shards.",
+    "Report-only: rework-hotspot signal uses check:null so it can never gate; no CI failure or blocking authority added.",
+    "Remainder (deferred): superseded/closed-unmerged-PR fan-out via the GitHub API is out of scope for this pass."
+  ]
+}

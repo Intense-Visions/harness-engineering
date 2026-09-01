@@ -86,6 +86,7 @@ import { createRecommendCommand } from './recommend';
 import { createRehearseCommand } from './rehearse';
 import { createReleaseInventoryCommand } from './release-inventory';
 import { createReviewCiCommand } from './review-ci';
+import { createReworkCommand } from './rework';
 import { createRoadmapCommand } from './roadmap';
 import { createRollbackCommand } from './rollback';
 import { createRoutingCommand } from './routing';
@@ -204,6 +205,7 @@ export const commandCreators: Array<() => Command> = [
   createRehearseCommand,
   createReleaseInventoryCommand,
   createReviewCiCommand,
+  createReworkCommand,
   createRoadmapCommand,
   createRollbackCommand,
   createRoutingCommand,

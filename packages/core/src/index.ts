@@ -149,6 +149,11 @@ export * from './fleet';
 export * from './rollback';
 
 /**
+ * Rework module — per-surface (file-path) rework-rate metric from local git history, splitting planned (roadmap-linked multi-part delivery) from unplanned (waste) rework. Report-only.
+ */
+export * from './rework';
+
+/**
  * Interaction module for managing agent-to-human interactions.
  */
 export * from './interaction';

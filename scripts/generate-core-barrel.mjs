@@ -151,6 +151,8 @@ const DIR_COMMENTS = {
   fleet:
     'Fleet coordination module — pure cross-run work-claim lease primitives (build/parse/server-clock TTL), per-leaf context-replay budget enforcement (resolve/enforce/format), and the shared spend-envelope decision primitive consulted by both the orchestrator loop and the fleet-command dispatch path, for the -fleet family.',
   rollback: 'Rollback module — post-ship revert-readiness classification (pure, IO-injected).',
+  rework:
+    'Rework module — per-surface (file-path) rework-rate metric from local git history, splitting planned (roadmap-linked multi-part delivery) from unplanned (waste) rework. Report-only.',
   interaction: 'Interaction module for managing agent-to-human interactions.',
   blueprint: 'Blueprint module for scanning projects and generating codebase blueprints.',
   'update-checker': 'Update checker utilities for checking for new versions of the toolkit.',

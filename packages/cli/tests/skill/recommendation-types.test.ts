@@ -29,10 +29,11 @@ describe('HEALTH_SIGNALS', () => {
     expect(HEALTH_SIGNALS).toContain('perf-regression');
     expect(HEALTH_SIGNALS).toContain('anomaly-outlier');
     expect(HEALTH_SIGNALS).toContain('articulation-point');
+    expect(HEALTH_SIGNALS).toContain('rework-hotspot');
   });
 
-  it('contains exactly 28 signals', () => {
-    expect(HEALTH_SIGNALS).toHaveLength(28);
+  it('contains exactly 29 signals', () => {
+    expect(HEALTH_SIGNALS).toHaveLength(29);
   });
 
   it('contains change-type signals', () => {
@@ -69,7 +70,7 @@ describe('HEALTH_SIGNALS', () => {
     expect(domainSignal).toBe('domain-database');
   });
 
-  it('is the exact 28-name list in order (12 health, 4 change, 12 domain) — unchanged', () => {
+  it('is the exact 29-name list in order (13 health, 4 change, 12 domain)', () => {
     expect([...HEALTH_SIGNALS]).toEqual([
       'circular-deps',
       'layer-violations',
@@ -83,6 +84,7 @@ describe('HEALTH_SIGNALS', () => {
       'perf-regression',
       'anomaly-outlier',
       'articulation-point',
+      'rework-hotspot',
       'change-feature',
       'change-bugfix',
       'change-refactor',

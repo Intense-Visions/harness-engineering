@@ -31,6 +31,13 @@ export interface HealthMetrics {
   testCoverage: number | null;
   anomalyOutlierCount: number;
   articulationPointCount: number;
+  /**
+   * Per-surface rework metric (#1528, report-only). `maxUnplannedReworkRate` is
+   * the worst surface's unplanned rework rate; `reworkSurfaceCount` counts
+   * surfaces at/over {@link REWORK_ATTENTION_THRESHOLD}. Throughput and rework are
+   * read together — this block sits beside the other health metrics.
+   */
+  reworkRate: { maxUnplannedReworkRate: number; reworkSurfaceCount: number };
 }
 
 /** A point-in-time snapshot of codebase health. */
@@ -102,6 +109,13 @@ export function saveCachedSnapshot(snapshot: HealthSnapshot, projectPath: string
 // Signal derivation
 // ---------------------------------------------------------------------------
 
+/**
+ * Attention threshold for the report-only rework signal: a surface whose
+ * unplanned rework rate is at/over 20% is worth surfacing. Tunable — not
+ * load-bearing for correctness (#1528).
+ */
+export const REWORK_ATTENTION_THRESHOLD = 0.2;
+
 /** Signal derivation rules: [signalName, predicate]. */
 const SIGNAL_RULES: Array<[SignalName, (c: HealthChecks, m: HealthMetrics) => boolean]> = [
   ['circular-deps', (c) => c.deps.circularDeps > 0],
@@ -116,6 +130,12 @@ const SIGNAL_RULES: Array<[SignalName, (c: HealthChecks, m: HealthMetrics) => bo
   ['high-coupling', (_c, m) => m.avgCouplingRatio > 0.5 || m.maxFanOut > 20],
   ['high-complexity', (_c, m) => m.maxCyclomaticComplexity > 20 || m.avgCyclomaticComplexity > 10],
   ['low-coverage', (_c, m) => m.testCoverage !== null && m.testCoverage < 60],
+  [
+    'rework-hotspot',
+    // Optional-chained: older snapshots (and partial test fixtures) predate the
+    // reworkRate block; a missing block reads as zero rework, never a throw.
+    (_c, m) => (m.reworkRate?.maxUnplannedReworkRate ?? 0) >= REWORK_ATTENTION_THRESHOLD,
+  ],
 ];
 
 /**
@@ -281,7 +301,9 @@ function assembleHealthChecks(
 // Graph metrics aggregation
 // ---------------------------------------------------------------------------
 
-const ZERO_METRICS: HealthMetrics = {
+const ZERO_REWORK = { maxUnplannedReworkRate: 0, reworkSurfaceCount: 0 };
+
+export const ZERO_METRICS: HealthMetrics = {
   avgFanOut: 0,
   maxFanOut: 0,
   avgCyclomaticComplexity: 0,
@@ -290,6 +312,7 @@ const ZERO_METRICS: HealthMetrics = {
   testCoverage: null,
   anomalyOutlierCount: 0,
   articulationPointCount: 0,
+  reworkRate: ZERO_REWORK,
 };
 
 /** Compute average of numeric values; returns 0 for empty arrays. */
@@ -345,9 +368,34 @@ export async function runGraphMetrics(projectPath: string): Promise<HealthMetric
       testCoverage: null, // Coverage integration deferred -- not available from graph
       anomalyOutlierCount: anomalyReport.summary.outlierCount,
       articulationPointCount: anomalyReport.summary.articulationPointCount,
+      // Zeroed here; rework is git-derived and computed independently in
+      // runReworkMetrics so it survives graph-unavailable, then merged in capture.
+      reworkRate: ZERO_REWORK,
     };
   } catch {
     return ZERO_METRICS;
+  }
+}
+
+/**
+ * Compute the report-only rework metric block from local git history (#1528).
+ * Independent of the graph so it survives a graph-unavailable project. The
+ * planned-issue set is left empty here (roadmap resolution is a CLI-command
+ * concern); the snapshot therefore treats all rework as unplanned. Degrade-safe:
+ * a non-git dir or any failure yields a zeroed block, never a throw.
+ */
+export async function runReworkMetrics(projectPath: string): Promise<HealthMetrics['reworkRate']> {
+  try {
+    const { computeRework } = await import('@harness-engineering/core');
+    const report = await computeRework({ since: '30d', cwd: projectPath, minCommits: 2 });
+    const rates = report.surfaces.map((s) => s.unplannedReworkRate);
+    const maxUnplannedReworkRate = rates.length > 0 ? Math.max(...rates) : 0;
+    const reworkSurfaceCount = report.surfaces.filter(
+      (s) => s.unplannedReworkRate >= REWORK_ATTENTION_THRESHOLD
+    ).length;
+    return { maxUnplannedReworkRate, reworkSurfaceCount };
+  } catch {
+    return { ...ZERO_REWORK };
   }
 }
 
@@ -373,11 +421,14 @@ export async function captureHealthSnapshot(projectPath: string): Promise<Health
     // Non-git directory
   }
 
-  // Run checks and graph metrics in parallel
-  const [checks, metrics] = await Promise.all([
+  // Run checks, graph metrics, and rework metrics in parallel (rework is
+  // git-derived and independent of the graph, so it does not serialize capture).
+  const [checks, graphMetrics, reworkRate] = await Promise.all([
     runHealthChecks(projectPath),
     runGraphMetrics(projectPath),
+    runReworkMetrics(projectPath),
   ]);
+  const metrics: HealthMetrics = { ...graphMetrics, reworkRate };
 
   // Derive signals
   const signals = deriveSignals(checks, metrics);
