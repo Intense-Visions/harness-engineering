@@ -1,0 +1,15 @@
+{
+  "issue": [1673],
+  "route": "feature",
+  "stages": ["brainstorming", "autopilot"],
+  "planArtifact": "docs/changes/taguchi-continuous-gate-loss-1673/plans/plan.md",
+  "closingKeyword": "Refs #1673",
+  "closingRationale": "Emission/measurement slice: distance-to-threshold measurements on the existing gate-result envelope, a pure quadratic per-gate loss, accumulation, a leading-indicator alarm, and dogfood emission from this repo's traceability + perf gates. Outcome-data calibration (acceptance criterion 3) and a persisted cross-period telemetry store + dashboard trend panel are deliberately deferred as tracked follow-ups, so Refs (not Closes).",
+  "assumptions": [
+    "Emission/measurement only — no gate pass/fail or exitCode logic changed; the CICheckResult.measurements field is additive and absent when empty",
+    "Continuous distance-to-threshold added to the existing CICheckResult envelope (packages/types) rather than a parallel schema",
+    "Per-gate loss = quadratic (proximity^2), normalized so proximity==1 at the threshold and comparable across gates; robust to divide-by-zero / non-finite (clamped + degraded flag, never NaN/Infinity)",
+    "Dogfood gates chosen: traceability coverage (lower bound, emitted even while green = the leading indicator) and perf complexity/coupling (upper bound)",
+    "Outcome-data calibration and persisted cross-period telemetry/dashboard trend panel are out of scope for this slice"
+  ]
+}

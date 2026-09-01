@@ -1,0 +1,13 @@
+{
+  "issue": [1301],
+  "route": "bug",
+  "stages": ["debugging"],
+  "reproducingTest": "packages/cli/tests/mcp/version-guard-surface.test.ts",
+  "closingKeyword": "Closes",
+  "assumptions": [
+    "Guard relocated/duplicated to the shared check-impl entry so both CLI and MCP fire it: the shared evaluator evaluateVersionGuard (and resolveExpectedVersion/findProjectRoot) in packages/cli/src/utils/version-guard.ts is now invoked from the MCP dispatch boundary via a new applyVersionGuard middleware, in addition to the existing commander preAction hook.",
+    "No double-guarding: the CLI commander hook and the MCP middleware are disjoint entry points (an MCP call never passes through commander; a CLI action never passes through the MCP handler map), so a given findings request is evaluated exactly once.",
+    "Gated MCP tools are the in-process twins of the guarded CLI commands (run_security_scan, check_docs, check_dependencies, check_performance, validate_project, run_ci_checks, validate_cross_check, detect_entropy); non-findings tools are never gated so a session can still recover.",
+    "MCP enforcement adapts the surface: refuse -> isError result (analogue of CLI exit 3, tool never runs); warn -> proceed with notice prepended; HARNESS_NO_VERSION_GUARD downgrades refuse->warn identically to the CLI."
+  ]
+}

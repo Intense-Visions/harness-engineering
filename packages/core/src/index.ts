@@ -270,6 +270,11 @@ export * from './accessibility';
 export * from './deployment';
 
 /**
+ * Gate-loss module.
+ */
+export * from './gate-loss';
+
+/**
  * Golden module.
  */
 export * from './golden';
