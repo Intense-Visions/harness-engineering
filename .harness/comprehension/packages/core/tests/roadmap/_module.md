@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'packages/core/tests/roadmap'
-sourceHash: '95807281b2027ca3fa0bc250f6843c485b6c83487890333710faa877e11acf82'
+sourceHash: '0774acae016cddbadd9a652344de3c23338b36112f5befadafea23e77e1e4851'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
@@ -32,6 +32,7 @@ members:
     'referenced-issues.test.ts',
     'serialize-extended.test.ts',
     'serialize-groups.test.ts',
+    'serialize-list-field-comma.test.ts',
     'serialize-summary-multiline.test.ts',
     'serialize.test.ts',
     'sync-engine-guards.test.ts',
@@ -67,6 +68,7 @@ import { assigneeInvariantHolds, claim, isClaimableBy, isMachineAssignee, pushAs
 import { deriveRepoFromGitRemote, parseOwnerRepoFromRemoteUrl } from '../../src/roadmap/derive-repo'
 import { FEATURE_PREFIX, GROUP_PREFIX, matchFeatureHeadings, parseFeatureHeading, serializeFeatureHeading } from '../../src/roadmap/heading'
 import { checkRoadmapHealth, defaultIsArchive, groomRoadmap, isUnactionablePlanned } from '../../src/roadmap/health'
+import { decodeListField, encodeListItem } from '../../src/roadmap/list-field'
 import { loadProjectRoadmapMode } from '../../src/roadmap/load-mode'
 import { loadTrackerClientConfigFromProject } from '../../src/roadmap/load-tracker-client-config'
 import { RoadmapMode, getRoadmapMode } from '../../src/roadmap/mode'

@@ -1,0 +1,12 @@
+{
+  "issue": [1633],
+  "route": "feature",
+  "stages": ["brainstorming", "autopilot"],
+  "planArtifact": "docs/changes/rate-distortion-compaction-ablation-1633/plans/2026-08-31-rate-distortion-ablation-harness-plan.md",
+  "closingKeyword": "Refs",
+  "assumptions": [
+    "Scope limited to a report-only ablation harness + distortion model per human CONFIRM; wiring the distortion model into the live compaction dial deferred to a follow-up slice",
+    "Distortion measured empirically + task-conditioned: ablate information classes on replayed runs, measure error/rework delta per task class",
+    "This harness is intended as the reusable substrate for MDL pruning (#1630)"
+  ]
+}

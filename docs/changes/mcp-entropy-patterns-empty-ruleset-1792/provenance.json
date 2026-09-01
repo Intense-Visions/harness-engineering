@@ -1,0 +1,13 @@
+{
+  "issue": [1792],
+  "route": "bug",
+  "stages": ["debugging"],
+  "reproducingTest": "packages/cli/tests/mcp/tools/entropy-patterns-empty-ruleset.test.ts",
+  "closingKeyword": "Closes",
+  "assumptions": [
+    "Mirrors #1791/#1760 fix on the MCP surface; reuses the entropy.patterns schema/config now on main",
+    "Root cause: handleDetectEntropy in packages/cli/src/mcp/tools/entropy.ts passed `patterns: typeFilter === 'all' || typeFilter === 'patterns'` (a bare boolean). EntropyAnalyzer coerces a bare-boolean true into `{ patterns: [] }` (analyzer.ts:129-133), so zero rules were evaluated yet the report showed zero violations / passRate 1 — a false pass.",
+    "Fix: read `entropy.patterns` (PatternConfig, added to the CLI EntropyConfigSchema by #1791), thread the configured rules into the analyzer, and return an MCP error (isError) when `type: patterns` is explicitly requested with no rules configured. For `type: all`, patterns are skipped (false) when unconfigured, preserving the common no-config path.",
+    "Reproducing test is integration-style (real config loader + analyzer + pattern detector, no mocks). Proven fail-before/pass-after by stashing only the entropy.ts source change: the two behavioral tests (fail-loud on zero rules; evaluate configured rules and report the real violation) fail against the old source and pass with the fix."
+  ]
+}

@@ -32,11 +32,13 @@ import { createCodeCraftCommand } from './code-craft';
 import { createCompoundCommand } from './compound';
 import { createComprehendCommand } from './comprehend';
 import { createComprehensionMergeDriverCommand } from './comprehension-merge-driver';
+import { createContextDictionaryCommand } from './context-dictionary';
 import { createCopyCraftCommand } from './copy-craft';
 import { createCreateSkillCommand } from './create-skill';
 import { createCrossCheckCommand } from './cross-check';
 import { createDashboardCommand } from './dashboard';
 import { createDesignPipelineCommand } from './design-pipeline';
+import { createDistortionCommand } from './distortion';
 import { createDocsCraftCommand } from './docs-craft';
 import { createDocsPublishCommand } from './docs-publish';
 import { createDoctorCommand } from './doctor';
@@ -56,6 +58,7 @@ import { createInsightsCommand } from './insights';
 import { createInstallCommand } from './install';
 import { createInstallConstraintsCommand } from './install-constraints';
 import { createIntegrationsCommand } from './integrations';
+import { createKnowledgeCommand } from './knowledge';
 import { createKnowledgeCraftCommand } from './knowledge-craft';
 import { createKnowledgePipelineCommand } from './knowledge-pipeline';
 import { createLearningsCommand } from './learnings';
@@ -146,11 +149,13 @@ export const commandCreators: Array<() => Command> = [
   createCompoundCommand,
   createComprehendCommand,
   createComprehensionMergeDriverCommand,
+  createContextDictionaryCommand,
   createCopyCraftCommand,
   createCreateSkillCommand,
   createCrossCheckCommand,
   createDashboardCommand,
   createDesignPipelineCommand,
+  createDistortionCommand,
   createDocsCraftCommand,
   createDocsPublishCommand,
   createDoctorCommand,
@@ -170,6 +175,7 @@ export const commandCreators: Array<() => Command> = [
   createInstallCommand,
   createInstallConstraintsCommand,
   createIntegrationsCommand,
+  createKnowledgeCommand,
   createKnowledgeCraftCommand,
   createKnowledgePipelineCommand,
   createLearningsCommand,
