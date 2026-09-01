@@ -290,6 +290,11 @@ export * from './identity';
 export * from './insights';
 
 /**
+ * Knowledge-mdl module.
+ */
+export * from './knowledge-mdl';
+
+/**
  * Locks module.
  */
 export * from './locks';

@@ -56,6 +56,7 @@ import { createInsightsCommand } from './insights';
 import { createInstallCommand } from './install';
 import { createInstallConstraintsCommand } from './install-constraints';
 import { createIntegrationsCommand } from './integrations';
+import { createKnowledgeCommand } from './knowledge';
 import { createKnowledgeCraftCommand } from './knowledge-craft';
 import { createKnowledgePipelineCommand } from './knowledge-pipeline';
 import { createLearningsCommand } from './learnings';
@@ -65,6 +66,7 @@ import { createMcpCommand } from './mcp';
 import { createMcpContextReportCommand } from './mcp';
 import { createMcpGuardCommand } from './mcp-guard';
 import { createMcpListCapabilitiesCommand } from './mcp';
+import { createMcpRefinementDemandCommand } from './mcp';
 import { createMigrateCommand } from './migrate';
 import { createModelsCommand } from './models';
 import { createNamingCraftCommand } from './naming-craft';
@@ -169,6 +171,7 @@ export const commandCreators: Array<() => Command> = [
   createInstallCommand,
   createInstallConstraintsCommand,
   createIntegrationsCommand,
+  createKnowledgeCommand,
   createKnowledgeCraftCommand,
   createKnowledgePipelineCommand,
   createLearningsCommand,
@@ -178,6 +181,7 @@ export const commandCreators: Array<() => Command> = [
   createMcpContextReportCommand,
   createMcpGuardCommand,
   createMcpListCapabilitiesCommand,
+  createMcpRefinementDemandCommand,
   createMigrateCommand,
   createModelsCommand,
   createNamingCraftCommand,

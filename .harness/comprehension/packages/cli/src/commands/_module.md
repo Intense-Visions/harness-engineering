@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'packages/cli/src/commands'
-sourceHash: '71dd88f109469e45383b954fb6e9c0b83bd6733d781f66d16d7eb977b59945bd'
+sourceHash: 'a7da0bd9a8e77c0f8b6144a26b1a6a1a84a128cb9291c7a3d9528b81097a294b'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
@@ -538,6 +538,7 @@ import { createInstallCommand, resolveCommunityBase } from './install'
 import { createInstallConstraintsCommand } from './install-constraints'
 import { createIntegrationsCommand } from './integrations'
 import { readConfiguredServers } from './integrations/sync'
+import { createKnowledgeCommand } from './knowledge'
 import { createKnowledgeCraftCommand } from './knowledge-craft'
 import { createKnowledgePipelineCommand } from './knowledge-pipeline'
 import { createLearningsCommand } from './learnings'
@@ -545,7 +546,7 @@ import { createLinterCommand } from './linter'
 import { createMaintenanceCommand } from './maintenance'
 import { loadAgentBackends, loadMaintenanceConfig, mergeResolvedTasks } from './maintenance-config'
 import { runMaintenanceRun } from './maintenance-run'
-import { createMcpCommand, createMcpContextReportCommand, createMcpListCapabilitiesCommand } from './mcp'
+import { createMcpCommand, createMcpContextReportCommand, createMcpListCapabilitiesCommand, createMcpRefinementDemandCommand } from './mcp'
 import { createMcpGuardCommand } from './mcp-guard'
 import { createMigrateCommand, detectLegacyArtifacts } from './migrate'
 import { createBackendsSubcommand } from './migrate-backends'
