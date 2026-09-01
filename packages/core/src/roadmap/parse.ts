@@ -14,6 +14,10 @@ import { Ok, Err } from '@harness-engineering/types';
 // `./heading`, the single source of truth shared with the emitter and the shard
 // reader, so no copy can drift and silently reclassify a tracked row (#1261).
 import { GROUP_PREFIX, matchFeatureHeadings } from './heading';
+// The summary escape codec lives in `./summary-field`, the single source of truth
+// shared with the serializer, so the continuation of a multi-line summary is
+// restored on read rather than silently dropped by the line grammar (#1756).
+import { decodeSummaryField } from './summary-field';
 
 const VALID_STATUSES: ReadonlySet<string> = new Set([
   'backlog',
@@ -315,7 +319,7 @@ export function parseFeatureBlock(name: string, body: string): Result<RoadmapFea
     spec: optionalField(fieldMap, 'Spec'),
     plans: parseListField(fieldMap, 'Plans', 'Plan'),
     blockedBy: parseListField(fieldMap, 'Blocked by', 'Blockers'),
-    summary: fieldMap.get('Summary') ?? '',
+    summary: decodeSummaryField(fieldMap.get('Summary') ?? ''),
     assignee: optionalField(fieldMap, 'Assignee'),
     priority: priorityResult.value,
     externalId: optionalField(fieldMap, 'External-ID'),

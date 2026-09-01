@@ -4,7 +4,13 @@ import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
 import { WorkspaceConfig, Result, Ok, Err } from '@harness-engineering/types';
 import type { HarnessIdentity } from '@harness-engineering/types';
-import { ensureIdentity, assignNumber, readHarnessIdentity } from '@harness-engineering/core';
+import {
+  ensureIdentity,
+  assignNumber,
+  readHarnessIdentity,
+  appendProvenanceTrailer,
+  type ProvenanceTrailerInput,
+} from '@harness-engineering/core';
 import { parseIntroducedHunks, type IntroducedHunk } from '../agent/quality-verdict.js';
 
 /**
@@ -673,7 +679,21 @@ export class WorkspaceManager {
    */
   public async shipWorkspace(
     identifier: string,
-    opts: { title: string; body: string; workspacePath?: string }
+    opts: {
+      title: string;
+      body: string;
+      workspacePath?: string;
+      /**
+       * Machine-readable provenance (#1531). When supplied, a `Harness-*` trailer
+       * (see {@link appendProvenanceTrailer}) is appended to BOTH the autonomous
+       * commit message and the PR body — so the autonomous tier is mechanically
+       * countable and, because the repo squash-merges, the PR body carries the
+       * record even when the branch commit's message is discarded by the squash.
+       * Omitted for any caller that does not thread run context, leaving the
+       * commit + PR byte-identical to today (interactive commits unaffected).
+       */
+      provenance?: ProvenanceTrailerInput;
+    }
   ): Promise<Result<{ branch: string; prUrl?: string }, Error>> {
     try {
       // S1: prefer the caller's ALREADY-KNOWN, gate-verified worktree path so the
@@ -720,10 +740,15 @@ export class WorkspaceManager {
         // a hook blocks (arch regression, missing changeset, formatting), the commit
         // throws → shipWorkspace returns Err → the staged gate re-dispatches with the
         // hook output as feedback so the NEXT attempt addresses it.
-        await this.git(
-          ['commit', '-m', opts.title || `orchestrator: ${identifier}`],
-          workspacePath
-        );
+        // #1531 — stamp the machine-readable provenance trailer onto the
+        // autonomous commit when run context was threaded. No-op / byte-identical
+        // when `opts.provenance` is absent (interactive + third-party commits).
+        const commitMessage = opts.title || `orchestrator: ${identifier}`;
+        const stampedCommit =
+          opts.provenance !== undefined
+            ? appendProvenanceTrailer(commitMessage, opts.provenance)
+            : commitMessage;
+        await this.git(['commit', '-m', stampedCommit], workspacePath);
       }
 
       // 2. Move onto the SLASH-prefixed branch. On a RESUMED ship the branch may
@@ -762,7 +787,12 @@ export class WorkspaceManager {
         '--title',
         opts.title,
         '--body',
-        opts.body,
+        // #1531 — mirror the provenance trailer into the PR body so the record
+        // survives the repo's squash-merge (which discards the branch commit's
+        // message). Byte-identical when no provenance context was threaded.
+        opts.provenance !== undefined
+          ? appendProvenanceTrailer(opts.body, opts.provenance)
+          : opts.body,
       ];
       // Run `gh pr create` from the REPO ROOT, not the detached worktree: gh infers
       // repo/head context from the working dir, and a detached-HEAD worktree makes it

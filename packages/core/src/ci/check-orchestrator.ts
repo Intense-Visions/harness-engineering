@@ -17,6 +17,7 @@ import type {
   ConstraintStage,
   ConstraintPackCompliance,
   ConstraintPackComplianceStatus,
+  GateMeasurement,
 } from '@harness-engineering/types';
 import type { Result } from '../shared/result';
 import { Ok, Err } from '../shared/result';
@@ -124,6 +125,18 @@ const ALL_CHECKS: CICheckName[] = [
   'arch',
   'traceability',
 ];
+
+/**
+ * What a single check contributes: its binary issues plus any continuous
+ * distance-to-threshold measurements it took (Taguchi continuous-loss, #1673).
+ * Threshold checks that expose a numeric metric emit measurements ALONGSIDE the
+ * verdict; checks with no meaningful continuous metric leave `measurements`
+ * empty. Emission only — measurements never influence a check's status.
+ */
+interface CheckContribution {
+  issues: CICheckIssue[];
+  measurements: GateMeasurement[];
+}
 
 async function runValidateCheck(
   projectRoot: string,
@@ -323,8 +336,9 @@ async function runSecurityCheck(
 async function runPerfCheck(
   projectRoot: string,
   config: Record<string, unknown>
-): Promise<CICheckIssue[]> {
+): Promise<CheckContribution> {
   const issues: CICheckIssue[] = [];
+  const measurements: GateMeasurement[] = [];
   const perfConfig = (config.performance as Record<string, unknown>) || {};
   const entryPoints = perfConfig.entryPoints as string[] | undefined;
   const perfAnalyzer = new EntropyAnalyzer({
@@ -350,6 +364,14 @@ async function runPerfCheck(
           file: v.file,
           line: v.line,
         });
+        // Emit the continuous measurement underneath the verdict: complexity is
+        // an upper-bound metric (value must stay <= threshold), #1673.
+        measurements.push({
+          gate: `perf.complexity.${v.metric}`,
+          measured: v.value,
+          target: v.threshold,
+          bound: 'upper',
+        });
       }
     }
     if (perfReport.coupling) {
@@ -359,10 +381,16 @@ async function runPerfCheck(
           message: `[Tier ${v.tier}] ${v.metric}: ${v.file} (${v.value} > ${v.threshold})`,
           file: v.file,
         });
+        measurements.push({
+          gate: `perf.coupling.${v.metric}`,
+          measured: v.value,
+          target: v.threshold,
+          bound: 'upper',
+        });
       }
     }
   }
-  return issues;
+  return { issues, measurements };
 }
 
 async function runPhaseGateCheck(
@@ -447,27 +475,42 @@ async function runArchCheck(
 async function runTraceabilityCheck(
   projectRoot: string,
   config: Record<string, unknown>
-): Promise<CICheckIssue[]> {
+): Promise<CheckContribution> {
   const issues: CICheckIssue[] = [];
+  const measurements: GateMeasurement[] = [];
   const traceConfig = (config.traceability as Record<string, unknown>) || {};
-  if (traceConfig.enabled === false) return issues;
+  if (traceConfig.enabled === false) return { issues, measurements };
 
   const graphDir = resolveGraphDir(projectRoot);
   const store = new GraphStore();
   const loaded = await store.load(graphDir);
   if (!loaded) {
     // No graph available — skip silently
-    return issues;
+    return { issues, measurements };
   }
 
   const results = queryTraceability(store);
-  if (results.length === 0) return issues;
+  if (results.length === 0) return { issues, measurements };
 
   const minCoverage = (traceConfig.minCoverage as number) ?? 0;
   const severity = (traceConfig.severity as 'error' | 'warning') ?? 'warning';
 
   for (const result of results) {
     const pct = result.summary.coveragePercent;
+    // Emit the continuous coverage measurement for EVERY feature — including the
+    // passing ones. Coverage is a lower-bound metric (pct must stay >= floor); a
+    // feature drifting from 100% toward the floor shows rising loss while its
+    // verdict is still green — the leading indicator the pass/fail throws away
+    // (#1673). Only meaningful when a floor is actually configured.
+    if (minCoverage > 0) {
+      measurements.push({
+        gate: `traceability.coverage:${result.featureName}`,
+        measured: pct,
+        target: minCoverage,
+        bound: 'lower',
+        unit: '%',
+      });
+    }
     if (pct < minCoverage) {
       issues.push({
         severity,
@@ -483,7 +526,7 @@ async function runTraceabilityCheck(
       }
     }
   }
-  return issues;
+  return { issues, measurements };
 }
 
 async function runSingleCheck(
@@ -493,6 +536,7 @@ async function runSingleCheck(
 ): Promise<CICheckResult> {
   const start = Date.now();
   const issues: CICheckIssue[] = [];
+  const measurements: GateMeasurement[] = [];
 
   try {
     switch (name) {
@@ -511,18 +555,24 @@ async function runSingleCheck(
       case 'security':
         issues.push(...(await runSecurityCheck(projectRoot, config)));
         break;
-      case 'perf':
-        issues.push(...(await runPerfCheck(projectRoot, config)));
+      case 'perf': {
+        const perf = await runPerfCheck(projectRoot, config);
+        issues.push(...perf.issues);
+        measurements.push(...perf.measurements);
         break;
+      }
       case 'phase-gate':
         issues.push(...(await runPhaseGateCheck(projectRoot, config)));
         break;
       case 'arch':
         issues.push(...(await runArchCheck(projectRoot, config)));
         break;
-      case 'traceability':
-        issues.push(...(await runTraceabilityCheck(projectRoot, config)));
+      case 'traceability': {
+        const trace = await runTraceabilityCheck(projectRoot, config);
+        issues.push(...trace.issues);
+        measurements.push(...trace.measurements);
         break;
+      }
     }
   } catch (error) {
     issues.push({
@@ -540,6 +590,10 @@ async function runSingleCheck(
     status,
     issues,
     durationMs: Date.now() - start,
+    // Attach continuous measurements only when the check took any (#1673); the
+    // field stays absent for checks with no thresholded numeric metric, so the
+    // serialized report shape is byte-identical for those checks.
+    ...(measurements.length > 0 ? { measurements } : {}),
   };
 }
 

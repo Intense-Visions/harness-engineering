@@ -1,0 +1,14 @@
+{
+  "issue": [1760],
+  "route": "bug",
+  "stages": ["debugging"],
+  "reproducingTest": "packages/cli/tests/commands/cleanup.test.ts",
+  "closingKeyword": "Closes",
+  "assumptions": [
+    "Root cause: runCleanup hardcoded the pattern analyzer config to `{ patterns: [] }`, so `harness cleanup -t patterns` applied zero rules yet reported 'Entropy issues: 0' and exited 0 — a false pass indistinguishable from a real check that found nothing.",
+    "Fix has two parts: (1) added `entropy.patterns` (PatternConfigSchema) to the CLI config schema so real pattern rules can be configured, and threaded them into runCleanup; (2) when `-t patterns` is the explicit check but zero rules are configured, runCleanup now fails loudly (Err, exit VALIDATION_FAILED) rather than green-ticking.",
+    "Chose to fail loudly only for the explicit `-t patterns` check; for `-t all` the patterns analyzer is skipped (patterns: false) when no rules exist, preserving the common no-config path instead of breaking every `harness cleanup` invocation.",
+    "The parallel MCP entropy tool (packages/cli/src/mcp/tools/entropy.ts) passes patterns as a bare boolean and has the same latent empty-ruleset behavior, but it is out of scope for #1760 which names `harness cleanup`.",
+    "Reproducing test proven fail-before/pass-after by stashing only the source change: both #1760 tests fail with the old source and pass with the fix."
+  ]
+}
