@@ -62,7 +62,7 @@ function collectSkillFiles(dir: string): string[] {
 }
 
 /** One invoked-only entry per platform skill tree (aggregated bodies). */
-export function skillTreeEntries(projectRoot: string): ContextSurfaceEntry[] {
+function skillTreeEntries(projectRoot: string): ContextSurfaceEntry[] {
   const entries: ContextSurfaceEntry[] = [];
   for (const platform of PLATFORM_SKILL_DIRS) {
     const dir = join(projectRoot, 'agents', 'skills', platform);
@@ -88,7 +88,7 @@ export function skillTreeEntries(projectRoot: string): ContextSurfaceEntry[] {
 }
 
 /** AGENTS.md entry (always-loaded), when present. */
-export function agentsMdEntry(projectRoot: string): ContextSurfaceEntry | null {
+function agentsMdEntry(projectRoot: string): ContextSurfaceEntry | null {
   const path = join(projectRoot, 'AGENTS.md');
   if (!existsSync(path)) return null;
   try {
@@ -104,7 +104,7 @@ export function agentsMdEntry(projectRoot: string): ContextSurfaceEntry | null {
 }
 
 /** Hook-configuration entry from .claude/settings.json (always-loaded). */
-export function hooksEntry(projectRoot: string): ContextSurfaceEntry | null {
+function hooksEntry(projectRoot: string): ContextSurfaceEntry | null {
   const path = join(projectRoot, '.claude', 'settings.json');
   if (!existsSync(path)) return null;
   try {

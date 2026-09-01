@@ -18,7 +18,7 @@ import * as path from 'path';
  */
 
 /** Canonical relative location of the ADR directory. */
-export const DECISIONS_DIR = path.join('docs', 'knowledge', 'decisions');
+const DECISIONS_DIR = path.join('docs', 'knowledge', 'decisions');
 
 /** ADR status vocabulary (see decisions/README.md). */
 export type AdrStatus = 'proposed' | 'accepted' | 'superseded' | 'deprecated';
@@ -61,7 +61,7 @@ export class AdrStoreError extends Error {
 }
 
 /** Absolute path to the decisions directory under `projectRoot`. */
-export function decisionsDirFor(projectRoot: string): string {
+function decisionsDirFor(projectRoot: string): string {
   return path.join(projectRoot, DECISIONS_DIR);
 }
 
@@ -99,7 +99,7 @@ export function resolveWorktreeRoot(cwd: string, fallbackRoot: string): string {
  * fields — the same discrimination `DecisionIngestor` applies, so non-ADR
  * markdown (e.g. the directory README) is skipped rather than mis-parsed.
  */
-export function parseAdr(raw: string): { frontmatter: AdrFrontmatter; body: string } | null {
+function parseAdr(raw: string): { frontmatter: AdrFrontmatter; body: string } | null {
   const match = raw.match(/^---\r?\n([\s\S]*?)\r?\n---\r?\n?([\s\S]*)$/);
   if (!match) return null;
 
@@ -124,7 +124,7 @@ export function parseAdr(raw: string): { frontmatter: AdrFrontmatter; body: stri
  * fixed and canonical so re-writes produce stable, review-friendly diffs;
  * unset optional fields are omitted.
  */
-export function serializeAdr(frontmatter: AdrFrontmatter, body: string): string {
+function serializeAdr(frontmatter: AdrFrontmatter, body: string): string {
   const order: Array<keyof AdrFrontmatter> = [
     'number',
     'title',
@@ -155,7 +155,7 @@ export function slugify(title: string): string {
 }
 
 /** Zero-pad a number to the canonical 4-digit ADR width. */
-export function padNumber(n: number): string {
+function padNumber(n: number): string {
   return String(n).padStart(4, '0');
 }
 
