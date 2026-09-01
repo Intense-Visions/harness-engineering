@@ -1,0 +1,16 @@
+{
+  "issue": [1526],
+  "route": "feature",
+  "stages": ["brainstorming", "autopilot"],
+  "planArtifact": "docs/changes/merged-but-unreleased-inventory-1526/plans/2026-08-31-release-inventory-metric-plan.md",
+  "specArtifact": "docs/changes/merged-but-unreleased-inventory-1526/proposal.md",
+  "closingKeyword": "Refs",
+  "closingRationale": "All three issue acceptance criteria are met and dogfood-verified against this repo (zero-release => unbounded, fires threshold; 6079 unreleased commits / 661 merges / oldest 173d; denominator carried). Deliverables 1-2 (pending-changeset count+age, merged-but-unreleased PR/commit count+age, merge->release latency, threshold alert) are fully implemented. Uses Refs (not Closes) because the issue's third deliverable, 'Surface in health snapshot + dashboard panel', is deliberately deferred: this change ships the metric engine + CLI report + JSON payload those surfaces consume, and a follow-up wires the dashboard panel + digest rendering.",
+  "remainder": "Deferred: dashboard panel + health-snapshot integration + digest rendering (issue deliverable 3). The metric, threshold, human report, and machine JSON payload are shipped; the panel consumes them.",
+  "assumptions": [
+    "Inventory derived from changesets (.changeset/*.md minus README/config) + version tags (latest git tag matching pattern, default v*) + the last-release-tag..HEAD commit range; emits count / oldest-age / list as a first-class metric plus a human+JSON report; measurement only (report-only, exit 0 by default, --strict opts into non-zero on breach).",
+    "'Shipped' denominator = latest git tag matching the configurable pattern; carried on every result as channel + shippedDefinition (AC2).",
+    "Zero-release repos report status 'unbounded' with lastRelease null rather than omitting the metric (AC3); an unbounded repo holding any inventory fires the threshold (AC1).",
+    "Dashboard/digest surfacing (issue deliverable 3, 'Surface in dashboard panel') is deferred to a follow-up; this change ships the metric engine + CLI report + JSON payload that a panel would render."
+  ]
+}

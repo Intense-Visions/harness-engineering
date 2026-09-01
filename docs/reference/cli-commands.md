@@ -563,6 +563,15 @@ Report refinement frequency per progressive-context class (demand signal)
 
 - `--json` — Emit machine-readable JSON
 
+### `harness release-inventory`
+
+Report merged-but-unreleased inventory (pending changesets + unreleased commits) and its release-cadence threshold
+
+**Options:**
+
+- `--tag-pattern` — Git tag glob that defines a release (default: v\* or config)
+- `--strict` — Exit non-zero when a threshold is breached (default: report-only)
+
 ### `harness review-ci`
 
 Run the tiered code-review gate (floor + optional LLM runner) for CI
