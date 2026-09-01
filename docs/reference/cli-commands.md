@@ -981,6 +981,24 @@ Scan recent fixes and hotspots for undocumented learnings; write candidate promp
 - `--output-path` — Override output file path (default: docs/solutions/.candidates/{YYYY-WW}.md)
 - `--solutions-dir` — Solutions directory to cross-reference (default: "docs/solutions")
 
+## Distortion Commands
+
+Rate-distortion context compaction — report-only ablation harness (#1633)
+
+### `harness distortion fit`
+
+Fit a distortion model from recorded ablation-replay observations (report-only)
+
+**Options:**
+
+- `--input` — Observations JSONL (default: .harness/metrics/ablation-replays.jsonl)
+- `--out` — Write the model JSON to this path (default: .harness/metrics/distortion-model.json)
+- `--markdown` — Also write the Markdown report to this path
+- `--version-tag` — Model version to stamp (default: 1.0.0)
+- `--threshold` — Noise threshold for the rework delta (default: 0.5)
+- `--prior` — Fold the #1632 refinement-demand log in as an advisory prior
+- `--no-write` — Print the model instead of writing files
+
 ## Docs-publish Commands
 
 Publish docs to a configured provider (draft-first)
