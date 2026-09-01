@@ -58,6 +58,7 @@ import { createInsightsCommand } from './insights';
 import { createInstallCommand } from './install';
 import { createInstallConstraintsCommand } from './install-constraints';
 import { createIntegrationsCommand } from './integrations';
+import { createKnowledgeCommand } from './knowledge';
 import { createKnowledgeCraftCommand } from './knowledge-craft';
 import { createKnowledgePipelineCommand } from './knowledge-pipeline';
 import { createLearningsCommand } from './learnings';
@@ -174,6 +175,7 @@ export const commandCreators: Array<() => Command> = [
   createInstallCommand,
   createInstallConstraintsCommand,
   createIntegrationsCommand,
+  createKnowledgeCommand,
   createKnowledgeCraftCommand,
   createKnowledgePipelineCommand,
   createLearningsCommand,

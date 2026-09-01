@@ -1274,6 +1274,20 @@ Reconcile configured MCP servers against the catalog (report-only by default)
 - `--apply` — Apply changes (prompts per group in an interactive terminal)
 - `--yes` — Apply changes without prompting (for scripts/CI)
 
+## Knowledge Commands
+
+Knowledge store fitness commands
+
+### `harness knowledge mdl`
+
+Score the knowledge store by Minimum Description Length — description cost vs measured compression value — and report reversible prune/merge recommendations (report-only)
+
+**Options:**
+
+- `--path` — Project root path (default: ".")
+- `--stream` — Target a specific stream
+- `--telemetry` — JSON file with { inclusions: InclusionEvent[], outcomes: RunOutcome[] } linking entries to run outcomes
+
 ## Learnings Commands
 
 Learnings management commands

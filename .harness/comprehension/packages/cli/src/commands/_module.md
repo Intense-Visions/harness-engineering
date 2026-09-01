@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: "packages/cli/src/commands"
-sourceHash: "eafe7ac99cf7f9115df17af84046eeaf6d228197c2f9777ce9c9fb659d61e0a1"
+sourceHash: "8d0da9a4cd39e1591e0a356966b6df1d557c35f34fccbca38b29255276bbd4e4"
 compiler: { static: "1.0.0", semantic: "1.0.0" }
 model: null
 semantic: absent
@@ -406,7 +406,6 @@ import { createCodeCraftCommand } from './code-craft'
 import { createCompoundCommand } from './compound'
 import { createComprehendCommand } from './comprehend'
 import { createComprehensionMergeDriverCommand } from './comprehension-merge-driver'
-import { createContextDictionaryCommand } from './context-dictionary'
 import { createCopyCraftCommand } from './copy-craft'
 import { createCreateSkillCommand } from './create-skill'
 import { createCrossCheckCommand } from './cross-check'
@@ -435,6 +434,7 @@ import { createInstallCommand, resolveCommunityBase } from './install'
 import { createInstallConstraintsCommand } from './install-constraints'
 import { createIntegrationsCommand } from './integrations'
 import { readConfiguredServers } from './integrations/sync'
+import { createKnowledgeCommand } from './knowledge'
 import { createKnowledgeCraftCommand } from './knowledge-craft'
 import { createKnowledgePipelineCommand } from './knowledge-pipeline'
 import { createLearningsCommand } from './learnings'
@@ -442,7 +442,7 @@ import { createLinterCommand } from './linter'
 import { createMaintenanceCommand } from './maintenance'
 import { loadAgentBackends, loadMaintenanceConfig, mergeResolvedTasks } from './maintenance-config'
 import { runMaintenanceRun } from './maintenance-run'
-import { createMcpCommand, createMcpContextReportCommand, createMcpListCapabilitiesCommand } from './mcp'
+import { createMcpCommand, createMcpContextReportCommand, createMcpListCapabilitiesCommand, createMcpRefinementDemandCommand } from './mcp'
 import { createMcpGuardCommand } from './mcp-guard'
 import { createMigrateCommand, detectLegacyArtifacts } from './migrate'
 import { createBackendsSubcommand } from './migrate-backends'
