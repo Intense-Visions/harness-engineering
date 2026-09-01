@@ -265,9 +265,14 @@ export * from './accessibility';
 export * from './deployment';
 
 /**
- * Trained context dictionaries module (#1635).
+ * Dictionary module.
  */
 export * from './dictionary';
+
+/**
+ * Gate-loss module.
+ */
+export * from './gate-loss';
 
 /**
  * Golden module.

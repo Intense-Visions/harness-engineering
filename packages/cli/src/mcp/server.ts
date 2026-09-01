@@ -14,6 +14,7 @@ import {
 import { applyInjectionGuard } from './middleware/injection-guard.js';
 import { applyCompaction } from './middleware/compaction.js';
 import { applyContextBudget } from './middleware/context-budget.js';
+import { applyVersionGuard } from './middleware/version-guard.js';
 import { validateToolDefinition, handleValidateProject } from './tools/validate.js';
 import { checkDependenciesDefinition, handleCheckDependencies } from './tools/architecture.js';
 import { checkDocsDefinition, handleCheckDocs } from './tools/docs.js';
@@ -784,7 +785,12 @@ export function createHarnessServer(projectRoot?: string, toolFilter?: string[])
   const trustedOutputTools = new Set(
     definitions.filter((t) => t.trustedOutput === true).map((t) => t.name)
   );
-  const guardedHandlers = applyInjectionGuard(handlers, {
+  // Version-skew guard FIRST (innermost), so a refusal short-circuits before the
+  // findings tool runs and before any output-scanning middleware wraps it. This
+  // is the MCP twin of the CLI commander preAction hook (#1301): both surfaces
+  // now route findings requests through the same shared evaluator.
+  const versionGuardedHandlers = applyVersionGuard(handlers, { projectRoot: resolvedRoot });
+  const guardedHandlers = applyInjectionGuard(versionGuardedHandlers, {
     projectRoot: resolvedRoot,
     trustedOutputTools,
   });
