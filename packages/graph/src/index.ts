@@ -210,6 +210,21 @@ export type {
   GraphFilterResult,
   GraphCoverageReport,
 } from './context/Assembler.js';
+export {
+  StabilityTier,
+  STABILITY_TIER_LABELS,
+  stabilityTierForNode,
+  orderByStability,
+  auditLayout,
+  toLayoutSections,
+  CacheEfficiencyMeter,
+} from './context/StabilityLayout.js';
+export type {
+  LayoutViolation,
+  LayoutSection,
+  PrefixStabilityReport,
+  CacheEfficiencySummary,
+} from './context/StabilityLayout.js';
 
 // Traceability
 export { queryTraceability } from './query/Traceability.js';

@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'packages/cli/src/commands'
-sourceHash: '5f8bb71d0830892c10bb2459709a4f690ea5b6ebce8a3b8a6ebb6971d638820b'
+sourceHash: '71dd88f109469e45383b954fb6e9c0b83bd6733d781f66d16d7eb977b59945bd'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
@@ -205,6 +205,7 @@ export createMcpCommand
 export createMcpContextReportCommand
 export createMcpGuardCommand
 export createMcpListCapabilitiesCommand
+export createMcpRefinementDemandCommand
 export createMigrateCommand
 export createModelsCommand
 export createNamingCraftCommand
@@ -261,6 +262,7 @@ export formatCapabilitiesByPermission
 export formatCapabilitiesTable
 export formatCompiledUnits
 export formatContextReport
+export formatRefinementDemand
 export gatherGuardianSafe
 export gatherSignalsSafe
 export generateAgentDefinitions
@@ -422,6 +424,7 @@ import { runDesignCraft } from '../mcp/tools/design-craft'
 import { runDetectDrift } from '../mcp/tools/detect-drift'
 import { handleGetImpact } from '../mcp/tools/graph/index'
 import { runInstructionDensityAudit } from '../mcp/tools/instruction-density'
+import from '../mcp/tools/refinement-telemetry.js'
 import { resolveAnalysisProvider } from '../mcp/utils/analysis-provider'
 import { loadGraphStore } from '../mcp/utils/graph-loader'
 import { IdentifierKind, NamingCraftInput, NamingCraftOutput, runNamingCraft } from '../naming-craft/index.js'

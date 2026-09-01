@@ -1338,6 +1338,14 @@ Audit each MCP tool: read/write/exec scope, network access, and trust tag
 - `--by-permission` — Group tools by read/write/exec/network scope
 - `--json` — Emit machine-readable JSON
 
+### `harness mcp refinement-demand`
+
+Report refinement frequency per progressive-context class (demand signal)
+
+**Options:**
+
+- `--json` — Emit machine-readable JSON
+
 ## Mcp-guard Commands
 
 Pre-launch OSV malware guard for MCP/npx packages
