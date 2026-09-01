@@ -1,4 +1,7 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import * as fs from 'fs';
+import * as os from 'os';
+import * as path from 'path';
 import {
   handleCodeOutline,
   handleCodeSearch,
@@ -112,5 +115,69 @@ describe('handleCodeUnfold', () => {
     // May return fallback content or error — either way should have content
     expect(result.content).toHaveLength(1);
     expect(result.content[0].text.length).toBeGreaterThan(0);
+  });
+});
+
+describe('refinement instrumentation', () => {
+  // The writer resolves its root from process.cwd(); drive the assertion by
+  // pointing cwd at a temp project dir and reading the metrics log it writes.
+  let originalCwd: string;
+  let tmpDir: string;
+  let fixtureFile: string;
+
+  const eventsPath = () => path.join(tmpDir, '.harness', 'metrics', 'refinement-events.jsonl');
+  const readEvents = () =>
+    fs.existsSync(eventsPath())
+      ? fs
+          .readFileSync(eventsPath(), 'utf-8')
+          .split('\n')
+          .filter((l) => l.trim())
+          .map((l) => JSON.parse(l))
+      : [];
+
+  beforeEach(() => {
+    originalCwd = process.cwd();
+    tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'code-nav-refinement-'));
+    fixtureFile = path.join(tmpDir, 'fixture.ts');
+    fs.writeFileSync(fixtureFile, 'export function hello(): string {\n  return "hi";\n}\n');
+    process.chdir(tmpDir);
+  });
+
+  afterEach(() => {
+    process.chdir(originalCwd);
+    fs.rmSync(tmpDir, { recursive: true, force: true });
+  });
+
+  it('logs an outline refinement (file-content) on success', async () => {
+    const result = await handleCodeOutline({ path: fixtureFile });
+    expect(result.isError).toBeFalsy();
+    const events = readEvents();
+    expect(events).toHaveLength(1);
+    expect(events[0].operation).toBe('outline');
+    expect(events[0].contextClass).toBe('file-content');
+  });
+
+  it('logs a search refinement (file-content) on success', async () => {
+    const result = await handleCodeSearch({ query: 'hello', directory: tmpDir });
+    expect(result.isError).toBeFalsy();
+    const events = readEvents();
+    expect(events.some((e) => e.operation === 'search' && e.contextClass === 'file-content')).toBe(
+      true
+    );
+  });
+
+  it('logs an unfold refinement (file-content) on success', async () => {
+    const result = await handleCodeUnfold({ path: fixtureFile, symbol: 'hello' });
+    expect(result.isError).toBeFalsy();
+    const events = readEvents();
+    expect(events.some((e) => e.operation === 'unfold' && e.contextClass === 'file-content')).toBe(
+      true
+    );
+  });
+
+  it('does NOT log on the error path', async () => {
+    const result = await handleCodeOutline({ path: path.join(tmpDir, 'nonexistent-xyz.ts') });
+    expect(result.isError).toBe(true);
+    expect(readEvents()).toHaveLength(0);
   });
 });

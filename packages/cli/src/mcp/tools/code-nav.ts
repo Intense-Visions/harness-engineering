@@ -1,4 +1,5 @@
 import { sanitizePath } from '../utils/sanitize-path.js';
+import { recordRefinement } from './refinement-telemetry.js';
 
 // --- code_outline ---
 
@@ -62,6 +63,7 @@ export async function handleCodeOutline(input: {
 
     if (stats?.isFile()) {
       const outline = await getOutline(targetPath);
+      recordRefinement(process.cwd(), { operation: 'outline', target: input.path });
       return { content: [{ type: 'text' as const, text: formatOutline(outline) }] };
     }
 
@@ -89,6 +91,7 @@ export async function handleCodeOutline(input: {
         results.push(formatOutline(outline));
       }
 
+      recordRefinement(process.cwd(), { operation: 'outline', target: input.path });
       return {
         content: [
           {
@@ -176,6 +179,7 @@ export async function handleCodeSearch(input: { query: string; directory: string
       lines.push(`\nSkipped ${result.skipped.length} files (unsupported or parse failed)`);
     }
 
+    recordRefinement(process.cwd(), { operation: 'search', target: input.query });
     return { content: [{ type: 'text' as const, text: lines.join('\n') }] };
   } catch (error) {
     return {
@@ -251,6 +255,7 @@ export async function handleCodeUnfold(input: {
       const header = result.warning
         ? `${result.file}:${result.startLine}-${result.endLine} ${result.warning}\n`
         : `${result.file}:${result.startLine}-${result.endLine}\n`;
+      recordRefinement(process.cwd(), { operation: 'unfold', target: input.symbol ?? input.path });
       return { content: [{ type: 'text' as const, text: header + result.content }] };
     }
 
@@ -258,6 +263,7 @@ export async function handleCodeUnfold(input: {
       const { unfoldRange } = await import('@harness-engineering/core');
       const result = await unfoldRange(filePath, input.startLine, input.endLine);
       const header = `${result.file}:${result.startLine}-${result.endLine}\n`;
+      recordRefinement(process.cwd(), { operation: 'unfold', target: input.symbol ?? input.path });
       return { content: [{ type: 'text' as const, text: header + result.content }] };
     }
 
