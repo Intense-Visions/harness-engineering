@@ -65,7 +65,6 @@ import { createMcpCommand } from './mcp';
 import { createMcpContextReportCommand } from './mcp';
 import { createMcpGuardCommand } from './mcp-guard';
 import { createMcpListCapabilitiesCommand } from './mcp';
-import { createMetabolismCommand } from './metabolism';
 import { createMigrateCommand } from './migrate';
 import { createModelsCommand } from './models';
 import { createNamingCraftCommand } from './naming-craft';
@@ -179,7 +178,6 @@ export const commandCreators: Array<() => Command> = [
   createMcpContextReportCommand,
   createMcpGuardCommand,
   createMcpListCapabilitiesCommand,
-  createMetabolismCommand,
   createMigrateCommand,
   createModelsCommand,
   createNamingCraftCommand,

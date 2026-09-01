@@ -877,6 +877,14 @@ Wire the burn HUD statusline and hooks into ~/.claude/settings.json
 
 - `--dry-run` — show what would change without writing
 
+### `harness burn metabolism`
+
+Classify token spend into basal (maintenance) vs anabolic (productive) and rank maintenance waste
+
+**Options:**
+
+- `--json` — Emit machine-readable JSON
+
 ### `harness burn per-pr`
 
 Cost per merged PR: join burn token attribution to shipped PRs
@@ -1347,14 +1355,6 @@ Check every MCP/npx package in .mcp.json against OSV.dev advisories
 - `--strict` — Fail closed on network errors (default: fail-open)
 - `--json` — Emit machine-readable JSON
 - `--path` — Project root path (default: ".")
-
-## Metabolism Commands
-
-Classify token spend into basal (maintenance) vs anabolic (productive) and rank maintenance waste
-
-### `harness metabolism report`
-
-Classify token spend into basal vs anabolic and rank maintenance waste
 
 ## Migrate Commands
 

@@ -70,7 +70,8 @@ maintenanceClasses })` that joins real session token totals across each
    the ranked-waste burn is grounded in measured spend.
 5. A **classifier evaluator** `evaluateClassifier(labeled, config)` producing
    confusion rates against a hand-labeled sample (acceptance criterion #1).
-6. A read-only CLI surface `harness metabolism` (report/`--json`) mirroring
+6. A read-only CLI surface `harness burn metabolism` (report/`--json`), and a
+   by-token-metabolism section in the full `harness burn` report, mirroring
    `harness usage`.
 
 ## Acceptance criteria

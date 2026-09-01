@@ -11,6 +11,7 @@ import chalk from 'chalk';
 import { Command } from 'commander';
 
 import { bar, localTime, pad } from './format';
+import { metabolismSection } from './metabolism';
 
 /**
  * The full burn report.
@@ -357,7 +358,14 @@ function footerSection(s: Summary): string[] {
   ];
 }
 
-export function renderReport(s: Summary): string[] {
+/**
+ * Assemble the report. `metabolismLines` is injected (built asynchronously by
+ * the caller from adoption+usage telemetry) so this stays a pure function of
+ * the summary and is trivially testable; it renders empty when there is no
+ * metabolism telemetry. It sits after the pace/attribution cuts and before the
+ * footer, which is always last.
+ */
+export function renderReport(s: Summary, metabolismLines: string[] = []): string[] {
   const tz = s.week.tz || 'UTC';
   return [
     ...headerSection(s, tz),
@@ -369,11 +377,19 @@ export function renderReport(s: Summary): string[] {
     ...sessionSection(s),
     ...calibrationSection(s),
     ...dataLossSection(s),
+    ...metabolismLines,
     ...footerSection(s),
   ];
 }
 
-/** Rescan, then print. Returns a process exit code. */
+/**
+ * Rescan, then print. Returns a process exit code.
+ *
+ * Synchronous and metabolism-free: this is the terse confirmation the config
+ * commands (`budget` / `calibrate` / `reset-day`) print after a mutation, where
+ * the by-token-metabolism lens would be noise. The full `burn` / `burn report`
+ * surface uses {@link printFullReport}, which adds the metabolism section.
+ */
 export function printReport(): number {
   const paths = resolvePaths();
   refresh(paths);
@@ -386,10 +402,29 @@ export function printReport(): number {
   return 0;
 }
 
+/**
+ * The full report shown by `burn` and `burn report`: the pace/attribution cuts
+ * plus the by-token-metabolism section (basal vs anabolic), loaded from
+ * adoption+usage telemetry. Async because that telemetry is read lazily so the
+ * common burn path does not eagerly pull core's module graph.
+ */
+export async function printFullReport(): Promise<number> {
+  const paths = resolvePaths();
+  refresh(paths);
+  const summary = readSummary(paths);
+  if (!summary) {
+    console.log(chalk.yellow('No summary — run: harness burn scan'));
+    return 1;
+  }
+  const metabolismLines = await metabolismSection(process.cwd());
+  for (const line of renderReport(summary, metabolismLines)) console.log(line);
+  return 0;
+}
+
 export function createReportCommand(): Command {
   return new Command('report')
     .description('Rescan and print the full burn report (default)')
-    .action(() => {
-      process.exitCode = printReport();
+    .action(async () => {
+      process.exitCode = await printFullReport();
     });
 }

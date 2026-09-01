@@ -9,7 +9,7 @@ bursts as **basal** / **anabolic** / **unattributable** by outcome linkage,
 emits the **basal-share metric** (with declared denominator + unattributable
 bucket) and a **ranked maintenance-waste list**, plus an adapter over the
 existing `UsageRecord` + `SkillInvocationRecord` telemetry and a classifier
-evaluator with published confusion rates. Wire a read-only `harness metabolism`
+evaluator with published confusion rates. Wire a read-only `harness burn metabolism`
 CLI. Budget/governor gate wiring is DEFERRED (see spec non-goals).
 
 ## Scope

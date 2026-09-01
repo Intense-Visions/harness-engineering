@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'packages/cli/src/commands/burn'
-sourceHash: 'a8470ad110175d6783366e7882e37682a82a6f3c735b7eb6767473bbf29c17cf'
+sourceHash: 'fc6c512f8648095ca0e1a15f8009bfcecee558fd71ebd27d321c0253b5cb6b58'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
