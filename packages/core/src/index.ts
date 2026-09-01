@@ -340,6 +340,11 @@ export * from './pulse';
 export * from './rehearsal';
 
 /**
+ * Release-inventory module.
+ */
+export * from './release-inventory';
+
+/**
  * Solutions module.
  */
 export * from './solutions';

@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'packages/cli/src/config'
-sourceHash: 'f31d78aa6652d8c487ec30a46ad6cdb438c0a26210aa74e6742475058f718078'
+sourceHash: '327270f2eb2f072903591437f208b3d95246d7428e57ce1c3e1baa772e974a4c'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
@@ -60,6 +60,7 @@ export OperationalPolicyConfigSchema
 export PerformanceConfigSchema
 export PhaseGateMappingSchema
 export PhaseGatesConfigSchema
+export ReleaseInventoryConfigSchema
 export ReviewConfigSchema
 export RoadmapAutoTriageConfigSchema
 export RoadmapConfigSchema

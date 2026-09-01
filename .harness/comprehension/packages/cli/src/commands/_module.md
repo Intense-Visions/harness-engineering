@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'packages/cli/src/commands'
-sourceHash: '71dd88f109469e45383b954fb6e9c0b83bd6733d781f66d16d7eb977b59945bd'
+sourceHash: '27c4077a2832d4b3006e92e78a952b90aa93de326e7794167aa4f02218d2d8c7'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
@@ -79,6 +79,8 @@ members:
     'publish-analyses.ts',
     'recommend.ts',
     'rehearse.ts',
+    'release-inventory.test.ts',
+    'release-inventory.ts',
     'review-ci-local-adapter.ts',
     'review-ci.ts',
     'rollback.ts',
@@ -187,10 +189,12 @@ export createDocsCraftCommand
 export createDoctorCommand
 export createFixDispatcher
 export createFixDriftCommand
+export createFsPort
 export createGenerateAgentDefinitionsCommand
 export createGenerateCommand
 export createGenerateSlashCommandsCommand
 export createGhSeam
+export createGitPort
 export createHolidayConfidenceCommand
 export createImpactPreviewCommand
 export createInitCommand
@@ -218,6 +222,7 @@ export createProposalsCommand
 export createPublishAnalysesCommand
 export createRecommendCommand
 export createRehearseCommand
+export createReleaseInventoryCommand
 export createReviewCiCommand
 export createRollbackCommand
 export createScanConfigCommand
@@ -354,6 +359,7 @@ export runProposalsReject
 export runProposalsShow
 export runProposalsStatus
 export runRecommend
+export runReleaseInventory
 export runReviewCi
 export runRollbackEvaluate
 export runRollbackSweepCommand
@@ -545,7 +551,7 @@ import { createLinterCommand } from './linter'
 import { createMaintenanceCommand } from './maintenance'
 import { loadAgentBackends, loadMaintenanceConfig, mergeResolvedTasks } from './maintenance-config'
 import { runMaintenanceRun } from './maintenance-run'
-import { createMcpCommand, createMcpContextReportCommand, createMcpListCapabilitiesCommand } from './mcp'
+import { createMcpCommand, createMcpContextReportCommand, createMcpListCapabilitiesCommand, createMcpRefinementDemandCommand } from './mcp'
 import { createMcpGuardCommand } from './mcp-guard'
 import { createMigrateCommand, detectLegacyArtifacts } from './migrate'
 import { createBackendsSubcommand } from './migrate-backends'
@@ -565,6 +571,7 @@ import { createPublishAnalysesCommand } from './publish-analyses'
 import { createPulseCommand } from './pulse'
 import { createRecommendCommand } from './recommend'
 import { createRehearseCommand } from './rehearse'
+import { RunGit, createFsPort, createGitPort, createReleaseInventoryCommand, runReleaseInventory } from './release-inventory'
 import { RunGit, buildDiffInfo, createReviewCiCommand, resolveDiffRange } from './review-ci'
 import { createLocalInvoke } from './review-ci-local-adapter'
 import { createRoadmapCommand } from './roadmap'
@@ -601,7 +608,7 @@ import { runCrossCheck } from './validate-cross-check'
 import { ChangedSurface, SCOPED_WALKERS, deriveChangedSurface, filterToDesignSurface } from './validate-scope'
 import { createVerifyCommand, runVerify } from './verify'
 import * as clack from '@clack/prompts'
-import { AdjustedForecast, AgentConfigValidation, AllowanceFilteredDiff, AnnotationIssue, ArchAllowance, ArchAllowanceSchema, ArchBaseline, ArchBaselineManager, ArchConfig, ArchConfigSchema, ArchDiffResult, ArchMetricCategory, AuditResult, BaselineManager, BlueprintGenerator, BranchingConfig, Bundle, BundleSchema, CI_ASSESSMENTS, COMPREHENSION_ROOT, CiBlockOn, CiReviewResult, ComprehensionStore, ConflictReport, ConstraintNodeStore, Contributions, CriticalPathResolver, DeploymentExitCode, DeploymentFsPort, DeploymentGateConfig, DeploymentGateResult, DetectStaleResult, DiffInfo, DriftConfig, EntropyAnalyzer, EntropyConfig, Err, HarnessStrengthAuditor, InjectionFinding, LayerConfig, ListProposalsOptions, LocalEndpointInvoke, Lockfile, LockfilePackage, MetricResult, Ok, OsvAdvisory, OsvCheckResult, PredictionEngine, PredictionResult, PredictionWarning, ProjectScanner, Proposal, ProposalStatus, ProtectedRegion, RUNNER_PRESETS, RecoveryRecordSchema, RehearsalManifest, RehearsalScore, Result, RoadmapMeta, RollbackDecision, RollbackIO, RunCiReviewOptions, RunnerId, SECURITY_SCAN_DEFAULT_IGNORE, SECURITY_SCAN_GLOB, ScanConfigFileResult, ScanConfigFinding, ScanConfigResult, SecurityFinding, SecurityScanner, SecuritySeverity, SecurityTimelineManager, Severity, SpecImpactEstimator, StrengthFinding, TimelineManager, TimelineSnapshot, TrendLine, TrendResult, TypeScriptParser, Violation, addProvenance, applyFixes, archAllowanceSlug, archAllowancesDir, buildCiReviewVerdict, buildSnapshot, checkDocCoverage, checkRoadmapAggregateDrift, checkRoadmapHealth, checkTaint, classifyRevert, clearTaint, computeOverallSeverity, computeScanExitCode, createFixes, createNodeComprehensionIO, createNodeModuleSourceReader, createNodeRoadmapIO, createOsvClient, createTrackerClient, deepMergeConstraints, defineLayer, deriveDeploymentExitCode, detectCircularDepsInFiles, detectDeadCode, detectDeploymentSurface, detectDocDrift, detectRoadmapStorageMode, detectStaleConstraints, diff, evaluateDeploymentGate, extractBundle, filterDiffByAllowances, findFixture, generateAgentsMap, generateSuggestions, getProposal, invalidateCheckState, isWholeSnapshotContext, listProposals, listTaintedSessions, loadArchAllowances, loadCatalog, loadProjectRoadmapMode, loadTrackerClientConfigFromProject, loadTrackerSyncConfig, mapInjectionFindings, mapSecurityFindings, needsMergeOursDriverWarning, parseDiff, parseFileRegions, parseManifest, parseRoadmap, parseSecurityConfig, readLockfile, regenerate, removeContributions, removeProvenance, resolveArchBaseline, roadmapSourceExists, runAll, runCiReview, scanForInjection, scoreRecovery, serializeMeta, updateProposal, validateAgentConfigs, validateAgentsMap, validateBranchName, validateDecisionNumbers, validateDependencies, validateKnowledgeMap, validatePulseConfig, validateRoadmapMode, validateSolutionsDir, validateStrategy, writeArchAllowance, writeConfig, writeLockfile } from '@harness-engineering/core'
+import { AdjustedForecast, AgentConfigValidation, AllowanceFilteredDiff, AnnotationIssue, ArchAllowance, ArchAllowanceSchema, ArchBaseline, ArchBaselineManager, ArchConfig, ArchConfigSchema, ArchDiffResult, ArchMetricCategory, AuditResult, BaselineManager, BlueprintGenerator, BranchingConfig, Bundle, BundleSchema, CI_ASSESSMENTS, COMPREHENSION_ROOT, CiBlockOn, CiReviewResult, ComprehensionStore, ConflictReport, ConstraintNodeStore, Contributions, CriticalPathResolver, DEFAULT_RELEASE_INVENTORY_THRESHOLDS, DeploymentExitCode, DeploymentFsPort, DeploymentGateConfig, DeploymentGateResult, DetectStaleResult, DiffInfo, DriftConfig, EntropyAnalyzer, EntropyConfig, Err, HarnessStrengthAuditor, InjectionFinding, LayerConfig, ListProposalsOptions, LocalEndpointInvoke, Lockfile, LockfilePackage, MetricResult, Ok, OsvAdvisory, OsvCheckResult, PredictionEngine, PredictionResult, PredictionWarning, ProjectScanner, Proposal, ProposalStatus, ProtectedRegion, RUNNER_PRESETS, RecoveryRecordSchema, RehearsalManifest, RehearsalScore, ReleaseChannel, ReleaseInventoryFsPort, ReleaseInventoryGitPort, ReleaseInventoryResult, ReleaseInventoryThresholds, ReleaseTag, Result, RoadmapMeta, RollbackDecision, RollbackIO, RunCiReviewOptions, RunnerId, SECURITY_SCAN_DEFAULT_IGNORE, SECURITY_SCAN_GLOB, ScanConfigFileResult, ScanConfigFinding, ScanConfigResult, SecurityFinding, SecurityScanner, SecuritySeverity, SecurityTimelineManager, Severity, SpecImpactEstimator, StrengthFinding, TimelineManager, TimelineSnapshot, TrendLine, TrendResult, TypeScriptParser, UnreleasedCommit, Violation, addProvenance, applyFixes, archAllowanceSlug, archAllowancesDir, buildCiReviewVerdict, buildSnapshot, checkDocCoverage, checkRoadmapAggregateDrift, checkRoadmapHealth, checkTaint, classifyRevert, clearTaint, computeOverallSeverity, computeReleaseInventory, computeScanExitCode, createFixes, createNodeComprehensionIO, createNodeModuleSourceReader, createNodeRoadmapIO, createOsvClient, createTrackerClient, deepMergeConstraints, defineLayer, deriveDeploymentExitCode, detectCircularDepsInFiles, detectDeadCode, detectDeploymentSurface, detectDocDrift, detectRoadmapStorageMode, detectStaleConstraints, diff, evaluateDeploymentGate, evaluateReleaseInventory, extractBundle, filterDiffByAllowances, findFixture, generateAgentsMap, generateSuggestions, getProposal, invalidateCheckState, isWholeSnapshotContext, listProposals, listTaintedSessions, loadArchAllowances, loadCatalog, loadProjectRoadmapMode, loadTrackerClientConfigFromProject, loadTrackerSyncConfig, mapInjectionFindings, mapSecurityFindings, needsMergeOursDriverWarning, parseDiff, parseFileRegions, parseManifest, parseRoadmap, parseSecurityConfig, readLockfile, regenerate, removeContributions, removeProvenance, resolveArchBaseline, roadmapSourceExists, runAll, runCiReview, scanForInjection, scoreRecovery, serializeMeta, updateProposal, validateAgentConfigs, validateAgentsMap, validateBranchName, validateDecisionNumbers, validateDependencies, validateKnowledgeMap, validatePulseConfig, validateRoadmapMode, validateSolutionsDir, validateStrategy, writeArchAllowance, writeConfig, writeLockfile } from '@harness-engineering/core'
 import { CraftFindingRecord, DEFAULT_SKIP_DIRS, DesignConstraintAdapter, GraphStore, KnowledgePipelineResult, NodeType, skipDirGlobs } from '@harness-engineering/graph'
 import { AbandonedSkill, AnalysisProvider, FailingSkill, GuardianAnalysis, OpenAICompatibleAnalysisProvider, OutcomeVerdict, SkillEffectivenessScore, SkillRegressionFixture, SkillRegressionVerdict, guardianFileLines, guardianFlags, readGuardianAnalyses, summarizeGuardian } from '@harness-engineering/intelligence'
 import { AgentDispatcher, AnalysisRecord, BUILT_IN_TASKS, CheckCommandRunner, CheckScriptRunner, CommandExecutor, FlightRecorder, MAINTENANCE_CHECK_MAX_BUFFER, MAINTENANCE_CHECK_TIMEOUT_MS, MaintenanceReporter, Orchestrator, PersistedOutputEntry, RunMode, RunRecord, RunResult, SyncMainResult, TaskDefinition, TaskOutputStore, TaskRunner, TaskSelectionFilter, UnitVerdict, WorkflowLoader, createAgentDispatcher, defaultFetchModels, defaultSyncMain, discoverCandidates, launchTUI, loadPublishedIndex, makeBackendResolver, migrateAgentConfig, renderAnalysisComment, runHarnessCheck, savePublishedIndex, selectTasks } from '@harness-engineering/orchestrator'

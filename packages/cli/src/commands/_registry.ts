@@ -65,6 +65,7 @@ import { createMcpCommand } from './mcp';
 import { createMcpContextReportCommand } from './mcp';
 import { createMcpGuardCommand } from './mcp-guard';
 import { createMcpListCapabilitiesCommand } from './mcp';
+import { createMcpRefinementDemandCommand } from './mcp';
 import { createMigrateCommand } from './migrate';
 import { createModelsCommand } from './models';
 import { createNamingCraftCommand } from './naming-craft';
@@ -80,6 +81,7 @@ import { createPublishAnalysesCommand } from './publish-analyses';
 import { createPulseCommand } from './pulse';
 import { createRecommendCommand } from './recommend';
 import { createRehearseCommand } from './rehearse';
+import { createReleaseInventoryCommand } from './release-inventory';
 import { createReviewCiCommand } from './review-ci';
 import { createRoadmapCommand } from './roadmap';
 import { createRollbackCommand } from './rollback';
@@ -178,6 +180,7 @@ export const commandCreators: Array<() => Command> = [
   createMcpContextReportCommand,
   createMcpGuardCommand,
   createMcpListCapabilitiesCommand,
+  createMcpRefinementDemandCommand,
   createMigrateCommand,
   createModelsCommand,
   createNamingCraftCommand,
@@ -193,6 +196,7 @@ export const commandCreators: Array<() => Command> = [
   createPulseCommand,
   createRecommendCommand,
   createRehearseCommand,
+  createReleaseInventoryCommand,
   createReviewCiCommand,
   createRoadmapCommand,
   createRollbackCommand,
