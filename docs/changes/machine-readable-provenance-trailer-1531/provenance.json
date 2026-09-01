@@ -1,0 +1,14 @@
+{
+  "issue": [1531],
+  "route": "feature",
+  "stages": ["brainstorming", "autopilot"],
+  "planArtifact": "docs/changes/machine-readable-provenance-trailer-1531/plans/plan.md",
+  "closingKeyword": "Refs",
+  "closingKeywordReason": "Slice: schema + formatter + parser + orchestrator emission (commit and PR body) + docs + tests land and satisfy all three acceptance criteria mechanically. The issue's narrative 'Suggested surfaces' (a CI presence/shape gate) and 'Adopter usage' (a `harness provenance <sha>` reader CLI) are deferred as follow-up remainder, so this is a slice (Refs) not a full close.",
+  "assumptions": [
+    "Trailer schema: git-trailer `Key: value` lines under a distinct `Harness-*` namespace (primary `Harness-Run: <skill>@<version>`, plus `Harness-Provenance-Version`, `Harness-Run-Id`, `Harness-Lane`, `Harness-Agent`, `Harness-Model`, `Harness-Session`), deterministically parseable and NOT co-opting `Co-authored-by:`.",
+    "Emitted on the autonomous fleet/orchestrator commit path (`WorkspaceManager.shipWorkspace`); the freeform `Claude-Session:` line is complemented, not removed. Interactive / third-party commits are byte-unaffected (no `provenance` opt threaded).",
+    "Squash-merge survival: the same rendered trailer block is mirrored into the PR body, satisfying 'survives the squash-merge path, or the PR body carries the equivalent record'.",
+    "Skill identity for the autonomous path is `orchestrator`; skill version is sourced from the harness core `VERSION`; runId from the flight recorder; model + agent from the executing backend; lane from the work unit. Absent context degrades field-by-field (the field is omitted), never a crash."
+  ]
+}
