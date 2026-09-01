@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'packages/cli/src/commands'
-sourceHash: 'da09819e246957f0bff53e1b16aef7d146280f3457b5a193e55f2889094348e3'
+sourceHash: '5f8bb71d0830892c10bb2459709a4f690ea5b6ebce8a3b8a6ebb6971d638820b'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
@@ -62,7 +62,6 @@ members:
     'maintenance.ts',
     'mcp-guard.ts',
     'mcp.ts',
-    'metabolism.ts',
     'migrate-backends.ts',
     'migrate.ts',
     'models.ts',
@@ -206,7 +205,6 @@ export createMcpCommand
 export createMcpContextReportCommand
 export createMcpGuardCommand
 export createMcpListCapabilitiesCommand
-export createMetabolismCommand
 export createMigrateCommand
 export createModelsCommand
 export createNamingCraftCommand
@@ -546,7 +544,6 @@ import { loadAgentBackends, loadMaintenanceConfig, mergeResolvedTasks } from './
 import { runMaintenanceRun } from './maintenance-run'
 import { createMcpCommand, createMcpContextReportCommand, createMcpListCapabilitiesCommand } from './mcp'
 import { createMcpGuardCommand } from './mcp-guard'
-import { createMetabolismCommand } from './metabolism'
 import { createMigrateCommand, detectLegacyArtifacts } from './migrate'
 import { createBackendsSubcommand } from './migrate-backends'
 import { createModelsCommand } from './models'
