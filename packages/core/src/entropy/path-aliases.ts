@@ -1,4 +1,4 @@
-import { dirname, isAbsolute, resolve } from 'path';
+import { dirname, isAbsolute, resolve, sep } from 'path';
 import { fileExists, readFileContent } from '../shared/fs-utils';
 
 /**
@@ -185,8 +185,16 @@ export function resolveAliasCandidates(importSource: string, aliases: PathAlias[
     .sort((a, b) => b.alias.prefix.length - a.alias.prefix.length);
 
   for (const { alias, capture } of matched) {
+    // The captured wildcard segment comes from the import specifier, which always
+    // uses `/` (e.g. `@lib/foo/bar` → `foo/bar`). Target prefixes/suffixes were
+    // built with `path.resolve`, so they use the platform separator. Convert the
+    // capture to the platform separator before concatenation so the candidate is
+    // separator-consistent with the snapshot's file keys on Windows too (#1759).
+    const nativeCapture = sep === '/' ? capture : capture.split('/').join(sep);
     for (const target of alias.targets) {
-      candidates.push(target.isWildcard ? target.prefix + capture + target.suffix : target.prefix);
+      candidates.push(
+        target.isWildcard ? target.prefix + nativeCapture + target.suffix : target.prefix
+      );
     }
   }
   return candidates;

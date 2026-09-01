@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'packages/core/src/entropy'
-sourceHash: '99bdc1ae0833e32fd5c34eb6c73095654dc0e83bc0e1d8c226acd7770784e87f'
+sourceHash: 'bbc2954594230fefd632948ccc9dee730d5b16a4ff7ad93b42cd073a0d6ece8f'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
@@ -130,6 +130,6 @@ import { skipDirGlobs } from '@harness-engineering/graph'
 import * as fs from 'fs'
 import { minimatch } from 'minimatch'
 import * as os from 'os'
-import * as path, { dirname, isAbsolute, join, resolve } from 'path'
+import * as path, { dirname, isAbsolute, join, resolve, sep } from 'path'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 ```
