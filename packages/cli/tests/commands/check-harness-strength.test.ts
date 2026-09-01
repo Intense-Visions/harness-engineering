@@ -87,9 +87,10 @@ describe('runCheckHarnessStrength', () => {
     expect(r.ok).toBe(true);
     if (!r.ok) return;
     expect(r.value.audit.findings.map((f) => f.id)).toContain('STRENGTH-004');
-    // Single STRENGTH-004 error => score 86 (100 - 14), still in the solid band
-    // (boundary: 85 solid / 84 at-risk). The locked contract is "flags + gate trips",
-    // not a specific tier: a lone error keeps the score above the at-risk cutoff.
+    // Single STRENGTH-004 error => findings score 86 (100 - 14); the tier keys off
+    // that (still the solid band, boundary 85/84), while the reported score is
+    // coverage-scaled below 100 for this config-only fixture (#1761). The locked
+    // contract is "flags + gate trips", not a specific number.
     expect(r.value.audit.score).toBeLessThan(100);
     // Gate trips on the surviving error regardless of tier.
     expect(r.value.valid).toBe(false);

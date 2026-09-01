@@ -215,6 +215,11 @@ export {
 export * from './compaction';
 
 /**
+ * Rate-distortion context compaction — report-only ablation harness that replays runs with an information class ablated and fits a task-conditioned distortion model (sensitivity matrix) from the measured error/rework delta. The reusable measurement substrate for MDL pruning (#1630); does not wire the live compaction dial (#1633).
+ */
+export * from './rate-distortion';
+
+/**
  * Caching module — stability classification and cache-aware utilities.
  */
 export * from './caching';
@@ -308,6 +313,11 @@ export * from './locks';
  * Metabolism module.
  */
 export * from './metabolism';
+
+/**
+ * Model-sentinel module.
+ */
+export * from './model-sentinel';
 
 /**
  * Notifications module.

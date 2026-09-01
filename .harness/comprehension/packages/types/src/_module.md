@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'packages/types/src'
-sourceHash: 'ffa98379041177e00032317e142b3aa7c06c2c3a8b6ee6ace6b5f21f83ef7c00'
+sourceHash: 'ffb7f71106c83f7c89cd308ae46b7a269a4b8a0942d2ceb9a09e3544c55cf694'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
@@ -395,6 +395,8 @@ export TurnParams
 export TurnResult
 export UsageRecord
 export UsageSection
+export VerdictCacheEntry
+export VerdictCacheStats
 export WebhookDelivery
 export WebhookDeliverySchema
 export WebhookDeliveryStatus
