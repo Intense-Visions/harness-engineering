@@ -262,6 +262,62 @@ export function createMcpContextReportCommand(): Command {
     });
 }
 
+interface RefinementDemandReportShape {
+  total: number;
+  byClass: ReadonlyArray<{
+    contextClass: string;
+    count: number;
+    frequency: number;
+  }>;
+}
+
+/**
+ * Render the refinement-demand report as a ranked, terminal-friendly table.
+ * Classes arrive pre-ranked (count desc, canonical order tiebreak), so a
+ * never-read class lands at the bottom with a zero count.
+ */
+export function formatRefinementDemand(report: RefinementDemandReportShape): string {
+  const lines: string[] = [];
+  lines.push('# Refinement demand by context class (ranked by count desc)');
+  lines.push('# demand signal = refinement frequency per progressive-domain context class');
+  lines.push('');
+  lines.push(`  ${padEnd('CLASS', 14)}  ${padEnd('COUNT', 6)}  FREQUENCY`);
+  for (const c of report.byClass) {
+    lines.push(
+      `  ${padEnd(c.contextClass, 14)}  ${padEnd(String(c.count), 6)}  ${c.frequency.toFixed(4)}`
+    );
+  }
+  lines.push('');
+  lines.push(`Total: ${report.total} refinement requests across the measured surface.`);
+  return lines.join('\n');
+}
+
+/**
+ * `harness mcp refinement-demand [--json]`
+ *
+ * Reads the progressive-context refinement-demand log
+ * (`.harness/metrics/refinement-events.jsonl`) and prints the ranked per-class
+ * demand signal — how often each context class was refined. `--json` emits the
+ * raw `RefinementDemandReport`. Never hard-fails (a missing log is an all-zero
+ * report). Sibling of `context-report`; no new MCP tool.
+ */
+export function createMcpRefinementDemandCommand(): Command {
+  return new Command('refinement-demand')
+    .description('Report refinement frequency per progressive-context class (demand signal)')
+    .option('--json', 'Emit machine-readable JSON')
+    .action(async function (this: Command) {
+      const opts = this.optsWithGlobals() as { json?: boolean };
+      const { readRefinementDemand } = await import('../mcp/tools/refinement-telemetry.js');
+      const report = readRefinementDemand(process.cwd());
+
+      if (opts.json) {
+        console.log(JSON.stringify(report, null, 2));
+        return;
+      }
+      console.log(formatRefinementDemand(report));
+    });
+}
+
 export function createMcpCommand(): Command {
   const command = new Command('mcp')
     .description('Start the MCP (Model Context Protocol) server on stdio')
@@ -303,5 +359,6 @@ export function createMcpCommand(): Command {
 
   command.addCommand(createMcpListCapabilitiesCommand());
   command.addCommand(createMcpContextReportCommand());
+  command.addCommand(createMcpRefinementDemandCommand());
   return command;
 }

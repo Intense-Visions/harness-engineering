@@ -62,6 +62,26 @@ export type {
 } from './count-tokens';
 
 /**
+ * Refinement-request demand taxonomy — the progressive-domain context classes,
+ * the operation → class classifier, and the pure aggregateDemand() rollup that
+ * turns a log of refinement requests into refinement-frequency-per-context-class
+ * (never-read classes rank last).
+ */
+export {
+  REFINEMENT_CONTEXT_CLASSES,
+  OPERATION_CONTEXT_CLASS,
+  classifyRefinement,
+  aggregateDemand,
+} from './refinement-demand';
+export type {
+  RefinementContextClass,
+  RefinementOperation,
+  RefinementRequest,
+  ClassDemand,
+  RefinementDemandReport,
+} from './refinement-demand';
+
+/**
  * Section parser for progressive skill content loading.
  */
 export { parseSections, extractLevel } from './section-parser';

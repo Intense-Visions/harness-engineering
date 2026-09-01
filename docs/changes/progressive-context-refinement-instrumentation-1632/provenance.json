@@ -1,0 +1,11 @@
+{
+  "issue": [1632],
+  "route": "feature",
+  "stages": ["brainstorming", "autopilot"],
+  "planArtifact": "docs/changes/progressive-context-refinement-instrumentation-1632/plans/plan.md",
+  "closingKeyword": "Refs",
+  "assumptions": [
+    "Scope limited to instrumenting the refinement-request stream (the independent half) per orchestrator default; progressive-by-default contract + prefetch/batching policy deferred to a follow-up slice",
+    "Demand signal recorded = refinement frequency per context class, over existing unfold/outline mechanics"
+  ]
+}

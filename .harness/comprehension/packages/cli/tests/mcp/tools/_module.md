@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'packages/cli/tests/mcp/tools'
-sourceHash: 'f4effe056631f1c5879430fe383f824e2bf7f8a86c37e4a0a53fba88081d26d3'
+sourceHash: 'b258fb855a32ff2019f63014dbf1f7f39804f5264447f0e800cf705a828ba4d5'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
@@ -57,6 +57,7 @@ members:
     'predict-failures.test.ts',
     'put-comprehension.test.ts',
     'recommend-skills.test.ts',
+    'refinement-telemetry.test.ts',
     'review-changes.test.ts',
     'review-pipeline.test.ts',
     'roadmap-auto-sync.test.ts',
@@ -143,6 +144,7 @@ import { checkPhaseGateDefinition } from '../../../src/mcp/tools/phase-gate'
 import { handlePredictFailures, predictFailuresDefinition } from '../../../src/mcp/tools/predict-failures.js'
 import { AttachSemanticDeps, attachSemantic, handlePutComprehension } from '../../../src/mcp/tools/put-comprehension'
 import { handleRecommendSkills, recommendSkillsDefinition } from '../../../src/mcp/tools/recommend-skills.js'
+import { REFINEMENT_EVENTS_FILE, readRefinementDemand, recordRefinement } from '../../../src/mcp/tools/refinement-telemetry'
 import { handleReviewChanges, reviewChangesDefinition } from '../../../src/mcp/tools/review-changes'
 import { reviewChangesDefinition } from '../../../src/mcp/tools/review-changes.js'
 import { handleRunCodeReview, runCodeReviewDefinition } from '../../../src/mcp/tools/review-pipeline'

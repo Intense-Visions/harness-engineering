@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'packages/cli/tests/commands'
-sourceHash: 'c6262e1cb5ddcba925f3ddce2febe86e24cfb6f51d9baed7e0ddcc96bf1d28db'
+sourceHash: 'fc17fe93070df21b25c269a2c16468c95f4a7ca12d23e880bdff5c64aa9ba679'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
@@ -64,6 +64,7 @@ members:
     'maintenance-run-selection.test.ts',
     'mcp-guard.test.ts',
     'mcp-list-capabilities.test.ts',
+    'mcp-refinement-demand.test.ts',
     'migrate-backends.test.ts',
     'migrate.test.ts',
     'models-probe.test.ts',
@@ -197,7 +198,7 @@ import { SyncIO, runSyncIntegrations } from '../../src/commands/integrations/syn
 import { createGenerateCommand } from '../../src/commands/linter/generate'
 import { createMaintenanceCommand } from '../../src/commands/maintenance'
 import { MaintenanceRunDeps, aggregateReport, buildTaskRunner, createCheckRunner, createFixDispatcher, deriveExitCode, loadRunHistory, makeResolveBackend, parseConcurrency, renderTable, resolveHarnessSpawn, resolveSelection, runMaintenanceRun } from '../../src/commands/maintenance-run'
-import { formatCapabilitiesByPermission, formatCapabilitiesTable } from '../../src/commands/mcp'
+import { createMcpRefinementDemandCommand, formatCapabilitiesByPermission, formatCapabilitiesTable, formatRefinementDemand } from '../../src/commands/mcp'
 import { extractNpmPackages, parseNpmSpec, runMcpGuardCheck } from '../../src/commands/mcp-guard'
 import { detectLegacyArtifacts, runMigrate } from '../../src/commands/migrate'
 import { runMigrateBackends } from '../../src/commands/migrate-backends'
@@ -286,7 +287,7 @@ import { markSetupComplete } from '../../src/utils/first-run'
 import { CLI_VERSION } from '../../src/version'
 import { VocabularyRule, formatViolations, scanFiles, scanText } from '../../src/vocabulary/scanner'
 import * as clack from '@clack/prompts'
-import { CiReviewResult, DiffInfo, Err, Ok, RollbackDecision, RunCiReviewOptions, SECURITY_SCAN_EXTENSIONS, SECURITY_SCAN_GLOB, applyFixes, archiveStream, buildSnapshot, checkTaint, clearTaint, createFixes, createProposal, createStream, detectDeadCode, detectDocDrift, extractBundle, generateSuggestions, listStreams, listTaintedSessions, loadStreamIndex, parseCiReviewVerdict, parseDiff, parseManifest, readAdoptionRecords, requestPeerReview, runReviewPipeline, setActiveStream, validateAgentConfigs, validateAgentsMap, validateKnowledgeMap, writeConfig } from '@harness-engineering/core'
+import { CiReviewResult, DiffInfo, Err, Ok, RefinementDemandReport, RollbackDecision, RunCiReviewOptions, SECURITY_SCAN_EXTENSIONS, SECURITY_SCAN_GLOB, applyFixes, archiveStream, buildSnapshot, checkTaint, clearTaint, createFixes, createProposal, createStream, detectDeadCode, detectDocDrift, extractBundle, generateSuggestions, listStreams, listTaintedSessions, loadStreamIndex, parseCiReviewVerdict, parseDiff, parseManifest, readAdoptionRecords, requestPeerReview, runReviewPipeline, setActiveStream, validateAgentConfigs, validateAgentsMap, validateKnowledgeMap, writeConfig } from '@harness-engineering/core'
 import from '@harness-engineering/graph'
 import { GUARDIAN_ANALYSIS_SCHEMA, GUARDIAN_ANALYSIS_VERSION, GuardianAnalysis, OutcomeVerdict } from '@harness-engineering/intelligence'
 import { AnalysisRecord, MockBackend, RunMode, RunResult, SyncMainResult, TaskDefinition, renderAnalysisComment } from '@harness-engineering/orchestrator'
