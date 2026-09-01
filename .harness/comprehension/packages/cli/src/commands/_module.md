@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'packages/cli/src/commands'
-sourceHash: '71dd88f109469e45383b954fb6e9c0b83bd6733d781f66d16d7eb977b59945bd'
+sourceHash: '82d800fae0d342595ae27c3c2622ba0703b70971e1940ecdf707bcccd81857e6'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
@@ -40,6 +40,7 @@ members:
     'cross-check.ts',
     'dashboard.ts',
     'design-pipeline.ts',
+    'distortion.ts',
     'docs-craft.ts',
     'doctor.ts',
     'fix-drift.ts',
@@ -183,6 +184,7 @@ export createCreateSkillCommand
 export createCrossCheckCommand
 export createDashboardCommand
 export createDesignPipelineCommand
+export createDistortionCommand
 export createDocsCraftCommand
 export createDoctorCommand
 export createFixDispatcher
@@ -515,6 +517,7 @@ import { createCreateSkillCommand } from './create-skill'
 import { createCrossCheckCommand } from './cross-check'
 import { createDashboardCommand } from './dashboard'
 import { createDesignPipelineCommand } from './design-pipeline'
+import { createDistortionCommand } from './distortion'
 import { createDocsCraftCommand } from './docs-craft'
 import { createDocsPublishCommand } from './docs-publish'
 import { createDoctorCommand } from './doctor'
@@ -545,7 +548,7 @@ import { createLinterCommand } from './linter'
 import { createMaintenanceCommand } from './maintenance'
 import { loadAgentBackends, loadMaintenanceConfig, mergeResolvedTasks } from './maintenance-config'
 import { runMaintenanceRun } from './maintenance-run'
-import { createMcpCommand, createMcpContextReportCommand, createMcpListCapabilitiesCommand } from './mcp'
+import { createMcpCommand, createMcpContextReportCommand, createMcpListCapabilitiesCommand, createMcpRefinementDemandCommand } from './mcp'
 import { createMcpGuardCommand } from './mcp-guard'
 import { createMigrateCommand, detectLegacyArtifacts } from './migrate'
 import { createBackendsSubcommand } from './migrate-backends'

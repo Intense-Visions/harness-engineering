@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'packages/cli/tests/commands'
-sourceHash: 'fc17fe93070df21b25c269a2c16468c95f4a7ca12d23e880bdff5c64aa9ba679'
+sourceHash: 'c608516722bcde439c89f16f9a706f53d1d18d4d165595e891789d65e2035818'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
@@ -34,6 +34,7 @@ members:
     'cross-check.test.ts',
     'dashboard.test.ts',
     'deprecated-graph-aliases.test.ts',
+    'distortion.test.ts',
     'doctor-hardening.test.ts',
     'doctor.test.ts',
     'fix-drift.test.ts',
@@ -164,6 +165,7 @@ import { runCompoundScanCandidatesCommand } from '../../src/commands/compound/sc
 import { createCreateSkillCommand, generateSkillFiles } from '../../src/commands/create-skill'
 import { createCrossCheckCommand } from '../../src/commands/cross-check'
 import { createDashboardCommand } from '../../src/commands/dashboard'
+import { createDistortionCommand } from '../../src/commands/distortion'
 import { checkBaselineFreshness, checkCatalogFreshness, checkHookValidity, checkLivePings, checkSessionCorruption, isCatalogStale, runDoctor } from '../../src/commands/doctor'
 import { createFixDriftCommand, runFixDrift } from '../../src/commands/fix-drift'
 import { createGenerateCommand } from '../../src/commands/generate'
