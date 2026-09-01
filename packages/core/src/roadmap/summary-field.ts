@@ -13,7 +13,7 @@
  * scoped to this one field: encode embedded control characters into a reversible
  * single-line escape on write, decode them back on read. The line grammar itself
  * is untouched, so the shard store, the comprehension shards, and the monolith
- * `roadmap.md` all keep byte-stable round-trips through the shared
+ * roadmap document all keep byte-stable round-trips through the shared
  * `serializeFeature` / `parseFeatureBlock` seam.
  *
  * Encoding order matters: the backslash is escaped FIRST so every backslash in the
