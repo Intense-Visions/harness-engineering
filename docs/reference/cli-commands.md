@@ -1013,6 +1013,7 @@ Mine recurring spans, score membership, and report the trained codebook
 
 - `--json` — Emit machine-readable JSON
 - `--write` — Persist the trained codebook to .harness/dictionary/codebook.json
+
 ## Distortion Commands
 
 Rate-distortion context compaction — report-only ablation harness (#1633)
