@@ -1,0 +1,9 @@
+{
+  "reason": "Pre-existing arch drift on main (module-size 256524->261214, dependency-depth 638->657); reproduces on a pristine tree with this PR's changes reverted. This PR touches only package.json + pnpm-lock.yaml (security override bumps) and does not affect source module size or the import graph.",
+  "categories": {
+    "module-size": 261214,
+    "dependency-depth": 657
+  },
+  "violationIds": [],
+  "createdFrom": "f3323ea11"
+}
