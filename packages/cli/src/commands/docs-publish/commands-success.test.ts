@@ -165,9 +165,9 @@ describe('page-tree — success + render', () => {
     // the connector mock and a real temp file.
     const { mkdtempSync, writeFileSync, rmSync } = await import('node:fs');
     const { tmpdir } = await import('node:os');
-    const { join } = await import('node:path');
-    const dir = mkdtempSync(join(tmpdir(), 'pt-'));
-    const file = join(dir, 'children.json');
+    const path = await import('node:path');
+    const dir = mkdtempSync(path.join(tmpdir(), 'pt-'));
+    const file = path.join(dir, 'children.json');
     writeFileSync(file, JSON.stringify([{ title: 'c1' }, { title: 'c2' }]));
     try {
       const { code, out } = await runCmd(createPageTreeCommand, 'page-tree', [
