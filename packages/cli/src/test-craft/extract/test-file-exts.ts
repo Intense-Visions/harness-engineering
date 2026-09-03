@@ -13,7 +13,7 @@
  */
 
 /** `.test` / `.spec` — the two supported test-file infixes. */
-export const TEST_SUFFIXES = ['.test', '.spec'] as const;
+const TEST_SUFFIXES = ['.test', '.spec'] as const;
 
 /**
  * Language extensions. `.mjs` / `.cjs` / `.mts` / `.cts` are included
@@ -21,19 +21,10 @@ export const TEST_SUFFIXES = ['.test', '.spec'] as const;
  * them made entire suites invisible while the summary still reported a
  * confident zero.
  */
-export const TEST_LANG_EXTS = [
-  '.ts',
-  '.tsx',
-  '.js',
-  '.jsx',
-  '.mjs',
-  '.cjs',
-  '.mts',
-  '.cts',
-] as const;
+const TEST_LANG_EXTS = ['.ts', '.tsx', '.js', '.jsx', '.mjs', '.cjs', '.mts', '.cts'] as const;
 
 /** Every supported `<suffix><ext>` combination, e.g. `.test.mjs`. */
-export const TEST_FILE_EXTS: readonly string[] = TEST_SUFFIXES.flatMap((suffix) =>
+const TEST_FILE_EXTS: readonly string[] = TEST_SUFFIXES.flatMap((suffix) =>
   TEST_LANG_EXTS.map((ext) => `${suffix}${ext}`)
 );
 
