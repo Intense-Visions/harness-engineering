@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'packages/cli/src/mcp/tools'
-sourceHash: '82e11cde90b0edf1f6473274e549395b219fe85364b80fbfaf11e4885d709f89'
+sourceHash: 'bb0dfbe27977fbfc7b286484e26ba5eb9142fe41083c699904ed167a834db92f'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
@@ -126,7 +126,6 @@ export CodeCraftOutput
 export CollectPromptsOutput
 export CopyCraftInput
 export CopyCraftOutput
-export DECISIONS_DIR
 export DesignPipelineContext
 export DesignPipelineInput
 export DetectDriftInput
@@ -216,7 +215,6 @@ export copyCraftFinalizeDefinition
 export createAdr
 export createSelfReviewDefinition
 export createSkillDefinition
-export decisionsDirFor
 export designCraftToolDefinition
 export designPipelineDefinition
 export detectConstraintEmergenceDefinition
@@ -372,8 +370,6 @@ export manageStateDefinition
 export namingCraftDefinition
 export namingCraftFinalizeDefinition
 export outcomeEvalDefinition
-export padNumber
-export parseAdr
 export parseToolResponse
 export planParallelizationDefinition
 export predictConflictsDefinition
@@ -423,7 +419,6 @@ export searchSkillsDefinition
 export securityCraftDefinition
 export securityCraftFinalizeDefinition
 export seedPulseFromStrategyDefinition
-export serializeAdr
 export serveOrRecompile
 export slugify
 export specCraftDefinition
