@@ -36,7 +36,7 @@ export const DEFAULT_LATENCY_BUDGET_MS = 120_000;
  * rather than measured (D3: "steeply discounted, flagged"). A measured model
  * always out-scores an equivalent estimated one, so probing pays off.
  */
-export const UNMEASURED_LATENCY_DISCOUNT = 0.5;
+const UNMEASURED_LATENCY_DISCOUNT = 0.5;
 
 /** Stable reason/flag strings — asserted by tests, so they live as named constants. */
 export const AGENTIC_REASON = {

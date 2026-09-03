@@ -52,7 +52,7 @@ const PARAMS_PER_BILLION = 1_000_000_000;
  * breaks down past the proposal threshold; that's the moment to upgrade to a
  * per-family table.
  */
-export const KV_CACHE_BYTES_PER_TOKEN_PER_BILLION_PARAMS_FP16 = 8_000;
+const KV_CACHE_BYTES_PER_TOKEN_PER_BILLION_PARAMS_FP16 = 8_000;
 
 /** Activation buffer footprint. Single number because activations track only weakly with size. */
 export const ACTIVATIONS_GB = 1.5;
@@ -68,7 +68,7 @@ export const DEFAULT_CONTEXT_TOKENS = 4_096;
  * one slice the runtime can quantize independently of the weights, and Ollama
  * / llama.cpp / vLLM all support q8/q4 KV without touching the weight quant.
  */
-export const KV_QUANT_MULTIPLIER: Readonly<Record<KvCacheQuant, number>> = {
+const KV_QUANT_MULTIPLIER: Readonly<Record<KvCacheQuant, number>> = {
   fp16: 1,
   q8: 0.5,
   q4: 0.25,
