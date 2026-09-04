@@ -1428,6 +1428,16 @@ export const HarnessConfigSchema = z.object({
    * also trip the stripped-key warning added for issue #862).
    */
   pulse: z.object({}).passthrough().optional(),
+  /**
+   * Waypoint sdlc.* emission configuration (opt-in, pnyon/pnyon#124),
+   * validated by the dedicated `WaypointConfigSchema` in
+   * `@harness-engineering/types` and consumed by the core emission layer
+   * (`loadWaypointConfig` / `ensureWaypointEmitter`). Declared here as a
+   * tolerant passthrough — like `pulse` — so the shared loader recognizes it
+   * as a legitimate top-level key instead of tripping the stripped-key
+   * warning. Absent key = emission fully disabled (non-adopter invariance).
+   */
+  waypoint: z.object({}).passthrough().optional(),
 });
 
 /**

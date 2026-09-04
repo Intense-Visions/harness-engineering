@@ -25,6 +25,7 @@ import type { GuardianAnalysis } from '@harness-engineering/intelligence';
 import { sanitizePath } from '../utils/sanitize-path.js';
 import { loadGraphStore } from '../utils/graph-loader.js';
 import { resolveAnalysisProvider } from '../utils/analysis-provider.js';
+import { emitOutcomeVerdictEvent } from '../utils/waypoint-emission.js';
 
 interface ToolResponse {
   content: Array<{ type: 'text'; text: string }>;
@@ -177,6 +178,15 @@ export async function handleOutcomeEval(input: OutcomeEvalToolInput): Promise<To
       ...(typeof input.commit === 'string' && input.commit !== '' ? { commit: input.commit } : {}),
       ...(guardian.length > 0 ? { guardian } : {}),
     });
+
+    // Waypoint sdlc.* emission (opt-in): surfaces the persisted verdict as a
+    // spooled sdlc.verify.graded.v1 event. No-op without a configured sink;
+    // never affects the verdict or the response.
+    await emitOutcomeVerdictEvent(
+      sanitizePath(input.path ?? process.cwd()),
+      verdict,
+      input.specPath
+    );
 
     // Return the verdict EXACTLY as the evaluator produced it — authority is
     // TS-derived (deriveAuthority); the handler never recomputes it.

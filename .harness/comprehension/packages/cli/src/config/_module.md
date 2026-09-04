@@ -1,11 +1,20 @@
 ---
 schemaVersion: 1
-module: "packages/cli/src/config"
-sourceHash: "ecbb6da964bc2ed54f0614dd8a512abd6292c6c5c07e8269fe288e5458245926"
-compiler: { static: "1.0.0", semantic: "1.0.0" }
+module: 'packages/cli/src/config'
+sourceHash: '0d9545aed122a99b14012ee05f355ee7b442c3e7aad7f500390103a9b1c9d2ab'
+compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
-members: ["analysis-schema.ts", "ingest-schema.ts", "loader.ts", "schema.amr.test.ts", "schema.ts", "stripped-keys.test.ts", "stripped-keys.ts"]
+members:
+  [
+    'analysis-schema.ts',
+    'ingest-schema.ts',
+    'loader.ts',
+    'schema.amr.test.ts',
+    'schema.ts',
+    'stripped-keys.test.ts',
+    'stripped-keys.ts',
+  ]
 ---
 
 ## Interface Contract

@@ -1,11 +1,11 @@
 ---
 schemaVersion: 1
-module: "packages/core/src"
-sourceHash: "31756866d08e4b1872c881a10c56b98043c05abd4e444a3105a4b1ae6068d994"
-compiler: { static: "1.0.0", semantic: "1.0.0" }
+module: 'packages/core/src'
+sourceHash: '2aa32b1b71900aded05a907425b00ad7c6788b9e705d29760cf42958e73e6615'
+compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
-members: ["index.ts", "update-checker.ts", "version.ts"]
+members: ['index.ts', 'update-checker.ts', 'version.ts']
 ---
 
 ## Interface Contract

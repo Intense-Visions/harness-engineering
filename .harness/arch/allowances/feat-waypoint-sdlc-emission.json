@@ -1,0 +1,9 @@
+{
+  "reason": "Additive opt-in Waypoint sdlc.* emission layer (pnyon/pnyon#124): new packages/core/src/waypoint module, harness waypoint CLI command, and orchestrator sdlc bridge account for the module-size and dependency-depth growth",
+  "categories": {
+    "module-size": 262891,
+    "dependency-depth": 666
+  },
+  "violationIds": [],
+  "createdFrom": "32a3b8cde"
+}

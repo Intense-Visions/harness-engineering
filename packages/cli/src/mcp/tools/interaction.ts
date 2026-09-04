@@ -301,6 +301,25 @@ async function handleTransition(
     data: { fromSkill: skillName, toSkill: transition.suggestedNext },
   });
 
+  // Waypoint sdlc.* emission (opt-in, pnyon/pnyon#124): spools one
+  // sdlc.build.finished.v1 event preserving the transition's qualityGate
+  // payload. Guaranteed no-op when no waypoint.sink is configured; a failed
+  // emission never fails the interaction.
+  try {
+    const { ensureWaypointEmitter, emitSkillPhaseTransition } =
+      await import('@harness-engineering/core');
+    ensureWaypointEmitter(projectPath);
+    emitSkillPhaseTransition({
+      completedPhase: transition.completedPhase,
+      suggestedNext: transition.suggestedNext,
+      reason: transition.reason,
+      artifacts: transition.artifacts,
+      ...(transition.qualityGate !== undefined ? { qualityGate: transition.qualityGate } : {}),
+    });
+  } catch {
+    /* Waypoint emission failure is non-fatal */
+  }
+
   const metadata: Record<string, unknown> = { id, handoffWritten: true };
   if (!transition.requiresConfirmation) {
     metadata.autoTransition = true;

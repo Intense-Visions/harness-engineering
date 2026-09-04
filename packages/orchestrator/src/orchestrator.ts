@@ -152,6 +152,7 @@ import { WebhookStore } from './gateway/webhooks/store';
 import { WebhookDelivery } from './gateway/webhooks/delivery';
 import { WebhookQueue } from './gateway/webhooks/queue';
 import { wireWebhookFanout } from './gateway/webhooks/events';
+import { wireWaypointSdlcBridge } from './gateway/webhooks/waypoint-bridge';
 import { wireTelemetryFanout } from './gateway/telemetry/fanout';
 import { SinkRegistry } from './notifications/registry';
 import { wireNotificationSinks } from './notifications/events';
@@ -906,6 +907,10 @@ export class Orchestrator extends EventEmitter {
   private webhookFanoutOff?: () => void;
   private webhookQueue?: WebhookQueue;
   private webhookDeliveryWorker?: WebhookDelivery;
+  // Waypoint sdlc.* bridge (opt-in, pnyon/pnyon#124): unsubscribe handle for
+  // the spooled-event → bus republisher; a no-op unless waypoint.sink is
+  // configured in harness.config.json.
+  private waypointBridgeOff?: () => void;
   // Phase 5: prompt-cache metrics + OTLP trace export. Both are constructed
   // unconditionally so non-telemetry call sites can reference them safely; the
   // OTLPExporter is only handed a fanout subscription when config supplies an
@@ -1401,6 +1406,15 @@ export class Orchestrator extends EventEmitter {
         delivery: webhookDelivery,
       });
       webhookDelivery.start();
+
+      // Waypoint sdlc.* bridge (opt-in, pnyon/pnyon#124): republishes
+      // spooled sdlc.* events onto this bus so the fan-out above delivers
+      // them to matching subscriptions. A no-op unless harness.config.json
+      // declares waypoint.sink.
+      this.waypointBridgeOff = wireWaypointSdlcBridge({
+        bus: this,
+        projectRoot: this.projectRoot,
+      });
 
       // Hermes Phase 3: in-process notification sinks. See setupNotifications.
       this.setupNotifications(config.notifications);
@@ -5089,6 +5103,12 @@ export class Orchestrator extends EventEmitter {
     if (this.webhookFanoutOff) {
       this.webhookFanoutOff();
       delete this.webhookFanoutOff;
+    }
+    // Waypoint sdlc.* bridge: drop the spooled-event listener. The spool
+    // itself needs no teardown — appends are synchronous and file-local.
+    if (this.waypointBridgeOff) {
+      this.waypointBridgeOff();
+      delete this.waypointBridgeOff;
     }
     // Hermes Phase 3: detach the notification listeners before the
     // registry disposes so no in-flight emit pulls from a torn-down

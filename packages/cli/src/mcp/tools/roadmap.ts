@@ -882,7 +882,18 @@ export async function handleManageRoadmap(input: ManageRoadmapInput): Promise<Mc
       release,
       promoteFeature,
       groomRoadmap,
+      ensureWaypointEmitter,
     } = await import('@harness-engineering/core');
+
+    // Waypoint sdlc.* emission (opt-in, pnyon/pnyon#124): lazily install the
+    // emitter so the sanctioned mutators (setStatus/claim/release) spool
+    // events. Memoized; a guaranteed no-op unless harness.config.json
+    // declares waypoint.sink, and never fatal to the roadmap operation.
+    try {
+      ensureWaypointEmitter(projectPathPre);
+    } catch {
+      /* Waypoint emitter init failure is non-fatal */
+    }
     const { Ok } = await import('@harness-engineering/types');
 
     const projectPath = projectPathPre;

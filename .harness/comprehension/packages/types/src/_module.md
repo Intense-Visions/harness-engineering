@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'packages/types/src'
-sourceHash: 'ffb7f71106c83f7c89cd308ae46b7a269a4b8a0942d2ceb9a09e3544c55cf694'
+sourceHash: 'ff173a9df45279219fe3642e1eb5aa3beca77b312184567f4513d7413216a48c'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
@@ -39,6 +39,7 @@ members:
     'telemetry.ts',
     'tracker-sync.ts',
     'usage.ts',
+    'waypoint.ts',
     'webhooks.ts',
     'workflow.ts',
   ]
@@ -310,12 +311,27 @@ export RoutingTelemetryDecision
 export RoutingUseCase
 export RoutingValue
 export RowSyncResult
+export SDLC_CATEGORIES
+export SDLC_EVENT_TYPES_V1
+export SDLC_SPECVERSION
+export SDLC_VERIFICATION_GRADES
 export SESSIONS_DEFAULTS
 export SESSION_SECTION_NAMES
 export STANDARD_COGNITIVE_MODES
 export SanitizeFn
 export SanitizedResult
 export ScopeTier
+export SdlcActor
+export SdlcAgentActor
+export SdlcAppendResult
+export SdlcCategory
+export SdlcEvent
+export SdlcEventTypeV1
+export SdlcHumanActor
+export SdlcSpoolSegmentSnapshot
+export SdlcValidationIssue
+export SdlcValidationResult
+export SdlcVerificationGrade
 export SecretBackend
 export SecretConfig
 export SecretError
@@ -397,6 +413,10 @@ export UsageRecord
 export UsageSection
 export VerdictCacheEntry
 export VerdictCacheStats
+export WaypointConfig
+export WaypointConfigSchema
+export WaypointSinkConfig
+export WaypointSinkConfigSchema
 export WebhookDelivery
 export WebhookDeliverySchema
 export WebhookDeliveryStatus
