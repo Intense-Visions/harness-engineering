@@ -1,0 +1,8 @@
+{
+  "reason": "Two stacked fixes (#1819 docPaths threading, #1820 restored context-surface exports) that each fit the tolerance alone and exceed it together — the merge-order shape, not unchecked growth. The +4696 is almost entirely TESTS: 69 of 88 added lines are the three docPaths regression tests (each verified to fail against the unpatched source) plus the comments recording why the restored exports must not be swept again. Source change is 6 lines across two files.",
+  "categories": {
+    "module-size": 261220
+  },
+  "violationIds": [],
+  "createdFrom": "05b83cd76"
+}

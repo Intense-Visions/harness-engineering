@@ -61,6 +61,13 @@ function collectSkillFiles(dir: string): string[] {
   return out;
 }
 
+// The three helpers below are exported for `context-surface.test.ts`, which
+// covers each independently. #1804's dead-export sweep removed the keywords —
+// correctly, by its own measure, since nothing in src/ imports them — and
+// broke typecheck on `main` the moment it merged alongside the test that does
+// (#1820). Keep them exported, or move the coverage to the public entry point
+// first.
+
 /** One invoked-only entry per platform skill tree (aggregated bodies). */
 export function skillTreeEntries(projectRoot: string): ContextSurfaceEntry[] {
   const entries: ContextSurfaceEntry[] = [];

@@ -57,7 +57,12 @@ export async function runCleanup(
   // Build entropy config — use configured entry points or let resolveEntryPoints discover them.
   // docPaths must be glob patterns (a bare directory yields zero matches from glob).
   // Thread the project's drift config (entropy.drift) into analyze.drift so
-  // docPaths / ignorePatterns / checkApiSignatures etc. are honored (issue #723).
+  // ignorePatterns / checkApiSignatures etc. are honored (issue #723).
+  //
+  // `docPaths` needs threading separately (#1819): `buildSnapshot` reads it
+  // from the TOP LEVEL of EntropyConfig, not from `analyze.drift`, so the
+  // hard-coded value below stayed in force and the configured one was inert —
+  // while the MCP `detect_entropy` tool honored it.
   const driftEnabled = type === 'all' || type === 'drift';
   const driftConfig = config.entropy?.drift as Partial<DriftConfig> | undefined;
 
@@ -89,7 +94,10 @@ export async function runCleanup(
   const entropyConfig: EntropyConfig = {
     rootDir,
     ...(config.entropy?.entryPoints && { entryPoints: config.entropy.entryPoints }),
-    docPaths: [path.join(docsDir, '**/*.md')],
+    // Fallback stays docsDir-derived (configurable, and #301 made it a glob).
+    // It is narrower than the analyzer default, so an unconfigured project has
+    // no README in the drift denominator — deliberately unchanged here, #1819.
+    docPaths: driftConfig?.docPaths ?? [path.join(docsDir, '**/*.md')],
     analyze: {
       drift: driftEnabled ? (driftConfig ?? true) : false,
       deadCode: type === 'all' || type === 'dead-code',

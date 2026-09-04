@@ -59,10 +59,16 @@ export async function runFixDrift(
 
   // Build entropy config for snapshot — use configured entry points or let resolveEntryPoints discover them.
   // docPaths must be glob patterns (a bare directory yields zero matches from glob).
+  //
+  // Same #1819 defect as `cleanup`, and it matters more here: `fix-drift`
+  // REWRITES docs, so a denominator narrower than the project declared leaves
+  // the files it was told to maintain silently unmaintained.
+  const driftConfig = config.entropy?.drift as { docPaths?: string[] } | undefined;
+
   const entropyConfig: EntropyConfig = {
     rootDir,
     ...(config.entropy?.entryPoints && { entryPoints: config.entropy.entryPoints }),
-    docPaths: [path.join(docsDir, '**/*.md')],
+    docPaths: driftConfig?.docPaths ?? [path.join(docsDir, '**/*.md')],
     analyze: {
       drift: true,
       deadCode: true,

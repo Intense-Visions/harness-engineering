@@ -1,11 +1,11 @@
 ---
 schemaVersion: 1
 module: 'packages/cli/src/commands/ci'
-sourceHash: '4afc71a8f7ec95b98612f34190e3f7b5e15a141b04884fee5901455bcf43f6c5'
+sourceHash: 'cd49a0cff42eaa93b52e8d3bfa6aba909f8abcd7a1af0ca011b9f2af2d8f51f8'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
-members: ['check.ts', 'index.ts', 'init.ts', 'notify.ts']
+members: ['check.ts', 'index.ts', 'init.ts', 'notify.test.ts', 'notify.ts']
 ---
 
 ## Interface Contract
@@ -29,4 +29,5 @@ import { CICheckName, CICheckReport, CIFailOnSeverity, CINotifier, CINotifyTarge
 import { Command } from 'commander'
 import * as fs from 'node:fs'
 import * as path from 'node:path'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 ```
