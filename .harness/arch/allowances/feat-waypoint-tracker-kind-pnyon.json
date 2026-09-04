@@ -1,9 +1,0 @@
-{
-  "reason": "New pnyon (Waypoint) tracker adapter + typed API contract + tracker-kind registry (docs/changes/waypoint-tracker-kind-pnyon, #1815): three new core modules and their contract tests intentionally add module-size/dependency-depth",
-  "categories": {
-    "module-size": 262222,
-    "dependency-depth": 659
-  },
-  "violationIds": [],
-  "createdFrom": "4075e027d"
-}
