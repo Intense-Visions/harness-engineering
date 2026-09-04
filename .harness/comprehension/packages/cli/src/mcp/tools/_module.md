@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'packages/cli/src/mcp/tools'
-sourceHash: 'bb0dfbe27977fbfc7b286484e26ba5eb9142fe41083c699904ed167a834db92f'
+sourceHash: '299909afa7906feffc464f3aabb8b6353aa8f795e8876f00c35b565b2b3fe3a6'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
@@ -42,6 +42,7 @@ members:
     'detect-drift.ts',
     'dispatch-skills.ts',
     'docs-craft.ts',
+    'docs-publish.test.ts',
     'docs-publish.ts',
     'docs.ts',
     'edit-file.test.ts',
@@ -533,6 +534,7 @@ import { generateBlueprintDefinition, handleGenerateBlueprint } from './blueprin
 import { handleCanaryDiscoverTestCommand, handleCanaryProbe, handleCanaryRecommendFramework, handleCanaryRunHistory } from './canary.js'
 import { _resetCompoundLockHandlesForTests, acquireCompoundLockDefinition, handleAcquireCompoundLock, handleReleaseCompoundLock, releaseCompoundLockDefinition } from './compound'
 import { handleValidateCrossCheck, validateCrossCheckDefinition } from './cross-check.js'
+import { docsPublishDefinition, handleDocsPublish } from './docs-publish'
 import from './docs.js'
 import { editFileDefinition, handleEditFile } from './edit-file.js'
 import from './entropy.js'

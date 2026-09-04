@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'packages/core/src/solutions/scan-candidates'
-sourceHash: '8532ddd974a4e2695fb93076a670a56e9870ed5fb29dd63e6220f86a9231674d'
+sourceHash: 'bcca6ba6aef1ed4e74bff9bd1b489156751ae1b43766efcfeeb8e2d09b984aca'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
@@ -33,9 +33,12 @@ export RawCommit
 export ReadCommitsOptions
 export ScanHotspot
 export ScanHotspotOptions
+export ScanScoredHotspot
+export ScanStableHotspotOptions
 export ScannedCommit
 export assembleCandidateReport
 export computeHotspots
+export computeStableHotspots
 export crossReferenceUndocumentedFixes
 export formatIsoWeek
 export gitScan
@@ -48,11 +51,12 @@ export suggestCategory
 ## Dependency Slice
 
 ```
+import { RankTier, ScoredItem, StabilityReport, StableRanking, checkRankStability } from '../../ranking'
 import { BUG_TRACK_CATEGORIES, KNOWLEDGE_TRACK_CATEGORIES } from '../schema'
 import { assembleCandidateReport, suggestCategory } from './assemble'
 import { crossReferenceUndocumentedFixes } from './cross-reference'
 import { ScannedCommit, gitScan, normalizeSince } from './git-scan'
-import { Hotspot, computeHotspots } from './hotspot'
+import { Hotspot, computeHotspots, computeStableHotspots } from './hotspot'
 import { IsoWeek, formatIsoWeek, isoWeek } from './iso-week'
 import { readRawCommits } from './read-commits'
 import { execFile, execFileSync, execSync } from 'node:child_process'

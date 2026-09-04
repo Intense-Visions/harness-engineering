@@ -61,8 +61,15 @@ function collectSkillFiles(dir: string): string[] {
   return out;
 }
 
+// The three helpers below are exported for `context-surface.test.ts`, which
+// covers each independently. #1804's dead-export sweep removed the keywords —
+// correctly, by its own measure, since nothing in src/ imports them — and
+// broke typecheck on `main` the moment it merged alongside the test that does
+// (#1820). Keep them exported, or move the coverage to the public entry point
+// first.
+
 /** One invoked-only entry per platform skill tree (aggregated bodies). */
-function skillTreeEntries(projectRoot: string): ContextSurfaceEntry[] {
+export function skillTreeEntries(projectRoot: string): ContextSurfaceEntry[] {
   const entries: ContextSurfaceEntry[] = [];
   for (const platform of PLATFORM_SKILL_DIRS) {
     const dir = join(projectRoot, 'agents', 'skills', platform);
@@ -88,7 +95,7 @@ function skillTreeEntries(projectRoot: string): ContextSurfaceEntry[] {
 }
 
 /** AGENTS.md entry (always-loaded), when present. */
-function agentsMdEntry(projectRoot: string): ContextSurfaceEntry | null {
+export function agentsMdEntry(projectRoot: string): ContextSurfaceEntry | null {
   const path = join(projectRoot, 'AGENTS.md');
   if (!existsSync(path)) return null;
   try {
@@ -104,7 +111,7 @@ function agentsMdEntry(projectRoot: string): ContextSurfaceEntry | null {
 }
 
 /** Hook-configuration entry from .claude/settings.json (always-loaded). */
-function hooksEntry(projectRoot: string): ContextSurfaceEntry | null {
+export function hooksEntry(projectRoot: string): ContextSurfaceEntry | null {
   const path = join(projectRoot, '.claude', 'settings.json');
   if (!existsSync(path)) return null;
   try {
