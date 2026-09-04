@@ -138,8 +138,26 @@ export type {
   TrackerClientConfig,
   TrackerConflictBody,
   MakeTrackerConflictBodyOptions,
+  PnyonTrackerOptions,
+  PnyonTrackerClientConfig,
+  TrackerKindRegistration,
+  RegisteredTrackerClientConfig,
+  WaypointItem,
+  WaypointNewItem,
+  WaypointItemPatch,
+  WaypointCommand,
+  WaypointCommandResult,
+  WaypointEvidenceEntry,
 } from './tracker';
 export { ConflictError, createTrackerClient, ETagStore, makeTrackerConflictBody } from './tracker';
+export {
+  PnyonTrackerAdapter,
+  WaypointHttp,
+  WaypointHttpError,
+  registerTrackerKind,
+  getTrackerKindRegistration,
+  listRegisteredTrackerKinds,
+} from './tracker';
 
 /**
  * Roadmap storage mode helper. See packages/core/src/roadmap/mode.ts.

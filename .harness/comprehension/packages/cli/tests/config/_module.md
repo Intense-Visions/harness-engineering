@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'packages/cli/tests/config'
-sourceHash: '308cf17153bedf21b90b2749ff1740fa7c7e1a13cf281c635044d719821f1dd6'
+sourceHash: '428d8caee8f80e8fb784c6420c68044629a2efed80f113b1cd8efd0280ee7c8f'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
@@ -22,6 +22,7 @@ members:
     'schema.roadmap-mode.test.ts',
     'schema.test.ts',
     'schema.tracker-kind.test.ts',
+    'schema.tracker-pnyon.test.ts',
     'skill-hooks-schema.test.ts',
     'telemetry-export-schema.test.ts',
     'toolchain-schema.test.ts',

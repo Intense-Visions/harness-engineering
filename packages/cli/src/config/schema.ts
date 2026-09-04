@@ -564,8 +564,8 @@ export const DeploymentGateConfigSchema = z.object({
  * the IssueTrackerClient dispatch). Two near-identical strings live in
  * different config namespaces. See Phase 4 plan R3 for the long-form note.
  */
-export const TrackerConfigSchema = z.object({
-  /** Tracker kind — currently only 'github' is supported for `roadmap.tracker`. */
+const GitHubTrackerConfigSchema = z.object({
+  /** Tracker kind — the file-backed GitHub sync engine. */
   kind: z.literal('github'),
   /** Repository in "owner/repo" format */
   repo: z.string().optional(),
@@ -579,6 +579,24 @@ export const TrackerConfigSchema = z.object({
   /** Maps external status (optionally with label) -> roadmap status */
   reverseStatusMap: z.record(z.string(), z.string()).optional(),
 });
+
+/**
+ * `roadmap.tracker.kind: "pnyon"` — the Waypoint event-ledger backend
+ * (file-less mode only; resolved through the core tracker-kind registry).
+ * See docs/changes/waypoint-tracker-kind-pnyon/proposal.md.
+ */
+const PnyonTrackerConfigSchema = z.object({
+  kind: z.literal('pnyon'),
+  /** Waypoint per-Outpost API base URL. */
+  url: z.string().url(),
+  /** Bearer credential; falls back to the PNYON_TOKEN env var when unset. */
+  token: z.string().optional(),
+});
+
+export const TrackerConfigSchema = z.discriminatedUnion('kind', [
+  GitHubTrackerConfigSchema,
+  PnyonTrackerConfigSchema,
+]);
 
 /**
  * Schema for roadmap configuration.

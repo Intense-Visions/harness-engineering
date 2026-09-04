@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'packages/core/src/roadmap'
-sourceHash: 'fdb81d49ee25b5aae30bd38ba050ba7d2c250d7316126c58ed34cf3c7ec2a78f'
+sourceHash: '7c66b80fdddef0e3cba73dfaa49e1220060d2677e74a9e2f15eb489e9a129fcf'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
@@ -53,7 +53,11 @@ export IssueTrackerClient
 export MakeTrackerConflictBodyOptions
 export NewFeatureInput
 export PilotScoringOptions
+export PnyonTrackerAdapter
+export PnyonTrackerClientConfig
+export PnyonTrackerOptions
 export ReconcileResult
+export RegisteredTrackerClientConfig
 export RoadmapGroomChange
 export RoadmapGroomChangeKind
 export RoadmapGroomOptions
@@ -80,7 +84,16 @@ export TrackedFeature
 export TrackerClientConfig
 export TrackerConfig
 export TrackerConflictBody
+export TrackerKindRegistration
 export TrackerSyncAdapter
+export WaypointCommand
+export WaypointCommandResult
+export WaypointEvidenceEntry
+export WaypointHttp
+export WaypointHttpError
+export WaypointItem
+export WaypointItemPatch
+export WaypointNewItem
 export applySyncChanges
 export assignFeature
 export assigneeInvariantHolds
@@ -94,11 +107,13 @@ export deriveRepoFromGitRemote
 export detectRoadmapStorageMode
 export fullSync
 export getRoadmapMode
+export getTrackerKindRegistration
 export groomRoadmap
 export isClaimableBy
 export isMachineAssignee
 export isRegression
 export isUnactionablePlanned
+export listRegisteredTrackerKinds
 export loadProjectRoadmapMode
 export loadTrackerClientConfigFromProject
 export loadTrackerSyncConfig
@@ -111,6 +126,7 @@ export parseRoadmap
 export promoteFeature
 export pushAssigneeToExternal
 export reconcileDoneFromClosedIssues
+export registerTrackerKind
 export release
 export resolveReverseStatus
 export scoreRoadmapCandidates
@@ -144,6 +160,7 @@ import { decodeSummaryField, encodeSummaryField } from './summary-field'
 import { TrackedFeature } from './tracker'
 import { ExternalSyncOptions, TicketWriteOptions, TrackerSyncAdapter, resolveReverseStatus } from './tracker-sync'
 import { TrackerClientConfig } from './tracker/factory'
+import { getTrackerKindRegistration, listRegisteredTrackerKinds } from './tracker/registry'
 import { AssignmentRecord, Err, ExternalTicket, ExternalTicketState, FeatureStatus, Ok, Priority, Result, Roadmap, RoadmapFeature, RoadmapFrontmatter, RoadmapGroup, RoadmapMilestone, RowSyncResult, SyncResult, TrackerComment, TrackerSyncConfig } from '@harness-engineering/types'
 import * as fs from 'fs'
 import { execFileSync } from 'node:child_process'
