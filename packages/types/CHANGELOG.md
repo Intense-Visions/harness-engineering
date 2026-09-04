@@ -1,5 +1,79 @@
 # @harness-engineering/types
 
+## 0.32.0
+
+### Minor Changes
+
+- 37ee1e6: feat(ci): content-addressed memoization cache for gate verdicts — an action
+  cache that skips recomputing an unchanged check (#1639).
+
+  Adds an opt-in (default OFF), local, content-addressed `VerdictCache` wired
+  transparently into the CI check orchestrator. Each check's verdict is keyed by a
+  SHA-256 over `(check identity × gate version × config hash × input hash)`, where
+  the input hash is a single content digest of the project's tracked
+  source/config/docs tree computed once per run and shared by every check. On a
+  hit the stored `CICheckResult` is returned instead of re-running the check; on a
+  miss the check runs and records its verdict.
+
+  Correct-by-construction: only checks whose full verdict closure the source-tree
+  hash covers are memoized. `arch` and `traceability` are excluded because their
+  verdicts depend on `.harness` baseline/graph state (and, for `arch`, the git
+  base-ref) that no working-tree hash captures — so they always run and are never
+  cached. For the memoized checks the closure is an honest over-approximation, so
+  any changed input yields a different hash and forces a miss (it may over-miss,
+  which only wastes compute). Gate-version and config changes miss by construction;
+  a check that threw is never cached; entries are written atomically. Hit/miss
+  telemetry is
+  attached as an optional `cacheStats` field on `CICheckReport`, absent on the
+  default cache-off path so existing report output is byte-identical.
+
+  Enable per project via `cache.verdicts.enabled` (dir defaults to
+  `.harness/cache/verdicts`). Scope note: this slice is a local cache with
+  over-approximated closures; per-gate input-closure declaration + runtime
+  access-recorder, a shareable/distributed backend, and per-gate savings telemetry
+  are deferred (see `Refs #1639`).
+
+- 67332aa: feat(gate-loss): emit continuous distance-to-threshold ("loss") alongside binary
+  gate verdicts, so "passed barely" and "passed comfortably" are distinguishable
+  (#1673).
+
+  Adds `GateBound`/`GateMeasurement` to `types` and an optional additive
+  `CICheckResult.measurements` field (absent when empty, so metric-less checks
+  serialize byte-identically). Adds a pure `gate-loss` module to `core`:
+  `computeGateLoss` (signed margin, normalized proximity, quadratic
+  `loss = proximity²` comparable across gates, robust — never `NaN`/`Infinity`),
+  `accumulateLoss` (per change/surface/period rollup; degraded points excluded),
+  and `detectLossAlarm` (fires on rising loss while every binary verdict stays
+  green — the leading indicator). Dogfoods emission from this repo's own
+  traceability (coverage, emitted even while green) and perf (complexity/coupling)
+  gates, and renders a continuous-loss panel in the CI report.
+
+  Emission/measurement only — no gate's pass/fail decision changed. Outcome-data
+  calibration and a persisted cross-period telemetry store/dashboard trend panel
+  are tracked follow-ups (`Refs #1673`).
+
+- 6dd0ae4: feat(waypoint): opt-in `sdlc.*` event emission and repo-local spool
+  (pnyon/pnyon#124).
+
+  Adds an additive, OPT-IN Waypoint emission layer: with `waypoint.sink`
+  configured in `harness.config.json`, the sanctioned roadmap mutators
+  (`setStatus`/`claim`/`release`), skill phase transitions (`emit_interaction`),
+  persisted eval/UAT verdicts, and fleet artifact writes each append exactly one
+  CloudEvents-1.0-profile `sdlc.*.v1` event to a bounded, per-process JSONL
+  spool under `.harness/spool/` (drop-oldest at cap with a persistent
+  `droppedEvents` counter; client-side best-effort secret scrub; ULID
+  idempotency keys). The pinned 19-type `sdlc.*.v1` vocabulary is registered on
+  the gateway webhook bus, delivered through the existing `GatewayEvent`
+  envelope and `WebhookQueue` retry machinery via a new orchestrator-side
+  bridge. A new `harness waypoint` command records fleet
+  provenance/handoff artifacts and reports spool health.
+
+  THE HARD INVARIANT: with no `waypoint.sink` configured, nothing changes —
+  no new files, no new I/O, no behavior change to any existing command, mode,
+  or test (verified by dedicated non-adopter invariance tests). Shipping
+  spooled events to a hosted ingest is explicitly out of scope (pnyon owns
+  ingest).
+
 ## 0.31.0
 
 ### Minor Changes

@@ -1,5 +1,333 @@
 # Changelog
 
+## 0.47.0
+
+### Minor Changes
+
+- 19b70bb: feat(metabolism): classify token spend into basal (maintenance burn) vs
+  anabolic (productive) from existing telemetry, and rank maintenance waste
+  (#1628).
+
+  Adds a pure `metabolism` module to `core` that reduces the existing adoption
+  (`SkillInvocationRecord`) + usage (`UsageRecord`) telemetry into a spend ledger,
+  classifies every token burst as `basal` / `anabolic` / `unattributable` by
+  outcome linkage, and emits the **basal-share metric** (with its declared
+  denominator and a separate unattributable bucket) plus a **ranked
+  maintenance-waste list** (which loop burns the most basal spend). A classifier
+  evaluator publishes confusion rates against a hand-labeled sample. Exposes it as
+  a read-only `harness burn metabolism` subcommand (`--json`) — a sibling lens to
+  `burn per-pr` and the by-skill/by-agent cuts — and as a by-token-metabolism
+  section in the full `harness burn` report.
+
+  Scope note: this slice is classification + reporting only. Wiring basal-share
+  into a budget/governor gate is deferred to a follow-up (see `Refs #1628`).
+
+- 37ee1e6: feat(ci): content-addressed memoization cache for gate verdicts — an action
+  cache that skips recomputing an unchanged check (#1639).
+
+  Adds an opt-in (default OFF), local, content-addressed `VerdictCache` wired
+  transparently into the CI check orchestrator. Each check's verdict is keyed by a
+  SHA-256 over `(check identity × gate version × config hash × input hash)`, where
+  the input hash is a single content digest of the project's tracked
+  source/config/docs tree computed once per run and shared by every check. On a
+  hit the stored `CICheckResult` is returned instead of re-running the check; on a
+  miss the check runs and records its verdict.
+
+  Correct-by-construction: only checks whose full verdict closure the source-tree
+  hash covers are memoized. `arch` and `traceability` are excluded because their
+  verdicts depend on `.harness` baseline/graph state (and, for `arch`, the git
+  base-ref) that no working-tree hash captures — so they always run and are never
+  cached. For the memoized checks the closure is an honest over-approximation, so
+  any changed input yields a different hash and forces a miss (it may over-miss,
+  which only wastes compute). Gate-version and config changes miss by construction;
+  a check that threw is never cached; entries are written atomically. Hit/miss
+  telemetry is
+  attached as an optional `cacheStats` field on `CICheckReport`, absent on the
+  default cache-off path so existing report output is byte-identical.
+
+  Enable per project via `cache.verdicts.enabled` (dir defaults to
+  `.harness/cache/verdicts`). Scope note: this slice is a local cache with
+  over-approximated closures; per-gate input-closure declaration + runtime
+  access-recorder, a shareable/distributed backend, and per-gate savings telemetry
+  are deferred (see `Refs #1639`).
+
+- 3f7d79e: feat(provenance): emit a machine-readable provenance trailer from agent-authored
+  commits (#1531).
+
+  Adds a distinct, governed git commit **trailer** carrying the provenance of an
+  autonomous, agent-authored commit, so AI-authored work — specifically the
+  _autonomous_ tier — is mechanically countable, joinable to cost, and auditable
+  on gated paths. A pure `commit-trailer` primitive in `core` defines the schema
+  (`Harness-Run: <skill>@<version>` plus `Harness-Provenance-Version`,
+  `Harness-Run-Id`, `Harness-Lane`, `Harness-Agent`, `Harness-Model`,
+  `Harness-Session`), a deterministic formatter/appender, and a parser that returns
+  `null` for non-fleet commits. The trailer uses a distinct `Harness-*` namespace
+  rather than co-opting `Co-authored-by:`, so mechanical tier detection is possible.
+
+  The orchestrator's autonomous ship path (`WorkspaceManager.shipWorkspace`) stamps
+  the trailer onto the commit message and — because the repo squash-merges — mirrors
+  it into the PR body so the record survives the squash. Interactive and
+  third-party commits (no run context threaded) are byte-unaffected.
+
+  Scope note: this slice is the schema + formatter + parser + emission + docs. A CI
+  check that verifies trailer presence/shape and a `harness provenance <sha>` reader
+  CLI are deferred to follow-ups (see `Refs #1531`).
+
+- 38f75c5: feat(knowledge-mdl): score the knowledge store by Minimum Description Length —
+  description cost vs measured compression value — and report reversible
+  prune/merge recommendations (#1630).
+
+  Adds a pure `knowledge-mdl` module to `core` that applies MDL as the knowledge
+  store's fitness function: each entry's **description cost** (tokens shipped per
+  inclusion × inclusion frequency) is weighed against its **compression value** — a
+  **self-contained**, stratified, present-vs-matched-absent comparison of run
+  outcome cost (re-derivation / wrong turns / rework) that carries uncertainty and
+  a first-class `insufficient-evidence` verdict. Entries whose measured value does
+  not cover their cost are flagged **prune**; overlapping entries whose union
+  compresses better than their sum are flagged **merge/consolidate** (reusing the
+  existing `checkOverlap` similarity). Rolls the per-entry verdicts into a
+  store-level MDL ledger and exposes it as a read-only `harness knowledge mdl`
+  subcommand (`--json`, optional `--telemetry`).
+
+  Pruning requires measured worthlessness, never measurement absence: with no
+  inclusion/outcome telemetry every entry scores `insufficient-evidence` and is
+  retained.
+
+  Scope note: this slice is a report-only scorer + recommendations. **Executing**
+  the prune/merge is deferred, and the matched-comparison estimator is deliberately
+  self-contained — consolidating it onto #1633's rate-distortion ablation harness
+  and #1621's skill-P&L machinery is a deferred follow-up (see `Refs #1630`).
+
+- 405b7ab: feat(release-inventory): track merged-but-unreleased inventory as a first-class
+  metric (#1526).
+
+  Adds a pure `release-inventory` module to `core` that computes the
+  merged-but-unreleased inventory — pending changesets (count + age) and unreleased
+  commits/merges (count + age) sitting between the last release and HEAD — against
+  an explicit release-channel denominator (git tags matching a configurable
+  pattern, default `v*`). A zero-release repo reports `status: "unbounded"` rather
+  than omitting the metric, and the threshold fires when inventory outgrows release
+  cadence. Exposed as a report-only `harness release-inventory` command (`--json`,
+  `--strict`), with an optional `releaseInventory` config block for thresholds.
+
+  Every result carries its denominator (`shippedDefinition`) so the number is
+  interpretable. Measurement only — the default exit code is 0; `--strict` opts a
+  breach into a non-zero exit. Dashboard/digest surfacing is a follow-up.
+
+- e19aa90: feat(model-sentinel): model-update regression sentinel — supplier change-control
+  for the underlying model (Refs #1617).
+
+  Treats the underlying model as a vendored dependency: snapshots the configured
+  model identity (`agent.backends[*].model`), detects a change vs the last-seen
+  value, and appends a sentinel record to `.harness/model-sentinel/history.jsonl`.
+  Detect + report only.
+  - `@harness-engineering/core`: new pure `model-sentinel` module —
+    `snapshotModelIdentities` (stable FNV-1a digest over the sorted identity set),
+    `detectModelDrift` (per-backend added/removed/changed deltas + material/benign
+    severity), an append-only JSONL store, and `evaluateModelSentinel` /
+    `acknowledgeModelDrift` (acknowledgement re-pins the baseline by appending,
+    never rewriting history).
+  - `@harness-engineering/cli`: `harness models drift` (`--history` / `--check` /
+    `--ack`; reads the global `--config` / `--json` flags). `--check` exits
+    non-zero on unacknowledged material drift for a CI/maintenance hook.
+
+  Scope note: this slice is detection + append-only reporting only. Deferred to a
+  follow-up (`Refs #1617`): the pinned behaviour-envelope sentinel suite with a
+  scheduled canary via the maintenance pipeline, and the routing hold gate that
+  holds affected model/task pairs until a human acknowledges.
+
+- 8e42ad2: Add refinement-request instrumentation (progressive-context demand signal, scoped slice of #1632).
+
+  Logs every refinement request (`code_outline` / `code_search` / `code_unfold`) with its
+  progressive context class (`file-content` | `history` | `telemetry` | `knowledge`) to
+  `.harness/metrics/refinement-events.jsonl`, and aggregates it into refinement-frequency-per-context-class —
+  the demand signal for rate-distortion compaction and trained-dictionary membership scoring.
+  - `@harness-engineering/core`: new pure `refinement-demand` module (taxonomy, `classifyRefinement`,
+    `aggregateDemand` — enumerates every class so a never-read class ranks last).
+  - `@harness-engineering/cli`: non-fatal JSONL writer/reader (`refinement-telemetry`), instrumentation
+    wired into the three code-nav handlers, and a new `harness mcp refinement-demand [--json]` report subcommand.
+
+  Deferred to a follow-up slice: the progressive-by-default contract for every context class and the
+  prefetch/batching policy.
+
+- 98f650f: Add a ranking-stability gate so ranked outputs are never presented as a precise order when that order is not reproducible. New `@harness-engineering/core` module `ranking/` exports `checkRankStability`, `spearmanRankCorrelation`, `assignTiers`, `validateBands`, and the `ScoredItem` / `RankingWindow` / `StabilityReport` / `RankTier` / `BandValidation` / `StableRanking` types. A ranking is computed over two windows; the tie-corrected Spearman rank correlation between them is reported alongside the output, and below a threshold (default 0.7) the ranking degrades to tiers instead of a spurious order. Bands are always defined on one window (`assignTiers` takes a single window's ordered items) and validated against the other (`validateBands`), so the mean-of-two-windows banding bug is impossible by construction. Wired into the hotspot/churn emitter: `computeStableHotspots` computes churn over two adjacent git windows and `harness compound scan-candidates` now emits the correlation, both window definitions, and tier grouping when unstable. Remaining ranked emitters (critical paths, craft/audit targets, skill recommendations, graph anomaly adapters) adopt the shared gate in follow-ups (Refs #1529).
+- e3ffb67: feat(rate-distortion): report-only ablation harness + task-conditioned distortion
+  model for context compaction (#1633).
+
+  Adds a pure `rate-distortion` module to `core` that replays recorded runs with an
+  information class ablated (`prior-tool-results`, `resolved-decisions`,
+  `code-excerpts`, `conversational-history`, `stated-constraints`) and fits a
+  **distortion model** — a sensitivity matrix over (information class × task class)
+  derived from the measured error/rework delta, with confidence bounds and a
+  `sensitive | insensitive | inconclusive` classification per cell, versioned +
+  timestamped for auditability. The replay execution is an injected `ReplayRunner`
+  seam (a real driver plugs in; fixtures seed ground truth), so the shipped path
+  consumes pre-recorded observations and never touches a live execution engine.
+  The #1632 refinement-demand signal is accepted as an advisory prior (surfaced
+  per cell, not folded into the verdict). Exposes it as a report-only
+  `harness distortion fit` subcommand (`--json`).
+
+  Scope note: this slice is measurement + reporting only. Wiring the distortion
+  model into the live compaction dial (frontier-aware compactor), a black-box
+  replay driver, and rework-attribution loop-closing are deferred to follow-ups
+  (see `Refs #1633`). This harness is the reusable measurement substrate MDL
+  pruning (#1630) later reuses.
+
+- 966122c: feat(rework): instrument rework rate per code surface from git history
+  (#1528).
+
+  Adds a pure `rework` module to `core` that derives a per-surface (file-path)
+  rework signal from local git history — a `fix:`/`revert:` follow-up commit that
+  re-touches a surface already changed earlier in the lookback window — reusing the
+  existing `scan-candidates` git walker (a shared `readRawCommits` reader is
+  factored out so no second git walker is introduced) and `normalizeSince`. Each
+  rework commit is split into **planned** (its issue references intersect the
+  roadmap-linked issue set — continued multi-part delivery) vs **unplanned**
+  (waste); the headline `unplannedReworkRate` counts unplanned only, and the report
+  declares both its **denominator label** and the **resolved window** so the number
+  is never read without its base. Core stays roadmap-agnostic via an injected
+  `plannedIssues` set.
+
+  Exposes it as a read-only `harness rework` command (ranked table + `--json`
+  `ReworkReport`, with `--since` / `--min-commits` / `--top`), and surfaces it in
+  the health snapshot as a `reworkRate` metric block plus a `rework-hotspot`
+  signal (`check: null`, so it can never gate) — throughput and rework are read
+  together. Degrade-safe: non-git / empty-repo / empty-window yields an empty
+  report and exit 0.
+
+  Scope note: report/measurement only, no gate. This slice derives rework from
+  local git history; superseded / closed-unmerged-PR fan-out via the GitHub API is
+  deferred to a follow-up (see `Refs #1528`).
+
+- 67332aa: feat(gate-loss): emit continuous distance-to-threshold ("loss") alongside binary
+  gate verdicts, so "passed barely" and "passed comfortably" are distinguishable
+  (#1673).
+
+  Adds `GateBound`/`GateMeasurement` to `types` and an optional additive
+  `CICheckResult.measurements` field (absent when empty, so metric-less checks
+  serialize byte-identically). Adds a pure `gate-loss` module to `core`:
+  `computeGateLoss` (signed margin, normalized proximity, quadratic
+  `loss = proximity²` comparable across gates, robust — never `NaN`/`Infinity`),
+  `accumulateLoss` (per change/surface/period rollup; degraded points excluded),
+  and `detectLossAlarm` (fires on rising loss while every binary verdict stays
+  green — the leading indicator). Dogfoods emission from this repo's own
+  traceability (coverage, emitted even while green) and perf (complexity/coupling)
+  gates, and renders a continuous-loss panel in the CI report.
+
+  Emission/measurement only — no gate's pass/fail decision changed. Outcome-data
+  calibration and a persisted cross-period telemetry store/dashboard trend panel
+  are tracked follow-ups (`Refs #1673`).
+
+- 086f419: feat(dictionary): trained context dictionaries — a governed, versioned codebook
+  for recurring knowledge (#1635).
+
+  Adds a pure `dictionary` module to `core` that mines recurring spans over a
+  corpus of past assembled contexts, scores each candidate by `frequency × length`
+  against an amortization threshold (with a net-saving guard), and reconciles a
+  **governed, versioned codebook**: every term is bound to a verified definition
+  with a version, expansion is deterministic, and a definition change bumps the
+  version while retaining the prior version so a consumer that pinned it never
+  silently holds a stale meaning. Membership is decided purely by measurement —
+  a term enters when it crosses the threshold and retires when usage decays
+  (hysteresis; no hand-curated list) — and a stale-reference audit classifies
+  consumer pins. Exposes it as a read-only `harness context-dictionary report`
+  subcommand (`--json`, `--write`) that trains over this repo's committed
+  comprehension corpus.
+
+  Scope note: this slice is training + reporting only. Wiring handle-substitution
+  into the serving/assembly path is deferred to a follow-up (see `Refs #1635`).
+
+- 6dd0ae4: feat(waypoint): opt-in `sdlc.*` event emission and repo-local spool
+  (pnyon/pnyon#124).
+
+  Adds an additive, OPT-IN Waypoint emission layer: with `waypoint.sink`
+  configured in `harness.config.json`, the sanctioned roadmap mutators
+  (`setStatus`/`claim`/`release`), skill phase transitions (`emit_interaction`),
+  persisted eval/UAT verdicts, and fleet artifact writes each append exactly one
+  CloudEvents-1.0-profile `sdlc.*.v1` event to a bounded, per-process JSONL
+  spool under `.harness/spool/` (drop-oldest at cap with a persistent
+  `droppedEvents` counter; client-side best-effort secret scrub; ULID
+  idempotency keys). The pinned 19-type `sdlc.*.v1` vocabulary is registered on
+  the gateway webhook bus, delivered through the existing `GatewayEvent`
+  envelope and `WebhookQueue` retry machinery via a new orchestrator-side
+  bridge. A new `harness waypoint` command records fleet
+  provenance/handoff artifacts and reports spool health.
+
+  THE HARD INVARIANT: with no `waypoint.sink` configured, nothing changes —
+  no new files, no new I/O, no behavior change to any existing command, mode,
+  or test (verified by dedicated non-adopter invariance tests). Shipping
+  spooled events to a hosted ingest is explicitly out of scope (pnyon owns
+  ingest).
+
+- b72de12: feat(roadmap): open the file-less tracker seam with a tracker-kind registry
+  and a `pnyon` (Waypoint) RoadmapTrackerClient adapter (#1815).
+
+  `core` gains `PnyonTrackerAdapter` — the full `RoadmapTrackerClient`
+  interface implemented against a documented, typed Waypoint HTTP API contract
+  (`WaypointHttp`): claims map to `sdlc.claim.*` event semantics guarded by
+  event-version preconditions, stale writes surface as `ConflictError` code
+  `TRACKER_CONFLICT`, history rides the item's evidence ledger, and the adapter
+  performs zero GitHub API calls (machine actors never touch GitHub's assignee
+  field, #640). A new tracker-kind registry (`registerTrackerKind`) lets
+  `loadTrackerClientConfigFromProject` and `createTrackerClient` resolve
+  registered kinds — builtin: `pnyon` (config `url` + `token`/`PNYON_TOKEN`) —
+  while `github` behavior is preserved byte-for-byte and unregistered kinds are
+  still rejected (now listing the registered kinds).
+
+  `cli`'s `TrackerConfigSchema` becomes a discriminated union so
+  `roadmap.tracker.kind: "pnyon"` validates; the github variant is unchanged.
+
+  Also re-exports the `context-surface` helpers consumed by its own test file,
+  fixing the `tsc --noEmit` break on main (#1814).
+
+### Patch Changes
+
+- 10f944a: Resolve tsconfig `paths` aliases in the entropy dead-code detector. Previously `resolveImportToFile` treated every non-relative specifier as an external package, so any file reached only through a path-alias import (e.g. `@lib/aliased`) was silently and confidently reported dead. The snapshot builder now loads the project's tsconfig `paths` + `baseUrl` (JSONC-tolerant, with bounded relative `extends` support) into `CodebaseSnapshot.pathAliases`, and the reachability/usage resolver matches alias specifiers through the same extension/index resolution used for relative imports. Fixes #1759.
+- 672daa8: fix(roadmap): preserve a comma inside a single `Blockers`/`Plan` list item
+  across a serialize → parse round-trip (#1757).
+
+  The roadmap grammar joined a feature's `blockedBy` / `plans` array with `", "`
+  on write and split the re-read value back on `","` with no escaping on read, so a
+  single list item that itself contained a comma — e.g. a feature name authored via
+  the MCP `manage_roadmap` write path, `"Notification System, phase 2"` — split
+  into two items on the next parse, silently fabricating a blocker (or plan step)
+  that never existed.
+
+  Adds a reversible comma-escape codec (`roadmap/list-field.ts`, mirroring the
+  sibling summary codec from #1756) wired into the shared `serializeFeature` /
+  `parseFeatureBlock` seam. Plain comma-free items are an identity under the codec,
+  so existing roadmaps re-serialize byte-for-byte unchanged.
+
+- d51e370: Fix roadmap serialize/parse round-trip silently truncating a multi-line
+  `RoadmapFeature.summary` to its first line (#1756). The Summary free-text field
+  is now encoded with a reversible single-line escape on write and decoded on
+  read, so an embedded newline survives parse → serialize → parse intact across
+  the monolith roadmap, the shard store, and comprehension shards. Plain
+  single-line summaries are unaffected.
+- d3673bf: fix(harness-strength): scale the strength score by audit coverage so partial
+  coverage no longer reads as 100/100 (#1761).
+
+  Follow-up to #1013, which added the `incomplete` tier and a coverage line but
+  left the score computed as `100 - sum(findings)` — a term with no coverage
+  component, so a repo where most patterns abstained still scored a bare `100/100`
+  with a green tick. The tier and coverage line were annotations _around_ an
+  unchanged number rather than a correction _to_ it, and `100/100` is what survives
+  a CI log tail or a screenshot.
+
+  The auditor now scales the findings score by `evaluable / applicable` via a new
+  pure `scoreWithCoverage` helper: 2 of 7 patterns evaluated cleanly scores 29, a
+  repo where every pattern abstains scores 0, and full coverage remains the
+  identity so a complete clean audit still earns 100. The tier continues to key
+  off the findings-only score, keeping the coverage penalty on the number
+  orthogonal to the `incomplete`/`at-risk`/`theatre` tier.
+
+- Updated dependencies [37ee1e6]
+- Updated dependencies [7c4e332]
+- Updated dependencies [67332aa]
+- Updated dependencies [6dd0ae4]
+  - @harness-engineering/types@0.32.0
+  - @harness-engineering/graph@0.15.0
+
 ## 0.46.0
 
 ### Minor Changes
