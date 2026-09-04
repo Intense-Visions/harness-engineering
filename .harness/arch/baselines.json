@@ -1,7 +1,7 @@
 {
   "version": 1,
-  "updatedAt": "2026-09-01T20:25:00.336Z",
-  "updatedFrom": "fea14d2",
+  "updatedAt": "2026-09-04T16:41:47.058Z",
+  "updatedFrom": "be867ae",
   "metrics": {
     "circular-deps": {
       "value": 0,
@@ -12,7 +12,7 @@
       "violationIds": []
     },
     "complexity": {
-      "value": 348,
+      "value": 350,
       "violationIds": [
         "007f01231e26e527dfaa5a251c21e9a18b0abc300ad8d49258b910f878f23cdf",
         "015dadca6008b916e11c3fc7d66f1420c0baa06f714552b7ad770d761fd7ec25",
@@ -159,6 +159,7 @@
         "6fd720f8760efdfbdae460a87a1a34182c258af5ed3fe17c64c75d4eb88d82e5",
         "717acff600db9428ddeace1963f9e2526f9a5c5902143bfa3a1ee31405c6421d",
         "7248a0eda40b08481ef073de228ecab8c91bd1d510400ad5961f5b7c3dda5a0c",
+        "72951ebfde05ccca20c508249487d2b30f01417e1ab0f6234dc821be44168bf2",
         "72a3f13ef216ce8debf71abdb9fb3e535341dbc235336907c72dc96f7139fd23",
         "72a6f9308ba68cb7b59977601ebfcbdc1a8f017fcfc87c18668592fc1bb58954",
         "74183add62f7d746ddc8a2da73d72c0e79cd0bc8176a273127c6ef281c8ebe25",
@@ -199,6 +200,7 @@
         "8eabbd0d3e0e4db5133d2ad2699dc43564668b6fae23beef01f4be95b80c7582",
         "8edafcac97eadd4ae911d727d877e625df2eabbd35e9e50bd9bc06e325db5ae7",
         "91514be2eeaeab7da8a99738b2662d2c7878d89119c29c7ad0d2d096da979762",
+        "923cb2028213cbe08f9b9d99057a3a9fb5cebef83ea6846aca76d7fb5031f0b7",
         "92881fb2f805f777739ecdd14754530b16bf84cfabfef5500571b408a8182299",
         "92ad6b26a7b792a570a785087300111af1f105569adb441c42e06013cdb48e30",
         "93e702d18ad29cf361176a1cfece626216fe572457209ada543a2e65027c74b2",
@@ -357,7 +359,7 @@
       "violationIds": []
     },
     "module-size": {
-      "value": 256524,
+      "value": 262222,
       "violationIds": [
         "14c3c7cf4350a3212158ff69554ef83629eb26d75ffaf4d24bbded2841aa58ad",
         "4585d7c519ca2ebc1b54dd925f1672e999fcb142bad9b54dbe96e6b60dad62de",
@@ -376,7 +378,7 @@
       ]
     },
     "dependency-depth": {
-      "value": 638,
+      "value": 659,
       "violationIds": []
     }
   }

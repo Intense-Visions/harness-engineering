@@ -1,12 +1,13 @@
 ---
 schemaVersion: 1
 module: 'packages/core/tests/roadmap'
-sourceHash: '0774acae016cddbadd9a652344de3c23338b36112f5befadafea23e77e1e4851'
+sourceHash: '2ab7ac3467a6761da3e8782abc57d646e0e78df3a2084e1318fc8d6055b44629'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
 members:
   [
+    'assignee-lifecycle-waypoint.test.ts',
     'assignee-lifecycle.test.ts',
     'derive-repo.test.ts',
     'fixtures.ts',
@@ -95,13 +96,14 @@ import { TrackedFeature } from '../../src/roadmap/tracker'
 import { loadTrackerSyncConfig } from '../../src/roadmap/tracker-config'
 import { ExternalSyncOptions, TrackerSyncAdapter, resolveReverseStatus } from '../../src/roadmap/tracker-sync'
 import { emitEvent } from '../../src/state/event-sourcing'
+import { initWaypointEmitter, resetWaypointEmitterForTests } from '../../src/waypoint/emitter'
 import { EMPTY_BACKLOG, EMPTY_BACKLOG_MD, EXTENDED_FIELDS_MD, EXTENDED_FIELDS_ROADMAP, GROUPED_ROADMAP, GROUPED_ROADMAP_MD, HISTORY_MD, HISTORY_ROADMAP, INVALID_STATUS_MD, MARKER_NAMES, NO_FRONTMATTER_MD, VALID_ROADMAP, VALID_ROADMAP_MD } from './fixtures'
 import { MIGRATION_ROADMAP, MONOLITH_ROADMAP, OLD_ROADMAP_MD } from './store/fixtures'
 import { getRoadmapMode } from '@harness-engineering/core'
-import { AssignmentRecord, Err, ExternalTicket, ExternalTicketState, FeatureStatus, Ok, Result, Roadmap, RoadmapFeature, RoadmapMilestone, TrackerSyncConfig } from '@harness-engineering/types'
+import { AssignmentRecord, Err, ExternalTicket, ExternalTicketState, FeatureStatus, Ok, Result, Roadmap, RoadmapFeature, RoadmapMilestone, SdlcEvent, TrackerSyncConfig } from '@harness-engineering/types'
 import * as fs from 'fs'
 import { execFileSync } from 'node:child_process'
-import * as fs, { mkdirSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs'
+import * as fs, { existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'node:fs'
 import * as os, { tmpdir } from 'node:os'
 import * as path, { join } from 'node:path'
 import * as os from 'os'

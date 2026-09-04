@@ -95,6 +95,8 @@ The fan-out subscribes to a fixed set of orchestrator event-bus topics, declared
 
 The colon-to-dot normalization (`events.ts:47`) is a transitional layer — orchestrator topics with colon separators predate the webhook surface and live in older callsites. New topics added in Phase 3+ should be dotted at the source so the normalization layer can be retired once the colon-form topics fade.
 
+**Waypoint `sdlc.*` family (opt-in, pnyon/pnyon#124).** `WEBHOOK_TOPICS` also registers the pinned, closed 19-type `sdlc.*.v1` vocabulary (spread verbatim from `SDLC_EVENT_TYPES_V1` in `@harness-engineering/types`, so the lists cannot drift). These events reach the bus only through `wireWaypointSdlcBridge` (`gateway/webhooks/waypoint-bridge.ts`), which republishes events the core Waypoint emitter has already spooled to `.harness/spool/` — and that emitter only exists when `harness.config.json` declares `waypoint.sink`. The types are four dotted segments (`sdlc.claim.opened.v1`), so subscriptions match exact types or the `sdlc.*.*.*` glob; legacy `*.*` subscriptions are structurally unaffected (segment counts differ). See `docs/changes/waypoint-sdlc-emission/proposal.md`.
+
 The two **subscription-lifecycle** topics emitted BY the fan-out (`webhook.subscription.created`, `webhook.subscription.deleted`) are not in `WEBHOOK_TOPICS` — they are observed on the SSE event channel (so dashboards see new subscriptions live) but the fan-out itself does NOT re-fan them out to webhooks (that would create a delivery loop where every subscription is notified of every other subscription's lifecycle).
 
 ## Segment-glob matching

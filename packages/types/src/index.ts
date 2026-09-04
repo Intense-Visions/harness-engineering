@@ -509,3 +509,28 @@ export type {
   TelemetrySynthesisHeadline,
   TelemetrySynthesis,
 } from './telemetry-synthesis';
+
+// --- Waypoint sdlc.* event contract (opt-in emission layer, pnyon/pnyon#124) ---
+export {
+  SDLC_CATEGORIES,
+  SDLC_EVENT_TYPES_V1,
+  SDLC_SPECVERSION,
+  SDLC_VERIFICATION_GRADES,
+  WaypointConfigSchema,
+  WaypointSinkConfigSchema,
+} from './waypoint';
+export type {
+  SdlcActor,
+  SdlcAgentActor,
+  SdlcAppendResult,
+  SdlcCategory,
+  SdlcEvent,
+  SdlcEventTypeV1,
+  SdlcHumanActor,
+  SdlcSpoolSegmentSnapshot,
+  SdlcValidationIssue,
+  SdlcValidationResult,
+  SdlcVerificationGrade,
+  WaypointConfig,
+  WaypointSinkConfig,
+} from './waypoint';

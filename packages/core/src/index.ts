@@ -390,6 +390,11 @@ export * from './solutions';
 export * from './strategy';
 
 /**
+ * Waypoint module.
+ */
+export * from './waypoint';
+
+/**
  * The current version of the Harness Engineering core library.
  *
  * @deprecated Read the CLI version from `@harness-engineering/cli/package.json`

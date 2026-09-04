@@ -1,6 +1,6 @@
 import { randomBytes } from 'node:crypto';
 import type { EventEmitter } from 'node:events';
-import type { GatewayEvent } from '@harness-engineering/types';
+import { SDLC_EVENT_TYPES_V1, type GatewayEvent } from '@harness-engineering/types';
 import type { WebhookStore } from './store';
 import type { WebhookDelivery } from './delivery';
 
@@ -23,6 +23,12 @@ const WEBHOOK_TOPICS = [
   'proposal.created',
   'proposal.approved',
   'proposal.rejected',
+  // Waypoint sdlc.* family (pnyon/pnyon#124): the pinned, closed v1
+  // vocabulary, published only when a `waypoint.sink` is configured (the
+  // bridge in waypoint-bridge.ts). Types are 4 segments (`sdlc.claim.opened.v1`),
+  // so subscriptions match exact types or the `sdlc.*.*.*` glob. Registering
+  // the topics is additive: without the opt-in bridge nothing ever emits them.
+  ...SDLC_EVENT_TYPES_V1,
 ] as const;
 
 interface WireParams {

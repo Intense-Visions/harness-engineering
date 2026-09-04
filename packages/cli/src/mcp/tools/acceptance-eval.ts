@@ -24,6 +24,7 @@
 import { readFile } from 'node:fs/promises';
 import { findFiles } from '../../utils/files.js';
 import { resolveAnalysisProvider } from '../utils/analysis-provider.js';
+import { emitAcceptanceVerdictEvent } from '../utils/waypoint-emission.js';
 
 interface ToolResponse {
   content: Array<{ type: 'text'; text: string }>;
@@ -154,6 +155,12 @@ export async function handleAcceptanceEval(input: AcceptanceEvalToolInput): Prom
       specPath: input.specPath,
       ...(testContent !== undefined && { testContent }),
     });
+
+    // Waypoint sdlc.* emission (opt-in): surfaces the returned verdict as a
+    // spooled sdlc.verify.graded.v1 event. This tool has no `path?` input
+    // (see persistence-seam note above), so cwd stands in for the project
+    // root. No-op without a configured sink; never affects the response.
+    await emitAcceptanceVerdictEvent(process.cwd(), verdict, input.specPath);
 
     // Return the verdict EXACTLY as produced — authority is TS-derived
     // (deriveAcceptanceAuthority); the handler never recomputes or overrides it.

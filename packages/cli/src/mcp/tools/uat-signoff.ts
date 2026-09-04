@@ -24,6 +24,7 @@
 import * as path from 'node:path';
 import { mkdir } from 'node:fs/promises';
 import { sanitizePath } from '../utils/sanitize-path.js';
+import { emitUatSignoffEvent } from '../utils/waypoint-emission.js';
 
 interface ToolResponse {
   content: Array<{ type: 'text'; text: string }>;
@@ -189,6 +190,15 @@ export async function handleUatSignoff(input: UatSignoffToolInput): Promise<Tool
 
     const { outcomeId, ingest } = new UatSignoffRecorder(store).record(toRecorderInput(input));
     await store.save(graphDir);
+
+    // Waypoint sdlc.* emission (opt-in): surfaces the recorded human sign-off
+    // as a spooled sdlc.verify.graded.v1 event with a human actor. No-op
+    // without a configured sink; never affects the recorded node or response.
+    await emitUatSignoffEvent(projectRoot, {
+      slug: input.slug,
+      decision: input.decision,
+      signedOffBy: input.signedOffBy,
+    });
 
     return successResponse({
       outcomeId,

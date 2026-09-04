@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'packages/orchestrator/src'
-sourceHash: 'fe26846001c876f35aa425fac3ec741cade6d4281792d7d01a8a28a61787fcf1'
+sourceHash: '1105d712efd37079818bebcb2bc908a43d709d29f3caa21f183c1a5f76e7871a'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
@@ -240,6 +240,7 @@ import { WebhookDelivery } from './gateway/webhooks/delivery'
 import { wireWebhookFanout } from './gateway/webhooks/events'
 import { WebhookQueue } from './gateway/webhooks/queue'
 import { WebhookStore } from './gateway/webhooks/store'
+import { wireWaypointSdlcBridge } from './gateway/webhooks/waypoint-bridge'
 import { IntelligencePipelineRunner } from './intelligence/pipeline-runner'
 import { StructuredLogger } from './logging/logger'
 import { createAgentDispatcher } from './maintenance/agent-dispatcher'

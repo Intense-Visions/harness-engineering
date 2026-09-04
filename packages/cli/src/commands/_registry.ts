@@ -115,6 +115,7 @@ import { createUpdateCommand } from './update';
 import { createUsageCommand } from './usage';
 import { createValidateCommand } from './validate';
 import { createVerifyCommand } from './verify';
+import { createWaypointCommand } from './waypoint';
 
 /**
  * All discovered command creators, sorted alphabetically.
@@ -234,4 +235,5 @@ export const commandCreators: Array<() => Command> = [
   createUsageCommand,
   createValidateCommand,
   createVerifyCommand,
+  createWaypointCommand,
 ];
