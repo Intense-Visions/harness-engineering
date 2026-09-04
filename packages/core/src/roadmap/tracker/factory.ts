@@ -6,6 +6,8 @@ import {
   type GitHubIssuesTrackerOptions,
 } from './adapters/github-issues';
 import { LinearTrackerAdapter, type LinearTrackerOptions } from './adapters/linear';
+import type { PnyonTrackerClientConfig } from './adapters/pnyon';
+import { getTrackerKindRegistration } from './registry';
 import { ETagStore } from './etag-store';
 
 export interface GitHubTrackerClientConfig {
@@ -27,7 +29,12 @@ export interface LinearTrackerClientConfig {
   apiBase?: string;
 }
 
-export type TrackerClientConfig = GitHubTrackerClientConfig | LinearTrackerClientConfig;
+export type TrackerClientConfig =
+  | GitHubTrackerClientConfig
+  | LinearTrackerClientConfig
+  | PnyonTrackerClientConfig;
+
+export type { PnyonTrackerClientConfig };
 
 export function createTrackerClient(
   config: TrackerClientConfig
@@ -60,6 +67,12 @@ export function createTrackerClient(
     if (config.apiBase !== undefined) opts.endpoint = config.apiBase;
     return Ok(new LinearTrackerAdapter(opts));
   }
+
+  // Registered kinds (builtin: 'pnyon'; third-party via registerTrackerKind)
+  // resolve through the tracker-kind registry — new kinds plug in with no
+  // modification to this factory. See tracker/registry.ts.
+  const registration = getTrackerKindRegistration((config as { kind: string }).kind);
+  if (registration) return registration.create(config);
 
   return Err(new Error(`Unsupported tracker kind: "${String((config as { kind: string }).kind)}"`));
 }

@@ -3,6 +3,7 @@ import * as path from 'node:path';
 import type { Result } from '@harness-engineering/types';
 import { Ok, Err } from '@harness-engineering/types';
 import type { TrackerClientConfig } from './tracker/factory';
+import { getTrackerKindRegistration, listRegisteredTrackerKinds } from './tracker/registry';
 import { deriveRepoFromGitRemote } from './derive-repo';
 
 /**
@@ -27,7 +28,7 @@ export function loadTrackerClientConfigFromProject(
       return Err(new Error('harness.config.json not found'));
     }
     const cfg = JSON.parse(fs.readFileSync(configPath, 'utf-8')) as {
-      roadmap?: { tracker?: { kind?: string; repo?: string } };
+      roadmap?: { tracker?: { kind?: string; repo?: string } & Record<string, unknown> };
     };
     const tracker = cfg.roadmap?.tracker;
     if (!tracker) {
@@ -38,9 +39,26 @@ export function loadTrackerClientConfigFromProject(
       );
     }
     if (tracker.kind !== 'github') {
-      return Err(
-        new Error(`file-less tracker only supports kind: "github" today; got "${tracker.kind}"`)
-      );
+      // Tracker-kind registry (docs/changes/waypoint-tracker-kind-pnyon):
+      // registered non-github kinds (builtin: 'pnyon') load through their
+      // registration's own config validator. Unregistered kinds are still
+      // rejected — with the registered kinds listed. The github path below
+      // is unchanged.
+      const registration = getTrackerKindRegistration(tracker.kind ?? '');
+      if (!registration) {
+        const registered = ['github', ...listRegisteredTrackerKinds()].join(', ');
+        return Err(
+          new Error(
+            `file-less tracker only supports kind: "github" or a registered ` +
+              `kind (registered: ${registered}); got "${tracker.kind}"`
+          )
+        );
+      }
+      const loaded = registration.loadProjectConfig(tracker, projectRoot);
+      if (!loaded.ok) return loaded;
+      // Builtin registrations return members of the TrackerClientConfig
+      // union; third-party kinds extend it structurally by design.
+      return Ok(loaded.value as TrackerClientConfig);
     }
     // When repo is unset, derive it from `git remote get-url origin` so
     // downstream repos that omit the key (or copy a config template) get a
