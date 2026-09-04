@@ -1,4 +1,5 @@
 import type { Roadmap, RoadmapFeature, FeatureStatus } from '@harness-engineering/types';
+import { emitRoadmapClaim, emitRoadmapRelease, emitRoadmapStatusChange } from '../waypoint/events';
 
 /**
  * The assignee lifecycle authority.
@@ -15,11 +16,19 @@ import type { Roadmap, RoadmapFeature, FeatureStatus } from '@harness-engineerin
  * orchestrator tracker adapter can never drift apart again — the original bug
  * was born from two adapters disagreeing about how to treat machine ids.
  *
- * Pure functions, no IO. Transition helpers mutate the passed `roadmap` /
- * `feature` in place and append assignment-history records, matching the
- * existing `assignFeature` convention.
+ * Pure functions, no IO of their own. Transition helpers mutate the passed
+ * `roadmap` / `feature` in place and append assignment-history records,
+ * matching the existing `assignFeature` convention.
+ *
+ * Waypoint emission (opt-in, pnyon/pnyon#124): each committed transition also
+ * calls the corresponding `emitRoadmap*` helper. Those helpers are guaranteed
+ * no-ops — no I/O, no behavior change — unless a `waypoint.sink` is
+ * configured in `harness.config.json`, and they never throw, so the mutators
+ * stay deterministic for every non-adopter. A no-op call (first-claim-wins
+ * rejection, same-status `setStatus`) commits nothing and emits nothing.
  *
  * @see docs/changes/assignee-execution-lifecycle/proposal.md
+ * @see docs/changes/waypoint-sdlc-emission/proposal.md
  */
 
 /**
@@ -123,8 +132,13 @@ export function claim(
     return;
   }
 
+  const statusChanged = feature.status !== 'in-progress';
   feature.status = 'in-progress';
-  if (feature.assignee === assignee) return;
+  if (feature.assignee === assignee) {
+    // Idempotent re-claim by the same owner: only a status flip is a commit.
+    if (statusChanged) emitRoadmapClaim(feature.name, assignee);
+    return;
+  }
 
   if (feature.assignee !== null) {
     pushUnassigned(roadmap, feature, feature.assignee, date);
@@ -136,6 +150,7 @@ export function claim(
     action: 'assigned',
     date,
   });
+  emitRoadmapClaim(feature.name, assignee);
 }
 
 /**
@@ -147,14 +162,19 @@ export function claim(
  * Mutates `roadmap` / `feature` in place.
  */
 export function release(roadmap: Roadmap, feature: RoadmapFeature, date: string): void {
-  if (feature.status === 'in-progress') {
+  const wasInProgress = feature.status === 'in-progress';
+  if (wasInProgress) {
     feature.status = 'planned';
   }
-  if (feature.assignee === null) return;
+  if (feature.assignee === null) {
+    if (wasInProgress) emitRoadmapRelease(feature.name, null);
+    return;
+  }
 
   const prev = feature.assignee;
   feature.assignee = null;
   pushUnassigned(roadmap, feature, prev, date);
+  emitRoadmapRelease(feature.name, prev);
 }
 
 /**
@@ -172,10 +192,14 @@ export function setStatus(
   status: FeatureStatus,
   date: string
 ): void {
+  const previousStatus = feature.status;
   feature.status = status;
   if (status !== 'in-progress' && feature.assignee !== null) {
     const prev = feature.assignee;
     feature.assignee = null;
     pushUnassigned(roadmap, feature, prev, date);
+  }
+  if (previousStatus !== status) {
+    emitRoadmapStatusChange(feature.name, status, previousStatus);
   }
 }

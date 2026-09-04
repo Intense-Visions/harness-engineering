@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'packages/cli/src/mcp/tools'
-sourceHash: 'bb0dfbe27977fbfc7b286484e26ba5eb9142fe41083c699904ed167a834db92f'
+sourceHash: '57422efebd66dd15f9fa1583c97ad3f6d94378bfeff384146d864ca65ff76a00'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
@@ -42,6 +42,7 @@ members:
     'detect-drift.ts',
     'dispatch-skills.ts',
     'docs-craft.ts',
+    'docs-publish.test.ts',
     'docs-publish.ts',
     'docs.ts',
     'edit-file.test.ts',
@@ -526,6 +527,7 @@ import { loadGraphStore } from '../utils/graph-loader.js'
 import { McpToolResponse, bigIntSafeReplacer, resultToMcpResponse } from '../utils/result-adapter.js'
 import { sanitizePath } from '../utils/sanitize-path.js'
 import { sortFindingsBySeverity } from '../utils/severity.js'
+import { emitAcceptanceVerdictEvent, emitOutcomeVerdictEvent, emitUatSignoffEvent } from '../utils/waypoint-emission.js'
 import { AdrStoreError, CreateAdrInput, UpdateAdrInput, createAdr, listAdrs, readAdr, resolveWorktreeRoot, updateAdr } from './adr-store.js'
 import { adviseSkillsDefinition, handleAdviseSkills } from './advise-skills.js'
 import from './architecture.js'
@@ -533,6 +535,7 @@ import { generateBlueprintDefinition, handleGenerateBlueprint } from './blueprin
 import { handleCanaryDiscoverTestCommand, handleCanaryProbe, handleCanaryRecommendFramework, handleCanaryRunHistory } from './canary.js'
 import { _resetCompoundLockHandlesForTests, acquireCompoundLockDefinition, handleAcquireCompoundLock, handleReleaseCompoundLock, releaseCompoundLockDefinition } from './compound'
 import { handleValidateCrossCheck, validateCrossCheckDefinition } from './cross-check.js'
+import { docsPublishDefinition, handleDocsPublish } from './docs-publish'
 import from './docs.js'
 import { editFileDefinition, handleEditFile } from './edit-file.js'
 import from './entropy.js'

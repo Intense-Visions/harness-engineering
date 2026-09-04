@@ -1,0 +1,9 @@
+{
+  "reason": "Merge of upstream main (PR #1816 tracker-kind registry) into the sdlc-emission branch; combined growth from the two Waypoint adaptation features",
+  "categories": {
+    "module-size": 263912,
+    "dependency-depth": 668
+  },
+  "violationIds": [],
+  "createdFrom": "21385e03c"
+}

@@ -60,6 +60,8 @@ temp/
 **/.harness/proposals/
 **/.harness/workspaces/
 **/.harness/black-box/
+# spool/: repo-local Waypoint sdlc.* event segments (opt-in; pnyon/pnyon#124)
+**/.harness/spool/
 # metrics/: track the holiday-confidence trend ledger, ignore everything else
 **/.harness/metrics/*
 !**/.harness/metrics/holiday-confidence.jsonl

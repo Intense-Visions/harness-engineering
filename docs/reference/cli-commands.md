@@ -2066,3 +2066,19 @@ List recent sessions with token usage and cost
 **Options:**
 
 - `--limit` — Number of sessions to show (default: 10, max: 100) (default: "10")
+
+## Waypoint Commands
+
+Opt-in Waypoint sdlc.\* emission: record fleet artifacts, inspect the spool
+
+### `harness waypoint record-handoff <file>`
+
+Spool one sdlc.\* event for a written fleet handoff record
+
+### `harness waypoint record-provenance <file>`
+
+Spool one sdlc.\* event for a written fleet provenance.json
+
+### `harness waypoint status`
+
+Show spool health: segments, event counts, drops, oldest event age

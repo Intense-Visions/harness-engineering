@@ -1,0 +1,51 @@
+{
+  "item": "waypoint-harness-adaptation-sdlc-event-emission-and-spool",
+  "issues": ["pnyon/pnyon#124"],
+  "slug": "waypoint-sdlc-emission",
+  "route": "feature",
+  "branch": "feat/waypoint-sdlc-emission",
+  "stages": ["brainstorming", "planning", "execution", "verification"],
+  "specArtifact": "docs/changes/waypoint-sdlc-emission/proposal.md",
+  "planArtifact": "docs/changes/waypoint-sdlc-emission/plans/2026-09-04-waypoint-sdlc-emission-plan.md",
+  "sourceFiles": [
+    "packages/types/src/waypoint.ts",
+    "packages/core/src/waypoint/ulid.ts",
+    "packages/core/src/waypoint/validate.ts",
+    "packages/core/src/waypoint/scrub.ts",
+    "packages/core/src/waypoint/spool.ts",
+    "packages/core/src/waypoint/config-loader.ts",
+    "packages/core/src/waypoint/emitter.ts",
+    "packages/core/src/waypoint/events.ts",
+    "packages/core/src/roadmap/assignee-lifecycle.ts",
+    "packages/cli/src/mcp/utils/waypoint-emission.ts",
+    "packages/cli/src/mcp/tools/interaction.ts",
+    "packages/cli/src/mcp/tools/outcome-eval.ts",
+    "packages/cli/src/mcp/tools/acceptance-eval.ts",
+    "packages/cli/src/mcp/tools/uat-signoff.ts",
+    "packages/cli/src/mcp/tools/roadmap.ts",
+    "packages/cli/src/config/schema.ts",
+    "packages/cli/src/commands/waypoint.ts",
+    "packages/orchestrator/src/gateway/webhooks/events.ts",
+    "packages/orchestrator/src/gateway/webhooks/waypoint-bridge.ts",
+    "packages/orchestrator/src/orchestrator.ts"
+  ],
+  "registrationSites": [
+    "packages/types/src/index.ts",
+    "packages/core/src/index.ts (generate:barrels)",
+    "packages/core/src/waypoint/index.ts",
+    "packages/cli/src/commands/_registry.ts (generate:barrels)",
+    "packages/orchestrator/src/orchestrator.ts (wire + teardown)",
+    ".changeset/waypoint-sdlc-emission.md"
+  ],
+  "assumptions": [
+    "Vocabulary mapping D5 (mutators/transitions/verdicts/fleet artifacts to the closed sdlc.*.v1 set) and the V1/V2/V3 grade projection are documented projections pending pnyon field-level payload schemas.",
+    "Emission covers the file-backed roadmap mode's sanctioned mutators; file-less tracker-path emission is a follow-up (tracker adapter files untouched to avoid the parallel RoadmapTrackerClient lane).",
+    "Fleet artifact emission is invoked via the new `harness waypoint record-*` CLI seam because no TypeScript writer for provenance.json/FleetHandoffRecord exists; wiring fleet SKILL.md prose to call it is a follow-up.",
+    "acceptance_eval has no `path` input, so its emission uses process.cwd() as the project root.",
+    "Only WEBHOOK_TOPICS gains the sdlc.* family; NOTIFICATION_TOPICS/SSE_TOPICS stay per-destination opt-in per their documented design.",
+    "UAT dashboard signoff route not hooked (MCP path emits the same verdict event); follow-up if dashboard-only signoffs need coverage."
+  ],
+  "route_detail": "harness-brainstorming (proposal) -> harness-autopilot-style autonomous execution (plan -> TDD execution -> verification), adapted to this repo's docs/changes conventions",
+  "generatedBy": "roadmap-fleet build lane (pnyon), Claude",
+  "date": "2026-09-04"
+}
