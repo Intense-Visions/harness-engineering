@@ -253,6 +253,48 @@ describe('cleanup command', () => {
       expect(capturedConfigs[0]).not.toHaveProperty('entryPoints');
     });
 
+    it('forwards entropy.drift.docPaths to the analyzer (#1819)', async () => {
+      // `buildSnapshot` reads docPaths from the TOP LEVEL, so threading the
+      // drift config through `analyze.drift` alone left this key inert.
+      vi.mocked(resolveConfig).mockReturnValueOnce({
+        ok: true,
+        value: {
+          version: 1,
+          rootDir: '.',
+          docsDir: './docs',
+          entropy: {
+            excludePatterns: [],
+            drift: { docPaths: ['AGENTS.md', '**/SKILL.md', 'docs/**/*.md'] },
+          },
+        },
+      } as never);
+
+      await runCleanup({ cwd: '/tmp/test' });
+
+      const config = capturedConfigs[0] as { docPaths: string[] };
+      expect(config.docPaths).toEqual(['AGENTS.md', '**/SKILL.md', 'docs/**/*.md']);
+    });
+
+    it('does not silently narrow a configured docPaths to the docsDir glob (#1819)', async () => {
+      // The failure mode is a SILENT narrowing: a clean drift check over a
+      // denominator the project did not choose reads exactly like a real pass.
+      vi.mocked(resolveConfig).mockReturnValueOnce({
+        ok: true,
+        value: {
+          version: 1,
+          rootDir: '.',
+          docsDir: './docs',
+          entropy: { excludePatterns: [], drift: { docPaths: ['AGENTS.md'] } },
+        },
+      } as never);
+
+      await runCleanup({ cwd: '/tmp/test' });
+
+      const config = capturedConfigs[0] as { docPaths: string[] };
+      expect(config.docPaths).not.toContainEqual(expect.stringMatching(/\*\*[\\/]\*\.md$/));
+      expect(config.docPaths).toHaveLength(1);
+    });
+
     it('passes docPaths as a glob pattern, not a bare directory (#301 follow-up)', async () => {
       await runCleanup({ cwd: '/tmp/test' });
       expect(capturedConfigs).toHaveLength(1);

@@ -84,6 +84,28 @@ describe('fix-drift command', () => {
       }
     });
 
+    it('forwards entropy.drift.docPaths to buildSnapshot (#1819)', async () => {
+      // Higher stakes than `cleanup`: fix-drift REWRITES docs, so a narrower
+      // denominator leaves declared files silently unmaintained.
+      vi.mocked(resolveConfig).mockReturnValueOnce({
+        ok: true,
+        value: {
+          version: 1,
+          rootDir: '.',
+          docsDir: './docs',
+          entropy: {
+            excludePatterns: [],
+            drift: { docPaths: ['AGENTS.md', '**/SKILL.md'] },
+          },
+        },
+      } as never);
+
+      await runFixDrift({ cwd: '/tmp/test' });
+
+      const config = vi.mocked(buildSnapshot).mock.calls[0]?.[0] as { docPaths: string[] };
+      expect(config.docPaths).toEqual(['AGENTS.md', '**/SKILL.md']);
+    });
+
     it('passes docPaths as a glob pattern to buildSnapshot (#301 follow-up)', async () => {
       await runFixDrift({ cwd: '/tmp/test' });
       expect(vi.mocked(buildSnapshot)).toHaveBeenCalled();
