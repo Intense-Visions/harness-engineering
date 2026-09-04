@@ -1,0 +1,39 @@
+{
+  "item": "waypoint-harness-adaptation-pnyon-roadmaptrackerclient-kind",
+  "issues": ["pnyon/pnyon#125", "Intense-Visions/harness-engineering#1815"],
+  "issue": 1815,
+  "slug": "waypoint-tracker-kind-pnyon",
+  "title": "Waypoint tracker kind — pnyon RoadmapTrackerClient adapter + tracker-kind registry",
+  "branch": "feat/waypoint-tracker-kind-pnyon",
+  "route": "feature",
+  "closing_keyword": "Closes #1815",
+  "stages": ["brainstorming", "planning", "execution", "verification", "integration"],
+  "stagesRun": ["brainstorming", "planning", "execution", "verification", "integration"],
+  "plan_path": "docs/changes/waypoint-tracker-kind-pnyon/plans/plan.md",
+  "planArtifact": "docs/changes/waypoint-tracker-kind-pnyon/plans/plan.md",
+  "mechanisms": {
+    "waypointContract": "packages/core/src/roadmap/tracker/adapters/waypoint-http.ts — WaypointHttp typed client; the module IS the normative API contract the pnyon-side Waypoint service must satisfy (items, commands with expectedVersion, evidence ledger, ETag/304, 409 version_conflict carrying the current item)",
+    "adapter": "packages/core/src/roadmap/tracker/adapters/pnyon.ts — PnyonTrackerAdapter implements RoadmapTrackerClient; claim/release/complete/update map to sdlc.claim.opened.v1 / sdlc.claim.released.v1 / sdlc.intent.closed.v1 / sdlc.intent.updated.v1; 409 → ConflictError code TRACKER_CONFLICT via shared refetchAndCompare; appendHistory/fetchHistory ride the evidence ledger; ETagStore reuse (feature:/list:all keys)",
+    "registry": "packages/core/src/roadmap/tracker/registry.ts — registerTrackerKind/getTrackerKindRegistration/listRegisteredTrackerKinds with builtin pnyon registration (loadProjectConfig validates url/token at LOAD time; create resolves PNYON_TOKEN fallback)",
+    "loaderOpening": "packages/core/src/roadmap/load-tracker-client-config.ts — github path byte-for-byte; non-github kinds resolve through the registry; unregistered kinds rejected listing registered kinds (existing /only supports kind/ phrasing preserved)",
+    "factoryOpening": "packages/core/src/roadmap/tracker/factory.ts — TrackerClientConfig union gains PnyonTrackerClientConfig; registry fallback before the final Unsupported-tracker-kind error (github-issues/linear branches untouched)",
+    "cliSchema": "packages/cli/src/config/schema.ts — TrackerConfigSchema becomes a discriminated union (github variant unchanged + pnyon { url, token? })"
+  },
+  "verification": {
+    "contractTests": "packages/core/tests/roadmap/tracker/adapters/pnyon.test.ts + waypoint-mock.ts (in-memory reference implementation of the contract): SC3 full method sweep, SC4 conflict + claim race (exactly one winning event), SC5 claim idempotency, SC6 ETag/304 request counts, SC7 no-GitHub module+host audit, evidence-ledger round-trip ≥10 entries",
+    "registryTests": "packages/core/tests/roadmap/tracker/registry.test.ts — SC1 loader (valid/missing-url/unregistered/github regression), SC2 factory (adapter/env fallback/missing token/unsupported kinds)",
+    "fileLessSemantics": "packages/cli/tests/mcp/tools/roadmap.file-less-pnyon.test.ts — SC8 groom unsupported, sync no-op, show flows through the adapter",
+    "cliSchemaTests": "packages/cli/tests/config/schema.tracker-pnyon.test.ts — pnyon variant accepted, github variant not loosened (pre-existing schema.tracker-kind suite unmodified)"
+  },
+  "assumptions": [
+    "A1 — No live Waypoint service exists yet; the typed client module (waypoint-http.ts) IS the normative API contract the pnyon-side service must satisfy, and contract tests run against an in-memory mock implementing it. Recorded per the confirmed lane scope.",
+    "A2 — The Waypoint read API serves harness's six-status projection directly in `status` (lane→status mapping is server-side per pnyon ADR-0047); blocked/needs-human arrive as statuses at this seam.",
+    "A3 — Actor duality (agent onBehalfOf human) is resolved server-side from the authenticated token; the adapter sends assignee/actor as an opaque principal string, preserving interface parity.",
+    "A4 — PNYON_TOKEN is the env-var credential fallback, mirroring GITHUB_TOKEN/LINEAR_API_KEY.",
+    "A5 — linear stays loader-invisible (as today): only pnyon is registered as a builtin; registering linear in the loader is a separate decision.",
+    "A6 — In pnyon mode there is no GitHub write anywhere in the adapter path; the GitHub projection (including the human-reserved assignee field, #640) is Waypoint-side scope. Made explicit in the spec and enforced by the SC7 audit tests.",
+    "A7 — Side-fix included: main was red (typecheck break from #1804 un-exporting context-surface helpers its test imports; main-health #1814). The minimal re-export fix is a separate commit on this branch because the repo's fail-closed local gates cannot pass against the broken baseline.",
+    "A8 — Arch module-size/dependency-depth baselines updated via the sanctioned `harness check-arch --update-baseline` path to admit the new modules (the repo's documented procedure for intentional additions).",
+    "A9 — Emission/gateway/webhook-topic files untouched (parallel lane owns them); shared barrel exports appended, never reordered."
+  ]
+}

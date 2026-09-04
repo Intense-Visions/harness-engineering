@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'packages/cli/tests/mcp/tools'
-sourceHash: '0f47fcc8d4da413ace144b32d4afd5220c0672725f27002c713ca6da45cba193'
+sourceHash: '0126d51e9f24abbca2074286372baf4048e2d2179544ababd0ddec9706cb6868'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
@@ -67,6 +67,7 @@ members:
     'roadmap-missing-path.test.ts',
     'roadmap-scoped-sync.test.ts',
     'roadmap.file-backed-regression.test.ts',
+    'roadmap.file-less-pnyon.test.ts',
     'roadmap.file-less-stub.test.ts',
     'roadmap.file-less.test.ts',
     'roadmap.sharded.test.ts',
@@ -179,7 +180,7 @@ import { HealthSnapshot, captureHealthSnapshot, isSnapshotFresh, loadCachedSnaps
 import { loadOrRebuildIndex } from '../../../src/skill/index-builder'
 import { recommend } from '../../../src/skill/recommendation-engine'
 import { loadOrGenerateProfile } from '../../../src/skill/stack-profile'
-import { COMPILER_VERSION, ComprehensionSourceFile, ComprehensionStore, ComprehensionUnit, ConflictError, Err, ExtractStatic, FeaturePatch, HistoryEvent, NewFeatureInput, Ok, Result, RoadmapTrackerClient, SCHEMA_VERSION, TrackedFeature, compileModule, computeSourceHash, createNodeComprehensionIO, createNodeModuleSourceReader, detectStaleConstraints, loadTrackerConfig, parseRoadmap, roadmapToShards, serializeMeta, serializeShard } from '@harness-engineering/core'
+import { COMPILER_VERSION, ComprehensionSourceFile, ComprehensionStore, ComprehensionUnit, ConflictError, Err, ExtractStatic, FeaturePatch, HistoryEvent, NewFeatureInput, Ok, PnyonTrackerAdapter, Result, RoadmapTrackerClient, SCHEMA_VERSION, TrackedFeature, compileModule, computeSourceHash, createNodeComprehensionIO, createNodeModuleSourceReader, detectStaleConstraints, loadTrackerConfig, parseRoadmap, roadmapToShards, serializeMeta, serializeShard } from '@harness-engineering/core'
 import { queryTraceability } from '@harness-engineering/graph'
 import { deriveAcceptanceAuthority } from '@harness-engineering/intelligence'
 import { Err, Ok, Result } from '@harness-engineering/types'
