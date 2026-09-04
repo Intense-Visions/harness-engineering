@@ -1,12 +1,13 @@
 ---
 schemaVersion: 1
 module: 'packages/cli/src/mcp'
-sourceHash: 'ada544265cbc76d6829af439139846fb8174698e37cb2798870a66e8f537fe66'
+sourceHash: '370e54ef5012320aa02a5d84bbfe3110cb08f9702e90ac89d28eced455c5587c'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
 members:
   [
+    'context-surface.test.ts',
     'context-surface.ts',
     'index.ts',
     'server.ts',
@@ -33,6 +34,7 @@ export startServer
 ```
 import { ensureComprehensionSearchIgnore, ensureHarnessGitignore } from '../templates/post-write.js'
 import from '../version.js'
+import { agentsMdEntry, gatherContextSurface, hooksEntry, mcpToolEntries, skillTreeEntries, toolDefinitionText } from './context-surface'
 import { getToolDefinitions } from './index.js'
 import { applyCompaction } from './middleware/compaction.js'
 import { applyContextBudget } from './middleware/context-budget.js'
@@ -46,7 +48,9 @@ import { getRulesResource } from './resources/rules.js'
 import { getSkillsResource } from './resources/skills.js'
 import { getStateResource } from './resources/state.js'
 import { TOOL_CAPABILITY_DECLARATIONS } from './tool-capability-declarations.js'
+import { CORE_TOOL_NAMES, STANDARD_TOOL_NAMES } from './tool-tiers'
 import { CORE_TOOL_NAMES, McpToolTier, STANDARD_TOOL_NAMES } from './tool-tiers.js'
+import { ToolDefinition } from './tool-types'
 import { ToolCapabilityDeclaration, ToolDefinition, ToolScope } from './tool-types.js'
 import { acceptanceEvalDefinition, handleAcceptanceEval } from './tools/acceptance-eval.js'
 import { handleManageAdr, manageAdrDefinition } from './tools/adr.js'
@@ -127,6 +131,8 @@ import { ContextSurfaceEntry } from '@harness-engineering/core'
 import { Server } from '@modelcontextprotocol/sdk/server/index.js'
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js'
 import { CallToolRequestSchema, ListResourcesRequestSchema, ListToolsRequestSchema, ReadResourceRequestSchema } from '@modelcontextprotocol/sdk/types.js'
-import { existsSync, readFileSync, readdirSync } from 'node:fs'
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'node:fs'
+import { tmpdir } from 'node:os'
 import { join } from 'node:path'
+import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 ```
