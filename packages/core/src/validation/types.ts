@@ -12,7 +12,21 @@ export interface StructureValidation {
   valid: boolean;
   missing: string[]; // Required files/patterns that don't exist
   unexpected: string[]; // Files that violate conventions
-  conformance: number; // 0-100%
+  /**
+   * Percentage of the REQUIRED conventions that were satisfied, or `null` when
+   * no convention was marked required — there is no population to be a
+   * percentage of, so there is no percentage (#1530). Previously `100` in that
+   * case, which read as a perfect score for a project that had configured
+   * nothing to conform to.
+   */
+  conformance: number | null; // 0-100%, or null when the audit abstained
+  /**
+   * True when no convention was marked required, so the check examined an empty
+   * population and verified nothing (#1530). Carried separately from `valid` so
+   * a consumer can say "abstained" rather than having to choose between a
+   * misleading pass and an unexplained failure.
+   */
+  abstained: boolean;
 }
 
 // Config Validation

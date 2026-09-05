@@ -113,7 +113,7 @@ describe('validateFileStructure', () => {
     }
   });
 
-  it('should calculate conformance correctly with no required files', async () => {
+  it('abstains rather than reporting 100% when no convention is required', async () => {
     const projectPath = join(__dirname, '../fixtures/valid-project');
     const conventions = [
       {
@@ -128,8 +128,14 @@ describe('validateFileStructure', () => {
 
     expect(isOk(result)).toBe(true);
     if (result.ok) {
-      expect(result.value.valid).toBe(true);
-      expect(result.value.conformance).toBe(100);
+      // Conformance is a percentage OF the required conventions. With none
+      // required there is no population, so there is no percentage (#1530).
+      // This used to report `100` and `valid: true` — a perfect score for a
+      // project that had configured nothing to conform to, which is the
+      // reassuring reading of "we checked nothing".
+      expect(result.value.conformance).toBeNull();
+      expect(result.value.abstained).toBe(true);
+      expect(result.value.valid).toBe(false);
     }
   });
 

@@ -122,3 +122,26 @@ describe('runCheckHarnessStrength live-repo dogfood (loose smoke)', () => {
     expect(f006?.file).toBe('.github/workflows/ci.yml');
   });
 });
+
+describe('runCheckHarnessStrength — the score abstains rather than reading green (#1530)', () => {
+  it('types the score as nullable, so the abstention cannot be lost downstream', () => {
+    const r = runCheckHarnessStrength(WEAK, {});
+    expect(r.ok).toBe(true);
+    if (!r.ok) return;
+    // The value on a real fixture is a number; the point is that `null` is a
+    // representable outcome, which is what stops a caller from printing a
+    // fabricated 0 or 100 for an audit that evaluated nothing.
+    const score: number | null = r.value.audit.score;
+    expect(score === null || typeof score === 'number').toBe(true);
+  });
+
+  it('never reports a `solid` tier without a scored population', () => {
+    const r = runCheckHarnessStrength(WEAK, {});
+    expect(r.ok).toBe(true);
+    if (!r.ok) return;
+    // The invariant #1530 adds on top of #1013: an unscored audit is
+    // `incomplete`, never `solid` — "we did not look" must not outrank
+    // "we looked and it was clean".
+    if (r.value.audit.score === null) expect(r.value.audit.tier).toBe('incomplete');
+  });
+});

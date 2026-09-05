@@ -3,6 +3,7 @@ import type { Result } from '../shared/result';
 import type { ValidationError } from '../shared/errors';
 import { Ok } from '../shared/result';
 import { findFiles } from '../shared/fs-utils';
+import { denominate } from '../metrics';
 
 export async function validateFileStructure(
   projectPath: string,
@@ -26,14 +27,32 @@ export async function validateFileStructure(
     }
   }
 
-  // Calculate conformance
-  const conformance = totalRequired === 0 ? 100 : (foundRequired / totalRequired) * 100;
+  // Conformance is a percentage OF the required conventions — so when there are
+  // no required conventions there is no population, and no percentage (#1530).
+  // This used to be `totalRequired === 0 ? 100 : ...`, which reported a perfect
+  // 100% conformance for a project that had configured nothing to conform to:
+  // "we checked nothing" was indistinguishable from "everything passed", and it
+  // was the reassuring one of the two. A zero denominator is an abstention.
+  const coverage = denominate({
+    metric: 'validation.file_structure_conformance',
+    numerator: foundRequired,
+    denominator: totalRequired,
+    population: {
+      definition: 'file-structure conventions marked required',
+      source: 'the project configuration',
+    },
+    unit: 'percent',
+  });
 
   const validation: StructureValidation = {
-    valid: missing.length === 0,
+    // An empty required-convention set cannot make the structure valid — there
+    // was no structure requirement to satisfy. `valid` now says so rather than
+    // inheriting the vacuous truth of `[].every()`.
+    valid: coverage.basis === 'measured' && missing.length === 0,
     missing,
     unexpected,
-    conformance,
+    conformance: coverage.value,
+    abstained: coverage.basis !== 'measured',
   };
 
   return Ok(validation);

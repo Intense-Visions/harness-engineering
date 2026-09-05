@@ -82,7 +82,15 @@ export class HarnessStrengthAuditor {
       // some of the applicable patterns is `incomplete`, not `solid` (#1013). The
       // tier keys off the findings score (not the coverage-scaled one) so this
       // orthogonal coverage caveat stays distinct from a detected weakness.
-      const tier: Tier = scoredTier === 'solid' && skipped.length > 0 ? 'incomplete' : scoredTier;
+      //
+      // A NULL score means no pattern applied at all — the audit abstained
+      // (#1530) — and `incomplete` is the only tier that does not assert a
+      // finding about the codebase, so it is the honest one. `theatre` would be
+      // a verdict on a repo we never looked at.
+      const tier: Tier =
+        score === null || (scoredTier === 'solid' && skipped.length > 0)
+          ? 'incomplete'
+          : scoredTier;
 
       const summary = {
         errors: findings.filter((f) => f.severity === 'error').length,
