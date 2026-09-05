@@ -19,6 +19,13 @@ ruleTester.run('no-disabled-tests', rule, {
     { code: `someFunction();` },
     // Nested calls with .skip (should be valid)
     { code: `describe('suite', () => { it('test', () => {}); });` },
+    // Playwright namespaced calls that are NOT muted
+    { code: `test.describe('suite', () => {});` },
+    { code: `test.describe.serial('suite', () => {});` },
+    { code: `test.describe.parallel('suite', () => {});` },
+    // A .skip whose chain root is not a known test global — not our business
+    { code: `rateLimiter.skip('token', () => {});` },
+    { code: `queue.batch.skip();` },
     // Identifiers named skip that are not related to tests
     { code: `const skip = 'something';` },
     { code: `function skip() {}` },
@@ -53,6 +60,21 @@ ruleTester.run('no-disabled-tests', rule, {
     // xtest()
     {
       code: `xtest('test', () => {});`,
+      errors: [{ messageId: 'disabledTest' }],
+    },
+    // Playwright: test.describe.skip() mutes an ENTIRE block — the callee's
+    // object is a MemberExpression (`test.describe`), not an Identifier. #1812
+    {
+      code: `test.describe.skip('suite', () => {});`,
+      errors: [{ messageId: 'disabledTest' }],
+    },
+    // Playwright modifier chains have the same nested shape
+    {
+      code: `test.describe.serial.skip('suite', () => {});`,
+      errors: [{ messageId: 'disabledTest' }],
+    },
+    {
+      code: `test.describe.parallel.skip('suite', () => {});`,
       errors: [{ messageId: 'disabledTest' }],
     },
   ],
