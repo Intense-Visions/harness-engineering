@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'packages/core/src/roadmap'
-sourceHash: '7c66b80fdddef0e3cba73dfaa49e1220060d2677e74a9e2f15eb489e9a129fcf'
+sourceHash: '9b50ca192f87e3de9ed816ef0112fe3a5ef9ee67425faaf32f6790fdd458901a'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
@@ -108,6 +108,7 @@ export detectRoadmapStorageMode
 export fullSync
 export getRoadmapMode
 export getTrackerKindRegistration
+export githubRepoPath
 export groomRoadmap
 export isClaimableBy
 export isMachineAssignee
