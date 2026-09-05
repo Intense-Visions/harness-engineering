@@ -120,3 +120,61 @@ export function isMarkedInternal(node: TSESTree.Node, sourceCode: string): boole
   const comment = textBefore.slice(lastComment, commentEnd + 2);
   return comment.includes('@internal');
 }
+
+/**
+ * Test-runner globals that can carry a `.skip` / `.only` style modifier.
+ * A modifier chain is only interesting when it is rooted at one of these.
+ */
+const TEST_GLOBALS = new Set(['describe', 'it', 'test']);
+
+/**
+ * Resolve a call's callee to its dotted member chain, e.g.
+ * `test.describe.serial.skip(...)` -> `['test', 'describe', 'serial', 'skip']`.
+ *
+ * Returns null unless the chain is a plain, statically written dotted path:
+ * every link must be a non-computed `Identifier` and the root must be a bare
+ * `Identifier`. Computed access (`test['skip']()`), optional chaining and
+ * call/`this` roots resolve to null — they are out of scope here.
+ */
+function resolveCalleeChain(callee: TSESTree.Expression): string[] | null {
+  const chain: string[] = [];
+  let current: TSESTree.Node = callee;
+
+  while ((current.type as AST_NODE_TYPES) === AST_NODE_TYPES.MemberExpression) {
+    const member = current as TSESTree.MemberExpression;
+    if (member.computed || member.optional) return null;
+    if ((member.property.type as AST_NODE_TYPES) !== AST_NODE_TYPES.Identifier) return null;
+    chain.unshift((member.property as TSESTree.Identifier).name);
+    current = member.object;
+  }
+
+  if ((current.type as AST_NODE_TYPES) !== AST_NODE_TYPES.Identifier) return null;
+  chain.unshift((current as TSESTree.Identifier).name);
+  return chain;
+}
+
+/**
+ * Check whether a call is a test-runner modifier call of the given kind —
+ * i.e. a dotted chain rooted at `describe` / `it` / `test` whose FINAL link is
+ * `modifier`.
+ *
+ * This walks the whole callee chain instead of assuming a single-level member
+ * expression, so Playwright's namespaced spellings are covered alongside the
+ * flat Jest/Mocha ones:
+ *
+ *   describe.skip(...)                  -> true  (flat)
+ *   test.skip(...)                      -> true  (flat)
+ *   test.describe.skip(...)             -> true  (nested — mutes a whole block)
+ *   test.describe.serial.skip(...)      -> true  (modifier chain)
+ *   test.describe(...)                  -> false (no modifier)
+ *   rateLimiter.skip(...)               -> false (root is not a test global)
+ */
+export function isTestModifierCall(node: TSESTree.CallExpression, modifier: string): boolean {
+  if ((node.callee.type as AST_NODE_TYPES) !== AST_NODE_TYPES.MemberExpression) return false;
+
+  const chain = resolveCalleeChain(node.callee);
+  // A modifier chain needs a root plus at least one property link.
+  if (!chain || chain.length < 2) return false;
+
+  return TEST_GLOBALS.has(chain[0] as string) && chain[chain.length - 1] === modifier;
+}

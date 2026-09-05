@@ -1,0 +1,50 @@
+{
+  "issue": 1812,
+  "issueUrl": "https://github.com/Intense-Visions/harness-engineering/issues/1812",
+  "title": "no-skipped-tests/no-disabled-tests miss Playwright's test.describe.skip()",
+  "route": "bug",
+  "fleet": "roadmap-fleet",
+  "pipelineStages": ["debugging"],
+  "branch": "fix/eslint-playwright-describe-skip-1812",
+  "baseSha": "5cd661d74a7cb4e3b4164a8c7fb36d75e298fd0f",
+  "debugSession": "docs/changes/no-skipped-tests-playwright-describe-skip-1812/debug-session.md",
+  "reproducingTest": "packages/eslint-plugin/tests/rules/no-skipped-tests.test.ts",
+  "reproducingTests": [
+    "packages/eslint-plugin/tests/rules/no-skipped-tests.test.ts",
+    "packages/eslint-plugin/tests/rules/no-disabled-tests.test.ts",
+    "packages/eslint-plugin/tests/utils/ast-helpers.test.ts"
+  ],
+  "reproducingTestCommand": "pnpm --filter @harness-engineering/eslint-plugin exec vitest run tests/rules/no-skipped-tests.test.ts tests/rules/no-disabled-tests.test.ts",
+  "reproducingTestResult": {
+    "beforeFix": "FAIL \u2014 6 failed | 37 passed (43); AssertionError: Should have 1 error but had 0",
+    "afterFix": "PASS \u2014 43 passed (43)",
+    "revertVerification": "fix reverted with tests unchanged -> 6 failed | 37 passed; fix restored -> 43 passed"
+  },
+  "rootCause": "Both rules gated skip detection on `node.callee.object.type === 'Identifier'`, which admits only a single-level member expression. Playwright namespaces its API, so `test.describe.skip()` has a MemberExpression (`test.describe`) as the callee object and never matched.",
+  "fix": "Added `isTestModifierCall` to packages/eslint-plugin/src/utils/ast-helpers.ts, which resolves the callee to its dotted chain and matches any chain rooted at describe/it/test whose final link is the given modifier. Both rules now delegate to it for the `skip` modifier.",
+  "filesChanged": [
+    "packages/eslint-plugin/src/utils/ast-helpers.ts",
+    "packages/eslint-plugin/src/rules/no-skipped-tests.ts",
+    "packages/eslint-plugin/src/rules/no-disabled-tests.ts",
+    "packages/eslint-plugin/tests/rules/no-skipped-tests.test.ts",
+    "packages/eslint-plugin/tests/rules/no-disabled-tests.test.ts",
+    "packages/eslint-plugin/tests/utils/ast-helpers.test.ts"
+  ],
+  "assumptions": [
+    "Rule contract is NOT expanded beyond the `skip` keyword. The issue and the sibling rule `no-focused-tests` also mention `.only`/`.fixme`, but neither no-skipped-tests nor no-disabled-tests ever claimed those keywords, so they are left alone. The new helper is parameterised by modifier so a future change can adopt it without another rewrite.",
+    "The chain root must still be one of `describe` / `it` / `test`. A `.skip` on any other receiver (e.g. `rateLimiter.skip()`) stays unreported \u2014 pinned by new valid test cases so it cannot regress into a false positive.",
+    "Only statically written, non-computed dotted paths are matched. Computed access (`test.describe['skip']()`) and optional chaining (`test?.describe?.skip()`) resolve to null and stay unreported. This gap is pre-existing and identical in the flat case (`describe['skip']()` was never caught either); it has a different root cause from #1812 and was deliberately left out of scope rather than folded in silently.",
+    "`no-focused-tests` carries the identical flat-member guard for `.only`, so `test.describe.only()` is very likely missed the same way. Out of scope for #1812 (different rule, different keyword) and NOT fixed here; noted for follow-up.",
+    "Both rules keep firing independently on the same node, so a single `test.describe.skip` now reports twice when both rules are enabled \u2014 matching the pre-existing double-report behaviour for `test.skip` shown in the issue. Deduplicating the two overlapping rules is a separate design question, not a bug fix."
+  ],
+  "outOfScope": [
+    "Rule message wording \u2014 the issue's 'Also worth considering' note asks the message to acknowledge a sanctioned quarantine as a third option alongside re-enable/delete. That is a copy/policy change, not the reported defect, and is not made here.",
+    "packages/eslint-plugin/src/rules/no-focused-tests.ts (`.only`, same flat-member shape)"
+  ],
+  "verification": {
+    "packageTests": "pnpm --filter @harness-engineering/eslint-plugin test -> 27 files, 329 passed",
+    "typecheck": "pnpm --filter @harness-engineering/eslint-plugin typecheck -> clean",
+    "lint": "pnpm --filter @harness-engineering/eslint-plugin lint -> clean"
+  },
+  "debugSessionNote": "The harness-debugging pipeline writes its session to .harness/debug/resolved/1812-playwright-describe-skip.md, which is gitignored (.harness/.gitignore line 4). A verbatim copy is committed here so the investigation record is durable and reviewable."
+}

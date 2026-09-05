@@ -1,11 +1,10 @@
 ---
 schemaVersion: 1
 module: 'packages/eslint-plugin/tests/rules'
-sourceHash: 'e840b91cacc3945c0a06745561f3dc229d9d1fa4c563849e448952afbde321fb'
-compiledAt: '2026-08-28T01:22:11.571Z'
+sourceHash: 'cd07281f9ba0e2678d77ba358f78e37d264104345b41d57c0244bb82d0a4bd66'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
-model: 'claude-haiku-4-5-20251001'
-semantic: present
+model: null
+semantic: absent
 members:
   [
     'enforce-doc-exports.test.ts',
@@ -31,23 +30,6 @@ members:
     'require-path-normalization.test.ts',
   ]
 ---
-
-## Summary
-
-The `packages/eslint-plugin/tests/rules` module is a comprehensive test suite for 20 ESLint rules, organized as individual test files, each validating one rule using RuleTester from `@typescript-eslint/rule-tester`. The rules span six categories: **documentation & exports** (enforce-doc-exports), **architecture & layering** (no-circular-deps, no-layer-violation, no-forbidden-imports), **test quality** (no-disabled-tests, no-empty-describe, no-focused-tests, no-skipped-tests, no-hardcoded-test-count), **path safety** (no-hardcoded-path-separator, require-path-normalization), **performance** (no-nested-loops-in-critical, no-unbounded-array-chains), and **process/async safety** (no-sync-io-in-async, no-process-env-in-spawn, no-process-exit, prefer-execfile-over-exec, no-unix-shell-command).
-
-Each test file follows a consistent pattern: RuleTester callbacks are wired to Vitest (`afterAll`, `describe`, `it`), the rule is imported, and test cases split into `valid` and `invalid` arrays. Valid cases assert the rule should not trigger; invalid cases assert specific `messageId` errors. Configuration-dependent rules (no-layer-violation, no-forbidden-imports) use a `fixtures` directory for setup and clear caches via `beforeEach` to prevent test pollution. Tests verify both simple and complex patterns: direct calls and member expressions (e.g., `spawn()` vs `child_process.spawn()`), nested structures (async functions with sync I/O), and boundary cases (external imports, non-matching patterns). Some rules like `no-circular-deps` expose helper functions (addEdge, detectCycle, clearImportGraph) that are tested alongside the linter rule itself.
-
-## Invariants
-
-- RuleTester Vitest bridging: RuleTester callbacks must be wired to Vitest hooks (e.g., `RuleTester.afterAll = afterAll`) before running any tests
-- Error identification by messageId: All error assertions reference `messageId` strings (e.g., `{ messageId: 'forbiddenImport' }`), never literal error messages, to decouple tests from I18n or message text changes
-- State cleanup on config-dependent rules: Tests of rules that load configuration (e.g., no-layer-violation, no-forbidden-imports) must call `clearConfigCache()` in `beforeEach` to prevent cross-test pollution
-- Fixtures directory structure: Configuration-dependent rules assume fixtures at `../fixtures/` with paths normalized via `path.join(__dirname, '../fixtures', 'src/...')`
-- Valid/invalid case completeness: Each rule test must include explicit valid cases for external imports (always allowed), non-matching patterns (different identifiers, different contexts), and patterns the rule should ignore (e.g., URLs, regex literals, import specifiers)
-- Nested and edge-case coverage: Tests verify rule behavior on nested structures (nested loops, async within async), both function declaration forms (arrow, expression, declaration), and member vs. direct call patterns
-- No spurious rule triggering: Rules that inspect specific contexts (e.g., spawn calls, @perf-critical functions) must be tested to confirm they don't trigger on similar but non-applicable code
-- Graph/state fixtures are transient: Rules exposing graph helpers (e.g., `no-circular-deps`) must export cache-clearing functions and tests must call them in `beforeEach` to reset state between cases
 
 ## Interface Contract
 
