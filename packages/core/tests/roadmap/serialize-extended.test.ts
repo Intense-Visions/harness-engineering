@@ -32,11 +32,25 @@ describe('serializeRoadmap() — extended fields', () => {
     expect(result).toContain('- **Priority:** P2');
   });
 
-  it('serializes assignment history table', () => {
+  it('serializes assignment history as one bullet block per record', () => {
     const result = serializeRoadmap(HISTORY_ROADMAP);
     expect(result).toContain('## Assignment History');
-    expect(result).toContain('| Core Library Design | @cwarner | assigned | 2026-03-15 |');
-    expect(result).toContain('| Core Library Design | @cwarner | completed | 2026-04-01 |');
+    expect(result).toContain(
+      [
+        '- **Feature:** Core Library Design',
+        '- **Assignee:** @cwarner',
+        '- **Action:** assigned',
+        '- **Date:** 2026-03-15',
+      ].join('\n')
+    );
+    expect(result).toContain(
+      [
+        '- **Feature:** Core Library Design',
+        '- **Assignee:** @cwarner',
+        '- **Action:** completed',
+        '- **Date:** 2026-04-01',
+      ].join('\n')
+    );
   });
 
   it('omits assignment history section when empty', () => {

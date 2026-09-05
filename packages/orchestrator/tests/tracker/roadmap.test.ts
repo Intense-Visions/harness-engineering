@@ -17,6 +17,23 @@ function idFor(name: string): string {
 }
 
 /**
+ * The `### <name>` block of one feature, from its heading up to the next H3/H2.
+ *
+ * Assertions about a feature's own fields MUST be scoped this way. The
+ * `## Assignment History` section records each release as four `- **Key:** value`
+ * bullets (#1811), so it legitimately carries the released `- **Assignee:**` — a
+ * whole-document `not.toContain('**Assignee:**')` would now be asserting that the
+ * audit trail is empty, which is the opposite of what these tests mean.
+ */
+function featureBlock(markdown: string, name: string): string {
+  const start = markdown.indexOf(`### ${name}\n`);
+  if (start === -1) return '';
+  const rest = markdown.slice(start);
+  const end = rest.slice(1).search(/^#{2,3} /m);
+  return end === -1 ? rest : rest.slice(0, end + 1);
+}
+
+/**
  * The adapter reads + writes roadmap CONTENT through the store
  * (`resolveRoadmapStoreForFile` → `applyRoadmapDiff`), so these tests drive a REAL
  * monolith roadmap file under a temp dir rather than `node:fs` mocks. The
@@ -242,9 +259,15 @@ last_manual_edit: '2026-03-24T00:00:00.000Z'
       const written = await readBack();
       expect(written).toMatch(/### Task 1\n\n- \*\*Status:\*\* done/);
       // setStatus auto-cleared the assignee on the move away from in-progress.
-      expect(written).not.toContain('**Assignee:** orchestrator-5c895000');
+      expect(featureBlock(written, 'Task 1')).not.toContain('**Assignee:** orchestrator-5c895000');
       // The release is recorded as an `unassigned` history entry.
-      expect(written).toContain('| Task 1 | orchestrator-5c895000 | unassigned |');
+      expect(written).toContain(
+        [
+          '- **Feature:** Task 1',
+          '- **Assignee:** orchestrator-5c895000',
+          '- **Action:** unassigned',
+        ].join('\n')
+      );
     });
 
     it('leaves no assignee after a full claim → complete round-trip', async () => {
@@ -265,8 +288,16 @@ last_manual_edit: '2026-03-24T00:00:00.000Z'
       expect(completeResult.ok).toBe(true);
       const completed = await readBack();
       expect(completed).toMatch(/### Task 1\n\n- \*\*Status:\*\* done/);
-      expect(completed).not.toContain('**Assignee:** orchestrator-5c895000');
-      expect(completed).toContain('| Task 1 | orchestrator-5c895000 | unassigned |');
+      expect(featureBlock(completed, 'Task 1')).not.toContain(
+        '**Assignee:** orchestrator-5c895000'
+      );
+      expect(completed).toContain(
+        [
+          '- **Feature:** Task 1',
+          '- **Assignee:** orchestrator-5c895000',
+          '- **Action:** unassigned',
+        ].join('\n')
+      );
     });
   });
 
@@ -386,10 +417,14 @@ last_manual_edit: '2026-03-24T00:00:00.000Z'
       expect(written).toMatch(/### Task 1\n\n- \*\*Status:\*\* planned/);
       // Assignee cleared to null; with Priority and External-ID also null,
       // the serializer omits the entire extended-fields group.
-      expect(written).not.toContain('**Assignee:**');
+      expect(featureBlock(written, 'Task 1')).not.toContain('**Assignee:**');
       // Release is routed through the lifecycle authority, so it logs an
       // `unassigned` history record (audit symmetry with claim/complete).
-      expect(written).toContain('| Task 1 | orch-abc123 | unassigned |');
+      expect(written).toContain(
+        ['- **Feature:** Task 1', '- **Assignee:** orch-abc123', '- **Action:** unassigned'].join(
+          '\n'
+        )
+      );
     });
 
     it('is a no-op when the feature is not found', async () => {

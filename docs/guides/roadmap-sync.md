@@ -69,11 +69,20 @@ last_manual_edit: 2026-04-02
 
 ## Assignment History
 
-| Feature        | Assignee | Action    | Date       |
-| -------------- | -------- | --------- | ---------- |
-| Authentication | @alice   | assigned  | 2026-03-15 |
-| Authentication | @alice   | completed | 2026-03-28 |
-| API Gateway    | @alice   | assigned  | 2026-04-01 |
+- **Feature:** Authentication
+- **Assignee:** @alice
+- **Action:** assigned
+- **Date:** 2026-03-15
+
+- **Feature:** Authentication
+- **Assignee:** @alice
+- **Action:** completed
+- **Date:** 2026-03-28
+
+- **Feature:** API Gateway
+- **Assignee:** @alice
+- **Action:** assigned
+- **Date:** 2026-04-01
 ```
 
 ### Feature Fields
@@ -412,17 +421,33 @@ These fields are conditionally emitted — if none are set on a feature, the mar
 
 ## Assignment History
 
-An `## Assignment History` section is automatically maintained at the bottom of `roadmap.md`:
+An `## Assignment History` section is automatically maintained at the bottom of `roadmap.md`. Each record is a block of four `- **Key:** value` bullets — the same line grammar a feature row uses:
 
 ```markdown
 ## Assignment History
 
-| Feature       | Assignee | Action    | Date       |
-| ------------- | -------- | --------- | ---------- |
-| Widget System | @alice   | assigned  | 2026-04-01 |
-| Widget System | @alice   | completed | 2026-04-03 |
-| API Gateway   | @bob     | assigned  | 2026-04-02 |
+- **Feature:** Widget System
+- **Assignee:** @alice
+- **Action:** assigned
+- **Date:** 2026-04-01
+
+- **Feature:** Widget System
+- **Assignee:** @alice
+- **Action:** completed
+- **Date:** 2026-04-03
+
+- **Feature:** API Gateway
+- **Assignee:** @bob
+- **Action:** assigned
+- **Date:** 2026-04-02
 ```
+
+A record starts at its `- **Feature:**` bullet, so the blank lines between blocks
+are cosmetic. The section was a markdown pipe table before v5; a feature name
+containing a `|` silently destroyed its own record on the next read, so the column
+separator was removed rather than escaped (#1811). Documents still carrying the old
+table are read as before — only the writer changed — but a legacy row whose value
+contained a `|` was already lost when it was written and cannot be recovered.
 
 Reassignment produces two records: `unassigned` for the previous assignee, then `assigned` for the new one. This provides a complete audit trail and enables affinity-based routing.
 

@@ -153,10 +153,16 @@ milestones:
 ---
 
 ## Assignment History
-| Feature | Assignee | Action | Date |
-|---------|----------|--------|------|
-| Core foundation | alice | assigned | 2026-01-02 |
-| Core foundation | bob | unassigned | 2026-01-03 |
+
+- **Feature:** Core foundation
+- **Assignee:** alice
+- **Action:** assigned
+- **Date:** 2026-01-02
+
+- **Feature:** Core foundation
+- **Assignee:** bob
+- **Action:** unassigned
+- **Date:** 2026-01-03
 `;
 
 export const META_WITH_HISTORY: RoadmapMeta = {
