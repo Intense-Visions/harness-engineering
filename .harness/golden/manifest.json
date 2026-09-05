@@ -1,12 +1,12 @@
 {
   "version": 1,
-  "promotedAt": "2026-08-31T22:57:37.035Z",
-  "commit": "521d7d5",
+  "promotedAt": "2026-09-05T12:21:28.322Z",
+  "commit": "851a5e4",
   "branch": "main",
   "files": [
     {
       "path": ".harness/arch/baselines.json",
-      "sha256": "456c1c2679755dde3c8ffa0e42d5c4fbcb408fb5c65598512b1fabfea329b4a1"
+      "sha256": "18fcfe4cd7120bad01f1cb2ae423673d250b506885427445d964e61f67bdb910"
     },
     {
       "path": "benchmark-baselines.json",
@@ -14,7 +14,7 @@
     },
     {
       "path": "coverage-baselines.json",
-      "sha256": "c2ca962ee64dd4bd36d580413c0c6b7a56e9c89ffecf5de98a44070327cd8250"
+      "sha256": "7a93a5f31e7846916e2323fba8925a113c2b892216f384363d922a2fee0d20e5"
     },
     {
       "path": "harness.config.json",
@@ -22,11 +22,11 @@
     },
     {
       "path": "package.json",
-      "sha256": "b4793f5cae29f364d7b3551962cf6e9661fa0f357bc006fce02b7d480e84c43f"
+      "sha256": "13df5cd03d158d4ce7edf62719d4ad0a1481ef0aef4155e5e123e2900fe711c8"
     },
     {
       "path": "pnpm-lock.yaml",
-      "sha256": "0eaf69140738efe7af998e7db0d8920fb66755e921c0fbc10034452ff9b1cd3c"
+      "sha256": "14a3fa8b096dac961078335a87508f13beca8d7d43893daf01c415e6b01a2b4c"
     }
   ]
 }
