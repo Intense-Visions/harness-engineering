@@ -35,11 +35,13 @@
     "The chain root must still be one of `describe` / `it` / `test`. A `.skip` on any other receiver (e.g. `rateLimiter.skip()`) stays unreported \u2014 pinned by new valid test cases so it cannot regress into a false positive.",
     "Only statically written, non-computed dotted paths are matched. Computed access (`test.describe['skip']()`) and optional chaining (`test?.describe?.skip()`) resolve to null and stay unreported. This gap is pre-existing and identical in the flat case (`describe['skip']()` was never caught either); it has a different root cause from #1812 and was deliberately left out of scope rather than folded in silently.",
     "`no-focused-tests` carries the identical flat-member guard for `.only`, so `test.describe.only()` is very likely missed the same way. Out of scope for #1812 (different rule, different keyword) and NOT fixed here; noted for follow-up.",
-    "Both rules keep firing independently on the same node, so a single `test.describe.skip` now reports twice when both rules are enabled \u2014 matching the pre-existing double-report behaviour for `test.skip` shown in the issue. Deduplicating the two overlapping rules is a separate design question, not a bug fix."
+    "Both rules keep firing independently on the same node, so a single `test.describe.skip` now reports twice when both rules are enabled \u2014 matching the pre-existing double-report behaviour for `test.skip` shown in the issue. Deduplicating the two overlapping rules is a separate design question, not a bug fix.",
+    "Matching requires `skip` to be the FINAL link of the chain, exactly as the issue's suggested fix states. Jest's `describe.skip.each([...])(...)` therefore stays unreported, because `skip` is not terminal there. Verified empirically that this is PRE-EXISTING and not a regression: the rule at base 5cd661d74 also reports 0 problems for `describe.skip.each([1,2])('n', () => {})`, and it still reports 0 after this change. Broadening to `skip anywhere in the chain` would change the matcher's semantics beyond what #1812 reports and carries false-positive risk I could not fully enumerate, so it is left as a documented gap."
   ],
   "outOfScope": [
     "Rule message wording \u2014 the issue's 'Also worth considering' note asks the message to acknowledge a sanctioned quarantine as a third option alongside re-enable/delete. That is a copy/policy change, not the reported defect, and is not made here.",
-    "packages/eslint-plugin/src/rules/no-focused-tests.ts (`.only`, same flat-member shape)"
+    "packages/eslint-plugin/src/rules/no-focused-tests.ts (`.only`, same flat-member shape)",
+    "Jest's `describe.skip.each([...])(...)` \u2014 `skip` is not the terminal chain link; pre-existing gap, unchanged by this PR."
   ],
   "verification": {
     "packageTests": "pnpm --filter @harness-engineering/eslint-plugin test -> 27 files, 329 passed",
