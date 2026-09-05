@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'packages/core/tests/roadmap'
-sourceHash: '2ab7ac3467a6761da3e8782abc57d646e0e78df3a2084e1318fc8d6055b44629'
+sourceHash: '1afd158e8f84759ca54976b3cddcba19f519cdd6aaecc91f06e4e1ec8ec63d29'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
@@ -10,6 +10,7 @@ members:
     'assignee-lifecycle-waypoint.test.ts',
     'assignee-lifecycle.test.ts',
     'derive-repo.test.ts',
+    'external-id-path-traversal.test.ts',
     'fixtures.ts',
     'github-issues-state-guard.test.ts',
     'github-issues.test.ts',
@@ -67,6 +68,7 @@ export VALID_ROADMAP_MD
 import { GitHubIssuesSyncAdapter, parseExternalId } from '../../src/roadmap/adapters/github-issues'
 import { assigneeInvariantHolds, claim, isClaimableBy, isMachineAssignee, pushAssigneeToExternal, release, setStatus } from '../../src/roadmap/assignee-lifecycle'
 import { deriveRepoFromGitRemote, parseOwnerRepoFromRemoteUrl } from '../../src/roadmap/derive-repo'
+import { githubRepoPath, parseExternalId } from '../../src/roadmap/external-id'
 import { FEATURE_PREFIX, GROUP_PREFIX, matchFeatureHeadings, parseFeatureHeading, serializeFeatureHeading } from '../../src/roadmap/heading'
 import { checkRoadmapHealth, defaultIsArchive, groomRoadmap, isUnactionablePlanned } from '../../src/roadmap/health'
 import { decodeListField, encodeListItem } from '../../src/roadmap/list-field'
@@ -95,6 +97,7 @@ import { _resetSyncMutex, fullSync, syncFromExternal, syncRowToExternal, syncToE
 import { TrackedFeature } from '../../src/roadmap/tracker'
 import { loadTrackerSyncConfig } from '../../src/roadmap/tracker-config'
 import { ExternalSyncOptions, TrackerSyncAdapter, resolveReverseStatus } from '../../src/roadmap/tracker-sync'
+import { GitHubIssuesTrackerAdapter } from '../../src/roadmap/tracker/adapters/github-issues'
 import { emitEvent } from '../../src/state/event-sourcing'
 import { initWaypointEmitter, resetWaypointEmitterForTests } from '../../src/waypoint/emitter'
 import { EMPTY_BACKLOG, EMPTY_BACKLOG_MD, EXTENDED_FIELDS_MD, EXTENDED_FIELDS_ROADMAP, GROUPED_ROADMAP, GROUPED_ROADMAP_MD, HISTORY_MD, HISTORY_ROADMAP, INVALID_STATUS_MD, MARKER_NAMES, NO_FRONTMATTER_MD, VALID_ROADMAP, VALID_ROADMAP_MD } from './fixtures'

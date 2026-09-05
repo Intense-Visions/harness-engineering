@@ -8,7 +8,7 @@ import type {
   HistoryEvent,
   ConflictError,
 } from '../client';
-import { GitHubHttp, parseExternalId, buildExternalId } from './github-http';
+import { GitHubHttp, parseExternalId, buildExternalId, githubRepoPath } from './github-http';
 import { ETagStore } from '../etag-store';
 import { parseBodyBlock, serializeBodyBlock, type BodyMeta } from '../body-metadata';
 import { refetchAndCompare } from '../conflict';
@@ -177,6 +177,10 @@ export class GitHubIssuesTrackerAdapter implements RoadmapTrackerClient {
     try {
       const parsed = parseExternalId(externalId);
       if (!parsed) return Err(new Error(`Invalid externalId: "${externalId}"`));
+      // Re-assert at the sink, immediately before the parsed captures are spliced
+      // into a path on a request carrying the operator's token (#1843).
+      const repoPath = githubRepoPath(parsed.owner, parsed.repo);
+      if (!repoPath) return Err(new Error(`Invalid externalId: "${externalId}"`));
       if (parsed.owner !== this.owner || parsed.repo !== this.repo) {
         return Err(new Error('externalId repo does not match adapter repo'));
       }
@@ -187,7 +191,7 @@ export class GitHubIssuesTrackerAdapter implements RoadmapTrackerClient {
       if (cached) init.extraHeaders = { 'If-None-Match': cached.etag };
 
       const res = await this.http.request(
-        `${this.http.apiBase}/repos/${parsed.owner}/${parsed.repo}/issues/${parsed.number}`,
+        `${this.http.apiBase}/repos/${repoPath}/issues/${parsed.number}`,
         init
       );
 
@@ -322,6 +326,10 @@ export class GitHubIssuesTrackerAdapter implements RoadmapTrackerClient {
     try {
       const parsed = parseExternalId(externalId);
       if (!parsed) return Err(new Error(`Invalid externalId: "${externalId}"`));
+      // Re-assert at the sink, immediately before the parsed captures are spliced
+      // into a path on a request carrying the operator's token (#1843).
+      const repoPath = githubRepoPath(parsed.owner, parsed.repo);
+      if (!repoPath) return Err(new Error(`Invalid externalId: "${externalId}"`));
       if (parsed.owner !== this.owner || parsed.repo !== this.repo) {
         return Err(new Error('externalId repo does not match adapter repo'));
       }
@@ -352,7 +360,7 @@ export class GitHubIssuesTrackerAdapter implements RoadmapTrackerClient {
       // re-issue a GET when body-meta fields are touched (P2-IMP-6).
       const reqBody = await this.buildIssuePatchBody(externalId, patch, priorFeature);
       const res = await this.http.request(
-        `${this.http.apiBase}/repos/${parsed.owner}/${parsed.repo}/issues/${parsed.number}`,
+        `${this.http.apiBase}/repos/${repoPath}/issues/${parsed.number}`,
         { method: 'PATCH', body: JSON.stringify(reqBody) }
       );
       if (!res.ok) return Err(new Error(`GitHub ${res.status}: ${await res.text()}`));
@@ -475,8 +483,12 @@ export class GitHubIssuesTrackerAdapter implements RoadmapTrackerClient {
     try {
       const parsed = parseExternalId(externalId);
       if (!parsed) return Err(new Error(`Invalid externalId: "${externalId}"`));
+      // Re-assert at the sink, immediately before the parsed captures are spliced
+      // into a path on a request carrying the operator's token (#1843).
+      const repoPath = githubRepoPath(parsed.owner, parsed.repo);
+      if (!repoPath) return Err(new Error(`Invalid externalId: "${externalId}"`));
       const res = await this.http.request(
-        `${this.http.apiBase}/repos/${parsed.owner}/${parsed.repo}/issues/${parsed.number}`,
+        `${this.http.apiBase}/repos/${repoPath}/issues/${parsed.number}`,
         { method: 'GET' }
       );
       if (!res.ok) return Err(new Error(`GitHub ${res.status}: ${await res.text()}`));
@@ -568,9 +580,13 @@ export class GitHubIssuesTrackerAdapter implements RoadmapTrackerClient {
     try {
       const parsed = parseExternalId(externalId);
       if (!parsed) return Err(new Error(`Invalid externalId: "${externalId}"`));
+      // Re-assert at the sink, immediately before the parsed captures are spliced
+      // into a path on a request carrying the operator's token (#1843).
+      const repoPath = githubRepoPath(parsed.owner, parsed.repo);
+      if (!repoPath) return Err(new Error(`Invalid externalId: "${externalId}"`));
       const body = `${GitHubIssuesTrackerAdapter.HISTORY_PREFIX}\n${JSON.stringify(event)}`;
       const res = await this.http.request(
-        `${this.http.apiBase}/repos/${parsed.owner}/${parsed.repo}/issues/${parsed.number}/comments`,
+        `${this.http.apiBase}/repos/${repoPath}/issues/${parsed.number}/comments`,
         { method: 'POST', body: JSON.stringify({ body }) }
       );
       if (!res.ok) return Err(new Error(`GitHub ${res.status}: ${await res.text()}`));
@@ -584,8 +600,12 @@ export class GitHubIssuesTrackerAdapter implements RoadmapTrackerClient {
     try {
       const parsed = parseExternalId(externalId);
       if (!parsed) return Err(new Error(`Invalid externalId: "${externalId}"`));
+      // Re-assert at the sink, immediately before the parsed captures are spliced
+      // into a path on a request carrying the operator's token (#1843).
+      const repoPath = githubRepoPath(parsed.owner, parsed.repo);
+      if (!repoPath) return Err(new Error(`Invalid externalId: "${externalId}"`));
       const buildUrl = (page: number) =>
-        `${this.http.apiBase}/repos/${parsed.owner}/${parsed.repo}/issues/${parsed.number}/comments?per_page=100&page=${page}`;
+        `${this.http.apiBase}/repos/${repoPath}/issues/${parsed.number}/comments?per_page=100&page=${page}`;
       const { items } = await this.http.paginate<{ body: string; created_at: string }>(buildUrl);
       const events: HistoryEvent[] = [];
       for (const c of items) {
