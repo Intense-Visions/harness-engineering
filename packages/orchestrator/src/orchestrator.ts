@@ -1383,7 +1383,12 @@ export class Orchestrator extends EventEmitter {
     this.intelligenceRunner = new IntelligencePipelineRunner(ctx);
     this.completionHandler = new CompletionHandler(ctx, this.postLifecycleComment.bind(this));
 
-    if (config.server?.port) {
+    // `ServerConfig.port` is `number | null` and documents `null` — not `0` — as
+    // the disable sentinel. A truthiness test conflated the two, so a configured
+    // port of 0 silently skipped server construction. 0 is a valid request:
+    // OrchestratorServer binds it and adopts the OS-assigned ephemeral port
+    // (see server/http.ts `boundPort`). Compare against null so 0 reaches it.
+    if (config.server?.port != null) {
       // Phase 3: webhook subscription store + delivery worker + fan-out.
       // Store persists to .harness/webhooks.json (mode 0600). Fan-out
       // subscribes to the orchestrator's EventEmitter (`this`) and dispatches

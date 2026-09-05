@@ -1,0 +1,36 @@
+{
+  "issues": [],
+  "fleet": "cicd-fleet",
+  "item": "R1 — windows-latest EACCES ephemeral-port flake (CI run 33905194260)",
+  "classification": "flake",
+  "stages": ["investigate", "analyze", "hypothesize", "fix", "verify"],
+  "skill": "harness-debugging",
+  "baseSha": "5cd661d74",
+  "branch": "fleet/cicd-win-port-deflake",
+  "planArtifact": "docs/changes/windows-ephemeral-port-deflake/plans/2026-09-05-windows-ephemeral-port-deflake-plan.md",
+  "sessionRecord": "docs/changes/windows-ephemeral-port-deflake/debug-session.md",
+  "ciEvidence": {
+    "runId": "33905194260",
+    "jobId": "101128702125",
+    "job": "build-and-test (windows-latest, 22)",
+    "sha": "63dab6b5",
+    "failure": "unhandled rejection: Orchestrator API failed to bind 127.0.0.1:49853: listen EACCES",
+    "testFailures": 0
+  },
+  "assumptions": [
+    "Implemented the human's CONFIRM-gate decision exactly as given (fork F4 answer (a)): bind port 0 and read the OS-assigned port via OrchestratorServer.boundPort. Did NOT widen the random range, add a retry loop around listen, add a sleep, or skip/retry/delete any test — those manage the race, whereas binding 0 deletes it.",
+    "DEVIATION FROM THE STATED DIFF SCOPE, taken deliberately and surfaced here: the decision said to keep the diff to the one test file, but binding 0 through orchestrator config was blocked by a truthiness gate at packages/orchestrator/src/orchestrator.ts:1386 (`if (config.server?.port)`). 0 is falsy, so `server = { port: 0 }` skipped server construction entirely and left orch.server undefined — proven by experiment (both tests failed with `Cannot read properties of undefined`). One production line was therefore changed to `!= null` so the decided fix is reachable. Without it the decided mechanism cannot be implemented at all.",
+    "That gate change is itself a latent-bug fix, not incidental scope creep: packages/types/src/orchestrator.ts:1304-1307 declares `ServerConfig.port: number | null` documented as 'Port to listen on (null to disable)'. The documented disable sentinel is null; 0 is a valid port meaning OS-assigned ephemeral. The truthy gate conflated 0 with null, making the port-0 support that server/http.ts explicitly implements and documents for exactly this use unreachable through config. Blast radius is one line — config.server.port has exactly two readers, both in orchestrator.ts (:1386 gate, :1430 constructor arg).",
+    "Honoured fork F5 answer (b): fixed ONLY the 2 observed guessed-port sites in orchestrator-local-resolver.test.ts. The other 10 guessed-port sites in other files were left untouched for the separate tracked follow-up the orchestrator is filing.",
+    "Added a regression assertion (server defined + boundPort > 0) rather than relying on the absence of a failure, and verified it via the mandatory revert protocol: it FAILS with the gate reverted and PASSES with the fix restored.",
+    "The Windows EACCES fault is NOT reproducible on macOS (it arises from Hyper-V/WSL excluded ephemeral-port ranges, where a bind is refused with EACCES rather than EADDRINUSE). The evidence offered is that the guessed-port call sites are gone and the suite is stable across repeated runs — not a local reproduction of the Windows fault. Windows behaviour is verified by CI on the PR."
+  ],
+  "verification": {
+    "typecheck": "clean (tsc --noEmit, exit 0)",
+    "affectedFileConsecutiveRuns": 5,
+    "affectedFileResult": "5/5 green — Test Files 1 passed (1), Tests 19 passed (19)",
+    "fullPackage": "Test Files 260 passed | 1 skipped (261), Tests 2883 passed | 1 skipped (2884)",
+    "revertProtocol": "regression assertion fails without the fix (2 failed | 17 passed), passes with it (19 passed)"
+  },
+  "closingKeyword": null
+}
