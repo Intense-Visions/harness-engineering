@@ -1,7 +1,7 @@
 import { Command } from 'commander';
 import * as path from 'path';
 import type { Result } from '@harness-engineering/core';
-import { Ok, HarnessStrengthAuditor } from '@harness-engineering/core';
+import { Ok, HarnessStrengthAuditor, ABSTENTION_PLACEHOLDER } from '@harness-engineering/core';
 import type { AuditResult, StrengthFinding, Severity } from '@harness-engineering/core';
 import { OutputFormatter, OutputMode, type OutputModeType } from '../output/formatter';
 import { logger } from '../output/logger';
@@ -91,11 +91,16 @@ async function runCheckHarnessStrengthAction(
     message: `[${f.id}] ${f.severity.toUpperCase()} ${f.message} -> ${f.remediation}`,
   }));
 
-  const header = formatter.formatSummary(
-    `harness strength (${audit.mode})`,
-    `${audit.score}/100 (${audit.tier})`,
-    valid
-  );
+  // The score abstains (`null`) when no pattern applied to this mode at all
+  // (#1530). Printing `0/100` or `100/100` there would both read as
+  // measurements of the codebase; the em dash plus the reason reads as what it
+  // is — we did not look. This is the render half of the same rule the coverage
+  // line below enforces (#1013).
+  const scoreCell =
+    audit.score === null
+      ? `${ABSTENTION_PLACEHOLDER}/100 (${audit.tier}) — no pattern applied to this mode, so nothing was scored`
+      : `${audit.score}/100 (${audit.tier})`;
+  const header = formatter.formatSummary(`harness strength (${audit.mode})`, scoreCell, valid);
   if (header) console.log(header);
 
   const output = formatter.formatValidation({ valid, issues });

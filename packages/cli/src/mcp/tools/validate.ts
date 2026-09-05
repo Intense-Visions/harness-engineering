@@ -92,7 +92,11 @@ export async function handleValidateProject(input: {
   const errors: string[] = [];
   const checks: {
     config: 'pass' | 'fail';
-    structure: 'pass' | 'fail' | 'skipped';
+    // `abstained` is distinct from `skipped`: skipped means no conventions were
+    // configured at all, abstained means conventions exist but none is marked
+    // required, so the check ran over an empty population and verified nothing
+    // (#1530). Neither is a pass, and only one of them is the operator's bug.
+    structure: 'pass' | 'fail' | 'skipped' | 'abstained';
     agentsMap: 'pass' | 'fail' | 'skipped';
   } = {
     config: 'fail',
@@ -126,8 +130,15 @@ export async function handleValidateProject(input: {
       }>;
       const structureResult = await core.validateFileStructure(projectPath, conventions);
       if (structureResult.ok) {
-        checks.structure = structureResult.value.valid ? 'pass' : 'fail';
-        if (!structureResult.value.valid) {
+        if (structureResult.value.abstained) {
+          checks.structure = 'abstained';
+          errors.push(
+            'ABSTAINED: no file-structure convention is marked `required`, so the ' +
+              'structure check compared nothing. This is an abstention, not a pass — ' +
+              'mark at least one convention `required`, or remove the conventions block.'
+          );
+        } else {
+          checks.structure = structureResult.value.valid ? 'pass' : 'fail';
           for (const missing of structureResult.value.missing) {
             errors.push(`Missing required file: ${missing}`);
           }
