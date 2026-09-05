@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'packages/cli/tests/drift/rules'
-sourceHash: '0771c5f6e34199bc50e5f50e128dda547ea2d81e0c4efced036a6c788267ba22'
+sourceHash: '9963961d9f14557aea95c5177afdda9f181f0d1a831e05dbbad990b0129e6517'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent

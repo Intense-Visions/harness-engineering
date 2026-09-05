@@ -17,9 +17,9 @@
     "path": "packages/cli/tests/drift/rules/token-bypass.test.ts",
     "suite": "runTokenBypassRule > DRIFT-T001 — issue-reference false positives (#1824)",
     "command": "pnpm --filter @harness-engineering/cli exec vitest run tests/drift/rules/token-bypass.test.ts",
-    "beforeFix": "5 failed | 24 passed (29)",
-    "afterFix": "29 passed (29)",
-    "revertCheck": "git stash push -- packages/cli/src/drift/rules/token-bypass-rule.ts, rerun (5 failed), git stash pop, rerun (29 passed)"
+    "beforeFix": "5 failed | 27 passed (32) with the rule file restored to base SHA 5cd661d74",
+    "afterFix": "32 passed (32)",
+    "revertCheck": "Overwrote packages/cli/src/drift/rules/token-bypass-rule.ts with `git show 5cd661d74:...`, reran (5 failed | 27 passed), restored the fix, reran (32 passed)."
   },
   "rootCause": {
     "file": "packages/cli/src/drift/rules/token-bypass-rule.ts",
@@ -31,19 +31,26 @@
     "colourValuePositionRequired": true,
     "allDecimalRejectedWithoutCarrier": true,
     "cssValidHexLengthsOnly": [3, 4, 6, 8],
-    "supersedes": "the (#NNN)-only string rejection from #750, now generalized"
+    "supersedes": "the (#NNN)-only string rejection from #750, now generalized",
+    "valueIntroducers": [
+      ": (declaration)",
+      "= (assignment)",
+      "[ (utility-class arbitrary value, e.g. bg-[#1a2b3c])"
+    ]
   },
   "assumptions": [
     "Fork F2 ('How to kill the issue-reference false positive?') was answered by the human at the roadmap-fleet CONFIRM gate as (b) AND (c) TOGETHER: reject an all-decimal match as a non-colour, AND require a colour-bearing syntactic context before flagging. Both were implemented; neither alone was treated as sufficient.",
     "(b) and (c) are composed rather than merely conjoined: the colour carrier that satisfies (c) is what overrides (b). A bare all-decimal value with no carrier (const ISSUE = '#1824') is rejected; the same shape behind a carrier (background: '#666', .badge { color: #1824 }, $grey-700: #666) is still flagged. Composing them as a flat AND would have deleted every all-decimal grey, contradicting the pre-existing regression test 'STILL flags an all-numeric hex color literal in real code (#666 true positive preserved)', which was treated as a hard invariant.",
     "Narrowing the hex pattern to CSS-valid lengths (the report's suggestion 2, 'worth doing regardless since it is strictly more correct') was taken as in-scope for the same fix. It is independent of F2 and removes lengths 5 and 7, which can never be colours.",
     "Six fixtures in tests/drift/integration/detect-drift.test.ts used bare all-decimal literals (const b = \"#112233\") purely as scan fodder for exclude-mechanism assertions. They were rewritten as real colour declarations (const b = { color: \"#112233\" }) rather than weakening the assertions — the tests are about exclude filtering, not hex shape, and the rewrite keeps their all-decimal coverage.",
-    "The report's 'adjacent, much smaller' item — design.tokenPath being accepted by the config schema but ignored by the tokens resolver, which reads design-system/tokens.json as a string literal — is a separate defect in the resolver, not in this rule, and is not the cause of the 35% noise. It is deliberately NOT fixed here and remains open for a follow-up item."
+    "The report's 'adjacent, much smaller' item — design.tokenPath being accepted by the config schema but ignored by the tokens resolver, which reads design-system/tokens.json as a string literal — is a separate defect in the resolver, not in this rule, and is not the cause of the 35% noise. It is deliberately NOT fixed here and remains open for a follow-up item.",
+    "Requiring a value position must not silently narrow real coverage, so the gate was probed against common colour idioms rather than assumed correct. That probe caught a genuine regression — utility-class arbitrary values such as `bg-[#1a2b3c]` — which is fixed here and pinned by a test rather than shipped."
   ],
   "verification": {
-    "unitSuite": "packages/cli tests/drift tests/align tests/design-pipeline tests/brand — 195 passed (25 files)",
-    "fullCliSuite": "packages/cli vitest run — 7009 passed | 2 skipped (622 files)",
+    "unitSuite": "packages/cli tests/drift tests/align tests/design-pipeline tests/brand — 198 passed (25 files)",
+    "fullCliSuite": "packages/cli vitest run under the pinned Node 22 — 7012 passed | 2 skipped (622 files)",
     "endToEnd": "runDetectDrift over a fixture carrying 8 issue references and 7 genuine colours: 7 DRIFT-T001 findings, all of them real colours, zero issue references",
-    "archCheck": "harness check-arch — no new violation attributable to packages/cli/src/drift/rules/token-bypass-rule.ts"
+    "archCheck": "harness check-arch — no new violation attributable to packages/cli/src/drift/rules/token-bypass-rule.ts",
+    "coverageRegressionGuard": "Probed real-world colour idioms against the new gate. Tailwind/utility-class arbitrary values (bg-[#1a2b3c], text-[#333]) were initially lost, so `[` was added as a value introducer and the carrier list extended; styled-components, palette arrays, JSX style props, SCSS maps, 8-digit shadow colours and CSS custom properties were verified preserved. Each is now a committed test."
   }
 }

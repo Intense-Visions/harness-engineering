@@ -208,6 +208,24 @@ describe('runTokenBypassRule', () => {
     it('STILL flags an all-decimal hex behind a colour-named SCSS variable', () => {
       expect(t001(`$grey-700: #666;`, 'vars.scss')).toHaveLength(1);
     });
+
+    it('STILL flags utility-class arbitrary colour values (bg-[#…] / text-[#…])', () => {
+      const found = t001(
+        `export const A = () => <div className="bg-[#1a2b3c] text-[#333]" />;`,
+        'A.tsx'
+      );
+      expect(found.map((f) => f.message).join(' ')).toContain('#1a2b3c');
+      expect(found.map((f) => f.message).join(' ')).toContain('#333');
+    });
+
+    it('STILL flags every colour in a palette array and a SCSS map', () => {
+      expect(t001(`const p = ['#e63535', '#0066cc'];`, 'p.ts')).toHaveLength(2);
+      expect(t001(`$palette: (primary: #e63535, grey: #666);`, 'p.scss')).toHaveLength(2);
+    });
+
+    it('STILL flags an 8-digit colour behind a shadow carrier', () => {
+      expect(t001(`const s = { boxShadow: '0 1px 2px #0000001a' };`, 's.ts')).toHaveLength(1);
+    });
   });
 
   // Regression: #750 — spacing prose inside comments must not be flagged.

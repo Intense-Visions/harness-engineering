@@ -107,9 +107,18 @@ gradient stops `#fff` / `#000`, `$grey-700: #666`. Suppressed: `(#529)` and `#49
 comments, `'see #1824 ... #abc123'` prose, `Error('... see #493')`, `<p>...#1824 and #493</p>`,
 the `#1824 { }` CSS id selector, and `see #604` in a CSS comment.
 
+A follow-up probe of real-world colour idioms against the new gate caught one genuine
+coverage regression the fix would otherwise have shipped: utility-class arbitrary values
+(`bg-[#1a2b3c]`, `text-[#333]`) were missed entirely, because `[` was not a value
+introducer. `[` was added alongside `:` and `=`, and the carrier list extended. Verified
+preserved in the same probe: styled-components template values, palette arrays, JSX style
+props, SCSS maps, 8-digit shadow colours, and colour-named CSS custom properties. Each is
+now pinned by a committed test.
+
 Regression test: `packages/cli/tests/drift/rules/token-bypass.test.ts`, suite
-`DRIFT-T001 — issue-reference false positives (#1824)`. 5 failed / 24 passed before the fix;
-29 passed after. Revert-and-fail confirmed by stashing only the rule file.
+`DRIFT-T001 — issue-reference false positives (#1824)`. 5 failed / 27 passed with the rule
+file restored to base SHA 5cd661d74; 32 passed with the fix. Revert-and-fail confirmed by
+overwriting the rule file from the base SHA and rerunning.
 
 Learnings: when one detector in a family is noisy and its siblings are not, the difference
 between them is the diagnosis. T002 and T003 were quiet because they demand a declaring

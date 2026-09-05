@@ -372,7 +372,10 @@ const COLOR_FUNCTION_CALL =
 
 /** Property / variable names whose value is a colour. */
 const COLOR_CARRIER_NAME =
-  /colou?r|background|\bbg\b|border|outline|fill|stroke|shadow|gradient|palette|swatch|theme|brand|accent|primary|secondary|tertiary|surface|foreground|\bfg\b|backdrop|overlay|highlight|placeholder|caret|selection|divider|scrollbar|ink|tint|shade|hue|grey|gray|white|black|danger|warning|success|error|info|muted|dark|light/i;
+  /colou?r|background|\bbg\b|border|outline|fill|stroke|shadow|gradient|palette|swatch|theme|brand|accent|primary|secondary|tertiary|surface|foreground|\bfg\b|backdrop|overlay|highlight|placeholder|caret|selection|divider|scrollbar|ink|tint|shade|hue|grey|gray|white|black|danger|warning|success|error|info|muted|dark|light|\btext\b|\bring\b|\bvia\b|\bfrom\b|decoration/i;
+
+/** Separators that introduce a value: a declaration, an assignment, or an arbitrary-value bracket. */
+const VALUE_INTRODUCERS = new Set([':', '=', '[']);
 
 /** Trailing identifier immediately left of a declaration separator. */
 const TRAILING_NAME = /([\w$@-]+)\s*["'`]?\s*$/;
@@ -416,14 +419,18 @@ function stringLiteralPosition(source: string, lineStart: number, quoteIndex: nu
   return Math.max(POS_VALUE, declarationPosition(source, lineStart, i, source[i]!));
 }
 
-/** Value position reached through `name:` / `name=`; POS_COLOR when the name carries colour. */
+/**
+ * Value position reached through a named introducer — `name:`, `name=`, or the
+ * bracket of a utility-class arbitrary value (`bg-[#1a2b3c]`). POS_COLOR when the
+ * name carries colour.
+ */
 function declarationPosition(
   source: string,
   lineStart: number,
   separatorIndex: number,
   separator: string
 ): number {
-  if (separator !== ':' && separator !== '=') return POS_NONE;
+  if (!VALUE_INTRODUCERS.has(separator)) return POS_NONE;
   const name = TRAILING_NAME.exec(source.slice(lineStart, separatorIndex))?.[1];
   if (!name) return POS_VALUE;
   return COLOR_CARRIER_NAME.test(name) ? POS_COLOR : POS_VALUE;

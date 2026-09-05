@@ -15,5 +15,6 @@ keeps DRIFT-T002/T003 quiet. The hex pattern is also narrowed to the CSS-valid l
 3, 4, 6 and 8; `{3,8}` previously admitted 5 and 7, which can never be a colour.
 
 Issue references in string prose, thrown-error messages, JSX text and CSS id selectors
-are now silent. Genuine colours — including all-decimal greys such as `background: '#666'`,
-gradient stops, `var()` fallbacks and colour-named SCSS variables — are still reported.
+are now silent. Genuine colours are still reported, including all-decimal greys such as
+`background: '#666'`, gradient stops, `var()` fallbacks, palette arrays, SCSS maps and
+colour-named variables, and utility-class arbitrary values such as `bg-[#1a2b3c]`.
