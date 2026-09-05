@@ -1,9 +1,4 @@
-import type {
-  Roadmap,
-  RoadmapMilestone,
-  RoadmapFeature,
-  AssignmentRecord,
-} from '@harness-engineering/types';
+import type { Roadmap, RoadmapMilestone, RoadmapFeature } from '@harness-engineering/types';
 // The H3 heading emitter lives in `./heading`, the single source of truth shared
 // with both readers, so the emitter cannot drift from them (#1261).
 import { serializeFeatureHeading } from './heading';
@@ -15,6 +10,13 @@ import { encodeSummaryField } from './summary-field';
 // for the reversible comma escaping shared by the `Blockers` / `Plan` bullets
 // (see that module for the grammar rationale, #1757).
 import { encodeListField } from './list-field';
+// The `## Assignment History` section grammar (emitter AND both readers) lives in
+// `./assignment-history`, the single source of truth shared with the parser. It is
+// re-exported here so `serializeAssignmentHistory` keeps its historical import
+// path for the shard `_meta` writer (#1811).
+import { serializeAssignmentHistory } from './assignment-history';
+
+export { serializeAssignmentHistory };
 
 const EM_DASH = '\u2014';
 
@@ -132,17 +134,5 @@ export function serializeFeature(feature: RoadmapFeature): string[] {
     `- **Plan:** ${listOrDash(feature.plans)}`,
     ...serializeExtendedLines(feature),
   ];
-  return lines;
-}
-
-export function serializeAssignmentHistory(records: AssignmentRecord[]): string[] {
-  const lines = [
-    '## Assignment History',
-    '| Feature | Assignee | Action | Date |',
-    '|---------|----------|--------|------|',
-  ];
-  for (const record of records) {
-    lines.push(`| ${record.feature} | ${record.assignee} | ${record.action} | ${record.date} |`);
-  }
   return lines;
 }

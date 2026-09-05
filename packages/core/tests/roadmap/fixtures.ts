@@ -339,10 +339,16 @@ last_manual_edit: 2026-04-01T09:00:00Z
 - **External-ID:** github:harness-eng/harness#42
 
 ## Assignment History
-| Feature | Assignee | Action | Date |
-|---------|----------|--------|------|
-| Core Library Design | @cwarner | assigned | 2026-03-15 |
-| Core Library Design | @cwarner | completed | 2026-04-01 |
+
+- **Feature:** Core Library Design
+- **Assignee:** @cwarner
+- **Action:** assigned
+- **Date:** 2026-03-15
+
+- **Feature:** Core Library Design
+- **Assignee:** @cwarner
+- **Action:** completed
+- **Date:** 2026-04-01
 `;
 
 export const HISTORY_ROADMAP: Roadmap = {
