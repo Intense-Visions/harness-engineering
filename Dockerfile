@@ -51,8 +51,17 @@ RUN pnpm build
 # ==============================================================================
 FROM base AS cli
 
-# CLI bundles its own code via tsup; workspace packages (core, graph, linter-gen, types,
-# orchestrator, dashboard, intelligence) are copied as pre-built dist artifacts.
+# CLI bundles its own code via tsup, but only for the four packages in tsup's
+# `noExternal` list (core, graph, linter-gen, types). Every OTHER workspace package in
+# the CLI's runtime dependency closure stays external and is resolved from node_modules
+# at startup, so it must be present here as a pre-built dist artifact.
+#
+# This COPY list must cover the CLI's FULL TRANSITIVE workspace closure, not just its
+# direct dependencies. `pnpm install` below creates a symlink for every workspace dep
+# whether or not its directory was copied; a missing COPY yields a DANGLING SYMLINK that
+# fails at runtime with ERR_MODULE_NOT_FOUND, not at build time. Omitting burn, signals
+# and local-models is exactly how the smoke test's `--version` check started returning ''.
+#
 # eslint-plugin is referenced by package.json only (no dist needed at runtime).
 COPY --from=build /app/packages/cli/dist /app/packages/cli/dist
 COPY --from=build /app/packages/cli/package.json /app/packages/cli/
@@ -77,7 +86,21 @@ COPY --from=build /app/packages/dashboard/dist /app/packages/dashboard/dist
 COPY --from=build /app/packages/intelligence/package.json /app/packages/intelligence/
 COPY --from=build /app/packages/intelligence/dist /app/packages/intelligence/dist
 COPY --from=build /app/packages/eslint-plugin/package.json /app/packages/eslint-plugin/
+COPY --from=build /app/packages/burn/package.json /app/packages/burn/
+COPY --from=build /app/packages/burn/dist /app/packages/burn/dist
+COPY --from=build /app/packages/signals/package.json /app/packages/signals/
+COPY --from=build /app/packages/signals/dist /app/packages/signals/dist
+COPY --from=build /app/packages/local-models/package.json /app/packages/local-models/
+COPY --from=build /app/packages/local-models/dist /app/packages/local-models/dist
 RUN pnpm install --frozen-lockfile --prod --ignore-scripts
+
+# Everything under /app was created by root during the build, but the container runs as
+# `node`. The CLI and the MCP server both create /app/.harness on startup
+# (ensureHarnessGitignore), which fails with EACCES against a root-owned /app and kills the
+# process before it writes any stdout. Pre-create the directory owned by node so startup can
+# proceed. The orchestrator stage already does this for .harness/workspaces; the cli and
+# mcp-server stages need the parent.
+RUN mkdir -p /app/.harness && chown -R node:node /app/.harness
 
 USER node
 
