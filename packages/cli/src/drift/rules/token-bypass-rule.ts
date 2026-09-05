@@ -26,7 +26,9 @@ import type { DriftFinding, DriftStrictness } from '../findings/finding.js';
 import { severityFor } from '../findings/finding.js';
 import type { TokenSet } from '../resolvers/tokens.js';
 
-const HEX_PATTERN = /#[0-9a-fA-F]{3,8}\b/g;
+// #1824: only CSS-valid hex lengths (3, 4, 6, 8). `{3,8}` also admitted 5 and 7,
+// which can never be a colour. Longest alternative first so `#aabbccdd` matches as 8.
+const HEX_PATTERN = /#(?:[0-9a-fA-F]{8}|[0-9a-fA-F]{6}|[0-9a-fA-F]{4}|[0-9a-fA-F]{3})\b/g;
 const FONT_FAMILY_PATTERN = /(?:fontFamily|font-family)\s*[:=]\s*['"`]([^'"`,]+)['"`]/g;
 const PX_VALUE_PATTERN =
   /\b(?:margin(?:Top|Right|Bottom|Left)?|padding(?:Top|Right|Bottom|Left)?|gap|top|right|bottom|left)\s*[:=]\s*['"`]?(\d+(?:\.\d+)?)px\b/g;
@@ -67,8 +69,8 @@ function detectHexBypass(
   let match: RegExpExecArray | null;
   HEX_PATTERN.lastIndex = 0;
   while ((match = HEX_PATTERN.exec(source)) !== null) {
-    if (!isHexColorContext(source, ctx, match.index)) continue;
     const hex = match[0]!;
+    if (!isHexColorContext(source, ctx, match.index, hex)) continue;
     const lc = hex.toLowerCase();
     const line = lineOf(source, match.index);
     const key = `${line}:${lc}`;
@@ -258,8 +260,8 @@ interface Scanner {
  *
  * Note: this is a lightweight lexer, not a full JS/CSS parser. Template-literal
  * `${...}` interpolations are treated as string content, which is acceptable
- * here — the detectors only key off comment vs non-comment and the character
- * immediately preceding a hex match.
+ * here — the detectors only key off comment vs non-comment. Whether a match is
+ * a colour is decided separately by {@link hexValuePosition} (#1824).
  */
 function classifyContext(source: string): Uint8Array {
   const scan: Scanner = {
@@ -333,26 +335,131 @@ function commentOpener(ch: string, next: string | undefined): string {
   return '';
 }
 
+// ─── colour value position (#1824) ──────────────────────
+//
+// An issue reference is hex-shaped — `0-9` are all valid hex digits — so `#1824`
+// and `#493` were reported as hardcoded colours (143 of 413 findings, 35%, on one
+// project's first adoption). The #750 pass only rejected comments and the
+// parenthesized `(#NNN)` idiom, so a reference in ordinary string prose survived.
+//
+// Two gates now run together, mirroring the anchored shape that already keeps
+// DRIFT-T002/T003 quiet (both require a declaring property before the value):
+//
+//   (c) The match must sit in a VALUE position — after a declaration separator, as
+//       the content of a string literal, or inside a colour function's argument
+//       list — with only CSS value tokens between the separator and the `#`.
+//   (b) An all-decimal match (`#1824`, `#493`) is rejected unless that value
+//       position carries a colour: a colour-bearing property or variable name, or
+//       a colour function. This keeps genuine greys like `background: '#666'`.
+
+/** No legal colour position. */
+const POS_NONE = 0;
+/** A value position, but nothing says the value is a colour. */
+const POS_VALUE = 1;
+/** A value position with a colour-bearing carrier (property, variable, function). */
+const POS_COLOR = 2;
+
+/** Chars that may appear inside a CSS value run between a separator and the hex. */
+const VALUE_RUN_CHAR = /[\w.%+\-/,# \t]/;
+
+/** A single token that may legally precede a colour inside one value. */
+const CSS_VALUE_TOKEN =
+  /^(?:-?\d+(?:\.\d+)?(?:px|rem|em|ex|ch|%|vh|vw|vmin|vmax|pt|pc|cm|mm|in|deg|rad|turn|s|ms|fr)?|--[\w-]+|#[0-9a-fA-F]{3,8}|solid|dashed|dotted|double|groove|ridge|inset|outset|none|hidden|thin|medium|thick|inherit|initial|unset|revert|transparent|currentcolor|to|from|at|in|top|bottom|left|right|center|circle|ellipse|farthest-side|farthest-corner|closest-side|closest-corner)$/i;
+
+/** Functions whose arguments are colours. */
+const COLOR_FUNCTION_CALL =
+  /(?:^|[^\w-])(?:var|rgb|rgba|hsl|hsla|hwb|lab|lch|oklab|oklch|color|color-mix|drop-shadow|linear-gradient|radial-gradient|conic-gradient|repeating-linear-gradient|repeating-radial-gradient|repeating-conic-gradient)\s*\($/i;
+
+/** Property / variable names whose value is a colour. */
+const COLOR_CARRIER_NAME =
+  /colou?r|background|\bbg\b|border|outline|fill|stroke|shadow|gradient|palette|swatch|theme|brand|accent|primary|secondary|tertiary|surface|foreground|\bfg\b|backdrop|overlay|highlight|placeholder|caret|selection|divider|scrollbar|ink|tint|shade|hue|grey|gray|white|black|danger|warning|success|error|info|muted|dark|light/i;
+
+/** Trailing identifier immediately left of a declaration separator. */
+const TRAILING_NAME = /([\w$@-]+)\s*["'`]?\s*$/;
+
+/**
+ * Classify the position a hex match at `offset` occupies: not a value at all,
+ * a plain value, or a value a colour carrier vouches for (#1824).
+ */
+function hexValuePosition(source: string, offset: number): number {
+  const lineStart = source.lastIndexOf('\n', offset - 1) + 1;
+  const sepIndex = scanBackToSeparator(source, lineStart, offset);
+  if (sepIndex < lineStart) return POS_NONE; // nothing on this line anchors the match
+  if (!isCssValueRun(source.slice(sepIndex + 1, offset))) return POS_NONE;
+  const separator = source[sepIndex]!;
+  if (separator === '(') {
+    return COLOR_FUNCTION_CALL.test(source.slice(lineStart, sepIndex + 1)) ? POS_COLOR : POS_NONE;
+  }
+  if (isQuote(separator)) return stringLiteralPosition(source, lineStart, sepIndex);
+  return declarationPosition(source, lineStart, sepIndex, separator);
+}
+
+/** Index of the nearest separator left of `offset`, or `lineStart - 1` when there is none. */
+function scanBackToSeparator(source: string, lineStart: number, offset: number): number {
+  let i = offset - 1;
+  while (i >= lineStart && VALUE_RUN_CHAR.test(source[i]!)) i--;
+  return i;
+}
+
+function isQuote(ch: string): boolean {
+  return ch === '"' || ch === "'" || ch === '`';
+}
+
+/**
+ * The hex leads the content of a string literal, which is itself a value. Step out
+ * of the quote to see whether a declaration on the left names that value a colour.
+ */
+function stringLiteralPosition(source: string, lineStart: number, quoteIndex: number): number {
+  let i = quoteIndex - 1;
+  while (i >= lineStart && /\s/.test(source[i]!)) i--;
+  if (i < lineStart) return POS_VALUE;
+  return Math.max(POS_VALUE, declarationPosition(source, lineStart, i, source[i]!));
+}
+
+/** Value position reached through `name:` / `name=`; POS_COLOR when the name carries colour. */
+function declarationPosition(
+  source: string,
+  lineStart: number,
+  separatorIndex: number,
+  separator: string
+): number {
+  if (separator !== ':' && separator !== '=') return POS_NONE;
+  const name = TRAILING_NAME.exec(source.slice(lineStart, separatorIndex))?.[1];
+  if (!name) return POS_VALUE;
+  return COLOR_CARRIER_NAME.test(name) ? POS_COLOR : POS_VALUE;
+}
+
+/** True when every token between the separator and the hex is a CSS value token. */
+function isCssValueRun(run: string): boolean {
+  const trimmed = run.trim();
+  if (trimmed === '') return true;
+  return trimmed.split(/\s+/).every((token) => CSS_VALUE_TOKEN.test(token.replace(/,+$/, '')));
+}
+
+/** True when the hex digits are all decimal — the issue-reference shape (#1824). */
+function isAllDecimal(hex: string): boolean {
+  return !/[a-fA-F]/.test(hex);
+}
+
 /**
  * Decide whether a hex match at `offset` is a genuine color literal worth
- * flagging (#750).
+ * flagging (#750, #1824).
  *
  * - COMMENT context → always rejected (comments are never style declarations;
  *   covers issue refs `(#529)` in JSDoc and hex prose `e.g. \`#e63535\``).
- * - CODE context → always flagged (real unquoted literal).
- * - STRING context → flagged UNLESS it matches the GitHub issue/PR-reference
- *   idiom `(#NNN)`, i.e. the `#` is immediately preceded by `(`. Genuine color
- *   literals — `"#e63535"`, `'#666'`, CSS shorthand `"1px solid #0066cc"`,
- *   bare template values `color: #333` — are never written that way, so they
- *   are preserved. We deliberately do NOT skip bare numeric hexes (that stopgap
- *   would suppress real `#666`/`#333` literals — see #750).
+ * - Outside a value position → rejected (#1824). Prose such as
+ *   `'see #1824 for the triage'`, a test title `(#332 Tier-3)`, or bare JSX text
+ *   is never where a declaration value can appear. This generalizes — and
+ *   replaces — the narrower `(#NNN)`-only rejection from #750.
+ * - All-decimal in a value position with no colour carrier → rejected (#1824).
+ *   `const ISSUE = '#1824'` is a reference; `background: '#666'` is a colour,
+ *   and the carrier is what tells them apart.
  */
-function isHexColorContext(source: string, ctx: Uint8Array, offset: number): boolean {
-  const kind = ctx[offset];
-  if (kind === CTX_COMMENT) return false;
-  if (kind !== CTX_STRING) return true; // CODE context: always a real literal
-  // In a string: reject only the parenthesized issue-reference shape `(#NNN)`.
-  return source[offset - 1] !== '(';
+function isHexColorContext(source: string, ctx: Uint8Array, offset: number, hex: string): boolean {
+  if (ctx[offset] === CTX_COMMENT) return false;
+  const position = hexValuePosition(source, offset);
+  if (position === POS_NONE) return false;
+  return position === POS_COLOR || !isAllDecimal(hex);
 }
 
 // ─── helpers ───────────────────────────────────────────

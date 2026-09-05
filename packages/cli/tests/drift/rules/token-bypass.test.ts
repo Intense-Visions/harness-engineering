@@ -158,6 +158,58 @@ describe('runTokenBypassRule', () => {
     });
   });
 
+  // Regression: #1824 — an issue reference is hex-shaped (`0-9` are all valid hex
+  // digits), so `#1824` / `#493` were reported as hardcoded colours. Reported at 143 of
+  // 413 findings (35%) on first adoption. The fix requires a colour-bearing value position
+  // (c) AND rejects an all-decimal match that has no colour carrier (b).
+  describe('DRIFT-T001 — issue-reference false positives (#1824)', () => {
+    const t001 = (source: string, file = 'a.ts') =>
+      runTokenBypassRule({ source, file, tokens: emptyTokens(), strictness: 'standard' }).filter(
+        (f) => f.code === 'DRIFT-T001'
+      );
+
+    it('does NOT flag an issue reference inside non-parenthesized string prose', () => {
+      expect(t001(`export const note = 'see #1824 for the triage';`)).toHaveLength(0);
+    });
+
+    it('does NOT flag an issue reference in a thrown error message', () => {
+      expect(t001(`throw new Error('token resolver drifted, see #493');`)).toHaveLength(0);
+    });
+
+    it('does NOT flag issue references in bare code/JSX text context', () => {
+      expect(
+        t001(`export const El = () => <p>Tracked as #1824 and #493</p>;`, 'El.tsx')
+      ).toHaveLength(0);
+    });
+
+    it('does NOT flag a letter-bearing reference in prose (the case (b) alone misses)', () => {
+      expect(t001(`export const sha = 'reverted in #abc123 — see the ADR';`)).toHaveLength(0);
+    });
+
+    it('does NOT flag CSS-invalid hex lengths (5 and 7 are never colours)', () => {
+      expect(t001(`const a = '#12345'; const b = '#1234567';`)).toHaveLength(0);
+    });
+
+    it('STILL flags an all-decimal hex behind a colour carrier (context overrides (b))', () => {
+      const found = t001(`.badge { color: #1824; }`, 'badge.css');
+      expect(found).toHaveLength(1);
+      expect(found[0].message).toContain('#1824');
+    });
+
+    it('STILL flags a colour inside a gradient / var() fallback', () => {
+      const found = t001(
+        'const css = `a { background: linear-gradient(to right, #fff, #000); }`;',
+        'g.ts'
+      );
+      expect(found.map((f) => f.message).join(' ')).toContain('#fff');
+      expect(found.map((f) => f.message).join(' ')).toContain('#000');
+    });
+
+    it('STILL flags an all-decimal hex behind a colour-named SCSS variable', () => {
+      expect(t001(`$grey-700: #666;`, 'vars.scss')).toHaveLength(1);
+    });
+  });
+
   // Regression: #750 — spacing prose inside comments must not be flagged.
   describe('DRIFT-T003 — comment context (#750)', () => {
     it('does NOT flag a px value described in a block-comment prose line', () => {
