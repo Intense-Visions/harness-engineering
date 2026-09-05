@@ -1,6 +1,0 @@
----
-'@harness-engineering/core': minor
-'@harness-engineering/cli': patch
----
-
-Add a ranking-stability gate so ranked outputs are never presented as a precise order when that order is not reproducible. New `@harness-engineering/core` module `ranking/` exports `checkRankStability`, `spearmanRankCorrelation`, `assignTiers`, `validateBands`, and the `ScoredItem` / `RankingWindow` / `StabilityReport` / `RankTier` / `BandValidation` / `StableRanking` types. A ranking is computed over two windows; the tie-corrected Spearman rank correlation between them is reported alongside the output, and below a threshold (default 0.7) the ranking degrades to tiers instead of a spurious order. Bands are always defined on one window (`assignTiers` takes a single window's ordered items) and validated against the other (`validateBands`), so the mean-of-two-windows banding bug is impossible by construction. Wired into the hotspot/churn emitter: `computeStableHotspots` computes churn over two adjacent git windows and `harness compound scan-candidates` now emits the correlation, both window definitions, and tier grouping when unstable. Remaining ranked emitters (critical paths, craft/audit targets, skill recommendations, graph anomaly adapters) adopt the shared gate in follow-ups (Refs #1529).

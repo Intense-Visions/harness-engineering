@@ -1,6 +1,6 @@
 {
   "name": "@harness-engineering/cli",
-  "version": "12.2.0",
+  "version": "12.3.0",
   "description": "CLI for Harness Engineering toolkit",
   "type": "module",
   "bin": {

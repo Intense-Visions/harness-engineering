@@ -1,5 +1,25 @@
 # @harness-engineering/local-models
 
+## 0.7.9
+
+### Patch Changes
+
+- e863f1e: chore(cleanup): remove dead `isRankProfile` and narrow four ranker-internal
+  constants to module scope.
+
+  Deletes the genuinely-dead `isRankProfile` helper (`ranker/profiles.ts`, zero
+  repo-wide callers) and drops the redundant `export` keyword from four ranker
+  constants that are only read within their own module —
+  `KV_CACHE_BYTES_PER_TOKEN_PER_BILLION_PARAMS_FP16` and `KV_QUANT_MULTIPLIER`
+  (`vram.ts`), `CPU_BANDWIDTH_FLOOR_GBPS` (`speed.ts`), and
+  `UNMEASURED_LATENCY_DISCOUNT` (`agentic.ts`). No behavior change; these were
+  swept into the package barrel via `export *` but imported by name nowhere.
+
+- Updated dependencies [37ee1e6]
+- Updated dependencies [67332aa]
+- Updated dependencies [6dd0ae4]
+  - @harness-engineering/types@0.32.0
+
 ## 0.7.8
 
 ### Patch Changes

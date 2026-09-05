@@ -1,5 +1,81 @@
 # @harness-engineering/orchestrator
 
+## 0.24.0
+
+### Minor Changes
+
+- 3f7d79e: feat(provenance): emit a machine-readable provenance trailer from agent-authored
+  commits (#1531).
+
+  Adds a distinct, governed git commit **trailer** carrying the provenance of an
+  autonomous, agent-authored commit, so AI-authored work — specifically the
+  _autonomous_ tier — is mechanically countable, joinable to cost, and auditable
+  on gated paths. A pure `commit-trailer` primitive in `core` defines the schema
+  (`Harness-Run: <skill>@<version>` plus `Harness-Provenance-Version`,
+  `Harness-Run-Id`, `Harness-Lane`, `Harness-Agent`, `Harness-Model`,
+  `Harness-Session`), a deterministic formatter/appender, and a parser that returns
+  `null` for non-fleet commits. The trailer uses a distinct `Harness-*` namespace
+  rather than co-opting `Co-authored-by:`, so mechanical tier detection is possible.
+
+  The orchestrator's autonomous ship path (`WorkspaceManager.shipWorkspace`) stamps
+  the trailer onto the commit message and — because the repo squash-merges — mirrors
+  it into the PR body so the record survives the squash. Interactive and
+  third-party commits (no run context threaded) are byte-unaffected.
+
+  Scope note: this slice is the schema + formatter + parser + emission + docs. A CI
+  check that verifies trailer presence/shape and a `harness provenance <sha>` reader
+  CLI are deferred to follow-ups (see `Refs #1531`).
+
+- 6dd0ae4: feat(waypoint): opt-in `sdlc.*` event emission and repo-local spool
+  (pnyon/pnyon#124).
+
+  Adds an additive, OPT-IN Waypoint emission layer: with `waypoint.sink`
+  configured in `harness.config.json`, the sanctioned roadmap mutators
+  (`setStatus`/`claim`/`release`), skill phase transitions (`emit_interaction`),
+  persisted eval/UAT verdicts, and fleet artifact writes each append exactly one
+  CloudEvents-1.0-profile `sdlc.*.v1` event to a bounded, per-process JSONL
+  spool under `.harness/spool/` (drop-oldest at cap with a persistent
+  `droppedEvents` counter; client-side best-effort secret scrub; ULID
+  idempotency keys). The pinned 19-type `sdlc.*.v1` vocabulary is registered on
+  the gateway webhook bus, delivered through the existing `GatewayEvent`
+  envelope and `WebhookQueue` retry machinery via a new orchestrator-side
+  bridge. A new `harness waypoint` command records fleet
+  provenance/handoff artifacts and reports spool health.
+
+  THE HARD INVARIANT: with no `waypoint.sink` configured, nothing changes —
+  no new files, no new I/O, no behavior change to any existing command, mode,
+  or test (verified by dedicated non-adopter invariance tests). Shipping
+  spooled events to a hosted ingest is explicitly out of scope (pnyon owns
+  ingest).
+
+### Patch Changes
+
+- Updated dependencies [19b70bb]
+- Updated dependencies [e863f1e]
+- Updated dependencies [37ee1e6]
+- Updated dependencies [10f944a]
+- Updated dependencies [3f7d79e]
+- Updated dependencies [38f75c5]
+- Updated dependencies [405b7ab]
+- Updated dependencies [e19aa90]
+- Updated dependencies [8e42ad2]
+- Updated dependencies [98f650f]
+- Updated dependencies [e3ffb67]
+- Updated dependencies [966122c]
+- Updated dependencies [672daa8]
+- Updated dependencies [d51e370]
+- Updated dependencies [7c4e332]
+- Updated dependencies [d3673bf]
+- Updated dependencies [67332aa]
+- Updated dependencies [086f419]
+- Updated dependencies [6dd0ae4]
+- Updated dependencies [b72de12]
+  - @harness-engineering/core@0.47.0
+  - @harness-engineering/local-models@0.7.9
+  - @harness-engineering/types@0.32.0
+  - @harness-engineering/graph@0.15.0
+  - @harness-engineering/intelligence@0.13.1
+
 ## 0.23.0
 
 ### Minor Changes

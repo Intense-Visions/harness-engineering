@@ -1,5 +1,35 @@
 # @harness-engineering/dashboard
 
+## 0.16.5
+
+### Patch Changes
+
+- Updated dependencies [19b70bb]
+- Updated dependencies [37ee1e6]
+- Updated dependencies [10f944a]
+- Updated dependencies [3f7d79e]
+- Updated dependencies [38f75c5]
+- Updated dependencies [405b7ab]
+- Updated dependencies [e19aa90]
+- Updated dependencies [8e42ad2]
+- Updated dependencies [98f650f]
+- Updated dependencies [e3ffb67]
+- Updated dependencies [966122c]
+- Updated dependencies [672daa8]
+- Updated dependencies [d51e370]
+- Updated dependencies [7c4e332]
+- Updated dependencies [d3673bf]
+- Updated dependencies [67332aa]
+- Updated dependencies [086f419]
+- Updated dependencies [6dd0ae4]
+- Updated dependencies [b72de12]
+  - @harness-engineering/core@0.47.0
+  - @harness-engineering/types@0.32.0
+  - @harness-engineering/orchestrator@0.24.0
+  - @harness-engineering/graph@0.15.0
+  - @harness-engineering/intelligence@0.13.1
+  - @harness-engineering/signals@0.3.7
+
 ## 0.16.4
 
 ### Patch Changes
