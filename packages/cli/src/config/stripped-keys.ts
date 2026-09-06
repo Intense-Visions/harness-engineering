@@ -168,7 +168,13 @@ function walkObject(def: ZodDef, value: unknown, prefix: string, out: StrippedKe
   const knownKeys = Object.keys(shape);
   const passthrough = def.unknownKeys === 'passthrough';
   for (const key of Object.keys(value)) {
-    const child = shape[key];
+    // Own-property lookup only: a config key that collides with an
+    // `Object.prototype` member (`__proto__`, `constructor`, `toString`, …)
+    // would otherwise resolve to the inherited value instead of `undefined`,
+    // and the walk would recurse into a non-schema object and throw. That throw
+    // is swallowed upstream, silently dropping the warnings for every OTHER key
+    // in the same config — the exact silent no-op #862 exists to prevent.
+    const child = Object.prototype.hasOwnProperty.call(shape, key) ? shape[key] : undefined;
     const childPath = join(prefix, key);
     if (child) {
       walk(child, value[key], childPath, out);
