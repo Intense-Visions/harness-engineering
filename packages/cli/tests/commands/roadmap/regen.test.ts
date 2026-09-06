@@ -125,7 +125,7 @@ describe('runRoadmapRegen()', () => {
 // regen over such a `_meta.md` fails. That refusal fails READS as well as writes,
 // and the pre-commit hook `harness roadmap install-hook` installs blocks every
 // shard-touching commit on a failed regen — including the commit that would repair
-// the file. Without a hatch the only way out is `--no-verify`.
+// the file. Without a hatch the only way out is bypassing the pre-commit gate.
 
 /** A history section in a grammar this build cannot read. */
 const UNREADABLE_HISTORY_LINES = [

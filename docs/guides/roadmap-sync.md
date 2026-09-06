@@ -486,8 +486,8 @@ instead when you need a commit to get through:
 HARNESS_ROADMAP_ALLOW_UNREADABLE_HISTORY=1 git commit -m "repair the history section"
 ```
 
-Neither is a way to discard the section; both preserve it. Never reach for
-`--no-verify` here.
+Neither is a way to discard the section; both preserve it. Never bypass the
+pre-commit gate to get around it.
 
 Reassignment produces two records: `unassigned` for the previous assignee, then `assigned` for the new one. This provides a complete audit trail and enables affinity-based routing.
 

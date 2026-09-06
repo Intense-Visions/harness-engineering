@@ -18,7 +18,7 @@ export interface RegenerateOptions {
    * The refusal that keeps regen from silently deleting the section fails READS,
    * not just writes — so a `_meta.md` whose history this build cannot parse wedges
    * every consumer, including the pre-commit regen that the repair commit itself
-   * has to pass. Without a way out, the only recovery is `--no-verify`.
+   * has to pass. Without a way out, the only recovery is bypassing that gate.
    *
    * With this set, regeneration proceeds and the unreadable section is carried
    * into the aggregate VERBATIM. That is lossless: nothing is dropped, so the

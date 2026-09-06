@@ -28,7 +28,7 @@ export interface RoadmapRegenOptions {
  * The pre-commit hook that `harness roadmap install-hook` writes runs the bare
  * `harness roadmap regen`, so a flag alone cannot unwedge a repo whose `_meta.md`
  * history this build cannot read — every shard-touching commit would stay blocked,
- * including the one that repairs it, leaving `--no-verify` as the only way out.
+ * including the one that repairs it, leaving a gate bypass as the only way out.
  * An env var reaches that invocation: `HARNESS_ROADMAP_ALLOW_UNREADABLE_HISTORY=1
  * git commit ...`.
  */
@@ -61,7 +61,7 @@ export interface RegenReport {
  * section this build cannot parse: the section is carried into the aggregate
  * verbatim — losslessly — instead of the regen refusing outright. Without it that
  * refusal blocks every shard-touching commit, including the repair commit, and
- * `--no-verify` becomes the only escape.
+ * bypassing the pre-commit gate becomes the only escape.
  */
 export async function runRoadmapRegen(
   opts: RoadmapRegenOptions = {}

@@ -333,7 +333,7 @@ describe('#1862 regen refuses to write a silent Assignment History deletion', ()
 //
 // The refusal above fails READS, not just writes, so a `_meta.md` in this state
 // wedges every consumer — including the pre-commit regen that the repair commit
-// itself has to pass, leaving `--no-verify` as the only way out.
+// itself has to pass, leaving a pre-commit gate bypass as the only way out.
 // `allowUnreadableHistory` is the way out, and it is LOSSLESS: the section is
 // carried through verbatim rather than dropped, so the hatch cannot reintroduce
 // the deletion the guard exists to stop.
