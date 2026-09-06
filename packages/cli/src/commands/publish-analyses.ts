@@ -111,14 +111,23 @@ function resolveExternalId(
 ): string | null {
   if (record.externalId) return record.externalId;
 
+  // Several feature slugs can prefix the same identifier ("cool-feature" and
+  // "cool-feature-v2" both prefix "cool-feature-v2-abc"). Returning the first
+  // match published the analysis onto whichever feature happened to come first
+  // in roadmap order — the wrong tracker issue. Keep the longest (most
+  // specific) matching prefix instead.
+  let best: { prefixLength: number; extId: string } | null = null;
   for (const [featName, extId] of nameToExternalId) {
     const prefix = featName
       .toLowerCase()
       .replace(/[^a-z0-9]+/g, '-')
       .slice(0, 20);
-    if (record.identifier.startsWith(prefix)) return extId;
+    if (!record.identifier.startsWith(prefix)) continue;
+    if (best === null || prefix.length > best.prefixLength) {
+      best = { prefixLength: prefix.length, extId };
+    }
   }
-  return null;
+  return best === null ? null : best.extId;
 }
 
 async function publishUnpublishedAnalyses(
