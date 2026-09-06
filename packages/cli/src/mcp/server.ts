@@ -185,7 +185,7 @@ import {
   listGatewayTokensDefinition,
   handleListGatewayTokens,
 } from './tools/gateway-tools.js';
-// Phase 3 Task 9: MCP wrapper for the webhook subscription endpoint.
+// MCP wrapper for the webhook subscription endpoint.
 import { subscribeWebhookDefinition, handleSubscribeWebhook } from './tools/webhook-tools.js';
 // Phase 4: emit a skill proposal into `.harness/proposals/`.
 import { emitSkillProposalDefinition, handleEmitSkillProposal } from './tools/skill-proposal.js';
