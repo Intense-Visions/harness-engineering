@@ -1,0 +1,26 @@
+{
+  "issues": [1855],
+  "route": "bug",
+  "stages": ["debugging"],
+  "reproducingTest": "packages/cli/src/drift/resolvers/tokens.tokenpath-1855.test.ts",
+  "closingKeyword": "Closes #1855",
+  "baseSha": "c1ca02ba2",
+  "debugSession": "docs/changes/design-tokenpath-wired-1855/debug-session.md",
+  "sitesWired": [
+    "packages/cli/src/drift/resolvers/tokens.ts:53 (loadTokenSet)",
+    "packages/cli/src/drift/resolvers/tokens.ts:88 (loadTokenPathIndex)"
+  ],
+  "assumptions": [
+    "The issue names the file as packages/cli/src/design-craft/drift/resolvers/tokens.ts; that path does not exist. The real path is packages/cli/src/drift/resolvers/tokens.ts.",
+    "The issue cites only line 53. A second identical hardcoded site exists at line 88 (loadTokenPathIndex, feeding align-design-system's codemods). Both were wired — fixing only the cited site would have left detect honouring the config while align ignored it.",
+    "A configured design.tokenPath is resolved relative to projectRoot; an absolute configured value is honoured as-is (path.resolve gives both behaviours).",
+    "A blank or whitespace-only configured value is treated as unset rather than as a real path — it cannot name a file, and honouring it literally would resolve to the project root and silently disable the token rules, reproducing the very defect being fixed.",
+    "The fallback to design-system/tokens.json applies only when the key is unset. When tokenPath IS configured, the default location is NOT also probed: a configured-but-missing file resolves to null rather than silently loading a different project's tokens.",
+    "Config is read via a new loadDesignTokenPath() in packages/cli/src/config/analysis-schema.ts, mirroring the loadDesignExclude sibling already called by resolveDriftConfig two lines above the loadTokenSet call. No new config-plumbing mechanism was invented and no function signature was widened.",
+    "F2 — missing-file behaviour is deliberately UNCHANGED. The issue raises loud-failure-on-missing 'separately'; it is a distinct adopter-visible behaviour change. The existing null-on-missing semantics are preserved and now pinned by a test.",
+    "A configured path that escapes projectRoot (e.g. ../../elsewhere.json) is honoured. The value comes from the project's own harness.config.json naming its own tokens — the same trust boundary as projectRoot — so no traversal guard was added.",
+    "The schema's doc comment says tokenPath may be 'JSON or CSS'; the resolver parses DTCG JSON only. That behaviour is unchanged (a CSS file fails to parse and yields null). Widening the parser was out of scope.",
+    "The regression test is colocated at packages/cli/src/drift/resolvers/ rather than under packages/cli/tests/ because that tree is region-locked by a concurrent PR. src/**/*.test.ts is an established include in packages/cli/vitest.config.mts.",
+    "F1 — three adjacent hardcoded design-system/tokens.json sites (brand/resolvers/token-extensions.ts:31, design-pipeline/phases/fill.ts:92, design-pipeline/phases/freshen.ts:27) were left untouched and are named as follow-ups in the PR body."
+  ]
+}

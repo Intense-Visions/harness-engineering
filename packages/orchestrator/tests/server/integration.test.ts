@@ -60,12 +60,15 @@ describe('OrchestratorServer integration', () => {
     await fs.writeFile(path.join(dashboardDir, 'index.html'), '<html>Dashboard</html>');
 
     queue = new InteractionQueue(interactionsDir);
-    port = Math.floor(Math.random() * 10000) + 35000;
     mockOrchestrator = Object.assign(new EventEmitter(), {
       getSnapshot: () => ({ running: [], retryAttempts: [], claimed: [] }),
     });
 
-    server = new OrchestratorServer(mockOrchestrator, port, {
+    // Bind 0 and read the OS-assigned port back rather than guessing one.
+    // A guessed port races sibling listeners and, on Windows, lands in the
+    // Hyper-V/WinNAT excluded ranges or on an SO_EXCLUSIVEADDRUSE holder --
+    // both of which are refused with EACCES, not EADDRINUSE (issue #1827).
+    server = new OrchestratorServer(mockOrchestrator, 0, {
       interactionQueue: queue,
       plansDir,
       dashboardDir,
@@ -76,6 +79,7 @@ describe('OrchestratorServer integration', () => {
     });
 
     await server.start();
+    port = server.boundPort;
   });
 
   afterEach(async () => {

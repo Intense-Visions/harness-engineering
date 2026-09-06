@@ -99,13 +99,16 @@ describe('Spec B Phase 5: HTTP routes + WS topic acceptance', () => {
   let port: number;
 
   beforeEach(() => {
-    port = Math.floor(Math.random() * 10000) + 20000;
     bus = new RoutingDecisionBus();
     router = new BackendRouter({ backends, routing, decisionBus: bus });
     mockOrchestrator = Object.assign(new EventEmitter(), {
       getSnapshot: vi.fn().mockReturnValue({ running: [], retryAttempts: [], claimed: [] }),
     });
-    server = new OrchestratorServer(mockOrchestrator, port, {
+    // Bind 0 and read the OS-assigned port back rather than guessing one.
+    // A guessed port races sibling listeners and, on Windows, lands in the
+    // Hyper-V/WinNAT excluded ranges or on an SO_EXCLUSIVEADDRUSE holder --
+    // both of which are refused with EACCES, not EADDRINUSE (issue #1827).
+    server = new OrchestratorServer(mockOrchestrator, 0, {
       getBackendRouter: () => router,
       getRoutingDecisionBus: () => bus,
       getRoutingConfig: () => routing,
@@ -120,6 +123,7 @@ describe('Spec B Phase 5: HTTP routes + WS topic acceptance', () => {
 
   it('F10: BackendRouter.resolve → WS routing:decision frame within 100ms', RETRY, async () => {
     await server.start();
+    port = server.boundPort;
     const ws = new WebSocket(`ws://127.0.0.1:${port}/ws`);
     await new Promise<void>((r) => ws.on('open', r));
 
@@ -149,6 +153,7 @@ describe('Spec B Phase 5: HTTP routes + WS topic acceptance', () => {
 
   it('F8: GET /api/v1/routing/decisions filters by skill + limits newest-first', async () => {
     await server.start();
+    port = server.boundPort;
     // Seed 3 skill + 2 tier dispatches (skill decisions chronologically
     // earliest, so newest-first ordering puts the latest skill at [0]).
     for (let i = 0; i < 3; i++) {
@@ -177,6 +182,7 @@ describe('Spec B Phase 5: HTTP routes + WS topic acceptance', () => {
 
   it('O3 partial: POST /api/v1/routing/trace returns decision without growing ring buffer', async () => {
     await server.start();
+    port = server.boundPort;
     // Seed one real dispatch so the ring buffer length is observable.
     router.resolve({ kind: 'tier', tier: 'quick-fix' });
     const before = bus.recent().length;
@@ -197,14 +203,18 @@ describe('Spec B Phase 5: HTTP routes + WS topic acceptance', () => {
     // config — no backendFactory means no router/bus/routing/backends).
     server.stop();
     await new Promise((r) => setTimeout(r, 30));
-    port = Math.floor(Math.random() * 10000) + 30000;
-    server = new OrchestratorServer(mockOrchestrator, port, {
+    // Bind 0 and read the OS-assigned port back rather than guessing one.
+    // A guessed port races sibling listeners and, on Windows, lands in the
+    // Hyper-V/WinNAT excluded ranges or on an SO_EXCLUSIVEADDRUSE holder --
+    // both of which are refused with EACCES, not EADDRINUSE (issue #1827).
+    server = new OrchestratorServer(mockOrchestrator, 0, {
       getBackendRouter: () => null,
       getRoutingDecisionBus: () => null,
       getRoutingConfig: () => null,
       getBackends: () => null,
     });
     await server.start();
+    port = server.boundPort;
 
     const configRes = await httpGet(port, '/api/v1/routing/config');
     expect(configRes.statusCode).toBe(503);
@@ -218,6 +228,7 @@ describe('Spec B Phase 5: HTTP routes + WS topic acceptance', () => {
 
   it('Phase 4 S1 (latest-N): /api/v1/routing/decisions?limit=10 returns the newest 10', async () => {
     await server.start();
+    port = server.boundPort;
     // Seed 600 decisions — exceeds default capacity (500); newest-first
     // returns the latest 10 of the surviving 500.
     for (let i = 0; i < 600; i++) {
@@ -238,6 +249,7 @@ describe('Spec B Phase 5: HTTP routes + WS topic acceptance', () => {
 
   it('Phase 4 S2: server.stop() unsubscribes the WS broadcaster from the bus', async () => {
     await server.start();
+    port = server.boundPort;
     // Pre-stop: the broadcaster is wired (proved by F10 test). Confirm
     // the bus has a listener registered.
     const listenersBefore = (bus as unknown as { listeners: Set<unknown> }).listeners.size;

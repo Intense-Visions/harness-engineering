@@ -284,9 +284,13 @@ describe('LMLM Phase 7 — WS + sink delivery smoke', () => {
     });
     const offSinks = wireNotificationSinks({ bus, registry });
 
-    const port = Math.floor(Math.random() * 4000) + 51000;
-    const server = new OrchestratorServer(bus, port);
+    // Bind 0 and read the OS-assigned port back rather than guessing one.
+    // A guessed port races sibling listeners and, on Windows, lands in the
+    // Hyper-V/WinNAT excluded ranges or on an SO_EXCLUSIVEADDRUSE holder --
+    // both of which are refused with EACCES, not EADDRINUSE (issue #1827).
+    const server = new OrchestratorServer(bus, 0);
     await server.start();
+    const port = server.boundPort;
 
     const ws = new WebSocket(`ws://127.0.0.1:${port}/ws`);
     await new Promise<void>((r) => ws.on('open', () => r()));

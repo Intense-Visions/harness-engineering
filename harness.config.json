@@ -240,7 +240,9 @@
       "**/coverage/**",
       "**/.gradle/**",
       "**/.gradle-home/**",
-      "**/bin/**"
+      "**/bin/**",
+      "**/.vitepress/cache/**",
+      "**/__fixtures__/**"
     ],
     "entryPoints": [
       "packages/types/src/index.ts",
@@ -255,8 +257,76 @@
       "packages/dashboard/src/client/main.tsx",
       "packages/dashboard/vite.config.ts",
       "packages/burn/tsup.config.ts",
-      "packages/cli/tsup.config.ts"
+      "packages/cli/tsup.config.ts",
+      "packages/burn/src/index.ts",
+      "packages/burn/src/bin/burn-hud.ts",
+      "packages/local-models/src/index.ts",
+      "packages/signals/src/index.ts",
+      "packages/dashboard/src/server/serve.ts",
+      "packages/cli/src/setup/print-clients.ts",
+      "packages/cli/src/hooks/adoption-tracker.js",
+      "packages/cli/src/hooks/block-no-verify.js",
+      "packages/cli/src/hooks/cost-tracker.js",
+      "packages/cli/src/hooks/format-check.js",
+      "packages/cli/src/hooks/pre-compact-state.js",
+      "packages/cli/src/hooks/protect-config.js",
+      "packages/cli/src/hooks/quality-warner.js",
+      "packages/cli/src/hooks/read-hook-stdin.js",
+      "packages/cli/src/hooks/sentinel-post.js",
+      "packages/cli/src/hooks/sentinel-pre.js",
+      "packages/cli/src/hooks/session-retrospect.js",
+      "packages/cli/src/hooks/session-retrospect-codex.js",
+      "packages/cli/src/hooks/session-retrospect-cursor.js",
+      "packages/cli/src/hooks/session-retrospect-gemini.js",
+      "packages/cli/src/hooks/strict-quality-gate.js",
+      "packages/cli/src/hooks/telemetry-reporter.js",
+      "packages/cli/scripts/copy-assets.mjs",
+      "packages/core/scripts/backfill-learnings-frontmatter.ts",
+      "packages/eslint-plugin/scripts/generate-rules-barrel.mjs",
+      "packages/linter-gen/scripts/copy-templates.mjs",
+      "scripts/assert-baseline-only-diff.mjs",
+      "scripts/assert-diff-scope.mjs",
+      "scripts/audit-exceptions.mjs",
+      "scripts/benchmark-check.mjs",
+      "scripts/check-changesets.mjs",
+      "scripts/clean.mjs",
+      "scripts/coverage-ratchet.mjs",
+      "scripts/design-capture.mjs",
+      "scripts/generate-agent-setup-prompt.mjs",
+      "scripts/generate-barrel-exports.mjs",
+      "scripts/generate-core-barrel.mjs",
+      "scripts/generate-docs.mjs",
+      "scripts/generate-persona-workflows.mjs",
+      "scripts/generate-plugin.mjs",
+      "scripts/generate-tool-catalog.mjs",
+      "scripts/main-health-check.mjs",
+      "scripts/refresh-model-candidates.mjs",
+      "scripts/summarize-test-failures.mjs",
+      "scripts/sync-lockfile.mjs",
+      "scripts/sync-plugin-pin.mjs",
+      "scripts/vitest-prepush-reporter.mjs"
     ],
+    "drift": {
+      "docPaths": [
+        "docs/index.md",
+        "docs/api/**/*.md",
+        "docs/conventions/**/*.md",
+        "docs/guidelines/**/*.md",
+        "docs/guides/**/*.md",
+        "docs/knowledge/**/*.md",
+        "docs/plans/**/*.md",
+        "docs/security/**/*.md",
+        "docs/standard/**/*.md"
+      ],
+      "forwardLookingPaths": [
+        "docs/architecture/",
+        "docs/decisions/",
+        "docs/proposals/",
+        "docs/adr/",
+        "docs/changes/",
+        "docs/knowledge/decisions/"
+      ]
+    },
     "autoFix": false
   },
   "performance": {
@@ -420,5 +490,9 @@
       "External Adoption"
     ],
     "excludedMetrics": []
+  },
+  "integrations": {
+    "enabled": ["github", "exa"],
+    "dismissed": []
   }
 }

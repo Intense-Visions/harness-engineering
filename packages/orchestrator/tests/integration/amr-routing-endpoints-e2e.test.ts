@@ -109,14 +109,17 @@ describe('AMR routing endpoints — end-to-end over the HTTP server', () => {
   };
 
   beforeEach(() => {
-    port = Math.floor(Math.random() * 10000) + 30000;
     bus = new RoutingDecisionBus();
     router = new BackendRouter({ backends, routing, decisionBus: bus });
     adaptiveRouter = null;
     const mockOrchestrator = Object.assign(new EventEmitter(), {
       getSnapshot: vi.fn().mockReturnValue({ running: [], retryAttempts: [], claimed: [] }),
     });
-    server = new OrchestratorServer(mockOrchestrator, port, {
+    // Bind 0 and read the OS-assigned port back rather than guessing one.
+    // A guessed port races sibling listeners and, on Windows, lands in the
+    // Hyper-V/WinNAT excluded ranges or on an SO_EXCLUSIVEADDRUSE holder --
+    // both of which are refused with EACCES, not EADDRINUSE (issue #1827).
+    server = new OrchestratorServer(mockOrchestrator, 0, {
       getBackendRouter: () => router,
       getRoutingDecisionBus: () => bus,
       getRoutingConfig: () => routing,
@@ -141,6 +144,7 @@ describe('AMR routing endpoints — end-to-end over the HTTP server', () => {
 
   it('PUT policy → routes under it (budget degrades tier) → GET telemetry (Shuttle shape) + status → PUT {} off', async () => {
     await server.start();
+    port = server.boundPort;
 
     // 1. Default-off before any policy.
     let s = await httpReq(port, 'GET', '/api/v1/routing/status');
@@ -198,6 +202,7 @@ describe('AMR routing endpoints — end-to-end over the HTTP server', () => {
 
   it('a schema-invalid policy PUT is rejected (400) and does not change routing', async () => {
     await server.start();
+    port = server.boundPort;
     const bad = await httpReq(port, 'PUT', '/api/v1/routing/policy', { privacyFloor: 'nonsense' });
     expect(bad.statusCode).toBe(400);
     expect(adaptiveRouter).toBeNull(); // unchanged — still off

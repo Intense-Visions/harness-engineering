@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'packages/orchestrator/src/core'
-sourceHash: '83382f6bd97ebb80b615ee07bed6961d35a26f5c71e989cddede60b8e117d56a'
+sourceHash: 'ddcb706d0bbdd81b5ccf8a778379c0a4eec77ad2ca746c0984a6bbc255d1ab5a'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
@@ -24,6 +24,7 @@ members:
     'lane-persistence.ts',
     'model-router.ts',
     'orchestrator-identity.ts',
+    'pr-detector.external-id-1857.test.ts',
     'pr-detector.ts',
     'published-index.ts',
     'rate-limit-events.ts',
@@ -126,11 +127,12 @@ import { assertIssueWithinContextBudget, buildLeafContextEstimate, estimateIssue
 import { FlightRecorder, RunRecord, gatherProvenance } from './flight-recorder'
 import { InteractionQueue, PendingInteraction } from './interaction-queue'
 import { artifactPresenceFromIssue, detectScopeTier, routeIssue } from './model-router'
+import { PRDetector, PRDetectorLogger } from './pr-detector'
 import { extractRateLimitReset } from './rate-limit-events'
 import { reconcile } from './reconciliation'
 import { calculateRetryDelay } from './retry'
 import { AttemptStats, Highlight } from './stream-recorder'
-import { CHARS_PER_TOKEN, ComprehensionSourceFile, ComprehensionUnit, ContextBudgetExceededError, Issue, IssueTrackerClient, assertLeafWithinBudget, computeSourceHash, coreIsFleetAllocationExhausted, coreIsGlobalEnvelopeExhausted, eventSourcing, renderServedUnit } from '@harness-engineering/core'
+import { CHARS_PER_TOKEN, ComprehensionSourceFile, ComprehensionUnit, ContextBudgetExceededError, Issue, IssueTrackerClient, assertLeafWithinBudget, computeSourceHash, coreIsFleetAllocationExhausted, coreIsGlobalEnvelopeExhausted, eventSourcing, githubRepoPath, parseCanonicalExternalId, renderServedUnit } from '@harness-engineering/core'
 import { ComplexityScore, EnrichedSpec, SimulationResult } from '@harness-engineering/intelligence'
 import { AgentBudgetConfig, AgentEvent, BudgetEnvelopeStatus, ConcernSignal, Err, EscalationConfig, FleetBudgetStatus, Issue, IssueRoutingDecision, LeafContextEstimate, LeafContextSource, Ok, Result, ScopeTier, WorkflowConfig } from '@harness-engineering/types'
 import { execFile, execFileSync } from 'node:child_process'
@@ -141,5 +143,5 @@ import * as fs from 'node:fs/promises'
 import * as os, { tmpdir } from 'node:os'
 import * as path, { join } from 'node:path'
 import { promisify } from 'node:util'
-import { afterEach, beforeEach, describe, expect, it } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 ```
