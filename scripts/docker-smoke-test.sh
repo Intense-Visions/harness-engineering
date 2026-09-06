@@ -20,7 +20,22 @@ MCP_IMAGE="harness-mcp-smoke"
 ORCH_IMAGE="harness-orchestrator-smoke"
 DASH_IMAGE="harness-dashboard-smoke"
 COMPOSE_PROJECT="harness-smoke"
-MAX_IMAGE_SIZE_MB=800
+# Image-size tripwire. This guards against STRUCTURAL packaging regressions — a runtime
+# stage shipping devDependencies, the `build` stage leaking into a runtime stage, or the
+# `--prod` flag going missing on the Dockerfile's install steps. Each of those adds many
+# hundreds of MB, so the budget only has to be tight enough to catch them.
+#
+# Observed in Release run 33965602127 (the first release-path execution of this job):
+#   CLI 727MB · MCP 727MB · Dashboard 482MB · Orchestrator 815MB
+# The orchestrator is `FROM cli` plus an apt layer for git+curl, so it is always the
+# largest image and is the one that crosses any budget first.
+#
+# 1000MB is ~23% headroom over that 815MB high-water mark. The previous value (800, set in
+# aeb815856, itself a raise from 400) left only 3.4% over the images of the day, which is
+# why ordinary dependency growth turned it into a scheduled failure. If a THIRD raise is
+# ever needed, shrink the images instead — the `cli` stage installs the full production
+# dependency closure of every workspace package it copies, and that is the real lever.
+MAX_IMAGE_SIZE_MB=1000
 HEALTH_TIMEOUT=60
 
 # --- Color output ---
