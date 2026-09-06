@@ -142,6 +142,10 @@ describe('test-craft command — option parsing', () => {
   });
 
   it('omits unsupplied flags from the input entirely rather than setting them undefined', async () => {
+    // Whole-shape assertion, so it also guards the #1882 default path against
+    // over-correction: Commander populates `sourcePair: true` when
+    // `--no-source-pair` is omitted, and a fix that forwarded that default
+    // would add a `sourcePair` key here and fail this test.
     await runCraftCommand(createTestCraftCommand(), { globalArgs: ['--cwd', PROJECT] });
 
     expect(Object.keys(capturedInput())).toEqual(['path']);
@@ -161,16 +165,6 @@ describe('test-craft command — option parsing', () => {
     });
 
     expect(capturedInput().sourcePair).toBe(false);
-  });
-
-  it('leaves source pairing enabled when --no-source-pair is omitted', async () => {
-    // The other half of #1882: Commander defaults the negated flag's key to
-    // `true`, so the fixed read must not mistake the default for an opt-out.
-    // Pairing stays on, and the property is left off the input entirely rather
-    // than passed as an explicit `true`.
-    await runCraftCommand(createTestCraftCommand(), { globalArgs: ['--cwd', PROJECT] });
-
-    expect(capturedInput()).not.toHaveProperty('sourcePair');
   });
 });
 

@@ -27,9 +27,10 @@ interface TestCraftCliOptions {
    * Backs `--no-source-pair`. Commander stores a negated flag under its
    * POSITIVE camelCase key — `true` by default, `false` when the flag is
    * passed — and never creates a `noSourcePair` key. Declaring it that way here
-   * is what let the wrong read typecheck cleanly (#1882).
+   * is what let the wrong read typecheck cleanly (#1882). Non-optional because
+   * Commander always populates it: `true` by default, `false` when passed.
    */
-  sourcePair?: boolean;
+  sourcePair: boolean;
   emit?: string;
 }
 
