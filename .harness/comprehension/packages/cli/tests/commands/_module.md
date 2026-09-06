@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'packages/cli/tests/commands'
-sourceHash: '4fd8cee931904f68676859d2876dfa148c3e9524e309bde8e640c07060501124'
+sourceHash: '9c67f4137b2075cc3ac83dd21194bb54b3921d8d125b2c2f2569112ead4db63a'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
@@ -15,6 +15,7 @@ members:
     'agent-run-persona.test.ts',
     'agent-run.test.ts',
     'agent.test.ts',
+    'align-design-system-command.test.ts',
     'audit-protected.test.ts',
     'backfill-skill-provenance.test.ts',
     'check-arch.test.ts',
@@ -34,6 +35,8 @@ members:
     'cross-check.test.ts',
     'dashboard.test.ts',
     'deprecated-graph-aliases.test.ts',
+    'design-command-harness.ts',
+    'design-pipeline-command.test.ts',
     'distortion.test.ts',
     'doctor-hardening.test.ts',
     'doctor.test.ts',
@@ -137,17 +140,21 @@ members:
 ## Interface Contract
 
 ```ts
-
+export ProcessExitSignal
+export parseJsonStdout
+export runCommand
 ```
 
 ## Dependency Slice
 
 ```
+import { AlignDesignSystemOutput, runAlignDesignSystem } from '../../src/align/index.js'
 import { createAddCommand, runAdd } from '../../src/commands/add'
 import { createAdoptionCommand } from '../../src/commands/adoption'
 import { createAgentCommand } from '../../src/commands/agent'
 import { createReviewCommand, runAgentReview } from '../../src/commands/agent/review'
 import { createRunCommand, runAgentTask } from '../../src/commands/agent/run'
+import { createAlignDesignSystemCommand } from '../../src/commands/align-design-system'
 import { createAuditProtectedCommand, runAuditProtected } from '../../src/commands/audit-protected'
 import { runBackfillSkillProvenance } from '../../src/commands/backfill-skill-provenance'
 import { createCheckArchCommand, runCheckArch } from '../../src/commands/check-arch'
@@ -166,6 +173,7 @@ import { runCompoundScanCandidatesCommand } from '../../src/commands/compound/sc
 import { createCreateSkillCommand, generateSkillFiles } from '../../src/commands/create-skill'
 import { createCrossCheckCommand } from '../../src/commands/cross-check'
 import { createDashboardCommand } from '../../src/commands/dashboard'
+import { createDesignPipelineCommand } from '../../src/commands/design-pipeline'
 import { createDistortionCommand } from '../../src/commands/distortion'
 import { checkBaselineFreshness, checkCatalogFreshness, checkHookValidity, checkLivePings, checkSessionCorruption, isCatalogStale, runDoctor } from '../../src/commands/doctor'
 import { createFixDriftCommand, runFixDrift } from '../../src/commands/fix-drift'
@@ -256,6 +264,8 @@ import { SCOPED_WALKERS, deriveChangedSurface, filterToDesignSurface } from '../
 import { createWaypointCommand } from '../../src/commands/waypoint'
 import { resolveConfig } from '../../src/config/loader'
 import { HarnessConfig } from '../../src/config/schema'
+import { DesignPipelineContext, runDesignPipeline } from '../../src/design-pipeline/index.js'
+import { DriftFinding } from '../../src/drift/findings/finding.js'
 import { createProgram } from '../../src/index'
 import { readMcpConfig, writeMcpEntry, writeOpencodeMcpEntry } from '../../src/integrations/config'
 import { CATALOG_LAST_REVIEWED, INTEGRATION_REGISTRY } from '../../src/integrations/registry'
@@ -290,6 +300,7 @@ import { CLIError, ExitCode } from '../../src/utils/errors'
 import { markSetupComplete } from '../../src/utils/first-run'
 import { CLI_VERSION } from '../../src/version'
 import { VocabularyRule, formatViolations, scanFiles, scanText } from '../../src/vocabulary/scanner'
+import { parseJsonStdout, runCommand } from './design-command-harness'
 import * as clack from '@clack/prompts'
 import { CiReviewResult, DiffInfo, Err, Ok, RefinementDemandReport, RollbackDecision, RunCiReviewOptions, SECURITY_SCAN_EXTENSIONS, SECURITY_SCAN_GLOB, applyFixes, archiveStream, buildSnapshot, checkTaint, clearTaint, createFixes, createProposal, createStream, detectDeadCode, detectDocDrift, extractBundle, generateSuggestions, listStreams, listTaintedSessions, loadStreamIndex, parseCiReviewVerdict, parseDiff, parseManifest, readAdoptionRecords, requestPeerReview, resetWaypointEmitterForTests, runReviewPipeline, setActiveStream, validateAgentConfigs, validateAgentsMap, validateKnowledgeMap, writeConfig } from '@harness-engineering/core'
 import from '@harness-engineering/graph'
@@ -310,6 +321,6 @@ import { mockedSetTimeout } from 'node:timers'
 import { fileURLToPath } from 'node:url'
 import * as os from 'os'
 import * as path, { join } from 'path'
-import { MockedFunction, afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
+import { MockInstance, MockedFunction, afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 import YAML, { parseYaml, yamlParse } from 'yaml'
 ```
