@@ -39,6 +39,19 @@ interface AutopilotState {
 }
 
 /**
+ * Is `planPath` the same plan as `featurePlan`, allowing for the relative-vs-
+ * repo-rooted forms the two sources write?
+ *
+ * The suffix test MUST break on a path separator. A bare `endsWith` matched
+ * mid-segment, so a phase for `docs/changes/multi-auth/plan.md` linked itself to
+ * a row whose plan is `auth/plan.md` and carried that unrelated phase's
+ * completion into the row's inferred status.
+ */
+function isSamePlan(planPath: string, featurePlan: string): boolean {
+  return planPath === featurePlan || planPath.endsWith(`/${featurePlan}`);
+}
+
+/**
  * Read an autopilot-state.json file and push normalized task statuses for phases
  * linked to the given plan paths. Ignores malformed files.
  */
@@ -53,9 +66,7 @@ function collectAutopilotStatuses(
     if (!autopilot.phases) return;
 
     const linkedPhases = autopilot.phases.filter((phase) =>
-      phase.planPath
-        ? featurePlans.some((p) => p === phase.planPath || phase.planPath!.endsWith(p))
-        : false
+      phase.planPath ? featurePlans.some((p) => isSamePlan(phase.planPath!, p)) : false
     );
 
     for (const phase of linkedPhases) {
