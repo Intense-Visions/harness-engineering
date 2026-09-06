@@ -1,6 +1,13 @@
 import * as fs from 'node:fs';
 import * as path from 'node:path';
-import { Ok, Err, loadTrackerSyncConfig, GitHubIssuesSyncAdapter } from '@harness-engineering/core';
+import {
+  Ok,
+  Err,
+  loadTrackerSyncConfig,
+  diagnoseTrackerSyncConfig,
+  explainTrackerSyncConfig,
+  GitHubIssuesSyncAdapter,
+} from '@harness-engineering/core';
 import type { Result, TrackerSyncConfig, TrackerSyncAdapter } from '@harness-engineering/core';
 import { CLIError, ExitCode } from '../../utils/errors';
 
@@ -31,11 +38,13 @@ export function resolveConfig(
 ): Result<TrackerSyncConfig, CLIError> {
   const config = opts.config ?? loadTrackerSyncConfig(cwd) ?? undefined;
   if (!config) {
+    // Say which of the four reasons applied. The loader returns a bare null for
+    // all of them, and reporting every one as "no `roadmap.tracker` block" sent
+    // readers hunting for a block that was present and well-formed — it just
+    // named a kind sync cannot drive (issue #1863).
     return Err(
       new CLIError(
-        'No tracker configured: harness.config.json has no `roadmap.tracker` block. ' +
-          'Add one (kind, repo, labels, statusMap) before running `harness roadmap sync` — ' +
-          'without it there is nothing to sync to.',
+        `Cannot sync: ${explainTrackerSyncConfig(diagnoseTrackerSyncConfig(cwd))}`,
         ExitCode.ERROR
       )
     );
