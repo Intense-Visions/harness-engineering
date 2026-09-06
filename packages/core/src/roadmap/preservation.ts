@@ -124,10 +124,14 @@ export function findUnpreservedLines(markdown: string): UnpreservedLine[] {
       inBody = true;
     }
 
-    // Every H2 opens a new section; only the history heading opens the one whose
-    // record bullets are modeled. Trailing whitespace is already stripped from
-    // `text`, so an exact compare matches the reader's `[ \t]*` tolerance.
-    if (/^## /.test(text)) inHistory = text === ASSIGNMENT_HISTORY_HEADING;
+    // A heading at level <= 2 opens a new section; only the history heading opens
+    // the one whose record bullets are modeled. Trailing whitespace is already
+    // stripped from `text`, so an exact compare matches the reader's `[ \t]*`
+    // tolerance. The `#{1,2}` bound must stay identical to `NEXT_HEADING` in
+    // `./assignment-history` — this guard decides whether a line is safe to drop,
+    // and if its section boundary disagrees with the parser's it grants history
+    // tolerances to lines `serializeRoadmap` will in fact delete (#1862 review).
+    if (/^#{1,2} /.test(text)) inHistory = text === ASSIGNMENT_HISTORY_HEADING;
 
     if (!isPreservableBodyLine(text, inHistory)) lost.push({ line: i + 1, text });
   }

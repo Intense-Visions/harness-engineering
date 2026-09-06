@@ -139,39 +139,80 @@ export function serializeAssignmentHistory(records: AssignmentRecord[]): string[
   return lines;
 }
 
-/** An ATX heading of ANY level at column 0 — the bound of the history section. */
-const NEXT_HEADING = /^#{1,6}[ \t]/m;
-
-/** A fence line (```/~~~), optionally indented, opening or closing a code block. */
-const FENCE_LINE = /^[ \t]*(`{3,}|~{3,})/;
+/**
+ * The bound of the history section: the next ATX heading at a level AT OR ABOVE
+ * the section's own H2 — i.e. `# ` or `## `.
+ *
+ * Not "any level". An `### ` under `## Assignment History` is that section's
+ * SUBSECTION in markdown, and hand-grouped histories really do use them
+ * (`### 2026 Q1`). Bounding on `###` cuts the section off at its first subheading,
+ * leaving an empty body — zero records AND zero record-shaped lines, so the
+ * unreadable-history guard cannot fire and the whole grouped history is deleted
+ * at exit 0. Bounding on `## ` alone is the opposite error: a following `# `
+ * section gets swallowed INTO the history, feeding foreign lines to the readers
+ * and naming a line outside the section in the error. Level ≤ 2 is the bound that
+ * is wrong in neither direction (#1862 review).
+ */
+const NEXT_HEADING = /^#{1,2}[ \t]/m;
 
 /**
- * Blank out every fenced code block, preserving each line's LENGTH so an offset
- * into the mask is the same offset into `body`.
+ * A fence line (```/~~~) opening or closing a code block.
+ *
+ * At most 3 leading spaces, per CommonMark — 4+ spaces is an indented code block,
+ * not a fence, and treating one as a fence would blank a region the document does
+ * not consider fenced.
+ */
+const FENCE_LINE = /^ {0,3}(`{3,}|~{3,})/;
+
+/**
+ * Blank out every CLOSED fenced code block, preserving each line's LENGTH so an
+ * offset into the mask is the same offset into `body`.
  *
  * Documentation legitimately shows this section's grammar inside a ```markdown
  * fence — `docs/guides/roadmap-sync.md` does, and a roadmap preamble carries
  * instructions to humans and may do the same. Such an example is an illustration,
  * never data, so both the heading search and the record readers must be blind to
  * it; otherwise a doc example either gets parsed as history or hard-fails the
- * whole document. An unterminated fence runs to the end of the input, matching
- * CommonMark.
+ * whole document.
+ *
+ * ## Why an UNTERMINATED fence is left as literal text
+ *
+ * CommonMark runs an unclosed fence to the end of the document, and masking that
+ * far is exactly the silent deletion this module exists to stop: one stray
+ * ```` ``` ```` in a preamble would blank the real `## Assignment History`
+ * section, the heading search would find nothing, {@link parseAssignmentHistory}
+ * would answer `Ok([])` before its guard ever ran, and `serializeRoadmap` would
+ * drop the section at exit 0. The guard cannot fire on records it can no longer
+ * see.
+ *
+ * So the invariant this function must preserve is: **a heading present in `body`
+ * is never absent from the mask.** Only balanced open/close pairs are blanked; a
+ * dangling opener masks nothing. The cost is that an unterminated fenced example
+ * may be read as real records — a wrong answer the guard and the reader can both
+ * still see, which is strictly recoverable, unlike silence.
  */
 function maskFencedBlocks(body: string): string {
-  let openFence: string | null = null;
-  return body
-    .split('\n')
-    .map((line) => {
-      const fence = line.match(FENCE_LINE);
-      if (openFence === null) {
-        if (!fence) return line;
-        openFence = fence[1]![0]!;
-      } else if (fence && fence[1]![0] === openFence) {
-        openFence = null;
-      }
-      return ' '.repeat(line.length);
-    })
-    .join('\n');
+  const lines = body.split('\n');
+  const masked = [...lines];
+  let openIndex: number | null = null;
+  let openChar = '';
+
+  for (let i = 0; i < lines.length; i++) {
+    const fence = lines[i]!.match(FENCE_LINE);
+    if (!fence) continue;
+    const char = fence[1]![0]!;
+    if (openIndex === null) {
+      openIndex = i;
+      openChar = char;
+      continue;
+    }
+    // Only a fence of the SAME character closes the block, per CommonMark.
+    if (char !== openChar) continue;
+    for (let j = openIndex; j <= i; j++) masked[j] = ' '.repeat(lines[j]!.length);
+    openIndex = null;
+  }
+
+  return masked.join('\n');
 }
 
 /**
@@ -184,24 +225,40 @@ function maskFencedBlocks(body: string): string {
  * an unrelated section hard-fail the parse while the error named a line that is
  * not in the history section at all (#1862).
  *
- * Returns offsets into the ORIGINAL `body` plus the MASKED section text: callers
- * that read records want the masked text (fenced examples inert), callers that
- * preserve the section verbatim slice `body` with the offsets.
+ * Returns offsets into the ORIGINAL `body` plus BOTH views of the section body:
+ * `masked` (fenced examples blanked) is what the record readers consume, `raw` is
+ * what the unreadable-history guard inspects. They must not be swapped — see
+ * {@link parseAssignmentHistory} for why the guard reads the unmasked text.
  */
-function locateSection(body: string): { start: number; end: number; masked: string } | null {
+function locateSection(
+  body: string
+): { start: number; end: number; masked: string; raw: string } | null {
   const mask = maskFencedBlocks(body);
-  const heading = mask.match(/^## Assignment History[ \t]*\n/m);
+  // `\r?\n`: a CRLF document must not slip past the heading match, or the whole
+  // guard silently never fires on Windows checkouts (#1862).
+  const heading = mask.match(/^## Assignment History[ \t]*\r?\n/m);
   if (!heading || heading.index === undefined) return null;
   const start = heading.index + heading[0].length;
   const rest = mask.slice(start);
   const next = rest.search(NEXT_HEADING);
   const end = next === -1 ? body.length : start + next;
-  return { start, end, masked: mask.slice(start, end) };
+  return { start, end, masked: mask.slice(start, end), raw: body.slice(start, end) };
 }
 
-/** The masked section body, or `null` when the document has no history section. */
-function extractSection(body: string): string | null {
-  return locateSection(body)?.masked ?? null;
+/**
+ * Offset of the `## Assignment History` heading in `body`, or `null` when there
+ * is none — fence-aware, so a documentation example does not count as a section.
+ *
+ * Exported so every reader that needs to know "where does the history section
+ * begin" agrees with the parser. `store/meta.ts` used to answer that question
+ * with a naive `indexOf`, which disagreed with this module the moment a preamble
+ * contained a fenced example: the preamble was truncated mid-fence, and the
+ * re-serialized `_meta.md` then carried an unterminated fence (#1862 review).
+ */
+export function findAssignmentHistoryHeadingIndex(body: string): number | null {
+  const found = locateSection(body);
+  if (!found) return null;
+  return body.lastIndexOf(ASSIGNMENT_HISTORY_HEADING, found.start);
 }
 
 /**
@@ -215,6 +272,11 @@ export function extractAssignmentHistorySection(body: string): string | null {
   if (!found) return null;
   const headingStart = body.lastIndexOf(ASSIGNMENT_HISTORY_HEADING, found.start);
   return body.slice(headingStart, found.end).replace(/\s+$/, '');
+}
+
+/** Split a masked section body into lines, tolerating CRLF. */
+function sectionLines(section: string): string[] {
+  return section.split('\n').map((line) => (line.endsWith('\r') ? line.slice(0, -1) : line));
 }
 
 /**
@@ -242,32 +304,55 @@ function finalizeDraft(draft: RecordDraft | null): AssignmentRecord | null {
   return { feature, assignee, action: action as AssignmentRecord['action'], date };
 }
 
+/** What a reader got out of the section, and which line indices it accounted for. */
+interface ReadPass {
+  records: AssignmentRecord[];
+  /**
+   * Indices of the lines that ended up INSIDE a record. A record-shaped line not
+   * in this set is data the reader saw and dropped — which is the whole signal
+   * the unreadable-history guard runs on.
+   */
+  consumed: Set<number>;
+}
+
 /**
  * Read the current bullet-block format. A `- **Feature:**` bullet closes the
  * previous record and opens a new one; the other three fill in the open record.
  * Anything else on the line is ignored, so blank lines and the legacy table are
  * simply not this reader's business.
+ *
+ * A bullet counts as consumed only once its block FINALIZES into a record. An
+ * incomplete block — three of the four labels, say — is left unaccounted for on
+ * purpose, so the guard reports it instead of silently dropping it.
  */
-function readBulletRecords(lines: string[]): AssignmentRecord[] {
+function readBulletRecords(lines: string[]): ReadPass {
   const records: AssignmentRecord[] = [];
+  const consumed = new Set<number>();
   let draft: RecordDraft | null = null;
+  let draftLines: number[] = [];
 
-  for (const line of lines) {
+  const closeDraft = (): void => {
+    const finished = finalizeDraft(draft);
+    if (finished) {
+      records.push(finished);
+      for (const index of draftLines) consumed.add(index);
+    }
+    draft = null;
+    draftLines = [];
+  };
+
+  for (const [index, line] of lines.entries()) {
     const match = line.match(FIELD_BULLET);
     if (!match) continue;
     const label = match[1] as FieldLabel;
-    if (label === 'Feature') {
-      const finished = finalizeDraft(draft);
-      if (finished) records.push(finished);
-      draft = {};
-    }
+    if (label === 'Feature') closeDraft();
     draft ??= {};
     draft[FIELD_KEYS[label]] = decodeSummaryField(match[2] ?? '');
+    draftLines.push(index);
   }
+  closeDraft();
 
-  const last = finalizeDraft(draft);
-  if (last) records.push(last);
-  return records;
+  return { records, consumed };
 }
 
 /**
@@ -280,15 +365,24 @@ function readBulletRecords(lines: string[]): AssignmentRecord[] {
  *
  * Kept for reading only — nothing writes this shape any more (#1811).
  */
-function readLegacyTableRecords(lines: string[]): AssignmentRecord[] {
+function readLegacyTableRecords(lines: string[]): ReadPass & { sawSeparator: boolean } {
   const records: AssignmentRecord[] = [];
-  let pastHeader = false;
+  const consumed = new Set<number>();
+  const headerLines: number[] = [];
+  let sawSeparator = false;
 
-  for (const line of lines) {
+  for (const [index, line] of lines.entries()) {
     const trimmed = line.trim();
     if (!trimmed.startsWith('|')) continue;
-    if (!pastHeader) {
-      if (LEGACY_SEPARATOR.test(trimmed)) pastHeader = true;
+    if (!sawSeparator) {
+      headerLines.push(index);
+      if (LEGACY_SEPARATOR.test(trimmed)) {
+        // The separator proves the rows above it are a header, not lost data —
+        // so a well-formed table with zero data rows is genuinely empty, and the
+        // guard must stay quiet about it.
+        sawSeparator = true;
+        for (const header of headerLines) consumed.add(header);
+      }
       continue;
     }
     const cells = trimmed
@@ -303,22 +397,36 @@ function readLegacyTableRecords(lines: string[]): AssignmentRecord[] {
       action: cells[2] as AssignmentRecord['action'],
       date: cells[3]!,
     });
+    consumed.add(index);
   }
 
-  return records;
+  return { records, consumed, sawSeparator };
 }
 
-/** The current bullet grammar, column-anchored exactly like {@link FIELD_BULLET}. */
-const RECORD_BULLET_PREFIX = /^- \*\*/;
+/**
+ * A record bullet as the GUARD recognises it: any CommonMark bullet marker, any
+ * indentation.
+ *
+ * Deliberately looser than {@link FIELD_BULLET}, which the reader keeps anchored
+ * at `- ` in column 0. The reader defines what round-trips; the guard defines what
+ * is worth refusing to delete, and those are not the same bar. `markdownlint --fix`
+ * with `MD004 ul-style: asterisk` rewrites every `- ` to `* `, and indenting a
+ * block is one keystroke — under the reader's anchoring both turn real records
+ * into unreadable lines, which is exactly the case the guard exists to catch.
+ * Anchoring the guard as tightly as the reader would leave the LIVE format less
+ * protected than the retired one, since the legacy arm has always trimmed.
+ */
+const RECORD_BULLET_PREFIX = /^[-*+]\s+\*\*/;
 
 /**
- * True when `line` is shaped like a record this section has been written in —
- * a `- **` bullet, or a `|` table row (matched after trimming, the same tolerance
- * {@link readLegacyTableRecords} applies). See {@link parseAssignmentHistory} for
- * why the unreadable-section guard keys on this rather than on "non-blank".
+ * True when `line` is shaped like a record this section has been written in — a
+ * `- **` bullet or a `|` table row, both matched after trimming. See
+ * {@link parseAssignmentHistory} for why the unreadable-section guard keys on
+ * this rather than on "non-blank".
  */
 function looksLikeRecordData(line: string): boolean {
-  return RECORD_BULLET_PREFIX.test(line) || line.trim().startsWith('|');
+  const trimmed = line.trim();
+  return RECORD_BULLET_PREFIX.test(trimmed) || trimmed.startsWith('|');
 }
 
 /**
@@ -328,23 +436,38 @@ function looksLikeRecordData(line: string): boolean {
  * `store/regenerator`'s `allowUnreadableHistory`.
  */
 export class UnreadableAssignmentHistoryError extends Error {
-  /** The record-shaped lines that could not be read, in document order. */
+  /** The record-shaped lines no reader accounted for, in document order. */
   readonly unreadableLines: readonly string[];
 
-  constructor(unreadableLines: string[]) {
+  /**
+   * The message is DIAGNOSIS plus document repair, and deliberately names no CLI
+   * flag. This module is a pure grammar helper; a remedy phrased as
+   * `harness roadmap regen --…` is unreachable advice for the MCP tool and the
+   * dashboard, which hit the same `Err`, and nothing would couple the string to
+   * the constant that defines the flag. Each front-end appends its own recovery
+   * sentence — see `runRoadmapRegen`.
+   *
+   * @param unreadableLines  record-shaped lines that ended up in no record.
+   * @param sawLegacySeparator whether a `|---|` row was present. Governs which
+   *   repair is offered: telling an operator to restore a separator row they can
+   *   see is already there is worse than saying nothing, and upgrading the CLI
+   *   cannot repair a separator that was never written — so neither may be
+   *   offered unconditionally.
+   */
+  constructor(unreadableLines: string[], sawLegacySeparator = false) {
+    const missingSeparator =
+      !sawLegacySeparator && unreadableLines.some((line) => line.trim().startsWith('|'));
     super(
       `\`${ASSIGNMENT_HISTORY_HEADING}\` holds ${unreadableLines.length} line(s) shaped like ` +
-        `assignment records, but no record could be read from any of them. Refusing to report ` +
-        `an empty history: a document written from this parse would delete the whole section. ` +
+        `assignment records that could not be read into a record. Refusing to drop them: a ` +
+        `document written from this parse would delete them from the section. ` +
         `First unreadable line: ${JSON.stringify(unreadableLines[0])}. ` +
-        `Repair the section, then re-run — either it is in a grammar this build does not ` +
-        `understand (upgrade the harness CLI), or it is a legacy pipe table that has lost its ` +
-        `\`|---|---|---|---|\` separator row (restore that row by hand; the separator is what ` +
-        `marks where the data rows begin, so nothing can infer it). To regenerate meanwhile ` +
-        `without losing the section, re-run \`harness roadmap regen\` with ` +
-        `\`--allow-unreadable-history\` (or set HARNESS_ROADMAP_ALLOW_UNREADABLE_HISTORY=1, ` +
-        `which the pre-commit hook's bare invocation also honours): the section is carried ` +
-        `into the aggregate verbatim instead of being dropped.`
+        (missingSeparator
+          ? `This looks like a legacy pipe table that has lost its \`|---|---|---|---|\` ` +
+            `separator row — restore that row by hand, since the separator is what marks ` +
+            `where the data rows begin and nothing can infer it.`
+          : `The section is most likely in a grammar this build does not understand; ` +
+            `upgrading the harness CLI is the usual repair.`)
     );
     this.name = 'UnreadableAssignmentHistoryError';
     this.unreadableLines = unreadableLines;
@@ -408,16 +531,65 @@ export class UnreadableAssignmentHistoryError extends Error {
  * deletion this guard exists to stop.
  */
 export function parseAssignmentHistory(body: string): Result<AssignmentRecord[]> {
-  const section = extractSection(body);
-  if (section === null) return Ok([]);
-  const lines = section.split('\n');
-  const records = [...readBulletRecords(lines), ...readLegacyTableRecords(lines)];
-  if (records.length === 0) {
-    const unreadable = lines.filter(looksLikeRecordData);
-    // The `> 0` arm is load-bearing, not defensive: without it a heading whose
-    // body holds no record-shaped line at all — the blank placeholder heading —
-    // would fail too, and there is nothing there to lose.
-    if (unreadable.length > 0) return Err(new UnreadableAssignmentHistoryError(unreadable));
+  const found = locateSection(body);
+  if (found === null) return unlocatedHeadingCheck(body);
+
+  // Masking preserves every line's length, so the two views share line indices.
+  const maskedLines = sectionLines(found.masked);
+  const rawLines = sectionLines(found.raw);
+
+  const bullets = readBulletRecords(maskedLines);
+  const legacy = readLegacyTableRecords(maskedLines);
+  const records = [...bullets.records, ...legacy.records];
+
+  // The GUARD reads the RAW section, not the masked one. Masking exists to keep a
+  // fenced EXAMPLE out of the record READERS; a guard that cannot see a line
+  // cannot protect it, and a fence inside a real history section hides data at
+  // risk rather than an illustration. Running the guard on the mask let one stray
+  // fence delete records in silence — the #1862 defect, rebuilt (review).
+  const unreadable = rawLines.filter(
+    (line, index) =>
+      looksLikeRecordData(line) && !bullets.consumed.has(index) && !legacy.consumed.has(index)
+  );
+
+  // NOT gated on `records.length === 0`. One readable record used to switch the
+  // guard off entirely, so a half-migrated section dropped the rest in silence —
+  // the same defect, scoped to a subset. Any record-shaped line that no reader
+  // accounted for is data about to be deleted.
+  //
+  // The `> 0` arm is load-bearing, not defensive: without it a heading whose body
+  // holds no record-shaped line at all — the blank placeholder heading — would
+  // fail too, and there is nothing there to lose.
+  if (unreadable.length > 0) {
+    return Err(new UnreadableAssignmentHistoryError(unreadable, legacy.sawSeparator));
   }
   return Ok(records);
+}
+
+/** A heading line whose text STARTS with the section name (`## Assignment History (legacy)`). */
+const NEAR_MISS_HEADING = /^#{1,6}[ \t]+Assignment History[^\n]*$/m;
+
+/**
+ * The answer for a document {@link locateSection} found no section in.
+ *
+ * Almost always `Ok([])` — a roadmap with no history is legitimate and must keep
+ * round-tripping byte-for-byte. The exception is a heading that NAMES the section
+ * without matching it exactly, `## Assignment History (legacy)` being the shape an
+ * operator produces while hand-repairing a table. Reading that as "no history"
+ * deletes a section whose records may be perfectly readable — the defect this
+ * module exists to stop — so it is an error instead, and one repaired in a single
+ * edit.
+ */
+function unlocatedHeadingCheck(body: string): Result<AssignmentRecord[]> {
+  const nearMiss = maskFencedBlocks(body).match(NEAR_MISS_HEADING);
+  if (!nearMiss) return Ok([]);
+  return Err(
+    new Error(
+      `Found the heading ${JSON.stringify(nearMiss[0].trim())}, which names the assignment ` +
+        `history section but is not exactly \`${ASSIGNMENT_HISTORY_HEADING}\` on its own line. ` +
+        `Refusing to read this document as having no history: anything under that heading ` +
+        `would be deleted by the next write. Restore the heading to ` +
+        `\`${ASSIGNMENT_HISTORY_HEADING}\` and re-run.`
+    )
+  );
 }

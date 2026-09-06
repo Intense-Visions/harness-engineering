@@ -96,15 +96,219 @@ describe('#1862 parseAssignmentHistory distinguishes "absent" from "unreadable"'
 
   it('names a remedy that can actually repair a separator-less legacy table', () => {
     // "upgrade the harness CLI" cannot restore a separator row that was never
-    // written, and that is the very case this arm routes here. The message must
-    // name the repair AND the recovery hatch, or the two documented remediation
-    // paths just point at each other.
+    // written, and that is the very case this arm routes here.
     const result = parseAssignmentHistory(SEPARATORLESS_LEGACY_HISTORY);
 
     expect(result.ok).toBe(false);
     if (result.ok) return;
     expect(result.error.message).toContain('separator row');
-    expect(result.error.message).toContain('--allow-unreadable-history');
+    // ...and it must NOT offer the CLI upgrade, which cannot help here.
+    expect(result.error.message).not.toContain('upgrading the harness CLI');
+  });
+
+  it('offers the CLI upgrade — not the separator repair — for an unknown grammar', () => {
+    // The mirror image. Telling an operator to restore a separator row they can
+    // see is already there is worse than saying nothing, so neither remedy may be
+    // printed unconditionally.
+    const result = parseAssignmentHistory(UNREADABLE_HISTORY);
+
+    expect(result.ok).toBe(false);
+    if (result.ok) return;
+    expect(result.error.message).toContain('upgrading the harness CLI');
+    expect(result.error.message).not.toContain('separator row');
+  });
+
+  it('does not offer the separator repair when the separator row is present', () => {
+    // A legacy table WITH its separator whose rows are simply not assignments.
+    const result = parseAssignmentHistory(
+      [
+        '## Assignment History',
+        '',
+        '| When | Note |',
+        '|------|------|',
+        '| 2026-01-01 | migrated |',
+      ].join('\n')
+    );
+
+    expect(result.ok).toBe(false);
+    if (result.ok) return;
+    expect(result.error.message).not.toContain('separator row');
+  });
+
+  it('reads a well-formed legacy table with zero data rows as an empty history', () => {
+    // Header + separator and nothing else is a readable, genuinely empty table.
+    // The separator proves the rows above it are a header, not lost data, so the
+    // guard must stay quiet — there is nothing here to delete.
+    const result = parseAssignmentHistory(
+      ['## Assignment History', '', '| Feature | Assignee | Action | Date |', '|--|--|--|--|'].join(
+        '\n'
+      )
+    );
+
+    expect(result.ok).toBe(true);
+    if (result.ok) expect(result.value).toEqual([]);
+  });
+
+  it('fails on a heading that names the section without matching it exactly', () => {
+    // `## Assignment History (legacy)` is what an operator produces while hand
+    // repairing a table. Locating no section at all answers Ok([]), which deletes
+    // a table whose rows are perfectly readable.
+    const result = parseAssignmentHistory(
+      [
+        '## Assignment History (legacy)',
+        '',
+        '| Feature | Assignee | Action | Date |',
+        '|--|--|--|--|',
+        '| Core foundation | alice | assigned | 2026-01-02 |',
+      ].join('\n')
+    );
+
+    expect(result.ok).toBe(false);
+    if (!result.ok) expect(result.error.message).toContain('Assignment History (legacy)');
+  });
+});
+
+// --- Silence must never be reachable through the masking or the bounds ----------
+//
+// Every case below was a REGRESSION found in review of round 2's first attempt:
+// the document holds real, readable records and the parser answered `Ok([])`,
+// which `serializeRoadmap` then omits. That is #1862 itself, rebuilt inside its
+// own fix. The guard cannot fire on records it can no longer see, so the masking
+// and the section bounds are part of the fix, not incidental to it.
+
+describe('#1862 no document with real records is ever read as an empty history', () => {
+  const ALICE = {
+    feature: 'Core foundation',
+    assignee: 'alice',
+    action: 'assigned',
+    date: '2026-01-02',
+  };
+  const RECORD_LINES = [
+    '- **Feature:** Core foundation',
+    '- **Assignee:** alice',
+    '- **Action:** assigned',
+    '- **Date:** 2026-01-02',
+  ];
+
+  it('reads the section when an UNTERMINATED fence appears before it', () => {
+    // Masking an unclosed fence to EOF (what CommonMark says) blanks the real
+    // heading, so `locateSection` finds nothing and the guard never runs. Only
+    // balanced pairs are masked; a dangling opener stays literal text.
+    const result = parseAssignmentHistory(
+      [
+        '# Roadmap',
+        '',
+        'Notes:',
+        '',
+        '```markdown',
+        '',
+        '## Assignment History',
+        '',
+        ...RECORD_LINES,
+        '',
+      ].join('\n')
+    );
+
+    expect(result.ok).toBe(true);
+    if (result.ok) expect(result.value).toEqual([ALICE]);
+  });
+
+  it('reads a history grouped under `###` sub-headings', () => {
+    // An `###` under an `##` is that section's SUBSECTION. Bounding the section
+    // on any-level headings cut it off at `### 2026 Q1`, leaving an empty body —
+    // zero records and zero record-shaped lines, so the guard stayed silent too.
+    const result = parseAssignmentHistory(
+      ['## Assignment History', '', '### 2026 Q1', '', ...RECORD_LINES, ''].join('\n')
+    );
+
+    expect(result.ok).toBe(true);
+    if (result.ok) expect(result.value).toEqual([ALICE]);
+  });
+
+  it('does not let a fence INSIDE the section hide records from the guard', () => {
+    // The readers may stay blind to a fenced example; the guard may not. Running
+    // the guard on the masked text let one stray fence delete records silently.
+    const result = parseAssignmentHistory(
+      [
+        '## Assignment History',
+        '',
+        '```',
+        '- **Item:** Core foundation',
+        '- **Owner:** alice',
+        '```',
+        '',
+      ].join('\n')
+    );
+
+    expect(result.ok).toBe(false);
+  });
+
+  it('fails on PARTIAL loss — one readable record does not excuse dropping the rest', () => {
+    // The guard used to run only at `records.length === 0`, so a half-migrated
+    // section reported the records it could read and dropped the others in
+    // silence. That is the same defect, scoped to a subset.
+    const result = parseAssignmentHistory(
+      [
+        '## Assignment History',
+        '',
+        ...RECORD_LINES,
+        '',
+        '- **Item:** API Gateway',
+        '- **Owner:** bob',
+        '- **Event:** completed',
+        '- **On:** 2026-01-03',
+      ].join('\n')
+    );
+
+    expect(result.ok).toBe(false);
+  });
+
+  it('protects the LIVE bullet format as well as the retired table format', () => {
+    // `markdownlint --fix` with `MD004 ul-style: asterisk` rewrites every `- ` to
+    // `* `, and indenting a block is one keystroke. Under the reader's column
+    // anchoring both turn real records into unreadable lines, so the guard — which
+    // decides what is worth refusing to delete — has to be looser than the reader.
+    for (const mutated of [
+      ['## Assignment History', '', ...RECORD_LINES.map((l) => l.replace('- ', '* '))].join('\n'),
+      ['## Assignment History', '', ...RECORD_LINES.map((l) => `  ${l}`)].join('\n'),
+    ]) {
+      const result = parseAssignmentHistory(mutated);
+      expect(result.ok, mutated).toBe(false);
+    }
+  });
+
+  it('does not treat a 4-space-indented ``` as a fence opener', () => {
+    // 4+ spaces is an indented code block in CommonMark, not a fence. Reading a
+    // PAIR of them as a fence blanks everything between — here, the real section —
+    // even though the document does not consider that region fenced at all.
+    const result = parseAssignmentHistory(
+      [
+        '# Roadmap',
+        '',
+        '    ```',
+        '',
+        '## Assignment History',
+        '',
+        ...RECORD_LINES,
+        '',
+        '    ```',
+        '',
+      ].join('\n')
+    );
+
+    expect(result.ok).toBe(true);
+    if (result.ok) expect(result.value).toEqual([ALICE]);
+  });
+
+  it('reads a CRLF document', () => {
+    // `[ \t]*\n` never matched `...History\r\n`, so every CRLF checkout — which is
+    // any Windows adopter without `eol=lf` — got the unfixed defect.
+    const result = parseAssignmentHistory(
+      ['## Assignment History', '', ...RECORD_LINES, ''].join('\r\n')
+    );
+
+    expect(result.ok).toBe(true);
+    if (result.ok) expect(result.value).toEqual([ALICE]);
   });
 });
 
@@ -189,8 +393,10 @@ describe('#1862 the unreadable-history guard raises no false alarm', () => {
 
 // --- The section is bounded by the next heading of ANY level --------------------
 
-describe('#1862 the history section does not swallow the section that follows it', () => {
-  it('does not read records out of a following H3 section', () => {
+describe('#1862 the history section is bounded by the next heading at level <= 2', () => {
+  it('does not read records out of a following H1 section', () => {
+    // The original bug: bounding only on `^## ` let a following `# ` section be
+    // swallowed, inventing a SECOND record out of a different section's content.
     const body = [
       '## Assignment History',
       '',
@@ -199,9 +405,7 @@ describe('#1862 the history section does not swallow the section that follows it
       '- **Action:** assigned',
       '- **Date:** 2026-01-02',
       '',
-      '### Migration notes',
-      '',
-      'An example of a record we no longer keep:',
+      '# Appendix',
       '',
       '- **Feature:** Example',
       '- **Assignee:** bob',
@@ -213,21 +417,19 @@ describe('#1862 the history section does not swallow the section that follows it
     const result = parseAssignmentHistory(body);
 
     expect(result.ok).toBe(true);
-    // Bounding only on the next `## ` swallows the H3 section and invents a
-    // SECOND record out of prose that belongs to a different section.
     if (result.ok)
       expect(result.value).toEqual([
         { feature: 'Core foundation', assignee: 'alice', action: 'assigned', date: '2026-01-02' },
       ]);
   });
 
-  it('does not hard-fail a blank history over content in a following H3 section', () => {
+  it('does not hard-fail a blank history over content in a following H1 section', () => {
     const body = [
       '## Assignment History',
       '',
       '_No assignments recorded yet._',
       '',
-      '### Legacy import log',
+      '# Legacy import log',
       '',
       '| when | note |',
       '| 2026-01-01 | migrated from the old tracker |',
@@ -236,9 +438,8 @@ describe('#1862 the history section does not swallow the section that follows it
 
     const result = parseAssignmentHistory(body);
 
-    // Bounding only on the next `## ` captures the import log's `|` rows, finds
-    // them record-shaped and unreadable, and fails the WHOLE document while
-    // naming a line that is not in the history section at all.
+    // Unbounded, the import log's `|` rows read as record-shaped and unreadable,
+    // failing the WHOLE document while naming a line outside the history section.
     expect(result.ok).toBe(true);
     if (result.ok) expect(result.value).toEqual([]);
   });
@@ -309,12 +510,9 @@ describe('#1862 regen refuses to write a silent Assignment History deletion', ()
 
     const result = await regenerate(SHARD_DIR, io);
 
+    // Succeeding here means the caller is handed a document whose history section
+    // has been dropped — the exact regression.
     expect(result.ok).toBe(false);
-    if (result.ok) {
-      // Guard the exact regression: succeeding here means the caller is handed a
-      // document whose history section has been dropped.
-      expect(result.value).toContain('## Assignment History');
-    }
   });
 
   it('leaves docs/roadmap.md untouched — the deletion is never written to disk', async () => {
@@ -346,12 +544,61 @@ describe('#1862 allowUnreadableHistory recovers a wedged repo without losing the
 
     expect(result.ok).toBe(true);
     if (!result.ok) return;
-    // Every line of the unreadable section survives, byte for byte.
-    for (const line of UNREADABLE_HISTORY.split('\n')) {
-      if (line !== '') expect(result.value).toContain(line);
-    }
+    // Byte for byte, in order, at the end — a per-line `toContain` sweep would
+    // prove neither ordering nor spacing.
+    expect(result.value.endsWith(`\n${UNREADABLE_HISTORY}\n`)).toBe(true);
     // And the rest of the aggregate is still regenerated normally.
     expect(result.value).toContain('### Core foundation');
+  });
+
+  it('reports that it carried the section, so the hatch can never fire silently', async () => {
+    const { io } = makeShardIO();
+    const carried: Error[] = [];
+
+    const result = await regenerate(SHARD_DIR, io, {
+      allowUnreadableHistory: true,
+      onUnreadableHistoryCarried: (error) => carried.push(error),
+    });
+
+    expect(result.ok).toBe(true);
+    expect(carried).toHaveLength(1);
+    expect(carried[0]!.name).toBe('UnreadableAssignmentHistoryError');
+  });
+
+  it('does not fire the callback on a clean regen', async () => {
+    const { io, files } = makeShardIO();
+    files.set(
+      `${SHARD_DIR}/_meta.md`,
+      META_WITH_UNREADABLE_HISTORY.replace(UNREADABLE_HISTORY, '')
+    );
+    const carried: Error[] = [];
+
+    const result = await regenerate(SHARD_DIR, io, {
+      allowUnreadableHistory: true,
+      onUnreadableHistoryCarried: (error) => carried.push(error),
+    });
+
+    expect(result.ok).toBe(true);
+    expect(carried).toEqual([]);
+  });
+
+  it('reports the ORIGINAL history error when the salvage itself cannot complete', async () => {
+    // The `return Err(originalError)` arms exist so the operator is told what to
+    // repair, not what the salvage tripped over on the way.
+    const { io } = makeShardIO();
+    let metaReads = 0;
+    const flaky: ShardIO = {
+      ...io,
+      readFile: async (path) => {
+        if (path.endsWith('_meta.md') && ++metaReads > 1) throw new Error('EACCES on re-read');
+        return io.readFile(path);
+      },
+    };
+
+    const result = await regenerate(SHARD_DIR, flaky, { allowUnreadableHistory: true });
+
+    expect(result.ok).toBe(false);
+    if (!result.ok) expect(result.error.name).toBe('UnreadableAssignmentHistoryError');
   });
 
   it('writes that aggregate to disk so a shard-touching commit can proceed', async () => {

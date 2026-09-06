@@ -21,7 +21,7 @@ export { parseMeta, serializeMeta } from './meta';
 export { assembleRoadmap } from './assembler';
 export { MonolithStore, slugifyFeatureName } from './monolith-store';
 export type { FileIO, MonolithStoreOptions } from './monolith-store';
-export { ShardStore, readShardDir, ARCHIVE_SUBDIR, shardMetaPath } from './shard-store';
+export { ShardStore, readShardDir, ARCHIVE_SUBDIR } from './shard-store';
 export type { ShardIO } from './shard-store';
 export { archiveShards, restoreShards, readArchivedShards, archiveShardDir } from './archive';
 export type { ShardArchiveResult } from './archive';

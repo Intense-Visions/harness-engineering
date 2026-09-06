@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'packages/core/src/roadmap/store'
-sourceHash: '9480d53a072521b9cfe60d8681f0d6cb16968e87dd9469fb4d3e3201b513bb05'
+sourceHash: '84ec7e65ccca26d664ae29ebdcf77bb8d75e228cb70294a4f04800214e903e16'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
@@ -63,7 +63,6 @@ export roadmapSourceExists
 export roadmapToShards
 export serializeMeta
 export serializeShard
-export shardMetaPath
 export slugifyFeatureName
 export writeRegeneratedRoadmap
 ```
@@ -71,7 +70,7 @@ export writeRegeneratedRoadmap
 ## Dependency Slice
 
 ```
-import { UnreadableAssignmentHistoryError, extractAssignmentHistorySection, stripAssignmentHistorySection } from '../assignment-history'
+import { UnreadableAssignmentHistoryError, extractAssignmentHistorySection, findAssignmentHistoryHeadingIndex, stripAssignmentHistorySection } from '../assignment-history'
 import { parseFeatureHeading } from '../heading'
 import { detectRoadmapStorageMode } from '../load-mode'
 import { parseAssignmentHistory, parseFeatureBlock, parseRoadmap } from '../parse'

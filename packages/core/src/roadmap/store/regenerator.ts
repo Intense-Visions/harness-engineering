@@ -24,8 +24,24 @@ export interface RegenerateOptions {
    * into the aggregate VERBATIM. That is lossless: nothing is dropped, so the
    * hatch cannot reintroduce the deletion the guard exists to stop. It forgives
    * ONLY the history-parse failure — any other read error still fails.
+   *
+   * Scope: this unwedges the REGEN path. The aggregate it writes still contains
+   * the unreadable section, so `parseRoadmap` — and therefore every other roadmap
+   * reader — stays blocked until the section itself is repaired. Callers must say
+   * so; see {@link RegenerateOptions.onUnreadableHistoryCarried}.
    */
   allowUnreadableHistory?: boolean;
+
+  /**
+   * Called when the salvage above actually fires, with the parse error it
+   * forgave.
+   *
+   * Not optional decoration: a hatch that regenerates silently is the same
+   * silence this guard was written to end. `HARNESS_ROADMAP_ALLOW_UNREADABLE_HISTORY`
+   * exported once in a shell profile or CI would otherwise disable the guard
+   * permanently with nothing in the output to show for it.
+   */
+  onUnreadableHistoryCarried?: (error: UnreadableAssignmentHistoryError) => void;
 }
 
 /**
@@ -52,7 +68,7 @@ export async function regenerate(
   ) {
     return read;
   }
-  return regenerateCarryingHistoryVerbatim(shardDir, io, read.error);
+  return regenerateCarryingHistoryVerbatim(shardDir, io, read.error, options);
 }
 
 /**
@@ -73,7 +89,8 @@ export async function regenerate(
 async function regenerateCarryingHistoryVerbatim(
   shardDir: string,
   io: ShardIO,
-  originalError: UnreadableAssignmentHistoryError
+  originalError: UnreadableAssignmentHistoryError,
+  options: RegenerateOptions
 ): Promise<Result<string>> {
   const metaPath = shardMetaPath(shardDir);
   let metaContent: string;
@@ -95,6 +112,7 @@ async function regenerateCarryingHistoryVerbatim(
   if (!read.ok) return Err(originalError);
 
   const aggregate = serializeRoadmap(assembleRoadmap(read.value.shards, read.value.meta));
+  options.onUnreadableHistoryCarried?.(originalError);
   return Ok(`${aggregate}\n${section}\n`);
 }
 

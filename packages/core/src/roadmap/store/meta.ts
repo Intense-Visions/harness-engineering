@@ -2,6 +2,7 @@ import { parse as parseYaml } from 'yaml';
 import type { RoadmapFrontmatter, Result } from '@harness-engineering/types';
 import { Ok, Err } from '@harness-engineering/types';
 import { parseAssignmentHistory } from '../parse';
+import { findAssignmentHistoryHeadingIndex } from '../assignment-history';
 import { serializeAssignmentHistory } from '../serialize';
 import { quoteYamlScalar } from './yaml-scalar';
 import type { RoadmapMeta } from './roadmap-store';
@@ -101,10 +102,17 @@ function parseMilestones(data: Record<string, unknown>): Result<string[]> {
  * `## Assignment History` section (the only other thing the body ever holds).
  * A body with no preamble yields '' and no field is attached, so history-free and
  * preamble-free `_meta.md` files stay byte-identical to Phase 1.
+ *
+ * The boundary comes from {@link findAssignmentHistoryHeadingIndex}, the same
+ * authority the parser uses. This used to be a raw `body.indexOf(...)`, which is
+ * neither column-anchored nor fence-aware: a preamble containing a fenced example
+ * of the grammar (the shape the guide publishes) was cut at the FENCED heading
+ * while the parser ignored it, silently deleting the rest of the preamble and
+ * re-emitting a `_meta.md` whose fence was left open (#1862 review).
  */
 function parsePreamble(body: string): string {
-  const history = body.indexOf('## Assignment History');
-  return (history === -1 ? body : body.slice(0, history)).trim();
+  const history = findAssignmentHistoryHeadingIndex(body);
+  return (history === null ? body : body.slice(0, history)).trim();
 }
 
 /**
@@ -113,7 +121,9 @@ function parsePreamble(body: string): string {
  * `_meta.md` stays structurally identical (and byte-stable) to Phase 1.
  */
 function attachAssignmentHistory(meta: RoadmapMeta, body: string): Result<RoadmapMeta> {
-  if (body.includes('## Assignment History')) {
+  // Ask the parser, not `body.includes(...)`: a fenced EXAMPLE of the grammar is
+  // not a section, and the two answers must not diverge (#1862 review).
+  if (findAssignmentHistoryHeadingIndex(body) !== null) {
     const history = parseAssignmentHistory(body);
     if (!history.ok) return Err(history.error);
     if (history.value.length > 0) meta.assignmentHistory = history.value;

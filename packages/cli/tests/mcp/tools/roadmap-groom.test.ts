@@ -171,6 +171,20 @@ last_manual_edit: 2026-01-01T00:00:00Z
     expect(fs.readFileSync(path.join(dir, 'docs', 'roadmap.md'), 'utf-8')).toBe(before);
   });
 
+  it('refuses when the archive cannot be READ at all, rather than fabricating one', async () => {
+    // Only "the file is not there yet" may start a fresh archive. Any other read
+    // failure used to fall into the same branch and overwrite the file with an
+    // empty archive. A directory in the archive's place reproduces that (EISDIR).
+    fs.mkdirSync(archivePath, { recursive: true });
+
+    const res = await handleManageRoadmap({ path: dir, action: 'groom' });
+
+    expect(res.isError).toBeTruthy();
+    expect(res.content[0].text).toContain('roadmap-archive.md');
+    // Still a directory: nothing was written over it.
+    expect(fs.statSync(archivePath).isDirectory()).toBe(true);
+  });
+
   it('still creates the archive on first use, when there is no file yet', async () => {
     expect(fs.existsSync(archivePath)).toBe(false);
 
