@@ -293,29 +293,60 @@ function detectWorkflow(spec: string | null, plans: string[]): ClaimWorkflow {
 }
 
 /**
+ * The one shape an External-ID may take before any part of it is spliced into
+ * the authenticated api.github.com path below. `/`, `#`, `?` and whitespace are
+ * excluded so a crafted roadmap row cannot append path segments or truncate the
+ * intended `/issues/<n>/assignees` suffix into a query string.
+ */
+const GITHUB_EXTERNAL_ID_RE = /^github:([^/#?\s]+)\/([^/#?\s]+)#(\d+)$/;
+
+/**
+ * Dot segments have to be rejected separately: `encodeURIComponent` leaves `.`
+ * untouched, so `..` survives the character class above and still collapses
+ * under URL normalization.
+ */
+function isDotSegment(segment: string): boolean {
+  return segment === '.' || segment === '..';
+}
+
+/**
  * Parse a github externalId like "github:owner/repo#42" and assign the issue.
  * Returns true if assignment succeeded, false otherwise.
+ *
+ * The externalId arrives verbatim from roadmap content and is interpolated into
+ * a request that carries the operator's GITHUB_TOKEN, so it is validated and
+ * percent-encoded here rather than trusted (CWE-441, CWE-20).
  */
 async function assignGithubIssue(externalId: string, assignee: string): Promise<boolean> {
   const token = process.env['GITHUB_TOKEN'];
   if (!token) return false;
 
-  const match = externalId.match(/^github:(.+?)#(\d+)$/);
+  const match = externalId.match(GITHUB_EXTERNAL_ID_RE);
   if (!match) return false;
 
-  const [, repo, issueNum] = match;
+  const [, owner, repo, issueNum] = match;
+  if (isDotSegment(owner!) || isDotSegment(repo!)) return false;
+
   const cleanAssignee = assignee.startsWith('@') ? assignee.slice(1) : assignee;
   try {
-    const res = await fetch(`https://api.github.com/repos/${repo}/issues/${issueNum}/assignees`, {
-      method: 'POST',
-      headers: {
-        Authorization: `Bearer ${token}`,
-        Accept: 'application/vnd.github+json',
-        'User-Agent': 'harness-dashboard',
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({ assignees: [cleanAssignee] }),
-    });
+    // Encoding happens inside the try: the character class admits lone
+    // surrogates, on which encodeURIComponent throws URIError. Rejecting that
+    // as a failed sync matches this function's contract; letting it escape
+    // would 500 the request after the claim had already been persisted.
+    const repoPath = `${encodeURIComponent(owner!)}/${encodeURIComponent(repo!)}`;
+    const res = await fetch(
+      `https://api.github.com/repos/${repoPath}/issues/${encodeURIComponent(issueNum!)}/assignees`,
+      {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${token}`,
+          Accept: 'application/vnd.github+json',
+          'User-Agent': 'harness-dashboard',
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ assignees: [cleanAssignee] }),
+      }
+    );
     return res.ok;
   } catch {
     return false;
