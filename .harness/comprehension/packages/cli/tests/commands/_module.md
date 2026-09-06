@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'packages/cli/tests/commands'
-sourceHash: '4fd8cee931904f68676859d2876dfa148c3e9524e309bde8e640c07060501124'
+sourceHash: '3ccacc976e5d94509e858d7df0d604864e16b7a8441a2d7cf249bf2794e4ac7d'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
@@ -15,6 +15,7 @@ members:
     'agent-run-persona.test.ts',
     'agent-run.test.ts',
     'agent.test.ts',
+    'api-craft-command.test.ts',
     'audit-protected.test.ts',
     'backfill-skill-provenance.test.ts',
     'check-arch.test.ts',
@@ -29,12 +30,16 @@ members:
     'check-vocabulary.test.ts',
     'cleanup-sessions.test.ts',
     'cleanup.test.ts',
+    'cli-ergonomics-craft-command.test.ts',
+    'code-craft-command.test.ts',
     'compound-scan-candidates.test.ts',
+    'craft-command-harness-cohort-b.ts',
     'create-skill.test.ts',
     'cross-check.test.ts',
     'dashboard.test.ts',
     'deprecated-graph-aliases.test.ts',
     'distortion.test.ts',
+    'docs-craft-command.test.ts',
     'doctor-hardening.test.ts',
     'doctor.test.ts',
     'fix-drift.test.ts',
@@ -57,6 +62,7 @@ members:
     'install.test.ts',
     'integrations-sync.test.ts',
     'integrations.test.ts',
+    'knowledge-craft-command.test.ts',
     'learnings-prune.test.ts',
     'linter-generate.test.ts',
     'maintenance-command-shape.test.ts',
@@ -137,17 +143,25 @@ members:
 ## Interface Contract
 
 ```ts
-
+export DEFAULT_CWD
+export runCraftCommand
 ```
 
 ## Dependency Slice
 
 ```
+import { ApiCraftOutput, ApiFinding } from '../../src/api-craft/findings/schema.js'
+import { ApiCraftInput, runApiCraft } from '../../src/api-craft/index.js'
+import { CliErgonomicsCraftOutput, CliErgonomicsFinding } from '../../src/cli-ergonomics-craft/findings/schema.js'
+import { CliErgonomicsCraftInput, runCliErgonomicsCraft } from '../../src/cli-ergonomics-craft/index.js'
+import { CodeCraftOutput, CodeFinding } from '../../src/code-craft/findings/schema.js'
+import { CodeCraftInput, runCodeCraft } from '../../src/code-craft/index.js'
 import { createAddCommand, runAdd } from '../../src/commands/add'
 import { createAdoptionCommand } from '../../src/commands/adoption'
 import { createAgentCommand } from '../../src/commands/agent'
 import { createReviewCommand, runAgentReview } from '../../src/commands/agent/review'
 import { createRunCommand, runAgentTask } from '../../src/commands/agent/run'
+import { createApiCraftCommand } from '../../src/commands/api-craft'
 import { createAuditProtectedCommand, runAuditProtected } from '../../src/commands/audit-protected'
 import { runBackfillSkillProvenance } from '../../src/commands/backfill-skill-provenance'
 import { createCheckArchCommand, runCheckArch } from '../../src/commands/check-arch'
@@ -162,11 +176,14 @@ import { runCheckSecurity } from '../../src/commands/check-security'
 import { createCheckVocabularyCommand, runCheckVocabulary } from '../../src/commands/check-vocabulary'
 import { createCleanupCommand, runCleanup } from '../../src/commands/cleanup'
 import { runCleanupAll, runCleanupSessions } from '../../src/commands/cleanup-sessions'
+import { createCliErgonomicsCraftCommand } from '../../src/commands/cli-ergonomics-craft'
+import { createCodeCraftCommand } from '../../src/commands/code-craft'
 import { runCompoundScanCandidatesCommand } from '../../src/commands/compound/scan-candidates'
 import { createCreateSkillCommand, generateSkillFiles } from '../../src/commands/create-skill'
 import { createCrossCheckCommand } from '../../src/commands/cross-check'
 import { createDashboardCommand } from '../../src/commands/dashboard'
 import { createDistortionCommand } from '../../src/commands/distortion'
+import { createDocsCraftCommand } from '../../src/commands/docs-craft'
 import { checkBaselineFreshness, checkCatalogFreshness, checkHookValidity, checkLivePings, checkSessionCorruption, isCatalogStale, runDoctor } from '../../src/commands/doctor'
 import { createFixDriftCommand, runFixDrift } from '../../src/commands/fix-drift'
 import { createGenerateCommand } from '../../src/commands/generate'
@@ -198,6 +215,7 @@ import from '../../src/commands/integrations/dismiss'
 import from '../../src/commands/integrations/list'
 import from '../../src/commands/integrations/remove'
 import { SyncIO, runSyncIntegrations } from '../../src/commands/integrations/sync'
+import { createKnowledgeCraftCommand } from '../../src/commands/knowledge-craft'
 import { createGenerateCommand } from '../../src/commands/linter/generate'
 import { createMaintenanceCommand } from '../../src/commands/maintenance'
 import { MaintenanceRunDeps, aggregateReport, buildTaskRunner, createCheckRunner, createFixDispatcher, deriveExitCode, loadRunHistory, makeResolveBackend, parseConcurrency, renderTable, resolveHarnessSpawn, resolveSelection, runMaintenanceRun } from '../../src/commands/maintenance-run'
@@ -256,9 +274,13 @@ import { SCOPED_WALKERS, deriveChangedSurface, filterToDesignSurface } from '../
 import { createWaypointCommand } from '../../src/commands/waypoint'
 import { resolveConfig } from '../../src/config/loader'
 import { HarnessConfig } from '../../src/config/schema'
+import { DocsCraftOutput, DocsFinding } from '../../src/docs-craft/findings/schema.js'
+import { DocsCraftInput, runDocsCraft } from '../../src/docs-craft/index.js'
 import { createProgram } from '../../src/index'
 import { readMcpConfig, writeMcpEntry, writeOpencodeMcpEntry } from '../../src/integrations/config'
 import { CATALOG_LAST_REVIEWED, INTEGRATION_REGISTRY } from '../../src/integrations/registry'
+import { KnowledgeCraftOutput, KnowledgeFinding } from '../../src/knowledge-craft/findings/schema.js'
+import { KnowledgeCraftInput, runKnowledgeCraft } from '../../src/knowledge-craft/index.js'
 import { getToolDefinitions } from '../../src/mcp/index'
 import { getToolDefinitions } from '../../src/mcp/server'
 import { NETWORK_TOOL_NAMES, deriveScope, deriveToolCapabilities, deriveToolCapability } from '../../src/mcp/tool-capabilities'
@@ -290,6 +312,7 @@ import { CLIError, ExitCode } from '../../src/utils/errors'
 import { markSetupComplete } from '../../src/utils/first-run'
 import { CLI_VERSION } from '../../src/version'
 import { VocabularyRule, formatViolations, scanFiles, scanText } from '../../src/vocabulary/scanner'
+import { CraftCommandRun, DEFAULT_CWD, runCraftCommand } from './craft-command-harness-cohort-b'
 import * as clack from '@clack/prompts'
 import { CiReviewResult, DiffInfo, Err, Ok, RefinementDemandReport, RollbackDecision, RunCiReviewOptions, SECURITY_SCAN_EXTENSIONS, SECURITY_SCAN_GLOB, applyFixes, archiveStream, buildSnapshot, checkTaint, clearTaint, createFixes, createProposal, createStream, detectDeadCode, detectDocDrift, extractBundle, generateSuggestions, listStreams, listTaintedSessions, loadStreamIndex, parseCiReviewVerdict, parseDiff, parseManifest, readAdoptionRecords, requestPeerReview, resetWaypointEmitterForTests, runReviewPipeline, setActiveStream, validateAgentConfigs, validateAgentsMap, validateKnowledgeMap, writeConfig } from '@harness-engineering/core'
 import from '@harness-engineering/graph'
