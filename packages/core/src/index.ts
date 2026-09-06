@@ -325,6 +325,11 @@ export * from './locks';
 export * from './metabolism';
 
 /**
+ * Metrics module.
+ */
+export * from './metrics';
+
+/**
  * Model-sentinel module.
  */
 export * from './model-sentinel';

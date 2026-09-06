@@ -104,7 +104,12 @@ export const AuditSummarySchema = z.object({
 
 export const AuditResultSchema = z.object({
   mode: ModeSchema,
-  score: z.number().min(0).max(100),
+  // `null` when the audit ABSTAINED: no pattern applied to this mode, so the
+  // coverage denominator was zero and there is nothing to score (#1530). A
+  // number here always means a real population was evaluated. Renderers must
+  // print the abstention rather than substituting 0 or 100 — both read as
+  // measurements, and 100 reads as a pass.
+  score: z.number().min(0).max(100).nullable(),
   tier: TierSchema,
   findings: z.array(StrengthFindingSchema),
   summary: AuditSummarySchema,

@@ -1,11 +1,10 @@
 ---
 schemaVersion: 1
 module: 'packages/core/src/validation'
-sourceHash: 'ab7b614a7a40e34047f41ea6cb00ab036e756ada912b32e6e8c97308af15871f'
-compiledAt: '2026-08-28T01:22:10.723Z'
+sourceHash: '83cb9becd4f88fa825368b72cfd1c7ecdac8599e792637b2ee73a25c8e537557'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
-model: 'claude-haiku-4-5-20251001'
-semantic: present
+model: null
+semantic: absent
 members:
   [
     'branch.ts',
@@ -32,21 +31,6 @@ members:
     'types.ts',
   ]
 ---
-
-## Summary
-
-packages/core/src/validation is the centralized validation boundary for Harness projects. It enforces conventions and structural rules across agent configs, commits, branch names, decision ADRs, roadmap aggregates, strategy docs, and solutions directories. Each validator follows a consistent Result<T, Error> pattern for composable error handling and helpful diagnostic messages. The module composes lower-level validators (validateConfig wraps Zod schemas, validateCommitMessage enforces conventional commit format) and higher-level orchestrators (validateFileStructure chains branch + commit + decision + strategy checks). It serves as the gatekeeper for harness compliance — tooling like pre-commit hooks, CI checks, and the orchestrator's runAgentConfigFallbackRules depend on its verdicts.
-
-## Invariants
-
-- Result<T, Error> contract: all validators return Result for composability; callers assume consistent error shape with code, message, context, and suggestions.
-- Zod schemas are the config ground truth: validateConfig<T>(data, schema) delegates all shape validation to Zod; schema changes flow automatically to all dependent validators without requiring manual test updates.
-- Conventional commit strictness: validateCommitMessage accepts only VALID_TYPES (feat/fix/docs/etc.); scope and breaking-change indicators are optional, but type and description are mandatory; the header line must match CONVENTIONAL_PATTERN exactly.
-- Branch naming is prefix-based: branches must match prefix/slug where prefix is in the config's allowlist and slug (when enforceKebabCase=true) follows kebab-case rules; ticket IDs (e.g., PROJ-123) are recognized and skip kebab case on the remainder.
-- Decision numbers baseline is load-bearing: validateDecisionNumbers compares ADR corpus against .harness/decisions/number-baseline.json; the absence of a baseline means 'not applicable' (no validation), but once it exists, collision detection is mandatory.
-- Roadmap read sources are allowlisted: findRoadmapReadSourceViolations enforces ROADMAP_READ_ALLOWLIST to prevent undeclared module references in roadmap definitions; violations block merges via floor gates.
-- Validator composition is order-independent: validateFileStructure chains independent validators (branch, commit, decisions, etc.); one validator's failure does not skip others, allowing tooling to report all issues in one pass (fail-open for diagnostics).
-- Agent config fallback rules are deterministic: runAgentConfigFallbackRules applies a fixed sequence of rewrites (e.g., model fallback, tier defaults) in a known order; re-running on the same config must be idempotent.
 
 ## Interface Contract
 
@@ -88,6 +72,7 @@ export validateStrategy
 ## Dependency Slice
 
 ```
+import { denominate } from '../metrics'
 import { PulseConfigSchema } from '../pulse/schema'
 import { RoadmapModeConfig, getRoadmapMode } from '../roadmap/mode'
 import { ValidationError, createError } from '../shared/errors'

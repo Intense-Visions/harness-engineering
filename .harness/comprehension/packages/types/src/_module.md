@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'packages/types/src'
-sourceHash: 'ff173a9df45279219fe3642e1eb5aa3beca77b312184567f4513d7413216a48c'
+sourceHash: '772808e567ff469f75cbad51395919b7cbb6f34e521075c96b51fd5df4d20c3b'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
@@ -22,6 +22,7 @@ members:
     'local-models.ts',
     'maintenance-findings.ts',
     'maintenance.ts',
+    'metric.ts',
     'notifications.ts',
     'orchestrator.ts',
     'plan-task.ts',
@@ -113,6 +114,7 @@ export CustomTaskDefinition
 export DEFAULT_RETRIEVAL_MODE
 export DEFAULT_SKILL_CONTEXT_BUDGET
 export DailyUsage
+export DenominatedMetric
 export EditProposalInput
 export EditProposalInputSchema
 export EffectivenessSection
@@ -188,6 +190,9 @@ export MaintenanceConfig
 export MaintenanceFindingsContract
 export MaintenanceHistoryEntry
 export McpServerSpec
+export MetricBasis
+export MetricPopulation
+export MetricUnit
 export MockBackendDef
 export ModelInstallEvent
 export ModelPricing

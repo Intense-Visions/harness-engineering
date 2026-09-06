@@ -85,7 +85,15 @@ describe('check-harness-strength score reflects coverage (#1761)', () => {
     expect(scoreWithCoverage(100, 7, 7)).toBe(100);
     // Zero coverage floors to 0.
     expect(scoreWithCoverage(100, 0, 7)).toBe(0);
-    // Vacuous denominator is a safe passthrough (no divide-by-zero).
-    expect(scoreWithCoverage(100, 0, 0)).toBe(100);
+    // A VACUOUS denominator abstains (#1530). This previously returned the raw
+    // score — 100 for a repo with no findings — so "no pattern applied to this
+    // mode" printed as a perfect audit. That is the exact bug #1761 was filed
+    // to fix, surviving one level up in the same function: the coverage term
+    // penalized partial coverage but exempted the case where coverage was
+    // undefined entirely. There is no number that honestly summarizes an audit
+    // that evaluated nothing.
+    expect(scoreWithCoverage(100, 0, 0)).toBeNull();
+    // Not 0 either — a 0 reads as "audited and terrible" rather than "not audited".
+    expect(scoreWithCoverage(100, 0, 0)).not.toBe(0);
   });
 });

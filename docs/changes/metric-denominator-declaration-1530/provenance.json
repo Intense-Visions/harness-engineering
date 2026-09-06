@@ -1,0 +1,63 @@
+{
+  "issue": 1530,
+  "title": "Metrics must declare their denominator",
+  "slug": "metric-denominator-declaration-1530",
+  "route": "feature",
+  "baseRef": "5cd661d74",
+  "branch": "feat/metric-denominator-declaration-1530",
+  "roadmapShard": "docs/roadmap.d/denominator-declaration-in-metric-outputs.md",
+  "forkDecision": {
+    "id": "Fork F4",
+    "question": "What is in scope?",
+    "decision": "(c) EVERY metric-emitting surface in the repo",
+    "answeredBy": "human, at the fleet CONFIRM gate",
+    "note": "The fleet recommended the narrower (b) (burn + assess_project + check-perf). The human explicitly overrode that and chose (c). Splitting into multiple PRs is authorized; silently narrowing back to (b) is not."
+  },
+  "stages": [
+    {
+      "stage": "brainstorming",
+      "outcome": "Re-derived the metric-emitting surface rather than reusing the loose 68-file grep from the lane brief. Two independent censuses (packages/cli/src, and everything else) found ~262 derived-metric emission sites: ~108 in the CLI across 34 files, 154 elsewhere. 14 render a PASSING number on an empty population; 31 can emit NaN/Infinity or a fabricated neutral; 68 already abstain correctly but through FOURTEEN mutually-incompatible conventions (null, 'unknown', {present:false}, 'abstained', 'pending', 'NO_DATA', 'N/A', degraded:true, sampleSize:0, scanned:0, exit code 3, ...) with no shared primitive in core or types. Located the prior art to generalize: ExitCode.ZERO_DENOMINATOR (already defined, used only by roadmap sync), burn/calibrate.ts's 'a zero denominator is an abstention, not a calibration', types/tracker-sync.ts SyncDenominator, and the three prior point fixes #1013, #1146, #1761. Locked the design on the GateMeasurement/gate-loss precedent: raw envelope in @harness-engineering/types, constructor + verdict + renderer in @harness-engineering/core."
+    },
+    {
+      "stage": "planning",
+      "artifact": "docs/changes/metric-denominator-declaration-1530/plans/2026-09-05-phase1-denominated-metric-envelope.md"
+    },
+    {
+      "stage": "execution",
+      "outcome": "Phase 1: DenominatedMetric envelope in packages/types/src/metric.ts (three bases: measured/abstained/unknown; required prose MetricPopulation) + packages/core/src/metrics/{denominate,verdict,render,index}.ts. Phase 2: rewrote roadmap/sync-verdict.ts in terms of verdictForMetrics. Phase 3: adopted harness-strength end-to-end (scoring.ts scoreWithCoverage -> number|null, types.ts score nullable, auditor.ts tiers a null score 'incomplete', check-harness-strength.ts renders the abstention) and validation/file-structure (conformance -> number|null, new abstained flag, valid no longer vacuously true; mcp/tools/validate.ts reports a distinct 'abstained' check state with an explicit ABSTAINED: message). Phase 4: docs/conventions/metric-denominators.md (convention + five-failure-class review checklist) and docs/conventions/metric-denominator-ledger.md (the full 262-site burn-down ledger)."
+    },
+    {
+      "stage": "verification",
+      "outcome": "Core metrics suite 47 tests green (emit contract, abstention rule, zero-vs-unknown distinction, verdict, renderer). Adoption regressions green. The 31 pre-existing roadmap-sync tests pass UNMODIFIED after the verdict was re-derived from the shared API — the oracle that the generalization reproduces the hand-rolled rule exactly rather than approximating it. Two tests that pinned the old buggy behavior were deliberately updated with comments naming the bug they had been asserting: scoreWithCoverage(100,0,0) was 100 and is now null; file-structure with zero required conventions was {valid:true, conformance:100} and is now {valid:false, conformance:null, abstained:true}."
+    },
+    {
+      "stage": "wiring",
+      "outcome": "The mechanism is reachable end-to-end, not set-but-never-read: packages/core/src/index.ts exports './metrics' (auto-discovered by scripts/generate-core-barrel.mjs); packages/types/src/index.ts exports the envelope types manually (that barrel is hand-maintained). Live consumers at HEAD: harness-strength/scoring.ts calls denominate() via patternCoverage(); validation/file-structure.ts calls denominate(); cli/commands/roadmap/sync-verdict.ts calls census()/unknownPopulation()/verdictForMetrics(); cli/commands/check-harness-strength.ts imports ABSTENTION_PLACEHOLDER."
+    }
+  ],
+  "planArtifact": "docs/changes/metric-denominator-declaration-1530/plans/2026-09-05-phase1-denominated-metric-envelope.md",
+  "closingKeyword": "Refs #1530",
+  "closingKeywordRationale": "Refs, NOT Closes. Scope (c) is ~262 emission sites; this PR builds the mechanism and adopts 7 surfaces. Closing #1530 here would strand the remaining tranches with no tracking row. The roadmap row must stay open until the ledger at docs/conventions/metric-denominator-ledger.md burns down. The PR body names exactly what remains.",
+  "crossRefs": {
+    "envelope": "packages/types/src/metric.ts (DenominatedMetric, MetricPopulation, MetricBasis, MetricUnit)",
+    "constructor": "packages/core/src/metrics/denominate.ts (denominate, census, unknownPopulation, describePopulation, MetricContractError)",
+    "verdict": "packages/core/src/metrics/verdict.ts (verdictForMetrics)",
+    "renderer": "packages/core/src/metrics/render.ts (formatMetric, formatMetricValue, formatMetricBlock, ABSTENTION_PLACEHOLDER)",
+    "adoptionStrength": "packages/core/src/harness-strength/{scoring,types,auditor}.ts; packages/cli/src/commands/check-harness-strength.ts",
+    "adoptionStructure": "packages/core/src/validation/{file-structure,types}.ts; packages/cli/src/mcp/tools/validate.ts",
+    "adoptionSyncVerdict": "packages/cli/src/commands/roadmap/sync-verdict.ts",
+    "convention": "docs/conventions/metric-denominators.md",
+    "ledger": "docs/conventions/metric-denominator-ledger.md",
+    "tests": "packages/core/tests/metrics/{denominate,verdict,render,adoption}.test.ts; packages/cli/tests/commands/check-harness-strength.test.ts"
+  },
+  "assumptions": [
+    "Fork F4 was answered (c) EVERY metric-emitting surface. Splitting is authorized; narrowing is not. This PR is slice 1 of the (c) scope and the committed ledger holds the remaining ~255 sites open, tiered by severity and named by file and line, so the full scope stays visible rather than being quietly reduced to the surfaces that were convenient.",
+    "262 emission sites cannot be one reviewable PR. The ledger is the device that makes (c) concrete and burnable instead of aspirational — the issue's own deliverable calls for exactly this ('grandfather list burns down to zero').",
+    "'Fails loudly in dev and CI' is satisfied by the emit API plus the type system: population is a required field (compile-time) and denominate() throws MetricContractError on a blank one (runtime). A repo-wide lint rule flagging every raw division was considered and DEFERRED — over ~262 sites it would be noisy enough to get switched off, and it is only worth adding once the ledger has burnt down. This is recorded as 'not yet built' in the ledger rather than claimed.",
+    "abstained (denominator 0) and unknown (denominator null) are kept distinct rather than collapsed, because the operator response differs (wrong selector vs broken fetch) and roadmap sync already drew that line by hand.",
+    "An abstained metric carries value: null, never 0 and never 100. Both alternatives read as measurements; 100 reads as a pass.",
+    "AuditResult.score and StructureValidation.conformance became nullable. This is an intentional, adopter-visible behavior change: a project whose conventions are all optional now gets an explicit ABSTAINED message from validate_project instead of a green pass. It follows the repo's own precedent from #1146 (check-docs sets valid: false on a scan that read nothing) rather than inventing a softer policy.",
+    "The roadmap shard was NOT edited, per the lane scope boundary — other authorized changes are writing to docs/roadmap.d/ concurrently and the merge reconciler owns the status flip.",
+    "The dashboard renderers (25 client sites) are tranche 4 and are NOT done. The issue's adopter-facing goal ('every percentage an adopter sees carries what it is a percentage of') lands there and is honestly reported as outstanding, not as delivered."
+  ]
+}

@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'packages/cli/tests/commands'
-sourceHash: '222e5fd2d48eb6d1c4590cf26110d212cb7282b3f80882aa5e94fa409d8f0483'
+sourceHash: '4fd8cee931904f68676859d2876dfa148c3e9524e309bde8e640c07060501124'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
@@ -130,6 +130,7 @@ members:
     'validate.roadmap-health.test.ts',
     'validate.roadmap-mode.test.ts',
     'validate.test.ts',
+    'waypoint.test.ts',
   ]
 ---
 
@@ -252,6 +253,7 @@ import { createUsageCommand } from '../../src/commands/usage'
 import { createValidateCommand, runValidate } from '../../src/commands/validate'
 import { runCrossCheck } from '../../src/commands/validate-cross-check'
 import { SCOPED_WALKERS, deriveChangedSurface, filterToDesignSurface } from '../../src/commands/validate-scope'
+import { createWaypointCommand } from '../../src/commands/waypoint'
 import { resolveConfig } from '../../src/config/loader'
 import { HarnessConfig } from '../../src/config/schema'
 import { createProgram } from '../../src/index'
@@ -289,12 +291,12 @@ import { markSetupComplete } from '../../src/utils/first-run'
 import { CLI_VERSION } from '../../src/version'
 import { VocabularyRule, formatViolations, scanFiles, scanText } from '../../src/vocabulary/scanner'
 import * as clack from '@clack/prompts'
-import { CiReviewResult, DiffInfo, Err, Ok, RefinementDemandReport, RollbackDecision, RunCiReviewOptions, SECURITY_SCAN_EXTENSIONS, SECURITY_SCAN_GLOB, applyFixes, archiveStream, buildSnapshot, checkTaint, clearTaint, createFixes, createProposal, createStream, detectDeadCode, detectDocDrift, extractBundle, generateSuggestions, listStreams, listTaintedSessions, loadStreamIndex, parseCiReviewVerdict, parseDiff, parseManifest, readAdoptionRecords, requestPeerReview, runReviewPipeline, setActiveStream, validateAgentConfigs, validateAgentsMap, validateKnowledgeMap, writeConfig } from '@harness-engineering/core'
+import { CiReviewResult, DiffInfo, Err, Ok, RefinementDemandReport, RollbackDecision, RunCiReviewOptions, SECURITY_SCAN_EXTENSIONS, SECURITY_SCAN_GLOB, applyFixes, archiveStream, buildSnapshot, checkTaint, clearTaint, createFixes, createProposal, createStream, detectDeadCode, detectDocDrift, extractBundle, generateSuggestions, listStreams, listTaintedSessions, loadStreamIndex, parseCiReviewVerdict, parseDiff, parseManifest, readAdoptionRecords, requestPeerReview, resetWaypointEmitterForTests, runReviewPipeline, setActiveStream, validateAgentConfigs, validateAgentsMap, validateKnowledgeMap, writeConfig } from '@harness-engineering/core'
 import from '@harness-engineering/graph'
 import { GUARDIAN_ANALYSIS_SCHEMA, GUARDIAN_ANALYSIS_VERSION, GuardianAnalysis, OutcomeVerdict } from '@harness-engineering/intelligence'
 import { AnalysisRecord, MockBackend, RunMode, RunResult, SyncMainResult, TaskDefinition, renderAnalysisComment } from '@harness-engineering/orchestrator'
 import { SignalResult, SignalsResult } from '@harness-engineering/signals'
-import { TrackerComment } from '@harness-engineering/types'
+import { SdlcEvent, TrackerComment } from '@harness-engineering/types'
 import { execFileSync, execSync } from 'child_process'
 import { Command } from 'commander'
 import * as fs from 'fs'

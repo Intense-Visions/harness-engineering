@@ -92,6 +92,13 @@ export type {
   TrackerComment,
 } from './tracker-sync';
 
+// --- Denominated metrics (issue #1530) ---
+// A ratio, rate, percentage or score is a number *over a population*. These
+// types make the population a required part of the value, so a figure can never
+// be emitted without stating what it was computed over — and so a zero
+// denominator reads as an abstention rather than a pass.
+export type { DenominatedMetric, MetricBasis, MetricPopulation, MetricUnit } from './metric';
+
 // --- Usage & Cost Tracking ---
 export type { UsageRecord, ModelPricing, DailyUsage, SessionUsage } from './usage';
 
