@@ -138,36 +138,59 @@ describe('design-pipeline command → DesignPipelineInput assembly', () => {
 });
 
 /**
- * CHARACTERIZATION — these tests pin the CURRENT behavior of `--no-freshen`
- * and `--no-fill`, which is NOT what the flag names promise.
+ * REGRESSION (#1881) — `--no-freshen` and `--no-fill` must actually skip their
+ * phases. These assertions replace a characterization block that pinned the
+ * OPPOSITE, because the flags used to be inert.
  *
  * Commander's negation syntax (`.option('--no-freshen')`) defines an option
  * named `freshen` that defaults to `true` and becomes `false` when the flag is
- * passed. It never produces a `noFreshen` key. The action reads
+ * passed. It never produces a `noFreshen` key. The action used to read
  * `opts.noFreshen`/`opts.noFill`, which are therefore permanently `undefined`,
- * so `input.noFreshen`/`input.noFill` are never set and the engine — which
- * skips a phase only on `input.noFreshen === true` — always runs FRESHEN and
- * FILL. Both flags are inert at the CLI layer.
+ * so `input.noFreshen`/`input.noFill` were never set and the engine — which
+ * skips a phase only on `input.noFreshen === true` — always ran FRESHEN and
+ * FILL. The command now reads `opts.freshen === false` / `opts.fill === false`,
+ * matching the repo's established idiom (predict.ts, agent/review.ts).
  *
- * Reported upstream, deliberately NOT fixed here: this is a test-only PR and
- * the fix (reading `opts.freshen === false`) is a behavior change that belongs
- * in its own reviewed commit. These tests will go red the moment it lands,
- * which is exactly the signal wanted.
+ * The bare-run case is asserted too, and is the reason `=== false` is required
+ * rather than a truthiness check: Commander ALWAYS populates `freshen`/`fill`,
+ * defaulting them to `true`. A `!opts.freshen` test would read as "not passed"
+ * correctly but an `opts.freshen === undefined` test would never fire. The
+ * command's contract is to OMIT unsupplied flags, not to send `false` for them.
  */
-describe('design-pipeline command → --no-freshen / --no-fill (characterization of a defect)', () => {
-  it('does not set noFreshen even when --no-freshen is passed', async () => {
+describe('design-pipeline command → --no-freshen / --no-fill', () => {
+  it('sets noFreshen: true when --no-freshen is passed', async () => {
     await run([], ['--no-freshen']);
-    expect(Object.keys(inputHandedToEngine())).not.toContain('noFreshen');
+    expect(inputHandedToEngine().noFreshen).toBe(true);
   });
 
-  it('does not set noFill even when --no-fill is passed', async () => {
+  it('sets noFill: true when --no-fill is passed', async () => {
     await run([], ['--no-fill']);
-    expect(Object.keys(inputHandedToEngine())).not.toContain('noFill');
+    expect(inputHandedToEngine().noFill).toBe(true);
   });
 
-  it('hands the engine an input indistinguishable from a bare run', async () => {
+  it('hands the engine an input distinguishable from a bare run', async () => {
     await run([], ['--no-freshen', '--no-fill']);
-    expect(inputHandedToEngine()).toStrictEqual({ path: CWD, mode: 'fast' });
+    expect(inputHandedToEngine()).toStrictEqual({
+      path: CWD,
+      mode: 'fast',
+      noFreshen: true,
+      noFill: true,
+    });
+  });
+
+  // Guards the over-correction: Commander defaults `freshen`/`fill` to `true`,
+  // so a fix that keyed off presence rather than `=== false` would set both
+  // keys on every run and skip nothing — or skip everything.
+  it('omits noFreshen and noFill entirely when neither flag is supplied', async () => {
+    await run([]);
+    const keys = Object.keys(inputHandedToEngine());
+    expect(keys).not.toContain('noFreshen');
+    expect(keys).not.toContain('noFill');
+  });
+
+  it('sets only noFreshen when only --no-freshen is passed', async () => {
+    await run([], ['--no-freshen']);
+    expect(Object.keys(inputHandedToEngine())).not.toContain('noFill');
   });
 });
 

@@ -1,12 +1,14 @@
 ---
 schemaVersion: 1
 module: 'packages/cli/tests/skill'
-sourceHash: '4c8442759eec3764b258fbb92784a4f6bc7fe7dd80504bdf37aaeabebbd74914'
+sourceHash: '25b08e83d3a9c91db313f77df77ee1acd5bbbba339f0d07507683352e34f8ea5'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
 members:
   [
+    'bugfleet-index-tier-overrides-cache.test.ts',
+    'bugfleet-skills-md-empty-reason-row.test.ts',
     'capabilities.test.ts',
     'complexity-extra.test.ts',
     'complexity.test.ts',
@@ -45,7 +47,7 @@ members:
 import { buildPreamble } from '../../src/commands/skill/preamble'
 import { isHarnessAuthoredSkill } from '../../src/commands/skill/validate'
 import { detectComplexity, evaluateSignals } from '../../src/skill/complexity'
-import { ContentSignals } from '../../src/skill/content-matcher-types.js'
+import { ContentMatchResult, ContentSignals } from '../../src/skill/content-matcher-types.js'
 import { classifyTier, computeDomainMatch, computeKeywordOverlap, computeStackMatch, computeTermOverlap, inferWhen, matchContent, scoreSkillByContent } from '../../src/skill/content-matcher.js'
 import { SIGNAL_CATEGORIES, buildDiffInfoFromGit, computeEstimatedImpact, computeParallelSafe, dispatchSkills, dispatchSkillsFromGit, enrichSnapshotForDispatch, getChangedFiles, getLatestCommitMessage, getSignalCategory, parseNewFilesOutput, parseNumstatOutput } from '../../src/skill/dispatch-engine'
 import { dispatchSkillsFromGit } from '../../src/skill/dispatch-engine.js'

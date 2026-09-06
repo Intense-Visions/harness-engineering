@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'packages/core/tests/roadmap'
-sourceHash: '3a094409cce9039ee51bc1a440a6c4c84c9b2b6f462f2ccf8901e9ee8b2c2df7'
+sourceHash: 'b65ce2a8fb4a9379afafaf73a4af998ff3fb09f862dba3c4257dcc4a134c5584'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
@@ -10,6 +10,8 @@ members:
     'assignee-lifecycle-waypoint.test.ts',
     'assignee-lifecycle.test.ts',
     'assignment-history-round-trip.test.ts',
+    'bugfleet-plan-path-suffix-crosstalk.test.ts',
+    'bugfleet-preservation-history-keys-leak.test.ts',
     'derive-repo.test.ts',
     'external-id-path-traversal.test.ts',
     'fixtures.ts',
@@ -115,5 +117,5 @@ import * as os, { tmpdir } from 'node:os'
 import * as path, { join } from 'node:path'
 import * as os from 'os'
 import * as path from 'path'
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 ```
