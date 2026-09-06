@@ -160,7 +160,9 @@ than as an unprobeable exception to route around.
 - Resolves: #1305 (unknown is a protected status), #1319 (replicated findings inflate depth),
   #1312 (`--report-only` gate-free probe contract unspecified; ideate-fleet unprobeable),
   #1313 (craft-fleet is an unmodeled member class — depth knowable only by paying for the work;
-  folded via the `fidelity: sampled` extension in Decision item 4).
+  folded via the `fidelity: sampled` extension in Decision item 4),
+  #1304 (fleet probe depth is an enumeration ceiling, not a queue — the
+  `{ceiling, plannedBatchSize, fidelity}` triple it proposes is specified by Decision item 4).
 - Refines: [`0091-fleet-command-conductor-tier-authority-model.md`](0091-fleet-command-conductor-tier-authority-model.md) — the global leaf-slot budget, the shed order, and the gate-free probing rule (property 4) this contract makes honest.
 - Companion: [`0088-front-load-park-unforeseen-interaction-model.md`](0088-front-load-park-unforeseen-interaction-model.md) — the CONFIRM round where an unmeasured member is scheduled only on an explicit human call.
 - Family overview: `docs/reference/fleet-family.md` (the `-fleet` spine, gate-free probing, and the conductor tier).
