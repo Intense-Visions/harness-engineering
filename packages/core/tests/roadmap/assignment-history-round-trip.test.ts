@@ -140,15 +140,21 @@ describe('assignment history still READS the legacy pipe table (#1811)', () => {
     ]);
   });
 
-  it('keeps the legacy tolerance: a table with no separator row reads as empty', () => {
+  // This used to assert the opposite — that a separator-less table "reads as
+  // empty" — and that tolerance was the #1862 defect in miniature: three lines of
+  // real history reported as a successful empty history, which `serializeRoadmap`
+  // then omits, deleting the section at exit 0. Reading content and answering
+  // `Ok([])` is precisely what must not happen; the row is unrecoverable either
+  // way, so the only question is whether the operator hears about it.
+  it('fails loudly on a table with no separator row instead of reading it as empty', () => {
     const noSeparator = [
       '## Assignment History',
       '| Feature | Assignee | Action | Date |',
       '| Core foundation | alice | assigned | 2026-01-02 |',
     ].join('\n');
     const result = parseAssignmentHistory(noSeparator);
-    expect(result.ok).toBe(true);
-    if (result.ok) expect(result.value).toEqual([]);
+    expect(result.ok).toBe(false);
+    if (!result.ok) expect(result.error.message).toContain('## Assignment History');
   });
 
   it('migrates a legacy document to the new format without losing a record', () => {

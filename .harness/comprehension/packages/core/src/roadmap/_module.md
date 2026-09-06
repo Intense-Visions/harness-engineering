@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'packages/core/src/roadmap'
-sourceHash: '930e672c0143b2d801fea85e2cfdc81ea65c6c53434a24ffb68128770258fff8'
+sourceHash: '45a9e07bca8ba2d165b7ac5f392fd9f04d16adc4e1d882dc22e430d869e805e9'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
@@ -152,7 +152,7 @@ export syncToExternal
 import * as eventSourcing from '../state/event-sourcing'
 import { emitRoadmapClaim, emitRoadmapRelease, emitRoadmapStatusChange } from '../waypoint/events'
 import { assigneeInvariantHolds, isMachineAssignee, setStatus } from './assignee-lifecycle'
-import { parseAssignmentHistory, serializeAssignmentHistory } from './assignment-history'
+import { ASSIGNMENT_HISTORY_HEADING, parseAssignmentHistory, serializeAssignmentHistory } from './assignment-history'
 import { deriveRepoFromGitRemote } from './derive-repo'
 import { GROUP_PREFIX, matchFeatureHeadings, serializeFeatureHeading } from './heading'
 import { decodeListField, encodeListField } from './list-field'

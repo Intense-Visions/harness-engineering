@@ -1,5 +1,5 @@
 import type { AssignmentRecord, Result } from '@harness-engineering/types';
-import { Ok } from '@harness-engineering/types';
+import { Ok, Err } from '@harness-engineering/types';
 // The newline escape codec lives in `./summary-field`, the single source of truth
 // already shared by the `- **Summary:**` bullet's emitter and reader (#1756). The
 // bullet grammar this module adopts has exactly the same hostile character, so it
@@ -223,17 +223,58 @@ function readLegacyTableRecords(lines: string[]): AssignmentRecord[] {
 }
 
 /**
- * Parse the `## Assignment History` section of `body` into records. An absent
- * section yields `[]`.
+ * Parse the `## Assignment History` section of `body` into records.
  *
  * Both shapes are read: current bullet blocks first, then any legacy table rows.
  * A real document only ever holds one of the two, so the concatenation order is
  * observable only for a hand-mixed section, where "new format, then old" is as
  * good an answer as any.
+ *
+ * ## Why "no section" and "unreadable section" are different answers (#1862)
+ *
+ * This used to return `Ok([])` for BOTH of those, and the conflation cost 92
+ * committed lines. `serializeRoadmap` omits the section when the record list is
+ * empty — correct for a roadmap that never had a history — so an empty parse and
+ * an empty history produce byte-identical output, and the deletion reads as
+ * correct all the way down. `harness roadmap regen` reported success, exit 0,
+ * and dropped the whole section.
+ *
+ * The empty parse is exactly what a format migration produces. #1811/#1859 moved
+ * history off the pipe table onto bullet blocks; a parser built before that
+ * migration reads the new shape as zero records. Any future migration recreates
+ * the same situation, so the failure mode worth closing is the silence, not the
+ * one instance.
+ *
+ * Hence: an ABSENT heading still yields `Ok([])` — a document with no history is
+ * legitimate and must keep round-tripping byte-for-byte — but a heading whose
+ * content yielded no record is an `Err`. Every caller already propagates that arm
+ * (`parseRoadmap`, `attachAssignmentHistory`), and the regen path returns before
+ * writing on a failed parse, so the truncated document is never emitted.
+ *
+ * A heading with an entirely BLANK body is `Ok([])` rather than `Err`: there are
+ * no records to lose there, so failing would break a hand-authored placeholder
+ * heading to protect nothing. The guard fires only when content is present and
+ * unreadable — which is every case where data is actually at stake.
  */
 export function parseAssignmentHistory(body: string): Result<AssignmentRecord[]> {
   const section = extractSection(body);
   if (section === null) return Ok([]);
   const lines = section.split('\n');
-  return Ok([...readBulletRecords(lines), ...readLegacyTableRecords(lines)]);
+  const records = [...readBulletRecords(lines), ...readLegacyTableRecords(lines)];
+  if (records.length === 0) {
+    const content = lines.filter((line) => line.trim() !== '');
+    if (content.length > 0) {
+      return Err(
+        new Error(
+          `\`${ASSIGNMENT_HISTORY_HEADING}\` has ${content.length} line(s) of content but no ` +
+            `record could be read from any of them. Refusing to report an empty history: a ` +
+            `document written from this parse would delete the whole section. The section is ` +
+            `most likely in a format this build does not understand — upgrade the harness CLI, ` +
+            `and do not commit a regenerated roadmap until it reads. First unreadable line: ` +
+            `${JSON.stringify(content[0])}`
+        )
+      );
+    }
+  }
+  return Ok(records);
 }

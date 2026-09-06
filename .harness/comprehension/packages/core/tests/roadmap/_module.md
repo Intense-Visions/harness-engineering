@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'packages/core/tests/roadmap'
-sourceHash: '3a094409cce9039ee51bc1a440a6c4c84c9b2b6f462f2ccf8901e9ee8b2c2df7'
+sourceHash: 'd621b4975f032f59d95f6389f7de12d7df69abab725bc6dfa1ebb5fbab42e739'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
@@ -10,6 +10,8 @@ members:
     'assignee-lifecycle-waypoint.test.ts',
     'assignee-lifecycle.test.ts',
     'assignment-history-round-trip.test.ts',
+    'bugfleet-plan-path-suffix-crosstalk.test.ts',
+    'bugfleet-preservation-history-keys-leak.test.ts',
     'derive-repo.test.ts',
     'external-id-path-traversal.test.ts',
     'fixtures.ts',
@@ -33,6 +35,7 @@ members:
     'promote.test.ts',
     'reconcile.test.ts',
     'referenced-issues.test.ts',
+    'repro-1862-history-silent-deletion.test.ts',
     'repro-assignment-history-pipe.test.ts',
     'serialize-extended.test.ts',
     'serialize-groups.test.ts',
@@ -91,7 +94,7 @@ import { resolveRoadmapStoreForFile } from '../../src/roadmap/store/factory'
 import { parseMeta, serializeMeta } from '../../src/roadmap/store/meta'
 import { assertSemanticRoundTrip, roadmapToShards } from '../../src/roadmap/store/migration'
 import { slugifyFeatureName } from '../../src/roadmap/store/monolith-store'
-import { writeRegeneratedRoadmap } from '../../src/roadmap/store/regenerator'
+import { regenerate, writeRegeneratedRoadmap } from '../../src/roadmap/store/regenerator'
 import { RoadmapStore, Shard } from '../../src/roadmap/store/roadmap-store'
 import { parseShard, serializeShard } from '../../src/roadmap/store/shard'
 import { ShardIO } from '../../src/roadmap/store/shard-store'
@@ -115,5 +118,5 @@ import * as os, { tmpdir } from 'node:os'
 import * as path, { join } from 'node:path'
 import * as os from 'os'
 import * as path from 'path'
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 ```

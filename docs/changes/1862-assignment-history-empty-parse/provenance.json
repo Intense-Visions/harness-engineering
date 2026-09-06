@@ -1,0 +1,27 @@
+{
+  "issues": [1862],
+  "route": "bug",
+  "stages": ["debugging"],
+  "reproducingTest": "packages/core/tests/roadmap/repro-1862-history-silent-deletion.test.ts",
+  "debugSession": ".harness/debug/resolved/1862-assignment-history-empty-parse.md (LOCAL ONLY — `.harness/.gitignore:4` ignores `debug/`, so the harness-debugging session file is not committed by design; its investigation log, hypothesis and resolution are reproduced in this provenance record, in the PR body, and in the module doc comment on parseAssignmentHistory)",
+  "rootCause": "packages/core/src/roadmap/assignment-history.ts — parseAssignmentHistory returned Ok([]) for BOTH 'no ## Assignment History heading' and 'heading present, zero records parsed'. serializeRoadmap (packages/core/src/roadmap/serialize.ts:59) omits the section when the record list is empty, so the two states produce byte-identical output and a failed parse reads as correct output all the way down: attachAssignmentHistory (store/meta.ts:117) leaves meta.assignmentHistory unset, assembleRoadmap (store/assembler.ts:29) defaults it to [], and the section is dropped at exit 0.",
+  "fix": "parseAssignmentHistory now returns Err when the section heading is present and its content yielded no record. Both existing callers (parseRoadmap at parse.ts:64, attachAssignmentHistory at store/meta.ts:117) already propagated the Err arm correctly, and runRoadmapRegen already computes the regeneration before writing and returns on failure — so the loud refusal reached the CLI with no caller changes and no signature change.",
+  "assumptions": [
+    "Fix shape B1 — FAIL LOUDLY — was supplied by the fleet CONFIRM gate, not chosen by this lane. The rejected alternative B2 (silently preserve the unparsed section verbatim) was not implemented.",
+    "A heading whose section body is ENTIRELY BLANK returns Ok([]) rather than Err. The guard fires only when the section contains at least one non-blank line. Rationale: a content-free heading has no records to lose, so erroring there protects nothing while breaking a hand-authored placeholder heading; every case where data is actually at stake (which is every format migration, since a migration always leaves content behind) still fails loudly. This is an implementation detail within B1, not a re-litigation of the fork, but it is called out because a strict reading of 'heading present but zero records parsed' would also error on the blank case.",
+    "The error is raised at the parser rather than at the regen call site, because the same conflation silently corrupts every other reader of the section (parseRoadmap on the monolith aggregate, ShardStore.load, harness validate's freshness comparison), not just regen. Fixing it at the single point of divergence covers all of them; no caller signature changed.",
+    "The pre-existing test 'keeps the legacy tolerance: a table with no separator row reads as empty' was INVERTED to assert the loud failure. That tolerance is the defect in miniature — three lines of real history reported as a successful empty history. The legacy rows are unrecoverable either way (the separator row is what marks the data rows), so the only question the change decides is whether the operator hears about it.",
+    "No Result type or public signature changed, so no dependent package needed updating; the blast radius is one function body plus the one inverted test."
+  ],
+  "verification": {
+    "reproducingTestBefore": "4 failed | 1 passed (5) — all failures by assertion, not by compile or resolution error",
+    "reproducingTestAfter": "5 passed (5)",
+    "revertAndFail": "Fix stashed via `git stash push packages/core/src/roadmap/assignment-history.ts`, repro re-run: 4 failed | 1 passed. Fix restored, repro re-run: 5 passed.",
+    "coreSuite": "478 test files, 5292 passed | 1 skipped",
+    "cliRoadmapSuite": "20 test files, 208 passed",
+    "orchestratorTrackerSuite": "3 test files, 31 passed",
+    "liveDataRegen": "Built CLI ran `harness roadmap regen` against this repo's real docs/roadmap.d — all 18 records preserved, docs/roadmap.md byte-identical (no git diff).",
+    "endToEndRefusal": "Built CLI ran `harness roadmap regen --cwd <scratch>` against a _meta.md whose history section is in an unreadable grammar: exit code 2, error naming `## Assignment History` and the first unreadable line, and the pre-existing docs/roadmap.md left untouched on disk."
+  },
+  "closingKeyword": "Closes #1862"
+}

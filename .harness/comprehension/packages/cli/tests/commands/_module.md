@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'packages/cli/tests/commands'
-sourceHash: '7d0782baea155cb6f363e3581a318fa962d315074279ed39dbc7381bf42ac7b4'
+sourceHash: 'a28b3d12849962dce087e7b99766de47bf3fddd88c74a0705a9cac2453337630'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
@@ -19,6 +19,7 @@ members:
     'api-craft-command.test.ts',
     'audit-protected.test.ts',
     'backfill-skill-provenance.test.ts',
+    'bugfleet-publish-analyses-prefix-crosstalk.test.ts',
     'check-arch.test.ts',
     'check-deployment.test.ts',
     'check-deps.test.ts',
