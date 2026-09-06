@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'packages/orchestrator/tests/agent/secrets'
-sourceHash: '5b1788b2db6a83cb4f20e5b14cb9f11984cd53c41a8856f780c08f3a639a174c'
+sourceHash: '1099735264600e64235f9be4e3a389bca1e85b7f2754d48510f5bf81e2caaf27'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
