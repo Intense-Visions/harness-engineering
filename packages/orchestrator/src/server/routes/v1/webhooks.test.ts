@@ -9,6 +9,32 @@ import { EventEmitter } from 'node:events';
 import { IncomingMessage, ServerResponse } from 'node:http';
 import { Socket } from 'node:net';
 
+/**
+ * The POST path resolves the target hostname through `guardOutboundHost`
+ * (added in 0876aec04), so without this stub every POST case here performs a
+ * live `dns.lookup('example.com')` -- real network latency inside a unit test,
+ * and a hard 422 on any runner that cannot resolve. Stub the resolver with a
+ * fixed table so the POST cases are offline and deterministic.
+ *
+ * This mirrors the identical stub in the sibling `webhooks-url-guard.test.ts`,
+ * which was added with the guard for exactly this reason; this file was simply
+ * missed at the time. The guard's own behaviour is covered exhaustively there
+ * against an injected lookup, so nothing is lost by stubbing it here.
+ *
+ * Unknown hosts throw ENOTFOUND rather than resolving, so a case that adds a
+ * new target gets a clear signal instead of silently reaching the network.
+ */
+vi.mock('node:dns/promises', () => ({
+  lookup: async (hostname: string) => {
+    const table: Record<string, string> = { 'example.com': '93.184.216.34' };
+    const address = table[hostname];
+    if (!address) {
+      throw Object.assign(new Error(`getaddrinfo ENOTFOUND ${hostname}`), { code: 'ENOTFOUND' });
+    }
+    return [{ address, family: 4 }];
+  },
+}));
+
 function makeReq(
   method: string,
   url: string,
