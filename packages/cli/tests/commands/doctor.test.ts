@@ -84,7 +84,7 @@ describe('runDoctor', () => {
     Object.defineProperty(process, 'version', { value: originalVersion, writable: true });
   });
 
-  it('returns allPassed true when all checks pass', () => {
+  it('passes a fully configured project with no failing check', () => {
     mockAllHealthy('/tmp/project');
 
     const result = runDoctor('/tmp/project');
