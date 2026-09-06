@@ -68,16 +68,13 @@ describe('syncFromExternal — inbound in-progress with no tracker assignee', ()
   it('does not leave the row in-progress with a null assignee (RMH005)', async () => {
     const roadmap = roadmapWithUnassignedPlannedRow();
     const adapter = {
-      fetchAllTickets: async () => ({ ok: true as const, value: OPEN_IN_PROGRESS_UNASSIGNED_TICKET }),
+      fetchAllTickets: async () => ({
+        ok: true as const,
+        value: OPEN_IN_PROGRESS_UNASSIGNED_TICKET,
+      }),
     } as never;
 
-    await syncFromExternal(
-      roadmap,
-      adapter,
-      CONFIG,
-      {},
-      OPEN_IN_PROGRESS_UNASSIGNED_TICKET
-    );
+    await syncFromExternal(roadmap, adapter, CONFIG, {}, OPEN_IN_PROGRESS_UNASSIGNED_TICKET);
 
     const feature = roadmap.milestones[0]!.features[0]!;
     expect(assigneeInvariantHolds(feature)).toBe(true);
