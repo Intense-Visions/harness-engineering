@@ -178,7 +178,7 @@ import {
 } from './tools/constraint-emergence.js';
 import { runCIChecksDefinition, handleRunCIChecks } from './tools/ci.js';
 import { generateBlueprintDefinition, handleGenerateBlueprint } from './tools/blueprint.js';
-// Phase 2 Task 11: MCP wrappers around the Gateway API bridge primitives.
+// MCP wrappers around the Gateway API bridge primitives.
 import {
   triggerMaintenanceJobDefinition,
   handleTriggerMaintenanceJob,
