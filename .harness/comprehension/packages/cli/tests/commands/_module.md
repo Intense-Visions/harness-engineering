@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'packages/cli/tests/commands'
-sourceHash: 'e783db85edc7ef07eacb7cb5365e40e9962783eacf959ab039b5503b48ebfe26'
+sourceHash: '9c67f4137b2075cc3ac83dd21194bb54b3921d8d125b2c2f2569112ead4db63a'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
@@ -15,6 +15,7 @@ members:
     'agent-run-persona.test.ts',
     'agent-run.test.ts',
     'agent.test.ts',
+    'align-design-system-command.test.ts',
     'audit-protected.test.ts',
     'backfill-skill-provenance.test.ts',
     'check-arch.test.ts',
@@ -30,12 +31,12 @@ members:
     'cleanup-sessions.test.ts',
     'cleanup.test.ts',
     'compound-scan-candidates.test.ts',
-    'copy-craft-command.test.ts',
-    'craft-command-harness.ts',
     'create-skill.test.ts',
     'cross-check.test.ts',
     'dashboard.test.ts',
     'deprecated-graph-aliases.test.ts',
+    'design-command-harness.ts',
+    'design-pipeline-command.test.ts',
     'distortion.test.ts',
     'doctor-hardening.test.ts',
     'doctor.test.ts',
@@ -72,7 +73,6 @@ members:
     'migrate.test.ts',
     'models-probe.test.ts',
     'models.test.ts',
-    'naming-craft-command.test.ts',
     'outcome-eval-ci.test.ts',
     'perf.test.ts',
     'persona-list.test.ts',
@@ -91,7 +91,6 @@ members:
     'rollback.test.ts',
     'scan-config.test.ts',
     'search.test.ts',
-    'security-craft-command.test.ts',
     'setup-mcp.picker-message.test.ts',
     'setup-mcp.test.ts',
     'setup.test.ts',
@@ -107,7 +106,6 @@ members:
     'skill-validate.test.ts',
     'skill.test.ts',
     'snapshot.test.ts',
-    'spec-craft-command.test.ts',
     'stale-constraints.test.ts',
     'state-show.test.ts',
     'state-streams.test.ts',
@@ -119,7 +117,6 @@ members:
     'telemetry-synthesize.test.ts',
     'telemetry-wizard.test.ts',
     'telemetry.test.ts',
-    'test-craft-command.test.ts',
     'traceability.test.ts',
     'uninstall-constraints.test.ts',
     'uninstall.test.ts',
@@ -143,19 +140,21 @@ members:
 ## Interface Contract
 
 ```ts
-export ProcessExitCalled
-export llmCalls
-export runCraftCommand
+export ProcessExitSignal
+export parseJsonStdout
+export runCommand
 ```
 
 ## Dependency Slice
 
 ```
+import { AlignDesignSystemOutput, runAlignDesignSystem } from '../../src/align/index.js'
 import { createAddCommand, runAdd } from '../../src/commands/add'
 import { createAdoptionCommand } from '../../src/commands/adoption'
 import { createAgentCommand } from '../../src/commands/agent'
 import { createReviewCommand, runAgentReview } from '../../src/commands/agent/review'
 import { createRunCommand, runAgentTask } from '../../src/commands/agent/run'
+import { createAlignDesignSystemCommand } from '../../src/commands/align-design-system'
 import { createAuditProtectedCommand, runAuditProtected } from '../../src/commands/audit-protected'
 import { runBackfillSkillProvenance } from '../../src/commands/backfill-skill-provenance'
 import { createCheckArchCommand, runCheckArch } from '../../src/commands/check-arch'
@@ -171,10 +170,10 @@ import { createCheckVocabularyCommand, runCheckVocabulary } from '../../src/comm
 import { createCleanupCommand, runCleanup } from '../../src/commands/cleanup'
 import { runCleanupAll, runCleanupSessions } from '../../src/commands/cleanup-sessions'
 import { runCompoundScanCandidatesCommand } from '../../src/commands/compound/scan-candidates'
-import from '../../src/commands/copy-craft.js'
 import { createCreateSkillCommand, generateSkillFiles } from '../../src/commands/create-skill'
 import { createCrossCheckCommand } from '../../src/commands/cross-check'
 import { createDashboardCommand } from '../../src/commands/dashboard'
+import { createDesignPipelineCommand } from '../../src/commands/design-pipeline'
 import { createDistortionCommand } from '../../src/commands/distortion'
 import { checkBaselineFreshness, checkCatalogFreshness, checkHookValidity, checkLivePings, checkSessionCorruption, isCatalogStale, runDoctor } from '../../src/commands/doctor'
 import { createFixDriftCommand, runFixDrift } from '../../src/commands/fix-drift'
@@ -215,7 +214,6 @@ import { extractNpmPackages, parseNpmSpec, runMcpGuardCheck } from '../../src/co
 import { detectLegacyArtifacts, runMigrate } from '../../src/commands/migrate'
 import { runMigrateBackends } from '../../src/commands/migrate-backends'
 import { refreshExitCode, runModelsApprove, runModelsProbe, runModelsProposals, runModelsRefresh, runModelsReject } from '../../src/commands/models'
-import from '../../src/commands/naming-craft.js'
 import { OutcomeEvaluatorLike, buildOutcomeBody, deriveExitCode, emitOutcomeEvalCi, resolveSpecPath, runOutcomeEvalCi } from '../../src/commands/outcome-eval-ci'
 import { createPerfCommand } from '../../src/commands/perf'
 import { createPersonaCommand } from '../../src/commands/persona/index'
@@ -231,7 +229,6 @@ import { createLocalInvoke } from '../../src/commands/review-ci-local-adapter'
 import { referencesTargetPr, runRollbackEvaluate, runRollbackSweepCommand, summarizeSweepReport } from '../../src/commands/rollback'
 import { runScanConfig } from '../../src/commands/scan-config'
 import { createSearchCommand } from '../../src/commands/search'
-import from '../../src/commands/security-craft.js'
 import { configureTier0Integrations, runSetup } from '../../src/commands/setup'
 import { ALL_MCP_TOOLS, CURSOR_CURATED_TOOLS, createSetupMcpCommand, runCursorToolPicker, setupMcp } from '../../src/commands/setup-mcp'
 import { createShareCommand } from '../../src/commands/share'
@@ -246,7 +243,6 @@ import { createSearchCommand, runSearch } from '../../src/commands/skill/search'
 import { createUpdateCommand } from '../../src/commands/skill/update'
 import { createValidateCommand, validateSkillEntry } from '../../src/commands/skill/validate'
 import { createSnapshotCommand, runSnapshotCapture } from '../../src/commands/snapshot'
-import from '../../src/commands/spec-craft.js'
 import { createStaleConstraintsCommand } from '../../src/commands/stale-constraints'
 import { createStateCommand } from '../../src/commands/state/index'
 import { createShowCommand } from '../../src/commands/state/show'
@@ -257,7 +253,6 @@ import { createTaintCommand } from '../../src/commands/taint'
 import { createTelemetryCommand } from '../../src/commands/telemetry'
 import { ensureTelemetryConfigured, isTelemetryConfigured, writeTelemetryConfig } from '../../src/commands/telemetry-wizard'
 import { createTelemetryCommand } from '../../src/commands/telemetry/index'
-import from '../../src/commands/test-craft.js'
 import { createTraceabilityCommand } from '../../src/commands/traceability'
 import { createUninstallCommand, runUninstall } from '../../src/commands/uninstall'
 import { runUninstallConstraints } from '../../src/commands/uninstall-constraints'
@@ -269,7 +264,8 @@ import { SCOPED_WALKERS, deriveChangedSurface, filterToDesignSurface } from '../
 import { createWaypointCommand } from '../../src/commands/waypoint'
 import { resolveConfig } from '../../src/config/loader'
 import { HarnessConfig } from '../../src/config/schema'
-import { CopyCraftInput, CopyCraftOutput } from '../../src/copy-craft/index.js'
+import { DesignPipelineContext, runDesignPipeline } from '../../src/design-pipeline/index.js'
+import { DriftFinding } from '../../src/drift/findings/finding.js'
 import { createProgram } from '../../src/index'
 import { readMcpConfig, writeMcpEntry, writeOpencodeMcpEntry } from '../../src/integrations/config'
 import { CATALOG_LAST_REVIEWED, INTEGRATION_REGISTRY } from '../../src/integrations/registry'
@@ -283,7 +279,6 @@ import { runDesignCraft } from '../../src/mcp/tools/design-craft'
 import { runDetectDrift } from '../../src/mcp/tools/detect-drift'
 import { handleGetImpact } from '../../src/mcp/tools/graph/index'
 import from '../../src/mcp/utils/graph-loader'
-import { NamingCraftInput, NamingCraftOutput } from '../../src/naming-craft/index.js'
 import { logger } from '../../src/output/logger'
 import { prompt } from '../../src/output/prompt'
 import { loadPersona } from '../../src/persona/loader'
@@ -296,19 +291,16 @@ import { cleanupTempDir, extractTarball, placeSkillContent, removeSkillContent }
 import { validateForPublish } from '../../src/registry/validator'
 import { ROLLBACK_EVENTS_FILE } from '../../src/rollback/breadcrumb'
 import { SweepSignalRule } from '../../src/rollback/sweep'
-import { SecurityCraftInput, SecurityCraftOutput } from '../../src/security-craft/index.js'
 import { HealthSnapshot, captureHealthSnapshot, isSnapshotFresh, loadCachedSnapshot } from '../../src/skill/health-snapshot'
 import { loadOrRebuildIndex } from '../../src/skill/index-builder'
 import { derivePackageJson } from '../../src/skill/package-json'
 import { recommend } from '../../src/skill/recommendation-engine'
 import { RecommendationResult } from '../../src/skill/recommendation-types'
-import { SpecCraftInput, SpecCraftOutput } from '../../src/spec-craft/index.js'
-import { TestCraftInput, TestCraftOutput } from '../../src/test-craft/index.js'
 import { CLIError, ExitCode } from '../../src/utils/errors'
 import { markSetupComplete } from '../../src/utils/first-run'
 import { CLI_VERSION } from '../../src/version'
 import { VocabularyRule, formatViolations, scanFiles, scanText } from '../../src/vocabulary/scanner'
-import { llmCalls, runCraftCommand } from './craft-command-harness.js'
+import { parseJsonStdout, runCommand } from './design-command-harness'
 import * as clack from '@clack/prompts'
 import { CiReviewResult, DiffInfo, Err, Ok, RefinementDemandReport, RollbackDecision, RunCiReviewOptions, SECURITY_SCAN_EXTENSIONS, SECURITY_SCAN_GLOB, applyFixes, archiveStream, buildSnapshot, checkTaint, clearTaint, createFixes, createProposal, createStream, detectDeadCode, detectDocDrift, extractBundle, generateSuggestions, listStreams, listTaintedSessions, loadStreamIndex, parseCiReviewVerdict, parseDiff, parseManifest, readAdoptionRecords, requestPeerReview, resetWaypointEmitterForTests, runReviewPipeline, setActiveStream, validateAgentConfigs, validateAgentsMap, validateKnowledgeMap, writeConfig } from '@harness-engineering/core'
 import from '@harness-engineering/graph'
@@ -329,6 +321,6 @@ import { mockedSetTimeout } from 'node:timers'
 import { fileURLToPath } from 'node:url'
 import * as os from 'os'
 import * as path, { join } from 'path'
-import { MockedFunction, afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
+import { MockInstance, MockedFunction, afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 import YAML, { parseYaml, yamlParse } from 'yaml'
 ```
