@@ -1,5 +1,111 @@
 # Changelog
 
+## 0.48.0
+
+### Minor Changes
+
+- 9e6c8ff: Make `parseAssignmentHistory` distinguish "no `## Assignment History` heading" from "the heading is there, holding record-shaped lines this build cannot read". It returned `Ok([])` for both, and because `serializeRoadmap` omits the section when the record list is empty, an unreadable history and an absent history produced byte-identical output — so `harness roadmap regen` deleted the whole section at exit 0 with a success banner.
+
+  `minor`, not `patch`: a public call that previously succeeded now returns `Err`. A caller holding a document whose history section this build cannot read changes behaviour without changing code, so the bump has to be visible even though no signature moved. Concretely: a legacy pipe table missing its `|---|---|---|---|` separator row used to read as an empty history and now reports an error.
+
+  The guard is deliberately narrow, and narrow in a specific way. It fires only on lines that open (after trimming) with a CommonMark bullet marker followed by `**`, or with `|` — the only two shapes history has ever been written in. Prose placeholders, HTML comments, thematic breaks and fenced examples that merely demonstrate the grammar all keep parsing as an empty history. It fires even when some records _did_ read, because one readable record must not excuse silently dropping the rest of a half-migrated section.
+
+  Locating the section is part of the fix, not incidental to it — a guard cannot fire on records it can no longer see. The section is bounded by the next heading at level 1 or 2 (an `###` under it is its subsection, so a history grouped by quarter reads normally), fenced blocks are masked out of the _readers_ but never out of the _guard_, an unterminated fence is left as literal text rather than blanking the document to EOF, CRLF documents match, a 4-space-indented ` ``` ` is an indented code block rather than a fence, and a heading that names the section without matching it exactly (`## Assignment History (legacy)`) is an error rather than "no history". `store/meta.ts` and `roadmap/preservation.ts` now share the parser's section boundary instead of re-deriving it.
+
+  Adds a recovery hatch, because the refusal fails reads as well as writes and would otherwise wedge every shard-touching commit — including the commit that repairs the file. `harness roadmap regen --allow-unreadable-history` (or `HARNESS_ROADMAP_ALLOW_UNREADABLE_HISTORY=1`, which reaches the bare invocation the pre-commit hook runs) regenerates while carrying the unreadable section through verbatim. Every run that uses it warns and reports `carriedUnreadableHistory` in `--format json`; a hatch that fires silently is the same silence the guard exists to end. It unwedges `roadmap regen` only — the aggregate still holds the unreadable section, so other roadmap readers stay blocked until it is repaired.
+
+  Also closes a wider silent overwrite the new `Err` arm made reachable: `manage_roadmap`'s groom action swallowed both a read failure and a parse failure on `docs/roadmap-archive.md`, fabricated an empty archive and wrote it over the file, replacing every previously shipped row. Only a missing file now starts a fresh archive; a read or parse failure refuses, writes nothing, and leaves the live roadmap untouched.
+
+- 3c3ab0e: feat(metrics): metrics declare their denominator, and a zero denominator abstains (#1530)
+
+  A ratio, percentage, rate, average, or score is a number **over a population**. Strip the population and what is left is unfalsifiable. A 90-day measurement across 1,957 repositories produced five wrong figures and every one was a denominator error, not a numerator error — the numerators had been cross-validated to 0.24% against git while the divisors were never checked once.
+
+  Adds `DenominatedMetric` (`@harness-engineering/types`) and the `metrics` module in `@harness-engineering/core`: `denominate()` refuses to emit a metric with no stated population, `verdictForMetrics()` turns a set of metrics into a pass / abstain / unknown decision, and `formatMetric()` renders a value that cannot be separated from its population. A zero denominator produces `value: null` — an abstention, never a pass — and stays distinct from an unknown one (`denominator: null`), because "we looked and found nothing" and "we could not look" send an operator to different places.
+
+  This generalizes three point fixes the repo had already made against the same bug class (#1013, #1146, #1761) plus the `ZERO DENOMINATOR` exit code in `harness roadmap sync`, which is now derived from the shared rule with its 31 existing tests passing unmodified.
+
+  Behavior changes at the two worst green-on-empty surfaces:
+  - `harness check-harness-strength` scored **100/100, tier `solid`**, for a mode where no pattern applied at all — the exact bug #1761 was filed to fix, surviving one level up in the same function. `AuditResult.score` is now `number | null`; a null score tiers `incomplete` and renders as an abstention rather than a perfect audit.
+  - `validateFileStructure` reported **100% conformance and `valid: true`** for a project with no convention marked required. `conformance` is now `number | null` with a new `abstained` flag, and the `validate_project` MCP tool reports a distinct `abstained` check state with an explicit message instead of a green pass.
+
+  The full 262-site census is committed as a tiered burn-down ledger at `docs/conventions/metric-denominator-ledger.md`; the convention and the five observed denominator failure classes are a review checklist at `docs/conventions/metric-denominators.md`.
+
+- a1094db: fix(core): stop losing assignment-history records whose feature name contains a pipe
+
+  The roadmap's `## Assignment History` section was emitted as a markdown pipe table and
+  read back by recovering its four values POSITIONALLY from an unescaped `split('|')`.
+  Nothing escaped the separator, and a feature name is free text (an H3 heading, or the
+  MCP `manage_roadmap` write path). So a name such as `Auth | Login flow` serialized to a
+  row with five cells, `action` landed on the wrong cell, failed its membership check, and
+  the WHOLE record was dropped on the next read — silently, with no error and no warning
+  (#1811).
+
+  The column separator is now gone rather than escaped. Each record is written as a block
+  of four `- **Key:** value` bullets — the same line grammar every feature row already
+  uses — so `|` has no special meaning and cannot shift a value onto the wrong field.
+  Newlines are handled by the existing summary-field codec; backticks, em-dashes and
+  table-separator lookalikes are inert. `serialize → parse` is now an identity for every
+  field value, including leading and trailing whitespace, which the table used to trim.
+
+  Reading is backward-compatible: the legacy pipe table is still parsed, with its original
+  tolerances, so a `roadmap.md` or `_meta.md` written before this change keeps its history
+  instead of losing it on first read. Only the writer moved. The first re-serialization of
+  a document migrates it. A legacy row whose value contained a `|` was already destroyed
+  when it was written and cannot be recovered.
+
+  This repo's own `docs/roadmap.d/_meta.md` and the regenerated `docs/roadmap.md` are
+  migrated in this change, with all 18 existing records preserved.
+
+### Patch Changes
+
+- 92d757a: Anchor autopilot plan-path matching to a path separator. The unanchored `endsWith` suffix test linked a phase for `docs/changes/multi-auth/plan.md` to a roadmap row whose plan is `auth/plan.md`, carrying an unrelated feature's completion into that row's inferred status.
+- c2054e4: Scope the #1811 Assignment History field keys (`Feature`, `Action`, `Date`) to the `## Assignment History` section instead of declaring them preservable document-wide. A hand-authored `- **Date:** ...` bullet inside a feature block was reported as preservable while a `serializeRoadmap` rewrite really does drop it, letting the monolith store accept the destructive write the #839 guard exists to refuse.
+- 463e016: fix(core)!: constrain the canonical External-ID regex and re-validate at every authenticated GitHub API sink
+
+  `parseExternalId` — the format authority named by ADR 0051 — matched
+  `^github:([^/]+)\/([^#]+)#(\d+)$`. The owner capture admitted `.`, `..` and `?`; the repo
+  capture additionally admitted `/`. Ten adapter call sites spliced those captures,
+  unencoded, into `${apiBase}/repos/${owner}/${repo}/issues/${n}/...` on requests carrying
+  `Authorization: Bearer <token>`, so a crafted `External-ID` in a PR-contributable roadmap
+  shard could choose the path of a credentialed request — `github:x/../../../user/emails?#1`
+  resolved to `POST https://api.github.com/user/emails`.
+
+  Owner and repo are now held to GitHub's own name grammar, bare dot segments are rejected
+  separately (`encodeURIComponent` does not encode `.`), and a new `githubRepoPath` export
+  re-asserts and percent-encodes at each sink independently of the regex, so a future
+  loosening of the pattern cannot silently re-open the traversal.
+
+  **Breaking:** an `External-ID` that GitHub itself could never have issued is now rejected
+  rather than parsed. No committed roadmap shard is affected — all 280 shards carrying a real
+  `External-ID` still parse.
+
+  Second instance of the class fixed for the dashboard in #1842.
+
+- b42d146: Say why a tracker kind is rejected instead of denying the block exists (#1863)
+
+  `harness roadmap sync` with a well-formed `roadmap.tracker` block whose kind is
+  `pnyon` reported "harness.config.json has no `roadmap.tracker` block" — for a
+  block that was present, well-formed, and sitting right there. The message sent
+  readers hunting for something they already had.
+
+  `loadTrackerSyncConfig` returns a bare `null` for four different situations (no
+  config file, unparseable config, no tracker block, and a kind the shape guard
+  rejects) and the CLI rendered all four as the missing-block sentence. The new
+  `diagnoseTrackerSyncConfig` / `explainTrackerSyncConfig` pair distinguishes
+  them, naming the supported kinds when the kind is the problem. Both are
+  additive — `loadTrackerSyncConfig`'s contract is unchanged — and the accepted
+  list is stated once, shared by the guard and the diagnosis, so they cannot
+  drift apart.
+
+  Sync remains GitHub-only; this makes the refusal true rather than changing what
+  is accepted. Driving Waypoint from `roadmap sync` additionally needs a
+  `TrackerSyncAdapter` for it: #1816 implemented the `RoadmapTrackerClient` seam,
+  which is a different interface that `roadmap sync` does not consume.
+
+- Updated dependencies [3c3ab0e]
+  - @harness-engineering/types@0.33.0
+  - @harness-engineering/graph@0.15.1
+
 ## 0.47.0
 
 ### Minor Changes

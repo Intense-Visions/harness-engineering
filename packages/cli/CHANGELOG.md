@@ -1,5 +1,202 @@
 # @harness-engineering/cli
 
+## 12.4.0
+
+### Minor Changes
+
+- 9e6c8ff: Make `parseAssignmentHistory` distinguish "no `## Assignment History` heading" from "the heading is there, holding record-shaped lines this build cannot read". It returned `Ok([])` for both, and because `serializeRoadmap` omits the section when the record list is empty, an unreadable history and an absent history produced byte-identical output — so `harness roadmap regen` deleted the whole section at exit 0 with a success banner.
+
+  `minor`, not `patch`: a public call that previously succeeded now returns `Err`. A caller holding a document whose history section this build cannot read changes behaviour without changing code, so the bump has to be visible even though no signature moved. Concretely: a legacy pipe table missing its `|---|---|---|---|` separator row used to read as an empty history and now reports an error.
+
+  The guard is deliberately narrow, and narrow in a specific way. It fires only on lines that open (after trimming) with a CommonMark bullet marker followed by `**`, or with `|` — the only two shapes history has ever been written in. Prose placeholders, HTML comments, thematic breaks and fenced examples that merely demonstrate the grammar all keep parsing as an empty history. It fires even when some records _did_ read, because one readable record must not excuse silently dropping the rest of a half-migrated section.
+
+  Locating the section is part of the fix, not incidental to it — a guard cannot fire on records it can no longer see. The section is bounded by the next heading at level 1 or 2 (an `###` under it is its subsection, so a history grouped by quarter reads normally), fenced blocks are masked out of the _readers_ but never out of the _guard_, an unterminated fence is left as literal text rather than blanking the document to EOF, CRLF documents match, a 4-space-indented ` ``` ` is an indented code block rather than a fence, and a heading that names the section without matching it exactly (`## Assignment History (legacy)`) is an error rather than "no history". `store/meta.ts` and `roadmap/preservation.ts` now share the parser's section boundary instead of re-deriving it.
+
+  Adds a recovery hatch, because the refusal fails reads as well as writes and would otherwise wedge every shard-touching commit — including the commit that repairs the file. `harness roadmap regen --allow-unreadable-history` (or `HARNESS_ROADMAP_ALLOW_UNREADABLE_HISTORY=1`, which reaches the bare invocation the pre-commit hook runs) regenerates while carrying the unreadable section through verbatim. Every run that uses it warns and reports `carriedUnreadableHistory` in `--format json`; a hatch that fires silently is the same silence the guard exists to end. It unwedges `roadmap regen` only — the aggregate still holds the unreadable section, so other roadmap readers stay blocked until it is repaired.
+
+  Also closes a wider silent overwrite the new `Err` arm made reachable: `manage_roadmap`'s groom action swallowed both a read failure and a parse failure on `docs/roadmap-archive.md`, fabricated an empty archive and wrote it over the file, replacing every previously shipped row. Only a missing file now starts a fresh archive; a read or parse failure refuses, writes nothing, and leaves the live roadmap untouched.
+
+- 3c3ab0e: feat(metrics): metrics declare their denominator, and a zero denominator abstains (#1530)
+
+  A ratio, percentage, rate, average, or score is a number **over a population**. Strip the population and what is left is unfalsifiable. A 90-day measurement across 1,957 repositories produced five wrong figures and every one was a denominator error, not a numerator error — the numerators had been cross-validated to 0.24% against git while the divisors were never checked once.
+
+  Adds `DenominatedMetric` (`@harness-engineering/types`) and the `metrics` module in `@harness-engineering/core`: `denominate()` refuses to emit a metric with no stated population, `verdictForMetrics()` turns a set of metrics into a pass / abstain / unknown decision, and `formatMetric()` renders a value that cannot be separated from its population. A zero denominator produces `value: null` — an abstention, never a pass — and stays distinct from an unknown one (`denominator: null`), because "we looked and found nothing" and "we could not look" send an operator to different places.
+
+  This generalizes three point fixes the repo had already made against the same bug class (#1013, #1146, #1761) plus the `ZERO DENOMINATOR` exit code in `harness roadmap sync`, which is now derived from the shared rule with its 31 existing tests passing unmodified.
+
+  Behavior changes at the two worst green-on-empty surfaces:
+  - `harness check-harness-strength` scored **100/100, tier `solid`**, for a mode where no pattern applied at all — the exact bug #1761 was filed to fix, surviving one level up in the same function. `AuditResult.score` is now `number | null`; a null score tiers `incomplete` and renders as an abstention rather than a perfect audit.
+  - `validateFileStructure` reported **100% conformance and `valid: true`** for a project with no convention marked required. `conformance` is now `number | null` with a new `abstained` flag, and the `validate_project` MCP tool reports a distinct `abstained` check state with an explicit message instead of a green pass.
+
+  The full 262-site census is committed as a tiered burn-down ledger at `docs/conventions/metric-denominator-ledger.md`; the convention and the five observed denominator failure classes are a review checklist at `docs/conventions/metric-denominators.md`.
+
+### Patch Changes
+
+- b31b36e: Fold `tierOverrides` into the skills-index cache key. The on-disk index was keyed on skill.yaml mtimes alone, so a changed override map was invisible to the cache: editing `tierOverrides` in harness config was inert until an unrelated skill.yaml mtime changed, and the first caller's overrides were served to callers that passed none.
+- 018bbb7: Resolve analyses to the longest matching feature prefix instead of the first match. When one roadmap feature's slug prefixed another's (`cool-feature` vs `cool-feature-v2`), the shorter-named feature swallowed the longer one's analyses and the comment was posted to the wrong tracker issue — then marked published, so it was never corrected.
+- bd77917: Keep interior blank cells when parsing a SKILLS.md table row. The blanket empty-cell filter also shed legitimate interior blanks, so a match with no `matchReasons` rendered a row that `parseSkillsMd` then silently discarded, breaking the round-trip fidelity the module promises.
+- 53f6fe2: Use an own-property lookup when walking the config schema for unknown-key detection. A config key colliding with an `Object.prototype` member (`__proto__`, `constructor`, `toString`, ...) resolved to the inherited value, so the walk recursed into a non-zod object and threw; the throw is swallowed upstream, silently discarding the unknown-key warnings for the entire config file.
+- 1f3ddb8: craft(copy): replace unresolvable work-plan coordinates and code-restating comments in the MCP server import banners and the roadmap show handler with prose a stranger can act on. Comments only — no behavior change.
+- 71eda17: Make `harness design-pipeline --no-freshen` and `--no-fill` actually skip their phases (#1881)
+
+  Both flags were silently inert — passing either ran the phase it names anyway.
+
+  Commander's negation syntax (`.option('--no-freshen')`) defines an option named `freshen` that
+  defaults to `true` and becomes `false` when the flag is passed; it never produces a `noFreshen`
+  key. The command read `opts.noFreshen`/`opts.noFill`, which are `undefined` on every code path,
+  so `input.noFreshen`/`input.noFill` were never set and the orchestrator — which skips a phase
+  only on `=== true` — always ran FRESHEN and FILL. The command now reads `opts.freshen === false`
+  and `opts.fill === false`, matching the idiom already used in `predict.ts`, `agent/review.ts`,
+  `recommend.ts`, `install.ts`, and `adoption.ts`.
+
+  The failure was silent in the worst direction. FILL is not only the expensive phase, it is the
+  only phase that writes into your repository **on a default run** — it scaffolds
+  `design-system/DESIGN.md` and `tokens.json`, and appends stub sections to an existing
+  `DESIGN.md`. (FIX writes too, but only under `--fix`.) So while `--no-fill` was inert there was
+  no way to stop a bare `harness design-pipeline` from mutating the repo, with no warning and no
+  signal in the output that the flag had been ignored.
+
+  The `DesignPipelineCliOptions` interface is corrected alongside the reads (`noFreshen?`/`noFill?`
+  to `freshen`/`fill`). It had been asserting a shape Commander never produces, which is why the
+  dead reads typechecked cleanly rather than being caught. The pipeline's own
+  `DesignPipelineInput.noFreshen`/`noFill` contract is unchanged — the defect was entirely at the
+  command boundary.
+
+- 45fde2c: Honour `design.tokenPath` in the drift token resolvers (#1855)
+
+  `design.tokenPath` was declared and type-validated by the config schema but
+  never read — both token resolvers hardcoded `design-system/tokens.json`. An
+  adopter whose tokens lived elsewhere got no error and watched the DRIFT-T001 /
+  T002 / T003 token-bypass rules skip silently, which reads identically to "no
+  drift found".
+
+  `loadTokenSet` and `loadTokenPathIndex` now resolve the configured
+  `design.tokenPath` relative to the project root (an absolute value is used
+  as-is), falling back to `design-system/tokens.json` only when the key is unset.
+  A blank or whitespace-only value is treated as unset.
+
+  Missing-file behaviour is unchanged: a configured path that does not exist still
+  yields `null`.
+
+- a9dd480: fix(design): DRIFT-T001 no longer reports issue references as hardcoded colours (#1824)
+
+  A GitHub issue reference is hex-shaped — `0-9` are all valid hex digits — so `#1824`
+  and `#493` matched the hardcoded-colour pattern. One project measured 143 of 413
+  findings (35%) as this false positive on first adoption of `check-design`, which is
+  exactly where the rule most needs to be readable.
+
+  `detectHexBypass` now requires a colour value position before it flags, and rejects an
+  all-decimal match that has no colour carrier — mirroring the anchored shape that already
+  keeps DRIFT-T002/T003 quiet. The hex pattern is also narrowed to the CSS-valid lengths
+  3, 4, 6 and 8; `{3,8}` previously admitted 5 and 7, which can never be a colour.
+
+  Issue references in string prose, thrown-error messages, JSX text and CSS id selectors
+  are now silent. Genuine colours are still reported, including all-decimal greys such as
+  `background: '#666'`, gradient stops, `var()` fallbacks, palette arrays, SCSS maps and
+  colour-named variables, and utility-class arbitrary values such as `bg-[#1a2b3c]`.
+
+- 0e84479: Rename the internal `HEX_PATTERN` constant in the DRIFT-T001 token-bypass rule to `HEX_COLOR_PATTERN`, matching its siblings `FONT_FAMILY_PATTERN` and `PX_VALUE_PATTERN` which each name the design property they match. Internal, non-exported identifier — no behavior or API change.
+- 05eea7a: Raise the Docker smoke-test image-size budget from 800MB to 1000MB.
+
+  The first release-path execution of the `docker / smoke-test` job measured the orchestrator image at
+  815MB against an 800MB limit. The limit was set to 800 in `aeb815856` when the largest image was
+  774MB — only 3.4% of headroom — so ordinary dependency growth turned the tripwire into a scheduled
+  failure. 1000MB restores ~23% headroom while still catching the structural regressions this check
+  exists for (devDependencies or the build stage leaking into a runtime image), each of which costs
+  many hundreds of MB.
+
+- dffe04d: Fix container startup for the published `harness-cli` and `harness-mcp` images.
+
+  Both images failed to start, producing no stdout — which the Docker smoke test reported as
+  `Expected semver, got: ''` and `Expected serverInfo in response, got: ''`. Three independent
+  packaging defects, none of which could surface before the first release-path publish:
+  - The `cli` stage's `COPY` allowlist had drifted from the CLI's transitive workspace closure,
+    omitting `burn`, `signals` and `local-models`. `pnpm install` symlinks every workspace dependency
+    whether or not its directory was copied, so the miss produced dangling symlinks that were invisible
+    at build time and fatal at startup with `ERR_MODULE_NOT_FOUND`.
+  - `typescript` is imported at runtime by the CLI and deliberately kept out of the tsup bundle, but
+    was declared only as a root devDependency, so `--prod` installs excluded it. It is now a real
+    runtime dependency of `packages/cli`. This adds no bytes to the container (it was already present
+    transitively) and makes an existing implicit requirement explicit.
+  - The `cli` stage drops to `USER node` while `/app` stays root-owned, so the MCP server died with
+    `EACCES` creating `/app/.harness`. The directory is now pre-created and owned by `node`, matching
+    the pattern the orchestrator stage already uses for its workspaces directory.
+
+  Verified against real containers: `--version` prints `12.3.0` and the MCP server answers `initialize`
+  with `serverInfo`. Image size grows ~1MB.
+
+- 06c14b1: Make `test-craft --no-source-pair` actually skip source pairing (#1882)
+
+  `harness test-craft --no-source-pair` documented "Skip source-pairing
+  resolution" and did nothing. Pairing ran on every invocation, so the documented
+  escape hatch for repos where pairing is slow, noisy, or resolves the wrong
+  source file simply did not exist — and it said nothing about being ignored.
+
+  Commander stores a `--no-x` flag under its **positive** camelCase key —
+  `sourcePair`, `true` by default and `false` when the flag is passed. It never
+  creates a `noSourcePair` key. `buildInput` read `opts.noSourcePair === true`,
+  which is `undefined` on every path, so `input.sourcePair` was never set and the
+  engine's `input.sourcePair !== false` guard always resolved to enabled. The
+  `TestCraftCliOptions` interface declared the same non-existent
+  `noSourcePair?: boolean` field, which is why the unreachable read typechecked
+  cleanly and survived review — the type declaration was part of the defect, not
+  incidental to it.
+
+  The read is now `opts.sourcePair === false`, matching the idiom already used by
+  `--no-generate` (`install.ts`), `--no-skills` (`mcp.ts`), and `--no-write`
+  (`adoption.ts`), and the interface field is renamed to describe what Commander
+  actually produces. Guarding on the explicit `false` keeps the default path
+  sending no property at all rather than a redundant `true`.
+
+  The engine was never wrong and is unchanged: `runTestCraft({ sourcePair: false })`
+  already disabled pairing correctly and had an integration test proving it. That
+  test calls the engine directly, bypassing the CLI, which is exactly why the
+  broken wiring survived. The regression guard is therefore at the option-parsing
+  boundary, covering both the passed and the default path.
+
+- b42d146: Say why a tracker kind is rejected instead of denying the block exists (#1863)
+
+  `harness roadmap sync` with a well-formed `roadmap.tracker` block whose kind is
+  `pnyon` reported "harness.config.json has no `roadmap.tracker` block" — for a
+  block that was present, well-formed, and sitting right there. The message sent
+  readers hunting for something they already had.
+
+  `loadTrackerSyncConfig` returns a bare `null` for four different situations (no
+  config file, unparseable config, no tracker block, and a kind the shape guard
+  rejects) and the CLI rendered all four as the missing-block sentence. The new
+  `diagnoseTrackerSyncConfig` / `explainTrackerSyncConfig` pair distinguishes
+  them, naming the supported kinds when the kind is the problem. Both are
+  additive — `loadTrackerSyncConfig`'s contract is unchanged — and the accepted
+  list is stated once, shared by the guard and the diagnosis, so they cannot
+  drift apart.
+
+  Sync remains GitHub-only; this makes the refusal true rather than changing what
+  is accepted. Driving Waypoint from `roadmap sync` additionally needs a
+  `TrackerSyncAdapter` for it: #1816 implemented the `RoadmapTrackerClient` seam,
+  which is a different interface that `roadmap sync` does not consume.
+
+- Updated dependencies [af7e899]
+- Updated dependencies [8e87cca]
+- Updated dependencies [92d757a]
+- Updated dependencies [c2054e4]
+- Updated dependencies [b9784fd]
+- Updated dependencies [9e6c8ff]
+- Updated dependencies [3c3ab0e]
+- Updated dependencies [5ae60bd]
+- Updated dependencies [463e016]
+- Updated dependencies [6558ac0]
+- Updated dependencies [be93b09]
+- Updated dependencies [a1094db]
+- Updated dependencies [b42d146]
+- Updated dependencies [9bb33e0]
+  - @harness-engineering/orchestrator@0.24.1
+  - @harness-engineering/core@0.48.0
+  - @harness-engineering/types@0.33.0
+  - @harness-engineering/dashboard@0.16.6
+  - @harness-engineering/graph@0.15.1
+  - @harness-engineering/intelligence@0.13.2
+  - @harness-engineering/signals@0.3.8
+
 ## 12.3.0
 
 ### Minor Changes

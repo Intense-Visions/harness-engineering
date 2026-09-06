@@ -1,5 +1,94 @@
 # @harness-engineering/orchestrator
 
+## 0.24.1
+
+### Patch Changes
+
+- af7e899: Scope `AnalysisArchive.list`'s ENOENT guard to the `readdir` instead of wrapping the per-file read loop too. One entry vanishing mid-scan discarded every record already read and reported the archive as empty, so the auto-publish and `publish-analyses` paths silently published nothing.
+- 8e87cca: Scope `InteractionQueue.list`'s ENOENT guard to the `readdir` instead of wrapping the per-file read loop too. One entry vanishing mid-scan discarded every interaction already read and reported the queue as empty, silently breaking `push()`'s dedup pass and hiding pending human escalations.
+- b9784fd: Add a shutdown latch so `stop()` cannot be undone by an in-flight tick. The polling loop re-arms itself from inside the tick's own `.finally`, so a `stop()` that landed after the poll timer fired but before that tick settled armed a new timer on a stopped orchestrator — the loop kept polling, and the refed timer kept the Node event loop alive, forever after shutdown.
+- 6558ac0: fix(orchestrator): route PRDetector External-ID parsing through the core authority (#1857)
+
+  `PRDetector` defined its own `parseExternalId` around a verbatim copy of the
+  **pre-#1843** pattern `/^github:([^/]+)\/([^#]+)#(\d+)$/`, so the two-layer hardening
+  that #1854 landed in `@harness-engineering/core` never reached this consumer. That file
+  documents itself as the "single source of truth ... so the `github:owner/repo#NNN` shape
+  can never drift" — a claim that was already false at this call site.
+
+  The parsed `owner`/`repo` are interpolated into an authenticated
+  `gh pr list --repo <owner>/<repo>`. Two things bound the exposure and are stated rather
+  than overstated: the value travels through `execFile` **argv**, not a shell string, so
+  this is not command injection, and `gh` performs its own `--repo` validation. This is a
+  drift defect with a latent security dimension, not a second exploitable instance of
+  #1843.
+
+  `parseExternalId` now delegates to core's, and `githubRepoPath` is applied at both
+  `--repo` argv sinks — `hasOpenPRForExternalId` and the public `fetchOpenPRClosures` —
+  immediately before the value is built, because core's sink check deliberately never
+  consults the regex, so loosening it again cannot silently re-open the traversal.
+
+  The tightening is deliberately BREAKING for External-IDs GitHub itself could never have
+  issued; that trade was made and accepted in #1843/#1854 and is propagated here rather
+  than re-decided. `PRDetector`'s documented fail-open contract is unchanged: a rejected
+  External-ID degrades on exactly the path an unparseable one already took — `false` from
+  `hasOpenPRForExternalId`, `null` from `fetchOpenPRClosures`, a `logger.debug` line at the
+  pre-existing level, no throw, and no candidate newly blocked.
+
+- be93b09: Treat a blank secret-backend setting as unconfigured instead of forwarding it (#1883)
+
+  `createSecretBackend` supplied its three optional defaults with `??`, which falls
+  back only on `null` / `undefined`. An empty string is not nullish, so a blank
+  `opVault` was treated as a real vault name and built the 1Password reference
+  `op:///API_KEY/password` — no vault segment at all. A blank `vaultAddr` spawned
+  the Vault CLI with `VAULT_ADDR=''`, and a blank `vaultPath` ran
+  `vault kv get -format=json ''`.
+
+  Blank is what an unset environment variable interpolated into JSON, a templated
+  config whose substitution never fired, or a key created to be filled in later all
+  leave behind — every one of which means "I did not configure this", which is what
+  an absent key already means. A `nonEmptyString` guard now normalises blank and
+  whitespace-only to `undefined` before the `??`, so those two spellings of
+  unconfigured finally agree and take the same documented default.
+
+  Blank is treated as absent rather than rejected because this repo draws its line
+  at required-vs-optional, not blank-vs-absent: `registry.ts` rejects a blank
+  required `url` and, two lines later, silently drops a blank optional `token`;
+  `serverless.ts` validates the required `image` while leaving every
+  optional-with-default field on a plain `??`. All three fields here are optional
+  with a documented default. The refusal of a falsy `backend` — the required
+  discriminant — is unchanged.
+
+  Values are matched blank-or-not but returned untrimmed, so a legitimate vault name
+  containing spaces still reaches the CLI unaltered. Absent-key and real-value
+  behaviour is unchanged, which the pre-existing assertions continue to pin.
+
+- 9bb33e0: Fix `server.port: 0` being treated as "disabled" and deflake the Windows CI ephemeral-port bind
+
+  `ServerConfig.port` is typed `number | null` and documents `null` as the disable sentinel, but the
+  orchestrator gated server construction on a truthiness test. A configured port of `0` is falsy, so
+  it silently skipped server construction instead of binding an OS-assigned ephemeral port — even
+  though `OrchestratorServer` implements and documents port-0 support via its `boundPort` getter.
+  The gate now compares against `null`, so `undefined`/`null` still disable the server while `0`
+  correctly requests an ephemeral port.
+
+  This also removes a Windows CI flake: two integration tests guessed a random port in the
+  30000-49999 range, which overlaps the ephemeral-port ranges Hyper-V/WSL reserve on Windows. A bind
+  into a reserved range is refused with `EACCES` (not `EADDRINUSE`), failing the job on an unhandled
+  rejection despite every test passing. Both sites now bind `0` and let the OS assign a free port.
+
+- Updated dependencies [92d757a]
+- Updated dependencies [c2054e4]
+- Updated dependencies [9e6c8ff]
+- Updated dependencies [3c3ab0e]
+- Updated dependencies [463e016]
+- Updated dependencies [a1094db]
+- Updated dependencies [b42d146]
+  - @harness-engineering/core@0.48.0
+  - @harness-engineering/types@0.33.0
+  - @harness-engineering/graph@0.15.1
+  - @harness-engineering/intelligence@0.13.2
+  - @harness-engineering/local-models@0.7.10
+
 ## 0.24.0
 
 ### Minor Changes
