@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'packages/orchestrator/tests/core'
-sourceHash: '5eb4620f8a999bc6168d66797ff3021932a5b261a7db86fcc3775aa7410c09fc'
+sourceHash: 'e7633c2a3253f046b9ceabe2830f9125e3ee798b79a34821d44d45843c8d9c47'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
@@ -12,6 +12,9 @@ members:
     'auto-publish.test.ts',
     'budget-governor.behavior.test.ts',
     'budget-governor.wired.test.ts',
+    'bugfleet-analysis-archive-list-swallows.test.ts',
+    'bugfleet-interaction-queue-list-swallows.test.ts',
+    'bugfleet-stop-rearms-poll-timer.test.ts',
     'candidate-selection.test.ts',
     'circuit-breaker.test.ts',
     'claim-manager.test.ts',

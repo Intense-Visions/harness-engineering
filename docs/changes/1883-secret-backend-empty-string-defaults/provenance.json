@@ -1,0 +1,53 @@
+{
+  "item": "createSecretBackend treats a blank opVault/vaultAddr/vaultPath as configured",
+  "issues": [1883],
+  "issue": 1883,
+  "slug": "1883-secret-backend-empty-string-defaults",
+  "title": "Treat a blank secret-backend setting as unconfigured instead of forwarding it",
+  "branch": "fix/1883-secret-backend-empty-string-defaults",
+  "route": "bug",
+  "closingKeyword": "Closes #1883",
+  "closing_keyword": "Closes #1883",
+  "stages": ["debugging"],
+  "stagesRun": ["investigate", "analyze", "hypothesize", "fix"],
+  "base": "e530ae6bc67c003f11e4e32a606b7c929618a5f0",
+  "reproducingTest": "packages/orchestrator/tests/agent/secrets/index.test.ts",
+  "rootCause": "packages/orchestrator/src/agent/secrets/index.ts:15,18-19 supplied the three optional secret-backend defaults with `??`, which falls back only on null/undefined. An empty or whitespace-only string is not nullish, so it was treated as a supplied value and forwarded verbatim to the backend constructor, which interpolates it straight into a spawned CLI invocation with no validation of its own (onepassword.ts:26,34; vault.ts:28-29,35-37).",
+  "fix": "A module-local `nonEmptyString` guard normalises blank-or-whitespace-only to `undefined` before the `??`, so a blank value takes the same documented default an absent key already takes. Applied identically to all three fields. Mirrors the established `nonEmptyString` guard in packages/orchestrator/src/agent/backends/codex.ts:25-28.",
+  "observedBeforeFix": {
+    "opVault=''": "op:///API_KEY/password",
+    "opVault='   '": "op://   /API_KEY/password",
+    "vaultAddr=''": "VAULT_ADDR=''",
+    "vaultPath=''": "vault kv get -format=json ''"
+  },
+  "observedAfterFix": {
+    "opVault=''": "op://Private/API_KEY/password",
+    "opVault='   '": "op://Private/API_KEY/password",
+    "vaultAddr=''": "VAULT_ADDR='http://127.0.0.1:8200'",
+    "vaultPath=''": "vault kv get -format=json secret/data/harness"
+  },
+  "regressionTestEvidence": {
+    "withFixReverted": "6 failed | 14 passed (20) — exactly the 6 new blank/whitespace assertions fail",
+    "withFixApplied": "20 passed (20)"
+  },
+  "verification": {
+    "reproducingTests": "packages/orchestrator/tests/agent/secrets/index.test.ts — 7 tests added to the existing suite from #1875 (extended in place, not duplicated): blank + whitespace-only for each of opVault / vaultAddr / vaultPath, plus an over-trimming guard asserting a legitimate 'Shared Team' vault name still reaches the CLI unaltered",
+    "preExistingCoverage": "The absent-key and real-value cases for all three fields were already asserted by #1875 and are unchanged, which is what pins that this fix did not alter the documented defaults"
+  },
+  "assumptions": [
+    "A1 — FIX SHAPE (the fork the issue asked to be settled explicitly): blank is treated as ABSENT and falls back to the documented default, rather than being rejected loudly. Chosen because this repo already draws the line at required-vs-optional, not at blank-vs-absent: packages/core/src/roadmap/tracker/registry.ts:76-84 rejects a blank REQUIRED `url` and then at :85 silently drops a blank OPTIONAL `token`; packages/orchestrator/src/agent/backends/serverless.ts:344-352 validates the REQUIRED `image` while resolveOciConfig uses plain `??` for every optional-with-default field. All three fields here are optional WITH a documented default, which puts them on the treat-as-absent side of that line.",
+    "A2 — The in-file refusal of a falsy `backend` (tests/agent/secrets/index.test.ts:234-242) is NOT a counter-precedent. `backend` is the required discriminant with no default; refusing it is the required-and-blank branch of the same rule. It is left exactly as it was.",
+    "A3 — Rejecting loudly was also weighed on feasibility and found materially larger than this defect warrants. `SecretConfig` has no schema-validation layer at all: it is a plain interface (packages/types/src/container.ts:140-151) with no Zod companion, and `agent.secrets` is not among the sub-blocks validateWorkflowConfig parses (packages/orchestrator/src/workflow/config.ts:230-364). A loud rejection would need the first Zod schema in container.ts plus a new branch in workflow/config.ts, and would still not cover the direct-call path at orchestrator-backend-factory.ts:289.",
+    "A4 — Counter-argument considered and rejected: defaulting a blank opVault to 'Private' could read from the wrong vault when a template substitution silently fails. It loses because that exact risk is already accepted and test-pinned for the absent case, and making blank stricter than absent would be an odd asymmetry — `{}` fine but `{opVault: ''}` fatal. This change makes the two spellings of 'not configured' agree rather than introducing a new class of risk.",
+    "A5 — Values are matched blank-or-not but returned UNTRIMMED, so a legitimate vault name containing spaces ('Shared Team') is unaffected. Trimming every value would be a behaviour change beyond this defect; the bug is 'blank treated as supplied', not 'values are not trimmed'. This matches both the issue's own suggested `orDefault` and the codex.ts:25-28 precedent, and is pinned by a dedicated test.",
+    "A6 — The guard is module-local rather than shared. No exported blank-normalising helper exists anywhere in the repo; the established idiom is a small private guard, duplicated three times already (agent/backends/codex.ts:25-28, dashboard/src/server/routes/signoff.ts:54-57, core/src/waypoint/validate.ts:30-32). Extracting a shared helper was deliberately not folded into a low-severity bug fix.",
+    "A7 — Deferred, not fixed here: adding a SecretConfigSchema so a typo'd or malformed secrets block is rejected at config load (the rationale workflow/config.ts:261-263 already states for its other sub-blocks) remains open. It is a separate, larger change and is noted in the PR body rather than filed, since it is not required to resolve this defect.",
+    "A8 — Pre-existing and unrelated, left untouched: `harness check-deps` reports one circular dependency in packages/core/src/solutions/scan-candidates/, and `harness cleanup` reports 1628 documentation-drift entropy issues under docs/api/. Both are present on the base commit and neither is near the failure site."
+  ],
+  "notTouched": [
+    "packages/orchestrator/src/agent/secrets/onepassword.ts — the backend still trusts its constructor argument; the boundary fix is in the factory, the last place the operator's intent is still legible",
+    "packages/orchestrator/src/agent/secrets/vault.ts — same",
+    "packages/types/src/container.ts — SecretConfig shape unchanged; the type system cannot express non-blank and this fix does not need it to"
+  ],
+  "debugSession": ".harness/debug/resolved/1883-secret-backend-empty-string-defaults.md (gitignored via .harness/.gitignore:4 — local state, not committed)"
+}

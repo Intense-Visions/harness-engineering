@@ -1,13 +1,14 @@
 ---
 schemaVersion: 1
 module: 'packages/cli/tests/config'
-sourceHash: '428d8caee8f80e8fb784c6420c68044629a2efed80f113b1cd8efd0280ee7c8f'
+sourceHash: 'e79e35721abe0bdd68337c6373795efa7bc940b914362566eeaa3147ac97141b'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
 members:
   [
     'analysis-schema.test.ts',
+    'bugfleet-stripped-keys-prototype-key.test.ts',
     'constraint-packs-schema.test.ts',
     'deployment-schema.test.ts',
     'design-schema.test.ts',
@@ -41,6 +42,7 @@ members:
 import { AnalysisConfigSchema, DepsConfigSchema, loadAnalysisExclude, loadDepsExclude } from '../../src/config/analysis-schema'
 import { findConfigFile, loadConfig } from '../../src/config/loader'
 import { DeploymentGateConfigSchema, DepsConfigSchema, DesignConfigSchema, HarnessConfigSchema, I18nConfigSchema, I18nCoverageConfigSchema, I18nMcpConfigSchema, IntegrationsConfigSchema, KnowledgeConfigSchema, LocalModelsConfigSchema, LocalModelsHarnessFitConfigSchema, ModelTierConfigSchema, ReviewConfigSchema, RollbackConfigSchema, SkillHookEntrySchema, SkillHooksConfigSchema, TelemetryConfigSchema, TelemetryExportOTLPSchema, TrackerConfigSchema, loadDepsExclude } from '../../src/config/schema'
+import * as fs from 'fs'
 import * as fs from 'node:fs'
 import * as os from 'node:os'
 import * as path from 'node:path'

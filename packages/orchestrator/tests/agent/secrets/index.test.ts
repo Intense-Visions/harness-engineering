@@ -148,6 +148,49 @@ describe('createSecretBackend — onepassword', () => {
 
     expect(spawnedCommands()[0]?.args).toEqual(['read', 'op://Private/API_KEY/password']);
   });
+
+  it('treats a blank vault name as unconfigured rather than forwarding "op://"', async () => {
+    // #1883. An empty string is not nullish, so `??` forwarded it and built
+    // `op:///API_KEY/password` — a reference with no vault segment at all. The
+    // assertion is on the reference rather than on some validation error
+    // because the reference is what the operator's secret actually resolves
+    // against; a malformed one fails later, naming the lookup instead of the
+    // config key that caused it.
+    const backend = createSecretBackend({ backend: 'onepassword', keys: ['API_KEY'], opVault: '' });
+
+    await backend.resolveSecrets(['API_KEY']);
+
+    expect(spawnedCommands()[0]?.args).toEqual(['read', 'op://Private/API_KEY/password']);
+  });
+
+  it('treats a whitespace-only vault name as unconfigured', async () => {
+    // Whitespace is the shape a partially-substituted template leaves behind,
+    // and it is worse than empty: `op://   /API_KEY/password` looks structurally
+    // well-formed, so nothing downstream reads it as missing.
+    const backend = createSecretBackend({
+      backend: 'onepassword',
+      keys: ['API_KEY'],
+      opVault: '   ',
+    });
+
+    await backend.resolveSecrets(['API_KEY']);
+
+    expect(spawnedCommands()[0]?.args).toEqual(['read', 'op://Private/API_KEY/password']);
+  });
+
+  it('still forwards a configured vault name that merely contains spaces', async () => {
+    // The blank check must not become a trim of every value: "Shared Team" is a
+    // legitimate 1Password vault name and must reach the CLI unaltered.
+    const backend = createSecretBackend({
+      backend: 'onepassword',
+      keys: ['API_KEY'],
+      opVault: 'Shared Team',
+    });
+
+    await backend.resolveSecrets(['API_KEY']);
+
+    expect(spawnedCommands()[0]?.args).toEqual(['read', 'op://Shared Team/API_KEY/password']);
+  });
 });
 
 describe('createSecretBackend — vault', () => {
@@ -205,6 +248,74 @@ describe('createSecretBackend — vault', () => {
       backend: 'vault',
       keys: ['API_KEY'],
       vaultAddr: 'https://vault.example.com',
+    });
+
+    await backend.resolveSecrets(['API_KEY']);
+
+    expect(spawnedCommands()[0]?.args).toEqual([
+      'kv',
+      'get',
+      '-format=json',
+      'secret/data/harness',
+    ]);
+  });
+
+  it('treats a blank address as unconfigured rather than spawning with VAULT_ADDR=""', async () => {
+    // #1883. `??` forwarded the empty string, so the Vault CLI was spawned with
+    // an empty VAULT_ADDR — which fails against whatever the CLI falls back to,
+    // reporting a connection problem rather than a configuration one.
+    const backend = createSecretBackend({
+      backend: 'vault',
+      keys: ['API_KEY'],
+      vaultAddr: '',
+      vaultPath: 'secret/data/myapp',
+    });
+
+    await backend.resolveSecrets(['API_KEY']);
+
+    expect(spawnedCommands()[0]?.env.VAULT_ADDR).toBe('http://127.0.0.1:8200');
+  });
+
+  it('treats a whitespace-only address as unconfigured', async () => {
+    const backend = createSecretBackend({
+      backend: 'vault',
+      keys: ['API_KEY'],
+      vaultAddr: '  ',
+      vaultPath: 'secret/data/myapp',
+    });
+
+    await backend.resolveSecrets(['API_KEY']);
+
+    expect(spawnedCommands()[0]?.env.VAULT_ADDR).toBe('http://127.0.0.1:8200');
+  });
+
+  it('treats a blank secret path as unconfigured rather than reading path ""', async () => {
+    // #1883. An empty path made the spawned argv `kv get -format=json ''`,
+    // which reads nothing and reports a missing secret rather than a missing
+    // configuration.
+    const backend = createSecretBackend({
+      backend: 'vault',
+      keys: ['API_KEY'],
+      vaultAddr: 'https://vault.example.com',
+      vaultPath: '',
+    });
+
+    await backend.resolveSecrets(['API_KEY']);
+
+    expect(spawnedCommands()[0]?.args).toEqual([
+      'kv',
+      'get',
+      '-format=json',
+      'secret/data/harness',
+    ]);
+  });
+
+  it('treats a whitespace-only secret path as unconfigured', async () => {
+    const backend = createSecretBackend({
+      backend: 'vault',
+      keys: ['API_KEY'],
+      vaultAddr: 'https://vault.example.com',
+      vaultPath: '   ',
     });
 
     await backend.resolveSecrets(['API_KEY']);
