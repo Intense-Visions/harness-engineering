@@ -26,8 +26,22 @@ import {
 
 interface DesignPipelineCliOptions {
   fix?: boolean;
-  noFreshen?: boolean;
-  noFill?: boolean;
+  /**
+   * `--no-freshen` / `--no-fill` are Commander NEGATED options: they populate
+   * `freshen` / `fill` (defaulted to `true`, set to `false` when the flag is
+   * passed), never `noFreshen` / `noFill`. Naming these fields after the flag
+   * rather than after the key Commander produces is what let the inert reads
+   * at the bottom of this file typecheck cleanly (#1881).
+   *
+   * Non-optional because Commander populates both on EVERY parse, bare run
+   * included, so the type mirrors runtime reality. This is documentation, not
+   * enforcement: TypeScript exempts `=== undefined` from its no-overlap check,
+   * so `opts.freshen === undefined` compiles clean against `boolean` exactly as
+   * it does against `boolean | undefined`. What actually guards against that
+   * dead read is the mirrored pair of tests, not the compiler.
+   */
+  freshen: boolean;
+  fill: boolean;
   ci?: boolean;
   files?: string[];
   mode?: 'fast' | 'full';
@@ -59,8 +73,10 @@ export function createDesignPipelineCommand(): Command {
 
       const input: DesignPipelineInput = { path: cwd };
       if (opts.fix === true) input.fix = true;
-      if (opts.noFreshen === true) input.noFreshen = true;
-      if (opts.noFill === true) input.noFill = true;
+      // `=== false` (not falsiness): Commander always populates these, defaulting
+      // both to `true`, so only an explicit `false` means the flag was passed.
+      if (opts.freshen === false) input.noFreshen = true;
+      if (opts.fill === false) input.noFill = true;
       if (opts.ci === true) input.ci = true;
       if (opts.files !== undefined) input.files = opts.files;
       if (opts.mode !== undefined) input.mode = opts.mode;
