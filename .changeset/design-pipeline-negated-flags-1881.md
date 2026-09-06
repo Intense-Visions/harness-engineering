@@ -15,10 +15,11 @@ and `opts.fill === false`, matching the idiom already used in `predict.ts`, `age
 `recommend.ts`, `install.ts`, and `adoption.ts`.
 
 The failure was silent in the worst direction. FILL is not only the expensive phase, it is the
-only phase that writes into your repository — it scaffolds `design-system/DESIGN.md` and
-`tokens.json`, and appends stub sections to an existing `DESIGN.md`. So while `--no-fill` was
-inert there was no way to stop a bare `harness design-pipeline` from mutating the repo, with no
-warning and no signal in the output that the flag had been ignored.
+only phase that writes into your repository **on a default run** — it scaffolds
+`design-system/DESIGN.md` and `tokens.json`, and appends stub sections to an existing
+`DESIGN.md`. (FIX writes too, but only under `--fix`.) So while `--no-fill` was inert there was
+no way to stop a bare `harness design-pipeline` from mutating the repo, with no warning and no
+signal in the output that the flag had been ignored.
 
 The `DesignPipelineCliOptions` interface is corrected alongside the reads (`noFreshen?`/`noFill?`
 to `freshen`/`fill`). It had been asserting a shape Commander never produces, which is why the
