@@ -231,7 +231,8 @@ async function handleShow(
     };
   }
 
-  // Apply status filter
+  // Keep only features in the requested status, then drop milestones left with none, so the
+  // caller never has to skim past milestones that matched nothing.
   if (input.status) {
     const statusFilter = input.status;
     roadmap = {
