@@ -800,7 +800,7 @@ nothing — it must not be read as a pass.
 
 ### `parseRoadmap(content)`
 
-Parses a roadmap markdown file into a structured `Roadmap` object. Supports extended fields: `Assignee`, `Priority` (P0–P3), `External-ID`. Parses `## Assignment History` section as a sentinel-bounded table into `AssignmentRecord[]`.
+Parses a roadmap markdown file into a structured `Roadmap` object. Supports extended fields: `Assignee`, `Priority` (P0–P3), `External-ID`. Parses the sentinel-bounded `## Assignment History` section into `AssignmentRecord[]` (four `- **Key:** value` bullets per record; the pre-v5 pipe table is still read).
 
 ### `serializeRoadmap(roadmap)`
 

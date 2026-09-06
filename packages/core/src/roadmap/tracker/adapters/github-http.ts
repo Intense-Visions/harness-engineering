@@ -233,4 +233,4 @@ function hasNextLink(link: string | null): boolean {
 
 // External-ID parse/build come from the one canonical module (../../external-id);
 // re-exported here so this adapter's importers keep a single import site.
-export { parseExternalId, buildExternalId } from '../../external-id';
+export { parseExternalId, buildExternalId, githubRepoPath } from '../../external-id';

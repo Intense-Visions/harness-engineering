@@ -30,6 +30,13 @@ const MODELED_FIELD_KEYS: ReadonlySet<string> = new Set([
   'Priority',
   'External-ID',
   'Updated-At',
+  // `## Assignment History` record bullets (#1811). The section stopped being a
+  // pipe table and became four `- **Key:** value` bullets per record, reusing the
+  // same line grammar, so its lines are preservable for the same reason a feature
+  // row's are. `Assignee` above is shared with the feature block.
+  'Feature',
+  'Action',
+  'Date',
 ]);
 
 /** A source line whose content a monolith rewrite would drop. */
@@ -44,8 +51,10 @@ export interface UnpreservedLine {
  * Return the lines of `markdown` that a `serializeRoadmap` rewrite would silently
  * drop. A line is preservable iff it is frontmatter (regenerated from the model),
  * part of the preamble (everything before the first `## ` heading, which the model
- * now carries verbatim — #1328), blank, an H1 title, an H2/H3 heading, an
- * assignment-history table row, or a single-line modeled `- **Key:** …` field.
+ * now carries verbatim — #1328), blank, an H1 title, an H2/H3 heading, a legacy
+ * assignment-history table row, or a single-line modeled `- **Key:** …` field
+ * (which now includes the `Feature`/`Action`/`Date` bullets an assignment-history
+ * record is written as, #1811).
  * Everything else — multi-line field
  * continuations, unmodeled bullets, blockquotes, comments, arbitrary prose — is
  * reported. An empty result means the document round-trips without content loss.

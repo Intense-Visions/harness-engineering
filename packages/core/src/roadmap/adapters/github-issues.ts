@@ -12,8 +12,8 @@ import { pushAssigneeToExternal } from '../assignee-lifecycle';
 // External-ID parse/build live in one canonical module (../external-id) so the
 // `github:owner/repo#NNN` format never drifts between the sync and reconcile edges.
 // Re-exported here so this adapter's existing import site stays stable.
-import { parseExternalId, buildExternalId } from '../external-id';
-export { parseExternalId, buildExternalId } from '../external-id';
+import { parseExternalId, buildExternalId, githubRepoPath } from '../external-id';
+export { parseExternalId, buildExternalId, githubRepoPath } from '../external-id';
 
 /**
  * Determine which labels to apply based on status and config.
@@ -281,6 +281,10 @@ export class GitHubIssuesSyncAdapter implements TrackerSyncAdapter {
     try {
       const parsed = parseExternalId(externalId);
       if (!parsed) return Err(new Error(`Invalid externalId format: "${externalId}"`));
+      // Re-assert at the sink, immediately before the parsed captures are spliced
+      // into a path on a request carrying this.token (#1843).
+      const repoPath = githubRepoPath(parsed.owner, parsed.repo);
+      if (!repoPath) return Err(new Error(`Invalid externalId format: "${externalId}"`));
       const syncIssueState = options?.syncIssueState ?? true;
 
       const patch: Record<string, unknown> = {};
@@ -322,7 +326,7 @@ export class GitHubIssuesSyncAdapter implements TrackerSyncAdapter {
 
       const response = await fetchWithRetry(
         this.fetchFn,
-        `${this.apiBase}/repos/${parsed.owner}/${parsed.repo}/issues/${parsed.number}`,
+        `${this.apiBase}/repos/${repoPath}/issues/${parsed.number}`,
         {
           method: 'PATCH',
           headers: this.headers(),
@@ -347,10 +351,14 @@ export class GitHubIssuesSyncAdapter implements TrackerSyncAdapter {
     try {
       const parsed = parseExternalId(externalId);
       if (!parsed) return Err(new Error(`Invalid externalId format: "${externalId}"`));
+      // Re-assert at the sink, immediately before the parsed captures are spliced
+      // into a path on a request carrying this.token (#1843).
+      const repoPath = githubRepoPath(parsed.owner, parsed.repo);
+      if (!repoPath) return Err(new Error(`Invalid externalId format: "${externalId}"`));
 
       const response = await fetchWithRetry(
         this.fetchFn,
-        `${this.apiBase}/repos/${parsed.owner}/${parsed.repo}/issues/${parsed.number}`,
+        `${this.apiBase}/repos/${repoPath}/issues/${parsed.number}`,
         {
           method: 'GET',
           headers: this.headers(),
@@ -466,13 +474,17 @@ export class GitHubIssuesSyncAdapter implements TrackerSyncAdapter {
     try {
       const parsed = parseExternalId(externalId);
       if (!parsed) return Err(new Error(`Invalid externalId format: "${externalId}"`));
+      // Re-assert at the sink, immediately before the parsed captures are spliced
+      // into a path on a request carrying this.token (#1843).
+      const repoPath = githubRepoPath(parsed.owner, parsed.repo);
+      if (!repoPath) return Err(new Error(`Invalid externalId format: "${externalId}"`));
 
       // Strip leading @ from assignee
       const login = assignee.startsWith('@') ? assignee.slice(1) : assignee;
 
       const response = await fetchWithRetry(
         this.fetchFn,
-        `${this.apiBase}/repos/${parsed.owner}/${parsed.repo}/issues/${parsed.number}/assignees`,
+        `${this.apiBase}/repos/${repoPath}/issues/${parsed.number}/assignees`,
         {
           method: 'POST',
           headers: this.headers(),
@@ -496,10 +508,14 @@ export class GitHubIssuesSyncAdapter implements TrackerSyncAdapter {
     try {
       const parsed = parseExternalId(externalId);
       if (!parsed) return Err(new Error(`Invalid externalId format: "${externalId}"`));
+      // Re-assert at the sink, immediately before the parsed captures are spliced
+      // into a path on a request carrying this.token (#1843).
+      const repoPath = githubRepoPath(parsed.owner, parsed.repo);
+      if (!repoPath) return Err(new Error(`Invalid externalId format: "${externalId}"`));
 
       const response = await fetchWithRetry(
         this.fetchFn,
-        `${this.apiBase}/repos/${parsed.owner}/${parsed.repo}/issues/${parsed.number}/comments`,
+        `${this.apiBase}/repos/${repoPath}/issues/${parsed.number}/comments`,
         {
           method: 'POST',
           headers: this.headers(),
@@ -536,6 +552,8 @@ export class GitHubIssuesSyncAdapter implements TrackerSyncAdapter {
   }
 
   private async fetchCommentPage(
+    /** Already validated and percent-encoded by the caller (#1843). */
+    repoPath: string,
     parsed: { owner: string; repo: string; number: number },
     page: number
   ): Promise<
@@ -552,7 +570,7 @@ export class GitHubIssuesSyncAdapter implements TrackerSyncAdapter {
     const perPage = 100;
     const response = await fetchWithRetry(
       this.fetchFn,
-      `${this.apiBase}/repos/${parsed.owner}/${parsed.repo}/issues/${parsed.number}/comments?per_page=${perPage}&page=${page}`,
+      `${this.apiBase}/repos/${repoPath}/issues/${parsed.number}/comments?per_page=${perPage}&page=${page}`,
       { method: 'GET', headers: this.headers() },
       this.retryOpts
     );
@@ -577,13 +595,17 @@ export class GitHubIssuesSyncAdapter implements TrackerSyncAdapter {
     try {
       const parsed = parseExternalId(externalId);
       if (!parsed) return Err(new Error(`Invalid externalId format: "${externalId}"`));
+      // Re-assert at the sink, immediately before the parsed captures are spliced
+      // into a path on a request carrying this.token (#1843).
+      const repoPath = githubRepoPath(parsed.owner, parsed.repo);
+      if (!repoPath) return Err(new Error(`Invalid externalId format: "${externalId}"`));
 
       const comments: TrackerComment[] = [];
       const perPage = 100;
       let page = 1;
 
       while (true) {
-        const pageResult = await this.fetchCommentPage(parsed, page);
+        const pageResult = await this.fetchCommentPage(repoPath, parsed, page);
         if (!pageResult.ok) return pageResult;
 
         for (const comment of pageResult.value) {

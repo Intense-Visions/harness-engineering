@@ -65,7 +65,7 @@ export { parseReferencedIssues } from './referenced-issues';
  * auto-done reconciler edges to map issue numbers ↔ roadmap rows without
  * format drift.
  */
-export { parseExternalId, buildExternalId } from './external-id';
+export { parseExternalId, buildExternalId, githubRepoPath } from './external-id';
 
 /**
  * Shared tracker config loader for harness.config.json.

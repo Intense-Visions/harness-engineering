@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'packages/core/src/roadmap/tracker/adapters'
-sourceHash: '28588d79c7b2e421441b941a13f2fc2256e9b1de70bcec22acd93a9c3ed55810'
+sourceHash: 'a3964daafddff8476ecf8e321503e6abba20aebae9d83ef4cc5c946861247d21'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
@@ -28,6 +28,7 @@ export PnyonTrackerAdapter
 export WaypointHttp
 export WaypointHttpError
 export buildExternalId
+export githubRepoPath
 export parseExternalId
 ```
 
@@ -40,7 +41,7 @@ import { ConflictError, ConflictErrorClass, FeaturePatch, HistoryEvent, HistoryE
 import { refetchAndCompare } from '../conflict'
 import { ETagStore } from '../etag-store'
 import from '../factory'
-import { GitHubHttp, buildExternalId, parseExternalId } from './github-http'
+import { GitHubHttp, buildExternalId, githubRepoPath, parseExternalId } from './github-http'
 import { LinearTrackerAdapter } from './linear'
 import { WaypointCommand, WaypointHttp, WaypointHttpError, WaypointItem, WaypointItemPatch } from './waypoint-http'
 import { Err, FeatureStatus, Ok, Priority, Result } from '@harness-engineering/types'

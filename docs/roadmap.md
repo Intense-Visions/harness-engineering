@@ -3159,23 +3159,93 @@ last_manual_edit: 2026-06-27T12:51:51.967Z
 ## v4.0 Business Knowledge System
 
 ## Assignment History
-| Feature | Assignee | Action | Date |
-|---------|----------|--------|------|
-| Performance Engineering Knowledge Skills | @chadjw | assigned | 2026-04-09 |
-| Phase 2: Code Signal Extractors | @chadjw | assigned | 2026-04-23 |
-| Phase 3: Connector Enhancement | @chadjw | assigned | 2026-04-22 |
-| Phase 4: Knowledge Pipeline & Diagrams | @chadjw | assigned | 2026-04-23 |
-| Hermes Phase 0.1: Reference Slack Bridge | @cwarner | assigned | 2026-05-15 |
-| design-pipeline sub-project #2: audit-component-anatomy | @chadjw | assigned | 2026-05-23 |
-| design-pipeline sub-project #0: brand-guidelines source-of-truth | @chadjw | assigned | 2026-05-23 |
-| design-pipeline sub-project #3: audit-brand-compliance | @chadjw | assigned | 2026-06-02 |
-| Init design + roadmap polish follow-ups | @chadjw | assigned | 2026-06-03 |
-| Build harness:outcome-eval skill | chad.warner@capillarytech.com | assigned | 2026-06-22 |
-| Build harness:audit-harness-strength self-audit skill | chad.warner@capillarytech.com | assigned | 2026-06-23 |
-| Ship the 5-signal dashboard panel and signals.md doc | chad.warner@capillarytech.com | assigned | 2026-06-22 |
-| Ship a required-review GitHub Action template | chad.warner@gmail.com | assigned | 2026-06-23 |
-| Stop the pre-commit auto-baseline-update for arch | chad.warner@gmail.com | assigned | 2026-06-23 |
-| Add architecture thresholds to basic and intermediate templates | chad.warner@gmail.com | assigned | 2026-06-23 |
-| Add architecture thresholds to basic and intermediate templates | @chadjw | assigned | 2026-06-25 |
-| Add architecture thresholds to basic and intermediate templates | @chadjw | unassigned | 2026-06-25 |
-| Per-subagent token attribution in burn | Chad Warner | unassigned | 2026-08-10 |
+
+- **Feature:** Performance Engineering Knowledge Skills
+- **Assignee:** @chadjw
+- **Action:** assigned
+- **Date:** 2026-04-09
+
+- **Feature:** Phase 2: Code Signal Extractors
+- **Assignee:** @chadjw
+- **Action:** assigned
+- **Date:** 2026-04-23
+
+- **Feature:** Phase 3: Connector Enhancement
+- **Assignee:** @chadjw
+- **Action:** assigned
+- **Date:** 2026-04-22
+
+- **Feature:** Phase 4: Knowledge Pipeline & Diagrams
+- **Assignee:** @chadjw
+- **Action:** assigned
+- **Date:** 2026-04-23
+
+- **Feature:** Hermes Phase 0.1: Reference Slack Bridge
+- **Assignee:** @cwarner
+- **Action:** assigned
+- **Date:** 2026-05-15
+
+- **Feature:** design-pipeline sub-project #2: audit-component-anatomy
+- **Assignee:** @chadjw
+- **Action:** assigned
+- **Date:** 2026-05-23
+
+- **Feature:** design-pipeline sub-project #0: brand-guidelines source-of-truth
+- **Assignee:** @chadjw
+- **Action:** assigned
+- **Date:** 2026-05-23
+
+- **Feature:** design-pipeline sub-project #3: audit-brand-compliance
+- **Assignee:** @chadjw
+- **Action:** assigned
+- **Date:** 2026-06-02
+
+- **Feature:** Init design + roadmap polish follow-ups
+- **Assignee:** @chadjw
+- **Action:** assigned
+- **Date:** 2026-06-03
+
+- **Feature:** Build harness:outcome-eval skill
+- **Assignee:** chad.warner@capillarytech.com
+- **Action:** assigned
+- **Date:** 2026-06-22
+
+- **Feature:** Build harness:audit-harness-strength self-audit skill
+- **Assignee:** chad.warner@capillarytech.com
+- **Action:** assigned
+- **Date:** 2026-06-23
+
+- **Feature:** Ship the 5-signal dashboard panel and signals.md doc
+- **Assignee:** chad.warner@capillarytech.com
+- **Action:** assigned
+- **Date:** 2026-06-22
+
+- **Feature:** Ship a required-review GitHub Action template
+- **Assignee:** chad.warner@gmail.com
+- **Action:** assigned
+- **Date:** 2026-06-23
+
+- **Feature:** Stop the pre-commit auto-baseline-update for arch
+- **Assignee:** chad.warner@gmail.com
+- **Action:** assigned
+- **Date:** 2026-06-23
+
+- **Feature:** Add architecture thresholds to basic and intermediate templates
+- **Assignee:** chad.warner@gmail.com
+- **Action:** assigned
+- **Date:** 2026-06-23
+
+- **Feature:** Add architecture thresholds to basic and intermediate templates
+- **Assignee:** @chadjw
+- **Action:** assigned
+- **Date:** 2026-06-25
+
+- **Feature:** Add architecture thresholds to basic and intermediate templates
+- **Assignee:** @chadjw
+- **Action:** unassigned
+- **Date:** 2026-06-25
+
+- **Feature:** Per-subagent token attribution in burn
+- **Assignee:** Chad Warner
+- **Action:** unassigned
+- **Date:** 2026-08-10

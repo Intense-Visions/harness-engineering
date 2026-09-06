@@ -6,7 +6,6 @@ import type {
   RoadmapGroup,
   FeatureStatus,
   Priority,
-  AssignmentRecord,
   Result,
 } from '@harness-engineering/types';
 import { Ok, Err } from '@harness-engineering/types';
@@ -22,6 +21,13 @@ import { decodeSummaryField } from './summary-field';
 // for the reversible comma escaping shared by the `Blockers` / `Plan` bullets
 // (see that module for the grammar rationale, #1757).
 import { decodeListField } from './list-field';
+// The `## Assignment History` section grammar (both readers AND the emitter) lives
+// in `./assignment-history`, the single source of truth shared with the serializer.
+// It is re-exported here so `parseAssignmentHistory` keeps its historical import
+// path for the shard `_meta` reader (#1811).
+import { parseAssignmentHistory } from './assignment-history';
+
+export { parseAssignmentHistory };
 
 const VALID_STATUSES: ReadonlySet<string> = new Set([
   'backlog',
@@ -329,50 +335,4 @@ export function parseFeatureBlock(name: string, body: string): Result<RoadmapFea
     externalId: optionalField(fieldMap, 'External-ID'),
     updatedAt: optionalField(fieldMap, 'Updated-At'),
   });
-}
-
-export function parseAssignmentHistory(body: string): Result<AssignmentRecord[]> {
-  const historyMatch = body.match(/^## Assignment History\s*\n/m);
-  if (!historyMatch || historyMatch.index === undefined) return Ok([]);
-
-  const historyStart = historyMatch.index + historyMatch[0].length;
-  const rawHistoryBody = body.slice(historyStart);
-  // Bound to next H2 heading so future sections after history are not consumed
-  const nextH2 = rawHistoryBody.search(/^## /m);
-  const historyBody = nextH2 === -1 ? rawHistoryBody : rawHistoryBody.slice(0, nextH2);
-
-  const records: AssignmentRecord[] = [];
-  // Parse markdown table rows. Rows before the separator (|---|...|) are
-  // skipped (header). If no separator exists the table is treated as empty —
-  // this is intentional tolerance for malformed tables.
-  const lines = historyBody.split('\n');
-  let pastHeader = false;
-  for (const line of lines) {
-    const trimmed = line.trim();
-    if (!trimmed.startsWith('|')) continue;
-    if (!pastHeader) {
-      if (trimmed.match(/^\|[-\s|]+\|$/)) {
-        pastHeader = true;
-      }
-      continue;
-    }
-    // Parse data row: | Feature | Assignee | Action | Date |
-    const cells = trimmed
-      .split('|')
-      .map((c) => c.trim())
-      .filter((c) => c.length > 0);
-    if (cells.length < 4) continue;
-
-    const action = cells[2] as AssignmentRecord['action'];
-    if (!['assigned', 'completed', 'unassigned'].includes(action)) continue;
-
-    records.push({
-      feature: cells[0]!,
-      assignee: cells[1]!,
-      action,
-      date: cells[3]!,
-    });
-  }
-
-  return Ok(records);
 }

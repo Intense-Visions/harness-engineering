@@ -1,0 +1,67 @@
+{
+  "issue": 1843,
+  "repo": "Intense-Visions/harness-engineering",
+  "route": "bug",
+  "fleet": "roadmap-fleet",
+  "stages": ["debugging"],
+  "pipeline": "harness-debugging",
+  "phases": ["investigate", "analyze", "hypothesize", "fix"],
+  "baseSha": "5cd661d74",
+  "branch": "fix/external-id-path-traversal-1843",
+  "debugSession": ".harness/debug/resolved/1843-external-id-path-traversal.md (gitignored via .harness/.gitignore:4 `debug/`)",
+  "debugSessionCommittedCopy": "docs/changes/external-id-path-traversal-1843/debug-session.md",
+  "reproducingTest": "packages/core/tests/roadmap/external-id-path-traversal.test.ts",
+  "reproducingTestCommand": "cd packages/core && npx vitest run tests/roadmap/external-id-path-traversal.test.ts",
+  "reproducingTestBeforeFix": "69 failed | 11 passed (80)",
+  "reproducingTestAfterFix": "80 passed (80)",
+  "revertAndFailCheck": {
+    "method": "git stash push -- packages/core/src (test kept), rerun, git stash pop",
+    "result": "69 failed | 11 passed (80) with src reverted; 80 passed (80) with the fix restored"
+  },
+  "rootCause": "packages/core/src/roadmap/external-id.ts:12 defined EXTERNAL_ID_RE as /^github:([^/]+)\\/([^#]+)#(\\d+)$/. The owner capture admitted '.', '..' and '?'; the repo capture additionally admitted '/'. Ten adapter sinks spliced the captures unencoded into ${apiBase}/repos/${owner}/${repo}/issues/${n}/... on requests carrying Authorization: Bearer <token>. Under WHATWG URL normalization the dot segments collapse and a trailing '?' truncates the intended suffix into a query string, giving method+path control against api.github.com with the operator's ambient token.",
+  "fix": {
+    "layer1": "Tightened EXTERNAL_ID_RE to GitHub's own owner/repo name grammar (owner [A-Za-z0-9][A-Za-z0-9-]{0,38}, repo [A-Za-z0-9._-]{1,100}) plus an explicit dot-segment guard in parseExternalId, because encodeURIComponent does not encode '.'.",
+    "layer2": "Added githubRepoPath(owner, repo) \u2014 an independent, regex-free assertion plus percent-encoding \u2014 and called it at all ten api.github.com call sites immediately before interpolation, so a future regression in EXTERNAL_ID_RE cannot silently re-open the traversal."
+  },
+  "sinksHardened": [
+    "packages/core/src/roadmap/adapters/github-issues.ts updateTicket",
+    "packages/core/src/roadmap/adapters/github-issues.ts fetchTicketState",
+    "packages/core/src/roadmap/adapters/github-issues.ts assignTicket",
+    "packages/core/src/roadmap/adapters/github-issues.ts addComment",
+    "packages/core/src/roadmap/adapters/github-issues.ts fetchComments/fetchCommentPage",
+    "packages/core/src/roadmap/tracker/adapters/github-issues.ts fetchById",
+    "packages/core/src/roadmap/tracker/adapters/github-issues.ts update",
+    "packages/core/src/roadmap/tracker/adapters/github-issues.ts fetchRawLabels",
+    "packages/core/src/roadmap/tracker/adapters/github-issues.ts appendHistory",
+    "packages/core/src/roadmap/tracker/adapters/github-issues.ts fetchHistory"
+  ],
+  "shardSweep": {
+    "question": "How many committed docs/roadmap.d shards does the SHIPPED validation reject?",
+    "method": "Transcribed the shipped EXTERNAL_ID_RE + isDotSegment + githubRepoPath and ran all three over every '- **External-ID:**' value in docs/roadmap.d/*.md.",
+    "filesScanned": 282,
+    "shardsWithRealExternalId": 280,
+    "shardsWithPlaceholderExternalId": 2,
+    "shardsRejected": 0,
+    "rejectedShards": [],
+    "repoWideLiteralScan": "538 distinct 'github:...#N' literals across packages/ and docs/; the only non-probe rejection is docs/changes/strategy-init-gateway/proposal.md:69 'github:...#543', a prose ellipsis in a proposal, not a live External-ID."
+  },
+  "assumptions": [
+    "F1 was answered (c) BOTH by the human at the fleet CONFIRM gate: tighten the regex AND add a defence-in-depth assertion at the api.github.com sink. Neither half was treated as optional.",
+    "BREAKING was explicitly authorized by the human. A compatibility/migration check was considered and deliberately dropped, so no compat shim was reinstated. The shard sweep is reported as a finding (0 rejections), not enforced as a gate.",
+    "Scope boundary honoured: docs/roadmap.d/*.md was read but never edited (#1811 is being built on top of this branch and owns _meta.md).",
+    "PR #1842 (the dashboard instance of the same class) was NOT branched from and its dashboard change was NOT duplicated. This branch is based on origin/main 5cd661d74.",
+    "parseRepoParts-derived this.owner/this.repo come from operator-supplied harness config, a different trust tier from PR-contributable shard content, so they were left unchanged.",
+    "packages/orchestrator/src/core/pr-detector.ts re-implements its own permissive parse but feeds no authenticated path sink; noted as deferrable, not fixed here.",
+    "A 'bug' route leaves no plans/ directory \u2014 expected, not a defect."
+  ],
+  "verification": {
+    "node": "v22.23.2 (repo .nvmrc pin)",
+    "coreSuite": "466 passed | 1 skipped (467 files), 5124 passed | 1 skipped (5125 tests)",
+    "roadmapSuite": "67 passed | 1 skipped (68 files), 775 passed | 1 skipped (776 tests)",
+    "dashboardSuite": "134 passed (134 files), 950 passed (950 tests)",
+    "orchestratorSuite": "260 passed | 1 skipped (261 files), 2883 passed | 1 skipped (2884 tests) \u2014 one EADDRINUSE ephemeral-port flake outside the diff on the first run, clean on rerun",
+    "typecheck": "tsc --noEmit -p packages/core/tsconfig.json exit 0",
+    "coreBarrel": "node scripts/generate-core-barrel.mjs --check \u2014 up to date",
+    "build": "pnpm turbo build \u2014 13/13 successful"
+  }
+}
