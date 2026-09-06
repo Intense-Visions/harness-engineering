@@ -32,9 +32,14 @@ interface DesignPipelineCliOptions {
    * passed), never `noFreshen` / `noFill`. Naming these fields after the flag
    * rather than after the key Commander produces is what let the inert reads
    * at the bottom of this file typecheck cleanly (#1881).
+   *
+   * Non-optional on purpose: Commander populates both on EVERY parse, bare run
+   * included. Declaring them `?` would reintroduce the exact hole this fix
+   * closed — it would make an `=== undefined` read, which can never be true,
+   * look like a legitimate way to detect the flag.
    */
-  freshen?: boolean;
-  fill?: boolean;
+  freshen: boolean;
+  fill: boolean;
   ci?: boolean;
   files?: string[];
   mode?: 'fast' | 'full';

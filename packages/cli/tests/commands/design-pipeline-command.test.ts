@@ -188,9 +188,19 @@ describe('design-pipeline command → --no-freshen / --no-fill', () => {
     expect(keys).not.toContain('noFill');
   });
 
+  // The two guards below are a deliberate MIRRORED PAIR, not a duplicated test.
+  // Each flag has its own `if` in the action, so an asymmetric fix — or a later
+  // edit that breaks one branch — is only caught by asserting both directions.
+  // Round 1 shipped the `--no-freshen` half alone, and a mutation probe showed
+  // the missing half let a mutant survive.
   it('sets only noFreshen when only --no-freshen is passed', async () => {
     await run([], ['--no-freshen']);
     expect(Object.keys(inputHandedToEngine())).not.toContain('noFill');
+  });
+
+  it('sets only noFill when only --no-fill is passed', async () => {
+    await run([], ['--no-fill']);
+    expect(Object.keys(inputHandedToEngine())).not.toContain('noFreshen');
   });
 });
 
