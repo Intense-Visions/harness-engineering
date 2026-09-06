@@ -32,7 +32,9 @@ beforeAll(() => {
   fs.writeFileSync(
     path.join(sessionDir, 'autopilot-state.json'),
     JSON.stringify({
-      phases: [{ name: 'phase-1', planPath: 'docs/changes/multi-auth/plan.md', status: 'complete' }],
+      phases: [
+        { name: 'phase-1', planPath: 'docs/changes/multi-auth/plan.md', status: 'complete' },
+      ],
     })
   );
 });
