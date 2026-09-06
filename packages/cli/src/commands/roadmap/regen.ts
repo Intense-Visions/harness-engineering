@@ -14,6 +14,30 @@ export interface RoadmapRegenOptions {
   dryRun?: boolean;
   /** Output format: human-readable (default) or a single JSON object for CI. */
   format?: 'human' | 'json';
+  /**
+   * Carry an unreadable `## Assignment History` section into the aggregate
+   * verbatim instead of refusing to regenerate (#1862). Defaults to the
+   * {@link ALLOW_UNREADABLE_HISTORY_ENV} environment variable.
+   */
+  allowUnreadableHistory?: boolean;
+}
+
+/**
+ * Environment escape hatch for {@link RoadmapRegenOptions.allowUnreadableHistory}.
+ *
+ * The pre-commit hook that `harness roadmap install-hook` writes runs the bare
+ * `harness roadmap regen`, so a flag alone cannot unwedge a repo whose `_meta.md`
+ * history this build cannot read — every shard-touching commit would stay blocked,
+ * including the one that repairs it, leaving `--no-verify` as the only way out.
+ * An env var reaches that invocation: `HARNESS_ROADMAP_ALLOW_UNREADABLE_HISTORY=1
+ * git commit ...`.
+ */
+export const ALLOW_UNREADABLE_HISTORY_ENV = 'HARNESS_ROADMAP_ALLOW_UNREADABLE_HISTORY';
+
+/** True when the env escape hatch is set to a truthy value. */
+function allowUnreadableHistoryFromEnv(env: NodeJS.ProcessEnv = process.env): boolean {
+  const raw = env[ALLOW_UNREADABLE_HISTORY_ENV];
+  return raw !== undefined && raw !== '' && raw !== '0' && raw.toLowerCase() !== 'false';
 }
 
 /** Summary of a regen (also the `--dry-run` preview). */
@@ -31,6 +55,13 @@ export interface RegenReport {
  *
  * `--dry-run` computes the regenerated content and reports its size without
  * touching disk, so CI can preview the result before a real run.
+ *
+ * `--allow-unreadable-history` (or `HARNESS_ROADMAP_ALLOW_UNREADABLE_HISTORY=1`)
+ * is the documented recovery for a `_meta.md` whose `## Assignment History`
+ * section this build cannot parse: the section is carried into the aggregate
+ * verbatim — losslessly — instead of the regen refusing outright. Without it that
+ * refusal blocks every shard-touching commit, including the repair commit, and
+ * `--no-verify` becomes the only escape.
  */
 export async function runRoadmapRegen(
   opts: RoadmapRegenOptions = {}
@@ -48,12 +79,14 @@ export async function runRoadmapRegen(
 
   // Compute the regenerated content first — it is both the dry-run preview and
   // (on a real run) the deterministic content `writeRegeneratedRoadmap` re-derives.
-  const regen = await regenerate(shardDir, io);
+  const allowUnreadableHistory = opts.allowUnreadableHistory ?? allowUnreadableHistoryFromEnv();
+  const regenOptions = { allowUnreadableHistory };
+  const regen = await regenerate(shardDir, io, regenOptions);
   if (!regen.ok) return Err(new CLIError(regen.error.message, ExitCode.ERROR));
   const report: RegenReport = { bytes: regen.value.length };
 
   if (!dryRun) {
-    const written = await writeRegeneratedRoadmap(shardDir, roadmapPath, io);
+    const written = await writeRegeneratedRoadmap(shardDir, roadmapPath, io, regenOptions);
     if (!written.ok) return Err(new CLIError(written.error.message, ExitCode.ERROR));
   }
 
@@ -74,24 +107,37 @@ export function createRoadmapRegenCommand(): Command {
     .option('--cwd <dir>', 'Project root (defaults to the current working directory)')
     .option('--dry-run', 'Report what would be regenerated without writing anything', false)
     .option(
+      '--allow-unreadable-history',
+      `Recovery hatch: carry an unparseable "## Assignment History" section into the aggregate verbatim instead of refusing (also settable as ${ALLOW_UNREADABLE_HISTORY_ENV}=1)`,
+      false
+    )
+    .option(
       '--format <fmt>',
       'Output format: "human" (default) or "json" (single JSON object for CI consumers)',
       'human'
     )
-    .action(async (options: { cwd?: string; dryRun?: boolean; format?: string }) => {
-      const format: 'human' | 'json' = options.format === 'json' ? 'json' : 'human';
-      const result = await runRoadmapRegen({
-        ...(options.cwd ? { cwd: options.cwd } : {}),
-        dryRun: Boolean(options.dryRun),
-        format,
-      });
-      if (!result.ok) {
-        if (format === 'json') {
-          console.log(JSON.stringify({ ok: false, error: result.error.message }));
-        } else {
-          logger.error(result.error.message);
+    .action(
+      async (options: {
+        cwd?: string;
+        dryRun?: boolean;
+        allowUnreadableHistory?: boolean;
+        format?: string;
+      }) => {
+        const format: 'human' | 'json' = options.format === 'json' ? 'json' : 'human';
+        const result = await runRoadmapRegen({
+          ...(options.cwd ? { cwd: options.cwd } : {}),
+          dryRun: Boolean(options.dryRun),
+          ...(options.allowUnreadableHistory ? { allowUnreadableHistory: true } : {}),
+          format,
+        });
+        if (!result.ok) {
+          if (format === 'json') {
+            console.log(JSON.stringify({ ok: false, error: result.error.message }));
+          } else {
+            logger.error(result.error.message);
+          }
+          process.exit(result.error.exitCode);
         }
-        process.exit(result.error.exitCode);
       }
-    });
+    );
 }

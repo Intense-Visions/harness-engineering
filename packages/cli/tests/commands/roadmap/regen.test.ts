@@ -4,7 +4,7 @@ import * as os from 'node:os';
 import * as path from 'node:path';
 import { serializeShard, serializeMeta, parseRoadmap } from '@harness-engineering/core';
 import type { Shard, RoadmapMeta } from '@harness-engineering/core';
-import { runRoadmapRegen } from '../../../src/commands/roadmap/regen';
+import { runRoadmapRegen, ALLOW_UNREADABLE_HISTORY_ENV } from '../../../src/commands/roadmap/regen';
 
 let cwd: string;
 let shardDir: string;
@@ -116,5 +116,94 @@ describe('runRoadmapRegen()', () => {
     expect(parsed.ok).toBe(true);
     expect(typeof parsed.bytes).toBe('number');
     expect(parsed.dryRun).toBe(false);
+  });
+});
+
+// --- Recovery from an unreadable `## Assignment History` section (#1862) --------
+//
+// The parser refuses to report an empty history for a section it cannot read, so a
+// regen over such a `_meta.md` fails. That refusal fails READS as well as writes,
+// and the pre-commit hook `harness roadmap install-hook` installs blocks every
+// shard-touching commit on a failed regen — including the commit that would repair
+// the file. Without a hatch the only way out is `--no-verify`.
+
+/** A history section in a grammar this build cannot read. */
+const UNREADABLE_HISTORY_LINES = [
+  '',
+  '## Assignment History',
+  '',
+  '- **Item:** Alpha',
+  '- **Owner:** alice',
+  '- **Event:** assigned',
+  '- **On:** 2026-05-09',
+  '',
+];
+
+function writeUnreadableHistoryMeta(): void {
+  fs.writeFileSync(
+    path.join(shardDir, '_meta.md'),
+    serializeMeta(META) + UNREADABLE_HISTORY_LINES.join('\n')
+  );
+}
+
+describe('runRoadmapRegen() recovery hatch for an unreadable history section', () => {
+  beforeEach(writeUnreadableHistoryMeta);
+
+  it('refuses by default, naming the section and the hatch', async () => {
+    const r = await runRoadmapRegen({ cwd });
+    expect(r.ok).toBe(false);
+    if (!r.ok) {
+      expect(r.error.message).toContain('## Assignment History');
+      expect(r.error.message).toContain('--allow-unreadable-history');
+    }
+    expect(fs.existsSync(roadmapPath)).toBe(false);
+  });
+
+  it('--allow-unreadable-history regenerates and preserves the section verbatim', async () => {
+    const r = await runRoadmapRegen({ cwd, allowUnreadableHistory: true });
+    expect(r.ok).toBe(true);
+    const md = fs.readFileSync(roadmapPath, 'utf-8');
+    // Lossless: the hatch must not reintroduce the deletion the guard exists for.
+    expect(md).toContain('## Assignment History');
+    expect(md).toContain('- **Item:** Alpha');
+    expect(md).toContain('- **On:** 2026-05-09');
+    // And the rest of the aggregate is regenerated normally.
+    expect(md).toContain('### Alpha');
+    expect(md).toContain('### Beta');
+  });
+
+  it("honours the env var, which is what reaches the hook's bare invocation", async () => {
+    // `buildRegenBlock` runs `harness roadmap regen` with no flags, so the env var
+    // is the ONLY hatch a wedged pre-commit can be given.
+    vi.stubEnv(ALLOW_UNREADABLE_HISTORY_ENV, '1');
+    try {
+      const r = await runRoadmapRegen({ cwd });
+      expect(r.ok).toBe(true);
+    } finally {
+      vi.unstubAllEnvs();
+    }
+    expect(fs.readFileSync(roadmapPath, 'utf-8')).toContain('- **Item:** Alpha');
+  });
+
+  it('an explicit option false beats a set env var', async () => {
+    vi.stubEnv(ALLOW_UNREADABLE_HISTORY_ENV, '1');
+    try {
+      const r = await runRoadmapRegen({ cwd, allowUnreadableHistory: false });
+      expect(r.ok).toBe(false);
+    } finally {
+      vi.unstubAllEnvs();
+    }
+  });
+
+  it('treats "0" and "false" as not set', async () => {
+    for (const value of ['0', 'false', '']) {
+      vi.stubEnv(ALLOW_UNREADABLE_HISTORY_ENV, value);
+      try {
+        const r = await runRoadmapRegen({ cwd });
+        expect(r.ok, `env value ${JSON.stringify(value)} must not enable the hatch`).toBe(false);
+      } finally {
+        vi.unstubAllEnvs();
+      }
+    }
   });
 });

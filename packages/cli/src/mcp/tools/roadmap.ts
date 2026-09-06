@@ -143,6 +143,7 @@ interface RoadmapDeps {
   promoteFeature: Awaited<typeof import('@harness-engineering/core')>['promoteFeature'];
   groomRoadmap: Awaited<typeof import('@harness-engineering/core')>['groomRoadmap'];
   Ok: Awaited<typeof import('@harness-engineering/types')>['Ok'];
+  Err: Awaited<typeof import('@harness-engineering/types')>['Err'];
 }
 
 function archiveFilePath(projectRoot: string): string {
@@ -154,31 +155,72 @@ function archiveFilePath(projectRoot: string): string {
  * "Shipped" milestone, creating the file/milestone on first use. Keeps the
  * live roadmap lean (the orchestrator parses a smaller file) while preserving
  * history. The archive is a standalone, valid roadmap document.
+ *
+ * ## Why a failed read is an error and not an empty archive (#1862)
+ *
+ * This used to swallow BOTH a read failure and a parse failure into
+ * `archive = null`, fabricate `{ milestones: [], assignmentHistory: [] }`, and
+ * then write that over the file unconditionally — so any document
+ * `parseRoadmap` could not read was replaced by a two-row archive holding only
+ * the rows being archived right now. Every previously shipped row, silently gone.
+ *
+ * That is the same silent-data-loss shape #1862 closed one layer down, and it is
+ * reachable the moment `parseAssignmentHistory` gained an `Err` arm: an archive
+ * whose `## Assignment History` section this build cannot read now FAILS to parse,
+ * where before it merely parsed to zero records. So the fix that stops regen from
+ * deleting a section must not leave a wider deletion open here.
+ *
+ * Only "the file is not there yet" (`ENOENT`) starts a fresh archive. A read error
+ * or a parse error refuses, returns the reason, and writes nothing.
  */
 function appendToArchive(
   projectRoot: string,
   archived: import('@harness-engineering/types').RoadmapFeature[],
   project: string,
   deps: RoadmapDeps
-): void {
-  if (archived.length === 0) return;
-  const { parseRoadmap, serializeRoadmap } = deps;
+): Result<void> {
+  const { parseRoadmap, serializeRoadmap, Ok, Err } = deps;
+  if (archived.length === 0) return Ok(undefined);
   const filePath = archiveFilePath(projectRoot);
   const nowIso = new Date().toISOString();
 
-  let archive: import('@harness-engineering/types').Roadmap | null = null;
+  let existingContent: string | null = null;
   try {
-    const existing = parseRoadmap(fs.readFileSync(filePath, 'utf-8'));
-    if (existing.ok) archive = existing.value;
-  } catch {
-    archive = null;
+    existingContent = fs.readFileSync(filePath, 'utf-8');
+  } catch (err) {
+    // A missing archive is the ordinary first-run case. Anything else (a
+    // permissions error, a directory in the way) must NOT be papered over with an
+    // empty archive that the unconditional write below would then commit to disk.
+    if ((err as NodeJS.ErrnoException).code !== 'ENOENT') {
+      return Err(
+        new Error(
+          `Refusing to write docs/roadmap-archive.md: the existing archive could not be read ` +
+            `(${(err as Error).message}). Nothing was archived, and the roadmap was left ` +
+            `unchanged.`
+        )
+      );
+    }
   }
-  if (archive === null) {
+
+  let archive: import('@harness-engineering/types').Roadmap;
+  if (existingContent === null) {
     archive = {
       frontmatter: { project, version: 1, lastSynced: nowIso, lastManualEdit: nowIso },
       milestones: [],
       assignmentHistory: [],
     };
+  } else {
+    const existing = parseRoadmap(existingContent);
+    if (!existing.ok) {
+      return Err(
+        new Error(
+          `Refusing to overwrite docs/roadmap-archive.md: it exists but could not be parsed, ` +
+            `and writing a fresh archive over it would delete every row already archived ` +
+            `there. Repair the file, then re-run groom. Parse error: ${existing.error.message}`
+        )
+      );
+    }
+    archive = existing.value;
   }
 
   let shipped = archive.milestones.find((m) => m.name === 'Shipped');
@@ -191,6 +233,7 @@ function appendToArchive(
 
   fs.mkdirSync(path.dirname(filePath), { recursive: true });
   fs.writeFileSync(filePath, serializeRoadmap(archive), 'utf-8');
+  return Ok(undefined);
 }
 
 function roadmapNotFoundError(): McpResponse {
@@ -742,7 +785,10 @@ async function persistGroomMonolith(
   deps: RoadmapDeps
 ): Promise<Result<void>> {
   // The archive stays a whole-file write (docs/roadmap-archive.md is NOT sharded).
-  appendToArchive(projectPath, archived, groomed.frontmatter.project, deps);
+  // A refusal here aborts the groom BEFORE the rows are removed from the live
+  // roadmap, so a groom that cannot archive never drops a row on the floor.
+  const appended = appendToArchive(projectPath, archived, groomed.frontmatter.project, deps);
+  if (!appended.ok) return appended;
   // Archived rows are removeFeature'd, demoted rows patchFeature'd.
   return persistRoadmap(projectPath, before, groomed);
 }
@@ -896,7 +942,7 @@ export async function handleManageRoadmap(input: ManageRoadmapInput): Promise<Mc
     } catch {
       /* Waypoint emitter init failure is non-fatal */
     }
-    const { Ok } = await import('@harness-engineering/types');
+    const { Ok, Err } = await import('@harness-engineering/types');
 
     const projectPath = projectPathPre;
     const deps: RoadmapDeps = {
@@ -911,6 +957,7 @@ export async function handleManageRoadmap(input: ManageRoadmapInput): Promise<Mc
       promoteFeature,
       groomRoadmap,
       Ok,
+      Err,
     };
     const response = await dispatchAction(input.action, projectPath, input, deps);
 

@@ -37,6 +37,17 @@ const META_FILE = '_meta.md';
  */
 export const ARCHIVE_SUBDIR = 'archive';
 
+/**
+ * The `_meta.md` path for a shard directory, joined the same way `readShardDir`
+ * joins it. Exported so a caller that wants to intercept the meta read (the
+ * regenerator's unreadable-history escape hatch) compares against exactly the
+ * string `readShardDir` will ask its `ShardIO` for — a divergent join would make
+ * the interception silently miss.
+ */
+export function shardMetaPath(shardDir: string): string {
+  return joinPath(shardDir, META_FILE);
+}
+
 function joinPath(dir: string, name: string): string {
   // Normalize Windows backslashes so shard IO paths are '/'-delimited on every OS
   // (the injected-IO contract expects '/'; Node fs accepts '/' on Windows).

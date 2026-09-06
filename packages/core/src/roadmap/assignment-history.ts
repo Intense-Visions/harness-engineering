@@ -67,13 +67,19 @@ import { encodeSummaryField, decodeSummaryField } from './summary-field';
  *
  * ## Reading legacy documents
  *
- * {@link parseAssignmentHistory} ALSO still reads the old pipe table, unchanged
- * and with its original tolerances, so a shard `_meta` file or a monolith
- * aggregate written before this change — in another branch, or in an adopter repo
- * that has not re-serialized yet — keeps its history instead of losing it on first
- * read. Only the writer moved. A legacy row whose value contains a `|` is still
- * lost, since that information never survived being written; nothing can recover
- * it.
+ * {@link parseAssignmentHistory} ALSO still reads the old pipe table, so a shard
+ * `_meta` file or a monolith aggregate written before this change — in another
+ * branch, or in an adopter repo that has not re-serialized yet — keeps its history
+ * instead of losing it on first read. Only the writer moved. A legacy row whose
+ * value contains a `|` is still lost, since that information never survived being
+ * written; nothing can recover it.
+ *
+ * ONE legacy tolerance was withdrawn (#1862): a table whose `|---|---|` separator
+ * row is missing used to read as an empty history, which is the silent-deletion
+ * defect in miniature — real rows reported as "no history" and then omitted by
+ * {@link serializeRoadmap}. Such a table is now an error instead. The rows are
+ * unrecoverable either way (the separator is what marks where the data begins);
+ * the only thing that changed is that the operator hears about it.
  *
  * This module is a pure grammar helper over a string: it opens no file and knows
  * nothing about where the document it parses lives.
@@ -133,17 +139,95 @@ export function serializeAssignmentHistory(records: AssignmentRecord[]): string[
   return lines;
 }
 
+/** An ATX heading of ANY level at column 0 — the bound of the history section. */
+const NEXT_HEADING = /^#{1,6}[ \t]/m;
+
+/** A fence line (```/~~~), optionally indented, opening or closing a code block. */
+const FENCE_LINE = /^[ \t]*(`{3,}|~{3,})/;
+
 /**
- * Slice the `## Assignment History` section body out of a document, bounded by the
- * next H2 so a future section after history is not swallowed. Returns `null` when
- * the document has no history section at all.
+ * Blank out every fenced code block, preserving each line's LENGTH so an offset
+ * into the mask is the same offset into `body`.
+ *
+ * Documentation legitimately shows this section's grammar inside a ```markdown
+ * fence — `docs/guides/roadmap-sync.md` does, and a roadmap preamble carries
+ * instructions to humans and may do the same. Such an example is an illustration,
+ * never data, so both the heading search and the record readers must be blind to
+ * it; otherwise a doc example either gets parsed as history or hard-fails the
+ * whole document. An unterminated fence runs to the end of the input, matching
+ * CommonMark.
  */
-function extractSection(body: string): string | null {
-  const heading = body.match(/^## Assignment History[ \t]*\n/m);
+function maskFencedBlocks(body: string): string {
+  let openFence: string | null = null;
+  return body
+    .split('\n')
+    .map((line) => {
+      const fence = line.match(FENCE_LINE);
+      if (openFence === null) {
+        if (!fence) return line;
+        openFence = fence[1]![0]!;
+      } else if (fence && fence[1]![0] === openFence) {
+        openFence = null;
+      }
+      return ' '.repeat(line.length);
+    })
+    .join('\n');
+}
+
+/**
+ * Locate the `## Assignment History` section in `body`, ignoring any occurrence
+ * inside a fenced code block.
+ *
+ * The section is bounded by the next ATX heading of ANY level, not just the next
+ * `## ` — bounding on H2 alone let an `### `/`# ` section that FOLLOWS history be
+ * swallowed into it, which both fed foreign lines to the record readers and let
+ * an unrelated section hard-fail the parse while the error named a line that is
+ * not in the history section at all (#1862).
+ *
+ * Returns offsets into the ORIGINAL `body` plus the MASKED section text: callers
+ * that read records want the masked text (fenced examples inert), callers that
+ * preserve the section verbatim slice `body` with the offsets.
+ */
+function locateSection(body: string): { start: number; end: number; masked: string } | null {
+  const mask = maskFencedBlocks(body);
+  const heading = mask.match(/^## Assignment History[ \t]*\n/m);
   if (!heading || heading.index === undefined) return null;
-  const afterHeading = body.slice(heading.index + heading[0].length);
-  const nextH2 = afterHeading.search(/^## /m);
-  return nextH2 === -1 ? afterHeading : afterHeading.slice(0, nextH2);
+  const start = heading.index + heading[0].length;
+  const rest = mask.slice(start);
+  const next = rest.search(NEXT_HEADING);
+  const end = next === -1 ? body.length : start + next;
+  return { start, end, masked: mask.slice(start, end) };
+}
+
+/** The masked section body, or `null` when the document has no history section. */
+function extractSection(body: string): string | null {
+  return locateSection(body)?.masked ?? null;
+}
+
+/**
+ * The `## Assignment History` section of `body` VERBATIM, heading line included,
+ * or `null` when there is none. The escape hatch for an unreadable section
+ * ({@link parseAssignmentHistory} `Err`) carries this string through untouched
+ * rather than dropping the section — see `store/regenerator`.
+ */
+export function extractAssignmentHistorySection(body: string): string | null {
+  const found = locateSection(body);
+  if (!found) return null;
+  const headingStart = body.lastIndexOf(ASSIGNMENT_HISTORY_HEADING, found.start);
+  return body.slice(headingStart, found.end).replace(/\s+$/, '');
+}
+
+/**
+ * `body` with its `## Assignment History` section removed (and nothing else
+ * touched). Returned unchanged when there is no such section. Paired with
+ * {@link extractAssignmentHistorySection} so the escape hatch can re-parse a
+ * document without its unreadable section and re-attach that section verbatim.
+ */
+export function stripAssignmentHistorySection(body: string): string {
+  const found = locateSection(body);
+  if (!found) return body;
+  const headingStart = body.lastIndexOf(ASSIGNMENT_HISTORY_HEADING, found.start);
+  return body.slice(0, headingStart) + body.slice(found.end);
 }
 
 /** A record under construction: fields arrive one bullet at a time. */
@@ -187,10 +271,12 @@ function readBulletRecords(lines: string[]): AssignmentRecord[] {
 }
 
 /**
- * Read the legacy pipe table, preserving its original tolerances verbatim: rows
- * before the `|---|` separator are header and are skipped, a table with NO
- * separator is treated as empty, empty cells are dropped by the positional
- * split, and a row whose third value is not an action is skipped.
+ * Read the legacy pipe table: rows before the `|---|` separator are header and
+ * are skipped, empty cells are dropped by the positional split, and a row whose
+ * third value is not an action is skipped. A table with NO separator row yields
+ * nothing here — and since its rows ARE record-shaped, {@link
+ * parseAssignmentHistory} turns that into an error rather than an empty history
+ * (#1862); this reader itself stays a pure "what can I read" helper.
  *
  * Kept for reading only — nothing writes this shape any more (#1811).
  */
@@ -222,6 +308,49 @@ function readLegacyTableRecords(lines: string[]): AssignmentRecord[] {
   return records;
 }
 
+/** The current bullet grammar, column-anchored exactly like {@link FIELD_BULLET}. */
+const RECORD_BULLET_PREFIX = /^- \*\*/;
+
+/**
+ * True when `line` is shaped like a record this section has been written in —
+ * a `- **` bullet, or a `|` table row (matched after trimming, the same tolerance
+ * {@link readLegacyTableRecords} applies). See {@link parseAssignmentHistory} for
+ * why the unreadable-section guard keys on this rather than on "non-blank".
+ */
+function looksLikeRecordData(line: string): boolean {
+  return RECORD_BULLET_PREFIX.test(line) || line.trim().startsWith('|');
+}
+
+/**
+ * Raised when the `## Assignment History` section holds record-shaped lines that
+ * this build cannot read. A named class so callers can tell this recoverable,
+ * escape-hatchable failure apart from a structurally broken document — see
+ * `store/regenerator`'s `allowUnreadableHistory`.
+ */
+export class UnreadableAssignmentHistoryError extends Error {
+  /** The record-shaped lines that could not be read, in document order. */
+  readonly unreadableLines: readonly string[];
+
+  constructor(unreadableLines: string[]) {
+    super(
+      `\`${ASSIGNMENT_HISTORY_HEADING}\` holds ${unreadableLines.length} line(s) shaped like ` +
+        `assignment records, but no record could be read from any of them. Refusing to report ` +
+        `an empty history: a document written from this parse would delete the whole section. ` +
+        `First unreadable line: ${JSON.stringify(unreadableLines[0])}. ` +
+        `Repair the section, then re-run — either it is in a grammar this build does not ` +
+        `understand (upgrade the harness CLI), or it is a legacy pipe table that has lost its ` +
+        `\`|---|---|---|---|\` separator row (restore that row by hand; the separator is what ` +
+        `marks where the data rows begin, so nothing can infer it). To regenerate meanwhile ` +
+        `without losing the section, re-run \`harness roadmap regen\` with ` +
+        `\`--allow-unreadable-history\` (or set HARNESS_ROADMAP_ALLOW_UNREADABLE_HISTORY=1, ` +
+        `which the pre-commit hook's bare invocation also honours): the section is carried ` +
+        `into the aggregate verbatim instead of being dropped.`
+    );
+    this.name = 'UnreadableAssignmentHistoryError';
+    this.unreadableLines = unreadableLines;
+  }
+}
+
 /**
  * Parse the `## Assignment History` section of `body` into records.
  *
@@ -246,15 +375,37 @@ function readLegacyTableRecords(lines: string[]): AssignmentRecord[] {
  * one instance.
  *
  * Hence: an ABSENT heading still yields `Ok([])` — a document with no history is
- * legitimate and must keep round-tripping byte-for-byte — but a heading whose
- * content yielded no record is an `Err`. Every caller already propagates that arm
- * (`parseRoadmap`, `attachAssignmentHistory`), and the regen path returns before
- * writing on a failed parse, so the truncated document is never emitted.
+ * legitimate and must keep round-tripping byte-for-byte — but a heading carrying
+ * lines that LOOK LIKE RECORDS, none of which could be read, is an `Err`.
  *
- * A heading with an entirely BLANK body is `Ok([])` rather than `Err`: there are
- * no records to lose there, so failing would break a hand-authored placeholder
- * heading to protect nothing. The guard fires only when content is present and
- * unreadable — which is every case where data is actually at stake.
+ * ## What counts as "looks like a record" — and why the trigger is that narrow
+ *
+ * A line qualifies only when it opens with `- **` (the current bullet grammar) or
+ * with `|` (a legacy table row). Those are the only two shapes this section has
+ * ever been WRITTEN in, so they are the only two shapes that can carry data at
+ * risk — and the threat model is a format migration, which always leaves one of
+ * them behind (a renamed bullet label is still `- **`; a mangled table row is
+ * still `|`).
+ *
+ * Erroring on "any non-blank line" instead was tried and is too broad: it turns a
+ * hand-authored placeholder (`_No assignments recorded yet._`), a machine marker
+ * (`<!-- populated by sync -->`) and a thematic break (`---`) into a hard parse
+ * failure of the WHOLE document. Those hold nothing to lose, so failing on them
+ * protects nothing while wedging every reader of the file. Fenced examples and a
+ * following section are excluded structurally instead, by {@link locateSection}.
+ *
+ * A heading with a blank body, or a body of prose only, is therefore `Ok([])`.
+ *
+ * ## Escape hatch
+ *
+ * The `Err` fails READS, not just writes, so a document in this state would wedge
+ * every consumer — including the regen the repair commit has to pass. `regenerate`
+ * / `writeRegeneratedRoadmap` therefore take `allowUnreadableHistory`, surfaced as
+ * `harness roadmap regen --allow-unreadable-history` (and the
+ * `HARNESS_ROADMAP_ALLOW_UNREADABLE_HISTORY=1` env var, for the pre-commit hook
+ * that runs the bare command). It carries the unreadable section into the
+ * aggregate VERBATIM — lossless, so it unwedges the repo without reintroducing the
+ * deletion this guard exists to stop.
  */
 export function parseAssignmentHistory(body: string): Result<AssignmentRecord[]> {
   const section = extractSection(body);
@@ -262,19 +413,11 @@ export function parseAssignmentHistory(body: string): Result<AssignmentRecord[]>
   const lines = section.split('\n');
   const records = [...readBulletRecords(lines), ...readLegacyTableRecords(lines)];
   if (records.length === 0) {
-    const content = lines.filter((line) => line.trim() !== '');
-    if (content.length > 0) {
-      return Err(
-        new Error(
-          `\`${ASSIGNMENT_HISTORY_HEADING}\` has ${content.length} line(s) of content but no ` +
-            `record could be read from any of them. Refusing to report an empty history: a ` +
-            `document written from this parse would delete the whole section. The section is ` +
-            `most likely in a format this build does not understand — upgrade the harness CLI, ` +
-            `and do not commit a regenerated roadmap until it reads. First unreadable line: ` +
-            `${JSON.stringify(content[0])}`
-        )
-      );
-    }
+    const unreadable = lines.filter(looksLikeRecordData);
+    // The `> 0` arm is load-bearing, not defensive: without it a heading whose
+    // body holds no record-shaped line at all — the blank placeholder heading —
+    // would fail too, and there is nothing there to lose.
+    if (unreadable.length > 0) return Err(new UnreadableAssignmentHistoryError(unreadable));
   }
   return Ok(records);
 }
