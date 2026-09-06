@@ -738,11 +738,14 @@ describe('Orchestrator + LocalModelResolver wiring (Phase 3)', () => {
         routing: { default: 'local-a' },
       } as unknown as Partial<WorkflowConfig['agent']>);
       delete (config.agent as Partial<WorkflowConfig['agent']>).backend;
-      // Set a random port so the Orchestrator constructs its server
-      // (which is gated on config.server.port truthy). The server bind
-      // is deferred until orch.start().
-      const port = 30000 + Math.floor(Math.random() * 20000);
-      (config as WorkflowConfig).server = { port };
+      // This test needs the server OBJECT to exist so it can read the wired
+      // callbacks off it; the bind is incidental and no specific port is
+      // required. Bind 0 and let the OS assign a free ephemeral port -- never
+      // guess one. A guessed port races both other listeners (EADDRINUSE) and,
+      // on Windows, the Hyper-V/WSL excluded port ranges, where a bind is
+      // refused with EACCES. The server adopts the OS-assigned port and
+      // exposes it as `boundPort`. The bind is deferred until orch.start().
+      (config as WorkflowConfig).server = { port: 0 };
 
       const orch = new Orchestrator(config, 'Prompt', {
         tracker: makeMockTracker(),
@@ -772,6 +775,14 @@ describe('Orchestrator + LocalModelResolver wiring (Phase 3)', () => {
         const server = (
           orch as unknown as { server: import('../../src/server/http').OrchestratorServer }
         ).server;
+        // A configured port of 0 must still construct AND bind the server: 0 is
+        // a request for an OS-assigned ephemeral port, not the disable
+        // sentinel (ServerConfig documents `null` for that). Asserting a real
+        // bound port here guards the orchestrator's construction gate against
+        // regressing to a truthiness test, which would silently drop the
+        // server and leave `server` undefined.
+        expect(server, 'server should be constructed when port is 0').toBeDefined();
+        expect(server.boundPort, 'port 0 should resolve to an OS-assigned port').toBeGreaterThan(0);
         const cb = (
           server as unknown as {
             getLocalModelStatuses:
@@ -816,8 +827,10 @@ describe('Orchestrator + LocalModelResolver wiring (Phase 3)', () => {
         routing: { default: 'local-a' },
       } as unknown as Partial<WorkflowConfig['agent']>);
       delete (config.agent as Partial<WorkflowConfig['agent']>).backend;
-      const port = 30000 + Math.floor(Math.random() * 20000);
-      (config as WorkflowConfig).server = { port };
+      // Bind 0 (OS-assigned ephemeral port) rather than guessing -- see the
+      // note on the preceding test. Guessed ports collide (EADDRINUSE) and hit
+      // Windows' excluded port ranges (EACCES).
+      (config as WorkflowConfig).server = { port: 0 };
 
       const orch = new Orchestrator(config, 'Prompt', {
         tracker: makeMockTracker(),
