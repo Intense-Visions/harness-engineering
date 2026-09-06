@@ -1,5 +1,7 @@
 /**
- * Load and parse design-system/tokens.json (W3C DTCG format).
+ * Load and parse the project's design tokens file (W3C DTCG format) — the
+ * `design.tokenPath` configured in harness.config.json, or
+ * design-system/tokens.json when that key is unset.
  *
  * Extracts:
  *   - Color values (palette)
@@ -18,6 +20,28 @@
 
 import * as fs from 'node:fs';
 import * as path from 'node:path';
+import { loadDesignTokenPath } from '../../config/analysis-schema.js';
+
+/** Location used when `design.tokenPath` is not configured. */
+const DEFAULT_TOKENS_RELATIVE_PATH = path.join('design-system', 'tokens.json');
+
+/**
+ * Absolute path of the project's tokens file.
+ *
+ * Honours `design.tokenPath` from `harness.config.json`, resolved relative to
+ * `projectRoot` (an absolute configured value is used as-is). Falls back to
+ * `design-system/tokens.json` only when the key is unset — before #1855 the key
+ * was type-validated by the config schema but never read, so an adopter whose
+ * tokens lived elsewhere got no error and watched the DRIFT-T00x token-bypass
+ * rules skip silently, which reads identically to "no drift found".
+ *
+ * Shared by both loaders below so the configured path cannot be honoured by one
+ * and ignored by the other.
+ */
+function resolveTokensFilePath(projectRoot: string): string {
+  const configured = loadDesignTokenPath(projectRoot);
+  return path.resolve(projectRoot, configured ?? DEFAULT_TOKENS_RELATIVE_PATH);
+}
 
 export interface TokenSet {
   /** Lowercased hex color values from $type: 'color' tokens */
@@ -50,7 +74,7 @@ export interface TokenPathIndex {
  * file doesn't exist.
  */
 export function loadTokenSet(projectRoot: string): TokenSet | null {
-  const tokenPath = path.join(projectRoot, 'design-system', 'tokens.json');
+  const tokenPath = resolveTokensFilePath(projectRoot);
   if (!fs.existsSync(tokenPath)) return null;
   let raw: string;
   try {
@@ -85,7 +109,7 @@ function extractTokens(root: Record<string, unknown>): TokenSet {
  * tokens absence in the drift rules).
  */
 export function loadTokenPathIndex(projectRoot: string): TokenPathIndex | null {
-  const tokenPath = path.join(projectRoot, 'design-system', 'tokens.json');
+  const tokenPath = resolveTokensFilePath(projectRoot);
   if (!fs.existsSync(tokenPath)) return null;
   let raw: string;
   try {

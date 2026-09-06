@@ -49,11 +49,14 @@ describe('OrchestratorServer.broadcastLocalModelStatus (SC18)', () => {
   let port: number;
 
   beforeEach(() => {
-    port = Math.floor(Math.random() * 10000) + 10000;
     mockOrchestrator = Object.assign(new EventEmitter(), {
       getSnapshot: vi.fn().mockReturnValue({ running: [], retryAttempts: [], claimed: [] }),
     });
-    server = new OrchestratorServer(mockOrchestrator, port);
+    // Bind 0 and read the OS-assigned port back rather than guessing one.
+    // A guessed port races sibling listeners and, on Windows, lands in the
+    // Hyper-V/WinNAT excluded ranges or on an SO_EXCLUSIVEADDRUSE holder --
+    // both of which are refused with EACCES, not EADDRINUSE (issue #1827).
+    server = new OrchestratorServer(mockOrchestrator, 0);
   });
 
   afterEach(async () => {
@@ -63,6 +66,7 @@ describe('OrchestratorServer.broadcastLocalModelStatus (SC18)', () => {
 
   it('delivers a single local-model:status message to connected clients (OT3)', RETRY, async () => {
     await server.start();
+    port = server.boundPort;
 
     const ws = new WebSocket(`ws://127.0.0.1:${port}/ws`);
     await new Promise<void>((r) => ws.on('open', r));
@@ -87,6 +91,7 @@ describe('OrchestratorServer.broadcastLocalModelStatus (SC18)', () => {
 
   it('delivers status flips as separate messages (OT4 — recovery)', RETRY, async () => {
     await server.start();
+    port = server.boundPort;
 
     const ws = new WebSocket(`ws://127.0.0.1:${port}/ws`);
     await new Promise<void>((r) => ws.on('open', r));
@@ -123,6 +128,7 @@ describe('OrchestratorServer.broadcastLocalModelStatus (SC18)', () => {
     RETRY,
     async () => {
       await server.start();
+      port = server.boundPort;
 
       const ws = new WebSocket(`ws://127.0.0.1:${port}/ws`);
       await new Promise<void>((r) => ws.on('open', r));

@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'packages/cli/src/config'
-sourceHash: '87db0d593c4f7c483046a942a40fe86de0471ded0e0e8f1f689a5c0901121707'
+sourceHash: '3f3bf5ea1ee1dca8ee517bea76fab573543d5f72c707265b8d8d02da9a51418c'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
@@ -81,6 +81,7 @@ export loadAnalysisExclude
 export loadConfig
 export loadDepsExclude
 export loadDesignExclude
+export loadDesignTokenPath
 export resolveConfig
 ```
 

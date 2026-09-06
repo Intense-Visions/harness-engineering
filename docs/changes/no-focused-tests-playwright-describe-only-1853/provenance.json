@@ -1,0 +1,54 @@
+{
+  "issues": [1853],
+  "issue": 1853,
+  "issueUrl": "https://github.com/Intense-Visions/harness-engineering/issues/1853",
+  "title": "no-focused-tests misses Playwright's test.describe.only() — same flat-member guard as #1812, and .only is the worse mute",
+  "route": "bug",
+  "fleet": "roadmap-fleet",
+  "stages": ["debugging"],
+  "pipelineStages": ["debugging"],
+  "branch": "fix/no-focused-tests-playwright-describe-only-1853",
+  "baseSha": "c1ca02ba2",
+  "closingKeyword": "Closes #1853",
+  "debugSession": "docs/changes/no-focused-tests-playwright-describe-only-1853/debug-session.md",
+  "reproducingTest": "packages/eslint-plugin/tests/rules/no-focused-tests.test.ts",
+  "reproducingTests": ["packages/eslint-plugin/tests/rules/no-focused-tests.test.ts"],
+  "reproducingTestCommand": "pnpm --filter @harness-engineering/eslint-plugin exec vitest run tests/rules/no-focused-tests.test.ts",
+  "reproducingTestResult": {
+    "beforeFix": "FAIL — 3 failed | 20 passed (23); AssertionError: Should have 1 error but had 0: []",
+    "afterFix": "PASS — 23 passed (23)",
+    "revertVerification": "fix reverted with tests unchanged -> 3 failed | 20 passed (23); fix restored -> 23 passed (23)",
+    "issueScenario": "standalone eslint Linter.verify() over the issue snippet: 5 problems before -> 7 after; lines 2 (test.describe.only) and 7 (test.describe.serial.only) newly reported"
+  },
+  "rootCause": "The rule gated focus detection on `node.callee.object.type === 'Identifier'`, which admits only a single-level member expression. Playwright namespaces its API, so `test.describe.only()` has a MemberExpression (`test.describe`) as its callee object and never matched. Not a regression — the flat-member shape has been present since the rule was introduced in 938ba6f55 (#868).",
+  "fix": "The rule now delegates to the pre-existing `isTestModifierCall(node, 'only')` in packages/eslint-plugin/src/utils/ast-helpers.ts (added by PR #1851 and parameterised by modifier for exactly this adoption), mirroring no-skipped-tests.ts and no-disabled-tests.ts. The `fdescribe`/`fit` bare-Identifier branch is preserved unchanged — isTestModifierCall does not cover it.",
+  "filesChanged": [
+    "packages/eslint-plugin/src/rules/no-focused-tests.ts",
+    "packages/eslint-plugin/tests/rules/no-focused-tests.test.ts"
+  ],
+  "assumptions": [
+    "Adopted the existing `isTestModifierCall` helper rather than writing new chain-walking logic in the rule. This is the recommended-option default: the helper already exists on main (PR #1851), is already parameterised by modifier, is already unit-tested for the 'only' modifier at tests/utils/ast-helpers.test.ts:145-150, and is already the shape both sibling rules use. A bespoke matcher would have re-introduced the divergence #1851 removed.",
+    "Rule ownership is NOT expanded beyond the `only` keyword. `.skip` / `.fixme` belong to no-skipped-tests and no-disabled-tests; three `.skip` valid cases (`test.describe.skip`, `test.skip`, `describe.skip`) are pinned so this rule cannot start double-reporting skips that the sibling rules already report.",
+    "The `fdescribe` / `fit` bare-Identifier branch is kept verbatim. `isTestModifierCall` requires a MemberExpression callee and so does not cover bare identifiers; removing the branch would have silently dropped the jasmine spellings. Both remain covered by pre-existing invalid cases.",
+    "The chain root must still be one of `describe` / `it` / `test`. `.only` on any other receiver (e.g. `rateLimiter.only()`, `queue.batch.only()`) stays unreported — pinned by new valid cases so it cannot regress into a false positive.",
+    "Only statically written, non-computed dotted paths are matched. Computed access (`test.describe['only']()`) and optional chaining (`test?.describe?.only()`) stay unreported. Per the issue's own scope note these are documented non-regressions with a different root cause, identical to the flat case (`describe['only']()` was never caught either), and are deliberately out of scope.",
+    "Matching requires `only` to be the FINAL link of the chain, exactly as the issue states. Jest's `describe.only.each([...])(...)` therefore stays unreported. Pre-existing and unchanged: the rule at base c1ca02ba2 also reported nothing for that form.",
+    "Added `test.describe.serial.only` and `test.describe.parallel.only` as invalid cases beyond the single form the issue names. These are real Playwright spellings (independently corroborated by the vendored Playwright ESTree bundle in packages/cli/dist, which enumerates all three) and they fall out of the same fix; covering them costs nothing and mirrors the #1851 test shape.",
+    "Rule message wording is unchanged. The existing message already names both the '.only' and 'f' prefix forms, so no copy change was warranted."
+  ],
+  "outOfScope": [
+    "Computed access `test.describe['only']()` and optional chaining `test?.describe?.only()` — documented non-regressions per the issue's scope note.",
+    "Jest's `describe.only.each([...])(...)` — `only` is not the terminal chain link; pre-existing gap, unchanged by this PR.",
+    "Deduplicating the overlapping rules — `test.describe.only` reports once here, but a form matched by multiple enabled rules still reports per rule, matching pre-existing behaviour. A separate design question, not a bug fix."
+  ],
+  "verification": {
+    "regressionTest": "pnpm --filter @harness-engineering/eslint-plugin exec vitest run tests/rules/no-focused-tests.test.ts -> 23 passed (23)",
+    "packageTests": "pnpm --filter @harness-engineering/eslint-plugin test -> 27 files, 341 passed (341)",
+    "typecheck": "pnpm --filter @harness-engineering/eslint-plugin typecheck -> clean",
+    "lint": "pnpm --filter @harness-engineering/eslint-plugin lint -> clean",
+    "harnessValidate": "harness validate -> exit 0 (findings are pre-existing design-token noise in unrelated packages/cli test fixtures)",
+    "harnessCheckDeps": "harness check-deps -> 1 pre-existing circular dependency in packages/core/src/solutions/scan-candidates/, untouched by this change and present at base c1ca02ba2",
+    "repoWideImpact": "grep across packages/ and scripts/ sources finds no use of test.describe.only / .serial.only / .parallel.only, so the broadened matcher introduces no new lint failures in this repo"
+  },
+  "debugSessionNote": "The harness-debugging pipeline writes its session to .harness/debug/resolved/1853-playwright-describe-only.md, which is gitignored (.harness/.gitignore line 4). A verbatim copy is committed here so the investigation record is durable and reviewable."
+}
