@@ -6,9 +6,27 @@ on:
   pull_request:
     branches: [main]
 
+# Concurrency is SPLIT BY EVENT on purpose — do not "simplify" this back to a
+# plain `harness-${{ github.ref }}` + `cancel-in-progress: true`.
+#
+# This workflow triggers on BOTH `push: [main]` and `pull_request: [main]`. On a
+# push, `github.ref` is `refs/heads/main` for EVERY commit, so a per-ref group
+# puts all main pushes in ONE bucket and each new merge cancels the still-running
+# verification of the previous commit. Measured on the last 20 push-to-main runs
+# before this change: 13 concluded `cancelled`, only 7 succeeded. CI's own runs
+# showed the same burst signature (see the matching block in ci.yml). "main is
+# green" therefore mostly meant UNVERIFIED, not verified.
+#
+#   push  -> per-COMMIT group (github.sha), never cancelled, so every commit that
+#            lands on main reaches its own harness-checks verdict.
+#   PR    -> per-REF group, cancel-in-progress ON, so a new push to a PR still
+#            supersedes the old run. No runaway parallelism; PR spend unchanged.
+#
+# `cancel-in-progress` officially accepts an expression, and the `A && B || C`
+# idiom is already proven on this repo's runners (ci.yml `Test` step).
 concurrency:
-  group: harness-${{ github.ref }}
-  cancel-in-progress: true
+  group: harness-${{ github.event_name == 'pull_request' && github.ref || github.sha }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
   harness:
