@@ -80,7 +80,7 @@ describe('runDetectDrift (integration)', () => {
   it('honors the files arg (scans only those files)', async () => {
     writeFile('design-system/tokens.json', JSON.stringify({ color: {} }));
     writeFile('src/A.tsx', `const a = "#aabbcc";`);
-    writeFile('src/B.tsx', `const b = "#112233";`);
+    writeFile('src/B.tsx', `const b = { color: "#112233" };`);
 
     const out = await runDetectDrift({ path: tmpDir, files: ['src/A.tsx'] });
     const filesScanned = new Set(out.findings.map((f) => f.file));
@@ -102,7 +102,7 @@ describe('runDetectDrift (integration)', () => {
   it('design.exclude (input.exclude) drops matching files from the walk', async () => {
     writeFile('design-system/tokens.json', JSON.stringify({ color: {} }));
     writeFile('src/tokens-reference.ts', `const a = "#aabbcc";`);
-    writeFile('src/Card.ts', `const b = "#112233";`);
+    writeFile('src/Card.ts', `const b = { color: "#112233" };`);
 
     const out = await runDetectDrift({
       path: tmpDir,
@@ -121,7 +121,7 @@ describe('runDetectDrift (integration)', () => {
       JSON.stringify({ design: { exclude: ['**/tokens-reference.ts'] } })
     );
     writeFile('src/tokens-reference.ts', `const a = "#aabbcc";`);
-    writeFile('src/Card.ts', `const b = "#112233";`);
+    writeFile('src/Card.ts', `const b = { color: "#112233" };`);
 
     // No input.exclude — the runner must read design.exclude from config itself.
     const out = await runDetectDrift({ path: tmpDir });
@@ -140,8 +140,8 @@ describe('runDetectDrift (integration)', () => {
       })
     );
     writeFile('src/tokens-reference.ts', `const a = "#aabbcc";`); // dropped by design.exclude
-    writeFile('backend/service.ts', `const b = "#112233";`); // dropped by analysis.exclude
-    writeFile('ui/Card.ts', `const c = "#445566";`); // kept
+    writeFile('backend/service.ts', `const b = { color: "#112233" };`); // dropped by analysis.exclude
+    writeFile('ui/Card.ts', `const c = { color: "#445566" };`); // kept
 
     const out = await runDetectDrift({ path: tmpDir });
     const files = new Set(out.findings.map((f) => f.file));
@@ -153,7 +153,7 @@ describe('runDetectDrift (integration)', () => {
   it('matchBase: a bare-basename pattern matches at any depth', async () => {
     writeFile('design-system/tokens.json', JSON.stringify({ color: {} }));
     writeFile('src/deep/nested/Foo.tokens.ts', `const a = "#aabbcc";`);
-    writeFile('src/Card.ts', `const b = "#112233";`);
+    writeFile('src/Card.ts', `const b = { color: "#112233" };`);
 
     const out = await runDetectDrift({ path: tmpDir, exclude: ['*.tokens.ts'] });
     const files = new Set(out.findings.map((f) => f.file));
@@ -165,7 +165,7 @@ describe('runDetectDrift (integration)', () => {
     writeFile('design-system/tokens.json', JSON.stringify({ color: {} }));
     writeFile('harness.config.json', JSON.stringify({ analysis: { exclude: ['backend/**'] } }));
     writeFile('backend/service.ts', `const a = "#aabbcc";`);
-    writeFile('ui/Card.ts', `const b = "#112233";`);
+    writeFile('ui/Card.ts', `const b = { color: "#112233" };`);
 
     const out = await runDetectDrift({ path: tmpDir });
     const files = new Set(out.findings.map((f) => f.file));
@@ -189,7 +189,7 @@ describe('runDetectDrift (integration)', () => {
   it('no excludes configured → walk + findings unchanged (no regression)', async () => {
     writeFile('design-system/tokens.json', JSON.stringify({ color: {} }));
     writeFile('src/A.tsx', `const a = "#aabbcc";`);
-    writeFile('src/B.tsx', `const b = "#112233";`);
+    writeFile('src/B.tsx', `const b = { color: "#112233" };`);
 
     const out = await runDetectDrift({ path: tmpDir });
     const files = new Set(out.findings.map((f) => f.file));
