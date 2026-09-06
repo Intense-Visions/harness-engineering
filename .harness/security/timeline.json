@@ -24428,6 +24428,66 @@
         "0020d9dbc68c53fd",
         "f2ceade87b90537d"
       ]
+    },
+    {
+      "capturedAt": "2026-09-05T15:26:52.320Z",
+      "commitHash": "5cd661d74a7cb4e3b4164a8c7fb36d75e298fd0f",
+      "securityScore": 95,
+      "totalFindings": 6,
+      "bySeverity": {
+        "error": 0,
+        "warning": 5,
+        "info": 1
+      },
+      "byCategory": {
+        "network": {
+          "findingCount": 1,
+          "errorCount": 0,
+          "warningCount": 0,
+          "infoCount": 1
+        },
+        "injection": {
+          "findingCount": 1,
+          "errorCount": 0,
+          "warningCount": 1,
+          "infoCount": 0
+        },
+        "deserialization": {
+          "findingCount": 2,
+          "errorCount": 0,
+          "warningCount": 2,
+          "infoCount": 0
+        },
+        "path-traversal": {
+          "findingCount": 1,
+          "errorCount": 0,
+          "warningCount": 1,
+          "infoCount": 0
+        },
+        "crypto": {
+          "findingCount": 1,
+          "errorCount": 0,
+          "warningCount": 1,
+          "infoCount": 0
+        }
+      },
+      "supplyChain": {
+        "critical": 0,
+        "high": 0,
+        "moderate": 0,
+        "low": 0,
+        "info": 0,
+        "total": 0
+      },
+      "suppressionCount": 0,
+      "findingIds": [
+        "4ffbedd52621e958",
+        "6f68f4bf4cb985bf",
+        "f2ceade87b90537d",
+        "f786d4abdb76457f",
+        "bc2182c271a4f989",
+        "0020d9dbc68c53fd"
+      ]
     }
   ],
   "findingLifecycles": [
@@ -25528,6 +25588,50 @@
       "file": "packages/cli/src/commands/models.ts",
       "firstSeenAt": "2026-07-13T02:53:49.394Z",
       "firstSeenCommit": "e1f016d133cb1534d12c16633009c5969963f262",
+      "resolvedAt": null,
+      "resolvedCommit": null
+    },
+    {
+      "findingId": "4ffbedd52621e958",
+      "ruleId": "SEC-NET-003",
+      "category": "network",
+      "severity": "info",
+      "file": "tests/scripts/design-capture.test.mjs",
+      "firstSeenAt": "2026-09-05T14:21:46.649Z",
+      "firstSeenCommit": "5cd661d74a7cb4e3b4164a8c7fb36d75e298fd0f",
+      "resolvedAt": null,
+      "resolvedCommit": null
+    },
+    {
+      "findingId": "6f68f4bf4cb985bf",
+      "ruleId": "SEC-NODE-001",
+      "category": "injection",
+      "severity": "warning",
+      "file": "packages/orchestrator/src/workflow/execute-workflow.ts",
+      "firstSeenAt": "2026-09-05T14:21:46.649Z",
+      "firstSeenCommit": "5cd661d74a7cb4e3b4164a8c7fb36d75e298fd0f",
+      "resolvedAt": null,
+      "resolvedCommit": null
+    },
+    {
+      "findingId": "f786d4abdb76457f",
+      "ruleId": "SEC-DES-001",
+      "category": "deserialization",
+      "severity": "warning",
+      "file": "packages/core/src/fleet/claims/index.ts",
+      "firstSeenAt": "2026-09-05T14:21:46.649Z",
+      "firstSeenCommit": "5cd661d74a7cb4e3b4164a8c7fb36d75e298fd0f",
+      "resolvedAt": null,
+      "resolvedCommit": null
+    },
+    {
+      "findingId": "bc2182c271a4f989",
+      "ruleId": "SEC-PTH-001",
+      "category": "path-traversal",
+      "severity": "warning",
+      "file": "packages/cli/tests/e2e/support/fake-provider.ts",
+      "firstSeenAt": "2026-09-05T14:21:46.649Z",
+      "firstSeenCommit": "5cd661d74a7cb4e3b4164a8c7fb36d75e298fd0f",
       "resolvedAt": null,
       "resolvedCommit": null
     }

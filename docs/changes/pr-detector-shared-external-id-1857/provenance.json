@@ -1,0 +1,51 @@
+{
+  "issues": [1857],
+  "issueUrl": "https://github.com/Intense-Visions/harness-engineering/issues/1857",
+  "title": "pr-detector inlines a third copy of the External-ID regex and will silently miss the #1843 hardening",
+  "route": "bug",
+  "fleet": "roadmap-fleet",
+  "stages": ["debugging"],
+  "pipelineStages": ["debugging"],
+  "branch": "fix/pr-detector-shared-external-id-parser-1857",
+  "baseSha": "c1ca02ba2",
+  "debugSession": "docs/changes/pr-detector-shared-external-id-1857/debug-session.md",
+  "reproducingTest": "packages/orchestrator/src/core/pr-detector.external-id-1857.test.ts",
+  "reproducingTestCommand": "pnpm --filter @harness-engineering/orchestrator exec vitest run src/core/pr-detector.external-id-1857.test.ts",
+  "reproducingTestResult": {
+    "beforeFix": "FAIL — 7 failed | 6 passed (13). Traversal case: AssertionError: expected { owner: 'x', …(2) } to be null",
+    "afterFix": "PASS — 13 passed (13)",
+    "revertVerification": "suite authored and executed against the UNMODIFIED pr-detector.ts at base c1ca02ba2 -> 7 failed; fix applied, suite unchanged -> 13 passed"
+  },
+  "closingKeyword": "Closes #1857",
+  "rootCause": "PRDetector.parseExternalId inlined a verbatim copy of the pre-#1843 External-ID regex (/^github:([^/]+)\\/([^#]+)#(\\d+)$/) instead of importing the @harness-engineering/core authority, so the two-layer hardening landed by #1854 never applied at this consumer, and the class had no sink-side assertion before interpolating owner/repo into an authenticated `gh pr list --repo` argv.",
+  "fix": "parseExternalId now delegates to core's parseExternalId (kept as a thin instance method because it is public surface with an existing external caller). githubRepoPath(owner, repo) is applied at BOTH --repo argv construction sinks — hasOpenPRForExternalId and the public fetchOpenPRClosures — immediately before the value is built.",
+  "filesChanged": [
+    "packages/orchestrator/src/core/pr-detector.ts",
+    "packages/orchestrator/src/core/pr-detector.external-id-1857.test.ts"
+  ],
+  "securityFraming": "Drift defect with a latent security dimension, NOT a second exploitable instance of #1843. The parsed values do reach an authenticated `gh` invocation, but via execFile ARGV rather than a shell string (so not command injection), and `gh` performs its own --repo validation downstream.",
+  "assumptions": [
+    "parseExternalId is part of PRDetector's PUBLIC surface — packages/orchestrator/tests/orchestrator-pr-guard.test.ts:319-330 calls detector.parseExternalId(...) directly. The method was therefore NOT deleted; it is kept as a thin wrapper delegating to core. That pre-existing suite passes unchanged (26/26), which also demonstrates no false rejection of the ids it asserts.",
+    "githubRepoPath is applied at BOTH --repo argv sinks, not only the one named in the issue. fetchOpenPRClosures is public and takes raw owner/repo, so it is a sink in its own right and cannot assume its caller parsed the pair; the core docblock explicitly instructs the sink check be applied at the sink and never derived from the regex.",
+    "Applying githubRepoPath changes no argv for any legitimate External-ID: every character the tightened regex admits (A-Za-z0-9._-) is unreserved for encodeURIComponent, so the encoded value is byte-identical. Pinned by tests asserting the exact --repo argument for a legitimate id at both sinks.",
+    "PRDetector's documented fail-open contract is preserved verbatim rather than tightened. A rejected External-ID degrades on the path an unparseable one already took: hasOpenPRForExternalId returns false, fetchOpenPRClosures returns null (its existing 'check failed' signal, which filterCandidatesWithOpenPRs already treats as fail-open), each logging at the pre-existing logger.debug level. Nothing throws and no candidate is newly blocked — pinned by three explicit fail-open tests.",
+    "The tightening is deliberately BREAKING for External-IDs GitHub itself could never have issued. That trade was made and accepted in #1843/#1854; it is propagated here, not re-decided.",
+    "The regression test is colocated at packages/orchestrator/src/core/pr-detector.external-id-1857.test.ts rather than under packages/orchestrator/tests/, because that directory is region-locked by a sibling unmerged PR in this fleet run. Colocated *.test.ts under src/ is an established convention in this package (cf. src/agent/adaptive-router.*.test.ts) and vitest.config.mts already includes 'src/**/*.test.ts'.",
+    "No scripts/generate-core-barrel.mjs allowlist edit was needed: parseExternalId and githubRepoPath are pre-existing exports (core/src/roadmap/index.ts:68, re-exported via core/src/index.ts:134). No new dependency was added — packages/orchestrator already depends on @harness-engineering/core (workspace:*) and src/ already imports from it.",
+    "packages/core/src/roadmap/external-id.ts was NOT modified. It is the authority and is already correct."
+  ],
+  "outOfScope": [
+    "packages/dashboard/src/server/routes/actions.ts:301 — a further divergent inline copy of the External-ID regex on main. Named as follow-up, deliberately not touched (scope for #1857 is pr-detector.ts only).",
+    "packages/dashboard/src/client/components/roadmap/utils.ts:30 — same, a further divergent inline copy. Named as follow-up, not touched.",
+    "packages/cli/src/commands/install.ts:102 — an unrelated-format inline match, not an External-ID parser. Not touched.",
+    "A lint/architecture rule forbidding a second inlined `github:` regex, which the issue raises as an optional hardening. That is new enforcement machinery, not the reported defect."
+  ],
+  "verification": {
+    "reproducingTest": "13 passed (13)",
+    "preExistingSuite": "pnpm --filter @harness-engineering/orchestrator exec vitest run tests/orchestrator-pr-guard.test.ts -> 26 passed (26)",
+    "packageTests": "pnpm --filter @harness-engineering/orchestrator test -> 261 files passed | 1 skipped; 2896 tests passed | 1 skipped",
+    "typecheck": "pnpm --filter @harness-engineering/orchestrator typecheck -> clean",
+    "lint": "pnpm --filter @harness-engineering/orchestrator lint -> clean"
+  },
+  "debugSessionNote": "The harness-debugging pipeline writes its session under .harness/debug/, which is gitignored. A verbatim copy is committed at docs/changes/pr-detector-shared-external-id-1857/debug-session.md so the investigation record is durable and reviewable."
+}

@@ -90,6 +90,51 @@ export function loadDesignExclude(projectPath: string): string[] {
 }
 
 /**
+ * Schema fragment for the `design.tokenPath` override. Kept here alongside
+ * `design.exclude` for the same reason: the drift token resolver needs one
+ * `design.*` key and must not drag in the full `HarnessConfigSchema`. Mirrors
+ * the `DesignConfigSchema.tokenPath` field shape.
+ */
+const DesignTokenPathSchema = z.object({
+  tokenPath: z.string().optional(),
+});
+
+/**
+ * Best-effort load of `design.tokenPath` from `<projectPath>/harness.config.json`.
+ *
+ * Returns `undefined` on any miss (no config file, malformed JSON, a `design`
+ * block that fails validation, or the key simply being absent) so callers fall
+ * back to their built-in default location — the same degrade-gracefully contract
+ * `loadDesignExclude` uses. A blank or whitespace-only value is also treated as
+ * unset: it cannot name a real file, and honouring it literally would resolve to
+ * the project root and silently disable the token rules (#1855).
+ *
+ * The returned value is the raw configured string; resolving it against a project
+ * root is the caller's job (see `resolveTokensFilePath` in
+ * `drift/resolvers/tokens.ts`).
+ */
+export function loadDesignTokenPath(projectPath: string): string | undefined {
+  const configPath = path.join(projectPath, 'harness.config.json');
+  if (!fs.existsSync(configPath)) return undefined;
+
+  let raw: unknown;
+  try {
+    raw = JSON.parse(fs.readFileSync(configPath, 'utf-8'));
+  } catch {
+    return undefined;
+  }
+
+  const designRaw = (raw as { design?: unknown } | null | undefined)?.design;
+  if (designRaw === undefined || designRaw === null || typeof designRaw !== 'object') {
+    return undefined;
+  }
+  const parsed = DesignTokenPathSchema.safeParse(designRaw);
+  if (!parsed.success) return undefined;
+  const configured = parsed.data.tokenPath?.trim();
+  return configured === undefined || configured === '' ? undefined : configured;
+}
+
+/**
  * Schema for the `deps.exclude` glob list (check-deps discovery scoping).
  * Kept here — alongside `analysis.exclude` / `design.exclude` — so check-deps
  * can load it without importing the full HarnessConfigSchema. Patterns are

@@ -1,5 +1,6 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import * as http from 'node:http';
+import type { AddressInfo } from 'node:net';
 import * as fs from 'node:fs/promises';
 import * as path from 'node:path';
 import * as os from 'node:os';
@@ -51,9 +52,13 @@ describe('plans routes', () => {
 
   beforeEach(async () => {
     tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), 'plans-route-test-'));
-    port = Math.floor(Math.random() * 10000) + 31000;
     server = createServer(tmpDir);
-    await new Promise<void>((r) => server.listen(port, '127.0.0.1', r));
+    // Bind 0 and read the OS-assigned port back rather than guessing one.
+    // A guessed port races sibling listeners and, on Windows, lands in the
+    // Hyper-V/WinNAT excluded ranges or on an SO_EXCLUSIVEADDRUSE holder --
+    // both of which are refused with EACCES, not EADDRINUSE (issue #1827).
+    await new Promise<void>((r) => server.listen(0, '127.0.0.1', r));
+    port = (server.address() as AddressInfo).port;
   });
 
   afterEach(async () => {

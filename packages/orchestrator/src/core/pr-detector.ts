@@ -1,6 +1,10 @@
 import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
 import type { Issue } from '@harness-engineering/types';
+import {
+  parseExternalId as parseCanonicalExternalId,
+  githubRepoPath,
+} from '@harness-engineering/core';
 
 /**
  * Minimal logger interface for PR detection.
@@ -39,11 +43,21 @@ export class PRDetector {
   /**
    * Parse a `github:owner/repo#N` externalId into its parts.
    * Returns null for invalid or non-GitHub formats.
+   *
+   * Delegates to the `@harness-engineering/core` authority rather than inlining
+   * the regex, which is the rule `roadmap/external-id.ts` states about itself and
+   * which this class was violating (#1857). The copy that lived here was the
+   * verbatim PRE-#1843 pattern `/^github:([^/]+)\/([^#]+)#(\d+)$/`, so the
+   * hardening landed by #1854 never reached this consumer and
+   * `github:x/../../../user/emails?#1` still parsed to
+   * `owner="x"`, `repo="../../../user/emails?"`.
+   *
+   * Kept as a thin instance method because it is part of this class's public
+   * surface — `tests/orchestrator-pr-guard.test.ts` calls
+   * `detector.parseExternalId(...)` directly.
    */
   parseExternalId(externalId: string): { owner: string; repo: string; number: number } | null {
-    const match = externalId.match(/^github:([^/]+)\/([^#]+)#(\d+)$/);
-    if (!match) return null;
-    return { owner: match[1]!, repo: match[2]!, number: parseInt(match[3]!, 10) };
+    return parseCanonicalExternalId(externalId);
   }
 
   /**
@@ -80,6 +94,15 @@ export class PRDetector {
   async hasOpenPRForExternalId(externalId: string): Promise<boolean> {
     const parsed = this.parseExternalId(externalId);
     if (!parsed) return false;
+    // Second, independent defence (#1843/#1857): assert at the sink, immediately
+    // before the argv is built, so loosening the regex again cannot silently
+    // re-open the traversal. A rejection degrades exactly as an unparseable
+    // External-ID does — fail open, never block a candidate.
+    const repoPath = githubRepoPath(parsed.owner, parsed.repo);
+    if (!repoPath) {
+      this.logger.debug(`Refusing to query gh for unsafe externalId ${externalId}`);
+      return false;
+    }
 
     try {
       const exec = promisify(this.execFileFn);
@@ -89,7 +112,7 @@ export class PRDetector {
           'pr',
           'list',
           '--repo',
-          `${parsed.owner}/${parsed.repo}`,
+          repoPath,
           '--search',
           `closes #${parsed.number}`,
           '--state',
@@ -183,22 +206,20 @@ export class PRDetector {
    * network error) so callers can fail open rather than block real work.
    */
   async fetchOpenPRClosures(owner: string, repo: string): Promise<Set<number> | null> {
+    // This method is public and takes raw `owner`/`repo`, so it is a sink in its
+    // own right and cannot rely on the caller having parsed the pair. Assert here
+    // (#1843/#1857). Returning null is the existing "check failed" signal, which
+    // callers already treat as fail-open.
+    const repoPath = githubRepoPath(owner, repo);
+    if (!repoPath) {
+      this.logger.debug(`Refusing to list PRs for unsafe repo reference ${owner}/${repo}`);
+      return null;
+    }
     try {
       const exec = promisify(this.execFileFn);
       const { stdout } = await exec(
         'gh',
-        [
-          'pr',
-          'list',
-          '--repo',
-          `${owner}/${repo}`,
-          '--state',
-          'open',
-          '--json',
-          'body',
-          '--limit',
-          '200',
-        ],
+        ['pr', 'list', '--repo', repoPath, '--state', 'open', '--json', 'body', '--limit', '200'],
         {
           cwd: this.projectRoot,
           timeout: 15_000,
