@@ -1,5 +1,6 @@
 import { ESLintUtils } from '@typescript-eslint/utils';
 import type { TSESTree } from '@typescript-eslint/utils';
+import { isTestModifierCall } from '../utils/ast-helpers';
 
 const createRule = ESLintUtils.RuleCreator(
   (name) => `https://github.com/harness-engineering/eslint-plugin/blob/main/docs/rules/${name}.md`
@@ -23,16 +24,11 @@ export default createRule<[], MessageIds>({
   defaultOptions: [],
   create(context) {
     function isDisabledCall(node: TSESTree.CallExpression): boolean {
-      // Check for describe.skip(), it.skip(), test.skip()
-      if (
-        node.callee.type === 'MemberExpression' &&
-        node.callee.object.type === 'Identifier' &&
-        (node.callee.object.name === 'describe' ||
-          node.callee.object.name === 'it' ||
-          node.callee.object.name === 'test') &&
-        node.callee.property.type === 'Identifier' &&
-        node.callee.property.name === 'skip'
-      ) {
+      // Any dotted chain rooted at describe/it/test ending in `.skip` —
+      // covers the flat Jest/Mocha spellings (describe.skip, it.skip,
+      // test.skip) AND Playwright's namespaced ones (test.describe.skip,
+      // test.describe.serial.skip), which mute an entire block.
+      if (isTestModifierCall(node, 'skip')) {
         return true;
       }
 
