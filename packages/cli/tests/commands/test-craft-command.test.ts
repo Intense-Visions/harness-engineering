@@ -147,17 +147,28 @@ describe('test-craft command — option parsing', () => {
     expect(Object.keys(capturedInput())).toEqual(['path']);
   });
 
-  it('does not reach the engine with --no-source-pair (characterizes a live defect)', async () => {
-    // CHARACTERIZATION, NOT ENDORSEMENT. Commander stores a `--no-x` flag under
-    // key `x` (false when passed, true by default) — it never populates
-    // `noSourcePair`, which is the key `buildInput` reads. So the documented
-    // "Skip source-pairing resolution" flag is inert: `sourcePair` never
-    // reaches the engine. This test pins the CURRENT behavior and is expected
-    // to fail — loudly, by design — the moment the flag is wired correctly.
+  it('disables source pairing at the engine when --no-source-pair is passed', async () => {
+    // Regression guard for #1882. Commander stores a `--no-x` flag under the
+    // POSITIVE camelCase key (`sourcePair`: false when passed, true by
+    // default) and never populates `noSourcePair`. `buildInput` used to read
+    // `opts.noSourcePair`, so this documented flag was inert and pairing ran
+    // regardless. The engine disables pairing only on a literal `false`
+    // (`input.sourcePair !== false`), so an absent property is not enough —
+    // assert the value that actually reaches it.
     await runCraftCommand(createTestCraftCommand(), {
       globalArgs: ['--cwd', PROJECT],
       args: ['--no-source-pair'],
     });
+
+    expect(capturedInput().sourcePair).toBe(false);
+  });
+
+  it('leaves source pairing enabled when --no-source-pair is omitted', async () => {
+    // The other half of #1882: Commander defaults the negated flag's key to
+    // `true`, so the fixed read must not mistake the default for an opt-out.
+    // Pairing stays on, and the property is left off the input entirely rather
+    // than passed as an explicit `true`.
+    await runCraftCommand(createTestCraftCommand(), { globalArgs: ['--cwd', PROJECT] });
 
     expect(capturedInput()).not.toHaveProperty('sourcePair');
   });
