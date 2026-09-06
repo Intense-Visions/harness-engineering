@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'packages/cli/tests/commands'
-sourceHash: '4fd8cee931904f68676859d2876dfa148c3e9524e309bde8e640c07060501124'
+sourceHash: '9c62390c1f24ef76809468d40ea2947fc31b4310f1668d3faf01c5132f833f9d'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
@@ -29,6 +29,7 @@ members:
     'check-vocabulary.test.ts',
     'cleanup-sessions.test.ts',
     'cleanup.test.ts',
+    'cli-command-harness.ts',
     'compound-scan-candidates.test.ts',
     'create-skill.test.ts',
     'cross-check.test.ts',
@@ -41,6 +42,7 @@ members:
     'generate-agent-definitions.test.ts',
     'generate-slash-commands.test.ts',
     'generate.test.ts',
+    'golden-build-command.test.ts',
     'golden-build.test.ts',
     'graph-ingest-decisions.integration.test.ts',
     'graph-ingest.test.ts',
@@ -63,6 +65,7 @@ members:
     'maintenance-run-check-runner.test.ts',
     'maintenance-run-integration.test.ts',
     'maintenance-run-selection.test.ts',
+    'mcp-context-report.test.ts',
     'mcp-guard.test.ts',
     'mcp-list-capabilities.test.ts',
     'mcp-refinement-demand.test.ts',
@@ -112,6 +115,7 @@ members:
     'sync-main.test.ts',
     'taint.test.ts',
     'telemetry-synthesize.test.ts',
+    'telemetry-wizard-run.test.ts',
     'telemetry-wizard.test.ts',
     'telemetry.test.ts',
     'traceability.test.ts',
@@ -137,7 +141,11 @@ members:
 ## Interface Contract
 
 ```ts
-
+export ProcessExitSignal
+export captureConsole
+export runToExit
+export stripAnsi
+export stubProcessExit
 ```
 
 ## Dependency Slice
@@ -172,7 +180,8 @@ import { createFixDriftCommand, runFixDrift } from '../../src/commands/fix-drift
 import { createGenerateCommand } from '../../src/commands/generate'
 import { createGenerateAgentDefinitionsCommand, generateAgentDefinitions } from '../../src/commands/generate-agent-definitions'
 import { GenerateResult, createGenerateSlashCommandsCommand, generateSlashCommands, handleOrphanDeletion, resolveSkillSources } from '../../src/commands/generate-slash-commands'
-import { runGoldenDiff, runGoldenPromote, runGoldenVerify } from '../../src/commands/golden-build'
+import { createGoldenBuildCommand, runGoldenDiff, runGoldenPromote, runGoldenVerify } from '../../src/commands/golden-build'
+import { runGoldenDiff, runGoldenPromote, runGoldenVerify } from '../../src/commands/golden-build/runners'
 import { registerDeprecatedGraphAliases } from '../../src/commands/graph/deprecated-aliases'
 import { runGraphExport } from '../../src/commands/graph/export'
 import { createGraphCommand } from '../../src/commands/graph/index'
@@ -201,7 +210,7 @@ import { SyncIO, runSyncIntegrations } from '../../src/commands/integrations/syn
 import { createGenerateCommand } from '../../src/commands/linter/generate'
 import { createMaintenanceCommand } from '../../src/commands/maintenance'
 import { MaintenanceRunDeps, aggregateReport, buildTaskRunner, createCheckRunner, createFixDispatcher, deriveExitCode, loadRunHistory, makeResolveBackend, parseConcurrency, renderTable, resolveHarnessSpawn, resolveSelection, runMaintenanceRun } from '../../src/commands/maintenance-run'
-import { createMcpRefinementDemandCommand, formatCapabilitiesByPermission, formatCapabilitiesTable, formatRefinementDemand } from '../../src/commands/mcp'
+import { createMcpCommand, createMcpContextReportCommand, createMcpListCapabilitiesCommand, createMcpRefinementDemandCommand, formatCapabilitiesByPermission, formatCapabilitiesTable, formatContextReport, formatRefinementDemand } from '../../src/commands/mcp'
 import { extractNpmPackages, parseNpmSpec, runMcpGuardCheck } from '../../src/commands/mcp-guard'
 import { detectLegacyArtifacts, runMigrate } from '../../src/commands/migrate'
 import { runMigrateBackends } from '../../src/commands/migrate-backends'
@@ -243,7 +252,7 @@ import { createSyncAnalysesCommand, extractAnalysisFromComments } from '../../sr
 import { runSyncMain } from '../../src/commands/sync-main'
 import { createTaintCommand } from '../../src/commands/taint'
 import { createTelemetryCommand } from '../../src/commands/telemetry'
-import { ensureTelemetryConfigured, isTelemetryConfigured, writeTelemetryConfig } from '../../src/commands/telemetry-wizard'
+import { ensureTelemetryConfigured, isTelemetryConfigured, runTelemetryWizard, writeTelemetryConfig } from '../../src/commands/telemetry-wizard'
 import { createTelemetryCommand } from '../../src/commands/telemetry/index'
 import { createTraceabilityCommand } from '../../src/commands/traceability'
 import { createUninstallCommand, runUninstall } from '../../src/commands/uninstall'
@@ -290,8 +299,9 @@ import { CLIError, ExitCode } from '../../src/utils/errors'
 import { markSetupComplete } from '../../src/utils/first-run'
 import { CLI_VERSION } from '../../src/version'
 import { VocabularyRule, formatViolations, scanFiles, scanText } from '../../src/vocabulary/scanner'
+import { ConsoleCapture, captureConsole, runToExit, stubProcessExit } from './cli-command-harness'
 import * as clack from '@clack/prompts'
-import { CiReviewResult, DiffInfo, Err, Ok, RefinementDemandReport, RollbackDecision, RunCiReviewOptions, SECURITY_SCAN_EXTENSIONS, SECURITY_SCAN_GLOB, applyFixes, archiveStream, buildSnapshot, checkTaint, clearTaint, createFixes, createProposal, createStream, detectDeadCode, detectDocDrift, extractBundle, generateSuggestions, listStreams, listTaintedSessions, loadStreamIndex, parseCiReviewVerdict, parseDiff, parseManifest, readAdoptionRecords, requestPeerReview, resetWaypointEmitterForTests, runReviewPipeline, setActiveStream, validateAgentConfigs, validateAgentsMap, validateKnowledgeMap, writeConfig } from '@harness-engineering/core'
+import { CiReviewResult, DiffInfo, Err, GoldenFileChange, GoldenSnapshot, Ok, RefinementDemandReport, RollbackDecision, RunCiReviewOptions, SECURITY_SCAN_EXTENSIONS, SECURITY_SCAN_GLOB, applyFixes, archiveStream, buildSnapshot, checkTaint, clearTaint, createFixes, createProposal, createStream, detectDeadCode, detectDocDrift, extractBundle, generateSuggestions, listStreams, listTaintedSessions, loadStreamIndex, parseCiReviewVerdict, parseDiff, parseManifest, readAdoptionRecords, requestPeerReview, resetWaypointEmitterForTests, runReviewPipeline, setActiveStream, validateAgentConfigs, validateAgentsMap, validateKnowledgeMap, writeConfig } from '@harness-engineering/core'
 import from '@harness-engineering/graph'
 import { GUARDIAN_ANALYSIS_SCHEMA, GUARDIAN_ANALYSIS_VERSION, GuardianAnalysis, OutcomeVerdict } from '@harness-engineering/intelligence'
 import { AnalysisRecord, MockBackend, RunMode, RunResult, SyncMainResult, TaskDefinition, renderAnalysisComment } from '@harness-engineering/orchestrator'
@@ -310,6 +320,6 @@ import { mockedSetTimeout } from 'node:timers'
 import { fileURLToPath } from 'node:url'
 import * as os from 'os'
 import * as path, { join } from 'path'
-import { MockedFunction, afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
+import { Mock, MockedFunction, afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 import YAML, { parseYaml, yamlParse } from 'yaml'
 ```
