@@ -1,0 +1,49 @@
+{
+  "issue": 1811,
+  "issueUrl": "https://github.com/Intense-Visions/harness-engineering/issues/1811",
+  "fleet": "roadmap-fleet",
+  "route": "bug",
+  "stages": ["debugging"],
+  "pipeline": "harness-debugging",
+  "phases": ["investigate", "analyze", "hypothesize", "fix"],
+  "debugSession": "docs/changes/assignment-history-format-1811/debug-session.md",
+  "reproducingTests": [
+    "packages/core/tests/roadmap/repro-assignment-history-pipe.test.ts",
+    "packages/core/tests/roadmap/assignment-history-round-trip.test.ts"
+  ],
+  "reproducingTestOrigin": {
+    "cherryPickedFrom": "3d6970b254d0840c7515a8ad95f3ca47ef0e307f",
+    "branch": "repro/roadmap-assignment-history-pipe",
+    "note": "The pushed bug-fleet repro is format-agnostic (it asserts round-trip equality, not the pipe table), so it was cherry-picked unchanged and remains valid under the new format."
+  },
+  "redGreenEvidence": {
+    "command": "cd packages/core && npx vitest run tests/roadmap/repro-assignment-history-pipe.test.ts tests/roadmap/assignment-history-round-trip.test.ts",
+    "beforeFix": "31 failed | 24 passed (55)",
+    "afterFix": "55 passed (55)",
+    "revertAndFail": "serialize.ts and parse.ts restored to the base commit with the new module left in place; the round-trip assertions failed by assertion (not resolution), then passed again on restore.",
+    "baseOnlyRepro": "At base 463e0162a the cherry-picked repro failed by assertion: Expected [ { feature: 'Auth | Login flow', ... } ] / Received []."
+  },
+  "stackedOn": {
+    "pr": 1854,
+    "branch": "fix/external-id-path-traversal-1843",
+    "baseCommit": "463e0162af3de1fd9f2d4112df88797805ddaf27",
+    "note": "Conductor-imposed serialization. This PR targets that branch, not main, and must land after #1854."
+  },
+  "assumptions": [
+    "F3 answered by the human at the CONFIRM gate as option (b): move assignment history OFF the pipe-table format entirely, NOT (a) escape the pipe. Built as answered; the cheaper escaping option was deliberately not taken.",
+    "Legacy documents in flight (other branches, adopter repos) still carry the pipe table, so the reader keeps parsing it. Writing moved; reading did not.",
+    "Blast radius re-derived rather than taken on trust: assignment history is roadmap-level metadata written once into docs/roadmap.d/_meta.md, plus the regenerated aggregate docs/roadmap.md. No per-feature shard carries it, and none was edited.",
+    "docs/roadmap.md and docs/roadmap.d/** are in .prettierignore, so format:check does not police their layout; the emitted format was verified prettier-stable anyway for the doc examples that are checked.",
+    "Leading/trailing whitespace inside a value now round-trips (the pipe table trimmed it). Treated as a strict improvement; not asserted as a contract either way.",
+    "A record STARTS at its `- **Feature:**` bullet, so the blank lines between record blocks are cosmetic and a reformatter may add or drop them.",
+    "A `bug` route emits no plans/ directory. Expected, not a defect."
+  ],
+  "migration": {
+    "file": "docs/roadmap.d/_meta.md",
+    "recordsBefore": 18,
+    "recordsAfter": 18,
+    "aggregateRegeneratedWith": "node packages/cli/dist/bin/harness.js roadmap regen",
+    "aggregateDiffHunks": 1
+  },
+  "debugSessionNote": ".harness/debug/ is gitignored, so the resolved session record is committed here instead."
+}

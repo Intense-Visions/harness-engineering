@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'packages/core/tests/roadmap'
-sourceHash: '1afd158e8f84759ca54976b3cddcba19f519cdd6aaecc91f06e4e1ec8ec63d29'
+sourceHash: '8c924a05853c748c2179480a84acf9673779217f23ffb2a3883f843c297770f3'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
@@ -9,6 +9,7 @@ members:
   [
     'assignee-lifecycle-waypoint.test.ts',
     'assignee-lifecycle.test.ts',
+    'assignment-history-round-trip.test.ts',
     'derive-repo.test.ts',
     'external-id-path-traversal.test.ts',
     'fixtures.ts',
@@ -32,6 +33,7 @@ members:
     'promote.test.ts',
     'reconcile.test.ts',
     'referenced-issues.test.ts',
+    'repro-assignment-history-pipe.test.ts',
     'serialize-extended.test.ts',
     'serialize-groups.test.ts',
     'serialize-list-field-comma.test.ts',
@@ -67,6 +69,7 @@ export VALID_ROADMAP_MD
 ```
 import { GitHubIssuesSyncAdapter, parseExternalId } from '../../src/roadmap/adapters/github-issues'
 import { assigneeInvariantHolds, claim, isClaimableBy, isMachineAssignee, pushAssigneeToExternal, release, setStatus } from '../../src/roadmap/assignee-lifecycle'
+import { parseAssignmentHistory, serializeAssignmentHistory } from '../../src/roadmap/assignment-history'
 import { deriveRepoFromGitRemote, parseOwnerRepoFromRemoteUrl } from '../../src/roadmap/derive-repo'
 import { githubRepoPath, parseExternalId } from '../../src/roadmap/external-id'
 import { FEATURE_PREFIX, GROUP_PREFIX, matchFeatureHeadings, parseFeatureHeading, serializeFeatureHeading } from '../../src/roadmap/heading'
@@ -84,7 +87,7 @@ import { reconcileDoneFromClosedIssues } from '../../src/roadmap/reconcile'
 import { parseReferencedIssues } from '../../src/roadmap/referenced-issues'
 import { serializeFeature, serializeRoadmap } from '../../src/roadmap/serialize'
 import { resolveRoadmapStoreForFile } from '../../src/roadmap/store/factory'
-import { serializeMeta } from '../../src/roadmap/store/meta'
+import { parseMeta, serializeMeta } from '../../src/roadmap/store/meta'
 import { assertSemanticRoundTrip, roadmapToShards } from '../../src/roadmap/store/migration'
 import { slugifyFeatureName } from '../../src/roadmap/store/monolith-store'
 import { writeRegeneratedRoadmap } from '../../src/roadmap/store/regenerator'
@@ -101,7 +104,7 @@ import { GitHubIssuesTrackerAdapter } from '../../src/roadmap/tracker/adapters/g
 import { emitEvent } from '../../src/state/event-sourcing'
 import { initWaypointEmitter, resetWaypointEmitterForTests } from '../../src/waypoint/emitter'
 import { EMPTY_BACKLOG, EMPTY_BACKLOG_MD, EXTENDED_FIELDS_MD, EXTENDED_FIELDS_ROADMAP, GROUPED_ROADMAP, GROUPED_ROADMAP_MD, HISTORY_MD, HISTORY_ROADMAP, INVALID_STATUS_MD, MARKER_NAMES, NO_FRONTMATTER_MD, VALID_ROADMAP, VALID_ROADMAP_MD } from './fixtures'
-import { MIGRATION_ROADMAP, MONOLITH_ROADMAP, OLD_ROADMAP_MD } from './store/fixtures'
+import { META_WITH_HISTORY, MIGRATION_ROADMAP, MONOLITH_ROADMAP, OLD_ROADMAP_MD } from './store/fixtures'
 import { getRoadmapMode } from '@harness-engineering/core'
 import { AssignmentRecord, Err, ExternalTicket, ExternalTicketState, FeatureStatus, Ok, Result, Roadmap, RoadmapFeature, RoadmapMilestone, SdlcEvent, TrackerSyncConfig } from '@harness-engineering/types'
 import * as fs from 'fs'
