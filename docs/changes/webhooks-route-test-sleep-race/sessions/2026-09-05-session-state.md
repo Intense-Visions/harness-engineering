@@ -100,7 +100,7 @@ a data-collection mistake on my part, and it is recorded here rather than quietl
 
 What can be said about it honestly:
 
-- It did **not** recur in any other full-suite run, nor in the pre-push gate's own full-suite run.
+- It did **not** recur in any of the other 14 full-suite runs.
 - `webhooks.test.ts` passed in every other full-suite run and 60/60 standalone. After this change it
   has no wall-clock budget and no network dependency left, so the only way it can now fail on timing
   is the 10s hang bound — 20x the budget that was being missed, against a handler that no longer
