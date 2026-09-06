@@ -446,8 +446,66 @@ A record starts at its `- **Feature:**` bullet, so the blank lines between block
 are cosmetic. The section was a markdown pipe table before v5; a feature name
 containing a `|` silently destroyed its own record on the next read, so the column
 separator was removed rather than escaped (#1811). Documents still carrying the old
-table are read as before — only the writer changed — but a legacy row whose value
+table are still read — only the writer changed — but a legacy row whose value
 contained a `|` was already lost when it was written and cannot be recovered.
+
+### When the section cannot be read
+
+If the section is present and holds lines that look like records (`- **` bullets or
+`|` table rows) but not one of them parses, the read **fails loudly** rather than
+reporting an empty history (#1862). It has to: `serializeRoadmap` omits the section
+when there are no records, so an unreadable history and an absent history used to
+produce byte-identical output — and `harness roadmap regen` deleted the whole
+section at exit 0 with a success banner.
+
+One pre-v5 tolerance was withdrawn to make that guarantee hold: a legacy pipe table
+whose `|---|---|---|---|` separator row is missing used to read as an empty history.
+Its rows are unrecoverable either way (the separator is what marks where the data
+begins), so the only thing that changed is that you hear about it. Restore the
+separator row by hand to make such a table readable again.
+
+Prose placeholders, HTML comments, thematic breaks, a fenced example that merely
+_demonstrates_ the grammar, and any section that follows the history all still
+parse as an empty history — the failure fires only on lines that could be carrying
+real records. It fires even when some records _did_ read: a half-migrated section
+that yields two records and four unreadable lines is still four records about to
+be deleted.
+
+The section runs from its heading to the next heading at level 1 or 2. An `###`
+under it is a subsection **of** it, so a history hand-grouped by quarter reads
+normally.
+
+### Recovering a wedged repo
+
+Because the failure is raised at the parser, it fails reads as well as writes, and
+the `harness roadmap install-hook` pre-commit step blocks every shard-touching
+commit while `_meta.md` is in that state — including the commit that repairs it.
+To regenerate anyway without losing the section, use the recovery hatch. It
+carries the unreadable section into the aggregate **verbatim**, so nothing is
+dropped:
+
+```bash
+harness roadmap regen --allow-unreadable-history
+```
+
+The pre-commit hook runs the bare command, so give it the environment variable
+instead when you need a commit to get through:
+
+```bash
+HARNESS_ROADMAP_ALLOW_UNREADABLE_HISTORY=1 git commit -m "repair the history section"
+```
+
+Both preserve the section; neither discards it. Every run that uses the hatch says
+so on stderr, and `--format json` reports `carriedUnreadableHistory: true`.
+
+**The hatch unwedges `roadmap regen` only.** The aggregate it writes still contains
+the unreadable section, so `docs/roadmap.md` does not itself parse: `harness
+validate` will abstain on the aggregate-drift check, `harness roadmap triage`
+reports a parse error, and `harness roadmap shard` / `unshard` still fail. Those
+stay blocked until you repair the section itself. The hatch buys you a commit, not
+a working repo — so use it to _land the repair_, not to live with the breakage.
+
+Never bypass the pre-commit gate to get around any of this.
 
 Reassignment produces two records: `unassigned` for the previous assignee, then `assigned` for the new one. This provides a complete audit trail and enables affinity-based routing.
 

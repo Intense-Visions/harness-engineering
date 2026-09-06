@@ -92,3 +92,105 @@ describe('manage_roadmap groom action', () => {
     expect(after.milestones.some((m: { name: string }) => m.name === 'Intake')).toBe(true);
   });
 });
+
+// --- The archive write must never fabricate over a document it cannot read ------
+//
+// `appendToArchive` used to swallow BOTH a read failure and a parse failure into
+// `archive = null`, fabricate an empty `{ milestones: [], assignmentHistory: [] }`
+// and then write it over `docs/roadmap-archive.md` unconditionally — replacing
+// every previously shipped row with just the rows being archived right now.
+//
+// #1862's new `Err` arm on `parseAssignmentHistory` is what routes real documents
+// into that path: an archive whose `## Assignment History` section this build
+// cannot read now FAILS to parse where before it parsed to zero records. A fix for
+// a silent deletion must not leave a wider silent deletion reachable.
+
+describe('manage_roadmap groom refuses to overwrite an unreadable archive', () => {
+  let dir: string;
+  let archivePath: string;
+
+  beforeEach(() => {
+    dir = fs.mkdtempSync(path.join(os.tmpdir(), 'roadmap-groom-archive-'));
+    fs.mkdirSync(path.join(dir, 'docs'), { recursive: true });
+    fs.writeFileSync(path.join(dir, 'docs', 'roadmap.md'), ROADMAP, 'utf-8');
+    archivePath = path.join(dir, 'docs', 'roadmap-archive.md');
+  });
+  afterEach(() => fs.rmSync(dir, { recursive: true, force: true }));
+
+  /**
+   * A real archive holding shipped rows, whose history section is in a grammar
+   * this build cannot read — the exact document #1862's `Err` arm now rejects.
+   */
+  const UNREADABLE_ARCHIVE = `---
+project: groom-test
+version: 1
+last_synced: 2026-01-01T00:00:00Z
+last_manual_edit: 2026-01-01T00:00:00Z
+---
+
+# Roadmap
+
+## Shipped
+
+### Long Ago Shipped
+
+- **Status:** done
+- **Spec:** —
+- **Summary:** shipped last quarter
+- **Blockers:** —
+- **Plan:** —
+
+## Assignment History
+
+- **Item:** Long Ago Shipped
+- **Owner:** alice
+- **Event:** completed
+- **On:** 2026-01-02
+`;
+
+  it('reports the failure instead of replacing the archive with an empty one', async () => {
+    fs.writeFileSync(archivePath, UNREADABLE_ARCHIVE, 'utf-8');
+
+    const res = await handleManageRoadmap({ path: dir, action: 'groom' });
+
+    expect(res.isError).toBeTruthy();
+    expect(res.content[0].text).toContain('roadmap-archive.md');
+    // The previously shipped row is still there, and so is the history section.
+    const after = fs.readFileSync(archivePath, 'utf-8');
+    expect(after).toBe(UNREADABLE_ARCHIVE);
+  });
+
+  it('leaves the live roadmap untouched when the archive write is refused', async () => {
+    fs.writeFileSync(archivePath, UNREADABLE_ARCHIVE, 'utf-8');
+    const before = fs.readFileSync(path.join(dir, 'docs', 'roadmap.md'), 'utf-8');
+
+    await handleManageRoadmap({ path: dir, action: 'groom' });
+
+    // A groom that cannot archive must not remove the done row from the roadmap —
+    // that would drop it on the floor entirely.
+    expect(fs.readFileSync(path.join(dir, 'docs', 'roadmap.md'), 'utf-8')).toBe(before);
+  });
+
+  it('refuses when the archive cannot be READ at all, rather than fabricating one', async () => {
+    // Only "the file is not there yet" may start a fresh archive. Any other read
+    // failure used to fall into the same branch and overwrite the file with an
+    // empty archive. A directory in the archive's place reproduces that (EISDIR).
+    fs.mkdirSync(archivePath, { recursive: true });
+
+    const res = await handleManageRoadmap({ path: dir, action: 'groom' });
+
+    expect(res.isError).toBeTruthy();
+    expect(res.content[0].text).toContain('roadmap-archive.md');
+    // Still a directory: nothing was written over it.
+    expect(fs.statSync(archivePath).isDirectory()).toBe(true);
+  });
+
+  it('still creates the archive on first use, when there is no file yet', async () => {
+    expect(fs.existsSync(archivePath)).toBe(false);
+
+    const res = await handleManageRoadmap({ path: dir, action: 'groom' });
+
+    expect(res.isError).toBeFalsy();
+    expect(fs.readFileSync(archivePath, 'utf-8')).toContain('### Finished Thing');
+  });
+});

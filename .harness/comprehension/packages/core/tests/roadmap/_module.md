@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'packages/core/tests/roadmap'
-sourceHash: 'b65ce2a8fb4a9379afafaf73a4af998ff3fb09f862dba3c4257dcc4a134c5584'
+sourceHash: '78264d35dc0d8164718b053798520f6ac09ac8acecf21268e41f280d1ea56b80'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
@@ -35,6 +35,7 @@ members:
     'promote.test.ts',
     'reconcile.test.ts',
     'referenced-issues.test.ts',
+    'repro-1862-history-silent-deletion.test.ts',
     'repro-assignment-history-pipe.test.ts',
     'serialize-extended.test.ts',
     'serialize-groups.test.ts',
@@ -93,7 +94,7 @@ import { resolveRoadmapStoreForFile } from '../../src/roadmap/store/factory'
 import { parseMeta, serializeMeta } from '../../src/roadmap/store/meta'
 import { assertSemanticRoundTrip, roadmapToShards } from '../../src/roadmap/store/migration'
 import { slugifyFeatureName } from '../../src/roadmap/store/monolith-store'
-import { writeRegeneratedRoadmap } from '../../src/roadmap/store/regenerator'
+import { regenerate, writeRegeneratedRoadmap } from '../../src/roadmap/store/regenerator'
 import { RoadmapStore, Shard } from '../../src/roadmap/store/roadmap-store'
 import { parseShard, serializeShard } from '../../src/roadmap/store/shard'
 import { ShardIO } from '../../src/roadmap/store/shard-store'

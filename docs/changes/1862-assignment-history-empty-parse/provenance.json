@@ -1,0 +1,123 @@
+{
+  "issues": [1862],
+  "route": "bug",
+  "stages": ["debugging"],
+  "reproducingTest": "packages/core/tests/roadmap/repro-1862-history-silent-deletion.test.ts",
+  "debugSession": ".harness/debug/resolved/1862-assignment-history-empty-parse.md (LOCAL ONLY — `.harness/.gitignore:4` ignores `debug/`, so the harness-debugging session file is not committed by design; its investigation log, hypothesis and resolution are reproduced in this provenance record, in the PR body, and in the module doc comment on parseAssignmentHistory)",
+  "rootCause": "packages/core/src/roadmap/assignment-history.ts — parseAssignmentHistory returned Ok([]) for BOTH 'no ## Assignment History heading' and 'heading present, zero records parsed'. serializeRoadmap (packages/core/src/roadmap/serialize.ts:59) omits the section when the record list is empty, so the two states produce byte-identical output and a failed parse reads as correct output all the way down: attachAssignmentHistory (store/meta.ts) leaves meta.assignmentHistory unset, assembleRoadmap (store/assembler.ts:29) defaults it to [], and the section is dropped at exit 0.",
+  "fix": "parseAssignmentHistory returns Err (UnreadableAssignmentHistoryError) whenever the section holds RECORD-SHAPED lines — `- **`/`* **`/`+ **` bullets or `|` table rows, matched after trimming — that no reader accounted for. Both readers now report which line indices ended up inside a record, so the guard fires on partial loss too, not only when zero records were read. The section is located with balanced fenced blocks masked out and bounded by the next heading at level <= 2. Two further changes ride with it: an escape hatch (regenerate/writeRegeneratedRoadmap take allowUnreadableHistory plus an onUnreadableHistoryCarried callback) that carries an unreadable section into the aggregate verbatim and reports that it did, and a refusal in the MCP groom archive writer that the new Err arm made reachable.",
+  "reviewRounds": [
+    {
+      "round": 1,
+      "verdict": "REQUEST CHANGES",
+      "findings": "trigger too broad; the new Err arm made a whole-file archive overwrite reachable; no escape hatch, so the refusal wedged the repo"
+    },
+    {
+      "round": 2,
+      "verdict": "REQUEST CHANGES",
+      "findings": "the round-2 fix introduced NEW silent-deletion regressions of the same class it closes — see reviewFindingsResolved entries 8-13. Four review subagents (typescript-strict, adversarial, compliance+bug, architecture) independently reproduced the fence-masking one against origin/main."
+    }
+  ],
+  "reviewFindingsResolved": [
+    {
+      "finding": "1 — The guard trigger was too broad: any non-blank line under the heading returned Err, so a prose placeholder (`_No assignments recorded yet._`), an HTML marker (`<!-- populated by sync -->`), a thematic break (`---`), a fenced ```markdown example, and content belonging to a FOLLOWING section all hard-failed the whole document.",
+      "resolution": "The guard fires only on lines that open (after trimming) with a CommonMark bullet marker followed by `**`, or with `|`. Fenced blocks are masked out of the READERS, and the section is bounded by the next heading at level <= 2.",
+      "tests": "repro-1862 'raises no false alarm' and 'bounded by the next heading at level <= 2'. Mutation-verified."
+    },
+    {
+      "finding": "2 — The new Err arm made a whole-file overwrite reachable. appendToArchive swallowed both a read failure and a parse failure, fabricated an empty archive and wrote it over docs/roadmap-archive.md, replacing every previously shipped row.",
+      "resolution": "appendToArchive returns Result<void>. Only ENOENT starts a fresh archive; any other read error, or a parse failure, refuses and writes nothing. persistGroomMonolith propagates the refusal BEFORE the archived rows leave the live roadmap.",
+      "tests": "roadmap-groom.test.ts 'groom refuses to overwrite an unreadable archive' — parse failure, non-ENOENT read failure (a directory in the archive's place), live-roadmap-untouched, and the ENOENT first-run path. Mutation-verified."
+    },
+    {
+      "finding": "3 — No escape hatch. The Err fails READS, so the pre-commit regen blocked every shard-touching commit including the one that repairs the file.",
+      "resolution": "regenerate/writeRegeneratedRoadmap take allowUnreadableHistory: the shard dir is re-read with the unreadable section spliced out of _meta.md and that exact text appended back. Surfaced as `harness roadmap regen --allow-unreadable-history` and HARNESS_ROADMAP_ALLOW_UNREADABLE_HISTORY.",
+      "tests": "repro-1862 'allowUnreadableHistory recovers a wedged repo'; regen.test.ts 'recovery hatch for an unreadable history section'. Mutation-verified."
+    },
+    {
+      "finding": "cleanup — remedy text, stale docstrings, docs, missing deleteFile, carve-out coverage, changeset patch->minor.",
+      "resolution": "All applied. The remedy now BRANCHES: the separator repair is offered only when no `|---|` row was seen, and the CLI-upgrade advice only when one was — round 2 printed the separator advice at operators staring at the separator.",
+      "tests": "repro-1862 'names a remedy that can actually repair...', 'offers the CLI upgrade — not the separator repair...', 'does not offer the separator repair when the separator row is present'."
+    },
+    {
+      "finding": "8 (round 2 regression, CRITICAL) — maskFencedBlocks ran an UNTERMINATED fence to EOF, per CommonMark. One stray ``` in a preamble or a `### Group:` narrative body blanked the real `## Assignment History` heading, so locateSection found nothing, parseAssignmentHistory took the absent-section arm and returned Ok([]) before the guard ran, and serializeRoadmap dropped the section at exit 0. A demonstrated regression against origin/main, which read the same document fine.",
+      "resolution": "Only BALANCED open/close pairs are masked; a dangling opener stays literal text. The invariant the function must preserve is now stated in its docstring: a heading present in `body` is never absent from the mask.",
+      "tests": "repro-1862 'reads the section when an UNTERMINATED fence appears before it'."
+    },
+    {
+      "finding": "9 (round 2 regression, CRITICAL) — the guard read the MASKED section, so a CLOSED fence INSIDE a real history section hid record-shaped lines from the guard while the readers also skipped them: records deleted, no Err.",
+      "resolution": "locateSection returns both views. The readers consume `masked` (a fenced example must not become phantom history); the guard inspects `raw`. A guard that cannot see a line cannot protect it.",
+      "tests": "repro-1862 'does not let a fence INSIDE the section hide records from the guard'."
+    },
+    {
+      "finding": "10 (round 2 regression, CRITICAL) — bounding the section on a heading of ANY level cut a history grouped by `### 2026 Q1` sub-headings off at its first subheading. The body was then empty: zero records AND zero record-shaped lines, so the guard could not fire and the whole grouped history was deleted at exit 0.",
+      "resolution": "The bound is the next heading at level <= 2. An `###` under an `##` is that section's subsection in markdown and belongs inside it; a following `# ` or `## ` is a real section break. Level <= 2 is wrong in neither direction. packages/core/src/roadmap/preservation.ts:130 — the write-time data-loss guard behind MonolithStore — was moved to the identical bound, since a boundary disagreement there grants history tolerances to lines serializeRoadmap will delete.",
+      "tests": "repro-1862 'reads a history grouped under `###` sub-headings' and the two level-<=2 bounding tests."
+    },
+    {
+      "finding": "11 (IMPORTANT) — the guard only fired at records.length === 0, so ONE readable record switched it off entirely and any number of unreadable record-shaped lines were dropped in silence. That is the shape a partially-completed format migration actually produces.",
+      "resolution": "Both readers report the line indices they consumed; the guard fires on any record-shaped line no reader accounted for, regardless of how many records were read. The legacy reader marks header rows consumed only once it has seen the `|---|` separator, so a well-formed table with zero data rows stays Ok([]) while a separator-less one still fails.",
+      "tests": "repro-1862 'fails on PARTIAL loss' and 'reads a well-formed legacy table with zero data rows as an empty history'."
+    },
+    {
+      "finding": "12 (IMPORTANT) — three silent-deletion holes around the section boundary: a CRLF document never matched the heading regex (every Windows adopter without eol=lf); a 4-space-indented ``` was treated as a fence opener (it is an indented code block in CommonMark) and, run to EOF, took the section with it; and `## Assignment History (legacy)` — the shape an operator produces while hand-repairing a table — located no section at all and deleted a readable table.",
+      "resolution": "Heading match accepts `\\r?\\n` and section lines are split CRLF-tolerantly; FENCE_LINE caps indentation at 3 spaces; a heading that names the section without matching it exactly is now an error naming the heading, not a silent Ok([]).",
+      "tests": "repro-1862 'reads a CRLF document', 'does not treat a 4-space-indented ``` as a fence opener', 'fails on a heading that names the section without matching it exactly'."
+    },
+    {
+      "finding": "13 (IMPORTANT) — the escape hatch fired with no signal at all, and the env var is sticky. An operator who exports HARNESS_ROADMAP_ALLOW_UNREADABLE_HISTORY once in a shell profile or CI would disable the guard permanently with nothing in the output to show for it — the same silence the guard exists to end. The env parsing was also a DENYLIST, so `=off`, `=no` and `=disabled` all ENABLED the bypass.",
+      "resolution": "RegenerateOptions.onUnreadableHistoryCarried reports the salvage; runRoadmapRegen logs a warning naming the section and stating that the aggregate still does not parse, and reports carriedUnreadableHistory in --format json. Env parsing moved to the repo-wide allowlist helper packages/cli/src/utils/env-flag.ts envEnabled (1/true/yes/on) — a switch that disables a data-loss guard must fail closed.",
+      "tests": "repro-1862 'reports that it carried the section', 'does not fire the callback on a clean regen'; regen.test.ts 'warns loudly and reports the carry', 'surfaces the carry in --format json', 'only an allowlisted value enables the hatch'."
+    },
+    {
+      "finding": "14 (IMPORTANT) — store/meta.ts answered 'where does the history section start' with a raw body.indexOf/includes, which is neither column-anchored nor fence-aware. For the exact case fence masking exists for — a preamble carrying a fenced grammar example — the preamble was truncated at the FENCED heading, deleting the rest of the preamble and re-emitting a _meta.md whose fence was left open, which then tripped finding 8 on the next read.",
+      "resolution": "assignment-history.ts exports findAssignmentHistoryHeadingIndex; parsePreamble and attachAssignmentHistory both use it, so the module boundary owns exactly one answer.",
+      "tests": "covered transitively by the fenced-preamble cases; the desync is unreachable once both call the same helper."
+    },
+    {
+      "finding": "15 (IMPORTANT) — core's error message hardcoded CLI surface (`--allow-unreadable-history`, the env var, `harness roadmap regen`) four lines below the module's own contract that it 'knows nothing about where the document it parses lives'. The remedy was unreachable advice for the MCP tool and the dashboard, and nothing coupled the string to the constant that defines the flag.",
+      "resolution": "Core's message is diagnosis plus document repair only. runRoadmapRegen appends the recovery sentence, built from ALLOW_UNREADABLE_HISTORY_ENV, so the advice is testable against the real constant and each front-end can offer its own.",
+      "tests": "regen.test.ts 'refuses by default, naming the section and the hatch' asserts the composed message contains both the flag and the env constant."
+    }
+  ],
+  "callerAudit": {
+    "note": "Round 1 claimed 'every caller already propagates that arm' without enumerating. Round 2 corrected the claim but listed only the caller it had happened to find. This is the full transitive enumeration.",
+    "direct": [
+      "packages/core/src/roadmap/parse.ts (parseRoadmap) — returns the Err.",
+      "packages/core/src/roadmap/store/meta.ts (attachAssignmentHistory) — returns the Err."
+    ],
+    "transitivePropagate": [
+      "packages/core/src/roadmap/store/shard-store.ts readShardDir — propagates.",
+      "packages/core/src/roadmap/store/shard-store.ts setAssignmentHistory — propagates; hard-fails a WRITE, no hatch.",
+      "packages/core/src/roadmap/store/shard-store.ts stampLastSynced — propagates; hard-fails an ordinary sync write, no hatch.",
+      "packages/core/src/roadmap/store/monolith-store.ts MonolithStore.load — propagates.",
+      "packages/core/src/roadmap/store/migration.ts assertRegeneratedRoundTrip — propagates.",
+      "packages/core/src/roadmap/store/regenerator.ts regenerate / writeRegeneratedRoadmap — returns before writing; the ONLY site with the hatch.",
+      "packages/cli/src/commands/roadmap/regen.ts runRoadmapRegen — CLIError, non-zero exit.",
+      "packages/cli/src/commands/roadmap/shard.ts — propagates.",
+      "packages/cli/src/commands/roadmap/unshard.ts — propagates.",
+      "packages/cli/src/commands/roadmap/migrate.ts — propagates.",
+      "packages/cli/src/commands/roadmap/triage.ts (the ~849 site) — propagates."
+    ],
+    "transitiveDegrade": [
+      "packages/cli/src/commands/validate.ts — abstains via unavailableChecks rather than claiming a comparison it did not make. Conservative and correct.",
+      "packages/cli/src/commands/roadmap/triage.ts (the ~591 site) — swallows into note: 'roadmap-parse-error'. No write, so no data loss, but auto-pick silently degrades to 'no candidates' on a wedged roadmap."
+    ],
+    "didNotPropagate": [
+      "packages/cli/src/mcp/tools/roadmap.ts appendToArchive — reached parseRoadmap transitively, dropped the Err into a catch, and overwrote the whole archive. Fixed in this PR (finding 2)."
+    ]
+  },
+  "knownLimitations": [
+    "The hatch is regen-only. Every other propagating caller above stays blocked until the section itself is repaired, and the aggregate the hatch writes does not itself parse. Stated in the warning the CLI prints, in the guide, and in RegenerateOptions' docstring — the hatch buys a commit, not a working repo.",
+    "RoadmapMeta has no model for content that FOLLOWS the history section in _meta.md, so such content is relocated into the aggregate's preamble by a regen. Pre-existing, orthogonal to this fix, and not made worse by it; worth a separate issue.",
+    "maskFencedBlocks masks the whole document to consume only the section, costing roughly 1.1ms on this repo's 357KB aggregate. Correct but wasteful; a single line-wise pass would avoid the copy. Not on any hot loop measured here."
+  ],
+  "verification": {
+    "reproducingTestBefore": "Against origin/main every assertion in the '#1862 ...' blocks fails by ASSERTION, not by a compile or resolution error.",
+    "reproducingTestAfter": "core roadmap suite green; see PR body for whole-suite counts.",
+    "mutationChecks": "Each behavioural change was individually reverted in place and the suite re-run: widened trigger 4 failed; fence masking disabled 2 failed; H2-only section bounding 2 failed; `> 0` carve-out deleted 5 failed; escape hatch disabled (core rebuilt) 2 CLI failed; archive fabricate-and-write restored 2 CLI failed. Every one restored to green.",
+    "adversarialRegressionCheck": "The round-2 regressions were each reproduced against origin/main by an independent review subagent before being fixed, and each now has a test that fails without its fix.",
+    "liveDataRegen": "Built CLI ran `harness roadmap regen` against this repo's real docs/roadmap.d — docs/roadmap.md byte-identical (no git diff)."
+  },
+  "closingKeyword": "Closes #1862"
+}
