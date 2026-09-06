@@ -31,10 +31,19 @@ export interface SkillsIndex {
 }
 
 /**
- * Compute a hash of all skill.yaml mtimes across the given directories.
+ * Compute a hash of all skill.yaml mtimes across the given directories, plus the
+ * tier overrides applied on top of them.
  * Used for staleness detection — if the hash changes, the index needs rebuilding.
+ *
+ * `tierOverrides` participates because it materially changes the built index
+ * (parseSkillEntry applies it to every entry's `tier`). Keyed on mtimes alone,
+ * a changed override map was invisible to the cache and the previous caller's
+ * tiers were served indefinitely.
  */
-export function computeSkillsDirHash(skillsDirs: string[]): string {
+export function computeSkillsDirHash(
+  skillsDirs: string[],
+  tierOverrides?: Record<string, number>
+): string {
   const hash = crypto.createHash('sha256');
   for (const dir of skillsDirs) {
     if (!fs.existsSync(dir)) continue;
@@ -45,6 +54,12 @@ export function computeSkillsDirHash(skillsDirs: string[]): string {
       const stat = fs.statSync(yamlPath);
       hash.update(`${yamlPath}:${stat.mtimeMs}`);
     }
+  }
+  const overrideEntries = Object.entries(tierOverrides ?? {}).sort(([a], [b]) =>
+    a.localeCompare(b)
+  );
+  for (const [name, tier] of overrideEntries) {
+    hash.update(`tier:${name}=${tier}`);
   }
   return hash.digest('hex');
 }
@@ -133,7 +148,10 @@ export function buildIndex(
   const skillsDirs = resolveAllSkillsDirsWithSource(platform, projectRoot);
   const index: SkillsIndex = {
     version: 1,
-    hash: computeSkillsDirHash(skillsDirs.map((d) => d.dir)),
+    hash: computeSkillsDirHash(
+      skillsDirs.map((d) => d.dir),
+      tierOverrides
+    ),
     generatedAt: new Date().toISOString(),
     skills: {},
   };
@@ -156,7 +174,7 @@ export function loadOrRebuildIndex(
 ): SkillsIndex {
   const indexPath = path.join(projectRoot, '.harness', 'skills-index.json');
   const skillsDirs = resolveAllSkillsDirsWithSource(platform, projectRoot).map((d) => d.dir);
-  const currentHash = computeSkillsDirHash(skillsDirs);
+  const currentHash = computeSkillsDirHash(skillsDirs, tierOverrides);
 
   if (fs.existsSync(indexPath)) {
     try {
