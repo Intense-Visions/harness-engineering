@@ -29,7 +29,7 @@ describe('setup-mcp command', () => {
   });
 
   describe('createSetupMcpCommand', () => {
-    it('creates command with correct name', () => {
+    it('registers the subcommand as "setup-mcp"', () => {
       const cmd = createSetupMcpCommand();
       expect(cmd.name()).toBe('setup-mcp');
     });
