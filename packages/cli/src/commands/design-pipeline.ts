@@ -33,10 +33,12 @@ interface DesignPipelineCliOptions {
    * rather than after the key Commander produces is what let the inert reads
    * at the bottom of this file typecheck cleanly (#1881).
    *
-   * Non-optional on purpose: Commander populates both on EVERY parse, bare run
-   * included. Declaring them `?` would reintroduce the exact hole this fix
-   * closed — it would make an `=== undefined` read, which can never be true,
-   * look like a legitimate way to detect the flag.
+   * Non-optional because Commander populates both on EVERY parse, bare run
+   * included, so the type mirrors runtime reality. This is documentation, not
+   * enforcement: TypeScript exempts `=== undefined` from its no-overlap check,
+   * so `opts.freshen === undefined` compiles clean against `boolean` exactly as
+   * it does against `boolean | undefined`. What actually guards against that
+   * dead read is the mirrored pair of tests, not the compiler.
    */
   freshen: boolean;
   fill: boolean;
