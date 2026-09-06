@@ -132,24 +132,37 @@ export class InteractionQueue {
    * List all interactions (regardless of status).
    */
   async list(): Promise<PendingInteraction[]> {
+    let files: string[];
     try {
-      const files = await fs.readdir(this.dir);
-      const jsonFiles = files.filter((f) => f.endsWith('.json'));
-      const interactions: PendingInteraction[] = [];
-
-      for (const file of jsonFiles) {
-        const filePath = path.join(this.dir, file);
-        const raw = await fs.readFile(filePath, 'utf-8');
-        interactions.push(JSON.parse(raw) as PendingInteraction);
-      }
-
-      return interactions;
+      files = await fs.readdir(this.dir);
     } catch (err) {
       if ((err as NodeJS.ErrnoException).code === 'ENOENT') {
         return [];
       }
       throw err;
     }
+
+    const jsonFiles = files.filter((f) => f.endsWith('.json'));
+    const interactions: PendingInteraction[] = [];
+
+    for (const file of jsonFiles) {
+      const filePath = path.join(this.dir, file);
+      let raw: string;
+      try {
+        raw = await fs.readFile(filePath, 'utf-8');
+      } catch (err) {
+        // The entry was listed by `readdir` but is gone by the time we read it
+        // (a concurrent `push()` unlinks the superseded pending file for an
+        // issue). Skip just that entry -- the ENOENT guard above is for a
+        // missing DIRECTORY, and letting it also catch a single vanished file
+        // discarded every interaction already read and reported an empty queue.
+        if ((err as NodeJS.ErrnoException).code === 'ENOENT') continue;
+        throw err;
+      }
+      interactions.push(JSON.parse(raw) as PendingInteraction);
+    }
+
+    return interactions;
   }
 
   /**
