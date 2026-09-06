@@ -23,7 +23,14 @@ interface TestCraftCliOptions {
   frameworks?: string[];
   maxFiles?: string;
   maxTestsPerFile?: string;
-  noSourcePair?: boolean;
+  /**
+   * Backs `--no-source-pair`. Commander stores a negated flag under its
+   * POSITIVE camelCase key — `true` by default, `false` when the flag is
+   * passed — and never creates a `noSourcePair` key. Declaring it that way here
+   * is what let the wrong read typecheck cleanly (#1882). Non-optional because
+   * Commander always populates it: `true` by default, `false` when passed.
+   */
+  sourcePair: boolean;
   emit?: string;
 }
 
@@ -83,7 +90,10 @@ function buildInput(opts: TestCraftCliOptions, cwd: string): TestCraftInput {
   if (opts.maxFiles !== undefined) input.maxFiles = parseInt(opts.maxFiles, 10);
   if (opts.maxTestsPerFile !== undefined)
     input.maxTestsPerFile = parseInt(opts.maxTestsPerFile, 10);
-  if (opts.noSourcePair === true) input.sourcePair = false;
+  // `--no-source-pair` arrives as `sourcePair: false`; its absence as `true`.
+  // Guard on the explicit `false` so the default path leaves the property off
+  // the input entirely rather than sending a redundant `true`.
+  if (opts.sourcePair === false) input.sourcePair = false;
   if (opts.emit !== undefined) input.emitTo = opts.emit;
   return input;
 }

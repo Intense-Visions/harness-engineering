@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'packages/cli/src/commands/roadmap'
-sourceHash: '1eae05ca49bdf4b43c84c62e45ea22a4f9d90218befe76e35b93389c577adecc'
+sourceHash: 'bfce80ee8224fb008f90769950e678d768872d968403811c626e185f203263b9'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
@@ -46,6 +46,7 @@ export createRoadmapCommand
 import { resolveConfig } from '../../config/loader'
 import { loadGraphStore } from '../../mcp/utils/graph-loader'
 import { logger } from '../../output/logger'
+import { envEnabled } from '../../utils/env-flag'
 import { CLIError, ExitCode } from '../../utils/errors'
 import { DEFAULT_REGEN_COMMAND, HOOK_BLOCK_BEGIN, HOOK_BLOCK_END, buildRegenBlock, createRoadmapInstallHookCommand, mergeHookContent, runRoadmapInstallHook } from './install-hook'
 import { createRoadmapMigrateCommand } from './migrate'

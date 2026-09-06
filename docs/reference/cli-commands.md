@@ -1699,6 +1699,7 @@ Regenerate the aggregate from the shard directory (docs/roadmap.d)
 
 - `--cwd` — Project root (defaults to the current working directory)
 - `--dry-run` — Report what would be regenerated without writing anything
+- `--allow-unreadable-history` — Recovery hatch: carry an unparseable "## Assignment History" section into the aggregate verbatim instead of refusing (also settable as HARNESS_ROADMAP_ALLOW_UNREADABLE_HISTORY=1)
 - `--format` — Output format: "human" (default) or "json" (single JSON object for CI consumers) (default: "human")
 
 ### `harness roadmap shard`

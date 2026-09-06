@@ -36,4 +36,5 @@ export {
 export type { ResolveRoadmapStoreOptions, ResolveRoadmapStoreForFileOptions } from './factory';
 export { applyRoadmapDiff } from './apply-diff';
 export { regenerate, writeRegeneratedRoadmap } from './regenerator';
+export type { RegenerateOptions } from './regenerator';
 export { roadmapToShards, assertSemanticRoundTrip, assertRegeneratedRoundTrip } from './migration';
