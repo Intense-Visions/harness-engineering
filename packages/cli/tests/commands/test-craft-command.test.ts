@@ -142,24 +142,29 @@ describe('test-craft command — option parsing', () => {
   });
 
   it('omits unsupplied flags from the input entirely rather than setting them undefined', async () => {
+    // Whole-shape assertion, so it also guards the #1882 default path against
+    // over-correction: Commander populates `sourcePair: true` when
+    // `--no-source-pair` is omitted, and a fix that forwarded that default
+    // would add a `sourcePair` key here and fail this test.
     await runCraftCommand(createTestCraftCommand(), { globalArgs: ['--cwd', PROJECT] });
 
     expect(Object.keys(capturedInput())).toEqual(['path']);
   });
 
-  it('does not reach the engine with --no-source-pair (characterizes a live defect)', async () => {
-    // CHARACTERIZATION, NOT ENDORSEMENT. Commander stores a `--no-x` flag under
-    // key `x` (false when passed, true by default) — it never populates
-    // `noSourcePair`, which is the key `buildInput` reads. So the documented
-    // "Skip source-pairing resolution" flag is inert: `sourcePair` never
-    // reaches the engine. This test pins the CURRENT behavior and is expected
-    // to fail — loudly, by design — the moment the flag is wired correctly.
+  it('disables source pairing at the engine when --no-source-pair is passed', async () => {
+    // Regression guard for #1882. Commander stores a `--no-x` flag under the
+    // POSITIVE camelCase key (`sourcePair`: false when passed, true by
+    // default) and never populates `noSourcePair`. `buildInput` used to read
+    // `opts.noSourcePair`, so this documented flag was inert and pairing ran
+    // regardless. The engine disables pairing only on a literal `false`
+    // (`input.sourcePair !== false`), so an absent property is not enough —
+    // assert the value that actually reaches it.
     await runCraftCommand(createTestCraftCommand(), {
       globalArgs: ['--cwd', PROJECT],
       args: ['--no-source-pair'],
     });
 
-    expect(capturedInput()).not.toHaveProperty('sourcePair');
+    expect(capturedInput().sourcePair).toBe(false);
   });
 });
 
