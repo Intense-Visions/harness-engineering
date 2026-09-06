@@ -1114,7 +1114,7 @@ last_manual_edit: 2026-06-27T12:51:51.967Z
 
 ### Never emit a ranked list without a stability check
 
-- **Status:** planned
+- **Status:** done
 - **Spec:** —
 - **Summary:** A contributor-scoring exercise across 69 people and two adjacent 45-day windows produced a Spearman rank correlation of **0.62 overall, near zero in the middle band, with a mean movement of 12–15 places**. Individual position was not reproducible; only broad tier membership was. The same exercise also produced an invalid band analysis on the first pass — bands defined by the *mean* of two measurements force those measurements to anti-correlate within band, yielding impossible negative correlations. Both failure modes apply to every ranked output the harness emits: hotspots, risk areas, craft targets, critical paths, skill recommendations. Build: any ordered output computes over two windows, reports the correlation, and **degrades to tiers when correlation is low** rather than presenting a spurious order; bands are always defined on one window and validated against the other, never on the average. Turns a methodological trap into a mechanical guard.
 - **Blockers:** —
@@ -1547,7 +1547,7 @@ last_manual_edit: 2026-06-27T12:51:51.967Z
 
 ### Track merged-but-unreleased inventory as a first-class metric
 
-- **Status:** planned
+- **Status:** done
 - **Spec:** —
 - **Summary:** A dogfood consumer with **1,132 merged pull requests has 0 GitHub releases and 0 tags**, alongside **138 pending changesets** — every one an unshipped unit of declared change. The release pipeline is configured and active (`release.yml`, plus several per-target deploy workflows) and 30 deployments exist across preview and production environments, so this is not a broken pipeline but an unmeasured one: merge throughput rose without release throughput following, and nothing in the harness noticed. Merged is not shipped, and a throughput claim built on merge counts is inflated by exactly this gap. Build: pending-changeset count and age, merged-but-unreleased PR count, and time-from-merge-to-release as tracked signals per surface, with a threshold that warns when inventory outgrows release cadence. Cheap to compute, and it converts a silent accumulation into a visible one.
 - **Blockers:** —
@@ -1558,7 +1558,7 @@ last_manual_edit: 2026-06-27T12:51:51.967Z
 
 ### Instrument rework rate per surface
 
-- **Status:** planned
+- **Status:** done
 - **Spec:** —
 - **Summary:** On a dogfood consumer, **215 of 1,411 distinct issue references appear in more than one commit — 15.2%**. Some of that is legitimately multi-part work; the remainder is rework, and rework at the autonomous tier is waste that scales directly with the token budget rather than with headcount. Today nothing distinguishes "this issue took four PRs because it was large" from "this issue took four PRs because the first three were wrong," so the harness cannot tell an operator that a surface is churning. Build: per-surface rework rate from issue-to-PR fan-out plus superseded/closed-unmerged PRs, separated from planned multi-part delivery by roadmap linkage, and surfaced next to throughput so the two are never read apart. Prerequisite for claiming any efficiency win: a 10x throughput gain with a 15% rework rate is a 10x waste gain too.
 - **Blockers:** —
@@ -1945,7 +1945,7 @@ last_manual_edit: 2026-06-27T12:51:51.967Z
 
 ### Emit a machine-readable provenance trailer from agent-authored commits
 
-- **Status:** planned
+- **Status:** done
 - **Spec:** —
 - **Summary:** Harness-authored work is statistically invisible. Measured across two orgs: a personal org carries **69 AI co-author trailers in 6,570 commits (1%)**, and a dogfood product repo **974 in 4,618 (21%)** — while its highest-volume author shows **5 trailers across 3,988 commits**, because the fleet path emits nothing. Consequences compound: org-wide AI-adoption reporting undercounts by roughly 5x and cannot distinguish the autonomous tier from interactive assistance (the distinction that explains an 18x throughput gap); cost attribution has no key to join spend to authorship; and in a regulated codebase there is no record of which agent, skill and version produced a change touching a gated path. Build: a distinct trailer — `Harness-Run: <skill>@<version>` plus lane and agent id — emitted by the fleet path rather than co-opting `Co-authored-by`, so tier detection is mechanical and the trailer doubles as the accountability record. Foundation for `cost-per-merged-pr-attribution` and for human-in-the-loop attestation on gated paths.
 - **Blockers:** —
@@ -2435,6 +2435,17 @@ last_manual_edit: 2026-06-27T12:51:51.967Z
 - **Priority:** —
 - **External-ID:** github:Intense-Visions/harness-engineering#603
 
+### Orchestrator Codex Backend Subprocess Env Air-Gap (follow-up)
+
+- **Status:** done
+- **Spec:** —
+- **Summary:** Apply the subprocess env allowlist air-gap to the Codex backend. The gateway policy-envelope work air-gapped the Claude backend's subprocess spawn (replaced `env: process.env` with an explicit allowlist), but the Codex backend (`packages/orchestrator/src/backends/codex.ts`) still passes the full parent environment to its spawned subprocess — the same leak, unpatched. Extend the shared subprocess-env allowlist + PolicyMetadata stamping to codex.ts so both backends enforce the boundary identically. Follow-up to the orchestrator gateway policy envelope + subprocess air-gap.
+- **Blockers:** —
+- **Plan:** —
+- **Assignee:** —
+- **Priority:** —
+- **External-ID:** github:Intense-Visions/harness-engineering#1158
+
 ### Orchestrator Gateway Policy Envelope and Subprocess Air-Gap
 
 - **Status:** done
@@ -2445,17 +2456,6 @@ last_manual_edit: 2026-06-27T12:51:51.967Z
 - **Assignee:** —
 - **Priority:** —
 - **External-ID:** github:Intense-Visions/harness-engineering#604
-
-### Orchestrator Codex Backend Subprocess Env Air-Gap (follow-up)
-
-- **Status:** planned
-- **Spec:** —
-- **Summary:** Apply the subprocess env allowlist air-gap to the Codex backend. The gateway policy-envelope work air-gapped the Claude backend's subprocess spawn (replaced `env: process.env` with an explicit allowlist), but the Codex backend (`packages/orchestrator/src/backends/codex.ts`) still passes the full parent environment to its spawned subprocess — the same leak, unpatched. Extend the shared subprocess-env allowlist + PolicyMetadata stamping to codex.ts so both backends enforce the boundary identically. Follow-up to the orchestrator gateway policy envelope + subprocess air-gap.
-- **Blockers:** —
-- **Plan:** —
-- **Assignee:** —
-- **Priority:** —
-- **External-ID:** github:Intense-Visions/harness-engineering#1158
 
 ### Standardize Parallel Execution
 
@@ -2470,7 +2470,7 @@ last_manual_edit: 2026-06-27T12:51:51.967Z
 
 ### Make fan-out rate-limit aware, not just slot aware
 
-- **Status:** planned
+- **Status:** done
 - **Spec:** —
 - **Summary:** Fleet concurrency is governed by compute slots (`min(16, CPUs - 2)` per workflow, with `fleet-command` holding each lane to a share of a global pool) but not by the API budgets the leaves actually consume. Measured during a 90-day org analysis: GitHub **code search is capped at 10 requests per minute**, and secondary rate limits fired repeatedly under modest parallelism — 10-way fan-out on the commits API produced silent under-fetching that returned wrong answers rather than errors (287 of 430 repositories read as zero). A slot-governed fleet whose leaves are API-bound will therefore degrade into throttling and, worse, into quietly incomplete results. Build: per-resource budgets alongside slot budgets, backoff shared across a fleet rather than per-leaf, and a hard rule that a truncated or throttled fetch fails the leaf instead of returning partial data. Pairs with `standardize-parallel-execution`; the failure mode is correctness, not just speed.
 - **Blockers:** —
