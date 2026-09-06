@@ -28,7 +28,7 @@ import type { TokenSet } from '../resolvers/tokens.js';
 
 // #1824: only CSS-valid hex lengths (3, 4, 6, 8). `{3,8}` also admitted 5 and 7,
 // which can never be a colour. Longest alternative first so `#aabbccdd` matches as 8.
-const HEX_PATTERN = /#(?:[0-9a-fA-F]{8}|[0-9a-fA-F]{6}|[0-9a-fA-F]{4}|[0-9a-fA-F]{3})\b/g;
+const HEX_COLOR_PATTERN = /#(?:[0-9a-fA-F]{8}|[0-9a-fA-F]{6}|[0-9a-fA-F]{4}|[0-9a-fA-F]{3})\b/g;
 const FONT_FAMILY_PATTERN = /(?:fontFamily|font-family)\s*[:=]\s*['"`]([^'"`,]+)['"`]/g;
 const PX_VALUE_PATTERN =
   /\b(?:margin(?:Top|Right|Bottom|Left)?|padding(?:Top|Right|Bottom|Left)?|gap|top|right|bottom|left)\s*[:=]\s*['"`]?(\d+(?:\.\d+)?)px\b/g;
@@ -67,8 +67,8 @@ function detectHexBypass(
   const findings: DriftFinding[] = [];
   const seenAtLine = new Set<string>();
   let match: RegExpExecArray | null;
-  HEX_PATTERN.lastIndex = 0;
-  while ((match = HEX_PATTERN.exec(source)) !== null) {
+  HEX_COLOR_PATTERN.lastIndex = 0;
+  while ((match = HEX_COLOR_PATTERN.exec(source)) !== null) {
     const hex = match[0]!;
     if (!isHexColorContext(source, ctx, match.index, hex)) continue;
     const lc = hex.toLowerCase();
