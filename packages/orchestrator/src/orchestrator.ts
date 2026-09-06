@@ -784,6 +784,17 @@ export class Orchestrator extends EventEmitter {
   private stageCheckpoints = new Map<string, Map<number, StageRun>>();
   private server?: OrchestratorServer;
   private interval?: ReturnType<typeof setTimeout> | undefined;
+  /**
+   * Shutdown latch for the self-rearming polling loop. `stop()` clears
+   * {@link interval}, but the loop re-arms itself from INSIDE the tick's own
+   * `.finally` (see `scheduleNextTick` in {@link start}) — so a `stop()` that lands
+   * after the poll timer fired but before that tick settles was silently undone and
+   * a NEW timer was armed on a stopped orchestrator (the loop kept polling, and the
+   * refed timer kept the event loop alive, forever after shutdown). `stop()` raises
+   * this latch and `scheduleNextTick` refuses to re-arm while it is up; `start()`
+   * lowers it so a restart still polls.
+   */
+  private stopRequested = false;
   private heartbeatInterval?: ReturnType<typeof setInterval> | undefined;
   private logger: StructuredLogger;
   private interactionQueue: InteractionQueue;
@@ -5032,6 +5043,9 @@ export class Orchestrator extends EventEmitter {
     const jitterMs = this.config.polling.jitterMs ?? 0;
 
     const scheduleNextTick = () => {
+      // Never re-arm a stopped orchestrator: this runs from the in-flight tick's
+      // own `.finally`, which can settle AFTER `stop()` already cleared the timer.
+      if (this.stopRequested) return;
       const jitter = jitterMs > 0 ? Math.round((Math.random() * 2 - 1) * jitterMs) : 0;
       const delay = Math.max(0, intervalMs + jitter);
       this.interval = setTimeout(() => {
@@ -5039,6 +5053,7 @@ export class Orchestrator extends EventEmitter {
       }, delay);
     };
 
+    this.stopRequested = false;
     scheduleNextTick();
     void this.tick(); // Initial tick (no jitter)
 
@@ -5068,6 +5083,9 @@ export class Orchestrator extends EventEmitter {
   public async stop(): Promise<void> {
     // Seal the black-box first so an abrupt teardown still leaves a stamped record.
     this.flightRecorder?.finishRun();
+    // Raise the shutdown latch BEFORE clearing the timer, so an in-flight tick's
+    // `.finally` cannot re-arm the polling loop behind this teardown.
+    this.stopRequested = true;
     if (this.interval) {
       clearTimeout(this.interval);
       this.interval = undefined;

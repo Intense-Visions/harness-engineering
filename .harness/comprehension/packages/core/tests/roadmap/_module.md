@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'packages/core/tests/roadmap'
-sourceHash: '8c924a05853c748c2179480a84acf9673779217f23ffb2a3883f843c297770f3'
+sourceHash: '3a094409cce9039ee51bc1a440a6c4c84c9b2b6f462f2ccf8901e9ee8b2c2df7'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
@@ -42,6 +42,7 @@ members:
     'sync-engine-guards.test.ts',
     'sync-engine.test.ts',
     'sync.test.ts',
+    'tracker-config-diagnosis.test.ts',
     'tracker-sync.test.ts',
   ]
 ---
@@ -98,7 +99,7 @@ import { decodeSummaryField, encodeSummaryField } from '../../src/roadmap/summar
 import { syncRoadmap } from '../../src/roadmap/sync'
 import { _resetSyncMutex, fullSync, syncFromExternal, syncRowToExternal, syncToExternal } from '../../src/roadmap/sync-engine'
 import { TrackedFeature } from '../../src/roadmap/tracker'
-import { loadTrackerSyncConfig } from '../../src/roadmap/tracker-config'
+import { SYNC_SUPPORTED_TRACKER_KINDS, diagnoseTrackerSyncConfig, explainTrackerSyncConfig, loadTrackerSyncConfig } from '../../src/roadmap/tracker-config'
 import { ExternalSyncOptions, TrackerSyncAdapter, resolveReverseStatus } from '../../src/roadmap/tracker-sync'
 import { GitHubIssuesTrackerAdapter } from '../../src/roadmap/tracker/adapters/github-issues'
 import { emitEvent } from '../../src/state/event-sourcing'

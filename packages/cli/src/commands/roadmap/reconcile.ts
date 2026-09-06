@@ -7,6 +7,8 @@ import {
   resolveRoadmapStore,
   roadmapSourceExists,
   loadTrackerSyncConfig,
+  diagnoseTrackerSyncConfig,
+  explainTrackerSyncConfig,
   reconcileDoneFromClosedIssues,
   buildExternalId,
   GitHubIssuesSyncAdapter,
@@ -180,7 +182,9 @@ async function resolveAdapter(
   if (!config) {
     return Err(
       new CLIError(
-        'No tracker configured in harness.config.json; cannot fetch issue state offline',
+        // Same distinction as sync-deps: name WHICH problem, not just "not
+        // configured" (issue #1863).
+        `Cannot fetch issue state: ${explainTrackerSyncConfig(diagnoseTrackerSyncConfig(cwd))}`,
         ExitCode.ERROR
       )
     );

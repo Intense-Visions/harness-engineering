@@ -70,7 +70,13 @@ export { parseExternalId, buildExternalId, githubRepoPath } from './external-id'
 /**
  * Shared tracker config loader for harness.config.json.
  */
-export { loadTrackerSyncConfig } from './tracker-config';
+export {
+  loadTrackerSyncConfig,
+  diagnoseTrackerSyncConfig,
+  explainTrackerSyncConfig,
+  SYNC_SUPPORTED_TRACKER_KINDS,
+} from './tracker-config';
+export type { TrackerConfigDiagnosis } from './tracker-config';
 
 /**
  * Default `roadmap.tracker.repo` derivation from the git origin remote.

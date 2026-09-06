@@ -178,14 +178,14 @@ import {
 } from './tools/constraint-emergence.js';
 import { runCIChecksDefinition, handleRunCIChecks } from './tools/ci.js';
 import { generateBlueprintDefinition, handleGenerateBlueprint } from './tools/blueprint.js';
-// Phase 2 Task 11: MCP wrappers around the Gateway API bridge primitives.
+// MCP wrappers around the Gateway API bridge primitives.
 import {
   triggerMaintenanceJobDefinition,
   handleTriggerMaintenanceJob,
   listGatewayTokensDefinition,
   handleListGatewayTokens,
 } from './tools/gateway-tools.js';
-// Phase 3 Task 9: MCP wrapper for the webhook subscription endpoint.
+// MCP wrapper for the webhook subscription endpoint.
 import { subscribeWebhookDefinition, handleSubscribeWebhook } from './tools/webhook-tools.js';
 // Phase 4: emit a skill proposal into `.harness/proposals/`.
 import { emitSkillProposalDefinition, handleEmitSkillProposal } from './tools/skill-proposal.js';

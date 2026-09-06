@@ -9,6 +9,9 @@
  * prose. This module detects that unpreservable content so the monolith store can
  * refuse the destructive write instead of losing it.
  */
+// The `## Assignment History` heading is owned by `./assignment-history`, the
+// single source of truth shared with that section's emitter and both readers.
+import { ASSIGNMENT_HISTORY_HEADING } from './assignment-history';
 
 /**
  * Field keys the roadmap model round-trips. Source of truth is
@@ -30,14 +33,22 @@ const MODELED_FIELD_KEYS: ReadonlySet<string> = new Set([
   'Priority',
   'External-ID',
   'Updated-At',
-  // `## Assignment History` record bullets (#1811). The section stopped being a
-  // pipe table and became four `- **Key:** value` bullets per record, reusing the
-  // same line grammar, so its lines are preservable for the same reason a feature
-  // row's are. `Assignee` above is shared with the feature block.
-  'Feature',
-  'Action',
-  'Date',
 ]);
+
+/**
+ * Field keys modeled ONLY inside the `## Assignment History` section (#1811),
+ * where a record is four `- **Key:** value` bullets reusing the feature-row line
+ * grammar. (`Assignee` is the fourth; it is already modeled document-wide above
+ * because a feature row carries it too.)
+ *
+ * These are deliberately section-scoped rather than merged into
+ * {@link MODELED_FIELD_KEYS}: `parseFeatureBlock` does NOT read `Feature`,
+ * `Action` or `Date`, so a hand-authored `- **Date:** …` bullet inside a FEATURE
+ * block is dropped by a `serializeRoadmap` rewrite exactly like the `- **Issue:**`
+ * bullet this guard was built to catch (#839). Declaring them preservable
+ * everywhere let that loss through silently.
+ */
+const HISTORY_ONLY_FIELD_KEYS: ReadonlySet<string> = new Set(['Feature', 'Action', 'Date']);
 
 /** A source line whose content a monolith rewrite would drop. */
 export interface UnpreservedLine {
@@ -78,6 +89,8 @@ export function findUnpreservedLines(markdown: string): UnpreservedLine[] {
   let frontmatterDone = false;
   /** Past the first `## ` heading — before it the lines are the modeled preamble. */
   let inBody = false;
+  /** Inside the `## Assignment History` section, where the record bullets live. */
+  let inHistory = false;
 
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i]!;
@@ -111,14 +124,25 @@ export function findUnpreservedLines(markdown: string): UnpreservedLine[] {
       inBody = true;
     }
 
-    if (!isPreservableBodyLine(text)) lost.push({ line: i + 1, text });
+    // Every H2 opens a new section; only the history heading opens the one whose
+    // record bullets are modeled. Trailing whitespace is already stripped from
+    // `text`, so an exact compare matches the reader's `[ \t]*` tolerance.
+    if (/^## /.test(text)) inHistory = text === ASSIGNMENT_HISTORY_HEADING;
+
+    if (!isPreservableBodyLine(text, inHistory)) lost.push({ line: i + 1, text });
   }
 
   return lost;
 }
 
-/** Does a post-preamble body line survive a `serializeRoadmap` rewrite? */
-function isPreservableBodyLine(text: string): boolean {
+/**
+ * Does a post-preamble body line survive a `serializeRoadmap` rewrite?
+ *
+ * `inHistory` reports whether the line sits under the `## Assignment History`
+ * heading, which is where — and only where — the record-only field keys are
+ * modeled.
+ */
+function isPreservableBodyLine(text: string, inHistory: boolean): boolean {
   if (text.trim() === '') return true; // blank lines carry no content
   if (/^# /.test(text)) return true; // H1 title (serializer canonicalizes it to `# Roadmap`)
   if (/^## /.test(text)) return true; // milestone / Backlog / Assignment History heading
@@ -130,5 +154,7 @@ function isPreservableBodyLine(text: string): boolean {
   // it carries a value. A modeled key with a MULTI-line body still surfaces its
   // continuation lines here — they fail every pattern above and are reported.
   const field = text.match(/^- \*\*(.+?):\*\*/);
-  return Boolean(field && MODELED_FIELD_KEYS.has(field[1]!));
+  if (!field) return false;
+  const key = field[1]!;
+  return MODELED_FIELD_KEYS.has(key) || (inHistory && HISTORY_ONLY_FIELD_KEYS.has(key));
 }

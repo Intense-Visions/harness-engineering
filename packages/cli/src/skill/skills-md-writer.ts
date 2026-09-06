@@ -97,10 +97,13 @@ function detectTier(line: string): SkillMatchTier | undefined {
 
 /** Parse a single table row into a SkillMatch, or return undefined if it cannot be parsed. */
 function parseTableRow(line: string, tier: SkillMatchTier): SkillMatch | undefined {
-  const cells = line
-    .split('|')
-    .map((c) => c.trim())
-    .filter((c) => c.length > 0);
+  // `split('|')` on a pipe-delimited row yields an empty leading and trailing
+  // element. Drop exactly those two — filtering every empty cell also drops
+  // legitimate interior blanks (a match with no matchReasons renders an empty
+  // Purpose column), which shifted the columns and silently discarded the row.
+  const cells = line.split('|').map((c) => c.trim());
+  if (cells[0] === '') cells.shift();
+  if (cells.length > 0 && cells[cells.length - 1] === '') cells.pop();
 
   if (cells.length < 4) return undefined;
 

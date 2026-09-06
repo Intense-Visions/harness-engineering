@@ -219,7 +219,8 @@ async function handleShow(
 
   let roadmap = result.value;
 
-  // Apply milestone filter
+  // Milestone names match case-insensitively so callers need not know the stored casing;
+  // an unknown name yields an empty milestone list rather than an error.
   if (input.milestone) {
     const milestoneFilter = input.milestone;
     roadmap = {
@@ -230,7 +231,8 @@ async function handleShow(
     };
   }
 
-  // Apply status filter
+  // Keep only features in the requested status, then drop milestones left with none, so the
+  // caller never has to skim past milestones that matched nothing.
   if (input.status) {
     const statusFilter = input.status;
     roadmap = {

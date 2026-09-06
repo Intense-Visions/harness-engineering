@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'packages/core/src/roadmap'
-sourceHash: '4c61914f56c6b8ae13338b9417230e83301ce88caa3f3cb20d036d473d07c839'
+sourceHash: '930e672c0143b2d801fea85e2cfdc81ea65c6c53434a24ffb68128770258fff8'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
@@ -77,6 +77,7 @@ export RoadmapPromoteTransition
 export RoadmapStorageMode
 export RoadmapTrackerClient
 export STATUS_RANK
+export SYNC_SUPPORTED_TRACKER_KINDS
 export ScoredCandidate
 export SyncChange
 export SyncOptions
@@ -84,6 +85,7 @@ export TicketWriteOptions
 export TrackedFeature
 export TrackerClientConfig
 export TrackerConfig
+export TrackerConfigDiagnosis
 export TrackerConflictBody
 export TrackerKindRegistration
 export TrackerSyncAdapter
@@ -106,6 +108,8 @@ export decidePromotionForRow
 export defaultIsArchive
 export deriveRepoFromGitRemote
 export detectRoadmapStorageMode
+export diagnoseTrackerSyncConfig
+export explainTrackerSyncConfig
 export fullSync
 export getRoadmapMode
 export getTrackerKindRegistration
