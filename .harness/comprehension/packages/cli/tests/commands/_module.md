@@ -1,16 +1,162 @@
 ---
 schemaVersion: 1
-module: "packages/cli/tests/commands"
-sourceHash: "fa510e8ad1573b6a8a5272857b7fffb5959e2534cb40f0cb23c14fd884fa699d"
-compiler: { static: "1.0.0", semantic: "1.0.0" }
+module: 'packages/cli/tests/commands'
+sourceHash: '2bbde1cdd4e0752f28023eebb4be0eaa9357ade3e280146c337e1d96b9878b41'
+compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
-members: ["add-extra.test.ts", "add.test.ts", "adoption-retrospective.test.ts", "adoption.test.ts", "agent-review.test.ts", "agent-run-persona.test.ts", "agent-run.test.ts", "agent.test.ts", "align-design-system-command.test.ts", "audit-protected.test.ts", "backfill-skill-provenance.test.ts", "check-arch.test.ts", "check-deployment.test.ts", "check-deps.test.ts", "check-design.test.ts", "check-docs.test.ts", "check-harness-strength.test.ts", "check-perf.test.ts", "check-phase-gate.test.ts", "check-security.test.ts", "check-vocabulary.test.ts", "cleanup-sessions.test.ts", "cleanup.test.ts", "cli-command-harness.ts", "compound-scan-candidates.test.ts", "copy-craft-command.test.ts", "craft-command-harness.ts", "create-skill.test.ts", "cross-check.test.ts", "dashboard.test.ts", "deprecated-graph-aliases.test.ts", "design-command-harness.ts", "design-pipeline-command.test.ts", "distortion.test.ts", "doctor-hardening.test.ts", "doctor.test.ts", "fix-drift.test.ts", "generate-agent-definitions.test.ts", "generate-slash-commands.test.ts", "generate.test.ts", "golden-build-command.test.ts", "golden-build.test.ts", "graph-ingest-decisions.integration.test.ts", "graph-ingest.test.ts", "graph-integrity.test.ts", "graph.test.ts", "hooks.test.ts", "impact-preview.test.ts", "ingest-options.test.ts", "init-extra.test.ts", "init-minimal.test.ts", "init.test.ts", "insights.test.ts", "install-constraints.test.ts", "install.test.ts", "integrations-sync.test.ts", "integrations.test.ts", "learnings-prune.test.ts", "linter-generate.test.ts", "maintenance-command-shape.test.ts", "maintenance-run-check-runner.test.ts", "maintenance-run-integration.test.ts", "maintenance-run-selection.test.ts", "mcp-context-report.test.ts", "mcp-guard.test.ts", "mcp-list-capabilities.test.ts", "mcp-refinement-demand.test.ts", "migrate-backends.test.ts", "migrate.test.ts", "models-probe.test.ts", "models.test.ts", "naming-craft-command.test.ts", "outcome-eval-ci.test.ts", "perf.test.ts", "persona-list.test.ts", "persona.test.ts", "pre-merge-brief-guardian.test.ts", "pre-merge-brief.test.ts", "predict.test.ts", "proposals-status.test.ts", "proposals.test.ts", "publish-analyses.test.ts", "pulse-run.test.ts", "recommend.test.ts", "resolve-skill-sources.test.ts", "review-ci-local-adapter.test.ts", "review-ci.test.ts", "rollback.test.ts", "scan-config.test.ts", "search.test.ts", "security-craft-command.test.ts", "setup-mcp.picker-message.test.ts", "setup-mcp.test.ts", "setup.test.ts", "share.test.ts", "skill-create.test.ts", "skill-info.test.ts", "skill-list.test.ts", "skill-local-resolution.test.ts", "skill-publish.test.ts", "skill-run.test.ts", "skill-search.test.ts", "skill-update.test.ts", "skill-validate.test.ts", "skill.test.ts", "snapshot.test.ts", "spec-craft-command.test.ts", "stale-constraints.test.ts", "state-show.test.ts", "state-streams.test.ts", "state.test.ts", "sync-analyses-action.test.ts", "sync-analyses.test.ts", "sync-main.test.ts", "taint.test.ts", "telemetry-synthesize.test.ts", "telemetry-wizard-run.test.ts", "telemetry-wizard.test.ts", "telemetry.test.ts", "test-craft-command.test.ts", "traceability.test.ts", "uninstall-constraints.test.ts", "uninstall.test.ts", "update-integrations-sync.test.ts", "update-skill-providers.test.ts", "update.test.ts", "usage-pipeline.test.ts", "usage.test.ts", "validate-cross-check.test.ts", "validate-scope.test.ts", "validate.changed.test.ts", "validate.merge-driver.test.ts", "validate.roadmap-abstention.test.ts", "validate.roadmap-health.test.ts", "validate.roadmap-mode.test.ts", "validate.test.ts", "waypoint.test.ts"]
+members:
+  [
+    'add-extra.test.ts',
+    'add.test.ts',
+    'adoption-retrospective.test.ts',
+    'adoption.test.ts',
+    'agent-review.test.ts',
+    'agent-run-persona.test.ts',
+    'agent-run.test.ts',
+    'agent.test.ts',
+    'align-design-system-command.test.ts',
+    'api-craft-command.test.ts',
+    'audit-protected.test.ts',
+    'backfill-skill-provenance.test.ts',
+    'check-arch.test.ts',
+    'check-deployment.test.ts',
+    'check-deps.test.ts',
+    'check-design.test.ts',
+    'check-docs.test.ts',
+    'check-harness-strength.test.ts',
+    'check-perf.test.ts',
+    'check-phase-gate.test.ts',
+    'check-security.test.ts',
+    'check-vocabulary.test.ts',
+    'cleanup-sessions.test.ts',
+    'cleanup.test.ts',
+    'cli-command-harness.ts',
+    'cli-ergonomics-craft-command.test.ts',
+    'code-craft-command.test.ts',
+    'compound-scan-candidates.test.ts',
+    'copy-craft-command.test.ts',
+    'craft-command-harness-cohort-b.ts',
+    'craft-command-harness.ts',
+    'create-skill.test.ts',
+    'cross-check.test.ts',
+    'dashboard.test.ts',
+    'deprecated-graph-aliases.test.ts',
+    'design-command-harness.ts',
+    'design-pipeline-command.test.ts',
+    'distortion.test.ts',
+    'docs-craft-command.test.ts',
+    'doctor-hardening.test.ts',
+    'doctor.test.ts',
+    'fix-drift.test.ts',
+    'generate-agent-definitions.test.ts',
+    'generate-slash-commands.test.ts',
+    'generate.test.ts',
+    'golden-build-command.test.ts',
+    'golden-build.test.ts',
+    'graph-ingest-decisions.integration.test.ts',
+    'graph-ingest.test.ts',
+    'graph-integrity.test.ts',
+    'graph.test.ts',
+    'hooks.test.ts',
+    'impact-preview.test.ts',
+    'ingest-options.test.ts',
+    'init-extra.test.ts',
+    'init-minimal.test.ts',
+    'init.test.ts',
+    'insights.test.ts',
+    'install-constraints.test.ts',
+    'install.test.ts',
+    'integrations-sync.test.ts',
+    'integrations.test.ts',
+    'knowledge-craft-command.test.ts',
+    'learnings-prune.test.ts',
+    'linter-generate.test.ts',
+    'maintenance-command-shape.test.ts',
+    'maintenance-run-check-runner.test.ts',
+    'maintenance-run-integration.test.ts',
+    'maintenance-run-selection.test.ts',
+    'mcp-context-report.test.ts',
+    'mcp-guard.test.ts',
+    'mcp-list-capabilities.test.ts',
+    'mcp-refinement-demand.test.ts',
+    'migrate-backends.test.ts',
+    'migrate.test.ts',
+    'models-probe.test.ts',
+    'models.test.ts',
+    'naming-craft-command.test.ts',
+    'outcome-eval-ci.test.ts',
+    'perf.test.ts',
+    'persona-list.test.ts',
+    'persona.test.ts',
+    'pre-merge-brief-guardian.test.ts',
+    'pre-merge-brief.test.ts',
+    'predict.test.ts',
+    'proposals-status.test.ts',
+    'proposals.test.ts',
+    'publish-analyses.test.ts',
+    'pulse-run.test.ts',
+    'recommend.test.ts',
+    'resolve-skill-sources.test.ts',
+    'review-ci-local-adapter.test.ts',
+    'review-ci.test.ts',
+    'rollback.test.ts',
+    'scan-config.test.ts',
+    'search.test.ts',
+    'security-craft-command.test.ts',
+    'setup-mcp.picker-message.test.ts',
+    'setup-mcp.test.ts',
+    'setup.test.ts',
+    'share.test.ts',
+    'skill-create.test.ts',
+    'skill-info.test.ts',
+    'skill-list.test.ts',
+    'skill-local-resolution.test.ts',
+    'skill-publish.test.ts',
+    'skill-run.test.ts',
+    'skill-search.test.ts',
+    'skill-update.test.ts',
+    'skill-validate.test.ts',
+    'skill.test.ts',
+    'snapshot.test.ts',
+    'spec-craft-command.test.ts',
+    'stale-constraints.test.ts',
+    'state-show.test.ts',
+    'state-streams.test.ts',
+    'state.test.ts',
+    'sync-analyses-action.test.ts',
+    'sync-analyses.test.ts',
+    'sync-main.test.ts',
+    'taint.test.ts',
+    'telemetry-synthesize.test.ts',
+    'telemetry-wizard-run.test.ts',
+    'telemetry-wizard.test.ts',
+    'telemetry.test.ts',
+    'test-craft-command.test.ts',
+    'traceability.test.ts',
+    'uninstall-constraints.test.ts',
+    'uninstall.test.ts',
+    'update-integrations-sync.test.ts',
+    'update-skill-providers.test.ts',
+    'update.test.ts',
+    'usage-pipeline.test.ts',
+    'usage.test.ts',
+    'validate-cross-check.test.ts',
+    'validate-scope.test.ts',
+    'validate.changed.test.ts',
+    'validate.merge-driver.test.ts',
+    'validate.roadmap-abstention.test.ts',
+    'validate.roadmap-health.test.ts',
+    'validate.roadmap-mode.test.ts',
+    'validate.test.ts',
+    'waypoint.test.ts',
+  ]
 ---
 
 ## Interface Contract
 
 ```ts
+export DEFAULT_CWD
 export ProcessExitCalled
 export ProcessExitSignal
 export captureConsole
@@ -27,12 +173,19 @@ export stubProcessExit
 
 ```
 import { AlignDesignSystemOutput, runAlignDesignSystem } from '../../src/align/index.js'
+import { ApiCraftOutput, ApiFinding } from '../../src/api-craft/findings/schema.js'
+import { ApiCraftInput, runApiCraft } from '../../src/api-craft/index.js'
+import { CliErgonomicsCraftOutput, CliErgonomicsFinding } from '../../src/cli-ergonomics-craft/findings/schema.js'
+import { CliErgonomicsCraftInput, runCliErgonomicsCraft } from '../../src/cli-ergonomics-craft/index.js'
+import { CodeCraftOutput, CodeFinding } from '../../src/code-craft/findings/schema.js'
+import { CodeCraftInput, runCodeCraft } from '../../src/code-craft/index.js'
 import { createAddCommand, runAdd } from '../../src/commands/add'
 import { createAdoptionCommand } from '../../src/commands/adoption'
 import { createAgentCommand } from '../../src/commands/agent'
 import { createReviewCommand, runAgentReview } from '../../src/commands/agent/review'
 import { createRunCommand, runAgentTask } from '../../src/commands/agent/run'
 import { createAlignDesignSystemCommand } from '../../src/commands/align-design-system'
+import { createApiCraftCommand } from '../../src/commands/api-craft'
 import { createAuditProtectedCommand, runAuditProtected } from '../../src/commands/audit-protected'
 import { runBackfillSkillProvenance } from '../../src/commands/backfill-skill-provenance'
 import { createCheckArchCommand, runCheckArch } from '../../src/commands/check-arch'
@@ -47,6 +200,8 @@ import { runCheckSecurity } from '../../src/commands/check-security'
 import { createCheckVocabularyCommand, runCheckVocabulary } from '../../src/commands/check-vocabulary'
 import { createCleanupCommand, runCleanup } from '../../src/commands/cleanup'
 import { runCleanupAll, runCleanupSessions } from '../../src/commands/cleanup-sessions'
+import { createCliErgonomicsCraftCommand } from '../../src/commands/cli-ergonomics-craft'
+import { createCodeCraftCommand } from '../../src/commands/code-craft'
 import { runCompoundScanCandidatesCommand } from '../../src/commands/compound/scan-candidates'
 import from '../../src/commands/copy-craft.js'
 import { createCreateSkillCommand, generateSkillFiles } from '../../src/commands/create-skill'
@@ -54,6 +209,7 @@ import { createCrossCheckCommand } from '../../src/commands/cross-check'
 import { createDashboardCommand } from '../../src/commands/dashboard'
 import { createDesignPipelineCommand } from '../../src/commands/design-pipeline'
 import { createDistortionCommand } from '../../src/commands/distortion'
+import { createDocsCraftCommand } from '../../src/commands/docs-craft'
 import { checkBaselineFreshness, checkCatalogFreshness, checkHookValidity, checkLivePings, checkSessionCorruption, isCatalogStale, runDoctor } from '../../src/commands/doctor'
 import { createFixDriftCommand, runFixDrift } from '../../src/commands/fix-drift'
 import { createGenerateCommand } from '../../src/commands/generate'
@@ -86,6 +242,7 @@ import from '../../src/commands/integrations/dismiss'
 import from '../../src/commands/integrations/list'
 import from '../../src/commands/integrations/remove'
 import { SyncIO, runSyncIntegrations } from '../../src/commands/integrations/sync'
+import { createKnowledgeCraftCommand } from '../../src/commands/knowledge-craft'
 import { createGenerateCommand } from '../../src/commands/linter/generate'
 import { createMaintenanceCommand } from '../../src/commands/maintenance'
 import { MaintenanceRunDeps, aggregateReport, buildTaskRunner, createCheckRunner, createFixDispatcher, deriveExitCode, loadRunHistory, makeResolveBackend, parseConcurrency, renderTable, resolveHarnessSpawn, resolveSelection, runMaintenanceRun } from '../../src/commands/maintenance-run'
@@ -150,10 +307,14 @@ import { resolveConfig } from '../../src/config/loader'
 import { HarnessConfig } from '../../src/config/schema'
 import { CopyCraftInput, CopyCraftOutput } from '../../src/copy-craft/index.js'
 import { DesignPipelineContext, runDesignPipeline } from '../../src/design-pipeline/index.js'
+import { DocsCraftOutput, DocsFinding } from '../../src/docs-craft/findings/schema.js'
+import { DocsCraftInput, runDocsCraft } from '../../src/docs-craft/index.js'
 import { DriftFinding } from '../../src/drift/findings/finding.js'
 import { createProgram } from '../../src/index'
 import { readMcpConfig, writeMcpEntry, writeOpencodeMcpEntry } from '../../src/integrations/config'
 import { CATALOG_LAST_REVIEWED, INTEGRATION_REGISTRY } from '../../src/integrations/registry'
+import { KnowledgeCraftOutput, KnowledgeFinding } from '../../src/knowledge-craft/findings/schema.js'
+import { KnowledgeCraftInput, runKnowledgeCraft } from '../../src/knowledge-craft/index.js'
 import { getToolDefinitions } from '../../src/mcp/index'
 import { getToolDefinitions } from '../../src/mcp/server'
 import { NETWORK_TOOL_NAMES, deriveScope, deriveToolCapabilities, deriveToolCapability } from '../../src/mcp/tool-capabilities'
@@ -190,6 +351,7 @@ import { markSetupComplete } from '../../src/utils/first-run'
 import { CLI_VERSION } from '../../src/version'
 import { VocabularyRule, formatViolations, scanFiles, scanText } from '../../src/vocabulary/scanner'
 import { ConsoleCapture, captureConsole, runToExit, stubProcessExit } from './cli-command-harness'
+import { CraftCommandRun, DEFAULT_CWD, runCraftCommand } from './craft-command-harness-cohort-b'
 import { llmCalls, runCraftCommand } from './craft-command-harness.js'
 import { parseJsonStdout, runCommand } from './design-command-harness'
 import * as clack from '@clack/prompts'
