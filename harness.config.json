@@ -420,5 +420,9 @@
       "External Adoption"
     ],
     "excludedMetrics": []
+  },
+  "integrations": {
+    "enabled": ["github", "exa"],
+    "dismissed": []
   }
 }
