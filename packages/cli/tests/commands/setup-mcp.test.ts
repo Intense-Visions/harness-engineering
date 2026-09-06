@@ -18,18 +18,8 @@ vi.mock('@clack/prompts', () => ({
 }));
 
 describe('setup-mcp command', () => {
-  let tempDir: string;
-
-  beforeEach(() => {
-    tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'harness-setup-mcp-'));
-  });
-
-  afterEach(() => {
-    fs.rmSync(tempDir, { recursive: true, force: true });
-  });
-
   describe('createSetupMcpCommand', () => {
-    it('creates command with correct name', () => {
+    it('registers the subcommand as "setup-mcp"', () => {
       const cmd = createSetupMcpCommand();
       expect(cmd.name()).toBe('setup-mcp');
     });
@@ -43,6 +33,16 @@ describe('setup-mcp command', () => {
   });
 
   describe('setupMcp', () => {
+    let tempDir: string;
+
+    beforeEach(() => {
+      tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'harness-setup-mcp-'));
+    });
+
+    afterEach(() => {
+      fs.rmSync(tempDir, { recursive: true, force: true });
+    });
+
     it('configures Claude Code MCP server', () => {
       const result = setupMcp(tempDir, 'claude');
       expect(result.configured).toContain('Claude Code');
