@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import * as http from 'node:http';
+import type { AddressInfo } from 'node:net';
 import { WebSocket } from 'ws';
 import { WebSocketBroadcaster } from '../../src/server/websocket';
 
@@ -9,12 +10,16 @@ describe('WebSocketBroadcaster', () => {
   let port: number;
 
   beforeEach(async () => {
-    port = Math.floor(Math.random() * 10000) + 20000;
     httpServer = http.createServer();
     broadcaster = new WebSocketBroadcaster(httpServer);
+    // Bind 0 and read the OS-assigned port back rather than guessing one.
+    // A guessed port races sibling listeners and, on Windows, lands in the
+    // Hyper-V/WinNAT excluded ranges or on an SO_EXCLUSIVEADDRUSE holder --
+    // both of which are refused with EACCES, not EADDRINUSE (issue #1827).
     await new Promise<void>((resolve) => {
-      httpServer.listen(port, '127.0.0.1', resolve);
+      httpServer.listen(0, '127.0.0.1', resolve);
     });
+    port = (httpServer.address() as AddressInfo).port;
   });
 
   afterEach(async () => {
