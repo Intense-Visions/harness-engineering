@@ -16,6 +16,14 @@ A `fleet-command` run on 2026-09-06 could schedule neither member, consistent wi
 
 A second instance of the same defect class sits one level down: `--lease-seconds` and `--no-claim` are documented in `fleet-command`'s Flags table [evidence: `.../fleet-command/SKILL.md:42-43`] and in the Flags tables of `roadmap-fleet`, `issue-fleet` and `pr-fleet`, but are declared in **no** `skill.yaml`.
 
+### What this spec does and does not deliver — read before the goals
+
+Wiring the two members in is necessary but **not sufficient** to get them scheduled. `--max-fleets` defaults to **6**, and six members cannot be shed by the cap — `cicd-fleet` (trust gate) and `pr-fleet` (lander) are never shed, and the four spine members `ideate` / `issue` / `adr` / `roadmap` are shed only on human trim. **On a run where the whole spine has a non-empty queue, every independent sweep is shed by construction, including both members this spec wires in.**
+
+That arithmetic is pre-existing — at 11 members it was already six-versus-six — and this spec deliberately does not change it (D6). So what lands reliably is **roster agreement and visible shedding**: the two members stop being invisible and start appearing in the plan, either as scheduled lanes or in the shed list with their reason and depth. Actual scheduling happens only when part of the spine is quiet, which is common in practice but is not the case `fleet-command` is built for.
+
+Raising the cap is a one-line change with a real argument behind it, and is recorded as a follow-up rather than taken here.
+
 ### Goals
 
 1. `perf-fleet` and `docs-fleet` become schedulable by `fleet-command` **when cap headroom exists**, and are named in the shed list with their reason when it does not (see D6 — this goal is deliberately conditional).
@@ -50,7 +58,9 @@ This is **SP2** of a three-way decomposition:
 
 `perf-fleet`'s verification bar is a measured before/after [evidence: `agents/skills/claude-code/perf-fleet/SKILL.md:7`], and its SELECT admits a target only with a measured violation recorded. Benchmarks taken while co-scheduled lanes saturate the machine are noise.
 
-**Load-sensitive evidence is not new to this repository — silent corruption of it is.** `.husky/pre-push:84-85` already caps turbo at two packages at a time, with the stated reason: _"Without this, filesystem/sqlite/HTTP-heavy tests flake under compound parallel load."_ So test evidence is load-sensitive too, and the repo already spends throughput to protect it.
+**Load-sensitive evidence is not new to this repository — silent corruption of it is.** `.husky/pre-push:84-85` already caps turbo at two packages at a time, with the stated reason: _"Without this, filesystem/sqlite/HTTP-heavy tests flake under compound parallel load (Phase 2 raises this cap after test isolation)."_ So test evidence is load-sensitive too, and the repo already spends throughput to protect it.
+
+Note the parenthetical: that cap is explicitly **temporary**, to be relaxed once test isolation lands. This strengthens rather than weakens D1 — a throughput cap is the right instrument for evidence whose corruption is _exposable_ and which will stop needing protection once isolated, while a wave barrier is the right instrument for evidence whose corruption is _silent_ and does not become safe with better isolation.
 
 The distinction that justifies an exclusive wave is **failure mode, not novelty**:
 
@@ -71,7 +81,9 @@ The four collision classes of the contention map all concern **shared write surf
 
 `perf-fleet` sits after build and before the lander so its fix PRs are landable in the same run. The terminal lander moves from wave 5 to wave 6. The invariant is _"the land stage runs last"_, not _"the land stage is wave 5"_; the index is incidental and is corrected, the invariant preserved.
 
-**An exclusive wave is not a valid deferral target.** The contention map's deferral rule pushes a serialized lane into a later wave, bounded by "a deferral that would place a lane at or past the terminal lander's wave sheds that lane instead." Moving the lander to wave 6 nominally opens a wave of headroom, but wave 5 admits only `perf-fleet`. The terminal stop is therefore evaluated against **wave 5 — the first non-admitting wave** — not wave 6, so deferral behaviour is unchanged by the renumber. This must be stated beside the exclusivity rationale, and the two worked examples that reason about "the lander's wave 5" as the deferral stop must be reworked, not merely renumbered.
+**An exclusive wave is not a valid deferral target.** The contention map's deferral rule pushes a serialized lane into a later wave, bounded by "a deferral that would place a lane at or past the terminal lander's wave sheds that lane instead." Moving the lander to wave 6 nominally opens a wave of headroom, but wave 5 admits only `perf-fleet`. The terminal stop is therefore evaluated against **the first non-admitting wave (today wave 5, the exclusive perf wave)** — not the lander's wave — so deferral behaviour is unchanged by the renumber.
+
+**This is a normative rule change, and the existing statements of the rule are phrased index-free.** All four bind the stop to "the terminal lander's wave" [evidence: `.../fleet-command/SKILL.md:197`, `:271`, the Gate at `:294`, the Escalation at `:314`], so a sweep for the string "wave 5" will not catch any of them. Left unedited, the shipped body would contain a rationale paragraph and four gates that contradict each other, and would literally permit a serialization deferral **into** the exclusive wave. Each of the four must be reworded, not swept.
 
 ### D3 — `docs-fleet` is an ordinary wave-2 sweep
 
@@ -136,8 +148,11 @@ cli:
 | 6 — terminal             | `pr-fleet`                                                                                                   | lands what every other lane produced (renumbered from 5)   |
 
 - Add a rationale paragraph beside the table, in the voice of the existing wave-0 trust-gate note, stating why wave 5 is exclusive **and** that an exclusive wave is not a valid deferral target (D2).
-- Rework the two worked examples that reason about "the lander's wave 5" as the deferral stop — renumbering alone would leave their reasoning wrong.
-- Sweep the body for prose asserting wave 5 is terminal.
+- **Reword the four deferral-stop statements** at `:197`, `:271`, the Gate at `:294`, and the Escalation at `:314` from "at or past the terminal lander's wave" to "at or past the first non-admitting wave (today wave 5, the exclusive perf wave)". These are index-free today, so the wave-5 prose sweep will not reach them.
+- **Rework the worked example** — there is **one** example block containing wave-5 references (`### Example: A conveyor-and-maintenance run under a red CI signal`, `:351`); the second block (`:504`) contains none. Five sites need edits, of two different kinds:
+  - `:383-384` and `:490` — **deferral reasoning**, reworked against the first non-admitting wave.
+  - `:405`, `:430`, `:434` — **terminal-index renumber only** (`:434` is the "wave-5 boundary" transcript line).
+- Sweep the remaining body for prose asserting wave 5 is terminal.
 
 ### Edit 3 — member manifests
 
@@ -150,7 +165,11 @@ Declare `--lease-seconds` and `--no-claim` in `agents/skills/claude-code/{roadma
 
 ### Edit 5 — regenerate platform artifacts
 
-Run `pnpm generate:plugin:all` (which invokes `harness generate-slash-commands` via `scripts/generate-plugin.mjs:104`) across all five targets. The drift gate is `.husky/pre-commit:141-146`, which fires only when `agents/skills/` or `scripts/generate-plugin*` is **staged**, and which **auto-regenerates and `git add`s** rather than failing the commit. `.husky/pre-push` does **not** check plugin or command artifacts.
+Run `pnpm generate:plugin:all` (which invokes `harness generate-slash-commands` via `scripts/generate-plugin.mjs:104`) across all five targets. The drift gate is `.husky/pre-commit:141-146`, which fires only when a staged path matches `^(agents/skills/|scripts/(generate-plugin|lib/plugin-config))`, and which **auto-regenerates and `git add`s** rather than failing the commit. `.husky/pre-push` does **not** check plugin or command artifacts.
+
+**Stage `.antigravity-extension/` manually.** `pre-commit:145` stages only four directories — `.claude-plugin .cursor-plugin .gemini-extension .codex-plugin` — while `pre-commit:144` regenerates all five. The antigravity artifact (88 tracked files) is therefore regenerated and left **unstaged**, so a commit touching `agents/skills/` lands with a dirty tree and exactly the drift criterion 8 exists to exclude. Run `pnpm generate:plugin:all && git add .antigravity-extension` explicitly.
+
+**This pre-commit gap is a defect in its own right and should be filed separately** — it affects every commit that touches `agents/skills/`, not just this change.
 
 ### What does not change
 
@@ -189,12 +208,12 @@ One new domain concept: **silently-corruptible evidence** as a scheduling constr
 
 1. A `/harness:fleet-command --report-only` run prints a run plan enumerating **13** installed members, deriving `perf-fleet` to wave 5 and `docs-fleet` to wave 2. (The agent-executed path is named deliberately: `harness skill run` cannot carry skill-declared flags until SP3, and only prints SKILL.md with a context preamble rather than executing SELECT.)
 2. `perf-fleet` and `docs-fleet` appear in that plan either as scheduled lanes or in the shed list **with a reason** — never absent.
-3. When `perf-fleet` is scheduled, the run report **records wave 5 as exclusive and names `perf-fleet` as its sole occupant**.
+3. When `perf-fleet` is scheduled, the run report **records wave 5 as exclusive and names `perf-fleet` as the only lane it scheduled there**. (Worded as a claim about report content, not about runtime occupancy — see _Explicitly not claimed_.)
 4. When `perf-fleet` is unscheduled or shed, **wave 5 is skipped rather than renumbered**, and `pr-fleet` still occupies wave 6.
-5. `pr-fleet` is the terminal member at wave 6, and no prose in `fleet-command/SKILL.md` asserts wave 5 is terminal. The two worked examples reason about the deferral stop against wave 5 as the first non-admitting wave.
+5. `pr-fleet` is the terminal member at wave 6; no prose in `fleet-command/SKILL.md` asserts wave 5 is terminal; and **no remaining statement of the deferral stop is phrased against the lander's wave alone** — `:197`, `:271`, `:294` and `:314` all read "first non-admitting wave". The worked example at `:351` reasons about the deferral stop the same way.
 6. `fleet-command`, `roadmap-fleet`, `issue-fleet` and `pr-fleet` each **declare** `--lease-seconds` and `--no-claim`, and regenerated command files list them.
 7. **Both** `fleet-family.md` rosters — the `:13` sentence and the `:224-235` member table — name all 13 members, and the set matches `fleet-command`'s `depends_on` exactly.
-8. `pnpm generate:plugin:check` exits 0 with no working-tree diff in `.claude-plugin/`, `.cursor-plugin/`, `.gemini-extension/`, `.codex-plugin/`.
+8. `pnpm generate:plugin:check` exits 0 with no working-tree diff in **all five** artifact directories — `.claude-plugin/`, `.cursor-plugin/`, `.gemini-extension/`, `.codex-plugin/`, **`.antigravity-extension/`**. The fifth is listed explicitly because `pre-commit:145` does not stage it (see Edit 5), so a four-directory check would pass while the antigravity artifact is drifted.
 9. When `perf-fleet` or `docs-fleet` is shed by the cap, the report names it **with the probed depth that ordered the shed**, proving it entered the shed ordering rather than being invisible to it.
 
 **Explicitly not claimed:**
@@ -207,7 +226,7 @@ One new domain concept: **silently-corruptible evidence** as a scheduling constr
 **Phase 1 — Manifests.** `depends_on` += 2; declare 4 flags across 4 `skill.yaml`s; `pnpm generate:plugin:all`.
 _Verifiable:_ criterion 6, criterion 8.
 
-**Phase 2 — Wave table, exclusivity, deferral rule.** Rewrite the table to seven waves; add the exclusivity + deferral-target rationale; rework the two worked examples; renumber terminal; sweep prose.
+**Phase 2 — Wave table, exclusivity, deferral rule.** Rewrite the table to seven waves; add the exclusivity + deferral-target rationale; reword the four deferral-stop statements at `:197`, `:271`, `:294`, `:314`; rework the one worked example at `:351` (five sites — `:383-384` and `:490` are deferral reasoning, `:405`/`:430`/`:434` are renumbers); sweep remaining prose.
 _Verifiable:_ criterion 5.
 
 **Phase 3 — Spine reconciliation.** Both `fleet-family.md` rosters.
@@ -224,5 +243,7 @@ _Verifiable:_ ADR exists; re-read the written file to confirm the `decision` fie
 - **Exclusive-wave cost.** A run scheduling `perf-fleet` is one wave longer and that lane holds the full slot pool alone. Accepted (D1).
 - **Goal 1 is conditional.** On a full-spine run the cap sheds both new members (D6). Disclosed and made verifiable by criterion 9 rather than solved.
 - **Shed ordering is cost-blind.** Depth-ordered shedding cannot see that `perf-fleet` is the most expensive lane in a run. Recorded as a follow-up.
+- **The generated `argument-hint` mangles flag names.** The slash-command generator renders `cli.args` names verbatim, producing the double-dash form visible today at `.claude-plugin/commands/fleet-command.md:4` — `[----fleets <--fleets>]`. The two new flags will render as `[----lease-seconds <--lease-seconds>]`. Criterion 6 therefore passes on malformed output and must not be read as evidence the rendered hint is correct. Pre-existing generator defect; file separately.
+- **`.husky/pre-commit:145` does not stage `.antigravity-extension/`** while `:144` regenerates it. Pre-existing; file separately (see Edit 5).
 - **Open:** whether `perf-fleet` running alone on a developer workstation is quiet enough for stable benchmarks. D1 removes conductor-induced contention; it does not make the machine idle.
 - **Open:** whether shared CI runners have better or worse benchmark variance than a quiet workstation. Unmeasured. Deliberately not used as a reason to reject CI-side measurement.
