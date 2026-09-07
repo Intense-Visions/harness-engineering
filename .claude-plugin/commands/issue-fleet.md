@@ -1,7 +1,7 @@
 ---
 name: harness:issue-fleet
 description: Autonomous open-issue-backlog intake orchestrator — enumerate the open-issue queue, triage each issue (label, dedup, route, prioritize), confirm the destructive closes with the human in one up-front round, fan out concurrency-governed triage subagents over queue slices, independently re-derive every mutation from the issue's own signals, and hand the downstream fleets a clean, ranked, deduped, routed queue. Never silently closes an issue.
-argument-hint: '[--path <path>] [----concurrency <--concurrency>] [----report-only <--report-only>] [----dry-run <--dry-run>]'
+argument-hint: '[--path <path>] [----concurrency <--concurrency>] [----report-only <--report-only>] [----dry-run <--dry-run>] [----lease-seconds <--lease-seconds>] [----no-claim <--no-claim>]'
 allowed-tools:
   - Bash
   - Read
