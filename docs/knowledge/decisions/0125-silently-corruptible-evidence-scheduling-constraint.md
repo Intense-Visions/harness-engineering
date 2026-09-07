@@ -4,6 +4,8 @@ title: 'Silently-corruptible evidence is a scheduling constraint — the exclusi
 date: 2026-09-07
 status: proposed
 tier: large
+relates:
+  - '0091-fleet-command-conductor-tier-authority-model'
 source: 'docs/changes/conductor-member-wiring/proposal.md'
 ---
 
@@ -56,7 +58,7 @@ Measure on CI runners so local concurrency is irrelevant. Rejected because per-m
 
 - `perf-fleet`'s measurements are protected structurally rather than by luck, and the protection is visible in the run plan at CONFIRM rather than assumed.
 - The precedent generalizes with a stated admission test — _does contention here produce a plausible wrong answer, or an exposable failure?_ — so a future member with silently-corruptible evidence inherits an exclusive wave on a rule rather than on taste.
-- The deferral stop is now phrased against a property rather than an index, so it survives future renumbers without editing.
+- The deferral stop is now phrased against a property — _the first non-admitting wave_ — rather than against a wave index, so the **rule** survives a future renumber without editing. The **prose does not, and claiming otherwise would be the trap**: the shipped text hedges the current index with a `today wave 5` parenthetical (or a bare `(5)`) at roughly a dozen sites across `SKILL.md`, `skill.yaml` and the four generated command artifacts, and a renumber must sweep every one of them. Naming that sweep here is what makes the hedge safe — an unswept parenthetical leaves a stale index sitting inside a normative Gate, which reads as authoritative and is wrong.
 
 **Negative.**
 
