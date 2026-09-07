@@ -83,7 +83,9 @@ The four collision classes of the contention map all concern **shared write surf
 
 **An exclusive wave is not a valid deferral target.** The contention map's deferral rule pushes a serialized lane into a later wave, bounded by "a deferral that would place a lane at or past the terminal lander's wave sheds that lane instead." Moving the lander to wave 6 nominally opens a wave of headroom, but wave 5 admits only `perf-fleet`. The terminal stop is therefore evaluated against **the first non-admitting wave (today wave 5, the exclusive perf wave)** — not the lander's wave — so deferral behaviour is unchanged by the renumber.
 
-**This is a normative rule change, and the existing statements of the rule are phrased index-free.** All four bind the stop to "the terminal lander's wave" [evidence: `.../fleet-command/SKILL.md:197`, `:271`, the Gate at `:294`, the Escalation at `:314`], so a sweep for the string "wave 5" will not catch any of them. Left unedited, the shipped body would contain a rationale paragraph and four gates that contradict each other, and would literally permit a serialization deferral **into** the exclusive wave. Each of the four must be reworded, not swept.
+**This is a normative rule change, and the existing statements of the rule are phrased index-free.** They bind the stop to "the terminal lander's wave" [evidence: `.../fleet-command/SKILL.md:197`, `:240`, `:271`, the Gate at `:294`, the Escalation at `:314`, and `.../fleet-command/skill.yaml:63`], so a sweep for the string "wave 5" will not catch any of them. Left unedited, the shipped body would contain a rationale paragraph and five gates that contradict each other, and would literally permit a serialization deferral **into** the exclusive wave. Each must be reworded, not swept.
+
+> **Corrected during planning.** An earlier draft of this spec named **four** statements, all in `SKILL.md`. Planning grepped the tree and found **six** sites: `:240` (the REPORT phase's shed-reason list) is a fifth statement the draft missed, and `skill.yaml:63` — the `dispatch` phase description — carries the rule in the **manifest**, where it is the source of text embedded in every generated plugin artifact. Left unedited, the shipped plugins would state the superseded rule while `SKILL.md` stated the new one. The undercount survived two review passes and was caught only by an agent that actually ran the search.
 
 ### D3 — `docs-fleet` is an ordinary wave-2 sweep
 
@@ -148,10 +150,12 @@ cli:
 | 6 — terminal             | `pr-fleet`                                                                                                   | lands what every other lane produced (renumbered from 5)   |
 
 - Add a rationale paragraph beside the table, in the voice of the existing wave-0 trust-gate note, stating why wave 5 is exclusive **and** that an exclusive wave is not a valid deferral target (D2).
-- **Reword the four deferral-stop statements** at `:197`, `:271`, the Gate at `:294`, and the Escalation at `:314` from "at or past the terminal lander's wave" to "at or past the first non-admitting wave (today wave 5, the exclusive perf wave)". These are index-free today, so the wave-5 prose sweep will not reach them.
-- **Rework the worked example** — there is **one** example block containing wave-5 references (`### Example: A conveyor-and-maintenance run under a red CI signal`, `:351`); the second block (`:504`) contains none. Five sites need edits, of two different kinds:
+- **Reword the five deferral-stop statements** at `:197`, `:240`, `:271`, the Gate at `:294`, and the Escalation at `:314` from "at or past the terminal lander's wave" to "at or past the first non-admitting wave (today wave 5, the exclusive perf wave)". These are index-free today, so the wave-5 prose sweep will not reach them.
+- **Reword the same rule in the manifest** at `agents/skills/claude-code/fleet-command/skill.yaml:63` (the `dispatch` phase description). This line is the source of the phase text embedded in every generated plugin artifact, so skipping it ships artifacts that state the superseded rule.
+- **Rework the worked example** — there is **one** example block containing wave-5 references (`### Example: A conveyor-and-maintenance run under a red CI signal`, `:351`); the second block (`:504`) contains none. **Eight** sites need edits, of two kinds:
   - `:383-384` and `:490` — **deferral reasoning**, reworked against the first non-admitting wave.
-  - `:405`, `:430`, `:434` — **terminal-index renumber only** (`:434` is the "wave-5 boundary" transcript line).
+  - `:357` (roster count), `:371` (derived-wave summary), `:405`, `:430`, `:434` ("wave-5 boundary" transcript line), `:468` (**a REPORT table cell containing a bare `5`** — invisible to any `wave 5` grep) — **renumber only**.
+  - Rescope the example's roster to `10 of 13`. This avoids a cascade through six downstream blocks _and_ leaves wave 5 empty-and-skipped, demonstrating criterion 4 inside the documentation itself.
 - Sweep the remaining body for prose asserting wave 5 is terminal.
 
 ### Edit 3 — member manifests
