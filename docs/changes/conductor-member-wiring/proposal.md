@@ -214,7 +214,15 @@ One new domain concept: **silently-corruptible evidence** as a scheduling constr
 2. `perf-fleet` and `docs-fleet` appear in that plan either as scheduled lanes or in the shed list **with a reason** — never absent.
 3. When `perf-fleet` is scheduled, the run report **records wave 5 as exclusive and names `perf-fleet` as the only lane it scheduled there**. (Worded as a claim about report content, not about runtime occupancy — see _Explicitly not claimed_.)
 4. When `perf-fleet` is unscheduled or shed, **wave 5 is skipped rather than renumbered**, and `pr-fleet` still occupies wave 6.
-5. `pr-fleet` is the terminal member at wave 6; no prose in `fleet-command/SKILL.md` asserts wave 5 is terminal; and **no remaining statement of the deferral stop is phrased against the lander's wave alone** — `:197`, `:271`, `:294` and `:314` all read "first non-admitting wave". The worked example at `:351` reasons about the deferral stop the same way.
+5. `pr-fleet` is the terminal member at wave 6, and no prose in `fleet-command/SKILL.md` asserts wave 5 is terminal. **No remaining statement of the deferral stop is phrased against the lander's wave alone** — checked as a **grep invariant, not a line list**, because the line numbers move under exactly the edit this criterion checks and a stale list then verifies the wrong content:
+
+   ```
+   grep -c "lander's wave"            agents/skills/claude-code/fleet-command/{SKILL.md,skill.yaml}   # 0 and 0
+   grep -c "first non-admitting wave" agents/skills/claude-code/fleet-command/{SKILL.md,skill.yaml}   # >= 7 combined
+   ```
+
+   The floor of 7 is the count the rule cannot fall below without a statement having been dropped: the five deferral-stop statements in `SKILL.md`, the manifest's one in `skill.yaml`, and at least one in the worked example's deferral reasoning. It is a floor rather than an equality so that adding a restatement does not fail the criterion.
+
 6. `fleet-command`, `roadmap-fleet`, `issue-fleet` and `pr-fleet` each **declare** `--lease-seconds` and `--no-claim`, and regenerated command files list them.
 7. **Both** `fleet-family.md` rosters — the `:13` sentence and the `:224-235` member table — name all 13 members, and the set matches `fleet-command`'s `depends_on` exactly.
 8. `pnpm generate:plugin:check` exits 0 with no working-tree diff in **all five** artifact directories — `.claude-plugin/`, `.cursor-plugin/`, `.gemini-extension/`, `.codex-plugin/`, **`.antigravity-extension/`**. The fifth is listed explicitly because `pre-commit:145` does not stage it (see Edit 5), so a four-directory check would pass while the antigravity artifact is drifted.
@@ -230,7 +238,7 @@ One new domain concept: **silently-corruptible evidence** as a scheduling constr
 **Phase 1 — Manifests.** `depends_on` += 2; declare 4 flags across 4 `skill.yaml`s; `pnpm generate:plugin:all`.
 _Verifiable:_ criterion 6, criterion 8.
 
-**Phase 2 — Wave table, exclusivity, deferral rule.** Rewrite the table to seven waves; add the exclusivity + deferral-target rationale; reword the four deferral-stop statements at `:197`, `:271`, `:294`, `:314`; rework the one worked example at `:351` (five sites — `:383-384` and `:490` are deferral reasoning, `:405`/`:430`/`:434` are renumbers); sweep remaining prose.
+**Phase 2 — Wave table, exclusivity, deferral rule.** Rewrite the table to seven waves; add the exclusivity + deferral-target rationale; reword **every** statement of the deferral stop — the five in `SKILL.md` **and** the manifest's one at `skill.yaml:63`, per the correction note under D2 — from the lander's wave to the first non-admitting wave; rework the **eight** sites in the one worked example at `:351` enumerated under Edit 2 (two deferral-reasoning, six renumber-only, one of the six a bare `5` in a REPORT table cell that no `wave 5` grep reaches); sweep remaining prose. **The completion test is the grep of criterion 5, not a count of sites** — a site list authored before the edit describes the file the edit destroys, which is how the four-versus-six undercount survived two review passes.
 _Verifiable:_ criterion 5.
 
 **Phase 3 — Spine reconciliation.** Both `fleet-family.md` rosters.
