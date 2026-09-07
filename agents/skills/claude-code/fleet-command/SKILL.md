@@ -2,7 +2,7 @@
 
 > Conductor for the `-fleet` family — one tier above the members, coordinating the fleets themselves rather than fanning out over an item-queue. It derives the run as a hybrid dependency DAG instead of accepting a hand-picked order, enforces **one global** leaf-slot budget across every fleet in flight rather than the sum of their per-fleet governors, deconflicts the lanes whose emissions collide before any of them runs, presents each ready member's own human CONFIRM gate verbatim in one batched round per wave **without ever answering it**, verifies every lane from its emitted artifacts rather than its self-report, and hands back one consolidated report. It **never merges**.
 
-Eleven `-fleet` skills exist, and each is a competent orchestrator over exactly one SDLC work-queue. What does not exist is anything that can run **more than one of them in the same session** without the operator personally holding the whole shape in their head — which fleets may run together, in what order, under what aggregate load, colliding on what, and arriving as how many separate reports.
+Thirteen `-fleet` skills exist, and each is a competent orchestrator over exactly one SDLC work-queue. What does not exist is anything that can run **more than one of them in the same session** without the operator personally holding the whole shape in their head — which fleets may run together, in what order, under what aggregate load, colliding on what, and arriving as how many separate reports.
 
 That gap costs three specific things, and none of them is reachable from inside a single member. **Fan-out².** Each member caps its concurrent subagents at the family's machine-storm limit, and that cap is **per fleet**; nothing enforces it across fleets, so two well-behaved members at their own caps is double the load and a naive "run all the sweeps" is an order of magnitude more. A cap that every participant honors locally and nobody enforces globally is not a cap. **Dependency.** The conveyor is a real chain, not a menu — intake produces the queue that decide and build consume, and land lands what all of them produced — so members run concurrently consume their predecessors' _stale_ output, while members run fully serially waste the genuine parallelism of the quality sweeps, whose **inputs** depend on none of the spine even though several of their **outputs** file back into it. **Collision.** Members write shared generated artifacts, allocate from shared number sequences, edit the same source regions, and file the same defect several times over, because no member can see the others.
 
@@ -26,7 +26,7 @@ The conductor is **Tier 3** of Skills → Pipelines → Fleets → Conductor —
 <!-- Capability seam: this skill participates in a real extension point whose three roles are named and concrete. A seam with only one role filled is accidental single-implementation lock-in. See harness-skill-authoring Phase 1C. -->
 
 - **Defines (Service Definition):** the shared `-fleet` handoff contract — the five-phase skeleton, worktree-isolated fan-out, gate-free `--report-only` probe path, and never-silent-merge invariant documented in `docs/reference/fleet-family.md`, concretized as the canonical `FleetHandoffRecord` in `@harness-engineering/types` (`packages/types/src/fleet-handoff.ts`, validated via `validateFleetHandoffRecord`; landed in #1414). fleet-command consumes this contract; it does not own it and never modifies a member to make it conductable.
-- **Provides (Provider):** the `-fleet` members — `roadmap-fleet`, `bug-fleet`, `cicd-fleet`, `cleanup-fleet`, `security-fleet`, `issue-fleet`, `pr-fleet`, `test-fleet`, `adr-fleet`, `ideate-fleet`, `craft-fleet` — each emitting the shared handoff shape through its gate-free probe path.
+- **Provides (Provider):** the `-fleet` members — `roadmap-fleet`, `bug-fleet`, `cicd-fleet`, `cleanup-fleet`, `security-fleet`, `issue-fleet`, `pr-fleet`, `test-fleet`, `adr-fleet`, `ideate-fleet`, `craft-fleet`, `perf-fleet`, `docs-fleet` — each emitting the shared handoff shape through its gate-free probe path.
 - **Consumes (Consumer):** **this skill** — fleet-command probes each member through the gate-free path only and verifies every lane from its emitted handoff artifacts, so any new `-fleet` member is conductable with zero conductor change.
 
 ## Flags
@@ -91,14 +91,15 @@ Phase 1: SELECT --> Phase 2: CONFIRM --> Phase 3: DISPATCH
 
 3. **Derive the wave assignment from the fixed dependency shape.** Scheduling is derived, never hand-picked:
 
-   | Wave                | Fleets                                                                                     | Why this wave                                                                                                                                                                                                                                |
-   | ------------------- | ------------------------------------------------------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-   | 0 — CI trust gate   | `cicd-fleet`                                                                               | Every downstream fleet's VERIFY treats all-OS CI green as its evidence, so the run reads **how trustworthy that signal is** before anything else rests on it. A trust gate, not a repair — see below.                                        |
-   | 1 — ideate          | `ideate-fleet`                                                                             | Ideation feeds intake, so it is its own wave rather than a sequential pair inside one. A dependency edge belongs between waves; a wave holding one would make "wave" mean two different things.                                              |
-   | 2 — intake + sweeps | `issue-fleet`; `test-fleet`, `cleanup-fleet`, `bug-fleet`, `security-fleet`, `craft-fleet` | Intake consumes ideation. The quality sweeps read standing code, so **none of their inputs** comes from the spine and they are genuinely parallel — subject to the global governor, to deconfliction, and to the output-coupling note below. |
-   | 3 — decide          | `adr-fleet`                                                                                | Consumes intake's routed decisions.                                                                                                                                                                                                          |
-   | 4 — build           | `roadmap-fleet`                                                                            | Consumes the ranked queue plus the decisions above it.                                                                                                                                                                                       |
-   | 5 — terminal        | `pr-fleet`                                                                                 | Lands what every other lane produced, so it must run last or it lands a stale subset.                                                                                                                                                        |
+   | Wave                     | Fleets                                                                                                   | Why this wave                                                                                                                                                                                                                                                                                                                                                                       |
+   | ------------------------ | -------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+   | 0 — CI trust gate        | `cicd-fleet`                                                                                             | Every downstream fleet's VERIFY treats all-OS CI green as its evidence, so the run reads **how trustworthy that signal is** before anything else rests on it. A trust gate, not a repair — see below.                                                                                                                                                                               |
+   | 1 — ideate               | `ideate-fleet`                                                                                           | Ideation feeds intake, so it is its own wave rather than a sequential pair inside one. A dependency edge belongs between waves; a wave holding one would make "wave" mean two different things.                                                                                                                                                                                     |
+   | 2 — intake + sweeps      | `issue-fleet`; `test-fleet`, `cleanup-fleet`, `bug-fleet`, `security-fleet`, `craft-fleet`, `docs-fleet` | Intake consumes ideation. The quality sweeps read standing code, so **none of their inputs** comes from the spine and they are genuinely parallel — subject to the global governor, to deconfliction, and to the output-coupling note below. `docs-fleet` joins as an ordinary sweep — it reads standing code, takes no input from the spine, and its evidence is load-insensitive. |
+   | 3 — decide               | `adr-fleet`                                                                                              | Consumes intake's routed decisions.                                                                                                                                                                                                                                                                                                                                                 |
+   | 4 — build                | `roadmap-fleet`                                                                                          | Consumes the ranked queue plus the decisions above it.                                                                                                                                                                                                                                                                                                                              |
+   | 5 — perf (**exclusive**) | `perf-fleet`                                                                                             | Its verdicts are **measurements**, and a measurement taken under co-scheduled load is silently wrong rather than visibly broken. Runs alone — see below.                                                                                                                                                                                                                            |
+   | 6 — terminal             | `pr-fleet`                                                                                               | Lands what every other lane produced, so it must run last or it lands a stale subset.                                                                                                                                                                                                                                                                                               |
 
    **A wave is the dependency barrier, and it holds no dependency edges inside it.** Every member in a wave is independent of every other member in that wave; anything with a real edge between them belongs in different waves. This is what makes "at most one batched gate round per wave" satisfiable and what makes a wave boundary a meaningful place to check the budget. Wave **indices come from the fixed dependency shape**, so a wave with no scheduled members is **skipped, not renumbered and not a barrier** — trimming or shedding a fleet empties its wave rather than shifting the ones after it. Excluding a fleet at CONFIRM **re-derives its dependents** rather than leaving them scheduled against something that will not run.
 
@@ -107,6 +108,8 @@ Phase 1: SELECT --> Phase 2: CONFIRM --> Phase 3: DISPATCH
    The trust read itself is available before dispatch, for free: SELECT already probes the CI lane's own queue, and **a red/flaky queue depth _is_ the signal's trust level**. So the trust gate's product is surfaced as a **fork at CONFIRM with a recommended default**, not as a silent precondition. When that probe comes back non-empty, the human is shown: _the CI signal is untrustworthy, so every downstream verdict this run would rest on degraded evidence_ — and offered, in order of recommendation, to **run the CI lane alone this session** and conduct the rest on the next run once its remediation PRs have landed (the default), to **proceed with the full run** with every downstream verdict explicitly recorded as resting on degraded evidence, or to **trim the fleets whose verdicts lean hardest on the CI signal** and run the rest. A degraded run the human chose and the report labels is honest; a degraded run presented as clean is not.
 
    **The sweeps are input-independent of the spine and output-coupled to it, and only the first half is a scheduling fact.** The wave-2 sweeps read standing code, so nothing they consume comes from intake — which is what makes them safe to run beside it. But several of them **file** issues and roadmap items into exactly the queue intake triages, so whatever they file this run is **intake for the next run**, not for this one. The conductor states this rather than hiding it, and records it in the run's assumptions-made note. It does **not** serialize the sweeps behind intake, and the reason is a tradeoff rather than an oversight: doing so would spend the sweeps' entire parallelism — the single largest source of concurrency the schedule has — to freshen a queue the next run picks up anyway, for filings the human has not yet even seen. "Depends on none of the spine" is true of the sweeps' inputs and false of their outputs, and leaving that unqualified would be the same stale-consumption error the derived order exists to prevent.
+
+   **Wave 5 is exclusive, and an exclusive wave is not a valid deferral target.** `perf-fleet`'s verdicts are **measurements**, and that makes its evidence fail differently from every other member's. A contended **test** fails **loudly** — the flake is visible, a rerun exposes it, and the family already treats "prove the failure is outside your diff, then rerun once" as routine. A contended **benchmark succeeds with a plausible wrong number**: nothing in the artifact distinguishes a clean 40ms from a contended 40ms, so the lane gates a fix on corrupted evidence and reports it as verified. That corruption is **silent rather than exposable**, and no downstream verification recovers from it, because there is nothing to recover — the artifact is well-formed and wrong. This is why wave 5 admits `perf-fleet` and nothing else. Load-sensitive evidence is not new here (`.husky/pre-push` already caps parallel test load for the same reason, and a throughput cap is the right instrument when the corruption announces itself); what is new is corruption that cannot be seen. **The exclusivity has a second consequence: wave 5 is not a place a deferral may land.** The serialization deferral stop below is therefore bound to the **first non-admitting wave** — today wave 5 — and not to the lander's index. Moving the lander from wave 5 to wave 6 nominally opened a wave of headroom; it did not, because the wave it opened admits one named member by construction. A lane whose deferral would reach wave 5 is **shed with its reason**, exactly as before the renumber.
 
 4. **Apply the fleet cap structurally.** If more fleets are schedulable than `--max-fleets` allows, shed in the fixed order stated under _Flags_: the CI trust gate and the terminal lander are **never** shed; the independent quality sweeps are shed first, **lowest probed queue depth first**; and a conveyor-spine member is shed only if the human trims it at CONFIRM. A member whose queue depth is unknown is not sheddable by depth — it is carried to CONFIRM as a fork. Every shed fleet is recorded with the reason that shed it, and the reasons are distinguishable: over the cap, empty queue, missing or errored on its probe, or trimmed by the human.
 
@@ -194,7 +197,7 @@ The map is built **before dispatch**, over collision **classes** rather than as 
 | **Same-region source edits** | two sweeps elevating or cleaning the same module                                    | **Serialize the lanes, not the merges** — two fleets rewriting one region produce a semantic conflict no merge order fixes                                 |
 | **Duplicate filings**        | one defect filed independently by several quality sweeps                            | **Cross-fleet dedup at report time** — filings are collated across lanes, near-duplicates grouped into one row citing every lane that raised it            |
 
-**Deferral has a terminal stop.** Both serializing mechanisms push a lane into a later wave, and that push is bounded: **a deferral that would place a lane at or past the terminal lander's wave sheds that lane instead, with its reason**. Nothing is ever scheduled after the lane that lands, because a lane that runs after the lander emits work the lander cannot see — which is the stale-subset failure that put the lander last in the first place. A deferral chain with no stop would quietly convert a serialization into an unbounded push, and the lane would arrive too late to be either landed or honestly reported as unrun.
+**Deferral has a terminal stop.** Both serializing mechanisms push a lane into a later wave, and that push is bounded: **a deferral that would place a lane at or past the first non-admitting wave (today wave 5, the exclusive perf wave) sheds that lane instead, with its reason**. The stop is stated against the first wave that will not admit the lane rather than against the lander's index, because two different walls stand in front of a deferred lane and the nearer one binds: an **exclusive** wave admits one named member and nothing else, and nothing at all is scheduled after the lane that lands — a lane that runs after the lander emits work the lander cannot see, which is the stale-subset failure that put the lander last in the first place. A deferral chain with no stop would quietly convert a serialization into an unbounded push, and the lane would arrive too late to be either landed or honestly reported as unrun.
 
 The mechanisms are deliberately unequal in strength, because the collisions are. A generated-artifact conflict is **textual**: both lanes are right, both regenerated correctly from their own inputs, and a merge order with a regeneration step resolves it completely. A same-region source conflict is **semantic**: two fleets that each rewrote the same module produce something no ordering can reconcile, because the second rewrite was reasoning about code the first one replaced — so those lanes are serialized outright rather than merge-ordered. Applying the cheap mechanism to the expensive class is the failure mode worth naming: a merge order over a semantic conflict looks like a resolution and is not.
 
@@ -237,7 +240,7 @@ The report is the conductor's **entire product**. Every other phase exists to ma
 
 4. **The run's budget accounting** — the slots allocated per lane and the `--concurrency` each lane was dispatched with, passes used, lanes scheduled against the fleet cap, and wall-clock consumed against the budget as measured from the run's start timestamp. Peak concurrency is reported as what it is: an allocation the dispatch seam imposed, not a measurement any artifact carries.
 
-5. **Everything the budget shed, named with its reason** — unscheduled empty-queue fleets, fleets shed by the structural cap policy with the depth that ordered the shed, lanes shed because a serialization deferral would have crossed the terminal lander's wave, waves never started because the wall-clock ran out, fleets the human trimmed, and members missing or erroring on their probe. A run that quietly did less than it appeared to is worse than one that did less and said so.
+5. **Everything the budget shed, named with its reason** — unscheduled empty-queue fleets, fleets shed by the structural cap policy with the depth that ordered the shed, lanes shed because a serialization deferral would have reached the first non-admitting wave, waves never started because the wall-clock ran out, fleets the human trimmed, and members missing or erroring on their probe. A run that quietly did less than it appeared to is worse than one that did less and said so.
 
 6. **An assumptions-made note for the run** — the derived DAG and why, the budget in force, the contention resolutions applied, and the defaults taken.
 
@@ -268,7 +271,7 @@ Two terminal prohibitions close the phase. **The conductor never merges and neve
 - **Every member's own human CONFIRM gate is presented verbatim and answered only by the human.** The conductor never pre-answers, defaults, skips, or summarizes a member's gate into a yes/no. A fleet blocked on its gate parks its lane while the other lanes continue.
 - **The human sees one run-plan authorization plus at most one batched gate round per wave** — never a member's gate arriving unscheduled and alone.
 - **The contention map covers all four collision classes** and resolves each with its stated mechanism: generated artifacts get a merge-order plan with regeneration sequencing, allocated-sequence writers are serialized into different waves, same-region source-edit lanes are serialized rather than merge-ordered, and duplicate filings are deduped across fleets into one row citing every lane that raised it.
-- **Deconfliction degrades to a no-op without breaking.** An empty contention map produces an empty merge-order plan — not an error, and not a stale playbook applied to a conflict that no longer exists. A serialization deferral that would cross the terminal lander's wave sheds its lane with a reason rather than scheduling past the lander.
+- **Deconfliction degrades to a no-op without breaking.** An empty contention map produces an empty merge-order plan — not an error, and not a stale playbook applied to a conflict that no longer exists. A serialization deferral that would reach the first non-admitting wave (today wave 5, the exclusive perf wave) sheds its lane with a reason rather than scheduling it into a wave that will not admit it.
 - **The run is bounded**: one pass per fleet, a fleet cap, and a wall-clock budget compared against a run start timestamp **at each wave boundary before the next wave is scheduled**. Exhausting any of them stops scheduling and reports partial results with **everything shed named and reasoned**, while in-flight lanes finish or park cleanly and are never killed mid-write.
 - **No lane verdict rests on a self-report.** Every `verified` lane is backed by an independently-confirmed terminal artifact, per-item verdicts whose references the conductor spot-checked itself, and a directly-checked nothing-merged record. Staying within allocation is reported as a **dispatch-time-enforced property recorded as an assumption**, not as a verified check, because no artifact records a lane's peak concurrency.
 - **The merge-order plan contains only lanes that emit mergeable artifacts** — a lane that files nothing, emits no PR, or is the lander itself never appears in it.
@@ -291,7 +294,7 @@ Two terminal prohibitions close the phase. **The conductor never merges and neve
 - **Never fire a member's own gate during SELECT.** Probe through gate-free paths only. A member with no gate-free path is recorded as queue-depth-unknown and carried to CONFIRM, never probed through its gated path.
 - **Never place a dependency edge inside a wave.** A wave is the dependency barrier; an edge inside one makes "wave" mean two things and makes one batched gate round per wave unsatisfiable.
 - **Never shed the CI trust gate or the terminal lander to fit the fleet cap.** The shed is structural: independent sweeps first at lowest queue depth first, and a spine member only when the human trims it.
-- **Never defer a lane at or past the terminal lander's wave.** Shed it with its reason instead — a lane scheduled after the lander emits work the lander cannot see.
+- **Never defer a lane at or past the first non-admitting wave (today wave 5, the exclusive perf wave).** Shed it with its reason instead — an exclusive wave admits one named member and nothing else, and a lane scheduled after the lander emits work the lander cannot see.
 - **Never run a fleet before the fleets it depends on have finished.** A consumer scheduled early consumes stale output, and the result is worse than not running it — it looks complete.
 - **Never schedule a fleet with an empty queue.** Report it as unscheduled; an empty lane costs machine time to produce nothing.
 - **Never answer, default, skip, or summarize a member's CONFIRM.** Presenting it verbatim in a batched round is scheduling; answering it is the collapse this tier rejects.
@@ -311,7 +314,7 @@ Two terminal prohibitions close the phase. **The conductor never merges and neve
 - **The CI trust probe comes back red or flaky:** do not treat wave 0 as a repair that fixes it. Surface the fork at CONFIRM with its three options, take the human's answer, and label every downstream verdict in the report according to that answer.
 - **A member blocks on its own gate:** park that lane, continue the others, and report the parked gate **verbatim** so the human answers the member's question rather than the conductor's paraphrase of it.
 - **A lane was dispatched without its explicit `--concurrency`:** stop the lane and report it as a gate violation. The enforcement seam was skipped, so the run's budget was never actually in force for it, and no after-the-fact reading can establish what it did.
-- **A serialization deferral would push a lane at or past the terminal lander's wave:** shed the lane with its reason. Do not schedule it after the lander and do not drop the serialization to keep it.
+- **A serialization deferral would push a lane at or past the first non-admitting wave (today wave 5, the exclusive perf wave):** shed the lane with its reason. Do not park it in the exclusive wave, do not schedule it after the lander, and do not drop the serialization to keep it.
 - **A lane's report carries no per-item verdicts:** reject it. The family standard did not run, and a summary that reads as though it did is precisely what the check exists to catch.
 - **A spot-checked reference does not resolve:** reject and retry once; if it still does not resolve, report the lane as unverifiable rather than passing it.
 - **The wall-clock or the fleet cap is exhausted:** stop scheduling new lanes, name everything shed with its reason, and report partial results. Do not raise the budget mid-run to finish the list.
@@ -354,7 +357,8 @@ Two terminal prohibitions close the phase. **The conductor never merges and neve
 $ harness skill run fleet-command --slots 3 --max-fleets 8
 
 Phase 1: SELECT
-  Installed members: 10 of 11 (cleanup-fleet not installed — recorded, DAG degraded)
+  Installed members: 10 of 13 (cleanup-fleet, perf-fleet and docs-fleet not
+                    installed — recorded, DAG degraded)
   Queue probes (gate-free --report-only paths ONLY):
     cicd-fleet      2 red workflows        issue-fleet     31 open items
     test-fleet      14 coverage gaps       security-fleet  8 gated findings
@@ -368,7 +372,8 @@ Phase 1: SELECT
     0  cicd-fleet (CI trust gate)          1  ideate-fleet
     2  issue-fleet (intake) | test-fleet, bug-fleet, security-fleet,
        craft-fleet (independent sweeps)
-    3  adr-fleet     4  (empty — roadmap-fleet unscheduled)     5  pr-fleet
+    3  adr-fleet     4  (empty — roadmap-fleet unscheduled)
+    5  (empty — perf-fleet not installed)     6  pr-fleet
   Fleet cap 8 -> 9 schedulable -> 1 shed, structurally:
     trust gate and lander never shed; spine untouched; sweeps shed first at
     lowest depth first -> bug-fleet (6 risk areas) SHED
@@ -380,8 +385,8 @@ Phase 1: SELECT
                           already wave-separated
     same-region edits     security-fleet + craft-fleet both target the parser
                           module -> SERIALIZED (craft-fleet deferred wave 2 -> 3;
-                          wave 3 is before the lander's wave 5, so it is a
-                          deferral, not a shed)
+                          wave 3 is before the first non-admitting wave (5), so
+                          it is a deferral, not a shed)
     duplicate filings     security-fleet + craft-fleet -> dedup at report
   Forks detected: 2
 
@@ -402,7 +407,7 @@ Phase 2: CONFIRM  [checkpoint:human-verify]
     -> DAG re-derived: wave 3's decide slot empties; no dependents remain
        (roadmap-fleet was already unscheduled); the allocated-sequence row of the
        contention map goes EMPTY (its only writer is gone); wave indices unchanged,
-       pr-fleet stays terminal at wave 5.
+       pr-fleet stays terminal at wave 6.
   Authorization recorded. 7 lanes scheduled.
 
 Phase 3: DISPATCH (global pool = 3 leaf slots, per-fleet sub-cap 2)
@@ -427,11 +432,12 @@ Phase 3: DISPATCH (global pool = 3 leaf slots, per-fleet sub-cap 2)
                          Batched gate round (wave 3): craft-fleet's gate presented
                          verbatim; answered. Dispatched --concurrency 2 -> 2 slots
   wave 4  (empty — roadmap-fleet unscheduled; an empty wave is skipped, not a barrier)
-  wave 5  pr-fleet       batched gate round (wave 5); answered.
+  wave 5  (empty — perf-fleet not installed; an empty wave is skipped, not a barrier)
+  wave 6  pr-fleet       batched gate round (wave 6); answered.
                          Dispatched --concurrency 1 -> 1 slot
                          -> 3 PRs reviewed
   Wall-clock compared against the run start timestamp at each wave boundary
-  before scheduling the next wave: 5h20m of 8h at the wave-5 boundary.
+  before scheduling the next wave: 5h20m of 8h at the wave-6 boundary.
 
 Phase 4: VERIFY (from artifacts — no lane's self-report accepted)
   cicd-fleet     2 remediation PRs exist and are OPEN/unmerged; per-run verdicts
@@ -465,7 +471,7 @@ Phase 5: REPORT
   | test-fleet     | 2    | parked      | —                                | 1     | 1 fork       |
   | security-fleet | 2    | verified    | 3 fix PRs + 4 evidence packets   | 2     | —            |
   | craft-fleet    | 3    | verified    | 4 elevation PRs + 6 filed items  | 2     | —            |
-  | pr-fleet       | 5    | verified    | 3 reviewed PRs                   | 1     | —            |
+  | pr-fleet       | 6    | verified    | 3 reviewed PRs                   | 1     | —            |
   | roadmap-fleet  | —    | unscheduled | —                                | 0     | —            |
   7 lanes scheduled: 4 verified, 1 rejected, 2 parked. 1 unscheduled.
   Deduped filings: 9 rows from 10 raw filings — one defect raised independently
@@ -484,10 +490,10 @@ Phase 5: REPORT
     cleanup-fleet  not installed — DAG degraded to the members present
   Assumptions made:
     - DAG derived from the fixed dependency shape; after the adr-fleet trim wave 3
-      holds only the deferred craft-fleet lane, and wave 4 is left empty and skipped
+      holds only the deferred craft-fleet lane, and waves 4 and 5 are left empty and skipped
       rather than renumbered.
     - craft-fleet deferred wave 2 -> 3 by the same-region serialization with
-      security-fleet; the deferral stays clear of the lander's wave 5.
+      security-fleet; the deferral stays clear of the first non-admitting wave (5).
     - CI trust fork answered "proceed": every downstream verdict this run rests on
       a DEGRADED CI signal, and cicd-fleet's 2 remediation PRs are unmerged, so the
       restored signal pays off on the NEXT run, not this one.
