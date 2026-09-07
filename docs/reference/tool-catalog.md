@@ -11373,7 +11373,9 @@ Conductor for the fleet family — one tier above the members, coordinating the 
     "security-fleet",
     "cleanup-fleet",
     "bug-fleet",
-    "craft-fleet"
+    "craft-fleet",
+    "perf-fleet",
+    "docs-fleet"
   ],
   "name": "fleet-command",
   "platforms": [

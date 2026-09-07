@@ -405,7 +405,7 @@ Conductor for the fleet family — one tier above the members, coordinating the 
 - **Platforms:** claude-code, codex, cursor, gemini-cli
 - **Type:** rigid
 - **Cognitive mode:** systematic-orchestrator
-- **Depends on:** ideate-fleet, issue-fleet, adr-fleet, roadmap-fleet, pr-fleet, cicd-fleet, test-fleet, security-fleet, cleanup-fleet, bug-fleet, craft-fleet
+- **Depends on:** ideate-fleet, issue-fleet, adr-fleet, roadmap-fleet, pr-fleet, cicd-fleet, test-fleet, security-fleet, cleanup-fleet, bug-fleet, craft-fleet, perf-fleet, docs-fleet
 
 ### harness-architecture-advisor
 
