@@ -1,5 +1,12 @@
 # @harness-engineering/graph
 
+## 0.15.1
+
+### Patch Changes
+
+- Updated dependencies [3c3ab0e]
+  - @harness-engineering/types@0.33.0
+
 ## 0.15.0
 
 ### Minor Changes

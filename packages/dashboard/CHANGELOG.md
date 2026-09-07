@@ -1,5 +1,39 @@
 # @harness-engineering/dashboard
 
+## 0.16.6
+
+### Patch Changes
+
+- 5ae60bd: fix(dashboard): validate a roadmap `External-ID` before interpolating it into the authenticated GitHub API path
+
+  `assignGithubIssue` parsed `External-ID` with an unconstrained capture and spliced the
+  result, unencoded, into the path of a `POST https://api.github.com/...` request carrying
+  the operator's `GITHUB_TOKEN`. A crafted External-ID could therefore choose the path of
+  that credentialed request (for example `github:x/../../../user/emails?#1` resolved to
+  `POST https://api.github.com/user/emails`). The External-ID is now constrained to
+  `github:<owner>/<repo>#<number>`, bare dot segments are rejected, and each path segment is
+  percent-encoded. Malformed IDs return `false` exactly as before.
+
+- Updated dependencies [af7e899]
+- Updated dependencies [8e87cca]
+- Updated dependencies [92d757a]
+- Updated dependencies [c2054e4]
+- Updated dependencies [b9784fd]
+- Updated dependencies [9e6c8ff]
+- Updated dependencies [3c3ab0e]
+- Updated dependencies [463e016]
+- Updated dependencies [6558ac0]
+- Updated dependencies [be93b09]
+- Updated dependencies [a1094db]
+- Updated dependencies [b42d146]
+- Updated dependencies [9bb33e0]
+  - @harness-engineering/orchestrator@0.24.1
+  - @harness-engineering/core@0.48.0
+  - @harness-engineering/types@0.33.0
+  - @harness-engineering/graph@0.15.1
+  - @harness-engineering/intelligence@0.13.2
+  - @harness-engineering/signals@0.3.8
+
 ## 0.16.5
 
 ### Patch Changes
