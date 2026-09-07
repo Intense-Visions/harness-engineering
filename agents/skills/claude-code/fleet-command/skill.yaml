@@ -39,6 +39,12 @@ cli:
     - name: --dry-run
       description: Run SELECT and CONFIRM; stop before any lane is dispatched. Unlike --report-only this presents the run-plan gate, so it is not a gate-free path
       required: false
+    - name: --lease-seconds
+      description: Passed through verbatim to each ID-based member lane to override the cross-run claim-lease TTL
+      required: false
+    - name: --no-claim
+      description: Passed through verbatim to each ID-based member lane, disabling the cross-run claim lease for that run
+      required: false
 mcp:
   tool: run_skill
   input:
@@ -77,6 +83,8 @@ depends_on:
   - cleanup-fleet
   - bug-fleet
   - craft-fleet
+  - perf-fleet
+  - docs-fleet
 addresses:
   - signal: backlog-pressure
     weight: 0.4

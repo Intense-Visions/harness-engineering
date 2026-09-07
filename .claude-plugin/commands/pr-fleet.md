@@ -1,7 +1,7 @@
 ---
 name: harness:pr-fleet
 description: Autonomous PR-queue land orchestrator — triage the open-PR queue, fan out worktree-isolated review-assist subagents that run the real code-review pipeline, independently verify each PR by all-OS CI and review verdict, and land exactly the PRs a human authorized up front. Never silently auto-merges unreviewed work.
-argument-hint: '[--path <path>] [----concurrency <--concurrency>] [----report-only <--report-only>] [----dry-run <--dry-run>]'
+argument-hint: '[--path <path>] [----concurrency <--concurrency>] [----report-only <--report-only>] [----dry-run <--dry-run>] [----lease-seconds <--lease-seconds>] [----no-claim <--no-claim>]'
 allowed-tools:
   - Bash
   - Read

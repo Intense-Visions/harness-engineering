@@ -363,6 +363,12 @@ cli:
     - name: --dry-run
       description: Run SELECT and CONFIRM only; do not fan out, verify, or report
       required: false
+    - name: --lease-seconds
+      description: Override the cross-run claim-lease TTL (default 720s); see §Cross-run claim lease in `docs/reference/fleet-family.md`
+      required: false
+    - name: --no-claim
+      description: Disable the cross-run claim lease entirely — fall back to open-PR-cross-check-only coordination
+      required: false
 mcp:
   tool: run_skill
   input:

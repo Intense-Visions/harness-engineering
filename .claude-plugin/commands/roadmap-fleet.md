@@ -1,7 +1,7 @@
 ---
 name: harness:roadmap-fleet
 description: Autonomous batch-build orchestrator — score and confirm a batch of backlog candidates, fan out worktree-isolated subagents that run the real per-item pipeline, independently verify each result by artifact and all-OS CI, and hand back a batch of merge-ready PRs for one bulk human review. Never auto-merges.
-argument-hint: '[--path <path>] [----concurrency <--concurrency>] [----report-only <--report-only>] [----dry-run <--dry-run>]'
+argument-hint: '[--path <path>] [----concurrency <--concurrency>] [----report-only <--report-only>] [----dry-run <--dry-run>] [----lease-seconds <--lease-seconds>] [----no-claim <--no-claim>]'
 allowed-tools:
   - Bash
   - Read
