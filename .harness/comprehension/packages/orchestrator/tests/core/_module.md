@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'packages/orchestrator/tests/core'
-sourceHash: 'e7633c2a3253f046b9ceabe2830f9125e3ee798b79a34821d44d45843c8d9c47'
+sourceHash: 'de40e0294477ea94b3321323daf0a86e1c0d0233d6bf437a0d18256b16e41eb7'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
@@ -26,6 +26,7 @@ members:
     'lane-persistence.test.ts',
     'lane-readback.test.ts',
     'model-router.test.ts',
+    'naming-aliases.test.ts',
     'orchestrator-identity.test.ts',
     'published-index.test.ts',
     'rate-limit.test.ts',
@@ -56,7 +57,7 @@ members:
 import { MockBackend } from '../../src/agent/backends/mock'
 import { AnalysisArchive, AnalysisRecord } from '../../src/core/analysis-archive'
 import { renderAnalysisComment } from '../../src/core/analysis-comment'
-import { canAffordDispatch, createBudgetState, fleetKeyForIssue, getBudgetStatus, periodLengthMs, recordBudgetSpend, rollBudgetPeriod } from '../../src/core/budget-governor'
+import { canAffordDispatch, createBudgetState, fleetKeyForIssue, getBudgetStatus, recordBudgetSpend, resolvePeriodLengthMs, rollBudgetPeriod } from '../../src/core/budget-governor'
 import { isEligible, selectCandidates, sortCandidates } from '../../src/core/candidate-selection'
 import { ClaimManager } from '../../src/core/claim-manager'
 import { canDispatch, getAvailableSlots, getPerStateCount } from '../../src/core/concurrency'
@@ -68,13 +69,14 @@ import { detectScopeTier, routeIssue } from '../../src/core/model-router'
 import from '../../src/core/orchestrator-identity'
 import { loadPublishedIndex, savePublishedIndex } from '../../src/core/published-index'
 import { computeRateLimitDelay } from '../../src/core/rate-limiter'
-import { reconcile } from '../../src/core/reconciliation'
-import { calculateRetryDelay } from '../../src/core/retry'
+import { reconcileRunningIssues } from '../../src/core/reconciliation'
+import { calculateRetryDelayMs } from '../../src/core/retry'
 import { detectStalledIssues } from '../../src/core/stall-detector'
 import { createEmptyState } from '../../src/core/state-helpers'
 import { applyEvent } from '../../src/core/state-machine'
 import { StreamRecorder } from '../../src/core/stream-recorder'
 import { extractTitlePrefix, triageIssue } from '../../src/core/triage-router'
+import * as orch from '../../src/index'
 import { Orchestrator } from '../../src/orchestrator'
 import { ClaimEffect, DispatchEffect, EscalateEffect, OrchestratorEvent, ScheduleRetryEffect, SideEffect } from '../../src/types/events'
 import { LiveSession, OrchestratorState, RunningEntry } from '../../src/types/internal'

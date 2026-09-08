@@ -24,8 +24,8 @@ import {
   isFleetAllocationExhausted,
 } from './budget-governor';
 import { assertIssueWithinContextBudget } from './context-budget-governor';
-import { reconcile } from './reconciliation';
-import { calculateRetryDelay } from './retry';
+import { reconcileRunningIssues } from './reconciliation';
+import { calculateRetryDelayMs } from './retry';
 import { detectScopeTier, routeIssue, artifactPresenceFromIssue } from './model-router';
 import { extractRateLimitReset } from './rate-limit-events';
 
@@ -195,7 +195,7 @@ function enqueueRetry(
   effects: SideEffect[],
   maxRetryBackoffMs: number | undefined
 ): void {
-  const delayMs = calculateRetryDelay(attempt, 'failure', maxRetryBackoffMs);
+  const delayMs = calculateRetryDelayMs(attempt, 'failure', maxRetryBackoffMs);
   next.retryAttempts.set(issueId, {
     issueId,
     identifier,
@@ -465,7 +465,7 @@ function handleTick(
   const effects: SideEffect[] = [];
 
   // Phase 1: Reconcile running issues against tracker state
-  const reconcileEffects = reconcile(
+  const reconcileEffects = reconcileRunningIssues(
     next,
     runningStates,
     config.tracker.activeStates,

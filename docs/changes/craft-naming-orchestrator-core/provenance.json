@@ -1,0 +1,172 @@
+{
+  "schemaVersion": 1,
+  "slug": "craft-naming-orchestrator-core",
+  "issues": [2001],
+  "route": "feature",
+  "routeRationale": "ADR 0103 rubric fallback \u2014 no spec existed for this item at dispatch time, so the item routed through the full brainstorming -> autopilot feature pipeline rather than straight to autopilot.",
+  "fleet": "roadmap-fleet",
+  "fleetRun": "fleet-command wave 4",
+  "lane": {
+    "worktree": "/Users/cwarner/Projects/iv/harness-lanes/fc2-rm-2001",
+    "branch": "fc2/craft-naming-orch-core-2001",
+    "baseSha": "fef03ac5ea510de1b109a76536c68c92a17f6771"
+  },
+  "upstreamCritique": {
+    "source": "craft-fleet / naming-craft",
+    "runId": "f7927dfb-4051-4e15-93dd-0e3db3e5d05e",
+    "pinnedBaseSha": "b72ede296851ffb54fba0e86938b1ede9f982f84",
+    "scope": "packages/orchestrator/src/core",
+    "findingsAboveNoiseFloor": 5,
+    "rubrics": ["NAME-R001", "NAME-R003", "NAME-R006"]
+  },
+  "stages": [
+    {
+      "stage": "brainstorming",
+      "skill": "harness-brainstorming",
+      "status": "complete",
+      "artifacts": [
+        "docs/changes/craft-naming-orchestrator-core/proposal.md",
+        "docs/changes/craft-naming-orchestrator-core/SKILLS.md"
+      ],
+      "notes": "Spec authored from the verbatim naming-craft critique. Four decisions settled (D1 rename+deprecated alias, D2 alias must be proven reachable from the published entry point, D3 symbol-scoped reconcile rename, D4 no alias for the function-local accumulator). Skill advisor run via mcp__harness__advise_skills over the spec (785 skills scanned)."
+    },
+    {
+      "stage": "autopilot",
+      "skill": "harness-autopilot",
+      "status": "complete",
+      "sessionSlug": "changes--craft-naming-orchestrator-core--proposal",
+      "sessionDir": ".harness/sessions/changes--craft-naming-orchestrator-core--proposal",
+      "phases": [
+        {
+          "index": 0,
+          "name": "Rename + alias + barrel + importers + tests + docs/changeset",
+          "complexity": "medium",
+          "states": ["ASSESS", "PLAN", "EXECUTE", "VERIFY", "REVIEW"]
+        }
+      ],
+      "subagents": [
+        {
+          "state": "PLAN",
+          "agent": "harness-planner"
+        },
+        {
+          "state": "EXECUTE",
+          "agent": "harness-task-executor"
+        },
+        {
+          "state": "VERIFY",
+          "agent": "harness-verifier"
+        },
+        {
+          "state": "FINAL_REVIEW",
+          "agent": "harness-code-reviewer"
+        }
+      ],
+      "artifacts": [
+        "docs/changes/craft-naming-orchestrator-core/plans/2026-09-08-craft-naming-orchestrator-core-plan.md",
+        ".harness/sessions/changes--craft-naming-orchestrator-core--proposal/autopilot-state.json",
+        ".harness/sessions/changes--craft-naming-orchestrator-core--proposal/handoff.json"
+      ]
+    },
+    {
+      "stage": "verify",
+      "agent": "harness-verifier",
+      "status": "pass",
+      "verdicts": {
+        "EXISTS": "pass",
+        "SUBSTANTIVE": "pass",
+        "WIRED": "pass"
+      },
+      "successCriteriaPassed": "8/8",
+      "falsifiability": "The alias-reachability proof was independently mutated (one deprecated-alias barrel line in src/core/index.ts commented out) and measured RED (exit 1, \"expected 'undefined' to be 'function'\"), then restored byte-identical. The proof is not vacuous.",
+      "publishedSurfaceCheck": "All six names were confirmed present in the BUILT dist/index.d.ts and reference-identity re-checked through the runtime dist/index.mjs ESM bundle, not only against TS source.",
+      "measured": {
+        "typecheck": 0,
+        "orchestratorSuite": 0,
+        "lint": 0,
+        "prettierCheck": 0,
+        "build": 0,
+        "suiteTotals": "267 files passed / 1 skipped, 2926 tests passed / 1 skipped",
+        "harnessValidate": {
+          "exit": 1,
+          "delta": 0,
+          "note": "450 ambient findings; zero reference any file in this diff"
+        },
+        "harnessCheckDeps": {
+          "exit": 1,
+          "delta": 0,
+          "note": "the single pre-existing packages/core/src/solutions/scan-candidates/ circular dep"
+        }
+      }
+    },
+    {
+      "stage": "final_review",
+      "agent": "harness-code-reviewer",
+      "status": "approved-after-fixes",
+      "blockingFindings": 0,
+      "shouldFixApplied": [
+        "provenance.json committed (was untracked and would have been lost)",
+        "roadmap shard + aggregate row updated to in-progress with Spec and Plan links, making the provenance record true rather than aspirational",
+        "changeset corrected: the alias guard 'fails the test suite', not 'fails the build' (packages/orchestrator/tsconfig.json excludes tests, so tsc never sees the proof)"
+      ],
+      "nitsApplied": [
+        "Refs #2001 trailer added to the changeset",
+        "README reconcileRunningIssues row reworded to match the source doc comment",
+        "reconciliation.test.ts locals mirrored to sideEffects for vocabulary consistency",
+        "naming-aliases.test.ts comment now names the ambiguous-star-export failure mode the assertions also cover"
+      ],
+      "tdzCheck": "Safe. All three aliases are module-top-level consts bound to hoisted function declarations; both retargeted budget-governor.ts call sites live inside function bodies, never at module-evaluation time, and state-machine.ts imports the new function names rather than the alias bindings.",
+      "shouldFixDisclosedNotFixed": [
+        "three unrelated packages/cli comprehension shards: revert did not hold against the pre-commit driver (and --no-verify is forbidden), so they are disclosed in the PR body instead"
+      ]
+    }
+  ],
+  "planArtifact": "docs/changes/craft-naming-orchestrator-core/plans/2026-09-08-craft-naming-orchestrator-core-plan.md",
+  "specArtifact": "docs/changes/craft-naming-orchestrator-core/proposal.md",
+  "renames": [
+    {
+      "finding": "NAME-R006 + NAME-R001",
+      "location": "packages/orchestrator/src/core/retry.ts:11",
+      "from": "calculateRetryDelay",
+      "to": "calculateRetryDelayMs",
+      "exported": true,
+      "deprecatedAlias": true
+    },
+    {
+      "finding": "NAME-R003",
+      "location": "packages/orchestrator/src/core/budget-governor.ts:36",
+      "from": "periodLengthMs",
+      "to": "resolvePeriodLengthMs",
+      "exported": true,
+      "deprecatedAlias": true
+    },
+    {
+      "finding": "NAME-R001",
+      "location": "packages/orchestrator/src/core/reconciliation.ts:16",
+      "from": "reconcile",
+      "to": "reconcileRunningIssues",
+      "exported": true,
+      "deprecatedAlias": true
+    },
+    {
+      "finding": "NAME-R001",
+      "location": "packages/orchestrator/src/core/reconciliation.ts:22",
+      "from": "effects",
+      "to": "sideEffects",
+      "exported": false,
+      "deprecatedAlias": false
+    }
+  ],
+  "assumptions": [
+    "FORK 1 (settled at the fleet CONFIRM gate, not by this lane): @harness-engineering/orchestrator is publicly published (v0.24.1, publishConfig.access public, no private flag), so a bare exported rename would be a breaking change. Each of the three exported symbols keeps its OLD name as a deprecated alias and ships as a MINOR changeset rather than a major.",
+    "FORK 2 (settled at the fleet CONFIRM gate): the `reconcile` rename is SYMBOL-SCOPED. `reconcile` matches ~460 locations repo-wide because it is a common English word in prose, docs, CHANGELOGs, skill files and agent definitions, and there are four unrelated REAL symbols with that name (scripts/audit-exceptions.mjs, packages/graph KnowledgePipelineRunner.reconcile, packages/local-models PoolManager.reconcile, and the `harness roadmap reconcile` CLI subcommand). None was touched.",
+    "The alias is verified reachable from the PACKAGE ROOT entry point, not merely declared in its module file. The repo has a recurring defect class where an alias exists but is never added to the barrel, silently converting rename+alias into a bare breaking rename. tests/core/naming-aliases.test.ts imports both names from ../../src/index and asserts reference identity, and was observed RED before the barrel was wired.",
+    "A `const` alias (rather than `export { x as y }`) was chosen so the JSDoc @deprecated tag attaches to a declaration the TypeScript language service surfaces with strikethrough at consumer call sites.",
+    "YAGNI cuts against the critique's own conditional suggestions: no branded DurationMs type (the finding offers it only 'if the unit ever needs to vary' \u2014 it does not vary); `reconcileRunningIssues` rather than `computeReconciliation` (matches the module's existing doc comment); `sideEffects` rather than stateTransitionEffects/derivedSideEffects (the finding's stated floor).",
+    "Historical plan documents under docs/changes/orchestrator/ and docs/changes/hybrid-orchestrator/ also name calculateRetryDelay. They are dated records of past runs and were deliberately left untouched.",
+    "The roadmap shard docs/roadmap.d/craft-naming-packages-orchestrator-src-core.md was edited directly (Spec/Plan/Status fields) rather than through manage_roadmap, whose action:add/assign paths are documented in this repo to auto-create GitHub issues and rewrite unrelated rows.",
+    "Baseline was ambiently red at the base SHA and is treated as NOT this lane's regression: `harness validate` exits 1 (~450 findings, hardcoded-color false positives in test fixtures) and `harness check-deps` exits 1 (1 circular dep in packages/core/src/solutions/scan-candidates/). Both are disjoint from packages/orchestrator/src/core. Verdicts are delta-against-base, not absolute.",
+    "All verification ran under Node 22 (/Users/cwarner/.nvm/versions/node/v22.23.2) because better-sqlite3 in this worktree is built for the Node 22 ABI; under the shell default Node 24 the suite produces ~14 phantom sqlite failures that mimic real regressions.",
+    "Three packages/cli comprehension shards appear in the diff carrying drift UNRELATED to this rename (INGEST_TOKEN_ENV, waypoint-ship.test.ts, sync-deps-pnyon.test.ts). They are not authored by this work: the repo's committed shards were stale against the base tree, and the pre-commit comprehension driver recomputes and re-stages them on every commit. A revert to the base SHA was attempted and did NOT hold -- the driver reinstated them on the very next commit, and dropping them would require --no-verify, which is forbidden here. They are therefore disclosed in the PR body rather than removed. The two orchestrator shards in the diff DO belong to this change and correctly reflect its renames."
+  ]
+}

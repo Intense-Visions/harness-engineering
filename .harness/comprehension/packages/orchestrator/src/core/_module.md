@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'packages/orchestrator/src/core'
-sourceHash: '90cc627dee71073751947c286bc9cfad1d7ea9866f8b19665c86e97d61dd75be'
+sourceHash: 'b78801fbb49406cd3ebcfddd93f423f8cd49cced8573cecd8f0f188eb17fe100'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
@@ -79,6 +79,7 @@ export applyEvent
 export artifactPresenceFromIssue
 export assertIssueWithinContextBudget
 export calculateRetryDelay
+export calculateRetryDelayMs
 export canAffordDispatch
 export canDispatch
 export cloneBudgetState
@@ -100,11 +101,13 @@ export isGlobalEnvelopeExhausted
 export loadPublishedIndex
 export periodLengthMs
 export reconcile
+export reconcileRunningIssues
 export recordBudgetSpend
 export renderAnalysisComment
 export renderPRComment
 export resolveEscalationConfig
 export resolveOrchestratorId
+export resolvePeriodLengthMs
 export rollBudgetPeriod
 export routeIssue
 export savePublishedIndex
@@ -129,8 +132,8 @@ import { InteractionQueue, PendingInteraction } from './interaction-queue'
 import { artifactPresenceFromIssue, detectScopeTier, routeIssue } from './model-router'
 import { PRDetector, PRDetectorLogger } from './pr-detector'
 import { extractRateLimitReset } from './rate-limit-events'
-import { reconcile } from './reconciliation'
-import { calculateRetryDelay } from './retry'
+import { reconcileRunningIssues } from './reconciliation'
+import { calculateRetryDelayMs } from './retry'
 import { AttemptStats, Highlight } from './stream-recorder'
 import { CHARS_PER_TOKEN, ComprehensionSourceFile, ComprehensionUnit, ContextBudgetExceededError, Issue, IssueTrackerClient, assertLeafWithinBudget, computeSourceHash, coreIsFleetAllocationExhausted, coreIsGlobalEnvelopeExhausted, eventSourcing, githubRepoPath, parseCanonicalExternalId, renderServedUnit } from '@harness-engineering/core'
 import { ComplexityScore, EnrichedSpec, SimulationResult } from '@harness-engineering/intelligence'
