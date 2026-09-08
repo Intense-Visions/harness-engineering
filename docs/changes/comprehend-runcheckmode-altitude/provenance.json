@@ -1,0 +1,31 @@
+{
+  "issues": [1743],
+  "route": "feature",
+  "stages": ["brainstorming", "autopilot", "planning", "execution", "verification"],
+  "assumptions": [
+    "Autonomous fleet lane: the harness-brainstorming human sign-off gate and the section-by-section spec review were satisfied by the roadmap-fleet lane brief, which pre-confirmed the route (feature) and the prescribed shape (extract reportSemanticRegression returning {regressed, refUnreadable}). The spec was written in one pass rather than section-by-section because no human was available to review between sections.",
+    "D1 — the extracted function stays IN packages/cli/src/commands/comprehend.ts (exported for tests) rather than moving to src/comprehension/regression.ts. The finding scopes the surface as within-unit, and regression.ts is deliberately a pure, logger-free detection module; moving user-facing logger prose into it would smear that boundary.",
+    "D2 — RefReadDeps is a REQUIRED parameter supplied by the caller (defaultRefReadDeps(opts.projectRoot)) rather than constructed internally, so the extracted function is git- and disk-free and unit-testable without a fixture repo.",
+    "D3 — the logger is an injected seam defaulting to `logger`, typed Pick<typeof logger, 'error' | 'warn' | 'success'>, matching the file's existing seam convention (stageCompiledUnits, resolveChangedScope).",
+    "D4 — the `if (opts.since)` guard and the `opts.context ?? 'main'` default both stay at the call site, keeping the extracted function total and keeping the verdict computation visible in runCheckMode.",
+    "The four moved logger message strings are byte-identical to base; only the receiver changed (logger.x -> log.x). No observable CLI output changed.",
+    "No roadmap promotion was performed by this lane: the roadmap mutation for #1743 is the conductor's responsibility, and manage_roadmap is not worktree-aware (issue #1507)."
+  ],
+  "planArtifact": "docs/changes/comprehend-runcheckmode-altitude/plans/2026-09-08-extract-report-semantic-regression-plan.md",
+  "specArtifact": "docs/changes/comprehend-runcheckmode-altitude/proposal.md",
+  "baseSha": "418f5e188",
+  "finding": {
+    "id": "CODE-R003",
+    "runId": "0b56dbcd-7703-4b4e-aea9-4cdce91fe07c",
+    "cite": "packages/cli/src/commands/comprehend.ts:254-342",
+    "source": "craft-fleet code-craft"
+  },
+  "verification": [
+    "pnpm turbo build --filter=@harness-engineering/cli — green",
+    "tsc --noEmit (packages/cli) — clean",
+    "vitest run src/commands/comprehend.test.ts tests/comprehension — 13 files, 202 passed / 1 skipped",
+    "vitest run tests/e2e/comprehend-boundary.e2e.test.ts — passed",
+    "git diff --stat — exactly comprehend.ts + comprehend.test.ts (plus docs/changes artifacts)",
+    "pnpm run generate-docs — no docs/reference delta (CLI surface unchanged)"
+  ]
+}
