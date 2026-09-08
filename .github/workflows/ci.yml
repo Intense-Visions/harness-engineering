@@ -333,30 +333,71 @@ jobs:
             exit 0
           fi
           echo "Direct push blocked by branch protection. Creating PR instead."
+          BRANCH="chore/refresh-baselines-$(date +%s)"
+
           # Fix B: base the PR branch on the CURRENT tip of origin/main, not the
           # (possibly stale) event SHA this run checked out. Concurrent refresh runs
           # otherwise branch from divergent commits and conflict on the same baseline
           # lines; GitHub auto-merge cannot resolve content conflicts, so the loser
           # sits open forever (this was the #671 failure mode).
-          git fetch origin main
-          BRANCH="chore/refresh-baselines-$(date +%s)"
-          git checkout -B "$BRANCH" origin/main
-          # Re-apply our freshly generated baselines on top of latest main. The files
-          # are regenerated wholesale, so "ours" is always the correct resolution and
-          # this re-apply can never conflict.
-          git checkout "$OURS" -- $BASELINE_FILES
-          git add $BASELINE_FILES
-          # Re-apply the transient-allowance cleanup on top of latest main (the merge may
-          # have carried allowance files onto main). --ignore-unmatch keeps this a no-op
-          # when none are present.
-          for d in $ALLOWANCE_DIRS; do
-            git rm -q -r --ignore-unmatch "$d" >/dev/null 2>&1 || true
-          done
-          if git diff --cached --quiet; then
+          #
+          # Factored into a function because the merge retry below re-derives on the
+          # NEW tip between attempts rather than blindly repeating a merge that main
+          # has already moved out from under. Returns non-zero when the latest main
+          # already carries these baselines (nothing left to propose).
+          rebuild_branch_on_main() {
+            git fetch origin main
+            git checkout -B "$BRANCH" origin/main
+            # Re-apply our freshly generated baselines on top of latest main. The files
+            # are regenerated wholesale, so "ours" is always the correct resolution and
+            # this re-apply can never conflict.
+            git checkout "$OURS" -- $BASELINE_FILES
+            git add $BASELINE_FILES
+            # Re-apply the transient-allowance cleanup on top of latest main (the merge may
+            # have carried allowance files onto main). --ignore-unmatch keeps this a no-op
+            # when none are present.
+            for d in $ALLOWANCE_DIRS; do
+              git rm -q -r --ignore-unmatch "$d" >/dev/null 2>&1 || true
+            done
+            if git diff --cached --quiet; then
+              return 1
+            fi
+            git commit -m "chore: refresh baselines after merge [skip ci]"
+          }
+
+          # Scope guard + self-approval. Re-run after every force-push, because a
+          # force-push can dismiss the inline approval applied to the previous head.
+          approve_pr() {
+            # Defensive scope check (#531): the branch is constructed to contain only
+            # baseline files, but never self-approve a PR whose diff reaches beyond
+            # them. $BASELINE_FILES is the single source of truth for the allowlist.
+            # Fails closed — any unexpected path (or an empty diff) aborts before approval.
+            gh pr diff "$PR_URL" --name-only | node scripts/assert-baseline-only-diff.mjs $SCOPE_ALLOW
+            # Approve inline with the PAT. Events triggered by GITHUB_TOKEN do not start
+            # workflow runs, so a separate auto-approve workflow on pull_request_target
+            # would never fire for this PR.
+            GH_TOKEN="$AUTOAPPROVE_PAT" gh pr review "$PR_URL" --approve \
+              --body "Auto-approved: baseline refresh from github-actions[bot]."
+          }
+
+          # Close the PR and abstain cleanly. `.harness/**/baselines.json` uses a
+          # `merge=ours` custom merge driver, so a STALE baseline PR resolves in the
+          # PR's favour — landing it later would REVERT main's newer baselines. A
+          # superseded baseline-refresh PR is therefore actively DANGEROUS, not merely
+          # stale, so it must not be left open to accumulate. Closing is correct
+          # because the very next merge to main regenerates a fresh one: nothing is
+          # lost, and the outcome is visible in the run log and on the closed PR.
+          abstain_superseded() {
+            echo "::notice::Baseline refresh superseded by concurrent merges to main ($1); closing $PR_URL. The next merge to main regenerates it."
+            gh pr close "$PR_URL" --delete-branch \
+              --comment "Closing: superseded by concurrent merges to main ($1). The next merge to main regenerates a fresh baseline refresh. Not landed because \`.harness/**/baselines.json\` uses a \`merge=ours\` driver, so landing a stale refresh would revert main's newer baselines."
+            exit 0
+          }
+
+          if ! rebuild_branch_on_main; then
             echo "Latest main already carries these baselines; nothing to PR."
             exit 0
           fi
-          git commit -m "chore: refresh baselines after merge [skip ci]"
           git push -u origin "$BRANCH"
           # Create the PR as github-actions[bot] so the PAT owner (a human) can approve it
           # without hitting GitHub's self-approval block.
@@ -365,17 +406,38 @@ jobs:
             --body "Auto-generated baseline refresh. Created because direct pushes to main are blocked by branch protection. Branch is based on the current tip of main to avoid concurrent-refresh conflicts." \
             --base main \
             --head "$BRANCH")
-          # Defensive scope check (#531): the branch is constructed to contain only
-          # baseline files, but never self-approve a PR whose diff reaches beyond
-          # them. $BASELINE_FILES is the single source of truth for the allowlist.
-          # Fails closed — any unexpected path (or an empty diff) aborts before approval.
-          gh pr diff "$PR_URL" --name-only | node scripts/assert-baseline-only-diff.mjs $SCOPE_ALLOW
-          # Approve inline with the PAT. Events triggered by GITHUB_TOKEN do not start
-          # workflow runs, so a separate auto-approve workflow on pull_request_target
-          # would never fire for this PR.
-          GH_TOKEN="$AUTOAPPROVE_PAT" gh pr review "$PR_URL" --approve \
-            --body "Auto-approved: baseline refresh from github-actions[bot]."
-          gh pr merge "$PR_URL" --auto --squash --delete-branch
+          approve_pr
+
+          # BOUNDED MERGE RETRY. This repo has NO `required_status_checks` branch rule —
+          # only a ruleset requiring one approving review, which `approve_pr` just
+          # satisfied inline. `--auto` merely QUEUES when something is still pending, so
+          # with nothing left to wait on it attempts an IMMEDIATE merge. Under a merge
+          # burst main routinely advances between `gh pr create` and this call, and the
+          # mergePullRequest mutation is then rejected with "Base branch was modified",
+          # which under `bash -e` exited the step non-zero and REDDENED main (runs
+          # 34227768312, 34042737396, 34042651655) plus fired the main-health alarm.
+          #
+          # Retry on a freshly RE-DERIVED branch (same PR, same URL — never a second PR),
+          # matching the `for attempt in 1 2 3` + re-fetch idiom already used by
+          # holiday-confidence-track.yml's "Commit the trend ledger" step. `--auto` is
+          # kept so the job still behaves correctly if required checks are added later.
+          for attempt in 1 2 3; do
+            if gh pr merge "$PR_URL" --auto --squash --delete-branch; then
+              echo "Merged (or queued) $PR_URL on attempt $attempt."
+              exit 0
+            fi
+            echo "Merge attempt $attempt failed — main likely moved; re-deriving on the new tip."
+            sleep 5
+            if ! rebuild_branch_on_main; then
+              abstain_superseded "latest main already carries these baselines"
+            fi
+            if ! git push --force-with-lease -u origin "$BRANCH"; then
+              abstain_superseded "the refresh branch was updated concurrently"
+            fi
+            approve_pr
+          done
+
+          abstain_superseded "3 merge attempts exhausted"
         env:
           HUSKY: '0'
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}

@@ -279,7 +279,9 @@ test('mergeCoverageBaselines: a 0.2% cli branch move is adopted (beyond its 0.1%
 });
 
 test('mergeCoverageBaselines: an explicit tolerance argument overrides the per-package map', () => {
-  const committed = { 'packages/cli': { lines: 80, branches: 80.5, functions: 84, statements: 79 } };
+  const committed = {
+    'packages/cli': { lines: 80, branches: 80.5, functions: 84, statements: 79 },
+  };
   const measured = { 'packages/cli': { lines: 80, branches: 80.7, functions: 84, statements: 79 } };
 
   // With an explicit 0.5% tolerance, the +0.2% cli move is treated as noise.
@@ -325,4 +327,74 @@ test('benchmark: new and placeholder-zero baselines adopt fresh values', () => {
 
   assert.deepEqual(merged.existing, { mean: 0.5, p99: 0.6 }); // zero placeholder -> adopt
   assert.deepEqual(merged.fresh, { mean: 0.1, p99: 0.2 }); // new key -> adopt
+});
+
+// ---------------------------------------------------------------------------
+// Second race in the same job, same file: the AUTO-MERGE call itself.
+//
+// The jitter gate above stops refresh PRs from CONFLICTING. It does nothing for
+// the merge race: this repo has no `required_status_checks` branch rule, so
+// `gh pr merge --auto` has nothing to wait on once the PAT approval lands inline
+// and attempts an IMMEDIATE merge. When main advances between `gh pr create` and
+// that call, the mergePullRequest mutation is rejected with "Base branch was
+// modified" and the step exits non-zero, reddening main (runs 34227768312,
+// 34042737396, 34042651655). The fix is a bounded retry that re-derives on the
+// new tip, then a clean close-and-abstain on exhaustion.
+//
+// The defect lives in the workflow YAML rather than in a script, so these assert
+// over the workflow text — the same reason this file exists at all.
+
+const refreshBaselinesStep = (() => {
+  const yml = readFileSync(new URL('../../.github/workflows/ci.yml', import.meta.url), 'utf8');
+  const start = yml.indexOf('- name: Commit refreshed baselines');
+  assert.ok(start !== -1, 'ci.yml must still carry the "Commit refreshed baselines" step');
+  const end = yml.indexOf('\n        env:', start);
+  assert.ok(end !== -1, 'the step must still end with its env: block');
+  return yml.slice(start, end);
+})();
+
+test('refresh-baselines: the auto-merge call sits inside a bounded retry', () => {
+  assert.match(
+    refreshBaselinesStep,
+    /for attempt in 1 2 3; do/,
+    'the merge must be retried a bounded number of times, not attempted once'
+  );
+  assert.match(
+    refreshBaselinesStep,
+    /rebuild_branch_on_main/,
+    'each retry must re-derive the branch on the new origin/main tip, not blindly repeat'
+  );
+});
+
+test('refresh-baselines: retry exhaustion closes the superseded PR and exits clean', () => {
+  // A stale baseline PR must never be left open: .harness/**/baselines.json uses a
+  // `merge=ours` driver, so landing it later would REVERT main's newer baselines.
+  assert.match(
+    refreshBaselinesStep,
+    /gh pr close "\$PR_URL" --delete-branch/,
+    'exhaustion must close the superseded refresh PR, never leave it open to accumulate'
+  );
+  assert.match(
+    refreshBaselinesStep,
+    /::notice::/,
+    'the abstain must be announced in the run log, not silent'
+  );
+  assert.match(
+    refreshBaselinesStep,
+    /\n\s*exit 0\n\s*}/,
+    'the abstain path must exit 0 — a superseded refresh is not a failure'
+  );
+});
+
+test('refresh-baselines: the merge is not neutralised and the #531 scope guard survives', () => {
+  assert.doesNotMatch(
+    refreshBaselinesStep,
+    /gh pr merge[^\n]*\|\|\s*true/,
+    'the merge must never be silenced with `|| true` — that hides a real failure'
+  );
+  assert.match(
+    refreshBaselinesStep,
+    /assert-baseline-only-diff\.mjs/,
+    'the fail-closed self-approval scope guard (#531) must still run before every approval'
+  );
 });
