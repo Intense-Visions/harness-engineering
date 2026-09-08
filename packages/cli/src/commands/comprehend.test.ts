@@ -6,9 +6,11 @@ import {
   resolveStaticOnlyPosture,
   formatCompiledUnits,
   stageCompiledUnits,
+  reportSemanticRegression,
 } from './comprehend';
 import type { ComprehensionConfig } from '../config/schema';
 import type { ChangedSurface } from './validate-scope';
+import type { RefReadDeps, SemanticState } from '../comprehension/regression';
 
 /**
  * Behavior contract for the exported resolution + shard-output helpers of
@@ -154,5 +156,109 @@ describe('formatCompiledUnits / stageCompiledUnits — shard output seams', () =
     await stageCompiledUnits({ compiled: ['a'] }, store, stage, format);
     expect(order).toEqual(['format', 'stage']);
     expect(stage).toHaveBeenCalledWith(['.harness/comprehension/a/_module.md']);
+  });
+});
+
+/**
+ * #1743 / CODE-R003 — contract of the `--since` regression narrative extracted out of
+ * `runCheckMode`. This is the gate's only unit coverage: before the extraction the whole
+ * block was inlined behind a `process.exit` and untestable, so the unreadable-ref refusal
+ * (the "never report a false green" invariant) had no test anywhere in the repo. Both the
+ * git seam and the logger are injected — no git, no disk, no process exit.
+ */
+describe('reportSemanticRegression — the --since gate contract', () => {
+  const shardPath = (module: string) => `.harness/comprehension/${module}/_module.md`;
+  const shard = (module: string, semantic: SemanticState) =>
+    `module: ${module}\nsemantic: ${semantic}\n`;
+
+  /** In-memory RefReadDeps. A `null` ref models an unfetched / bad / git-errored ref. */
+  const makeDeps = (refs: Record<string, Record<string, SemanticState> | null>): RefReadDeps => ({
+    listShardsAtRef: (ref) => {
+      const modules = refs[ref];
+      return modules ? Object.keys(modules).map(shardPath) : null;
+    },
+    showAtRef: (ref, path) => {
+      const modules = refs[ref];
+      if (!modules) return null;
+      const hit = Object.entries(modules).find(([module]) => shardPath(module) === path);
+      return hit ? shard(hit[0], hit[1]) : null;
+    },
+  });
+
+  const makeLog = () => ({ error: vi.fn(), warn: vi.fn(), success: vi.fn() });
+
+  it('refuses to report a pass when the BASE ref is unreadable', () => {
+    const log = makeLog();
+    const deps = makeDeps({ 'origin/main': null, HEAD: { a: 'present' } });
+    expect(reportSemanticRegression('origin/main', 'main', deps, log)).toEqual({
+      regressed: [],
+      refUnreadable: true,
+    });
+    expect(log.error).toHaveBeenCalledWith(expect.stringContaining("base ref 'origin/main'"));
+    // No comparison happened, so the gate must not narrate a verdict either way.
+    expect(log.success).not.toHaveBeenCalled();
+    expect(log.warn).not.toHaveBeenCalled();
+  });
+
+  it("names 'HEAD' when it is HEAD that is unreadable", () => {
+    const log = makeLog();
+    const deps = makeDeps({ 'origin/main': { a: 'present' }, HEAD: null });
+    expect(reportSemanticRegression('origin/main', 'main', deps, log)).toEqual({
+      regressed: [],
+      refUnreadable: true,
+    });
+    expect(log.error).toHaveBeenCalledWith(expect.stringContaining("'HEAD'"));
+    expect(log.success).not.toHaveBeenCalled();
+  });
+
+  it("context 'pr': never flags present→absent, and advisory-warns on a committed-semantic addition", () => {
+    const log = makeLog();
+    const deps = makeDeps({ base: { a: 'absent' }, HEAD: { a: 'present' } });
+    expect(reportSemanticRegression('base', 'pr', deps, log)).toEqual({
+      regressed: [],
+      refUnreadable: false,
+    });
+    expect(log.warn).toHaveBeenCalledWith(expect.stringContaining('COMMITTED semantic'));
+    expect(log.success).toHaveBeenCalledWith(expect.stringContaining('Static-only PR path'));
+    expect(log.error).not.toHaveBeenCalled();
+  });
+
+  it("context 'pr': the expected present→absent downgrade is silent (no warn, no regression)", () => {
+    const log = makeLog();
+    const deps = makeDeps({ base: { a: 'present' }, HEAD: { a: 'absent' } });
+    expect(reportSemanticRegression('base', 'pr', deps, log)).toEqual({
+      regressed: [],
+      refUnreadable: false,
+    });
+    expect(log.warn).not.toHaveBeenCalled();
+    expect(log.success).toHaveBeenCalledWith(expect.stringContaining('Static-only PR path'));
+  });
+
+  it("context 'main': returns exactly the regressed modules and errors listing them", () => {
+    const log = makeLog();
+    const deps = makeDeps({
+      base: { a: 'present', b: 'present' },
+      HEAD: { a: 'absent', b: 'present' },
+    });
+    expect(reportSemanticRegression('base', 'main', deps, log)).toEqual({
+      regressed: ['a'],
+      refUnreadable: false,
+    });
+    expect(log.error).toHaveBeenCalledWith(expect.stringContaining('1 module(s) regressed'));
+    expect(log.success).not.toHaveBeenCalled();
+  });
+
+  it("context 'main': reports a clean pass when nothing lost semantic", () => {
+    const log = makeLog();
+    const deps = makeDeps({ base: { a: 'present' }, HEAD: { a: 'present' } });
+    expect(reportSemanticRegression('base', 'main', deps, log)).toEqual({
+      regressed: [],
+      refUnreadable: false,
+    });
+    expect(log.success).toHaveBeenCalledWith(
+      expect.stringContaining('No semantic regressions on `main` vs base')
+    );
+    expect(log.error).not.toHaveBeenCalled();
+    expect(log.warn).not.toHaveBeenCalled();
   });
 });

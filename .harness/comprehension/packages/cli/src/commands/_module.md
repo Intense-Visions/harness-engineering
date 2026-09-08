@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'packages/cli/src/commands'
-sourceHash: 'a0c6f607fdd179f37591b2524ff7ebac61416231f42e61f42a8289ce86df3bc4'
+sourceHash: '300d3214ecb0f51147e94555479dbc9a9cd2358b3608f03e6aafbdf04a38a504'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
@@ -316,6 +316,7 @@ export readReview
 export referencesTargetPr
 export refreshExitCode
 export renderTable
+export reportSemanticRegression
 export resolveBaseRef
 export resolveCandidates
 export resolveChangedScope
@@ -417,7 +418,7 @@ import { shouldRunComprehendHook } from '../comprehension/hook'
 import { enumerateModules, filesToModules } from '../comprehension/invalidation'
 import { committedSemanticAllowed } from '../comprehension/policy'
 import { RefreshJobGateReason, explainInactiveRefreshGate, resolveRefreshJobGate } from '../comprehension/refresh-gate'
-import { RegressionContext, defaultRefReadDeps, detectCommittedSemanticOnBranch, detectSemanticRegressions, readSemanticMapAtRef } from '../comprehension/regression'
+import { RefReadDeps, RegressionContext, SemanticState, defaultRefReadDeps, detectCommittedSemanticOnBranch, detectSemanticRegressions, readSemanticMapAtRef } from '../comprehension/regression'
 import { createStaticExtractor } from '../comprehension/static-extractor'
 import { loadAnalysisExclude, loadDesignExclude } from '../config/analysis-schema.js'
 import { findConfigFile, loadConfig, resolveConfig } from '../config/loader'
@@ -530,7 +531,7 @@ import { createCleanupSessionsCommand } from './cleanup-sessions'
 import { createCliErgonomicsCraftCommand } from './cli-ergonomics-craft'
 import { createCodeCraftCommand } from './code-craft'
 import { createCompoundCommand } from './compound'
-import { createComprehendCommand, formatCompiledUnits, resolveChangedScope, resolveCompileProvider, resolveMode, resolveStaticOnlyPosture, stageCompiledUnits } from './comprehend'
+import { createComprehendCommand, formatCompiledUnits, reportSemanticRegression, resolveChangedScope, resolveCompileProvider, resolveMode, resolveStaticOnlyPosture, stageCompiledUnits } from './comprehend'
 import { createComprehensionMergeDriverCommand } from './comprehension-merge-driver'
 import { createContextDictionaryCommand } from './context-dictionary'
 import { createCopyCraftCommand } from './copy-craft'
