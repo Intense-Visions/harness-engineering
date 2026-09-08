@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'packages/cli/tests/commands/roadmap'
-sourceHash: '6da780b73a0b9c5309307def5411c39102c22d9ce468c7ee7ba7441df9c38e44'
+sourceHash: '5e9927551af9e10d8d828561dde3fcbec94d98e7c12fbab97d187ffa58158309'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
@@ -21,6 +21,7 @@ members:
     'shard-io.test.ts',
     'shard-roundtrip.e2e.test.ts',
     'shard.test.ts',
+    'sync-deps-pnyon.test.ts',
     'sync-report.test.ts',
     'sync-wiring.test.ts',
     'sync.test.ts',
@@ -48,12 +49,13 @@ import { ALLOW_UNREADABLE_HISTORY_ENV, runRoadmapRegen } from '../../../src/comm
 import { runRoadmapShard } from '../../../src/commands/roadmap/shard'
 import { createNodeShardIO } from '../../../src/commands/roadmap/shard-io'
 import { buildSyncOptions, createRoadmapSyncCommand, runRoadmapSync } from '../../../src/commands/roadmap/sync'
+import { resolveAdapter, resolveConfig } from '../../../src/commands/roadmap/sync-deps'
 import { buildReport, logSyncReport } from '../../../src/commands/roadmap/sync-report'
 import { BrainstormReportRow, TriageReportRow, buildPrecedentLookup, buildShapeHistory, createRoadmapTriageCommand, isPlausibleForModel, renderBrainstormHuman, renderBrainstormJson, renderHuman, renderJson, runApproveCommand, runBrainstormReport, runTriageReport, selectActionableFeatures } from '../../../src/commands/roadmap/triage'
 import { runRoadmapUnshard } from '../../../src/commands/roadmap/unshard'
 import { logger } from '../../../src/output/logger'
 import { ExitCode } from '../../../src/utils/errors'
-import { Err, ExternalTicket, ExternalTicketState, NewFeatureInput, Ok, Result, RoadmapFeature, RoadmapMeta, RoadmapTrackerClient, Shard, ShardStore, SyncResult, TrackedFeature, TrackerSyncAdapter, TrackerSyncConfig, parseRoadmap, regenerate, resolveRoadmapStore, serializeMeta, serializeShard } from '@harness-engineering/core'
+import { Err, ExternalTicket, ExternalTicketState, GitHubIssuesSyncAdapter, NewFeatureInput, Ok, PnyonSyncAdapter, Result, RoadmapFeature, RoadmapMeta, RoadmapTrackerClient, Shard, ShardStore, SyncResult, TrackedFeature, TrackerSyncAdapter, TrackerSyncConfig, parseRoadmap, regenerate, resolveRoadmapStore, serializeMeta, serializeShard } from '@harness-engineering/core'
 import { TriageVerdict } from '@harness-engineering/orchestrator'
 import { Roadmap, RoadmapFeature } from '@harness-engineering/types'
 import { Command } from 'commander'
