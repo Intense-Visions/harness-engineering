@@ -122,17 +122,17 @@ The main class that ties everything together:
 
 ### Core Functions
 
-| Export                | Description                                                 |
-| --------------------- | ----------------------------------------------------------- |
-| `applyEvent`          | Apply an event to state, returning new state + side effects |
-| `createEmptyState`    | Create an initial empty orchestrator state                  |
-| `sortCandidates`      | Rank issues by priority and eligibility                     |
-| `selectCandidates`    | Select top candidates within concurrency limits             |
-| `isEligible`          | Check if an issue is eligible for dispatch                  |
-| `getAvailableSlots`   | Get number of available agent slots                         |
-| `canDispatch`         | Check if dispatch is possible given current state           |
-| `reconcile`           | Reconcile expected state against actual state               |
-| `calculateRetryDelay` | Compute exponential backoff delay                           |
+| Export                   | Description                                                 |
+| ------------------------ | ----------------------------------------------------------- |
+| `applyEvent`             | Apply an event to state, returning new state + side effects |
+| `createEmptyState`       | Create an initial empty orchestrator state                  |
+| `sortCandidates`         | Rank issues by priority and eligibility                     |
+| `selectCandidates`       | Select top candidates within concurrency limits             |
+| `isEligible`             | Check if an issue is eligible for dispatch                  |
+| `getAvailableSlots`      | Get number of available agent slots                         |
+| `canDispatch`            | Check if dispatch is possible given current state           |
+| `reconcileRunningIssues` | Reconcile running issues against their tracker state        |
+| `calculateRetryDelayMs`  | Compute exponential backoff delay, in milliseconds          |
 
 ### Tracker Adapters
 
