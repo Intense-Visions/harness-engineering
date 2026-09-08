@@ -29,3 +29,30 @@ export { serveGate } from './serve-gate';
 export type { ServeVerdict, ModuleSourceReader } from './serve-gate';
 export { createNodeModuleSourceReader } from './node-io';
 export { renderServedUnit } from './render';
+
+// Concrete AST static extractor — the shared `ExtractStatic` over core's
+// `TypeScriptParser`. Semantic generation stays injected (AnalysisProvider,
+// cli/consumer-side); this is the static half only, degrade-never-fake.
+export {
+  createStaticExtractor,
+  renderInterfaceContract,
+  renderDependencySlice,
+  isStaticSupported,
+  STATIC_SUPPORTED_EXTENSIONS,
+} from './static-extractor';
+
+// Run-boundary reentrancy guard (pure env logic) used by the driver.
+export { REENTRANCY_ENV, isComprehensionReentrant, withComprehensionActive } from './reentrancy';
+
+// The diff-scoped compile + write driver (IO-injected) and its --check/--stats
+// companions — the same orchestration the `harness comprehend` CLI runs.
+export { runComprehend, runComprehendCheck, runComprehendStats, mapWithConcurrency } from './run';
+export type {
+  ComprehendModuleReader,
+  ComprehendUnitStore,
+  ComprehendRunOptions,
+  ComprehendRunResult,
+  ComprehendListStore,
+  ComprehendCheckResult,
+  ComprehendStatsResult,
+} from './run';
