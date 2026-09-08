@@ -180,13 +180,52 @@ export interface SdlcSpoolSegmentSnapshot {
  * new I/O, no behavior change anywhere in harness (PRD Story 1, the
  * non-adopter invariance contract).
  */
+/**
+ * Where the shipper sends spooled events (D1/D2 of
+ * `docs/changes/waypoint-spool-shipper/proposal.md`).
+ *
+ * A SIBLING of `transport`, deliberately not a replacement for it. ADR-0047
+ * has emitters append to the local spool FIRST and ship afterwards, so
+ * shipping is something added to spooling, never an alternative to it —
+ * modelling it as another `transport` value would make "spool then ship"
+ * unrepresentable and would let one config edit silently stop writing the
+ * local copy adopters are guaranteed.
+ *
+ * Absent ⇒ no network calls at all, which is today's behaviour exactly.
+ */
+export const WaypointShipConfigSchema = z.object({
+  /** Waypoint service origin, e.g. `https://waypoint-staging.pnyon.com`. */
+  url: z.string().min(1),
+  /**
+   * Outpost and project scope. BOTH are required and neither is derived:
+   * every pnyon route is `/outpost/<outpost>/project/<project>/…`, harness
+   * config models no project, and guessing one from a repo basename would let
+   * two repos named `api` write into the same ledger. A write here is an
+   * append to a hash-chained log — it cannot be taken back, only compensated —
+   * so the cost of one required config line is not close to the cost of
+   * getting it wrong.
+   */
+  outpost: z.string().min(1),
+  project: z.string().min(1),
+  /** Events per POST. The ingest endpoint takes a JSON array natively. */
+  batchSize: z.number().int().positive().optional(),
+});
+export type WaypointShipConfig = z.infer<typeof WaypointShipConfigSchema>;
+
 export const WaypointSinkConfigSchema = z.object({
   /**
    * Spool transport toggle. `spool` appends events to the repo-local
-   * `.harness/spool/` JSONL segments. Shipping spooled events to a hosted
-   * ingest is out of scope for this layer (pnyon owns ingest).
+   * `.harness/spool/` JSONL segments. Shipping those events onward is
+   * configured by the sibling `ship` block below, not by this field.
    */
   transport: z.literal('spool'),
+  /**
+   * Optional onward shipping. Absent ⇒ spool-only, no network, no change.
+   * The bearer credential is NEVER configured here: it comes from the
+   * `PNYON_WAYPOINT_INGEST_TOKEN` environment variable, so a token cannot be
+   * committed by editing `harness.config.json`.
+   */
+  ship: WaypointShipConfigSchema.optional(),
   /**
    * Emitting scope URI stamped on every event's `source`, e.g.
    * `harness://outpost/<uuid>/repo/<name>`. Defaults to

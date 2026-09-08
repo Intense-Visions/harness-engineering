@@ -527,6 +527,7 @@ export {
   SDLC_SPECVERSION,
   SDLC_VERIFICATION_GRADES,
   WaypointConfigSchema,
+  WaypointShipConfigSchema,
   WaypointSinkConfigSchema,
 } from './waypoint';
 export type {
@@ -542,5 +543,6 @@ export type {
   SdlcValidationResult,
   SdlcVerificationGrade,
   WaypointConfig,
+  WaypointShipConfig,
   WaypointSinkConfig,
 } from './waypoint';

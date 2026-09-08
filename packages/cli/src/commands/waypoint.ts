@@ -117,7 +117,8 @@ function registerStatus(waypoint: Command): void {
     .action(async (_opts, cmd) => {
       const globalOpts = cmd.optsWithGlobals();
       const cwd = process.cwd();
-      const { readSpoolSegments } = await import('@harness-engineering/core');
+      const { readSpoolSegments, countUnshipped, countRejected } =
+        await import('@harness-engineering/core');
       const spoolDir = path.join(cwd, '.harness', 'spool');
       const segments = readSpoolSegments(spoolDir);
       const status: SpoolStatus = {
@@ -126,6 +127,8 @@ function registerStatus(waypoint: Command): void {
         events: segments.reduce((sum, s) => sum + s.lines.length, 0),
         droppedEvents: segments.reduce((sum, s) => sum + s.droppedEvents, 0),
         oldestEventTime: oldestEventTime(segments),
+        unshipped: countUnshipped(spoolDir),
+        rejected: countRejected(spoolDir),
       };
       if (globalOpts.json === true) {
         console.log(JSON.stringify(status, null, 2));
@@ -141,6 +144,157 @@ interface SpoolStatus {
   events: number;
   droppedEvents: number;
   oldestEventTime: string | null;
+  /** Events not yet confirmed in the ledger (SC-8). */
+  unshipped: number;
+  /** Events the ledger refused permanently; see `rejected.jsonl`. */
+  rejected: number;
+}
+
+/** Env var holding the ingest credential; never read from config. */
+export const INGEST_TOKEN_ENV = 'PNYON_WAYPOINT_INGEST_TOKEN';
+
+/** A resolved, credentialed shipping target. */
+interface ShipTarget {
+  readonly ship: { url: string; outpost: string; project: string; batchSize?: number };
+  readonly token: string;
+}
+
+/**
+ * Resolve where to ship and with what credential, reporting and returning null
+ * when either is unavailable.
+ *
+ * The three outcomes are deliberately distinct. A malformed `waypoint` block is
+ * an error, NOT "no sink configured" — treating it as the latter would make a
+ * broken adopter repo look exactly like a healthy non-adopter one while quietly
+ * shipping nothing. An absent `ship` block is the documented default and exits
+ * 0. A missing token is an error that names the env var, because the token is
+ * deliberately unconfigurable in the committed file.
+ */
+function resolveShipTarget(
+  configResult: { ok: boolean; value?: unknown; error?: Error },
+  json: boolean
+): ShipTarget | null {
+  if (!configResult.ok) {
+    logger.error(`Cannot read Waypoint config: ${configResult.error?.message ?? 'unknown error'}`);
+    process.exitCode = 1;
+    return null;
+  }
+  const ship = (configResult.value as { sink?: { ship?: ShipTarget['ship'] } } | undefined)?.sink
+    ?.ship;
+  if (!ship) {
+    emitNote(json, NO_SHIP_NOTE);
+    return null;
+  }
+  const token = process.env[INGEST_TOKEN_ENV];
+  if (token === undefined || token === '') {
+    logger.error(
+      `${INGEST_TOKEN_ENV} is not set; it is required to ship to ${ship.url}. ` +
+        'The token is deliberately not read from harness.config.json so it cannot be committed.'
+    );
+    process.exitCode = 1;
+    return null;
+  }
+  return { ship, token };
+}
+
+/**
+ * `harness waypoint ship` — send spooled events to the configured ledger.
+ *
+ * An explicit command rather than an automatic flush on emit (D5): auto-flush
+ * would put a network call on the hot path of every sanctioned mutator, which
+ * is exactly the set of operations that must not gain a new failure mode. This
+ * is observable, scriptable, and cron-able, and can be run from CI.
+ */
+function registerShip(waypoint: Command): void {
+  waypoint
+    .command('ship')
+    .description('Send spooled sdlc.* events to the configured Waypoint ledger')
+    .option('--dry-run', 'Report what would ship without sending anything')
+    .option('--limit <n>', 'Cap the number of events sent this run', (v) => Number.parseInt(v, 10))
+    .action(async (opts, cmd) => {
+      const globalOpts = cmd.optsWithGlobals();
+      const json = globalOpts.json === true;
+      const cwd = process.cwd();
+      const { loadWaypointConfig, shipSpool, recordRejected, ShipError } =
+        await import('@harness-engineering/core');
+
+      const target = resolveShipTarget(loadWaypointConfig(cwd), json);
+      if (target === null) return;
+      const { ship, token } = target;
+
+      const spoolDir = path.join(cwd, '.harness', 'spool');
+      try {
+        const report = await shipSpool({
+          spoolDir,
+          config: ship,
+          token,
+          fetchFn: (url, init) => fetch(url, init),
+          ...(opts.dryRun === true ? { dryRun: true } : {}),
+          ...(typeof opts.limit === 'number' && !Number.isNaN(opts.limit)
+            ? { limit: opts.limit }
+            : {}),
+          onRejected: (rejected) => {
+            recordRejected(spoolDir, rejected, new Date().toISOString());
+          },
+        });
+        if (json) {
+          console.log(JSON.stringify(report, null, 2));
+          return;
+        }
+        renderShipReport(report, ship.url, opts.dryRun === true);
+      } catch (err) {
+        if (err instanceof ShipError) {
+          logger.error(err.message);
+          process.exitCode = 1;
+          return;
+        }
+        throw err;
+      }
+    });
+}
+
+const NO_SHIP_NOTE =
+  'No `waypoint.sink.ship` configured in harness.config.json; events stay in the local spool.';
+
+/** Human-readable outcome of one `ship` run. */
+function renderShipReport(
+  report: {
+    shipped: number;
+    accepted: number;
+    duplicate: number;
+    rejected: readonly unknown[];
+    remaining: number;
+  },
+  url: string,
+  dryRun: boolean
+): void {
+  if (dryRun) {
+    logger.info(`Dry run: ${report.remaining} event(s) would ship to ${url}.`);
+    return;
+  }
+  logger.info(
+    `Shipped ${report.shipped} event(s) to ${url} ` +
+      `(${report.accepted} accepted, ${report.duplicate} already present).`
+  );
+  if (report.rejected.length > 0) {
+    // Loud, not a footnote: a scrub rejection means the scrubber caught
+    // something in harness's own exhaust, which the adopter needs to see.
+    logger.warn(
+      `${report.rejected.length} event(s) permanently refused and recorded in ` +
+        `${path.join('.harness', 'spool', 'rejected.jsonl')} — review them.`
+    );
+  }
+  if (report.remaining > 0) {
+    logger.info(`${report.remaining} event(s) still queued; re-run to continue.`);
+  }
+}
+
+function emitNote(json: boolean, note: string): void {
+  if (json) {
+    console.log(JSON.stringify({ shipped: 0, note }, null, 2));
+    return;
+  }
+  logger.info(note);
 }
 
 /** Oldest `time` across segment heads (segments are append-ordered). */
@@ -174,6 +328,12 @@ function renderStatus(status: SpoolStatus): void {
   if (status.oldestEventTime !== null) {
     logger.info(`Oldest spooled event: ${status.oldestEventTime}`);
   }
+  logger.info(`Unshipped: ${status.unshipped}`);
+  if (status.rejected > 0) {
+    // Surfaced as a warning: these are events the ledger refused outright, and
+    // a scrub rejection in particular is a signal, not a statistic.
+    logger.warn(`Permanently refused: ${status.rejected} (see rejected.jsonl)`);
+  }
 }
 
 function emitResult(json: boolean, body: Record<string, unknown>): void {
@@ -190,11 +350,14 @@ function emitResult(json: boolean, body: Record<string, unknown>): void {
 
 export function createWaypointCommand(): Command {
   const waypoint = new Command('waypoint')
-    .description('Opt-in Waypoint sdlc.* emission: record fleet artifacts, inspect the spool')
+    .description(
+      'Opt-in Waypoint sdlc.* emission: record fleet artifacts, ship the spool, inspect it'
+    )
     .option('--json', 'Output in JSON format');
 
   registerRecordProvenance(waypoint);
   registerRecordHandoff(waypoint);
+  registerShip(waypoint);
   registerStatus(waypoint);
 
   return waypoint;

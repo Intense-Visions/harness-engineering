@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'packages/cli/tests/commands'
-sourceHash: 'efacdc8d1f3312ad595b488ffc7bb7b85c2b0340e2e9bcb210fdde9119ea37af'
+sourceHash: 'c6823ee2154d685670941a70cd9374fcc7403af92143e05e9f1d886c3684454e'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
@@ -150,6 +150,7 @@ members:
     'validate.roadmap-health.test.ts',
     'validate.roadmap-mode.test.ts',
     'validate.test.ts',
+    'waypoint-ship.test.ts',
     'waypoint.test.ts',
   ]
 ---

@@ -2,11 +2,10 @@
 
 **Keywords:** waypoint, sdlc-emission, spool, shipper, ingest, pnyon, adr-0047, cold-start
 
-> **STATUS: AWAITING SIGN-OFF. No implementation has begun.**
+> **STATUS: APPROVED ("go with recommendations", 2026-09-07) AND IMPLEMENTED.**
 >
-> The brainstorming Iron Law is that no code precedes human approval. Six decision forks are
-> listed below; each carries a recommendation and the evidence behind it. **D1, D2 and D5 change
-> the adopter-visible contract**, so they are the ones worth reading closely.
+> All six decisions landed as recommended. See §"Live proof" at the end for what was verified
+> against the running service and what remains blocked on an operator-held secret.
 
 ## Overview
 
@@ -229,3 +228,42 @@ the per-event `results` array tells the shipper exactly how far to advance.
 - `spool.ts:182` — the shipper named as out-of-scope, with `mergeSegments` written to serve it.
 - `waypoint-gateway.ts:150-183`, `ingest-service.ts:83-95` — the endpoint and report shape.
 - Live probe 2026-09-07: `…/board` → 200; `/v1/items` → 404.
+
+## Live proof (step 6, executed 2026-09-07)
+
+Run with the **built CLI** against the **running staging service** — not a mock, and not the
+source tree.
+
+```
+$ harness waypoint status
+  Spool: .harness/spool
+  Segments: 1 · Events: 1
+  Unshipped: 1
+
+$ harness waypoint ship          # no token set
+  x PNYON_WAYPOINT_INGEST_TOKEN is not set; it is required to ship to
+    https://waypoint-staging.pnyon.com. The token is deliberately not read from
+    harness.config.json so it cannot be committed.
+
+$ PNYON_WAYPOINT_INGEST_TOKEN=<deliberately wrong> harness waypoint ship
+  x Waypoint ingest rejected the credential (401) at
+    https://waypoint-staging.pnyon.com/outpost/pnyon/project/pnyon/events.
+    Check PNYON_WAYPOINT_INGEST_TOKEN and that the same secret is set on the
+    Waypoint Worker (`wrangler secret put PNYON_WAYPOINT_INGEST_TOKEN`).
+  exit 1 · no .shipped.json · no rejected.jsonl · segment byte-identical
+```
+
+**The verdict is `401`, not `404`.** That single digit is the whole difference between this and
+the two stranded adapters: the URL this shipper builds resolves to a real handler on the live
+service, and that handler enforced auth. `/v1/items` — what harness #1816 and #1977 speak —
+returns `404` against the same host. Route construction, scope segments, method, and headers are
+therefore confirmed end-to-end against production.
+
+Also confirmed live rather than by unit test: SC-5 (a credential fault fails loudly, exits 1, and
+advances nothing) and SC-6 (the spool segment is untouched).
+
+**What remains unproven:** an `accepted` write. That needs the real
+`PNYON_WAYPOINT_INGEST_TOKEN`, which is an operator-set Worker secret and is not present in this
+environment. The remaining gap is one `200` and its `results` array — every other layer is
+exercised against the running service. Setting the env var and re-running `harness waypoint ship`
+closes it.

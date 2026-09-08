@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'packages/cli/src/commands'
-sourceHash: 'd42391f9545fb2fd74d7ef3ce07003296e000ab2f5143430d35e4815c6c8d0ba'
+sourceHash: 'a0c6f607fdd179f37591b2524ff7ebac61416231f42e61f42a8289ce86df3bc4'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
@@ -134,6 +134,7 @@ export CURSOR_CURATED_TOOLS
 export DEFAULT_FIXTURES_DIR
 export DEFAULT_OPERATIONAL_DRIFT_POLICY
 export GIT_MAX_BUFFER_BYTES
+export INGEST_TOKEN_ENV
 export OUTCOME_BLOCK_ON_LEVELS
 export SCOPED_WALKERS
 export SKILL_REGRESSION_BLOCK_ON
