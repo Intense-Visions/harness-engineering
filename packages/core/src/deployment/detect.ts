@@ -143,6 +143,54 @@ function collectEnvFiles(fsPort: DeploymentFsPort): DeploymentFile[] {
   return envFiles;
 }
 
+/**
+ * Mutable accumulator for the signals derived from the discovered files.
+ *
+ * Every discovery pass contributes to the same running totals, so one
+ * accumulator is threaded through them instead of being merged afterwards.
+ */
+interface DerivedSignals {
+  detected: Set<string>;
+  presentStages: Set<string>;
+  hasProductionTarget: boolean;
+  productionUngated: boolean;
+  rollbackSignalInFiles: boolean;
+  hasHealthCheck: boolean;
+}
+
+function emptySignals(): DerivedSignals {
+  return {
+    detected: new Set<string>(),
+    presentStages: new Set<string>(),
+    hasProductionTarget: false,
+    productionUngated: false,
+    rollbackSignalInFiles: false,
+    hasHealthCheck: false,
+  };
+}
+
+/**
+ * Accumulate environment, production-reach, rollback, health-check and stage
+ * signals from pipeline and deploy-script *contents*.
+ */
+function accumulateContentSignals(files: DeploymentFile[], into: DerivedSignals): void {
+  for (const file of files) {
+    collectEnvironments(file.content, into.detected);
+    const reachesProd = PROD_RE.test(file.content);
+    if (reachesProd) {
+      into.hasProductionTarget = true;
+      if (!hasGating(file.content)) into.productionUngated = true;
+    }
+    if (ROLLBACK_RE.test(file.path) || ROLLBACK_RE.test(file.content)) {
+      into.rollbackSignalInFiles = true;
+    }
+    if (HEALTHCHECK_RE.test(file.content)) into.hasHealthCheck = true;
+    for (const { stage, re } of STAGE_KEYWORDS) {
+      if (re.test(file.content)) into.presentStages.add(stage);
+    }
+  }
+}
+
 export function detectDeploymentSurface(root: string, fsPort: DeploymentFsPort): DeploymentSurface {
   void root; // paths are already root-relative for the injected port.
 
@@ -151,56 +199,37 @@ export function detectDeploymentSurface(root: string, fsPort: DeploymentFsPort):
   const envFiles = collectEnvFiles(fsPort);
 
   // --- Derived signals ---
-  const detected = new Set<string>();
-  let hasProductionTarget = false;
-  let productionUngated = false;
-  let rollbackSignalInFiles = false;
-  let hasHealthCheck = false;
-  const presentStages = new Set<string>();
-
+  const signals = emptySignals();
   const contentFiles = [...pipelineFiles, ...deployScripts];
-  for (const file of contentFiles) {
-    collectEnvironments(file.content, detected);
-    const reachesProd = PROD_RE.test(file.content);
-    if (reachesProd) {
-      hasProductionTarget = true;
-      if (!hasGating(file.content)) productionUngated = true;
-    }
-    if (ROLLBACK_RE.test(file.path) || ROLLBACK_RE.test(file.content)) {
-      rollbackSignalInFiles = true;
-    }
-    if (HEALTHCHECK_RE.test(file.content)) hasHealthCheck = true;
-    for (const { stage, re } of STAGE_KEYWORDS) {
-      if (re.test(file.content)) presentStages.add(stage);
-    }
-  }
+  accumulateContentSignals(contentFiles, signals);
+
   for (const file of envFiles) {
-    collectEnvironments(file.content, detected);
+    collectEnvironments(file.content, signals.detected);
     // Environment name also comes from the file name (.env.production).
-    if (PROD_RE.test(file.path)) detected.add('production');
-    if (STAGING_RE.test(file.path)) detected.add('staging');
-    if (ROLLBACK_RE.test(file.path)) rollbackSignalInFiles = true;
+    if (PROD_RE.test(file.path)) signals.detected.add('production');
+    if (STAGING_RE.test(file.path)) signals.detected.add('staging');
+    if (ROLLBACK_RE.test(file.path)) signals.rollbackSignalInFiles = true;
   }
 
   // Runbook / rollback doc existence satisfies the rollback signal.
-  if (!rollbackSignalInFiles) {
-    rollbackSignalInFiles = RUNBOOK_CANDIDATES.some((c) => fsPort.exists(c));
+  if (!signals.rollbackSignalInFiles) {
+    signals.rollbackSignalInFiles = RUNBOOK_CANDIDATES.some((c) => fsPort.exists(c));
   }
 
   // A gating signal anywhere across the surface downgrades "ungated".
-  if (productionUngated && contentFiles.some((f) => hasGating(f.content))) {
-    productionUngated = false;
+  if (signals.productionUngated && contentFiles.some((f) => hasGating(f.content))) {
+    signals.productionUngated = false;
   }
 
   return {
     pipelineFiles,
     deployScripts,
     envFiles,
-    detectedEnvironments: [...detected],
-    hasProductionTarget,
-    productionUngated,
-    rollbackSignalInFiles,
-    hasHealthCheck,
-    presentStages: [...presentStages],
+    detectedEnvironments: [...signals.detected],
+    hasProductionTarget: signals.hasProductionTarget,
+    productionUngated: signals.productionUngated,
+    rollbackSignalInFiles: signals.rollbackSignalInFiles,
+    hasHealthCheck: signals.hasHealthCheck,
+    presentStages: [...signals.presentStages],
   };
 }
