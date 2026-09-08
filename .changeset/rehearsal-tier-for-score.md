@@ -14,3 +14,7 @@ a score, a run, an attempt record, or a config without opening the signature.
 function, so `rehearsalTierFor === rehearsalTierForScore` holds and existing imports keep
 working unchanged. That makes this release MINOR, not MAJOR. The alias will be removed in
 a future MAJOR release.
+
+The one observable difference: because the alias is a binding to the same function rather
+than a wrapper, `rehearsalTierFor.name` now reports `'rehearsalTierForScore'`. Nothing that
+calls the function is affected.
