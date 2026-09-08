@@ -110,6 +110,7 @@ Every recommended-option default taken while drafting, per the family's front-lo
 5. **The `-fleet` suffix naming drift from ADR 0096's proposed `route:<member>` names is treated as unratified drift**, not as a separate decision needing its own record.
 6. **Option A vs Option B was not re-litigated** — the human settled on B before this draft began; A and C are recorded as alternatives for the record only.
 7. **Advisor discover/analyse/propose artifacts were kept out of the commit**, per this lane's decision-record-only scope; the durable form of the proposal is the alternatives recorded here.
+8. **The `supersedes` frontmatter field was deliberately left unset.** This record resolves only ADR 0096's route-label clause (clause 2); 0096 also carries the absent-vs-empty/first-run-readiness clause (#1317) and the whole-set-operations clause (#1311), which stand untouched. Marking 0096 wholly superseded would silently retire two unrelated decisions, so the supersession is scoped in prose under References instead.
 
 ## Alternatives Considered
 
