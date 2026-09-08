@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'packages/cli/src/commands'
-sourceHash: '5f84ea3a892343e0a0f6b31ba40cb85de506aec8c52403aeb80096b52d4f662e'
+sourceHash: '71b6fd7d56c35363768e6b79a56e61a8df1776ebb3eb349a8a0349f6f45a6ad0'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
@@ -10,6 +10,7 @@ members:
     '_registry.ts',
     'add.ts',
     'adoption.ts',
+    'advise-skills-write-guard.test.ts',
     'advise-skills.test.ts',
     'advise-skills.ts',
     'align-design-system.ts',

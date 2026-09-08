@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'packages/cli/src/mcp'
-sourceHash: '262f715418be9928de495de062ada7ca869f581055a4f7db3d7a811a982689fc'
+sourceHash: '6177f414b28dfe67911bd442dba4ae97cba13ab1874b11620e923edbcc8772d0'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent

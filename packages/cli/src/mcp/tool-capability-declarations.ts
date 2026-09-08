@@ -77,7 +77,8 @@ export const TOOL_CAPABILITY_DECLARATIONS: Readonly<Record<string, ToolCapabilit
   check_traceability: { scopes: ['read'] },
   predict_failures: { scopes: ['read'] },
   recommend_skills: { scopes: ['read'] },
-  advise_skills: { scopes: ['read'] },
+  // generates SKILLS.md next to the spec (runAdviseSkills writeFileSync); not read-only
+  advise_skills: { scopes: ['read', 'write'] },
   compute_blast_radius: { scopes: ['read'] },
   compact: { scopes: ['read'] }, // in-process compaction of provided content; no fs write
   detect_constraint_emergence: { scopes: ['read'] },

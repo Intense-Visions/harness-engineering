@@ -1,0 +1,110 @@
+{
+  "schemaVersion": 1,
+  "slug": "advise-skills-write-during-query-1916",
+  "issue": [1916],
+  "issues": [1916],
+  "route": "bug",
+  "routeRationale": "Issue carries labels `bug` + `route:bug-fleet`. A defect in a shipped command's contract, not a new capability, so it routes straight to the harness-debugging pipeline rather than through brainstorming -> autopilot. A bug lane leaves no plans/ directory by design.",
+  "fleet": "roadmap-fleet",
+  "fleetRun": "fleet-command wave 5",
+  "closingKeyword": "Refs #1916",
+  "baseSha": "738b296c0a50cb9890474124d466f38903e468e2",
+  "scopeNote": "CLI-R004 only; CLI-R006 (--json) is a symptom of #2069 and deliberately out of scope",
+  "lane": {
+    "worktree": "/Users/cwarner/Projects/iv/harness-lanes/fc3-rm-d",
+    "branch": "fix/advise-skills-write-during-query-1916",
+    "baseSha": "738b296c0a50cb9890474124d466f38903e468e2"
+  },
+  "upstreamCritique": {
+    "source": "craft-fleet / cli-ergonomics-craft",
+    "runId": "41c8a0dd-b8e7-4e05-affd-ac3cc7422726",
+    "rubrics": ["CLI-R004"],
+    "rubricsOutOfScope": ["CLI-R006", "CLI-R001"],
+    "scope": "packages/cli/src/commands/advise-skills.ts"
+  },
+  "stages": ["debugging"],
+  "stageDetail": [
+    {
+      "stage": "debugging",
+      "skill": "harness-debugging",
+      "status": "complete",
+      "sessionFile": ".harness/debug/resolved/1916-advise-skills-write-during-query.md",
+      "sessionFileCommitted": false,
+      "sessionFileNote": ".harness/debug/ is gitignored (.harness/.gitignore:4), so the session record is lane-local by repo policy; its findings are reproduced in this provenance file and in the PR body.",
+      "phases": [
+        {
+          "phase": "investigate",
+          "findings": [
+            "packages/cli/src/commands/advise-skills.ts:85 — unconditional fs.writeFileSync(skillsMdPath, md) with no guard; skillsMdPath is a sibling of the user's spec.",
+            "Declared contract (lines 133-138) names no write: description 'Content-based skill recommendations for a spec', flags --spec-path/--thorough/--top/--json.",
+            "No existsSync check before the write, so a hand-edited SKILLS.md is clobbered silently; 'Written to <path>' is printed only after the fact.",
+            "git log -S 'fs.writeFileSync(skillsMdPath' returns a single commit 66ff7cf46 — present since the feature landed. An original design defect, not a regression."
+          ]
+        },
+        {
+          "phase": "analyze",
+          "findings": [
+            "Six in-repo commands already solve this exact problem identically: migrate.ts:562, migrate-backends.ts:181, rollback.ts:228, cleanup-sessions.ts:296, generate-slash-commands.ts:363, and the closest analogue align-design-system.ts:39 ('Compute diffs without writing files. Default: write.').",
+            "Shared shape: a dryRun?: boolean on the options interface defaulting to false, `if (!dryRun) { write }` at the write site, and output that states the plan. advise-skills simply never grew the guard."
+          ]
+        },
+        {
+          "phase": "hypothesize",
+          "hypothesis": "SKILLS.md appears next to the spec on every invocation because the write at line 85 is unconditional and no option can suppress it.",
+          "test": "Ran the real built CLI (packages/cli/dist/bin/harness.js) against a throwaway temp project seeded with a SKILLS.md containing 'I AM A HAND-EDITED FILE. DO NOT CLOBBER ME.'",
+          "result": "CONFIRMED — the hand-edited content was replaced by the generated markdown, and --dry-run was rejected by commander as an unknown option (exit 1)."
+        },
+        {
+          "phase": "fix",
+          "rootCause": "The write was undeclared, unguarded, and impossible to preview — not that the command writes at all. Generating SKILLS.md is the advisor's advertised job.",
+          "changes": [
+            "packages/cli/src/commands/advise-skills.ts — added dryRun?: boolean to AdviseSkillsOptions (default false, so the write stays opt-OUT); introduced an exported AdviseSkillsResult carrying written/existed; guarded the write; added --dry-run; description now names the write; formatWriteLine() distinguishes 'Written to' / 'Overwrote existing' / '[dry-run] Nothing written. Would create|overwrite <path>'.",
+            "packages/cli/src/mcp/tool-capability-declarations.ts — advise_skills corrected from ['read'] to ['read','write'].",
+            "docs/reference/cli-commands.md — regenerated via `pnpm run generate-docs` for the new flag and description."
+          ]
+        }
+      ]
+    }
+  ],
+  "reproducingTest": "packages/cli/src/commands/advise-skills-write-guard.test.ts",
+  "reproducingTestProof": {
+    "protocol": "harness-debugging Phase 4 Step 4 — revert the fix, re-run, restore, re-run.",
+    "redBeforeFix": "6 failed | 1 passed (7)",
+    "greenAfterFix": "7 passed (7)",
+    "redRunAgainst": "src reverted to base via `git checkout -- packages/cli/src/commands/advise-skills.ts packages/cli/src/mcp/tool-capability-declarations.ts`, test file left in place",
+    "intentionalAlwaysGreenCase": "'writes by default when --dry-run is absent' — the MCP-twin regression guard, which must pass in BOTH states; its value is that it would go red if the default were ever inverted."
+  },
+  "mcpTwinUnchanged": {
+    "file": "packages/cli/src/mcp/tools/advise-skills.ts",
+    "diff": "empty — the file is untouched",
+    "proof": "Invoked handleAdviseSkills() against a temp project after the fix: it still wrote SKILLS.md and still returned skillsPath='docs/changes/feat/SKILLS.md'; response key set unchanged (featureName,skillsPath,totalScanned,scanDuration,apply,reference,consider).",
+    "why": "harness-planning/SKILL.md:62 instructs agents to run advise_skills to GENERATE SKILLS.md, and the MCP tool returns the resulting path. Inverting the default to opt-in would break both consumers, so the issue's ask — 'a guard and a dry-run' — was built rather than an inversion."
+  },
+  "assumptions": [
+    "The intended contract is 'advisor that generates SKILLS.md', not 'read-only query'. Grounded in two live consumers, not inferred: agents/skills/claude-code/harness-planning/SKILL.md:62 ('If SKILLS.md is missing but a spec exists: run the advisor inline using `advise_skills` MCP tool to generate SKILLS.md') and packages/cli/src/mcp/tools/advise-skills.ts:50 (returns skillsPath). Therefore the write stays ON by default and the fix is a guard plus a preview, never an inversion.",
+    "Named the option `dryRun` / `--dry-run` rather than the brief's suggested `write?: boolean`. Same semantics and the same default (write), but it matches the six existing in-repo precedents listed under the analyze phase, so the option reads the same way across the CLI. Deliberate, and disclosed in the PR body.",
+    "Correcting the MCP capability declaration for advise_skills from ['read'] to ['read','write'] is IN scope for CLI-R004: that register is the machine-readable form of the same defect. The file's own header calls itself 'AUTHORITATIVE, evidence-based', says entries are 'derived by reading the tool's handler', and defines `read` as 'none of the above; observation only' — while the handler calls writeFileSync. `harness mcp list-capabilities`, the adopter audit surface, was therefore reporting a writing tool as observation-only.",
+    "That correction carries zero behavioral risk: the declaration is consumed for REPORTING only (tool-capabilities.ts, commands/mcp.ts); server.ts:438-445 merges it onto the tool definition and nothing authorizes or gates against it. The coverage test tests/commands/mcp-list-capabilities.test.ts pins scopes for run_ci_checks/run_skill/outcome_eval only, not advise_skills, and passes unchanged.",
+    "The new tests live in a NEW file (advise-skills-write-guard.test.ts) rather than the existing advise-skills.test.ts because that suite mocks node:fs wholesale and so can only observe that writeFileSync was called. This defect is about a file appearing on disk, so the new suite keeps node:fs REAL and asserts against an actual temp dir, mocking only the expensive collaborators. Two test files per command is an established pattern here (check-operational-drift.test.ts / check-operational-drift-action.test.ts). Both suites pass; the pre-existing one was not modified, which is itself evidence the default behavior is unchanged.",
+    "Mocking loadOrRebuildIndex in the new suite is load-bearing, not incidental: index-builder.ts:189-190 writes a .harness/skills-index.json cache into projectRoot, and the real builder scans machine-global skill directories (785 skills on this host), which would make the suite slow and machine-dependent.",
+    "CLI-R006 (--json) was deliberately NOT fixed. Confirmed as #2069's shadowing defect: the root program declares --json first and Commander is first-declarer-wins. The local .option('--json', ...) declaration was left byte-for-byte untouched. Reported, not repaired.",
+    "CLI-R001 (flag naming, polish/small) was out of scope and untouched.",
+    "All build/test/docs steps ran under Node 22 (v22.23.2) per the repo's .husky/ensure-node-pin.sh; the ambient shell is Node 24, under which better-sqlite3 is ABI-mismatched."
+  ],
+  "deferred": [
+    {
+      "item": "CLI-R006 / --json",
+      "tracker": "#2069",
+      "note": "The in-repo workaround pattern already exists at generate-slash-commands.ts:378, which reads the flag via cmd.optsWithGlobals() instead of the shadowed local opts.json. Recorded here as intel for whichever lane owns #2069; not applied."
+    }
+  ],
+  "verification": {
+    "targetedSuites": "packages/cli: advise-skills-write-guard.test.ts + advise-skills.test.ts + mcp/tools/advise-skills.test.ts + tests/commands/mcp-list-capabilities.test.ts = 48 passed",
+    "manualEndToEnd": [
+      "--dry-run over a hand-edited SKILLS.md: file byte-identical afterwards; printed '[dry-run] Nothing written. Would overwrite <path>'.",
+      "default run: printed 'Overwrote existing <path>' and wrote the generated markdown.",
+      "--dry-run on a clean dir: no SKILLS.md created; printed 'Would create <path>'.",
+      "--help: description now states 'Writes (and overwrites) SKILLS.md next to the spec unless --dry-run.'"
+    ]
+  }
+}

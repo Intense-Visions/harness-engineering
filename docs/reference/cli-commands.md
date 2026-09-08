@@ -17,13 +17,14 @@ Add a component to the project
 
 ### `harness advise-skills`
 
-Content-based skill recommendations for a spec
+Content-based skill recommendations for a spec. Writes (and overwrites) SKILLS.md next to the spec unless --dry-run.
 
 **Options:**
 
 - `--spec-path` — Path to the spec (proposal.md)
 - `--thorough` — Include Consider tier in output
 - `--top` — Max skills per tier (default 5)
+- `--dry-run` — Print the recommendations without writing SKILLS.md. Default: write.
 - `--json` — Output as JSON
 
 ### `harness align-design-system`
