@@ -191,6 +191,20 @@ function accumulateContentSignals(files: DeploymentFile[], into: DerivedSignals)
   }
 }
 
+/**
+ * Accumulate signals from committed `.env.*` files. Their *file name* also
+ * names an environment (`.env.production`), so paths are matched as well as
+ * contents.
+ */
+function accumulateEnvFileSignals(files: DeploymentFile[], into: DerivedSignals): void {
+  for (const file of files) {
+    collectEnvironments(file.content, into.detected);
+    if (PROD_RE.test(file.path)) into.detected.add('production');
+    if (STAGING_RE.test(file.path)) into.detected.add('staging');
+    if (ROLLBACK_RE.test(file.path)) into.rollbackSignalInFiles = true;
+  }
+}
+
 export function detectDeploymentSurface(root: string, fsPort: DeploymentFsPort): DeploymentSurface {
   void root; // paths are already root-relative for the injected port.
 
@@ -202,14 +216,7 @@ export function detectDeploymentSurface(root: string, fsPort: DeploymentFsPort):
   const signals = emptySignals();
   const contentFiles = [...pipelineFiles, ...deployScripts];
   accumulateContentSignals(contentFiles, signals);
-
-  for (const file of envFiles) {
-    collectEnvironments(file.content, signals.detected);
-    // Environment name also comes from the file name (.env.production).
-    if (PROD_RE.test(file.path)) signals.detected.add('production');
-    if (STAGING_RE.test(file.path)) signals.detected.add('staging');
-    if (ROLLBACK_RE.test(file.path)) signals.rollbackSignalInFiles = true;
-  }
+  accumulateEnvFileSignals(envFiles, signals);
 
   // Runbook / rollback doc existence satisfies the rollback signal.
   if (!signals.rollbackSignalInFiles) {
