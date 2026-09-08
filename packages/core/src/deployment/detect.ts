@@ -96,16 +96,14 @@ const STAGE_KEYWORDS: Array<{ stage: string; re: RegExp }> = [
   { stage: 'post-deploy', re: /post[-\s]?deploy/i },
 ];
 
-export function detectDeploymentSurface(root: string, fsPort: DeploymentFsPort): DeploymentSurface {
-  void root; // paths are already root-relative for the injected port.
-
+/**
+ * Discover CI/CD pipeline files: every YAML under `.github/workflows`, then the
+ * fixed-name pipelines of the other major CI providers.
+ */
+function collectPipelineFiles(fsPort: DeploymentFsPort): DeploymentFile[] {
   const pipelineFiles: DeploymentFile[] = [];
-  const deployScripts: DeploymentFile[] = [];
-  const envFiles: DeploymentFile[] = [];
-
-  // --- CI/CD pipeline discovery ---
   for (const entry of fsPort.listDir('.github/workflows')) {
-    if (!/\.ya?ml$/i.test(entry)) continue;
+    if (!isYamlPipeline(entry)) continue;
     const f = capture(fsPort, `.github/workflows/${entry}`, true);
     if (f) pipelineFiles.push(f);
   }
@@ -113,6 +111,15 @@ export function detectDeploymentSurface(root: string, fsPort: DeploymentFsPort):
     const f = capture(fsPort, fixed, true);
     if (f) pipelineFiles.push(f);
   }
+  return pipelineFiles;
+}
+
+export function detectDeploymentSurface(root: string, fsPort: DeploymentFsPort): DeploymentSurface {
+  void root; // paths are already root-relative for the injected port.
+
+  const pipelineFiles = collectPipelineFiles(fsPort);
+  const deployScripts: DeploymentFile[] = [];
+  const envFiles: DeploymentFile[] = [];
 
   // --- Deploy script discovery ---
   for (const entry of fsPort.listDir('deploy')) {
