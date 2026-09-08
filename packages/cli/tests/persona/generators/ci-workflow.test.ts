@@ -143,9 +143,62 @@ describe('generateCIWorkflow (options)', () => {
     expect(cmdSteps[1].run).toBe('node packages/cli/dist/bin/harness.js validate');
     // Node 22 (not the npx default of 20) and a concurrency guard.
     expect(workflow.on).toBeDefined();
-    expect(workflow.concurrency['cancel-in-progress']).toBe(true);
+    expect(workflow.concurrency).toBeDefined();
     const nodeStep = uses.find((s: { uses: string }) => s.uses === 'actions/setup-node@v6');
     expect(nodeStep.with['node-version']).toBe(22);
+  });
+
+  // Regression: #1867. The generator emitted a per-ref group with an unconditional
+  // `cancel-in-progress: true`. A persona with an `on_commit` trigger generates
+  // `push:` to a trunk branch, where `github.ref` is constant across every commit,
+  // so each merge cancelled the previous commit's still-running verification — the
+  // run concluded `cancelled`, not `failure`, so nothing alarmed. Fixed by adopting
+  // the event-split shape #1865 established for ci.yml / harness.yml.
+  it('does not emit a cancelling concurrency group for the push-to-trunk path (#1867)', () => {
+    // mockPersona declares on_pr + on_commit(main), so it generates BOTH push: and
+    // pull_request: — the exact trigger pair that produced the defect.
+    const result = generateCIWorkflow(mockPersona, 'github', { runner: 'workspace' });
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    const workflow = YAML.parse(result.value);
+    expect(workflow.on.push).toBeDefined();
+    expect(workflow.on.pull_request).toBeDefined();
+
+    // cancel-in-progress must be conditional on the event, never a bare `true`.
+    // A literal true here is the defect: it cancels main's own verification.
+    const cancel = workflow.concurrency['cancel-in-progress'];
+    expect(cancel).not.toBe(true);
+    expect(cancel).toBe("${{ github.event_name == 'pull_request' }}");
+
+    // The group must key on github.sha (per-commit) off the PR path, so two main
+    // commits never share a bucket. A bare `github.ref` group is the defect.
+    const group = workflow.concurrency.group as string;
+    expect(group).toBe(
+      "${{ github.workflow }}-${{ github.event_name == 'pull_request' && github.ref || github.sha }}"
+    );
+    expect(group).toContain('github.sha');
+    expect(group).not.toBe('${{ github.workflow }}-${{ github.ref }}');
+  });
+
+  it('still cancels superseded runs on the pull_request path (#1867)', () => {
+    // The fix must not disable PR supersession — that would be a runner-spend
+    // regression, and per-ref cancellation is correct behaviour for a PR.
+    const prOnly: Persona = {
+      ...mockPersona,
+      triggers: [{ event: 'on_pr' as const, conditions: { paths: ['packages/**'] } }],
+    };
+    const result = generateCIWorkflow(prOnly, 'github', { runner: 'workspace' });
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    const workflow = YAML.parse(result.value);
+    // Both halves of the expression are present, so a pull_request event resolves to
+    // the per-ref group with cancellation ON.
+    expect(workflow.concurrency.group).toContain(
+      "github.event_name == 'pull_request' && github.ref"
+    );
+    expect(workflow.concurrency['cancel-in-progress']).toBe(
+      "${{ github.event_name == 'pull_request' }}"
+    );
   });
 
   it('appends --severity only to check-security, the one command that accepts it', () => {
