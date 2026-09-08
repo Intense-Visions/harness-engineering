@@ -80,6 +80,7 @@ import { createPersonaCommand } from './persona';
 import { createPredictCommand } from './predict';
 import { createPreMergeBriefCommand } from './pre-merge-brief';
 import { createProposalsCommand } from './proposals';
+import { createProvenanceCommand } from './provenance';
 import { createPublishAnalysesCommand } from './publish-analyses';
 import { createPulseCommand } from './pulse';
 import { createRecommendCommand } from './recommend';
@@ -200,6 +201,7 @@ export const commandCreators: Array<() => Command> = [
   createPredictCommand,
   createPreMergeBriefCommand,
   createProposalsCommand,
+  createProvenanceCommand,
   createPublishAnalysesCommand,
   createPulseCommand,
   createRecommendCommand,

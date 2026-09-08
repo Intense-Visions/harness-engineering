@@ -15,6 +15,14 @@ export {
   appendProvenanceTrailer,
   hasProvenanceTrailer,
   parseProvenanceTrailer,
+  collectProvenanceTrailerEntries,
   type ProvenanceTrailer,
   type ProvenanceTrailerInput,
 } from './commit-trailer';
+export {
+  validateProvenanceTrailer,
+  type ProvenanceShapeIssueCode,
+  type ProvenanceShapeWarningCode,
+  type ProvenanceShapeFinding,
+  type ProvenanceShapeResult,
+} from './validate-trailer';
