@@ -1,0 +1,24 @@
+{
+  "issues": [1912],
+  "route": "feature",
+  "stages": ["brainstorming"],
+  "status": "parked",
+  "baseSha": "c74cda5f2",
+  "planArtifact": "docs/changes/openapi-error-schema/plans/2026-09-08-api-r005-error-response-bodies.md",
+  "finding": {
+    "rubricId": "API-R005",
+    "run": "026d6284-061d-4aec-9822-98d660e58f4f",
+    "location": "docs/api/openapi.yaml"
+  },
+  "assumptions": [
+    "F1 = (a) (human ruling): build API-R005 ONLY. #1912's body claim that 'five further findings belong to this item' is false; API-R002/R007/R001/R004/R006/R009/R003 are the scope of open issue #1997. Did not re-route #1997 and did not edit #1912's body.",
+    "F2 = (a) (human ruling): `code` is a machine-readable string (already_running, params_conflict, duplicate_name, already_resolved, unauthorized, insufficient_scope, not_found, invalid_body), NOT a numeric HTTP status, and must discriminate the two indistinguishable 409s.",
+    "F3 (UNFORESEEN, PARKED, not settled by F1/F2): every v1 handler emits `{ error: string }`, never `{ code, message, details }`. Verified at routes/v1/jobs-maintenance.ts:80, routes/v1/interactions-resolve.ts:69, server/http.ts:533,544,777; 84 4xx/5xx sendJSON sites across 8 v1 route files all use `{ error }`. Documenting `{code,message,details?}` without touching handlers publishes a document that contradicts the wire — a NEW falsehood, strictly worse for codegen than today's under-documentation. The finding's stated goal (a client can tell the two 409s apart) is a property of the wire, not the document, so no document-only change can deliver it. Parked rather than guessed because resolving it requires changing the wire format of a shipped /api/v1 surface and editing handler files the lane brief did not name.",
+    "Recommended resolution is option C (additive): Error = { error, code, message?, details? } keeping the existing required `error` field, with `code` added alongside it at the documented-surface emission sites. Truthful, non-breaking, and actually discriminates the 409s. Bounded to ~5 files / ~20-25 sites because 401/403 are centralised in the three server/http.ts sites.",
+    "Scope of the documented error surface derived by reading the registries directly, not from the brief's line-number hints: 14 documented paths, with registerGetPath (10 paths, 401/403) and registerPostPath (2 paths, 400/401/403/404/409) as shared helpers. registerPostPath is shared between POST /api/v1/jobs/maintenance and POST /api/v1/webhooks, so its generic 409 'Conflict' is itself part of the indistinguishability the finding names; per-path codes require parameterising that helper.",
+    "The ~60 undocumented error sites in local-models*.ts, proposals.ts and routing.ts are excluded: those paths are absent from the OpenAPI document, so API-R005 does not reach them. The dashboard package's independent `{ error }` convention is likewise excluded.",
+    "docs/api/openapi.yaml is generated and drift-checked by .github/workflows/openapi-drift-check.yml; the fix surface is the generator (gateway/openapi/{registry,v1-registry,generate.test}.ts) plus a regenerated, committed YAML. No YAML was hand-edited.",
+    "Environment: Node 22 (v22.23.2) per .nvmrc; pnpm install + pnpm turbo build both completed green in the fresh worktree before any analysis."
+  ],
+  "parkedOn": "F3 — documented Error schema vs. the `{ error: string }` shape every handler actually emits. Needs a human ruling between option A (document only; publishes a false document and cannot discriminate the 409s), option B (migrate all 84 sites; breaking), and option C (additive `code`; recommended)."
+}
