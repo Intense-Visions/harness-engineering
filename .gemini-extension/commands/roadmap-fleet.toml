@@ -139,6 +139,14 @@ Phase 1: SELECT --> Phase 2: CONFIRM --> Phase 3: DISPATCH
 
 5. **Write a committed pipeline-provenance file.** Each lane **MUST** write `docs/changes/<slug>/provenance.json` and commit it onto its branch. This is the verifiable proof the real pipeline ran — it replaces the session state that `.harness/.gitignore` excludes from every branch by construction (and so never survives into a PR). The file records at minimum: the item's **issue number(s)**, the confirmed **route** (`bug` / `spec-ready` / `feature`), the **pipeline stages run** — which reflect the route (`[debugging]` for a bug; `[autopilot, …]` for spec-ready; `[brainstorming, autopilot, …]` for a feature) — and the **assumptions** taken (the recommended-option defaults from item 4). A feature or spec-ready lane also records the **plan-artifact path** under `docs/changes/<slug>/plans/`; a bug lane records the **reproducing-test path** instead (a debugging run leaves no `plans/` directory). VERIFY checks for this committed file and the route-appropriate artifact; a branch without them did not run the pipeline.
 
+   After committing it, each lane **MUST** also run:
+
+   ```
+   harness waypoint record-provenance docs/changes/<slug>/provenance.json
+   ```
+
+   This is the sanctioned seam that turns the written artifact into an `sdlc.*` event on the project's ledger (ADR-0120, ADR-0124 — which names this command provenance's first consumer). Writing the file without recording it means the fleet's own evidence never reaches Waypoint, so lanes never advance from fleet activity and wave forecasts stay cold-start. The command is a **guaranteed no-op** (exit 0, explanatory note) in any repo with no `waypoint.sink` configured, so lanes call it unconditionally and non-adopters see no change.
+
 6. **Reference the issue with the correct closing keyword.** Each lane decides — and states in its PR body — how its PR references the issue it was dispatched for. This is a real decision with a default, not an incidental phrasing:
    - A PR that **fully resolves** its issue uses `Closes #<N>`, so the merge-triggered reconciler closes the issue and marks the roadmap row done.
    - A PR that lands only **one slice** of a multi-finding issue uses `Refs #<N>` (which triggers no auto-close) and **flags the issue for manual reconciliation** in REPORT, naming the row that still needs attention.

@@ -96,16 +96,14 @@ const STAGE_KEYWORDS: Array<{ stage: string; re: RegExp }> = [
   { stage: 'post-deploy', re: /post[-\s]?deploy/i },
 ];
 
-export function detectDeploymentSurface(root: string, fsPort: DeploymentFsPort): DeploymentSurface {
-  void root; // paths are already root-relative for the injected port.
-
+/**
+ * Discover CI/CD pipeline files: every YAML under `.github/workflows`, then the
+ * fixed-name pipelines of the other major CI providers.
+ */
+function collectPipelineFiles(fsPort: DeploymentFsPort): DeploymentFile[] {
   const pipelineFiles: DeploymentFile[] = [];
-  const deployScripts: DeploymentFile[] = [];
-  const envFiles: DeploymentFile[] = [];
-
-  // --- CI/CD pipeline discovery ---
   for (const entry of fsPort.listDir('.github/workflows')) {
-    if (!/\.ya?ml$/i.test(entry)) continue;
+    if (!isYamlPipeline(entry)) continue;
     const f = capture(fsPort, `.github/workflows/${entry}`, true);
     if (f) pipelineFiles.push(f);
   }
@@ -113,8 +111,15 @@ export function detectDeploymentSurface(root: string, fsPort: DeploymentFsPort):
     const f = capture(fsPort, fixed, true);
     if (f) pipelineFiles.push(f);
   }
+  return pipelineFiles;
+}
 
-  // --- Deploy script discovery ---
+/**
+ * Discover deploy scripts: everything under `deploy/`, plus the `deploy*`-named
+ * entries under `scripts/`.
+ */
+function collectDeployScripts(fsPort: DeploymentFsPort): DeploymentFile[] {
+  const deployScripts: DeploymentFile[] = [];
   for (const entry of fsPort.listDir('deploy')) {
     const f = capture(fsPort, `deploy/${entry}`, false);
     if (f) deployScripts.push(f);
@@ -124,65 +129,114 @@ export function detectDeploymentSurface(root: string, fsPort: DeploymentFsPort):
     const f = capture(fsPort, `scripts/${entry}`, false);
     if (f) deployScripts.push(f);
   }
+  return deployScripts;
+}
 
-  // --- Committed env file discovery (.env.*) ---
+/** Discover committed environment files (`.env.*`) at the repository root. */
+function collectEnvFiles(fsPort: DeploymentFsPort): DeploymentFile[] {
+  const envFiles: DeploymentFile[] = [];
   for (const entry of fsPort.listDir('.')) {
     if (!entry.startsWith('.env.')) continue;
     const f = capture(fsPort, entry, false);
     if (f) envFiles.push(f);
   }
+  return envFiles;
+}
 
-  // --- Derived signals ---
-  const detected = new Set<string>();
-  let hasProductionTarget = false;
-  let productionUngated = false;
-  let rollbackSignalInFiles = false;
-  let hasHealthCheck = false;
-  const presentStages = new Set<string>();
+/**
+ * Mutable accumulator for the signals derived from the discovered files.
+ *
+ * Every discovery pass contributes to the same running totals, so one
+ * accumulator is threaded through them instead of being merged afterwards.
+ */
+interface DerivedSignals {
+  detected: Set<string>;
+  presentStages: Set<string>;
+  hasProductionTarget: boolean;
+  productionUngated: boolean;
+  rollbackSignalInFiles: boolean;
+  hasHealthCheck: boolean;
+}
 
-  const contentFiles = [...pipelineFiles, ...deployScripts];
-  for (const file of contentFiles) {
-    collectEnvironments(file.content, detected);
+function emptySignals(): DerivedSignals {
+  return {
+    detected: new Set<string>(),
+    presentStages: new Set<string>(),
+    hasProductionTarget: false,
+    productionUngated: false,
+    rollbackSignalInFiles: false,
+    hasHealthCheck: false,
+  };
+}
+
+/**
+ * Accumulate environment, production-reach, rollback, health-check and stage
+ * signals from pipeline and deploy-script *contents*.
+ */
+function accumulateContentSignals(files: DeploymentFile[], into: DerivedSignals): void {
+  for (const file of files) {
+    collectEnvironments(file.content, into.detected);
     const reachesProd = PROD_RE.test(file.content);
     if (reachesProd) {
-      hasProductionTarget = true;
-      if (!hasGating(file.content)) productionUngated = true;
+      into.hasProductionTarget = true;
+      if (!hasGating(file.content)) into.productionUngated = true;
     }
     if (ROLLBACK_RE.test(file.path) || ROLLBACK_RE.test(file.content)) {
-      rollbackSignalInFiles = true;
+      into.rollbackSignalInFiles = true;
     }
-    if (HEALTHCHECK_RE.test(file.content)) hasHealthCheck = true;
+    if (HEALTHCHECK_RE.test(file.content)) into.hasHealthCheck = true;
     for (const { stage, re } of STAGE_KEYWORDS) {
-      if (re.test(file.content)) presentStages.add(stage);
+      if (re.test(file.content)) into.presentStages.add(stage);
     }
   }
-  for (const file of envFiles) {
-    collectEnvironments(file.content, detected);
-    // Environment name also comes from the file name (.env.production).
-    if (PROD_RE.test(file.path)) detected.add('production');
-    if (STAGING_RE.test(file.path)) detected.add('staging');
-    if (ROLLBACK_RE.test(file.path)) rollbackSignalInFiles = true;
+}
+
+/**
+ * Accumulate signals from committed `.env.*` files. Their *file name* also
+ * names an environment (`.env.production`), so paths are matched as well as
+ * contents.
+ */
+function accumulateEnvFileSignals(files: DeploymentFile[], into: DerivedSignals): void {
+  for (const file of files) {
+    collectEnvironments(file.content, into.detected);
+    if (PROD_RE.test(file.path)) into.detected.add('production');
+    if (STAGING_RE.test(file.path)) into.detected.add('staging');
+    if (ROLLBACK_RE.test(file.path)) into.rollbackSignalInFiles = true;
   }
+}
+
+export function detectDeploymentSurface(root: string, fsPort: DeploymentFsPort): DeploymentSurface {
+  void root; // paths are already root-relative for the injected port.
+
+  const pipelineFiles = collectPipelineFiles(fsPort);
+  const deployScripts = collectDeployScripts(fsPort);
+  const envFiles = collectEnvFiles(fsPort);
+
+  // --- Derived signals ---
+  const signals = emptySignals();
+  const contentFiles = [...pipelineFiles, ...deployScripts];
+  accumulateContentSignals(contentFiles, signals);
+  accumulateEnvFileSignals(envFiles, signals);
 
   // Runbook / rollback doc existence satisfies the rollback signal.
-  if (!rollbackSignalInFiles) {
-    rollbackSignalInFiles = RUNBOOK_CANDIDATES.some((c) => fsPort.exists(c));
+  if (!signals.rollbackSignalInFiles) {
+    signals.rollbackSignalInFiles = RUNBOOK_CANDIDATES.some((c) => fsPort.exists(c));
   }
 
   // A gating signal anywhere across the surface downgrades "ungated".
-  if (productionUngated && contentFiles.some((f) => hasGating(f.content))) {
-    productionUngated = false;
+  if (signals.productionUngated && contentFiles.some((f) => hasGating(f.content))) {
+    signals.productionUngated = false;
   }
 
   return {
     pipelineFiles,
     deployScripts,
     envFiles,
-    detectedEnvironments: [...detected],
-    hasProductionTarget,
-    productionUngated,
-    rollbackSignalInFiles,
-    hasHealthCheck,
-    presentStages: [...presentStages],
+    detectedEnvironments: [...signals.detected],
+    hasProductionTarget: signals.hasProductionTarget,
+    productionUngated: signals.productionUngated,
+    rollbackSignalInFiles: signals.rollbackSignalInFiles,
+    hasHealthCheck: signals.hasHealthCheck,
+    presentStages: [...signals.presentStages],
   };
 }

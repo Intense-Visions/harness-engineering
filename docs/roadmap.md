@@ -969,7 +969,7 @@ last_manual_edit: 2026-06-27T12:51:51.967Z
 
 ### Conductor member wiring — make perf-fleet and docs-fleet schedulable
 
-- **Status:** planned
+- **Status:** done
 - **Spec:** docs/changes/conductor-member-wiring/proposal.md
 - **Summary:** `fleet-command` cannot schedule two fully-built members of its own family. `perf-fleet` and `docs-fleet` are installed, `stability: static`, `tier: 2`, and each exposes the `--report-only` and `--concurrency` seams the conductor requires, yet neither appears in `depends_on` (`skill.yaml:68`), the Provides roster (`SKILL.md:29`), or the wave table (`SKILL.md:96-101`) — while the family spine at `fleet-family.md:13`/`:235` already names `perf-fleet` as a member. SP2 of three (SP1 = optimization discovery inside perf-fleet; SP3 = make `cli.args` functional). Gives `perf-fleet` an exclusive wave because its evidence is silently corruptible — a contended benchmark yields a plausible wrong number where a contended test yields an exposable flake — extends the fixed shape to seven waves (lander 5 → 6, with an exclusive wave ruled out as a deferral target), declares the documented-but-undeclared claim-lease flags, and reconciles both `fleet-family.md` rosters. Goal is deliberately conditional: six members cannot be shed by the cap against a default cap of 6, so on a full-spine run both new members are shed by construction — pre-existing arithmetic, disclosed rather than solved.
 - **Blockers:** —
@@ -2410,6 +2410,182 @@ last_manual_edit: 2026-06-27T12:51:51.967Z
 - **Assignee:** —
 - **Priority:** —
 - **External-ID:** github:Intense-Visions/harness-engineering#383
+
+### craft: documentation quality in docs/guides
+
+- **Status:** planned
+- **Spec:** —
+- **Summary:** Filed by craft-fleet from a real `docs-craft` run pinned to base SHA `b72ede296851`. 22 findings above the noise floor across 6 rubrics (DOCS-R001, DOCS-R002, DOCS-R003, DOCS-R004, DOCS-R006, DOCS-R007), composite tier x impact score 9. Highest-ranked: `DOCS-R006` (foundational/large/high) on `docs/guides/best-practices.md`. Routed `file` rather than `elevate` by the mechanical elevation-eligibility boundary; no line of code was changed. Cite provenance: runId 73a93304-8f87-47cb-a6b2-d6b396191931. Full verbatim critique in the issue.
+- **Blockers:** —
+- **Plan:** —
+- **Assignee:** —
+- **Priority:** —
+- **External-ID:** github:Intense-Visions/harness-engineering#1994
+
+### craft: knowledge-entry quality in docs/knowledge/architecture
+
+- **Status:** planned
+- **Spec:** —
+- **Summary:** Filed by craft-fleet from a real `knowledge-craft` run pinned to base SHA `b72ede296851`. 17 findings above the noise floor across 7 rubrics (KNOW-R001, KNOW-R002, KNOW-R003, KNOW-R004, KNOW-R005, KNOW-R006, KNOW-R007), composite tier x impact score 9. Highest-ranked: `KNOW-R001` (foundational/large/high) on `docs/knowledge/architecture/architectural-decision-records-adrs.md`. Routed `file` rather than `elevate` by the mechanical elevation-eligibility boundary; no line of code was changed. Cite provenance: runId 05b12820-1112-411e-a0d1-5bdea62d1e9e. Full verbatim critique in the issue.
+- **Blockers:** —
+- **Plan:** —
+- **Assignee:** —
+- **Priority:** —
+- **External-ID:** github:Intense-Visions/harness-engineering#1995
+
+### craft: CLI ergonomics in packages/cli/src/commands
+
+- **Status:** planned
+- **Spec:** —
+- **Summary:** Filed by craft-fleet from a real `cli-ergonomics-craft` run pinned to base SHA `b72ede296851`. 19 findings above the noise floor across 7 rubrics (CLI-R001, CLI-R002, CLI-R003, CLI-R004, CLI-R005, CLI-R006, CLI-R007), composite tier x impact score 9. Highest-ranked: `CLI-R006` (foundational/large/high) on `packages/cli/src/commands/check-deps.ts`. Routed `file` rather than `elevate` by the mechanical elevation-eligibility boundary; no line of code was changed. Cite provenance: runId 690934e7-ea16-4817-97b9-9af271e90051. Full verbatim critique in the issue.
+- **Blockers:** —
+- **Plan:** —
+- **Assignee:** —
+- **Priority:** —
+- **External-ID:** github:Intense-Visions/harness-engineering#1996
+
+### craft: API design quality in docs/api
+
+- **Status:** planned
+- **Spec:** —
+- **Summary:** Filed by craft-fleet from a real `api-craft` run pinned to base SHA `b72ede296851`. 7 findings above the noise floor across 7 rubrics (API-R001, API-R002, API-R003, API-R004, API-R006, API-R007, API-R009), composite tier x impact score 9. Highest-ranked: `API-R002` (foundational/large/high) on `docs/api/openapi.yaml`. Routed `file` rather than `elevate` by the mechanical elevation-eligibility boundary; no line of code was changed. Cite provenance: runId 854f4483-7a31-4062-89d7-e01567dfea9d. Full verbatim critique in the issue.
+- **Blockers:** —
+- **Plan:** —
+- **Assignee:** —
+- **Priority:** —
+- **External-ID:** github:Intense-Visions/harness-engineering#1997
+
+### craft: spec quality in docs/changes/adopter-roadmap-hook-installer
+
+- **Status:** planned
+- **Spec:** —
+- **Summary:** Filed by craft-fleet from a real `spec-craft` run pinned to base SHA `b72ede296851`. 9 findings above the noise floor across 4 rubrics (SPEC-R001, SPEC-R002, SPEC-R003, SPEC-R007), composite tier x impact score 6. Highest-ranked: `SPEC-R002` (foundational/medium/medium) on `docs/changes/adopter-roadmap-hook-installer/proposal.md`. Routed `file` rather than `elevate` by the mechanical elevation-eligibility boundary; no line of code was changed. Cite provenance: runId e62a4c76-7e97-4c39-b0a7-ec4ca2bc806f. Full verbatim critique in the issue.
+- **Blockers:** —
+- **Plan:** —
+- **Assignee:** —
+- **Priority:** —
+- **External-ID:** github:Intense-Visions/harness-engineering#1998
+
+### craft: knowledge-entry quality in docs/knowledge/cli
+
+- **Status:** planned
+- **Spec:** —
+- **Summary:** Filed by craft-fleet from a real `knowledge-craft` run pinned to base SHA `b72ede296851`. 7 findings above the noise floor across 7 rubrics (KNOW-R001, KNOW-R002, KNOW-R003, KNOW-R004, KNOW-R005, KNOW-R006, KNOW-R007), composite tier x impact score 6. Highest-ranked: `KNOW-R002` (foundational/medium/high) on `docs/knowledge/cli/doctor-hardening.md`. Routed `file` rather than `elevate` by the mechanical elevation-eligibility boundary; no line of code was changed. Cite provenance: runId 05b12820-1112-411e-a0d1-5bdea62d1e9e. Full verbatim critique in the issue.
+- **Blockers:** —
+- **Plan:** —
+- **Assignee:** —
+- **Priority:** —
+- **External-ID:** github:Intense-Visions/harness-engineering#1999
+
+### craft: spec quality in docs/changes/adaptive-model-routing
+
+- **Status:** planned
+- **Spec:** —
+- **Summary:** Filed by craft-fleet from a real `spec-craft` run pinned to base SHA `b72ede296851`. 7 findings above the noise floor across 3 rubrics (SPEC-R001, SPEC-R006, SPEC-R007), composite tier x impact score 6. Highest-ranked: `SPEC-R006` (foundational/medium/high) on `docs/changes/adaptive-model-routing/proposal.md`. Routed `file` rather than `elevate` by the mechanical elevation-eligibility boundary; no line of code was changed. Cite provenance: runId e62a4c76-7e97-4c39-b0a7-ec4ca2bc806f. Full verbatim critique in the issue.
+- **Blockers:** —
+- **Plan:** —
+- **Assignee:** —
+- **Priority:** —
+- **External-ID:** github:Intense-Visions/harness-engineering#2000
+
+### craft: identifier naming in packages/orchestrator/src/core
+
+- **Status:** planned
+- **Spec:** —
+- **Summary:** Filed by craft-fleet from a real `naming-craft` run pinned to base SHA `b72ede296851`. 5 findings above the noise floor across 3 rubrics (NAME-R001, NAME-R003, NAME-R006), composite tier x impact score 6. Highest-ranked: `NAME-R006` (foundational/medium/high) on `packages/orchestrator/src/core/retry.ts`. Routed `file` rather than `elevate` by the mechanical elevation-eligibility boundary; no line of code was changed. Cite provenance: runId f7927dfb-4051-4e15-93dd-0e3db3e5d05e. Full verbatim critique in the issue.
+- **Blockers:** —
+- **Plan:** —
+- **Assignee:** —
+- **Priority:** —
+- **External-ID:** github:Intense-Visions/harness-engineering#2001
+
+### craft: code readability in packages/cli/src/commands
+
+- **Status:** planned
+- **Spec:** —
+- **Summary:** Filed by craft-fleet from a real `code-craft` run pinned to base SHA `b72ede296851`. 3 findings above the noise floor across 3 rubrics (CODE-R004, CODE-R006, CODE-R007), composite tier x impact score 6. Highest-ranked: `CODE-R006` (foundational/medium/medium) on `packages/cli/src/commands/models.ts`. Routed `file` rather than `elevate` by the mechanical elevation-eligibility boundary; no line of code was changed. Cite provenance: runId 45b95b40-5879-4bc7-ac2a-2c82fdcf32cc. Full verbatim critique in the issue.
+- **Blockers:** —
+- **Plan:** —
+- **Assignee:** —
+- **Priority:** —
+- **External-ID:** github:Intense-Visions/harness-engineering#2002
+
+### craft: test quality in packages/orchestrator/src/core
+
+- **Status:** planned
+- **Spec:** —
+- **Summary:** Filed by craft-fleet from a real `test-craft` run pinned to base SHA `b72ede296851`. 14 findings above the noise floor across 6 rubrics (TEST-R001, TEST-R002, TEST-R003, TEST-R006, TEST-R007, TEST-R008), composite tier x impact score 4. Highest-ranked: `TEST-R008` (polish/medium/medium) on `packages/orchestrator/src/core/interaction-queue.test.ts`. Routed `file` rather than `elevate` by the mechanical elevation-eligibility boundary; no line of code was changed. Carries a downgraded elevation: the elevate half of this target was withheld because the baseline was not clean at the pinned base SHA (`harness validate` exit 1, `harness check-deps` exit 1), so no autonomous rewrite could be proven behaviour-preserving. Cite provenance: runId 6cfa0f3c-aec3-49a8-93d2-ed471a9afd3d. Full verbatim critique in the issue.
+- **Blockers:** —
+- **Plan:** —
+- **Assignee:** —
+- **Priority:** —
+- **External-ID:** github:Intense-Visions/harness-engineering#2003
+
+### craft: code readability in packages/orchestrator/src/core
+
+- **Status:** planned
+- **Spec:** —
+- **Summary:** Filed by craft-fleet from a real `code-craft` run pinned to base SHA `b72ede296851`. 14 findings above the noise floor across 7 rubrics (CODE-R001, CODE-R002, CODE-R003, CODE-R004, CODE-R005, CODE-R006, CODE-R007), composite tier x impact score 4. Highest-ranked: `CODE-R007` (polish/medium/high) on `packages/orchestrator/src/core/retry.ts`. Routed `file` rather than `elevate` by the mechanical elevation-eligibility boundary; no line of code was changed. Carries a downgraded elevation: the elevate half of this target was withheld because the baseline was not clean at the pinned base SHA (`harness validate` exit 1, `harness check-deps` exit 1), so no autonomous rewrite could be proven behaviour-preserving. Cite provenance: runId 45b95b40-5879-4bc7-ac2a-2c82fdcf32cc. Full verbatim critique in the issue.
+- **Blockers:** —
+- **Plan:** —
+- **Assignee:** —
+- **Priority:** —
+- **External-ID:** github:Intense-Visions/harness-engineering#2004
+
+### craft: spec quality in docs/changes/activate-skill-proposal-pipeline
+
+- **Status:** planned
+- **Spec:** —
+- **Summary:** Filed by craft-fleet from a real `spec-craft` run pinned to base SHA `b72ede296851`. 7 findings above the noise floor across 3 rubrics (SPEC-R001, SPEC-R004, SPEC-R007), composite tier x impact score 4. Highest-ranked: `SPEC-R001` (polish/medium/high) on `docs/changes/activate-skill-proposal-pipeline/proposal.md`. Routed `file` rather than `elevate` by the mechanical elevation-eligibility boundary; no line of code was changed. Cite provenance: runId e62a4c76-7e97-4c39-b0a7-ec4ca2bc806f. Full verbatim critique in the issue.
+- **Blockers:** —
+- **Plan:** —
+- **Assignee:** —
+- **Priority:** —
+- **External-ID:** github:Intense-Visions/harness-engineering#2005
+
+### craft: test quality in packages/core/src/rehearsal
+
+- **Status:** planned
+- **Spec:** —
+- **Summary:** Filed by craft-fleet from a real `test-craft` run pinned to base SHA `b72ede296851`. 6 findings above the noise floor across 3 rubrics (TEST-R001, TEST-R002, TEST-R008), composite tier x impact score 4. Highest-ranked: `TEST-R008` (polish/medium/high) on `packages/core/src/rehearsal/scoring.test.ts`. Routed `file` rather than `elevate` by the mechanical elevation-eligibility boundary; no line of code was changed. Cite provenance: runId 6cfa0f3c-aec3-49a8-93d2-ed471a9afd3d. Full verbatim critique in the issue.
+- **Blockers:** —
+- **Plan:** —
+- **Assignee:** —
+- **Priority:** —
+- **External-ID:** github:Intense-Visions/harness-engineering#2006
+
+### craft: prose-in-code in packages/orchestrator/src/core
+
+- **Status:** planned
+- **Spec:** —
+- **Summary:** Filed by craft-fleet from a real `copy-craft` run pinned to base SHA `b72ede296851`. 10 findings above the noise floor across 2 rubrics (COPY-R007, COPY-R008), composite tier x impact score 2. Highest-ranked: `COPY-R008` (polish/small/medium) on `packages/orchestrator/src/core/budget-governor.ts`. Routed `file` rather than `elevate` by the mechanical elevation-eligibility boundary; no line of code was changed. Carries a downgraded elevation: the elevate half of this target was withheld because the baseline was not clean at the pinned base SHA (`harness validate` exit 1, `harness check-deps` exit 1), so no autonomous rewrite could be proven behaviour-preserving. Cite provenance: runId 2e15fb57-0d99-48bf-b142-3f90b0185bfb. Full verbatim critique in the issue.
+- **Blockers:** —
+- **Plan:** —
+- **Assignee:** —
+- **Priority:** —
+- **External-ID:** github:Intense-Visions/harness-engineering#2007
+
+### craft: code readability in packages/cli/src/config
+
+- **Status:** planned
+- **Spec:** —
+- **Summary:** Filed by craft-fleet from a real `code-craft` run pinned to base SHA `b72ede296851`. 2 findings above the noise floor across 2 rubrics (CODE-R001, CODE-R007), composite tier x impact score 2. Highest-ranked: `CODE-R001` (polish/small/medium) on `packages/cli/src/config/schema.ts`. Routed `file` rather than `elevate` by the mechanical elevation-eligibility boundary; no line of code was changed. Cite provenance: runId 45b95b40-5879-4bc7-ac2a-2c82fdcf32cc. Full verbatim critique in the issue.
+- **Blockers:** —
+- **Plan:** —
+- **Assignee:** —
+- **Priority:** —
+- **External-ID:** github:Intense-Visions/harness-engineering#2008
+
+### craft: identifier naming in packages/core/src/rehearsal
+
+- **Status:** planned
+- **Spec:** —
+- **Summary:** Filed by craft-fleet from a real `naming-craft` run pinned to base SHA `b72ede296851`. 1 findings above the noise floor across 1 rubrics (NAME-R001), composite tier x impact score 2. Highest-ranked: `NAME-R001` (polish/small/medium) on `packages/core/src/rehearsal/scoring.ts`. Routed `file` rather than `elevate` by the mechanical elevation-eligibility boundary; no line of code was changed. Cite provenance: runId f7927dfb-4051-4e15-93dd-0e3db3e5d05e. Full verbatim critique in the issue.
+- **Blockers:** —
+- **Plan:** —
+- **Assignee:** —
+- **Priority:** —
+- **External-ID:** github:Intense-Visions/harness-engineering#2009
 
 ## Parallel Execution & State
 

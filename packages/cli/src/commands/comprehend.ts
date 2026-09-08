@@ -28,6 +28,7 @@ import {
   detectCommittedSemanticOnBranch,
   readSemanticMapAtRef,
   defaultRefReadDeps,
+  type RefReadDeps,
   type RegressionContext,
 } from '../comprehension/regression';
 import type { ComprehensionConfig } from '../config/schema';
@@ -251,6 +252,89 @@ function loadHarnessConfig(configPath?: string): HarnessConfig | undefined {
   return resolved.ok ? resolved.value : undefined;
 }
 
+/** The two outputs of the `--since` semantic-regression gate, as the verdict consumes them. */
+export interface SemanticRegressionReport {
+  /**
+   * Modules that regressed `present → absent` versus the base ref. Always `[]`
+   * under `context: 'pr'` (where the downgrade is the designed outcome) and
+   * always `[]` when a ref was unreadable (nothing was compared).
+   */
+  regressed: string[];
+  /**
+   * True when the base ref or `HEAD` could not be read. Distinct from "no
+   * regressions": the caller must refuse to report a pass rather than treat an
+   * unreadable ref as a clean comparison.
+   */
+  refUnreadable: boolean;
+}
+
+/** Logger channels the regression narrative uses; injectable so the prose is assertable. */
+type RegressionLog = Pick<typeof logger, 'error' | 'warn' | 'success'>;
+
+/**
+ * ADR 0109 slice 4 / ADR 0116 §4 — token-free semantic-regression gate versus a
+ * base ref, and the whole user-facing narrative around it. Base and head are read
+ * the SAME way (committed shards via git + lenient frontmatter parse), so a shard
+ * cannot be counted as "present" on one side and dropped on the other. An
+ * unreadable ref fails LOUD — never a silent pass.
+ *
+ * The `context` reframes WHAT is a regression (ADR 0116 §4):
+ *  - `'main'` (default, post-merge): `present → absent` means `main` LOST
+ *    semantic — a real regression the single-writer main-pass must never produce.
+ *  - `'pr'` (the static-only PR path): `present → absent` is EXPECTED (semantic
+ *    deferred to `main`) and NEVER a regression — killing the per-PR false
+ *    positive. Instead we advisory-warn on any committed-semantic ADDITION, which
+ *    a static-only PR should not carry (single-writer, ADR 0116 §1).
+ *
+ * Extracted from `runCheckMode` (#1743 / CODE-R003) so the check entrypoint tells
+ * ONE story — "is the substrate fresh, and what is the verdict?" — while this
+ * function owns the regression story end to end. Behavior is unchanged: the git
+ * seam is injected by the caller (`defaultRefReadDeps(projectRoot)`), so this
+ * function itself is disk- and git-free.
+ */
+export function reportSemanticRegression(
+  since: string,
+  context: RegressionContext,
+  deps: RefReadDeps,
+  log: RegressionLog = logger
+): SemanticRegressionReport {
+  const base = readSemanticMapAtRef(since, deps);
+  const head = readSemanticMapAtRef('HEAD', deps);
+  if (base === null || head === null) {
+    const which = base === null ? `base ref '${since}'` : "'HEAD'";
+    log.error(
+      `Could not read ${which} for the semantic-regression check (unfetched / bad ref / ` +
+        `git error). Refusing to report a pass — fetch the ref and re-run.`
+    );
+    return { regressed: [], refUnreadable: true };
+  }
+
+  const regressed = detectSemanticRegressions(base, head, context);
+  if (context === 'pr') {
+    const committed = detectCommittedSemanticOnBranch(base, head);
+    if (committed.length > 0) {
+      log.warn(
+        `${committed.length} module(s) COMMITTED semantic on a branch vs ${since}: ` +
+          `${committed.join(', ')}. Under single-writer (ADR 0116 §1) PRs are static-only — ` +
+          `semantic belongs to the \`main\` main-pass. This is advisory (not a failure).`
+      );
+    }
+    log.success(
+      `Static-only PR path: \`present → absent\` is expected (semantic deferred to \`main\`, ` +
+        `ADR 0116 §4) — no semantic regression flagged.`
+    );
+  } else if (regressed.length > 0) {
+    log.error(
+      `${regressed.length} module(s) regressed semantic present→absent on \`main\` vs ` +
+        `${since}: ${regressed.join(', ')}. The single-writer main-pass must never lose ` +
+        `semantic — regenerate (provider-backed 'harness comprehend --all') and commit to main.`
+    );
+  } else {
+    log.success(`No semantic regressions on \`main\` vs ${since}.`);
+  }
+  return { regressed, refUnreadable: false };
+}
+
 async function runCheckMode(
   store: ComprehensionStore,
   reader: ReturnType<typeof createNodeModuleSourceReader>,
@@ -278,58 +362,13 @@ async function runCheckMode(
     logger.success('All comprehension units are source-fresh.');
   }
 
-  // ADR 0109 slice 4 / ADR 0116 §4 — token-free semantic-regression gate vs a base
-  // ref. Base and head are read the SAME way (committed shards via git + lenient
-  // frontmatter parse), so a shard cannot be counted as "present" on one side and
-  // dropped on the other. An unreadable ref fails LOUD — never a silent pass.
-  //
-  // The `context` reframes WHAT is a regression (ADR 0116 §4):
-  //  - `'main'` (default, post-merge): `present → absent` means `main` LOST
-  //    semantic — a real regression the single-writer main-pass must never produce.
-  //  - `'pr'` (the static-only PR path): `present → absent` is EXPECTED (semantic
-  //    deferred to `main`) and NEVER a regression — killing the per-PR false
-  //    positive. Instead we advisory-warn on any committed-semantic ADDITION, which
-  //    a static-only PR should not carry (single-writer, ADR 0116 §1).
+  // ADR 0109 slice 4 / ADR 0116 §4 — the `--since` semantic-regression gate. The
+  // whole narrative (ref reads, unreadable-ref refusal, pr-vs-main framing) lives
+  // in `reportSemanticRegression`; here we only feed it and consume its verdict.
   const context: RegressionContext = opts.context ?? 'main';
-  let regressed: string[] = [];
-  let refUnreadable = false;
-  if (opts.since) {
-    const deps = defaultRefReadDeps(opts.projectRoot);
-    const base = readSemanticMapAtRef(opts.since, deps);
-    const head = readSemanticMapAtRef('HEAD', deps);
-    if (base === null || head === null) {
-      refUnreadable = true;
-      const which = base === null ? `base ref '${opts.since}'` : "'HEAD'";
-      logger.error(
-        `Could not read ${which} for the semantic-regression check (unfetched / bad ref / ` +
-          `git error). Refusing to report a pass — fetch the ref and re-run.`
-      );
-    } else {
-      regressed = detectSemanticRegressions(base, head, context);
-      if (context === 'pr') {
-        const committed = detectCommittedSemanticOnBranch(base, head);
-        if (committed.length > 0) {
-          logger.warn(
-            `${committed.length} module(s) COMMITTED semantic on a branch vs ${opts.since}: ` +
-              `${committed.join(', ')}. Under single-writer (ADR 0116 §1) PRs are static-only — ` +
-              `semantic belongs to the \`main\` main-pass. This is advisory (not a failure).`
-          );
-        }
-        logger.success(
-          `Static-only PR path: \`present → absent\` is expected (semantic deferred to \`main\`, ` +
-            `ADR 0116 §4) — no semantic regression flagged.`
-        );
-      } else if (regressed.length > 0) {
-        logger.error(
-          `${regressed.length} module(s) regressed semantic present→absent on \`main\` vs ` +
-            `${opts.since}: ${regressed.join(', ')}. The single-writer main-pass must never lose ` +
-            `semantic — regenerate (provider-backed 'harness comprehend --all') and commit to main.`
-        );
-      } else {
-        logger.success(`No semantic regressions on \`main\` vs ${opts.since}.`);
-      }
-    }
-  }
+  const { regressed, refUnreadable } = opts.since
+    ? reportSemanticRegression(opts.since, context, defaultRefReadDeps(opts.projectRoot))
+    : { regressed: [] as string[], refUnreadable: false };
 
   // ADR 0116 §2 — refresh main-pass seam (best-effort; never changes the verdict).
   if (ciMode === 'refresh') {

@@ -2070,7 +2070,7 @@ List recent sessions with token usage and cost
 
 ## Waypoint Commands
 
-Opt-in Waypoint sdlc.\* emission: record fleet artifacts, inspect the spool
+Opt-in Waypoint sdlc.\* emission: record fleet artifacts, ship the spool, inspect it
 
 ### `harness waypoint record-handoff <file>`
 
@@ -2079,6 +2079,15 @@ Spool one sdlc.\* event for a written fleet handoff record
 ### `harness waypoint record-provenance <file>`
 
 Spool one sdlc.\* event for a written fleet provenance.json
+
+### `harness waypoint ship`
+
+Send spooled sdlc.\* events to the configured Waypoint ledger
+
+**Options:**
+
+- `--dry-run` — Report what would ship without sending anything
+- `--limit` — Cap the number of events sent this run
 
 ### `harness waypoint status`
 

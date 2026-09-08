@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'packages/types/src'
-sourceHash: '67d513d63a377cbb4fd18192a20bbb7ca4efe33702eb42ea3900e1ce36dcc6f4'
+sourceHash: '446377d9667a0c8fd68b745fcb76f83d7bc89060a91d5b7d3e7bf20865d5c337'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
@@ -423,6 +423,8 @@ export VerdictCacheEntry
 export VerdictCacheStats
 export WaypointConfig
 export WaypointConfigSchema
+export WaypointShipConfig
+export WaypointShipConfigSchema
 export WaypointSinkConfig
 export WaypointSinkConfigSchema
 export WebhookDelivery
