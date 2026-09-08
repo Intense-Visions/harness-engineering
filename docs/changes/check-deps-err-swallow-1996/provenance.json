@@ -1,0 +1,19 @@
+{
+  "issue": [1996],
+  "route": "bug",
+  "stages": ["debugging"],
+  "reproducingTest": "packages/cli/tests/commands/check-deps-err-swallow.test.ts",
+  "assumptions": [
+    "ExitCode has no INTERNAL_ERROR member. The available codes are SUCCESS 0, VALIDATION_FAILED 1, ERROR 2, ZERO_DENOMINATOR 3 (packages/cli/src/utils/errors.ts). Chose ExitCode.ERROR (2), whose existing doc comment is 'Command failed because of an unexpected error or misconfiguration' — the nearest existing distinct non-zero operational-failure code. ZERO_DENOMINATOR (3) was rejected: it means the check ran and examined nothing, which is the #1188 abstention already in this file, not an engine failure.",
+    "Reachability, measured on the pinned base: through the CLI's own call shape (no graphDependencyData, fallbackBehavior 'warn') neither engine Err branch is currently reachable. validateDependencies' three Err returns are gated on the graph-data path, on fallbackBehavior === 'error', and on buildDependencyGraph — which in the non-graph path skips unparseable files and returns Ok unconditionally. detectCircularDepsInFiles contains no Err of its own. The discard is therefore a real contract defect whose false-green is LATENT rather than presently live; the PR does not claim CI pipelines are silently passing today.",
+    "The reproducing tests drive the failure channel by mocking the two @harness-engineering/core exports. A Result's failure channel is part of the API contract regardless of which internal branch happens to produce it today, and this is the only way to test the branch without mutating shared engine code.",
+    "Corroborating precedent: packages/core/src/review/mechanical-checks.ts already handles !result.ok from validateDependencies by setting status 'fail' and emitting the error message as a finding. This change brings the CLI command in line with treatment the repo already applies one package over.",
+    "Clean-path output is unchanged: analysisErrors is left undefined (not an empty array) when every engine ran, so it is absent from the JSON payload and adds no issue rows. Guarded by three regression tests that pass both before and after the fix.",
+    "modulesAnalyzed counts the `src` directory itself as well as its files, because findFiles yields directory entries. Pre-existing, unrelated to this defect, deliberately untouched; the clean-path guard asserts output shape rather than an exact count so it does not encode the quirk."
+  ],
+  "closingKeyword": "Refs #1996",
+  "baseSha": "738b296c0a50cb9890474124d466f38903e468e2",
+  "scopeNote": "1 of 19 findings (CLI-R006 check-deps Err-swallow); remaining 18 are flag/help-text contract changes, deliberately out of scope",
+  "debugSession": ".harness/debug/resolved/check-deps-err-swallow-1996.md (gitignored; investigation log reproduced in the PR body)",
+  "deferredFinding": "validateDependencies returns Ok({ valid: true, violations: [], skipped: true, reason: 'Parser unavailable' }) under fallbackBehavior 'warn' when parser.health() is unhealthy. runCheckDeps ignores `skipped` entirely, so a repo with an unavailable TypeScript parser gets valid:true and exit 0 having validated nothing. Same 'reports success without running' class and reachable TODAY, but a distinct finding (Ok-with-skipped, not Err) with adopter-visible behaviour impact. Deliberately NOT fixed here; reported upward for filing."
+}
