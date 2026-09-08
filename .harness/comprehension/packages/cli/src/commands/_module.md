@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'packages/cli/src/commands'
-sourceHash: 'd42391f9545fb2fd74d7ef3ce07003296e000ab2f5143430d35e4815c6c8d0ba'
+sourceHash: '17aee439742a3d7b0a86d183bb576689635aabc041f53aa72703f40ed6d8065a'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
@@ -50,6 +50,7 @@ members:
     'generate-agent-definitions.ts',
     'generate-slash-commands.ts',
     'generate.ts',
+    'holiday-confidence.test.ts',
     'holiday-confidence.ts',
     'impact-preview.ts',
     'init-minimal.ts',

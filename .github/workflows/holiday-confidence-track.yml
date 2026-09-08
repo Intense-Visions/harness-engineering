@@ -5,8 +5,7 @@ name: Holiday Confidence Tracker
 #
 # Once a week it runs `harness holiday-confidence --json`, appends a single
 # `{ date, score, verdict }` record to `.harness/metrics/holiday-confidence.jsonl`,
-# and commits it back to the default branch with `[skip ci]` (mirroring the
-# Architecture Snapshot job's commit-back pattern).
+# and lands it on the default branch with `[skip ci]`.
 #
 # Fail-soft by design:
 #   - The KPI command is fail-soft itself: when `gh` is unavailable or
@@ -14,11 +13,29 @@ name: Holiday Confidence Tracker
 #     throwing, and an empty window returns `status: pending`. In either case
 #     this job records NOTHING and still succeeds — a missing data point is
 #     honest, a fabricated one is not.
+#   - Abstaining means the ledger file may legitimately not exist, so the
+#     commit-back below checks for it before staging and exits clean when it is
+#     absent. (Without that guard the documented "records nothing and still
+#     succeeds" contract was unreachable: `git add` on a missing pathspec exits
+#     128 under `bash -e`, which took the job red on every run from 2026-08-10
+#     onward. The abstain path had never once succeeded.)
 #   - It never appends a second record for a date already present, so a manual
 #     re-run (workflow_dispatch) on the same day cannot spam duplicate rows.
 #
-# Adopter note: this workflow is generic — copy it as-is. The only repo-specific
-# assumption is the `harness` CLI build path below.
+# Landing the record:
+#   - The ledger is deliberately un-ignored in `.harness/.gitignore`
+#     (`metrics/*` + `!metrics/holiday-confidence.jsonl`, mirroring the
+#     `security/timeline.json` trend ledger). Everything else under
+#     `.harness/metrics/` stays ignored.
+#   - A direct push to the default branch is attempted first and, when branch
+#     protection rejects it (GH013 "changes must be made through a pull
+#     request"), the job falls back to opening a scope-guarded PR — the same
+#     push-then-PR idiom used by ci.yml, release.yml and roadmap-auto-done.yml.
+#     The fallback never hides a failure: it reports the PR it opened.
+#
+# Adopter note: this workflow is generic — copy it as-is. The repo-specific
+# assumptions are the `harness` CLI build path below and the optional
+# `BASELINE_AUTOAPPROVE_PAT` secret (absent is fine; the PR is simply left open).
 
 on:
   schedule:
@@ -32,12 +49,21 @@ concurrency:
 
 permissions:
   contents: write # commit the trend ledger back to the default branch
+  # `write`, not `read`: the protected-branch fallback below calls `gh pr create`
+  # with the built-in GITHUB_TOKEN. Under `read` that call fails with "Resource
+  # not accessible by integration (createPullRequest)" AFTER the branch has
+  # already been pushed, stranding the branch and dropping the record.
+  pull-requests: write
 
 jobs:
   track:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
+        with:
+          # Full history: the protected-branch fallback below rebases onto, and
+          # branches from, the live tip of the default branch.
+          fetch-depth: 0
       - uses: actions/setup-node@v6
         with:
           node-version: 22
@@ -63,10 +89,19 @@ jobs:
 
           // 1) Parse the KPI output. Any parse failure => nothing to record.
           let result;
+          let raw = '';
           try {
-            result = JSON.parse(fs.readFileSync('result.json', 'utf-8'));
+            raw = fs.readFileSync('result.json', 'utf-8');
+            result = JSON.parse(raw);
           } catch {
-            console.log('No parseable KPI output; recording nothing (fail-soft).');
+            // Abstain, but say WHY. A bare "no parseable output" line hid a real
+            // defect for five consecutive runs: `--json` was silently shadowed by
+            // the root program's own `--json` flag, so the command rendered pretty
+            // text and this parse threw every single time. Echo what was actually
+            // received so the next such regression is one log line away.
+            console.log('::warning::Holiday Confidence produced no parseable JSON; recording nothing (fail-soft).');
+            console.log(`--- raw stdout (${raw.length} bytes) ---`);
+            console.log(raw.split('\n').slice(0, 20).join('\n'));
             process.exit(0);
           }
 
@@ -102,10 +137,90 @@ jobs:
 
           rm -f result.json
 
+      # Land the appended record on the default branch. Mirrors the push-then-PR
+      # idiom already proven in ci.yml (baseline refresh), release.yml (golden
+      # manifest) and roadmap-auto-done.yml (shard flip).
       - name: Commit the trend ledger
+        env:
+          # Disable husky so `git commit`/`git push` hooks cannot regenerate files
+          # and leave the tree dirty (same reason as roadmap-auto-done.yml).
+          HUSKY: '0'
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          AUTOAPPROVE_PAT: ${{ secrets.BASELINE_AUTOAPPROVE_PAT }}
         run: |
+          LEDGER=".harness/metrics/holiday-confidence.jsonl"
+
+          # The step above records NOTHING when the KPI is undeterminable, so the
+          # ledger may legitimately not exist. `git add` on a missing pathspec
+          # exits 128 under `bash -e`; guard it so the documented "records nothing
+          # and still succeeds" contract is actually reachable. This is a clean
+          # abstain, not a swallowed failure — nothing failed, there is simply
+          # nothing to record.
+          if [ ! -f "$LEDGER" ]; then
+            echo "No ledger present — the KPI abstained this run; nothing to commit."
+            exit 0
+          fi
+
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add .harness/metrics/holiday-confidence.jsonl
-          git diff --cached --quiet || git commit -m "chore(metrics): holiday-confidence $(date -u +%Y-%m-%d) [skip ci]"
-          git push
+          git add "$LEDGER"
+          if git diff --cached --quiet; then
+            echo "Ledger unchanged (already recorded for this date); nothing to commit."
+            exit 0
+          fi
+          git commit -m "chore(metrics): holiday-confidence $(date -u +%Y-%m-%d) [skip ci]"
+          OURS=$(git rev-parse HEAD)
+          BASE="${GITHUB_REF_NAME}"
+
+          # 1) Try a direct push, absorbing any concurrent merge. Reset hard to our
+          #    commit before each retry so a failed rebase can never leave the tree
+          #    dirty for the next attempt.
+          for attempt in 1 2 3; do
+            git rebase --abort 2>/dev/null || true
+            git reset --hard "$OURS" >/dev/null
+            git fetch origin "$BASE" -q || true
+            if git rebase "origin/$BASE" && git push origin "HEAD:$BASE" 2>/dev/null; then
+              echo "Pushed the trend ledger directly to $BASE on attempt $attempt."
+              exit 0
+            fi
+            echo "Direct push attempt $attempt failed; retrying."
+            sleep 3
+          done
+
+          # 2) Direct push is blocked by branch protection (GH013 "changes must be
+          #    made through a pull request"). Open a scope-guarded PR instead.
+          echo "Direct push unavailable; opening a PR for the trend ledger."
+          git fetch origin "$BASE" -q
+          BRANCH="chore/holiday-confidence-$(date -u +%Y%m%d)-$(date +%s)"
+          git checkout -B "$BRANCH" "origin/$BASE"
+          # Re-apply just the ledger on top of the latest base. This workflow is
+          # the file's only writer and its runs are serialized by the concurrency
+          # group, so "ours" is always the correct resolution.
+          git checkout "$OURS" -- "$LEDGER"
+          git add "$LEDGER"
+          if git diff --cached --quiet; then
+            echo "Base already carries this record; nothing to PR."
+            exit 0
+          fi
+          git commit -m "chore(metrics): holiday-confidence $(date -u +%Y-%m-%d) [skip ci]"
+          git push -u origin "$BRANCH"
+          PR_URL=$(gh pr create \
+            --title "chore(metrics): holiday-confidence $(date -u +%Y-%m-%d)" \
+            --body "Automated Holiday Confidence trend-ledger record. Opened because direct pushes to \`$BASE\` are blocked by branch protection." \
+            --base "$BASE" \
+            --head "$BRANCH")
+          echo "Opened $PR_URL"
+
+          # Self-approve and auto-merge only when the scoped PAT is configured, and
+          # only after proving the diff never reaches beyond the ledger (mirrors the
+          # #531 guard used by ci.yml / release.yml / roadmap-auto-done.yml).
+          # Without the PAT the PR is simply left open for a human — reported, not
+          # hidden, and never a red job for a metrics record.
+          if [ -z "$AUTOAPPROVE_PAT" ]; then
+            echo "::notice::No BASELINE_AUTOAPPROVE_PAT configured; leaving $PR_URL open for review."
+            exit 0
+          fi
+          gh pr diff "$PR_URL" --name-only | node scripts/assert-diff-scope.mjs "$LEDGER"
+          GH_TOKEN="$AUTOAPPROVE_PAT" gh pr review "$PR_URL" --approve \
+            --body "Auto-approved: Holiday Confidence trend-ledger record from github-actions[bot]."
+          gh pr merge "$PR_URL" --auto --squash --delete-branch
