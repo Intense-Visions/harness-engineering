@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'packages/cli/tests/commands'
-sourceHash: 'efacdc8d1f3312ad595b488ffc7bb7b85c2b0340e2e9bcb210fdde9119ea37af'
+sourceHash: '119bdb5b982afb6ff2d7ae963971718e682c0450f0af09430d49605c00a25d4c'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
@@ -16,27 +16,43 @@ members:
     'agent-run.test.ts',
     'agent.test.ts',
     'align-design-system-command.test.ts',
+    'align-design-system-cov544.test.ts',
     'api-craft-command.test.ts',
+    'api-craft-cov544.test.ts',
+    'audit-protected-cov544b.test.ts',
     'audit-protected.test.ts',
     'backfill-skill-provenance.test.ts',
     'bugfleet-publish-analyses-prefix-crosstalk.test.ts',
     'check-arch.test.ts',
     'check-deployment.test.ts',
+    'check-deps-cov544b.test.ts',
     'check-deps.test.ts',
+    'check-design-cov544.test.ts',
     'check-design.test.ts',
     'check-docs.test.ts',
+    'check-harness-strength-cov544.test.ts',
     'check-harness-strength.test.ts',
+    'check-operational-drift-cov544.test.ts',
+    'check-perf-cov544.test.ts',
     'check-perf.test.ts',
     'check-phase-gate.test.ts',
+    'check-security-cov544.test.ts',
     'check-security.test.ts',
+    'check-vocabulary-cov544b.test.ts',
     'check-vocabulary.test.ts',
+    'cleanup-cov544b.test.ts',
+    'cleanup-sessions-cov544.test.ts',
     'cleanup-sessions.test.ts',
     'cleanup.test.ts',
     'cli-command-harness.ts',
     'cli-ergonomics-craft-command.test.ts',
+    'cli-ergonomics-craft-cov544.test.ts',
     'code-craft-command.test.ts',
+    'code-craft-cov544.test.ts',
     'compound-scan-candidates.test.ts',
+    'comprehend-cov544.test.ts',
     'copy-craft-command.test.ts',
+    'copy-craft-cov544.test.ts',
     'craft-command-harness-cohort-b.ts',
     'craft-command-harness.ts',
     'create-skill.test.ts',
@@ -45,12 +61,17 @@ members:
     'deprecated-graph-aliases.test.ts',
     'design-command-harness.ts',
     'design-pipeline-command.test.ts',
+    'design-pipeline-cov544.test.ts',
     'distortion.test.ts',
     'docs-craft-command.test.ts',
+    'docs-craft-cov544.test.ts',
     'doctor-hardening.test.ts',
     'doctor.test.ts',
+    'fix-drift-cov544.test.ts',
     'fix-drift.test.ts',
+    'generate-agent-definitions-cov544b.test.ts',
     'generate-agent-definitions.test.ts',
+    'generate-slash-commands-cov544.test.ts',
     'generate-slash-commands.test.ts',
     'generate.test.ts',
     'golden-build-command.test.ts',
@@ -59,52 +80,72 @@ members:
     'graph-ingest.test.ts',
     'graph-integrity.test.ts',
     'graph.test.ts',
+    'holiday-confidence-cov544.test.ts',
     'hooks.test.ts',
     'impact-preview.test.ts',
     'ingest-options.test.ts',
+    'init-cov544.test.ts',
     'init-extra.test.ts',
     'init-minimal.test.ts',
     'init.test.ts',
     'insights.test.ts',
+    'install-constraints-cov544.test.ts',
     'install-constraints.test.ts',
+    'install-cov544b.test.ts',
     'install.test.ts',
     'integrations-sync.test.ts',
     'integrations.test.ts',
     'knowledge-craft-command.test.ts',
+    'knowledge-craft-cov544.test.ts',
+    'knowledge-pipeline-cov544b.test.ts',
     'learnings-prune.test.ts',
     'linter-generate.test.ts',
     'maintenance-command-shape.test.ts',
+    'maintenance-cov544.test.ts',
     'maintenance-run-check-runner.test.ts',
     'maintenance-run-integration.test.ts',
     'maintenance-run-selection.test.ts',
     'mcp-context-report.test.ts',
+    'mcp-cov544.test.ts',
+    'mcp-guard-cov544.test.ts',
     'mcp-guard.test.ts',
     'mcp-list-capabilities.test.ts',
     'mcp-refinement-demand.test.ts',
+    'migrate-backends-cov544b.test.ts',
     'migrate-backends.test.ts',
+    'migrate-cov544.test.ts',
     'migrate.test.ts',
+    'models-cov544.test.ts',
     'models-probe.test.ts',
     'models.test.ts',
     'naming-craft-command.test.ts',
+    'naming-craft-cov544.test.ts',
+    'outcome-eval-ci-cov544b.test.ts',
     'outcome-eval-ci.test.ts',
     'perf.test.ts',
     'persona-list.test.ts',
     'persona.test.ts',
+    'pre-merge-brief-cov544.test.ts',
     'pre-merge-brief-guardian.test.ts',
     'pre-merge-brief.test.ts',
     'predict.test.ts',
+    'proposals-cov544b.test.ts',
     'proposals-status.test.ts',
     'proposals.test.ts',
     'publish-analyses.test.ts',
     'pulse-run.test.ts',
     'recommend.test.ts',
+    'rehearse-cov544.test.ts',
     'resolve-skill-sources.test.ts',
     'review-ci-local-adapter.test.ts',
     'review-ci.test.ts',
     'rollback.test.ts',
+    'scan-config-cov544b.test.ts',
     'scan-config.test.ts',
     'search.test.ts',
     'security-craft-command.test.ts',
+    'security-craft-cov544.test.ts',
+    'setup-cov544b.test.ts',
     'setup-mcp.picker-message.test.ts',
     'setup-mcp.test.ts',
     'setup.test.ts',
@@ -114,13 +155,16 @@ members:
     'skill-list.test.ts',
     'skill-local-resolution.test.ts',
     'skill-publish.test.ts',
+    'skill-regression-cov544b.test.ts',
     'skill-run.test.ts',
     'skill-search.test.ts',
     'skill-update.test.ts',
     'skill-validate.test.ts',
     'skill.test.ts',
+    'snapshot-cov544b.test.ts',
     'snapshot.test.ts',
     'spec-craft-command.test.ts',
+    'spec-craft-cov544.test.ts',
     'stale-constraints.test.ts',
     'state-show.test.ts',
     'state-streams.test.ts',
@@ -130,18 +174,23 @@ members:
     'sync-main.test.ts',
     'taint.test.ts',
     'telemetry-synthesize.test.ts',
+    'telemetry-wizard-cov544b.test.ts',
     'telemetry-wizard-run.test.ts',
     'telemetry-wizard.test.ts',
     'telemetry.test.ts',
     'test-craft-command.test.ts',
+    'test-craft-cov544.test.ts',
+    'traceability-cov544b.test.ts',
     'traceability.test.ts',
     'uninstall-constraints.test.ts',
     'uninstall.test.ts',
+    'update-cov544.test.ts',
     'update-integrations-sync.test.ts',
     'update-skill-providers.test.ts',
     'update.test.ts',
     'usage-pipeline.test.ts',
     'usage.test.ts',
+    'validate-cov544.test.ts',
     'validate-cross-check.test.ts',
     'validate-scope.test.ts',
     'validate.changed.test.ts',
@@ -194,16 +243,19 @@ import { createCheckDeploymentCommand, runCheckDeployment } from '../../src/comm
 import { createCheckDepsCommand, runCheckDeps } from '../../src/commands/check-deps'
 import { createCheckDesignCommand, runCheckDesign } from '../../src/commands/check-design'
 import { createCheckDocsCommand, runCheckDocs } from '../../src/commands/check-docs'
-import { runCheckHarnessStrength } from '../../src/commands/check-harness-strength'
+import { createCheckHarnessStrengthCommand, runCheckHarnessStrength } from '../../src/commands/check-harness-strength'
+import { RunGit, collectChangedFiles, createCheckOperationalDriftCommand, resolveBaseRef, runCheckOperationalDrift } from '../../src/commands/check-operational-drift'
 import { createCheckPerfCommand, runCheckPerf } from '../../src/commands/check-perf'
 import { createCheckPhaseGateCommand, runCheckPhaseGate } from '../../src/commands/check-phase-gate'
-import { runCheckSecurity } from '../../src/commands/check-security'
+import { createCheckSecurityCommand, runCheckSecurity } from '../../src/commands/check-security'
 import { createCheckVocabularyCommand, runCheckVocabulary } from '../../src/commands/check-vocabulary'
 import { createCleanupCommand, runCleanup } from '../../src/commands/cleanup'
-import { runCleanupAll, runCleanupSessions } from '../../src/commands/cleanup-sessions'
+import { createCleanupSessionsCommand, runCleanupAll, runCleanupSessions } from '../../src/commands/cleanup-sessions'
 import { createCliErgonomicsCraftCommand } from '../../src/commands/cli-ergonomics-craft'
 import { createCodeCraftCommand } from '../../src/commands/code-craft'
 import { runCompoundScanCandidatesCommand } from '../../src/commands/compound/scan-candidates'
+import { createComprehendCommand } from '../../src/commands/comprehend'
+import { createCopyCraftCommand } from '../../src/commands/copy-craft'
 import from '../../src/commands/copy-craft.js'
 import { createCreateSkillCommand, generateSkillFiles } from '../../src/commands/create-skill'
 import { createCrossCheckCommand } from '../../src/commands/cross-check'
@@ -227,6 +279,7 @@ import { runGraphIntegrity } from '../../src/commands/graph/integrity'
 import { createQueryCommand, runQuery, runShortestPath } from '../../src/commands/graph/query'
 import { createScanCommand, runScan } from '../../src/commands/graph/scan'
 import { runGraphStatus } from '../../src/commands/graph/status'
+import { createHolidayConfidenceCommand } from '../../src/commands/holiday-confidence'
 import { addHooks } from '../../src/commands/hooks/add'
 import { createHooksCommand } from '../../src/commands/hooks/index'
 import { buildHookCommand, buildSettingsHooks, initHooks, mergeSettings } from '../../src/commands/hooks/init'
@@ -244,34 +297,39 @@ import from '../../src/commands/integrations/list'
 import from '../../src/commands/integrations/remove'
 import { SyncIO, runSyncIntegrations } from '../../src/commands/integrations/sync'
 import { createKnowledgeCraftCommand } from '../../src/commands/knowledge-craft'
+import { createKnowledgePipelineCommand } from '../../src/commands/knowledge-pipeline'
 import { createGenerateCommand } from '../../src/commands/linter/generate'
 import { createMaintenanceCommand } from '../../src/commands/maintenance'
 import { MaintenanceRunDeps, aggregateReport, buildTaskRunner, createCheckRunner, createFixDispatcher, deriveExitCode, loadRunHistory, makeResolveBackend, parseConcurrency, renderTable, resolveHarnessSpawn, resolveSelection, runMaintenanceRun } from '../../src/commands/maintenance-run'
 import { createMcpCommand, createMcpContextReportCommand, createMcpListCapabilitiesCommand, createMcpRefinementDemandCommand, formatCapabilitiesByPermission, formatCapabilitiesTable, formatContextReport, formatRefinementDemand } from '../../src/commands/mcp'
-import { extractNpmPackages, parseNpmSpec, runMcpGuardCheck } from '../../src/commands/mcp-guard'
-import { detectLegacyArtifacts, runMigrate } from '../../src/commands/migrate'
-import { runMigrateBackends } from '../../src/commands/migrate-backends'
-import { refreshExitCode, runModelsApprove, runModelsProbe, runModelsProposals, runModelsRefresh, runModelsReject } from '../../src/commands/models'
+import { createMcpGuardCommand, extractNpmPackages, parseNpmSpec, runMcpGuardCheck } from '../../src/commands/mcp-guard'
+import { createMigrateCommand, detectLegacyArtifacts, runMigrate } from '../../src/commands/migrate'
+import { createBackendsSubcommand, runMigrateBackends } from '../../src/commands/migrate-backends'
+import { createModelsCommand, refreshExitCode, runModelsApprove, runModelsProbe, runModelsProposals, runModelsRefresh, runModelsReject } from '../../src/commands/models'
+import { createNamingCraftCommand } from '../../src/commands/naming-craft'
 import from '../../src/commands/naming-craft.js'
-import { OutcomeEvaluatorLike, buildOutcomeBody, deriveExitCode, emitOutcomeEvalCi, resolveSpecPath, runOutcomeEvalCi } from '../../src/commands/outcome-eval-ci'
+import { OutcomeEvaluatorLike, buildOutcomeBody, createOutcomeEvalCiCommand, deriveExitCode, emitOutcomeEvalCi, resolveSpecPath, runOutcomeEvalCi } from '../../src/commands/outcome-eval-ci'
 import { createPerfCommand } from '../../src/commands/perf'
 import { createPersonaCommand } from '../../src/commands/persona/index'
 import { createListCommand } from '../../src/commands/persona/list'
-import { BRIEF_MARKER, buildBriefBody, createPreMergeBriefCommand, findOutcomeVerdict, gatherGuardianSafe, gatherSignalsSafe, loadOutcomeStore, readReview, runPreMergeBrief, upsertComment } from '../../src/commands/pre-merge-brief'
+import { BRIEF_MARKER, buildBriefBody, createPreMergeBriefCommand, defaultPostBrief, findOutcomeVerdict, gatherGuardianSafe, gatherSignalsSafe, loadOutcomeStore, readReview, runPreMergeBrief, upsertComment } from '../../src/commands/pre-merge-brief'
 import { createPredictCommand, runPredict } from '../../src/commands/predict'
-import { actStatusCommand, runProposalsList, runProposalsReject, runProposalsShow, runProposalsStatus } from '../../src/commands/proposals'
+import { actStatusCommand, createProposalsCommand, runProposalsList, runProposalsReject, runProposalsShow, runProposalsStatus } from '../../src/commands/proposals'
 import { createPublishAnalysesCommand } from '../../src/commands/publish-analyses'
 import { runPulseRunCommand } from '../../src/commands/pulse/run'
 import { createRecommendCommand, runRecommend } from '../../src/commands/recommend'
+import { createRehearseCommand } from '../../src/commands/rehearse'
 import { GIT_MAX_BUFFER_BYTES, assertKnownRunner, buildDegradedResult, buildDiffInfo, buildReviewBody, createReviewCiCommand, defaultRunGit, emitReviewCi, resolveDiffRange, runReviewCi } from '../../src/commands/review-ci'
 import { createLocalInvoke } from '../../src/commands/review-ci-local-adapter'
 import { referencesTargetPr, runRollbackEvaluate, runRollbackSweepCommand, summarizeSweepReport } from '../../src/commands/rollback'
-import { runScanConfig } from '../../src/commands/scan-config'
+import { createScanConfigCommand, runScanConfig } from '../../src/commands/scan-config'
 import { createSearchCommand } from '../../src/commands/search'
+import { createSecurityCraftCommand } from '../../src/commands/security-craft'
 import from '../../src/commands/security-craft.js'
-import { configureTier0Integrations, runSetup } from '../../src/commands/setup'
+import { configureTier0Integrations, createSetupCommand, runSetup } from '../../src/commands/setup'
 import { ALL_MCP_TOOLS, CURSOR_CURATED_TOOLS, createSetupMcpCommand, runCursorToolPicker, setupMcp } from '../../src/commands/setup-mcp'
 import { createShareCommand } from '../../src/commands/share'
+import { LoadedFixture, SkillRegressionEvaluatorLike, SkillRegressionResult, buildSkillRegressionBody, createSkillRegressionCommand, deriveExitCode, loadFixtures, resolveCandidates, runSkillRegression } from '../../src/commands/skill-regression'
 import { createCreateCommand, runCreate } from '../../src/commands/skill/create'
 import { createSkillCommand } from '../../src/commands/skill/index'
 import { createInfoCommand } from '../../src/commands/skill/info'
@@ -283,6 +341,7 @@ import { createSearchCommand, runSearch } from '../../src/commands/skill/search'
 import { createUpdateCommand } from '../../src/commands/skill/update'
 import { createValidateCommand, validateSkillEntry } from '../../src/commands/skill/validate'
 import { createSnapshotCommand, runSnapshotCapture } from '../../src/commands/snapshot'
+import { createSpecCraftCommand } from '../../src/commands/spec-craft'
 import from '../../src/commands/spec-craft.js'
 import { createStaleConstraintsCommand } from '../../src/commands/stale-constraints'
 import { createStateCommand } from '../../src/commands/state/index'
@@ -294,6 +353,7 @@ import { createTaintCommand } from '../../src/commands/taint'
 import { createTelemetryCommand } from '../../src/commands/telemetry'
 import { ensureTelemetryConfigured, isTelemetryConfigured, runTelemetryWizard, writeTelemetryConfig } from '../../src/commands/telemetry-wizard'
 import { createTelemetryCommand } from '../../src/commands/telemetry/index'
+import { createTestCraftCommand } from '../../src/commands/test-craft'
 import from '../../src/commands/test-craft.js'
 import { createTraceabilityCommand } from '../../src/commands/traceability'
 import { createUninstallCommand, runUninstall } from '../../src/commands/uninstall'
@@ -304,6 +364,12 @@ import { createValidateCommand, runValidate } from '../../src/commands/validate'
 import { runCrossCheck } from '../../src/commands/validate-cross-check'
 import { SCOPED_WALKERS, deriveChangedSurface, filterToDesignSurface } from '../../src/commands/validate-scope'
 import { createWaypointCommand } from '../../src/commands/waypoint'
+import { runComprehend, runComprehendCheck, runComprehendStats } from '../../src/comprehension/compile-run'
+import { resolveComprehensionCiMode } from '../../src/comprehension/config'
+import { shouldRunComprehendHook } from '../../src/comprehension/hook'
+import { committedSemanticAllowed } from '../../src/comprehension/policy'
+import { explainInactiveRefreshGate, resolveRefreshJobGate } from '../../src/comprehension/refresh-gate'
+import { detectCommittedSemanticOnBranch, detectSemanticRegressions, readSemanticMapAtRef } from '../../src/comprehension/regression'
 import { resolveConfig } from '../../src/config/loader'
 import { HarnessConfig } from '../../src/config/schema'
 import { CopyCraftInput, CopyCraftOutput } from '../../src/copy-craft/index.js'
@@ -325,6 +391,8 @@ import { runAuditBrand } from '../../src/mcp/tools/audit-brand'
 import { runDesignCraft } from '../../src/mcp/tools/design-craft'
 import { runDetectDrift } from '../../src/mcp/tools/detect-drift'
 import { handleGetImpact } from '../../src/mcp/tools/graph/index'
+import { runInstructionDensityAudit } from '../../src/mcp/tools/instruction-density'
+import { resolveAnalysisProvider } from '../../src/mcp/utils/analysis-provider'
 import from '../../src/mcp/utils/graph-loader'
 import { NamingCraftInput, NamingCraftOutput } from '../../src/naming-craft/index.js'
 import { logger } from '../../src/output/logger'
@@ -356,9 +424,9 @@ import { CraftCommandRun, DEFAULT_CWD, runCraftCommand } from './craft-command-h
 import { llmCalls, runCraftCommand } from './craft-command-harness.js'
 import { parseJsonStdout, runCommand } from './design-command-harness'
 import * as clack from '@clack/prompts'
-import { CiReviewResult, DiffInfo, Err, GoldenFileChange, GoldenSnapshot, Ok, RefinementDemandReport, RollbackDecision, RunCiReviewOptions, SECURITY_SCAN_EXTENSIONS, SECURITY_SCAN_GLOB, applyFixes, archiveStream, buildSnapshot, checkTaint, clearTaint, createFixes, createProposal, createStream, detectDeadCode, detectDocDrift, extractBundle, generateSuggestions, listStreams, listTaintedSessions, loadStreamIndex, parseCiReviewVerdict, parseDiff, parseManifest, readAdoptionRecords, requestPeerReview, resetWaypointEmitterForTests, runReviewPipeline, setActiveStream, validateAgentConfigs, validateAgentsMap, validateKnowledgeMap, writeConfig } from '@harness-engineering/core'
+import { CiReviewResult, DiffInfo, Err, GoldenFileChange, GoldenSnapshot, Ok, RefinementDemandReport, RollbackDecision, RunCiReviewOptions, SECURITY_SCAN_EXTENSIONS, SECURITY_SCAN_GLOB, applyFixes, archiveStream, buildSnapshot, checkTaint, clearTaint, createFixes, createModelProposal, createProposal, createStream, detectDeadCode, detectDocDrift, extractBundle, generateSuggestions, listStreams, listTaintedSessions, loadStreamIndex, parseCiReviewVerdict, parseDiff, parseManifest, readAdoptionRecords, requestPeerReview, resetWaypointEmitterForTests, runReviewPipeline, setActiveStream, validateAgentConfigs, validateAgentsMap, validateDecisionNumbers, validateKnowledgeMap, validatePulseConfig, validateRoadmapMode, validateSolutionsDir, validateStrategy, writeConfig } from '@harness-engineering/core'
 import from '@harness-engineering/graph'
-import { GUARDIAN_ANALYSIS_SCHEMA, GUARDIAN_ANALYSIS_VERSION, GuardianAnalysis, OutcomeVerdict } from '@harness-engineering/intelligence'
+import { GUARDIAN_ANALYSIS_SCHEMA, GUARDIAN_ANALYSIS_VERSION, GuardianAnalysis, OutcomeVerdict, SkillRegressionFixture, SkillRegressionVerdict } from '@harness-engineering/intelligence'
 import { AnalysisRecord, MockBackend, RunMode, RunResult, SyncMainResult, TaskDefinition, renderAnalysisComment } from '@harness-engineering/orchestrator'
 import { SignalResult, SignalsResult } from '@harness-engineering/signals'
 import { SdlcEvent, TrackerComment } from '@harness-engineering/types'
@@ -367,7 +435,7 @@ import { Command } from 'commander'
 import * as fs from 'fs'
 import * as fs from 'fs/promises'
 import { execFile, execFileSync, execSync, spawnSync } from 'node:child_process'
-import * as fs, * as nodeFs, fs, { existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, realpathSync, rmSync, writeFileSync } from 'node:fs'
+import * as fs, * as fsSync, * as nodeFs, fs, { existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, realpathSync, rmSync, writeFileSync } from 'node:fs'
 import * as fs, { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'
 import * as os, os, { tmpdir } from 'node:os'
 import * as nodePath, * as path, path, { join } from 'node:path'

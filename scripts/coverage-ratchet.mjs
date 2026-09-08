@@ -28,6 +28,37 @@ const METRICS = ['lines', 'branches', 'functions', 'statements'];
  */
 const V8_VARIANCE_TOLERANCE = 0.5;
 
+/**
+ * Per-package tolerance overrides. Most packages absorb the default 0.5% V8
+ * noise, but a package whose baseline has been deliberately raised and whose
+ * suite is stable enough to hold a tighter grade can opt into a smaller
+ * tolerance — the ratchet then catches smaller regressions there. cli is graded
+ * at 0.1% (#544): its branch floor was lifted above the article's bar and the
+ * committed floor is set with enough headroom below the measured value that the
+ * tighter tolerance still cannot trip on run-to-run jitter.
+ */
+const PACKAGE_VARIANCE_TOLERANCE = {
+  'packages/cli': 0.1,
+};
+
+/**
+ * Resolve the variance tolerance for a package: its override if one exists,
+ * otherwise the global default.
+ *
+ * @param {string} pkgKey
+ * @param {Record<string, number>} overrides
+ * @param {number} fallback
+ * @returns {number}
+ */
+export function toleranceFor(
+  pkgKey,
+  overrides = PACKAGE_VARIANCE_TOLERANCE,
+  fallback = V8_VARIANCE_TOLERANCE
+) {
+  const override = overrides[pkgKey];
+  return typeof override === 'number' ? override : fallback;
+}
+
 // All workspace locations that produce coverage-summary.json.
 // The key is the baselines.json key; the value is the path to coverage-summary.json.
 const PACKAGES = {
@@ -146,12 +177,13 @@ export function evaluateCoverage(baselines, coverageByPkg, { allowMissing = fals
       continue;
     }
 
+    const tolerance = toleranceFor(pkgKey);
     for (const metric of METRICS) {
       const baselineVal = baseline[metric];
       const actualVal = actual[metric];
-      if (actualVal < baselineVal - V8_VARIANCE_TOLERANCE) {
+      if (actualVal < baselineVal - tolerance) {
         console.error(
-          `  FAIL: ${pkgKey} ${metric} dropped from ${baselineVal}% to ${actualVal}% (tolerance: ${V8_VARIANCE_TOLERANCE}%)`
+          `  FAIL: ${pkgKey} ${metric} dropped from ${baselineVal}% to ${actualVal}% (tolerance: ${tolerance}%)`
         );
         failures++;
       }
@@ -198,11 +230,7 @@ function check({ allowMissing = false } = {}) {
  * - new package       -> adopt
  * - package missing this run -> keep the committed value (transient gap, no churn)
  */
-export function mergeCoverageBaselines(
-  existing = {},
-  fresh = {},
-  tolerance = V8_VARIANCE_TOLERANCE
-) {
+export function mergeCoverageBaselines(existing = {}, fresh = {}, tolerance) {
   const merged = {};
   const keys = [...Object.keys(existing), ...Object.keys(fresh).filter((k) => !(k in existing))];
 
@@ -217,12 +245,17 @@ export function mergeCoverageBaselines(
       merged[pkgKey] = next; // brand-new package
       continue;
     }
+    // An explicit tolerance argument (if given) applies to every package;
+    // otherwise each package is merged at its own resolved tolerance so a
+    // tighter-graded package (e.g. cli at 0.1%) also churns its baseline on
+    // smaller real movement.
+    const tol = typeof tolerance === 'number' ? tolerance : toleranceFor(pkgKey);
     const out = {};
     for (const metric of METRICS) {
       const a = next[metric];
       const b = prev[metric];
       out[metric] =
-        typeof a === 'number' && typeof b === 'number' && Math.abs(a - b) <= tolerance ? b : a;
+        typeof a === 'number' && typeof b === 'number' && Math.abs(a - b) <= tol ? b : a;
     }
     merged[pkgKey] = out;
   }

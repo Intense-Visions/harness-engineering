@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'scripts'
-sourceHash: 'aaa13b82e36ba533c9b7b2f62ab00f6dab5311928ffe5607a999ecf9868e00ad'
+sourceHash: '781829badf43d391700cff6e41cfb322dc6c066299df5116fc88f5e10c3c3e33'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
@@ -67,6 +67,7 @@ export selectDecisiveRuns
 export slugForFile
 export syncManifestContent
 export syncPluginPins
+export toleranceFor
 ```
 
 ## Dependency Slice

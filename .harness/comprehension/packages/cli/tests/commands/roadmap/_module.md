@@ -1,17 +1,20 @@
 ---
 schemaVersion: 1
 module: 'packages/cli/tests/commands/roadmap'
-sourceHash: '68603749c647d934fa054e78732abcbd48af7c25078c252849bb98c33a4a66e2'
+sourceHash: '6da780b73a0b9c5309307def5411c39102c22d9ce468c7ee7ba7441df9c38e44'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
 members:
   [
+    'install-hook-cov544.test.ts',
     'migrate-config.test.ts',
+    'migrate-cov544.test.ts',
     'migrate-dry-run.test.ts',
     'migrate-idempotent.test.ts',
     'migrate-lock.test.ts',
     'migrate.test.ts',
+    'reconcile-cov544.test.ts',
     'reconcile.test.ts',
     'referenced-issues.test.ts',
     'regen.test.ts',
@@ -21,6 +24,7 @@ members:
     'sync-report.test.ts',
     'sync-wiring.test.ts',
     'sync.test.ts',
+    'triage-cov544.test.ts',
     'unshard.test.ts',
   ]
 ---
@@ -35,19 +39,23 @@ members:
 
 ```
 import { createRoadmapCommand } from '../../../src/commands/roadmap/index'
-import { MigrateExitCode, featuresToRoadmap, reportToExitCode, runRoadmapMigrate } from '../../../src/commands/roadmap/migrate'
+import { DEFAULT_REGEN_COMMAND, HOOK_BLOCK_BEGIN, HOOK_BLOCK_END, buildRegenBlock, mergeHookContent, runInstallHookAction, runRoadmapInstallHook } from '../../../src/commands/roadmap/install-hook'
+import { MigrateExitCode, createRoadmapMigrateCommand, featuresToRoadmap, reportToExitCode, runReverseMigrate, runRoadmapMigrate } from '../../../src/commands/roadmap/migrate'
 import { acquireMigrateLock, isPidAlive, isRefusal } from '../../../src/commands/roadmap/migrate-lock'
-import { runRoadmapReconcile } from '../../../src/commands/roadmap/reconcile'
+import { createRoadmapReconcileCommand, runRoadmapReconcile } from '../../../src/commands/roadmap/reconcile'
 import { runReferencedIssues } from '../../../src/commands/roadmap/referenced-issues'
 import { ALLOW_UNREADABLE_HISTORY_ENV, runRoadmapRegen } from '../../../src/commands/roadmap/regen'
 import { runRoadmapShard } from '../../../src/commands/roadmap/shard'
 import { createNodeShardIO } from '../../../src/commands/roadmap/shard-io'
 import { buildSyncOptions, createRoadmapSyncCommand, runRoadmapSync } from '../../../src/commands/roadmap/sync'
 import { buildReport, logSyncReport } from '../../../src/commands/roadmap/sync-report'
+import { BrainstormReportRow, TriageReportRow, buildPrecedentLookup, buildShapeHistory, createRoadmapTriageCommand, isPlausibleForModel, renderBrainstormHuman, renderBrainstormJson, renderHuman, renderJson, runApproveCommand, runBrainstormReport, runTriageReport, selectActionableFeatures } from '../../../src/commands/roadmap/triage'
 import { runRoadmapUnshard } from '../../../src/commands/roadmap/unshard'
 import { logger } from '../../../src/output/logger'
 import { ExitCode } from '../../../src/utils/errors'
 import { Err, ExternalTicket, ExternalTicketState, NewFeatureInput, Ok, Result, RoadmapFeature, RoadmapMeta, RoadmapTrackerClient, Shard, ShardStore, SyncResult, TrackedFeature, TrackerSyncAdapter, TrackerSyncConfig, parseRoadmap, regenerate, resolveRoadmapStore, serializeMeta, serializeShard } from '@harness-engineering/core'
+import { TriageVerdict } from '@harness-engineering/orchestrator'
+import { Roadmap, RoadmapFeature } from '@harness-engineering/types'
 import { Command } from 'commander'
 import * as fs from 'node:fs'
 import * as os from 'node:os'
