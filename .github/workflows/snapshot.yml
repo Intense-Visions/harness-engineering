@@ -4,11 +4,23 @@ on:
     - cron: '0 6 * * 1' # Every Monday at 06:00 UTC
   workflow_dispatch: {} # Manual trigger
 
+# The weekly cron and a manual dispatch can overlap. Two runs both appending to the
+# same `.harness/arch/timeline.json` would race on the fallback branch below, so
+# serialize them instead of cancelling (a cancelled capture loses that week's point).
+concurrency:
+  group: architecture-snapshot
+  cancel-in-progress: false
+
 jobs:
   snapshot:
     runs-on: ubuntu-latest
     permissions:
+      # `contents: write` for the direct-push path; `pull-requests: write` for the
+      # `gh pr create` fallback taken when branch protection blocks a direct push to
+      # main (which is the current ruleset — see the Commit snapshot step). Without
+      # `pull-requests: write`, gh fails with "Resource not accessible by integration".
       contents: write
+      pull-requests: write
     steps:
       - uses: actions/checkout@v6
       - uses: actions/setup-node@v6
@@ -18,10 +30,62 @@ jobs:
       - run: pnpm install --frozen-lockfile
       - run: pnpm build
       - run: node packages/cli/dist/bin/harness.js snapshot capture
+      # Commit the captured timeline point via the bot. Scoped strictly to
+      # `.harness/arch/timeline.json` so the bot can only ever touch the artifact it
+      # just generated. Direct push first; PR fallback (for human review — no PAT,
+      # no auto-approve) when branch protection blocks the direct push. Mirrors the
+      # "Commit refreshed semantic shards" job in ci.yml.
       - name: Commit snapshot
+        env:
+          # Disable husky so `git commit`/`git push` hooks cannot run the pre-commit
+          # gauntlet (coverage ratchet, `generate-docs --check`, tool-catalog
+          # `--check`) inside this step and fail it or leave the tree dirty. Same
+          # posture as roadmap-auto-done.yml.
+          HUSKY: '0'
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add .harness/arch/timeline.json
-          git diff --cached --quiet || git commit -m "chore: architecture snapshot $(date +%Y-%m-%d)"
-          git push
+          TIMELINE=".harness/arch/timeline.json"
+          git add "$TIMELINE"
+          if git diff --cached --quiet; then
+            echo "No snapshot change to commit."
+            exit 0
+          fi
+          # `[skip ci]` keeps the direct-push path from starting a fresh CI run on main
+          # (the same guard every other commit-back job in this repo carries).
+          git commit -m "chore: architecture snapshot $(date +%Y-%m-%d) [skip ci]"
+          OURS=$(git rev-parse HEAD)
+          if git push 2>&1; then
+            exit 0
+          fi
+          echo "Direct push blocked by branch protection. Opening a PR instead."
+          git fetch origin main
+          # Never stack a second snapshot PR on an unmerged one: both branches append
+          # to the same timeline file and would conflict on the same JSON array, which
+          # is how automated-artifact PRs end up DIRTY and abandoned. Exit clean and
+          # let the operator merge the one that is already waiting.
+          EXISTING=$(gh pr list --state open --json number,headRefName \
+            --jq '[.[] | select(.headRefName | startswith("chore/arch-snapshot-"))] | .[0].number' || true)
+          if [ -n "$EXISTING" ] && [ "$EXISTING" != "null" ]; then
+            echo "Snapshot PR #$EXISTING is already open and unmerged; not opening a duplicate."
+            exit 0
+          fi
+          BRANCH="chore/arch-snapshot-$(date +%s)"
+          git checkout -B "$BRANCH" origin/main
+          # Re-apply the freshly captured timeline on top of the latest main. Capture
+          # appends to whatever main carried at checkout, so "ours" is a superset of
+          # main's series and this re-apply cannot conflict.
+          git checkout "$OURS" -- "$TIMELINE"
+          git add "$TIMELINE"
+          if git diff --cached --quiet; then
+            echo "Latest main already carries this snapshot; nothing to PR."
+            exit 0
+          fi
+          git commit -m "chore: architecture snapshot $(date +%Y-%m-%d) [skip ci]"
+          git push -u origin "$BRANCH"
+          gh pr create \
+            --title "chore: architecture snapshot $(date +%Y-%m-%d)" \
+            --body "Automated weekly architecture-timeline capture. Opened because a direct push to main is blocked by branch protection (GH013 \`Changes must be made through a pull request\`). Merging advances \`.harness/arch/timeline.json\`, the series read by \`get_decay_trends\`, \`harness snapshot trend\`, and \`predict_failures\` (which needs >= 3 points)." \
+            --base main \
+            --head "$BRANCH"
