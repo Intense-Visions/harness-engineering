@@ -1,0 +1,123 @@
+{
+  "issues": [2009],
+  "route": "feature",
+  "routeRationale": "ADR 0103 rubric fallback — no spec existed for this item, so the craft critique in issue #2009 was treated as the requirement and run through the real brainstorming -> autopilot pipeline.",
+  "fleet": "roadmap-fleet",
+  "wave": 4,
+  "branch": "fc2/craft-naming-core-rehearsal-2009",
+  "baseSha": "fef03ac5ea510de1b109a76536c68c92a17f6771",
+  "specPath": "docs/changes/craft-naming-core-rehearsal/proposal.md",
+  "planArtifactPath": "docs/changes/craft-naming-core-rehearsal/plans/2026-09-08-rename-with-deprecated-alias-plan.md",
+  "upstreamCritique": {
+    "skill": "naming-craft",
+    "runId": "f7927dfb-4051-4e15-93dd-0e3db3e5d05e",
+    "rubricId": "NAME-R001",
+    "tier": "polish",
+    "impact": "small",
+    "confidence": "medium",
+    "location": "packages/core/src/rehearsal/scoring.ts:24"
+  },
+  "stages": [
+    {
+      "stage": "brainstorming",
+      "skill": "harness-brainstorming",
+      "outcome": "spec written and committed",
+      "artifact": "docs/changes/craft-naming-core-rehearsal/proposal.md",
+      "commit": "b501db7d8e1ec613644e5d745453a273aa39c3b2"
+    },
+    {
+      "stage": "autopilot",
+      "skill": "harness-autopilot",
+      "outcome": "one phase run end-to-end: PLAN -> APPROVE_PLAN -> EXECUTE -> VERIFY -> REVIEW",
+      "sessionDir": ".harness/sessions/changes--craft-naming-core-rehearsal--proposal/",
+      "substages": [
+        {
+          "state": "PLAN",
+          "persona": "harness-planner",
+          "artifact": "docs/changes/craft-naming-core-rehearsal/plans/2026-09-08-rename-with-deprecated-alias-plan.md",
+          "commit": "ba42582fc",
+          "detail": "7 tasks / 3 commits / integration tier medium / 9 concerns / no blocking uncertainties"
+        },
+        {
+          "state": "APPROVE_PLAN",
+          "decision": "auto-approved",
+          "rationale": "Autonomous run; the human approved the item and its single fork at the fleet CONFIRM gate. Concerns were guardrails, not open questions; the plan recorded 'No blocking uncertainties'."
+        },
+        {
+          "state": "EXECUTE",
+          "persona": "harness-task-executor",
+          "commits": [
+            "7f6c3439ac64c2bd02956e9d10fbdf75f5d66698",
+            "9f2f92c8a46f7e89c51b1655967a7e25c89bd3ed",
+            "0e4f43024ae6130237ee02e479ab836fcb3e8be6"
+          ],
+          "detail": "Tasks 1-7. TDD red-red-green: the reachability test stayed red after the scoring.ts rename+alias and only went green after the barrel edit, making the silent-MAJOR trap observable rather than assumed."
+        },
+        { "state": "VERIFY", "persona": "harness-verifier" },
+        { "state": "REVIEW", "persona": "harness-code-reviewer" }
+      ]
+    }
+  ],
+  "fork": {
+    "id": "FORK 1",
+    "question": "Bare rename, or rename plus a deprecated alias?",
+    "answer": "(a) rename + keep a DEPRECATED ALIAS re-export of the old name; MINOR changeset",
+    "settledBy": "human, at the fleet CONFIRM gate",
+    "why": "@harness-engineering/core is published (v0.48.0, private unset) and rehearsalTierFor reaches the public surface via packages/core/src/index.ts:380 `export * from './rehearsal'`, so a bare rename would be a breaking change."
+  },
+  "aliasReachabilityProof": {
+    "why": "The human called out the exact recurring failure mode: an alias that exists but is not re-exported converts (a) silently into (b).",
+    "trap": "packages/core/src/rehearsal/index.ts is a NAMED export list, not `export *`. An alias declared only in scoring.ts compiles, passes every direct-import test, and is still absent from the published surface.",
+    "chain": "scoring.ts -> packages/core/src/rehearsal/index.ts -> packages/core/src/index.ts (export * from './rehearsal') -> packages/core/dist/index.{js,d.ts}",
+    "evidence": [
+      "packages/core/src/rehearsal/public-entry.test.ts imports BOTH names from the package public entry and asserts rehearsalTierFor === rehearsalTierForScore",
+      "Negative control re-run independently by the lane: removing rehearsalTierFor from the named export list turns the test RED (exit 1, 2 assertion failures: 'expected undefined to be [Function rehearsalTierForScore]'); restored via git checkout, tree clean, suite back to exit 0",
+      "Built-artifact runtime proof from packages/core/dist/index.js: typeof rehearsalTierForScore === 'function', typeof rehearsalTierFor === 'function', rehearsalTierFor === rehearsalTierForScore is true, behaviour pass/partial/fail preserved",
+      "Built type surface: packages/core/dist/index.d.ts declares `const rehearsalTierFor: typeof rehearsalTierForScore` and both names appear in the terminal export list"
+    ]
+  },
+  "assumptions": [
+    "Route is `feature` per the fleet's human-approved CONFIRM gate; not re-litigated.",
+    "FORK 1 answer (a) — rename plus deprecated alias, MINOR changeset — was settled by the human and implemented exactly as stated.",
+    "The critique's secondary suggestion `rehearsalTierFromScore` was deliberately NOT adopted: the critique itself conditioned it on callers later passing a whole result object, which is speculative (YAGNI).",
+    "Scope held to the single finding above the craft run's noise floor. No other identifier in packages/core/src/rehearsal was renamed.",
+    "The deprecated alias is retained indefinitely in this change; its removal is a future MAJOR decision and is explicitly out of scope.",
+    "The alias JSDoc carries `@public` in addition to `@deprecated` so the dead-code detector (packages/core/src/entropy/detectors/dead-code.ts:405, /@public(Api)?\\b/i) does not raise a recurring advisory PUBLIC_API_UNUSED finding — the alias has zero internal callers by design.",
+    "scripts/generate-core-barrel.mjs was NOT edited: `rehearsal` has its own index.ts and is star-exported, and is not a SELECTIVE_EXPORTS key. Re-verified mechanically — `pnpm run generate:barrels:check` exits 0 with 'Core barrel is up to date.'",
+    "The roadmap was deliberately NOT mutated (out of lane scope). One of the two `rehearsal` mentions in `harness validate` is issue #2009 itself and therefore persists after this change; 450 findings remains the correct expected count.",
+    ".harness/comprehension/packages/core/src/rehearsal/_module.md is a GENERATED artifact; it was refreshed by the pre-commit comprehension driver and auto-staged, never hand-edited.",
+    "The ambient baseline is red and was not 'fixed': `harness validate` exit 1 / 450 findings and `harness check-deps` exit 1 / 1 circular dep in packages/core/src/solutions/scan-candidates/ are both disjoint from src/rehearsal and match their pre-change signatures exactly.",
+    "A tsx-based probe of the core entry that the plan recorded as a baseline was found to be BLIND (it drops the whole rehearsal star-export chain and its `identical=` sentinel is vacuously true when both sides are undefined). It was discarded; the authoritative evidence is the vitest public-entry test plus the built-bundle runtime check."
+  ],
+  "verification": {
+    "nodeVersion": "22.23.2",
+    "note": "Exit codes measured as `cmd > /tmp/out 2>&1; echo $?`, never through a pipe.",
+    "beforeAfter": [
+      {
+        "check": "vitest run src/rehearsal (packages/core)",
+        "before": "exit 0, 2 files / 20 tests",
+        "after": "exit 0, 3 files / 23 tests"
+      },
+      {
+        "check": "tsc --noEmit -p tsconfig.json (packages/core)",
+        "before": "exit 0",
+        "after": "exit 0"
+      },
+      {
+        "check": "pnpm run generate:barrels:check",
+        "before": "exit 0, Core barrel is up to date.",
+        "after": "exit 0, Core barrel is up to date."
+      },
+      {
+        "check": "harness check-deps",
+        "before": "exit 1, 1 circular dep, 0 rehearsal mentions",
+        "after": "exit 1, 1 circular dep, 0 rehearsal mentions"
+      },
+      {
+        "check": "turbo build --filter=@harness-engineering/core",
+        "before": "exit 0",
+        "after": "exit 0"
+      }
+    ]
+  }
+}
