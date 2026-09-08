@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'packages/orchestrator/tests/core'
-sourceHash: '1e132e44f2db92c6b601f0bef3ea11494c5e066a5b2216af5c65b6b02a424683'
+sourceHash: '55ec66378e71cd824774b06d9a7e865aa3273eb5e111e118276d10f429504b13'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
@@ -26,6 +26,7 @@ members:
     'lane-persistence.test.ts',
     'lane-readback.test.ts',
     'model-router.test.ts',
+    'naming-aliases.test.ts',
     'orchestrator-identity.test.ts',
     'published-index.test.ts',
     'rate-limit.test.ts',
@@ -75,6 +76,7 @@ import { createEmptyState } from '../../src/core/state-helpers'
 import { applyEvent } from '../../src/core/state-machine'
 import { StreamRecorder } from '../../src/core/stream-recorder'
 import { extractTitlePrefix, triageIssue } from '../../src/core/triage-router'
+import * as orch from '../../src/index'
 import { Orchestrator } from '../../src/orchestrator'
 import { ClaimEffect, DispatchEffect, EscalateEffect, OrchestratorEvent, ScheduleRetryEffect, SideEffect } from '../../src/types/events'
 import { LiveSession, OrchestratorState, RunningEntry } from '../../src/types/internal'
