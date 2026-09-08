@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'packages/orchestrator/tests/core'
-sourceHash: 'ca0ffd94d6858b365ab18587bdc97c74d7d75ca8815e98405674fa8de6fc54a1'
+sourceHash: '1e132e44f2db92c6b601f0bef3ea11494c5e066a5b2216af5c65b6b02a424683'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
@@ -68,7 +68,7 @@ import { detectScopeTier, routeIssue } from '../../src/core/model-router'
 import from '../../src/core/orchestrator-identity'
 import { loadPublishedIndex, savePublishedIndex } from '../../src/core/published-index'
 import { computeRateLimitDelay } from '../../src/core/rate-limiter'
-import { reconcile } from '../../src/core/reconciliation'
+import { reconcileRunningIssues } from '../../src/core/reconciliation'
 import { calculateRetryDelayMs } from '../../src/core/retry'
 import { detectStalledIssues } from '../../src/core/stall-detector'
 import { createEmptyState } from '../../src/core/state-helpers'

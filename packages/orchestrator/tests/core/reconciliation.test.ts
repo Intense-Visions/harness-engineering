@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { reconcile } from '../../src/core/reconciliation';
+import { reconcileRunningIssues } from '../../src/core/reconciliation';
 import type { Issue } from '@harness-engineering/types';
 import type { OrchestratorState, RunningEntry } from '../../src/types/internal';
 import type { SideEffect } from '../../src/types/events';
@@ -65,7 +65,7 @@ function makeState(overrides: Partial<OrchestratorState> = {}): OrchestratorStat
   };
 }
 
-describe('reconcile', () => {
+describe('reconcileRunningIssues', () => {
   it('should return no effects when all running issues are still active', () => {
     const running = new Map([
       ['id-1', makeRunningEntry({ issueId: 'id-1', identifier: 'TEST-1' })],
@@ -75,7 +75,7 @@ describe('reconcile', () => {
     const activeStates = ['todo', 'in progress'];
     const terminalStates = ['done', 'cancelled'];
 
-    const effects = reconcile(state, runningStates, activeStates, terminalStates);
+    const effects = reconcileRunningIssues(state, runningStates, activeStates, terminalStates);
     expect(effects).toEqual([]);
   });
 
@@ -88,7 +88,7 @@ describe('reconcile', () => {
     const activeStates = ['todo', 'in progress'];
     const terminalStates = ['done', 'cancelled'];
 
-    const effects = reconcile(state, runningStates, activeStates, terminalStates);
+    const effects = reconcileRunningIssues(state, runningStates, activeStates, terminalStates);
     expect(effects).toContainEqual({
       type: 'stop',
       issueId: 'id-1',
@@ -111,7 +111,7 @@ describe('reconcile', () => {
     const activeStates = ['todo', 'in progress'];
     const terminalStates = ['done', 'cancelled'];
 
-    const effects = reconcile(state, runningStates, activeStates, terminalStates);
+    const effects = reconcileRunningIssues(state, runningStates, activeStates, terminalStates);
     expect(effects).toContainEqual({
       type: 'stop',
       issueId: 'id-1',
@@ -136,7 +136,7 @@ describe('reconcile', () => {
     const activeStates = ['todo', 'in progress'];
     const terminalStates = ['done', 'cancelled'];
 
-    const effects = reconcile(state, runningStates, activeStates, terminalStates);
+    const effects = reconcileRunningIssues(state, runningStates, activeStates, terminalStates);
     // id-1: terminal -> stop + clean + release
     expect(effects.filter((e) => e.type === 'stop')).toHaveLength(2);
     expect(effects.filter((e) => e.type === 'cleanWorkspace')).toHaveLength(1);
@@ -154,7 +154,7 @@ describe('reconcile', () => {
     const activeStates = ['todo', 'in progress'];
     const terminalStates = ['done', 'cancelled'];
 
-    const effects = reconcile(state, runningStates, activeStates, terminalStates);
+    const effects = reconcileRunningIssues(state, runningStates, activeStates, terminalStates);
     // Only id-1 should have effects
     expect(effects.filter((e) => 'issueId' in e && e.issueId === 'id-2')).toHaveLength(0);
     expect(effects.filter((e) => 'issueId' in e && e.issueId === 'id-1').length).toBeGreaterThan(0);
