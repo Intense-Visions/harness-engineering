@@ -132,19 +132,23 @@ function collectDeployScripts(fsPort: DeploymentFsPort): DeploymentFile[] {
   return deployScripts;
 }
 
-export function detectDeploymentSurface(root: string, fsPort: DeploymentFsPort): DeploymentSurface {
-  void root; // paths are already root-relative for the injected port.
-
-  const pipelineFiles = collectPipelineFiles(fsPort);
-  const deployScripts = collectDeployScripts(fsPort);
+/** Discover committed environment files (`.env.*`) at the repository root. */
+function collectEnvFiles(fsPort: DeploymentFsPort): DeploymentFile[] {
   const envFiles: DeploymentFile[] = [];
-
-  // --- Committed env file discovery (.env.*) ---
   for (const entry of fsPort.listDir('.')) {
     if (!entry.startsWith('.env.')) continue;
     const f = capture(fsPort, entry, false);
     if (f) envFiles.push(f);
   }
+  return envFiles;
+}
+
+export function detectDeploymentSurface(root: string, fsPort: DeploymentFsPort): DeploymentSurface {
+  void root; // paths are already root-relative for the injected port.
+
+  const pipelineFiles = collectPipelineFiles(fsPort);
+  const deployScripts = collectDeployScripts(fsPort);
+  const envFiles = collectEnvFiles(fsPort);
 
   // --- Derived signals ---
   const detected = new Set<string>();
