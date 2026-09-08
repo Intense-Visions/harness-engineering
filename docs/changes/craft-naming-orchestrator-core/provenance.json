@@ -107,8 +107,7 @@
       "shouldFixApplied": [
         "provenance.json committed (was untracked and would have been lost)",
         "roadmap shard + aggregate row updated to in-progress with Spec and Plan links, making the provenance record true rather than aspirational",
-        "changeset corrected: the alias guard 'fails the test suite', not 'fails the build' (packages/orchestrator/tsconfig.json excludes tests, so tsc never sees the proof)",
-        "three unrelated packages/cli comprehension shards, swept in by the pre-commit driver on the spec commit, reverted to base"
+        "changeset corrected: the alias guard 'fails the test suite', not 'fails the build' (packages/orchestrator/tsconfig.json excludes tests, so tsc never sees the proof)"
       ],
       "nitsApplied": [
         "Refs #2001 trailer added to the changeset",
@@ -116,7 +115,10 @@
         "reconciliation.test.ts locals mirrored to sideEffects for vocabulary consistency",
         "naming-aliases.test.ts comment now names the ambiguous-star-export failure mode the assertions also cover"
       ],
-      "tdzCheck": "Safe. All three aliases are module-top-level consts bound to hoisted function declarations; both retargeted budget-governor.ts call sites live inside function bodies, never at module-evaluation time, and state-machine.ts imports the new function names rather than the alias bindings."
+      "tdzCheck": "Safe. All three aliases are module-top-level consts bound to hoisted function declarations; both retargeted budget-governor.ts call sites live inside function bodies, never at module-evaluation time, and state-machine.ts imports the new function names rather than the alias bindings.",
+      "shouldFixDisclosedNotFixed": [
+        "three unrelated packages/cli comprehension shards: revert did not hold against the pre-commit driver (and --no-verify is forbidden), so they are disclosed in the PR body instead"
+      ]
     }
   ],
   "planArtifact": "docs/changes/craft-naming-orchestrator-core/plans/2026-09-08-craft-naming-orchestrator-core-plan.md",
@@ -165,6 +167,6 @@
     "The roadmap shard docs/roadmap.d/craft-naming-packages-orchestrator-src-core.md was edited directly (Spec/Plan/Status fields) rather than through manage_roadmap, whose action:add/assign paths are documented in this repo to auto-create GitHub issues and rewrite unrelated rows.",
     "Baseline was ambiently red at the base SHA and is treated as NOT this lane's regression: `harness validate` exits 1 (~450 findings, hardcoded-color false positives in test fixtures) and `harness check-deps` exits 1 (1 circular dep in packages/core/src/solutions/scan-candidates/). Both are disjoint from packages/orchestrator/src/core. Verdicts are delta-against-base, not absolute.",
     "All verification ran under Node 22 (/Users/cwarner/.nvm/versions/node/v22.23.2) because better-sqlite3 in this worktree is built for the Node 22 ABI; under the shell default Node 24 the suite produces ~14 phantom sqlite failures that mimic real regressions.",
-    "The three packages/cli comprehension shards that the pre-commit driver swept into the spec commit carried drift unrelated to this work (PnyonSyncAdapter, sync-deps-pnyon.test.ts, reportSemanticRegression) and were reverted to the base SHA so the diff reads as the rename alone. The two orchestrator shards are kept: they correctly reflect this change's renames."
+    "Three packages/cli comprehension shards appear in the diff carrying drift UNRELATED to this rename (INGEST_TOKEN_ENV, waypoint-ship.test.ts, sync-deps-pnyon.test.ts). They are not authored by this work: the repo's committed shards were stale against the base tree, and the pre-commit comprehension driver recomputes and re-stages them on every commit. A revert to the base SHA was attempted and did NOT hold -- the driver reinstated them on the very next commit, and dropping them would require --no-verify, which is forbidden here. They are therefore disclosed in the PR body rather than removed. The two orchestrator shards in the diff DO belong to this change and correctly reflect its renames."
   ]
 }
