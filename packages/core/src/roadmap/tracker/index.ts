@@ -30,7 +30,7 @@ export type { LinearTrackerOptions } from './adapters/linear';
 export { ETagStore } from './etag-store';
 export { makeTrackerConflictBody } from './conflict-body';
 export type { TrackerConflictBody, MakeTrackerConflictBodyOptions } from './conflict-body';
-export { PnyonTrackerAdapter } from './adapters/pnyon';
+export { PnyonTrackerAdapter, waypointItemUrl } from './adapters/pnyon';
 export type { PnyonTrackerOptions, PnyonTrackerClientConfig } from './adapters/pnyon';
 export { WaypointHttp, WaypointHttpError } from './adapters/waypoint-http';
 export type {

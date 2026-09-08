@@ -552,6 +552,30 @@ describe('session highlights', () => {
     ]);
   });
 
+  /**
+   * Highlights are posted as a PR comment, which only GitHub has. Without this
+   * guard the handler would hand a non-GitHub tracker config to the GitHub
+   * adapter — the config union makes that a compile error now, and this keeps
+   * the runtime behaviour pinned rather than leaving it to the type system.
+   */
+  it('skips PR posting for a non-github tracker kind', async () => {
+    process.env.GITHUB_TOKEN = 'tok-abc';
+    const entry = fullEntry({ issue: { labels: [], externalId: 'pnyon:01ABC' } });
+    const h = makeCtx({ running: new Map([['id-1', entry]]) });
+    h.recorder.getManifest.mockReturnValue(manifest());
+    h.recorder.getStream.mockReturnValue('jsonl-stream');
+    extractHighlightsMock.mockReturnValue([{ kind: 'edit', text: 'x' }]);
+    loadTrackerSyncConfigMock.mockReturnValue({ kind: 'pnyon', url: 'https://waypoint.test' });
+    const handler = new CompletionHandler(h.ctx, vi.fn());
+
+    await handler.handleWorkerExit('id-1', 'normal', 1, undefined, vi.fn());
+
+    expect(gitHubAdapterCtor).not.toHaveBeenCalled();
+    expect(addCommentMock).not.toHaveBeenCalled();
+    // Highlights are still recorded — only the GitHub projection is skipped.
+    expect(h.recorder.updateHighlights).toHaveBeenCalled();
+  });
+
   it('posts a PR comment and marks highlights posted when config, token and highlights are present', async () => {
     process.env.GITHUB_TOKEN = 'tok-abc';
     const entry = fullEntry({ issue: { labels: [], externalId: 'GH-9' } });
@@ -559,7 +583,7 @@ describe('session highlights', () => {
     h.recorder.getManifest.mockReturnValue(manifest());
     h.recorder.getStream.mockReturnValue('jsonl-stream');
     extractHighlightsMock.mockReturnValue([{ kind: 'edit', text: 'x' }]);
-    loadTrackerSyncConfigMock.mockReturnValue({ owner: 'o', repo: 'r' });
+    loadTrackerSyncConfigMock.mockReturnValue({ kind: 'github', owner: 'o', repo: 'r' });
     addCommentMock.mockResolvedValue({ ok: true });
     const handler = new CompletionHandler(h.ctx, vi.fn());
 
@@ -567,7 +591,7 @@ describe('session highlights', () => {
 
     expect(gitHubAdapterCtor).toHaveBeenCalledWith({
       token: 'tok-abc',
-      config: { owner: 'o', repo: 'r' },
+      config: { kind: 'github', owner: 'o', repo: 'r' },
     });
     expect(renderPRCommentMock).toHaveBeenCalledWith(
       { turns: 5 },
@@ -585,7 +609,7 @@ describe('session highlights', () => {
     h.recorder.getManifest.mockReturnValue(manifest());
     h.recorder.getStream.mockReturnValue('jsonl-stream');
     extractHighlightsMock.mockReturnValue([{ kind: 'edit', text: 'x' }]);
-    loadTrackerSyncConfigMock.mockReturnValue({ owner: 'o', repo: 'r' });
+    loadTrackerSyncConfigMock.mockReturnValue({ kind: 'github', owner: 'o', repo: 'r' });
     addCommentMock.mockResolvedValue({ ok: false, error: { message: 'rate limited' } });
     const handler = new CompletionHandler(h.ctx, vi.fn());
 
@@ -604,7 +628,7 @@ describe('session highlights', () => {
     h.recorder.getManifest.mockReturnValue(manifest());
     h.recorder.getStream.mockReturnValue('jsonl-stream');
     extractHighlightsMock.mockReturnValue([{ kind: 'edit', text: 'x' }]);
-    loadTrackerSyncConfigMock.mockReturnValue({ owner: 'o', repo: 'r' });
+    loadTrackerSyncConfigMock.mockReturnValue({ kind: 'github', owner: 'o', repo: 'r' });
     const handler = new CompletionHandler(h.ctx, vi.fn());
 
     await handler.handleWorkerExit('id-1', 'normal', 1, undefined, vi.fn());

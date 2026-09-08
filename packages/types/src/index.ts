@@ -89,6 +89,9 @@ export type {
   SyncDenominator,
   PlannedSyncChanges,
   TrackerSyncConfig,
+  TrackerSyncConfigBase,
+  GitHubTrackerSyncConfig,
+  PnyonTrackerSyncConfig,
   TrackerComment,
 } from './tracker-sync';
 
@@ -524,6 +527,7 @@ export {
   SDLC_SPECVERSION,
   SDLC_VERIFICATION_GRADES,
   WaypointConfigSchema,
+  WaypointShipConfigSchema,
   WaypointSinkConfigSchema,
 } from './waypoint';
 export type {
@@ -539,5 +543,6 @@ export type {
   SdlcValidationResult,
   SdlcVerificationGrade,
   WaypointConfig,
+  WaypointShipConfig,
   WaypointSinkConfig,
 } from './waypoint';

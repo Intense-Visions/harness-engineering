@@ -166,6 +166,37 @@ describe('runRoadmapReconcile() — offline mode', () => {
     expect(r.ok).toBe(true);
     expect(await statusOf('Alpha')).toBe('done');
   });
+
+  /**
+   * Sync learned the pnyon tracker kind; reconcile deliberately did not.
+   *
+   * Reconcile looks for tickets that are `closed` and closed as `completed` —
+   * two pieces of state a Waypoint item does not have, since it carries a single
+   * status. Had the adapter simply been wired in here, every run would exit 0
+   * having matched nothing, and a green no-op is the one failure nobody goes
+   * looking for. The refusal is the feature, so it is pinned like one.
+   */
+  it('refuses a non-github tracker kind rather than reconciling nothing', async () => {
+    fs.writeFileSync(
+      path.join(cwd, 'harness.config.json'),
+      JSON.stringify({
+        roadmap: { tracker: { kind: 'pnyon', url: 'https://waypoint.test/o/one' } },
+      })
+    );
+
+    const r = await runRoadmapReconcile({ cwd });
+
+    expect(r.ok).toBe(false);
+    if (!r.ok) {
+      expect(r.error.exitCode).not.toBe(0);
+      // Name the kind and the reason, so the reader is not left to guess
+      // whether this is a bug or a boundary.
+      expect(r.error.message).toContain('pnyon');
+      expect(r.error.message).toMatch(/github/i);
+    }
+    // And nothing was touched on the way out.
+    expect(await statusOf('Alpha')).toBe('planned');
+  });
 });
 
 describe('runRoadmapReconcile() — --from-refs cross-repo-safe path', () => {

@@ -53,7 +53,9 @@ async function runNotifyAction(
   const config = configResult.value as unknown as Record<string, unknown>;
 
   const trackerConfig = resolveTrackerConfig(config);
-  if (!trackerConfig || !trackerConfig.repo) {
+  // CI notifications are PR comments and commit statuses — GitHub artifacts.
+  // The message below already says so; the kind check makes it true.
+  if (!trackerConfig || trackerConfig.kind !== 'github' || !trackerConfig.repo) {
     logger.error(
       'No GitHub tracker configured. Set roadmap.tracker in harness.config.json with kind: "github" and repo: "owner/repo".'
     );

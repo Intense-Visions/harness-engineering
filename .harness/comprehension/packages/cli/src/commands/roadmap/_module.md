@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'packages/cli/src/commands/roadmap'
-sourceHash: 'bfce80ee8224fb008f90769950e678d768872d968403811c626e185f203263b9'
+sourceHash: 'c0d868e9a247db5ac216bfdb11c8d2a420acb5327b9c50f9d07a6b3630702e37'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
@@ -67,11 +67,11 @@ import { PoolSnapshotStore, resolvePreferredLocalModel } from './triage-pool.js'
 import { TriageProviderConfig, resolveTriageProvider } from './triage-provider.js'
 import { BrainstormReportRow, runApproveCommand } from './triage.js'
 import { createRoadmapUnshardCommand } from './unshard'
-import { DenominatedMetric, Err, ExternalSyncOptions, ExternalTicketState, GitHubIssuesSyncAdapter, Ok, Result, Roadmap, RoadmapFeature, RoadmapMeta, RoadmapStore, RoadmapTrackerClient, Shard, ShardIO, SuppressedInbound, SyncResult, TrackedFeature, TrackerSyncAdapter, TrackerSyncConfig, assertRegeneratedRoundTrip, assertSemanticRoundTrip, buildExternalId, census, createTrackerClient, diagnoseTrackerSyncConfig, eventSourcing, explainTrackerSyncConfig, fullSync, loadProjectRoadmapMode, loadTrackerClientConfigFromProject, loadTrackerSyncConfig, migrate, parseReferencedIssues, parseRoadmap, reconcileDoneFromClosedIssues, regenerate, resolveRoadmapStore, resolveRoadmapStoreForFile, roadmapSourceExists, roadmapToShards, serializeMeta, serializeRoadmap, serializeShard, unknownPopulation, verdictForMetrics, writeRegeneratedRoadmap } from '@harness-engineering/core'
+import { DenominatedMetric, Err, ExternalSyncOptions, ExternalTicketState, GitHubIssuesSyncAdapter, Ok, PnyonSyncAdapter, PnyonTrackerAdapter, Result, Roadmap, RoadmapFeature, RoadmapMeta, RoadmapStore, RoadmapTrackerClient, Shard, ShardIO, SuppressedInbound, SyncResult, TrackedFeature, TrackerSyncAdapter, TrackerSyncConfig, assertRegeneratedRoundTrip, assertSemanticRoundTrip, buildExternalId, census, createTrackerClient, diagnoseTrackerSyncConfig, eventSourcing, explainTrackerSyncConfig, fullSync, loadProjectRoadmapMode, loadTrackerClientConfigFromProject, loadTrackerSyncConfig, migrate, parseReferencedIssues, parseRoadmap, reconcileDoneFromClosedIssues, regenerate, resolveRoadmapStore, resolveRoadmapStoreForFile, roadmapSourceExists, roadmapToShards, serializeMeta, serializeRoadmap, serializeShard, unknownPopulation, verdictForMetrics, writeRegeneratedRoadmap } from '@harness-engineering/core'
 import { GraphNode, GraphStore } from '@harness-engineering/graph'
 import { AnalysisProvider, AnthropicAnalysisProvider, ForkGenerator, OpenAICompatibleAnalysisProvider, PrecedentLookup, RatchetOutcome, RatchetStage, StagedGoNoGoCandidate, V1_MAX_STAGE, dispatchableShapeKey, resolveGoNoGoStaged, resolveStage, shapeKey } from '@harness-engineering/intelligence'
 import { BrainstormWiringDeps, PoolState, PoolStateStore, RankProfile, RankableCandidate, TriageMarkItem, TriageVerdict, WiredBrainstormResult, artifactPresenceFromIssue, detectScopeTier, markApprovedForDispatch, poolStateToCandidates, precedentLookupFromStored, rankTriageCandidates, runBrainstormForIssue, triageIssue } from '@harness-engineering/orchestrator'
-import { Issue, Roadmap, RoadmapFeature, ScopeTier } from '@harness-engineering/types'
+import { Issue, Roadmap, RoadmapFeature, ScopeTier, SkippedCreate } from '@harness-engineering/types'
 import chalk from 'chalk'
 import { Command } from 'commander'
 import from 'dotenv'

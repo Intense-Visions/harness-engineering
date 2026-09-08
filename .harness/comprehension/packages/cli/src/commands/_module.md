@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'packages/cli/src/commands'
-sourceHash: '00d97fb892bf8788f17cb3045e9bc459b4324a323ebaf5a733cebfd63043a0b1'
+sourceHash: '300d3214ecb0f51147e94555479dbc9a9cd2358b3608f03e6aafbdf04a38a504'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
@@ -134,6 +134,7 @@ export CURSOR_CURATED_TOOLS
 export DEFAULT_FIXTURES_DIR
 export DEFAULT_OPERATIONAL_DRIFT_POLICY
 export GIT_MAX_BUFFER_BYTES
+export INGEST_TOKEN_ENV
 export OUTCOME_BLOCK_ON_LEVELS
 export SCOPED_WALKERS
 export SKILL_REGRESSION_BLOCK_ON
@@ -315,6 +316,7 @@ export readReview
 export referencesTargetPr
 export refreshExitCode
 export renderTable
+export reportSemanticRegression
 export resolveBaseRef
 export resolveCandidates
 export resolveChangedScope
@@ -416,7 +418,7 @@ import { shouldRunComprehendHook } from '../comprehension/hook'
 import { enumerateModules, filesToModules } from '../comprehension/invalidation'
 import { committedSemanticAllowed } from '../comprehension/policy'
 import { RefreshJobGateReason, explainInactiveRefreshGate, resolveRefreshJobGate } from '../comprehension/refresh-gate'
-import { RegressionContext, defaultRefReadDeps, detectCommittedSemanticOnBranch, detectSemanticRegressions, readSemanticMapAtRef } from '../comprehension/regression'
+import { RefReadDeps, RegressionContext, SemanticState, defaultRefReadDeps, detectCommittedSemanticOnBranch, detectSemanticRegressions, readSemanticMapAtRef } from '../comprehension/regression'
 import { createStaticExtractor } from '../comprehension/static-extractor'
 import { loadAnalysisExclude, loadDesignExclude } from '../config/analysis-schema.js'
 import { findConfigFile, loadConfig, resolveConfig } from '../config/loader'
@@ -529,7 +531,7 @@ import { createCleanupSessionsCommand } from './cleanup-sessions'
 import { createCliErgonomicsCraftCommand } from './cli-ergonomics-craft'
 import { createCodeCraftCommand } from './code-craft'
 import { createCompoundCommand } from './compound'
-import { createComprehendCommand, formatCompiledUnits, resolveChangedScope, resolveCompileProvider, resolveMode, resolveStaticOnlyPosture, stageCompiledUnits } from './comprehend'
+import { createComprehendCommand, formatCompiledUnits, reportSemanticRegression, resolveChangedScope, resolveCompileProvider, resolveMode, resolveStaticOnlyPosture, stageCompiledUnits } from './comprehend'
 import { createComprehensionMergeDriverCommand } from './comprehension-merge-driver'
 import { createContextDictionaryCommand } from './context-dictionary'
 import { createCopyCraftCommand } from './copy-craft'
@@ -633,7 +635,7 @@ import { CraftFindingRecord, DEFAULT_SKIP_DIRS, DesignConstraintAdapter, GraphSt
 import { AbandonedSkill, AnalysisProvider, FailingSkill, GuardianAnalysis, OpenAICompatibleAnalysisProvider, OutcomeVerdict, SkillEffectivenessScore, SkillRegressionFixture, SkillRegressionVerdict, guardianFileLines, guardianFlags, readGuardianAnalyses, summarizeGuardian } from '@harness-engineering/intelligence'
 import { AgentDispatcher, AnalysisRecord, BUILT_IN_TASKS, CheckCommandRunner, CheckScriptRunner, CommandExecutor, FlightRecorder, MAINTENANCE_CHECK_MAX_BUFFER, MAINTENANCE_CHECK_TIMEOUT_MS, MaintenanceReporter, Orchestrator, PersistedOutputEntry, RunMode, RunRecord, RunResult, SyncMainResult, TaskDefinition, TaskOutputStore, TaskRunner, TaskSelectionFilter, UnitVerdict, WorkflowLoader, createAgentDispatcher, defaultFetchModels, defaultSyncMain, discoverCandidates, launchTUI, loadPublishedIndex, makeBackendResolver, migrateAgentConfig, renderAnalysisComment, runHarnessCheck, savePublishedIndex, selectTasks } from '@harness-engineering/orchestrator'
 import { HolidayConfidenceResult, OutcomeQueryStore, SignalResult, SignalsResult, computeHolidayConfidence, gatherSignals } from '@harness-engineering/signals'
-import { AgentBackend, AgentConfig, BackendDef, CustomTaskDefinition, INDEXED_FILE_KINDS, INSIGHTS_KEYS, IndexedFileKind, InsightsKey, InsightsReport, MaintenanceConfig, Result, SkillAdoptionSummary, TrackerComment, UsageRecord, formatFindingsContract } from '@harness-engineering/types'
+import { AgentBackend, AgentConfig, BackendDef, CustomTaskDefinition, GitHubTrackerSyncConfig, INDEXED_FILE_KINDS, INSIGHTS_KEYS, IndexedFileKind, InsightsKey, InsightsReport, MaintenanceConfig, Result, SkillAdoptionSummary, TrackerComment, UsageRecord, formatFindingsContract } from '@harness-engineering/types'
 import chalk from 'chalk'
 import { execFileSync, execSync } from 'child_process'
 import { Command, InvalidArgumentError, Option, OptionValues } from 'commander'

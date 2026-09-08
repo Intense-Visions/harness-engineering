@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'packages/core/src/roadmap/tracker'
-sourceHash: '840004abe2f01059b668b3eed40b1176e5935574f7b010003930a5c00665a93f'
+sourceHash: '2d09ff6d2d3471ff1770d5072ba1068301e16e462ce4baeb9a457a920c81c5de'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
@@ -60,6 +60,7 @@ export getTrackerKindRegistration
 export listRegisteredTrackerKinds
 export makeTrackerConflictBody
 export registerTrackerKind
+export waypointItemUrl
 ```
 
 ## Dependency Slice

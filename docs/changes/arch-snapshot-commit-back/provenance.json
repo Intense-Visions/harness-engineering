@@ -1,0 +1,84 @@
+{
+  "issues": ["1965"],
+  "fleet": "cicd-fleet",
+  "item": "Architecture Snapshot — .github/workflows/snapshot.yml commit-back rejected by branch protection (12+/12 consecutive scheduled failures)",
+  "classification": "infra-config",
+  "stages": ["inventory", "mechanical", "judgment", "report"],
+  "skill": "harness-workflow-audit",
+  "baseSha": "e7340f5c9",
+  "branch": "cicd/snapshot-commit-back-via-pr",
+  "planArtifact": "docs/changes/arch-snapshot-commit-back/plans/2026-09-07-arch-snapshot-commit-back-plan.md",
+  "sessionRecord": "docs/changes/arch-snapshot-commit-back/audit-session.md",
+  "ciEvidence": {
+    "runId": "34120963994",
+    "workflow": "snapshot.yml (Architecture Snapshot)",
+    "event": "schedule",
+    "createdAt": "2026-09-07T12:16:11Z",
+    "step": "Commit snapshot",
+    "failure": "remote: error: GH013: Repository rule violations found for refs/heads/main. - Changes must be made through a pull request. ! [remote rejected] main -> main",
+    "consecutiveFailures": 15,
+    "failureWindow": "2026-06-01T11:51:31Z .. 2026-09-07T12:16:11Z (15/15 scheduled runs, no success in visible history)",
+    "runIds": [
+      "34120963994",
+      "33397134570",
+      "32700465391",
+      "32004505784",
+      "31367861901",
+      "30803795990",
+      "30256581788",
+      "29731650071",
+      "29240080885",
+      "28786403739",
+      "28368172264",
+      "27952191512",
+      "27546644435",
+      "27133811466",
+      "26753160628"
+    ]
+  },
+  "auditFindings": [
+    "[ERROR] pushback-unguarded snapshot.yml:26-27 — bare `git push` to protected main; rejected GH013 on every run. FIXED.",
+    "[ERROR] permissions-insufficient snapshot.yml:10-11 — `contents: write` is token scope, not a ruleset bypass; `pull-requests: write` also required for the gh pr create fallback (hazard already documented at ci.yml:238-243). FIXED.",
+    "[ERROR] selftrigger-no-skip-ci snapshot.yml:26 — commit subject lacks `[skip ci]`, unlike all four working commit-back precedents. FIXED.",
+    "[ERROR] path-filter-dead persona-architecture-enforcer.yml / persona-documentation-maintainer.yml / persona-performance-guardian.yml / persona-task-executor.yml — `paths: src/**` matches 0 tracked files (pnpm workspace; sources live under packages/*/src). REPORTED, out of this item's diff scope.",
+    "[WARNING] concurrency-missing snapshot.yml — no concurrency group; weekly cron and workflow_dispatch can overlap on the same append-only timeline. FIXED.",
+    "[WARNING] pushback-unguarded holiday-confidence-track.yml:110-111 — same defect class; owned by a concurrent sibling lane (fork E1). DELIBERATELY UNTOUCHED.",
+    "[INFO] pinning — all 12 distinct `uses:` refs across all 23 workflows are on mutable major tags; nothing is SHA-pinned. snapshot.yml matches convention. REPORTED repo-wide, not fixed here."
+  ],
+  "impact": {
+    "artifact": ".harness/arch/timeline.json",
+    "lastAdvanced": "f8d593648 (2026-04-06) chore: architecture snapshot 2026-04-06",
+    "entriesInSeries": 1,
+    "consumers": [
+      "packages/core/src/architecture/prediction-engine.ts:81 — throws `requires at least 3 snapshots`; predict_failures has hard-errored for five months",
+      "packages/core/src/architecture/timeline-manager.ts:116 — snapshots.length === 1 degenerate branch; get_decay_trends and `harness snapshot trend` return no-trend, indistinguishable from 'stable'",
+      "packages/cli/src/mcp/tools/decay-trends.ts:77",
+      "packages/core/src/insights/aggregator.ts:78",
+      "packages/cli/src/commands/snapshot.ts:196"
+    ],
+    "stalenessSignal": "none — no consumer compares capturedAt against now"
+  },
+  "decisionForks": {
+    "A": "A1 — reuse the repo's own push-then-fall-back-to-PR idiom; no peter-evans/create-pull-request, no PAT, no ruleset bypass. Of the two in-repo shapes, chose the plain-PR-for-human-review shape at ci.yml:463-500 (GITHUB_TOKEN only) because the PAT-bearing self-approve shape used by ci.yml:329-380, release.yml:130-175 and roadmap-auto-done.yml:170-205 requires secrets.BASELINE_AUTOAPPROVE_PAT, which the decision forbids adding.",
+    "D": "D1 — HUSKY: '0' on the commit step, precedent roadmap-auto-done.yml:152. Justified by primary evidence: the failing run's log shows the coverage ratchet, generate-docs --check and tool-catalog --check all executing inside the `Commit snapshot` step.",
+    "E": "E1 — own PR; holiday-confidence-track.yml and .harness/.gitignore untouched."
+  },
+  "assumptions": [
+    "Chose the no-PAT PR shape per fork A1's prohibition on adding a PAT. CONSEQUENCE THE REVIEWER MUST ACCEPT: the timeline no longer advances unattended — a human merges a small `chore: architecture snapshot` PR each week. Upgrading to the self-approve + auto-merge shape is a one-step change if unattended advancement is wanted, but it needs the PAT this lane was told not to add.",
+    "Assumed the branch-protection ruleset is permanent. The fix does not bypass it: the direct push is still attempted first, so if the ruleset is ever relaxed the workflow silently takes the fast path with no further edit.",
+    "DEVIATION FROM THE PRECEDENT, taken deliberately and surfaced here: added a duplicate-snapshot-PR guard (gh pr list, skip if an open PR's head branch starts with chore/arch-snapshot-). The precedents' artifacts are regenerated WHOLESALE and their jobs are event-driven, so a stale open PR is self-correcting there. timeline.json is APPEND-ONLY and this job is WEEKLY: without the guard, an unmerged week-1 PR and a fresh week-2 PR both append to the same JSON array from divergent bases and conflict on merge — the DIRTY-automated-PR failure mode ci.yml:340-345 documents for baselines.json. Trade-off recorded honestly: while a snapshot PR sits unmerged, subsequent weeks are SKIPPED rather than queued, so those weeks produce no data point. A visible gap in the series is recoverable; a pile of mutually-conflicting DIRTY PRs is not.",
+    "Assumed 'ours' is the correct resolution when re-applying timeline.json onto latest main, matching the precedents' stated reasoning. This holds because `snapshot capture` appends to whatever main carried at checkout, so the captured file is a superset of main's series. The concurrency group plus the duplicate-PR guard together make a concurrent divergent append effectively impossible; without both, an append-only file would be a weaker fit for this idiom than the wholesale-regenerated artifacts the precedents handle.",
+    "Did NOT backfill the five missing months. Historical points would require checking out and building 22 past commits; `snapshot capture` computes metrics against a working tree. The series restarts from the next capture, with the 2026-04-06 point left as the anchor. Per the skill's long-dead-gate escalation rule, expect the first new point to show a step change folding five months of drift — a reporting artifact, not a regression, since the capture is observational and blocks nothing.",
+    "Did NOT add a staleness signal to the timeline consumers. That the series can be five months old and still be served as current is the condition that let this failure hide, but adding it is a product change requiring design judgment, out of scope for an infra-config lane. Reported as a follow-up.",
+    "Did NOT fix the dead `src/**` path filter in the four persona-*.yml workflows. A real ERROR-severity finding surfaced by this audit, but a different defect class; folding it in would make this PR unreviewable. Reported for separate triage.",
+    "Did NOT SHA-pin any action. snapshot.yml matches the repo-wide mutable-tag convention; a one-workflow deviation would be noise rather than a security improvement."
+  ],
+  "verification": {
+    "yamlParse": "clean — top-level keys name/on/concurrency/jobs; permissions {contents: write, pull-requests: write}; concurrency {group: architecture-snapshot, cancel-in-progress: false}; 7 steps; commit-step env {HUSKY: '0', GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}}",
+    "shellSyntax": "bash -n on the extracted `Commit snapshot` run: block — clean",
+    "duplicatePrGuard": "executed live against this repo; returns empty and correctly takes the would-create branch",
+    "rootCauseReDerived": "gh run list --workflow=snapshot.yml -> 15/15 failure, all event=schedule, 2026-06-01..2026-09-07; gh run view 34120963994 --log-failed -> GH013 rejection",
+    "notLocallyReproducible": "the PR-fallback path can only be exercised by a real scheduled/dispatched run against the protected branch. What is proven locally: the shape is the shape already working in ci.yml, the YAML and shell parse, and the one novel line executes correctly."
+  },
+  "closingKeyword": null
+}

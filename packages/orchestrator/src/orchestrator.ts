@@ -2466,6 +2466,11 @@ export class Orchestrator extends EventEmitter {
 
       const trackerConfig = loadTrackerSyncConfig(this.projectRoot);
       if (!trackerConfig) return;
+      // This path posts a GitHub issue comment and reads GITHUB_TOKEN, so it
+      // is GitHub-specific by construction. Now that a tracker may be another
+      // kind, narrow rather than assume — a pnyon-backed project simply does
+      // not get this GitHub-side commentary.
+      if (trackerConfig.kind !== 'github') return;
 
       const token = process.env.GITHUB_TOKEN;
       if (!token) return;
@@ -3794,6 +3799,11 @@ export class Orchestrator extends EventEmitter {
     try {
       const trackerConfig = loadTrackerSyncConfig(this.projectRoot);
       if (!trackerConfig) return;
+      // This path posts a GitHub issue comment and reads GITHUB_TOKEN, so it
+      // is GitHub-specific by construction. Now that a tracker may be another
+      // kind, narrow rather than assume — a pnyon-backed project simply does
+      // not get this GitHub-side commentary.
+      if (trackerConfig.kind !== 'github') return;
       const token = process.env.GITHUB_TOKEN;
       if (!token) return;
       const orchestratorId = await this.orchestratorIdPromise;

@@ -161,13 +161,15 @@ export interface RowSyncResult extends SyncResult {
 }
 
 /**
- * Configuration for external tracker sync.
+ * What every tracker kind must supply for the sync ENGINE to run.
+ *
+ * The engine — not just an adapter — reads `statusMap`, `reverseStatusMap` and
+ * `labels` directly, so these are common ground rather than GitHub trivia. A
+ * backend that carries roadmap statuses natively still needs a `statusMap`; it
+ * is simply an identity map, and its loader derives it instead of asking the
+ * adopter for one.
  */
-export interface TrackerSyncConfig {
-  /** Adapter kind -- narrowed to GitHub-only for now */
-  kind: 'github';
-  /** Repository in "owner/repo" format (for GitHub) */
-  repo?: string;
+export interface TrackerSyncConfigBase {
   /** Labels auto-applied to created tickets for filtering + identification */
   labels?: string[];
   /** Maps roadmap status -> external status string */
@@ -179,6 +181,38 @@ export interface TrackerSyncConfig {
    */
   reverseStatusMap?: Record<string, FeatureStatus>;
 }
+
+/** GitHub Issues as the sync backend. */
+export interface GitHubTrackerSyncConfig extends TrackerSyncConfigBase {
+  kind: 'github';
+  /** Repository in "owner/repo" format */
+  repo?: string;
+}
+
+/**
+ * A Waypoint (pnyon) event ledger as the sync backend.
+ *
+ * No `repo`, and no adopter-supplied `statusMap`: Waypoint carries real roadmap
+ * statuses, so its map is the identity and is derived at load time. A config
+ * that supplies GitHub-only keys here is rejected rather than ignored, so a
+ * copied template fails loudly instead of half-working.
+ */
+export interface PnyonTrackerSyncConfig extends TrackerSyncConfigBase {
+  kind: 'pnyon';
+  /** The Waypoint per-Outpost API base URL. */
+  url: string;
+  /** Falls back to the PNYON_TOKEN environment variable when unset. */
+  token?: string;
+}
+
+/**
+ * Configuration for external tracker sync.
+ *
+ * A discriminated union rather than one interface with everything optional:
+ * the latter would let a config that names no backend, or names one and
+ * supplies another's fields, typecheck cleanly (#1863).
+ */
+export type TrackerSyncConfig = GitHubTrackerSyncConfig | PnyonTrackerSyncConfig;
 
 /**
  * A comment on an external tracker ticket.

@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'packages/types/src'
-sourceHash: '772808e567ff469f75cbad51395919b7cbb6f34e521075c96b51fd5df4d20c3b'
+sourceHash: '446377d9667a0c8fd68b745fcb76f83d7bc89060a91d5b7d3e7bf20865d5c337'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
@@ -148,6 +148,7 @@ export GateMeasurement
 export GatewayEvent
 export GatewayEventSchema
 export GeminiBackendDef
+export GitHubTrackerSyncConfig
 export HarnessIdentity
 export HooksConfig
 export INDEXED_FILE_KINDS
@@ -234,6 +235,7 @@ export PiBackendDef
 export PlanTask
 export PlanTaskSchema
 export PlannedSyncChanges
+export PnyonTrackerSyncConfig
 export PolicyApprovalMode
 export PolicyApprovalModeSchema
 export PolicyAuditEntry
@@ -409,6 +411,7 @@ export TokenUsage
 export TrackerComment
 export TrackerConfig
 export TrackerSyncConfig
+export TrackerSyncConfigBase
 export TrajectoryMetadata
 export TrajectoryMetadataSchema
 export TurnContext
@@ -420,6 +423,8 @@ export VerdictCacheEntry
 export VerdictCacheStats
 export WaypointConfig
 export WaypointConfigSchema
+export WaypointShipConfig
+export WaypointShipConfigSchema
 export WaypointSinkConfig
 export WaypointSinkConfigSchema
 export WebhookDelivery

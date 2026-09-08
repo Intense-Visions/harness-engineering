@@ -1,4 +1,5 @@
 import type { SyncResult, ExternalSyncOptions, SuppressedInbound } from '@harness-engineering/core';
+import type { SkippedCreate } from '@harness-engineering/types';
 import { logger } from '../../output/logger';
 
 /**
@@ -36,7 +37,13 @@ export interface RoadmapSyncReport {
   };
   /** Changes a guard deliberately withheld — never silently dropped. */
   skipped: {
-    creates: Array<{ feature: string; milestone: string; reason: string }>;
+    /**
+     * `SkippedCreate` rather than a re-declared shape with `reason: string`.
+     * The widened copy is what let the renderer ignore the reason and blame
+     * every withheld create on `--no-create`, including in a plain dry run
+     * where no such flag was passed.
+     */
+    creates: SkippedCreate[];
     stateChanges: Array<{ externalId: string; from: string; to: string }>;
     /**
      * Inbound (tracker → roadmap) writes withheld because the tracker had no
@@ -134,14 +141,40 @@ function logChanges(report: RoadmapSyncReport): void {
   }
 }
 
+/** How each withheld-create reason is explained to the reader. */
+const SKIP_REASON_HINT: Record<SkippedCreate['reason'], string> = {
+  'create-disabled': '(--no-create)',
+  'dry-run': '(dry run; re-run with --apply to create them)',
+};
+
+/** Group withheld creates by why they were withheld, preserving order. */
+function groupByReason(
+  creates: readonly SkippedCreate[]
+): ReadonlyMap<SkippedCreate['reason'], SkippedCreate[]> {
+  const groups = new Map<SkippedCreate['reason'], SkippedCreate[]>();
+  for (const create of creates) {
+    const group = groups.get(create.reason);
+    if (group) group.push(create);
+    else groups.set(create.reason, [create]);
+  }
+  return groups;
+}
+
 /** Changes a guard withheld. Warn-level so they are never lost in the noise. */
 function logSuppressions(report: RoadmapSyncReport): void {
   const { creates, stateChanges, inbound } = report.skipped;
   if (creates.length > 0) {
-    logger.warn(
-      `Skipped ${creates.length} create(s) (--no-create): ` +
-        creates.map((c) => c.feature).join(', ')
-    );
+    // Report the reason the plan actually recorded, not a flag the caller may
+    // never have passed. `--apply` is opt-in, so the DEFAULT run withholds
+    // creates because it is a dry run — blaming `--no-create` there sends the
+    // reader looking for a flag they did not set, which is the same
+    // "the message lied about why" failure as #1863.
+    for (const [reason, group] of groupByReason(creates)) {
+      logger.warn(
+        `Skipped ${group.length} create(s) ${SKIP_REASON_HINT[reason]}: ` +
+          group.map((c) => c.feature).join(', ')
+      );
+    }
   }
   if (stateChanges.length > 0) {
     logger.warn(

@@ -138,7 +138,12 @@ async function resolveClosedIds(
   }
 
   if (opts.fromIssues && opts.fromIssues.length > 0) {
-    const repo = opts.config?.repo ?? loadTrackerSyncConfig(cwd)?.repo;
+    // `--from-issues` builds `github:owner/repo#N` External-IDs, so it reads
+    // `repo` off a GitHub tracker only. Any other kind simply has none, and
+    // falls through to the "no repo configured" error below.
+    const githubRepo = (c: TrackerSyncConfig | null | undefined): string | undefined =>
+      c?.kind === 'github' ? c.repo : undefined;
+    const repo = githubRepo(opts.config) ?? githubRepo(loadTrackerSyncConfig(cwd));
     if (!repo) {
       return Err(
         new CLIError(
@@ -185,6 +190,29 @@ async function resolveAdapter(
         // Same distinction as sync-deps: name WHICH problem, not just "not
         // configured" (issue #1863).
         `Cannot fetch issue state: ${explainTrackerSyncConfig(diagnoseTrackerSyncConfig(cwd))}`,
+        ExitCode.ERROR
+      )
+    );
+  }
+
+  // Reconcile is GitHub-shaped and stays that way for now.
+  //
+  // It looks for tickets that are `closed` AND closed as `completed` — two
+  // pieces of state Waypoint does not have. A Waypoint item carries one status,
+  // so `fetchAllTickets` reports `done`, never `closed`, and this command's
+  // filter would match nothing. Wiring the adapter in anyway would produce a
+  // reconcile that runs, reports success, and reconciles nothing every time —
+  // strictly worse than refusing, because nobody investigates a green run.
+  //
+  // Teaching reconcile Waypoint's own notion of completion is real work with
+  // its own semantics to settle; it is deliberately not smuggled in here.
+  if (config.kind !== 'github') {
+    return Err(
+      new CLIError(
+        `roadmap reconcile supports the "github" tracker only; ` +
+          `\`roadmap.tracker.kind\` is "${config.kind}". ` +
+          `Waypoint items carry a single status rather than a separate ` +
+          `closed/completed state, so there is nothing to reconcile against yet.`,
         ExitCode.ERROR
       )
     );
