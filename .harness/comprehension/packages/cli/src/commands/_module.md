@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'packages/cli/src/commands'
-sourceHash: '17aee439742a3d7b0a86d183bb576689635aabc041f53aa72703f40ed6d8065a'
+sourceHash: '5f84ea3a892343e0a0f6b31ba40cb85de506aec8c52403aeb80096b52d4f662e'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
@@ -135,6 +135,7 @@ export CURSOR_CURATED_TOOLS
 export DEFAULT_FIXTURES_DIR
 export DEFAULT_OPERATIONAL_DRIFT_POLICY
 export GIT_MAX_BUFFER_BYTES
+export INGEST_TOKEN_ENV
 export OUTCOME_BLOCK_ON_LEVELS
 export SCOPED_WALKERS
 export SKILL_REGRESSION_BLOCK_ON
@@ -316,6 +317,7 @@ export readReview
 export referencesTargetPr
 export refreshExitCode
 export renderTable
+export reportSemanticRegression
 export resolveBaseRef
 export resolveCandidates
 export resolveChangedScope
@@ -417,7 +419,7 @@ import { shouldRunComprehendHook } from '../comprehension/hook'
 import { enumerateModules, filesToModules } from '../comprehension/invalidation'
 import { committedSemanticAllowed } from '../comprehension/policy'
 import { RefreshJobGateReason, explainInactiveRefreshGate, resolveRefreshJobGate } from '../comprehension/refresh-gate'
-import { RegressionContext, defaultRefReadDeps, detectCommittedSemanticOnBranch, detectSemanticRegressions, readSemanticMapAtRef } from '../comprehension/regression'
+import { RefReadDeps, RegressionContext, SemanticState, defaultRefReadDeps, detectCommittedSemanticOnBranch, detectSemanticRegressions, readSemanticMapAtRef } from '../comprehension/regression'
 import { createStaticExtractor } from '../comprehension/static-extractor'
 import { loadAnalysisExclude, loadDesignExclude } from '../config/analysis-schema.js'
 import { findConfigFile, loadConfig, resolveConfig } from '../config/loader'
@@ -530,7 +532,7 @@ import { createCleanupSessionsCommand } from './cleanup-sessions'
 import { createCliErgonomicsCraftCommand } from './cli-ergonomics-craft'
 import { createCodeCraftCommand } from './code-craft'
 import { createCompoundCommand } from './compound'
-import { createComprehendCommand, formatCompiledUnits, resolveChangedScope, resolveCompileProvider, resolveMode, resolveStaticOnlyPosture, stageCompiledUnits } from './comprehend'
+import { createComprehendCommand, formatCompiledUnits, reportSemanticRegression, resolveChangedScope, resolveCompileProvider, resolveMode, resolveStaticOnlyPosture, stageCompiledUnits } from './comprehend'
 import { createComprehensionMergeDriverCommand } from './comprehension-merge-driver'
 import { createContextDictionaryCommand } from './context-dictionary'
 import { createCopyCraftCommand } from './copy-craft'
