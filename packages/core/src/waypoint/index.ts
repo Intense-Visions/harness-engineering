@@ -17,6 +17,39 @@ export {
 } from './spool';
 export { loadWaypointConfig } from './config-loader';
 export {
+  advanceMark,
+  CHECKPOINT_FILENAME,
+  EMPTY_CHECKPOINT,
+  eventIdOf,
+  readCheckpoint,
+  unshippedLines,
+  writeCheckpoint,
+  type ShipCheckpoint,
+} from './checkpoint';
+export {
+  countUnshipped,
+  DEFAULT_BATCH_SIZE,
+  hasLanded,
+  ingestUrl,
+  isTerminal,
+  shipSpool,
+  ShipError,
+  type IngestEventResult,
+  type IngestReportBody,
+  type IngestResultKind,
+  type RejectedEvent,
+  type ShipFetch,
+  type ShipOptions,
+  type ShipReport,
+} from './shipper';
+export {
+  countRejected,
+  recordRejected,
+  REJECTED_FILENAME,
+  rejectedLogPath,
+  type RejectedRecord,
+} from './rejected-log';
+export {
   configureWaypointEmitter,
   emitSdlc,
   ensureWaypointEmitter,
