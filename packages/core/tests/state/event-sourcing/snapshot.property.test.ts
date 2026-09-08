@@ -95,6 +95,23 @@ function randomEventInput(rng: () => number): EventInput {
   return BUILDERS[pick(rng, TYPES)](rng);
 }
 
+/**
+ * Narrow a Result to its value, failing the case loudly if it is an Err.
+ *
+ * Deliberately throws rather than `return`ing. Inside a per-seed case an early
+ * `return` would end that case GREEN having asserted nothing — a seed silently
+ * skipped while the suite reports success. Throwing removes that path by
+ * construction, and surfaces the underlying error message instead of a bare
+ * `expected false to be true`.
+ */
+function expectOk<T>(
+  result: { ok: true; value: T } | { ok: false; error: Error },
+  what: string
+): T {
+  if (!result.ok) throw new Error(`${what}: ${result.error.message}`);
+  return result.value;
+}
+
 const tmpDirs: string[] = [];
 afterEach(() => {
   __resetMaterializeTimersForTests();
@@ -117,10 +134,34 @@ async function buildLog(rng: () => number, dir: string): Promise<void> {
   }
 }
 
+/** Seeds 1..200 — the full property space, one vitest case each. */
+const SEEDS = Array.from({ length: 200 }, (_, i) => i + 1);
+
 describe('SC2 — reduce(events) === readSnapshot() (property)', () => {
-  it('holds over 200 randomized seeds on both the computed and fresh-hit paths', async () => {
-    const SEEDS = 200;
-    for (let seed = 1; seed <= SEEDS; seed++) {
+  /**
+   * One case PER SEED rather than one case looping all 200.
+   *
+   * vitest budgets timeouts per test, not per unit of work. Aggregating every
+   * seed under a single `it()` therefore turned the suite's total wall-clock
+   * into an implicit, machine-speed-dependent assertion: the same deterministic
+   * seeds passed on ubuntu/macOS but blew the 60s budget on windows-latest
+   * (66925ms), where each of this file's ~18k filesystem syscalls costs ~3.7ms.
+   * The seeds never disagreed — only the clock did.
+   *
+   * Splitting gives each seed its own budget, so no single test's runtime is
+   * load-bearing; `afterEach` reclaims that seed's temp dir immediately instead
+   * of holding 200 live at once; and a failure names the seed that broke. All
+   * 200 seeds still run on every OS — the reporter shows 200 named cases, which
+   * makes that visible rather than merely claimed.
+   *
+   * Cases stay SEQUENTIAL (vitest's default within a file). `it.concurrent`
+   * would be unsound here: `buildLog` mutates `process.env.HARNESS_EVENT_WRITER_ID`
+   * and the module-level writer-id cache, so concurrent seeds would clobber each
+   * other's writer identity.
+   */
+  it.each(SEEDS)(
+    'holds on both the computed and fresh-hit paths — seed %i',
+    async (seed: number) => {
       resetLocalCountersForTests();
       __resetMaterializeTimersForTests();
       const dir = fs.mkdtempSync(path.join(os.tmpdir(), `esprop-${seed}-`));
@@ -129,27 +170,20 @@ describe('SC2 — reduce(events) === readSnapshot() (property)', () => {
 
       await buildLog(rng, dir);
 
-      const eventsResult = await loadEvents(dir);
-      expect(eventsResult.ok).toBe(true);
-      if (!eventsResult.ok) return;
-      const expected = reduce(eventsResult.value);
+      const events = expectOk(await loadEvents(dir), `seed ${seed} loadEvents errored`);
+      const expected = reduce(events);
 
       // (a) Computed path: no snapshot on disk yet → readSnapshot returns reduce(loadEvents).
-      const computed = await readSnapshot(dir);
-      expect(computed.ok, `seed ${seed} computed path errored`).toBe(true);
-      if (!computed.ok) return;
-      expect(computed.value, `seed ${seed} computed path mismatch`).toEqual(expected);
+      const computed = expectOk(await readSnapshot(dir), `seed ${seed} computed path errored`);
+      expect(computed, `seed ${seed} computed path mismatch`).toEqual(expected);
 
       // Cancel the background materialize the read just scheduled, then write explicitly.
       __resetMaterializeTimersForTests();
-      const mat = await materialize(dir);
-      expect(mat.ok, `seed ${seed} materialize errored`).toBe(true);
+      expectOk(await materialize(dir), `seed ${seed} materialize errored`);
 
       // (b) Fresh-hit path: an up-to-date snapshot on disk still deep-equals reduce(loadEvents).
-      const fresh = await readSnapshot(dir);
-      expect(fresh.ok, `seed ${seed} fresh-hit path errored`).toBe(true);
-      if (!fresh.ok) return;
-      expect(fresh.value, `seed ${seed} fresh-hit path mismatch`).toEqual(expected);
+      const fresh = expectOk(await readSnapshot(dir), `seed ${seed} fresh-hit path errored`);
+      expect(fresh, `seed ${seed} fresh-hit path mismatch`).toEqual(expected);
     }
-  });
+  );
 });

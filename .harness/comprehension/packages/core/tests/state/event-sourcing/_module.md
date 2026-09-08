@@ -1,11 +1,10 @@
 ---
 schemaVersion: 1
 module: 'packages/core/tests/state/event-sourcing'
-sourceHash: 'edd1fb3dce26bc6a5abd979fde6fcef738ff195dee8cc23c40e9af852ea21466'
-compiledAt: '2026-08-28T01:22:11.105Z'
+sourceHash: '15f25bd8bf9b3960de4f5601683e9821cd7fbeefaa8ed96332912a4cbd828bf5'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
-model: 'claude-haiku-4-5-20251001'
-semantic: present
+model: null
+semantic: absent
 members:
   [
     'concurrency.test.ts',
@@ -21,28 +20,6 @@ members:
     'writer-id.test.ts',
   ]
 ---
-
-## Summary
-
-The event-sourcing test suite validates a concurrent, event-sourced state architecture where all state changes are immutable events. It tests schema validation, multi-process safe writing with blob spilling for large payloads, lane state machine transitions with guarded edges, snapshot materialization, event ordering, and projections. Core invariants enforce no event loss, no sequence repetition, correct blob handling under concurrency, snapshot consistency, transition table enforcement, and dependency/evidence/force guards for lane state changes.
-
-## Invariants
-
-- No event loss under concurrent N-process writes; each (seq, writerId) pair is unique
-- Global event ordering: sorted by (seq asc, writerId asc) regardless of write sequence
-- Blob spill succeeds under concurrent writes; identical payloads collapse to single content-addressed blob
-- Missing blob doesn't abort load; affected event is dropped, valid events remain readable
-- Snapshots materialize correctly, reflecting all state transitions (Truth #7)
-- Lane transition table: allowed edges (planned→claimed→in_progress→in_review→done); rework via in_review↔in_progress; any→{blocked,canceled}
-- Off-table transitions rejected unless forced with actor + reason
-- Entering in_progress requires all dependent tasks in done lane
-- Entering done requires non-empty evidence array
-- EventSchema validates type-payload match; StoredEventSchema recognizes new types on disk
-- Projections are additive: audit events don't change coreState/lanes byte-representation
-- Writer ID unique per process via HARNESS_EVENT_WRITER_ID; monotonic seq counters per writer
-- Snapshot staleness tracking; materialize() refreshes on-demand within debounce window
-- Event log/blob dir structure invariant (paths normalized; Windows posix-normalized)
-- Scope envelope fields (stream, session) can be undefined; schema accepts both
 
 ## Interface Contract
 
