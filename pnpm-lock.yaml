@@ -613,7 +613,7 @@ importers:
         version: 4.4.1(@types/react@18.3.28)(react@18.3.1)
       liquidjs:
         specifier: ^10.26.0
-        version: 10.27.1
+        version: 10.27.2
       openai:
         specifier: ^6.0.0
         version: 6.26.0(ws@8.21.0)(zod@3.25.76)
@@ -6645,8 +6645,8 @@ packages:
       yaml: 2.8.3
     dev: true
 
-  /liquidjs@10.27.1:
-    resolution: {integrity: sha512-ylE+1q2kSef1UxAyxqbyuWM3FRWS1v48JK1Y3CoW3bD6TSNXZh0+GsVnihujEpKyR+Jejx2aRAFfC3AHm9rElg==}
+  /liquidjs@10.27.2:
+    resolution: {integrity: sha512-kvknfAEtOHjHkAAv7GxLEJh8ghpMQm3Fc4uWVyF7hERSTsSRsdC7saWs0p5aDG7GDcWsu5o+T4232O+8KZO55w==}
     engines: {node: '>=16'}
     hasBin: true
     dependencies:
