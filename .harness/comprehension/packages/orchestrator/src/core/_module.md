@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'packages/orchestrator/src/core'
-sourceHash: 'f6e94ddb32b754a0eabd80f7fab06cb6585f153c63a7a511e098119c1376cb6f'
+sourceHash: 'cd4ba6183018234c7646c47588bad3205ade229e4987a99d0d1933d1545375de'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
@@ -79,6 +79,7 @@ export applyEvent
 export artifactPresenceFromIssue
 export assertIssueWithinContextBudget
 export calculateRetryDelay
+export calculateRetryDelayMs
 export canAffordDispatch
 export canDispatch
 export cloneBudgetState
@@ -100,11 +101,13 @@ export isGlobalEnvelopeExhausted
 export loadPublishedIndex
 export periodLengthMs
 export reconcile
+export reconcileRunningIssues
 export recordBudgetSpend
 export renderAnalysisComment
 export renderPRComment
 export resolveEscalationConfig
 export resolveOrchestratorId
+export resolvePeriodLengthMs
 export rollBudgetPeriod
 export routeIssue
 export savePublishedIndex

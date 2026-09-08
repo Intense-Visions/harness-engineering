@@ -1,4 +1,4 @@
-export { calculateRetryDelay } from './retry';
+export { calculateRetryDelayMs, calculateRetryDelay } from './retry';
 export { sortCandidates, isEligible, selectCandidates } from './candidate-selection';
 export { getAvailableSlots, getPerStateCount, canDispatch } from './concurrency';
 export type { DispatchBudgetOptions } from './concurrency';
@@ -12,6 +12,7 @@ export {
   isFleetAllocationExhausted,
   getBudgetStatus,
   fleetKeyForIssue,
+  resolvePeriodLengthMs,
   periodLengthMs,
 } from './budget-governor';
 export type { BudgetState } from './budget-governor';
@@ -19,7 +20,7 @@ export {
   estimateIssueContextTokens,
   assertIssueWithinContextBudget,
 } from './context-budget-governor';
-export { reconcile } from './reconciliation';
+export { reconcileRunningIssues, reconcile } from './reconciliation';
 export { detectScopeTier, routeIssue, artifactPresenceFromIssue } from './model-router';
 export type { ArtifactPresence } from './model-router';
 export { triageIssue, extractTitlePrefix } from './triage-router';
