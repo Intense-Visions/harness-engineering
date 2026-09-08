@@ -195,11 +195,33 @@ export function generateCIWorkflow(
       on: buildGitHubTriggers(persona.triggers),
     };
     if (runner === 'workspace') {
-      // Cancel superseded runs on rapid pushes so advisory jobs don't pile up
-      // (matches harness.yml / pr-advisory-checks.yml).
+      // Concurrency is SPLIT BY EVENT on purpose — do not "simplify" this back to a
+      // plain `${{ github.workflow }}-${{ github.ref }}` + `cancel-in-progress: true`.
+      //
+      // A persona can declare an `on_commit` trigger, which generates `push:` to a
+      // trunk branch. On a push, `github.ref` is `refs/heads/main` for EVERY commit,
+      // so a per-ref group puts all main pushes in ONE bucket and each new merge
+      // cancels the still-running verification of the previous commit. The run
+      // concludes `cancelled`, not `failure`, so nothing alarms — the verdict is
+      // destroyed silently. Observed on the 75eade4ee main push: Documentation
+      // Maintainer (34239670105), Graph Maintainer (34239670102) and Task Executor
+      // (34239670064) were all cancelled when 2f1e5bd04 landed four minutes later.
+      // See also scripts/main-health-check.mjs, whose DECISIVE_CONCLUSIONS has to
+      // exclude `cancelled` to work around this very trail.
+      //
+      //   push  -> per-COMMIT group (github.sha), never cancelled, so every commit
+      //            that lands on a trunk branch reaches its own persona verdict.
+      //   PR    -> per-REF group, cancel-in-progress ON, so a new push to a PR still
+      //            supersedes the old run. PR runner spend is unchanged.
+      //
+      // This is the shape #1865 established for the hand-written ci.yml/harness.yml;
+      // #1867 brings the generated persona workflows onto it. `cancel-in-progress`
+      // officially accepts an expression, and the `A && B || C` idiom is already
+      // proven on this repo's runners (ci.yml `Test` step).
       workflow.concurrency = {
-        group: '${{ github.workflow }}-${{ github.ref }}',
-        'cancel-in-progress': true,
+        group:
+          "${{ github.workflow }}-${{ github.event_name == 'pull_request' && github.ref || github.sha }}",
+        'cancel-in-progress': "${{ github.event_name == 'pull_request' }}",
       };
     }
     // These jobs only read the tree; least-privilege token.
