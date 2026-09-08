@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'packages/cli/src/commands'
-sourceHash: '300d3214ecb0f51147e94555479dbc9a9cd2358b3608f03e6aafbdf04a38a504'
+sourceHash: '17aee439742a3d7b0a86d183bb576689635aabc041f53aa72703f40ed6d8065a'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
@@ -50,6 +50,7 @@ members:
     'generate-agent-definitions.ts',
     'generate-slash-commands.ts',
     'generate.ts',
+    'holiday-confidence.test.ts',
     'holiday-confidence.ts',
     'impact-preview.ts',
     'init-minimal.ts',
@@ -134,7 +135,6 @@ export CURSOR_CURATED_TOOLS
 export DEFAULT_FIXTURES_DIR
 export DEFAULT_OPERATIONAL_DRIFT_POLICY
 export GIT_MAX_BUFFER_BYTES
-export INGEST_TOKEN_ENV
 export OUTCOME_BLOCK_ON_LEVELS
 export SCOPED_WALKERS
 export SKILL_REGRESSION_BLOCK_ON
@@ -316,7 +316,6 @@ export readReview
 export referencesTargetPr
 export refreshExitCode
 export renderTable
-export reportSemanticRegression
 export resolveBaseRef
 export resolveCandidates
 export resolveChangedScope
@@ -418,7 +417,7 @@ import { shouldRunComprehendHook } from '../comprehension/hook'
 import { enumerateModules, filesToModules } from '../comprehension/invalidation'
 import { committedSemanticAllowed } from '../comprehension/policy'
 import { RefreshJobGateReason, explainInactiveRefreshGate, resolveRefreshJobGate } from '../comprehension/refresh-gate'
-import { RefReadDeps, RegressionContext, SemanticState, defaultRefReadDeps, detectCommittedSemanticOnBranch, detectSemanticRegressions, readSemanticMapAtRef } from '../comprehension/regression'
+import { RegressionContext, defaultRefReadDeps, detectCommittedSemanticOnBranch, detectSemanticRegressions, readSemanticMapAtRef } from '../comprehension/regression'
 import { createStaticExtractor } from '../comprehension/static-extractor'
 import { loadAnalysisExclude, loadDesignExclude } from '../config/analysis-schema.js'
 import { findConfigFile, loadConfig, resolveConfig } from '../config/loader'
@@ -531,7 +530,7 @@ import { createCleanupSessionsCommand } from './cleanup-sessions'
 import { createCliErgonomicsCraftCommand } from './cli-ergonomics-craft'
 import { createCodeCraftCommand } from './code-craft'
 import { createCompoundCommand } from './compound'
-import { createComprehendCommand, formatCompiledUnits, reportSemanticRegression, resolveChangedScope, resolveCompileProvider, resolveMode, resolveStaticOnlyPosture, stageCompiledUnits } from './comprehend'
+import { createComprehendCommand, formatCompiledUnits, resolveChangedScope, resolveCompileProvider, resolveMode, resolveStaticOnlyPosture, stageCompiledUnits } from './comprehend'
 import { createComprehensionMergeDriverCommand } from './comprehension-merge-driver'
 import { createContextDictionaryCommand } from './context-dictionary'
 import { createCopyCraftCommand } from './copy-craft'

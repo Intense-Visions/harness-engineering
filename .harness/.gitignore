@@ -20,6 +20,11 @@ release-readiness.json
 skills-index.json
 stack-profile.json
 # metrics/: track the holiday-confidence trend ledger, ignore everything else
+# (mirrors the security/timeline.json precedent below). Do NOT re-add a bare
+# `metrics/` rule anywhere after this block: a directory-suffix ignore stops git
+# descending into `.harness/metrics/` at all, which silently defeats the
+# un-ignore below. That is exactly what happened in 9e2b9b46d, and it kept the
+# Holiday Confidence Tracker's commit-back from ever staging a single record.
 metrics/*
 !metrics/holiday-confidence.jsonl
 events.jsonl
@@ -43,7 +48,6 @@ tokens.json*
 # security/: track timeline.json (trend ledger), ignore everything else
 security/*
 !security/timeline.json
-metrics/
 # comprehension/: committed, git-versioned substrate (D2 / ADR 0107) — tracked,
 # never ignored. Un-ignore mirrors the security-timeline precedent so units stay
 # committed even if a broader ignore lands. (storage: "cache" adopters opt out.)

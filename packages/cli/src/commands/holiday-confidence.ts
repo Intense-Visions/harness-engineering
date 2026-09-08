@@ -74,7 +74,17 @@ export function createHolidayConfidenceCommand(): Command {
     .option('--window <days>', 'Rolling window in days (default 30)')
     .option('--path <dir>', 'Project root (default: cwd)')
     .option('--json', 'Emit JSON to stdout instead of pretty text')
-    .action(async (opts: HolidayConfidenceOptions) => {
+    .action(async (_opts: HolidayConfidenceOptions, cmd: Command) => {
+      // `optsWithGlobals()`, not the action's own `opts`: the root program also
+      // declares a `--json` flag (src/index.ts), and commander binds a repeated
+      // flag to the FIRST command that declared it — so `harness
+      // holiday-confidence --json` stores `json: true` on the PROGRAM and leaves
+      // the subcommand's own `opts.json` undefined. Reading only `opts` made
+      // `--json` a silent no-op: the command rendered pretty text, the weekly
+      // tracker's `JSON.parse` threw, and it abstained on every single run.
+      // `optsWithGlobals()` merges both stores and is the repo's existing idiom
+      // for exactly this (snapshot.ts, usage.ts, scan-config.ts, create-skill.ts).
+      const opts = cmd.optsWithGlobals() as HolidayConfidenceOptions;
       const projectPath = opts.path ?? process.cwd();
       const windowDays = parseWindow(opts.window);
       const graphStore = await loadOutcomeStore(projectPath);

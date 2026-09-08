@@ -1,0 +1,93 @@
+{
+  "issues": [1965],
+  "fleet": "cicd-fleet",
+  "item": "Holiday Confidence Tracker — .github/workflows/holiday-confidence-track.yml (5/5 failures, never green since 2026-08-10)",
+  "classification": "infra-config",
+  "stages": ["inventory", "mechanical", "judgment", "report", "remediate"],
+  "skill": "harness-workflow-audit",
+  "baseSha": "e7340f5c9",
+  "branch": "cicd/holiday-confidence-ledger-commitback",
+  "planArtifact": "docs/changes/holiday-confidence-ledger-commitback/plans/2026-09-07-holiday-confidence-ledger-commitback-plan.md",
+  "sessionRecord": "docs/changes/holiday-confidence-ledger-commitback/audit-session.md",
+  "ciEvidence": {
+    "workflow": "holiday-confidence-track.yml",
+    "runIds": ["31372352672", "32008807443", "32704972836", "33407509136", "34128383695"],
+    "consecutiveFailures": 5,
+    "everSucceeded": false,
+    "firstRun": "2026-08-10T08:57:06Z",
+    "latestRun": "34128383695",
+    "latestSha": "f6af75423472f9dd6af4d041e59f874f4720ec4b",
+    "failingStep": "Commit the trend ledger",
+    "failure": "fatal: pathspec '.harness/metrics/holiday-confidence.jsonl' did not match any files -> exit 128",
+    "precedingStepOutput": "No parseable KPI output; recording nothing (fail-soft)."
+  },
+  "issueCorrection": {
+    "issue": 1965,
+    "claim": "holiday-confidence-track.yml fails for the same GH013 ruleset push rejection as snapshot.yml",
+    "reality": "It dies at `git add` with exit 128, two lines before `git push`, and has never reached its own push. GH013 is the third stacked defect, not the first.",
+    "closingKeyword": null
+  },
+  "findings": [
+    {
+      "id": "F1",
+      "severity": "error",
+      "check": "J2 gate-completeness",
+      "summary": "The workflow's own documented fail-soft contract was unreachable: `git add` on a missing pathspec exits 128 under `bash -e`, so the abstain path could never succeed.",
+      "fixed": true
+    },
+    {
+      "id": "F2",
+      "severity": "error",
+      "check": "J2 gate-completeness",
+      "summary": "A bare `metrics/` re-ignore at .harness/.gitignore:46, added by unrelated docs commit 9e2b9b46d, defeated the correct negation block added by the workflow's own originating PR 0563679fd (#1131).",
+      "fixed": true
+    },
+    {
+      "id": "F3",
+      "severity": "error",
+      "check": "M4/M2",
+      "summary": "Bare `git push` to a protected default branch (GH013), and `pull-requests: read` would have broken the PR fallback after the branch was already pushed.",
+      "fixed": true
+    },
+    {
+      "id": "F4",
+      "severity": "error",
+      "check": "J2 gate-completeness",
+      "summary": "`--json` on `harness holiday-confidence` is shadowed by the root program's own `--json` (src/index.ts:76); commander binds a repeated flag to the first declarer, so opts.json was always undefined and the command emitted pretty text. This — not an empty window — is why the KPI abstained on every run. NOT in the item brief and NOT in #1965.",
+      "fixed": true
+    },
+    {
+      "id": "F5",
+      "severity": "warning",
+      "check": "J2",
+      "summary": "The abstain log line printed no evidence of what the command actually emitted, which is why F4 survived five runs unnoticed.",
+      "fixed": true
+    },
+    {
+      "id": "F6",
+      "severity": "info",
+      "check": "J2",
+      "summary": "F4 is systemic: 36 command files declare `--json` and the shadowing applies to all of them (verified for insights, adoption, verify). Deliberately NOT fixed in this lane — separate change, separate test burden.",
+      "fixed": false,
+      "routing": "orchestrator"
+    }
+  ],
+  "assumptions": [
+    "Implemented all five pre-answered forks exactly as given: A1 (repo's own push-then-PR idiom, no peter-evans action, no PAT for the push, no ruleset bypass), B1 (un-ignore the one ledger beside the existing rule, mirroring security/timeline.json), C1 (existence guard preserving the documented fail-soft contract verbatim, NOT continue-on-error), D1 (HUSKY=0 on the commit-back step), E1 (own PR; .github/workflows/snapshot.yml untouched — sibling lane's diff).",
+    "DEVIATION FROM THE STATED DIFF SCOPE, surfaced deliberately: the brief scoped the diff to holiday-confidence-track.yml + .harness/.gitignore. Two CLI files were added (packages/cli/src/commands/holiday-confidence.ts and a new holiday-confidence.test.ts) because without F4 the remediated workflow goes GREEN while recording NOTHING forever — the exact false-confidence outcome the audit skill's Iron Law forbids and this fleet's never-hide-a-failure gate exists to prevent. One line of behaviour, in an idiom the repo already uses in four places, colliding with no sibling lane.",
+    "The systemic half of F4 (36 commands) was deliberately left unfixed and routed to the orchestrator rather than folded in.",
+    "Diverged from the three in-repo precedents on one point: when BASELINE_AUTOAPPROVE_PAT is absent, the job prints ::notice:: with the PR URL and exits 0 instead of failing on an unconditional `gh pr review --approve`. This is not hiding a failure — the PR exists and its URL is in the log — and it preserves the workflow's defining property that a metrics tracker never reds the repo. Reversible in one line if strict precedent parity is preferred.",
+    "GH013 was NOT re-observed on this branch. It is inferred from snapshot.yml's identical bare push to the same protected branch. This workflow has never reached its own push, so no run log shows GH013 for it. The fallback is written so a successful direct push short-circuits before the PR path ever runs.",
+    "The workflow cannot be exercised by PR CI: `on:` is schedule + workflow_dispatch only. Verification is YAML parse, bash -n on every run block, node --check on the embedded heredoc, and a scratch-repo simulation of all three commit-step branches. First live proof is the next Monday run or a manual workflow_dispatch after merge."
+  ],
+  "verification": {
+    "yaml": "js-yaml parse OK; permissions {contents: write, pull-requests: write}; checkout fetch-depth 0",
+    "shellSyntax": "bash -n clean on all 4 run blocks",
+    "embeddedNode": "node --check clean",
+    "commitStepSimulation": "abstain -> exit 0 (was exit 128); new record -> commit created, 1 insertion; unchanged ledger -> exit 0",
+    "gitignore": "ledger stageable (git add -n succeeds); .harness/metrics/adoption.jsonl still ignored (git add exits 1)",
+    "cliTests": "4 passed (4)",
+    "revertProtocol": "regression tests FAIL without the optsWithGlobals fix (2 failed | 2 passed), PASS with it (4 passed)"
+  },
+  "closingKeyword": null
+}
