@@ -24,6 +24,7 @@ import {
   mergeCoverageBaselines,
   evaluateCoverage,
   pruneCoverageSummaries,
+  toleranceFor,
 } from '../../scripts/coverage-ratchet.mjs';
 import { mergeBenchmarkBaselines } from '../../scripts/benchmark-check.mjs';
 
@@ -219,6 +220,71 @@ test('#939 end-to-end: prune before an affected run stops a stale unaffected sum
   } finally {
     rmSync(root, { recursive: true, force: true });
   }
+});
+
+// ---------------------------------------------------------------------------
+// #544: per-package variance tolerance. cli is graded at a tighter 0.1% while
+// every other package keeps the default 0.5%. Both the gate (evaluateCoverage)
+// and the --update merge (mergeCoverageBaselines) must honour the per-package
+// tolerance. These tests fail if the tolerance regresses back to a single
+// global constant.
+// ---------------------------------------------------------------------------
+
+test('toleranceFor: cli overrides to 0.1%, others fall back to the default', () => {
+  assert.equal(toleranceFor('packages/cli'), 0.1);
+  assert.equal(toleranceFor('packages/core'), 0.5);
+  assert.equal(toleranceFor('packages/unknown'), 0.5);
+});
+
+test('evaluateCoverage: cli fails on a 0.2% branch drop that core would absorb', () => {
+  const baselines = {
+    'packages/cli': { lines: 80, branches: 80.5, functions: 84, statements: 79 },
+    'packages/core': { lines: 95, branches: 81.5, functions: 96, statements: 92 },
+  };
+  // Both packages drop the same 0.2% on branches. cli (0.1% tol) fails; core
+  // (0.5% tol) is within noise and passes.
+  const coverageByPkg = {
+    'packages/cli': { lines: 80, branches: 80.3, functions: 84, statements: 79 },
+    'packages/core': { lines: 95, branches: 81.3, functions: 96, statements: 92 },
+  };
+  const { failures } = evaluateCoverage(baselines, coverageByPkg, { allowMissing: false });
+  assert.equal(failures, 1); // only cli
+});
+
+test('evaluateCoverage: cli within its 0.1% tolerance still passes', () => {
+  const baselines = {
+    'packages/cli': { lines: 80, branches: 80.5, functions: 84, statements: 79 },
+  };
+  const coverageByPkg = {
+    'packages/cli': { lines: 80, branches: 80.45, functions: 84, statements: 79 }, // -0.05% < 0.1%
+  };
+  const { failures } = evaluateCoverage(baselines, coverageByPkg, { allowMissing: false });
+  assert.equal(failures, 0);
+});
+
+test('mergeCoverageBaselines: a 0.2% cli branch move is adopted (beyond its 0.1% tol), core keeps it', () => {
+  const committed = {
+    'packages/cli': { lines: 80, branches: 80.5, functions: 84, statements: 79 },
+    'packages/core': { lines: 95, branches: 81.5, functions: 96, statements: 92 },
+  };
+  const measured = {
+    'packages/cli': { lines: 80, branches: 80.7, functions: 84, statements: 79 }, // +0.2% > 0.1%
+    'packages/core': { lines: 95, branches: 81.7, functions: 96, statements: 92 }, // +0.2% < 0.5%
+  };
+
+  const merged = mergeCoverageBaselines(committed, measured);
+
+  assert.equal(merged['packages/cli'].branches, 80.7); // real move locked in at 0.1% tol
+  assert.equal(merged['packages/core'].branches, 81.5); // jitter kept stable at 0.5% tol
+});
+
+test('mergeCoverageBaselines: an explicit tolerance argument overrides the per-package map', () => {
+  const committed = { 'packages/cli': { lines: 80, branches: 80.5, functions: 84, statements: 79 } };
+  const measured = { 'packages/cli': { lines: 80, branches: 80.7, functions: 84, statements: 79 } };
+
+  // With an explicit 0.5% tolerance, the +0.2% cli move is treated as noise.
+  const merged = mergeCoverageBaselines(committed, measured, 0.5);
+  assert.equal(merged['packages/cli'].branches, 80.5);
 });
 
 test('benchmark: sub-threshold timing jitter keeps the committed file byte-identical', () => {

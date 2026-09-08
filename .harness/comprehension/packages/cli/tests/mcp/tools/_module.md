@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'packages/cli/tests/mcp/tools'
-sourceHash: 'd95b90678e0aa646965212bdedb98a32e83d4fc86cf5628518543142c978293a'
+sourceHash: '512ba7cbfd95c6c8593eb2e74193e049a0fad9c53205c1033a2956ebe292cd5a'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
@@ -12,7 +12,9 @@ members:
     'adr.test.ts',
     'agent.test.ts',
     'api-craft.test.ts',
+    'architecture-cov544.test.ts',
     'architecture.test.ts',
+    'assess-project-cov544.test.ts',
     'assess-project-error-handling.test.ts',
     'assess-project.test.ts',
     'brainstorming-file-less-smoke.test.ts',
@@ -26,7 +28,9 @@ members:
     'copy-craft.test.ts',
     'cross-check.test.ts',
     'decay-trends.test.ts',
+    'design-craft-cov544.test.ts',
     'docs-craft.test.ts',
+    'docs-publish-cov544.test.ts',
     'docs.test.ts',
     'entropy-config-threading.test.ts',
     'entropy-patterns-empty-ruleset.test.ts',
@@ -35,6 +39,7 @@ members:
     'events-jsonl-retired.guard.test.ts',
     'feedback.test.ts',
     'gather-context-comprehension.test.ts',
+    'gather-context-cov544.test.ts',
     'gather-context-extra.test.ts',
     'gather-context-session.test.ts',
     'gather-context.test.ts',
@@ -43,6 +48,7 @@ members:
     'graph-ask.test.ts',
     'graph-blast-radius.test.ts',
     'graph.test.ts',
+    'init-cov544b.test.ts',
     'init.test.ts',
     'interaction.test.ts',
     'knowledge-craft.test.ts',
@@ -59,9 +65,12 @@ members:
     'put-comprehension.test.ts',
     'recommend-skills.test.ts',
     'refinement-telemetry.test.ts',
+    'review-changes-cov544.test.ts',
     'review-changes.test.ts',
     'review-pipeline.test.ts',
     'roadmap-auto-sync.test.ts',
+    'roadmap-cov544.test.ts',
+    'roadmap-file-less-cov544.test.ts',
     'roadmap-groom-sharded.test.ts',
     'roadmap-groom.test.ts',
     'roadmap-missing-path.test.ts',
@@ -81,6 +90,7 @@ members:
     'skill.test.ts',
     'spec-craft.test.ts',
     'stale-constraints.test.ts',
+    'state-cov544.test.ts',
     'state-events.test.ts',
     'state-extra.test.ts',
     'state-sc1-guard.test.ts',
@@ -88,6 +98,7 @@ members:
     'task-independence.test.ts',
     'test-craft.test.ts',
     'traceability.test.ts',
+    'validate-cov544b.test.ts',
     'validate.test.ts',
     'workflow-e2e.test.ts',
   ]
@@ -106,12 +117,15 @@ export writeShardedProject
 ```
 import { computeLoadPlan } from '../../../../core/src/context/progressive-loader'
 import { extractLevel } from '../../../../core/src/context/section-parser'
+import { findConfigFile, loadConfig } from '../../../src/config/loader'
+import { MockLlmProvider } from '../../../src/design-craft/llm/provider.js'
+import { resolveDocsPublishConnector } from '../../../src/docs-publish/index'
 import { acceptanceEvalDefinition, handleAcceptanceEval, resolveTestContent } from '../../../src/mcp/tools/acceptance-eval.js'
 import { handleManageAdr, manageAdrDefinition } from '../../../src/mcp/tools/adr'
 import { allocateNextNumber, listAdrs, resolveWorktreeRoot } from '../../../src/mcp/tools/adr-store'
 import { addComponentDefinition, handleAddComponent, handleRunAgentTask, runAgentTaskDefinition } from '../../../src/mcp/tools/agent'
 import { apiCraftDefinition, apiCraftFinalizeDefinition, handleApiCraft, handleApiCraftFinalize } from '../../../src/mcp/tools/api-craft'
-import { checkDependenciesDefinition } from '../../../src/mcp/tools/architecture'
+import { checkDependenciesDefinition, handleCheckDependencies } from '../../../src/mcp/tools/architecture'
 import { assessProjectDefinition, handleAssessProject, parseToolResponse, resolveLintCommand } from '../../../src/mcp/tools/assess-project'
 import { cliErgonomicsCraftDefinition, cliErgonomicsCraftFinalizeDefinition, handleCliErgonomicsCraft, handleCliErgonomicsCraftFinalize } from '../../../src/mcp/tools/cli-ergonomics-craft'
 import { codeCraftDefinition, codeCraftFinalizeDefinition, handleCodeCraft, handleCodeCraftFinalize } from '../../../src/mcp/tools/code-craft'
@@ -124,8 +138,10 @@ import { copyCraftDefinition, copyCraftFinalizeDefinition, handleCopyCraft, hand
 import { validateCrossCheckDefinition } from '../../../src/mcp/tools/cross-check'
 import { getDecayTrendsDefinition, handleGetDecayTrends } from '../../../src/mcp/tools/decay-trends'
 import { getDecayTrendsDefinition } from '../../../src/mcp/tools/decay-trends.js'
+import { designCraftToolDefinition, handleDesignCraft, runCaptureCommand, runDesignCraft } from '../../../src/mcp/tools/design-craft'
 import { checkDocsDefinition, handleCheckDocs } from '../../../src/mcp/tools/docs'
 import { docsCraftDefinition, docsCraftFinalizeDefinition, handleDocsCraft, handleDocsCraftFinalize } from '../../../src/mcp/tools/docs-craft'
+import { handleDocsPublish } from '../../../src/mcp/tools/docs-publish'
 import { detectEntropyDefinition, handleDetectEntropy } from '../../../src/mcp/tools/entropy'
 import { emitSkillEvent } from '../../../src/mcp/tools/event-emitter'
 import { analyzeDiffDefinition, createSelfReviewDefinition, handleAnalyzeDiff, handleCreateSelfReview, handleRequestPeerReview, requestPeerReviewDefinition } from '../../../src/mcp/tools/feedback'
@@ -155,6 +171,7 @@ import { handleManageRoadmap, manageRoadmapDefinition } from '../../../src/mcp/t
 import * as autoSync, { autoSyncRoadmap, triggerScopedExternalSync } from '../../../src/mcp/tools/roadmap-auto-sync'
 import { handleManageRoadmapFileLess } from '../../../src/mcp/tools/roadmap-file-less'
 import { handleSearchSkills, searchSkillsDefinition } from '../../../src/mcp/tools/search-skills.js'
+import { handleRunSecurityScan } from '../../../src/mcp/tools/security'
 import { handleSecurityCraft, handleSecurityCraftFinalize, securityCraftDefinition, securityCraftFinalizeDefinition } from '../../../src/mcp/tools/security-craft'
 import { createSkillDefinition, handleCreateSkill, handleRunSkill, runSkillDefinition } from '../../../src/mcp/tools/skill'
 import { emitSkillProposalDefinition, handleEmitSkillProposal } from '../../../src/mcp/tools/skill-proposal'
@@ -184,9 +201,10 @@ import { COMPILER_VERSION, ComprehensionSourceFile, ComprehensionStore, Comprehe
 import { queryTraceability } from '@harness-engineering/graph'
 import { deriveAcceptanceAuthority } from '@harness-engineering/intelligence'
 import { Err, Ok, Result } from '@harness-engineering/types'
+import { execFileSync } from 'child_process'
 import * as fs from 'fs'
 import * as fs from 'fs/promises'
-import { execFileSync } from 'node:child_process'
+import { execFileSync, execSync } from 'node:child_process'
 import * as fs, { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import * as fsp from 'node:fs/promises'
 import * as os, { tmpdir } from 'node:os'
