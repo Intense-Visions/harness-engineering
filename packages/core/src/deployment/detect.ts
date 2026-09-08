@@ -114,14 +114,12 @@ function collectPipelineFiles(fsPort: DeploymentFsPort): DeploymentFile[] {
   return pipelineFiles;
 }
 
-export function detectDeploymentSurface(root: string, fsPort: DeploymentFsPort): DeploymentSurface {
-  void root; // paths are already root-relative for the injected port.
-
-  const pipelineFiles = collectPipelineFiles(fsPort);
+/**
+ * Discover deploy scripts: everything under `deploy/`, plus the `deploy*`-named
+ * entries under `scripts/`.
+ */
+function collectDeployScripts(fsPort: DeploymentFsPort): DeploymentFile[] {
   const deployScripts: DeploymentFile[] = [];
-  const envFiles: DeploymentFile[] = [];
-
-  // --- Deploy script discovery ---
   for (const entry of fsPort.listDir('deploy')) {
     const f = capture(fsPort, `deploy/${entry}`, false);
     if (f) deployScripts.push(f);
@@ -131,6 +129,15 @@ export function detectDeploymentSurface(root: string, fsPort: DeploymentFsPort):
     const f = capture(fsPort, `scripts/${entry}`, false);
     if (f) deployScripts.push(f);
   }
+  return deployScripts;
+}
+
+export function detectDeploymentSurface(root: string, fsPort: DeploymentFsPort): DeploymentSurface {
+  void root; // paths are already root-relative for the injected port.
+
+  const pipelineFiles = collectPipelineFiles(fsPort);
+  const deployScripts = collectDeployScripts(fsPort);
+  const envFiles: DeploymentFile[] = [];
 
   // --- Committed env file discovery (.env.*) ---
   for (const entry of fsPort.listDir('.')) {
