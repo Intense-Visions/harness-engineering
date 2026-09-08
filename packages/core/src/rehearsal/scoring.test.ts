@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { scoreRecovery, rehearsalTierFor, REHEARSAL_WEIGHTS } from './scoring';
+import { scoreRecovery, rehearsalTierForScore, REHEARSAL_WEIGHTS } from './scoring';
 import type { RehearsalManifest, RecoveryRecord } from './types';
 
 const manifest: RehearsalManifest = {
@@ -38,14 +38,14 @@ const badRecovery: RecoveryRecord = {
   collateralDamage: false,
 };
 
-describe('rehearsalTierFor', () => {
+describe('rehearsalTierForScore', () => {
   it('maps score bands to tiers at the boundaries', () => {
-    expect(rehearsalTierFor(100)).toBe('pass');
-    expect(rehearsalTierFor(80)).toBe('pass');
-    expect(rehearsalTierFor(79)).toBe('partial');
-    expect(rehearsalTierFor(50)).toBe('partial');
-    expect(rehearsalTierFor(49)).toBe('fail');
-    expect(rehearsalTierFor(0)).toBe('fail');
+    expect(rehearsalTierForScore(100)).toBe('pass');
+    expect(rehearsalTierForScore(80)).toBe('pass');
+    expect(rehearsalTierForScore(79)).toBe('partial');
+    expect(rehearsalTierForScore(50)).toBe('partial');
+    expect(rehearsalTierForScore(49)).toBe('fail');
+    expect(rehearsalTierForScore(0)).toBe('fail');
   });
 });
 

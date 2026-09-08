@@ -7,5 +7,10 @@
  * known-bad recovery map to stable, testable scores.
  */
 export * from './types';
-export { REHEARSAL_WEIGHTS, rehearsalTierFor, scoreRecovery } from './scoring';
+export {
+  REHEARSAL_WEIGHTS,
+  rehearsalTierForScore,
+  rehearsalTierFor,
+  scoreRecovery,
+} from './scoring';
 export { MANIFEST_FILENAME, loadManifest, loadCatalog, findFixture } from './catalog';

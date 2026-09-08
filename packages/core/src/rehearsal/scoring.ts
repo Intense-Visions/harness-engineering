@@ -21,11 +21,23 @@ export const REHEARSAL_WEIGHTS = {
 } as const;
 
 /** Pass at >= 80, partial at >= 50, fail below. Exported so the boundary is testable. */
-export function rehearsalTierFor(score: number): RehearsalTier {
+export function rehearsalTierForScore(score: number): RehearsalTier {
   if (score >= 80) return 'pass';
   if (score >= 50) return 'partial';
   return 'fail';
 }
+
+/**
+ * Map a recovery score to its tier.
+ *
+ * @deprecated Use `rehearsalTierForScore` instead. The old name left its input
+ * unnamed — `For` what? — so a reader at a call site could not tell whether the
+ * argument was a score, a run, an attempt record, or a config. This alias is the
+ * same function reference and is retained for API compatibility; it will be
+ * removed in a future MAJOR release.
+ * @public
+ */
+export const rehearsalTierFor = rehearsalTierForScore;
 
 /**
  * Normalise a harness check string for comparison: lowercase, collapse
@@ -117,7 +129,7 @@ export function scoreRecovery(manifest: RehearsalManifest, record: RecoveryRecor
     fixtureId: manifest.id,
     failureMode: manifest.failureMode,
     score,
-    tier: rehearsalTierFor(score),
+    tier: rehearsalTierForScore(score),
     dimensions,
   };
 }
