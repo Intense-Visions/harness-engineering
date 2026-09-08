@@ -89,6 +89,9 @@ export type {
   SyncDenominator,
   PlannedSyncChanges,
   TrackerSyncConfig,
+  TrackerSyncConfigBase,
+  GitHubTrackerSyncConfig,
+  PnyonTrackerSyncConfig,
   TrackerComment,
 } from './tracker-sync';
 

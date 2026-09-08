@@ -48,7 +48,17 @@ export type HistoryEventType =
   | 'released'
   | 'completed'
   | 'updated'
-  | 'reopened';
+  | 'reopened'
+  /**
+   * Human (or agent) commentary attached to an item — the body lives in
+   * `details.body`.
+   *
+   * A first-class type rather than commentary smuggled into `updated`. An
+   * evidence ledger's value is that every entry means what it says; a consumer
+   * counting `updated` events must not silently be counting comments too
+   * (#1863).
+   */
+  | 'commented';
 
 export interface HistoryEvent {
   type: HistoryEventType;

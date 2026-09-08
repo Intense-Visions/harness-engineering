@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'packages/cli/src/commands'
-sourceHash: '00d97fb892bf8788f17cb3045e9bc459b4324a323ebaf5a733cebfd63043a0b1'
+sourceHash: 'd42391f9545fb2fd74d7ef3ce07003296e000ab2f5143430d35e4815c6c8d0ba'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
@@ -633,7 +633,7 @@ import { CraftFindingRecord, DEFAULT_SKIP_DIRS, DesignConstraintAdapter, GraphSt
 import { AbandonedSkill, AnalysisProvider, FailingSkill, GuardianAnalysis, OpenAICompatibleAnalysisProvider, OutcomeVerdict, SkillEffectivenessScore, SkillRegressionFixture, SkillRegressionVerdict, guardianFileLines, guardianFlags, readGuardianAnalyses, summarizeGuardian } from '@harness-engineering/intelligence'
 import { AgentDispatcher, AnalysisRecord, BUILT_IN_TASKS, CheckCommandRunner, CheckScriptRunner, CommandExecutor, FlightRecorder, MAINTENANCE_CHECK_MAX_BUFFER, MAINTENANCE_CHECK_TIMEOUT_MS, MaintenanceReporter, Orchestrator, PersistedOutputEntry, RunMode, RunRecord, RunResult, SyncMainResult, TaskDefinition, TaskOutputStore, TaskRunner, TaskSelectionFilter, UnitVerdict, WorkflowLoader, createAgentDispatcher, defaultFetchModels, defaultSyncMain, discoverCandidates, launchTUI, loadPublishedIndex, makeBackendResolver, migrateAgentConfig, renderAnalysisComment, runHarnessCheck, savePublishedIndex, selectTasks } from '@harness-engineering/orchestrator'
 import { HolidayConfidenceResult, OutcomeQueryStore, SignalResult, SignalsResult, computeHolidayConfidence, gatherSignals } from '@harness-engineering/signals'
-import { AgentBackend, AgentConfig, BackendDef, CustomTaskDefinition, INDEXED_FILE_KINDS, INSIGHTS_KEYS, IndexedFileKind, InsightsKey, InsightsReport, MaintenanceConfig, Result, SkillAdoptionSummary, TrackerComment, UsageRecord, formatFindingsContract } from '@harness-engineering/types'
+import { AgentBackend, AgentConfig, BackendDef, CustomTaskDefinition, GitHubTrackerSyncConfig, INDEXED_FILE_KINDS, INSIGHTS_KEYS, IndexedFileKind, InsightsKey, InsightsReport, MaintenanceConfig, Result, SkillAdoptionSummary, TrackerComment, UsageRecord, formatFindingsContract } from '@harness-engineering/types'
 import chalk from 'chalk'
 import { execFileSync, execSync } from 'child_process'
 import { Command, InvalidArgumentError, Option, OptionValues } from 'commander'

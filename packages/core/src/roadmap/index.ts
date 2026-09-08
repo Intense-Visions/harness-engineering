@@ -52,6 +52,8 @@ export { STATUS_RANK, isRegression } from './status-rank';
  * GitHub Issues adapter for the TrackerSyncAdapter interface.
  */
 export { GitHubIssuesSyncAdapter } from './adapters/github-issues';
+export { PnyonSyncAdapter } from './adapters/pnyon-sync';
+export type { PnyonSyncAdapterOptions } from './adapters/pnyon-sync';
 
 /**
  * Extract GitHub issue references (`#N`, `Closes/Fixes/Resolves #N`,
@@ -73,6 +75,7 @@ export { parseExternalId, buildExternalId, githubRepoPath } from './external-id'
 export {
   loadTrackerSyncConfig,
   diagnoseTrackerSyncConfig,
+  diagnoseTrackerShape,
   explainTrackerSyncConfig,
   SYNC_SUPPORTED_TRACKER_KINDS,
 } from './tracker-config';
@@ -158,6 +161,7 @@ export type {
 export { ConflictError, createTrackerClient, ETagStore, makeTrackerConflictBody } from './tracker';
 export {
   PnyonTrackerAdapter,
+  waypointItemUrl,
   WaypointHttp,
   WaypointHttpError,
   registerTrackerKind,

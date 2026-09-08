@@ -220,6 +220,9 @@ export class CompletionHandler {
       if (entry?.issue.externalId && highlights.length > 0) {
         const trackerConfig = loadTrackerSyncConfig(this.ctx.projectRoot);
         if (!trackerConfig) return;
+        // Highlights are posted as a PR comment, which is a GitHub artifact.
+        // Other tracker kinds have no PR to comment on here.
+        if (trackerConfig.kind !== 'github') return;
 
         const token = process.env.GITHUB_TOKEN;
         if (!token) return;

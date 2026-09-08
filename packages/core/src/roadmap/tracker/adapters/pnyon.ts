@@ -49,6 +49,34 @@ import {
 
 const EXTERNAL_PREFIX = 'pnyon:';
 
+/**
+ * The API address of one item, for callers that must report where a ticket
+ * lives (`ExternalTicket.url`).
+ *
+ * Lives here rather than in the sync adapter so {@link EXTERNAL_PREFIX} has
+ * exactly one reader — a second copy of the prefix strip would keep compiling
+ * while silently producing wrong URLs the day the prefix changes.
+ *
+ * This is the API resource, not a web page: harness is configured with the
+ * Waypoint API base and is never told the human UI's origin, so synthesizing a
+ * browser link would be a guess. An address that resolves beats one that looks
+ * friendlier and 404s.
+ */
+export function waypointItemUrl(apiBaseUrl: string, externalId: string): string {
+  const id = externalId.startsWith(EXTERNAL_PREFIX)
+    ? externalId.slice(EXTERNAL_PREFIX.length)
+    : externalId;
+  return `${apiBaseUrl.replace(/\/+$/, '')}/v1/items/${encodeURIComponent(id)}`;
+}
+
+/**
+ * Evidence types harness's history view understands.
+ *
+ * This is a read filter as well as a vocabulary: `fetchHistory` drops any entry
+ * whose type is absent here, so a type that can be WRITTEN but is missing from
+ * this set round-trips to nothing. `commented` is listed because the sync
+ * adapter appends it — omitting it would make comments write-only.
+ */
 const HISTORY_EVENT_TYPES: ReadonlySet<string> = new Set([
   'created',
   'claimed',
@@ -56,6 +84,7 @@ const HISTORY_EVENT_TYPES: ReadonlySet<string> = new Set([
   'completed',
   'updated',
   'reopened',
+  'commented',
 ]);
 
 export interface PnyonTrackerOptions {

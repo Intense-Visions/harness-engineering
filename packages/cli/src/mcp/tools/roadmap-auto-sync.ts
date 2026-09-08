@@ -65,6 +65,9 @@ export async function triggerExternalSync(projectPath: string): Promise<void> {
   try {
     const trackerConfig = loadTrackerSyncConfig(projectPath);
     if (!trackerConfig) return;
+    // This background hook only knows how to push to GitHub. `harness roadmap
+    // sync` is the command that speaks every kind.
+    if (trackerConfig.kind !== 'github') return;
 
     // Load .env from the project root — the MCP server's startup dotenv/config
     // loads from process.cwd() which may differ from the project being synced.
@@ -138,6 +141,9 @@ export async function triggerScopedExternalSync(
   try {
     const trackerConfig = loadTrackerSyncConfig(projectPath);
     if (!trackerConfig) return { kind: 'not-configured' };
+    // As above: GitHub-only push path. Reported as not-configured rather than
+    // as a failure — nothing is wrong, this hook just does not cover the kind.
+    if (trackerConfig.kind !== 'github') return { kind: 'not-configured' };
 
     const projectEnvPath = path.join(projectPath, '.env');
     if (fs.existsSync(projectEnvPath) && !process.env.GITHUB_TOKEN) {
