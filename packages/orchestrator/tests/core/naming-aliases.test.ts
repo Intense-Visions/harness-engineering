@@ -6,9 +6,13 @@ import { describe, it, expect } from 'vitest';
 //   src/core/index.ts          -> the three symbol lines
 //
 // A name reaches consumers of @harness-engineering/orchestrator iff it appears in
-// src/core/index.ts. Importing '../../src/core/retry' here would pass even with the
-// barrel line missing -- that is the exact defect this test exists to catch. Do not
-// "simplify" these imports to the module files.
+// src/core/index.ts AND is not shadowed by an ambiguous star-export collision --
+// src/index.ts has ~15 `export *` lines, and the ES module spec silently DROPS a name
+// exported by two of them. The `typeof === 'function'` assertions below catch both
+// failure modes, because a dropped name is `undefined` exactly like a missing one.
+// Importing '../../src/core/retry' here would pass even with the barrel line missing
+// -- that is the exact defect this test exists to catch. Do not "simplify" these
+// imports to the module files.
 //
 // A namespace import is used deliberately: a missing name surfaces as `undefined`
 // and fails the assertion below with a readable message, rather than crashing the

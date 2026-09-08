@@ -66,7 +66,7 @@ function makeState(overrides: Partial<OrchestratorState> = {}): OrchestratorStat
 }
 
 describe('reconcileRunningIssues', () => {
-  it('should return no effects when all running issues are still active', () => {
+  it('should return no side-effect entries when all running issues are still active', () => {
     const running = new Map([
       ['id-1', makeRunningEntry({ issueId: 'id-1', identifier: 'TEST-1' })],
     ]);
@@ -75,8 +75,8 @@ describe('reconcileRunningIssues', () => {
     const activeStates = ['todo', 'in progress'];
     const terminalStates = ['done', 'cancelled'];
 
-    const effects = reconcileRunningIssues(state, runningStates, activeStates, terminalStates);
-    expect(effects).toEqual([]);
+    const sideEffects = reconcileRunningIssues(state, runningStates, activeStates, terminalStates);
+    expect(sideEffects).toEqual([]);
   });
 
   it('should stop and clean workspace when running issue becomes terminal', () => {
@@ -88,18 +88,18 @@ describe('reconcileRunningIssues', () => {
     const activeStates = ['todo', 'in progress'];
     const terminalStates = ['done', 'cancelled'];
 
-    const effects = reconcileRunningIssues(state, runningStates, activeStates, terminalStates);
-    expect(effects).toContainEqual({
+    const sideEffects = reconcileRunningIssues(state, runningStates, activeStates, terminalStates);
+    expect(sideEffects).toContainEqual({
       type: 'stop',
       issueId: 'id-1',
       reason: 'terminal_state: done',
     });
-    expect(effects).toContainEqual({
+    expect(sideEffects).toContainEqual({
       type: 'cleanWorkspace',
       issueId: 'id-1',
       identifier: 'TEST-1',
     });
-    expect(effects).toContainEqual({ type: 'releaseClaim', issueId: 'id-1' });
+    expect(sideEffects).toContainEqual({ type: 'releaseClaim', issueId: 'id-1' });
   });
 
   it('should stop without cleaning workspace when running issue is neither active nor terminal', () => {
@@ -111,14 +111,14 @@ describe('reconcileRunningIssues', () => {
     const activeStates = ['todo', 'in progress'];
     const terminalStates = ['done', 'cancelled'];
 
-    const effects = reconcileRunningIssues(state, runningStates, activeStates, terminalStates);
-    expect(effects).toContainEqual({
+    const sideEffects = reconcileRunningIssues(state, runningStates, activeStates, terminalStates);
+    expect(sideEffects).toContainEqual({
       type: 'stop',
       issueId: 'id-1',
       reason: 'non_active_state: backlog',
     });
-    expect(effects).toContainEqual({ type: 'releaseClaim', issueId: 'id-1' });
-    expect(effects.find((e) => e.type === 'cleanWorkspace')).toBeUndefined();
+    expect(sideEffects).toContainEqual({ type: 'releaseClaim', issueId: 'id-1' });
+    expect(sideEffects.find((e) => e.type === 'cleanWorkspace')).toBeUndefined();
   });
 
   it('should handle multiple running issues with mixed states', () => {
@@ -136,11 +136,11 @@ describe('reconcileRunningIssues', () => {
     const activeStates = ['todo', 'in progress'];
     const terminalStates = ['done', 'cancelled'];
 
-    const effects = reconcileRunningIssues(state, runningStates, activeStates, terminalStates);
+    const sideEffects = reconcileRunningIssues(state, runningStates, activeStates, terminalStates);
     // id-1: terminal -> stop + clean + release
-    expect(effects.filter((e) => e.type === 'stop')).toHaveLength(2);
-    expect(effects.filter((e) => e.type === 'cleanWorkspace')).toHaveLength(1);
-    expect(effects.filter((e) => e.type === 'releaseClaim')).toHaveLength(2);
+    expect(sideEffects.filter((e) => e.type === 'stop')).toHaveLength(2);
+    expect(sideEffects.filter((e) => e.type === 'cleanWorkspace')).toHaveLength(1);
+    expect(sideEffects.filter((e) => e.type === 'releaseClaim')).toHaveLength(2);
   });
 
   it('should skip issues not present in runningStates (state refresh failed for them)', () => {
@@ -154,9 +154,11 @@ describe('reconcileRunningIssues', () => {
     const activeStates = ['todo', 'in progress'];
     const terminalStates = ['done', 'cancelled'];
 
-    const effects = reconcileRunningIssues(state, runningStates, activeStates, terminalStates);
-    // Only id-1 should have effects
-    expect(effects.filter((e) => 'issueId' in e && e.issueId === 'id-2')).toHaveLength(0);
-    expect(effects.filter((e) => 'issueId' in e && e.issueId === 'id-1').length).toBeGreaterThan(0);
+    const sideEffects = reconcileRunningIssues(state, runningStates, activeStates, terminalStates);
+    // Only id-1 should have side-effect entries
+    expect(sideEffects.filter((e) => 'issueId' in e && e.issueId === 'id-2')).toHaveLength(0);
+    expect(
+      sideEffects.filter((e) => 'issueId' in e && e.issueId === 'id-1').length
+    ).toBeGreaterThan(0);
   });
 });
