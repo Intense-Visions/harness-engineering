@@ -1,7 +1,7 @@
 {
   "version": 1,
-  "updatedAt": "2026-09-08T13:03:24.564Z",
-  "updatedFrom": "6f29295",
+  "updatedAt": "2026-09-08T13:04:37.273Z",
+  "updatedFrom": "b8129e0",
   "metrics": {
     "circular-deps": {
       "value": 0,
