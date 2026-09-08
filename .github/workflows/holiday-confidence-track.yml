@@ -190,6 +190,11 @@ jobs:
           # 2) Direct push is blocked by branch protection (GH013 "changes must be
           #    made through a pull request"). Open a scope-guarded PR instead.
           echo "Direct push unavailable; opening a PR for the trend ledger."
+          # The loop can exit mid-rebase if the final attempt hit a content
+          # conflict, and `git checkout -B` refuses to run in that state. Land back
+          # on our own commit with a clean tree before branching.
+          git rebase --abort 2>/dev/null || true
+          git reset --hard "$OURS" >/dev/null
           git fetch origin "$BASE" -q
           BRANCH="chore/holiday-confidence-$(date -u +%Y%m%d)-$(date +%s)"
           git checkout -B "$BRANCH" "origin/$BASE"

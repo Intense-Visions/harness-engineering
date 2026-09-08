@@ -137,7 +137,9 @@ shape from `ci.yml` (~L326-360, ~L473-496), `release.yml` (~L141-165) and `roadm
 (~L181-203):
 
 1. three direct-push attempts, each preceded by `git rebase --abort || true` + `git reset --hard "$OURS"`
-   so a failed rebase can never leave the tree dirty for the next attempt;
+   so a failed rebase can never leave the tree dirty for the next attempt (the same pair repeats once
+   after the loop, since a final-attempt conflict would otherwise leave the repo mid-rebase and
+   `git checkout -B` refuses to run in that state — a gap the three precedents share);
 2. on exhaustion, branch from the live tip of the default branch, re-apply only the ledger, push the
    branch, `gh pr create`;
 3. scope-guard the diff with the existing `scripts/assert-diff-scope.mjs` and self-approve +
