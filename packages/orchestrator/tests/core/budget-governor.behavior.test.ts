@@ -6,7 +6,7 @@ import {
   canAffordDispatch,
   getBudgetStatus,
   fleetKeyForIssue,
-  periodLengthMs,
+  resolvePeriodLengthMs,
   rollBudgetPeriod,
 } from '../../src/core/budget-governor';
 
@@ -76,7 +76,7 @@ describe('budget-governor: period roll', () => {
     s = recordBudgetSpend(s, dayBudget, null, 1000, T0);
     expect(canAffordDispatch(s, dayBudget, null, T0)).toBe(false);
 
-    const afterWindow = T0 + periodLengthMs('day');
+    const afterWindow = T0 + resolvePeriodLengthMs('day');
     // Read path reports the elapsed window as fully remaining...
     expect(canAffordDispatch(s, dayBudget, null, afterWindow)).toBe(true);
     // ...and the next spend rolls into a fresh window.
@@ -91,7 +91,7 @@ describe('budget-governor: period roll', () => {
   });
 
   it('week period uses a 7-day window', () => {
-    expect(periodLengthMs('week')).toBe(7 * periodLengthMs('day'));
+    expect(resolvePeriodLengthMs('week')).toBe(7 * resolvePeriodLengthMs('day'));
   });
 });
 
@@ -159,7 +159,7 @@ describe('budget-governor: remaining-budget signal', () => {
     expect(status.spentTokens).toBe(250);
     expect(status.remainingTokens).toBe(9_750);
     expect(status.exhausted).toBe(false);
-    expect(status.periodEndMs - status.periodStartMs).toBe(periodLengthMs('week'));
+    expect(status.periodEndMs - status.periodStartMs).toBe(resolvePeriodLengthMs('week'));
 
     const roadmap = status.perFleet.find((f) => f.fleet === 'roadmap');
     expect(roadmap).toMatchObject({
@@ -174,7 +174,7 @@ describe('budget-governor: remaining-budget signal', () => {
     const cfg: AgentBudgetConfig = { period: 'day', envelopeTokens: 1000 };
     let s = createBudgetState(T0);
     s = recordBudgetSpend(s, cfg, null, 1000, T0);
-    const after = T0 + periodLengthMs('day') + 1;
+    const after = T0 + resolvePeriodLengthMs('day') + 1;
     const status = getBudgetStatus(s, cfg, after);
     expect(status.spentTokens).toBe(0);
     expect(status.remainingTokens).toBe(1000);

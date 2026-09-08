@@ -33,9 +33,12 @@ const WEEK_MS = 7 * DAY_MS;
 const DEFAULT_FLEET_LABEL_PREFIX = 'fleet:';
 
 /** Length of one accounting window, in ms. */
-export function periodLengthMs(period: AgentBudgetConfig['period']): number {
+export function resolvePeriodLengthMs(period: AgentBudgetConfig['period']): number {
   return period === 'week' ? WEEK_MS : DAY_MS;
 }
+
+/** @deprecated Use `resolvePeriodLengthMs` instead. */
+export const periodLengthMs = resolvePeriodLengthMs;
 
 /**
  * Mutable per-period spend accumulator. Anchored at the first spend of a window;
@@ -70,7 +73,7 @@ function windowElapsed(
   period: AgentBudgetConfig['period'],
   nowMs: number
 ): boolean {
-  return nowMs - state.periodStartMs >= periodLengthMs(period);
+  return nowMs - state.periodStartMs >= resolvePeriodLengthMs(period);
 }
 
 /**
@@ -236,7 +239,7 @@ export function getBudgetStatus(
   return {
     period: config.period,
     periodStartMs,
-    periodEndMs: periodStartMs + periodLengthMs(config.period),
+    periodEndMs: periodStartMs + resolvePeriodLengthMs(config.period),
     envelopeTokens: config.envelopeTokens,
     spentTokens,
     remainingTokens: Math.max(config.envelopeTokens - spentTokens, 0),

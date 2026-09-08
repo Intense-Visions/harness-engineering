@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'packages/orchestrator/tests/core'
-sourceHash: '1cf1f4d390c3d7d7c6b4972e74182c8e4495e68c85858a995839003d8bde0356'
+sourceHash: 'ca0ffd94d6858b365ab18587bdc97c74d7d75ca8815e98405674fa8de6fc54a1'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
@@ -56,7 +56,7 @@ members:
 import { MockBackend } from '../../src/agent/backends/mock'
 import { AnalysisArchive, AnalysisRecord } from '../../src/core/analysis-archive'
 import { renderAnalysisComment } from '../../src/core/analysis-comment'
-import { canAffordDispatch, createBudgetState, fleetKeyForIssue, getBudgetStatus, periodLengthMs, recordBudgetSpend, rollBudgetPeriod } from '../../src/core/budget-governor'
+import { canAffordDispatch, createBudgetState, fleetKeyForIssue, getBudgetStatus, recordBudgetSpend, resolvePeriodLengthMs, rollBudgetPeriod } from '../../src/core/budget-governor'
 import { isEligible, selectCandidates, sortCandidates } from '../../src/core/candidate-selection'
 import { ClaimManager } from '../../src/core/claim-manager'
 import { canDispatch, getAvailableSlots, getPerStateCount } from '../../src/core/concurrency'
