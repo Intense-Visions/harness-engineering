@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'packages/orchestrator/tests/core'
-sourceHash: 'e7633c2a3253f046b9ceabe2830f9125e3ee798b79a34821d44d45843c8d9c47'
+sourceHash: '1cf1f4d390c3d7d7c6b4972e74182c8e4495e68c85858a995839003d8bde0356'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
@@ -69,7 +69,7 @@ import from '../../src/core/orchestrator-identity'
 import { loadPublishedIndex, savePublishedIndex } from '../../src/core/published-index'
 import { computeRateLimitDelay } from '../../src/core/rate-limiter'
 import { reconcile } from '../../src/core/reconciliation'
-import { calculateRetryDelay } from '../../src/core/retry'
+import { calculateRetryDelayMs } from '../../src/core/retry'
 import { detectStalledIssues } from '../../src/core/stall-detector'
 import { createEmptyState } from '../../src/core/state-helpers'
 import { applyEvent } from '../../src/core/state-machine'
