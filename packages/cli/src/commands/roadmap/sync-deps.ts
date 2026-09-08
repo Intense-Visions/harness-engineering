@@ -7,6 +7,8 @@ import {
   diagnoseTrackerSyncConfig,
   explainTrackerSyncConfig,
   GitHubIssuesSyncAdapter,
+  PnyonSyncAdapter,
+  PnyonTrackerAdapter,
 } from '@harness-engineering/core';
 import type { Result, TrackerSyncConfig, TrackerSyncAdapter } from '@harness-engineering/core';
 import { CLIError, ExitCode } from '../../utils/errors';
@@ -49,7 +51,10 @@ export function resolveConfig(
       )
     );
   }
-  if (!config.repo) {
+  // `repo` is a GitHub concept. Demanding it of every kind would reject a
+  // perfectly good Waypoint config for missing a field that has no meaning
+  // there — and the config union does not even carry one.
+  if (config.kind === 'github' && !config.repo) {
     return Err(
       new CLIError(
         'Tracker configured without `roadmap.tracker.repo` ("owner/repo"); cannot sync',
@@ -60,7 +65,28 @@ export function resolveConfig(
   return Ok(config);
 }
 
-/** Resolve the tracker adapter, building a GitHub adapter from config + token if not injected. */
+/**
+ * Load `.env` from the project root so a token stored there is visible.
+ *
+ * Named after what it does rather than after GitHub: both kinds keep their
+ * credential the same way, and the previous version's `GITHUB_TOKEN`-shaped
+ * guard would have skipped the load for a Waypoint sync whose token lives in
+ * exactly the same file.
+ */
+async function loadProjectEnv(cwd: string, tokenVar: string): Promise<void> {
+  const envPath = path.join(cwd, '.env');
+  if (!fs.existsSync(envPath) || process.env[tokenVar]) return;
+  const { config: loadDotenv } = await import('dotenv');
+  loadDotenv({ path: envPath });
+}
+
+/**
+ * Resolve the tracker adapter for the configured kind, if not injected.
+ *
+ * The dispatch is exhaustive over the config union rather than defaulting to
+ * GitHub: a kind that reaches here without a branch should fail to compile, not
+ * quietly sync a Waypoint roadmap through the GitHub adapter.
+ */
 export async function resolveAdapter(
   opts: SyncDepsOptions,
   cwd: string,
@@ -68,14 +94,26 @@ export async function resolveAdapter(
 ): Promise<Result<TrackerSyncAdapter, CLIError>> {
   if (opts.adapter) return Ok(opts.adapter);
 
-  // Load .env from the project root if GITHUB_TOKEN is not already present
-  // (mirrors `roadmap reconcile`).
-  const envPath = path.join(cwd, '.env');
-  if (fs.existsSync(envPath) && !process.env.GITHUB_TOKEN) {
-    const { config: loadDotenv } = await import('dotenv');
-    loadDotenv({ path: envPath });
+  if (config.kind === 'pnyon') {
+    await loadProjectEnv(cwd, 'PNYON_TOKEN');
+    const token = config.token ?? process.env.PNYON_TOKEN;
+    if (!token) {
+      return Err(
+        new CLIError(
+          'No Waypoint token found; set `roadmap.tracker.token` or PNYON_TOKEN to sync',
+          ExitCode.ERROR
+        )
+      );
+    }
+    return Ok(
+      new PnyonSyncAdapter({
+        client: new PnyonTrackerAdapter({ url: config.url, token }),
+        apiBaseUrl: config.url,
+      })
+    );
   }
 
+  await loadProjectEnv(cwd, 'GITHUB_TOKEN');
   const token = process.env.GITHUB_TOKEN;
   if (!token) {
     return Err(

@@ -62,20 +62,59 @@ describe('diagnoseTrackerSyncConfig', () => {
   /**
    * The bug in #1863. A well-formed block naming an unsupported kind is NOT a
    * missing block, and must not be reported as one.
+   *
+   * `pnyon` was the original example and is now SUPPORTED, so this uses a kind
+   * that genuinely is not — the assertion is about the shape of the refusal,
+   * not about which kinds happen to be accepted today.
    */
   it('names an unsupported kind rather than claiming the block is absent', () => {
-    writeConfig({ ...GITHUB_TRACKER, kind: 'pnyon', url: 'https://waypoint.example' });
+    writeConfig({ ...GITHUB_TRACKER, kind: 'jira' });
 
     const diagnosis = diagnoseTrackerSyncConfig(root);
-    expect(diagnosis).toEqual({ problem: 'unsupported-kind', kind: 'pnyon' });
+    expect(diagnosis).toEqual({ problem: 'unsupported-kind', kind: 'jira' });
 
     const message = explainTrackerSyncConfig(diagnosis);
-    expect(message).toContain('pnyon');
+    expect(message).toContain('jira');
     expect(message).toContain('The block IS present');
     // The reader is told what they COULD use, so the next step is in the message.
     for (const kind of SYNC_SUPPORTED_TRACKER_KINDS) expect(message).toContain(kind);
     // And it must never claim the block is missing.
     expect(message).not.toContain('has no `roadmap.tracker` block');
+  });
+
+  /**
+   * Waypoint carries roadmap statuses natively, so the adopter supplies no
+   * status map and the loader derives the identity one. The sync ENGINE reads
+   * `config.statusMap` directly, so "no map" has to mean "a map nobody writes"
+   * rather than "no map at all".
+   */
+  it('derives an identity status map for a pnyon tracker', () => {
+    writeConfig({ kind: 'pnyon', url: 'https://waypoint.example' });
+
+    expect(diagnoseTrackerSyncConfig(root)).toEqual({ problem: 'none' });
+    const config = loadTrackerSyncConfig(root);
+    expect(config).not.toBeNull();
+    expect(config?.kind).toBe('pnyon');
+    for (const status of ['backlog', 'planned', 'in-progress', 'done', 'blocked']) {
+      expect(config?.statusMap[status as keyof typeof config.statusMap]).toBe(status);
+    }
+  });
+
+  it('requires a url for a pnyon tracker', () => {
+    writeConfig({ kind: 'pnyon' });
+    expect(diagnoseTrackerSyncConfig(root)).toEqual({ problem: 'missing-url' });
+    expect(explainTrackerSyncConfig(diagnoseTrackerSyncConfig(root))).toContain('url');
+  });
+
+  // A copied GitHub template under a pnyon kind is rejected, not half-applied:
+  // a silently dropped statusMap would look like it had been honoured.
+  it('rejects GitHub-only keys under a pnyon tracker rather than ignoring them', () => {
+    writeConfig({ kind: 'pnyon', url: 'https://waypoint.example', repo: 'o/r' });
+
+    const diagnosis = diagnoseTrackerSyncConfig(root);
+    expect(diagnosis).toEqual({ problem: 'github-only-keys', keys: ['repo'] });
+    expect(explainTrackerSyncConfig(diagnosis)).toContain('repo');
+    expect(loadTrackerSyncConfig(root)).toBeNull();
   });
 
   it('reports a malformed statusMap distinctly from a bad kind', () => {
@@ -99,7 +138,12 @@ describe('diagnoseTrackerSyncConfig', () => {
   it('agrees with the loader for every diagnosis', () => {
     const cases: unknown[] = [
       GITHUB_TRACKER,
-      { ...GITHUB_TRACKER, kind: 'pnyon' },
+      // Supported kind, but carrying GitHub-only keys → still unusable.
+      { ...GITHUB_TRACKER, kind: 'pnyon', url: 'https://waypoint.example' },
+      // Supported and well-formed.
+      { kind: 'pnyon', url: 'https://waypoint.example' },
+      // Supported kind with no url → unusable.
+      { kind: 'pnyon' },
       { ...GITHUB_TRACKER, kind: 'linear' },
       { kind: 'github' },
     ];

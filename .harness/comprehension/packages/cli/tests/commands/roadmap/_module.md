@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'packages/cli/tests/commands/roadmap'
-sourceHash: '68603749c647d934fa054e78732abcbd48af7c25078c252849bb98c33a4a66e2'
+sourceHash: '8c2961a57fdc86a1f4927126b98c6dd4424f1d7c7a478ae28e061283eb70a859'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
@@ -18,6 +18,7 @@ members:
     'shard-io.test.ts',
     'shard-roundtrip.e2e.test.ts',
     'shard.test.ts',
+    'sync-deps-pnyon.test.ts',
     'sync-report.test.ts',
     'sync-wiring.test.ts',
     'sync.test.ts',
@@ -43,11 +44,12 @@ import { ALLOW_UNREADABLE_HISTORY_ENV, runRoadmapRegen } from '../../../src/comm
 import { runRoadmapShard } from '../../../src/commands/roadmap/shard'
 import { createNodeShardIO } from '../../../src/commands/roadmap/shard-io'
 import { buildSyncOptions, createRoadmapSyncCommand, runRoadmapSync } from '../../../src/commands/roadmap/sync'
+import { resolveAdapter, resolveConfig } from '../../../src/commands/roadmap/sync-deps'
 import { buildReport, logSyncReport } from '../../../src/commands/roadmap/sync-report'
 import { runRoadmapUnshard } from '../../../src/commands/roadmap/unshard'
 import { logger } from '../../../src/output/logger'
 import { ExitCode } from '../../../src/utils/errors'
-import { Err, ExternalTicket, ExternalTicketState, NewFeatureInput, Ok, Result, RoadmapFeature, RoadmapMeta, RoadmapTrackerClient, Shard, ShardStore, SyncResult, TrackedFeature, TrackerSyncAdapter, TrackerSyncConfig, parseRoadmap, regenerate, resolveRoadmapStore, serializeMeta, serializeShard } from '@harness-engineering/core'
+import { Err, ExternalTicket, ExternalTicketState, GitHubIssuesSyncAdapter, NewFeatureInput, Ok, PnyonSyncAdapter, Result, RoadmapFeature, RoadmapMeta, RoadmapTrackerClient, Shard, ShardStore, SyncResult, TrackedFeature, TrackerSyncAdapter, TrackerSyncConfig, parseRoadmap, regenerate, resolveRoadmapStore, serializeMeta, serializeShard } from '@harness-engineering/core'
 import { Command } from 'commander'
 import * as fs from 'node:fs'
 import * as os from 'node:os'

@@ -7,7 +7,7 @@
 > The brainstorming Iron Law is that no code precedes human approval, and EVALUATE is an
 > interactive one-question-at-a-time loop. This was drafted while the author was unavailable, so
 > that loop could not run. **D1 and D2 below are genuine forks I will not decide alone** — they
-> change what Waypoint *is*, not just how this adapter is written. Everything else carries a
+> change what Waypoint _is_, not just how this adapter is written. Everything else carries a
 > recommendation with the evidence behind it.
 
 ## Overview
@@ -25,10 +25,10 @@ This spec is the second half: making that refusal unnecessary.
 The gap is structural, not a missing branch. There are **two adapter families**, and #1816 built
 only the first:
 
-| interface | directory | consumers | pnyon impl |
-| --- | --- | --- | --- |
-| `RoadmapTrackerClient` | `roadmap/tracker/adapters/` | file-less roadmap seam | ✅ `pnyon.ts` |
-| `TrackerSyncAdapter` | `roadmap/adapters/` | `roadmap sync`, `reconcile` | ❌ github only |
+| interface              | directory                   | consumers                   | pnyon impl     |
+| ---------------------- | --------------------------- | --------------------------- | -------------- |
+| `RoadmapTrackerClient` | `roadmap/tracker/adapters/` | file-less roadmap seam      | ✅ `pnyon.ts`  |
+| `TrackerSyncAdapter`   | `roadmap/adapters/`         | `roadmap sync`, `reconcile` | ❌ github only |
 
 `TrackerSyncConfig.kind` is literally typed `'github'` ("narrowed to GitHub-only for now") and
 `sync-deps.ts` hardcodes `new GitHubIssuesSyncAdapter(...)` with no kind dispatch. So the
@@ -71,12 +71,12 @@ type HistoryEventType = 'created' | 'claimed' | 'released' | 'completed' | 'upda
 There is no `commented`. And `TrackerComment` demands `{ id, body, createdAt, author, updatedAt }`
 while an evidence entry carries `{ type, actor, at, details? }` — no id, no body.
 
-|  | A) Add `commented` to the vocabulary | B) Smuggle the body into `details` on `updated` | C) Refuse: comments unsupported |
-| --- | --- | --- | --- |
-| **Honesty** | A comment is a first-class fact | An `updated` event that is not an update | Truthful, and loudly limited |
-| **Cost** | Touches the ledger vocabulary + Waypoint | None | None |
-| **Effect on sync** | Full parity with GitHub | Full parity, dishonest history | Callers must tolerate refusal |
-| **Reversible** | Vocabulary additions are forever | Hard to unpick later | Easy to upgrade to A |
+|                    | A) Add `commented` to the vocabulary     | B) Smuggle the body into `details` on `updated` | C) Refuse: comments unsupported |
+| ------------------ | ---------------------------------------- | ----------------------------------------------- | ------------------------------- |
+| **Honesty**        | A comment is a first-class fact          | An `updated` event that is not an update        | Truthful, and loudly limited    |
+| **Cost**           | Touches the ledger vocabulary + Waypoint | None                                            | None                            |
+| **Effect on sync** | Full parity with GitHub                  | Full parity, dishonest history                  | Callers must tolerate refusal   |
+| **Reversible**     | Vocabulary additions are forever         | Hard to unpick later                            | Easy to upgrade to A            |
 
 **Recommendation: A, and I would not ship B.** B pollutes an evidence ledger whose entire value
 proposition is that every entry means what it says — a `verify.graded` consumer counting
@@ -90,17 +90,17 @@ worth doing once, deliberately.
 ### D2 — May `roadmap sync` CREATE items in the ledger? **(fork — needs your call)**
 
 `createTicket` has 2 live call sites, and `PnyonTrackerAdapter.create` already exists, so this is
-mechanically trivial. The question is whether it *should*.
+mechanically trivial. The question is whether it _should_.
 
 Waypoint's stated premise is that the board is **computed from evidence, not typed**. A sync that
-creates items makes the roadmap file a *writer* to the evidence ledger — the roadmap becomes a
+creates items makes the roadmap file a _writer_ to the evidence ledger — the roadmap becomes a
 source of truth about work that has not happened yet, alongside the events that record what did.
 
-|  | A) Allow create | B) Pull-only: refuse create |
-| --- | --- | --- |
-| **Parity** | Same as GitHub sync | Weaker; roadmap rows never reach the tracker |
-| **Premise** | Roadmap writes into the evidence ledger | Ledger stays evidence-only |
-| **Risk** | A roadmap typo becomes a ledger fact | Adopters must create items elsewhere |
+|             | A) Allow create                         | B) Pull-only: refuse create                  |
+| ----------- | --------------------------------------- | -------------------------------------------- |
+| **Parity**  | Same as GitHub sync                     | Weaker; roadmap rows never reach the tracker |
+| **Premise** | Roadmap writes into the evidence ledger | Ledger stays evidence-only                   |
+| **Risk**    | A roadmap typo becomes a ledger fact    | Adopters must create items elsewhere         |
 
 **Recommendation: A, with the create recorded as an intent rather than as evidence of work.**
 Waypoint already models `intent.created` as a legitimate origin — items enter from a roadmap
@@ -138,15 +138,15 @@ already does).
 `packages/core/src/roadmap/adapters/pnyon-sync.ts` — a `PnyonSyncAdapter` implementing
 `TrackerSyncAdapter` by delegating to `PnyonTrackerAdapter`:
 
-| `TrackerSyncAdapter` | delegates to | note |
-| --- | --- | --- |
-| `fetchAllTickets` | `fetchAll` | 4 call sites — the hot path |
-| `createTicket` | `create` | gated on D2 |
-| `updateTicket` | `update` | inherits the existing conflict handling |
-| `addComment` | `appendEvidence` | shape depends on D1 |
-| `fetchComments` | `listEvidence` | shape depends on D1 |
-| `fetchTicketState` | — | unsupported; zero call sites |
-| `assignTicket` | — | unsupported; zero call sites |
+| `TrackerSyncAdapter` | delegates to     | note                                    |
+| -------------------- | ---------------- | --------------------------------------- |
+| `fetchAllTickets`    | `fetchAll`       | 4 call sites — the hot path             |
+| `createTicket`       | `create`         | gated on D2                             |
+| `updateTicket`       | `update`         | inherits the existing conflict handling |
+| `addComment`         | `appendEvidence` | shape depends on D1                     |
+| `fetchComments`      | `listEvidence`   | shape depends on D1                     |
+| `fetchTicketState`   | —                | unsupported; zero call sites            |
+| `assignTicket`       | —                | unsupported; zero call sites            |
 
 Conflict semantics come free: `PnyonTrackerAdapter.command` already resolves an expected version,
 detects `version_conflict`, refetches, and returns either an idempotent success or a

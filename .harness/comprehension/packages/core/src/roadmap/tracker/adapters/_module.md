@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'packages/core/src/roadmap/tracker/adapters'
-sourceHash: 'a3964daafddff8476ecf8e321503e6abba20aebae9d83ef4cc5c946861247d21'
+sourceHash: '328acb0e1525bb9d5403179a4681ae99566554c50b20b338a949ba31978b7700'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
@@ -30,6 +30,7 @@ export WaypointHttpError
 export buildExternalId
 export githubRepoPath
 export parseExternalId
+export waypointItemUrl
 ```
 
 ## Dependency Slice

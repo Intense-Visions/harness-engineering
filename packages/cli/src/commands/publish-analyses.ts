@@ -8,6 +8,7 @@ import {
   loadTrackerClientConfigFromProject,
   createTrackerClient,
 } from '@harness-engineering/core';
+import type { GitHubTrackerSyncConfig } from '@harness-engineering/types';
 import {
   renderAnalysisComment,
   loadPublishedIndex,
@@ -18,7 +19,10 @@ import type { AnalysisRecord } from '@harness-engineering/orchestrator';
 interface BootstrapResult {
   token: string;
   projectPath: string;
-  trackerConfig: ReturnType<typeof loadTrackerSyncConfig> & object;
+  // `bootstrapTrackerCommand` rejects every other kind, so this states what the
+  // guard already guarantees. The old `ReturnType<…> & object` widened it back
+  // to the whole union and threw the narrowing away.
+  trackerConfig: GitHubTrackerSyncConfig;
 }
 
 function bootstrapTrackerCommand(opts: { dir: string }, verb: string): BootstrapResult | null {

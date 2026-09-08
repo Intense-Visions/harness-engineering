@@ -288,6 +288,9 @@ export class IntelligencePipelineRunner {
   ): Promise<void> {
     const trackerConfig = loadTrackerSyncConfig(this.ctx.projectRoot);
     if (!trackerConfig) return;
+    // Auto-publish targets GitHub issues specifically; a Waypoint roadmap is
+    // published through `roadmap sync` instead.
+    if (trackerConfig.kind !== 'github') return;
 
     const token = process.env.GITHUB_TOKEN;
     if (!token) return;

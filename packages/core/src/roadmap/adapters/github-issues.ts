@@ -3,7 +3,7 @@ import type {
   Result,
   ExternalTicket,
   ExternalTicketState,
-  TrackerSyncConfig,
+  GitHubTrackerSyncConfig,
   TrackerComment,
 } from '@harness-engineering/types';
 import { Ok, Err } from '@harness-engineering/types';
@@ -20,7 +20,7 @@ export { parseExternalId, buildExternalId, githubRepoPath } from '../external-id
  * Returns the configured labels plus a status-specific label if the
  * status maps to "open" (to disambiguate open statuses).
  */
-function labelsForStatus(status: string, config: TrackerSyncConfig): string[] {
+function labelsForStatus(status: string, config: GitHubTrackerSyncConfig): string[] {
   const base = config.labels ?? [];
   const externalStatus = config.statusMap[status as keyof typeof config.statusMap];
   if (externalStatus === 'open' && status !== 'backlog') {
@@ -99,7 +99,7 @@ export interface GitHubAdapterOptions {
   /** GitHub API token */
   token: string;
   /** Tracker sync config */
-  config: TrackerSyncConfig;
+  config: GitHubTrackerSyncConfig;
   /** Override fetch for testing */
   fetchFn?: typeof fetch;
   /** Override API base URL (for GitHub Enterprise) */
@@ -112,7 +112,7 @@ export interface GitHubAdapterOptions {
 
 export class GitHubIssuesSyncAdapter implements TrackerSyncAdapter {
   private readonly token: string;
-  private readonly config: TrackerSyncConfig;
+  private readonly config: GitHubTrackerSyncConfig;
   private readonly fetchFn: typeof fetch;
   private readonly apiBase: string;
   private readonly owner: string;
