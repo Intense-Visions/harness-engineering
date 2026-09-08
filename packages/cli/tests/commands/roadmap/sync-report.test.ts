@@ -85,3 +85,65 @@ describe('logSyncReport() — suppressed inbound writes', () => {
     expect(warn).not.toHaveBeenCalled();
   });
 });
+
+/**
+ * A withheld create must say WHY it was withheld.
+ *
+ * `--apply` is opt-in, so the DEFAULT run is a dry run and withholds every
+ * create. The report used to blame all of them on `--no-create`, sending the
+ * reader hunting for a flag they never passed — the same "the message lied
+ * about why" failure as #1863, one layer up.
+ */
+describe('logSyncReport() — why a create was withheld', () => {
+  const skipped = (feature: string, reason: 'dry-run' | 'create-disabled') => ({
+    feature,
+    milestone: 'Intake',
+    reason,
+  });
+
+  it('attributes a dry-run skip to the dry run, not to --no-create', () => {
+    const warn = vi.spyOn(logger, 'warn').mockImplementation(() => {});
+
+    logSyncReport(
+      buildReport(syncResult({ dryRun: true, skippedCreates: [skipped('Alpha', 'dry-run')] }), {})
+    );
+
+    const line = warn.mock.calls.map((c) => String(c[0])).find((m) => m.includes('create(s)'));
+    expect(line).toBeDefined();
+    expect(line).not.toContain('--no-create');
+    expect(line).toContain('--apply');
+    expect(line).toContain('Alpha');
+  });
+
+  it('still names --no-create when that is genuinely the reason', () => {
+    const warn = vi.spyOn(logger, 'warn').mockImplementation(() => {});
+
+    logSyncReport(
+      buildReport(syncResult({ skippedCreates: [skipped('Beta', 'create-disabled')] }), {})
+    );
+
+    const line = warn.mock.calls.map((c) => String(c[0])).find((m) => m.includes('create(s)'));
+    expect(line).toContain('--no-create');
+    expect(line).toContain('Beta');
+  });
+
+  it('reports each reason separately when both occur', () => {
+    const warn = vi.spyOn(logger, 'warn').mockImplementation(() => {});
+
+    logSyncReport(
+      buildReport(
+        syncResult({
+          dryRun: true,
+          skippedCreates: [skipped('Alpha', 'dry-run'), skipped('Beta', 'create-disabled')],
+        }),
+        {}
+      )
+    );
+
+    const lines = warn.mock.calls.map((c) => String(c[0])).filter((m) => m.includes('create(s)'));
+    // Two causes must not be merged under one heading, or one of them is a lie.
+    expect(lines).toHaveLength(2);
+    expect(lines.find((l) => l.includes('Alpha'))).toContain('--apply');
+    expect(lines.find((l) => l.includes('Beta'))).toContain('--no-create');
+  });
+});
