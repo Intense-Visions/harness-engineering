@@ -1,0 +1,32 @@
+{
+  "issue": [2050],
+  "route": "bug",
+  "stages": ["debugging"],
+  "reproducingTest": "packages/cli/tests/ci/init.test.ts",
+  "reproducingTestSuite": "generateCIConfig — trunk concurrency (#2050)",
+  "reproducingTestEvidence": {
+    "protocol": "git stash push -- packages/cli/src/commands/ci/init.ts, run, restore, run",
+    "beforeFix": "3 failed | 17 skipped (20)",
+    "afterFix": "3 passed | 17 skipped (20)"
+  },
+  "rootCause": "generateGitHubActions() in packages/cli/src/commands/ci/init.ts emitted a static concurrency block keyed on `github.ref` with a literal `cancel-in-progress: true`. The template triggers on both push-to-main and pull_request; on a push `github.ref` is `refs/heads/main` for every commit, so all trunk pushes shared one concurrency group and each merge cancelled the previous commit's still-running verification. The run concluded `cancelled`, not `failure`, so nothing alarmed and the adopter's board read green while the commit went unverified.",
+  "fix": "Mirror the event-split shape already landed for this repo's hand-written workflows (#1865) and the persona generator (#1867 / PR #2049): group `harness-${{ github.event_name == 'pull_request' && github.ref || github.sha }}` and `cancel-in-progress: ${{ github.event_name == 'pull_request' }}`. Push resolves to a per-commit group that is never cancelled; pull_request keeps per-ref supersession. Carried over the explanatory comment block so the three emitters agree.",
+  "blastRadius": "generateCIConfig has two production callers — `harness ci init` (packages/cli/src/commands/ci/init.ts) and the project scaffold `harness init` (packages/cli/src/commands/init.ts:163). Both emitted the defective file, so every scaffolded adopter project inherited it, not only explicit `ci init` users. One emitter fix covers both.",
+  "otherEmittersChecked": {
+    "method": "grep -rn cancel-in-progress packages/ --include=*.ts --include=*.mjs --include=*.js --include=*.yml --include=*.yaml --include=*.hbs --include=*.json",
+    "result": "Only two non-test emitters exist: packages/cli/src/commands/ci/init.ts (this fix) and packages/cli/src/persona/generators/ci-workflow.ts (already fixed by #1867). Test occurrences at packages/cli/tests/ci/roadmap-auto-done-workflow.test.ts:115 and packages/cli/tests/rollback/workflow-yaml.test.ts:69 already assert false. The gitlab template emits `rules:` and never sets `interruptible` (GitLab defaults to non-interruptible); the generic template is a bash script with no concurrency concept. No other adopter-facing template is defective — satisfies the issue's final checklist item.",
+    "verifiedAt": "738b296c0a50cb9890474124d466f38903e468e2"
+  },
+  "assumptions": [
+    "GitHub Actions evaluates `concurrency.cancel-in-progress` as an expression when given `${{ }}`. Officially supported, and already proven on real runners by the landed #1865 and #1867 changes.",
+    "The existing adopter group prefix `harness-` is retained rather than switching to `${{ github.workflow }}-` (which the persona generator uses). Changing the prefix is a behaviour change beyond this defect and would churn adopter files for no correctness gain.",
+    "Adopter trunk runner spend rises with merge-burst size, because every trunk commit now runs to completion instead of being cancelled. This increase IS the fix, not a regression; PR runner spend is unchanged.",
+    "Deferred, not acted on: the gitlab template could opt into `interruptible: true` for merge requests as a spend optimisation. Out of scope — not a correctness defect and not what #2050 asks for."
+  ],
+  "verification": {
+    "manualEndToEnd": "Built CLI run in a clean temp dir: `node packages/cli/dist/bin/harness.js ci init --platform github --language typescript` emits the corrected concurrency block with `${{ }}` unescaped correctly and single quotes intact.",
+    "languageVariants": "All five language variants (typescript, python, go, rust, java) carry the fix — asserted by a dedicated test, since the concurrency block lives in the shared template rather than the per-language step mapping."
+  },
+  "closingKeyword": "Closes #2050",
+  "baseSha": "738b296c0a50cb9890474124d466f38903e468e2"
+}
