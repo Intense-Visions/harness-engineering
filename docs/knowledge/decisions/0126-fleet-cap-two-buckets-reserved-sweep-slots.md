@@ -47,7 +47,7 @@ Seven sweeps contend for **zero** remaining slots. This is pre-existing rather t
 
 This distinction is load-bearing for the decision and is easy to miss:
 
-- **`--slots`** is the bound on **peak concurrent machine load** — "global cap on concurrent per-item subagents across **every** fleet in flight (default 3, hard max 4), with no single fleet ever allocated more than 2 of that pool" [`SKILL.md:36`].
+- **`--slots`** is the bound on **peak concurrent machine load** — "global cap on concurrent per-item subagents across **every** fleet in flight (default 3, hard max 4), with no single fleet ever allocated more than 2 of that pool" [`SKILL.md:37`].
 - **`--max-fleets`** is a bound on **how many fleets one run schedules** [`SKILL.md:38`] — that is, on run length and on the size of the human's batched review round. It is not a concurrency bound.
 
 Peak authorized load is governed entirely by `--slots`, regardless of how many fleets are scheduled. Scheduling more fleets lengthens a run; it does not deepen its instantaneous load.
@@ -95,7 +95,7 @@ The reserve is **a count of fleets (2)**, not a fraction of the cap.
 
 A fraction is rejected because it makes the guarantee move when the operator tunes the cap — the reserve would silently change size, and rounding at non-integer values reintroduces exactly the arbitrary choice the fraction was meant to avoid. A count is legible: "2 sweep slots" is a promise the operator can read directly off the run plan.
 
-**The default of 2 is derived from the concurrency budget rather than chosen.** `--slots` defaults to 3 with a per-fleet sub-cap of 2 [`SKILL.md:36`], so at the default budget **at most 2 lanes are genuinely in fan-out at once** (one lane at 2 slots and one at 1). Reserving more sweep slots than the governor can keep concurrently in flight would not buy the run any throughput — it would only lengthen wave 2. Reserving fewer than 1 would make the guarantee vacuous. **2 is the number of sweep lanes the global governor can actually run at the same time**, which is what distinguishes this from the rejected alternative of raising a single opaque cap by an arbitrary amount.
+**The default of 2 is derived from the concurrency budget rather than chosen.** `--slots` defaults to 3 with a per-fleet sub-cap of 2 [`SKILL.md:37`], so at the default budget **at most 2 lanes are genuinely in fan-out at once** (one lane at 2 slots and one at 1). Reserving more sweep slots than the governor can keep concurrently in flight would not buy the run any throughput — it would only lengthen wave 2. Reserving fewer than 1 would make the guarantee vacuous. **2 is the number of sweep lanes the global governor can actually run at the same time**, which is what distinguishes this from the rejected alternative of raising a single opaque cap by an arbitrary amount.
 
 ### D3 — The never-shed pair sits outside the cap: an accounting fix, not a widening
 
