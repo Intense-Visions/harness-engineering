@@ -205,12 +205,33 @@ function resolveShipTarget(
  * is exactly the set of operations that must not gain a new failure mode. This
  * is observable, scriptable, and cron-able, and can be run from CI.
  */
+/**
+ * The optional `shipSpool` inputs a `ship` invocation carries, spread in only when actually set —
+ * `exactOptionalPropertyTypes` makes an explicit `undefined` a type error, not a no-op.
+ */
+function shipFlagsFrom(opts: { dryRun?: boolean; limit?: number; skipContractCheck?: boolean }): {
+  dryRun?: true;
+  limit?: number;
+  skipContractCheck?: true;
+} {
+  return {
+    ...(opts.dryRun === true ? { dryRun: true as const } : {}),
+    ...(typeof opts.limit === 'number' && !Number.isNaN(opts.limit) ? { limit: opts.limit } : {}),
+    ...(opts.skipContractCheck === true ? { skipContractCheck: true as const } : {}),
+  };
+}
+
 function registerShip(waypoint: Command): void {
   waypoint
     .command('ship')
     .description('Send spooled sdlc.* events to the configured Waypoint ledger')
     .option('--dry-run', 'Report what would ship without sending anything')
     .option('--limit <n>', 'Cap the number of events sent this run', (v) => Number.parseInt(v, 10))
+    .option(
+      '--skip-contract-check',
+      'Ship without checking events against the published sdlc.* contract first ' +
+        '(use when the vendored copy is older than the live ledger)'
+    )
     .action(async (opts, cmd) => {
       const globalOpts = cmd.optsWithGlobals();
       const json = globalOpts.json === true;
@@ -229,10 +250,7 @@ function registerShip(waypoint: Command): void {
           config: ship,
           token,
           fetchFn: (url, init) => fetch(url, init),
-          ...(opts.dryRun === true ? { dryRun: true } : {}),
-          ...(typeof opts.limit === 'number' && !Number.isNaN(opts.limit)
-            ? { limit: opts.limit }
-            : {}),
+          ...shipFlagsFrom(opts),
           onRejected: (rejected) => {
             recordRejected(spoolDir, rejected, new Date().toISOString());
           },
@@ -262,7 +280,7 @@ function renderShipReport(
     shipped: number;
     accepted: number;
     duplicate: number;
-    rejected: readonly unknown[];
+    rejected: readonly { readonly contractViolations?: string }[];
     remaining: number;
   },
   url: string,
@@ -283,6 +301,19 @@ function renderShipReport(
       `${report.rejected.length} event(s) permanently refused and recorded in ` +
         `${path.join('.harness', 'spool', 'rejected.jsonl')} — review them.`
     );
+    // Separate the two verdicts. A local refusal points at harness's own emitter (or a stale
+    // vendored contract); a ledger refusal points at the server. Collapsing them would send the
+    // reader to the wrong codebase.
+    const local = report.rejected.filter((r) => r.contractViolations !== undefined);
+    if (local.length > 0) {
+      logger.warn(
+        `${local.length} of those never left this machine — they do not satisfy the published ` +
+          `sdlc.* contract. First: ${local[0]?.contractViolations}`
+      );
+      logger.info(
+        'If the ledger has moved ahead of the vendored contract, re-run with --skip-contract-check.'
+      );
+    }
   }
   if (report.remaining > 0) {
     logger.info(`${report.remaining} event(s) still queued; re-run to continue.`);

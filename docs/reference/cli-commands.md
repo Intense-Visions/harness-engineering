@@ -2103,6 +2103,7 @@ Send spooled sdlc.\* events to the configured Waypoint ledger
 
 - `--dry-run` — Report what would ship without sending anything
 - `--limit` — Cap the number of events sent this run
+- `--skip-contract-check` — Ship without checking events against the published sdlc.\* contract first (use when the vendored copy is older than the live ledger)
 
 ### `harness waypoint status`
 
