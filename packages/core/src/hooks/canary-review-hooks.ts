@@ -127,17 +127,36 @@ function bareSkillName(entry: string): string {
 }
 
 /**
+ * Every form a catalog is known to report a canary detector under, for the one
+ * availability shape we cannot enumerate.
+ *
+ * A Set or array is normalized by {@link bareSkillName}, so qualification depth
+ * is irrelevant there. A PREDICATE can only be probed, which makes this list the
+ * actual coverage: a form missing here answers false and the detector is silently
+ * skipped — the original 0/4 defect surviving in a single shape.
+ *
+ * The deep form is not hypothetical. A live Claude Code catalog reports
+ * `canary:skills:claude-code:canary-cassandra:canary-cassandra`, so a predicate
+ * backed by it matches neither the bare name nor the two-segment form.
+ */
+const CANARY_SKILL_PROBE_FORMS: readonly ((skill: string) => string)[] = [
+  (skill) => skill,
+  (skill) => `${CANARY_SKILL_PREFIX}${skill}`,
+  (skill) => `${CANARY_SKILL_PREFIX}skills:claude-code:${skill}:${skill}`,
+];
+
+/**
  * Normalize the three availability shapes into a single predicate.
  *
  * Matching is PREFIX-INSENSITIVE: a detector counts as installed when the catalog
- * reports it bare or under any plugin qualification. For the predicate shape we
- * cannot enumerate the catalog, so we probe the bare name and the canonical
- * `canary:`-qualified form.
+ * reports it bare or under any plugin qualification. An enumerable catalog is
+ * collapsed onto bare names; a predicate is probed with
+ * {@link CANARY_SKILL_PROBE_FORMS}.
  */
 function toAvailabilityPredicate(avail: SkillAvailability | undefined): (skill: string) => boolean {
   if (avail === undefined) return () => false;
   if (typeof avail === 'function') {
-    return (skill) => avail(skill) || avail(`${CANARY_SKILL_PREFIX}${skill}`);
+    return (skill) => CANARY_SKILL_PROBE_FORMS.some((form) => avail(form(skill)));
   }
   const set = avail instanceof Set ? avail : new Set(avail);
   const bare = new Set<string>();

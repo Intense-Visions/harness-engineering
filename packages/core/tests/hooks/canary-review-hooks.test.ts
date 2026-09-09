@@ -356,6 +356,32 @@ describe('plugin-qualified availability', () => {
     expect(plan.wired).toEqual([{ type: 'skill', skill: 'canary-katana', blocking: true }]);
   });
 
+  // The Set shape normalizes every entry down to the bare name, so depth is
+  // irrelevant there. A predicate cannot be enumerated, so the probe list IS the
+  // coverage — and a real Claude Code catalog reports the deep form (a live
+  // session lists `canary:skills:claude-code:canary-cassandra:canary-cassandra`).
+  // A predicate backed by that catalog answers false to both the bare and the
+  // two-segment probe, which is the original silent 0/4 surviving in the one
+  // shape the prefix fix did not reach.
+  it('accepts a predicate that only recognizes the DEEP plugin path', () => {
+    const plan = planCanaryReviewDetectors(
+      true,
+      'after:REVIEW',
+      (s) => s === 'canary:skills:claude-code:canary-katana:canary-katana'
+    );
+    expect(plan.wired).toEqual([{ type: 'skill', skill: 'canary-katana', blocking: true }]);
+    expect(plan.skipped).toEqual(['canary-savant', 'canary-blackhawk', 'canary-cassandra']);
+  });
+
+  it('wires all four from a deep-path-only predicate', () => {
+    const deep = new Set(CANARY_REVIEW_DETECTORS.map((d) => `canary:skills:claude-code:${d}:${d}`));
+    const plan = planCanaryReviewDetectors(true, 'after:REVIEW', (s) => deep.has(s));
+    expect(plan.skipped).toEqual([]);
+    expect(plan.wired.map((h) => h.type === 'skill' && h.skill)).toEqual([
+      ...CANARY_REVIEW_DETECTORS,
+    ]);
+  });
+
   it('dedups a project declaration written in the qualified form', () => {
     const config: SkillHooksConfigHolder = {
       skillHooks: {

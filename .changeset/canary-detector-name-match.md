@@ -23,3 +23,8 @@ canary 5.12.0 ships none of the four. Canary has shipped all four since 7.2.0, s
   or silently loses its opt-out.
 - The stale canary-version claims are removed from the module and the skill doc,
   and the doc test now asserts their absence rather than their presence.
+- An enumerable catalog is collapsed onto bare names, so depth cannot matter
+  there. A predicate cannot be enumerated, only probed, so it is probed with the
+  bare name, the `canary:`-qualified form, and the deep plugin path a real Claude
+  Code catalog reports (`canary:skills:claude-code:<skill>:<skill>`) — otherwise
+  a predicate-shaped caller kept the original silent `0/4`.
