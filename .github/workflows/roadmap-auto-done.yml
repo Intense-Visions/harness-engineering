@@ -154,6 +154,12 @@ jobs:
           HUSKY: '0'
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           AUTOAPPROVE_PAT: ${{ secrets.BASELINE_AUTOAPPROVE_PAT }}
+          # The closing refs, carried as DATA (never interpolated into the script) so
+          # the PR-fallback path can RE-DERIVE the flip on a fresh base instead of
+          # copying its own roadmap snapshot over one. Exactly one of the two is
+          # non-empty — the step's `if:` is the same disjunction.
+          CLOSING_REFS: ${{ steps.closing.outputs.refs }}
+          FALLBACK_REFS: ${{ steps.fallback.outputs.refs }}
         run: |
           if [ -z "$(git status --porcelain docs/roadmap.d docs/roadmap.md)" ]; then
             echo "Reconcile produced no roadmap changes (rows already done); nothing to commit."
@@ -189,26 +195,133 @@ jobs:
           # 2) Direct push is blocked (branch protection) or lost every race. Open a
           #    self-approved PR, mirroring the baseline-refresh job in ci.yml.
           echo "Direct push unavailable; opening a self-approved PR."
-          git fetch origin "$BASE" -q
           BRANCH="chore/auto-done-pr${{ github.event.pull_request.number }}-$(date +%s)"
-          git checkout -B "$BRANCH" "origin/$BASE"
-          # Re-apply just the roadmap flips on top of the latest base.
-          git checkout "$OURS" -- $ROADMAP_PATHS
-          git add $ROADMAP_PATHS
-          if git diff --cached --quiet; then
+          REFS="$CLOSING_REFS"
+          [ -n "$REFS" ] || REFS="$FALLBACK_REFS"
+          if [ -z "$REFS" ]; then
+            # Unreachable while the step's `if:` matches the same disjunction. Loud
+            # rather than silent if that guard ever drifts: without the refs the flip
+            # cannot be re-derived, and guessing would be worse than failing.
+            echo "::error::No closing refs available to re-derive the roadmap flip."
+            exit 1
+          fi
+
+          # Re-derive the flip on the CURRENT tip of the base. Factored into a
+          # function because the merge retry below re-derives on the NEW tip between
+          # attempts rather than blindly repeating a merge the base has already moved
+          # out from under. Returns non-zero when the latest base already carries the
+          # flip (nothing left to propose).
+          #
+          # RE-DERIVE SAFETY — this is the load-bearing difference from ci.yml, and
+          # from the previous version of this block. ci.yml may re-apply "ours"
+          # wholesale because its baselines are REGENERATED wholesale, so "ours" is
+          # always the correct resolution. The roadmap is NOT that: `docs/roadmap.d/`
+          # is a shared, additively-edited shard tree, so copying our snapshot of it
+          # onto a newer base (the old `git checkout "$OURS" -- $ROADMAP_PATHS`) would
+          # REVERT any row another commit flipped in between. Re-running the
+          # reconciler instead is safe because `roadmap reconcile --from-refs` is a
+          # pure, OFFLINE, IDEMPOTENT function of the closing refs: it flips exactly
+          # the rows whose External-ID matches and is a no-op on rows already `done`,
+          # so running it against a newer base yields the SAME logical mutation
+          # without touching anyone else's rows.
+          rebuild_branch_on_base() {
+            git fetch origin "$BASE" -q
+            git checkout -B "$BRANCH" "origin/$BASE"
+            node packages/cli/dist/bin/harness.js roadmap reconcile --from-refs "$REFS"
+            # In sharded mode the reconcile writes only the shard(s); the aggregate is
+            # generated and must be regenerated before committing.
+            if [ -d docs/roadmap.d ]; then
+              node packages/cli/dist/bin/harness.js roadmap regen
+            fi
+            ROADMAP_PATHS="docs/roadmap.md"
+            if [ -d docs/roadmap.d ]; then ROADMAP_PATHS="$ROADMAP_PATHS docs/roadmap.d"; fi
+            git add $ROADMAP_PATHS
+            if git diff --cached --quiet; then
+              return 1
+            fi
+            git commit -m "chore(roadmap): auto-done from merged PR ${{ github.event.pull_request.number }} [skip ci]"
+          }
+
+          # Scope guard + self-approval, re-run after every force-push: a force-push
+          # can dismiss the inline approval applied to the previous head, and the
+          # fail-closed guard must gate every approval, not just the first.
+          approve_pr() {
+            # Defensive scope check: never self-approve a PR that reaches beyond the
+            # roadmap files, so BASELINE_AUTOAPPROVE_PAT stays scoped (mirrors #531).
+            gh pr diff "$PR_URL" --name-only | node scripts/assert-diff-scope.mjs docs/roadmap.md docs/roadmap.d/
+            GH_TOKEN="$AUTOAPPROVE_PAT" gh pr review "$PR_URL" --approve \
+              --body "Auto-approved: roadmap auto-done flip from github-actions[bot]."
+          }
+
+          # EXHAUSTION: leave the PR OPEN and warn — deliberately UNLIKE ci.yml, which
+          # CLOSES its superseded baseline PR. Closing is correct there only because a
+          # stale baseline PR is actively DANGEROUS (`merge=ours` driver would revert
+          # main) and because the very next merge regenerates one. Neither holds here.
+          # This flip is derived from ONE merge event that has already passed; nothing
+          # in CI re-fires it, so closing would silently drop a real roadmap mutation.
+          # Nor is landing it late dangerous: the shards under `docs/roadmap.d/` carry
+          # no merge driver and merge normally, and while `docs/roadmap.md` does carry
+          # `merge=ours`, it is a GENERATED aggregate that `roadmap regen` and the
+          # post-merge hook rebuild from those shards. Exit 0 because a merge race on
+          # post-merge bookkeeping must not red the default branch; the `::warning::`
+          # and the still-open, already-approved PR are the visible, actionable record
+          # — an abstain, not a swallowed failure.
+          abstain_open() {
+            echo "::warning::Roadmap auto-done flip could not be merged ($1). Leaving $PR_URL OPEN for a human to merge — closing it would drop a real roadmap mutation that nothing regenerates."
+            # A failure to post the courtesy comment is itself reported, never
+            # swallowed — but it must not mask the abstain it is explaining.
+            gh pr comment "$PR_URL" --body "Auto-merge did not land ($1). Left OPEN deliberately: this flip is derived from a single merged PR and nothing re-derives it, so closing would silently drop it. Landing it late is safe — the roadmap shards merge normally and the aggregate is regenerated. Please merge." \
+              || echo "::warning::Could not post the abstain comment on $PR_URL."
+            exit 0
+          }
+
+          if ! rebuild_branch_on_base; then
             echo "Base already carries these roadmap flips; nothing to PR."
             exit 0
           fi
-          git commit -m "chore(roadmap): auto-done from merged PR ${{ github.event.pull_request.number }} [skip ci]"
           git push -u origin "$BRANCH"
           PR_URL=$(gh pr create \
             --title "chore(roadmap): auto-done from merged PR ${{ github.event.pull_request.number }}" \
             --body "Automated roadmap auto-done flip. Opened because direct pushes to $BASE are blocked by branch protection." \
             --base "$BASE" \
             --head "$BRANCH")
-          # Defensive scope check: never self-approve a PR that reaches beyond the
-          # roadmap files, so BASELINE_AUTOAPPROVE_PAT stays scoped (mirrors #531).
-          gh pr diff "$PR_URL" --name-only | node scripts/assert-diff-scope.mjs docs/roadmap.md docs/roadmap.d/
-          GH_TOKEN="$AUTOAPPROVE_PAT" gh pr review "$PR_URL" --approve \
-            --body "Auto-approved: roadmap auto-done flip from github-actions[bot]."
-          gh pr merge "$PR_URL" --auto --squash --delete-branch
+          approve_pr
+
+          # BOUNDED MERGE RETRY — the same defect PR #2048 fixed in ci.yml's
+          # `refresh-baselines` job, at a structurally identical call site that the
+          # fix did not reach. This repo has NO `required_status_checks` branch rule
+          # (ruleset 14799222 carries only `deletion`, `non_fast_forward` and
+          # `pull_request` with one required approval); `approve_pr` has just
+          # satisfied that one requirement inline. `--auto` merely QUEUES when
+          # something is still pending, so with nothing left to wait on it attempts an
+          # IMMEDIATE merge. When the base advances between `gh pr create` and this
+          # call, the mergePullRequest mutation is rejected with "Base branch was
+          # modified", which under `bash -e` exits the step non-zero and reds the
+          # default branch for a race that loses no work at all.
+          #
+          # Retry on a freshly RE-DERIVED branch (same PR, same URL — never a second
+          # PR). `--auto` is kept so the job still behaves correctly if required
+          # checks are added later.
+          for attempt in 1 2 3; do
+            if gh pr merge "$PR_URL" --auto --squash --delete-branch; then
+              echo "Merged (or queued) $PR_URL on attempt $attempt."
+              exit 0
+            fi
+            echo "Merge attempt $attempt failed — the base likely moved; re-deriving on the new tip."
+            sleep 5
+            if ! rebuild_branch_on_base; then
+              # The base now carries these flips (another writer or an offline sweep
+              # got there first), so the PR is provably an empty no-op. Closing an
+              # empty PR discards nothing.
+              echo "::notice::Base already carries these roadmap flips; closing the now-empty $PR_URL."
+              gh pr close "$PR_URL" --delete-branch \
+                --comment "Closing: the base already carries these roadmap flips, so this PR is now an empty no-op."
+              exit 0
+            fi
+            if ! git push --force-with-lease -u origin "$BRANCH"; then
+              abstain_open "the auto-done branch was updated concurrently"
+            fi
+            approve_pr
+          done
+
+          abstain_open "3 merge attempts exhausted"
