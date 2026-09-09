@@ -25,3 +25,9 @@ old comment named. Both properties were verified by source mutation.
 
 Test-only: no source or behaviour change, no test skipped, deleted, or retried,
 and the file's test count is unchanged at 24.
+
+Also removes the now-dead `HARNESS_COVERAGE` plumbing from
+`packages/cli/vitest.config.mts` (argv `--coverage` detection plus the `test.env`
+forwarding). The deleted `budgetMs` line was its only consumer in this package.
+`packages/orchestrator/vitest.config.mts` keeps an independent copy of the same
+pattern with a live consumer and is untouched.
