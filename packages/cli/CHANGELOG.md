@@ -1,5 +1,152 @@
 # @harness-engineering/cli
 
+## 12.6.0
+
+### Minor Changes
+
+- 38ce1c6: feat(provenance): shape gate + `harness provenance` reader for the `Harness-*` commit trailer
+
+  The governed provenance trailer had an emitter and no readers. This adds both.
+
+  `harness provenance <sha>` parses and prints the trailer for a commit (defaults
+  to `HEAD`), in a readable key/value block or as JSON. A commit that carries no
+  trailer is reported honestly — `no provenance trailer on <sha>`, exit 3 — never
+  as a silent empty success. An unresolvable ref exits 2 with a message naming it.
+
+  `harness provenance --check [--range <range>]` is the CI-callable shape gate: for
+  every commit that DOES carry a `Harness-Run` trailer it validates the required
+  keys, a known schema version, an intact `<skill>@<version>`, and the absence of
+  duplicated keys, exiting 1 on a malformed trailer. It always prints the counts it
+  examined, so "nothing to validate" can never read as "validated everything". It
+  is wired as an advisory PR job.
+
+  Core gains `validateProvenanceTrailer` and `collectProvenanceTrailerEntries`. The
+  latter is the single scanner for the trailer grammar, now shared by
+  `parseProvenanceTrailer` and the validator, so a second parser cannot drift from
+  the emitter. `parseProvenanceTrailer`'s behaviour is unchanged.
+
+  The gate deliberately does NOT require a commit to carry a trailer: commits
+  without one are reported as unclaimed and skipped. Defining which commits are
+  "agent-authored", and whether presence should block or warn, remains open.
+
+### Patch Changes
+
+- b169ca0: fix(cli): give `advise-skills` a `--dry-run` and stop hiding that it writes SKILLS.md
+
+  `harness advise-skills` presented as a query — "Content-based skill recommendations
+  for a spec", flags `--spec-path`, `--thorough`, `--top` — and then wrote `SKILLS.md`
+  into the user's spec directory on every single invocation. Nothing in the name, the
+  description, or any flag said so, no flag could suppress it, and a hand-edited
+  `SKILLS.md` was clobbered with no warning: the only acknowledgement was a
+  `Written to <path>` line printed after the fact.
+
+  Generating `SKILLS.md` is genuinely this advisor's job — `harness-planning` runs it
+  inline to produce that file, and the `advise_skills` MCP tool returns the resulting
+  `skillsPath` — so the write stays ON by default. What changes is that it is now
+  declared, guarded, and previewable:
+  - `--dry-run` computes and prints the recommendations, writes nothing, and still
+    reports the path it would have used and whether that would create or overwrite.
+  - The command description names the write, so `--help` states the contract.
+  - Human output distinguishes `Written to` from `Overwrote existing`, ending the
+    silent clobber.
+
+  Also corrects `advise_skills` in the MCP capability register from `['read']` to
+  `['read', 'write']`. That file is the data behind `harness mcp list-capabilities`,
+  the adopter's "what can an agent do through this server?" audit surface, and it was
+  reporting a tool that calls `writeFileSync` as observation-only. Reporting-only data;
+  nothing authorizes against it, so no behavior changes.
+
+  The MCP tool is untouched and byte-identical in behavior: it still writes and still
+  returns a real `skillsPath`.
+
+- 34af682: fix(check-deps): stop reporting clean when the dependency analysis fails
+
+  `runCheckDeps` consumed both analysis engines as bare success guards with no
+  `else`:
+
+  ```ts
+  const depsResult = await validateDependencies(layerConfig);
+  if (depsResult.ok) {
+    /* push violations */
+  }
+
+  const circularResult = await detectCircularDepsInFiles(uniqueFiles, parser);
+  if (circularResult.ok && circularResult.value.hasCycles) {
+    /* push cycles */
+  }
+  ```
+
+  An `Err` from either engine was discarded. `valid` stayed `true`, the finding
+  lists stayed empty, and the command exited `SUCCESS` — a result byte-identical
+  to a genuinely clean repo. `harness check-deps && deploy` would proceed, a
+  `--json` consumer saw `layerViolations: []`, and the `--findings-json`
+  maintenance contract reported `{ "findings": 0 }`.
+
+  An engine failure now refuses to report clean, mirroring the zero-module
+  abstention (#1188) already in this file: `valid` is set `false` and the reason is
+  recorded in a new `analysisErrors: string[]` field, surfaced as an issue in every
+  output mode and emitted in the JSON payload.
+
+  **Exit-code behaviour change on the previously-silent failure path.** The command
+  now distinguishes three outcomes instead of two:
+
+  | Outcome                            | Before | After |
+  | ---------------------------------- | ------ | ----- |
+  | Check ran, no findings             | 0      | 0     |
+  | Check ran, found violations/cycles | 1      | 1     |
+  | Check could not run (engine `Err`) | **0**  | **2** |
+
+  A path that previously exited `0` may now exit `2` (`ExitCode.ERROR`). Only that
+  path changes: a genuinely clean run still exits `0` with identical output and no
+  `analysisErrors` key, and a run with real findings still exits `1`.
+
+- 76f2342: fix(ci): stop the scaffolded adopter workflow from cancelling its own trunk verification
+
+  The GitHub Actions workflow emitted by `harness ci init` (and by the `harness init`
+  project scaffold, which calls the same generator) triggered on both `push:` to `main`
+  and `pull_request:`, but guarded them with a single per-ref concurrency group:
+
+  ```yaml
+  concurrency:
+    group: harness-${{ github.ref }}
+    cancel-in-progress: true
+  ```
+
+  On a push, `github.ref` is `refs/heads/main` for **every** commit, so all trunk pushes
+  landed in one concurrency bucket and each new merge cancelled the still-running
+  verification of the previous commit. The cancelled run concluded `cancelled`, not
+  `failure`, so nothing alarmed — the adopter's board stayed green while the commit went
+  unverified. Under a merge burst, most commits reaching trunk were never verified at all.
+
+  Concurrency is now split by event, matching the shape already used for this repo's own
+  workflows and for the generated persona workflows:
+
+  ```yaml
+  concurrency:
+    group: harness-${{ github.event_name == 'pull_request' && github.ref || github.sha }}
+    cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+  ```
+
+  A push resolves to a per-commit group that is never cancelled, so every commit landing
+  on trunk reaches its own verdict. A pull request keeps the per-ref group with
+  cancellation on, so pushing to a PR still supersedes the older run.
+
+  **Adopter trunk runner spend rises with merge-burst size, and that increase is the fix.**
+  Previously a burst of N merges cost roughly one full verification because the earlier
+  runs were killed; now it costs N, because each of those N commits is actually verified.
+  PR runner spend is unchanged. Adopters who regenerate their workflow, or who copy the
+  new concurrency block into an existing one, should expect trunk Actions minutes to scale
+  with merge volume rather than staying artificially flat.
+
+  This only affects the emitted template; no existing adopter workflow is rewritten in
+  place. Regenerate with `harness ci init --platform github` to pick up the fix.
+
+- Updated dependencies [38ce1c6]
+- Updated dependencies [a97e8cf]
+  - @harness-engineering/core@0.50.0
+  - @harness-engineering/orchestrator@0.25.1
+  - @harness-engineering/dashboard@0.16.8
+
 ## 12.5.0
 
 ### Minor Changes
