@@ -1,0 +1,52 @@
+name: harness-start-work
+version: '1.0.0'
+description: Claim a tracker issue by assigning it to the current user, so a project board's status-sync automation moves the card to In progress on its own — the board follows the assignment rather than being edited by hand
+stability: static
+cognitive_mode: meticulous-implementer
+triggers:
+  - manual
+  - on_new_feature
+  - on_bug_fix
+platforms:
+  - claude-code
+  - gemini-cli
+  - cursor
+  - codex
+tools:
+  - Bash
+cli:
+  command: harness skill run harness-start-work
+  args:
+    - name: issue
+      description: The issue number to start work on (a leading '#' is tolerated)
+      required: true
+    - name: path
+      description: Project root path
+      required: false
+mcp:
+  tool: run_skill
+  input:
+    skill: harness-start-work
+    issue: string
+    path: string
+type: flexible
+tier: 2
+phases:
+  - name: assign
+    description: Assign the issue to the current user, via the project's configured wrapper if it declares one, otherwise `gh issue edit <n> --add-assignee @me`
+    required: true
+  - name: verify
+    description: Confirm the assignment landed and, when a status-sync workflow is configured, that its run concluded successfully — never edit the board's Status field directly
+    required: true
+state:
+  persistent: false
+  files: []
+depends_on: []
+addresses:
+  - signal: backlog-pressure
+    weight: 0.2
+capabilities:
+  tools:
+    - Bash
+  network: false
+  filesystem: read-write

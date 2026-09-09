@@ -1,0 +1,534 @@
+# Harness Branch Buster
+
+> Sync a branch from its base with interactive conflict resolution, run the
+> project's exact CI gate set locally, delegate review to `harness-code-review`,
+> then classify every finding by **origin** — introduced by this branch, or
+> pre-existing on the base — into a dated report, and auto-fix only the in-scope
+> ones after a single approval.
+
+## When to Use
+
+- Manually, when a feature branch is ready for a thorough pre-merge audit: after
+  a long development period, before opening a PR, or after a large merge from the
+  base branch.
+- When a branch has drifted far enough from its base that the integration itself
+  is the risk, not just the diff.
+- When you need to know **which** problems a branch introduced versus which it
+  merely inherited — that separation is this skill's reason to exist.
+- NOT as a continuous linter or a pre-commit hook. This is a deliberate,
+  on-demand audit.
+- NOT as a replacement for CI. It mirrors CI locally to _predict_ it, never to
+  bypass it.
+- NOT for reviewing a diff alone — that is `harness-code-review`, which this
+  skill calls rather than duplicates. If you do not need the sync, the CI-exact
+  gate run, or the origin split, use `harness-code-review` directly.
+
+## Iron Law
+
+**Review and Fix are separate phases.** No edit is applied while findings are
+still being gathered, and the report is frozen before any code changes. Review
+integrity comes first; the auto-fix follows it.
+
+## What this skill owns, and what it delegates
+
+This skill exists alongside `harness-code-review`, and the boundary is
+deliberate. Two copies of review logic in one toolchain drift apart, and the
+copy that drifts is the one nobody is looking at.
+
+| Concern                                              | Owner                                    |
+| ---------------------------------------------------- | ---------------------------------------- |
+| Generic review lenses (bugs, security, architecture) | **`harness-code-review`** — delegated to |
+| Adversarial refutation of high-severity findings     | **`harness-code-review`** — delegated to |
+| Syncing the branch and resolving conflicts           | This skill                               |
+| Running the project's CI-exact gate set              | This skill                               |
+| Classifying findings by **origin**                   | This skill — its novel contribution      |
+| Project-specific lenses                              | This skill, from configuration           |
+| The single approved fix pass                         | This skill                               |
+
+**Never re-implement a generic lens here.** If the generic roster is missing
+something, that is a change to `harness-code-review`, not a second roster.
+
+## Configuration
+
+The skill hardcodes no project's commands, packages, or conventions. Everything
+project-specific lives in `harness.config.json` under `skills.branchBuster`:
+
+```json
+{
+  "skills": {
+    "branchBuster": {
+      "baselineEnv": "TURBO_SCM_BASE",
+      "runDir": "docs/branch-buster",
+      "reportLintCommand": "npx markdownlint-cli2 --no-globs {report}",
+      "quarantinePath": "quarantine.json",
+      "learningsPath": ".harness/branch-buster-learnings.md",
+      "gates": [
+        { "id": "format", "cmd": "npm run format:check", "parse": "prettier", "blocking": true },
+        { "id": "build", "cmd": "npm run build", "parse": "passfail", "blocking": true },
+        { "id": "typescript", "cmd": "npm run typecheck", "parse": "passfail", "blocking": true },
+        { "id": "test", "cmd": "npm test", "parse": "passfail", "blocking": true },
+        {
+          "id": "codegen-drift",
+          "cmd": "DRIFT",
+          "parse": "drift",
+          "blocking": true,
+          "drift": {
+            "regenerate": ["npm run codegen"],
+            "paths": ["src/generated"],
+            "remedy": "re-run `npm run codegen`"
+          }
+        }
+      ],
+      "lenses": [
+        {
+          "id": "design-system",
+          "prompt": "Check for hardcoded colors, off-grid spacing, and bypassed design tokens.",
+          "paths": ["packages/ui/**"]
+        }
+      ]
+    }
+  }
+}
+```
+
+| Key                 | Meaning                                                                         | If absent                                                     |
+| ------------------- | ------------------------------------------------------------------------------- | ------------------------------------------------------------- |
+| `gates[]`           | The project's blocking gate set, in CI order.                                   | **Phase 2 abstains** — see the Gates section.                 |
+| `baselineEnv`       | Env var pinning an incremental build tool to the merge base.                    | No baseline is set; gates run unscoped.                       |
+| `lenses[]`          | Project-specific review lenses, added _alongside_ the delegated generic roster. | Only the generic roster runs.                                 |
+| `runDir`            | Where dated run directories are written.                                        | `docs/branch-buster`.                                         |
+| `reportLintCommand` | Command to lint the rendered report. `{report}` is substituted.                 | The report is not linted; say so rather than implying it was. |
+| `quarantinePath`    | Known-flaky test ledger, checked before calling a failure a regression.         | Every failure is treated as real.                             |
+| `learningsPath`     | Where pushed-back findings are recorded and suppressed from.                    | No learnings filter is applied.                               |
+
+## Process
+
+```text
+0 INTAKE -> 1 SYNC -> 2 MECHANICAL -> 3 SCOPE+CALIBRATE -> 4 FAN-OUT (delegated)
+                                                                  |
+                                                                  v
+8 VERIFY+FINALIZE <- 7 FIX <- 6 CLASSIFY+REPORT <- 5 VALIDATE+DEDUP
+```
+
+### Phase 0: INTAKE
+
+1. Resolve **identity**: if a PR exists (`gh pr view --json number,title`), derive
+   a slug from its title; otherwise use the branch name.
+2. Resolve the **base ref** (default `origin/main`), the **flags**, and the **run
+   directory** `{runDir}/{slug}_{YYYY-MM-DD}/`.
+3. **Resume check:** if the run directory holds a `state.json` from an interrupted
+   run, offer to resume from the last completed phase rather than restart.
+4. **Dirty-tree guard:** run `git status --porcelain`. If the tree is dirty, ask
+   once **in plain text in your reply** whether to commit or stash before SYNC,
+   and wait for the answer. Stashes are restored in Phase 8.
+
+> **Every ask in this skill is plain text in your own reply, never an
+> `emit_interaction` question or confirmation.** That call renders and records a
+> prompt but does not show it to the human — the client
+> collapses it to "Called harness" and the text returns only to the model, so the
+> human sits looking at nothing while the agent waits on an answer they were
+> never shown. Plain text is the only channel that reaches the human on every
+> platform this skill ships to. `AskUserQuestion` is Claude-Code-only.
+
+### Phase 1: SYNC
+
+1. `git fetch origin`.
+2. **Pre-merge preview** via `scripts/sync-branch.mjs`: show `git log --oneline
+HEAD..{base}` and which of the branch's files those commits touch, so the scope
+   of the integration is visible before conflicts start.
+3. `git merge {base}`. Never `--no-verify`; no auto-commit on conflict.
+4. **Interactive conflict resolution:** for every conflicted file, present both
+   sides with surrounding context and a proposed resolution **in plain text in
+   your reply**, one at a time, and take an explicit decision — **even when the
+   resolution looks obvious**. `git add` each resolved file.
+5. Complete the merge with a conventional message.
+6. **Post-merge semantic smoke:** run the project's typecheck and lint gates on
+   affected packages to catch semantic breakage a textually-clean merge hides.
+   Tag conflict-resolved hunks for first-priority review in Phase 4 as candidate
+   `merge-artifact` findings.
+7. **Escape hatch:** any failure or user abort triggers `git merge --abort` and a
+   clean stop.
+
+### Phase 2: MECHANICAL
+
+Runs `scripts/run-gates.mjs`, which executes the **configured** gate set in
+order and captures structured findings. This is the deterministic backbone and
+the source of the **exclusion set** — review agents in Phase 4 must not re-report
+what a tool already caught.
+
+1. Load `skills.branchBuster.gates`. **If none are configured, Phase 2 abstains:
+   record `verdict: abstained` and carry it into the report.** Do not render an
+   empty gate run as a pass — a gate set that ran nothing verified nothing.
+2. Set `baselineEnv` to the merge base so local verdicts match CI's scoping.
+3. Run each gate. A failing **blocking** gate produces a `critical` finding
+   tagged with that gate; non-blocking gates produce `suggestion` findings.
+4. **Flaky awareness:** cross-check a test failure against `quarantinePath`
+   before reporting it as a blocker. If no ledger is configured, treat every
+   failure as real and say that is what you did.
+5. **Diff-smell sub-pass:** deterministic greps over the diff for high-signal
+   regressions — functional code replaced by a comment, stray `console.log` or
+   `debugger`, committed `.only`/`.skip`, newly added `any`/`@ts-ignore`/
+   `eslint-disable`, new `TODO`/`FIXME`.
+6. Skipped entirely with `--no-mechanical`, which must be recorded in the report
+   as reduced coverage.
+
+### Phase 3: SCOPE and CALIBRATE
+
+Runs `scripts/compute-diff.mjs` and `scripts/pick-hotspots.mjs`.
+
+1. Compute the diff as `{base}...HEAD` (three-dot, post-merge) for stats, per-file
+   change type, and blast radius via import tracing.
+2. Classify change type (feature/bugfix/refactor/docs) from commit prefixes and
+   diff heuristics, to shape review focus.
+3. **Calibrate depth** from diff size plus risk keywords: Quick, Standard, or
+   Deep. A large, wide branch calibrates to Deep.
+4. Assemble read-only context bundles per lens: changed files, dependencies,
+   convention files, corresponding tests.
+5. **Bound the sweep, and log the bound.** Mechanical detectors run repo-wide;
+   expensive review lenses run on the diff plus dependents plus the top-N riskiest
+   files by churn × complexity. Record what was excluded so the report never
+   implies more coverage than was performed.
+
+### Phase 4: FAN-OUT REVIEW — delegated
+
+1. **Invoke `harness-code-review`** for the generic roster, passing the computed
+   diff scope, the depth tier, and the mechanical exclusion set. It owns the
+   generic lenses and the adversarial refutation pass; consume its `Finding[]`.
+2. **Dispatch only the project's configured `lenses[]`** (via `Task`), each with
+   crafted, domain-scoped, read-only context — never the orchestrator's session
+   history. Each returns `Finding[]`.
+3. Conflict-resolved hunks from Phase 1 are reviewed first, whichever lens covers
+   them.
+4. **Diff-coverage / test-gap** runs here: new logic in the diff with no test
+   coverage is emitted as `test`-type findings.
+
+If `lenses[]` is empty, the delegated generic roster is the whole review. That is
+a valid configuration, not a degraded one — say so plainly rather than implying
+project-specific coverage that does not exist.
+
+### Phase 5: VALIDATE and DEDUP
+
+1. **Mechanical exclusion** — discard agent findings already flagged in Phase 2.
+2. **Reachability check** — verify claimed dependency and impact paths; downgrade
+   or discard unreachable claims.
+3. **Adversarial verification** — delegated to `harness-code-review` for the
+   findings it produced. For findings from project lenses, dispatch a second agent
+   prompted to refute each `critical`/`important` one. Refuted findings, and any
+   below confidence 25, are suppressed.
+4. **Learnings filter** — suppress findings matching the Noise section of
+   `learningsPath`, when configured.
+5. **Dedup and merge** — group by file plus overlapping line range, keep the
+   highest severity, combine evidence, merge type tags.
+
+### Phase 6: CLASSIFY and REPORT
+
+Runs `scripts/render-report.mjs`.
+
+1. Classify every surviving finding on three axes. **Origin is the axis this
+   skill contributes** and the one the fix phase keys off:
+   - `pr-scoped` — the finding is inside the branch's own diff. This branch
+     introduced it.
+   - `underlying` — the finding is in code the branch did not touch. It exists on
+     the base too, and the branch merely revealed it.
+
+   Getting this wrong in either direction is costly: a pre-existing problem
+   labelled `pr-scoped` blocks a branch for something it did not cause, and an
+   introduced problem labelled `underlying` ships a regression as someone else's
+   pre-existing debt. Classify by whether the file and line range appear in the
+   three-dot diff, not by intuition about the cause.
+
+2. Write the report to the dated run directory, with an adjacent `.gitignore`:
+
+   ```text
+   *
+   !.gitignore
+   !report.md
+   ```
+
+   An allowlist on purpose: `report.md` is the only output a run is meant to
+   track. A denylist only excludes the artifact shapes that existed when it was
+   written.
+
+3. Lint the report with `reportLintCommand` if configured. If not configured, do
+   not claim the report was linted.
+4. Present the summary and ask for **one** approval of the fix plan **in plain
+   text in your reply**. The approval is informed: safe-mechanical fixes are
+   summarized in aggregate; semantic fixes are shown as concrete diffs, so
+   nothing risky is applied sight-unseen.
+
+### Phase 7: FIX
+
+Apply review-receiving discipline throughout: verify before implementing, no
+performative agreement, push back with evidence when a finding is wrong on
+re-examination, one logical change at a time.
+
+1. **`pr-scoped`, clear** — auto-fix. Safe-mechanical fixes (formatter, linter
+   `--fix`, codegen regeneration) applied directly; semantic fixes applied as the
+   approved diffs.
+2. **`pr-scoped`, entangled or multi-route** — `emit_interaction` question, one at
+   a time, most-blocking first.
+3. **`underlying`** — ask before fixing each cluster. Out-of-scope repair needs
+   explicit approval to enter this branch.
+4. **Per-batch re-verify** — re-run the affected gate after each fix batch.
+5. **Post-fix regression mini-pass** — re-review just the fix diff to catch
+   fix-induced breakage beyond what gates catch.
+6. Fixes land as grouped conventional commits — reviewable and revertable — never
+   one mega-commit.
+
+### Phase 8: VERIFY and FINALIZE
+
+1. Re-run the **full** configured gate set to prove the branch green. Evidence
+   before claims; if Phase 2 abstained, Phase 8 abstains too and says so.
+2. Update the report's applied / deferred / pushed-back sections and the
+   merge-blockers banner.
+3. Restore any stash from Phase 0.
+4. **Lean handoff:** offer to push, open or update the PR, and — for deferred
+   underlying work — hand the report to `harness-planning`.
+
+## Finding schema
+
+```ts
+interface Finding {
+  id: string;
+  file: string;
+  lineRange: [number, number];
+  origin: 'pr-scoped' | 'underlying'; // axis (a) — this skill's contribution
+  type:
+    | 'bug'
+    | 'logic'
+    | 'drift'
+    | 'dead-code'
+    | 'lint'
+    | 'type'
+    | 'test'
+    | 'security'
+    | 'architecture'
+    | 'a11y'
+    | 'i18n'
+    | 'perf'
+    | 'docs'
+    | 'merge-artifact'; // axis (b)
+  severity: 'critical' | 'important' | 'suggestion'; // axis (c)
+  confidence: 25 | 50 | 75 | 100; // below 25 is suppressed
+  title: string;
+  rationale: string;
+  evidence: string[]; // each cites file:line
+  validatedBy: 'mechanical' | 'graph' | 'heuristic' | 'agent' | 'adversarial';
+  gate?: string;
+  fixRisk?: 'safe-mechanical' | 'semantic';
+  proposedSolutions: { summary: string; approach: string; tradeoffs?: string }[];
+  entangled?: boolean;
+  disposition: 'auto-fix' | 'ask' | 'defer' | 'fixed' | 'pushed-back';
+}
+```
+
+Severity anchoring: any finding failing a blocking gate is `critical`. Confidence
+follows the anchored rubric — 100 mechanical, 75 constructible scenario, 50
+judgment, 25 speculative (suppressed).
+
+## Report format
+
+Written to `{runDir}/{slug}_{YYYY-MM-DD}/report.md`; a new directory per run,
+never overwriting a prior one. Sections in order:
+
+1. **Merge-blockers banner** — what will fail CI, plus the preview of what came
+   in from the base. If Phase 2 abstained, this banner says so instead of
+   claiming the branch is clean.
+2. **Run header** — branch, base SHA, merge result, depth tier, gate table with
+   its denominator (how many gates ran, how many were skipped).
+3. **Branch-introduced issues** (`pr-scoped`) — grouped by severity then type.
+4. **Pre-existing issues** (`underlying`) — same structure, marked "ask before
+   fixing".
+5. **Merge-conflict resolutions** — what was decided for each conflict.
+6. **Open questions / entangled** — items needing a decision.
+7. **Fixes applied / deferred / pushed-back** — filled in after Phase 7.
+
+## Resumable run-state
+
+`state.json` in the run directory records `phase` (last fully completed, 0–8),
+accumulated `findings`, `conflictDecisions`, `fixDispositions`, `runDir`, and the
+`flags` in effect. On re-invocation against the same run directory the skill
+offers to resume. This matters because a Deep run on a large branch is long and
+may be interrupted by a context limit, a crash, or a deliberate stop.
+
+## Flags
+
+| Flag                            | Effect                                              |
+| ------------------------------- | --------------------------------------------------- |
+| `--report-only`                 | Review and report; skip the Fix phase entirely      |
+| `--no-sync`                     | Skip the merge; review the current branch state     |
+| `--scope diff\|touched\|repo`   | Override the out-of-scope boundary (default `repo`) |
+| `--depth quick\|standard\|deep` | Override depth calibration                          |
+| `--fast` / `--thorough`         | Reduce or maximize rigor                            |
+| `--no-mechanical`               | Skip gate runs when CI already ran them             |
+| `--comment`                     | Also post findings as a PR review via `gh`          |
+| `base=<ref>`                    | Override the base ref (default `origin/main`)       |
+
+## Examples
+
+### Example A: a report-only pre-merge audit
+
+```bash
+$ harness skill run harness-branch-buster --report-only
+Phase 0 INTAKE     — branch feat/checkout-rewrite, base origin/main, depth: deep
+Phase 1 SYNC       — 14 commits incoming; 3 conflicts, resolved interactively
+Phase 2 MECHANICAL — 6 gates configured, 6 ran, 1 failed (typescript)
+Phase 3 SCOPE      — 84 files changed; swept diff + dependents + top-40 hotspots
+                     (excluded: 612 files — logged in the report)
+Phase 4 FAN-OUT    — harness-code-review: 22 findings
+                     project lenses (design-system): 4 findings
+Phase 5 VALIDATE   — 9 suppressed (6 refuted, 3 below confidence)
+Phase 6 REPORT     — docs/branch-buster/checkout-rewrite_2026-09-08/report.md
+
+  Branch-introduced (pr-scoped): 11   ← this branch caused these
+  Pre-existing (underlying):      6   ← inherited from main
+```
+
+`--report-only` stops here: the frozen report is the deliverable, with a
+merge-blockers banner naming the failing typescript gate.
+
+### Example B: a project with no gates configured
+
+```bash
+$ harness skill run harness-branch-buster
+Phase 2 MECHANICAL — ABSTAINED
+  No gates are configured (skills.branchBuster.gates in harness.config.json).
+  Nothing was mechanically verified — this is an abstention, not a pass.
+
+⚠ Merge-blockers banner will read "not mechanically verified", NOT "clean".
+  Want help authoring a gate block from .github/workflows/? [y/N]
+```
+
+The abstention propagates into the report rather than being smoothed over. A
+branch that was never gate-checked must not read as a branch that passed.
+
+## Harness Integration
+
+- **`harness skill run harness-branch-buster`** — Run the audit.
+- **`harness skill validate harness-branch-buster`** — Validate before shipping
+  changes.
+- **`harness-code-review`** — Declared in `depends_on`. Phase 4 delegates the
+  generic review roster and adversarial refutation to it. This skill adds only
+  the project's configured lenses.
+- **`harness-planning`** — Offered in Phase 8 as the handoff for deferred
+  `underlying` work that is too large to repair in-branch.
+
+### Capability roles
+
+- **Service Definition** — the `Finding` schema plus the `skills.branchBuster`
+  configuration contract (gates, lenses). Both are stated independently of any
+  project's commands.
+- **Providers** — `scripts/run-gates.mjs` provides gate execution against a
+  configured gate set; `harness-code-review` provides the generic review roster;
+  configured `lenses[]` provide project-specific review.
+- **Consumers** — Phases 5–7 of this skill consume `Finding[]` without knowing
+  which provider produced it, which is what lets a project add a lens or a gate
+  without touching this skill.
+
+## Success Criteria
+
+- Every phase runs in order; SYNC prompts on every conflict; the post-merge smoke
+  runs.
+- Phase 2 reproduces CI's verdict using the project's configured gates — or
+  explicitly abstains when none are configured.
+- The report states its denominators: gates run, gates skipped, files swept,
+  files excluded.
+- Every reported finding carries `file:line` evidence and all three axes.
+- `origin` is derived from the three-dot diff, and the report separates
+  branch-introduced from pre-existing findings.
+- The generic review roster came from `harness-code-review`, not from a second
+  roster defined here.
+- High-severity findings were adversarially refuted; refuted ones are suppressed.
+- After one approval, `pr-scoped` clear issues are fixed; entangled and
+  `underlying` issues are surfaced as questions.
+- Phase 8 proves the branch green — or names the remaining blockers.
+- An interrupted run resumes from `state.json` rather than restarting.
+
+## Gates
+
+- **No fix while findings are still being gathered.** Review, then report, then
+  fix. Violating this destroys review integrity.
+- **Zero configured gates is an abstention, not a pass.** If
+  `skills.branchBuster.gates` is empty, Phase 2 reports `abstained` and the
+  merge-blockers banner says the branch was not mechanically verified. Rendering
+  "0 gates failed" as green is the exact false-green this skill exists to catch.
+- **No `--no-verify`, ever.** Fix the underlying failure instead.
+- **No finding without `file:line` evidence.** An unlocatable finding is a
+  rumour.
+- **No fix marked done without re-running the gate it addresses.**
+- **No overwriting a prior run's report directory.**
+- **No silent coverage loss.** Whatever the bounded sweep did not cover is logged
+  in the report.
+- **No second generic review roster.** If a generic lens is missing, change
+  `harness-code-review`.
+
+## Escalation
+
+- **Merge abort:** any Phase 1 failure or user abort triggers `git merge --abort`
+  and a clean stop. Never proceed to Phase 2 with a partially-merged tree.
+- **No gates configured:** stop and report the abstention, and offer to help
+  author a `skills.branchBuster.gates` block from the project's CI workflow. Do
+  not invent a gate set by guessing at the toolchain.
+- **Protected or policy-blocked files:** if the only correct fix requires editing
+  a file a hook blocks, stop, describe the needed change, and ask the user to
+  apply it. Never fight the hook.
+- **Repeated pushback on a finding type:** record it in the Noise section of
+  `learningsPath` and suppress it on future runs. After three pushbacks on the
+  same class, raise one `emit_interaction` question to confirm a permanent
+  suppression or recalibrate the lens.
+- **Underlying scope creep:** if repairing `underlying` findings would touch more
+  than a handful of files outside the diff, stop and offer `harness-planning`
+  with those findings as input instead of attempting in-branch repair.
+- **Run directory collision:** if the dated directory exists with no `state.json`,
+  ask before overwriting. With a `state.json`, offer the resume instead.
+
+## Rationalizations to Reject
+
+| Rationalization                                                       | Reality                                                                                                                                                                   |
+| --------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| "No gates are configured, so there is nothing failing."               | Nothing failing and nothing checked are different states. An empty gate set verified nothing; report the abstention rather than a clean bill of health.                   |
+| "The merge was clean, so nothing broke."                              | Textual merges hide semantic breakage. Run the post-merge smoke and review resolved hunks first.                                                                          |
+| "This finding is in a file the branch touched, so it's ours."         | Touching a file is not introducing a line. Origin is decided by whether the finding's line range is in the three-dot diff — otherwise the branch inherits someone's debt. |
+| "It's pre-existing, so it doesn't matter."                            | `underlying` changes who decides and when, not whether it is real. It goes in the report and gets asked about; it is not discarded.                                       |
+| "It's a known-flaky test, ignore it."                                 | Confirm against the configured quarantine ledger first. With no ledger, the failure is real by default. A regression hiding behind "probably flaky" is the failure mode.  |
+| "This finding is obviously real, skip verification."                  | High-severity findings are adversarially refuted before reaching the report. Obvious-but-wrong is exactly the mode adversarial refutation catches.                        |
+| "The fix is trivial, apply it without showing it."                    | Semantic fixes are shown as diffs inside the approval. Trivial-looking logic fixes are where silent regressions hide.                                                     |
+| "I'll add a bug-detection lens here since the generic one missed it." | That is a change to `harness-code-review`. A second generic roster in this skill drifts from the first, and the drifted one is the one nobody audits.                     |
+
+## Skill Test Scenarios
+
+### Scenario 1: Gate — zero configured gates
+
+Input: A project with no `skills.branchBuster.gates`. Phase 2 runs and produces
+an empty result set.
+Expected: The agent reports `verdict: abstained`, the merge-blockers banner
+states the branch was not mechanically verified, and the agent does NOT say the
+gates passed. It offers to help author a gate block.
+
+### Scenario 2: Rationalization — "this finding is in a file we touched, so it's ours"
+
+Input: A review lens reports a bug at `src/legacy/parse.ts:40`. The branch edited
+`src/legacy/parse.ts` but only lines 100–120.
+Expected: The agent checks the three-dot diff, finds line 40 outside it,
+classifies the finding `underlying`, and asks before fixing rather than
+auto-fixing it as branch-scoped.
+
+### Scenario 3: Gate — no second generic roster
+
+Input: The delegated `harness-code-review` roster misses a race condition, and
+the agent is tempted to add a concurrency lens to this skill's `lenses[]`.
+Expected: The agent rejects it per the Rationalizations table and the Gates
+section, and proposes the change to `harness-code-review` instead.
+
+### Scenario 4: Iron Law — fixing during review
+
+Input: While Phase 4 lenses are still returning findings, a trivially fixable
+formatting error appears.
+Expected: The agent does NOT fix it. It records the finding, completes review,
+freezes the report, and applies the fix in Phase 7 after approval.
+
+### Scenario 5: Escalation — merge conflict abort
+
+Input: During Phase 1 the user aborts on an ambiguous conflict.
+Expected: The agent runs `git merge --abort`, stops cleanly, and does not proceed
+to Phase 2 with a partially-merged tree.
