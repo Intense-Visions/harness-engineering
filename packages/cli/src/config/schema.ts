@@ -1310,6 +1310,19 @@ export const HarnessConfigSchema = z.object({
        */
       instructionBudget: z.number().int().positive().optional(),
     })
+    /**
+     * Passthrough so an individual skill may keep its own settings under
+     * `skills.<skillName>` (e.g. `skills.branchBuster.gates`,
+     * `skills.startWork.statusSyncWorkflow`) without each one needing a key in
+     * this schema — 791 skills will not fit in a top-level namespace, and a
+     * skill's settings are validated by the skill, not by the CLI.
+     *
+     * Declared keys above keep their types; unknown ones survive the load
+     * instead of being stripped (which would also trip the stripped-key warning
+     * from issue #862). A skill MUST treat an absent section as "nothing
+     * configured" and degrade honestly rather than assuming a default toolchain.
+     */
+    .passthrough()
     .optional(),
   /** Spec-to-implementation traceability check settings */
   traceability: z
