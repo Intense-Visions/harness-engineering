@@ -68,6 +68,12 @@ interface ValidationResult {
   modulesAnalyzed?: number;
   /** Optional count of layers configured, surfaced in JSON output (#1188). */
   layersConfigured?: number;
+  /**
+   * Reasons an analysis engine could not complete, surfaced in JSON output so a
+   * machine consumer can tell "the check failed to run" from "the check ran and
+   * found nothing" (#1996). Omitted by callers with no engine failure to report.
+   */
+  analysisErrors?: string[];
 }
 
 /** Append formatted lines for a single validation issue into the lines array. */

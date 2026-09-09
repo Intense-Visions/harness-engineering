@@ -81,6 +81,29 @@ function stepsForLanguage(language?: string): LanguageSteps {
   }
 }
 
+// The `concurrency:` block this emits is SPLIT BY EVENT on purpose — do not
+// "simplify" it back to a plain `harness-${{ github.ref }}` + `cancel-in-progress: true`.
+//
+// The emitted template triggers on BOTH `push:` to main and `pull_request:`. On a push,
+// `github.ref` is `refs/heads/main` for EVERY commit, so a per-ref group puts all main
+// pushes in ONE bucket and each new merge cancels the still-running verification of the
+// previous commit. The run concludes `cancelled`, not `failure`, so nothing alarms — the
+// adopter's board reads green while the commit went unverified. Under a merge burst most
+// trunk commits are never verified at all.
+//
+//   push  -> per-COMMIT group (github.sha), never cancelled, so every commit that lands
+//            on the adopter's trunk reaches its own verdict.
+//   PR    -> per-REF group, cancel-in-progress ON, so a new push to a PR still supersedes
+//            the old run. PR runner spend is unchanged.
+//
+// Trunk runner spend rises with merge-burst size; that increase IS the fix — it is the
+// cost of every trunk commit actually being verified.
+//
+// This is the shape #1865 established for this repo's hand-written ci.yml/harness.yml and
+// #1867 / PR #2049 brought the generated persona workflows onto (see
+// src/persona/generators/ci-workflow.ts); #2050 brings the adopter-facing template onto it
+// too, so all three emitters agree. `cancel-in-progress` officially accepts an expression,
+// and the `A && B || C` idiom is already proven on GitHub's runners.
 function generateGitHubActions(skipFlag: string, language?: string): string {
   const steps = stepsForLanguage(language);
 
@@ -94,6 +117,7 @@ function generateGitHubActions(skipFlag: string, language?: string): string {
   }
   commandSteps.push(`      - name: Test\n        run: ${steps.test}`);
 
+  // Concurrency is split by event — see the block comment above this function.
   return `name: CI
 
 on:
@@ -102,9 +126,11 @@ on:
   pull_request:
     branches: [main]
 
+# Split by event: pushes to main get a per-commit group so a merge burst never
+# cancels the previous commit's verification; PRs keep per-ref supersession.
 concurrency:
-  group: harness-\${{ github.ref }}
-  cancel-in-progress: true
+  group: harness-\${{ github.event_name == 'pull_request' && github.ref || github.sha }}
+  cancel-in-progress: \${{ github.event_name == 'pull_request' }}
 
 jobs:
   ci:

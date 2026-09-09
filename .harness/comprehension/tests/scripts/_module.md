@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'tests/scripts'
-sourceHash: 'f5f1dd0f1f898df82f626a27a512ee2615e9c61d47fea2d667f80c0f92c3062e'
+sourceHash: '6e544bf5055bb1ffc4b198faa35ed4a2f68fe27a8e15823ee20654c581ee0dfd'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
@@ -17,6 +17,7 @@ members:
     'main-health-check.test.mjs',
     'plugin-antigravity-target.test.mjs',
     'plugin-pin-sync.test.mjs',
+    'workflow-merge-race.test.mjs',
   ]
 ---
 

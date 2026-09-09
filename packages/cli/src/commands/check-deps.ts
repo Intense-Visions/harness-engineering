@@ -34,6 +34,10 @@ interface CheckDepsResult {
   /** Set when layers are configured but zero modules were analyzed — the
    *  reason check-deps refuses to report clean (#1188). */
   analysisNote?: string;
+  /** Failures reported by an analysis engine — the reasons check-deps could not
+   *  complete, and therefore refuses to report clean (#1996). Absent (not an
+   *  empty array) when every engine ran, so a clean result is unchanged. */
+  analysisErrors?: string[];
   layerViolations: Array<{
     file: string;
     imports: string;
@@ -46,6 +50,31 @@ interface CheckDepsResult {
     /** Posix-relative path of the first module in the cycle (#1188). */
     file: string;
   }>;
+}
+
+/**
+ * Record an analysis-engine failure on the result (#1996).
+ *
+ * Both engines return a `Result`. Their failure channel used to be discarded,
+ * which left `valid` true and the finding lists empty — a result byte-identical
+ * to a genuinely clean repo. A check that could not run is not a check that
+ * passed, so an engine failure refuses to report clean and keeps its reason,
+ * mirroring the #1188 zero-module abstention.
+ *
+ * @param result - The in-progress check-deps result to mark as not-clean.
+ * @param stage - Human-readable name of the analysis that failed.
+ * @param error - The engine error whose code and message explain the failure.
+ */
+function recordAnalysisError(
+  result: CheckDepsResult,
+  stage: string,
+  error: { code: string; message: string }
+): void {
+  result.valid = false;
+  result.analysisErrors ??= [];
+  result.analysisErrors.push(
+    `check-deps could not complete ${stage}: ${error.code}: ${error.message}`
+  );
 }
 
 export async function runCheckDeps(
@@ -112,6 +141,8 @@ export async function runCheckDeps(
         message: violation.reason,
       });
     }
+  } else {
+    recordAnalysisError(result, 'layer validation', depsResult.error);
   }
 
   // Collect all files for circular dependency detection
@@ -135,7 +166,9 @@ export async function runCheckDeps(
   // Detect circular dependencies
   if (uniqueFiles.length > 0) {
     const circularResult = await detectCircularDepsInFiles(uniqueFiles, parser);
-    if (circularResult.ok && circularResult.value.hasCycles) {
+    if (!circularResult.ok) {
+      recordAnalysisError(result, 'circular-dependency detection', circularResult.error);
+    } else if (circularResult.value.hasCycles) {
       result.valid = false;
       for (const cycle of circularResult.value.cycles) {
         // Attribute each finding to the first module in the cycle as a
@@ -196,6 +229,12 @@ async function runCheckDepsAction(
     })),
   ];
 
+  // Surface engine failures as issues (#1996) — a check that could not run must
+  // never render, or be counted, as a clean pass.
+  for (const analysisError of result.value.analysisErrors ?? []) {
+    issues.push({ message: analysisError });
+  }
+
   // Surface the zero-module abstention reason as an issue (#1188).
   if (result.value.analysisNote) {
     issues.push({ message: result.value.analysisNote });
@@ -213,6 +252,8 @@ async function runCheckDepsAction(
     issues,
     modulesAnalyzed: result.value.modulesAnalyzed,
     layersConfigured: result.value.layersConfigured,
+    // Omitted entirely on a clean run, so the clean JSON payload is unchanged (#1996).
+    ...(result.value.analysisErrors ? { analysisErrors: result.value.analysisErrors } : {}),
   });
 
   if (output) {
@@ -224,7 +265,18 @@ async function runCheckDepsAction(
     console.log(formatFindingsContract(issues.length, 'check-deps'));
   }
 
-  process.exit(result.value.valid ? ExitCode.SUCCESS : ExitCode.VALIDATION_FAILED);
+  // Three outcomes, three codes (#1996): the check ran and passed (SUCCESS), the
+  // check ran and found violations (VALIDATION_FAILED), or the check could not
+  // run at all (ERROR). Collapsing the third into either of the first two is what
+  // let `harness check-deps && deploy` proceed on a broken analysis.
+  const analysisFailed = (result.value.analysisErrors?.length ?? 0) > 0;
+  process.exit(
+    analysisFailed
+      ? ExitCode.ERROR
+      : result.value.valid
+        ? ExitCode.SUCCESS
+        : ExitCode.VALIDATION_FAILED
+  );
 }
 
 export function createCheckDepsCommand(): Command {

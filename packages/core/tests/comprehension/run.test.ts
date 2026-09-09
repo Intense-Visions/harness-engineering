@@ -6,11 +6,8 @@ import type {
   ExtractStatic,
   GenerateSemantic,
 } from '@harness-engineering/core';
-import { runComprehend, mapWithConcurrency } from '../../src/comprehension/compile-run';
-import {
-  REENTRANCY_ENV,
-  isComprehensionReentrant,
-} from '../../src/comprehension/generate-semantic';
+import { runComprehend, mapWithConcurrency } from '../../src/comprehension/run';
+import { REENTRANCY_ENV, isComprehensionReentrant } from '../../src/comprehension/reentrancy';
 
 // --- fakes -----------------------------------------------------------------
 
@@ -342,7 +339,7 @@ describe('runComprehend — changed/all compile + write', () => {
 
 import { computeSourceHash } from '@harness-engineering/core';
 import type { ComprehensionListing } from '@harness-engineering/core';
-import { runComprehendCheck, runComprehendStats } from '../../src/comprehension/compile-run';
+import { runComprehendCheck, runComprehendStats } from '../../src/comprehension/run';
 
 function unitFor(module: string, source: ComprehensionSourceFile[]): ComprehensionUnit {
   return {

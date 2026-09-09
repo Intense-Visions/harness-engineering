@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'packages/cli/src/comprehension'
-sourceHash: 'b9efcf0116eed51a6f566a878b426f7ed3f0055f3c74023ed781bd50c1078791'
+sourceHash: 'f0e3ce6413ae30045e5c4859024c0c211898f0bb41823efc2878763b09833119'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
@@ -22,6 +22,13 @@ members:
 ## Interface Contract
 
 ```ts
+export ComprehendCheckResult
+export ComprehendListStore
+export ComprehendModuleReader
+export ComprehendRunOptions
+export ComprehendRunResult
+export ComprehendStatsResult
+export ComprehendUnitStore
 export DEFAULT_DIGEST_CHAR_BUDGET
 export DEFAULT_MAX_OUTPUT_TOKENS
 export DEFAULT_SEMANTIC_MODEL
@@ -70,8 +77,8 @@ export withComprehensionActive
 import { ComprehensionConfig, ComprehensionConfigSchema, HarnessConfig } from '../config/schema'
 import { AnalysisCliConfig, AnalysisEndpoint, ProviderKind, resolveProviderKind } from '../mcp/utils/analysis-provider'
 import { readComprehensionConfig } from './config'
-import { defaultSemanticModel, isComprehensionReentrant, withComprehensionActive } from './generate-semantic'
-import { COMPREHENSION_ROOT, ComprehensionListing, ComprehensionProvenance, ComprehensionSourceFile, ComprehensionUnit, DEFAULT_SOURCE_EXTENSIONS, ExtractStatic, GenerateSemantic, Result, SemanticGeneration, SemanticInput, SkippedUnit, StaticExtraction, TypeScriptParser, compileModule, computeSourceHash, estimateTokens, renderServedUnit, serveGate } from '@harness-engineering/core'
+import { defaultSemanticModel } from './generate-semantic'
+import { COMPREHENSION_ROOT, ComprehensionSourceFile, DEFAULT_SOURCE_EXTENSIONS, GenerateSemantic, SemanticGeneration, SemanticInput } from '@harness-engineering/core'
 import { AnalysisProvider } from '@harness-engineering/intelligence'
 import { execSync, spawnSync } from 'node:child_process'
 import * as fsp from 'node:fs/promises'
