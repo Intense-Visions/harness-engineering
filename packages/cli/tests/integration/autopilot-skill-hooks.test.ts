@@ -127,9 +127,15 @@ describe('harness-autopilot documents the general skillHooks framework (#1481)',
     expect(vocab).toMatch(/alongside `harness-code-reviewer`/);
     expect(vocab).toMatch(/no regression/);
     // Forward-wired: a not-installed harness-default detector is a GRACEFUL SKIP,
-    // never a hard halt (canary 5.12.0 ships none of the four).
+    // never a hard halt when a detector is not installed.
     expect(vocab).toMatch(/forward-wired/i);
-    expect(vocab).toMatch(/5\.12\.0/);
+    // The doc must NOT pin a canary version as the current state. It previously
+    // asserted canary 5.12.0 ships none of the four; that went stale and made a
+    // silent 0/4 read as expected behaviour. Pin the durable contract instead:
+    // prefix-insensitive availability matching, and denominator reporting.
+    expect(vocab).not.toMatch(/5\.12\.0/);
+    expect(vocab).toMatch(/prefix-insensitiv/i);
+    expect(vocab).toMatch(/denominator/i);
     expect(vocab).toMatch(/graceful skip|never a hard halt|SKIPPED, never a hard halt/i);
     // The resolver takes an availability set so only installed detectors wire.
     expect(vocab).toMatch(/availableSkills/);

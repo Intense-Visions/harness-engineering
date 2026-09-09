@@ -37,7 +37,7 @@ describe('planCanaryReviewDetectors', () => {
     expect(plan.expected).toEqual([...CANARY_REVIEW_DETECTORS]);
   });
 
-  it('skips every detector (no hard halt) when none are installed — canary 5.12.0 reality', () => {
+  it('skips every detector (no hard halt) when none are installed', () => {
     // canary is present, but ships none of the four → all skipped, none wired.
     const plan = planCanaryReviewDetectors(true, 'after:REVIEW', new Set());
     expect(plan.wired).toEqual([]);
@@ -127,7 +127,7 @@ describe('resolveReviewHooksWithCanary', () => {
     ]);
   });
 
-  it('when no detector is installed, returns exactly the configured hooks (review proceeds, no halt) — canary 5.12.0 reality', () => {
+  it('when no detector is installed, returns exactly the configured hooks (review proceeds, no halt)', () => {
     // The realistic case today: canary present, ships none of the four. The
     // effective hooks are just the baseline reviewer path; nothing is injected,
     // nothing hard-halts.
@@ -286,5 +286,108 @@ describe('resolveReviewHooksWithCanary', () => {
       availableSkills: ALL_INSTALLED,
     });
     expect(hooks).toEqual([{ type: 'skill', skill: 'preflight', blocking: false }]);
+  });
+});
+
+/**
+ * Plugin-qualified detector names (canary ships all four as of 7.2.0).
+ *
+ * Canary exposes its skills plugin-qualified — `canary:canary-cassandra` — which
+ * is the form harness itself uses elsewhere (harness-test-advisor dispatches
+ * `canary:canary-review-test`). The detector constants are BARE, so an
+ * availability set built from a real installed catalog previously missed on every
+ * lookup and silently skipped all four. Availability matching is therefore
+ * prefix-insensitive: a detector counts as installed when the catalog reports it
+ * bare OR under any plugin qualification.
+ */
+describe('plugin-qualified availability', () => {
+  const ALL_QUALIFIED = new Set<string>(CANARY_REVIEW_DETECTORS.map((d) => `canary:${d}`));
+
+  it('wires detectors reported under the `canary:` plugin prefix', () => {
+    const plan = planCanaryReviewDetectors(true, 'after:REVIEW', ALL_QUALIFIED);
+    expect(plan.wired).toEqual([
+      { type: 'skill', skill: 'canary-savant', blocking: true },
+      { type: 'skill', skill: 'canary-blackhawk', blocking: true },
+      { type: 'skill', skill: 'canary-katana', blocking: true },
+      { type: 'skill', skill: 'canary-cassandra', blocking: true },
+    ]);
+    expect(plan.skipped).toEqual([]);
+  });
+
+  it('wires detectors reported under a deep plugin path', () => {
+    const deep = new Set<string>(
+      CANARY_REVIEW_DETECTORS.map((d) => `canary:skills:claude-code:${d}:${d}`)
+    );
+    const plan = planCanaryReviewDetectors(true, 'after:REVIEW', deep);
+    expect(plan.skipped).toEqual([]);
+    expect(plan.wired).toHaveLength(4);
+  });
+
+  it('dispatches the BARE detector name even when discovered qualified', () => {
+    const plan = planCanaryReviewDetectors(true, 'after:REVIEW', ALL_QUALIFIED);
+    expect(plan.wired.map((h) => h.type === 'skill' && h.skill)).toEqual([
+      ...CANARY_REVIEW_DETECTORS,
+    ]);
+  });
+
+  it('matches a mixed catalog of bare and qualified names', () => {
+    const mixed = new Set<string>(['canary-savant', 'canary:canary-cassandra']);
+    const plan = planCanaryReviewDetectors(true, 'after:REVIEW', mixed);
+    expect(plan.wired.map((h) => h.type === 'skill' && h.skill)).toEqual([
+      'canary-savant',
+      'canary-cassandra',
+    ]);
+    expect(plan.skipped).toEqual(['canary-blackhawk', 'canary-katana']);
+  });
+
+  it('does not wire a non-detector canary skill', () => {
+    const others = new Set<string>(['canary:canary-test-reviewer', 'canary:canary-ci-ready']);
+    const plan = planCanaryReviewDetectors(true, 'after:REVIEW', others);
+    expect(plan.wired).toEqual([]);
+    expect(plan.skipped).toEqual([...CANARY_REVIEW_DETECTORS]);
+  });
+
+  it('accepts a predicate that only recognizes the qualified name', () => {
+    const plan = planCanaryReviewDetectors(
+      true,
+      'after:REVIEW',
+      (s) => s === 'canary:canary-katana'
+    );
+    expect(plan.wired).toEqual([{ type: 'skill', skill: 'canary-katana', blocking: true }]);
+  });
+
+  it('dedups a project declaration written in the qualified form', () => {
+    const config: SkillHooksConfigHolder = {
+      skillHooks: {
+        'harness-autopilot': {
+          'after:REVIEW': [{ type: 'skill', skill: 'canary:canary-cassandra', blocking: false }],
+        },
+      },
+    };
+    const hooks = resolveReviewHooksWithCanary(config, 'harness-autopilot', 'after:REVIEW', {
+      canaryPresent: true,
+      availableSkills: ALL_INSTALLED,
+    });
+    const cassandra = hooks.filter(
+      (h) => h.type === 'skill' && h.skill.endsWith('canary-cassandra')
+    );
+    expect(cassandra).toEqual([
+      { type: 'skill', skill: 'canary:canary-cassandra', blocking: false },
+    ]);
+  });
+
+  it('honors an enabled:false opt-out written in the qualified form', () => {
+    const config: SkillHooksConfigHolder = {
+      skillHooks: {
+        'harness-autopilot': {
+          'after:REVIEW': [{ type: 'skill', skill: 'canary:canary-savant', enabled: false }],
+        },
+      },
+    };
+    const hooks = resolveReviewHooksWithCanary(config, 'harness-autopilot', 'after:REVIEW', {
+      canaryPresent: true,
+      availableSkills: ALL_INSTALLED,
+    });
+    expect(hooks.some((h) => h.type === 'skill' && h.skill.endsWith('canary-savant'))).toBe(false);
   });
 });

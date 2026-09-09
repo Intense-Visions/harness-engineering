@@ -12,11 +12,16 @@
 //
 // FORWARD-WIRED / GRACEFUL-SKIP CONTRACT (the crux, do not regress):
 //   The four detectors are harness-OPTIMISTIC defaults. They are NOT guaranteed
-//   to be installed — as of canary 5.12.0 the plugin ships NONE of them (its
-//   review-adjacent skills are `canary-test-reviewer`, `canary-pr-guardian`,
-//   `canary-ci-ready`, `canary-critical-areas`, ...). So a canary default whose
-//   skill is not installed is SILENTLY SKIPPED (reported in the denominator),
-//   NEVER a hard halt. Each detector auto-lights-up if/when canary ships it.
+//   to be installed, so a canary default whose skill is not installed is
+//   SILENTLY SKIPPED (reported in the denominator), NEVER a hard halt. Each
+//   detector auto-lights-up if/when canary ships it.
+//
+//   NOTE: canary shipped all four as of 7.2.0. This comment previously said
+//   canary 5.12.0 ships NONE of them, which stopped being true and made a
+//   silent 0/4 look like the documented expected state rather than the name
+//   mismatch it actually was (see `bareSkillName`). Do not restate a canary
+//   version here as though it were current; availability is an INPUT, and the
+//   denominator is what tells you what really ran.
 //   This is the opposite of a USER-declared `skillHooks` entry: a user's typo
 //   MUST hard-halt (false-green protection). The distinction is drawn HERE by
 //   resolve-and-filter — a canary default is only emitted when its skill is
@@ -46,8 +51,8 @@ import type { NormalizedHook, SkillHookEntry, SkillHooksConfigHolder } from './s
  * - `canary-cassandra`  — vacuous tests: assertions that cannot fail.
  *
  * These are the SPECIFIC deterministic detectors named by issue #1482. They are
- * FORWARD-WIRED: canary 5.12.0 ships none of them, so today they all skip; each
- * activates automatically once canary ships it and it reports as installed.
+ * FORWARD-WIRED: each activates automatically once canary ships it and it reports
+ * as installed. Canary ships all four as of 7.2.0.
  */
 export const CANARY_REVIEW_DETECTORS = [
   'canary-savant',
@@ -96,12 +101,48 @@ function isCanaryReviewEvent(event: string): boolean {
   return (CANARY_REVIEW_EVENTS as readonly string[]).includes(event);
 }
 
-/** Normalize the three availability shapes into a single predicate. */
+/**
+ * The plugin qualification canary's own catalog uses for its skills.
+ * `canary:canary-cassandra` is the form harness already dispatches elsewhere
+ * (see `harness-test-advisor`, which calls `canary:canary-review-test`).
+ */
+const CANARY_SKILL_PREFIX = 'canary:';
+
+/**
+ * Reduce a catalog entry to the bare skill name it designates.
+ *
+ * Canary exposes its skills plugin-qualified, so a real installed catalog reports
+ * `canary:canary-cassandra` — or, depending on the surface, a deeper path like
+ * `canary:skills:claude-code:canary-cassandra:canary-cassandra`. The detector
+ * constants in {@link CANARY_REVIEW_DETECTORS} are BARE, so a plain `set.has()`
+ * missed on every lookup and silently skipped all four detectors. That failure was
+ * invisible precisely because a skipped detector is contractually silent.
+ *
+ * Detector names contain no colon, so taking the final segment is lossless for
+ * them and collapses every qualification depth onto the bare name.
+ */
+function bareSkillName(entry: string): string {
+  const lastColon = entry.lastIndexOf(':');
+  return lastColon === -1 ? entry : entry.slice(lastColon + 1);
+}
+
+/**
+ * Normalize the three availability shapes into a single predicate.
+ *
+ * Matching is PREFIX-INSENSITIVE: a detector counts as installed when the catalog
+ * reports it bare or under any plugin qualification. For the predicate shape we
+ * cannot enumerate the catalog, so we probe the bare name and the canonical
+ * `canary:`-qualified form.
+ */
 function toAvailabilityPredicate(avail: SkillAvailability | undefined): (skill: string) => boolean {
   if (avail === undefined) return () => false;
-  if (typeof avail === 'function') return avail;
+  if (typeof avail === 'function') {
+    return (skill) => avail(skill) || avail(`${CANARY_SKILL_PREFIX}${skill}`);
+  }
   const set = avail instanceof Set ? avail : new Set(avail);
-  return (skill) => set.has(skill);
+  const bare = new Set<string>();
+  for (const entry of set) bare.add(bareSkillName(entry));
+  return (skill) => set.has(skill) || bare.has(skill);
 }
 
 /**
@@ -218,7 +259,17 @@ export function resolveReviewHooksWithCanary(
   const { wired } = planCanaryReviewDetectors(opts.canaryPresent, event, opts.availableSkills);
   if (wired.length === 0) return configured;
 
-  const declared = declaredSkillNames(config, skillName, event);
-  const additions = wired.filter((hook) => hook.type === 'skill' && !declared.has(hook.skill));
+  // Dedup on the BARE name so a project's declaration wins whether it was written
+  // bare (`canary-cassandra`) or plugin-qualified (`canary:canary-cassandra`).
+  // Without this the qualified form fails to match the default and the detector is
+  // dispatched twice — the same name mismatch as the availability lookup, one layer
+  // down, and it also silently defeats the `enabled: false` opt-out.
+  const declared = new Set<string>();
+  for (const name of declaredSkillNames(config, skillName, event)) {
+    declared.add(bareSkillName(name));
+  }
+  const additions = wired.filter(
+    (hook) => hook.type === 'skill' && !declared.has(bareSkillName(hook.skill))
+  );
   return [...configured, ...additions];
 }
