@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'packages/cli/tests/commands'
-sourceHash: '755283dc2c5b7362a3caf25f87bd1701730db2151f392108b49f2a2602facb28'
+sourceHash: '0c06c1f1d7e556fbb9510cd055c63e43a4e7ca0a1da725010d194afe28a423c2'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
@@ -26,7 +26,6 @@ members:
     'check-arch.test.ts',
     'check-deployment.test.ts',
     'check-deps-cov544b.test.ts',
-    'check-deps-err-swallow.test.ts',
     'check-deps.test.ts',
     'check-design-cov544.test.ts',
     'check-design.test.ts',
@@ -133,6 +132,7 @@ members:
     'proposals-cov544b.test.ts',
     'proposals-status.test.ts',
     'proposals.test.ts',
+    'provenance.test.ts',
     'publish-analyses.test.ts',
     'pulse-run.test.ts',
     'recommend.test.ts',
@@ -317,6 +317,7 @@ import { createListCommand } from '../../src/commands/persona/list'
 import { BRIEF_MARKER, buildBriefBody, createPreMergeBriefCommand, defaultPostBrief, findOutcomeVerdict, gatherGuardianSafe, gatherSignalsSafe, loadOutcomeStore, readReview, runPreMergeBrief, upsertComment } from '../../src/commands/pre-merge-brief'
 import { createPredictCommand, runPredict } from '../../src/commands/predict'
 import { actStatusCommand, createProposalsCommand, runProposalsList, runProposalsReject, runProposalsShow, runProposalsStatus } from '../../src/commands/proposals'
+import { RunGit, createProvenanceCommand, runProvenanceCommand } from '../../src/commands/provenance'
 import { createPublishAnalysesCommand } from '../../src/commands/publish-analyses'
 import { runPulseRunCommand } from '../../src/commands/pulse/run'
 import { createRecommendCommand, runRecommend } from '../../src/commands/recommend'
@@ -426,7 +427,7 @@ import { CraftCommandRun, DEFAULT_CWD, runCraftCommand } from './craft-command-h
 import { llmCalls, runCraftCommand } from './craft-command-harness.js'
 import { parseJsonStdout, runCommand } from './design-command-harness'
 import * as clack from '@clack/prompts'
-import { CiReviewResult, ConstraintError, DiffInfo, Err, GoldenFileChange, GoldenSnapshot, Ok, RefinementDemandReport, RollbackDecision, RunCiReviewOptions, SECURITY_SCAN_EXTENSIONS, SECURITY_SCAN_GLOB, applyFixes, archiveStream, buildSnapshot, checkTaint, clearTaint, createError, createFixes, createModelProposal, createProposal, createStream, detectDeadCode, detectDocDrift, extractBundle, generateSuggestions, listStreams, listTaintedSessions, loadStreamIndex, parseCiReviewVerdict, parseDiff, parseManifest, readAdoptionRecords, requestPeerReview, resetWaypointEmitterForTests, runReviewPipeline, setActiveStream, validateAgentConfigs, validateAgentsMap, validateDecisionNumbers, validateKnowledgeMap, validatePulseConfig, validateRoadmapMode, validateSolutionsDir, validateStrategy, writeConfig } from '@harness-engineering/core'
+import { CiReviewResult, DiffInfo, Err, GoldenFileChange, GoldenSnapshot, Ok, RefinementDemandReport, RollbackDecision, RunCiReviewOptions, SECURITY_SCAN_EXTENSIONS, SECURITY_SCAN_GLOB, applyFixes, archiveStream, buildSnapshot, checkTaint, clearTaint, createFixes, createModelProposal, createProposal, createStream, detectDeadCode, detectDocDrift, extractBundle, generateSuggestions, listStreams, listTaintedSessions, loadStreamIndex, parseCiReviewVerdict, parseDiff, parseManifest, readAdoptionRecords, requestPeerReview, resetWaypointEmitterForTests, runReviewPipeline, setActiveStream, validateAgentConfigs, validateAgentsMap, validateDecisionNumbers, validateKnowledgeMap, validatePulseConfig, validateRoadmapMode, validateSolutionsDir, validateStrategy, writeConfig } from '@harness-engineering/core'
 import from '@harness-engineering/graph'
 import { GUARDIAN_ANALYSIS_SCHEMA, GUARDIAN_ANALYSIS_VERSION, GuardianAnalysis, OutcomeVerdict, SkillRegressionFixture, SkillRegressionVerdict } from '@harness-engineering/intelligence'
 import { AnalysisRecord, MockBackend, RunMode, RunResult, SyncMainResult, TaskDefinition, renderAnalysisComment } from '@harness-engineering/orchestrator'

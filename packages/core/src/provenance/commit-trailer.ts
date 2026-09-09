@@ -147,23 +147,42 @@ function parseTrailerLine(line: string): [string, string] | null {
 }
 
 /**
- * Extract the provenance trailer from a commit or PR-body message.
+ * Every `Harness-*` trailer line in the message, as ordered `[key, value]`
+ * pairs, **duplicates included**.
  *
- * Returns `null` when no `Harness-Run` key is present — i.e. an interactive /
- * non-fleet commit, which this function leaves entirely unclaimed. Scans every
- * `Key: value` line in the message (co-existing trailers such as
- * `Claude-Session:` or `Co-authored-by:` are ignored), so a `Harness-Run` line
- * is found regardless of what other trailers surround it.
+ * This is the single scanner for the trailer grammar. {@link
+ * parseProvenanceTrailer} collapses these pairs into a `Map` (last occurrence
+ * wins) to answer "what does this commit claim"; a shape validator consumes the
+ * uncollapsed list to answer "is what it claims well-formed" — specifically to
+ * see the duplicate keys the `Map` hides. Both consumers therefore share one
+ * grammar, which is the whole point: a second parser that drifts from the
+ * emitter is the failure mode this module exists to prevent.
+ *
+ * Co-existing non-`Harness-` trailers (`Claude-Session:`, `Co-authored-by:`)
+ * are ignored, and every line in the message is scanned, so the block is found
+ * regardless of what surrounds it.
  */
-export function parseProvenanceTrailer(message: string): ProvenanceTrailer | null {
-  const K = PROVENANCE_TRAILER_KEYS;
-  const found = new Map<string, string>();
+export function collectProvenanceTrailerEntries(message: string): Array<[string, string]> {
+  const entries: Array<[string, string]> = [];
   for (const rawLine of message.split(/\r?\n/)) {
     const parsed = parseTrailerLine(rawLine.trim());
     if (parsed === null) continue;
-    const [key, value] = parsed;
-    if (key.startsWith('Harness-')) found.set(key, value);
+    if (parsed[0].startsWith('Harness-')) entries.push(parsed);
   }
+  return entries;
+}
+
+/**
+ * Extract the provenance trailer from a commit or PR-body message.
+ *
+ * Returns `null` when no `Harness-Run` key is present — i.e. an interactive /
+ * non-fleet commit, which this function leaves entirely unclaimed. Built on
+ * {@link collectProvenanceTrailerEntries}; a repeated key keeps its last
+ * occurrence.
+ */
+export function parseProvenanceTrailer(message: string): ProvenanceTrailer | null {
+  const K = PROVENANCE_TRAILER_KEYS;
+  const found = new Map<string, string>(collectProvenanceTrailerEntries(message));
 
   const run = found.get(K.run);
   if (run === undefined) return null;

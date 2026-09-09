@@ -148,3 +148,69 @@ jobs:
         if: steps.changes.outputs.run == 'true'
         continue-on-error: true
         run: node packages/cli/dist/bin/harness.js cleanup --type drift
+
+  # ---------------------------------------------------------------------------
+  # Provenance trailer SHAPE gate (#1777).
+  #
+  # `harness provenance --check --range` validates that every commit in the PR
+  # which CARRIES a `Harness-Run` trailer carries a well-formed one — required
+  # keys present, a known schema version, `<skill>@<version>` intact, no
+  # duplicated keys. Pure string work over `git log` output: no LLM, no network,
+  # no knowledge graph.
+  #
+  # It deliberately does NOT check that agent-authored commits HAVE a trailer.
+  # There is no mechanical definition of "agent-authored" in this repo, and a
+  # presence gate would go red across all existing history the moment it landed.
+  # Commits with no trailer are reported as "unclaimed" and skipped. Whether
+  # presence should ever be enforced — and whether it should block or warn — is
+  # an open policy question on #1777.
+  #
+  # Advisory like every other job here: the step runs under continue-on-error,
+  # so a malformed trailer is reported but never flips the PR's status.
+  # Promoting this to a blocking check is part of the same parked decision.
+  # ---------------------------------------------------------------------------
+  provenance-shape:
+    name: Provenance trailer shape (advisory)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          # Full history so origin/<base> is a usable range endpoint.
+          fetch-depth: 0
+
+      - uses: pnpm/action-setup@v5
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 22
+          cache: 'pnpm'
+
+      - run: pnpm install --frozen-lockfile
+
+      - run: pnpm build
+
+      - name: provenance shape gate (advisory)
+        continue-on-error: true
+        run: |
+          git fetch origin "${{ github.base_ref }}" >/dev/null 2>&1 || true
+          RANGE="origin/${{ github.base_ref }}...HEAD"
+          # Capture rather than pipe straight into the summary: the command's
+          # own exit code is the result, and it must survive being reported.
+          set +e
+          node packages/cli/dist/bin/harness.js provenance --check --range "$RANGE" \
+            >provenance-shape.txt 2>&1
+          STATUS=$?
+          set -e
+          cat provenance-shape.txt
+          # The counts line — the denominator this gate examined — goes into the
+          # step summary too. A gate that validated nothing must never be
+          # mistaken for one that validated everything.
+          {
+            echo '### Provenance trailer shape'
+            echo ''
+            echo '```'
+            cat provenance-shape.txt
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+          rm -f provenance-shape.txt
+          exit "$STATUS"
