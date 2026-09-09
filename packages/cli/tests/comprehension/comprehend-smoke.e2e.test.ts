@@ -57,7 +57,17 @@ describe.skipIf(!HAS_BIN)('harness comprehend — E2E smoke (static, no LLM)', (
   });
 
   afterAll(() => {
-    if (proj) rmSync(proj, { recursive: true, force: true });
+    // Windows: a just-exited `harness comprehend` subprocess (spawned by
+    // comprehend() via spawnSync) — and the `git` child used to scaffold this
+    // repo — can briefly retain handles on files under `proj`, so a plain
+    // recursive rmSync intermittently throws EBUSY / ENOTEMPTY / EPERM and
+    // reds the whole suite from teardown after every assertion has passed.
+    // `force` does NOT cover this: it suppresses "path does not exist", not
+    // "path is locked". `force` + `maxRetries`/`retryDelay` makes Node retry
+    // until the OS releases the handles ("await the settle"), removing the
+    // teardown-race nondeterminism rather than hiding it. A no-op on POSIX,
+    // where handles are released synchronously on exit. See #2089.
+    if (proj) rmSync(proj, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 });
   });
 
   it('compiles a static-only unit with valid provenance + interface contract', () => {

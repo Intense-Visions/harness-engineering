@@ -1,0 +1,45 @@
+{
+  "issues": [2089],
+  "fleet": "cicd-fleet",
+  "item": "A — comprehend-smoke.e2e.test.ts EBUSY teardown flake on windows-latest (CI run 34301348937)",
+  "classification": "flake",
+  "stages": ["investigate", "analyze", "hypothesize", "fix", "verify"],
+  "skill": "harness-debugging",
+  "baseSha": "02a18a5ecef77a733a606e7de67cff745656e9f3",
+  "branch": "fc4/cicd-comprehend-smoke-ebusy-2089",
+  "planArtifact": "docs/changes/comprehend-smoke-ebusy-teardown/plans/2026-09-09-comprehend-smoke-ebusy-teardown-plan.md",
+  "sessionRecord": "docs/changes/comprehend-smoke-ebusy-teardown/debug-session.md",
+  "ciEvidence": {
+    "runId": "34301348937",
+    "job": "build-and-test (windows-latest, 22)",
+    "sha": "b169ca0dc",
+    "failure": "EBUSY: resource busy or locked, rmdir '...comprehend-smoke-b9n120' thrown from afterAll at comprehend-smoke.e2e.test.ts:60",
+    "testFailures": 0,
+    "priorOccurrence": {
+      "runId": "34279126634",
+      "pr": 2085,
+      "note": "same file, same afterAll, same EBUSY rmdir; 8698 assertions passed, 0 failed"
+    }
+  },
+  "assumptions": [
+    "Implemented the human's decided remedy exactly: added maxRetries/retryDelay to the single rmSync at line 60 with a rationale comment, mirroring packages/core/tests/state/gate.test.ts:21. Adopted that precedent's option values verbatim (maxRetries: 10, retryDelay: 100) rather than the retryDelay:50 variant in validate.roadmap-abstention.test.ts or the maxRetries:3 variant in packages/core/src/solutions/scan-candidates/*.test.ts, so a later shared-helper extraction is a pure move.",
+    "RECOMMENDED DEFAULT TAKEN: no try/catch wrapper. The sibling precedent at validate.roadmap-abstention.test.ts:78 wraps its retrying rmSync in a swallowing catch. That was NOT adopted — a bare catch would make a permanent lock invisible, and the fleet's Iron Law requires the nondeterminism to be removed rather than hidden. If the retries are ever exhausted that is a new fault and it must be loud.",
+    "OUT OF SCOPE BY DECISION, honoured: no shared removeTempDirSafely(dir) helper was extracted, and the four ad-hoc sites in other files (packages/core/tests/state/gate.test.ts, packages/cli/tests/commands/validate.roadmap-abstention.test.ts, packages/orchestrator/tests/integration/orchestrator-sentinel.test.ts, packages/orchestrator/tests/integration/claim-coordination.test.ts) were not migrated. Issue #2089 stays OPEN for that structural half; the PR says so explicitly and uses Refs, not Closes.",
+    "SURFACED FINDING, deliberately not acted on: the SAME file carries 14 further structurally identical recursive rmSync teardown sites (lines 146, 217, 218, 276, 293, 294, 319, 388, 403, 422, 442, 466, 508, 522), each removing a directory a spawnSync-ed CLI wrote into, so each is the same latent Windows fault. Only line 60 has been observed red. Left untouched because the scope decision named line 60 specifically and because the precedent decision on the sibling windows-ephemeral-port-deflake item (fork F5) chose 'fix only the observed sites, route the rest'. Reported for routing rather than edited.",
+    "The Windows EBUSY fault is NOT reproducible on macOS: it arises from Windows refusing to unlink a file with an open handle plus asynchronous handle release on child exit; POSIX has no analogue. Per the windows-ephemeral-port-deflake precedent the evidence standard is 'the teardown now tolerates a locked handle and the suite is stable across repeated runs', NOT 'the Windows fault was reproduced'. Windows behaviour is verified by CI on the PR.",
+    "The MECHANISM was verified experimentally rather than asserted, using macOS `chflags uchg` (which makes unlink return EPERM — the same Node retry class as the Windows EBUSY) as a deterministic stand-in for the lock. With the lock released by an EXTERNAL process ~700ms in: force-only THREW EPERM after 2ms (the CI failure); force+maxRetries:10+retryDelay:100 RECOVERED after 809ms with the tree removed. That pair is the revert protocol at the mechanism level. An earlier probe that released the lock from an in-process setTimeout appeared to refute the fix; that was a flaw in the probe — rmSync is synchronous and blocks the event loop so the timer could never fire. Probes were scratch-only and are not in the diff.",
+    "No new regression TEST file was added. The fault is OS-level file-locking behaviour with no POSIX analogue; a test asserting that rmSync honours maxRetries would be testing Node rather than this product and would pass on the CI leg that never fails. Same standard as the windows-ephemeral-port-deflake precedent.",
+    "Recorded cost, not hidden: on a PERMANENTLY locked tree the call takes ~24s before throwing (measured), because rmSync(recursive) applies the retry budget at each level of the tree rather than once. That only applies where the old code fails the suite outright anyway; on POSIX and on unlocked Windows runs the options cost nothing.",
+    "Classified a flake by failure MODE, not by a rerun flip: syscall 'rmdir' thrown from afterAll with zero failed assertions, across two independent occurrences (runs 34301348937 and 34279126634). There is no same-SHA green to point at."
+  ],
+  "verification": {
+    "typecheck": "clean (tsc --noEmit on packages/cli, exit 0)",
+    "affectedFileConsecutiveRuns": 5,
+    "affectedFileResult": "5/5 green — Test Files 1 passed (1), Tests 15 passed | 1 skipped (16)",
+    "suiteActuallyRan": "the file is describe.skipIf(!HAS_BIN) against dist/bin/harness.js, so a missing build would report 0 tests and look green; pnpm turbo build was run first and the non-zero test count is the proof",
+    "skipRationale": "the 1 skip is the HARNESS_E2E_LIVE-gated live block, skipped by design both before and after",
+    "revertProtocol": "mechanism-level: identical transient lock is fatal without the options (THREW EPERM after 2ms) and survivable with them (RECOVERED after 809ms)",
+    "ironLaw": "no skipIf(win32), no swallowing try/catch, no job-level retry, no test skipped/deleted/weakened, no assertion changed"
+  },
+  "closingKeyword": null
+}
