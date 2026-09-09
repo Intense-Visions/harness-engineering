@@ -35,6 +35,28 @@
       },
       "suppressionCount": 0,
       "findingIds": ["783a5c009a968228", "caebb5c38de36a6e", "8b93df1cff804a2e"]
+    },
+    {
+      "capturedAt": "2026-09-09T16:37:29.457Z",
+      "commitHash": "7eaccd9ae1f8dc9d9591e2667171f86027f24f40",
+      "securityScore": 100,
+      "totalFindings": 0,
+      "bySeverity": {
+        "error": 0,
+        "warning": 0,
+        "info": 0
+      },
+      "byCategory": {},
+      "supplyChain": {
+        "critical": 0,
+        "high": 0,
+        "moderate": 0,
+        "low": 0,
+        "info": 0,
+        "total": 0
+      },
+      "suppressionCount": 0,
+      "findingIds": []
     }
   ],
   "findingLifecycles": [
@@ -46,8 +68,8 @@
       "file": "coverage/prettify.js",
       "firstSeenAt": "2026-05-06T13:25:36.125Z",
       "firstSeenCommit": "abc70ec5cd88ad0188894adee828d9f51062a0e8",
-      "resolvedAt": null,
-      "resolvedCommit": null
+      "resolvedAt": "2026-09-09T16:37:29.459Z",
+      "resolvedCommit": "7eaccd9ae1f8dc9d9591e2667171f86027f24f40"
     },
     {
       "findingId": "caebb5c38de36a6e",
@@ -57,8 +79,8 @@
       "file": "coverage/sorter.js",
       "firstSeenAt": "2026-05-06T13:25:36.125Z",
       "firstSeenCommit": "abc70ec5cd88ad0188894adee828d9f51062a0e8",
-      "resolvedAt": null,
-      "resolvedCommit": null
+      "resolvedAt": "2026-09-09T16:37:29.459Z",
+      "resolvedCommit": "7eaccd9ae1f8dc9d9591e2667171f86027f24f40"
     },
     {
       "findingId": "8b93df1cff804a2e",
@@ -68,8 +90,8 @@
       "file": "src/skill/dispatch-session.ts",
       "firstSeenAt": "2026-05-06T13:25:36.125Z",
       "firstSeenCommit": "abc70ec5cd88ad0188894adee828d9f51062a0e8",
-      "resolvedAt": null,
-      "resolvedCommit": null
+      "resolvedAt": "2026-09-09T16:37:29.459Z",
+      "resolvedCommit": "7eaccd9ae1f8dc9d9591e2667171f86027f24f40"
     }
   ]
 }
