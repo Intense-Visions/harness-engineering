@@ -1,0 +1,39 @@
+{
+  "issues": [2046],
+  "fleet": "cicd-fleet",
+  "item": "B — wall-clock flake at packages/cli/tests/commands/scan-config.test.ts:266 'scans large config files within 100ms' (CI run 34303979771)",
+  "classification": "flake",
+  "stages": ["investigate", "analyze", "hypothesize", "fix", "verify"],
+  "skill": "harness-debugging",
+  "baseSha": "02a18a5ecef77a733a606e7de67cff745656e9f3",
+  "branch": "fc4/cicd-scan-config-wallclock-2046",
+  "planArtifact": "docs/changes/scan-config-wallclock-assertion/plans/2026-09-09-scan-config-wallclock-assertion-plan.md",
+  "sessionRecord": "docs/changes/scan-config-wallclock-assertion/debug-session.md",
+  "ciEvidence": {
+    "runId": "34303979771",
+    "job": "build-and-test (windows-latest, 22)",
+    "sha": "164c704cdc66bd05be921b0f2d8689ce6364cfa7",
+    "failure": "AssertionError: expected 113 to be less than 100 (scan-config.test.ts:266:23)",
+    "legSummary": "Test Files 1 failed | 733 passed | 5 skipped (739)",
+    "testFailures": 1
+  },
+  "assumptions": [
+    "Implemented the human's decision verbatim (option (a)): deleted the wall-clock assertion and honoured #2046's standing policy. The budget was NOT widened, the test was NOT skipped/retried/deleted, and no amendment to #2046 was made.",
+    "The ci.yml HARNESS_COVERAGE budget inversion is REAL and was diagnosed (ci.yml:102 runs `pnpm test:ci` -> HARNESS_COVERAGE=1 on ubuntu only, so the relaxed 2000ms budget applied to the fast instrumented leg while the strict 100ms applied to the slower uninstrumented windows/macos legs). It was DELIBERATELY NOT FIXED: repairing the inversion would make the wall-clock assertion fire correctly, which is precisely the remedy #2046 rules out. Documented in the plan and PR body so it is not rediscovered as an oversight.",
+    "AUTONOMOUS DECISION — the replacement invariant is deliberately stronger than the brief's suggested default. The brief offered 'clean 10KB yields zero findings and exit 0'; that is satisfied by a scanner that reads nothing at all (zero findings is the same answer for a correct scan and for a no-op). Instead an ~11KB clean body carries ONE high-severity line placed LAST, and the test asserts exit 2, exactly one finding, and finding.line === 253 (the final line). The line number proves the whole file was processed; 'exactly one' proves no false positives at scale and no per-line re-match. Mutation 1 below is the proof the weaker form was insufficient.",
+    "AUTONOMOUS DECISION — removed the now-dead HARNESS_COVERAGE plumbing from packages/cli/vitest.config.mts (argv --coverage detection + env forwarding) in a SEPARATE commit. A repo-wide grep confirms the deleted budgetMs line was its only consumer in packages/cli, and the config's own comment named it. packages/orchestrator/vitest.config.mts keeps an independent copy of the pattern with a live consumer (telemetry-latency.test.ts) and is untouched. Separate commit so a reviewer who considers it out of scope can revert it alone.",
+    "BENCHMARK-HARNESS ENTRY DEFERRED, not silently dropped. scripts/benchmark-check.mjs drives a hardcoded two-entry PACKAGES array (core, graph), each with a benchmarks/*.bench.ts tree and a `bench` package script; packages/cli has neither. Adding an entry would mean onboarding a third package to the harness AND introducing its first filesystem-IO-bound benchmark — all eight existing baselines are pure-CPU microbenchmarks with means of 0.0004-0.011ms, and THRESHOLD = 1.0 is documented as calibrated for that microsecond scale. That is a substantial new surface, so per the item's own instruction it was not built. Recorded as follow-up.",
+    "Scope held to this ONE site. The seven sibling sites listed in #2046 are untouched. Note scan-config.test.ts:266 is NOT one of the seven in that issue's table (taken at db9c6739d) — it is an eighth instance of the same class and the second in it to redden main. PR uses Refs #2046, not Closes.",
+    "The Windows timing fault is NOT reproducible on macOS — local runs win the race by 112x (measured mean 0.89ms for the exact payload vs the 100ms budget), which is itself the diagnosis. The evidence offered is that the wall-clock assertion is gone, the replacement has proven content (two source mutations), and the suite is stable across repeated runs — not a local reproduction of the Windows timing.",
+    "Classified a flake by failure MODE, not by a rerun flip. There is no same-SHA green to point at. The classification rests on the assertion being a pure function of runner load, the 113-vs-100 margin against a 0.89ms local mean, and the other 733 test files in the job passing."
+  ],
+  "verification": {
+    "typecheck": "clean (tsc --noEmit, exit 0)",
+    "affectedFileConsecutiveRuns": 5,
+    "affectedFileResult": "5/5 green — Test Files 1 passed (1), Tests 24 passed (24)",
+    "fullPackage": "Test Files 739 passed (739), Tests 8731 passed | 2 skipped (8733)",
+    "testCountUnchanged": "24 before, 24 after — nothing skipped, deleted, or retried",
+    "revertProtocol": "N/A literally (the fix removes an assertion). Substituted source mutation of packages/cli/src/commands/scan-config.ts, applied/run/reverted: (1) readFileSync(...).slice(0, 1000) — new invariant FAILS 'expected +0 to be 2', old wall-clock assertion PASSES and is faster; (2) content.split('\\n').flatMap(() => scanForInjection(content)) — new invariant FAILS 'expected [ …(254) ] to have a length of 1 but got 254', old wall-clock assertion PASSES. Both mutants ship green past the removed assertion and red past its replacement."
+  },
+  "closingKeyword": null
+}
