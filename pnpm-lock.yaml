@@ -8,7 +8,7 @@ neverBuiltDependencies:
   - cpu-features
 
 overrides:
-  hono: '>=4.12.34'
+  hono: '>=4.13.5'
   '@grpc/grpc-js': ^1.14.4
   '@hono/node-server': '>=2.0.10'
   postcss: '>=8.5.23'
@@ -326,7 +326,7 @@ importers:
         version: link:../types
       '@hono/node-server':
         specifier: '>=2.0.10'
-        version: 2.0.11(hono@4.13.1)
+        version: 2.0.11(hono@4.13.7)
       '@tailwindcss/typography':
         specifier: ^0.5.19
         version: 0.5.19(tailwindcss@4.2.2)
@@ -337,8 +337,8 @@ importers:
         specifier: ^13.0.6
         version: 13.0.6
       hono:
-        specifier: '>=4.12.34'
-        version: 4.13.1
+        specifier: '>=4.13.5'
+        version: 4.13.7
       lucide-react:
         specifier: ^1.8.0
         version: 1.8.0(react@18.3.1)
@@ -2475,13 +2475,13 @@ packages:
       yargs: 17.7.2
     dev: true
 
-  /@hono/node-server@2.0.11(hono@4.13.1):
+  /@hono/node-server@2.0.11(hono@4.13.7):
     resolution: {integrity: sha512-bjD221KPLoJTWUwso1J6fGKiTXEUFedG/s0visavY4zakFPkeGURMRNly+FhBHs7T8Dz4qHaZIMX9ZoJHSJtKA==}
     engines: {node: '>=20'}
     peerDependencies:
-      hono: '>=4.12.34'
+      hono: '>=4.13.5'
     dependencies:
-      hono: 4.13.1
+      hono: 4.13.7
     dev: false
 
   /@humanfs/core@0.19.2:
@@ -2742,7 +2742,7 @@ packages:
       '@cfworker/json-schema':
         optional: true
     dependencies:
-      '@hono/node-server': 2.0.11(hono@4.13.1)
+      '@hono/node-server': 2.0.11(hono@4.13.7)
       ajv: 8.18.0
       ajv-formats: 3.0.1(ajv@8.18.0)
       content-type: 1.0.5
@@ -2752,7 +2752,7 @@ packages:
       eventsource-parser: 3.0.6
       express: 5.2.1
       express-rate-limit: 8.3.2(express@5.2.1)
-      hono: 4.13.1
+      hono: 4.13.7
       jose: 6.2.2
       json-schema-typed: 8.0.2
       pkce-challenge: 5.0.1
@@ -6015,8 +6015,8 @@ packages:
     resolution: {integrity: sha512-PDEfEF102G23vHmPhLyPboFCD+BkMGu+GuJe2d9/eH4FsCwvgBpnc9n0pGE+ffKdph38s6foEZiEjdgHdzp+IA==}
     dev: false
 
-  /hono@4.13.1:
-    resolution: {integrity: sha512-kdJoFVv2xmayw6cY09H7AbMJMt8Jn5jdlEdXsP7AGBdF2DIptVlKlOLKXP41yPip4/a3yQPv9gVcJYI8YY04dw==}
+  /hono@4.13.7:
+    resolution: {integrity: sha512-c8/gF9ac8Y78/agExVocyLevgR+JlpNB444Py0FSX8pJoPdYUfUzRcXtYEYGwt6l19qIlVZPN5Mfsw9jFShmQQ==}
     engines: {node: '>=16.9.0'}
     dev: false
 
