@@ -538,6 +538,20 @@ Predict which architectural constraints will break and when
 - `--no-roadmap` — Baseline only — skip roadmap spec impact
 - `--horizon` — Forecast horizon in weeks (default: 12) (default: "12")
 
+### `harness provenance [commitish]`
+
+Read the Harness-\* provenance trailer for a commit, or shape-check a range (distinct from `harness rules provenance`, the ADR-0100 rule reporter)
+
+**Arguments:**
+
+- `commitish` (optional) — Commit to read the Harness-\* provenance trailer from (default: HEAD)
+
+**Options:**
+
+- `--check` — Shape-gate mode: fail on a malformed trailer; skip unclaimed commits.
+- `--range` — Shape-check every commit in a range (e.g. origin/main...HEAD).
+- `--json` — Emit the machine-readable report as JSON.
+
 ### `harness publish-analyses`
 
 Publishes locally generated intelligence analyses to the external issue tracker (e.g., GitHub)

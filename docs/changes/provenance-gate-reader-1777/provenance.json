@@ -1,0 +1,48 @@
+{
+  "issue": [1777],
+  "route": "feature",
+  "stages": ["brainstorming", "autopilot"],
+  "planArtifact": "docs/changes/provenance-gate-reader-1777/plans/2026-09-08-provenance-gate-reader-plan.md",
+  "spec": "docs/changes/provenance-gate-reader-1777/proposal.md",
+  "baseSha": "738b296c0a50cb9890474124d466f38903e468e2",
+  "closingKeyword": "Refs #1777",
+  "delivered": [
+    "packages/core/src/provenance/validate-trailer.ts — `validateProvenanceTrailer`, the strict shape counterpart to the lenient `parseProvenanceTrailer`. Three-state `status` ('absent' | 'valid' | 'malformed').",
+    "packages/core/src/provenance/commit-trailer.ts — extracted and exported `collectProvenanceTrailerEntries`, now the single scanner for the trailer grammar; `parseProvenanceTrailer` consumes it (behaviour unchanged, its tests untouched).",
+    "packages/cli/src/commands/provenance.ts — `harness provenance [commitish]` reader plus `--check`/`--range` shape gate.",
+    ".github/workflows/pr-advisory-checks.yml — advisory `provenance-shape` job running the gate over `origin/<base>...HEAD`."
+  ],
+  "notDelivered": [
+    "The PRESENCE half of the CI check from the issue text ('present and well-shaped on every agent-authored commit'). Only the well-shaped half shipped."
+  ],
+  "parkedForks": [
+    "what counts as an \"agent-authored\" commit for the PRESENCE half, and should presence be enforced (block) or advisory (warn) during adoption?"
+  ],
+  "parkedForkRationale": "There is no established mechanical definition of 'agent-authored' in this repo. `Claude-Session:` identifies INTERACTIVE AI assistance, which packages/core/src/provenance/commit-trailer.ts:13-16 deliberately refuses to conflate with the autonomous tier; `Harness-Run` is emitted only by the orchestrator ship path, so using it to decide which commits MUST carry `Harness-Run` is circular. Separately, a presence gate switched on hard would go red across all existing history and every open PR on day one, because almost no commit carries the trailer yet. That is a repo-wide adoption-policy decision with a ramp, not an implementation detail — so it was parked rather than guessed, and the issue stays open (`Refs`, not `Closes`).",
+  "assumptions": [
+    "EXIT CODE FOR AN ABSENT TRAILER. Reader mode on a commit with no trailer exits 3 (`ExitCode.ZERO_DENOMINATOR`), not 0 and not 1. The repo's own definition of that code — packages/cli/src/utils/errors.ts:11-19, 'the command ran but examined NOTHING … has abstained, not passed, and must never read as green' — fits exactly: the command examined the commit and found zero provenance records to report. A fourth code was not invented.",
+    "`--check` SKIPS UNCLAIMED COMMITS AND EXITS 0. A range of real commits none of which carry a trailer is NOT an abstention — the gate ran over them and found no malformed trailer. Failing there would be the parked presence policy smuggled in through the back door, and would turn every human PR red. The command always prints `examined N · carried a trailer M · unclaimed K · malformed J` so 'nothing to validate' can never be mistaken for 'validated everything'. Exit 3 is reserved for a range that resolves to zero commits at all.",
+    "THREE-STATE `status` RATHER THAN `valid: boolean`. A boolean would let a caller write `if (!valid) fail()` and thereby enforce presence by accident. The discriminated `'absent' | 'valid' | 'malformed'` makes the parked policy impossible to adopt by typo.",
+    "A SCHEMA VERSION NEWER THAN `PROVENANCE_TRAILER_VERSION` IS REPORTED AS MALFORMED (`unknown-version`). An older gate must not vouch for a schema it cannot check. Tolerable because the CI job is advisory; it would need revisiting before the gate is ever promoted to blocking.",
+    "NO SECOND PARSER. Duplicate-key detection needs the uncollapsed line list, which `parseProvenanceTrailer`'s `Map` hides. Rather than re-scanning with a second regex — the exact drift this issue exists to prevent — the existing scan was extracted as `collectProvenanceTrailerEntries` and BOTH the parser and the validator now consume it. `new Map(entries)` is byte-equivalent to the previous sequential `map.set` loop, and the existing commit-trailer tests pass unmodified.",
+    "MISSING `Harness-Provenance-Version` IS MALFORMED even though the parser silently defaults it. Leniency is right for a reader and wrong for a gate.",
+    "UNKNOWN `Harness-*` KEYS AND EMPTY OPTIONAL VALUES ARE WARNINGS, NOT FAILURES — forward compatibility with a future emitter.",
+    "CI JOB IS ADVISORY. It was added to `.github/workflows/pr-advisory-checks.yml`, every step of which is already `continue-on-error: true`. Promoting the shape gate to a blocking required check is part of the same block-vs-warn question that is parked, so it was not decided here.",
+    "`--json` WORKS AROUND #2069, IT DOES NOT FIX IT. The local `--json` is declared so Commander accepts the flag after the command name, and the value is read via `cmd.optsWithGlobals().json` — the established repo idiom (packages/cli/src/commands/proposals.ts:203-205, rules/provenance.ts). Verified END-TO-END against the BUILT binary in both flag positions (`harness provenance HEAD --json` and `harness --json provenance HEAD`), not by unit test alone.",
+    "NO COLLISION WITH `harness rules provenance`. That is the unrelated ADR-0100 rule-to-failure reporter, a subcommand of `rules`; this is a top-level command. Verified both resolve correctly against the built binary. The new command's description names the difference explicitly.",
+    "`scripts/generate-core-barrel.mjs` WAS NOT EDITED. `provenance` is not in that script's `SELECTIVE_EXPORTS`, so it is auto-discovered as `export * from './provenance'`; adding the re-exports to `packages/core/src/provenance/index.ts` is sufficient. Confirmed by reading the script, not assumed.",
+    "SINGLE COMMAND, NOT SUBCOMMANDS. A Commander command cannot cleanly take both a positional argument and subcommands, and the issue's requested surface is literally `harness provenance <sha>` — so `--check`/`--range` are options on the same command rather than a `provenance check` subcommand."
+  ],
+  "notTouched": [
+    "packages/orchestrator/src/workspace/manager.ts — the emit path is unchanged.",
+    "packages/cli/src/commands/rules/provenance.ts — unrelated ADR-0100 reporter.",
+    "scripts/generate-core-barrel.mjs — no edit required (see assumptions).",
+    "Issue #2069's root cause (root-program `--json` shadowing) — worked around with the established idiom, deliberately not fixed here."
+  ],
+  "verification": {
+    "coreTests": "packages/core/src/provenance/ — 4 files, 43 tests passed; the pre-existing commit-trailer.test.ts is unmodified.",
+    "cliTests": "packages/cli/tests/commands/provenance.test.ts — 16 tests passed, including a real temp-git-repo group exercising the shipped git seam.",
+    "builtBinary": "node packages/cli/dist/bin/harness.js — reader exit 0 / absent exit 3 / bad ref exit 2 / malformed exit 1; --check malformed exit 1, all-unclaimed exit 0, empty range exit 3, bad range exit 2; --json valid in both flag positions."
+  },
+  "inheritedCiRed": "`Reconcile audit exceptions` is red on every open PR in this repo (7 GHSAs against an empty auditExceptions register). Not caused by and not addressed in this PR."
+}
