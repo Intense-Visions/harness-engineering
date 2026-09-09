@@ -1,5 +1,128 @@
 # Changelog
 
+## 0.49.0
+
+### Minor Changes
+
+- 177dcb5: Promote the comprehension static extractor and the diff-scoped compile driver into `@harness-engineering/core`'s public surface.
+
+  `createStaticExtractor` (+ `renderInterfaceContract`, `renderDependencySlice`, `isStaticSupported`, `STATIC_SUPPORTED_EXTENSIONS`), the run-boundary reentrancy guard (`withComprehensionActive`, `isComprehensionReentrant`, `REENTRANCY_ENV`), and the driver (`runComprehend`, `runComprehendCheck`, `runComprehendStats`, `mapWithConcurrency` + their `Comprehend*` types) were CLI-internal. They are now exported from core alongside `compileModule`/`ComprehensionStore`, so library consumers can drive the compiled-comprehension substrate through the same IO-injected orchestration the `harness comprehend` CLI uses — without depending on the CLI package.
+
+  The CLI modules (`comprehension/static-extractor.ts`, `comprehension/compile-run.ts`, and the reentrancy block of `comprehension/generate-semantic.ts`) now re-export the core implementation; every existing importer keeps working unchanged. No behavior change.
+
+- e7340f5: Support `roadmap.tracker.kind: "pnyon"` in `harness roadmap sync`
+
+  Harness had two tracker adapter families: `RoadmapTrackerClient` (items and
+  evidence), which gained a Waypoint implementation, and `TrackerSyncAdapter`
+  (tickets and comments), which drives `roadmap sync` and had none. A project
+  configured for Waypoint could therefore be read but never synced — the command
+  refused the config outright. This adds the missing half.
+  - `PnyonSyncAdapter` translates `TrackerSyncAdapter` onto the Waypoint ledger,
+    delegating to the existing client adapter so the versioned-command conflict
+    contract applies unchanged.
+  - `TrackerSyncConfig` is now a discriminated union (`github` | `pnyon`), so
+    GitHub-only fields are a type error under a pnyon tracker rather than a
+    silently ignored key. A pnyon tracker requires `url` and takes no
+    `statusMap` — Waypoint carries roadmap statuses natively, so the identity map
+    is derived.
+  - `roadmap sync` builds the Waypoint adapter, reading its credential from
+    `roadmap.tracker.token` or `PNYON_TOKEN` (including from a project `.env`,
+    which the previous `GITHUB_TOKEN`-shaped guard skipped).
+  - Comments are first-class `commented` evidence entries rather than lifecycle
+    events carrying prose.
+  - `fetchTicketState` and `assignTicket` have no Waypoint equivalent and return
+    an explanatory error instead of a silent no-op.
+  - `roadmap reconcile` refuses a non-github tracker with a message explaining
+    why: it filters on GitHub's separate closed/completed state, which Waypoint
+    does not model, so running it would reconcile nothing while exiting 0.
+
+  The orchestrator's two tracker-sync call sites now narrow to the `github` kind
+  before using GitHub-shaped config, rather than assuming every tracker is one.
+
+  Refs #1863.
+
+- d123a10: `rehearsalTierFor` is now `rehearsalTierForScore`; the old name stays as a deprecated alias
+
+  The old name predicted its return type but left its input unnamed — `For` what? At a
+  call site like `rehearsalTierFor(value)` a reader could not tell whether the argument was
+  a score, a run, an attempt record, or a config without opening the signature.
+  `rehearsalTierForScore(score)` names the artifact being mapped from.
+
+  `@harness-engineering/core` is published, so a bare rename would be a breaking change.
+  `rehearsalTierFor` is retained as a `@deprecated` alias — a `const` binding to the same
+  function, so `rehearsalTierFor === rehearsalTierForScore` holds and existing imports keep
+  working unchanged. That makes this release MINOR, not MAJOR. The alias will be removed in
+  a future MAJOR release.
+
+  The one observable difference: because the alias is a binding to the same function rather
+  than a wrapper, `rehearsalTierFor.name` now reports `'rehearsalTierForScore'`. Nothing that
+  calls the function is affected.
+
+- 7eb21eb: Add `harness waypoint ship` — send spooled `sdlc.*` events to a Waypoint ledger
+
+  Harness's `sdlc.*` emission layer was complete and wired, and every event it
+  produced stopped at a file on disk: `spool.ts` named the shipper "(out-of-scope)".
+  ADR-0047 requires emitters to append to a local spool **and ship with
+  retry/backoff**. This is that missing half.
+  - `shipSpool()` reads unshipped spool lines in ULID order, POSTs them as a JSON
+    array to `/outpost/<outpost>/project/<project>/events`, and advances a
+    checkpoint from the endpoint's per-event `results`.
+  - New `waypoint.sink.ship` config block (`url`, `outpost`, `project`,
+    `batchSize`). It is a **sibling** of `transport`, not a replacement: events
+    are spooled first and shipped after, so shipping is added to spooling rather
+    than chosen instead of it. Absent `ship` means no network calls at all.
+  - `outpost` and `project` are both required and never derived. Two repos sharing
+    a basename would otherwise write into one ledger, and an append to a
+    hash-chained log cannot be taken back.
+  - The credential comes from `PNYON_WAYPOINT_INGEST_TOKEN` only, never from
+    `harness.config.json`, so it cannot be committed.
+  - The spool is never truncated or deleted — ADR-0047 guarantees adopters keep a
+    local copy of their exhaust, so progress is tracked in a sibling
+    `.shipped.json` instead.
+  - Permanently-refused events (`invalid`, `scrub-rejected`) advance the
+    checkpoint and are appended to `rejected.jsonl` with their reason. Blocking on
+    them would re-send them forever; dropping them silently would bury a scrubber
+    signal the adopter needs to see.
+  - Retries use exponential backoff on network errors and 5xx. A 400 or 401 is a
+    configuration fault and is never retried — the error names the endpoint and
+    which knob to turn.
+  - `harness waypoint status` now reports unshipped and permanently-refused counts.
+
+  Verified against the running staging service, not only against a mock: the
+  constructed URL returns `401` with a wrong token — proving the route resolves and
+  auth is enforced — where the previously-assumed `/v1/items` contract returns
+  `404` on the same host. An `accepted` write still needs the operator-held token.
+
+### Patch Changes
+
+- 5750b7f: Bring `detectDeploymentSurface` under the complexity budget
+
+  `detectDeploymentSurface` carried a cyclomatic complexity of 30 against the
+  repo's error threshold of 15 — a standing breach in an `entryPoints` package
+  (`packages/core/src/index.ts`), not a new regression. The single 90-line body
+  inlined four unrelated passes: CI/CD pipeline discovery, deploy-script
+  discovery, `.env.*` discovery, and derived-signal accumulation.
+
+  Each pass is now a module-private helper — `collectPipelineFiles`,
+  `collectDeployScripts`, `collectEnvFiles`, `accumulateContentSignals` and
+  `accumulateEnvFileSignals` — with the derived booleans and sets threaded
+  through a single `DerivedSignals` accumulator instead of five loose locals.
+  The duplicated inline `/\.ya?ml$/i` test also collapses onto the existing
+  `isYamlPipeline` predicate.
+
+  This is a behaviour-preserving extract-method refactor. The exported signature
+  `(root: string, fsPort: DeploymentFsPort) => DeploymentSurface` is unchanged,
+  accumulation order (and therefore `detectedEnvironments` ordering) is
+  preserved, and `packages/core/tests/deployment/detect.test.ts` passes
+  unmodified.
+
+  Refs #2037.
+
+- Updated dependencies [e7340f5]
+- Updated dependencies [7eb21eb]
+  - @harness-engineering/types@0.34.0
+  - @harness-engineering/graph@0.15.2
+
 ## 0.48.0
 
 ### Minor Changes

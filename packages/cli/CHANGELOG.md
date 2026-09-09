@@ -1,5 +1,161 @@
 # @harness-engineering/cli
 
+## 12.5.0
+
+### Minor Changes
+
+- e7340f5: Support `roadmap.tracker.kind: "pnyon"` in `harness roadmap sync`
+
+  Harness had two tracker adapter families: `RoadmapTrackerClient` (items and
+  evidence), which gained a Waypoint implementation, and `TrackerSyncAdapter`
+  (tickets and comments), which drives `roadmap sync` and had none. A project
+  configured for Waypoint could therefore be read but never synced — the command
+  refused the config outright. This adds the missing half.
+  - `PnyonSyncAdapter` translates `TrackerSyncAdapter` onto the Waypoint ledger,
+    delegating to the existing client adapter so the versioned-command conflict
+    contract applies unchanged.
+  - `TrackerSyncConfig` is now a discriminated union (`github` | `pnyon`), so
+    GitHub-only fields are a type error under a pnyon tracker rather than a
+    silently ignored key. A pnyon tracker requires `url` and takes no
+    `statusMap` — Waypoint carries roadmap statuses natively, so the identity map
+    is derived.
+  - `roadmap sync` builds the Waypoint adapter, reading its credential from
+    `roadmap.tracker.token` or `PNYON_TOKEN` (including from a project `.env`,
+    which the previous `GITHUB_TOKEN`-shaped guard skipped).
+  - Comments are first-class `commented` evidence entries rather than lifecycle
+    events carrying prose.
+  - `fetchTicketState` and `assignTicket` have no Waypoint equivalent and return
+    an explanatory error instead of a silent no-op.
+  - `roadmap reconcile` refuses a non-github tracker with a message explaining
+    why: it filters on GitHub's separate closed/completed state, which Waypoint
+    does not model, so running it would reconcile nothing while exiting 0.
+
+  The orchestrator's two tracker-sync call sites now narrow to the `github` kind
+  before using GitHub-shaped config, rather than assuming every tracker is one.
+
+  Refs #1863.
+
+- 7eb21eb: Add `harness waypoint ship` — send spooled `sdlc.*` events to a Waypoint ledger
+
+  Harness's `sdlc.*` emission layer was complete and wired, and every event it
+  produced stopped at a file on disk: `spool.ts` named the shipper "(out-of-scope)".
+  ADR-0047 requires emitters to append to a local spool **and ship with
+  retry/backoff**. This is that missing half.
+  - `shipSpool()` reads unshipped spool lines in ULID order, POSTs them as a JSON
+    array to `/outpost/<outpost>/project/<project>/events`, and advances a
+    checkpoint from the endpoint's per-event `results`.
+  - New `waypoint.sink.ship` config block (`url`, `outpost`, `project`,
+    `batchSize`). It is a **sibling** of `transport`, not a replacement: events
+    are spooled first and shipped after, so shipping is added to spooling rather
+    than chosen instead of it. Absent `ship` means no network calls at all.
+  - `outpost` and `project` are both required and never derived. Two repos sharing
+    a basename would otherwise write into one ledger, and an append to a
+    hash-chained log cannot be taken back.
+  - The credential comes from `PNYON_WAYPOINT_INGEST_TOKEN` only, never from
+    `harness.config.json`, so it cannot be committed.
+  - The spool is never truncated or deleted — ADR-0047 guarantees adopters keep a
+    local copy of their exhaust, so progress is tracked in a sibling
+    `.shipped.json` instead.
+  - Permanently-refused events (`invalid`, `scrub-rejected`) advance the
+    checkpoint and are appended to `rejected.jsonl` with their reason. Blocking on
+    them would re-send them forever; dropping them silently would bury a scrubber
+    signal the adopter needs to see.
+  - Retries use exponential backoff on network errors and 5xx. A 400 or 401 is a
+    configuration fault and is never retried — the error names the endpoint and
+    which knob to turn.
+  - `harness waypoint status` now reports unshipped and permanently-refused counts.
+
+  Verified against the running staging service, not only against a mock: the
+  constructed URL returns `401` with a wrong token — proving the route resolves and
+  auth is enforced — where the previously-assumed `/v1/items` contract returns
+  `404` on the same host. An `accepted` write still needs the operator-held token.
+
+### Patch Changes
+
+- 3002fcc: craft(code): lift the `--since` semantic-regression narrative out of `comprehend --check`
+
+  `runCheckMode` opened as a tidy freshness reporter and then dropped an altitude into
+  the `--since` regression story — base/head ref reads, unreadable-ref handling,
+  `pr`-vs-`main` branching, three logger calls — all inlined in the same body.
+
+  That narrative now lives in `reportSemanticRegression(since, context, deps, log)`,
+  which returns `{ regressed, refUnreadable }`; `runCheckMode` feeds it and consumes the
+  verdict, so the outer function tells one story. Behaviour-preserving: the moved logger
+  strings are byte-identical, `runCheckMode`'s signature is unchanged, and no CLI flag or
+  output changed.
+
+  Because the git seam and the logger are both injected, the gate is now unit-testable —
+  including the "refuse to report a pass on an unreadable ref" invariant, which had no
+  test anywhere before.
+
+- 177dcb5: Promote the comprehension static extractor and the diff-scoped compile driver into `@harness-engineering/core`'s public surface.
+
+  `createStaticExtractor` (+ `renderInterfaceContract`, `renderDependencySlice`, `isStaticSupported`, `STATIC_SUPPORTED_EXTENSIONS`), the run-boundary reentrancy guard (`withComprehensionActive`, `isComprehensionReentrant`, `REENTRANCY_ENV`), and the driver (`runComprehend`, `runComprehendCheck`, `runComprehendStats`, `mapWithConcurrency` + their `Comprehend*` types) were CLI-internal. They are now exported from core alongside `compileModule`/`ComprehensionStore`, so library consumers can drive the compiled-comprehension substrate through the same IO-injected orchestration the `harness comprehend` CLI uses — without depending on the CLI package.
+
+  The CLI modules (`comprehension/static-extractor.ts`, `comprehension/compile-run.ts`, and the reentrancy block of `comprehension/generate-semantic.ts`) now re-export the core implementation; every existing importer keeps working unchanged. No behavior change.
+
+- 75eade4: Fix `harness holiday-confidence --json` emitting pretty text instead of JSON
+
+  The root program declares a `--json` flag and so does this subcommand. Commander
+  binds a repeated flag to the first command that declared it, so
+  `harness holiday-confidence --json` stored `json: true` on the program and left
+  the subcommand's own `opts.json` undefined — making `--json` a silent no-op.
+
+  The weekly Holiday Confidence Tracker workflow pipes this command's stdout
+  straight into `JSON.parse`, so the parse threw on the pretty-text render and the
+  tracker abstained on every run since it shipped. The command now reads
+  `cmd.optsWithGlobals()`, the idiom already used by `snapshot`, `usage`,
+  `scan-config` and `create-skill` for exactly this collision.
+
+  Refs #1965.
+
+- 4ce1d0e: Persona CI-workflow generator: split the generated `concurrency` group by event so a push to a
+  trunk branch no longer cancels the previous commit's verification.
+
+  The generator emitted `group: ${{ github.workflow }}-${{ github.ref }}` with an unconditional
+  `cancel-in-progress: true`. A persona declaring an `on_commit` trigger generates `push:` to a trunk
+  branch, where `github.ref` is constant across every commit — so each push cancelled the still-running
+  run for the preceding commit, concluding `cancelled` rather than `failure` and alarming nothing.
+
+  Generated workflows now use the shape established in #1865 for the hand-written workflows:
+  push keys the group on `github.sha` (per commit, never cancelled), while `pull_request` keeps the
+  per-ref group with cancellation on, so PR supersession and PR runner spend are unchanged.
+
+  Refs #1867.
+
+- 6129746: `roadmap sync` no longer blames withheld creates on `--no-create` in a dry run
+
+  `--apply` is opt-in, so the default `harness roadmap sync` is a dry run and
+  withholds every create. It reported all of them as
+  `Skipped N create(s) (--no-create)` — naming a flag the caller never passed and
+  sending them looking for it.
+
+  The plan already recorded the real reason: `SkippedCreate.reason` is
+  `'create-disabled' | 'dry-run'`. The report type re-declared that shape inline
+  with `reason: string`, which discarded the distinction and left the renderer
+  nothing to switch on. The report now uses `SkippedCreate` directly and explains
+  each cause separately:
+
+  ```
+  Skipped 1 create(s) (dry run; re-run with --apply to create them): Not yet linked
+  Skipped 1 create(s) (--no-create): Some other row
+  ```
+
+- Updated dependencies [0924779]
+- Updated dependencies [5750b7f]
+- Updated dependencies [177dcb5]
+- Updated dependencies [e7340f5]
+- Updated dependencies [d123a10]
+- Updated dependencies [1f365ad]
+- Updated dependencies [7eb21eb]
+  - @harness-engineering/orchestrator@0.25.0
+  - @harness-engineering/core@0.49.0
+  - @harness-engineering/types@0.34.0
+  - @harness-engineering/dashboard@0.16.7
+  - @harness-engineering/graph@0.15.2
+  - @harness-engineering/intelligence@0.13.3
+  - @harness-engineering/signals@0.3.9
+
 ## 12.4.0
 
 ### Minor Changes

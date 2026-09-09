@@ -1,5 +1,97 @@
 # @harness-engineering/orchestrator
 
+## 0.25.0
+
+### Minor Changes
+
+- 0924779: craft(orchestrator): unit- and intent-carrying names for three `src/core` exports
+
+  `calculateRetryDelay` → `calculateRetryDelayMs`, `periodLengthMs` → `resolvePeriodLengthMs`, and
+  `reconcile` → `reconcileRunningIssues`. The first two now carry the `Ms` unit suffix this package
+  already uses (`maxRetryBackoffMs`, `CONTINUATION_DELAY_MS`, `WEEK_MS`, `DAY_MS`); the third takes the
+  name its own doc comment already used ("Reconcile running issues against their current tracker
+  states"), which distinguishes it from the several unrelated `reconcile` symbols elsewhere in the repo.
+
+  **Not a break.** Each old name survives as an exported `@deprecated` alias bound to the identical
+  function object, and all six names are exported from the package root. `tests/core/naming-aliases.test.ts`
+  imports both halves of every pair from the entry point and asserts reference identity, so an alias that
+  is declared but omitted from the barrel fails the test suite rather than silently breaking consumers.
+
+  Internally, `reconciliation.ts`'s local accumulator is now `sideEffects` rather than the bare `effects`.
+
+  Refs #2001.
+
+### Patch Changes
+
+- e7340f5: Support `roadmap.tracker.kind: "pnyon"` in `harness roadmap sync`
+
+  Harness had two tracker adapter families: `RoadmapTrackerClient` (items and
+  evidence), which gained a Waypoint implementation, and `TrackerSyncAdapter`
+  (tickets and comments), which drives `roadmap sync` and had none. A project
+  configured for Waypoint could therefore be read but never synced — the command
+  refused the config outright. This adds the missing half.
+  - `PnyonSyncAdapter` translates `TrackerSyncAdapter` onto the Waypoint ledger,
+    delegating to the existing client adapter so the versioned-command conflict
+    contract applies unchanged.
+  - `TrackerSyncConfig` is now a discriminated union (`github` | `pnyon`), so
+    GitHub-only fields are a type error under a pnyon tracker rather than a
+    silently ignored key. A pnyon tracker requires `url` and takes no
+    `statusMap` — Waypoint carries roadmap statuses natively, so the identity map
+    is derived.
+  - `roadmap sync` builds the Waypoint adapter, reading its credential from
+    `roadmap.tracker.token` or `PNYON_TOKEN` (including from a project `.env`,
+    which the previous `GITHUB_TOKEN`-shaped guard skipped).
+  - Comments are first-class `commented` evidence entries rather than lifecycle
+    events carrying prose.
+  - `fetchTicketState` and `assignTicket` have no Waypoint equivalent and return
+    an explanatory error instead of a silent no-op.
+  - `roadmap reconcile` refuses a non-github tracker with a message explaining
+    why: it filters on GitHub's separate closed/completed state, which Waypoint
+    does not model, so running it would reconcile nothing while exiting 0.
+
+  The orchestrator's two tracker-sync call sites now narrow to the `github` kind
+  before using GitHub-shaped config, rather than assuming every tracker is one.
+
+  Refs #1863.
+
+- 1f365ad: security(deps): clear all eight active audit advisories so `Reconcile audit exceptions` passes
+
+  The `Reconcile audit exceptions` gate (issue #1324) was failing on `main` and on every open
+  PR with eight active advisories and no covering register entries. This resolves all of them
+  by upgrading, not by adding `auditExceptions` entries.
+
+  | Advisory            | CVE            | Severity | Package                    | Vulnerable        | Resolved to |
+  | ------------------- | -------------- | -------- | -------------------------- | ----------------- | ----------- |
+  | GHSA-4r6h-5v86-94p3 | CVE-2026-69222 | high     | `liquidjs`                 | `<=10.27.1`       | `10.27.2`   |
+  | GHSA-82fw-gwwq-j7x9 | CVE-2026-84373 | moderate | `vitest`, `@vitest/mocker` | `>=2.1.0 <4.1.11` | `4.1.11`    |
+  | GHSA-2883-xcg3-v3hh | CVE-2026-84375 | high     | `js-yaml` (3.x)            | `>=3.0.0 <3.15.2` | `3.15.2`    |
+  | GHSA-2883-xcg3-v3hh | CVE-2026-84375 | high     | `js-yaml` (4.x)            | `>=4.0.0 <4.3.2`  | `4.3.2`     |
+  | GHSA-gqvv-2mrq-wpjv | CVE-2026-84365 | moderate | `hono`                     | `<4.13.5`         | `4.13.7`    |
+  | GHSA-g6gw-c38x-mqfc | CVE-2026-84364 | moderate | `hono`                     | `<4.13.5`         | `4.13.7`    |
+  | GHSA-crvj-82cr-hjcx | CVE-2026-84363 | moderate | `hono`                     | `<4.13.5`         | `4.13.7`    |
+
+  `liquidjs` and `vitest` are lockfile-only re-resolutions inside ranges the manifests already
+  declare. `hono` and `js-yaml` move via the root `pnpm.overrides` floors (`hono` `>=4.12.34`
+  -> `>=4.13.5`; `js-yaml@3` `>=3.15.1` -> `>=3.15.2`; `js-yaml@4` `>=4.3.1` -> `>=4.3.2`).
+
+  **Repo-local scope.** No published manifest range changes: `@harness-engineering/dashboard`
+  still declares `"hono": "^4.12.18"` and `@harness-engineering/orchestrator` still declares
+  `"liquidjs": "^10.26.0"`. Downstream consumers' declared ranges are unchanged — they already
+  permit the patched versions, but this repo does not force them.
+
+  Refs #2087.
+
+- Updated dependencies [5750b7f]
+- Updated dependencies [177dcb5]
+- Updated dependencies [e7340f5]
+- Updated dependencies [d123a10]
+- Updated dependencies [7eb21eb]
+  - @harness-engineering/core@0.49.0
+  - @harness-engineering/types@0.34.0
+  - @harness-engineering/graph@0.15.2
+  - @harness-engineering/intelligence@0.13.3
+  - @harness-engineering/local-models@0.7.11
+
 ## 0.24.1
 
 ### Patch Changes
