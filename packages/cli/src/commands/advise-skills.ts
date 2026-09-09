@@ -14,6 +14,31 @@ export interface AdviseSkillsOptions {
   cwd?: string;
   thorough?: boolean;
   top?: number;
+  /**
+   * Compute the recommendations but write nothing. Defaults to false — the
+   * write is opt-OUT, never opt-in (#1916 / CLI-R004).
+   *
+   * Generating `SKILLS.md` is this advisor's advertised job, not a side effect:
+   * `harness-planning/SKILL.md` instructs agents to "run the advisor inline
+   * using `advise_skills` MCP tool to generate SKILLS.md", and the MCP twin
+   * (`mcp/tools/advise-skills.ts`) returns the resulting `skillsPath`. Making
+   * the write opt-in would break both. What was actually wrong was that the
+   * write was undeclared, unguarded, and impossible to preview.
+   */
+  dryRun?: boolean;
+}
+
+/** Outcome of an advisory run, including what it did (or would do) to disk. */
+export interface AdviseSkillsResult {
+  result: ReturnType<typeof matchContent>;
+  /** Where `SKILLS.md` was written — or would have been, under `dryRun`. */
+  skillsMdPath: string;
+  featureName: string;
+  totalSkills: number;
+  /** False under `dryRun`; nothing touched the filesystem. */
+  written: boolean;
+  /** Whether a `SKILLS.md` was already there — i.e. this run overwrites it. */
+  existed: boolean;
 }
 
 function readPackageDeps(cwd: string): {
@@ -63,7 +88,7 @@ function extractFeatureName(specText: string, specPath: string): string {
   return titleMatch?.[1] ?? path.basename(path.dirname(specPath));
 }
 
-export async function runAdviseSkills(options: AdviseSkillsOptions) {
+export async function runAdviseSkills(options: AdviseSkillsOptions): Promise<AdviseSkillsResult> {
   const cwd = options.cwd ?? process.cwd();
   const specPath = path.resolve(cwd, options.specPath);
   const specText = readSpecText(specPath);
@@ -82,17 +107,32 @@ export async function runAdviseSkills(options: AdviseSkillsOptions) {
   const featureName = extractFeatureName(specText, specPath);
   const skillsMdPath = path.join(path.dirname(specPath), 'SKILLS.md');
   const md = generateSkillsMd(featureName, filteredResult, totalSkills);
-  fs.writeFileSync(skillsMdPath, md, 'utf-8');
+  const existed = fs.existsSync(skillsMdPath);
+  const written = !options.dryRun;
+  if (written) fs.writeFileSync(skillsMdPath, md, 'utf-8');
 
-  return { result: filteredResult, skillsMdPath, featureName, totalSkills };
+  return { result: filteredResult, skillsMdPath, featureName, totalSkills, written, existed };
 }
 
-function formatOutput(
-  featureName: string,
-  result: ReturnType<typeof matchContent>,
-  skillsMdPath: string,
-  totalSkills: number
-) {
+/**
+ * The line that tells the user what this run did to their disk.
+ *
+ * Previously a bare `Written to <path>` printed after an unconditional write,
+ * which silently clobbered a hand-edited `SKILLS.md`. Both axes are now
+ * explicit: whether anything was written, and whether it replaced a file that
+ * was already there (#1916 / CLI-R004).
+ */
+function formatWriteLine(outcome: AdviseSkillsResult): string {
+  const { skillsMdPath, written, existed } = outcome;
+  if (!written) {
+    const verb = existed ? 'overwrite' : 'create';
+    return `${chalk.yellow('[dry-run]')} Nothing written. Would ${verb} ${skillsMdPath}`;
+  }
+  return existed ? `Overwrote existing ${skillsMdPath}` : `Written to ${skillsMdPath}`;
+}
+
+function formatOutput(outcome: AdviseSkillsResult) {
+  const { featureName, result, totalSkills } = outcome;
   const apply = result.matches.filter((m) => m.tier === 'apply');
   const ref = result.matches.filter((m) => m.tier === 'reference');
   const consider = result.matches.filter((m) => m.tier === 'consider');
@@ -124,30 +164,38 @@ function formatOutput(
 
   lines.push('');
   lines.push(`Scanned ${totalSkills} skills in ${result.scanDuration}ms`);
-  lines.push(`Written to ${skillsMdPath}`);
+  lines.push(formatWriteLine(outcome));
 
   return lines.join('\n');
 }
 
 export function createAdviseSkillsCommand(): Command {
   return new Command('advise-skills')
-    .description('Content-based skill recommendations for a spec')
+    .description(
+      'Content-based skill recommendations for a spec. Writes (and overwrites) SKILLS.md next to the spec unless --dry-run.'
+    )
     .requiredOption('--spec-path <path>', 'Path to the spec (proposal.md)')
     .option('--thorough', 'Include Consider tier in output')
     .option('--top <n>', 'Max skills per tier (default 5)', parseInt)
+    .option(
+      '--dry-run',
+      'Print the recommendations without writing SKILLS.md. Default: write.',
+      false
+    )
     .option('--json', 'Output as JSON')
     .action(async (opts) => {
       try {
-        const { result, skillsMdPath, featureName, totalSkills } = await runAdviseSkills({
+        const outcome = await runAdviseSkills({
           specPath: opts.specPath,
           thorough: opts.thorough,
           top: opts.top,
+          dryRun: opts.dryRun,
         });
 
         if (opts.json) {
-          logger.info(JSON.stringify(result, null, 2));
+          logger.info(JSON.stringify(outcome.result, null, 2));
         } else {
-          logger.info(formatOutput(featureName, result, skillsMdPath, totalSkills));
+          logger.info(formatOutput(outcome));
         }
       } catch (err) {
         logger.error((err as Error).message);
