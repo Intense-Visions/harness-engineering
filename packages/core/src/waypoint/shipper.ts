@@ -26,6 +26,7 @@
  */
 
 import type { WaypointShipConfig } from '@harness-engineering/types';
+import { describeViolations, validateAgainstContract } from './contract';
 import {
   advanceMark,
   eventIdOf,
@@ -85,6 +86,12 @@ export interface RejectedEvent {
   readonly id: string;
   readonly result: IngestResultKind;
   readonly line: string;
+  /**
+   * Why the LOCAL contract preflight refused it, when it did. Absent for events the ledger refused
+   * — those carry the server's own reasons — so its presence is also the record of which side
+   * made the call.
+   */
+  readonly contractViolations?: string;
 }
 
 /** What one `ship` run did. */
@@ -123,6 +130,15 @@ export interface ShipOptions {
   readonly sleep?: (ms: number) => Promise<void>;
   /** Records permanently-refused events. Omitted in dry run. */
   readonly onRejected?: (rejected: readonly RejectedEvent[]) => void;
+  /**
+   * Skip the local contract preflight and let the ledger be the only judge.
+   *
+   * The escape hatch matters: the vendored contract is a SNAPSHOT of a schema pnyon generates, so
+   * if pnyon widens the vocabulary before harness re-vendors, the preflight would refuse events the
+   * live ledger would happily accept — a stale copy blocking good work. This flag is how an
+   * operator ships anyway while the copy is refreshed.
+   */
+  readonly skipContractCheck?: boolean;
 }
 
 /** A failure that stopped the run, carrying an actionable message. */
@@ -295,14 +311,28 @@ export async function shipSpool(options: ShipOptions): Promise<ShipReport> {
   }
 
   const batchSize = Math.max(1, options.config.batchSize ?? DEFAULT_BATCH_SIZE);
-  const byId = new Map(selected.filter((p) => p.id !== null).map((p) => [p.id as string, p]));
   const totals = { accepted: 0, duplicate: 0 };
   const rejected: RejectedEvent[] = [];
   let requests = 0;
   let sent = 0;
 
-  for (let offset = 0; offset < selected.length; offset += batchSize) {
-    const batch = selected.slice(offset, offset + batchSize);
+  // Judge the spool against the published contract BEFORE any of it goes over the wire. An event
+  // the ledger will refuse gains nothing from the round trip: it ends in the dead-letter file
+  // either way, just later, remotely, and mixed in with real network failures.
+  const preflight = partitionByContract(selected, options.skipContractCheck === true);
+  if (preflight.refused.length > 0) {
+    rejected.push(...preflight.refused);
+    options.onRejected?.(preflight.refused);
+    // The checkpoint deliberately does NOT advance past these. They were never sent, so treating
+    // them as shipped would be the silent drop this module exists to prevent; they stay pending
+    // until the emitter is fixed or the contract is re-vendored.
+  }
+
+  const shippable = preflight.passed;
+  const byId = new Map(shippable.filter((p) => p.id !== null).map((p) => [p.id as string, p]));
+
+  for (let offset = 0; offset < shippable.length; offset += batchSize) {
+    const batch = shippable.slice(offset, offset + batchSize);
     const outcome = await postBatch(batch, options);
     requests += outcome.requests;
 
@@ -326,9 +356,52 @@ export async function shipSpool(options: ShipOptions): Promise<ShipReport> {
     accepted: totals.accepted,
     duplicate: totals.duplicate,
     rejected,
-    remaining: pending.length - sent,
+    // Contract-refused events were never sent, so they are neither shipped nor remaining work the
+    // next run can do — they are counted in `rejected` and excluded here, exactly as a
+    // ledger-refused event is.
+    remaining: pending.length - sent - preflight.refused.length,
     requests,
   };
+}
+
+/**
+ * Split the spool into what the contract will admit and what it will not.
+ *
+ * A line that cannot be parsed as JSON is passed THROUGH rather than refused here: `postBatch`
+ * ships raw lines and the ledger already judges malformed input, and refusing it locally on a
+ * parse error would change an existing, tested behaviour under the guise of adding a check.
+ */
+function partitionByContract(
+  selected: readonly PendingLine[],
+  skip: boolean
+): { readonly passed: readonly PendingLine[]; readonly refused: readonly RejectedEvent[] } {
+  if (skip) return { passed: selected, refused: [] };
+
+  const passed: PendingLine[] = [];
+  const refused: RejectedEvent[] = [];
+
+  for (const pending of selected) {
+    let parsed: unknown;
+    try {
+      parsed = JSON.parse(pending.line);
+    } catch {
+      passed.push(pending);
+      continue;
+    }
+    const verdict = validateAgainstContract(parsed);
+    if (verdict.ok) {
+      passed.push(pending);
+      continue;
+    }
+    refused.push({
+      id: pending.id ?? '(unreadable id)',
+      result: 'invalid',
+      line: pending.line,
+      contractViolations: describeViolations(verdict.violations),
+    });
+  }
+
+  return { passed, refused };
 }
 
 /** What one batch's verdicts did to the tallies and the checkpoint. */

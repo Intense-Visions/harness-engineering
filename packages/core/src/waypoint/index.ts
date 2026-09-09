@@ -43,6 +43,13 @@ export {
   type ShipReport,
 } from './shipper';
 export {
+  describeViolations,
+  sdlcContract,
+  validateAgainstContract,
+  type ContractViolation,
+  type ContractVerdict,
+} from './contract';
+export {
   countRejected,
   recordRejected,
   REJECTED_FILENAME,
