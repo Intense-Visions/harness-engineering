@@ -43,10 +43,25 @@ const CONFIG: WaypointShipConfig = {
   project: 'pnyon',
 };
 
-/** A spooled line with a ULID-shaped, lexicographically ordered id. */
+/**
+ * A spooled line with a ULID-shaped, lexicographically ordered id.
+ *
+ * Carries the full CloudEvents envelope the published contract requires. It used to be
+ * `{ id, type, subject }` — enough for the shipper's own bookkeeping, but an event the live ledger
+ * would have refused outright, so the suite was exercising the happy path with input that could
+ * never take it. The local contract preflight is what surfaced that.
+ */
 function event(n: number, type = 'sdlc.intent.created.v1'): string {
   const id = `01ABCDEFGH${String(n).padStart(16, '0')}`;
-  return JSON.stringify({ id, type, subject: `item/thing-${n}` });
+  return JSON.stringify({
+    specversion: '1.0',
+    id,
+    source: 'harness://outpost/pnyon/repo/pnyon',
+    type,
+    time: '2026-09-09T12:00:00.000Z',
+    subject: `item/thing-${n}`,
+    actor: { kind: 'human', id: 'user://chad' },
+  });
 }
 
 function writeSegment(segmentId: string, lines: readonly string[]): void {
@@ -524,5 +539,110 @@ describe('shipSpool — resume and limits (SC-7)', () => {
     expect(report.shipped).toBe(0);
     expect(bodies).toHaveLength(0);
     expect(countUnshipped(spoolDir)).toBe(0);
+  });
+
+  describe('contract preflight', () => {
+    /** An event carrying a field the pinned v1 contract does not declare. */
+    function undeclaredFieldEvent(n: number): string {
+      const parsed = JSON.parse(event(n)) as Record<string, unknown>;
+      return JSON.stringify({ ...parsed, data: { sneakyNewField: 'anything' } });
+    }
+
+    it('never sends an event the ledger would refuse', async () => {
+      const { fetchFn, bodies } = fakeIngest();
+      writeSegment('seg1', [undeclaredFieldEvent(1)]);
+
+      const report = await shipSpool({ spoolDir, config: CONFIG, token: 't', fetchFn });
+
+      // The whole point: no round trip at all, not a round trip that comes back 'invalid'.
+      expect(bodies).toHaveLength(0);
+      expect(report.requests).toBe(0);
+      expect(report.rejected).toHaveLength(1);
+      expect(report.rejected[0]?.result).toBe('invalid');
+    });
+
+    it('says which field broke the contract, and how to fix it', async () => {
+      const { fetchFn } = fakeIngest();
+      writeSegment('seg1', [undeclaredFieldEvent(1)]);
+
+      const report = await shipSpool({ spoolDir, config: CONFIG, token: 't', fetchFn });
+
+      const reason = report.rejected[0]?.contractViolations ?? '';
+      expect(reason).toContain('data.sneakyNewField');
+      expect(reason).toContain('.v2');
+    });
+
+    it('still ships the good events alongside a refused one', async () => {
+      const { fetchFn, bodies } = fakeIngest();
+      writeSegment('seg1', [event(1), undeclaredFieldEvent(2), event(3)]);
+
+      const report = await shipSpool({ spoolDir, config: CONFIG, token: 't', fetchFn });
+
+      // One bad event must not strand the batch it happened to share a segment with.
+      expect(report.accepted).toBe(2);
+      expect(report.rejected).toHaveLength(1);
+      const sent = JSON.parse(bodies[0] ?? '[]') as Array<{ id: string }>;
+      expect(sent.map((e) => e.id)).toEqual([JSON.parse(event(1)).id, JSON.parse(event(3)).id]);
+    });
+
+    it('hands refused events to the dead-letter recorder', async () => {
+      const { fetchFn } = fakeIngest();
+      writeSegment('seg1', [undeclaredFieldEvent(1)]);
+
+      await shipSpool({
+        spoolDir,
+        config: CONFIG,
+        token: 't',
+        fetchFn,
+        onRejected: (rejected) => recordRejected(spoolDir, rejected, '2026-09-09T12:00:00.000Z'),
+      });
+
+      expect(countRejected(spoolDir)).toBe(1);
+    });
+
+    it('does not advance the checkpoint past an event it never sent', async () => {
+      const { fetchFn } = fakeIngest();
+      writeSegment('seg1', [undeclaredFieldEvent(1)]);
+
+      await shipSpool({ spoolDir, config: CONFIG, token: 't', fetchFn });
+
+      // Marking it shipped would be the silent drop the dead-letter file exists to prevent.
+      expect(readCheckpoint(spoolDir).marks['seg1']).toBeUndefined();
+    });
+
+    it('ships anyway under skipContractCheck, for a stale vendored copy', async () => {
+      const { fetchFn, bodies } = fakeIngest();
+      writeSegment('seg1', [undeclaredFieldEvent(1)]);
+
+      const report = await shipSpool({
+        spoolDir,
+        config: CONFIG,
+        token: 't',
+        fetchFn,
+        skipContractCheck: true,
+      });
+
+      expect(bodies).toHaveLength(1);
+      expect(report.accepted).toBe(1);
+      expect(report.rejected).toHaveLength(0);
+    });
+
+    it('passes an unparseable line through for the ledger to judge', async () => {
+      // A stub that tolerates a malformed body — `fakeIngest` parses what it receives, so it
+      // cannot stand in for a server being handed garbage.
+      const bodies: string[] = [];
+      const fetchFn: ShipFetch = async (_url, init) => {
+        bodies.push(init.body);
+        return { status: 200, text: async () => JSON.stringify({ results: [] }) };
+      };
+      writeSegment('seg1', ['{not json']);
+
+      const report = await shipSpool({ spoolDir, config: CONFIG, token: 't', fetchFn });
+
+      // Pre-existing, tested behaviour: the shipper does not parse-gate the spool, and adding a
+      // contract check must not quietly become a syntax check too.
+      expect(bodies).toHaveLength(1);
+      expect(report.rejected).toHaveLength(0);
+    });
   });
 });

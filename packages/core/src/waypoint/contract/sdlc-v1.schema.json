@@ -1,0 +1,1224 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://pnyon.com/schema/sdlc-v1.schema.json",
+  "title": "pnyon Waypoint — sdlc.* v1 event contract",
+  "description": "Generated from the live validator's own tables (ADR-0055). The vocabulary is CLOSED and PINNED: a type outside `type`'s enum, or a field outside its type's declared properties, is rejected — a new field is a new `.v2` type. Identifier fields whose shape is not expressible as a pattern are marked \"x-pnyon-shape-authority\": \"server\"; prove a local implementation of those against https://pnyon.com/schema/sdlc-v1.vectors.json.",
+  "x-pnyon-categories": [
+    "intent",
+    "claim",
+    "build",
+    "review",
+    "test",
+    "verify",
+    "release",
+    "wave",
+    "override",
+    "approval"
+  ],
+  "type": "object",
+  "properties": {
+    "specversion": {
+      "const": "1.0"
+    },
+    "id": {
+      "type": "string",
+      "x-pnyon-class": "identifier",
+      "x-pnyon-shape": "ulid",
+      "pattern": "^[0-9A-HJKMNP-TV-Z]{26}$",
+      "description": "Crockford base32 ULID — the idempotency key. Note the alphabet excludes I, L, O and U."
+    },
+    "source": {
+      "type": "string"
+    },
+    "type": {
+      "enum": [
+        "sdlc.intent.created.v1",
+        "sdlc.intent.updated.v1",
+        "sdlc.intent.closed.v1",
+        "sdlc.claim.opened.v1",
+        "sdlc.claim.released.v1",
+        "sdlc.build.started.v1",
+        "sdlc.build.finished.v1",
+        "sdlc.review.requested.v1",
+        "sdlc.review.verdict.v1",
+        "sdlc.test.started.v1",
+        "sdlc.test.finished.v1",
+        "sdlc.verify.graded.v1",
+        "sdlc.release.published.v1",
+        "sdlc.wave.proposed.v1",
+        "sdlc.wave.approved.v1",
+        "sdlc.wave.completed.v1",
+        "sdlc.override.applied.v1",
+        "sdlc.approval.granted.v1",
+        "sdlc.approval.denied.v1"
+      ]
+    },
+    "time": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "subject": {
+      "type": "string"
+    },
+    "datacontenttype": {
+      "const": "application/json"
+    },
+    "actor": {
+      "oneOf": [
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "const": "human"
+            },
+            "id": {
+              "type": "string"
+            }
+          },
+          "required": ["kind", "id"],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "const": "agent"
+            },
+            "id": {
+              "type": "string"
+            },
+            "onBehalfOf": {
+              "type": "string"
+            }
+          },
+          "required": ["kind", "id", "onBehalfOf"],
+          "additionalProperties": false
+        }
+      ]
+    },
+    "grade": {
+      "enum": ["V0", "V1", "V2", "V3"]
+    },
+    "causes": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "pattern": "^[0-9A-HJKMNP-TV-Z]{26}$"
+      }
+    },
+    "data": {
+      "type": "object"
+    }
+  },
+  "required": ["specversion", "id", "source", "type", "time", "subject", "actor"],
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "type": {
+            "const": "sdlc.intent.created.v1"
+          }
+        },
+        "required": ["type"]
+      },
+      "then": {
+        "properties": {
+          "data": {
+            "type": "object",
+            "properties": {
+              "slug": {
+                "type": "string",
+                "x-pnyon-class": "identifier",
+                "x-pnyon-shape": "slug",
+                "x-pnyon-shape-authority": "server",
+                "description": "Validated server-side by the \"slug\" predicate, which is not expressible as a regex. Prove a local implementation against https://pnyon.com/schema/sdlc-v1.vectors.json."
+              },
+              "externalId": {
+                "anyOf": [
+                  {
+                    "type": "string",
+                    "x-pnyon-class": "identifier",
+                    "x-pnyon-shape": "external-id",
+                    "x-pnyon-shape-authority": "server",
+                    "description": "Validated server-side by the \"external-id\" predicate, which is not expressible as a regex. Prove a local implementation against https://pnyon.com/schema/sdlc-v1.vectors.json."
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "milestone": {
+                "anyOf": [
+                  {
+                    "type": "string",
+                    "x-pnyon-class": "prose",
+                    "description": "Free text. Scanned by the full secret-detector stack before persistence."
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "title": {
+                "anyOf": [
+                  {
+                    "type": "string",
+                    "x-pnyon-class": "prose",
+                    "description": "Free text. Scanned by the full secret-detector stack before persistence."
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "summary": {
+                "anyOf": [
+                  {
+                    "type": "string",
+                    "x-pnyon-class": "prose",
+                    "description": "Free text. Scanned by the full secret-detector stack before persistence."
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "dependencies": {
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "x-pnyon-class": "identifier",
+                  "x-pnyon-shape": "slug",
+                  "x-pnyon-shape-authority": "server",
+                  "description": "Validated server-side by the \"slug\" predicate, which is not expressible as a regex. Prove a local implementation against https://pnyon.com/schema/sdlc-v1.vectors.json."
+                }
+              },
+              "insufficientHistory": {
+                "type": "boolean",
+                "x-pnyon-class": "scalar"
+              },
+              "itemUlid": {
+                "type": "string",
+                "x-pnyon-class": "identifier",
+                "x-pnyon-shape": "ulid",
+                "pattern": "^[0-9A-HJKMNP-TV-Z]{26}$"
+              }
+            },
+            "additionalProperties": false
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "type": {
+            "const": "sdlc.intent.updated.v1"
+          }
+        },
+        "required": ["type"]
+      },
+      "then": {
+        "properties": {
+          "data": {
+            "type": "object",
+            "properties": {
+              "spec": {
+                "type": "boolean",
+                "x-pnyon-class": "scalar"
+              },
+              "specPath": {
+                "type": "string",
+                "x-pnyon-class": "identifier",
+                "x-pnyon-shape": "repo-path",
+                "x-pnyon-shape-authority": "server",
+                "description": "Validated server-side by the \"repo-path\" predicate, which is not expressible as a regex. Prove a local implementation against https://pnyon.com/schema/sdlc-v1.vectors.json."
+              },
+              "title": {
+                "anyOf": [
+                  {
+                    "type": "string",
+                    "x-pnyon-class": "prose",
+                    "description": "Free text. Scanned by the full secret-detector stack before persistence."
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "summary": {
+                "anyOf": [
+                  {
+                    "type": "string",
+                    "x-pnyon-class": "prose",
+                    "description": "Free text. Scanned by the full secret-detector stack before persistence."
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "dependencies": {
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "x-pnyon-class": "identifier",
+                  "x-pnyon-shape": "slug",
+                  "x-pnyon-shape-authority": "server",
+                  "description": "Validated server-side by the \"slug\" predicate, which is not expressible as a regex. Prove a local implementation against https://pnyon.com/schema/sdlc-v1.vectors.json."
+                }
+              }
+            },
+            "additionalProperties": false
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "type": {
+            "const": "sdlc.intent.closed.v1"
+          }
+        },
+        "required": ["type"]
+      },
+      "then": {
+        "properties": {
+          "data": {
+            "type": "object",
+            "properties": {},
+            "additionalProperties": false
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "type": {
+            "const": "sdlc.claim.opened.v1"
+          }
+        },
+        "required": ["type"]
+      },
+      "then": {
+        "properties": {
+          "data": {
+            "type": "object",
+            "properties": {
+              "prNumber": {
+                "type": "number",
+                "x-pnyon-class": "scalar"
+              },
+              "headRef": {
+                "anyOf": [
+                  {
+                    "type": "string",
+                    "x-pnyon-class": "identifier",
+                    "x-pnyon-shape": "git-ref",
+                    "x-pnyon-shape-authority": "server",
+                    "description": "Validated server-side by the \"git-ref\" predicate, which is not expressible as a regex. Prove a local implementation against https://pnyon.com/schema/sdlc-v1.vectors.json."
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              }
+            },
+            "additionalProperties": false
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "type": {
+            "const": "sdlc.claim.released.v1"
+          }
+        },
+        "required": ["type"]
+      },
+      "then": {
+        "properties": {
+          "data": {
+            "type": "object",
+            "properties": {},
+            "additionalProperties": false
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "type": {
+            "const": "sdlc.build.started.v1"
+          }
+        },
+        "required": ["type"]
+      },
+      "then": {
+        "properties": {
+          "data": {
+            "type": "object",
+            "properties": {},
+            "additionalProperties": false
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "type": {
+            "const": "sdlc.build.finished.v1"
+          }
+        },
+        "required": ["type"]
+      },
+      "then": {
+        "properties": {
+          "data": {
+            "type": "object",
+            "properties": {
+              "outcome": {
+                "type": "string",
+                "enum": ["merge", "abandon"],
+                "x-pnyon-class": "enum"
+              },
+              "prNumber": {
+                "type": "number",
+                "x-pnyon-class": "scalar"
+              },
+              "mergeCommitSha": {
+                "anyOf": [
+                  {
+                    "type": "string",
+                    "x-pnyon-class": "identifier",
+                    "x-pnyon-shape": "git-sha",
+                    "pattern": "^[0-9a-f]{40}$"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "pr": {
+                "type": "string",
+                "x-pnyon-class": "prose",
+                "description": "Free text. Scanned by the full secret-detector stack before persistence."
+              }
+            },
+            "additionalProperties": false
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "type": {
+            "const": "sdlc.review.requested.v1"
+          }
+        },
+        "required": ["type"]
+      },
+      "then": {
+        "properties": {
+          "data": {
+            "type": "object",
+            "properties": {
+              "prNumber": {
+                "type": "number",
+                "x-pnyon-class": "scalar"
+              },
+              "title": {
+                "anyOf": [
+                  {
+                    "type": "string",
+                    "x-pnyon-class": "prose",
+                    "description": "Free text. Scanned by the full secret-detector stack before persistence."
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "headRef": {
+                "anyOf": [
+                  {
+                    "type": "string",
+                    "x-pnyon-class": "identifier",
+                    "x-pnyon-shape": "git-ref",
+                    "x-pnyon-shape-authority": "server",
+                    "description": "Validated server-side by the \"git-ref\" predicate, which is not expressible as a regex. Prove a local implementation against https://pnyon.com/schema/sdlc-v1.vectors.json."
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              }
+            },
+            "additionalProperties": false
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "type": {
+            "const": "sdlc.review.verdict.v1"
+          }
+        },
+        "required": ["type"]
+      },
+      "then": {
+        "properties": {
+          "data": {
+            "type": "object",
+            "properties": {
+              "verdict": {
+                "type": "string",
+                "enum": ["approve", "request-changes"],
+                "x-pnyon-class": "enum"
+              }
+            },
+            "additionalProperties": false
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "type": {
+            "const": "sdlc.test.started.v1"
+          }
+        },
+        "required": ["type"]
+      },
+      "then": {
+        "properties": {
+          "data": {
+            "type": "object",
+            "properties": {},
+            "additionalProperties": false
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "type": {
+            "const": "sdlc.test.finished.v1"
+          }
+        },
+        "required": ["type"]
+      },
+      "then": {
+        "properties": {
+          "data": {
+            "type": "object",
+            "properties": {
+              "outcome": {
+                "type": "string",
+                "enum": ["success", "failure"],
+                "x-pnyon-class": "enum"
+              },
+              "run": {
+                "type": "string",
+                "x-pnyon-class": "prose",
+                "description": "Free text. Scanned by the full secret-detector stack before persistence."
+              }
+            },
+            "additionalProperties": false
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "type": {
+            "const": "sdlc.verify.graded.v1"
+          }
+        },
+        "required": ["type"]
+      },
+      "then": {
+        "properties": {
+          "data": {
+            "type": "object",
+            "properties": {},
+            "additionalProperties": false
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "type": {
+            "const": "sdlc.release.published.v1"
+          }
+        },
+        "required": ["type"]
+      },
+      "then": {
+        "properties": {
+          "data": {
+            "type": "object",
+            "properties": {
+              "tagName": {
+                "anyOf": [
+                  {
+                    "type": "string",
+                    "x-pnyon-class": "prose",
+                    "description": "Free text. Scanned by the full secret-detector stack before persistence."
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "trainId": {
+                "type": "string",
+                "x-pnyon-class": "identifier",
+                "x-pnyon-shape": "opaque-id",
+                "x-pnyon-shape-authority": "server",
+                "description": "Validated server-side by the \"opaque-id\" predicate, which is not expressible as a regex. Prove a local implementation against https://pnyon.com/schema/sdlc-v1.vectors.json."
+              },
+              "slug": {
+                "type": "string",
+                "x-pnyon-class": "identifier",
+                "x-pnyon-shape": "slug",
+                "x-pnyon-shape-authority": "server",
+                "description": "Validated server-side by the \"slug\" predicate, which is not expressible as a regex. Prove a local implementation against https://pnyon.com/schema/sdlc-v1.vectors.json."
+              },
+              "slugs": {
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "x-pnyon-class": "identifier",
+                  "x-pnyon-shape": "slug",
+                  "x-pnyon-shape-authority": "server",
+                  "description": "Validated server-side by the \"slug\" predicate, which is not expressible as a regex. Prove a local implementation against https://pnyon.com/schema/sdlc-v1.vectors.json."
+                }
+              }
+            },
+            "additionalProperties": false
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "type": {
+            "const": "sdlc.wave.proposed.v1"
+          }
+        },
+        "required": ["type"]
+      },
+      "then": {
+        "properties": {
+          "data": {
+            "type": "object",
+            "properties": {
+              "waveId": {
+                "type": "string",
+                "x-pnyon-class": "identifier",
+                "x-pnyon-shape": "opaque-id",
+                "x-pnyon-shape-authority": "server",
+                "description": "Validated server-side by the \"opaque-id\" predicate, which is not expressible as a regex. Prove a local implementation against https://pnyon.com/schema/sdlc-v1.vectors.json."
+              },
+              "orgId": {
+                "type": "string",
+                "x-pnyon-class": "identifier",
+                "x-pnyon-shape": "opaque-id",
+                "x-pnyon-shape-authority": "server",
+                "description": "Validated server-side by the \"opaque-id\" predicate, which is not expressible as a regex. Prove a local implementation against https://pnyon.com/schema/sdlc-v1.vectors.json."
+              },
+              "teamIds": {
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "x-pnyon-class": "prose",
+                  "description": "Free text. Scanned by the full secret-detector stack before persistence."
+                }
+              },
+              "slugs": {
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "x-pnyon-class": "identifier",
+                  "x-pnyon-shape": "slug",
+                  "x-pnyon-shape-authority": "server",
+                  "description": "Validated server-side by the \"slug\" predicate, which is not expressible as a regex. Prove a local implementation against https://pnyon.com/schema/sdlc-v1.vectors.json."
+                }
+              },
+              "committedPercentile": {
+                "type": "number",
+                "x-pnyon-class": "scalar"
+              },
+              "windowDays": {
+                "type": "number",
+                "x-pnyon-class": "scalar"
+              },
+              "boundBy": {
+                "type": "string",
+                "x-pnyon-class": "prose",
+                "description": "Free text. Scanned by the full secret-detector stack before persistence."
+              },
+              "denominators": {
+                "type": "object",
+                "properties": {
+                  "forecast": {
+                    "type": "object",
+                    "properties": {
+                      "kind": {
+                        "type": "string",
+                        "x-pnyon-class": "prose",
+                        "description": "Free text. Scanned by the full secret-detector stack before persistence."
+                      },
+                      "unit": {
+                        "type": "string",
+                        "x-pnyon-class": "prose",
+                        "description": "Free text. Scanned by the full secret-detector stack before persistence."
+                      },
+                      "basis": {
+                        "type": "string",
+                        "x-pnyon-class": "prose",
+                        "description": "Free text. Scanned by the full secret-detector stack before persistence."
+                      },
+                      "capacity": {
+                        "type": "number",
+                        "x-pnyon-class": "scalar"
+                      },
+                      "consumed": {
+                        "type": "number",
+                        "x-pnyon-class": "scalar"
+                      }
+                    },
+                    "additionalProperties": false,
+                    "x-pnyon-class": "record"
+                  },
+                  "cost": {
+                    "type": "object",
+                    "properties": {
+                      "kind": {
+                        "type": "string",
+                        "x-pnyon-class": "prose",
+                        "description": "Free text. Scanned by the full secret-detector stack before persistence."
+                      },
+                      "unit": {
+                        "type": "string",
+                        "x-pnyon-class": "prose",
+                        "description": "Free text. Scanned by the full secret-detector stack before persistence."
+                      },
+                      "basis": {
+                        "type": "string",
+                        "x-pnyon-class": "prose",
+                        "description": "Free text. Scanned by the full secret-detector stack before persistence."
+                      },
+                      "capacity": {
+                        "type": "number",
+                        "x-pnyon-class": "scalar"
+                      },
+                      "consumed": {
+                        "type": "number",
+                        "x-pnyon-class": "scalar"
+                      }
+                    },
+                    "additionalProperties": false,
+                    "x-pnyon-class": "record"
+                  },
+                  "attention": {
+                    "type": "object",
+                    "properties": {
+                      "kind": {
+                        "type": "string",
+                        "x-pnyon-class": "prose",
+                        "description": "Free text. Scanned by the full secret-detector stack before persistence."
+                      },
+                      "unit": {
+                        "type": "string",
+                        "x-pnyon-class": "prose",
+                        "description": "Free text. Scanned by the full secret-detector stack before persistence."
+                      },
+                      "basis": {
+                        "type": "string",
+                        "x-pnyon-class": "prose",
+                        "description": "Free text. Scanned by the full secret-detector stack before persistence."
+                      },
+                      "capacity": {
+                        "type": "number",
+                        "x-pnyon-class": "scalar"
+                      },
+                      "consumed": {
+                        "type": "number",
+                        "x-pnyon-class": "scalar"
+                      }
+                    },
+                    "additionalProperties": false,
+                    "x-pnyon-class": "record"
+                  }
+                },
+                "additionalProperties": false,
+                "x-pnyon-class": "record"
+              },
+              "expedite": {
+                "type": "object",
+                "properties": {
+                  "declared": {
+                    "type": "number",
+                    "x-pnyon-class": "scalar"
+                  },
+                  "used": {
+                    "type": "number",
+                    "x-pnyon-class": "scalar"
+                  },
+                  "unit": {
+                    "type": "string",
+                    "x-pnyon-class": "prose",
+                    "description": "Free text. Scanned by the full secret-detector stack before persistence."
+                  },
+                  "basis": {
+                    "type": "string",
+                    "x-pnyon-class": "prose",
+                    "description": "Free text. Scanned by the full secret-detector stack before persistence."
+                  },
+                  "overflow": {
+                    "type": "boolean",
+                    "x-pnyon-class": "scalar"
+                  }
+                },
+                "additionalProperties": false,
+                "x-pnyon-class": "record"
+              },
+              "trainId": {
+                "type": "string",
+                "x-pnyon-class": "identifier",
+                "x-pnyon-shape": "opaque-id",
+                "x-pnyon-shape-authority": "server",
+                "description": "Validated server-side by the \"opaque-id\" predicate, which is not expressible as a regex. Prove a local implementation against https://pnyon.com/schema/sdlc-v1.vectors.json."
+              },
+              "horizonDays": {
+                "type": "number",
+                "x-pnyon-class": "scalar"
+              },
+              "coherent": {
+                "type": "boolean",
+                "x-pnyon-class": "scalar"
+              },
+              "gradeCounts": {
+                "type": "object",
+                "properties": {
+                  "V0": {
+                    "type": "number",
+                    "x-pnyon-class": "scalar"
+                  },
+                  "V1": {
+                    "type": "number",
+                    "x-pnyon-class": "scalar"
+                  },
+                  "V2": {
+                    "type": "number",
+                    "x-pnyon-class": "scalar"
+                  },
+                  "V3": {
+                    "type": "number",
+                    "x-pnyon-class": "scalar"
+                  }
+                },
+                "additionalProperties": false,
+                "x-pnyon-class": "record"
+              },
+              "dependencyGaps": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "slug": {
+                      "type": "string",
+                      "x-pnyon-class": "identifier",
+                      "x-pnyon-shape": "slug",
+                      "x-pnyon-shape-authority": "server",
+                      "description": "Validated server-side by the \"slug\" predicate, which is not expressible as a regex. Prove a local implementation against https://pnyon.com/schema/sdlc-v1.vectors.json."
+                    },
+                    "missingDependency": {
+                      "type": "string",
+                      "x-pnyon-class": "identifier",
+                      "x-pnyon-shape": "slug",
+                      "x-pnyon-shape-authority": "server",
+                      "description": "Validated server-side by the \"slug\" predicate, which is not expressible as a regex. Prove a local implementation against https://pnyon.com/schema/sdlc-v1.vectors.json."
+                    }
+                  },
+                  "additionalProperties": false,
+                  "x-pnyon-class": "record"
+                }
+              },
+              "proposedAt": {
+                "type": "string",
+                "x-pnyon-class": "identifier",
+                "x-pnyon-shape": "iso-time",
+                "x-pnyon-shape-authority": "server",
+                "description": "Validated server-side by the \"iso-time\" predicate, which is not expressible as a regex. Prove a local implementation against https://pnyon.com/schema/sdlc-v1.vectors.json."
+              }
+            },
+            "additionalProperties": false
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "type": {
+            "const": "sdlc.wave.approved.v1"
+          }
+        },
+        "required": ["type"]
+      },
+      "then": {
+        "properties": {
+          "data": {
+            "type": "object",
+            "properties": {
+              "approvedBy": {
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "x-pnyon-class": "identifier",
+                  "x-pnyon-shape": "principal",
+                  "x-pnyon-shape-authority": "server",
+                  "description": "Validated server-side by the \"principal\" predicate, which is not expressible as a regex. Prove a local implementation against https://pnyon.com/schema/sdlc-v1.vectors.json."
+                }
+              }
+            },
+            "additionalProperties": false
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "type": {
+            "const": "sdlc.wave.completed.v1"
+          }
+        },
+        "required": ["type"]
+      },
+      "then": {
+        "properties": {
+          "data": {
+            "type": "object",
+            "properties": {
+              "actual": {
+                "type": "number",
+                "x-pnyon-class": "scalar"
+              }
+            },
+            "additionalProperties": false
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "type": {
+            "const": "sdlc.override.applied.v1"
+          }
+        },
+        "required": ["type"]
+      },
+      "then": {
+        "properties": {
+          "data": {
+            "type": "object",
+            "properties": {
+              "kind": {
+                "type": "string",
+                "enum": [
+                  "cast-confirmation",
+                  "needs-human",
+                  "needs-human-cleared",
+                  "pre-warm",
+                  "pre-warm-failed",
+                  "pre-warm-budget-exhausted",
+                  "wave-override",
+                  "pull-forward",
+                  "wave-rejected",
+                  "expedite",
+                  "drain-evidence",
+                  "fleet-provenance",
+                  "fleet-handoff",
+                  "release-train-rejected"
+                ],
+                "x-pnyon-class": "enum"
+              },
+              "actorId": {
+                "type": "string",
+                "x-pnyon-class": "identifier",
+                "x-pnyon-shape": "principal",
+                "x-pnyon-shape-authority": "server",
+                "description": "Validated server-side by the \"principal\" predicate, which is not expressible as a regex. Prove a local implementation against https://pnyon.com/schema/sdlc-v1.vectors.json."
+              },
+              "reason": {
+                "type": "string",
+                "x-pnyon-class": "prose",
+                "description": "Free text. Scanned by the full secret-detector stack before persistence."
+              },
+              "slug": {
+                "type": "string",
+                "x-pnyon-class": "identifier",
+                "x-pnyon-shape": "slug",
+                "x-pnyon-shape-authority": "server",
+                "description": "Validated server-side by the \"slug\" predicate, which is not expressible as a regex. Prove a local implementation against https://pnyon.com/schema/sdlc-v1.vectors.json."
+              },
+              "trigger": {
+                "type": "string",
+                "enum": ["wave-approval", "speculative"],
+                "x-pnyon-class": "enum"
+              },
+              "speculative": {
+                "type": "boolean",
+                "x-pnyon-class": "scalar"
+              },
+              "contextPackDigest": {
+                "type": "string",
+                "x-pnyon-class": "identifier",
+                "x-pnyon-shape": "hex-digest",
+                "pattern": "^[0-9a-f]{64}$"
+              },
+              "specSkeletonDigest": {
+                "type": "string",
+                "x-pnyon-class": "identifier",
+                "x-pnyon-shape": "hex-digest",
+                "pattern": "^[0-9a-f]{64}$"
+              },
+              "warmedAt": {
+                "type": "string",
+                "x-pnyon-class": "identifier",
+                "x-pnyon-shape": "iso-time",
+                "x-pnyon-shape-authority": "server",
+                "description": "Validated server-side by the \"iso-time\" predicate, which is not expressible as a regex. Prove a local implementation against https://pnyon.com/schema/sdlc-v1.vectors.json."
+              },
+              "costBucket": {
+                "type": "string",
+                "enum": ["approved", "speculative"],
+                "x-pnyon-class": "enum"
+              },
+              "costTokens": {
+                "type": "number",
+                "x-pnyon-class": "scalar"
+              },
+              "costUnit": {
+                "type": "string",
+                "x-pnyon-class": "prose",
+                "description": "Free text. Scanned by the full secret-detector stack before persistence."
+              },
+              "costBasis": {
+                "type": "string",
+                "x-pnyon-class": "prose",
+                "description": "Free text. Scanned by the full secret-detector stack before persistence."
+              },
+              "spent": {
+                "type": "number",
+                "x-pnyon-class": "scalar"
+              },
+              "capacity": {
+                "type": "number",
+                "x-pnyon-class": "scalar"
+              },
+              "unit": {
+                "type": "string",
+                "x-pnyon-class": "prose",
+                "description": "Free text. Scanned by the full secret-detector stack before persistence."
+              },
+              "basis": {
+                "type": "string",
+                "x-pnyon-class": "prose",
+                "description": "Free text. Scanned by the full secret-detector stack before persistence."
+              },
+              "operation": {
+                "type": "string",
+                "enum": ["add", "remove", "repriority"],
+                "x-pnyon-class": "enum"
+              },
+              "priority": {
+                "type": "number",
+                "x-pnyon-class": "scalar"
+              },
+              "items": {
+                "type": "number",
+                "x-pnyon-class": "scalar"
+              },
+              "remaining": {
+                "type": "number",
+                "x-pnyon-class": "scalar"
+              },
+              "expectedRemaining": {
+                "type": "number",
+                "x-pnyon-class": "scalar"
+              },
+              "paceRatio": {
+                "type": "number",
+                "x-pnyon-class": "scalar"
+              },
+              "elapsedDays": {
+                "type": "number",
+                "x-pnyon-class": "scalar"
+              },
+              "item": {
+                "type": "string",
+                "x-pnyon-class": "prose",
+                "description": "Free text. Scanned by the full secret-detector stack before persistence."
+              },
+              "issues": {
+                "type": "array",
+                "items": {
+                  "type": "number",
+                  "x-pnyon-class": "scalar"
+                }
+              },
+              "route": {
+                "type": "string",
+                "x-pnyon-class": "prose",
+                "description": "Free text. Scanned by the full secret-detector stack before persistence."
+              },
+              "stages": {
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "x-pnyon-class": "prose",
+                  "description": "Free text. Scanned by the full secret-detector stack before persistence."
+                }
+              },
+              "assumptions": {
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "x-pnyon-class": "prose",
+                  "description": "Free text. Scanned by the full secret-detector stack before persistence."
+                }
+              },
+              "specArtifact": {
+                "type": "string",
+                "x-pnyon-class": "identifier",
+                "x-pnyon-shape": "repo-path",
+                "x-pnyon-shape-authority": "server",
+                "description": "Validated server-side by the \"repo-path\" predicate, which is not expressible as a regex. Prove a local implementation against https://pnyon.com/schema/sdlc-v1.vectors.json."
+              },
+              "planArtifact": {
+                "type": "string",
+                "x-pnyon-class": "identifier",
+                "x-pnyon-shape": "repo-path",
+                "x-pnyon-shape-authority": "server",
+                "description": "Validated server-side by the \"repo-path\" predicate, which is not expressible as a regex. Prove a local implementation against https://pnyon.com/schema/sdlc-v1.vectors.json."
+              },
+              "fleet": {
+                "type": "string",
+                "x-pnyon-class": "prose",
+                "description": "Free text. Scanned by the full secret-detector stack before persistence."
+              },
+              "status": {
+                "type": "string",
+                "enum": ["done", "parked", "blocked", "failed"],
+                "x-pnyon-class": "enum"
+              },
+              "summary": {
+                "type": "string",
+                "x-pnyon-class": "prose",
+                "description": "Free text. Scanned by the full secret-detector stack before persistence."
+              },
+              "evidence": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "kind": {
+                      "type": "string",
+                      "enum": ["branch", "pr", "artifact", "ci"],
+                      "x-pnyon-class": "enum"
+                    },
+                    "ref": {
+                      "type": "string",
+                      "x-pnyon-class": "prose",
+                      "description": "Free text. Scanned by the full secret-detector stack before persistence."
+                    },
+                    "note": {
+                      "type": "string",
+                      "x-pnyon-class": "prose",
+                      "description": "Free text. Scanned by the full secret-detector stack before persistence."
+                    }
+                  },
+                  "additionalProperties": false,
+                  "x-pnyon-class": "record"
+                }
+              },
+              "nextSteps": {
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "x-pnyon-class": "prose",
+                  "description": "Free text. Scanned by the full secret-detector stack before persistence."
+                }
+              },
+              "blocker": {
+                "type": "string",
+                "x-pnyon-class": "prose",
+                "description": "Free text. Scanned by the full secret-detector stack before persistence."
+              }
+            },
+            "additionalProperties": false
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "type": {
+            "const": "sdlc.approval.granted.v1"
+          }
+        },
+        "required": ["type"]
+      },
+      "then": {
+        "properties": {
+          "data": {
+            "type": "object",
+            "properties": {},
+            "additionalProperties": false
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "type": {
+            "const": "sdlc.approval.denied.v1"
+          }
+        },
+        "required": ["type"]
+      },
+      "then": {
+        "properties": {
+          "data": {
+            "type": "object",
+            "properties": {},
+            "additionalProperties": false
+          }
+        }
+      }
+    }
+  ]
+}
