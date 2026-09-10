@@ -3,7 +3,11 @@ export { gatherSignals } from './gather.js';
 export type { SignalsResult } from './gather.js';
 export { signalRegistry } from './registry.js';
 export { SignalTimelineStore } from './timeline-store.js';
-export { defaultCommandRunner } from './command-runner.js';
+export {
+  DEFAULT_COMMAND_TIMEOUT_MS,
+  NETWORK_COMMAND_TIMEOUT_MS,
+  defaultCommandRunner,
+} from './command-runner.js';
 export type { CommandRunner } from './command-runner.js';
 export { computeHolidayConfidence } from './holiday-confidence.js';
 export type {
