@@ -12,12 +12,20 @@ import { logger } from '../output/logger';
  * compaction path — it reads observations and writes a report.
  */
 
+// POSIX LITERALS, NOT `path.join`. These are option DEFAULTS: they are printed
+// in `--help` and embedded verbatim in `docs/reference/cli-commands.md`, so
+// joining them made the generated docs platform-specific -- a Windows run
+// emitted `.harness\metrics\...` where a Linux run emitted `.harness/metrics/...`
+// and the reference-docs drift gate then failed for whoever regenerated second.
+// Node's fs accepts forward slashes on Windows, so nothing is lost by fixing
+// the spelling rather than teaching the generator to normalise it.
+
 /** Default input: pre-recorded ablation-replay observations (one per line). */
-const DEFAULT_INPUT = path.join('.harness', 'metrics', 'ablation-replays.jsonl');
+const DEFAULT_INPUT = '.harness/metrics/ablation-replays.jsonl';
 /** Default output: the fitted distortion model. */
-const DEFAULT_MODEL_OUT = path.join('.harness', 'metrics', 'distortion-model.json');
+const DEFAULT_MODEL_OUT = '.harness/metrics/distortion-model.json';
 /** Optional #1632 refinement-demand log, foldable as an advisory prior. */
-const REFINEMENT_EVENTS = path.join('.harness', 'metrics', 'refinement-events.jsonl');
+const REFINEMENT_EVENTS = '.harness/metrics/refinement-events.jsonl';
 
 type ReplayObservation = import('@harness-engineering/core').ReplayObservation;
 type InformationClass = import('@harness-engineering/core').InformationClass;
