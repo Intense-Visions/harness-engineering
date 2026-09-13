@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { defaultCommandRunner } from './command-runner';
+import { NETWORK_COMMAND_TIMEOUT_MS, defaultCommandRunner } from './command-runner';
 import { ASSESSMENT_MARKER, DEFAULT_WINDOW_DAYS, round2 } from './shared';
 import type { CommandRunner, SignalResult } from './types';
 
@@ -148,21 +148,29 @@ async function fetchMergedPrs(
 ): Promise<{ ok: true; prs: PrRow[] } | { ok: false; detail: string }> {
   let stdout: string;
   try {
-    stdout = await runCommand('gh', [
-      'pr',
-      'list',
-      '--state',
-      'merged',
-      '--limit',
-      String(FETCH_LIMIT),
-      '--search',
-      `merged:>=${cutoffDate}`,
-      '--json',
-      'number,mergedAt,reviews,headRefOid,mergeCommit',
-    ]);
+    stdout = await runCommand(
+      'gh',
+      [
+        'pr',
+        'list',
+        '--state',
+        'merged',
+        '--limit',
+        String(FETCH_LIMIT),
+        '--search',
+        `merged:>=${cutoffDate}`,
+        '--json',
+        'number,mergedAt,reviews,headRefOid,mergeCommit',
+      ],
+      // A paginated network query, not a local process — see NETWORK_COMMAND_TIMEOUT_MS.
+      NETWORK_COMMAND_TIMEOUT_MS
+    );
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
-    return { ok: false, detail: `gh unavailable or not authenticated: ${message}` };
+    // Report the underlying failure rather than asserting a cause: gh can be
+    // missing, unauthenticated, rate-limited, or merely slow, and only the
+    // message distinguishes them.
+    return { ok: false, detail: `gh pr list failed: ${message}` };
   }
   let raw: unknown;
   try {

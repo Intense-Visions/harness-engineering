@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { computeHolidayConfidence } from '../src/holiday-confidence';
 import type { OutcomeQueryStore } from '../src/holiday-confidence';
+import { DEFAULT_COMMAND_TIMEOUT_MS, NETWORK_COMMAND_TIMEOUT_MS } from '../src/command-runner';
 import type { CommandRunner, SignalId, SignalResult, SignalStatus } from '../src/types';
 
 const NOW = new Date('2026-06-22T00:00:00.000Z');
@@ -56,6 +57,42 @@ function graphWith(failedShas: string[]): OutcomeQueryStore {
 }
 
 describe('computeHolidayConfidence', () => {
+  it('gives the gh PR fetch a network-sized timeout budget', async () => {
+    // Regression: the fetch ran on the 5s local-process default, which SIGTERM-killed
+    // a ~10-14s paginated `gh pr list --limit 500 --json ...,reviews` network call and
+    // surfaced it as "gh unavailable or not authenticated".
+    let budget: number | undefined;
+    const runner: CommandRunner = async (_cmd, _args, timeoutMs) => {
+      budget = timeoutMs;
+      return '[]';
+    };
+    await computeHolidayConfidence({
+      projectPath: '/x',
+      now: NOW,
+      runCommand: runner,
+      graphStore: graphWith([]),
+      signals: healthySignals(),
+    });
+    expect(budget).toBe(NETWORK_COMMAND_TIMEOUT_MS);
+    expect(budget).toBeGreaterThan(DEFAULT_COMMAND_TIMEOUT_MS);
+  });
+
+  it('does not blame authentication when the fetch merely timed out', async () => {
+    const runner: CommandRunner = async () => {
+      throw new Error('Command `gh pr list` timed out after 30000ms');
+    };
+    const r = await computeHolidayConfidence({
+      projectPath: '/x',
+      now: NOW,
+      runCommand: runner,
+      graphStore: graphWith([]),
+      signals: healthySignals(),
+    });
+    expect(r.status).toBe('error');
+    expect(r.detail).not.toMatch(/not authenticated/);
+    expect(r.detail).toMatch(/timed out after 30000ms/);
+  });
+
   it('reports 100% when every merged PR cleared all four gates', async () => {
     const r = await computeHolidayConfidence({
       projectPath: '/x',
