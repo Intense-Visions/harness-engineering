@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'scripts'
-sourceHash: '781829badf43d391700cff6e41cfb322dc6c066299df5116fc88f5e10c3c3e33'
+sourceHash: '9f1889b7f8fa6d58cee1169a99bd11d4ac429fabd330a8c63d8699808651449f'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
@@ -81,7 +81,7 @@ import { appendFileSync, existsSync, mkdirSync, mkdtempSync, readFileSync, readd
 import { rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import path, { basename, dirname, extname, join, relative, resolve, sep } from 'node:path'
-import { fileURLToPath } from 'node:url'
+import { fileURLToPath, pathToFileURL } from 'node:url'
 import from 'playwright'
 import { parseYaml } from 'yaml'
 ```

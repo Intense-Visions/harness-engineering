@@ -432,6 +432,12 @@ async function offerRegeneration(): Promise<void> {
 interface UpdateCheckResult {
   hasUpdates: boolean;
   outdated: Array<{ pkg: string; current: string | null; latest: string }>;
+  /**
+   * Packages whose registry lookup FAILED. Never folded into `outdated` or
+   * silently dropped: "we could not check" and "you are current" must not
+   * produce the same output.
+   */
+  unreachable: Array<{ pkg: string; reason: string }>;
 }
 
 async function checkAllPackages(
@@ -440,26 +446,48 @@ async function checkAllPackages(
 ): Promise<UpdateCheckResult> {
   logger.info('Checking for updates...');
 
-  const results = await Promise.allSettled(
+  // EVERY FAILURE IS TAGGED WITH ITS PACKAGE. The previous version used
+  // `Promise.allSettled` and `continue`d past rejections, which made a failed
+  // lookup contribute nothing — and the caller then read an empty `outdated`
+  // as "All packages are up to date". A rejected `npm view` (timeout, offline,
+  // proxy, registry throttle, non-zero exit, empty response) was therefore
+  // reported to the user as good news, which is worse than a crash because
+  // they act on it.
+  const results = await Promise.all(
     packages.map(async (pkg) => {
-      const latest = await getLatestVersionAsync(pkg);
-      const current = installedVersions[pkg] ?? null;
-      return { pkg, current, latest, outdated: !current || current !== latest };
+      try {
+        const latest = await getLatestVersionAsync(pkg);
+        const current = installedVersions[pkg] ?? null;
+        return {
+          reached: true as const,
+          pkg,
+          current,
+          latest,
+          outdated: !current || current !== latest,
+        };
+      } catch (err) {
+        return {
+          reached: false as const,
+          pkg,
+          reason: err instanceof Error ? err.message : String(err),
+        };
+      }
     })
   );
 
   const outdated: UpdateCheckResult['outdated'] = [];
+  const unreachable: UpdateCheckResult['unreachable'] = [];
   for (const result of results) {
-    if (result.status === 'rejected') {
-      // Skip packages we can't query — don't block the whole update
+    if (!result.reached) {
+      unreachable.push({ pkg: result.pkg, reason: result.reason });
       continue;
     }
-    if (result.value.outdated) {
-      outdated.push(result.value);
+    if (result.outdated) {
+      outdated.push({ pkg: result.pkg, current: result.current, latest: result.latest });
     }
   }
 
-  return { hasUpdates: outdated.length > 0, outdated };
+  return { hasUpdates: outdated.length > 0, outdated, unreachable };
 }
 
 function buildInstallPackages(
@@ -600,7 +628,34 @@ async function runUpdateAction(
   // 4. Check ALL installed packages for updates (not just CLI)
   if (!opts.version && !opts.force) {
     const installedVersions = getInstalledVersions(pm, packages);
-    const { hasUpdates, outdated } = await checkAllPackages(packages, installedVersions);
+    const { hasUpdates, outdated, unreachable } = await checkAllPackages(
+      packages,
+      installedVersions
+    );
+
+    // AN INCOMPLETE CHECK IS NOT A PASS. If any package could not be queried we
+    // do not know whether it is current, so saying so is the only honest
+    // answer — and exiting non-zero keeps a scripted `harness update` from
+    // treating a network blip as "nothing to do".
+    if (unreachable.length > 0) {
+      logger.error(`Could not check ${unreachable.length} package(s) against the registry:`);
+      for (const { pkg, reason } of unreachable) {
+        logger.error(`  ${pkg.replace('@harness-engineering/', '')}: ${reason}`);
+      }
+      if (outdated.length > 0) {
+        console.log('');
+        logger.info('Updates ARE available for the packages that could be checked:');
+        for (const { pkg, current, latest } of outdated) {
+          const shortName = pkg.replace('@harness-engineering/', '');
+          const currentStr = current ? chalk.dim(`v${current}`) : chalk.dim('not installed');
+          logger.info(`  ${shortName}: ${currentStr} → ${chalk.green(`v${latest}`)}`);
+        }
+      }
+      console.log('');
+      logger.info('Re-run when the registry is reachable, or force the install with:');
+      logger.info(`  ${buildInstallPackages(packages, opts).installCmd}`);
+      process.exit(ExitCode.ERROR);
+    }
 
     if (!hasUpdates) {
       logger.success('All packages are up to date');
