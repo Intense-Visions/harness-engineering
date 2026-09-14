@@ -28,7 +28,7 @@ cli:
       description: 'Global cap on concurrent per-item subagents across every fleet in flight (default: 3, hard max 4), with no single fleet allocated more than 2 of the pool — never the sum of the per-fleet governors, and imposed by passing each lane its allocation as --concurrency'
       required: false
     - name: --max-fleets
-      description: 'Cap on how many fleets a single run schedules (default: 6); the shed is structural — the CI trust gate and the terminal lander are never shed, the independent quality sweeps are shed first at lowest queue depth first, and a spine member drops only if the human trims it — and every shed fleet is reported with its reason'
+      description: 'Cap on how many fleets a single run schedules (default: 6); the shed is structural — the CI trust gate and the terminal lander are never shed, the independent quality sweeps are shed first at lowest queue depth first, and a spine member drops only if the human trims it — and every shed fleet is reported with its reason. The depth-ordered rule is keyed on a probe, so when no sweep in contention carries a probed depth the cap is undecidable rather than applied: the reduction is carried to CONFIRM as the human trim and reported as "cap undecidable — reduced by human trim", never as a depth-ordered shed, and no fallback ordering is invented to make it look structural'
       required: false
     - name: --wall-clock
       description: 'Wall-clock budget for the run (default: 8h), compared against the run start timestamp at each wave boundary before the next wave is scheduled; exhausting it stops scheduling new lanes and reports partial results rather than killing in-flight work'
