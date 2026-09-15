@@ -25,6 +25,8 @@ export type { ComprehensionIO, SkippedUnit, ComprehensionListing } from './store
 export { createNodeComprehensionIO } from './node-io';
 export { createHttpComprehensionReadIO, RemoteUnitNotFoundError } from './http-io';
 export type { HttpComprehensionConfig } from './http-io';
+export { resolveRemoteComprehension } from './remote-config';
+export type { RemoteComprehensionConfig } from './remote-config';
 export { compileModule } from './compile';
 export type { CompileOptions } from './compile';
 export { serveGate } from './serve-gate';

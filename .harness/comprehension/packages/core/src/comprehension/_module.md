@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'packages/core/src/comprehension'
-sourceHash: '9aa83e37dd8309f6724aeea9dc97260a756fc6b1637635f2cab2a1bf8f130731'
+sourceHash: '9ca7cfa3556a68a43f86432c66d39d6a58c92bdbecc90f74fc542b9152519c71'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
@@ -12,6 +12,7 @@ members:
     'index.ts',
     'node-io.ts',
     'reentrancy.ts',
+    'remote-config.ts',
     'render.ts',
     'run.ts',
     'serialize.ts',
@@ -48,6 +49,7 @@ export GenerateSemantic
 export HttpComprehensionConfig
 export ModuleSourceReader
 export REENTRANCY_ENV
+export RemoteComprehensionConfig
 export RemoteUnitNotFoundError
 export SCHEMA_VERSION
 export STATIC_SUPPORTED_EXTENSIONS
@@ -70,6 +72,7 @@ export parseUnit
 export renderDependencySlice
 export renderInterfaceContract
 export renderServedUnit
+export resolveRemoteComprehension
 export runComprehend
 export runComprehendCheck
 export runComprehendStats

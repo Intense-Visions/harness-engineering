@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'packages/cli/src/comprehension'
-sourceHash: '4a6c40a9be33f75ccd9e6a0bfea02ea28e490169f515fb6fa45e9348efd77a44'
+sourceHash: '05c368fbaf0e2a3009c1fe92086b276225b89c40f57f9dba22a4d239942c0f5d'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
@@ -34,6 +34,7 @@ export DEFAULT_MAX_OUTPUT_TOKENS
 export DEFAULT_SEMANTIC_MODEL
 export MAIN_BRANCH
 export REENTRANCY_ENV
+export RemoteComprehensionConfig
 export STATIC_SUPPORTED_EXTENSIONS
 export boundSourceDigest
 export buildSemanticPrompt

@@ -94,34 +94,10 @@ export function selectSemanticModel(
   );
 }
 
-/** The env-driven remote-comprehension opt-in (harness-comprehension-serve consumer). */
-export interface RemoteComprehensionConfig {
-  /** The hosted vault base URL (pnyon-core). */
-  readonly baseUrl: string;
-  /** The Outpost (UUID) whose comprehension to read. */
-  readonly outpost: string;
-  /** The identity-bound read-only serve token (a PAT). */
-  readonly token: string;
-  /** Serve a remote unit with no local source (Mode B). Off unless explicitly enabled. */
-  readonly trustRemote: boolean;
-}
-
-/**
- * Resolve the remote-comprehension opt-in from the ENVIRONMENT — deliberately NOT from the
- * committed `harness.config.json`: the serve token is a per-developer secret and whether to read
- * from the hosted vault (vs local/offline) is a per-developer / per-environment choice, so a
- * committed value would force it on everyone. Returns `undefined` (⇒ local behavior) unless
- * `HARNESS_COMPREHENSION_STORAGE=remote` AND the URL, Outpost, and token are all present
- * (fail-safe: an incomplete config never half-enables remote).
- */
-export function resolveRemoteComprehension(
-  env: NodeJS.ProcessEnv = process.env
-): RemoteComprehensionConfig | undefined {
-  if ((env.HARNESS_COMPREHENSION_STORAGE ?? '').trim().toLowerCase() !== 'remote') return undefined;
-  const baseUrl = (env.HARNESS_COMPREHENSION_REMOTE_URL ?? '').trim();
-  const outpost = (env.HARNESS_COMPREHENSION_OUTPOST ?? '').trim();
-  const token = (env.PNYON_COMPREHENSION_SERVE_TOKEN ?? '').trim();
-  if (baseUrl === '' || outpost === '' || token === '') return undefined;
-  const trust = (env.HARNESS_COMPREHENSION_TRUST_REMOTE ?? '').trim().toLowerCase();
-  return { baseUrl, outpost, token, trustRemote: trust === '1' || trust === 'true' };
-}
+// The env-driven remote-comprehension opt-in now lives in core (so the orchestrator, which
+// cannot import the cli, shares the identical resolver). Re-exported here for the cli's existing
+// call sites (get_comprehension, gather_context).
+export {
+  resolveRemoteComprehension,
+  type RemoteComprehensionConfig,
+} from '@harness-engineering/core';
