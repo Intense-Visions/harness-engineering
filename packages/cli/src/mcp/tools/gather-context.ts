@@ -354,10 +354,23 @@ export async function handleGatherContext(input: {
   const comprehensionPromise = includeSet.has('comprehension')
     ? (async () => {
         const core = await import('@harness-engineering/core');
-        const store = new core.ComprehensionStore({
-          root: `${projectPath.replaceAll('\\', '/')}/${core.COMPREHENSION_ROOT}`,
-          io: core.createNodeComprehensionIO(),
-        });
+        const { resolveRemoteComprehension } = await import('../../comprehension/config');
+        const root = `${projectPath.replaceAll('\\', '/')}/${core.COMPREHENSION_ROOT}`;
+        // Remote-first (harness-comprehension-serve): when configured, list from the hosted
+        // vault via the batch route (`store.list()` → the http-io's listUnitPaths batches +
+        // caches, so it's one round-trip); else the local committed shard tree.
+        const remote = resolveRemoteComprehension();
+        const store = remote
+          ? new core.ComprehensionStore({
+              root,
+              io: core.createHttpComprehensionReadIO({
+                baseUrl: remote.baseUrl,
+                token: remote.token,
+                outpost: remote.outpost,
+                root,
+              }),
+            })
+          : new core.ComprehensionStore({ root, io: core.createNodeComprehensionIO() });
         const listed = await store.list();
         if (!listed.ok) return null;
         // FIX 2: skip-and-report — one malformed unit must not blank the whole
@@ -370,12 +383,22 @@ export async function handleGatherContext(input: {
         const stale: Array<{ module: string; recompile: true }> = [];
         let totalChars = 0;
         for (const unit of units) {
-          const verdict = await core.serveGate(unit, reader);
-          if (!verdict.serve) {
-            stale.push({ module: verdict.module, recompile: true });
-            continue;
+          let markdown: string;
+          // Mode B: a remote unit with no local source to validate against → trust the vault.
+          if (
+            remote?.trustRemote &&
+            (await reader.readModuleSource(unit.provenance.module)) === null
+          ) {
+            markdown = core.renderServedUnit(unit);
+          } else {
+            // Local source present (or not trusting remote) → validate against the working tree.
+            const verdict = await core.serveGate(unit, reader);
+            if (!verdict.serve) {
+              stale.push({ module: verdict.module, recompile: true });
+              continue;
+            }
+            markdown = core.renderServedUnit(verdict.unit);
           }
-          const markdown = core.renderServedUnit(verdict.unit);
           if (totalChars + markdown.length > charBudget && served.length > 0) continue;
           served.push({ module: unit.provenance.module, markdown });
           totalChars += markdown.length;

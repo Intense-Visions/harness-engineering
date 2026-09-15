@@ -43,70 +43,118 @@ export class RemoteUnitNotFoundError extends Error {
   }
 }
 
-/** The serve envelope pnyon returns (structural subset — we only need `unit`). */
+/** The serve envelope pnyon returns (structural subset — we only need `module` + `unit`). */
 interface ServeEnvelope {
+  readonly module?: unknown;
   readonly unit?: unknown;
 }
 
+/** The batch serve response (`POST /comprehension-units`). */
+interface BatchEnvelope {
+  readonly units?: readonly ServeEnvelope[];
+}
+
+/** Shared context for the remote IO helpers (keeps the factory a thin wire-up). */
+interface RemoteIoCtx {
+  readonly base: string;
+  readonly root: string;
+  readonly outpost: string;
+  readonly doFetch: typeof globalThis.fetch;
+  readonly authHeaders: Record<string, string>;
+  /** module -> unit blob, primed by listUnitPaths so the store's per-path readFile is a hit. */
+  readonly cache: Map<string, string>;
+}
+
+/** Recover the module from a `<root>/<module>/_module.md` store path. */
+function moduleFromPath(p: string, root: string): string {
+  let rel = p.replaceAll('\\', '/');
+  if (rel.startsWith(`${root}/`)) rel = rel.slice(root.length + 1);
+  if (rel.endsWith(`/${UNIT_FILE}`)) rel = rel.slice(0, -(UNIT_FILE.length + 1));
+  return rel;
+}
+
+/** Parse a serve envelope's `unit` blob, or throw a category error (never the body). */
+async function parseServeUnit(res: Response): Promise<string> {
+  let envelope: ServeEnvelope;
+  try {
+    envelope = (await res.json()) as ServeEnvelope;
+  } catch {
+    throw new Error('remote comprehension read returned an unparseable body');
+  }
+  if (typeof envelope.unit !== 'string' || envelope.unit.length === 0) {
+    throw new Error('remote comprehension read returned no unit blob');
+  }
+  return envelope.unit;
+}
+
+/** Read one unit's blob: cache-first (primed by listUnitPaths), else a single GET serve. */
+async function remoteReadFile(p: string, ctx: RemoteIoCtx): Promise<string> {
+  const module = moduleFromPath(p, ctx.root);
+  const cached = ctx.cache.get(module);
+  if (cached !== undefined) return cached;
+  const url =
+    `${ctx.base}/comprehension-unit` +
+    `?outpost=${encodeURIComponent(ctx.outpost)}&module=${encodeURIComponent(module)}`;
+  let res: Response;
+  try {
+    res = await ctx.doFetch(url, { headers: ctx.authHeaders });
+  } catch {
+    // Network/transport failure: never surface the URL/token — category only.
+    throw new Error('remote comprehension read failed (network error)');
+  }
+  if (res.status === 404) throw new RemoteUnitNotFoundError(module);
+  if (!res.ok) throw new Error(`remote comprehension read failed (HTTP ${res.status})`);
+  return parseServeUnit(res);
+}
+
+/** POST the batch route ONCE, cache every returned unit, and return the module store paths. */
+async function remoteListUnitPaths(ctx: RemoteIoCtx): Promise<string[]> {
+  let res: Response;
+  try {
+    res = await ctx.doFetch(`${ctx.base}/comprehension-units`, {
+      method: 'POST',
+      headers: { ...ctx.authHeaders, 'content-type': 'application/json' },
+      body: JSON.stringify({ outpost: ctx.outpost, modules: [] }),
+    });
+  } catch {
+    return []; // network failure => no remote enumeration (caller degrades to local)
+  }
+  if (!res.ok) return [];
+  let body: BatchEnvelope;
+  try {
+    body = (await res.json()) as BatchEnvelope;
+  } catch {
+    return [];
+  }
+  const units = Array.isArray(body.units) ? body.units : [];
+  const paths: string[] = [];
+  for (const u of units) {
+    if (typeof u.module !== 'string' || typeof u.unit !== 'string' || u.unit.length === 0) continue;
+    ctx.cache.set(u.module, u.unit); // prime the cache so readFile is a hit
+    paths.push(`${ctx.root}/${u.module}/${UNIT_FILE}`);
+  }
+  return paths;
+}
+
 /**
- * Build the READ-only remote {@link ComprehensionIO}. `readFile(path)` maps the store path
- * (`<root>/<module>/_module.md`) back to `module` and GETs the vault's serve route; `writeFile`
- * throws (read-only); `listUnitPaths` returns `[]` for now — a batch listing endpoint is a
- * follow-up on the vault, and the primary consumer (`get_comprehension`, a single-module read)
- * does not need it.
+ * Build the READ-only remote {@link ComprehensionIO}. `readFile` serves cache-first (primed by
+ * `listUnitPaths`'s one batch call) else a single GET; `writeFile` throws (the vault is
+ * authoritative; local recompiles cache in a LOCAL node store); `listUnitPaths` batches + caches.
  */
 export function createHttpComprehensionReadIO(config: HttpComprehensionConfig): ComprehensionIO {
-  const base = config.baseUrl.replace(/\/+$/, '');
-  const root = (config.root ?? COMPREHENSION_ROOT).replaceAll('\\', '/');
-  const doFetch = config.fetch ?? globalThis.fetch;
-
-  /** Recover the module from a `<root>/<module>/_module.md` store path. */
-  const moduleOf = (p: string): string => {
-    let rel = p.replaceAll('\\', '/');
-    if (rel.startsWith(`${root}/`)) rel = rel.slice(root.length + 1);
-    if (rel.endsWith(`/${UNIT_FILE}`)) rel = rel.slice(0, -(UNIT_FILE.length + 1));
-    return rel;
+  const ctx: RemoteIoCtx = {
+    base: config.baseUrl.replace(/\/+$/, ''),
+    root: (config.root ?? COMPREHENSION_ROOT).replaceAll('\\', '/'),
+    outpost: config.outpost,
+    doFetch: config.fetch ?? globalThis.fetch,
+    authHeaders: { authorization: `Bearer ${config.token}` },
+    cache: new Map<string, string>(),
   };
-
   return {
-    async readFile(p: string): Promise<string> {
-      const module = moduleOf(p);
-      const url =
-        `${base}/comprehension-unit` +
-        `?outpost=${encodeURIComponent(config.outpost)}&module=${encodeURIComponent(module)}`;
-      let res: Response;
-      try {
-        res = await doFetch(url, { headers: { authorization: `Bearer ${config.token}` } });
-      } catch {
-        // Network/transport failure: never surface the URL/token — category only.
-        throw new Error('remote comprehension read failed (network error)');
-      }
-      if (res.status === 404) throw new RemoteUnitNotFoundError(module);
-      if (!res.ok) {
-        // 401 (bad token), 403 (unauthorized Outpost), 5xx — status only, no body.
-        throw new Error(`remote comprehension read failed (HTTP ${res.status})`);
-      }
-      let envelope: ServeEnvelope;
-      try {
-        envelope = (await res.json()) as ServeEnvelope;
-      } catch {
-        throw new Error('remote comprehension read returned an unparseable body');
-      }
-      if (typeof envelope.unit !== 'string' || envelope.unit.length === 0) {
-        throw new Error('remote comprehension read returned no unit blob');
-      }
-      return envelope.unit;
-    },
-    async writeFile(): Promise<void> {
-      // The hosted vault is authoritative + read-only to this consumer; local recompiles are
-      // cached by a LOCAL node store, never pushed here (single-writer = the hosted pipeline).
+    readFile: (p) => remoteReadFile(p, ctx),
+    writeFile: async () => {
       throw new Error('remote comprehension store is read-only (writes go to the local cache)');
     },
-    async listUnitPaths(): Promise<string[]> {
-      // No batch-listing endpoint on the vault yet; the single-module read path is what
-      // `get_comprehension` uses. Empty is correct here (no remote enumeration) — a batch
-      // endpoint + real listing is a tracked follow-up.
-      return [];
-    },
+    listUnitPaths: () => remoteListUnitPaths(ctx),
   };
 }

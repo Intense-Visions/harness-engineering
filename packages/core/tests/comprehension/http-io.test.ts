@@ -88,9 +88,49 @@ describe('createHttpComprehensionReadIO — read-only', () => {
     const { fetch } = fakeFetch(200, { unit: UNIT_BLOB });
     await expect(io(fetch).writeFile(STORE_PATH, UNIT_BLOB)).rejects.toThrow(/read-only/);
   });
+});
 
-  it('listUnitPaths returns [] (no batch endpoint yet)', async () => {
-    const { fetch } = fakeFetch(200, {});
-    expect(await io(fetch).listUnitPaths(COMPREHENSION_ROOT)).toEqual([]);
+describe('createHttpComprehensionReadIO — listUnitPaths (batch) + cache', () => {
+  it('POSTs the batch route and returns a store path per returned module', async () => {
+    const { fetch, calls } = fakeFetch(200, {
+      units: [
+        { module: 'src/a', unit: '# a' },
+        { module: 'src/b', unit: '# b' },
+      ],
+    });
+    const paths = await io(fetch).listUnitPaths(COMPREHENSION_ROOT);
+    expect(paths).toEqual([
+      `${COMPREHENSION_ROOT}/src/a/${UNIT_FILE}`,
+      `${COMPREHENSION_ROOT}/src/b/${UNIT_FILE}`,
+    ]);
+    const url = new URL(calls[0].url);
+    expect(url.origin + url.pathname).toBe(`${BASE}/comprehension-units`);
+    expect(calls[0].init?.method).toBe('POST');
+    expect(JSON.parse(String(calls[0].init?.body))).toEqual({ outpost: OUTPOST, modules: [] });
+  });
+
+  it('primes the cache so a subsequent readFile is a HIT (no extra request)', async () => {
+    const { fetch, calls } = fakeFetch(200, { units: [{ module: 'src/a', unit: '# cached a' }] });
+    const adapter = io(fetch);
+    await adapter.listUnitPaths(COMPREHENSION_ROOT); // 1 request (batch)
+    const blob = await adapter.readFile(`${COMPREHENSION_ROOT}/src/a/${UNIT_FILE}`);
+    expect(blob).toBe('# cached a');
+    expect(calls.length).toBe(1); // readFile served from cache — no second call
+  });
+
+  it('a non-2xx or unparseable batch → [] (caller degrades to local)', async () => {
+    expect(await io(fakeFetch(500, {}).fetch).listUnitPaths(COMPREHENSION_ROOT)).toEqual([]);
+    expect(await io(fakeFetch(200, 'not json').fetch).listUnitPaths(COMPREHENSION_ROOT)).toEqual(
+      []
+    );
+  });
+
+  it('skips malformed entries (no module or no unit)', async () => {
+    const { fetch } = fakeFetch(200, {
+      units: [{ module: 'src/a', unit: '# a' }, { module: 'src/b' }, { unit: '# c' }],
+    });
+    expect(await io(fetch).listUnitPaths(COMPREHENSION_ROOT)).toEqual([
+      `${COMPREHENSION_ROOT}/src/a/${UNIT_FILE}`,
+    ]);
   });
 });
