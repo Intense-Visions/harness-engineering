@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'packages/cli/src/comprehension'
-sourceHash: 'f0e3ce6413ae30045e5c4859024c0c211898f0bb41823efc2878763b09833119'
+sourceHash: '4a6c40a9be33f75ccd9e6a0bfea02ea28e490169f515fb6fa45e9348efd77a44'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
@@ -62,6 +62,7 @@ export renderInterfaceContract
 export resolveComprehensionBranch
 export resolveComprehensionCiMode
 export resolveRefreshJobGate
+export resolveRemoteComprehension
 export runComprehend
 export runComprehendCheck
 export runComprehendStats

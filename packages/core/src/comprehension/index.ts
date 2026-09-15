@@ -23,6 +23,8 @@ export { parseUnit, serializeUnit } from './serialize';
 export { ComprehensionStore, UNIT_FILE, COMPREHENSION_ROOT } from './store';
 export type { ComprehensionIO, SkippedUnit, ComprehensionListing } from './store';
 export { createNodeComprehensionIO } from './node-io';
+export { createHttpComprehensionReadIO, RemoteUnitNotFoundError } from './http-io';
+export type { HttpComprehensionConfig } from './http-io';
 export { compileModule } from './compile';
 export type { CompileOptions } from './compile';
 export { serveGate } from './serve-gate';

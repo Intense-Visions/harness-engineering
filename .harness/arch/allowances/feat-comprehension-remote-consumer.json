@@ -1,0 +1,14 @@
+{
+  "reason": "Remote-comprehension consumer (harness-comprehension-serve): the new http-io adapter + the remote-first trust-branch in get-comprehension serveOrRecompile add +5 to the module complexity aggregate. The per-function threshold violations listed are all pre-existing in files this change does not touch. Per-PR allowance; baselines.json unchanged.",
+  "categories": {
+    "complexity": 353
+  },
+  "violationIds": [
+    "261bfaec5560cea5cc9102e00cfe4179658ceadd75bb7764093915f8369f15c3",
+    "3eabff017001e1c35006fad1d2ee7a21a03a3d5b9f6754cd9ef73f2c2ebae481",
+    "810234b2e370cc6ef10a7a439563454968b7ad0d88a1994fa369ddac3b239b86",
+    "a836435bbed61eab3b5e052f83e82f4383f3b4e03e2adee5555c421e7a0a678c",
+    "e476444867a9d6193c92abc952c9213ca1f6ab3d7d6fa3e05f83d9d9243b58ef"
+  ],
+  "createdFrom": "8f1848db2"
+}

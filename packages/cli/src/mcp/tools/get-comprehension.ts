@@ -15,6 +15,7 @@ import {
   ComprehensionStore,
   COMPREHENSION_ROOT,
   createNodeComprehensionIO,
+  createHttpComprehensionReadIO,
   createNodeModuleSourceReader,
   serveGate,
   renderServedUnit,
@@ -32,6 +33,7 @@ import {
   readComprehensionConfig,
   comprehensionEndpoint,
   selectSemanticModel,
+  resolveRemoteComprehension,
 } from '../../comprehension/config';
 import { committedSemanticAllowed } from '../../comprehension/policy';
 import { resolveConfig } from '../../config/loader';
@@ -73,6 +75,17 @@ export interface GetComprehensionReader {
 /** IO-injected dependencies so the serve/recompile logic is disk- and LLM-free in tests. */
 export interface ServeOrRecompileDeps {
   store: GetComprehensionStore;
+  /**
+   * Optional REMOTE unit store (a hosted vault, e.g. pnyon `harness-comprehension-serve`). When
+   * present, a serve is tried against it FIRST: if the module has no local source to validate
+   * against and `trustRemote` is set, the remote unit is served directly (Mode B — query the vault
+   * with no checkout); if local source IS present, the remote unit is validated against it via the
+   * serve gate (Mode A) and, on a mismatch or a remote miss/error, we fall through to the LOCAL
+   * store + recompile. The local `store` remains the sole writer (recompiles cache locally).
+   */
+  remoteStore?: GetComprehensionStore;
+  /** Serve a remote unit directly when the module has no local source (Mode B). Off by default. */
+  trustRemote?: boolean;
   reader: GetComprehensionReader;
   makeExtractStatic: (module: string) => ExtractStatic;
   /**
@@ -162,6 +175,36 @@ export async function serveOrRecompile(
   deps: ServeOrRecompileDeps
 ): Promise<GetComprehensionOutcome> {
   if (!forceRecompile) {
+    // Remote-first: serve from the hosted vault when configured (harness-comprehension-serve).
+    if (deps.remoteStore) {
+      const remote = await deps.remoteStore.read(module);
+      if (remote.ok) {
+        const localSource = await deps.reader.readModuleSource(module);
+        if (localSource === null && deps.trustRemote) {
+          // Mode B: no local source to validate against → trust the hosted vault as authoritative.
+          return {
+            status: 'served',
+            module,
+            recompiled: false,
+            rendered: renderServedUnit(remote.value),
+            semantic: remote.value.provenance.semantic,
+          };
+        }
+        // Local source present → validate the remote unit against the working tree (Mode A).
+        const verdict = await serveGate(remote.value, deps.reader);
+        if (verdict.serve) {
+          return {
+            status: 'served',
+            module,
+            recompiled: false,
+            rendered: renderServedUnit(verdict.unit),
+            semantic: verdict.unit.provenance.semantic,
+          };
+        }
+        // stale vs the working tree ⇒ recompile locally below.
+      }
+      // remote miss/error (404, network, 401/403) ⇒ fall through to the local store + recompile.
+    }
     const existing = await deps.store.read(module);
     if (existing.ok) {
       const verdict = await serveGate(existing.value, deps.reader);
@@ -222,15 +265,29 @@ function resolveDefaultDeps(projectRoot: string): ServeOrRecompileDeps {
       ...(semanticModel ? { model: semanticModel } : {}),
     });
   };
+  const root = `${projectRoot.replaceAll('\\', '/')}/${COMPREHENSION_ROOT}`;
+  // Env-driven remote opt-in (harness-comprehension-serve consumer). When set, serve from the
+  // hosted vault FIRST (validated against the working tree, or trusted when there's no local
+  // source); the LOCAL node store below stays the sole writer for recompiles.
+  const remote = resolveRemoteComprehension();
+  const remoteStore = remote
+    ? new ComprehensionStore({
+        root,
+        io: createHttpComprehensionReadIO({
+          baseUrl: remote.baseUrl,
+          token: remote.token,
+          outpost: remote.outpost,
+          root,
+        }),
+      })
+    : undefined;
   return {
     // FIX 1 — root the store ABSOLUTELY at the project root (matching the reader
     // rooted at `projectRoot`). The relative default resolves against process.cwd(),
     // so store + reader would diverge whenever cwd != projectRoot, silently blanking
     // committed units. Canonical pattern: gather-context.ts.
-    store: new ComprehensionStore({
-      root: `${projectRoot.replaceAll('\\', '/')}/${COMPREHENSION_ROOT}`,
-      io: createNodeComprehensionIO(),
-    }),
+    store: new ComprehensionStore({ root, io: createNodeComprehensionIO() }),
+    ...(remoteStore ? { remoteStore, trustRemote: remote?.trustRemote ?? false } : {}),
     reader: createNodeModuleSourceReader(projectRoot),
     makeExtractStatic: (module: string) => createStaticExtractor({ projectRoot, module }),
     resolveGenerateSemantic,

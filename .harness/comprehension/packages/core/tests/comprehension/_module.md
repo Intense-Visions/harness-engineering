@@ -1,13 +1,14 @@
 ---
 schemaVersion: 1
 module: 'packages/core/tests/comprehension'
-sourceHash: '5feaf4915806267eba92de74b28a8c1a183d059ce856764b039a240e2f3986b5'
+sourceHash: '8746b12b8c63a8b80458f8f02659f4e5214ac77d629e4ffd4b90b041d68a88d5'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
 members:
   [
     'compile.test.ts',
+    'http-io.test.ts',
     'node-io.test.ts',
     'render.test.ts',
     'run.test.ts',
@@ -29,6 +30,7 @@ members:
 
 ```
 import { compileModule } from '../../src/comprehension/compile'
+import { RemoteUnitNotFoundError, createHttpComprehensionReadIO } from '../../src/comprehension/http-io'
 import { createNodeComprehensionIO, createNodeModuleSourceReader } from '../../src/comprehension/node-io'
 import { REENTRANCY_ENV, isComprehensionReentrant } from '../../src/comprehension/reentrancy'
 import { renderServedUnit } from '../../src/comprehension/render'
