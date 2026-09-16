@@ -3,6 +3,7 @@ import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { prReviewProvider } from '../../src/providers/pr-review';
 import { SignalTimelineStore } from '../../src/timeline-store';
+import { DEFAULT_COMMAND_TIMEOUT_MS, NETWORK_COMMAND_TIMEOUT_MS } from '../../src/command-runner';
 import type { SignalContext, CommandRunner } from '../../src/types';
 
 function tmpDir() {
@@ -27,6 +28,31 @@ describe('prReviewProvider', () => {
   });
   afterEach(() => {
     fs.rmSync(root, { recursive: true, force: true });
+  });
+
+  it('gives the gh PR fetch a network-sized timeout budget', async () => {
+    // Regression: the fetch ran on the 5s local-process default, which SIGTERM-killed
+    // a ~10-14s paginated `gh pr list --limit 500 --json ...,reviews` network call.
+    let budget: number | undefined;
+    const runner: CommandRunner = async (_cmd, _args, timeoutMs) => {
+      budget = timeoutMs;
+      return ghPayload([]);
+    };
+    await prReviewProvider.compute(ctx(root, new Date('2026-06-22T00:00:00.000Z'), runner));
+    expect(budget).toBe(NETWORK_COMMAND_TIMEOUT_MS);
+    expect(budget).toBeGreaterThan(DEFAULT_COMMAND_TIMEOUT_MS);
+  });
+
+  it('does not blame authentication when the fetch merely timed out', async () => {
+    const runner: CommandRunner = async () => {
+      throw new Error('Command `gh pr list` timed out after 30000ms');
+    };
+    const r = await prReviewProvider.compute(
+      ctx(root, new Date('2026-06-22T00:00:00.000Z'), runner)
+    );
+    expect(r.status).toBe('error');
+    expect(r.detail).not.toMatch(/not authenticated/);
+    expect(r.detail).toMatch(/timed out after 30000ms/);
   });
 
   it('exposes the correct static contract', () => {

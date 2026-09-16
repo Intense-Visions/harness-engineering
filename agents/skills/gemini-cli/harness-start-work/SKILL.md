@@ -1,0 +1,205 @@
+# Harness Start Work
+
+> Claim a tracker issue by assigning it to the current user. The assignment is
+> the work-start signal: a project board's status-sync automation reacts to it
+> and moves the card to "In progress", so the board stays truthful without
+> anyone dragging cards.
+
+## When to Use
+
+- When you (or an agent) pick up an issue and are about to start work on it.
+- At the start of a feature or bug fix, before opening a branch or PR, so the
+  board reflects who is working on what.
+- As the first step of any "work this issue" flow — it is the entry contract for
+  the `In progress` column.
+- After `harness-roadmap-pilot` has selected the next item: that skill scores and
+  picks; this one performs the tracker-side mechanics of starting it.
+- NOT to move a card to `In review` — a PR that closes the issue does that, if
+  the project automates it.
+- NOT to set human-judgment columns like `Blocked` or `Ready for QA`. Automation
+  never owns those; set them yourself.
+- NOT to edit the board's Status field directly. Assign the issue and let the
+  board move itself.
+- NOT when the project has no issue tracker integration — there is nothing to
+  assign, and this skill has no value.
+
+## Configuration
+
+Everything project-specific is configuration; the skill itself hardcodes no
+board, workflow, repository, or wrapper script. In `harness.config.json`:
+
+```json
+{
+  "skills": {
+    "startWork": {
+      "assignCommand": "node scripts/start-work.mjs",
+      "statusSyncWorkflow": "Project Board → In progress",
+      "boardUrl": "https://github.com/orgs/acme/projects/20",
+      "tokenSecret": "BOARD_PROJECT_TOKEN"
+    }
+  }
+}
+```
+
+| Key                  | Meaning                                                                 | If absent                                            |
+| -------------------- | ----------------------------------------------------------------------- | ---------------------------------------------------- |
+| `assignCommand`      | A repo wrapper that takes the issue number and performs the assignment. | Fall back to `gh issue edit <n> --add-assignee @me`. |
+| `statusSyncWorkflow` | Display name of the workflow that moves the card.                       | Skip the workflow check; verify the assignment only. |
+| `boardUrl`           | Where a human can see the board, for reporting.                         | Omit it from output.                                 |
+| `tokenSecret`        | Name of the secret the automation uses, for escalation messages.        | Describe the failure without naming a secret.        |
+
+**The skill degrades honestly.** With no configuration it still assigns the
+issue via `gh` and verifies the assignment — it simply cannot claim the board
+moved, and must not say that it did.
+
+## Process
+
+### Phase 1: ASSIGN — Claim the issue
+
+1. Confirm the target issue number. Accept it with or without a leading `#`
+   (e.g. `123` or `#123`).
+2. Read `skills.startWork` from `harness.config.json`.
+3. Assign the issue:
+   - If `assignCommand` is configured, run it from the project root with the
+     issue number as its argument.
+   - Otherwise run `gh issue edit <issueNumber> --add-assignee @me`.
+
+   Either path needs only the runner's own `gh` auth with repo scope — **not** a
+   Projects credential. The board write happens server-side in the project's own
+   automation, under its own secret.
+
+4. If the command exits non-zero, read its message. The common causes are `gh`
+   not authenticated (`gh auth status`) or an issue number that does not exist in
+   this repository. Fix and retry — do **not** fall back to editing the board by
+   hand.
+
+### Phase 2: VERIFY — Confirm the board moved itself
+
+1. Confirm the assignment landed:
+
+   ```bash
+   gh issue view <issueNumber> --json assignees --jq '.assignees[].login'
+   ```
+
+   An empty result is a failure, not a pass. Do not proceed to report success.
+
+2. If `statusSyncWorkflow` is configured, the automation fires on the
+   `issues.assigned` event. Give it a few seconds, then confirm:
+
+   ```bash
+   gh run list --workflow="<statusSyncWorkflow>" --limit 1 \
+     --json conclusion --jq '.[0].conclusion'   # expect: success
+   ```
+
+3. If no `statusSyncWorkflow` is configured, **say so** rather than implying the
+   board moved. Report: "assigned; no status-sync workflow is configured, so the
+   board state was not verified."
+
+4. Do NOT manually set the Status field. A card that did not move is a
+   credential or workflow problem (see Escalation), not a reason to edit the
+   board.
+
+## Harness Integration
+
+- **`harness skill run harness-start-work --issue <n>`** — Run this skill.
+- **`harness skill validate harness-start-work`** — Validate this skill before
+  shipping changes to it.
+- **`harness-roadmap-pilot`** — Selects and scores the next item. This skill is
+  the tracker-side step that follows it; roadmap-pilot decides _what_, this
+  performs _starting_ it.
+- Composes with whatever status-sync automation the project runs. This skill is
+  the human/agent entry point; those workflows perform the board writes. The
+  seam between them is the `issues.assigned` event, not a shared credential.
+
+## Success Criteria
+
+- The target issue is assigned to the current user, verified via
+  `gh issue view <n> --json assignees` returning a non-empty login.
+- When `statusSyncWorkflow` is configured, its most recent run concludes
+  `success` and the card reads `In progress`.
+- When it is not configured, the report explicitly states the board was not
+  verified rather than implying it moved.
+- No manual edit was made to the board's Status field.
+
+## Examples
+
+### Example A: a project with a configured wrapper and status sync
+
+```bash
+$ harness skill run harness-start-work --issue 123
+Assigning issue #123 to you (@me)…
+✓ Assigned #123.
+
+$ gh run list --workflow="Project Board → In progress" --limit 1 --json conclusion --jq '.[0].conclusion'
+success
+# The board card for #123 now reads: In progress
+```
+
+Continue with the work; when you open a PR that closes #123, the project's
+`In review` automation moves the card again.
+
+### Example B: a project with no board automation configured
+
+```bash
+$ harness skill run harness-start-work --issue 88
+No skills.startWork config found — using `gh issue edit 88 --add-assignee @me`.
+✓ Assigned #88 to @bstevenski.
+⚠ No statusSyncWorkflow is configured, so board state was NOT verified.
+```
+
+The honest report is the deliverable here. The skill did what it could and said
+what it could not confirm.
+
+## Rationalizations to Reject
+
+| Rationalization                                                     | Reality                                                                                                                                                                                     |
+| ------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| "I'll just drag the card to In progress on the board myself."       | The point of this skill is that assignment drives the board. A hand-dragged card drifts the moment the automation next runs; assign the issue and let the workflow own Status.              |
+| "I don't need to assign it — I'll remember I'm working on it."      | An unassigned issue never reaches `In progress`, so nobody else can see who is on what. Assignment is the entry contract, not a formality.                                                  |
+| "The assignment didn't move the card, so I'll set Status manually." | A card that did not move signals a credential or workflow failure. Fixing Status by hand hides the breakage so it recurs on the next issue. Escalate the workflow failure instead.          |
+| "I'll set it to In review now since I'm about to open the PR."      | This skill only starts work. `In review` is driven by the PR. Setting it early desyncs the board from reality.                                                                              |
+| "No workflow is configured, but the card probably moved anyway."    | "Probably moved" is not verification. With no configured workflow this skill cannot confirm board state, and must report that it did not — an unverified claim is worse than an absent one. |
+| "`gh issue view` returned nothing, but the edit command exited 0."  | A zero exit with an empty assignee list means the assignment did not land. Trust the observed state, not the exit code.                                                                     |
+
+## Escalation
+
+- **When the assignment succeeds but the card never moves to `In progress`:**
+  Inspect the workflow run — `gh run list --workflow="<statusSyncWorkflow>" --limit 1`.
+  A failure resolving the project node usually means the automation's token lost
+  repository access. Report: "status sync failed for issue #N — the board token
+  likely lacks repo Issues access; it needs re-scoping." Do not patch the board
+  by hand.
+- **When `gh` reports the issue does not exist:** Confirm you are in the correct
+  repository and the number is right. A number from another repository will not
+  resolve.
+- **When no `skills.startWork` config exists and the project clearly has a board:**
+  Do not guess the workflow name. Assign the issue, report that board state was
+  unverified, and suggest adding the config block.
+
+## Skill Test Scenarios
+
+### Scenario 1: Rationalization — "I'll just drag the card myself"
+
+Input: The agent is asked to start work on #123 and considers opening the board
+UI to move the card instead of assigning the issue.
+Expected: The agent rejects the shortcut per the Rationalizations table, assigns
+the issue, and lets the automation move the card.
+
+### Scenario 2: Rationalization — "The card didn't move, so I'll set Status manually"
+
+Input: The assignment landed, but the card is still in `Backlog` after the
+workflow ran.
+Expected: The agent does NOT edit Status. It inspects the workflow run,
+identifies the credential failure, and escalates.
+
+### Scenario 3: Honest degradation — no configuration present
+
+Input: A project with no `skills.startWork` block and no known workflow name.
+Expected: The agent assigns via `gh`, verifies the assignee, and explicitly
+reports that board state was not verified — rather than asserting the card moved.
+
+### Scenario 4: Escalation — issue number does not resolve
+
+Input: `--issue 99999`, where #99999 is not an issue in this repository.
+Expected: The agent reads the non-zero exit, does not retry blindly, does not
+touch the board, and reports the likely cause (wrong repo or bad number).

@@ -345,3 +345,99 @@ describe('handleGetComprehension — cwd != project root seam (FIX 1)', () => {
     expect(payload.unit).toContain('export const widget: () => number');
   });
 });
+
+describe('serveOrRecompile — remote store (harness-comprehension-serve consumer)', () => {
+  const module = 'packages/core/src';
+  const source: SourceFile[] = [{ path: 'a.ts', content: 'export const a = 1;' }];
+
+  it('Mode B: no local source + trustRemote serves the remote unit directly (no recompile)', async () => {
+    const remoteStore = fakeStore({ [module]: freshUnit(module, source) });
+    const extract = vi.fn(() => staticExtraction);
+    const out = await serveOrRecompile(
+      module,
+      false,
+      deps({
+        store: fakeStore(), // local cache empty
+        remoteStore,
+        trustRemote: true,
+        reader: fakeReader({}), // module absent locally → null
+        makeExtractStatic: () => extract,
+      })
+    );
+    expect(out.status).toBe('served');
+    if (out.status === 'served') {
+      expect(out.recompiled).toBe(false);
+      expect(out.rendered).toBe(renderServedUnit(remoteStore.map.get(module)!));
+    }
+    expect(extract).not.toHaveBeenCalled();
+  });
+
+  it('Mode A: local source present + remote unit fresh vs it → served (validated), not recompiled', async () => {
+    const remoteStore = fakeStore({ [module]: freshUnit(module, source) });
+    const extract = vi.fn(() => staticExtraction);
+    const out = await serveOrRecompile(
+      module,
+      false,
+      deps({
+        store: fakeStore(),
+        remoteStore,
+        trustRemote: true,
+        reader: fakeReader({ [module]: source }), // matches the remote unit's hash
+        makeExtractStatic: () => extract,
+      })
+    );
+    expect(out.status).toBe('served');
+    if (out.status === 'served') expect(out.recompiled).toBe(false);
+    expect(extract).not.toHaveBeenCalled();
+  });
+
+  it('Mode A stale: remote unit does not match a dirty working tree → recompiles locally', async () => {
+    const dirty: SourceFile[] = [{ path: 'a.ts', content: 'export const a = 999;' }];
+    const remoteStore = fakeStore({ [module]: freshUnit(module, source) }); // hash for the OLD source
+    const store = fakeStore();
+    const extract = vi.fn(() => staticExtraction);
+    const out = await serveOrRecompile(
+      module,
+      false,
+      deps({
+        store,
+        remoteStore,
+        trustRemote: true,
+        reader: fakeReader({ [module]: dirty }), // differs → remote unit is stale vs local
+        makeExtractStatic: () => extract,
+      })
+    );
+    expect(out.status).toBe('served');
+    if (out.status === 'served') expect(out.recompiled).toBe(true);
+    expect(extract).toHaveBeenCalled(); // local recompile happened
+  });
+
+  it('remote miss/error falls through to the local store', async () => {
+    const remoteStore = fakeStore(); // read → Err (no unit / stand-in for 404/transient)
+    const store = fakeStore({ [module]: freshUnit(module, source) });
+    const out = await serveOrRecompile(
+      module,
+      false,
+      deps({ store, remoteStore, trustRemote: true, reader: fakeReader({ [module]: source }) })
+    );
+    expect(out.status).toBe('served');
+    if (out.status === 'served') expect(out.recompiled).toBe(false); // served from LOCAL
+  });
+
+  it('trustRemote OFF: no local source does NOT serve the remote unit directly', async () => {
+    const remoteStore = fakeStore({ [module]: freshUnit(module, source) });
+    const out = await serveOrRecompile(
+      module,
+      false,
+      deps({
+        store: fakeStore(),
+        remoteStore,
+        trustRemote: false,
+        reader: fakeReader({}), // no local source
+        makeExtractStatic: () => () => staticExtraction,
+      })
+    );
+    // Must NOT be a clean remote serve — trust is opt-in; it takes the recompile path instead.
+    expect(out.status === 'served' && out.recompiled === false).toBe(false);
+  });
+});

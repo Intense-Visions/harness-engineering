@@ -93,3 +93,11 @@ export function selectSemanticModel(
     })
   );
 }
+
+// The env-driven remote-comprehension opt-in now lives in core (so the orchestrator, which
+// cannot import the cli, shares the identical resolver). Re-exported here for the cli's existing
+// call sites (get_comprehension, gather_context).
+export {
+  resolveRemoteComprehension,
+  type RemoteComprehensionConfig,
+} from '@harness-engineering/core';

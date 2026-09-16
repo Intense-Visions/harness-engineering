@@ -1,0 +1,9 @@
+{
+  "reason": "Batch listUnitPaths + cache in http-io (extracted to helpers to stay under complexity threshold) + gather_context remote-first adoption — legitimate feature growth; per-PR allowance.",
+  "categories": {},
+  "violationIds": [
+    "261bfaec5560cea5cc9102e00cfe4179658ceadd75bb7764093915f8369f15c3",
+    "e476444867a9d6193c92abc952c9213ca1f6ab3d7d6fa3e05f83d9d9243b58ef"
+  ],
+  "createdFrom": "08a506a4b"
+}

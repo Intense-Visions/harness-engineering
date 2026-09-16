@@ -66,3 +66,17 @@ When implementing directory traversal for code scanning/ingestion, ensure defaul
 - When a generated CI workflow runs `harness ci check`, it MUST first install the CLI (`npm install -g @harness-engineering/cli`). GitHub-hosted ubuntu runners ship Node+npm for any project language, so a global install works universally; omitting it fails the gate with exit 127 (command-not-found), not a real check failure.
 - In generated TS GitHub workflows, `pnpm/action-setup` must precede `actions/setup-node` — `setup-node`'s `cache: 'pnpm'` needs pnpm already on PATH. Mirror the dogfood `.github/workflows/ci.yml` ordering when disseminating it.
 - Single-generator rule (ADR 0037): both `harness init` (scaffold-time) and `harness ci init` (on-demand) route through one `generateCIConfig`; never add a second `templates/ci/` YAML source — it drifts.
+
+## Subprocess budgets: local vs network (2026-09-10, #2136)
+
+A single `execFile` timeout constant shared by local (`git log`) and network (`gh`) commands
+is a latent bug class. `packages/signals` applied a 5s local-process budget to a paginated
+`gh pr list --limit 500 --json ...,reviews` call that really takes ~10-14s, killing it every
+time. The budget belongs to the CALL SITE — if the injectable runner type cannot carry it,
+the "callers may pass a wider value" escape hatch is decorative.
+
+Diagnostic tell: Node's `execFile` timeout error message is `Command failed: <argv>\n<stderr>`
+with an **empty** stderr tail. An empty tail means SIGTERM-kill (timeout); a real non-zero exit
+carries stderr. Check the tail before believing a wrapper's asserted cause — here the wrapper
+said `gh unavailable or not authenticated: ${anyError}`, a cause it never verified, and that
+misdirection was the most expensive part of the investigation.
