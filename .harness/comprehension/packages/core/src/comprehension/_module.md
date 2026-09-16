@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'packages/core/src/comprehension'
-sourceHash: '1541c2443131443f71f6b11aaa355ddf0fa477b6afdb1efc846a99d27cf3acf5'
+sourceHash: '4454a6b32ea376006448148b881f946ec4e758794d5f5f1864f7648f82cb214d'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
@@ -54,6 +54,7 @@ export ModuleSourceReader
 export PublicOutpost
 export REENTRANCY_ENV
 export RemoteComprehensionConfig
+export RemoteComprehensionFileConfig
 export RemoteUnitNotFoundError
 export SCHEMA_VERSION
 export STATIC_SUPPORTED_EXTENSIONS
@@ -73,6 +74,7 @@ export fetchPublicOutposts
 export isComprehensionReentrant
 export isStaticSupported
 export mapWithConcurrency
+export normalizeRemoteFileConfig
 export parseUnit
 export renderDependencySlice
 export renderInterfaceContract

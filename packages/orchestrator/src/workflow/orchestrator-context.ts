@@ -1,4 +1,4 @@
-import { existsSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import type {
   AgentBackend,
@@ -29,7 +29,9 @@ import {
   createNodeModuleSourceReader,
   createHttpComprehensionReadIO,
   resolveRemoteComprehension,
+  normalizeRemoteFileConfig,
   type RemoteComprehensionConfig,
+  type RemoteComprehensionFileConfig,
 } from '@harness-engineering/core';
 
 /**
@@ -365,18 +367,36 @@ export function deriveVerifyCommands(workspacePath: string): string[] {
  * there is nothing to serve, so skip the store/reader + disk enumeration entirely
  * (a single `existsSync` per call instead of per-module reads).
  *
- * harness-comprehension-serve — when a remote vault is configured (env-driven, opt-in),
- * the pre-warm reads through the hosted Outpost instead of the local tree, so the
- * `existsSync` early-out is bypassed: a consumer with NO local `.harness/comprehension`
- * (Mode B, `trustRemote`) still gets pre-warm from pnyon. When remote is NOT configured
- * the behavior is byte-identical to before.
+ * harness-comprehension-serve — when a remote vault is configured (committed
+ * `comprehension.remote` block and/or env, opt-in), the pre-warm reads through the hosted Outpost
+ * instead of the local tree, so the `existsSync` early-out is bypassed: a consumer with NO local
+ * `.harness/comprehension` (Mode B, `trustRemote`) still gets pre-warm from pnyon. When remote is
+ * NOT configured the behavior is byte-identical to before.
  */
+
+/**
+ * Read the committed, non-secret `comprehension.remote` block from `harness.config.json` at `root`
+ * (the orchestrator has no cli config loader, so it reads + normalizes the JSON directly). Returns
+ * `undefined` when the file/block is absent or unreadable. Never throws.
+ */
+function readRemoteFileConfig(root: string): RemoteComprehensionFileConfig | undefined {
+  try {
+    const raw = readFileSync(join(root, 'harness.config.json'), 'utf8');
+    const parsed = JSON.parse(raw) as { comprehension?: { remote?: unknown } };
+    return normalizeRemoteFileConfig(parsed.comprehension?.remote);
+  } catch {
+    return undefined;
+  }
+}
+
 async function resolveLeafPrewarmBestEffort(
   issue: Issue,
   root: string
 ): Promise<LeafPrewarmResult> {
   try {
-    const remote = resolveRemoteComprehension();
+    // Committed `comprehension.remote` routing (non-secret) merged with env (env wins; env carries
+    // the token). Read from disk since the orchestrator has no cli config loader.
+    const remote = resolveRemoteComprehension(process.env, readRemoteFileConfig(root));
     // Local-only fast path keeps the cheap early-out; remote reads through regardless.
     if (!remote && !existsSync(join(root, '.harness', 'comprehension'))) {
       return { block: '', sources: [] };

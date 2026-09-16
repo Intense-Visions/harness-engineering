@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'packages/orchestrator/src/workflow'
-sourceHash: '9caa7c8c11bef934c8f105e1f02d7fd2c9eecdb117dd2451eea02ff8f06e4abb'
+sourceHash: 'ec32396fdf685d8a015247c7ce68787760157e6b5636793187e4a3d9e586e3e5'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
@@ -144,11 +144,11 @@ import { AgentBudgetSchema, BackendDefSchema, RoadmapConfigSchema, RoutingConfig
 import { discoverSkillCatalogNames } from './skill-catalog'
 import { STAGE_PROMPT_TEMPLATE } from './stage-prompt-template.js'
 import { DEFAULT_REASONER_ASSIST_AFTER, REASONER_UNSTICK_TIMEOUT_MS, UNSTICK_SCHEMA, buildUnstickPrompt, formatUnstickAdvisory, shouldRequestUnstickAdvice } from './unstick-advisory'
-import { CHARS_PER_TOKEN, COMPREHENSION_ROOT, ComprehensionSourceFile, ComprehensionStore, ComprehensionUnit, Err, Ok, RemoteComprehensionConfig, Result, SourceFile, computeSourceHash, createHttpComprehensionReadIO, createNodeComprehensionIO, createNodeModuleSourceReader, renderServedUnit, resolveRemoteComprehension, serveGate } from '@harness-engineering/core'
+import { CHARS_PER_TOKEN, COMPREHENSION_ROOT, ComprehensionSourceFile, ComprehensionStore, ComprehensionUnit, Err, Ok, RemoteComprehensionConfig, RemoteComprehensionFileConfig, Result, SourceFile, computeSourceHash, createHttpComprehensionReadIO, createNodeComprehensionIO, createNodeModuleSourceReader, normalizeRemoteFileConfig, renderServedUnit, resolveRemoteComprehension, serveGate } from '@harness-engineering/core'
 import { GraphEdge, GraphNode, GraphStore } from '@harness-engineering/graph'
 import { RANK_TIER, TIER_RANK } from '@harness-engineering/intelligence'
 import { AgentBackend, AgentBudgetConfig, AgentEvent, BackendCapabilities, BackendDef, CapabilityTier, ComplexityVerdict, DEFAULT_RETRIEVAL_MODE, Err, Issue, LeafContextSource, McpServerSpec, Ok, Result, RetrievalMode, RoadmapAutoTriageConfig, RoadmapConfig, RoutingConfig, RoutingDecision, RoutingPolicy, RoutingRequest, RoutingUseCase, RoutingValue, STANDARD_COGNITIVE_MODES, StageRun, StagedWorkflowDecl, TurnResult, WorkflowConfig, WorkflowDefinition, WorkflowExecutionPlan, WorkflowStep } from '@harness-engineering/types'
-import * as fs, { existsSync } from 'node:fs'
+import * as fs, { existsSync, readFileSync } from 'node:fs'
 import * as fs from 'node:fs/promises'
 import * as os from 'node:os'
 import * as nodePath, * as path, { join } from 'node:path'

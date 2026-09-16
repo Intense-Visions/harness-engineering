@@ -1,20 +1,26 @@
 ---
 '@harness-engineering/core': minor
 '@harness-engineering/cli': minor
+'@harness-engineering/orchestrator': minor
 ---
 
-Default the remote-comprehension URL to pnyon (`https://core.pnyon.com`)
+Team-friendly hosted-comprehension config: committed `comprehension.remote` block + default URL
 
-`HARNESS_COMPREHENSION_REMOTE_URL` is now OPTIONAL — it defaults to `DEFAULT_REMOTE_URL`
-(`https://core.pnyon.com`, exported from core), so adopting the hosted comprehension read path no
-longer requires anyone to know or paste the URL:
+Adopting the hosted-comprehension read path is now a committed, team-shared config instead of
+per-developer env plumbing — while the secret stays out of git:
 
-- **read path** (`resolveRemoteComprehension`): a minimal opt-in is now
-  `HARNESS_COMPREHENSION_STORAGE=remote` + `HARNESS_COMPREHENSION_OUTPOST` + a serve token; the URL
-  defaults. An explicit `HARNESS_COMPREHENSION_REMOTE_URL` still wins (point it at another host).
-- **discovery** (`harness public-outposts`): now needs only `PNYON_COMPREHENSION_SERVE_TOKEN`; the
-  URL defaults.
+- **Committed, non-secret routing** — a new `comprehension.remote` block in `harness.config.json`
+  (`{ enabled, url?, outpost, trustRemote? }`) supplies the routing for the whole team. The env
+  (`HARNESS_COMPREHENSION_*`) overrides each field per developer/machine. The serve token is the one
+  exception: it is read ONLY from `PNYON_COMPREHENSION_SERVE_TOKEN` (env) and is never a config
+  field, so no secret is committed. No token ⇒ falls back to LOCAL, so CI + tokenless teammates are
+  unaffected even when `enabled` is committed.
+- **Default URL** — `HARNESS_COMPREHENSION_REMOTE_URL` (and the committed `url`) are optional; both
+  default to `DEFAULT_REMOTE_URL` (`https://core.pnyon.com`, exported from core). The URL is the one
+  value nobody can guess.
+- `resolveRemoteComprehension(env, file?)` now merges the committed block with the env; `get_comprehension`,
+  `gather_context`, and the orchestrator leaf pre-warm all pass the committed block. `harness
+public-outposts` needs only a serve token.
 
-The `STORAGE=remote` switch stays an explicit opt-in (it is the safety gate that keeps teammates
-and CI on local comprehension unless they deliberately turn it on), and `TRUST_REMOTE` stays
-default-off.
+`STORAGE=remote` stays an explicit opt-in (env `HARNESS_COMPREHENSION_STORAGE`, or committed
+`remote.enabled`), and `TRUST_REMOTE` stays default-off.

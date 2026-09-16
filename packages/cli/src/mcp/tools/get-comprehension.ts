@@ -34,6 +34,7 @@ import {
   comprehensionEndpoint,
   selectSemanticModel,
   resolveRemoteComprehension,
+  remoteFileConfig,
 } from '../../comprehension/config';
 import { committedSemanticAllowed } from '../../comprehension/policy';
 import { resolveConfig } from '../../config/loader';
@@ -266,10 +267,11 @@ function resolveDefaultDeps(projectRoot: string): ServeOrRecompileDeps {
     });
   };
   const root = `${projectRoot.replaceAll('\\', '/')}/${COMPREHENSION_ROOT}`;
-  // Env-driven remote opt-in (harness-comprehension-serve consumer). When set, serve from the
-  // hosted vault FIRST (validated against the working tree, or trusted when there's no local
-  // source); the LOCAL node store below stays the sole writer for recompiles.
-  const remote = resolveRemoteComprehension();
+  // Remote opt-in (harness-comprehension-serve consumer). The committed `comprehension.remote`
+  // block supplies the non-secret routing; the env overrides per developer + carries the token.
+  // When resolved, serve from the hosted vault FIRST (validated against the working tree, or
+  // trusted when there's no local source); the LOCAL node store below stays the sole writer.
+  const remote = resolveRemoteComprehension(process.env, remoteFileConfig(cconf));
   const remoteStore = remote
     ? new ComprehensionStore({
         root,

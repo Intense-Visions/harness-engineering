@@ -14,6 +14,10 @@ import {
   type AnalysisEndpoint,
   type AnalysisCliConfig,
 } from '../mcp/utils/analysis-provider';
+import {
+  normalizeRemoteFileConfig,
+  type RemoteComprehensionFileConfig,
+} from '@harness-engineering/core';
 import { defaultSemanticModel } from './generate-semantic';
 
 /** Resolve the comprehension config, defaulting every field when absent. */
@@ -94,10 +98,26 @@ export function selectSemanticModel(
   );
 }
 
-// The env-driven remote-comprehension opt-in now lives in core (so the orchestrator, which
-// cannot import the cli, shares the identical resolver). Re-exported here for the cli's existing
-// call sites (get_comprehension, gather_context).
+// The remote-comprehension opt-in resolver lives in core (so the orchestrator, which cannot import
+// the cli, shares the identical resolver). Re-exported here for the cli's call sites
+// (get_comprehension, gather_context).
 export {
   resolveRemoteComprehension,
   type RemoteComprehensionConfig,
+  type RemoteComprehensionFileConfig,
 } from '@harness-engineering/core';
+
+/**
+ * The COMMITTED, non-secret remote-comprehension block from `harness.config.json`
+ * (`comprehension.remote`), as the core resolver's `file` argument — or `undefined` when the block
+ * is absent. The serve token is never here (env-only); this carries only enable/url/outpost/trust.
+ * Pass it to `resolveRemoteComprehension(process.env, remoteFileConfig(cconf))` so committed config
+ * supplies the routing and the env overrides per developer.
+ */
+export function remoteFileConfig(
+  cconf: ComprehensionConfig
+): RemoteComprehensionFileConfig | undefined {
+  // Normalize the Zod-parsed block to the core shape (drops any `undefined`-valued optionals so it
+  // satisfies exactOptionalPropertyTypes, and drops any stray keys — the token can never enter here).
+  return cconf.remote ? normalizeRemoteFileConfig(cconf.remote) : undefined;
+}

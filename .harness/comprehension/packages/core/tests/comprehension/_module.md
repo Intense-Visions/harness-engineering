@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'packages/core/tests/comprehension'
-sourceHash: 'c402e656c77a7ae3a3b97ec51498ba8681b502deb5eb911b5496cb2877d25788'
+sourceHash: '42efa848db3ede56c78dc06ef0e0aff12102593ed53dc566e7f092e4d699c51e'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
@@ -36,7 +36,7 @@ import { RemoteUnitNotFoundError, createHttpComprehensionReadIO } from '../../sr
 import { createNodeComprehensionIO, createNodeModuleSourceReader } from '../../src/comprehension/node-io'
 import { fetchPublicOutposts } from '../../src/comprehension/public-outposts'
 import { REENTRANCY_ENV, isComprehensionReentrant } from '../../src/comprehension/reentrancy'
-import { DEFAULT_REMOTE_URL, resolveRemoteComprehension } from '../../src/comprehension/remote-config'
+import { DEFAULT_REMOTE_URL, normalizeRemoteFileConfig, resolveRemoteComprehension } from '../../src/comprehension/remote-config'
 import { renderServedUnit } from '../../src/comprehension/render'
 import { mapWithConcurrency, runComprehend, runComprehendCheck, runComprehendStats } from '../../src/comprehension/run'
 import { parseUnit, serializeUnit } from '../../src/comprehension/serialize'
