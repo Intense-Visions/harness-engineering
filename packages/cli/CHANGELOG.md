@@ -1,5 +1,123 @@
 # @harness-engineering/cli
 
+## 12.8.0
+
+### Minor Changes
+
+- f1b3d32: Read comprehension from a remote hosted vault (harness-comprehension-serve consumer)
+
+  `get_comprehension`, `gather_context`, and the orchestrator leaf pre-warm can now serve a
+  module's compiled unit from a hosted vault (e.g. pnyon) instead of always recompiling locally:
+  - **core**: `createHttpComprehensionReadIO` — a read-only `ComprehensionIO` that fetches a
+    module's `_module.md` over HTTP (identity-bound bearer serve token, injected `fetch`;
+    404 → ENOENT-shaped so the gate treats it as absent) with a batch `listUnitPaths` that primes
+    a read cache. The env-driven opt-in `resolveRemoteComprehension` now lives in core too
+    (`HARNESS_COMPREHENSION_STORAGE=remote` + `_REMOTE_URL` + `_OUTPOST` +
+    `PNYON_COMPREHENSION_SERVE_TOKEN`, never the committed `harness.config.json`) so the cli and the
+    orchestrator resolve it identically. Both exported from the comprehension barrel.
+  - **cli**: `get_comprehension` and `gather_context` are remote-first serves — with no local
+    source they trust the vault (Mode B, opt-in `HARNESS_COMPREHENSION_TRUST_REMOTE`); with local
+    source they validate the remote unit against the working tree (Mode A) and fall through to a
+    LOCAL recompile on a mismatch or a remote miss/error. `config.ts` now re-exports the resolver
+    from core. The local store remains the sole writer.
+  - **orchestrator**: the leaf pre-warm reads through the hosted Outpost when remote is configured
+    (bypassing the local `.harness/comprehension` early-out), so a consumer with no local tree still
+    gets pre-warm from pnyon under `trustRemote`; unconfigured behavior is byte-identical to before.
+
+- 1cb8e51: Team-friendly hosted-comprehension config: committed `comprehension.remote` block + default URL
+
+  Adopting the hosted-comprehension read path is now a committed, team-shared config instead of
+  per-developer env plumbing — while the secret stays out of git:
+  - **Committed, non-secret routing** — a new `comprehension.remote` block in `harness.config.json`
+    (`{ enabled, url?, outpost, trustRemote? }`) supplies the routing for the whole team. The env
+    (`HARNESS_COMPREHENSION_*`) overrides each field per developer/machine. The serve token is the one
+    exception: it is read ONLY from `PNYON_COMPREHENSION_SERVE_TOKEN` (env) and is never a config
+    field, so no secret is committed. No token ⇒ falls back to LOCAL, so CI + tokenless teammates are
+    unaffected even when `enabled` is committed.
+  - **Default URL** — `HARNESS_COMPREHENSION_REMOTE_URL` (and the committed `url`) are optional; both
+    default to `DEFAULT_REMOTE_URL` (`https://core.pnyon.com`, exported from core). The URL is the one
+    value nobody can guess.
+  - `resolveRemoteComprehension(env, file?)` now merges the committed block with the env; `get_comprehension`,
+    `gather_context`, and the orchestrator leaf pre-warm all pass the committed block. `harness
+public-outposts` needs only a serve token.
+
+  `STORAGE=remote` stays an explicit opt-in (env `HARNESS_COMPREHENSION_STORAGE`, or committed
+  `remote.enabled`), and `TRUST_REMOTE` stays default-off.
+
+- 5297681: Discover public pnyon Outposts (`harness public-outposts`)
+
+  A contributor who wants to read a project's hosted comprehension needs its Outpost id for
+  `HARNESS_COMPREHENSION_OUTPOST`, but had no way to find it. This adds discovery:
+  - **core**: `fetchPublicOutposts({ baseUrl, token })` — GETs the pnyon public directory
+    (`GET /public-outposts`) and returns the public Outposts (id + name + knowledge count, metadata
+    only). Injected `fetch`; status/kind-only errors (never the token).
+  - **cli**: `harness public-outposts` — lists them (table, or `--json`), reading
+    `HARNESS_COMPREHENSION_REMOTE_URL` + `PNYON_COMPREHENSION_SERVE_TOKEN` from the environment. It
+    deliberately does NOT require `HARNESS_COMPREHENSION_OUTPOST` (that's what you're discovering);
+    copy an id from the output into it to read that Outpost.
+
+- 3281550: config(skills): allow a skill to carry its own settings under `skills.<skillName>`
+
+  `HarnessConfigSchema.skills` gains `.passthrough()`, so a section like
+  `skills.branchBuster.gates` or `skills.startWork.statusSyncWorkflow` survives the
+  config load instead of being stripped. Declared keys (`alwaysSuggest`,
+  `neverSuggest`, `tierOverrides`, `instructionBudget`) keep their types and
+  validation exactly as before — this only stops unknown sibling keys being dropped.
+
+  Minor rather than patch: it is new capability for config authors, not a fix to
+  existing behaviour. Nothing that parsed before parses differently.
+
+  The alternative — registering a second top-level `skills` key, following the
+  `pulse` / `waypoint` passthrough precedent — is a trap worth recording. It
+  **silently overrides** the existing one (JS object-literal semantics, last key
+  wins), widening `tierOverrides` to `unknown` and breaking three call sites in
+  `mcp/tools/`. The config still parsed and no test failed; only `turbo typecheck`
+  caught it.
+
+  Needed because 791 skills will not fit in a top-level namespace, and a skill's
+  settings are validated by the skill rather than by the CLI. A skill MUST treat an
+  absent section as "nothing configured" and abstain rather than assume a default
+  toolchain.
+
+### Patch Changes
+
+- dbedb8c: Fix `harness dashboard` dying on Windows, and make `--no-open` actually work.
+
+  Two defects compounded so that the dashboard could never start on Windows. The API
+  server came up correctly and was then killed by the browser-launch step:
+
+  ```
+  Dashboard API starting on http://localhost:3701
+  Error: spawn start ENOENT
+      syscall: 'spawn start', path: 'start', spawnargs: [ 'http://localhost:3701' ]
+  ```
+
+  `--no-open` was inert (#1956): Commander stores a `--no-x` flag under its positive
+  key, so `opts.open` is `false` when the flag is passed and `noOpen` is never created.
+  `runDashboard` read `opts.noOpen !== true`, which is always true. `DashboardOptions`
+  is renamed to `open` rather than only flipping the comparison, following the
+  `test-craft.ts` idiom from #1954 — declaring the field the other way round is what let
+  the unreachable read typecheck.
+
+  And `start` is a cmd.exe builtin, not an executable, so `spawn('start', …)` without
+  `shell` can only raise ENOENT. With no `'error'` listener that became an unhandled
+  `'error'` event, which is fatal. `openBrowser` now spawns through a shell on win32 and
+  attaches a handler, so a failed browser launch can never take down the server.
+
+  macOS and Linux never saw this: `open` and `xdg-open` are real executables, so the
+  browser nobody asked for opened silently and nothing crashed.
+
+- Updated dependencies [eaa5bbb]
+- Updated dependencies [f1b3d32]
+- Updated dependencies [1cb8e51]
+- Updated dependencies [5297681]
+- Updated dependencies [7789346]
+- Updated dependencies [f1a4cfb]
+  - @harness-engineering/core@0.52.0
+  - @harness-engineering/orchestrator@0.26.0
+  - @harness-engineering/signals@0.3.10
+  - @harness-engineering/dashboard@0.16.10
+
 ## 12.7.0
 
 ### Minor Changes
