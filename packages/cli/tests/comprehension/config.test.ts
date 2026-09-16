@@ -5,6 +5,7 @@ import {
   comprehensionCli,
   selectSemanticModel,
   resolveComprehensionCiMode,
+  resolveRemoteComprehension,
 } from '../../src/comprehension/config';
 import {
   HarnessConfigSchema,
@@ -189,5 +190,52 @@ describe('selectSemanticModel (ADR 0109 slice 3 — model/provider decisions can
     expect(
       selectSemanticModel(cfg({}), { isClaudeCliAvailable: () => false, env: {} })
     ).toBeUndefined();
+  });
+});
+
+describe('resolveRemoteComprehension (env-driven, not committed config)', () => {
+  const full = {
+    HARNESS_COMPREHENSION_STORAGE: 'remote',
+    HARNESS_COMPREHENSION_REMOTE_URL: 'https://core.pnyon.example',
+    HARNESS_COMPREHENSION_OUTPOST: '7a11f0e0-0000-4000-8000-000000000001',
+    PNYON_COMPREHENSION_SERVE_TOKEN: 'pnyon_cst_secret',
+  };
+
+  it('undefined unless storage=remote (default = local)', () => {
+    expect(resolveRemoteComprehension({})).toBeUndefined();
+    expect(
+      resolveRemoteComprehension({ ...full, HARNESS_COMPREHENSION_STORAGE: 'committed' })
+    ).toBeUndefined();
+  });
+
+  it('undefined when any of url/outpost/token is missing (fail-safe: never half-enable)', () => {
+    for (const drop of [
+      'HARNESS_COMPREHENSION_REMOTE_URL',
+      'HARNESS_COMPREHENSION_OUTPOST',
+      'PNYON_COMPREHENSION_SERVE_TOKEN',
+    ]) {
+      const env: Record<string, string> = { ...full };
+      delete env[drop];
+      expect(resolveRemoteComprehension(env)).toBeUndefined();
+    }
+  });
+
+  it('resolves the config when complete; trustRemote defaults off, enabled by 1/true', () => {
+    expect(resolveRemoteComprehension(full)).toEqual({
+      baseUrl: 'https://core.pnyon.example',
+      outpost: '7a11f0e0-0000-4000-8000-000000000001',
+      token: 'pnyon_cst_secret',
+      trustRemote: false,
+    });
+    expect(
+      resolveRemoteComprehension({ ...full, HARNESS_COMPREHENSION_TRUST_REMOTE: '1' })?.trustRemote
+    ).toBe(true);
+    expect(
+      resolveRemoteComprehension({ ...full, HARNESS_COMPREHENSION_TRUST_REMOTE: 'true' })
+        ?.trustRemote
+    ).toBe(true);
+    expect(
+      resolveRemoteComprehension({ ...full, HARNESS_COMPREHENSION_TRUST_REMOTE: 'no' })?.trustRemote
+    ).toBe(false);
   });
 });

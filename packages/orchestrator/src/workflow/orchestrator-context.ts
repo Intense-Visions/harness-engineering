@@ -27,6 +27,9 @@ import {
   COMPREHENSION_ROOT,
   createNodeComprehensionIO,
   createNodeModuleSourceReader,
+  createHttpComprehensionReadIO,
+  resolveRemoteComprehension,
+  type RemoteComprehensionConfig,
 } from '@harness-engineering/core';
 
 /**
@@ -361,21 +364,24 @@ export function deriveVerifyCommands(workspacePath: string): string[] {
  * FIX E.1 — cheap early-out: when the project has no `.harness/comprehension` tree
  * there is nothing to serve, so skip the store/reader + disk enumeration entirely
  * (a single `existsSync` per call instead of per-module reads).
+ *
+ * harness-comprehension-serve — when a remote vault is configured (env-driven, opt-in),
+ * the pre-warm reads through the hosted Outpost instead of the local tree, so the
+ * `existsSync` early-out is bypassed: a consumer with NO local `.harness/comprehension`
+ * (Mode B, `trustRemote`) still gets pre-warm from pnyon. When remote is NOT configured
+ * the behavior is byte-identical to before.
  */
 async function resolveLeafPrewarmBestEffort(
   issue: Issue,
   root: string
 ): Promise<LeafPrewarmResult> {
   try {
-    if (!existsSync(join(root, '.harness', 'comprehension'))) return { block: '', sources: [] };
-    // FIX 1 — root the store ABSOLUTELY at the SAME `root` the reader + existsSync
-    // guard use. The relative default resolves against process.cwd(), so store +
-    // reader would diverge whenever cwd != root, silently degrading the pre-warm to
-    // an empty block. Canonical pattern: gather-context.ts.
-    const store = new ComprehensionStore({
-      root: `${root.replaceAll('\\', '/')}/${COMPREHENSION_ROOT}`,
-      io: createNodeComprehensionIO(),
-    });
+    const remote = resolveRemoteComprehension();
+    // Local-only fast path keeps the cheap early-out; remote reads through regardless.
+    if (!remote && !existsSync(join(root, '.harness', 'comprehension'))) {
+      return { block: '', sources: [] };
+    }
+    const store = buildPrewarmStore(root, remote);
     const reader = createNodeModuleSourceReader(root);
     // #1690 — best-effort 1-hop blast-radius enrichment. When a dependency graph
     // is present, enrich the seed with its DIRECT importers (dependents) under a
@@ -386,6 +392,7 @@ async function resolveLeafPrewarmBestEffort(
       projectRoot: root,
       store,
       reader,
+      ...(remote?.trustRemote && { trustRemote: true }),
       ...(resolveBlastRadius && {
         resolveBlastRadius,
         enrichmentTokenBudget: DEFAULT_BLAST_RADIUS_TOKEN_BUDGET,
@@ -394,6 +401,30 @@ async function resolveLeafPrewarmBestEffort(
   } catch {
     return { block: '', sources: [] };
   }
+}
+
+/**
+ * Build the pre-warm store: the hosted read-through IO when a remote vault is
+ * configured, else the local on-disk store. FIX 1 — the local store is rooted
+ * ABSOLUTELY at the SAME `root` the reader uses; the relative default resolves
+ * against process.cwd(), so store + reader would diverge whenever cwd != root,
+ * silently degrading the pre-warm to an empty block (canonical: gather-context.ts).
+ */
+function buildPrewarmStore(
+  root: string,
+  remote: RemoteComprehensionConfig | undefined
+): ComprehensionStore {
+  const io = remote
+    ? createHttpComprehensionReadIO({
+        baseUrl: remote.baseUrl,
+        token: remote.token,
+        outpost: remote.outpost,
+      })
+    : createNodeComprehensionIO();
+  return new ComprehensionStore({
+    root: `${root.replaceAll('\\', '/')}/${COMPREHENSION_ROOT}`,
+    io,
+  });
 }
 
 /**
