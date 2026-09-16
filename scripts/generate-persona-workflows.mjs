@@ -11,16 +11,8 @@
 import { execFileSync } from 'node:child_process';
 import { join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { existsSync } from 'node:fs';
-
 const repoRoot = resolve(fileURLToPath(import.meta.url), '..', '..');
-const tsx = join(repoRoot, 'node_modules', '.bin', 'tsx');
 const cliEntry = join(repoRoot, 'packages', 'cli', 'src', 'bin', 'harness.ts');
-
-if (!existsSync(tsx)) {
-  console.error(`Missing tsx at ${tsx}. Run \`pnpm install\` first.`);
-  process.exit(1);
-}
 
 const isCheck = process.argv.includes('--check');
 // This repo dogfoods the workspace runner (builds the CLI from source) and wires
@@ -29,7 +21,13 @@ const args = [cliEntry, 'persona', 'sync-workflows', '--runner', 'workspace', '-
 if (isCheck) args.push('--check');
 
 try {
-  execFileSync(tsx, args, { stdio: 'inherit', cwd: repoRoot });
+  // `node --import tsx`, not `node_modules/.bin/tsx` -- Windows cannot execute
+  // the extensionless POSIX shim pnpm writes there, and the `existsSync` guard
+  // that used to sit above found it anyway. See generate-agent-setup-prompt.mjs.
+  execFileSync(process.execPath, ['--import', 'tsx', ...args], {
+    stdio: 'inherit',
+    cwd: repoRoot,
+  });
 } catch {
   process.exit(1);
 }

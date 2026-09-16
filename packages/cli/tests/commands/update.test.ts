@@ -577,16 +577,21 @@ describe('update command', () => {
       throw new Error('process.exit');
     });
     let logSpy: ReturnType<typeof vi.spyOn>;
+    // `logger.error` writes to console.error, `logger.info`/`success` to
+    // console.log — so asserting on what the user was told needs both.
+    let errorSpy: ReturnType<typeof vi.spyOn>;
 
     beforeEach(() => {
       vi.clearAllMocks();
       logSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
+      errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
       // Default: detectPackageManager returns npm
       mockedRealpathSync.mockReturnValue('/usr/local/lib/node_modules/harness/bin.js');
     });
 
     afterEach(() => {
       logSpy.mockRestore();
+      errorSpy.mockRestore();
     });
 
     it('runs --force update successfully', async () => {
@@ -671,6 +676,82 @@ describe('update command', () => {
       await expect(program.parseAsync(['node', 'test', 'update'])).rejects.toThrow('process.exit');
 
       expect(mockExit).toHaveBeenCalledWith(0);
+    });
+
+    // A FAILED REGISTRY LOOKUP IS NOT A PASS. `checkAllPackages` used to
+    // `continue` past rejected lookups, so a package it could not query
+    // contributed nothing to `outdated` — and an empty `outdated` was then
+    // printed as "All packages are up to date". Any npm hiccup (timeout,
+    // offline, proxy, throttle, empty response) silently became good news.
+    it('does NOT claim everything is up to date when the registry cannot be reached', async () => {
+      // getInstalledPackages
+      mockedExecFileSync.mockReturnValueOnce(
+        JSON.stringify({
+          dependencies: {
+            '@harness-engineering/cli': { version: '1.0.0' },
+          },
+        })
+      );
+      // getInstalledVersions
+      mockedExecFileSync.mockReturnValueOnce(
+        JSON.stringify({
+          dependencies: {
+            '@harness-engineering/cli': { version: '1.0.0' },
+          },
+        })
+      );
+
+      // getLatestVersionAsync rejects — the registry is unreachable.
+      mockedExecFile.mockImplementation(((
+        _cmd: unknown,
+        _args: unknown,
+        _opts: unknown,
+        cb?: Function
+      ) => {
+        if (cb) cb(new Error('ETIMEDOUT'), { stdout: '', stderr: '' });
+        return {} as ReturnType<typeof execFile>;
+      }) as typeof execFile);
+
+      const program = createProgram();
+      await expect(program.parseAsync(['node', 'test', 'update'])).rejects.toThrow('process.exit');
+
+      // The whole point: the success line must not be printed, and the exit
+      // code must not be 0. Silence about a check that never happened is the
+      // defect.
+      const said = logSpy.mock.calls.flat().join('\n') + errorSpy.mock.calls.flat().join('\n');
+      expect(said).not.toContain('All packages are up to date');
+      expect(said).toContain('Could not check');
+      expect(mockExit).not.toHaveBeenCalledWith(0);
+    });
+
+    it('names the package it could not check, and why', async () => {
+      mockedExecFileSync.mockReturnValueOnce(
+        JSON.stringify({
+          dependencies: { '@harness-engineering/cli': { version: '1.0.0' } },
+        })
+      );
+      mockedExecFileSync.mockReturnValueOnce(
+        JSON.stringify({
+          dependencies: { '@harness-engineering/cli': { version: '1.0.0' } },
+        })
+      );
+      mockedExecFile.mockImplementation(((
+        _cmd: unknown,
+        _args: unknown,
+        _opts: unknown,
+        cb?: Function
+      ) => {
+        if (cb) cb(new Error('ENOTFOUND registry.npmjs.org'), { stdout: '', stderr: '' });
+        return {} as ReturnType<typeof execFile>;
+      }) as typeof execFile);
+
+      const program = createProgram();
+      await expect(program.parseAsync(['node', 'test', 'update'])).rejects.toThrow('process.exit');
+
+      const said = logSpy.mock.calls.flat().join('\n') + errorSpy.mock.calls.flat().join('\n');
+      // "something went wrong" is not actionable; the package and the reason are.
+      expect(said).toContain('cli');
+      expect(said).toContain('ENOTFOUND registry.npmjs.org');
     });
 
     it('detects outdated packages and runs install', async () => {
