@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { serializeRoadmap } from '../../src/roadmap/serialize';
 import { parseRoadmap } from '../../src/roadmap/parse';
-import { encodeListItem, decodeListField } from '../../src/roadmap/list-field';
+import { encodeListItem, encodeListField, decodeListField } from '../../src/roadmap/list-field';
 import { VALID_ROADMAP } from './fixtures';
 
 // Regression guard for #1757: the `Blocked by` / `Plan` roadmap list fields used
@@ -102,5 +102,75 @@ describe('roadmap round-trip: comma inside a list item (#1757)', () => {
       const encoded = items.map(encodeListItem).join(', ');
       expect(decodeListField(encoded)).toEqual(items);
     }
+  });
+});
+
+// Regression guard for #2162: the codec above was an exact inverse in ONE
+// direction only. `decode(encode(items))` returned the items, which is what the
+// suite above proves — but `encode(decode(raw))` did NOT return the raw text.
+//
+// Legacy `Plan` / `Blockers` values in the wild are not tidy tokens. They hold
+// prose written by humans and agents, and prose is full of commas. Splitting on
+// every bare comma and rejoining with ", " INSERTED A SPACE that was never in the
+// file: `1,166` came back as `1, 166`. Because `manage_roadmap` round-trips the
+// whole roadmap on every write, a single unrelated `add` silently rewrote rows
+// nobody had touched — one project found 25 corruptions accumulated over weeks,
+// including `146,585`, `250,000` and `$2,241`.
+//
+// Before the fix every assertion in this block FAILS. After it, a comma with no
+// following whitespace is content in both directions and survives untouched.
+describe('roadmap list fields: text round-trips unchanged (#2162)', () => {
+  const roundTrip = (raw: string) => encodeListField(decodeListField(raw)) ?? '';
+
+  it('does not split a thousands separator', () => {
+    expect(roundTrip('Phase 2: backfill existing 3,777 films.')).toBe(
+      'Phase 2: backfill existing 3,777 films.'
+    );
+    expect(roundTrip('credits are 146,585 not 91,432')).toBe('credits are 146,585 not 91,432');
+    expect(roundTrip('~250,000 still-views or ~25,000 ten-round sessions')).toBe(
+      '~250,000 still-views or ~25,000 ten-round sessions'
+    );
+  });
+
+  it('leaves a bare comma unescaped rather than writing a backslash into prose', () => {
+    // The other way to get this wrong: stop splitting on it but keep escaping it,
+    // which puts `1\,166` in a file a person has to read.
+    expect(encodeListItem('a 1,166-film backfill')).toBe('a 1,166-film backfill');
+    expect(encodeListField(['a 1,166-film backfill'])).toBe('a 1,166-film backfill');
+  });
+
+  it('still treats ", " as a genuine item boundary', () => {
+    expect(decodeListField('alpha, beta, gamma')).toEqual(['alpha', 'beta', 'gamma']);
+    expect(roundTrip('alpha, beta, gamma')).toBe('alpha, beta, gamma');
+  });
+
+  it('is idempotent across repeated writes, which is how the damage accumulated', () => {
+    // The corruption was cumulative: each write moved the text a little further.
+    let text = 'a 1,166-film backfill plus a 3,625-film sweep';
+    for (let i = 0; i < 5; i += 1) text = roundTrip(text);
+    expect(text).toBe('a 1,166-film backfill plus a 3,625-film sweep');
+  });
+
+  it('round-trips the forms a naive repair regex would break', () => {
+    // Both live in a real roadmap, and both match /\d, \d\d\d/.
+    expect(roundTrip('shared in 1951, 1979, 1980, 1993 and 1997')).toBe(
+      'shared in 1951, 1979, 1980, 1993 and 1997'
+    );
+    expect(roundTrip('the fix (v42, 2026-09-04 17:23)')).toBe('the fix (v42, 2026-09-04 17:23)');
+  });
+
+  it('preserves prose through a full parse(serialize(roadmap)) cycle', () => {
+    const roadmap = structuredClone(VALID_ROADMAP);
+    roadmap.milestones[0]!.features[0]!.plans = ['Backfill the 3,605-film library, then sweep'];
+
+    const once = serializeRoadmap(roadmap);
+    const reparsed = parseRoadmap(once);
+    expect(reparsed.ok).toBe(true);
+    if (!reparsed.ok) return;
+
+    expect(reparsed.value.milestones[0]!.features[0]!.plans).toEqual([
+      'Backfill the 3,605-film library, then sweep',
+    ]);
+    expect(serializeRoadmap(reparsed.value)).toBe(once);
   });
 });
