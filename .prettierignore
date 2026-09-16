@@ -31,7 +31,7 @@ docs/reference/tool-catalog.md
 .harness/specialization-profiles.json
 .harness/stack-profile.json
 .harness/metrics/
-.harness/security/
+**/.harness/security/
 .harness/streams/
 .harness/black-box/
 .harness/sessions/

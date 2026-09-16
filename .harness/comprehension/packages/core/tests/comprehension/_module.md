@@ -1,16 +1,18 @@
 ---
 schemaVersion: 1
 module: 'packages/core/tests/comprehension'
-sourceHash: '42efa848db3ede56c78dc06ef0e0aff12102593ed53dc566e7f092e4d699c51e'
+sourceHash: '2845b21ee8b0c641be6eb1aa5bca61df49ac0858a05620b36b4730cddea98282'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
 members:
   [
     'compile.test.ts',
+    'credential-store.test.ts',
     'http-io.test.ts',
     'node-io.test.ts',
     'public-outposts.test.ts',
+    'remote-config-io.test.ts',
     'remote-config.test.ts',
     'render.test.ts',
     'run.test.ts',
@@ -32,11 +34,13 @@ members:
 
 ```
 import { compileModule } from '../../src/comprehension/compile'
+import { SERVE_TOKEN_CREDENTIAL_KEY, readPnyonServeToken } from '../../src/comprehension/credential-store'
 import { RemoteUnitNotFoundError, createHttpComprehensionReadIO } from '../../src/comprehension/http-io'
 import { createNodeComprehensionIO, createNodeModuleSourceReader } from '../../src/comprehension/node-io'
 import { fetchPublicOutposts } from '../../src/comprehension/public-outposts'
 import { REENTRANCY_ENV, isComprehensionReentrant } from '../../src/comprehension/reentrancy'
-import { DEFAULT_REMOTE_URL, normalizeRemoteFileConfig, resolveRemoteComprehension } from '../../src/comprehension/remote-config'
+import { DEFAULT_REMOTE_URL, RemoteComprehensionFileConfig, normalizeRemoteFileConfig, resolveRemoteComprehension } from '../../src/comprehension/remote-config'
+import { resolveRemoteComprehensionWithGlobalToken } from '../../src/comprehension/remote-config-io'
 import { renderServedUnit } from '../../src/comprehension/render'
 import { mapWithConcurrency, runComprehend, runComprehendCheck, runComprehendStats } from '../../src/comprehension/run'
 import { parseUnit, serializeUnit } from '../../src/comprehension/serialize'
@@ -48,6 +52,6 @@ import { COMPILER_VERSION, ComprehensionUnit, DEFAULT_SOURCE_EXTENSIONS, Extract
 import { ComprehensionListing, ComprehensionSourceFile, ComprehensionUnit, Err, ExtractStatic, GenerateSemantic, Ok, computeSourceHash } from '@harness-engineering/core'
 import * as fsp from 'node:fs/promises'
 import * as os from 'node:os'
-import * as path from 'node:path'
+import * as path, { join } from 'node:path'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 ```

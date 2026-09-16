@@ -100,9 +100,12 @@ export function selectSemanticModel(
 
 // The remote-comprehension opt-in resolver lives in core (so the orchestrator, which cannot import
 // the cli, shares the identical resolver). Re-exported here for the cli's call sites
-// (get_comprehension, gather_context).
+// (get_comprehension, gather_context). The `WithGlobalToken` wrapper is the impure variant that
+// additionally fills the serve token from the global `pnyon login` credential
+// (~/.pnyon/credentials.json) when the env carries none — the cli's default resolution path.
 export {
   resolveRemoteComprehension,
+  resolveRemoteComprehensionWithGlobalToken,
   type RemoteComprehensionConfig,
   type RemoteComprehensionFileConfig,
 } from '@harness-engineering/core';
