@@ -60,3 +60,8 @@ export type {
   ComprehendCheckResult,
   ComprehendStatsResult,
 } from './run';
+
+// Public-Outpost discovery — fetch the pnyon public directory (`GET /public-outposts`) so a
+// contributor can find an Outpost id to read comprehension from (proposal public-outpost-directory).
+export { fetchPublicOutposts } from './public-outposts';
+export type { PublicOutpost, FetchPublicOutpostsConfig } from './public-outposts';
