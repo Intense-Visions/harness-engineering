@@ -6,6 +6,7 @@ import {
   selectSemanticModel,
   resolveComprehensionCiMode,
   resolveRemoteComprehension,
+  remoteFileConfig,
 } from '../../src/comprehension/config';
 import {
   HarnessConfigSchema,
@@ -208,16 +209,19 @@ describe('resolveRemoteComprehension (env-driven, not committed config)', () => 
     ).toBeUndefined();
   });
 
-  it('undefined when any of url/outpost/token is missing (fail-safe: never half-enable)', () => {
-    for (const drop of [
-      'HARNESS_COMPREHENSION_REMOTE_URL',
-      'HARNESS_COMPREHENSION_OUTPOST',
-      'PNYON_COMPREHENSION_SERVE_TOKEN',
-    ]) {
+  it('undefined when outpost/token is missing (fail-safe: never half-enable)', () => {
+    // The URL is OPTIONAL (defaults to pnyon), so only the outpost + token are required.
+    for (const drop of ['HARNESS_COMPREHENSION_OUTPOST', 'PNYON_COMPREHENSION_SERVE_TOKEN']) {
       const env: Record<string, string> = { ...full };
       delete env[drop];
       expect(resolveRemoteComprehension(env)).toBeUndefined();
     }
+  });
+
+  it('the URL is OPTIONAL — a missing HARNESS_COMPREHENSION_REMOTE_URL still resolves (default host)', () => {
+    const env: Record<string, string> = { ...full };
+    delete env.HARNESS_COMPREHENSION_REMOTE_URL;
+    expect(resolveRemoteComprehension(env)).toBeDefined();
   });
 
   it('resolves the config when complete; trustRemote defaults off, enabled by 1/true', () => {
@@ -237,5 +241,32 @@ describe('resolveRemoteComprehension (env-driven, not committed config)', () => 
     expect(
       resolveRemoteComprehension({ ...full, HARNESS_COMPREHENSION_TRUST_REMOTE: 'no' })?.trustRemote
     ).toBe(false);
+  });
+});
+
+describe('remoteFileConfig (committed comprehension.remote block → resolver file arg)', () => {
+  it('undefined when the block is absent', () => {
+    expect(remoteFileConfig(cfg())).toBeUndefined();
+  });
+
+  it('maps the committed block, dropping undefined-valued optionals', () => {
+    const cconf = cfg({ remote: { enabled: true, outpost: 'o-1' } });
+    // url/trustRemote unset in the block → omitted (not `undefined`), enabled kept.
+    expect(remoteFileConfig(cconf)).toEqual({ enabled: true, outpost: 'o-1', trustRemote: false });
+  });
+
+  it('feeds the resolver so a committed block + env token resolves remote', () => {
+    const cconf = cfg({ remote: { enabled: true, outpost: 'o-1', url: 'https://file.example' } });
+    expect(
+      resolveRemoteComprehension(
+        { PNYON_COMPREHENSION_SERVE_TOKEN: 'pnyon_cst_secret' },
+        remoteFileConfig(cconf)
+      )
+    ).toEqual({
+      baseUrl: 'https://file.example',
+      outpost: 'o-1',
+      token: 'pnyon_cst_secret',
+      trustRemote: false,
+    });
   });
 });

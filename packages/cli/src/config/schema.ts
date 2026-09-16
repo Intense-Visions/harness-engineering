@@ -1135,6 +1135,29 @@ export const ComprehensionConfigSchema = z.object({
    * `--static` posture) and never blocks a commit if recompile fails.
    */
   hook: z.boolean().default(false),
+  /**
+   * Read compiled comprehension from a hosted vault (harness-comprehension-serve consumer, e.g.
+   * pnyon) instead of always recompiling locally. This is the COMMITTED, NON-SECRET routing so a
+   * team shares one config; each field is overridable per developer via
+   * `HARNESS_COMPREHENSION_*` env vars (env wins).
+   *
+   * SECURITY: like `analysisBaseUrl` / `analysisCli`, only non-secret values live here. The serve
+   * token is intentionally NOT a field — provide it via the `PNYON_COMPREHENSION_SERVE_TOKEN` env
+   * var, which is the sole gate (no token ⇒ falls back to LOCAL, so CI + tokenless teammates are
+   * unaffected even when `enabled` is committed).
+   */
+  remote: z
+    .object({
+      /** Turn remote-read on for the repo (still gated by the env serve token). Default off. */
+      enabled: z.boolean().default(false),
+      /** Hosted vault base URL. Omit to use the built-in default (pnyon). */
+      url: z.string().optional(),
+      /** The Outpost (UUID) whose comprehension to read. */
+      outpost: z.string().optional(),
+      /** Serve a remote unit with no local source (Mode B). Default off. */
+      trustRemote: z.boolean().default(false),
+    })
+    .optional(),
 });
 export type ComprehensionConfig = z.infer<typeof ComprehensionConfigSchema>;
 

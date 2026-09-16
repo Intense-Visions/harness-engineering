@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'packages/cli/src/mcp/tools'
-sourceHash: '04032d8057c7791e3aaad1852679bbbb770b952448ae5af3cfdab763a77ce337'
+sourceHash: '4ded9bc4efd27f7cde8bb754b02707852d79c02e5a0773054cb7e3238f591720'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
@@ -464,7 +464,7 @@ import { generateSlashCommands } from '../../commands/generate-slash-commands.js
 import from '../../commands/validate-cross-check.js'
 import from '../../commands/validate.js'
 import { runComprehend } from '../../comprehension/compile-run'
-import { comprehensionEndpoint, readComprehensionConfig, resolveRemoteComprehension, selectSemanticModel } from '../../comprehension/config'
+import { comprehensionEndpoint, readComprehensionConfig, remoteFileConfig, resolveRemoteComprehension, selectSemanticModel } from '../../comprehension/config'
 import { maybeCreateGenerateSemantic, semanticResponseSchema } from '../../comprehension/generate-semantic'
 import { committedSemanticAllowed } from '../../comprehension/policy'
 import { createStaticExtractor } from '../../comprehension/static-extractor'
