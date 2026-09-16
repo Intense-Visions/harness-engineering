@@ -28,7 +28,7 @@ import {
   createNodeComprehensionIO,
   createNodeModuleSourceReader,
   createHttpComprehensionReadIO,
-  resolveRemoteComprehension,
+  resolveRemoteComprehensionWithGlobalToken,
   normalizeRemoteFileConfig,
   type RemoteComprehensionConfig,
   type RemoteComprehensionFileConfig,
@@ -396,7 +396,10 @@ async function resolveLeafPrewarmBestEffort(
   try {
     // Committed `comprehension.remote` routing (non-secret) merged with env (env wins; env carries
     // the token). Read from disk since the orchestrator has no cli config loader.
-    const remote = resolveRemoteComprehension(process.env, readRemoteFileConfig(root));
+    const remote = resolveRemoteComprehensionWithGlobalToken(
+      process.env,
+      readRemoteFileConfig(root)
+    );
     // Local-only fast path keeps the cheap early-out; remote reads through regardless.
     if (!remote && !existsSync(join(root, '.harness', 'comprehension'))) {
       return { block: '', sources: [] };
