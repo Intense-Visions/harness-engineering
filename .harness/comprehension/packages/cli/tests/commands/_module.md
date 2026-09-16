@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'packages/cli/tests/commands'
-sourceHash: 'f616c8e87090edf43047bfe9275f85adf44caa85d2a58f03970f107de2b308a3'
+sourceHash: 'f51134b23ce3d84c36ca47182c17572b0f02e7e69a4f7de828663e9414d593b5'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
@@ -134,6 +134,7 @@ members:
     'proposals-status.test.ts',
     'proposals.test.ts',
     'provenance.test.ts',
+    'public-outposts.test.ts',
     'publish-analyses.test.ts',
     'pulse-run.test.ts',
     'recommend.test.ts',
@@ -319,6 +320,7 @@ import { BRIEF_MARKER, buildBriefBody, createPreMergeBriefCommand, defaultPostBr
 import { createPredictCommand, runPredict } from '../../src/commands/predict'
 import { actStatusCommand, createProposalsCommand, runProposalsList, runProposalsReject, runProposalsShow, runProposalsStatus } from '../../src/commands/proposals'
 import { RunGit, createProvenanceCommand, runProvenanceCommand } from '../../src/commands/provenance'
+import { resolveDiscoveryEnv } from '../../src/commands/public-outposts'
 import { createPublishAnalysesCommand } from '../../src/commands/publish-analyses'
 import { runPulseRunCommand } from '../../src/commands/pulse/run'
 import { createRecommendCommand, runRecommend } from '../../src/commands/recommend'

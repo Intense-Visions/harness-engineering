@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'packages/core/src/comprehension'
-sourceHash: '34dd809ae56e313d71fcc2adcce237fa5492ebc10fef8740135cc067e4d16e5e'
+sourceHash: 'c325560027ec781ba39569799e4315d32a2f85e839200ab20ffe885ce64b83ba'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
@@ -10,6 +10,7 @@ members:
     'compile.ts',
     'index.ts',
     'node-io.ts',
+    'public-outposts.ts',
     'reentrancy.ts',
     'render.ts',
     'run.ts',
@@ -43,8 +44,10 @@ export ComprehensionStore
 export ComprehensionUnit
 export DEFAULT_SOURCE_EXTENSIONS
 export ExtractStatic
+export FetchPublicOutpostsConfig
 export GenerateSemantic
 export ModuleSourceReader
+export PublicOutpost
 export REENTRANCY_ENV
 export SCHEMA_VERSION
 export STATIC_SUPPORTED_EXTENSIONS
@@ -59,6 +62,7 @@ export computeSourceHash
 export createNodeComprehensionIO
 export createNodeModuleSourceReader
 export createStaticExtractor
+export fetchPublicOutposts
 export isComprehensionReentrant
 export isStaticSupported
 export mapWithConcurrency

@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 module: 'packages/cli/src/commands'
-sourceHash: 'db809aaa5ba617b18554e552a550ca8ac8f1f34575b6b13f1b032b0ed012acd8'
+sourceHash: '68b3eb37d99b2a50385a13706e2045262ea5ba35a30bdde0d6a3b0dbdd69492e'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
@@ -85,6 +85,7 @@ members:
     'predict.ts',
     'proposals.ts',
     'provenance.ts',
+    'public-outposts.ts',
     'publish-analyses.ts',
     'recommend.ts',
     'rehearse.test.ts',
@@ -235,6 +236,7 @@ export createPreMergeBriefCommand
 export createPredictCommand
 export createProposalsCommand
 export createProvenanceCommand
+export createPublicOutpostsCommand
 export createPublishAnalysesCommand
 export createRecommendCommand
 export createRehearseCommand
@@ -327,6 +329,7 @@ export resolveChangedScope
 export resolveCommunityBase
 export resolveCompileProvider
 export resolveDiffRange
+export resolveDiscoveryEnv
 export resolveHarnessSpawn
 export resolveMode
 export resolveSelection
@@ -593,6 +596,7 @@ import { createPreMergeBriefCommand } from './pre-merge-brief'
 import { createPredictCommand } from './predict'
 import { createProposalsCommand } from './proposals'
 import { createProvenanceCommand } from './provenance'
+import { createPublicOutpostsCommand } from './public-outposts'
 import { createPublishAnalysesCommand } from './publish-analyses'
 import { createPulseCommand } from './pulse'
 import { createRecommendCommand } from './recommend'
