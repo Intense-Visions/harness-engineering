@@ -31,6 +31,11 @@ export {
   DEFAULT_REMOTE_URL,
 } from './remote-config';
 export type { RemoteComprehensionConfig, RemoteComprehensionFileConfig } from './remote-config';
+// The IMPURE sibling: env override → global `pnyon login` credential (~/.pnyon/credentials.json),
+// so the hosted vault works with no per-repo `.env.local`. Shared by the cli AND the orchestrator.
+export { resolveRemoteComprehensionWithGlobalToken } from './remote-config-io';
+export { readPnyonServeToken, SERVE_TOKEN_CREDENTIAL_KEY } from './credential-store';
+export type { ReadPnyonServeTokenDeps } from './credential-store';
 export { compileModule } from './compile';
 export type { CompileOptions } from './compile';
 export { serveGate } from './serve-gate';

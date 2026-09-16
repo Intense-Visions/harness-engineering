@@ -1,18 +1,20 @@
 ---
 schemaVersion: 1
 module: 'packages/core/src/comprehension'
-sourceHash: '4454a6b32ea376006448148b881f946ec4e758794d5f5f1864f7648f82cb214d'
+sourceHash: '595b6f1bff6be9a3052d6afe1c052f1e801246acc402ccc9b9b79c7a27349e28'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
 members:
   [
     'compile.ts',
+    'credential-store.ts',
     'http-io.ts',
     'index.ts',
     'node-io.ts',
     'public-outposts.ts',
     'reentrancy.ts',
+    'remote-config-io.ts',
     'remote-config.ts',
     'render.ts',
     'run.ts',
@@ -53,10 +55,12 @@ export HttpComprehensionConfig
 export ModuleSourceReader
 export PublicOutpost
 export REENTRANCY_ENV
+export ReadPnyonServeTokenDeps
 export RemoteComprehensionConfig
 export RemoteComprehensionFileConfig
 export RemoteUnitNotFoundError
 export SCHEMA_VERSION
+export SERVE_TOKEN_CREDENTIAL_KEY
 export STATIC_SUPPORTED_EXTENSIONS
 export SemanticGeneration
 export SemanticInput
@@ -76,10 +80,12 @@ export isStaticSupported
 export mapWithConcurrency
 export normalizeRemoteFileConfig
 export parseUnit
+export readPnyonServeToken
 export renderDependencySlice
 export renderInterfaceContract
 export renderServedUnit
 export resolveRemoteComprehension
+export resolveRemoteComprehensionWithGlobalToken
 export runComprehend
 export runComprehendCheck
 export runComprehendStats
@@ -96,7 +102,9 @@ import { quoteYamlScalar } from '../roadmap/store/yaml-scalar'
 import { TypeScriptParser } from '../shared/parsers'
 import { Result } from '../shared/result'
 import { compileModule } from './compile'
+import { ReadPnyonServeTokenDeps, readPnyonServeToken } from './credential-store'
 import { isComprehensionReentrant, withComprehensionActive } from './reentrancy'
+import { RemoteComprehensionConfig, RemoteComprehensionFileConfig, resolveRemoteComprehension } from './remote-config'
 import { renderServedUnit } from './render'
 import { parseUnit, serializeUnit } from './serialize'
 import { ModuleSourceReader, serveGate } from './serve-gate'
@@ -106,6 +114,8 @@ import { COMPILER_VERSION, ComprehensionProvenance, ComprehensionSourceFile, Com
 import { Err, Ok, Result } from '@harness-engineering/types'
 import matter from 'gray-matter'
 import * as crypto from 'node:crypto'
+import { readFileSync } from 'node:fs'
 import * as fsp from 'node:fs/promises'
-import * as path from 'node:path'
+import { homedir } from 'node:os'
+import * as path, { join } from 'node:path'
 ```
