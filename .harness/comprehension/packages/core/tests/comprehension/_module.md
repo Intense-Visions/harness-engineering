@@ -1,15 +1,17 @@
 ---
 schemaVersion: 1
 module: 'packages/core/tests/comprehension'
-sourceHash: 'f2b5e5c905fb4edcba48e196090c7569d47aafdcbf1b75f1f08e8cdf75021763'
+sourceHash: 'c402e656c77a7ae3a3b97ec51498ba8681b502deb5eb911b5496cb2877d25788'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
 members:
   [
     'compile.test.ts',
+    'http-io.test.ts',
     'node-io.test.ts',
     'public-outposts.test.ts',
+    'remote-config.test.ts',
     'render.test.ts',
     'run.test.ts',
     'serialize.test.ts',
@@ -30,9 +32,11 @@ members:
 
 ```
 import { compileModule } from '../../src/comprehension/compile'
+import { RemoteUnitNotFoundError, createHttpComprehensionReadIO } from '../../src/comprehension/http-io'
 import { createNodeComprehensionIO, createNodeModuleSourceReader } from '../../src/comprehension/node-io'
 import { fetchPublicOutposts } from '../../src/comprehension/public-outposts'
 import { REENTRANCY_ENV, isComprehensionReentrant } from '../../src/comprehension/reentrancy'
+import { DEFAULT_REMOTE_URL, resolveRemoteComprehension } from '../../src/comprehension/remote-config'
 import { renderServedUnit } from '../../src/comprehension/render'
 import { mapWithConcurrency, runComprehend, runComprehendCheck, runComprehendStats } from '../../src/comprehension/run'
 import { parseUnit, serializeUnit } from '../../src/comprehension/serialize'

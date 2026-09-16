@@ -1,17 +1,19 @@
 ---
 schemaVersion: 1
 module: 'packages/core/src/comprehension'
-sourceHash: 'c325560027ec781ba39569799e4315d32a2f85e839200ab20ffe885ce64b83ba'
+sourceHash: '1541c2443131443f71f6b11aaa355ddf0fa477b6afdb1efc846a99d27cf3acf5'
 compiler: { static: '1.0.0', semantic: '1.0.0' }
 model: null
 semantic: absent
 members:
   [
     'compile.ts',
+    'http-io.ts',
     'index.ts',
     'node-io.ts',
     'public-outposts.ts',
     'reentrancy.ts',
+    'remote-config.ts',
     'render.ts',
     'run.ts',
     'serialize.ts',
@@ -42,13 +44,17 @@ export ComprehensionProvenance
 export ComprehensionSourceFile
 export ComprehensionStore
 export ComprehensionUnit
+export DEFAULT_REMOTE_URL
 export DEFAULT_SOURCE_EXTENSIONS
 export ExtractStatic
 export FetchPublicOutpostsConfig
 export GenerateSemantic
+export HttpComprehensionConfig
 export ModuleSourceReader
 export PublicOutpost
 export REENTRANCY_ENV
+export RemoteComprehensionConfig
+export RemoteUnitNotFoundError
 export SCHEMA_VERSION
 export STATIC_SUPPORTED_EXTENSIONS
 export SemanticGeneration
@@ -59,6 +65,7 @@ export StaticExtraction
 export UNIT_FILE
 export compileModule
 export computeSourceHash
+export createHttpComprehensionReadIO
 export createNodeComprehensionIO
 export createNodeModuleSourceReader
 export createStaticExtractor
@@ -70,6 +77,7 @@ export parseUnit
 export renderDependencySlice
 export renderInterfaceContract
 export renderServedUnit
+export resolveRemoteComprehension
 export runComprehend
 export runComprehendCheck
 export runComprehendStats
@@ -91,7 +99,7 @@ import { renderServedUnit } from './render'
 import { parseUnit, serializeUnit } from './serialize'
 import { ModuleSourceReader, serveGate } from './serve-gate'
 import { computeSourceHash } from './source-hash'
-import { ComprehensionIO, ComprehensionListing, SkippedUnit, UNIT_FILE } from './store'
+import { COMPREHENSION_ROOT, ComprehensionIO, ComprehensionListing, SkippedUnit, UNIT_FILE } from './store'
 import { COMPILER_VERSION, ComprehensionProvenance, ComprehensionSourceFile, ComprehensionUnit, DEFAULT_SOURCE_EXTENSIONS, ExtractStatic, GenerateSemantic, SCHEMA_VERSION, SourceFile, StaticExtraction } from './types'
 import { Err, Ok, Result } from '@harness-engineering/types'
 import matter from 'gray-matter'

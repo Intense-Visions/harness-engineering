@@ -5,6 +5,7 @@
 // name, and knowledge count. Reads the pnyon-core URL + your serve token from the environment — it
 // does NOT require HARNESS_COMPREHENSION_OUTPOST (that's what you're trying to discover).
 import { Command } from 'commander';
+import { DEFAULT_REMOTE_URL } from '@harness-engineering/core';
 import { logger } from '../output/logger';
 
 /** The env the discovery command reads — URL + serve token only (no Outpost id yet). */
@@ -14,19 +15,18 @@ interface DiscoveryEnv {
 }
 
 /**
- * Resolve the pnyon-core URL + serve token from the environment. Returns `undefined` (with the
- * missing keys) when either is absent — discovery deliberately does NOT require
- * `HARNESS_COMPREHENSION_OUTPOST` (unlike the read path), since the whole point is to find one.
+ * Resolve the pnyon-core URL + serve token from the environment. The URL is OPTIONAL — it defaults
+ * to {@link DEFAULT_REMOTE_URL} (pnyon), so discovery needs only a serve token. Returns the missing
+ * keys when the token is absent. Deliberately does NOT require `HARNESS_COMPREHENSION_OUTPOST`
+ * (unlike the read path) — the whole point is to find one.
  */
 export function resolveDiscoveryEnv(
   env: Record<string, string | undefined> = process.env
 ): DiscoveryEnv | { missing: string[] } {
-  const baseUrl = (env.HARNESS_COMPREHENSION_REMOTE_URL ?? '').trim();
+  const baseUrl = (env.HARNESS_COMPREHENSION_REMOTE_URL ?? '').trim() || DEFAULT_REMOTE_URL;
   const token = (env.PNYON_COMPREHENSION_SERVE_TOKEN ?? '').trim();
-  const missing: string[] = [];
-  if (baseUrl === '') missing.push('HARNESS_COMPREHENSION_REMOTE_URL');
-  if (token === '') missing.push('PNYON_COMPREHENSION_SERVE_TOKEN');
-  return missing.length > 0 ? { missing } : { baseUrl, token };
+  if (token === '') return { missing: ['PNYON_COMPREHENSION_SERVE_TOKEN'] };
+  return { baseUrl, token };
 }
 
 export function createPublicOutpostsCommand(): Command {
@@ -39,10 +39,9 @@ export function createPublicOutpostsCommand(): Command {
       const resolved = resolveDiscoveryEnv();
       if ('missing' in resolved) {
         logger.error(
-          `Set ${resolved.missing.join(' and ')} first. ` +
-            'HARNESS_COMPREHENSION_REMOTE_URL is your pnyon-core URL; ' +
-            'PNYON_COMPREHENSION_SERVE_TOKEN is a serve token minted from the pnyon dashboard. ' +
-            'You do NOT need HARNESS_COMPREHENSION_OUTPOST to discover one.'
+          `Set ${resolved.missing.join(' and ')} first — a serve token minted from the pnyon ` +
+            'dashboard. The host defaults to pnyon (override with HARNESS_COMPREHENSION_REMOTE_URL); ' +
+            'you do NOT need HARNESS_COMPREHENSION_OUTPOST to discover one.'
         );
         process.exitCode = 1;
         return;

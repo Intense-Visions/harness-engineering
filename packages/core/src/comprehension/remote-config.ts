@@ -9,9 +9,16 @@
  * env), no I/O.
  */
 
+/**
+ * The default hosted vault base URL — pnyon's production comprehension service. Used when
+ * `HARNESS_COMPREHENSION_REMOTE_URL` is unset, so adopters only have to supply an Outpost + a serve
+ * token (the URL is the one value nobody can guess). Override the env var to point at another host.
+ */
+export const DEFAULT_REMOTE_URL = 'https://core.pnyon.com';
+
 /** A resolved remote-comprehension opt-in. */
 export interface RemoteComprehensionConfig {
-  /** The hosted vault base URL (pnyon-core). */
+  /** The hosted vault base URL (defaults to {@link DEFAULT_REMOTE_URL} when unset). */
   readonly baseUrl: string;
   /** The Outpost (UUID) whose comprehension to read. */
   readonly outpost: string;
@@ -23,17 +30,18 @@ export interface RemoteComprehensionConfig {
 
 /**
  * Resolve the opt-in from the environment. Returns `undefined` (⇒ local behavior) unless
- * `HARNESS_COMPREHENSION_STORAGE=remote` AND the URL, Outpost, and token are all present
- * (fail-safe: an incomplete config never half-enables remote).
+ * `HARNESS_COMPREHENSION_STORAGE=remote` AND the Outpost + serve token are present. The base URL
+ * is OPTIONAL — it defaults to {@link DEFAULT_REMOTE_URL} (pnyon), so a minimal opt-in is just the
+ * storage switch + an Outpost + a token. (Fail-safe: an incomplete config never half-enables remote.)
  */
 export function resolveRemoteComprehension(
   env: Record<string, string | undefined> = process.env
 ): RemoteComprehensionConfig | undefined {
   if ((env.HARNESS_COMPREHENSION_STORAGE ?? '').trim().toLowerCase() !== 'remote') return undefined;
-  const baseUrl = (env.HARNESS_COMPREHENSION_REMOTE_URL ?? '').trim();
+  const baseUrl = (env.HARNESS_COMPREHENSION_REMOTE_URL ?? '').trim() || DEFAULT_REMOTE_URL;
   const outpost = (env.HARNESS_COMPREHENSION_OUTPOST ?? '').trim();
   const token = (env.PNYON_COMPREHENSION_SERVE_TOKEN ?? '').trim();
-  if (baseUrl === '' || outpost === '' || token === '') return undefined;
+  if (outpost === '' || token === '') return undefined;
   const trust = (env.HARNESS_COMPREHENSION_TRUST_REMOTE ?? '').trim().toLowerCase();
   return { baseUrl, outpost, token, trustRemote: trust === '1' || trust === 'true' };
 }

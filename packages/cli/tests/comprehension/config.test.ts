@@ -208,16 +208,19 @@ describe('resolveRemoteComprehension (env-driven, not committed config)', () => 
     ).toBeUndefined();
   });
 
-  it('undefined when any of url/outpost/token is missing (fail-safe: never half-enable)', () => {
-    for (const drop of [
-      'HARNESS_COMPREHENSION_REMOTE_URL',
-      'HARNESS_COMPREHENSION_OUTPOST',
-      'PNYON_COMPREHENSION_SERVE_TOKEN',
-    ]) {
+  it('undefined when outpost/token is missing (fail-safe: never half-enable)', () => {
+    // The URL is OPTIONAL (defaults to pnyon), so only the outpost + token are required.
+    for (const drop of ['HARNESS_COMPREHENSION_OUTPOST', 'PNYON_COMPREHENSION_SERVE_TOKEN']) {
       const env: Record<string, string> = { ...full };
       delete env[drop];
       expect(resolveRemoteComprehension(env)).toBeUndefined();
     }
+  });
+
+  it('the URL is OPTIONAL — a missing HARNESS_COMPREHENSION_REMOTE_URL still resolves (default host)', () => {
+    const env: Record<string, string> = { ...full };
+    delete env.HARNESS_COMPREHENSION_REMOTE_URL;
+    expect(resolveRemoteComprehension(env)).toBeDefined();
   });
 
   it('resolves the config when complete; trustRemote defaults off, enabled by 1/true', () => {
