@@ -354,8 +354,11 @@ export async function handleGatherContext(input: {
   const comprehensionPromise = includeSet.has('comprehension')
     ? (async () => {
         const core = await import('@harness-engineering/core');
-        const { resolveRemoteComprehension, readComprehensionConfig, remoteFileConfig } =
-          await import('../../comprehension/config');
+        const {
+          resolveRemoteComprehensionWithGlobalToken,
+          readComprehensionConfig,
+          remoteFileConfig,
+        } = await import('../../comprehension/config');
         const { resolveConfig } = await import('../../config/loader');
         const root = `${projectPath.replaceAll('\\', '/')}/${core.COMPREHENSION_ROOT}`;
         // Remote-first (harness-comprehension-serve): when configured, list from the hosted
@@ -364,7 +367,10 @@ export async function handleGatherContext(input: {
         // `comprehension.remote` block supplies the routing; the env overrides + carries the token.
         const resolved = resolveConfig();
         const cconf = readComprehensionConfig(resolved.ok ? resolved.value : undefined);
-        const remote = resolveRemoteComprehension(process.env, remoteFileConfig(cconf));
+        const remote = resolveRemoteComprehensionWithGlobalToken(
+          process.env,
+          remoteFileConfig(cconf)
+        );
         const store = remote
           ? new core.ComprehensionStore({
               root,

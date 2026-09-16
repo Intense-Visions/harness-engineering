@@ -33,7 +33,7 @@ import {
   readComprehensionConfig,
   comprehensionEndpoint,
   selectSemanticModel,
-  resolveRemoteComprehension,
+  resolveRemoteComprehensionWithGlobalToken,
   remoteFileConfig,
 } from '../../comprehension/config';
 import { committedSemanticAllowed } from '../../comprehension/policy';
@@ -271,7 +271,7 @@ function resolveDefaultDeps(projectRoot: string): ServeOrRecompileDeps {
   // block supplies the non-secret routing; the env overrides per developer + carries the token.
   // When resolved, serve from the hosted vault FIRST (validated against the working tree, or
   // trusted when there's no local source); the LOCAL node store below stays the sole writer.
-  const remote = resolveRemoteComprehension(process.env, remoteFileConfig(cconf));
+  const remote = resolveRemoteComprehensionWithGlobalToken(process.env, remoteFileConfig(cconf));
   const remoteStore = remote
     ? new ComprehensionStore({
         root,
