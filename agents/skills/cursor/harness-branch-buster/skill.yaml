@@ -1,0 +1,112 @@
+name: harness-branch-buster
+version: '1.0.0'
+description: Sync a branch from its base with interactive conflict resolution, run the project's exact CI gate set locally, delegate review to harness-code-review, then classify every finding by ORIGIN (introduced by this branch vs pre-existing on the base) into a dated report and auto-fix only the in-scope ones after one approval
+stability: static
+cognitive_mode: adversarial-reviewer
+triggers:
+  - manual
+platforms:
+  - claude-code
+  - gemini-cli
+  - cursor
+  - codex
+tools:
+  - Bash
+  - Read
+  - Write
+  - Edit
+  - Glob
+  - Grep
+  - Task
+  - emit_interaction
+cli:
+  command: harness skill run harness-branch-buster
+  args:
+    - name: path
+      description: Project root path
+      required: false
+    - name: base
+      description: Base ref to sync and review against (default origin/main)
+      required: false
+    - name: --report-only
+      description: Review and report; skip the Fix phase entirely
+      required: false
+    - name: --no-sync
+      description: Skip the merge from the base; review the current branch state
+      required: false
+    - name: --scope
+      description: 'Out-of-scope hunting boundary: diff|touched|repo (default repo)'
+      required: false
+    - name: --depth
+      description: 'Override depth calibration: quick|standard|deep'
+      required: false
+    - name: --fast
+      description: Reduced rigor — trimmed lens roster, skip learnings integration
+      required: false
+    - name: --thorough
+      description: Maximum rigor — full lens roster, always load learnings
+      required: false
+    - name: --no-mechanical
+      description: Skip the gate run when CI has already run it
+      required: false
+    - name: --comment
+      description: Also post findings as a PR review via gh
+      required: false
+mcp:
+  tool: run_skill
+  input:
+    skill: harness-branch-buster
+    path: string
+type: rigid
+tier: 2
+phases:
+  - name: intake
+    description: Resolve identity, base ref, flags and run directory; resume from a prior state.json if present; guard against a dirty tree
+    required: true
+  - name: sync
+    description: Fetch and merge the base ref, resolving every conflict interactively — even the obvious ones — then run a post-merge semantic smoke check
+    required: true
+  - name: mechanical
+    description: Run the project's configured gate set (skills.branchBuster.gates) in CI order with the CI baseline, and build the exclusion set; zero configured gates abstains rather than passing
+    required: true
+  - name: scope-calibrate
+    description: Compute the three-dot diff, change type, depth tier, context bundles, blast radius and hotspots; log what a bounded sweep did not cover
+    required: true
+  - name: fan-out
+    description: Delegate the generic review fan-out to harness-code-review, and dispatch only the project's own configured lenses (skills.branchBuster.lenses) alongside it — never a second copy of the generic roster
+    required: true
+  - name: validate-dedup
+    description: Exclude mechanical duplicates, verify reachability, adversarially refute high-severity findings, apply the learnings filter, then dedup and merge
+    required: true
+  - name: classify-report
+    description: Classify every surviving finding by origin, type and severity; write the dated report; take exactly one informed fix-plan approval
+    required: true
+  - name: fix
+    description: Auto-fix branch-scoped clear findings, ask on entangled and pre-existing ones, re-verify per batch
+    required: true
+  - name: verify-finalize
+    description: Re-run the full gate set to prove the branch green, update the report, restore any stash, and hand off
+    required: true
+state:
+  persistent: true
+  files:
+    - '{runDir}/state.json'
+depends_on:
+  - harness-code-review
+addresses:
+  - signal: high-complexity
+    weight: 0.4
+  - signal: drift
+    weight: 0.3
+capabilities:
+  tools:
+    - Bash
+    - Read
+    - Write
+    - Edit
+    - Glob
+    - Grep
+    - Task
+    - emit_interaction
+  network: false
+  filesystem: read-write

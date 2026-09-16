@@ -435,6 +435,16 @@ Mechanically audit a project's own harness setup against the seven STRENGTH fail
 - **Type:** rigid
 - **Cognitive mode:** constructive-architect
 
+### harness-branch-buster
+
+Sync a branch from its base with interactive conflict resolution, run the project's exact CI gate set locally, delegate review to harness-code-review, then classify every finding by ORIGIN (introduced by this branch vs pre-existing on the base) into a dated report and auto-fix only the in-scope ones after one approval
+
+- **Triggers:** manual
+- **Platforms:** claude-code, gemini-cli, cursor, codex
+- **Type:** rigid
+- **Cognitive mode:** adversarial-reviewer
+- **Depends on:** harness-code-review
+
 ### harness-catalog-retrospective
 
 Monthly retrospective over skill-adoption telemetry — ranks most-invoked, failing, and abandoned-mid-workflow skills, flags stale ones, and reports catalog telemetry coverage
@@ -680,6 +690,15 @@ Deep soundness analysis of specs and plans with auto-fix and convergence loop
 - **Platforms:** claude-code, gemini-cli, cursor, codex
 - **Type:** rigid
 - **Cognitive mode:** meticulous-verifier
+
+### harness-start-work
+
+Claim a tracker issue by assigning it to the current user, so a project board's status-sync automation moves the card to In progress on its own — the board follows the assignment rather than being edited by hand
+
+- **Triggers:** manual, on_new_feature, on_bug_fix
+- **Platforms:** claude-code, gemini-cli, cursor, codex
+- **Type:** flexible
+- **Cognitive mode:** meticulous-implementer
 
 ### harness-strategy
 
