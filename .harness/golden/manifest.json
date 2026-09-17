@@ -1,12 +1,12 @@
 {
   "version": 1,
-  "promotedAt": "2026-09-16T11:24:10.479Z",
-  "commit": "322c8b6",
+  "promotedAt": "2026-09-17T20:40:08.554Z",
+  "commit": "91239be",
   "branch": "main",
   "files": [
     {
       "path": ".harness/arch/baselines.json",
-      "sha256": "3e8865f28855bffb2932767c8f419014c4b9f13c28eb9770bfee3c2cccbaf670"
+      "sha256": "1dbb693d2c3244b35706618a633de16aeba5040043dc52109c5fe6184a89c338"
     },
     {
       "path": "benchmark-baselines.json",
