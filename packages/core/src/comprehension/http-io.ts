@@ -107,14 +107,18 @@ async function remoteReadFile(p: string, ctx: RemoteIoCtx): Promise<string> {
   return parseServeUnit(res);
 }
 
-/** POST the batch route ONCE, cache every returned unit, and return the module store paths. */
+/**
+ * POST the batch route ONCE, cache every returned unit, and return the module store paths.
+ * `modules` is deliberately OMITTED: the serve contract reads an absent `modules` as "every unit
+ * for the Outpost", while an explicit `[]` is a request for zero modules (an empty listing).
+ */
 async function remoteListUnitPaths(ctx: RemoteIoCtx): Promise<string[]> {
   let res: Response;
   try {
     res = await ctx.doFetch(`${ctx.base}/comprehension-units`, {
       method: 'POST',
       headers: { ...ctx.authHeaders, 'content-type': 'application/json' },
-      body: JSON.stringify({ outpost: ctx.outpost, modules: [] }),
+      body: JSON.stringify({ outpost: ctx.outpost }),
     });
   } catch {
     return []; // network failure => no remote enumeration (caller degrades to local)
